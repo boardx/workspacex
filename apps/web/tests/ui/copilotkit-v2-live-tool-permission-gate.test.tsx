@@ -50,11 +50,13 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
 
-const { listMessages, getAgentRun, createPersonalThread, listCapabilities } = vi.hoisted(() => ({
+const { listMessages, getAgentRun, createPersonalThread, listCapabilities, fetchPlanLedger, retryPlanStep } = vi.hoisted(() => ({
   listMessages: vi.fn(),
   getAgentRun: vi.fn(),
   createPersonalThread: vi.fn(async () => ({ threadId: "thr-gate", version: 1 })),
   listCapabilities: vi.fn(async () => ({ items: [] })),
+  fetchPlanLedger: vi.fn(),
+  retryPlanStep: vi.fn(),
 }));
 
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
@@ -64,6 +66,10 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
 vi.mock("@/lib/live-capabilities", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-capabilities")>()),
   listCapabilities,
+}));
+vi.mock("@/lib/plan-control-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/plan-control-api")>()),
+  fetchPlanLedger, retryPlanStep,
 }));
 vi.mock("@/lib/agent-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-run")>()),
@@ -98,6 +104,8 @@ import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 const THREAD_ID = "thr-gate";
 const RUN_ID = "run-gate-1";
 const PERMISSION_REQUEST_ID = "11111111-2222-4333-8444-666666666666";
+/** 「重试任务」起的**新**一轮 run —— 契约 `retryPlanStep.out.runId` 回的真实 `agent_runs.id`。 */
+const RETRY_RUN_ID = "run-gate-retry-2";
 
 const fetchCalls: string[] = [];
 
@@ -190,6 +198,9 @@ beforeEach(() => {
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "b");
   listMessages.mockResolvedValue({ messages: BEFORE_RUN, nextCursor: null });
   getAgentRun.mockResolvedValue(AWAITING);
+  // 默认没有计划账本 ⇒ 计划面板不渲染，前两条用例与它无关。
+  fetchPlanLedger.mockRejectedValue(new Error("no ledger"));
+  retryPlanStep.mockResolvedValue({ runId: RETRY_RUN_ID, auditEventId: "audit-1" });
   fetchCalls.length = 0;
   vi.stubGlobal("fetch", vi.fn(async (input: unknown) => {
     fetchCalls.push(String(typeof input === "string" ? input : (input as { url?: string }).url ?? input));
@@ -271,5 +282,71 @@ describe("issue #3416 —— run 停在 awaiting_tool_permission 时，用户不
        （线程里更早那条 `run-old` 会被别的既有路径读到，与本条修法无关，所以按
        runId 精确断言，不用「一次都没调用过」。） */
     expect(getAgentRun.mock.calls.map((call) => call[0])).not.toContain(RUN_ID);
+  });
+});
+
+/**
+ * issue #3416 报告方实测的**真实触发路径**：run 不是用户在 composer 里发出来的，
+ * 而是失败后点「重试任务」（`chat-task-workbench-failure-retry-step`）拉起来的。
+ *
+ * 这条路径比上面那条更彻底：`confirmPlan` / `resumePlanRun` / `retryPlanStep` 走的是
+ * `acceptHumanMessage` + `executor.kick` 的 queued/tick 通路，**从不经过 AG-UI SSE 桥**
+ * ——`use-plan-ledger-polling.ts` 头注引 `accept-message-plan-run-creator.ts` 的原话：
+ * 这条续跑对浏览器 "invisible to a browser network monitor -- it is a server-to-server call"。
+ * 也就是说这条 run 连 `RUN_STARTED`/`RUN_FINISHED` 都不会有，宿主面板**根本不知道
+ * 有这么一条 run 存在**，审批卡的三个来源一个都不命中。
+ *
+ * 这同时解释了报告方看到而未归因的另一半：同一 run 的**第一个**门正常弹出（那一轮是
+ * landing 交接的 `observedRunId` 把 `pendingRunId` 设上了），而那轮 run 判失败之后
+ * `runRestore` 读到终态就收尾并清空 `pendingRunId` —— 此后这次挂载里再起的任何 run
+ * 都是瞎的。所以触发条件既不是「第二个门」，也不是「重试后事件流没重新订阅」
+ * （这条路径压根没有事件流可订阅）。
+ */
+const FAILED_LEDGER = {
+  revision: 3, engineEpoch: 1, origin: "engine", steps: [], orphanedConstraints: [],
+  phase: "failed",
+  gate: { required: false, reason: "below_threshold" },
+  progress: { completed: 0, total: 0, elapsedMs: 1000 },
+  pendingApplyAtNextRun: false,
+  runStatus: "failed", activeRunId: null,
+  pausedAt: null, pauseRequestedAt: null, cancelRequestedAt: null,
+  errorCode: "MODEL_CALL_FAILED", failureReason: null,
+  failedStepId: null, stepsAreProposal: false, pendingPermissionRequestId: null,
+} as unknown;
+
+describe("issue #3416 —— 「重试任务」起的 run（不经过 AG-UI 事件流）撞上权限门", () => {
+  it("点重试之后 run 停在待批态：审批卡必须自己出现、可见、可点", async () => {
+    fetchPlanLedger.mockResolvedValue(FAILED_LEDGER);
+    render(
+      <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <CopilotKitV2AgentSelectionProvider>
+          <CoreProbe />
+          <CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona={false} />
+        </CopilotKitV2AgentSelectionProvider>
+      </CopilotKit>,
+    );
+    // 服务端权威事实：重试起的那条**新** run 停在待批态。
+    getAgentRun.mockImplementation(async (runId: string) =>
+      runId === RETRY_RUN_ID ? { ...AWAITING, runId: RETRY_RUN_ID } : { ...AWAITING, runId, status: "failed", pendingApproval: null });
+
+    const retry = await screen.findByTestId("chat-task-workbench-failure-retry-step", undefined, { timeout: 5000 });
+    await act(async () => { fireEvent.click(retry); });
+    await waitFor(() => expect(retryPlanStep).toHaveBeenCalled());
+
+    const card = await screen.findByTestId("tool-permission-card", undefined, { timeout: 5000 });
+    expect(card).toBeVisible();
+    for (const testId of ["perm-once", "perm-run", "perm-always", "perm-deny"]) {
+      const button = screen.getByTestId(testId);
+      expect(button).toBeVisible();
+      expect(button).toBeEnabled();
+    }
+
+    // 点下去真的把这次授权发到了**重试起的那条 run** 上。
+    await act(async () => { fireEvent.click(screen.getByTestId("perm-run")); });
+    await waitFor(() => {
+      const decided = fetchCalls.find((url) => url.includes(PERMISSION_REQUEST_ID));
+      expect(decided, `授权请求没有发出去。实际发出的请求：${JSON.stringify(fetchCalls)}`).toBeTruthy();
+      expect(String(decided)).toContain(RETRY_RUN_ID);
+    });
   });
 });
