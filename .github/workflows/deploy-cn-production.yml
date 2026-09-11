@@ -1,0 +1,62 @@
+name: deploy-cn-production
+
+on:
+  push:
+    branches: [main-cn]
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact main-cn commit to redeploy; blank uses the branch tip"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# Every accepted promotion is preserved and deployed in order. Two runs must never
+# write the same production runtime concurrently.
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment: production-cn
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 20
+    steps:
+      - name: Resolve immutable release
+        id: release
+        shell: bash
+        env:
+          DISPATCH_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git -C /opt/workspacex-cn/repository fetch --prune origin main main-cn
+          revision="${GITHUB_SHA}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            revision="${DISPATCH_SHA:-$(git -C /opt/workspacex-cn/repository rev-parse origin/main-cn)}"
+          fi
+          [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release_sha must be a full commit SHA"; exit 1; }
+          echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify main promotion and release manifest
+        shell: bash
+        env:
+          REVISION: ${{ steps.release.outputs.revision }}
+          ACR_REPOSITORY_PREFIX: ${{ vars.CN_ACR_REPOSITORY_PREFIX }}
+        run: |
+          set -euo pipefail
+          repository=/opt/workspacex-cn/repository
+          manifest="/etc/workspacex-cn/releases/${REVISION}.json"
+          cd "${repository}"
+          node .harness/scripts/verify-cn-promotion.mjs \
+            "${REVISION}" "${manifest}" "${ACR_REPOSITORY_PREFIX}" origin/main origin/main-cn
+
+      - name: Deploy verified release
+        shell: bash
+        env:
+          REVISION: ${{ steps.release.outputs.revision }}
+        run: |
+          set -euo pipefail
+          sudo /usr/local/bin/workspacex-cn-deploy "${REVISION}"

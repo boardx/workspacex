@@ -11,7 +11,7 @@ export type ManagedDataExpected = z.infer<typeof Expected>;
 export interface CloudReadOptions { timeoutMs: number; signal?: AbortSignal }
 /** Must return raw JSON stdout; stderr and provider payloads never reach the report. */
 export type AliyunReadExecutor = (args: readonly string[], options: CloudReadOptions) => Promise<string>;
-export interface ManagedDataCheck { id: "rds" | "backup" | "redis"; passed: boolean; reason: string }
+export interface ManagedDataCheck { id: "rds" | "rds-tls" | "backup" | "redis" | "redis-tls"; passed: boolean; reason: string }
 export interface ManagedDataPreflight { passed: boolean; checks: ManagedDataCheck[]; scope: "managed-data-control-plane" }
 const execute = promisify(execFile);
 export const aliyunReadExecutor: AliyunReadExecutor = async (args, options) => {
@@ -50,6 +50,13 @@ function backupReason(raw: unknown, expected: ManagedDataExpected): string {
   if (typeof result.data.PreferredBackupPeriod !== "string" || !result.data.PreferredBackupPeriod.split(",").every(day => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].includes(day))) return "backup_schedule_unproven";
   return "verified";
 }
+function rdsTlsReason(raw: unknown, expected: ManagedDataExpected): string {
+  const result = record.safeParse(raw);
+  if (!result.success) return "rds_tls_response_unrecognized";
+  if (result.data.SSLEnabled !== "on") return "rds_tls_not_enabled";
+  if (result.data.ConnectionString !== expected.postgresHost) return "rds_tls_endpoint_mismatch";
+  return "verified";
+}
 function redisReason(raw: unknown, expected: ManagedDataExpected): string {
   const redis = one(raw, "Instances");
   if (!redis) return "redis_response_unrecognized";
@@ -58,7 +65,15 @@ function redisReason(raw: unknown, expected: ManagedDataExpected): string {
   if (redis.InstanceStatus !== "Normal") return "redis_not_ready";
   if (redis.Engine !== "Redis" || !["Redis", "Tair"].includes(String(redis.InstanceType)) || !/^7(?:\.\d+)*$/.test(String(redis.EngineVersion))) return "redis_engine_not_supported";
   if (redis.ArchitectureType !== "standard" || redis.NodeType !== "double" || redis.ReplicationMode !== "master-slave") return "redis_ha_not_proven";
-  if (redis.VpcAuthMode !== "Open" || redis.NetworkType !== "VPC") return "redis_private_auth_not_proven";
+  // VpcAuthMode=Open means password-free VPC access is enabled. Production must
+  // keep that mode closed so every connection is authenticated.
+  if (redis.VpcAuthMode !== "Close" || redis.NetworkType !== "VPC") return "redis_private_auth_not_proven";
+  return "verified";
+}
+function redisTlsReason(raw: unknown): string {
+  const result = record.safeParse(raw);
+  if (!result.success) return "redis_tls_response_unrecognized";
+  if (result.data.SSLEnabled !== "Enable") return "redis_tls_not_enabled";
   return "verified";
 }
 
@@ -72,8 +87,10 @@ export async function verifyManagedDataPreflight(input: ManagedDataExpected, run
   const expected = parsed.data;
   const requests = [
     { id: "rds" as const, args: ["rds", "DescribeDBInstanceAttribute", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId], inspect: rdsReason },
+    { id: "rds-tls" as const, args: ["rds", "DescribeDBInstanceSSL", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId], inspect: rdsTlsReason },
     { id: "backup" as const, args: ["rds", "DescribeBackupPolicy", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId, "--BackupPolicyMode", "DataBackupPolicy"], inspect: backupReason },
     { id: "redis" as const, args: ["r-kvstore", "DescribeInstanceAttribute", "--region", expected.region, "--InstanceId", expected.redisInstanceId], inspect: redisReason },
+    { id: "redis-tls" as const, args: ["r-kvstore", "DescribeInstanceSSL", "--region", expected.region, "--InstanceId", expected.redisInstanceId], inspect: redisTlsReason },
   ];
   const checks = await Promise.all(requests.map(async request => {
     let reason: string;
