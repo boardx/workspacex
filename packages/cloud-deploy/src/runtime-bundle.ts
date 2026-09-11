@@ -69,6 +69,9 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
         MEMORY_STORE_DATABASE_URL: memoryUri,
         MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri,
       });
+      const passwords = [graph, memory, owner].map(url => decodeURIComponent(url.password));
+      passwords.push(environment.api.APP_DB_PASSWORD!, environment.api.DIAG_DB_PASSWORD!, environment.migration.MIGRATION_DB_PASSWORD!);
+      if (new Set(passwords).size !== passwords.length) throw new Error();
       for (const url of [memory, owner]) {
         if (!/^postgres(?:ql)?:$/.test(url.protocol) || url.searchParams.get("sslmode") !== "verify-full" ||
           ["sslrootcert", "sslcert", "sslkey"].some(key => url.searchParams.has(key)) || !url.password) throw new Error();

@@ -70,3 +70,23 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
   const compose = JSON.parse(await readFile(join(runtimeDirectory, "compose.json"), "utf8"));
   expect(compose.services.agent.volumes).toContainEqual(expect.objectContaining({ target: "/run/agent-certs", read_only: true }));
 });
+
+it("rejects production Agent credentials shared with application database roles", async () => {
+  const { rootCertificates } = await import("node:tls");
+  const runtimeDirectory = await directory(); const ca = join(runtimeDirectory, "source-ca.pem");
+  await writeFile(ca, rootCertificates[0]!);
+  const applicationPassword = "application-password-123";
+  const source = {
+    WORKSPACEX_MODEL_KEY: "model-key",
+    WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: applicationPassword, diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
+    WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "application-owner-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
+    AGENT_SECRET: JSON.stringify({ DATABASE_URI: `postgresql://graph_owner:${applicationPassword}@graph.example.com/graph?sslmode=verify-full`,
+      REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", LANGGRAPH_CLOUD_LICENSE_KEY: "license-value", databaseCaFile: ca, memoryCaFile: ca,
+      MEMORY_STORE_DATABASE_URL: "postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",
+      MEMORY_STORE_MIGRATION_DATABASE_URL: "postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full" }),
+  };
+  await expect(writeRuntimeBundle(deploymentExample("production"), manifest,
+    { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source))
+    .rejects.toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
+});
