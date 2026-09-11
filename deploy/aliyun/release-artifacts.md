@@ -53,3 +53,5 @@ uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfi
 API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 仅容器网络可见。API 调用 `http://agent:8000`。两个沙箱服务分别共享 `/run/sandbox/skill-sandbox.sock` 和 `/run/sessions/skill-sandbox.sock`，均禁网、只读根文件系统、移除 capabilities、限制 CPU/内存/PID。Native sessions 额外启用已有 seccomp/AppArmor 策略。API 只读挂载 `/run/certs`。数据库迁移/初始化容器须由编排器采用同样 CA 挂载。
 
 可独立运行 `node --import tsx packages/cloud-deploy/scripts/verify-compose.ts`，通过真实 Docker Compose 解析两档配置，检验 raw 密码保留、服务闭包、安全限制及无效策略被拒绝；不拉取镜像、不启动服务，也不宣称服务业务验收。
+
+`verifyRunningRelease(manifest, profile, containerIds, executor)` 用启动后获得的容器 ID 查询运行体，核对实际 Image ID、启动使用的 digest、Compose service label，以及 running/restarting/OOM 状态；包含两个沙箱容器。检查只请求不含环境变量的 inspect 字段。通过仍返回 `businessVerified:false`，业务探针独立执行。
