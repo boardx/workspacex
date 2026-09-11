@@ -5,12 +5,13 @@ ARG SOURCE_REVISION
 ARG NEXT_PUBLIC_API_URL
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 WORKDIR /opt/workspacex
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages ./packages
 COPY apps/web ./apps/web
+RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter web...
 RUN test "${#SOURCE_REVISION}" = 40 \
- && pnpm install --frozen-lockfile --filter web... \
  && pnpm --filter @repo/contracts typecheck \
  && NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" pnpm --filter web build \
  && chown -R node:node /opt/workspacex/apps/web/.next
