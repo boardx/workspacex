@@ -1,57 +1,73 @@
 # 云部署 P0/P1 进度与验收
 
-核验日期：2026-09-11。目标不变：Starter 和 production 两档，初始化前提满足后 300 秒 provision。所有状态均按下述具体范围判断，子项完成不代表整个 CP 交付包完成。
+核验：2026-09-11，本次更新对应用户要求“更新 Mermaid”。三个子 agent 均在运行，主 agent 持续集成。目标是 Starter / production 两档云部署，前提满足后五分钟 provision。
 
-## 颜色规则
-
-- **绿色＝完成**：该节点描述的实现已完成、验证通过并提交；必须附 commit。
-- **紫色＝验收通过**：必须注明验收层级、证据和被验收 commit。代码/CI 验收不等于真实云交付验收。
-- **红色＝阻塞或需用户确认**：列出具体原因和影响范围；不因一个云验收阻塞而停止其他开发。
-- 灰色＝待完成；蓝色＝开发中。没有提交的工作不能标绿。
+颜色：绿色＝该子项实现完成、已验证并提交；紫色＝注明范围的验收通过；红色＝真实阻塞或需确认；蓝色＝开发中；灰色＝尚未完成。代码/本地验收不等于真实云验收；图中每个绿色和紫色节点均附被核验 commit。
 
 ```mermaid
 flowchart TD
-    TARGET["目标：两档云部署 / 300 秒 provision<br/>整体尚未完成或验收"]
-    TARGET --> A["CP-01a 参数入口 · 完成<br/>Schema / 示例 / CLI<br/>commit a688e8778"]
-    A --> AV["参数入口代码验收 · 通过<br/>28 项测试 / CI / PR 3415 已合并<br/>merge 12bb7fe82"]
-    A --> B["CP-01b 云预检与环境 profile<br/>待完成"]
-    TARGET --> C["CP-02 不可变发布制品与预热<br/>release_artifacts 并行开发中"]
-    A --> D["CP-03a OSS 适配实现 · 完成<br/>读写 / 校验 / API 接线 / 参数映射<br/>commit caf9d561a"]
-    D --> DV["OSS 代码与集成测试验收 · 通过<br/>35 项 API 测试 + 30 项配置测试 / CI<br/>commit caf9d561a / merge 979763543"]
-    D --> DP["CP-03b 桶策略自动核验<br/>待完成"]
-    D --> E["CP-04 全文件链路<br/>file_agent_paths 并行开发中"]
-    A --> F["CP-05 数据与管理员初始化<br/>data_initialization 并行开发中"]
-    C --> G["CP-06 Agent / Sandbox 生产运行<br/>待完成"]
-    E --> G
-    F --> G
-    B --> H["CP-07a 编排核心库 · 完成<br/>deadline / 锁 / 报告 / 取消 / 幂等密钥<br/>commit f19cc290e · 本地49项测试通过"]
-    H --> HI["CP-07b 实际部署阶段接线<br/>主 agent 持续集成中"]
-    G --> HI
-    HI --> I["CP-08 三次云安装计时与故障验收<br/>待完成"]
-    DV --> BLOCK["仅真实云验收条件阻塞<br/>未配置专用测试桶、目标 ECS 及凭据<br/>其他代码开发继续"]
-    BLOCK -.-> I
-    G --> LICENSE["待用户选择：Agent生产服务<br/>LangGraph许可前提 或 自建服务<br/>其他开发不受影响"]
-    C --> GH["待用户授权：外部发布范围<br/>agent创建GitHub issue被自动审批拒绝<br/>本地开发与commit继续"]
+    T["Starter + production 云部署<br/>目标 300 秒 · 整体尚未验收"]
+
+    T --> CFG["参数 Schema / 两档示例 / CLI · 完成<br/>a688e8778"]
+    CFG --> CFGV["参数与 CI 验收通过<br/>PR 3415 · merge 12bb7fe82"]
+    CFG --> PRE["ECS / TLS / 托管数据预检接线<br/>开发中：file_agent_paths + 主 agent"]
+
+    T --> REL["不可变 manifest / 预热 / Compose · 完成<br/>87b9518f0 / 52745d26a"]
+    REL --> RELV["API 镜像内 CSV/PDF 验收通过<br/>源码 2fd7b465d · 测试 16e215bdb<br/>仅本地 Linux arm64 镜像"]
+    REL --> WEB["Web 自托管字体实现 · 完成<br/>c65c6707e / 集成 0489e10ae"]
+    WEB --> WEBRUN["Web 镜像与跨域名复用修复<br/>开发中：release_artifacts"]
+
+    T --> OSS["OSS 适配 / 完整性 / 私有桶约束 · 完成<br/>caf9d561a"]
+    OSS --> OSSV["OSS 代码与 CI 验收通过<br/>35 API + 30 配置测试<br/>merge 979763543 · 非云桶验收"]
+    OSS --> FILE["ZIP 导出 / 删除维护 / 图关联撤回 · 完成<br/>27594f205 / 76dced869<br/>集成 1196fc561 / ae1c7697e"]
+    FILE --> FILEV["隔离 PG 与 HTTP 验收通过<br/>6 条数据库测试及文件/UI回归<br/>76dced869 · 非真实 OSS 全链路"]
+
+    T --> DB["迁移 / 管理员 / 默认 Agent ID · 完成<br/>07d93f495 / 72240a753 / 62cd2f9f1"]
+    DB --> DBV["PG16 + Redis7 初始化验收通过<br/>252 迁移 / 并发重试 / 稳定 ID<br/>62cd2f9f1 · 非 RDS TLS"]
+    DB --> ADB["Starter Agent 独立角色和数据库<br/>开发中：data_initialization"]
+    DB --> BACK["Starter 备份与新数据库恢复 · 完成<br/>90b784f69 / 集成 5b57dbfc2"]
+    BACK --> BACKV["真实 PG16 恢复验收通过<br/>数据/RLS保留，覆盖与篡改拒绝<br/>90b784f69 · 非 RDS 恢复"]
+
+    T --> SEC["稳定密钥持久化与取消传播 · 完成<br/>fb790f3ff / 集成 9810aa818"]
+    PRE --> RUN["provision 命令与真实业务探针接线<br/>主 agent 开发中：报告/清理/端到端整合"]
+    WEBRUN --> RUN
+    ADB --> RUN
+    SEC --> RUN
+    FILE --> RUN
+    RUN --> CLOUD["两档云端三次安装计时与故障验收<br/>尚未完成，不能标全 PASS"]
+
+    CLOUD -.-> BLOCK["云验收阻塞<br/>未提供专用 ECS / OSS / 云凭据"]
+    ADB -.-> LICENSE["待确认：Agent 生产服务许可方案<br/>已有 LangGraph 许可或自建服务"]
+    REL -.-> GH["外发阻塞<br/>GitHub issue/push 自动审批被拒<br/>已有授权问题待答复"]
+
     classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d;
     classDef accepted fill:#f3e8ff,stroke:#9333ea,color:#581c87;
     classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
     classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef pending fill:#f1f5f9,stroke:#94a3b8,color:#334155;
-    class A,D,H done;
-    class AV,DV accepted;
+    class CFG,REL,WEB,OSS,FILE,DB,BACK,SEC done;
+    class CFGV,RELV,OSSV,FILEV,DBV,BACKV accepted;
+    class PRE,WEBRUN,ADB,RUN active;
     class BLOCK,LICENSE,GH blocked;
-    class C,E,F,HI active;
-    class TARGET,B,DP,G,I pending;
+    class T,CLOUD pending;
 ```
 
-## 可核验证据
+## 本轮新增事实
 
-| 节点 | 实现 commit | 合并与验收 | 尚不代表 |
-|---|---|---|---|
-| CP-01a | `a688e8778` | [PR #3415](https://github.com/boardx/workspacex/pull/3415)，合并 `12bb7fe82`；28 项配置测试与 CI 通过 | 云资源预检完成 |
-| CP-03a | `caf9d561a`（包含 `ec129ed73` 和 `9bab3b970`） | [PR #3419](https://github.com/boardx/workspacex/pull/3419)，已合并 `979763543`；35 项 API 存储/契约测试、30 项部署配置测试及 CI 通过 | 真实 OSS 桶验收、完整文件生命周期或生产验收 |
-| CP-07a | `f19cc290e`，本地提交 | [Issue #3424](https://github.com/boardx/workspacex/issues/3424)；本地部署包 49 项测试通过，含 19 项编排/子进程/密钥测试，类型/lint 通过；待 PR/CI | 已接通实际部署命令，或五分钟目标达成 |
+- 文件链路：`76dced869` 已完成真实图关联撤回、归属校验和导出按钮回归；父分支已集成为 `ae1c7697e`。
+- 备份恢复：`90b784f69` 已完成真实 PostgreSQL 16 新库恢复、强制 RLS 保留、覆盖/同源/篡改拒绝；父分支集成为 `5b57dbfc2`。独立 PR 为 #3433；不把 PR 创建等同 CI/云验收通过。
+- 稳定密钥：`fb790f3ff` 的目录 fsync 和取消传播已集成为 `9810aa818`；Starter Agent 新密钥/独立数据库的扩展仍在开发。
+- Web 自托管字体已提交 `c65c6707e`，父集成为 `0489e10ae`；最终镜像构建、域名无关 API 地址与 WebSocket 回归仍在做，因此不标镜像验收紫色。
+- 主 agent 的真实 Agent 回复与沙箱取消探针 9 条测试通过；编排接线 3 条 mock 测试通过。尚未提交的接线只标蓝色，不凭测试数字标绿色或真实云 PASS。
+- API 镜像、原始 Compose env 与数据库验收均为各自注明的源 commit；最终整合 SHA 必须重新构建和验证。
 
-上轮 CI 的契约单一来源失败已由 `caf9d561a` 修复，不再列为红色。跳过的 CI 项不算通过。
+## 并行开发分工
 
-**整体判断：8 个交付包尚未全部完成，真实云交付验收尚未通过，不能把整图涂绿或涂紫。** 云条件只影响对应真实验收；不等待这些条件，持续完成可独立开发与验证的工作。
+| 执行者 | 当前工作 |
+|---|---|
+| release_artifacts | Web 不依赖外网字体、跨域名复用同一镜像、真实构建与页面/字体验收 |
+| data_initialization | Starter Agent 独立数据库/角色及幂等测试；跟进数据与备份 PR |
+| file_agent_paths | TLS 参数与真实证书预检；只读审查父 provision 取消和协议边界 |
+| 主 agent | provision CLI、服务隔离配置、真实业务探针、阶段报告、取消清理、持续集成和文档 |
+
+编译受本机内存限制时错峰，其他代码与测试仍并行。红色条件只影响对应的外发或真实验收，不停止可独立开发的工作。
