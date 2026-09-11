@@ -181,6 +181,15 @@ export async function handleInterruptedToolCall(
       // 输了竞态（取消/失败/被别处收走）——不重试、不覆盖，如实记一行日志即可：
       // 这条 run 已经不归这次执行管了。
       deps.log?.("authorized tool call requeue lost the race", { runId, toolName: interrupted.toolName });
+    } else {
+      /*
+       * issue #3445 —— 这一行已经提交为 `queued`，但本次 tick 的 `claimQueued` 早跑过了
+       * （同一调用栈内部，见 `execute-run.ts` `ExecuteAgentRunDeps.kick` 的完整取证）。
+       * 不补这一下，唯一能捞回它的就只剩 `sweepOrphanedRuns` 的周期性发现——实测固定
+       * 卡 2-3 分钟。`deps.kick` 未注入（可选依赖）时是 no-op，行为与本 feature 之前
+       * 逐字节相同，仍然只靠周期性扫描。
+       */
+      deps.kick?.(orgId);
     }
     return { autoApproved: true };
   }

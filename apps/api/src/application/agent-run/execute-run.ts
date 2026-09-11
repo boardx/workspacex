@@ -467,6 +467,9 @@ export interface ExecuteAgentRunDeps {
   readonly interjections?: InterjectionStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
+  /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
+   * 固定卡 2-3 分钟）；论证见调用点。可选，缺省不注入 ⇒ 行为逐字节不变。 */
+  readonly kick?: (orgId: OrgId) => void;
 }
 
 /**
