@@ -849,6 +849,65 @@ export function CopilotKitV2PanelBody({
     return true;
   }, [agent, messageIdentity, registerHydrated, bindTraceMessages, onMessageSent, runTrace.events]);
   React.useEffect(() => { if (observedRunId) setPendingRunId(observedRunId); }, [observedRunId]);
+  /**
+   * issue #3416 —— 「后端在等你批，界面说它还在跑」。
+   *
+   * 服务端在权限门上并**不**报错：`copilotkit-agui.controller.ts` 的
+   * `outcome.kind === "awaiting_tool_permission"` 分支逐字写着「NOT an error……ending the
+   * run normally here」，wire 上只有一条 `RUN_FINISHED`。于是这次挂载只知道「这一轮流
+   * 结束了」，**不知道它是停在一个门上**。
+   *
+   * 而审批卡的另外两个来源此刻都不命中：
+   *
+   * - `tracePendingPermission`（事件流投影里最后一条 `kind:"status"` 执行事件）在生产里
+   *   是一条**死路**——`apps/api` 从不产生 `status: "awaiting_tool_permission"` 的执行
+   *   事件（`appendExecutionEvent` 的调用点只有 tool_start / tool_end / text_delta /
+   *   final_message / skill_activity；唯一的 `kind:"status"` 来自
+   *   `legacy-execution-events.ts`，且只合成三个终态）。它至今只在替身里被喂过。
+   * - `runRestore` 的权威读只有 `pendingRunId` 非空时才启动，而 `pendingRunId` 此前只在
+   *   **挂载 hydration**（刷新 / 切走再切回）和 landing 交接时写入——本次挂载里发起的
+   *   这一轮，两处都不写。
+   *
+   * 结果就是 #3416 的现象：数据在服务端（刷新一下同一张卡就正常出现、命令原文一致），
+   * 缺的是「这次挂载怎么知道该去读它」。这也解释了报告方观察到却没有归因的那半句：
+   * 刷新之后同一个 run 再遇到两个门都实时弹出——因为刷新那次 hydration 把
+   * `pendingRunId` 设上了，`runRestore` 从此持有这条 run，后续每个门都由它接住。
+   * 触发条件不是「第二个门」，是「这一轮 run 是不是在本次挂载里开始的」。
+   *
+   * 修法：run 一结束就**做一次刷新会做的那件事**——重读已落库消息，用同一个
+   * `findPendingRunId` 判据（`readAllPersistedMessages` 顺手投影的 `pendingRunId`）问
+   * 「有没有一轮还没写回的 run」。有 ⇒ 交给既有的 `useCopilotKitV2RunRestore` 做权威读，
+   * 它自己会判断到底是 `awaiting_tool_permission` / `paused` 还是已经终态。
+   *
+   * ⚠ 这**不是**新增第四个"这条 run 是什么状态"的声明处：判据仍然只有
+   * `findPendingRunId` 一份、权威仍然只有 `getAgentRun` 一处，这里只是补上一个触发时机。
+   * 也**不是**轮询：每轮 run 结束恰好一次，与时间无关。正常答完的一轮里那条回复已经
+   * 带着 `replyToMessageId` 落库 ⇒ `findPendingRunId` 返回 null ⇒ 一次权威读都不会发生
+   * （`tests/ui/copilotkit-v2-live-tool-permission-gate.test.tsx` 第二条用例钉住这一点，
+   * 否则每轮对话结束都会闪一下「正在恢复上次未完成的任务…」）。
+   *
+   * 只挂 `onRunFinishedEvent`，不挂 `onRunErrorEvent`：`failed` 走的是 `RUN_ERROR`，
+   * 那条路径已经有自己的横幅与 #3367 的重挂逻辑，不在这里再插一手。
+   */
+  React.useEffect(() => {
+    const { unsubscribe } = agent.subscribe({
+      onRunFinishedEvent: () => {
+        const threadId = chatThreadIdRef.current;
+        if (threadId === null) return;
+        void (async () => {
+          try {
+            const { pendingRunId: stillPending } =
+              await readAllPersistedMessages(threadId, getStoredSessionToken() ?? undefined);
+            // 线程在这次异步读期间被切走了就什么都不做——那条 run 不属于现在这条线程。
+            if (stillPending !== null && chatThreadIdRef.current === threadId) setPendingRunId(stillPending);
+          } catch {
+            // 读失败不是新错误，也不编一个状态：如实什么都不做，用户仍可刷新。
+          }
+        })();
+      },
+    });
+    return unsubscribe;
+  }, [agent]);
   const serverQueue = useThreadMessageQueue(resolvedChatThreadId, selectedAgentId, getStoredSessionToken());
   const queuedRunIds = useDispatchedQueueMessages(agent, serverQueue.items, resolvedChatThreadId, getStoredSessionToken(), registerHydrated, bindTraceMessages);
   useRunTraceTail({ observedRunId, observedRunIds: [...queuedRunIds, ...(runRestore.runId ? [runRestore.runId] : [])], threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
