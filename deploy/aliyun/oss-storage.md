@@ -55,3 +55,11 @@ WORKSPACEX_OSS_SMOKE=1 WORKSPACEX_OBJECT_STORE=oss pnpm --filter @repo/api exec 
 上线记录必须包括执行版本、身份与前缀、探针结果、云上覆盖保护验证、网络异常测试与清理结果；不得记录 Secret。当前尚无真实云端验收证据。
 
 参考：[OSS 禁止覆盖规则](https://help.aliyun.com/en/oss/user-guide/prevent-file-overwrite)、[PutObject](https://help.aliyun.com/en/oss/developer-reference/putobject)、[Node.js 凭据配置](https://help.aliyun.com/en/oss/node-js-configure-access-credentials)。
+
+## 从两档参数生成 OSS 运行变量
+
+```sh
+pnpm --silent deploy:config storage-env config.json
+```
+
+输出为 JSON，`environment` 是 API 可直接消费的 OSS 环境变量映射；两档均使用 ECS 实例角色，不展开任何 secretRef。`scope: "oss-only"` 表示它不包含数据库、Redis、模型或 TLS 配置，不能直接当作完整部署文件。生成器和 API 引用同一共享解析器，集成测试验证两档输出均可解析。不会执行 shell、写入服务配置或连接云资源。

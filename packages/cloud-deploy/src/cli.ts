@@ -1,14 +1,14 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
-import { deploymentExample, validateDeploymentConfig } from "./index";
+import { deploymentExample, deploymentStorageEnvironment, validateDeploymentConfig } from "./index";
 
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 const fail = (code: string) => { write({ ok: false, errors: [{ path: "$", code }] }); process.exitCode = 2; };
 const args = process.argv.slice(2);
 const [command, value] = args;
 
-if (args.length !== 2 || !["validate", "example"].includes(command ?? "")) {
-  fail("USAGE: validate <file.json> | example starter|production");
+if (args.length !== 2 || !["validate", "example", "storage-env"].includes(command ?? "")) {
+  fail("USAGE: validate <file.json> | example starter|production | storage-env <file.json>");
 } else if (command === "example") {
   if (value !== "starter" && value !== "production") fail("INVALID_PROFILE");
   else write(deploymentExample(value));
@@ -37,7 +37,9 @@ if (args.length !== 2 || !["validate", "example"].includes(command ?? "")) {
           catch { fail("CONFIG_JSON_INVALID"); }
           if (!process.exitCode) {
             const result = validateDeploymentConfig(input);
-            if (result.ok) write({ ok: true, plan: result.plan });
+            if (result.ok) write(command === "storage-env"
+              ? { ok: true, scope: "oss-only", environment: deploymentStorageEnvironment(result.config), cloudVerified: false }
+              : { ok: true, plan: result.plan });
             else { write(result); process.exitCode = 2; }
           }
         }

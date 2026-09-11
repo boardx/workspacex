@@ -74,6 +74,9 @@ importers:
       '@playwright/mcp':
         specifier: 0.0.80
         version: 0.0.80
+      '@repo/cloud-deploy':
+        specifier: workspace:*
+        version: link:../../packages/cloud-deploy
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
