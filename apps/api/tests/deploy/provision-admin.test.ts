@@ -4,7 +4,7 @@ import type { CredentialRepository, RegistrationRepository } from "../../src/app
 import type { IdentityRepository } from "../../src/application/identity/ports";
 
 function fixture() {
-  const seedAgents = vi.fn(async () => {});
+  const seedAgents = vi.fn(async () => ({ defaultAgentId: "agent-1" }));
   const verify = vi.fn(async () => true);
   const deps = { repo: { isFirstUserBootstrapAvailable: async () => false } as RegistrationRepository,
     hasher: { hash: async () => "", verify, verifyDummy: async () => false as const },
@@ -18,7 +18,7 @@ const input = { email: "admin@example.com", password: "test-strong-password", di
 describe("provision administrator retry", () => {
   it("repairs agent publication only after authenticating and proving admin membership", async () => {
     const { deps, seedAgents } = fixture();
-    expect(await ensureProvisionAdmin(deps, input)).toEqual({ userId: "user-1", orgId: "org-1", created: false });
+    expect(await ensureProvisionAdmin(deps, input)).toEqual({ userId: "user-1", orgId: "org-1", created: false, defaultAgentId: "agent-1" });
     expect(seedAgents).toHaveBeenCalledOnce();
   });
   it("does not turn consumed bootstrap into success for incorrect credentials", async () => {

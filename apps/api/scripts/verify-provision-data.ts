@@ -41,10 +41,12 @@ try {
   } finally { await lock.end(); }
   const initial = JSON.parse((await run("./provision-admin.ts")).stdout);
   assert.equal(initial.created, true);
+  assert.equal(typeof initial.defaultAgentId, "string");
+  assert(initial.defaultAgentId.length > 0);
   const repeat = await Promise.all([run("./provision-admin.ts"), run("./provision-admin.ts")]);
   for (const response of repeat) {
     const result = JSON.parse(response.stdout);
-    assert.equal(result.created, false); assert.equal(result.userId, initial.userId); assert.equal(result.orgId, initial.orgId);
+    assert.equal(result.created, false); assert.equal(result.userId, initial.userId); assert.equal(result.orgId, initial.orgId); assert.equal(result.defaultAgentId, initial.defaultAgentId);
   }
   await assert.rejects(run("./provision-admin.ts", { PROVISION_ADMIN_PASSWORD: "wrong-provision-password" }));
   assert.equal(JSON.parse((await run("./data-readiness.ts")).stdout).ok, true);

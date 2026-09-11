@@ -25,9 +25,10 @@ try {
     credentials: new PgCredentialRepository(db), identity: new PgIdentityRepository(db), hasher: new BcryptPasswordHasher(),
     async seedAgents(ids) {
       const input = { orgId: toOrgId(ids.orgId), actorId: ids.userId };
-      await ensureDefaultAgent({ repo: new PgDefaultAgentRepository(database) }, input);
+      const defaultAgent = await ensureDefaultAgent({ repo: new PgDefaultAgentRepository(database) }, input);
       await ensureDeepResearchAgent({ repo: new PgDeepResearchAgentRepository(database) }, input);
       await ensureImageGenAgent({ repo: new PgImageGenAgentRepository(database) }, input);
+      return { defaultAgentId: defaultAgent.agentId };
     },
   }, input);
   console.log(JSON.stringify({ ok: true, ...result }));
