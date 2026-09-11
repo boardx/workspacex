@@ -367,6 +367,10 @@ export default {
       // 裸路径与 `:path*` 各一条：前者匹配不到子路径为空的清单读。
       { source: `${prefix}/tool-permission-grants`, destination: `${apiOrigin}/tool-permission-grants` },
       { source: `${prefix}/tool-permission-grants/:path*`, destination: `${apiOrigin}/tool-permission-grants/:path*` },
+      // #3440：composer「自动批准文档生成所需权限」开关。`DocumentGenerationAutoApproveController`
+      // 同样是 `@Controller()`（空前缀），路径是裸的 `GET/PUT /document-generation-auto-approve`——
+      // 与上面 `/tool-permission-grants` 同一个形状同一个坑，没有 `:path*` 子路径，只需一条。
+      { source: `${prefix}/document-generation-auto-approve`, destination: `${apiOrigin}/document-generation-auto-approve` },
       // #654 阶段1b：AG-UI SSE 桥接端点。`CopilotkitAguiController` 是 `@Controller()`
       // （空前缀），路径是裸的 `POST /copilotkit/agui` —— 与上面 `/agent-runs`、
       // `/threads` 同一个形状、同一个坑（第九次）。`lint-rewrite-coverage` 已经把这条
