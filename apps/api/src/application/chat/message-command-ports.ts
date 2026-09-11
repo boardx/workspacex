@@ -237,6 +237,13 @@ export interface ChatMessageCommandRepository {
       attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
       queuedMessageId?: string;
+      /**
+       * issue #3405 —— 这条消息是「上一轮没来得及采纳的插话被带入下一轮」产生的，
+       * 值是那一轮来源 run 的 id。落在 `chat_messages.carried_over_from_run_id` 上，
+       * 是**深度上限 ≤ 1** 的唯一判据（见 migration 20260911060000 的触发器）：
+       * 带入轮自己再有未应用插话时不再自动带入，自动循环在这里终止。
+       */
+      carriedOverFromRunId?: string;
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
 

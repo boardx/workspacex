@@ -469,6 +469,8 @@ import {
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { AcceptMessageCarryOverDelivery } from "./infrastructure/agent-run/accept-message-carry-over-delivery";
+import { INTERJECTION_CARRY_OVER_DELIVERY, type InterjectionCarryOverDelivery } from "./application/agent-run/interjection-carry-over";
 import { ARTIFACT_CONTINUATION_READER, type ArtifactContinuationReader } from "./application/artifacts-steering/artifact-execution";
 import { ARTIFACT_STORE, ARTIFACT_RUN_LAUNCHER } from "./application/artifacts-steering/ports";
 import { PgArtifactStore } from "./infrastructure/artifacts-steering/pg-artifact-store";
@@ -1894,6 +1896,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
         interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
+        carryOver: InterjectionCarryOverDelivery,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1935,14 +1938,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           toolPermissionGrants, interjections, artifactContinuations,
           nativeSessions ?? undefined,
           nativeOutputs ?? undefined, process.env.KERNEL_NATIVE_RUNTIME === "1",
+          // issue #3405：未采纳的插话带入下一轮的投递口。同上面每一个一样是「生产合成
+          // 必定注入」——「这个部署会不会把用户补的那句话真的送出去」由这一行决定，
+          // 不是运行期的偶然。
+          carryOver,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
+        INTERJECTION_CARRY_OVER_DELIVERY,
       ],
     },
+    // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
+    // 不新开第二条 run 创建路径（见 `interjection-carry-over.ts` 头注）。
+    { provide: INTERJECTION_CARRY_OVER_DELIVERY, useClass: AcceptMessageCarryOverDelivery },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
     {

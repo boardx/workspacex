@@ -37,7 +37,12 @@ const specs={
  'agent-run/pg-native-run-inputs.ts':['agent_runs','chat_messages','chat_message_attachments','subtask_runs'],
  'agent-run/pg-native-output-staging.ts':['native_output_staging'],
  'agent-run/pg-native-session-owner.ts':['native_session_bindings','agent_runs'],
- 'agent-run/pg-interjection-store.ts':['agent_run_interjections','agent_runs'],
+ // #3405 —— `chat_messages` 只被读**一列**：带入下一轮时那条消息要以**真实作者**
+ // （来源 run 输入消息的 author_id）写入，否则那句话的主人自己都取消不掉由它起的
+ // 那一轮（`cancelAgentRun` 要求 findRequesterUserId === userId）。读经租户 join
+ // 钉在来源 run 自己的输入消息上、不取正文，是收窄不是放宽。理由与形状锁见
+ // workbench-permission-boundaries.mjs 同名条目。
+ 'agent-run/pg-interjection-store.ts':['agent_run_interjections','agent_runs','chat_messages'],
  // #2931 —— 严格回退读：只有当 id 不是父 run 时才查 `subtask_runs`，用于给产文件的
  // 子任务解析出**它自己的** (attempt, lease) 身份。返回的是授权判定，不是租户内容；
  // 且它 NARROWS——`allowed_tools` 把子任务收窄到只有发布产物那一个工具。
@@ -56,7 +61,7 @@ export function checkWorkbenchRepository(path,source,read){
  'pg-native-run-inputs.ts':['read'],
  'pg-native-output-staging.ts':['stage','listFiles'],
  'pg-native-session-owner.ts':['authorized','crypt','provision','resolve','release','releaseForRun'],
- 'pg-interjection-store.ts':['listPublic','requestPause','isCancelRequested','isPauseRequested','submit','pollForKernel','takePending','stageForKernel','takeStagedForKernel'],
+ 'pg-interjection-store.ts':['listPublic','listCarryOverPending','settleCarryOver','requestPause','isCancelRequested','isPauseRequested','submit','pollForKernel','takePending','stageForKernel','takeStagedForKernel'],
  'pg-parent-run-control.ts':['readCancellation','withSnapshot'], 'pg-run-recovery.ts':['tick','diagnostic'],
  'accept-message-artifact-run-launcher.ts':['launch'], 'pg-artifact-continuation-reader.ts':['prepare'], 'register-run-artifacts.ts':[],
  };

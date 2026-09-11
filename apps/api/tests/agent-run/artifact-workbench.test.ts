@@ -188,6 +188,25 @@ describe("artifact continuation over existing attachments",()=>{
         catch (error) { await c.query("ROLLBACK"); throw error; }
       }
     });
+    /*
+     * issue #3405 —— 重放把**旧定义**装回了共享 schema，而且留在那里给同进程后续
+     * 每一个测试文件用。`20260907020000_interjection_public_events.sql` 里的
+     * `workbench_journal_unapplied_interjections` 已被 `20260911060000` 换掉
+     * （未采纳的插话要带入下一轮）；不放回去，后面任何依赖新行为的文件都会在一个
+     * **已经回退到旧版本**的数据库上跑，红在它自己的断言上，而真因在这里。
+     *
+     * 同本文件上面那条纪律：**逐个点名，不用范围或计数**。重放窗口之后、重新定义了
+     * 窗口内某个对象的迁移，必须在这里列出来并回放；漏列 ⇒ 那个对象停在旧版本。
+     */
+    const restoreFiles = ["20260911060000_interjection_carry_over.sql"];
+    expect(migrationFiles().filter(name => restoreFiles.includes(name))).toEqual(restoreFiles);
+    await asOwner(async c => {
+      for (const name of restoreFiles) {
+        await c.query("BEGIN");
+        try { await c.query(readFileSync(`${MIGRATIONS_DIR}/${name}`, "utf8")); await c.query("COMMIT"); }
+        catch (error) { await c.query("ROLLBACK"); throw error; }
+      }
+    });
     const after = await asApp(ORG, c => c.query("SELECT id,artifact_id,version,attachment_id,storage_key FROM agent_artifact_versions WHERE org_id=$1 ORDER BY id", [ORG]));
     expect(after.rows).toEqual(before.rows);
     expect((await asApp(ORG, c => c.query("SELECT id FROM agent_artifacts WHERE org_id=$1 AND id='agent-artifact-registered-edit-attachment'", [ORG]))).rows).toEqual([]);

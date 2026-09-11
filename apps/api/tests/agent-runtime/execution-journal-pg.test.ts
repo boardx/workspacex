@@ -93,16 +93,20 @@ describe("durable execution journal", () => {
     expect(await repo.claimQueued(org,10)).toHaveLength(1);
     expect((await asApp(ORG,c=>c.query(`SELECT status FROM agent_runs WHERE id='claim-run-1'`))).rows[0].status).toBe("running");
   });
-  it("replays received/applied and terminal unapplied interjections from the authoritative FIFO",async()=>{
+  // issue #3405：run **失败**结束时未应用的插话不再是死局，判成「带入下一轮」
+  // （`carried_over`）——用户的请求与这一轮为什么失败无关。只有他自己取消本轮、
+  // 或本轮已是带入轮时才落 `not_applied`（那两条由
+  // `tests/agent-run/interjection-carry-over-real-db.test.ts` ②③ 钉住）。
+  it("replays received/applied and carried-over interjections from the authoritative FIFO",async()=>{
     const store=new PgInterjectionStore(db);const org=toOrgId(ORG);
     await store.submit(org,RUN,{interjectionId:"a",text:"adjust A",receivedAt:"2026-09-07T00:00:00.000Z"});
     await store.pollForKernel(org,RUN,[]);
     await store.pollForKernel(org,RUN,["a"]);
     await store.submit(org,RUN,{interjectionId:"b",text:"adjust B",receivedAt:"2026-09-07T00:00:01.000Z"});
     await repo.failRun(org,RUN,"RUN_INTERRUPTED");
-    expect((await store.listPublic(org,RUN)).map(item=>[item.interjectionId,item.status])).toEqual([["a","applied"],["b","not_applied"]]);
+    expect((await store.listPublic(org,RUN)).map(item=>[item.interjectionId,item.status])).toEqual([["a","applied"],["b","carried_over"]]);
     const events=(await repo.readExecutionEvents(org,RUN,-1)).filter(event=>event.kind==="interjection");
-    expect(events.map(event=>[event.interjectionId,event.status])).toEqual([["a","received"],["a","applied"],["b","received"],["b","not_applied"]]);
+    expect(events.map(event=>[event.interjectionId,event.status])).toEqual([["a","received"],["a","applied"],["b","received"],["b","carried_over"]]);
     await expect(store.submit(org,RUN,{interjectionId:"c",text:"too late",receivedAt:new Date().toISOString()})).rejects.toThrow();
     expect(await store.listPublic(toOrgId(OTHER_ORG),RUN)).toEqual([]);
   });

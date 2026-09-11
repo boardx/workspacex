@@ -6,13 +6,17 @@ import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
 /**
  * Receipt and application are distinct durable facts, visible outside the trace fold.
  *
- * ⚠ issue #3399 ② —— `not_applied` 是**终局**，不是"排队等下一轮"。
+ * ⚠ issue #3399 ② / #3405 —— 一条插话的去向只有四种，每一种都说死，没有"悬着"。
  *
- * 真实链路：run 一进终态，`workbench_journal_unapplied_interjections` 触发器把没应用的
- * 插话记一条 `not_applied` 事件就结束了；没有任何地方把它带进下一轮，助手从头到尾
- * 没有收到这句话。原文案「本轮未应用」让用户以为它还在队里——那是静默丢弃。
- * 所以这里必须把去向说死（没被采纳、助手没收到），并给出一条**真的会把它发出去**的
- * 路径；不允许留下"显示了一句状态、然后什么都没发生"（同族：#3311 / #3317 / #3372）。
+ * #3399 查明：run 一进终态，触发器给没应用的插话记一条 `not_applied` 就结束了，
+ * 没有任何地方把它带进下一轮——助手从头到尾没收到这句话。#3400 先把文案改成不撒谎
+ * （前端止血）；#3405 是治因：服务端现在真的把它作为下一条消息投进同一线程，
+ * 状态因此分成两支：
+ *   · `carried_over` —— **已带入下一轮**，那句话真的进了下一轮的模型输入。
+ *   · `not_applied`  —— 真的没有下一轮（用户主动取消了本轮 / 本轮自己就是带入轮，
+ *                        已到深度上限）。终局，靠「重新发送」。
+ * 判定的唯一事实源在 DB 触发器（migration 20260911060000）的那个 `CASE`，
+ * 这里只渲染它的结论，不在前端重写第二份判定。
  */
 export function RunInterjections({ events, readHistory = false, onResend }: { events: readonly ExecutionEvent[]; readHistory?: boolean; onResend?: (text: string) => void }) {
   const runId = events[0]?.runId;
@@ -42,7 +46,9 @@ export function RunInterjections({ events, readHistory = false, onResend }: { ev
   if (!latest.size) return null;
   return <div className="my-2 space-y-1 text-11 text-muted-foreground" aria-label="插话状态">
     {[...latest.values()].map((event) => <p key={event.interjectionId} data-testid="workbench-interjection-status" data-status={event.status}>
-      插话「{event.text}」 · {event.status === "applied" ? "已应用" : event.status === "not_applied" ? "本轮未被采纳，助手没有收到这句话" : "已收到，等待安全边界应用"}
+      插话「{event.text}」 · {event.status === "applied" ? "已应用"
+        : event.status === "carried_over" ? "本轮没来得及采纳，已作为下一条消息带入下一轮"
+          : event.status === "not_applied" ? "本轮未被采纳，助手没有收到这句话" : "已收到，等待安全边界应用"}
       {event.status === "not_applied" && onResend ? <>
         {" "}
         <button type="button" data-testid="workbench-interjection-resend" className="underline underline-offset-2 transition-colors hover:text-card-foreground"
