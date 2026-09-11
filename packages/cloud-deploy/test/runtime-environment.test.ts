@@ -43,3 +43,28 @@ it("preserves literal dollar characters and refuses newline injection", () => {
   expect(() => serializeRuntimeEnvironment({ PASSWORD: "x\nINJECT=true" })).toThrow("INVALID_RUNTIME_ENVIRONMENT");
   expect(() => serializeRuntimeEnvironment({ "BAD=KEY": "value" })).toThrow("INVALID_RUNTIME_ENVIRONMENT");
 });
+
+it("isolates Starter graph-server persistence from application credentials and database", async () => {
+  const root = await directory();
+  const maps = await runtimeEnvironment(deploymentExample("starter"), root, { WORKSPACEX_MODEL_KEY: "model-key" });
+  const uri = new URL(maps.agent.DATABASE_URI!);
+  expect(uri.username).toBe("agent_server"); expect(uri.pathname).toBe("/workspacex_agent");
+  expect(uri.password).toBe(maps.migration.AGENT_DB_PASSWORD);
+  expect(uri.password).not.toBe(maps.api.APP_DB_PASSWORD);
+  expect(maps.api.AGENT_DB_PASSWORD).toBeUndefined(); expect(maps.bootstrap.AGENT_DB_PASSWORD).toBeUndefined();
+  expect(new URL(maps.agent.REDIS_URI!).pathname).toBe("/1");
+  expect((await runtimeEnvironment(deploymentExample("starter"), root, { WORKSPACEX_MODEL_KEY: "model-key" })).agent.DATABASE_URI).toBe(maps.agent.DATABASE_URI);
+});
+
+it("keeps Memory runtime and schema-owner credentials separate from API and Agent Server", async () => {
+  const maps = await runtimeEnvironment(deploymentExample("starter"), await directory(), { WORKSPACEX_MODEL_KEY: "model-key" });
+  const runtime = new URL(maps.agent.MEMORY_STORE_DATABASE_URL!);
+  const owner = new URL(maps.memoryMigration.MEMORY_STORE_MIGRATION_DATABASE_URL!);
+  const graph = new URL(maps.agent.DATABASE_URI!);
+  expect(runtime.username).toBe("memory_rw"); expect(owner.username).toBe("memory_owner");
+  expect(runtime.pathname).toBe("/workspacex_memory"); expect(owner.pathname).toBe(runtime.pathname);
+  expect(new Set([runtime.password, owner.password, graph.password]).size).toBe(3);
+  expect(maps.agent.MEMORY_STORE_MIGRATION_DATABASE_URL).toBeUndefined();
+  expect(Object.keys(maps.api).some(key => key.startsWith("MEMORY_DB_"))).toBe(false);
+  expect(maps.memoryMigration.MEMORY_STORE_DATABASE_URL).toBe(maps.agent.MEMORY_STORE_DATABASE_URL);
+});

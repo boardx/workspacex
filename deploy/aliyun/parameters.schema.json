@@ -345,24 +345,6 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 3650
-                },
-                "logRetentionDays": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 3650
-                },
-                "alertContactRef": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 512,
-                  "allOf": [
-                    {
-                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
-                    },
-                    {
-                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
-                    }
-                  ]
                 }
               },
               "required": [
@@ -380,9 +362,7 @@
                 "databaseSecretRef",
                 "migrationSecretRef",
                 "redisSecretRef",
-                "backupRetentionDays",
-                "logRetentionDays",
-                "alertContactRef"
+                "backupRetentionDays"
               ],
               "additionalProperties": false
             }

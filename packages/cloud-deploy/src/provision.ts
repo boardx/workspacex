@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, lstat, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
+export class UncertainProvisionStateError extends Error {}
+
 export const provisionStages = ["preflight", "secrets", "dependencies", "migrate", "bootstrap", "start", "readiness", "business-probe"] as const;
 export type ProvisionStage = typeof provisionStages[number];
 export type ProvisionAction = (context: { signal: AbortSignal; remainingMs: () => number }) => Promise<void>;
@@ -9,6 +11,7 @@ export type ProvisionActions = Record<ProvisionStage, ProvisionAction>;
 export interface ProvisionReport {
   attemptId: string;
   startedAt: string;
+  /** Time through all actions and intermediate reports; terminal report I/O is separate. */
   durationMs: number;
   status: "running" | "passed" | "failed";
   code?: "DEADLINE_EXCEEDED" | "STAGE_FAILED" | "CANCELLED";
@@ -41,7 +44,7 @@ export async function provision(options: {
   let release = false;
   const path = join(options.stateDirectory, `${report.attemptId}.json`);
   const save = async () => {
-    report.durationMs = Math.round(performance.now() - start);
+    if (report.status === "running") report.durationMs = Math.round(performance.now() - start);
     const temporary = `${path}.${randomUUID()}.tmp`;
     const handle = await open(temporary, "wx", 0o600);
     try { await handle.writeFile(JSON.stringify(report, null, 2) + "\n"); await handle.sync(); }
@@ -76,11 +79,13 @@ export async function provision(options: {
         if (controller.signal.aborted) throw new Error("ABORTED");
         report.stages.push({ name, durationMs: Math.round(performance.now() - stageStart), status: "passed" });
         await save();
-      } catch {
+      } catch (error) {
+        report.stages = report.stages.filter(stage => stage.name !== name);
         report.stages.push({ name, durationMs: Math.round(performance.now() - stageStart), status: "failed" });
+        report.durationMs = Math.round(performance.now() - start);
         report.status = "failed";
         report.code = reason ?? "STAGE_FAILED";
-        report.lockRetained = controller.signal.aborted;
+        report.lockRetained = controller.signal.aborted || error instanceof UncertainProvisionStateError;
         await save();
         release = !report.lockRetained;
         return report;
@@ -88,17 +93,19 @@ export async function provision(options: {
         if (rejectAbort) controller.signal.removeEventListener("abort", rejectAbort);
       }
     }
-    if (remainingMs() <= 0) {
-      report.status = "failed";
-      report.code = "DEADLINE_EXCEEDED";
-    } else report.status = "passed";
-    await save();
-    if (controller.signal.aborted || remainingMs() <= 0) {
+    // Freeze the measured completion instant before publishing a single terminal state.
+    // Terminal report fsync is bookkeeping outside this action budget; never publish
+    // passed and subsequently revise it to failed because that fsync was slow.
+    report.durationMs = Math.round(performance.now() - start);
+    if (remainingMs() <= 0) abort("DEADLINE_EXCEEDED");
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", cancelled);
+    if (controller.signal.aborted) {
       report.status = "failed";
       report.code = reason ?? "DEADLINE_EXCEEDED";
       report.lockRetained = true;
-      await save();
-    }
+    } else report.status = "passed";
+    await save();
     release = !report.lockRetained;
     return report;
   } finally {

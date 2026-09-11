@@ -14,12 +14,12 @@ describe("cloud deployment configuration", () => {
   });
   it("reports multiple missing production parameters together", () => {
     const value = deploymentExample("production");
-    const { databaseSecretRef, redisSecretRef, alertContactRef, ...environment } = value.environment;
+    const { databaseSecretRef, redisSecretRef, ...environment } = value.environment;
     const result = validateDeploymentConfig({ ...value, environment });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.map((error) => error.path)).toEqual(expect.arrayContaining([
-      "environment.databaseSecretRef", "environment.redisSecretRef", "environment.alertContactRef",
+      "environment.databaseSecretRef", "environment.redisSecretRef",
     ]));
   });
   it("does not accept Starter settings under the production profile", () => {

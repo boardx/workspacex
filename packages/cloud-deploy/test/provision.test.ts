@@ -65,3 +65,14 @@ it("rejects enlarged budgets or missing stages before acquiring a lock", async (
   await expect(provision({ stateDirectory, actions: steps })).rejects.toThrow("MISSING_STAGE");
   expect(await readdir(stateDirectory)).toEqual([]);
 });
+
+it("retains the lock when an action cannot prove remote job cleanup", async () => {
+  const { UncertainProvisionStateError } = await import("../src/provision");
+  const stateDirectory = await directory(); const steps = actions();
+  steps.migrate = async () => { throw new UncertainProvisionStateError("secret error details"); };
+  const result = await provision({ stateDirectory, actions: steps });
+  expect(result.status).toBe("failed"); expect(result.lockRetained).toBe(true);
+  expect(result.stages.map(stage => stage.name)).toEqual(["preflight", "secrets", "dependencies", "migrate"]);
+  expect(JSON.stringify(result)).not.toContain("secret error details");
+  await expect(provision({ stateDirectory, actions: actions() })).rejects.toThrow("DEPLOYMENT_LOCK_UNAVAILABLE");
+});

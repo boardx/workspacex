@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process";
 
+export class CommandExecutionError extends Error {
+  constructor(readonly exitCode: number | null) { super("COMMAND_FAILED"); }
+}
+
 type Command = { executable: string; args: readonly string[]; cwd: string; env: NodeJS.ProcessEnv };
 type Context = { signal: AbortSignal; remainingMs: () => number };
 
@@ -48,7 +52,7 @@ async function execute(command: Command, context: Context, capture: boolean): Pr
     child.once("close", (code) => {
       context.signal.removeEventListener("abort", stop);
       if (failure) reject(new Error(failure));
-      else if (code !== 0) reject(new Error("COMMAND_FAILED"));
+      else if (code !== 0) reject(new CommandExecutionError(code));
       else resolve(Buffer.concat(chunks).toString("utf8"));
     });
   });

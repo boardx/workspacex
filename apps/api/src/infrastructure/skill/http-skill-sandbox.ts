@@ -91,8 +91,11 @@ export class HttpSkillSandbox implements SkillSandboxPort {
     readonly script: string;
     readonly timeoutMs: number;
     readonly inputFiles?: readonly SandboxInputFile[];
+    readonly signal?: AbortSignal;
   }): Promise<SandboxRunResult> {
+    input.signal?.throwIfAborted();
     await assertCurrentRunLease();
+    input.signal?.throwIfAborted();
     const options = this.target();
     const payload = JSON.stringify({ script: input.script, timeoutMs: input.timeoutMs, ...(input.inputFiles ? { inputFiles: input.inputFiles } : {}) });
 
@@ -100,6 +103,7 @@ export class HttpSkillSandbox implements SkillSandboxPort {
       const req = request(
         {
           ...options,
+          signal: input.signal,
           headers: {
             "content-type": "application/json",
             "content-length": Buffer.byteLength(payload),
@@ -131,6 +135,7 @@ export class HttpSkillSandbox implements SkillSandboxPort {
       req.end(payload);
     });
 
+    input.signal?.throwIfAborted();
     return parseResult(body);
   }
 }
