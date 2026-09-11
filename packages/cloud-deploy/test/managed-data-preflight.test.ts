@@ -4,7 +4,7 @@ const expected = { region: "cn-hangzhou", rdsInstanceId: "pgm-test", redisInstan
 function fixtures() {
   return {
     rds: { Items: { DBInstanceAttribute: [{ DBInstanceId: "pgm-test", RegionId: "cn-hangzhou", ConnectionString: "pg.internal", DBInstanceStatus: "Running", DBInstanceType: "Primary", Engine: "PostgreSQL", EngineVersion: "16.0", Category: "HighAvailability", InstanceNetworkType: "VPC", LockMode: "Unlock" }] } },
-    backup: { BackupRetentionPeriod: 7, PreferredBackupPeriod: "Monday,Wednesday,Friday" },
+    backup: { AdvancedBackupPolicyEnabled: false, BackupRetentionPeriod: 7, PreferredBackupPeriod: "Monday,Wednesday,Friday" },
     redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Open", NetworkType: "VPC" }] } },
   };
 }
@@ -45,6 +45,10 @@ describe("managed data control-plane preflight", () => {
     expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("backup_schedule_unproven");
     Object.assign(data.backup,{PreferredBackupPeriod:"Monday",AdvancedBackupPolicyEnabled:true});
     expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("advanced_backup_policy_not_supported");
+  });
+  it.each(["false", "true", 0, null, undefined])("rejects unknown advanced backup flag %s", async flag => {
+    const data=fixtures(); Object.assign(data.backup, {AdvancedBackupPolicyEnabled:flag});
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("backup_policy_mode_unproven");
   });
   it("never leaks CLI stderr, credentials or raw malformed payloads", async () => {
     const result = await verifyManagedDataPreflight(expected,async () => {throw new Error("AccessKeySecret=PRIVATE");});

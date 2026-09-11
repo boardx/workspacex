@@ -46,6 +46,7 @@ function backupReason(raw: unknown, expected: ManagedDataExpected): string {
   // Advanced policies can override classic retention fields. Fail until their semantics
   // are separately implemented instead of pretending the legacy number proves them.
   if (result.data.AdvancedBackupPolicyEnabled === true) return "advanced_backup_policy_not_supported";
+  if (result.data.AdvancedBackupPolicyEnabled !== false) return "backup_policy_mode_unproven";
   if (typeof result.data.PreferredBackupPeriod !== "string" || !result.data.PreferredBackupPeriod.split(",").every(day => ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].includes(day))) return "backup_schedule_unproven";
   return "verified";
 }
