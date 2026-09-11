@@ -71,7 +71,8 @@ describe("live research workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
     await screen.findByText("Proposed update");
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "session-live", expectedVersion: 7, node: "brief", action: "message", message: "Focus on storage" }));
-    expect(screen.getByDisplayValue("Storage")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Revised storage")).toBeInTheDocument();
+    expect(screen.getByTestId("research-conversation-draft")).toHaveTextContent("尚未应用");
     fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
     await screen.findByDisplayValue("Revised storage");
     expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ action: "apply", proposalId: "proposal-1", expectedVersion: 8 }));
