@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertStudioReport, withStudioIsolation } from "../studio-skill-files-guards";
+import { assertStudioReport, withStudioIsolation } from "../studio-skill-files-guards.mts";
 import { deriveTestIsolation } from "../../.harness/scripts/lib/test-isolation";
 const root = "/fixture/studio-worktree";
 const isolated = () => deriveTestIsolation({ worktreePath: root, isolationId: "studio-guard-fixture" });
@@ -52,4 +52,14 @@ describe("STUDIO exact structured report", () => {
     expect(() => assertStudioReport(retried)).toThrow();
     for (const value of [null, "1 passed", {}, { ...passing(), errors: [{ message: "worker failed" }] }]) expect(() => assertStudioReport(value)).toThrow();
   });
+});
+
+it("the real ESM runner links the API config before rejecting missing isolation", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const env = { ...process.env };
+  delete env.WORKSPACEX_DB;
+  const result = spawnSync(process.execPath, ["scripts/studio-skill-files-e2e.mjs"], { cwd: process.cwd(), env, encoding: "utf8", timeout: 15000 });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("test-isolation");
+  expect(result.stderr).not.toContain("ERR_VM_MODULE_LINK_FAILURE");
 });

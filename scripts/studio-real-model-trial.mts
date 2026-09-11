@@ -7,7 +7,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm, cp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertStudioIsolation } from "./studio-skill-files-guards.ts";
+import { assertStudioIsolation } from "./studio-skill-files-guards.mts";
 import { ExecutionEvent } from "../packages/contracts/src/execution-journal.ts";
 import type { RunProjection } from "../apps/api/src/application/agent-run/ports.ts";
 import { DEV_MODE_ACCOUNTS } from "../packages/dev-mode-accounts/src/index.ts";
