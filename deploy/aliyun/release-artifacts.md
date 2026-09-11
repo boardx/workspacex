@@ -55,3 +55,5 @@ API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 �
 可独立运行 `node --import tsx packages/cloud-deploy/scripts/verify-compose.ts`，通过真实 Docker Compose 解析两档配置，检验 raw 密码保留、服务闭包、安全限制及无效策略被拒绝；不拉取镜像、不启动服务，也不宣称服务业务验收。
 
 `verifyRunningRelease(manifest, profile, containerIds, executor)` 用启动后获得的容器 ID 查询运行体，核对实际 Image ID、启动使用的 digest、Compose service label，以及 running/restarting/OOM 状态；包含两个沙箱容器。检查只请求不含环境变量的 inspect 字段。通过仍返回 `businessVerified:false`，业务探针独立执行。
+
+运行体门控还可执行 `node --import tsx packages/cloud-deploy/scripts/verify-running-release.ts docker.io/library/node@sha256:<已缓存digest>`：启动五个禁网、资源受限的 Node fixture，验证实际容器身份，主动停止其中一个确保门控失败，最后清理全部 fixture。这证明门控的 Docker 接口与反证有效，不能替代真实应用健康或业务验收。
