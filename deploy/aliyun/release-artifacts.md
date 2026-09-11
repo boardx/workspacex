@@ -43,3 +43,13 @@ uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfi
 生产 Agent Server 还需通过环境文件注入 `DATABASE_URI`（专用数据库）、`REDIS_URI`（专用 Redis DB）、`LANGGRAPH_CLOUD_LICENSE_KEY`，并按供应商要求配置 LangSmith 凭据/出网。不得将许可值写入 manifest、命令行或仓库。`validateAgentServerEnvironment` 仅校验这些参数存在与协议，不宣称许可证有效。
 
 依据：[官方 standalone prerequisites](https://docs.langchain.com/langsmith/deploy-standalone-server)、[官方 CLI](https://docs.langchain.com/langsmith/cli)。文档说明生产许可验证以及推荐 Kubernetes 的运维差距；当前 ECS 单副本方案必须自行验证停机排空、持久化和升级。许可选择等待用户决策，开发服务器不能算生产验收。
+
+## 两档 Compose 生成
+
+`createCloudCompose(config, manifest, {projectName, runtimeDirectory})` 返回 Docker Compose 可直接读取的 JSON 对象。所有服务固定 manifest digest、`pull_policy: never`、无 build。启动时继续传 `--pull never --no-build`。Starter 另起 PostgreSQL/Redis；生产使用外部服务。Starter 数据 bind 在 `dataVolumePath/postgres` 与 `/redis`，删除容器不会删除宿主数据；PostgreSQL 镜像必须具备 API migrations 所需的 vector 扩展，需真实数据库验证，不能凭镜像名称判定。
+
+前置准备 runtimeDirectory 下的 `api.env`、`agent.env`、`web.env`（Starter 另需 `postgres.env` 和含持久化/认证设置的 `redis.conf`）。全部 env_file 使用 `format: raw`，要求 Compose >=2.30。密码不出现在生成 JSON。还需建立 `sandbox`、`sessions` 目录并赋予 UID/GID 1000 写权限，建立 `certs` 目录并按需放入只读 `ca.pem`，安装 `docker-seccomp.json` 和 `workspacex-native-sessions` AppArmor profile。bind 禁止自动创建缺失目录。
+
+API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 仅容器网络可见。API 调用 `http://agent:8000`。两个沙箱服务分别共享 `/run/sandbox/skill-sandbox.sock` 和 `/run/sessions/skill-sandbox.sock`，均禁网、只读根文件系统、移除 capabilities、限制 CPU/内存/PID。Native sessions 额外启用已有 seccomp/AppArmor 策略。API 只读挂载 `/run/certs`。数据库迁移/初始化容器须由编排器采用同样 CA 挂载。
+
+可独立运行 `node --import tsx packages/cloud-deploy/scripts/verify-compose.ts`，通过真实 Docker Compose 解析两档配置，检验 raw 密码保留、服务闭包、安全限制及无效策略被拒绝；不拉取镜像、不启动服务，也不宣称服务业务验收。
