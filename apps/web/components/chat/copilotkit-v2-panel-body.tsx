@@ -679,7 +679,16 @@ export function CopilotKitV2PanelBody({
           agent.setMessages(framed);
         } else {
           const liveIds = new Set(live.map((m) => m.id));
-          agent.setMessages([...framed.filter((m) => !liveIds.has(m.id)), ...live]);
+          // 重复用户气泡修复——见 `PersistedMessage.clientMessageId` 头注：乐观插入
+          // 的用户消息在 `live` 里的 id 是 `clientMessageId`，`collected` 读回来的
+          // 同一条消息 id 是服务端真实主键，两者不相等。只按 `m.id` 去重认不出这是
+          // 同一条消息，会把它当"新消息"插第二遍。
+          const isAlreadyLive = (m: { id: string; clientMessageId: string | null }) =>
+            liveIds.has(m.id) || (m.clientMessageId !== null && liveIds.has(m.clientMessageId));
+          agent.setMessages([
+            ...collected.filter((m) => !isAlreadyLive(m)).map((m) => ({ id: m.id, role: m.role, content: m.content })),
+            ...live,
+          ]);
         }
         setHistoryLoading(false);
         setPendingRunId(detectedPendingRunId);
@@ -778,7 +787,14 @@ export function CopilotKitV2PanelBody({
         const { messages: after } = await readAllPersistedMessages(threadId, bearer);
         if (cancelled) return;
         const liveIds = new Set(agent.messages.map((m) => m.id));
-        const restored = after.filter((m) => !liveIds.has(m.id));
+        // 重复用户气泡修复——同上（挂载 hydration 的同名注释）：这条 run-restore 路径
+        // 在 HITL 确认（`confirm_task_intent` 等）裁决后、run 结束时都会跑一遍，
+        // 恰好是"同一浏览器会话内、不刷新页面"就能复现重复气泡与残留确认卡的窗口——
+        // 乐观插入的用户消息此时仍然挂着 `clientMessageId` 当 id，只按服务端真实 id
+        // 去重认不出它，把它连同它所在的整条消息再插一遍。
+        const isAlreadyLive = (m: { id: string; clientMessageId: string | null }) =>
+          liveIds.has(m.id) || (m.clientMessageId !== null && liveIds.has(m.clientMessageId));
+        const restored = after.filter((m) => !isAlreadyLive(m));
         // 2026-09-02（人类实测："放大→修改→保存成功→刷新后全丢"）—— 这条路径此前
         // 只把消息灌进 `agent.messages`，**没有**像挂载 hydration 那样 `registerHydrated`：
         // 这些消息的 id 已经是真实 `chat_messages.id`，但身份索引不认识它们，
