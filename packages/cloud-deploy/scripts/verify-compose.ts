@@ -24,6 +24,19 @@ try {
     assert.equal(Boolean(actual.services.redis), profile === "starter");
     assert.equal(actual.services.sandbox.network_mode, "none");
     for (const service of Object.values(actual.services) as Array<Record<string, unknown>>) { assert.equal(service.pull_policy, "never"); assert.equal(service.build, undefined); }
+    const runtimeImage = process.argv[2];
+    if (runtimeImage) {
+      if (!/^[a-z0-9./_-]+@sha256:[a-f0-9]{64}$/.test(runtimeImage)) throw new Error("Cached runtime fixture image must use digest");
+      const platform = execFileSync("docker", ["image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", runtimeImage], { encoding: "utf8", timeout: 15_000 }).trim();
+      const fixture = { name: `cloud-raw-check-${process.pid}`, services: { api: { ...compose.services.api, image: runtimeImage, platform, volumes: [], ports: [], network_mode: "none", mem_limit: "96m", cpus: 0.1 } } };
+      writeFileSync(path, JSON.stringify(fixture));
+      try {
+        execFileSync("docker", ["compose", "-f", path, "run", "--rm", "--no-deps", "--pull", "never", "api", "node", "-e", "require('node:assert/strict').equal(process.env.PROBE_PASSWORD,'a$b${NOT_EXPANDED}')"], { stdio: "pipe", timeout: 30_000 });
+      } finally {
+        execFileSync("docker", ["compose", "-f", path, "down", "--remove-orphans"], { stdio: "pipe", timeout: 15_000 });
+      }
+      process.stdout.write(`${profile}: raw env value preserved in actual network-disabled container\n`);
+    }
     // Counterexample: corrupt the generated runtime configuration and ensure Compose rejects it.
     writeFileSync(path, JSON.stringify({ ...compose, services: { ...compose.services, api: { ...compose.services.api, pull_policy: "invalid-policy" } } }));
     assert.throws(() => execFileSync("docker", ["compose", "-f", path, "config", "--quiet"], { stdio: "pipe", timeout: 15_000 }));
