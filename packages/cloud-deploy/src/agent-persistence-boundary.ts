@@ -6,14 +6,14 @@ export function validateProductionAgentPersistence(input: {
   DATABASE_URI: string;
   MEMORY_STORE_DATABASE_URL: string;
   MEMORY_STORE_MIGRATION_DATABASE_URL: string;
-}): void {
+}, sslMode: "verify-full" | "disable" = "verify-full"): void {
   try {
     const parse = (value: string) => {
       const uri = new URL(value);
       const entries = [...uri.searchParams.entries()];
       if (!/^postgres(?:ql)?:$/.test(uri.protocol) || !uri.hostname || !uri.username || !uri.password ||
         !uri.pathname.slice(1) || uri.hash || entries.length !== 1 ||
-        entries[0]![0] !== "sslmode" || entries[0]![1] !== "verify-full") throw new Error();
+        entries[0]![0] !== "sslmode" || entries[0]![1] !== sslMode) throw new Error();
       return { uri, user: decodeURIComponent(uri.username), password: decodeURIComponent(uri.password), database: decodeURIComponent(uri.pathname.slice(1)) };
     };
     const graph = parse(input.DATABASE_URI);

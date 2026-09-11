@@ -3,8 +3,9 @@ import { verifyManagedDataPreflight } from "../src/managed-data-preflight";
 const expected = { region: "cn-hangzhou", rdsInstanceId: "pgm-test", redisInstanceId: "r-test", backupRetentionDays: 7, postgresHost: "pg.internal", redisHost: "redis.internal" };
 function fixtures() {
   return {
-    rds: { Items: { DBInstanceAttribute: [{ DBInstanceId: "pgm-test", RegionId: "cn-hangzhou", ConnectionString: "pg.internal", DBInstanceStatus: "Running", DBInstanceType: "Primary", Engine: "PostgreSQL", EngineVersion: "16.0", Category: "HighAvailability", InstanceNetworkType: "VPC", LockMode: "Unlock" }] } },
+    rds: { Items: { DBInstanceAttribute: [{ DBInstanceId: "pgm-test", RegionId: "cn-hangzhou", ConnectionString: "pg.internal", DBInstanceStatus: "Running", DBInstanceType: "Primary", DBInstanceClass: "pg.x4.large.2c", Engine: "PostgreSQL", EngineVersion: "16.0", Category: "HighAvailability", InstanceNetworkType: "VPC", LockMode: "Unlock" }] } },
     rdsTls: { SSLEnabled: "on", ConnectionString: "pg.internal" },
+    rdsNetwork: { Items: { DBInstanceIPArray: [{ DBInstanceIPArrayName: "runtime", WhitelistNetworkType: "VPC", SecurityIPList: "10.0.1.7/32" }] } },
     backup: { AdvancedBackupPolicyEnabled: false, BackupRetentionPeriod: 7, PreferredBackupPeriod: "Monday,Wednesday,Friday" },
     redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Close", NetworkType: "VPC" }] } },
     redisTls: { SSLEnabled: "Enable" },
@@ -12,13 +13,13 @@ function fixtures() {
 }
 function executor(data = fixtures()) { return vi.fn(async (args: readonly string[]) => JSON.stringify(
   args[1] === "DescribeBackupPolicy" ? data.backup : args[1] === "DescribeDBInstanceSSL" ? data.rdsTls :
-    args[1] === "DescribeInstanceSSL" ? data.redisTls : args[0] === "rds" ? data.rds : data.redis)); }
+    args[1] === "DescribeDBInstanceIPArrayList" ? data.rdsNetwork : args[1] === "DescribeInstanceSSL" ? data.redisTls : args[0] === "rds" ? data.rds : data.redis)); }
 describe("managed data control-plane preflight", () => {
   it("uses only documented read-only operations with bounded argv execution", async () => {
     const run = executor(); const result = await verifyManagedDataPreflight(expected,run,{ timeoutMs: 1234 });
     expect(result.passed).toBe(true); expect(result.scope).toBe("managed-data-control-plane");
     expect(run).toHaveBeenCalledWith(["rds","DescribeDBInstanceAttribute","--region","cn-hangzhou","--DBInstanceId","pgm-test"], {timeoutMs:1234});
-    expect(run.mock.calls.map(([args]) => args[1]).sort()).toEqual(["DescribeBackupPolicy","DescribeDBInstanceAttribute","DescribeDBInstanceSSL","DescribeInstanceAttribute","DescribeInstanceSSL"]);
+    expect(run.mock.calls.map(([args]) => args[1]).sort()).toEqual(["DescribeBackupPolicy","DescribeDBInstanceAttribute","DescribeDBInstanceIPArrayList","DescribeDBInstanceSSL","DescribeInstanceAttribute","DescribeInstanceSSL"]);
     expect(JSON.stringify(result)).not.toContain("pg.internal");
   });
   it.each([
@@ -50,6 +51,25 @@ describe("managed data control-plane preflight", () => {
   it("rejects disabled Redis TLS", async () => {
     const data=fixtures(); data.redisTls.SSLEnabled = "Disable";
     expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "redis-tls")?.reason).toBe("redis_tls_not_enabled");
+  });
+  it("allows the explicit Serverless TLS exception only with exact private network constraints", async () => {
+    const data=fixtures(); data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.n2.serverless.1c"; data.rdsTls.SSLEnabled="off";
+    const result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
+    expect(result.passed).toBe(true);
+    expect(result.checks.find(check=>check.id==="rds-tls")?.reason).toBe("serverless_tls_exception_verified");
+    expect(result.checks.find(check=>check.id==="rds-network")?.reason).toBe("serverless_tls_exception_network_verified");
+  });
+  it.each([
+    ["class", "rds_tls_exception_not_serverless"],
+    ["whitelist", "rds_whitelist_mismatch"],
+    ["network", "rds_network_constraint_unproven"],
+  ])("rejects an unproven Serverless exception: %s", async (failure,reason) => {
+    const data=fixtures(); data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.n2.serverless.1c"; data.rdsTls.SSLEnabled="off";
+    if(failure==="class")data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.x4.large.2c";
+    if(failure==="whitelist")data.rdsNetwork.Items.DBInstanceIPArray[0]!.SecurityIPList="0.0.0.0/0";
+    if(failure==="network")data.rdsNetwork.Items.DBInstanceIPArray[0]!.WhitelistNetworkType="Classic";
+    const result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
+    expect(result.passed).toBe(false); expect(result.checks.some(check=>check.reason===reason)).toBe(true);
   });
   it("rejects insufficient backup retention", async () => {
     const data=fixtures(); data.backup.BackupRetentionPeriod=6;

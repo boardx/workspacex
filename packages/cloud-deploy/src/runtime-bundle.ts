@@ -14,7 +14,7 @@ import { assertTrustedPath } from "./trusted-path";
 
 type Context = { signal: AbortSignal; remainingMs: () => number };
 export const agentPersistenceSchema = z.object({ DATABASE_URI: z.string().min(1), REDIS_URI: z.string().min(1), LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict();
-const productionAgentSecretSchema = agentPersistenceSchema.extend({ databaseCaFile: z.string().startsWith("/"), memoryCaFile: z.string().startsWith("/"),
+const productionAgentSecretSchema = agentPersistenceSchema.extend({ databaseCaFile: z.string().startsWith("/").optional(), memoryCaFile: z.string().startsWith("/").optional(),
   MEMORY_STORE_DATABASE_URL: z.string().min(1), MEMORY_STORE_MIGRATION_DATABASE_URL: z.string().min(1) }).strict();
 export function checkBudget(context: Context) {
   if (context.signal.aborted || context.remainingMs() <= 0) throw new Error("PROVISION_CANCELLED");
@@ -68,19 +68,21 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     if (config.environment.profile === "starter") {
       persistence = agentPersistenceSchema.parse({ ...z.object({ LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict().parse(input), DATABASE_URI: environment.agent.DATABASE_URI, REDIS_URI: environment.agent.REDIS_URI });
     } else {
+      const postgresSslMode = config.environment.rdsTlsException ? "disable" : "verify-full";
       const { databaseCaFile, memoryCaFile: memoryCa, MEMORY_STORE_DATABASE_URL: memoryUri, MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri, ...values } = productionAgentSecretSchema.parse(input);
+      if (!config.environment.rdsTlsException && (!databaseCaFile || !memoryCa)) throw new Error();
       agentCaFile = databaseCaFile; memoryCaFile = memoryCa; persistence = values;
       const memory = new URL(memoryUri), owner = new URL(migrationUri), graph = new URL(values.DATABASE_URI);
       validateProductionAgentPersistence({
         DATABASE_URI: values.DATABASE_URI,
         MEMORY_STORE_DATABASE_URL: memoryUri,
         MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri,
-      });
+      }, postgresSslMode);
       const passwords = [graph, memory, owner].map(url => decodeURIComponent(url.password));
       passwords.push(environment.api.APP_DB_PASSWORD!, environment.api.DIAG_DB_PASSWORD!, environment.migration.MIGRATION_DB_PASSWORD!);
       if (new Set(passwords).size !== passwords.length) throw new Error();
       for (const url of [memory, owner]) {
-        if (!/^postgres(?:ql)?:$/.test(url.protocol) || url.searchParams.get("sslmode") !== "verify-full" ||
+        if (!/^postgres(?:ql)?:$/.test(url.protocol) || url.searchParams.get("sslmode") !== postgresSslMode ||
           ["sslrootcert", "sslcert", "sslkey"].some(key => url.searchParams.has(key)) || !url.password) throw new Error();
       }
       if (decodeURIComponent(memory.username) !== "memory_rw" || decodeURIComponent(owner.username) !== "memory_owner" ||
@@ -99,7 +101,7 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     // or place its system tables in the application's database.
     if (decodeURIComponent(database.username) === environment.api.APP_DB_USER ||
       (database.hostname === environment.api.PGHOST && decodeURIComponent(database.pathname.slice(1)) === environment.api.PGDATABASE)) throw new Error();
-    if (config.environment.profile === "production" && (database.searchParams.get("sslmode") !== "verify-full" || !persistence.REDIS_URI.startsWith("rediss://"))) throw new Error();
+    if (config.environment.profile === "production" && (database.searchParams.get("sslmode") !== (config.environment.rdsTlsException ? "disable" : "verify-full") || !persistence.REDIS_URI.startsWith("rediss://"))) throw new Error();
   } catch { throw new Error("AGENT_PERSISTENCE_CONFIGURATION_INVALID"); }
   Object.assign(environment.agent, persistence);
   const agentCerts = join(dir, "agent-certs");

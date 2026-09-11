@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { deploymentConfigSchema } from "./config";
 import { validateReleaseManifest } from "./release";
 import { resolveSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
-import { prepareHostOptionsSchema, prepareHostReceiptSchema, hostPreparationContract, type PrepareHostOptions, type PrepareHostServices } from "./prepare-host";
+import { appArmorInstallationOwnerPath, appArmorInstallationOwnerSchema, prepareHostOptionsSchema, prepareHostReceiptSchema, hostPreparationContract, type PrepareHostOptions, type PrepareHostServices } from "./prepare-host";
 import { assertTrustedPath } from "./trusted-path";
 
 /** Read-only integrity gate; this does NOT install ingress or prove real TLS/cloud readiness. */
@@ -20,6 +20,9 @@ export async function verifyPreparedHost(configInput:unknown,releaseInput:unknow
   const receiptPath=join(dir,"prepare-receipt.json");await assertTrustedPath(receiptPath,{trustedRoot:"/",kind:"file",private:true});
   const receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));
   if(receipt.status!=="files-ready-ingress-installation-required"||!receipt.profileManaged)throw new Error();
+  const ownerPath=appArmorInstallationOwnerPath(dir);await assertTrustedPath(ownerPath,{trustedRoot:"/",kind:"file",private:true});
+  const owner=appArmorInstallationOwnerSchema.parse(JSON.parse(await resolveSecret(`file:${ownerPath}`,source,context)));
+  if(owner.installationId!==receipt.installationId)throw new Error();
   if(config.environment.tlsSecretRef.startsWith("file:"))await assertTrustedPath(config.environment.tlsSecretRef.slice(5),{trustedRoot:"/",kind:"file",private:true});
   const expected=await hostPreparationContract(config,manifest,options,run,source,context);
   if(receipt.specHash!==expected.specHash||JSON.stringify(receipt.files)!==JSON.stringify(expected.files))throw new Error();

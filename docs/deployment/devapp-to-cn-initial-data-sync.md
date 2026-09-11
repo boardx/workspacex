@@ -1,0 +1,47 @@
+# Devapp → 中国生产首次数据同步
+
+该流程只用于第一次建立中国生产数据。每次运行使用新的 UUID `migrationId` 和空目标数据库；已存在的收据或目标数据库一律拒绝复用。工具入口 `initialProductionSyncPlan` 默认只生成不含凭据的 dry-run 计划，真正执行器必须从 `env:` 或权限为 `0600` 的绝对 `file:` 引用读取源、目标数据库凭据。
+
+## 操作顺序
+
+1. 在与发布 SHA 相同的迁移版本上创建目标空库。记录 source schema revision、`pg_current_wal_lsn()`、源表计数和迁移 ID。
+2. 使用 PostgreSQL 16 `pg_dump --format=custom --serializable-deferrable --lock-wait-timeout=10000` 生成一致性 dump，落入只允许操作者访问的新目录；记录文件大小和 SHA-256。
+3. 对目标空库运行 `pg_restore --exit-on-error --single-transaction --no-owner`。禁止 `--clean`、覆盖已有数据库或在失败后自动重试同一目标库。
+4. 第一次同步 OSS 源 prefix 到新私有桶，生成包含 `key/size/sha256` 的 baseline inventory。数据库中的 `artifact_versions.object_storage_key` 和 `derived_representations.object_storage_key` 保持原 key 语义；目标 prefix 映射必须在复制器中完成，不能改写数据库行。
+5. 进入写入冻结窗口，再执行 OSS delta 同步并生成 source/target final inventory。`verifyOssInventory` 要求对象 key、长度和 SHA-256 集合完全相同；版本控制、公开 ACL 或额外对象均不允许据此标记通过。
+6. 验证所有外键、关键引用与内容摘要后再解除冻结。写入只读收据；相同 migration ID 不得再次导入。
+
+## 数据库验收
+
+- `pg_constraint` 中所有外键必须 `convalidated=true`，并以 `SET CONSTRAINTS ALL IMMEDIATE` 验证导入事务。
+- 比较源/目标逐表 row count、主键有序集合哈希和 schema revision。
+- 验证 `canvas_template_bindings` 指向存在的模板版本、组织、议程和 workshop。
+- 验证 `skills/skill_versions/skill_version_files/skill_mounts` 以及 `skill_contracts/skill_contract_versions/current_version_id` 没有 orphan；重新计算每个 skill 文件和版本声明的 digest。
+- 验证 `mcp_tools/mcp_server_secrets/current_review_id` 与 server、review snapshot、credential revision 可以解析；对一个只读工具执行受控探针。
+- 对所有非空 object-storage key 与最终 OSS inventory 做双向 anti-join；抽样通过业务 API 打开画布模板、挂载 Skill、读取文件和列出工具。
+
+## 密钥边界
+
+同步工具只检测 `mcp_server_secrets`、模型凭据等密文是否存在，不输出、解密或自动重加密。配置必须二选一：
+
+- `same-key-confirmed`：具名操作者确认目标运行时使用相同 `key_id` 和解密主密钥；收据记录确认人和 key ID。
+- `rotate-required`：生产环境重新录入并轮换凭据。检测到密文时，只有收据 `keyDecision=rotated` 才能通过。
+
+生产数据库连接、OSS 凭据、密文内容和主密钥不得出现在命令参数、dry-run、日志、inventory 或收据中。
+
+## CLI
+
+```bash
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json dry-run
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json database-dump
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json database-restore
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json oss-baseline
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json oss-delta --write-freeze-confirmed
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json accept /etc/workspacex-cn/initial-sync-acceptance.json
+```
+
+CLI 直接以数组参数调用 PostgreSQL 16 客户端和 `ossutil`，不经过 shell。PG host、用户和口令只进入子进程环境。它以 `state.json` 恢复已完成阶段，以独占 `sync.lock` 阻止并发运行；目标数据库只要存在一张非系统表就拒绝 restore。OSS delta 必须显式传入写冻结确认参数。
+
+## 收据完成条件
+
+收据必须绑定 migration ID、schema SHA、源 snapshot、dump SHA-256，并证明数据库 restore、FK、关键引用、两轮 OSS 同步、最终 inventory 和密钥决策全部通过。任一项失败时保留失败现场用于诊断，删除目标数据库和目标 prefix 后使用新的 migration ID 重来。

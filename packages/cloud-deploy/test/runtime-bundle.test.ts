@@ -71,6 +71,21 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
   const compose = JSON.parse(await readFile(join(runtimeDirectory, "compose.json"), "utf8"));
   expect(compose.services.agent.volumes).toContainEqual(expect.objectContaining({ target: "/run/agent-certs", read_only: true }));
 });
+it("uses disabled PostgreSQL transport for Agent persistence only under the configured Serverless exception", async () => {
+  const runtimeDirectory=await directory();
+  const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
+  const source={WORKSPACEX_MODEL_KEY:"model-key",
+    WORKSPACEX_DATABASE:JSON.stringify({host:"db.example.com",database:"workspacex",user:"app_rw",password:"application-password-123",diagnosticsUser:"app_diag_ro",diagnosticsPassword:"diagnostics-password-123"}),
+    WORKSPACEX_MIGRATION:JSON.stringify({host:"db.example.com",database:"workspacex",user:"owner",password:"application-owner-123"}),
+    WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123"}),
+    AGENT_SECRET:JSON.stringify({DATABASE_URI:"postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=disable",
+      REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",LANGGRAPH_CLOUD_LICENSE_KEY:"license-value",
+      MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=disable",
+      MEMORY_STORE_MIGRATION_DATABASE_URL:"postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=disable"})};
+  const maps=await writeRuntimeBundle(config,manifest,{runtimeDirectory,projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source);
+  expect(new URL(maps.agent.DATABASE_URI!).searchParams.get("sslmode")).toBe("disable");
+  expect(new URL(maps.agent.MEMORY_STORE_DATABASE_URL!).searchParams.get("sslmode")).toBe("disable");
+});
 
 it("rejects production Agent credentials shared with application database roles", async () => {
   const { rootCertificates } = await import("node:tls");

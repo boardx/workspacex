@@ -20,6 +20,8 @@ export interface PrepareHostServices {
 }
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
 export const prepareHostReceiptSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean(),releaseTreeVerified:z.literal(true)}).strict();
+export const appArmorInstallationOwnerSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),profile:z.literal("workspacex-native-sessions")}).strict();
+export const appArmorInstallationOwnerPath=(runtimeDirectory:string)=>join(dirname(runtimeDirectory),".workspacex-apparmor-owner.json");
 async function syncDir(dir:string){const file=await open(dir,"r");try{await file.sync();}finally{await file.close();}}
 async function privateDir(dir:string){await assertTrustedPath(dir,{trustedRoot:"/",kind:"directory",private:true});}
 async function trustedSecretReference(reference:string){if(reference.startsWith("file:"))await assertTrustedPath(reference.slice(5),{trustedRoot:"/",kind:"file",private:true});}
@@ -79,15 +81,19 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  await run(["apparmor_parser","--version"],context);
  if((await hostRead("/sys/module/apparmor/parameters/enabled")).trim()!=="Y")throw new Error("APPARMOR_REQUIRED");
  const {contents,files,specHash}=await hostPreparationContract(config,manifest,options,run,source,context);
+ const ownerPath=appArmorInstallationOwnerPath(dir),ownerStat=await existing(ownerPath);
+ const owner=ownerStat?(await assertTrustedPath(ownerPath,{trustedRoot:"/",kind:"file",private:true}),appArmorInstallationOwnerSchema.parse(JSON.parse(await resolveSecret(`file:${ownerPath}`,source,context)))):undefined;
  const receiptPath=join(dir,"prepare-receipt.json");let receipt:z.infer<typeof prepareHostReceiptSchema>;const wasExisting=!!(await existing(dir));
- if(wasExisting){await privateDir(dir);receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");}
- else{active();await mkdir(dir,{mode:0o700});await privateDir(dir);receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false,releaseTreeVerified:true};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
+ if(wasExisting){await privateDir(dir);receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");if(owner&&owner.installationId!==receipt.installationId)throw new Error("APPARMOR_INSTALLATION_MISMATCH");}
+ else{active();await mkdir(dir,{mode:0o700});await privateDir(dir);receipt={schemaVersion:1,installationId:owner?.installationId??randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false,releaseTreeVerified:true};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
  const lock=await open(join(dir,"provision.lock"),"wx",0o600);let releaseLock=true;
  try{
   await lock.writeFile(JSON.stringify({operation:"prepare-host",installationId:receipt.installationId,pid:process.pid}));await lock.sync();await syncDir(dir);
   const ensureDir=async(directory:string)=>{if(await existing(directory)){await privateDir(directory);return;}active();await mkdir(directory,{mode:0o700});await privateDir(directory);};
   const profiles=await hostRead("/sys/kernel/security/apparmor/profiles"),hasProfile=profiles.split("\n").some(line=>line.startsWith("workspacex-native-sessions "));
-  if(hasProfile&&!receipt.profileManaged)throw new Error("APPARMOR_PROFILE_ALREADY_EXISTS");
+  if(hasProfile&&!owner)throw new Error("APPARMOR_PROFILE_ALREADY_EXISTS");
+  if(owner&&owner.installationId!==receipt.installationId)throw new Error("APPARMOR_INSTALLATION_MISMATCH");
+  if(!owner){await newPrivateFile(ownerPath,JSON.stringify({schemaVersion:1,installationId:receipt.installationId,profile:"workspacex-native-sessions"}));await syncDir(dirname(dir));}
   // Receipt owns only these exact files. Never replace a mismatched file on replay.
   await ensureDir(join(dir,"ingress"));
   for(const [name,value] of Object.entries(contents)){

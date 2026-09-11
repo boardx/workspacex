@@ -8,6 +8,11 @@ const baseline = () => ({
 it("accepts independent identities with exactly one verified TLS setting", () => {
   expect(() => validateProductionAgentPersistence(baseline())).not.toThrow();
 });
+it("accepts sslmode=disable only when the caller passes the explicit exception mode", () => {
+  const disabled=Object.fromEntries(Object.entries(baseline()).map(([key,value])=>[key,value.replace("sslmode=verify-full","sslmode=disable")])) as ReturnType<typeof baseline>;
+  expect(()=>validateProductionAgentPersistence(disabled)).toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
+  expect(()=>validateProductionAgentPersistence(disabled,"disable")).not.toThrow();
+});
 it.each(["memory_rw", "memory_owner", "app_rw", "app_diag_ro", "memory%5fowner"])("rejects graph reuse of %s", user => {
   expect(() => validateProductionAgentPersistence({ ...baseline(), DATABASE_URI: baseline().DATABASE_URI.replace("graph_owner", user) })).toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
 });

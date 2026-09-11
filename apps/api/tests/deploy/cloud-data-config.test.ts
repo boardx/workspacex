@@ -17,6 +17,11 @@ describe("cloud data transport", () => {
   it("rejects insecure production PG", () => {
     production(); vi.stubEnv("PGSSLMODE", "disable"); expect(() => appConfig()).toThrow("PGSSLMODE");
   });
+  it("allows insecure PG only for the explicit Serverless exception", () => {
+    production(); vi.stubEnv("PGSSLMODE", "disable"); vi.stubEnv("WORKSPACEX_RDS_TLS_EXCEPTION", "aliyun-postgresql-serverless-no-tls");
+    expect(appConfig().ssl).toBeUndefined();
+    vi.stubEnv("WORKSPACEX_RDS_TLS_EXCEPTION", "other"); expect(() => appConfig()).toThrow("exception");
+  });
   it("rejects unbounded query timeout", () => {
     production(); vi.stubEnv("PGSTATEMENT_TIMEOUT_MS", "0"); expect(() => appConfig()).toThrow("timeout");
   });

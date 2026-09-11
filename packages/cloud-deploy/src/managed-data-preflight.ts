@@ -6,12 +6,18 @@ const Expected = z.object({ region: z.string().regex(/^(?:[a-z]{2}(?:-[a-z]+)+-\
   rdsInstanceId: z.string().regex(/^pgm-[a-zA-Z0-9]+$/), redisInstanceId: z.string().regex(/^r-[a-zA-Z0-9]+$/),
   backupRetentionDays: z.number().int().min(1).max(3650),
   postgresHost: z.string().min(1), redisHost: z.string().min(1),
+  rdsTlsException: z.object({ kind: z.literal("aliyun-postgresql-serverless-no-tls"),
+    allowedCidrs: z.array(z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/).refine(value => {
+      const [address, prefix] = value.split("/");
+      return address!.split(".").every(octet => Number(octet) <= 255) && Number(prefix) <= 32 && value !== "0.0.0.0/0";
+    })).min(1).max(32),
+  }).strict().optional(),
 });
 export type ManagedDataExpected = z.infer<typeof Expected>;
 export interface CloudReadOptions { timeoutMs: number; signal?: AbortSignal }
 /** Must return raw JSON stdout; stderr and provider payloads never reach the report. */
 export type AliyunReadExecutor = (args: readonly string[], options: CloudReadOptions) => Promise<string>;
-export interface ManagedDataCheck { id: "rds" | "rds-tls" | "backup" | "redis" | "redis-tls"; passed: boolean; reason: string }
+export interface ManagedDataCheck { id: "rds" | "rds-tls" | "rds-network" | "backup" | "redis" | "redis-tls"; passed: boolean; reason: string }
 export interface ManagedDataPreflight { passed: boolean; checks: ManagedDataCheck[]; scope: "managed-data-control-plane" }
 const execute = promisify(execFile);
 export const aliyunReadExecutor: AliyunReadExecutor = async (args, options) => {
@@ -37,6 +43,7 @@ function rdsReason(raw: unknown, expected: ManagedDataExpected): string {
   if (rds.Engine !== "PostgreSQL" || !/^16(?:\.\d+)*$/.test(String(rds.EngineVersion))) return "rds_engine_not_supported";
   if (rds.InstanceNetworkType !== "VPC" || rds.LockMode !== "Unlock") return "rds_private_access_not_ready";
   if (rds.Category !== "HighAvailability") return "rds_ha_not_proven";
+  if (expected.rdsTlsException && !String(rds.DBInstanceClass).toLowerCase().includes("serverless")) return "rds_tls_exception_not_serverless";
   return "verified";
 }
 function backupReason(raw: unknown, expected: ManagedDataExpected): string {
@@ -53,9 +60,30 @@ function backupReason(raw: unknown, expected: ManagedDataExpected): string {
 function rdsTlsReason(raw: unknown, expected: ManagedDataExpected): string {
   const result = record.safeParse(raw);
   if (!result.success) return "rds_tls_response_unrecognized";
+  if (expected.rdsTlsException) {
+    if (result.data.SSLEnabled !== "off") return "rds_tls_exception_state_mismatch";
+    return "serverless_tls_exception_verified";
+  }
   if (result.data.SSLEnabled !== "on") return "rds_tls_not_enabled";
   if (result.data.ConnectionString !== expected.postgresHost) return "rds_tls_endpoint_mismatch";
   return "verified";
+}
+function rdsNetworkReason(raw: unknown, expected: ManagedDataExpected): string {
+  if (!expected.rdsTlsException) return "verified";
+  const outer = record.safeParse(raw), expectedCidrs = [...new Set(expected.rdsTlsException.allowedCidrs)].sort();
+  if (!outer.success) return "rds_whitelist_response_unrecognized";
+  const container = record.safeParse(outer.data.Items);
+  if (!container.success) return "rds_whitelist_response_unrecognized";
+  const items = container.data.DBInstanceIPArray;
+  if (!Array.isArray(items) || items.length < 1) return "rds_whitelist_response_unrecognized";
+  const actual = new Set<string>();
+  for (const item of items) {
+    const parsed = record.safeParse(item);
+    if (!parsed.success || parsed.data.WhitelistNetworkType !== "VPC" || typeof parsed.data.SecurityIPList !== "string") return "rds_network_constraint_unproven";
+    for (const cidr of parsed.data.SecurityIPList.split(",").map(value => value.trim()).filter(Boolean)) actual.add(cidr);
+  }
+  if (actual.has("0.0.0.0/0") || JSON.stringify([...actual].sort()) !== JSON.stringify(expectedCidrs)) return "rds_whitelist_mismatch";
+  return "serverless_tls_exception_network_verified";
 }
 function redisReason(raw: unknown, expected: ManagedDataExpected): string {
   const redis = one(raw, "Instances");
@@ -88,6 +116,7 @@ export async function verifyManagedDataPreflight(input: ManagedDataExpected, run
   const requests = [
     { id: "rds" as const, args: ["rds", "DescribeDBInstanceAttribute", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId], inspect: rdsReason },
     { id: "rds-tls" as const, args: ["rds", "DescribeDBInstanceSSL", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId], inspect: rdsTlsReason },
+    { id: "rds-network" as const, args: ["rds", "DescribeDBInstanceIPArrayList", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId], inspect: rdsNetworkReason },
     { id: "backup" as const, args: ["rds", "DescribeBackupPolicy", "--region", expected.region, "--DBInstanceId", expected.rdsInstanceId, "--BackupPolicyMode", "DataBackupPolicy"], inspect: backupReason },
     { id: "redis" as const, args: ["r-kvstore", "DescribeInstanceAttribute", "--region", expected.region, "--InstanceId", expected.redisInstanceId], inspect: redisReason },
     { id: "redis-tls" as const, args: ["r-kvstore", "DescribeInstanceSSL", "--region", expected.region, "--InstanceId", expected.redisInstanceId], inspect: redisTlsReason },
@@ -100,7 +129,7 @@ export async function verifyManagedDataPreflight(input: ManagedDataExpected, run
       if (options.signal?.aborted) throw new Error("cancelled");
       reason = request.inspect(JSON.parse(stdout) as unknown, expected);
     } catch { reason = options.signal?.aborted ? "cloud_read_cancelled" : "cloud_read_failed"; }
-    return { id: request.id, passed: reason === "verified", reason };
+    return { id: request.id, passed: ["verified", "serverless_tls_exception_verified", "serverless_tls_exception_network_verified"].includes(reason), reason };
   }));
   return { passed: checks.every(check => check.passed), scope: "managed-data-control-plane", checks };
 }

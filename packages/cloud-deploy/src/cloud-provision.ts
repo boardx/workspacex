@@ -117,7 +117,8 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
         const db = DatabaseSecret.parse(JSON.parse(await resolveSecret(environment.databaseSecretRef, source, context)));
         const redis = RedisSecret.parse(JSON.parse(await resolveSecret(environment.redisSecretRef, source, context)));
         const result = await verifyManagedDataPreflight({ region: environment.regionId, rdsInstanceId: environment.rdsInstanceId,
-          redisInstanceId: environment.redisInstanceId, backupRetentionDays: environment.backupRetentionDays, postgresHost: db.host, redisHost: redis.host },
+          redisInstanceId: environment.redisInstanceId, backupRetentionDays: environment.backupRetentionDays, postgresHost: db.host, redisHost: redis.host,
+          ...(environment.rdsTlsException ? { rdsTlsException: environment.rdsTlsException } : {}) },
           args => run(["aliyun", ...args], context), { signal: context.signal, timeoutMs: Math.max(1, Math.floor(context.remainingMs())) });
         if (!result.passed) throw new Error("MANAGED_DATA_NOT_PREPARED");
       } else {
