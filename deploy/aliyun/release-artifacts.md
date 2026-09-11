@@ -28,7 +28,7 @@ node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/releas
 
 ## 构建入口（构建验证尚未完成）
 
-新增 `deploy/aliyun/images/api.Dockerfile` 和 `web.Dockerfile`，以仓库根目录为 context；专用 dockerignore 排除环境文件、密钥文件及本地依赖。使用 `--build-arg NODE_IMAGE=node@sha256:<审核后的digest>` 和 `--build-arg SOURCE_REVISION=<完整SHA>`。Web 另需公开参数 `NEXT_PUBLIC_API_URL`（构建期注入）；API 默认 3200，Web 3000。进程以 node 用户启动；API 执行 Node + tsx，Web 执行 next start。部署前仍必须实际构建、运行并验证，不将 Dockerfile 存在视为镜像可用。
+新增 `deploy/aliyun/images/api.Dockerfile` 和 `web.Dockerfile`，以仓库根目录为 context；专用 dockerignore 排除环境文件、密钥文件及本地依赖。使用 `--build-arg NODE_IMAGE=node@sha256:<审核后的digest>` 和 `--build-arg SOURCE_REVISION=<完整SHA>`。云 Web 镜像固定相对 `/api`，浏览器使用当前域名；服务端通过 `API_INTERNAL_URL=http://api:3200` 直连 API。无需针对不同域名重新构建。API 默认 3200，Web 3000。进程以 node 用户启动；API 执行 Node + tsx，Web 执行 next start。部署前仍必须实际构建、运行并验证，不将 Dockerfile 存在视为镜像可用。
 
 Agent 使用官方 Agent Server 构建入口，与旧开发 Dockerfile 隔离。先从现有图配置生成 release config（目标文件放在 deep-agent-service 目录，保持相对图路径），再使用锁定依赖中的 CLI：
 
@@ -57,3 +57,5 @@ API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 �
 `verifyRunningRelease(manifest, profile, containerIds, executor)` 用启动后获得的容器 ID 查询运行体，核对实际 Image ID、启动使用的 digest、Compose service label，以及 running/restarting/OOM 状态；包含两个沙箱容器。检查只请求不含环境变量的 inspect 字段。通过仍返回 `businessVerified:false`，业务探针独立执行。
 
 运行体门控还可执行 `node --import tsx packages/cloud-deploy/scripts/verify-running-release.ts docker.io/library/node@sha256:<已缓存digest>`：启动五个禁网、资源受限的 Node fixture，验证实际容器身份，主动停止其中一个确保门控失败，最后清理全部 fixture。这证明门控的 Docker 接口与反证有效，不能替代真实应用健康或业务验收。
+
+云 Web 同源前提：TLS 反代必须将 `/api` 转发到 API 的对应根路径，并支持 WebSocket Upgrade；Web 自身 `/api/copilotkit` 如需由 Next route handler 消费，应设置更具体的路由，优先于通用 API 前缀。`web.env` 设置 `API_INTERNAL_URL=http://api:3200`，不设置旧的 `APP_API_PORT` 回环参数；`NEXT_PUBLIC_API_PATH_PREFIX` 保持空值，避免重复 `/api`。浏览器 HTTP/WS、SSR/Copilot 与旧绝对 API 地址分别有回归测试。

@@ -27,7 +27,18 @@
 const DEFAULT_API_URL = "http://localhost:3200";
 
 export function apiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
+  const configured = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
+  if (!configured.startsWith("/")) return configured;
+  if (configured.startsWith("//")) throw new Error("API path must be same-origin");
+  // Cloud images use one fixed /api path across domains. Server-side requests use
+  // the private service address; they must not call the Web container's loopback.
+  if (typeof window !== "undefined") return new URL(configured, window.location.origin).toString().replace(/\/$/, "");
+  const internal = process.env.API_INTERNAL_URL;
+  if (!internal) throw new Error("API_INTERNAL_URL is required for server-side API requests");
+  let url: URL;
+  try { url = new URL(internal); } catch { throw new Error("Invalid API_INTERNAL_URL"); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error("Invalid API_INTERNAL_URL");
+  return internal.replace(/\/$/, "");
 }
 
 /**
@@ -48,8 +59,10 @@ export function apiBaseUrl(): string {
  * 只有「web 与 api 不同源」的部署（本仓的全栈门控正是）才需要显式配。
  */
 export function apiWebSocketUrl(path: string): string {
-  const origin = process.env.NEXT_PUBLIC_API_WS_URL ?? apiBaseUrl();
-  const url = new URL(path.startsWith("/") ? path : `/${path}`, origin);
+  const explicit = process.env.NEXT_PUBLIC_API_WS_URL;
+  const relativeCloudApi = process.env.NEXT_PUBLIC_API_URL?.startsWith("/") && !explicit;
+  const origin = explicit ?? apiBaseUrl();
+  const url = relativeCloudApi ? new URL(apiUrl(path)) : new URL(path.startsWith("/") ? path : `/${path}`, origin);
   if (url.protocol === "https:") url.protocol = "wss:";
   else if (url.protocol === "http:") url.protocol = "ws:";
   return url.toString();
