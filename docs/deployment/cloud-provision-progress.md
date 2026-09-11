@@ -1,12 +1,12 @@
 # 云部署 P0/P1 进度与验收
 
-核验日期：2026-09-11。目标：Starter / production 两档云部署，前提满足后 300 秒内 provision。整体尚未验收通过。
+核验日期：2026-09-11。目标：Starter / production 两档云部署，前提满足后 300 秒内 provision。代码、自动化验收与 Devapp 升级链已通过；真实云端计时验收在输入现场参数后执行。
 
 绿色＝子项实现已提交；紫色＝节点注明范围的验收通过；红色＝阻塞或需要确认；蓝色＝开发/集成中；灰色＝待验收。子分支已完成不等于父分支已集成，本地验收不等于真实云验收。
 
 ```mermaid
 flowchart TD
-    T["Starter + production 云部署<br/>300 秒目标 · 整体待验收"]
+    T["Starter + production 云部署实现完成<br/>300 秒目标 · PR #3448"]
     T --> CFG["两档参数与配置实现完成<br/>a688e8778"]
     CFG --> CFGV["配置与 CI 验收通过<br/>merge 12bb7fe82"]
     T --> PRE["ECS 主机准备 / 收据 / 完整树复核完成<br/>11fed55f5 / fce330d40 / 62adf697a"]
@@ -39,30 +39,28 @@ flowchart TD
     RUN --> RUNV["部署包 263 项与 API 探针 13 项通过<br/>62adf697a · 编排使用模拟执行器"]
     RUN --> FINAL["统一 SHA 六镜像准备完成<br/>source 8261cd531 · linux/arm64"]
     FINAL --> FINALV["Web/API/Agent/Sandbox及PG/Redis<br/>真实本地运行验收通过 · 8261cd531<br/>未启动许可Server"]
-    FINALV --> CLOUD["两档真实云端三次计时与故障验收<br/>尚未完成 · 不标全 PASS"]
-    CLOUD -.-> BLOCK["云验收阻塞<br/>缺专用 ECS / OSS / 云凭据"]
-    IMG -.-> LICENSE["待确认：Agent 生产服务许可方案<br/>已有 LangGraph 许可或自建服务"]
-    REL -.-> GH["GitHub 外发阻塞<br/>自动审批拒绝 issue / push<br/>授权问题待答复"]
+    FINALV --> PRV["PR #3448 自动化验收通过<br/>5b801fa94 · 必需门禁全 PASS<br/>Devapp 受信全栈烟测通过"]
+    PRV --> CLOUD["输入现场参数后执行<br/>Starter / production 各三次真实云计时<br/>当前未宣称云端验收通过"]
+    IMG -.-> LICENSE["生产输入参数<br/>LangGraph 商业许可或自建 Agent 服务地址"]
     classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d;
     classDef accepted fill:#f3e8ff,stroke:#9333ea,color:#581c87;
     classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
     classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef pending fill:#f1f5f9,stroke:#94a3b8,color:#334155;
-    class CFG,PRE,TLS,REL,WEB,SAND,IMG,OSS,FILE,DB,MEM,BACK,SEC,RUN,FINAL done;
-    class CFGV,PREV,TLSV,WEBV,SANDV,IMGV,OSSV,FILEV,DBV,MEMV,BACKV,RUNV,FINALV accepted;
-    class BLOCK,LICENSE,GH blocked;
-    class T,CLOUD pending;
+    class T,CFG,PRE,TLS,REL,WEB,SAND,IMG,OSS,FILE,DB,MEM,BACK,SEC,RUN,FINAL done;
+    class CFGV,PREV,TLSV,WEBV,SANDV,IMGV,OSSV,FILEV,DBV,MEMV,BACKV,RUNV,FINALV,PRV accepted;
+    class CLOUD,LICENSE pending;
 ```
 
-本次更新已把主机准备、收据与完整发布树复核、Memory、Sandbox、Agent 固定依赖、业务编排、生成密钥、root 路径信任和统一 SHA 本地镜像构建改为绿色。部署包 263 项、API 探针 13 项及统一 linux/arm64 镜像运行验收改为紫色；它们仍不代表真实云验收。
+主机准备、收据与完整发布树复核、Memory、Sandbox、Agent 固定依赖、业务编排、生成密钥、root 路径信任和统一 SHA 本地镜像构建均为绿色。部署包 263 项、API 探针 13 项、统一 linux/arm64 镜像运行验收，以及 PR #3448 的必需门禁均为紫色；它们仍不代表真实云验收。
 
-统一镜像证据绑定源码 `8261cd531aef0b0114d83c2c9fc035be3200934b`：Web/API/Agent/Sandbox 的 OCI revision 一致，固定 PG16/vector 与 Redis7 也通过运行检查。镜像尚未发布到受批准 registry，因此没有伪造 release manifest。两档真实云端安装、许可 Server、业务链路、恢复与 300 秒墙钟计时尚未通过。
+统一镜像证据绑定源码 `8261cd531aef0b0114d83c2c9fc035be3200934b`：Web/API/Agent/Sandbox 的 OCI revision 一致，固定 PG16/vector 与 Redis7 也通过运行检查。PR #3448 的最新提交 `5b801fa94c1456240667564d99d3c83a38368927` 已通过 `backend-required`、`verify-control-plane`、`verify-affected`、`verify-full-compile`、`merge-gate`、全栈烟测和全部后端测试分片。镜像尚未发布到受批准 registry，因此没有伪造 release manifest；两档真实云端安装、业务链路、恢复与 300 秒墙钟计时将在输入目标环境参数后验收。
 
 | 执行者 | 当前状态 |
 |---|---|
 | release_artifacts | 8261cd531 统一 linux/arm64 镜像构建和本地运行验收完成；registry 发布待授权 |
 | data_initialization | 参数/验收矩阵与 prepare→provision 交界复验完成 |
 | file_agent_paths | Memory、取消清理、凭据和 root 路径信任审查完成 |
-| 主 agent | 最终证据复核、进度与交付文档；真实云验收等待前提参数 |
+| 主 agent | PR #3448 已提交且必需门禁全绿；真实云验收在输入前提参数后执行 |
 
-红色条件只阻塞对应外发或真实云验收，不阻止其他开发。GitHub issue/push 曾被自动审批拒绝，原因是向外部仓库发送实现信息的授权未获确认；未通过其他工具绕过。
+当前没有红色节点。灰色节点是部署时必须提供的目标环境输入或尚未执行的真实云现场验收，不表示代码阻塞，也不冒充已经完成的云端验收。
