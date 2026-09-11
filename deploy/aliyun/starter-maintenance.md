@@ -31,7 +31,8 @@ node --import tsx packages/cloud-deploy/src/starter-maintenance-cli.ts restore \
 ```
 
 The final positional database parameter is optional for `backup` and accepts only
-`workspacex` or `workspacex_agent`. `restore` requires both the new database name and
+`workspacex`, `workspacex_agent`, or `workspacex_memory`. The Memory database uses
+the same backup command with `workspacex_memory` as the final argument. `restore` requires both the new database name and
 backup UUID. Restore rejects the live application/Agent databases, PostgreSQL system
 databases, and any database that already exists. It creates no cutover or connection
 configuration changes: promotion of the recovered database is a separate explicit

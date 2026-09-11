@@ -12,8 +12,8 @@ import { backupStarterDatabase, restoreStarterDatabase, StarterBackupManifestSch
 
 const directory=z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/);
 const optionsSchema=z.discriminatedUnion("operation",[
- z.object({operation:z.literal("backup"),runtimeDirectory:directory,backupDirectory:directory,database:z.enum(["workspacex","workspacex_agent"]).default("workspacex")}).strict(),
- z.object({operation:z.literal("restore"),runtimeDirectory:directory,backupDirectory:directory,backupId:z.string().uuid(),database:z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).refine(v=>!["postgres","template0","template1","workspacex","workspacex_agent"].includes(v))}).strict(),
+ z.object({operation:z.literal("backup"),runtimeDirectory:directory,backupDirectory:directory,database:z.enum(["workspacex","workspacex_agent","workspacex_memory"]).default("workspacex")}).strict(),
+ z.object({operation:z.literal("restore"),runtimeDirectory:directory,backupDirectory:directory,backupId:z.string().uuid(),database:z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).refine(v=>!["postgres","template0","template1","workspacex","workspacex_agent","workspacex_memory"].includes(v))}).strict(),
 ]);
 export type StarterMaintenanceOptions=z.input<typeof optionsSchema>;
 type Context={signal:AbortSignal;remainingMs:()=>number};
