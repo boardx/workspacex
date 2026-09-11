@@ -47,3 +47,9 @@ it("refuses unsafe names and directories", async () => {
   await chmod(root, 0o755);
   await expect(ensureDeploymentSecret(root, "key")).rejects.toThrow("UNSAFE_SECRET_DIRECTORY");
 });
+it("refuses already-cancelled or expired operations before creating state", async () => {
+  const root=await dir(); const controller=new AbortController(); controller.abort();
+  await expect(ensureDeploymentSecret(root,"key",{signal:controller.signal})).rejects.toThrow("SECRET_OPERATION_CANCELLED");
+  await expect(resolveSecret("env:KEY",{KEY:"value"},{remainingMs:()=>0})).rejects.toThrow("SECRET_OPERATION_CANCELLED");
+  expect(await readdir(root)).toEqual([]);
+});
