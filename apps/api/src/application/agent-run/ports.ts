@@ -473,7 +473,17 @@ export interface AgentRunStore {
    */
   markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    pending: {
+      readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null;
+      readonly toolCallId?: string; readonly toolArgsDigest?: string;
+      /**
+       * issue #3440 —— 若非空，`decidePermissionRequest` 写"本次 run 内都允许"/"以后
+       * 都允许"授权时用这个地址而不是裸 `toolName`（`resolveDocumentGenerationGrantAddress`
+       * 收紧出的 `<toolName>:<skillStableName>`）。纯内部寻址字段，绝不投影给 UI——
+       * `pendingApproval.toolName` 仍然是原始工具名，展示层不受影响。
+       */
+      readonly grantScope?: string | null;
+    },
   ): Promise<void>;
 
   /**

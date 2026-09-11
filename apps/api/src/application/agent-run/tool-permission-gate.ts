@@ -42,6 +42,9 @@ import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
  */
 import type { OrgId } from "../../domain/org-id";
 import { classifyToolCallRisk, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
+import {
+  DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, resolveDocumentGenerationGrantAddress,
+} from "../../domain/agent-run/document-generation-skills";
 import type { ExecuteAgentRunDeps } from "./execute-run";
 import { record } from "./record-run-step";
 import { publishStatusChange } from "./execute-run-events";
@@ -119,8 +122,27 @@ export async function handleInterruptedToolCall(
     { toolName: interrupted.toolName, skillStableName: interrupted.skillStableName },
     skillRisks,
   );
+
+  /*
+   * issue #3440 —— 四个锁定文档 skill 的 (skill_name, tool_name) 授权寻址。
+   *
+   * `grantAddress` 非空 ⇒ 这次中断可归因到四个锁定 skill 之一（`call_skill` 按
+   * `interrupted.skillStableName` 直接判；原生 `execute` 按本次 run 挂载的
+   * `skillRisks` 保守归因，见 `document-generation-skills.ts` 头注的边界说明）。
+   * 归因成立时，`authorized` 多两条路径：
+   *   1. composer 开关（`DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS` 这条组织级
+   *      standing grant）打开 —— 全程零确认；
+   *   2. 用户此前已经对**同一个 skill**批过"本次 run 内都允许"/"以后都允许"
+   *      （`hasGrant(..., grantAddress)`，地址已经按 skill 收紧，不会跨 skill 泄漏）。
+   * 归因不成立（`grantAddress === null`）⇒ 一律退回裸 `interrupted.toolName` 寻址，
+   * 与本 feature之前逐字相同——这正是"清单之外仍要问"的安全边界，没有第二条判断。
+   */
+  const grantAddress = resolveDocumentGenerationGrantAddress(interrupted.toolName, interrupted.skillStableName, skillRisks);
+  const documentGenerationAutoApproved = grantAddress !== null
+    && (await deps.toolPermissionGrants?.hasGrant(orgId, runId, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS) ?? false);
   const authorized = !isPlanConfirmation && (risk !== "L2"
-    || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, interrupted.toolName) ?? false));
+    || documentGenerationAutoApproved
+    || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, grantAddress ?? interrupted.toolName) ?? false));
 
   if (authorized) {
     // R4 A2：已授权同类操作不再触发确认，直接执行——但完整信息仍然进账本（I-3），
@@ -161,7 +183,9 @@ export async function handleInterruptedToolCall(
     // 留空，与 `outputDigest: null` 同一个事实（无输出可摘）。
     inputFullContent: ledger.system,
   });
-  await deps.runs.markAwaitingToolPermission(orgId, runId, interrupted);
+  // issue #3440：`grantScope` 是纯内部寻址字段，不影响 `interrupted` 本身投影给 UI 的
+  // `toolName`/展示——只有用户随后选"本次 run 内都允许"/"以后都允许"时才会被用到。
+  await deps.runs.markAwaitingToolPermission(orgId, runId, { ...interrupted, grantScope: grantAddress });
   publishStatusChange(deps, orgId, runId, "awaiting_tool_permission");
   return { autoApproved: false };
 }
