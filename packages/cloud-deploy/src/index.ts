@@ -10,6 +10,14 @@ export { resolveSecret, ensureDeploymentSecret } from "./secrets";
 export { productionDataEnvironment, DatabaseSecret, MigrationSecret, RedisSecret } from "./data-secrets";
 export { validateReleaseManifest, verifyPrewarmedRelease, prewarmRelease, requiredReleaseImages } from "./release";
 export { createReleaseManifest } from "./release-manifest";
+export {
+  acrProductionReleaseManifestSchema,
+  asCanonicalReleaseManifest,
+  createAcrProductionReleaseManifest,
+  prepareAcrProductionRelease,
+  validateAcrProductionReleaseManifest,
+} from "./acr-production-release";
+export type { AcrProductionReleaseManifest } from "./acr-production-release";
 export { createCloudCompose } from "./compose";
 export { verifyRunningRelease } from "./running-release";
 export { runtimeEnvironment, serializeRuntimeEnvironment } from "./runtime-environment";

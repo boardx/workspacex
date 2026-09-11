@@ -4,17 +4,21 @@ const expected = { region: "cn-hangzhou", rdsInstanceId: "pgm-test", redisInstan
 function fixtures() {
   return {
     rds: { Items: { DBInstanceAttribute: [{ DBInstanceId: "pgm-test", RegionId: "cn-hangzhou", ConnectionString: "pg.internal", DBInstanceStatus: "Running", DBInstanceType: "Primary", Engine: "PostgreSQL", EngineVersion: "16.0", Category: "HighAvailability", InstanceNetworkType: "VPC", LockMode: "Unlock" }] } },
+    rdsTls: { SSLEnabled: "on", ConnectionString: "pg.internal" },
     backup: { AdvancedBackupPolicyEnabled: false, BackupRetentionPeriod: 7, PreferredBackupPeriod: "Monday,Wednesday,Friday" },
-    redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Open", NetworkType: "VPC" }] } },
+    redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Close", NetworkType: "VPC" }] } },
+    redisTls: { SSLEnabled: "Enable" },
   };
 }
-function executor(data = fixtures()) { return vi.fn(async (args: readonly string[]) => JSON.stringify(args[1] === "DescribeBackupPolicy" ? data.backup : args[0] === "rds" ? data.rds : data.redis)); }
+function executor(data = fixtures()) { return vi.fn(async (args: readonly string[]) => JSON.stringify(
+  args[1] === "DescribeBackupPolicy" ? data.backup : args[1] === "DescribeDBInstanceSSL" ? data.rdsTls :
+    args[1] === "DescribeInstanceSSL" ? data.redisTls : args[0] === "rds" ? data.rds : data.redis)); }
 describe("managed data control-plane preflight", () => {
   it("uses only documented read-only operations with bounded argv execution", async () => {
     const run = executor(); const result = await verifyManagedDataPreflight(expected,run,{ timeoutMs: 1234 });
     expect(result.passed).toBe(true); expect(result.scope).toBe("managed-data-control-plane");
     expect(run).toHaveBeenCalledWith(["rds","DescribeDBInstanceAttribute","--region","cn-hangzhou","--DBInstanceId","pgm-test"], {timeoutMs:1234});
-    expect(run.mock.calls.map(([args]) => args[1]).sort()).toEqual(["DescribeBackupPolicy","DescribeDBInstanceAttribute","DescribeInstanceAttribute"]);
+    expect(run.mock.calls.map(([args]) => args[1]).sort()).toEqual(["DescribeBackupPolicy","DescribeDBInstanceAttribute","DescribeDBInstanceSSL","DescribeInstanceAttribute","DescribeInstanceSSL"]);
     expect(JSON.stringify(result)).not.toContain("pg.internal");
   });
   it.each([
@@ -31,24 +35,35 @@ describe("managed data control-plane preflight", () => {
     ["ArchitectureType","cluster","redis_ha_not_proven"], ["ReplicationMode","unknown","redis_ha_not_proven"],
     ["InstanceStatus","Creating","redis_not_ready"], ["RegionId","cn-shanghai","redis_resource_mismatch"],
     ["InstanceId","r-other","redis_resource_mismatch"], ["ConnectionDomain","other","redis_endpoint_mismatch"],
-    ["VpcAuthMode","Close","redis_private_auth_not_proven"], ["EngineVersion","6.0","redis_engine_not_supported"],
+    ["VpcAuthMode","Open","redis_private_auth_not_proven"], ["EngineVersion","6.0","redis_engine_not_supported"],
   ])("rejects unproven Redis %s=%s", async (key,value,reason) => {
     const data = fixtures(); Object.assign(data.redis.Instances.DBInstanceAttribute[0]!, {[key]:value,AvailabilityValue:"100%"});
-    const result = await verifyManagedDataPreflight(expected,executor(data)); expect(result.passed).toBe(false); expect(result.checks[2]?.reason).toBe(reason);
+    const result = await verifyManagedDataPreflight(expected,executor(data)); expect(result.passed).toBe(false); expect(result.checks.find(check => check.id === "redis")?.reason).toBe(reason);
+  });
+  it.each([
+    ["SSLEnabled", "off", "rds_tls_not_enabled"],
+    ["ConnectionString", "other.internal", "rds_tls_endpoint_mismatch"],
+  ])("rejects RDS TLS %s=%s", async (key,value,reason) => {
+    const data=fixtures(); Object.assign(data.rdsTls,{[key]:value});
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "rds-tls")?.reason).toBe(reason);
+  });
+  it("rejects disabled Redis TLS", async () => {
+    const data=fixtures(); data.redisTls.SSLEnabled = "Disable";
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "redis-tls")?.reason).toBe("redis_tls_not_enabled");
   });
   it("rejects insufficient backup retention", async () => {
     const data=fixtures(); data.backup.BackupRetentionPeriod=6;
-    expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("backup_retention_insufficient");
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "backup")?.reason).toBe("backup_retention_insufficient");
   });
   it("rejects absent schedule and advanced-policy ambiguity", async () => {
     const data=fixtures(); data.backup.PreferredBackupPeriod="";
-    expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("backup_schedule_unproven");
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "backup")?.reason).toBe("backup_schedule_unproven");
     Object.assign(data.backup,{PreferredBackupPeriod:"Monday",AdvancedBackupPolicyEnabled:true});
-    expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("advanced_backup_policy_not_supported");
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "backup")?.reason).toBe("advanced_backup_policy_not_supported");
   });
   it.each(["false", "true", 0, null, undefined])("rejects unknown advanced backup flag %s", async flag => {
     const data=fixtures(); Object.assign(data.backup, {AdvancedBackupPolicyEnabled:flag});
-    expect((await verifyManagedDataPreflight(expected,executor(data))).checks[1]?.reason).toBe("backup_policy_mode_unproven");
+    expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "backup")?.reason).toBe("backup_policy_mode_unproven");
   });
   it("never leaks CLI stderr, credentials or raw malformed payloads", async () => {
     const result = await verifyManagedDataPreflight(expected,async () => {throw new Error("AccessKeySecret=PRIVATE");});
