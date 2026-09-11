@@ -29,3 +29,10 @@ export function pinAgentDockerfile(generated: string, baseImage: string): string
   }
   return lines.map(line => line === fromLines[0] ? `FROM ${baseImage}` : line).join("\n");
 }
+
+/** Freeze runtime dependencies under the official base constraints before installing source. */
+export function lockAgentDockerfile(generated: string): string {
+  const install = "uv pip install --system --no-cache-dir -c /api/constraints.txt -e .";
+  if (generated.split(install).length !== 2) throw new Error("UNEXPECTED_AGENT_DEPENDENCY_INSTALL");
+  return generated.replace(install, "uv pip install --system --no-cache-dir --require-hashes -r requirements.release.txt && uv pip install --system --no-cache-dir --no-deps -e .");
+}

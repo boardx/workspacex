@@ -33,12 +33,13 @@ node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/releas
 Agent 使用官方 Agent Server 构建入口，与旧开发 Dockerfile 隔离。先从现有图配置生成 release config（目标文件放在 deep-agent-service 目录，保持相对图路径），再使用锁定依赖中的 CLI：
 
 ```sh
+node --import tsx packages/cloud-deploy/src/agent-dependencies-cli.ts langchain/langgraph-server@sha256:<审核后的digest> apps/deep-agent-service/pyproject.toml apps/deep-agent-service/requirements.release.txt
 node --import tsx packages/cloud-deploy/src/agent-release-cli.ts apps/deep-agent-service/langgraph.json apps/deep-agent-service/langgraph.release.json langchain/langgraph-server@sha256:<审核后的digest> <完整SHA>
 (cd apps/deep-agent-service && uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.generated)
 node --import tsx packages/cloud-deploy/src/agent-dockerfile-cli.ts apps/deep-agent-service/Dockerfile.generated apps/deep-agent-service/Dockerfile.release langchain/langgraph-server@sha256:<审核后的digest>
 ```
 
-生成器保留图和 HTTP 路由、移除开发 `.env` 加载并写入 revision label。锁定的官方 CLI 0.4.31 实测会把 `:3.11` 追加到 digest；第二步只接受预期单个 FROM，去除该错误后缀并固定实际基础镜像 digest，其他基镜像或多阶段漂移直接失败。专用 Dockerfile.release.dockerignore 排除 `.env*`、私钥和虚拟环境。生成输出拒绝覆盖已有文件。生成的 Dockerfile 必须再次审查其依赖锁定和镜像上下文，然后构建；当前尚无该镜像构建或启动证据。
+生成器保留图和 HTTP 路由、移除开发 `.env` 加载并写入 revision label。锁定的官方 CLI 0.4.31 实测会把 `:3.11` 追加到 digest；第二步只接受预期单个 FROM，去除该错误后缀并固定实际基础镜像 digest，其他基镜像或多阶段漂移直接失败。专用 Dockerfile.release.dockerignore 排除 `.env*`、私钥和虚拟环境。生成输出拒绝覆盖已有文件。生产依赖 CLI 在固定基镜像内依据官方 constraints 和镜像内 Agent Server 精确版本生成带 hash 的 runtime 锁；Dockerfile 强制 --require-hashes 安装，再以 --no-deps 安装项目源码。保留生成的 requirements.release.txt 随制品归档；Python 构建后端仍须另按项目 build-system 约束审查。初次官方镜像已完成本地构建，许可启动和最终统一源码版本验收仍单列。
 
 生产 Agent Server 还需通过环境文件注入 `DATABASE_URI`（专用数据库）、`REDIS_URI`（专用 Redis DB）、`LANGGRAPH_CLOUD_LICENSE_KEY`，并按供应商要求配置 LangSmith 凭据/出网。不得将许可值写入 manifest、命令行或仓库。`validateAgentServerEnvironment` 仅校验这些参数存在与协议，不宣称许可证有效。
 

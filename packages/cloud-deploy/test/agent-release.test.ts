@@ -20,3 +20,12 @@ it("pins the actual CLI Python suffix and rejects unexpected bases or multi-stag
   expect(() => pinAgentDockerfile("FROM evil/image:latest\n", base)).toThrow("UNEXPECTED_AGENT_DOCKERFILE_BASE");
   expect(() => pinAgentDockerfile(`FROM ${base}\nFROM ${base}\n`, base)).toThrow("UNEXPECTED_AGENT_DOCKERFILE_BASE");
 });
+it("requires the generated dependency installation and consumes a hash lock", async () => {
+  const { lockAgentDockerfile } = await import("../src/agent-release.js");
+  const command = "uv pip install --system --no-cache-dir -c /api/constraints.txt -e .";
+  const result = lockAgentDockerfile(`RUN ${command}`);
+  expect(result).toContain("--require-hashes -r requirements.release.txt");
+  expect(result).toContain("--no-deps -e .");
+  expect(() => lockAgentDockerfile("RUN arbitrary-installer")).toThrow("UNEXPECTED_AGENT_DEPENDENCY_INSTALL");
+  expect(() => lockAgentDockerfile(`${command}\n${command}`)).toThrow("UNEXPECTED_AGENT_DEPENDENCY_INSTALL");
+});
