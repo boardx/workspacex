@@ -93,6 +93,7 @@ import { Button } from "@/components/ui/button";
 // 文件头的完整取证）。同 `CopilotKitV2AgentInterrupts` 的既有先例——独立文件、`return
 // null`、直接挂进 JSX，不在这个已经很大的文件里再叠一段 `useHumanInTheLoop` 内联注册。
 import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permission";
+import { DocumentGenerationAutoApproveToggle } from "@/components/chat/document-generation-auto-approve-toggle";
 
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
@@ -2230,6 +2231,9 @@ export function CopilotKitV2PanelBody({
                     <PenLine aria-hidden className="h-4 w-4" />
                   </ComposerIconButton>
                 </span>
+                {/* issue #3440 —— composer 默认开关：打开后 PDF/Word/Excel/PPT 生成全程
+                    零确认（清单之外的调用不受这个开关影响，见组件头注）。*/}
+                <DocumentGenerationAutoApproveToggle disabled={sessionToken === null} />
                 {/* issue #2770 —— 此处曾有 ✦「任务模式」与 ☑「每次都先计划」两颗开关，
                     见上方 state 区的头注：要不要先计划现在由内核自动判，不再要用户选。 */}
                 {/* 2026-09-03（对照设计参照图收拢）—— 「能力：自动匹配」从卡片上方

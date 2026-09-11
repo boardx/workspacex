@@ -196,6 +196,28 @@ export const KERNEL_HITL_SKILLS_CONFIGURABLE_KEY = "hitl_skill_names";
 export const KernelHitlSkillNames = z.array(z.string().min(1));
 export type KernelHitlSkillNames = z.infer<typeof KernelHitlSkillNames>;
 
+/* ── 三之三、composer 开关「自动批准文档生成所需权限」（#3440）──────────────── */
+
+/**
+ * issue #3440 —— composer 里"自动批准文档生成所需权限"开关的读/写。默认关闭，打开
+ * 是用户的唯一一次显式同意，此后 PDF/PPTX/DOCX/XLSX 四类文档生成全程零确认
+ * （`apps/api` 的 `document-generation-skills.ts` 头注：范围锁死在这四个 skill
+ * 各自声明的工具清单上，不是"以后都允许"那种全宽口径开关——复用同一套 standing
+ * grant 存储（`tool_permission_grants` scope='forever'，地址是专用常量
+ * `document_generation:auto_approve`），但不走 #3068 那条组织 admin 专用路由：
+ * 这是一个刻意收窄、预先审过范围的单一能力开关，任何组织成员都能开/关，不是
+ * 通用的工具授权管理面。
+ */
+export const DocumentGenerationAutoApproveStatus = z.object({
+  enabled: z.boolean(),
+}).strict();
+export type DocumentGenerationAutoApproveStatus = z.infer<typeof DocumentGenerationAutoApproveStatus>;
+
+export const SetDocumentGenerationAutoApproveInput = z.object({
+  enabled: z.boolean(),
+}).strict();
+export type SetDocumentGenerationAutoApproveInput = z.infer<typeof SetDocumentGenerationAutoApproveInput>;
+
 /* ── 四、操作 ──────────────────────────────────────────────────────────── */
 
 export const operations = {
@@ -266,5 +288,20 @@ export const operations = {
     in: RevokeStandingToolGrantInput,
     out: z.object({ grantId: z.string() }).strict(),
     err: ["NOT_ORG_ADMIN", "GRANT_NOT_FOUND"] as const,
+  },
+  /** issue #3440 —— composer 开关的读/写，非 admin 专用（见上方类型头注）。 */
+  getDocumentGenerationAutoApprove: {
+    method: "GET",
+    path: "/document-generation-auto-approve",
+    in: z.object({}).strict(),
+    out: DocumentGenerationAutoApproveStatus,
+    err: [] as const,
+  },
+  setDocumentGenerationAutoApprove: {
+    method: "PUT",
+    path: "/document-generation-auto-approve",
+    in: SetDocumentGenerationAutoApproveInput,
+    out: DocumentGenerationAutoApproveStatus,
+    err: [] as const,
   },
 };

@@ -367,6 +367,27 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /**
+   * issue #3440（重新设计）—— 见 `AgentRunStore.readToolCallAttributionSteps` 的头注。
+   * 只读 `tool_name`/`tool_args_summary` 两列，不碰 `input_full_content_enc`/
+   * `output_full_content_enc`（不需要解密，也不该在这条安全判定路径上依赖 cipher 是否
+   * 配置——归因失败要 fail closed 到"每次都问"，不该因为 cipher 缺失而连带失败）。
+   */
+  async readToolCallAttributionSteps(
+    orgId: OrgId, runId: string,
+  ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ tool_name: string | null; tool_args_summary: string | null }>(
+        `SELECT tool_name, tool_args_summary
+           FROM agent_run_steps
+          WHERE org_id=$1 AND run_id=$2 AND kind='tool_call' AND tool_name IS NOT NULL
+          ORDER BY seq`,
+        [orgId, runId],
+      );
+      return rows.map((row) => ({ toolName: row.tool_name as string, toolArgsSummary: row.tool_args_summary }));
+    });
+  }
+
   async requestCancellation(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null> {
     return this.db.withTenant(orgId, async (s) => {
       const { rows } = await s.query<{ status: string }>("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
@@ -554,7 +575,10 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+    pending: {
+      readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null;
+      readonly toolCallId?: string; readonly toolArgsDigest?: string; readonly grantScope?: string | null;
+    },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // 只从 running 起跳（触发器同样拦，但这里显式写条件让意图可读；
@@ -562,9 +586,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       await s.query(
         `UPDATE agent_runs
             SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4, pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
-                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL, pending_decision=NULL
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL, pending_decision=NULL, pending_grant_scope=$8
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null, pending.toolCallId ?? null, pending.toolArgsDigest ?? null],
+        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null, pending.toolCallId ?? null, pending.toolArgsDigest ?? null, pending.grantScope ?? null],
       );
     });
   }
@@ -608,7 +632,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       // 在那些分支清掉等于把恢复所需的权威信息删了。
       // `RETURNING pending_tool_name` 因此在 reject 分支回 NULL——下面只有
       // run/forever 授权分支用它，reject 永远走不到那里。
-      const updated = await s.query<{ pending_tool_name: string }>(
+      const updated = await s.query<{ pending_tool_name: string; pending_grant_scope: string | null }>(
         `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
            pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
            -- issue #3302：裁决历史落在拥有它的地方。这两列**只被这一条语句写**，
@@ -640,19 +664,26 @@ export class PgAgentRunRepository implements AgentRunStore {
            pending_permission_request_id=CASE WHEN $4='reject' THEN NULL ELSE pending_permission_request_id END,
            pending_interrupt=CASE WHEN $4='reject' THEN NULL ELSE pending_interrupt END,
            pending_tool_call_id=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_call_id END,
-           pending_tool_args_digest=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_args_digest END
+           pending_tool_args_digest=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_args_digest END,
+           -- issue #3440：寻址字段随 pending_* 同一批清（reject 分支），非 reject 分支同样
+           -- 原样保留——与 pending_tool_name 等其余"当下待决"列同一条纪律，理由同上。
+           pending_grant_scope=CASE WHEN $4='reject' THEN NULL ELSE pending_grant_scope END
          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
-           AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name`,
+           AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name, pending_grant_scope`,
         [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision],
       );
       const row = updated.rows[0];
       if (!row) return false;
       if (decision === "run" || decision === "forever") {
+        // issue #3440 —— (skill_name, tool_name) 授权寻址：`pending_grant_scope` 非空时
+        // （四个锁定文档 skill 的可归因调用）用收紧后的地址写授权，不是裸 `pending_tool_name`
+        // ——否则批准 pdf-create 会连带放行同一 run 里其它 L2 skill（#3221 的同一种漏洞）。
+        // 其余工具/skill（`pending_grant_scope` 为 NULL）行为与本 feature 之前逐字相同。
         await s.query(
           `INSERT INTO tool_permission_grants
              (id,org_id,scope,run_id,tool_name,granted_by_user_id,granted_at)
            VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,now()) ON CONFLICT DO NOTHING`,
-          [orgId, decision, decision === "run" ? runId : null, row.pending_tool_name,
+          [orgId, decision, decision === "run" ? runId : null, row.pending_grant_scope ?? row.pending_tool_name,
             decision === "forever" ? userId : null],
         );
       }
