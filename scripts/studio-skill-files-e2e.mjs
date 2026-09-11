@@ -9,7 +9,7 @@ const suppliedCommand=process.argv.slice(2);
 const browserCommand=['pnpm','--filter','web','exec','playwright','test','--config','playwright.skill-files.config.ts'];
 if(suppliedCommand.length && JSON.stringify(suppliedCommand)!==JSON.stringify(['--',...browserCommand])) throw new Error('Only the fixed skill-files browser command is supported');
 const root=resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const { withStudioIsolation, assertStudioReport } = await import('./studio-skill-files-guards.ts');
+const { withStudioIsolation, assertStudioReport } = await import('./studio-skill-files-guards.mts');
 await withStudioIsolation(async () => {
 const evidence=await mkdtemp(join(tmpdir(),`studio-browser-${process.env.COMPOSE_PROJECT_NAME}-`));
 const distName=`.next-studio-${process.env.COMPOSE_PROJECT_NAME}-${randomBytes(4).toString('hex')}`;
