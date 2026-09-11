@@ -1,0 +1,21 @@
+# Build from repository root. Public API origin is fixed in the release build.
+ARG NODE_IMAGE
+FROM ${NODE_IMAGE}
+ARG SOURCE_REVISION
+ARG NEXT_PUBLIC_API_URL
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+WORKDIR /opt/workspacex
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
+COPY packages ./packages
+COPY apps/web ./apps/web
+RUN test "${#SOURCE_REVISION}" = 40 \
+ && pnpm install --frozen-lockfile --filter web... \
+ && pnpm --filter @repo/contracts typecheck \
+ && NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" pnpm --filter web build \
+ && chown -R node:node /opt/workspacex/apps/web/.next
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+USER node
+WORKDIR /opt/workspacex/apps/web
+EXPOSE 3000
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]
