@@ -57,7 +57,8 @@
     "lint:skills-doctor": "pnpm exec tsx .harness/scripts/cli.ts skills doctor",
     "uiux-review-log:backfill": "pnpm exec tsx .harness/scripts/uiux-review-log-backfill.ts",
     "uiux-review-log:stats": "pnpm exec tsx .harness/scripts/uiux-review-log-stats.ts",
-    "lint:test-listen-loopback": "pnpm exec tsx .harness/scripts/lint-test-listen-loopback.mjs"
+    "lint:test-listen-loopback": "pnpm exec tsx .harness/scripts/lint-test-listen-loopback.mjs",
+    "deploy:config": "node --import tsx packages/cloud-deploy/src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

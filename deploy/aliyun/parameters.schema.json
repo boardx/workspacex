@@ -1,0 +1,482 @@
+{
+  "$ref": "#/definitions/DeploymentInput",
+  "definitions": {
+    "DeploymentInput": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "regionId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-z]{2}-[a-z]+-\\d+$|^[a-z]{2}-[a-z]+$"
+                    }
+                  ]
+                },
+                "ecsInstanceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^i-[a-zA-Z0-9]+$"
+                    }
+                  ]
+                },
+                "runtimeRole": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                },
+                "ossBucket": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+                    }
+                  ]
+                },
+                "ossEndpoint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^https:\\/\\/oss-[a-z0-9-]+(?:-internal)?\\.aliyuncs\\.com$"
+                    }
+                  ]
+                },
+                "ossPrefix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9_-]+(?:\\/[a-zA-Z0-9_-]+)*\\/?$"
+                    }
+                  ]
+                },
+                "publicUrl": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^https:\\/\\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\\/?$"
+                    }
+                  ],
+                  "format": "uri"
+                },
+                "tlsSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "profile": {
+                  "type": "string",
+                  "const": "starter"
+                },
+                "dataVolumePath": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                },
+                "backupTargetRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "regionId",
+                "ecsInstanceId",
+                "runtimeRole",
+                "ossBucket",
+                "ossEndpoint",
+                "ossPrefix",
+                "publicUrl",
+                "tlsSecretRef",
+                "profile",
+                "dataVolumePath",
+                "backupTargetRef"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "regionId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-z]{2}-[a-z]+-\\d+$|^[a-z]{2}-[a-z]+$"
+                    }
+                  ]
+                },
+                "ecsInstanceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^i-[a-zA-Z0-9]+$"
+                    }
+                  ]
+                },
+                "runtimeRole": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                },
+                "ossBucket": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+                    }
+                  ]
+                },
+                "ossEndpoint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^https:\\/\\/oss-[a-z0-9-]+(?:-internal)?\\.aliyuncs\\.com$"
+                    }
+                  ]
+                },
+                "ossPrefix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9_-]+(?:\\/[a-zA-Z0-9_-]+)*\\/?$"
+                    }
+                  ]
+                },
+                "publicUrl": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^https:\\/\\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\\/?$"
+                    }
+                  ],
+                  "format": "uri"
+                },
+                "tlsSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "profile": {
+                  "type": "string",
+                  "const": "production"
+                },
+                "rdsInstanceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^pgm-[a-zA-Z0-9]+$"
+                    }
+                  ]
+                },
+                "redisInstanceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^r-[a-zA-Z0-9]+$"
+                    }
+                  ]
+                },
+                "databaseSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "migrationSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "redisSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "backupRetentionDays": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3650
+                },
+                "logRetentionDays": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3650
+                },
+                "alertContactRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "regionId",
+                "ecsInstanceId",
+                "runtimeRole",
+                "ossBucket",
+                "ossEndpoint",
+                "ossPrefix",
+                "publicUrl",
+                "tlsSecretRef",
+                "profile",
+                "rdsInstanceId",
+                "redisInstanceId",
+                "databaseSecretRef",
+                "migrationSecretRef",
+                "redisSecretRef",
+                "backupRetentionDays",
+                "logRetentionDays",
+                "alertContactRef"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "provision": {
+          "type": "object",
+          "properties": {
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "allOf": [
+                {
+                  "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                },
+                {
+                  "pattern": "^v?\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$"
+                }
+              ]
+            },
+            "adminEmail": {
+              "type": "string",
+              "maxLength": 254,
+              "format": "email"
+            },
+            "modelProfile": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^https:\\/\\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\\/[a-zA-Z0-9._~-]+)*\\/?$"
+                    }
+                  ],
+                  "format": "uri"
+                },
+                "modelId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                },
+                "apiKeySecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "baseUrl",
+                "modelId",
+                "apiKeySecretRef"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "release",
+            "adminEmail",
+            "modelProfile"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "environment",
+        "provision"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Starter and production deployment configuration. Also run runtime validation for OSS region consistency and separate database role references. Structural validity is NOT cloud readiness."
+}
