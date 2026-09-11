@@ -18,6 +18,9 @@ Starter 由 provision 稳定生成并持久化上述密码，重跑不得轮换�
 
 ## 命令与最小参数
 
+0. Starter 专用：`node --import tsx apps/api/scripts/prepare-starter-roles.ts`
+   - 使用下述 migration 连接变量，另外提供稳定 APP_DB_PASSWORD、DIAG_DB_PASSWORD。
+   - 仅创建缺失的固定角色。已有角色须安全且能用给定密码真实登录，否则失败，不修改已有密码或权限。production 调用会被拒绝。
 1. `node --import tsx apps/api/src/infrastructure/db/migrate-cli.ts`
    - PGHOST、PGPORT、PGDATABASE、MIGRATION_DB_USER、MIGRATION_DB_PASSWORD、WORKSPACEX_DEPLOY_PROFILE。
    - production 增加 PGSSLMODE=verify-full；私有 CA 时提供 PGSSLROOTCERT。
