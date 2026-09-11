@@ -5,13 +5,13 @@
 ## 已实现的业务缺口
 
 - ZIP 导出此前只有不可兑换的 URL。现在 `/export-jobs/:jobId/content` 真正读取私有对象并返回附件，Web 导出按钮执行认证下载。下载时重新校验原请求者、有效期、当前项目权限及每个源文件的当前可见性；源文件撤回后拒绝旧 ZIP。读取来源集合沿用已持久化的导出审计，缺少审计不能下载。
-- 接通既有契约的删除影响预览、请求、任务查询及回执路由。请求在一个租户事务中执行本地级联、任务和审计写入。任务和回执查询重新判定合规权限及 artifact ACL，不能仅凭 taskId 访问。
+- 接通既有契约的删除影响预览、请求、任务查询及回执路由。请求在一个租户事务中执行六类级联、任务和审计写入。当前部署的 `ontology_edges` 图召回表已有真实适配：核验 artifact/version/组织归属后删除关联 segment 的双向边。任务和回执查询重新判定合规权限及 artifact ACL，不能仅凭 taskId 访问。
 - `pnpm --filter @repo/api files:purge --org <org-id>` 执行指定组织的合规物理清理。它只接受 orgId，不接受对象 key；候选任务、宽限期、法律保全和对象引用由该租户数据库读取。使用运行身份，不使用迁移身份。
 - 维护进程由租户事务锁串行化；保全写入使用同一锁。对象清理返回值必须精确覆盖请求的全部 key，错误 key、重复或部分失败都不能产生完成回执。数据库回执、任务状态、审计在同一事务提交；已删字节但事务失败时，下一次执行按缺失对象幂等恢复。
 
 ## 真实上传验收入口
 
-`apps/api/scripts/cloud-file-roundtrip.ts` 导出 `verifyCloudFileRoundtrip(baseUrl, sessionToken, orgId)`，调用方必须提供 bootstrap/login 已选入该组织的会话：
+`apps/api/scripts/cloud-file-roundtrip.ts` 导出 `verifyCloudFileRoundtrip(baseUrl, sessionToken, orgId, signal?)`，调用方必须提供 bootstrap/login 已选入该组织的会话。传入共享 `AbortSignal` 时，全部请求和逻辑清理共用 provision 截止时间；超时不再发起清理，错误保留该次 threadId 供后续处理：
 
 1. 通过 `chat.mutateThread` 创建唯一的私有个人线程。
 2. multipart 上传随机文本附件到 `/chat/threads/:threadId/attachments`。
@@ -35,7 +35,8 @@
 ## 尚未通过的验收
 
 - 真实 OSS 业务流及重启后的录音、头像、Agent 产物读回，需要部署环境的实际运行证据。
-- `ontology-edges` 级联仍使用既有失败 stub。因此有版本的普通删除请求如实停在 `partial-failure`，不会物理清理或伪造回执。需要实际知识图谱级联实现，不能将“不支持”当成功。
+- 未配置图边适配的独立调用仍使用显式失败 stub；已配置的 HTTP 路径使用真实 PostgreSQL 图边适配。未来独立外部图服务不在本次本库图边验收范围。
+- 当前删除/回执权限沿用项目 facilitator 矩阵，无项目的 artifact 不会绕过角色门；组织级删除角色尚无单独授权路径。
 - 部分撤回范围映射（契约 T-8）未裁定。非空 `scope` 返回 `DEPENDENCY_UNAVAILABLE`，不会把“仅撤回 AI 分析”执行成全量删除。
 - 维护入口是按明确组织运行的命令，没有引入跨租户扫描或后台调度授权；部署方应按已初始化组织调用。
 - ZIP 仍在创建请求内同步生成，尚未实现异步队列。此处不把导出内容路由修复等同于完整异步导出交付。

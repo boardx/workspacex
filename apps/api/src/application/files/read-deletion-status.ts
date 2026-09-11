@@ -18,7 +18,7 @@ export class DeletionStatusDeniedError extends Error {
 }
 async function authorizeTask(deps: ReadDeletionStatusDeps, input: { orgId: OrgId; userId: string; taskId: string }) {
   const scope = await deps.taskProject(input.orgId, input.taskId);
-  if (!scope) throw new DeletionStatusDeniedError();
+  if (!scope || scope.projectId === null) throw new DeletionStatusDeniedError();
   const decision = await authorize(deps, { ...input, projectId: scope.projectId ?? undefined,
     object: { kind: "artifact", id: scope.artifactId }, action: "artifact.complianceOps" });
   if (!decision.allowed || !isDisclosed(discloseDecided(scope.task, decision))) throw new DeletionStatusDeniedError();

@@ -37,7 +37,8 @@ export class FilesDeletionController {
     // full deletion merely because the existing use case accepts a nullable string.
     if (input.scope !== null) throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
     return this.guarded(() => this.deps.transaction(principal.orgId,
-      () => requestDeletion(this.deps, { ...principal, ...input, actorKind: "user" })));
+      () => requestDeletion({ ...this.deps, invalidateOntologyEdges: this.deps.ontologyEdgesForOrg(principal.orgId) },
+        { ...principal, ...input, actorKind: "user" })));
   }
   @Get("/deletion-tasks/:taskId")
   async task(@CurrentPrincipal() principal: Principal, @Param("taskId") taskId: string) {

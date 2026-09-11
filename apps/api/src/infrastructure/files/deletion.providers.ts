@@ -13,9 +13,11 @@ import { guard } from "../../application/security/permission-filter";
 
 export function createDeletionHttpDeps(db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory): DeletionHttpDeps {
   const retention = new PgRetentionPolicyRepository(db);
+  const cascades = new PgCascadeInvalidationRepository(db);
   return { repo, ids, transaction: (orgId, work) => db.withTenant(orgId, work),
+    ontologyEdgesForOrg: orgId => input => cascades.invalidateOntologyEdges(orgId, input),
     impact: new PgDeleteImpactRepository(db), legalHold: new PgLegalHoldGate(db),
-    cascades: new PgCascadeInvalidationRepository(db), tasks: new PgDeletionTaskRepository(db),
+    cascades, tasks: new PgDeletionTaskRepository(db),
     receipts: new PgDeletionReceiptRepository(db), provenance: new PgProvenanceRepository(db),
     idFactory: new UuidIdFactory(), now: () => new Date(),
     trashGraceDays: async (orgId, projectId) => resolveRetentionParams(C.DEFAULT_RETENTION_PARAMS,

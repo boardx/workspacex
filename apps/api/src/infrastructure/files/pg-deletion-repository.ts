@@ -25,6 +25,7 @@ import type {
 } from "../../application/files/deletion-ports";
 import { guard } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import { files as C } from "@repo/contracts";
 
 export class PgDeleteImpactRepository implements DeleteImpactRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -127,6 +128,26 @@ export class PgLegalHoldGate implements LegalHoldGate {
 
 export class PgCascadeInvalidationRepository implements CascadeInvalidationRepository {
   constructor(private readonly db: DatabasePort) {}
+
+  /** The deployed graph recall channel stores segment edges in this database. */
+  async invalidateOntologyEdges(orgId: OrgId, raw: unknown) {
+    const input = C.OUTBOUND_PORTS.invalidateOntologyEdges.in.parse(raw);
+    const versionIds = [...new Set(input.versionIds)];
+    return this.db.withTenant(orgId, async session => {
+      // Scope proof before mutation: supplied versions must all belong to this artifact
+      // and tenant. A mixed list must not silently succeed for its authorized subset.
+      const versions = await session.query<{ id: string }>(
+        "SELECT id FROM artifact_versions WHERE org_id=$1 AND artifact_id=$2 AND id=ANY($3::text[])",
+        [orgId, input.artifactId, versionIds]);
+      if (versions.rows.length !== versionIds.length) throw new Error("ontology_version_scope_mismatch");
+      const deleted = await session.query<{ id: string }>(
+        `DELETE FROM ontology_edges e USING segments s
+         WHERE e.org_id=$1 AND s.org_id=e.org_id AND s.artifact_version_id=ANY($2::text[])
+           AND ((e.src_kind='segment' AND e.src_id=s.id) OR (e.dst_kind='segment' AND e.dst_id=s.id))
+         RETURNING e.id`, [orgId, versionIds]);
+      return C.OUTBOUND_PORTS.invalidateOntologyEdges.out.parse({ invalidatedEdgeIds: deleted.rows.map(row => row.id) });
+    });
+  }
 
   async invalidateLocalCascades(input: CascadeInvalidationInput): Promise<{
     results: readonly CascadeResultEntry[];

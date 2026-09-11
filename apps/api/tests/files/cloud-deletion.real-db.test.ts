@@ -16,7 +16,7 @@ import { DELETION_HTTP_DEPS } from "../../src/application/files/deletion-http-de
 import { FilesDeletionController } from "../../src/interface/controllers/files-deletion.controller";
 import { PrincipalGuard } from "../../src/interface/guards/principal.guard";
 import { PRINCIPAL_RESOLVER_PORT } from "../../src/application/ports/principal-resolver.port";
-import { PgDeletionTaskRepository } from "../../src/infrastructure/files/pg-deletion-repository";
+import { PgDeletionTaskRepository, PgCascadeInvalidationRepository } from "../../src/infrastructure/files/pg-deletion-repository";
 import { PgDeletionReceiptRepository } from "../../src/infrastructure/files/pg-physical-delete-repository";
 import { PgLegalHoldWriteRepository } from "../../src/infrastructure/files/pg-legal-hold-write-repository";
 import { maintainPhysicalDeletion } from "../../src/infrastructure/files/physical-deletion-maintenance";
@@ -50,8 +50,12 @@ beforeAll(async () => {
 });
 afterAll(async () => { await db?.close(); await resetOrgs(ORG, OTHER); if (root) await rm(root, { recursive: true, force: true }); });
 
-it("serves real deletion HTTP routes with project authorization and honest partial cascade status", async () => {
+it("serves real deletion HTTP routes with project authorization and the real graph-edge cascade", async () => {
   const id = "cloud-http-artifact-3427"; await addBrowserArtifact({ orgId: ORG, projectId: PROJECT, id });
+  await addBrowserArtifact({ orgId: ORG, projectId: null, id: "cloud-unscoped-3427" });
+  await asApp(ORG, session => session.query(
+    "INSERT INTO ontology_edges(id,org_id,src_kind,src_id,dst_kind,dst_id,relation) VALUES($1,$2,'segment',$3,'project',$4,'evidence')",
+    ["cloud-http-edge-3427", ORG, `${id}-s1`, PROJECT]));
   const deps = createDeletionHttpDeps(db, new PgIdentityRepository(db), new UuidDecisionIdFactory());
   class TestModule {}
   Module({ controllers: [FilesDeletionController], providers: [
@@ -71,17 +75,38 @@ it("serves real deletion HTTP routes with project authorization and honest parti
     expect((await call(`/artifacts/${id}/delete-impact`, "invalid")).status).toBe(401);
     expect((await call(`/artifacts/${id}/delete-impact`, "member")).status).toBe(403);
     expect((await call(`/artifacts/${id}/delete-impact`, "facilitator")).status).toBe(200);
+    expect((await call("/artifacts/cloud-unscoped-3427/delete-impact", "member")).status).toBe(404);
     const body = { reason: "compliance test", scope: "ai-only", confirmedImpact: true };
     expect((await call(`/artifacts/${id}/deletion-requests`, "facilitator", { ...body, artifactId: "different" })).status).toBe(400);
     expect((await call(`/artifacts/${id}/deletion-requests`, "facilitator", body)).status).toBe(503);
     const response = await call(`/artifacts/${id}/deletion-requests`, "facilitator", { ...body, scope: null });
     expect(response.status).toBe(201); const created = await response.json() as { taskId: string };
     const status = await call(`/deletion-tasks/${created.taskId}`, "facilitator");
-    expect(status.status).toBe(200); expect(await status.json()).toMatchObject({ status: "partial-failure", receiptId: null });
+    expect(status.status).toBe(200); const progress = await status.json() as { status: string; receiptId: string | null; cascadeResults: { result: string }[] };
+    expect(progress).toMatchObject({ status: "running", receiptId: null });
+    expect(progress.cascadeResults).toHaveLength(6); expect(progress.cascadeResults.every(item => item.result === "ok")).toBe(true);
+    expect((await asApp(ORG, session => session.query("SELECT id FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-http-edge-3427"]))).rows).toHaveLength(0);
     expect((await call(`/deletion-tasks/${created.taskId}`, "member")).status).toBe(403);
     expect((await call(`/deletion-tasks/${created.taskId}`, "other-tenant")).status).toBe(403);
     expect((await call(`/deletion-tasks/${created.taskId}/receipt`, "facilitator")).status).toBe(403);
   } finally { await app.close(); }
+});
+
+it("invalidates both directions of graph edges and rejects foreign/mixed version references", async () => {
+  const id = "cloud-edge-artifact-3427", unrelated = "cloud-edge-unrelated-3427";
+  await addBrowserArtifact({ orgId: ORG, projectId: PROJECT, id });
+  await addBrowserArtifact({ orgId: ORG, projectId: PROJECT, id: unrelated });
+  await asApp(ORG, async session => {
+    await session.query("INSERT INTO ontology_edges(id,org_id,src_kind,src_id,dst_kind,dst_id,relation) VALUES($1,$2,'segment',$3,'project',$4,'evidence'),($5,$2,'project',$4,'segment',$3,'evidence'),($6,$2,'segment',$7,'project',$4,'evidence')",
+      ["cloud-edge-out-3427", ORG, `${id}-s1`, PROJECT, "cloud-edge-in-3427", "cloud-edge-keep-3427", `${unrelated}-s1`]);
+  });
+  const cascade = new PgCascadeInvalidationRepository(db);
+  await expect(cascade.invalidateOntologyEdges(OTHER, { artifactId: id, versionIds: [`${id}-v1`] })).rejects.toThrow("ontology_version_scope_mismatch");
+  await expect(cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`, `${unrelated}-v1`] })).rejects.toThrow("ontology_version_scope_mismatch");
+  const result = await cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`] });
+  expect([...result.invalidatedEdgeIds].sort()).toEqual(["cloud-edge-in-3427", "cloud-edge-out-3427"]);
+  expect((await asApp(ORG, session => session.query("SELECT id FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-edge-keep-3427"]))).rows).toHaveLength(1);
+  expect(await cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`] })).toEqual({ invalidatedEdgeIds: [] });
 });
 
 it("purges eligible real file bytes, persists receipt transactionally, survives restart and respects holds", async () => {
