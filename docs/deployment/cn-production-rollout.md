@@ -7,7 +7,7 @@
 - 地域：华东 2（上海，`cn-shanghai`），减少现有上海数据迁移的跨地域流量。
 - 隔离：新资源全部进入资源组 `workspacex-cn-production`，不复用现有 ACR、ALB、Redis 或 OSS。
 - 入口：不使用 ALB。新 ECS 绑定独立公网 IP/EIP，Caddy/Nginx 仅开放 HTTPS 入口并反代本机 Web/API。
-- 镜像：全新 ACR 企业版经济型实例 `workspacex-cn-prod`；私有 namespace `workspacex-prod`；Web、API、Deep Agent、Skill Sandbox 四个应用镜像固定到 digest。
+- 镜像：全新 ACR 企业版经济型实例 `workspacex-cn-prod`（`cri-ttm0916mvdvg4ugx`）；私有 namespace `workspacex-prod`；Web、API、Deep Agent、Skill Sandbox 四个私有仓库启用版本不可变并固定到 digest。
 - 数据：全新 RDS PostgreSQL 16 Serverless HA、Redis 7 HA/TLS 和私有 OSS ZRS；仅允许新 ECS 的 VPC 身份访问。
 - 并行期：现有 Devapp 和旧生产继续运行。新系统通过 canary、业务探针和观察期后，另行执行旧资源退役。
 
@@ -41,15 +41,17 @@
 
 | 新资源 | 月度估算 |
 |---|---:|
-| ECS + 系统盘 + 公网入口 | ¥391.66 |
-| RDS PostgreSQL 16 Serverless HA | ¥380.00 |
-| Redis 7 HA/TLS 1 GiB | ¥170.00 |
-| OSS ZRS + 请求/流量预留 | ¥88.25 |
-| 备份、日志、DNS/证书预留 | ¥200.00 |
+| ECS 4C16G + 100 GiB ESSD + 公网入口 | ¥795.70 |
+| RDS PostgreSQL 16 Serverless HA（0.5–4 RCU） | ¥267.91 |
+| Redis 7 HA/TLS 1 GiB | ¥153.30 |
+| OSS ZRS | ¥3.00 |
+| 生产日志预留 | ¥10.00 |
 | ACR 企业版经济型 | ¥117.00 |
 | **合计** | **¥1,346.91/月** |
 
-年化约 ¥16,162.92。该数额不含模型 token、公网超额流量、超额备份、税费和价格/优惠变化。ACR 现场下单价已于 2026-09-12 在上海区确认：¥117/月。
+年化约 ¥16,162.92。HTTPS 入口使用 ECS 公网 IP/EIP，不另计固定 ALB 费用；公网流量按实际发生。该数额不含模型 token、公网超额流量、超额备份、税费和价格/优惠变化。ACR 现场下单价已于 2026-09-12 在上海区确认：¥117/月。
+
+现场已创建资源组 `rg-aek6krukghp2p4a`、VPC `vpc-uf6e7vt902oid0p1mwd6q`（`192.168.100.0/22`）、上海 E 区交换机 `vsw-uf6rqwne9b3cp48diptx1`（`192.168.100.0/24`）和上海 G 区交换机 `vsw-uf6epcojpvdltooni86u8`（`192.168.101.0/24`）。ACR 实例下单时落入默认资源组，迁入生产资源组后才能把“资源组隔离”标记为完成。
 
 ## 现场进度
 
@@ -58,8 +60,9 @@ flowchart LR
     DEC["配置确认<br/>无 ALB · 新 ACR · 新托管资源"] --> CODE["发布适配开发<br/>main-cn + ACR digest + TLS preflight"]
     CODE --> PR["#3453 PR / CI"]
     DEC --> RG["独立资源组<br/>workspacex-cn-production"]
-    RG --> ACR["新 ACR 经济版<br/>订单 2003587154450491"]
-    RG --> DATA["新 ECS / RDS / Redis / OSS"]
+    RG --> VPC["新 VPC + 双可用区交换机<br/>上海 E / G"]
+    VPC --> ACR["新 ACR + 四个不可变私有仓库<br/>私网绑定等待 MFA"]
+    VPC --> DATA["新 ECS / RDS / Redis / OSS"]
     ACR --> IMG["四镜像推送与预热"]
     DATA --> CANARY["canary 三轮 ≤300s"]
     IMG --> CANARY
@@ -72,8 +75,8 @@ flowchart LR
     classDef accepted fill:#f3e8ff,stroke:#9333ea,color:#581c87;
     classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef pending fill:#f1f5f9,stroke:#94a3b8,color:#334155;
-    class DEC,RG done;
-    class CODE,ACR active;
+    class DEC,RG,VPC,CODE done;
+    class ACR active;
     class PR,DATA,IMG,CANARY,DNS,OBS,RETIRE pending;
 ```
 

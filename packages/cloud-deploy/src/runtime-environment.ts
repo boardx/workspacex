@@ -34,7 +34,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   if (environment.profile === "production") {
     try {
       const [db, migration, redis] = await Promise.all([environment.databaseSecretRef, environment.migrationSecretRef, environment.redisSecretRef].map(ref => resolveSecret(ref, source, context)));
-      data = productionDataEnvironment(JSON.parse(db!), JSON.parse(migration!), JSON.parse(redis!));
+      data = productionDataEnvironment(JSON.parse(db!), JSON.parse(migration!), JSON.parse(redis!), environment.rdsTlsException?.kind);
     } catch { assertSecretOperationActive(context); throw new Error("PRODUCTION_DATA_CONFIGURATION_INVALID"); }
   } else {
     data = { PGHOST: "postgres", PGPORT: "5432", PGDATABASE: "workspacex", PGSSLMODE: "disable",
@@ -63,7 +63,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
     agent.DATABASE_URI = `postgresql://agent_server:${secret["agent-password"]}@postgres:5432/workspacex_agent`;
     agent.REDIS_URI = `redis://:${secret["redis-password"]}@redis:6379/1`;
   }
-  const bootstrapData = Object.fromEntries(Object.entries(data).filter(([key]) => key.startsWith("PG") || key.startsWith("APP_DB_")));
+  const bootstrapData = Object.fromEntries(Object.entries(data).filter(([key]) => key.startsWith("PG") || key.startsWith("APP_DB_") || key === "WORKSPACEX_RDS_TLS_EXCEPTION"));
   const bootstrap: Record<string, string> = { ...bootstrapData, WORKSPACEX_DEPLOY_PROFILE: environment.profile, KERNEL_DEFAULT_AGENT_MODEL_ID: config.provision.modelProfile.modelId, PROVISION_ADMIN_EMAIL: config.provision.adminEmail,
     PROVISION_ADMIN_PASSWORD: secret["admin-password"], PROVISION_ADMIN_NAME: "Administrator", PROVISION_ORG_NAME: "Workspace" };
   assertSecretOperationActive(context);

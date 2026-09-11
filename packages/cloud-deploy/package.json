@@ -16,6 +16,7 @@
     "prepare-host": "node --import tsx src/prepare-host-cli.ts",
     "release-manifest": "node --import tsx src/release-manifest-cli.ts",
     "acr-production-release": "node --import tsx src/acr-production-release-cli.ts",
+    "initial-production-sync": "node --import tsx src/initial-production-sync-cli.ts",
     "provision": "node --import tsx src/provision-cli.ts"
   },
   "dependencies": {

@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+export const RDS_TLS_EXCEPTION_KIND = "aliyun-postgresql-serverless-no-tls" as const;
+
 const text = z.string().min(1).max(512).regex(/^(?!.*REPLACE_WITH_)[^\s\u0000-\u001f]+$/);
 const identifier = text.regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const region = text.regex(/^[a-z]{2}-[a-z]+-\d+$|^[a-z]{2}-[a-z]+$/);
 // Only references are accepted. No values are read or expanded by this package.
 const secretRef = text.regex(/^(env:[A-Z][A-Z0-9_]*|file:\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$/);
 const absoluteDirectory = text.regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/);
+const ipv4Cidr = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/).refine(value => {
+  const [address, prefix] = value.split("/");
+  return address!.split(".").every(octet => Number(octet) <= 255) && Number(prefix) <= 32 && value !== "0.0.0.0/0";
+});
 // URLs cannot contain credentials, query strings or fragments. Configuration URLs are
 // not fetched during validation. The cloud preflight must verify routing and reachability.
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
@@ -35,6 +41,10 @@ const production = z.object({
   migrationSecretRef: secretRef,
   redisSecretRef: secretRef,
   backupRetentionDays: z.number().int().min(1).max(3650),
+  rdsTlsException: z.object({
+    kind: z.literal(RDS_TLS_EXCEPTION_KIND),
+    allowedCidrs: z.array(ipv4Cidr).min(1).max(32),
+  }).strict().optional(),
 }).strict();
 
 /** Structural contract shared by runtime validation and the generated JSON Schema. */

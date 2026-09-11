@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { RDS_TLS_EXCEPTION_KIND } from "@repo/cloud-deploy";
 /**
  * Connection configuration. The application identity and the migration identity are
  * two different roles, deliberately kept apart.
@@ -52,7 +53,9 @@ function transport(): Pick<PgConfig, "ssl" | "connectionTimeoutMillis" | "statem
   if (cloud && cloud !== "starter" && cloud !== "production") throw new Error("invalid WORKSPACEX_DEPLOY_PROFILE");
   if (cloud) for (const name of ["PGHOST", "PGDATABASE"]) req(name);
   const mode = process.env.PGSSLMODE ?? (cloud === "production" ? "verify-full" : "disable");
-  if (!["disable", "verify-full"].includes(mode) || (cloud === "production" && mode !== "verify-full")) {
+  const exception = process.env.WORKSPACEX_RDS_TLS_EXCEPTION;
+  if (exception !== undefined && exception !== RDS_TLS_EXCEPTION_KIND) throw new Error("invalid RDS TLS exception");
+  if (!["disable", "verify-full"].includes(mode) || (cloud === "production" && mode !== "verify-full" && exception !== RDS_TLS_EXCEPTION_KIND)) {
     throw new Error("PGSSLMODE must verify certificates in production");
   }
   const timeout = Number(process.env.PGCONNECT_TIMEOUT_MS ?? "5000");

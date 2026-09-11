@@ -345,6 +345,29 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 3650
+                },
+                "rdsTlsException": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "aliyun-postgresql-serverless-no-tls"
+                    },
+                    "allowedCidrs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$"
+                      },
+                      "minItems": 1,
+                      "maxItems": 32
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "allowedCidrs"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [

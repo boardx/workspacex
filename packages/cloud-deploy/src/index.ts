@@ -1,8 +1,10 @@
-export { deploymentConfigSchema, deploymentInputSchema, validateDeploymentConfig } from "./config";
+export { deploymentConfigSchema, deploymentInputSchema, validateDeploymentConfig, RDS_TLS_EXCEPTION_KIND } from "./config";
 export type { DeploymentConfig, DeploymentProfile, ConfigError } from "./config";
 export { deploymentExample } from "./examples";
 export { objectStoreConfig, deploymentStorageEnvironment } from "./storage-config";
 export type { OssRuntimeConfig, StorageConfig } from "./storage-config";
+export { initialProductionSyncSchema, initialProductionSyncPlan, initialSyncStateSchema, executeInitialSyncStage, ossInventorySchema, verifyOssInventory, initialSyncAcceptanceSchema, validateInitialSyncAcceptance, writeInitialSyncReceipt } from "./initial-production-sync";
+export type { InitialProductionSyncConfig } from "./initial-production-sync";
 export { provision, provisionStages } from "./provision";
 export type { ProvisionActions, ProvisionAction, ProvisionReport, ProvisionStage } from "./provision";
 export { runProvisionCommand, captureProvisionCommand } from "./command";

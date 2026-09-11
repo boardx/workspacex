@@ -34,6 +34,16 @@ it("uses production referenced data with TLS and no local fallback", async () =>
   expect(value.api.PGHOST).toBe("db.example.com"); expect(value.api.PGSSLMODE).toBe("verify-full");
   expect(value.api.REDIS_TLS).toBe("true"); expect(value.api.MIGRATION_DB_PASSWORD).toBeUndefined();
 });
+it("propagates the configured Serverless TLS exception to every API database process", async () => {
+  const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
+  const value = await runtimeEnvironment(config, await directory(), {
+    WORKSPACEX_MODEL_KEY: "model-key",
+    WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: "application-password-123", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
+    WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-password-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
+  });
+  for(const target of [value.api,value.migration,value.bootstrap])expect(target).toMatchObject({PGSSLMODE:"disable",WORKSPACEX_RDS_TLS_EXCEPTION:"aliyun-postgresql-serverless-no-tls"});
+});
 it("redacts invalid production secret JSON", async () => {
   await expect(runtimeEnvironment(deploymentExample("production"), await directory(), {
     WORKSPACEX_MODEL_KEY: "key", WORKSPACEX_DATABASE: "SECRET-invalid-json",

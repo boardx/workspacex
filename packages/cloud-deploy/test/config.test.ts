@@ -22,6 +22,13 @@ describe("cloud deployment configuration", () => {
       "environment.databaseSecretRef", "environment.redisSecretRef",
     ]));
   });
+  it("accepts only an explicit bounded Serverless TLS exception", () => {
+    const value = deploymentExample("production");
+    expect(validateDeploymentConfig({ ...value, environment: { ...value.environment,
+      rdsTlsException: { kind: "aliyun-postgresql-serverless-no-tls", allowedCidrs: ["10.0.1.7/32"] } } }).ok).toBe(true);
+    expect(validateDeploymentConfig({ ...value, environment: { ...value.environment,
+      rdsTlsException: { kind: "aliyun-postgresql-serverless-no-tls", allowedCidrs: ["0.0.0.0/0"] } } }).ok).toBe(false);
+  });
   it("does not accept Starter settings under the production profile", () => {
     const value = deploymentExample("starter");
     expect(validateDeploymentConfig({ ...value, environment: { ...value.environment, profile: "production" } }).ok).toBe(false);
