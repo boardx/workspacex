@@ -31,7 +31,7 @@ const request = (path, headers={}) => new Promise((resolve,reject) => {
  req.on('upgrade',(res,socket)=>{resolve({status:res.statusCode});socket.destroy();});
  req.setTimeout(3000,()=>req.destroy(new Error('Ingress timeout')));req.on('error',reject);
 });
-for (const [path,port,url] of [['/api/copilotkit',3000,'/api/copilotkit'],['/api/copilotkit/stream?x=1',3000,'/api/copilotkit/stream?x=1'],['/api/health?x=1',3200,'/health?x=1'],['/',3000,'/']]) {
+for (const [path,port,url] of [['/api/copilotkit',3000,'/api/copilotkit'],['/api/copilotkit/stream?x=1',3000,'/api/copilotkit/stream?x=1'],['/api/health?x=1',3200,'/health?x=1'],['/',3000,'/'],['/.well-known/workspacex-deployment',3000,'/.well-known/workspacex-deployment']]) {
  const result=await request(path); assert.equal(result.status,200);assert.deepEqual(JSON.parse(result.body),{port,url,proto:'https'});
 }
 assert.equal((await request('/api/ws',{Connection:'Upgrade',Upgrade:'websocket'})).status,101);
