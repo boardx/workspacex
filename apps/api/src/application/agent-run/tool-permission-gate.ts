@@ -145,7 +145,7 @@ export async function handleInterruptedToolCall(
     if (!requeued) {
       // 输了竞态（取消/失败/被别处收走）——不重试、不覆盖，如实记一行日志即可：
       // 这条 run 已经不归这次执行管了。
-      deps.log("authorized tool call requeue lost the race", { runId, toolName: interrupted.toolName });
+      deps.log?.("authorized tool call requeue lost the race", { runId, toolName: interrupted.toolName });
     }
     return { autoApproved: true };
   }
