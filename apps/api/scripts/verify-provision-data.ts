@@ -15,7 +15,18 @@ const owner = new pg.Client({ ...cfg, database: "postgres" });
 await owner.connect();
 try {
   await owner.query(`CREATE DATABASE "${name}"`);
+  const env = { ...process.env, PGDATABASE: name, WORKSPACEX_DEPLOY_PROFILE: "starter",
+    APP_DB_PASSWORD: process.env.APP_DB_PASSWORD, DIAG_DB_PASSWORD: process.env.DIAG_DB_PASSWORD,
+    PROVISION_ADMIN_EMAIL: "integration@example.com", PROVISION_ADMIN_PASSWORD: "isolated-provision-password",
+    PROVISION_ADMIN_NAME: "Integration", PROVISION_ORG_NAME: "Integration" };
+  const run = (script: string, overrides = {}) => execute(process.execPath, ["--import", "tsx", new URL(script, import.meta.url).pathname], { env: { ...env, ...overrides }, timeout: 30000 });
+  await run("./prepare-starter-roles.ts");
+  await assert.rejects(run("./prepare-starter-roles.ts", { APP_DB_PASSWORD: "wrong-stable-secret-password" }));
+  await run("./prepare-starter-roles.ts");
+  const originalProfile = process.env.WORKSPACEX_DEPLOY_PROFILE;
+  process.env.WORKSPACEX_DEPLOY_PROFILE = "starter";
   const first = await migrate(cfg);
+  if (originalProfile === undefined) delete process.env.WORKSPACEX_DEPLOY_PROFILE; else process.env.WORKSPACEX_DEPLOY_PROFILE = originalProfile;
   assert(first.applied.length > 0);
   const replay = await migrate(cfg);
   assert.equal(replay.applied.length, 0);
@@ -28,11 +39,6 @@ try {
     await assert.rejects(migrate(cfg, { lockTimeoutMs: 100 }), error => (error as { code?: string }).code === "55P03");
     assert(Date.now() - started < 3000);
   } finally { await lock.end(); }
-  const env = { ...process.env, PGDATABASE: name, WORKSPACEX_DEPLOY_PROFILE: "starter",
-    APP_DB_PASSWORD: process.env.APP_DB_PASSWORD,
-    PROVISION_ADMIN_EMAIL: "integration@example.com", PROVISION_ADMIN_PASSWORD: "isolated-provision-password",
-    PROVISION_ADMIN_NAME: "Integration", PROVISION_ORG_NAME: "Integration" };
-  const run = (script: string, overrides = {}) => execute(process.execPath, ["--import", "tsx", new URL(script, import.meta.url).pathname], { env: { ...env, ...overrides }, timeout: 30000 });
   const initial = JSON.parse((await run("./provision-admin.ts")).stdout);
   assert.equal(initial.created, true);
   const repeat = await Promise.all([run("./provision-admin.ts"), run("./provision-admin.ts")]);
@@ -44,7 +50,7 @@ try {
   assert.equal(JSON.parse((await run("./data-readiness.ts")).stdout).ok, true);
   await assert.rejects(run("./data-readiness.ts", { REDIS_PASSWORD: "wrong-cache-password" }));
   console.log(JSON.stringify({ ok: true, migrated: first.applied.length, replay: true, lockTimeout: true,
-    bootstrap: true, concurrentRetry: true, wrongAdminRejected: true, readiness: true, wrongRedisRejected: true, cloudVerified: false }));
+    rolePreparationReplay: true, bootstrap: true, concurrentRetry: true, wrongAdminRejected: true, readiness: true, wrongRedisRejected: true, cloudVerified: false }));
 } finally {
   await owner.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
   await owner.end();
