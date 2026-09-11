@@ -10,6 +10,7 @@ describe("cloud compose", () => {
     const compose = createCloudCompose(config, release(config.provision.release), { projectName: "cloud-test", runtimeDirectory: "/opt/cloud" });
     for (const service of Object.values(compose.services)) { expect(service.pull_policy).toBe("never"); expect(service).not.toHaveProperty("build"); }
     expect(compose.services.api!.environment).toMatchObject({ WORKSPACEX_OBJECT_STORE: "oss", WORKSPACEX_DEPLOY_PROFILE: profile });
+    expect(compose.services.agent).toMatchObject({ user: "1000:1000", cap_drop: ["ALL"] });
     expect(Boolean(compose.services.postgres)).toBe(profile === "starter");
     expect(Boolean(compose.services.redis)).toBe(profile === "starter");
     for (const name of ["sandbox", "sandbox-sessions"]) expect(compose.services[name]).toMatchObject({ network_mode: "none", read_only: true, cap_drop: ["ALL"], pids_limit: 128 });

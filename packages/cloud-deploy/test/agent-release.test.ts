@@ -26,6 +26,8 @@ it("requires the generated dependency installation and consumes a hash lock", as
   const result = lockAgentDockerfile(`RUN ${command}`);
   expect(result).toContain("--require-hashes -r requirements.release.txt");
   expect(result).toContain("--no-deps -e .");
+  expect(result).toContain("USER 1000:1000");
+  expect(result).toContain("chmod 0444 /deps/*/requirements.release.txt");
   expect(() => lockAgentDockerfile("RUN arbitrary-installer")).toThrow("UNEXPECTED_AGENT_DEPENDENCY_INSTALL");
   expect(() => lockAgentDockerfile(`${command}\n${command}`)).toThrow("UNEXPECTED_AGENT_DEPENDENCY_INSTALL");
 });
