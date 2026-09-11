@@ -15,7 +15,9 @@
 #   而放开网络的改动都是把门控调成不会红，verification.md V2-CP 就是抓这个的。
 
 # ---------- 构建阶段：编译 TS，不进运行镜像 ----------
-FROM node:22-slim AS build
+ARG NODE_IMAGE=node:22-slim
+ARG PYTHON_IMAGE=python:3.11-slim
+FROM ${NODE_IMAGE} AS build
 WORKDIR /build
 COPY package.json ./
 # ⚠ 刻意**不**拷 tsconfig.json：仓库里那份 `extends` 的是 monorepo 根配置，
@@ -30,7 +32,7 @@ RUN npx tsc src/*.ts src/session/*.ts \
       --outDir dist
 
 # W18: resolve only hash-locked wheels at build time, never inside a session.
-FROM python:3.11-slim AS analysis
+FROM ${PYTHON_IMAGE} AS analysis
 COPY analysis/requirements.lock /tmp/analysis-requirements.lock
 RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes \
       --target /analysis -r /tmp/analysis-requirements.lock \
@@ -47,7 +49,7 @@ RUN PYTHONPATH=/analysis python /tmp/prepare-font.py /tmp/noto-analysis-source.t
 COPY analysis/font-LICENSE /font/LICENSE
 
 # ---------- 运行阶段 ----------
-FROM node:22-slim
+FROM ${NODE_IMAGE}
 
 # pptxgenjs **预装**进镜像。skill 原文写着「preinstalled — do not run `npm install`
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
@@ -168,6 +170,8 @@ RUN mkdir -p /run/sessions && chown node:node /run/sessions
 RUN python3 -c "from pathlib import Path; links=[p for name in ('libblas.so.3','liblapack.so.3') for p in Path('/usr/lib').glob('*/'+name) if p.is_symlink()]; [(p.unlink(), p.symlink_to(target)) for p,target in [(p,p.resolve(strict=True)) for p in links] if str(target).startswith('/usr/')]"
 COPY scripts/decode-audio.py /usr/local/lib/workspacex/decode-audio.py
 
+ARG SOURCE_REVISION
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。
