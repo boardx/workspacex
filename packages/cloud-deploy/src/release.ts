@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalDockerReference } from "./image-reference.js";
 
 const digestImage = z.string().max(512).regex(/^[a-z0-9][a-z0-9.-]*(?::[0-9]+)?\/[a-z0-9]+(?:[._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$/);
 const artifact = z.object({ image: digestImage }).strict();
@@ -41,7 +42,7 @@ export async function verifyPrewarmedRelease(manifestInput: unknown, profile: Re
     })).length(1).safeParse(raw);
     if (!inspection.success) throw new Error(`INVALID_IMAGE_INSPECTION: ${service}`);
     const actual = inspection.data[0]!;
-    if (!actual.RepoDigests.includes(image)) throw new Error(`IMAGE_DIGEST_MISMATCH: ${service}`);
+    if (!actual.RepoDigests.map(canonicalDockerReference).includes(canonicalDockerReference(image))) throw new Error(`IMAGE_DIGEST_MISMATCH: ${service}`);
     if (`${actual.Os}/${actual.Architecture}` !== manifest.platform) throw new Error(`IMAGE_PLATFORM_MISMATCH: ${service}`);
     if (!["postgres", "redis"].includes(service) && actual.Config.Labels?.["org.opencontainers.image.revision"] !== manifest.sourceRevision) {
       throw new Error(`IMAGE_REVISION_MISMATCH: ${service}`);

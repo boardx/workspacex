@@ -88,3 +88,29 @@ The final Sandbox diagnostic was rebuilt from `1e8af927d2abc428583cbc58342486fe4
 Agent runtime now uses UID/GID 1000 in both its generated Dockerfile and Compose, matching the shared native-session socket directory. The official base defaults to root; with all capabilities dropped, the original root process was actually denied access to a mode-0770 directory owned by 1000. A diagnostic layer with the generated nonroot settings passed both real graph imports and Unix-socket bind/connect inside that directory under read-only rootfs, no network and no capabilities. The runtime hash lock is world-readable inside the image because it contains public dependency metadata; it remains created privately on the build host. HOME points at temporary storage. A complete licensed server start as this user remains part of final runtime acceptance.
 
 Agent dependency locking requires an explicit target platform matching the release manifest. Its temporary resolver container has a unique name and is removed in a finally block, including timeout/error paths, because terminating the Docker client alone does not guarantee the container stops.
+
+## Unified revision build and manifest output
+
+Wait for the coordinator's `SOURCE_FROZEN` revision and target platform. Build from that clean checkout. Set `WSX_SOURCE_REVISION` to its full `git rev-parse HEAD`, `WSX_PLATFORM` explicitly to `linux/amd64` or `linux/arm64`, `WSX_NODE_IMAGE` and `WSX_PYTHON_IMAGE` to reviewed digest references, and `WSX_AGENT_BASE` to the reviewed official Agent digest. Keep `WSX_EVIDENCE` outside the checkout, for example `<workspace>/work/release-evidence/<full-SHA>/<linux-arm64>`. No model, OSS, database or license secrets are needed to build these images or generate the manifest.
+
+Run the Agent preparation commands above using `WSX_PLATFORM`; retain its generated runtime hash lock in the evidence directory. The generated files must be restored into `apps/deep-agent-service` for the Agent build context. Build API and Web sequentially on constrained hosts; the Web Dockerfile already enables one build worker.
+
+```sh
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -f deploy/aliyun/images/api.Dockerfile -t "$WSX_REGISTRY_PREFIX/api:$WSX_SOURCE_REVISION" .
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -f deploy/aliyun/images/web.Dockerfile -t "$WSX_REGISTRY_PREFIX/web:$WSX_SOURCE_REVISION" .
+docker build --platform "$WSX_PLATFORM" -f apps/deep-agent-service/Dockerfile.release -t "$WSX_REGISTRY_PREFIX/agent:$WSX_SOURCE_REVISION" apps/deep-agent-service
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg PYTHON_IMAGE="$WSX_PYTHON_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -t "$WSX_REGISTRY_PREFIX/sandbox:$WSX_SOURCE_REVISION" apps/skill-sandbox
+```
+
+After authorized registry publication, create `$WSX_EVIDENCE/build-input.json` using the release schema's `schemaVersion`, `release`, `sourceRevision`, `platform` and six `images.<service>.image` fields. Input image references may be explicit repository tags or digests. PostgreSQL must reference the reviewed pgvector image; Redis references its reviewed upstream image. Then run:
+
+```sh
+node --import tsx packages/cloud-deploy/src/release-manifest-cli.ts "$WSX_EVIDENCE/build-input.json" "$WSX_EVIDENCE/release.json"
+node --import tsx packages/cloud-deploy/src/release-cli.ts validate "$WSX_EVIDENCE/release.json" starter
+```
+
+The generator reads actual Docker RepoDigests, validates all six images' target platform and the four application revision labels, and performs read-only registry inspection of each selected digest before writing the manifest exclusively (no overwrite). A local BuildKit image can already have RepoDigests, so local metadata alone is insufficient proof of publication. Missing/ambiguous digests, unavailable registry artifacts or a different source revision fail without emitting a manifest. It never builds, pushes, pulls or synthesizes a digest.
+
+Docker Hub aliases are normalized following [Docker's reference rules](https://docs.docker.com/reference/cli/docker/image/tag/): `redis@sha256:...` and `docker.io/library/redis@sha256:...` identify the same repository and digest. Namespace differences and digest differences still fail. The same normalization applies to provision's offline prewarm validation.
+
+Keep only non-secret evidence in this directory: manifest/build inputs, source SHA/platform, exact image IDs and RepoDigests, public dependency hash lock, and test summaries. Do not copy runtime bundles, private env files, provider credentials or license values there. Registry publication and final cloud acceptance remain distinct authorized actions.

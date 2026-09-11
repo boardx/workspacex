@@ -44,3 +44,11 @@ describe("immutable cloud releases", () => {
     await expect(prewarmRelease(manifest(), "production", async () => "downloaded")).rejects.toThrow("RELEASE_IMAGE_UNAVAILABLE");
   });
 });
+it("accepts Docker Hub aliases while preserving the repository and digest identity", async () => {
+  const fixture = manifest();
+  fixture.images.redis = { image: `docker.io/library/redis@sha256:${"b".repeat(64)}` };
+  const executor = async (argv: readonly string[]) => argv.at(-1) === fixture.images.redis.image
+    ? JSON.stringify([{ Os: "linux", Architecture: "amd64", RepoDigests: [`redis@sha256:${"b".repeat(64)}`], Config: {} }]) : inspect(argv);
+  await expect(verifyPrewarmedRelease(fixture, "starter", executor)).resolves.toHaveProperty("cloudVerified", false);
+  await expect(verifyPrewarmedRelease(fixture, "starter", async argv => (await executor(argv)).replace('redis@sha256:', 'someone/redis@sha256:'))).rejects.toThrow("IMAGE_DIGEST_MISMATCH: redis");
+});
