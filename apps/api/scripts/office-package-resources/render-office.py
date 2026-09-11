@@ -44,8 +44,17 @@ def _run_bounded(command, env, timeout):
                 os.killpg(child.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
                 child.kill()
-            # The group is gone, so this drains rather than waits on a live writer.
-            child.communicate()
+            # Do NOT drain here. Measured 2026-09-11: a `setsid` grandchild is OUTSIDE
+            # the group we just killed, still holds the pipe's write end, and a drain
+            # blocks for its whole lifetime -- 120s against a 5s deadline, i.e. the
+            # very hang this helper exists to prevent, merely moved inside the script.
+            # Dropping our read end is what actually bounds us; the reader thread
+            # `communicate` started is a daemon and does not hold interpreter exit.
+            try:
+                child.stdout.close()
+            except OSError:
+                pass
+            child.wait()
             raise
     # LibreOffice is chatty on success; only surface it when the step actually failed.
     if child.returncode not in (0, 81):
