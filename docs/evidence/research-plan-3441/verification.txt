@@ -1,0 +1,33 @@
+Command: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-plan-repair.test.ts tests/research/guided-runtime-orchestration.test.ts tests/research/guided-runtime-conversation.test.ts tests/research/guided-runtime-progress.test.ts tests/research/guided-runtime-persistence.test.ts
+Exit: 0
+[db-isolation] db=wsx_ca20cb5ef2f79fe504bf capacity=100 current=6 required=32
+ ✓ tests/research/guided-runtime-persistence.test.ts (33 tests) 64945ms
+ ✓ tests/research/guided-plan-repair.test.ts (10 tests) 62ms
+ ✓ tests/research/guided-runtime-conversation.test.ts (6 tests) 31ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (2 tests) 52ms
+ ✓ tests/research/guided-runtime-progress.test.ts (3 tests) 10ms
+ Test Files  5 passed (5)
+      Tests  54 passed (54)
+   Start at  21:39:53
+   Duration  78.30s (transform 15.15s, setup 0ms, collect 5.62s, tests 65.10s, environment 1ms, prepare 733ms)
+[db-isolation] db=wsx_ca20cb5ef2f79fe504bf peak_connections=5
+
+pnpm --filter api typecheck: exit 0
+Pre-push affected typecheck/lint: 6 successful / 6 total
+./init.sh: quick health check passed
+git diff --check: exit 0
+
+Review follow-up: combined schema and coverage diagnostics
+Pure helper counterexample: before=exit 1 (missing unknown-section diagnostic); after=exit 0
+Same isolated regression command: exit 0
+[db-isolation] db=wsx_4d1db64fb6947ff249c9 capacity=100 current=6 required=32
+ ✓ tests/research/guided-runtime-persistence.test.ts (33 tests) 59937ms
+ ✓ tests/research/guided-plan-repair.test.ts (11 tests) 166ms
+ ✓ tests/research/guided-runtime-conversation.test.ts (6 tests) 36ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (2 tests) 50ms
+ ✓ tests/research/guided-runtime-progress.test.ts (3 tests) 14ms
+ Test Files  5 passed (5)
+      Tests  55 passed (55)
+   Duration  72.79s (transform 12.56s, setup 0ms, collect 5.10s, tests 60.20s, environment 1ms, prepare 548ms)
+[db-isolation] db=wsx_4d1db64fb6947ff249c9 peak_connections=5
+API typecheck after review follow-up: exit 0

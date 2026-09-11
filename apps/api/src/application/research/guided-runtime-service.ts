@@ -1,3 +1,4 @@
+import { generateResearchPlan } from "./guided-research-plan";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
 import { preservePreviousReport } from "./guided-report-history";
 import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
@@ -187,19 +188,12 @@ export class GuidedRuntimeService {
   private async plan(state: ResearchRuntime, persist: RuntimePersistence) {
     state.progress = { stage: "planning", completed: 0, total: 1 };
     await persist();
-    const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"overview":string,"optimizedQuestion":string,"tasks":[{"sectionId":existingOutlineId,"title":string,"objective":string,"deliverables":string[],"query":string}]}. Clarify the research question using the confirmed brief without expanding scope. Give each task a specific objective and expected evidence or analytical output. Cover every enabled section and its subsection questions, prioritize decision-critical evidence gaps and hypotheses, and use specific queries for official/primary sources, comparative data and conflicting evidence. Respect the brief geography and time range; deduplicate equivalent queries and use at most 60 queries.', this.context(state), persist, (value) => {
-      const parsed = C.GuidedResearchPlanModelOutput.safeParse(value);
-      const sections = state.outline.filter((item) => item.enabled);
-      if (!parsed.success || parsed.data.tasks.some((task) => !sections.some((section) => section.id === task.sectionId))
-        || sections.some((section) => !parsed.data.tasks.some((task) => task.sectionId === section.id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-    });
-    const result = C.GuidedResearchPlanModelOutput.safeParse(raw);
-    const ids = state.outline.filter((item) => item.enabled).map((item) => item.id);
-    if (!result.success || result.data.tasks.some((task) => !ids.includes(task.sectionId)) || ids.some((id) => !result.data.tasks.some((task) => task.sectionId === id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    const result = await generateResearchPlan(this.context(state), state.outline.filter((item) => item.enabled).map((item) => item.id),
+      (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate));
     invalidate(state, "research");
     state.sources = [];
-    state.researchPlan = { overview: result.data.overview, optimizedQuestion: result.data.optimizedQuestion };
-    state.tasks = result.data.tasks.map((task) => ({ ...task, id: randomUUID(), status: "pending", attempts: 0, errorCode: null }));
+    state.researchPlan = { overview: result.overview, optimizedQuestion: result.optimizedQuestion };
+    state.tasks = result.tasks.map((task) => ({ ...task, id: randomUUID(), status: "pending", attempts: 0, errorCode: null }));
     if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
     await persist();
   }
