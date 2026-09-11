@@ -23,11 +23,11 @@ vi.mock("node:fs/promises", async original => {
 });
 const uidDescriptor = Object.getOwnPropertyDescriptor(process, "getuid");
 const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-const roots: string[] = []; let failedScript = ""; let cleanupUnknown = false; let remoteUnknown = false;
+const roots: string[] = []; let failedScript = ""; let cleanupUnknown = false; let remoteExitCode: number | undefined;
 beforeEach(() => {
   vi.stubEnv("WORKSPACEX_BACKUP_TARGET", JSON.stringify({ backend: "oss", region: "cn-hangzhou", bucket: "backups-example", endpoint: "https://oss-cn-hangzhou-internal.aliyuncs.com", prefix: "backups/example", authMode: "ecs-role", roleName: "workspacex-runtime" }));
   Object.defineProperty(process, "platform", { value: "linux", configurable: true });
-  Object.defineProperty(process, "getuid", { value: () => 0, configurable: true }); failedScript = ""; cleanupUnknown = false; remoteUnknown = false;
+  Object.defineProperty(process, "getuid", { value: () => 0, configurable: true }); failedScript = ""; cleanupUnknown = false; remoteExitCode = undefined;
   vi.mocked(writeRuntimeBundle).mockResolvedValue({ api: { APP_DB_PASSWORD: "private-value" }, agent: { MEMORY_STORE_DATABASE_URL: "postgresql://memory/fixture", MEMORY_STORE_SCHEMA: "workspacex_memory" }, memoryMigration: {}, migration: {}, bootstrap: {}, web: {}, dependencies: {} });
   vi.mocked(captureProvisionCommand).mockImplementation(async command => {
     const args = command.args;
@@ -37,7 +37,7 @@ beforeEach(() => {
     if (args[0] === "network") return '"example"';
     if (args[0] === "ps") { if (cleanupUnknown) throw new Error("daemon unavailable"); return ""; }
     if (args.at(-1) === "redis") return "999";
-    if (args.at(-1) === "scripts/cloud-business-probe.ts" && remoteUnknown) throw new CommandExecutionError(79);
+    if (args.at(-1) === "scripts/cloud-business-probe.ts" && remoteExitCode !== undefined) throw new CommandExecutionError(remoteExitCode);
     if (args.at(-1) === failedScript) throw new Error("private failure details");
     if (args.at(-1) === "scripts/provision-admin.ts") return JSON.stringify({ ok: true, userId: "user", orgId: "org", defaultAgentId: "agent" });
     if (args.at(-1) === "scripts/backup-target-readiness.ts") return '{"backupTargetVerified":true}';
@@ -82,7 +82,14 @@ it("keeps an explicit block when Docker cannot prove task-container cleanup", as
 });
 
 it("does not confuse removal of the probe container with cancellation of its API Agent run", async () => {
-  remoteUnknown = true;
+  remoteExitCode = 79;
+  const result = await execute();
+  expect(result.status).toBe("failed"); expect(result.lockRetained).toBe(true);
+  expect(result.stages.at(-1)?.name).toBe("business-probe");
+});
+
+it("retains the lock when the business helper is killed before it can prove remote cleanup", async () => {
+  remoteExitCode = 137;
   const result = await execute();
   expect(result.status).toBe("failed"); expect(result.lockRetained).toBe(true);
   expect(result.stages.at(-1)?.name).toBe("business-probe");

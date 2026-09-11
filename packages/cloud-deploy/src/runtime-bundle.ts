@@ -9,6 +9,7 @@ import { createCloudCompose, type CloudComposeOptions } from "./compose";
 import { runtimeEnvironment, serializeRuntimeEnvironment } from "./runtime-environment";
 import { resolveSecret } from "./secrets";
 import { validateAgentServerEnvironment } from "./agent-release";
+import { validateProductionAgentPersistence } from "./agent-persistence-boundary";
 
 type Context = { signal: AbortSignal; remainingMs: () => number };
 export const agentPersistenceSchema = z.object({ DATABASE_URI: z.string().min(1), REDIS_URI: z.string().min(1), LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict();
@@ -63,6 +64,11 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
       const { databaseCaFile, memoryCaFile: memoryCa, MEMORY_STORE_DATABASE_URL: memoryUri, MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri, ...values } = productionAgentSecretSchema.parse(input);
       agentCaFile = databaseCaFile; memoryCaFile = memoryCa; persistence = values;
       const memory = new URL(memoryUri), owner = new URL(migrationUri), graph = new URL(values.DATABASE_URI);
+      validateProductionAgentPersistence({
+        DATABASE_URI: values.DATABASE_URI,
+        MEMORY_STORE_DATABASE_URL: memoryUri,
+        MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri,
+      });
       for (const url of [memory, owner]) {
         if (!/^postgres(?:ql)?:$/.test(url.protocol) || url.searchParams.get("sslmode") !== "verify-full" ||
           ["sslrootcert", "sslcert", "sslkey"].some(key => url.searchParams.has(key)) || !url.password) throw new Error();

@@ -181,8 +181,13 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
           PROVISION_PUBLIC_URL: config.environment.publicUrl, PROVISION_ORG_ID: admin.orgId, PROVISION_DEFAULT_AGENT_ID: admin.defaultAgentId }, context));
         if (result.ok !== true || result.loginVerified !== true || result.file?.fileRoundtripVerified !== true || result.agent?.agentBusinessVerified !== true || result.components?.model !== true || result.components?.sandbox !== true) throw new Error("BUSINESS_NOT_VERIFIED");
       } catch (error) {
-        if (error instanceof CommandExecutionError && error.exitCode === 79) throw new UncertainProvisionStateError("REMOTE_AGENT_CLEANUP_UNPROVEN");
-        throw error;
+        // Once the helper starts, a transport failure, signal, OOM, malformed
+        // result, or explicit cleanup failure can all leave a remote Agent run
+        // alive. Keep the provision lock until an operator proves cleanup.
+        if (error instanceof CommandExecutionError && error.exitCode === 79) {
+          throw new UncertainProvisionStateError("REMOTE_AGENT_CLEANUP_UNPROVEN");
+        }
+        throw new UncertainProvisionStateError("REMOTE_AGENT_STATE_UNCERTAIN");
       }
     },
   } });
