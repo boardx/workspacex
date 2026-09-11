@@ -131,7 +131,22 @@ export async function handleInterruptedToolCall(
       planningNote: `已授权同类操作，自动放行：${interrupted.toolName}`,
       inputFullContent: ledger.system,
     });
-    await deps.runs.approveAndRequeue(orgId, runId);
+    /*
+     * issue #3420 —— 这里此前调的是 `approveAndRequeue`，而那条 UPDATE 的 WHERE 是
+     * `status='awaiting_tool_permission'`。此刻 run 正处于 `running`（它就是在执行中
+     * 被中断的）⇒ 命中 0 行、返回值被丢弃 ⇒ 「自动放行」只是嘴上说说：run 停在
+     * `running` 一动不动，没人会再去领它，直到租约到期被恢复流程捞起，把用户**已经
+     * 授权过**的那个工具再问一遍（人类实测：run 1ebd3c81，09:35:23 落库的 run 级
+     * 授权，09:37:44 又停在 awaiting_tool_permission）。
+     * `requeueAuthorizedToolCall` 是 running → queued 那条边，见 `ports.ts`。
+     */
+    const requeued = await deps.runs.requeueAuthorizedToolCall?.(orgId, runId, interrupted)
+      ?? await deps.runs.approveAndRequeue(orgId, runId);
+    if (!requeued) {
+      // 输了竞态（取消/失败/被别处收走）——不重试、不覆盖，如实记一行日志即可：
+      // 这条 run 已经不归这次执行管了。
+      deps.log("authorized tool call requeue lost the race", { runId, toolName: interrupted.toolName });
+    }
     return { autoApproved: true };
   }
 

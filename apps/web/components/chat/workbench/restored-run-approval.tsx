@@ -214,11 +214,19 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
           className="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
         >
           这是本次任务里第 {history.count + 1} 次请求授权，是一次新的请求，不是上一次没生效。
+          {/* issue #3420 ②：这句话必须说出**用户真正选过的那一档**。此前只有 once/deny
+              两支有自己的说法，run/forever 落到那句笼统的「上一次的授权不覆盖这次的操作」
+              ——人类实测里用户选的正是「本 run 内都允许」，却被告知上次选的是「仅本次
+              允许」，系统给出的原因不是真实原因。 */}
           {history.last === "once"
             ? "你上次选的是「仅本次允许」——那一档只对那一次调用生效，所以这次要重新确认。想一次性放行，可选「本 run 内都允许」。"
             : history.last === "deny"
               ? "你上次选的是「拒绝」——agent 据此换了做法，这是它提出的另一个操作。"
-              : "上一次的授权不覆盖这次的操作，因此需要你再确认一次。"}
+              : history.last === "run"
+                ? "你上次选的是「本 run 内都允许」——那一档在这条任务里对同一个工具持续生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。"
+                : history.last === "forever"
+                  ? "你上次选的是「以后都允许」——那一档对那个工具长期生效，不会再问你；这次请求的是另一个工具的操作，所以要再确认一次。"
+                  : "上一次的授权不覆盖这次的操作，因此需要你再确认一次。"}
         </p> : null}
         {request ? <fieldset
           data-testid="chat-task-workbench-approval-card"
