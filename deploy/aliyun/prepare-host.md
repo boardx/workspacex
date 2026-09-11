@@ -12,6 +12,10 @@ available. The TLS payload contains `certificatePem` (leaf/full chain) and
 the deployment's HTTPS origin. This first ingress renderer requires port 443. The
 checkout, input/secret files and every existing parent of the target paths must be
 root-owned, contain no symlink component and deny group/other writes.
+The bootstrap code itself must come from an externally verified release package. The
+command then recursively verifies the checkout and records that result in its receipt;
+provision revalidates the receipt and top-level trust without putting the full tree
+walk inside the 300-second timed path.
 
 ```sh
 node --import tsx packages/cloud-deploy/src/prepare-host-cli.ts \

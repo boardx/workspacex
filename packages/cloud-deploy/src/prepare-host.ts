@@ -8,6 +8,7 @@ import { resolveSecret } from "./secrets";
 import { createCloudNginxConfig } from "./nginx";
 import { captureProvisionCommand } from "./command";
 import { assertTrustedPath } from "./trusted-path";
+import { assertTrustedTree } from "./trusted-tree";
 const path=z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/);
 export const prepareHostOptionsSchema=z.object({checkoutDirectory:path,runtimeDirectory:path}).strict();
 export type PrepareHostOptions=z.infer<typeof prepareHostOptionsSchema>;
@@ -18,7 +19,7 @@ export interface PrepareHostServices {
  host?:{platform:string;uid:number};
 }
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
-export const prepareHostReceiptSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean()}).strict();
+export const prepareHostReceiptSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean(),releaseTreeVerified:z.literal(true)}).strict();
 async function syncDir(dir:string){const file=await open(dir,"r");try{await file.sync();}finally{await file.close();}}
 async function privateDir(dir:string){await assertTrustedPath(dir,{trustedRoot:"/",kind:"directory",private:true});}
 async function trustedSecretReference(reference:string){if(reference.startsWith("file:"))await assertTrustedPath(reference.slice(5),{trustedRoot:"/",kind:"file",private:true});}
@@ -65,6 +66,7 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  const hostRead=services.readHostFile??((file:string)=>readFile(file,"utf8"));
  const active=()=>{if(context.signal.aborted||context.remainingMs()<=0)throw new Error("HOST_PREPARE_CANCELLED");};
  await assertTrustedPath(checkout,{trustedRoot:"/",kind:"directory"});
+ await assertTrustedTree(checkout,{signal:context.signal,remainingMs:context.remainingMs});
  await assertTrustedPath(dirname(dir),{trustedRoot:"/",kind:"directory"});
  if(environment.profile==="starter")await assertTrustedPath(dirname(environment.dataVolumePath),{trustedRoot:"/",kind:"directory"});
  await trustedSecretReference(environment.tlsSecretRef);
@@ -79,7 +81,7 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  const {contents,files,specHash}=await hostPreparationContract(config,manifest,options,run,source,context);
  const receiptPath=join(dir,"prepare-receipt.json");let receipt:z.infer<typeof prepareHostReceiptSchema>;const wasExisting=!!(await existing(dir));
  if(wasExisting){await privateDir(dir);receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");}
- else{active();await mkdir(dir,{mode:0o700});await privateDir(dir);receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
+ else{active();await mkdir(dir,{mode:0o700});await privateDir(dir);receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false,releaseTreeVerified:true};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
  const lock=await open(join(dir,"provision.lock"),"wx",0o600);let releaseLock=true;
  try{
   await lock.writeFile(JSON.stringify({operation:"prepare-host",installationId:receipt.installationId,pid:process.pid}));await lock.sync();await syncDir(dir);

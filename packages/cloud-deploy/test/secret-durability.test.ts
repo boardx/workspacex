@@ -21,6 +21,7 @@ vi.mock("node:fs/promises", async importOriginal => {
 import { ensureDeploymentSecret } from "../src/secrets";
 import { runtimeEnvironment } from "../src/runtime-environment";
 import { deploymentExample } from "../src/examples";
+vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 const roots:string[]=[];
 async function directory() { const path=await mkdtemp(join(tmpdir(),"secret-durability-")); roots.push(path); return path; }
 afterEach(async () => { probe.cancel=undefined; probe.events=[]; probe.failDirectoryOnce=false; await Promise.all(roots.splice(0).map(path => rm(path,{recursive:true,force:true}))); });

@@ -37,7 +37,7 @@ schema 改变，必须同时更新本表和对应反证，不能仅改文档让�
 |---|---|---|---|
 | 输入结构、互斥字段、区域和 digest | 必须 | 必须 | schema 实际验证；示例地址不算资源证据 |
 | 干净 checkout 与 manifest SHA 一致 | 必须 | 必须 | Git SHA/status；规范安全文件从同 SHA 的 Git object 提取 |
-| root 路径信任 | 必须 | 必须 | checkout、runtime、配置/secret 文件及既有祖先无符号链接、由 root 拥有且不可被 group/other 写；服务 UID 只允许拥有指定数据叶目录 |
+| root 路径信任 | 必须 | 必须 | 外部先验证启动包；prepare递归检查checkout并把结果写入收据。runtime、配置/secret 文件及既有祖先无符号链接、由 root 拥有且不可被 group/other 写；服务 UID 只允许拥有指定数据叶目录 |
 | prepare receipt 与文件完整性 | 必须 | 必须 | receipt/specHash、canonical seccomp/AppArmor、Nginx/证书文件实际哈希均一致；篡改文件及重写 receipt 仍必须失败 |
 | 专用本机数据目录归属 | PG/Redis目录与 receipt 的安装 ID/specHash marker 一致 | 不创建本地 PG/Redis数据目录 | 不采用外来目录、符号链接或伪造归属 marker |
 | AppArmor | 专用 profile enforce | 专用 profile enforce | 加载后的内核 profile 状态；文件存在本身不算 enforce |

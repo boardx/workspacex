@@ -1,9 +1,10 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { deploymentExample } from "../src/examples";
 import { runtimeEnvironment, serializeRuntimeEnvironment } from "../src/runtime-environment";
+vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 const roots: string[] = [];
 async function directory() { const p = await mkdtemp(join(tmpdir(), "runtime-env-")); roots.push(p); return p; }
 afterEach(async () => { await Promise.all(roots.splice(0).map(p => rm(p, { recursive: true, force: true }))); });

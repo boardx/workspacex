@@ -1,7 +1,8 @@
 import type { DeploymentConfig } from "./config";
 import { deploymentStorageEnvironment } from "./storage-config";
 import { productionDataEnvironment } from "./data-secrets";
-import { ensureDeploymentSecret, resolveSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
+import { resolveSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
+import { ensureTrustedDeploymentSecret } from "./trusted-generated-secrets";
 
 export type RuntimeEnvironmentMaps = Record<"api" | "agent" | "migration" | "bootstrap" | "web" | "dependencies" | "memoryMigration", Record<string, string>>;
 
@@ -11,7 +12,7 @@ export type RuntimeEnvironmentMaps = Record<"api" | "agent" | "migration" | "boo
 export async function runtimeEnvironment(config: DeploymentConfig, secretDirectory: string, source: NodeJS.ProcessEnv = process.env, context: SecretOperationContext = {}): Promise<RuntimeEnvironmentMaps> {
   assertSecretOperationActive(context);
   const names = ["model-cipher", "native-binding", "service-key", "admin-password", "app-password", "owner-password", "diag-password", "redis-password", "agent-password", "memory-password", "memory-owner-password"] as const;
-  const outcomes = await Promise.allSettled(names.map(name => ensureDeploymentSecret(secretDirectory, name, context)));
+  const outcomes = await Promise.allSettled(names.map(name => ensureTrustedDeploymentSecret(secretDirectory, name, context)));
   // Wait for all in-flight file cleanup before returning failure or cancellation.
   const values: string[] = [];
   for (const outcome of outcomes) {

@@ -8,7 +8,7 @@
 
 使用发布 commit 的干净 checkout 作为部署驱动；该 HEAD 必须等于 release manifest 的 `sourceRevision`。提前安装驱动依赖，并构建/下载全部指定架构镜像，得到真实仓库 digest。provision 只核验缓存，不会拉镜像、构建或安装依赖。目标 Docker daemon 架构必须等于 manifest，不接受仿真构建的五分钟承诺。
 
-prepare-host 会完成以下应用专属主机设置。checkout、配置/secret 文件以及目标路径的全部既有祖先必须由 root 拥有，且不可被 group/other 写入，也不能包含符号链接。其父目录须预先存在，目标 runtimeDirectory 和 Starter dataVolumePath 应使用尚未创建的新路径；不要提前手工建立目标目录或加载同名 AppArmor profile：
+prepare-host 会完成以下应用专属主机设置。启动它的代码本身必须来自外部已验证的发布包；随后它会递归验证完整 checkout，仅接受 root 拥有、不可被 group/other 写入的普通文件/目录，以及仍指向同一可信 checkout 的内部链接。配置/secret 文件以及目标路径的全部既有祖先同样必须由 root 控制且不能包含符号链接。其父目录须预先存在，目标 runtimeDirectory 和 Starter dataVolumePath 应使用尚未创建的新路径；不要提前手工建立目标目录或加载同名 AppArmor profile：
 
 - 创建 root 私有 runtimeDirectory（0700），写入仓库 Sandbox 的 `docker-seccomp.json`，加载 `workspacex-native-sessions` AppArmor enforcing profile。
 - Starter 创建专用 `dataVolumePath/postgres` 和 `/redis` 持久目录；PostgreSQL 镜像须为 16 且具有仓库迁移所需 pgvector，Redis 为 7。应用表和管理员仍在 provision 中创建，不提前迁移以规避计时。
