@@ -120,9 +120,15 @@ install -d -o "$RUN_AS" -g "$RUN_AS" -m 0770 "$NATIVE_SESSION_SOCKET_DIR"
 
 # API（宿主 systemd 服务）从 ENV_FILE 读这条。写进去而不是只导出：systemd 只认
 # EnvironmentFile，父 shell 的 export 到不了它。
+#
+# 用 `printf '%q'` 而不是裸 `echo "KEY=${value}"`：$ENV_FILE 下游会被 `source <(...)`
+# （第 4b 步）和 `env $(grep ... | xargs)`（多处）当 shell 内容解析，SANDBOX_SOCKET_DIR
+# 可被调用方通过环境变量覆盖为任意路径——一旦带空格，同 real-model-chat-evidence.sh
+# 修过的那个坑：`source` 把 `=` 之后的内容拆成第二条命令，exit 127 崩掉；
+# `env $(... | xargs)` 则是静默把变量表拆错，corrupt 而不报错，更难查。
 SANDBOX_SOCKET_PATH="$SANDBOX_SOCKET_DIR/skill-sandbox.sock"
 if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
-  echo "KERNEL_SKILL_SANDBOX_SOCKET=${SANDBOX_SOCKET_PATH}" >> "$ENV_FILE"
+  printf '%s=%q\n' KERNEL_SKILL_SANDBOX_SOCKET "$SANDBOX_SOCKET_PATH" >> "$ENV_FILE"
   echo "  写入 KERNEL_SKILL_SANDBOX_SOCKET=${SANDBOX_SOCKET_PATH}"
 fi
 
