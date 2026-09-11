@@ -21,7 +21,7 @@ function fixture() {
 }
 const config = { provider: "test", id: "model" };
 function answer(context: any) {
-  if (context.reportStage === "evidence") return { evaluations: context.chunks.map((chunk: any) => {
+  if (context.reportStage === "evidence" || context.researchStage === "source_relevance") return { evaluations: context.chunks.map((chunk: any) => {
     const matches = context.questions.filter((question: any) => chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
       .map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
@@ -507,7 +507,7 @@ describe("chapter-based report generation", () => {
   it("persists a complete unverified draft after failed first chapter review, resumes it honestly, and rejects completion", async () => {
     const f = fixture(); const calls: string[] = [];
     const model: ModelCallPort = { complete: async (input) => {
-      const context = JSON.parse(input.user); calls.push(context.reportStage);
+      const context = JSON.parse(input.user); if (context.researchStage !== "source_relevance") calls.push(context.reportStage);
       const value = answer(context);
       if (context.reportStage === "quality" && context.section.id === "b") Object.assign(value, { supported: false, issues: ["Verify policy claims against primary evidence."] });
       if (context.reportStage === "synthesis") expect(context.qualityWarnings).toEqual([expect.objectContaining({ sectionId: "b" })]);

@@ -31,6 +31,8 @@ let failSearch: boolean;
 let badCitation: boolean;
 let shallowReport: boolean;
 let searchCalls: number;
+let relevanceCalls: number;
+let includeIrrelevantSearchHit: boolean;
 let proposedAction: "save" | "start" | "confirm" | "complete";
 let releaseModel: (() => void) | undefined;
 let blockModel: boolean;
@@ -38,6 +40,13 @@ let failModelNode: string | undefined;
 const model: ModelCallPort = { complete: async (input) => {
   if (blockModel) { blockModel = false; await new Promise<void>((resolve) => { releaseModel = resolve; }); }
   const context = JSON.parse(input.user);
+  if (context.researchStage === "source_relevance") {
+    relevanceCalls++;
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => {
+      const irrelevant = chunk.content.includes("Unrelated Acura vehicle inventory");
+      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
+    }) }) };
+  }
   const node = input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;
   calls.push(node);
   if (node === failModelNode) throw new Error("model unavailable");
@@ -62,7 +71,7 @@ const model: ModelCallPort = { complete: async (input) => {
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
   return { text: JSON.stringify(value) };
 } };
-const search = { search: async () => { searchCalls++; if (failSearch) throw new Error("provider unavailable"); return [{ title: "Official policy", url: "https://energy.ec.europa.eu/topics/energy-storage_en", content: "A policy source returned by the controlled search test double." }]; } };
+const search = { search: async () => { searchCalls++; if (failSearch) throw new Error("provider unavailable"); return [{ title: "Official policy", url: "https://energy.ec.europa.eu/topics/energy-storage_en", content: "A policy source returned by the controlled search test double." }, ...(includeIrrelevantSearchHit ? [{ title: "Acura inventory", url: "https://example.org/acura-inventory", content: "Unrelated Acura vehicle inventory for sale." }] : [])]; } };
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); db = new PgDatabase(appConfig());
   const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0, "127.0.0.1"); base = await app.getUrl();
@@ -79,7 +88,7 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
@@ -87,6 +96,35 @@ async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeComma
 }
 async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
+  it("persists relevance filtering of new search results without accepting unrelated inventory", async () => {
+    includeIrrelevantSearchHit = true;
+    await reachResearch();
+    expect(relevanceCalls).toBeGreaterThan(0);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.tasks.every((task) => task.status === "succeeded")).toBe(true);
+    expect(reloaded.sources.filter((source) => source.decision === "accepted").map((source) => source.title)).toEqual(["Official policy"]);
+    expect(reloaded.sources.find((source) => source.title === "Acura inventory")?.decision).not.toBe("accepted");
+    expect(reloaded.sources.find((source) => source.title === "Official policy")?.relevanceBasis).toEqual(expect.any(String));
+  });
+
+  it("rechecks legacy accepted sources and persists the corrected decisions", async () => {
+    await reachResearch();
+    const legacy = structuredClone(state);
+    legacy.sources = legacy.sources.map(({ relevanceBasis: _basis, ...source }) => source);
+    legacy.sources.push({ id: "legacy-car", taskId: legacy.tasks[0]!.id, title: "Acura inventory", url: "https://example.org/acura-inventory", content: "Unrelated Acura vehicle inventory for sale.", retrievedAt: new Date().toISOString(), decision: "accepted" });
+    await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(legacy)]));
+    state = await service.get(actor, session);
+    relevanceCalls = 0;
+    const priorSearchCalls = searchCalls;
+    await run("start");
+    expect(state.errorCode).toBeNull();
+    expect(relevanceCalls).toBeGreaterThan(0);
+    expect(searchCalls).toBe(priorSearchCalls);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.sources.find((source) => source.id === "legacy-car")?.decision).not.toBe("accepted");
+    expect(reloaded.sources.filter((source) => source.decision === "accepted").map((source) => source.title)).toEqual(["Official policy"]);
+  });
+
   it("keeps the previous report after regeneration fails and reloads it without treating history as current", async () => {
     await reachResearch();
     await run("confirm");

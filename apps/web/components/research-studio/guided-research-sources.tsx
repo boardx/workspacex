@@ -13,6 +13,7 @@ function SourceRow({ source, disabled, onRemove }: { source: Source; disabled: b
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <a className="min-w-0 truncate text-12 font-medium text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary" href={source.url} target="_blank" rel="noreferrer" aria-describedby={open ? descriptionId : undefined}>{source.title}</a>
+          <span className="shrink-0 text-12 text-muted-foreground">{source.addedByUser ? "手动添加" : source.relevanceBasis ? "已筛选" : "待复核"}</span>
           <Button variant="ghost" size="icon" className="shrink-0" aria-label={`查看描述 ${source.title}`} aria-expanded={open} aria-controls={descriptionId} onClick={() => setOpen(true)}><Info className="size-4" aria-hidden /></Button>
         </div>
         {open && <div className="absolute left-0 right-0 top-full z-30 pt-1" id={descriptionId} role="tooltip">
@@ -47,7 +48,7 @@ export function GuidedResearchSources({ sources, disabled, onAdd, onRemove }: {
   }
   return <section className="space-y-3" aria-label="研究来源" data-testid="research-sources">
     <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">研究来源 · {visible.length}</h2><Button variant="outline" disabled={disabled} onClick={() => setAdding((value) => !value)}><Plus className="size-4" aria-hidden />添加来源</Button></div>
-    <p className="text-12 text-muted-foreground">来源已自动纳入研究，可删除不需要的内容。移到链接上查看完整描述。</p>
+    <p className="text-12 text-muted-foreground">自动检索的资料经主题相关性筛选后纳入研究；历史资料将在重新检索或生成报告前复核。可手动添加或删除，移到链接上查看完整描述。</p>
     {adding && <form onSubmit={(event) => void submit(event)} className="space-y-2 rounded-lg border border-border bg-card p-4">
       <label htmlFor="research-source-url" className="text-12 font-medium">来源链接</label>
       <div className="flex flex-wrap gap-2"><Input id="research-source-url" type="url" className="min-w-0 flex-1" placeholder="https://…" value={url} disabled={disabled || submitting} onChange={(event) => setUrl(event.target.value)} /><Button type="submit" variant="primary" disabled={disabled || submitting || !validUrl}>{submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}{submitting ? "正在添加…" : "添加"}</Button></div>

@@ -442,3 +442,15 @@ describe("report timeline contract", () => {
     expect(research.GuidedResearchReportTimelineStep.safeParse({ ...step, attempts: -1 }).success).toBe(false);
   });
 });
+
+describe("research source provenance", () => {
+  it("accepts legacy sources but keeps relevance approval and manual origin server-owned", () => {
+    const source = { id: "source", taskId: "task", title: "Evidence", url: "https://example.org/evidence", content: "Excerpt", retrievedAt: "now", decision: "accepted" };
+    expect(research.GuidedResearchSource.safeParse(source).success).toBe(true);
+    expect(research.GuidedResearchSource.safeParse({ ...source, relevanceBasis: "a".repeat(64), addedByUser: true }).success).toBe(true);
+    expect(research.GuidedResearchSource.safeParse({ ...source, relevanceBasis: "unverified" }).success).toBe(false);
+    for (const provenance of [{ relevanceBasis: "a".repeat(64) }, { addedByUser: true }]) {
+      expect(research.GuidedResearchRuntimeDraft.safeParse({ node: "research", value: [{ id: "source", decision: "accepted", ...provenance }] }).success).toBe(false);
+    }
+  });
+});

@@ -27,7 +27,12 @@ describe("durable research orchestration", () => {
       if (query === "q2" && fail) throw new Error("Provider unavailable");
       return [{ title: query, url: "https://example.org/shared", content: "Evidence" }, { title: query, url: `https://example.org/${query}`, content: "Evidence" }];
     });
-    const model = { complete: vi.fn() };
+    const model = { complete: vi.fn(async (input: { user: string }) => {
+      const context = JSON.parse(input.user);
+      expect(context.researchStage).toBe("source_relevance");
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Controlled policy evidence", relevance: "direct" }] })) }) };
+    }) };
     const service = new GuidedRuntimeService(f.store, model, { search }, { provider: "test", id: "test" });
     const execute = (action: "start" | "retry") => service.execute(f.actor, f.session, { sessionId: "session", node: "research", action, requestId: action, expectedVersion: f.latest().version });
     const first = await execute("start");
@@ -39,7 +44,7 @@ describe("durable research orchestration", () => {
     fail = false;
     const second = await execute("retry");
     expect(search).toHaveBeenCalledTimes(8);
-    expect(model.complete).not.toHaveBeenCalled();
+    expect(model.complete).toHaveBeenCalledTimes(7);
     expect(second.tasks.map((t) => t.attempts)).toEqual([1, 1, 2, 1, 1, 1, 1]);
     expect(second.sources.find((s) => s.id === "excluded")?.taskIds).toContain("t2");
     expect(second.progress).toBeNull();

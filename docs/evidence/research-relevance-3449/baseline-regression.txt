@@ -1,0 +1,38 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-source-relevance/apps/api
+
+ ❯ tests/research/baseline-guided-source-relevance.test.ts (15 tests | 1 failed | 14 skipped) 44ms
+   × research runtime source publication > never persists raw unrelated search hits as accepted 43ms
+     → expected [ 'https://example.org/kpl', …(1) ] to deeply equal [ 'https://example.org/kpl' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/baseline-guided-source-relevance.test.ts > research runtime source publication > never persists raw unrelated search hits as accepted
+AssertionError: expected [ 'https://example.org/kpl', …(1) ] to deeply equal [ 'https://example.org/kpl' ]
+
+- Expected
++ Received
+
+  Array [
+    "https://example.org/kpl",
++   "https://example.org/acura",
+  ]
+
+ ❯ tests/research/baseline-guided-source-relevance.test.ts:142:52
+    140|     const f = serviceFixture([direct, car]); const result = await f.ru…
+    141|     expect(result.errorCode).toBeNull();
+    142|     expect(result.sources.map((item) => item.url)).toEqual([direct.url…
+       |                                                    ^
+    143|     expect(f.writes.every((state) => state.sources.every((item) => ite…
+    144|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 skipped (15)
+   Start at  00:40:30
+   Duration  2.59s (transform 1.47s, setup 0ms, collect 2.16s, tests 44ms, environment 0ms, prepare 130ms)
+
+undefined
+/private/tmp/workspacex-research-source-relevance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/vitest-research-relevance-baseline.config.mts -t never persists raw unrelated
