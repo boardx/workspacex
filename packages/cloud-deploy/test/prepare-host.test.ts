@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { verifyPreparedHost } from "../src/verify-prepared-host";
+import { deploymentConfigSchema } from "../src/config";
+import { validateReleaseManifest } from "../src/release";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,3 +29,37 @@ it("does not adopt a foreign AppArmor profile even after an interrupted receipt 
 it("rejects dirty checkout and non-Linux/non-root before host mutation",async()=>{const f=await fixture();f.setDirty();await expect(prepareHost(f.config,f.manifest,f.options,f.services,f.source)).rejects.toThrow("CLEAN_RELEASE_CHECKOUT_REQUIRED");await expect(prepareHost(f.config,f.manifest,f.options,{...f.services,host:{platform:"darwin",uid:0}},f.source)).rejects.toThrow("PREPARED_ECS_ROOT_REQUIRED");expect(f.calls.some(a=>a[0]==="apparmor_parser")).toBe(false);});
 it("retains shared lock when policy loading has uncertain result",async()=>{const f=await fixture();const run=async(argv:readonly string[])=>{if(argv[0]==="apparmor_parser"&&argv.includes("--add"))throw new Error("uncertain");return f.services.run(argv);};await expect(prepareHost(f.config,f.manifest,f.options,{...f.services,run},f.source)).rejects.toThrow("APPARMOR_LOAD_UNPROVEN");expect((await stat(join(f.options.runtimeDirectory,"provision.lock"))).isFile()).toBe(true);});
 it("production prewarms application images and creates no local data volume",async()=>{const f=await fixture();const config=deploymentExample("production");const result=await prepareHost(config,f.manifest,f.options,f.services,f.source);expect(result.readyForProvision).toBe(false);expect(f.calls.filter(a=>a[1]==="pull")).toHaveLength(4);await expect(stat(join(f.root,"data"))).rejects.toThrow();});
+
+it.each(["starter","production"] as const)("%s preparation receipt proves only integrity, not ingress or cloud acceptance",async profile=>{
+ const f=await fixture();const config=profile==="starter"?f.config:deploymentExample("production");
+ const prepared=await prepareHost(config,f.manifest,f.options,f.services,f.source);expect(prepared.readyForProvision).toBe(false);
+ f.calls.length=0;const verified=await verifyPreparedHost(config,f.manifest,f.options,f.services.run,f.source);
+ expect(verified).toEqual({integrityVerified:true,installationId:prepared.installationId,ingressVerified:false,cloudVerified:false});
+ expect(f.calls).toHaveLength(2);expect(f.calls.every(argv=>argv[0]==="git"&&argv.includes("show"))).toBe(true);
+ expect(prepared.remainingChecks).toContain("review-and-install-runtime-nginx-conf-in-http-context");
+ expect(prepared.remainingChecks).toContain("public-dns-and-matching-tls-endpoint");
+});
+it.each(["starter","production"] as const)("%s rejects modified security bytes even with a forged matching receipt hash",async profile=>{
+ const f=await fixture(),config=profile==="starter"?f.config:deploymentExample("production");await prepareHost(config,f.manifest,f.options,f.services,f.source);
+ const receiptPath=join(f.options.runtimeDirectory,"prepare-receipt.json"),receipt=JSON.parse(await readFile(receiptPath,"utf8"));
+ const malicious='{"defaultAction":"SCMP_ACT_ALLOW"}';await writeFile(join(f.options.runtimeDirectory,"docker-seccomp.json"),malicious);
+ receipt.files["docker-seccomp.json"]=createHash("sha256").update(malicious).digest("hex");
+ receipt.specHash=createHash("sha256").update(JSON.stringify({config:deploymentConfigSchema.parse(config),manifest:validateReleaseManifest(f.manifest),options:f.options,files:receipt.files})).digest("hex");
+ await writeFile(receiptPath,JSON.stringify(receipt));
+ await expect(verifyPreparedHost(config,f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");
+ expect(await readFile(join(f.options.runtimeDirectory,"docker-seccomp.json"),"utf8")).toBe(malicious);
+});
+it.each(["starter","production"] as const)("%s rejects incomplete receipts and mutated ingress files",async profile=>{
+ const f=await fixture(),config=profile==="starter"?f.config:deploymentExample("production");await prepareHost(config,f.manifest,f.options,f.services,f.source);
+ const receiptPath=join(f.options.runtimeDirectory,"prepare-receipt.json"),receipt=JSON.parse(await readFile(receiptPath,"utf8"));
+ await writeFile(receiptPath,JSON.stringify({...receipt,status:"preparing"}));await expect(verifyPreparedHost(config,f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");
+ await writeFile(receiptPath,JSON.stringify(receipt));await writeFile(join(f.options.runtimeDirectory,"nginx.conf"),"changed ingress");
+ await expect(verifyPreparedHost(config,f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");
+});
+it("rejects foreign Starter data marker at handoff",async()=>{const f=await fixture();await prepareHost(f.config,f.manifest,f.options,f.services,f.source);await writeFile(join(f.config.environment.dataVolumePath,".workspacex-prepare.json"),"{}");await expect(verifyPreparedHost(f.config,f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");});
+it.each(["starter","production"] as const)("%s requires receipt and rejects a different deployment spec",async profile=>{
+ const f=await fixture(),config=profile==="starter"?f.config:deploymentExample("production");await prepareHost(config,f.manifest,f.options,f.services,f.source);
+ await expect(verifyPreparedHost({...config,provision:{...config.provision,adminEmail:"different@example.com"}},f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");
+ await rm(join(f.options.runtimeDirectory,"prepare-receipt.json"));
+ await expect(verifyPreparedHost(config,f.manifest,f.options,f.services.run,f.source)).rejects.toThrow("HOST_PREPARATION_INTEGRITY_FAILED");
+});

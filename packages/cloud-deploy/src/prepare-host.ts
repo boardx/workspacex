@@ -8,8 +8,8 @@ import { resolveSecret } from "./secrets";
 import { createCloudNginxConfig } from "./nginx";
 import { captureProvisionCommand } from "./command";
 const path=z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/);
-const optionsSchema=z.object({checkoutDirectory:path,runtimeDirectory:path}).strict();
-export type PrepareHostOptions=z.infer<typeof optionsSchema>;
+export const prepareHostOptionsSchema=z.object({checkoutDirectory:path,runtimeDirectory:path}).strict();
+export type PrepareHostOptions=z.infer<typeof prepareHostOptionsSchema>;
 type Context={signal:AbortSignal;remainingMs:()=>number};
 export interface PrepareHostServices {
  run?:(argv:readonly string[],context:Context)=>Promise<string>;
@@ -17,18 +17,40 @@ export interface PrepareHostServices {
  host?:{platform:string;uid:number};
 }
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
-const Receipt=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean()}).strict();
+export const prepareHostReceiptSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean()}).strict();
 async function syncDir(dir:string){const file=await open(dir,"r");try{await file.sync();}finally{await file.close();}}
 async function privateDir(dir:string){const stat=await lstat(dir);if(!stat.isDirectory()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw new Error("UNSAFE_PREPARE_DIRECTORY");}
 async function newPrivateFile(path:string,value:string){const file=await open(path,"wx",0o600);try{await file.writeFile(value);await file.sync();}finally{await file.close();}}
 async function existing(path:string){try{return await lstat(path);}catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return undefined;throw error;}}
+
+/** Shared, read-only derivation used by prepare and provision. Canonical security bytes
+ * come from the immutable Git object, never from mutable runtime files or the receipt. */
+export async function hostPreparationContract(config: z.infer<typeof deploymentConfigSchema>, manifest: ReturnType<typeof validateReleaseManifest>, options: PrepareHostOptions,
+ run: NonNullable<PrepareHostServices["run"]>, source: NodeJS.ProcessEnv, context: Context) {
+ const dir=options.runtimeDirectory,checkout=options.checkoutDirectory,environment=config.environment;
+ const canonical=async(file:string)=>run(["git","-C",checkout,"show",`${manifest.sourceRevision}:${file}`],context);
+ const seccomp=await canonical("apps/skill-sandbox/security/docker-seccomp.json"),apparmor=await canonical("apps/skill-sandbox/security/docker-apparmor-sessions");
+ JSON.parse(seccomp);
+ if(!apparmor.includes("profile workspacex-native-sessions "))throw new Error("INVALID_CANONICAL_APPARMOR_PROFILE");
+ const url=new URL(environment.publicUrl);if(url.port&&url.port!=="443")throw new Error("INGRESS_PORT_443_REQUIRED");
+ const tls=z.object({certificatePem:z.string().min(1),privateKeyPem:z.string().min(1)}).strict().parse(JSON.parse(await resolveSecret(environment.tlsSecretRef,source,context)));
+ const blocks=tls.certificatePem.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g);
+ if(!blocks?.length||tls.certificatePem.replace(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,"").trim())throw new Error("TLS_SECRET_INVALID");
+ const leaf=blocks.map(pem=>new X509Certificate(pem))[0]!;
+ if(!leaf.checkPrivateKey(createPrivateKey(tls.privateKeyPem))||!leaf.checkHost(url.hostname,{subject:"never"})||Date.parse(leaf.validFrom)>Date.now()||Date.parse(leaf.validTo)<=Date.now())throw new Error("TLS_SECRET_INVALID");
+ const contents:Record<string,string>={"docker-seccomp.json":seccomp,"docker-apparmor-sessions":apparmor,"ingress/fullchain.pem":tls.certificatePem,"ingress/private-key.pem":tls.privateKeyPem,
+  "nginx.conf":createCloudNginxConfig({domain:url.hostname,certificateFile:join(dir,"ingress/fullchain.pem"),certificateKeyFile:join(dir,"ingress/private-key.pem")})};
+ const files=Object.fromEntries(Object.entries(contents).map(([name,value])=>[name,hash(value)]));
+ const specHash=hash(JSON.stringify({config,manifest,options,files}));
+ return {contents,files,specHash};
+}
 
 /** Explicit prepared-ECS action; never invoked by provision. Existing unrelated paths,
  * profiles and software are not adopted. Receipt/hash matching permits safe replay.
  */
 export async function prepareHost(configInput:unknown,releaseInput:unknown,optionsInput:PrepareHostOptions,
  services:PrepareHostServices={},source:NodeJS.ProcessEnv=process.env){
- const config=deploymentConfigSchema.parse(configInput),manifest=validateReleaseManifest(releaseInput),options=optionsSchema.parse(optionsInput);
+ const config=deploymentConfigSchema.parse(configInput),manifest=validateReleaseManifest(releaseInput),options=prepareHostOptionsSchema.parse(optionsInput);
  const host=services.host??{platform:process.platform,uid:process.getuid?.()??-1};
  if(host.platform!=="linux"||host.uid!==0)throw new Error("PREPARED_ECS_ROOT_REQUIRED");
  if(Number(process.versions.node.split(".")[0])<22)throw new Error("NODE_22_REQUIRED");
@@ -48,22 +70,9 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  if(platform!==manifest.platform)throw new Error("TARGET_PLATFORM_MISMATCH");
  await run(["apparmor_parser","--version"],context);
  if((await hostRead("/sys/module/apparmor/parameters/enabled")).trim()!=="Y")throw new Error("APPARMOR_REQUIRED");
- const canonical=async(file:string)=>run(["git","-C",checkout,"show",`${manifest.sourceRevision}:${file}`],context);
- const seccomp=await canonical("apps/skill-sandbox/security/docker-seccomp.json"),apparmor=await canonical("apps/skill-sandbox/security/docker-apparmor-sessions");
- JSON.parse(seccomp);
- if(!apparmor.includes("profile workspacex-native-sessions "))throw new Error("INVALID_CANONICAL_APPARMOR_PROFILE");
- const url=new URL(environment.publicUrl);if(url.port&&url.port!=="443")throw new Error("INGRESS_PORT_443_REQUIRED");
- const tls=z.object({certificatePem:z.string().min(1),privateKeyPem:z.string().min(1)}).strict().parse(JSON.parse(await resolveSecret(environment.tlsSecretRef,source,context)));
- const blocks=tls.certificatePem.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g);
- if(!blocks?.length||tls.certificatePem.replace(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,"").trim())throw new Error("TLS_SECRET_INVALID");
- const leaf=blocks.map(pem=>new X509Certificate(pem))[0]!;
- if(!leaf.checkPrivateKey(createPrivateKey(tls.privateKeyPem))||!leaf.checkHost(url.hostname,{subject:"never"})||Date.parse(leaf.validFrom)>Date.now()||Date.parse(leaf.validTo)<=Date.now())throw new Error("TLS_SECRET_INVALID");
- const contents:Record<string,string>={"docker-seccomp.json":seccomp,"docker-apparmor-sessions":apparmor,"ingress/fullchain.pem":tls.certificatePem,"ingress/private-key.pem":tls.privateKeyPem,
-  "nginx.conf":createCloudNginxConfig({domain:url.hostname,certificateFile:join(dir,"ingress/fullchain.pem"),certificateKeyFile:join(dir,"ingress/private-key.pem")})};
- const files=Object.fromEntries(Object.entries(contents).map(([name,value])=>[name,hash(value)]));
- const specHash=hash(JSON.stringify({config,manifest,options,files}));
- const receiptPath=join(dir,"prepare-receipt.json");let receipt:z.infer<typeof Receipt>;const wasExisting=!!(await existing(dir));
- if(wasExisting){await privateDir(dir);receipt=Receipt.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");}
+ const {contents,files,specHash}=await hostPreparationContract(config,manifest,options,run,source,context);
+ const receiptPath=join(dir,"prepare-receipt.json");let receipt:z.infer<typeof prepareHostReceiptSchema>;const wasExisting=!!(await existing(dir));
+ if(wasExisting){await privateDir(dir);receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");}
  else{active();await mkdir(dir,{mode:0o700});receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
  const lock=await open(join(dir,"provision.lock"),"wx",0o600);let releaseLock=true;
  try{
