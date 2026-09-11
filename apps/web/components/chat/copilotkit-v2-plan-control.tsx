@@ -103,6 +103,23 @@ export interface CopilotKitV2PlanControlProps {
    * 与改动前完全一致——纯粹是轮询节奏和一个展示态，没有新起对错误状态的第二次判定。
    */
   readonly refetchSignal?: number;
+  /**
+   * issue #3416 —— 本组件的「确认并执行」/「恢复」/「重试」起的那条 run 的真实
+   * `agent_runs.id`。
+   *
+   * 这四个动作走的是 `acceptHumanMessage` + `executor.kick` 的 queued/tick 通路，
+   * **从不经过 AG-UI SSE 桥**（`use-plan-ledger-polling.ts` 头注引的
+   * `accept-message-plan-run-creator.ts` 原话：这条续跑对浏览器
+   * "invisible to a browser network monitor -- it is a server-to-server call"）。
+   * 于是宿主面板**根本不知道有这么一条 run 存在**：没有 `RUN_STARTED`、没有
+   * `RUN_FINISHED`、事件流投影里也没有它的 runId。这条 run 一旦撞上工具权限门，
+   * 审批卡的三个挂载来源一个都不命中，用户永远等不到那次询问（#3416 的现场）。
+   *
+   * 契约本来就把真实 runId 回给了我们（`confirmPlan`/`resumePlanRun`/`retryPlanStep`
+   * 的 `out.runId`）—— 这里只是把它如实交给宿主，由宿主既有的权威读
+   * （`useCopilotKitV2RunRestore`）去判断它现在是什么状态。本组件不判断、不猜测。
+   */
+  readonly onRunDispatched?: (runId: string) => void;
 }
 
 export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
@@ -110,7 +127,7 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 }
 
 function PlanControlSession(
-  { threadId, projectId, canWrite = true, refetchSignal }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
@@ -154,12 +171,21 @@ function PlanControlSession(
     prevNeedsDecisionRef.current = needsDecision;
   }, [needsDecision]);
 
-  async function runAction(action: () => Promise<unknown>): Promise<boolean> {
+  /**
+   * issue #3416 —— `dispatchesRun` 为真时，把契约回的那个真实 `runId` 交给宿主
+   * （见 `onRunDispatched` 头注）。只有**会起一条新 run**的动作传真；`pausePlanRun`
+   * 之类同样回 `runId` 但不起新 run 的动作不传，免得把「暂停了谁」误报成「起了谁」。
+   */
+  async function runAction(action: () => Promise<unknown>, dispatchesRun = false): Promise<boolean> {
     if (!canWrite) return false;
     setBusy(true);
     setActionErrorCode(null);
     try {
-      await action();
+      const result = await action();
+      if (dispatchesRun) {
+        const dispatchedRunId = (result as { runId?: unknown } | null | undefined)?.runId;
+        if (typeof dispatchedRunId === "string" && dispatchedRunId !== "") onRunDispatched?.(dispatchedRunId);
+      }
       await refetch();
       return true;
     } catch (e) {
@@ -279,20 +305,22 @@ function PlanControlSession(
         setActionErrorCode("PLAN_ACTION_FAILED");
         return;
       }
-      void runAction(() => confirmProposedPlan(runId, requestId));
+      /* 这一支恢复的是**停住的那条 run**（`decidePermissionRequest`），runId 我们
+         手上就有，不依赖返回体——如实上报同一条 run。 */
+      void runAction(async () => { await confirmProposedPlan(runId, requestId); return { runId }; }, true);
       return;
     }
-    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId));
+    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId), true);
   };
   const handlePause = (): void => {
     void runAction(() => pausePlanRun(tid, projectId));
   };
   const handleResume = (): void => {
-    void runAction(() => resumePlanRun(tid, projectId));
+    void runAction(() => resumePlanRun(tid, projectId), true);
   };
   // issue #3132 —— `planStepId === null` = 重试整轮任务（这条 run 从未产出过计划步骤）。
   const handleRetryStep = (planStepId: string | null): void => {
-    void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
+    void runAction(() => retryPlanStep(tid, { planStepId }, projectId), true);
   };
   // issue #3132 —— 「修改输入」在有计划时是进编辑态；**没有计划步骤时编辑态是空的**，
   // 那就成了点了没有任何效果的假按钮。无计划时改为把焦点交回 composer，让用户就地
