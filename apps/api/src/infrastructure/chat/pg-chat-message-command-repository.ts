@@ -61,6 +61,8 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
       queuedMessageId?: string;
+      /** issue #3405 —— 带入来源 run id，见端口上的文档。 */
+      carriedOverFromRunId?: string;
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -86,11 +88,11 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       }
       const inserted = await s.query<{ created_at: Date }>(
         `INSERT INTO chat_messages
-           (id,org_id,thread_id,author_kind,author_id,body,client_message_id,requested_agent_id)
-         VALUES ($1,$2,$3,'human',$4,$5,$6::uuid,$7)
+           (id,org_id,thread_id,author_kind,author_id,body,client_message_id,requested_agent_id,carried_over_from_run_id)
+         VALUES ($1,$2,$3,'human',$4,$5,$6::uuid,$7,$8)
          RETURNING created_at`,
         [input.messageId, orgId, input.threadId, input.actorId, input.text,
-          input.clientMessageId, input.selectedAgentId],
+          input.clientMessageId, input.selectedAgentId, input.carriedOverFromRunId ?? null],
       );
       await s.query(
         `INSERT INTO agent_runs

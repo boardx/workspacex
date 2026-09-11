@@ -48,6 +48,8 @@ import type { ObjectStore } from "../../application/artifact/ports";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
+import type { InterjectionCarryOverDelivery } from "../../application/agent-run/interjection-carry-over";
+import { sweepInterjectionCarryOver } from "../../application/agent-run/interjection-carry-over";
 import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
 import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
 
@@ -151,6 +153,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly nativeSessions?: NativeSessionOwner,
     private readonly nativeOutputs?: NativeOutputStaging,
     private readonly nativeRuntimeEnabled?: boolean,
+    /**
+     * issue #3405 —— 未采纳的插话带入下一轮的投递口。可选，与上面每一个同一条既有
+     * 理由：既有构造点不必都改，生产合成（`kernel.module.ts`）必定注入。不注入 ⇒
+     * 与本次改动之前逐字节相同（插话进终态后仍只留一条 `not_applied`）。
+     */
+    private readonly carryOver?: InterjectionCarryOverDelivery,
   ) {}
 
   /**
@@ -199,6 +207,47 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
       { orgId },
     );
+    /*
+     * issue #3405 —— 这一 tick 里刚进终态的 run，如果还留着没来得及应用的插话，
+     * 触发器已经把它判成「要带入下一轮」。在这里把它投出去（一条新的人类消息 +
+     * 一轮新 run），用户那句「总结成一个 pdf」才真的有人答。
+     *
+     * ⚠ 位置在 writeback **之后**：`succeeded` 是 writeback 那一步才写进
+     *   `agent_runs.status` 的（`commitWriteback`），也才会触发判定。放在它之前，
+     *   成功结束的那一轮永远等不到自己的带入，要拖到下一次 tick。
+     *
+     * 投出去之后再跑**一轮**有界的 `executeQueuedRuns` 让新 run 立刻开始 —— 不是
+     * 循环：只多这一轮，且带入本身有深度上限 ≤ 1（见 migration 的触发器），新 run
+     * 不会再生出第三轮。
+     */
+    try {
+      const carried = await sweepInterjectionCarryOver(
+        { interjections: this.interjections, carryOver: this.carryOver, log: this.log },
+        { orgId },
+      );
+      if (carried > 0) {
+        await executeQueuedRuns({
+          runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
+          files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+          canvasTemplates: this.canvasTemplates, runImages: this.runImages,
+          sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,
+          events: this.events, toolPermissionGrants: this.toolPermissionGrants,
+          interjections: this.interjections, artifactContinuations: this.artifactContinuations,
+          nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
+          nativeRuntimeEnabled: this.nativeRuntimeEnabled,
+        }, { orgId });
+        await writeBackPendingRuns(
+          { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
+          { orgId },
+        );
+      }
+    } catch (e) {
+      // 独立 try/catch，同 `reclaimStaleRunning` 的既有纪律：带入失败绝不把这一 tick
+      // 已经做成的执行与写回变成失败。待带入的行留在原状态，下一次 tick 重试。
+      this.log("interjection carry-over sweep failed", {
+        detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown", orgId,
+      });
+    }
     return executed;
   }
 

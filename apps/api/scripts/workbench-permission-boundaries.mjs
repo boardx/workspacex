@@ -24,11 +24,13 @@ export const workbenchBoundaries = new Map([
       ['src/infrastructure/agent-run/pg-agent-run-repository.ts',/await registerRunArtifacts\(s, \{ orgId, runId: input\.runId, threadId: input\.threadId, messageId/]],
   }],
   ['src/infrastructure/agent-run/pg-interjection-store.ts', {
-    tables:['agent_run_interjections','agent_runs'],
-    reason:'Run-owned FIFO control state. Public list is behind the existing guarded run read; kernel poll authenticates its service key. No new ACL object is invented.',
+    tables:['agent_run_interjections','agent_runs','chat_messages'],
+    reason:'Run-owned FIFO control state. Public list is behind the existing guarded run read; kernel poll authenticates its service key. No new ACL object is invented. #3405 adds `chat_messages` for exactly one reason and reads exactly one column from it: the carry-over sweep must write the next turn as the REAL author (`m.author_id` of the origin run\'s input message), because a synthetic author would make the resulting run un-cancellable by the very person whose sentence it is (`cancelAgentRun` requires `findRequesterUserId === userId`). The read is pinned to the origin run\'s own input message through the tenant-scoped join, selects no message body, and NARROWS rather than widens: it can only resolve the identity the run already belongs to. Disclosure is unchanged -- `acceptHumanMessage` re-resolves visibility and write role for that user before any message or run is created, and refuses (carry-over then lands `not_applied`) if it has since been revoked.',
     checks:[['src/interface/controllers/agent-run.controller.ts',/async interjectionStatus[\s\S]*?await this\.run\(principal,\s*runId\);\s*return \{items:await this\.interjections\.listPublic/],
       ['src/interface/controllers/run-interjection.controller.ts',/async poll\([\s\S]*?this\.assertInternalKey\(key\);[\s\S]*?this\.runs\.findLocator[\s\S]*?this\.queue\.pollForKernel/],
-      [null,/WHERE i\.org_id=\$1 AND i\.run_id=\$2/]],
+      [null,/WHERE i\.org_id=\$1 AND i\.run_id=\$2/],
+      [null,/JOIN chat_messages m ON m\.org_id=r\.org_id AND m\.id=r\.input_message_id\n\s*WHERE i\.org_id=\$1 AND i\.status='carry_over_pending'/],
+      ['src/infrastructure/agent-run/accept-message-carry-over-delivery.ts',/userId: batch\.requesterUserId, orgId, threadId: batch\.threadId/]],
   }],
   ['src/infrastructure/agent-run/pg-parent-run-control.ts', {
     tables:['agent_runs','agent_run_steps','subtask_runs'],

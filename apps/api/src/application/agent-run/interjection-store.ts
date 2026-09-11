@@ -12,6 +12,7 @@ import type { PublicInterjection } from "@repo/contracts/interjection-status";
 import type { artifactsSteering as AS } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
+import type { CarryOverBatch } from "./interjection-carry-over";
 
 /**
  * Phase 14 后续 A（#2755）：已被网关检查点消费（账本已留痕、L2 授权已按需撤销）、
@@ -32,6 +33,19 @@ export interface InterjectionStore {
   /** Request a pause at the next model boundary; never interrupt a running tool. */
   requestPause?(orgId: OrgId, runId: string): Promise<boolean>;
   isPauseRequested?(orgId: OrgId, runId: string): Promise<boolean>;
+
+  /**
+   * issue #3405 —— 已被触发器判定为「要带入下一轮」（`carry_over_pending`）的插话，
+   * 按来源 run 分批取出（同一 run 的多条已按收到时刻合并成一条正文）。
+   * 只读，不改状态：投递成功与否由 `settleCarryOver` 落定，崩在中间时下一轮重试。
+   */
+  listCarryOverPending?(orgId: OrgId, limit: number): Promise<readonly CarryOverBatch[]>;
+
+  /**
+   * 落定一批带入的去向。`carriedOverRunId` 非空 ⇒ `carried_over` 并回指那一轮；
+   * `null` ⇒ 投递被拒（线程归档 / 可见性撤销 / agent 下架），如实落 `not_applied`。
+   */
+  settleCarryOver?(orgId: OrgId, originRunId: string, interjectionIds: readonly string[], carriedOverRunId: string | null): Promise<void>;
 
   /** Live kernel boundary: retain delivery until a checkpoint-visible message acknowledges it. */
   pollForKernel?(orgId: OrgId, runId: string, acknowledgedIds: readonly string[]): Promise<readonly StagedKernelInterjection[]>;
