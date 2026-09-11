@@ -24,7 +24,7 @@ node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/releas
 
 这些检查证明所检查 Docker daemon 的镜像缓存状态。部署启动必须继续使用相同 digest、`--pull never`，并核对正在运行容器的镜像 ID；缓存检查本身不证明容器或业务健康。签名、可信来源和发布审批仍由发布流程负责，manifest 自报 SHA 不是供应链签名。
 
-现有 `apps/deep-agent-service/Dockerfile` 仍使用 `langgraph dev`，API/Web 尚无此两档云部署专用生产 Dockerfile。不能将本切片标成整个 CP-02 验收通过；后续必须构建并运行真实应用镜像，完成运行体版本和用户可见冒烟验收。
+现有 `apps/deep-agent-service/Dockerfile` 仍使用 `langgraph dev`；本切片新增 API/Web 云发布 Dockerfile 和独立 Agent 官方构建配置，但实际镜像验证单独记录。不能将本切片标成整个 CP-02 验收通过；后续必须构建并运行真实应用镜像，完成运行体版本和用户可见冒烟验收。
 
 ## 构建入口（构建验证尚未完成）
 
