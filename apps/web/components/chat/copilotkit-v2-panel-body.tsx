@@ -1528,6 +1528,16 @@ export function CopilotKitV2PanelBody({
 
   // Running deliveries are serialized by useRunningReply.
   const clearRunningDraft = React.useCallback((revision?: number) => { clearComposerDraft(revision); setMention(null); }, [clearComposerDraft]);
+  /**
+   * issue #3399 ② —— 「本轮未被采纳」的插话有且只有一条去向：重新发出去。
+   *
+   * 发得出去就发（它会落在消息流**底部**，正是用户去找它的地方）；发不出去（比如
+   * 又有一轮在跑）就把原话放回输入框，用户看得见、按得动。两条分支都**有事发生**，
+   * 不留"显示了一句状态、然后什么都没发生"的路径。
+   */
+  const resendInterjection = React.useCallback((text: string) => {
+    void (async () => { if (!(await send(text))) setInputDraft(text); })();
+  }, [send, setInputDraft]);
   const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
     agent, canWrite: canWrite && !archived, threadId: resolvedChatThreadId ?? initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
     draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
@@ -1766,6 +1776,7 @@ export function CopilotKitV2PanelBody({
                         pendingRunId: pendingPermission?.runId ?? null }}>
                       {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <TaskTimeline
+                        onResendInterjection={resendInterjection}
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}
                         toolCallMessageIds={runTrace.toolCallMessageIds}
