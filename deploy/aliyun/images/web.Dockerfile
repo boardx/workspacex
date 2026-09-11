@@ -9,7 +9,7 @@ COPY packages ./packages
 COPY apps/web ./apps/web
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter web...
 ARG NEXT_PUBLIC_API_URL
-RUN pnpm --filter @repo/contracts typecheck \
+RUN --network=none pnpm --filter @repo/contracts typecheck \
  && NODE_OPTIONS=--max-old-space-size=3072 NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" pnpm --filter web build \
  && chown -R node:node /opt/workspacex/apps/web/.next
 ARG SOURCE_REVISION

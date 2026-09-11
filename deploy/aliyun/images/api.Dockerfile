@@ -7,9 +7,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages ./packages
 COPY apps/api ./apps/api
 COPY apps/skill-sandbox ./apps/skill-sandbox
+COPY apps/deep-agent-service/langgraph.json ./apps/api/config/agent-graphs.json
 COPY deploy/aliyun/images/api.tsconfig.json ./apps/api/tsconfig.release.json
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter @repo/api...
-RUN pnpm --filter @repo/contracts typecheck \
+RUN --network=none pnpm --filter @repo/contracts typecheck \
  && pnpm --filter @repo/api exec tsc -p tsconfig.release.json
 ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40
