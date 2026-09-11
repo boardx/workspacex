@@ -59,3 +59,11 @@ API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 �
 运行体门控还可执行 `node --import tsx packages/cloud-deploy/scripts/verify-running-release.ts docker.io/library/node@sha256:<已缓存digest>`：启动五个禁网、资源受限的 Node fixture，验证实际容器身份，主动停止其中一个确保门控失败，最后清理全部 fixture。这证明门控的 Docker 接口与反证有效，不能替代真实应用健康或业务验收。
 
 云 Web 同源前提：TLS 反代必须将 `/api` 转发到 API 的对应根路径，并支持 WebSocket Upgrade；Web 自身 `/api/copilotkit` 如需由 Next route handler 消费，应设置更具体的路由，优先于通用 API 前缀。`web.env` 设置 `API_INTERNAL_URL=http://api:3200`，不设置旧的 `APP_API_PORT` 回环参数；`NEXT_PUBLIC_API_PATH_PREFIX` 保持空值，避免重复 `/api`。浏览器 HTTP/WS、SSR/Copilot 与旧绝对 API 地址分别有回归测试。
+
+### Generate the TLS ingress during preparation
+
+Run `node --import tsx packages/cloud-deploy/src/nginx-cli.ts workspace.example.com /etc/tls/fullchain.pem /etc/tls/key.pem /tmp/workspacex.conf`. The output is an `http {}` context include; install it in the host Nginx configuration, run `nginx -t`, and reload only after validation. Existing certificate/key files and DNS are preparation inputs; provisioning does not issue certificates. The CLI refuses to overwrite existing files and rejects configuration injection in domain/path inputs.
+
+The generated ingress forwards exact `/api/copilotkit` and its subpaths to loopback Web port 3000 with the path intact, strips `/api/` for API port 3200, and sends other paths to Web. It forwards WebSocket upgrades, disables response buffering for SSE, retains query strings and supplies HTTPS forwarding headers. Host ports remain loopback-only in Compose. The template uses a 100 MiB upload ceiling and 300-second upstream inactivity timeout.
+
+`node --import tsx packages/cloud-deploy/scripts/verify-nginx.ts <cached-nginx-digest> <cached-node-digest>` validates with actual `nginx -t`, then exercises TLS routing, WebSocket 101, and the first SSE event while its upstream remains open. Fixtures have no external network and are removed afterward. Local linux/arm64 verification passed using Nginx digest `sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236`; this does not attest a real domain certificate or public cloud ingress.
