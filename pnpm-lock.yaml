@@ -426,7 +426,7 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.13.0
-        version: 4.13.0(playwright-core@1.63.0-alpha-2026-08-31)
+        version: 4.13.0(playwright-core@1.62.0)
       '@playwright/test':
         specifier: ^1.62.0
         version: 1.62.0
@@ -9141,10 +9141,10 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
 
-  '@axe-core/playwright@4.13.0(playwright-core@1.63.0-alpha-2026-08-31)':
+  '@axe-core/playwright@4.13.0(playwright-core@1.62.0)':
     dependencies:
       axe-core: 4.13.0
-      playwright-core: 1.63.0-alpha-2026-08-31
+      playwright-core: 1.62.0
 
   '@azure/abort-controller@2.2.0':
     dependencies:
