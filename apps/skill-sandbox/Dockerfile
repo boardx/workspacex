@@ -113,7 +113,9 @@ RUN npm_config_registry="$NPM_REGISTRY" npm ci --omit=dev \
 # 取中间那档：GB2312 漏掉的生僻字（人名里的淼、喆…）会**静默变方框**——那正是本次要修的病，
 # 省 3.5MB 不值得把它留着。纯英文文档不该背这 4.9MB，SKILL.md 因此要求：正文全是拉丁字符
 # 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
-RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap \
  && mkdir -p /usr/share/fonts/workspacex \

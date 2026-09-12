@@ -81,6 +81,7 @@ describe("China production release publisher",()=>{
     expect(sandboxDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
     expect(sandboxDockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
     expect(sandboxDockerfile).toContain('ARG APT_MIRROR=https://deb.debian.org');
+    expect(sandboxDockerfile).toContain('apt-get install -y --no-install-recommends ca-certificates');
     expect(source).toContain('build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror"');
     expect(sandboxDockerfile.match(/sed -Ei "s#https\?:\/\/deb\.debian\.org#\$\{APT_MIRROR\}#g"/g)).toHaveLength(4);
     expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
