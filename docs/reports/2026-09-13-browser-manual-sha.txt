@@ -1,4 +1,4 @@
 Manual commit: 6746a0c7f2af066301b18fe523674a3c86216cfc
 Manual file: docs/testing/user-test-manual.md
 Manual snapshot SHA256: 556b14595bb3d6d1c51fb42c2f0db24b29b0d899fc054a39ce50b2a19b0369e4
-Content unchanged through main 9c97c614a7b3b0602867d0883b7ea07c09f92a63 (manual diff empty).
+Verified unchanged through main: 53aac0ed9d296fa0a4e66a734a5667923b1d70e5

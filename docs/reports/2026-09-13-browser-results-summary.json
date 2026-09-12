@@ -1,8 +1,9 @@
 {
-  "snapshotTime": "2026-09-13T03:35:06+08:00",
+  "snapshotTime": "2026-09-13T04:18:16+08:00",
   "manualCommit": "6746a0c7f2af066301b18fe523674a3c86216cfc",
+  "manualUnchangedThroughMain": "53aac0ed9d296fa0a4e66a734a5667923b1d70e5",
   "denominator": 80,
-  "sourceLedgerSha256": "13e616f52ec5d6546564e0d1d57043b482f26e2fe756cf9b84537dcdf95192ad",
+  "sourceLedgerSha256": "4b5060c1510630eeb2a073d105ee68fcf66ed900580abd43d031f48d08b4d97f",
   "counts": {
     "PASS": 40,
     "DEFECT": 37,
@@ -23,12 +24,12 @@
     {
       "task": 3,
       "status": "PASS",
-      "observation": "已记录本轮浏览器观察。"
+      "observation": "刷新后快照中，首句介绍请求与完整通用助手回复仍在原处。"
     },
     {
       "task": 4,
       "status": "PASS",
-      "observation": "已记录本轮浏览器观察。"
+      "observation": "后续追问得到对首句介绍请求的准确复述，保留前文内容。"
     },
     {
       "task": 5,
@@ -128,7 +129,7 @@
     {
       "task": 24,
       "status": "DEFECT",
-      "observation": "Real microphone transcription was editable and sent. After stop and normal reply, Chrome still indicated active microphone while app showed Start. Owned tab closed to release capture. Terminal callback cleanup defect tracked in #3541; full-sentence transcription accuracy still requires a controlled spoken sample."
+      "observation": "真实麦克风转写可以编辑并发送。停止录音并完成正常回复后，Chrome仍显示麦克风正在录音，而应用显示开始语音输入。已关闭自有测试页释放资源；终态清理缺陷由#3541跟进，完整句子准确性仍需已知语句核对。"
     },
     {
       "task": 25,
@@ -213,7 +214,7 @@
     {
       "task": 41,
       "status": "PASS",
-      "observation": "Real UI double-click: ledger and OTEL confirm one approval, one resume, one browser_navigate execution. Downstream HTTP503 remains BUG002; this passes duplicate-submit protection only."
+      "observation": "真实UI快速双击仅本次允许，后台账本和工具追踪确认仅一次审批、一次恢复、一次browser_navigate执行。下游HTTP503仍属BUG002，本条只证明重复提交保护通过。"
     },
     {
       "task": 42,
@@ -408,7 +409,7 @@
     {
       "task": 80,
       "status": "PASS",
-      "observation": "已记录本轮浏览器观察。"
+      "observation": "默认会话返回完整通用助手自我介绍，页面显示已完成。"
     }
   ]
 }
