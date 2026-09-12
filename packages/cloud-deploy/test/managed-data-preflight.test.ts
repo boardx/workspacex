@@ -7,7 +7,7 @@ function fixtures() {
     rdsTls: { SSLEnabled: "on", ConnectionString: "pg.internal" },
     rdsNetwork: { Items: { DBInstanceIPArray: [{ DBInstanceIPArrayName: "runtime", WhitelistNetworkType: "VPC", SecurityIPList: "10.0.1.7/32" }] } },
     backup: { AdvancedBackupPolicyEnabled: false, BackupRetentionPeriod: 7, PreferredBackupPeriod: "Monday,Wednesday,Friday" },
-    redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Close", NetworkType: "VPC" }] } },
+    redis: { Instances: { DBInstanceAttribute: [{ InstanceId: "r-test", RegionId: "cn-hangzhou", ConnectionDomain: "redis.internal", InstanceStatus: "Normal", Engine: "Redis", EngineVersion: "7.0", InstanceType: "Redis", ArchitectureType: "standard", ReplicationMode: "master-slave", NodeType: "double", VpcAuthMode: "Open", NetworkType: "VPC" }] } },
     redisTls: { SSLEnabled: "Enable" },
   };
 }
@@ -36,7 +36,7 @@ describe("managed data control-plane preflight", () => {
     ["ArchitectureType","cluster","redis_ha_not_proven"], ["ReplicationMode","unknown","redis_ha_not_proven"],
     ["InstanceStatus","Creating","redis_not_ready"], ["RegionId","cn-shanghai","redis_resource_mismatch"],
     ["InstanceId","r-other","redis_resource_mismatch"], ["ConnectionDomain","other","redis_endpoint_mismatch"],
-    ["VpcAuthMode","Open","redis_private_auth_not_proven"], ["EngineVersion","6.0","redis_engine_not_supported"],
+    ["VpcAuthMode","Close","redis_private_auth_not_proven"], ["EngineVersion","6.0","redis_engine_not_supported"],
   ])("rejects unproven Redis %s=%s", async (key,value,reason) => {
     const data = fixtures(); Object.assign(data.redis.Instances.DBInstanceAttribute[0]!, {[key]:value,AvailabilityValue:"100%"});
     const result = await verifyManagedDataPreflight(expected,executor(data)); expect(result.passed).toBe(false); expect(result.checks.find(check => check.id === "redis")?.reason).toBe(reason);
@@ -53,7 +53,9 @@ describe("managed data control-plane preflight", () => {
     expect((await verifyManagedDataPreflight(expected,executor(data))).checks.find(check => check.id === "redis-tls")?.reason).toBe("redis_tls_not_enabled");
   });
   it("allows the explicit Serverless TLS exception only with exact private network constraints", async () => {
-    const data=fixtures(); data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.n2.serverless.1c"; data.rdsTls.SSLEnabled="off";
+    const data=fixtures(); Object.assign(data.rds.Items.DBInstanceAttribute[0]!, {DBInstanceClass:"pg.n2.serverless.1c",Category:"serverless_standard"});
+    Object.assign(data.rdsNetwork.Items.DBInstanceIPArray[0]!, {WhitelistNetworkType:"MIX",SecurityIPList:"10.0.1.7"}); data.rdsTls.SSLEnabled="off";
+    data.rdsNetwork.Items.DBInstanceIPArray.push({DBInstanceIPArrayName:"hdm_security_ips",DBInstanceIPArrayAttribute:"hidden",WhitelistNetworkType:"MIX",SecurityIPList:"100.104.164.0/24"} as typeof data.rdsNetwork.Items.DBInstanceIPArray[number]);
     const result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
     expect(result.passed).toBe(true);
     expect(result.checks.find(check=>check.id==="rds-tls")?.reason).toBe("serverless_tls_exception_verified");
@@ -64,12 +66,23 @@ describe("managed data control-plane preflight", () => {
     ["whitelist", "rds_whitelist_mismatch"],
     ["network", "rds_network_constraint_unproven"],
   ])("rejects an unproven Serverless exception: %s", async (failure,reason) => {
-    const data=fixtures(); data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.n2.serverless.1c"; data.rdsTls.SSLEnabled="off";
+    const data=fixtures(); Object.assign(data.rds.Items.DBInstanceAttribute[0]!, {DBInstanceClass:"pg.n2.serverless.1c",Category:"serverless_standard"});
+    data.rdsNetwork.Items.DBInstanceIPArray[0]!.WhitelistNetworkType="MIX"; data.rdsTls.SSLEnabled="off";
     if(failure==="class")data.rds.Items.DBInstanceAttribute[0]!.DBInstanceClass="pg.x4.large.2c";
     if(failure==="whitelist")data.rdsNetwork.Items.DBInstanceIPArray[0]!.SecurityIPList="0.0.0.0/0";
-    if(failure==="network")data.rdsNetwork.Items.DBInstanceIPArray[0]!.WhitelistNetworkType="Classic";
+    if(failure==="network")data.rdsNetwork.Items.DBInstanceIPArray[0]!.WhitelistNetworkType="VPC";
     const result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
     expect(result.passed).toBe(false); expect(result.checks.some(check=>check.reason===reason)).toBe(true);
+  });
+  it("rejects a non-HA Serverless category and an open hidden provider group", async () => {
+    const data=fixtures(); Object.assign(data.rds.Items.DBInstanceAttribute[0]!, {DBInstanceClass:"pg.n2.serverless.1c",Category:"serverless_basic"});
+    Object.assign(data.rdsNetwork.Items.DBInstanceIPArray[0]!, {WhitelistNetworkType:"MIX",SecurityIPList:"10.0.1.7"}); data.rdsTls.SSLEnabled="off";
+    let result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
+    expect(result.checks.find(check=>check.id==="rds")?.reason).toBe("rds_serverless_ha_not_proven");
+    Object.assign(data.rds.Items.DBInstanceAttribute[0]!, {Category:"serverless_standard"});
+    data.rdsNetwork.Items.DBInstanceIPArray.push({DBInstanceIPArrayName:"provider",DBInstanceIPArrayAttribute:"hidden",WhitelistNetworkType:"MIX",SecurityIPList:"0.0.0.0/0"} as typeof data.rdsNetwork.Items.DBInstanceIPArray[number]);
+    result=await verifyManagedDataPreflight({...expected,rdsTlsException:{kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]}},executor(data));
+    expect(result.checks.find(check=>check.id==="rds-network")?.reason).toBe("rds_whitelist_mismatch");
   });
   it("rejects insufficient backup retention", async () => {
     const data=fixtures(); data.backup.BackupRetentionPeriod=6;
