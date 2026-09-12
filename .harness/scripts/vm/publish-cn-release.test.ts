@@ -15,19 +15,29 @@ describe("China production release publisher",()=>{
   });
   it("exports the Agent source from the immutable Git object and never copies local secrets",()=>{
     expect(source).toContain('git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service');
-    expect(source).toContain('build_and_push agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"');
+    expect(source).toContain('build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"');
     expect(source).not.toContain("cp -a apps/deep-agent-service");
     expect(source).not.toMatch(/WSX_AGENT_BASE|langchain\/langgraph-(api|server)|LANGGRAPH_CLOUD_LICENSE_KEY/);
     expect(source).not.toMatch(/docker login|PASSWORD|SECRET/);
   });
   it("builds, pushes and registry-pulls exactly four application images",()=>{
     expect(source.match(/build_and_push (api|web|agent|sandbox) /g)).toHaveLength(4);
+    expect(source).toContain("local service=$1 repository=$2");
+    expect(source).toContain("local tag=\"$prefix/$repository:$revision\"");
+    expect(source).toContain("build_and_push agent deep-agent ");
+    expect(source).toContain("build_and_push sandbox skill-sandbox ");
+    expect(source).not.toContain("build_and_push agent agent ");
+    expect(source).not.toContain("build_and_push sandbox sandbox ");
     expect(source).toContain('docker push "$tag"');
     expect(source).toContain('docker pull --platform "$platform" "$tag"');
     expect(source).toContain("existing immutable $service tag has a different revision");
   });
   it("uses the canonical six-image manifest CLI and installs an immutable runner-readable result",()=>{
     for(const service of ["web","api","agent","sandbox","postgres","redis"])expect(source).toContain(`${service}:`);
+    expect(source).toContain('agent:entry("deep-agent")');
+    expect(source).toContain('sandbox:entry("skill-sandbox")');
+    expect(source).not.toContain('agent:entry("agent")');
+    expect(source).not.toContain('sandbox:entry("sandbox")');
     expect(source).toContain("release-manifest-cli.ts");
     expect(source).toContain('cmp --silent "$generated" "$manifest"');
     expect(source).toContain('install -o root -g "$runner_group" -m 0640 "$generated" "$manifest"');
