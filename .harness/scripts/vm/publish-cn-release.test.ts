@@ -63,7 +63,7 @@ describe("China production release publisher",()=>{
     expect(source).toContain('pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}');
     expect(source).toContain('validate_package_index "$npm_registry" npm');
     expect(source).toContain('validate_package_index "$pypi_index_url" PyPI');
-    expect(source.match(/--build-arg "NPM_REGISTRY=\$npm_registry"/g)).toHaveLength(2);
+    expect(source.match(/--build-arg "NPM_REGISTRY=\$npm_registry"/g)).toHaveLength(3);
     expect(source.match(/--build-arg "PYPI_INDEX_URL=\$pypi_index_url"/g)).toHaveLength(2);
     for(const dockerfile of [apiDockerfile,webDockerfile]){
       expect(dockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
@@ -73,6 +73,8 @@ describe("China production release publisher",()=>{
     expect(agentDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
     expect(agentDockerfile).toContain('UV_DEFAULT_INDEX="$PYPI_INDEX_URL" uv sync --frozen');
     expect(sandboxDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
+    expect(sandboxDockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
+    expect(source).toContain('build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url"');
     expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
     expect(sandboxDockerfile.match(/--require-hashes/g)).toHaveLength(2);
   });
