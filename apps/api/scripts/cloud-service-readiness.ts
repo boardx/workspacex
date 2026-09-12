@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { probeWebLoginPage } from "./cloud-service-readiness-web";
 
 // The API image copies this non-secret config from the Agent's single source.
 // An info/health response cannot prove graphs are registered. Search each graph's
@@ -10,12 +11,11 @@ try {
   const signal = AbortSignal.timeout(Math.min(10000, budget));
   const config = z.object({ graphs: z.record(z.string()).refine(value => Object.keys(value).length > 0) }).parse(
     JSON.parse(await readFile(new URL("../config/agent-graphs.json", import.meta.url), "utf8")));
-  const [web, api] = await Promise.all([
-    fetch("http://web:3000/", { signal, redirect: "error" }),
+  const [, api] = await Promise.all([
+    probeWebLoginPage(fetch, signal),
     fetch("http://api:3200/healthz", { signal, redirect: "error" }),
   ]);
-  await web.body?.cancel();
-  if (!web.ok || !api.ok) throw new Error();
+  if (!api.ok) throw new Error();
   const status = await api.json() as { trustworthy?: unknown; deploymentMarker?: unknown };
   if (!process.env.WORKSPACEX_DEPLOYMENT_MARKER || status.trustworthy !== true || status.deploymentMarker !== process.env.WORKSPACEX_DEPLOYMENT_MARKER) throw new Error();
   const agent = process.env.KERNEL_DEEP_AGENT_BASE_URL;
