@@ -13,7 +13,7 @@ import { validateProductionAgentPersistence } from "./agent-persistence-boundary
 import { assertTrustedPath } from "./trusted-path";
 
 type Context = { signal: AbortSignal; remainingMs: () => number };
-export const agentPersistenceSchema = z.object({ DATABASE_URI: z.string().min(1), REDIS_URI: z.string().min(1), LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict();
+export const agentPersistenceSchema = z.object({ DATABASE_URI: z.string().min(1), REDIS_URI: z.string().min(1) }).strict();
 const productionAgentSecretSchema = agentPersistenceSchema.extend({ databaseCaFile: z.string().startsWith("/").optional(), memoryCaFile: z.string().startsWith("/").optional(),
   MEMORY_STORE_DATABASE_URL: z.string().min(1), MEMORY_STORE_MIGRATION_DATABASE_URL: z.string().min(1) }).strict();
 export function checkBudget(context: Context) {
@@ -66,7 +66,8 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
   try {
     const input = JSON.parse(await resolveSecret(options.agentEnvironmentSecretRef, source, context));
     if (config.environment.profile === "starter") {
-      persistence = agentPersistenceSchema.parse({ ...z.object({ LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict().parse(input), DATABASE_URI: environment.agent.DATABASE_URI, REDIS_URI: environment.agent.REDIS_URI });
+      z.object({}).strict().parse(input);
+      persistence = agentPersistenceSchema.parse({ DATABASE_URI: environment.agent.DATABASE_URI, REDIS_URI: environment.agent.REDIS_URI });
     } else {
       const postgresSslMode = config.environment.rdsTlsException ? "disable" : "verify-full";
       const { databaseCaFile, memoryCaFile: memoryCa, MEMORY_STORE_DATABASE_URL: memoryUri, MEMORY_STORE_MIGRATION_DATABASE_URL: migrationUri, ...values } = productionAgentSecretSchema.parse(input);
@@ -119,6 +120,9 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     environment.agent.DATABASE_URI = database.href;
     environment.agent.PGSSLROOTCERT = "/run/agent-certs/ca.pem";
   }
+  // The self-hosted HTTP ledger and the graph checkpointer share the dedicated
+  // Agent database. Assign this only after the host CA path is rewritten.
+  environment.agent.DEEP_AGENT_CHECKPOINT_DB = environment.agent.DATABASE_URI!;
   const certs = join(dir, "certs"); await assertTrustedPath(dirname(certs), { trustedRoot: "/", kind: "directory" });
   try { await mkdir(certs, { mode: 0o755 }); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
