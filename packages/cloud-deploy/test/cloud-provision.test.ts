@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { deploymentExample } from "../src/examples";
-import { provisionCloud } from "../src/cloud-provision";
+import { productionPreflightAddHost, provisionCloud } from "../src/cloud-provision";
 import { captureProvisionCommand, CommandExecutionError } from "../src/command";
 import { writeRuntimeBundle } from "../src/runtime-bundle";
 import { verifyRunningRelease } from "../src/running-release";
@@ -72,6 +72,13 @@ it("wires real command stages without build/pull or credential argv; this is a m
   expect(JSON.stringify(calls)).not.toContain("private-value");
   expect(calls.every(args => !args.includes("build") && !args.includes("pull"))).toBe(true);
   expect(verifyRunningRelease).toHaveBeenCalledOnce();
+});
+it("keeps the public hostname when routing production business probes to the ECS IP", () => {
+  const config = deploymentExample("production");
+  config.environment.publicUrl = "https://www.boardx.com.cn";
+  config.environment.preflightTargetIp = "47.100.1.2";
+  expect(productionPreflightAddHost(config.environment)).toBe("www.boardx.com.cn:47.100.1.2");
+  expect(productionPreflightAddHost(deploymentExample("starter").environment)).toBeUndefined();
 });
 it("does not start application services when migration fails", async () => {
   failedScript = "src/infrastructure/db/migrate-cli.ts";

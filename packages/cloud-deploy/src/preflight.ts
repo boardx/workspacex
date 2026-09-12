@@ -34,6 +34,15 @@ export async function verifyEcsIdentity(config: DeploymentConfig, context: Probe
       (await boundedText(await request(`${metadata}/meta-data/${name}`, { headers, signal, redirect: "error" }))).trim()));
     if (values[0] !== config.environment.ecsInstanceId || values[1] !== config.environment.regionId ||
       !values[2]!.split(/\s+/).includes(config.environment.runtimeRole)) throw new Error();
+    if (config.environment.profile === "production" && config.environment.preflightTargetIp) {
+      const addresses = await Promise.all(["public-ipv4", "eipv4"].map(async name => {
+        const response = await request(`${metadata}/meta-data/${name}`, { headers, signal, redirect: "error" });
+        if (response.status === 404) return "";
+        return (await boundedText(response)).trim();
+      }));
+      if (!addresses.includes(config.environment.preflightTargetIp)) throw new Error();
+      return { instanceMatched: true, regionMatched: true, roleMatched: true, publicIpMatched: true } as const;
+    }
     return { instanceMatched: true, regionMatched: true, roleMatched: true } as const;
   } catch { throw new Error("ECS_IDENTITY_PREFLIGHT_FAILED"); }
 }

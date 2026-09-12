@@ -28,7 +28,7 @@ prepare-host 会完成以下应用专属主机设置。启动它的代码本身�
 |---|---|
 | 共用环境 | `regionId`、`ecsInstanceId`、`runtimeRole`、`ossBucket`、`ossEndpoint`、`ossPrefix`、`publicUrl`、`tlsSecretRef` |
 | Starter | `dataVolumePath`、`backupTargetRef` |
-| production | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef`、`backupRetentionDays` |
+| production | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef`、`backupRetentionDays`，可选 `preflightTargetIp`（必须由 ECS IMDS 证明是本实例公网 IP） |
 | 每次安装 | `release`、`adminEmail`、`modelProfile.baseUrl`、`modelProfile.modelId`、`modelProfile.apiKeySecretRef` |
 
 告警联系人和按天日志保留不属于这条最小安装路径，已从必填 Schema 删除。容器采用 Docker local 日志驱动，每个服务最多 5 个 10 MiB 日志文件；这是大小上限，不承诺按天留存。`backupTargetRef` 保留并执行真实写入/读回预检；自动备份调度单独配置，不能仅凭手工备份通过宣称定时任务已运行。
