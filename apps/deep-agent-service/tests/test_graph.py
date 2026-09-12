@@ -93,3 +93,31 @@ def test_system_prompt_clarifies_underspecified_document_generation_before_execu
     assert "示例" in prompt and "你决定" in prompt
     assert "已有对话和附件" in prompt
     assert "不能把格式选择当成内容需求" in prompt
+
+
+def test_system_prompt_flags_research_report_tasks_as_needing_confirm_task_intent(monkeypatch):  # noqa: ANN001, ANN201
+    """issue #3455 -- devapp 实测（#3413 T31）：发「研究一下 2024 年 AI 大模型发展趋势，
+    生成一份分析报告」这类调研/分析任务时，模型直接开始 read_file/web_search/fetch_url，
+    全程未调用 confirm_task_intent，与手册 B7（task 31）的判据不符。
+
+    根因主体在 `harness.py::_prepare_auto_classified_request`（见该函数与 `graph.py`
+    这段 SYSTEM_PROMPT 的模块注释）：这类被判为多步的请求，第一次模型调用此前被
+    强制 `tool_choice="write_todos"`，`confirm_task_intent` 根本不在候选里；那条修法
+    有专门的 `test_harness.py::test_task_classifier_middleware_widens_choice_to_
+    write_todos_or_confirm_task_intent_sync` 反证。这里测的是**次要、互补**的提示词
+    加固——即便某次请求没被判类为「多步」，模型仍可能因为句子读起来通顺就误判没有
+    歧义，忽略『调研并写报告』这类任务隐含的范围/时间窗口/信息来源/深度/格式假设。
+    本测试只能断言提示词文本包含这条具体规则，断不了"真实模型看到后是否真的会调用
+    confirm_task_intent"（同文件头注的既有边界，需要活体实测回答，见 issue #3455 的
+    三步反证证据：两个根因——判类强制机制排斥 + 提示词缺具体例子——都已用真实
+    DashScope 模型验证）。"""
+    graph = _import_graph_with_fake_model_env(monkeypatch)
+    prompt = graph.SYSTEM_PROMPT
+
+    assert "confirm_task_intent" in prompt
+    assert "调研/研究/分析某个主题并产出一份报告" in prompt
+    assert "不要因为任务读起来通顺就默认没有歧义" in prompt
+    assert "范围、时间窗口、信息来源、深度或产出格式" in prompt
+    # regression guard：新规则不能吞掉"用户已经讲清楚就不用问"这条既有豁免，否则会
+    # 反向制造 B7 判据自己点名的另一种缺陷（"一句『你好』也非要确认一遍"）。
+    assert "只有当" in prompt and "才可以跳过这一步直接执行" in prompt

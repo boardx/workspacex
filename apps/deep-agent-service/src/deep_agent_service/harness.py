@@ -436,11 +436,14 @@ def _latest_human_turn_index(messages: list) -> int | None:
     return None
 
 
+def _tool_name(tool: object) -> str | None:
+    """单个工具的名字——同时兼容真实 `@tool`/`BaseTool` 对象（属性 `.name`）与测试里
+    常用的裸 dict 占位（`{"name": "write_todos"}`，没有 `.name` 属性）。"""
+    return getattr(tool, "name", None) or (tool.get("name") if isinstance(tool, dict) else None)
+
+
 def _tool_names(tools: list) -> set[str]:
-    return {
-        (getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None))
-        for t in tools
-    }
+    return {_tool_name(t) for t in tools}
 
 
 def _prepare_forced_request(request: ModelRequest) -> ModelRequest | None:
@@ -763,11 +766,44 @@ class TaskClassificationState(AgentState):
     调用方用 `.get("task_classification")` 判"有没有分类结果"这件事本身。"""
 
 
+def _confirm_task_intent_already_called(messages: list) -> bool:
+    """给定的消息片段里 `confirm_task_intent` 是否已经被真实调用过一次——与
+    `_write_todos_already_called` 同一形状，供 `_prepare_auto_classified_request`
+    判断"这一轮是否已经在两个候选工具中选过一个了"。"""
+    for message in messages:
+        for call in getattr(message, "tool_calls", None) or []:
+            if call.get("name") == "confirm_task_intent":
+                return True
+    return False
+
+
 def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | None:
-    """本轮判类被 per-run 覆盖关闭 / 命中"一步到位" / write_todos 未挂载 / 本轮已
-    调用过 → 不强制，返回 `None`。判类逻辑与"这一轮判断窗口收窄到最新人类消息"的
-    纪律与 `_prepare_forced_request` 完全同源（同一个 issue #2417 教训：只看最新
-    一轮，不看整份历史），只是触发信号从"手动 marker"换成"启发式判类结果"。"""
+    """本轮判类被 per-run 覆盖关闭 / 命中"一步到位" / write_todos 未挂载 / 本轮已经
+    在 write_todos/confirm_task_intent 之间选过一个 → 不强制，返回 `None`。判类逻辑
+    与"这一轮判断窗口收窄到最新人类消息"的纪律与 `_prepare_forced_request` 完全同源
+    （同一个 issue #2417 教训：只看最新一轮，不看整份历史），只是触发信号从"手动
+    marker"换成"启发式判类结果"。
+
+    issue #3455——为什么不像 `_prepare_forced_request` 那样直接钉死单一工具名：
+    实测（devapp Batch 8 验收 #3413 T31，`confirm-intent-real-model-evidence/`）发现
+    早期版本把这里钉成 `tool_choice="write_todos"`（逐字复制 `_prepare_forced_request`
+    的写法）后，"调研 X 并写一份报告"这类被判为多步的任务，第一次模型调用**被迫**
+    只能选 write_todos——`confirm_task_intent` 这个工具名根本不在这次允许的候选里，
+    模型没有机会评估这条请求是否存在需要先确认的假设。write_todos 执行完之后，
+    `SYSTEM_PROMPT` 又明确要求模型"只用一段文字介绍计划就停，不要再调用任何工具"，
+    于是 confirm_task_intent 在这一整轮里永远没有被考虑的窗口——这解释了 T31（调研
+    类，被判多步）复现缺陷、T52（技能创建，判为一步到位不进这条分支）行为正常的
+    对比：不是模型判断力问题，是两个各自独立引入的确定性强制机制（DA-13 的
+    write_todos 强制 vs #2252 的 confirm_task_intent HITL）在时间线上互相排斥。
+    修法：命中多步分类时，不再把候选收窄到唯一的 write_todos，而是把这次模型调用
+    能看到的工具收窄到 {write_todos, confirm_task_intent} 两个、`tool_choice="required"`
+    强制必须选其中一个——"要不要先计划"与"要不要先确认理解"仍然都是确定性保证
+    （不会退化回纯提示词软约束），但两者不再互斥；`_write_todos_already_called`/
+    `_confirm_task_intent_already_called` 任一为真都视为"本轮已经选过"，不重复强制，
+    与既有"模型已经产出结构化计划就不再逼一次"的既有纪律同源，只是从一个判据扩到
+    两个。`fill_run_params`/`choose_execution_option` 不在这个收窄集合里——它们各自
+    有自己独立触发的场景（文档生成参数缺失/多方案选择），不属于"要不要先规划这整个
+    多步任务"这个判断维度，混进来会让模型在同一轮里要同时权衡四件不相关的事。"""
     if _run_disables_auto_classify():
         return None
 
@@ -779,7 +815,8 @@ def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | No
     if category == TASK_CATEGORY_NO_PLAN:
         return None
 
-    if "write_todos" not in _tool_names(request.tools):
+    tool_names = _tool_names(request.tools)
+    if "write_todos" not in tool_names:
         # 同 `_prepare_forced_request` 的处理：配置漂移导致 write_todos 未挂载时
         # 不强行指向不存在的工具，退回不强制。
         _logger.warning(
@@ -789,10 +826,24 @@ def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | No
         )
         return None
 
-    if _write_todos_already_called(request.messages[turn_start + 1 :]):
+    turn_tail = request.messages[turn_start + 1 :]
+    if _write_todos_already_called(turn_tail) or _confirm_task_intent_already_called(turn_tail):
         return None
 
-    return request.override(tool_choice="write_todos")
+    if "confirm_task_intent" not in tool_names:
+        # confirm_task_intent 未挂载（配置漂移，同上）——退回旧行为，至少还能强制
+        # 出一份计划，不因为这个工具缺席就彻底放弃确定性保证。
+        _logger.warning(
+            "任务自动判类命中多步任务（%s）但 confirm_task_intent 工具未挂载，"
+            "退回只强制 write_todos（build_tools() 是否误删了这个虚拟工具？）。",
+            category,
+        )
+        return request.override(tool_choice="write_todos")
+
+    narrowed_tools = [
+        tool for tool in request.tools if _tool_name(tool) in ("write_todos", "confirm_task_intent")
+    ]
+    return request.override(tools=narrowed_tools, tool_choice="required")
 
 
 class TaskClassifierMiddleware(AgentMiddleware):
