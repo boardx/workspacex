@@ -24,6 +24,10 @@ class Session:
         if self.execute_error: raise RuntimeError("execution")
         if self.waiting: await asyncio.Event().wait()
         return {"messages": []}
+    async def astream(self, payload, config, stream_mode):
+        await self.ainvoke(payload, config)
+        for event in ():
+            yield event
     async def aget_state(self, config):
         assert self.exited == 0
         return SimpleNamespace(values={"messages": []}, next=(), tasks=())

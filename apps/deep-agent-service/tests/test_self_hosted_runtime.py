@@ -50,7 +50,43 @@ class FakeGraph:
     async def ainvoke(self, payload, config):
         assert config["configurable"]["thread_id"]
         return self.values
+    async def astream(self, payload, config, stream_mode):
+        await self.ainvoke(payload, config)
+        for event in ():
+            yield event
     async def aget_state(self, config): return Snapshot(self.values)
+
+
+class CustomStreamGraph(FakeGraph):
+    async def astream(self, payload, config, stream_mode):
+        assert stream_mode == ["messages", "updates", "custom"]
+        yield "custom", {"type": "skill_activity", "version": 1, "fact": {
+            "contractVersion": 1, "factId": "fact-1", "skillId": "skill-1",
+            "skillStableName": "pdf-create", "skillVersion": "v1",
+            "packageDigest": "a" * 64, "stage": "body_read",
+            "readPath": "/skills/pdf-create/SKILL.md",
+        }}
+        self.values = {"messages": [{"type": "ai", "content": "streamed"}]}
+
+
+@pytest.mark.anyio
+async def test_runtime_replays_requested_custom_stream_events_before_terminal_values():
+    graph, ledger = CustomStreamGraph(), MemoryLedger()
+    runtime = Runtime(ledger, lambda _assistant, _config: graph)
+    app = create_app(runtime)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            await client.post("/threads", json={"thread_id": "skill-stream"})
+            created = await client.post("/threads/skill-stream/runs", json={
+                "assistant_id": "Deep Agent", "input": {"messages": []},
+                "stream_mode": ["messages-tuple", "updates", "custom"],
+            })
+            run_id = created.json()["run_id"]
+            await asyncio.gather(*list(runtime.tasks.values()))
+            stream = await client.get(f"/threads/skill-stream/runs/{run_id}/stream")
+            assert "event: custom" in stream.text
+            assert '"type": "skill_activity"' in stream.text
+            assert stream.text.index("event: custom") < stream.text.index("event: values")
 
 
 @pytest.mark.anyio
