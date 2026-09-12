@@ -62,19 +62,28 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
         attemptId: row.attempt_id, skillVersionIds: row.skill_version_ids,
         explicitlyDenied: matchesDeniedTool(input, row),
         authorizeOnce: async () => {
-          if (!input.permissionRequestId || !input.toolCallId || input.toolArgs === undefined
-            || row.pending_permission_request_id !== input.permissionRequestId || row.pending_tool_call_id !== input.toolCallId
-            || row.pending_tool_name !== input.toolName || !["approve", "edit"].includes(row.pending_decision ?? "")) return false;
+          // Only fixed branch labels reach operator logs: never IDs, args, digests or keys.
+          const refused = (reason: "missing_binding" | "permission_mismatch" | "call_mismatch" |
+            "tool_mismatch" | "decision_unapproved" | "edited_args_invalid" | "digest_mismatch" |
+            "attempt_mismatch" | "consume_failed") => {
+            console.warn(`[tool-approval] once refused: ${reason}`);
+            return false;
+          };
+          if (!input.permissionRequestId || !input.toolCallId || input.toolArgs === undefined) return refused("missing_binding");
+          if (row.pending_permission_request_id !== input.permissionRequestId) return refused("permission_mismatch");
+          if (row.pending_tool_call_id !== input.toolCallId) return refused("call_mismatch");
+          if (row.pending_tool_name !== input.toolName) return refused("tool_mismatch");
+          if (!["approve", "edit"].includes(row.pending_decision ?? "")) return refused("decision_unapproved");
           let expected = row.pending_tool_args_digest;
           if (row.pending_decision === "edit") {
-            try { expected = toolArgumentsDigest(JSON.parse(row.pending_edited_args ?? "")); } catch { return false; }
+            try { expected = toolArgumentsDigest(JSON.parse(row.pending_edited_args ?? "")); } catch { return refused("edited_args_invalid"); }
           }
-          if (!expected || toolArgumentsDigest(input.toolArgs) !== expected) return false;
-          if (row.pending_tool_authorized_attempt) return row.pending_tool_authorized_attempt === input.attemptId;
+          if (!expected || toolArgumentsDigest(input.toolArgs) !== expected) return refused("digest_mismatch");
+          if (row.pending_tool_authorized_attempt) return row.pending_tool_authorized_attempt === input.attemptId || refused("attempt_mismatch");
           const consumed = await session.query(`UPDATE agent_runs SET pending_tool_authorized_attempt=$3
             WHERE org_id=$1 AND id=$2 AND pending_tool_authorized_attempt IS NULL RETURNING id`,
             [input.orgId, input.parentRunId, input.attemptId]);
-          return consumed.rows.length === 1;
+          return consumed.rows.length === 1 || refused("consume_failed");
         },
         ...("allowed_tools" in row ? { allowedTools: (row as { allowed_tools: string[] }).allowed_tools } : {}) } : null);
     });
