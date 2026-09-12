@@ -48,12 +48,16 @@ def test_fabricated_tool_call_cannot_execute(configured, monkeypatch):
     assert "tools" not in graph.nodes
 
 
-def test_deployment_uses_config_factory_without_changing_assistant_id():
+def test_self_hosted_runtime_uses_config_factory_without_changing_assistant_id(monkeypatch):
     config = json.loads((Path(__file__).parents[1] / "langgraph.json").read_text())
     assert config["graphs"]["Deep Agent"] == "./src/deep_agent_service/graph_selector.py:select_graph"
-    from langgraph_api._factory_utils import _classify_factory
-    hook = _classify_factory(graph_selector.select_graph)
-    assert hook is not None
+    expected = object()
+    seen = []
+    monkeypatch.setattr(graph_selector, "select_graph", lambda runtime_config: seen.append(runtime_config) or expected)
+    from deep_agent_service.self_hosted_runtime import production_graph_loader
+    runtime_config = {"configurable": {"thread_id": "thread-1"}}
+    assert production_graph_loader("Deep Agent", runtime_config) is expected
+    assert seen == [runtime_config]
 
 
 def test_generated_execution_key_is_available():

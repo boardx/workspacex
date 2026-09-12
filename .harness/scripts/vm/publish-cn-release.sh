@@ -17,7 +17,6 @@ platform=${WSX_PLATFORM:-linux/amd64}
 prefix=${WSX_REGISTRY_PREFIX:?set WSX_REGISTRY_PREFIX to the new ACR registry/namespace}
 node_image=${WSX_NODE_IMAGE:?set WSX_NODE_IMAGE to a reviewed digest}
 python_image=${WSX_PYTHON_IMAGE:?set WSX_PYTHON_IMAGE to a reviewed digest}
-agent_base=${WSX_AGENT_BASE:?set WSX_AGENT_BASE to a reviewed official Agent digest}
 postgres_image=${WSX_POSTGRES_IMAGE:?set WSX_POSTGRES_IMAGE to a reviewed pgvector digest}
 redis_image=${WSX_REDIS_IMAGE:?set WSX_REDIS_IMAGE to a reviewed Redis digest}
 
@@ -28,7 +27,6 @@ digest_reference='^[a-z0-9][a-z0-9.-]*(:[0-9]+)?/[a-z0-9]+([._/-][a-z0-9]+)*@sha
 for image in "$node_image" "$python_image" "$postgres_image" "$redis_image"; do
   [[ "$image" =~ $digest_reference ]] || fail "base and data images must use registry digests"
 done
-[[ "$agent_base" =~ ^langchain/langgraph-(api|server)@sha256:[a-f0-9]{64}$ ]] || fail "Agent base must use its reviewed official digest"
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository missing"
 [[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$revision" ]] || fail "checkout is not the requested revision"
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty"
@@ -38,7 +36,7 @@ runner_user=$(cat "$RUNNER_ID_FILE")
 [[ "$runner_user" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || fail "invalid runner identity"
 runner_group=$(id -gn "$runner_user")
 
-for command in docker node pnpm uv git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
+for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
 docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
@@ -48,15 +46,6 @@ mkdir "$work/agent"
 git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work"
 mv "$work/apps/deep-agent-service"/* "$work/agent/"
 rmdir "$work/apps/deep-agent-service" "$work/apps"
-
-docker pull --platform "$platform" "$agent_base" >/dev/null
-node --import tsx "$REPOSITORY_DIR/packages/cloud-deploy/src/agent-dependencies-cli.ts" \
-  "$agent_base" "$work/agent/pyproject.toml" "$work/agent/requirements.release.txt" "$platform"
-node --import tsx "$REPOSITORY_DIR/packages/cloud-deploy/src/agent-release-cli.ts" \
-  "$work/agent/langgraph.json" "$work/agent/langgraph.release.json" "$agent_base" "$revision"
-(cd "$work/agent" && uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.generated)
-node --import tsx "$REPOSITORY_DIR/packages/cloud-deploy/src/agent-dockerfile-cli.ts" \
-  "$work/agent/Dockerfile.generated" "$work/agent/Dockerfile.release" "$agent_base"
 
 build_and_push(){
   local service=$1 dockerfile=$2 context=$3; shift 3
@@ -75,7 +64,7 @@ build_and_push(){
 cd "$REPOSITORY_DIR"
 build_and_push api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
 build_and_push web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push agent "$work/agent/Dockerfile.release" "$work/agent"
+build_and_push agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
 build_and_push sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
 
 docker pull --platform "$platform" "$postgres_image" >/dev/null
