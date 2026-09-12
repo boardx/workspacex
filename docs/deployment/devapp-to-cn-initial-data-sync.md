@@ -61,10 +61,29 @@ pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/i
 pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json database-restore
 pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json oss-baseline
 pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json oss-delta --write-freeze-confirmed
+pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json evidence /etc/workspacex-cn/initial-sync-evidence.json
 pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json accept /etc/workspacex-cn/initial-sync-acceptance.json
 ```
 
 CLI 直接以数组参数调用 Docker、PostgreSQL 16 客户端和 `ossutil`，不经过 shell。Docker 源模式不需要数据库口令；远程数据库源模式下的 PG host、用户和口令只进入子进程环境。它以 `state.json` 恢复已完成阶段，以独占 `sync.lock` 阻止并发运行；目标数据库只要存在一张非系统表就拒绝 restore。文件系统到 OSS 同样执行 baseline 和冻结后的 delta 两阶段，delta 必须显式传入写冻结确认参数。
+
+`evidence` 的输入只引用已经生成的 inventory，不包含数据库凭据：
+
+```json
+{
+  "sourceSnapshot": "冻结窗口记录的 pg_current_wal_lsn()",
+  "sourceOssInventoryFile": "/var/lib/workspacex-sync/source-final-inventory.json",
+  "targetOssInventoryFile": "/var/lib/workspacex-sync/target-final-inventory.json",
+  "secretCiphertextsDetected": true,
+  "keyDecision": "rotated"
+}
+```
+
+两个 inventory 文件必须符合 `{schemaVersion:1,bucket,prefix,objects:[{key,size,sha256}]}`，其中摘要来自真实对象字节。生成器重新只读查询冻结后的 Devapp 容器和目标数据库：覆盖 `public` 中全部普通表/分区表的逐表行数；有主键的表另比较按主键排序的确定性摘要；逐条检查所有已声明外键是否已 validated 且没有 orphan。它随后按 key、size、SHA-256 比较两个 OSS inventory，并据此生成 acceptance draft。任何缺失、格式错误或差异都会失败或把对应布尔值写为 `false`，不能产生假 `true`。
+
+当前 `criticalReferencesValid` 的机械含义是“目标库所有已声明外键均 validated 且无 orphan，并且没有外键表达的 `skill_contracts.current_version_id` 也能解析到同组织、同 Skill 的版本”。其他没有数据库外键表达的业务引用、Skill 文件 digest 重算、对象内容的 inventory 生成，以及密文轮换本身仍由操作步骤提供证据；生成器不会把这些工作自动视为通过。逐表主键摘要证明身份集合一致，不能证明同一主键下每个非主键字段的字节完全一致。
+
+`evidence` 输出的是 `{acceptance,evidence}`。先保存完整报告并审核，再仅提取 `.acceptance` 为上面 `accept` 命令的输入；若任何布尔门为 `false`，严格 acceptance schema 会拒绝它。完整报告应按迁移记录留存，不能只保留最终布尔值。
 
 ## 收据完成条件
 

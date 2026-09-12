@@ -5,6 +5,8 @@ export { objectStoreConfig, deploymentStorageEnvironment } from "./storage-confi
 export type { OssRuntimeConfig, StorageConfig } from "./storage-config";
 export { initialProductionSyncSchema, initialProductionSyncPlan, initialSyncStateSchema, executeInitialSyncStage, ossInventorySchema, verifyOssInventory, initialSyncAcceptanceSchema, validateInitialSyncAcceptance, writeInitialSyncReceipt } from "./initial-production-sync";
 export type { InitialProductionSyncConfig } from "./initial-production-sync";
+export { generateInitialSyncEvidence, initialSyncEvidenceInputSchema } from "./initial-sync-evidence";
+export type { EvidenceQuery, DatabaseEvidence, DatabaseTableEvidence } from "./initial-sync-evidence";
 export { provision, provisionStages } from "./provision";
 export type { ProvisionActions, ProvisionAction, ProvisionReport, ProvisionStage } from "./provision";
 export { runProvisionCommand, captureProvisionCommand } from "./command";
