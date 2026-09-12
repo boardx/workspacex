@@ -15,6 +15,10 @@ describe("China production trusted deployment entrypoints", () => {
     expect(bootstrap).not.toMatch(/PRIVATE_KEY|PASSWORD|API_KEY=/);
   });
 
+  it("requires Docker Buildx before installing the deployment entrypoint", () => {
+    expect(bootstrap).toContain('docker buildx version >/dev/null 2>&1 || { echo "CN_BOOTSTRAP_BUILDX_REQUIRED" >&2; exit 1; }');
+  });
+
   it("accepts only one full SHA and rejects unpromoted code", () => {
     expect(deploy).toContain('[[ $# -eq 1 && "$1" =~ ^[a-f0-9]{40}$ ]]');
     expect(deploy).toContain('status --porcelain');

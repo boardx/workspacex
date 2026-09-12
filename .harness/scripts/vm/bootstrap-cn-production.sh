@@ -23,6 +23,7 @@ for command in git node pnpm docker apparmor_parser nginx aliyun flock visudo ru
   command -v "$command" >/dev/null 2>&1 || { echo "CN_BOOTSTRAP_DEPENDENCY_MISSING: $command" >&2; exit 1; }
 done
 [[ "$(node --version)" == v22.* ]] || { echo "CN_BOOTSTRAP_NODE_22_REQUIRED" >&2; exit 1; }
+docker buildx version >/dev/null 2>&1 || { echo "CN_BOOTSTRAP_BUILDX_REQUIRED" >&2; exit 1; }
 compose_version=$(docker compose version --short 2>/dev/null || true)
 [[ "$compose_version" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+) ]] || { echo "CN_BOOTSTRAP_COMPOSE_VERSION_INVALID" >&2; exit 1; }
 (( 10#${BASH_REMATCH[1]} > 2 || 10#${BASH_REMATCH[1]} == 2 && 10#${BASH_REMATCH[2]} >= 30 )) || {

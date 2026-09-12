@@ -34,11 +34,11 @@ describe("China production release publisher",()=>{
     expect(source).toContain('docker pull --platform "$platform" "$tag"');
     expect(source).toContain("existing immutable $service tag has a different revision");
   });
-  it("falls back to native docker build only for linux/amd64 while preserving revision verification",()=>{
-    expect(source).toContain("if docker buildx version >/dev/null 2>&1; then");
-    expect(source).toContain('[[ "$platform" == "linux/amd64" ]] || fail "Docker buildx unavailable for non-amd64 platform"');
-    expect(source).toContain('[[ "$docker_platform" == "$platform" ]] || fail "Docker buildx unavailable and daemon platform differs"');
-    expect(source).toContain('docker build "$@" -f "$dockerfile" -t "$tag" "$context"');
+  it("requires Buildx and preserves revision verification",()=>{
+    expect(source).toContain('docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"');
+    expect(source).toContain('docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"');
+    expect(source).not.toContain("build_engine=");
+    expect(source).not.toContain('docker build "$@"');
     expect(source).not.toContain("docker buildx imagetools inspect");
     expect(source).toContain('docker image inspect --format \'{{index .Config.Labels "org.opencontainers.image.revision"}}\' "$tag"');
     expect(source).toContain('[[ "$published_revision" == "$revision" ]] || fail "published $service image has a different revision"');
