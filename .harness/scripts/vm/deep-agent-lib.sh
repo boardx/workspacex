@@ -465,3 +465,37 @@ except (OSError, ValueError):
     fail('local provisioning operation failed')
 PY
 }
+
+# Standard browser is part of the native tool surface, so deploy must provision and probe
+# its controlled runtime before publishing the API endpoint. Uses reviewed repo digests.
+browser_runtime_ensure_ready() {
+  local app=$1 file=$2 existing endpoint port attempt
+  [ -f "$file" ] || { echo '✗ browser runtime env file missing' >&2; return 1; }
+  existing=$(read_env_value "$file" WORKSPACEX_BROWSER_MCP_ENDPOINT)
+  endpoint=${existing:-http://127.0.0.1:58931/mcp}
+  [[ "$endpoint" =~ ^http://127\.0\.0\.1:([0-9]{1,5})/mcp$ ]] || {
+    echo '✗ browser runtime endpoint must use controlled loopback ingress' >&2; return 1;
+  }
+  port=${BASH_REMATCH[1]}
+  ((10#$port > 0 && 10#$port <= 65535)) || return 1
+  (
+    set -a
+    # shellcheck source=/dev/null
+    source "$app/apps/browser-runtime/image-digests.env"
+    set +a
+    export BROWSER_MCP_PORT=$port
+    docker compose -f "$app/apps/browser-runtime/docker-compose.browser.yml" -p wsx-browser-runtime config --quiet || exit 1
+    docker compose -f "$app/apps/browser-runtime/docker-compose.browser.yml" -p wsx-browser-runtime up -d || exit 1
+    for attempt in 1 2 3; do
+      if WORKSPACEX_BROWSER_MCP_ENDPOINT="$endpoint" node "$app/.harness/scripts/vm/browser-mcp-probe.mjs"; then exit 0; fi
+      [ "$attempt" = 3 ] || sleep 2
+    done
+    echo '✗ browser runtime MCP readiness failed; API endpoint not published' >&2
+    exit 1
+  ) || return 1
+  if [ -z "$existing" ]; then
+    printf '\nWORKSPACEX_BROWSER_MCP_ENDPOINT=%s\n' "$endpoint" >> "$file"
+  fi
+  export WORKSPACEX_BROWSER_MCP_ENDPOINT=$endpoint
+  echo '  browser runtime MCP=READY; API endpoint configured'
+}
