@@ -38,15 +38,7 @@ runner_group=$(id -gn "$runner_user")
 
 for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
-if docker buildx version >/dev/null 2>&1; then
-  build_engine=buildx
-else
-  [[ "$platform" == "linux/amd64" ]] || fail "Docker buildx unavailable for non-amd64 platform"
-  docker_platform=$(docker info --format '{{.OSType}}/{{.Architecture}}')
-  docker_platform=${docker_platform/linux\/x86_64/linux\/amd64}
-  [[ "$docker_platform" == "$platform" ]] || fail "Docker buildx unavailable and daemon platform differs"
-  build_engine=docker
-fi
+docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
 work=$(mktemp -d /tmp/workspacex-cn-release.XXXXXX)
 trap 'rm -rf "$work"' EXIT
@@ -61,11 +53,7 @@ build_and_push(){
     existing_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
     [[ "$existing_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
   else
-    if [[ "$build_engine" == buildx ]]; then
-      docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
-    else
-      docker build "$@" -f "$dockerfile" -t "$tag" "$context"
-    fi
+    docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
     docker push "$tag" >/dev/null
   fi
   docker pull --platform "$platform" "$tag" >/dev/null
