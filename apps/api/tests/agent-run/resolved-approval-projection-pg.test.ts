@@ -151,7 +151,7 @@ it("reject 也是一次真实发生过的裁决：pending_* 被清掉（#2999 C 
   const requestId = await pendingRequestId();
   expect(await repo.decidePermissionRequest(org, RUN, requestId, "reject", "resolved-user")).toBe(true);
   const view = await readProjection(repo);
-  expect(view.status).toBe("failed");
+  expect(view.status).toBe("cancelled");
   expect(view.pendingApproval).toBeNull();
   // reject 也确实发生过，留痕照记（清 pending_* 是给 executor 看的，不该连"发生过"一起抹掉）。
   expect(view.resolvedApprovals).toHaveLength(1);
