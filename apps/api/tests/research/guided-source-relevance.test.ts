@@ -222,3 +222,93 @@ describe("task-scoped relevance and cache", () => {
     expect(removed.model.complete).not.toHaveBeenCalled();
   });
 });
+
+
+describe("actionable source output repair", () => {
+  it.each(["json", "schema", "semantic"])("repairs %s output during a 43-source legacy review", async (kind) => {
+    const seed = runtime(); seed.tasks[0]!.status = "succeeded";
+    seed.sources = Array.from({ length: 43 }, (_, i) => source(`legacy-${i}`, direct.content));
+    const f = serviceFixture([], false, seed);
+    f.model.complete.mockImplementationOnce(async ({ user }) => {
+      const value = evaluation(JSON.parse(user));
+      if (kind === "json") return { text: '{"evaluations":[' };
+      if (kind === "schema") return { text: JSON.stringify({ evaluations: value.evaluations.map(({ matches: _matches, ...entry }) => entry) }) };
+      const entry = value.evaluations[0]!;
+      entry.irrelevant = true;
+      entry.matches[0]!.questionId = "wrong-chapter";
+      entry.matches[0]!.quote = "fabricated quotation";
+      return { text: JSON.stringify(value) };
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBeNull();
+    expect(result.sources).toHaveLength(43);
+    expect(result.sources.every((item) => item.relevanceBasis)).toBe(true);
+    expect(f.search).not.toHaveBeenCalled();
+    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    expect(repair.previousOutput).toBeTruthy();
+    if (kind === "json") expect(repair.issues).toContainEqual(expect.objectContaining({ code: "invalid_json" }));
+    if (kind === "schema") expect(repair.issues).toContainEqual(expect.objectContaining({ path: ["evaluations", 0, "matches"] }));
+    if (kind === "semantic") expect(repair.issues.map((issue: { code: string }) => issue.code)).toEqual(expect.arrayContaining(["task_question", "verbatim_quote", "contradiction"]));
+    expect(f.model.complete).toHaveBeenCalledTimes(7); // six batches plus exactly one repair
+  });
+
+  it("repairs malformed evaluation of new search hits without repeating search", async () => {
+    const f = serviceFixture([direct, car]);
+    f.model.complete.mockImplementationOnce(async () => ({ text: '{"evaluations":[' }));
+    const result = await f.run();
+    expect(result.errorCode).toBeNull();
+    expect(f.search).toHaveBeenCalledTimes(1);
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(result.sources.map((source) => source.url)).toEqual([direct.url]);
+    expect(result.tasks[0]!.status).toBe("succeeded");
+  });
+
+  it("stops after two malformed JSON outputs and preserves unreviewed legacy sources", async () => {
+    const seed = runtime(); seed.sources = [direct]; seed.tasks[0]!.status = "succeeded";
+    const f = serviceFixture([], false, seed);
+    f.model.complete.mockImplementation(async () => ({ text: '{"evaluations":[' }));
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(f.model.complete).toHaveBeenCalledTimes(2);
+    expect(f.search).not.toHaveBeenCalled();
+    expect(result.sources).toEqual([direct]);
+    expect(f.writes.every((item) => item.sources.every((source) => !source.relevanceBasis))).toBe(true);
+  });
+
+  it("bounds diagnostic feedback for oversized untrusted output keys", async () => {
+    const seed = runtime(); seed.sources = [direct]; seed.tasks[0]!.status = "succeeded";
+    const f = serviceFixture([], false, seed);
+    f.model.complete.mockImplementationOnce(async () => ({ text: JSON.stringify({ ["x".repeat(50000)]: true }) }));
+    const result = await f.run();
+    expect(result.errorCode).toBeNull();
+    const repair = JSON.parse(f.model.complete.mock.calls[1]![0].user).repair;
+    expect(JSON.stringify(repair.issues).length).toBeLessThan(16000);
+    expect(repair.issues.every((issue: { message: string }) => issue.message.length <= 320)).toBe(true);
+    expect(repair.previousOutput.length).toBeLessThanOrEqual(24000);
+  });
+
+  it("does not publish a successful first batch when a later batch exhausts repair", async () => {
+    const seed = runtime(); seed.tasks[0]!.status = "succeeded";
+    seed.sources = Array.from({ length: 9 }, (_, i) => source(`legacy-${i}`, direct.content));
+    const f = serviceFixture([], false, seed);
+    f.model.complete.mockImplementation(async ({ user }) => {
+      const context = JSON.parse(user);
+      return { text: context.chunks.some((chunk: Input["chunks"][number]) => chunk.sourceId === "legacy-8") ? '{"evaluations":[' : JSON.stringify(evaluation(context)) };
+    });
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+    expect(f.model.complete).toHaveBeenCalledTimes(3);
+    expect(result.sources).toEqual(seed.sources);
+    expect(f.writes.every((state) => state.sources.every((source) => !source.relevanceBasis))).toBe(true);
+  });
+
+  it("does not treat provider SyntaxError as malformed model output", async () => {
+    const seed = runtime(); seed.sources = [direct]; seed.tasks[0]!.status = "succeeded";
+    const f = serviceFixture([], false, seed);
+    f.model.complete.mockImplementation(async () => { throw new SyntaxError("provider failure"); });
+    const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
+    expect(f.model.complete).toHaveBeenCalledTimes(1);
+    expect(f.search).not.toHaveBeenCalled();
+  });
+});

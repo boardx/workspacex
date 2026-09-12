@@ -1,0 +1,82 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-relevance-output/apps/api
+
+ ❯ tests/research/baseline-output.test.ts (26 tests | 4 failed | 21 skipped) 143ms
+   × actionable source output repair > repairs json output during a 43-source legacy review 93ms
+     → expected 'RESEARCH_WORKFLOW_UNAVAILABLE' to be null
+   × actionable source output repair > repairs schema output during a 43-source legacy review 23ms
+     → undefined is not iterable (cannot read property Symbol(Symbol.iterator))
+   × actionable source output repair > repairs semantic output during a 43-source legacy review 12ms
+     → Cannot read properties of undefined (reading 'map')
+   × actionable source output repair > stops after two malformed JSON outputs and preserves unreviewed legacy sources 8ms
+     → expected 'RESEARCH_WORKFLOW_UNAVAILABLE' to be 'RESEARCH_SOURCE_RELEVANCE_INVALID' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/baseline-output.test.ts > actionable source output repair > repairs json output during a 43-source legacy review
+AssertionError: expected 'RESEARCH_WORKFLOW_UNAVAILABLE' to be null
+
+- Expected: 
+null
+
++ Received: 
+"RESEARCH_WORKFLOW_UNAVAILABLE"
+
+ ❯ tests/research/baseline-output.test.ts:243:30
+    241|     });
+    242|     const result = await f.run();
+    243|     expect(result.errorCode).toBeNull();
+       |                              ^
+    244|     expect(result.sources).toHaveLength(43);
+    245|     expect(result.sources.every((item) => item.relevanceBasis)).toBe(t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/research/baseline-output.test.ts > actionable source output repair > repairs schema output during a 43-source legacy review
+TypeError: undefined is not iterable (cannot read property Symbol(Symbol.iterator))
+ ❯ tests/research/baseline-output.test.ts:250:50
+    248|     expect(repair.previousOutput).toBeTruthy();
+    249|     if (kind === "json") expect(repair.issues).toContainEqual(expect.o…
+    250|     if (kind === "schema") expect(repair.issues).toContainEqual(expect…
+       |                                                  ^
+    251|     if (kind === "semantic") expect(repair.issues.map((issue: { code: …
+    252|     expect(f.model.complete).toHaveBeenCalledTimes(7); // six batches …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/research/baseline-output.test.ts > actionable source output repair > repairs semantic output during a 43-source legacy review
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ tests/research/baseline-output.test.ts:251:51
+    249|     if (kind === "json") expect(repair.issues).toContainEqual(expect.o…
+    250|     if (kind === "schema") expect(repair.issues).toContainEqual(expect…
+    251|     if (kind === "semantic") expect(repair.issues.map((issue: { code: …
+       |                                                   ^
+    252|     expect(f.model.complete).toHaveBeenCalledTimes(7); // six batches …
+    253|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/research/baseline-output.test.ts > actionable source output repair > stops after two malformed JSON outputs and preserves unreviewed legacy sources
+AssertionError: expected 'RESEARCH_WORKFLOW_UNAVAILABLE' to be 'RESEARCH_SOURCE_RELEVANCE_INVALID' // Object.is equality
+
+Expected: "RESEARCH_SOURCE_RELEVANCE_INVALID"
+Received: "RESEARCH_WORKFLOW_UNAVAILABLE"
+
+ ❯ tests/research/baseline-output.test.ts:260:30
+    258|     f.model.complete.mockImplementation(async () => ({ text: '{"evalua…
+    259|     const result = await f.run();
+    260|     expect(result.errorCode).toBe("RESEARCH_SOURCE_RELEVANCE_INVALID");
+       |                              ^
+    261|     expect(f.model.complete).toHaveBeenCalledTimes(2);
+    262|     expect(f.search).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed | 21 skipped (26)
+   Start at  12:14:11
+   Duration  9.71s (transform 5.85s, setup 0ms, collect 8.40s, tests 143ms, environment 0ms, prepare 312ms)
+
+undefined
+/private/tmp/workspacex-research-relevance-output/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/vitest-output-baseline.config.mts -t actionable source output repair
