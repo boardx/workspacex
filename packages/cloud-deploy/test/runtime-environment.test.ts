@@ -29,10 +29,11 @@ it("uses production referenced data with TLS and no local fallback", async () =>
     WORKSPACEX_MODEL_KEY: "model-key",
     WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password, diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-secure-password-123" }),
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-secure-password-123" }),
-    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password, caFile: "/etc/workspacex/redis-ca.pem" }),
   });
   expect(value.api.PGHOST).toBe("db.example.com"); expect(value.api.PGSSLMODE).toBe("verify-full");
   expect(value.api.REDIS_TLS).toBe("true"); expect(value.api.MIGRATION_DB_PASSWORD).toBeUndefined();
+  expect(value.api.REDIS_CA_FILE).toBe("/etc/workspacex/redis-ca.pem");
 });
 it("propagates the configured Serverless TLS exception to every API database process", async () => {
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
@@ -40,7 +41,7 @@ it("propagates the configured Serverless TLS exception to every API database pro
     WORKSPACEX_MODEL_KEY: "model-key",
     WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: "application-password-123", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-password-123" }),
-    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123", caFile: "/etc/workspacex/redis-ca.pem" }),
   });
   for(const target of [value.api,value.migration,value.bootstrap])expect(target).toMatchObject({PGSSLMODE:"disable",WORKSPACEX_RDS_TLS_EXCEPTION:"aliyun-postgresql-serverless-no-tls"});
 });
