@@ -14,7 +14,9 @@ describe("China production release publisher",()=>{
     expect(source).toContain("@sha256:[a-f0-9]{64}");
   });
   it("exports the Agent source from the immutable Git object and never copies local secrets",()=>{
-    expect(source).toContain('git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service');
+    expect(source).toContain('git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2');
+    expect(source).not.toContain('mv "$work/apps/deep-agent-service"/*');
+    expect(source).not.toContain('rmdir "$work/apps/deep-agent-service"');
     expect(source).toContain('build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"');
     expect(source).not.toContain("cp -a apps/deep-agent-service");
     expect(source).not.toMatch(/WSX_AGENT_BASE|langchain\/langgraph-(api|server)|LANGGRAPH_CLOUD_LICENSE_KEY/);

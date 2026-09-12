@@ -51,9 +51,7 @@ fi
 work=$(mktemp -d /tmp/workspacex-cn-release.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/agent"
-git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work"
-mv "$work/apps/deep-agent-service"/* "$work/agent/"
-rmdir "$work/apps/deep-agent-service" "$work/apps"
+git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2
 
 build_and_push(){
   local service=$1 repository=$2 dockerfile=$3 context=$4; shift 4
