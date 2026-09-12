@@ -79,7 +79,8 @@ function toGuarded(row: Row): GuardedCapability {
     kind: row.kind as CapabilityKind,
     name: row.name,
     scope: row.scope as VisibilityScope,
-    enabled: row.enabled && row.agent_available !== false,
+    enabled: row.enabled,
+    agentAvailable: row.agent_available ?? null,
     endpoint: row.endpoint,
     // #619: null for every kind but agent; the CHECK constraint guarantees non-null here
     // for a `kind='agent'` row, so this is a straight passthrough, not a default.

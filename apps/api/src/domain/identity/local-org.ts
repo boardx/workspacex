@@ -78,7 +78,7 @@ export function projectListingForOrg(
   if (!isLocalOrg(orgKind)) {
     return {
       ...listing,
-      disabledReason: listing.enabled ? null : (listing.disabledReason ?? "该条目已被组织管理员停用。"),
+      disabledReason: listing.disabledReason ?? (listing.enabled ? null : "该条目已被组织管理员停用。"),
     };
   }
 
@@ -94,7 +94,7 @@ export function projectListingForOrg(
   }
   return {
     ...listing,
-    disabledReason: listing.enabled ? null : (listing.disabledReason ?? "该条目已被停用。"),
+    disabledReason: listing.disabledReason ?? (listing.enabled ? null : "该条目已被停用。"),
   };
 }
 

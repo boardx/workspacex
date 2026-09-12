@@ -1,3 +1,4 @@
+import { identity } from "@repo/contracts";
 import type { GuardedCapability } from "../../src/application/identity/capability-ports";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -51,12 +52,13 @@ function discloseListing(row: GuardedCapability) {
 it("keeps an unresolvable saved entry visible, disabled, with an actionable reason and no data rewrite", async () => {
   expect(await reader.resolvePublished(ORG, missing)).toBeNull();
   const entry = await listing(missing);
-  expect(entry.enabled).toBe(false);
+  expect(entry.enabled).toBe(true);
+  expect(identity.isCapabilityReady(entry)).toBe(false);
   expect(entry.disabledReason).toBe("该 Agent 尚无可用的已发布版本，请联系管理员。");
   for (const rows of [await repo.listByKind(ORG, "agent"), await repo.listAll(ORG)]) {
     const saved = rows.find((r) => r.facts.id === missing);
     expect(saved).toBeDefined();
-    expect(discloseListing(saved!).enabled).toBe(false);
+    expect(identity.isCapabilityReady(discloseListing(saved!))).toBe(false);
   }
   const stored = await asApp(ORG, (c) => c.query("SELECT enabled FROM capability_listings WHERE id=$1", [missing]));
   expect(stored.rows[0]?.enabled).toBe(true);
@@ -64,11 +66,11 @@ it("keeps an unresolvable saved entry visible, disabled, with an actionable reas
 
 it("tracks the same enabled published snapshot as message resolution", async () => {
   expect(await reader.resolvePublished(ORG, agentId)).not.toBeNull();
-  expect((await listing(agentId)).enabled).toBe(true);
+  expect(identity.isCapabilityReady(await listing(agentId))).toBe(true);
   await asApp(ORG, (c) => c.query("UPDATE agents SET status='disabled' WHERE id=$1", [agentId]));
   expect(await reader.resolvePublished(ORG, agentId)).toBeNull();
-  expect((await listing(agentId)).enabled).toBe(false);
+  expect(identity.isCapabilityReady(await listing(agentId))).toBe(false);
   await asApp(ORG, (c) => c.query("UPDATE agents SET status='enabled',published_version_id=NULL WHERE id=$1", [agentId]));
   expect(await reader.resolvePublished(ORG, agentId)).toBeNull();
-  expect((await listing(agentId)).enabled).toBe(false);
+  expect(identity.isCapabilityReady(await listing(agentId))).toBe(false);
 });
