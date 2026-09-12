@@ -15,7 +15,8 @@ function active(context: Context) {
 
 /** Read the already-issued leaf/fullchain and its private key from the declared secret.
  * No key is installed or transmitted. The public endpoint must present the exact configured
- * leaf, pass normal platform CA/hostname verification, and answer HTTPS without redirecting.
+ * leaf and pass normal platform CA/hostname verification. The deployed Web root may redirect
+ * once with 307 to the exact same-origin /login route, which is verified over a second request.
  * A 404 may precede application start; application readiness remains a separate stage.
  */
 export async function verifyTlsPreflight(environment: Environment, context: Context,
@@ -51,21 +52,21 @@ export async function verifyTlsPreflight(environment: Environment, context: Cont
   const signal = AbortSignal.any([context.signal, controller.signal]);
   const timer = setTimeout(() => controller.abort(), budget);
   try {
-    await new Promise<void>((resolve, reject) => {
+    const lookup: LookupFunction | undefined = environment.preflightTargetIp
+      ? ((_hostname, options, callback) =>
+          options.all
+            ? (callback as Function)(null, [{ address: environment.preflightTargetIp!, family: 4 }])
+            : (callback as Function)(null, environment.preflightTargetIp!, 4))
+      : undefined;
+    const requestEndpoint = (target: URL) => new Promise<{ status: number; location?: string }>((resolve, reject) => {
       let matched = false;
-      const lookup: LookupFunction | undefined = environment.preflightTargetIp
-        ? ((_hostname, options, callback) =>
-            options.all
-              ? (callback as Function)(null, [{ address: environment.preflightTargetIp!, family: 4 }])
-              : (callback as Function)(null, environment.preflightTargetIp!, 4))
-        : undefined;
-      const req = request(url, { method: "HEAD", agent: false, rejectUnauthorized: true, signal, ...(lookup ? { lookup } : {}) }, response => {
+      const req = request(target, { method: "HEAD", agent: false, rejectUnauthorized: true, signal, ...(lookup ? { lookup } : {}) }, response => {
         response.resume();
-        if (!matched || !response.statusCode || response.statusCode < 200 || response.statusCode >= 500 ||
-          (response.statusCode >= 300 && response.statusCode < 400)) {
+        if (!matched || !response.statusCode || response.statusCode < 200 || response.statusCode >= 500) {
           req.destroy(); reject(new Error("TLS_ENDPOINT_UNVERIFIED")); return;
         }
-        req.destroy(); resolve();
+        const location = Array.isArray(response.headers.location) ? undefined : response.headers.location;
+        req.destroy(); resolve({ status: response.statusCode, ...(location ? { location } : {}) });
       });
       req.once("socket", socket => {
         const tls = socket as TLSSocket;
@@ -84,6 +85,16 @@ export async function verifyTlsPreflight(environment: Environment, context: Cont
       });
       req.end();
     });
+    const root = await requestEndpoint(url);
+    if (root.status >= 300 && root.status < 400) {
+      if (root.status !== 307 || !root.location) throw new Error("TLS_ENDPOINT_UNVERIFIED");
+      let redirect: URL;
+      try { redirect = new URL(root.location, url); } catch { throw new Error("TLS_ENDPOINT_UNVERIFIED"); }
+      if (redirect.origin !== url.origin || redirect.username || redirect.password || redirect.pathname !== "/login" ||
+        redirect.search || redirect.hash) throw new Error("TLS_ENDPOINT_UNVERIFIED");
+      const login = await requestEndpoint(redirect);
+      if (login.status >= 300 && login.status < 400) throw new Error("TLS_ENDPOINT_UNVERIFIED");
+    }
     active(context);
     if (!current()) throw new Error("TLS_CERTIFICATE_NOT_CURRENT");
     return { tlsVerified: true, hostnameMatched: true, privateKeyMatched: true, leafFingerprintSha256: certificate.fingerprint256,
