@@ -139,3 +139,38 @@ def test_limits_come_from_generated_contract(monkeypatch):
 def test_download_rejects_noncanonical_base64_and_noninteger_size(encoded, size):
     backend = sandbox(lambda _: httpx.Response(200, json={"path": "/workspace/a", "contentBase64": encoded, "sizeBytes": size}))
     assert backend.download_files(["/workspace/a"])[0].error
+
+@pytest.mark.parametrize("code", ["SESSION_BUSY", "SESSION_EXECUTION_CONFLICT", "SESSION_LIMIT"])
+def test_conflict_preserves_only_bounded_reason(code):
+    with pytest.raises(SandboxTransportError, match=code) as error:
+        sandbox(lambda _: httpx.Response(409, json={"error": code, "detail": TOKEN})).execute("read")
+    assert TOKEN not in str(error.value)
+
+@pytest.mark.parametrize("payload", [{"error": TOKEN}, {"error": ["SESSION_BUSY"]}, {"error": "SESSION_BUSY " + TOKEN}])
+def test_conflict_never_copies_untrusted_reason(payload):
+    with pytest.raises(SandboxTransportError) as error:
+        sandbox(lambda _: httpx.Response(409, json=payload)).execute("read")
+    assert str(error.value) == "Sandbox request failed (HTTP 409)"
+
+
+def test_capture_cleanup_does_not_replace_initial_failure(monkeypatch):
+    from deep_agent_service.sandbox_backend import _ReadCaptureSandbox
+    initial = SandboxTransportError("initial execution failed")
+    def fail(*args, **kwargs):
+        raise initial
+    monkeypatch.setattr(_ReadCaptureSandbox, "execute_with_offload", fail)
+    backend = sandbox(lambda _: httpx.Response(409, json={"error": "SESSION_BUSY"}))
+    with pytest.raises(SandboxTransportError) as error:
+        backend.read("/skills/example/SKILL.md")
+    assert error.value is initial
+
+
+def test_capture_cleanup_failure_still_fails_successful_read(monkeypatch):
+    from types import SimpleNamespace
+    from deep_agent_service.sandbox_backend import _ReadCaptureSandbox
+    import deep_agent_service.sandbox_backend as module
+    monkeypatch.setattr(_ReadCaptureSandbox, "execute_with_offload", lambda *args, **kwargs:
+        SimpleNamespace(response=SimpleNamespace(exit_code=0, truncated=False, output="{}"), offloaded=False))
+    monkeypatch.setattr(module.upstream, "_parse_read_output", lambda *args: module.ReadResult(error=None))
+    with pytest.raises(SandboxTransportError, match="SESSION_BUSY"):
+        sandbox(lambda _: httpx.Response(409, json={"error": "SESSION_BUSY"})).read("/skills/example/SKILL.md")

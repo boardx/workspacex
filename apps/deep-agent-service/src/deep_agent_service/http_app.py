@@ -41,6 +41,12 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
         config = graph_config(thread_id, (latest or {}).get("config"))
         config["configurable"].pop("checkpoint_id", None)
         if latest and is_native_config(config):
+            # A running graph already owns this native session. Recreating it for
+            # polling verifies mounted files through another adapter and races
+            # the tool's exclusive sandbox slot (SESSION_BUSY / HTTP 409).
+            active = rt(request).active_graph(latest["run_id"])
+            if active is not None:
+                return await active.aget_state(config), latest
             for event in reversed(await rt(request).ledger.events(latest["run_id"])):
                 if event["event"] == NATIVE_SNAPSHOT_EVENT:
                     saved = event["data"]

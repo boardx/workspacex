@@ -130,6 +130,7 @@ async def test_cancel_is_idempotent_and_restart_fails_unknown_inflight_run():
     assert await runtime.cancel("t", run_id) is True
     assert await runtime.cancel("t", run_id) is True
     assert (await ledger.get_run("t", run_id))["status"] == "cancelled"
+    assert runtime.active_graph(run_id) is None
 
 
 @pytest.mark.anyio
@@ -239,3 +240,114 @@ async def test_execution_route_is_validated_before_persist_and_restored_for_stat
             assert invalid.status_code == 404
             assert len(ledger.runs) == 1
             assert (await client.get("/threads/restricted/state")).json()["metadata"]["run_id"] == run_id
+
+@pytest.mark.anyio
+async def test_state_poll_reuses_active_native_graph_without_remounting_session():
+    from contextlib import asynccontextmanager
+    from deep_agent_service.native_factory import native_config_key
+    started, finish = asyncio.Event(), asyncio.Event()
+    loads, closed = [], []
+    class ActiveGraph(FakeGraph):
+        async def astream(self, payload, config, stream_mode):
+            self.values = {"messages": [{"type": "ai", "content": "fresh progress"}]}
+            started.set()
+            await finish.wait()
+            for event in ():
+                yield event
+    graph = ActiveGraph()
+    @asynccontextmanager
+    async def loader(*_):
+        loads.append(True)
+        # A second native graph would verify mounted packages via another adapter
+        # competing for the very same session's exclusive execution slot.
+        if len(loads) > 1:
+            raise RuntimeError("duplicate native session mount")
+        try:
+            yield graph
+        finally:
+            closed.append(True)
+    runtime = Runtime(MemoryLedger(), loader)
+    app = create_app(runtime)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            await client.post('/threads', json={'thread_id': 'active-native'})
+            created = await client.post('/threads/active-native/runs', json={'input': {}, 'config': {'configurable': {
+                native_config_key(): {'bindingId': '12345678-1234-4234-8234-123456789012', 'profile': 'native-v1', 'policy': 'native-v1'}
+            }}})
+            run_id = created.json()['run_id']
+            await started.wait()
+            try:
+                responses = await asyncio.gather(*[client.get('/threads/active-native/state') for _ in range(4)])
+                assert all(r.status_code == 200 and r.json()['values'] == graph.values for r in responses)
+                assert len(loads) == 1 and not closed
+            finally:
+                finish.set()
+                await asyncio.gather(*list(runtime.tasks.values()))
+            assert closed == [True]
+            assert runtime.active_graph(run_id) is None
+            # Terminal projection remains readable after releasing the client.
+            assert (await client.get('/threads/active-native/state')).json()['values'] == graph.values
+            assert len(loads) == 1
+
+@pytest.mark.anyio
+async def test_native_resume_state_uses_new_run_and_releases_both_instances():
+    from contextlib import asynccontextmanager
+    from langgraph.types import Command
+    from deep_agent_service.native_factory import native_config_key
+    started, finish = asyncio.Event(), asyncio.Event()
+    loads, closed = [], []
+    class ResumeGraph(FakeGraph):
+        def __init__(self, index): self.index = index; self.values = {'messages': [{'type': 'ai', 'content': str(index)}]}
+        async def astream(self, payload, config, stream_mode):
+            if self.index == 1:
+                assert isinstance(payload, Command)
+                started.set()
+                await finish.wait()
+            for event in ():
+                yield event
+        async def aget_state(self, config):
+            return Snapshot(self.values, ('tools',) if self.index == 0 else ())
+    @asynccontextmanager
+    async def loader(*_):
+        index = len(loads); loads.append(index)
+        try: yield ResumeGraph(index)
+        finally: closed.append(index)
+    runtime = Runtime(MemoryLedger(), loader)
+    app = create_app(runtime)
+    config = {'configurable': {native_config_key(): {'bindingId': '12345678-1234-4234-8234-123456789012', 'profile': 'native-v1', 'policy': 'native-v1'}}}
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://runtime') as client:
+            await client.post('/threads', json={'thread_id': 'resume-native'})
+            first = (await client.post('/threads/resume-native/runs', json={'input': {}, 'config': config})).json()['run_id']
+            await asyncio.gather(*list(runtime.tasks.values()))
+            assert runtime.active_graph(first) is None and closed == [0]
+            assert (await client.get('/threads/resume-native/state')).json()['next'] == ['tools']
+            second = (await client.post('/threads/resume-native/runs', json={'command': {'resume': {'decisions': []}}, 'config': config})).json()['run_id']
+            await started.wait()
+            try:
+                state = (await client.get('/threads/resume-native/state')).json()
+                assert state['metadata']['run_id'] == second
+                assert state['values']['messages'][0]['content'] == '1'
+                assert loads == [0, 1]
+            finally:
+                finish.set()
+                await asyncio.gather(*list(runtime.tasks.values()))
+            assert closed == [0, 1] and runtime.active_graph(second) is None
+
+@pytest.mark.anyio
+async def test_graph_registration_precedes_publication_and_rolls_back_on_failure():
+    from contextlib import asynccontextmanager
+    closed = []
+    graph = FakeGraph()
+    class FailingLedger(MemoryLedger):
+        async def create_run(self, thread_id, run_id, request):
+            assert runtime.active_graph(run_id) is graph
+            raise RuntimeError('ledger rejected publication')
+    @asynccontextmanager
+    async def loader(*_):
+        try: yield graph
+        finally: closed.append(True)
+    runtime = Runtime(FailingLedger(), loader)
+    with pytest.raises(RuntimeError, match='ledger rejected publication'):
+        await runtime.create_run('thread', {'input': {}})
+    assert runtime._graphs == {} and closed == [True]
