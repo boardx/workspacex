@@ -16,6 +16,7 @@ import type {
   BrowserInvocationOutput,
   StandardBrowserService,
 } from '../../src/application/agent-run/standard-browser-tools';
+import { STANDARD_BROWSER_LIMITS as L } from '@repo/contracts/standard-browser-tools';
 
 const BINDING_A = '00000000-0000-4000-8000-000000000001';
 const BINDING_B = '00000000-0000-4000-8000-000000000002';
@@ -33,6 +34,7 @@ function fixture(options: {
   onCreate?: () => void;
   deadlineSignal?: () => AbortSignal;
   callGate?: { name: string; started: () => void; wait: Promise<void> };
+  snapshotBody?: string;
 } = {}) {
   let allowed = true;
   let failNext: string | null = null;
@@ -58,7 +60,10 @@ function fixture(options: {
             if (options.imageResponse) return { content: [{ type: 'text', text: 'screenshot captured' }, { type: 'image', mimeType: 'image/png', data: png.toString('base64') }] };
             await writeFile(String(args.filename), png);
           }
-          const text = `- Page URL: ${currentUrl}\n- Page Title: Form\n### Snapshot\n- textbox "Name" [ref=e1]\n- checkbox "Subscribe" [ref=e2]\n- button "Save" [ref=e3]`;
+          const snapshot = name === 'browser_snapshot' && options.snapshotBody
+            ? options.snapshotBody
+            : '- textbox "Name" [ref=e1]\n- checkbox "Subscribe" [ref=e2]\n- button "Save" [ref=e3]';
+          const text = `- Page URL: ${currentUrl}\n- Page Title: Form\n### Snapshot\n${snapshot}`;
           if (denyAfter === name) { denyAfter = null; allowed = false; }
           return { content: [{ type: 'text', text }] };
         },
@@ -167,6 +172,40 @@ describe('Playwright MCP browser adapter contract', () => {
     await expect(adapter.invoke(context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } })).rejects.toThrow('browser_network_denied');
     expect([...calls.values()].flat().filter(call => call.name === 'browser_navigate')).toHaveLength(0);
     expect(rows.size).toBe(0);
+  });
+
+  it('does not turn a successful navigation into an unknown outcome by eagerly reading a large page snapshot', async () => {
+    const largePage = Array.from({ length: 4_000 }, (_, index) => `- paragraph "section ${index} ${'x'.repeat(80)}" [ref=e${index}]`).join('\n');
+    const { adapter, calls, context, rows } = fixture({ snapshotBody: largePage });
+    const call = context(BINDING_A, 'run-a', 'large-page-navigate');
+
+    const opened = await adapter.invoke(call, {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://zh.wikipedia.org/wiki/人工智能' },
+    });
+
+    expect(opened).toMatchObject({ title: 'Form', url: 'https://zh.wikipedia.org/wiki/人工智能' });
+    expect([...calls.values()].flat().map(item => item.name)).toEqual(['browser_resize', 'browser_navigate']);
+    expect(rows.get('org:run-a:large-page-navigate')?.status).toBe('succeeded');
+  });
+
+  it('returns an explicitly marked complete-line prefix when a page snapshot exceeds the contract limit', async () => {
+    const largePage = Array.from({ length: 4_000 }, (_, index) => `- paragraph "section ${index} ${'x'.repeat(80)}" [ref=e${index}]`).join('\n');
+    const { adapter, context } = fixture({ snapshotBody: largePage });
+    const opened = await adapter.invoke(context(BINDING_A, 'run-a'), {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://zh.wikipedia.org/wiki/人工智能' },
+    });
+    if (!('pageRef' in opened)) throw new Error('expected page ref');
+
+    const result = await adapter.invoke(context(BINDING_A, 'run-a'), {
+      toolName: 'browser_snapshot', toolArgs: { pageRef: opened.pageRef },
+    });
+
+    if (!('snapshot' in result)) throw new Error('expected snapshot');
+    expect(result.snapshot.length).toBeLessThanOrEqual(L.maxSnapshotChars);
+    expect(result.snapshot).toContain('section 0');
+    expect(result.snapshot.endsWith(`\n# Snapshot truncated to ${L.maxSnapshotChars} characters.`)).toBe(true);
+    expect(result.snapshot.at(-1)).toBe('.');
+    expect(result.elements.every(({ elementRef }) => result.snapshot.includes(elementRef))).toBe(true);
   });
 
   it('covers browser state creation with the action deadline', async () => {
