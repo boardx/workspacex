@@ -311,6 +311,12 @@ export function parseTemplateText(code: string): ParsedTemplateText {
     paragraph.push(line);
   }
   flush();
+  // HMW 生成文本常用这两个等价字段名；规范名优先，不改其他模板的字段语义。
+  if (templateKey === 'hmw') {
+    for (const [alias, canonical] of [['我们可以', '我们可以如何'], ['为谁', '为给']] as const) {
+      if (!fields.has(canonical) && fields.has(alias)) fields.set(canonical, fields.get(alias)!);
+    }
+  }
   return { templateKey, fields, sections };
 }
 
