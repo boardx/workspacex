@@ -5,7 +5,11 @@ import {executeInitialSyncStage,initialProductionSyncPlan,initialProductionSyncS
 const [configPath,action,value,...extra]=process.argv.slice(2);
 const fail=()=>{process.stderr.write("INITIAL_PRODUCTION_SYNC_FAILED\n");process.exitCode=1;};
 async function readJson(path:string){if(!path.startsWith("/"))throw new Error();const file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);try{const stat=await file.stat();if(!stat.isFile()||stat.size<1||stat.size>65536)throw new Error();return JSON.parse(await file.readFile("utf8"));}finally{await file.close();}}
-const run:InitialSyncRun=(executable,args,options)=>new Promise((resolve,reject)=>{const child=spawn(executable,[...args],{shell:false,env:{...process.env,...options.env},stdio:["ignore",options.stdoutFile?"ignore":"pipe","ignore"]});const chunks:Buffer[]=[];let size=0;child.stdout?.on("data",(chunk:Buffer)=>{size+=chunk.length;if(size<=65536)chunks.push(chunk);else child.kill("SIGKILL");});child.once("error",()=>reject(new Error()));child.once("close",code=>code===0&&size<=65536?resolve(Buffer.concat(chunks).toString()):reject(new Error()));});
+const run:InitialSyncRun=async(executable,args,options)=>{
+ const output=options.stdoutFile?await open(options.stdoutFile,"wx",0o600):undefined;
+ try{return await new Promise((resolve,reject)=>{const child=spawn(executable,[...args],{shell:false,env:{...process.env,...options.env},stdio:["ignore",output?.fd??"pipe","ignore"]});const chunks:Buffer[]=[];let size=0;child.stdout?.on("data",(chunk:Buffer)=>{size+=chunk.length;if(size<=65536)chunks.push(chunk);else child.kill("SIGKILL");});child.once("error",()=>reject(new Error()));child.once("close",code=>code===0&&size<=65536?resolve(Buffer.concat(chunks).toString()):reject(new Error()));});}
+ finally{await output?.close();}
+};
 async function main(){
  if(!configPath||!action||extra.length)throw new Error();const config=initialProductionSyncSchema.parse(await readJson(configPath));
  if(action==="dry-run"){process.stdout.write(JSON.stringify(initialProductionSyncPlan(config),null,2)+"\n");return;}

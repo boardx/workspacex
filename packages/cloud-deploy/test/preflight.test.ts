@@ -12,6 +12,18 @@ function metadataResponse() {
     return new Response("workspacex-runtime\n");
   });
 }
+function metadataWithPublicIp(ip: string) {
+  return vi.fn<typeof fetch>(async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("api/token")) return new Response("private-token");
+    expect((init?.headers as Record<string, string>)["X-aliyun-ecs-metadata-token"]).toBe("private-token");
+    if (url.endsWith("instance-id")) return new Response("i-example");
+    if (url.endsWith("region-id")) return new Response("cn-hangzhou");
+    if (url.endsWith("ram/security-credentials/")) return new Response("workspacex-runtime\n");
+    if (url.endsWith("public-ipv4")) return new Response(ip);
+    return new Response("", { status: 404 });
+  });
+}
 it("binds the target instance, region and RAM role using only IMDSv2", async () => {
   const request = metadataResponse();
   expect(await verifyEcsIdentity(deploymentExample("starter"), context(), request)).toEqual({ instanceMatched: true, regionMatched: true, roleMatched: true });
@@ -24,6 +36,12 @@ it("refuses target drift and never leaks metadata token or raw errors", async ()
   const denied = vi.fn<typeof fetch>(async () => new Response("private-token", { status: 403 }));
   await expect(verifyEcsIdentity(config, context(), denied)).rejects.toThrow(/^ECS_IDENTITY_PREFLIGHT_FAILED$/);
   expect(denied).toHaveBeenCalledTimes(1);
+});
+it("binds a production preflight target to the ECS public IP metadata", async () => {
+  const config = deploymentExample("production");
+  config.environment.preflightTargetIp = "47.100.1.2";
+  await expect(verifyEcsIdentity(config, context(), metadataWithPublicIp("47.100.1.2"))).resolves.toMatchObject({ publicIpMatched: true });
+  await expect(verifyEcsIdentity(config, context(), metadataWithPublicIp("47.100.1.3"))).rejects.toThrow("ECS_IDENTITY_PREFLIGHT_FAILED");
 });
 it("bounds metadata output and refuses expired budgets", async () => {
   const request = vi.fn<typeof fetch>(async () => new Response("x".repeat(5000)));

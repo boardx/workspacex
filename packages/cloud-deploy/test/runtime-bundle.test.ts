@@ -16,13 +16,14 @@ const manifest = { schemaVersion: 1 as const, release: "1.0.0", sourceRevision: 
 it("writes service-scoped private raw env files and generated Starter Agent credentials", async () => {
   const runtimeDirectory = await directory();
   const maps = await writeRuntimeBundle(deploymentExample("starter"), manifest,
-    { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_LICENSE" }, context(),
-    { WORKSPACEX_MODEL_KEY: "literal$${secret}", AGENT_LICENSE: JSON.stringify({ LANGGRAPH_CLOUD_LICENSE_KEY: "license-value" }) });
+    { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_RUNTIME" }, context(),
+    { WORKSPACEX_MODEL_KEY: "literal$${secret}", AGENT_RUNTIME: JSON.stringify({}) });
   const api = await readFile(join(runtimeDirectory, "api.env"), "utf8");
   const agent = await readFile(join(runtimeDirectory, "agent.env"), "utf8");
   expect(api).toContain("KERNEL_MODEL_API_KEY=literal$${secret}\n");
   expect(api).not.toContain("MIGRATION_DB_PASSWORD"); expect(api).not.toContain("AGENT_DB_PASSWORD"); expect(api).not.toContain("license-value");
   expect(agent).toContain("postgresql://agent_server:"); expect(agent).toContain("/workspacex_agent");
+  expect(maps.agent.DEEP_AGENT_CHECKPOINT_DB).toBe(maps.agent.DATABASE_URI);
   expect(agent).not.toContain("MODEL_CREDENTIAL_KEY");
   expect((await lstat(join(runtimeDirectory, "agent.env"))).mode & 0o777).toBe(0o600);
   expect(JSON.parse(await readFile(join(runtimeDirectory, "compose.json"), "utf8")).networks.default).toEqual({ external: true, name: "example-runtime" });
@@ -30,8 +31,8 @@ it("writes service-scoped private raw env files and generated Starter Agent cred
 });
 it("does not accept externally overridden Starter graph database credentials", async () => {
   await expect(writeRuntimeBundle(deploymentExample("starter"), manifest,
-    { runtimeDirectory: await directory(), projectName: "example", agentEnvironmentSecretRef: "env:AGENT_LICENSE" }, context(),
-    { WORKSPACEX_MODEL_KEY: "model", AGENT_LICENSE: JSON.stringify({ LANGGRAPH_CLOUD_LICENSE_KEY: "license", DATABASE_URI: "postgresql://attacker/other" }) })).rejects.toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
+    { runtimeDirectory: await directory(), projectName: "example", agentEnvironmentSecretRef: "env:AGENT_RUNTIME" }, context(),
+    { WORKSPACEX_MODEL_KEY: "model", AGENT_RUNTIME: JSON.stringify({ DATABASE_URI: "postgresql://attacker/other" }) })).rejects.toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
 });
 it("atomic env replacement never follows a destination symlink", async () => {
   const root = await directory(); const outside = join(root, "outside"); const target = join(root, "service.env");
@@ -56,13 +57,14 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "application-owner-123" }),
     WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
     AGENT_SECRET: JSON.stringify({ DATABASE_URI: "postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=verify-full",
-      REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", LANGGRAPH_CLOUD_LICENSE_KEY: "license-value", databaseCaFile: ca, memoryCaFile: ca,
+      REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", databaseCaFile: ca, memoryCaFile: ca,
       MEMORY_STORE_DATABASE_URL: "postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",
       MEMORY_STORE_MIGRATION_DATABASE_URL: "postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full" }),
   };
   const maps = await writeRuntimeBundle(deploymentExample("production"), manifest,
     { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source);
   expect(new URL(maps.agent.DATABASE_URI!).searchParams.get("sslrootcert")).toBe("/run/agent-certs/ca.pem");
+  expect(maps.agent.DEEP_AGENT_CHECKPOINT_DB).toBe(maps.agent.DATABASE_URI);
   expect(new URL(maps.agent.MEMORY_STORE_DATABASE_URL!).searchParams.get("sslrootcert")).toBe("/run/agent-certs/memory-ca.pem");
   expect(await readFile(join(runtimeDirectory, "agent-certs/memory-ca.pem"), "utf8")).toBe(rootCertificates[0]);
   expect(JSON.stringify(maps.agent)).not.toContain("memory-owner-password");
@@ -79,7 +81,7 @@ it("uses disabled PostgreSQL transport for Agent persistence only under the conf
     WORKSPACEX_MIGRATION:JSON.stringify({host:"db.example.com",database:"workspacex",user:"owner",password:"application-owner-123"}),
     WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123"}),
     AGENT_SECRET:JSON.stringify({DATABASE_URI:"postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=disable",
-      REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",LANGGRAPH_CLOUD_LICENSE_KEY:"license-value",
+      REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",
       MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=disable",
       MEMORY_STORE_MIGRATION_DATABASE_URL:"postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=disable"})};
   const maps=await writeRuntimeBundle(config,manifest,{runtimeDirectory,projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source);
@@ -98,7 +100,7 @@ it("rejects production Agent credentials shared with application database roles"
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "application-owner-123" }),
     WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
     AGENT_SECRET: JSON.stringify({ DATABASE_URI: `postgresql://graph_owner:${applicationPassword}@graph.example.com/graph?sslmode=verify-full`,
-      REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", LANGGRAPH_CLOUD_LICENSE_KEY: "license-value", databaseCaFile: ca, memoryCaFile: ca,
+      REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", databaseCaFile: ca, memoryCaFile: ca,
       MEMORY_STORE_DATABASE_URL: "postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",
       MEMORY_STORE_MIGRATION_DATABASE_URL: "postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full" }),
   };

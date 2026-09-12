@@ -53,6 +53,23 @@ describe("TLS initialization preflight", () => {
       leafFingerprintSha256: new X509Certificate(certificatePem).fingerprint256 });
     expect(JSON.stringify(result)).not.toContain(privateKeyPem);
   });
+  it("routes to the constrained target IP while preserving URL hostname for TLS SNI and Host", async () => {
+    const seen: { hostname?: string; lookup?: unknown } = {};
+    const routedRequest = ((target: URL, options: import("node:https").RequestOptions, listener: Parameters<typeof httpsRequest>[2]) => {
+      seen.hostname = target.hostname;
+      seen.lookup = options.lookup;
+      return trustedRequest(target, options, listener);
+    }) as typeof httpsRequest;
+    const result = await verifyTlsPreflight({ ...environment(), preflightTargetIp: "127.0.0.1" }, context(), secret(), routedRequest);
+    expect(result.tlsVerified).toBe(true);
+    expect(seen.hostname).toBe("localhost");
+    expect(seen.lookup).toBeTypeOf("function");
+    const routed = await new Promise<{ address: string; family: number }>((resolve, reject) => {
+      (seen.lookup as Function)("ignored.example", { all: false }, (error: Error | null, address: string, family: number) =>
+        error ? reject(error) : resolve({ address, family }));
+    });
+    expect(routed).toEqual({ address: "127.0.0.1", family: 4 });
+  });
   it.each([302, 503])("rejects a redirect or unhealthy HTTPS response (%i)", async status => {
     responseStatus = status;
     try { await expect(verifyTlsPreflight(environment(), context(), secret(), trustedRequest)).rejects.toThrow("TLS_ENDPOINT_UNVERIFIED"); }

@@ -1,24 +1,20 @@
 [project]
 name = "deep-agent-service"
 version = "0.1.0"
-description = "Thin wrapper: organization Skills exposed as dynamic deepagents tools, served via `langgraph dev` (#739, see #738 for the architecture investigation)."
+description = "Self-hosted WorkspaceX deep-agent runtime."
 requires-python = ">=3.11"
 dependencies = [
   "deepagents>=0.7,<0.8",
   "langchain-openai>=0.3.0",
-  "langgraph-cli[inmem]>=0.4.0",
+  "langgraph>=1.0,<2",
   "langgraph-checkpoint-postgres>=2.0.0",
   "psycopg[binary,pool]>=3.2.0",
   "jsonschema>=4.23.0",
   "starlette==1.6.0",
-  # issue #2664 -- `spawn_async_task` 直接 `import httpx` 回调 TS 侧队列端点。已经作为
-  # langgraph-api 等的传递依赖存在于 uv.lock（见下面 otel 三行同一条纪律的原话：
-  # 我们的代码直接 import 它，不能只靠别人的传递依赖碰巧把它带进来）。
+  "uvicorn>=0.35,<1",
+  # `spawn_async_task` directly imports httpx to call the API callback endpoint.
   "httpx>=0.28,<0.29",
-  # D10④（deepagent-capability-rubric.md）：本地 OTel 导出，见 tracing.py 模块注释。
-  # 已在 uv.lock 里作为 langgraph-api 的传递依赖存在（`langsmith[otel]` 拉的），
-  # 这里把它提成直接依赖——我们的代码直接 import 这三个包，不能只靠别人的传递依赖
-  # 碰巧把它带进来（对方哪天不再需要 otel extra，我们的 import 就会静默失效）。
+  # D10④: tracing.py imports these packages, so they remain direct dependencies.
   "opentelemetry-api>=1.37,<2",
   "opentelemetry-sdk>=1.37,<2",
   "opentelemetry-exporter-otlp-proto-http>=1.37,<2",
