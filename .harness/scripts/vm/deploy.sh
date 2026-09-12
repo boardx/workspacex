@@ -96,6 +96,8 @@ sudo -u "$RUN_AS" git fetch --depth 50 origin "${REF#origin/}"
 #   fetch 到的那个提交——直接用它，不留一个"看起来成功但值不对"的中间状态。
 sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
 sudo -u "$RUN_AS" git log --oneline -1
+SOURCE_REVISION=$(sudo -u "$RUN_AS" git rev-parse HEAD)
+export SOURCE_REVISION
 
 step "2. 依赖"
 sudo -u "$RUN_AS" pnpm install --frozen-lockfile
@@ -169,12 +171,52 @@ echo "  Native session AppArmor policy 已加载（hash=$(sha256sum "$NATIVE_APP
 #   2026-08-21 devapp 首次部署实测：只 export 不显式传 ⇒ compose 报
 #   `required variable SANDBOX_SOCKET_DIR is missing a value` 并 fail-closed 停下
 #   （那个 `:?` 形式正是为此设计——它没有静默起一个属主错误的沙箱）。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
-  SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
-  NATIVE_SESSION_SOCKET_DIR="$NATIVE_SESSION_SOCKET_DIR" \
-  SANDBOX_UID="$SANDBOX_UID" \
-  SANDBOX_GID="$SANDBOX_GID" \
-  docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d --build
+compose_up_dependencies() {
+  sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
+    SOURCE_REVISION="$SOURCE_REVISION" \
+    SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
+    NATIVE_SESSION_SOCKET_DIR="$NATIVE_SESSION_SOCKET_DIR" \
+    SANDBOX_UID="$SANDBOX_UID" \
+    SANDBOX_GID="$SANDBOX_GID" \
+    docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d --build
+}
+
+reconcile_failed_sandbox_recreate() {
+  local candidate=workspacex-skill-sandbox-1
+  local state project service image network created deep_created desired_image_id candidate_image_id
+
+  docker inspect "$candidate" >/dev/null 2>&1 || return 1
+  state=$(docker inspect --format '{{.State.Status}}' "$candidate")
+  project=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$candidate")
+  service=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$candidate")
+  image=$(docker inspect --format '{{.Config.Image}}' "$candidate")
+  network=$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$candidate")
+  created=$(docker inspect --format '{{.Created}}' "$candidate")
+  candidate_image_id=$(docker inspect --format '{{.Image}}' "$candidate")
+  desired_image_id=$(docker image inspect --format '{{.Id}}' workspacex-skill-sandbox:latest)
+  deep_created=$(docker inspect --format '{{.Created}}' workspacex-deep-agent 2>/dev/null) || return 1
+
+  # Docker Compose can leave the just-created replacement under the canonical name when a
+  # recreate is interrupted. Remove only that exact, stopped replacement. The compose labels,
+  # isolated network, desired image identity and creation time after the still-running Deep
+  # Agent jointly prove it belongs to the failed attempt rather than the serving stack.
+  [[ "$state" != running && "$state" != restarting ]] || return 1
+  [[ "$project" == workspacex && "$service" == skill-sandbox ]] || return 1
+  [[ "$image" == workspacex-skill-sandbox* && "$network" == none ]] || return 1
+  [[ "$candidate_image_id" == "$desired_image_id" && "$created" > "$deep_created" ]] || return 1
+
+  echo "  清理已确认的失败部署残留：container=$candidate state=$state service=$service network=$network created=$created"
+  docker rm "$candidate" >/dev/null
+}
+
+if ! compose_up_dependencies; then
+  echo "  compose 首次启动失败；仅检查可机械证明的 sandbox recreate 残留" >&2
+  reconcile_failed_sandbox_recreate || {
+    echo "✗ 未找到可安全清理的失败 attempt 残留；保留当前容器并停止部署" >&2
+    exit 1
+  }
+  compose_up_dependencies
+fi
 until docker exec workspacex-postgres-1 pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
 
 # 沙箱就绪：socket 文件真的出现，且属主是 API 将要用的那个用户。
@@ -486,7 +528,7 @@ native_runtime_ensure_callback_base_url "$ENV_FILE" "$DEEP_AGENT_NATIVE_SERVICE_
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 
 echo "  构建镜像 ${DEEP_AGENT_IMAGE}（从当前部署源码，有出处）"
-docker build -t "$DEEP_AGENT_IMAGE" "$APP_DIR/apps/deep-agent-service" >/dev/null
+docker build --build-arg SOURCE_REVISION="$SOURCE_REVISION" -t "$DEEP_AGENT_IMAGE" "$APP_DIR/apps/deep-agent-service" >/dev/null
 
 # 记住上一轮部署的镜像 tag（GC 时保留它作回滚位），再幂等替换容器——
 # 同名容器存在（无论手工的还是上一轮部署的）先停删再起新的，不留手工痕迹。
@@ -503,7 +545,7 @@ CHECKPOINT_PROBE_NAME="workspacex-checkpoint-probe-${DEEP_AGENT_SHA}"
 if ! timeout 60s docker run --rm --name "$CHECKPOINT_PROBE_NAME" \
   --network "$DEEP_AGENT_NETWORK" --env-file "$DEEP_AGENT_ENV_FILE" \
   --add-host workspacex-api-host:host-gateway \
-  "$DEEP_AGENT_IMAGE" python -c 'import asyncio,os; from deep_agent_service.self_hosted_runtime import PostgresLedger; from deep_agent_service.postgres_checkpointer import probe_checkpoint, probe_checkpoint_isolation, probe_restricted_runtime; asyncio.run(PostgresLedger(os.environ["DEEP_AGENT_CHECKPOINT_DB"]).prepare()); asyncio.run(probe_checkpoint(os.environ["DEEP_AGENT_CHECKPOINT_DB"])); asyncio.run(probe_checkpoint_isolation(os.environ["DEEP_AGENT_CHECKPOINT_DB"])); asyncio.run(probe_restricted_runtime(os.environ["DEEP_AGENT_CHECKPOINT_DB"]))' >/dev/null 2>&1; then
+  "$DEEP_AGENT_IMAGE" python -m deep_agent_service.checkpoint_readiness; then
   docker rm -f "$CHECKPOINT_PROBE_NAME" >/dev/null 2>&1 || true
   echo "✗ Deep Agent checkpoint database readiness failed; previous service retained" >&2
   exit 1
