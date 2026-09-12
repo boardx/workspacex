@@ -230,6 +230,14 @@ export default defineConfig({
    * 让那一轮 run 真的跑一段时间），不需要新的进程或新的环境变量。已加进下面
    * `chat-read` project 的 testMatch 白名单。
    *
+   * issue #3463（来源 #3413 T29/T30，F5「停止生成」）—— 新增
+   * `chat-stop-generation-sidebar-status.spec.ts`：真实点击 composer 的「停止生成」
+   * 按钮，断言 run 落成 `cancelled`（不是 `failed`）、侧边栏文案是「已停止」（不是
+   * 「未能完成」）。同一条真登录、同一个 deep-agent loopback 替身
+   * （`deepAgentMultiStepTrigger`，本 config 早已下发），停止走的是
+   * `agent-workbench-control-acceptance.spec.ts` 已经在用的同一条真实
+   * `POST /agent-runs/:runId/cancel`，不需要新的进程或新的环境变量。
+   *
    * ⚠ 上面那条警告在这里再说一遍：**这条 testMatch 白名单是手写的**，新 spec 不加
    * 进这个正则就是「写了但没人跑」（#512 同一个失效模式），本次 11 个逐个加过。
    *
@@ -255,7 +263,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility)\.spec\.ts$/,
+      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\.spec\.ts$/,
     },
     {
       /**
