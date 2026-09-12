@@ -22,6 +22,7 @@ from psycopg.rows import dict_row
 
 TERMINAL = frozenset({"success", "error", "cancelled", "interrupted"})
 GRAPH_IDS = ("Deep Agent", "Guided Research")
+STREAM_MODES = frozenset({"values", "updates", "custom", "messages"})
 
 
 def graph_config(thread_id: str, config: Any = None) -> dict[str, Any]:
@@ -33,6 +34,19 @@ def graph_config(thread_id: str, config: Any = None) -> dict[str, Any]:
         raise ValueError("INVALID_EXECUTION_CONFIG")
     result["configurable"] = {**(configurable or {}), "thread_id": thread_id}
     return result
+
+
+def graph_stream_modes(request: dict[str, Any]) -> list[str]:
+    """Translate Agent Server's public mode names to CompiledStateGraph modes."""
+    requested = request.get("stream_mode", ["values"])
+    if isinstance(requested, str):
+        requested = [requested]
+    if not isinstance(requested, list) or not requested:
+        raise ValueError("INVALID_STREAM_MODE")
+    modes = ["messages" if mode == "messages-tuple" else mode for mode in requested]
+    if any(not isinstance(mode, str) or mode not in STREAM_MODES for mode in modes):
+        raise ValueError("INVALID_STREAM_MODE")
+    return list(dict.fromkeys(modes))
 
 
 class Ledger(Protocol):
@@ -250,13 +264,21 @@ class Runtime:
             if "command" in request:
                 from langgraph.types import Command
                 payload = Command(**payload)
-            result = await graph.ainvoke(payload, config=config)
+            modes = graph_stream_modes(request)
+            emitted_values = False
+            # `ainvoke` discards LangGraph's custom channel. Skill audit facts and
+            # tool progress live only on that channel, so replay every requested
+            # mode through the same durable SSE ledger as terminal state.
+            async for mode, data in graph.astream(payload, config=config, stream_mode=modes):
+                await self.ledger.append_event(run_id, mode, data)
+                emitted_values = emitted_values or mode == "values"
             snapshot = await graph.aget_state(config)
             next_nodes = list(getattr(snapshot, "next", ()) or ())
             status = "interrupted" if next_nodes else "success"
             if is_native_config(config):
                 await self.ledger.append_event(run_id, NATIVE_SNAPSHOT_EVENT, snapshot_projection(snapshot))
-            await self.ledger.append_event(run_id, "values", getattr(snapshot, "values", result))
+            if not emitted_values:
+                await self.ledger.append_event(run_id, "values", getattr(snapshot, "values", {}))
             await self.ledger.update_run(run_id, status)
             await self.ledger.append_event(run_id, "metadata", {"status": status})
         except asyncio.CancelledError:

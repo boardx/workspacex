@@ -93,6 +93,17 @@ class FakeGraph:
         self.states[thread_id] = state
         return state.values
 
+    async def astream(self, payload: Any, config: dict[str, Any], stream_mode):
+        await self.ainvoke(payload, config)
+        text = str(payload.get("messages", [{}])[-1].get("content", "")) if isinstance(payload, dict) else ""
+        if text == "skill activity":
+            yield "custom", {"type": "skill_activity", "version": 1, "fact": {
+                "contractVersion": 1, "factId": "fact-1", "skillId": "skill-1",
+                "skillStableName": "pdf-create", "skillVersion": "v1",
+                "packageDigest": "a" * 64, "stage": "body_read",
+                "readPath": "/skills/pdf-create/SKILL.md",
+            }}
+
     async def aget_state(self, config: dict[str, Any]):
         return self.states.get(self._thread(config), Snapshot({"messages": []}))
 

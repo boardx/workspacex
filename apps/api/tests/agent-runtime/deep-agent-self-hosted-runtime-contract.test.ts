@@ -88,6 +88,22 @@ describe("DeepAgentModelProvider ↔ self-hosted runtime HTTP contract", () => {
     expect(await state.json()).toMatchObject({ values: { messages: [{ type: "ai", content: "runtime answer" }] }, next: [] });
   });
 
+  it("delivers self-hosted custom skill activity through the provider callback", async () => {
+    const activity: Array<{ skillStableName: string; stage: string }> = [];
+    const result = await provider().completeWithProgress(
+      {
+        ...input("api-runtime-skill-activity", "skill activity"),
+        onSkillActivity: async (fact: { skillStableName: string; stage: string }) => activity.push(fact),
+      } as never,
+      async () => {},
+    );
+    expect(result.text).toBe("runtime answer");
+    expect(activity).toEqual([expect.objectContaining({
+      skillStableName: "pdf-create",
+      stage: "body_read",
+    })]);
+  });
+
   it("returns the provider interrupt shape and accepts command.resume without replaying input", async () => {
     const threadId = "api-runtime-interrupt";
     const interrupted = await provider().completeWithProgress(input(threadId, "interrupt") as never, async () => {});
