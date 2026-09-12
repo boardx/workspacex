@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const file=resolve(import.meta.dirname,"publish-cn-release.sh");
 const source=readFileSync(file,"utf8");
+const apiDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/aliyun/images/api.Dockerfile"),"utf8");
+const webDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/aliyun/images/web.Dockerfile"),"utf8");
+const agentDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/deep-agent-service/Dockerfile"),"utf8");
+const sandboxDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/skill-sandbox/Dockerfile"),"utf8");
 
 describe("China production release publisher",()=>{
   it("requires a clean exact main revision and digest-pinned dependencies",()=>{
@@ -17,7 +21,7 @@ describe("China production release publisher",()=>{
     expect(source).toContain('git -C "$REPOSITORY_DIR" archive "$revision" apps/deep-agent-service | tar -x -C "$work/agent" --strip-components=2');
     expect(source).not.toContain('mv "$work/apps/deep-agent-service"/*');
     expect(source).not.toContain('rmdir "$work/apps/deep-agent-service"');
-    expect(source).toContain('build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"');
+    expect(source).toContain('build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"');
     expect(source).not.toContain("cp -a apps/deep-agent-service");
     expect(source).not.toMatch(/WSX_AGENT_BASE|langchain\/langgraph-(api|server)|LANGGRAPH_CLOUD_LICENSE_KEY/);
     expect(source).not.toMatch(/docker login|PASSWORD|SECRET/);
@@ -53,5 +57,23 @@ describe("China production release publisher",()=>{
     expect(source).toContain('cmp --silent "$generated" "$manifest"');
     expect(source).toContain('install -o root -g "$runner_group" -m 0640 "$generated" "$manifest"');
     expect(statSync(file).mode&0o111).not.toBe(0);
+  });
+  it("passes validated package indexes only to integrity-locked dependency installs",()=>{
+    expect(source).toContain('npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}');
+    expect(source).toContain('pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}');
+    expect(source).toContain('validate_package_index "$npm_registry" npm');
+    expect(source).toContain('validate_package_index "$pypi_index_url" PyPI');
+    expect(source.match(/--build-arg "NPM_REGISTRY=\$npm_registry"/g)).toHaveLength(2);
+    expect(source.match(/--build-arg "PYPI_INDEX_URL=\$pypi_index_url"/g)).toHaveLength(2);
+    for(const dockerfile of [apiDockerfile,webDockerfile]){
+      expect(dockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
+      expect(dockerfile).toContain('npm_config_registry="$NPM_REGISTRY"');
+      expect(dockerfile).toContain("pnpm install --frozen-lockfile");
+    }
+    expect(agentDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
+    expect(agentDockerfile).toContain('UV_DEFAULT_INDEX="$PYPI_INDEX_URL" uv sync --frozen');
+    expect(sandboxDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
+    expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
+    expect(sandboxDockerfile.match(/--require-hashes/g)).toHaveLength(2);
   });
 });

@@ -19,8 +19,20 @@ node_image=${WSX_NODE_IMAGE:?set WSX_NODE_IMAGE to a reviewed digest}
 python_image=${WSX_PYTHON_IMAGE:?set WSX_PYTHON_IMAGE to a reviewed digest}
 postgres_image=${WSX_POSTGRES_IMAGE:?set WSX_POSTGRES_IMAGE to a reviewed pgvector digest}
 redis_image=${WSX_REDIS_IMAGE:?set WSX_REDIS_IMAGE to a reviewed Redis digest}
+npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}
+pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}
 
 fail(){ echo "CN_RELEASE_PUBLISH_REJECTED: $1" >&2; exit 1; }
+validate_package_index(){
+  local value=$1 label=$2
+  node - "$value" <<'NODE' || fail "invalid $label package index"
+const value=process.argv[2];
+try{
+  const url=new URL(value);
+  if(url.protocol!=="https:" || !url.hostname || url.username || url.password || url.search || url.hash)process.exit(1);
+}catch{process.exit(1);}
+NODE
+}
 [[ "$platform" == linux/amd64 || "$platform" == linux/arm64 ]] || fail "unsupported platform"
 [[ "$prefix" =~ ^[a-z0-9][a-z0-9.-]*(:[0-9]+)?/[a-z0-9]+([._-][a-z0-9]+)*$ ]] || fail "invalid ACR prefix"
 digest_reference='^[a-z0-9][a-z0-9.-]*(:[0-9]+)?/[a-z0-9]+([._/-][a-z0-9]+)*@sha256:[a-f0-9]{64}$'
@@ -37,6 +49,8 @@ runner_user=$(cat "$RUNNER_ID_FILE")
 runner_group=$(id -gn "$runner_user")
 
 for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
+validate_package_index "$npm_registry" npm
+validate_package_index "$pypi_index_url" PyPI
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
 docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
@@ -61,10 +75,10 @@ build_and_push(){
   [[ "$published_revision" == "$revision" ]] || fail "published $service image has a different revision"
 }
 cd "$REPOSITORY_DIR"
-build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
+build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
+build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
+build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"
+build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"
 
 docker pull --platform "$platform" "$postgres_image" >/dev/null
 docker pull --platform "$platform" "$redis_image" >/dev/null
