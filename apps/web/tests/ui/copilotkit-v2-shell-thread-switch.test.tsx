@@ -53,7 +53,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/components/chat/copilotkit-v2-panel", () => ({
-  CopilotKitV2Panel: ({ canWrite }: { canWrite: boolean }) => <div data-testid="stub-copilotkit-v2-panel" data-can-write={String(canWrite)} />,
+  CopilotKitV2Panel: ({ canWrite, canDecide }: { canWrite: boolean; canDecide: boolean }) => <div data-testid="stub-copilotkit-v2-panel" data-can-write={String(canWrite)} data-can-decide={String(canDecide)} />,
 }));
 vi.mock("@/components/chat/chat-roster-panel", () => ({ RosterPanel: () => null }));
 vi.mock("@/components/chat/chat-task-inspector", () => ({ ChatTaskInspector: () => null }));
@@ -635,6 +635,18 @@ describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
 
 
 describe("composer permissions are independent of side-panel resources", () => {
+  it("lets a personal-thread owner confirm HITL requests without a project approval capability", async () => {
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await waitFor(() => expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-decide", "true"));
+  });
+  it("keeps a project observer unable to confirm HITL requests", async () => {
+    getThread.mockResolvedValue({
+      thread: { id: "thr-a", projectId: "project-observed", groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-other", lastActivityAt: "2026-08-27T00:00:00.000Z", version: 0 },
+      messages: [], rightTabs: [], capabilities: ["thread.read", "artifact.readonly"],
+    });
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} projectId="project-observed" />);
+    await waitFor(() => expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-decide", "false"));
+  });
   it("enables an authorized composer even if artifacts and attachments never settle", async () => {
     listThreadArtifacts.mockImplementation(() => new Promise(() => {}));
     listThreadAttachments.mockImplementation(() => new Promise(() => {}));

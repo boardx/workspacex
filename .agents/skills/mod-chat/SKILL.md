@@ -53,6 +53,11 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13（#3567）：HITL 表单的「请求正在提交」与「当前用户能否裁决」必须是两个
+  独立状态；把两者合成 `pending = !canWrite || submitting` 再反推 `canWrite = !pending`，
+  会让已经被后端接受的 personal owner 决策在 POST 在途时误画成项目 observer denial。
+  个人对话按权威线程详情里的 `projectId=null + createdBy + composer.send` 判，项目对话
+  继续按 `approval.decide` 判。
 - 2026-09-13（#3519）：保留外壳不等于保留消息区；按线程remount的Body仍会每次把historyLoading初始化为true。已访问历史可做短期内存预览，但必须按session/user/org/project隔离、失败撤销、后台重新读取权威数据；不要从历史缓存推导发送权限，权限读取中也不能冒称业务只读。
 - 2026-09-13（#3522）：显式新建不能复用列表里not-started的共享草稿：另一标签可能已经开始运行而此列表还没更新。新建调用创建端口获得独立thread，最近会话恢复仍走原路径；同一按钮在途请求用同步ref防重复。
 - 2026-09-05：`useHumanInTheLoop({name})` 的 `render` 回调本身不能直接用 hooks——
