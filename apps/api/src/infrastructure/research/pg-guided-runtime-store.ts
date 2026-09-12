@@ -40,7 +40,12 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
       if (!state.availableNodes.includes(command.node)) throw new ResearchRuntimeError("RESEARCH_NODE_LOCKED");
       if (state.busy) {
-        state.tasks = state.tasks.map((task) => task.status === "running" ? { ...task, status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" } : task);
+        state.tasks = state.tasks.map((task) => ({
+          ...task,
+          ...(task.status === "running" ? { status: "failed" as const, errorCode: "RESEARCH_EXECUTION_INTERRUPTED" } : {}),
+          ...(task.searchAttempts ? { searchAttempts: task.searchAttempts.map((attempt) => attempt.status === "running"
+            ? { ...attempt, status: "failed" as const, errorCode: "RESEARCH_EXECUTION_INTERRUPTED" } : attempt) } : {}),
+        }));
       }
       state.version += 1;
       state.busy = true;

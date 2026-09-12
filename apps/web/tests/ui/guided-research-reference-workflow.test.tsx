@@ -12,9 +12,9 @@ afterEach(() => vi.useRealTimers());
 describe("reference research workflow", () => {
   it("restores actual server stage and structured plan/task details while research is busy", async () => {
     const initial = runtimeFixture("research");
-    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }] });
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByTestId("research-runtime-progress")).toHaveTextContent("检索资料 · 2 / 5");
+    expect(await screen.findByTestId("research-runtime-progress")).toHaveTextContent("检索资料 · 已处理 2 / 5 · 成功 2 · 失败 0");
     expect(screen.getByRole("progressbar")).toHaveAttribute("value", "2");
     fireEvent.click(screen.getByText("研究计划"));
     expect(screen.getByText("哪些市场值得优先进入？")).toBeVisible();

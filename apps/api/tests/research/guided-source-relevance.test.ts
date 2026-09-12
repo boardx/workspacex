@@ -120,7 +120,11 @@ function serviceFixture(hits: typeof direct[], malformed = false, seed = runtime
     return { text: JSON.stringify(malformed ? {} : output) };
   }) };
   const search = vi.fn(async (_query: string) => hits.map(({ title, url, content }) => ({ title, url, content })));
-  const service = new GuidedRuntimeService(store, model, { search }, { provider: "test", id: "test" });
+  const dispatchModel = { complete: (input: { user: string }) => {
+    const context = JSON.parse(input.user);
+    return context.researchStage === "search_recovery" ? Promise.resolve({ text: JSON.stringify({ queries: [context.task.query] }) }) : model.complete(input);
+  } };
+  const service = new GuidedRuntimeService(store, dispatchModel, { search }, { provider: "test", id: "test" });
   const actor = { orgId: toOrgId("relevance-org"), userId: "owner", sessionId: session.sessionId };
   return { model, search, writes,
     report: () => service.execute(actor, session, { node: "report", action: "generate", sessionId: session.sessionId, requestId: "report", expectedVersion: state.version }),
@@ -190,8 +194,10 @@ describe("task-scoped relevance and cache", () => {
     expect(result.tasks[1]!.errorCode).toBe("RESEARCH_SEARCH_NO_RELEVANT_SOURCES");
     expect(result.sources[0]!.taskIds).toEqual(["task"]);
     expect(f.model.complete.mock.calls.map(([input]) => JSON.parse(input.user).chunks[0].taskId)).toEqual(["task", "b"]);
-    await f.run("retry");
-    expect(f.search.mock.calls.map(([query]) => query)).toEqual(["王者荣耀 KPL 商业模式", "王者荣耀 留存 数据", "王者荣耀 留存 数据"]);
+    const retried = await f.run("retry");
+    expect(f.search.mock.calls.map(([query]) => query)).toEqual(["王者荣耀 KPL 商业模式", "王者荣耀 留存 数据"]);
+    expect(retried.tasks.map((task) => task.status)).toEqual(["succeeded", "failed"]);
+    expect(retried.sources[0]!.taskIds).toEqual(["task"]);
   });
   it("removes legacy B associations and primary taskId while retaining A and making B retryable", async () => {
     const seed = twoTasks(); seed.tasks.forEach((task) => { task.status = "succeeded"; });

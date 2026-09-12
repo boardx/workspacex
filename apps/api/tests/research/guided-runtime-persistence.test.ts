@@ -35,6 +35,8 @@ let relevanceCalls: number;
 let malformedRelevanceOnce: boolean;
 let rejectRelevanceTaskId: string | undefined;
 let includeIrrelevantSearchHit: boolean;
+let recoverEmptySearch: boolean;
+const recoveryQuery = "European grid policy";
 let proposedAction: "save" | "start" | "confirm" | "complete";
 let releaseModel: (() => void) | undefined;
 let blockModel: boolean;
@@ -42,6 +44,7 @@ let failModelNode: string | undefined;
 const model: ModelCallPort = { complete: async (input) => {
   if (blockModel) { blockModel = false; await new Promise<void>((resolve) => { releaseModel = resolve; }); }
   const context = JSON.parse(input.user);
+  if (context.researchStage === "search_recovery") return { text: JSON.stringify({ queries: [recoverEmptySearch ? recoveryQuery : context.task.query] }) };
   if (context.researchStage === "source_relevance") {
     relevanceCalls++;
     if (malformedRelevanceOnce) { malformedRelevanceOnce = false; return { text: '{"evaluations":[' }; }
@@ -74,7 +77,7 @@ const model: ModelCallPort = { complete: async (input) => {
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
   return { text: JSON.stringify(value) };
 } };
-const search = { search: async () => { searchCalls++; if (failSearch) throw new Error("provider unavailable"); return [{ title: "Official policy", url: "https://energy.ec.europa.eu/topics/energy-storage_en", content: "A policy source returned by the controlled search test double." }, ...(includeIrrelevantSearchHit ? [{ title: "Acura inventory", url: "https://example.org/acura-inventory", content: "Unrelated Acura vehicle inventory for sale." }] : [])]; } };
+const search = { search: async (query: string) => { searchCalls++; if (recoverEmptySearch && query !== recoveryQuery) return []; if (failSearch) throw new Error("provider unavailable"); return [{ title: "Official policy", url: "https://energy.ec.europa.eu/topics/energy-storage_en", content: "A policy source returned by the controlled search test double." }, ...(includeIrrelevantSearchHit ? [{ title: "Acura inventory", url: "https://example.org/acura-inventory", content: "Unrelated Acura vehicle inventory for sale." }] : [])]; } };
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); db = new PgDatabase(appConfig());
   const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0, "127.0.0.1"); base = await app.getUrl();
@@ -91,7 +94,7 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; malformedRelevanceOnce = false; rejectRelevanceTaskId = undefined; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; malformedRelevanceOnce = false; rejectRelevanceTaskId = undefined; includeIrrelevantSearchHit = false; recoverEmptySearch = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
@@ -99,6 +102,30 @@ async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeComma
 }
 async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
+  it("persists empty-query recovery and continues to a real report without replaying successful searches", async () => {
+    recoverEmptySearch = true;
+    await reachResearch();
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.errorCode).toBeNull();
+    expect(reloaded.tasks).toHaveLength(1);
+    expect(reloaded.tasks[0]).toMatchObject({ query: "European grid storage policy official", status: "succeeded", searchAttempts: [
+      { query: "European grid storage policy official", status: "failed" },
+      { query: recoveryQuery, status: "succeeded" },
+    ] });
+    expect(searchCalls).toBe(2);
+    state = reloaded;
+    await run("start");
+    expect(state.errorCode).toBeNull();
+    expect(searchCalls).toBe(2);
+    await run("complete");
+    expect(state.errorCode).toBeNull();
+    expect(state.report).not.toBeNull();
+    const reportReloaded = await service.get(actor, session);
+    expect(reportReloaded.report).toEqual(state.report);
+    expect(reportReloaded.tasks[0]?.query).toBe("European grid storage policy official");
+    expect(reportReloaded.tasks[0]?.searchAttempts).toEqual(reloaded.tasks[0]?.searchAttempts);
+  });
+
   it("persists relevance filtering of new search results without accepting unrelated inventory", async () => {
     includeIrrelevantSearchHit = true;
     await reachResearch();
@@ -134,7 +161,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await reachResearch();
     const legacy = structuredClone(state);
     const taskA = legacy.tasks[0]!;
-    const taskB = { ...taskA, id: "legacy-task-b", sectionId: "legacy-section-b", query: "new unrelated chapter query" };
+    const taskB = { ...taskA, id: "legacy-task-b", sectionId: "legacy-section-b", query: "new unrelated chapter query", searchAttempts: [] };
     legacy.outline.push({ id: taskB.sectionId, title: "New chapter", questions: ["What supports this distinct chapter?"], enabled: true, order: legacy.outline.length });
     legacy.tasks.push(taskB);
     const source = legacy.sources[0]!;
@@ -223,6 +250,89 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(C.GuidedResearchRuntime.parse(await saved.json()).version).toBe(state.version + 1);
     const invalid = await fetch(`${path}/commands`, { method: "POST", headers, body: JSON.stringify({ ...command, node: "report" }) }); expect(invalid.status).toBe(400);
   });
+  it("recovers a running attempt persisted by finalization after one transient progress write failure", async () => {
+    await reachResearch();
+    const unfinished = structuredClone(state);
+    const succeeded = unfinished.tasks[0]!;
+    unfinished.tasks.push({ ...succeeded, id: "interrupted-progress-task", query: "European grid policy progress", status: "pending", searchAttempts: [] });
+    await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(unfinished)]));
+    state = await service.get(actor, session);
+    const store = new PgGuidedRuntimeStore(db);
+    const originalWrite = store.write.bind(store);
+    let injected = false;
+    vi.spyOn(store, "write").mockImplementation(async (actorArg, requestId, next, done) => {
+      if (!injected && !done && next.tasks.some((task) => task.searchAttempts?.some((attempt) => attempt.status === "running"))) {
+        injected = true;
+        throw new Error("transient progress persistence unavailable");
+      }
+      await originalWrite(actorArg, requestId, next, done);
+    });
+    const interrupted = new GuidedRuntimeService(store, model, search, { provider: "test", id: "test-model" });
+    const previousSearchCalls = searchCalls;
+    const failed = await interrupted.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "retry", expectedVersion: state.version, requestId: randomUUID() });
+    expect(injected).toBe(true);
+    expect(failed.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
+    state = await service.get(actor, session);
+    expect(state.busy).toBe(false);
+    expect(state.tasks.find((task) => task.id === "interrupted-progress-task")?.searchAttempts?.some((attempt) => attempt.status === "running")).toBe(true);
+    expect(searchCalls).toBe(previousSearchCalls);
+    await run("retry");
+    expect(state.errorCode).toBeNull();
+    expect(searchCalls).toBe(previousSearchCalls + 1);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.tasks.find((task) => task.id === succeeded.id)).toMatchObject({ status: "succeeded", attempts: succeeded.attempts });
+    expect(reloaded.tasks.find((task) => task.id === "interrupted-progress-task")?.searchAttempts).toEqual([
+      { query: "European grid policy progress", status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" },
+      { query: "European grid policy progress", status: "succeeded", errorCode: null },
+    ]);
+    expect(reloaded.tasks.flatMap((task) => task.searchAttempts ?? []).some((attempt) => attempt.status === "running")).toBe(false);
+  });
+
+  it.each(["start", "retry"] as const)("recovers abandoned attempt history through an approved %s proposal", async (action) => {
+    await reachResearch();
+    const pending = structuredClone(state);
+    const completedTask = pending.tasks[0]!;
+    pending.tasks.push({ ...completedTask, id: "proposal-interrupted", query: "European grid proposal policy", status: "running", searchAttempts: [{ query: "European grid proposal policy", status: "running", errorCode: null }] });
+    pending.busy = false; pending.leaseUntil = null;
+    pending.proposal = { id: "approved-search", version: pending.version, action, draft: { node: "research", value: pending.sources.map(({ id, decision }) => ({ id, decision })) } };
+    await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(pending)]));
+    state = await service.get(actor, session);
+    const priorSearchCalls = searchCalls;
+    await run("apply", { proposalId: "approved-search" });
+    expect(state.errorCode).toBeNull();
+    expect(searchCalls).toBe(priorSearchCalls + 1);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.tasks.find((task) => task.id === completedTask.id)?.attempts).toBe(completedTask.attempts);
+    expect(reloaded.tasks.find((task) => task.id === "proposal-interrupted")?.searchAttempts).toEqual([
+      { query: "European grid proposal policy", status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" },
+      { query: "European grid proposal policy", status: "succeeded", errorCode: null },
+    ]);
+    expect(reloaded.tasks.every((task) => task.status === "succeeded")).toBe(true);
+  });
+
+  it.each([true, false])("settles abandoned search history on takeover (busy=%s) and retries only the unfinished task", async (busy) => {
+    await reachResearch();
+    const expired = structuredClone(state);
+    const succeeded = expired.tasks[0]!;
+    succeeded.searchAttempts = [{ query: succeeded.query, status: "running", errorCode: null }];
+    expired.tasks.push({ ...succeeded, id: "abandoned-task", query: "European grid policy abandoned", status: "running", searchAttempts: [{ query: "European grid policy abandoned", status: "running", errorCode: null }] });
+    expired.busy = busy; expired.leaseUntil = busy ? "2000-01-01T00:00:00Z" : null;
+    await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(expired)]));
+    state = await service.get(actor, session);
+    const priorSearchCalls = searchCalls;
+    await run("retry");
+    expect(state.errorCode).toBeNull();
+    expect(searchCalls).toBe(priorSearchCalls + 1);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.tasks.every((task) => task.status === "succeeded")).toBe(true);
+    expect(reloaded.tasks.flatMap((task) => task.searchAttempts ?? []).some((attempt) => attempt.status === "running")).toBe(false);
+    expect(reloaded.tasks.find((task) => task.id === succeeded.id)).toMatchObject({ attempts: succeeded.attempts, searchAttempts: [{ query: succeeded.query, status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" }] });
+    expect(reloaded.tasks.find((task) => task.id === "abandoned-task")?.searchAttempts).toEqual([
+      { query: "European grid policy abandoned", status: "failed", errorCode: "RESEARCH_EXECUTION_INTERRUPTED" },
+      { query: "European grid policy abandoned", status: "succeeded", errorCode: null },
+    ]);
+  });
+
   it("fences an expired writer after a new command claims the session", async () => {
     const store = new PgGuidedRuntimeStore(db);
     const firstCommand: RuntimeCommand = { sessionId: actor.sessionId, node: "brief", action: "generate", expectedVersion: state.version, requestId: "expired" };

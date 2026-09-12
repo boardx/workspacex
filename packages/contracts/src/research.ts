@@ -870,6 +870,10 @@ const GuidedResearchPlanDescription = z.object({
 export const GuidedResearchPlanModelOutput = GuidedResearchPlanDescription.extend({
   tasks: z.array(z.object({ sectionId: z.string(), query: z.string().trim().min(1).max(1000), ...GuidedResearchTaskDetails }).strict()).min(1).max(60),
 }).strict();
+export const GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT = 12;
+export const GuidedResearchSearchRecoveryModelOutput = z.object({
+  queries: z.array(z.string().trim().min(1).max(300)).min(1).max(2),
+}).strict();
 export const GuidedResearchConversationModelOutput = z.object({
   assistantMessage: z.string().min(1).max(10000), value: z.unknown(),
   action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional(),
@@ -894,6 +898,8 @@ export const GuidedResearchTask = z.object({
   id: z.string().min(1), sectionId: z.string().min(1), query: z.string().trim().min(1).max(1000),
   status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
   errorCode: z.string().nullable(),
+  searchAttempts: z.array(z.object({ query: z.string().trim().min(1).max(1000),
+    status: z.enum(["running", "succeeded", "failed"]), errorCode: z.string().nullable() }).strict()).max(GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT).optional(),
 }).strict();
 const GuidedResearchEvidenceEvaluation = z.object({
   sourceId: z.string().min(1), chunkId: z.string().min(1), irrelevant: z.boolean(),

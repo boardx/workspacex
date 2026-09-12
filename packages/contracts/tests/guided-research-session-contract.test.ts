@@ -454,3 +454,20 @@ describe("research source provenance", () => {
     }
   });
 });
+
+describe("bounded search recovery contracts", () => {
+  const task = { id: "t", sectionId: "s", query: "王者荣耀 国际版", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_EMPTY" };
+  it("keeps legacy tasks valid and accepts durable query attempts", () => {
+    expect(research.GuidedResearchTask.safeParse(task).success).toBe(true);
+    expect(research.GuidedResearchTask.parse({ ...task, searchAttempts: [{ query: task.query, status: "failed", errorCode: task.errorCode }] }).searchAttempts).toHaveLength(1);
+  });
+  it("bounds query recovery and durable search attempts", () => {
+    expect(research.GuidedResearchSearchRecoveryModelOutput.safeParse({ queries: [] }).success).toBe(false);
+    expect(research.GuidedResearchSearchRecoveryModelOutput.safeParse({ queries: ["a", "b", "c"] }).success).toBe(false);
+    expect(research.GuidedResearchSearchRecoveryModelOutput.safeParse({ queries: [" "] }).success).toBe(false);
+    expect(research.GuidedResearchTask.safeParse({ ...task, searchAttempts: Array.from({ length: research.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT + 1 }, () => ({ query: "a", status: "failed", errorCode: "RESEARCH_SEARCH_EMPTY" })) }).success).toBe(false);
+  });
+  it("rejects client-authored task history in research drafts", () => {
+    expect(research.GuidedResearchRuntimeDraft.safeParse({ node: "research", value: [{ id: "source", decision: "accepted", searchAttempts: [] }] }).success).toBe(false);
+  });
+});
