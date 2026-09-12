@@ -355,7 +355,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     // second time. Neither may appear again in the RESUME's own event stream -- both were
     // already delivered to the client during the FIRST turn's response.
     expect(resumed.events.filter((e) => e.type === EventType.STEP_STARTED
-      && (e as unknown as { stepName?: string }).stepName === APPROVAL_TOOL_NAME)).toHaveLength(
+      && (e as unknown as { stepName?: string }).stepName?.startsWith(`${APPROVAL_TOOL_NAME}:`))).toHaveLength(
         resumed.events.filter(e=>e.type===EventType.TOOL_CALL_START && e.toolCallName===APPROVAL_TOOL_NAME).length,
       );
     // The resumed attempt may report its actual tool execution under a new identity;

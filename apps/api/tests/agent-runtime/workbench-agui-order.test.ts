@@ -27,6 +27,30 @@ describe("workbench AG-UI relay", () => {
     relay.close(); relay.close();
     expect(wire.filter((event) => event.type === EventType.TEXT_MESSAGE_END && event.messageId === "final")).toHaveLength(1);
   });
+
+  it("uses tool-call identity for overlapping calls of the same tool and suppresses a replayed start", () => {
+    const wire: Array<{ type: EventType; stepName?: string; toolCallId?: string }> = [];
+    const relay = createExecutionJournalRelay(event => wire.push(event));
+    const base = { runId: "run", emittedAt: "2026-09-12T00:00:00Z" };
+    const first: ExecutionEvent = {
+      ...base, seq: 1, kind: "tool_start", toolCallId: "call-1", toolName: "execute", args: { command: "node a.js" },
+    };
+    relay.accept(first);
+    relay.accept({ ...first, seq: 2 });
+    relay.accept({
+      ...base, seq: 3, kind: "tool_start", toolCallId: "call-2", toolName: "execute", args: { command: "node b.js" },
+    });
+
+    const starts = wire.filter(event => event.type === EventType.STEP_STARTED);
+    expect(starts.map(event => event.stepName)).toEqual(["execute:call-1", "execute:call-2"]);
+    expect(new Set(starts.map(event => event.stepName)).size).toBe(starts.length);
+    expect(wire.filter(event => event.type === EventType.TOOL_CALL_START)).toHaveLength(2);
+
+    relay.accept({ ...base, seq: 4, kind: "tool_end", toolCallId: "call-2", toolName: "execute", ok: true, result: "b" });
+    relay.accept({ ...base, seq: 5, kind: "tool_end", toolCallId: "call-1", toolName: "execute", ok: true, result: "a" });
+    expect(wire.filter(event => event.type === EventType.STEP_FINISHED).map(event => event.stepName))
+      .toEqual(["execute:call-2", "execute:call-1"]);
+  });
 });
 
 it('preserves non-streamed planning and tool brackets without fabricating early completion',()=>{

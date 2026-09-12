@@ -28,6 +28,13 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   let finalMessageId: string | null = null;
   const cursors = new Map<string, number>();
   const activeSteps = new Map<string, string>();
+  const announcedToolCalls = new Set<string>();
+  /**
+   * AG-UI 的 stepName 是一个仍在进行中的 envelope identity，不是工具的展示名。
+   * 同一个 run 会连续多次调用 execute/read_file；用 toolName 会让客户端把第二次
+   * STEP_STARTED 判成重复 active step。展示名仍由 TOOL_CALL_START.toolCallName 承载。
+   */
+  const stepName = (toolName: string, toolCallId: string) => `${toolName}:${toolCallId}`;
   // The persisted step projection and journal are separate reads. Match completed
   // write_todos occurrences in their shared execution order, never public args.
   const planSteps: Array<ReturnType<typeof parseWriteTodosSnapshot>> = [];
@@ -73,8 +80,13 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     } else if (event.kind === "tool_start") {
       finalMessageId = null;
       close();
-      activeSteps.set(event.toolCallId, event.toolName);
-      write({ type: EventType.STEP_STARTED, stepName: event.toolName });
+      // A journal replay can repeat the same call under a newer seq. CUSTOM remains an
+      // exact audit projection, while the standard AG-UI envelope must open only once.
+      if (announcedToolCalls.has(event.toolCallId)) return { messageId, sawText };
+      announcedToolCalls.add(event.toolCallId);
+      const envelopeName = stepName(event.toolName, event.toolCallId);
+      activeSteps.set(event.toolCallId, envelopeName);
+      write({ type: EventType.STEP_STARTED, stepName: envelopeName });
       if (!sawText && event.planningNote?.trim()) {
         const planningId = `${event.toolCallId}:planning`;
         write({ type: EventType.TEXT_MESSAGE_START, messageId: planningId, role: "assistant" });
@@ -88,7 +100,11 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
       write({ type: EventType.TOOL_CALL_RESULT, toolCallId: event.toolCallId,
         messageId: `${event.toolCallId}:result`, role: "tool",
         content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? null) });
-      if (activeSteps.delete(event.toolCallId)) write({ type: EventType.STEP_FINISHED, stepName: event.toolName });
+      const envelopeName = activeSteps.get(event.toolCallId);
+      if (envelopeName !== undefined) {
+        activeSteps.delete(event.toolCallId);
+        write({ type: EventType.STEP_FINISHED, stepName: envelopeName });
+      }
       if (event.toolName === "write_todos") { planResults.push(event.ok); flushPlans(); }
     } else if (event.kind === "final_message") {
       finalMessageId = event.messageId;

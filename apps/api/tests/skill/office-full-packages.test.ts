@@ -22,6 +22,9 @@ it('packages original creation recipes and fixed immutable hashes without rewrit
  expect(body).toContain('Do not claim a file has been executed, rendered or delivered from script text alone');
  expect(officeSkillPackage({...spec,content:spec.content+'\nversion-change-proof'}).package.versionId).not.toBe(result.package.versionId);
  expect(body).toContain('Do not redraw a separate PDF');
+ expect(body).toContain('Run that renderer as one direct, unchained execute command');
+ expect(body).toContain('Never prefix it with rm');
+ expect(body).toContain('Do not add &&, ;, pipes or shell cleanup');
  expect(body).toContain('Do not run npm/pip installs');
  expect(body).not.toContain('risk_level:');
  // A redistributed/renamed package must retain the original undeclared-risk default.
