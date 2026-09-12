@@ -97,13 +97,35 @@ def test_task_mode_marker_matches_web_panel_literal():
 def _model_request(messages):  # noqa: ANN001, ANN201
     """构造一个够用的 `ModelRequest`：只有 `messages`/`tools` 会被
     `PlanFirstToolChoiceMiddleware.wrap_model_call` 读取，`model`/`state`/`runtime`
-    随便填一个满足类型的占位值即可——这里不走真实 handler，只捕获传给它的 request。"""
+    随便填一个满足类型的占位值即可——这里不走真实 handler，只捕获传给它的 request。
+
+    ⚠ 故意只挂 `write_todos`、不挂 `confirm_task_intent`——`_prepare_auto_classified_
+    request`（issue #3455）在这种"配置漂移"形状下退回旧行为（只强制 write_todos），
+    这正是本文件里手动 marker 路径（`PlanFirstToolChoiceMiddleware`，从未改过）与
+    "confirm_task_intent 未挂载"防御分支两类既有测试共用这个 helper 仍然全绿的原因。
+    真正测"两个工具都挂载时" widened 行为的用例改用下面的 `_model_request_with_hitl`。"""
     from langchain.agents.middleware import ModelRequest
 
     return ModelRequest(
         model=_fake_model(),
         messages=messages,
         tools=[{"name": "write_todos"}],
+        state={"messages": messages},
+    )
+
+
+def _model_request_with_hitl(messages):  # noqa: ANN001, ANN201
+    """同 `_model_request`，但同时挂 `write_todos` 与 `confirm_task_intent`——
+    逐字对应生产环境 `build_middleware()`/`build_tools()` 拼出来的真实工具集合形状
+    （issue #3455：生产环境两个工具确实都挂载，`_model_request` 那份"只挂
+    write_todos"的精简集合会让 `_prepare_auto_classified_request` 走进"配置漂移"
+    防御分支而不是它真正要测的那条路径）。"""
+    from langchain.agents.middleware import ModelRequest
+
+    return ModelRequest(
+        model=_fake_model(),
+        messages=messages,
+        tools=[{"name": "write_todos"}, {"name": "confirm_task_intent"}],
         state={"messages": messages},
     )
 
@@ -1108,9 +1130,11 @@ def test_task_classifier_middleware_wired_into_build_middleware_unconditionally(
 
 
 def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_sync():
-    """验收标准①（同步）：不带手动任务模式 marker，复杂指令自动触发
-    tool_choice="write_todos" 强制——Phase 14 F02 起无条件生效，不再需要先打开
-    全局灰度。这条同时是 `before_model` 产出可观测分类结果的反证
+    """验收标准①（同步，配置漂移防御分支）：`confirm_task_intent` 未挂载时，复杂
+    指令仍然退回只强制 `tool_choice="write_todos"`——`_model_request` 只挂
+    `write_todos` 一个工具，模拟这种漂移形状。生产环境两个工具都挂载时的真实行为见
+    `test_task_classifier_middleware_widens_choice_to_write_todos_or_confirm_task_intent_sync`
+    （issue #3455）。这条同时是 `before_model` 产出可观测分类结果的反证
     （`test_task_classifier_middleware_produces_observable_classification`）。"""
     from langchain_core.messages import AIMessage, HumanMessage
 
@@ -1132,7 +1156,7 @@ def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_s
 def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_async():
     """同一断言的异步入口（issue #2417 教训：只测同步覆盖不了 `langgraph dev`
     实际使用的异步 runtime，`awrap_model_call` 没实现会在业务逻辑跑之前直接
-    NotImplementedError）。"""
+    NotImplementedError）。同上，`confirm_task_intent` 未挂载的配置漂移场景。"""
     import asyncio
 
     from langchain_core.messages import AIMessage, HumanMessage
@@ -1156,9 +1180,9 @@ def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_a
 def test_task_classifier_middleware_forces_write_todos_for_issue_2786_repro_message():
     """issue #2786 端到端反证：devapp 实测原话（"生成一个 pdf，总结你可以做的
     事情"，18 字、不含任何 `_MULTI_STEP_CONNECTORS` 连接词，此前恒判 `no_plan`）
-    现在必须被自动判类强制 `write_todos`，账本才会有内容、`PlanPhaseIndicator`
-    才有东西可渲染（组件本身早已接进 `/chat`，见该 issue 评论 5552330409——
-    这条只补判类这一半）。"""
+    现在必须被自动判类命中——同上，`confirm_task_intent` 未挂载的配置漂移场景，
+    退回只强制 write_todos，账本才会有内容、`PlanPhaseIndicator` 才有东西可渲染
+    （组件本身早已接进 `/chat`，见该 issue 评论 5552330409——这条只补判类这一半）。"""
     from langchain_core.messages import AIMessage, HumanMessage
 
     messages = [HumanMessage(content="生成一个 pdf，总结你可以做的事情")]
@@ -1173,6 +1197,90 @@ def test_task_classifier_middleware_forces_write_todos_for_issue_2786_repro_mess
     assert captured["tool_choice"] == "write_todos", (
         "issue #2786 复现原话必须被判类命中，不再落进连接词/长度判据的盲区；"
         f"实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_task_classifier_middleware_widens_choice_to_write_todos_or_confirm_task_intent_sync():
+    """issue #3455 核心反证（同步）：生产环境 `confirm_task_intent` 与 `write_todos`
+    都挂载时（`_model_request_with_hitl`，逐字对应真实 `build_tools()`/
+    `build_middleware()` 拼出来的工具集合），命中多步分类不再把候选收窄到唯一的
+    `write_todos`——那正是本 issue 复现的根因：devapp 实测「研究一下 2024 年 AI
+    大模型发展趋势，生成一份分析报告」被判为多步任务后，第一次模型调用被强制只能
+    选 write_todos，`confirm_task_intent` 连被考虑的机会都没有；write_todos 执行完
+    后 `SYSTEM_PROMPT` 又要求模型只说一句话就停、不再调用任何工具，于是
+    confirm_task_intent 在这一整轮里永远没有窗口——与 T52（技能创建，判为一步到位，
+    不进这条分支）行为正常构成的对比，见 graph.py 同一 issue 的模块注释。
+
+    修法：把这次模型调用能看到的工具收窄到 {write_todos, confirm_task_intent} 两个、
+    `tool_choice="required"` 强制必须选其中一个——不再退化回唯一工具名的旧写法。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="研究一下2024年AI大模型发展趋势，生成一份分析报告")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tool_names"] = {getattr(t, "name", None) or t.get("name") for t in request.tools}
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request_with_hitl(messages), handler)
+    assert captured["tool_choice"] == "required", (
+        "两个工具都挂载时不应该再钉死单一 write_todos，必须收窄成"
+        f"tool_choice=\"required\"；实际 {captured.get('tool_choice')!r}"
+    )
+    assert captured["tool_names"] == {"write_todos", "confirm_task_intent"}, (
+        "这次模型调用能看到的工具必须恰好收窄到这两个，不多不少；"
+        f"实际 {captured.get('tool_names')!r}"
+    )
+
+
+def test_task_classifier_middleware_widens_choice_to_write_todos_or_confirm_task_intent_async():
+    """同上，异步入口（同 #2417 那条"同步/异步必须都覆盖"的既有纪律）。"""
+    import asyncio
+
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="研究一下2024年AI大模型发展趋势，生成一份分析报告")]
+
+    captured: dict = {}
+
+    async def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tool_names"] = {getattr(t, "name", None) or t.get("name") for t in request.tools}
+        return AIMessage(content="stub")
+
+    asyncio.run(
+        TaskClassifierMiddleware().awrap_model_call(_model_request_with_hitl(messages), handler)
+    )
+    assert captured["tool_choice"] == "required"
+    assert captured["tool_names"] == {"write_todos", "confirm_task_intent"}
+
+
+def test_task_classifier_middleware_does_not_force_when_confirm_task_intent_already_called_this_turn():
+    """反证方向：本轮已经调用过 `confirm_task_intent`（而不是 write_todos）同样应该
+    停止强制——与既有"已调用过 write_todos 就不再强制"是同一条纪律的另一半，
+    否则模型选了 confirm_task_intent 之后，恢复继续执行时会被立刻逼着再选一次。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(content="研究一下2024年AI大模型发展趋势，生成一份分析报告"),
+        AIMessage(
+            content="",
+            tool_calls=[{"id": "1", "name": "confirm_task_intent", "args": {"assumptions": ["示例假设"]}}],
+        ),
+    ]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request_with_hitl(messages), handler)
+    assert captured["tool_choice"] is None, (
+        "本轮已经调用过 confirm_task_intent，不应该再被强制选 write_todos/"
+        f"confirm_task_intent 中的一个；实际 tool_choice={captured.get('tool_choice')!r}"
     )
 
 

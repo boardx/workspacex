@@ -8,8 +8,14 @@ const secretRef=z.string().regex(/^(?:env:[A-Z][A-Z0-9_]*|file:\/[^\r\n\0]+)$/);
 const bucket=z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/);
 const prefix=z.string().regex(/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/?$/);
 export const initialProductionSyncSchema=z.object({schemaVersion:z.literal(1),migrationId:z.string().uuid(),
- sourceDatabaseSecretRef:secretRef,targetDatabaseSecretRef:secretRef,
- sourceOss:z.object({bucket,prefix}).strict(),targetOss:z.object({bucket,prefix}).strict(),
+ sourceDatabase:z.discriminatedUnion("mode",[
+  z.object({mode:z.literal("secret-ref"),secretRef}).strict(),
+  z.object({mode:z.literal("devapp-docker"),container:z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/),database:z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/),user:z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/)}).strict(),
+ ]),targetDatabaseSecretRef:secretRef,
+ sourceObjects:z.discriminatedUnion("mode",[
+  z.object({mode:z.literal("oss"),bucket,prefix}).strict(),
+  z.object({mode:z.literal("filesystem"),root:z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/)}).strict(),
+ ]),targetOss:z.object({bucket,prefix}).strict(),
  workDirectory:z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/),
  schemaRevision:z.string().regex(/^[a-f0-9]{40}$/),
  keyMigration:z.discriminatedUnion("mode",[
@@ -17,8 +23,8 @@ export const initialProductionSyncSchema=z.object({schemaVersion:z.literal(1),mi
   z.object({mode:z.literal("rotate-required")}).strict(),
  ]),
 }).strict().superRefine((value,ctx)=>{
- if(value.sourceDatabaseSecretRef===value.targetDatabaseSecretRef)ctx.addIssue({code:"custom",path:["targetDatabaseSecretRef"],message:"SOURCE_TARGET_DATABASE_MUST_DIFFER"});
- if(value.sourceOss.bucket===value.targetOss.bucket&&value.sourceOss.prefix===value.targetOss.prefix)ctx.addIssue({code:"custom",path:["targetOss"],message:"SOURCE_TARGET_OSS_MUST_DIFFER"});
+ if(value.sourceDatabase.mode==="secret-ref"&&value.sourceDatabase.secretRef===value.targetDatabaseSecretRef)ctx.addIssue({code:"custom",path:["targetDatabaseSecretRef"],message:"SOURCE_TARGET_DATABASE_MUST_DIFFER"});
+ if(value.sourceObjects.mode==="oss"&&value.sourceObjects.bucket===value.targetOss.bucket&&value.sourceObjects.prefix===value.targetOss.prefix)ctx.addIssue({code:"custom",path:["targetOss"],message:"SOURCE_TARGET_OSS_MUST_DIFFER"});
 });
 export type InitialProductionSyncConfig=z.infer<typeof initialProductionSyncSchema>;
 const databaseSecret=z.object({host:z.string().min(1),port:z.number().int().min(1).max(65535).default(5432),database:z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/),user:z.string().min(1),password:z.string().min(16),sslmode:z.enum(["verify-full","disable"]),sslrootcert:z.string().startsWith("/").optional()}).strict();
@@ -30,12 +36,14 @@ export type InitialSyncRun=(executable:string,args:readonly string[],options:{en
 export function initialProductionSyncPlan(input:unknown){
  const value=initialProductionSyncSchema.parse(input), root=`${value.workDirectory}/${value.migrationId}`;
  return {migrationId:value.migrationId,dryRun:true,commands:[
-  ["pg_dump","--format=custom","--serializable-deferrable","--lock-wait-timeout=10000",`--file=${root}/database.dump`],
+  value.sourceDatabase.mode==="devapp-docker"
+   ?["docker","exec","-i",value.sourceDatabase.container,"pg_dump","--format=custom","--serializable-deferrable","--lock-wait-timeout=10000","--username",value.sourceDatabase.user,"--dbname",value.sourceDatabase.database,`<stdout:${root}/database.dump>`]
+   :["pg_dump","--format=custom","--serializable-deferrable","--lock-wait-timeout=10000",`<stdout:${root}/database.dump>`],
   ["pg_restore","--exit-on-error","--single-transaction","--no-owner",`--dbname=<new-empty-target>` ,`${root}/database.dump`],
-  ["oss-sync","--phase=baseline",`oss://${value.sourceOss.bucket}/${value.sourceOss.prefix}`,`oss://${value.targetOss.bucket}/${value.targetOss.prefix}`],
-  ["oss-sync","--phase=cutover-delta",`oss://${value.sourceOss.bucket}/${value.sourceOss.prefix}`,`oss://${value.targetOss.bucket}/${value.targetOss.prefix}`],
+  ["oss-sync","--phase=baseline",value.sourceObjects.mode==="oss"?`oss://${value.sourceObjects.bucket}/${value.sourceObjects.prefix}`:value.sourceObjects.root,`oss://${value.targetOss.bucket}/${value.targetOss.prefix}`],
+  ["oss-sync","--phase=cutover-delta",value.sourceObjects.mode==="oss"?`oss://${value.sourceObjects.bucket}/${value.sourceObjects.prefix}`:value.sourceObjects.root,`oss://${value.targetOss.bucket}/${value.targetOss.prefix}`],
   ["verify-initial-production-sync",`--receipt=${root}/receipt.json`],
- ],secretRefs:[value.sourceDatabaseSecretRef,value.targetDatabaseSecretRef],requiresWriteFreezeFor:["database-restore","oss-cutover-delta"]};
+ ],secretRefs:[...(value.sourceDatabase.mode==="secret-ref"?[value.sourceDatabase.secretRef]:[]),value.targetDatabaseSecretRef],requiresWriteFreezeFor:["database-restore","oss-cutover-delta"]};
 }
 
 const pgEnv=(value:z.infer<typeof databaseSecret>):NodeJS.ProcessEnv=>({PGHOST:value.host,PGPORT:String(value.port),PGDATABASE:value.database,PGUSER:value.user,PGPASSWORD:value.password,PGSSLMODE:value.sslmode,...(value.sslrootcert?{PGSSLROOTCERT:value.sslrootcert}:{})});
@@ -50,8 +58,8 @@ export async function executeInitialSyncStage(configInput:unknown,stateInput:unk
  if(index<0||order.slice(0,index).some(required=>!state.completed.includes(required)))throw new Error("INITIAL_SYNC_STAGE_ORDER_INVALID");
  const directory=`${config.workDirectory}/${config.migrationId}`,dump=`${directory}/database.dump`;
  if(stage==="database-dump"){
-  const db=databaseSecret.parse(JSON.parse(await resolveSecret(config.sourceDatabaseSecretRef,source)));
-  await run("pg_dump",["--format=custom","--serializable-deferrable","--lock-wait-timeout=10000",`--file=${dump}`],{env:pgEnv(db)});
+  if(config.sourceDatabase.mode==="devapp-docker")await run("docker",["exec","-i",config.sourceDatabase.container,"pg_dump","--format=custom","--serializable-deferrable","--lock-wait-timeout=10000","--username",config.sourceDatabase.user,"--dbname",config.sourceDatabase.database],{stdoutFile:dump});
+  else {const db=databaseSecret.parse(JSON.parse(await resolveSecret(config.sourceDatabase.secretRef,source)));await run("pg_dump",["--format=custom","--serializable-deferrable","--lock-wait-timeout=10000"],{env:pgEnv(db),stdoutFile:dump});}
   return {...state,completed:[...state.completed,stage],dumpSha256:await sha256(dump)};
  }
  if(stage==="database-restore"){
@@ -62,7 +70,8 @@ export async function executeInitialSyncStage(configInput:unknown,stateInput:unk
   await run("pg_restore",["--exit-on-error","--single-transaction","--no-owner",dump],{env});
  }else{
   if(stage==="oss-delta"&&!options.writeFreezeConfirmed)throw new Error("INITIAL_SYNC_WRITE_FREEZE_REQUIRED");
-  await run("ossutil",["sync",`oss://${config.sourceOss.bucket}/${config.sourceOss.prefix}`,`oss://${config.targetOss.bucket}/${config.targetOss.prefix}`,"--delete"],{});
+  const objectSource=config.sourceObjects.mode==="oss"?`oss://${config.sourceObjects.bucket}/${config.sourceObjects.prefix}`:config.sourceObjects.root;
+  await run("ossutil",["sync",objectSource,`oss://${config.targetOss.bucket}/${config.targetOss.prefix}`,"--delete"],{});
  }
  return {...state,completed:[...state.completed,stage]};
 }

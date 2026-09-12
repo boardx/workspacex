@@ -28,7 +28,7 @@ prepare-host 会完成以下应用专属主机设置。启动它的代码本身�
 |---|---|
 | 共用环境 | `regionId`、`ecsInstanceId`、`runtimeRole`、`ossBucket`、`ossEndpoint`、`ossPrefix`、`publicUrl`、`tlsSecretRef` |
 | Starter | `dataVolumePath`、`backupTargetRef` |
-| production | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef`、`backupRetentionDays` |
+| production | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef`、`backupRetentionDays`，可选 `preflightTargetIp`（必须由 ECS IMDS 证明是本实例公网 IP） |
 | 每次安装 | `release`、`adminEmail`、`modelProfile.baseUrl`、`modelProfile.modelId`、`modelProfile.apiKeySecretRef` |
 
 告警联系人和按天日志保留不属于这条最小安装路径，已从必填 Schema 删除。容器采用 Docker local 日志驱动，每个服务最多 5 个 10 MiB 日志文件；这是大小上限，不承诺按天留存。`backupTargetRef` 保留并执行真实写入/读回预检；自动备份调度单独配置，不能仅凭手工备份通过宣称定时任务已运行。
@@ -45,8 +45,8 @@ prepare-host 会完成以下应用专属主机设置。启动它的代码本身�
 | `databaseSecretRef` | JSON：`host`、`port`（默认5432）、`database`、`user:"app_rw"`、`password`、`diagnosticsUser:"app_diag_ro"`、`diagnosticsPassword`，可选 `caFile`。 |
 | `migrationSecretRef` | 同一实例/数据库的 `host`、`port`、`database`、独立 `user`、`password`；不得使用应用/诊断角色。 |
 | `redisSecretRef` | JSON：`host`、`port`（默认6379）、`password`，可选 `username`；production 强制 TLS。 |
-| Starter Agent secret | JSON：仅 `LANGGRAPH_CLOUD_LICENSE_KEY`。独立 `agent_server/workspacex_agent`、`memory_rw`、`memory_owner/workspacex_memory` 角色、数据库和稳定密码由初始化生成。 |
-| production Agent secret | JSON：`DATABASE_URI`、`REDIS_URI`、`LANGGRAPH_CLOUD_LICENSE_KEY`、`databaseCaFile`、`MEMORY_STORE_DATABASE_URL`、`MEMORY_STORE_MIGRATION_DATABASE_URL`、`memoryCaFile`。Graph、Memory runtime（固定 `memory_rw`）和 Memory migration（固定 `memory_owner`）身份必须分离，且数据库不得与应用库复用。三条 PG URI 只允许恰好一个 `sslmode=verify-full` 查询参数，拒绝重复 TLS 参数和 `user/dbname/host/port/password` 覆盖；Redis URI 为 `rediss://`。两个 CA 分别复制为 Agent 的 `/run/agent-certs/ca.pem` 与 `memory-ca.pem`。运行服务只获得 Memory 业务表 DML，迁移 owner 只进入一次性准备任务。 |
+| Starter Agent secret | JSON 空对象 `{}`。仓库自托管 Agent 的 `agent_server/workspacex_agent`、`memory_rw`、`memory_owner/workspacex_memory` 角色、数据库和稳定密码由初始化生成，无商业运行时许可证。 |
+| production Agent secret | JSON：`DATABASE_URI`、`REDIS_URI`、`databaseCaFile`、`MEMORY_STORE_DATABASE_URL`、`MEMORY_STORE_MIGRATION_DATABASE_URL`、`memoryCaFile`。Graph、Memory runtime（固定 `memory_rw`）和 Memory migration（固定 `memory_owner`）身份必须分离，且数据库不得与应用库复用。三条 PG URI 只允许恰好一个 `sslmode=verify-full` 查询参数，拒绝重复 TLS 参数和 `user/dbname/host/port/password` 覆盖；Redis URI 为 `rediss://`。两个 CA 分别复制为 Agent 的 `/run/agent-certs/ca.pem` 与 `memory-ca.pem`。运行服务只获得 Memory 业务表 DML，迁移 owner 只进入一次性准备任务。 |
 
 生产数据库的 `caFile` 被复制到 API/迁移容器的 `/run/certs/ca.pem`。Agent 使用单独的 `/run/agent-certs/` 只读挂载，不能直接读取主机 CA 路径，也不能在常驻环境中取得 Memory owner URI。
 

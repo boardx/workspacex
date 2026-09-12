@@ -7,7 +7,7 @@ import { ensureTrustedDeploymentSecret } from "./trusted-generated-secrets";
 export type RuntimeEnvironmentMaps = Record<"api" | "agent" | "migration" | "bootstrap" | "web" | "dependencies" | "memoryMigration", Record<string, string>>;
 
 /** Return private service-specific maps. Never send these maps to the plan/CLI stdout.
- * Agent Server persistence/license and TLS files are additional required inputs at startup.
+ * Agent persistence and TLS files are additional required inputs at startup.
  */
 export async function runtimeEnvironment(config: DeploymentConfig, secretDirectory: string, source: NodeJS.ProcessEnv = process.env, context: SecretOperationContext = {}): Promise<RuntimeEnvironmentMaps> {
   assertSecretOperationActive(context);

@@ -1,12 +1,12 @@
 import { X509Certificate, createPrivateKey } from "node:crypto";
 import { request as httpsRequest } from "node:https";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import type { TLSSocket } from "node:tls";
 import { z } from "zod";
 import { resolveSecret } from "./secrets";
 
 type Context = { signal: AbortSignal; remainingMs: () => number };
-type Environment = { publicUrl: string; tlsSecretRef: string };
+type Environment = { publicUrl: string; tlsSecretRef: string; preflightTargetIp?: string };
 const tlsSecret = z.object({ certificatePem: z.string().min(1).max(65536), privateKeyPem: z.string().min(1).max(65536) }).strict();
 const cancelled = () => new Error("TLS_PREFLIGHT_CANCELLED");
 function active(context: Context) {
@@ -53,7 +53,13 @@ export async function verifyTlsPreflight(environment: Environment, context: Cont
   try {
     await new Promise<void>((resolve, reject) => {
       let matched = false;
-      const req = request(url, { method: "HEAD", agent: false, rejectUnauthorized: true, signal }, response => {
+      const lookup: LookupFunction | undefined = environment.preflightTargetIp
+        ? ((_hostname, options, callback) =>
+            options.all
+              ? (callback as Function)(null, [{ address: environment.preflightTargetIp!, family: 4 }])
+              : (callback as Function)(null, environment.preflightTargetIp!, 4))
+        : undefined;
+      const req = request(url, { method: "HEAD", agent: false, rejectUnauthorized: true, signal, ...(lookup ? { lookup } : {}) }, response => {
         response.resume();
         if (!matched || !response.statusCode || response.statusCode < 200 || response.statusCode >= 500 ||
           (response.statusCode >= 300 && response.statusCode < 400)) {

@@ -29,6 +29,15 @@ describe("cloud deployment configuration", () => {
     expect(validateDeploymentConfig({ ...value, environment: { ...value.environment,
       rdsTlsException: { kind: "aliyun-postgresql-serverless-no-tls", allowedCidrs: ["0.0.0.0/0"] } } }).ok).toBe(false);
   });
+  it("accepts a bounded production preflight IP and rejects malformed targets", () => {
+    const value = deploymentExample("production");
+    expect(validateDeploymentConfig({ ...value, environment: { ...value.environment, preflightTargetIp: "47.100.1.2" } }).ok).toBe(true);
+    for (const preflightTargetIp of ["www.boardx.com.cn", "999.1.2.3", "47.100.1.2:443"]) {
+      expect(validateDeploymentConfig({ ...value, environment: { ...value.environment, preflightTargetIp } }).ok).toBe(false);
+    }
+    const starter = deploymentExample("starter");
+    expect(validateDeploymentConfig({ ...starter, environment: { ...starter.environment, preflightTargetIp: "47.100.1.2" } }).ok).toBe(false);
+  });
   it("does not accept Starter settings under the production profile", () => {
     const value = deploymentExample("starter");
     expect(validateDeploymentConfig({ ...value, environment: { ...value.environment, profile: "production" } }).ok).toBe(false);

@@ -12,6 +12,8 @@ const ipv4Cidr = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/).refine(v
   const [address, prefix] = value.split("/");
   return address!.split(".").every(octet => Number(octet) <= 255) && Number(prefix) <= 32 && value !== "0.0.0.0/0";
 });
+const ipv4 = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}$/).refine(value =>
+  value.split(".").every(octet => Number(octet) <= 255));
 // URLs cannot contain credentials, query strings or fragments. Configuration URLs are
 // not fetched during validation. The cloud preflight must verify routing and reachability.
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
@@ -35,6 +37,7 @@ const starter = z.object({
 const production = z.object({
   ...commonEnvironment,
   profile: z.literal("production"),
+  preflightTargetIp: ipv4.optional(),
   rdsInstanceId: text.regex(/^pgm-[a-zA-Z0-9]+$/),
   redisInstanceId: text.regex(/^r-[a-zA-Z0-9]+$/),
   databaseSecretRef: secretRef,
