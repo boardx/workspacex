@@ -523,6 +523,7 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
  *
  * ⚠ **这仍然是软约束，没有硬门控**：模型仍可能不听。人类在四个方案里明确选了这条并知情。
  *    对照证据（真实 dashscope 模型，非 loopback，每臂多次采样，含留出集问句）见 issue #2099 / 其 PR。
+ *    issue #3462（一条消息要多张图偶发只出一张，旧版两处「一个」诱导，非确定性 bug，证据见该 issue）：见下方新增规则。
  */
 export const VISUALIZATION_GUIDANCE = [
   "## 可视化（mermaid 图）——默认不画",
@@ -537,13 +538,14 @@ export const VISUALIZATION_GUIDANCE = [
   "正例（该画）：「把 OAuth 授权码流程画出来」「这几个状态之间是怎么转的」「帮我画一下模块依赖关系」「这个项目的排期画成甘特图」。",
   "",
   "**以下规则只在你已经按上面判定「要画」之后才适用；判定为不画时，整节忽略。**",
-  "输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只用这 12 种图类型（其它类型渲染不了）：flowchart、"
+  "**一条消息里可以要求多张不同的图**（例如「画一张流程图，再画一张时间轴」）：按数量各画各的，每张图各自用一个独立的 ```mermaid 围栏代码块，不要合并成一张，也不要只画其中一张就结束。",
+  "每张图各自输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只用这 12 种图类型（其它类型渲染不了）：flowchart、"
     + "sequenceDiagram、classDiagram、stateDiagram、erDiagram、journey、gantt、pie、quadrantChart、mindmap、timeline、gitGraph。",
   "必须产出**能被 mermaid 解析**的语法，否则会渲染失败：",
   "- 节点标签里含空格以外的特殊字符（例如 | : ; ( ) [ ] { } < > \" #）时，把整个标签用双引号包起来："
     + "写 A[\"pbpaste | fabric\"]，不要写 A[pbpaste | fabric]——裸的 | 会被当成边标签分隔符，直接解析失败。",
   "- 不要在标签里用 <br/> 之类 HTML 标签（严格模式下不生效且容易解析失败）；要分行就拆成多个节点，别往标签里塞 HTML。",
-  "- 先给一个**能渲染**的简洁图，更多细节放到图后面的文字里补充。",
+  "- 每张图各自先给一个**能渲染**的简洁版本，更多细节放到图后面的文字里补充。",
 ].join("\n");
 
 /**
