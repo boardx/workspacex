@@ -8,7 +8,7 @@
  * ⚠ 不起真容器(那是 `container-network-isolation.test.ts` 的活,秒级到分钟级)——
  * 这里只静态核对 `Dockerfile` 与 `package.json` 两份声明本身是否自洽、完整,
  * 跑起来是毫秒级。两条断言合起来才覆盖"构建期真的会因为漏装而失败"这件事:
- * package.json 里没声明的库,`npm install --omit=dev` 根本不会拉;Dockerfile 里
+ * package.json 里没声明的库,`npm ci --omit=dev` 根本不会拉;Dockerfile 里
  * 没自检的库,即使漏装了 `docker build` 也不会报错,漏洞要等到运行时才暴露。
  */
 import { describe, expect, it } from "vitest";
@@ -36,10 +36,10 @@ describe("F979 预装保证:package.json 与 Dockerfile 自检两份声明必须
       ).toContain(`require.resolve('${name}')`);
     }
     // 自检必须挂在同一条 RUN(`&&` 串联)里,装完立刻检——不能拆成后面独立的一条
-    // RUN,那样即使自检失败,前面 `npm install` 那一层缓存依然会被后续构建复用,
+    // RUN,那样即使自检失败,前面 `npm ci` 那一层缓存依然会被后续构建复用,
     // 自检形同虚设。
-    const installLine = dockerfile.split("\n").find((l) => l.includes("npm install --omit=dev"));
-    expect(installLine, "Dockerfile 缺少 npm install --omit=dev 这一行").toBeDefined();
+    const installLine = dockerfile.split("\n").find((l) => l.includes("npm ci --omit=dev"));
+    expect(installLine, "Dockerfile 缺少 npm ci --omit=dev 这一行").toBeDefined();
   });
 
   it("V1-CP 反证:漏掉任一库的自检,这条测试本身必须能检测出来", async () => {
