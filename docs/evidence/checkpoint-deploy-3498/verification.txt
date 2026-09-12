@@ -10,7 +10,7 @@ Shell syntax:
 
 Deployment regression:
   pnpm exec vitest run .harness/scripts/vm/deep-agent-checkpoint-lib.test.ts .harness/scripts/vm/deep-agent-deploy-preflight.test.ts .harness/scripts/vm/deep-agent-lib.test.ts .harness/scripts/vm/deploy-trusted-copy-drift.test.ts
-  PASS: 4 files, 58 tests. Bootstrap tests first failed on the baseline (3 failed,
+  PASS: 4 files, 60 tests. Bootstrap tests first failed on the baseline (3 failed,
   1 passed), then passed with implementation. Covers credentials not in argv or
   output, idempotency, external DSN preservation, ambiguous network/port failure,
   and retaining the previous service when preflight fails.
@@ -58,3 +58,12 @@ filtered. Standard resource admission waited 10m1s; execution took 1m24s;
 cleanup exited 0. The verifier removed its owned database/container resources.
 Independent incremental review: ACCEPT, including context lifecycle, run-scoped
 projection, structured Interrupt serialization, and probe cleanup boundaries.
+
+Final deployment-route review:
+  The deployed ASGI runtime exposes /healthz, not the legacy /ok. Two new shell
+  regressions failed against the old deployment block, then passed after the
+  route correction. All four deployment suites: 60 passed. Shell syntax and
+  diff whitespace checks passed; standard initialization passed again. Python
+  and PostgreSQL code is unchanged from the preceding verified commit.
+  Assistant registration output is explicitly not claimed as graph/model
+  execution readiness. The existing pre-replacement persistence probe remains.

@@ -52,3 +52,34 @@ it("wires the reviewed bootstrap before env projection and uses the derived port
   const port = /EXPOSE (\d+)/.exec(dockerfile)![1];
   expect(dockerfile).toContain(`"--port", "${port}"`);
 });
+
+function runHealth(healthy: boolean) {
+  const path = mkdtempSync(join(tmpdir(), "runtime-health-")); temps.push(path);
+  const app = readFileSync(resolve(dir, "../../../apps/deep-agent-service/src/deep_agent_service/http_app.py"), "utf8");
+  const route = /Route\("([^"]+)", health[,)]/.exec(app)?.[1];
+  expect(route).toBeTruthy();
+  writeFileSync(join(path, "curl"), `#!/bin/sh
+for arg do url="$arg"; done
+printf '%s\\n' "$url" >> "$CALLS"
+[ "$HEALTHY" = 1 ] && [ "$url" = "http://127.0.0.1:2025$HEALTH_ROUTE" ]
+`);
+  for (const name of ["sleep", "docker"]) writeFileSync(join(path, name), "#!/bin/sh\nexit 0\n");
+  for (const name of ["curl", "sleep", "docker"]) chmodSync(join(path, name), 0o755);
+  const health = deploy.slice(deploy.indexOf('DEEP_AGENT_OK=""'), deploy.indexOf("# 健康检查②"));
+  const result = spawnSync("bash", ["-c", `set -euo pipefail\n${health}`], {
+    encoding: "utf8", env: { ...process.env, PATH: `${path}:${process.env.PATH}`, CALLS: join(path, "calls"),
+      HEALTHY: healthy ? "1" : "0", HEALTH_ROUTE: route, DEEP_AGENT_HOST_PORT: "2025" },
+  });
+  return { ...result, calls: readFileSync(join(path, "calls"), "utf8").trim().split("\n") };
+}
+it("accepts the health route actually registered by the ASGI runtime", () => {
+  const result = runHealth(true);
+  expect(result.status).toBe(0);
+  expect(result.calls).toEqual(["http://127.0.0.1:2025/healthz"]);
+});
+it("fails after bounded retries when the runtime health route is unavailable", () => {
+  const result = runHealth(false);
+  expect(result.status).toBe(1);
+  expect(result.calls).toHaveLength(30);
+  expect(result.stdout).toContain("/healthz 超时");
+});

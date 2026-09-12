@@ -42,3 +42,8 @@ the existing ledger before reporting completion. HTTP reads restore that
 projection after runtime restart or binding expiry; internal projection events
 are not emitted to SSE clients. Legacy native runs without a projection retain
 the live-binding read path; expired legacy bindings are not fabricated as valid.
+
+Final deployment review corrected the legacy /ok poll to the ASGI /healthz
+route. Regression tests bind the deployment poll to the registered route and
+verify bounded failure. Assistant-registration messages no longer claim that
+production graph compilation or external model availability was proven.

@@ -518,34 +518,33 @@ docker run -d --name workspacex-deep-agent --restart unless-stopped \
   --env-file "$DEEP_AGENT_ENV_FILE" \
   "$DEEP_AGENT_IMAGE" >/dev/null
 
-# 健康检查①：轮询 /ok 直到 200 或超时（进程活着）。部署失败要红——devapp 上那个
+# 健康检查①：轮询 /healthz 直到 200 或超时（进程活着）。部署失败要红——devapp 上那个
 # GraphLoadError 的 `:latest` 容器就是这样默默躺了好几天没人发现的。
 DEEP_AGENT_OK=""
 for _ in $(seq 1 30); do
-  if curl -fsS -m 2 "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}/ok" >/dev/null 2>&1; then
+  if curl -fsS -m 2 "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}/healthz" >/dev/null 2>&1; then
     DEEP_AGENT_OK=1
     break
   fi
   sleep 2
 done
 [ -n "$DEEP_AGENT_OK" ] || {
-  echo "✗ deep-agent-service /ok 超时（60s）—— 容器日志："
+  echo "✗ deep-agent-service /healthz 超时（60s）—— 容器日志："
   docker logs --tail 40 workspacex-deep-agent 2>&1 || true
   exit 1
 }
 
-# 健康检查②：graph 就绪断言。#940 红/绿证据实测：/ok 在 graph 加载失败时也可能 200，
-# 只有 /assistants/search 里看得到目标 graph 才证明消灭了 GraphLoadError——
-# 这正是本步存在的目的，liveness 不等于契约成立。
+# 健康检查②：助手登记接口可达。自托管 ASGI 返回已登记的 assistant ID；
+# 这不是生产图加载或外部模型可用性的证明。持久化执行路径由替换容器前的探针验证。
 DEEP_AGENT_GRAPH_ID="Deep Agent"   # langgraph.json 的 graphs key
 if ! deep_agent_wait_graph_ready "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}" "$DEEP_AGENT_GRAPH_ID" 30 2; then
-  echo "✗ deep-agent-service /assistants/search 里 60s 内没出现 graph_id=\"${DEEP_AGENT_GRAPH_ID}\"——graph 没加载成功。容器日志："
+  echo "✗ deep-agent-service /assistants/search 里 60s 内没出现 graph_id=\"${DEEP_AGENT_GRAPH_ID}\"——助手登记接口未就绪。容器日志："
   docker logs --tail 60 workspacex-deep-agent 2>&1 || true
   exit 1
 fi
 native_runtime_assert_deep_agent_container workspacex-deep-agent \
   "$NATIVE_SESSION_SOCKET_PATH" "$DEEP_AGENT_NATIVE_SOCKET" "$DEEP_AGENT_NATIVE_SERVICE_BASE"
-echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（/ok → 200 且 graph \"${DEEP_AGENT_GRAPH_ID}\" 已加载）"
+echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（/healthz → 200 且 assistant \"${DEEP_AGENT_GRAPH_ID}\" 已登记）"
 
 # 镜像 GC（best-effort）：新容器已验证就绪后才回收，保留当前 SHA + 上一轮 tag（回滚位），
 # 其余 deep-agent-service:* 旧 tag（含历史手工的 latest / test-fix）一律回收，
