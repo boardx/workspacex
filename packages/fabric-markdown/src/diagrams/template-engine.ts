@@ -425,34 +425,42 @@ function stripTrailingParenthetical(name: string): string {
 }
 
 /**
- * 按 canonical 分区名取要点，四级兜底，逐级放宽：
+ * 按 canonical 名在一个 `Map<string, T>` 里做「逐字优先、规范化兜底」的查找，
+ * 五级兜底逐级放宽：
  *   ① 逐字命中；
- *   ② {@link normalizeSectionKey}（去空格/标点，#2549）；
+ *   ② {@link normalizeSectionKey}（去空格/标点/中文数字，#2549）；
  *   ③ {@link stripBilingualSuffix}（去掉「中文 English」的英文后缀，#2576）；
- *   ④ {@link stripTrailingParenthetical}（去掉末尾一个括号补充说明，2026-09-10）。
+ *   ④ {@link stripTrailingParenthetical}（去掉末尾一个括号补充说明，2026-09-10）；
+ *   ⑤ 分段乱序（同一个名字的另一种排法，2026-09-10）。
  *
  * 每一级都是被真实事故推着加的——共同点是：名字差一点点，内容就整块消失且不报错。
+ * 这套兜底最初只用于分区名匹配（`lookupSectionItems`），issue #3542 发现表头字段
+ * （`spec.fields`）查找是完全不同的一条纯字符串精确匹配路径，一级兜底都没有，于是
+ * 抽成这个通用函数，两条路径共用同一套判据——不发明第二套兜底策略。
+ *
+ * 找不到时返回 `undefined`，调用方决定 fallback（分区名 fallback 成 `[]`，表头
+ * 字段 fallback 成 `EMPTY_FIELD`）。
  */
-export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
-  const exact = sections.get(name);
-  if (exact) return exact;
+function resolveTolerant<T>(entries: Map<string, T>, name: string): T | undefined {
+  const exact = entries.get(name);
+  if (exact !== undefined) return exact;
   const target = normalizeSectionKey(name);
-  for (const [key, items] of sections) {
-    if (normalizeSectionKey(key) === target) return items;
+  for (const [key, value] of entries) {
+    if (normalizeSectionKey(key) === target) return value;
   }
   const targetCore = normalizeSectionKey(stripBilingualSuffix(name));
   if (targetCore && targetCore !== target) {
-    for (const [key, items] of sections) {
+    for (const [key, value] of entries) {
       const keyCore = normalizeSectionKey(stripBilingualSuffix(key));
-      if (keyCore && keyCore === targetCore) return items;
+      if (keyCore && keyCore === targetCore) return value;
     }
   }
   // ④ 括号兜底：spec 侧的名字通常是干净的，带尾巴的是围栏里那一侧，所以这里剥的是
-  //    **`sections` 的 key**（模型写的），拿干净的 `name` 去比。
+  //    **`entries` 的 key**（模型写的），拿干净的 `name` 去比。
   const targetBare = normalizeSectionKey(stripTrailingParenthetical(name));
-  for (const [key, items] of sections) {
+  for (const [key, value] of entries) {
     const keyBare = normalizeSectionKey(stripTrailingParenthetical(key));
-    if (keyBare && (keyBare === target || keyBare === targetBare)) return items;
+    if (keyBare && (keyBare === target || keyBare === targetBare)) return value;
   }
   // ⑤ 分段乱序兜底（2026-09-10 人类实测：journey-map 整张画布 20 格全空）。
   //    这类模板的 canonical 名是**两个维度的交叉**（`行为 · 阶段1` = 泳道 × 阶段），
@@ -466,11 +474,33 @@ export function lookupSectionItems(sections: Map<string, string[]>, name: string
   const parts = name.split(SECTION_PART_SEPARATOR).map((p) => normalizeSectionKey(p)).filter(Boolean);
   if (parts.length >= 2 && parts.length <= MAX_SECTION_PARTS) {
     const arrangements = new Set(concatPermutations(parts));
-    for (const [key, items] of sections) {
-      if (arrangements.has(normalizeSectionKey(key))) return items;
+    for (const [key, value] of entries) {
+      if (arrangements.has(normalizeSectionKey(key))) return value;
     }
   }
-  return [];
+  return undefined;
+}
+
+/**
+ * 按 canonical 分区名取要点——{@link resolveTolerant} 的分区名特化，找不到时
+ * fallback 成空数组（既有行为，字面不变）。
+ */
+export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
+  return resolveTolerant(sections, name) ?? [];
+}
+
+/**
+ * 按 canonical 字段名（`spec.fields` 里的 key）取表头字段值（issue #3542）。
+ *
+ * `parseTemplateText()` 解析出的 `fields` 是模型在表头行写的「字段名: 值」，模型
+ * 只要把字段名写得跟 canonical 名有一丁点出入（多一个空格、中文数字、语序颠倒、
+ * 漏字……）此前就会精确匹配 miss、静默 fallback 成 `EMPTY_FIELD`——跟分区名
+ * 在 #2549 之前的症状一模一样。复用 {@link resolveTolerant} 而不是发明新兜底：
+ * 找不到时返回 `undefined`，调用方按 `EMPTY_FIELD` 兜底（"没写"与"写走样了"
+ * 在这一层已经合并，调用方不需要也不能再区分）。
+ */
+export function lookupFieldValue(fields: Map<string, string>, key: string): string | undefined {
+  return resolveTolerant(fields, key);
 }
 
 // ---------------------------------------------------------------------------
@@ -614,7 +644,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       // broken" shape the blank title bar had (#3337 follow-up).
       const valueTop = hideLabel ? top + inset : top + inset + labelH + 4;
       const valueH = Math.max(16, cell.h - (valueTop - top) - inset);
-      const value = fields.get(key) || EMPTY_FIELD;
+      const value = lookupFieldValue(fields, key) || EMPTY_FIELD;
       const valign = cell.valign ?? 'top';
       const lineH = Math.max(16, fontSize + 5);
       const cy = valign === 'middle' ? valueTop + valueH / 2
@@ -695,7 +725,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         height: 20,
         data: { role: 'fieldLabel', locked: true, fontSize: 13, bold: true, color: INK, align: 'right' },
       });
-      const value = fields.get(key) || EMPTY_FIELD;
+      const value = lookupFieldValue(fields, key) || EMPTY_FIELD;
       nodes.push({
         id: `tpl-field-${i}`,
         label: value,
