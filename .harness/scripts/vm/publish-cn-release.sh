@@ -48,8 +48,8 @@ mv "$work/apps/deep-agent-service"/* "$work/agent/"
 rmdir "$work/apps/deep-agent-service" "$work/apps"
 
 build_and_push(){
-  local service=$1 dockerfile=$2 context=$3; shift 3
-  local tag="$prefix/$service:$revision"
+  local service=$1 repository=$2 dockerfile=$3 context=$4; shift 4
+  local tag="$prefix/$repository:$revision"
   local existing_revision
   if docker buildx imagetools inspect "$tag" >/dev/null 2>&1; then
     docker pull --platform "$platform" "$tag" >/dev/null
@@ -62,18 +62,18 @@ build_and_push(){
   docker pull --platform "$platform" "$tag" >/dev/null
 }
 cd "$REPOSITORY_DIR"
-build_and_push api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
-build_and_push sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
+build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
+build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
+build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
+build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "SOURCE_REVISION=$revision"
 
 docker pull --platform "$platform" "$postgres_image" >/dev/null
 docker pull --platform "$platform" "$redis_image" >/dev/null
 node - "$work/build-input.json" "$release" "$revision" "$platform" "$prefix" "$postgres_image" "$redis_image" <<'NODE'
 const fs=require("node:fs");
 const [path,release,sourceRevision,platform,prefix,postgres,redis]=process.argv.slice(2);
-const entry=service=>({image:`${prefix}/${service}:${sourceRevision}`});
-const value={schemaVersion:1,release,sourceRevision,platform,images:{web:entry("web"),api:entry("api"),agent:entry("agent"),sandbox:entry("sandbox"),postgres:{image:postgres},redis:{image:redis}}};
+const entry=repository=>({image:`${prefix}/${repository}:${sourceRevision}`});
+const value={schemaVersion:1,release,sourceRevision,platform,images:{web:entry("web"),api:entry("api"),agent:entry("deep-agent"),sandbox:entry("skill-sandbox"),postgres:{image:postgres},redis:{image:redis}}};
 fs.writeFileSync(path,`${JSON.stringify(value,null,2)}\n`,{mode:0o600,flag:"wx"});
 NODE
 
