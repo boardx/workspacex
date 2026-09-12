@@ -66,7 +66,7 @@ try {
   assert.ok(python, "CHECKPOINT_TEST_PYTHON must select the installed DeepAgent Python environment");
   const port = run("docker", [...compose, "port", "postgres", "5432"]).stdout.trim().split(":").at(-1);
   assert.match(port ?? "", /^\d+$/, "isolated PostgreSQL published port missing");
-  const probe = "import sys, asyncio; sys.path.insert(0, sys.argv[1]); from deep_agent_service.postgres_checkpointer import probe_checkpoint; from deep_agent_service.self_hosted_runtime import PostgresLedger; dsn=sys.stdin.read().strip(); asyncio.run(PostgresLedger(dsn).prepare()); asyncio.run(probe_checkpoint(dsn))";
+  const probe = "import sys, asyncio; sys.path.insert(0, sys.argv[1]); from deep_agent_service.postgres_checkpointer import probe_checkpoint, probe_checkpoint_isolation; from deep_agent_service.self_hosted_runtime import PostgresLedger; dsn=sys.stdin.read().strip(); ledger=PostgresLedger(dsn); asyncio.run(ledger.prepare()); asyncio.run(ledger.create_thread('ledger-probe','reject')); asyncio.run(ledger.create_run('ledger-probe','ledger-run-probe',{'assistant_id':'Guided Research'})); latest=asyncio.run(ledger.latest_run('ledger-probe')); assert latest['assistant_id']=='Guided Research' and 'request' not in latest; asyncio.run(probe_checkpoint(dsn)); asyncio.run(probe_checkpoint_isolation(dsn))";
   run(python, ["-c", probe, join(root, "apps/deep-agent-service/src")], `postgresql://wsx_deep_agent:${password}@127.0.0.1:${port}/wsx_deep_agent`);
   console.log("VERIFY: external configuration preservation and foreign-role rejection");
   const externalFile = join(temp, "external.env");
@@ -82,7 +82,7 @@ try {
   assert.ok(!JSON.stringify(commands).includes(password), "credential leaked into command arguments");
   assert.ok(!outputs.join("\n").includes(password), "credential leaked into subprocess output");
   assert.ok(!outputs.join("\n").includes("external-sentinel"), "external credential leaked into output");
-  console.log("PASS: isolated checkpoint bootstrap, idempotency, least-privilege role, container TCP write, async graph checkpoint and restart, foreign-role rejection, external DSN preservation, secret output boundaries");
+  console.log("PASS: isolated checkpoint bootstrap, idempotency, least-privilege role, container TCP write, async graph checkpoint and restart, cross-assistant namespace and deletion isolation, foreign-role rejection, external DSN preservation, secret output boundaries");
 } finally {
   if (ownsStack) cleanupFailed = run("docker", [...compose, "down", "-v", "--remove-orphans"], undefined, true).status !== 0;
   rmSync(temp, { recursive: true, force: true });

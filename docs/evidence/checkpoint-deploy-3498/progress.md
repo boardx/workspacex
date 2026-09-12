@@ -14,6 +14,14 @@ has async adapters and an explicitly owned connection; the research graph is
 compiled once with the persistent saver. Platform-managed graph exports retain
 their existing behavior.
 
+PR review identified a same-thread collision between different assistants. Guided
+Research now prefixes only its durable storage namespace, keeping LangGraph root
+and nested-subgraph routing unchanged. Scoped deletion cannot remove another
+assistant's checkpoints. The deployment preflight also verifies same-thread
+isolation, reconnection, history routing, and scoped deletion with synthetic data.
+HTTP state and interruption reads select the latest run's persisted assistant;
+the full run request is not exposed in that projection.
+
 Verification commands and results are recorded in verification.txt. Tests use
 synthetic data and disposable PostgreSQL only; no external model calls or user
 research content are used.

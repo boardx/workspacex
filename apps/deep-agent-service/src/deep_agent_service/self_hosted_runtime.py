@@ -101,7 +101,7 @@ class PostgresLedger:
     async def latest_run(self, thread_id: str) -> dict[str, Any] | None:
         def operation():
             with self._connect() as connection:
-                return connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1", (thread_id,)).fetchone()
+                return connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at,COALESCE(request->>'assistant_id','Deep Agent') AS assistant_id FROM wsx_agent_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1", (thread_id,)).fetchone()
         return await self._call(operation)
 
     async def append_event(self, run_id: str, event: str, data: Any) -> None:
@@ -197,7 +197,13 @@ class Runtime:
 def _self_hosted_research_graph():
     from deep_agent_service.guided_research_graph import create_guided_research_graph
     from deep_agent_service.harness import build_checkpointer
-    return create_guided_research_graph(checkpointer=build_checkpointer())
+    from deep_agent_service.postgres_checkpointer import FixedNamespaceCheckpointSaver
+    saver = build_checkpointer()
+    if saver is None:
+        raise RuntimeError("self-hosted research requires a checkpoint database")
+    return create_guided_research_graph(
+        checkpointer=FixedNamespaceCheckpointSaver(saver, "guided-research:v1")
+    )
 
 
 def production_graph_loader(graph_id: str, config: dict[str, Any]):

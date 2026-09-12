@@ -54,13 +54,15 @@ def test_setup_failure_closes_connection():
 def test_self_hosted_research_builds_one_persistent_graph():
     from deep_agent_service.self_hosted_runtime import _self_hosted_research_graph, production_graph_loader
     _self_hosted_research_graph.cache_clear()
-    saver, graph = object(), object()
+    saver, graph = AsyncCompatiblePostgresSaver(Mock()), object()
     try:
         with patch("deep_agent_service.harness.build_checkpointer", return_value=saver) as build, patch("deep_agent_service.guided_research_graph.create_guided_research_graph", return_value=graph) as create:
             assert production_graph_loader("Guided Research", {}) is graph
             assert production_graph_loader("Guided Research", {}) is graph
             build.assert_called_once_with()
-            create.assert_called_once_with(checkpointer=saver)
+            create.assert_called_once()
+            assert create.call_args.kwargs["checkpointer"].delegate is saver
+            assert create.call_args.kwargs["checkpointer"].prefix == "guided-research:v1|"
     finally:
         _self_hosted_research_graph.cache_clear()
 

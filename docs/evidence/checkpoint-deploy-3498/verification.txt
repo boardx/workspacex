@@ -16,10 +16,16 @@ Deployment regression:
   and retaining the previous service when preflight fails.
 
 Python (uv sync --frozen --extra dev; repository lockfile):
-  .venv/bin/python -m pytest tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py -q
-  PASS: 104 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
+  .venv/bin/python -m pytest tests/test_checkpoint_namespace.py tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py -q -rs
+  PASS: 109 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
   integration requires an explicitly owned E003 container. It is not a
   PostgreSQL test and is not claimed as covered by the checkpoint probe.
+
+Review regression:
+  Research success/interruption followed by HTTP state/thread reads after a new
+  Runtime instance: 2 failures before the HTTP routing fix, then passed.
+  Real no-model LangGraph/InMemorySaver test covers same-thread isolation and
+  nested subgraph pause, read, history, resume, and recompile recovery.
 
 Real PostgreSQL:
   CHECKPOINT_TEST_PYTHON=<installed-runtime-python> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx .harness/scripts/vm/verify-deep-agent-checkpoint.mts
@@ -28,5 +34,9 @@ Real PostgreSQL:
   reconnect recovery; foreign-role rejection; external DSN preservation; no
   credential in subprocess argv/output. Standard admission waited 10 minutes and
   used its existing timeout policy; no admission setting was overridden.
+  Re-run after review: PASS also for the durable assistant identity projection,
+  same-thread two-assistant namespace isolation, restart/history routing, and
+  deletion of research checkpoints without affecting the other assistant. The
+  command completed in 26 seconds after standard admission; cleanup exited 0.
 
 Boundary: no external model calls; no claim of online deployment from local tests.

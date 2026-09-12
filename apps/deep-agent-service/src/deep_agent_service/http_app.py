@@ -34,6 +34,15 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
     def rt(request: Request) -> Runtime:
         return request.app.state.runtime
 
+    async def thread_snapshot(request: Request, thread_id: str):
+        latest = await rt(request).ledger.latest_run(thread_id)
+        # The HTTP state endpoint represents the latest run on this thread.
+        # Recover its assistant from the durable ledger, including after restart.
+        assistant = (latest or {}).get("assistant_id") or "Deep Agent"
+        config = {"configurable": {"thread_id": thread_id}}
+        graph = rt(request).graph_loader(assistant, config)
+        return await graph.aget_state(config), latest
+
     async def health(_request: Request):
         return JSONResponse({"ok": True, "runtime": "workspacex-self-hosted"})
 
@@ -55,8 +64,7 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
         row = await rt(request).ledger.get_thread(thread_id)
         if row is None: return JSONResponse({"detail": "not found"}, status_code=404)
         try:
-            graph = rt(request).graph_loader("Deep Agent", {"configurable": {"thread_id": thread_id}})
-            snapshot = await graph.aget_state({"configurable": {"thread_id": thread_id}})
+            snapshot, _latest = await thread_snapshot(request, thread_id)
             interrupts = {str(getattr(task, "id", index)): _wire(getattr(task, "interrupts", ()))
                 for index, task in enumerate(getattr(snapshot, "tasks", ()) or ()) if getattr(task, "interrupts", ())}
             if interrupts: row = {**row, "status": "interrupted", "interrupts": interrupts}
@@ -78,10 +86,8 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
 
     async def state(request: Request):
         thread_id = request.path_params["thread_id"]
-        graph = rt(request).graph_loader("Deep Agent", {"configurable": {"thread_id": thread_id}})
-        try: snapshot = await graph.aget_state({"configurable": {"thread_id": thread_id}})
+        try: snapshot, latest = await thread_snapshot(request, thread_id)
         except Exception: return JSONResponse({"detail": "not found"}, status_code=404)
-        latest = await rt(request).ledger.latest_run(thread_id)
         tasks = [{"id": getattr(task, "id", None), "interrupts": _wire(getattr(task, "interrupts", ())) } for task in (getattr(snapshot, "tasks", ()) or ())]
         return JSONResponse({"values": _wire(getattr(snapshot, "values", {})), "next": list(getattr(snapshot, "next", ()) or ()), "tasks": tasks,
             "metadata": {"run_id": latest["run_id"], "langgraph_run_id": latest["run_id"]} if latest else {}})
