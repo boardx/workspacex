@@ -85,3 +85,42 @@ describe("#2099 默认不画——钉住五个「为什么这次会比上次有�
     expect(VISUALIZATION_GUIDANCE).toContain("```mermaid");
   });
 });
+
+/**
+ * issue #3462 ——「一句话要两张画布，比如"画一张流程图，再画一张时间轴"，只产出一张」。
+ *
+ * 真实 dashscope 采样（2026-09-12，本地真栈 `pnpm run e2e:real-model-smoke` 同款环境，
+ * 非本测试跑）：4 次有效试验里 3 次已经能一次性给出两个独立 ```mermaid 围栏，1 次是与
+ * 本缺陷无关的模型回显故障（原样返回了用户输入，两侧摘要 digest 相同）——说明这不是
+ * 前端/后端的确定性 code bug（`extractMermaidBlocks` 本来就按围栏数切段，`cvs-${i}`/
+ * `mmd-${i}` 早就支持多段），而是旧版指引里两处「一个」的单数措辞会偶发诱导模型只画一张。
+ * 这里钉住的是**指引文本已经加了显式的多图规则**，不是钉死模型今后一定不再漏画——
+ * 那件事只能靠真实模型对照持续观察，见上面 `VISUALIZATION_GUIDANCE` 头注对置信度的说明。
+ */
+describe("#3462 一条消息要多张图——显式规则，不再依赖「一个」的单数措辞", () => {
+  it("补了一条要求「按数量画多张、每张独立围栏」的显式规则", () => {
+    expect(VISUALIZATION_GUIDANCE).toContain("一条消息里可以要求多张不同的图");
+    expect(VISUALIZATION_GUIDANCE).toContain("不要把多张图硬合并成一张");
+    expect(VISUALIZATION_GUIDANCE).toContain("也不要只画其中一张就结束");
+  });
+
+  it("多图规则出现在「已判定要画」的门限之后（不与默认不画的判定混在一起）", () => {
+    const iGate = VISUALIZATION_GUIDANCE.indexOf("只在你已经按上面判定");
+    const iMulti = VISUALIZATION_GUIDANCE.indexOf("一条消息里可以要求多张不同的图");
+    expect(iGate).toBeGreaterThanOrEqual(0);
+    expect(iMulti).toBeGreaterThan(iGate);
+  });
+
+  it("旧版诱导单张的「一个」措辞已改写，不再暗示「这一轮只画一张」", () => {
+    // ⚠ 不能直接断言不含子串「输出一个 ```mermaid 围栏代码块」——新版「每张图各自输出一个
+    //   ```mermaid 围栏代码块」本身就以子串形式包含它。真正要钉住的是旧版**独立成句、
+    //   前面没有「每张图各自」限定**的那种单数框架已经不在了，所以按行首匹配。
+    const singularBulletLine = VISUALIZATION_GUIDANCE
+      .split("\n")
+      .some((line) => line.startsWith("输出一个 ```mermaid 围栏代码块"));
+    expect(singularBulletLine).toBe(false);
+    expect(VISUALIZATION_GUIDANCE).toContain("每张图各自输出一个 ```mermaid 围栏代码块");
+    expect(VISUALIZATION_GUIDANCE).not.toContain("先给一个**能渲染**的简洁图");
+    expect(VISUALIZATION_GUIDANCE).toContain("每张图各自先给一个**能渲染**的简洁版本");
+  });
+});
