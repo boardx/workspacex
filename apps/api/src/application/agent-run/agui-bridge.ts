@@ -561,9 +561,9 @@ export async function resumeAguiBridgeTurn(
       : { decision: input.decision.kind }),
   });
   // `decideAgentRun` already performed the ENTIRE decision (state transition + `kick`,
-  // including `reject`'s terminal `failRun`) before returning -- unlike `runAguiBridgeTurn`'s
+  // including `reject`'s terminal cancellation) before returning -- unlike `runAguiBridgeTurn`'s
   // `onStarted`, which fires right as a run begins, this fires right as one resumes. A
-  // rejected run is already `failed` by the time this poll loop's first iteration reads it;
+  // rejected run is already `cancelled` by the time this poll loop's first iteration reads it;
   // it costs one extra `readAgentRun` round trip to discover that, not a real wait.
   input.onStarted?.();
 

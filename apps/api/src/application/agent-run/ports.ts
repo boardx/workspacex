@@ -399,6 +399,8 @@ export interface PendingWriteback {
 }
 
 export interface AgentRunStore {
+  /** Explicit rejection ends a waiting run without executing or reporting failure. */
+  rejectAwaitingPermission?(orgId: OrgId, runId: string): Promise<boolean>;
   requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
   cancelAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<"paused" | "cancelled" | null>;
@@ -553,7 +555,7 @@ export interface AgentRunStore {
    * 调用方按冲突处理，不重试不覆盖。
    *
    * ⚠ 与旧 DA-07b 单工具审批弹层的 `decideAgentRun({decision:"reject"})` 是两条不同的
-   * 出口：那条走 `failRun("HITL_REJECTED")`，服务的是尚未迁移到本契约束的
+   * 出口：那条走 `rejectAwaitingPermission`，服务的是尚未迁移到本契约束的
    * CopilotKit `useHumanInTheLoop` 三键弹层（F07/F08 迁移前维持原状，见该函数文件头）。
    * 本方法只服务新的四选一工具权限确认弹层。
    */
