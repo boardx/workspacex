@@ -4,7 +4,7 @@ import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-por
 
 type Task = ResearchRuntime["tasks"][number];
 export const isRecoverableSearchFailure = (code: string | null) => code === "RESEARCH_SEARCH_EMPTY" || code === "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
-const normalizedQuery = (query: string) => query.toLowerCase().replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
+const normalizedQuery = (query: string) => query.toLowerCase().replace(/[\p{Quotation_Mark}`]/gu, "").replace(/\s+/g, " ").trim();
 const schema = JSON.stringify(zodToJsonSchema(C.GuidedResearchSearchRecoveryModelOutput, { $refStrategy: "none" }));
 export async function recoveryQueries(state: ResearchRuntime, task: Task, complete: (system: string, context: unknown, validate: (value: unknown) => void) => Promise<unknown>): Promise<string[]> {
   const tried = new Set([task.query, ...(task.searchAttempts ?? []).map((attempt) => attempt.query)].map(normalizedQuery));

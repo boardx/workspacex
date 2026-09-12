@@ -35,7 +35,7 @@ describe("research search recovery progress", () => {
 
   it("shows the original query and each actual attempt with readable failures", () => {
     const initial = runtimeFixture("research");
-    const task = { ...initial.tasks[0]!, query: "原始政策查询", attempts: 3, status: "running" as const, errorCode: null,
+    const task = { ...initial.tasks[0]!, query: "原始政策查询", attempts: 1, status: "running" as const, errorCode: null,
       searchAttempts: [
         { query: "首次实际查询", status: "failed" as const, errorCode: "SEARCH_TIMEOUT" },
         { query: "改写实际查询", status: "succeeded" as const, errorCode: null },
@@ -43,6 +43,8 @@ describe("research search recovery progress", () => {
       ],
     };
     render(<GuidedResearchPlanDetails state={{ ...initial, tasks: [task] }} errors={{ SEARCH_TIMEOUT: "检索超时，请重试。" }} />);
+    expect(screen.getByText("正在检索 · 尝试 3 次")).toBeInTheDocument();
+    expect(screen.queryByText("正在检索 · 尝试 1 次")).not.toBeInTheDocument();
     expect(screen.getByText("原始检索词：原始政策查询")).toBeInTheDocument();
     const attempts = within(screen.getByRole("list", { name: "检索尝试历史", hidden: true })).getAllByRole("listitem", { hidden: true });
     expect(attempts).toHaveLength(3);
@@ -57,8 +59,9 @@ describe("research search recovery progress", () => {
     const searchAttempts = Array.from({ length: C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT }, (_, index) => ({
       query: `实际查询 ${index + 1}`, status: "failed" as const, errorCode: null,
     }));
-    const task = { ...initial.tasks[0]!, status: "failed" as const, errorCode: "UNKNOWN", searchAttempts };
+    const task = { ...initial.tasks[0]!, status: "failed" as const, attempts: 2, errorCode: "UNKNOWN", searchAttempts };
     const { rerender } = render(<GuidedResearchPlanDetails state={{ ...initial, tasks: [task] }} errors={{}} />);
+    expect(screen.getByText(`检索失败 · 尝试 ${C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT} 次`)).toBeInTheDocument();
     expect(screen.getByText("已达自动检索尝试上限，请补充来源或调整研究计划。")).toBeInTheDocument();
     expect(screen.queryByText("任务执行失败，请重试。")).not.toBeInTheDocument();
     rerender(<GuidedResearchPlanDetails state={{ ...initial, tasks: [{ ...task, searchAttempts: searchAttempts.slice(1) }] }} errors={{}} />);
@@ -69,7 +72,8 @@ describe("research search recovery progress", () => {
 
   it("does not invent query history for legacy tasks without recorded attempts", () => {
     const initial = runtimeFixture("research");
-    render(<GuidedResearchPlanDetails state={initial} errors={{}} />);
+    render(<GuidedResearchPlanDetails state={{ ...initial, tasks: [{ ...initial.tasks[0]!, status: "failed", attempts: 4 }] }} errors={{}} />);
+    expect(screen.getByText("检索失败 · 尝试 4 次")).toBeInTheDocument();
     expect(screen.queryByText("实际检索尝试")).not.toBeInTheDocument();
     expect(screen.getByText(`原始检索词：${initial.tasks[0]!.query}`)).toBeInTheDocument();
   });

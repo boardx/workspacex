@@ -66,8 +66,8 @@ describe("bounded search query recovery", () => {
     expect(resumed.search.mock.calls.map(([query]) => query)).toEqual(["Honor of Kings localized events"]);
     expect(state.tasks[0]!.status).toBe("succeeded");
   });
-  it("ignores duplicate query rewrites including quotation and whitespace changes", async () => {
-    const f = fixture(); f.setQueries([original.replaceAll('"', ''), `  ${original}  `]);
+  it.each(["", "'", "‘’", "「」", "『』", "«»", "＂", "`"])("ignores duplicate query rewrites using quote variant %s", async (quotes) => {
+    const f = fixture(); f.setQueries([original.replaceAll('"', quotes), `  ${original}  `]);
     const state = await f.run();
     expect(f.search).toHaveBeenCalledTimes(1);
     expect(state.tasks[0]!.status).toBe("failed");

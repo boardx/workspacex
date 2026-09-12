@@ -67,3 +67,29 @@
    Start at  15:06:44
    Duration  12.22s (transform 4.45s, setup 1.10s, collect 10.59s, tests 2.03s, environment 4.53s, prepare 585ms)
 
+
+/tmp/search-recovery-review-tests.log
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/api
+
+ ✓ tests/research/guided-search-recovery.test.ts (19 tests) 86ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  15:46:05
+   Duration  2.92s (transform 1.59s, setup 0ms, collect 2.35s, tests 86ms, environment 0ms, prepare 161ms)
+
+
+/private/tmp/search-recovery-ui-attempt-count.log
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/web
+
+ ✓ tests/ui/guided-research-search-recovery.test.tsx (6 tests) 532ms
+   ✓ research search recovery progress > distinguishes processed tasks from successful retrieval when all tasks were attempted 395ms
+ ✓ tests/ui/guided-research-reference-workflow.test.tsx (7 tests) 1072ms
+   ✓ reference research workflow > restores actual server stage and structured plan/task details while research is busy 434ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  15:45:48
+   Duration  10.39s (transform 3.00s, setup 837ms, collect 7.06s, tests 1.60s, environment 6.02s, prepare 369ms)
+

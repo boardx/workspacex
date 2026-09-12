@@ -25,7 +25,7 @@ export function GuidedResearchPlanDetails({ state, errors }: { state: GuidedRese
       {task.objective && <p className="whitespace-pre-wrap">{task.objective}</p>}
       <p className="break-words text-muted-foreground">原始检索词：{task.query}</p>
       {Boolean(task.deliverables?.length) && <div><p className="font-medium">预期产出</p><ul className="mt-1 list-disc space-y-1 pl-4">{task.deliverables!.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
-      <p className="text-muted-foreground">{{ pending: "等待检索", running: "正在检索", succeeded: "已完成", failed: "检索失败" }[task.status]} · 尝试 {task.attempts} 次</p>
+      <p className="text-muted-foreground">{{ pending: "等待检索", running: "正在检索", succeeded: "已完成", failed: "检索失败" }[task.status]} · 尝试 {task.searchAttempts?.length ?? task.attempts} 次</p>
       {Boolean(task.searchAttempts?.length) && <div>
         <p className="font-medium">实际检索尝试</p>
         <ol className="mt-1 space-y-2" aria-label="检索尝试历史">{task.searchAttempts!.map((attempt, index) => <li key={index} className="space-y-1">
