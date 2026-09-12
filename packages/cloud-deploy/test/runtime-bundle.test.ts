@@ -25,6 +25,8 @@ it("writes service-scoped private raw env files and generated Starter Agent cred
   expect(agent).toContain("postgresql://agent_server:"); expect(agent).toContain("/workspacex_agent");
   expect(maps.agent.DEEP_AGENT_CHECKPOINT_DB).toBe(maps.agent.DATABASE_URI);
   expect(agent).not.toContain("MODEL_CREDENTIAL_KEY");
+  expect(api).toContain("EMAIL_VERIFICATION_SECRET=");
+  expect(agent).not.toContain("EMAIL_VERIFICATION_SECRET");
   expect((await lstat(join(runtimeDirectory, "agent.env"))).mode & 0o777).toBe(0o600);
   expect(JSON.parse(await readFile(join(runtimeDirectory, "compose.json"), "utf8")).networks.default).toEqual({ external: true, name: "example-runtime" });
   expect(maps.web.API_INTERNAL_URL).toBe("http://api:3200");

@@ -11,7 +11,7 @@ export type RuntimeEnvironmentMaps = Record<"api" | "agent" | "migration" | "boo
  */
 export async function runtimeEnvironment(config: DeploymentConfig, secretDirectory: string, source: NodeJS.ProcessEnv = process.env, context: SecretOperationContext = {}): Promise<RuntimeEnvironmentMaps> {
   assertSecretOperationActive(context);
-  const names = ["model-cipher", "native-binding", "service-key", "admin-password", "app-password", "owner-password", "diag-password", "redis-password", "agent-password", "memory-password", "memory-owner-password"] as const;
+  const names = ["model-cipher", "email-verification", "native-binding", "service-key", "admin-password", "app-password", "owner-password", "diag-password", "redis-password", "agent-password", "memory-password", "memory-owner-password"] as const;
   const outcomes = await Promise.allSettled(names.map(name => ensureTrustedDeploymentSecret(secretDirectory, name, context)));
   // Wait for all in-flight file cleanup before returning failure or cancellation.
   const values: string[] = [];
@@ -50,6 +50,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
   const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...sharedNative,
     NODE_ENV: "production", PORT: "3200", MODEL_CREDENTIAL_KEY: secret["model-cipher"],
+    EMAIL_VERIFICATION_SECRET: secret["email-verification"],
     NATIVE_SESSION_BINDING_KEY: secret["native-binding"], KERNEL_NATIVE_RUNTIME: "1",
     KERNEL_SKILL_SANDBOX_SOCKET: "/run/sandbox/skill-sandbox.sock",
     KERNEL_DEEP_AGENT_BASE_URL: "http://agent:8000", KERNEL_SUBTASK_CALLBACK_BASE_URL: "http://api:3200" };
