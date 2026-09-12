@@ -1,3 +1,4 @@
+import { isRecoverableSearchFailure, recoveryQueries } from "./guided-search-recovery";
 import { parseSourceRelevanceJson, screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
@@ -205,42 +206,95 @@ export class GuidedRuntimeService {
     if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
     await persist();
   }
+  private async acceptSearchResults(state: ResearchRuntime, task: ResearchRuntime["tasks"][number], hits: readonly { title: string; url: string; content: string }[], persist: RuntimePersistence): Promise<string | null> {
+    if (!hits.length) return "RESEARCH_SEARCH_EMPTY";
+    const candidates = [...new Map(hits.map((hit) => [normalizedSourceUrl(hit.url),
+      state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url))
+        ?? C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" })])).values()]
+      .map((source) => source.decision === "excluded" ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false });
+    const relevant = await screenResearchSources(state, candidates,
+      (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson));
+    if (!relevant.some((source) => source.decision !== "excluded")) return "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";
+    for (const hit of relevant) {
+      if (hit.decision === "excluded") continue;
+      const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
+      if (existing) {
+        existing.taskIds = [...new Set([...sourceTaskIds(existing), task.id])];
+        // reviewSources validated old associations before this search; the new
+        // association was independently checked against the same stored excerpt.
+        if (existing.decision !== "excluded" && !existing.addedByUser) existing.relevanceBasis = sourceRelevanceBasis(state, existing);
+      } else state.sources.push(hit);
+    }
+    return null;
+  }
   private async executeSearch(state: ResearchRuntime, persist: RuntimePersistence) {
+    // A previous command may have finalized after a progress write failed. This
+    // explicit search entry also covers approved start/retry proposals.
+    for (const task of state.tasks) {
+      if (task.status === "running") { task.status = "failed"; task.errorCode = "RESEARCH_EXECUTION_INTERRUPTED"; }
+      for (const attempt of task.searchAttempts ?? []) if (attempt.status === "running") {
+        attempt.status = "failed"; attempt.errorCode = "RESEARCH_EXECUTION_INTERRUPTED";
+      }
+    }
     if (!state.tasks.length) await this.plan(state, persist);
     await this.reviewSources(state, persist);
     const remaining = state.tasks.filter((task) => task.status !== "succeeded");
     const updateProgress = () => { state.progress = { stage: "searching", completed: state.tasks.filter((task) => task.status === "succeeded" || task.status === "failed").length, total: state.tasks.length }; };
-    // Only provider calls run concurrently. State changes and durable writes are serialized.
+    const errorCode = (error: unknown) => {
+      const code = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
+      // Only validated search results establish EMPTY/NO_RELEVANT. A provider or
+      // persistence exception carrying that code must stay non-recoverable on reload.
+      return isRecoverableSearchFailure(code) ? "RESEARCH_SEARCH_UNAVAILABLE" : code;
+    };
     for (let offset = 0; offset < remaining.length; offset += 3) {
       const batch = remaining.slice(offset, offset + 3);
-      for (const task of batch) { task.status = "running"; task.attempts += 1; task.errorCode = null; }
+      const previousErrors = batch.map((task) => task.searchAttempts?.at(-1)?.errorCode ?? task.errorCode);
+      const records = batch.map((task, index) => {
+        task.status = "running"; task.attempts += 1; task.errorCode = null;
+        task.searchAttempts ??= [];
+        // A resumed empty/irrelevant query needs a new query, not the same search again.
+        if (task.searchAttempts.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT || (task.searchAttempts.length && isRecoverableSearchFailure(previousErrors[index]!))) return null;
+        const attempt = { query: task.searchAttempts.at(-1)?.query ?? task.query, status: "running" as "running" | "succeeded" | "failed", errorCode: null as string | null };
+        task.searchAttempts.push(attempt); return attempt;
+      });
       updateProgress(); await persist();
-      const results = await Promise.allSettled(batch.map((task) => this.search.search(task.query)));
+      // Only provider calls run concurrently; all state writes are serialized.
+      const results = await Promise.allSettled(records.map((record) => record ? this.search.search(record.query) : Promise.resolve(null)));
       for (const [index, task] of batch.entries()) {
+        let recoverable = false;
+        const record = records[index];
         try {
           const result = results[index]!;
           if (result.status === "rejected") throw result.reason;
-          if (!result.value.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_EMPTY");
-          const candidates = [...new Map(result.value.map((hit) => [normalizedSourceUrl(hit.url),
-            state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url))
-              ?? C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" })])).values()]
-            .map((source) => source.decision === "excluded" ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false });
-          const relevant = await screenResearchSources(state, candidates,
-            (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate, parseSourceRelevanceJson));
-          if (!relevant.some((source) => source.decision !== "excluded")) throw new ResearchRuntimeError("RESEARCH_SEARCH_NO_RELEVANT_SOURCES");
-          for (const hit of relevant) {
-            if (hit.decision === "excluded") continue;
-            const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
-            if (existing) {
-              existing.taskIds = [...new Set([...sourceTaskIds(existing), task.id])];
-              // reviewSources validated old associations before this search; the new
-              // association was independently checked against the same stored excerpt.
-              if (existing.decision !== "excluded" && !existing.addedByUser) existing.relevanceBasis = sourceRelevanceBasis(state, existing);
-            } else state.sources.push(hit);
-          }
-          task.status = "succeeded";
-        } catch (error) { task.status = "failed"; task.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE"; }
+          task.errorCode = result.value === null ? previousErrors[index] ?? "RESEARCH_SEARCH_NO_RELEVANT_SOURCES" : await this.acceptSearchResults(state, task, result.value, persist);
+          recoverable = isRecoverableSearchFailure(task.errorCode);
+        } catch (error) { task.errorCode = errorCode(error); }
+        task.status = task.errorCode ? "failed" : "succeeded";
+        if (record) { record.status = task.status; record.errorCode = task.errorCode; }
         updateProgress(); await persist();
+        if (!recoverable || task.searchAttempts!.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+        let queries: string[];
+        try {
+          queries = await recoveryQueries(state, task, (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate));
+        } catch (error) {
+          // Query-generation failures do not turn unusable evidence into success.
+          task.errorCode = errorCode(error); await persist(); continue;
+        }
+        for (const query of queries.slice(0, C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT - task.searchAttempts!.length)) {
+          const attempt = { query, status: "running" as "running" | "succeeded" | "failed", errorCode: null as string | null };
+          task.searchAttempts!.push(attempt); task.status = "running"; task.errorCode = null;
+          updateProgress(); await persist();
+          recoverable = false;
+          try {
+            const hits = await this.search.search(query);
+            task.errorCode = await this.acceptSearchResults(state, task, hits, persist);
+            recoverable = isRecoverableSearchFailure(task.errorCode);
+          } catch (error) { task.errorCode = errorCode(error); }
+          task.status = task.errorCode ? "failed" : "succeeded";
+          attempt.status = task.status; attempt.errorCode = task.errorCode;
+          updateProgress(); await persist();
+          if (!recoverable) break;
+        }
       }
     }
     if (state.tasks.some((task) => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");

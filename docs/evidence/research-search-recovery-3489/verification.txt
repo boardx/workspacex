@@ -1,0 +1,95 @@
+/tmp/search-recovery-db-final.log
+   ✓ report streaming and explicit partial evidence > reloads approved chapters from PostgreSQL and resumes only the unfinished chapter 1465ms
+   ✓ report streaming and explicit partial evidence > requires an explicit partial choice and retains evidence gaps through report completion 908ms
+   ✓ report streaming and explicit partial evidence > never bypasses pending tasks with the partial option 1207ms
+   ✓ report streaming and explicit partial evidence > never bypasses running tasks with the partial option 915ms
+
+ Test Files  1 passed (1)
+      Tests  42 passed (42)
+   Start at  15:25:52
+   Duration  109.53s (transform 17.76s, setup 0ms, collect 4.52s, tests 95.42s, environment 0ms, prepare 181ms)
+
+[db-isolation] db=wsx_c4f3294a2d2b74b71713 peak_connections=6
+[timing] pnpm --filter api exec vitest run tests/research/guided-runtime-persistence.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：10m0s
+  命令执行：1m52s
+  清理：2s
+  总计：11m54s
+
+/tmp/search-recovery-entry-tests.log
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/api
+
+ ✓ tests/research/guided-search-recovery.test.ts (12 tests) 58ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  15:18:16
+   Duration  2.51s (transform 1.53s, setup 0ms, collect 2.23s, tests 58ms, environment 0ms, prepare 79ms)
+
+
+/tmp/search-recovery-final-typecheck.log
+
+> @repo/api@0.0.0 typecheck /private/tmp/workspacex-research-search-recovery/apps/api
+> tsc --noEmit
+
+
+/tmp/search-recovery-report-ui.log
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/web
+
+ ✓ tests/ui/guided-research-report-stream.test.tsx (11 tests) 7786ms
+   ✓ research report stream UI > shows actual model text before completion and ignores wrong request and duplicate deltas 588ms
+   ✓ polls lightweight progress, loads terminal state once and stops 4223ms
+   ✓ unlocks when progress is terminal even if the POST never closes 2096ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  15:07:49
+   Duration  15.89s (transform 2.51s, setup 488ms, collect 4.09s, tests 7.79s, environment 1.59s, prepare 523ms)
+
+
+/private/tmp/search-recovery-ui-limit-tests.log
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/web
+
+ ✓ tests/ui/guided-research-search-recovery.test.tsx (6 tests) 726ms
+   ✓ research search recovery progress > distinguishes processed tasks from successful retrieval when all tasks were attempted 507ms
+ ✓ tests/ui/guided-research-reference-workflow.test.tsx (7 tests) 1307ms
+   ✓ reference research workflow > restores actual server stage and structured plan/task details while research is busy 561ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  15:06:44
+   Duration  12.22s (transform 4.45s, setup 1.10s, collect 10.59s, tests 2.03s, environment 4.53s, prepare 585ms)
+
+
+/tmp/search-recovery-review-tests.log
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/api
+
+ ✓ tests/research/guided-search-recovery.test.ts (19 tests) 86ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  15:46:05
+   Duration  2.92s (transform 1.59s, setup 0ms, collect 2.35s, tests 86ms, environment 0ms, prepare 161ms)
+
+
+/private/tmp/search-recovery-ui-attempt-count.log
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/web
+
+ ✓ tests/ui/guided-research-search-recovery.test.tsx (6 tests) 532ms
+   ✓ research search recovery progress > distinguishes processed tasks from successful retrieval when all tasks were attempted 395ms
+ ✓ tests/ui/guided-research-reference-workflow.test.tsx (7 tests) 1072ms
+   ✓ reference research workflow > restores actual server stage and structured plan/task details while research is busy 434ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  15:45:48
+   Duration  10.39s (transform 3.00s, setup 837ms, collect 7.06s, tests 1.60s, environment 6.02s, prepare 369ms)
+

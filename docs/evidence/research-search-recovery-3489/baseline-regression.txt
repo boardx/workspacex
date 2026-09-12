@@ -1,0 +1,39 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-search-recovery/apps/api
+
+ ❯ tests/research/baseline-search-recovery.test.ts (12 tests | 2 failed | 10 skipped) 29ms
+   × bounded search query recovery > recovers empty or irrelevant results with a distinct query (irrelevant=false) 24ms
+     → expected 'RESEARCH_SEARCH_PARTIAL_FAILURE' to be null
+   × bounded search query recovery > recovers empty or irrelevant results with a distinct query (irrelevant=true) 4ms
+     → expected 'RESEARCH_SEARCH_PARTIAL_FAILURE' to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/baseline-search-recovery.test.ts > bounded search query recovery > recovers empty or irrelevant results with a distinct query (irrelevant=false)
+ FAIL  tests/research/baseline-search-recovery.test.ts > bounded search query recovery > recovers empty or irrelevant results with a distinct query (irrelevant=true)
+AssertionError: expected 'RESEARCH_SEARCH_PARTIAL_FAILURE' to be null
+
+- Expected: 
+null
+
++ Received: 
+"RESEARCH_SEARCH_PARTIAL_FAILURE"
+
+ ❯ tests/research/baseline-search-recovery.test.ts:43:29
+     41|     const f = fixture(); f.search.mockImplementation(async (query) => …
+     42|     const state = await f.run();
+     43|     expect(state.errorCode).toBeNull();
+       |                             ^
+     44|     expect(f.search.mock.calls.map(([query]) => query)).toEqual([origi…
+     45|     expect(state.tasks[0]!.query).toBe(original);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 skipped (12)
+   Start at  15:02:50
+   Duration  1.62s (transform 865ms, setup 0ms, collect 1.24s, tests 29ms, environment 0ms, prepare 105ms)
+
+undefined
+/private/tmp/workspacex-research-search-recovery/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/vitest-search-recovery-baseline.config.mts -t recovers empty or irrelevant
