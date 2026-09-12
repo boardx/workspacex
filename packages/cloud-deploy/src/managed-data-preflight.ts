@@ -42,8 +42,10 @@ function rdsReason(raw: unknown, expected: ManagedDataExpected): string {
   if (rds.DBInstanceStatus !== "Running" || rds.DBInstanceType !== "Primary") return "rds_not_ready_primary";
   if (rds.Engine !== "PostgreSQL" || !/^16(?:\.\d+)*$/.test(String(rds.EngineVersion))) return "rds_engine_not_supported";
   if (rds.InstanceNetworkType !== "VPC" || rds.LockMode !== "Unlock") return "rds_private_access_not_ready";
-  if (rds.Category !== "HighAvailability") return "rds_ha_not_proven";
-  if (expected.rdsTlsException && !String(rds.DBInstanceClass).toLowerCase().includes("serverless")) return "rds_tls_exception_not_serverless";
+  if (expected.rdsTlsException) {
+    if (rds.Category !== "serverless_standard") return "rds_serverless_ha_not_proven";
+    if (!String(rds.DBInstanceClass).toLowerCase().includes("serverless")) return "rds_tls_exception_not_serverless";
+  } else if (rds.Category !== "HighAvailability") return "rds_ha_not_proven";
   return "verified";
 }
 function backupReason(raw: unknown, expected: ManagedDataExpected): string {
@@ -79,10 +81,16 @@ function rdsNetworkReason(raw: unknown, expected: ManagedDataExpected): string {
   const actual = new Set<string>();
   for (const item of items) {
     const parsed = record.safeParse(item);
-    if (!parsed.success || parsed.data.WhitelistNetworkType !== "VPC" || typeof parsed.data.SecurityIPList !== "string") return "rds_network_constraint_unproven";
-    for (const cidr of parsed.data.SecurityIPList.split(",").map(value => value.trim()).filter(Boolean)) actual.add(cidr);
+    // PostgreSQL cloud-disk instances are fixed to general allowlist mode MIX.
+    // Hidden groups are provider-managed service access, so they must remain safe
+    // but are not part of the application's exact source-address contract.
+    if (!parsed.success || parsed.data.WhitelistNetworkType !== "MIX" || typeof parsed.data.SecurityIPList !== "string") return "rds_network_constraint_unproven";
+    const cidrs = parsed.data.SecurityIPList.split(",").map(value => value.trim()).filter(Boolean)
+      .map(value => value.includes("/") ? value : `${value}/32`);
+    if (cidrs.includes("0.0.0.0/0")) return "rds_whitelist_mismatch";
+    if (parsed.data.DBInstanceIPArrayAttribute !== "hidden") for (const cidr of cidrs) actual.add(cidr);
   }
-  if (actual.has("0.0.0.0/0") || JSON.stringify([...actual].sort()) !== JSON.stringify(expectedCidrs)) return "rds_whitelist_mismatch";
+  if (JSON.stringify([...actual].sort()) !== JSON.stringify(expectedCidrs)) return "rds_whitelist_mismatch";
   return "serverless_tls_exception_network_verified";
 }
 function redisReason(raw: unknown, expected: ManagedDataExpected): string {
@@ -93,9 +101,9 @@ function redisReason(raw: unknown, expected: ManagedDataExpected): string {
   if (redis.InstanceStatus !== "Normal") return "redis_not_ready";
   if (redis.Engine !== "Redis" || !["Redis", "Tair"].includes(String(redis.InstanceType)) || !/^7(?:\.\d+)*$/.test(String(redis.EngineVersion))) return "redis_engine_not_supported";
   if (redis.ArchitectureType !== "standard" || redis.NodeType !== "double" || redis.ReplicationMode !== "master-slave") return "redis_ha_not_proven";
-  // VpcAuthMode=Open means password-free VPC access is enabled. Production must
-  // keep that mode closed so every connection is authenticated.
-  if (redis.VpcAuthMode !== "Close" || redis.NetworkType !== "VPC") return "redis_private_auth_not_proven";
+  // Alibaba Cloud defines Open as password authentication required. Close turns
+  // authentication off and enables password-free VPC access.
+  if (redis.VpcAuthMode !== "Open" || redis.NetworkType !== "VPC") return "redis_private_auth_not_proven";
   return "verified";
 }
 function redisTlsReason(raw: unknown): string {
