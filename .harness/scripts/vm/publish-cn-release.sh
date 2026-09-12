@@ -38,7 +38,15 @@ runner_group=$(id -gn "$runner_user")
 
 for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
-docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
+if docker buildx version >/dev/null 2>&1; then
+  build_engine=buildx
+else
+  [[ "$platform" == "linux/amd64" ]] || fail "Docker buildx unavailable for non-amd64 platform"
+  docker_platform=$(docker info --format '{{.OSType}}/{{.Architecture}}')
+  docker_platform=${docker_platform/linux\/x86_64/linux\/amd64}
+  [[ "$docker_platform" == "$platform" ]] || fail "Docker buildx unavailable and daemon platform differs"
+  build_engine=docker
+fi
 
 work=$(mktemp -d /tmp/workspacex-cn-release.XXXXXX)
 trap 'rm -rf "$work"' EXIT
@@ -50,16 +58,21 @@ rmdir "$work/apps/deep-agent-service" "$work/apps"
 build_and_push(){
   local service=$1 repository=$2 dockerfile=$3 context=$4; shift 4
   local tag="$prefix/$repository:$revision"
-  local existing_revision
-  if docker buildx imagetools inspect "$tag" >/dev/null 2>&1; then
-    docker pull --platform "$platform" "$tag" >/dev/null
+  local existing_revision published_revision
+  if docker pull --platform "$platform" "$tag" >/dev/null 2>&1; then
     existing_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
     [[ "$existing_revision" == "$revision" ]] || fail "existing immutable $service tag has a different revision"
   else
-    docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
+    if [[ "$build_engine" == buildx ]]; then
+      docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"
+    else
+      docker build "$@" -f "$dockerfile" -t "$tag" "$context"
+    fi
     docker push "$tag" >/dev/null
   fi
   docker pull --platform "$platform" "$tag" >/dev/null
+  published_revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$tag")
+  [[ "$published_revision" == "$revision" ]] || fail "published $service image has a different revision"
 }
 cd "$REPOSITORY_DIR"
 build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "SOURCE_REVISION=$revision"
