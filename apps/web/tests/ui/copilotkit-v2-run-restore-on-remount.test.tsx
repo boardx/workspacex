@@ -272,3 +272,15 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
     });
   });
 });
+
+it('revisiting renders verified history while a fresh authoritative read is pending', async () => {
+  listMessages.mockResolvedValue({ messages: [msg('cached-user', 'human', 'Visited thread content')], nextCursor: null });
+  const first = mount();
+  await screen.findByText('Visited thread content');
+  first.unmount();
+  listMessages.mockImplementation(() => new Promise(() => {}));
+  mount();
+  await screen.findByText('Visited thread content');
+  expect(screen.queryByTestId('loading')).not.toBeInTheDocument();
+  expect(listMessages).toHaveBeenCalledTimes(2);
+});

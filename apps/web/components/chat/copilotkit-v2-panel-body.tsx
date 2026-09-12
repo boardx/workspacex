@@ -1,5 +1,6 @@
 "use client";
 import { ProjectRecordingPanel } from "@/components/chat/workbench/project-recording-panel";
+import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
 
@@ -598,13 +599,9 @@ export function CopilotKitV2PanelBody({
 
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
-  /**
-   * issue #2039（UIUX 三轮迭代第 1 轮 gap #3 的一半，uiux-standards U1）——
-   * 历史回读在途时消息区不能是一片空白：`historyLoading` 只是上面这个既有
-   * hydration effect 的**渲染投影**（初值 = 有历史可读；effect 落定或失败时归
-   * false），不改变 hydration 逻辑本身一行。
-   */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
+  const historyScope = draftSession ? JSON.stringify([draftSession.sessionToken, draftSession.userId, draftSession.currentOrgId, projectId]) : null;
+  const { remember: rememberHistory, discard: discardHistory } = useChatHistoryPreview(historyScope, initialChatThreadId, agent, isReady, setHistoryLoading);
   /**
    * 2026-08-30 review 反证（PR #2420 的下一轮）—— hydration effect（情形①，见下方）
    * 对**这一个** `threadId` 跑完 `readAllPersistedMessages` 之后的确切结果，供
@@ -663,6 +660,8 @@ export function CopilotKitV2PanelBody({
         // `readAllPersistedMessages` 一并投影出来（`rateable`），不为它再读一遍库。
         const identities = collected.map((m) => ({ id: m.id, rateable: m.rateable }));
         if (cancelled) return;
+        discardHistory();
+        rememberHistory(collected);
         hydratedRef.current = true;
         registerHydrated(identities);
         // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
@@ -748,13 +747,14 @@ export function CopilotKitV2PanelBody({
       } catch (e) {
         if (cancelled) return;
         setHistoryLoading(false);
+        discardHistory();
         setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId]);
+  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId, rememberHistory, discardHistory]);
 
   // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
@@ -1589,7 +1589,7 @@ export function CopilotKitV2PanelBody({
   // 2026-09-06 人类直接反馈：「agent 还在生成时也要能回复 A/B」——`agent.isRunning` 不再是
   // 禁用理由；运行中的正文走 `sendWhileRunning`（插话 / 排队，见
   // `lib/chat-composer-running-reply.ts` 文件头），发送键只在**输入框为空**时才是「停止」。
-  const sendDisabledReason: string | null = !canWrite ? "当前对话只读或写权限尚未确认" : archived
+  const sendDisabledReason: string | null = !canWrite ? "发送权限尚未确认或不可用" : archived
     ? "该对话已归档，不能再发送消息"
     : attach.hasUploading
       ? "附件正在上传，请等待上传完成后再发送"
@@ -2170,7 +2170,7 @@ export function CopilotKitV2PanelBody({
                   "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
-                disabled={!canWrite || archived}
+                disabled={archived}
                 placeholder={
                   archived
                     ? "该对话已归档，不能再发送消息"

@@ -53,6 +53,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13（#3519）：保留外壳不等于保留消息区；按线程remount的Body仍会每次把historyLoading初始化为true。已访问历史可做短期内存预览，但必须按session/user/org/project隔离、失败撤销、后台重新读取权威数据；不要从历史缓存推导发送权限，权限读取中也不能冒称业务只读。
 - 2026-09-05：`useHumanInTheLoop({name})` 的 `render` 回调本身不能直接用 hooks——
   CopilotKit 把它当渲染函数调用，不保证是稳定的组件树位置；要用状态/effect（焦点
   管理、a11y 播报）就把内容拆进一个真正的具名子组件（`render: (props) => <Foo
