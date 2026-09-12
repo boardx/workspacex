@@ -165,6 +165,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const [segments, setSegments] = React.useState({ baseText: "", committedText: "", partialText: "" });
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
   const startingRef = React.useRef(false);
+  const generationRef = React.useRef(0);
   // 防"停止过程中又点了开始"：UI 层已经在 stopping 态禁用按钮，这里是第二道防线
   // （直接调用 hook、不经过按钮的调用方也不该在这个窗口里重新起一条新的采音管线）。
   const stoppingRef = React.useRef(false);
@@ -186,7 +187,15 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const endSession = React.useCallback((discard: boolean) => {
     const handle = handleRef.current;
     handleRef.current = null;
-    if (handle === null) return; // 还没连上（connecting）或已经停了——没有一条真实句柄可停。
+    if (handle === null) {
+      if (!startingRef.current) return;
+      generationRef.current += 1;
+      startingRef.current = false;
+      if (discard) onTranscriptRef.current(baseTextRef.current);
+      setStatus("idle");
+      setLevel(0);
+      return;
+    }
     discardRef.current = discard;
     if (discard) {
       onTranscriptRef.current(baseTextRef.current);
@@ -210,6 +219,8 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
       setError("你的浏览器不支持语音输入（缺少麦克风采音或 WebSocket 能力），请手动输入或改用 Chrome 等支持的浏览器。");
       return;
     }
+    const generation = ++generationRef.current;
+    const current = () => generationRef.current === generation;
     baseTextRef.current = getBaseText();
     committedRef.current = "";
     discardRef.current = false;
@@ -226,25 +237,27 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     void openAsrDraftStream(
       {
         onPartial: (rawText) => {
-          if (discardRef.current) return;
+          if (!current() || discardRef.current) return;
           const text = sanitizeAsrSegment(rawText);
           setSegments((s) => ({ ...s, partialText: text }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
         onFinal: (rawText) => {
-          if (discardRef.current) return;
+          if (!current() || discardRef.current) return;
           const text = sanitizeAsrSegment(rawText);
           committedRef.current = appendTranscript(stripTrailingTurnBoundaryPunctuation(committedRef.current), text);
           setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
         onError: (reason) => {
+          if (!current()) return;
           handleRef.current = null;
           stoppingRef.current = false;
           setStatus("error");
           setError(ERROR_TEXT[reason] ?? `语音识别出错：${reason}`);
         },
         onFinished: () => {
+          if (!current()) return;
           handleRef.current = null;
           stoppingRef.current = false;
           if (discardRef.current) onTranscriptRef.current(baseTextRef.current);
@@ -254,14 +267,16 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         },
         // TW-P0-5⑥ —— 真实音量指示：每一帧真实采到的 PCM16 求一次 RMS，
         // 不是渲染层自己画的假动画（见 `pcm16Level()` 头注）。
-        onLevel: (value) => setLevel(value),
+        onLevel: (value) => { if (current()) setLevel(value); },
       },
       { sessionToken, deviceId: deviceIdRef.current },
     ).then((handle) => {
+      if (!current()) { void handle.stop().catch(() => undefined); return; }
       startingRef.current = false;
       handleRef.current = handle;
       setStatus("listening");
     }).catch((caught: unknown) => {
+      if (!current()) return;
       startingRef.current = false;
       handleRef.current = null;
       if (caught instanceof LiveRecordingError) {
@@ -276,7 +291,13 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     });
   }, [getBaseText, sessionToken]);
 
-  React.useEffect(() => () => { void handleRef.current?.stop(); }, []);
+  React.useEffect(() => () => {
+    generationRef.current += 1;
+    startingRef.current = false;
+    const handle = handleRef.current;
+    handleRef.current = null;
+    void handle?.stop().catch(() => undefined);
+  }, []);
 
   // TW-P0-5⑥ —— 录音计时：`listening` 期间每秒 +1，不在录音时归零。纯本地
   // `setInterval`，不依赖服务端回传的任何时间戳（上游没有提供，也不需要）。
