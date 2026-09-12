@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { deploymentConfigSchema } from "./config";
+import { deploymentConfigSchema, type DeploymentConfig } from "./config";
 import { validateReleaseManifest, verifyPrewarmedRelease } from "./release";
 import { verifyRunningRelease } from "./running-release";
 import { provision, UncertainProvisionStateError, type ProvisionAction } from "./provision";
@@ -27,6 +27,10 @@ export const cloudProvisionOptionsSchema = z.object({
   agentEnvironmentSecretRef: z.string().regex(/^(?:env:[A-Z][A-Z0-9_]*|file:\/[^\r\n\0]+)$/),
 }).strict();
 export type CloudProvisionOptions = z.infer<typeof cloudProvisionOptionsSchema>;
+export function productionPreflightAddHost(environment: DeploymentConfig["environment"]): string | undefined {
+  return environment.profile === "production" && environment.preflightTargetIp
+    ? `${new URL(environment.publicUrl).hostname}:${environment.preflightTargetIp}` : undefined;
+}
 
 /** Execute on the prepared ECS itself, as root. No image builds/pulls, cloud resource
  * creation, certificate issuance, or global Docker cleanup occur in this timed path.
@@ -59,12 +63,13 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
   };
   // Every helper is an individually named container, so cancellation can stop the
   // actual job rather than merely killing its Docker client. Names never come from users.
-  const job = async (script: string, environment: Record<string, string>, context: Context, runtime: "api" | "agent" = "api") => {
+  const job = async (script: string, environment: Record<string, string>, context: Context, runtime: "api" | "agent" = "api", addHost?: string) => {
     const name = `wsx-provision-${randomUUID()}`;
     const file = join(dir, `${name}.env`);
     await writeRuntimeFile(file, serializeRuntimeEnvironment({ ...environment, PROVISION_TIMEOUT_MS: String(Math.max(1, Math.floor(context.remainingMs()))) }), context);
     const args = ["docker", "run", "--rm", "--pull=never", "--name", name, "--network", network, "--env-file", file,
       "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=256", "--memory=2g", "--cpus=2",
+      ...(addHost ? ["--add-host", addHost] : []),
       "--mount", `type=bind,src=${dir}/certs,dst=/run/certs,readonly`,
       "--mount", `type=bind,src=${dir}/agent-certs,dst=/run/agent-certs,readonly`,
       "--mount", `type=bind,src=${dir}/sandbox,dst=/run/sandbox`,
@@ -191,7 +196,8 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
       if (storage.ossVerified !== true) throw new Error("OSS_NOT_VERIFIED");
       try {
         const result = JSON.parse(await job("scripts/cloud-business-probe.ts", { ...env().api, ...env().bootstrap,
-          PROVISION_PUBLIC_URL: config.environment.publicUrl, PROVISION_ORG_ID: admin.orgId, PROVISION_DEFAULT_AGENT_ID: admin.defaultAgentId }, context));
+          PROVISION_PUBLIC_URL: config.environment.publicUrl, PROVISION_ORG_ID: admin.orgId, PROVISION_DEFAULT_AGENT_ID: admin.defaultAgentId }, context, "api",
+          productionPreflightAddHost(config.environment)));
         if (result.ok !== true || result.loginVerified !== true || result.file?.fileRoundtripVerified !== true || result.agent?.agentBusinessVerified !== true || result.components?.model !== true || result.components?.sandbox !== true) throw new Error("BUSINESS_NOT_VERIFIED");
       } catch (error) {
         // Once the helper starts, a transport failure, signal, OOM, malformed
