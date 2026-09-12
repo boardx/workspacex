@@ -270,7 +270,7 @@ class Runtime:
             # tool progress live only on that channel, so replay every requested
             # mode through the same durable SSE ledger as terminal state.
             async for mode, data in graph.astream(payload, config=config, stream_mode=modes):
-                await self.ledger.append_event(run_id, mode, data)
+                await self.ledger.append_event(run_id, mode, _jsonable(data))
                 emitted_values = emitted_values or mode == "values"
             snapshot = await graph.aget_state(config)
             next_nodes = list(getattr(snapshot, "next", ()) or ())
