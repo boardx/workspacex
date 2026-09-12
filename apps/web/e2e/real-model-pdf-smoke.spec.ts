@@ -84,6 +84,15 @@ const EXPECT_NAME_RE = new RegExp(`\\.${EXPECT_EXT.replace(/[.*+?^${}()|[\]\\]/g
 let evidence: RealModelEvidence | null = null;
 let documentAutoApproveInitial: boolean | null = null;
 
+async function readDocumentAutoApproveFromApi(page: Page): Promise<boolean> {
+  const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
+  const response = await page.context().request.get(path);
+  expect(response.ok(), "读取文档自动批准授权必须使用当前浏览器会话成功").toBe(true);
+  const body = await response.json() as { enabled?: unknown };
+  expect(typeof body.enabled, "文档自动批准授权 GET 必须返回布尔 enabled").toBe("boolean");
+  return body.enabled as boolean;
+}
+
 async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promise<void> {
   const toggle = page.getByTestId("chat-document-generation-auto-approve-toggle");
   const expected = enabled ? "true" : "false";
@@ -172,15 +181,23 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
 
   /* ── ① 登录 + 打开真实 /chat ─────────────────────────────────────────── */
   await login(page, REAL_MODEL_SMOKE.email, REAL_MODEL_SMOKE.password);
+  // A failed historical run may have left this reversible test grant enabled. Read the
+  // persisted value before touching it; when it is true, clean that known test residue and
+  // verify the clean baseline before the UI reenacts the user's explicit enable action.
+  const persistedDocumentAutoApproveAtEntry = await readDocumentAutoApproveFromApi(page);
+  if (persistedDocumentAutoApproveAtEntry) await setDocumentAutoApproveFromApi(page, false);
+  documentAutoApproveInitial = false;
+  evidence.setContext("documentAutoApproveAtEntry", persistedDocumentAutoApproveAtEntry);
+  evidence.setContext("documentAutoApproveResidueReset", persistedDocumentAutoApproveAtEntry);
   await page.goto("/chat");
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toBeVisible({ timeout: 120_000 });
   const documentAutoApprove = page.getByTestId("chat-document-generation-auto-approve-toggle");
   await expect(documentAutoApprove).toBeEnabled({ timeout: 120_000 });
   await expect(documentAutoApprove).toHaveAttribute("aria-checked", /^(true|false)$/);
-  documentAutoApproveInitial = await documentAutoApprove.getAttribute("aria-checked") === "true";
+  await expect(documentAutoApprove).toHaveAttribute("aria-checked", "false");
   await setDocumentAutoApproveFromUi(page, true);
-  evidence.setContext("documentAutoApproveInitial", documentAutoApproveInitial);
+  evidence.setContext("documentAutoApproveCleanBaseline", documentAutoApproveInitial);
   evidence.setContext("documentAutoApproveEnabledForRun", true);
   const send = page.getByTestId("copilotkit-v2-send");
   // `data-send-state` 是 composer 自己声明给 e2e 的判据（见 copilotkit-v2-panel-body.tsx），
@@ -206,13 +223,26 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
         跑完再查这些的话，弹窗可能已经被关掉、横幅可能已经被下一次渲染顶掉。 */
   const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
   const approvalCard = page.getByTestId("chat-approval-card");
-  const restoredApproval = page.getByTestId("restored-run-approval");
+  const confirmIntentDialog = page.getByRole("dialog", { name: "确认任务意图" });
+  const confirmIntentContinue = page.getByTestId("agent-interrupt-confirm-intent-continue");
   const errorBanner = page.getByTestId("copilotkit-v2-error");
   let approvalSeenAt: string | null = null;
   let errorSeenText: string | null = null;
   let observedRunId: string | null = null;
   let threadId: string | null = null;
   let finalSendState = "running";
+  let confirmIntentSeenAt: string | null = null;
+  let confirmIntentMaxVisibleCards = 0;
+  let confirmIntentDecisionPosts = 0;
+  let confirmIntentContinued = false;
+  let confirmIntentDecisionStatus: number | null = null;
+  let confirmIntentDecisionBody: unknown = null;
+  page.on("request", (request) => {
+    if (request.method() === "POST"
+      && /\/agent-runs\/[^/?]+\/decision$/.test(new URL(request.url()).pathname)) {
+      confirmIntentDecisionPosts += 1;
+    }
+  });
   /**
    * 「run 真的起来过」的标记。
    *
@@ -225,8 +255,28 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   const deadline = sentAt + REAL_MODEL_SMOKE.runTimeoutMs;
 
   while (Date.now() < deadline) {
+    const visibleConfirmIntentCards = await confirmIntentDialog.count();
+    confirmIntentMaxVisibleCards = Math.max(confirmIntentMaxVisibleCards, visibleConfirmIntentCards);
+    if (visibleConfirmIntentCards > 0 && confirmIntentSeenAt === null) {
+      confirmIntentSeenAt = `+${((Date.now() - sentAt) / 1000).toFixed(1)}s`;
+    }
+    if (visibleConfirmIntentCards === 1 && !confirmIntentContinued) {
+      confirmIntentContinued = true;
+      const decisionResponse = page.waitForResponse((response) =>
+        response.request().method() === "POST"
+          && /\/agent-runs\/[^/?]+\/decision$/.test(new URL(response.url()).pathname),
+      );
+      await expect(confirmIntentContinue, "任务意图确认必须通过用户可见的唯一确认卡继续").toBeVisible();
+      await confirmIntentContinue.click();
+      const response = await decisionResponse;
+      confirmIntentDecisionStatus = response.status();
+      confirmIntentDecisionBody = response.request().postDataJSON();
+    }
     // 弹窗/横幅：数节点，不等它可见——`toBeVisible` 会等，等就会错过下一次采样。
-    if (approvalSeenAt === null && (await permissionDialog.count()) + (await approvalCard.count()) + (await restoredApproval.count()) > 0) {
+    // confirm_task_intent uses the same dialog shell as tool permission. Its named card is
+    // expected HITL, so only a dialog without that card is a tool-approval failure.
+    if (approvalSeenAt === null && (await approvalCard.count())
+      + ((await permissionDialog.count()) > 0 && visibleConfirmIntentCards === 0 ? 1 : 0) > 0) {
       approvalSeenAt = `+${((Date.now() - sentAt) / 1000).toFixed(1)}s`;
     }
     if (errorSeenText === null && (await errorBanner.count()) > 0) {
@@ -264,6 +314,11 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   evidence.setContext("threadId", threadId ?? "<未观测到>");
   evidence.setContext("agentRunId", observedRunId ?? "<未观测到：DOM 侧只有插话框会挂 data-run-id>");
   evidence.setContext("elapsedSeconds", Math.round(elapsedMs / 1000));
+  evidence.setContext("confirmIntentSeenAt", confirmIntentSeenAt ?? "<未出现>");
+  evidence.setContext("confirmIntentMaxVisibleCards", confirmIntentMaxVisibleCards);
+  evidence.setContext("confirmIntentDecisionPosts", confirmIntentDecisionPosts);
+  evidence.setContext("confirmIntentDecisionStatus", confirmIntentDecisionStatus ?? "<未提交>");
+  evidence.setContext("confirmIntentDecisionBody", confirmIntentDecisionBody ?? "<未提交>");
 
   await page.screenshot({ path: path.join(evidenceDir, "90-final-screen.png"), fullPage: true })
     .catch(() => undefined);
@@ -278,11 +333,22 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   );
 
   /* ── ④ 显式开启文档自动批准后，无工具审批弹窗（#3440）─────────────────── */
+  const expectsResearchIntentConfirmation = /研究\s*5\s*个[^。\n]*FDE/i.test(REAL_MODEL_SMOKE.prompt);
+  const researchIntentConfirmationOk = !expectsResearchIntentConfirmation || (
+    confirmIntentSeenAt !== null
+      && confirmIntentMaxVisibleCards === 1
+      && confirmIntentDecisionPosts === 1
+      && confirmIntentDecisionStatus === 200
+      && (confirmIntentDecisionBody as { decision?: unknown } | null)?.decision === "approve"
+  );
   evidence.record(
     "③ 显式开启文档自动批准后，全程没有出现工具授权/审批弹窗（#3440）",
-    approvalSeenAt === null,
+    approvalSeenAt === null && researchIntentConfirmationOk,
     approvalSeenAt === null
-      ? "chat-tool-permission-dialog / chat-approval-card / restored-run-approval 在整轮轮询中一次都没有出现"
+      ? "chat-tool-permission-dialog（排除 confirm_task_intent）/ chat-approval-card 在整轮轮询中一次都没有出现；"
+        + (expectsResearchIntentConfirmation
+          ? `意图确认卡=${confirmIntentSeenAt ?? "未出现"}、最大同时 ${confirmIntentMaxVisibleCards} 张、decision POST=${confirmIntentDecisionPosts}、status=${confirmIntentDecisionStatus ?? "无"}`
+          : "本 prompt 不要求意图确认卡")
       : `弹窗在 ${approvalSeenAt} 出现——L0 技能不该要人点确认`,
   );
 
@@ -307,6 +373,15 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   const normalized = bubbles.map(normalizeBubble).filter((t) => t.length >= 12);
   const duplicates = normalized.filter((t, i) => normalized.indexOf(t) !== i);
   evidence.writeJson("40-assistant-bubbles.json", bubbles.map(normalizeBubble));
+  const toolSnapshots = await page.getByTestId("copilotkit-v2-tool-generic").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      name: node.getAttribute("data-tool-name"),
+      status: node.getAttribute("data-tool-status"),
+      text: node.textContent?.replace(/\s+/g, " ").trim().slice(0, 2_000) ?? "",
+    })),
+  );
+  evidence.writeJson("42-tool-snapshots.json", toolSnapshots);
+  evidence.setContext("toolCallNames", toolSnapshots.map((tool) => tool.name ?? "<未命名>"));
   evidence.record(
     "⑤ 助手气泡没有逐字重复（#2780 规划句重复）",
     duplicates.length === 0,

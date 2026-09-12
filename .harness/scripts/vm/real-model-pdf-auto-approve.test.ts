@@ -29,4 +29,22 @@ describe("real-model PDF lane documents its consent before execution", () => {
     expect(spec).toContain("await request.get(path)");
     expect(spec).toContain('toEqual({ enabled })');
   });
+
+  it("cleans a historical grant residue before reenacting UI consent", () => {
+    const read = spec.indexOf("readDocumentAutoApproveFromApi(page)");
+    const reset = spec.indexOf("setDocumentAutoApproveFromApi(page, false)");
+    const enable = spec.indexOf("setDocumentAutoApproveFromUi(page, true)");
+    expect(read).toBeGreaterThan(-1);
+    expect(reset).toBeGreaterThan(read);
+    expect(enable).toBeGreaterThan(reset);
+    expect(spec).toContain('toHaveAttribute("aria-checked", "false")');
+  });
+
+  it("continues one confirm_task_intent card through real UI and records one decision POST", () => {
+    expect(spec).toContain('getByRole("dialog", { name: "确认任务意图" })');
+    expect(spec).toContain('getByTestId("agent-interrupt-confirm-intent-continue")');
+    expect(spec).toContain("confirmIntentDecisionPosts += 1");
+    expect(spec).toContain("confirmIntentDecisionPosts === 1");
+    expect(spec).toContain('decision === "approve"');
+  });
 });
