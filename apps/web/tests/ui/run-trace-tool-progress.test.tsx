@@ -54,3 +54,14 @@ describe("intra-tool progress in the run trace", () => {
     expect(entries[0]).toMatchObject({ status: "succeeded", progressText: "正在生成…" });
   });
 });
+
+it("keeps native task timing and zero-tool facts in expandable detail after completion", () => {
+  const facts = "子任务耗时 1.25 秒；工具调用 0 次，失败 0 次（未调用工具）";
+  render(<RunTracePanel runId="run-1" events={[
+    { ...start, toolName: "task" }, { ...base, seq: 2, kind: "tool_progress", attemptId: "a1", toolCallId: "a1:call-1", sourceToolCallId: "call-1", toolName: "task", message: facts },
+    { ...end, toolName: "task" },
+  ]} />);
+  expect(screen.getByTestId("run-trace-task-facts")).toHaveTextContent(facts);
+  expect(screen.getByTestId("run-trace-task-facts").closest("details")).not.toBeNull();
+  expect(screen.queryByTestId("subtask-live")).toBeNull();
+});
