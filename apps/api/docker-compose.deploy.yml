@@ -105,6 +105,8 @@ services:
     build:
       context: ../skill-sandbox
       dockerfile: Dockerfile
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:?set SOURCE_REVISION}
     network_mode: "none"
     read_only: true
     user: "${SANDBOX_UID:?set SANDBOX_UID}:${SANDBOX_GID:?set SANDBOX_GID}"
@@ -147,6 +149,8 @@ services:
     build:
       context: ../skill-sandbox
       dockerfile: Dockerfile
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:?set SOURCE_REVISION}
     init: true
     network_mode: "none"
     read_only: true

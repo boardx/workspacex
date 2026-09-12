@@ -49,6 +49,29 @@ describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
 
   it("① compose up 带 --build（否则镜像一旦存在就永远不再更新）", () => {
     expect(composeUpLine(deployText)).toContain("--build");
+    expect(deployText).toContain('SOURCE_REVISION="$SOURCE_REVISION"');
+    expect(readFileSync(COMPOSE, "utf8")).toContain(
+      "SOURCE_REVISION: ${SOURCE_REVISION:?set SOURCE_REVISION}",
+    );
+  });
+
+  it("①a compose recreate 失败只清理可机械证明的 stopped sandbox 残留", () => {
+    expect(deployText).toContain("reconcile_failed_sandbox_recreate");
+    expect(deployText).toContain('[[ "$state" != running && "$state" != restarting ]]');
+    expect(deployText).toContain(
+      '[[ "$project" == workspacex && "$service" == skill-sandbox ]]',
+    );
+    expect(deployText).toContain('[[ "$image" == workspacex-skill-sandbox* && "$network" == none ]]');
+    expect(deployText).toContain(
+      '[[ "$candidate_image_id" == "$desired_image_id" && "$created" > "$deep_created" ]]',
+    );
+    expect(deployText).toContain('docker rm "$candidate"');
+    expect(deployText).toMatch(/reconcile_failed_sandbox_recreate \|\| \{[\s\S]{0,300}exit 1/);
+  });
+
+  it("①b checkpoint probe prints only stable stage and exception class", () => {
+    expect(deployText).toContain("python -m deep_agent_service.checkpoint_readiness");
+    expect(deployText).not.toContain("checkpoint_readiness; then\n  >/dev/null 2>&1");
   });
 
   it("① 反证：把 --build 去掉，上面那条断言必须变红", () => {

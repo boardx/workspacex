@@ -28,10 +28,15 @@ it("derives the image port and initializes durable storage on the same private n
   const result = run(); expect(result.status).toBe(0); expect(result.stdout).toBe("8000");
   expect(result.calls).toContain("--network isolated-network --env-file");
   expect(result.calls).toContain("--add-host workspacex-api-host:host-gateway");
-  expect(result.calls).toContain("PostgresLedger");
-  expect(result.calls).toContain("probe_checkpoint");
-  expect(result.calls).toContain("probe_checkpoint_isolation");
-  expect(result.calls).toContain("probe_restricted_runtime");
+  expect(result.calls).toContain("python -m deep_agent_service.checkpoint_readiness");
+  const readiness = readFileSync(
+    resolve(dir, "../../../apps/deep-agent-service/src/deep_agent_service/checkpoint_readiness.py"),
+    "utf8",
+  );
+  expect(readiness).toContain("PostgresLedger");
+  expect(readiness).toContain("probe_checkpoint");
+  expect(readiness).toContain("probe_checkpoint_isolation");
+  expect(readiness).toContain("probe_restricted_runtime");
   expect(result.calls).not.toContain("rm -f workspacex-deep-agent");
 });
 it("database readiness failure cleans only its probe and retains the old service", () => {
