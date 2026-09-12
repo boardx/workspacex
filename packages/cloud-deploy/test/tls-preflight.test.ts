@@ -13,6 +13,9 @@ let certificatePem: string, privateKeyPem: string, otherCert: string, otherKey: 
 let server: Server, otherServer: Server;
 let url: string, otherUrl: string;
 let responseStatus = 404;
+let rootRedirect: string | undefined;
+let loginStatus = 200;
+let seenRequests: Array<{ method?: string; url?: string }> = [];
 const context = (budget = 2000) => ({ signal: new AbortController().signal, remainingMs: () => budget });
 const secret = (certificate = certificatePem, key = privateKeyPem) => ({ TLS_TEST_SECRET: JSON.stringify({ certificatePem: certificate, privateKeyPem: key }) });
 const environment = (publicUrl = url) => ({ publicUrl, tlsSecretRef: "env:TLS_TEST_SECRET" });
@@ -37,7 +40,11 @@ beforeAll(async () => {
   };
   [certificatePem, privateKeyPem] = make("leaf") as [string, string];
   [otherCert, otherKey] = make("other") as [string, string];
-  server = createServer({ cert: certificatePem, key: privateKeyPem }, (_req, res) => { res.writeHead(responseStatus); res.end(); });
+  server = createServer({ cert: certificatePem, key: privateKeyPem }, (req, res) => {
+    seenRequests.push({ method: req.method, url: req.url });
+    if (req.url === "/" && rootRedirect) { res.writeHead(307, { location: rootRedirect }); res.end(); return; }
+    res.writeHead(req.url === "/login" ? loginStatus : responseStatus); res.end();
+  });
   otherServer = createServer({ cert: otherCert, key: otherKey }, (_req, res) => { res.writeHead(200); res.end(); });
   url = await listen(server); otherUrl = await listen(otherServer);
 });
@@ -70,10 +77,34 @@ describe("TLS initialization preflight", () => {
     });
     expect(routed).toEqual({ address: "127.0.0.1", family: 4 });
   });
-  it.each([302, 503])("rejects a redirect or unhealthy HTTPS response (%i)", async status => {
+  it.each([302, 307, 503])("rejects an unsupported, location-less, or unhealthy HTTPS response (%i)", async status => {
     responseStatus = status;
     try { await expect(verifyTlsPreflight(environment(), context(), secret(), trustedRequest)).rejects.toThrow("TLS_ENDPOINT_UNVERIFIED"); }
     finally { responseStatus = 404; }
+  });
+  it("accepts the live root 307 only after validating the same-origin /login target", async () => {
+    rootRedirect = "/login";
+    seenRequests = [];
+    try {
+      await expect(verifyTlsPreflight(environment(), context(), secret(), trustedRequest)).resolves.toMatchObject({ tlsVerified: true });
+      expect(seenRequests).toEqual([{ method: "HEAD", url: "/" }, { method: "HEAD", url: "/login" }]);
+    } finally { rootRedirect = undefined; }
+  });
+  it.each([
+    ["cross-origin", "https://example.com/login"],
+    ["other path", "/signin"],
+    ["query", "/login?next=/"],
+    ["fragment", "/login#form"],
+  ])("rejects a 307 redirect to %s", async (_case, location) => {
+    rootRedirect = location;
+    try { await expect(verifyTlsPreflight(environment(), context(), secret(), trustedRequest)).rejects.toThrow("TLS_ENDPOINT_UNVERIFIED"); }
+    finally { rootRedirect = undefined; }
+  });
+  it("rejects a redirect chain from /login", async () => {
+    rootRedirect = "/login";
+    loginStatus = 307;
+    try { await expect(verifyTlsPreflight(environment(), context(), secret(), trustedRequest)).rejects.toThrow("TLS_ENDPOINT_UNVERIFIED"); }
+    finally { rootRedirect = undefined; loginStatus = 200; }
   });
   it("sanitizes unexpected transport errors", async () => {
     const throws = (() => { throw new Error(privateKeyPem); }) as typeof httpsRequest;
