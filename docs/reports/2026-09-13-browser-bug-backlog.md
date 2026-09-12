@@ -25,3 +25,5 @@
 
 #3517、#3518、#3521已由GitHub核实合入main；测试环境部署与浏览器复验尚未确认，仍不勾选。
 
+
+BUG013人工拒绝修复PR [#3531](https://github.com/boardx/workspacex/pull/3531)；BUG016助手选项修复PR [#3530](https://github.com/boardx/workspacex/pull/3530)，另有legacy不可用状态待独立修复。均不勾选。

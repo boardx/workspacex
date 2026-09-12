@@ -127,3 +127,7 @@ PASS/(PASS+DEFECT)=32/66=48.5%，未满足至少90%且PENDING=0。BLOCKED与PEND
 
 
 最新只读核验：测试环境仍运行原基线 `6746a0c7`，已合入修复尚未部署复测。手册文件从 `6746a0c7` 到 main `9c97c614a` 的diff为空，80项内容一致。
+
+补充修复PR：[#3530](https://github.com/boardx/workspacex/pull/3530)处理聊天中的不可用助手选项（SHA `b95a80a0a5c16b39ef1394e5674f24dbd66dee9e`）；另一项legacy不可用状态仍在独立修复，不能称所有助手目录问题已解决。[#3531](https://github.com/boardx/workspacex/pull/3531)将人工拒绝方案记为取消而非失败（SHA `331aef6b2af0076981d2d2b91895dc41e85f528c`）。两项均待CI及部署后浏览器复验。
+
+主线机械复核：80编号连续唯一，本地台账引用证据文件缺失0。浏览器工具重置后仍无法加载request-header policy，独立浏览器控制尚未恢复，验收继续保留未测与未复验边界。
