@@ -1,0 +1,69 @@
+Issue #3498 — local verification (2026-09-12)
+
+Baseline:
+  CI=true ./init.sh
+  PASS: dependency/hook setup and standard quick health checks.
+
+Shell syntax:
+  bash -n .harness/scripts/vm/deep-agent-lib.sh .harness/scripts/vm/deploy.sh .harness/scripts/vm/provision.sh
+  PASS.
+
+Deployment regression:
+  pnpm exec vitest run .harness/scripts/vm/deep-agent-checkpoint-lib.test.ts .harness/scripts/vm/deep-agent-deploy-preflight.test.ts .harness/scripts/vm/deep-agent-lib.test.ts .harness/scripts/vm/deploy-trusted-copy-drift.test.ts
+  PASS: 4 files, 60 tests. Bootstrap tests first failed on the baseline (3 failed,
+  1 passed), then passed with implementation. Covers credentials not in argv or
+  output, idempotency, external DSN preservation, ambiguous network/port failure,
+  and retaining the previous service when preflight fails.
+
+Python (uv sync --frozen --extra dev; repository lockfile):
+  .venv/bin/python -m pytest tests/test_checkpoint_namespace.py tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_graph_selector.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py tests/test_runtime_graph_context.py -q -rs
+  PASS: 141 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
+  integration requires an explicitly owned E003 container. It is not a
+  PostgreSQL test and is not claimed as covered by the checkpoint probe.
+
+Review regression:
+  Research success/interruption followed by HTTP state/thread reads after a new
+  Runtime instance: 2 failures before the HTTP routing fix, then passed.
+  Real no-model LangGraph/InMemorySaver test covers same-thread isolation and
+  nested subgraph pause, read, history, resume, and recompile recovery.
+
+Real PostgreSQL:
+  CHECKPOINT_TEST_PYTHON=<installed-runtime-python> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx .harness/scripts/vm/verify-deep-agent-checkpoint.mts
+  PASS: dedicated database bootstrap twice with stable credentials; minimum role
+  privileges; private-network TCP write; ledger setup; async graph write/read and
+  reconnect recovery; foreign-role rejection; external DSN preservation; no
+  credential in subprocess argv/output. Standard admission waited 10 minutes and
+  used its existing timeout policy; no admission setting was overridden.
+  Re-run after review: PASS also for the durable assistant identity projection,
+  same-thread two-assistant namespace isolation, restart/history routing, and
+  deletion of research checkpoints without affecting the other assistant. The
+  command completed in 26 seconds after standard admission; cleanup exited 0.
+
+Boundary: no external model calls; no claim of online deployment from local tests.
+
+Additional review regressions:
+  Invalid/malformed assistants and invalid execution mode are rejected before
+  ledger insertion; the previous successful run remains readable. Restricted
+  selector execution and HTTP restoration preserve the persisted config.
+  Native context success/error, enter/persist failures, cancellation before/after
+  task start, shutdown, HTTP failure cleanup, and expired-binding restart reads
+  are covered. Real LangGraph interrupt() verifies structured id/value recovery.
+  A failed native state projection write cannot report success. Internal state
+  projections do not enter SSE. These tests use local graphs/models only.
+
+Final PostgreSQL re-run: PASS (exit 0). Includes actual restricted graph
+selector/runtime/local HTTP reads and durable native JSONB projection recovery
+through a new Runtime, with native resolution forbidden and internal SSE events
+filtered. Standard resource admission waited 10m1s; execution took 1m24s;
+cleanup exited 0. The verifier removed its owned database/container resources.
+Independent incremental review: ACCEPT, including context lifecycle, run-scoped
+projection, structured Interrupt serialization, and probe cleanup boundaries.
+
+Final deployment-route review:
+  The deployed ASGI runtime exposes /healthz, not the legacy /ok. Two new shell
+  regressions failed against the old deployment block, then passed after the
+  route correction. All four deployment suites: 60 passed. Shell syntax and
+  diff whitespace checks passed; standard initialization passed again. Python
+  and PostgreSQL code is unchanged from the preceding verified commit.
+  Assistant registration output is explicitly not claimed as graph/model
+  execution readiness. The existing pre-replacement persistence probe remains.

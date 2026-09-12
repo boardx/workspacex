@@ -25,7 +25,7 @@ class MemoryLedger:
         self.threads[thread_id] = {"thread_id": thread_id, "status": "idle", "interrupts": {}}
         return True
     async def get_thread(self, thread_id): return self.threads.get(thread_id)
-    async def create_run(self, thread_id, run_id, request): self.runs[run_id] = {"run_id": run_id, "thread_id": thread_id, "status": "pending", "error": None}
+    async def create_run(self, thread_id, run_id, request): self.runs[run_id] = {"run_id": run_id, "thread_id": thread_id, "status": "pending", "error": None, "assistant_id": request.get("assistant_id", "Deep Agent"), "config": request.get("config")}
     async def update_run(self, run_id, status, error=None): self.runs[run_id].update(status=status, error=error)
     async def get_run(self, thread_id, run_id):
         row = self.runs.get(run_id)
@@ -120,3 +120,86 @@ async def test_postgres_ledger_prepares_durable_tables_and_fails_orphaned_runs(m
 def test_postgres_ledger_and_image_do_not_accept_missing_runtime_database():
     with pytest.raises(RuntimeError, match="DEEP_AGENT_CHECKPOINT_DB_REQUIRED"):
         PostgresLedger("")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("interrupted", [False, True])
+async def test_research_http_state_and_interrupts_follow_persisted_assistant_after_restart(interrupted):
+    from types import SimpleNamespace
+
+    deep, research, ledger = FakeGraph(), FakeGraph(), MemoryLedger()
+    research.values = {"topic": "synthetic research"}
+    async def research_state(_config):
+        return SimpleNamespace(values=research.values, next=("confirm",) if interrupted else (),
+            tasks=(SimpleNamespace(id="research-confirm", interrupts=({"value": "confirm research"},)),) if interrupted else ())
+    research.aget_state = research_state
+    loaded = []
+    def load(assistant, _config):
+        loaded.append(assistant)
+        return {"Deep Agent": deep, "Guided Research": research}[assistant]
+    runtime = Runtime(ledger, load)
+    app = create_app(runtime)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            await client.post("/threads", json={"thread_id": "shared"})
+            for assistant in ("Deep Agent", "Guided Research"):
+                response = await client.post("/threads/shared/runs", json={"assistant_id": assistant, "input": {}})
+                run_id = response.json()["run_id"]
+                await asyncio.gather(*list(runtime.tasks.values()))
+            assert (await ledger.get_run("shared", run_id))["status"] == ("interrupted" if interrupted else "success")
+    # New runtime instance must use the durable run identity, not an in-memory map.
+    restarted = create_app(Runtime(ledger, load))
+    async with restarted.router.lifespan_context(restarted):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=restarted), base_url="http://runtime") as client:
+            loaded.clear()
+            state = (await client.get("/threads/shared/state")).json()
+            assert state["values"] == research.values
+            assert state["metadata"]["run_id"] == run_id
+            thread = (await client.get("/threads/shared")).json()
+            assert bool(thread["interrupts"]) is interrupted
+            assert loaded == ["Guided Research", "Guided Research"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("invalid", ["unknown", "", None, 42, [], {}])
+async def test_invalid_assistant_cannot_replace_a_valid_threads_latest_run(invalid):
+    ledger, graph = MemoryLedger(), FakeGraph()
+    runtime = Runtime(ledger, lambda *_: graph)
+    app = create_app(runtime)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            await client.post("/threads", json={"thread_id": "valid"})
+            valid = await client.post("/threads/valid/runs", json={"assistant_id": "Guided Research", "input": {}})
+            await asyncio.gather(*list(runtime.tasks.values()))
+            response = await client.post("/threads/valid/runs", json={"assistant_id": invalid, "input": {}})
+            assert response.status_code == 404
+            assert len(ledger.runs) == 1
+            state = (await client.get("/threads/valid/state")).json()
+            assert state["metadata"]["run_id"] == valid.json()["run_id"]
+            assert state["values"] == graph.values
+
+
+@pytest.mark.anyio
+async def test_execution_route_is_validated_before_persist_and_restored_for_state_reads():
+    ledger, graph = MemoryLedger(), FakeGraph()
+    seen = []
+    def load(assistant, config):
+        mode = config["configurable"].get("execution-mode")
+        if mode != "text-only": raise ValueError("invalid execution route")
+        seen.append((assistant, mode))
+        return graph
+    runtime = Runtime(ledger, load)
+    app = create_app(runtime)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            await client.post("/threads", json={"thread_id": "restricted"})
+            config = {"configurable": {"execution-mode": "text-only"}}
+            response = await client.post("/threads/restricted/runs", json={"assistant_id": "Deep Agent", "config": config, "input": {}})
+            await asyncio.gather(*list(runtime.tasks.values()))
+            run_id = response.json()["run_id"]
+            assert seen == [("Deep Agent", "text-only")]
+            assert (await client.get("/threads/restricted/state")).json()["values"] == graph.values
+            invalid = await client.post("/threads/restricted/runs", json={"assistant_id": "Deep Agent", "config": {"configurable": {"execution-mode": "unknown"}}})
+            assert invalid.status_code == 404
+            assert len(ledger.runs) == 1
+            assert (await client.get("/threads/restricted/state")).json()["metadata"]["run_id"] == run_id

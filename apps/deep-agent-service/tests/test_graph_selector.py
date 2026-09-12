@@ -13,7 +13,7 @@ from deep_agent_service import graph_selector
 @pytest.fixture
 def configured(monkeypatch):
     monkeypatch.setattr(graph_selector, "_execution_mode_key", lambda: "test-execution-mode")
-    legacy = object()
+    legacy = SimpleNamespace(checkpointer=None)
     model = FakeMessagesListChatModel(responses=[AIMessage(content="text response")])
     monkeypatch.setitem(sys.modules, "deep_agent_service.graph", SimpleNamespace(graph=legacy, _model=model))
     return legacy
@@ -33,6 +33,7 @@ def test_unknown_explicit_mode_fails_closed(configured, mode):
 def test_text_only_has_no_tools_and_runs(configured):
     graph = graph_selector.select_graph({"configurable": {"test-execution-mode": "text-only"}})
     assert set(graph.nodes) == {"__start__", "model"}
+    assert graph.checkpointer is None
     result = graph.invoke({"messages": [{"role": "user", "content": "answer"}]})
     assert result["messages"][-1].content == "text response"
 
@@ -63,3 +64,33 @@ def test_self_hosted_runtime_uses_config_factory_without_changing_assistant_id(m
 def test_generated_execution_key_is_available():
     assert isinstance(graph_selector._execution_mode_key(), str)
     assert graph_selector._execution_mode_key()
+
+
+def test_restricted_selector_runtime_persists_without_external_model(configured, monkeypatch):
+    import asyncio
+    from langgraph.checkpoint.memory import InMemorySaver
+    from deep_agent_service.self_hosted_runtime import Runtime, production_graph_loader
+    from test_self_hosted_runtime import MemoryLedger
+
+    saver = InMemorySaver()
+    configured.checkpointer = saver
+    config = {"configurable": {"thread_id": "restricted", "test-execution-mode": "text-only"}}
+    selected = graph_selector.select_graph(config)
+    assert selected.checkpointer is saver
+    assert "tools" not in selected.nodes
+
+    async def exercise():
+        ledger = MemoryLedger()
+        runtime = Runtime(ledger, production_graph_loader)
+        await ledger.create_thread("restricted", "reject")
+        run_id = await runtime.create_run("restricted", {"assistant_id": "Deep Agent", "config": config, "input": {"messages": [{"role": "user", "content": "answer"}]}})
+        task = runtime.tasks[run_id]
+        await task
+        assert (await ledger.get_run("restricted", run_id))["status"] == "success"
+        restored = graph_selector.select_graph(config)
+        assert restored.checkpointer is saver
+        state = await restored.aget_state(config)
+        assert state.values["messages"][-1].content == "text response"
+        events = await ledger.events(run_id)
+        assert any(event["event"] == "values" for event in events)
+    asyncio.run(exercise())

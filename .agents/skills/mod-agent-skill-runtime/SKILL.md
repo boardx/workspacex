@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-12：自托管 runtime 的 PostgreSQL 就绪探针须覆盖异步图写入和重连恢复，只有 ledger 建表成功不足以证明图可运行。同步 PostgresSaver 接入 ainvoke 时需完整异步适配并持有连接；部署端口从镜像取值，替换旧容器前在同一网络完成探针（出处：issue #3498）。
 - 2026-09-07：同一个通用单轮补全 provider 的子能力若另开可选 model-id override，读取器必须明确复用已配置的通用 model id，并保持专用 override 优先；只读新变量会让已有可用模型的部署误报 `MODEL_UNAVAILABLE`。两处 DI 消费必须共用一个配置读取器，两处都空才 fail closed（出处：issue #2941）。
 - 2026-09-07：真实模型长链验收不能把 LangGraph 默认 `recursion_limit=25` 当成 25 次模型调用预算——当前中间件每轮会经过多个图节点，外层 recursion 可能先于 `ModelCallLimitMiddleware(run_limit=25)` 误杀，留下“25 次预算耗尽”的假归因。测试 runner 应把 recursion ceiling 设到明显更高，只让生产模型调用熔断器做权威边界，并用模型 callback 单独计数、断言 `<=25`（出处：issue #2930）。
 - 2026-09-05：把 `call_skill` 一刀切记成 L2 是把"调用 skill 这个动作"当成了风险

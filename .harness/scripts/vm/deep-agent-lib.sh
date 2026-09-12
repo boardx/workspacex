@@ -369,3 +369,99 @@ assert r.status_code==400' >/dev/null 2>&1 || {
     return 1
   }
 }
+
+# Dedicated self-hosted checkpoint storage. Prints only the verified Docker network.
+deep_agent_checkpoint_bootstrap() {
+  python3 - "$1" "${2:-workspacex-postgres-1}" <<'PY'
+import fcntl
+import os
+import re
+import secrets
+import stat
+import subprocess
+import sys
+import tempfile
+
+path, container = sys.argv[1:]
+marker = '# WORKSPACEX_MANAGED_DEEP_AGENT_CHECKPOINT=1'
+
+def fail(message):
+    print('checkpoint bootstrap: ' + message, file=sys.stderr)
+    raise SystemExit(1)
+
+try:
+    if os.path.islink(path) or not stat.S_ISREG(os.stat(path).st_mode):
+        fail('environment must be a regular, non-symlink file')
+    inspected = subprocess.run(['docker', 'inspect', '--format', '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}', container], capture_output=True, text=True)
+    networks = inspected.stdout.split()
+    if inspected.returncode or len(networks) != 1 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', networks[0]):
+        fail('PostgreSQL must have exactly one identifiable Docker network')
+    network = networks[0]
+    if network in ('host', 'none', 'bridge'):
+        fail('PostgreSQL requires a user-defined Docker network')
+    lock_fd = os.open(path + '.checkpoint.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with open(path) as stream:
+            content = stream.read()
+        values = re.findall(r'^DEEP_AGENT_CHECKPOINT_DB=(.*)$', content, re.MULTILINE)
+        if len(values) > 1:
+            fail('duplicate checkpoint DSN entries')
+        existing = values[0].strip() if values else ''
+        managed = marker in content.splitlines()
+        if existing and not managed:
+            print(network)
+            raise SystemExit(0)
+        if managed:
+            match = re.fullmatch(r'postgresql://wsx_deep_agent:([0-9a-f]{64})@postgres:5432/wsx_deep_agent', existing)
+            if not match:
+                fail('managed checkpoint DSN was changed; reconcile configuration explicitly')
+            password = match[1]
+        else:
+            password = secrets.token_hex(32)
+            dsn = 'postgresql://wsx_deep_agent:' + password + '@postgres:5432/wsx_deep_agent'
+            updated = re.sub(r'^DEEP_AGENT_CHECKPOINT_DB=.*\n?', '', content, flags=re.MULTILINE).rstrip('\n') + '\n' + marker + '\nDEEP_AGENT_CHECKPOINT_DB=' + dsn + '\n'
+            info = os.stat(path)
+            fd, temporary = tempfile.mkstemp(prefix='.checkpoint-env-', dir=os.path.dirname(os.path.abspath(path)))
+            try:
+                os.fchmod(fd, 0o600)
+                os.fchown(fd, info.st_uid, info.st_gid)
+                with os.fdopen(fd, 'w') as stream:
+                    stream.write(updated)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, path)
+            finally:
+                if os.path.exists(temporary): os.unlink(temporary)
+        # Password is constrained random hex and only travels over stdin. Never
+        # forward psql diagnostics: SQL errors may repeat the password-bearing line.
+        sql = """\\set ON_ERROR_STOP on
+DO $checkpoint$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='wsx_deep_agent') THEN
+  IF COALESCE(shobj_description((SELECT oid FROM pg_roles WHERE rolname='wsx_deep_agent'),'pg_authid'),'') <> 'workspacex-managed-checkpoint' THEN
+   RAISE EXCEPTION 'checkpoint role already exists without ownership marker';
+  END IF;
+ ELSE
+  CREATE ROLE wsx_deep_agent LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  COMMENT ON ROLE wsx_deep_agent IS 'workspacex-managed-checkpoint';
+ END IF;
+ IF EXISTS (SELECT 1 FROM pg_database WHERE datname='wsx_deep_agent' AND pg_get_userbyid(datdba)<>'wsx_deep_agent') THEN
+  RAISE EXCEPTION 'checkpoint database has an unexpected owner';
+ END IF;
+END $checkpoint$;
+ALTER ROLE wsx_deep_agent LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '""" + password + """';
+SELECT 'CREATE DATABASE wsx_deep_agent OWNER wsx_deep_agent' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname='wsx_deep_agent')\\gexec
+REVOKE ALL ON DATABASE wsx_deep_agent FROM PUBLIC;
+\\connect wsx_deep_agent
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO wsx_deep_agent;
+"""
+        result = subprocess.run(['docker', 'exec', '-i', container, 'psql', '-X', '-q', '-U', 'postgres', '-d', 'postgres'], input=sql, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode:
+            fail('dedicated database provisioning failed; credentials retained for retry')
+        print(network)
+except (OSError, ValueError):
+    fail('local provisioning operation failed')
+PY
+}

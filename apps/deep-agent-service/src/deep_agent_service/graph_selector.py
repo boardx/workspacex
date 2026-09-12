@@ -33,7 +33,7 @@ def select_graph(config: RunnableConfig):
         return graph
     if configurable[key] != "text-only":
         raise ValueError("Unsupported execution mode")
-    from deep_agent_service.graph import _model
+    from deep_agent_service.graph import _model, graph
     # No middleware, file backend, tool node, HITL or subagent machinery. Even
     # a model returning a fabricated tool call has no execution node to reach.
-    return create_agent(model=_model, tools=[])
+    return create_agent(model=_model, tools=[], checkpointer=graph.checkpointer)

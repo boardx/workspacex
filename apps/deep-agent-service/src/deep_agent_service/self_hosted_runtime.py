@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from dataclasses import dataclass
+from contextlib import AsyncExitStack
+from dataclasses import asdict, dataclass, is_dataclass
+from functools import lru_cache
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Protocol
 from uuid import uuid4
@@ -19,6 +21,18 @@ from psycopg.rows import dict_row
 
 
 TERMINAL = frozenset({"success", "error", "cancelled", "interrupted"})
+GRAPH_IDS = ("Deep Agent", "Guided Research")
+
+
+def graph_config(thread_id: str, config: Any = None) -> dict[str, Any]:
+    if config is not None and not isinstance(config, dict):
+        raise ValueError("INVALID_EXECUTION_CONFIG")
+    result = dict(config or {})
+    configurable = result.get("configurable")
+    if configurable is not None and not isinstance(configurable, dict):
+        raise ValueError("INVALID_EXECUTION_CONFIG")
+    result["configurable"] = {**(configurable or {}), "thread_id": thread_id}
+    return result
 
 
 class Ledger(Protocol):
@@ -100,7 +114,7 @@ class PostgresLedger:
     async def latest_run(self, thread_id: str) -> dict[str, Any] | None:
         def operation():
             with self._connect() as connection:
-                return connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1", (thread_id,)).fetchone()
+                return connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at,COALESCE(request->>'assistant_id','Deep Agent') AS assistant_id,request->'config' AS config FROM wsx_agent_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1", (thread_id,)).fetchone()
         return await self._call(operation)
 
     async def append_event(self, run_id: str, event: str, data: Any) -> None:
@@ -125,11 +139,39 @@ class PostgresLedger:
 def _jsonable(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
+    if is_dataclass(value) and not isinstance(value, type):
+        return _jsonable(asdict(value))
     if isinstance(value, dict): return {str(key): _jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)): return [_jsonable(item) for item in value]
     if isinstance(value, (str, int, float, bool)) or value is None: return value
     if isinstance(value, datetime): return value.astimezone(timezone.utc).isoformat()
     return repr(value)
+
+
+NATIVE_SNAPSHOT_EVENT = "__native_checkpoint_snapshot_v1"
+
+
+def is_native_config(config: dict[str, Any]) -> bool:
+    from deep_agent_service.native_factory import native_config_key
+    return native_config_key() in config.get("configurable", {})
+
+
+def snapshot_projection(snapshot: Any) -> dict[str, Any]:
+    """Persist the public state shape while the actual native graph is available."""
+    return _jsonable({
+        "values": getattr(snapshot, "values", {}),
+        "next": list(getattr(snapshot, "next", ()) or ()),
+        "tasks": [{"id": getattr(task, "id", None),
+                   "interrupts": getattr(task, "interrupts", ())}
+                  for task in (getattr(snapshot, "tasks", ()) or ())],
+    })
+
+
+async def enter_graph(stack: AsyncExitStack, candidate: Any) -> Any:
+    """Enter per-run native sessions; ordinary compiled graphs need no teardown."""
+    if hasattr(candidate, "__aenter__") and hasattr(candidate, "__aexit__"):
+        return await stack.enter_async_context(candidate)
+    return candidate
 
 
 @dataclass
@@ -139,6 +181,21 @@ class Runtime:
 
     def __post_init__(self):
         self.tasks: dict[str, asyncio.Task[None]] = {}
+        self._contexts: dict[str, AsyncExitStack] = {}
+        self._closing: dict[str, asyncio.Task[None]] = {}
+
+    async def _release_graph(self, run_id: str) -> None:
+        stack = self._contexts.pop(run_id, None)
+        if stack is not None:
+            self._closing[run_id] = asyncio.create_task(stack.aclose())
+        closing = self._closing.get(run_id)
+        if closing is not None:
+            # A second cancellation must not interrupt native session cleanup.
+            try:
+                await asyncio.shield(closing)
+            finally:
+                if closing.done():
+                    self._closing.pop(run_id, None)
 
     async def start(self) -> None:
         await self.ledger.prepare()
@@ -148,11 +205,28 @@ class Runtime:
         tasks = list(self.tasks.values())
         for task in tasks: task.cancel()
         if tasks: await asyncio.gather(*tasks, return_exceptions=True)
+        for run_id in set(self._contexts) | set(self._closing):
+            await self._release_graph(run_id)
 
     async def create_run(self, thread_id: str, request: dict[str, Any]) -> str:
-        run_id = str(uuid4())
-        await self.ledger.create_run(thread_id, run_id, request)
-        self.tasks[run_id] = asyncio.create_task(self._execute(thread_id, run_id, request))
+        if not isinstance(request, dict):
+            raise ValueError("INVALID_RUN_REQUEST")
+        assistant_id = request.get("assistant_id", "Deep Agent")
+        if not isinstance(assistant_id, str) or assistant_id not in GRAPH_IDS:
+            raise ValueError("ASSISTANT_NOT_FOUND")
+        config = graph_config(thread_id, request.get("config"))
+        # Resolve the graph before publishing a run as this thread's latest state.
+        # Reuse that instance so validation does not create a second connection.
+        stack = AsyncExitStack()
+        try:
+            graph = await enter_graph(stack, self.graph_loader(assistant_id, config))
+            run_id = str(uuid4())
+            await self.ledger.create_run(thread_id, run_id, request)
+        except BaseException:
+            await stack.aclose()
+            raise
+        self._contexts[run_id] = stack
+        self.tasks[run_id] = asyncio.create_task(self._execute(run_id, request, graph, config))
         self.tasks[run_id].add_done_callback(lambda _task: self.tasks.pop(run_id, None))
         return run_id
 
@@ -160,20 +234,18 @@ class Runtime:
         row = await self.ledger.get_run(thread_id, run_id)
         if row is None: return False
         task = self.tasks.get(run_id)
-        if task: task.cancel()
+        if task:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await self._release_graph(run_id)
         if row["status"] not in TERMINAL:
             await self.ledger.update_run(run_id, "cancelled")
             await self.ledger.append_event(run_id, "metadata", {"status": "cancelled"})
         return True
 
-    async def _execute(self, thread_id: str, run_id: str, request: dict[str, Any]) -> None:
+    async def _execute(self, run_id: str, request: dict[str, Any], graph: Any, config: dict[str, Any]) -> None:
         try:
             await self.ledger.update_run(run_id, "running")
-            config = dict(request.get("config") or {})
-            configurable = dict(config.get("configurable") or {})
-            configurable["thread_id"] = thread_id
-            config["configurable"] = configurable
-            graph = self.graph_loader(str(request.get("assistant_id", "Deep Agent")), config)
             payload = request.get("command") if "command" in request else request.get("input", {})
             if "command" in request:
                 from langgraph.types import Command
@@ -182,6 +254,8 @@ class Runtime:
             snapshot = await graph.aget_state(config)
             next_nodes = list(getattr(snapshot, "next", ()) or ())
             status = "interrupted" if next_nodes else "success"
+            if is_native_config(config):
+                await self.ledger.append_event(run_id, NATIVE_SNAPSHOT_EVENT, snapshot_projection(snapshot))
             await self.ledger.append_event(run_id, "values", getattr(snapshot, "values", result))
             await self.ledger.update_run(run_id, status)
             await self.ledger.append_event(run_id, "metadata", {"status": status})
@@ -190,6 +264,21 @@ class Runtime:
         except Exception as error:
             await self.ledger.update_run(run_id, "error", type(error).__name__)
             await self.ledger.append_event(run_id, "metadata", {"status": "error"})
+        finally:
+            await self._release_graph(run_id)
+
+
+@lru_cache(maxsize=1)
+def _self_hosted_research_graph():
+    from deep_agent_service.guided_research_graph import create_guided_research_graph
+    from deep_agent_service.harness import build_checkpointer
+    from deep_agent_service.postgres_checkpointer import FixedNamespaceCheckpointSaver
+    saver = build_checkpointer()
+    if saver is None:
+        raise RuntimeError("self-hosted research requires a checkpoint database")
+    return create_guided_research_graph(
+        checkpointer=FixedNamespaceCheckpointSaver(saver, "guided-research:v1")
+    )
 
 
 def production_graph_loader(graph_id: str, config: dict[str, Any]):
@@ -197,8 +286,7 @@ def production_graph_loader(graph_id: str, config: dict[str, Any]):
         from deep_agent_service.graph_selector import select_graph
         return select_graph(config)
     if graph_id == "Guided Research":
-        from deep_agent_service.guided_research_graph import graph
-        return graph
+        return _self_hosted_research_graph()
     raise ValueError("ASSISTANT_NOT_FOUND")
 
 
