@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { mkdir, open, lstat, rename, unlink, chown } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { randomUUID, X509Certificate } from "node:crypto";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import type { DeploymentConfig } from "./config";
@@ -41,15 +41,25 @@ export async function writeRuntimeFile(path: string, value: string, context: Con
     try { await directory.sync(); } finally { await directory.close(); }
   } finally { await file.close(); await unlink(temp).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
-async function certificateFile(path: string) {
+type CertificateLimits = { maxBytes: number; maxCertificates: number };
+const singleCaLimits: CertificateLimits = { maxBytes: 65536, maxCertificates: 16 };
+const providerCaBundleLimits: CertificateLimits = { maxBytes: 256 * 1024, maxCertificates: 128 };
+async function certificateFile(path: string, limits: CertificateLimits = singleCaLimits) {
   await assertTrustedPath(path, { trustedRoot: "/", kind: "file" });
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = await file.stat();
-    if (!stat.isFile() || stat.size < 1 || stat.size > 65536) throw new Error("INVALID_CA_FILE");
-    const buffer = Buffer.alloc(65537); const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
-    if (bytesRead > 65536) throw new Error("INVALID_CA_FILE");
-    return buffer.subarray(0, bytesRead).toString("utf8");
+    if (!stat.isFile() || stat.size < 1 || stat.size > limits.maxBytes) throw new Error("INVALID_CA_FILE");
+    const buffer = Buffer.alloc(limits.maxBytes + 1); const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+    if (bytesRead > limits.maxBytes) throw new Error("INVALID_CA_FILE");
+    const contents = buffer.subarray(0, bytesRead).toString("utf8");
+    const blocks = contents.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) ?? [];
+    const remainder = contents.replace(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g, "").trim();
+    if (blocks.length < 1 || blocks.length > limits.maxCertificates || remainder) throw new Error("INVALID_CA_FILE");
+    try {
+      for (const block of blocks) if (!new X509Certificate(block).ca) throw new Error();
+    } catch { throw new Error("INVALID_CA_FILE"); }
+    return contents;
   } finally { await file.close(); }
 }
 
@@ -59,6 +69,9 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
   const dir = options.runtimeDirectory;
   await privateDirectory(dir);
   const environment = await runtimeEnvironment(config, join(dir, "secrets"), source, context);
+  const redisCaFile = environment.api.REDIS_CA_FILE;
+  const redisCaContents = redisCaFile ? await certificateFile(redisCaFile, providerCaBundleLimits) : undefined;
+  for (const map of [environment.api, environment.migration, environment.bootstrap]) delete map.REDIS_CA_FILE;
   checkBudget(context);
   let persistence: z.infer<typeof agentPersistenceSchema>;
   let agentCaFile: string | undefined;
@@ -120,6 +133,14 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     environment.agent.DATABASE_URI = database.href;
     environment.agent.PGSSLROOTCERT = "/run/agent-certs/ca.pem";
   }
+  if (redisCaContents) {
+    await writeRuntimeFile(join(agentCerts, "redis-ca.pem"), redisCaContents, context, 0o644);
+    const redis = new URL(environment.agent.REDIS_URI!);
+    redis.searchParams.set("ssl_ca_certs", "/run/agent-certs/redis-ca.pem");
+    redis.searchParams.set("ssl_cert_reqs", "required");
+    redis.searchParams.set("ssl_check_hostname", "true");
+    environment.agent.REDIS_URI = redis.href;
+  }
   // The self-hosted HTTP ledger and the graph checkpointer share the dedicated
   // Agent database. Assign this only after the host CA path is rewritten.
   environment.agent.DEEP_AGENT_CHECKPOINT_DB = environment.agent.DATABASE_URI!;
@@ -133,6 +154,12 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     const contents = await certificateFile(ca);
     await writeRuntimeFile(join(certs, "ca.pem"), contents, context, 0o644);
     for (const map of [environment.api, environment.migration, environment.bootstrap]) map.PGSSLROOTCERT = "/run/certs/ca.pem";
+  }
+  if (redisCaContents) {
+    await writeRuntimeFile(join(certs, "redis-ca.pem"), redisCaContents, context, 0o644);
+    // Node treats this as an additive trust source; Redis still keeps hostname and
+    // certificate verification through its rejectUnauthorized:true runtime contract.
+    environment.api.NODE_EXTRA_CA_CERTS = "/run/certs/redis-ca.pem";
   }
   for (const name of ["sandbox", "sessions"]) {
     checkBudget(context); const path = join(dir, name); await privateDirectory(path, [1000]); await chown(path, 1000, 1000);
