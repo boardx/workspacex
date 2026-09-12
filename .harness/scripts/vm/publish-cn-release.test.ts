@@ -61,8 +61,10 @@ describe("China production release publisher",()=>{
   it("passes validated package indexes only to integrity-locked dependency installs",()=>{
     expect(source).toContain('npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}');
     expect(source).toContain('pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}');
+    expect(source).toContain('apt_mirror=${WSX_APT_MIRROR:-https://deb.debian.org}');
     expect(source).toContain('validate_package_index "$npm_registry" npm');
     expect(source).toContain('validate_package_index "$pypi_index_url" PyPI');
+    expect(source).toContain('validate_package_index "$apt_mirror" APT');
     expect(source.match(/--build-arg "NPM_REGISTRY=\$npm_registry"/g)).toHaveLength(3);
     expect(source.match(/--build-arg "PYPI_INDEX_URL=\$pypi_index_url"/g)).toHaveLength(2);
     for(const dockerfile of [apiDockerfile,webDockerfile]){
@@ -78,7 +80,10 @@ describe("China production release publisher",()=>{
     expect(agentDockerfile).not.toContain('uv sync --frozen');
     expect(sandboxDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
     expect(sandboxDockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
-    expect(source).toContain('build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url"');
+    expect(sandboxDockerfile).toContain('ARG APT_MIRROR=https://deb.debian.org');
+    expect(sandboxDockerfile).toContain('apt-get install -y --no-install-recommends ca-certificates');
+    expect(source).toContain('build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror"');
+    expect(sandboxDockerfile.match(/sed -Ei "s#https\?:\/\/deb\.debian\.org#\$\{APT_MIRROR\}#g"/g)).toHaveLength(4);
     expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
     expect(sandboxDockerfile.match(/--require-hashes/g)).toHaveLength(2);
   });

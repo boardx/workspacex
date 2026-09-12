@@ -19,6 +19,7 @@ ARG NODE_IMAGE=node:22-slim
 ARG PYTHON_IMAGE=python:3.11-slim
 ARG PYPI_INDEX_URL=https://pypi.org/simple
 ARG NPM_REGISTRY=https://registry.npmjs.org
+ARG APT_MIRROR=https://deb.debian.org
 FROM ${NODE_IMAGE} AS build
 ARG NPM_REGISTRY
 WORKDIR /build
@@ -55,6 +56,7 @@ COPY analysis/AnalysisSans.NOTICE /font/NOTICE
 # ---------- 运行阶段 ----------
 FROM ${NODE_IMAGE}
 ARG NPM_REGISTRY
+ARG APT_MIRROR
 
 # pptxgenjs **预装**进镜像。skill 原文写着「preinstalled — do not run `npm install`
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
@@ -112,6 +114,9 @@ RUN npm_config_registry="$NPM_REGISTRY" npm ci --omit=dev \
 # 省 3.5MB 不值得把它留着。纯英文文档不该背这 4.9MB，SKILL.md 因此要求：正文全是拉丁字符
 # 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
 RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap \
  && mkdir -p /usr/share/fonts/workspacex \
  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))" \
@@ -126,7 +131,8 @@ RUN apt-get update \
  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
 
 # W09: install renderers at build time; execution stays offline and resource bounded.
-RUN apt-get update \
+RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig \
  && fc-cache -f \
  && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt \
@@ -150,7 +156,8 @@ COPY --from=build /build/dist ./dist
 COPY src/generated ./dist/generated
 
 # W08: offline OCR, exact Debian Bookworm engine/language versions; no runtime download.
-RUN apt-get update \
+RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends tesseract-ocr=5.3.0-2 tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-chi-sim=1:4.1.0-2 \
  && dpkg-query -W tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim > /opt/sandbox/ocr-versions.txt \
  && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata > /opt/sandbox/ocr-model-hashes.txt \
@@ -160,7 +167,8 @@ COPY scripts/structure-document.py /usr/local/lib/workspacex/structure-document.
 COPY scripts/document-structure-limits.json /usr/local/lib/workspacex/document-structure-limits.json
 
 # W14: maintained offline audio decoding, fixed Bookworm package; no runtime installs.
-RUN apt-get update \
+RUN sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg=7:5.1.9-0+deb12u1 \
  && dpkg-query -W ffmpeg libavcodec59 libavformat59 libavutil57 libswresample4 > /opt/sandbox/audio-versions.txt \
  && ffmpeg -version > /opt/sandbox/audio-build.txt \
