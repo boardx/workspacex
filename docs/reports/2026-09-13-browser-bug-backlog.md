@@ -27,3 +27,15 @@
 
 
 BUG013人工拒绝修复PR [#3531](https://github.com/boardx/workspacex/pull/3531)；BUG016助手选项修复PR [#3530](https://github.com/boardx/workspacex/pull/3530)，另有legacy不可用状态待独立修复。均不勾选。
+
+## 第一轮追加（均未完成部署复验）
+
+- [ ] **BUG-017 / 额外观察：HMW字段型画布无法展示。** Issue #3533，PR [#3543](https://github.com/boardx/workspacex/pull/3543)，8项回归与独立review通过；待CI、部署和浏览器复验。
+- [ ] **BUG-018 / T76：自定义助手链路失败。** Issue [#3539](https://github.com/boardx/workspacex/issues/3539)，独立修复中。
+- [ ] **BUG-019 / T24：停止后麦克风仍被占用。** Issue [#3541](https://github.com/boardx/workspacex/issues/3541)，独立修复中。
+
+T21模板编辑状态列为待复现观察：发布和实际使用已通过，编辑器短暂/持续草稿状态需单独反证。
+
+当前第一轮40PASS/37DEFECT/3BLOCKED/0PENDING。三项BLOCKED：T8严格Wi-Fi五秒、T11前置文件、T37完整授权执行链。修复完成勾选数0。#3530已合入；#3534仍处理其他目录缺陷，待部署复验。
+
+- [ ] **BUG-020 / 补充观察：执行已失败，计划步骤仍显示进行中。** 在T42定时快照等场景观察到状态不一致，待定位修复；不覆盖T74成功态PASS。

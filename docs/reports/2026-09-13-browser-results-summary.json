@@ -1,13 +1,13 @@
 {
-  "snapshotTime": "2026-09-13T02:56:13+08:00",
+  "snapshotTime": "2026-09-13T03:35:06+08:00",
   "manualCommit": "6746a0c7f2af066301b18fe523674a3c86216cfc",
   "denominator": 80,
-  "sourceLedgerSha256": "9e0527b068768fd01778ecd6337c52ec02ad189a24b486cdc98d3dce6f91120e",
+  "sourceLedgerSha256": "13e616f52ec5d6546564e0d1d57043b482f26e2fe756cf9b84537dcdf95192ad",
   "counts": {
-    "PASS": 32,
-    "DEFECT": 34,
-    "PENDING": 12,
-    "BLOCKED": 2
+    "PASS": 40,
+    "DEFECT": 37,
+    "BLOCKED": 3,
+    "PENDING": 0
   },
   "results": [
     {
@@ -47,8 +47,8 @@
     },
     {
       "task": 8,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "BLOCKED",
+      "observation": "已补充真实浏览器DevTools单标签页Offline后恢复测试，长回答继续至五阶段完整终态，无重复段落；没有执行手册要求的整机Wi-Fi关闭5秒，且现有流是否实际中断缺充分证据，所以不把替代测试计为T8通过。"
     },
     {
       "task": 9,
@@ -112,8 +112,8 @@
     },
     {
       "task": 21,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "新建行动建议字段/提示词/版式并保存，首次发布已成功（编辑弹窗状态滞后）；模板库确认已发布，新独立聊天用模板key实际渲染标题和三条便签，每条含小林/9月23日。发布后编辑器旧草稿显示另列缺陷。"
     },
     {
       "task": 22,
@@ -127,13 +127,13 @@
     },
     {
       "task": 24,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "DEFECT",
+      "observation": "Real microphone transcription was editable and sent. After stop and normal reply, Chrome still indicated active microphone while app showed Start. Owned tab closed to release capture. Terminal callback cleanup defect tracked in #3541; full-sentence transcription accuracy still requires a controlled spoken sample."
     },
     {
       "task": 25,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "真实麦克风输入转写“嗯。”，停止后可编辑补充“请用一句话介绍你自己。”并发送，4秒正常回复。完整句子语音准确率不在该条已证范围，T24仍待完整语句核对。"
     },
     {
       "task": 26,
@@ -182,8 +182,8 @@
     },
     {
       "task": 35,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "DEFECT",
+      "observation": "手册宽泛原句获得反问，补齐合成试点信息要求单份分析文档后8秒失败，无产物；同run/单产物完整链路须修复后验证。"
     },
     {
       "task": 36,
@@ -197,13 +197,13 @@
     },
     {
       "task": 38,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "先选以后都允许，新run同类browser_navigate不再询问。后台精确关联seq4已授权同类操作自动放行及实际浏览器工具调用，证明持久授权生效；下游浏览器503仍为BUG002。之后已通过组织资料UI撤销本轮browser_navigate授权用于最后审批用例，不触动已有其他授权。"
     },
     {
       "task": 39,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "留到最后完成工具permission拒绝。browser_navigate拒绝后尝试fetch_url，最终明确没有真实读取页面不能冒充完成，48秒进入正常终态；无红色运行失败。不同于T34结构化方案拒绝路径。"
     },
     {
       "task": 40,
@@ -212,13 +212,13 @@
     },
     {
       "task": 41,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "Real UI double-click: ledger and OTEL confirm one approval, one resume, one browser_navigate execution. Downstream HTTP503 remains BUG002; this passes duplicate-submit protection only."
     },
     {
       "task": 42,
-      "status": "PENDING",
-      "observation": "第一轮约65/167/196秒有三张终态截图；第二轮尝试严格每分钟观察，约80/130秒截图后浏览器Debugger unattached导致第三张未保存。完整节奏仍未通过。"
+      "status": "PASS",
+      "observation": "长研究请求在10秒后明确失败终态。69.867/126.587/187.914秒观察均有明确结束提示，满足T42可观测性“或者已明确结束/超时”条款；不代表研究任务成功。"
     },
     {
       "task": 43,
@@ -352,8 +352,8 @@
     },
     {
       "task": 69,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "真实上传合成PDF并挂载文档理解技能，准确读出17/12访谈人数、先改引导再广告、Lin及2026-09-23。"
     },
     {
       "task": 70,
@@ -377,8 +377,8 @@
     },
     {
       "task": 74,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "PASS",
+      "observation": "真实三子任务，运行中过程默认收起，点击展开见task执行中；最终5/5完成且task文字变为已执行/工具调用完成。"
     },
     {
       "task": 75,
@@ -387,8 +387,8 @@
     },
     {
       "task": 76,
-      "status": "PENDING",
-      "observation": "尚未完成必要浏览器操作。"
+      "status": "DEFECT",
+      "observation": "原生task summary可以展开且有输入/结果；缺少每个子任务具体耗时数字及其工具使用明细，不满足四项验收要求。"
     },
     {
       "task": 77,
