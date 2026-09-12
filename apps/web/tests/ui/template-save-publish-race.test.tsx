@@ -8,7 +8,7 @@ vi.mock("@/components/canvas/template-dry-run-drawer", () => ({ TemplateDryRunDr
 vi.mock("@/lib/live-canvas", async (original) => ({ ...await original<typeof import("@/lib/live-canvas")>(), updateCanvasTemplateDraft: vi.fn(), updateCanvasTemplateMetadata: vi.fn(async () => ({})) }));
 import { TemplateEditorPanel } from "@/components/canvas/template-editor-panel";
 import { updateCanvasTemplateDraft, type CanvasTemplate } from "@/lib/live-canvas";
-const row = { key: "race-test", displayName: "测试模板", version: 1, status: "draft", builtin: false, platform: false, visibility: "org-wide", underlyingType: "canvas", sections: [], usageCount: 0, tags: [], title: "标题", footer: "", promptText: "", createdAt: "2026-09-13T00:00:00Z", updatedAt: "2026-09-13T00:00:00Z" } as CanvasTemplate;
+const row = { key: "race-test", displayName: "测试模板", version: 1, status: "draft", builtin: false, platform: false, visibility: "org-wide", underlyingType: "canvas", size: "A1", gridCols: 12, gridRows: 8, layoutSource: "user-edited", recommendAfter: [], sections: [], usageCount: 0, tags: [], title: "标题", footer: "", promptText: "", createdAt: "2026-09-13T00:00:00Z", updatedAt: "2026-09-13T00:00:00Z" } satisfies CanvasTemplate;
 describe("template save / publish serialization", () => {
   it("does not publish before a pending save has updated the editing snapshot", async () => {
     type Saved = Awaited<ReturnType<typeof updateCanvasTemplateDraft>>;
@@ -22,7 +22,7 @@ describe("template save / publish serialization", () => {
     await waitFor(() => expect(updateCanvasTemplateDraft).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId("tpladmin-editor-publish"));
     expect(onPublish).not.toHaveBeenCalled();
-    await act(async () => { resolveSave(row as Saved); });
+    await act(async () => { resolveSave(row); });
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId("tpladmin-editor-publish"));
     expect(onPublish).toHaveBeenCalledTimes(1);
