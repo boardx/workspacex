@@ -286,6 +286,9 @@ sudo -u "$RUN_AS" env NATIVE_SESSION_SOCKET="$NATIVE_SESSION_SOCKET_PATH" \
   node "$APP_DIR/.harness/scripts/vm/native-session-probe.mjs"
 echo "  Native sessions-only 沙箱就绪（socket=READY，AppArmor=ENFORCED）"
 
+step "受控浏览器 MCP：部署、真实握手、API 接线"
+browser_runtime_ensure_ready "$APP_DIR" "$ENV_FILE"
+
 # WARN healthz 应答只证明"有一个沙箱在跑"，不证明它是当前源码构建的那一版——上面那条
 #   `--build` 事故里，坏掉的沙箱 healthz 一直是 200。这里对跑着的容器取一次动态事实：
 #   镜像里该有的预装依赖与 CJK 字体真的在不在。缺了就红退，而不是等用户在 chat 里
