@@ -22,6 +22,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 ARG APT_MIRROR=https://deb.debian.org
 FROM ${NODE_IMAGE} AS build
 ARG NPM_REGISTRY
+RUN node -e "require('node:fs').writeFileSync('/tmp/ca-certificates.crt', require('node:tls').rootCertificates.join('\\n') + '\\n')"
 WORKDIR /build
 COPY package.json package-lock.json ./
 # ⚠ 刻意**不**拷 tsconfig.json：仓库里那份 `extends` 的是 monorepo 根配置，
@@ -57,7 +58,7 @@ COPY analysis/AnalysisSans.NOTICE /font/NOTICE
 FROM ${NODE_IMAGE}
 ARG NPM_REGISTRY
 ARG APT_MIRROR
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /tmp/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # pptxgenjs **预装**进镜像。skill 原文写着「preinstalled — do not run `npm install`
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
