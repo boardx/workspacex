@@ -196,9 +196,14 @@ class Runtime:
     def __post_init__(self):
         self.tasks: dict[str, asyncio.Task[None]] = {}
         self._contexts: dict[str, AsyncExitStack] = {}
+        self._graphs: dict[str, Any] = {}
         self._closing: dict[str, asyncio.Task[None]] = {}
 
+    def active_graph(self, run_id: str) -> Any | None:
+        return self._graphs.get(run_id)
+
     async def _release_graph(self, run_id: str) -> None:
+        self._graphs.pop(run_id, None)
         stack = self._contexts.pop(run_id, None)
         if stack is not None:
             self._closing[run_id] = asyncio.create_task(stack.aclose())
@@ -232,11 +237,15 @@ class Runtime:
         # Resolve the graph before publishing a run as this thread's latest state.
         # Reuse that instance so validation does not create a second connection.
         stack = AsyncExitStack()
+        run_id = str(uuid4())
         try:
             graph = await enter_graph(stack, self.graph_loader(assistant_id, config))
-            run_id = str(uuid4())
+            # Publish the instance before the ledger makes this run visible to
+            # state readers. Loading a second native graph remounts its session.
+            self._graphs[run_id] = graph
             await self.ledger.create_run(thread_id, run_id, request)
         except BaseException:
+            self._graphs.pop(run_id, None)
             await stack.aclose()
             raise
         self._contexts[run_id] = stack

@@ -12,6 +12,7 @@ import base64
 import binascii
 import json
 import threading
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -74,8 +75,17 @@ class HttpSessionSandbox(BaseSandbox):
     @staticmethod
     def _body(response: httpx.Response) -> dict:
         if not response.is_success:
-            # Status alone is safe; server error text may include secrets or paths.
-            raise SandboxTransportError(f"Sandbox request failed (HTTP {response.status_code})")
+            # Preserve only known conflict enums, never arbitrary server text or paths.
+            reason = ""
+            if response.status_code == 409:
+                try:
+                    payload = response.json()
+                    code = payload.get("error") if isinstance(payload, dict) else None
+                    if isinstance(code, str) and code in ("SESSION_BUSY", "SESSION_EXECUTION_CONFLICT", "SESSION_LIMIT"):
+                        reason = f": {code}"
+                except ValueError:
+                    pass
+            raise SandboxTransportError(f"Sandbox request failed (HTTP {response.status_code}){reason}")
         try:
             body = response.json()
             if not isinstance(body, dict):
@@ -150,9 +160,15 @@ class HttpSessionSandbox(BaseSandbox):
             parsed = upstream._parse_read_output(output, file_path)
         finally:
             # Generated hexadecimal path only, never interpolate a caller path into cleanup.
-            cleaned = self.execute(f"rm -f -- {capture} {capture}.ec")
-            if cleaned.exit_code != 0 or cleaned.truncated:
-                raise SandboxTransportError("Sandbox read capture cleanup failed")
+            initial_error = sys.exc_info()[1]
+            try:
+                cleaned = self.execute(f"rm -f -- {capture} {capture}.ec")
+                if cleaned.exit_code != 0 or cleaned.truncated:
+                    raise SandboxTransportError("Sandbox read capture cleanup failed")
+            except Exception:
+                if initial_error is None:
+                    raise
+                initial_error.add_note("Sandbox read capture cleanup also failed")
 
         observe_skill_read(file_path, parsed)
         return parsed
