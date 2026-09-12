@@ -1,13 +1,37 @@
 # Devapp → 中国生产首次数据同步
 
-该流程只用于第一次建立中国生产数据。每次运行使用新的 UUID `migrationId` 和空目标数据库；已存在的收据或目标数据库一律拒绝复用。工具入口 `initialProductionSyncPlan` 默认只生成不含凭据的 dry-run 计划，真正执行器必须从 `env:` 或权限为 `0600` 的绝对 `file:` 引用读取源、目标数据库凭据。
+该流程只用于第一次建立中国生产数据。每次运行使用新的 UUID `migrationId` 和空目标数据库；已存在的收据或目标数据库一律拒绝复用。工具入口 `initialProductionSyncPlan` 默认只生成不含凭据的 dry-run 计划。目标数据库凭据必须来自 `env:` 或权限为 `0600` 的绝对 `file:` 引用。Devapp 源直接使用已有 PostgreSQL 容器和 `/opt/workspacex/objects`，不读取、复制或打印 Devapp 的部署密钥。
+
+当前 Devapp 的配置模板如下；容器、数据库名和对象目录必须按现场核对后填写，不能把密码写入该文件。
+
+```json
+{
+  "schemaVersion": 1,
+  "migrationId": "00000000-0000-4000-8000-000000000000",
+  "sourceDatabase": {
+    "mode": "devapp-docker",
+    "container": "workspacex-postgres-1",
+    "database": "workspacex",
+    "user": "postgres"
+  },
+  "targetDatabaseSecretRef": "file:/etc/workspacex-cn/target-db.json",
+  "sourceObjects": {
+    "mode": "filesystem",
+    "root": "/opt/workspacex/objects"
+  },
+  "targetOss": { "bucket": "workspacex-cn-files", "prefix": "objects/prod" },
+  "workDirectory": "/var/lib/workspacex-sync",
+  "schemaRevision": "填入40位发布commit SHA",
+  "keyMigration": { "mode": "rotate-required" }
+}
+```
 
 ## 操作顺序
 
 1. 在与发布 SHA 相同的迁移版本上创建目标空库。记录 source schema revision、`pg_current_wal_lsn()`、源表计数和迁移 ID。
-2. 使用 PostgreSQL 16 `pg_dump --format=custom --serializable-deferrable --lock-wait-timeout=10000` 生成一致性 dump，落入只允许操作者访问的新目录；记录文件大小和 SHA-256。
+2. 使用 `docker exec -i <container> pg_dump --format=custom --serializable-deferrable --lock-wait-timeout=10000` 生成一致性 dump。dump 只经 stdout 写入宿主机权限 `0600` 的新文件，不经过 shell、命令参数或日志；记录文件大小和 SHA-256。
 3. 对目标空库运行 `pg_restore --exit-on-error --single-transaction --no-owner`。禁止 `--clean`、覆盖已有数据库或在失败后自动重试同一目标库。
-4. 第一次同步 OSS 源 prefix 到新私有桶，生成包含 `key/size/sha256` 的 baseline inventory。数据库中的 `artifact_versions.object_storage_key` 和 `derived_representations.object_storage_key` 保持原 key 语义；目标 prefix 映射必须在复制器中完成，不能改写数据库行。
+4. 使用 `ossutil sync /opt/workspacex/objects oss://<target-bucket>/<prefix> --delete` 将 Devapp 文件目录同步到新私有桶，生成包含 `key/size/sha256` 的 baseline inventory。`ossutil` 必须使用实例 RAM 角色或受保护的配置文件获取凭据，禁止将 AccessKey 放入参数。数据库中的 `artifact_versions.object_storage_key` 和 `derived_representations.object_storage_key` 保持原 key 语义；目标 prefix 映射必须在复制器中完成，不能改写数据库行。
 5. 进入写入冻结窗口，再执行 OSS delta 同步并生成 source/target final inventory。`verifyOssInventory` 要求对象 key、长度和 SHA-256 集合完全相同；版本控制、公开 ACL 或额外对象均不允许据此标记通过。
 6. 验证所有外键、关键引用与内容摘要后再解除冻结。写入只读收据；相同 migration ID 不得再次导入。
 
@@ -40,7 +64,7 @@ pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/i
 pnpm --filter @repo/cloud-deploy initial-production-sync -- /etc/workspacex-cn/initial-sync.json accept /etc/workspacex-cn/initial-sync-acceptance.json
 ```
 
-CLI 直接以数组参数调用 PostgreSQL 16 客户端和 `ossutil`，不经过 shell。PG host、用户和口令只进入子进程环境。它以 `state.json` 恢复已完成阶段，以独占 `sync.lock` 阻止并发运行；目标数据库只要存在一张非系统表就拒绝 restore。OSS delta 必须显式传入写冻结确认参数。
+CLI 直接以数组参数调用 Docker、PostgreSQL 16 客户端和 `ossutil`，不经过 shell。Docker 源模式不需要数据库口令；远程数据库源模式下的 PG host、用户和口令只进入子进程环境。它以 `state.json` 恢复已完成阶段，以独占 `sync.lock` 阻止并发运行；目标数据库只要存在一张非系统表就拒绝 restore。文件系统到 OSS 同样执行 baseline 和冻结后的 delta 两阶段，delta 必须显式传入写冻结确认参数。
 
 ## 收据完成条件
 
