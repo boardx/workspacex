@@ -1,0 +1,20 @@
+WorkspaceX Analysis Sans is a modified subset of Noto Sans CJK SC.
+
+Upstream project: https://github.com/notofonts/noto-cjk
+Pinned revision: f8d157532fbfaeda587e826d4cd5b21a49186f7c
+Source path: Sans/Variable/TTF/NotoSansCJKsc-VF.ttf
+Source SHA256: 990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f
+Generated file: AnalysisSans.ttf
+Generated SHA256: 910a3152dfc32dfa63db8d1dc8bac55c526bb9ae4729274dd76d41524894c9fd
+Generator: prepare-font.py with fonttools 4.60.2
+
+Copyright © 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name
+"Source".
+
+Copyright metadata from the upstream font is retained in the generated font. The
+modified primary family name is WorkspaceX Analysis Sans; the upstream Reserved Font
+Name is not used as the primary family name.
+
+This modified font is redistributed under the SIL Open Font License, Version 1.1.
+The complete license accompanies it in font-LICENSE and is copied into the container
+as /font/LICENSE.
