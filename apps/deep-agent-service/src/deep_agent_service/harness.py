@@ -1466,16 +1466,13 @@ def build_subagents(model: BaseChatModel) -> list[dict]:
 def build_checkpointer():
     """自托管时显式 Postgres 持久化；平台托管时返回 None（图上不带，平台自己管）。
 
-    返回 (checkpointer | None, 需要调用方关闭的上下文 | None)。
+    返回持有连接的 checkpointer；调用方可 close()，平台托管时返回 None。
     这里刻意不吞异常：DSN 设了但连不上必须在建图时炸，而不是首轮对话时静默丢状态
     ——与 model.py 的 fail-closed 纪律同一条。
     """
     dsn = (os.environ.get("DEEP_AGENT_CHECKPOINT_DB") or "").strip()
     if dsn == "":
         return None
-    from langgraph.checkpoint.postgres import PostgresSaver
+    from .postgres_checkpointer import AsyncCompatiblePostgresSaver
 
-    saver_ctx = PostgresSaver.from_conn_string(dsn)
-    saver = saver_ctx.__enter__()  # 进程生命周期即连接生命周期，随进程退出释放
-    saver.setup()
-    return saver
+    return AsyncCompatiblePostgresSaver.connect(dsn)

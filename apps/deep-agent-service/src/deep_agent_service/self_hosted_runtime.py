@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Protocol
 from uuid import uuid4
@@ -192,13 +193,19 @@ class Runtime:
             await self.ledger.append_event(run_id, "metadata", {"status": "error"})
 
 
+@lru_cache(maxsize=1)
+def _self_hosted_research_graph():
+    from deep_agent_service.guided_research_graph import create_guided_research_graph
+    from deep_agent_service.harness import build_checkpointer
+    return create_guided_research_graph(checkpointer=build_checkpointer())
+
+
 def production_graph_loader(graph_id: str, config: dict[str, Any]):
     if graph_id == "Deep Agent":
         from deep_agent_service.graph_selector import select_graph
         return select_graph(config)
     if graph_id == "Guided Research":
-        from deep_agent_service.guided_research_graph import graph
-        return graph
+        return _self_hosted_research_graph()
     raise ValueError("ASSISTANT_NOT_FOUND")
 
 

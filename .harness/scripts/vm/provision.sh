@@ -197,19 +197,9 @@ KERNEL_DEEP_AGENT_STREAM_ENABLED=1
 # `confirm_task_intent`/`fill_run_params`/`choose_execution_option`）改为
 # `harness.py` 的 `DEFAULT_HITL_TOOL_NAMES` 常量，不再是可配置的部署项。
 #
-# DEEP_AGENT_CHECKPOINT_DB 不在这次移除范围内——它不是"能力开关"，而是部署拓扑
-# 参数（自托管需要显式 Postgres DSN；本部署走 langgraph dev，由它提供
-# checkpointer，见下方说明），R6 六个符号里这一个留待后续单独评估。
-# DA-04（rubric D4 持久化/时间旅行）：Postgres DSN，显式启用 PostgresSaver
-# （harness.py build_checkpointer）。⚠ 保持留空，理由不变：容器跑的是 langgraph dev
-# （见 apps/deep-agent-service/Dockerfile 末行），平台自带持久化层，自带 checkpointer
-# 与它是否冲突尚未实测；且 apps/web 全树没有任何检查点/恢复 UI，打开没有用户可见面。
-# 验证 + 做出可见面之后再填，不凭"设上就有"。
-#
-# ⚠ 澄清一个容易读错的依赖（issue #2017 实测）：build_interrupt_on 的 docstring 说
-# 「中断依赖 checkpointer……自托管必须同时设 DEEP_AGENT_CHECKPOINT_DB」——**本部署不是
-# 那个"自托管"分支**。CMD 是 `langgraph dev`（Dockerfile 末行），由它提供 checkpointer，
-# 所以 graph.py 传 checkpointer=None 是正确的，打开 HITL **不需要**同时设这个 DSN。
+# 自托管 ASGI runtime 必须持久化 checkpoint 和运行记录。deploy.sh 为旧环境
+# 幂等创建专用 PostgreSQL 数据库/角色并安全生成 DSN；不使用业务 app_rw 凭据。
+# 已配置外部专用数据库时保留本项，部署前验证连通性，不覆盖管理员的配置。
 # DEEP_AGENT_CHECKPOINT_DB=
 # DA-10（rubric D10④）：LangSmith tracing，可选。三行都填才生效（deploy.sh 4h 步
 # 会在设了 TRACING 却缺 API_KEY 时红退）。默认注释 = 关闭。

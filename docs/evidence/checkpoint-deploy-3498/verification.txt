@@ -1,0 +1,32 @@
+Issue #3498 — local verification (2026-09-12)
+
+Baseline:
+  CI=true ./init.sh
+  PASS: dependency/hook setup and standard quick health checks.
+
+Shell syntax:
+  bash -n .harness/scripts/vm/deep-agent-lib.sh .harness/scripts/vm/deploy.sh .harness/scripts/vm/provision.sh
+  PASS.
+
+Deployment regression:
+  pnpm exec vitest run .harness/scripts/vm/deep-agent-checkpoint-lib.test.ts .harness/scripts/vm/deep-agent-deploy-preflight.test.ts .harness/scripts/vm/deep-agent-lib.test.ts .harness/scripts/vm/deploy-trusted-copy-drift.test.ts
+  PASS: 4 files, 58 tests. Bootstrap tests first failed on the baseline (3 failed,
+  1 passed), then passed with implementation. Covers credentials not in argv or
+  output, idempotency, external DSN preservation, ambiguous network/port failure,
+  and retaining the previous service when preflight fails.
+
+Python (uv sync --frozen --extra dev; repository lockfile):
+  .venv/bin/python -m pytest tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py -q
+  PASS: 104 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
+  integration requires an explicitly owned E003 container. It is not a
+  PostgreSQL test and is not claimed as covered by the checkpoint probe.
+
+Real PostgreSQL:
+  CHECKPOINT_TEST_PYTHON=<installed-runtime-python> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec tsx .harness/scripts/vm/verify-deep-agent-checkpoint.mts
+  PASS: dedicated database bootstrap twice with stable credentials; minimum role
+  privileges; private-network TCP write; ledger setup; async graph write/read and
+  reconnect recovery; foreign-role rejection; external DSN preservation; no
+  credential in subprocess argv/output. Standard admission waited 10 minutes and
+  used its existing timeout policy; no admission setting was overridden.
+
+Boundary: no external model calls; no claim of online deployment from local tests.

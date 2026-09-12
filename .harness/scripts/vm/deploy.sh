@@ -410,6 +410,9 @@ fi
 # shellcheck source=/dev/null
 source "$DEEP_AGENT_LIB"
 
+# Bootstrap before replacing the existing service; stdout contains only network name.
+DEEP_AGENT_NETWORK=$(deep_agent_checkpoint_bootstrap "$ENV_FILE" workspacex-postgres-1) || exit 1
+
 DEEP_AGENT_ENV_FILE=${DEEP_AGENT_ENV_FILE:-/opt/workspacex/deep-agent.env}
 DEEP_AGENT_SHA=$(sudo -u "$RUN_AS" git rev-parse --short HEAD)
 DEEP_AGENT_IMAGE="deep-agent-service:${DEEP_AGENT_SHA}"
@@ -492,9 +495,24 @@ DEEP_AGENT_PREV_TAG=""
 case "$DEEP_AGENT_PREV_IMAGE" in
   deep-agent-service:*) DEEP_AGENT_PREV_TAG=${DEEP_AGENT_PREV_IMAGE#deep-agent-service:} ;;
 esac
+# The image exposes the runtime port; do not retain the old langgraph-dev port.
+DEEP_AGENT_CONTAINER_PORT=$(docker image inspect --format '{{json .Config.ExposedPorts}}' "$DEEP_AGENT_IMAGE" | python3 -c 'import json,sys; p=list(json.load(sys.stdin) or {}); assert len(p)==1 and p[0].endswith("/tcp"); n=int(p[0].split("/")[0]); assert 1<=n<=65535; print(n)')
+# Exercise ledger initialization and async checkpoint recovery on the runtime network, before
+# removing the previous container. Suppress driver diagnostics that can contain DSNs.
+CHECKPOINT_PROBE_NAME="workspacex-checkpoint-probe-${DEEP_AGENT_SHA}"
+if ! timeout 60s docker run --rm --name "$CHECKPOINT_PROBE_NAME" \
+  --network "$DEEP_AGENT_NETWORK" --env-file "$DEEP_AGENT_ENV_FILE" \
+  --add-host workspacex-api-host:host-gateway \
+  "$DEEP_AGENT_IMAGE" python -c 'import asyncio,os; from deep_agent_service.self_hosted_runtime import PostgresLedger; from deep_agent_service.postgres_checkpointer import probe_checkpoint; asyncio.run(PostgresLedger(os.environ["DEEP_AGENT_CHECKPOINT_DB"]).prepare()); asyncio.run(probe_checkpoint(os.environ["DEEP_AGENT_CHECKPOINT_DB"]))' >/dev/null 2>&1; then
+  docker rm -f "$CHECKPOINT_PROBE_NAME" >/dev/null 2>&1 || true
+  echo "✗ Deep Agent checkpoint database readiness failed; previous service retained" >&2
+  exit 1
+fi
+
 docker rm -f workspacex-deep-agent >/dev/null 2>&1 || true
 docker run -d --name workspacex-deep-agent --restart unless-stopped \
-  -p "127.0.0.1:${DEEP_AGENT_HOST_PORT}:2024" \
+  -p "127.0.0.1:${DEEP_AGENT_HOST_PORT}:${DEEP_AGENT_CONTAINER_PORT}" \
+  --network "$DEEP_AGENT_NETWORK" \
   --add-host workspacex-api-host:host-gateway \
   -v "${NATIVE_SESSION_SOCKET_DIR}:/run/native-sessions:ro" \
   --env-file "$DEEP_AGENT_ENV_FILE" \
