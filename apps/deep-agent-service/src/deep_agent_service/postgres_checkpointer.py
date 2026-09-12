@@ -215,3 +215,96 @@ async def probe_checkpoint_isolation(dsn: str):
             await raw.adelete_thread(thread)
         finally:
             await asyncio.to_thread(raw.close)
+
+
+async def probe_restricted_runtime(dsn: str):
+    """Isolated preflight process only: actual selector/runtime with a local model."""
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+    from langchain_core.messages import AIMessage
+    from deep_agent_service.graph_selector import _execution_mode_key, select_graph
+    from deep_agent_service.self_hosted_runtime import PostgresLedger, Runtime, production_graph_loader
+
+    thread = "restricted-runtime-probe-" + uuid4().hex
+    config = {"configurable": {"thread_id": thread, _execution_mode_key(): "text-only"}}
+    saver = await asyncio.to_thread(AsyncCompatiblePostgresSaver.connect, dsn)
+    ledger = PostgresLedger(dsn)
+    runtime = Runtime(ledger, production_graph_loader)
+    try:
+        # Do not Runtime.start(): its orphan recovery must never touch live runs.
+        await ledger.prepare()
+        await ledger.create_thread(thread, "reject")
+        model = FakeMessagesListChatModel(responses=[AIMessage(content="checkpoint probe response")])
+        binding = SimpleNamespace(graph=SimpleNamespace(checkpointer=saver), _model=model)
+        with patch.dict(sys.modules, {"deep_agent_service.graph": binding}):
+            selected = select_graph(config)
+            if selected.checkpointer is not saver or "tools" in selected.nodes:
+                raise RuntimeError("restricted selector persistence/safety mismatch")
+            run_id = await runtime.create_run(thread, {"assistant_id": "Deep Agent", "config": config, "input": {"messages": [{"role": "user", "content": "probe"}]}})
+            await runtime.tasks[run_id]
+            row = await ledger.get_run(thread, run_id)
+            if not row or row["status"] != "success":
+                raise RuntimeError("restricted runtime checkpoint execution failed")
+            state = await select_graph(config).aget_state(config)
+            if state.values["messages"][-1].content != "checkpoint probe response":
+                raise RuntimeError("restricted runtime checkpoint read failed")
+            # Exercise the same persisted-config routing used by HTTP clients.
+            # ASGITransport makes local calls and does not run the app lifespan.
+            import httpx
+            from deep_agent_service.http_app import create_app
+            app = create_app(runtime)
+            app.state.runtime = runtime
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://checkpoint-probe") as client:
+                response = await client.get(f"/threads/{thread}/state")
+                if response.status_code != 200:
+                    raise RuntimeError("restricted runtime HTTP state routing failed")
+                payload = response.json()
+                if payload.get("metadata", {}).get("run_id") != run_id or payload.get("values", {}).get("messages", [{}])[-1].get("content") != "checkpoint probe response":
+                    raise RuntimeError("restricted runtime HTTP checkpoint mismatch")
+                response = await client.get(f"/threads/{thread}")
+                if response.status_code != 200 or response.json().get("thread_id") != thread or response.json().get("status") != "idle":
+                    raise RuntimeError("restricted runtime HTTP thread read failed")
+            # Persist/reload the native read projection using real JSONB events.
+            # No native execution binding is created: this belongs only to our
+            # disposable probe thread, and must restore without resolving one.
+            from deep_agent_service.native_factory import native_config_key
+            from deep_agent_service.self_hosted_runtime import NATIVE_SNAPSHOT_EVENT, snapshot_projection
+            native_run = str(uuid4())
+            native_config = {"configurable": {native_config_key(): {"bindingId": str(uuid4()), "profile": "native-v1", "policy": "native-v1"}}}
+            await ledger.create_run(thread, native_run, {"assistant_id": "Deep Agent", "config": native_config})
+            projection = snapshot_projection(state)
+            await ledger.append_event(native_run, NATIVE_SNAPSHOT_EVENT, projection)
+            await ledger.update_run(native_run, "success")
+            reloaded = PostgresLedger(dsn)
+            persisted_events = await reloaded.events(native_run)
+            if len(persisted_events) != 1 or persisted_events[0]["data"] != projection:
+                raise RuntimeError("native projection PostgreSQL roundtrip failed")
+            restored = Runtime(reloaded, production_graph_loader)
+            restored_app = create_app(restored)
+            restored_app.state.runtime = restored
+            with patch("deep_agent_service.native_factory._resolve", side_effect=AssertionError("native read must not resolve binding")):
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=restored_app), base_url="http://checkpoint-probe") as client:
+                    response = await client.get(f"/threads/{thread}/state")
+                    if response.status_code != 200 or response.json().get("metadata", {}).get("run_id") != native_run or response.json().get("values") != projection["values"]:
+                        raise RuntimeError("native projection HTTP restart recovery failed")
+                    response = await client.get(f"/threads/{thread}")
+                    if response.status_code != 200 or response.json().get("status") != "idle":
+                        raise RuntimeError("native projection HTTP thread recovery failed")
+                    stream = await client.get(f"/threads/{thread}/runs/{native_run}/stream")
+                    if NATIVE_SNAPSHOT_EVENT in stream.text:
+                        raise RuntimeError("native projection leaked into public events")
+
+    finally:
+        await runtime.stop()
+        try:
+            await saver.adelete_thread(thread)
+            def cleanup():
+                with ledger._connect() as connection:
+                    connection.execute("DELETE FROM wsx_agent_events WHERE run_id IN (SELECT run_id FROM wsx_agent_runs WHERE thread_id=%s)", (thread,))
+                    connection.execute("DELETE FROM wsx_agent_runs WHERE thread_id=%s", (thread,))
+                    connection.execute("DELETE FROM wsx_agent_threads WHERE thread_id=%s", (thread,))
+            await asyncio.to_thread(cleanup)
+        finally:
+            await asyncio.to_thread(saver.close)

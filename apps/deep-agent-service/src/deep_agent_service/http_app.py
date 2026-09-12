@@ -3,17 +3,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
+from types import SimpleNamespace
 
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route
 
-from deep_agent_service.self_hosted_runtime import Runtime, _jsonable, production_runtime
-
-GRAPH_IDS = ("Deep Agent", "Guided Research")
+from deep_agent_service.self_hosted_runtime import GRAPH_IDS, NATIVE_SNAPSHOT_EVENT, Runtime, _jsonable, enter_graph, graph_config, is_native_config, production_runtime
 
 
 def _wire(value: Any) -> Any: return _jsonable(value)
@@ -39,9 +38,19 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
         # The HTTP state endpoint represents the latest run on this thread.
         # Recover its assistant from the durable ledger, including after restart.
         assistant = (latest or {}).get("assistant_id") or "Deep Agent"
-        config = {"configurable": {"thread_id": thread_id}}
-        graph = rt(request).graph_loader(assistant, config)
-        return await graph.aget_state(config), latest
+        config = graph_config(thread_id, (latest or {}).get("config"))
+        config["configurable"].pop("checkpoint_id", None)
+        if latest and is_native_config(config):
+            for event in reversed(await rt(request).ledger.events(latest["run_id"])):
+                if event["event"] == NATIVE_SNAPSHOT_EVENT:
+                    saved = event["data"]
+                    return SimpleNamespace(values=saved["values"], next=tuple(saved["next"]),
+                        tasks=tuple(SimpleNamespace(**task) for task in saved["tasks"])), latest
+            # Older runs predate the durable projection. Retain their existing
+            # live-binding read path; never fabricate missing state/interrupts.
+        async with AsyncExitStack() as stack:
+            graph = await enter_graph(stack, rt(request).graph_loader(assistant, config))
+            return await graph.aget_state(config), latest
 
     async def health(_request: Request):
         return JSONResponse({"ok": True, "runtime": "workspacex-self-hosted"})
@@ -104,6 +113,8 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
                 rows = await rt(request).ledger.events(run_id)
                 for row in rows[sent:]:
                     sent += 1
+                    if row["event"] == NATIVE_SNAPSHOT_EVENT:
+                        continue
                     yield f"id: {row['sequence']}\nevent: {row['event']}\ndata: {json.dumps(row['data'], ensure_ascii=False)}\n\n"
                 run = await rt(request).ledger.get_run(request.path_params["thread_id"], run_id)
                 if run is None or run["status"] in {"success", "error", "cancelled", "interrupted"}: break

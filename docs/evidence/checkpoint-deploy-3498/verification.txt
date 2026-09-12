@@ -16,8 +16,8 @@ Deployment regression:
   and retaining the previous service when preflight fails.
 
 Python (uv sync --frozen --extra dev; repository lockfile):
-  .venv/bin/python -m pytest tests/test_checkpoint_namespace.py tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py -q -rs
-  PASS: 109 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
+  .venv/bin/python -m pytest tests/test_checkpoint_namespace.py tests/test_postgres_checkpointer.py tests/test_self_hosted_runtime.py tests/test_graph_selector.py tests/test_harness.py tests/test_guided_research_graph.py tests/test_native_factory.py tests/test_runtime_graph_context.py -q -rs
+  PASS: 141 passed, 1 skipped. Skip confirmed with -rs: existing native sandbox
   integration requires an explicitly owned E003 container. It is not a
   PostgreSQL test and is not claimed as covered by the checkpoint probe.
 
@@ -40,3 +40,21 @@ Real PostgreSQL:
   command completed in 26 seconds after standard admission; cleanup exited 0.
 
 Boundary: no external model calls; no claim of online deployment from local tests.
+
+Additional review regressions:
+  Invalid/malformed assistants and invalid execution mode are rejected before
+  ledger insertion; the previous successful run remains readable. Restricted
+  selector execution and HTTP restoration preserve the persisted config.
+  Native context success/error, enter/persist failures, cancellation before/after
+  task start, shutdown, HTTP failure cleanup, and expired-binding restart reads
+  are covered. Real LangGraph interrupt() verifies structured id/value recovery.
+  A failed native state projection write cannot report success. Internal state
+  projections do not enter SSE. These tests use local graphs/models only.
+
+Final PostgreSQL re-run: PASS (exit 0). Includes actual restricted graph
+selector/runtime/local HTTP reads and durable native JSONB projection recovery
+through a new Runtime, with native resolution forbidden and internal SSE events
+filtered. Standard resource admission waited 10m1s; execution took 1m24s;
+cleanup exited 0. The verifier removed its owned database/container resources.
+Independent incremental review: ACCEPT, including context lifecycle, run-scoped
+projection, structured Interrupt serialization, and probe cleanup boundaries.

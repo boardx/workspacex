@@ -503,7 +503,7 @@ CHECKPOINT_PROBE_NAME="workspacex-checkpoint-probe-${DEEP_AGENT_SHA}"
 if ! timeout 60s docker run --rm --name "$CHECKPOINT_PROBE_NAME" \
   --network "$DEEP_AGENT_NETWORK" --env-file "$DEEP_AGENT_ENV_FILE" \
   --add-host workspacex-api-host:host-gateway \
-  "$DEEP_AGENT_IMAGE" python -c 'import asyncio,os; from deep_agent_service.self_hosted_runtime import PostgresLedger; from deep_agent_service.postgres_checkpointer import probe_checkpoint, probe_checkpoint_isolation; asyncio.run(PostgresLedger(os.environ["DEEP_AGENT_CHECKPOINT_DB"]).prepare()); asyncio.run(probe_checkpoint(os.environ["DEEP_AGENT_CHECKPOINT_DB"])); asyncio.run(probe_checkpoint_isolation(os.environ["DEEP_AGENT_CHECKPOINT_DB"]))' >/dev/null 2>&1; then
+  "$DEEP_AGENT_IMAGE" python -c 'import asyncio,os; from deep_agent_service.self_hosted_runtime import PostgresLedger; from deep_agent_service.postgres_checkpointer import probe_checkpoint, probe_checkpoint_isolation, probe_restricted_runtime; asyncio.run(PostgresLedger(os.environ["DEEP_AGENT_CHECKPOINT_DB"]).prepare()); asyncio.run(probe_checkpoint(os.environ["DEEP_AGENT_CHECKPOINT_DB"])); asyncio.run(probe_checkpoint_isolation(os.environ["DEEP_AGENT_CHECKPOINT_DB"])); asyncio.run(probe_restricted_runtime(os.environ["DEEP_AGENT_CHECKPOINT_DB"]))' >/dev/null 2>&1; then
   docker rm -f "$CHECKPOINT_PROBE_NAME" >/dev/null 2>&1 || true
   echo "✗ Deep Agent checkpoint database readiness failed; previous service retained" >&2
   exit 1

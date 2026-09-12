@@ -31,6 +31,7 @@ it("derives the image port and initializes durable storage on the same private n
   expect(result.calls).toContain("PostgresLedger");
   expect(result.calls).toContain("probe_checkpoint");
   expect(result.calls).toContain("probe_checkpoint_isolation");
+  expect(result.calls).toContain("probe_restricted_runtime");
   expect(result.calls).not.toContain("rm -f workspacex-deep-agent");
 });
 it("database readiness failure cleans only its probe and retains the old service", () => {

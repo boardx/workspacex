@@ -25,3 +25,20 @@ the full run request is not exposed in that projection.
 Verification commands and results are recorded in verification.txt. Tests use
 synthetic data and disposable PostgreSQL only; no external model calls or user
 research content are used.
+
+Further review covers restricted and native execution paths. Restricted graphs
+reuse the durable saver; invalid assistant/configuration requests are rejected
+before becoming the latest run. HTTP restoration retains the persisted execution
+mode. Native async contexts are entered before persistence and released on
+success, failure, cancellation, and shutdown. These changes close execution
+and recovery failures that a checkpoint-only database probe could miss.
+
+The deployment probe now exercises the real restricted graph selector, runtime,
+durable ledger, and local HTTP state/thread endpoints with a synthetic model.
+It does not start Runtime recovery against an existing service's active runs.
+
+Native completed/interrupted runs persist the actual graph state projection in
+the existing ledger before reporting completion. HTTP reads restore that
+projection after runtime restart or binding expiry; internal projection events
+are not emitted to SSE clients. Legacy native runs without a projection retain
+the live-binding read path; expired legacy bindings are not fabricated as valid.
