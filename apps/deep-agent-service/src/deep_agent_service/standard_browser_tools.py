@@ -8,7 +8,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 from jsonschema import Draft7Validator, FormatChecker
 from langchain.tools import ToolRuntime
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import StructuredTool, ToolException
 
 _SCHEMA = json.loads((Path(__file__).parent / 'generated/standard_browser_schema.json').read_text())
 _BINDING = json.loads((Path(__file__).parent / 'generated/native_session_binding_schema.json').read_text())['configurableKey']
@@ -18,6 +18,26 @@ _TOOLS = {name: (Draft7Validator(value['input'], format_checker=FormatChecker())
 
 class StandardBrowserError(RuntimeError):
     """Denied and unknown outcomes are intentionally indistinguishable to the model."""
+
+
+class LocalFilePreviewRefused(ToolException):
+    """Deterministic pre-dispatch refusal, not an unknown browser outcome."""
+
+
+def _check_local_preview(name, args):
+    raw = args.get('url')
+    if name == 'browser_navigate' and isinstance(raw, str) and urlsplit(raw).scheme.lower() == 'file':
+        raise LocalFilePreviewRefused(
+            'Local file URLs are not opened by the browser; no navigation was dispatched. '
+            'Do not retry this URL. For a generated workspace file, use the supported '
+            'read_file or execute tools to validate it, then call wx_artifact_publish '
+            'separately if a valid deliverable is requested. A browser preview is not required for publication.')
+
+
+def _known_refusal(error):
+    if isinstance(error, LocalFilePreviewRefused):
+        return str(error)
+    raise error
 
 
 async def _invoke(name, args, runtime):
@@ -80,7 +100,7 @@ async def _invoke(name, args, runtime):
 
 def standard_browser_tools():
     descriptions = {
-        'browser_navigate': 'Open a public HTTP(S) page in this run-isolated browser. Private network destinations and credentials in URLs are refused.',
+        'browser_navigate': 'Open a public HTTP(S) page in this run-isolated browser. Private network destinations, credentials in URLs and file URLs are refused. For generated workspace files, validate with read_file or execute and publish with wx_artifact_publish; browser preview is optional.',
         'browser_snapshot': 'Read the current page accessibility structure and receive opaque element references bound to this page generation.',
         'browser_click': 'Click one opaque element reference after dispatch-time authorization. Stale or cross-run references are refused.',
         'browser_fill_form': 'Fill authorized form fields by opaque references. Stale, foreign, or mismatched references are refused.',
@@ -89,11 +109,13 @@ def standard_browser_tools():
 
     def build(name):
         async def invoke(runtime: ToolRuntime, **kwargs):
+            _check_local_preview(name, kwargs)
             return await _invoke(name, kwargs, runtime)
 
         def sync(runtime: ToolRuntime, **kwargs):
+            _check_local_preview(name, kwargs)
             return asyncio.run(_invoke(name, kwargs, runtime))
 
-        return StructuredTool(name=name, description=descriptions[name], args_schema=_SCHEMA['tools'][name]['input'], func=sync, coroutine=invoke)
+        return StructuredTool(name=name, description=descriptions[name], args_schema=_SCHEMA['tools'][name]['input'], func=sync, coroutine=invoke, handle_tool_error=_known_refusal)
 
     return [build(name) for name in descriptions]
