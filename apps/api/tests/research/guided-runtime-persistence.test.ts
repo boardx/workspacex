@@ -32,6 +32,7 @@ let badCitation: boolean;
 let shallowReport: boolean;
 let searchCalls: number;
 let relevanceCalls: number;
+let malformedRelevanceOnce: boolean;
 let rejectRelevanceTaskId: string | undefined;
 let includeIrrelevantSearchHit: boolean;
 let proposedAction: "save" | "start" | "confirm" | "complete";
@@ -43,6 +44,7 @@ const model: ModelCallPort = { complete: async (input) => {
   const context = JSON.parse(input.user);
   if (context.researchStage === "source_relevance") {
     relevanceCalls++;
+    if (malformedRelevanceOnce) { malformedRelevanceOnce = false; return { text: '{"evaluations":[' }; }
     return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[]; taskId: string }) => {
       const irrelevant = chunk.content.includes("Unrelated Acura vehicle inventory") || chunk.taskId === rejectRelevanceTaskId;
       return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
@@ -89,7 +91,7 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; rejectRelevanceTaskId = undefined; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; malformedRelevanceOnce = false; rejectRelevanceTaskId = undefined; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
@@ -108,7 +110,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(reloaded.sources.find((source) => source.title === "Official policy")?.relevanceBasis).toEqual(expect.any(String));
   });
 
-  it("rechecks legacy accepted sources and persists the corrected decisions", async () => {
+  it("repairs malformed legacy review output and persists the corrected decisions", async () => {
     await reachResearch();
     const legacy = structuredClone(state);
     legacy.sources = legacy.sources.map(({ relevanceBasis: _basis, ...source }) => source);
@@ -116,10 +118,12 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(legacy)]));
     state = await service.get(actor, session);
     relevanceCalls = 0;
+    malformedRelevanceOnce = true;
     const priorSearchCalls = searchCalls;
     await run("start");
     expect(state.errorCode).toBeNull();
-    expect(relevanceCalls).toBeGreaterThan(0);
+    expect(relevanceCalls).toBe(2);
+    expect(state.modelCalls.slice(-2).map((call) => call.status)).toEqual(["failed", "succeeded"]);
     expect(searchCalls).toBe(priorSearchCalls);
     const reloaded = await service.get(actor, session);
     expect(reloaded.sources.find((source) => source.id === "legacy-car")?.decision).not.toBe("accepted");
