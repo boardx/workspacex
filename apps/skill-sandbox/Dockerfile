@@ -17,6 +17,7 @@
 # ---------- 构建阶段：编译 TS，不进运行镜像 ----------
 ARG NODE_IMAGE=node:22-slim
 ARG PYTHON_IMAGE=python:3.11-slim
+ARG PYPI_INDEX_URL=https://pypi.org/simple
 FROM ${NODE_IMAGE} AS build
 WORKDIR /build
 COPY package.json ./
@@ -33,10 +34,11 @@ RUN npx tsc src/*.ts src/session/*.ts \
 
 # W18: resolve only hash-locked wheels at build time, never inside a session.
 FROM ${PYTHON_IMAGE} AS analysis
+ARG PYPI_INDEX_URL
 COPY analysis/requirements.lock /tmp/analysis-requirements.lock
-RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes \
+RUN --mount=type=cache,target=/root/.cache/pip PIP_INDEX_URL="$PYPI_INDEX_URL" pip install --only-binary=:all: --require-hashes \
       --target /analysis -r /tmp/analysis-requirements.lock \
- && pip download --only-binary=:all: --require-hashes --no-deps \
+ && PIP_INDEX_URL="$PYPI_INDEX_URL" pip download --only-binary=:all: --require-hashes --no-deps \
       --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64 \
       --python-version 311 --implementation cp --abi cp311 \
       --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock
