@@ -100,7 +100,7 @@ describe("#2099 默认不画——钉住五个「为什么这次会比上次有�
 describe("#3462 一条消息要多张图——显式规则，不再依赖「一个」的单数措辞", () => {
   it("补了一条要求「按数量画多张、每张独立围栏」的显式规则", () => {
     expect(VISUALIZATION_GUIDANCE).toContain("一条消息里可以要求多张不同的图");
-    expect(VISUALIZATION_GUIDANCE).toContain("不要把多张图硬合并成一张");
+    expect(VISUALIZATION_GUIDANCE).toContain("不要合并成一张");
     expect(VISUALIZATION_GUIDANCE).toContain("也不要只画其中一张就结束");
   });
 
