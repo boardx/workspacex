@@ -18,16 +18,18 @@
 ARG NODE_IMAGE=node:22-slim
 ARG PYTHON_IMAGE=python:3.11-slim
 ARG PYPI_INDEX_URL=https://pypi.org/simple
+ARG NPM_REGISTRY=https://registry.npmjs.org
 FROM ${NODE_IMAGE} AS build
+ARG NPM_REGISTRY
 WORKDIR /build
-COPY package.json ./
+COPY package.json package-lock.json ./
 # ⚠ 刻意**不**拷 tsconfig.json：仓库里那份 `extends` 的是 monorepo 根配置，
 #   镜像里没有它，用它编译会 `error TS5083: Cannot read file '/tsconfig.json'`。
 #   为了编译一个三文件的服务把整个 monorepo 拷进镜像不值得，所以这里全部用
 #   命令行旗标表达，与 apps/skill-sandbox/tsconfig.json 的对应项保持一致。
-RUN npm install --no-save typescript@5 @types/node
+RUN npm_config_registry="$NPM_REGISTRY" npm ci
 COPY src ./src
-RUN npx tsc src/*.ts src/session/*.ts \
+RUN ./node_modules/.bin/tsc src/*.ts src/session/*.ts \
       --types node --module NodeNext --moduleResolution NodeNext \
       --target ES2022 --strict --skipLibCheck \
       --outDir dist
@@ -52,6 +54,7 @@ COPY analysis/font-LICENSE /font/LICENSE
 
 # ---------- 运行阶段 ----------
 FROM ${NODE_IMAGE}
+ARG NPM_REGISTRY
 
 # pptxgenjs **预装**进镜像。skill 原文写着「preinstalled — do not run `npm install`
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
@@ -67,8 +70,8 @@ FROM ${NODE_IMAGE}
 #   即使把链条上每段真实路径全部授权也依然被拒（#1583 实测）。
 #   src/execute-script.ts 的 moduleReadRoots 头注有完整推理。
 WORKDIR /opt/sandbox
-COPY package.json ./
-RUN npm install --omit=dev --no-package-lock \
+COPY package.json package-lock.json ./
+RUN npm_config_registry="$NPM_REGISTRY" npm ci --omit=dev \
  && npm cache clean --force \
  # 自检：预装真的成功了才让镜像构建通过，而不是等运行时才发现 MODULE_NOT_FOUND。
  && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')" \
