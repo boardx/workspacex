@@ -71,7 +71,11 @@ describe("China production release publisher",()=>{
       expect(dockerfile).toContain("pnpm install --frozen-lockfile");
     }
     expect(agentDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
-    expect(agentDockerfile).toContain('UV_DEFAULT_INDEX="$PYPI_INDEX_URL" uv sync --frozen');
+    expect(agentDockerfile).toContain('uv export --frozen --no-dev --no-emit-project --format requirements-txt');
+    expect(agentDockerfile).toContain('uv pip install --python /app/.venv/bin/python --require-hashes');
+    expect(agentDockerfile).toContain('--default-index "$PYPI_INDEX_URL"');
+    expect(agentDockerfile).toContain('PYTHONPATH="/app/src"');
+    expect(agentDockerfile).not.toContain('uv sync --frozen');
     expect(sandboxDockerfile).toContain('ARG PYPI_INDEX_URL=https://pypi.org/simple');
     expect(sandboxDockerfile).toContain('ARG NPM_REGISTRY=https://registry.npmjs.org');
     expect(source).toContain('build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url"');

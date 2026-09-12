@@ -10,10 +10,15 @@ WORKDIR /app
 COPY pyproject.toml uv.lock langgraph.json ./
 COPY src ./src
 
-# Native adapters validate the tested upstream version. Use the same lock as CI
-# and local verification instead of resolving a newer dependency at image build.
-RUN UV_DEFAULT_INDEX="$PYPI_INDEX_URL" uv sync --frozen --no-dev --no-cache --python /usr/local/bin/python
-ENV PATH="/app/.venv/bin:$PATH"
+# Export exact versions and hashes from the reviewed lock without its origin-bound
+# artifact URLs, then let the configured PEP 503 index serve matching artifacts.
+RUN uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/requirements.lock \
+ && uv venv --python /usr/local/bin/python /app/.venv \
+ && uv pip install --python /app/.venv/bin/python --require-hashes --no-cache \
+      --default-index "$PYPI_INDEX_URL" -r /tmp/requirements.lock \
+ && rm -f /tmp/requirements.lock
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src"
 
 # Required at container-start time (see `src/deep_agent_service/model.py`'s own doc
 # comment): KERNEL_MODEL_BASE_URL, KERNEL_MODEL_API_KEY (same values as apps/api's copies,
