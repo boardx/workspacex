@@ -19,9 +19,14 @@ describe("real-model PDF lane documents its consent before execution", () => {
     expect(spec).toContain('toHaveAttribute("aria-checked", expected)');
   });
 
-  it("restores a grant that this lane created", () => {
+  it("restores the exact initial grant through authenticated API even when UI is blocked", () => {
     const afterEach = spec.slice(spec.indexOf("test.afterEach("), spec.indexOf("async function login"));
-    expect(afterEach).toContain("documentAutoApproveInitial === false");
-    expect(afterEach).toContain("setDocumentAutoApproveFromUi(page, false)");
+    expect(afterEach).toContain("documentAutoApproveInitial !== null");
+    expect(afterEach).toContain("setDocumentAutoApproveFromApi(page, documentAutoApproveInitial)");
+    expect(afterEach).not.toContain("setDocumentAutoApproveFromUi");
+    expect(spec).toContain("const request = page.context().request");
+    expect(spec).toContain('request.put(path, { data: { enabled } })');
+    expect(spec).toContain("await request.get(path)");
+    expect(spec).toContain('toEqual({ enabled })');
   });
 });

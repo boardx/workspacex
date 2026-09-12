@@ -47,6 +47,9 @@ text, the installed font is /usr/share/fonts/workspacex/NotoSansSC-Common.otf.
 Render the ACTUAL source file with the existing helper:
 python3 /skills/${name}/scripts/render-office.py /workspace/actual-file /workspace/preview
 Replace actual-file with its real filename and extension; the preview directory must be new.
+Run that renderer as one direct, unchained execute command. Never prefix it with rm or
+reuse/delete a previous preview directory; when rendering again, choose a new unique
+directory such as /workspace/preview-final. Do not add &&, ;, pipes or shell cleanup.
 This helper supplies the offline LibreOffice path, font setup and restart handling.
 Do not call an unconfigured soffice wrapper. Do not redraw a separate PDF and claim
 it is a preview of the DOCX/XLSX/PPTX. Inspect every actual page PNG. Exit 0 still

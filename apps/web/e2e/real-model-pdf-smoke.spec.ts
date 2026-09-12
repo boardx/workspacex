@@ -101,13 +101,29 @@ async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promi
     .toHaveAttribute("aria-checked", expected);
 }
 
+/**
+ * Cleanup must survive an approval modal or error overlay. It deliberately uses the
+ * BrowserContext's authenticated APIRequestContext, then reads the persisted value back;
+ * a DOM click cannot provide that guarantee after a failed run has blocked pointer events.
+ */
+async function setDocumentAutoApproveFromApi(page: Page, enabled: boolean): Promise<void> {
+  const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
+  const request = page.context().request;
+  const response = await request.put(path, { data: { enabled } });
+  expect(response.ok(), "清理授权的 PUT 必须使用当前浏览器会话成功").toBe(true);
+  expect(await response.json(), "清理授权的 PUT 回执必须确认目标状态").toEqual({ enabled });
+  const persisted = await request.get(path);
+  expect(persisted.ok(), "清理授权后的 GET 必须成功").toBe(true);
+  expect(await persisted.json(), "清理授权后的持久化状态必须与进入用例前一致").toEqual({ enabled });
+}
+
 // eslint-disable-next-line no-empty-pattern -- Playwright 强制第一个参数必须是对象解构
 // 形态（不解构任何 fixture 也要写成 `{}`），否则 config 解析期直接报
 // "First argument must use the object destructuring pattern"，整份文件一条用例都跑不了。
 test.afterEach(async ({ page }, testInfo) => {
   try {
-    if (documentAutoApproveInitial === false && !page.isClosed()) {
-      await setDocumentAutoApproveFromUi(page, false);
+    if (documentAutoApproveInitial !== null) {
+      await setDocumentAutoApproveFromApi(page, documentAutoApproveInitial);
     }
   } finally {
     documentAutoApproveInitial = null;
