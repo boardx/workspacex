@@ -21,6 +21,7 @@ postgres_image=${WSX_POSTGRES_IMAGE:?set WSX_POSTGRES_IMAGE to a reviewed pgvect
 redis_image=${WSX_REDIS_IMAGE:?set WSX_REDIS_IMAGE to a reviewed Redis digest}
 npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}
 pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}
+apt_mirror=${WSX_APT_MIRROR:-https://deb.debian.org}
 
 fail(){ echo "CN_RELEASE_PUBLISH_REJECTED: $1" >&2; exit 1; }
 validate_package_index(){
@@ -51,6 +52,7 @@ runner_group=$(id -gn "$runner_user")
 for command in docker node pnpm git tar cmp; do command -v "$command" >/dev/null 2>&1 || fail "missing build dependency: $command"; done
 validate_package_index "$npm_registry" npm
 validate_package_index "$pypi_index_url" PyPI
+validate_package_index "$apt_mirror" APT
 docker info >/dev/null 2>&1 || fail "Docker daemon unavailable"
 docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"
 
@@ -78,7 +80,7 @@ cd "$REPOSITORY_DIR"
 build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
 build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
 build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"
-build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"
+build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "SOURCE_REVISION=$revision"
 
 docker pull --platform "$platform" "$postgres_image" >/dev/null
 docker pull --platform "$platform" "$redis_image" >/dev/null
