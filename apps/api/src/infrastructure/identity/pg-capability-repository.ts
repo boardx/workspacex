@@ -107,15 +107,14 @@ export class PgCapabilityRepository implements CapabilityRepository {
    * `PLATFORM_ORG_ID` (the four official Skills' `capability_listings` row), not just the
    * caller's own org. RLS's `capability_listings_platform_read` policy is what actually
    * permits reading them; this `OR` is what makes them show up in results instead of just
-   * being technically-readable-but-never-queried. Today only `kind='skill'` rows exist
-   * under the platform org, so this has no effect on agents/MCP/other kinds -- it would
-   * naturally extend to those too if the platform ever owns one.
+   * being technically-readable-but-never-queried. Sharing is limited to Skills: Agents
+   * must resolve within the requesting organization when a conversation starts.
    */
   async listByKind(orgId: OrgId, kind: CapabilityKind): Promise<readonly GuardedCapability[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
         `${LISTING_WITH_ORCHESTRATION}
-          WHERE (cl.org_id = $1 OR cl.org_id = $3) AND cl.kind = $2
+          WHERE (cl.org_id = $1 OR (cl.org_id = $3 AND cl.kind = 'skill')) AND cl.kind = $2
           ORDER BY cl.name`,
         [orgId, kind, PLATFORM_ORG_ID],
       );
@@ -127,7 +126,7 @@ export class PgCapabilityRepository implements CapabilityRepository {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
         `${LISTING_WITH_ORCHESTRATION}
-          WHERE cl.org_id = $1 OR cl.org_id = $2
+          WHERE cl.org_id = $1 OR (cl.org_id = $2 AND cl.kind = 'skill')
           ORDER BY cl.kind, cl.name`,
         [orgId, PLATFORM_ORG_ID],
       );
@@ -139,7 +138,7 @@ export class PgCapabilityRepository implements CapabilityRepository {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
         `${LISTING_WITH_ORCHESTRATION}
-          WHERE (cl.org_id = $1 OR cl.org_id = $3) AND cl.id = $2`,
+          WHERE (cl.org_id = $1 OR (cl.org_id = $3 AND cl.kind = 'skill')) AND cl.id = $2`,
         [orgId, id, PLATFORM_ORG_ID],
       );
       const row = r.rows[0];
