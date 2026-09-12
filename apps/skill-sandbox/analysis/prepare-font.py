@@ -8,13 +8,20 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
 font = TTFont(sys.argv[1])
+font.recalcTimestamp = False
 options = subset.Options()
 options.recalc_timestamp = False
+options.layout_features = []
+options.hinting = False
 subsetter = subset.Subsetter(options=options)
 subsetter.populate(unicodes=list(range(0x20, 0x7F)) + list(range(0x3000, 0x3040))
                    + list(range(0x4E00, 0xA000)) + list(range(0xFF00, 0xFFF0)))
 subsetter.subset(font)
 instantiateVariableFont(font, {'wght': 400}, inplace=True)
+font['head'].modified = font['head'].created
+for table in ('BASE', 'GPOS', 'GSUB', 'STAT', 'vhea', 'vmtx'):
+    if table in font:
+        del font[table]
 assert 'glyf' in font and 'fvar' not in font and 'CFF ' not in font
 # Give the modified font its own family identity; keep original copyright/license records.
 for record in font['name'].names:

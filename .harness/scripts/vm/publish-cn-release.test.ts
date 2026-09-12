@@ -82,4 +82,11 @@ describe("China production release publisher",()=>{
     expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
     expect(sandboxDockerfile.match(/--require-hashes/g)).toHaveLength(2);
   });
+  it("builds the Sandbox without GitHub Raw and verifies its vendored analysis font",()=>{
+    expect(sandboxDockerfile).not.toContain("raw.githubusercontent.com");
+    expect(sandboxDockerfile).toContain("COPY analysis/AnalysisSans.ttf /font/AnalysisSans.ttf");
+    expect(sandboxDockerfile).toContain("910a3152dfc32dfa63db8d1dc8bac55c526bb9ae4729274dd76d41524894c9fd  /font/AnalysisSans.ttf");
+    expect(sandboxDockerfile).toContain("sha256sum --check --strict");
+    expect(sandboxDockerfile).toContain("COPY analysis/AnalysisSans.NOTICE /font/NOTICE");
+  });
 });

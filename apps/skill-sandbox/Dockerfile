@@ -47,10 +47,10 @@ RUN --mount=type=cache,target=/root/.cache/pip PIP_INDEX_URL="$PYPI_INDEX_URL" p
 
 # Matplotlib's searchable PDF output needs a real TrueType font, not the Office CFF font.
 FROM analysis AS analysis-font
-ADD --checksum=sha256:990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf /tmp/noto-analysis-source.ttf
-COPY analysis/prepare-font.py /tmp/prepare-font.py
-RUN PYTHONPATH=/analysis python /tmp/prepare-font.py /tmp/noto-analysis-source.ttf /font/AnalysisSans.ttf
+COPY analysis/AnalysisSans.ttf /font/AnalysisSans.ttf
+RUN echo "910a3152dfc32dfa63db8d1dc8bac55c526bb9ae4729274dd76d41524894c9fd  /font/AnalysisSans.ttf" | sha256sum --check --strict
 COPY analysis/font-LICENSE /font/LICENSE
+COPY analysis/AnalysisSans.NOTICE /font/NOTICE
 
 # ---------- 运行阶段 ----------
 FROM ${NODE_IMAGE}

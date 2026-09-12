@@ -25,9 +25,13 @@ The existing 1GiB/128PID/container/seccomp boundaries are unchanged.
 Build-time AMD64 wheel download checks lock availability on that architecture; it does
 not execute AMD64 binaries. Actual runtime architecture and evidence are recorded per run.
 
-Chart PDFs use a separate static TrueType font derived at build time from Noto CJK
+Chart PDFs use a separate static TrueType font derived from Noto CJK
 revision `f8d157532fbfaeda587e826d4cd5b21a49186f7c` (SIL OFL1.1, `font-LICENSE`).
-The Docker ADD verifies SHA256 `990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f`.
+The generated font is committed as a build-context asset so production builds do not
+depend on GitHub availability. Docker verifies its SHA256
+`910a3152dfc32dfa63db8d1dc8bac55c526bb9ae4729274dd76d41524894c9fd` before use.
+`AnalysisSans.NOTICE` records the pinned source, original checksum, generation details,
+and redistribution terms; `font-LICENSE` contains the complete SIL OFL 1.1 text.
 The modified font is renamed WorkspaceX Analysis Sans, preserving original copyright
 metadata. Office's CFF font is unchanged. Latin, CJK punctuation/fullwidth and U+4E00–9FFF
 are retained; coverage of arbitrary scripts/emoji or CJK extensions is not claimed.
