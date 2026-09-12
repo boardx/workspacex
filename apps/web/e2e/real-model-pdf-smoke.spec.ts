@@ -82,21 +82,47 @@ const EXPECT_NAME_RE = new RegExp(`\\.${EXPECT_EXT.replace(/[.*+?^${}()|[\]\\]/g
  * 证据包**仍然要落盘**——一条以"什么都没留下"收场的取证通道是自相矛盾的。
  */
 let evidence: RealModelEvidence | null = null;
+let documentAutoApproveInitial: boolean | null = null;
+
+async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promise<void> {
+  const toggle = page.getByTestId("chat-document-generation-auto-approve-toggle");
+  const expected = enabled ? "true" : "false";
+  if (await toggle.getAttribute("aria-checked") === expected) return;
+
+  const responsePromise = page.waitForResponse((response) => {
+    const path = new URL(response.url()).pathname;
+    return response.request().method() === "PUT" && path.endsWith("/document-generation-auto-approve");
+  });
+  await toggle.click();
+  const response = await responsePromise;
+  expect(response.ok(), "文档自动批准开关的 PUT 必须成功").toBe(true);
+  expect(await response.json(), "PUT 回执必须确认服务端已保存目标状态").toEqual({ enabled });
+  await expect(toggle, "文档自动批准开关必须按服务端回执显示目标状态")
+    .toHaveAttribute("aria-checked", expected);
+}
 
 // eslint-disable-next-line no-empty-pattern -- Playwright 强制第一个参数必须是对象解构
 // 形态（不解构任何 fixture 也要写成 `{}`），否则 config 解析期直接报
 // "First argument must use the object destructuring pattern"，整份文件一条用例都跑不了。
-test.afterEach(async ({}, testInfo) => {
-  if (evidence === null) return;
-  if (testInfo.status !== testInfo.expectedStatus && testInfo.error !== undefined) {
-    evidence.record(
-      "⑨ 用例中途抛错，其后的断言没能取证",
-      false,
-      `${testInfo.error.message ?? String(testInfo.error)}`.slice(0, 800),
-    );
+test.afterEach(async ({ page }, testInfo) => {
+  try {
+    if (documentAutoApproveInitial === false && !page.isClosed()) {
+      await setDocumentAutoApproveFromUi(page, false);
+    }
+  } finally {
+    documentAutoApproveInitial = null;
+    if (evidence !== null) {
+      if (testInfo.status !== testInfo.expectedStatus && testInfo.error !== undefined) {
+        evidence.record(
+          "⑨ 用例中途抛错，其后的断言没能取证",
+          false,
+          `${testInfo.error.message ?? String(testInfo.error)}`.slice(0, 800),
+        );
+      }
+      // `finish()` 幂等：正常路径已经调过一次的话，这里不会重复落盘。
+      evidence.finish();
+    }
   }
-  // `finish()` 幂等：正常路径已经调过一次的话，这里不会重复落盘。
-  evidence.finish();
 });
 
 async function login(page: Page, email: string, password: string): Promise<void> {
@@ -133,6 +159,13 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   await page.goto("/chat");
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toBeVisible({ timeout: 120_000 });
+  const documentAutoApprove = page.getByTestId("chat-document-generation-auto-approve-toggle");
+  await expect(documentAutoApprove).toBeEnabled({ timeout: 120_000 });
+  await expect(documentAutoApprove).toHaveAttribute("aria-checked", /^(true|false)$/);
+  documentAutoApproveInitial = await documentAutoApprove.getAttribute("aria-checked") === "true";
+  await setDocumentAutoApproveFromUi(page, true);
+  evidence.setContext("documentAutoApproveInitial", documentAutoApproveInitial);
+  evidence.setContext("documentAutoApproveEnabledForRun", true);
   const send = page.getByTestId("copilotkit-v2-send");
   // `data-send-state` 是 composer 自己声明给 e2e 的判据（见 copilotkit-v2-panel-body.tsx），
   // 不去读 title/aria 文案——那些会随文案改动漂移。
@@ -228,9 +261,9 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
       + `（上限 ${Math.round(REAL_MODEL_SMOKE.runTimeoutMs / 1000)}s）`,
   );
 
-  /* ── ④ 无工具审批弹窗（pdf-create 自 #2782 起是 L0）────────────────────── */
+  /* ── ④ 显式开启文档自动批准后，无工具审批弹窗（#3440）─────────────────── */
   evidence.record(
-    "③ 全程没有出现工具授权/审批弹窗（pdf-create 是 L0，#2782）",
+    "③ 显式开启文档自动批准后，全程没有出现工具授权/审批弹窗（#3440）",
     approvalSeenAt === null,
     approvalSeenAt === null
       ? "chat-tool-permission-dialog / chat-approval-card / restored-run-approval 在整轮轮询中一次都没有出现"

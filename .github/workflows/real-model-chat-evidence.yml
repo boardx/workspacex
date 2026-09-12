@@ -16,9 +16,10 @@
 #
 # ## 它对这台活着的机器做什么（只读 + 有限写入，与 live-evidence.sh 同一条边界）
 #
-#   写：在 `$REAL_MODEL_E2E_EMAIL` 那个**已有账号**下开一条**新的** chat 线程、发一条
-#       消息、跑一次真实 run，并下载这次 run 产出的 PDF。写入面止于此：一条新线程
-#       与它自己的产物。
+#   写：在 `$REAL_MODEL_E2E_EMAIL` 那个**已有账号**下，经真实 UI 显式开启文档生成自动
+#       批准，开一条**新的** chat 线程、发一条消息、跑一次真实 run，并下载这次 run
+#       产出的 PDF；用例结束后恢复进入用例前的授权状态。写入面止于这项可逆授权、一条
+#       新线程与它自己的产物。
 #   读：`journalctl -u workspacex-api/-web`、`docker logs workspacex-deep-agent`、
 #       `/opt/workspacex/deploy.env` 里**三个开关 key 的值**（带 KEY 的一律打码）、
 #       `git log -1`、`systemctl is-active`。
