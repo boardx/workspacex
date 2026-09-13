@@ -55,6 +55,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13：平台文档 Skill 本身是 L0，不代表它派生的原生 `execute` 会自动继承等级；
+  风险门看到的工具名仍是 L2 `execute`。继承只能建立在本 run 的钉版本风险快照、真实工具
+  历史归因和整串命令 allowlist 三项同时成立时，任一缺失继续 fail-closed，不能把
+  `execute` 全局降级（出处：issue #3590）。
 - 2026-09-13：`fetch_url` 与 `browser_navigate` 同时暴露给通用模型时，工具描述或系统指令
   不足以保证“打开指定网页”走真实浏览器；上游反爬拒绝后模型可能反复 fetch，最后拿搜索
   摘录冒充页面原文。对“打开/交互/截图具体 URL”的首次模型调用应在 middleware 层确定性
