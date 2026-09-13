@@ -80,6 +80,28 @@ def test_system_prompt_keeps_the_no_fabrication_rule(monkeypatch):  # noqa: ANN0
     assert "不要凭技能的名字或已有印象直接编答案" in prompt
 
 
+def test_system_prompt_routes_explicit_open_page_requests_to_the_isolated_browser(monkeypatch):  # noqa: ANN001, ANN201
+    """#3582 / T45: an explicit request to open a URL must not be satisfied from
+    search excerpts after ``fetch_url`` is rejected by an anti-bot page."""
+    graph = _import_graph_with_fake_model_env(monkeypatch)
+    prompt = graph.SYSTEM_PROMPT
+
+    assert "不要用 fetch_url 代替真实浏览器访问" in prompt
+    assert "改用 browser_navigate" in prompt
+    assert "同一个 URL 重复调用" in prompt
+    assert "高风险授权必须等待用户决定" in prompt
+
+
+def test_system_prompt_preserves_fetch_url_for_research_sources(monkeypatch):  # noqa: ANN001, ANN201
+    """The T45 route must not remove the lower-risk source-reading path used by
+    ordinary research tasks."""
+    graph = _import_graph_with_fake_model_env(monkeypatch)
+    prompt = graph.SYSTEM_PROMPT
+
+    assert "fetch_url 适用于把公开网页正文作为调研来源读取" in prompt
+    assert "一般调研则换一个可信来源" in prompt
+
+
 def test_system_prompt_clarifies_underspecified_document_generation_before_execution(monkeypatch):  # noqa: ANN001, ANN201
     """A format choice is not enough information to invent a document's content."""
     graph = _import_graph_with_fake_model_env(monkeypatch)

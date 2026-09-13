@@ -446,6 +446,86 @@ def _tool_names(tools: list) -> set[str]:
     return {_tool_name(t) for t in tools}
 
 
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_EXPLICIT_BROWSER_INTENT_RE = re.compile(
+    r"(?:打开|访问并查看|访问后查看|用浏览器访问|浏览器打开|交互|截图|"
+    r"\bopen\b|\bvisit\b|\bbrowse\b|\bscreenshot\b)",
+    re.IGNORECASE,
+)
+_NEGATED_BROWSER_INTENT_RE = re.compile(
+    r"(?:不要|无需|不必|别)\s*(?:打开|访问|用浏览器|截图)|"
+    r"\b(?:do not|don't)\s+(?:use\s+(?:a\s+|the\s+)?browser\s+to\s+)?"
+    r"(?:open|visit|browse|screenshot)\b|"
+    r"\bwithout\s+(?:using\s+)?(?:a\s+|the\s+)?browser\s+to\s+"
+    r"(?:open|visit|browse|screenshot)\b",
+    re.IGNORECASE,
+)
+
+
+def _tool_already_called(messages: list, tool_name: str) -> bool:
+    """给定消息片段里是否已经调用过具名工具。"""
+    return any(
+        call.get("name") == tool_name
+        for message in messages
+        for call in (getattr(message, "tool_calls", None) or [])
+    )
+
+
+def _is_explicit_browser_request(text: str) -> bool:
+    """是否明确要求用浏览器打开/交互/截图一个具体 URL。"""
+    return bool(
+        _URL_RE.search(text)
+        and _EXPLICIT_BROWSER_INTENT_RE.search(text)
+        and not _NEGATED_BROWSER_INTENT_RE.search(text)
+    )
+
+
+def _prepare_explicit_browser_request(request: ModelRequest) -> ModelRequest | None:
+    """把“打开具体 URL”的本轮首次模型调用确定性路由到真实浏览器。
+
+    #3582 / T45 的真实失败不是浏览器执行失败，而是模型从未选择 browser_navigate：
+    它对同一个维基 URL 连续调用 fetch_url，最后用搜索摘录冒充页面首段。工具说明和
+    system prompt 都只是概率性约束，因此这里在模型 API 边界把这个用户意图钉成具名
+    tool_choice。普通调研仍保留完整工具集；browser_navigate 一旦在当前用户轮调用过，
+    后续模型调用也恢复完整工具集，页面读取、截图和交互不受限制。
+    """
+    turn_start = _latest_human_turn_index(request.messages)
+    if turn_start is None:
+        return None
+
+    text = _human_text(request.messages[turn_start])
+    if TASK_MODE_MARKER in text:
+        return None
+    if not _is_explicit_browser_request(text):
+        return None
+    if _tool_already_called(request.messages[turn_start + 1 :], "browser_navigate"):
+        return None
+
+    browser_tools = [tool for tool in request.tools if _tool_name(tool) == "browser_navigate"]
+    if not browser_tools:
+        _logger.warning(
+            "用户明确要求打开具体 URL，但 browser_navigate 未挂载；无法执行确定性浏览器路由"
+        )
+        return None
+    return request.override(tools=browser_tools, tool_choice="browser_navigate")
+
+
+class ExplicitBrowserNavigationMiddleware(AgentMiddleware):
+    """显式打开 URL 时强制首次调用 browser_navigate（同步/异步运行时同语义）。"""
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        return handler(_prepare_explicit_browser_request(request) or request)
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        return await handler(_prepare_explicit_browser_request(request) or request)
+
+
 def _prepare_forced_request(request: ModelRequest) -> ModelRequest | None:
     """任务模式判据是否命中、要不要把这次 `request` 钉成 `tool_choice="write_todos"`。
 
@@ -811,7 +891,15 @@ def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | No
     if turn_start is None:
         return None
 
-    category = _classify_task_text(_human_text(request.messages[turn_start]))
+    turn_text = _human_text(request.messages[turn_start])
+    # #3582：显式打开具体 URL 有自己的确定性浏览器路由。若仍让通用多步分类器
+    # 介入，首次导航后它会立刻把工具再次收窄成 write_todos/confirm_task_intent，
+    # browser_snapshot/click/screenshot 无法继续；初次调用还会因外层路由已主动收窄
+    # 工具集而误报“write_todos 未挂载”。手动任务模式标记仍保留原有规划语义。
+    if TASK_MODE_MARKER not in turn_text and _is_explicit_browser_request(turn_text):
+        return None
+
+    category = _classify_task_text(turn_text)
     if category == TASK_CATEGORY_NO_PLAN:
         return None
 
@@ -1155,6 +1243,13 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # 此前 `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才让这个类进入返回列表，验证稳定后
         # 按 R6 要求默认开启且开关本身移除，多出的这一个循环节点是这条能力生效的
         # 固定代价，不是可以省掉的开销（同 Summarization trigger/keep 那条注释的纪律）。
+        # #3582 / T45：显式要求打开具体 URL 时，第一次模型调用必须选真实浏览器。
+        # 高风险授权仍由 browser_navigate 工具自己的 HITL 配置处理；本中间件只决定
+        # 工具路由，不执行工具，也不改变授权等级。LangChain 首个 middleware 是最外层，
+        # 因此必须放在 TaskClassifier 前：先把显式浏览器请求收窄后，内层分类器看不到
+        # write_todos/confirm_task_intent，无法再把 browser_navigate 覆盖掉。手动任务模式
+        # 标记由本类主动放行，仍保持此改动前 PlanFirst + TaskClassifier 的组合语义。
+        ExplicitBrowserNavigationMiddleware(),
         TaskClassifierMiddleware(),
         SummarizationMiddleware(
             model=model,
