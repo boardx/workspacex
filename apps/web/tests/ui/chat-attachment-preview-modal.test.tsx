@@ -160,7 +160,7 @@ describe("ChatAttachmentPreviewModal", () => {
     render(
       <ChatAttachmentPreviewModal
         threadId="thread-1"
-        attachment={makeAttachment({filename:"weekly-report.skill.json",mime:"application/json"})}
+        attachment={makeAttachment({filename:"weekly-report.skill.json",mime:"application/json; charset=utf-8"})}
         onClose={vi.fn()}
       />,
     );

@@ -29,10 +29,11 @@ import { ChatAttachmentSlidesPreview } from "./chat-attachment-slides-preview";
 
 /** 五种渲染态：内联图片 / PDF / pptx / UTF-8 文本 / 无法内联。 */
 function previewMode(kind: AttachmentIconKind, mime: string): "image" | "pdf" | "slides" | "text" | "unsupported" {
+  const normalizedMime = mime.split(";", 1)[0]?.trim().toLowerCase();
   if (kind === "image") return "image";
   if (kind === "pdf") return "pdf";
   if (kind === "slides") return "slides";
-  if (kind === "text" || mime === "application/json") return "text";
+  if (kind === "text" || normalizedMime === "application/json") return "text";
   return "unsupported";
 }
 
