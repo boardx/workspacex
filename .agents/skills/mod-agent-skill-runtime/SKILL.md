@@ -55,6 +55,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13：`fetch_url` 与 `browser_navigate` 同时暴露给通用模型时，工具描述本身不足以
+  保证“打开指定网页”走真实浏览器；上游反爬拒绝后模型可能反复 fetch，最后拿搜索摘录冒充
+  页面原文。系统指令应按用户意图分流：打开/交互/截图走 browser，调研取正文走 fetch；
+  fetch 明确失败后禁止同 URL 重试，并保持浏览器高风险授权由用户决定（出处：issue #3582）。
 - 2026-09-13：Playwright MCP 的 `browser_navigate` 响应本身已有页面 URL/标题；适配器若再
   自动拉一次完整 `browser_snapshot`，大页面会因快照越过契约字符上限，把已经成功的导航
   错记成 unknown outcome。导航只消费首个响应的元数据；显式快照超过上限时按完整行截断、
