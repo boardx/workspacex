@@ -1,0 +1,57 @@
+[stack-admission] load1=26.51 cores=10 perCore=2.65 running=1/2
+[stack-admission] 排队中：机器每核负载 2.65（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 10s
+[test-isolation] id=run-mtzx6aif-2a660ec7-13bb6dd18196 db=wsx_13bb6dd181964951cdca compose=wsx-13bb6dd181964951cdca pg=20449 redis=21449 api=24449 web=25449 sandbox=26449 model=27449 deep-agent=28449 asr=29449 vision=30449 loopback-sandbox=31449
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3600/apps/api
+
+[db-isolation] db=wsx_13bb6dd181964951cdca capacity=100 current=6 required=32
+ ✓ tests/auth/member-invite-activation.test.ts (15 tests) 62159ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 邮箱规范化后落库，status=pending，sent_at 已写（= 已入出站队列） 474ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > V7 越权：顾问调用一律拒，且**没有留下任何邀请行** 561ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > I-3 / O-28 ⑥：邀请管理员 → awaiting-review，**且不签发令牌** 631ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 幂等重放：同 (org, email, 角色, 团队) 再提交返回既有 inviteId，不新建行、不再吐令牌 1130ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > I-5 冲突：同邮箱但**换了角色**的第二次提交是 INVITE_DUPLICATE，不是重放 680ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 已经是成员的邮箱 → INVITE_ALREADY_MEMBER（引导去登录，不是「重复邀请」） 704ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 激活前 NO_ORG_MEMBERSHIP；激活后本团队 allowed、别的团队 denied 1727ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 账号建在邀请行记录的邮箱上，且**直接是已验证的**（O-28 ⑤：点链接即证明邮箱所有权） 1224ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织） 1007ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > I-1 幂等重放：同一 token 第二次调用是 INVITE_NOT_FOUND，**不是「已激活成功」** 718ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > V10 四种失效返回同一个码：不存在 / 已过期 / 已核销 / 已撤销 2560ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > activate() 的返回值只有授予值这五个键 584ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > 反证：把 email 加进返回值，上一条当场红 504ms
+   ✓ invitation session delivery (#3600) > concurrent/replayed single-use activation delivers only one bearer with the granted org and standard TTL 1017ms
+   ✓ invitation session delivery (#3600) > session-store failure leaves the created account recoverable but cannot replay the consumed invitation 632ms
+ ✓ tests/auth/shared-invite-links.test.ts (17 tests) 15947ms
+   ✓ 多次语义（拍板①） > 同一链接两个不同的人先后加入都成功；used_count 逐次 +1 483ms
+   ✓ 多次语义（拍板①） > max_uses=2 时第三人被拒（统一 INVITE_NOT_FOUND），计数停在 2 1224ms
+   ✓ 失效面统一（V10 防枚举） > 过期链接 → INVITE_NOT_FOUND 725ms
+   ✓ 失效面统一（V10 防枚举） > 已作废链接 → INVITE_NOT_FOUND；作废幂等 413ms
+   ✓ 失效面统一（V10 防枚举） > 不存在的令牌 → 同一个 INVITE_NOT_FOUND（与前两种逐码相同） 746ms
+   ✓ admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展） > 建链即待复核：linkToken=null、token 表零行（令牌不存在，不是签了拦着） 388ms
+   ✓ admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展） > 发起人自批 → INVITE_SELF_REVIEW_FORBIDDEN（I-4） 513ms
+   ✓ admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展） > 第二 admin 批准 → 明文只此一次回传，且用它真实建号成功（授予 admin） 1875ms
+   ✓ admin 级链接的双人复核（拍板③ / O-28⑥ 适用点扩展） > 拒绝 → revoked；对已裁定链接的第二次不同决定 → VERSION_CHANGED 727ms
+   ✓ 席位配额硬闸（拍板① / I-9） > 配额耗尽时加入被拒且什么都没变（成员数 / used_count / credentials） 1876ms
+   ✓ 邮箱查重（拍板①：明确拒绝、不重复建号） > 已是成员的邮箱走链接 → INVITE_ALREADY_MEMBER，credentials 行数不变 360ms
+   ✓ 邮箱查重（拍板①：明确拒绝、不重复建号） > 大小写变体同样被拒（normalizeEmail 与 credentials 同一口径） 469ms
+   ✓ 落库无明文（长期凭据 hash 化） > 签发响应里的明文在两张表的任何列里都搜不到；列表输出也搜不到 377ms
+   ✓ 越权面 > 非 admin 建链/列表/作废/复核一律 PROJECT_ROLE_INSUFFICIENT 526ms
+   ✓ 越权面 > 弱口令在契约层被拒，不触碰令牌（先判形状再查库） 743ms
+   ✓ same normalized email concurrently consumes one shared-link use and issues only one session 708ms
+   ✓ shared-link session failure commits exactly one account/use and never issues again for that email 857ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  22:39:08
+   Duration  92.98s (transform 3.12s, setup 0ms, collect 5.92s, tests 78.11s, environment 1ms, prepare 998ms)
+
+[db-isolation] db=wsx_13bb6dd181964951cdca peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/member-invite-activation.test.ts tests/auth/shared-invite-links.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：10s
+  命令执行：1m36s
+  清理：2s
+  总计：1m48s

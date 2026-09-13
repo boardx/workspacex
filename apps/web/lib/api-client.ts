@@ -1,3 +1,4 @@
+import { withSessionStorageLock } from "./session-storage-lock";
 /**
  * F122 —— 全仓第一个真实 API 客户端。
  *
@@ -112,14 +113,17 @@ export function getStoredSessionToken(): string | null {
   return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY);
 }
 
-export function storeSessionToken(token: string): void {
+export async function storeSessionToken(token: string): Promise<void> {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+  await withSessionStorageLock(() => window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token));
 }
 
-export function clearStoredSessionToken(): void {
+export async function clearStoredSessionToken(): Promise<void> {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+  const expected = getStoredSessionToken();
+  await withSessionStorageLock(() => {
+    if (getStoredSessionToken() === expected) window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+  });
 }
 
 /**

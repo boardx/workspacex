@@ -20,6 +20,7 @@
  */
 import {
   BadRequestException,
+  ServiceUnavailableException,
   Body,
   ConflictException,
   Controller,
@@ -37,7 +38,7 @@ import { revokeOrgInviteLink } from "../../application/auth/revoke-org-invite-li
 import { reviewOrgInviteLink } from "../../application/auth/review-org-invite-link";
 import { activateViaOrgInviteLink } from "../../application/auth/activate-via-org-invite-link";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
-import { PasswordPolicyError } from "../../application/auth/errors";
+import { AuthError, PasswordPolicyError } from "../../application/auth/errors";
 import {
   ORG_INVITE_LINK_REPOSITORY,
   type OrgInviteLinkRepository,
@@ -216,8 +217,12 @@ export class OrgInviteLinkController {
         // 共享链接不预分团队（契约头注），恒空串——与 activateOrgMember 的空团队回传同形。
         teamId: "",
         sessionId: out.sessionId,
+        session: out.session,
       };
     } catch (e) {
+      if (e instanceof AuthError && e.reason === "AUTH_SERVICE_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: e.reason });
+      }
       if (e instanceof PasswordPolicyError) {
         // 字段级校验失败不是链接失效（org-invite.controller 的同一段理由）。
         throw new ContractValidationError([{ path: "profile.password", code: e.rejection }]);

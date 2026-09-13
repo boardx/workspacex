@@ -108,7 +108,7 @@ export default function ProjectLivePage() {
     setLoginError(null);
     try {
       const out = await login(email, password);
-      storeSessionToken(out.sessionToken);
+      await storeSessionToken(out.sessionToken);
       setSessionToken(out.sessionToken);
       const firstOrg = out.orgs[0];
       if (firstOrg !== undefined && orgId === "") {
@@ -122,8 +122,8 @@ export default function ProjectLivePage() {
     }
   }
 
-  function handleLogout() {
-    clearStoredSessionToken();
+  async function handleLogout() {
+    await clearStoredSessionToken();
     setSessionToken(null);
     setProjects(null);
   }

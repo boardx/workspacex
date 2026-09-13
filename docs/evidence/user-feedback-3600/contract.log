@@ -1,0 +1,2 @@
+✅ lint-contract-source: generated files match the contract, no hand-written copies (788 contract types)
+scanned-dirs=apps/web/lib,apps/api/src

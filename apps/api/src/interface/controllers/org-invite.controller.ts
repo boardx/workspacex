@@ -23,6 +23,7 @@
  */
 import {
   BadRequestException,
+  ServiceUnavailableException,
   Body,
   ConflictException,
   Controller,
@@ -36,7 +37,7 @@ import { orgAdmin as C } from "@repo/contracts";
 import { inviteOrgMember } from "../../application/auth/invite-org-member";
 import { activateOrgMember } from "../../application/auth/activate-org-member";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
-import { PasswordPolicyError } from "../../application/auth/errors";
+import { AuthError, PasswordPolicyError } from "../../application/auth/errors";
 import {
   ORG_INVITE_REPOSITORY,
   type OrgInviteRepository,
@@ -169,8 +170,12 @@ export class OrgInviteController {
         orgRole: out.orgRole,
         teamId: out.teamId ?? "",
         sessionId: out.sessionId,
+        session: out.session,
       };
     } catch (e) {
+      if (e instanceof AuthError && e.reason === "AUTH_SERVICE_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: e.reason });
+      }
       if (e instanceof PasswordPolicyError) {
         // 与重置密码那条同一形状：这是**字段级校验失败**，不是邀请失效。
         // 把它折进 `INVITE_NOT_FOUND` 会让一个只是口令太弱的人以为链接过期了，

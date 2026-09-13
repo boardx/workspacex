@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3600/apps/web
+
+ ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 881ms
+   ✓ 后端不可用（部署重启窗口）⇒ 结构化错误态 + 重试按钮 > 后端 5xx ⇒ activate-error-unavailable：说明临时不可用 + 登录恢复提示 + 重试按钮 510ms
+ ✓ tests/ui/invitation-session.test.tsx (13 tests) 2467ms
+   ✓ single invitation session > starts the returned bearer session before entering projects 569ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  22:37:46
+   Duration  19.26s (transform 7.12s, setup 2.86s, collect 18.84s, tests 3.35s, environment 7.82s, prepare 1.73s)
+

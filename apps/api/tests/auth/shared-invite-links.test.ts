@@ -19,6 +19,7 @@ import { listOrgInviteLinks } from "../../src/application/auth/list-org-invite-l
 import { revokeOrgInviteLink } from "../../src/application/auth/revoke-org-invite-link";
 import { reviewOrgInviteLink } from "../../src/application/auth/review-org-invite-link";
 import { activateViaOrgInviteLink } from "../../src/application/auth/activate-via-org-invite-link";
+import { SessionStoreUnavailableError } from "../../src/application/auth/ports";
 import { OrgAdminError } from "../../src/application/auth/org-invite-errors";
 import { PgOrgInviteLinkRepository } from "../../src/infrastructure/auth/pg-org-invite-link-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -134,11 +135,12 @@ describe("多次语义（拍板①）", () => {
     const second = await join(link.linkToken!, email("joiner-2"), "第二人");
     expect(first.userId).not.toBe(second.userId);
     expect(first.orgId).toBe(ORG);
+    expect(first.session).toMatchObject({ sessionToken: `tok-${first.sessionId}`, userId: first.userId, orgs: [ORG] });
     expect(second.orgRole).toBe("consultant");
     expect(await usedCount(link.linkId)).toBe(2);
 
     // ALLOWLIST 例外的前提（lint-permission-paths）：授予值之外什么都不返回。
-    expect(Object.keys(first).sort()).toEqual(["orgId", "orgRole", "sessionId", "userId"]);
+    expect(Object.keys(first).sort()).toEqual(["orgId", "orgRole", "session", "sessionId", "userId"]);
   });
 
   it("max_uses=2 时第三人被拒（统一 INVITE_NOT_FOUND），计数停在 2", async () => {
@@ -402,4 +404,42 @@ describe("越权面", () => {
     ).rejects.toSatisfy((e: unknown) => e instanceof Error && e.name === "PasswordPolicyError");
     expect(await usedCount(link.linkId)).toBe(0);
   });
+});
+
+
+it("same normalized email concurrently consumes one shared-link use and issues only one session", async () => {
+  const link = await createOrgInviteLink({ repo },
+    { ...adminCtx(ADMIN_A), orgRole: "consultant", expiry: "7d", maxUses: null });
+  const sessions = fakeSessions();
+  const deps = { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() };
+  const mail = email("concurrent-session");
+  const input = { token: link.linkToken!, email: mail,
+    profile: { name: "new", password: "long-enough-passphrase-1" } };
+  const attempts = await Promise.allSettled([
+    activateViaOrgInviteLink(deps, input),
+    activateViaOrgInviteLink(deps, { ...input, email: mail.toUpperCase() }),
+  ]);
+  expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(1);
+  expect(sessions.issued).toHaveLength(1);
+  expect(await usedCount(link.linkId)).toBe(1);
+  await expect(activateViaOrgInviteLink(deps, input)).rejects.toMatchObject({ reasonCode: "INVITE_ALREADY_MEMBER" });
+  expect(sessions.issued).toHaveLength(1);
+});
+
+
+it("shared-link session failure commits exactly one account/use and never issues again for that email", async () => {
+  const link = await createOrgInviteLink({ repo },
+    { ...adminCtx(ADMIN_A), orgRole: "consultant", expiry: "7d", maxUses: null });
+  const sessions = fakeSessions();
+  let calls = 0;
+  sessions.issue = async () => { calls++; throw new SessionStoreUnavailableError(new Error("redis unavailable")); };
+  const deps = { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() };
+  const mail = email("failed-session");
+  const input = { token: link.linkToken!, email: mail,
+    profile: { name: "new", password: "long-enough-passphrase-1" } };
+  await expect(activateViaOrgInviteLink(deps, input)).rejects.toMatchObject({ reason: "AUTH_SERVICE_UNAVAILABLE" });
+  expect(await credentialCount(mail)).toBe(1);
+  expect(await usedCount(link.linkId)).toBe(1);
+  await expect(activateViaOrgInviteLink(deps, input)).rejects.toMatchObject({ reasonCode: "INVITE_ALREADY_MEMBER" });
+  expect(calls).toBe(1);
 });

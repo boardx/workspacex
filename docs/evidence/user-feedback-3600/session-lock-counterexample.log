@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3600/apps/web
+
+ ❯ tests/session/session-provider.test.tsx (17 tests | 1 failed | 16 skipped) 68ms
+   × atomic invitation session replacement > rechecks under the shared lock when another login commits after the caller's check 66ms
+     → expected 'fulfilled' to be 'rejected' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/session/session-provider.test.tsx > atomic invitation session replacement > rechecks under the shared lock when another login commits after the caller's check
+AssertionError: expected 'fulfilled' to be 'rejected' // Object.is equality
+
+Expected: "rejected"
+Received: "fulfilled"
+
+ ❯ tests/session/session-provider.test.tsx:372:39
+    370|       await held;
+    371|       const [otherResult, invitationResult] = await outcomes;
+    372|       expect(invitationResult.status).toBe("rejected");
+       |                                       ^
+    373|       if (invitationResult.status === "rejected") {
+    374|         expect(invitationResult.reason).toBeInstanceOf(SessionReplacem…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 skipped (17)
+   Start at  23:04:44
+   Duration  4.63s (transform 412ms, setup 437ms, collect 454ms, tests 68ms, environment 1.70s, prepare 466ms)
+
+undefined
+/private/tmp/workspacex-feedback-3600/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/session/session-provider.test.tsx -t rechecks under the shared lock

@@ -134,7 +134,7 @@ export default function ItvLivePage() {
     setLoginError(null);
     try {
       const out = await login(email, password);
-      storeSessionToken(out.sessionToken);
+      await storeSessionToken(out.sessionToken);
       setSessionToken(out.sessionToken);
     } catch (e) {
       setLoginError(describeError(e));
@@ -143,8 +143,8 @@ export default function ItvLivePage() {
     }
   }
 
-  function handleLogout() {
-    clearStoredSessionToken();
+  async function handleLogout() {
+    await clearStoredSessionToken();
     setSessionToken(null);
     setItems(null);
     setCounts(null);

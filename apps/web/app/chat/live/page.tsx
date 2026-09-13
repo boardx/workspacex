@@ -111,7 +111,7 @@ export default function ChatLivePage() {
     setLoginError(null);
     try {
       const out = await login(email, password);
-      storeSessionToken(out.sessionToken);
+      await storeSessionToken(out.sessionToken);
       setSessionToken(out.sessionToken);
     } catch (e) {
       setLoginError(describeError(e));
@@ -120,8 +120,8 @@ export default function ChatLivePage() {
     }
   }
 
-  function handleLogout() {
-    clearStoredSessionToken();
+  async function handleLogout() {
+    await clearStoredSessionToken();
     setSessionToken(null);
     setThreads(null);
     setThreadDetail(null);
