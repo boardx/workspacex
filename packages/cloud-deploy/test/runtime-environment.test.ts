@@ -64,6 +64,17 @@ it("projects realtime ASR to the API only as a complete atomic profile", async (
   const unconfigured = await runtimeEnvironment(deploymentExample("production"), await directory(), source);
   expect(Object.keys(unconfigured.api).some((key) => key.startsWith("KERNEL_ASR_"))).toBe(false);
 });
+it("projects platform superusers only to the API and otherwise fails closed", async () => {
+  const configured = deploymentExample("starter");
+  configured.provision.platformSuperuserEmails = ["ops@example.com", "owner@example.com"];
+  const maps = await runtimeEnvironment(configured, await directory(), { WORKSPACEX_MODEL_KEY: "model-key" });
+  expect(maps.api.PLATFORM_SUPERUSER_EMAILS).toBe("ops@example.com,owner@example.com");
+  for (const target of [maps.agent, maps.web, maps.migration, maps.bootstrap]) {
+    expect(target.PLATFORM_SUPERUSER_EMAILS).toBeUndefined();
+  }
+  const unconfigured = await runtimeEnvironment(deploymentExample("starter"), await directory(), { WORKSPACEX_MODEL_KEY: "model-key" });
+  expect(unconfigured.api.PLATFORM_SUPERUSER_EMAILS).toBeUndefined();
+});
 it("propagates the configured Serverless TLS exception to every API database process", async () => {
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
   const value = await runtimeEnvironment(config, await directory(), {

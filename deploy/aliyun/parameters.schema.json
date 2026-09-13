@@ -416,6 +416,16 @@
               "maxLength": 254,
               "format": "email"
             },
+            "platformSuperuserEmails": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 254,
+                "format": "email"
+              },
+              "minItems": 1,
+              "maxItems": 32
+            },
             "modelProfile": {
               "type": "object",
               "properties": {
