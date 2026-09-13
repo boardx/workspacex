@@ -58,6 +58,29 @@ describe("China production release publisher",()=>{
     expect(source).toContain('install -o root -g "$runner_group" -m 0640 "$generated" "$manifest"');
     expect(statSync(file).mode&0o111).not.toBe(0);
   });
+  it("packages every canonical API provision entrypoint as readable by the runtime user",()=>{
+    for(const copy of [
+      "COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./",
+      "COPY --chown=node:node packages ./packages",
+      "COPY --chown=node:node apps/api ./apps/api",
+      "COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox",
+    ]) expect(apiDockerfile).toContain(copy);
+    for(const entrypoint of [
+      "src/infrastructure/db/migrate-cli.ts",
+      "src/main.ts",
+      "scripts/prepare-starter-roles.ts",
+      "scripts/provision-admin.ts",
+      "scripts/data-readiness.ts",
+      "scripts/cloud-service-readiness.ts",
+      "scripts/backup-target-readiness.ts",
+      "scripts/verify-oss-storage.ts",
+      "scripts/cloud-business-probe.ts",
+    ]) expect(apiDockerfile).toContain(entrypoint);
+    expect(apiDockerfile.indexOf("USER node")).toBeLessThan(apiDockerfile.indexOf("RUN set -eu; for entry in"));
+    expect(apiDockerfile).toContain("test -r ../../packages/contracts/package.json");
+    expect(apiDockerfile).toContain('find migrations -maxdepth 1 -type f -print -quit');
+    expect(apiDockerfile).toContain("node --import tsx --input-type=module");
+  });
   it("passes validated package indexes only to integrity-locked dependency installs",()=>{
     expect(source).toContain('npm_registry=${WSX_NPM_REGISTRY:-https://registry.npmjs.org}');
     expect(source).toContain('pypi_index_url=${WSX_PYPI_INDEX_URL:-https://pypi.org/simple}');
