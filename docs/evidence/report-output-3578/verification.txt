@@ -1,0 +1,36 @@
+# Local verification — report-output #3578
+CI=true ./init.sh: PASS (baseline install and verification)
+pnpm --filter web typecheck: PASS (exit 0)
+pnpm --filter web lint: PASS (final rerun, exit 0)
+git diff --check: PASS
+
+Affected tests:
+pletion 501ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 733ms
+   ✓ human confirmation in the durable model-backed workflow > saves edited directions with the server version and advances only after success 415ms
+ ✓ tests/ui/guided-research-progress.test.ts (3 tests) 5ms
+ ✓ tests/ui/guided-research-quality-draft.test.tsx (2 tests) 125ms
+ ✓ tests/ui/guided-research-report-reading.test.tsx (2 tests) 444ms
+   ✓ reads a saved final as a report without generation diagnostics 349ms
+
+ Test Files  25 passed (25)
+      Tests  165 passed (165)
+   Start at  13:12:16
+   Duration  17.71s (transform 6.10s, setup 11.15s, collect 37.43s, tests 39.59s, environment 43.48s, prepare 4.85s)
+
+
+Export-specific tests (DOCX XML + PDF iframe):
+ https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-report-output/apps/web
+
+ ✓ tests/ui/research-report-export.test.tsx (3 tests) 691ms
+   ✓ exports real OOXML with Chinese text, tables, superscript citations and source links 543ms
+ ✓ tests/ui/research-report-document.test.tsx (7 tests) 574ms
+   ✓ research chapter document > numbers first appearance in reader order and shares a number across normalized duplicate URLs 334ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  13:11:39
+   Duration  5.41s (transform 1.66s, setup 549ms, collect 4.67s, tests 1.27s, environment 2.74s, prepare 197ms)
+

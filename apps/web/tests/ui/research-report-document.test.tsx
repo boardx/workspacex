@@ -57,8 +57,20 @@ describe("research chapter document", () => {
     expect(markdown).toContain("本节来源 [^1] [^2]");
     expect(markdown).toContain("[^1]: [Official policy](<https://example.org/policy>)");
     expect(markdown).toContain("[^2]: [Second source](<https://example.org/second>)");
-    expect(markdown).toContain("证据可能存在缺口");
+    expect(markdown).not.toContain("证据可能存在缺口");
     expect(markdown).not.toContain("excluded");
+  });
+  it("keeps runtime diagnostics outside the document and Markdown without removing substantive limitations", () => {
+    const document = researchReportDocument({ title: "正文标题", summary: "摘要正文", introduction: "研究方法", conclusion: "结论正文", sections: [{ sectionId: "o1", body: "样本覆盖不足是本研究的实际限制。[[source:source1]]" }] }, sources, runtime.outline);
+    render(<GuidedResearchReportDocument document={document} provisional limitations="runtime evidence warning" validationNotice={<p>QUALITY_GATE_FAILED</p>} />);
+    const article = screen.getByTestId("research-report-preview-text");
+    expect(article).toHaveTextContent("样本覆盖不足是本研究的实际限制。");
+    expect(article).not.toHaveTextContent(/runtime evidence warning|QUALITY_GATE_FAILED|草稿|内容仍在生成|待最终校验/);
+    expect(screen.getByText("草稿").closest("article")).toBeNull();
+    const markdown = researchReportMarkdown(document, true, 3);
+    expect(markdown).toContain("样本覆盖不足是本研究的实际限制。");
+    expect(markdown).toContain("结论正文");
+    expect(markdown).not.toMatch(/本报告基于已有来源生成|批证据包含未通过校验|runtime evidence warning|QUALITY_GATE_FAILED/);
   });
   it("restores streamed chapters before synthesis and keeps provisional references separate from final controls", () => {
     const state = { ...runtime, report: null, reportStream: { requestId: "req", sequence: 9, status: "streaming" as const, text: '{"sections":[{"sectionId":"o1","body":"### 已生成章节\\n\\n结论[[source:source1]]","sourceIds":["source1"]}],"title":"研究报告","summary":"正在综合' } };
@@ -70,6 +82,7 @@ describe("research chapter document", () => {
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
-    expect(screen.getByText(/当前导出为未完成草稿/)).toBeInTheDocument();
+    expect(screen.getByText("草稿")).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
   });
 });

@@ -15,7 +15,7 @@ export function GuidedResearchReportPreview({ state, interrupted = false }: { st
     <p className="text-12 text-muted-foreground" data-testid="research-report-validation-status">{state.reportCheckpoint ? `已保存 ${saved.length} / ${state.outline.filter((section) => section.enabled).length} 个章节。` : `已显示 ${sections.length} 个章节，保存状态正在同步。`}章节核验状态见生成过程；报告尚未完成，仍需综合与最终校验。</p>
     {!state.reportTimeline?.length && state.progress && <p className="text-12 font-medium">当前阶段：{researchStageLabels[state.progress.stage]}</p>}
     {Boolean(document.unresolvedReferences) && <p role="status" className="text-12 text-muted-foreground" data-testid="research-preview-citations-pending">{document.unresolvedReferences} 处草稿引用待核对，完成校验后才会纳入正式报告。</p>}
-    <GuidedResearchReportDocument limitations={state.reportPartial || state.reportEvidenceWarnings?.length ? "部分检索或证据核验未成功，报告存在证据缺口，相关结论需进一步核实。" : undefined} document={document} provisional />
+    <GuidedResearchReportDocument document={document} provisional />
     {!preview.title && !preview.summary && !sections.some((section) => section.body) && <p className="text-12 text-muted-foreground">正在组织报告内容…</p>}
   </section>;
 }

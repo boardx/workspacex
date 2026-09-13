@@ -26,7 +26,7 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
 }
 export function GuidedResearchEvidenceWarning({ state }: { state: GuidedResearchRuntime }) {
   const warnings = state.reportEvidenceWarnings ?? [];
-  if (!warnings.length) return null;
+  if (!warnings.length || (!state.busy && (state.report || state.reportDraft))) return null;
   const generating = state.busy && !state.errorCode && (!state.leaseUntil || Date.parse(state.leaseUntil) > Date.now());
   return <aside className="space-y-2 rounded-lg border border-border bg-muted/30 p-4 text-12" data-testid="research-report-evidence-warning">
     <p role="status">本轮有 {warnings.length} 批证据包含未通过校验的内容，已排除无效部分，{state.report ? "报告基于其余有效证据生成。" : generating ? "继续使用其余有效证据生成。" : "其余有效证据已保留。"}</p>
