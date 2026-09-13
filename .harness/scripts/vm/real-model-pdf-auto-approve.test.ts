@@ -24,12 +24,12 @@ describe("real-model PDF lane documents its consent before execution", () => {
     expect(afterEach).toContain("documentAutoApproveInitial !== null");
     expect(afterEach).toContain("setDocumentAutoApproveFromApi(page, documentAutoApproveInitial)");
     expect(afterEach).not.toContain("setDocumentAutoApproveFromUi");
-    expect(spec).toContain("const request = page.context().request");
+    expect(spec).toContain("authenticatedSessionRequest(page, path, \"PUT\", { enabled })");
     expect(spec).toContain("SESSION_TOKEN_STORAGE_KEY");
-    expect(spec).toContain("window.localStorage.getItem(key)");
+    expect(spec).toContain("window.localStorage.getItem(storageKey)");
     expect(spec).toContain('Authorization: `Bearer ${token}`');
-    expect(spec).toContain('request.put(path, { data: { enabled }, headers })');
-    expect(spec).toContain("await request.get(path, { headers })");
+    expect(spec).toContain("window.fetch(path");
+    expect(spec).not.toContain("page.context().request");
     expect(spec).toContain('toEqual({ enabled })');
   });
 

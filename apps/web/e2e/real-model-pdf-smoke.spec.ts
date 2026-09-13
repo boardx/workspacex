@@ -89,18 +89,43 @@ const EXPECT_NAME_RE = new RegExp(`\\.${EXPECT_EXT.replace(/[.*+?^${}()|[\]\\]/g
 let evidence: RealModelEvidence | null = null;
 let documentAutoApproveInitial: boolean | null = null;
 
-/** APIRequestContext does not inherit the app's localStorage Bearer session. */
-async function authenticatedRequestHeaders(page: Page): Promise<Record<string, string>> {
-  const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
-  expect(token, "登录后 localStorage 必须存在 session token").toBeTruthy();
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+type SessionRequestResult = {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly body: unknown;
+};
+
+/**
+ * Keep the Bearer value inside the authenticated page. Playwright's APIRequestContext
+ * includes request headers in its call log when DNS or transport cleanup fails, which can
+ * turn an otherwise useful failure artifact into a session-token leak.
+ */
+async function authenticatedSessionRequest(
+  page: Page,
+  path: string,
+  method: "GET" | "PUT",
+  body?: unknown,
+): Promise<SessionRequestResult> {
+  return page.evaluate(async ({ storageKey, path, method, body }) => {
+    const token = window.localStorage.getItem(storageKey);
+    if (!token) throw new Error("AUTHENTICATED_SESSION_TOKEN_MISSING");
+    const response = await window.fetch(path, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { ok: response.ok, status: response.status, body: await response.json() };
+  }, { storageKey: SESSION_TOKEN_STORAGE_KEY, path, method, body });
 }
 
 async function readDocumentAutoApproveFromApi(page: Page): Promise<boolean> {
-  const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
-  const response = await page.context().request.get(path, { headers: await authenticatedRequestHeaders(page) });
-  expect(response.ok(), "读取文档自动批准授权必须使用当前浏览器会话成功").toBe(true);
-  const body = await response.json() as { enabled?: unknown };
+  const response = await authenticatedSessionRequest(
+    page,
+    "/api/document-generation-auto-approve",
+    "GET",
+  );
+  expect(response.ok, "读取文档自动批准授权必须使用当前浏览器会话成功").toBe(true);
+  const body = response.body as { enabled?: unknown };
   expect(typeof body.enabled, "文档自动批准授权 GET 必须返回布尔 enabled").toBe("boolean");
   return body.enabled as boolean;
 }
@@ -128,15 +153,13 @@ async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promi
  * a DOM click cannot provide that guarantee after a failed run has blocked pointer events.
  */
 async function setDocumentAutoApproveFromApi(page: Page, enabled: boolean): Promise<void> {
-  const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
-  const request = page.context().request;
-  const headers = await authenticatedRequestHeaders(page);
-  const response = await request.put(path, { data: { enabled }, headers });
-  expect(response.ok(), "清理授权的 PUT 必须使用当前浏览器会话成功").toBe(true);
-  expect(await response.json(), "清理授权的 PUT 回执必须确认目标状态").toEqual({ enabled });
-  const persisted = await request.get(path, { headers });
-  expect(persisted.ok(), "清理授权后的 GET 必须成功").toBe(true);
-  expect(await persisted.json(), "清理授权后的持久化状态必须与进入用例前一致").toEqual({ enabled });
+  const path = "/api/document-generation-auto-approve";
+  const response = await authenticatedSessionRequest(page, path, "PUT", { enabled });
+  expect(response.ok, "清理授权的 PUT 必须使用当前浏览器会话成功").toBe(true);
+  expect(response.body, "清理授权的 PUT 回执必须确认目标状态").toEqual({ enabled });
+  const persisted = await authenticatedSessionRequest(page, path, "GET");
+  expect(persisted.ok, "清理授权后的 GET 必须成功").toBe(true);
+  expect(persisted.body, "清理授权后的持久化状态必须与进入用例前一致").toEqual({ enabled });
 }
 
 // eslint-disable-next-line no-empty-pattern -- Playwright 强制第一个参数必须是对象解构
