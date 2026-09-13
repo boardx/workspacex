@@ -91,52 +91,83 @@ export async function openAsrDraftStream(
     deps.handshakeTimeoutMs,
   );
 
+  // A terminal server event owns cleanup even if the UI has already discarded its handle.
+  const capturePromise = Promise.resolve().then(() =>
+    (deps.capture ?? (() => startCapture({ deviceId: deps.deviceId })))());
+  let captureStopped: Promise<void> | null = null;
+  const stopCapture = () => captureStopped ??= capturePromise.then((capture) => capture.stop());
+  let terminal = false;
+  let captureFailed = false;
+  let stopRequested = false;
+  let resolveTerminal!: () => void;
+  const terminalDone = new Promise<void>((resolve) => { resolveTerminal = resolve; });
+  const finish = (reason?: AsrDraftErrorReason) => {
+    if (terminal) return;
+    terminal = true;
+    void stopCapture().catch(() => {
+      reason ??= "ASR_PROVIDER_UNAVAILABLE";
+    }).then(() => {
+      socket.close();
+      if (captureFailed) return;
+      if (reason) handlers.onError(reason);
+      else handlers.onFinished();
+    }).finally(resolveTerminal);
+  };
+
   socket.addEventListener("message", (event) => {
+    if (terminal) return;
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
-    if (!parsed.success) return handlers.onError("ASR_PROVIDER_UNAVAILABLE");
+    if (!parsed.success) return finish("ASR_PROVIDER_UNAVAILABLE");
     const frame = parsed.data;
     if (frame.type === "asr.partial") return handlers.onPartial(frame.text);
     if (frame.type === "asr.final") return handlers.onFinal(frame.text);
-    if (frame.type === "asr.error") return handlers.onError(frame.reason);
-    handlers.onFinished();
+    if (frame.type === "asr.error") return finish(frame.reason);
+    finish();
   });
+  socket.addEventListener("close", () => finish(stopRequested ? undefined : "ASR_PROVIDER_UNAVAILABLE"));
+  socket.addEventListener("error", () => finish("ASR_PROVIDER_UNAVAILABLE"));
 
-  // 麦克风权限被拒绝 / 无设备 / 采音管线起不来——`startCapture` 抛 `LiveRecordingError`，
-  // 这里让它原样冒泡给调用方（composer 据此渲染具名的中文提示，不静默失败）。
-  // 采音失败时握手已建立的 WS 连接要关掉，不留着一条永远收不到音频的连接。
   let capture: CaptureHandle;
   try {
-    // deps.capture 是测试注入口，原样保留；无注入时用选中的设备起真实采音。
-    capture = await (deps.capture ?? (() => startCapture({ deviceId: deps.deviceId })))();
+    capture = await capturePromise;
   } catch (error) {
+    captureFailed = true;
+    terminal = true;
     socket.close();
+    resolveTerminal();
     throw error;
   }
-
+  if (terminal) {
+    await terminalDone;
+    throw new Error("asr_draft_stream_closed_during_capture_start");
+  }
   socket.send(JSON.stringify({ type: "asr.start" }));
   capture.onFrame((frame) => {
+    if (terminal) return;
     handlers.onLevel?.(pcm16Level(frame));
     if (socket.readyState !== WebSocket.OPEN) return;
     socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
   });
 
+  let stopping: Promise<void> | null = null;
   return {
-    stop: async () => {
-      await capture.stop();
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "asr.finish" }));
-        // 等服务端确认收尾（`asr.finished`）再收线——不等就关，最后一句可能还在
-        // 上游的路上，提前挂断会让它悄悄消失。
-        await new Promise<void>((resolve) => {
-          socket.addEventListener("close", () => resolve(), { once: true });
-          socket.addEventListener("message", (event) => {
-            const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
-            if (parsed.success && parsed.data.type === "asr.finished") resolve();
-          });
-        });
+    stop: () => stopping ??= (async () => {
+      stopRequested = true;
+      try {
+        await stopCapture();
+      } catch {
+        finish("ASR_PROVIDER_UNAVAILABLE");
+        await terminalDone;
+        return;
       }
-      socket.close();
-    },
+      if (!terminal && socket.readyState === WebSocket.OPEN) {
+        // The terminal listener is installed before send, so even an immediate ACK is retained.
+        socket.send(JSON.stringify({ type: "asr.finish" }));
+      } else {
+        finish();
+      }
+      await terminalDone;
+    })(),
   };
 }
 

@@ -53,6 +53,11 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13（#3567）：HITL 表单的「请求正在提交」与「当前用户能否裁决」必须是两个
+  独立状态；把两者合成 `pending = !canWrite || submitting` 再反推 `canWrite = !pending`，
+  会让已经被后端接受的 personal owner 决策在 POST 在途时误画成项目 observer denial。
+  个人对话按权威线程详情里的 `projectId=null + createdBy + composer.send` 判，项目对话
+  继续按 `approval.decide` 判。
 - 2026-09-13（#3560）：agent run 产出文件不能只按 `source === "agent_run_output"`
   统一画下载卡；`file_created` 已携带 MIME，图片应复用已鉴权的 blob URL 直接内联展示
   并支持点击放大，否则截图工具虽然成功产出真实 PNG，用户仍只能看到通用文件卡。
@@ -118,3 +123,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
    没回流的，补写。
 3. **结构变更**（新增章节/重组）走正常 review；追加"踩坑与经验"条目可随任意 PR 顺带。
 4. 开源贡献者同权：任何人对本模块的经验修订都走 PR，以可验证事实为准，不看资历。
+
+### 失败运行与计划快照（#3548）
+
+运行终态和步骤账本独立更新。PlanPanelReadOnly须接收failed/cancelled派生的executionStopped，将残留in_progress显示为已停止；不改真实账本、不伪造completed，也不影响运行中和成功完成步骤。

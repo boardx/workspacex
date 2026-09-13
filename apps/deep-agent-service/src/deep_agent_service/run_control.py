@@ -4,6 +4,8 @@ Only IDs already present in state are acknowledged. Returning a new message upda
 is not evidence that LangGraph has checkpointed it. A lost response is redelivered
 and the middleware's stable message IDs make the update idempotent.
 """
+import asyncio
+import time
 from urllib.parse import quote
 
 import httpx
@@ -60,8 +62,18 @@ def poll_interjections(state: dict, *, pause_at_boundary: bool = False) -> list[
     if request is None:
         return []
     url, headers, body = request
-    # Fail closed on transport/auth failures: continuing could execute stale user intent.
-    return _values(httpx.post(url, headers=headers, json=body, timeout=5.0), pause_at_boundary)
+    # Only connection setup may be retried. Poll/ACK uses checkpointed IDs and is
+    # idempotent; no tool dispatch or publication is replayed. At most two attempts
+    # with the existing 5s HTTP timeout; persistent failure still fails closed.
+    for attempt in range(2):
+        try:
+            result = httpx.post(url, headers=headers, json=body, timeout=5.0)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            if attempt == 1:
+                raise
+            time.sleep(0.1)
+            continue
+        return _values(result, pause_at_boundary)
 
 
 async def apoll_interjections(state: dict, *, pause_at_boundary: bool = False) -> list[dict]:
@@ -70,4 +82,12 @@ async def apoll_interjections(state: dict, *, pause_at_boundary: bool = False) -
         return []
     url, headers, body = request
     async with httpx.AsyncClient(timeout=5.0) as client:
-        return _values(await client.post(url, headers=headers, json=body), pause_at_boundary)
+        for attempt in range(2):
+            try:
+                result = await client.post(url, headers=headers, json=body)
+            except (httpx.ConnectError, httpx.ConnectTimeout):
+                if attempt == 1:
+                    raise
+                await asyncio.sleep(0.1)
+                continue
+            return _values(result, pause_at_boundary)

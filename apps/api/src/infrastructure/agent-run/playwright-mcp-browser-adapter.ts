@@ -288,11 +288,19 @@ function pageMetadata(text: string, fallback: { url: string; title: string }): {
   return { url, title };
 }
 
+function boundedSnapshot(body: string): string {
+  if (body.length <= L.maxSnapshotChars) return body;
+  const truncation = `\n# Snapshot truncated to ${L.maxSnapshotChars} characters.`;
+  const prefixLimit = L.maxSnapshotChars - truncation.length;
+  const completeLineEnd = body.lastIndexOf('\n', prefixLimit);
+  return `${body.slice(0, completeLineEnd > 0 ? completeLineEnd : prefixLimit)}${truncation}`;
+}
+
 function snapshotBody(text: string): string {
   const marker = text.indexOf('### Snapshot');
   const body = marker >= 0 ? text.slice(marker + '### Snapshot'.length).trim() : text.trim();
-  if (!body || body.length > L.maxSnapshotChars) throw new Error('browser_snapshot_invalid');
-  return body;
+  if (!body) throw new Error('browser_snapshot_invalid');
+  return boundedSnapshot(body);
 }
 
 function pngDimensions(bytes: Uint8Array): { width: number; height: number } {
@@ -439,16 +447,15 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
           await state.mcp.call('browser_resize', { width: L.viewportWidth, height: L.viewportHeight }, signal).then(textResult);
           await postcheck();
         }
-        await state.mcp.call('browser_navigate', { url: input.url }, signal).then(textResult);
-        await postcheck();
-        const snapshot = await this.snapshot(state, signal);
+        const navigationText = await state.mcp.call('browser_navigate', { url: input.url }, signal).then(textResult);
         await postcheck();
         if (preview) {
           await state.mcp.call('browser_unroute', { pattern: input.url }, signal).then(textResult);
           await postcheck();
         }
-        this.rotate(state, snapshot.metadata);
-        return BrowserNavigateOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation });
+        const metadata = pageMetadata(navigationText, state);
+        this.rotate(state, metadata);
+        return BrowserNavigateOutput.parse({ pageRef: state.pageRef, ...metadata, generation: state.generation });
       }
       if (invocation.toolName === 'browser_snapshot') {
         const input = parsed as z.infer<typeof BrowserSnapshotInput>;
@@ -472,11 +479,13 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
           replacements.set(upstreamRef, elementRef);
           return { elementRef };
         });
-        const redactedSnapshot = snapshot.text.replace(/\bref=([A-Za-z0-9_-]{1,256})\b/g, (match, upstreamRef: string) => {
+        const redactedSnapshot = boundedSnapshot(snapshot.text.replace(/\bref=([A-Za-z0-9_-]{1,256})\b/g, (match, upstreamRef: string) => {
           const elementRef = replacements.get(upstreamRef);
           return elementRef ? `ref=${elementRef}` : match;
-        });
-        return BrowserSnapshotOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation, snapshot: redactedSnapshot, elements });
+        }));
+        const visibleRefs = new Set([...redactedSnapshot.matchAll(/\bref=(element:[a-f0-9]{64})\b/g)].map(match => match[1]));
+        const visibleElements = elements.filter(({ elementRef }) => visibleRefs.has(elementRef));
+        return BrowserSnapshotOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation, snapshot: redactedSnapshot, elements: visibleElements });
       }
       if (invocation.toolName === 'browser_click') {
         const input = parsed as z.infer<typeof BrowserClickInput>;

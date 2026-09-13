@@ -13,6 +13,7 @@
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
+import { PLATFORM_ORG_ID } from "../src/domain/org-id";
 import { PgImageGenAgentRepository } from "../src/infrastructure/agent/pg-image-gen-agent-repository";
 import {
   ensureImageGenAgent,
@@ -37,11 +38,15 @@ export async function backfillImageGenAgent(): Promise<ImageGenBackfillReport> {
                 WHERE m.org_id = o.id AND m.org_role = 'admin'
                 ORDER BY m.user_id ASC LIMIT 1) AS actor_id
          FROM organizations o
-        WHERE NOT EXISTS (
+        -- 2026-09-12 bug 复盘：见 backfill-default-agents.ts 同处注释——平台组织
+        -- org-platform 不该拥有系统 agent 的副本，排除它，否则能力选择器里
+        -- 会对每个真实 org 都多出一条同名重复。
+        WHERE o.id <> $2
+          AND NOT EXISTS (
                 SELECT 1 FROM agents a
                  WHERE a.org_id = o.id AND a.stable_name = $1
               )`,
-      [IMAGE_GEN_AGENT_STABLE_NAME],
+      [IMAGE_GEN_AGENT_STABLE_NAME, PLATFORM_ORG_ID],
     );
     candidates = rows
       .filter((r): r is { org_id: string; actor_id: string } => r.actor_id !== null)

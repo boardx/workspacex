@@ -14,11 +14,11 @@
  *
  * 合法性判据（生产端与本仓共享的围栏契约，逐字核实自 `parseTemplateText`）：
  *   ① 能解析出 `templateKey`（`模板: xxx` 行；```persona 围栏隐含 key = persona）
- *   ② 至少有一个 `## 分区` 标题
+ *   ② 至少有一个 `## 分区` 标题，或 HMW 的非空问题陈述字段
  * 模板 key 能不能解析到 spec 是**第二道闸**，在 `fence-template-resolver.ts` 里，
  * 因为它要发网络请求，而这一道是纯函数。
  */
-import { parseTemplateText } from "@repo/fabric-markdown";
+import { getTemplate, parseTemplateText } from "@repo/fabric-markdown";
 
 /** `extractMermaidBlocks` 会吐出的、由本条渲染路径接管的围栏语言。 */
 export const CANVAS_FENCE_LANGS = ["canvas", "persona"] as const;
@@ -39,7 +39,11 @@ export function checkCanvasFence(code: string, lang: CanvasFenceLang): CanvasFen
   if (!key) {
     return { ok: false, detail: "缺少「模板: <模板 key>」行——canvas 围栏必须首行声明用哪个模板。" };
   }
-  if (parsed.sections.size === 0) {
+  // HMW 陈述先于想法生成，三个问题字段本身就是可渲染内容（#3533）。
+  // 字段名来自模板定义；未知字段、空字段仍不能伪装成有效画布。
+  const hasHmwStatement = key === "hmw" &&
+    getTemplate("hmw")?.fields?.some((field) => Boolean(parsed.fields.get(field)?.trim()));
+  if (parsed.sections.size === 0 && !hasHmwStatement) {
     return { ok: false, detail: `模板「${key}」的围栏里没有任何「## 分区」标题，画布无处可放便签。` };
   }
   return { ok: true, key, sectionCount: parsed.sections.size };

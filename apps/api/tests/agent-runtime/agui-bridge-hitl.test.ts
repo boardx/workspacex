@@ -400,7 +400,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     expect(finalText).toContain(JSON.stringify(EDITED_ARGS));
   }, 30_000);
 
-  it("reject：resume 请求直接把 run 落 failed(HITL_REJECTED)，且从未向 deep-agent 发起 resume 请求", async () => {
+  it("reject：resume 请求直接把 run 落 cancelled，且从未向 deep-agent 发起 resume 请求", async () => {
     const first = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
       messages: [{ id: randomUUID(), role: "user", content: TRIGGER_TEXT }],
@@ -419,10 +419,10 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     });
     expect(resumed.status, JSON.stringify(resumed.events)).toBe(200);
     const runError = resumed.events.find((e) => e.type === EventType.RUN_ERROR);
-    expect(runError, JSON.stringify(resumed.events)).toBeDefined();
-    expect(runError?.code).toBe("HITL_REJECTED");
+    expect(runError, JSON.stringify(resumed.events)).toBeUndefined();
+    expect(resumed.events.some((event) => event.type === EventType.RUN_FINISHED)).toBe(true);
 
-    // #4 -- reject is a local terminal transition (`decideAgentRun` calls `failRun`
+    // #4 -- reject is a local terminal transition (`decideAgentRun` cancels
     // directly); the loopback deep-agent server never sees a resume for it.
     expect(deepAgent.runBodies.length).toBe(runBodiesBefore);
   }, 30_000);

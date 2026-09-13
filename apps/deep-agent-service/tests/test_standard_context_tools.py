@@ -46,6 +46,15 @@ def test_success_preserves_real_source_identity_and_scope(monkeypatch):
  assert seen[0]['toolArgs']=={'query':'evidence','projectId':'project'}
  assert len(seen)==1
 
+def test_project_read_accepts_real_null_duration_but_rejects_zero(monkeypatch):
+ segment={'id':'segment','workshopId':'project','agendaSegmentDefinitionId':'definition','ordinal':0,'title':'Undated','duration':None,'state':'active','mergedInto':None,'acceptedSources':[]}
+ result={'overview':{'projectId':'project','name':'Supply chain','kind':'workshop','status':'active','currentAgendaSegment':segment,'roleCounts':{'facilitator':1,'groupLead':0,'member':1,'observer':0},'backflow':[],'blueprint':None},'observedAt':'2026-09-13T00:00:00Z','sourceRefs':[{'kind':'project-overview','projectId':'project'}]}
+ original=httpx.AsyncClient
+ monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(lambda _:httpx.Response(200,stream=httpx.ByteStream(json.dumps(result).encode()))),**kwargs))
+ assert asyncio.run(web._invoke('wx_project_read',{'projectId':'project'},runtime()))==result
+ result['overview']['currentAgendaSegment']['duration']=0
+ with pytest.raises(web.StandardContextError):asyncio.run(web._invoke('wx_project_read',{'projectId':'project'},runtime()))
+
 
 def test_organization_index_scope_and_canonical_segment_citation(monkeypatch):
  result={'items':[{'sourceId':'segment:s','versionId':'v1@sha256:'+'a'*64,'title':'Indexed file','excerpt':'Evidence','citationAnchor':{'kind':'indexed-segment','segmentId':'s','artifactId':'a','artifactVersionId':'v1','projectId':None,'anchor':{'kind':'page','locator':'3'}}}],'scopeMode':'organization-index-fts','coverage':'primary-file-index','truncated':False}

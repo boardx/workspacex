@@ -151,6 +151,6 @@ it("reject 之后既清列也清投影（既有行为不回退）", async () => 
     "SELECT pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, RUN],
   )).rows[0].pending_permission_request_id as string);
   expect(await repo.decidePermissionRequest(org, RUN, requestId, "reject", "residue-user")).toBe(true);
-  expect((await readProjection(repo)).status).toBe("failed");
+  expect((await readProjection(repo)).status).toBe("cancelled");
   expect((await readProjection(repo)).pendingApproval).toBeNull();
 });
