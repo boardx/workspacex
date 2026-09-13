@@ -23,6 +23,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { inviteOrgMember } from "../../src/application/auth/invite-org-member";
 import { activateOrgMember } from "../../src/application/auth/activate-org-member";
+import { SessionStoreUnavailableError } from "../../src/application/auth/ports";
+import { SESSION_TTL_MS } from "../../src/domain/auth/session-lifetime";
 import { OrgAdminError } from "../../src/application/auth/org-invite-errors";
 import { authorize } from "../../src/application/identity/authorize";
 import { PgOrgInviteRepository } from "../../src/infrastructure/auth/pg-org-invite-repository";
@@ -245,6 +247,7 @@ describe("② 激活：入场即带组织角色 + 团队", () => {
     expect(out.orgRole).toBe("consultant");
     expect(out.teamId).toBe(fixture.teams.energy);
     expect(out.sessionId.length).toBeGreaterThan(0);
+    expect(out.session).toMatchObject({ sessionToken: `tok-${out.sessionId}`, userId: out.userId, orgs: [ORG] });
 
     // ② 本团队的 team-only 资源：立刻读得到。
     const mine = await authorize(
@@ -412,3 +415,42 @@ describe("③ ALLOWLIST 例外的前提：邀请行的内容不出仓储", () =>
  * 只改本文件、不动共享的 `vitest.config.ts`：那份配置有别的 worker 正在同时依赖，
  * 抬全局超时是一次跨 feature 的改动，该由谁做是另一件事。
  */
+
+
+describe("invitation session delivery (#3600)", () => {
+  it("concurrent/replayed single-use activation delivers only one bearer with the granted org and standard TTL", async () => {
+    const invited = await invite();
+    const sessions = fakeSessions();
+    const deps = { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() };
+    const input = { token: invited.token!, mode: "new-account" as const,
+      profile: { name: "new", password: "correct-horse-battery-staple" },
+      existingUserId: null, untrustedClaims: NO_CLAIMS };
+    const attempts = await Promise.allSettled([activateOrgMember(deps, input), activateOrgMember(deps, input)]);
+    const successes = attempts.filter((attempt) => attempt.status === "fulfilled");
+    expect(successes).toHaveLength(1);
+    expect(sessions.issued).toHaveLength(1);
+    const success = successes[0]!;
+    if (success.status !== "fulfilled") throw new Error("missing success");
+    const record = sessions.issued[0]!;
+    expect(success.value.session).toEqual({ sessionToken: `tok-${record.id}`, userId: record.userId,
+      orgs: [ORG], expiresAt: new Date(record.expiresAt).toISOString() });
+    expect(record.expiresAt - record.issuedAt).toBe(SESSION_TTL_MS);
+    await expect(activateOrgMember(deps, input)).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+    expect(sessions.issued).toHaveLength(1);
+  });
+
+  it("session-store failure leaves the created account recoverable but cannot replay the consumed invitation", async () => {
+    const invited = await invite();
+    const sessions = fakeSessions();
+    let calls = 0;
+    sessions.issue = async () => { calls++; throw new SessionStoreUnavailableError(new Error("redis unavailable")); };
+    const deps = { repo, hasher: fakeHasher, sessions, tokens: fakeTokens() };
+    const input = { token: invited.token!, mode: "new-account" as const,
+      profile: { name: "new", password: "correct-horse-battery-staple" },
+      existingUserId: null, untrustedClaims: NO_CLAIMS };
+    await expect(activateOrgMember(deps, input)).rejects.toMatchObject({ reason: "AUTH_SERVICE_UNAVAILABLE" });
+    expect((await readInvite(invited.inviteId)).status).toBe("used");
+    await expect(activateOrgMember(deps, input)).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+    expect(calls).toBe(1);
+  });
+});

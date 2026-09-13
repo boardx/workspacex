@@ -1,3 +1,5 @@
+import { issueInvitationSession } from "./issue-invitation-session";
+import type { LoginOutput } from "./login";
 /**
  * `ActivateViaOrgInviteLink`（shared-invite-links delta）—— 持链接者自助加入。
  *
@@ -40,6 +42,7 @@ export interface ActivateViaOrgInviteLinkOutput {
   readonly orgId: string;
   readonly orgRole: string;
   readonly sessionId: string;
+  readonly session: LoginOutput;
 }
 
 export async function activateViaOrgInviteLink(
@@ -82,7 +85,7 @@ export async function activateViaOrgInviteLink(
     location: null,
     lastActiveAt: now.getTime(),
   };
-  await deps.sessions.issue(record);
+  const session = await issueInvitationSession(deps.sessions, record);
 
-  return { userId: grant.userId, orgId: grant.orgId, orgRole: grant.orgRole, sessionId: record.id };
+  return { userId: grant.userId, orgId: grant.orgId, orgRole: grant.orgRole, sessionId: record.id, session };
 }

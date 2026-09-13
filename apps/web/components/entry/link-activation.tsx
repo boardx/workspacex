@@ -3,11 +3,12 @@
 import * as React from "react";
 import { CircleAlert, DoorOpen, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract, orgAdmin } from "@repo/contracts";
-import { ApiError, apiRequest } from "@/lib/api-client";
+import { ApiError, apiRequest, getStoredSessionToken } from "@/lib/api-client";
 import { contractFieldIssues } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateViaOrgInviteLink.out._output;
 
@@ -30,7 +31,8 @@ export function LinkActivation({ token }: { token: string }) {
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<JoinFailure | null>(null);
-  const [done, setDone] = React.useState(false);
+  const [done, setDone] = React.useState<InvitationCompletion | null>(null);
+  const completeSession = useInvitationSession();
 
   if (done) {
     return (
@@ -38,15 +40,15 @@ export function LinkActivation({ token }: { token: string }) {
         <div className="flex flex-col gap-3" data-testid="link-activate-success">
           <p className="flex items-start gap-2 text-13 text-success">
             <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            账号已创建并加入组织。请用刚才填写的邮箱和密码登录。
+            {INVITATION_COMPLETION_MESSAGES[done]}
           </p>
           <Button
             size="sm"
             variant="primary"
-            onClick={() => window.location.assign("/login")}
+            onClick={() => window.location.assign(done === "session-failed" ? "/login" : "/projects")}
             data-testid="link-activate-success-continue"
           >
-            前往登录
+            {done === "session-failed" ? "前往登录" : "进入工作台"}
           </Button>
         </div>
       </Card>
@@ -61,14 +63,19 @@ export function LinkActivation({ token }: { token: string }) {
   async function doSubmit() {
     setError(null);
     setSubmitting(true);
+    const initialToken = getStoredSessionToken();
     try {
-      await apiRequest<ActivateOut>(orgAdmin.operations.activateViaOrgInviteLink.path, {
+      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateViaOrgInviteLink.path, {
         method: "POST",
         sessionToken: null,
         body: { token, email: email.trim(), profile: { name: name.trim(), password: pwd } },
       });
-      setDone(true);
+      setDone(await completeSession(result.session, initialToken));
     } catch (err) {
+      if (err instanceof ApiError && err.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+        setDone("session-failed");
+        return;
+      }
       setError(describeJoinFailure(err));
     } finally {
       setSubmitting(false);
@@ -160,6 +167,8 @@ export function LinkActivation({ token }: { token: string }) {
               </Button>
             )}
             {error.kind === "unavailable" && (
+              <>
+              <a className="text-primary underline" href="/login">账号已创建？前往登录</a>
               <Button
                 type="button"
                 size="sm"
@@ -170,6 +179,7 @@ export function LinkActivation({ token }: { token: string }) {
               >
                 重试
               </Button>
+              </>
             )}
           </div>
         )}
@@ -262,4 +272,4 @@ function describeJoinFailure(err: unknown): JoinFailure {
 }
 
 const UNAVAILABLE_MESSAGE =
-  "服务暂时不可用（可能正在部署重启），请稍后重试。你的邀请链接不会因这次失败而失效。";
+  "服务暂时不可用（可能正在部署重启），请稍后重试。若账号已创建，请直接前往登录页登录。";

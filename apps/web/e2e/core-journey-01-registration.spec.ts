@@ -10,6 +10,7 @@
  * 因此这里断言的是"注册"与"首次真实使用"之间的衔接，而不是重新验证注册机制本身。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { readVerificationToken } from "./core-loop-fixture";
 
 interface FreshUser {
   readonly orgName: string;
@@ -26,6 +27,93 @@ function freshUser(tag: string): FreshUser {
     email: `journey01-${tag}-${unique}@example.test`,
     password: `Journey01-${tag}-2026!`,
   };
+}
+
+for (const kind of ["t", "lt"] as const) {
+  test(`旅程①邀请注册：${kind} 激活后直接进入工作台，刷新仍保留正确身份`, async ({ browser, request, baseURL }) => {
+    const admin = freshUser(`invite-admin-${kind}`);
+    const invited = freshUser(`invite-member-${kind}`);
+    const api = "/__fullstack_api";
+    const registration = await request.post(`${api}/auth/register-open`, { data: admin });
+    expect(registration.status()).toBe(201);
+    const { orgId } = await registration.json() as { orgId: string };
+    const { token } = readVerificationToken(admin.email);
+    expect(Boolean(token), "管理员真实注册应生成验证令牌").toBe(true);
+    const confirmation = await request.post(`${api}/auth/email-verifications/confirm`, { data: { token } });
+    expect(confirmation.ok()).toBe(true);
+    const login = await request.post(`${api}/auth/login`, {
+      data: { email: admin.email, password: admin.password },
+    });
+    expect(login.ok()).toBe(true);
+    const adminSession = await login.json() as { sessionToken: string; userId: string };
+    const invite = await request.post(`${api}/organizations/${orgId}/${kind === "t" ? "invites" : "invite-links"}`, {
+      headers: { Authorization: `Bearer ${adminSession.sessionToken}` },
+      data: kind === "t"
+        ? { orgId, email: invited.email, orgRole: "consultant", teamId: "" }
+        : { orgId, orgRole: "consultant", expiry: "1d", maxUses: 1 },
+    });
+    expect(invite.ok()).toBe(true);
+    const issued = await invite.json() as { activationToken?: string; linkToken?: string };
+    const inviteToken = kind === "t" ? issued.activationToken : issued.linkToken;
+    expect(Boolean(inviteToken), "真实管理员 API 应签发邀请链接").toBe(true);
+
+    // A clean context proves the administrator's existing session cannot satisfy the landing assertions.
+    const context = await browser.newContext({ baseURL });
+    const page = await context.newPage();
+    const navigations: string[] = [];
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+    });
+    try {
+      await page.goto(`/auth/activate?${kind}=${encodeURIComponent(inviteToken!)}`);
+      const prefix = kind === "t" ? "activate" : "link-activate";
+      if (kind === "lt") await page.getByTestId(`${prefix}-email`).fill(invited.email);
+      await page.getByTestId(`${prefix}-name`).fill(invited.displayName);
+      await page.getByTestId(`${prefix}-pwd`).fill(invited.password);
+      const activationResponse = page.waitForResponse((response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === `${api}/org-invites/${kind === "t" ? "activate" : "activate-via-link"}`);
+      await page.getByTestId(`${prefix}-submit`).click();
+      const activated = await activationResponse;
+      expect(activated.ok()).toBe(true);
+      const result = await activated.json() as { userId: string; orgId: string };
+      expect(result.userId).not.toBe(adminSession.userId);
+      expect(result.orgId).toBe(orgId);
+      await expect(page).toHaveURL(/\/projects$/);
+      await expect(page.getByTestId("projects-list-empty")).toBeVisible();
+
+      for (const refresh of [false, true]) {
+        if (refresh) await page.reload();
+        await expect(page).toHaveURL(/\/projects$/);
+        await expect(page.getByTestId("projects-list-empty")).toBeVisible();
+        const stored = await page.evaluate(() => ({
+          session: JSON.parse(localStorage.getItem("wsx.session") ?? "null") as {
+            userId: string; currentOrgId: string;
+          } | null,
+          token: localStorage.getItem("wsx.sessionToken"),
+        }));
+        expect(stored.session?.userId).toBe(result.userId);
+        expect(stored.session?.currentOrgId).toBe(orgId);
+        expect(Boolean(stored.token)).toBe(true);
+        const identity = await context.request.get(`${api}/identity/me?orgId=${orgId}`, {
+          headers: { Authorization: `Bearer ${stored.token}` },
+        });
+        expect(identity.ok()).toBe(true);
+        const resolved = await identity.json() as { displayName: string; org: { id: string }; orgRole: string };
+        expect(resolved.displayName).toBe(invited.displayName);
+        expect(resolved.org.id).toBe(orgId);
+        expect(resolved.orgRole).toBe("consultant");
+      }
+      expect(navigations).not.toContain("/login");
+      const { resolve } = await import("node:path");
+      await page.screenshot({
+        path: resolve(__dirname, `../../../docs/evidence/user-feedback-3600/invite-${kind}-projects.png`),
+        fullPage: true,
+      });
+    } finally {
+      await context.close();
+    }
+  });
 }
 
 async function registerOpen(page: Page, user: FreshUser): Promise<void> {

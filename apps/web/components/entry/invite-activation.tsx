@@ -8,6 +8,7 @@ import { contractFieldIssues } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useInvitationSession, INVITATION_COMPLETION_MESSAGES, type InvitationCompletion } from "./use-invitation-session";
 
 type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
 
@@ -31,7 +32,8 @@ export function InviteActivation({ token }: { token: string | null }) {
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<ActivationFailure | null>(null);
-  const [done, setDone] = React.useState<null | { mode: "new" | "existing" }>(null);
+  const [done, setDone] = React.useState<InvitationCompletion | null>(null);
+  const completeSession = useInvitationSession();
 
   const hasSession = getStoredSessionToken() !== null;
 
@@ -52,17 +54,15 @@ export function InviteActivation({ token }: { token: string | null }) {
         <div className="flex flex-col gap-3" data-testid="activate-success">
           <p className="flex items-start gap-2 text-13 text-success">
             <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            {done.mode === "new"
-              ? "账号已创建并加入组织。请用刚才的邮箱（邀请所用邮箱）和密码登录。"
-              : "已加入组织。重新进入工作台即可看到新组织。"}
+            {INVITATION_COMPLETION_MESSAGES[done]}
           </p>
           <Button
             size="sm"
             variant="primary"
-            onClick={() => window.location.assign(done.mode === "new" ? "/login" : "/projects")}
+            onClick={() => window.location.assign(done === "session-failed" ? "/login" : "/projects")}
             data-testid="activate-success-continue"
           >
-            {done.mode === "new" ? "前往登录" : "进入工作台"}
+            {done === "session-failed" ? "前往登录" : "进入工作台"}
           </Button>
         </div>
       </Card>
@@ -78,19 +78,24 @@ export function InviteActivation({ token }: { token: string | null }) {
   async function doSubmit() {
     setError(null);
     setSubmitting(true);
+    const initialToken = getStoredSessionToken();
     try {
-      await apiRequest<ActivateOut>(orgAdmin.operations.activateOrgMember.path, {
+      const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateOrgMember.path, {
         method: "POST",
         // 新用户分支不带会话；已有账号分支带 stored token（Guard 据此解析 principal，
         // body.sessionId 只是「我带着会话来」这一事实的契约形状，不是身份本身）。
-        sessionToken: mode === "new" ? null : undefined,
+        sessionToken: mode === "new" ? null : initialToken,
         body:
           mode === "new"
             ? { token, mode: "new-account", profile: { name: name.trim(), password: pwd }, sessionId: null }
-            : { token, mode: "existing-account", profile: null, sessionId: getStoredSessionToken() },
+            : { token, mode: "existing-account", profile: null, sessionId: initialToken },
       });
-      setDone({ mode });
+      setDone(await completeSession(result.session, initialToken, mode === "existing"));
     } catch (err) {
+      if (err instanceof ApiError && err.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+        setDone("session-failed");
+        return;
+      }
       setError(describeActivationFailure(err));
     } finally {
       setSubmitting(false);
@@ -149,6 +154,8 @@ export function InviteActivation({ token }: { token: string | null }) {
               {error.message}
             </p>
             {error.kind === "unavailable" && (
+              <>
+              <a className="text-primary underline" href="/login">账号已创建？前往登录</a>
               <Button
                 type="button"
                 size="sm"
@@ -159,6 +166,7 @@ export function InviteActivation({ token }: { token: string | null }) {
               >
                 重试
               </Button>
+              </>
             )}
           </div>
         )}
@@ -200,16 +208,7 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * 失败分两类，界面形状不同：
- *   `unavailable`  后端够不着（连接失败/超时）或后端 5xx——部署重启窗口的典型表现
- *                  （2026-08-12 devapp 实测：人类点激活链接撞上滚动部署得到裸 500）。
- *                  这一类**不是链接的问题**：激活是单一 PG 事务
- *                  （`pg-org-invite-repository.ts` I-1），任何一步失败令牌都不会被核销，
- *                  所以这里可以诚实承诺「你的链接不会因此失效」，并给显式重试按钮。
- *   `terminal`     服务端明确判定过的结果（链接失效/已是成员/口令不合规/会话失效）——
- *                  重试不会改变任何事，所以不给重试按钮，给的是各自的下一步。
- */
+/** Unavailable responses can arrive after commit; provide retry and password-login recovery. */
 type ActivationFailure = { kind: "unavailable" | "terminal"; message: string };
 
 function describeActivationFailure(err: unknown): ActivationFailure {
@@ -247,4 +246,4 @@ function describeActivationFailure(err: unknown): ActivationFailure {
 }
 
 const UNAVAILABLE_MESSAGE =
-  "服务暂时不可用（可能正在部署重启），请稍后重试。你的邀请链接不会因这次失败而失效。";
+  "服务暂时不可用（可能正在部署重启），请稍后重试。若账号已创建，请直接前往登录页登录。";

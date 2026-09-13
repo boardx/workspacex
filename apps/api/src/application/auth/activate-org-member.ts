@@ -1,3 +1,5 @@
+import { issueInvitationSession } from "./issue-invitation-session";
+import type { LoginOutput } from "./login";
 /**
  * `ActivateOrgMember` (F10 / UC-1.6) —— 受邀人点开激活链接，成为组织成员。
  *
@@ -68,6 +70,7 @@ export interface ActivateOrgMemberOutput {
   readonly orgRole: string;
   readonly teamId: string | null;
   readonly sessionId: string;
+  readonly session: LoginOutput;
   /** 便于接口层记日志；不进响应体。 */
   readonly tamperRecorded: boolean;
 }
@@ -145,7 +148,7 @@ export async function activateOrgMember(
     location: null,
     lastActiveAt: now.getTime(),
   };
-  await deps.sessions.issue(record);
+  const session = await issueInvitationSession(deps.sessions, record);
 
   return {
     userId: grant.userId,
@@ -154,6 +157,7 @@ export async function activateOrgMember(
     orgRole: grant.orgRole,
     teamId: grant.teamId,
     sessionId: record.id,
+    session,
     tamperRecorded: grant.tamperRecorded,
   };
 }

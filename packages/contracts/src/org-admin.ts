@@ -28,7 +28,7 @@
  */
 import { z } from "zod";
 import { OrgRole, PermissionReason, PermissionDecision, ProjectRole } from "./identity";
-import { AUTH_POLICY, EmailAddress } from "./auth";
+import { AUTH_POLICY, AuthenticatedSession, EmailAddress } from "./auth";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
@@ -540,6 +540,8 @@ export const operations = {
         orgRole: OrgRole,
         teamId: z.string(),
         sessionId: z.string(),
+        /** Bearer delivered only by this successful activation; sessionId alone cannot authenticate. */
+        session: AuthenticatedSession,
       })
       .strict(),
     err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
@@ -736,6 +738,8 @@ export const operations = {
         orgRole: OrgRole,
         teamId: z.string(),
         sessionId: z.string(),
+        /** Bearer delivered only by this successful activation; sessionId alone cannot authenticate. */
+        session: AuthenticatedSession,
       })
       .strict(),
     err: [
