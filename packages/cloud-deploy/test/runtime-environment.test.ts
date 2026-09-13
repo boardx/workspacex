@@ -35,6 +35,35 @@ it("uses production referenced data with TLS and no local fallback", async () =>
   expect(value.api.REDIS_TLS).toBe("true"); expect(value.api.MIGRATION_DB_PASSWORD).toBeUndefined();
   expect(value.api.REDIS_CA_FILE).toBe("/etc/workspacex/redis-ca.pem");
 });
+it("projects realtime ASR to the API only as a complete atomic profile", async () => {
+  const configured = deploymentExample("production");
+  configured.provision.asrProfile = {
+    provider: "dashscope",
+    baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+    modelId: "qwen3-asr-flash-realtime",
+    apiKeySecretRef: "env:WORKSPACEX_ASR_KEY",
+  };
+  const source = {
+    WORKSPACEX_MODEL_KEY: "model-key",
+    WORKSPACEX_ASR_KEY: "asr-key",
+    WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: "application-password-123", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
+    WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-password-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123", caFile: "/etc/workspacex/redis-ca.pem" }),
+  };
+  const maps = await runtimeEnvironment(configured, await directory(), source);
+  expect(maps.api).toMatchObject({
+    KERNEL_ASR_PROVIDER: "dashscope",
+    KERNEL_ASR_BASE_URL: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+    KERNEL_ASR_API_KEY: "asr-key",
+    KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
+  });
+  for (const target of [maps.agent, maps.web, maps.migration, maps.bootstrap]) {
+    expect(Object.keys(target).some((key) => key.startsWith("KERNEL_ASR_"))).toBe(false);
+  }
+
+  const unconfigured = await runtimeEnvironment(deploymentExample("production"), await directory(), source);
+  expect(Object.keys(unconfigured.api).some((key) => key.startsWith("KERNEL_ASR_"))).toBe(false);
+});
 it("propagates the configured Serverless TLS exception to every API database process", async () => {
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
   const value = await runtimeEnvironment(config, await directory(), {

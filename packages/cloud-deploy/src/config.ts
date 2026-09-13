@@ -18,6 +18,7 @@ const ipv4 = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}$/).refine(value =>
 // not fetched during validation. The cloud preflight must verify routing and reachability.
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
 const modelUrl = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
+const websocketUrl = text.regex(/^wss:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const commonEnvironment = {
   regionId: region,
   ecsInstanceId: text.regex(/^i-[a-zA-Z0-9]+$/),
@@ -62,6 +63,12 @@ export const deploymentInputSchema = z.object({
       modelId: identifier,
       apiKeySecretRef: secretRef,
     }).strict(),
+    asrProfile: z.object({
+      provider: identifier,
+      baseUrl: websocketUrl,
+      modelId: identifier,
+      apiKeySecretRef: secretRef,
+    }).strict().optional(),
   }).strict(),
 }).strict();
 

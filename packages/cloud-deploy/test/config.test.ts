@@ -86,12 +86,43 @@ describe("cloud deployment configuration", () => {
       } }).ok).toBe(false);
     }
   });
+  it("accepts an explicit realtime ASR profile and rejects partial or unsafe profiles", () => {
+    const input = deploymentExample("production");
+    const asrProfile = {
+      provider: "dashscope",
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      modelId: "qwen3-asr-flash-realtime",
+      apiKeySecretRef: "env:WORKSPACEX_ASR_KEY",
+    };
+    expect(validateDeploymentConfig({
+      ...input,
+      provision: { ...input.provision, asrProfile },
+    }).ok).toBe(true);
+    for (const invalid of [
+      { ...asrProfile, baseUrl: "https://dashscope.aliyuncs.com/api-ws/v1/realtime" },
+      { ...asrProfile, baseUrl: "wss://user:secret@dashscope.aliyuncs.com/api-ws/v1/realtime" },
+      { ...asrProfile, apiKeySecretRef: "secret-value" },
+      { provider: asrProfile.provider },
+    ]) {
+      expect(validateDeploymentConfig({
+        ...input,
+        provision: { ...input.provision, asrProfile: invalid },
+      }).ok).toBe(false);
+    }
+  });
   it("does not expose connection references or email in the plan", () => {
     const value = deploymentExample("production");
+    value.provision.asrProfile = {
+      provider: "dashscope",
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      modelId: "qwen3-asr-flash-realtime",
+      apiKeySecretRef: "env:WORKSPACEX_ASR_KEY",
+    };
     const result = validateDeploymentConfig(value);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(JSON.stringify(result.plan)).not.toContain(value.environment.databaseSecretRef);
     expect(JSON.stringify(result.plan)).not.toContain(value.provision.adminEmail);
+    expect(JSON.stringify(result.plan)).not.toContain(value.provision.asrProfile.apiKeySecretRef);
   });
 });
