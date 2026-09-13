@@ -24,13 +24,17 @@ const STEP_STATUS_LABEL_ZH: Readonly<Record<PlanStepStatus, string>> = {
   pending: "待执行", in_progress: "进行中", completed: "已完成",
 };
 
+function stepStatusLabel(status: PlanStepStatus, stopped: boolean): string {
+  return stopped && status === "in_progress" ? "已停止" : STEP_STATUS_LABEL_ZH[status];
+}
+
 /**
  * issue #2476 —— 步骤序号徽标：圆形 + 序号，替代此前"只有一个状态图标、没有序号"
  * 的呈现。**状态信息不因此丢失**——完成态仍然是 `CheckCircle2`（对勾本身就是
  * 状态，不需要再叠一个数字），进行中/待执行才显示序号，且序号徽标本身按状态
  * 换色（`--accent` 进行中 / 描边 待执行），不是纯装饰。
  */
-function StepBadge({ status, index }: { status: PlanStepStatus; index: number }): React.JSX.Element {
+function StepBadge({ status, index, stopped }: { status: PlanStepStatus; index: number; stopped: boolean }): React.JSX.Element {
   if (status === "completed") {
     return (
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
@@ -42,7 +46,7 @@ function StepBadge({ status, index }: { status: PlanStepStatus; index: number })
     <span
       className={cn(
         "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-11 font-medium",
-        status === "in_progress" ? "bg-accent text-accent-foreground" : "border border-border text-muted-foreground",
+        status === "in_progress" && !stopped ? "bg-accent text-accent-foreground" : "border border-border text-muted-foreground",
       )}
     >
       {index + 1}
@@ -53,9 +57,11 @@ function StepBadge({ status, index }: { status: PlanStepStatus; index: number })
 export interface PlanPanelReadOnlyProps {
   readonly steps: readonly PlanStep[];
   readonly compact?: boolean;
+  /** Run 已失败/取消时，旧账本的进行中状态仅表示停止前快照。 */
+  readonly executionStopped?: boolean;
 }
 
-export function PlanPanelReadOnly({ steps, compact = false }: PlanPanelReadOnlyProps): React.JSX.Element {
+export function PlanPanelReadOnly({ steps, compact = false, executionStopped = false }: PlanPanelReadOnlyProps): React.JSX.Element {
   return (
     /*
      * issue #3245② —— `shrink-0` 不是装饰，是这块能不能滚的开关。
@@ -95,13 +101,13 @@ export function PlanPanelReadOnly({ steps, compact = false }: PlanPanelReadOnlyP
               className="flex flex-col gap-1"
             >
               <div className="flex items-center gap-2 rounded-control px-1 py-0.5">
-                <StepBadge status={step.status} index={index} />
+                <StepBadge status={step.status} index={index} stopped={executionStopped} />
                 <span className={cn("text-13", step.status === "completed" && "text-muted-foreground line-through")}>
                   {step.content}
                 </span>
                 {/* aria-label 承载状态文案：不是只靠上面那个徽标的形状/颜色。 */}
-                <span aria-label={STEP_STATUS_LABEL_ZH[step.status]} className="ml-auto text-10 text-muted-foreground">
-                  {STEP_STATUS_LABEL_ZH[step.status]}
+                <span aria-label={stepStatusLabel(step.status, executionStopped)} className="ml-auto text-10 text-muted-foreground">
+                  {stepStatusLabel(step.status, executionStopped)}
                 </span>
               </div>
               {step.constraints.map((c) => (
