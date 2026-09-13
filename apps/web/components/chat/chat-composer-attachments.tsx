@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Modal } from "@/components/files/overlay";
 import { ChatAttachmentPreviewModal } from "./chat-attachment-preview-modal";
+import { isSkillDraftFile } from "@/lib/chat-skill-draft";
 
 const MAX_FILE_BYTES = ATTACHMENT_LIMITS.maxBytesPerFile;
 const MAX_ATTACHMENTS = ATTACHMENT_LIMITS.maxAttachmentsPerMessage;
@@ -678,7 +679,7 @@ export function MessageAttachments({
       <ul className="mt-1 flex flex-col gap-1" data-testid="chat-message-attachments">
         {attachments.map((att) => {
           const Icon = TYPE_ICON[iconKindForMime(att.mime)];
-          const isSkillDraft = att.mime === "application/json" && att.filename.endsWith(".skill.json");
+          const isSkillDraft = isSkillDraftFile(att.filename, att.mime);
           return (
             <li key={att.id}>
               <button
