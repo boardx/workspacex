@@ -13,6 +13,12 @@ export type PublishReceipt=z.infer<typeof NativeArtifactStaged>;
 export type PublishContext=ExecutionAuthorityContext & {bindingId:string;toolCallId:string};
 export interface NativeOutputStaging {
  stage(context:PublishContext,input:PublishInput):Promise<PublishReceipt>;
+ /**
+  * Records a file produced by another already-authorized native capability.
+  * This is deliberately not exposed by an HTTP controller: only API-owned services may
+  * attach bytes they have generated and verified themselves to the current run.
+  */
+ stageGenerated(context:Pick<PublishContext,'orgId'|'parentRunId'>,input:RunOutputFile&{idempotencyKey:string;sha256:string}):Promise<void>;
  listFiles(orgId:OrgId,runId:string):Promise<readonly RunOutputFile[]>;
 }
 const TYPES:Record<string,{mime:string;kind:string}>={

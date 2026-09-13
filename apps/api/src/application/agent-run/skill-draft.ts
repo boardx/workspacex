@@ -7,12 +7,13 @@ import {verifySkillStarterPack,sha256} from '../../domain/skill/starter-pack';
 import {ObjectExistsError,type ObjectStore} from '../artifact/ports';
 import type {NativeSessionOwner,NativeResolved} from './native-session-owner';
 import type {ExecutionAuthorityContext,ToolExecutionAuthority} from './tool-execution-authority';
+import type {NativeOutputStaging} from './native-output-staging';
 export const SKILL_DRAFT_SERVICE=Symbol('SkillDraftService');
 export interface DraftSessionFiles {read(path:string):Promise<unknown>;write(file:{path:string;contentBase64:string}):Promise<unknown>}
 export type SkillDraftContext=ExecutionAuthorityContext&{bindingId:string;toolCallId:string};
 export interface SkillDraftService {create(context:SkillDraftContext,input:z.infer<typeof SkillDraftInput>):Promise<z.infer<typeof SkillDraftOutput>>}
 export class DefaultSkillDraftService implements SkillDraftService {
- constructor(private owner:NativeSessionOwner,private sessions:(bound:NativeResolved)=>DraftSessionFiles,private authority:Pick<ToolExecutionAuthority,'check'>,private objects:ObjectStore){}
+ constructor(private owner:NativeSessionOwner,private sessions:(bound:NativeResolved)=>DraftSessionFiles,private authority:Pick<ToolExecutionAuthority,'check'>,private objects:ObjectStore,private outputs:Pick<NativeOutputStaging,'stageGenerated'>){}
  async create(context:SkillDraftContext,raw:z.infer<typeof SkillDraftInput>){
   const input=SkillDraftInput.parse(raw);
   const authorize=async()=>{if(!(await this.authority.check({...context,toolName:SKILL_DRAFT_TOOL,toolArgs:input})).allowed)throw new Error('skill_draft_denied');};
@@ -49,6 +50,10 @@ export class DefaultSkillDraftService implements SkillDraftService {
   const check=schemas.file.parse(await session.read(workspacePath));
   if(check.path!==workspacePath||check.sizeBytes!==data.length||check.contentBase64!==data.toString('base64'))throw new Error('skill_draft_readback_failed');
   await authorize();await this.owner.resolve(context.bindingId,context);
+  await this.outputs.stageGenerated(
+   {orgId:context.orgId,parentRunId:context.parentRunId},
+   {name:`${input.stableName}.skill.json`,mime:'application/json',sizeBytes:data.length,objectKey:key,sha256:sha256(data),idempotencyKey:`skill-draft:${context.toolCallId}`},
+  );
   return SkillDraftOutput.parse({status:'artifact_draft',workspacePath,packId,packVersion:input.semanticVersion,packDigest:pack.packDigest,fileDigest:sha256(data),validationReport:{packageIntegrity:'verified',fileCount:files.length,dependencyExecution:'not_verified',fixtureExecution:'not_run',publication:'admin_import_required'}});
  }
 }

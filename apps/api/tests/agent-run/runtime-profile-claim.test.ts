@@ -61,7 +61,7 @@ it("native approval continuation drains through its original engine while new na
     const complete=vi.fn(async(input:ModelCallInput)=>{await input.onRemoteRunStarted?.("continued-remote","original-thread");return {text:"resumed output"};});
     const listFiles=vi.fn(async()=>[]);
     await executeQueuedRuns({runs:new PgAgentRunRepository(restarted),model:{complete},nativeSessions:owner,nativeRuntimeEnabled:false,
-      nativeOutputs:{stage:vi.fn(async()=>{throw new Error("no republish");}),listFiles},
+      nativeOutputs:{stage:vi.fn(async()=>{throw new Error("no republish");}),stageGenerated:vi.fn(async()=>{throw new Error("no generated output");}),listFiles},
       planLedger:new PgPlanLedgerRepository(restarted),clock:{now:()=>new Date().toISOString(),newStepId:()=>randomUUID()},log:(message,detail)=>console.info("E008_DIAGNOSTIC",message,detail),
     },{orgId:scope});
     expect(complete).toHaveBeenCalledTimes(1);expect(complete.mock.calls[0]?.[0]).toMatchObject({nativeSession:binding,resume:{decision:"approve"},executionLeaseEpoch:2});

@@ -45,5 +45,21 @@ export class PgNativeOutputStaging implements NativeOutputStaging {
    return NativeArtifactStaged.parse({publishId:id,status:'staged',sha256,sizeBytes:size});
   });
  }
+ async stageGenerated(context:Pick<PublishContext,'orgId'|'parentRunId'>,input:RunOutputFile&{idempotencyKey:string;sha256:string}){
+  if(!/^[a-z0-9][a-z0-9.-]*\.skill\.json$/.test(input.name)||input.mime!=='application/json'||input.sizeBytes<1||input.sizeBytes>S.limits.maxFileBytes||!/^[a-f0-9]{64}$/.test(input.sha256)||!input.idempotencyKey.startsWith('skill-draft:'))throw new Error('generated_output_invalid');
+  const stored=await this.objects.get(input.objectKey);
+  if(!stored||stored.length!==input.sizeBytes||createHash('sha256').update(stored).digest('hex')!==input.sha256)throw new Error('generated_output_readback_mismatch');
+  try{JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(stored));}catch{throw new Error('generated_output_invalid');}
+  const argsDigest=toolArgumentsDigest(input);
+  await this.db.withTenant(context.orgId,async s=>{
+   const existing=(await s.query<Row>('SELECT id,args_digest,sha256,file FROM native_output_staging WHERE org_id=$1 AND run_id=$2 AND idempotency_key=$3',[context.orgId,context.parentRunId,input.idempotencyKey])).rows[0];
+   if(existing){if(existing.args_digest!==argsDigest||existing.sha256!==input.sha256)throw new Error('native_output_idempotency_conflict');return;}
+   const count=await s.query<{count:string;bytes:string}>('SELECT count(*)::text AS count,COALESCE(sum((file->>\'sizeBytes\')::bigint),0)::text AS bytes FROM native_output_staging WHERE org_id=$1 AND run_id=$2',[context.orgId,context.parentRunId]);
+   if(Number(count.rows[0]!.count)>=S.limits.maxFiles||Number(count.rows[0]!.bytes)+input.sizeBytes>S.limits.maxRequestBytes)throw new Error('native_output_limit');
+   const duplicate=await s.query('SELECT id FROM native_output_staging WHERE org_id=$1 AND run_id=$2 AND file->>\'name\'=$3',[context.orgId,context.parentRunId,input.name]);
+   if(duplicate.rows.length)throw new Error('native_output_duplicate_name');
+   await s.query('INSERT INTO native_output_staging(id,org_id,run_id,idempotency_key,args_digest,sha256,file) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',[randomUUID(),context.orgId,context.parentRunId,input.idempotencyKey,argsDigest,input.sha256,JSON.stringify({name:input.name,mime:input.mime,sizeBytes:input.sizeBytes,objectKey:input.objectKey})]);
+  });
+ }
  async listFiles(orgId:OrgId,runId:string){return this.db.withTenant(orgId,async s=>(await s.query<{file:RunOutputFile}>('SELECT file FROM native_output_staging WHERE org_id=$1 AND run_id=$2 ORDER BY created_at,id',[orgId,runId])).rows.map(r=>r.file));}
 }

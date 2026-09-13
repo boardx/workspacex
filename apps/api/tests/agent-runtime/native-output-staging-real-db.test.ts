@@ -84,16 +84,23 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
  expect(await staging.stage({...ctx,toolCallId:'draft-call'},draft)).toEqual(receipt);
  files=await staging.listFiles(org,parent);expect(files).toHaveLength(2);
  const draftFile=files.find(file=>file.name==='draft.json')!;expect(draftFile.mime).toBe('application/json');expect(await objects.get(draftFile.objectKey)).toEqual(new Uint8Array(bytes));
+ const skillBytes=Buffer.from('{"skills":[{"stableName":"weekly-report"}]}');
+ const skillKey='skill-draft-artifacts/test/weekly-report';
+ await objects.putOnce(skillKey,skillBytes,'application/json');
+ const skillSha=createHash('sha256').update(skillBytes).digest('hex');
+ await staging.stageGenerated({orgId:org,parentRunId:parent},{name:'weekly-report.skill.json',mime:'application/json',sizeBytes:skillBytes.length,objectKey:skillKey,sha256:skillSha,idempotencyKey:'skill-draft:call'});
+ await staging.stageGenerated({orgId:org,parentRunId:parent},{name:'weekly-report.skill.json',mime:'application/json',sizeBytes:skillBytes.length,objectKey:skillKey,sha256:skillSha,idempotencyKey:'skill-draft:call'});
+ await expect(staging.stageGenerated({orgId:org,parentRunId:parent},{name:'forged.skill.json',mime:'application/json',sizeBytes:skillBytes.length,objectKey:skillKey,sha256:skillSha,idempotencyKey:'skill-draft:call'})).rejects.toThrow('conflict');
  path='/workspace/bundle.html';bytes=Buffer.from('<!doctype html><html><body><script>window.synthetic=true</script>合成网页</body></html>');
  const htmlBytes=Buffer.from(bytes);await staging.stage({...ctx,toolCallId:'html-call'},{workspacePath:path,title:'bundle.html',mediaType:'text/html',idempotencyKey:'html'});
- files=await staging.listFiles(org,parent);expect(files).toHaveLength(3);
+ files=await staging.listFiles(org,parent);expect(files).toHaveLength(4);
  const htmlFile=files.find(file=>file.name==='bundle.html')!;expect(htmlFile.mime).toBe('text/html');expect(await objects.get(htmlFile.objectKey)).toEqual(new Uint8Array(htmlBytes));
  const repo=new PgAgentRunRepository(db);await repo.storeOutputAwaitingWriteback(org,parent,{text:'file staged',finalStepSeq:1,files});
  const pending=(await repo.claimWritebackPending(org,1))[0]!;
  const write={runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files};
  await repo.commitWriteback(org,write);await repo.commitWriteback(org,write);
- const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(3);
- const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(3);
+ const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(4);
+ const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(4);
  const env={WORKSPACEX_OBJECT_ROOT:root,KERNEL_ALLOW_TEST_PRINCIPAL:'1',KERNEL_QUIET:'1',KERNEL_AGENT_RUN_AUTOSTART:'0'};
  const oldEnv=Object.fromEntries(Object.keys(env).map(key=>[key,process.env[key]]));Object.assign(process.env,env);
  const production=await (await import('../../src/main')).createApp();
@@ -109,6 +116,11 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
    expect(Buffer.from(await response.arrayBuffer())).toEqual(htmlBytes);
    expect((await fetch(url,{headers:{'x-kernel-test-principal':`intruder:${org}`}})).status).toBe(404);
   }
+  const skillAttachment=await db.withTenant(org,s=>s.query<{id:string}>('SELECT id FROM chat_message_attachments WHERE org_id=$1 AND storage_ref=$2',[org,skillKey]));
+  expect(skillAttachment.rows).toHaveLength(1);
+  const skillUrl=`${base}/chat/threads/thread-${org}/attachments/${skillAttachment.rows[0]!.id}/content`;
+  const readable=await fetch(skillUrl,{headers:{'x-kernel-test-principal':`actor:${org}`}});expect(readable.status).toBe(200);expect(Buffer.from(await readable.arrayBuffer())).toEqual(skillBytes);
+  expect((await fetch(skillUrl,{headers:{'x-kernel-test-principal':`intruder:${org}`}})).status).toBe(404);
  }finally{await production.close();for(const[key,value]of Object.entries(oldEnv)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 
 });

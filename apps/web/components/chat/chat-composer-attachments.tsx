@@ -678,6 +678,7 @@ export function MessageAttachments({
       <ul className="mt-1 flex flex-col gap-1" data-testid="chat-message-attachments">
         {attachments.map((att) => {
           const Icon = TYPE_ICON[iconKindForMime(att.mime)];
+          const isSkillDraft = att.mime === "application/json" && att.filename.endsWith(".skill.json");
           return (
             <li key={att.id}>
               <button
@@ -689,7 +690,8 @@ export function MessageAttachments({
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
                   <Icon className="h-3.5 w-3.5" />
                 </span>
-                <span className="truncate text-11 text-card-foreground" title={att.filename}>{att.filename}</span>
+                <span className="min-w-0 truncate text-11 text-card-foreground" title={att.filename}>{att.filename}</span>
+                {isSkillDraft ? <Badge tone="outline" data-testid={`chat-skill-draft-${att.id}`}>技能草稿</Badge> : null}
                 <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
               </button>
             </li>

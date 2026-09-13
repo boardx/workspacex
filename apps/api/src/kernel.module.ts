@@ -1988,12 +1988,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: SKILL_DRAFT_SERVICE,
-      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, objects: ObjectStore) => {
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, objects: ObjectStore, outputs: NativeOutputStaging | null) => {
         const socketPath = process.env.NATIVE_SESSION_SOCKET;
-        return owner && socketPath ? new DefaultSkillDraftService(owner,
-          bound => createNativeDraftSession({socketPath,...bound}), authority, objects) : null;
+        return owner && socketPath && outputs ? new DefaultSkillDraftService(owner,
+          bound => createNativeDraftSession({socketPath,...bound}), authority, objects, outputs) : null;
       },
-      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE],
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE, NATIVE_OUTPUT_STAGING],
     },
     {
       provide: SKILL_ARTIFACT_IMPORT_DEPS,
