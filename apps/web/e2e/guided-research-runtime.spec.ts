@@ -140,7 +140,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "下载 Word", exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toMatch(/\.docx$/);
   await expect(page.getByRole("button", { name: "导出 PDF", exact: true })).toBeVisible();
-  await expect(page.getByTestId("research-report-timeline")).not.toHaveAttribute("open", "");
+  await expect(page.getByTestId("research-report-timeline")).toHaveCount(0);
+  await expect(page.getByTestId("research-report-document")).toBeVisible();
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
   await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });

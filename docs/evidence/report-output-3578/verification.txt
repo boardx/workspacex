@@ -34,3 +34,6 @@ Export-specific tests (DOCX XML + PDF iframe):
    Start at  13:11:39
    Duration  5.41s (transform 1.66s, setup 549ms, collect 4.67s, tests 1.27s, environment 2.74s, prepare 197ms)
 
+
+CI follow-up: verify-affected passed 3822 tests but found one legacy draft-label assertion; fullstack-smoke reached completed report export and then failed its legacy timeline-presence assertion. Both assertions now enforce clean report reading while preserving separate draft status and report visibility.
+Final focused rerun including research-formal-report: 168 tests passed in 26 files, exit 0. ESLint on the two updated test files passed. Full-stack rerun is tracked in PR CI.

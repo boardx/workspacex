@@ -35,12 +35,13 @@ describe("formal research report", () => {
     const state = { ...runtime, report: null, progress: { stage: "synthesizing" as const, completed: 0, total: 1 }, reportCheckpoint: { basis: "basis", chapters: runtime.report!.sections }, reportStream: { requestId: "request", sequence: 1, status: "streaming" as const, text: JSON.stringify({ sections: runtime.report!.sections }) } };
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByRole("heading", { name: runtime.brief.topic })).toBeInTheDocument();
-    expect(screen.getByText("研究报告 · 草稿")).toBeInTheDocument();
+    expect(screen.getByText("草稿", { exact: true })).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 1 / 1 个章节。章节核验状态见生成过程；报告尚未完成");
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /完成/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
-    expect(screen.getByText(/当前导出为未完成草稿/)).toBeInTheDocument();
+    expect(screen.queryByText(/当前导出为未完成草稿/)).not.toBeInTheDocument();
   });
   it("parses streamed introduction and conclusion and redacts pending unknown identifiers", () => {
     const preview = researchReportPreview('{"sections":[],"introduction":"范围与方法","conclusion":"建议开展试点');
