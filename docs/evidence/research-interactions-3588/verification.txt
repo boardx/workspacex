@@ -1,0 +1,35 @@
+Baseline: CI=true ./init.sh PASS (dependency and quick health validation).
+Back regression: 1 failed / 16 passed before fix.
+Report-message stream regression: 1 failed / 28 passed before stream observation.
+API generation regressions: 7 failed / 47 passed before fix.
+
+Final local verification:
+nfirmation in the durable model-backed workflow > disables confirmation when every direction is disabled 327ms
+   ✓ human confirmation in the durable model-backed workflow > rejects an empty outline and confirms a complete edited outline 417ms
+ ✓ tests/ui/guided-research-report-reading.test.tsx (2 tests) 1184ms
+   ✓ reads a saved final as a report without generation diagnostics 951ms
+ ✓ tests/ui/guided-research-progress.test.ts (3 tests) 4ms
+
+ Test Files  35 passed (35)
+      Tests  251 passed (251)
+   Start at  16:41:13
+   Duration  48.57s (transform 12.28s, setup 30.47s, collect 101.45s, tests 113.67s, environment 137.97s, prepare 14.73s)
+
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-back-regenerate/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (56 tests) 2264ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 506ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 508ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 504ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  16:40:25
+   Duration  5.78s (transform 1.81s, setup 0ms, collect 2.73s, tests 2.26s, environment 0ms, prepare 180ms)
+
+
+API typecheck: PASS (exit 0). API lint: PASS. Web full lint: PASS.
+No production data or external model used. Full-stack E2E runs in PR CI using synthetic fixtures; final SHA verdict belongs to the PR, not this static record.
+Web typecheck: PASS after correcting a test-only Testing Library option. Final source behavior unchanged; pre-push repeats typecheck/lint.

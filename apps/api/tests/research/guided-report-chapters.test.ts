@@ -30,6 +30,62 @@ function answer(context: any) {
   if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
   return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
+describe("report conversation regeneration", () => {
+  function setup(message: string, fail: boolean | "references" = false, draftOnly = false) {
+    const f = fixture(); const old = { title: "Previous report", summary: "Saved summary", sections: ["b", "a"].map((id) => ({ sectionId: id, body: body(`source-${id}`), sourceIds: [`source-${id}`] })) };
+    if (draftOnly) f.state.reportDraft = old; else f.state.report = old;
+    const contexts: any[] = [];
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const model: ModelCallPort = { complete: async (input) => {
+      const c = JSON.parse(input.user); contexts.push(c);
+      if (!c.reportStage && !c.researchStage) return { text: JSON.stringify({ assistantMessage: "Edited", action: "save", value: { ...old, summary: "Invalid [[source:unavailable]]" } }) };
+      if (fail === true && c.reportStage) throw new Error("generation unavailable");
+      if (fail === "references" && ["chapter", "chapter_revision"].includes(c.reportStage)) return { text: JSON.stringify({ sectionId: c.section.id, body: body("unavailable"), sourceIds: ["unavailable"] }) };
+      return { text: JSON.stringify(answer(c)) };
+    } };
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
+    const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+    const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+    return { ...f, contexts, old, run: () => service.execute(actor, session, { sessionId: "s", requestId: "regen", node: "report", action: "message", message, draft: { node: "report", value: { ...old, title: "Unsaved title" } }, expectedVersion: 4 }, (event) => f.events.push(event)) };
+  }
+  it.each(["重新生成报告", "请重新生成报告", "重新生成", "regenerate report", "Please regenerate the report."])("regenerates explicit %s through the durable report pipeline", async (message) => {
+    const f = setup(message); const result = await f.run();
+    expect(result.errorCode).toBeNull(); expect(result.report?.title).toBe("Evidence-based findings"); expect(result.proposal).toBeNull();
+    expect(f.contexts.some((c) => !c.reportStage && !c.researchStage)).toBe(false);
+    expect(f.contexts.map((c) => c.reportStage).filter(Boolean)).toEqual(["evidence", "chapter", "quality", "chapter", "quality", "synthesis"]);
+    expect(result.messages.some((entry) => entry.role === "user" && entry.text === message)).toBe(true);
+    expect(result.reportPrevious?.report).toEqual(f.old);
+    expect(result.reportTimeline?.every((stage) => stage.status === "completed")).toBe(true);
+    expect(f.events.some((event) => event.type === "result")).toBe(true);
+  });
+  it.each([false, true])("preserves saved report/draft on generation failure (draft=%s)", async (draftOnly) => {
+    const f = setup("重新生成报告", true, draftOnly); const result = await f.run();
+    expect(result.errorCode).not.toBeNull(); expect(draftOnly ? result.reportPrevious?.draft : result.reportPrevious?.report).toEqual(f.old);
+    expect(result.completed).toBe(false); expect(result.proposal).toBeNull();
+  });
+  it("still rejects unavailable citations produced by the generation pipeline", async () => {
+    const f = setup("重新生成报告", "references"); const result = await f.run();
+    expect(result.errorCode).not.toBeNull();
+    expect(f.contexts.some((c) => c.reportStage === "chapter")).toBe(true);
+    expect(f.contexts.some((c) => c.reportStage === "synthesis")).toBe(false);
+    expect(result.reportPrevious?.report).toEqual(f.old);
+    expect(result.report).toBeNull();
+    expect(result.completed).toBe(false);
+    expect(result.proposal).toBeNull();
+  });
+  it("does not bypass missing accepted source preconditions", async () => {
+    const f = setup("重新生成报告"); f.state.sources = [];
+    const result = await f.run();
+    expect(result.errorCode).not.toBeNull(); expect(f.contexts).toHaveLength(0);
+    expect(result.report).toEqual(f.old);
+  });
+  it.each(["不要重新生成报告", "如何重新生成报告？", "“重新生成报告”是什么意思", "修改报告标题", "Do not regenerate report"])("keeps %s on discussion and citation validation", async (message) => {
+    const f = setup(message); const result = await f.run();
+    expect(result.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID"); expect(f.contexts).toHaveLength(1);
+    expect(f.contexts[0].instruction).toBe(message); expect(result.report).toEqual(f.old); expect(result.reportCheckpoint).toBeUndefined();
+  });
+});
+
 describe("chapter-based report generation", () => {
   it("makes N chapter calls in exact enabled order then synthesizes, streaming actual deltas into one aggregate", async () => {
     const f = fixture(); const contexts: Record<string, any>[] = []; const inputs: string[] = [];

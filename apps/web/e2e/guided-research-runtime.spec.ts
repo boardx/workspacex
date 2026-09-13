@@ -145,6 +145,14 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
   await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
+  // A conversational regeneration must use the real report generation pipeline.
+  const regenerated = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.action === "message");
+  await page.getByRole("textbox", { name: "研究对话" }).fill("重新生成报告");
+  await page.getByRole("button", { name: "发送研究消息" }).click();
+  expect((await regenerated).headers()["content-type"]).toContain("text/event-stream");
+  await expect(page.getByRole("button", { name: "完成研究", exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(page.getByTestId("research-report-document")).toContainText("并网政策报告");
+  await expect(page.getByRole("alert")).toHaveCount(0);
   // Quality rejection must preserve a complete, explicitly provisional report.
   const runtimeUrl = streamResponse.url().replace(/\/commands\/stream$/, "");
   const authorization = streamResponse.request().headers()["authorization"]!;
@@ -167,5 +175,14 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "下载 Word", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
+  const openedSessionUrl = page.url();
+  await page.getByRole("button", { name: "返回", exact: true }).click();
+  await expect(page.getByTestId("research-home-page")).toBeVisible();
+  await expect(page).toHaveURL(/\/research$/);
+  await page.reload();
+  await expect(page.getByTestId("research-home-page")).toBeVisible();
+  await page.goto(openedSessionUrl);
+  await expect(page.getByTestId("research-quality-draft")).toBeVisible();
+
 
 });

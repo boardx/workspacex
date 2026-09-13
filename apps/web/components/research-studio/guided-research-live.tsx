@@ -173,7 +173,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     responseEpoch.current += 1; commandVersion.current = state.version + 1; setPending(true); setError(null);
     try {
       const input = { sessionId, node, action, requestId: crypto.randomUUID(), expectedVersion: state.version, ...extra };
-      const streamsReport = following === "report" || (node === "report" && (approvedAction === "generate" || approvedAction === "retry"));
+      const streamsReport = following === "report" || (node === "report" && (approvedAction === "generate" || approvedAction === "retry" || action === "message"));
       const controller = streamsReport ? new AbortController() : null;
       streamController.current = controller;
       const received = streamsReport ? await executeResearchRuntime(input, (event) => {
