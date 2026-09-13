@@ -159,4 +159,5 @@ async def native_graph_context(config):
             binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []),
             tools=[tool for tool in native_candidate_tools(model, interactions, resolved.get('mcpSnapshot')) if tool.name in interrupt_on],
             tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
-        yield graph.with_config({'callbacks':callbacks})
+        from .native_task_observation import NativeTaskToolObserver
+        yield graph.with_config({'callbacks':[*callbacks, NativeTaskToolObserver()]})
