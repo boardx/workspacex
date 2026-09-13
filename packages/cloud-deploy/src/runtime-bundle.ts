@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { mkdir, open, lstat, rename, unlink, chown } from "node:fs/promises";
+import { mkdir, open, lstat, rename, unlink, chown, chmod } from "node:fs/promises";
 import { randomUUID, X509Certificate } from "node:crypto";
 import { dirname, join } from "node:path";
 import { z } from "zod";
@@ -36,6 +36,7 @@ export async function writeRuntimeFile(path: string, value: string, context: Con
   const file = await open(temp, "wx", mode);
   try {
     await file.writeFile(value); await file.sync(); checkBudget(context);
+    await file.chmod(mode);
     await rename(temp, path);
     const directory = await open(dirname(path), constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try { await directory.sync(); } finally { await directory.close(); }
@@ -125,6 +126,7 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
   const agentCertStat = await lstat(agentCerts);
   if (!agentCertStat.isDirectory() || agentCertStat.isSymbolicLink()) throw new Error("UNSAFE_AGENT_CERT_DIRECTORY");
   await assertTrustedPath(agentCerts, { trustedRoot: "/", kind: "directory" });
+  await chmod(agentCerts, 0o755);
   if (memoryCaFile) await writeRuntimeFile(join(agentCerts, "memory-ca.pem"), await certificateFile(memoryCaFile), context, 0o644);
   if (agentCaFile) {
     await writeRuntimeFile(join(agentCerts, "ca.pem"), await certificateFile(agentCaFile), context, 0o644);
@@ -149,6 +151,7 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
   const certStat = await lstat(certs); if (!certStat.isDirectory() || certStat.isSymbolicLink()) throw new Error("UNSAFE_CERT_DIRECTORY");
   await assertTrustedPath(certs, { trustedRoot: "/", kind: "directory" });
+  await chmod(certs, 0o755);
   const ca = environment.api.PGSSLROOTCERT;
   if (ca) {
     const contents = await certificateFile(ca);
