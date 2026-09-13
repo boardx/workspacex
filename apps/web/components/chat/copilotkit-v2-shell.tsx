@@ -595,6 +595,10 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    */
   const archived = threadDetail?.thread.archived ?? false;
   const canWriteThread = !archived && (selectedThreadId ? threadDetail?.capabilities.includes("composer.send") === true : threads?.capabilities.includes("thread.mutate") === true);
+  // Personal threads have no project role or `approval.decide` capability. Their creator is the
+  // authority for HITL decisions; project threads continue to use the explicit project capability.
+  const personalOwnerCanDecide = threadDetail?.thread.projectId === null
+    && threadDetail.thread.createdBy === session?.userId;
   const canGeneratePersona = threadDetail?.capabilities.includes("artifact.land") ?? false;
 
   const loadRightPanel = React.useCallback(async () => {
@@ -747,50 +751,15 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    */
   const [createFailure, setCreateFailure] = React.useState<string | null>(null);
 
-  /**
-   * 🔴 issue #2094：**已有空线程时复用它，不再建第二条**（人类裁决的配套半边）。
-   *
-   * 裁决的主体是「把 `0 个 agent` 换成自动标题 + 状态 + 产物数」，但自动命名对
-   * **空线程**没有输入——一条没发过消息的线程叫什么都是编的。devapp 实测：
-   * 58 条线程里 **36 条是空的**，全都长着一模一样的「新对话」。也就是说人类抱怨的
-   * 「一屏全是新对话」有一多半根本不是命名问题，是**空线程在无限累积**。
-   *
-   * 所以这一半从源头掐：点「新建对话」时，如果已经有一条 `not-started` 的线程
-   * （服务端判定，见 `apps/api/src/domain/chat/thread-badges.ts` 的 `threadCardStatus`），
-   * 就直接进那一条。用户要的是「一个干净的地方开始」，不是「一条新纪录」。
-   *
-   * ⚠ **不做自动删除**。清掉旧空线程是删用户数据，而且空线程可能是用户故意留着
-   *   待会儿用的。复用是可逆的（发一条消息它就变成真线程），删除不是。
-   * ⚠ 判据用服务端下发的 `status`，**不在前端重算**「有没有消息」——前端手里根本
-   *   没有消息数据，重算只能靠猜，而且那就是第二处判定。
-   *
-   * 🔴 人类实测反馈（2026-08-30）：点「新建对话」落到的空线程出现在"今天"分组
-   *   **中间**，不在最上面。根因不是排序 bug——服务端一直按 `last_activity_at`
-   *   降序正确返回（`list-personal-threads.ts` / `pg-chat-repository.ts` 的
-   *   `ORDER BY ... DESC`），新建线程的 `last_activity_at` 默认就是 `now()`。
-   *   问题是复用会命中**任意一条**（`.find` 命中的第一条）`not-started` 线程，
-   *   而那条线程的 `last_activity_at` 停在它**首次创建那一刻**——其它线程后续
-   *   产生活动会不断把自己顶上去，这条被复用的空线程于是逐渐下沉到分组中部。
-   *   用户点"新建"落到那条陈旧的空线程，看到的就是"新会话在中间"。
-   *
-   *   修法：只在**已经在分组最上面**的那条 `not-started` 线程上复用（它一定是
-   *   最近一次"新建"或本来就最新的空线程，复用它天然满足"新建即最上面"）；
-   *   一旦最上面那条已经不是空线程（有人用过了），就老老实实建一条新的——
-   *   服务端 `now()` 保证它落在最上面，不会再出现"复用陈旧空线程"这个中间态。
-   *   这不是放弃 #2094 的防重复初衷：同一会话里连点"新建"仍然复用同一条，
-   *   只是不再跨过其它已产生活动的线程去捡一条沉在中间的旧草稿。
-   */
+  // #3522: explicit new means a new thread. A list's empty badge can be stale
+  // while another tab is already sending; never reuse that shared draft here.
+  const createPendingRef = React.useRef(false);
   const handleCreate = React.useCallback(async () => {
-    if (!bearer) return;
+    if (!bearer || createPendingRef.current) return;
+    createPendingRef.current = true;
     setCreatePending(true);
     setCreateFailure(null);
     try {
-      const topCard = threads?.groups[0]?.cards[0];
-      if (topCard?.status === "not-started") {
-        applyThreadSelection(topCard.id); // 同步切换，见上面头注——不等 router.push 结算
-        router.push(workbenchThreadPath(topCard.id, projectId));
-        return;
-      }
       const result = await createWorkbenchThread(projectId);
       await reloadThreads();
       applyThreadSelection(result.threadId); // 同上
@@ -798,9 +767,10 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
     } catch (failure) {
       setCreateFailure(describeMutateFailure(failure));
     } finally {
+      createPendingRef.current = false;
       setCreatePending(false);
     }
-  }, [applyThreadSelection, bearer, reloadThreads, router, threads, projectId]);
+  }, [applyThreadSelection, bearer, reloadThreads, router, projectId]);
 
   /**
    * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
@@ -1337,7 +1307,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canWrite={canWriteThread}
-          canDecide={canWriteThread && (projectId === null || threadDetail?.capabilities.includes("approval.decide") === true)}
+          canDecide={canWriteThread && (personalOwnerCanDecide || threadDetail?.capabilities.includes("approval.decide") === true)}
           canGeneratePersona={canGeneratePersona}
         />
         </div>

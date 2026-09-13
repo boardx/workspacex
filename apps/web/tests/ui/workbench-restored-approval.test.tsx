@@ -36,6 +36,26 @@ describe("durable approval", () => {
     expect(screen.queryByRole("button", { name: "以后都允许" })).toBeNull();
   });
 
+  it("keeps a personal owner's intent card writable while its accepted decision is in flight", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "form-id", toolName: "confirm_task_intent", argsSummary: null, interrupt: { toolName: "confirm_task_intent", args: { requestId: "form", understanding: "帮我做个分析", assumptions: [] } } } });
+    let finish!: () => void;
+    calls.request.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<RestoredRunApproval runId="run" canWrite />);
+    fireEvent.click(await screen.findByRole("button", { name: "继续" }));
+    await waitFor(() => expect(calls.request).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/项目层限制/)).toBeNull();
+    expect(screen.queryByText(/观察者可以查看/)).toBeNull();
+    await act(async () => { finish(); });
+  });
+
+  it("renders project-observer denial for an intent request and never submits it", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "form-id", toolName: "confirm_task_intent", argsSummary: null, interrupt: { toolName: "confirm_task_intent", args: { requestId: "form", understanding: "Project analysis", assumptions: [] } } } });
+    render(<RestoredRunApproval runId="run" canWrite={false} />);
+    expect(await screen.findByText(/观察者可以查看这次复述/)).toBeVisible();
+    expect(screen.queryByTestId("agent-interrupt-confirm-intent-continue")).toBeNull();
+    expect(calls.request).not.toHaveBeenCalled();
+  });
+
   it("keeps observer approval controls disabled", async () => {
     calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "summary" } });
     render(<RestoredRunApproval runId="run" canWrite={false} />);

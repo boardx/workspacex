@@ -53,11 +53,16 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
   const { rootCertificates } = await import("node:tls");
   const runtimeDirectory = await directory(); const ca = join(runtimeDirectory, "source-ca.pem");
   await writeFile(ca, rootCertificates[0]!);
+  const redisCa = join(runtimeDirectory, "redis-ca.pem"); const redisBlocks: string[] = [];
+  while (Buffer.byteLength(redisBlocks.join("\n")) < 124_980) redisBlocks.push(rootCertificates[redisBlocks.length % rootCertificates.length]!);
+  expect(redisBlocks.length).toBeLessThanOrEqual(128);
+  const redisBundle = redisBlocks.join("\n"); expect(Buffer.byteLength(redisBundle)).toBeGreaterThan(65_536);
+  await writeFile(redisCa, redisBundle);
   const source = {
     WORKSPACEX_MODEL_KEY: "model-key",
     WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: "application-password-123", diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "application-owner-123" }),
-    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123", caFile: redisCa }),
     AGENT_SECRET: JSON.stringify({ DATABASE_URI: "postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=verify-full",
       REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", databaseCaFile: ca, memoryCaFile: ca,
       MEMORY_STORE_DATABASE_URL: "postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",
@@ -69,19 +74,43 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
   expect(maps.agent.DEEP_AGENT_CHECKPOINT_DB).toBe(maps.agent.DATABASE_URI);
   expect(new URL(maps.agent.MEMORY_STORE_DATABASE_URL!).searchParams.get("sslrootcert")).toBe("/run/agent-certs/memory-ca.pem");
   expect(await readFile(join(runtimeDirectory, "agent-certs/memory-ca.pem"), "utf8")).toBe(rootCertificates[0]);
+  expect(await readFile(join(runtimeDirectory, "certs/redis-ca.pem"), "utf8")).toBe(redisBundle);
+  expect(await readFile(join(runtimeDirectory, "agent-certs/redis-ca.pem"), "utf8")).toBe(redisBundle);
+  expect(maps.api).toMatchObject({ NODE_EXTRA_CA_CERTS: "/run/certs/redis-ca.pem", REDIS_TLS: "true" });
+  expect(maps.api.REDIS_CA_FILE).toBeUndefined();
+  const agentRedis = new URL(maps.agent.REDIS_URI!);
+  expect(agentRedis.searchParams.get("ssl_ca_certs")).toBe("/run/agent-certs/redis-ca.pem");
+  expect(agentRedis.searchParams.get("ssl_cert_reqs")).toBe("required");
+  expect(agentRedis.searchParams.get("ssl_check_hostname")).toBe("true");
+  expect(maps.agent.SSL_CERT_FILE).toBeUndefined();
   expect(JSON.stringify(maps.agent)).not.toContain("memory-owner-password");
   expect(JSON.stringify(maps.api)).not.toContain("memory-owner-password");
   expect(maps.memoryMigration.MEMORY_STORE_MIGRATION_DATABASE_URL).toContain("memory-owner-password");
   const compose = JSON.parse(await readFile(join(runtimeDirectory, "compose.json"), "utf8"));
   expect(compose.services.agent.volumes).toContainEqual(expect.objectContaining({ target: "/run/agent-certs", read_only: true }));
 });
+it("rejects a Redis CA bundle above the dedicated provider bound", async () => {
+  const { rootCertificates } = await import("node:tls"); const runtimeDirectory=await directory();
+  const ca=join(runtimeDirectory,"ca.pem"); await writeFile(ca,rootCertificates[0]!);
+  const oversized=join(runtimeDirectory,"oversized.pem"); const blocks:string[]=[];
+  while(Buffer.byteLength(blocks.join("\n"))<=256*1024)blocks.push(rootCertificates[blocks.length%rootCertificates.length]!);
+  await writeFile(oversized,blocks.join("\n"));
+  const source={WORKSPACEX_MODEL_KEY:"model-key",
+    WORKSPACEX_DATABASE:JSON.stringify({host:"db.example.com",database:"workspacex",user:"app_rw",password:"application-password-123",diagnosticsUser:"app_diag_ro",diagnosticsPassword:"diagnostics-password-123"}),
+    WORKSPACEX_MIGRATION:JSON.stringify({host:"db.example.com",database:"workspacex",user:"owner",password:"application-owner-123"}),
+    WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123",caFile:oversized}),
+    AGENT_SECRET:JSON.stringify({DATABASE_URI:"postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=verify-full",REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",databaseCaFile:ca,memoryCaFile:ca,
+      MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",MEMORY_STORE_MIGRATION_DATABASE_URL:"postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full"})};
+  await expect(writeRuntimeBundle(deploymentExample("production"),manifest,{runtimeDirectory,projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source)).rejects.toThrow("INVALID_CA_FILE");
+});
 it("uses disabled PostgreSQL transport for Agent persistence only under the configured Serverless exception", async () => {
   const runtimeDirectory=await directory();
+  const { rootCertificates } = await import("node:tls"); const ca=join(runtimeDirectory,"redis-ca.pem"); await writeFile(ca,rootCertificates[0]!);
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
   const source={WORKSPACEX_MODEL_KEY:"model-key",
     WORKSPACEX_DATABASE:JSON.stringify({host:"db.example.com",database:"workspacex",user:"app_rw",password:"application-password-123",diagnosticsUser:"app_diag_ro",diagnosticsPassword:"diagnostics-password-123"}),
     WORKSPACEX_MIGRATION:JSON.stringify({host:"db.example.com",database:"workspacex",user:"owner",password:"application-owner-123"}),
-    WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123"}),
+    WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123",caFile:ca}),
     AGENT_SECRET:JSON.stringify({DATABASE_URI:"postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=disable",
       REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",
       MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=disable",
@@ -100,7 +129,7 @@ it("rejects production Agent credentials shared with application database roles"
     WORKSPACEX_MODEL_KEY: "model-key",
     WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password: applicationPassword, diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-password-123" }),
     WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "application-owner-123" }),
-    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123" }),
+    WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password: "redis-password-123", caFile: ca }),
     AGENT_SECRET: JSON.stringify({ DATABASE_URI: `postgresql://graph_owner:${applicationPassword}@graph.example.com/graph?sslmode=verify-full`,
       REDIS_URI: "rediss://:redis-password@redis.example.com:6380/1", databaseCaFile: ca, memoryCaFile: ca,
       MEMORY_STORE_DATABASE_URL: "postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",

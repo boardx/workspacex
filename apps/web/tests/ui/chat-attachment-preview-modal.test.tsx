@@ -15,8 +15,9 @@
  */
 import * as React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChatAttachmentPreviewModal } from "@/components/chat/chat-attachment-preview-modal";
+import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
 
 const useAuthedImageSrcMock = vi.fn();
@@ -58,7 +59,7 @@ describe("ChatAttachmentPreviewModal", () => {
     pptxPreviewMock.mockReset();
     pptxInitMock.mockReset();
     // 组件内部 `fetch(src)` 读的是本地 blob URL，不是真实网络请求——这里桩一个够用的响应。
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)), text: () => Promise.resolve('{"skills":[{"name":"周报助手"}]}') }));
   });
 
   it("pptx 渲染成功时走 slides 内联分支，不落回「不支持预览」", async () => {
@@ -152,5 +153,27 @@ describe("ChatAttachmentPreviewModal", () => {
       "该文件类型不支持预览，请下载查看。",
     );
     expect(pptxInitMock).not.toHaveBeenCalled();
+  });
+
+  it("agent 创建的 Skill JSON 草稿可在原消息中打开并读取内容", async () => {
+    useAuthedImageSrcMock.mockReturnValue({ src: "blob:skill-draft", failed: false });
+    render(
+      <ChatAttachmentPreviewModal
+        threadId="thread-1"
+        attachment={makeAttachment({filename:"weekly-report.skill.json",mime:"application/json"})}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(await screen.findByTestId("chat-attachment-preview-text")).toHaveTextContent("周报助手");
+    expect(screen.queryByTestId("chat-attachment-preview-unsupported")).not.toBeInTheDocument();
+  });
+
+  it("消息把 Skill 输出显示为可点击草稿卡片，点击后打开真实内容", async () => {
+    useAuthedImageSrcMock.mockReturnValue({ src: "blob:skill-draft", failed: false });
+    const attachment=makeAttachment({id:"draft-1",filename:"weekly-report.skill.json",mime:"application/json"});
+    render(<MessageAttachments threadId="thread-1" attachments={[attachment]} />);
+    expect(screen.getByTestId("chat-skill-draft-draft-1")).toHaveTextContent("技能草稿");
+    fireEvent.click(screen.getByTestId("chat-message-attachment-draft-1"));
+    expect(await screen.findByTestId("chat-attachment-preview-text")).toHaveTextContent("周报助手");
   });
 });

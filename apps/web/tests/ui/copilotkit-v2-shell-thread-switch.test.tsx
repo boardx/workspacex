@@ -53,7 +53,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/components/chat/copilotkit-v2-panel", () => ({
-  CopilotKitV2Panel: ({ canWrite }: { canWrite: boolean }) => <div data-testid="stub-copilotkit-v2-panel" data-can-write={String(canWrite)} />,
+  CopilotKitV2Panel: ({ canWrite, canDecide }: { canWrite: boolean; canDecide: boolean }) => <div data-testid="stub-copilotkit-v2-panel" data-can-write={String(canWrite)} data-can-decide={String(canDecide)} />,
 }));
 vi.mock("@/components/chat/chat-roster-panel", () => ({ RosterPanel: () => null }));
 vi.mock("@/components/chat/chat-task-inspector", () => ({ ChatTaskInspector: () => null }));
@@ -65,12 +65,7 @@ const THREAD_A = { id: "thr-a", title: "对话 A", subtitle: "", badges: [], sta
 const THREAD_B = { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done" as const, artifactCount: 0, lastActivityAt: "2026-08-27T00:00:00.000Z", visibilityScope: "private" as const };
 const TWO_THREADS = { groups: [{ label: "今天", cards: [THREAD_A, THREAD_B] }], capabilities: ["thread.mutate"] };
 
-/**
- * 用于 `handleCreate` 复用/新建分支的空线程夹具——`EMPTY_TOP` 模拟"分组最上面
- * 那张卡片本身就是空线程"（复用应该命中的目标），`EMPTY_OLD` 模拟"沉在分组
- * 中部/下面的陈旧空线程"（BLOCK 审查要求反证的、不该被复用的目标）。两者
- * `status` 都是 `not-started`，唯一区别是它们在 `cards` 数组里的位置。
- */
+// Stale empty cards at either list position must never replace an explicit creation.
 const EMPTY_TOP = { id: "thr-empty-top", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-30T12:00:00.000Z", visibilityScope: "private" as const };
 const EMPTY_OLD = { id: "thr-empty-old", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-20T00:00:00.000Z", visibilityScope: "private" as const };
 
@@ -474,26 +469,6 @@ describe("CopilotKitV2Shell — round 4：显示状态不再读 initialThreadId 
   });
 });
 
-/**
- * PR #2422 独立审查（BLOCK，评论 5472084365）第 2/3 点——`handleCreate` 的
- * "只在分组最上面那张卡片是空线程时才复用"规则此前**没有任何测试实际执行过**：
- * 旧的 `copilotkit-v2-shell-thread-switch.test.tsx` 三个用例全部只覆盖"点击已有
- * 线程后的软导航兜底"，从未点击过 `chat-thread-create`、从未 mock/断言
- * `createPersonalThread`、也从未断言新的 `groups[0].cards[0]` 判据——那 3/3 通过
- * 是假阳性证据，改动前后都会通过。
- *
- * 下面五条补审查要求的边界/反例覆盖：
- *   (a) 最上面的卡片是空线程 ⇒ 复用它，零次 create 调用；
- *   (b) 最上面的卡片是活跃线程、下面才有空线程 ⇒ 老实建一条新的，再刷新，导航到新 id；
- *   (c) "今天"为空、"本周"里有旧空线程 ⇒ 不跨组复用，建新的；
- *   (d) 列表仍在读（`threads === null`）时连续点两次「新建」⇒ 不产生两条空线程、
- *       不会误判命中陈旧目标（第二次点击被 `createPending` 挡在按钮 `disabled` 上）；
- *   (e) create 失败 ⇒ 不导航、不产生假成功——顺带发现并修好了一个真实缺口：
- *       `handleCreate` 原来没有 catch，失败会从 `void handleCreate()` 逃逸成一个
- *       未处理的 promise rejection，界面上什么反馈都没有。现在补齐 `createFailure`
- *       状态与 `copilotkit-v2-create-thread-error` 呈现，和 `handleRename`/
- *       `handleDelete` 同一套"捕获失败 → 显式落一个失败态"纪律。
- */
 describe("CopilotKitV2Shell — 第五轮（issue #2511）：兜底计时器与同帧连点", () => {
   it("点击后 4s 内浏览器后退（popstate）⇒ 该次点击的兜底作废，不会再把地址栏推回去", async () => {
     render(<CopilotKitV2Shell initialThreadId={null} />);
@@ -559,20 +534,22 @@ describe("CopilotKitV2Shell — 第五轮（issue #2511）：兜底计时器与�
   });
 });
 
-describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", () => {
-  it("(a) 分组最上面那张卡片本身是 not-started 空线程 ⇒ 直接复用，零次 createPersonalThread 调用", async () => {
-    listPersonalThreads.mockResolvedValue({
-      groups: [{ label: "今天", cards: [EMPTY_TOP, THREAD_A] }],
-      capabilities: ["thread.mutate"],
-    });
-
-    render(<CopilotKitV2Shell initialThreadId={null} />);
-    await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`);
-
-    fireEvent.click(screen.getByTestId("chat-thread-create"));
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/chat/${EMPTY_TOP.id}`));
-    expect(createPersonalThread).not.toHaveBeenCalled();
+describe("CopilotKitV2Shell — explicit new conversation isolation", () => {
+  it("two tabs with the same stale empty top card each create an independent thread", async () => {
+    listPersonalThreads.mockResolvedValue({ groups: [{ label: "今天", cards: [EMPTY_TOP, THREAD_A] }], capabilities: ["thread.mutate"] });
+    createPersonalThread.mockResolvedValueOnce({ threadId: "thr-tab-one", version: 0, auditEventId: "ae-1", impactScope: null })
+      .mockResolvedValueOnce({ threadId: "thr-tab-two", version: 0, auditEventId: "ae-2", impactScope: null });
+    const first = render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await within(first.container).findByTestId(`chat-thread-${EMPTY_TOP.id}`);
+    const second = render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await within(second.container).findByTestId(`chat-thread-${EMPTY_TOP.id}`);
+    // Both lists intentionally stay stale even after the first tab starts using its draft.
+    fireEvent.click(within(first.container).getByTestId("chat-thread-create"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-tab-one"));
+    fireEvent.click(within(second.container).getByTestId("chat-thread-create"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-tab-two"));
+    expect(createPersonalThread).toHaveBeenCalledTimes(2);
+    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_TOP.id}`);
   });
 
   it("(b) 最上面的卡片是活跃线程、下面才有 not-started 空线程 ⇒ 不跨过去复用，建一条新的、刷新列表、导航到新 id", async () => {
@@ -658,6 +635,18 @@ describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", (
 
 
 describe("composer permissions are independent of side-panel resources", () => {
+  it("lets a personal-thread owner confirm HITL requests without a project approval capability", async () => {
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await waitFor(() => expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-decide", "true"));
+  });
+  it("keeps a project observer unable to confirm HITL requests", async () => {
+    getThread.mockResolvedValue({
+      thread: { id: "thr-a", projectId: "project-observed", groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-other", lastActivityAt: "2026-08-27T00:00:00.000Z", version: 0 },
+      messages: [], rightTabs: [], capabilities: ["thread.read", "artifact.readonly"],
+    });
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} projectId="project-observed" />);
+    await waitFor(() => expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-decide", "false"));
+  });
   it("enables an authorized composer even if artifacts and attachments never settle", async () => {
     listThreadArtifacts.mockImplementation(() => new Promise(() => {}));
     listThreadAttachments.mockImplementation(() => new Promise(() => {}));

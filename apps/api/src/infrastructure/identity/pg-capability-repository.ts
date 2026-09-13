@@ -1,3 +1,4 @@
+import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 /**
  * PostgreSQL implementation of `CapabilityRepository`.
  *
@@ -47,6 +48,7 @@ interface Row {
   abbr: string | null;
   duty: string | null;
   /** #2514：只有 `LISTING_WITH_ORCHESTRATION` 的读路径会带上；写路径的 RETURNING 没有。 */
+  agent_available?: boolean | null;
   skill_orchestration?: "all-enabled" | "curated" | null;
 }
 
@@ -60,14 +62,15 @@ const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint
 const LISTING_WITH_ORCHESTRATION = `
   SELECT cl.id, cl.org_id, cl.kind, cl.name, cl.scope, cl.owner_team_id, cl.enabled,
          cl.endpoint, cl.abbr, cl.duty,
+         CASE WHEN cl.kind = 'agent' THEN a.id IS NOT NULL AND v.id IS NOT NULL END AS agent_available,
          CASE
-           WHEN cl.kind <> 'agent' OR av.id IS NULL THEN NULL
-           WHEN cardinality(av.skill_version_ids) > 0 THEN 'curated'
+           WHEN cl.kind <> 'agent' OR v.id IS NULL THEN NULL
+           WHEN cardinality(v.skill_version_ids) > 0 THEN 'curated'
            ELSE 'all-enabled'
          END AS skill_orchestration
     FROM capability_listings cl
-    LEFT JOIN agents a ON a.id = cl.id AND a.org_id = cl.org_id
-    LEFT JOIN agent_versions av ON av.id = a.published_version_id AND av.org_id = a.org_id`;
+    LEFT JOIN agents a ON a.id = cl.id AND a.org_id = cl.org_id AND ${PUBLISHED_AGENT_ENABLED}
+    LEFT JOIN agent_versions v ON ${PUBLISHED_AGENT_VERSION_MATCH}`;
 
 function toGuarded(row: Row): GuardedCapability {
   const listing: CapabilityListing = {
@@ -77,15 +80,15 @@ function toGuarded(row: Row): GuardedCapability {
     name: row.name,
     scope: row.scope as VisibilityScope,
     enabled: row.enabled,
+    agentAvailable: row.agent_available ?? null,
     endpoint: row.endpoint,
     // #619: null for every kind but agent; the CHECK constraint guarantees non-null here
     // for a `kind='agent'` row, so this is a straight passthrough, not a default.
     abbr: row.abbr,
     duty: row.duty,
-    // Derived by `projectListingForOrg` in the use case, which is the only place that knows
-    // the organization's kind. Null here rather than a guessed string: a reason invented at
-    // the storage layer would be a second, unreconciled answer to "why is this row grey".
-    disabledReason: null,
+    // Read-side availability never rewrites the administrator's saved enabled flag.
+    disabledReason: row.enabled && row.agent_available === false
+      ? "该 Agent 尚无可用的已发布版本，请联系管理员。" : null,
     skillOrchestration: row.skill_orchestration ?? null,
   };
   return {

@@ -388,6 +388,20 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  async rejectAwaitingPermission(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query(`UPDATE agent_runs
+        SET status='cancelled', error_code=NULL, ended_at=now(),
+            cancel_requested_at=COALESCE(cancel_requested_at,now()),
+            pending_tool_name=NULL, pending_args_summary=NULL,
+            pending_permission_request_id=NULL, pending_interrupt=NULL,
+            pending_tool_call_id=NULL, pending_tool_args_digest=NULL,
+            pending_grant_scope=NULL, pending_decision=NULL, pending_edited_args=NULL
+        WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission' RETURNING id`, [orgId, runId]);
+      return rows.length === 1;
+    });
+  }
+
   async requestCancellation(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null> {
     return this.db.withTenant(orgId, async (s) => {
       const { rows } = await s.query<{ status: string }>("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
@@ -633,7 +647,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       // `RETURNING pending_tool_name` 因此在 reject 分支回 NULL——下面只有
       // run/forever 授权分支用它，reject 永远走不到那里。
       const updated = await s.query<{ pending_tool_name: string; pending_grant_scope: string | null }>(
-        `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
+        `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'cancelled' ELSE 'queued' END,
            pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
            -- issue #3302：裁决历史落在拥有它的地方。这两列**只被这一条语句写**，
            -- 与它同一个 WHERE（同一次条件 UPDATE）：输了竞态的那一方一行都不动，
@@ -657,8 +671,9 @@ export class PgAgentRunRepository implements AgentRunStore {
              'editedArgs', $5::text,
              'decision', $6::text
            ),
-           error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
+           error_code=CASE WHEN $4='reject' THEN NULL ELSE error_code END,
            ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
+           cancel_requested_at=CASE WHEN $4='reject' THEN COALESCE(cancel_requested_at,now()) ELSE cancel_requested_at END,
            pending_tool_name=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_name END,
            pending_args_summary=CASE WHEN $4='reject' THEN NULL ELSE pending_args_summary END,
            pending_permission_request_id=CASE WHEN $4='reject' THEN NULL ELSE pending_permission_request_id END,

@@ -28,6 +28,7 @@ from typing_extensions import NotRequired
 
 from .native_tool_authority import NativeToolAuthority, ToolAuthority, ToolAuthorityError
 from .native_sandbox_dispatch import NativeSandboxDispatch
+from .native_task_observation import NativeTaskObservation
 from .harness import build_middleware
 from .native_skill_activity import NativeSkillActivity, SkillActivityError
 from .sandbox_backend import HttpSessionSandbox, SandboxTransportError
@@ -225,7 +226,7 @@ def create_native_graph(
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
                    *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
-        middleware=[_BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware],
+        middleware=[_BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware, NativeTaskObservation()],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )
 

@@ -109,6 +109,8 @@ def test_real_factory_resolves_transient_token_and_runs_native_tool(monkeypatch)
         before=copy.deepcopy(value)
         async def run():
             async with factory.native_graph_context(value) as graph:
+                from deep_agent_service.native_task_observation import NativeTaskToolObserver
+                assert any(isinstance(callback, NativeTaskToolObserver) for callback in graph.config['callbacks'])
                 return [event async for event in graph.astream({'messages':[{'role':'user','content':'read skill'}]},config=value,stream_mode='custom')]
         try:
             events=asyncio.run(run())
@@ -160,6 +162,8 @@ def test_factory_registers_actual_schedule_tools(monkeypatch):
     async def run():
         async with factory.native_graph_context(value): pass
     asyncio.run(run())
+    from deep_agent_service.native_task_observation import NativeTaskToolObserver
+    assert any(isinstance(callback, NativeTaskToolObserver) for callback in graph.with_config.call_args.args[0]['callbacks'])
     registered={t.name:t for t in build.call_args.kwargs['tools']}
     for name in ['wx_schedule_create','wx_schedule_list','wx_schedule_cancel','wx_image_generate','wx_audio_transcribe']:
         assert registered[name].coroutine is not None

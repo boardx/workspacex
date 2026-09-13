@@ -173,6 +173,7 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
   async function makeDeps(overrides: {
     status: string;
     approveWins?: boolean;
+    rejectWins?: boolean;
     errorAfter?: string | null;
   }) {
     vi.resetModules();
@@ -201,6 +202,12 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
         calls.push(`fail:${code}`);
         if (status !== "succeeded" && status !== "failed") { status = "failed"; error = code; }
         if (overrides.errorAfter !== undefined && overrides.errorAfter !== null) error = overrides.errorAfter;
+      },
+      rejectAwaitingPermission: async () => {
+        calls.push("reject");
+        if (status !== "awaiting_tool_permission" || overrides.rejectWins === false) return false;
+        status = "cancelled";
+        return true;
       },
       approveAndRequeue: async () => {
         calls.push("requeue");
@@ -260,12 +267,21 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
     expect(calls).toEqual([]);
   });
 
-  it("reject：failRun(HITL_REJECTED)，不 kick", async () => {
+  it("reject：cancelled，无错误，不 kick", async () => {
     const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_tool_permission", errorAfter: "HITL_REJECTED" });
     const out = await mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject" });
-    expect(calls).toEqual(["fail:HITL_REJECTED"]);
+    expect(calls).toEqual(["reject"]);
+    expect(out.status).toBe("cancelled");
     expect(kicked()).toBe(0);
-    expect(out.error).toBe("HITL_REJECTED");
+    expect(out.error).toBeNull();
+  });
+
+  it("reject loses the atomic decision race: reports conflict without kicking", async () => {
+    const { mod, deps, kicked } = await makeDeps({ status: "awaiting_tool_permission", rejectWins: false });
+    await expect(mod.decideAgentRun(deps, {
+      userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject",
+    })).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
+    expect(kicked()).toBe(0);
   });
 
   it("approve 竞态输了 → 抛 NotAwaitingToolPermission，绝不覆盖账本", async () => {

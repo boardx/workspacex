@@ -27,12 +27,29 @@ import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/cha
 import type { ChatAttachment } from "@/lib/live-chat";
 import { ChatAttachmentSlidesPreview } from "./chat-attachment-slides-preview";
 
-/** 四种渲染态：内联图片 / 内联 PDF / 内联 pptx / 无法内联，仅给图标+下载。 */
-function previewMode(kind: AttachmentIconKind): "image" | "pdf" | "slides" | "unsupported" {
+/** 五种渲染态：内联图片 / PDF / pptx / UTF-8 文本 / 无法内联。 */
+function previewMode(kind: AttachmentIconKind, mime: string): "image" | "pdf" | "slides" | "text" | "unsupported" {
   if (kind === "image") return "image";
   if (kind === "pdf") return "pdf";
   if (kind === "slides") return "slides";
+  if (kind === "text" || mime === "application/json") return "text";
   return "unsupported";
+}
+
+function TextAttachmentPreview({ src }: { src: string }) {
+  const [text, setText] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setText(null);setFailed(false);
+    fetch(src,{signal:controller.signal}).then(response=>response.text()).then(setText).catch(error=>{
+      if((error as {name?:string}).name!=="AbortError")setFailed(true);
+    });
+    return ()=>controller.abort();
+  },[src]);
+  if(failed)return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-failed">文本预览加载失败，请下载查看。</p>;
+  if(text===null)return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-loading">正在读取内容…</p>;
+  return <pre className="max-h-[60vh] w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted p-3 text-11 text-card-foreground" data-testid="chat-attachment-preview-text">{text}</pre>;
 }
 
 export function ChatAttachmentPreviewModal({
@@ -49,7 +66,7 @@ export function ChatAttachmentPreviewModal({
 
   const contentUrl = apiUrl(`/chat/threads/${threadId}/attachments/${attachment.id}/content`);
   const { src, failed } = useAuthedImageSrc(contentUrl);
-  const mode = previewMode(iconKindForMime(attachment.mime));
+  const mode = previewMode(iconKindForMime(attachment.mime),attachment.mime);
 
   if (!mounted) return null;
 
@@ -108,6 +125,8 @@ export function ChatAttachmentPreviewModal({
             />
           ) : mode === "slides" ? (
             <ChatAttachmentSlidesPreview src={src} filename={attachment.filename} />
+          ) : mode === "text" ? (
+            <TextAttachmentPreview src={src} />
           ) : (
             <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-unsupported">
               该文件类型不支持预览，请下载查看。

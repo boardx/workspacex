@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { productionDataEnvironment } from "../src/data-secrets";
 const db = { host: "pg.internal", port: 5432, database: "workspacex", user: "app_rw", password: "a".repeat(32), diagnosticsUser: "app_diag_ro", diagnosticsPassword: "b".repeat(32) };
 const migration = { host: db.host, port: db.port, database: db.database, user: "owner", password: "c".repeat(32) };
-const redis = { host: "redis.internal", password: "d".repeat(32) };
+const redis = { host: "redis.internal", password: "d".repeat(32), caFile: "/etc/workspacex/redis-ca.pem" };
 describe("production secret contract", () => {
-  it("renders separate identities with verified TLS", () => expect(productionDataEnvironment(db,migration,redis)).toMatchObject({ APP_DB_USER: "app_rw", MIGRATION_DB_USER: "owner", DIAG_DB_USER: "app_diag_ro", PGSSLMODE: "verify-full", REDIS_TLS: "true" }));
+  it("renders separate identities with verified TLS", () => expect(productionDataEnvironment(db,migration,redis)).toMatchObject({ APP_DB_USER: "app_rw", MIGRATION_DB_USER: "owner", DIAG_DB_USER: "app_diag_ro", PGSSLMODE: "verify-full", REDIS_TLS: "true", REDIS_CA_FILE: redis.caFile }));
+  it("requires a managed Redis CA without allowing a TLS verification bypass", () => {
+    expect(() => productionDataEnvironment(db,migration,{ host: redis.host, password: redis.password })).toThrow("invalid production data secret fields");
+    expect(() => productionDataEnvironment(db,migration,{ ...redis, rejectUnauthorized: false })).toThrow("invalid production data secret fields");
+  });
   it("renders the explicit Serverless exception without a CA fallback", () => expect(productionDataEnvironment(db,migration,redis,"aliyun-postgresql-serverless-no-tls")).toMatchObject({
     PGSSLMODE: "disable", WORKSPACEX_RDS_TLS_EXCEPTION: "aliyun-postgresql-serverless-no-tls", REDIS_TLS: "true",
   }));

@@ -312,8 +312,9 @@ export const AgendaSegment = z
     agendaSegmentDefinitionId: z.string().nullable(),
     ordinal: z.number().int().nonnegative(),
     title: z.string(),
-    /** ⚠ **单位无出处**（原型只给「时长档位」）→ `KNOWN_CONTRACT_GAPS.P5`。不在这里替人定 */
-    duration: z.number().int().positive(),
+    /** ⚠ **单位无出处**（原型只给「时长档位」）→ `KNOWN_CONTRACT_GAPS.P5`。不在这里替人定。
+     * null = 蓝本 flow-agenda 未填写真实时长；不得编造默认值（F23 / #1667）。 */
+    duration: z.number().int().positive().nullable(),
     state: AgendaSegmentState,
     /** 并入的目标环节。⚠ **只在 `closed` / `skipped` 上可非空**（Q-2② B），由 DB CHECK 保证 */
     mergedInto: z.string().nullable(),

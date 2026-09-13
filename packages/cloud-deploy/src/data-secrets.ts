@@ -8,7 +8,10 @@ export const DatabaseSecret = z.object({ ...connection, user: z.literal("app_rw"
   caFile: z.string().startsWith("/").optional(),
 }).strict();
 export const MigrationSecret = z.object({ ...connection, user: z.string().min(1).max(63), password }).strict();
-export const RedisSecret = z.object({ host: connection.host, port: z.number().int().min(1).max(65535).default(6379), username: z.string().min(1).optional(), password }).strict();
+export const RedisSecret = z.object({ host: connection.host, port: z.number().int().min(1).max(65535).default(6379), username: z.string().min(1).optional(), password,
+  /** Provider CA bundle on the trusted host. Runtime preparation validates and copies it. */
+  caFile: z.string().startsWith("/"),
+}).strict();
 
 export function productionDataEnvironment(database: unknown, migration: unknown, redis: unknown,
   rdsTlsException?: "aliyun-postgresql-serverless-no-tls"): Record<string, string> {
@@ -24,5 +27,5 @@ export function productionDataEnvironment(database: unknown, migration: unknown,
     PGSSLMODE: rdsTlsException ? "disable" : "verify-full",
     ...(rdsTlsException ? { WORKSPACEX_RDS_TLS_EXCEPTION: rdsTlsException } : db.data.caFile ? { PGSSLROOTCERT: db.data.caFile } : {}),
     REDIS_HOST: cache.data.host, REDIS_PORT: String(cache.data.port), REDIS_PASSWORD: cache.data.password,
-    ...(cache.data.username ? { REDIS_USERNAME: cache.data.username } : {}), REDIS_TLS: "true" };
+    ...(cache.data.username ? { REDIS_USERNAME: cache.data.username } : {}), REDIS_TLS: "true", REDIS_CA_FILE: cache.data.caFile };
 }

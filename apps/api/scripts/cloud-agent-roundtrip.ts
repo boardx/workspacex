@@ -17,6 +17,9 @@ async function json(response: Response): Promise<unknown> {
 
 /** Calls real application chat/run routes. Never approves a permission request.
  * A successful HTTP enqueue is insufficient: require a terminal success and its durable reply.
+ * Each invocation creates one private thread and retains its execution history as
+ * acceptance evidence. Deleting it would cascade into append-only run records.
+ * The canonical provision action calls this once per attempt, never in its retry loop.
  */
 export async function verifyCloudAgentRoundtrip(options: {
   baseUrl: string; session: string; signal: AbortSignal; agentId: string;
@@ -52,23 +55,21 @@ export async function verifyCloudAgentRoundtrip(options: {
         const reply = messages.messages.find(message => message.id === value.resultMessageId);
         if (!reply || reply.authorKind !== "agent" || reply.agentRunId !== runId || !reply.text.trim()) throw new Error("CLOUD_AGENT_MISSING_REPLY");
         succeeded = true;
-        return { agentBusinessVerified: true, runId, replyId: reply.id, threadId: created.threadId } as const;
+        return { agentBusinessVerified: true, runId, replyId: reply.id, threadId: created.threadId, threadRetained: true } as const;
       }
       if (value.status !== "queued" && value.status !== "running") throw new Error("CLOUD_AGENT_NOT_SUCCESSFUL");
       await delay(500, undefined, { signal: options.signal });
     }
   } finally {
-    // No cleanup requests after the shared deadline. A cancelled probe may leave its
-    // private thread/run for existing recovery; this does not prove remote termination.
+    // Retention is not proof of termination: failures still cancel the accepted run.
+    // No requests after the shared deadline; an aborted probe remains uncertain and
+    // the caller retains the provision lock. Never swallow a failure as success.
     if (!options.signal.aborted) {
       if (runId && !succeeded) {
         const cancel = await call(`/agent-runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" });
         await cancel.body?.cancel();
         if (!cancel.ok && cancel.status !== 409) throw new Error("CLOUD_AGENT_CLEANUP_FAILED");
       }
-      const current = chat.operations.getThread.out.parse(await json(await call(`/chat/threads/${encodeURIComponent(created.threadId)}`)));
-      await mutate({ ...common, op: "delete", threadId: created.threadId, title: null,
-        expectedVersion: current.thread.version, reason: "Provision Agent probe finished" });
     }
   }
 }

@@ -1,4 +1,5 @@
 "use client";
+import { identity } from "@repo/contracts";
 
 import * as React from "react";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
@@ -59,7 +60,7 @@ export function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string
     try {
       const rows = await listCapabilities(orgId, "agent");
       if (gen !== generation.current) return;
-      const enabled = rows.filter((row) => row.enabled);
+      const enabled = rows.filter(identity.isCapabilityReady);
       setResult({ key, agents: enabled.map(copilotkitV2ToAgentOption), listings: rows });
     } catch (err) {
       if (gen !== generation.current) return;
