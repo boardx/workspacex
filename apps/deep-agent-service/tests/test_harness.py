@@ -72,8 +72,8 @@ def test_plan_first_tool_choice_middleware_wired_into_build_middleware():
     )
 
 
-def test_explicit_browser_navigation_middleware_wired_inside_task_classifier():
-    """浏览器路由必须接入生产栈，并位于自动任务分类器内层以覆盖通用规划选择。"""
+def test_explicit_browser_navigation_middleware_wired_outside_task_classifier():
+    """LangChain 首项是外层；浏览器路由必须先于分类器收窄工具。"""
     middleware = build_middleware(_fake_model())
     classifier_index = next(
         index for index, item in enumerate(middleware) if isinstance(item, TaskClassifierMiddleware)
@@ -83,7 +83,7 @@ def test_explicit_browser_navigation_middleware_wired_inside_task_classifier():
         for index, item in enumerate(middleware)
         if isinstance(item, ExplicitBrowserNavigationMiddleware)
     )
-    assert browser_index == classifier_index + 1
+    assert browser_index + 1 == classifier_index
 
 
 def test_task_mode_marker_matches_web_panel_literal():
@@ -156,9 +156,100 @@ def _browser_model_request(messages):  # noqa: ANN001, ANN201
             {"name": "fetch_url"},
             {"name": "browser_navigate"},
             {"name": "browser_snapshot"},
+            {"name": "write_todos"},
+            {"name": "confirm_task_intent"},
         ],
         state={"messages": messages},
     )
+
+
+def _browser_routing_middlewares():
+    """取生产栈中会改 tool_choice/tools 的三层，并保留生产顺序。"""
+    return [
+        item
+        for item in build_middleware(_fake_model())
+        if isinstance(
+            item,
+            (
+                PlanFirstToolChoiceMiddleware,
+                ExplicitBrowserNavigationMiddleware,
+                TaskClassifierMiddleware,
+            ),
+        )
+    ]
+
+
+def _capture_composed_browser_request(messages, *, asynchronous=False):  # noqa: ANN001, ANN201
+    """用 LangChain 自己的 middleware 组合器捕获生产顺序下的最终 ModelRequest。"""
+    import asyncio
+
+    from langchain.agents.factory import (
+        _chain_async_model_call_handlers,
+        _chain_model_call_handlers,
+    )
+    from langchain.agents.middleware import ModelResponse
+    from langchain_core.messages import AIMessage
+
+    captured: dict = {}
+    middleware = _browser_routing_middlewares()
+    request = _browser_model_request(messages)
+
+    if asynchronous:
+        composed = _chain_async_model_call_handlers(
+            [item.awrap_model_call for item in middleware]
+        )
+
+        async def handler(final_request):  # noqa: ANN001, ANN202
+            captured["tool_choice"] = final_request.tool_choice
+            captured["tools"] = [_tool.get("name") for _tool in final_request.tools]
+            return ModelResponse(result=[AIMessage(content="stub")])
+
+        assert composed is not None
+        asyncio.run(composed(request, handler))
+    else:
+        composed = _chain_model_call_handlers([item.wrap_model_call for item in middleware])
+
+        def handler(final_request):  # noqa: ANN001, ANN202
+            captured["tool_choice"] = final_request.tool_choice
+            captured["tools"] = [_tool.get("name") for _tool in final_request.tools]
+            return ModelResponse(result=[AIMessage(content="stub")])
+
+        assert composed is not None
+        composed(request, handler)
+
+    return captured
+
+
+def test_production_middleware_chain_routes_original_t45_to_browser_sync_and_async():
+    """回归复审发现的组合缺陷：分类器不得先移除 browser_navigate。"""
+    from langchain_core.messages import HumanMessage
+
+    messages = [
+        HumanMessage(
+            content=(
+                "打开 https://zh.wikipedia.org/wiki/人工智能 并总结要点，"
+                "并告诉我这个页面第一段的原话"
+            )
+        )
+    ]
+    expected = {"tool_choice": "browser_navigate", "tools": ["browser_navigate"]}
+    assert _capture_composed_browser_request(messages) == expected
+    assert _capture_composed_browser_request(messages, asynchronous=True) == expected
+
+
+def test_production_middleware_chain_preserves_manual_task_mode_behavior():
+    """手动任务模式由原有规划层处理，不能被浏览器路由改成直接导航。"""
+    from langchain_core.messages import HumanMessage
+
+    messages = [
+        HumanMessage(content=f"{TASK_MODE_MARKER}：打开 https://example.com 并总结")
+    ]
+    expected = {
+        "tool_choice": "required",
+        "tools": ["write_todos", "confirm_task_intent"],
+    }
+    assert _capture_composed_browser_request(messages) == expected
+    assert _capture_composed_browser_request(messages, asynchronous=True) == expected
 
 
 def test_explicit_open_url_forces_browser_navigate_for_original_t45_request():
@@ -228,7 +319,13 @@ def test_ordinary_research_url_keeps_fetch_url_available_without_forcing_browser
     ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
 
     assert captured["tool_choice"] is None
-    assert captured["tools"] == ["fetch_url", "browser_navigate", "browser_snapshot"]
+    assert captured["tools"] == [
+        "fetch_url",
+        "browser_navigate",
+        "browser_snapshot",
+        "write_todos",
+        "confirm_task_intent",
+    ]
 
 
 def test_explicit_browser_route_only_forces_first_navigation_in_current_user_turn():
@@ -258,7 +355,13 @@ def test_explicit_browser_route_only_forces_first_navigation_in_current_user_tur
     ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
 
     assert captured["tool_choice"] is None
-    assert captured["tools"] == ["fetch_url", "browser_navigate", "browser_snapshot"]
+    assert captured["tools"] == [
+        "fetch_url",
+        "browser_navigate",
+        "browser_snapshot",
+        "write_todos",
+        "confirm_task_intent",
+    ]
 
 
 def test_negated_open_url_does_not_trigger_browser_authorization():
@@ -266,6 +369,25 @@ def test_negated_open_url_does_not_trigger_browser_authorization():
     from langchain_core.messages import AIMessage, HumanMessage
 
     messages = [HumanMessage(content="不要打开 https://example.com，只解释这个 URL 的结构")]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+    assert captured["tool_choice"] is None
+
+
+def test_english_negated_browser_open_does_not_trigger_authorization():
+    """英文“don't use a browser to open”同样必须保持非浏览器路径。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(
+            content="Don't use a browser to open https://example.com; just explain the URL."
+        )
+    ]
     captured: dict = {}
 
     def handler(request):  # noqa: ANN001, ANN202

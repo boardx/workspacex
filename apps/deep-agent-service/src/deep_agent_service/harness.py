@@ -454,7 +454,10 @@ _EXPLICIT_BROWSER_INTENT_RE = re.compile(
 )
 _NEGATED_BROWSER_INTENT_RE = re.compile(
     r"(?:不要|无需|不必|别)\s*(?:打开|访问|用浏览器|截图)|"
-    r"\b(?:do not|don't|without)\s+(?:open|visit|browse|screenshot)\b",
+    r"\b(?:do not|don't)\s+(?:use\s+(?:a\s+|the\s+)?browser\s+to\s+)?"
+    r"(?:open|visit|browse|screenshot)\b|"
+    r"\bwithout\s+(?:using\s+)?(?:a\s+|the\s+)?browser\s+to\s+"
+    r"(?:open|visit|browse|screenshot)\b",
     re.IGNORECASE,
 )
 
@@ -1225,12 +1228,14 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # 此前 `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才让这个类进入返回列表，验证稳定后
         # 按 R6 要求默认开启且开关本身移除，多出的这一个循环节点是这条能力生效的
         # 固定代价，不是可以省掉的开销（同 Summarization trigger/keep 那条注释的纪律）。
-        TaskClassifierMiddleware(),
         # #3582 / T45：显式要求打开具体 URL 时，第一次模型调用必须选真实浏览器。
         # 高风险授权仍由 browser_navigate 工具自己的 HITL 配置处理；本中间件只决定
-        # 工具路由，不执行工具，也不改变授权等级。放在 TaskClassifier 内层，使明确
-        # 浏览器意图覆盖自动分类的通用规划选择；手动任务模式标记仍由 PlanFirst 优先。
+        # 工具路由，不执行工具，也不改变授权等级。LangChain 首个 middleware 是最外层，
+        # 因此必须放在 TaskClassifier 前：先把显式浏览器请求收窄后，内层分类器看不到
+        # write_todos/confirm_task_intent，无法再把 browser_navigate 覆盖掉。手动任务模式
+        # 标记由本类主动放行，仍保持此改动前 PlanFirst + TaskClassifier 的组合语义。
         ExplicitBrowserNavigationMiddleware(),
+        TaskClassifierMiddleware(),
         SummarizationMiddleware(
             model=model,
             trigger=("tokens", 60000),
