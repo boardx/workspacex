@@ -49,17 +49,16 @@ describe("continuous report history", () => {
     expect(within(history).getByTestId("previous-report-evidence-warning")).toHaveTextContent("上一轮有 1 批证据包含未通过校验的内容，已排除无效部分");
     expect(within(history).getByTestId("previous-report-evidence-warning")).toHaveTextContent("证据覆盖可能不完整");
   });
-  it("retains evidence coverage warning after completion and in Markdown export", () => {
+  it("keeps generation warnings out of completed reports and Markdown export", () => {
     const warnings = [{ batchIndex: 0, sourceIds: ["source1"], questionIds: ["q1"], reason: "invalid_model_evidence" as const }];
     const { rerender } = render(<GuidedResearchEvidenceWarning state={{ ...initial, report: null, busy: true, reportEvidenceWarnings: warnings }} />);
     expect(screen.getByTestId("research-report-evidence-warning")).toHaveTextContent("有 1 批证据包含未通过校验的内容，已排除无效部分");
     expect(screen.getByTestId("research-report-evidence-warning")).toHaveTextContent("继续使用其余有效证据生成");
     rerender(<GuidedResearchEvidenceWarning state={{ ...initial, reportEvidenceWarnings: warnings }} />);
-    expect(screen.getByTestId("research-report-evidence-warning")).toHaveTextContent("证据覆盖可能不完整");
-    expect(screen.getByTestId("research-report-evidence-warning")).toHaveTextContent("报告基于其余有效证据生成");
+    expect(screen.queryByTestId("research-report-evidence-warning")).not.toBeInTheDocument();
     const markdown = researchReportMarkdown(researchReportDocument(initial.report!, initial.sources, initial.outline), false, warnings.length);
-    expect(markdown).toContain("有 1 批证据包含未通过校验的内容，已排除无效部分");
-    expect(markdown).toContain("证据覆盖可能不完整");
+    expect(markdown).not.toContain("有 1 批证据包含未通过校验的内容，已排除无效部分");
+    expect(markdown).not.toContain("证据覆盖可能不完整");
     expect(markdown).toContain("## 1. 政策章节");
   });
 });
