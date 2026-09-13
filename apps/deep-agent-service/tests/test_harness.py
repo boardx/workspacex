@@ -220,7 +220,7 @@ def _capture_composed_browser_request(messages, *, asynchronous=False):  # noqa:
     return captured
 
 
-def test_production_middleware_chain_routes_original_t45_to_browser_sync_and_async():
+def test_production_middleware_chain_routes_original_t45_to_browser_sync_and_async(caplog):  # noqa: ANN001
     """回归复审发现的组合缺陷：分类器不得先移除 browser_navigate。"""
     from langchain_core.messages import HumanMessage
 
@@ -235,6 +235,7 @@ def test_production_middleware_chain_routes_original_t45_to_browser_sync_and_asy
     expected = {"tool_choice": "browser_navigate", "tools": ["browser_navigate"]}
     assert _capture_composed_browser_request(messages) == expected
     assert _capture_composed_browser_request(messages, asynchronous=True) == expected
+    assert "工具未挂载" not in caplog.text
 
 
 def test_production_middleware_chain_preserves_manual_task_mode_behavior():
@@ -247,6 +248,43 @@ def test_production_middleware_chain_preserves_manual_task_mode_behavior():
     expected = {
         "tool_choice": "required",
         "tools": ["write_todos", "confirm_task_intent"],
+    }
+    assert _capture_composed_browser_request(messages) == expected
+    assert _capture_composed_browser_request(messages, asynchronous=True) == expected
+
+
+def test_production_middleware_chain_restores_full_tools_after_navigation():
+    """导航结束后的下一次模型调用可直接 snapshot/click/截图，不被规划层再次收窄。"""
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    messages = [
+        HumanMessage(
+            content=(
+                "打开 https://zh.wikipedia.org/wiki/人工智能 并总结要点，"
+                "并告诉我这个页面第一段的原话"
+            )
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "id": "nav-1",
+                    "name": "browser_navigate",
+                    "args": {"url": "https://zh.wikipedia.org/wiki/人工智能"},
+                }
+            ],
+        ),
+        ToolMessage(content="page opened", tool_call_id="nav-1"),
+    ]
+    expected = {
+        "tool_choice": None,
+        "tools": [
+            "fetch_url",
+            "browser_navigate",
+            "browser_snapshot",
+            "write_todos",
+            "confirm_task_intent",
+        ],
     }
     assert _capture_composed_browser_request(messages) == expected
     assert _capture_composed_browser_request(messages, asynchronous=True) == expected

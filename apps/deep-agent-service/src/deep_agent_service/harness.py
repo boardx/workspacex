@@ -471,6 +471,15 @@ def _tool_already_called(messages: list, tool_name: str) -> bool:
     )
 
 
+def _is_explicit_browser_request(text: str) -> bool:
+    """是否明确要求用浏览器打开/交互/截图一个具体 URL。"""
+    return bool(
+        _URL_RE.search(text)
+        and _EXPLICIT_BROWSER_INTENT_RE.search(text)
+        and not _NEGATED_BROWSER_INTENT_RE.search(text)
+    )
+
+
 def _prepare_explicit_browser_request(request: ModelRequest) -> ModelRequest | None:
     """把“打开具体 URL”的本轮首次模型调用确定性路由到真实浏览器。
 
@@ -487,9 +496,7 @@ def _prepare_explicit_browser_request(request: ModelRequest) -> ModelRequest | N
     text = _human_text(request.messages[turn_start])
     if TASK_MODE_MARKER in text:
         return None
-    if not _URL_RE.search(text):
-        return None
-    if not _EXPLICIT_BROWSER_INTENT_RE.search(text) or _NEGATED_BROWSER_INTENT_RE.search(text):
+    if not _is_explicit_browser_request(text):
         return None
     if _tool_already_called(request.messages[turn_start + 1 :], "browser_navigate"):
         return None
@@ -884,7 +891,15 @@ def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | No
     if turn_start is None:
         return None
 
-    category = _classify_task_text(_human_text(request.messages[turn_start]))
+    turn_text = _human_text(request.messages[turn_start])
+    # #3582：显式打开具体 URL 有自己的确定性浏览器路由。若仍让通用多步分类器
+    # 介入，首次导航后它会立刻把工具再次收窄成 write_todos/confirm_task_intent，
+    # browser_snapshot/click/screenshot 无法继续；初次调用还会因外层路由已主动收窄
+    # 工具集而误报“write_todos 未挂载”。手动任务模式标记仍保留原有规划语义。
+    if TASK_MODE_MARKER not in turn_text and _is_explicit_browser_request(turn_text):
+        return None
+
+    category = _classify_task_text(turn_text)
     if category == TASK_CATEGORY_NO_PLAN:
         return None
 
