@@ -14,6 +14,7 @@ import {
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
+import { ensureRedis } from "../support/auth";
 import { readCredentialByEmail, resetAuthFixtures, resetOrgsOwnedBy } from "../support/auth-db";
 
 process.env.KERNEL_QUIET = "1";
@@ -77,6 +78,7 @@ async function prioritizeOutbox(outboxId: string) {
 
 beforeAll(async () => {
   ensureDatabase();
+  ensureRedis();
   await migrateOnce();
   db = new PgDatabase(appConfig());
   const { createApp } = await import("../../src/main");
@@ -118,6 +120,8 @@ describe("signed public email-verification contract", () => {
       postRaw("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie),
       postRaw("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie),
     ]);
+    expect(first.response.status).toBe(201);
+    expect(second.response.status).toBe(201);
     const signed = [first, second].filter((result) => result.body.session);
     expect(signed).toHaveLength(1);
     expect([first, second].filter((result) => !result.body.session)).toHaveLength(1);
