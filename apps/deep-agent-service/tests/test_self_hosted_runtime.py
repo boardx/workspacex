@@ -115,6 +115,30 @@ async def test_open_runtime_contract_health_assistant_thread_run_state_and_strea
 
 
 @pytest.mark.anyio
+async def test_known_empty_thread_has_canonical_state_without_loading_a_graph():
+    ledger = MemoryLedger()
+    loads = []
+
+    def reject_graph_load(*args):
+        loads.append(args)
+        raise AssertionError("an empty thread has no run graph to restore")
+
+    app = create_app(Runtime(ledger, reject_graph_load))
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://runtime") as client:
+            assert (await client.post("/threads", json={"thread_id": "empty"})).status_code == 200
+            state = await client.get("/threads/empty/state")
+            assert state.status_code == 200
+            assert state.json() == {"values": {"messages": []}, "next": [], "tasks": [], "metadata": {}}
+            thread = await client.get("/threads/empty")
+            assert thread.status_code == 200
+            assert thread.json()["status"] == "idle"
+            assert (await client.get("/threads/unknown/state")).status_code == 404
+            assert (await client.get("/threads/unknown")).status_code == 404
+            assert loads == []
+
+
+@pytest.mark.anyio
 async def test_cancel_is_idempotent_and_restart_fails_unknown_inflight_run():
     ledger = MemoryLedger()
     await ledger.create_thread("t", "reject")

@@ -101,6 +101,7 @@ def test_http_snapshot_exception_still_closes_context():
         session.aget_state = fail
         ledger = MemoryLedger()
         await ledger.create_thread("t", "reject")
+        await ledger.create_run("t", "run", {})
         runtime = Runtime(ledger, lambda *_: session.context())
         app = create_app(runtime)
         app.state.runtime = runtime

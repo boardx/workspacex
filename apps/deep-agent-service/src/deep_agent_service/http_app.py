@@ -34,7 +34,20 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
         return request.app.state.runtime
 
     async def thread_snapshot(request: Request, thread_id: str):
-        latest = await rt(request).ledger.latest_run(thread_id)
+        runtime = rt(request)
+        # A created thread has a real, canonical state before its first run: no
+        # messages and no next node. Loading a graph here asks its checkpointer for
+        # a checkpoint that cannot exist yet. The production checkpointer raises,
+        # `state()` turns that into 404, and the API aborts the first native run
+        # before it can submit `/runs`. Distinguish that known-empty state from an
+        # unknown thread through the durable ledger; never turn arbitrary graph or
+        # checkpoint failures on an existing run into an empty success.
+        thread = await runtime.ledger.get_thread(thread_id)
+        if thread is None:
+            raise LookupError("THREAD_NOT_FOUND")
+        latest = await runtime.ledger.latest_run(thread_id)
+        if latest is None:
+            return SimpleNamespace(values={"messages": []}, next=(), tasks=()), None
         # The HTTP state endpoint represents the latest run on this thread.
         # Recover its assistant from the durable ledger, including after restart.
         assistant = (latest or {}).get("assistant_id") or "Deep Agent"
@@ -44,10 +57,10 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
             # A running graph already owns this native session. Recreating it for
             # polling verifies mounted files through another adapter and races
             # the tool's exclusive sandbox slot (SESSION_BUSY / HTTP 409).
-            active = rt(request).active_graph(latest["run_id"])
+            active = runtime.active_graph(latest["run_id"])
             if active is not None:
                 return await active.aget_state(config), latest
-            for event in reversed(await rt(request).ledger.events(latest["run_id"])):
+            for event in reversed(await runtime.ledger.events(latest["run_id"])):
                 if event["event"] == NATIVE_SNAPSHOT_EVENT:
                     saved = event["data"]
                     return SimpleNamespace(values=saved["values"], next=tuple(saved["next"]),
@@ -55,7 +68,7 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
             # Older runs predate the durable projection. Retain their existing
             # live-binding read path; never fabricate missing state/interrupts.
         async with AsyncExitStack() as stack:
-            graph = await enter_graph(stack, rt(request).graph_loader(assistant, config))
+            graph = await enter_graph(stack, runtime.graph_loader(assistant, config))
             return await graph.aget_state(config), latest
 
     async def health(_request: Request):
