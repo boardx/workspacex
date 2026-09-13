@@ -17,6 +17,7 @@ from deep_agent_service.harness import (
     TASK_CATEGORY_MULTI_STEP_LOW_RISK,
     TASK_CATEGORY_NO_PLAN,
     TASK_MODE_MARKER,
+    ExplicitBrowserNavigationMiddleware,
     PlanFirstToolChoiceMiddleware,
     TaskClassifierMiddleware,
     _classify_task_text,
@@ -69,6 +70,20 @@ def test_plan_first_tool_choice_middleware_wired_into_build_middleware():
     assert any(isinstance(m, PlanFirstToolChoiceMiddleware) for m in mw), (
         "PlanFirstToolChoiceMiddleware 必须出现在 build_middleware() 的返回列表里"
     )
+
+
+def test_explicit_browser_navigation_middleware_wired_inside_task_classifier():
+    """浏览器路由必须接入生产栈，并位于自动任务分类器内层以覆盖通用规划选择。"""
+    middleware = build_middleware(_fake_model())
+    classifier_index = next(
+        index for index, item in enumerate(middleware) if isinstance(item, TaskClassifierMiddleware)
+    )
+    browser_index = next(
+        index
+        for index, item in enumerate(middleware)
+        if isinstance(item, ExplicitBrowserNavigationMiddleware)
+    )
+    assert browser_index == classifier_index + 1
 
 
 def test_task_mode_marker_matches_web_panel_literal():
@@ -128,6 +143,154 @@ def _model_request_with_hitl(messages):  # noqa: ANN001, ANN201
         tools=[{"name": "write_todos"}, {"name": "confirm_task_intent"}],
         state={"messages": messages},
     )
+
+
+def _browser_model_request(messages):  # noqa: ANN001, ANN201
+    """生产路由所需的最小工具集合；handler 直接观察最终 ModelRequest。"""
+    from langchain.agents.middleware import ModelRequest
+
+    return ModelRequest(
+        model=_fake_model(),
+        messages=messages,
+        tools=[
+            {"name": "fetch_url"},
+            {"name": "browser_navigate"},
+            {"name": "browser_snapshot"},
+        ],
+        state={"messages": messages},
+    )
+
+
+def test_explicit_open_url_forces_browser_navigate_for_original_t45_request():
+    """#3582：用原始 T45 请求验证传给模型的真实工具选择，而非只查提示词。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(
+            content=(
+                "打开 https://zh.wikipedia.org/wiki/人工智能 并总结要点，"
+                "并告诉我这个页面第一段的原话"
+            )
+        )
+    ]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tools"] = [_tool.get("name") for _tool in request.tools]
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+
+    assert captured == {
+        "tool_choice": "browser_navigate",
+        "tools": ["browser_navigate"],
+    }
+
+
+def test_explicit_open_url_forces_browser_navigate_on_async_runtime():
+    """langgraph dev 使用异步入口；它必须与同步入口采用同一确定性路由。"""
+    import asyncio
+
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="打开 https://zh.wikipedia.org/wiki/人工智能 并总结")]
+    captured: dict = {}
+
+    async def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tools"] = [_tool.get("name") for _tool in request.tools]
+        return AIMessage(content="stub")
+
+    asyncio.run(
+        ExplicitBrowserNavigationMiddleware().awrap_model_call(
+            _browser_model_request(messages), handler
+        )
+    )
+    assert captured == {
+        "tool_choice": "browser_navigate",
+        "tools": ["browser_navigate"],
+    }
+
+
+def test_ordinary_research_url_keeps_fetch_url_available_without_forcing_browser():
+    """普通来源调研不应被 #3582 扩成浏览器高风险授权。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="调研 https://example.com/report 的主要观点并与行业数据比较")]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tools"] = [_tool.get("name") for _tool in request.tools]
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+
+    assert captured["tool_choice"] is None
+    assert captured["tools"] == ["fetch_url", "browser_navigate", "browser_snapshot"]
+
+
+def test_explicit_browser_route_only_forces_first_navigation_in_current_user_turn():
+    """导航完成后恢复全工具集，让模型继续 snapshot/click/总结。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(content="打开 https://example.com 并截图"),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "id": "nav-1",
+                    "name": "browser_navigate",
+                    "args": {"url": "https://example.com"},
+                }
+            ],
+        ),
+    ]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        captured["tools"] = [_tool.get("name") for _tool in request.tools]
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+
+    assert captured["tool_choice"] is None
+    assert captured["tools"] == ["fetch_url", "browser_navigate", "browser_snapshot"]
+
+
+def test_negated_open_url_does_not_trigger_browser_authorization():
+    """“不要打开”不能因包含关键词而触发高风险浏览器授权。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="不要打开 https://example.com，只解释这个 URL 的结构")]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+    assert captured["tool_choice"] is None
+
+
+def test_manual_task_mode_keeps_plan_first_contract_for_explicit_url():
+    """手动任务模式是更明确的用户选择，浏览器路由不能跳过计划确认。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(content=f"{TASK_MODE_MARKER}：打开 https://example.com 并总结")
+    ]
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    ExplicitBrowserNavigationMiddleware().wrap_model_call(_browser_model_request(messages), handler)
+    assert captured["tool_choice"] is None
 
 
 def test_new_task_mode_turn_is_forced_again_after_earlier_completed_plan_in_same_thread():
