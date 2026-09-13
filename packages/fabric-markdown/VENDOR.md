@@ -79,3 +79,7 @@ find src tests -type f | sort | xargs shasum -a 256 | shasum -a 256
 5. **任何改动 19 个 `key` 的上游提交一律拒收**（ADR-100 决策四 / 契约 I-1 I-36）。
    若上游确有改名需求，本仓保留旧 key 作为注册别名，注册表对外仍只暴露旧 key。
 6. 改完回来更新本文件的树摘要与改动清单——**没更新 = 下一次回流没有基线**。
+
+## 2026-09-13 HMW 字段别名（#3533）
+
+本仓修补 `src/diagrams/template-engine.ts`：仅 hmw 的「我们可以」「为谁」补到既有规范字段，规范值优先。没有修改坐标、身份或其他模板字段。合成字段陈述经解析、模型、导出往返验证；聊天入口验证见 `apps/web/tests/lib/hmw-field-fence.test.ts`。
