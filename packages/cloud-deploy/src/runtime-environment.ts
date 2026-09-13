@@ -21,7 +21,12 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   }
   assertSecretOperationActive(context);
   const secret = Object.fromEntries(names.map((name, i) => [name, values[i]!])) as Record<typeof names[number], string>;
-  const modelKey = await resolveSecret(config.provision.modelProfile.apiKeySecretRef, source, context);
+  const [modelKey, asrKey] = await Promise.all([
+    resolveSecret(config.provision.modelProfile.apiKeySecretRef, source, context),
+    config.provision.asrProfile
+      ? resolveSecret(config.provision.asrProfile.apiKeySecretRef, source, context)
+      : Promise.resolve(undefined),
+  ]);
   const model = {
     KERNEL_MODEL_PROVIDER: "openai-compatible",
     KERNEL_MODEL_BASE_URL: config.provision.modelProfile.baseUrl,
@@ -29,6 +34,16 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
     KERNEL_DEEP_AGENT_MODEL_ID: config.provision.modelProfile.modelId,
     KERNEL_DEFAULT_AGENT_MODEL_ID: config.provision.modelProfile.modelId,
   };
+  const asr: Record<string, string> = {};
+  if (config.provision.asrProfile) {
+    if (!asrKey) throw new Error("ASR_CONFIGURATION_INVALID");
+    Object.assign(asr, {
+      KERNEL_ASR_PROVIDER: config.provision.asrProfile.provider,
+      KERNEL_ASR_BASE_URL: config.provision.asrProfile.baseUrl,
+      KERNEL_ASR_API_KEY: asrKey,
+      KERNEL_ASR_MODEL: config.provision.asrProfile.modelId,
+    });
+  }
   let data: Record<string, string>;
   const environment = config.environment;
   if (environment.profile === "production") {
@@ -48,7 +63,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   }
   const apiData = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith("MIGRATION_DB_") && !key.startsWith("AGENT_DB_") && !key.startsWith("MEMORY_DB_")));
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
-  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...sharedNative,
+  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...sharedNative,
     NODE_ENV: "production", PORT: "3200", MODEL_CREDENTIAL_KEY: secret["model-cipher"],
     EMAIL_VERIFICATION_SECRET: secret["email-verification"],
     NATIVE_SESSION_BINDING_KEY: secret["native-binding"], KERNEL_NATIVE_RUNTIME: "1",
