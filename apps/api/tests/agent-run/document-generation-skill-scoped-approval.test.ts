@@ -24,7 +24,8 @@
  *    (c) 混挂但**没有被这个 run 实际调用过**的其它非 L0 skill 不影响归因——这正是
  *        解决"混挂 21 个技能"假阴性的那一条（#3437 devapp 真机实测条件），用一个只挂
  *        没叫的 skill 佐证"挂载"与"调用"是两件事。
- * composer 关闭时（默认状态）：清单内的调用照常询问，不是隐性零确认。
+ * #3590 起，归因完整且命令命中严格 allowlist 的 L0 文档 skill 派生 execute 默认零确认；
+ * composer standing grant 继续覆盖既有显式授权路径。直接/不可归因的 execute 仍然询问。
  */
 import { beforeAll, beforeEach, expect, it } from "vitest";
 import type { DatabasePort } from "../../src/application/ports/database.port";
@@ -213,12 +214,36 @@ it("③(a) 清单之外仍会问：composer 开关打开，但目标 skill 不�
   expect((await runRow()).status).toBe("awaiting_tool_permission");
 });
 
-it("composer 开关关闭时（默认状态）：清单内的调用照常询问，不会被误放行", async () => {
+it("L0 文档 skill 派生的严格 allowlist execute 继承安全边界，默认不再弹 L2 审批", async () => {
+  const repo = new PgAgentRunRepository(db);
+  const grants = new PgToolPermissionGrantRepository(db);
+  await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
+
+  const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen.js\"}" }, ledger(),
+    [{ stableName: "pdf-create", riskLevel: "L0" as const }]);
+  expect(outcome.autoApproved, "派生 execute 已被归因到锁定 L0 skill 且命令落在严格 allowlist，不应再次升级成 L2 审批").toBe(true);
+  expect((await runRow()).status).toBe("queued");
+});
+
+it("没有可验证 skill 来源的直接 execute 仍 fail-closed 等待 L2 审批", async () => {
+  const repo = new PgAgentRunRepository(db);
+  const grants = new PgToolPermissionGrantRepository(db);
+
+  const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen.js\"}" }, ledger(),
+    [{ stableName: "pdf-create", riskLevel: "L0" as const }]);
+  expect(outcome.autoApproved).toBe(false);
+  expect((await runRow()).status).toBe("awaiting_tool_permission");
+});
+
+it("工具历史虽触达文档 skill，但本 run 没有钉住对应 L0 版本时仍 fail-closed", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
   await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
   const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
     { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen.js\"}" }, ledger());
-  expect(outcome.autoApproved, "默认关闭 ⇒ 第一次仍然要问，不是零确认").toBe(false);
+  expect(outcome.autoApproved).toBe(false);
+  expect((await runRow()).status).toBe("awaiting_tool_permission");
 });

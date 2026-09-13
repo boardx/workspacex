@@ -131,10 +131,12 @@ export async function handleInterruptedToolCall(
    * `interrupted.skillStableName` 直接判；原生 `execute` 改按**这个 run 迄今为止真实
    * 发生过的工具调用序列**归因——调用口径，不是第一版的挂载口径，见
    * `document-generation-skills.ts` 头注"重新设计"一节）。归因成立时，`authorized`
-   * 多两条路径：
-   *   1. composer 开关（`DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS` 这条组织级
+   * 有三条路径：
+   *   1. #3590：已钉住的 L0 文档 skill 派生 execute 且命中严格命令 allowlist，
+   *      继承父调用的 L0 安全边界；
+   *   2. composer 开关（`DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS` 这条组织级
    *      standing grant）打开 —— 全程零确认；
-   *   2. 用户此前已经对**同一个 skill**批过"本次 run 内都允许"/"以后都允许"
+   *   3. 用户此前已经对**同一个 skill**批过"本次 run 内都允许"/"以后都允许"
    *      （`hasGrant(..., grantAddress)`，地址已经按 skill 收紧，不会跨 skill 泄漏）。
    * 归因不成立（`grantAddress === null`）⇒ 一律退回裸 `interrupted.toolName` 寻址，
    * 与本 feature之前逐字相同——这正是"清单之外仍要问"的安全边界，没有第二条判断。
@@ -153,7 +155,23 @@ export async function handleInterruptedToolCall(
   );
   const documentGenerationAutoApproved = grantAddress !== null
     && (await deps.toolPermissionGrants?.hasGrant(orgId, runId, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS) ?? false);
+  /*
+   * issue #3590 —— 锁定 L0 文档 skill 派生出来的原生 execute 继承父调用的安全边界。
+   *
+   * `resolveDocumentGenerationGrantAddress` 已经做完三道 fail-closed 归因：真实工具历史
+   * 必须触达四个锁定 skill 之一、同一调用链不能混入非 L0 skill、当前 command 必须
+   * 整串命中受控 sandbox allowlist。这里再要求该 skill 确实存在于本 run 的 pin 快照
+   * (`skillRisks`) 且等级为 L0；只读到路径、没 pin 到版本，仍然不能继承。
+   *
+   * 这不是把 `execute` 全局降成 L0：裸 execute、坏命令、来源不明、非 L0 污染或 pin
+   * 缺失时本布尔恒为 false，继续走下面原有 L2 门。
+   */
+  const inheritedL0DocumentExecute = interrupted.toolName === NATIVE_L2_MANIFEST_TOOL_NAME
+    && grantAddress !== null
+    && skillRisks.some(({ stableName, riskLevel }) =>
+      riskLevel === "L0" && grantAddress === `${NATIVE_L2_MANIFEST_TOOL_NAME}:${stableName}`);
   const authorized = !isPlanConfirmation && (risk !== "L2"
+    || inheritedL0DocumentExecute
     || documentGenerationAutoApproved
     || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, grantAddress ?? interrupted.toolName) ?? false));
 
