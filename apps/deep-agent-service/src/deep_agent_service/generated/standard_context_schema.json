@@ -802,8 +802,15 @@
                         "type": "string"
                       },
                       "duration": {
-                        "type": "integer",
-                        "exclusiveMinimum": 0
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "state": {
                         "type": "string",
