@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Eye } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "@/lib/chat-attachment-format";
@@ -8,6 +8,9 @@ import { useProducedFileDownload } from "@/lib/use-produced-file-download";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
 import { ProducedFilePdfPreview } from "@/components/chat/produced-file-pdf-preview";
+import { TextAttachmentPreview } from "@/components/chat/chat-attachment-preview-modal";
+import { Badge } from "@/components/ui/badge";
+import { isSkillDraftFile } from "@/lib/chat-skill-draft";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
@@ -24,6 +27,7 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
   const { src, failed, iconKind } = useProducedFileDownload(file, threadId);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const canPreviewImage = iconKind === "image" && src !== null && !failed;
+  const isSkillDraft = isSkillDraftFile(file.name, file.mime);
 
   return (
     <>
@@ -58,7 +62,12 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
         )}
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-12 font-medium text-card-foreground">{file.name}</p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate text-12 font-medium text-card-foreground">{file.name}</p>
+              {isSkillDraft ? (
+                <Badge className="shrink-0" tone="outline" data-testid="chat-produced-file-skill-draft-badge">技能草稿</Badge>
+              ) : null}
+            </div>
             {file.bytes !== null ? (
               <p className="text-10 text-muted-foreground">{formatBytes(file.bytes)}</p>
             ) : null}
@@ -70,6 +79,19 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
           ) : (
             <div className="flex shrink-0 items-center gap-1.5">
               {iconKind === "pdf" && src !== null ? <ProducedFilePdfPreview file={file} src={src} /> : null}
+              {isSkillDraft && src !== null ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  className="shrink-0"
+                  data-testid="chat-produced-file-skill-draft-open"
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  <Eye aria-hidden className="h-3.5 w-3.5" />
+                  打开
+                </Button>
+              ) : null}
               <Button asChild size="xs" variant="outline" disabled={src === null} className="shrink-0">
                 <a
                   href={src ?? undefined}
@@ -88,7 +110,38 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
       {previewOpen && canPreviewImage ? (
         <ProducedImagePreview file={file} src={src} onClose={() => setPreviewOpen(false)} />
       ) : null}
+      {previewOpen && isSkillDraft && src !== null ? (
+        <ProducedSkillDraftPreview file={file} src={src} onClose={() => setPreviewOpen(false)} />
+      ) : null}
     </>
+  );
+}
+
+function ProducedSkillDraftPreview({ file, src, onClose }: { file: ActiveFile; src: string; onClose: () => void }): JSX.Element {
+  return createPortal(
+    <div className="fixed inset-0 z-40" data-testid="chat-produced-file-skill-draft-preview-portal">
+      <Modal
+        testid="chat-produced-file-skill-draft-preview"
+        title={file.name}
+        subtitle={`技能草稿${file.bytes !== null ? ` · ${formatBytes(file.bytes)}` : ""}`}
+        onClose={onClose}
+        width="lg"
+        footer={
+          <>
+            <Button type="button" size="sm" variant="ghost" onClick={onClose}>关闭</Button>
+            <Button type="button" size="sm" variant="primary" asChild>
+              <a href={src} download={file.name} data-testid="chat-produced-file-skill-draft-download">
+                <Download aria-hidden className="h-3.5 w-3.5" />
+                下载
+              </a>
+            </Button>
+          </>
+        }
+      >
+        <TextAttachmentPreview src={src} />
+      </Modal>
+    </div>,
+    document.body,
   );
 }
 

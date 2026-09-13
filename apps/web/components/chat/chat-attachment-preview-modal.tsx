@@ -36,7 +36,7 @@ function previewMode(kind: AttachmentIconKind, mime: string): "image" | "pdf" | 
   return "unsupported";
 }
 
-function TextAttachmentPreview({ src }: { src: string }) {
+export function TextAttachmentPreview({ src }: { src: string }) {
   const [text, setText] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {

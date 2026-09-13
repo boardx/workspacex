@@ -170,7 +170,7 @@ describe("ChatAttachmentPreviewModal", () => {
 
   it("消息把 Skill 输出显示为可点击草稿卡片，点击后打开真实内容", async () => {
     useAuthedImageSrcMock.mockReturnValue({ src: "blob:skill-draft", failed: false });
-    const attachment=makeAttachment({id:"draft-1",filename:"weekly-report.skill.json",mime:"application/json"});
+    const attachment=makeAttachment({id:"draft-1",filename:"weekly-report-skill-draft.json",mime:"application/json"});
     render(<MessageAttachments threadId="thread-1" attachments={[attachment]} />);
     expect(screen.getByTestId("chat-skill-draft-draft-1")).toHaveTextContent("技能草稿");
     fireEvent.click(screen.getByTestId("chat-message-attachment-draft-1"));

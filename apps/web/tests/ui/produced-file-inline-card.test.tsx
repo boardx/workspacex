@@ -1,6 +1,6 @@
 import * as React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProducedFileInlineCard } from "@/components/chat/produced-file-inline-card";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
@@ -27,6 +27,7 @@ describe("ProducedFileInlineCard", () => {
   beforeEach(() => {
     useProducedFileDownloadMock.mockReset();
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("renders a generated image inline and opens the same bytes in an enlarged preview", () => {
     useProducedFileDownloadMock.mockReturnValue({ src: "blob:gov-homepage", failed: false, iconKind: "image" });
@@ -61,6 +62,54 @@ describe("ProducedFileInlineCard", () => {
     fireEvent.click(screen.getByTestId("chat-produced-file-pdf-preview-trigger"));
     expect(screen.getByTestId("chat-produced-file-pdf-preview-frame")).toHaveAttribute("src", "blob:report");
     expect(screen.getByTestId("chat-produced-file-pdf-preview-download")).toHaveAttribute("download", "report.pdf");
+  });
+
+  it("recognizes the model-generated skill draft and opens its JSON in chat", async () => {
+    useProducedFileDownloadMock.mockReturnValue({ src: "blob:weekly-report-skill", failed: false, iconKind: "file" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"name":"weekly-report"}', { status: 200 })));
+
+    render(
+      <ProducedFileInlineCard
+        file={makeFile({ name: "weekly-report-skill-draft.json", mime: "application/json" })}
+        threadId="thread-1"
+      />,
+    );
+
+    expect(screen.getByTestId("chat-produced-file-skill-draft-badge")).toHaveTextContent("技能草稿");
+    fireEvent.click(screen.getByTestId("chat-produced-file-skill-draft-open"));
+
+    expect(await screen.findByTestId("chat-produced-file-skill-draft-preview")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-preview-text")).toHaveTextContent('"name":"weekly-report"'));
+    expect(screen.getByTestId("chat-produced-file-skill-draft-download")).toHaveAttribute("download", "weekly-report-skill-draft.json");
+  });
+
+  it("uses the same review action for canonical persisted skill filenames", () => {
+    useProducedFileDownloadMock.mockReturnValue({ src: "blob:canonical-skill", failed: false, iconKind: "file" });
+
+    render(
+      <ProducedFileInlineCard
+        file={makeFile({ name: "weekly-report.skill.json", mime: "application/json; charset=utf-8" })}
+        threadId="thread-1"
+      />,
+    );
+
+    expect(screen.getByTestId("chat-produced-file-skill-draft-badge")).toHaveTextContent("技能草稿");
+    expect(screen.getByTestId("chat-produced-file-skill-draft-open")).toBeInTheDocument();
+  });
+
+  it("keeps ordinary JSON files on the generic download-only path", () => {
+    useProducedFileDownloadMock.mockReturnValue({ src: "blob:generic-json", failed: false, iconKind: "file" });
+
+    render(
+      <ProducedFileInlineCard
+        file={makeFile({ name: "analysis-data.json", mime: "application/json" })}
+        threadId="thread-1"
+      />,
+    );
+
+    expect(screen.queryByTestId("chat-produced-file-skill-draft-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-produced-file-skill-draft-open")).not.toBeInTheDocument();
+    expect(screen.getByTestId("chat-produced-file-inline-download")).toHaveAttribute("href", "blob:generic-json");
   });
 
   it("does not render a broken inline image when authenticated loading fails", () => {

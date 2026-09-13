@@ -53,6 +53,12 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13（#3586）：聊天里“同一份生成文件”会经过两条 UI 路径：运行中的
+  `ProducedFileInlineCard` 与消息恢复后的 `MessageAttachments`。只修附件列表会让实时完成卡
+  仍只剩下载；文件类型判定也不能散落为两份后缀判断。技能草稿用共享
+  `isSkillDraftFile` 同时识别规范的 `*.skill.json` 和模型实际生成的
+  `*-skill-draft.json`，两条路径共用同一语义；produced-file 的 JSON 预览继续读取已经鉴权
+  完成的 blob URL，不再另写下载或鉴权逻辑（出处：issue #3586）。
 - 2026-09-13（#3563）：agent run 产出的 PDF 已经通过已鉴权 blob URL 下载到浏览器时，
   应在图片内联预览分支之外保留独立 PDF 预览动作；把同一 URL 交给 iframe 可复用浏览器
   原生 PDF viewer 提供多页预览与翻页，同时保留卡片和预览弹窗内的下载入口，无需新增
