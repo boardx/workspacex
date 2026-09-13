@@ -320,3 +320,19 @@ describe("F168 guided research home live data", () => {
     expect(window.localStorage.getItem("wsx.guidedResearch.createIdempotencyKey.old-tab.old-intent")).toBeNull();
   });
 });
+
+it("returns a URL-opened report to history without reopening the stale session prop", async () => {
+  window.history.replaceState({}, "", "/research?session=grs-opened");
+  getResearchRuntime.mockImplementation(async (sessionId: string) => runtimeFixture("report", sessionId));
+  const view = render(<GuidedResearchFlow step="home" sessionId="grs-opened" />);
+  await screen.findByTestId("research-report-document");
+  fireEvent.click(screen.getByRole("button", { name: "返回" }));
+  expect(await screen.findByTestId("research-home-page")).toBeInTheDocument();
+  expect(window.location.pathname + window.location.search).toBe("/research");
+  view.rerender(<GuidedResearchFlow step="home" sessionId="grs-opened" />);
+  expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("research-session-restore-loading")).not.toBeInTheDocument();
+  view.rerender(<GuidedResearchFlow step="home" sessionId="grs-next" />);
+  await waitFor(() => expect(getResearchRuntime).toHaveBeenLastCalledWith("grs-next"));
+  expect(await screen.findByTestId("research-report-document")).toBeInTheDocument();
+});

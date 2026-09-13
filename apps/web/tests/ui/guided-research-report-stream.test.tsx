@@ -124,3 +124,22 @@ it("unlocks when progress is terminal even if the POST never closes", async () =
   expect(screen.getByRole("button", { name: "生成完整报告" })).toBeEnabled();
   expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
 });
+
+
+it("observes report conversation generation without classifying user intent in the client", async () => {
+  vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, currentNode: "report", availableNodes: [...initial.availableNodes, "report"], report: { title: "旧报告", summary: "旧摘要", sections: [] } });
+  vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
+    expect(input).toMatchObject({ action: "message", message: "重新生成报告", node: "report" });
+    callback?.({ type: "snapshot", state: streaming(input.requestId) });
+    callback?.({ type: "report_delta", sessionId: input.sessionId, requestId: input.requestId, version: 8, sequence: 1, delta: '{"title":"重生成报告","summary":"对话生成的正文' });
+    return new Promise(() => undefined);
+  });
+  render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+  const input = await screen.findByRole("textbox", { name: "研究对话" });
+  expect(screen.getByTestId("research-report-document")).toHaveTextContent("旧报告");
+  fireEvent.change(input, { target: { value: "重新生成报告" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
+  expect(await screen.findByText("对话生成的正文")).toBeInTheDocument();
+  expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+});

@@ -187,6 +187,7 @@ export function GuidedResearchFlow({
 }) {
   const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
+  const [routeInput, setRouteInput] = React.useState({ sessionId, step });
   const [entryPending, setEntryPending] = React.useState(false);
   const [restoreFailed, setRestoreFailed] = React.useState(false);
   const [sessionSnapshot, setSessionSnapshot] = React.useState<GuidedResearchSession | null>(null);
@@ -194,6 +195,7 @@ export function GuidedResearchFlow({
   React.useEffect(() => {
     setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);
+    setRouteInput({ sessionId, step });
     setEntryPending(false);
     setRestoreFailed(false);
     setSessionSnapshot(null);
@@ -209,12 +211,14 @@ export function GuidedResearchFlow({
     window.history.replaceState({}, "", targetSessionId ? `/research?session=${encodeURIComponent(targetSessionId)}` : "/research");
   };
 
-  const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === sessionId;
-  const restoringSession = Boolean(sessionId) && !hasCurrentSessionSnapshot && !restoreFailed;
+  const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === activeSessionId;
+  const restoringSession = Boolean(activeSessionId) && !hasCurrentSessionSnapshot && !restoreFailed;
   const restorationBlocked = restoringSession || restoreFailed;
 
-  const runtimeSessionId = sessionId ?? activeSessionId;
-  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <div className="p-4"><GuidedResearchLive sessionId={runtimeSessionId} initialNode={!sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
+  // URL props initialize navigation; local Back must be able to clear them.
+  const routeChanged = routeInput.sessionId !== sessionId || routeInput.step !== step;
+  const runtimeSessionId = routeChanged ? sessionId : activeSessionId;
+  if (runtimeSessionId) return <div className="p-4"><GuidedResearchLive sessionId={runtimeSessionId} initialNode={runtimeSessionId !== sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
 
   return (
     <div className={restoredStep === "home" ? undefined : "p-4"}>

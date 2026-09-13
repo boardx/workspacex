@@ -24,6 +24,13 @@ const shapes: Record<Node, string> = {
   research: '[{"id":existingSourceId,"decision":"pending"|"accepted"|"excluded"}]',
   report: '{"title":string,"summary":string,"introduction":string,"conclusion":string,"sections":[{"sectionId":existingOutlineId,"body":string,"sourceIds":acceptedSourceId[]}]}',
 };
+/** Only whole, affirmative commands authorize generation; discussion stays a proposal. */
+function requestsReportRegeneration(message: string): boolean {
+  const command = message.trim().replace(/[。.!！]+$/, "").trim();
+  return /^(?:请)?重新生成(?:研究报告|报告)?$/.test(command)
+    || /^(?:please\s+)?regenerate(?:\s+(?:the\s+)?(?:research\s+)?report)?$/i.test(command);
+}
+
 function normalizedSourceUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -391,6 +398,14 @@ export class GuidedRuntimeService {
       if (!command.message) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       state.messages.push({ id: randomUUID(), node, role: "user", text: command.message, createdAt: new Date().toISOString() });
       await persist();
+      if (node === "report" && requestsReportRegeneration(command.message)) {
+        state.proposal = null;
+        // Reuse durable generation and its source/quality gates. Never apply a
+        // chat editor draft before regenerating: saved output must be retained.
+        await this.perform(state, { ...command, action: "generate", draft: undefined }, persist);
+        state.messages.push({ id: randomUUID(), node, role: "assistant", text: "已重新生成报告内容。", createdAt: new Date().toISOString() });
+        return;
+      }
       const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Turn the user's natural-language requirements into the current step's full draft and summarize the proposed content in assistantMessage. Use the supplied draft as the primary editing basis; pendingProposal is an unapproved earlier suggestion for conversational continuity, not permission to execute. If no draft is supplied, continue from the pending suggestion when present. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context. Preserve existing detailed direction fields and chapter objectives, analysis approaches, expected outputs and subsections when revising; update related questions consistently, never silently discard them. ${node === "report" ? "For report revisions preserve the enabled outline chapter order, exact scope, Markdown subheadings and analytical depth. Keep inline [[source:<id>]] markers beside supported claims; each chapter sourceIds must exactly match its inline IDs, and summary, introduction and conclusion citations must refer to IDs cited in the chapters. Preserve the introduction and cross-chapter conclusion when revising a formal report. Do not replace rich chapters with a brief outline or remove their evidence limitations." : ""}`, { ...this.context(state), targetNode: node, draft: command.draft, pendingProposal, instruction: command.message }, persist);
       const result = C.GuidedResearchConversationModelOutput.safeParse(raw);
       if (!result.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
