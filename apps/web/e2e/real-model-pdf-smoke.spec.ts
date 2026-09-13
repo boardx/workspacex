@@ -37,6 +37,7 @@ import {
   PRODUCED_FILE_DOWNLOAD_READY_TIMEOUT_MS,
   waitForProducedFileDownloadReady,
 } from "./support/produced-file-download-ready";
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 // 缺凭据 ⇒ **文件级显式 skip 并点名缺了谁**（`REAL_MODEL_SKIP_REASON` 自己拼的原因）。
 // 刻意用文件级 skip 而不是用例内 skip：后者要先把浏览器起起来才判得了，而这条 lane
@@ -88,9 +89,16 @@ const EXPECT_NAME_RE = new RegExp(`\\.${EXPECT_EXT.replace(/[.*+?^${}()|[\]\\]/g
 let evidence: RealModelEvidence | null = null;
 let documentAutoApproveInitial: boolean | null = null;
 
+/** APIRequestContext does not inherit the app's localStorage Bearer session. */
+async function authenticatedRequestHeaders(page: Page): Promise<Record<string, string>> {
+  const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token, "登录后 localStorage 必须存在 session token").toBeTruthy();
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+}
+
 async function readDocumentAutoApproveFromApi(page: Page): Promise<boolean> {
   const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
-  const response = await page.context().request.get(path);
+  const response = await page.context().request.get(path, { headers: await authenticatedRequestHeaders(page) });
   expect(response.ok(), "读取文档自动批准授权必须使用当前浏览器会话成功").toBe(true);
   const body = await response.json() as { enabled?: unknown };
   expect(typeof body.enabled, "文档自动批准授权 GET 必须返回布尔 enabled").toBe("boolean");
@@ -122,10 +130,11 @@ async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promi
 async function setDocumentAutoApproveFromApi(page: Page, enabled: boolean): Promise<void> {
   const path = new URL("/api/document-generation-auto-approve", REAL_MODEL_SMOKE.baseUrl).toString();
   const request = page.context().request;
-  const response = await request.put(path, { data: { enabled } });
+  const headers = await authenticatedRequestHeaders(page);
+  const response = await request.put(path, { data: { enabled }, headers });
   expect(response.ok(), "清理授权的 PUT 必须使用当前浏览器会话成功").toBe(true);
   expect(await response.json(), "清理授权的 PUT 回执必须确认目标状态").toEqual({ enabled });
-  const persisted = await request.get(path);
+  const persisted = await request.get(path, { headers });
   expect(persisted.ok(), "清理授权后的 GET 必须成功").toBe(true);
   expect(await persisted.json(), "清理授权后的持久化状态必须与进入用例前一致").toEqual({ enabled });
 }
