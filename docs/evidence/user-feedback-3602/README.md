@@ -13,3 +13,5 @@
 浏览器检查仅对身份接口提供明确的 UI 夹具；没有验证真实认证或后端业务。截图为该夹具下实际渲染，页面的两个智能体本身是用户要求的静态 mock。先启动 `NEXT_DIST_DIR=.next-feedback-3602 pnpm --filter web exec next dev -p 3602`，再从仓库根执行脚本。
 
 证据：`browser-result.txt`、`navigation-result.txt`、`agents-1280.png`、`agents-375.png`。等待 PR 合入后才能在部署环境使用，未自动合并。
+
+CI 首轮发现 `lint-no-builtin-capabilities` 将页内数组识别为内置能力目录。已把用户明确要求的示例数据移到 `lib/mock/agent-previews.ts`，并通过现有 `DECLARED_MOCK_DEBT` 机制申报该精确文件。门控本体及未申报债务失败断言未改；新增一笔债务明确可见（violations=0、debt=92），不更改能力配置或运行时。标准隔离外壳下 `no-builtin-capability-lists.test.ts -t 'V1 static'` 五项通过，六项运行时测试未选择。
