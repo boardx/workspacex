@@ -54,8 +54,17 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 
 ## 踩坑与经验（append-only，最新在上）
 - 2026-09-13（#3563）：agent run 产出的 PDF 已经通过已鉴权 blob URL 下载到浏览器时，
-  不应只留通用下载卡；把同一 URL 交给 iframe 即可复用浏览器原生 PDF viewer 提供
-  多页预览与翻页，无需新增内容端点或重复拉取字节。
+  应在图片内联预览分支之外保留独立 PDF 预览动作；把同一 URL 交给 iframe 可复用浏览器
+  原生 PDF viewer 提供多页预览与翻页，同时保留卡片和预览弹窗内的下载入口，无需新增
+  内容端点或重复拉取字节。
+- 2026-09-13（#3567）：HITL 表单的「请求正在提交」与「当前用户能否裁决」必须是两个
+  独立状态；把两者合成 `pending = !canWrite || submitting` 再反推 `canWrite = !pending`，
+  会让已经被后端接受的 personal owner 决策在 POST 在途时误画成项目 observer denial。
+  个人对话按权威线程详情里的 `projectId=null + createdBy + composer.send` 判，项目对话
+  继续按 `approval.decide` 判。
+- 2026-09-13（#3560）：agent run 产出文件不能只按 `source === "agent_run_output"`
+  统一画下载卡；`file_created` 已携带 MIME，图片应复用已鉴权的 blob URL 直接内联展示
+  并支持点击放大，否则截图工具虽然成功产出真实 PNG，用户仍只能看到通用文件卡。
 - 2026-09-13（#3519）：保留外壳不等于保留消息区；按线程remount的Body仍会每次把historyLoading初始化为true。已访问历史可做短期内存预览，但必须按session/user/org/project隔离、失败撤销、后台重新读取权威数据；不要从历史缓存推导发送权限，权限读取中也不能冒称业务只读。
 - 2026-09-13（#3522）：显式新建不能复用列表里not-started的共享草稿：另一标签可能已经开始运行而此列表还没更新。新建调用创建端口获得独立thread，最近会话恢复仍走原路径；同一按钮在途请求用同步ref防重复。
 - 2026-09-05：`useHumanInTheLoop({name})` 的 `render` 回调本身不能直接用 hooks——
@@ -118,3 +127,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
    没回流的，补写。
 3. **结构变更**（新增章节/重组）走正常 review；追加"踩坑与经验"条目可随任意 PR 顺带。
 4. 开源贡献者同权：任何人对本模块的经验修订都走 PR，以可验证事实为准，不看资历。
+
+### 失败运行与计划快照（#3548）
+
+运行终态和步骤账本独立更新。PlanPanelReadOnly须接收failed/cancelled派生的executionStopped，将残留in_progress显示为已停止；不改真实账本、不伪造completed，也不影响运行中和成功完成步骤。

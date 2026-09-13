@@ -163,6 +163,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                   不透明的 bg-card 后画盖掉——人类在 devapp 上看到的「fetch_url 卡片盖住
                   上面那一行」。几何门控见 e2e/chat-trace-disclosure-geometry.spec.ts。 */}
               <div className="mt-1.5 space-y-2 pl-4">
+                {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
                 {entry.activityStage ? null : renderTool?.(entry)}
                 {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
                 {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}

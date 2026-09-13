@@ -78,12 +78,12 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
  bytes=Buffer.from('changed');await expect(staging.stage(ctx,input)).rejects.toThrow('conflict');bytes=Buffer.from('actual UTF8 文件');
  await expect(staging.stage(ctx,{...input,title:'another.txt'})).rejects.toThrow('conflict');
  let files=await staging.listFiles(org,parent);expect(files).toHaveLength(1);expect(await objects.get(files[0]!.objectKey)).toEqual(new Uint8Array(bytes));
- path='/workspace/draft.json';bytes=Buffer.from('{"files":[],"title":"草稿"}');
- const draft={workspacePath:path,title:'draft.json',mediaType:'application/json' as const,idempotencyKey:'draft'};
+ path='/workspace/weekly-report.skill.json';bytes=Buffer.from('{"skills":[{"stableName":"weekly-report","name":"周报助手"}]}');
+ const skillBytes=Buffer.from(bytes);const draft={workspacePath:path,title:'weekly-report.skill.json',mediaType:'application/json' as const,idempotencyKey:'draft'};
  const receipt=await staging.stage({...ctx,toolCallId:'draft-call'},draft);
  expect(await staging.stage({...ctx,toolCallId:'draft-call'},draft)).toEqual(receipt);
  files=await staging.listFiles(org,parent);expect(files).toHaveLength(2);
- const draftFile=files.find(file=>file.name==='draft.json')!;expect(draftFile.mime).toBe('application/json');expect(await objects.get(draftFile.objectKey)).toEqual(new Uint8Array(bytes));
+ const draftFile=files.find(file=>file.name==='weekly-report.skill.json')!;expect(draftFile.mime).toBe('application/json');expect(await objects.get(draftFile.objectKey)).toEqual(new Uint8Array(bytes));
  path='/workspace/bundle.html';bytes=Buffer.from('<!doctype html><html><body><script>window.synthetic=true</script>合成网页</body></html>');
  const htmlBytes=Buffer.from(bytes);await staging.stage({...ctx,toolCallId:'html-call'},{workspacePath:path,title:'bundle.html',mediaType:'text/html',idempotencyKey:'html'});
  files=await staging.listFiles(org,parent);expect(files).toHaveLength(3);
@@ -109,6 +109,11 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
    expect(Buffer.from(await response.arrayBuffer())).toEqual(htmlBytes);
    expect((await fetch(url,{headers:{'x-kernel-test-principal':`intruder:${org}`}})).status).toBe(404);
   }
+  const skillAttachment=await db.withTenant(org,s=>s.query<{id:string}>('SELECT id FROM chat_message_attachments WHERE org_id=$1 AND storage_ref=$2',[org,draftFile.objectKey]));
+  expect(skillAttachment.rows).toHaveLength(1);
+  const skillUrl=`${base}/chat/threads/thread-${org}/attachments/${skillAttachment.rows[0]!.id}/content`;
+  const readable=await fetch(skillUrl,{headers:{'x-kernel-test-principal':`actor:${org}`}});expect(readable.status).toBe(200);expect(Buffer.from(await readable.arrayBuffer())).toEqual(skillBytes);
+  expect((await fetch(skillUrl,{headers:{'x-kernel-test-principal':`intruder:${org}`}})).status).toBe(404);
  }finally{await production.close();for(const[key,value]of Object.entries(oldEnv)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 
 });

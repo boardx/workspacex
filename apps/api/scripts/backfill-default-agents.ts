@@ -59,6 +59,7 @@ import { randomUUID, createHash } from "node:crypto";
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
+import { PLATFORM_ORG_ID } from "../src/domain/org-id";
 import { PgDefaultAgentRepository } from "../src/infrastructure/agent/pg-default-agent-repository";
 import {
   ensureDefaultAgent,
@@ -94,11 +95,18 @@ export async function backfillDefaultAgents(): Promise<BackfillReport> {
                 WHERE m.org_id = o.id AND m.org_role = 'admin'
                 ORDER BY m.user_id ASC LIMIT 1) AS actor_id
          FROM organizations o
-        WHERE NOT EXISTS (
+        -- 2026-09-12 bug 复盘：平台组织 org-platform 的唯一成员
+        -- svc-platform-templates 是 org_role='admin'（见
+        -- ensure-platform-skill-catalog.ts），所以在这条候选查询没有排除它的
+        -- 版本里，它被当成"缺默认 agent 的普通组织"也种了一份——能力选择器
+        -- 里因此对每个真实 org 都多出一条同名重复（pg-capability-repository.ts
+        -- 会把平台组织的行 OR 进结果）。平台组织不该拥有 agent 副本，排除它。
+        WHERE o.id <> $2
+          AND NOT EXISTS (
                 SELECT 1 FROM agents a
                  WHERE a.org_id = o.id AND a.stable_name = $1
               )`,
-      [DEFAULT_AGENT_STABLE_NAME],
+      [DEFAULT_AGENT_STABLE_NAME, PLATFORM_ORG_ID],
     );
     candidates = rows
       .filter((r): r is { org_id: string; actor_id: string } => r.actor_id !== null)

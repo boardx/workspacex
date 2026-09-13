@@ -116,3 +116,66 @@ def test_async_late_input_matches_sync_path(monkeypatch):
     update = asyncio.run(InterjectionMiddleware().aafter_model({"messages": [AIMessage("done")]}, None))
     assert update["jump_to"] == "model"
     assert update["messages"][0].id == "interjection:late-async"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("failure", [httpx.ConnectError, httpx.ConnectTimeout])
+def test_poll_recovers_one_connection_failure_without_changing_ack(monkeypatch, asynchronous, failure):
+    import asyncio
+    monkeypatch.setattr(run_control, "get_config", lambda: {"configurable": {"run_control_callback": CALLBACK}})
+    calls = []
+    def post(url, **kwargs):
+        calls.append(kwargs["json"].copy())
+        if len(calls) == 1:
+            raise failure("synthetic connection failure")
+        return response([value("new")])
+    async def apost(self, url, **kwargs):
+        return post(url, **kwargs)
+    monkeypatch.setattr(run_control.httpx, "post", post)
+    monkeypatch.setattr(run_control.httpx.AsyncClient, "post", apost)
+    state = {"messages": [HumanMessage("checkpointed", id="interjection:old")]}
+    result = asyncio.run(run_control.apoll_interjections(state)) if asynchronous else run_control.poll_interjections(state)
+    assert result == [value("new")]
+    assert calls == [{"orgId": "org-a", "acknowledgedIds": ["old"]}] * 2
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("failure,attempts", [(httpx.ConnectError, 2), (httpx.ConnectTimeout, 2), (httpx.ReadTimeout, 1), (httpx.WriteError, 1)])
+def test_poll_retry_is_bounded_and_never_swallows_failure(monkeypatch, asynchronous, failure, attempts):
+    import asyncio
+    monkeypatch.setattr(run_control, "get_config", lambda: {"configurable": {"run_control_callback": CALLBACK}})
+    calls = []
+    def post(*args, **kwargs):
+        calls.append(1)
+        raise failure("synthetic failure")
+    async def apost(self, *args, **kwargs):
+        return post(*args, **kwargs)
+    monkeypatch.setattr(run_control.httpx, "post", post)
+    monkeypatch.setattr(run_control.httpx.AsyncClient, "post", apost)
+    with pytest.raises(failure):
+        if asynchronous:
+            asyncio.run(run_control.apoll_interjections({"messages": []}))
+        else:
+            run_control.poll_interjections({"messages": []})
+    assert len(calls) == attempts
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("status", [401, 503])
+def test_poll_does_not_retry_authorization_or_server_responses(monkeypatch, asynchronous, status):
+    import asyncio
+    monkeypatch.setattr(run_control, "get_config", lambda: {"configurable": {"run_control_callback": CALLBACK}})
+    calls = []
+    def post(*args, **kwargs):
+        calls.append(1)
+        return response(status=status)
+    async def apost(self, *args, **kwargs):
+        return post(*args, **kwargs)
+    monkeypatch.setattr(run_control.httpx, "post", post)
+    monkeypatch.setattr(run_control.httpx.AsyncClient, "post", apost)
+    with pytest.raises(httpx.HTTPStatusError):
+        if asynchronous:
+            asyncio.run(run_control.apoll_interjections({"messages": []}))
+        else:
+            run_control.poll_interjections({"messages": []})
+    assert len(calls) == 1

@@ -606,7 +606,7 @@ function PlanControlSession(
           onRemoveConstraint={handleRemoveConstraint}
         />
       ) : (
-        <PlanPanelReadOnly steps={ledger.steps} compact />
+        <PlanPanelReadOnly steps={ledger.steps} compact executionStopped={ledger.phase === "failed" || ledger.phase === "cancelled"} />
       ))}
 
       {ledger.orphanedConstraints.map((c) => (

@@ -60,6 +60,9 @@ description: >
 
 ## 踩坑与经验（append-only，最新在上）
 
+- 2026-09-13：`agenda_segments.duration` 自 F23 起允许 `NULL`，表示蓝本 `flow-agenda`
+  没有填写真实时长；所有共享输出契约和生成的 runtime schema 都必须保留这个空值，不能继续按
+  正整数解析，否则 `wx_project_read` 会在已有项目上失败。（出处：[issue #3571](https://github.com/boardx/workspacex/issues/3571)）
 - 2026-08-12：**前端接线的真栈证据要挂在 `playwright.fullstack-smoke.config.ts` 的 `seeded`
   project 上，并单独成 spec 文件**——不要并进 `fullstack-smoke.spec.ts`：那个文件的每条
   `page.goto` 被 `.harness/scripts/fullstack-smoke.test.ts` 按**出现次数**钉死（#387 的反空转手段），

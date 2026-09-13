@@ -595,6 +595,10 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    */
   const archived = threadDetail?.thread.archived ?? false;
   const canWriteThread = !archived && (selectedThreadId ? threadDetail?.capabilities.includes("composer.send") === true : threads?.capabilities.includes("thread.mutate") === true);
+  // Personal threads have no project role or `approval.decide` capability. Their creator is the
+  // authority for HITL decisions; project threads continue to use the explicit project capability.
+  const personalOwnerCanDecide = threadDetail?.thread.projectId === null
+    && threadDetail.thread.createdBy === session?.userId;
   const canGeneratePersona = threadDetail?.capabilities.includes("artifact.land") ?? false;
 
   const loadRightPanel = React.useCallback(async () => {
@@ -1303,7 +1307,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canWrite={canWriteThread}
-          canDecide={canWriteThread && (projectId === null || threadDetail?.capabilities.includes("approval.decide") === true)}
+          canDecide={canWriteThread && (personalOwnerCanDecide || threadDetail?.capabilities.includes("approval.decide") === true)}
           canGeneratePersona={canGeneratePersona}
         />
         </div>
