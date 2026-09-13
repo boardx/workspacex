@@ -40,9 +40,6 @@ for(const [label,mutate] of [
  ['forged tool arguments',s=>s.replace('toolArgs:input','toolArgs:{}')],
  ['read before authority',s=>s.replace('const decision=await this.authority.check','await this.files(bound).read(input.workspacePath);const decision=await this.authority.check')],
  ['new unreviewed method',s=>s.replace('async listFiles(', 'async publicListFiles(')],
- ['generated output accepts another capability',s=>s.replace("startsWith('skill-draft:')","startsWith('')")],
- ['generated output accepts another MIME',s=>s.replace("input.mime!=='application/json'","false")],
- ['generated output skips object readback',s=>s.replace('this.objects.get(input.objectKey)','this.objects.head(input.objectKey)')],
 ])test('staging rejects '+label,()=>assert.ok(check(staging,mutate(read(staging)),read).length));
 test('staging rejects public exposure of internal listFiles',()=>{
  assert.ok(check(staging,read(staging),p=>p.endsWith('native-output-staging.controller.ts')?read(p)+'\nthis.staging.listFiles(orgId,runId);':read(p)).length);

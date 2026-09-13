@@ -18,8 +18,7 @@ async function setup(){
  const session={read:vi.fn(async(path:string)=>{const bytes=files.get(path);if(!bytes)throw new Error('missing');return {path,sizeBytes:bytes.length,contentBase64:bytes.toString('base64')};}),write:vi.fn(async(file:{path:string;contentBase64:string})=>{files.set(file.path,Buffer.from(file.contentBase64,'base64'));return {};})};
  const owner={resolve:vi.fn(async()=>({}))} as unknown as NativeSessionOwner;
  const authority={check:vi.fn<ToolExecutionAuthority['check']>().mockResolvedValue({allowed:true})};
- const outputs={stageGenerated:vi.fn(async()=>undefined)};
- return {service:new DefaultSkillDraftService(owner,()=>session,authority,objects,outputs),session,files,objects,authority,outputs};
+ return {service:new DefaultSkillDraftService(owner,()=>session,authority,objects),session,files,objects,authority};
 }
 it('writes complete verified draft using real immutable object store and replays without new identity',async()=>{
  const f=await setup(),first=await f.service.create(context,input),second=await f.service.create(context,input);expect(second).toEqual(first);
@@ -27,10 +26,6 @@ it('writes complete verified draft using real immutable object store and replays
  f.files.set('/workspace/script.py',Buffer.from('print("changed")'));
  await expect(f.service.create(context,input)).rejects.toThrow('idempotency_conflict');
  await expect(f.service.create(context,{...input,name:'Changed'})).rejects.toThrow('idempotency_conflict');
- expect(f.outputs.stageGenerated).toHaveBeenCalledWith(
-  {orgId:context.orgId,parentRunId:context.parentRunId},
-  expect.objectContaining({name:'example.skill.json',mime:'application/json',sha256:first.fileDigest}),
- );
 });
 it('rejects missing dependencies/references, path traversal, binary bytes and unauthorized access before persistence',async()=>{
  const f=await setup();f.authority.check.mockResolvedValueOnce({allowed:false,reason:'approval_required'});await expect(f.service.create(context,input)).rejects.toThrow('denied');expect(f.session.read).not.toHaveBeenCalled();
@@ -47,9 +42,4 @@ it('concurrent different metadata on the same call has one winner and never over
 it('does not confirm a draft after permission is revoked during workspace write',async()=>{
  const f=await setup();f.authority.check.mockResolvedValueOnce({allowed:true}).mockResolvedValueOnce({allowed:true}).mockResolvedValueOnce({allowed:false,reason:'cancel_requested'});
  await expect(f.service.create(context,input)).rejects.toThrow('denied');expect(f.session.write).toHaveBeenCalledTimes(1);
-});
-
-it('does not expose an attachment when generated-output staging fails',async()=>{
- const f=await setup();f.outputs.stageGenerated.mockRejectedValueOnce(new Error('staging unavailable'));
- await expect(f.service.create(context,input)).rejects.toThrow('staging unavailable');
 });

@@ -59,7 +59,7 @@ export const WORKBENCH_REPOSITORIES=new Set(Object.keys(specs).map(p=>prefix+p))
 export function checkWorkbenchRepository(path,source,read){
  const methodNames = {
  'pg-native-run-inputs.ts':['read'],
- 'pg-native-output-staging.ts':['stage','stageGenerated','listFiles'],
+ 'pg-native-output-staging.ts':['stage','listFiles'],
  'pg-native-session-owner.ts':['authorized','crypt','provision','resolve','release','releaseForRun'],
  'pg-interjection-store.ts':['listPublic','listCarryOverPending','settleCarryOver','requestPause','isCancelRequested','isPauseRequested','submit','pollForKernel','takePending','stageForKernel','takeStagedForKernel'],
  'pg-parent-run-control.ts':['readCancellation','withSnapshot'], 'pg-run-recovery.ts':['tick','diagnostic'],
@@ -119,13 +119,6 @@ export function checkWorkbenchRepository(path,source,read){
   require(list?.getText(ast)??'',/this\.db\.withTenant\(orgId/,'internal output read requires tenant');
   require(list?.getText(ast)??'',/WHERE org_id=\$1 AND run_id=\$2/,'internal output read requires run');
   require(list?.getText(ast)??'',/\[orgId,runId\]/,'internal output read must bind tenant and run parameters');
-  const generated=methods.find(n=>n.name.getText(ast)==='stageGenerated');
-  const generatedText=generated?.getText(ast)??'';
-  require(generatedText,/this\.objects\.get\(input\.objectKey\)/,'generated output must verify stored bytes');
-  require(generatedText,/input\.idempotencyKey\.startsWith\('skill-draft:'\)/,'generated output must be limited to skill drafts');
-  require(generatedText,/input\.mime!==\'application\/json\'/,'generated output must be JSON only');
-  require(generatedText,/this\.db\.withTenant\(context\.orgId/,'generated output write requires tenant');
-  require(generatedText,/WHERE org_id=\$1 AND run_id=\$2/,'generated output queries require run');
   for(const call of calls.filter(n=>ts.isPropertyAccessExpression(n.expression)&&n.expression.name.text==='query')){
    const sql=call.arguments[0];if(!sql||!ts.isStringLiteralLike(sql))continue;
    const values=call.arguments[1];
