@@ -125,6 +125,7 @@ describe("V1 static: no built-in capability list exists in product code", () => 
     // ⚠ phase-01 十个束全签完之后若这份清单还没缩短，说明 UI 先行的产物没有回流成契约——
     // 那才是真正要报警的事，而条数上限永远发现不了它。
     const DECLARED_MOCK_DEBT = [
+      "apps/web/lib/mock/agent-previews.ts", // #3602 用户明确要求的两项只读 UI mock，不接运行时
       "apps/web/lib/mock/admin.ts",        // phase-00 F15 原型遗留（最早的那笔）
       "apps/web/lib/mock/tasks.ts",        // phase-00 原型遗留
       "apps/web/lib/mock/chat.ts",         // phase-01 chat 域 UI 先行

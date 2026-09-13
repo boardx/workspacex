@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3602/apps/web
+
+ ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 2550ms
+   ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 1824ms
+   ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 444ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  00:22:09
+   Duration  14.47s (transform 1.51s, setup 250ms, collect 407ms, tests 2.55s, environment 10.57s, prepare 332ms)
+
+  ✓ phase-01-run-a-project         束可达 18/18 · 导航项 23
+  ✓ phase-03-reuse-and-governance  束可达  6/6  · 导航项 23
+  ✓ phase-14-agent-kernel-unification 束可达  5/5  · 导航项 23
+✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链。

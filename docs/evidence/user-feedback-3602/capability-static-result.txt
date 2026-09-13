@@ -1,0 +1,27 @@
+[stack-admission] load1=7.05 cores=10 perCore=0.70 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mu0154rh-f15900e3-d478413bfec8 db=wsx_d478413bfec874a1f5f1 compose=wsx-d478413bfec874a1f5f1 pg=20811 redis=21811 api=24811 web=25811 sandbox=26811 model=27811 deep-agent=28811 asr=29811 vision=30811 loopback-sandbox=31811
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3602/apps/api
+
+[db-isolation] db=wsx_d478413bfec874a1f5f1 capacity=100 current=6 required=32
+ ✓ tests/kernel/no-builtin-capability-lists.test.ts (11 tests | 6 skipped) 32691ms
+   ✓ V1 static: no built-in capability list exists in product code > the real tree is clean, and the gate actually looked at it 1784ms
+   ✓ V1 static: no built-in capability list exists in product code > COUNTER-PROOF: a built-in list fails the gate, and the message says which one 331ms
+   ✓ V1 static: no built-in capability list exists in product code > COUNTER-PROOF the other way: it does not fire on derived enums or on comments 702ms
+   ✓ V1 static: no built-in capability list exists in product code > the prototype's mock data is counted as DEBT, not silently excluded 1816ms
+   ✓ V1 static: no built-in capability list exists in product code > no migration seeds capability_listings 320ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed | 6 skipped (11)
+   Start at  00:30:00
+   Duration  39.87s (transform 10.22s, setup 0ms, collect 1.65s, tests 32.69s, environment 0ms, prepare 151ms)
+
+[db-isolation] db=wsx_d478413bfec874a1f5f1 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/kernel/no-builtin-capability-lists.test.ts -t V1 static
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：42s
