@@ -15,12 +15,13 @@ def test_official_tool_schemas_hide_runtime_identity():
   assert 'token' not in tool.args
  assert [tool.name for tool in web.standard_context_tools()]==['wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read']
 
-@pytest.mark.parametrize('failure',['status','redirect','oversize','invalid'])
+@pytest.mark.parametrize('failure',['unauthorized','forbidden','status','redirect','oversize','invalid'])
 def test_gateway_failures_are_bounded_and_secret_free(monkeypatch,failure):
  seen=[]
  def handle(request):
   seen.append(request)
-  return httpx.Response(503 if failure=='status' else 302 if failure=='redirect' else 200,stream=httpx.ByteStream(b'x'*(web._SCHEMA['limits']['maxResponseBytes']+1) if failure=='oversize' else b'{}'))
+  status={'unauthorized':401,'forbidden':403,'status':502,'redirect':302}.get(failure,200)
+  return httpx.Response(status,stream=httpx.ByteStream(b'x'*(web._SCHEMA['limits']['maxResponseBytes']+1) if failure=='oversize' else b'{}'))
  original=httpx.AsyncClient
  monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
  with pytest.raises(web.StandardContextError) as error:asyncio.run(web._invoke('wx_project_list',{},runtime()))
@@ -28,6 +29,16 @@ def test_gateway_failures_are_bounded_and_secret_free(monkeypatch,failure):
  assert len(seen)==1
  assert json.loads(seen[0].content)['toolCallId']=='actual-call'
  assert json.loads(seen[0].content)['orgId']=='org'
+
+def test_project_context_refusal_returns_a_tool_result(monkeypatch):
+ original=httpx.AsyncClient
+ monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(lambda _:httpx.Response(503,stream=httpx.ByteStream(b'{"message":"private dependency details"}'))),**kwargs))
+ result=asyncio.run(web._invoke('wx_project_read',{'projectId':'project'},runtime()))
+ assert result.content=='Workspace context unavailable or request refused; no content confirmed. Do not automatically retry.'
+ assert result.tool_call_id=='actual-call'
+ assert result.name=='wx_project_read'
+ assert result.status=='error'
+ assert 'private dependency details' not in result.content
 
 
 def test_unsupported_time_filter_never_dispatches(monkeypatch):

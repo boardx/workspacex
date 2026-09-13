@@ -59,8 +59,9 @@ SENTINEL = "%SENTINEL%"
 INTERRUPT_ONLY = {"confirm_task_intent", "fill_run_params", "choose_execution_option"}
 
 # name -> (端点路径后缀, 503 时的表现, 参数)。`%SENTINEL%` 在跑之前替换成 `sent-<name>`。
-# "returns-refusal"：web 两件不抛异常，而是把结构化拒绝正文交回给模型（换一个来源继续），
-# 这是它们的既定契约，不是漏抛——所以这里逐工具声明，而不是笼统地 try/except。
+# "returns-refusal"：只读 web/context 工具不抛异常，而是把结构化拒绝正文交回给模型
+# （换一个来源或诚实收尾）。这是它们的既定契约，不是漏抛——所以这里逐工具声明，
+# 而不是笼统地 try/except。
 DISPATCH: dict[str, tuple[str, str, dict]] = {
     "spawn_async_task": ("/subtasks/spawn", "raises", {"description": SENTINEL, "idempotencyKey": SENTINEL}),
     "wx_artifact_download": ("/standard-artifact-download/invoke", "raises", {"artifactId": SENTINEL, "versionId": "v1", "purpose": "download"}),
@@ -77,10 +78,10 @@ DISPATCH: dict[str, tuple[str, str, dict]] = {
     "wx_memory_search": ("/memory/source-proof", "raises", {"query": SENTINEL}),
     "wx_memory_write": ("/memory/source-proof", "raises", {"text": SENTINEL, "sourceMessageId": SENTINEL, "idempotencyKey": "idem-key"}),
     "wx_memory_delete": ("/memory/source-proof", "raises", {"memoryId": BINDING, "expectedRevision": 1}),
-    "wx_knowledge_search": ("/standard-context/invoke", "raises", {"query": SENTINEL}),
-    "wx_knowledge_read": ("/standard-context/invoke", "raises", {"sourceId": SENTINEL, "versionId": "v1"}),
-    "wx_project_list": ("/standard-context/invoke", "raises", {"query": SENTINEL}),
-    "wx_project_read": ("/standard-context/invoke", "raises", {"projectId": SENTINEL}),
+    "wx_knowledge_search": ("/standard-context/invoke", "returns-refusal", {"query": SENTINEL}),
+    "wx_knowledge_read": ("/standard-context/invoke", "returns-refusal", {"sourceId": SENTINEL, "versionId": "v1"}),
+    "wx_project_list": ("/standard-context/invoke", "returns-refusal", {"query": SENTINEL}),
+    "wx_project_read": ("/standard-context/invoke", "returns-refusal", {"projectId": SENTINEL}),
     "wx_canvas_read": ("/standard-canvas/invoke", "raises", {"canvasId": SENTINEL}),
     "wx_canvas_update": ("/standard-canvas/invoke", "raises", {"canvasId": SENTINEL, "expectedRevision": 1, "changes": {"kind": "replace-source", "markdown": SENTINEL}, "idempotencyKey": "idem-key"}),
     "wx_document_parse": ("/document/parse", "raises", {"workspacePath": "/inputs/" + SENTINEL}),
