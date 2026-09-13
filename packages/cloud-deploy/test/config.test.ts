@@ -110,6 +110,21 @@ describe("cloud deployment configuration", () => {
       }).ok).toBe(false);
     }
   });
+  it("accepts a bounded platform-superuser list and rejects case-insensitive duplicates", () => {
+    const input = deploymentExample("production");
+    expect(validateDeploymentConfig({
+      ...input,
+      provision: { ...input.provision, platformSuperuserEmails: ["ops@example.com", "owner@example.com"] },
+    }).ok).toBe(true);
+    expect(validateDeploymentConfig({
+      ...input,
+      provision: { ...input.provision, platformSuperuserEmails: ["Ops@example.com", "ops@example.com"] },
+    }).ok).toBe(false);
+    expect(validateDeploymentConfig({
+      ...input,
+      provision: { ...input.provision, platformSuperuserEmails: [] },
+    }).ok).toBe(false);
+  });
   it("does not expose connection references or email in the plan", () => {
     const value = deploymentExample("production");
     value.provision.asrProfile = {

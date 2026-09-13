@@ -18,6 +18,7 @@ const ipv4 = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}$/).refine(value =>
 // not fetched during validation. The cloud preflight must verify routing and reachability.
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
 const modelUrl = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
+const email = z.string().max(254).email();
 const websocketUrl = text.regex(/^wss:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const commonEnvironment = {
   regionId: region,
@@ -57,7 +58,8 @@ export const deploymentInputSchema = z.object({
   environment: z.discriminatedUnion("profile", [starter, production]),
   provision: z.object({
     release: text.regex(/^v?\d+\.\d+\.\d+(?:-[a-zA-Z0-9]+(?:[.-][a-zA-Z0-9]+)*)?$/),
-    adminEmail: z.string().max(254).email(),
+    adminEmail: email,
+    platformSuperuserEmails: z.array(email).min(1).max(32).optional(),
     modelProfile: z.object({
       baseUrl: modelUrl,
       modelId: identifier,
@@ -84,6 +86,10 @@ export const deploymentConfigSchema = deploymentInputSchema.superRefine((config,
   }
   if (env.profile === "production" && env.databaseSecretRef === env.migrationSecretRef) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["environment", "migrationSecretRef"], message: "SEPARATE_ROLES_REQUIRED" });
+  }
+  const superusers = config.provision.platformSuperuserEmails;
+  if (superusers && new Set(superusers.map(value => value.trim().toLowerCase())).size !== superusers.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["provision", "platformSuperuserEmails"], message: "DUPLICATE_PLATFORM_SUPERUSER" });
   }
 });
 

@@ -44,6 +44,9 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
       KERNEL_ASR_MODEL: config.provision.asrProfile.modelId,
     });
   }
+  const platformSuperuser: Record<string, string> = config.provision.platformSuperuserEmails
+    ? { PLATFORM_SUPERUSER_EMAILS: config.provision.platformSuperuserEmails.join(",") }
+    : {};
   let data: Record<string, string>;
   const environment = config.environment;
   if (environment.profile === "production") {
@@ -63,7 +66,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   }
   const apiData = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith("MIGRATION_DB_") && !key.startsWith("AGENT_DB_") && !key.startsWith("MEMORY_DB_")));
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
-  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...sharedNative,
+  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...platformSuperuser, ...sharedNative,
     NODE_ENV: "production", PORT: "3200", MODEL_CREDENTIAL_KEY: secret["model-cipher"],
     EMAIL_VERIFICATION_SECRET: secret["email-verification"],
     NATIVE_SESSION_BINDING_KEY: secret["native-binding"], KERNEL_NATIVE_RUNTIME: "1",
