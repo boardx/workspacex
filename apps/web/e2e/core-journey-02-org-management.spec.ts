@@ -79,23 +79,15 @@ test("旅程②：组织管理员邀请一位新成员 → 受邀人用一次性
   await inviteePage.getByTestId("activate-name").fill(inviteeName);
   await inviteePage.getByTestId("activate-pwd").fill(inviteePassword);
   await inviteePage.getByTestId("activate-submit").click();
-  await expect(inviteePage.getByTestId("activate-success")).toBeVisible({ timeout: 20_000 });
-  // 实测：「继续」按钮把人带回 `/login`，不是直接落地到已登录的 `/projects`——
-  // 账号建好了，但激活本身不附带自动登录。下面第 ③ 步用这个新密码显式登录，
-  // 就是对这件事的真正验证，这里不断言一个不存在的自动登录行为。
-  await inviteePage.getByTestId("activate-success-continue").click();
-  await expect(inviteePage).toHaveURL(/\/login/);
-  await inviteeContext.close();
+  // Activation now hands off its real session without returning to the password form.
+  await expect(inviteePage).toHaveURL(/\/projects$/);
+  await expect(inviteePage.getByTestId("projects-list-empty").or(inviteePage.getByTestId("projects-list"))).toBeVisible();
 
-  /* ── ③ 受邀人真的能用这个账号登录（不是激活页自己乐观渲染出来的假象） ────────── */
-  const reloginContext = await browser.newContext();
-  const reloginPage = await reloginContext.newPage();
-  await reloginPage.goto("/login");
-  await reloginPage.getByTestId("login-email").fill(inviteEmail);
-  await reloginPage.getByTestId("login-password").fill(inviteePassword);
-  await reloginPage.getByTestId("login-submit").click();
-  await expect(reloginPage).toHaveURL(/\/projects$/);
-  await reloginContext.close();
+  /* ── ③ 刷新后仍已登录：自动会话已持久化，不只是激活页的乐观成功状态 ─────── */
+  await inviteePage.reload();
+  await expect(inviteePage).toHaveURL(/\/projects$/);
+  await expect(inviteePage.getByTestId("projects-list-empty").or(inviteePage.getByTestId("projects-list"))).toBeVisible();
+  await inviteeContext.close();
 
   /* ── ④ 管理员刷新组织后台成员页，能看到这位新成员真的在组织成员列表里 ──────────
      「刷新后仍在」区分「写进 PostgreSQL」与「只是激活页自己的乐观 UI」。 */

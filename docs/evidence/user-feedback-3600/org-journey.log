@@ -1,0 +1,13 @@
+
+Running 1 test using 1 worker
+
+(node:12124) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:12124) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/1] e2e/core-journey-02-org-management.spec.ts:34:5 › 旅程②：组织管理员邀请一位新成员 → 受邀人用一次性链接激活账号 → 出现在成员列表里
+  1 passed (7.5s)
