@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, lstat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, lstat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -51,7 +51,10 @@ it("does not replace an existing env file after cancellation", async () => {
 
 it("mounts explicit libpq CAs and limits Memory owner credentials to the setup job", async () => {
   const { rootCertificates } = await import("node:tls");
-  const runtimeDirectory = await directory(); const ca = join(runtimeDirectory, "source-ca.pem");
+  const runtimeDirectory = await directory();
+  await mkdir(join(runtimeDirectory, "certs"), { mode: 0o700 });
+  await mkdir(join(runtimeDirectory, "agent-certs"), { mode: 0o700 });
+  const ca = join(runtimeDirectory, "source-ca.pem");
   await writeFile(ca, rootCertificates[0]!);
   const redisCa = join(runtimeDirectory, "redis-ca.pem"); const redisBlocks: string[] = [];
   while (Buffer.byteLength(redisBlocks.join("\n")) < 124_980) redisBlocks.push(rootCertificates[redisBlocks.length % rootCertificates.length]!);
@@ -76,6 +79,11 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
   expect(await readFile(join(runtimeDirectory, "agent-certs/memory-ca.pem"), "utf8")).toBe(rootCertificates[0]);
   expect(await readFile(join(runtimeDirectory, "certs/redis-ca.pem"), "utf8")).toBe(redisBundle);
   expect(await readFile(join(runtimeDirectory, "agent-certs/redis-ca.pem"), "utf8")).toBe(redisBundle);
+  expect((await lstat(join(runtimeDirectory, "certs"))).mode & 0o777).toBe(0o755);
+  expect((await lstat(join(runtimeDirectory, "agent-certs"))).mode & 0o777).toBe(0o755);
+  expect((await lstat(join(runtimeDirectory, "certs/redis-ca.pem"))).mode & 0o777).toBe(0o644);
+  expect((await lstat(join(runtimeDirectory, "agent-certs/redis-ca.pem"))).mode & 0o777).toBe(0o644);
+  expect((await lstat(join(runtimeDirectory, "api.env"))).mode & 0o777).toBe(0o600);
   expect(maps.api).toMatchObject({ NODE_EXTRA_CA_CERTS: "/run/certs/redis-ca.pem", REDIS_TLS: "true" });
   expect(maps.api.REDIS_CA_FILE).toBeUndefined();
   const agentRedis = new URL(maps.agent.REDIS_URI!);
