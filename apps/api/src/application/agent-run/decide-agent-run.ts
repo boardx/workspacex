@@ -9,7 +9,7 @@ import { validateInterruptDecision } from "./validate-interrupt-decision";
  *   edit    → （UX-9 D4）人在线改参数后放行：与 approve 走同一条 awaiting_tool_permission →
  *             queued 边，另把改后的完整参数对象落 pending_edited_args；resume 时
  *             provider 发 EditDecision（工具名沿用待批工具，不许换工具，见 contracts）。
- *   reject  → run 落 failed("HITL_REJECTED")。拒绝是终态：用户明确说了不，
+ *   reject  → run 落 cancelled。拒绝是终态：用户明确说了不，
  *             不提供「拒绝后自动改道」——那会把「不许做」偷换成「换个方式做」。
  *
  * 可见性/权限纪律逐字沿用 retryAgentRun（同一目录）：locator → resolveVisibility →
@@ -90,8 +90,10 @@ export async function decideAgentRun(
     return visible.payload;
   }
   if (input.decision === "reject") {
-    // failRun 自带「非终态才动」条件；已终态时下面的重读把真实状态报给冲突方。
-    await deps.runs.failRun(input.orgId, input.runId, "HITL_REJECTED");
+    // 原子更新只接受仍待确认的任务；批准或结束已先行时诚实报冲突。
+    if (!await deps.runs.rejectAwaitingPermission?.(input.orgId, input.runId)) {
+      throw new AgentRunNotAwaitingToolPermissionError("conflict");
+    }
   } else {
     // approve 与 edit 共享同一条重新入队边与同一套竞态语义；差别只在 edit 多落
     // 一份改后参数（JSON 文本，provider 侧解析校验）。
@@ -110,7 +112,7 @@ export async function decideAgentRun(
   if (guarded === null) throw new AgentRunNotVisibleError();
   const disclosed = discloseDecided(guarded, outcome.base);
   if (!isDisclosed(disclosed)) throw new AgentRunNotVisibleError();
-  if (input.decision === "reject" && disclosed.payload.error !== "HITL_REJECTED") {
+  if (input.decision === "reject" && disclosed.payload.status !== "cancelled") {
     // reject 输了竞态（run 已终态成别的结果）——如实报冲突，不假装拒绝生效。
     throw new AgentRunNotAwaitingToolPermissionError(disclosed.payload.status);
   }
