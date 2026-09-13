@@ -80,11 +80,19 @@ export const bootstrapFirstUserErrors = ["BOOTSTRAP_UNAVAILABLE","EMAIL_TAKEN"] 
 
 /** confirmEmailVerification 的成功响应样例（由契约生成） */
 export const confirmEmailVerificationMock: z.infer<typeof auth.operations.confirmEmailVerification.out> = {
-  "status": "completed"
+  "status": "completed",
+  "session": {
+    "sessionToken": "sessionToken-1",
+    "userId": "userId-1",
+    "orgs": [
+      "orgs-1"
+    ],
+    "expiresAt": "expiresAt-1"
+  }
 };
 
 /** confirmEmailVerification 的失败模式全集——界面的异常态必须逐个覆盖 */
-export const confirmEmailVerificationErrors = ["VERIFICATION_LINK_INVALID"] as const;
+export const confirmEmailVerificationErrors = ["VERIFICATION_LINK_INVALID","AUTH_SERVICE_UNAVAILABLE"] as const;
 
 /** resendEmailVerification 的成功响应样例（由契约生成） */
 export const resendEmailVerificationMock: z.infer<typeof auth.operations.resendEmailVerification.out> = {
