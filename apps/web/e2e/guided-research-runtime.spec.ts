@@ -151,12 +151,19 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "发送研究消息" }).click();
   expect((await regenerated).headers()["content-type"]).toContain("text/event-stream");
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(page.getByRole("button", { name: "完成研究", exact: true })).toBeEnabled({ timeout: 60000 });
   await expect(page.getByTestId("research-report-document")).toContainText("并网政策报告");
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  // Next's route announcer is a global alert; only research errors belong here.
+  await expect(page.getByTestId("research-flow-report").getByRole("alert")).toHaveCount(0);
   // Quality rejection must preserve a complete, explicitly provisional report.
   const runtimeUrl = streamResponse.url().replace(/\/commands\/stream$/, "");
   const authorization = streamResponse.request().headers()["authorization"]!;
   const current = await (await page.request.get(runtimeUrl, { headers: { authorization } })).json();
+  expect(current.errorCode).toBeNull();
+  expect(current.busy).toBe(false);
+  expect(current.report.title).toBe("并网政策报告");
+  expect(current.modelCalls.length).toBeGreaterThan(runtime.modelCalls.length);
+  expect(current.messages.at(-1)).toMatchObject({ role: "assistant", text: "已重新生成报告内容。" });
   const draftResponse = await page.request.post(`${runtimeUrl}/commands`, { headers: { authorization }, timeout: 90000,
     data: { sessionId: current.sessionId, node: "report", action: "generate", requestId: `quality-draft-${Date.now()}`, expectedVersion: current.version, message: "e2e-quality-draft" } });
   expect(draftResponse.ok()).toBeTruthy();

@@ -127,7 +127,7 @@ it("unlocks when progress is terminal even if the POST never closes", async () =
 
 
 it("observes report conversation generation without classifying user intent in the client", async () => {
-  vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, currentNode: "report", availableNodes: [...initial.availableNodes, "report"] });
+  vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, currentNode: "report", availableNodes: [...initial.availableNodes, "report"], report: { title: "旧报告", summary: "旧摘要", sections: [] } });
   vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback) => {
     expect(input).toMatchObject({ action: "message", message: "重新生成报告", node: "report" });
     callback?.({ type: "snapshot", state: streaming(input.requestId) });
@@ -136,8 +136,10 @@ it("observes report conversation generation without classifying user intent in t
   });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
   const input = await screen.findByRole("textbox", { name: "研究对话" });
+  expect(screen.getByTestId("research-report-document")).toHaveTextContent("旧报告");
   fireEvent.change(input, { target: { value: "重新生成报告" } });
   fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
   expect(await screen.findByText("对话生成的正文")).toBeInTheDocument();
+  expect(screen.queryByTestId("research-report-document")).not.toBeInTheDocument();
   expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
 });

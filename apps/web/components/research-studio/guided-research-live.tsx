@@ -188,6 +188,9 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           const next = newestSnapshot(event.state, current);
           responseEpoch.current += 1;
           snapshotRef.current = next; setState(next);
+          // The server identifies actual generation; ordinary chat proposals keep
+          // their editor visible. Retain the draft separately for failure recovery.
+          if (action === "message" && next.busy && next.reportStream?.requestId === input.requestId && next.reportStream.status === "streaming") setLoadingNode("report");
         } else if (event.type === "report_delta") {
           if (!current || event.sessionId !== sessionId || event.requestId !== input.requestId || event.version !== input.expectedVersion + 1 || current.version !== event.version || !current.busy) return;
           const previous = current.reportStream;
