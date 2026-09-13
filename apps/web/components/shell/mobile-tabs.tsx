@@ -2,16 +2,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessagesSquare, FolderKanban, ListTodo, User } from "lucide-react";
+import { TOP_LEVEL_NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /**
  * 移动端一级 tab —— 实测原型「同一信息架构，三栏折叠为三层」：
- *   一级 tab（对话 / 项目 / 任务 / 我）＋ 二级列表 ＋ 全屏推入 ＋ 抽屉
+ *   一级 tab（对话 / 项目 / 智能体 / 任务 / 我）＋ 二级列表 ＋ 全屏推入 ＋ 抽屉
  * 只在 <md 显示；≥md 由 IconRail 承担导航。
  */
 const TABS = [
   { key: "chat", label: "对话", href: "/chat", icon: MessagesSquare },
   { key: "projects", label: "项目", href: "/projects", icon: FolderKanban },
+  ...TOP_LEVEL_NAV_ITEMS.filter((item) => item.key === "agents"),
   { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo },
   { key: "me", label: "我", href: "/profile", icon: User },
 ];

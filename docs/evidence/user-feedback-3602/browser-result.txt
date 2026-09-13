@@ -1,0 +1,3 @@
+1280: cards, no tags/experts, navigation, refresh, overflow PASS
+375: cards, no tags/experts, navigation, refresh, overflow PASS
+interview <-> agents navigation PASS

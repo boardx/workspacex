@@ -1,0 +1,15 @@
+# Issue #3602 — 智能体展示入口
+
+范围：左侧 STUDIO 新增 `/agents`；移动端入口复用同一导航项。页面沿用访谈的容器、标题计数和卡片布局，展示智能体1、智能体2。无标签、专家列表或未实现操作按钮；未新增业务 API、权限或真实运行能力。
+
+验证：
+- `./init.sh`：基础快速检查通过。
+- `pnpm --filter web typecheck`：通过。
+- `pnpm --filter web lint`：ESLint、light-scope、design lint 全部通过。
+- `pnpm --filter web exec vitest run tests/ui/nav-ia-two-levels.test.tsx`：15/15 通过。
+- `node .harness/scripts/lint-nav-reachability.mjs`：三个阶段可达性通过。
+- 独立 Next dev（端口 3602）+ Chromium，`node docs/evidence/user-feedback-3602/browser-check.cjs`：桌面 1280px / 手机 375px，两张卡片、无标签专家、入口 active、直接访问与刷新、内容无横向溢出、访谈往返导航全部通过。
+
+浏览器检查仅对身份接口提供明确的 UI 夹具；没有验证真实认证或后端业务。截图为该夹具下实际渲染，页面的两个智能体本身是用户要求的静态 mock。先启动 `NEXT_DIST_DIR=.next-feedback-3602 pnpm --filter web exec next dev -p 3602`，再从仓库根执行脚本。
+
+证据：`browser-result.txt`、`navigation-result.txt`、`agents-1280.png`、`agents-375.png`。等待 PR 合入后才能在部署环境使用，未自动合并。

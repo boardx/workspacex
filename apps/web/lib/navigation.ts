@@ -109,6 +109,8 @@ export const NAV_SEGMENTS: NavSegment[] = [
       { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5", "24-research/uc-24-6"] },
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
+      // #3602：用户明确新增的展示入口；后台 agent-runtime 管理入口保持独立。
+      { key: "agents", label: "智能体", href: "/agents", icon: Bot, ucRefs: [] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
@@ -303,6 +305,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
 ];
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * #3602 更新：历史规则约束后台管理入口；用户现授权独立的 /agents 展示页进入 STUDIO。
  * 2026-08-06 · issue #593 · 信息架构复位（一级 ↔ 二级）
  *
  * 病：一级导航里跟「对话」平级地挂着 蓝本 / 技能 / 智能体 / 成员 / 资产。

@@ -29,6 +29,7 @@
       "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
+      "/agents",
       "/studio/survey",
       "/brain",
       "/tasks",
@@ -50,6 +51,7 @@
       "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
+      "/agents",
       "/admin",
       "/asset-governance",
       "/brain",
@@ -81,6 +83,7 @@
       "error-observability": "/preview/agent-kernel"
     },
     "allowRoutes": [
+      "/agents",
       "/admin",
       "/asset-governance",
       "/brain",
