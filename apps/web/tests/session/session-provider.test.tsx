@@ -1,7 +1,8 @@
 import * as React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { SessionReplacementSupersededError, withSessionStorageLock } from "@/lib/session-storage-lock";
+import { ApiError, storeSessionToken, clearStoredSessionToken, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const { resolveIdentity, switchCurrentOrganization } = vi.hoisted(() => ({
   resolveIdentity: vi.fn(),
@@ -14,6 +15,7 @@ import {
   SESSION_COMMIT_STORAGE_KEY,
   SESSION_STORAGE_KEY,
   SessionProvider,
+  type SessionContextValue,
   useSession,
 } from "@/components/session/session-provider";
 
@@ -84,6 +86,7 @@ function dispatchStorage(key: string, oldValue: string | null, newValue: string 
 }
 
 beforeEach(() => {
+  vi.unstubAllGlobals();
   window.localStorage.clear();
   resolveIdentity.mockReset();
   switchCurrentOrganization.mockReset();
@@ -197,6 +200,7 @@ describe("SessionProvider", () => {
       window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, LOGIN.sessionToken);
       window.localStorage.setItem(SESSION_STORAGE_KEY, storedSession());
       render(<SessionProvider><Probe /></SessionProvider>);
+      await waitFor(() => expect(resolveIdentity).toHaveBeenCalledOnce());
 
       const replacement = {
         ...LOGIN,
@@ -324,5 +328,90 @@ describe("SessionProvider", () => {
     expect(screen.getByTestId("org")).toHaveTextContent("none");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem("wsx.session")).toBeNull();
+  });
+});
+
+
+describe("atomic invitation session replacement", () => {
+  function installLocks() {
+    let queue: Promise<unknown> = Promise.resolve();
+    const request = vi.fn((_name: string, action: () => unknown) => {
+      const result = queue.then(action);
+      queue = result.catch(() => undefined);
+      return result;
+    });
+    vi.stubGlobal("navigator", { locks: { request } });
+    return request;
+  }
+
+  async function mountSession() {
+    let current!: SessionContextValue;
+    function Capture() { current = useSession(); return <output data-testid="atomic-status">{current.status}</output>; }
+    resolveIdentity.mockResolvedValue(IDENTITY_ONE);
+    render(<SessionProvider><Capture /></SessionProvider>);
+    await screen.findByText("anonymous");
+    return () => current;
+  }
+
+  it("rechecks under the shared lock when another login commits after the caller's check", async () => {
+    const lock = installLocks();
+    const current = await mountSession();
+    const expectedToken = window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY);
+    const blocker = deferred<void>();
+    const held = withSessionStorageLock(() => blocker.promise);
+    const other = { ...LOGIN, sessionToken: "other-tab-token", userId: "other-user" };
+    let otherLogin!: Promise<void>;
+    let invitation!: Promise<void>;
+    await act(async () => {
+      otherLogin = current().startSession(other);
+      invitation = current().startSession(LOGIN, { expectedToken });
+      const outcomes = Promise.allSettled([otherLogin, invitation]);
+      blocker.resolve();
+      await held;
+      const [otherResult, invitationResult] = await outcomes;
+      expect(invitationResult.status).toBe("rejected");
+      if (invitationResult.status === "rejected") {
+        expect(invitationResult.reason).toBeInstanceOf(SessionReplacementSupersededError);
+      }
+      expect(otherResult.status).toBe("fulfilled");
+    });
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(other.sessionToken);
+    expect(JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY)!).userId).toBe(other.userId);
+    expect(resolveIdentity).not.toHaveBeenCalledWith("org-one", LOGIN.sessionToken);
+    expect(lock).toHaveBeenCalled();
+  });
+
+  it("raw-token live writers and clears participate in the same lock", async () => {
+    installLocks();
+    const current = await mountSession();
+    const blocker = deferred<void>();
+    const held = withSessionStorageLock(() => blocker.promise);
+    const liveLogin = storeSessionToken("live-token");
+    const invitation = current().startSession(LOGIN, { expectedToken: null });
+    const rejected = expect(invitation).rejects.toBeInstanceOf(SessionReplacementSupersededError);
+    blocker.resolve();
+    await held;
+    await liveLogin;
+    await rejected;
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe("live-token");
+    await clearStoredSessionToken();
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("an old deletion event cannot clear a newer committed login", async () => {
+    installLocks();
+    const current = await mountSession();
+    await act(async () => { await current().startSession(LOGIN); });
+    dispatchStorage(SESSION_TOKEN_STORAGE_KEY, "previous-account-token", null);
+    await waitFor(() => expect(screen.getByTestId("atomic-status")).toHaveTextContent("authenticated"));
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(LOGIN.sessionToken);
+  });
+
+  it("automatic replacement fails closed without Web Locks while explicit login remains available", async () => {
+    const current = await mountSession();
+    await expect(current().startSession(LOGIN, { expectedToken: null })).rejects.toThrow("cross_tab_session_lock_unavailable");
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+    await act(async () => { await current().startSession(LOGIN); });
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(LOGIN.sessionToken);
   });
 });

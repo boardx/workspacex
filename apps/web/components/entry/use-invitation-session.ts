@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/components/session/session-provider";
+import { SessionReplacementSupersededError } from "@/lib/session-storage-lock";
 import { getStoredSessionToken } from "@/lib/api-client";
 import type { auth } from "@repo/contracts";
 
@@ -27,12 +28,12 @@ export function useInvitationSession() {
         // Enter the invited organization while retaining the already authenticated account's
         // other organizations. All actual access still goes through identity authorization.
         orgs: [...new Set([...next.orgs, ...(existingAccount ? current.session?.orgIds ?? [] : [])])],
-      });
+      }, { expectedToken: initialToken });
       if (getStoredSessionToken() !== next.sessionToken) return "session-preserved";
       window.location.assign("/projects");
       return "ready";
-    } catch {
-      return "session-failed";
+    } catch (error) {
+      return error instanceof SessionReplacementSupersededError ? "session-preserved" : "session-failed";
     }
   };
 }

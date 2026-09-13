@@ -101,7 +101,7 @@ function SessionAppShell({
         <p>身份服务暂时不可用，登录状态已保留。</p>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => void session.retry()}>重试</Button>
-          <Button size="sm" variant="ghost" onClick={() => { session.logout(); router.replace("/login"); }}>
+          <Button size="sm" variant="ghost" onClick={async () => { await session.logout(); router.replace("/login"); }}>
             退出登录
           </Button>
         </div>
@@ -127,8 +127,8 @@ function SessionAppShell({
         await session.switchOrganization(orgId);
         router.replace("/projects");
       }}
-      onLogout={() => {
-        session.logout();
+      onLogout={async () => {
+        await session.logout();
         router.replace("/login");
       }}
     >

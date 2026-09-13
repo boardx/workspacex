@@ -43,7 +43,7 @@ for (const kind of ["single", "shared"] as const) {
       submit();
       await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("/projects"));
       expect(state.startSession).toHaveBeenCalledTimes(1);
-      expect(state.startSession).toHaveBeenCalledWith(session);
+      expect(state.startSession).toHaveBeenCalledWith(session, { expectedToken: null });
       expect(state.token).toBe("new-bearer");
       expect(state.navigate).not.toHaveBeenCalledWith("/login");
     });
@@ -89,7 +89,7 @@ it("existing-account activation retains old organizations and enters the invited
   fireEvent.submit(screen.getByTestId("activate-form"));
   await waitFor(() => expect(state.navigate).toHaveBeenCalledWith("/projects"));
   expect(state.apiRequest.mock.calls[0]![1].sessionToken).toBe("existing-bearer");
-  expect(state.startSession).toHaveBeenCalledWith({ ...session, orgs: ["invited-org", "old-org"] });
+  expect(state.startSession).toHaveBeenCalledWith({ ...session, orgs: ["invited-org", "old-org"] }, { expectedToken: "existing-bearer" });
 });
 
 

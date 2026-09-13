@@ -1,13 +1,12 @@
 "use client";
 
+import { withSessionStorageLock, SessionReplacementSupersededError } from "@/lib/session-storage-lock";
 import * as React from "react";
 import type { LoginOut } from "@/lib/auth";
 import {
   ApiError,
-  clearStoredSessionToken,
   getStoredSessionToken,
   SESSION_TOKEN_STORAGE_KEY,
-  storeSessionToken,
 } from "@/lib/api-client";
 import type { Identity } from "@/lib/identity";
 import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
@@ -49,10 +48,10 @@ export interface SessionContextValue {
    */
   readonly organizations: readonly OrganizationSummary[];
   readonly error: ApiError | Error | null;
-  startSession(login: LoginOut): Promise<void>;
+  startSession(login: LoginOut, replacement?: { expectedToken: string | null }): Promise<void>;
   switchOrganization(orgId: string): Promise<void>;
   retry(): Promise<void>;
-  logout(): void;
+  logout(): Promise<void>;
   /**
    * Addendum A（#638 迭代 1 复核修复）：`updateOwnProfile` 保存成功后，用它 PATCH 响应里
    * 如实回传的 `displayName`（`update-own-profile.ts` 读的是 `UPDATE ... RETURNING` 之后的
@@ -96,7 +95,7 @@ function createSessionRevision(): string {
   return window.crypto.randomUUID();
 }
 
-function persistSession(session: SessionInfo): void {
+function persistSessionWhileLocked(session: SessionInfo): void {
   const revision = createSessionRevision();
   window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
     version: 2,
@@ -106,15 +105,15 @@ function persistSession(session: SessionInfo): void {
     currentOrgId: session.currentOrgId,
     expiresAt: session.expiresAt,
   }));
-  storeSessionToken(session.sessionToken);
+  window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, session.sessionToken);
   // Commit last so another tab never hydrates metadata against a bearer from a
   // different write. Storage events for the preceding writes remain fail-closed.
   window.localStorage.setItem(SESSION_COMMIT_STORAGE_KEY, revision);
 }
 
-function clearSession(): void {
+function clearSessionWhileLocked(): void {
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
-  clearStoredSessionToken();
+  window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(SESSION_COMMIT_STORAGE_KEY);
 }
 
@@ -183,9 +182,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setOrgNames(next);
   }, []);
 
-  const becomeAnonymous = React.useCallback((clearStorage: boolean) => {
+  const becomeAnonymous = React.useCallback(() => {
     generationRef.current += 1;
-    if (clearStorage) clearSession();
     setSession(null);
     setIdentity(null);
     setError(null);
@@ -195,15 +193,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus("anonymous");
   }, []);
 
-  const logout = React.useCallback(() => {
-    becomeAnonymous(true);
+  const logout = React.useCallback(async () => {
+    const expectedToken = getStoredSessionToken();
+    await withSessionStorageLock(() => {
+      if (getStoredSessionToken() !== expectedToken) return;
+      clearSessionWhileLocked();
+      becomeAnonymous();
+    });
   }, [becomeAnonymous]);
 
-  const handleFailure = React.useCallback((failure: unknown, generation: number) => {
+  const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string) => {
     if (generation !== generationRef.current) return;
     const normalized = failure instanceof Error ? failure : new Error("session_dependency_failed");
     if (normalized instanceof ApiError && normalized.status === 401) {
-      becomeAnonymous(true);
+      void withSessionStorageLock(() => {
+        if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
+        clearSessionWhileLocked();
+        becomeAnonymous();
+      });
       return;
     }
     setIdentity(null);
@@ -223,7 +230,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (failure) {
       if (generation !== generationRef.current) return false;
-      handleFailure(failure, generation);
+      handleFailure(failure, generation, next.sessionToken);
       throw failure;
     }
   }, [handleFailure]);
@@ -231,24 +238,31 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const reconcileStorage = (allowPending: boolean) => {
       const generation = ++generationRef.current;
-      const result = readSession();
-      setIdentity(null);
-      setError(null);
-      if (result.kind === "pending" && allowPending) {
-        setSession(null);
+      void withSessionStorageLock(() => {
+        if (generation !== generationRef.current) return null;
+        const result = readSession();
+        if (result.kind !== "ready" && !(result.kind === "pending" && allowPending)) {
+          clearSessionWhileLocked();
+        }
+        return result;
+      }).then((result) => {
+        if (!result || generation !== generationRef.current) return;
+        setIdentity(null);
+        setError(null);
+        if (result.kind === "pending" && allowPending) {
+          setSession(null);
+          setStatus("loading");
+          return;
+        }
+        if (result.kind !== "ready") {
+          setSession(null);
+          setStatus("anonymous");
+          return;
+        }
+        setSession(result.session);
         setStatus("loading");
-        return;
-      }
-      if (result.kind !== "ready") {
-        clearSession();
-        setSession(null);
-        setStatus("anonymous");
-        return;
-      }
-      // Fail closed while the replacement bearer is validated against /identity/me.
-      setSession(result.session);
-      setStatus("loading");
-      void hydrateAtGeneration(result.session, generation).catch(() => undefined);
+        void hydrateAtGeneration(result.session, generation).catch(() => undefined);
+      });
     };
 
     const onStorage = (event: StorageEvent) => {
@@ -259,11 +273,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         event.key !== SESSION_TOKEN_STORAGE_KEY &&
         event.key !== SESSION_COMMIT_STORAGE_KEY
       ) return;
-      if (event.newValue === null) {
-        becomeAnonymous(true);
-        return;
-      }
-      reconcileStorage(true);
+      // Storage events can be delayed; read live state under the lock rather than
+      // clearing a newer login in response to an older tab's deletion event.
+      reconcileStorage(event.newValue !== null);
     };
 
     reconcileStorage(false);
@@ -314,18 +326,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [mergeOrgNames, session, status]);
 
-  const startSession = React.useCallback(async (login: LoginOut) => {
-    const generation = ++generationRef.current;
+  const startSession = React.useCallback(async (
+    login: LoginOut,
+    replacement?: { expectedToken: string | null },
+  ) => {
     const currentOrgId = login.orgs[0];
-    if (!currentOrgId) {
-      const failure = new Error("session_has_no_organization");
-      clearSession();
-      setSession(null);
-      setIdentity(null);
-      setError(failure);
-      setStatus("dependency-failed");
-      throw failure;
-    }
+    if (!currentOrgId) throw new Error("session_has_no_organization");
     const next: SessionInfo = {
       sessionToken: login.sessionToken,
       userId: login.userId,
@@ -333,9 +339,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       currentOrgId,
       expiresAt: login.expiresAt,
     };
-    persistSession(next);
-    setIdentity(null);
-    setStatus("loading");
+    const generation = await withSessionStorageLock(() => {
+      if (replacement && getStoredSessionToken() !== replacement.expectedToken) {
+        throw new SessionReplacementSupersededError();
+      }
+      const generation = ++generationRef.current;
+      persistSessionWhileLocked(next);
+      setIdentity(null);
+      setStatus("loading");
+      return generation;
+    }, replacement !== undefined);
     const applied = await hydrateAtGeneration(next, generation);
     if (!applied) throw new Error("session_operation_superseded");
   }, [hydrateAtGeneration]);
@@ -348,13 +361,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const resolved = await switchCurrentOrganization(orgId, session.sessionToken);
       if (generation !== generationRef.current) throw new Error("session_operation_superseded");
       const next = { ...session, currentOrgId: orgId };
-      persistSession(next);
-      setSession(next);
-      setIdentity(toIdentity(next.userId, resolved));
-      setStatus("authenticated");
+      await withSessionStorageLock(() => {
+        if (generation !== generationRef.current || getStoredSessionToken() !== session.sessionToken) {
+          throw new SessionReplacementSupersededError();
+        }
+        persistSessionWhileLocked(next);
+        setSession(next);
+        setIdentity(toIdentity(next.userId, resolved));
+        setStatus("authenticated");
+      });
     } catch (failure) {
       if (generation !== generationRef.current) throw failure;
-      handleFailure(failure, generation);
+      handleFailure(failure, generation, session.sessionToken);
       throw failure;
     }
   }, [handleFailure, session]);
@@ -444,7 +462,7 @@ export function PreviewSessionProvider({
       startSession: noopAsync,
       switchOrganization: noopAsync,
       retry: noopAsync,
-      logout: noop,
+      logout: async () => undefined,
       updateDisplayName: noop,
       updateOrgName: noop,
       updateAvatarUrl: noop,
