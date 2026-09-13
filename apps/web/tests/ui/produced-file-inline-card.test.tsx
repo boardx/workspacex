@@ -48,14 +48,19 @@ describe("ProducedFileInlineCard", () => {
     expect(screen.queryByTestId("chat-produced-file-preview-portal")).not.toBeInTheDocument();
   });
 
-  it("keeps non-image outputs on the compact download card", () => {
+  it("keeps PDFs compact while exposing both preview and download actions", () => {
     useProducedFileDownloadMock.mockReturnValue({ src: "blob:report", failed: false, iconKind: "pdf" });
 
     render(<ProducedFileInlineCard file={makeFile({ name: "report.pdf", mime: "application/pdf" })} threadId="thread-1" />);
 
     expect(screen.queryByTestId("chat-produced-file-inline-image")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chat-produced-file-inline-preview-trigger")).not.toBeInTheDocument();
+    expect(screen.getByTestId("chat-produced-file-pdf-preview-trigger")).toBeInTheDocument();
     expect(screen.getByTestId("chat-produced-file-inline-download")).toHaveAttribute("href", "blob:report");
+
+    fireEvent.click(screen.getByTestId("chat-produced-file-pdf-preview-trigger"));
+    expect(screen.getByTestId("chat-produced-file-pdf-preview-frame")).toHaveAttribute("src", "blob:report");
+    expect(screen.getByTestId("chat-produced-file-pdf-preview-download")).toHaveAttribute("download", "report.pdf");
   });
 
   it("does not render a broken inline image when authenticated loading fails", () => {

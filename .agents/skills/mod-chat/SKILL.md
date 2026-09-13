@@ -53,6 +53,10 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-13（#3563）：agent run 产出的 PDF 已经通过已鉴权 blob URL 下载到浏览器时，
+  应在图片内联预览分支之外保留独立 PDF 预览动作；把同一 URL 交给 iframe 可复用浏览器
+  原生 PDF viewer 提供多页预览与翻页，同时保留卡片和预览弹窗内的下载入口，无需新增
+  内容端点或重复拉取字节。
 - 2026-09-13（#3567）：HITL 表单的「请求正在提交」与「当前用户能否裁决」必须是两个
   独立状态；把两者合成 `pending = !canWrite || submitting` 再反推 `canWrite = !pending`，
   会让已经被后端接受的 personal owner 决策在 POST 在途时误画成项目 observer denial。

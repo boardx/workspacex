@@ -7,6 +7,7 @@ import { formatBytes } from "@/lib/chat-attachment-format";
 import { useProducedFileDownload } from "@/lib/use-produced-file-download";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
+import { ProducedFilePdfPreview } from "@/components/chat/produced-file-pdf-preview";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
@@ -67,17 +68,20 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
               下载失败
             </span>
           ) : (
-            <Button asChild size="xs" variant="outline" disabled={src === null} className="shrink-0">
-              <a
-                href={src ?? undefined}
-                download={file.name}
-                data-testid="chat-produced-file-inline-download"
-                aria-disabled={src === null}
-              >
-                <Download aria-hidden className="h-3.5 w-3.5" />
-                下载
-              </a>
-            </Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {iconKind === "pdf" && src !== null ? <ProducedFilePdfPreview file={file} src={src} /> : null}
+              <Button asChild size="xs" variant="outline" disabled={src === null} className="shrink-0">
+                <a
+                  href={src ?? undefined}
+                  download={file.name}
+                  data-testid="chat-produced-file-inline-download"
+                  aria-disabled={src === null}
+                >
+                  <Download aria-hidden className="h-3.5 w-3.5" />
+                  下载
+                </a>
+              </Button>
+            </div>
           )}
         </div>
       </div>
