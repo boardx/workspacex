@@ -386,6 +386,8 @@ export function TemplateEditorPanel({
    *   必然同时消失，因为它们读的是同一份计算结果。
    */
   function requestPublish(): void {
+    // 保存响应会刷新编辑快照；必须等它完成，避免发布关闭后被旧草稿重新打开。
+    if (saving) return;
     if (health.publishClean) {
       onPublish();
       return;
@@ -619,7 +621,7 @@ export function TemplateEditorPanel({
             </Button>
           )}
           {!readOnly && (row.status === "draft" || row.status === "trial") && (
-            <Button size="sm" variant="primary" onClick={requestPublish} data-testid="tpladmin-editor-publish">发布模板</Button>
+            <Button size="sm" variant="primary" disabled={saving} onClick={requestPublish} data-testid="tpladmin-editor-publish">发布模板</Button>
           )}
           {!readOnly && row.status === "draft" && (
             <Button size="sm" variant="outline" onClick={onTrial} data-testid="tpladmin-editor-trial">试跑</Button>
@@ -1237,7 +1239,8 @@ export function TemplateEditorPanel({
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => { setPublishBlockers(null); onPublish(); }}
+                disabled={saving}
+                onClick={() => { if (saving) return; setPublishBlockers(null); onPublish(); }}
                 data-testid="tpladmin-editor-publish-force"
               >
                 仍然发布

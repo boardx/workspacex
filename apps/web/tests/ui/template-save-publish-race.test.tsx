@@ -1,0 +1,30 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("@/components/canvas/template-canvas-grid", () => ({ TemplateCanvasGrid: () => null }));
+vi.mock("@/components/canvas/template-display-panel", () => ({ TemplateDisplayPanel: () => null }));
+vi.mock("@/components/canvas/template-prompt-drawer", () => ({ TemplatePromptDrawer: () => null }));
+vi.mock("@/components/canvas/template-simulate-dialog", () => ({ TemplateSimulateDialog: () => null }));
+vi.mock("@/components/canvas/template-dry-run-drawer", () => ({ TemplateDryRunDrawer: () => null, buildDryRunSkeleton: () => "" }));
+vi.mock("@/lib/live-canvas", async (original) => ({ ...await original<typeof import("@/lib/live-canvas")>(), updateCanvasTemplateDraft: vi.fn(), updateCanvasTemplateMetadata: vi.fn(async () => ({})) }));
+import { TemplateEditorPanel } from "@/components/canvas/template-editor-panel";
+import { updateCanvasTemplateDraft, type CanvasTemplate } from "@/lib/live-canvas";
+const row = { key: "race-test", displayName: "测试模板", version: 1, status: "draft", builtin: false, platform: false, visibility: "org-wide", underlyingType: "canvas", size: "A1", gridCols: 12, gridRows: 8, layoutSource: "user-edited", recommendAfter: [], sections: [], usageCount: 0, tags: [], title: "标题", footer: "", promptText: "", createdAt: "2026-09-13T00:00:00Z", updatedAt: "2026-09-13T00:00:00Z" } satisfies CanvasTemplate;
+describe("template save / publish serialization", () => {
+  it("does not publish before a pending save has updated the editing snapshot", async () => {
+    type Saved = Awaited<ReturnType<typeof updateCanvasTemplateDraft>>;
+    let resolveSave!: (value: Saved) => void;
+    vi.mocked(updateCanvasTemplateDraft).mockImplementation(() => new Promise<Saved>(resolve => { resolveSave = resolve; }));
+    const onPublish = vi.fn(); const onSaved = vi.fn();
+    render(<TemplateEditorPanel row={row} readOnly={false} onClose={vi.fn()} onSaved={onSaved} onPublish={onPublish} onArchive={vi.fn()} onRestore={vi.fn()} onTrial={vi.fn()} onMintVersion={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("tpladmin-editor-step-3"));
+    fireEvent.change(screen.getByTestId("tpladmin-editor-title-input"), { target: { value: "新标题" } });
+    fireEvent.click(screen.getByTestId("tpladmin-editor-save"));
+    await waitFor(() => expect(updateCanvasTemplateDraft).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("tpladmin-editor-publish"));
+    expect(onPublish).not.toHaveBeenCalled();
+    await act(async () => { resolveSave(row); });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("tpladmin-editor-publish"));
+    expect(onPublish).toHaveBeenCalledTimes(1);
+  });
+});
