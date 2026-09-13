@@ -12,7 +12,7 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
   const current = researchReportPreview(state.reportStream?.text ?? "");
   const currentHasContent = Boolean(state.report || state.reportDraft || state.reportCheckpoint?.chapters.length || current.summary || current.introduction || current.conclusion || current.sections.some((section) => section.body));
   const expired = Boolean(state.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
-  const fallback = !currentHasContent || Boolean(state.errorCode) || expired;
+  const fallback = !currentHasContent || (!state.report && !state.reportDraft && (Boolean(state.errorCode) || expired));
   return <details key={fallback ? "fallback" : "archive"} open={fallback} className="rounded-xl border border-border bg-muted/20 p-4" data-testid="research-report-history">
     <summary className="cursor-pointer text-13 font-semibold">上一轮{previous.report ? "报告" : "草稿"} · 历史内容，仅供查看</summary>
     <div className="mt-4 space-y-3"><p className="text-12 text-muted-foreground">上一轮内容独立保留，仅供回顾。保存时间：<time dateTime={previous.createdAt}>{previous.createdAt}</time></p>

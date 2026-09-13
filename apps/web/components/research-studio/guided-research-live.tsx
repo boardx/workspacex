@@ -286,7 +286,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {reportVisible && <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{!waiting && <Button variant="outline" disabled={busy} onClick={() => void run(state.errorCode || expired || state.reportDraft ? "retry" : "generate")}>{state.errorCode || expired || state.reportDraft ? "生成完整报告" : state.report ? "重新生成报告" : "生成报告"}</Button>}{!waiting && (state.errorCode || expired || state.reportDraft) && <details className="text-12"><summary className="cursor-pointer text-muted-foreground">更多操作</summary><Button variant="ghost" disabled={busy} onClick={() => void run("generate")}>重新生成报告</Button></details>}</div>}
         {!readingReport && (reportVisible && state.reportTimeline?.length ? <GuidedResearchReportTimeline state={state} interrupted={expired} /> : <GuidedResearchRuntimeProgress state={state} />)}
         {reportVisible && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
-        {reportVisible && !readingReport && <GuidedResearchReportHistory state={state} />}
+        {reportVisible && <GuidedResearchReportHistory state={state} />}
         {reportVisible && !readingReport && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
         {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} />}
         {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}

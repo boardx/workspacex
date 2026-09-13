@@ -37,3 +37,5 @@ Export-specific tests (DOCX XML + PDF iframe):
 
 CI follow-up: verify-affected passed 3822 tests but found one legacy draft-label assertion; fullstack-smoke reached completed report export and then failed its legacy timeline-presence assertion. Both assertions now enforce clean report reading while preserving separate draft status and report visibility.
 Final focused rerun including research-formal-report: 168 tests passed in 26 files, exit 0. ESLint on the two updated test files passed. Full-stack rerun is tracked in PR CI.
+
+PR review follow-up: restored the collapsed previous-report control while keeping workflow diagnostics separate. A current report or complete saved draft keeps history collapsed even when the draft has a quality error; incomplete generation still retains history recovery. The revised 26-file, 168-test focused suite passed. Prior head 479345610 passed all 17 executed CI checks, including the complete full-stack flow; final-head CI is recorded on PR #3579.
