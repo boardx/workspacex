@@ -1,0 +1,20 @@
+✓ Codex role:  /private/tmp/workspacex-feedback-3596/.codex/agents/coord-main.toml
+✓ Claude role: /private/tmp/workspacex-feedback-3596/.claude/agents/dev-ai-runtime.md
+✓ Codex role:  /private/tmp/workspacex-feedback-3596/.codex/agents/dev-ai-runtime.toml
+✓ Claude role: /private/tmp/workspacex-feedback-3596/.claude/agents/dev-chat-e2e.md
+✓ Codex role:  /private/tmp/workspacex-feedback-3596/.codex/agents/dev-chat-e2e.toml
+✓ Claude role: /private/tmp/workspacex-feedback-3596/.claude/agents/rev-e2e.md
+✓ Codex role:  /private/tmp/workspacex-feedback-3596/.codex/agents/rev-e2e.toml
+✓ Claude role: /private/tmp/workspacex-feedback-3596/.claude/agents/rev-feature.md
+✓ Codex role:  /private/tmp/workspacex-feedback-3596/.codex/agents/rev-feature.toml
+
+共生成 15 个 agent（每个 2 种格式）
+  Claude: /private/tmp/workspacex-feedback-3596/.claude/agents
+  Codex:  /private/tmp/workspacex-feedback-3596/.codex/agents
+==> 快速健康检查（关键依赖是否真的装上、真的能跑）
+   ✓ 关键依赖已安装且可执行
+==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full
+==> 初始化完成。下一步（README『十分钟接入』）：
+    1. 填 .harness/instructions/project/PROJECT.md 与 .harness/config/github-sync.yaml
+    2. pnpm harness new-phase --id 01 --name <名字> --goal "<目标>"
+    3. 把原始需求写进 phases/phase-01-*/requirements/ 后让 agent 读 AGENTS.md 开工

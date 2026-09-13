@@ -7,10 +7,12 @@ export interface MailOutboxMessage {
 
 export interface VerificationConfirmation {
   readonly outcome: "completed" | "invalid";
+  /** Present only for a newly consumed challenge matching the browser's pending proof. */
+  readonly sessionUserId?: string;
 }
 
 export interface EmailVerificationRepository {
-  confirmDigest(digest: string, now: Date): Promise<VerificationConfirmation>;
+  confirmDigest(digest: string, now: Date, proofChallengeId?: string | null): Promise<VerificationConfirmation>;
   requestResend(input: {
     email: string;
     proofChallengeId: string | null;

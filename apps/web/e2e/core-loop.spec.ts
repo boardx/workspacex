@@ -170,13 +170,7 @@ test.describe("核心闭环八步", () => {
     const { token } = readVerificationToken(user.email);
     expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
     await page.goto(`/auth/verify-email?token=${token}`);
-    await expect(page.getByTestId("email-verification-success")).toBeVisible();
-
-    // 验证后登录放行。
-    await page.goto("/login");
-    await page.getByTestId("login-email").fill(user.email);
-    await page.getByTestId("login-password").fill(user.password);
-    await page.getByTestId("login-submit").click();
+    // 同一浏览器首次完成验证后自动建立会话，无需再次输入密码。
     await expect(page).toHaveURL(/\/projects$/);
   });
 

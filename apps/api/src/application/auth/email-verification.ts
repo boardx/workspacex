@@ -8,11 +8,15 @@ import type {
 
 export async function confirmEmailVerification(input: {
   token: string;
+  pendingIdentityProof?: string | null;
   now: Date;
   repo: EmailVerificationRepository;
   tokens: EmailVerificationTokenCodec;
 }) {
-  return input.repo.confirmDigest(input.tokens.digest(input.token), input.now);
+  const proofChallengeId = input.pendingIdentityProof
+    ? input.tokens.challengeIdFromPendingProof(input.pendingIdentityProof)
+    : null;
+  return input.repo.confirmDigest(input.tokens.digest(input.token), input.now, proofChallengeId);
 }
 
 export async function resendEmailVerification(input: {

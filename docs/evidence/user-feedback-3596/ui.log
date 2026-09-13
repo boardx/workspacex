@@ -1,0 +1,20 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3596/apps/web
+
+ ✓ tests/ui/email-verification-public.test.tsx (8 tests) 838ms
+   ✓ registration verification queue > keeps resend retryable when the queue endpoint is unavailable 466ms
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session
+Not implemented: navigation to another Document
+
+stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 354ms
+ ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 230ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  19:31:18
+   Duration  14.32s (transform 1.58s, setup 1.13s, collect 4.23s, tests 1.42s, environment 5.48s, prepare 613ms)
+

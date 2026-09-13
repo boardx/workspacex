@@ -1,0 +1,14 @@
+@repo/api:lint: ✅ lint-arch-deps: 1431 files, all dependencies point inward
+@repo/api:lint: scanned=1431
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    12 successful, 12 total
+Cached:    3 cached, 12 total
+  Time:    1m9.091s 
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`
+  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /
+    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。
+To https://github.com/boardx/workspacex.git
+   03c2a26c2..133f8359f  codex/feedback-3596-registration-session -> codex/feedback-3596-registration-session

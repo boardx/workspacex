@@ -15,11 +15,11 @@ export function readPendingVerificationCookie(cookieHeader: string | undefined):
   return null;
 }
 
-export function pendingVerificationSetCookie(proof: string, production: boolean): string {
+export function pendingVerificationSetCookie(proof: string, production: boolean, maxAgeSeconds = 86400): string {
   return [
     `${PENDING_VERIFICATION_COOKIE}=${encodeURIComponent(proof)}`,
     "Path=/",
-    "Max-Age=86400",
+    `Max-Age=${maxAgeSeconds}`,
     "HttpOnly",
     "SameSite=Lax",
     production ? "Secure" : null,

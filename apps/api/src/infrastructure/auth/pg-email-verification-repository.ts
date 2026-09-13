@@ -8,9 +8,9 @@ import type {
 export class PgEmailVerificationRepository implements EmailVerificationRepository {
   constructor(private readonly db: DatabasePort) {}
 
-  async confirmDigest(digest: string, now: Date): Promise<VerificationConfirmation> {
+  async confirmDigest(digest: string, now: Date, proofChallengeId: string | null = null): Promise<VerificationConfirmation> {
     return this.db.withoutTenant(async (s) => {
-      const result = await s.query<{ completed: boolean }>(
+      const result = await s.query<{ completed: boolean; session_user_id: string | null }>(
         `WITH target AS (
            SELECT id, user_id, consumed_at, superseded_at, expires_at
              FROM email_verification_challenges
@@ -22,18 +22,23 @@ export class PgEmailVerificationRepository implements EmailVerificationRepositor
              FROM target t
             WHERE c.id = t.id AND c.consumed_at IS NULL
               AND t.superseded_at IS NULL AND t.expires_at > $2
-            RETURNING c.user_id
+            RETURNING c.user_id, c.id
          ), verified AS (
            UPDATE credentials c
               SET email_verified_at = COALESCE(c.email_verified_at, $2)
              FROM consumed
             WHERE c.user_id = consumed.user_id
          )
-         SELECT (t.consumed_at IS NOT NULL OR EXISTS (SELECT 1 FROM consumed)) AS completed
+         SELECT (t.consumed_at IS NOT NULL OR EXISTS (SELECT 1 FROM consumed)) AS completed,
+                (SELECT user_id FROM consumed WHERE id = $3) AS session_user_id
            FROM target t`,
-        [digest, now],
+        [digest, now, proofChallengeId],
       );
-      return { outcome: result.rows[0]?.completed === true ? "completed" : "invalid" };
+      const row = result.rows[0];
+      return {
+        outcome: row?.completed === true ? "completed" : "invalid",
+        ...(row?.session_user_id ? { sessionUserId: row.session_user_id } : {}),
+      };
     });
   }
 

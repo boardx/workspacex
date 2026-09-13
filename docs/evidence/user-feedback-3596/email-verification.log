@@ -1,0 +1,20 @@
+   ✓ signed public email-verification contract > 【互斥反证】resend 在同 key 的 advisory 锁上等待，锁一放才继续 2458ms
+   ✓ signed public email-verification contract > collapses forged and expired challenges into VERIFICATION_LINK_INVALID 892ms
+   ✓ signed public email-verification contract > resend is non-enumerating and independently cooldown-limited 869ms
+   ✓ signed public email-verification contract > requires pending identity proof and supersedes old links without reporting false completion 845ms
+   ✓ signed public email-verification contract > does not rotate another pending identity when the proof and email do not match 1564ms
+   ✓ signed public email-verification contract > allows five actual resends per 24h, not four because registration was counted 1179ms
+   ✓ signed public email-verification contract > serializes confirm against a resend blocked after proof validation 900ms
+   ✓ transactional outbox delivery > claims once, sends a stable identity, and records delivery through an injected transport 781ms
+   ✓ transactional outbox delivery > does not redeliver after Cloudflare reports the recipient in delivered 789ms
+   ✓ transactional outbox delivery > does not redeliver after Cloudflare reports the recipient in queued 859ms
+   ✓ transactional outbox delivery > recovers a stale delivering claim after a worker crash 936ms
+   ✓ transactional outbox delivery > cancels an expired challenge instead of delivering a dead link 772ms
+   ✓ transactional outbox delivery > records a redacted retryable category and schedules the same outbox identity 790ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  19:32:06
+   Duration  42.79s (transform 9.70s, setup 0ms, collect 2.20s, tests 38.76s, environment 0ms, prepare 94ms)
+
+[db-isolation] db=feedback_3596 peak_connections=6
