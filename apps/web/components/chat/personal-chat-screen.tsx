@@ -1,4 +1,5 @@
 "use client";
+import { identity } from "@repo/contracts";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -687,7 +688,7 @@ function useOrgAgentOptions(orgId: string | null, bearer: string | null): AgentO
     try {
       const rows = await listCapabilities(orgId, "agent");
       if (gen !== generation.current) return;
-      setResult({ key, agents: rows.filter((row) => row.enabled).map(toAgentOption) });
+      setResult({ key, agents: rows.filter(identity.isCapabilityReady).map(toAgentOption) });
     } catch (error) {
       if (gen !== generation.current) return;
       setResult(null);

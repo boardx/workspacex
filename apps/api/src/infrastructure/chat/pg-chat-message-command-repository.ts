@@ -1,3 +1,4 @@
+import { PUBLISHED_AGENT_ENABLED, PUBLISHED_AGENT_VERSION_MATCH } from "../agent/published-agent-sql";
 import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import { createHash, randomUUID } from "node:crypto";
@@ -260,8 +261,8 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
         `SELECT a.id AS agent_id, v.id AS agent_version_id, v.skill_version_ids,
                 v.model_provider, v.model_id, v.instructions
            FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
-             ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id
-          WHERE a.org_id=$1 AND a.id=$2 AND a.status='enabled' AND v.published_at IS NOT NULL`,
+             ON ${PUBLISHED_AGENT_VERSION_MATCH}
+          WHERE a.org_id=$1 AND a.id=$2 AND ${PUBLISHED_AGENT_ENABLED}`,
         [orgId, agentId],
       );
       const row = result.rows[0];
@@ -292,8 +293,8 @@ export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgen
       const result = await s.query<{ agent_id: string }>(
         `SELECT a.id AS agent_id
            FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
-             ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id
-          WHERE a.org_id=$1 AND a.status='enabled' AND v.published_at IS NOT NULL
+             ON ${PUBLISHED_AGENT_VERSION_MATCH}
+          WHERE a.org_id=$1 AND ${PUBLISHED_AGENT_ENABLED}
           ORDER BY COALESCE(a.stable_name = $2, false) DESC,
                    COALESCE(v.model_provider = $3, false) DESC,
                    a.created_at ASC, a.id ASC

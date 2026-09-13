@@ -433,7 +433,14 @@ export const CapabilityListing = z.object({
    *   的 LEFT JOIN。
    */
   skillOrchestration: SkillOrchestration.nullable().optional(),
+  /** Read-side Agent readiness; independent of the administrator's enabled setting. */
+  agentAvailable: z.boolean().nullable().optional(),
 }).strict();
+
+/** Chat selection requires both configuration enablement and a runnable Agent. */
+export function isCapabilityReady(listing: Pick<z.infer<typeof CapabilityListing>, "enabled" | "agentAvailable">): boolean {
+  return listing.enabled && listing.agentAvailable !== false;
+}
 
 /**
  * `mutateCapability` 的三种 payload —— **2026-07-29 修订，F15 实现时发现的契约缺陷**。

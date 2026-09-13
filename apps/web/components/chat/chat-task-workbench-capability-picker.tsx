@@ -1,4 +1,5 @@
 "use client";
+import { identity } from "@repo/contracts";
 
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
@@ -38,7 +39,7 @@ import type { CapabilityListing } from "@/lib/live-capabilities";
  * - 「当前状态」—— 真实可计算：`enabled=false` → "failed"（原因取
  *   `disabledReason`，真实字段）；是当前选中且正在对话的那个 agent → 用真实
  *   `agent.isRunning`/`isReady` 派生；其余 → "ready"（这句话本身是真的：
- *   一个 `enabled` 的能力现在就可以被选中使用）。
+ *   已启用且运行时可用的能力才可以被选中使用）。
  */
 
 export type CapabilityCardStatus = "ready" | "running" | "awaiting-approval" | "failed";
@@ -98,7 +99,7 @@ export function CapabilityCardList({ listings, selectedAgentId, onSelect, acting
       ) : null}
       {listings.map((listing) => {
         const isSelected = listing.id === selectedAgentId;
-        const cardStatus: CapabilityCardStatus = !listing.enabled
+        const cardStatus: CapabilityCardStatus = !identity.isCapabilityReady(listing)
           ? "failed"
           : (acting && acting.agentId === listing.id ? acting.status : "ready");
         const strengths = (listing.duty ?? "").trim() || "该 Agent 尚未填写擅长领域说明";
@@ -107,6 +108,7 @@ export function CapabilityCardList({ listings, selectedAgentId, onSelect, acting
             key={listing.id}
             type="button"
             role="option"
+            disabled={!identity.isCapabilityReady(listing)}
             aria-selected={isSelected}
             data-testid="chat-task-workbench-capability-card"
             /* issue #2130 —— TW-P0-2 判据要求全部卡片共用同一个字面量
@@ -161,7 +163,7 @@ export function CapabilityCardList({ listings, selectedAgentId, onSelect, acting
               <span aria-hidden>·</span>
               <span data-testid="chat-task-workbench-capability-facet-status" data-status={cardStatus}>
                 {statusLabel(cardStatus)}
-                {!listing.enabled && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
+                {!identity.isCapabilityReady(listing) && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
               </span>
             </span>
           </button>
