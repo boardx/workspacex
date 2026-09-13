@@ -160,7 +160,9 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(qualityDraft.busy).toBe(false);
   expect(qualityDraft.completed).toBe(false);
   await page.reload();
-  await expect(page.getByTestId("research-quality-draft")).toContainText("完整草稿已生成并保存");
+  await expect(page.getByTestId("research-quality-draft").getByText("草稿", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("research-quality-draft")).not.toContainText("完整草稿已生成并保存");
+  await expect(page.getByTestId("research-report-preview-text")).not.toContainText("草稿");
   await expect(page.getByTestId("research-quality-draft").getByTestId("research-report-chapter")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "下载 Word", exact: true })).toBeVisible();
