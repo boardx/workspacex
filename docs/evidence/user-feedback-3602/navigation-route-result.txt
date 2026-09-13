@@ -1,0 +1,4 @@
+  ✓ phase-01-run-a-project         束可达 18/18 · 导航项 23
+  ✓ phase-03-reuse-and-governance  束可达  6/6  · 导航项 23
+  ✓ phase-14-agent-kernel-unification 束可达  5/5  · 导航项 23
+✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链。
