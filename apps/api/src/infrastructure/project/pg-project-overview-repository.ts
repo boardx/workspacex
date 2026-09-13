@@ -42,7 +42,8 @@ interface AgendaSegmentSqlRow {
   agenda_segment_definition_id: string | null;
   ordinal: number;
   title: string;
-  duration: number;
+  // Blueprint-applied agenda rows preserve an omitted duration as NULL (#1667).
+  duration: number | null;
   state: "pending" | "active" | "closed" | "skipped";
   merged_into: string | null;
   accepted_sources: string[];

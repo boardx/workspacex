@@ -79,6 +79,8 @@ it('production HTTP bridge uses real run requester/authority and project API par
   await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES('context-version',$1,'context-agent','v1',$2,'context','{}','test','test','[]','alice',now(),now())`,[org,createHash('sha256').update('context').digest('hex')]);
   await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,skill_version_ids,model_provider,model_id,status,started_at,lease_epoch,lease_expires_at) VALUES($1,$2,'personal','message-own','context-agent','context-version','[]','test','test','running',now(),1,now()+interval '10 minutes')`,[run,org]);
   await c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),org,run]);
+  // A blueprint flow-agenda may omit duration. This is a real persisted state, not malformed fixture data.
+  await c.query("INSERT INTO agenda_segments(id,org_id,workshop_id,ordinal,title,duration,state) VALUES('context-active-segment',$1,$2,0,'Undated blueprint segment',NULL,'active')",[org,project]);
  });
  const app=await (await import('../../src/main')).createApp();
  try{
@@ -95,7 +97,8 @@ it('production HTTP bridge uses real run requester/authority and project API par
   const projects=await invoke('wx_project_list',{});expect(projects.status).toBe(200);
   const canonicalList=await fetch(`${base}/projects?orgId=${org}`,{headers});expect(canonicalList.status).toBe(200);expect(ProjectListOutput.parse(await projects.json()).projects).toEqual(await canonicalList.json());
   const overview=await invoke('wx_project_read',{projectId:project});expect(overview.status).toBe(200);
-  const canonicalOverview=await fetch(`${base}/projects/${project}/overview?orgId=${org}`,{headers});expect(canonicalOverview.status).toBe(200);expect(ProjectReadOutput.parse(await overview.json()).overview).toEqual(await canonicalOverview.json());
+  const parsedOverview=ProjectReadOutput.parse(await overview.json());expect(parsedOverview.overview.currentAgendaSegment?.duration).toBeNull();
+  const canonicalOverview=await fetch(`${base}/projects/${project}/overview?orgId=${org}`,{headers});expect(canonicalOverview.status).toBe(200);expect(parsedOverview.overview).toEqual(await canonicalOverview.json());
   await asApp(org,c=>c.query("UPDATE chat_messages SET author_kind='agent' WHERE id='message-own' AND org_id=$1",[org]));
   expect((await invoke('wx_project_list',{})).status).toBe(403);
   await asApp(org,c=>c.query("UPDATE chat_messages SET author_kind='human' WHERE id='message-own' AND org_id=$1",[org]));
