@@ -3,12 +3,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
-const { apiRequest, startSession } = vi.hoisted(() => ({ apiRequest: vi.fn(), startSession: vi.fn() }));
+const { apiRequest, startSession, sessionState } = vi.hoisted(() => ({ apiRequest: vi.fn(), startSession: vi.fn(), sessionState: { status: "anonymous" } }));
 // Registration 顶层调用 useSession（两条路径共用），因此依赖会话上下文，即使本文件只
 // 覆盖默认（非 bootstrap）路径。真实运行时 SessionProvider 由 app/layout.tsx 的
 // Providers 全局挂载；这里的用例只渲染组件，所以按 bootstrap-first-admin.test.tsx 的
 // 同一方式打桩。
-vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ startSession }) }));
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ startSession, status: sessionState.status }) }));
 vi.mock("@/lib/api-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api-client")>();
   return { ...actual, apiRequest };
@@ -19,6 +19,9 @@ import { Registration } from "@/components/entry/registration";
 
 beforeEach(() => {
   apiRequest.mockReset();
+  startSession.mockReset();
+  sessionState.status = "anonymous";
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -89,6 +92,53 @@ describe("registration verification queue", () => {
 });
 
 describe("public verification landing", () => {
+  it("does not request automatic login when already authenticated", async () => {
+    sessionState.status = "authenticated";
+    window.history.replaceState({}, "", "/auth/verify-email?token=new-bearer");
+    apiRequest.mockResolvedValueOnce({ status: "completed" });
+    render(<EmailVerification />);
+    await screen.findByTestId("email-verification-success");
+    expect(apiRequest).toHaveBeenCalledWith("/auth/email-verifications/confirm", expect.objectContaining({
+      body: { token: "new-bearer", autoStartSession: false },
+    }));
+    expect(startSession).not.toHaveBeenCalled();
+  });
+
+  it("offers login recovery after verification succeeded but session issuance failed", async () => {
+    window.history.replaceState({}, "", "/auth/verify-email?token=new-bearer");
+    apiRequest.mockRejectedValueOnce(new ApiError(503, "AUTH_SERVICE_UNAVAILABLE", {}));
+    render(<EmailVerification />);
+    await screen.findByTestId("email-verification-session-failed");
+    expect(screen.getByTestId("email-verification-status")).toHaveTextContent("注册时的邮箱和密码");
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
+    expect(startSession).not.toHaveBeenCalled();
+  });
+
+  it("starts the verified session before navigating to projects without asking for a password", async () => {
+    window.history.replaceState({}, "", "/auth/verify-email?token=new-bearer");
+    const session = { sessionToken: "session-1", userId: "user-1", orgs: ["org-1"], expiresAt: "2027-01-01T00:00:00Z" };
+    apiRequest.mockResolvedValueOnce({ status: "completed", session });
+    // Keep navigation pending while proving that the standard session provider is invoked.
+    startSession.mockImplementationOnce(() => new Promise(() => {}));
+    render(<EmailVerification />);
+    await waitFor(() => expect(startSession).toHaveBeenCalledWith(session));
+    expect(apiRequest).toHaveBeenCalledWith("/auth/email-verifications/confirm", expect.objectContaining({
+      body: { token: "new-bearer", autoStartSession: true },
+    }));
+    expect(screen.queryByTestId("login-password")).not.toBeInTheDocument();
+  });
+
+  it("does not replace a session established in another tab during verification", async () => {
+    window.history.replaceState({}, "", "/auth/verify-email?token=new-bearer");
+    window.localStorage.setItem("wsx.sessionToken", "another-session");
+    apiRequest.mockResolvedValueOnce({ status: "completed", session: {
+      sessionToken: "new-session", userId: "user-1", orgs: ["org-1"], expiresAt: "2027-01-01T00:00:00Z",
+    } });
+    render(<EmailVerification />);
+    await screen.findByTestId("email-verification-success");
+    expect(startSession).not.toHaveBeenCalled();
+  });
+
   it("removes the bearer from history before the confirm request and renders completion", async () => {
     window.history.replaceState({}, "", "/auth/verify-email?token=secret-bearer&campaign=mail");
     apiRequest.mockImplementationOnce(async (_path: string, options: { body: { token: string } }) => {

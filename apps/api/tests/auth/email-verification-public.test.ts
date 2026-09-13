@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { auth as C } from "@repo/contracts";
+import { SESSION_TOKEN_STORE, SessionStoreUnavailableError, type SessionTokenStore } from "../../src/application/auth/ports";
+import { SESSION_TTL_MS } from "../../src/domain/auth/session-lifetime";
 import { deliverOneVerificationMail } from "../../src/application/auth/email-verification";
 import { HmacEmailVerificationTokenCodec } from "../../src/infrastructure/auth/email-verification-token-codec";
 import { PgEmailVerificationRepository } from "../../src/infrastructure/auth/pg-email-verification-repository";
@@ -85,6 +87,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await resetOrgsOwnedBy(users);
   users.length = 0;
   await resetAuthFixtures({ emailLike: `%@${EMAIL_DOMAIN}` });
@@ -96,6 +99,71 @@ afterAll(async () => {
 });
 
 describe("signed public email-verification contract", () => {
+  it("keeps a consumed challenge non-login-capable after session-store failure", async () => {
+    const registration = await register("auto-session-store-failed");
+    const issue = vi.spyOn(app.get<SessionTokenStore>(SESSION_TOKEN_STORE), "issue")
+      .mockRejectedValueOnce(new SessionStoreUnavailableError(new Error("test connection failure")));
+    const failed = await post("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie);
+    expect(failed.status).toBe(503);
+    expect(failed.body.reasonCode).toBe("AUTH_SERVICE_UNAVAILABLE");
+    expect(failed.body.session).toBeUndefined();
+    expect(await post("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie))
+      .toEqual({ status: 201, body: { status: "completed" } });
+    expect(issue).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts exactly one usable session only for the registering browser's first confirmation", async () => {
+    const registration = await register("auto-session");
+    const [first, second] = await Promise.all([
+      postRaw("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie),
+      postRaw("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie),
+    ]);
+    const signed = [first, second].filter((result) => result.body.session);
+    expect(signed).toHaveLength(1);
+    expect([first, second].filter((result) => !result.body.session)).toHaveLength(1);
+    const result = signed[0]!;
+    const session = C.operations.confirmEmailVerification.out.parse(result.body).session!;
+    expect(session.userId).toBe(registration.userId);
+    expect(session.orgs).toContain(registration.orgId);
+    const passwordLogin = await post("/auth/login", { email: registration.email, password: PASSWORD });
+    expect(passwordLogin.status).toBe(200);
+    expect(session.orgs).toEqual(passwordLogin.body.orgs);
+    const stored = await app.get<SessionTokenStore>(SESSION_TOKEN_STORE).findByToken(session.sessionToken);
+    expect(stored?.currentOrgId).toBe(registration.orgId);
+    expect(stored!.expiresAt - stored!.issuedAt).toBe(SESSION_TTL_MS);
+    expect(stored?.device).toBeTruthy();
+    expect(result.response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(result.response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(result.response.headers.get("set-cookie")).toContain("SameSite=Lax");
+    const identity = await fetch(`${base}/identity/me?orgId=${registration.orgId}`, {
+      headers: { authorization: `Bearer ${session.sessionToken}` },
+    });
+    expect(identity.status).toBe(200);
+    expect(await post("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie))
+      .toEqual({ status: 201, body: { status: "completed" } });
+  });
+
+  it("verifies without a session when the browser proof is absent or belongs to another registration", async () => {
+    const first = await register("proof-owner");
+    const second = await register("proof-other");
+    expect(await post("/auth/email-verifications/confirm", { token: first.raw, autoStartSession: true }, second.pendingCookie))
+      .toEqual({ status: 201, body: { status: "completed" } });
+    expect(await post("/auth/email-verifications/confirm", { token: second.raw, autoStartSession: true }))
+      .toEqual({ status: 201, body: { status: "completed" } });
+  });
+
+  it("never issues a session for an expired or invalid challenge even with browser proof", async () => {
+    const registration = await register("auto-expired");
+    await asOwner((client) => client.query(
+      `UPDATE email_verification_challenges SET expires_at = now() - interval '1 second' WHERE id = $1`, [registration.row.id],
+    ));
+    for (const token of [registration.raw, "invalid-token-".repeat(5)]) {
+      const result = await post("/auth/email-verifications/confirm", { token, autoStartSession: true }, registration.pendingCookie);
+      expect(result.status).toBe(400);
+      expect(result.body.session).toBeUndefined();
+    }
+  });
+
   it("registers a digest-only 24h challenge and reports queued, never sent", async () => {
     const before = Date.now();
     const registration = await register("digest");
@@ -247,8 +315,9 @@ describe("signed public email-verification contract", () => {
     ));
 
     await post("/auth/email-verifications/resend", { email: registration.email }, registration.pendingCookie);
-    const oldLink = await post("/auth/email-verifications/confirm", { token: registration.raw });
+    const oldLink = await post("/auth/email-verifications/confirm", { token: registration.raw, autoStartSession: true }, registration.pendingCookie);
     expect(oldLink.status).toBe(400);
+    expect(oldLink.body.session).toBeUndefined();
     expect(oldLink.body.reasonCode).toBe("VERIFICATION_LINK_INVALID");
     expect((await readCredentialByEmail(registration.email))?.email_verified_at).toBeNull();
     const state = await asOwner(async (client) => (await client.query<{

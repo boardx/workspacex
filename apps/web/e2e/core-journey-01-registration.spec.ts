@@ -62,13 +62,9 @@ test("旅程①：开放注册出的新用户，验证邮箱、登录后能真�
   const { token } = JSON.parse(payload!) as { token: string | null };
   expect(token, "新注册账号库里必须有一枚待核销的验证令牌").not.toBeNull();
   await page.goto(`/auth/verify-email?token=${token}`);
-  await expect(page.getByTestId("email-verification-success")).toBeVisible();
 
-  // ── 登录 ─────────────────────────────────────────────────────────────
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(user.email);
-  await page.getByTestId("login-password").fill(user.password);
-  await page.getByTestId("login-submit").click();
+
+  // ── 邮箱确认后自动登录，无需再次输入密码 ─────────────────────────────────────────────────────────────
   await expect(page).toHaveURL(/\/projects$/);
 
   // ── 真的能用：项目列表可达，是这个人自己的组织（不是别人的、不是硬编码空态骗过的） ──
@@ -132,12 +128,8 @@ test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真�
   const payload = /__CORE_LOOP_DB__(.*)/.exec(stdout)?.[1];
   const { token } = JSON.parse(payload!) as { token: string | null };
   await page.goto(`/auth/verify-email?token=${token}`);
-  await expect(page.getByTestId("email-verification-success")).toBeVisible();
 
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(user.email);
-  await page.getByTestId("login-password").fill(user.password);
-  await page.getByTestId("login-submit").click();
+
   await expect(page).toHaveURL(/\/projects$/);
 
   await page.goto("/chat");

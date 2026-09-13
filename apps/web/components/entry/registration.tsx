@@ -176,7 +176,7 @@ export function Registration() {
             <h1 className="text-20 font-semibold">验证邮件已排队</h1>
           </div>
           <p className="text-13 text-muted-foreground">
-            请打开发送到 <strong>{email}</strong> 的邮件，并在 {C.AUTH_POLICY.verificationLinkHours} 小时内完成验证。
+            请打开发送到 <strong>{email}</strong> 的邮件，并在 {C.AUTH_POLICY.verificationLinkHours} 小时内完成验证。在当前浏览器首次打开验证链接后，将自动登录并进入项目页。
           </p>
           <Button
             type="button"

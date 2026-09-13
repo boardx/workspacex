@@ -249,6 +249,14 @@ export const OrgLifecycle = z.object({
  * `err` 穷举失败模式——**「失败长什么样」是契约的一半**。
  * 本束的失败面尤其重要：**认证的失败面就是它的攻击面**。
  */
+/** Standard bearer-session response, shared by password login and completed registration. */
+export const AuthenticatedSession = z.object({
+  sessionToken: z.string(),
+  userId: z.string(),
+  orgs: z.array(z.string()),
+  expiresAt: z.string().datetime(),
+}).strict();
+
 export const operations = {
   /**
    * `Login`（F20）— UC-1.1 R3 / V7 V8 V9，coverage V4
@@ -273,12 +281,7 @@ export const operations = {
       password: z.string().min(1),
     }),
     /** ⚠ 只给组织 id，**不给角色**（I-9：本束不产生任何权限判定） */
-    out: z.object({
-      sessionToken: z.string(),
-      userId: z.string(),
-      orgs: z.array(z.string()),
-      expiresAt: z.string().datetime(),
-    }).strict(),
+    out: AuthenticatedSession,
     err: ["INVALID_CREDENTIAL", "ACCOUNT_LOCKED", "EMAIL_NOT_VERIFIED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
@@ -431,9 +434,13 @@ export const operations = {
 
   confirmEmailVerification: {
     method: "POST", path: "/auth/email-verifications/confirm",
-    in: z.object({ token: z.string().min(40) }).strict(),
-    out: z.object({ status: z.literal("completed") }).strict(),
-    err: ["VERIFICATION_LINK_INVALID"] as const,
+    in: z.object({
+      token: z.string().min(40),
+      /** Opt-in only; the server additionally requires the registering browser's signed HttpOnly proof. */
+      autoStartSession: z.boolean().optional(),
+    }).strict(),
+    out: z.object({ status: z.literal("completed"), session: AuthenticatedSession.optional() }).strict(),
+    err: ["VERIFICATION_LINK_INVALID", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
   resendEmailVerification: {
