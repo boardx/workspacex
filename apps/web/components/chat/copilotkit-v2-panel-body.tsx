@@ -204,6 +204,15 @@ export function CopilotKitV2PanelBody({
     threadId,
     updates: [UseAgentUpdate.OnMessagesChanged, UseAgentUpdate.OnRunStatusChanged],
   });
+  /* issue #3619 —— `useAgent.isReady` can stay true for one render while a
+     CopilotKit runtime resync has already unregistered that proxy and its
+     effect has not registered the replacement yet. Treat the registry lookup
+     as the authoritative readiness boundary so history is never hydrated into,
+     nor rendered through, the detached instance. */
+  // Read the registry snapshot directly. `getAgent()` logs "Agent … not found"
+  // for this expected transition, which would recreate the production symptom
+  // while merely checking readiness.
+  const isRegisteredAgentReady = isReady && copilotkit.agents[threadId] === agent;
   const runTrace = useRunTrace(agent, initialChatThreadId);
   const hydrateRunTrace = runTrace.hydrate;
   const acceptedRunEpoch = runTrace.acceptedRunEpoch;
@@ -602,7 +611,7 @@ export function CopilotKitV2PanelBody({
   const hydratedRef = React.useRef(false);
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   const historyScope = draftSession ? JSON.stringify([draftSession.sessionToken, draftSession.userId, draftSession.currentOrgId, projectId]) : null;
-  const { remember: rememberHistory, discard: discardHistory } = useChatHistoryPreview(historyScope, initialChatThreadId, agent, isReady, setHistoryLoading);
+  const { remember: rememberHistory, discard: discardHistory } = useChatHistoryPreview(historyScope, initialChatThreadId, agent, isRegisteredAgentReady, setHistoryLoading);
   /**
    * 2026-08-30 review 反证（PR #2420 的下一轮）—— hydration effect（情形①，见下方）
    * 对**这一个** `threadId` 跑完 `readAllPersistedMessages` 之后的确切结果，供
@@ -632,7 +641,7 @@ export function CopilotKitV2PanelBody({
   const [pendingRunId, setPendingRunId] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (
-      initialChatThreadId === null || !isReady || hydratedRef.current
+      initialChatThreadId === null || !isRegisteredAgentReady || hydratedRef.current
       // issue #2101 —— `initialChatThreadId` 从 `null` 变成真实 id 有两种截然不同的
       // 原因：① 外壳传入一条**既有**线程（用户点开历史对话/刷新页面）——这时内存里
       // `agent.messages` 是空的，必须回读；② **本轮**（`send()` 里乐观插入用户消息之
@@ -755,7 +764,7 @@ export function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId, rememberHistory, discardHistory]);
+  }, [agent, isRegisteredAgentReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId, rememberHistory, discardHistory]);
 
   // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
@@ -1804,7 +1813,7 @@ export function CopilotKitV2PanelBody({
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
               历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
               有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
-          {historyLoading ? (
+          {historyLoading || !isRegisteredAgentReady ? (
             <div data-testid="loading" className="flex animate-pulse flex-col gap-3" aria-hidden>
               <div className="h-10 w-2/3 rounded-lg bg-muted" />
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
@@ -1823,7 +1832,12 @@ export function CopilotKitV2PanelBody({
             // `max-w-3xl` 统一承担（issue #2075 / TW-P2-1）——在这里再写一次就是同一个
             // 事实声明在两处：以后调宽度会漏改一个，两处不一致且没人会发现。
             <div className="w-full">
-              <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+              {/* issue #3619 —— `useAgent` 把服务端 `default` 注册为本面板独占的本地
+                  proxy（本地 id 是上面的 `threadId`）。消息视图必须读取这个已注册
+                  id；若仍读 `default`，runtime registry 在刷新同步窗口内没有该本地
+                  key，会持续报 `Agent default not found`，历史虽已从 API 回读却无法
+                  稳定渲染。服务端路由仍由 `useAgent.runtimeAgentId="default"` 决定。 */}
+              <CopilotChatConfigurationProvider agentId={threadId} threadId={threadId}>
                 {/* CK-P3（issue #2054）—— 逐条消息操作（复制/评分/反馈）需要的两样东西
                     （真实落库 id 的解析索引、当前 agent 归因）经 context 下发：
                     `assistantMessage` slot 由框架实例化，本组件够不着它的 props。

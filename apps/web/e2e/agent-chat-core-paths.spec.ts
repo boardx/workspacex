@@ -102,6 +102,10 @@ test("简单聊天：一轮问答落入真实数据库，刷新后仍恢复同�
 });
 
 test("多轮对话：第二轮在同一线程引用第一轮输入，并分别持久化两个 run", async ({ page }) => {
+  const missingAgentDiagnostics: string[] = [];
+  page.on("console", (message) => {
+    if (/Agent .* not found/.test(message.text())) missingAgentDiagnostics.push(message.text());
+  });
   const threadId = await openFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   const firstTurn = `CORE-CONTEXT-${Date.now()}：我的项目代号是白鹭`;
@@ -139,7 +143,18 @@ test("多轮对话：第二轮在同一线程引用第一轮输入，并分别�
   expect(recalledAnswer?.agentRunId).not.toBe(firstAnswer?.agentRunId);
 
   await page.reload({ waitUntil: "domcontentloaded" });
+  // Navigation teardown unregisters the old document's local proxy and may
+  // report that expected disposal before reload resolves. The restored page
+  // itself must not keep querying a missing agent while it hydrates.
+  missingAgentDiagnostics.length = 0;
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(expectedRecall, {
     timeout: 30_000,
   });
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeEnabled();
+  // A retiring document can flush its queued warning after reload resolves.
+  // Once authoritative history and write capability have settled, the new
+  // page must not continue the production failure's repeated lookup loop.
+  missingAgentDiagnostics.length = 0;
+  await page.waitForTimeout(1_000);
+  expect(missingAgentDiagnostics).toEqual([]);
 });
