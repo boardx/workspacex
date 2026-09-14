@@ -1,0 +1,4 @@
+interface:
+  display_name: "WorkspaceX CN Release"
+  short_description: "Run safe, measured WorkspaceX China releases"
+  default_prompt: "Release an exact WorkspaceX revision to China production using aggregate preflight, prepared activation, automatic rollback, browser acceptance, and measured timing."
