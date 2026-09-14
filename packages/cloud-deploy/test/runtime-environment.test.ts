@@ -75,6 +75,33 @@ it("projects platform superusers only to the API and otherwise fails closed", as
   const unconfigured = await runtimeEnvironment(deploymentExample("starter"), await directory(), { WORKSPACEX_MODEL_KEY: "model-key" });
   expect(unconfigured.api.PLATFORM_SUPERUSER_EMAILS).toBeUndefined();
 });
+it("projects the feedback GitHub issue profile only to the API and keeps the token out when omitted", async () => {
+  const configured = deploymentExample("starter");
+  configured.provision.githubIssueProfile = {
+    tokenSecretRef: "env:WORKSPACEX_GITHUB_ISSUE_TOKEN",
+    repoOwner: "boardx",
+    repoName: "workspacex",
+    attachmentsBranch: "feedback-attachments",
+  };
+  const maps = await runtimeEnvironment(configured, await directory(), {
+    WORKSPACEX_MODEL_KEY: "model-key",
+    WORKSPACEX_GITHUB_ISSUE_TOKEN: "github-token",
+  });
+  expect(maps.api).toMatchObject({
+    GITHUB_ISSUE_TOKEN: "github-token",
+    GITHUB_ISSUE_REPO_OWNER: "boardx",
+    GITHUB_ISSUE_REPO_NAME: "workspacex",
+    GITHUB_ISSUE_ATTACHMENTS_BRANCH: "feedback-attachments",
+  });
+  for (const target of [maps.agent, maps.web, maps.migration, maps.bootstrap]) {
+    expect(Object.keys(target).some((key) => key.startsWith("GITHUB_ISSUE_"))).toBe(false);
+  }
+  const unconfigured = await runtimeEnvironment(deploymentExample("starter"), await directory(), {
+    WORKSPACEX_MODEL_KEY: "model-key",
+    WORKSPACEX_GITHUB_ISSUE_TOKEN: "unused-token",
+  });
+  expect(Object.keys(unconfigured.api).some((key) => key.startsWith("GITHUB_ISSUE_"))).toBe(false);
+});
 it("propagates the configured Serverless TLS exception to every API database process", async () => {
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
   const value = await runtimeEnvironment(config, await directory(), {

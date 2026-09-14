@@ -125,6 +125,31 @@ describe("cloud deployment configuration", () => {
       provision: { ...input.provision, platformSuperuserEmails: [] },
     }).ok).toBe(false);
   });
+  it("accepts an optional feedback GitHub issue profile and rejects raw tokens or unsafe repository names", () => {
+    const input = deploymentExample("production");
+    const githubIssueProfile = {
+      tokenSecretRef: "env:WORKSPACEX_GITHUB_ISSUE_TOKEN",
+      repoOwner: "boardx",
+      repoName: "workspacex",
+      attachmentsBranch: "feedback-attachments",
+    };
+    expect(validateDeploymentConfig({
+      ...input,
+      provision: { ...input.provision, githubIssueProfile },
+    }).ok).toBe(true);
+    for (const invalid of [
+      { ...githubIssueProfile, tokenSecretRef: "github_pat_secret" },
+      { ...githubIssueProfile, repoOwner: "../boardx" },
+      { ...githubIssueProfile, repoName: "workspacex/issues" },
+      { ...githubIssueProfile, attachmentsBranch: "main~1" },
+      { tokenSecretRef: githubIssueProfile.tokenSecretRef },
+    ]) {
+      expect(validateDeploymentConfig({
+        ...input,
+        provision: { ...input.provision, githubIssueProfile: invalid },
+      }).ok).toBe(false);
+    }
+  });
   it("does not expose connection references or email in the plan", () => {
     const value = deploymentExample("production");
     value.provision.asrProfile = {
@@ -133,11 +158,18 @@ describe("cloud deployment configuration", () => {
       modelId: "qwen3-asr-flash-realtime",
       apiKeySecretRef: "env:WORKSPACEX_ASR_KEY",
     };
+    value.provision.githubIssueProfile = {
+      tokenSecretRef: "env:WORKSPACEX_GITHUB_ISSUE_TOKEN",
+      repoOwner: "boardx",
+      repoName: "workspacex",
+      attachmentsBranch: "feedback-attachments",
+    };
     const result = validateDeploymentConfig(value);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(JSON.stringify(result.plan)).not.toContain(value.environment.databaseSecretRef);
     expect(JSON.stringify(result.plan)).not.toContain(value.provision.adminEmail);
     expect(JSON.stringify(result.plan)).not.toContain(value.provision.asrProfile.apiKeySecretRef);
+    expect(JSON.stringify(result.plan)).not.toContain(value.provision.githubIssueProfile.tokenSecretRef);
   });
 });

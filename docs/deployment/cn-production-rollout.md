@@ -33,7 +33,7 @@
 - RDS 开启 PostgreSQL `verify-full` 所需 TLS，应用、诊断、迁移、Graph、Memory runtime、Memory owner 身份和密码相互隔离。
 - Redis 关闭 VPC 免密，启用 AUTH 与 TLS；OSS 桶为私有、ZRS、从未启用版本控制，ECS RAM role 只获得所需 prefix 权限。
 - 目标主机已安装 Docker/Compose、AppArmor、反向代理和受信部署脚本；完整 release checkout/driver 已预置并验证。
-- `adminEmail`、`platformSuperuserEmails`、模型 endpoint/model id/key 引用、LangGraph 生产许可或生产 Agent 服务地址已提供。
+- `adminEmail`、`platformSuperuserEmails`、模型 endpoint/model id/key 引用、LangGraph 生产许可或生产 Agent 服务地址已提供；需要从反馈转到 GitHub 开发时，`githubIssueProfile` 四项也必须写入正式配置源。
 
 计时内只允许：复核 profile/资源身份/缓存 digest，读取秘密引用，空库迁移和 bootstrap，启动服务，执行 HTTPS 登录、真实模型、OSS 文件和 Sandbox 业务探针。不得 clone/fetch、安装依赖、构建或冷拉应用镜像。
 

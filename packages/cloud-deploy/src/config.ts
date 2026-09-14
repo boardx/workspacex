@@ -19,6 +19,7 @@ const ipv4 = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}$/).refine(value =>
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
 const modelUrl = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const email = z.string().max(254).email();
+const githubRepositoryPart = z.string().min(1).max(100).regex(/^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/);
 const websocketUrl = text.regex(/^wss:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const commonEnvironment = {
   regionId: region,
@@ -70,6 +71,12 @@ export const deploymentInputSchema = z.object({
       baseUrl: websocketUrl,
       modelId: identifier,
       apiKeySecretRef: secretRef,
+    }).strict().optional(),
+    githubIssueProfile: z.object({
+      tokenSecretRef: secretRef,
+      repoOwner: githubRepositoryPart,
+      repoName: githubRepositoryPart,
+      attachmentsBranch: identifier,
     }).strict().optional(),
   }).strict(),
 }).strict();
