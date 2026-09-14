@@ -1,0 +1,2 @@
+1280px: both card links, Tab+Enter, project page, browser back, no overflow PASS
+375px: both card links, Tab+Enter, project page, browser back, no overflow PASS
