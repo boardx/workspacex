@@ -29,7 +29,7 @@ prepare-host 会完成以下应用专属主机设置。启动它的代码本身�
 | 共用环境 | `regionId`、`ecsInstanceId`、`runtimeRole`、`ossBucket`、`ossEndpoint`、`ossPrefix`、`publicUrl`、`tlsSecretRef` |
 | Starter | `dataVolumePath`、`backupTargetRef` |
 | production | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef`、`backupRetentionDays`，可选 `preflightTargetIp`（必须由 ECS IMDS 证明是本实例公网 IP） |
-| 每次安装 | `release`、`adminEmail`、`modelProfile.baseUrl`、`modelProfile.modelId`、`modelProfile.apiKeySecretRef`；可选 `platformSuperuserEmails`（1–32 个邮箱，大小写不敏感且不可重复，仅注入 API） |
+| 每次安装 | `release`、`adminEmail`、`modelProfile.baseUrl`、`modelProfile.modelId`、`modelProfile.apiKeySecretRef`；可选 `platformSuperuserEmails`（1–32 个邮箱，大小写不敏感且不可重复，仅注入 API）；启用反馈转开发时提供 `githubIssueProfile.tokenSecretRef/repoOwner/repoName/attachmentsBranch` |
 
 告警联系人和按天日志保留不属于这条最小安装路径，已从必填 Schema 删除。容器采用 Docker local 日志驱动，每个服务最多 5 个 10 MiB 日志文件；这是大小上限，不承诺按天留存。`backupTargetRef` 保留并执行真实写入/读回预检；自动备份调度单独配置，不能仅凭手工备份通过宣称定时任务已运行。
 
@@ -40,6 +40,7 @@ prepare-host 会完成以下应用专属主机设置。启动它的代码本身�
 | 引用 | 内容 |
 |---|---|
 | `modelProfile.apiKeySecretRef` | 模型 API key 原始字符串 |
+| `githubIssueProfile.tokenSecretRef` | GitHub token 原始字符串；仅注入 API，计划和 CLI 输出不显示其引用或值 |
 | `backupTargetRef` | Starter 受保护 JSON：`backend:"oss"`、`region`、`bucket`、`endpoint`、`prefix`、`authMode:"ecs-role"`、`roleName`。region/roleName 必须匹配当前部署。备份桶要求私有且从未启用版本控制；预检标记留给备份保留策略处理，不删除备份对象。 |
 | `tlsSecretRef` | JSON：`certificatePem`（叶证书在前的完整链）、`privateKeyPem`；验证配对、域名、有效期和线上叶证书一致。不会传输私钥。 |
 | `databaseSecretRef` | JSON：`host`、`port`（默认5432）、`database`、`user:"app_rw"`、`password`、`diagnosticsUser:"app_diag_ro"`、`diagnosticsPassword`，可选 `caFile`。 |

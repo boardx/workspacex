@@ -541,6 +541,56 @@
                 "apiKeySecretRef"
               ],
               "additionalProperties": false
+            },
+            "githubIssueProfile": {
+              "type": "object",
+              "properties": {
+                "tokenSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "repoOwner": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$"
+                },
+                "repoName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$"
+                },
+                "attachmentsBranch": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tokenSecretRef",
+                "repoOwner",
+                "repoName",
+                "attachmentsBranch"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
