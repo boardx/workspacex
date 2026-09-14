@@ -170,6 +170,7 @@ describe("UC-17.8 B1 草稿闭环", () => {
       id: "fb-1", submittedBy: ME, kind: "缺陷", target: { kind: "skill", skillId: "s-1" }, targetLabel: null,
       title: "导出 PDF 会卡住", detail: "导出 PDF 会卡住！每次都这样\n第二行",
       structured: { reproSteps: "1. 点导出" }, occurredRoute: "/chat", appVersion: "1.0",
+      tags: [],
     }]);
     expect(fb.events[0]).toMatchObject({ id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", actorId: ME });
     expect(w.drafts.rows.has("d-1")).toBe(false);

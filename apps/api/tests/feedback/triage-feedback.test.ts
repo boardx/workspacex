@@ -45,6 +45,7 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
     githubIssueUrl: null,
     githubIssueNumber: null,
     resolvedByDesignId: null,
+    tags: [],
     ...over,
   };
 }
@@ -216,6 +217,43 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       title: "管理员改过的标题",
       body: "管理员改过的正文",
       labels: ["user-feedback", "bug"],
+    });
+  });
+
+  // issue #3628：提交时的标签无条件并入 GitHub issue labels——见 `mergeIssueLabels` 头注。
+  it("issue #3628：反馈提交时的标签无条件并入 issue labels（追加在管理员标签之后）", async () => {
+    const deps = baseDeps({
+      repo: fakeRepo(row({ tags: ["移动端", "登录"] })),
+    });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "b", labels: ["user-feedback", "bug"] },
+      ...ADMIN,
+    });
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({
+      title: "t",
+      body: "b",
+      labels: ["user-feedback", "bug", "移动端", "登录"],
+    });
+  });
+
+  it("issue #3628：反馈标签与管理员标签重复（大小写不敏感）时不重复追加", async () => {
+    const deps = baseDeps({
+      repo: fakeRepo(row({ tags: ["Bug", "性能"] })),
+    });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "b", labels: ["bug"] },
+      ...ADMIN,
+    });
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({
+      title: "t",
+      body: "b",
+      labels: ["bug", "性能"],
     });
   });
 

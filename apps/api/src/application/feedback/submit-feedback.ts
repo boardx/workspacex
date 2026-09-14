@@ -64,12 +64,14 @@ export function submissionReceivedEmail(input: {
   };
 }
 
-export interface SubmitFeedbackInput extends Omit<NewFeedback, "id" | "structured"> {
+export interface SubmitFeedbackInput extends Omit<NewFeedback, "id" | "structured" | "tags"> {
   readonly orgId?: OrgId;
   /** UC-17.8 D1：结构化补充字段。缺省/`null` = 没填（旧调用方不传，行为不变）。 */
   readonly structured?: NewFeedback["structured"];
   /** 提交前已上传的图片附件 id 列表——见文件头注。缺省/空 = 不带附件。 */
   readonly attachmentIds?: readonly string[];
+  /** issue #3628：提交人自己起的标签。缺省/空 = 不带标签（旧调用方不传，行为不变）。 */
+  readonly tags?: readonly string[];
 }
 
 export interface SubmitFeedbackResult {
@@ -81,13 +83,13 @@ export async function submitFeedback(
   deps: SubmitFeedbackDeps,
   input: SubmitFeedbackInput,
 ): Promise<SubmitFeedbackResult> {
-  const { orgId, attachmentIds, structured, ...record } = input;
+  const { orgId, attachmentIds, structured, tags, ...record } = input;
   // UC-17.8 D3：上限只在契约 `FEEDBACK_ATTACHMENT_MAX` 里写一遍。契约 zod 已在 controller 拦过，
   // 这里再判一次是给非 HTTP 调用方（草稿提交）守门——多出来的 id 不认领，不阻塞提交。
   const claimable = attachmentIds === undefined ? undefined : attachmentIds.slice(0, feedbackLoop.FEEDBACK_ATTACHMENT_MAX);
   const feedbackId = deps.newFeedbackId();
   const eventId = deps.newEventId();
-  await deps.repo.insert({ ...record, structured: structured ?? null, id: feedbackId });
+  await deps.repo.insert({ ...record, structured: structured ?? null, tags: tags ?? [], id: feedbackId });
   await deps.repo.appendStatusEvent({
     id: eventId,
     feedbackId,

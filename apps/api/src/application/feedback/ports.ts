@@ -36,6 +36,8 @@ export interface NewFeedback {
   readonly structured: FeedbackStructured | null;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
+  /** issue #3628：提交人自己起的标签。缺省 = 空数组，行为与本字段引入前逐字节相同。 */
+  readonly tags: readonly string[];
 }
 
 /**
@@ -74,6 +76,8 @@ export interface FeedbackRow {
   readonly githubIssueNumber: number | null;
   /** UC-17.8 B4——`product_feedback.resolved_by_design_id`，见该列的迁移头注。 */
   readonly resolvedByDesignId: string | null;
+  /** issue #3628——`product_feedback.tags`，恒是数组。见迁移 `20260915090000_feedback_tags.sql`。 */
+  readonly tags: readonly string[];
 }
 
 /** 读取口径。⚠ 同样从契约派生，不重列。 */

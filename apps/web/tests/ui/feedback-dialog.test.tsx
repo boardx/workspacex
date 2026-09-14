@@ -119,6 +119,37 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
   });
 
+  it("issue #3628：review 阶段加的标签随请求体一起提交（含没按回车的未确认草稿）", async () => {
+    mockSubmitThenList(mineItem);
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "点了没反应。批准卡点了不动" } });
+    await proceedToReview();
+
+    const tagInput = screen.getByTestId("feedback-tag-input");
+    fireEvent.change(tagInput, { target: { value: "移动端" } });
+    fireEvent.keyDown(tagInput, { key: "Enter" });
+    // 第二个标签没按回车——`commitDraft` 应把这条未确认的草稿并进最终请求体。
+    fireEvent.change(tagInput, { target: { value: "登录" } });
+
+    fireEvent.click(screen.getByTestId("feedback-submit"));
+    await screen.findByTestId("feedback-just-submitted");
+
+    const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
+    expect(opts.body.tags).toEqual(["移动端", "登录"]);
+  });
+
+  it("issue #3628：没有加任何标签时请求体不带 tags 键", async () => {
+    mockSubmitThenList(mineItem);
+    openDialogFor({ kind: "product" });
+    await fillAndSubmit("点了没反应。批准卡点了不动");
+    await screen.findByTestId("feedback-just-submitted");
+
+    const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
+    expect(opts.body).not.toHaveProperty("tags");
+  });
+
   it("① 打字提交也会调 AI 起标题（issue #2638）：成功时用 AI 给的标题，不是正文首句", async () => {
     mockSubmitThenList(mineItem, { aiTitleFails: false, aiTitle: "批准按钮点击后无响应" });
     openDialogFor({ kind: "product" });

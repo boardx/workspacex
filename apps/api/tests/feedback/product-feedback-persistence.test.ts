@@ -45,6 +45,7 @@ function draft(over: Partial<NewFeedback> = {}): NewFeedback {
     structured: null,
     occurredRoute: "/chat",
     appVersion: "2026.08.15",
+    tags: [],
     ...over,
   };
 }
@@ -81,6 +82,19 @@ describe("FB-2 落库", () => {
     // I-F1：复现上下文分列存，读得回来。
     expect(byId.get("fb-p")!.occurredRoute).toBe("/chat");
     expect(byId.get("fb-p")!.appVersion).toBe("2026.08.15");
+  });
+
+  it("issue #3628：提交时带的标签原样往返，缺省是空数组", async () => {
+    await repo.insert(draft({ id: "fb-tagged", tags: ["移动端", "登录"] }));
+    await repo.insert(draft({ id: "fb-untagged" }));
+
+    const rows = await repo.list({ kind: "org" }, ME);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get("fb-tagged")!.tags).toEqual(["移动端", "登录"]);
+    expect(byId.get("fb-untagged")!.tags).toEqual([]);
+
+    const found = await repo.findById("fb-tagged", ME);
+    expect(found!.tags).toEqual(["移动端", "登录"]);
   });
 
   it("② 票数是 COUNT(*)：同一人投两次仍是 1 票，撤票真的减回去", async () => {

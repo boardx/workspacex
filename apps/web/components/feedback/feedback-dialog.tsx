@@ -13,6 +13,8 @@ import {
   FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_ATTACHMENT_LIMIT,
   FEEDBACK_KINDS,
+  FEEDBACK_TAG_MAX,
+  FEEDBACK_TAG_MAX_CHARS,
   createFeedbackDraft,
   currentAppVersion,
   fetchFeedbackAttachmentObjectUrl,
@@ -30,6 +32,7 @@ import {
   type FeedbackTarget,
 } from "@/lib/live-feedback";
 import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured";
+import { TagInput, commitDraft } from "@/components/ui/tag-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
@@ -77,6 +80,8 @@ function describeFailure(err: unknown): string {
  */
 
 const KIND_ICON: Record<FeedbackKind, typeof Bug> = { 缺陷: Bug, 需求: Lightbulb };
+/** issue #3628——提交表单没有"已有标签"这份数据可聚合（那是别人提过的私有标签），空候选集。 */
+const EMPTY_KNOWN_FEEDBACK_TAGS: ReadonlyMap<string, number> = new Map();
 
 const TITLE_MAX = 120;
 const DETAIL_MAX = 4000;
@@ -214,6 +219,9 @@ export function FeedbackDialog({
   const [detail, setDetail] = React.useState("");
   /** review 阶段可编辑的标题；compose 阶段还没有标题概念。 */
   const [title, setTitle] = React.useState("");
+  /** issue #3628——提交人自己起的标签，同 `TagInput` 头注的 chip 交互，全仓统一体验。 */
+  const [tags, setTags] = React.useState<readonly string[]>([]);
+  const [tagDraft, setTagDraft] = React.useState("");
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [draftBusy, setDraftBusy] = React.useState(false);
   const [draftError, setDraftError] = React.useState<string | null>(null);
@@ -496,6 +504,8 @@ export function FeedbackDialog({
   const resetForm = () => {
     setTitle("");
     setDetail("");
+    setTags([]);
+    setTagDraft("");
     setStage("compose");
     for (const a of attachments) if (a.previewUrl !== null) URL.revokeObjectURL(a.previewUrl);
     setAttachments([]);
@@ -573,6 +583,9 @@ export function FeedbackDialog({
       // "打字路径顺手起标题"已经被 review 阶段的整理覆盖，留着会多打一次不必要的请求）。
       const finalTitle = title.trim();
       const attachmentIds = uploadedAttachmentIds();
+      // issue #3628——打完最后一个标签没按回车就点提交，`commitDraft` 把未确认的
+      // 草稿并进去，不然那个标签会静默丢失（`TagInput` 头注的经典 chip bug）。
+      const finalTags = commitDraft(tags, tagDraft, { maxTags: FEEDBACK_TAG_MAX, maxTagLength: FEEDBACK_TAG_MAX_CHARS });
       // ⚠ 没有附件时**不带这个键**（不是传 `undefined`）——同文件头「请求体恰好几个字段」的
       //   既有纪律：多一个值为 undefined 的键，`JSON.stringify` 之后看不出区别，但
       //   `Object.keys` 断言与任何按键名做的中间层处理都会看出区别。
@@ -586,6 +599,7 @@ export function FeedbackDialog({
         occurredRoute: pathname ?? null,
         appVersion,
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+        ...(finalTags.length > 0 ? { tags: finalTags } : {}),
       });
       setJustSubmitted(out.feedbackId);
       resetForm();
@@ -711,6 +725,23 @@ export function FeedbackDialog({
                     onChange={(e) => setTitle(e.target.value)}
                     data-testid="feedback-title-input"
                     className="rounded-md border border-border-subtle bg-panel px-2 py-1 text-13 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+
+                {/* issue #3628——标签，全仓统一的 `TagInput`（同 GitHub issue 标签、模板库标签
+                    同一份组件），提交后同步进后台建的 GitHub issue 的 labels。 */}
+                <label className="flex flex-col gap-1 text-11 font-medium text-muted-foreground">
+                  标签 <span className="font-normal">（最多 {FEEDBACK_TAG_MAX} 个，可不填）</span>
+                  <TagInput
+                    value={tags}
+                    onChange={setTags}
+                    knownTags={EMPTY_KNOWN_FEEDBACK_TAGS}
+                    maxTags={FEEDBACK_TAG_MAX}
+                    maxTagLength={FEEDBACK_TAG_MAX_CHARS}
+                    draft={tagDraft}
+                    onDraftChange={setTagDraft}
+                    testIdPrefix="feedback-tag"
+                    emptyHint="输入标签，回车确认"
                   />
                 </label>
 

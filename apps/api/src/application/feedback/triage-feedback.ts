@@ -169,6 +169,32 @@ function isGithubImage(contentType: FeedbackAttachmentRow["contentType"]): boole
   return contentType.startsWith("image/");
 }
 
+/**
+ * issue #3628——把这条反馈**提交时**带的标签并入建 issue 用的 `labels`。
+ *
+ * ⚠ 不是管理员弹层里能删掉的东西：提交人的标签在这里**无条件**追加，理由是
+ *   "把用户提交的标签同步到 GitHub issue" 是本 feature 唯一的产品承诺,如果放在
+ *   前端由管理员自己粘贴,一次疏忽(忘了粘/手滑删了)就悄悄丢掉这条承诺,而没有
+ *   任何东西会报。服务端在建 issue 前**无条件**补上,前端草稿怎么编辑都不影响
+ *   这一步——同 `withAttachmentImages` 无条件把图片链接追加进正文同一条纪律。
+ * ⚠ 去重、大小写不敏感（GitHub label 大小写不敏感,`"Bug"`与`"bug"`是同一个）,
+ *   管理员已经手填的排在前面,不重排、不覆盖。
+ */
+export function mergeIssueLabels(
+  draftLabels: readonly string[],
+  feedbackTags: readonly string[],
+): readonly string[] {
+  const seen = new Set(draftLabels.map((l) => l.toLowerCase()));
+  const merged = [...draftLabels];
+  for (const tag of feedbackTags) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(tag);
+  }
+  return merged;
+}
+
 export class FeedbackNotFoundError extends Error {}
 export class FeedbackTriageForbiddenError extends Error {}
 export class FeedbackTriageReasonRequiredError extends Error {}
@@ -281,13 +307,15 @@ export async function triageFeedback(
       //   更重要的不变量)——但每一次失败都要收进 `imageUploadWarnings` 带回前端,
       //   不能只留一条日志:管理员看到的是"issue 建出来了",没有任何东西会主动
       //   告诉他"图片其实没跟着过去",这正是本次改动要补的可见性缺口。
+      // issue #3628：提交人的标签无条件并入——见 `mergeIssueLabels` 头注。
+      const draftWithTags = { ...input.issueDraft, labels: mergeIssueLabels(input.issueDraft.labels, current.tags) };
       const { draft, warnings } = await withAttachmentImages(deps, {
         orgId: input.orgId,
         feedbackId: input.feedbackId,
         viewerId: input.actorId,
         viewerOrgRole: input.actorOrgRole,
         submittedBy: current.submittedBy,
-        draft: input.issueDraft,
+        draft: draftWithTags,
       });
       imageUploadWarnings = warnings;
       const created = await deps.githubIssues.create(draft);

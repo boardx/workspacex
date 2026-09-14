@@ -123,6 +123,8 @@ export async function listFeedback(
     githubIssueNumber: row.githubIssueNumber,
     // UC-17.8 B4——不走 D3 门控，见契约 `FeedbackItem.resolvedByDesignId` 头注。
     resolvedByDesignId: row.resolvedByDesignId,
+    // issue #3628——同样不走 D3 门控，见契约 `FeedbackTags` 头注。
+    tags: [...row.tags],
     attachments: attachmentsByFeedbackId.get(row.id) ?? [],
   }));
 }

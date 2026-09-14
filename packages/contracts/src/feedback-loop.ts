@@ -180,6 +180,26 @@ export const FeedbackAttachment = z
 export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
 
 /**
+ * issue #3628——提交时可选带的标签。**复用 `design-workbench.ts` 的
+ * `DesignProjectTag(s)` 形状**（人类 2026-09-15 明确要求"标签组件采用标准交互体验，
+ * 与其他界面保持一致"），不是巧合：同一件事（自由文本胶囊标签）本仓已有一份权威
+ * 上限/长度约定与一个统一的 `TagInput` 组件（`apps/web/components/ui/tag-input.tsx`
+ * 头注 2026-09-09 人类指令），第二份数值只会漂移，不会更贴合这里的场景。
+ *
+ * ⚠ 这**不是** `FeedbackKind` 那种闭集分类——标签是提交人自己起的自由词，作用只有
+ *   一处：分诊转「已进入迭代」建 GitHub issue 时原样并入 `labels`（见
+ *   `triage-feedback.ts` 的 `mergeIssueLabels`）。GitHub 的 label 本身就是自由文本，
+ *   在这一层再造一个闭集只会挡住合法用法，而不会挡住误用。
+ * ⚠ 不走 D3 门控：与 `title`/`votes` 同一条纪律——标签是分类/管理用的展示性事实，
+ *   不是正文的一部分（同 `resolvedByDesignId` 头注的推理）。
+ */
+export const FEEDBACK_TAG_MAX = 5;
+export const FEEDBACK_TAG_MAX_CHARS = 20;
+export const FeedbackTag = z.string().trim().min(1).max(FEEDBACK_TAG_MAX_CHARS);
+export const FeedbackTags = z.array(FeedbackTag).max(FEEDBACK_TAG_MAX);
+export type FeedbackTags = z.infer<typeof FeedbackTags>;
+
+/**
  * UC-17.8 D1（2026-09-04 人类裁决）：**结构化补充字段**。
  *
  * PDF §5.1 要求缺陷 / 需求各自一组结构化字段。2026-09-02 的裁决「没有独立标题字段，
@@ -318,6 +338,8 @@ export const FeedbackItem = z
      * 不是方案内容），不是正文的一部分。
      */
     resolvedByDesignId: z.string().nullable(),
+    /** issue #3628——提交时带的标签。恒是数组（可能为空），不走 D3 门控，见 `FeedbackTags` 头注 */
+    tags: z.array(z.string()),
   })
   .strict();
 export type FeedbackItem = z.infer<typeof FeedbackItem>;
@@ -420,6 +442,8 @@ export const operations = {
         attachmentIds: z.array(z.string()).max(FEEDBACK_ATTACHMENT_MAX).optional(),
         /** UC-17.8 D1：结构化补充字段，可不传。见 `FeedbackStructured` 头注 */
         structured: FeedbackStructured.optional(),
+        /** issue #3628：提交人自己起的标签，可不传。见 `FeedbackTags` 头注 */
+        tags: FeedbackTags.optional(),
       })
       .strict(),
     out: z

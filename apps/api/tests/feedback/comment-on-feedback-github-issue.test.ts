@@ -34,6 +34,7 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
     githubIssueUrl: "https://github.com/boardx/workspacex/issues/9",
     githubIssueNumber: 9,
     resolvedByDesignId: null,
+    tags: [],
     ...over,
   };
 }

@@ -50,6 +50,7 @@ function feedbackRow(over: Partial<FeedbackRow> = {}): FeedbackRow {
     githubIssueUrl: null,
     githubIssueNumber: null,
     resolvedByDesignId: null,
+    tags: [],
     ...over,
   };
 }

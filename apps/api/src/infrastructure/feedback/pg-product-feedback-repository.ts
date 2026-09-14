@@ -72,6 +72,7 @@ interface FeedbackDbRow {
   readonly github_issue_url: string | null;
   readonly github_issue_number: number | null;
   readonly resolved_by_design_id: string | null;
+  readonly tags: readonly string[] | null;
 }
 
 /**
@@ -115,6 +116,7 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
     githubIssueUrl: row.github_issue_url,
     githubIssueNumber: row.github_issue_number,
     resolvedByDesignId: row.resolved_by_design_id,
+    tags: row.tags ?? [],
   };
 }
 
@@ -122,7 +124,7 @@ const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
   f.target_label, f.title, f.detail, f.structured, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
-  f.github_issue_url, f.github_issue_number, f.resolved_by_design_id,
+  f.github_issue_url, f.github_issue_number, f.resolved_by_design_id, f.tags,
   v.votes,
   EXISTS (
     SELECT 1 FROM product_feedback_votes mine
@@ -146,8 +148,8 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
       await s.query(
         `INSERT INTO product_feedback
            (id, org_id, submitted_by, kind, target_kind, target_agent_id, target_skill_id,
-            target_label, title, detail, status, occurred_route, app_version, structured)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'待处理',$11,$12,$13::jsonb)`,
+            target_label, title, detail, status, occurred_route, app_version, structured, tags)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'待处理',$11,$12,$13::jsonb,$14)`,
         [
           record.id,
           this.orgId,
@@ -162,6 +164,7 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
           record.occurredRoute,
           record.appVersion,
           record.structured === null ? null : JSON.stringify(record.structured),
+          record.tags,
         ],
       );
     });

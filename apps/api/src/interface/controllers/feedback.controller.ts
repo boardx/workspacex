@@ -239,6 +239,8 @@ export class FeedbackController {
         attachmentIds: body.attachmentIds,
         // UC-17.8 D1：`.optional()` 是契约层的向后兼容；用例层「没传」与「没填」是同一件事。
         structured: body.structured ?? null,
+        // issue #3628：同上——`.optional()` 只是契约层向后兼容。
+        tags: body.tags,
       },
     );
   }

@@ -22,6 +22,7 @@ function row(id: string, submittedBy: string): FeedbackRow {
     status: "待处理", statusReason: null, votes: 0, votedByMe: false, occurredRoute: null, appVersion: null,
     createdAt: "2026-09-04T00:00:00.000Z", githubIssueUrl: null, githubIssueNumber: null,
     resolvedByDesignId: null,
+    tags: [],
   };
 }
 

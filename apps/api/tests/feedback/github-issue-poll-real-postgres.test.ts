@@ -45,6 +45,7 @@ function draft(over: Partial<NewFeedback> = {}): NewFeedback {
     structured: null,
     occurredRoute: "/chat",
     appVersion: "2026.09.03",
+    tags: [],
     ...over,
   };
 }

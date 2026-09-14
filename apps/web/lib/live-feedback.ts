@@ -48,6 +48,9 @@ export type FeedbackIssueDraft = NonNullable<
 /** 枚举的**唯一来源**——下拉框、徽标色映射、测试断言都从这里取，不各写一份数组。 */
 export const FEEDBACK_KINDS = feedbackLoop.FeedbackKind.options;
 export const FEEDBACK_STATUSES = feedbackLoop.FeedbackStatus.options;
+/** issue #3628——标签上限/单条长度，唯一来源见契约 `FeedbackTags` 头注。 */
+export const FEEDBACK_TAG_MAX = feedbackLoop.FEEDBACK_TAG_MAX;
+export const FEEDBACK_TAG_MAX_CHARS = feedbackLoop.FEEDBACK_TAG_MAX_CHARS;
 
 export async function submitFeedback(input: {
   readonly kind: FeedbackKind;
@@ -60,6 +63,8 @@ export async function submitFeedback(input: {
   readonly attachmentIds?: readonly string[];
   /** UC-17.8 D1——按 `kind` 组好的结构化字段。全空 = 不带这个键（同 `attachmentIds`）。 */
   readonly structured?: FeedbackStructured;
+  /** issue #3628——提交人自己起的标签。空 = 不带这个键（同 `attachmentIds`）。 */
+  readonly tags?: readonly string[];
 }): Promise<SubmitFeedbackOut> {
   return apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input });
 }
