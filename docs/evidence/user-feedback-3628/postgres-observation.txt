@@ -1,0 +1,22 @@
+Observed isolated PostgreSQL verification — recorded from the tool output
+
+Command (worktree /private/tmp/workspacex-feedback-3628):
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/feedback/draft-lifecycle.test.ts tests/feedback/triage-feedback.test.ts tests/feedback/github-issue-creator.test.ts tests/feedback/product-feedback-persistence.test.ts
+
+Observed run identity:
+run-mu1j06if-4235993e-ab931e0486cb
+Database: wsx_ab931e0486cbe620f705
+Compose: wsx-ab931e0486cbe620f705
+PG port: 20412
+Start: 2026-09-15 01:37:48 Asia/Shanghai
+
+Exact summary excerpt read from the command log by the tool:
+ Test Files  4 passed (4)
+      Tests  78 passed (78)
+   Start at  01:37:48
+   Duration  25.25s (transform 1.64s, setup 0ms, collect 2.68s, tests 18.07s, environment 1ms, prepare 442ms)
+[db-isolation] db=wsx_ab931e0486cbe620f705 peak_connections=3
+
+Scope: 23 real PostgreSQL persistence tests, 21 triage tests, 22 fetch adapter tests, 12 draft lifecycle tests. This run included the added real draft-tag persistence/clear/owner isolation/submission case and feedback+tag transaction rollback case. The runtime test passed before typecheck identified a missing unused refiner test dependency; that dependency was subsequently supplied. Later adapter-only changes were validated by the 71-test pure lane.
+
+Evidence boundary: this is an excerpt transcribed from the actual observed tool result, NOT a retained complete raw log. The temporary raw log was accidentally reused for a later redundant run while it waited at stack-admission; that queued run was cancelled without bypassing the gate. No second database pass is claimed. The check source and test assertions are committed alongside this observation.
