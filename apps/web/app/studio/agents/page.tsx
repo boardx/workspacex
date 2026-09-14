@@ -1,5 +1,7 @@
 import { Bot } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
+import { Button } from "@/components/ui/button";
 
 import { PREVIEW_AGENTS } from "@/lib/mock/agent-previews";
 
@@ -21,7 +23,12 @@ export default function AgentsPage() {
               <article key={name} data-testid={`agent-preview-${index + 1}`} className="flex min-h-64 min-w-0 flex-col rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm">
                 <h2 className="text-14 font-semibold">{name}</h2>
                 <Bot aria-hidden className="my-6 size-8 text-muted-foreground" />
-                <p className="mt-auto text-12 text-muted-foreground">示例智能体 · 仅供展示</p>
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-12 text-muted-foreground">示例智能体 · 仅供展示</p>
+                  <Button asChild variant="outline" size="sm" className="ml-auto">
+                    <Link href="/projects">查看项目</Link>
+                  </Button>
+                </div>
               </article>
             ))}
           </section>
