@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import type { PersistedMessage } from "@/lib/copilotkit-v2-persisted-messages";
+import { composeAguiAssistantBodies } from "@repo/contracts/agui-state-events";
 type RuntimeMessage = AbstractAgent["messages"][number];
 /**
  * Replace final identities proven by the journal or persisted identity mapping, leaving other turns intact.
@@ -18,15 +19,35 @@ type RuntimeMessage = AbstractAgent["messages"][number];
 export function restoreFinalMessages(current: readonly RuntimeMessage[], events: readonly ExecutionEvent[], restored: readonly PersistedMessage[], resolvePersisted: (id: string) => string | null = () => null): RuntimeMessage[] {
   const finalIds = new Set(events.filter((event) => event.kind === "final_message").map((event) => event.messageId));
   const persistedIds = new Set(restored.map((message) => message.id));
-  const replaced = (message: RuntimeMessage) =>
-    finalIds.has(message.id) || persistedIds.has(message.id) || persistedIds.has(resolvePersisted(message.id) ?? "");
+  const authoritative = new Map(restored.map((message) => [message.id, message.content]));
+  const aliases = new Map<string, RuntimeMessage[]>();
+  for (const message of current) {
+    const id = persistedIds.has(message.id) ? message.id : resolvePersisted(message.id);
+    if (id === null || !persistedIds.has(id) || message.role !== "assistant") continue;
+    const group = aliases.get(id) ?? [];
+    group.push(message);
+    aliases.set(id, group);
+  }
+  const settled = new Set<string>();
+  for (const [id, group] of aliases) {
+    const containsCanonicalAlongsideAliases = group.length > 1 && group.some((message) => message.id === id);
+    if (!containsCanonicalAlongsideAliases && composeAguiAssistantBodies(group.map((message) => String(message.content ?? ""))) === authoritative.get(id)) {
+      settled.add(id);
+    }
+  }
+  const replaced = (message: RuntimeMessage) => {
+    const persistedId = persistedIds.has(message.id) ? message.id : resolvePersisted(message.id);
+    if (persistedId !== null && settled.has(persistedId)) return false;
+    return finalIds.has(message.id) || (persistedId !== null && persistedIds.has(persistedId));
+  };
   const kept: RuntimeMessage[] = [];
   let insertAt: number | null = null;
   for (const message of current) {
     if (replaced(message)) { insertAt ??= kept.length; continue; }
     kept.push(message);
   }
-  const incoming = restored.map((message) => ({ id: message.id, role: message.role, content: message.content }));
+  const incoming = restored.filter((message) => !settled.has(message.id))
+    .map((message) => ({ id: message.id, role: message.role, content: message.content }));
   const at = insertAt ?? kept.length;
   return [...kept.slice(0, at), ...incoming, ...kept.slice(at)];
 }

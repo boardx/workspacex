@@ -3,6 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
 describe("business submission acknowledgement", () => {
+  it("#3397 settled assistant body is never overwritten by an empty or partial trace tail", () => {
+    const setMessages = vi.fn();
+    const agent = {
+      isRunning: false,
+      messages: [{ id: "stream-1", role: "assistant", content: "已经完整显示的正文" }],
+      setMessages,
+      subscribe: () => ({ unsubscribe: vi.fn() }),
+    } as unknown as AbstractAgent;
+    const { result } = renderHook(() => useRunTrace(agent, "thread-a"));
+    act(() => result.current.append([{
+      runId: "run", seq: 1, emittedAt: "2026-09-14T00:00:00Z",
+      kind: "text_delta", messageId: "stream-1", delta: "已经",
+    }]));
+    expect(setMessages).not.toHaveBeenCalled();
+  });
   it("acknowledges durable running status even if execution later fails, never correlation RUN_STARTED", () => {
     let subscriber: any;
     const agent = { subscribe: (value: unknown) => { subscriber = value; return { unsubscribe: vi.fn() }; } } as unknown as AbstractAgent;

@@ -152,15 +152,25 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
     setMessageRuns((previous) => ({ ...previous, ...Object.fromEntries(deltas.map((event) => [event.messageId, event.runId])) }));
     if (agent.isRunning || !deltas.length) return;
     const messages = [...agent.messages];
+    let changed = false;
     for (const id of new Set(deltas.map((event) => event.messageId))) {
       const runId = deltas.find((event) => event.messageId === id)!.runId;
       const content = (next[runId] ?? []).filter((event) => event.kind === "text_delta" && event.messageId === id)
         .map((event) => event.kind === "text_delta" ? event.delta : "").join("");
       const index = messages.findIndex((message) => message.id === id);
-      if (index < 0) messages.push({ id, role: "assistant", content });
-      else if (messages[index]?.role === "assistant") messages[index] = { ...messages[index]!, role: "assistant", content };
+      if (index < 0) {
+        if (content !== "") { messages.push({ id, role: "assistant", content }); changed = true; }
+      } else if (messages[index]?.role === "assistant") {
+        const visible = String(messages[index]!.content ?? "");
+        // Tail reads can stop between pages. They may extend a visible prefix, but an empty,
+        // shorter or divergent partial projection must never erase already rendered bytes.
+        if (content !== visible && content !== "" && (visible === "" || content.startsWith(visible))) {
+          messages[index] = { ...messages[index]!, role: "assistant", content };
+          changed = true;
+        }
+      }
     }
-    agent.setMessages(messages);
+    if (changed) agent.setMessages(messages);
   }, [agent, ingest]);
   const bindMessages = React.useCallback((messages: readonly { id: string; agentRunId?: string | null }[]) => {
     setMessageRuns((previous) => ({ ...previous, ...Object.fromEntries(messages.filter((message) => message.agentRunId).map((message) => [message.id, message.agentRunId!])) }));

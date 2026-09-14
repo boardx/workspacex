@@ -1,5 +1,6 @@
 import {
   AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME,
+  composeAguiAssistantBodies,
   type AguiAssistantMessageReplacedValue,
   parseWriteTodosSnapshot,
 } from "@repo/contracts/agui-state-events";
@@ -26,6 +27,7 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   const seenMessages = new Set<string>();
   const messageText = new Map<string, string>();
   let finalMessageId: string | null = null;
+  let finalStreamingIds: readonly string[] = [];
   const cursors = new Map<string, number>();
   const activeSteps = new Map<string, string>();
   const announcedToolCalls = new Set<string>();
@@ -123,24 +125,33 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   const finish = (persistedMessageId: string, text: string): string => {
     closeTurn();
     /*
-     * ⚠ **回退留档（#3394 的多气泡接受路径已于本次撤回）。**
+     * ⚠ **回退留档（#3394 的单 id 多气泡接受路径已撤回，#3397 扩展协议后重建）。**
      *
      * #3394 曾把这里改成「wire 上已流出的气泡**拼起来**等于落库那行就不撤回，映射指向
      * 最后一条」。chat-read 车道实测判它有害：同 SHA 基线 3 failed / 117 passed，加上该
      * 改动变成 7 failed / 113 passed（多出 `agent-chat-core-paths`、
      * `agent-workbench-scroll-acceptance`、`copilotkit-v2-tool-rendering`）。
      *
-     * 原因是协议事实，不是措辞：`chat_message_id` 只有**一个** `streamingMessageId`
-     * 字段——**一个映射只能认领一条气泡**。多气泡轮次里 web 侧权威读只替换被认领的那条，
-     * 前面几条留在原地 ⇒ 同一句话在页面上出现两次。#3069 那条「正文与落库行完全一致」
-     * 编码的正是这条协议事实。
+     * 原因是旧协议只有一个 `streamingMessageId`，前面未认领的气泡会留在页面上造成重复。
      *
-     * 多气泡的正解是协议扩展（一个映射认领多条气泡），已立 **issue #3397**；在那之前
-     * 本约束有效且**不得收窄**。
+     * #3397 现在用 `streamingMessageIds` 认领整组，并保留 singular 主 id 兼容旧客户端。
      */
-    // Identity proves which message is final; equality only verifies that its full
-    // bytes reached this connection (a dropped SSE tail must not truncate the answer).
-    if (finalMessageId && seenMessages.has(finalMessageId) && messageText.get(finalMessageId) === text) return finalMessageId;
+    // Prefer an explicit final identity when it alone carries the persisted bytes.
+    const streamedBubbles = [...seenMessages];
+    const composedStreamedBody = composeAguiAssistantBodies(
+      streamedBubbles.map((id) => messageText.get(id) ?? ""),
+    );
+    if (finalMessageId && seenMessages.has(finalMessageId) && messageText.get(finalMessageId) === text) {
+      finalStreamingIds = [finalMessageId];
+      return finalMessageId;
+    }
+    // #3397: the persisted writeback itself is authoritative. Exact composed bytes prove
+    // this connection received the complete body even when an older journal omitted
+    // final_message; the id group lets the client claim every contributing bubble.
+    if (streamedBubbles.length > 0 && composedStreamedBody === text) {
+      finalStreamingIds = streamedBubbles;
+      return streamedBubbles[0]!;
+    }
     // issue #3069 —— 回放兜底是**替换**，不是追加。身份不成立时（典型：`tool_start`
     // 把 `finalMessageId` 清掉、此后账本再无正文）已经流出去的气泡带的是「预告」正文，
     // 与落库那行对不上；直接再发一条终稿气泡会让一轮里出现两条互相矛盾的 assistant
@@ -155,7 +166,6 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     // （chat-ux-acceptance-criteria.md 第 2 条），与回答正文并存而不是同一段话的另一版本
     // ——`agui-bridge-tool-call-events.test.ts` 在无流式正文时逐条断言「规划摘要 + 最终
     // 答案」两条气泡，那是刻意的，把它一并撤回等于悄悄改掉一个绿着的既有行为。
-    const streamedBubbles = [...seenMessages];
     const carrier = streamedBubbles[0] ?? persistedMessageId;
     if (streamedBubbles.length > 0) {
       write({
@@ -167,7 +177,9 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     write({type:EventType.TEXT_MESSAGE_START,messageId:carrier,role:"assistant"});
     write({type:EventType.TEXT_MESSAGE_CONTENT,messageId:carrier,delta:text});
     write({type:EventType.TEXT_MESSAGE_END,messageId:carrier});
+    finalStreamingIds = [carrier];
     return carrier;
   };
-  return { accept, acceptPlanStep, close: closeTurn, finish };
+  const finalStreamingMessageIds = (): readonly string[] => finalStreamingIds;
+  return { accept, acceptPlanStep, close: closeTurn, finish, finalStreamingMessageIds };
 }

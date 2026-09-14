@@ -43,3 +43,16 @@ it("keeps the restored reply where it was streamed, below nothing that arrived a
   // 幂等：再收敛一次不许再挪位置。
   expect(restoreFinalMessages(result, events, restored)).toEqual(result);
 });
+
+it("#3397 多气泡合成字节已等于落库正文时保留整组原对象，不归零、不重复终稿", () => {
+  const restored = [{ id: "persisted", role: "assistant" as const, content: "第一段\n\n第二段", authorId: "agent", agentRunId: "run", rateable: true, clientMessageId: null }];
+  const first: Parameters<typeof restoreFinalMessages>[0][number] = { id: "stream-1", role: "assistant", content: "第一段" };
+  const second: Parameters<typeof restoreFinalMessages>[0][number] = { id: "stream-2", role: "assistant", content: "第二段" };
+  const resolve = (id: string) => id.startsWith("stream-") ? "persisted" : null;
+  const events = [{ runId: "run", seq: 4, kind: "final_message" as const, messageId: "stream-2", emittedAt: "2026-09-14T00:00:00Z" }];
+  const result = restoreFinalMessages([first, second], events, restored, resolve);
+  expect(result).toEqual([first, second]);
+  expect(result[0]).toBe(first);
+  expect(result[1]).toBe(second);
+  expect(result.map((message) => message.content).join("\n\n")).toBe(restored[0]!.content);
+});

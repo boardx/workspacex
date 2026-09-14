@@ -258,17 +258,16 @@ export function parseAguiFilePatchAppliedValue(value: unknown): AguiFilePatchApp
  *
  * 现在两条路径共用同一条承诺：
  *
- *   1. **只允许把「正文与落库行完全一致」的流式气泡映射到落库主键。** 一条正文与
- *      `chat_messages` 那行对不上的气泡不得出现在 `streamingMessageId` 上——那等于把
- *      用户看到的字和库里的行对错。回放兜底因此必须先**替换**（撤回已流出的正文，
- *      在同一个气泡 id 上重新呈现落库正文），替换之后该气泡才有资格被映射。
+ *   1. **只允许把「组合正文与落库行完全一致」的流式气泡组映射到落库主键。** 组合正文
+ *      与 `chat_messages` 那行对不上的气泡组不得映射——那等于把用户看到的字和库里的行
+ *      对错。回放兜底因此必须先替换，在同一个主气泡 id 上重新呈现落库正文。
  *      撤回用 `AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME`（见下）。
  *
- *      ⚠ **本条不得收窄。** #3394 曾以「多气泡拼起来等于落库那行」为由放宽它，
+ *      #3394 曾以「多气泡拼起来等于落库那行」为由放宽它，
  *      chat-read 车道实测三条真回归（7 failed / 113 passed，基线 3 / 117）：
- *      本事件只有**一个** `streamingMessageId` 字段，一个映射只能认领一条气泡，
+ *      当时本事件只有**一个** `streamingMessageId` 字段，一个映射只能认领一条气泡，
  *      多气泡轮次里没被认领的那几条会留在页面上 ⇒ 同一句话出现两次。该改动已回退。
- *      多气泡的正解是协议扩展（一个映射认领多条气泡），见 **issue #3397**。
+ *      #3397 已增加 `streamingMessageIds` 认领整组；singular 字段继续作为主气泡兼容旧客户端。
  *
  *   2. **不得为了凑齐这个事件而制造自映射。** #3069 的直接形态就是这个：回放兜底另起
  *      一条以落库主键为 id 的气泡，`streamingMessageId === chatMessageId` 于是恒成立，
@@ -288,14 +287,42 @@ export const AGUI_CHAT_MESSAGE_ID_EVENT_NAME = "chat_message_id" as const;
 export const AguiChatMessageIdValue = z.object({
   /** 本轮 wire 上 `TEXT_MESSAGE_START`/`_CONTENT`/`_END` 用的那个临时 id。 */
   streamingMessageId: z.string().min(1),
+  /**
+   * #3397：同一条落库正文由多条流式气泡组成时，按 wire 顺序列出整组 id。
+   * 可选以兼容旧生产者；解析后总会归一化为至少含 `streamingMessageId` 的数组。
+   */
+  streamingMessageIds: z.array(z.string().min(1)).min(1).optional(),
   /** 同一条 assistant 消息在 `chat_messages` 里的真实主键。 */
   chatMessageId: z.string().min(1),
-});
+}).superRefine((value, context) => {
+  if (value.streamingMessageIds !== undefined && !value.streamingMessageIds.includes(value.streamingMessageId)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["streamingMessageIds"], message: "streamingMessageIds must include streamingMessageId" });
+  }
+}).transform((value) => ({
+  ...value,
+  streamingMessageIds: [...new Set(value.streamingMessageIds ?? [value.streamingMessageId])],
+}));
 export type AguiChatMessageIdValue = z.infer<typeof AguiChatMessageIdValue>;
 
 export function parseAguiChatMessageIdValue(value: unknown): AguiChatMessageIdValue | null {
   const result = AguiChatMessageIdValue.safeParse(value);
   return result.success ? result.data : null;
+}
+
+/**
+ * 一轮里若干 assistant 气泡与最终落库正文使用同一个组合规则。
+ * relay、web 恢复与模型写回都必须消费这一实现，避免各自 trim/join 后再次分叉。
+ */
+export function composeAguiAssistantBodies(bodies: readonly string[]): string {
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of bodies) {
+    const body = raw.trim();
+    if (body === "" || seen.has(body)) continue;
+    seen.add(body);
+    kept.push(body);
+  }
+  return kept.join("\n\n");
 }
 
 /**
