@@ -77,10 +77,27 @@ build_and_push(){
   [[ "$published_revision" == "$revision" ]] || fail "published $service image has a different revision"
 }
 cd "$REPOSITORY_DIR"
-build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
-build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision"
-build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision"
-build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "SOURCE_REVISION=$revision"
+pids=()
+names=()
+wait_for_builds(){
+  local failed=0 index pid name log
+  for index in "${!pids[@]}"; do
+    pid=${pids[$index]}; name=${names[$index]}; log="$work/$name.build.log"
+    if wait "$pid"; then cat "$log"; else cat "$log" >&2; failed=1; fi
+  done
+  pids=(); names=()
+  (( failed == 0 )) || fail "one or more image builds failed"
+}
+build_and_push api api deploy/aliyun/images/api.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision" >"$work/api.build.log" 2>&1 &
+pids+=("$!"); names+=(api)
+build_and_push web web deploy/aliyun/images/web.Dockerfile . --build-arg "NODE_IMAGE=$node_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "SOURCE_REVISION=$revision" >"$work/web.build.log" 2>&1 &
+pids+=("$!"); names+=(web)
+wait_for_builds
+build_and_push agent deep-agent "$work/agent/Dockerfile" "$work/agent" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "SOURCE_REVISION=$revision" >"$work/agent.build.log" 2>&1 &
+pids+=("$!"); names+=(agent)
+build_and_push sandbox skill-sandbox apps/skill-sandbox/Dockerfile apps/skill-sandbox --build-arg "NODE_IMAGE=$node_image" --build-arg "PYTHON_IMAGE=$python_image" --build-arg "NPM_REGISTRY=$npm_registry" --build-arg "PYPI_INDEX_URL=$pypi_index_url" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "SOURCE_REVISION=$revision" >"$work/sandbox.build.log" 2>&1 &
+pids+=("$!"); names+=(sandbox)
+wait_for_builds
 
 docker pull --platform "$platform" "$postgres_image" >/dev/null
 docker pull --platform "$platform" "$redis_image" >/dev/null
@@ -104,4 +121,14 @@ else
 fi
 [[ "$(stat -c '%U:%G:%a' "$manifest")" == "root:$runner_group:640" ]] || fail "release manifest permissions differ"
 node --import tsx packages/cloud-deploy/src/release-cli.ts validate "$manifest" production >/dev/null
-printf 'CN_RELEASE_PUBLISHED revision=%s manifest=%s\n' "$revision" "$manifest"
+seal="$OUTPUT_DIR/$revision.sealed.json"
+if [[ -e "$seal" ]]; then
+  [[ -f "$seal" && ! -L "$seal" ]] || fail "existing release seal is unsafe"
+else
+  temporary_seal="$work/release.sealed.json"
+  node --import tsx packages/cloud-deploy/src/release-candidate-cli.ts seal "$manifest" "$temporary_seal" >/dev/null
+  install -o root -g "$runner_group" -m 0640 "$temporary_seal" "$seal"
+fi
+[[ "$(stat -c '%U:%G:%a' "$seal")" == "root:$runner_group:640" ]] || fail "release seal permissions differ"
+node --import tsx packages/cloud-deploy/src/release-candidate-cli.ts validate "$manifest" "$seal" "$revision" >/dev/null
+printf 'CN_RELEASE_PUBLISHED revision=%s manifest=%s seal=%s\n' "$revision" "$manifest" "$seal"

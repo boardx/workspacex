@@ -38,6 +38,11 @@ describe("China production release publisher",()=>{
     expect(source).toContain('docker pull --platform "$platform" "$tag"');
     expect(source).toContain("existing immutable $service tag has a different revision");
   });
+  it("publishes services in parallel and seals the immutable manifest once",()=>{
+    expect(source).toContain("wait_for_builds");
+    expect(source).toContain("release-candidate-cli.ts");
+    expect(source).toContain(".sealed.json");
+  });
   it("requires Buildx and preserves revision verification",()=>{
     expect(source).toContain('docker buildx version >/dev/null 2>&1 || fail "Docker buildx unavailable"');
     expect(source).toContain('docker buildx build --load --platform "$platform" "$@" -f "$dockerfile" -t "$tag" "$context"');

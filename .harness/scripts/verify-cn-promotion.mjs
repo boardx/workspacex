@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 function fail(message) {
@@ -8,9 +9,9 @@ function fail(message) {
   process.exit(1);
 }
 
-const [revision, manifestPath, acrRepositoryPrefix, mainRef = "origin/main", cnRef = "origin/main-cn"] = process.argv.slice(2);
-if (!revision || !manifestPath || !acrRepositoryPrefix || process.argv.length > 7) {
-  fail("usage: verify-cn-promotion.mjs <revision> <manifest> <acr-repository-prefix> [main-ref] [cn-ref]");
+const [revision, manifestPath, sealPath, acrRepositoryPrefix, mainRef = "origin/main", cnRef = "origin/main-cn"] = process.argv.slice(2);
+if (!revision || !manifestPath || !sealPath || !acrRepositoryPrefix || process.argv.length > 8) {
+  fail("usage: verify-cn-promotion.mjs <revision> <manifest> <seal> <acr-repository-prefix> [main-ref] [cn-ref]");
 }
 if (!/^[a-f0-9]{40}$/.test(revision)) fail("revision must be a full commit SHA");
 if (!/^[a-z0-9][a-z0-9.-]*(?::[0-9]+)?\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(acrRepositoryPrefix)) {
@@ -33,11 +34,22 @@ try {
   fail(`revision is not contained in ${mainRef}`);
 }
 
-let manifest;
+let manifest, manifestBytes, seal;
 try {
-  manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  manifestBytes = readFileSync(manifestPath);
+  manifest = JSON.parse(manifestBytes.toString("utf8"));
 } catch {
   fail("release manifest is missing or invalid JSON");
+}
+try {
+  seal = JSON.parse(readFileSync(sealPath, "utf8"));
+} catch {
+  fail("release seal is missing or invalid JSON");
+}
+const manifestSha256 = createHash("sha256").update(manifestBytes).digest("hex");
+if (seal?.schemaVersion !== 1 || seal?.status !== "sealed" || seal?.sourceRevision !== revision ||
+    seal?.manifestSha256 !== manifestSha256 || Number.isNaN(Date.parse(seal?.sealedAt))) {
+  fail("release seal does not match manifest");
 }
 if (manifest?.sourceRevision !== revision) fail("release manifest sourceRevision does not match revision");
 

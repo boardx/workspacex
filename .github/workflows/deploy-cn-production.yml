@@ -49,9 +49,10 @@ jobs:
           set -euo pipefail
           repository=/opt/workspacex-cn/repository
           manifest="/etc/workspacex-cn/releases/${REVISION}.json"
+          seal="/etc/workspacex-cn/releases/${REVISION}.sealed.json"
           cd "${repository}"
           node .harness/scripts/verify-cn-promotion.mjs \
-            "${REVISION}" "${manifest}" "${ACR_REPOSITORY_PREFIX}" origin/main origin/main-cn
+            "${REVISION}" "${manifest}" "${seal}" "${ACR_REPOSITORY_PREFIX}" origin/main origin/main-cn
 
       - name: Deploy verified release
         shell: bash

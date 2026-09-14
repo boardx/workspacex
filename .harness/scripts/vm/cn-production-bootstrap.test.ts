@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const directory = import.meta.dirname;
 const bootstrap = readFileSync(resolve(directory, "bootstrap-cn-production.sh"), "utf8");
 const deploy = readFileSync(resolve(directory, "deploy-cn-production.sh"), "utf8");
+const candidate = readFileSync(resolve(directory, "build-cn-release-candidate.sh"), "utf8");
 
 describe("China production trusted deployment entrypoints", () => {
   it("installs a root-owned wrapper and validates sudoers before activation", () => {
@@ -13,6 +14,20 @@ describe("China production trusted deployment entrypoints", () => {
     expect(bootstrap).toContain('visudo -cf "$sudoers_temp"');
     expect(bootstrap).toContain('install -o root -g root -m 0440 "$sudoers_temp" "$SUDOERS_FILE"');
     expect(bootstrap).not.toMatch(/PRIVATE_KEY|PASSWORD|API_KEY=/);
+    expect(bootstrap).toContain("workspacex-cn-build-candidate");
+  });
+
+  it("uses one release lock for candidate publication and production activation", () => {
+    expect(candidate).toContain("release.lock");
+    expect(deploy).toContain("release.lock");
+    expect(candidate).toContain("EcsRamRole");
+    expect(candidate).toContain("DOCKER_CONFIG");
+    expect(candidate).toContain("docker logout");
+    expect(candidate).toContain('WSX_ACR_INSTANCE_ID');
+    expect(candidate).toContain('--InstanceId "$instance_id"');
+    expect(candidate).toContain("candidate_sealed");
+    expect(deploy).toContain("production_available");
+    expect(deploy).toContain("release-events");
   });
 
   it("requires Docker Buildx before installing the deployment entrypoint", () => {

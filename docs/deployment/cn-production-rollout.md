@@ -13,12 +13,28 @@
 
 ## `main-cn` 发布分支
 
-`main-cn` 是中国生产环境的发布指针，不承载日常开发。代码仍通过 PR 合入 `main`；发布时只允许把已经进入 `main` 的指定提交 fast-forward 到 `main-cn`。push 会触发 `deploy-cn-production`，同一时间只运行一个部署。
+`main-cn` 是中国生产环境的发布指针，不承载日常开发。代码仍通过 PR 合入 `main`。`backend-gates` 在 `main` 成功后，`prepare-cn-release` 会提前构建四个应用镜像并封印 digest manifest；发布时只允许把已经封印且进入 `main` 的指定提交 fast-forward 到 `main-cn`。push 会触发 `deploy-cn-production`，生产只验证并激活该候选版本，不再构建 Next.js 或其他应用镜像。
+
+候选构建与生产激活共用 `/var/lib/workspacex-cn/runtime/release.lock`，避免构建、预热和切换同时修改发布工作区。候选构建通过 ECS RAM Role 获取一小时内有效的 ACR 临时密码，凭据只写入一次性 `DOCKER_CONFIG` 并在结束时注销、删除。目标机必须提供 root-owned `0600` 的 `/etc/workspacex-cn/publish.env`：
+
+```dotenv
+WSX_REGISTRY_PREFIX=<ACR registry host>/workspacex-prod
+WSX_ACR_INSTANCE_ID=cri-ttm0916mvdvg4ugx
+WSX_ACR_REGION=cn-shanghai
+WSX_ECS_RAM_ROLE_NAME=<attached ECS RAM role>
+WSX_PLATFORM=linux/amd64
+WSX_NODE_IMAGE=<reviewed digest reference>
+WSX_PYTHON_IMAGE=<reviewed digest reference>
+WSX_POSTGRES_IMAGE=<reviewed digest reference>
+WSX_REDIS_IMAGE=<reviewed digest reference>
+```
+
+每个 SHA 的候选构建、prepare、activation、runtime ready、浏览器验收和公网可用时间写入 `/var/lib/workspacex-cn/release-events/<SHA>.jsonl`。以 `candidate_sealed` 到 `production_available` 计算用户发起发布后的可见时间，候选镜像构建耗时单独报告。
 
 流水线在目标机验证以下条件后才调用 root 拥有的受信部署入口：
 
 1. 发布 SHA 是当前 `main-cn` tip，并且属于 `origin/main` 历史。
-2. canonical release manifest 的 `sourceRevision` 等于发布 SHA。
+2. canonical release manifest 的 `sourceRevision` 等于发布 SHA，且 `.sealed.json` 记录的 SHA-256 与 manifest 原始字节完全一致。
 3. 四个应用镜像位于 `CN_ACR_REPOSITORY_PREFIX` 指定的新 ACR namespace，全部固定为 `@sha256` digest。
 4. PostgreSQL/Redis 基础镜像仍在 canonical manifest 中固定 digest，但 production 使用托管 RDS/Redis，不要求将它们复制进 ACR。
 5. runner 使用独立标签 `workspacex-cn-production`，GitHub Environment 固定为 `production-cn`；当前 Devapp workflow 不被触发。
