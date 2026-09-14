@@ -1,5 +1,5 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
-import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { test, expect, type Locator } from "@playwright/test";
+import { openFreshThread } from "./chat-task-workbench-fixture";
 
 /**
  * issue #3373 —— composer 内联附件条在**真实浏览器**里的判据。
@@ -31,14 +31,6 @@ const PNG_B_8X8 = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGOQs
 
 test.setTimeout(120_000);
 
-async function login(page: Page): Promise<void> {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
-  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
-}
-
 /**
  * 命中测试：这个元素中心那一点，浏览器实际命中的是不是它自己（或它的后代）。
  * 返回 `{ hit, naturalWidth, width, height }`——不返回布尔，失败时要能看见到底命中了谁。
@@ -66,18 +58,19 @@ async function hitTest(locator: Locator): Promise<{
 test(
   "#3373 composer 内联附件：图片缩略图真的可见（命中测试）+ 点第 2 张打开的是第 2 张",
   async ({ page }) => {
-    await login(page);
-    await page.goto("/chat");
+    await openFreshThread(page);
 
     // 隐藏文件输入由 `ChatAttachmentDock` 无条件渲染（不挂在「加材料」弹窗开合上），
     // 直接对它 `setInputFiles` 走的就是真实的 `pickFiles → doUpload` 路径，不是绕过它——
-    // 与 `chat-vision-honest-degrade.spec.ts` 同一套做法。线程是首次上传时按需创建的
-    // （`resolveThreadId`，issue #2520），所以不需要先手工建线程。
+    // 与 `chat-vision-honest-degrade.spec.ts` 同一套做法。先由权威 helper 创建并打开
+    // 一个已确认可写的空线程，避免裸 `/chat` 的页面壳先挂载、写权限仍在同步时就上传。
     await expect(page.getByTestId("chat-task-workbench-composer")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("chat-attachment-file-input").waitFor({ state: "attached", timeout: 30_000 });
+    const fileInput = page.getByTestId("chat-attachment-file-input");
+    await fileInput.waitFor({ state: "attached", timeout: 30_000 });
+    await expect(fileInput).toBeEnabled({ timeout: 30_000 });
 
     /* ═══ ① 真实上传两张图 + 一个非图片，走的是真 multipart 端点 ═══ */
-    await page.getByTestId("chat-attachment-file-input").setInputFiles([
+    await fileInput.setInputFiles([
       { name: "thumb-a.png", mimeType: "image/png", buffer: Buffer.from(PNG_A_4X4, "base64") },
       { name: "thumb-b.png", mimeType: "image/png", buffer: Buffer.from(PNG_B_8X8, "base64") },
       { name: "thumb-note.txt", mimeType: "text/plain", buffer: Buffer.from("#3373 非图片退回类型图标", "utf8") },
