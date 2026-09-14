@@ -1,5 +1,8 @@
 # Starter / production 配置入口
 
+中国生产版本的预构建、基线 CAS、五分钟激活和自动回滚流程见
+[fast-safe-release.md](./fast-safe-release.md)。
+
 本切片实现配置校验和部署计划，跟踪 [#3414](https://github.com/boardx/workspacex/issues/3414)。尚不创建云资源、读取密钥、预热镜像、迁移数据库或启动应用。
 
 | 档位 | 应用 | 数据库 / 会话 | 文件 |

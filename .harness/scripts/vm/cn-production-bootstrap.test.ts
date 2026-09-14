@@ -63,12 +63,32 @@ describe("China production trusted deployment entrypoints", () => {
 
   it("prepares before provision and rolls back an invalid nginx update", () => {
     const prepare = deploy.indexOf("prepare-host");
-    const nginx = deploy.indexOf("nginx -t");
+    const nginx = deploy.indexOf("nginx -t", deploy.indexOf('nginx_source="$runtime/nginx.conf"'));
     const provision = deploy.indexOf(" provision --");
     expect(prepare).toBeGreaterThan(-1);
     expect(nginx).toBeGreaterThan(prepare);
     expect(provision).toBeGreaterThan(nginx);
     expect(deploy).toContain('mv -f "$nginx_backup" "$NGINX_CONFIG"');
     expect(deploy).toContain("another deployment is active");
+  });
+
+  it("binds preparation to the live baseline and drains runs before activation", () => {
+    const baseline = deploy.indexOf('capture_baseline "$current_baseline"');
+    const drain = deploy.indexOf("wait_for_run_drain", baseline);
+    const provision = deploy.indexOf(" provision --", drain);
+    expect(baseline).toBeGreaterThan(-1);
+    expect(deploy).toContain('cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest"');
+    expect(drain).toBeGreaterThan(baseline);
+    expect(provision).toBeGreaterThan(drain);
+    expect(deploy).toContain("writeback_pending");
+    expect(deploy).toContain("activation_deadline=$((SECONDS+300))");
+  });
+
+  it("restores the exact image and ingress baseline on every activation failure", () => {
+    expect(deploy).toContain("trap activation_failure EXIT");
+    expect(deploy).toContain('docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans');
+    expect(deploy).toContain('install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"');
+    expect(deploy).toContain("CN_DEPLOY_ROLLBACK_UNPROVEN");
+    expect(deploy).toContain("cn-release-browser-smoke.mjs");
   });
 });

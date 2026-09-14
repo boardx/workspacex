@@ -35,6 +35,7 @@
 | ADR-107 | harness-h3a-pr-queue-merge-gate-doctor | `.harness/` 约 3 万行代码精简为三阶段：冻结 H3A 治理机器（5,366 行，实测 0/0/2/1 个真实实例）出强制验证链；合并 `pr-queue.ts`/`merge-gate.ts`（本会话实测过的真实重复）；19 个 lint-doctor 抽共享框架。**Proposed，需人类确认阶段一的产品方向** |
 | ADR-109 | 数字访谈报告采用可恢复增量流 | Proposed |
 | ADR-110 | frontend-data-fetching-layer | 引入 TanStack Query 收敛 32 个 `lib/live-*.ts` 域各自手写的 `useEffect` 取数/竞态保护（实测 31/32 无防护）；不改 API 封装层与 `SessionProvider`，逐组件文件渐进迁移。**Proposed** |
+| ADR-111 | separate-cn-release-preparation-from-traffic-activation | CN 发布先生成绑定真实基线的不可变准备凭据，再在五分钟预算内 drain、CAS、切换、验收和失败回滚。**Proposed** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
