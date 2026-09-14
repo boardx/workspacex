@@ -43,3 +43,5 @@ export {
   verifyPreparedReleaseManifest,
 } from "./cn-fast-safe-release";
 export type { ActivationActions, ActivationReport, PreparedCnRelease, PreparationActions, ReleaseFailure } from "./cn-fast-safe-release";
+export { sealedReleaseCandidateSchema, sealReleaseCandidate, verifySealedReleaseCandidate } from "./release-candidate";
+export type { SealedReleaseCandidate } from "./release-candidate";

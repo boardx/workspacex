@@ -14,12 +14,14 @@ RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
 RELEASE_TREE_ROOT=/var/lib/workspacex-cn/releases
+EVENTS_ROOT=/var/lib/workspacex-cn/release-events
 PREPARATIONS_DIR=/etc/workspacex-cn/preparations
 AGENT_ENV_FILE=/etc/workspacex-cn/agent.env
 RUNNER_ID_FILE=/etc/workspacex-cn/runner-user
 NGINX_CONFIG=/etc/nginx/conf.d/workspacex-cn.conf
 PROJECT_NAME=workspacex-cn
 manifest="$RELEASES_DIR/$revision.json"
+seal="$RELEASES_DIR/$revision.sealed.json"
 runtime="$RUNTIME_ROOT/$revision"
 release_checkout="$RELEASE_TREE_ROOT/$revision"
 request="$REQUESTS_DIR/$revision.json"
@@ -29,6 +31,13 @@ baseline_state="$runtime/baseline.json"
 baseline_nginx="$runtime/baseline-nginx.conf"
 
 fail() { echo "CN_DEPLOY_REJECTED: $1" >&2; exit 1; }
+record_event() {
+  node - "$EVENTS_ROOT/$revision.jsonl" "$revision" "$1" <<'NODE'
+const fs=require("node:fs"),[path,revision,stage]=process.argv.slice(2);
+fs.appendFileSync(path,`${JSON.stringify({schemaVersion:1,revision,stage,at:new Date().toISOString()})}\n`,{mode:0o600});
+NODE
+  chown root:root "$EVENTS_ROOT/$revision.jsonl"; chmod 0600 "$EVENTS_ROOT/$revision.jsonl"
+}
 private_root_file() {
   local path=$1
   [[ -f "$path" && ! -L "$path" ]] || fail "protected file missing: $path"
@@ -116,11 +125,12 @@ REPOSITORY_GROUP=$(id -gn "$REPOSITORY_USER")
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "repository missing"
 private_root_file "$CONFIG_FILE"
 runner_readable_manifest "$manifest"
+runner_readable_manifest "$seal"
 private_root_file "$AGENT_ENV_FILE"
-install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR"
+install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
 install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 
-exec 9>"$RUNTIME_ROOT/deploy.lock"
+exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another deployment is active"
 
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
@@ -132,8 +142,15 @@ node -e '
   const value=JSON.parse(fs.readFileSync(path,"utf8"));
   if(value.sourceRevision!==revision)process.exit(1);
 ' "$manifest" "$revision" || fail "manifest sourceRevision mismatch"
+node - "$manifest" "$seal" "$revision" <<'NODE' || fail "release seal validation failed"
+const fs=require("node:fs"),crypto=require("node:crypto"),[manifestPath,sealPath,revision]=process.argv.slice(2);
+const bytes=fs.readFileSync(manifestPath),manifest=JSON.parse(bytes),seal=JSON.parse(fs.readFileSync(sealPath,"utf8"));
+const digest=crypto.createHash("sha256").update(bytes).digest("hex");
+if(manifest.sourceRevision!==revision||seal.schemaVersion!==1||seal.status!=="sealed"||seal.sourceRevision!==revision||seal.manifestSha256!==digest||Number.isNaN(Date.parse(seal.sealedAt)))process.exit(1);
+NODE
 
 if [[ "$mode" == prepare ]]; then
+  record_event prepare_started
   private_root_file "$preparation_input"
   [[ ! -e "$release_checkout" && ! -e "$runtime" ]] || fail "release preparation already exists"
   stage=$(mktemp -d "$RELEASE_TREE_ROOT/.prepare-$revision.XXXXXX")
@@ -161,6 +178,7 @@ if [[ "$mode" == prepare ]]; then
   baseline_sha=$(baseline_fingerprint "$baseline_state" "$baseline_nginx")
   pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
   pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
+  record_event prepare_completed
   printf 'CN_PRODUCTION_RELEASE_PREPARED revision=%s\n' "$revision"
   exit 0
 fi
@@ -181,6 +199,7 @@ pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_re
 
 activation_started=1
 activation_deadline=$((SECONDS+300))
+record_event activation_started
 activation_failure() {
   local status=$?
   trap - EXIT
@@ -222,10 +241,13 @@ remaining=$((activation_deadline-SECONDS))
 if ! timeout "${remaining}s" pnpm --filter @repo/cloud-deploy provision -- "$request"; then
   fail "provision failed"
 fi
+record_event runtime_ready
 remaining=$((activation_deadline-SECONDS))
 (( remaining > 0 )) || fail "activation deadline exceeded before browser smoke"
 public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
+record_event browser_acceptance_started
 timeout "${remaining}s" node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null || fail "browser smoke failed"
+record_event production_available
 activation_started=0
 trap - EXIT
 rm -rf -- "$current_baseline_dir"

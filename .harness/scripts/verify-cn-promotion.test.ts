@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,7 +32,9 @@ function repository() {
 function verify(root: string, revision: string, manifest: unknown) {
   const path = join(root, "release.json");
   writeFileSync(path, JSON.stringify(manifest));
-  return spawnSync(process.execPath, [verifier, revision, path, prefix, "main", "main-cn"], { cwd: root, encoding: "utf8" });
+  const sealPath = join(root, "release.sealed.json");
+  writeFileSync(sealPath, JSON.stringify({ schemaVersion: 1, status: "sealed", sourceRevision: revision, manifestSha256: createHash("sha256").update(readFileSync(path)).digest("hex"), sealedAt: "2026-09-15T00:00:00.000Z" }));
+  return spawnSync(process.execPath, [verifier, revision, path, sealPath, prefix, "main", "main-cn"], { cwd: root, encoding: "utf8" });
 }
 
 describe("CN production promotion gate", () => {
@@ -46,7 +49,18 @@ describe("CN production promotion gate", () => {
     expect(workflow).toContain("CN_ACR_REPOSITORY_PREFIX");
     expect(workflow).toContain("group: workspacex-cn-production-deploy");
     expect(workflow).toContain('manifest="/etc/workspacex-cn/releases/${REVISION}.json"');
+    expect(workflow).toContain('seal="/etc/workspacex-cn/releases/${REVISION}.sealed.json"');
     expect(workflow).toContain('sudo /usr/local/bin/workspacex-cn-deploy "${REVISION}"');
+  });
+
+  it("rejects a release whose sealed manifest hash no longer matches", () => {
+    const { root, revision } = repository();
+    const path = join(root, "release.json"), sealPath = join(root, "release.sealed.json");
+    writeFileSync(path, JSON.stringify({ sourceRevision: revision, images }));
+    writeFileSync(sealPath, JSON.stringify({ schemaVersion: 1, status: "sealed", sourceRevision: revision, manifestSha256: "0".repeat(64), sealedAt: "2026-09-15T00:00:00.000Z" }));
+    const result = spawnSync(process.execPath, [verifier, revision, path, sealPath, prefix, "main", "main-cn"], { cwd: root, encoding: "utf8" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("release seal does not match manifest");
   });
 
   it("accepts the main-cn tip only when it is in main and all images use digests", () => {

@@ -1,0 +1,50 @@
+name: prepare-cn-release
+
+on:
+  workflow_run:
+    workflows: ["backend-gates"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Exact main commit to build"
+        required: true
+        type: string
+      release:
+        description: "Semantic production release identifier"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspacex-cn-release-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-candidate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    environment: production-cn-build
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 45
+    steps:
+      - name: Build and seal exact release candidate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.release_sha }}
+          INPUT_RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+          revision="${RUN_SHA}"
+          release="2026.9.${GITHUB_RUN_NUMBER}-cn.${GITHUB_RUN_ATTEMPT}"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            revision="${INPUT_SHA}"
+            release="${INPUT_RELEASE}"
+          fi
+          [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
+          sudo /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}"
