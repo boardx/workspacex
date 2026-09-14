@@ -11,9 +11,11 @@ import { describe, expect, it } from "vitest";
 import {
   CloudflareTransactionalEmailTransport,
   TransactionalMailError,
+  lazyTransactionalMailConfig,
   transactionalMailConfig,
   type TransactionalMailConfig,
 } from "../../src/infrastructure/notifications/cloudflare-transactional-email-transport";
+import { isMailConfigurationError } from "../../src/application/notifications/transactional-mail-ports";
 import { renderBrandEmailHtml } from "../../src/infrastructure/notifications/email-branding";
 
 function fakeConfig(over: Partial<TransactionalMailConfig> = {}): TransactionalMailConfig {
@@ -67,6 +69,21 @@ describe("CloudflareTransactionalEmailTransport", () => {
     await expect(transport.send({ to: "a@b.com", subject: "s", text: "t" })).rejects.toBeInstanceOf(
       TransactionalMailError,
     );
+    expect(called).toBe(false);
+  });
+
+  it("2026-09-14：生产懒加载配置在首次读取时抛普通 Error ⇒ 归类为 configuration_invalid，不再穿透成 500", async () => {
+    let called = false;
+    const fakeFetch = (async () => { called = true; return jsonResponse({ success: true }); }) as typeof fetch;
+    const transport = new CloudflareTransactionalEmailTransport(
+      lazyTransactionalMailConfig({ NODE_ENV: "production" } as NodeJS.ProcessEnv),
+      fakeFetch,
+    );
+    const err = await transport.send({ to: "a@b.com", subject: "s", text: "t" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TransactionalMailError);
+    expect((err as TransactionalMailError).category).toBe("configuration_invalid");
+    expect(isMailConfigurationError(err as TransactionalMailError)).toBe(true);
+    expect(String((err as Error).cause)).toMatch(/incomplete/);
     expect(called).toBe(false);
   });
 

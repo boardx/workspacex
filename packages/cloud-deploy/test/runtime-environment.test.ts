@@ -102,6 +102,32 @@ it("projects the feedback GitHub issue profile only to the API and keeps the tok
   });
   expect(Object.keys(unconfigured.api).some((key) => key.startsWith("GITHUB_ISSUE_"))).toBe(false);
 });
+it("projects the mail profile only to the API, attests preview disabled, and always gives the API its public URL", async () => {
+  const configured = deploymentExample("starter");
+  configured.provision.mailProfile = {
+    cloudflareAccountId: "0123456789abcdef0123456789abcdef",
+    apiTokenSecretRef: "env:WORKSPACEX_MAIL_TOKEN",
+    mailFrom: "no-reply@mail.example.com",
+    sendingDomain: "mail.example.com",
+  };
+  const maps = await runtimeEnvironment(configured, await directory(), { WORKSPACEX_MODEL_KEY: "model-key", WORKSPACEX_MAIL_TOKEN: "mail-token" });
+  expect(maps.api).toMatchObject({
+    CLOUDFLARE_ACCOUNT_ID: "0123456789abcdef0123456789abcdef",
+    CLOUDFLARE_EMAIL_API_TOKEN: "mail-token",
+    MAIL_FROM: "no-reply@mail.example.com",
+    CLOUDFLARE_EMAIL_SENDING_DOMAIN: "mail.example.com",
+    CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    APP_PUBLIC_URL: "https://workspace.example.com",
+  });
+  for (const target of [maps.agent, maps.web, maps.migration, maps.bootstrap]) {
+    expect(JSON.stringify(target)).not.toContain("mail-token");
+    expect(Object.keys(target).some((key) => key.startsWith("CLOUDFLARE_") || key === "MAIL_FROM")).toBe(false);
+  }
+  const unconfigured = await runtimeEnvironment(deploymentExample("starter"), await directory(), { WORKSPACEX_MODEL_KEY: "model-key", WORKSPACEX_MAIL_TOKEN: "unused" });
+  expect(Object.keys(unconfigured.api).some((key) => key.startsWith("CLOUDFLARE_") || key === "MAIL_FROM")).toBe(false);
+  expect(unconfigured.api.APP_PUBLIC_URL).toBe("https://workspace.example.com");
+  await expect(runtimeEnvironment(configured, await directory(), { WORKSPACEX_MODEL_KEY: "model-key" })).rejects.toThrow(/^SECRET_UNAVAILABLE$/);
+});
 it("propagates the configured Serverless TLS exception to every API database process", async () => {
   const config=deploymentExample("production"); config.environment.rdsTlsException={kind:"aliyun-postgresql-serverless-no-tls",allowedCidrs:["10.0.1.7/32"]};
   const value = await runtimeEnvironment(config, await directory(), {

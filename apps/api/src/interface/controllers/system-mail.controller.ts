@@ -18,8 +18,10 @@ import { NoTestEmailRecipientError, sendTestEmail } from "../../application/noti
 import {
   TRANSACTIONAL_MAIL_TRANSPORT,
   TransactionalMailError,
+  isMailConfigurationError,
   type TransactionalMailTransport,
 } from "../../application/notifications/transactional-mail-ports";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
@@ -35,6 +37,7 @@ export class SystemMailController {
   constructor(
     @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
     @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly recipients: FeedbackSubmitterDirectory,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   @UseGuards(PlatformSuperuserGuard)
@@ -54,8 +57,12 @@ export class SystemMailController {
     } catch (e) {
       if (e instanceof NoTestEmailRecipientError) throw new UnprocessableEntityException({ reasonCode: "NO_RECIPIENT" });
       if (e instanceof TransactionalMailError) {
-        if (e.category === "configuration_missing") {
-          throw new ServiceUnavailableException({ reasonCode: "MAIL_NOT_CONFIGURED" });
+        if (isMailConfigurationError(e)) {
+          // `configuration_invalid` 带 cause（缺哪项 / 域名不匹配）——只进日志，响应里只给类别。
+          this.logger.error("test email refused: transactional mail configuration invalid", {
+            traceId: traceIdOf(req), err: e.cause ?? e, category: e.category,
+          });
+          throw new ServiceUnavailableException({ reasonCode: "MAIL_NOT_CONFIGURED", category: e.category });
         }
         // `category` 是适配器归好类的枚举式字符串（timeout / network / provider_http_502…），
         // 不是原始异常消息——见契约 `sendTestEmail` 头注。

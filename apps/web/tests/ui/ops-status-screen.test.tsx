@@ -167,10 +167,14 @@ describe("OPS-1 运营状态屏——服务可用性", () => {
         return {
           service: "dev_app",
           configured: true,
-          segments: [
-            { checkedAt: "2026-09-04T00:00:00.000Z", isUp: true },
-            { checkedAt: "2026-09-04T00:01:00.000Z", isUp: false },
-            { checkedAt: "2026-09-04T00:02:00.000Z", isUp: true },
+          target: "https://dev.example.test/",
+          windowHours: 24,
+          bucketMinutes: 15,
+          buckets: [
+            { from: "2026-09-04T00:00:00.000Z", to: "2026-09-04T00:15:00.000Z", checks: 1, downChecks: 0, status: "up" },
+            { from: "2026-09-04T00:15:00.000Z", to: "2026-09-04T00:30:00.000Z", checks: 1, downChecks: 1, status: "down" },
+            { from: "2026-09-04T00:30:00.000Z", to: "2026-09-04T00:45:00.000Z", checks: 0, downChecks: 0, status: "no_data" },
+            { from: "2026-09-04T00:45:00.000Z", to: "2026-09-04T01:00:00.000Z", checks: 1, downChecks: 0, status: "up" },
           ],
           totalChecks: 3,
           upChecks: 2,
@@ -184,7 +188,9 @@ describe("OPS-1 运营状态屏——服务可用性", () => {
     const bar = await screen.findByTestId("admin-ops-status-uptime-bar");
     expect(screen.getAllByTestId("admin-ops-status-uptime-segment-up")).toHaveLength(2);
     expect(screen.getAllByTestId("admin-ops-status-uptime-segment-down")).toHaveLength(1);
-    expect(bar.children).toHaveLength(3);
+    expect(screen.getAllByTestId("admin-ops-status-uptime-segment-empty")).toHaveLength(1);
+    expect(bar.children).toHaveLength(4);
+    expect(screen.getByTestId("admin-ops-status-uptime-target").textContent).toContain("https://dev.example.test/");
     const percent = screen.getByTestId("admin-ops-status-uptime-percent");
     expect(percent.textContent).toContain("66.67%");
     expect(percent.textContent).toContain("3 次探活中 2 次可用");
@@ -193,7 +199,7 @@ describe("OPS-1 运营状态屏——服务可用性", () => {
   it("未配置探活目标：明确说明未配置，不是渲染一条空 bar", async () => {
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/system/uptime") {
-        return { service: "dev_app", configured: false, segments: [], totalChecks: 0, upChecks: 0, availabilityPercent: null };
+        return { service: "public_app", configured: false, target: null, windowHours: 24, bucketMinutes: 15, buckets: [], totalChecks: 0, upChecks: 0, availabilityPercent: null };
       }
       return {};
     });

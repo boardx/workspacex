@@ -31,6 +31,46 @@ export interface UptimeAvailability {
   readonly availabilityPercent: number | null;
 }
 
+export type UptimeCheckBucketStatus = "up" | "down" | "no_data";
+
+export interface UptimeCheckBucket {
+  /** ISO 8601，左闭右开 `[from, to)`。 */
+  readonly from: string;
+  readonly to: string;
+  readonly checks: number;
+  readonly downChecks: number;
+  readonly status: UptimeCheckBucketStatus;
+}
+
+/**
+ * 把一批探活记录按固定时长等分进 `[windowEnd - bucketCount*bucketMs, windowEnd)` 的桶里
+ * （2026-09-14：红绿 bar 要能看一天，1440 格画不下，也看不出中断发生在什么时候）。
+ * 窗口外的记录忽略；没有记录的桶是 `no_data`，不冒充可用。
+ */
+export function bucketUptimeChecks(
+  checks: readonly UptimeCheckSummary[],
+  options: { readonly windowEnd: Date; readonly bucketMs: number; readonly bucketCount: number },
+): readonly UptimeCheckBucket[] {
+  const end = options.windowEnd.getTime();
+  const start = end - options.bucketMs * options.bucketCount;
+  const total = new Array<number>(options.bucketCount).fill(0);
+  const down = new Array<number>(options.bucketCount).fill(0);
+  for (const c of checks) {
+    const t = Date.parse(c.checkedAt);
+    if (Number.isNaN(t) || t < start || t >= end) continue;
+    const i = Math.floor((t - start) / options.bucketMs);
+    total[i]! += 1;
+    if (!c.isUp) down[i]! += 1;
+  }
+  return total.map((n, i) => ({
+    from: new Date(start + i * options.bucketMs).toISOString(),
+    to: new Date(start + (i + 1) * options.bucketMs).toISOString(),
+    checks: n,
+    downChecks: down[i]!,
+    status: n === 0 ? "no_data" : down[i]! > 0 ? "down" : "up",
+  }));
+}
+
 /** `checks` 顺序不敏感——内部先按 `checkedAt` 升序排一次,调用方不必自己保证顺序。 */
 export function computeUptimeAvailability(checks: readonly UptimeCheckSummary[]): UptimeAvailability {
   const segments = [...checks].sort((a, b) => a.checkedAt.localeCompare(b.checkedAt));

@@ -21,13 +21,16 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   }
   assertSecretOperationActive(context);
   const secret = Object.fromEntries(names.map((name, i) => [name, values[i]!])) as Record<typeof names[number], string>;
-  const [modelKey, asrKey, githubIssueToken] = await Promise.all([
+  const [modelKey, asrKey, githubIssueToken, mailToken] = await Promise.all([
     resolveSecret(config.provision.modelProfile.apiKeySecretRef, source, context),
     config.provision.asrProfile
       ? resolveSecret(config.provision.asrProfile.apiKeySecretRef, source, context)
       : Promise.resolve(undefined),
     config.provision.githubIssueProfile
       ? resolveSecret(config.provision.githubIssueProfile.tokenSecretRef, source, context)
+      : Promise.resolve(undefined),
+    config.provision.mailProfile
+      ? resolveSecret(config.provision.mailProfile.apiTokenSecretRef, source, context)
       : Promise.resolve(undefined),
   ]);
   const model = {
@@ -57,6 +60,18 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
       GITHUB_ISSUE_ATTACHMENTS_BRANCH: config.provision.githubIssueProfile.attachmentsBranch,
     });
   }
+  const mail: Record<string, string> = {};
+  if (config.provision.mailProfile) {
+    if (!mailToken) throw new Error("MAIL_CONFIGURATION_INVALID");
+    Object.assign(mail, {
+      CLOUDFLARE_ACCOUNT_ID: config.provision.mailProfile.cloudflareAccountId,
+      CLOUDFLARE_EMAIL_API_TOKEN: mailToken,
+      MAIL_FROM: config.provision.mailProfile.mailFrom,
+      CLOUDFLARE_EMAIL_SENDING_DOMAIN: config.provision.mailProfile.sendingDomain,
+      // The API refuses production sends until the operator attests Email Preview is off.
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    });
+  }
   const platformSuperuser: Record<string, string> = config.provision.platformSuperuserEmails
     ? { PLATFORM_SUPERUSER_EMAILS: config.provision.platformSuperuserEmails.join(",") }
     : {};
@@ -79,8 +94,10 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
   }
   const apiData = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith("MIGRATION_DB_") && !key.startsWith("AGENT_DB_") && !key.startsWith("MEMORY_DB_")));
   const sharedNative = { NATIVE_SESSION_SOCKET: "/run/sessions/skill-sandbox.sock", DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"] };
-  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...githubIssue, ...platformSuperuser, ...sharedNative,
-    NODE_ENV: "production", PORT: "3200", MODEL_CREDENTIAL_KEY: secret["model-cipher"],
+  const api: Record<string, string> = { ...deploymentStorageEnvironment(config), ...apiData, ...model, ...asr, ...githubIssue, ...mail, ...platformSuperuser, ...sharedNative,
+    NODE_ENV: "production", PORT: "3200",
+    // Verification-mail links and the default uptime probe target both derive from the public origin.
+    APP_PUBLIC_URL: config.environment.publicUrl, MODEL_CREDENTIAL_KEY: secret["model-cipher"],
     EMAIL_VERIFICATION_SECRET: secret["email-verification"],
     NATIVE_SESSION_BINDING_KEY: secret["native-binding"], KERNEL_NATIVE_RUNTIME: "1",
     KERNEL_SKILL_SANDBOX_SOCKET: "/run/sandbox/skill-sandbox.sock",
