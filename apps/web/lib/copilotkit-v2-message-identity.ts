@@ -110,22 +110,52 @@ export interface UseChatMessageIdentityResult {
   readonly registerHydrated: (entries: readonly HydratedMessageIdentity[]) => void;
   /** Keep the completed persisted projection visible across the RUN_FINISHED rebuild frame. */
   readonly projectMessages: (messages: readonly AgentMessage[]) => AgentMessage[];
+  /** True once the browser received TEXT_MESSAGE_END for this visual assistant bubble. */
+  readonly isSettledMessageId: (messageId: string) => boolean;
 }
 
 export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIdentityResult {
-  const settledMessagesRef = React.useRef<ReadonlyMap<string, { readonly message: AssistantMessage; readonly index: number }>>(new Map());
+  const settledMessagesRef = React.useRef<ReadonlyMap<string, {
+    readonly message: AssistantMessage;
+    readonly index: number;
+    readonly aliases: ReadonlySet<string>;
+  }>>(new Map());
   const streamingMessagesRef = React.useRef<ReadonlyMap<string, { readonly message: AssistantMessage; readonly index: number }>>(new Map());
   const projectMessages = React.useCallback((messages: readonly AgentMessage[]): AgentMessage[] => {
     if (settledMessagesRef.current.size === 0) return [...messages];
-    const missing = [...settledMessagesRef.current.entries()].filter(([id]) =>
-      !messages.some((message) => message.id === id && message.role === "assistant" && String(message.content ?? "") !== ""));
-    if (missing.length === 0) return [...messages];
     const next = [...messages];
-    for (const [, held] of missing.sort((a, b) => a[1].index - b[1].index)) {
-      next.splice(Math.min(held.index, next.length), 0, held.message);
+    for (const [, held] of [...settledMessagesRef.current.entries()].sort((a, b) => a[1].index - b[1].index)) {
+      // The upstream client can briefly rebuild the same completed assistant as either its
+      // streaming id, its persisted id, or an empty placeholder. Treat those ids as aliases
+      // of one visual message. Merely inserting `held` when the stable id is absent leaves the
+      // placeholder beside it; React can then reconcile the duplicate assistant rows through
+      // one empty paint before the persisted row wins (#3397, exact-main browser frame
+      // sequence 0,32,...,190,0,190). Remove every alias and project one stable, complete row.
+      let firstAliasIndex = -1;
+      let insertionIndex = 0;
+      const withoutAliases: AgentMessage[] = [];
+      let index = 0;
+      for (const message of next) {
+        const isAlias = message.role === "assistant" && held.aliases.has(message.id);
+        if (isAlias) {
+          if (firstAliasIndex < 0) {
+            firstAliasIndex = index;
+            insertionIndex = withoutAliases.length;
+          }
+          index += 1;
+          continue;
+        }
+        withoutAliases.push(message);
+        index += 1;
+      }
+      if (firstAliasIndex < 0) insertionIndex = Math.min(held.index, withoutAliases.length);
+      withoutAliases.splice(insertionIndex, 0, held.message);
+      next.splice(0, next.length, ...withoutAliases);
     }
     return next;
   }, []);
+  const isSettledMessageId = React.useCallback((messageId: string): boolean =>
+    [...settledMessagesRef.current.values()].some((held) => held.aliases.has(messageId)), []);
   // 主流式 id → 真实落库 id（评分/落地入口只显示一次）。
   const [streamed, setStreamed] = React.useState<ReadonlyMap<string, string>>(() => new Map());
   // 整组流式 id → 真实落库 id（权威恢复要认领全部气泡）。
@@ -162,6 +192,16 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
           message,
           index: index < 0 ? (previous?.index ?? messages.length) : index,
         });
+        // `TEXT_MESSAGE_END` and the later `chat_message_id` CUSTOM frame are separate wire
+        // events. @ag-ui/client may rebuild its transient array between them, so waiting for the
+        // persisted id before installing the completed projection still permits one empty paint.
+        // Hold the complete streaming identity at END; `chat_message_id` below widens its alias
+        // set and folds multiple completed bubbles into the single persisted assistant body.
+        settledMessagesRef.current = new Map(settledMessagesRef.current).set(event.messageId, {
+          message,
+          index: index < 0 ? (previous?.index ?? messages.length) : index,
+          aliases: new Set([event.messageId]),
+        });
       },
       onRunFinishedEvent: ({ messages }) => {
         const projected = projectMessages(messages);
@@ -190,20 +230,22 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
         // 解析失败：这一帧不可信，丢弃。不退化成"拿 streamingMessageId 顶上"——
         // 那正好是这个索引存在的理由。
         if (parsed === null) return;
-        setStreamed((prev) => {
-          if (prev.get(parsed.streamingMessageId) === parsed.chatMessageId && prev.get(parsed.chatMessageId) === parsed.chatMessageId) return prev;
-          const next = new Map(prev);
-          next.set(parsed.streamingMessageId, parsed.chatMessageId);
-          next.set(parsed.chatMessageId, parsed.chatMessageId);
-          return next;
-        });
-        setStreamedAll((prev) => {
-          if (parsed.streamingMessageIds.every((id) => prev.get(id) === parsed.chatMessageId)) return prev;
-          const next = new Map(prev);
-          for (const id of parsed.streamingMessageIds) next.set(id, parsed.chatMessageId);
-          next.set(parsed.chatMessageId, parsed.chatMessageId);
-          return next;
-        });
+        const publishIdentity = () => {
+          setStreamed((prev) => {
+            if (prev.get(parsed.streamingMessageId) === parsed.chatMessageId && prev.get(parsed.chatMessageId) === parsed.chatMessageId) return prev;
+            const next = new Map(prev);
+            next.set(parsed.streamingMessageId, parsed.chatMessageId);
+            next.set(parsed.chatMessageId, parsed.chatMessageId);
+            return next;
+          });
+          setStreamedAll((prev) => {
+            if (parsed.streamingMessageIds.every((id) => prev.get(id) === parsed.chatMessageId)) return prev;
+            const next = new Map(prev);
+            for (const id of parsed.streamingMessageIds) next.set(id, parsed.chatMessageId);
+            next.set(parsed.chatMessageId, parsed.chatMessageId);
+            return next;
+          });
+        };
         // #3397: settle the complete assistant body while all contributing bubbles are still
         // present, before RUN_FINISHED lets the upstream client rebuild its transient state.
         // One subscriber mutation atomically keeps the earliest streaming identity and joins
@@ -216,7 +258,10 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
           const captured = streamingMessagesRef.current.get(id);
           return captured ? [captured] : [];
         });
-        if (groupWithPositions.length === 0) return;
+        if (groupWithPositions.length === 0) {
+          publishIdentity();
+          return;
+        }
         const firstIndex = Math.min(...groupWithPositions.map(({ index }) => index));
         const group = groupWithPositions.map(({ message }) => message);
         const first = groupWithPositions.reduce((earliest, entry) => entry.index < earliest.index ? entry : earliest).message;
@@ -224,10 +269,17 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
           ...first,
           content: composeAguiAssistantBodies(group.map((message) => String(message.content ?? ""))),
         };
-        settledMessagesRef.current = new Map(settledMessagesRef.current).set(settled.id, {
+        const nextSettled = new Map(settledMessagesRef.current);
+        for (const id of parsed.streamingMessageIds) nextSettled.delete(id);
+        settledMessagesRef.current = nextSettled.set(settled.id, {
           message: settled,
           index: firstIndex,
+          aliases: groupIds,
         });
+        // Publish the identity state only after the complete projection is installed. React may
+        // synchronously render a subscription-triggered state update; writing these maps first
+        // used to expose the upstream empty/re-keyed array before `settledMessagesRef` existed.
+        publishIdentity();
         const projected = messages.filter((message) => !groupIds.has(message.id) || message.role !== "assistant");
         projected.splice(Math.min(firstIndex, projected.length), 0, settled);
         return { messages: projected };
@@ -269,5 +321,5 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
     [streamed, streamedAll, hydrated, hydratedAll],
   );
 
-  return { index, registerHydrated, projectMessages };
+  return { index, registerHydrated, projectMessages, isSettledMessageId };
 }

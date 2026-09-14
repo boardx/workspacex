@@ -163,4 +163,64 @@ describe("useChatMessageIdentity：assistant_message_replaced", () => {
       { id: STREAM_ID, role: "assistant", content: "完整流式正文" },
     ]);
   });
+
+  it("#3397 TEXT_MESSAGE_END 到持久化 id 之间也不能出现空白帧", () => {
+    const { agent, endText } = fakeAgent();
+    const { result: hook } = renderHook(() => useChatMessageIdentity(agent));
+    act(() => {
+      endText(STREAM_ID, "END 已完成，id 尚未落库", [
+        { id: STREAM_ID, role: "assistant", content: "END 已完成，id 尚未落库" },
+      ]);
+    });
+
+    expect(hook.current.projectMessages([])).toEqual([
+      { id: STREAM_ID, role: "assistant", content: "END 已完成，id 尚未落库" },
+    ]);
+  });
+
+  it("#3397 持久化 id 的空占位不能与完整流式正文并存或触发空白帧", () => {
+    const { agent, emit, endText } = fakeAgent();
+    const { result: hook } = renderHook(() => useChatMessageIdentity(agent));
+    const complete = "终态正文已经完整生成";
+    act(() => {
+      endText(STREAM_ID, complete, [
+        { id: STREAM_ID, role: "assistant", content: complete },
+      ]);
+      emit({
+        event: {
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: { streamingMessageId: STREAM_ID, chatMessageId: PERSISTED_ID },
+        },
+        messages: [{ id: STREAM_ID, role: "assistant", content: complete }],
+      });
+    });
+
+    expect(hook.current.projectMessages([
+      { id: PERSISTED_ID, role: "assistant", content: "" },
+    ])).toEqual([
+      { id: STREAM_ID, role: "assistant", content: complete },
+    ]);
+  });
+
+  it("#3397 同一终态的流式和持久化别名只投影成一条完整正文", () => {
+    const { agent, emit, endText } = fakeAgent();
+    const { result: hook } = renderHook(() => useChatMessageIdentity(agent));
+    act(() => {
+      endText(STREAM_ID, "完整正文");
+      emit({
+        event: {
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: { streamingMessageId: STREAM_ID, chatMessageId: PERSISTED_ID },
+        },
+        messages: [{ id: STREAM_ID, role: "assistant", content: "完整正文" }],
+      });
+    });
+
+    expect(hook.current.projectMessages([
+      { id: STREAM_ID, role: "assistant", content: "" },
+      { id: PERSISTED_ID, role: "assistant", content: "完整正文" },
+    ])).toEqual([
+      { id: STREAM_ID, role: "assistant", content: "完整正文" },
+    ]);
+  });
 });
