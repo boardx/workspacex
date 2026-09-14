@@ -28,15 +28,14 @@ export class PgServiceUptimeRepository implements ServiceUptimeRepository {
     });
   }
 
-  async listRecent(service: string, limit: number): Promise<readonly ServiceUptimeCheckRecord[]> {
+  async listSince(service: string, since: Date): Promise<readonly ServiceUptimeCheckRecord[]> {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<Row>(
         `SELECT service, checked_at, is_up, latency_ms, error
          FROM service_uptime_checks
-         WHERE service = $1
-         ORDER BY checked_at DESC
-         LIMIT $2`,
-        [service, limit],
+         WHERE service = $1 AND checked_at >= $2
+         ORDER BY checked_at ASC`,
+        [service, since],
       );
       return r.rows.map((row) => ({
         service: row.service,

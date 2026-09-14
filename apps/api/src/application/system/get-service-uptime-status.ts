@@ -1,27 +1,39 @@
 /**
  * issue #2645 —— 运营状态屏「红绿 bar + 可用性百分比」读侧,喂给
  * `GET /system/uptime`（`interface/controllers/system-uptime.controller.ts`）。
+ *
+ * 2026-09-14：窗口从"最近 120 次"改成**最近 24 小时**（人类要求"可以看一天的"），
+ * bar 按 15 分钟一格等分成 96 桶（见 `domain/system/service-uptime.ts` 的
+ * `bucketUptimeChecks`），百分比仍按窗口内每一次探活精确计算。
  */
-import { computeUptimeAvailability, type UptimeAvailability } from "../../domain/system/service-uptime";
-import type { ServiceUptimeRepository } from "./uptime-ports";
+import { bucketUptimeChecks, computeUptimeAvailability, type UptimeCheckBucket } from "../../domain/system/service-uptime";
+import type { ServiceUptimeRepository, ServiceUptimeTargetInfo } from "./uptime-ports";
 
-/** 红绿 bar 展示最近多少个 ping 点——需求只要"简单形式",不需要可配置,给个够画出一条有意义的 bar 的定量。 */
-export const UPTIME_STATUS_SAMPLE_SIZE = 120;
+export const UPTIME_WINDOW_HOURS = 24;
+export const UPTIME_BUCKET_MINUTES = 15;
+export const UPTIME_BUCKET_COUNT = (UPTIME_WINDOW_HOURS * 60) / UPTIME_BUCKET_MINUTES;
 
-export interface GetServiceUptimeStatusOut extends UptimeAvailability {
-  readonly service: string;
-  /** 这个部署根本没配探活目标（`DEV_APP_UPTIME_URL` 未设置）——界面据此渲染"未配置",不是空 bar。 */
-  readonly configured: boolean;
+export interface GetServiceUptimeStatusOut extends ServiceUptimeTargetInfo {
+  readonly windowHours: number;
+  readonly bucketMinutes: number;
+  readonly buckets: readonly UptimeCheckBucket[];
+  readonly totalChecks: number;
+  readonly upChecks: number;
+  readonly availabilityPercent: number | null;
 }
 
 export async function getServiceUptimeStatus(
   repo: ServiceUptimeRepository,
-  service: string,
-  configured: boolean,
+  target: ServiceUptimeTargetInfo,
+  now: Date = new Date(),
 ): Promise<GetServiceUptimeStatusOut> {
-  const records = await repo.listRecent(service, UPTIME_STATUS_SAMPLE_SIZE);
-  const availability = computeUptimeAvailability(
-    records.map((r) => ({ checkedAt: r.checkedAt.toISOString(), isUp: r.isUp })),
-  );
-  return { ...availability, service, configured };
+  const bucketMs = UPTIME_BUCKET_MINUTES * 60_000;
+  const since = new Date(now.getTime() - bucketMs * UPTIME_BUCKET_COUNT);
+  const records = target.configured ? await repo.listSince(target.service, since) : [];
+  const checks = records
+    .filter((r) => r.checkedAt.getTime() < now.getTime())
+    .map((r) => ({ checkedAt: r.checkedAt.toISOString(), isUp: r.isUp }));
+  const { totalChecks, upChecks, availabilityPercent } = computeUptimeAvailability(checks);
+  const buckets = bucketUptimeChecks(checks, { windowEnd: now, bucketMs, bucketCount: UPTIME_BUCKET_COUNT });
+  return { ...target, windowHours: UPTIME_WINDOW_HOURS, bucketMinutes: UPTIME_BUCKET_MINUTES, buckets, totalChecks, upChecks, availabilityPercent };
 }

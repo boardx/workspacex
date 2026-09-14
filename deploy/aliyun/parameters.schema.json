@@ -591,6 +591,55 @@
                 "attachmentsBranch"
               ],
               "additionalProperties": false
+            },
+            "mailProfile": {
+              "type": "object",
+              "properties": {
+                "cloudflareAccountId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+                    }
+                  ]
+                },
+                "apiTokenSecretRef": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "allOf": [
+                    {
+                      "pattern": "^(?!.*REPLACE_WITH_)[^\\s\\u0000-\\u001f]+$"
+                    },
+                    {
+                      "pattern": "^(env:[A-Z][A-Z0-9_]*|file:\\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$"
+                    }
+                  ]
+                },
+                "mailFrom": {
+                  "type": "string",
+                  "maxLength": 254,
+                  "format": "email"
+                },
+                "sendingDomain": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253,
+                  "pattern": "^(?!-)[a-z0-9-]{1,63}(?<!-)(?:\\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
+                }
+              },
+              "required": [
+                "cloudflareAccountId",
+                "apiTokenSecretRef",
+                "mailFrom",
+                "sendingDomain"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [

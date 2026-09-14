@@ -17,7 +17,7 @@ function fakeRepo(): ServiceUptimeRepository & { records: ServiceUptimeCheckReco
     records,
     sweptDays,
     record: vi.fn(async (entry) => { records.push(entry); }),
-    listRecent: vi.fn(async () => records),
+    listSince: vi.fn(async () => records),
     sweepExpired: vi.fn(async (days: number) => { sweptDays.push(days); }),
   };
 }

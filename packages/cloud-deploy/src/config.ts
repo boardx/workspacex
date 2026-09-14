@@ -19,6 +19,7 @@ const ipv4 = z.string().regex(/^(?:\d{1,3}\.){3}\d{1,3}$/).refine(value =>
 const origin = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?\/?$/).url();
 const modelUrl = text.regex(/^https:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const email = z.string().max(254).email();
+const hostname = z.string().min(1).max(253).regex(/^(?!-)[a-z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/);
 const githubRepositoryPart = z.string().min(1).max(100).regex(/^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/);
 const websocketUrl = text.regex(/^wss:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[1-9][0-9]{0,4})?(?:\/[a-zA-Z0-9._~-]+)*\/?$/).url();
 const commonEnvironment = {
@@ -78,6 +79,15 @@ export const deploymentInputSchema = z.object({
       repoName: githubRepositoryPart,
       attachmentsBranch: identifier,
     }).strict().optional(),
+    // Cloudflare Email Sending for verification, password-reset, feedback and test emails.
+    // Omitted = the API starts but every send is refused as MAIL_NOT_CONFIGURED.
+    mailProfile: z.object({
+      cloudflareAccountId: identifier,
+      apiTokenSecretRef: secretRef,
+      mailFrom: email,
+      // The domain onboarded in Cloudflare Email Sending; mailFrom must be on it.
+      sendingDomain: hostname,
+    }).strict().optional(),
   }).strict(),
 }).strict();
 
@@ -93,6 +103,10 @@ export const deploymentConfigSchema = deploymentInputSchema.superRefine((config,
   }
   if (env.profile === "production" && env.databaseSecretRef === env.migrationSecretRef) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["environment", "migrationSecretRef"], message: "SEPARATE_ROLES_REQUIRED" });
+  }
+  const mail = config.provision.mailProfile;
+  if (mail && mail.mailFrom.slice(mail.mailFrom.lastIndexOf("@") + 1).toLowerCase() !== mail.sendingDomain) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["provision", "mailProfile", "mailFrom"], message: "MAIL_FROM_NOT_ON_SENDING_DOMAIN" });
   }
   const superusers = config.provision.platformSuperuserEmails;
   if (superusers && new Set(superusers.map(value => value.trim().toLowerCase())).size !== superusers.length) {

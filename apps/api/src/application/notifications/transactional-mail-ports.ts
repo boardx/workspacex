@@ -42,13 +42,23 @@ export const TRANSACTIONAL_MAIL_TRANSPORT = Symbol("TransactionalMailTransport")
 
 /**
  * 发信失败的**归类**错误——`category` 是适配器归好的粗粒度原因（`configuration_missing` /
- * `timeout` / `network` / `provider_http_<状态码>` / `provider_invalid_response`），不是
+ * `configuration_invalid` / `timeout` / `network` / `provider_http_<状态码>` / `provider_invalid_response`），不是
  * 原始异常文本。声明在端口这一层而不是适配器里：调用方（`sendTestEmail` 的控制器）
  * 要按类别映射契约错误码，它只能依赖端口，不能 import 具体实现（`lint-arch-deps`）。
  */
 export class TransactionalMailError extends Error {
-  constructor(readonly category: string) {
-    super(category);
+  constructor(readonly category: string, options?: { cause?: unknown }) {
+    super(category, options);
     this.name = "TransactionalMailError";
   }
+}
+
+/**
+ * 「部署没配好」的两种归类：`configuration_missing`（缺账号 / token / 发件人）与
+ * `configuration_invalid`（配置装配阶段校验失败——生产缺项、`MAIL_FROM` 域名不在
+ * onboard 的发信域上）。调用方把两者都映射为 `MAIL_NOT_CONFIGURED`，不是 `MAIL_SEND_FAILED`：
+ * 它们都不是"这次没发出去"，而是"这个部署压根发不了"。
+ */
+export function isMailConfigurationError(error: TransactionalMailError): boolean {
+  return error.category === "configuration_missing" || error.category === "configuration_invalid";
 }

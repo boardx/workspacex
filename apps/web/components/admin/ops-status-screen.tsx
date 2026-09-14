@@ -140,7 +140,7 @@ function TestMailPanel() {
           {state.reasonCode === "NOT_PLATFORM_SUPERUSER"
             ? "这个功能仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。"
             : state.reasonCode === "MAIL_NOT_CONFIGURED"
-              ? "这个部署没有配置事务邮件（缺 CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_TXN_EMAIL_API_TOKEN / MAIL_FROM 之一）。"
+              ? `这个部署没有配置事务邮件（缺 CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_EMAIL_API_TOKEN / MAIL_FROM 之一${state.category === "configuration_invalid" ? "，或 MAIL_FROM 的域名不是 Cloudflare 已 onboard 的发信域——见 API 日志" : ""}）。`
               : state.reasonCode === "NO_RECIPIENT"
                 ? "没有收件人：当前账号查不到邮箱，请填一个收件人。"
                 : `没发出去（${state.reasonCode}${state.category !== null ? ` · ${state.category}` : ""}）。`}
@@ -245,12 +245,18 @@ type UptimeState =
   | { kind: "ready"; out: GetServiceUptimeStatusOut }
   | { kind: "failed"; reasonCode: string };
 
+function formatBucketRange(from: string, to: string): string {
+  const f = new Date(from); const t = new Date(to);
+  const hm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${f.toLocaleDateString()} ${hm(f)}–${hm(t)}`;
+}
+
 /**
- * 「服务可用性」——见文件头 2026-09-04（issue #2645）一节。红绿 bar：每一格是一次
- * 探活（绿=可用/红=中断），从左（旧）到右（新）；下面一行给出精确到小数点后两位的
- * 可用性百分比。加载一次即可——这是运维自查面板，不需要轮询刷新，人要看最新状态
- * 刷新一下整个屏即可，同 `PasswordResetThrottlePanel`/`TestMailPanel` 的既有取舍
- * （都是"点了才查"或"进来查一次"，不常驻轮询）。
+ * 「服务可用性」——见文件头 2026-09-04（issue #2645）一节。2026-09-14 起看的是**最近
+ * 24 小时**：bar 按 15 分钟一格等分成 96 桶（绿=这段全部可用，红=这段至少断过一次，
+ * 灰=这段没有探活记录），从左（旧）到右（新）；下面一行给出窗口内精确到小数点后两位
+ * 的可用性百分比。加载一次即可——这是运维自查面板，不需要轮询刷新，人要看最新状态
+ * 刷新一下整个屏即可，同 `PasswordResetThrottlePanel`/`TestMailPanel` 的既有取舍。
  */
 function ServiceUptimePanel() {
   const [state, setState] = React.useState<UptimeState>({ kind: "loading" });
@@ -264,13 +270,20 @@ function ServiceUptimePanel() {
     return () => { cancelled = true; };
   }, []);
 
+  const downBuckets = state.kind === "ready" && Array.isArray(state.out.buckets) ? state.out.buckets.filter((b) => b.status === "down").length : 0;
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-ops-status-uptime">
       <div className="flex flex-col gap-0.5">
         <h3 className="text-13 font-semibold">服务可用性</h3>
         <p className="text-11 text-muted-foreground">
-          后台每 60 秒 ping 一次探活目标（默认 Dev app）——每一格是一次探活，绿色=可用，红色=中断，从左（旧）到右（新）。
+          后台每 60 秒 ping 一次探活目标，这里看最近 {state.kind === "ready" ? state.out.windowHours : 24} 小时——每一格是 {state.kind === "ready" ? state.out.bucketMinutes : 15} 分钟，绿色=全部可用，红色=至少中断过一次，灰色=没有探活记录，从左（旧）到右（新）。
         </p>
+        {state.kind === "ready" && state.out.target !== null && (
+          <p className="text-11 text-muted-foreground" data-testid="admin-ops-status-uptime-target">
+            探活目标：<code className="font-mono text-11">{state.out.target}</code>
+          </p>
+        )}
       </div>
       {state.kind === "loading" && (
         <p className="flex items-center gap-1.5 text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-loading">
@@ -286,30 +299,31 @@ function ServiceUptimePanel() {
       )}
       {state.kind === "ready" && !state.out.configured && (
         <p className="text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-unconfigured">
-          这个部署还没有配置探活目标（<code className="font-mono text-11">DEV_APP_UPTIME_URL</code>），暂时看不到可用性数据。
+          这个部署还没有配置探活目标（<code className="font-mono text-11">DEV_APP_UPTIME_URL</code>，或至少本部署的 <code className="font-mono text-11">APP_PUBLIC_URL</code>），暂时看不到可用性数据。
         </p>
       )}
       {state.kind === "ready" && state.out.configured && state.out.totalChecks === 0 && (
         <p className="text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-no-data">
-          已配置探活目标，还没有探活记录——稍后刷新再看。
+          已配置探活目标，最近 {state.out.windowHours} 小时还没有探活记录——稍后刷新再看。
         </p>
       )}
       {state.kind === "ready" && state.out.configured && state.out.totalChecks > 0 && (
         <div className="flex flex-col gap-1.5">
           <div className="flex h-4 w-full gap-px overflow-hidden rounded-sm" data-testid="admin-ops-status-uptime-bar">
-            {state.out.segments.map((seg, i) => (
+            {state.out.buckets.map((b) => (
               <div
-                key={`${seg.checkedAt}-${i}`}
-                title={`${seg.checkedAt} · ${seg.isUp ? "可用" : "中断"}`}
-                data-testid={`admin-ops-status-uptime-segment-${seg.isUp ? "up" : "down"}`}
-                className={`h-full flex-1 ${seg.isUp ? "bg-success" : "bg-destructive"}`}
+                key={b.from}
+                title={`${formatBucketRange(b.from, b.to)} · ${b.status === "no_data" ? "无记录" : b.status === "up" ? `可用（${b.checks} 次探活）` : `中断 ${b.downChecks}/${b.checks} 次探活`}`}
+                data-testid={`admin-ops-status-uptime-segment-${b.status === "no_data" ? "empty" : b.status}`}
+                className={`h-full flex-1 ${b.status === "up" ? "bg-success" : b.status === "down" ? "bg-destructive" : "bg-muted"}`}
               />
             ))}
           </div>
           <p className="text-12 text-card-foreground" data-testid="admin-ops-status-uptime-percent">
             可用性 <span className="font-medium tabular-nums">{state.out.availabilityPercent?.toFixed(2)}%</span>
             <span className="ml-1 text-muted-foreground">
-              （最近 {state.out.totalChecks} 次探活中 {state.out.upChecks} 次可用）
+              （最近 {state.out.windowHours} 小时 {state.out.totalChecks} 次探活中 {state.out.upChecks} 次可用
+              {downBuckets > 0 ? `，${downBuckets} 个时段出现过中断` : ""}）
             </span>
           </p>
         </div>

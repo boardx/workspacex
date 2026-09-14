@@ -24,8 +24,7 @@ export class SystemUptimeController {
   @UseGuards(PlatformOperatorGuard)
   @Get("/system/uptime")
   async get(): Promise<GetServiceUptimeStatusOut> {
-    const { service, configured } = this.target.info();
-    const out = await getServiceUptimeStatus(this.repo, service, configured);
-    return { ...out, segments: [...out.segments] };
+    const out = await getServiceUptimeStatus(this.repo, this.target.info());
+    return { ...out, buckets: [...out.buckets] };
   }
 }

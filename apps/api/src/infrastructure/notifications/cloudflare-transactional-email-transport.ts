@@ -93,8 +93,30 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
     private readonly request: typeof fetch = fetch,
   ) {}
 
+  /**
+   * 把 Proxy-deferred 配置**一次性**读成普通对象。生产模式下 `transactionalMailConfig` 在
+   * 第一次读属性时才校验（缺项 / `MAIL_FROM` 域名不在 onboard 发信域上），抛的是普通
+   * `Error`——不归类的话会穿过控制器变成 HTTP 500（2026-09-14 boardx.com.cn 后台「测试
+   * 邮件」报 `http_500` 的根因：那个部署根本没写任何邮件变量）。这里把它归成
+   * `configuration_invalid`（保留 cause 给日志），让调用方拿到的仍然是端口层的
+   * `TransactionalMailError`，而不是一个只有原始异常文本的 500。
+   */
+  private resolveConfig(): TransactionalMailConfig {
+    try {
+      return {
+        accountId: this.config.accountId,
+        apiToken: this.config.apiToken,
+        mailFrom: this.config.mailFrom,
+        requestTimeoutMs: this.config.requestTimeoutMs,
+      };
+    } catch (cause) {
+      throw new TransactionalMailError("configuration_invalid", { cause });
+    }
+  }
+
   async send(message: TransactionalMailMessage): Promise<TransactionalMailResult> {
-    if (!this.config.accountId || !this.config.apiToken || !this.config.mailFrom) {
+    const config = this.resolveConfig();
+    if (!config.accountId || !config.apiToken || !config.mailFrom) {
       throw new TransactionalMailError("configuration_missing");
     }
     const abort = new AbortController();
@@ -103,22 +125,22 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
       timeout = setTimeout(() => {
         abort.abort();
         reject(new TransactionalMailError("timeout"));
-      }, this.config.requestTimeoutMs);
+      }, config.requestTimeoutMs);
     });
     const operation = async (): Promise<TransactionalMailResult> => {
       let response: Response;
       try {
         response = await this.request(
-          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(this.config.accountId)}/email/sending/send`,
+          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(config.accountId)}/email/sending/send`,
           {
             method: "POST",
             signal: abort.signal,
             headers: {
-              authorization: `Bearer ${this.config.apiToken}`,
+              authorization: `Bearer ${config.apiToken}`,
               "content-type": "application/json",
             },
             body: JSON.stringify({
-              from: { address: this.config.mailFrom },
+              from: { address: config.mailFrom },
               to: message.to,
               subject: message.subject,
               text: message.text,

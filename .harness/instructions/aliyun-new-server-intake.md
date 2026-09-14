@@ -63,8 +63,11 @@ key，这些不用你准备。**下面这些没有默认值，缺了部署当场
 
 **按需**（不填则对应能力不可用，但不阻塞部署）：
 
-- 邮件外发：`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_EMAIL_API_TOKEN` /
-  `CLOUDFLARE_EMAIL_SENDING_DOMAIN`（懒加载，缺了不崩启动，首次发信才报错）。
+- 邮件外发：`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_EMAIL_API_TOKEN` / **`MAIL_FROM`**（必须落在
+  `CLOUDFLARE_EMAIL_SENDING_DOMAIN` 上，默认 `mail.boardx.us`）/ `CLOUDFLARE_EMAIL_PREVIEW_DISABLED=true` /
+  `APP_PUBLIC_URL`（https）。懒加载，缺了不崩启动，首次发信才报错；后台「运营状态 → 测试邮件」
+  会把缺配置报成 `MAIL_NOT_CONFIGURED`，而不是发不出去也不吭声。
+- 探活目标：`DEV_APP_UPTIME_URL` 可选——不配时运营状态屏探活本部署自己的 `APP_PUBLIC_URL`。
 - 语音转写：`KERNEL_ASR_PROVIDER` / `KERNEL_ASR_BASE_URL` / `KERNEL_ASR_API_KEY` /
   `KERNEL_ASR_MODEL`。
 - 追踪：`LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT`（三行都填才生效）。

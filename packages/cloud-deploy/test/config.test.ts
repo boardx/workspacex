@@ -150,6 +150,26 @@ describe("cloud deployment configuration", () => {
       }).ok).toBe(false);
     }
   });
+  it("accepts an optional mail profile and rejects a sender outside the onboarded sending domain", () => {
+    const input = deploymentExample("production");
+    const mailProfile = {
+      cloudflareAccountId: "0123456789abcdef0123456789abcdef",
+      apiTokenSecretRef: "env:WORKSPACEX_MAIL_TOKEN",
+      mailFrom: "no-reply@mail.example.com",
+      sendingDomain: "mail.example.com",
+    };
+    expect(validateDeploymentConfig({ ...input, provision: { ...input.provision, mailProfile } }).ok).toBe(true);
+    const mismatch = validateDeploymentConfig({ ...input, provision: { ...input.provision, mailProfile: { ...mailProfile, mailFrom: "no-reply@example.com" } } });
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) expect(mismatch.errors).toContainEqual({ path: "provision.mailProfile.mailFrom", code: "MAIL_FROM_NOT_ON_SENDING_DOMAIN" });
+    for (const invalid of [
+      { ...mailProfile, apiTokenSecretRef: "raw-token-value" },
+      { ...mailProfile, sendingDomain: "Mail.Example.com" },
+      { cloudflareAccountId: mailProfile.cloudflareAccountId },
+    ]) {
+      expect(validateDeploymentConfig({ ...input, provision: { ...input.provision, mailProfile: invalid } }).ok).toBe(false);
+    }
+  });
   it("does not expose connection references or email in the plan", () => {
     const value = deploymentExample("production");
     value.provision.asrProfile = {

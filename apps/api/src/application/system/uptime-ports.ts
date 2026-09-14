@@ -26,8 +26,8 @@ export interface ServiceUptimeCheckRecord {
 
 export interface ServiceUptimeRepository {
   record(entry: ServiceUptimeCheckRecord): Promise<void>;
-  /** 最近 `limit` 条,顺序不保证——`computeUptimeAvailability` 自己会排序。 */
-  listRecent(service: string, limit: number): Promise<readonly ServiceUptimeCheckRecord[]>;
+  /** `checkedAt >= since` 的全部记录（24 小时窗口 ≈ 1440 条），顺序不保证。 */
+  listSince(service: string, since: Date): Promise<readonly ServiceUptimeCheckRecord[]>;
   /** 清掉超过 `olderThanDays` 天的记录——同 `error_logs` 的 `sweepExpiredErrorLogs` 套路。 */
   sweepExpired(olderThanDays: number): Promise<void>;
 }
@@ -43,6 +43,8 @@ export const SERVICE_UPTIME_REPOSITORY = Symbol("ServiceUptimeRepository");
 export interface ServiceUptimeTargetInfo {
   readonly service: string;
   readonly configured: boolean;
+  /** 实际探活的 URL；未配置时 `null`。给运维看"到底在 ping 谁"，不是给前端再发请求用的。 */
+  readonly target: string | null;
 }
 export interface ServiceUptimeTarget {
   info(): ServiceUptimeTargetInfo;

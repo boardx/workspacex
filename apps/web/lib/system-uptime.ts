@@ -8,7 +8,7 @@ import { systemUptime } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
-export type UptimeCheckSegment = z.infer<typeof systemUptime.UptimeCheckSegment>;
+export type UptimeBucket = z.infer<typeof systemUptime.UptimeBucket>;
 export type GetServiceUptimeStatusOut = z.infer<typeof systemUptime.operations.getServiceUptimeStatus.out>;
 
 export async function getServiceUptimeStatus(): Promise<GetServiceUptimeStatusOut> {
