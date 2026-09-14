@@ -116,22 +116,34 @@ beforeEach(() => {
 
 describe("copilotkit-v2-panel 在既有对话里换 agent（issue #3028）", () => {
   it("换 agent 不卸载对话主体：历史仍在，消息子树的真挂载次数仍是 1", async () => {
-    mount();
-    await screen.findByTestId("chat-diagram-fabric-probe");
-    await waitFor(() => expect(diagramMountCount.current).toBe(1));
-    expect(screen.getByTestId("copilotkit-v2-messages")).toHaveTextContent("HISTORY-3028-SENTINEL");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mount();
+      await screen.findByTestId("chat-diagram-fabric-probe");
+      await waitFor(() => expect(diagramMountCount.current).toBe(1));
+      expect(screen.getByTestId("copilotkit-v2-messages")).toHaveTextContent("HISTORY-3028-SENTINEL");
 
-    fireEvent.click(await screen.findByTestId("chat-task-workbench-capability-picker"));
-    await waitFor(() => expect(cardFor("agent-beta")).not.toBeNull());
-    fireEvent.click(cardFor("agent-beta")!);
+      fireEvent.click(await screen.findByTestId("chat-task-workbench-capability-picker"));
+      await waitFor(() => expect(cardFor("agent-beta")).not.toBeNull());
+      fireEvent.click(cardFor("agent-beta")!);
 
     // 选择真的生效（触发器上显示的是新选中的 agent）——不是点了个没反应的按钮。
-    await waitFor(() =>
-      expect(screen.getByTestId("chat-task-workbench-capability-picker")).toHaveTextContent("Beta Agent"),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId("chat-task-workbench-capability-picker")).toHaveTextContent("Beta Agent"),
+      );
 
     // ── 反证：对话主体没有被卸载重建，历史消息还在原处 ────────────────────────
-    expect(diagramMountCount.current).toBe(1);
-    expect(screen.getByTestId("copilotkit-v2-messages")).toHaveTextContent("HISTORY-3028-SENTINEL");
+      expect(diagramMountCount.current).toBe(1);
+      expect(screen.getByTestId("copilotkit-v2-messages")).toHaveTextContent("HISTORY-3028-SENTINEL");
+
+      await waitFor(() => expect(error.mock.calls.length).toBeGreaterThan(0));
+      const diagnostics = [...warn.mock.calls, ...error.mock.calls]
+        .map((args) => args.map(String).join(" "));
+      expect(diagnostics.some((line) => line.includes("Agent default not found"))).toBe(false);
+    } finally {
+      warn.mockRestore();
+      error.mockRestore();
+    }
   });
 });
