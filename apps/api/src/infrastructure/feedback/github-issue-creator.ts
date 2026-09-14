@@ -186,14 +186,14 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
    * 一次，现在四个方法都要，抽出来不是为了少打字，是为了这条**超时纪律只被
    * 实现一次**：以后要调超时时长/加重试，不会有第二处需要同步改。
    */
-  private async withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, onTimeout: () => Error): Promise<T> {
+  private async withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, onTimeout: () => Error, timeoutMs = this.config.requestTimeoutMs): Promise<T> {
     const abort = new AbortController();
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         abort.abort();
         reject(onTimeout());
-      }, this.config.requestTimeoutMs);
+      }, timeoutMs);
     });
     try {
       return await Promise.race([run(abort.signal), timedOut]);
@@ -202,21 +202,59 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
     }
   }
 
-  /** Resolve each label before creating the issue, so a failed lookup cannot create a duplicate on retry. */
-  private async ensureLabel(name: string, signal: AbortSignal): Promise<void> {
+  /** A batch has four in-flight requests at most and stays below the five-minute claim lease. */
+  private async ensureLabels(labels: readonly string[]): Promise<void> {
+    const pending = [...new Map(labels.map((name) => [name.toLowerCase(), name])).values()];
+    const batch = new AbortController();
+    let next = 0;
+    try {
+      await this.withTimeout(async (deadline) => {
+        const signal = AbortSignal.any([batch.signal, deadline]);
+        const worker = async () => {
+          while (next < pending.length) {
+            signal.throwIfAborted();
+            await this.ensureLabel(pending[next++]!, signal);
+          }
+          signal.throwIfAborted();
+        };
+        await Promise.all(Array.from({ length: Math.min(4, pending.length) }, worker));
+      }, () => new GithubIssueCreationError(null), 120_000);
+    } catch (error) {
+      if (error instanceof GithubIssueCreationError) throw error;
+      throw new GithubIssueCreationError(null);
+    } finally {
+      // Cancel siblings on failure, and prevent late responses from advancing the queue.
+      batch.abort();
+    }
+  }
+
+  /** Each lookup/create/422 confirmation gets its own request deadline, including body parsing. */
+  private async ensureLabel(name: string, batch: AbortSignal): Promise<void> {
     const labelsUrl = this.issuesUrl().replace(/\/issues$/, "/labels");
     const url = `${labelsUrl}/${encodeURIComponent(name)}`;
-    const lookup = async () => {
+    const run = <T>(operation: (signal: AbortSignal) => Promise<T>) => {
+      batch.throwIfAborted();
+      return this.withTimeout(async (deadline) => {
+        const signal = AbortSignal.any([batch, deadline]);
+        signal.throwIfAborted();
+        const result = await operation(signal);
+        signal.throwIfAborted();
+        return result;
+      }, () => new GithubIssueCreationError(null));
+    };
+    const lookup = () => run(async (signal) => {
       const response = await this.request(url, { method: "GET", signal, headers: this.headers() });
       if (response.status === 404) return false;
       if (!response.ok) throw new GithubIssueCreationError(response.status);
       const body = await response.json() as { name?: unknown };
       if (typeof body.name !== "string" || body.name.toLowerCase() !== name.toLowerCase()) throw new GithubIssueCreationError(response.status);
       return true;
-    };
+    });
     try {
       if (await lookup()) return;
-      const response = await this.request(labelsUrl, { method: "POST", signal, headers: this.headers(), body: JSON.stringify({name, color:"ededed"}) });
+      const response = await run((signal) => this.request(labelsUrl, {
+        method: "POST", signal, headers: this.headers(), body: JSON.stringify({ name, color: "ededed" }),
+      }));
       if (response.ok) return;
       if (response.status === 422 && await lookup()) return;
       throw new GithubIssueCreationError(response.status);
@@ -228,8 +266,8 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
 
   async create(draft: GithubIssueDraft): Promise<CreatedGithubIssue> {
     if (!this.config.token) throw new GithubIssueCreationError(null);
+    await this.ensureLabels(draft.labels);
     return this.withTimeout(async (signal) => {
-      for (const label of [...new Map(draft.labels.map((name) => [name.toLowerCase(), name])).values()]) await this.ensureLabel(label, signal);
       let response: Response;
       try {
         response = await this.request(this.issuesUrl(), {
