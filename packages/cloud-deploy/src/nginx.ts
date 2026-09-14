@@ -26,8 +26,8 @@ export function createCloudNginxConfig(options: CloudNginxOptions): string {
         proxy_set_header Connection $workspacex_connection_upgrade;
         proxy_buffering off;
         proxy_cache off;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }`;
   return `# Generated WorkspaceX cloud ingress. Include inside nginx http {}.
 map $http_upgrade $workspacex_connection_upgrade {

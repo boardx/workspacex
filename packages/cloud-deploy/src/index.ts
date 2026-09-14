@@ -34,3 +34,12 @@ export { validateProductionAgentPersistence } from "./agent-persistence-boundary
 export { verifyPreparedHost } from "./verify-prepared-host";
 export { provisionCloud, cloudProvisionOptionsSchema } from "./cloud-provision";
 export type { CloudProvisionOptions } from "./cloud-provision";
+export {
+  activatePreparedCnRelease,
+  classifyReleaseFailures,
+  createPreparedCnRelease,
+  preparedCnReleaseSchema,
+  validatePreparedCnRelease,
+  verifyPreparedReleaseManifest,
+} from "./cn-fast-safe-release";
+export type { ActivationActions, ActivationReport, PreparedCnRelease, PreparationActions, ReleaseFailure } from "./cn-fast-safe-release";
