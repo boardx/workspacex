@@ -77,7 +77,7 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   return <>
     {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
     {trace && isAnchor ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
-    <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={props.isRunning && trace && progressMessageIds(trace, resolvePersistedMessageId).has(props.message.id) ? { ...props.message, content: "" } : props.message} /></RunTraceCoveredContext.Provider></MessageRunContext.Provider>
+    <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={trace && progressMessageIds(trace, resolvePersistedMessageId).has(props.message.id) ? { ...props.message, content: "" } : props.message} /></RunTraceCoveredContext.Provider></MessageRunContext.Provider>
   </>;
 }
 const TraceAssistantSlot = Object.assign(TraceAssistant, CopilotChatAssistantMessage);
