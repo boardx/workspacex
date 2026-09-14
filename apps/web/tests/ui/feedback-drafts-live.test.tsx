@@ -383,3 +383,17 @@ describe("⑦ B1：左栏「反馈草稿」徽标", () => {
     expect(failed.agent).toBe(0);
   });
 });
+
+it("draft editor reopens persisted tags and saves an unconfirmed addition", async () => {
+  let current = draft({tags:["旧标签"]});
+  apiRequest.mockImplementation(async (_path: string, opts?: {method?:string;body?:Record<string,unknown>}) => {
+    if (opts?.method === "PATCH") { current = {...current, tags:opts.body?.tags as string[]}; return {draft:current}; }
+    return {items:[current]};
+  });
+  render(<DesignLoopDraftsScreen />);
+  fireEvent.click(await screen.findByTestId("draft-open-d1"));
+  expect(screen.getByTestId("feedback-tags-chip-旧标签")).toBeTruthy();
+  fireEvent.change(screen.getByTestId("feedback-tags-input"), {target:{value:"新标签"}});
+  fireEvent.click(screen.getByTestId("draft-edit-save"));
+  await waitFor(() => expect(callsTo("/feedback/drafts/d1", "PATCH")[0]?.[1]?.body).toEqual({tags:["旧标签","新标签"]}));
+});

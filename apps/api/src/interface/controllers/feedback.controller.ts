@@ -238,6 +238,7 @@ export class FeedbackController {
         appVersion: body.appVersion,
         attachmentIds: body.attachmentIds,
         // UC-17.8 D1：`.optional()` 是契约层的向后兼容；用例层「没传」与「没填」是同一件事。
+        tags: body.tags,
         structured: body.structured ?? null,
       },
     );
@@ -683,6 +684,7 @@ export class FeedbackController {
         kind: body.kind,
         target: body.target,
         detail: body.detail,
+        tags: body.tags,
         structured: body.structured,
         occurredRoute: body.occurredRoute,
         appVersion: body.appVersion,
@@ -720,7 +722,8 @@ export class FeedbackController {
           ownerId: principal.userId,
           kind: body.kind,
           detail: body.detail,
-          structured: body.structured,
+          tags: body.tags,
+        structured: body.structured,
           appendChat: body.appendChat,
         },
       );

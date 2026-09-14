@@ -35,6 +35,7 @@ export function projectFeedbackDraft(
     title: deriveFeedbackTitle(row.detail),
     detail: row.detail,
     structured: row.structured,
+    tags: [...(row.tags ?? [])],
     attachments: attachments.map((a) => ({ id: a.id, url: `/feedback/attachments/${a.id}`, mime: a.contentType })),
     chat: [...row.chat],
     refineSeeded: row.refineSeeded,

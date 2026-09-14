@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3628/apps/api
+
+ ✓ tests/feedback/triage-feedback.test.ts (22 tests) 48ms
+ ✓ tests/feedback/github-issue-creator.test.ts (27 tests) 30ms
+ ✓ tests/feedback/draft-lifecycle.test.ts (12 tests) 19ms
+ ✓ tests/design-workbench/create-design-github-issue.test.ts (10 tests) 25ms
+
+ Test Files  4 passed (4)
+      Tests  71 passed (71)
+   Start at  01:44:53
+   Duration  4.33s (transform 1.53s, setup 0ms, collect 2.75s, tests 121ms, environment 1ms, prepare 545ms)
+

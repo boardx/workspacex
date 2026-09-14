@@ -47,6 +47,8 @@
  *   · **`skillVersionId`**——见 `FeedbackTarget` 的注释。
  */
 import { z } from "zod";
+import { FeedbackTags, InboxTag } from "./feedback-tags";
+export { FeedbackTags, INBOX_TAG_MAX_LENGTH, INBOX_TAGS_MAX_COUNT } from "./feedback-tags";
 import { AiReplySource } from "./design-ai-collab";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
@@ -284,6 +286,7 @@ export const FeedbackItem = z
      * 正文可见时，`null` 表示提交人没填任何结构化字段（它们是正文的补充，不是独立事实）。
      */
     structured: FeedbackStructured.nullable(),
+    tags: z.array(InboxTag).optional(),
     status: FeedbackStatus,
     /** ⚠ 只有 `不做` 必然非 null；其余三态可有可无 */
     statusReason: z.string().nullable(),
@@ -374,6 +377,7 @@ export const FeedbackDraft = z
     title: z.string().nullable(),
     detail: z.string(),
     structured: FeedbackStructured.nullable(),
+    tags: z.array(InboxTag).optional(),
     attachments: z.array(FeedbackAttachment),
     chat: z.array(FeedbackDraftChatTurn),
     /** 「继续完善」浮层首次打开时是否已由服务端追加过 AI 澄清问题（只追加一次） */
@@ -420,6 +424,7 @@ export const operations = {
         attachmentIds: z.array(z.string()).max(FEEDBACK_ATTACHMENT_MAX).optional(),
         /** UC-17.8 D1：结构化补充字段，可不传。见 `FeedbackStructured` 头注 */
         structured: FeedbackStructured.optional(),
+        tags: FeedbackTags.optional(),
       })
       .strict(),
     out: z
@@ -804,6 +809,7 @@ export const operations = {
         target: FeedbackTarget,
         detail: z.string().max(4000),
         structured: FeedbackStructured.optional(),
+        tags: FeedbackTags.optional(),
         occurredRoute: z.string().nullable(),
         appVersion: z.string().nullable(),
         attachmentIds: z.array(z.string()).max(FEEDBACK_ATTACHMENT_MAX).optional(),
@@ -853,6 +859,7 @@ export const operations = {
         kind: FeedbackKind.optional(),
         detail: z.string().max(4000).optional(),
         structured: FeedbackStructured.nullable().optional(),
+        tags: FeedbackTags.optional(),
         appendChat: FeedbackDraftChatTurn.omit({ at: true, source: true }).optional(),
       })
       .strict(),

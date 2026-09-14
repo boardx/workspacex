@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3628/packages/contracts
+
+ ✓ tests/feedback-tags.test.ts (2 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  01:36:56
+   Duration  659ms (transform 240ms, setup 0ms, collect 295ms, tests 8ms, environment 0ms, prepare 88ms)
+

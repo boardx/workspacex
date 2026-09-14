@@ -628,3 +628,24 @@ describe("issue #2637 ④ / 2026-09-04 —— 录音状态与 chat composer 同�
     }
   });
 });
+
+describe("feedback tags", () => {
+  it.each(["feedback-submit", "feedback-save-draft"])("%s commits the last unconfirmed tag", async (button) => {
+    mockSubmitThenList(mineItem);
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "标签提交测试" } });
+    await proceedToReview();
+    const input = screen.getByTestId("feedback-tags-input");
+    fireEvent.change(input, { target: { value: "Mobile" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.change(input, { target: { value: "mobile" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getAllByTestId("feedback-tags-chip-Mobile")).toHaveLength(1);
+    fireEvent.change(input, { target: { value: "最终标签" } });
+    fireEvent.click(screen.getByTestId(button));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      button === "feedback-submit" ? "/feedback" : "/feedback/drafts",
+      expect.objectContaining({ body: expect.objectContaining({ tags: ["Mobile", "最终标签"] }) }),
+    ));
+  });
+});

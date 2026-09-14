@@ -5,7 +5,7 @@
  *   断的不是"GitHub 真的建了一个 issue",是"我们发出去的请求形状是对的":
  *   URL、method、headers(含 Authorization / User-Agent)、body(含 labels)。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   FetchGithubIssueCreator,
   githubIssueConfig,
@@ -36,6 +36,7 @@ describe("FetchGithubIssueCreator", () => {
     let capturedUrl: string | undefined;
     let capturedInit: RequestInit | undefined;
     const fakeFetch = (async (url: string, init?: RequestInit) => {
+      if (init?.method === "GET" && url.includes("/labels/")) return jsonResponse({name:decodeURIComponent(url.split("/labels/")[1]!)});
       capturedUrl = url;
       capturedInit = init;
       return jsonResponse({ html_url: "https://github.com/boardx/workspacex/issues/42", number: 42 });
@@ -378,4 +379,31 @@ describe("FetchGithubIssueCreator", () => {
       expect(config.repo).toBe("workspacex");
     });
   });
+});
+
+describe("label provisioning before issue creation", () => {
+  it.each([false, true])("creates a missing label, accepting a confirmed concurrent create: %s", async (concurrent) => {
+    const calls: string[] = []; let found = false;
+    const request = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method} ${url}`);
+      if (url.endsWith("/labels/%E4%BD%93%E9%AA%8C")) return jsonResponse(found ? {name:"体验"} : {}, found ? 200 : 404);
+      if (url.endsWith("/labels")) { found = true; expect(JSON.parse(init!.body as string).name).toBe("体验"); return jsonResponse({name:"体验"}, concurrent ? 422 : 201); }
+      return jsonResponse({html_url:"https://github.com/boardx/workspacex/issues/42",number:42});
+    }) as typeof fetch;
+    await new FetchGithubIssueCreator(fakeConfig(), request).create({title:"t",body:"b",labels:["体验"]});
+    expect(calls.at(-1)).toBe("POST https://api.github.com/repos/boardx/workspacex/issues");
+    expect(calls).toHaveLength(concurrent ? 4 : 3);
+  });
+  it("lookup failure never creates an issue", async () => {
+    const request = vi.fn(async () => jsonResponse({}, 403)) as unknown as typeof fetch;
+    await expect(new FetchGithubIssueCreator(fakeConfig(), request).create({title:"t",body:"b",labels:["体验"]})).rejects.toBeInstanceOf(GithubIssueCreationError);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+});
+
+it.each([404,403])("label create 422 followed by %s cannot create the issue", async (status) => {
+  let count=0;
+  const request = vi.fn(async () => { count++; return jsonResponse({}, count===1 ? 404 : count===2 ? 422 : status); }) as unknown as typeof fetch;
+  await expect(new FetchGithubIssueCreator(fakeConfig(), request).create({title:"t",body:"b",labels:["体验"]})).rejects.toBeInstanceOf(GithubIssueCreationError);
+  expect(request).toHaveBeenCalledTimes(3);
 });

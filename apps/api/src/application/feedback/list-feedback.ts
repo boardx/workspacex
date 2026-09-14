@@ -110,6 +110,7 @@ export async function listFeedback(
     // ⚠ `null` 在契约里恒等于「无权查看」——因为落库的正文非空（迁移里的 CHECK）。
     detail,
     structured,
+    tags: disclosed ? [...(row.tags ?? [])] : [],
     status: row.status,
     statusReason: row.statusReason,
     votes: row.votes,

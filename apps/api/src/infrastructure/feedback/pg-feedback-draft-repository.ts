@@ -40,6 +40,7 @@ interface DraftDbRow {
   readonly target_skill_id: string | null;
   readonly detail: string;
   readonly structured: unknown;
+  readonly tags?: string[];
   readonly chat: unknown;
   readonly refine_seeded: boolean;
   readonly occurred_route: string | null;
@@ -77,6 +78,7 @@ function toRow(row: DraftDbRow): FeedbackDraftRow {
     kind: row.kind as "缺陷" | "需求",
     target: toTarget(row),
     detail: row.detail,
+    tags: row.tags ?? [],
     structured: (row.structured ?? null) as FeedbackStructured | null,
     chat: toChat(row.chat, row.id),
     refineSeeded: row.refine_seeded,
@@ -89,7 +91,7 @@ function toRow(row: DraftDbRow): FeedbackDraftRow {
 
 const SELECT_COLUMNS = `
   id, owner_id, kind, target_kind, target_agent_id, target_skill_id,
-  detail, structured, chat, refine_seeded, occurred_route, app_version, created_at, updated_at`;
+  detail, structured, tags, chat, refine_seeded, occurred_route, app_version, created_at, updated_at`;
 
 class ScopedPgFeedbackDraftRepository implements FeedbackDraftRepository {
   constructor(
@@ -102,8 +104,8 @@ class ScopedPgFeedbackDraftRepository implements FeedbackDraftRepository {
       await s.query(
         `INSERT INTO product_feedback_drafts
            (id, org_id, owner_id, kind, target_kind, target_agent_id, target_skill_id,
-            detail, structured, occurred_route, app_version)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11)`,
+            detail, structured, occurred_route, app_version, tags)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12::text[])`,
         [
           draft.id,
           this.orgId,
@@ -116,6 +118,7 @@ class ScopedPgFeedbackDraftRepository implements FeedbackDraftRepository {
           draft.structured === null ? null : JSON.stringify(draft.structured),
           draft.occurredRoute,
           draft.appVersion,
+          [...(draft.tags ?? [])],
         ],
       );
     });
@@ -173,6 +176,7 @@ class ScopedPgFeedbackDraftRepository implements FeedbackDraftRepository {
                 structured    = CASE WHEN $6::boolean THEN $7::jsonb ELSE structured END,
                 chat          = COALESCE($8::jsonb, chat),
                 refine_seeded = COALESCE($9, refine_seeded),
+                tags          = COALESCE($10::text[], tags),
                 updated_at    = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -186,6 +190,7 @@ class ScopedPgFeedbackDraftRepository implements FeedbackDraftRepository {
           structuredGiven && patch.structured !== null ? JSON.stringify(patch.structured) : null,
           patch.chat === undefined ? null : JSON.stringify(patch.chat),
           patch.refineSeeded ?? null,
+          patch.tags === undefined ? null : [...patch.tags],
         ],
       );
       const row = rows[0];

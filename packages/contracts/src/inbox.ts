@@ -86,6 +86,7 @@
  *     恒 `false` 是诚实的，把票数或 `kind === "缺陷"` 硬当「严重」是编一个口径。
  */
 import { z } from "zod";
+import { INBOX_TAGS_MAX_COUNT, InboxTag } from "./feedback-tags";
 import { FeedbackAttachment, FeedbackKind, FeedbackStatus, FeedbackStructured } from "./feedback-loop";
 import { SystemErrorStatus } from "./system-error-logs";
 
@@ -379,9 +380,7 @@ export function isArchivedInboxItem(item: { readonly kind: InboxKind; readonly s
 }
 
 /** 标签的形状约束：单个标签 1–32 字符（去掉首尾空白后），一条条目最多 20 个。只在这里声明一次。 */
-export const INBOX_TAG_MAX_LENGTH = 32;
-export const INBOX_TAGS_MAX_COUNT = 20;
-export const InboxTag = z.string().trim().min(1).max(INBOX_TAG_MAX_LENGTH);
+export { INBOX_TAG_MAX_LENGTH, INBOX_TAGS_MAX_COUNT, InboxTag } from "./feedback-tags";
 /** 列表 / 计数视图：`active`（默认）= 看板上的活跃条目；`archived` = 只看已归档（见 `isArchivedInboxItem`）。 */
 export const InboxView = z.enum(["active", "archived"]);
 export type InboxView = z.infer<typeof InboxView>;

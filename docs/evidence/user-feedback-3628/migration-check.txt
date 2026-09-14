@@ -1,0 +1,31 @@
+[stack-admission] load1=17.26 cores=10 perCore=1.73 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mu1jjb9o-5fd04e2a-dceafc303233 db=wsx_dceafc303233794d0f5d compose=wsx-dceafc303233794d0f5d pg=20504 redis=21504 api=24504 web=25504 sandbox=26504 model=27504 deep-agent=28504 asr=29504 vision=30504 loopback-sandbox=31504
+
+> @repo/api@0.0.0 migrate:check /private/tmp/workspacex-feedback-3628/apps/api
+> ./scripts/verify-migrations.sh
+
+ Network wsx-dceafc303233794d0f5d_default Creating 
+ Network wsx-dceafc303233794d0f5d_default Created 
+ Container wsx-dceafc303233794d0f5d-postgres-1 Creating 
+ Container wsx-dceafc303233794d0f5d-postgres-1 Created 
+ Container wsx-dceafc303233794d0f5d-postgres-1 Starting 
+ Container wsx-dceafc303233794d0f5d-postgres-1 Started 
+NOTICE:  database "wsx_dceafc303233794d0f5d" does not exist, skipping
+  applied 256 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ populated database data identical after replay
+  ✓ populated replay fixture survived
+  ✓ legacy prototype version survived replay byte-for-byte
+  ✓ prototype version remains append-only after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /private/tmp/workspacex-feedback-3628/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+[timing] pnpm --filter @repo/api migrate:check
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：1s
+  总计：41s
