@@ -162,6 +162,20 @@ async function waitForPhase(page: Page, phases: string[], timeoutMs = 120_000): 
   return last;
 }
 
+/** S3 的可见性前提：run 在途，而且账本已经真正产生了计划步骤。 */
+async function waitForPopulatedPlanInFlight(page: Page, timeoutMs = 120_000): Promise<void> {
+  await expect.poll(async () => {
+    const ledger = await readLedger(page, threadIdFromPage(page));
+    const phase = ledger?.phase ?? "null";
+    const stepCount = Array.isArray(ledger?.steps) ? ledger.steps.length : 0;
+    return `${phase}:${stepCount}`;
+  }, {
+    message: "S3 应在 planning/executing 且 steps.length > 0 时采样",
+    timeout: timeoutMs,
+    intervals: [250, 500, 1_000],
+  }).toMatch(/^(planning|executing):[1-9]\d*$/);
+}
+
 function visible(f: Facts): boolean { return f.hitTest; }
 
 test.afterAll(() => {
@@ -183,22 +197,26 @@ test("#3321 计划面板/阶段条：九状态可见性矩阵 + 回归断言", a
 
   /*
    * ── S3 有计划、执行中 ⇒ 该显示 ────────────────────────────────────────
-   * ⚠ 必须用**会停留**的触发词。第一次用「三步全部跑完」那条时整轮 19s 就跑完了，
-   *   `waitForPhase` 看到 `executing`、等一拍再采样，那一拍里 run 已经收尾成
-   *   `done` 且账本跑满 ⇒ 面板按设计卸载 ⇒ S3 假红。慢跑触发词停留 12s，
-   *   `executing` 有一个真实存在的窗口。
+   * 计划确认剧本通过真实 `write_todos` 中断形成稳定的 `planning + steps>0`。
+   * phase 会早于计划步骤写入；只等 phase 会在 steps=0 时抢跑。这里按真实账本状态
+   * 等待「在途 + 至少一个步骤」，没有固定 sleep。
    */
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentSlowTrigger);
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentPlanConfirmTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await waitForPhase(page, ["executing", "planning"], 120_000);
+  await waitForPopulatedPlanInFlight(page, 120_000);
+  await expect(page.getByTestId(PLAN_PANEL), "S3 账本已有计划后，前端应渲染 plan panel")
+    .toBeVisible({ timeout: 30_000 });
   const s3 = await captureCell(page, "S3-有计划执行中");
   /*
    * ⚠ 判定按**采样时刻**账本里的 phase 走，不按等待期观测到的那个——两者之间隔着
    * 一次轮询，run 完全可能在这中间收尾。上一版按等待期的观测判，于是把一次
    * 「已经正确卸载」记成了缺陷。
    */
-  if (s3.phase === "executing" || s3.phase === "planning") {
-    expect(visible(s3.planPanel), `S3 ${s3.phase} 在途：该显示 plan panel`).toBe(true);
+  if (s3.phase === "executing") {
+    expect(visible(s3.planPanel), "S3 executing 在途：该显示且可命中 plan panel").toBe(true);
+  } else if (s3.phase === "planning") {
+    // planning 时计划确认卡会按产品契约覆盖工作区；面板仍须在遮罩下完成渲染。
+    expect(s3.planPanel.attached, `S3 planning：plan panel 必须已渲染（被谁盖住：${s3.planPanel.coveredBy ?? "无"}）`).toBe(true);
   }
 
   /*
@@ -261,11 +279,10 @@ test("#3321 计划面板/阶段条：九状态可见性矩阵 + 回归断言", a
      * 契约 `PLAN_PHASE_INDICATOR_PINNED_PHASES` 明写 approving 常驻，所以它**必须被渲染**。
      * 但「常驻」管的是渲染，不是"永远压在最上层"：审批中断时前端会弹出审批面板，
      * 它盖住底下的计划区是**产品的正确行为**（用户此刻该看的就是审批那张卡）。
-     * 因此这一格判 attached，并把盖住它的东西如实记进 `coveredBy` 供复核；
-     * 若哪天它连渲染都没有（#3321 矛盾 2 那种父组件连坐卸载），attached 会红。
+     * 因此这一格只要求权威阶段条已渲染，并把盖住它的东西如实记进 `coveredBy`
+     * 供复核。当前夹具没有计划步骤，宿主按契约只渲染阶段条，不编造完整计划面板。
      */
     expect(s4.phaseIndicator.attached, `S4 approving：阶段条属契约常驻四态，必须被渲染（被谁盖住：${s4.phaseIndicator.coveredBy ?? "无"}）`).toBe(true);
-    expect(s4.planPanel.attached, "S4 approving：计划区必须被渲染").toBe(true);
   }
 
   // ── S6 run 失败后 ⇒ 该显示（要有恢复入口）────────────────────────────
