@@ -326,7 +326,10 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   const landResponse = page.waitForResponse((r) =>
     r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/artifacts`));
   await page.getByTestId("chat-diagram-save").click();
-  expect((await landResponse).status()).toBe(200);
+  const savedArtifactResponse = await landResponse;
+  expect(savedArtifactResponse.status()).toBe(200);
+  const savedArtifact = await savedArtifactResponse.json() as { artifactId: string };
+  expect(savedArtifact.artifactId).toBeTruthy();
   await expect(page.getByTestId("chat-diagram-saved")).toBeVisible();
 
   await page.getByTestId("chat-diagram-close").click();
@@ -366,8 +369,10 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   // 天然缓冲。修法：把监听器再往前挪到 `page.reload()` 之前注册——不论请求发生
   // 在导航期间、reload 后的断言轮询期间、还是 `loadAllMessagePages` 循环内部，
   // 全部落在监听范围内。不是加超时或 retry，是让监听器真正先于它要等的事件存在。
+  const savedSourcePath = `/chat/threads/${encodeURIComponent(CHAT_READ_E2E.diagramRoundtripThreadId)}`
+    + `/artifacts/${encodeURIComponent(savedArtifact.artifactId)}/source`;
   const autoSourceRequest = page.waitForResponse((r) =>
-    r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()), { timeout: 30_000 });
+    r.request().method() === "GET" && new URL(r.url()).pathname.endsWith(savedSourcePath), { timeout: 30_000 });
 
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
