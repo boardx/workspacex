@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({ test: {
   include: [
     "tests/feedback/github-issue-creator.test.ts",
+    "tests/feedback/github-label-deadline.test.ts",
     "tests/feedback/triage-feedback.test.ts",
     "tests/feedback/draft-lifecycle.test.ts",
     "tests/design-workbench/create-design-github-issue.test.ts",
