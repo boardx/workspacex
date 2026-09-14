@@ -56,11 +56,11 @@ import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 
-function mount(chatThreadId: string | null) {
+function mount(chatThreadId: string | null, archived = false) {
   return render(
     <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <CopilotKitV2AgentSelectionProvider>
-        <CopilotKitV2Panel chatThreadId={chatThreadId} archived={false} canGeneratePersona={false} />
+        <CopilotKitV2Panel chatThreadId={chatThreadId} archived={archived} canGeneratePersona={false} />
       </CopilotKitV2AgentSelectionProvider>
     </CopilotKit>,
   );
@@ -88,6 +88,12 @@ describe("copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #252
     expect(createPersonalThread).not.toHaveBeenCalled();
     const input = screen.getByTestId("chat-attachment-file-input") as HTMLInputElement;
     expect(input.disabled).toBe(false);
+  });
+
+  it("只读线程的隐藏文件输入同步禁用，不能绕过可写状态选文件", async () => {
+    mount("thr-archived", true);
+    const input = await screen.findByTestId("chat-attachment-file-input") as HTMLInputElement;
+    expect(input).toBeDisabled();
   });
 
   it("第一次选文件 ⇒ 建一次线程，上传带的是建出来的真实 id；再选文件不再建第二条；附件态不因 id 出现而被清空", async () => {

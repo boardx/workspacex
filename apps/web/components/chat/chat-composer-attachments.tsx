@@ -470,6 +470,7 @@ export function ChatAttachmentDock({
         accept={(ATTACHMENT_MIME_ALLOWLIST as readonly string[]).join(",")}
         className="hidden"
         data-testid="chat-attachment-file-input"
+        disabled={disabled}
         onChange={(e) => { ctl.pickFiles(e.target.files); e.target.value = ""; }}
       />
       <ChatAttachMaterialModal ctl={ctl} open={open} disabled={disabled} onClose={onClose} />
