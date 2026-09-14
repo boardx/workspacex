@@ -4,9 +4,12 @@ import type { AbstractAgent } from "@ag-ui/client";
 import {
   AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  composeAguiAssistantBodies,
   parseAguiAssistantMessageReplacedValue,
   parseAguiChatMessageIdValue,
 } from "@repo/contracts/agui-state-events";
+type AgentMessage = AbstractAgent["messages"][number];
+type AssistantMessage = Extract<AgentMessage, { role: "assistant" }>;
 
 /**
  * CK-P3（issue #2054）—— 「气泡上这条消息，在 `chat_messages` 里的真实主键是什么？」
@@ -105,11 +108,28 @@ export interface HydratedMessageIdentity {
 export interface UseChatMessageIdentityResult {
   readonly index: ChatMessageIdentityIndex;
   readonly registerHydrated: (entries: readonly HydratedMessageIdentity[]) => void;
+  /** Keep the completed persisted projection visible across the RUN_FINISHED rebuild frame. */
+  readonly projectMessages: (messages: readonly AgentMessage[]) => AgentMessage[];
 }
 
 export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIdentityResult {
-  // 流式 id → 真实落库 id。
+  const settledMessagesRef = React.useRef<ReadonlyMap<string, { readonly message: AssistantMessage; readonly index: number }>>(new Map());
+  const streamingMessagesRef = React.useRef<ReadonlyMap<string, { readonly message: AssistantMessage; readonly index: number }>>(new Map());
+  const projectMessages = React.useCallback((messages: readonly AgentMessage[]): AgentMessage[] => {
+    if (settledMessagesRef.current.size === 0) return [...messages];
+    const missing = [...settledMessagesRef.current.entries()].filter(([id]) =>
+      !messages.some((message) => message.id === id && message.role === "assistant" && String(message.content ?? "") !== ""));
+    if (missing.length === 0) return [...messages];
+    const next = [...messages];
+    for (const [, held] of missing.sort((a, b) => a[1].index - b[1].index)) {
+      next.splice(Math.min(held.index, next.length), 0, held.message);
+    }
+    return next;
+  }, []);
+  // 主流式 id → 真实落库 id（评分/落地入口只显示一次）。
   const [streamed, setStreamed] = React.useState<ReadonlyMap<string, string>>(() => new Map());
+  // 整组流式 id → 真实落库 id（权威恢复要认领全部气泡）。
+  const [streamedAll, setStreamedAll] = React.useState<ReadonlyMap<string, string>>(() => new Map());
   // hydration 回灌的、且真的**可评分**的那些 id（它们的 id 本身就是真实主键）。
   const [hydrated, setHydrated] = React.useState<ReadonlySet<string>>(() => new Set());
   // issue #2052 —— 回灌的**全部**真实主键（不过 `rateable` 门）。落地为产物只要求
@@ -118,6 +138,36 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
+      onTextMessageContentEvent: ({ event, messages, textMessageBuffer }) => {
+        const existing = messages.find((message) => message.id === event.messageId && message.role === "assistant");
+        const index = messages.findIndex((message) => message.id === event.messageId);
+        const message = {
+          ...(existing ?? { id: event.messageId, role: "assistant" as const }),
+          content: textMessageBuffer,
+        } as AssistantMessage;
+        streamingMessagesRef.current = new Map(streamingMessagesRef.current).set(event.messageId, {
+          message,
+          index: index < 0 ? messages.length : index,
+        });
+      },
+      onTextMessageEndEvent: ({ event, messages, textMessageBuffer }) => {
+        const existing = messages.find((message) => message.id === event.messageId && message.role === "assistant");
+        const previous = streamingMessagesRef.current.get(event.messageId);
+        const index = messages.findIndex((message) => message.id === event.messageId);
+        const message = {
+          ...(existing ?? previous?.message ?? { id: event.messageId, role: "assistant" as const }),
+          content: textMessageBuffer,
+        } as AssistantMessage;
+        streamingMessagesRef.current = new Map(streamingMessagesRef.current).set(event.messageId, {
+          message,
+          index: index < 0 ? (previous?.index ?? messages.length) : index,
+        });
+      },
+      onRunFinishedEvent: ({ messages }) => {
+        const projected = projectMessages(messages);
+        if (projected.length === messages.length) return;
+        return { messages: projected };
+      },
       onCustomEvent: ({ event, messages }) => {
         // issue #3069 —— relay 的回放兜底是**替换**：已经流出去的 assistant 气泡带的是
         // 与落库行对不上的「预告」正文，后端在重新呈现落库正文之前发这一帧把它们作废。
@@ -141,15 +191,50 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
         // 那正好是这个索引存在的理由。
         if (parsed === null) return;
         setStreamed((prev) => {
-          if (prev.get(parsed.streamingMessageId) === parsed.chatMessageId) return prev;
+          if (prev.get(parsed.streamingMessageId) === parsed.chatMessageId && prev.get(parsed.chatMessageId) === parsed.chatMessageId) return prev;
           const next = new Map(prev);
           next.set(parsed.streamingMessageId, parsed.chatMessageId);
+          next.set(parsed.chatMessageId, parsed.chatMessageId);
           return next;
         });
+        setStreamedAll((prev) => {
+          if (parsed.streamingMessageIds.every((id) => prev.get(id) === parsed.chatMessageId)) return prev;
+          const next = new Map(prev);
+          for (const id of parsed.streamingMessageIds) next.set(id, parsed.chatMessageId);
+          next.set(parsed.chatMessageId, parsed.chatMessageId);
+          return next;
+        });
+        // #3397: settle the complete assistant body while all contributing bubbles are still
+        // present, before RUN_FINISHED lets the upstream client rebuild its transient state.
+        // One subscriber mutation atomically keeps the earliest streaming identity and joins
+        // the exact visible bytes; the persisted identity stays in the index so React does not
+        // unmount the live bubble merely because its database key arrived.
+        const groupIds = new Set([...parsed.streamingMessageIds, parsed.chatMessageId]);
+        const groupWithPositions = parsed.streamingMessageIds.flatMap((id) => {
+          const liveIndex = messages.findIndex((message) => message.id === id && message.role === "assistant");
+          if (liveIndex >= 0) return [{ message: messages[liveIndex] as AssistantMessage, index: liveIndex }];
+          const captured = streamingMessagesRef.current.get(id);
+          return captured ? [captured] : [];
+        });
+        if (groupWithPositions.length === 0) return;
+        const firstIndex = Math.min(...groupWithPositions.map(({ index }) => index));
+        const group = groupWithPositions.map(({ message }) => message);
+        const first = groupWithPositions.reduce((earliest, entry) => entry.index < earliest.index ? entry : earliest).message;
+        const settled = {
+          ...first,
+          content: composeAguiAssistantBodies(group.map((message) => String(message.content ?? ""))),
+        };
+        settledMessagesRef.current = new Map(settledMessagesRef.current).set(settled.id, {
+          message: settled,
+          index: firstIndex,
+        });
+        const projected = messages.filter((message) => !groupIds.has(message.id) || message.role !== "assistant");
+        projected.splice(Math.min(firstIndex, projected.length), 0, settled);
+        return { messages: projected };
       },
     });
     return unsubscribe;
-  }, [agent]);
+  }, [agent, projectMessages]);
 
   const registerHydrated = React.useCallback((entries: readonly HydratedMessageIdentity[]) => {
     setHydrated((prev) => {
@@ -176,13 +261,13 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
       // issue #2052 —— 与 `resolve` 共用同一份 `streamed`（本轮 run 写回的消息必然
       // 带 agentRunId，两者答案相同），只有回灌那半不过 `rateable` 门。
       resolvePersisted: (viewMessageId: string) => {
-        const mapped = streamed.get(viewMessageId);
+        const mapped = streamedAll.get(viewMessageId);
         if (mapped !== undefined) return mapped;
         return hydratedAll.has(viewMessageId) ? viewMessageId : null;
       },
     }),
-    [streamed, hydrated, hydratedAll],
+    [streamed, streamedAll, hydrated, hydratedAll],
   );
 
-  return { index, registerHydrated };
+  return { index, registerHydrated, projectMessages };
 }

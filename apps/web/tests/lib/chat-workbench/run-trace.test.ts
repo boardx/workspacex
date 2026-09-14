@@ -45,6 +45,16 @@ describe("durable run trace", () => {
     const events: ExecutionEvent[] = [text(0, "查询中"), start, text(3, "答案", "answer"), { ...base, seq: 4, kind: "final_message", messageId: "answer" }];
     expect(traceEntries(events).map((entry) => entry.text)).toEqual(["查询中", "research"]);
   });
+  it("treats a streaming alias as final when chat_message_id resolves it to the persisted final_message", () => {
+    const events: ExecutionEvent[] = [
+      text(0, "最终正文", "stream-answer"),
+      start,
+      { ...base, seq: 3, kind: "final_message", messageId: "persisted-answer" },
+    ];
+    expect(progressMessageIds(events).has("stream-answer")).toBe(true);
+    expect(progressMessageIds(events, (id) => id === "stream-answer" ? "persisted-answer" : null).has("stream-answer")).toBe(false);
+    expect(progressMessageIds(events.slice(0, 2), (id) => id === "stream-answer" ? "persisted-answer" : null).has("stream-answer")).toBe(false);
+  });
   it("updates skill result with genuine failure without treating start as success", () => {
     expect(traceEntries([start])[0]!.status).toBe("running");
     const end: ExecutionEvent = { ...base, seq: 3, kind: "tool_end", toolCallId: "call-1", toolName: "call_skill", result: "unavailable", ok: false };

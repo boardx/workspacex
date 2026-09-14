@@ -39,15 +39,25 @@ export function reduceTrace(store: TraceStore, events: readonly ExecutionEvent[]
   return next ?? store;
 }
 /** A tool boundary confirms that earlier public text was progress, not the answer. */
-export function progressMessageIds(events: readonly ExecutionEvent[]): Set<string> {
+export function progressMessageIds(
+  events: readonly ExecutionEvent[],
+  resolvePersisted: (messageId: string) => string | null = () => null,
+): Set<string> {
   const seen = new Set<string>();
   const progress = new Set<string>();
+  const finalIds = new Set(events.filter((event) => event.kind === "final_message").map((event) => event.messageId));
   for (const event of events) {
     if (event.kind === "text_delta") seen.add(event.messageId);
     if (event.kind === "tool_start") for (const id of seen) progress.add(id);
     if (event.kind === "final_message") progress.delete(event.messageId);
   }
-  for (const event of events) if (event.kind === "final_message") progress.delete(event.messageId);
+  for (const id of progress) {
+    const persistedId = resolvePersisted(id);
+    // A non-self alias only exists after chat_message_id proved that the complete streamed
+    // body was persisted. The journal tail can arrive a frame later than that wire event,
+    // so the alias itself is sufficient finality evidence for this live projection.
+    if (persistedId !== null && (persistedId !== id || finalIds.has(persistedId))) progress.delete(id);
+  }
   return progress;
 }
 export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {

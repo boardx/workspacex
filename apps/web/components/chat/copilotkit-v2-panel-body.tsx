@@ -595,7 +595,8 @@ export function CopilotKitV2PanelBody({
    * 为什么不能直接用 `message.id`（流式那半是临时聚合 id，评分会 404）见
    * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证。
    */
-  const { index: messageIdentity, registerHydrated } = useChatMessageIdentity(agent);
+  const { index: messageIdentity, registerHydrated, projectMessages } = useChatMessageIdentity(agent);
+  const projectedMessages = projectMessages(agent.messages);
 
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
@@ -1525,7 +1526,7 @@ export function CopilotKitV2PanelBody({
     });
 
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
-    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(agent.messages);
+    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(projectedMessages);
 
   /**
    * issue #2096（真实 devapp 实测：打字/滚动时消息区画布内容闪烁）—— 根因：两个
@@ -1685,7 +1686,7 @@ export function CopilotKitV2PanelBody({
   // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
   // 也需要用到的这一份判断起个名字，不是新开一套判定。
-  const isEmptyThread = !historyLoading && agent.messages.length === 0 && !agent.isRunning;
+  const isEmptyThread = !historyLoading && projectedMessages.length === 0 && !agent.isRunning;
 
   return (
     <div className="flex h-full min-h-0 w-full gap-3">
@@ -1809,7 +1810,7 @@ export function CopilotKitV2PanelBody({
               <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
               <div className="h-14 w-3/4 rounded-lg bg-muted" />
             </div>
-          ) : agent.messages.length === 0 && !agent.isRunning ? (
+          ) : projectedMessages.length === 0 && !agent.isRunning ? (
             /* issue #2130（TW-P0-1，回指 #2068）—— 任务型空状态取代此前的会话隐喻
                两行静态文字，见 `chat-task-workbench-empty-state.tsx` 文件头注。 */
             <TaskWorkbenchEmptyState
@@ -1856,7 +1857,8 @@ export function CopilotKitV2PanelBody({
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}
                         toolCallMessageIds={runTrace.toolCallMessageIds}
-                        messages={agent.messages}
+                        resolvePersistedMessageId={messageIdentity.resolvePersisted}
+                        messages={projectedMessages}
                         isRunning={agent.isRunning}
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
@@ -1885,7 +1887,7 @@ export function CopilotKitV2PanelBody({
               贴底居中（`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置）。
               只在离开底部且确实有消息可看时出现，不在历史回读骨架屏/空态上叠加一个
               没有意义的按钮。 */}
-          {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
+          {!isAtBottom && !historyLoading && projectedMessages.length > 0 ? (
             <button
               type="button"
               data-testid="copilotkit-v2-scroll-to-bottom"

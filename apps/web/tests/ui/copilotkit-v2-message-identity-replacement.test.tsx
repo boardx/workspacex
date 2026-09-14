@@ -23,12 +23,19 @@ type Message = { id: string; role: string; content: string };
 type CustomFrame = { event: { name: string; value: unknown }; messages: Message[] };
 type Subscriber = {
   onCustomEvent?: (frame: CustomFrame) => { messages?: Message[] } | undefined | void;
+  onRunFinishedEvent?: (frame: { messages: Message[] }) => { messages?: Message[] } | undefined | void;
+  onTextMessageEndEvent?: (frame: { event: { messageId: string }; messages: Message[]; textMessageBuffer: string }) => void;
 };
 
 const STREAM_ID = "thread-3069:1:assistant";
 const PERSISTED_ID = "chat-message-3069";
 
-function fakeAgent(): { agent: AbstractAgent; emit: (frame: CustomFrame) => ReturnType<NonNullable<Subscriber["onCustomEvent"]>> } {
+function fakeAgent(): {
+  agent: AbstractAgent;
+  emit: (frame: CustomFrame) => ReturnType<NonNullable<Subscriber["onCustomEvent"]>>;
+  finish: (messages: Message[]) => ReturnType<NonNullable<Subscriber["onRunFinishedEvent"]>>;
+  endText: (messageId: string, text: string, messages?: Message[]) => void;
+} {
   let subscriber: Subscriber | null = null;
   const agent = {
     subscribe: (s: Subscriber) => {
@@ -36,7 +43,14 @@ function fakeAgent(): { agent: AbstractAgent; emit: (frame: CustomFrame) => Retu
       return { unsubscribe: () => { subscriber = null; } };
     },
   } as unknown as AbstractAgent;
-  return { agent, emit: (frame) => subscriber?.onCustomEvent?.(frame) };
+  return {
+    agent,
+    emit: (frame) => subscriber?.onCustomEvent?.(frame),
+    finish: (messages) => subscriber?.onRunFinishedEvent?.({ messages }),
+    endText: (messageId, text, messages = []) => subscriber?.onTextMessageEndEvent?.({
+      event: { messageId }, messages, textMessageBuffer: text,
+    }),
+  };
 }
 
 describe("useChatMessageIdentity：assistant_message_replaced", () => {
@@ -96,5 +110,57 @@ describe("useChatMessageIdentity：assistant_message_replaced", () => {
     });
     expect(hook.current.index.resolvePersisted(STREAM_ID)).toBe(PERSISTED_ID);
     expect(hook.current.index.resolve(STREAM_ID)).toBe(PERSISTED_ID);
+  });
+
+  it("#3397 多气泡映射让整组参与权威恢复，但只在主气泡显示操作入口", () => {
+    const { agent, emit } = fakeAgent();
+    const { result: hook } = renderHook(() => useChatMessageIdentity(agent));
+    const observed: { mutation?: { messages?: Message[] } } = {};
+    act(() => {
+      observed.mutation = emit({
+        event: {
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: {
+            streamingMessageId: "stream-1",
+            streamingMessageIds: ["stream-1", "stream-2"],
+            chatMessageId: PERSISTED_ID,
+          },
+        },
+        messages: [
+          { id: "user", role: "user", content: "问题" },
+          { id: "stream-1", role: "assistant", content: "第一段" },
+          { id: "stream-2", role: "assistant", content: "第二段" },
+        ],
+      }) as { messages?: Message[] } | undefined;
+    });
+    expect(observed.mutation?.messages).toEqual([
+      { id: "user", role: "user", content: "问题" },
+      { id: "stream-1", role: "assistant", content: "第一段\n\n第二段" },
+    ]);
+    expect(hook.current.index.resolvePersisted("stream-1")).toBe(PERSISTED_ID);
+    expect(hook.current.index.resolvePersisted("stream-2")).toBe(PERSISTED_ID);
+    expect(hook.current.index.resolve("stream-1")).toBe(PERSISTED_ID);
+    expect(hook.current.index.resolve("stream-2"), "别名气泡不重复显示评分/落地入口").toBeNull();
+    expect(hook.current.index.resolve(PERSISTED_ID)).toBe(PERSISTED_ID);
+  });
+
+  it("#3397 RUN_FINISHED 不能在持久化正文接管前投影一帧空消息", () => {
+    const { agent, emit, finish, endText } = fakeAgent();
+    renderHook(() => useChatMessageIdentity(agent));
+    act(() => {
+      endText(STREAM_ID, "完整流式正文");
+      emit({
+        event: {
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: { streamingMessageId: STREAM_ID, chatMessageId: PERSISTED_ID },
+        },
+        // Real @ag-ui/client clears this snapshot before CUSTOM is observed.
+        messages: [],
+      });
+    });
+
+    expect(finish([])?.messages).toEqual([
+      { id: STREAM_ID, role: "assistant", content: "完整流式正文" },
+    ]);
   });
 });

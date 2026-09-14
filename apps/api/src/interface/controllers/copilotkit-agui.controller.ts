@@ -966,7 +966,13 @@ export class CopilotkitAguiController {
         write({
           type: EventType.CUSTOM,
           name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
-          value: { streamingMessageId: messageId, chatMessageId: outcome.messageId },
+          value: {
+            streamingMessageId: messageId,
+            streamingMessageIds: this.runs.readExecutionEvents
+              ? executionRelay.finalStreamingMessageIds()
+              : [messageId],
+            chatMessageId: outcome.messageId,
+          },
         });
         // DA-16 -- real `file_created` producer (see `agui-file-events.ts`'s own doc for
         // why this reads `chat_message_attachments` via the existing `listThreadAttachments`
