@@ -202,3 +202,31 @@ describe("getInboxCounts 可观测性（B6.4）", () => {
     expect(JSON.stringify(fields)).not.toContain("正文");
   });
 });
+
+describe("#3633 tag counts preserve feedback disclosure", () => {
+  const stored = new Map<string, readonly string[]>([
+    ["feedback:fb-other", ["private-other", "shared"]],
+    ["feedback:fb-mine", ["mine", "shared"]],
+  ]);
+  function taggedDeps() {
+    return { ...deps([
+      feedbackRow({ id: "fb-other", submittedBy: "u-other", tags: ["private-other", "shared"] }),
+      feedbackRow({ id: "fb-mine", submittedBy: "u-me", tags: ["mine", "shared"] }),
+    ], undefined), tags: fakeInboxTags(stored) };
+  }
+  it("counts only disclosed tags, without leaking through shared tag totals", async () => {
+    const out = await getInboxCounts(taggedDeps(), { viewerId: "u-me", viewerOrgRole: "consultant", viewerTeamId: null });
+    expect(out.total).toBe(2);
+    expect(out.byTag).toEqual([{ tag: "mine", count: 1 }, { tag: "shared", count: 1 }]);
+  });
+  it("administrators retain counts for all feedback tags", async () => {
+    expect((await getInboxCounts(taggedDeps(), admin)).byTag).toEqual([
+      { tag: "shared", count: 2 }, { tag: "mine", count: 1 }, { tag: "private-other", count: 1 },
+    ]);
+  });
+  it("does not read tags when the viewer is not an organization member", async () => {
+    const tags = { ...fakeInboxTags(stored), getTags: vi.fn(async () => stored) };
+    await expect(getInboxCounts({ ...taggedDeps(), tags }, { ...admin, viewerOrgRole: null })).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+    expect(tags.getTags).not.toHaveBeenCalled();
+  });
+});

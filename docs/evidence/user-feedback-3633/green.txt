@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3633/apps/api
+
+ ✓ tests/inbox/list-inbox.test.ts (37 tests) 68ms
+ ✓ tests/inbox/get-inbox-counts.test.ts (12 tests) 35ms
+ ✓ tests/inbox/inbox-order-repo-guard.test.ts (5 tests) 124ms
+ ✓ tests/inbox/inbox-tag-repo-guard.test.ts (5 tests) 99ms
+ ✓ tests/inbox/set-inbox-item-tags.test.ts (3 tests) 6ms
+
+ Test Files  5 passed (5)
+      Tests  62 passed (62)
+   Start at  02:21:19
+   Duration  6.48s (transform 2.06s, setup 0ms, collect 4.17s, tests 332ms, environment 1ms, prepare 537ms)
+

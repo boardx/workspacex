@@ -512,3 +512,48 @@ describe("listInbox 可观测性（B6.4）", () => {
     expect(out.items).toHaveLength(1);
   });
 });
+
+describe("#3633 feedback tags follow D3 disclosure", () => {
+  const stored = new Map<string, readonly string[]>([
+    ["feedback:fb-other", ["private-other", "shared"]],
+    ["feedback:fb-mine", ["mine", "shared"]],
+  ]);
+  function taggedDeps() {
+    return { ...baseDeps([
+      feedbackRow({ id: "fb-other", submittedBy: "u-other", tags: ["private-other", "shared"] }),
+      feedbackRow({ id: "fb-mine", submittedBy: "u-me", tags: ["mine", "shared"] }),
+    ], undefined), tags: fakeInboxTags(stored) };
+  }
+  const member = { viewerId: "u-me", viewerOrgRole: "consultant" as const, viewerTeamId: null, limit: 50 };
+
+  it("keeps another submitter's tags hidden while showing the viewer's own tags", async () => {
+    const out = await listInbox(taggedDeps(), member);
+    expect(out.items.find((item) => item.id === "fb-other")).toMatchObject({ body: null, tags: [] });
+    expect(out.items.find((item) => item.id === "fb-mine")).toMatchObject({ body: "正文", tags: ["mine", "shared"] });
+  });
+
+  it("cannot infer undisclosed feedback by filtering a private or shared tag", async () => {
+    expect((await listInbox(taggedDeps(), { ...member, tag: "private-other" })).items).toEqual([]);
+    expect((await listInbox(taggedDeps(), { ...member, tag: "shared" })).items.map((item) => item.id)).toEqual(["fb-mine"]);
+  });
+
+  it("also hides tags in the archived view and its tag filter", async () => {
+    const archived = { ...baseDeps([feedbackRow({ id: "fb-other", submittedBy: "u-other", status: "已归档", tags: ["private-other"] })], undefined), tags: fakeInboxTags(stored) };
+    const out = await listInbox(archived, { ...member, view: "archived" });
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]).toMatchObject({ body: null, tags: [] });
+    expect((await listInbox(archived, { ...member, view: "archived", tag: "private-other" })).items).toEqual([]);
+  });
+
+  it("still exposes and filters tags for administrators", async () => {
+    const out = await listInbox(taggedDeps(), { ...adminInput, limit: 50, tag: "private-other" });
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]).toMatchObject({ id: "fb-other", tags: ["private-other", "shared"] });
+  });
+
+  it("rejects non-members before querying organization tags", async () => {
+    const tags = { ...fakeInboxTags(stored), getTags: vi.fn(async () => stored) };
+    await expect(listInbox({ ...taggedDeps(), tags }, { ...member, viewerOrgRole: null })).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+    expect(tags.getTags).not.toHaveBeenCalled();
+  });
+});

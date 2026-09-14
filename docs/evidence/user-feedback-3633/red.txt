@@ -1,0 +1,132 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3633/apps/api
+
+ ❯ tests/inbox/list-inbox.test.ts (36 tests | 2 failed) 61ms
+   × #3633 feedback tags follow D3 disclosure > keeps another submitter's tags hidden while showing the viewer's own tags 12ms
+     → expected { id: 'fb-other', …(22) } to match object { body: null, tags: [] }
+(21 matching properties omitted from actual)
+   × #3633 feedback tags follow D3 disclosure > cannot infer undisclosed feedback by filtering a private or shared tag 2ms
+     → expected [ { id: 'fb-other', …(22) } ] to deeply equal []
+ ❯ tests/inbox/get-inbox-counts.test.ts (12 tests | 1 failed) 37ms
+   × #3633 tag counts preserve feedback disclosure > counts only disclosed tags, without leaking through shared tag totals 10ms
+     → expected [ { tag: 'shared', count: 2 }, …(2) ] to deeply equal [ { tag: 'mine', count: 1 }, …(1) ]
+ ✓ tests/inbox/inbox-order-repo-guard.test.ts (5 tests) 127ms
+ ✓ tests/inbox/inbox-tag-repo-guard.test.ts (5 tests) 93ms
+ ✓ tests/inbox/set-inbox-item-tags.test.ts (3 tests) 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/inbox/get-inbox-counts.test.ts > #3633 tag counts preserve feedback disclosure > counts only disclosed tags, without leaking through shared tag totals
+AssertionError: expected [ { tag: 'shared', count: 2 }, …(2) ] to deeply equal [ { tag: 'mine', count: 1 }, …(1) ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
++     "count": 2,
++     "tag": "shared",
++   },
++   Object {
+      "count": 1,
+      "tag": "mine",
+    },
+    Object {
+      "count": 1,
+-     "tag": "shared",
++     "tag": "private-other",
+    },
+  ]
+
+ ❯ tests/inbox/get-inbox-counts.test.ts:220:23
+    218|     const out = await getInboxCounts(taggedDeps(), { viewerId: "u-me",…
+    219|     expect(out.total).toBe(2);
+    220|     expect(out.byTag).toEqual([{ tag: "mine", count: 1 }, { tag: "shar…
+       |                       ^
+    221|   });
+    222|   it("administrators retain counts for all feedback tags", async () =>…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/inbox/list-inbox.test.ts > #3633 feedback tags follow D3 disclosure > keeps another submitter's tags hidden while showing the viewer's own tags
+AssertionError: expected { id: 'fb-other', …(22) } to match object { body: null, tags: [] }
+(21 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "body": null,
+-   "tags": Array [],
++   "tags": Array [
++     "private-other",
++     "shared",
++   ],
+  }
+
+ ❯ tests/inbox/list-inbox.test.ts:531:62
+    529|   it("keeps another submitter's tags hidden while showing the viewer's…
+    530|     const out = await listInbox(taggedDeps(), member);
+    531|     expect(out.items.find((item) => item.id === "fb-other")).toMatchOb…
+       |                                                              ^
+    532|     expect(out.items.find((item) => item.id === "fb-mine")).toMatchObj…
+    533|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/inbox/list-inbox.test.ts > #3633 feedback tags follow D3 disclosure > cannot infer undisclosed feedback by filtering a private or shared tag
+AssertionError: expected [ { id: 'fb-other', …(22) } ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   Object {
++     "attachments": Array [],
++     "boardOrder": -1788220800000,
++     "body": null,
++     "code": "B-2",
++     "createdAt": "2026-09-01T00:00:00.000Z",
++     "exception": null,
++     "feedbackKind": "缺陷",
++     "github": null,
++     "id": "fb-other",
++     "kind": "feedback",
++     "linkedFeedbackId": null,
++     "reporter": null,
++     "resolvedByDesignId": null,
++     "severe": false,
++     "sourceStatus": "待处理",
++     "stage": "backlog",
++     "statusReason": null,
++     "structured": null,
++     "submittedByMe": false,
++     "tags": Array [
++       "private-other",
++       "shared",
++     ],
++     "title": "点了没反应",
++     "votedByMe": false,
++     "votes": 0,
++   },
++ ]
+
+ ❯ tests/inbox/list-inbox.test.ts:536:88
+    534| 
+    535|   it("cannot infer undisclosed feedback by filtering a private or shar…
+    536|     expect((await listInbox(taggedDeps(), { ...member, tag: "private-o…
+       |                                                                                        ^
+    537|     expect((await listInbox(taggedDeps(), { ...member, tag: "shared" }…
+    538|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  2 failed | 3 passed (5)
+      Tests  3 failed | 58 passed (61)
+   Start at  02:16:29
+   Duration  4.06s (transform 1.17s, setup 0ms, collect 2.42s, tests 326ms, environment 1ms, prepare 468ms)
+
+undefined
+/private/tmp/workspacex-feedback-3633/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.inbox-unit.config.ts

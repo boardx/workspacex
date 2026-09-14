@@ -1,3 +1,7 @@
+import { listInbox } from "../../src/application/inbox/list-inbox";
+import { getInboxCounts } from "../../src/application/inbox/get-inbox-counts";
+import { PgInboxTagRepository } from "../../src/infrastructure/inbox/pg-inbox-tag-repository";
+import { FakeDesignProjectRepo } from "../support/fake-design-project-repo";
 import { PgFeedbackDraftRepository } from "../../src/infrastructure/feedback/pg-feedback-draft-repository";
 import { submitFeedbackDraft } from "../../src/application/feedback/drafts/submit-feedback-draft";
 import { FakeAttachmentRepo, FakeDraftRefiner } from "./draft-fakes";
@@ -423,4 +427,31 @@ it("failure to store tags rolls back the feedback insertion", async () => {
   await asApp(ORG, (c) => c.query("INSERT INTO inbox_item_tags (org_id, kind, item_id, tags) VALUES ($1, 'feedback', 'fb-1', ARRAY['existing'])", [ORG]));
   await expect(repo.insert(draft({tags:["新标签"]}))).rejects.toThrow();
   expect(await repo.findById("fb-1", ME)).toBeNull();
+});
+
+
+it("#3633 real inbox tag reads preserve D3 and isolate two populated organizations", async () => {
+  await repo.insert(draft({ tags: ["private", "shared"] }));
+  await repo.insert(draft({ id: "fb-other", submittedBy: OTHER, tags: ["other", "shared"] }));
+  const tagFactory = new PgInboxTagRepository(db);
+  await tagFactory.forOrg(OTHER_ORG).setTags("feedback", "fb-1", ["foreign"]);
+  expect(await tagFactory.forOrg(OTHER_ORG).getTags()).toEqual(new Map([["feedback:fb-1", ["foreign"]]]));
+  expect((await tagFactory.forOrg(ORG).getTags()).get("feedback:fb-1")).toEqual(["private", "shared"]);
+  const submitters = { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map<string, string>() };
+  const deps = {
+    feedback: { repo, orgId: toOrgId(ORG), newDecisionId: () => "d-3633", submitters },
+    design: { projects: new FakeDesignProjectRepo(), orgId: toOrgId(ORG), submitters },
+    errorLog: undefined,
+    tags: tagFactory.forOrg(ORG),
+    orders: { getOrders: async () => new Map<string, number>(), setOrders: async () => undefined },
+  };
+  const input = { viewerId: OTHER, viewerOrgRole: "consultant" as const, viewerTeamId: null, limit: 50 };
+  const out = await listInbox(deps, input);
+  expect(out.items.find((item) => item.id === "fb-1")).toMatchObject({ body: null, tags: [] });
+  expect(out.items.find((item) => item.id === "fb-other")?.tags).toEqual(["other", "shared"]);
+  expect((await listInbox(deps, { ...input, tag: "private" })).items).toEqual([]);
+  expect((await listInbox(deps, { ...input, tag: "shared" })).items.map((item) => item.id)).toEqual(["fb-other"]);
+  expect((await getInboxCounts(deps, input)).byTag).toEqual([{ tag: "other", count: 1 }, { tag: "shared", count: 1 }]);
+  expect((await listInbox(deps, { ...input, viewerId: ME, tag: "private" })).items[0]?.tags).toEqual(["private", "shared"]);
+  expect((await listInbox(deps, { ...input, viewerOrgRole: "admin", tag: "private" })).items[0]?.tags).toEqual(["private", "shared"]);
 });

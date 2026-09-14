@@ -2,8 +2,8 @@
  * `pg-inbox-tag-repository.ts` 的 lint 豁免，钉在这里（2026-09-08 收件箱反馈 / 设计方案标签）。
  *
  * `lint-permission-paths.mjs` 的 ALLOWLIST 给这个文件开了口子，理由是「`inbox_item_tags`
- * 不是 `ObjectRef` 的任何一种，一行只有一个排序整数，不携带任何 D3 门控过的内容——真正的
- * 内容披露仍在 `inbox-projection.ts` 那条已经 `guard()` 过的路径上」。那条理由**只在
+ * 不是 `ObjectRef` 的任何一种，一行只存组织内条目的标签——真正的
+ * 内容披露仍在 `inbox-projection.ts` 复用已完成的 D3 决策，body 为 null 的反馈标签必须清空」。那条理由**只在
  * 三个前提成立时**有效，所以三个前提在这里被逐条断言，而不是留在注释里当声明。
  *
  * ⚠ 每条断言都配一个变异，证明它断得动——一条永远为真的断言与没有断言无法区分。
