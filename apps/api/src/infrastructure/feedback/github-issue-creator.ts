@@ -202,9 +202,34 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
     }
   }
 
+  /** Resolve each label before creating the issue, so a failed lookup cannot create a duplicate on retry. */
+  private async ensureLabel(name: string, signal: AbortSignal): Promise<void> {
+    const labelsUrl = this.issuesUrl().replace(/\/issues$/, "/labels");
+    const url = `${labelsUrl}/${encodeURIComponent(name)}`;
+    const lookup = async () => {
+      const response = await this.request(url, { method: "GET", signal, headers: this.headers() });
+      if (response.status === 404) return false;
+      if (!response.ok) throw new GithubIssueCreationError(response.status);
+      const body = await response.json() as { name?: unknown };
+      if (typeof body.name !== "string" || body.name.toLowerCase() !== name.toLowerCase()) throw new GithubIssueCreationError(response.status);
+      return true;
+    };
+    try {
+      if (await lookup()) return;
+      const response = await this.request(labelsUrl, { method: "POST", signal, headers: this.headers(), body: JSON.stringify({name, color:"ededed"}) });
+      if (response.ok) return;
+      if (response.status === 422 && await lookup()) return;
+      throw new GithubIssueCreationError(response.status);
+    } catch (error) {
+      if (error instanceof GithubIssueCreationError) throw error;
+      throw new GithubIssueCreationError(null);
+    }
+  }
+
   async create(draft: GithubIssueDraft): Promise<CreatedGithubIssue> {
     if (!this.config.token) throw new GithubIssueCreationError(null);
     return this.withTimeout(async (signal) => {
+      for (const label of [...new Map(draft.labels.map((name) => [name.toLowerCase(), name])).values()]) await this.ensureLabel(label, signal);
       let response: Response;
       try {
         response = await this.request(this.issuesUrl(), {

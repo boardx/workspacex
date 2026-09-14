@@ -43,6 +43,7 @@ export class FakeDraftRepo implements FeedbackDraftRepository {
     if (r === null) return null;
     const next: FeedbackDraftRow = {
       ...r,
+      ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.detail !== undefined ? { detail: patch.detail } : {}),
       ...(patch.structured !== undefined ? { structured: patch.structured } : {}),

@@ -62,6 +62,7 @@ interface FeedbackDbRow {
   readonly title: string;
   readonly detail: string;
   readonly structured: unknown;
+  readonly tags?: string[];
   readonly status: string;
   readonly status_reason: string | null;
   readonly occurred_route: string | null;
@@ -94,6 +95,7 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
   return {
     id: row.id,
     submittedBy: row.submitted_by,
+    tags: row.tags ?? [],
     // 列上有 CHECK (kind IN ('缺陷','需求'))，读回来只可能是这两个之一。
     kind: row.kind as "缺陷" | "需求",
     target: toTarget(row),
@@ -120,6 +122,7 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
 
 const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
+  COALESCE((SELECT t.tags FROM inbox_item_tags t WHERE t.org_id = f.org_id AND t.kind = 'feedback' AND t.item_id = f.id), ARRAY[]::text[]) AS tags,
   f.target_label, f.title, f.detail, f.structured, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
   f.github_issue_url, f.github_issue_number, f.resolved_by_design_id,
@@ -164,6 +167,9 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
           record.structured === null ? null : JSON.stringify(record.structured),
         ],
       );
+      if (record.tags?.length) {
+        await s.query(`INSERT INTO inbox_item_tags (org_id, kind, item_id, tags) VALUES ($1, 'feedback', $2, $3::text[])`, [this.orgId, record.id, [...record.tags]]);
+      }
     });
   }
 

@@ -41,6 +41,7 @@ export interface UpdateFeedbackDraftInput {
   readonly ownerId: string;
   readonly kind?: FeedbackKind;
   readonly detail?: string;
+  readonly tags?: readonly string[];
   readonly structured?: FeedbackStructured | null;
   readonly appendChat?: Omit<FeedbackDraftChatTurn, "at">;
 }
@@ -53,7 +54,7 @@ export async function updateFeedbackDraft(
   if (current === null) throw new FeedbackDraftNotFoundError();
 
   const noop =
-    input.kind === undefined && input.detail === undefined && input.structured === undefined && input.appendChat === undefined;
+    input.tags === undefined && input.kind === undefined && input.detail === undefined && input.structured === undefined && input.appendChat === undefined;
   if (noop) return { draft: await loadDraftView(deps, input.draftId, input.ownerId) };
 
   const at = deps.now().toISOString();
@@ -86,6 +87,7 @@ export async function updateFeedbackDraft(
   const updated = await deps.drafts.update(input.draftId, input.ownerId, {
     ...(input.kind !== undefined ? { kind: input.kind } : {}),
     ...(input.detail !== undefined ? { detail: input.detail } : {}),
+    ...(input.tags !== undefined ? { tags: input.tags } : {}),
     ...(input.structured !== undefined ? { structured: input.structured } : {}),
     ...(chat.length !== current.chat.length ? { chat } : {}),
     ...(refineSeeded !== undefined ? { refineSeeded } : {}),

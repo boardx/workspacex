@@ -169,7 +169,7 @@ describe("UC-17.8 B1 草稿闭环", () => {
     expect(fb.inserted).toEqual([{
       id: "fb-1", submittedBy: ME, kind: "缺陷", target: { kind: "skill", skillId: "s-1" }, targetLabel: null,
       title: "导出 PDF 会卡住", detail: "导出 PDF 会卡住！每次都这样\n第二行",
-      structured: { reproSteps: "1. 点导出" }, occurredRoute: "/chat", appVersion: "1.0",
+      structured: { reproSteps: "1. 点导出" }, tags: [], occurredRoute: "/chat", appVersion: "1.0",
     }]);
     expect(fb.events[0]).toMatchObject({ id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", actorId: ME });
     expect(w.drafts.rows.has("d-1")).toBe(false);
@@ -236,4 +236,18 @@ describe("UC-17.8 B1 草稿闭环", () => {
     expect([...w.attachments.rows.values()].filter((r) => r.draftId === "d-1")).toHaveLength(5);
     expect(w.attachments.rows.get("a-6")!.draftId).toBeNull();
   });
+});
+
+it("tags survive draft creation, editing, refinement and submission; [] clears", async () => {
+  const w = world();
+  await createFeedbackDraft(w.createDeps, { ownerId: ME, kind: "需求", target: { kind: "product" }, detail: "分类反馈", occurredRoute: null, appVersion: null, tags: ["移动端"] });
+  expect((await listMyFeedbackDrafts(w.base, { ownerId: ME }))[0]?.tags).toEqual(["移动端"]);
+  await updateFeedbackDraft(w.updateDeps, { ownerId: ME, draftId: "d-1", tags: [] });
+  expect((await listMyFeedbackDrafts(w.base, { ownerId: ME }))[0]?.tags).toEqual([]);
+  await updateFeedbackDraft(w.updateDeps, { ownerId: ME, draftId: "d-1", tags: ["最终标签"] });
+  const result = await updateFeedbackDraft(w.updateDeps, { ownerId: ME, draftId: "d-1", appendChat: { role: "user", kind: "message", text: "保留我的标签" } });
+  expect(result.draft.tags).toEqual(["最终标签"]);
+  const fb = fakeFeedbackRepo();
+  await submitFeedbackDraft({ ...w.base, refine: w.refine, submit: { repo: fb.repo, newFeedbackId: () => "fb-tags", newEventId: () => "ev-tags" } }, { ownerId: ME, draftId: "d-1" });
+  expect(fb.inserted[0]?.tags).toEqual(["最终标签"]);
 });

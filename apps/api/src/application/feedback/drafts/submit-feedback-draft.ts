@@ -79,6 +79,7 @@ export async function submitFeedbackDraft(
     title,
     detail,
     structured,
+    tags: draft.tags ?? [],
     occurredRoute: draft.occurredRoute,
     appVersion: draft.appVersion,
   });

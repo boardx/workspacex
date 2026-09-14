@@ -18,6 +18,7 @@ export interface CreateFeedbackDraftInput {
   readonly kind: FeedbackKind;
   readonly target: FeedbackTarget;
   readonly detail: string;
+  readonly tags?: readonly string[];
   readonly structured?: FeedbackStructured;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
@@ -36,6 +37,7 @@ export async function createFeedbackDraft(
     target: input.target,
     detail: input.detail,
     structured: input.structured ?? null,
+    tags: input.tags ?? [],
     occurredRoute: input.occurredRoute,
     appVersion: input.appVersion,
   });

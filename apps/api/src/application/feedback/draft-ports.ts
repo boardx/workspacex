@@ -27,6 +27,7 @@ export interface FeedbackDraftRow {
   readonly kind: FeedbackKind;
   readonly target: FeedbackTarget;
   readonly detail: string;
+  readonly tags?: readonly string[];
   readonly structured: FeedbackStructured | null;
   readonly chat: readonly FeedbackDraftChatTurn[];
   readonly refineSeeded: boolean;
@@ -42,6 +43,7 @@ export interface NewFeedbackDraft {
   readonly kind: FeedbackKind;
   readonly target: FeedbackTarget;
   readonly detail: string;
+  readonly tags?: readonly string[];
   readonly structured: FeedbackStructured | null;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
@@ -54,6 +56,7 @@ export interface NewFeedbackDraft {
 export interface FeedbackDraftPatch {
   readonly kind?: FeedbackKind;
   readonly detail?: string;
+  readonly tags?: readonly string[];
   readonly structured?: FeedbackStructured | null;
   readonly chat?: readonly FeedbackDraftChatTurn[];
   readonly refineSeeded?: boolean;

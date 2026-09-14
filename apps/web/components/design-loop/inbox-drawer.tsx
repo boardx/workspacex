@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { feedbackGithubLabels } from "@repo/contracts/feedback-tags";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
 
 /** issue 标签没有「已有标签」这份数据可聚合（GitHub 侧的，前端拿不到）——空候选集。 */
@@ -32,7 +33,7 @@ import { TagEditor } from "./inbox-tags";
  */
 
 /** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
-const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
+
 
 /** 附件 MIME → 人能看的类型名（表单附件清单 + issue 正文附件清单共用）。 */
 const ATTACHMENT_MIME_LABEL: Record<string, string> = {
@@ -91,7 +92,7 @@ export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
   return {
     title: item.title,
     body: lines.join("\n"),
-    labels: ["user-feedback", ...(item.feedbackKind !== null ? [INBOX_KIND_ISSUE_LABEL[item.feedbackKind]] : [])],
+    labels: feedbackGithubLabels(item.feedbackKind, [], item.tags),
   };
 }
 

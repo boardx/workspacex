@@ -1,3 +1,7 @@
+import { PgFeedbackDraftRepository } from "../../src/infrastructure/feedback/pg-feedback-draft-repository";
+import { submitFeedbackDraft } from "../../src/application/feedback/drafts/submit-feedback-draft";
+import { FakeAttachmentRepo, FakeDraftRefiner } from "./draft-fakes";
+import { toOrgId } from "../../src/domain/org-id";
 /**
  * FB-2 —— `product_feedback` 三张表在**真实 Postgres** 上的行为，即迁移
  * (`20260815140000_fb2_product_feedback.sql`) 声称的六条：
@@ -388,4 +392,35 @@ describe("FB-2 落库", () => {
     expect(JSON.stringify(row.detail)).not.toContain("每次都要重填");
     expect(row.detail.ref).toEqual({ kind: "feedback", id: "fb-1" });
   });
+});
+
+it("tags persist in the inbox authority in the same transaction and remain tenant isolated", async () => {
+  await repo.insert(draft({ tags: ["移动端", "体验"] }));
+  expect((await repo.findById("fb-1", ME))?.tags).toEqual(["移动端", "体验"]);
+  expect(await otherRepo.findById("fb-1", ME)).toBeNull();
+  const rows = await asApp(ORG, (c) => c.query("SELECT tags FROM inbox_item_tags WHERE kind = 'feedback' AND item_id = $1", ["fb-1"]));
+  expect(rows.rows[0]?.tags).toEqual(["移动端", "体验"]);
+  await asApp(ORG, (c) => c.query("UPDATE inbox_item_tags SET tags = ARRAY['后台编辑'] WHERE kind = 'feedback' AND item_id = $1", ["fb-1"]));
+  expect((await repo.findById("fb-1", ME))?.tags).toEqual(["后台编辑"]);
+});
+
+it("real draft tags persist through patch/read and submission to the shared inbox table", async () => {
+  const drafts = new PgFeedbackDraftRepository(db).forOrg(ORG);
+  await drafts.create({ id:"draft-tags", ownerId:ME, kind:"需求", target:{kind:"product"}, detail:"标签草稿", structured:null, occurredRoute:null, appVersion:null, tags:["开始"] });
+  expect((await drafts.get("draft-tags", ME))?.tags).toEqual(["开始"]);
+  await drafts.update("draft-tags", ME, {tags:[]});
+  expect((await drafts.get("draft-tags", ME))?.tags).toEqual([]);
+  await drafts.update("draft-tags", ME, {tags:["最终标签"]});
+  await drafts.update("draft-tags", ME, {detail:"更新正文"});
+  expect((await drafts.get("draft-tags", ME))?.tags).toEqual(["最终标签"]);
+  expect(await drafts.get("draft-tags", OTHER)).toBeNull();
+  expect(await new PgFeedbackDraftRepository(db).forOrg(OTHER_ORG).get("draft-tags", ME)).toBeNull();
+  await submitFeedbackDraft({refine:new FakeDraftRefiner(), drafts, orgId:toOrgId(ORG), attachments:new FakeAttachmentRepo(), submit:{repo, newFeedbackId:()=>"submitted-tags", newEventId:()=>"event-tags"}}, {draftId:"draft-tags", ownerId:ME});
+  expect((await repo.findById("submitted-tags", ME))?.tags).toEqual(["最终标签"]);
+  expect(await drafts.get("draft-tags", ME)).toBeNull();
+});
+it("failure to store tags rolls back the feedback insertion", async () => {
+  await asApp(ORG, (c) => c.query("INSERT INTO inbox_item_tags (org_id, kind, item_id, tags) VALUES ($1, 'feedback', 'fb-1', ARRAY['existing'])", [ORG]));
+  await expect(repo.insert(draft({tags:["新标签"]}))).rejects.toThrow();
+  expect(await repo.findById("fb-1", ME)).toBeNull();
 });

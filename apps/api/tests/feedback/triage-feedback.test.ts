@@ -321,7 +321,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     expect(deps.githubIssues.create).toHaveBeenCalledWith({
       title: "t",
       body: "管理员写的正文\n\n![](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png)",
-      labels: [],
+      labels: ["user-feedback", "bug"],
     });
   });
 
@@ -352,7 +352,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     expect(deps.githubIssues.create).toHaveBeenCalledWith({
       title: "t",
       body: "管理员写的正文\n\n**附件文件**\n- [附件 fbattach-2.pdf](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-2.pdf)",
-      labels: [],
+      labels: ["user-feedback", "bug"],
     });
     expect(out.imageUploadWarnings).toEqual([]);
   });
@@ -381,7 +381,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
       ...ADMIN,
     });
-    expect(deps.githubIssues.create).toHaveBeenCalledWith({ title: "t", body: "管理员写的正文", labels: [] });
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({ title: "t", body: "管理员写的正文", labels: ["user-feedback", "bug"] });
     expect(out.githubIssueUrl).toBe("https://github.com/boardx/workspacex/issues/1");
     expect(deps.logger.error).toHaveBeenCalledWith(
       expect.stringContaining("attachment image upload failed"),
@@ -600,4 +600,10 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
     expect(deps.logger.error).not.toHaveBeenCalled();
     expect(deps.logger.info).toHaveBeenCalled();
   });
+});
+
+it("uses persisted tags even when the issue editor omits them and strips control namespaces", async () => {
+  const deps = baseDeps({repo:fakeRepo(row({tags:["移动端", "Mobile", "review:code-ok"]}))});
+  await triageFeedback(deps, {feedbackId:"fb-1", status:"已进入迭代", reason:null, issueDraft:{title:"t",body:"b",labels:["mobile","status:merged"]}, ...ADMIN});
+  expect(deps.githubIssues.create).toHaveBeenCalledWith({title:"t",body:"b",labels:["user-feedback","bug","Mobile","移动端"]});
 });

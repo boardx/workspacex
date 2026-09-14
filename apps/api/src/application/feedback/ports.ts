@@ -33,6 +33,7 @@ export interface NewFeedback {
   readonly title: string;
   readonly detail: string;
   /** UC-17.8 D1：可不带（`null`）。落 `product_feedback.structured`，只在 INSERT 写。 */
+  readonly tags?: readonly string[];
   readonly structured: FeedbackStructured | null;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
@@ -61,6 +62,7 @@ export interface FeedbackRow {
    * UC-17.8 D1：与 `detail` 同一条 D3 门控——它是正文的补充，不是标题/票数那类恒可见的
    * 展示性上下文。同样包成 `Guarded`，让「判了 detail 忘了判 structured」在类型上写不出来。
    */
+  readonly tags?: readonly string[];
   readonly structured: Guarded<FeedbackStructured | null>;
   readonly status: FeedbackStatus;
   readonly statusReason: string | null;

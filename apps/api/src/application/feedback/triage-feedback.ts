@@ -1,3 +1,4 @@
+import { feedbackGithubLabels } from "@repo/contracts/feedback-tags";
 /**
  * `triageFeedback` —— 分诊(改状态)。**组织管理员,且只有组织管理员**。
  *
@@ -287,7 +288,7 @@ export async function triageFeedback(
         viewerId: input.actorId,
         viewerOrgRole: input.actorOrgRole,
         submittedBy: current.submittedBy,
-        draft: input.issueDraft,
+        draft: { ...input.issueDraft, labels: feedbackGithubLabels(current.kind, input.issueDraft.labels, current.tags ?? []) },
       });
       imageUploadWarnings = warnings;
       const created = await deps.githubIssues.create(draft);

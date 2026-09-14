@@ -1,4 +1,5 @@
 "use client";
+import { FeedbackTagsInput, commitFeedbackTags } from "@/components/feedback/feedback-tags";
 import * as React from "react";
 import { Plus, X, Trash2, MessageSquare, Paperclip, Send, ShieldAlert, PlugZap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -302,6 +303,8 @@ function EditDrawer({
 }) {
   const [kind, setKind] = React.useState<FeedbackKind>(draft.kind);
   const [detail, setDetail] = React.useState(draft.detail);
+  const [tags, setTags] = React.useState<readonly string[]>(draft.tags ?? []);
+  const [tagDraft, setTagDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   /** B6.5：焦点进 drawer / Esc 关闭 / 关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
@@ -310,7 +313,11 @@ function EditDrawer({
 
   /** 只发**改了**的字段（契约四个都 optional）；什么都没改就不打空请求，直接算保存成功。 */
   const save = async (): Promise<boolean> => {
-    const patch: { kind?: FeedbackKind; detail?: string } = {};
+    const patch: { kind?: FeedbackKind; detail?: string; tags?: string[] } = {};
+    try {
+      const next = commitFeedbackTags(tags, tagDraft);
+      if (JSON.stringify(next) !== JSON.stringify(draft.tags ?? [])) patch.tags = next;
+    } catch { setError("标签格式无效，请使用普通分类标签"); return false; }
     if (kind !== draft.kind) patch.kind = kind;
     if (detail !== draft.detail) patch.detail = detail;
     if (Object.keys(patch).length === 0) return true;
@@ -355,6 +362,7 @@ function EditDrawer({
             <label htmlFor="draft-edit-body" className="text-11 font-medium text-muted-foreground">正文</label>
             <Textarea id="draft-edit-body" value={detail} onChange={(e) => setDetail(e.target.value)} rows={8} data-testid="draft-edit-body" />
           </div>
+          <FeedbackTagsInput tags={tags} onChange={setTags} draft={tagDraft} onDraftChange={setTagDraft} disabled={saving} />
           {draft.structured !== null && (
             <div className="flex flex-col gap-1">
               <span className="text-11 font-medium text-muted-foreground">结构化字段</span>

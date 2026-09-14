@@ -29,6 +29,7 @@ import {
   type FeedbackStructured,
   type FeedbackTarget,
 } from "@/lib/live-feedback";
+import { FeedbackTagsInput, commitFeedbackTags } from "./feedback-tags";
 import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -212,6 +213,8 @@ export function FeedbackDialog({
   const [stage, setStage] = React.useState<"compose" | "review">("compose");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
   const [detail, setDetail] = React.useState("");
+  const [tags, setTags] = React.useState<readonly string[]>([]);
+  const [tagDraft, setTagDraft] = React.useState("");
   /** review 阶段可编辑的标题；compose 阶段还没有标题概念。 */
   const [title, setTitle] = React.useState("");
   const [draftSaved, setDraftSaved] = React.useState(false);
@@ -494,6 +497,8 @@ export function FeedbackDialog({
       .map((a) => a.attachmentId);
 
   const resetForm = () => {
+    setTags([]);
+    setTagDraft("");
     setTitle("");
     setDetail("");
     setStage("compose");
@@ -543,6 +548,7 @@ export function FeedbackDialog({
         kind,
         target,
         detail: detail.trim(),
+        ...(tags.length || tagDraft.trim() ? { tags: commitFeedbackTags(tags, tagDraft) } : {}),
         occurredRoute: pathname ?? null,
         appVersion,
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
@@ -582,6 +588,7 @@ export function FeedbackDialog({
         target,
         title: finalTitle,
         detail: detail.trim(),
+        ...(tags.length || tagDraft.trim() ? { tags: commitFeedbackTags(tags, tagDraft) } : {}),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
         appVersion,
@@ -945,6 +952,7 @@ export function FeedbackDialog({
               )}
             </div>
 
+            <FeedbackTagsInput tags={tags} onChange={setTags} draft={tagDraft} onDraftChange={setTagDraft} disabled={busy || draftBusy} />
             {stage === "compose" ? (
               <div className="flex items-center justify-end">
                 <Button

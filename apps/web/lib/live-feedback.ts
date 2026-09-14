@@ -60,6 +60,7 @@ export async function submitFeedback(input: {
   readonly attachmentIds?: readonly string[];
   /** UC-17.8 D1——按 `kind` 组好的结构化字段。全空 = 不带这个键（同 `attachmentIds`）。 */
   readonly structured?: FeedbackStructured;
+  readonly tags?: readonly string[];
 }): Promise<SubmitFeedbackOut> {
   return apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input });
 }
@@ -349,6 +350,7 @@ export async function createFeedbackDraft(input: {
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
   readonly structured?: FeedbackStructured;
+  readonly tags?: readonly string[];
   readonly attachmentIds?: readonly string[];
 }): Promise<CreateFeedbackDraftOut> {
   return apiRequest<CreateFeedbackDraftOut>(DRAFTS_PATH, { method: "POST", body: input });

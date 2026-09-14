@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3628/apps/web
+
+ ✓ tests/ui/tag-input-ime.test.tsx (6 tests) 3566ms
+   ✓ IME Enter confirms composition without committing or clearing the draft 2351ms
+   ✓ IME ， confirms composition without committing or clearing the draft 547ms
+ ✓ tests/ui/feedback-drafts-live.test.tsx (18 tests) 3986ms
+   ✓ ① 2026-09-10：提交表单只有标题 + 详细说说，结构化内容铺进正文 > 缺陷：AI 给的期望/实际结果按「标签：值」铺进「详细说说」，body 不带 structured 键 568ms
+   ✓ ① 2026-09-10：提交表单只有标题 + 详细说说，结构化内容铺进正文 > AI 整理不可用 ⇒ 正文原样留着、标题退回派生，body 照样不带 structured 键 353ms
+   ✓ ④ B1：草稿列表三态 > 读取失败 ⇒ dep-failed，说「没有丢」，重试再发一次请求 380ms
+   ✓ ⑦ B1：左栏「反馈草稿」徽标 > fetchLiveAdminNavCounts：count 来自 GET /feedback/drafts/count；读不到 ⇒ 不返回键 ⇒ 「—」 767ms
+ ✓ tests/ui/feedback-dialog.test.tsx (27 tests) 8490ms
+   ✓ FB-2 反馈弹层（采集侧） > ① 请求体恰好六个字段（结构化字段全空 ⇒ 不带 structured 键），没有 submittedBy / status —— 按实际发出的请求断言 933ms
+   ✓ FB-2 反馈弹层（采集侧） > ③ 提交失败时明确说没有保存，且不切标签页 439ms
+   ✓ FB-5 网络层失败的可读性与重试 > ⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文 312ms
+   ✓ FB-5 网络层失败的可读性与重试 > ⑧ 传图失败可重试，重试成功后提交带上 attachmentIds 563ms
+   ✓ FB-5 补：套用模板 / 拖拽上传 > ⑨ 已经写了内容再点「套用模板」——追加在后面，不覆盖已写的话 334ms
+   ✓ FB-5 补：套用模板 / 拖拽上传 > ⑨ 剩余空间放不下完整模板时——拒绝套用、正文原样不动，不插入半截模板 358ms
+   ✓ FB-5 补：套用模板 / 拖拽上传 > ⑨ 套用一次因空间不够被拒绝后，先删点字腾出空间——再点就能成功套用 427ms
+   ✓ issue #2637 ② —— 「我提过的」附件缩略图懒加载 > 缩略图不在视口时不发起带鉴权的下载；滚进视口后才发起一次并断开观察，反复进出视口不重复请求 468ms
+   ✓ 2026-09-14 —— 「我提过的」里 PDF / 文本附件是文件卡片，不是裂图 > PDF 附件渲染成带 PDF 标签的文件卡片，不预下载；点开才带鉴权拉字节并用 iframe 预览 916ms
+   ✓ feedback tags > feedback-submit commits the last unconfirmed tag 1070ms
+   ✓ feedback tags > feedback-save-draft commits the last unconfirmed tag 367ms
+
+ Test Files  3 passed (3)
+      Tests  51 passed (51)
+   Start at  01:39:53
+   Duration  38.91s (transform 15.30s, setup 6.48s, collect 36.64s, tests 16.04s, environment 24.60s, prepare 2.89s)
+
