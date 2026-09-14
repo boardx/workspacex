@@ -220,7 +220,7 @@ test("choose_execution_option 按 optionId 选择并从刷新后的同一个请�
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("已选择方案：thorough");
 });
 
-test("choose_execution_option 都不要会诚实结束为拒绝态", async ({ page }) => {
+test("choose_execution_option 都不要会诚实结束为取消态", async ({ page }) => {
   const { run, runUrl, headers } = await triggerFormInterrupt(
     page,
     CHAT_READ_E2E.deepAgentChooseOptionTrigger,
@@ -237,8 +237,8 @@ test("choose_execution_option 都不要会诚实结束为拒绝态", async ({ pa
     permissionRequestId: run.pendingApproval!.permissionRequestId,
     decision: "reject",
   });
-  await expectRunStatus(page, runUrl, headers, "failed");
+  await expectRunStatus(page, runUrl, headers, "cancelled");
   const final = await (await page.request.get(runUrl, { headers })).json() as PendingRun & { error?: string | null };
   expect(final.pendingApproval).toBeNull();
-  expect(final.error).toBe("HITL_REJECTED");
+  expect(final.error).toBeNull();
 });
