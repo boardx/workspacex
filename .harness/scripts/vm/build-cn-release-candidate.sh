@@ -51,6 +51,7 @@ set +a
 registry=${WSX_REGISTRY_PREFIX%%/*}
 region=${WSX_ACR_REGION:-cn-shanghai}
 role_name=${WSX_ECS_RAM_ROLE_NAME:?set WSX_ECS_RAM_ROLE_NAME in publish.env}
+instance_id=${WSX_ACR_INSTANCE_ID:?set WSX_ACR_INSTANCE_ID in publish.env}
 DOCKER_CONFIG=$(mktemp -d /tmp/workspacex-cn-docker.XXXXXX)
 export DOCKER_CONFIG
 cleanup(){ docker logout "$registry" >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"; }
@@ -59,7 +60,7 @@ credentials_file="$DOCKER_CONFIG/acr-credentials.json"
 cli_config="$DOCKER_CONFIG/aliyun.json"
 umask 077
 aliyun configure set --profile WSXRelease --mode EcsRamRole --ram-role-name "$role_name" --region "$region" --config-path "$cli_config" >/dev/null || fail "temporary ECS role profile failed"
-aliyun cr GetAuthorizationToken --RegionId "$region" --profile WSXRelease --config-path "$cli_config" --output json >"$credentials_file" || fail "temporary ACR authorization failed"
+aliyun cr GetAuthorizationToken --RegionId "$region" --InstanceId "$instance_id" --profile WSXRelease --config-path "$cli_config" --output json >"$credentials_file" || fail "temporary ACR authorization failed"
 username=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.TempUsername||v.Username||"")' "$credentials_file")
 token=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.AuthorizationToken||"")' "$credentials_file")
 [[ -n "$username" && -n "$token" ]] || fail "temporary ACR authorization response is incomplete"

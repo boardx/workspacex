@@ -23,6 +23,8 @@ describe("China production trusted deployment entrypoints", () => {
     expect(candidate).toContain("EcsRamRole");
     expect(candidate).toContain("DOCKER_CONFIG");
     expect(candidate).toContain("docker logout");
+    expect(candidate).toContain('WSX_ACR_INSTANCE_ID');
+    expect(candidate).toContain('--InstanceId "$instance_id"');
     expect(candidate).toContain("candidate_sealed");
     expect(deploy).toContain("production_available");
     expect(deploy).toContain("release-events");
