@@ -18,3 +18,7 @@ GitHub issue drafts combine current persisted tags with user-feedback and the fe
 - API pure unit lane includes the shared design-workbench issue creator use case; it runs no database setup. The canonical database isolation configuration is unchanged.
 
 The issue attachment was inspected and matched to the product feedback dialog. Mobile screenshot shows the existing scrollable dialog, with tags in its content area.
+
+## CI correction
+
+The first gates-runtime run found that the new draft tags migration was not replayable (the column already existed on the second application). Added IF NOT EXISTS and ran the unchanged isolated `pnpm --filter @repo/api migrate:check` successfully: empty rebuild, individual replay, populated data identity, prototype append-only behavior, and version-table coverage all passed. Full output is retained in migration-check.txt. This does not alter any verification gate.
