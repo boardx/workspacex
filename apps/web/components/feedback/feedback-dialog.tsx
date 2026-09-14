@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, ImagePlus, FileText, PencilRuler, Maximize2, Minimize2, AlertTriangle, Pause } from "lucide-react";
+import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Paperclip, FileText, PencilRuler, Maximize2, Minimize2, AlertTriangle, Pause } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
@@ -33,6 +33,7 @@ import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
+import { TextAttachmentPreview } from "@/components/chat/chat-attachment-preview-modal";
 import { cn } from "@/lib/utils";
 
 /** 附件上限与类型白名单都从契约来（UC-17.8 D3），本文件不写第二份。 */
@@ -849,7 +850,7 @@ export function FeedbackDialog({
                     onClick={() => fileInputRef.current?.click()}
                     data-testid="feedback-attachment-add"
                   >
-                    <ImagePlus aria-hidden className="h-3.5 w-3.5" />
+                    <Paperclip aria-hidden className="h-3.5 w-3.5" />
                     加文件（{attachments.length}/{MAX_ATTACHMENTS}）
                   </Button>
                   <span className="text-10 text-muted-foreground">或把文件拖拽到这里</span>
@@ -1174,7 +1175,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
             <ul className="flex flex-wrap gap-1" data-testid={`feedback-mine-attachments-${item.id}`}>
               {item.attachments.map((a) => (
                 <li key={a.id}>
-                  <AttachmentThumbnail url={a.url} />
+                  <AttachmentThumbnail url={a.url} mime={a.mime} />
                 </li>
               ))}
             </ul>
@@ -1202,7 +1203,100 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
  * 下载——不在视口里的图片压根不占这次的网络与内存。观察者一旦命中一次就断开
  * （`once: true` 语义），不需要持续监听一张已经加载完的图。
  */
-function AttachmentThumbnail({ url }: { url: string }) {
+/** `application/pdf` → `PDF`，`text/markdown` → `MD`——文件卡片上那个小标签。 */
+function attachmentBadge(mime: string): string {
+  if (mime === "application/pdf") return "PDF";
+  if (mime === "text/markdown") return "MD";
+  if (mime === "text/plain") return "TXT";
+  return mime.split("/").pop()?.toUpperCase() ?? "文件";
+}
+
+/**
+ * 非图片附件（PDF / 文本）的预览弹窗——PDF 走浏览器原生 viewer（`<iframe>`），文本
+ * 走 `TextAttachmentPreview`，同 `chat-attachment-preview-modal.tsx` 的既有做法。
+ * `src` 是已经拿到的 blob URL（本地 `File` 或带鉴权下载后的字节），本组件不发请求。
+ */
+function FeedbackFilePreviewModal({ src, mime, name, testid, onClose }: {
+  src: string; mime: string; name: string; testid: string; onClose: () => void;
+}) {
+  return (
+    <Modal testid={testid} title={name} onClose={onClose} width="lg">
+      <div className="grid min-h-[240px] place-items-center">
+        {mime === "application/pdf" ? (
+          <iframe src={src} title={name} className="h-[60vh] w-full rounded-md border border-border-subtle" data-testid={`${testid}-pdf`} />
+        ) : (
+          <TextAttachmentPreview src={src} />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * 「我提过的」列表里一个非图片附件（PDF / 文本）的卡片。2026-09-14 人类实测：提交了一个
+ * PDF，历史里显示成一张裂图——`AttachmentThumbnail` 此前不看 `mime`，把什么都塞进 `<img>`。
+ * 文件不预下载（没有缩略图可生成，滚进视口也不该白花一次带鉴权的下载），点开才拉字节。
+ */
+function AttachmentFileCard({ url, mime }: { url: string; mime: string }) {
+  const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  const badge = attachmentBadge(mime);
+
+  React.useEffect(() => {
+    return () => {
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectUrl]);
+
+  const open = () => {
+    if (loading) return;
+    setLoading(true);
+    setFailed(false);
+    fetchFeedbackAttachmentObjectUrl(url)
+      .then((u) => setObjectUrl(u))
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  };
+  // 关闭只清 state；blob URL 由上面那个 effect 的 cleanup 负责释放（同一处释放，不重复 revoke）。
+  const close = () => setObjectUrl(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={cn(
+          "flex h-9 w-9 flex-col items-center justify-center gap-0 rounded-md border border-border-subtle bg-panel",
+          failed && "border-destructive/60",
+        )}
+        onClick={open}
+        aria-label={`预览 ${badge} 附件`}
+        title={failed ? "加载失败，点一下重试" : `${badge} 附件，点开预览`}
+        data-testid="feedback-mine-attachment-open"
+        data-mime={mime}
+      >
+        {loading ? (
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <>
+            <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
+            <span className="text-9 leading-none text-muted-foreground">{badge}</span>
+          </>
+        )}
+      </button>
+      {objectUrl !== null && (
+        <FeedbackFilePreviewModal src={objectUrl} mime={mime} name={`${badge} 附件`} testid="feedback-mine-attachment-preview" onClose={close} />
+      )}
+    </>
+  );
+}
+
+function AttachmentThumbnail({ url, mime }: { url: string; mime: string }) {
+  if (!isImageAttachmentMime(mime)) return <AttachmentFileCard url={url} mime={mime} />;
+  return <AttachmentImageThumbnail url={url} />;
+}
+
+function AttachmentImageThumbnail({ url }: { url: string }) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [inView, setInView] = React.useState(false);

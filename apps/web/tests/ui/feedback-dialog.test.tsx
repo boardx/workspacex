@@ -523,6 +523,51 @@ describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", ()
   });
 });
 
+describe("2026-09-14 —— 「我提过的」里 PDF / 文本附件是文件卡片，不是裂图", () => {
+  it("PDF 附件渲染成带 PDF 标签的文件卡片，不预下载；点开才带鉴权拉字节并用 iframe 预览", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(["%PDF-"], { type: "application/pdf" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const createObjectURL = vi.fn(() => "blob:pdf");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    try {
+      mockSubmitThenList({
+        ...mineItem,
+        attachments: [{ id: "att-pdf", url: "/feedback/attachments/att-pdf", mime: "application/pdf" }],
+      });
+      openDialogFor({ kind: "product" });
+      fireEvent.click(screen.getByTestId("feedback-tab-mine"));
+      const list = await screen.findByTestId("feedback-mine-attachments-fb-new");
+
+      // 不是 <img>：此前 `AttachmentThumbnail` 不看 mime，PDF 也塞进 <img> 显示成裂图。
+      expect(list.querySelector("img")).toBeNull();
+      const card = screen.getByTestId("feedback-mine-attachment-open");
+      expect(card.getAttribute("data-mime")).toBe("application/pdf");
+      expect(card.textContent).toContain("PDF");
+      // 文件没有缩略图可生成，列表渲染时不该白花一次带鉴权的下载。
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      fireEvent.click(card);
+      await screen.findByTestId("feedback-mine-attachment-preview-pdf");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("feedback-mine-attachment-preview-pdf").getAttribute("src")).toBe("blob:pdf");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("「加文件」按钮不再用图片图标（附件已不只收图片）", () => {
+    mockSubmitThenList({ ...mineItem, attachments: [] });
+    openDialogFor({ kind: "product" });
+    const button = screen.getByTestId("feedback-attachment-add");
+    expect(button.querySelector("svg.lucide-paperclip")).not.toBeNull();
+    expect(button.querySelector("svg.lucide-image-plus")).toBeNull();
+  });
+});
+
 describe("issue #2637 ④ / 2026-09-04 —— 录音状态与 chat composer 同一套组件", () => {
   function stubCaptureSupport() {
     vi.stubGlobal("WebSocket", class {} as unknown as typeof WebSocket);
