@@ -604,7 +604,7 @@ export function CopilotKitV2PanelBody({
    * 为什么不能直接用 `message.id`（流式那半是临时聚合 id，评分会 404）见
    * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证。
    */
-  const { index: messageIdentity, registerHydrated, projectMessages } = useChatMessageIdentity(agent);
+  const { index: messageIdentity, registerHydrated, projectMessages, isSettledMessageId } = useChatMessageIdentity(agent);
   const projectedMessages = projectMessages(agent.messages);
 
   const [historyError, setHistoryError] = React.useState<string | null>(null);
@@ -1872,6 +1872,7 @@ export function CopilotKitV2PanelBody({
                         messageRuns={runTrace.messageRuns}
                         toolCallMessageIds={runTrace.toolCallMessageIds}
                         resolvePersistedMessageId={messageIdentity.resolvePersisted}
+                        isSettledMessageId={isSettledMessageId}
                         messages={projectedMessages}
                         isRunning={agent.isRunning}
                         assistantMessage={V2AssistantMessage}
