@@ -2,7 +2,7 @@
  * 2026-09-15 人类直接要求的三条，机械钉住：
  *   ① 左栏 Nav 入口名 = 「海创汇」；
  *   ② 只有 Workspace 组织能看到这个入口（别的组织连条目都没有，不是 CSS 隐藏）；
- *   ③ 六个 team 各有自己的路由 `/studio/agents/<slug>`。
+ *   ③ 六个 team 各有自己的路由 `/agent/<slug>`（形如 /agent/team1）。
  */
 import { describe, expect, it } from "vitest";
 import { AGENTS_NAV_LABEL, NAV_SEGMENTS, navSegmentsForOrg, isAgentsNavVisibleForOrg } from "@/lib/navigation";
@@ -34,8 +34,9 @@ describe("海创汇入口", () => {
 describe("六个 team 的路由", () => {
   it("Team1…Team6，slug 唯一且可反查", () => {
     expect(PREVIEW_AGENT_TEAMS.map((t) => t.name)).toEqual(["Team1", "Team2", "Team3", "Team4", "Team5", "Team6"]);
-    expect(new Set(PREVIEW_AGENT_TEAMS.map((t) => t.slug)).size).toBe(6);
+    expect(PREVIEW_AGENT_TEAMS.map((t) => t.slug)).toEqual(["team1", "team2", "team3", "team4", "team5", "team6"]);
     for (const team of PREVIEW_AGENT_TEAMS) expect(findPreviewAgentTeam(team.slug)).toEqual(team);
-    expect(findPreviewAgentTeam("team-7")).toBeUndefined();
+    expect(findPreviewAgentTeam("team7")).toBeUndefined();
+    expect(findPreviewAgentTeam("team-1")).toBeUndefined();
   });
 });

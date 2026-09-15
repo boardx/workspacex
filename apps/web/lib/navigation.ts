@@ -94,7 +94,7 @@ export const AGENTS_NAV_LABEL = "海创汇";
 /**
  * 「海创汇」入口的可见性（2026-09-15 人类直接要求：只有 Workspace 的组织才显示这个标签）。
  *
- * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。路由 `/studio/agents`
+ * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。路由 `/agent`
  *   本身仍然可直达，它只是一组只读示例卡片；真实能力门控在服务端。
  */
 export const AGENTS_NAV_ORG_NAME = "Workspace";
@@ -150,7 +150,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // 且**只对 Workspace 组织显示**——可见性判定在 `isAgentsNavVisibleForOrg`（本文件下方），
       // 由 `components/shell/icon-rail.tsx` 在渲染时过滤。条目本身留在 NAV_SEGMENTS 里，
       // 不做成"第二份导航表"：同一入口只声明一次，可见性是它的一个属性，不是另一张表。
-      { key: "agents", label: AGENTS_NAV_LABEL, href: "/studio/agents", icon: Bot, ucRefs: [] },
+      { key: "agents", label: AGENTS_NAV_LABEL, href: "/agent", icon: Bot, ucRefs: [] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
@@ -345,7 +345,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
 ];
 
 /* ────────────────────────────────────────────────────────────────────────────
- * #3602 更新：历史规则约束后台管理入口；用户现授权独立的 /studio/agents 展示页进入 STUDIO。
+ * #3602 更新：历史规则约束后台管理入口；用户现授权独立的 /agent 展示页进入 STUDIO。
  * 2026-08-06 · issue #593 · 信息架构复位（一级 ↔ 二级）
  *
  * 病：一级导航里跟「对话」平级地挂着 蓝本 / 技能 / 智能体 / 成员 / 资产。

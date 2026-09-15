@@ -26,7 +26,7 @@ export default function AgentsPage() {
                 <div className="relative flex min-h-0 flex-1 flex-col">
                   <h2 className="text-14 font-semibold">
                     <Link
-                      href={`/studio/agents/${team.slug}`}
+                      href={`/agent/${team.slug}`}
                       data-testid={`agent-preview-link-${team.slug}`}
                       className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
