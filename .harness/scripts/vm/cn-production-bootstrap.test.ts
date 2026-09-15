@@ -59,7 +59,7 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy).toContain('install --frozen-lockfile --ignore-scripts --package-import-method=copy');
     expect(deploy).toContain('chmod -R go-w "$stage/checkout"');
     expect(deploy).toContain('mv "$stage/checkout" "$release_checkout"');
-    expect(deploy).toContain('pnpm --filter @repo/cloud-deploy prepare-host -- "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"');
+    expect(deploy).toContain('pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"');
   });
 
   it("keeps image preparation out of the promotion deploy fast path", () => {
@@ -108,7 +108,7 @@ describe("China production trusted deployment entrypoints", () => {
   it("prepares before provision and rolls back an invalid nginx update", () => {
     const prepare = deploy.indexOf("prepare-host");
     const nginx = deploy.indexOf("nginx -t", deploy.indexOf('nginx_source="$runtime/nginx.conf"'));
-    const provision = deploy.indexOf(" provision --");
+    const provision = deploy.indexOf(" provision \"$request\"");
     expect(prepare).toBeGreaterThan(-1);
     expect(nginx).toBeGreaterThan(prepare);
     expect(provision).toBeGreaterThan(nginx);
@@ -119,9 +119,9 @@ describe("China production trusted deployment entrypoints", () => {
   it("binds preparation to the live baseline and drains runs before activation", () => {
     const baseline = deploy.indexOf('capture_baseline "$current_baseline"');
     const drain = deploy.indexOf("wait_for_run_drain", baseline);
-    const provision = deploy.indexOf(" provision --", drain);
+    const provision = deploy.indexOf(" provision \"$request\"", drain);
     expect(baseline).toBeGreaterThan(-1);
-    expect(deploy).toContain('cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest"');
+    expect(deploy).toContain('cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest"');
     expect(drain).toBeGreaterThan(baseline);
     expect(provision).toBeGreaterThan(drain);
     expect(deploy).toContain("writeback_pending");
@@ -130,7 +130,7 @@ describe("China production trusted deployment entrypoints", () => {
 
   it("checks stable production identity before any traffic drain or provision", () => {
     const preparePreflight = deploy.indexOf('verify_stable_identity "$baseline_state"');
-    const bind = deploy.indexOf('cn-fast-safe-release -- bind');
+    const bind = deploy.indexOf('cn-fast-safe-release bind');
     const preflight = deploy.indexOf('verify_stable_identity "$current_baseline"');
     const activation = deploy.indexOf("activation_started=1");
     const drain = deploy.indexOf("enable_run_drain", activation);
@@ -139,7 +139,7 @@ describe("China production trusted deployment entrypoints", () => {
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(activation);
     expect(drain).toBeGreaterThan(activation);
-    expect(deploy).toContain("stable-secret-preflight --");
+    expect(deploy).toContain("stable-secret-preflight \"$baseline_secret_directory\"");
     expect(deploy).toContain("STABLE_SECRET_DIRECTORY=/var/lib/workspacex-cn/stable-secrets");
     expect(deploy.match(/\/var\/lib\/workspacex-cn\/stable-secrets/g)).toHaveLength(1);
     expect(deploy).toContain('[[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]]');

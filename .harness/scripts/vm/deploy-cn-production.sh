@@ -89,10 +89,10 @@ verify_stable_identity() {
        "$baseline_secret_directory" == "$baseline_runtime/secrets" ]] || fail "legacy baseline secret directory invalid"
     legacy_flag=(--legacy-baseline)
   fi
-  pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
+  pnpm --filter @repo/cloud-deploy stable-secret-preflight "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
 }
 baseline_fingerprint() {
-  pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release -- fingerprint "$1" "$2"
+  pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$1" "$2"
 }
 restore_baseline() {
   local rollback_dir override compose_file
@@ -200,15 +200,15 @@ if [[ "$mode" == prepare ]]; then
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" \
     node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
     || fail "browser runtime preflight failed"
-  pnpm --filter @repo/cloud-deploy prepare-host -- "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
+  pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
   install -o root -g root -m 0600 "$NGINX_CONFIG" "$baseline_nginx"
   capture_baseline "$baseline_state"
   verify_stable_identity "$baseline_state"
   baseline_sha=$(baseline_fingerprint "$baseline_state" "$baseline_nginx")
-  pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
-  pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
+  pnpm --filter @repo/cloud-deploy cn-fast-safe-release bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
+  pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
   record_event prepare_completed
   printf 'CN_PRODUCTION_RELEASE_PREPARED revision=%s\n' "$revision"
   exit 0
@@ -226,7 +226,7 @@ current_baseline="$current_baseline_dir/baseline.json"
 trap 'rm -rf -- "$current_baseline_dir"' EXIT
 capture_baseline "$current_baseline"
 baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
-pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
+pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
 verify_stable_identity "$current_baseline"
 
 activation_started=1
@@ -270,7 +270,7 @@ chmod 0600 "$request"
 
 remaining=$((activation_deadline-SECONDS))
 (( remaining > 0 )) || fail "activation deadline exceeded before provision"
-if ! timeout "${remaining}s" pnpm --filter @repo/cloud-deploy provision -- "$request"; then
+if ! timeout "${remaining}s" pnpm --filter @repo/cloud-deploy provision "$request"; then
   fail "provision failed"
 fi
 record_event runtime_ready
