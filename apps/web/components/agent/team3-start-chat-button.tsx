@@ -44,7 +44,7 @@ export function Team3StartChatButton() {
 
       const projects = await listProjects(orgId);
       const projectId = projects[0]?.id
-        ?? (await createProject({ name: "前沿赛道技术路线研判", kind: "research_project", blueprintVersionId: null })).id;
+        ?? (await createProject({ orgId, name: "前沿赛道技术路线研判", kind: "research_project", blueprintVersionId: null })).id;
 
       const thread = await createThread({
         projectId,
