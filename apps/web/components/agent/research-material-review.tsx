@@ -35,8 +35,8 @@ import {
 const VERDICT_META: Readonly<
   Record<Exclude<C.MaterialVerdictName, "pending">, { label: string; icon: typeof Check; tone: string }>
 > = {
-  accepted: { label: "通过", icon: Check, tone: "text-emerald-600 dark:text-emerald-400" },
-  missing: { label: "缺失", icon: FileQuestion, tone: "text-amber-600 dark:text-amber-400" },
+  accepted: { label: "通过", icon: Check, tone: "text-success" },
+  missing: { label: "缺失", icon: FileQuestion, tone: "text-warning" },
   wrong: { label: "有误", icon: X, tone: "text-destructive" },
 };
 

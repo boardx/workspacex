@@ -93,7 +93,7 @@ export function ResearchGatePanel({
         {noBatch ? (
           <p
             data-testid="research-gate-no-batch"
-            className="flex items-start gap-1.5 rounded bg-amber-500/10 px-2 py-1.5 text-11 text-amber-700 dark:text-amber-400"
+            className="flex items-start gap-1.5 rounded bg-warning-tint px-2 py-1.5 text-11 text-warning-tint-foreground"
           >
             <AlertCircle aria-hidden className="mt-0.5 size-3 shrink-0" />
             <span>这条研判还没有通过门①的材料批次。结论必须挂在有人审过的材料上，请先完成材料确认。</span>
@@ -162,7 +162,7 @@ export function ResearchAuditTrail({ threadId }: { threadId: string }): JSX.Elem
         <h3 className="text-11 font-semibold text-muted-foreground">推进记录</h3>
 
         {skipAttempts > 0 ? (
-          <p data-testid="research-skip-attempts" className="flex items-center gap-1.5 text-11 text-amber-700 dark:text-amber-400">
+          <p data-testid="research-skip-attempts" className="flex items-center gap-1.5 text-11 text-warning">
             <ShieldAlert aria-hidden className="size-3" />
             Agent 曾 {skipAttempts} 次试图跳过人工确认，已被拦下。
           </p>
@@ -172,7 +172,7 @@ export function ResearchAuditTrail({ threadId }: { threadId: string }): JSX.Elem
           {notable.slice(0, 20).map((r, i) => (
             <li key={`${r.createdAt}-${i}`} data-testid="research-audit-row" data-outcome={r.outcome} className="flex items-center gap-2 text-11">
               {r.outcome === "allowed" ? (
-                <ShieldCheck aria-hidden className="size-3 text-emerald-600 dark:text-emerald-400" />
+                <ShieldCheck aria-hidden className="size-3 text-success" />
               ) : (
                 <ShieldAlert aria-hidden className="size-3 text-destructive" />
               )}
@@ -188,7 +188,7 @@ export function ResearchAuditTrail({ threadId }: { threadId: string }): JSX.Elem
               {r.refusal ? (
                 <span className="text-destructive">被拒：{C.REFUSAL_LABELS[r.refusal]}</span>
               ) : (
-                <span className="text-emerald-600 dark:text-emerald-400">通过</span>
+                <span className="text-success">通过</span>
               )}
             </li>
           ))}

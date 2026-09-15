@@ -92,14 +92,14 @@ export function ResearchPhaseBar({
 
         {/* 当前阶段 + 在等谁 */}
         <p className="flex flex-wrap items-center gap-2 text-11 text-muted-foreground">
-          <span data-testid="research-phase-label" className="font-medium text-foreground">
+          <span data-testid="research-phase-label" className="font-medium text-background-foreground">
             {C.PHASE_LABELS[phase]}
           </span>
 
           {waitingGate ? (
             <span
               data-testid="research-waiting-gate"
-              className="flex items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-400"
+              className="flex items-center gap-1 rounded bg-warning-tint px-2 py-0.5 text-warning-tint-foreground"
             >
               <UserCheck aria-hidden className="size-3" />
               等你确认：{C.GATE_LABELS[waitingGate]}

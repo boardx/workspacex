@@ -30,8 +30,8 @@ import {
 } from "@/lib/live-research-workflow";
 
 const VERDICT_TONE: Readonly<Record<C.PredictionVerdictName, string>> = {
-  matched: "text-emerald-600 dark:text-emerald-400",
-  partial: "text-amber-600 dark:text-amber-400",
+  matched: "text-success",
+  partial: "text-warning",
   missed: "text-destructive",
 };
 
@@ -104,7 +104,7 @@ export function ResearchVerification({
           {/* 框架性根因是整个第三步唯一会改变**下一次**研判的信号——单独说一句。
               执行性问题改的是这一次，框架性问题改的是以后每一次。 */}
           {sum.framework > 0 ? (
-            <p data-testid="research-framework-signal" className="text-11 text-amber-700 dark:text-amber-400">
+            <p data-testid="research-framework-signal" className="text-11 text-warning">
               其中 {sum.framework} 条属于框架性问题 —— 判断逻辑本身需要修订，不只是这一次没做好。
             </p>
           ) : null}

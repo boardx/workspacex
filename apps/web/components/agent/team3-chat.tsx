@@ -163,7 +163,7 @@ export function Team3Chat(): JSX.Element {
   return (
     <div data-testid="team3-chat" className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 阶段条在聊天上方：聊天框没有"现在"，用户离开三天回来要靠往上翻消息才能
-          拼出"该我做什么了"。读不到会话时**不渲染**，而不是渲染一个假的"未开始"
+          拼出"该我做什么了"。读不到会话时不渲染（而不是渲染一个假的"未开始"）
           ——把未知显示成已知正是本仓反复判 0 分的那种假界面。 */}
       {research ? (
         <ResearchPhaseBar
