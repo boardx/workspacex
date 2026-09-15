@@ -1,9 +1,12 @@
 /**
  * 投后财务项目评级 Agent — 确定性评分引擎（ad-hoc MVP，issue 见 PR 描述）。
  *
- * 唯一事实源：本文件的阈值/公式逐字对齐人类提供的
+ * 阈值与档位表**不在本文件声明**：单一事实源是
+ * `packages/contracts/src/postinvest-rating-rules.ts`（ADR-020）。此前这些数字同时存在于
+ * 本文件和前端任务书 `rating-prompt.ts`（模型读不到源码，公式只能以文字交给它），
+ * 两份都自洽、改一处不会有任何东西变红——那正是本仓漂移过五次的形状。现在本文件按表
+ * 计算，任务书由 `renderRuleBook()` 渲染，同一份常量。数值原始来源是人类提供的
  * 《投后财务项目评级 Agent — 大模型测试方案与模拟测试文件》v1.0（2026-09-15）。
- * 不在别处复述这些数值（UI/契约/文档只引用，不复制）。
  *
  * 纯函数，无副作用、无 I/O：同一输入必然得到位级相同的输出（R7 业务规则 2）。
  * 缺失字段一律为 `null`，绝不当作 0 参与计算（R7 业务规则 3）。
@@ -15,6 +18,21 @@
  * 本文件是 MVP 直收已抽取字段的计算引擎，那份契约是文件上传+agent 编排完整形态签核
  * 后的 API 面；在契约未签核前 import 它会把 MVP 绑死在一个还可能改的形状上。
  */
+
+import {
+  CASH_MONTH_BANDS,
+  CASH_MONTH_FLOOR,
+  CASH_MONTH_TOP,
+  COMPONENT_SPLIT,
+  DOWNGRADE_RULES,
+  GRADE_BANDS,
+  GROWTH_COEFFICIENTS,
+  PROFIT_LEVEL_BANDS,
+  PROFIT_LOSS_ANCHORS,
+  REVENUE_SIZE_BANDS,
+  SCORE_WEIGHTS,
+  SUSPECTED_ABNORMAL_THRESHOLDS,
+} from "@repo/contracts/postinvest-rating-rules";
 
 export type Nullable<T> = T | null;
 
@@ -96,29 +114,21 @@ const REASON_IS_ABNORMAL = (
 /** 营业收入体量得分（反映绝对规模）。单位：元。 */
 export function revenueSizeScore(revenue: Nullable<number>): Nullable<number> {
   if (revenue === null) return null;
-  if (revenue >= 5e8) return 100;
-  if (revenue >= 3e8) return 90;
-  if (revenue >= 1e8) return 72;
-  if (revenue >= 5e7) return 52;
-  if (revenue >= 1e7) return 30;
-  return 0;
+  // 档位表从高到低，取第一个下沿满足的档（最后一档下沿是 -Infinity，必然命中）。
+  return REVENUE_SIZE_BANDS.find((b) => revenue >= b.min)!.score;
 }
 
 /** 净利润绝对盈利水平得分。单位：元。 */
 export function profitLevelScore(netProfit: Nullable<number>): Nullable<number> {
   if (netProfit === null) return null;
-  if (netProfit >= 1e8) return 100;
-  if (netProfit >= 5e7) return 90;
-  if (netProfit >= 2e7) return 82;
-  if (netProfit >= 1e7) return 75;
-  if (netProfit >= 5e6) return 65;
-  if (netProfit >= 1e6) return 55;
-  if (netProfit >= 0) return 45;
-  // 亏损分档：越接近 0 越接近区间上沿（-5/-15/-30/-70 为该档的边界锚点）
+  const band = PROFIT_LEVEL_BANDS.find((b) => netProfit >= b.min);
+  if (band) return band.score;
+  // 亏损段：越接近 0 越接近区间上沿，在锚点之间线性插值。
   const loss = -netProfit;
-  if (loss <= 1e7) return -5 - (loss / 1e7) * 10; // -5 ~ -15
-  if (loss <= 1e8) return -15 - ((loss - 1e7) / (1e8 - 1e7)) * 15; // -15 ~ -30
-  return -70;
+  const { mild, heavy, severe } = PROFIT_LOSS_ANCHORS;
+  if (loss <= mild.lossTo) return lerp(loss, mild.lossFrom, mild.lossTo, mild.from, mild.to);
+  if (loss <= heavy.lossTo) return lerp(loss, heavy.lossFrom, heavy.lossTo, heavy.from, heavy.to);
+  return severe.score;
 }
 
 /** 营收增长率得分：对数压缩，平滑极端值。 */
@@ -126,21 +136,26 @@ export function revenueGrowthScore(revenue: Nullable<number>, revenuePriorYear: 
   if (revenuePriorYear === null) return revenueSizeScore(revenue); // 无上年数据：按体量给分，中性偏正
   if (revenue === null) return null;
   if (revenuePriorYear <= 0 || revenue <= 0) return null; // 非正数无法取对数，交给数据质量标注处理
-  if (revenue >= revenuePriorYear) return 90 * Math.log(revenue / revenuePriorYear) / Math.log(1.5);
-  return -35 * (Math.log(revenuePriorYear / revenue) / Math.log(1.3));
+  const { revenueUp, revenueDown } = GROWTH_COEFFICIENTS;
+  if (revenue >= revenuePriorYear) {
+    return revenueUp.coefficient * (Math.log(revenue / revenuePriorYear) / Math.log(revenueUp.logBase));
+  }
+  return revenueDown.coefficient * (Math.log(revenuePriorYear / revenue) / Math.log(revenueDown.logBase));
 }
 
 /** 净利润增长率得分。六种情形 + 无上年数据。 */
 export function profitGrowthScore(netProfit: Nullable<number>, netProfitPriorYear: Nullable<number>): Nullable<number> {
   if (netProfit === null) return null;
-  if (netProfitPriorYear === null) return netProfit >= 0 ? 40 : -20; // 无上年数据：盈利+40 / 亏损-20
+  const g = GROWTH_COEFFICIENTS;
+  if (netProfitPriorYear === null) return netProfit >= 0 ? g.noPriorYearProfit : g.noPriorYearLoss;
   const wasLoss = netProfitPriorYear < 0;
   const isLoss = netProfit < 0;
 
   if (wasLoss && !isLoss) {
     // 扭亏为盈：亏损越大越高，70~90（以上年亏损 1 亿封顶映射）
-    const priorLoss = Math.min(-netProfitPriorYear, 1e8);
-    return 70 + (priorLoss / 1e8) * 20;
+    const { from, to, priorLossCap } = g.turnaround;
+    const priorLoss = Math.min(-netProfitPriorYear, priorLossCap);
+    return from + (priorLoss / priorLossCap) * (to - from);
   }
   if (wasLoss && isLoss) {
     const priorLoss = -netProfitPriorYear;
@@ -153,18 +168,18 @@ export function profitGrowthScore(netProfit: Nullable<number>, netProfitPriorYea
     }
     // 扩大：负分，按扩大比例给负分（无上限表，取扩大比例的负值，封顶 -100）
     const widenedRatio = (curLoss - priorLoss) / priorLoss;
-    return Math.max(-widenedRatio * 100, -100);
+    return Math.max(-widenedRatio * 100, g.wideningFloor);
   }
-  if (!wasLoss && isLoss) return -70; // 由盈转亏
+  if (!wasLoss && isLoss) return g.profitToLoss; // 由盈转亏
   // 连续盈利
   if (netProfit >= netProfitPriorYear) {
-    if (netProfitPriorYear <= 0) return 40; // 上年利润为 0 时对数无意义，按扭亏边界处理
-    return 80 * (Math.log(netProfit / netProfitPriorYear) / Math.log(2));
+    if (netProfitPriorYear <= 0) return g.noPriorYearProfit; // 上年利润为 0 时对数无意义，按无上年数据处理
+    return g.profitUp.coefficient * (Math.log(netProfit / netProfitPriorYear) / Math.log(g.profitUp.logBase));
   }
   // 连续盈利但下滑：温和惩罚，最多 -25
-  if (netProfitPriorYear <= 0) return -25;
+  if (netProfitPriorYear <= 0) return -g.profitDeclineCap;
   const declineRatio = (netProfitPriorYear - netProfit) / netProfitPriorYear;
-  return -Math.min(declineRatio * 25, 25);
+  return -Math.min(declineRatio * g.profitDeclineCap, g.profitDeclineCap);
 }
 
 /** 现金自给月数 = 货币资金 ÷ (近12月经营现金流出 ÷ 12)。 */
@@ -184,27 +199,24 @@ function lerp(x: number, x0: number, x1: number, y0: number, y1: number): number
 /** 现金自给月数 → S3 得分，分段线性 + 两端常数。 */
 export function cashScore(months: Nullable<number>): Nullable<number> {
   if (months === null) return null;
-  if (months >= 24) return 100;
-  if (months >= 12) return lerp(months, 12, 24, 50, 100);
-  if (months >= 6) return lerp(months, 6, 12, 0, 50);
-  if (months >= 3) return lerp(months, 3, 6, -30, 0);
-  if (months >= 1) return lerp(months, 1, 3, -60, -30);
-  if (months >= 0.3) return lerp(months, 0.3, 1, -80, -60);
-  return -85;
+  if (months >= CASH_MONTH_TOP.months) return CASH_MONTH_TOP.score;
+  const band = CASH_MONTH_BANDS.find((b) => months >= b.monthsFrom);
+  if (band) return lerp(months, band.monthsFrom, band.monthsTo, band.scoreFrom, band.scoreTo);
+  return CASH_MONTH_FLOOR.score;
 }
 
 export function computeS1(input: FinancialInput): { s1: Nullable<number>; sizeScore: Nullable<number>; growthScore: Nullable<number> } {
   const sizeScore = revenueSizeScore(input.revenue);
   const growthScore = revenueGrowthScore(input.revenue, input.revenuePriorYear);
   if (sizeScore === null || growthScore === null) return { s1: null, sizeScore, growthScore };
-  return { s1: growthScore * 0.4 + sizeScore * 0.6, sizeScore, growthScore };
+  return { s1: growthScore * COMPONENT_SPLIT.growth + sizeScore * COMPONENT_SPLIT.level, sizeScore, growthScore };
 }
 
 export function computeS2(input: FinancialInput): { s2: Nullable<number>; levelScore: Nullable<number>; growthScore: Nullable<number> } {
   const levelScore = profitLevelScore(input.netProfit);
   const growthScore = profitGrowthScore(input.netProfit, input.netProfitPriorYear);
   if (levelScore === null || growthScore === null) return { s2: null, levelScore, growthScore };
-  return { s2: growthScore * 0.4 + levelScore * 0.6, levelScore, growthScore };
+  return { s2: growthScore * COMPONENT_SPLIT.growth + levelScore * COMPONENT_SPLIT.level, levelScore, growthScore };
 }
 
 export function computeS3(input: FinancialInput): { s3: Nullable<number>; months: Nullable<number> } {
@@ -214,11 +226,8 @@ export function computeS3(input: FinancialInput): { s3: Nullable<number>; months
 
 /** 总分 → 等级（不考虑降级触发）。 */
 export function gradeFromTotal(total: number): ScoringGrade {
-  if (total > 140) return "A";
-  if (total > 100) return "B";
-  if (total > 70) return "C";
-  if (total > 40) return "D";
-  return "E";
+  // 分级带从高到低，取第一个 `total > min` 的档（最后一档下沿是 -Infinity，必然命中）。
+  return GRADE_BANDS.find((b) => total > b.min)!.grade;
 }
 
 /** 数据质量标注：应收+存货占收入比 / 其他应收款占总资产比或同比增长叠加经营现金流为负。 */
@@ -226,17 +235,17 @@ export function suspectedAbnormalFlag(input: FinancialInput): boolean {
   const { revenue, accountsReceivable, inventory, otherReceivables, otherReceivablesPriorYear, totalAssets, operatingCashFlowNet } = input;
 
   if (revenue !== null && revenue > 0 && accountsReceivable !== null && inventory !== null) {
-    if ((accountsReceivable + inventory) / revenue > 0.8) return true;
+    if ((accountsReceivable + inventory) / revenue > SUSPECTED_ABNORMAL_THRESHOLDS.receivableInventoryOverRevenue) return true;
   }
   if (totalAssets !== null && totalAssets > 0 && otherReceivables !== null) {
-    if (otherReceivables / totalAssets > 0.2) return true;
+    if (otherReceivables / totalAssets > SUSPECTED_ABNORMAL_THRESHOLDS.otherReceivablesOverAssets) return true;
     if (
       otherReceivablesPriorYear !== null &&
       otherReceivablesPriorYear > 0 &&
       operatingCashFlowNet !== null &&
       operatingCashFlowNet < 0
     ) {
-      if ((otherReceivables - otherReceivablesPriorYear) / otherReceivablesPriorYear > 0.5) return true;
+      if ((otherReceivables - otherReceivablesPriorYear) / otherReceivablesPriorYear > SUSPECTED_ABNORMAL_THRESHOLDS.otherReceivablesGrowth) return true;
     }
   }
   return false;
@@ -252,11 +261,11 @@ export function downgradeTrigger(input: FinancialInput): Nullable<"D" | "E"> {
     input.currentAssets !== null &&
     input.currentLiabilities !== null &&
     input.currentLiabilities > 0 &&
-    input.currentAssets / input.currentLiabilities < 1
+    input.currentAssets / input.currentLiabilities < DOWNGRADE_RULES.currentRatioThreshold
   ) {
-    return "E";
+    return DOWNGRADE_RULES.insolventWithCashCrisis;
   }
-  return "D";
+  return DOWNGRADE_RULES.insolvent;
 }
 
 /**
@@ -287,7 +296,7 @@ export function rate(input: FinancialInput): RatingResult {
     return { grade: null, scores, flags, downgrade: null, cannotRateReason: "关键指标缺失，无法计算总分" };
   }
 
-  const total = 100 + s1r.s1 * 0.4 + s2r.s2 * 0.3 + s3r.s3 * 0.3;
+  const total = SCORE_WEIGHTS.base + s1r.s1 * SCORE_WEIGHTS.s1 + s2r.s2 * SCORE_WEIGHTS.s2 + s3r.s3 * SCORE_WEIGHTS.s3;
   scores.total = total;
 
   let grade = gradeFromTotal(total);

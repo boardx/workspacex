@@ -106,3 +106,7 @@ export * as postInvestmentReport from "./post-investment-report";
 /* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
  *   design-signoff.md status: pending，待人类签核）──────────────────────── */
 export * as postinvestRating from "./postinvest-rating";
+/* 评分规则手册（S1/S2/S3 档位表 / 权重 / 分级带 / 降级触发）的单一事实源：
+ * 后端 `scoring.ts` 与前端任务书都从这里读，避免"改了实现忘了改提示词"（ADR-020）。
+ * R7-1 的最终归宿是 F01 的 skill 包，包建起来后本文件搬家、不再抄第二份。 */
+export * as postinvestRatingRules from "./postinvest-rating-rules";
