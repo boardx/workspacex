@@ -21,6 +21,7 @@ import type { postinvestRating } from "@repo/contracts";
 import { TRUSTED_SOURCE_SEED_DOMAINS } from "@repo/contracts/postinvest-rating";
 import { renderRuleBook } from "@repo/contracts/postinvest-rating-rules";
 import { buildMissingReasonBrief } from "./missing-reason";
+import { RATING_MEMO_TAG, buildMemoryProtocol } from "./rating-memo";
 
 type MissingDataReason = postinvestRating.MissingDataReason;
 
@@ -64,11 +65,13 @@ ${renderRuleBook()}
 上年/本年比值恰好 1.3（下滑），增长率得分应该正好是 -35。跑不出这两个数字说明脚本有误，先修脚本再继续。
 
 ## 第四步：历史同期对比
-用 wx_knowledge_search 搜索本项目此前的评级报告（搜项目名/公司名）。找到了就用
-wx_knowledge_read 读出上次的 S1/S2/S3、总分与等级，做同比/环比对比，给出「趋势判断」
-（改善/平稳/恶化）；归因候选只能引用本次或上次报表数据里的原话，标注来源，不得把
-「伴随」写成「导致」，除非访谈转录稿里当事人原话如此并注明是陈述而非事实。没搜到历史
-记录就明确写「首次评级，无趋势判断」，不要编一个。
+用记忆协议里搜到的上一条 ${RATING_MEMO_TAG} 记录（不要用 wx_knowledge_search 找你自己以前
+发布的报告，那条路搜不到——agent 产出的文件不进组织索引）。拿上次的 S1/S2/S3、总分与等级
+做同比/环比对比，给出「趋势判断」（改善/平稳/恶化）；归因候选只能引用本次或上次报表数据里的
+原话，标注来源，不得把「伴随」写成「导致」，除非访谈转录稿里当事人原话如此并注明是陈述而非
+事实。记忆里没有本项目记录就明确写「首次评级，无趋势判断」，不要编一个。
+如果我上传了往期报表原件，那属于我提供的材料，正常用 wx_document_parse 读——这一条限制
+只针对「搜你自己以前的产出」。
 
 ## 第五步：受限渠道行业背景（可选，允许跳过）
 只用 web_search 搜公司名/行业名（不要搜财务数值）。只信任以下域名（含子域），命中以外的
@@ -81,6 +84,7 @@ wx_knowledge_read 读出上次的 S1/S2/S3、总分与等级，做同比/环比�
 3. 不确定性标注：缺失字段、估算项、数据质量标注、第四步趋势判断。
 4. 用 pdf-create 生成一份评级报告 PDF（结论卡+依据表+不确定性+趋势对比），用
    xlsx-create 生成一份指标与得分明细表（第三步脚本的中间量）。
+5. 按下面的记忆协议写一条评级记录——这一步不做，下一次评级就没有历史可比。
 
 如果材料不足以完成第一步（缺关键字段且我没有说明缺失原因），先问我，不要假装有数据往下走。
 
@@ -91,6 +95,9 @@ wx_knowledge_read 读出上次的 S1/S2/S3、总分与等级，做同比/环比�
 前四类：按我给的修正依据重新走第一到第六步里受影响的部分，给出新的结论卡，并在开头
 写清楚「相对上一版改了什么、为什么改」。主观偏差：只在回复里记录下来，不改任何
 分数或结论，不要因为「听起来不太对」就调整权重或口径——这条规则不可违反。
+前四类改完后，按记忆协议写一条修正记录；主观偏差那一类不写。
+
+${buildMemoryProtocol()}
 
 ## 定期评级（可选，只在我明确要求时才做）
 如果我要求"以后每季度重新评一次"这类周期性检查，用 wx_schedule_create 建一个提醒；

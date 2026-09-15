@@ -15,6 +15,7 @@ import {
 } from "@/lib/postinvest-rating/missing-reason";
 import { buildRatingPrompt } from "@/lib/postinvest-rating/rating-prompt";
 import { renderRuleBook } from "@repo/contracts/postinvest-rating-rules";
+import { RATING_CORRECTION_TAG, RATING_MEMO_TAG, buildMemoryProtocol } from "@/lib/postinvest-rating/rating-memo";
 
 describe("missing-reason", () => {
   it("覆盖契约里每一个原因码，不多不少（契约是单一事实源）", () => {
@@ -80,5 +81,32 @@ describe("rating-prompt 的评分规则来自规则手册", () => {
     for (const domain of postinvestRating.TRUSTED_SOURCE_SEED_DOMAINS) {
       expect(prompt).toContain(domain);
     }
+  });
+});
+
+/**
+ * R3-9 的机械表达：趋势对比要成立，写入与检索必须用同一个记忆格式，且任务书不能再
+ * 把模型指回 `wx_knowledge_search`——agent 产出的文件 `source='agent_run_output'`，
+ * 而索引写入只收 `source='upload'`，那条路永远搜不到（见 rating-memo.ts 头注）。
+ */
+describe("记忆协议", () => {
+  it("任务书包含记忆协议，且搜索与写入用同一个前缀", () => {
+    const prompt = buildRatingPrompt([]);
+    expect(prompt).toContain(buildMemoryProtocol());
+    // 前缀在协议里至少出现两次：一次用于搜，一次用于写。格式各写一遍就会对不上。
+    const occurrences = buildMemoryProtocol().split(RATING_MEMO_TAG).length - 1;
+    expect(occurrences).toBeGreaterThanOrEqual(2);
+    expect(prompt).toContain(RATING_CORRECTION_TAG);
+  });
+
+  it("第四步不再让模型用 wx_knowledge_search 找自己以前的产出", () => {
+    const prompt = buildRatingPrompt([]);
+    expect(prompt).toContain("不要用 wx_knowledge_search 找你自己以前");
+    expect(prompt).toContain("wx_memory_search");
+    expect(prompt).toContain("wx_memory_write");
+  });
+
+  it("主观偏差不进记忆——不把印象变成下次的规则", () => {
+    expect(buildMemoryProtocol()).toContain("主观偏差那一类不写");
   });
 });
