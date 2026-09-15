@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
-import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
+import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
@@ -36,9 +36,14 @@ export function generateStaticParams() {
 export default function AgentTeamPage({ params }: { params: { teamId: string } }) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
-  // 2026-09-15 ad-hoc MVP（`docs/design/agent-team3-mvp-backlog.md`）——只有 team3 接了
-  // 真实 Agent + 真实对话；其余五个 team 上游没有真实项目数据，维持原占位行为不变。
-  const isTeam3 = team.slug === "team3";
+
+  // 2026-09-15 人类指令：「入口点击以后，会打开类似 chatui 的界面，可以用所有的 chat
+  // 的能力，但是这个是 team3 的 agent」——因此 team3 不再是落地页 + 跳转按钮，而是
+  // 就地挂载 `/chat` 用的同一个 `CopilotKitV2Shell`（同一套 provider、同一套能力），
+  // 线程在进页面时解析成"挂着 team3 的那条"。详见 `components/agent/team3-chat.tsx`。
+  if (team.slug === "team3") {
+    return <Team3ChatScreen />;
+  }
 
   if (team.slug === "team1") {
     const agent = findIcReviewAgent("team1");
@@ -86,11 +91,8 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
           <section className="mt-6 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
             <Bot aria-hidden className="size-8 text-muted-foreground" />
             <p className="mt-4 text-12 leading-relaxed text-muted-foreground">
-              {isTeam3
-                ? "点击下方按钮开始与该 Agent 的真实对话——会新建一条绑定该 Agent 的会话。"
-                : "该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。"}
+              该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。
             </p>
-            {isTeam3 ? <Team3StartChatButton /> : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline" size="sm">
                 <Link href="/projects">查看项目</Link>

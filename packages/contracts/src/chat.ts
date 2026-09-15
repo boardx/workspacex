@@ -1084,6 +1084,18 @@ export const operations = {
       mode: LandingMode,
       title: z.string(),
       payloadRef: z.string(),
+      /**
+       * 可选：把本次落地写成**这个已有 Artifact 的下一个版本**，而不是新建一份。
+       *
+       * ⚠ 省略 = 今天的行为，逐字不变（新建 artifact，version=1）。这是一条**加法**：
+       *   既有调用方（画布保存、快捷保存、画像生成）不传它，走的还是原来那条路。
+       * ⚠ 该 artifact 必须**已经在本线程落地过**（`chat_artifact_landings` 有行），
+       *   否则与「不可见/不存在」同一个 404 出口（I-3）——不能拿这个字段往任意
+       *   artifact 上追加版本。
+       * 版本号由服务端取 `head + 1`（`materializeArtifact` 既有机制），本操作不接受
+       *   调用方传版本号，也就没有第二套版本机制（D-38 不变）。
+       */
+      artifactId: z.string().optional(),
     }).strict(),
     out: z.object({
       artifactId: z.string(),

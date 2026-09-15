@@ -249,6 +249,8 @@ type LandAsArtifactBody = {
   mode: LandingModeName;
   title: string;
   payloadRef: string;
+  /** 可选：续这份已有 artifact 的下一个版本（契约 `landAsArtifact.in.artifactId`）。 */
+  artifactId?: string;
 };
 type SummarizePersonaBody = {
   threadId: string;
@@ -1088,6 +1090,8 @@ export class ChatController {
           mode: body.mode,
           title: body.title,
           payloadRef: body.payloadRef,
+          // 可选：续已有 artifact 的下一个版本。缺省即今天的「每次落地一份新 artifact」。
+          artifactId: body.artifactId,
         },
       );
     } catch (e) {

@@ -9,9 +9,12 @@
  * `files.FileNode` (the row `listProjectArtifacts` / `getArtifactTree` return) carries
  * `artifactId`, not a `versionId`. `previewArtifactVersion` and `issueDownloadUrl` both take a
  * `versionId`. There is no operation in this contract that maps an artifact to its current
- * version id -- `listVersions` (which would supply it) has no controller in this backend yet
- * (only files-browser / files-delivery / files-export / files-rename are wired; F34's sibling
- * read route `GET /artifacts/:artifactId/file-versions` does not exist as a route here).
+ * version id.
+ *
+ * ⚠ `GET /artifacts/:artifactId/file-versions` IS wired now
+ *   (`artifact-file-versions.controller.ts`, for the chat graph version history) -- but its
+ *   contracted response carries `versionNumber` and NOT `versionId`, so it still does not
+ *   close this gap. Preview / single-file download stay unwired rather than guessing an id.
  *
  * ⇒ Preview and single-file download cannot be honestly wired from the browser's list/tree
  *   response alone. Rather than guess a `versionId` (e.g. assume it equals `artifactId`, which
@@ -77,6 +80,29 @@ export async function searchArtifacts(projectId: string, q: string): Promise<Sea
     method: "GET",
     query: { q },
   });
+}
+
+export type ListFileVersionsOut = z.infer<typeof C.operations.listVersions.out>;
+export type FileVersionRow = ListFileVersionsOut["versions"][number];
+
+/**
+ * 一份 artifact 的版本线（契约 `listVersions`，`GET /artifacts/:artifactId/file-versions`）。
+ *
+ * 目前唯一的真实调用方是对话里的图谱版本历史面板：`landAsArtifact` 带上 `artifactId`
+ * 之后，同一份图谱会有多个版本，这条读路径是「有几版、分别什么时候存的、内容哈希是
+ * 什么」的唯一来源。不可见与不存在同一个裸 404（服务端判定，这里不重复判）。
+ *
+ * ⚠ `sessionToken` 与 `live-chat.ts` 的同名参数同义：对话里的组件拿的是显式 bearer，
+ *   不是 `getStoredSessionToken()` 的隐式态。
+ */
+export async function listArtifactFileVersions(
+  artifactId: string,
+  sessionToken?: string,
+): Promise<ListFileVersionsOut> {
+  return apiRequest<ListFileVersionsOut>(
+    C.operations.listVersions.path.replace(":artifactId", encodeURIComponent(artifactId)),
+    { method: "GET", sessionToken },
+  );
 }
 
 /**
