@@ -95,6 +95,7 @@ POST /agents/:agentId/publish-decision    # 或 self-publish，见 agent*.contro
 | B7 | 示例材料包 A/B/C（快速试跑，不用现找文件） | ✅ `lib/ic-review/fixtures.ts` |
 | B8 | 发布 team1 为真实 Agent，回填 `agentId` | ⬜ 需要人类在真实部署环境操作，见上 |
 | B9 | 机械阻断的两轮人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
+| B10 | `agentId` 未发布前的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-launcher.tsx` 的「复制审阅任务书」按钮 |
 
 ## 验收：测试集与通过标准
 
