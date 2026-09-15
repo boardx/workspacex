@@ -3,11 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { deploymentExample } from "../src/examples";
-import { runtimeEnvironment, serializeRuntimeEnvironment } from "../src/runtime-environment";
+import { runtimeEnvironment, serializeRuntimeEnvironment, stableDeploymentSecretNames } from "../src/runtime-environment";
+import { ensureDeploymentSecret } from "../src/secrets";
 vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 const roots: string[] = [];
-async function directory() { const p = await mkdtemp(join(tmpdir(), "runtime-env-")); roots.push(p); return p; }
+async function directory() {
+  const p = await mkdtemp(join(tmpdir(), "runtime-env-")); roots.push(p);
+  await Promise.all(stableDeploymentSecretNames.map(name => ensureDeploymentSecret(p, name)));
+  return p;
+}
 afterEach(async () => { await Promise.all(roots.splice(0).map(p => rm(p, { recursive: true, force: true }))); });
+it("never generates a missing production identity key", async () => {
+  const root = await mkdtemp(join(tmpdir(), "runtime-env-missing-")); roots.push(root);
+  await expect(runtimeEnvironment(deploymentExample("production"), root, { WORKSPACEX_MODEL_KEY: "model-key" }))
+    .rejects.toThrow();
+  expect(await import("node:fs/promises").then(fs => fs.readdir(root))).toEqual([]);
+});
 it("keeps Starter secrets stable and excludes owner/signing keys from unrelated services", async () => {
   const root = await directory(); const config = deploymentExample("starter");
   const first = await runtimeEnvironment(config, root, { WORKSPACEX_MODEL_KEY: "model-key" });

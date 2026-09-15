@@ -2,17 +2,19 @@ import type { DeploymentConfig } from "./config";
 import { deploymentStorageEnvironment } from "./storage-config";
 import { productionDataEnvironment } from "./data-secrets";
 import { resolveSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
-import { ensureTrustedDeploymentSecret } from "./trusted-generated-secrets";
+import { ensureTrustedDeploymentSecret, readTrustedDeploymentSecret } from "./trusted-generated-secrets";
 
 export type RuntimeEnvironmentMaps = Record<"api" | "agent" | "migration" | "bootstrap" | "web" | "dependencies" | "memoryMigration", Record<string, string>>;
+export const stableDeploymentSecretNames = ["model-cipher", "email-verification", "native-binding", "service-key", "admin-password", "app-password", "owner-password", "diag-password", "redis-password", "agent-password", "memory-password", "memory-owner-password"] as const;
 
 /** Return private service-specific maps. Never send these maps to the plan/CLI stdout.
  * Agent persistence and TLS files are additional required inputs at startup.
  */
 export async function runtimeEnvironment(config: DeploymentConfig, secretDirectory: string, source: NodeJS.ProcessEnv = process.env, context: SecretOperationContext = {}): Promise<RuntimeEnvironmentMaps> {
   assertSecretOperationActive(context);
-  const names = ["model-cipher", "email-verification", "native-binding", "service-key", "admin-password", "app-password", "owner-password", "diag-password", "redis-password", "agent-password", "memory-password", "memory-owner-password"] as const;
-  const outcomes = await Promise.allSettled(names.map(name => ensureTrustedDeploymentSecret(secretDirectory, name, context)));
+  const names = stableDeploymentSecretNames;
+  const read = config.environment.profile === "production" ? readTrustedDeploymentSecret : ensureTrustedDeploymentSecret;
+  const outcomes = await Promise.allSettled(names.map(name => read(secretDirectory, name, context)));
   // Wait for all in-flight file cleanup before returning failure or cancellation.
   const values: string[] = [];
   for (const outcome of outcomes) {

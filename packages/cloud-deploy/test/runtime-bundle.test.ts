@@ -4,15 +4,29 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { deploymentExample } from "../src/examples";
 import { writeRuntimeBundle, writeRuntimeFile } from "../src/runtime-bundle";
+import { stableDeploymentSecretNames } from "../src/runtime-environment";
+import { ensureDeploymentSecret } from "../src/secrets";
 vi.mock("node:fs/promises", async original => ({ ...await original<typeof import("node:fs/promises")>(), chown: vi.fn() }));
 vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 const roots: string[] = [];
-async function directory() { const path = await mkdtemp(join(tmpdir(), "cloud-bundle-")); roots.push(path); return path; }
+async function directory() {
+  const path = await mkdtemp(join(tmpdir(), "cloud-bundle-")); roots.push(path);
+  const stable = `${path}-stable`; await mkdir(stable, { mode: 0o700 }); roots.push(stable);
+  await Promise.all(stableDeploymentSecretNames.map(name => ensureDeploymentSecret(stable, name)));
+  return path;
+}
+const stableDirectory = (runtimeDirectory: string) => `${runtimeDirectory}-stable`;
 afterEach(async () => { await Promise.all(roots.splice(0).map(path => rm(path, { force: true, recursive: true }))); });
 const context = () => ({ signal: new AbortController().signal, remainingMs: () => 30000 });
 const image = { image: `registry.example/team/app@sha256:${"b".repeat(64)}` };
 const manifest = { schemaVersion: 1 as const, release: "1.0.0", sourceRevision: "a".repeat(40), platform: "linux/amd64" as const,
   images: { web: image, api: image, agent: image, sandbox: image, postgres: image, redis: image } };
+it("rejects a production secret path inside the release runtime before writing env files", async () => {
+  const runtimeDirectory = await directory();
+  await expect(writeRuntimeBundle(deploymentExample("production"), manifest,
+    { runtimeDirectory, stableSecretDirectory: runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(),
+    { WORKSPACEX_MODEL_KEY: "model-key" })).rejects.toThrow("STABLE_SECRET_DIRECTORY_VERSION_SCOPED");
+});
 it("writes service-scoped private raw env files and generated Starter Agent credentials", async () => {
   const runtimeDirectory = await directory();
   const maps = await writeRuntimeBundle(deploymentExample("starter"), manifest,
@@ -72,7 +86,7 @@ it("mounts explicit libpq CAs and limits Memory owner credentials to the setup j
       MEMORY_STORE_MIGRATION_DATABASE_URL: "postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full" }),
   };
   const maps = await writeRuntimeBundle(deploymentExample("production"), manifest,
-    { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source);
+    { runtimeDirectory, stableSecretDirectory: stableDirectory(runtimeDirectory), projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source);
   expect(new URL(maps.agent.DATABASE_URI!).searchParams.get("sslrootcert")).toBe("/run/agent-certs/ca.pem");
   expect(maps.agent.DEEP_AGENT_CHECKPOINT_DB).toBe(maps.agent.DATABASE_URI);
   expect(new URL(maps.agent.MEMORY_STORE_DATABASE_URL!).searchParams.get("sslrootcert")).toBe("/run/agent-certs/memory-ca.pem");
@@ -109,7 +123,7 @@ it("rejects a Redis CA bundle above the dedicated provider bound", async () => {
     WORKSPACEX_REDIS:JSON.stringify({host:"redis.example.com",password:"redis-password-123",caFile:oversized}),
     AGENT_SECRET:JSON.stringify({DATABASE_URI:"postgresql://graph_owner:graph-password@graph.example.com/graph?sslmode=verify-full",REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",databaseCaFile:ca,memoryCaFile:ca,
       MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=verify-full",MEMORY_STORE_MIGRATION_DATABASE_URL:"postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full"})};
-  await expect(writeRuntimeBundle(deploymentExample("production"),manifest,{runtimeDirectory,projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source)).rejects.toThrow("INVALID_CA_FILE");
+  await expect(writeRuntimeBundle(deploymentExample("production"),manifest,{runtimeDirectory,stableSecretDirectory:stableDirectory(runtimeDirectory),projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source)).rejects.toThrow("INVALID_CA_FILE");
 });
 it("uses disabled PostgreSQL transport for Agent persistence only under the configured Serverless exception", async () => {
   const runtimeDirectory=await directory();
@@ -123,7 +137,7 @@ it("uses disabled PostgreSQL transport for Agent persistence only under the conf
       REDIS_URI:"rediss://:redis-password@redis.example.com:6380/1",
       MEMORY_STORE_DATABASE_URL:"postgresql://memory_rw:memory-runtime-password@memory.example.com/memory?sslmode=disable",
       MEMORY_STORE_MIGRATION_DATABASE_URL:"postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=disable"})};
-  const maps=await writeRuntimeBundle(config,manifest,{runtimeDirectory,projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source);
+  const maps=await writeRuntimeBundle(config,manifest,{runtimeDirectory,stableSecretDirectory:stableDirectory(runtimeDirectory),projectName:"example",agentEnvironmentSecretRef:"env:AGENT_SECRET"},context(),source);
   expect(new URL(maps.agent.DATABASE_URI!).searchParams.get("sslmode")).toBe("disable");
   expect(new URL(maps.agent.MEMORY_STORE_DATABASE_URL!).searchParams.get("sslmode")).toBe("disable");
 });
@@ -144,6 +158,6 @@ it("rejects production Agent credentials shared with application database roles"
       MEMORY_STORE_MIGRATION_DATABASE_URL: "postgresql://memory_owner:memory-owner-password@memory.example.com/memory?sslmode=verify-full" }),
   };
   await expect(writeRuntimeBundle(deploymentExample("production"), manifest,
-    { runtimeDirectory, projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source))
+    { runtimeDirectory, stableSecretDirectory: stableDirectory(runtimeDirectory), projectName: "example", agentEnvironmentSecretRef: "env:AGENT_SECRET" }, context(), source))
     .rejects.toThrow("AGENT_PERSISTENCE_CONFIGURATION_INVALID");
 });

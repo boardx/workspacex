@@ -123,6 +123,16 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy).toContain("activation_deadline=$((SECONDS+300))");
   });
 
+  it("checks stable production identity before any traffic drain or provision", () => {
+    const preflight = deploy.indexOf("stable-secret-preflight --");
+    const activation = deploy.indexOf("activation_started=1");
+    const drain = deploy.indexOf("enable_run_drain", activation);
+    expect(preflight).toBeGreaterThan(-1);
+    expect(preflight).toBeLessThan(activation);
+    expect(drain).toBeGreaterThan(activation);
+    expect(deploy).toContain("/var/lib/workspacex-cn/stable-secrets");
+  });
+
   it("restores the exact image and ingress baseline on every activation failure", () => {
     expect(deploy).toContain("trap activation_failure EXIT");
     expect(deploy).toContain('docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans');

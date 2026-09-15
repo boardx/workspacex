@@ -210,6 +210,13 @@ trap 'rm -rf -- "$current_baseline_dir"' EXIT
 capture_baseline "$current_baseline"
 baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
 pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
+baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$current_baseline")
+baseline_secret_directory="$baseline_runtime/secrets"
+if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
+  private_root_file "$baseline_runtime/stable-secret-directory.ref"
+  baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
+fi
+pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" /var/lib/workspacex-cn/stable-secrets >/dev/null || fail "stable secret continuity preflight failed"
 
 activation_started=1
 activation_deadline=$((SECONDS+300))
@@ -243,10 +250,10 @@ systemctl reload nginx
 umask 077
 node -e '
   const fs=require("node:fs");
-  const [path,config,release,runtime,agent,project]=process.argv.slice(1);
-  const value={configFile:config,releaseFile:release,options:{projectName:project,runtimeDirectory:runtime,agentEnvironmentSecretRef:`file:${agent}`}};
+  const [path,config,release,runtime,agent,project,stable]=process.argv.slice(1);
+  const value={configFile:config,releaseFile:release,options:{projectName:project,runtimeDirectory:runtime,stableSecretDirectory:stable,agentEnvironmentSecretRef:`file:${agent}`}};
   fs.writeFileSync(path,`${JSON.stringify(value)}\n`,{mode:0o600});
-' "$request" "$CONFIG_FILE" "$manifest" "$runtime" "$AGENT_ENV_FILE" "$PROJECT_NAME"
+' "$request" "$CONFIG_FILE" "$manifest" "$runtime" "$AGENT_ENV_FILE" "$PROJECT_NAME" /var/lib/workspacex-cn/stable-secrets
 chown root:root "$request"
 chmod 0600 "$request"
 

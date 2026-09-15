@@ -1,7 +1,7 @@
 import { lstat, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { assertTrustedPath } from "./trusted-path";
-import { ensureDeploymentSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
+import { ensureDeploymentSecret, resolveSecret, assertSecretOperationActive, type SecretOperationContext } from "./secrets";
 
 /** Root-only deployment wrapper; generic secret utilities remain usable by local tools. */
 export async function ensureTrustedDeploymentSecret(directory: string, name: string, context: SecretOperationContext = {}): Promise<string> {
@@ -19,6 +19,19 @@ export async function ensureTrustedDeploymentSecret(directory: string, name: str
   assertSecretOperationActive(context);
   const value = await ensureDeploymentSecret(directory, name, context);
   await verifyDirectory(); await verifyKey();
+  assertSecretOperationActive(context);
+  return value;
+}
+
+/** Existing production identity is read only. Missing or unsafe keys never regenerate. */
+export async function readTrustedDeploymentSecret(directory: string, name: string, context: SecretOperationContext = {}): Promise<string> {
+  assertSecretOperationActive(context);
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(name)) throw new Error("INVALID_SECRET_NAME");
+  await assertTrustedPath(directory, { trustedRoot: "/", kind: "directory", private: true });
+  const path = join(directory, name);
+  await assertTrustedPath(path, { trustedRoot: "/", kind: "file", private: true });
+  const value = await resolveSecret(`file:${path}`, undefined, context);
+  if (!/^[a-f0-9]{64}$/.test(value)) throw new Error("STABLE_SECRET_INVALID");
   assertSecretOperationActive(context);
   return value;
 }

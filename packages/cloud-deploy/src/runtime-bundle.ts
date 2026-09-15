@@ -65,11 +65,20 @@ async function certificateFile(path: string, limits: CertificateLimits = singleC
 }
 
 export async function writeRuntimeBundle(config: DeploymentConfig, manifest: ReleaseManifest,
-  options: CloudComposeOptions & { agentEnvironmentSecretRef: string }, context: Context, source = process.env) {
+  options: CloudComposeOptions & { agentEnvironmentSecretRef: string; stableSecretDirectory?: string }, context: Context, source = process.env) {
   checkBudget(context);
   const dir = options.runtimeDirectory;
   await privateDirectory(dir);
-  const environment = await runtimeEnvironment(config, join(dir, "secrets"), source, context);
+  const secretDirectory = config.environment.profile === "production"
+    ? options.stableSecretDirectory : join(dir, "secrets");
+  if (!secretDirectory) throw new Error("STABLE_SECRET_DIRECTORY_REQUIRED");
+  if (config.environment.profile === "production" &&
+      (secretDirectory === dir || secretDirectory.startsWith(`${dir}/`) ||
+       secretDirectory.includes(manifest.sourceRevision) || secretDirectory.includes(manifest.release)))
+    throw new Error("STABLE_SECRET_DIRECTORY_VERSION_SCOPED");
+  const environment = await runtimeEnvironment(config, secretDirectory, source, context);
+  if (config.environment.profile === "production")
+    await writeRuntimeFile(join(dir, "stable-secret-directory.ref"), `${secretDirectory}\n`, context);
   const redisCaFile = environment.api.REDIS_CA_FILE;
   const redisCaContents = redisCaFile ? await certificateFile(redisCaFile, providerCaBundleLimits) : undefined;
   for (const map of [environment.api, environment.migration, environment.bootstrap]) delete map.REDIS_CA_FILE;
