@@ -9,7 +9,7 @@ if [[ ${1:-} == --prepare ]]; then mode=prepare; shift; fi
 revision=$1
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
-SOURCE_CACHE=/opt/workspacex-cn/release-origin-cache.git
+SOURCE_CACHE=/var/lib/workspacex-cn/source-cache.git
 CONFIG_FILE=/etc/workspacex-cn/deployment.json
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
@@ -178,17 +178,17 @@ if [[ "$mode" == prepare ]]; then
   record_event prepare_started
   private_root_file "$preparation_input"
   [[ ! -e "$release_checkout" && ! -e "$runtime" ]] || fail "release preparation already exists"
+  [[ -d "$SOURCE_CACHE" && ! -L "$SOURCE_CACHE" && "$(stat -c '%U:%G:%a' "$SOURCE_CACHE")" == root:root:700 ]] || fail "trusted offline source cache is unavailable"
+  [[ "$(GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" rev-parse refs/heads/main)" == "$revision" ]] || fail "offline source cache revision mismatch"
+  [[ -z "$(find "$SOURCE_CACHE/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || fail "offline source cache is partial"
+  GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" fsck --full --no-reflogs >/dev/null || fail "offline source cache object closure is incomplete"
   stage=$(mktemp -d "$RELEASE_TREE_ROOT/.prepare-$revision.XXXXXX")
   cleanup_stage() { rm -rf -- "$stage"; }
   trap cleanup_stage EXIT
-  # The runner checkout may be partial and try to lazy-fetch objects from GitHub.
-  # Clone the verified offline cache instead. --no-local prevents hardlinks to
-  # runner-owned objects; the clone and its worktree are created by root.
-  clone_config="$stage/gitconfig"
-  umask 077
-  git config --file "$clone_config" --add safe.directory "$SOURCE_CACHE"
-  GIT_CONFIG_GLOBAL="$clone_config" git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"
-  rm -f "$clone_config"
+  # The runner checkout may be partial and try to lazy-fetch from GitHub.
+  # The preflight-staged cache is root-private and has a complete exact revision.
+  # --no-local prevents hardlinks between the trusted source and release tree.
+  GIT_NO_LAZY_FETCH=1 git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"
   git -C "$stage/checkout" checkout --quiet --detach "$revision"
   [[ "$(git -C "$stage/checkout" rev-parse HEAD)" == "$revision" ]] || fail "prepared checkout revision mismatch"
   [[ -z "$(git -C "$stage/checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
