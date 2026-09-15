@@ -135,7 +135,11 @@ describe("China production trusted deployment entrypoints", () => {
     expect(preflight).toBeLessThan(activation);
     expect(drain).toBeGreaterThan(activation);
     expect(deploy).toContain("stable-secret-preflight --");
-    expect(deploy).toContain("/var/lib/workspacex-cn/stable-secrets");
+    expect(deploy).toContain("STABLE_SECRET_DIRECTORY=/var/lib/workspacex-cn/stable-secrets");
+    expect(deploy.match(/\/var\/lib\/workspacex-cn\/stable-secrets/g)).toHaveLength(1);
+    expect(deploy).toContain('[[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]]');
+    expect(deploy).toContain('legacy_flag=(--legacy-baseline)');
+    expect(deploy).toContain('"$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}"');
   });
 
   it("restores the exact image and ingress baseline on every activation failure", () => {
