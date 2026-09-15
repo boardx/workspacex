@@ -22,6 +22,9 @@ describe("China production trusted deployment entrypoints", () => {
     expect(candidate).toContain("release.lock");
     expect(deploy).toContain("release.lock");
     expect(candidate).toContain("EcsRamRole");
+    expect(candidate).toContain('aliyun cr GetAuthorizationToken --region "$region" --InstanceId "$instance_id" --mode EcsRamRole --ram-role-name "$role_name" --output json');
+    expect(candidate).not.toContain("aliyun configure set");
+    expect(candidate).not.toContain("--ecs-role-name");
     expect(candidate).toContain("DOCKER_CONFIG");
     expect(candidate).toContain("docker logout");
     expect(candidate).toContain('WSX_ACR_INSTANCE_ID');

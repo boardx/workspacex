@@ -206,6 +206,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `SESSION_TOKEN_MISSING` | 登录完成后必须从 localStorage 取得 bearer，不允许退化为 cookie-only probe |
 | 2026-09-15 | `NOTIFICATIONS_HTTP_FAILED` | 使用显式 Authorization 的同源通知请求必须返回 200 |
 | 2026-09-15 | `NOTIFICATIONS_CONTRACT_DRIFT` | 通知响应必须包含 notifications array 与非负整数 unreadCount |
+| 2026-09-15 | `ACR_CLI_AUTH_PROFILE_UNSUPPORTED` | 候选构建直接使用已在 ECS 验证的 `--mode EcsRamRole --ram-role-name`，禁止临时 profile 初始化；提交前跑命令形状测试和不输出 token 的 ECS 探针 |
 
 ## 12. 发布后清理
 
