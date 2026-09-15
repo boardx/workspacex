@@ -1,0 +1,22 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3633/apps/api
+
+ ✓ tests/inbox/list-inbox.test.ts (37 tests) 40ms
+ ✓ tests/inbox/inbox-tag-repo-guard.test.ts (13 tests) 10600ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > pins every production read caller and forbids raw tag consumption 1649ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects a new direct raw-tag endpoint 1360ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects bracket access and destructuring aliases in new callers 2006ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects redirecting the applyTags import 1094ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects skipping applyTags in application/inbox/list-inbox.ts 1116ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects skipping applyTags in application/inbox/get-inbox-counts.ts 1081ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects raw result leakage in application/inbox/list-inbox.ts 949ms
+   ✓ (d) D3-sensitive tag reads only reach scrubbed list/count projections > rejects raw result leakage in application/inbox/get-inbox-counts.ts 1197ms
+ ✓ tests/inbox/get-inbox-counts.test.ts (12 tests) 25ms
+ ✓ tests/inbox/inbox-order-repo-guard.test.ts (5 tests) 106ms
+ ✓ tests/inbox/set-inbox-item-tags.test.ts (3 tests) 11ms
+
+ Test Files  5 passed (5)
+      Tests  70 passed (70)
+   Start at  09:09:23
+   Duration  15.50s (transform 1.21s, setup 0ms, collect 3.40s, tests 10.78s, environment 1ms, prepare 464ms)
+

@@ -428,7 +428,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/inbox/pg-inbox-tag-repository.ts",
-    "2026-09-08 收件箱反馈 / 设计方案标签：`inbox_item_tags` 背后没有 `ObjectRef` 能表达的 ACL 对象——同 `pg-inbox-order-repository.ts`，一行只有「这个组织的这个 (kind,id) 打了哪几个自由文本标签」，不携带反馈正文、标题；#3628 起也保存提交人的自由文本标签。标签披露复用正文的 D3 决策：#3633 的共享 applyTags 在 body === null 时清空反馈标签，再执行筛选/计数。真正的权限决策仍只发生在 `list-inbox.ts`/`inbox-projection.ts` 那条已经 `guard()` 过的路径上，这张表只在那条路径**之后**把 `tags` 合并进已经决定好能不能看的 `InboxItem.tags` 字段（`applyTags`）。谁能写标签由 `set-inbox-item-tags.ts` 的 `viewerOrgRole !== null`（本组织成员）把守,与 `listInbox` 同一条门。⚠ 豁免仅在（a）本文件只出现 `inbox_item_tags` 这一张租户表,（b）从不调用 `withoutTenant`,（c）`getTags`/`setTags` 两个方法都不选出/写入除 `kind`/`item_id`/`tags`/`updated_at` 之外的任何列时有效:tests/inbox/inbox-tag-repo-guard.test.ts 逐条断言。该测试若被删除,本条目必须一并删除。",
+    "2026-09-08 收件箱反馈 / 设计方案标签：`inbox_item_tags` 背后没有 `ObjectRef` 能表达的 ACL 对象——同 `pg-inbox-order-repository.ts`，一行只有「这个组织的这个 (kind,id) 打了哪几个自由文本标签」，不携带反馈正文、标题；#3628 起也保存提交人的自由文本标签。标签披露复用正文的 D3 决策：#3633 的共享 applyTags 在 body === null 时清空反馈标签，再执行筛选/计数。真正的权限决策仍只发生在 `list-inbox.ts`/`inbox-projection.ts` 那条已经 `guard()` 过的路径上，这张表只在那条路径**之后**把 `tags` 合并进已经决定好能不能看的 `InboxItem.tags` 字段（`applyTags`）。谁能写标签由 `set-inbox-item-tags.ts` 的 `viewerOrgRole !== null`（本组织成员）把守,与 `listInbox` 同一条门。⚠ 豁免仅在（a）本文件只出现 `inbox_item_tags` 这一张租户表,（b）从不调用 `withoutTenant`,（c）`getTags`/`setTags` 两个方法都不选出/写入除 `kind`/`item_id`/`tags`/`updated_at` 之外的任何列，（d）读取调用方限定为 listInbox/getInboxCounts 且原始结果只经共享 applyTags 投影后用于筛选/计数时有效:tests/inbox/inbox-tag-repo-guard.test.ts 逐条断言并含绕行反例。该测试若被删除,本条目必须一并删除。",
   ],
 ]);
 
