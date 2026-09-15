@@ -4,11 +4,11 @@
 
 当前 canonical provision 的顺序是 `migrate → bootstrap`。`migrate` 成功后，bootstrap 才首次执行 `scripts/provision-admin.ts`，此时才发现镜像入口、环境输入、schema、权限、存量管理员身份或 Agent seed 闭包不兼容，会留下“迁移已执行但发布回滚”的高成本失败。
 
-本 preflight 把这些兼容性判断移到发布构建前或 prepare 阶段。它对生产数据库只读，不创建账号、组织、成员、Agent 或版本，不修改密码，不取得 advisory write lock。
+本 preflight 分两阶段把这些兼容性判断移到发布构建前和镜像 seal 后、prepare/activate 前。它对生产数据库只读，不创建账号、组织、成员、Agent 或版本，不修改密码，不取得 advisory write lock。
 
 ## 运行边界
 
-1. 使用目标 API image digest 和将用于 bootstrap 的同一份环境映射；秘密只通过临时 `--env-file` 注入，永不进入 argv/stdout。
+1. 构建前用 exact source tree 的 side-effect-free 入口和将用于 bootstrap 的同一份环境映射；此时不得要求或宣称目标 API image digest。镜像 seal 后，再使用 exact 目标 API image digest 检查真实镜像入口及相同输入。秘密只通过临时 `--env-file` 注入，永不进入 argv/stdout。
 2. 镜像静态检查使用 `--network=none --read-only --pull=never`。不能直接 import `scripts/provision-admin.ts`，因为该文件有 top-level 执行和写库副作用。
 3. 数据库检查使用 app runtime 身份，连接建立后第一条事务语句必须是 `BEGIN TRANSACTION READ ONLY`，随后验证 `SHOW transaction_read_only = on`。设置短 `statement_timeout`，最后无条件 `ROLLBACK`。
 4. probe 进程结束后检查临时容器和 env 文件均已删除；无法证明清理时返回 `BOOTSTRAP_PROBE_CLEANUP_UNPROVEN` 并保留 release lock。
@@ -16,9 +16,10 @@
 
 ## 检查闭包
 
-### A. 目标镜像与入口
+### A. 源码入口与目标镜像入口
 
-- image digest、平台和 `org.opencontainers.image.revision` 与 release manifest 一致；
+- prebuild：exact source tree 的静态入口和依赖闭包与冻结 SHA 一致；目标 image 尚未存在，不能填 `imageEntrypoint`；
+- preactivate：目标 image digest、平台和 `org.opencontainers.image.revision` 与 sealed release manifest 一致，填 `imageEntrypoint`；
 - `scripts/provision-admin.ts`、`tsx`、`@repo/contracts`、bootstrap application/repository 模块和三个 Agent seed repository 在镜像内可读；
 - 单独的 side-effect-free compatibility 入口可以加载上述模块；禁止通过运行真实 bootstrap 入口来证明“可加载”；
 - 当前 runtime Node 版本和 module resolution 可执行一个无网络、无数据库的 import smoke。
@@ -81,6 +82,7 @@
 {
   "schemaVersion": 1,
   "sourceSha": "40-hex",
+  "phase": "preactivate",
   "imageDigest": "sha256:64-hex",
   "ready": true,
   "readOnlyTransaction": true,
@@ -97,7 +99,7 @@
 }
 ```
 
-该结果经脱敏后计算 SHA-256，作为聚合预检 `bootstrap.compatibility.evidenceSha256`。`ready=true` 还必须满足 stdout 恰好一个机器记录。聚合预检失败时 `buildStarted=false`。
+prebuild 机器结果的 `phase` 改为 `prebuild`，删除 `imageDigest`，并以 `sourceEntrypoint` 取代 `imageEntrypoint`。两次结果分别经脱敏后计算 SHA-256，分别作为聚合预检 `bootstrap.compatibility.evidenceSha256`。`ready=true` 还必须满足 stdout 恰好一个机器记录。prebuild 失败时 `buildStarted=false`；preactivate 失败时不得激活，且旧服务必须保持可用。
 
 ## 反证验证
 
