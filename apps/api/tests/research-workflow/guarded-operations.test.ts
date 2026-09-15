@@ -11,6 +11,8 @@
 import { describe, expect, it, vi } from "vitest";
 import * as ops from "../../src/application/research-workflow/guarded-operations";
 import { ThreadNotVisibleError } from "../../src/application/chat/get-thread";
+import { guard } from "../../src/application/security/permission-filter";
+import type { researchWorkflow as C } from "@repo/contracts";
 
 const ORG = "org-1" as never;
 const ACTOR = { userId: "u1", orgId: ORG, projectId: null, threadId: "t1" } as const;
@@ -40,18 +42,25 @@ const SESSION = {
  * 否则这份测试就变成"我 mock 了它返回拒绝，于是它拒绝了"，什么也没证明。
  * `resolveVisibility` 的真实代码在这里是真的跑过一遍的。
  */
-function deps(visible: boolean) {
+/**
+ * ⚠ 仓储桩必须返回 `Guarded<T>`，与生产一致。
+ * 早先这里返回裸对象也"通过"了——因为那几条用例只断言调用次数，
+ * 而 `discloseDecided` 对一个非 Guarded 对象会安静地给出 `payload: undefined`。
+ * 于是桩的形状是错的、断言却是绿的。任何要读返回值的用例都会立刻暴露这一点。
+ */
+function deps(visible: boolean, sessionOver: { phase?: C.ResearchPhaseName } = {}) {
+  const g = <T,>(v: T) => guard({ kind: "research_session" as const, id: "t1" }, v);
   const repo = {
-    ensureSession: vi.fn(async () => SESSION),
-    addMaterials: vi.fn(async () => SESSION),
-    setMaterialVerdict: vi.fn(async () => SESSION),
-    bumpMaterialAttempts: vi.fn(async () => SESSION),
-    applyTransition: vi.fn(async () => SESSION),
+    ensureSession: vi.fn(async () => g({ ...SESSION, ...sessionOver })),
+    addMaterials: vi.fn(async () => g({ ...SESSION, ...sessionOver })),
+    setMaterialVerdict: vi.fn(async () => g(SESSION)),
+    bumpMaterialAttempts: vi.fn(async () => g(SESSION)),
+    applyTransition: vi.fn(async () => g({ ...SESSION, ...sessionOver })),
     appendAudit: vi.fn(async () => undefined),
-    listAudit: vi.fn(async () => []),
-    listPredictions: vi.fn(async () => []),
-    addPredictions: vi.fn(async () => []),
-    fillPrediction: vi.fn(async () => []),
+    listAudit: vi.fn(async () => g([])),
+    listPredictions: vi.fn(async () => g([])),
+    addPredictions: vi.fn(async () => g([])),
+    fillPrediction: vi.fn(async () => g([])),
   };
   // authorize 真的会跑：给它一个"组织成员、无额外绑定"的常规身份，好让任何拒绝
   // 都只可能来自线程归属判定，而不是来自我顺手把组织层配成了拒绝。
@@ -95,6 +104,26 @@ describe("可见性前置", () => {
 
     for (const [method, fn] of Object.entries(repo)) {
       expect(fn, `不可见却调用了 repo.${method}`).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe("addMaterials 推进阶段", () => {
+  /**
+   * 2026-09-15 devapp 真机截图：界面写着「已登记 2 条材料（未开始）」——
+   * 一条已经有材料的研判说自己"未开始"。用户无从判断是它坏了还是自己没点对。
+   */
+  it("第一份材料进来时把阶段从 empty 推到 collecting", async () => {
+    const { deps: d, repo } = deps(true, { phase: "empty" });
+    await ops.addMaterials(d, ACTOR, [{ source: "paste", label: "x" }]);
+    expect(repo.applyTransition).toHaveBeenCalledWith(ORG, "t1", "collecting", expect.anything(), null);
+  });
+
+  it("已经在 collecting 之后的阶段不动（加材料不该把研判拽回去）", async () => {
+    for (const phase of ["collecting", "materials_review", "graph_review"] as const) {
+      const { deps: d, repo } = deps(true, { phase });
+      await ops.addMaterials(d, ACTOR, [{ source: "paste", label: "x" }]);
+      expect(repo.applyTransition, `阶段 ${phase} 竟然被改了`).not.toHaveBeenCalled();
     }
   });
 });
