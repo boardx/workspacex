@@ -9,7 +9,7 @@ import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-prev
 import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
-import { PostInvestmentLauncher } from "@/components/agent/post-investment-launcher";
+import { PostInvestmentChatEntry } from "@/components/agent/post-investment-chat-entry";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
 import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
@@ -33,15 +33,19 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  *   （`rating-workbench.tsx` mock UI；`rating-chat.tsx` 直连
  *   `POST /postinvest-ratings/score` 不经模型）已被这一版取代，前者仍留仓库供 Phase 16
  *   契约束签核材料回溯，后者已删除。
- * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP，第二版：接真实 chat，取代第一版
- *   独立粘贴框 + `POST /post-investment/analyze` HTTP 端点）：同 Team1 第三版架构——
- *   按需自动发布 Agent（`lib/post-investment/ensure-agent.ts`），材料作为真实附件
- *   发进一条真实项目对话，交给挂载了真实模型的 Agent 用既有的 `wx_document_parse`/
- *   `data-analysis`（沙箱算派生数值）/`web_search`（受限渠道）/`pdf-create`/
- *   `xlsx-create`/`wx_knowledge_search` 完成分析、出报告，全过程不新增后端端点或
- *   工具。详情见 `docs/agents/team4-post-investment-report-mvp.md`。第一版的
- *   `POST /post-investment/analyze` 端点与 `analyzePostInvestmentMaterial` 用例
- *   未删除，保留作为派生数值计算（同比等）的参照实现，不再是本页调用路径。
+ * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP 第三版）：同 Team1 第五版架构——
+ *   本路由是**中转页**不是工作台，只做三件 chat 里做不了的事（按需发布 Agent、
+ *   建/复用个人线程并入编、把「投后管理报告」平台内置 Skill 挂进线程），然后
+ *   `replace` 进真正的 chat（`/chat/<threadId>`）。方法论住在那个 Skill 里
+ *   （`apps/api/scripts/post-investment-skill-content.ts`），不塞 instructions、
+ *   不每条消息重发；判据阈值与派生公式的单一事实源是
+ *   `packages/contracts/src/post-investment-rules.ts`。之后传材料/追问/两轮确认/
+ *   定向深挖全部用 chat 自己的能力。详情见
+ *   `docs/agents/team4-post-investment-report-mvp.md`，验收口径见
+ *   `docs/agents/team4-acceptance-rubric.md`。此前两版原型（独立粘贴框 +
+ *   `POST /post-investment/analyze` 专用端点；自建上传框 launcher）连同那条端点、
+ *   用例与契约已一并删除——前端不再调用它，留着只是持续的维护成本与删除时的残骸；
+ *   真正被复用的 `derive-financial-metrics.ts`（派生公式参照实现）保留。
  */
 export function generateStaticParams() {
   return PREVIEW_AGENT_TEAMS.map((team) => ({ teamId: team.slug }));
@@ -99,7 +103,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
             <p className="text-11 font-medium text-muted-foreground">
               <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {POST_INVESTMENT_AGENT.name}
             </p>
-            <div className="mt-4"><PostInvestmentLauncher agent={POST_INVESTMENT_AGENT} /></div>
+            <div className="mt-4"><PostInvestmentChatEntry agent={POST_INVESTMENT_AGENT} /></div>
           </div>
         </div>
       </AppShell>

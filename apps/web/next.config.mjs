@@ -292,9 +292,6 @@ export default {
       // 论证，这里不重复：缺了裸路径不会失败在网络层，会被 Next 接住返回 404 HTML。
       { source: `${prefix}/feedback`, destination: `${apiOrigin}/feedback` },
       { source: `${prefix}/feedback/:path*`, destination: `${apiOrigin}/feedback/:path*` },
-      // `/agent/team4` ad-hoc MVP：`post-investment-report.ts` 挂了 `analyzePostInvestmentMaterial`
-      // 一条 operation（`POST /post-investment/analyze`），同一个坑的复现——理由同上面 `/feedback` 那条。
-      { source: `${prefix}/post-investment/:path*`, destination: `${apiOrigin}/post-investment/:path*` },
       // UC-17.8 B3.2（统一收件箱）：`inbox.ts` 挂了 `listInbox`（裸 `/inbox`）与
       // `getInboxCounts`（`/inbox/counts`）——同一个坑的复现，理由同上面 `/feedback` 那条。
       { source: `${prefix}/inbox`, destination: `${apiOrigin}/inbox` },

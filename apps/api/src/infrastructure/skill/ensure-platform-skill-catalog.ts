@@ -60,8 +60,13 @@ import { PLATFORM_SKILL_CATALOG } from "../../domain/skill/platform-skill-catalo
 import { createHash } from "node:crypto";
 import { IC_REVIEW_SKILL_MD } from "../../../scripts/ic-review-skill-content";
 import { IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID } from "../../../../web/lib/ic-review/skill-identity";
+import { POST_INVESTMENT_SKILL_MD } from "../../../scripts/post-investment-skill-content";
+import {
+  POST_INVESTMENT_SKILL_ID, POST_INVESTMENT_SKILL_VERSION_ID,
+} from "../../../../web/lib/post-investment/skill-identity";
 
 export { IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID };
+export { POST_INVESTMENT_SKILL_ID, POST_INVESTMENT_SKILL_VERSION_ID };
 
 
 /** 两个 backfill 共用的服务身份——`org-platform` 唯一成员，结构上不可登录
@@ -338,17 +343,36 @@ export async function ensurePlatformSkillCatalogSeeded(): Promise<
 
 const IC_REVIEW_STABLE_NAME = "ic-review-standard";
 const IC_REVIEW_DISPLAY_NAME = "上会审阅";
+const POST_INVESTMENT_STABLE_NAME = "post-investment-report";
+const POST_INVESTMENT_DISPLAY_NAME = "投后管理报告";
 
 export interface IcReviewSkillSeedReport {
   readonly created: boolean;
   readonly alreadyExisted: boolean;
 }
 
+/** 一个 ad-hoc Agent 的内置 Skill 规格——四个字段 + 正文，其余全部共用下面的实现。 */
+interface AdHocSkillSpec {
+  readonly skillId: string;
+  readonly versionId: string;
+  readonly stableName: string;
+  readonly displayName: string;
+  readonly md: string;
+  /** 版本号声明在哪个文件——内容摘要对不上时报错要指到那里，让人知道去哪升版本。 */
+  readonly identityModule: string;
+}
+
 /**
- * 前置条件同 `ensurePlatformSkillsSeeded`：`PLATFORM_ORG_ID` 这个组织必须已存在
- * （`ensurePlatformOrgSeeded()` 先跑过）——本函数不建组织本体。
+ * 把一个 ad-hoc Agent 的方法论铸成平台内置 Skill 并发布。**幂等**：同 id 已存在就
+ * 什么都不做；同一个版本 id 但内容摘要变了就 fail closed（有人改了正文却没升版本号，
+ * 静默停在旧内容比报错难查得多）。
+ *
+ * ⚠ team1（上会审阅）与 team4（投后管理报告）走的是**同一段逻辑**——此前只有 team1
+ * 一个的时候它是内联写死的，team4 要接进来时没有照抄第二份，而是参数化成这个函数。
+ * 同一事实不得声明在两处（AGENTS.md）；两个临时 Agent 各自删除时只删自己的那个
+ * `spec` 与调用，本函数留给还在的那个。
  */
-export async function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedReport> {
+async function seedAdHocAgentSkill(spec: AdHocSkillSpec): Promise<IcReviewSkillSeedReport> {
   const db = new PgDatabase(migrationConfig());
   try {
     return await db.withTenant(toOrgId(PLATFORM_ORG_ID), async (s) => {
@@ -358,7 +382,7 @@ export async function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedRepo
         `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
          VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)
          ON CONFLICT (id) DO NOTHING`,
-        [IC_REVIEW_SKILL_ID, PLATFORM_ORG_ID, IC_REVIEW_DISPLAY_NAME],
+        [spec.skillId, PLATFORM_ORG_ID, spec.displayName],
       );
 
       const skillInsert = await s.query(
@@ -366,22 +390,20 @@ export async function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedRepo
          VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)
          ON CONFLICT (id) DO NOTHING
          RETURNING id`,
-        [IC_REVIEW_SKILL_ID, PLATFORM_ORG_ID, IC_REVIEW_STABLE_NAME, IC_REVIEW_DISPLAY_NAME, SERVICE_ACTOR_ID, now],
+        [spec.skillId, PLATFORM_ORG_ID, spec.stableName, spec.displayName, SERVICE_ACTOR_ID, now],
       );
 
-      const digest = createHash("sha256").update(IC_REVIEW_SKILL_MD).digest("hex");
+      const digest = createHash("sha256").update(spec.md).digest("hex");
       const existing = await s.query(
         `SELECT id, content_digest FROM skill_versions WHERE org_id=$1 AND skill_id=$2 AND id=$3`,
-        [PLATFORM_ORG_ID, IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID],
+        [PLATFORM_ORG_ID, spec.skillId, spec.versionId],
       );
       if (existing.rows.length > 0) {
-        // 同一个版本 id 内容摘要不一致 ⇒ 有人改了正文却没同步升版本号（skill-identity.ts
-        // 头注要求实质变化手动升 -v2），fail closed 而不是静默让线上停在旧内容。
         const row = existing.rows[0] as { content_digest: string };
         if (row.content_digest !== digest) {
           throw new Error(
-            `ic-review skill version ${IC_REVIEW_SKILL_VERSION_ID} already exists with a different content digest ` +
-            `— bump IC_REVIEW_SKILL_VERSION_ID in apps/web/lib/ic-review/skill-identity.ts before shipping this content change`,
+            `${spec.stableName} skill version ${spec.versionId} already exists with a different content digest ` +
+            `— bump the version id in ${spec.identityModule} before shipping this content change`,
           );
         }
         return { created: false, alreadyExisted: true };
@@ -392,19 +414,46 @@ export async function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedRepo
            (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id, created_at, published)
          VALUES ($1,$2,$3,$4,$5,'{}'::jsonb,$6,$7,false)
          ON CONFLICT (id) DO NOTHING`,
-        [IC_REVIEW_SKILL_VERSION_ID, PLATFORM_ORG_ID, IC_REVIEW_SKILL_ID, `pkg-${digest}`, digest, SERVICE_ACTOR_ID, now],
+        [spec.versionId, PLATFORM_ORG_ID, spec.skillId, `pkg-${digest}`, digest, SERVICE_ACTOR_ID, now],
       );
       await s.query(
         `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
          VALUES ($1,$2,'SKILL.md',$3::bytea,'text/markdown',$4) ON CONFLICT (version_id,path) DO NOTHING`,
-        [PLATFORM_ORG_ID, IC_REVIEW_SKILL_VERSION_ID, Buffer.from(IC_REVIEW_SKILL_MD), digest],
+        [PLATFORM_ORG_ID, spec.versionId, Buffer.from(spec.md), digest],
       );
       // 与真实发布用例走同一个数据库函数——不在这里手写第二份"怎样发布一个版本"。
-      await s.query("SELECT wave2_publish_skill_version($1,$2)", [PLATFORM_ORG_ID, IC_REVIEW_SKILL_VERSION_ID]);
+      await s.query("SELECT wave2_publish_skill_version($1,$2)", [PLATFORM_ORG_ID, spec.versionId]);
 
       return { created: skillInsert.rows.length > 0, alreadyExisted: false };
     });
   } finally {
     await db.close();
   }
+}
+
+/**
+ * 前置条件同 `ensurePlatformSkillsSeeded`：`PLATFORM_ORG_ID` 这个组织必须已存在
+ * （`ensurePlatformOrgSeeded()` 先跑过）——本函数不建组织本体。
+ */
+export function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedReport> {
+  return seedAdHocAgentSkill({
+    skillId: IC_REVIEW_SKILL_ID,
+    versionId: IC_REVIEW_SKILL_VERSION_ID,
+    stableName: IC_REVIEW_STABLE_NAME,
+    displayName: IC_REVIEW_DISPLAY_NAME,
+    md: IC_REVIEW_SKILL_MD,
+    identityModule: "apps/web/lib/ic-review/skill-identity.ts",
+  });
+}
+
+/** team4 = 投后管理报告 AI 生成单元（ad-hoc 临时 Agent），同上。 */
+export function ensurePostInvestmentSkillSeeded(): Promise<IcReviewSkillSeedReport> {
+  return seedAdHocAgentSkill({
+    skillId: POST_INVESTMENT_SKILL_ID,
+    versionId: POST_INVESTMENT_SKILL_VERSION_ID,
+    stableName: POST_INVESTMENT_STABLE_NAME,
+    displayName: POST_INVESTMENT_DISPLAY_NAME,
+    md: POST_INVESTMENT_SKILL_MD,
+    identityModule: "apps/web/lib/post-investment/skill-identity.ts",
+  });
 }
