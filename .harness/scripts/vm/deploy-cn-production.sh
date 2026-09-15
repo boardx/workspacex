@@ -13,6 +13,7 @@ CONFIG_FILE=/etc/workspacex-cn/deployment.json
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
+STABLE_SECRET_DIRECTORY=/var/lib/workspacex-cn/stable-secrets
 RELEASE_TREE_ROOT=/var/lib/workspacex-cn/releases
 EVENTS_ROOT=/var/lib/workspacex-cn/release-events
 PREPARATIONS_DIR=/etc/workspacex-cn/preparations
@@ -76,14 +77,19 @@ NODE
   chown root:root "$output"; chmod 0600 "$output"
 }
 verify_stable_identity() {
-  local baseline_file=$1 baseline_runtime baseline_secret_directory
+  local baseline_file=$1 baseline_runtime baseline_secret_directory legacy_flag=()
   baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_file")
   baseline_secret_directory="$baseline_runtime/secrets"
   if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
     private_root_file "$baseline_runtime/stable-secret-directory.ref"
     baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
+    [[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]] || fail "baseline stable secret directory drift"
+  else
+    [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && "${baseline_runtime#"$RUNTIME_ROOT"/}" =~ ^[a-f0-9]{40}$ &&
+       "$baseline_secret_directory" == "$baseline_runtime/secrets" ]] || fail "legacy baseline secret directory invalid"
+    legacy_flag=(--legacy-baseline)
   fi
-  pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" /var/lib/workspacex-cn/stable-secrets >/dev/null || fail "stable secret continuity preflight failed"
+  pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
 }
 baseline_fingerprint() {
   pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release -- fingerprint "$1" "$2"
@@ -258,7 +264,7 @@ node -e '
   const [path,config,release,runtime,agent,project,stable]=process.argv.slice(1);
   const value={configFile:config,releaseFile:release,options:{projectName:project,runtimeDirectory:runtime,stableSecretDirectory:stable,agentEnvironmentSecretRef:`file:${agent}`}};
   fs.writeFileSync(path,`${JSON.stringify(value)}\n`,{mode:0o600});
-' "$request" "$CONFIG_FILE" "$manifest" "$runtime" "$AGENT_ENV_FILE" "$PROJECT_NAME" /var/lib/workspacex-cn/stable-secrets
+' "$request" "$CONFIG_FILE" "$manifest" "$runtime" "$AGENT_ENV_FILE" "$PROJECT_NAME" "$STABLE_SECRET_DIRECTORY"
 chown root:root "$request"
 chmod 0600 "$request"
 
