@@ -52,6 +52,16 @@ export interface LiveAttachment {
   readonly retryable?: boolean;
   /** 上传已发送比例 0..1（XHR upload.onprogress）。用于真实进度条。 */
   readonly progress?: number;
+  /**
+   * 上传成功时服务端回的**那一行附件实体本身**（`uploadAttachment` 的返回值原样存下）。
+   *
+   * ⚠ 不是"再造一份"：`serverId`/`bytes`/`mime` 这三项本来就是从它身上摘下来的
+   * （见 `doUpload` 的 `patch`）。之所以还要整行留着，是因为消息气泡上的附件展示件
+   * （`MessageAttachments`）吃的是 `ChatAttachment`，缺 `createdAt` 一项——发送那一刻
+   * 若在前端现编一个时间戳，就是把服务端权威字段伪造成本地猜测值。整行留着，
+   * 「这条消息带了哪些附件」与「服务端回读到的同一行」逐字段相同。
+   */
+  readonly remote?: ChatAttachment;
   /** 保留原 File 供重试。 */
   readonly file?: File;
 }
@@ -250,7 +260,10 @@ export function useChatAttachments(opts: {
         targetThreadId, file, bearer,
         (fraction) => patch(localId, { progress: fraction }),
       );
-      patch(localId, { status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime, progress: 1 });
+      patch(localId, {
+        status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime,
+        progress: 1, remote: uploaded,
+      });
     } catch (err) {
       const { text, retryable } = describeUploadError(err);
       patch(localId, { status: "error", error: text, retryable });
@@ -336,17 +349,25 @@ export function useChatAttachments(opts: {
   // issue #3347 的右栏「材料」落区共用同一份；这里只是它的一个使用者。
   const { dragActive, dragHandlers } = useFileDropSurface({ onFiles: pickFiles });
 
-  /** 已上传附件的 serverId（发送时作为 attachmentIds）。 */
-  const uploadedIds = React.useMemo(
-    () => attachments.filter((a) => a.status === "uploaded" && a.serverId).map((a) => a.serverId!),
+  /**
+   * 已上传成功、尚未随消息发出的附件**实体行**（服务端回的原始 `ChatAttachment`）。
+   * 发送路径要两样东西——交给 `createMessage` 的 id 列表，以及发出后挂到消息气泡上
+   * 展示的那几行——它们是同一批附件的两种读法，这里只保留一份状态，`uploadedIds`
+   * 从它派生（同一事实不声明两处）。
+   */
+  const uploadedAttachments = React.useMemo(
+    () => attachments.filter((a) => a.status === "uploaded" && a.remote).map((a) => a.remote!),
     [attachments],
   );
+
+  /** 已上传附件的 serverId（发送时作为 attachmentIds）——由上面那一份派生，不另数一遍。 */
+  const uploadedIds = React.useMemo(() => uploadedAttachments.map((a) => a.id), [uploadedAttachments]);
 
   return {
     attachments, banner, dragActive, confirmingId, fileInputRef,
     atLimit: attachments.length >= MAX_ATTACHMENTS,
     hasUploading: attachments.some((a) => a.status === "uploading"),
-    uploadedIds,
+    uploadedIds, uploadedAttachments,
     dragHandlers,
     pickFiles, retry, removeAttachment, clear,
     askRemove: setConfirmingId,
