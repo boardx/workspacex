@@ -6,6 +6,7 @@ const directory = import.meta.dirname;
 const bootstrap = readFileSync(resolve(directory, "bootstrap-cn-production.sh"), "utf8");
 const deploy = readFileSync(resolve(directory, "deploy-cn-production.sh"), "utf8");
 const candidate = readFileSync(resolve(directory, "build-cn-release-candidate.sh"), "utf8");
+const browserSmoke = readFileSync(resolve(directory, "cn-release-browser-smoke.mjs"), "utf8");
 
 describe("China production trusted deployment entrypoints", () => {
   it("installs a root-owned wrapper and validates sudoers before activation", () => {
@@ -61,6 +62,21 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy.slice(prepareBranch, deployBranch)).toContain("prepare-host");
     expect(deploy.slice(deployBranch)).not.toContain("prepare-host");
     expect(deploy.slice(deployBranch)).toContain('release is not prewarmed; run --prepare before promotion');
+  });
+
+  it("proves the browser runtime during prepare and authenticates the notifications contract with the stored bearer", () => {
+    const prepareBranch = deploy.indexOf('if [[ "$mode" == prepare ]]');
+    const deployBranch = deploy.indexOf('[[ "$(git -C "$REPOSITORY_DIR" rev-parse origin/main-cn)" == "$revision" ]]', prepareBranch);
+    const prepareOnly = deploy.slice(prepareBranch, deployBranch);
+    expect(prepareOnly).toContain("cn-release-browser-smoke.mjs --preflight");
+    expect(browserSmoke).toContain('createRequire(new URL("../../../apps/api/package.json", import.meta.url))');
+    expect(browserSmoke).toContain('requireFromApi("playwright")');
+    expect(browserSmoke).toContain('chromium.launch({ headless: true })');
+    expect(browserSmoke).toContain('window.localStorage.getItem(tokenKey)');
+    expect(browserSmoke).toContain('Authorization: `Bearer ${token}`');
+    expect(browserSmoke).toContain("Array.isArray(payload?.notifications)");
+    expect(browserSmoke).toContain("Number.isInteger(payload?.unreadCount) && payload.unreadCount >= 0");
+    expect(browserSmoke).not.toContain('fetch("/api/notifications", { credentials: "include" })');
   });
 
   it("uses root-only inputs and a runtime directory isolated by release SHA", () => {

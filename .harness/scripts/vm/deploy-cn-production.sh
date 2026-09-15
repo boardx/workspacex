@@ -170,6 +170,10 @@ if [[ "$mode" == prepare ]]; then
   rmdir "$stage"
   trap - EXIT
   cd "$release_checkout"
+  # Prove module resolution plus the Chromium executable and system libraries while
+  # preparation is still side-effect free, before an activation can change ingress.
+  node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
+    || fail "browser runtime preflight failed"
   pnpm --filter @repo/cloud-deploy prepare-host -- "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
