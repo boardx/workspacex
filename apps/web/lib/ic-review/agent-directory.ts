@@ -6,12 +6,16 @@
  * 已发布 Agent（真实模型）完成。
  *
  * ⚠ `agentId` 是后端 `agent-runtime` 里这个 Agent 发布后的真实数据库 id，**本文件
- * 不能替它造一个**。团队还没有在后台创建并发布 team1 这个 Agent 之前，这里必须是
- * `null`——落地页据此禁用「开始审阅」按钮并如实说明还差这一步，而不是假装能用。
- * 创建方式：`POST /agents`（`agentRuntime.operations.createAgent`）→
- * `POST /agents/:agentId/submit` → `POST /agents/:agentId/publish-decision`
- * （或 `self-publish`，见 `apps/api/src/interface/controllers/agent*.controller.ts`），
- * 拿到发布后的 id 填进来即可，不用改其他任何文件。
+ * 不能替它造一个**——每个部署环境（本机开发库 / devapp / 生产）各自有自己的库，
+ * id 天然不跨环境通用。二选一：
+ *   ① 设置构建时环境变量 `NEXT_PUBLIC_TEAM1_AGENT_ID`（推荐，换环境不用改代码）；
+ *   ② 直接改下面 `agentId` 的字面量（本机开发临时验证时更快）。
+ * 都没设时保持 `null`——落地页据此禁用「开始审阅」按钮并如实说明还差这一步。
+ *
+ * 发布方式：`apps/api/scripts/publish-team1-agent.ts`（幂等，一条命令跑完
+ * 创建 → 写 instructions → self-publish，2026-09-15 已在真实 Postgres + Redis +
+ * apps/api 实例上验证过整条链路：建 Agent → 挂进线程 roster → 发消息 → 收到
+ * 202 与 queued AgentRun）。
  */
 export interface AgentDirectoryEntry {
   readonly slug: string;
@@ -29,7 +33,7 @@ export const AGENT_DIRECTORY: readonly AgentDirectoryEntry[] = [
     slug: "team1",
     name: "上会材料智能审阅助手",
     tagline: "投决会前，把「读材料、查缺、找矛盾」的机械负担拿走；结论条条可回跳原文。",
-    agentId: null,
+    agentId: process.env.NEXT_PUBLIC_TEAM1_AGENT_ID ?? null,
     skills: ["ic-review-standard（上会标准 IC-1…IC-8，待发布为平台 Skill）"],
     capabilities: [
       "把材料作为附件发进一条真实项目对话，由挂载的模型完成审阅",
