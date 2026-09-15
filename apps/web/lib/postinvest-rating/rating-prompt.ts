@@ -13,6 +13,9 @@
  * `apps/api/src/domain/postinvest-rating/scoring.ts` 读同一份常量。此前这里手抄了一份，
  * 两处都自洽、改一处不会有任何东西变红——改规则只改规则手册那一个文件。
  *
+ * 第三个参数是本次评级所属的真实项目名（R3-1）——记忆协议按项目名检索与写入，项目名
+ * 不一致就等于没有历史。不传时任务书不写死一个名字，让模型问我。
+ *
  * 第二个参数是 R3-3 的「数据缺失说明」表单结果——人工确认事实，模型不得自行推断
  * （见 `missing-reason.ts` 头注）。不传（如发布 Agent 时把本任务书固化成 instructions）
  * 就不渲染那一段。
@@ -28,9 +31,12 @@ type MissingDataReason = postinvestRating.MissingDataReason;
 export function buildRatingPrompt(
   materialNames: readonly string[],
   missingReason?: MissingDataReason,
+  projectName?: string,
 ): string {
   const brief = missingReason ? buildMissingReasonBrief(missingReason) : null;
-  return `你现在是「投后财务项目评级 Agent」。我已经把本次投后项目的材料作为附件发给你${
+  return `你现在是「投后财务项目评级 Agent」。${
+    projectName ? `本次评级的项目是「${projectName}」，记忆协议里的项目名就用它。` : ""
+  }我已经把本次投后项目的材料作为附件发给你${
     materialNames.length ? `（${materialNames.join("、")}）` : ""
   }。请完成以下任务。
 ${brief ? `\n${brief}\n` : ""}

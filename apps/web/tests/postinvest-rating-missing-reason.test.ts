@@ -16,6 +16,7 @@ import {
 import { buildRatingPrompt } from "@/lib/postinvest-rating/rating-prompt";
 import { renderRuleBook } from "@repo/contracts/postinvest-rating-rules";
 import { RATING_CORRECTION_TAG, RATING_MEMO_TAG, buildMemoryProtocol } from "@/lib/postinvest-rating/rating-memo";
+import { MATERIAL_KIND_LABELS, formatFileSize, guessMaterialKind } from "@/lib/postinvest-rating/material-file";
 
 describe("missing-reason", () => {
   it("覆盖契约里每一个原因码，不多不少（契约是单一事实源）", () => {
@@ -108,5 +109,45 @@ describe("记忆协议", () => {
 
   it("主观偏差不进记忆——不把印象变成下次的规则", () => {
     expect(buildMemoryProtocol()).toContain("主观偏差那一类不写");
+  });
+});
+
+/**
+ * R3-2 的回显：类型是**按文件名推测**的，界面必须说明；SHA-256 是真算的，算不出就不显示，
+ * 不给占位符（原型截图里的 `aaaaaaaaa…` 是 mock，真页面不许长成那样）。
+ */
+describe("上传材料回显", () => {
+  it("按扩展名推测类型；审计报告只认名字里带审计/audit 的", () => {
+    expect(guessMaterialKind("2025年度合并财务报表.xlsx")).toBe("statement");
+    expect(guessMaterialKind("2025年度审计报告.pdf")).toBe("audit_report");
+    expect(guessMaterialKind("FY25 Audit Report.pdf")).toBe("audit_report");
+    expect(guessMaterialKind("2024年度合并财务报表.pdf")).toBe("statement");
+    expect(guessMaterialKind("管理层访谈-2026Q1.m4a")).toBe("recording");
+    expect(guessMaterialKind("随手记.txt")).toBe("unknown");
+  });
+
+  it("每个类型都有展示名", () => {
+    for (const kind of ["statement", "audit_report", "recording", "unknown"] as const) {
+      expect(MATERIAL_KIND_LABELS[kind]).toBeTruthy();
+    }
+  });
+
+  it("文件大小按量级换单位", () => {
+    expect(formatFileSize(512)).toBe("512 B");
+    expect(formatFileSize(376 * 1024)).toBe("376 KB");
+    expect(formatFileSize(Math.round(1.1 * 1024 * 1024))).toBe("1.1 MB");
+  });
+});
+
+/** R3-1：项目名同时是记忆检索的键，必须进任务书，否则历史对不上。 */
+describe("项目绑定", () => {
+  it("传了项目名就写进任务书，并说明记忆协议用它", () => {
+    const prompt = buildRatingPrompt([], undefined, "海创汇某被投企业");
+    expect(prompt).toContain("海创汇某被投企业");
+    expect(prompt).toContain("记忆协议里的项目名就用它");
+  });
+
+  it("不传项目名时不编一个", () => {
+    expect(buildRatingPrompt([])).not.toContain("记忆协议里的项目名就用它");
   });
 });
