@@ -1,9 +1,16 @@
 /**
- * 审阅任务指令 —— 投进真实 chat 线程的第一条人类消息。
+ * 审阅方法论 —— 上会标准 + 交叉验证要求 + 出处/输出格式 + 两轮人工确认约定。
  *
- * MVP 架构（2026-09-15 第二版）：本仓不自建分析引擎，审阅由挂载在真实 Agent 上的
- * 模型执行；这里只负责把「上会标准 + 交叉验证要求 + 出处与输出格式约束 + 两处人工
- * 确认关口」拼成一条明确、可执行的任务书。改判据请改这一份，不要在别处另起提示词。
+ * MVP 架构（2026-09-15 第四版）：这份内容是「怎么审阅」，属于 Skill 的正文，
+ * 不再塞进 Agent 的 `instructions` 或每次发消息都带一份——那是「同一事实声明
+ * 两处」（AGENTS.md 硬约束）。真正落地方式：`apps/api/scripts/
+ * ic-review-skill-content.ts` 原样 import 本文件的 `buildIcReviewSkillContent()`，
+ * 把它铸成一个平台内置 Skill（`ensure-ic-review-skill.ts`，与四个官方 Office
+ * skill 同一条自愈种子机制，见该文件头注——这是「代码层面的 skill 开发」，走 git
+ * PR review，不走运行时双人审核那道门，两者审的是不同的东西：一个审"这段代码
+ * 该不该合"，一个审"运行时一个用户临时提交的 skill 该不该被授予能力"）。
+ * 入口（`ensure-review-thread.ts`）只负责把这个 Skill 挂进线程，之后用户在 chat 里
+ * 发的每条消息都不重复这份方法论——改判据只改这一份文件。
  */
 import { IC_CATEGORIES, IC_STANDARD } from "./standard";
 
@@ -18,10 +25,10 @@ function checklistBlock(): string {
   return lines.join("\n");
 }
 
-export function buildReviewPrompt(materialNames: readonly string[]): string {
-  return `你现在是「上会材料智能审阅助手」。我已经把本次上会材料作为附件发给你${
-    materialNames.length ? `（${materialNames.join("、")}）` : ""
-  }。请完成以下任务，产出要交给投资分析人员在集团投决会前使用。
+/** Skill 正文——挂载后随 system prompt 一起生效，是「怎么审阅」的唯一事实源。 */
+export function buildIcReviewSkillContent(): string {
+  return `你是「上会材料智能审阅助手」。用户每次会上传一批上会材料并触发一次审阅，
+请按以下方法论执行，产出要交给投资分析人员在集团投决会前使用。
 
 ## 任务一：资料汇总提纲
 读完全部材料后，生成结构化的项目背景摘要（交易概况 / 标的 / 行业 / 财务 / 估值 / 尽调 / 投后 / 决策事项），
@@ -45,10 +52,28 @@ ${checklistBlock()}
 - 涉及行业基准判断时（如毛利率是否偏离行业、估值倍数是否合理），请基于你已知的行业常识判断，并明确标注这是「未取证的常识判断」还是「有外部数据支撑」；如果引用了外部数据，标注来源与大致时效。
 - 对能机械核算的问题（如按不同口径重算净利润、按明细加总核对占比），请给出算式与每个输入项的出处，不要只给结论。
 
-## 输出后请停下来，等待我的两轮确认，不要自己往下做
-1. 「第一轮」：你把「资料汇总提纲 + 缺失项清单 + 风险与矛盾标注」发给我后，「停下」，等我逐条告诉你「确认 / 驳回（附理由）」，以及对每条风险的分级（高/中/低/忽略）和我想让你深挖哪几条。
-2. 「第二轮」：只在我明确圈出的条目上做定向深挖（如重算、拉明细、补对标），不要扩大范围；深挖完成后再停下等我确认是否可以整合成最终报告。
+## 输出后请停下来，等待用户的两轮确认，不要自己往下做
+1. 「第一轮」：你把「资料汇总提纲 + 缺失项清单 + 风险与矛盾标注」发给用户后，「停下」，等用户逐条告诉你「确认 / 驳回（附理由）」，以及对每条风险的分级（高/中/低/忽略）和想让你深挖哪几条。
+2. 「第二轮」：只在用户明确圈出的条目上做定向深挖（如重算、拉明细、补对标），不要扩大范围；深挖完成后再停下等用户确认是否可以整合成最终报告。
 3. 最终报告只陈述事实、缺口与待追问事项，「不给投资建议或投/不投评级」。
 
 材料中没有的事实只能写进「需核实清单」，不得写进「已满足」。未能读取的文件请单独列出并说明原因，不要静默跳过。`;
+}
+
+/**
+ * 每次发起审阅时的触发消息——只说「这次要审哪些材料」，方法论已经在挂载的 Skill
+ * 里，这里不重复。
+ */
+export function buildReviewKickoffMessage(materialNames: readonly string[]): string {
+  return `请审阅本次上传的上会材料${
+    materialNames.length ? `（${materialNames.join("、")}）` : ""
+  }，按你已挂载的「上会审阅」技能里的标准与流程执行。`;
+}
+
+/**
+ * 独立可用版——供「复制审阅任务书」兜底用（`ic-review-chat-entry.tsx`）：用户手动
+ * 粘到一条**没有挂载本 Skill 的**普通对话里时，方法论必须自带，不能只发触发语。
+ */
+export function buildStandaloneReviewPrompt(materialNames: readonly string[]): string {
+  return `${buildReviewKickoffMessage(materialNames)}\n\n${buildIcReviewSkillContent()}`;
 }

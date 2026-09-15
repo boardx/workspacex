@@ -1,7 +1,7 @@
 /**
  * 把「材料 + 评级任务」投进一条真实项目对话 —— 唯一的新增交互，全部调用真实 chat
  * API（`lib/live-chat.ts`），不新增任何后端端点、不自建聊天 UI。同 team1
- * （`lib/ic-review/launch-review-thread.ts`）的架构。
+ * （`lib/ic-review/ensure-review-thread.ts`）的架构。
  *
  * 不做客户端预解析：`chat-file-upload` 的 MIME 白名单已经包含 pdf/xlsx/pptx/docx
  * （`packages/contracts/src/chat-file-upload.ts`），文件作为真实附件直接上传，交给

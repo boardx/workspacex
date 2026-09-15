@@ -12,7 +12,7 @@ import type { RatingAgentEntry } from "@/lib/postinvest-rating/agent-directory";
 import { launchRatingThread } from "@/lib/postinvest-rating/launch-rating-thread";
 
 /**
- * `/agent/team2` 工作区——同 team1（`components/agent/ic-review-launcher.tsx`）的架构：
+ * `/agent/team2` 工作区——同 team1（`components/agent/ic-review-chat-entry.tsx`）的架构：
  * 只做材料预处理与发起，不自建结果面板；评级结果出现在真实 chat 线程里（跳转后可见）。
  * 不客户端预解析文件：PDF/Excel/PPT/Word 直接作为真实附件上传，交给挂载的 Agent 用
  * `wx_document_parse` 自己读。

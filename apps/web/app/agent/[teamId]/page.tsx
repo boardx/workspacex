@@ -8,7 +8,7 @@ import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
-import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
+import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
 import { PostInvestmentLauncher } from "@/components/agent/post-investment-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
@@ -18,9 +18,12 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：要调真实
- *   `lib/live-chat.ts` API（建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity`
- *   覆盖，复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第五版）：本路由是**中转页**不是工作台——
+ *   它只把 Agent 入编、把「上会审阅」Skill 挂进线程，然后 `replace` 进真正的 chat
+ *   （`/chat/<threadId>`），之后传材料/追问/确认全部用 chat 自己的能力（附件、历史、
+ *   产物落地…），不自建第二套 UI。要调真实 `lib/live-chat.ts` API，必须走真实登录
+ *   会话，因此不传 `identity` 覆盖，复用页面自身默认的真实 `AppShell`。
+ *   详情见 `docs/agents/team1-ic-review-mvp.md`。
  * ⚠ Team2 = 投后财务项目评级 Agent（issue #3676，ad-hoc MVP 第三版）：同 Team1 架构——
  *   不自建分析/解析引擎，材料作为真实附件（Excel/PDF/PPT/Word/录音，MIME 已在
  *   `chat-file-upload` 白名单里）发进一条真实项目对话，交给挂载了真实模型的 Agent 用
@@ -66,7 +69,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
             <p className="text-11 font-medium text-muted-foreground">
               <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {agent.name}
             </p>
-            <div className="mt-4"><IcReviewLauncher agent={agent} /></div>
+            <div className="mt-4"><IcReviewChatEntry agent={agent} /></div>
           </div>
         </div>
       </AppShell>
