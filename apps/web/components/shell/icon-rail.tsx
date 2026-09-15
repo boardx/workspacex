@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_SEGMENTS } from "@/lib/navigation";
+import { navSegmentsForOrg } from "@/lib/navigation";
 import type { Identity } from "@/lib/identity";
 import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
@@ -43,6 +43,9 @@ export function IconRail({
   onLogout?: () => void;
 }) {
   const pathname = usePathname();
+  // 一级入口按当前组织过滤（「海创汇」只对 Workspace 组织显示，2026-09-15 人类要求）。
+  // 判定不写在这里——`navSegmentsForOrg` 是单一事实源，见 `lib/navigation.ts`。
+  const segments = navSegmentsForOrg(identity.org.name);
   return (
     <TooltipProvider delayDuration={300}>
     <nav
@@ -88,7 +91,7 @@ export function IconRail({
         data-testid="rail-scroll"
         className="scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
       >
-      {NAV_SEGMENTS.map((seg, i) => (
+      {segments.map((seg, i) => (
         <div key={seg.label ?? `seg-${i}`} className="flex w-full shrink-0 flex-col items-center">
           {seg.label && (
             <span className="mt-3 select-none text-9 font-medium uppercase tracking-wide text-muted-foreground [@media(max-height:640px)]:hidden">
