@@ -10,7 +10,7 @@ import type { AgentDirectoryEntry } from "@/lib/ic-review/agent-directory";
 import { FIXTURE_PACKS } from "@/lib/ic-review/fixtures";
 import { intakeFiles, intakeTexts } from "@/lib/ic-review/intake";
 import { launchReviewThread } from "@/lib/ic-review/launch-review-thread";
-import { buildReviewPrompt } from "@/lib/ic-review/review-prompt";
+import { buildStandaloneReviewPrompt } from "@/lib/ic-review/review-prompt";
 import type { ReviewDocument, UnparsedFile } from "@/lib/ic-review/types";
 
 /**
@@ -55,7 +55,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
 
   const copyPrompt = async () => {
     try {
-      await navigator.clipboard.writeText(buildReviewPrompt(materialNames));
+      await navigator.clipboard.writeText(buildStandaloneReviewPrompt(materialNames));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

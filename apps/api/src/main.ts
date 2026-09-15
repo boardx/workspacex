@@ -37,6 +37,7 @@ import {
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { ensureIcReviewSkillSeeded } from "./infrastructure/skill/ensure-ic-review-skill";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
@@ -231,6 +232,21 @@ if (isProcessEntry()) {
     }
   } else {
     console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
+  }
+
+  /**
+   * team1（上会材料智能审阅助手）的临时内置 Skill——同一条自愈节奏，独立函数
+   * （见 `ensure-ic-review-skill.ts` 头注：不并进上面那次调用，删除这个 ad-hoc
+   * Agent 时只删这一行 + 那一个文件，不牵连四个永久官方 skill）。同样从不 throw。
+   */
+  const icReviewSeed = await ensureIcReviewSkillSeeded().catch((error: unknown) => {
+    console.error("ic-review skill self-heal failed (will retry on next boot):", error);
+    return null;
+  });
+  if (icReviewSeed) {
+    process.stdout.write(
+      `ic-review skill: ${icReviewSeed.created ? "created" : "already existed"}\n`,
+    );
   }
 
   /**
