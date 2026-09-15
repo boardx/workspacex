@@ -44,6 +44,7 @@ import { listCapabilities } from "@/lib/live-capabilities";
 import { createPersonalThread, getAgentPanel, updateAgentRoster, listPersonalThreads } from "@/lib/live-chat";
 import { getResearchSession, type ResearchSession } from "@/lib/live-research-workflow";
 import { ResearchPhaseBar } from "./research-phase-bar";
+import { ResearchMaterialReview } from "./research-material-review";
 
 /** 与 `apps/api/scripts/backfill-team3-agent.ts` 的 `TEAM3_AGENT_NAME` 逐字一致。 */
 const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
@@ -163,6 +164,8 @@ export function Team3Chat(): JSX.Element {
           verifyDueAt={research.verifyDueAt}
         />
       ) : null}
+      {/* 门①：只在它真的在等的时候自己渲染（组件内部判断），别的阶段返回 null。 */}
+      {research ? <ResearchMaterialReview session={research} onChange={setResearch} /> : null}
       {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
       <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
     </div>
