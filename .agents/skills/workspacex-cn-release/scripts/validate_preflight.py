@@ -6,10 +6,13 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 HEX40 = re.compile(r"^[a-f0-9]{40}$")
 HEX64 = re.compile(r"^[a-f0-9]{64}$")
+UTC_TIME = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 RELEASE = re.compile(r"^v?[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$")
 
 REQUIRED = {
@@ -108,7 +111,19 @@ def metadata(checks: dict, key: str) -> dict:
     return value
 
 
-def validate(value: object) -> dict:
+def receipt_hash(value: dict) -> str:
+    return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def utc_timestamp(value: object, field: str) -> datetime:
+    need(isinstance(value, str) and UTC_TIME.fullmatch(value) is not None, f"{field} must be UTC second-resolution ISO 8601")
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError as error:
+        raise ContractError(f"{field} is not a real UTC time") from error
+
+
+def validate(value: object, now: datetime | None = None) -> dict:
     need(isinstance(value, dict), "root must be an object")
     need(value.get("schemaVersion") == 2, "schemaVersion must be 2")
     phase = value.get("phase")
@@ -118,6 +133,26 @@ def validate(value: object) -> dict:
         need(isinstance(value.get(field), str) and HEX40.fullmatch(value[field]) is not None, f"{field} must be 40 lowercase hex")
     need(isinstance(value.get("release"), str) and RELEASE.fullmatch(value["release"]) is not None, "release must be semantic")
     need(value.get("buildStarted") is (phase == "preactivate"), "buildStarted must match the declared phase")
+    current = now if now is not None else datetime.now(timezone.utc)
+    need(current.tzinfo is not None, "validator clock must be timezone-aware")
+    issued = utc_timestamp(value.get("issuedAt"), "issuedAt")
+    expires = utc_timestamp(value.get("expiresAt"), "expiresAt")
+    need(issued <= current + timedelta(minutes=5), "receipt issued in the future")
+    need(issued <= current < expires, "receipt is expired or not yet valid")
+    need(timedelta(seconds=0) < expires - issued <= timedelta(hours=1), "receipt TTL must be at most one hour")
+    if phase == "prebuild":
+        need("prebuildEvidence" not in value and "prebuildReceiptSha256" not in value, "prebuild cannot contain prior receipt evidence")
+    else:
+        prior = value.get("prebuildEvidence")
+        need(isinstance(prior, dict), "preactivate requires the full prebuild evidence")
+        need(prior.get("phase") == "prebuild", "prior evidence must be prebuild")
+        need(isinstance(value.get("prebuildReceiptSha256"), str) and HEX64.fullmatch(value["prebuildReceiptSha256"]) is not None, "prebuild receipt hash is required")
+        need(receipt_hash(prior) == value["prebuildReceiptSha256"], "prebuild receipt hash differs")
+        for field in ("attemptId", "sourceSha", "baselineSha", "release"):
+            need(prior.get(field) == value[field], f"prebuild {field} differs")
+        prior_result = validate(prior, current)
+        need(prior_result["ready"] is True, "prebuild receipt was not ready")
+        need(utc_timestamp(prior["issuedAt"], "prebuild issuedAt") <= issued, "preactivate precedes prebuild")
 
     checks = value.get("checks")
     need(isinstance(checks, dict), "checks must be an object")
@@ -212,7 +247,11 @@ def validate(value: object) -> dict:
         "phase": phase,
         "attemptId": value["attemptId"],
         "sourceSha": value["sourceSha"],
+        "baselineSha": value["baselineSha"],
         "release": value["release"],
+        "issuedAt": value["issuedAt"],
+        "expiresAt": value["expiresAt"],
+        "receiptSha256": receipt_hash(value),
         "ready": not blockers,
         "buildStarted": value["buildStarted"],
         "blockers": blockers,

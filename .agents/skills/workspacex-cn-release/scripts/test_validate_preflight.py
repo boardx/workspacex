@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timezone
 
-from validate_preflight import ContractError, REQUIRED, validate
+from validate_preflight import ContractError, REQUIRED, receipt_hash, validate
 
 SHA = "a" * 40
 DIGEST = "sha256:" + "b" * 64
+NOW = datetime(2026, 9, 15, 13, 0, tzinfo=timezone.utc)
 
 
 def fixture(phase: str = "prebuild") -> dict:
@@ -34,22 +36,27 @@ def fixture(phase: str = "prebuild") -> dict:
         boot.pop("sourceEntrypoint")
         boot["imageEntrypoint"] = True
         checks["build.target_image"] = {"status": "passed", "evidenceSha256": "d" * 64, "metadata": {"sourceSha": SHA, "digest": DIGEST, "entrypointVerified": True}}
-    return {"schemaVersion": 2, "phase": phase, "attemptId": "attempt-1", "sourceSha": SHA, "baselineSha": "e" * 40, "release": "2026.9.15-cn.2", "buildStarted": phase == "preactivate", "checks": checks}
+    result = {"schemaVersion": 2, "phase": phase, "attemptId": "attempt-1", "sourceSha": SHA, "baselineSha": "e" * 40, "release": "2026.9.15-cn.2", "issuedAt": "2026-09-15T12:55:00Z" if phase == "prebuild" else "2026-09-15T12:58:00Z", "expiresAt": "2026-09-15T13:55:00Z" if phase == "prebuild" else "2026-09-15T13:58:00Z", "buildStarted": phase == "preactivate", "checks": checks}
+    if phase == "preactivate":
+        prior = fixture()
+        result["prebuildEvidence"] = prior
+        result["prebuildReceiptSha256"] = receipt_hash(prior)
+    return result
 
 
 class TestValidatePreflight(unittest.TestCase):
     def reject(self, data: dict) -> None:
         with self.assertRaises(ContractError):
-            validate(data)
+            validate(data, NOW)
 
     def test_prebuild_without_image_is_ready_to_build(self) -> None:
-        result = validate(fixture())
+        result = validate(fixture(), NOW)
         self.assertTrue(result["ready"])
         self.assertFalse(result["buildStarted"])
         self.assertEqual(result["phase"], "prebuild")
 
     def test_preactivate_with_exact_sealed_image_is_ready(self) -> None:
-        result = validate(fixture("preactivate"))
+        result = validate(fixture("preactivate"), NOW)
         self.assertTrue(result["ready"])
         self.assertEqual(result["checkedCount"], len(REQUIRED) + 1)
 
@@ -87,7 +94,38 @@ class TestValidatePreflight(unittest.TestCase):
     def test_failed_check_remains_blocker(self) -> None:
         data = fixture()
         data["checks"]["network.dependencies"].update(status="failed", code="NETWORK_UNAVAILABLE")
-        self.assertEqual(validate(data)["blockers"], [{"check": "network.dependencies", "code": "NETWORK_UNAVAILABLE"}])
+        self.assertEqual(validate(data, NOW)["blockers"], [{"check": "network.dependencies", "code": "NETWORK_UNAVAILABLE"}])
+
+    def test_preactivate_requires_matching_live_prebuild(self) -> None:
+        data = fixture("preactivate")
+        del data["prebuildEvidence"]
+        self.reject(data)
+        for field, bad in [("attemptId", "other"), ("sourceSha", "f" * 40), ("baselineSha", "f" * 40), ("release", "2026.9.15-cn.3")]:
+            data = fixture("preactivate")
+            data["prebuildEvidence"][field] = bad
+            data["prebuildReceiptSha256"] = receipt_hash(data["prebuildEvidence"])
+            self.reject(data)
+        data = fixture("preactivate")
+        data["prebuildReceiptSha256"] = "f" * 64
+        self.reject(data)
+
+    def test_expired_or_failed_prebuild_cannot_activate(self) -> None:
+        data = fixture("preactivate")
+        data["prebuildEvidence"]["expiresAt"] = "2026-09-15T12:59:59Z"
+        data["prebuildReceiptSha256"] = receipt_hash(data["prebuildEvidence"])
+        self.reject(data)
+        data = fixture("preactivate")
+        data["prebuildEvidence"]["checks"]["network.dependencies"].update(status="failed", code="NETWORK_UNAVAILABLE")
+        data["prebuildReceiptSha256"] = receipt_hash(data["prebuildEvidence"])
+        self.reject(data)
+
+    def test_receipt_ttl_and_order_are_bounded(self) -> None:
+        data = fixture()
+        data["expiresAt"] = "2026-09-15T15:00:00Z"
+        self.reject(data)
+        data = fixture("preactivate")
+        data["issuedAt"] = "2026-09-15T12:54:00Z"
+        self.reject(data)
 
 
 if __name__ == "__main__":

@@ -97,12 +97,12 @@ flowchart TD
 | `registry.acr_auth` | 临时 `DOCKER_CONFIG` 登录后可鉴权读取目标 registry；凭据剩余有效期覆盖发布预算 | ACR token 过期 |
 | `runtime.release_lock` | 唯一锁由本 attempt 持有 | 并发发布 |
 | `runtime.no_orphans` | 无旧 publish/buildx/deploy 子进程持锁或写同一目录 | StopInvocation 留孤儿 |
-| `config.release_manifest` | `config.release`、manifest、seal、source SHA、release 和六镜像映射一致 | 配置/manifest 漂移 |
+| `config.release_manifest` | prebuild 只核 source-plan 的 SHA/release；preactivate 核 sealed manifest 的目标 image digest、SHA/release，禁止构建前伪报目标镜像 | 配置/manifest 漂移 |
 | `config.durable_profiles` | ASR、GitHub issue、平台超级管理员等必需引用存在；只输出布尔值 | 存量生产配置漏键 |
 | `config.secret_serialization` | 每个 `file:` secret 权限/类型合规且无 CR/LF/NUL；对 API/Web/Agent/Migration/Bootstrap env map 使用生产序列化器预演 | token 尾随换行导致 secrets 阶段失败 |
 | `cloud.managed_data_permissions` | ECS 身份真实完成六项 RDS/Redis Describe；临时策略带绝对到期并登记清理动作 | prepare 时有权限、activate 时权限已撤销 |
 | `database.drain_read_access` | `app_diag_ro` 可只读查询 `agent_runs` 三种活跃状态并得到结构化计数 | activate drain 无权限 |
-| `bootstrap.compatibility` | 目标 API 镜像、bootstrap 输入、已迁移 schema、运行账号权限、现有管理员状态和三个 Agent seed 闭包在强制只读事务中兼容 | migrate 通过后 bootstrap 才失败 |
+| `bootstrap.compatibility` | prebuild 核源码入口、bootstrap 输入、只读 schema/权限/管理员/Agent seed 闭包；preactivate 用 exact 目标 API 镜像再核入口和同一只读闭包 | migrate 通过后 bootstrap 才失败 |
 | `secrets.stable_continuity` | 候选版逐项复用当前生产的 12 个环境级稳定密钥；稳定目录不含 revision，值只在内存比较，公开 evidence 只有计数/布尔值 | 每个 revision 的 runtime secrets 静默换钥 |
 | `build.affected_services` | diff 由冻结 baseline→source 计算，列出 Web/API/Agent/Sandbox 受影响集合 | 不必要全量重建 |
 | `deploy.trusted_copy` | `/usr/local/bin` 入口与目标 SHA 仓库脚本 hash 一致 | 特权脚本副本漂移 |
@@ -110,9 +110,9 @@ flowchart TD
 
 ACR 检查使用 ECS RAM 角色和 IMDSv2 获取短期凭据，在节点内完成，凭据不离开节点。用临时 `DOCKER_CONFIG`，trap 中 logout 并删除目录。不要把 token 放入 argv、日志、OSS 或本地项目文件。
 
-用 `scripts/validate_preflight.py` 验证汇总结果。失败输出必须包含稳定 `code`，但不得包含密钥和原始 provider 返回。
+用 `scripts/validate_preflight.py` 分别验证 `schemaVersion=2` 的 prebuild 和 preactivate 汇总结果。前者 `ready=true` 只准开始构建；后者必须携带完整 prebuild 原始 JSON 及其机器收据 SHA-256，由验证器复验同 attempt/source/baseline/release、未过期且两阶段 TTL 均不超过一小时，再核 exact 目标镜像才准进入激活门。失败输出必须包含稳定 `code`，但不得包含密钥和原始 provider 返回。
 
-`bootstrap.compatibility` 的执行书和 failure code 映射见 [bootstrap-compatibility.md](bootstrap-compatibility.md)。它必须在 prepare receipt 生成前运行；失败时不得进入 canonical provision，因此不会出现“migration 已写入、bootstrap 才发现不兼容”的半程状态。
+`bootstrap.compatibility` 的执行书和 failure code 映射见 [bootstrap-compatibility.md](bootstrap-compatibility.md)。源码和只读数据库检查在构建前运行；目标镜像与只读数据库复验在 prepare receipt/迁移前运行。任一阶段失败不得进入 canonical provision，因此不会出现“migration 已写入、bootstrap 才发现不兼容”的半程状态。
 
 `secrets.stable_continuity` 的执行书、修复与回滚见 [stable-secret-continuity.md](stable-secret-continuity.md)。它在 runtime bundle 写入前运行；任何缺失或变化都退出常规发布通道。
 
