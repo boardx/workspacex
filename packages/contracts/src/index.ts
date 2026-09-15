@@ -99,9 +99,10 @@ export * as standardBrowserTools from "./standard-browser-tools";
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
 
-/** `/agent/team4` 投后管理报告 Agent —— ad-hoc MVP，人类已确认后续会删除，见
- *  `docs/adhoc/team4-post-investment-agent-mvp-backlog.md`。不进任何 phase feature_list。 */
-export * as postInvestmentReport from "./post-investment-report";
+/** `/agent/team4` 投后管理报告 Agent（ad-hoc 临时 Agent）的判据阈值、派生公式与自检
+ *  算例的单一事实源；方法论正文与后端参照实现都从这里派生。见
+ *  `docs/agents/team4-post-investment-report-mvp.md`。不进任何 phase feature_list。 */
+export * as postInvestmentRules from "./post-investment-rules";
 
 /* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
  *   design-signoff.md status: pending，待人类签核）──────────────────────── */
