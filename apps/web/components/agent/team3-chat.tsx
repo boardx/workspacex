@@ -44,6 +44,7 @@ import { listCapabilities } from "@/lib/live-capabilities";
 import { createPersonalThread, getAgentPanel, updateAgentRoster, listPersonalThreads } from "@/lib/live-chat";
 import { getResearchSession, type ResearchSession } from "@/lib/live-research-workflow";
 import { ResearchPhaseBar } from "./research-phase-bar";
+import { ResearchMaterialIntake } from "./research-material-intake";
 import { ResearchMaterialReview } from "./research-material-review";
 import { ResearchAuditTrail, ResearchGatePanel } from "./research-gate-panel";
 import { ResearchVerification } from "./research-verification";
@@ -172,6 +173,8 @@ export function Team3Chat(): JSX.Element {
         />
       ) : null}
       {/* 门①：只在它真的在等的时候自己渲染（组件内部判断），别的阶段返回 null。 */}
+      {/* 材料录入：只在还能收材料的阶段自己渲染。 */}
+      {research ? <ResearchMaterialIntake session={research} onChange={setResearch} /> : null}
       {research ? <ResearchMaterialReview session={research} onChange={setResearch} /> : null}
       {/* 门②/门③：同样自己判断该不该出现。 */}
       {research ? <ResearchGatePanel session={research} onChange={setResearch} /> : null}
