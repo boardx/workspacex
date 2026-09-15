@@ -24,6 +24,7 @@ type Context = Parameters<ProvisionAction>[0];
 export const cloudProvisionOptionsSchema = z.object({
   projectName: z.string().regex(/^[a-z][a-z0-9_-]{0,40}$/),
   runtimeDirectory: z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/),
+  stableSecretDirectory: z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/).optional(),
   agentEnvironmentSecretRef: z.string().regex(/^(?:env:[A-Z][A-Z0-9_]*|file:\/[^\r\n\0]+)$/),
 }).strict();
 export type CloudProvisionOptions = z.infer<typeof cloudProvisionOptionsSchema>;
