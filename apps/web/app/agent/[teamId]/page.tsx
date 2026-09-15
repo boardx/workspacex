@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3ChatScreen } from "@/components/agent/team3-chat";
-import { RatingChat } from "@/components/postinvest-rating/rating-chat";
-import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
