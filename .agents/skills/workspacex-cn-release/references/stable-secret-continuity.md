@@ -14,11 +14,11 @@
 
 preflight 由持有 release lock 的控制器运行，禁止调用 `ensureDeploymentSecret` 或 `runtimeEnvironment`，因为两者可能创建目录/密钥。它只读取当前生产 baseline 的稳定密钥目录、候选配置和消费者映射。
 
-1. 从正在运行的 baseline compose/runtime receipt 解析实际稳定目录；从候选配置解析将使用的目录。两者必须是同一 canonical path，路径中不得含 source SHA、release 名或 attempt ID。
+1. 从正在运行的 baseline compose/runtime receipt 解析实际稳定目录；从候选配置解析将使用的目录。已有 `stable-secret-directory.ref` 时两者必须是同一 canonical path，路径中不得含 source SHA、release 名或 attempt ID。首次从旧版 revision-scoped 目录迁移时，只有 baseline runtime 处于受保护的 exact-SHA 目录、尚无 ref，且 12 值与新稳定目录逐项相同，才允许一次性 `--legacy-baseline` 过渡；候选仍只读固定稳定目录。下次发布必须走路径完全相同的常规门禁。
 2. 目录必须为 root 私有普通目录、非 symlink、mode 0700；12 个条目必须是 root 私有 regular file、非 symlink、mode 0600，长度与格式满足生成器契约。
 3. required key 集合从代码导出的 `stableDeploymentSecretNames` 读取；发布脚本和 Skill 不再维护第二份运行时数组。preflight 断言集合数量为 12，防止新增消费者却漏进门控。
 4. 在单一进程内逐项 constant-time 比较 baseline 值与候选将读取的值。公开结果只写 `matchedCount`、`missingKeyIds`、`rotatedKeyIds` 和布尔值，不写 secret、hash、文件内容、inode 或路径。
-5. 静态解析 API/Agent/Bootstrap/Starter dependency 的消费者映射，确保每个 key 仍投影到既有语义。重命名、互换消费者或少一个消费者返回 `STABLE_SECRET_CONSUMER_DRIFT`。
+5. 静态解析实际 `runtime-environment.ts` 的 API/Agent/Bootstrap/Starter dependency 直接消费者映射，确保每个 key 仍投影到既有语义；不调用可能创建密钥的 runtime 函数。重命名、互换消费者或少一个消费者返回 `STABLE_SECRET_CONSUMER_DRIFT`。
 6. 检查前后对目录树做脱敏 metadata 快照；mtime/inode/entry count 不得变化，结果写 `noMutation=true`。任何读取或比较不能证明都阻塞。
 
 建议的生产路径是 `/var/lib/workspacex-cn/stable-secrets`，但路径本身应来自一处受保护配置。preflight 不在输出中公开该路径。
