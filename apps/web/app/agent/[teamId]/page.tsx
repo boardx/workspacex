@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
-import { mockIdentity } from "@/lib/identity";
-import {
-  RatingWorkbench,
-  type WorkbenchState,
-  type WorkbenchDialog,
-  type PreviewRoleCode,
-} from "@/components/postinvest-rating/rating-workbench";
+import { RatingChat } from "@/components/postinvest-rating/rating-chat";
 import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 
@@ -21,36 +15,21 @@ import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory"
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：与
- *   Team2 的「mock identity 截图态」不同，Team1 要调真实 `lib/live-chat.ts` API
- *   （建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity` 覆盖，
- *   复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
- * ⚠ Team2 = 投后财务项目评级 Agent 工作台（Phase 16 F03，UI 先行）：这里把 Team2 的只读示例
- *   换成用真实组件 + mock 做出的工作台（ui-prototyper 硬规则 ②③④）。其余 team 仍是只读示例，
- *   示例数据的单一事实源在 `lib/mock/agent-previews.ts`，本页不另写一份 team 名单。
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：要调真实
+ *   `lib/live-chat.ts` API（建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity`
+ *   覆盖，复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
+ * ⚠ Team2 = 投后财务项目评级 Agent（issue #3676，ad-hoc MVP）：真聊天框 + 真算分，不经过
+ *   模型工具调用循环——数值全部来自 `apps/api/src/domain/postinvest-rating/scoring.ts`
+ *   的确定性评分引擎（真实 `POST /postinvest-ratings/score`），不是编出来的。同 Team1 一样
+ *   不传 mock identity，走真实登录会话。此前 UI 先行阶段的原型
+ *   （`components/postinvest-rating/rating-workbench.tsx`，mock 数据）仍保留在仓库供
+ *   Phase 16 契约束签核材料回溯，但不再是这个路由渲染的东西。
  */
 export function generateStaticParams() {
   return PREVIEW_AGENT_TEAMS.map((team) => ({ teamId: team.slug }));
 }
 
-const WORKBENCH_STATES: readonly WorkbenchState[] = [
-  "default", "loading", "empty", "running", "hitl", "result", "validation", "dependency", "forbidden",
-];
-const WORKBENCH_DIALOGS: readonly WorkbenchDialog[] = ["none", "feedback", "recorded", "confirm"];
-const PREVIEW_ROLES: readonly PreviewRoleCode[] = ["consultant", "lead", "admin", "compliance"];
-
-function pick<T extends string>(allowed: readonly T[], raw: string | string[] | undefined, fallback: T): T {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  return (allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback;
-}
-
-export default function AgentTeamPage({
-  params,
-  searchParams,
-}: {
-  params: { teamId: string };
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+export default function AgentTeamPage({ params }: { params: { teamId: string } }) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
   // 2026-09-15 ad-hoc MVP（`docs/design/agent-team3-mvp-backlog.md`）——只有 team3 接了
@@ -75,14 +54,10 @@ export default function AgentTeamPage({
   }
 
   if (team.slug === "team2") {
-    const state = pick(WORKBENCH_STATES, searchParams?.state, "default");
-    const dialog = pick(WORKBENCH_DIALOGS, searchParams?.dialog, "none");
-    const role = pick(PREVIEW_ROLES, searchParams?.role, "consultant");
-    // 原型预览：传 mock identity 让壳层直接渲染（签核阶段不接真实登录/会话，ui-prototyper 硬规则 ③）。
     return (
-      <AppShell identity={mockIdentity("org-yuanyang", null)} previewRole={null} hideRoleSwitcher>
-        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
-          <RatingWorkbench initialState={state} initialDialog={dialog} initialRole={role} />
+      <AppShell previewRole={null}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
+          <RatingChat />
         </div>
       </AppShell>
     );
