@@ -50,7 +50,7 @@ import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { ensureSystemAgent, type SystemAgentTemplate } from "../src/infrastructure/agent/pg-system-agent-repository";
-import { resolveDeepAgentModel } from "../src/application/agent/ensure-default-agent";
+import { resolveDeepAgentModel } from "../src/infrastructure/agent/pg-default-agent-repository";
 
 export const TEAM3_AGENT_STABLE_NAME = "team3-frontier-track-research";
 export const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
