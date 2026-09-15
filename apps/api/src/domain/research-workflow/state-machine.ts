@@ -43,18 +43,10 @@ const deny = (refusal: RefusalName): Decision => ({ ok: false, refusal });
 const allow = (nextPhase: PhaseName): Decision => ({ ok: true, nextPhase });
 
 /**
- * 每道门：从哪个阶段过、过完到哪个阶段。
- *
- * 这张表就是「门」的定义本身。一道门若不在这里，它就不存在——不会有第二处地方
- * 偷偷允许某个阶段跳过去，因为 {@link decideGate} 只读这张表。
+ * 门表的唯一事实源在**契约**（`C.GATE_TRANSITIONS`）——前端阶段条也要读它，
+ * 抄一份到这里就会漂移。本文件只是用它做判断。
  */
-const GATE_TRANSITIONS: Readonly<Record<GateName, { readonly from: PhaseName; readonly to: PhaseName }>> = {
-  materials: { from: "materials_review", to: "materials_approved" },
-  fields: { from: "fields_pending", to: "logic_pending" },
-  logic: { from: "logic_pending", to: "generating" },
-  reasoning: { from: "graph_review", to: "graph_published" },
-  plan: { from: "plan_review", to: "graph_published" },
-};
+const GATE_TRANSITIONS = C.GATE_TRANSITIONS;
 
 /**
  * Agent 侧可以自己推进的阶段转移（不经过人）。
@@ -163,8 +155,5 @@ export function lineageAfterGate(
   }
 }
 
-/** 当前阶段正在等哪道门；不等人时为 null。界面的「现在轮到谁」直接读它。 */
-export function pendingGate(phase: PhaseName): GateName | null {
-  const entry = Object.entries(GATE_TRANSITIONS).find(([, t]) => t.from === phase);
-  return entry ? (entry[0] as GateName) : null;
-}
+/** 当前阶段正在等哪道门。实现在契约里（前后端同一份），这里只是转出去。 */
+export const pendingGate = C.pendingGate;

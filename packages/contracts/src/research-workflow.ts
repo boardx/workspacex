@@ -68,6 +68,32 @@ export const GATE_LABELS: Readonly<Record<ResearchGateName, string>> = {
   plan: "调整方案是否采纳",
 };
 
+/**
+ * 每道门：从哪个阶段过、过完到哪个阶段。**门的定义本身**。
+ *
+ * 放在契约而不是后端领域层，是因为前端也必须知道"当前阶段在等哪道门"才能渲染
+ * 阶段条。此前它在前端被抄了一份——两处声明同一事实，正是本项目已栽五次的形状。
+ * 现在只有这一份：后端 `state-machine.ts` 与前端 `research-phase-bar.tsx` 都读它。
+ *
+ * ⚠ 一道门若不在这张表里，它就不存在——`decideGate` 只读这张表。
+ */
+export const GATE_TRANSITIONS: Readonly<
+  Record<ResearchGateName, { readonly from: ResearchPhaseName; readonly to: ResearchPhaseName }>
+> = {
+  materials: { from: "materials_review", to: "materials_approved" },
+  fields: { from: "fields_pending", to: "logic_pending" },
+  logic: { from: "logic_pending", to: "generating" },
+  reasoning: { from: "graph_review", to: "graph_published" },
+  plan: { from: "plan_review", to: "graph_published" },
+};
+
+/** 当前阶段正在等哪道门；不等人时为 null。前后端都用它，不各判一次。 */
+export function pendingGate(phase: ResearchPhaseName): ResearchGateName | null {
+  const entry = (Object.entries(GATE_TRANSITIONS) as [ResearchGateName, { from: ResearchPhaseName }][])
+    .find(([, t]) => t.from === phase);
+  return entry ? entry[0] : null;
+}
+
 /** 每个阶段的中文名——阶段条直接渲染它。 */
 export const PHASE_LABELS: Readonly<Record<ResearchPhaseName, string>> = {
   empty: "未开始",
