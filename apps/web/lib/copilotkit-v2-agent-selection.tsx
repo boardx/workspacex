@@ -26,10 +26,28 @@ const CopilotKitV2AgentSelectionContext = React.createContext<CopilotKitV2AgentS
 
 export function CopilotKitV2AgentSelectionProvider({
   children,
+  initialAgentId = null,
 }: {
   children: React.ReactNode;
+  /**
+   * 进来就选中哪个 agent。`null`（缺省）= 保持"未选择"，与 `/chat` 现有行为**逐字相同**。
+   *
+   * ## 为什么需要它（2026-09-15 真机截图暴露）
+   *
+   * 专属 Agent 入口（`/agent/team*`）把线程准备好、把自己的 Agent 挂进 roster，然后
+   * 打开 chat。但"挂进 roster"与"这次请求用哪个 agent"是两件事：后者只看这里的
+   * `selectedAgentId`（经 `COPILOTKIT_V2_SELECTED_AGENT_HEADER` 送到 `route.ts` 的
+   * `AgentsFactory`，再到服务端 `resolveEffectiveAgentId`）。初值恒为 `null` 时请求
+   * 不带那个 header，服务端落到"org 动态默认"——也就是**通用助手**在回答，专属
+   * Agent 的 instructions 一行都没进 system prompt。用户问它"你可以做什么"，它答的是
+   * 通用助手的能力清单，看起来像 Agent 配错了，其实是根本没被选中。
+   *
+   * ⚠ 这条只设**初值**，之后用户在 picker 里换 agent 照常生效（`setSelectedAgentId`
+   * 不受影响）——它是"默认选中谁"，不是"锁死不许换"。
+   */
+  initialAgentId?: string | null;
 }): JSX.Element {
-  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(initialAgentId);
   const value = React.useMemo<CopilotKitV2AgentSelectionValue>(
     () => ({ selectedAgentId, setSelectedAgentId }),
     [selectedAgentId],

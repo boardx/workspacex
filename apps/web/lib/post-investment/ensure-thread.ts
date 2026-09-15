@@ -38,7 +38,7 @@ async function findExistingThreadId(): Promise<string | null> {
   return null;
 }
 
-async function createConfiguredThread(): Promise<string> {
+async function createConfiguredThread(): Promise<PostInvestmentSession> {
   const agentId = await ensureTeam4AgentId();
   const thread = await createPersonalThread(POST_INVESTMENT_THREAD_TITLE);
   const threadId = thread.threadId;
@@ -55,16 +55,31 @@ async function createConfiguredThread(): Promise<string> {
     skillIds: [POST_INVESTMENT_SKILL_ID], expectedVersion: mounts.version,
   });
 
-  return threadId;
+  return { threadId, agentId };
+}
+
+/**
+ * 一次会话所需的两件事实。
+ *
+ * ⚠ `agentId` 必须一起交出去，不能只给 `threadId`——2026-09-15 真机截图暴露的缺陷：
+ * 把 Agent 挂进 roster 只决定"这条线程编制里有谁"，**不决定"这次请求用哪个 agent"**。
+ * 后者看的是 chat 的 `selectedAgentId`（→ `COPILOTKIT_V2_SELECTED_AGENT_HEADER` →
+ * 服务端 `resolveEffectiveAgentId`）。不把它选中，服务端就落到 org 动态默认（通用
+ * 助手）回答，本 Agent 的 instructions 一行都没进 system prompt。
+ */
+export interface PostInvestmentSession {
+  readonly threadId: string;
+  readonly agentId: string;
 }
 
 /**
  * @param forceNew `/agent/team4?new=1` —— 跳过复用，开一条全新的分析对话。
  */
-export async function ensurePostInvestmentThreadId(forceNew = false): Promise<string> {
+export async function ensurePostInvestmentSession(forceNew = false): Promise<PostInvestmentSession> {
   if (!forceNew) {
     const existing = await findExistingThreadId();
-    if (existing) return existing;
+    // 复用既有线程时同样要拿到 agentId（解析是幂等的，命中缓存不额外打请求）。
+    if (existing) return { threadId: existing, agentId: await ensureTeam4AgentId() };
   }
   return createConfiguredThread();
 }

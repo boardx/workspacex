@@ -225,13 +225,25 @@ const ratio = (hits, total, max) => (total === 0 ? 0 : (hits / total) * max);
 {
   const entry = read(P.entry) ?? "";
   const route = read(P.routePage) ?? "";
-  const wired = /PostInvestmentChatEntry/.test(route);
-  const intoChat = /router\.replace\(`\/chat\//.test(entry) || /CopilotKitV2Shell/.test(entry);
-  const autoReady = Boolean(read(P.ensureAgent)) && /mountSkills/.test(read(P.ensureThread) ?? "");
+  const thread = read(P.ensureThread) ?? "";
+  const wired = /PostInvestmentChatScreen/.test(route);
+  const intoChat = /CopilotKitV2Shell/.test(entry);
+  /**
+   * ⚠ 2026-09-15 真机截图暴露的缺口：光"挂进 roster + 打开 chat"不够——那只决定
+   * "这条线程编制里有谁"，不决定"这次请求用哪个 agent"。后者看 chat 的
+   * `selectedAgentId`（→ header → 服务端 `resolveEffectiveAgentId`）；不选中就落到
+   * org 动态默认（通用助手）回答，本 Agent 的 instructions 一行都没进 system prompt。
+   * 截图里用户问"你可以做什么"，答的是通用助手的能力清单——**这条判据以前不存在，
+   * 所以打分器给了满分而实际是坏的**。现在钉住：入口必须把自己的 agentId 交给选择
+   * provider，且 `ensure-thread` 必须把 agentId 一并交出来（只给 threadId 就漏了）。
+   */
+  const agentSelected = /initialAgentId/.test(entry) && /agentId/.test(entry)
+    && /PostInvestmentSession/.test(thread) && /agentId/.test(thread);
+  const autoReady = Boolean(read(P.ensureAgent)) && /mountSkills/.test(thread);
   const noSelfUi = !has(P.legacyLauncher);
-  add("U1", "入口一步可达（进真 chat·Agent/Skill 自动就位·不自建窄版 UI）",
-    (wired && intoChat ? 0.4 : 0) + (autoReady ? 0.2 : 0) + (noSelfUi ? 0.2 : 0), 0.8,
-    `wired=${wired} intoChat=${intoChat} autoReady=${autoReady} noSelfUi=${noSelfUi}`);
+  add("U1", "入口一步可达（进真 chat·本 Agent 真被选中·Skill 自动就位·不自建窄版 UI）",
+    (wired && intoChat ? 0.25 : 0) + (agentSelected ? 0.25 : 0) + (autoReady ? 0.15 : 0) + (noSelfUi ? 0.15 : 0), 0.8,
+    `wired=${wired} intoChat=${intoChat} agentSelected=${agentSelected} autoReady=${autoReady} noSelfUi=${noSelfUi}`);
 }
 
 /* ══════════ U2 首次引导与示例材料（0.7）══════════ */
