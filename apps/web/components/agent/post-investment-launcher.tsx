@@ -6,26 +6,26 @@ import { ApiError } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AgentDirectoryEntry } from "@/lib/ic-review/agent-directory";
-import { FIXTURE_PACKS } from "@/lib/ic-review/fixtures";
-import { intakeFiles, intakeTexts } from "@/lib/ic-review/intake";
-import { launchReviewThread } from "@/lib/ic-review/launch-review-thread";
-import { buildReviewPrompt } from "@/lib/ic-review/review-prompt";
-import type { ReviewDocument, UnparsedFile } from "@/lib/ic-review/types";
+import type { PostInvestmentAgentEntry } from "@/lib/post-investment/agent-directory";
+import { buildAnalysisPrompt } from "@/lib/post-investment/analysis-prompt";
+import { FIXTURE_PACKS } from "@/lib/post-investment/fixtures";
+import { intakeFiles, intakeTexts } from "@/lib/post-investment/intake";
+import { launchAnalysisThread } from "@/lib/post-investment/launch-analysis-thread";
+import type { ReportDocument, UnparsedFile } from "@/lib/post-investment/types";
 
 /**
- * `/agent/team1` 工作区 —— MVP 架构第三版：只做材料预处理与发起，
- * 不自建分析结果面板；审阅结果出现在真实 chat 线程里（跳转后可见）。
+ * `/agent/team4` 工作区——同 team1 架构第三版：只做材料预处理与发起，不自建结果
+ * 面板；分析结果出现在真实 chat 线程里（跳转后可见），可以用 chat 里全部能力
+ * （消息流、附件、审批卡、产物、@提及、子任务面板……），本页不重复渲染任何一种。
  *
- * 「开始审阅」不再要求预先配置好的 `agentId`——点击时按需解析/发布
- * （`lib/ic-review/ensure-agent.ts`）。服务端建 Agent 只放行 org admin，
- * 非 admin 用户第一次点击若撞上 `ROLE_INSUFFICIENT`，降级成「复制审阅任务书」
- * 兜底，并提示「请先让一位管理员打开本页点一次」——不是本页的错，是权限模型如此。
+ * 「开始分析」不要求预先配置好的 `agentId`——点击时按需解析/发布
+ * （`lib/post-investment/ensure-agent.ts`）。非 admin 用户第一次点击若撞上
+ * `ROLE_INSUFFICIENT`，降级成「复制任务书」兜底。
  */
-export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
+export function PostInvestmentLauncher({ agent }: { agent: PostInvestmentAgentEntry }) {
   const router = useRouter();
   const [files, setFiles] = React.useState<File[]>([]);
-  const [fixtureDocs, setFixtureDocs] = React.useState<ReviewDocument[]>([]);
+  const [fixtureDocs, setFixtureDocs] = React.useState<ReportDocument[]>([]);
   const [unparsed, setUnparsed] = React.useState<UnparsedFile[]>([]);
   const [selectedPackId, setSelectedPackId] = React.useState<string | null>(null);
   const [launching, setLaunching] = React.useState(false);
@@ -36,8 +36,6 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
 
   const addFiles = async (list: FileList | null) => {
     if (!list?.length) return;
-    // 原始 File 直接透传上传，不经过文本往返——PDF/DOCX/PPTX/XLSX 是二进制格式，
-    // 中间转一趟文本会把字节按 UTF-8 硬解、破坏内容（见 intake.ts 头注）。
     const intake = await intakeFiles(Array.from(list));
     setFiles((prev) => [...prev, ...intake.accepted]);
     setUnparsed((prev) => [...prev, ...intake.unparsed]);
@@ -55,7 +53,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
 
   const copyPrompt = async () => {
     try {
-      await navigator.clipboard.writeText(buildReviewPrompt(materialNames));
+      await navigator.clipboard.writeText(buildAnalysisPrompt(materialNames));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -69,21 +67,21 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
     setError(null);
     setNeedsAdminInit(false);
     try {
-      const { threadId } = await launchReviewThread({ files, extraDocuments: fixtureDocs });
+      const { threadId } = await launchAnalysisThread({ files, extraDocuments: fixtureDocs });
       router.push(`/chat?thread=${encodeURIComponent(threadId)}`);
     } catch (e) {
       if (e instanceof ApiError && e.reasonCode === "ROLE_INSUFFICIENT") {
         setNeedsAdminInit(true);
-        setError("这个 Agent 在当前组织里还没有人发布过，需要一位组织管理员先打开本页点一次「开始审阅」完成初始化——之后所有人都能直接用。");
+        setError("这个 Agent 在当前组织里还没有人发布过，需要一位组织管理员先打开本页点一次「开始分析」完成初始化——之后所有人都能直接用。");
       } else {
-        setError("发起审阅失败：无法创建对话或上传材料，请稍后重试。");
+        setError("发起分析失败：无法创建对话或上传材料，请稍后重试。");
       }
       setLaunching(false);
     }
   };
 
   return (
-    <div data-testid="agent-ic-review-launcher" className="space-y-6">
+    <div data-testid="agent-post-investment-launcher" className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
@@ -114,26 +112,26 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
             <div className="flex items-start gap-2">
               <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
               <p className="text-12 text-muted-foreground">
-                这个组织还没有人初始化过该 Agent（需要一位组织管理员来打开本页点一次「开始审阅」）。
-                在此之前，你可以复制下面的审阅任务书，手动粘到任意一条项目对话里、附上材料，照样能用。
+                这个组织还没有人初始化过该 Agent（需要一位组织管理员来打开本页点一次「开始分析」）。
+                在此之前，你可以复制下面的任务书，手动粘到任意一条项目对话里、附上材料，照样能用。
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void copyPrompt()} data-testid="agent-copy-prompt">
               {copied ? <Check aria-hidden className="size-3.5" /> : <Copy aria-hidden className="size-3.5" />}
-              {copied ? "已复制" : `复制审阅任务书${materialNames.length ? `（含 ${materialNames.length} 份材料名）` : ""}`}
+              {copied ? "已复制" : `复制投后报告任务书${materialNames.length ? `（含 ${materialNames.length} 份材料名）` : ""}`}
             </Button>
           </CardContent>
         </Card>
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-14">上传本次上会材料</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-14">上传本次投后材料</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => fileRef.current?.click()} data-testid="agent-upload-trigger">
               <Upload aria-hidden className="size-3.5" />选择文件
             </Button>
-            <input ref={fileRef} type="file" multiple className="hidden" aria-label="上传上会材料"
+            <input ref={fileRef} type="file" multiple className="hidden" aria-label="上传投后材料"
               accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.wav,.mp3"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
             {FIXTURE_PACKS.map((p) => (
@@ -166,15 +164,16 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
           )}
           <div className="flex items-center gap-2">
             <Button variant="ai" size="sm" onClick={() => void start()} disabled={totalCount === 0 || launching}
-              data-testid="agent-start-review">
+              data-testid="agent-start-analysis">
               {launching ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Send aria-hidden className="size-3.5" />}
-              开始审阅（{totalCount} 份，将进入真实项目对话）
+              开始分析（{totalCount} 份，将进入真实项目对话）
             </Button>
             {error && <span className="text-11 text-destructive-foreground">{error}</span>}
           </div>
           <p className="text-11 text-muted-foreground">
-            点击后会新建一条项目对话，把材料作为附件发送并附上审阅任务说明；后续的提纲、缺失清单、
-            风险标注与两轮人工确认都在那条对话里进行——本页不重复渲染这些内容。
+            点击后会新建一条项目对话，把材料作为附件发送并附上投后报告任务说明；后续的
+            财务分析、风险清单、外部对标、两轮人工确认与深挖都在那条对话里进行，可以用
+            chat 里的全部能力——本页不重复渲染这些内容。
           </p>
         </CardContent>
       </Card>

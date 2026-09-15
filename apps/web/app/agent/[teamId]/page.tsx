@@ -8,17 +8,22 @@ import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
-import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
+import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
+import { PostInvestmentLauncher } from "@/components/agent/post-investment-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
+import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：要调真实
- *   `lib/live-chat.ts` API（建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity`
- *   覆盖，复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第五版）：本路由是**中转页**不是工作台——
+ *   它只把 Agent 入编、把「上会审阅」Skill 挂进线程，然后 `replace` 进真正的 chat
+ *   （`/chat/<threadId>`），之后传材料/追问/确认全部用 chat 自己的能力（附件、历史、
+ *   产物落地…），不自建第二套 UI。要调真实 `lib/live-chat.ts` API，必须走真实登录
+ *   会话，因此不传 `identity` 覆盖，复用页面自身默认的真实 `AppShell`。
+ *   详情见 `docs/agents/team1-ic-review-mvp.md`。
  * ⚠ Team2 = 投后财务项目评级 Agent（issue #3676，ad-hoc MVP 第三版）：同 Team1 架构——
  *   不自建分析/解析引擎，材料作为真实附件（Excel/PDF/PPT/Word/录音，MIME 已在
  *   `chat-file-upload` 白名单里）发进一条真实项目对话，交给挂载了真实模型的 Agent 用
@@ -28,6 +33,15 @@ import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
  *   （`rating-workbench.tsx` mock UI；`rating-chat.tsx` 直连
  *   `POST /postinvest-ratings/score` 不经模型）已被这一版取代，前者仍留仓库供 Phase 16
  *   契约束签核材料回溯，后者已删除。
+ * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP，第二版：接真实 chat，取代第一版
+ *   独立粘贴框 + `POST /post-investment/analyze` HTTP 端点）：同 Team1 第三版架构——
+ *   按需自动发布 Agent（`lib/post-investment/ensure-agent.ts`），材料作为真实附件
+ *   发进一条真实项目对话，交给挂载了真实模型的 Agent 用既有的 `wx_document_parse`/
+ *   `data-analysis`（沙箱算派生数值）/`web_search`（受限渠道）/`pdf-create`/
+ *   `xlsx-create`/`wx_knowledge_search` 完成分析、出报告，全过程不新增后端端点或
+ *   工具。详情见 `docs/agents/team4-post-investment-report-mvp.md`。第一版的
+ *   `POST /post-investment/analyze` 端点与 `analyzePostInvestmentMaterial` 用例
+ *   未删除，保留作为派生数值计算（同比等）的参照实现，不再是本页调用路径。
  */
 export function generateStaticParams() {
   return PREVIEW_AGENT_TEAMS.map((team) => ({ teamId: team.slug }));
@@ -55,7 +69,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
             <p className="text-11 font-medium text-muted-foreground">
               <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {agent.name}
             </p>
-            <div className="mt-4"><IcReviewLauncher agent={agent} /></div>
+            <div className="mt-4"><IcReviewChatEntry agent={agent} /></div>
           </div>
         </div>
       </AppShell>
@@ -71,6 +85,21 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
               <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {RATING_AGENT.name}
             </p>
             <div className="mt-4"><RatingAgentLauncher agent={RATING_AGENT} /></div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (team.slug === "team4") {
+    return (
+      <AppShell previewRole={null}>
+        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
+          <div data-testid="agent-team-page" data-team="team4" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
+            <p className="text-11 font-medium text-muted-foreground">
+              <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {POST_INVESTMENT_AGENT.name}
+            </p>
+            <div className="mt-4"><PostInvestmentLauncher agent={POST_INVESTMENT_AGENT} /></div>
           </div>
         </div>
       </AppShell>

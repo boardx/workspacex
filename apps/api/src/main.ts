@@ -36,7 +36,7 @@ import {
 } from "./application/recording/session-lifecycle-ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
-import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { ensureIcReviewSkillSeeded, ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
@@ -231,6 +231,23 @@ if (isProcessEntry()) {
     }
   } else {
     console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
+  }
+
+  /**
+   * team1（上会材料智能审阅助手）的临时内置 Skill——同一条自愈节奏，但**单独调用**
+   * 而不是并进上面那次：这个 ad-hoc Agent 用完要整体删除，单独一次调用删起来是
+   * 删这一段，不用去动四个永久官方 skill 的编排。函数本体住在
+   * `ensure-platform-skill-catalog.ts` 末尾（为什么不能独立成文件，见那里的段首
+   * 注释：`lint-permission-paths` 豁免清单有 ratchet）。同样从不 throw。
+   */
+  const icReviewSeed = await ensureIcReviewSkillSeeded().catch((error: unknown) => {
+    console.error("ic-review skill self-heal failed (will retry on next boot):", error);
+    return null;
+  });
+  if (icReviewSeed) {
+    process.stdout.write(
+      `ic-review skill: ${icReviewSeed.created ? "created" : "already existed"}\n`,
+    );
   }
 
   /**

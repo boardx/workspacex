@@ -51,26 +51,33 @@
 - **算分**仍然不让模型心算：任务书要求模型用 `data-analysis` skill 的沙箱脚本真实
   执行公式，并用两个已知算例（+50%→90 分；对数定义点→-35 分）自检脚本对不对。
 
-## 还差一步才能真正跑起来：发布 team2 这个 Agent
+## Agent 怎么落到每个环境：部署期自动补种，无人工步骤
 
-`apps/web/lib/postinvest-rating/agent-directory.ts` 的 `agentId` 目前是 `null`——后台
-还没有一个真正发布的「team2」Agent。这不是代码缺陷，是一个**需要人类在真实部署环境
-里做一次**的操作（本会话是纯前端沙箱，没有连着真实 Postgres/apps/api，做不了这一步）：
+早期版本要人拿 admin 账号在某台机器上手工跑一次 `publish-team2-agent.ts`，再把打印出的
+`agentId` 回填进前端（或配 `NEXT_PUBLIC_TEAM2_AGENT_ID` 重新构建）。那是两次人工动作、
+一份跨环境不通用的 id、一个「忘了跑就静默禁用」的失败模式。现在走 team3 早就示范过的
+形状：
 
-```
-POST /agents                              # agentRuntime.operations.createAgent
-POST /agents/:agentId/submit
-POST /agents/:agentId/publish-decision    # 或 self-publish
-```
+- `apps/api/scripts/backfill-team2-agent.ts`：幂等补种（按 `agents.stable_name =
+  team2-postinvest-rating` 去重），走 `ensureSystemAgent` 这条应用层写路径，
+  `agents` / `agent_versions` / `capability_listings` 同事务原子落地，一落库即已发布。
+  只种到显示名为「Workspace」的组织。
+- `.harness/scripts/vm/deploy.sh` 第 `4d3` 步：每次部署都跑一遍，成本是一次查询 +
+  至多几行 INSERT。
+- 落地页运行时按 `name` 在本组织能力目录里查真实 `agentId`
+  （`components/postinvest-rating/rating-agent-launcher.tsx`），前端不硬编码、不回填、
+  不重新构建。
 
-系统提示词建议直接用 `apps/web/lib/postinvest-rating/rating-prompt.ts` 的
-`buildRatingPrompt` 里那套规则作为基础（发布时可以固化成 Agent 的 `instructions`，
-不必每次靠任务书重复整套公式，但任务书这条路径本身也已经可用）。挂载的 skill 至少要
-包含 `document-understanding`、`data-analysis`、`pdf-create`、`xlsx-create`
-（均为已有平台级 skill，Phase 13 起对全部组织默认可见，不需要单独导入）。
+instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRatingPrompt([])`
+——任务书与 Agent 自身指令是同一份规则，不抄第二遍。需要的 skill
+（`document-understanding` / `data-analysis` / `pdf-create` / `xlsx-create`）自 Phase 13
+起对全部组织默认可见，不需要单独挂载或导入。
 
-拿到发布后的真实 id，填进 `agent-directory.ts` 的 `agentId` 字段即可，不用改任何其他
-文件。**在此之前，落地页会如实显示「尚未发布，无法发起评级」并禁用按钮**——不会假装能用。
+删除这个临时 Agent 时：从 `deploy.sh` 摘掉 `4d3` 这一步（可选再跑一条反向 DELETE），
+不动任何共享控制器。
+
+`publish-team2-agent.ts`（走 HTTP 的手工发布）保留为本机开发库的逃生口，不再是部署路径。
+补种没跑到的环境里，落地页仍会如实显示「能力目录里没有这个 Agent」并禁用按钮——不假装能用。
 
 ## MVP 边界
 
@@ -81,6 +88,22 @@ POST /agents/:agentId/publish-decision    # 或 self-publish
 3. 跳转进真实 `/chat` 体验，复用它已有的全部能力（消息流、附件、产物、工具调用可见性）。
 4. 保留 `apps/api/src/domain/postinvest-rating/scoring.ts` 作为任务书公式的参照实现
    与验收基准（`apps/api/tests/postinvest-rating/`、`apps/api/scripts/postinvest-rating-acceptance.ts`）。
+
+### 已修正的缺陷（2026-09-15 对照 UC-16.1 复核）
+
+**趋势对比曾经结构上恒定空转。** 任务书让模型用 `wx_knowledge_search` 搜自己上次发布的
+评级报告做同比，但 `pg-artifact-index-writer.ts` 的写入 SQL 带着
+`a.source='upload' AND NOT a.synthesized`，而 agent 产出的文件在 `agui-file-events.ts`
+落库时 `source: "agent_run_output"`——永远不进 `segment_text`，永远搜不到。第四步因此
+恒定输出「首次评级，无趋势判断」，且看起来毫无破绽：模型确实搜了、确实没搜到、确实照实
+说了。已改用 `wx_memory_write`/`wx_memory_search`（组织级记忆，literal 模式，真能读回来），
+格式在 `lib/postinvest-rating/rating-memo.ts` 单点声明。
+
+**缺失原因曾经由模型推断。** R3-3 把它定成人工确认事实（「Agent 不得自行推断」），而这条
+分支决定的是「暂估出分」还是「直接判 E」。已补表单。
+
+**评分数值曾经存在两份。** `scoring.ts` 与任务书各一套，改一处不会有任何东西变红。
+已收敛到 `postinvest-rating-rules.ts`，并加了「档位表 ↔ 引擎」一致性断言。
 
 ### 明确不做（MVP 之外）
 - ❌ 自建分析结果面板——复用 chat 消息流本身。
@@ -93,12 +116,24 @@ POST /agents/:agentId/publish-decision    # 或 self-publish
   当版本轨迹：反馈与修正后的结论都是同一线程里的新消息，可回看，但不是一张可查询、
   可机械断言状态迁移的表。
 - ❌ 未登录公开访问。
+- ❌ **评级记录落库**（2026-09-15 人类拍板）：team2 是明确会删除的临时 agent，按本仓
+  ad-hoc 惯例不建表、不建仓储——`post-investment.controller.ts`（team4）的文件头逐字
+  立过这条规矩：「这是临时 agent，走 ad-hoc 流程，不是 phase feature——不建仓储、不落库」。
+  代价如实记在这里：**阶段三（结果交付与复核）不做**——没有结论卡页面、没有依据/不确定性/
+  报告三 Tab、没有版本链、没有 `draft → confirmed` 采纳状态、没有输入哈希到 run id 的审计
+  追溯。评级历史只有组织记忆里的摘要（够做趋势对比，不够做审计）与 chat 线程的消息轨迹。
+  要做阶段三，路径是转正规 phase 流程：先由人类签 `phases/phase-16-postinvest-rating-agent/
+  design-proposal/postinvest-rating/design-signoff.md`，再按已生成的 F01–F08 逐个做。
+- ❌ **m4a 录音**：附件白名单（人类签核过的 `chat-file-upload.ts`）含 wav/mpeg 不含 m4a；
+  D5 拍板录音应走 `files.ts` 的 `uploadArtifact` 原件路径，但 apps/web 还没有那条路的客户端
+  （字节走 ingestion 流程，不是小改动）。落地页已如实把可选类型收窄到白名单并写明原因，
+  不再让选择框收下一个上传必被 `FILE_TYPE_REJECTED` 拒掉的文件。
 
 ### BL4 怎么做的（历史对比 / 行业背景 / 反馈闭环 / 定期评级，均靠任务书调用原生工具）
 四项此前登记为"依赖存储和检索基础设施"的能力，实测都有现成的原生工具可以直接用，
 不需要新基础设施——补进了 `rating-prompt.ts` 的第四~七部分：
-- **历史同期对比**：`wx_knowledge_search`/`wx_knowledge_read`（原生工具）搜本项目
-  此前的评级报告，做同比/环比与趋势判断；没搜到就如实写"首次评级"。
+- **历史同期对比**：~~`wx_knowledge_search`~~ → **改为 `wx_memory_search`/`wx_memory_write`**
+  （2026-09-15 复核发现原方案结构上走不通，见下方「已修正的缺陷」）。
 - **受限渠道行业背景**：`web_search`（原生工具）+ 任务书里写死的 9 个可信域名
   （巨潮/上交所/深交所/北交所/港交所披露易/证监会/企业信用公示/统计局/被评公司官网），
   命中以外一律丢弃，不改分数。
@@ -129,9 +164,12 @@ POST /agents/:agentId/publish-decision    # 或 self-publish
 | B3 | 评级任务书（公式 + 沙箱算分要求 + 出报告要求） | ✅ `lib/postinvest-rating/rating-prompt.ts` |
 | B4 | 发起真实对话：建线程 + 挂 Agent + 传附件 + 发任务书 | ✅ `lib/postinvest-rating/launch-rating-thread.ts` |
 | B5 | `/agent/team2` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` + `components/postinvest-rating/rating-agent-launcher.tsx` |
-| B6 | 发布 team2 为真实 Agent，回填 `agentId`，挂载所需 skill | ⬜ 需要人类在真实部署环境操作，见上 |
+| B6 | 让 team2 在每个环境自动可用（部署期补种 + 前端按名字查 id） | ✅ `backfill-team2-agent.ts` + `deploy.sh` 4d3，无人工步骤 |
 | B7 | 机械阻断的人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
-| B8 | 历史同期对比（`wx_knowledge_search`/`wx_knowledge_read`） | ✅ `rating-prompt.ts` 第四步（提示词约定，见「已知限制」） |
+| B8 | 历史同期对比 | ✅ 改用 `wx_memory_*`（`lib/postinvest-rating/rating-memo.ts`）；原 `wx_knowledge_search` 方案恒定空转，已修正 |
+| B12 | 数据缺失说明表单（R3-3 人工确认事实） | ✅ `lib/postinvest-rating/missing-reason.ts` + 落地页表单 |
+| B13 | 评分规则单一事实源 | ✅ `packages/contracts/src/postinvest-rating-rules.ts`，引擎与任务书同源 + 机械门控 |
+| B14 | 评级绑到真实项目 + 材料回显（类型推测 / 真 SHA-256） | ✅ `launch-rating-thread.ts` 改走 `createThread(projectId)`；`lib/postinvest-rating/material-file.ts` |
 | B9 | 受限渠道行业背景（`web_search` + 9 域名白名单） | ✅ `rating-prompt.ts` 第五步（提示词约定） |
 | B10 | 反馈闭环（五类分诊，主观偏差只记录） | ✅ `rating-prompt.ts`「反馈修正」节（提示词约定，非机械阻断） |
 | B11 | 定期评级提醒（`wx_schedule_create`） | ✅ `rating-prompt.ts`「定期评级」节 |
