@@ -1,4 +1,171 @@
 {
   "phase": "16",
-  "features": []
+  "features": [
+    {
+      "id": "F01",
+      "area": "rating-skill",
+      "title": "postinvest-rating skill 包：确定性评分脚本 + 规则文档 + 固定用例，经双门禁导入",
+      "user_visible_behavior": "组织管理员导入 standard-finance/postinvest-rating skill 包并经「提交人≠审核人」双门禁启用后，同一份清洗后的财务 schema 交给包内确定性脚本运行两次，得到逐位一致的 S1/S2/S3、总分、A–E 初评等级与降级触发；PDF「数据质量」表每一行、两条降级触发（净资产<0 等）各有一个固定用例产出预期标注/分数/直接 E，且 S1/S2/S3 区间、分级颜色与含义、降级阈值只存在于该包内。",
+      "spec_ref": "01-postinvest-rating-agent.md#R7",
+      "depends_on": [],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-SKILL",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/scoring-determinism.test.ts",
+        "pnpm --filter api exec vitest run tests/postinvest-rating/fixtures-coverage.test.ts",
+        "pnpm --filter api exec vitest run tests/postinvest-rating/pack-import-double-gate.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F01) + R7 规则1/2 + R3-8 + R9 可复现。依据等级：[原型]——评分口径权威原文是 PDF v1.0（R7 只列结构，数值在 skill 包），本 feature 落地脚本与固定用例；无 UI。scoring-determinism 断言同一输入两次运行得分逐位一致（R7 规则2、R9）。fixtures-coverage 断言 PDF 数据质量表每一行都有 fixture（R4/R12 七种数据质量分支：正常/数据不完整/数据暂估/公司经营异常→直接E/数据疑似异常两条比率）且两条降级触发各有 fixture。pack-import-double-gate 断言包走既有 starter-pack 导入 + 提交人≠审核人双门禁（R2/R5 admin/D4：skills/standard-finance/postinvest-rating/ + starter-packs/standard-finance/1.0.0.json 登记进 ensure-standard-skill-packs.ts 的 STANDARD_PLATFORM_PACKS）。阈值/颜色/含义单一事实源在包内，UI 与契约只引用（R7 规则1、R8 颜色 token 从包读）。全 phase 后端基座，排最前。不覆盖契约操作（由 F02 接盘）。"
+    },
+    {
+      "id": "F02",
+      "area": "rating-contract",
+      "title": "契约 postinvest-rating.ts：评级记录/版本链/标注与反馈枚举/白名单配置 + run 与反馈操作的单一事实源",
+      "user_visible_behavior": "packages/contracts/src/postinvest-rating.ts 导出评级记录实体（输入 SHA256 + 中间指标 + 分项得分 + 等级 + 标注集合 + 依据引用 + 版本链 + draft/confirmed 状态）、标注枚举、五类反馈错误类型枚举、可信渠道白名单默认种子（D2 九个域名）与八个操作 schema（createRatingRun / getRatingRecord / listRatingRecords / submitFeedback / confirmRatingRecord / getTrustedSourceWhitelist / updateTrustedSourceWhitelist / decideRatingHitl）；DTO 与 mock 由该契约生成，parse 拒绝缺来源的数值行与非白名单域名。",
+      "spec_ref": "01-postinvest-rating-agent.md#R1",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/postinvest-rating.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F02) + R1 系统边界（契约新增 postinvest-rating.ts 单一事实源）+ R6 后置（评级记录含版本链）+ R7 规则3/4/7/9 + D2。依据等级：[原型]，无 UI。契约操作：createRatingRun/getRatingRecord/listRatingRecords/submitFeedback/confirmRatingRecord/getTrustedSourceWhitelist/updateTrustedSourceWhitelist/decideRatingHitl 全在本 feature 定义，下游 F03–F08 均依赖。断言：五类反馈枚举（明确算错/对标错/信息误解/信息缺失/主观偏差）、标注枚举、版本单调递增、confirmed 不可逆（R7 规则7）、缺来源数值行被拒（R7 规则4）、白名单域名精确/子域匹配（D2）。评分数值不复述（引用 F01 包，R7 规则1）。"
+    },
+    {
+      "id": "F03",
+      "area": "rating-web",
+      "title": "/agent/team2 工作台 UI：空态/运行态/结果态三态用 mock 渲染，退掉 agent-previews mock 债务",
+      "user_visible_behavior": "用户打开 /agent/team2 看到真实工作台：空态显示项目选择器、上传区、缺失原因表单、被禁用的开始评级按钮；运行态显示进度与工具调用卡 + 取消；结果态显示等级大字结论卡（颜色条 + 含义 + 建议 + 标注 chips）与「依据/不确定性/报告下载」三 Tab、版本链与采纳按钮；主观偏差类反馈提交后回显「已记录，评级不变」。Team2 卡片摘要改为「投后财务项目评级 Agent」，其余 team 不变。",
+      "spec_ref": "01-postinvest-rating-agent.md#R8",
+      "depends_on": [
+        "F02"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'rating-workbench three states'",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'rating-result-card and feedback-recorded-only'",
+        "pnpm --filter web exec vitest run tests/postinvest-rating/agent-previews-debt-retired.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F03) + R8 界面线索 + R10 偿债项。依据等级：[原型]——UI 先行阶段用真实组件 + mock 产出，是束级 design-signoff 第①件的材料；未签核挡的是开工不是本清单。playwright-grep 锚定 R8 的 data-testid：rating-workbench / rating-project-picker / rating-upload-dropzone / rating-start-button（空态禁用）/ rating-run-progress / rating-result-card / rating-flag-<code> / rating-tab-evidence|uncertainty|reports / rating-feedback-recorded-only / rating-version-list / rating-status-badge。agent-previews-debt-retired 断言 apps/web/lib/mock/agent-previews.ts 的 Team2 摘要已改、且该 mock 债务从 no-builtin-capability-lists.test.ts 的 DECLARED_MOCK_DEBT 名单退掉、改为从契约/capability_listings(kind=agent) 派生（R10 偿债项，不许静默消失）。结论卡四字段与颜色 token 从 skill 包读，前端不另写映射（R7 规则1、R8）。真栈接线由 F04 交付时断言。"
+    },
+    {
+      "id": "F04",
+      "area": "rating-api",
+      "title": "postinvest-rating agent 定义 + 阶段二编排真栈接线：解析→清洗→质量判定→算分→综合输出→发布产物",
+      "user_visible_behavior": "用户上传报表并点开始评级后，单内核链路（apps/api 薄网关 → deep-agent-service）绑定 postinvest-rating agent 执行阶段二：对报表调 wx_document_parse、录音调 wx_audio_transcribe，用 data-analysis 归一 schema（缺失记 null 不填零），按 PDF 表产出数据质量标注，调 F01 确定性脚本算 S1/S2/S3 与等级（LLM 不做算术），综合成结论卡 + 依据表 + 不确定性标注，并经 wx_artifact_publish 发布 PDF/xlsx/趋势图 PNG；页面从运行态切结果态显示首个端到端可见结论。",
+      "spec_ref": "01-postinvest-rating-agent.md#R3",
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-AI-RUNTIME",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/orchestration-stage-two.test.ts",
+        "pnpm --filter api exec vitest run tests/postinvest-rating/null-not-zero-and-script-only-scoring.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F04) + R3 阶段二（步骤5–11）+ R4 E1/E3/E9 + R5 Agent 自身权限。依据等级：[Backlog]——阶段二真栈编排文档要求、原型未接线，需先有 F03 UI 与 F02 契约；标注为需补接线。契约操作：createRatingRun（R2 触发）、getRatingRecord。orchestration-stage-two 断言一次真实 run 走完解析→清洗→质量判定→算分→发布，产物经 wx_artifact_publish 且通过读取校验（R4 E9 未验证不显示）。null-not-zero 断言缺失字段记 null 不填零（R7 规则3）、得分只来自 F01 脚本、脚本失败进 failed 终态不心算补分（R4 E3、R9）。E2 数据疑似异常两条比率标注沿用 F01 fixture。行业背景/历史对比/反馈分别由 F06/F05/F07 接盘。"
+    },
+    {
+      "id": "F05",
+      "area": "rating-api",
+      "title": "历史同期对比与趋势归因 + 组织记忆读写",
+      "user_visible_behavior": "评级时 Agent 用 wx_knowledge_search/read 检索本项目历史评级记录与历史报表，生成同比/环比对比表与趋势判断（改善/平稳/恶化）及只引用报表数据与转录稿原话的归因候选（写「伴随/同期」不写「导致」）；无历史时明确写「首次评级，无趋势判断」；修正记录经 wx_memory_write 写入组织记忆，下次运行前先 wx_memory_search 本项目/同类错误。",
+      "spec_ref": "01-postinvest-rating-agent.md#R3",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/history-trend-and-memory.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F05) + R3 步骤9/15 + R7 规则10（相关不写成因果）。依据等级：[Backlog]，需先有评级记录可检索（F04）。断言：有历史→对比表+趋势+带来源归因；无历史→「首次评级，无趋势判断」；归因段不出现「导致」除非标注为当事人陈述；wx_memory_write 写入后 wx_memory_search 可召回同类错误。行业背景不改分由 F06 覆盖。"
+    },
+    {
+      "id": "F06",
+      "area": "rating-api",
+      "title": "受限渠道行业背景补充：白名单过滤 + 丢弃计数披露，失败不阻断",
+      "user_visible_behavior": "Agent 用 web-research（web_search + fetch_url）从组织级可信渠道白名单补充行业共性基准，命中白名单外域名的结果一律丢弃并在依据里注明「已丢弃 N 条非白名单来源」，丢弃计数出现在不确定性 Tab；web_search 查询词只含公司名/行业名、不含财务数值；白名单为空或检索失败时跳过该步、依据表注明「未配置可信渠道/未获取」，评级照常完成；行业背景只影响文字评价，不改 S1–S3 与总分。",
+      "spec_ref": "01-postinvest-rating-agent.md#R3",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/whitelist-and-industry-background.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F06) + R3 步骤10 + R4 A7/E5 + R7 规则8/9 + R9 安全 + D2。依据等级：[Backlog]。契约操作：getTrustedSourceWhitelist / updateTrustedSourceWhitelist（白名单单源在契约，F02 定义）。断言：非白名单域名结果被丢弃且计数披露（R7 规则9、R12 安全态）；查询词不含财务数值（R9）；白名单空/检索失败降级不阻断出分（A7/E5）；行业背景不进 S1–S3（R7 规则8）。"
+    },
+    {
+      "id": "F07",
+      "area": "rating-api",
+      "title": "复核与反馈闭环：五类分流、重算生成新版本、采纳不可逆",
+      "user_visible_behavior": "用户对依据行反馈时必须先单选错误类型（明确算错/对标错/信息误解/信息缺失/主观偏差）再填修正依据；前四类进入修正流程，Agent 以修正依据 + 原 run 输入重算受影响字段生成版本号 +1 的新评级记录（旧版本只读），并把错误类型+修正前后值+依据写入修正历史与组织记忆；主观偏差类只记录不重算不改规则，页面回显「已记录，评级不变」；用户采纳后记录 draft→confirmed，写入确认人与时间且不可再改。",
+      "spec_ref": "01-postinvest-rating-agent.md#R3",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/feedback-five-way-split.test.ts",
+        "pnpm --filter api exec vitest run tests/postinvest-rating/version-and-confirm-immutable.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F07) + R3 阶段三（步骤13–16）+ R4 E7 + R7 规则6/7。依据等级：[原型]——序列图阶段三明确。契约操作：submitFeedback / confirmRatingRecord。feedback-five-way-split 断言四类重算生成新版本且修正记录进 wx_memory_write、主观偏差只记录不重算不改权重（R7 规则6，MAAU 防退化）、E7 重算结果一致仍生成新版本并写明未变化原因。version-and-confirm-immutable 断言版本单调、confirmed 不可逆（R7 规则7）、admin 不能替成员采纳（R5）。"
+    },
+    {
+      "id": "F08",
+      "area": "rating-api",
+      "title": "定期评级提醒（wx_schedule_*）与 HITL 降级/本期指定确认卡",
+      "user_visible_behavior": "用户可用 wx_schedule_create 建立单项目季度定期评级，到期以上一次输入触发并提示补新报表；当出现公司经营异常（直接 E）、降级触发（净资产<0）或多份报表期间不一致时，Agent 在正式落库前通过既有 deep-agent-hitl 中断弹出确认卡（rating-hitl-card），用户可批准/驳回并说明，checkpoint 落库、驳回不落库。",
+      "spec_ref": "01-postinvest-rating-agent.md#R3",
+      "depends_on": [
+        "F04",
+        "F07"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/postinvest-rating/schedule-and-hitl-downgrade.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(F08，可后置) + R2 触发3 + R3 步骤11 HITL + R4 A4 + R12 降级触发前出现 HITL 确认卡。依据等级：[Backlog]——定期触发与 HITL 降级卡文档要求、原型待补。契约操作：decideRatingHitl。断言：wx_schedule_create 建单项目季度评级到期触发（R2）；直接 E / 净资产<0 降级 / 多份报表期间不一致（A4）在落库前触发 HITL interrupt 且 checkpoint 落库，驳回不落库（R3-11、deep-agent-hitl 契约）。"
+    }
+  ]
 }
