@@ -177,7 +177,7 @@ export function ChatGraphVersionHistory({
         {state.phase === "ready" && graphs.length > 0 && (
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium text-foreground">选择一张图谱</h3>
+              <h3 className="text-sm font-medium text-popover-foreground">选择一张图谱</h3>
               <div data-testid="graph-picker" className="flex flex-wrap gap-2">
                 {graphs.map((graph) => (
                   <Button
@@ -197,7 +197,7 @@ export function ChatGraphVersionHistory({
             </section>
 
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium text-foreground">版本</h3>
+              <h3 className="text-sm font-medium text-popover-foreground">版本</h3>
               {versionsError !== null && (
                 <p role="alert" data-testid="err-graph-versions" className="text-sm text-destructive">
                   {versionsError}
@@ -251,7 +251,7 @@ export function ChatGraphVersionHistory({
             </section>
 
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium text-foreground">最新保存版 → 当前画布</h3>
+              <h3 className="text-sm font-medium text-popover-foreground">最新保存版 → 当前画布</h3>
               <GraphDiffTable diff={diff} />
             </section>
           </div>
@@ -312,9 +312,9 @@ export function GraphDiffTable({ diff }: { diff: readonly MermaidGraphDiffEntry[
                   {CHANGE_LABEL[entry.change]}
                 </Badge>
               </TableCell>
-              <TableCell className="text-sm text-foreground">{described.target}</TableCell>
+              <TableCell className="text-sm text-popover-foreground">{described.target}</TableCell>
               <TableCell className="text-sm text-muted-foreground">{described.before}</TableCell>
-              <TableCell className="text-sm text-foreground">{described.after}</TableCell>
+              <TableCell className="text-sm text-popover-foreground">{described.after}</TableCell>
             </TableRow>
           );
         })}
