@@ -3,13 +3,15 @@
  *
  * 全部调用真实 chat API（`lib/live-chat.ts`，Wave 2 durable message + queued
  * AgentRun，`apps/api` 有真实 Postgres 支撑），不新增任何端点、不自建聊天 UI。
+ * `agentId` 不是预先配置好的常量——按需解析/发布（`ensure-agent.ts`），不需要
+ * 任何人手工登机器改库或改部署配置。
  */
 import { createMessage, createPersonalThread, getAgentPanel, updateAgentRoster, uploadAttachment } from "@/lib/live-chat";
+import { ensureTeam1AgentId } from "./ensure-agent";
 import { buildReviewPrompt } from "./review-prompt";
 import type { ReviewDocument } from "./types";
 
 export interface LaunchReviewThreadInput {
-  readonly agentId: string;
   readonly files: readonly File[];
   /** 已经在浏览器侧读出过文本的材料（示例包场景），一并转成 File 再上传。 */
   readonly extraDocuments?: readonly ReviewDocument[];
@@ -25,8 +27,9 @@ function toFile(doc: ReviewDocument): File {
 }
 
 export async function launchReviewThread({
-  agentId, files, extraDocuments = [],
+  files, extraDocuments = [],
 }: LaunchReviewThreadInput): Promise<LaunchReviewThreadResult> {
+  const agentId = await ensureTeam1AgentId();
   const thread = await createPersonalThread(`上会审阅 · ${new Date().toLocaleString("zh-CN")}`);
   const threadId = thread.threadId;
 
