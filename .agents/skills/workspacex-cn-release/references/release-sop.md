@@ -37,6 +37,48 @@ flowchart LR
 - Devapp required gates 与浏览器验收 evidence hash；
 - 当前生产 manifest、容器 digest、Nginx hash 和 `main-cn` 指针。
 
+### 3.1 第一条命中场景决策树
+
+每个 attempt 从上到下判断，命中第一条后停止分类。网络或 GitHub 不可达是该场景的 Plan B 分支，不创建新的场景，也不能借此降低验收标准。
+
+```mermaid
+flowchart TD
+  A[收到发布或恢复请求] --> B{当前生产不健康\n或刚激活失败?}
+  B -->|是| S1[1 紧急恢复]
+  B -->|否| C{破坏性或未知 migration\n稳定密钥轮换\n托管数据 网络或拓扑变更?}
+  C -->|是| S2[2 维护窗口]
+  C -->|否| D{仅 durable profile\n或幂等 Skills Agents 模板 seed?}
+  D -->|是| S3[3 配置或 seed-only]
+  D -->|否| E{exact SHA 的有效 receipt\n及全部 activation 输入齐备?}
+  E -->|是| S4[4 已完全 prepared]
+  E -->|否| F{immutable images\nmanifest seal 离线源码均齐备?}
+  F -->|是| S5[5 制品就绪但未 prepared]
+  F -->|否| S6[6 冷发布]
+```
+
+所有时长从 `promotion.requested_at` 计到 `production.available_at`。在同一场景累计至少 20 个成功样本前，下表中的 P50/P95 是**规划预算**，不是统计分位数；每次仍须报告 T0–T9 实测并在样本达到门槛后重算。
+
+| 第一条命中场景 | 适用边界 | 发布前应持续准备的证据 | 发布时只重检的漂移项 | 规划 P50 / P95 | Plan B / 回滚触发 |
+|---|---|---|---|---:|---|
+| 1. 紧急恢复 | 当前生产不健康，或候选刚激活失败 | baseline exact digests、旧 Nginx/Compose 指针、回滚浏览器账号与脚本 | 当前故障面、baseline artifact 可用性、回滚目标身份、release lock | 2m / 5m | 立即恢复旧指针和 exact digests；旧版浏览器未通过则升级为事故响应，不尝试下一个候选 |
+| 2. 维护窗口 | 破坏性/未知 migration、12 个稳定密钥轮换、RDS/Redis/网络/拓扑变更 | 已演练 runbook、备份/恢复证明、兼容矩阵、停机公告与回退检查点 | 备份新鲜度、连接/任务 drain、审批窗口、容量与依赖健康 | 60m / 120m | 任一不可逆检查点前置条件失败即取消窗口；越过检查点后按专用恢复 runbook 执行，不走普通 300 秒 activate |
+| 3. 配置或 seed-only | OCI 代码与 schema 均无变化；仅 durable profile，或可重复执行的 Skills/Agents/模板 seed | 配置 schema、幂等导入反证、导出快照、作用域/计数、浏览器目标清单 | baseline 身份、配置 diff、目标数据版本、导入锁、凭据引用有效性 | 5m / 10m | 导入或浏览器契约失败即恢复配置快照/撤销本批 seed；不得夹带代码或 schema 变化 |
+| 4. 已完全 prepared 的常规 exact-SHA | 有效 receipt 已绑定 exact SHA、manifest/seal、stable secrets、baseline 与浏览器运行时 | immutable images、离线 source、receipt、候选影子验收、baseline 回滚闭包 | receipt TTL、baseline fingerprint、CAS、lock、临时 IAM、drain、外部依赖 | 3m / 5m | 漂移即停止并回到场景 5；activate/browser 失败自动恢复 baseline 并验收 |
+| 5. 制品就绪但 host 未 prepared 或 receipt 失效 | images、manifest/seal、离线 source 已齐备，但主机 prepare 未完成或 receipt 失效 | ACR digest 重拉证明、OSS source hash、stable-secret continuity、工具链闭包 | 主机容量/运行时、managed-data Describe、baseline、依赖网络、receipt 输入 | 8m / 15m | GitHub 不通改走 OSS/ACR；prepare 失败保持旧服务并一次报告全部 blocker，不进入 activate |
+| 6. 冷发布 | 尚需 affected 计算、构建/推送/重拉 digest、manifest/seal 和离线 prepare | Devapp required gates、完整 source closure、构建缓存、ACR/OSS 通道、baseline 闭包 | candidate/main 祖先关系、affected diff、缓存命中、registry 凭据、所有聚合预检项 | 20m / 30m | 公网依赖失败切私有 OSS/ACR 离线闭包；构建或预检失败保持生产不变，修复后从聚合预检重跑 |
+
+`prepared` 不是人工判断：只有 receipt 未过期、全部绑定 hash 仍一致、候选影子验收已通过，且发布时的漂移重检全绿，才可进入场景 4。任何发布中新发现的高风险变更都要终止当前 attempt，重新按决策树归类，不能在原场景扩大范围。
+
+### 3.2 预准备与发布时重检
+
+发布前可异步完成 immutable build、ACR 重拉校验、离线 source 上传与闭包校验、manifest/seal、stable-secret continuity、bootstrap compatibility、影子 canonical 8/8、候选浏览器验收、baseline exact digest/入口快照和回滚演练。证据必须绑定 exact SHA、输入 hash、生成时间和 TTL。
+
+正式发布时不重做未漂移的昂贵工作，只重检会随时间变化的事实：production baseline fingerprint、receipt TTL、`main-cn` CAS、release lock/孤儿、活跃任务 drain、临时 IAM 的真实 Describe、外部依赖可达性、凭据剩余寿命和候选/回滚浏览器运行时。任一重检失败都不得复用旧的“绿色”静态记录。
+
+### 3.3 可用性边界
+
+当前 activate 会先关闭新的 CopilotKit POST 并等待在途任务 drain，因此属于受控的短暂停写，不能宣称零中断。真正零中断需要蓝绿双栈、旧流连接排空、数据库 expand/contract 兼容、候选影子浏览器验收、原子流量切换，并保留旧栈直到回滚窗口结束；在这些能力全部落地并被故障演练证明前，对外只报告实测停写时长。
+
 ## 4. Step 1：一次性聚合预检
 
 所有 probe 尽量并行，但只由一个控制器汇总。控制器先持有唯一 release lock，再执行 probe。任一 probe 失败都继续收集其它结果，最后一次输出全部 blocker。此阶段不构建、不推镜像、不改数据库、不切流。
