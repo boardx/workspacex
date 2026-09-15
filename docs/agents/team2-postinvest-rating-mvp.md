@@ -51,26 +51,33 @@
 - **算分**仍然不让模型心算：任务书要求模型用 `data-analysis` skill 的沙箱脚本真实
   执行公式，并用两个已知算例（+50%→90 分；对数定义点→-35 分）自检脚本对不对。
 
-## 还差一步才能真正跑起来：发布 team2 这个 Agent
+## Agent 怎么落到每个环境：部署期自动补种，无人工步骤
 
-`apps/web/lib/postinvest-rating/agent-directory.ts` 的 `agentId` 目前是 `null`——后台
-还没有一个真正发布的「team2」Agent。这不是代码缺陷，是一个**需要人类在真实部署环境
-里做一次**的操作（本会话是纯前端沙箱，没有连着真实 Postgres/apps/api，做不了这一步）：
+早期版本要人拿 admin 账号在某台机器上手工跑一次 `publish-team2-agent.ts`，再把打印出的
+`agentId` 回填进前端（或配 `NEXT_PUBLIC_TEAM2_AGENT_ID` 重新构建）。那是两次人工动作、
+一份跨环境不通用的 id、一个「忘了跑就静默禁用」的失败模式。现在走 team3 早就示范过的
+形状：
 
-```
-POST /agents                              # agentRuntime.operations.createAgent
-POST /agents/:agentId/submit
-POST /agents/:agentId/publish-decision    # 或 self-publish
-```
+- `apps/api/scripts/backfill-team2-agent.ts`：幂等补种（按 `agents.stable_name =
+  team2-postinvest-rating` 去重），走 `ensureSystemAgent` 这条应用层写路径，
+  `agents` / `agent_versions` / `capability_listings` 同事务原子落地，一落库即已发布。
+  只种到显示名为「Workspace」的组织。
+- `.harness/scripts/vm/deploy.sh` 第 `4d3` 步：每次部署都跑一遍，成本是一次查询 +
+  至多几行 INSERT。
+- 落地页运行时按 `name` 在本组织能力目录里查真实 `agentId`
+  （`components/postinvest-rating/rating-agent-launcher.tsx`），前端不硬编码、不回填、
+  不重新构建。
 
-系统提示词建议直接用 `apps/web/lib/postinvest-rating/rating-prompt.ts` 的
-`buildRatingPrompt` 里那套规则作为基础（发布时可以固化成 Agent 的 `instructions`，
-不必每次靠任务书重复整套公式，但任务书这条路径本身也已经可用）。挂载的 skill 至少要
-包含 `document-understanding`、`data-analysis`、`pdf-create`、`xlsx-create`
-（均为已有平台级 skill，Phase 13 起对全部组织默认可见，不需要单独导入）。
+instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRatingPrompt([])`
+——任务书与 Agent 自身指令是同一份规则，不抄第二遍。需要的 skill
+（`document-understanding` / `data-analysis` / `pdf-create` / `xlsx-create`）自 Phase 13
+起对全部组织默认可见，不需要单独挂载或导入。
 
-拿到发布后的真实 id，填进 `agent-directory.ts` 的 `agentId` 字段即可，不用改任何其他
-文件。**在此之前，落地页会如实显示「尚未发布，无法发起评级」并禁用按钮**——不会假装能用。
+删除这个临时 Agent 时：从 `deploy.sh` 摘掉 `4d3` 这一步（可选再跑一条反向 DELETE），
+不动任何共享控制器。
+
+`publish-team2-agent.ts`（走 HTTP 的手工发布）保留为本机开发库的逃生口，不再是部署路径。
+补种没跑到的环境里，落地页仍会如实显示「能力目录里没有这个 Agent」并禁用按钮——不假装能用。
 
 ## MVP 边界
 
@@ -129,7 +136,7 @@ POST /agents/:agentId/publish-decision    # 或 self-publish
 | B3 | 评级任务书（公式 + 沙箱算分要求 + 出报告要求） | ✅ `lib/postinvest-rating/rating-prompt.ts` |
 | B4 | 发起真实对话：建线程 + 挂 Agent + 传附件 + 发任务书 | ✅ `lib/postinvest-rating/launch-rating-thread.ts` |
 | B5 | `/agent/team2` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` + `components/postinvest-rating/rating-agent-launcher.tsx` |
-| B6 | 发布 team2 为真实 Agent，回填 `agentId`，挂载所需 skill | ⬜ 需要人类在真实部署环境操作，见上 |
+| B6 | 让 team2 在每个环境自动可用（部署期补种 + 前端按名字查 id） | ✅ `backfill-team2-agent.ts` + `deploy.sh` 4d3，无人工步骤 |
 | B7 | 机械阻断的人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
 | B8 | 历史同期对比（`wx_knowledge_search`/`wx_knowledge_read`） | ✅ `rating-prompt.ts` 第四步（提示词约定，见「已知限制」） |
 | B9 | 受限渠道行业背景（`web_search` + 9 域名白名单） | ✅ `rating-prompt.ts` 第五步（提示词约定） |
