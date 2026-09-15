@@ -152,6 +152,7 @@ export const ResearchMaterial = z.object({
  */
 export const ResearchLineage = z.object({
   /** 门①通过的那一刻，这批材料的指纹。之后再加材料会开新批次。 */
+  /** 由服务端 `randomUUID()` 生成，所以这里可以要求 uuid。 */
   materialBatchId: z.string().uuid().nullable(),
   fieldSchemeVersion: z.number().int().min(0),
   logicVersion: z.number().int().min(0),
@@ -159,7 +160,12 @@ export const ResearchLineage = z.object({
 });
 
 export const ResearchSession = z.object({
-  threadId: z.string().uuid(),
+  /**
+   * ⚠ **不是 `.uuid()`**：chat 线程 id 在本仓是 `text`，契约 `chat.ts` 里也一律是
+   * 裸 `z.string()`。写成 uuid 会让每个请求在入参校验就 400——而那条错误看起来
+   * 像"前端传错了"，实际是这里多加了一条它满足不了的约束。
+   */
+  threadId: z.string().min(1),
   phase: ResearchPhase,
   lineage: ResearchLineage,
   materials: z.array(ResearchMaterial),
@@ -223,7 +229,7 @@ export const ResearchPrediction = z.object({
  */
 export const addResearchPredictions = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     statements: z.array(z.string().min(1).max(1000)).min(1).max(20),
   }),
   out: z.array(ResearchPrediction),
@@ -232,7 +238,7 @@ export const addResearchPredictions = {
 /** 回填一条预测的实际结果。 */
 export const fillResearchPrediction = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     predictionId: z.string().uuid(),
     actual: z.string().min(1).max(1000),
     verdict: PredictionVerdict,
@@ -280,7 +286,7 @@ export const getResearchSession = {
 
 export const addResearchMaterials = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     materials: z.array(z.object({ source: MaterialSource, label: z.string().min(1).max(500) })).min(1).max(50),
   }),
   out: ResearchSession,
@@ -288,7 +294,7 @@ export const addResearchMaterials = {
 
 export const reviewResearchMaterial = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     materialId: z.string().uuid(),
     verdict: MaterialVerdict,
     note: z.string().max(2000).nullable(),
@@ -302,7 +308,7 @@ export const reviewResearchMaterial = {
  */
 export const passResearchGate = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     gate: ResearchGate,
   }),
   out: ResearchSession,
@@ -311,7 +317,7 @@ export const passResearchGate = {
 /** 提交阶段推进（Agent 侧动作，如"材料整理完了请审"）。同样受状态机校验。 */
 export const advanceResearchPhase = {
   in: z.object({
-    threadId: z.string().uuid(),
+    threadId: z.string().min(1),
     to: ResearchPhase,
   }),
   out: ResearchSession,

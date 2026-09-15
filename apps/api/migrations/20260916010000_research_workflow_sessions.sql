@@ -5,12 +5,14 @@
 -- 而且没有任何东西会发现它没照做。落库 + 服务端状态机才让这句话在系统里为真。
 
 CREATE TABLE IF NOT EXISTS research_sessions (
-  thread_id                uuid PRIMARY KEY REFERENCES threads(id) ON DELETE CASCADE,
+  -- ⚠ 线程表叫 `chat_threads`，且它的 id 与 org_id 都是 **text** 不是 uuid
+  -- （见 0021-f108-chat-visibility.sql）。本仓所有业务主键都是 text。
+  thread_id                text PRIMARY KEY REFERENCES chat_threads(id) ON DELETE CASCADE,
   -- 与本仓所有业务表同一条纪律：每行带 org_id，查询一律经 withTenant。
-  org_id                   uuid NOT NULL,
+  org_id                   text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   phase                    text NOT NULL DEFAULT 'empty',
   -- 血缘三件：三个月后的复盘（测试 C）全靠它们回答「当时基于哪批材料、哪版口径与逻辑」
-  material_batch_id        uuid,
+  material_batch_id        text,
   field_scheme_version     integer NOT NULL DEFAULT 0,
   logic_version            integer NOT NULL DEFAULT 0,
   published_graph_version  integer NOT NULL DEFAULT 0,
@@ -32,9 +34,9 @@ CREATE TABLE IF NOT EXISTS research_sessions (
 );
 
 CREATE TABLE IF NOT EXISTS research_materials (
-  id           uuid PRIMARY KEY,
-  thread_id    uuid NOT NULL REFERENCES research_sessions(thread_id) ON DELETE CASCADE,
-  org_id       uuid NOT NULL,
+  id           text PRIMARY KEY,
+  thread_id    text NOT NULL REFERENCES research_sessions(thread_id) ON DELETE CASCADE,
+  org_id       text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   source       text NOT NULL,
   label        text NOT NULL,
   -- 三态是门①的判据本身：整批一句「看着行」等于没审
@@ -51,8 +53,8 @@ CREATE INDEX IF NOT EXISTS research_materials_thread_idx ON research_materials (
 -- 而"拒绝并留痕"与"静默拒绝"的区别，正是三个月后能不能统计出问题的区别。
 CREATE TABLE IF NOT EXISTS research_gate_audit (
   id           bigserial PRIMARY KEY,
-  thread_id    uuid NOT NULL,
-  org_id       uuid NOT NULL,
+  thread_id    text NOT NULL,
+  org_id       text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   actor_kind   text NOT NULL,          -- 'human' | 'agent'
   action       text NOT NULL,          -- 'gate:<name>' | 'advance:<phase>'
   from_phase   text NOT NULL,
@@ -72,9 +74,9 @@ CREATE INDEX IF NOT EXISTS research_gate_audit_thread_idx ON research_gate_audit
 -- 不是一句"大体还行"。所以预测必须在发布时就逐条落下来——事后凭记忆补写的"当初的
 -- 预测"，是用已知结果反推出来的，那不是验证，是自我确认。
 CREATE TABLE IF NOT EXISTS research_predictions (
-  id             uuid PRIMARY KEY,
-  thread_id      uuid NOT NULL REFERENCES research_sessions(thread_id) ON DELETE CASCADE,
-  org_id         uuid NOT NULL,
+  id             text PRIMARY KEY,
+  thread_id      text NOT NULL REFERENCES research_sessions(thread_id) ON DELETE CASCADE,
+  org_id         text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   -- 这条预测属于哪一版图谱。三个月后回来要能回答"当时那一版是怎么说的"。
   graph_version  integer NOT NULL,
   statement      text NOT NULL,

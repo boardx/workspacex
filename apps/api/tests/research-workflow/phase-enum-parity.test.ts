@@ -9,7 +9,7 @@
  * 所以这份测试存在。它不是可选的补充，它是那条复述被允许存在的**前提**：
  * 契约加一个阶段而迁移没跟上（或反之），这里立刻红。
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { researchWorkflow as C } from "@repo/contracts";
@@ -25,6 +25,52 @@ function checkValues(constraintName: string): string[] {
   if (!m) throw new Error(`迁移里找不到约束 ${constraintName}——它被删了或改名了`);
   return [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
 }
+
+/**
+ * 2026-09-15 实测：本迁移第一版写了 `REFERENCES threads(id)`（不存在，表叫
+ * `chat_threads`）且把 `thread_id`/`org_id` 声明成 `uuid`（本仓这两列都是 `text`）。
+ * 结果是 **`migrateOnce()` 直接失败**，CI 里几十个数据库测试一起红，而本地
+ * 没有 Docker 跑不到迁移——tsc / eslint / 所有纯函数测试全绿。
+ *
+ * 这几条静态断言不替代真的跑一次迁移，但它们在**任何机器上**都能跑，
+ * 把"引用了一个不存在的表"这类错误挡在推送之前。
+ */
+describe("迁移引用的表与类型真实存在", () => {
+  const ALL_MIGRATIONS = readdirSync(join(__dirname, "../../migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => readFileSync(join(__dirname, "../../migrations", f), "utf8"))
+    .join("\n");
+
+  it.each([...MIGRATION.matchAll(/REFERENCES\s+(\w+)\s*\(/g)].map((m) => m[1]!))(
+    "被引用的表 %s 在某个迁移里真的被 CREATE 过",
+    (table) => {
+      expect(ALL_MIGRATIONS).toMatch(new RegExp(`CREATE TABLE (IF NOT EXISTS )?${table}\\b`));
+    },
+  );
+
+  it("thread_id 一律是 text（chat_threads.id 是 text，写成 uuid 会让迁移直接失败）", () => {
+    for (const m of MIGRATION.matchAll(/^\s*thread_id\s+(\w+)/gm)) {
+      expect(m[1], `thread_id 被声明成了 ${m[1]}`).toBe("text");
+    }
+  });
+
+  it("org_id 一律是 text 且引用 organizations", () => {
+    const decls = [...MIGRATION.matchAll(/^\s*org_id\s+(\w+)[^,]*/gm)];
+    expect(decls.length).toBeGreaterThan(0);
+    for (const m of decls) {
+      expect(m[1], `org_id 被声明成了 ${m[1]}`).toBe("text");
+      expect(m[0]).toContain("REFERENCES organizations");
+    }
+  });
+
+  it("契约里的 threadId 不是 .uuid()（chat 线程 id 不是 uuid，多这条约束会让请求全部 400）", () => {
+    const src = readFileSync(
+      join(__dirname, "../../../../packages/contracts/src/research-workflow.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/threadId:\s*z\.string\(\)\.uuid\(\)/);
+  });
+});
 
 describe("契约 ↔ 迁移 枚举一致", () => {
   it("阶段集合逐字相同", () => {
