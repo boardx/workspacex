@@ -20,6 +20,6 @@
 | 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
 | 14 | agent-kernel-unification | in_progress | 0 | 0 | 0 | 15 |
 | 15 | ai-capability-studio | not_started | 0 | 0 | 0 | 0 |
-| 16 | postinvest-rating-agent | not_started | 1 | 0 | 0 | 0 |
+| 16 | postinvest-rating-agent | not_started | 0 | 0 | 0 | 0 |
 
-_最近聚合:2026-09-15T14:16:15.673Z_
+_最近聚合:2026-09-15T14:27:43.285Z_
