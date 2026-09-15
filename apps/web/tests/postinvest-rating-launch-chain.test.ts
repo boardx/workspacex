@@ -10,14 +10,14 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createThread = vi.fn();
+const createPersonalThread = vi.fn();
 const getAgentPanel = vi.fn();
 const updateAgentRoster = vi.fn();
 const uploadAttachment = vi.fn();
 const createMessage = vi.fn();
 
 vi.mock("@/lib/live-chat", () => ({
-  createThread: (...a: unknown[]) => createThread(...a),
+  createPersonalThread: (...a: unknown[]) => createPersonalThread(...a),
   getAgentPanel: (...a: unknown[]) => getAgentPanel(...a),
   updateAgentRoster: (...a: unknown[]) => updateAgentRoster(...a),
   uploadAttachment: (...a: unknown[]) => uploadAttachment(...a),
@@ -32,7 +32,7 @@ const file = (name: string) => new File(["x"], name, { type: "application/pdf" }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createThread.mockResolvedValue({ threadId: "t1" });
+  createPersonalThread.mockResolvedValue({ threadId: "t1" });
   getAgentPanel.mockResolvedValue({ rosterVersion: 7 });
   updateAgentRoster.mockResolvedValue({});
   uploadAttachment.mockImplementation((_t: string, f: File) => Promise.resolve({ id: `att-${f.name}` }));
@@ -42,24 +42,27 @@ beforeEach(() => {
 const run = () =>
   launchRatingThread({
     agentId: "agent-team2",
-    projectId: "p1",
-    projectName: "供应链创新",
     files: [file("2025年报.pdf"), file("审计报告.pdf")],
     missingReason: { ...EMPTY_MISSING_REASON, reasons: ["lost_contact"] },
   });
 
 describe("launchRatingThread 的五步链路", () => {
-  it("线程建在指定项目下，不是个人线程", async () => {
+  /**
+   * 2026-09-15 人类实测 403：绑项目那条路要求调用者在该项目里有非 observer 的成员角色
+   * （`mutate-thread.ts` 的 NO_WRITE_ROLE）。而项目选择器是按**可见性**填的，可见 ≠ 可写。
+   * 组织管理员能看见全部项目却一个都不能写，于是「所有人都能用」被前端自己挡住了。
+   * 个人线程是 `mutate-thread.ts` 的第一条分支，无需项目成员资格。
+   */
+  it("走个人线程：不调用需要项目写权的 createThread", async () => {
     await run();
-    expect(createThread).toHaveBeenCalledTimes(1);
-    expect(createThread.mock.calls[0]![0]).toMatchObject({ projectId: "p1", visibilityScope: "private" });
-    expect(createThread.mock.calls[0]![0].title).toContain("供应链创新");
+    expect(createPersonalThread).toHaveBeenCalledTimes(1);
+    expect(createPersonalThread.mock.calls[0]![0]).toContain("投后评级");
   });
 
   it("Agent 真的被挂进这条线程的编制，且带上读到的 rosterVersion", async () => {
     await run();
-    expect(getAgentPanel).toHaveBeenCalledWith("t1", "p1");
-    expect(updateAgentRoster).toHaveBeenCalledWith("t1", "p1", {
+    expect(getAgentPanel).toHaveBeenCalledWith("t1", null);
+    expect(updateAgentRoster).toHaveBeenCalledWith("t1", null, {
       add: ["agent-team2"], remove: [], expectedRosterVersion: 7,
     });
   });
@@ -81,10 +84,9 @@ describe("launchRatingThread 的五步链路", () => {
     expect(body.clientMessageId).toBeTruthy();
   });
 
-  it("任务书带上项目名、材料名、人工确认事实与记忆协议", async () => {
+  it("任务书带上材料名、人工确认事实与记忆协议", async () => {
     await run();
     const text: string = createMessage.mock.calls[0]![1].text;
-    expect(text).toContain("供应链创新");
     expect(text).toContain("2025年报.pdf");
     expect(text).toContain("失联");           // 人工确认事实进了任务书
     expect(text).toContain(RATING_MEMO_TAG);  // 记忆协议在
@@ -92,7 +94,7 @@ describe("launchRatingThread 的五步链路", () => {
 
   it("顺序不能乱：先建线程、再挂编制、再传附件、最后发消息", async () => {
     const order: string[] = [];
-    createThread.mockImplementation(() => { order.push("thread"); return Promise.resolve({ threadId: "t1" }); });
+    createPersonalThread.mockImplementation(() => { order.push("thread"); return Promise.resolve({ threadId: "t1" }); });
     updateAgentRoster.mockImplementation(() => { order.push("roster"); return Promise.resolve({}); });
     uploadAttachment.mockImplementation((_t: string, f: File) => { order.push("upload"); return Promise.resolve({ id: `att-${f.name}` }); });
     createMessage.mockImplementation(() => { order.push("message"); return Promise.resolve({}); });
@@ -100,7 +102,7 @@ describe("launchRatingThread 的五步链路", () => {
     expect(order).toEqual(["thread", "roster", "upload", "upload", "message"]);
   });
 
-  it("返回本次线程与绑定的项目，供调用方跳转", async () => {
-    await expect(run()).resolves.toEqual({ threadId: "t1", projectId: "p1" });
+  it("返回本次线程，供调用方跳转", async () => {
+    await expect(run()).resolves.toEqual({ threadId: "t1" });
   });
 });

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities } from "@/lib/live-capabilities";
-import { createProject, listProjects } from "@/lib/live-projects";
 import { ATTACHMENT_MIME_ALLOWLIST } from "@/lib/live-chat";
 import type { RatingAgentEntry } from "@/lib/postinvest-rating/agent-directory";
 import { launchRatingThread } from "@/lib/postinvest-rating/launch-rating-thread";
@@ -35,9 +34,6 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const [files, setFiles] = React.useState<MaterialFile[]>([]);
-  const [projects, setProjects] = React.useState<{ id: string; name: string }[] | null>(null);
-  const [projectId, setProjectId] = React.useState<string>("");
-  const [newProjectName, setNewProjectName] = React.useState("");
   const [missingReason, setMissingReason] = React.useState<postinvestRating.MissingDataReason>(EMPTY_MISSING_REASON);
   const [launching, setLaunching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -67,21 +63,6 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   }, [agent.agentId, agent.name, orgId]);
   const agentId = resolved.id;
 
-  // 项目列表（R3-1）：同 team3 的「组织内可见项目」惯例；一个都没有时允许现填名字新建。
-  React.useEffect(() => {
-    if (!orgId) return;
-    let cancelled = false;
-    void listProjects(orgId)
-      .then((list) => {
-        if (cancelled) return;
-        const items = list.map((p) => ({ id: p.id, name: p.name }));
-        setProjects(items);
-        if (items[0]) setProjectId(items[0].id);
-      })
-      .catch(() => { if (!cancelled) setProjects([]); });
-    return () => { cancelled = true; };
-  }, [orgId]);
-
   const addFiles = async (list: FileList | null) => {
     if (!list?.length) return;
     // SHA-256 真算，所以是异步的——算完再进列表，不先显示一个空哈希占位。
@@ -104,7 +85,6 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   // 模型只能退回推断，正是本表单要消掉的东西。
   const otherMissingText = missingReason.reasons.includes("other") && !missingReason.otherText?.trim();
 
-  const chosenProject = projects?.find((p) => p.id === projectId) ?? null;
 
   /**
    * 按钮为什么不能点——**必须有话说**。
@@ -120,8 +100,6 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
     : !orgId ? "还没读到你的登录会话——请刷新页面或重新登录。"
     : !resolved.done ? "正在本组织的能力目录里查这个 Agent…"
     : !agentId ? "本组织的能力目录里没有这个 Agent，无法发起评级（见上方提示）。"
-    : projects === null ? "正在读取组织内的项目…"
-    : !(chosenProject ?? newProjectName.trim()) ? "请先选择一个投后项目，或填一个新项目名称。"
     : files.length === 0 ? "请先上传至少一份材料（财务报表 / 审计报告 / 录音）。"
     : otherMissingText ? "勾了「其他」就要填写说明，否则这条缺失说明帮不到数据质量判定。"
     : null;
@@ -133,18 +111,10 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
     setLaunching(true);
     setError(null);
     try {
-      // 选了已有项目就用它；否则用填的名字新建一个（同 team3：没有可挂靠的项目就现建）。
-      const target = chosenProject
-        ?? { id: (await createProject({
-              orgId: orgId!, name: newProjectName.trim(),
-              kind: "research_project", blueprintVersionId: null,
-            })).id, name: newProjectName.trim() };
-
-      const { threadId, projectId: boundProjectId } = await launchRatingThread({
-        agentId, projectId: target.id, projectName: target.name,
-        files: files.map((f) => f.file), missingReason,
+      const { threadId } = await launchRatingThread({
+        agentId, files: files.map((f) => f.file), missingReason,
       });
-      router.push(`/chat?projectId=${encodeURIComponent(boundProjectId)}&threadId=${encodeURIComponent(threadId)}`);
+      router.push(`/chat?threadId=${encodeURIComponent(threadId)}`);
     } catch (err) {
       // 原来这里是 `catch {}` + 一句笼统文案，把真正的原因（ApiError 的 reasonCode，
       // 如 FILE_TYPE_REJECTED / NO_WRITE_ROLE / ATTACHMENT_LIMIT_EXCEEDED）吞掉了——
@@ -193,38 +163,6 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
           </CardContent>
         </Card>
       )}
-
-      <Card data-testid="rating-project-picker">
-        <CardHeader><CardTitle className="text-14">选择投后项目</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {projects === null ? (
-            <p className="text-11 text-muted-foreground">正在读取组织内的项目…</p>
-          ) : projects.length > 0 ? (
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              aria-label="选择投后项目"
-              data-testid="rating-project-select"
-              className="w-full max-w-sm rounded-control border border-border bg-background px-2 py-1 text-12"
-            >
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          ) : (
-            <input
-              type="text"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              placeholder="本组织还没有项目，填一个名字新建"
-              aria-label="新建项目名称"
-              data-testid="rating-project-new-name"
-              className="w-full max-w-sm rounded-control border border-border bg-background px-2 py-1 text-12"
-            />
-          )}
-          <p className="text-11 text-muted-foreground">
-            评级会在这个项目下新建一条对话。项目名同时是记忆里检索历史评级的键——换个名字就等于没有历史。
-          </p>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-14">上传本次投后项目材料</CardTitle></CardHeader>
