@@ -112,7 +112,7 @@ def validate(value: object) -> dict:
     need(isinstance(value, dict), "root must be an object")
     need(value.get("schemaVersion") == 2, "schemaVersion must be 2")
     phase = value.get("phase")
-    need(phase in {"prebuild", "preactivate"}, "phase must be prebuild or preactivate")
+    need(isinstance(phase, str) and phase in {"prebuild", "preactivate"}, "phase must be prebuild or preactivate")
     need(isinstance(value.get("attemptId"), str) and value["attemptId"].strip(), "attemptId is required")
     for field in ("sourceSha", "baselineSha"):
         need(isinstance(value.get(field), str) and HEX40.fullmatch(value[field]) is not None, f"{field} must be 40 lowercase hex")

@@ -80,6 +80,9 @@ class TestValidatePreflight(unittest.TestCase):
         data = fixture("preactivate")
         data["buildStarted"] = False
         self.reject(data)
+        data = fixture()
+        data["phase"] = {"prebuild": True}
+        self.reject(data)
 
     def test_failed_check_remains_blocker(self) -> None:
         data = fixture()
