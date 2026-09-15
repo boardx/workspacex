@@ -10,7 +10,7 @@
  */
 import { researchWorkflow as C } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest, ApiError } from "./api-client";
+import { apiRequest } from "./api-client";
 
 export type ResearchSession = z.infer<typeof C.ResearchSession>;
 export type ResearchMaterial = z.infer<typeof C.ResearchMaterial>;
@@ -72,7 +72,15 @@ export async function passResearchGate(
  * 仍然把用户扔在原地。评分卡 U3 要的就是后半句。
  */
 export function explainResearchFailure(err: unknown): { what: string; next: string } {
-  const code = err instanceof ApiError ? (err.reasonCode as C.ResearchRefusalName | undefined) : undefined;
+  // ⚠ 结构化读 `reasonCode`，**不用 `instanceof ApiError`**。
+  // `instanceof` 依赖"抛出方与判断方拿到的是同一个类对象"，而这在真实环境里并不总成立：
+  // 测试里的模块替身、将来可能的多份打包产物，都会让同一个类出现两个实例，
+  // 于是 `instanceof` 悄悄返回 false —— 错误没丢，但它的**含义**丢了，
+  // 用户会看到笼统的兜底文案而不是那句能据以行动的话。2026-09-15 实测撞到。
+  const code =
+    typeof err === "object" && err !== null && typeof (err as { reasonCode?: unknown }).reasonCode === "string"
+      ? ((err as { reasonCode: string }).reasonCode as C.ResearchRefusalName)
+      : undefined;
   switch (code) {
     case "MATERIALS_UNRESOLVED":
       return { what: "还有材料没有逐条判定完", next: "把清单里仍是「待审」的材料逐条标为通过、缺失或有误" };
@@ -82,9 +90,47 @@ export function explainResearchFailure(err: unknown): { what: string; next: stri
       return { what: "前一道人工确认门还没通过", next: "回到上一步完成确认后再来" };
     case "ATTEMPTS_EXHAUSTED":
       return { what: "这条材料的重新采集次数已用尽", next: "换一份材料，或直接标为「缺失」让它不再阻塞" };
+    case "ROOT_CAUSE_REQUIRED":
+      return {
+        what: "没兑现的预测必须说清根因",
+        next: "选「框架性」（判断逻辑本身要改）或「执行性」（逻辑没问题，这次没到位）",
+      };
+    case "NO_PREDICTIONS":
+      return { what: "这一版图谱还没有登记任何预测", next: "先登记几条可验证的预测，数月后才有东西可对" };
     case "PHASE_MISMATCH":
       return { what: "当前阶段不允许这个动作", next: "刷新一下——多半是别处已经把流程推进了" };
     default:
       return { what: "操作没有成功", next: "刷新重试；若仍失败请把这条反馈给我们" };
   }
+}
+
+/* ── 第三步：预测与回填 ─────────────────────────────────────────── */
+
+export type ResearchPrediction = z.infer<typeof C.ResearchPrediction>;
+
+export async function getResearchPredictions(threadId: string): Promise<ResearchPrediction[]> {
+  return apiRequest<ResearchPrediction[]>(`${base(threadId)}/research-predictions`, { method: "GET" });
+}
+
+export async function addResearchPredictions(
+  threadId: string,
+  statements: readonly string[],
+): Promise<ResearchPrediction[]> {
+  return apiRequest<ResearchPrediction[]>(`${base(threadId)}/research-predictions`, {
+    method: "POST",
+    body: { statements },
+  });
+}
+
+export async function fillResearchPrediction(
+  threadId: string,
+  predictionId: string,
+  actual: string,
+  verdict: C.PredictionVerdictName,
+  rootCause: C.RootCauseName | null,
+): Promise<ResearchPrediction[]> {
+  return apiRequest<ResearchPrediction[]>(
+    `${base(threadId)}/research-predictions/${encodeURIComponent(predictionId)}/fill`,
+    { method: "POST", body: { actual, verdict, rootCause } },
+  );
 }

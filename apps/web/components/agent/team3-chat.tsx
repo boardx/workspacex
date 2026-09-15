@@ -46,6 +46,8 @@ import { getResearchSession, type ResearchSession } from "@/lib/live-research-wo
 import { ResearchPhaseBar } from "./research-phase-bar";
 import { ResearchMaterialReview } from "./research-material-review";
 import { ResearchAuditTrail, ResearchGatePanel } from "./research-gate-panel";
+import { ResearchVerification } from "./research-verification";
+import { getResearchPredictions, type ResearchPrediction } from "@/lib/live-research-workflow";
 
 /** 与 `apps/api/scripts/backfill-team3-agent.ts` 的 `TEAM3_AGENT_NAME` 逐字一致。 */
 const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
@@ -104,6 +106,7 @@ export function Team3Chat(): JSX.Element {
   const [resolved, setResolved] = React.useState<Resolved | null>(null);
   const [failure, setFailure] = React.useState<string | null>(null);
   const [research, setResearch] = React.useState<ResearchSession | null>(null);
+  const [predictions, setPredictions] = React.useState<ResearchPrediction[]>([]);
 
   React.useEffect(() => {
     if (!orgId || resolved) return;
@@ -127,6 +130,9 @@ export function Team3Chat(): JSX.Element {
     let cancelled = false;
     void getResearchSession(resolved.threadId)
       .then((s) => { if (!cancelled) setResearch(s); })
+      .catch(() => undefined);
+    void getResearchPredictions(resolved.threadId)
+      .then((p) => { if (!cancelled) setPredictions(p); })
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [resolved]);
@@ -170,6 +176,14 @@ export function Team3Chat(): JSX.Element {
       {/* 门②/门③：同样自己判断该不该出现。 */}
       {research ? <ResearchGatePanel session={research} onChange={setResearch} /> : null}
       {/* 推进记录：Agent 跳门尝试要被人看见，不能只进日志。 */}
+      {/* 第三步：预测比对表。没有预测时组件自己返回 null。 */}
+      {research ? (
+        <ResearchVerification
+          threadId={research.threadId}
+          predictions={predictions}
+          onChange={setPredictions}
+        />
+      ) : null}
       {research ? <ResearchAuditTrail threadId={research.threadId} /> : null}
       {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
       <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
