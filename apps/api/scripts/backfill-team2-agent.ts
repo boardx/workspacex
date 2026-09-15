@@ -40,7 +40,7 @@ import { buildRatingPrompt } from "../../web/lib/postinvest-rating/rating-prompt
 
 export const TEAM2_AGENT_STABLE_NAME = "team2-postinvest-rating";
 
-const TEAM2_AGENT_TEMPLATE: SystemAgentTemplate = {
+export const TEAM2_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: TEAM2_AGENT_STABLE_NAME,
   // 展示名与前端查找用的名字必须是同一个字面量，否则前端按名字查不到——
   // 因此直接读 `RATING_AGENT.name`（落地页文案的单一事实源），不在这里重新声明。

@@ -179,4 +179,31 @@ for (const s of SCENARIOS) {
 }
 
 console.log(`\n${allPass ? "✅ 全部场景符合预期" : "❌ 存在不符合预期的场景，见上表"}`);
-process.exit(allPass ? 0 : 1);
+
+/**
+ * R7 业务规则 2：同一输入两次运行得分必须**逐位**一致。
+ *
+ * 上面那张表证明的是「算得对」，不是「算得稳」。这两件事会分开坏：任何一次把
+ * `Date.now()`、`Math.random()`、`Object.keys` 顺序或浮点累加次序引进评分路径的改动，
+ * 都能让表照样全绿而同一份报表两次评出不同的分——而评级是要写进报告给人看的，
+ * 「昨天 B 今天 C 而数据没变」会直接摧毁这份评级的可信度。
+ *
+ * 逐位比较用 `Object.is`：它把 `NaN` 判为相等、把 `+0/-0` 判为不等，正是"逐位"的语义；
+ * `===` 在这两处都会说谎。
+ */
+let deterministic = true;
+for (const s of SCENARIOS) {
+  const a = rateWithDataQuality(s.financials, s.facts);
+  const b = rateWithDataQuality(s.financials, s.facts);
+  const keys = Object.keys(a.scores) as (keyof typeof a.scores)[];
+  const drifted = keys.filter((k) => !Object.is(a.scores[k], b.scores[k]));
+  if (a.grade !== b.grade || drifted.length > 0 || a.flags.join() !== b.flags.join()) {
+    deterministic = false;
+    console.log(`❌ ${s.id} 两次运行结果不一致：${drifted.join("、") || "等级或标注不同"}`);
+  }
+}
+console.log(deterministic
+  ? "✅ 确定性：每个场景连跑两次，等级/标注/全部分项逐位一致"
+  : "❌ 确定性：存在两次运行结果不同的场景");
+
+process.exit(allPass && deterministic ? 0 : 1);
