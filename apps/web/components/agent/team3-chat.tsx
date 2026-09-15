@@ -41,14 +41,23 @@ import { CopilotKitV2Providers } from "@/app/chat/copilotkit-v2/copilotkit-v2-pr
 import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities } from "@/lib/live-capabilities";
-import { listProjects, createProject } from "@/lib/live-projects";
-import { createThread, getAgentPanel, updateAgentRoster, listThreads } from "@/lib/live-chat";
+import { createPersonalThread, getAgentPanel, updateAgentRoster, listPersonalThreads } from "@/lib/live-chat";
 
 /** 与 `apps/api/scripts/backfill-team3-agent.ts` 的 `TEAM3_AGENT_NAME` 逐字一致。 */
 const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
 
-type Resolved = { threadId: string; projectId: string };
+type Resolved = { threadId: string };
 
+/**
+ * ⚠ 用**个人线程**（`projectId: null`），不是项目线程——2026-09-15 devapp 真机实测
+ * 修的 bug。此前的写法是「取组织里第一个可见项目当锚点，在那下面建线程」，结果在
+ * devapp 上整页红字 `NO_WRITE_ROLE`：`update-agent-roster.ts` 对**项目线程**要求调用者
+ * 在该项目里有写角色（`role === null || role === "observer"` 一律 403），而"能看见某个
+ * 项目"跟"在那个项目里能写"是两件事，第一个可见项目很可能只是别人让你旁观的。
+ *
+ * 同一个文件里，个人线程被显式豁免这条检查（`if (!isPersonalThread)`）。而且对 team3
+ * 这种「我自己的研究助手」，个人线程本来就是对的语义：它不该往某个别人的项目里塞线程。
+ */
 async function resolveTeam3Thread(orgId: string): Promise<Resolved> {
   const agents = await listCapabilities(orgId, "agent");
   const team3 = agents.find((a) => a.name === TEAM3_AGENT_NAME && a.enabled);
@@ -58,31 +67,31 @@ async function resolveTeam3Thread(orgId: string): Promise<Resolved> {
     );
   }
 
-  const projects = await listProjects(orgId);
-  const projectId = projects[0]?.id
-    ?? (await createProject({ orgId, name: TEAM3_AGENT_NAME, kind: "research_project", blueprintVersionId: null })).id;
-
   // 复用已有线程：避免每次进页面都新建一条空对话（见文件头注）。
   // 读失败不阻断——退化成"新建一条"，比整页打不开好。
-  const existing = await listThreads(projectId).catch(() => null);
+  const existing = await listPersonalThreads({ q: TEAM3_AGENT_NAME }).catch(() => null);
   const reusable = existing?.groups
     .flatMap((g) => g.cards)
     .find((c) => c.title === TEAM3_AGENT_NAME);
-  if (reusable) return { threadId: reusable.id, projectId };
+  if (reusable) return { threadId: reusable.id };
 
-  const thread = await createThread({
-    projectId,
-    groupId: null,
-    title: TEAM3_AGENT_NAME,
-    visibilityScope: "private",
-  });
-  const panel = await getAgentPanel(thread.threadId, projectId);
-  await updateAgentRoster(thread.threadId, projectId, {
+  const thread = await createPersonalThread(TEAM3_AGENT_NAME);
+  const panel = await getAgentPanel(thread.threadId, null);
+  await updateAgentRoster(thread.threadId, null, {
     add: [team3.id],
     remove: [],
     expectedRosterVersion: panel.rosterVersion,
   });
-  return { threadId: thread.threadId, projectId };
+  return { threadId: thread.threadId };
+}
+
+/** 把服务端错误码翻成用户能据以行动的一句话；认不出的原样交给兜底文案。 */
+function explainFailure(raw: string): string {
+  if (raw.includes("NO_WRITE_ROLE")) return "当前账号没有写权限，无法把 Agent 加进这条对话";
+  if (raw.includes("AGENT_OUT_OF_SCOPE")) return "这个 Agent 不在本组织的能力目录里";
+  if (raw.includes("AGENT_NOT_FOUND")) return "找不到这个 Agent";
+  if (raw.includes("尚未配置")) return raw;
+  return "打开对话失败，请刷新重试";
 }
 
 export function Team3Chat(): JSX.Element {
@@ -97,7 +106,11 @@ export function Team3Chat(): JSX.Element {
     void resolveTeam3Thread(orgId)
       .then((r) => { if (!cancelled) setResolved(r); })
       .catch((e: unknown) => {
-        if (!cancelled) setFailure(e instanceof Error ? e.message : "打开对话失败，请刷新重试。");
+        // 直接把服务端错误码摊在页面上（此前就是整页一个红字 `NO_WRITE_ROLE`）对用户
+        // 毫无信息量。这里翻成人话，但**保留原始码**在括号里，出问题时仍可定位。
+        if (cancelled) return;
+        const raw = e instanceof Error ? e.message : String(e);
+        setFailure(`${explainFailure(raw)}（${raw}）`);
       });
     return () => { cancelled = true; };
   }, [orgId, resolved]);
@@ -126,7 +139,8 @@ export function Team3Chat(): JSX.Element {
 
   return (
     <div data-testid="team3-chat" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={resolved.projectId} />
+      {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
+      <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
     </div>
   );
 }
