@@ -56,16 +56,16 @@ flowchart TD
   F -->|否| S6[6 冷发布]
 ```
 
-所有时长从 `promotion.requested_at` 计到 `production.available_at`。在同一场景累计至少 20 个成功样本前，下表中的 P50/P95 是**规划预算**，不是统计分位数；每次仍须报告 T0–T9 实测并在样本达到门槛后重算。
+每个 attempt 同时记录两只时钟：**日历 lead time** 从用户请求、授权或事故触发开始，包含审批与 runner 排队；**执行时长** 从 runner 真正开始工作算起，不含此前等待。下表逐行定义起止事件及预算口径，不能跨场景复用一个起点。在同一场景累计至少 20 个成功样本前，P50/P95 是**规划预算**，不是统计分位数；每次仍须报告两只时钟和 T0–T9 实测，达到门槛后才重算统计分位数。
 
-| 第一条命中场景 | 适用边界 | 发布前应持续准备的证据 | 发布时只重检的漂移项 | 规划 P50 / P95 | Plan B / 回滚触发 |
-|---|---|---|---|---:|---|
-| 1. 紧急恢复 | 当前生产不健康，或候选刚激活失败 | baseline exact digests、旧 Nginx/Compose 指针、回滚浏览器账号与脚本 | 当前故障面、baseline artifact 可用性、回滚目标身份、release lock | 2m / 5m | 立即恢复旧指针和 exact digests；旧版浏览器未通过则升级为事故响应，不尝试下一个候选 |
-| 2. 维护窗口 | 破坏性/未知 migration、12 个稳定密钥轮换、RDS/Redis/网络/拓扑变更 | 已演练 runbook、备份/恢复证明、兼容矩阵、停机公告与回退检查点 | 备份新鲜度、连接/任务 drain、审批窗口、容量与依赖健康 | 60m / 120m | 任一不可逆检查点前置条件失败即取消窗口；越过检查点后按专用恢复 runbook 执行，不走普通 300 秒 activate |
-| 3. 配置或 seed-only | OCI 代码与 schema 均无变化；仅 durable profile，或可重复执行的 Skills/Agents/模板 seed | 配置 schema、幂等导入反证、导出快照、作用域/计数、浏览器目标清单 | baseline 身份、配置 diff、目标数据版本、导入锁、凭据引用有效性 | 5m / 10m | 导入或浏览器契约失败即恢复配置快照/撤销本批 seed；不得夹带代码或 schema 变化 |
-| 4. 已完全 prepared 的常规 exact-SHA | 有效 receipt 已绑定 exact SHA、manifest/seal、stable secrets、baseline 与浏览器运行时 | immutable images、离线 source、receipt、候选影子验收、baseline 回滚闭包 | receipt TTL、baseline fingerprint、CAS、lock、临时 IAM、drain、外部依赖 | 3m / 5m | 漂移即停止并回到场景 5；activate/browser 失败自动恢复 baseline 并验收 |
-| 5. 制品就绪但 host 未 prepared 或 receipt 失效 | images、manifest/seal、离线 source 已齐备，但主机 prepare 未完成或 receipt 失效 | ACR digest 重拉证明、OSS source hash、stable-secret continuity、工具链闭包 | 主机容量/运行时、managed-data Describe、baseline、依赖网络、receipt 输入 | 8m / 15m | GitHub 不通改走 OSS/ACR；prepare 失败保持旧服务并一次报告全部 blocker，不进入 activate |
-| 6. 冷发布 | 尚需 affected 计算、构建/推送/重拉 digest、manifest/seal 和离线 prepare | Devapp required gates、完整 source closure、构建缓存、ACR/OSS 通道、baseline 闭包 | candidate/main 祖先关系、affected diff、缓存命中、registry 凭据、所有聚合预检项 | 20m / 30m | 公网依赖失败切私有 OSS/ACR 离线闭包；构建或预检失败保持生产不变，修复后从聚合预检重跑 |
+| 第一条命中场景 | 适用边界 | 日历 lead time（起点 → 终点） | 执行时长（起点 → 终点） | 规划 P50 / P95 约束 | 发布前证据；发布时只重检 | Plan B / 回滚触发 |
+|---|---|---|---|---:|---|---|
+| 1. 紧急恢复 | 当前生产不健康，或候选刚激活失败 | `rollback.triggered_at` → `recovery.browser_passed_at`；包含调度等待 | `recovery.runner_started_at` → `recovery.browser_passed_at` | **日历** 2m / 5m | baseline exact digests、旧 Nginx/Compose 指针、回滚浏览器脚本；重检故障面、baseline artifact、回滚身份和 lock | 立即恢复旧指针和 exact digests；旧版浏览器未通过则升级为事故响应，不尝试下一个候选 |
+| 2. 维护窗口 | 破坏性/未知 migration、12 个稳定密钥轮换、RDS/Redis/网络/拓扑变更 | `maintenance.requested_at` → T9 `production.stable_at`；包含窗口审批和排队，单独报告、不以执行预算代替 | `maintenance.execution_started_at` → T8 `production.available_at`，并继续记录到 T9 | **执行至 T9** 60m / 120m | 演练 runbook、备份/恢复证明、兼容矩阵和回退检查点；重检备份新鲜度、drain、窗口、容量和依赖 | 任一不可逆检查点前置条件失败即取消窗口；越过检查点后按专用恢复 runbook 执行，不走普通 300 秒 activate |
+| 3. 配置或 seed-only | OCI 代码与 schema 均无变化；仅 durable profile，或可重复执行的 Skills/Agents/模板 seed | `promotion.requested_at` → `browser.accepted_at`；包含审批和排队，单独报告 | T3 `runner.started_at` → `browser.accepted_at` | **执行** 5m / 10m | 配置 schema、幂等导入反证、导出快照和浏览器清单；重检 baseline、配置 diff、数据版本、导入锁和凭据引用 | 导入或浏览器契约失败即恢复配置快照/撤销本批 seed；不得夹带代码或 schema 变化 |
+| 4. 已完全 prepared 的常规 exact-SHA | 有效 receipt 已绑定 exact SHA、manifest/seal、stable secrets、baseline 与浏览器运行时 | T2 `promotion.approved_at`（即收到并记录已授权发布指令）→ T8 `production.available_at`；此段包含 runner 排队 | T3 `runner.started_at` → T8 `production.available_at` | **日历** 3m / 5m；同时报告执行时长 | immutable images、离线 source、receipt、影子验收和回滚闭包；只重检 TTL、baseline、CAS、lock、临时 IAM、drain 和依赖 | 漂移即停止并回到场景 5；activate/browser 失败自动恢复 baseline 并验收 |
+| 5. 制品就绪但 host 未 prepared 或 receipt 失效 | images、manifest/seal、离线 source 已齐备，但主机 prepare 未完成或 receipt 失效 | T1 `promotion.requested_at` → T8 `production.available_at`；审批和排队明确计入并单列 | T3 `runner.started_at` → T8 `production.available_at` | **执行** 8m / 15m；日历时间另报 | ACR digest、OSS source hash、stable-secret continuity 和工具链闭包；重检主机、managed-data Describe、baseline、网络和 receipt 输入 | GitHub 不通改走 OSS/ACR；prepare 失败保持旧服务并一次报告全部 blocker，不进入 activate |
+| 6. 冷发布 | 尚需 affected 计算、构建/推送/重拉 digest、manifest/seal 和离线 prepare | T0 `candidate.sealed_at`（尚未 seal 时从 T1 请求开始并注明）→ T8 `production.available_at`；审批与 CI/runner 排队全部计入 | T3 `runner.started_at` → T8 `production.available_at` | **日历** 20m / 30m；执行时长另报 | Devapp gates、source closure、构建缓存、ACR/OSS 和回滚闭包；重检 candidate 祖先关系、affected diff、缓存、凭据和聚合预检 | 公网依赖失败切私有 OSS/ACR 离线闭包；构建或预检失败保持生产不变，修复后从聚合预检重跑 |
 
 `prepared` 不是人工判断：只有 receipt 未过期、全部绑定 hash 仍一致、候选影子验收已通过，且发布时的漂移重检全绿，才可进入场景 4。任何发布中新发现的高风险变更都要终止当前 attempt，重新按决策树归类，不能在原场景扩大范围。
 
