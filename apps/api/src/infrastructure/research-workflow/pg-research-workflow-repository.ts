@@ -5,6 +5,16 @@
  * 「这个推进合不合法」全部在 `domain/research-workflow/state-machine.ts`。
  * 仓储一旦开始顺手判一句，门就有了第二处定义。
  *
+ * ## 为什么这里没有一个方法返回裸行
+ *
+ * 研判会话的阶段、材料清单与审计都是租户内容，`lint-permission-paths` 要求它们
+ * 走 `permission-filter` 这道唯一的门——要求得对：一个交出裸行的仓储会让
+ * "忘了判可见性"变成一次疏漏，而不是一个编译错误。三道人工门的全部意义就是
+ * "有人真的看过"，而那个"人"必须先是**看得见这条线程的人**。
+ *
+ * 判定本身不在这里（仓储不做判断，见上）：`guarded-operations.ts` 先经
+ * `resolveVisibility` 拿到判定，再 `discloseDecided` 解开。
+ *
  * ⚠ `applyTransition` 把阶段与血缘写在**同一条 UPDATE** 里，不是两条。
  * 阶段进了而血缘没跟上，会得到一个"已发布但不知道基于哪批材料"的状态——
  * 那正是三个月后复盘要问的唯一问题，也是数据层 CHECK 约束
@@ -12,6 +22,7 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
+import { guard } from "../../application/security/permission-filter";
 import type { researchWorkflow as C } from "@repo/contracts";
 import type {
   GateAuditEntry,
@@ -73,6 +84,11 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
     private readonly uuid: () => string,
   ) {}
 
+  /** ref 用**线程 id**——研判会话就是那条线程（见 ObjectRef 的 research_session 注）。 */
+  private ref(threadId: string) {
+    return { kind: "research_session" as const, id: threadId };
+  }
+
   private async read(orgId: OrgId, threadId: string): Promise<ResearchSessionRow> {
     return this.db.withTenant(orgId, async (s) => {
       const sess = await s.query<SessionDbRow>(
@@ -96,7 +112,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
    * 先查再插会让其中一个撞主键。这个竞态在真实使用里很容易发生——用户点开页面的
    * 同时 Agent 正在推进。
    */
-  async ensureSession(orgId: OrgId, threadId: string): Promise<ResearchSessionRow> {
+  async ensureSession(orgId: OrgId, threadId: string) {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         `INSERT INTO research_sessions (thread_id, org_id) VALUES ($1, $2)
@@ -104,14 +120,14 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         [threadId, orgId],
       ),
     );
-    return this.read(orgId, threadId);
+    return guard(this.ref(threadId), await this.read(orgId, threadId));
   }
 
   async addMaterials(
     orgId: OrgId,
     threadId: string,
     items: readonly { source: string; label: string }[],
-  ): Promise<ResearchSessionRow> {
+  ) {
     await this.ensureSession(orgId, threadId);
     await this.db.withTenant(orgId, async (s) => {
       for (const it of items) {
@@ -122,7 +138,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         );
       }
     });
-    return this.read(orgId, threadId);
+    return guard(this.ref(threadId), await this.read(orgId, threadId));
   }
 
   async setMaterialVerdict(
@@ -131,7 +147,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
     materialId: string,
     verdict: C.MaterialVerdictName,
     note: string | null,
-  ): Promise<ResearchSessionRow> {
+  ) {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         `UPDATE research_materials SET verdict = $1, note = $2
@@ -139,10 +155,10 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         [verdict, note, materialId, threadId, orgId],
       ),
     );
-    return this.read(orgId, threadId);
+    return guard(this.ref(threadId), await this.read(orgId, threadId));
   }
 
-  async bumpMaterialAttempts(orgId: OrgId, threadId: string, materialId: string): Promise<ResearchSessionRow> {
+  async bumpMaterialAttempts(orgId: OrgId, threadId: string, materialId: string) {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         `UPDATE research_materials SET attempts = attempts + 1, verdict = 'pending'
@@ -150,7 +166,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         [materialId, threadId, orgId],
       ),
     );
-    return this.read(orgId, threadId);
+    return guard(this.ref(threadId), await this.read(orgId, threadId));
   }
 
   async applyTransition(
@@ -159,7 +175,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
     nextPhase: C.ResearchPhaseName,
     lineage: ResearchSessionRow["lineage"],
     verifyDueAt: string | null,
-  ): Promise<ResearchSessionRow> {
+  ) {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         // 阶段与血缘同一条语句——见文件头注：分两条会产生"已发布但血缘未知"的窗口。
@@ -174,7 +190,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         ],
       ),
     );
-    return this.read(orgId, threadId);
+    return guard(this.ref(threadId), await this.read(orgId, threadId));
   }
 
   /* ── 第三步：预测与回填 ── */
@@ -204,7 +220,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
   }
 
   async listPredictions(orgId: OrgId, threadId: string) {
-    return this.readPredictions(orgId, threadId);
+    return guard(this.ref(threadId), await this.readPredictions(orgId, threadId));
   }
 
   async addPredictions(orgId: OrgId, threadId: string, graphVersion: number, statements: readonly string[]) {
@@ -217,7 +233,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         );
       }
     });
-    return this.readPredictions(orgId, threadId);
+    return guard(this.ref(threadId), await this.readPredictions(orgId, threadId));
   }
 
   async fillPrediction(
@@ -238,7 +254,7 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         [actual, verdict, rootCause, predictionId, threadId, orgId],
       ),
     );
-    return this.readPredictions(orgId, threadId);
+    return guard(this.ref(threadId), await this.readPredictions(orgId, threadId));
   }
 
   async appendAudit(e: GateAuditEntry): Promise<void> {
@@ -252,12 +268,8 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
     );
   }
 
-  async listAudit(
-    orgId: OrgId,
-    threadId: string,
-    limit: number,
-  ): Promise<readonly (GateAuditEntry & { createdAt: string })[]> {
-    return this.db.withTenant(orgId, async (s) => {
+  async listAudit(orgId: OrgId, threadId: string, limit: number) {
+    const rows = await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         thread_id: string; actor_kind: string; action: string;
         from_phase: string; outcome: string; refusal: string | null; created_at: string;
@@ -278,5 +290,6 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
         createdAt: new Date(x.created_at).toISOString(),
       }));
     });
+    return guard(this.ref(threadId), rows);
   }
 }

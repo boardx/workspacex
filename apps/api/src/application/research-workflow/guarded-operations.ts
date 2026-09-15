@@ -20,7 +20,8 @@ import {
   type ResolveVisibilityDeps,
 } from "../chat/resolve-visibility";
 import { ThreadNotVisibleError } from "../chat/get-thread";
-import { advancePhase, passGate, ResearchGateRefusedError, type PassGateDeps } from "./pass-gate";
+import { advancePhase, passGate, ResearchGateRefusedError, type Opener, type PassGateDeps } from "./pass-gate";
+import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import { decideFill } from "../../domain/research-workflow/verification";
 import type { ResearchPredictionRow, ResearchSessionRow } from "./ports";
 
@@ -35,10 +36,16 @@ export interface ResearchActor {
 }
 
 /**
- * 可见性前置。看不见 = 404 语义（`ThreadNotVisibleError`），
- * 与「线程不存在」同一出口——不泄露存在性（I-3）。
+ * 可见性前置，**并交出一把解锁租户内容的钥匙**。
+ *
+ * 仓储只交出 `Guarded<T>`（`lint-permission-paths` 要求的），payload 够不着。
+ * 想读到它，唯一的路径是本函数返回的 `open`——而它只在判定为 allow 时才存在。
+ * 于是"忘了判可见性"从一次疏漏变成一个**编译错误**：没有 open 就没有数据。
+ *
+ * 看不见 = 404 语义（`ThreadNotVisibleError`），与「线程不存在」同一出口，
+ * 不泄露存在性（I-3）。
  */
-async function assertVisible(deps: ResearchOpsDeps, actor: ResearchActor): Promise<void> {
+async function openVisible(deps: ResearchOpsDeps, actor: ResearchActor): Promise<Opener> {
   const outcome = await resolveVisibility(deps, {
     userId: actor.userId,
     orgId: actor.orgId,
@@ -46,14 +53,23 @@ async function assertVisible(deps: ResearchOpsDeps, actor: ResearchActor): Promi
     threadId: actor.threadId,
   });
   if (outcome.kind !== "allow") throw new ThreadNotVisibleError();
+
+  const decision = outcome.base;
+  return <T>(g: Guarded<T>): T => {
+    const r = discloseDecided(g, decision);
+    // 判定说 allow 却披露失败，只可能是这两者不指同一个对象——那是编程错误，
+    // 不是权限拒绝，不能降级成 404 悄悄咽掉。
+    if (!isDisclosed(r)) throw new ThreadNotVisibleError();
+    return r.payload;
+  };
 }
 
 export async function readSession(
   deps: ResearchOpsDeps,
   actor: ResearchActor,
 ): Promise<ResearchSessionRow> {
-  await assertVisible(deps, actor);
-  return deps.research.ensureSession(actor.orgId, actor.threadId);
+  const open = await openVisible(deps, actor);
+  return open(await deps.research.ensureSession(actor.orgId, actor.threadId));
 }
 
 export async function addMaterials(
@@ -61,8 +77,8 @@ export async function addMaterials(
   actor: ResearchActor,
   items: readonly { source: string; label: string }[],
 ): Promise<ResearchSessionRow> {
-  await assertVisible(deps, actor);
-  return deps.research.addMaterials(actor.orgId, actor.threadId, items as never);
+  const open = await openVisible(deps, actor);
+  return open(await deps.research.addMaterials(actor.orgId, actor.threadId, items as never));
 }
 
 /**
@@ -79,12 +95,12 @@ export async function reviewMaterial(
   verdict: C.MaterialVerdictName,
   note: string | null,
 ): Promise<ResearchSessionRow> {
-  await assertVisible(deps, actor);
-  const afterVerdict = await deps.research.setMaterialVerdict(
+  const open = await openVisible(deps, actor);
+  const afterVerdict = open(await deps.research.setMaterialVerdict(
     actor.orgId, actor.threadId, materialId, verdict, note,
-  );
+  ));
   if (verdict !== "missing" && verdict !== "wrong") return afterVerdict;
-  return deps.research.bumpMaterialAttempts(actor.orgId, actor.threadId, materialId);
+  return open(await deps.research.bumpMaterialAttempts(actor.orgId, actor.threadId, materialId));
 }
 
 export async function passGateGuarded(
@@ -92,8 +108,8 @@ export async function passGateGuarded(
   actor: ResearchActor,
   gate: C.ResearchGateName,
 ): Promise<ResearchSessionRow> {
-  await assertVisible(deps, actor);
-  return passGate(deps, actor.orgId, actor.threadId, gate);
+  const open = await openVisible(deps, actor);
+  return passGate(deps, open, actor.orgId, actor.threadId, gate);
 }
 
 export async function advancePhaseGuarded(
@@ -101,14 +117,14 @@ export async function advancePhaseGuarded(
   actor: ResearchActor,
   to: C.ResearchPhaseName,
 ): Promise<ResearchSessionRow> {
-  await assertVisible(deps, actor);
-  return advancePhase(deps, actor.orgId, actor.threadId, to);
+  const open = await openVisible(deps, actor);
+  return advancePhase(deps, open, actor.orgId, actor.threadId, to);
 }
 
 /** 审计读回——界面上「这条线程发生过哪些推进与拒绝」那一栏。 */
 export async function readAudit(deps: ResearchOpsDeps, actor: ResearchActor, limit = 50) {
-  await assertVisible(deps, actor);
-  return deps.research.listAudit(actor.orgId, actor.threadId, limit);
+  const open = await openVisible(deps, actor);
+  return open(await deps.research.listAudit(actor.orgId, actor.threadId, limit));
 }
 
 /* ── 第三步：预测与回填 ─────────────────────────────────────────── */
@@ -117,8 +133,8 @@ export async function listPredictions(
   deps: ResearchOpsDeps,
   actor: ResearchActor,
 ): Promise<readonly ResearchPredictionRow[]> {
-  await assertVisible(deps, actor);
-  return deps.research.listPredictions(actor.orgId, actor.threadId);
+  const open = await openVisible(deps, actor);
+  return open(await deps.research.listPredictions(actor.orgId, actor.threadId));
 }
 
 /**
@@ -132,11 +148,11 @@ export async function addPredictions(
   actor: ResearchActor,
   statements: readonly string[],
 ): Promise<readonly ResearchPredictionRow[]> {
-  await assertVisible(deps, actor);
-  const session = await deps.research.ensureSession(actor.orgId, actor.threadId);
+  const open = await openVisible(deps, actor);
+  const session = open(await deps.research.ensureSession(actor.orgId, actor.threadId));
   const version = session.lineage.publishedGraphVersion;
   if (version === 0) throw new ResearchGateRefusedError("NO_PREDICTIONS", session.phase);
-  return deps.research.addPredictions(actor.orgId, actor.threadId, version, statements);
+  return open(await deps.research.addPredictions(actor.orgId, actor.threadId, version, statements));
 }
 
 /**
@@ -154,8 +170,8 @@ export async function fillPrediction(
   verdict: C.PredictionVerdictName,
   rootCause: C.RootCauseName | null,
 ): Promise<readonly ResearchPredictionRow[]> {
-  await assertVisible(deps, actor);
-  const session = await deps.research.ensureSession(actor.orgId, actor.threadId);
+  const open = await openVisible(deps, actor);
+  const session = open(await deps.research.ensureSession(actor.orgId, actor.threadId));
   const decision = decideFill(verdict, rootCause);
 
   await deps.research.appendAudit({
@@ -169,7 +185,7 @@ export async function fillPrediction(
   });
   if (!decision.ok) throw new ResearchGateRefusedError(decision.refusal, session.phase);
 
-  return deps.research.fillPrediction(
+  return open(await deps.research.fillPrediction(
     actor.orgId, actor.threadId, predictionId, actual, verdict, rootCause,
-  );
+  ));
 }

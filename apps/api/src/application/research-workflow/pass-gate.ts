@@ -24,7 +24,17 @@ import {
   type Decision,
 } from "../../domain/research-workflow/state-machine";
 import type { ResearchSessionRow, ResearchWorkflowRepository, UuidFactory } from "./ports";
+import type { Guarded } from "../security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+
+/**
+ * 解开 `Guarded<T>` 的能力。
+ *
+ * 它由 `guarded-operations.ts` 在**拿到可见性判定之后**才造出来并传进来——
+ * 所以本文件拿不到一个没有判定背书的 opener，也就没法绕过那道门读到租户内容。
+ * 这比"记得先调 assertVisible"强：后者是纪律，前者是类型。
+ */
+export type Opener = <T>(g: Guarded<T>) => T;
 
 export interface PassGateDeps {
   readonly research: ResearchWorkflowRepository;
@@ -60,6 +70,7 @@ function verifyDueAfterPublish(now: Date): string {
 /** 判定 → 留痕 → （允许时）写回。三步的顺序是固定的：先留痕，再改状态。 */
 async function commit(
   deps: PassGateDeps,
+  open: Opener,
   orgId: OrgId,
   session: ResearchSessionRow,
   actorKind: "human" | "agent",
@@ -78,7 +89,7 @@ async function commit(
     refusal: decision.ok ? null : decision.refusal,
   });
   if (!decision.ok) throw new ResearchGateRefusedError(decision.refusal, session.phase);
-  return deps.research.applyTransition(orgId, session.threadId, decision.nextPhase, nextLineage, verifyDueAt);
+  return open(await deps.research.applyTransition(orgId, session.threadId, decision.nextPhase, nextLineage, verifyDueAt));
 }
 
 /**
@@ -91,11 +102,12 @@ async function commit(
  */
 export async function passGate(
   deps: PassGateDeps,
+  open: Opener,
   orgId: OrgId,
   threadId: string,
   gate: C.ResearchGateName,
 ): Promise<ResearchSessionRow> {
-  const session = await deps.research.ensureSession(orgId, threadId);
+  const session = open(await deps.research.ensureSession(orgId, threadId));
   const decision = decideGate(session, gate);
 
   // 血缘只在放行时才算；被拒时原样带回，避免"拒绝了但版本号还是加了一"。
@@ -109,7 +121,7 @@ export async function passGate(
   const publishes = decision.ok && (gate === "reasoning" || gate === "plan");
   const verifyDueAt = publishes ? verifyDueAfterPublish(deps.now()) : session.verifyDueAt;
 
-  return commit(deps, orgId, session, "human", `gate:${gate}`, decision, nextLineage, verifyDueAt);
+  return commit(deps, open, orgId, session, "human", `gate:${gate}`, decision, nextLineage, verifyDueAt);
 }
 
 /**
@@ -121,11 +133,12 @@ export async function passGate(
  */
 export async function advancePhase(
   deps: PassGateDeps,
+  open: Opener,
   orgId: OrgId,
   threadId: string,
   to: C.ResearchPhaseName,
 ): Promise<ResearchSessionRow> {
-  const session = await deps.research.ensureSession(orgId, threadId);
+  const session = open(await deps.research.ensureSession(orgId, threadId));
   const decision = decideAdvance(session, to);
-  return commit(deps, orgId, session, "agent", `advance:${to}`, decision, session.lineage, session.verifyDueAt);
+  return commit(deps, open, orgId, session, "agent", `advance:${to}`, decision, session.lineage, session.verifyDueAt);
 }

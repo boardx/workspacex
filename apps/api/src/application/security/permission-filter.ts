@@ -138,6 +138,20 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `(application/feedback/drafts/draft-attachment-decision) and discloseDecided().`,
     );
   }
+  /*
+   * team3 研判工作流。一条研判会话没有自己的 `acl_bindings` 行——它的可见性跟着
+   * 所在的 chat 线程走（个人线程看创建者，项目线程看项目成员资格）。
+   * 交给 authorize 会查不到绑定、落回宽松的默认 scope，从而对组织里任何人产出一个
+   * 看起来正常的 "allowed"——那正好是三道人工门要防的：任何知道 threadId 的人
+   * 都能替别人点掉「人工确认」。
+   */
+  if (ref.kind === "research_session") {
+    throw new Error(
+      `research_session "${ref.id}" cannot be judged by authorize -- a research session has no ` +
+        `acl_bindings row; its visibility follows the chat thread. Use resolveVisibility ` +
+        `(application/chat/resolve-visibility) and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 
