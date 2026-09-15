@@ -13,17 +13,46 @@
 风险识别滞后**，从而**优化财务分析与风险预警**。不是替人做投资/退出判断——只把
 「读材料 / 算趋势 / 查外部信息 / 找风险」的机械活拿走。
 
-## 架构（第三版 —— 中转进真 chat，方法论住平台内置 Skill）
+## 架构（第四版 —— 就地挂 chat 壳 + 真的选中本 Agent）
 
-三版演进，每一版都是被上一版的真实缺陷推着走的：
+四版演进，每一版都是被上一版的真实缺陷推着走的：
 
-| | 第一版（已删） | 第二版（已删） | 第三版（当前） |
+| | 第一/二版（已删） | 第三版（已改） | 第四版（当前） |
 |---|---|---|---|
-| 入口 | 自建粘贴框页面 | 落地页 + 上传框 + 「开始分析」 | **中转页**，就绪即 `replace` 进 `/chat/<threadId>` |
-| 材料 | 粘贴纯文本，单份 | 真实附件，多份 | 真实附件，多份（在 chat 里传，没有第二套上传框） |
-| 方法论 | 后端 prompt 常量 | 每次会话的第一条消息 | **平台内置 Skill**，挂进线程 |
-| 判据阈值 | 散在 prompt 里 | 散在 prompt 里 | `packages/contracts/src/post-investment-rules.ts` 单一事实源 |
-| 后端面 | 新增 `POST /post-investment/analyze` | 同左（已无人调用） | **零新增端点**（那条端点连同用例、契约已删） |
+| 入口 | 自建粘贴框 / 上传框落地页 | 中转页 `replace` 进 `/chat/<id>` | **就地挂 `CopilotKitV2Shell`**，地址栏留在 `/agent/team4` |
+| 谁在回答 | 专用端点（无 agent） | ❌ **通用助手**（本 Agent 没被选中） | ✅ 本 Agent（`initialAgentId` 交给选择 provider） |
+| 材料 | 粘贴纯文本 | 真实附件，多份 | 同左（在 chat 里传，没有第二套上传框） |
+| 方法论 | 后端 prompt 常量 | **平台内置 Skill**，挂进线程 | 同左 |
+| 判据阈值 | 散在 prompt 里 | `post-investment-rules.ts` 单一事实源 | 同左 |
+| 后端面 | 新增 `POST /post-investment/analyze` | 零新增端点 | 同左 |
+
+### 第三版错在哪（2026-09-15 真机截图，这一版就是为修它）
+
+截图里在这条对话问「你可以做什么」，回答的是**通用助手**的能力清单，没有投后方法论
+的影子。根因不是模型表现差，是**本 Agent 根本没参与那次对话**：
+
+1. 第三版把 Agent 挂进线程 roster 后 `replace` 进 `/chat/<threadId>`；
+2. `/chat` 那棵树的 `CopilotKitV2AgentSelectionProvider` 初值恒为 `null`（界面上显示
+   「能力：自动匹配」），且 `copilotkit-v2-panel.tsx` 明确写着"刻意不自动选中"；
+3. 不选 ⇒ 请求不带 `COPILOTKIT_V2_SELECTED_AGENT_HEADER` ⇒ 服务端
+   `resolveEffectiveAgentId`（`copilotkit-agui.controller.ts`）落到第 ③ 级「org 动态
+   默认」= 通用助手。
+
+**「挂进 roster」决定的是"这条线程编制里有谁"，不决定"这次请求用哪个 agent"**——
+这两件事此前被当成一件。第四版就地挂壳并把 agentId 作为 `initialAgentId` 传给选择
+provider（那个 prop 是本轮给公共组件加的，缺省 `null`，`/chat` 行为逐字不变）。
+
+⚠ **team1 与 team3 同源**：它们也是"挂 roster + 打开 chat"，同样没把自己的 agentId
+交给选择 provider。本轮只修了 team4（没动别人的 Agent），那两个要不要照修由它们的
+负责人决定。
+
+⚠ **还有一个叠加缺陷未修**：本 Agent 没有钉 skill（`agent_versions.skillVersionIds`
+为空），于是 `message-roundtrip.ts` 的 `resolveRunSkillVersionIds` 会退化成加载**全
+组织所有已启用 skill**（真机截图显示「技能活动 23 项」）——方法论 Skill 在里面，但
+和另外 22 个挤在同一份 system prompt 里。修法是 `setAgentSkillPins` 钉一组（方法论 +
+data-analysis + pdf-create/xlsx-create），但 `data-analysis` 没有稳定 skillId（随组织
+导入生成），必须在真实环境按名解析；钉错会把本该有的能力挡掉，比现在更糟。所以本轮
+**不做**，登记在 backlog B10，等能在真实环境验证时再做。
 
 ```
 /agent/team4（中转页：能力清单 + 边界 + 转场提示）
@@ -95,6 +124,8 @@ cd apps/api && npx vitest run tests/post-investment      # 派生公式 + 自检
    Postgres+Redis+apps/api 上验证过，但本 Agent 的方法论内容还没在配了模型 provider
    的环境里跑过测试集。打分器的满分**不代表**这一关会过。
 3. 每个部署环境需要至少一位 org admin 打开过一次入口（之后所有人直接用）。
+4. **skill 稀释未解决**（B10）：system prompt 里除了本方法论还有全组织另外约 22 个
+   skill。第四版修的是"谁在回答"，不是"system prompt 里有几个 skill"。
 
 ## Backlog
 
@@ -109,6 +140,7 @@ cd apps/api && npx vitest run tests/post-investment      # 派生公式 + 自检
 | B7 | 验收标准 + 机械打分器 + 反证 | ✅ `team4-acceptance-rubric.md` + `scripts/team4-acceptance-score.mjs` |
 | B8 | 真实模型链路跑 A/B/C（配了 provider 的环境） | ⬜ 见「已知限制」 |
 | B9 | 机械阻断的两轮人工确认（接 `deep-agent-hitl`） | ⬜ 下一档 |
+| B10 | 给 Agent 钉 skill（避免被全组织 23 个 skill 稀释），需真实环境按名解析 | ⬜ 见上方 ⚠ |
 
 ## 怎么删干净（这个 Agent 是临时的）
 
