@@ -4,9 +4,17 @@
  * 同 team1（`lib/ic-review/review-prompt.ts`）的架构：不自建分析引擎，评级由挂载在
  * 真实 Agent 上的模型执行，靠已有平台 skill 完成，本仓不新增后端端点/工具。
  *
- * 关键约束：**评分公式必须由 `data-analysis` skill 的沙箱脚本真实执行，模型不得
- * 心算给出分数**——这条规则本身就是任务书要传达的内容，因此规则数值必须以文字形式
- * 出现在这里（模型读不到仓库源码）。
+ * 关键约束：**评分公式必须在沙箱里真实执行，模型不得心算给出分数**——这条规则本身
+ * 就是任务书要传达的内容，因此规则数值必须以文字形式出现在这里（模型读不到仓库源码）。
+ *
+ * ⚠ 2026-09-15 核实后改写：此前这里写的是「用 `data-analysis` skill 的沙箱脚本」，
+ * 而 `data-analysis` **不在** `PLATFORM_SKILL_CATALOG`（`apps/api/src/domain/skill/
+ * platform-skill-catalog.ts` 里平台级默认可见的只有 pptx/docx/xlsx/pdf-create 四个）。
+ * `skills/data-workflows/data-analysis/` 这个包在仓库里存在，但要本组织导入并启用后
+ * 才会出现在 run 的 skill 列表里。让模型去找一个可能不存在的 skill，最可能的退化不是
+ * 报错，而是**它绕过沙箱直接心算**——那正好打穿这个 Agent 唯一不可妥协的那条规则。
+ * 现在改为指向一定存在的底座：`write_file` + `execute`（`NATIVE_PROFILE_TOOLS` 成员，
+ * 每个真实 agent run 都有，沙箱会话由 run 自动 provision）。
  *
  * ⚠ 但数值**不在本文件声明**：第三步那一段由 `renderRuleBook()` 从
  * `packages/contracts/src/postinvest-rating-rules.ts` 渲染，与
@@ -60,9 +68,12 @@ ${
 - 无财务报表（诉讼/失联/停业/破产等异常原因）→ 直接判 E，标注「公司经营异常」，跳过第三步
 - 触发第三步规则手册末尾那两条「数据疑似异常」比率之一 → 标注「数据疑似异常」（阈值见手册，不要另记一套）
 
-## 第三步：用 data-analysis skill 的沙箱脚本计算——不要自己心算
-写一个 Python 脚本（用 data-analysis skill 的沙箱执行，不要跳过这一步、不要在对话里直接报数字），
-严格实现以下公式：
+## 第三步：在沙箱里跑脚本算分——不要自己心算
+用 write_file 写一个 Python 脚本，再用 execute 执行它。这两个工具你一定有。
+不要跳过这一步，不要在对话里直接报数字，不要用心算或估算代替脚本输出。
+（如果本组织启用了 data-analysis skill，用它更方便，但没有它也必须照样做——
+用 write_file + execute 就够了，不要因为找不到某个 skill 就退回心算。）
+脚本严格实现以下公式：
 
 ${renderRuleBook()}
 

@@ -15,6 +15,7 @@ import {
   rateWithDataQuality,
   type FinancialInput,
   type HumanConfirmedFacts,
+  type ScoringBreakdown,
 } from "../src/domain/postinvest-rating/scoring";
 
 interface Scenario {
@@ -26,6 +27,19 @@ interface Scenario {
   expect: {
     grade?: string | null;
     flagsInclude?: string[];
+    /**
+     * 对某个分项的定点/区间断言。
+     *
+     * 2026-09-15 独立评审发现：此前 `expect` 只能断言等级与标注，于是 S2/S9/S10 三个
+     * 场景（它们要验的是**子项**，不是等级）实际上一条断言都没有——循环里 `ok` 恒为
+     * true，引擎算出什么都打 ✅。其中 S2 是全表唯一锚定 PDF 外部真值的算例
+     * （「+50% → 90 分」），把增长系数改错脚本照样 exit 0。
+     *
+     * 一个只会绿不会红的检查比没有检查更坏：它让人以为有门控。
+     */
+    scores?: {
+      [K in keyof ScoringBreakdown]?: { equals?: number; min?: number; max?: number };
+    };
     note: string;
   };
 }
@@ -72,7 +86,12 @@ const SCENARIOS: Scenario[] = [
     pdfRule: "二、S1：90 × log1.5(本年/上年)，示例 +50% → 90 分",
     financials: fin({ revenue: 1.5e8, revenuePriorYear: 1e8, netProfit: 6e7, netProfitPriorYear: 5e7 }),
     facts: NORMAL_FACTS,
-    expect: { note: "本用例验证增长率子项定点得分，见下方明细里的 revenueGrowthScore≈90" },
+    // PDF 原文算例：营收 +50% 时增长率得分 = 90 × log1.5(1.5) = 90，**正好**。
+    // 这是全表唯一锚定外部真值的一条，必须定点断言——它是整套对数口径的锚。
+    expect: {
+      scores: { revenueGrowthScore: { equals: 90 } },
+      note: "PDF 原文算例：+50% → 增长率得分正好 90",
+    },
   },
   {
     id: "S3",
@@ -128,7 +147,12 @@ const SCENARIOS: Scenario[] = [
     pdfRule: "二、增长率得分：无上年数据 → 按体量给分，中性偏正",
     financials: fin({ revenuePriorYear: null, netProfitPriorYear: null }),
     facts: NORMAL_FACTS,
-    expect: { note: "首次评级仍可出分，增长子项退化为体量得分" },
+    // 无上年数据时增长子项退化为体量得分——两者必须逐位相等，不是"差不多"。
+    expect: {
+      grade: "A",
+      scores: { revenueGrowthScore: { equals: 100 }, revenueSizeScore: { equals: 100 } },
+      note: "无上年数据：增长子项退化为体量得分，两者逐位相等",
+    },
   },
   {
     id: "S10",
@@ -136,13 +160,32 @@ const SCENARIOS: Scenario[] = [
     pdfRule: "二、S2：扭亏为盈 70~90（亏损越大越高）",
     financials: fin({ netProfit: 1e6, netProfitPriorYear: -8e7 }),
     facts: NORMAL_FACTS,
-    expect: { note: "净利润增长子项应落在 70~90 区间" },
+    // 扭亏为盈：按 min(上年亏损,1亿)/1亿 线性映射到 70~90，落在闭区间内。
+    expect: {
+      grade: "A",
+      scores: { profitGrowthScore: { min: 70, max: 90 } },
+      note: "扭亏为盈：净利润增长子项落在 70~90",
+    },
   },
 ];
 
 function fmt(n: number | null): string {
   if (n === null) return "—";
   return n.toFixed(1);
+}
+
+/**
+ * 先自检验收表本身：每个场景必须至少有一条真断言。
+ *
+ * 独立评审 2026-09-15 抓到 S2/S9/S10 只有 `note`——「验收脚本」跑绿，证明的却只是
+ * 「它没崩」。这一关把那种情况变成启动即红，而不是等下一个人再发现一次。
+ */
+const unasserted = SCENARIOS.filter(
+  (s) => s.expect.grade === undefined && !s.expect.flagsInclude && !s.expect.scores,
+);
+if (unasserted.length > 0) {
+  console.log(`❌ 这些场景只印表不校验，等于没有断言：${unasserted.map((s) => s.id).join("、")}`);
+  process.exit(1);
 }
 
 let allPass = true;
@@ -159,6 +202,29 @@ for (const s of SCENARIOS) {
     ok = false;
     problems.push(`期望等级 ${s.expect.grade}，实际 ${result.grade}`);
   }
+  for (const [key, bound] of Object.entries(s.expect.scores ?? {})) {
+    const actual = result.scores[key as keyof typeof result.scores];
+    if (actual === null || actual === undefined) {
+      ok = false;
+      problems.push(`${key} 期望有值，实际为空`);
+      continue;
+    }
+    // 浮点定点比较留 1e-9 容差：对数与线性插值的最后一位不该决定验收成败，
+    // 但也不能宽到让"改错系数"蒙混过关——1e-9 远小于任何一次口径改动的量级。
+    if (bound.equals !== undefined && Math.abs(actual - bound.equals) > 1e-9) {
+      ok = false;
+      problems.push(`${key} 期望 ${bound.equals}，实际 ${actual.toFixed(4)}`);
+    }
+    if (bound.min !== undefined && actual < bound.min) {
+      ok = false;
+      problems.push(`${key} 期望 ≥${bound.min}，实际 ${actual.toFixed(4)}`);
+    }
+    if (bound.max !== undefined && actual > bound.max) {
+      ok = false;
+      problems.push(`${key} 期望 ≤${bound.max}，实际 ${actual.toFixed(4)}`);
+    }
+  }
+
   if (s.expect.flagsInclude) {
     for (const f of s.expect.flagsInclude) {
       if (!result.flags.includes(f as never)) {
@@ -179,4 +245,31 @@ for (const s of SCENARIOS) {
 }
 
 console.log(`\n${allPass ? "✅ 全部场景符合预期" : "❌ 存在不符合预期的场景，见上表"}`);
-process.exit(allPass ? 0 : 1);
+
+/**
+ * R7 业务规则 2：同一输入两次运行得分必须**逐位**一致。
+ *
+ * 上面那张表证明的是「算得对」，不是「算得稳」。这两件事会分开坏：任何一次把
+ * `Date.now()`、`Math.random()`、`Object.keys` 顺序或浮点累加次序引进评分路径的改动，
+ * 都能让表照样全绿而同一份报表两次评出不同的分——而评级是要写进报告给人看的，
+ * 「昨天 B 今天 C 而数据没变」会直接摧毁这份评级的可信度。
+ *
+ * 逐位比较用 `Object.is`：它把 `NaN` 判为相等、把 `+0/-0` 判为不等，正是"逐位"的语义；
+ * `===` 在这两处都会说谎。
+ */
+let deterministic = true;
+for (const s of SCENARIOS) {
+  const a = rateWithDataQuality(s.financials, s.facts);
+  const b = rateWithDataQuality(s.financials, s.facts);
+  const keys = Object.keys(a.scores) as (keyof typeof a.scores)[];
+  const drifted = keys.filter((k) => !Object.is(a.scores[k], b.scores[k]));
+  if (a.grade !== b.grade || drifted.length > 0 || a.flags.join() !== b.flags.join()) {
+    deterministic = false;
+    console.log(`❌ ${s.id} 两次运行结果不一致：${drifted.join("、") || "等级或标注不同"}`);
+  }
+}
+console.log(deterministic
+  ? "✅ 确定性：每个场景连跑两次，等级/标注/全部分项逐位一致"
+  : "❌ 确定性：存在两次运行结果不同的场景");
+
+process.exit(allPass && deterministic ? 0 : 1);

@@ -105,9 +105,28 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   const otherMissingText = missingReason.reasons.includes("other") && !missingReason.otherText?.trim();
 
   const chosenProject = projects?.find((p) => p.id === projectId) ?? null;
-  const canStart =
-    Boolean(agentId) && files.length > 0 && !launching && !otherMissingText &&
-    Boolean(chosenProject ?? newProjectName.trim());
+
+  /**
+   * 按钮为什么不能点——**必须有话说**。
+   *
+   * 2026-09-15 人类实测「点击开始没反应」：四个条件里任何一个不满足都会让按钮 disabled，
+   * 而 disabled 的视觉差异很淡，页面上又没有一句解释，点下去就是什么都不发生。一个
+   * 禁用的按钮不说明自己为什么禁用，等同于坏掉——用户无从知道该去改什么。
+   *
+   * 顺序即优先级：先说最可能拦住人的那一条。
+   */
+  const disabledReason: string | null =
+    launching ? null
+    : !orgId ? "还没读到你的登录会话——请刷新页面或重新登录。"
+    : !resolved.done ? "正在本组织的能力目录里查这个 Agent…"
+    : !agentId ? "本组织的能力目录里没有这个 Agent，无法发起评级（见上方提示）。"
+    : projects === null ? "正在读取组织内的项目…"
+    : !(chosenProject ?? newProjectName.trim()) ? "请先选择一个投后项目，或填一个新项目名称。"
+    : files.length === 0 ? "请先上传至少一份材料（财务报表 / 审计报告 / 录音）。"
+    : otherMissingText ? "勾了「其他」就要填写说明，否则这条缺失说明帮不到数据质量判定。"
+    : null;
+
+  const canStart = !launching && disabledReason === null;
 
   const start = async () => {
     if (!agentId || !canStart) return;
@@ -126,8 +145,12 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
         files: files.map((f) => f.file), missingReason,
       });
       router.push(`/chat?projectId=${encodeURIComponent(boundProjectId)}&threadId=${encodeURIComponent(threadId)}`);
-    } catch {
-      setError("发起评级失败：无法创建项目/对话或上传材料，请稍后重试。");
+    } catch (err) {
+      // 原来这里是 `catch {}` + 一句笼统文案，把真正的原因（ApiError 的 reasonCode，
+      // 如 FILE_TYPE_REJECTED / NO_WRITE_ROLE / ATTACHMENT_LIMIT_EXCEEDED）吞掉了——
+      // 失败时用户和我都看不出是哪一步、为什么。原样带出来。
+      const detail = err instanceof Error && err.message ? err.message : String(err);
+      setError(`发起评级失败：${detail}`);
       setLaunching(false);
     }
   };
@@ -314,8 +337,15 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
               {launching ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Send aria-hidden className="size-3.5" />}
               开始评级（{files.length} 份，将进入真实项目对话）
             </Button>
-            {error && <span data-testid="agent-rating-error" className="text-11 text-destructive-foreground">{error}</span>}
           </div>
+          {error && (
+            <p data-testid="agent-rating-error" className="text-11 text-destructive-foreground">{error}</p>
+          )}
+          {disabledReason && (
+            <p data-testid="agent-rating-disabled-reason" className="text-11 text-muted-foreground">
+              {disabledReason}
+            </p>
+          )}
           <p className="text-11 text-muted-foreground">
             录音暂只收 wav / mp3：m4a 需要走原件上传路径（D5），本版还没接。
           </p>

@@ -17,7 +17,7 @@
  * apps/web/lib/postinvest-rating/agent-directory.ts 的 `agentId` 字段（或设置
  * NEXT_PUBLIC_TEAM2_AGENT_ID 环境变量，见该文件头注——二选一，不需要都做）。
  *
- * ⚠ skill 挂载：`document-understanding`/`data-analysis`/`pdf-create`/`xlsx-create`
+ * ⚠ skill 挂载：`pdf-create`/`xlsx-create`（平台级）与 `write_file`+`execute`（native 沙箱）
  * 均为 Phase 13 起的平台级 skill，按其规则"对所有组织默认可见、可挂载、可执行，
  * 不需要任何组织的 admin 手动导入"，预期该 Agent 发布后不挂载也能直接使用；
  * 如果在真实环境验收时发现模型报"没有这个工具"，下一步是调用
