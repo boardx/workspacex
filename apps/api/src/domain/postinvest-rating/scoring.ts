@@ -7,6 +7,13 @@
  *
  * 纯函数，无副作用、无 I/O：同一输入必然得到位级相同的输出（R7 业务规则 2）。
  * 缺失字段一律为 `null`，绝不当作 0 参与计算（R7 业务规则 3）。
+ *
+ * 类型命名加了 `Scoring` 前缀（`ScoringGrade`/`ScoringDataQualityFlag`/`ScoringBreakdown`），
+ * 刻意与 `packages/contracts/src/postinvest-rating.ts`（未签核契约束，`RatingGrade`/
+ * `DataQualityFlag`/`ScoreBreakdown`）同名但不同名字撞上——`lint-contract-source.mjs`
+ * 按类型名逐字匹配，撞名即判「同一事实两处声明」（ADR-020）。两者确实是不同的事实：
+ * 本文件是 MVP 直收已抽取字段的计算引擎，那份契约是文件上传+agent 编排完整形态签核
+ * 后的 API 面；在契约未签核前 import 它会把 MVP 绑死在一个还可能改的形状上。
  */
 
 export type Nullable<T> = T | null;
@@ -57,11 +64,11 @@ export interface HumanConfirmedFacts {
   >;
 }
 
-export type DataQualityFlag = "incomplete" | "estimated" | "business_abnormal" | "suspected_abnormal";
+export type ScoringDataQualityFlag = "incomplete" | "estimated" | "business_abnormal" | "suspected_abnormal";
 
-export type RatingGrade = "A" | "B" | "C" | "D" | "E";
+export type ScoringGrade = "A" | "B" | "C" | "D" | "E";
 
-export interface ScoreBreakdown {
+export interface ScoringBreakdown {
   revenueSizeScore: Nullable<number>;
   revenueGrowthScore: Nullable<number>;
   s1: Nullable<number>;
@@ -74,9 +81,9 @@ export interface ScoreBreakdown {
 }
 
 export interface RatingResult {
-  grade: Nullable<RatingGrade>;
-  scores: ScoreBreakdown;
-  flags: DataQualityFlag[];
+  grade: Nullable<ScoringGrade>;
+  scores: ScoringBreakdown;
+  flags: ScoringDataQualityFlag[];
   downgrade: Nullable<"D" | "E">;
   /** 无法评级时的说明（MVP：只覆盖"无财务报表"这一条 R4 A1） */
   cannotRateReason: Nullable<string>;
@@ -206,7 +213,7 @@ export function computeS3(input: FinancialInput): { s3: Nullable<number>; months
 }
 
 /** 总分 → 等级（不考虑降级触发）。 */
-export function gradeFromTotal(total: number): RatingGrade {
+export function gradeFromTotal(total: number): ScoringGrade {
   if (total > 140) return "A";
   if (total > 100) return "B";
   if (total > 70) return "C";
@@ -261,10 +268,10 @@ export function rate(input: FinancialInput): RatingResult {
   const s2r = computeS2(input);
   const s3r = computeS3(input);
 
-  const flags: DataQualityFlag[] = [];
+  const flags: ScoringDataQualityFlag[] = [];
   if (suspectedAbnormalFlag(input)) flags.push("suspected_abnormal");
 
-  const scores: ScoreBreakdown = {
+  const scores: ScoringBreakdown = {
     revenueSizeScore: s1r.sizeScore,
     revenueGrowthScore: s1r.growthScore,
     s1: s1r.s1,
@@ -298,7 +305,7 @@ export function rate(input: FinancialInput): RatingResult {
  * F01（skill 包）在有历史报表输入时实现，本函数只标注、不回填往期数据。
  */
 export function rateWithDataQuality(input: FinancialInput, facts: HumanConfirmedFacts): RatingResult {
-  const flags: DataQualityFlag[] = [];
+  const flags: ScoringDataQualityFlag[] = [];
 
   if (!facts.hasFinancialStatement) {
     if (facts.missingStatementReason !== null && REASON_IS_ABNORMAL(facts.missingStatementReason)) {
