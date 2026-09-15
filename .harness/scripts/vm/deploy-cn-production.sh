@@ -33,6 +33,8 @@ baseline_state="$runtime/baseline.json"
 baseline_nginx="$runtime/baseline-nginx.conf"
 
 fail() { echo "CN_DEPLOY_REJECTED: $1" >&2; exit 1; }
+pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }
+[[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
 resolve_browser_executable() {
   local candidate path
   for candidate in chromium-browser chromium google-chrome; do

@@ -194,7 +194,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `ACR_AUTH_EXPIRED` | 临时凭据 + registry 鉴权 probe + 到期预算 |
 | 2026-09-15 | `RELEASE_LOCK_ORPHANED` | process-group 终止后枚举后代、确认 lock free |
 | 2026-09-15 | `PARTIAL_SOURCE_OBJECT_MISSING` | 完整离线 source artifact 和 object closure 校验；预检将裸仓缓存原子复制成 root:root 0700，验证 exact ref、无 `.promisor` pack 且 `GIT_NO_LAZY_FETCH=1 git fsck` 通过，Prepare 只从该缓存做 `--no-local` 克隆 |
-| 2026-09-15 | `PNPM_VERSION_MISMATCH` | 从 packageManager 固定进程级 pnpm 并在预检执行 |
+| 2026-09-15 | `PNPM_VERSION_MISMATCH` | 从 packageManager 固定进程级 pnpm；CN trusted deploy 直接用离线 Corepack pnpm@9.15.0，进入 Prepare/Activate 前核对版本，不依赖主机当前 pnpm |
 | 2026-09-15 | `PNPM_ARGUMENT_PROTOCOL_DRIFT` | 真实 CLI 参数转发反证测试 |
 | 2026-09-15 | `MACHINE_STDOUT_CONTAMINATED` | 唯一前缀 JSON stdout 契约测试 |
 | 2026-09-15 | `RELEASE_IDENTITY_DRIFT` | exact SHA 冻结 + manifest/config/CAS 一致性 |
