@@ -14,6 +14,7 @@ import {
   buildMissingReasonBrief,
 } from "@/lib/postinvest-rating/missing-reason";
 import { buildRatingPrompt } from "@/lib/postinvest-rating/rating-prompt";
+import { renderRuleBook } from "@repo/contracts/postinvest-rating-rules";
 
 describe("missing-reason", () => {
   it("覆盖契约里每一个原因码，不多不少（契约是单一事实源）", () => {
@@ -62,5 +63,22 @@ describe("missing-reason", () => {
     expect(prompt).toContain("一律以那一段为准");
     // 不传表单时不得引用一个不存在的段落（否则模型会去找一段空气）
     expect(buildRatingPrompt([])).toContain("我没说就是没确认");
+  });
+});
+
+/**
+ * 任务书里的数值不得是手抄的第二份（ADR-020）——第三步那一段必须逐字来自规则手册。
+ * 有人把某个阈值直接写回提示词时，这里变红。
+ */
+describe("rating-prompt 的评分规则来自规则手册", () => {
+  it("第三步整段就是 renderRuleBook() 的输出", () => {
+    expect(buildRatingPrompt([])).toContain(renderRuleBook());
+  });
+
+  it("可信渠道清单来自契约种子值，不在提示词里另记一份", () => {
+    const prompt = buildRatingPrompt([]);
+    for (const domain of postinvestRating.TRUSTED_SOURCE_SEED_DOMAINS) {
+      expect(prompt).toContain(domain);
+    }
   });
 });
