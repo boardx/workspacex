@@ -26,7 +26,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
         <div data-testid="agent-team-page" data-team={team.slug} className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
           <header className="space-y-2">
             <p className="text-11 font-medium text-muted-foreground">
-              <Link href="/studio/agents" className="hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {team.name}
+              <Link href="/studio/agents" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {team.name}
             </p>
             <h1 className="text-24 font-semibold tracking-tight">{team.name}</h1>
             <p className="text-12 leading-relaxed text-muted-foreground">{team.summary}</p>
