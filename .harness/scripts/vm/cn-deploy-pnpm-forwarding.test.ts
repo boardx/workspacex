@@ -10,8 +10,18 @@ it("forwards CN deploy CLI arguments under the declared pnpm version", () => {
   expect(deploy).toContain('pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }');
   expect(deploy).toContain('[[ "$(pnpm --version)" == 9.15.0 ]]');
   const calls = deploy.split("\n").filter(line => /pnpm .*--filter @repo\/cloud-deploy (stable-secret-preflight|prepare-host|cn-fast-safe-release|provision) /.test(line));
-  expect(calls.length).toBe(7);
+  expect(calls.length).toBe(6);
   for (const call of calls) expect(call).not.toMatch(/\s--\s/);
+  expect(deploy).toContain('timeout "${remaining}s" env COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --filter @repo/cloud-deploy provision "$request"');
+  expect(deploy).not.toContain('timeout "${remaining}s" pnpm ');
+
+  // env and GNU timeout both exec an external command; neither can invoke a Bash function.
+  const functionBoundary = spawnSync("bash", ["-c", 'pnpm(){ echo SHELL_FUNCTION; }; env pnpm --version'], {
+    cwd: root, encoding: "utf8", timeout: 5_000,
+  });
+  expect(functionBoundary.error).toBeUndefined();
+  expect(functionBoundary.status).toBe(0);
+  expect(functionBoundary.stdout).not.toContain("SHELL_FUNCTION");
 
   const protocol = spawnSync("pnpm", ["--filter", "@repo/cloud-deploy", "stable-secret-preflight", "/tmp/wsx-cn-missing-baseline", "/tmp/wsx-cn-missing-stable"], {
     cwd: root, encoding: "utf8", timeout: 15_000,

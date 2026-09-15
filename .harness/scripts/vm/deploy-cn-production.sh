@@ -278,7 +278,7 @@ chmod 0600 "$request"
 
 remaining=$((activation_deadline-SECONDS))
 (( remaining > 0 )) || fail "activation deadline exceeded before provision"
-if ! timeout "${remaining}s" pnpm --filter @repo/cloud-deploy provision "$request"; then
+if ! timeout "${remaining}s" env COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --filter @repo/cloud-deploy provision "$request"; then
   fail "provision failed"
 fi
 record_event runtime_ready
