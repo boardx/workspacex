@@ -45,6 +45,7 @@ import { createPersonalThread, getAgentPanel, updateAgentRoster, listPersonalThr
 import { getResearchSession, type ResearchSession } from "@/lib/live-research-workflow";
 import { ResearchPhaseBar } from "./research-phase-bar";
 import { ResearchMaterialReview } from "./research-material-review";
+import { ResearchAuditTrail, ResearchGatePanel } from "./research-gate-panel";
 
 /** 与 `apps/api/scripts/backfill-team3-agent.ts` 的 `TEAM3_AGENT_NAME` 逐字一致。 */
 const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
@@ -166,6 +167,10 @@ export function Team3Chat(): JSX.Element {
       ) : null}
       {/* 门①：只在它真的在等的时候自己渲染（组件内部判断），别的阶段返回 null。 */}
       {research ? <ResearchMaterialReview session={research} onChange={setResearch} /> : null}
+      {/* 门②/门③：同样自己判断该不该出现。 */}
+      {research ? <ResearchGatePanel session={research} onChange={setResearch} /> : null}
+      {/* 推进记录：Agent 跳门尝试要被人看见，不能只进日志。 */}
+      {research ? <ResearchAuditTrail threadId={research.threadId} /> : null}
       {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
       <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
     </div>

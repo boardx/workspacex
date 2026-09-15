@@ -178,6 +178,8 @@ export function ResearchMaterialReview({
         <div className="flex flex-wrap items-center gap-3">
           <Button
             data-testid="research-pass-gate-materials"
+            // 同 research-gate-panel：默认 secondary 是灰底，与禁用态无法区分。
+            variant="primary"
             disabled={busy || disabledReason !== null}
             onClick={() => void act(() => passResearchGate(session.threadId, "materials"))}
           >
