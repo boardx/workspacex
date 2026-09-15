@@ -69,9 +69,14 @@ describe("China production trusted deployment entrypoints", () => {
     const deployBranch = deploy.indexOf('[[ "$(git -C "$REPOSITORY_DIR" rev-parse origin/main-cn)" == "$revision" ]]', prepareBranch);
     const prepareOnly = deploy.slice(prepareBranch, deployBranch);
     expect(prepareOnly).toContain("cn-release-browser-smoke.mjs --preflight");
+    expect(deploy).toContain("for candidate in chromium-browser chromium google-chrome");
+    expect(deploy.match(/CN_BROWSER_EXECUTABLE_PATH="\$browser_executable"/g)).toHaveLength(2);
     expect(browserSmoke).toContain('createRequire(new URL("../../../apps/api/package.json", import.meta.url))');
     expect(browserSmoke).toContain('requireFromApi("playwright")');
-    expect(browserSmoke).toContain('chromium.launch({ headless: true })');
+    expect(browserSmoke).toContain("isAbsolute(executablePath)");
+    expect(browserSmoke).toContain("access(executablePath, fsConstants.X_OK)");
+    expect(browserSmoke).toContain('process.getuid?.() === 0 ? ["--no-sandbox"] : []');
+    expect(browserSmoke.match(/chromium\.launch\(await browserLaunchOptions\(\)\)/g)).toHaveLength(2);
     expect(browserSmoke).toContain('window.localStorage.getItem(tokenKey)');
     expect(browserSmoke).toContain('Authorization: `Bearer ${token}`');
     expect(browserSmoke).toContain("Array.isArray(payload?.notifications)");

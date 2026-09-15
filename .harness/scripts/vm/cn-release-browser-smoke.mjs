@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import { createRequire } from "node:module";
+import { isAbsolute } from "node:path";
 
 const SESSION_TOKEN_KEY = "wsx.sessionToken";
 
@@ -16,11 +19,22 @@ async function loadChromium() {
   return chromium;
 }
 
+async function browserLaunchOptions() {
+  const executablePath = process.env.CN_BROWSER_EXECUTABLE_PATH ?? "";
+  if (!isAbsolute(executablePath)) throw new Error("browser executable path must be absolute");
+  await access(executablePath, fsConstants.X_OK);
+  return {
+    headless: true,
+    executablePath,
+    args: process.getuid?.() === 0 ? ["--no-sandbox"] : [],
+  };
+}
+
 async function browserRuntimePreflight() {
   let browser;
   try {
     const chromium = await loadChromium();
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch(await browserLaunchOptions());
     const page = await browser.newPage();
     await page.goto("about:blank");
     process.stdout.write("CN_BROWSER_RUNTIME_PREFLIGHT_PASSED\n");
@@ -51,7 +65,7 @@ async function releaseSmoke(baseUrl, bootstrapEnv) {
   let browser;
   try {
     const chromium = await loadChromium();
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch(await browserLaunchOptions());
     const page = await browser.newPage();
     await page.goto(new URL("/login", origin).href, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.getByTestId("login-email").fill(email);

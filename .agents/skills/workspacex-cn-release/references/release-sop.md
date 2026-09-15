@@ -51,7 +51,7 @@ flowchart LR
 | `toolchain.package_manager` | `package.json` 声明与实际执行均为 `pnpm@9.15.0` | `ERR_PNPM_BAD_PM_VERSION` |
 | `toolchain.pnpm_cli_protocol` | 对真实命令验证 `pnpm --filter ... <script> -- <args>` 的参数转发 | 多余/缺失 `--` |
 | `toolchain.stdout_protocol` | 机器命令 stdout 恰好一个带前缀 JSON 记录；其它诊断只去 stderr | pnpm 噪声破坏 JSON 解析 |
-| `toolchain.browser_runtime` | 从候选 release tree 运行 `node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight`，证明 Node 可从 `apps/api` workspace 解析 Playwright、Chromium 可启动并打开页面 | 激活后才发现模块或浏览器运行时缺失 |
+| `toolchain.browser_runtime` | 依次用 `command -v chromium-browser`、`chromium`、`google-chrome` 解析绝对可执行路径，从候选 release tree 运行 `CN_BROWSER_EXECUTABLE_PATH=... node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight`，证明 Node 可从 `apps/api` workspace 解析 Playwright、系统 Chromium 可启动并打开页面 | 激活后才发现模块或浏览器运行时缺失 |
 | `registry.acr_auth` | 临时 `DOCKER_CONFIG` 登录后可鉴权读取目标 registry；凭据剩余有效期覆盖发布预算 | ACR token 过期 |
 | `runtime.release_lock` | 唯一锁由本 attempt 持有 | 并发发布 |
 | `runtime.no_orphans` | 无旧 publish/buildx/deploy 子进程持锁或写同一目录 | StopInvocation 留孤儿 |
@@ -80,7 +80,7 @@ ACR 检查使用 ECS RAM 角色和 IMDSv2 获取短期凭据，在节点内完�
 
 prepare 使用完整 source artifact，不在中国生产运行 `git fetch`、partial clone 补对象或公网包安装。依赖、镜像和脚本都在准备窗口完成。
 
-依赖安装后、生成 prepare receipt 前，必须从候选 release tree 执行浏览器运行时预检。预检同时证明 `playwright` 按生产 Node 模块解析规则可加载、Chromium 可执行文件存在、所需系统动态库齐全且 headless 实例能打开页面；只检查包目录或 executable path 不算通过。失败使用稳定码 `BROWSER_RUNTIME_UNAVAILABLE`，不进入激活，并在准备窗口补齐候选制品或主机运行时后从聚合预检重跑。
+依赖安装后、生成 prepare receipt 前，必须从候选 release tree 执行浏览器运行时预检。系统浏览器只按 `chromium-browser` → `chromium` → `google-chrome` 顺序用 `command -v` 解析；结果必须是绝对、可执行路径，并通过 `CN_BROWSER_EXECUTABLE_PATH` 同时传给 prepare preflight 与实际 smoke，禁止悄悄回退到 Playwright bundled revision。预检同时证明 `playwright` 按生产 Node 模块解析规则可加载、系统 Chromium 可启动、动态库齐全且 headless 实例能打开页面；只检查包目录或 executable path 不算通过。root 运行时只给 Chromium launch 添加 `--no-sandbox`，不得改变 Node 或整个发布进程的权限参数。失败使用稳定码 `BROWSER_RUNTIME_UNAVAILABLE`，不进入激活，并在准备窗口补齐候选制品或主机运行时后从聚合预检重跑。
 
 prepare receipt 至少绑定：source SHA、release、manifest SHA-256、六镜像 digest、迁移风险、RDS backup evidence、canonical config assertions、shadow readiness/business evidence、baseline 容器 digest、Compose file、Nginx hash、trusted entrypoint hash、创建时间和过期时间。
 
@@ -154,7 +154,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `MANAGED_DATA_NOT_PREPARED` | ECS 角色真实调用六项 Describe；临时策略带绝对过期并在结束时清理 |
 | 2026-09-15 | `SECRET_ENV_NEWLINE` | 所有 secret 的 CR/LF/NUL 扫描 + 每个服务 env map 的生产序列化预演 |
 | 2026-09-15 | `BOOTSTRAP_STAGE_FAILED` | Devapp/影子环境连续两次幂等 bootstrap + 生产稳定阶段码 |
-| 2026-09-15 | `BROWSER_RUNTIME_UNAVAILABLE` | prepare 从候选 release tree 真实加载 Playwright 并启动 Chromium |
+| 2026-09-15 | `BROWSER_RUNTIME_UNAVAILABLE` | prepare 与 smoke 重新解析同一系统 Chromium 路径，从候选 release tree 真实加载 Playwright 并启动该浏览器 |
 | 2026-09-15 | `SESSION_TOKEN_MISSING` | 登录完成后必须从 localStorage 取得 bearer，不允许退化为 cookie-only probe |
 | 2026-09-15 | `NOTIFICATIONS_HTTP_FAILED` | 使用显式 Authorization 的同源通知请求必须返回 200 |
 | 2026-09-15 | `NOTIFICATIONS_CONTRACT_DRIFT` | 通知响应必须包含 notifications array 与非负整数 unreadCount |

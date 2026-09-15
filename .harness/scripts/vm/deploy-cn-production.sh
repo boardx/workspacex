@@ -31,6 +31,14 @@ baseline_state="$runtime/baseline.json"
 baseline_nginx="$runtime/baseline-nginx.conf"
 
 fail() { echo "CN_DEPLOY_REJECTED: $1" >&2; exit 1; }
+resolve_browser_executable() {
+  local candidate path
+  for candidate in chromium-browser chromium google-chrome; do
+    path=$(command -v "$candidate" 2>/dev/null || true)
+    if [[ "$path" == /* && -x "$path" ]]; then printf '%s' "$path"; return 0; fi
+  done
+  return 1
+}
 record_event() {
   node - "$EVENTS_ROOT/$revision.jsonl" "$revision" "$1" <<'NODE'
 const fs=require("node:fs"),[path,revision,stage]=process.argv.slice(2);
@@ -172,7 +180,9 @@ if [[ "$mode" == prepare ]]; then
   cd "$release_checkout"
   # Prove module resolution plus the Chromium executable and system libraries while
   # preparation is still side-effect free, before an activation can change ingress.
-  node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
+  browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+  CN_BROWSER_EXECUTABLE_PATH="$browser_executable" \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
     || fail "browser runtime preflight failed"
   pnpm --filter @repo/cloud-deploy prepare-host -- "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
@@ -250,7 +260,10 @@ remaining=$((activation_deadline-SECONDS))
 (( remaining > 0 )) || fail "activation deadline exceeded before browser smoke"
 public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
 record_event browser_acceptance_started
-timeout "${remaining}s" node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null || fail "browser smoke failed"
+browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
+CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout "${remaining}s" \
+  node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$runtime/bootstrap.env" >/dev/null \
+  || fail "browser smoke failed"
 record_event production_available
 activation_started=0
 trap - EXIT
