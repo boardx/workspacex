@@ -102,3 +102,50 @@ CREATE TABLE IF NOT EXISTS research_predictions (
 );
 CREATE INDEX IF NOT EXISTS research_predictions_thread_idx
   ON research_predictions (thread_id, graph_version, created_at);
+
+-- ── RLS：第一道线 ─────────────────────────────────────────────────
+--
+-- 本仓的纪律（UC-0.6 E2）：**租户隔离的第一道线是 RLS，不是应用层过滤**。
+-- 应用层的 `WHERE org_id = $n` 是第二道；第一道漏了，就是漏了。
+-- `verify-rls.sh` 会对每张带 org_id 的表断言这四件事都在，所以下面每张表都要写全：
+--   ENABLE + FORCE（FORCE 让表属主自己也受策略约束）+ tenant policy + GRANT。
+--
+-- `kernel_apply_org_freeze_policies()` 在最后调一次：项目归档冻结策略由它统一补挂
+-- （issue #342 的那条断言查的就是"有没有表漏了冻结策略"）。
+
+ALTER TABLE research_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_sessions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS research_sessions_tenant ON research_sessions;
+CREATE POLICY research_sessions_tenant ON research_sessions
+ USING(org_id=current_setting('app.current_org',true))
+ WITH CHECK(org_id=current_setting('app.current_org',true));
+GRANT SELECT,INSERT,UPDATE,DELETE ON research_sessions TO app_rw;
+
+ALTER TABLE research_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_materials FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS research_materials_tenant ON research_materials;
+CREATE POLICY research_materials_tenant ON research_materials
+ USING(org_id=current_setting('app.current_org',true))
+ WITH CHECK(org_id=current_setting('app.current_org',true));
+GRANT SELECT,INSERT,UPDATE,DELETE ON research_materials TO app_rw;
+
+-- 审计表**不给 UPDATE / DELETE**：一条"Agent 试图跳门"的记录若能被改写或删掉，
+-- 它就不再是证据。追加即不可变，与它存在的理由一致。
+ALTER TABLE research_gate_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_gate_audit FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS research_gate_audit_tenant ON research_gate_audit;
+CREATE POLICY research_gate_audit_tenant ON research_gate_audit
+ USING(org_id=current_setting('app.current_org',true))
+ WITH CHECK(org_id=current_setting('app.current_org',true));
+GRANT SELECT,INSERT ON research_gate_audit TO app_rw;
+GRANT USAGE,SELECT ON SEQUENCE research_gate_audit_id_seq TO app_rw;
+
+ALTER TABLE research_predictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_predictions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS research_predictions_tenant ON research_predictions;
+CREATE POLICY research_predictions_tenant ON research_predictions
+ USING(org_id=current_setting('app.current_org',true))
+ WITH CHECK(org_id=current_setting('app.current_org',true));
+GRANT SELECT,INSERT,UPDATE ON research_predictions TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();

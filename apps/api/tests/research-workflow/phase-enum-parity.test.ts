@@ -63,6 +63,31 @@ describe("迁移引用的表与类型真实存在", () => {
     }
   });
 
+  /**
+   * 2026-09-15 第二次实测：迁移能跑通之后，`verify-rls` 仍然红——四张新表都带 org_id
+   * 却**没有 RLS 策略**。本仓的纪律（UC-0.6 E2）是"租户隔离的第一道线是 RLS，
+   * 不是应用层过滤"；应用层的 `WHERE org_id = $n` 是第二道，第一道漏了就是漏了。
+   */
+  it.each([...MIGRATION.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/g)].map((m) => m[1]!))(
+    "新表 %s 四件套齐全：ENABLE + FORCE + tenant policy + GRANT",
+    (table) => {
+      expect(MIGRATION, `${table} 缺 ENABLE ROW LEVEL SECURITY`)
+        .toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+      expect(MIGRATION, `${table} 缺 FORCE（表属主自己也要受策略约束）`)
+        .toContain(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
+      expect(MIGRATION, `${table} 缺租户策略`).toContain(`CREATE POLICY ${table}_tenant ON ${table}`);
+      expect(MIGRATION, `${table} 缺 GRANT ... TO app_rw`).toMatch(
+        new RegExp(`GRANT [A-Z,]+ ON ${table} TO app_rw`),
+      );
+    },
+  );
+
+  it("审计表不授予 UPDATE / DELETE——能被改写的记录不是证据", () => {
+    const grant = MIGRATION.match(/GRANT ([A-Z,]+) ON research_gate_audit TO app_rw/)?.[1] ?? "";
+    expect(grant).not.toContain("UPDATE");
+    expect(grant).not.toContain("DELETE");
+  });
+
   it("契约里的 threadId 不是 .uuid()（chat 线程 id 不是 uuid，多这条约束会让请求全部 400）", () => {
     const src = readFileSync(
       join(__dirname, "../../../../packages/contracts/src/research-workflow.ts"),
