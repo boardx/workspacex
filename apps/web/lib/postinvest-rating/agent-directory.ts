@@ -3,15 +3,16 @@
  * 的架构：不自建分析引擎，材料 + 任务书发进一条真实项目对话，由挂载了真实模型的
  * 已发布 Agent 完成。
  *
- * ⚠ `agentId` 是后端 `agent-runtime` 里这个 Agent 发布后的真实数据库 id，**本文件
- * 不能替它造一个**——每个部署环境（本机开发库 / devapp / 生产）各自有自己的库，
- * id 天然不跨环境通用。二选一：
- *   ① 设置构建时环境变量 `NEXT_PUBLIC_TEAM2_AGENT_ID`（推荐，换环境不用改代码）；
- *   ② 直接改下面 `agentId` 的字面量（本机开发临时验证时更快）。
- * 都没设时保持 `null`——落地页据此禁用「开始评级」按钮并如实说明还差这一步。
+ * ⚠ `agentId` 是后端 `agent-runtime` 里这个 Agent 的真实数据库 id，**本文件不能替它
+ * 造一个**——每个部署环境（本机开发库 / devapp / 生产）各自有自己的库，id 天然不跨
+ * 环境通用。正常路径下这里保持 `null`：Agent 由部署期幂等补种脚本
+ * （`apps/api/scripts/backfill-team2-agent.ts`，`deploy.sh` 4d3）落库，落地页运行时按
+ * `name` 在本组织的能力目录里查真实 id（同 team3 的既有做法），**不需要任何人手工
+ * 回填 id，也不需要为此重新构建前端**。
  *
- * 发布方式：`apps/api/scripts/publish-team2-agent.ts`（幂等，仿 `publish-team1-agent.ts`
- * 的已验证流程：创建 → 写 instructions → self-publish）。
+ * `NEXT_PUBLIC_TEAM2_AGENT_ID` 仅作为本机开发的逃生口：设了就直接用，跳过查目录。
+ * 同理 `apps/api/scripts/publish-team2-agent.ts`（走 HTTP 的手工发布）保留但不再是
+ * 部署路径——部署路径是上面那个 backfill 脚本。
  */
 export interface RatingAgentEntry {
   readonly slug: string;

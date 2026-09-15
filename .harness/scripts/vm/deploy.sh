@@ -405,6 +405,13 @@ step "4d2. team3 ad-hoc agent 补种（临时 Agent，docs/design/agent-team3-mv
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-team3-agent.ts
 
+step "4d3. team2 ad-hoc agent 补种（临时 Agent，docs/agents/team2-postinvest-rating-mvp.md）"
+# 同 4d2 的理由，第四个 stable_name，同样只种到名字是「Workspace」的组织。
+# 这一步存在的意义是消掉「人类去某台机器上手工跑 publish-team2-agent.ts 再回填 id」
+# 这个人工步骤：前端按名字在组织能力目录里查真实 agentId，部署跑完即可用。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-team2-agent.ts
+
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
 # 消息时才会报错（诚实的 MODEL_CALL_FAILED/MODEL_PROVIDER_NOT_CONFIGURED）。
