@@ -42,4 +42,6 @@ it("statically rejects a service-key/native-binding consumer swap before reading
     .replace('DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["service-key"]', 'DEEP_AGENT_SERVICE_INTERNAL_KEY: secret["native-binding"]')
     .replace('NATIVE_SESSION_BINDING_KEY: secret["native-binding"]', 'NATIVE_SESSION_BINDING_KEY: secret["service-key"]');
   expect(() => verifyStableSecretConsumers(swapped)).toThrow("STABLE_SECRET_CONSUMER_DRIFT");
+  const missing = source.replace('NATIVE_SESSION_BINDING_KEY: secret["native-binding"]', 'NATIVE_SESSION_BINDING_KEY: "missing"');
+  expect(() => verifyStableSecretConsumers(missing)).toThrow("STABLE_SECRET_CONSUMER_DRIFT");
 });
