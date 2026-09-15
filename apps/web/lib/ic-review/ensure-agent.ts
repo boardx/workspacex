@@ -8,7 +8,7 @@
  *
  * ⚠ **审阅方法论不在这里**：它是一个平台内置 Skill（`ic-review-standard`，正文与
  * 种子见 `apps/api/src/infrastructure/skill/ensure-ic-review-skill.ts`），由
- * `launch-review-thread.ts` 在**线程级**挂载。
+ * `ensure-review-thread.ts` 在**线程级**挂载。
  *
  * 为什么是线程级而不是 `setAgentSkillPins`（agent 级钉版本）：实测确认
  * （2026-09-15，真实 Postgres + apps/api）`pg-agent-skill-pins-repository.ts` 的
@@ -19,7 +19,7 @@
  *
  * ⚠ `listAgents`/`createAgent` 服务端只放行 org admin（`ROLE_INSUFFICIENT`）——
  * 非 admin 用户调用会失败，这里原样把错误抛出去，由调用方决定怎么降级
- * （`ic-review-launcher.tsx` 降级成「复制审阅任务书」兜底）。
+ * （`ic-review-chat-entry.tsx` 降级成「复制审阅任务书」兜底）。
  */
 import { createAgentFromScratch, listAgents, selfPublishAgent, setAgentInstructions } from "@/lib/agent-definition";
 

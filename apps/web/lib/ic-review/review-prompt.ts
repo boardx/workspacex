@@ -9,8 +9,8 @@
  * skill 同一条自愈种子机制，见该文件头注——这是「代码层面的 skill 开发」，走 git
  * PR review，不走运行时双人审核那道门，两者审的是不同的东西：一个审"这段代码
  * 该不该合"，一个审"运行时一个用户临时提交的 skill 该不该被授予能力"）。
- * `launch-review-thread.ts` 发的每条人类消息只是「这次要审哪些材料」的触发语，
- * 不重复这份方法论——改判据只改这一份文件。
+ * 入口（`ensure-review-thread.ts`）只负责把这个 Skill 挂进线程，之后用户在 chat 里
+ * 发的每条消息都不重复这份方法论——改判据只改这一份文件。
  */
 import { IC_CATEGORIES, IC_STANDARD } from "./standard";
 
@@ -71,7 +71,7 @@ export function buildReviewKickoffMessage(materialNames: readonly string[]): str
 }
 
 /**
- * 独立可用版——供「复制审阅任务书」兜底用（`ic-review-launcher.tsx`）：用户手动
+ * 独立可用版——供「复制审阅任务书」兜底用（`ic-review-chat-entry.tsx`）：用户手动
  * 粘到一条**没有挂载本 Skill 的**普通对话里时，方法论必须自带，不能只发触发语。
  */
 export function buildStandaloneReviewPrompt(materialNames: readonly string[]): string {

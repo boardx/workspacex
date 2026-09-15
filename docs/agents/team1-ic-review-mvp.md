@@ -9,31 +9,37 @@
 从而**快速识别资料问题，加速沟通与分析过程**。不是替人做投资判断——只把
 「读材料 / 对标准查缺 / 找矛盾」的机械活拿走。
 
-## 架构（2026-09-15 第四版 —— 方法论住进平台内置 Skill）
+## 架构（2026-09-15 第五版 —— 入口直接打开真实 chat）
 
-迭代过三版才到这里，每一版被推翻的理由都记在这：
+迭代过四版才到这里，每一版被推翻的理由都记在这：
 - **第一版**：纯浏览器正则规则引擎 + 自建三栏工作区。零幻觉但也零智能，且和真实
   chat 是两套平行系统 → 人类要求复用 chat 的真实能力。
 - **第二版**：材料真发进 chat，但 `agentId` 要运维手工发布 + 改 `deploy.env` +
   重新部署 → 人类要求「不用这么麻烦」「不要手工改数据库」。
 - **第三版**：点击时按需自动发布 Agent，方法论塞在 Agent 的 `instructions` 里 →
   人类要求「接已有的 skills 来实现，而不是重新实现」。
-- **第四版（当前）**：方法论是一个**平台内置 Skill**，随代码走、随 API 进程启动
-  自愈种子，发起审阅时挂进线程。
+- **第四版**：方法论是一个**平台内置 Skill**，随代码走、随 API 进程启动自愈种子，
+  发起审阅时挂进线程。但入口仍是一个自建的「上传材料 + 开始审阅」落地页——那是把
+  chat 已有的能力（附件、历史、重试、产物落地、`#` 挂载浮层…）在旁边又实现了一遍
+  的窄版 → 人类要求「你就是一个 agent，入口点击以后，会打开类似 chatui 的界面，
+  可以用所有的 chat 的能力，但是这个是 team1 的 agent」。
+- **第五版（当前）**：`/agent/team1` 退化成**中转页**，准备好线程就直接进真实 chat。
+  自建的上传框、示例包按钮、材料预处理清单全部删除（`ic-review-launcher.tsx` /
+  `intake.ts` / `fixtures.ts` / `launch-review-thread.ts` / `types.ts`）。
 
 ```
-/agent/team1（落地页 + 材料预处理）
-        │  上传材料（PDF/DOCX/XLSX/PPTX 原样透传）
+/agent/team1（中转页，不是工作台）
         ▼
+0. listPersonalThreads    按标题「上会材料审阅」找既有线程；找到就直接用
+                          （反复点入口/刷新不堆空线程；?new=1 强制开新的）
 1. ensure-agent.ts        按需解析/发布真实 Agent（org admin 点一次即可）
-2. createPersonalThread   新建一条项目对话
+2. createPersonalThread   新建一条对话
 3. updateAgentRoster      把 team1 Agent 挂进这条对话
 4. mountSkills            把「上会审阅」Skill 挂进这条线程  ← 方法论在这
-5. uploadAttachment       材料作为真实附件上传（服务端核验 MIME）
-6. createMessage          只发一句「这次审哪些材料」的触发语
         ▼
-跳转 /chat?thread=<id> —— 后续提纲/缺失清单/风险标注/两轮人工确认
-全部在真实 chat UI 里发生，本仓不重画
+router.replace(/chat/<threadId>) —— 之后全部是普通 chat 操作：
+用 chat 自己的 composer 传材料、追问、两轮人工确认、产物落地。
+本仓不再有第二套上传框、第二套结果面板。
 ```
 
 ### 方法论为什么是 Skill，不是 instructions
@@ -57,8 +63,8 @@ apps/api）`pg-agent-skill-pins-repository.ts` 的校验 SQL 是 `WHERE org_id =
 `SKILL_VERSION_NOT_FOUND`——四个官方 Office skill 同样钉不上去，它们本来也是走
 线程挂载被用的。线程挂载实测可以挂平台组织的 skill。
 
-`/agent/team1` 本身只有两件事：① 展示这个 Agent 是什么、能干什么、边界在哪；
-② 把材料发进一条真实对话并触发审阅。**没有新增任何后端端点**，全部调用既有的真实
+`/agent/team1` 本身只做三件在 chat UI 里做不了的事：解析/发布 Agent、把它挂进线程
+编制、把「上会审阅」Skill 挂进线程。**没有新增任何后端端点**，全部调用既有的真实
 API（`lib/live-chat.ts` / `lib/live-skill-mount.ts` / `lib/agent-definition.ts`）。
 
 ## 已在真实环境验证过的部分（不是纸面设计）
@@ -83,20 +89,18 @@ AgentRun 停在 `queued`），这部分要在配了真实模型的环境里跑�
 ## MVP 边界
 
 ### 做（本次交付）
-1. `/agent/team1` 落地页：能做什么 / 不做什么 / 上传材料 / 一键发起。
-2. 材料预处理：按真实附件白名单预检（PDF/DOCX/XLSX/PPTX/txt/md/csv/图片/音频，
-   单文件 25MB、单次 10 份，同 `chat-file-upload` 已签核上限），不在白名单/超限
-   的单列清单，不静默跳过；通过预检的文件原样上传，不做本地内容解析或转换。
-3. 审阅方法论做成平台内置 Skill，发起审阅时挂进线程；每条消息只发「这次审哪些材料」
-   的触发语，方法论不重复发。
-4. 跳转进真实 `/chat` 体验，复用它已有的全部能力（消息流、附件、审批卡、产物）。
+1. `/agent/team1` 中转页：准备好线程就进真实 chat，不自建工作台。
+2. 线程复用：按标题在服务端搜既有线程，重复进入回到同一条对话；`?new=1` 开新的。
+3. 审阅方法论做成平台内置 Skill，建线程时挂进去；用户之后发的每条消息都不重复方法论。
+4. 落在真实 `/chat/<threadId>`，材料上传/追问/确认全部用 chat 自己已有的能力
+   （消息流、附件白名单与大小限制、审批卡、产物落地、`#` 挂载浮层）。
 
 ### 明确不做（MVP 之外）
 - ❌ 自建分析结果面板（提纲/清单/风险三栏）—— 复用 chat 消息流本身。
-- ❌ 本地内容解析/预览 —— PDF/DOCX/XLSX/PPTX 原样作为真实附件上传，交给服务端
-  `wx_document_parse`（页码/单元格级定位）实际解析；本页只做类型与大小预检，
-  不在浏览器里读取或转换这些格式的内容（早期版本试过把二进制读成文本再重建
-  File，PDF 会被 UTF-8 硬解破坏——已改掉，见 `intake.ts` 头注）。
+- ❌ 自建上传框与材料预处理 —— 第五版删掉了。白名单、大小上限、二进制原样透传
+  都是 chat composer 自己的能力，没有理由在旁边再实现一遍（早期版本正是在这里
+  踩过坑：把二进制读成文本再重建 File，PDF 被 UTF-8 硬解破坏）。
+  PDF/DOCX/XLSX/PPTX 由服务端 `wx_document_parse`（页码/单元格级定位）解析。
 - ❌ 机械阻断的人工确认关口 —— 本版只在任务书里用自然语言要求模型停下等确认；
   真正机械阻断需要接 `deep-agent-hitl`，是下一档。
 - ❌ 未登录公开访问、归档模板、通知与定时。
@@ -117,23 +121,23 @@ AgentRun 停在 `queued`），这部分要在配了真实模型的环境里跑�
 | # | 条目 | 状态 |
 |---|---|---|
 | B1 | 上会标准清单 IC-1…IC-8（41 条） | ✅ `apps/web/lib/ic-review/standard.ts` |
-| B2 | 材料接收：按真实附件白名单/大小预检 + sha256（原始 File 透传，不做本地内容解析） | ✅ `lib/ic-review/intake.ts` |
+| B2 | 材料接收（白名单/大小/二进制透传） | ✅ 第五版起**直接用 chat composer 自己的**，本 Agent 不再有自建上传框 |
 | B3 | 审阅方法论（标准 + 交叉验证 + 输出格式 + 两轮确认）做成**平台内置 Skill** | ✅ `lib/ic-review/review-prompt.ts`（单源）+ `apps/api/.../ensure-ic-review-skill.ts`（种子，随 API 启动自愈） |
-| B4 | 发起真实对话：建线程 + 挂 Agent + **挂 Skill** + 传附件 + 发触发语 | ✅ `lib/ic-review/launch-review-thread.ts` + `ensure-agent.ts`（按需自动发布） |
-| B5 | `/agent/team1` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` 的 team1 分支 + `components/agent/ic-review-launcher.tsx` |
+| B4 | 准备真实对话：复用/建线程 + 挂 Agent + **挂 Skill** | ✅ `lib/ic-review/ensure-review-thread.ts` + `ensure-agent.ts`（按需自动发布） |
+| B5 | `/agent/team1` 入口 | ✅ `app/agent/[teamId]` 的 team1 分支 + `components/agent/ic-review-chat-entry.tsx`（中转进 `/chat/<threadId>`） |
 | B6 | Studio 智能体列表入口 | ✅ 复用既有 `/agent` 六 team 列表页（#3666），未另建 |
-| B7 | 示例材料包 A/B/C（快速试跑，不用现找文件） | ✅ `lib/ic-review/fixtures.ts` |
+| B7 | 示例材料包 A/B/C（快速试跑） | ❌ 第五版随自建落地页一并删除——材料直接在 chat 里拖进去，测试集见「验收」一节 |
 | B8 | 发布 team1 为真实 Agent | ✅ 按需自动发布（见上），链路已验证；⬜ 仍需在目标环境（devapp/生产）配好模型凭据，真实回复质量才能验证 |
 | B9 | 机械阻断的两轮人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
-| B10 | Agent 未初始化 / 非 admin 用户的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-launcher.tsx` 的「复制审阅任务书」按钮 |
+| B10 | Agent 未初始化 / 非 admin 用户的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-chat-entry.tsx` 的「复制审阅任务书」按钮 |
 
 ## 验收：测试集与通过标准
 
-测试集来自《上会材料智能审阅助手大模型测试方案 V1.0》，三包材料全部虚构，内置在
-`lib/ic-review/fixtures.ts`，落地页可一键加载。**验收方式**：在配好真实模型凭据的
-部署环境里，用 org admin 账号打开一次 `/agent/team1`（自动完成发布），随后依次
-加载三包材料并发起审阅，人工核对模型输出是否命中下表；本仓无法在纯前端沙箱里
-自动跑出这份分数（不同于第一版的本地规则引擎）。
+测试集来自《上会材料智能审阅助手大模型测试方案 V1.0》，三包材料全部虚构。
+**验收方式**：在配好真实模型凭据的部署环境里，用 org admin 账号打开一次
+`/agent/team1`（自动完成发布并落进 chat），随后在 chat composer 里把三包材料
+依次传进去，人工核对模型输出是否命中下表；本仓无法在纯前端沙箱里自动跑出这份
+分数（不同于第一版的本地规则引擎）。
 
 | 组 | 考什么 | 通过标准 |
 |---|---|---|

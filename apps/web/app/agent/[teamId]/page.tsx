@@ -8,16 +8,18 @@ import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
 import { RatingChat } from "@/components/postinvest-rating/rating-chat";
-import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
+import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：要调真实
- *   `lib/live-chat.ts` API（建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity`
- *   覆盖，复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP）：本路由是**中转页**不是工作台——它只把
+ *   Agent 入编、把「上会审阅」Skill 挂进线程，然后 `replace` 进真正的 chat
+ *   （`/chat/<threadId>`），之后全部用 chat 自己的能力（附件、历史、产物落地…）。
+ *   要调真实 `lib/live-chat.ts` API，必须走真实登录会话，因此不传 `identity` 覆盖，
+ *   复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
  * ⚠ Team2 = 投后财务项目评级 Agent（issue #3676，ad-hoc MVP）：真聊天框 + 真算分，不经过
  *   模型工具调用循环——数值全部来自 `apps/api/src/domain/postinvest-rating/scoring.ts`
  *   的确定性评分引擎（真实 `POST /postinvest-ratings/score`），不是编出来的。同 Team1 一样
@@ -46,7 +48,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
             <p className="text-11 font-medium text-muted-foreground">
               <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {agent.name}
             </p>
-            <div className="mt-4"><IcReviewLauncher agent={agent} /></div>
+            <div className="mt-4"><IcReviewChatEntry agent={agent} /></div>
           </div>
         </div>
       </AppShell>
