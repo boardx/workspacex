@@ -111,3 +111,6 @@ export * as postinvestRating from "./postinvest-rating";
  * 后端 `scoring.ts` 与前端任务书都从这里读，避免"改了实现忘了改提示词"（ADR-020）。
  * R7-1 的最终归宿是 F01 的 skill 包，包建起来后本文件搬家、不再抄第二份。 */
 export * as postinvestRatingRules from "./postinvest-rating-rules";
+
+/* ── Team3 研判工作流（ad-hoc）：活动图的等价形式——阶段状态机 + 三道人工硬门 ───────── */
+export * as researchWorkflow from "./research-workflow";

@@ -33,7 +33,7 @@ export type { TemplateSpec, TemplateSection } from './diagrams/template-engine';
 export type { DiagramPlugin, DiagramParseContext } from './diagrams/registry';
 export { extractMermaidBlocks, replaceMermaidBlock, wrapAsMermaidBlock } from './markdown';
 export type { MermaidBlock } from './markdown';
-export { mermaidToModel, extractNodeGeometry, classRelationToEdge } from './mermaid-parser';
+export { mermaidToModel, extractNodeGeometry, classRelationToEdge, normalizeLabelLineBreaks } from './mermaid-parser';
 export { modelToMermaid, sanitizeNodeId } from './mermaid-serializer';
 export { FlowNode, FlowEdge } from './fabric-objects';
 export type { FlowNodeData, FlowEdgeData } from './fabric-objects';

@@ -361,7 +361,7 @@ function buildSubgraphNodes(
     if (sg.title !== '') {
       titles.push({
         id: `subgraphTitle:${sg.id}`,
-        label: sg.title,
+        label: normalizeLabelLineBreaks(sg.title),
         shape: 'text',
         x: geo.x,
         y: geo.y - geo.height / 2 + 13,
@@ -447,6 +447,31 @@ function readDb(db: Record<string, unknown>): {
     edges,
     direction: normalizeDirection(getDirection?.call(db)),
   };
+}
+
+
+/**
+ * mermaid 节点/边标签里的 `<br>` 换行。
+ *
+ * mermaid 的约定是在标签里写 `<br>` / `<br/>` / `<br />` 表示换行，Agent 画产业图谱时
+ * 几乎必然会用它（「名称 + 判断状态」天然要两行）。此前这三种写法都**原样显示成字面文本**
+ * ——2026-09-15 真机截图一眼看出来的：节点上明晃晃写着 `EDA工具<br>国产化: 严重缺失`。
+ *
+ * 之所以拖到截图才发现：解析、渲染、类型检查全都"成功"了，没有任何一层会对一段
+ * 它不认识的文本报错——它只是忠实地把它画出来。这正是本仓「静态痕迹 ≠ 动态事实」
+ * 那条规则的又一个实例，也是为什么图谱这类产出必须有人真的看一眼。
+ *
+ * 顺带处理 `&lt;br&gt;`：标签经过 HTML 转义后再回到这里的情况（取决于 mermaid 的
+ * securityLevel 与走的是 db 还是 SVG 回退路径），两条路径产出的字符串不同。
+ */
+export function normalizeLabelLineBreaks(text: string): string {
+  return text
+    .replace(/&lt;\s*br\s*\/?\s*&gt;/gi, '\n')
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    // 每行各自 trim：`a <br> b` 不该变成 "a \n b"（行首行尾留空格会让居中看起来歪）
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n');
 }
 
 /** Pure-SVG fallback: reconstruct logical structure from the rendered SVG only. */
@@ -1127,7 +1152,7 @@ export async function mermaidToModel(code: string): Promise<DiagramModel> {
       }
       nodes.push({
         id: v.id,
-        label: (v.text ?? v.id).trim(),
+        label: normalizeLabelLineBreaks((v.text ?? v.id).trim()),
         shape: mapShape(v.type),
         x: geo.x,
         y: geo.y,
@@ -1139,7 +1164,7 @@ export async function mermaidToModel(code: string): Promise<DiagramModel> {
       id: `e${i}`,
       source: e.start,
       target: e.end,
-      label: e.text?.trim() || undefined,
+      label: e.text ? normalizeLabelLineBreaks(e.text.trim()) || undefined : undefined,
       kind: mapEdgeKind(e),
     }));
 

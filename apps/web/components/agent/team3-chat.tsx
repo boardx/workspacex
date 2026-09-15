@@ -42,6 +42,13 @@ import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities } from "@/lib/live-capabilities";
 import { createPersonalThread, getAgentPanel, updateAgentRoster, listPersonalThreads } from "@/lib/live-chat";
+import { getResearchSession, type ResearchSession } from "@/lib/live-research-workflow";
+import { ResearchPhaseBar } from "./research-phase-bar";
+import { ResearchMaterialIntake } from "./research-material-intake";
+import { ResearchMaterialReview } from "./research-material-review";
+import { ResearchAuditTrail, ResearchGatePanel } from "./research-gate-panel";
+import { ResearchVerification } from "./research-verification";
+import { getResearchPredictions, type ResearchPrediction } from "@/lib/live-research-workflow";
 
 /** 与 `apps/api/scripts/backfill-team3-agent.ts` 的 `TEAM3_AGENT_NAME` 逐字一致。 */
 const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
@@ -99,6 +106,8 @@ export function Team3Chat(): JSX.Element {
   const orgId = session?.currentOrgId ?? null;
   const [resolved, setResolved] = React.useState<Resolved | null>(null);
   const [failure, setFailure] = React.useState<string | null>(null);
+  const [research, setResearch] = React.useState<ResearchSession | null>(null);
+  const [predictions, setPredictions] = React.useState<ResearchPrediction[]>([]);
 
   React.useEffect(() => {
     if (!orgId || resolved) return;
@@ -114,6 +123,20 @@ export function Team3Chat(): JSX.Element {
       });
     return () => { cancelled = true; };
   }, [orgId, resolved]);
+
+  // 阶段条的数据。读失败**不阻断聊天**——研判流程状态是增益，拿不到它时聊天本身
+  // 仍然完全可用，把整页变成错误页是把一个次要功能的故障升级成主功能不可用。
+  React.useEffect(() => {
+    if (!resolved) return;
+    let cancelled = false;
+    void getResearchSession(resolved.threadId)
+      .then((s) => { if (!cancelled) setResearch(s); })
+      .catch(() => undefined);
+    void getResearchPredictions(resolved.threadId)
+      .then((p) => { if (!cancelled) setPredictions(p); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [resolved]);
 
   if (failure !== null) {
     return (
@@ -139,6 +162,32 @@ export function Team3Chat(): JSX.Element {
 
   return (
     <div data-testid="team3-chat" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 阶段条在聊天上方：聊天框没有"现在"，用户离开三天回来要靠往上翻消息才能
+          拼出"该我做什么了"。读不到会话时不渲染（而不是渲染一个假的"未开始"）
+          ——把未知显示成已知正是本仓反复判 0 分的那种假界面。 */}
+      {research ? (
+        <ResearchPhaseBar
+          phase={research.phase}
+          publishedGraphVersion={research.lineage.publishedGraphVersion}
+          verifyDueAt={research.verifyDueAt}
+        />
+      ) : null}
+      {/* 门①：只在它真的在等的时候自己渲染（组件内部判断），别的阶段返回 null。 */}
+      {/* 材料录入：只在还能收材料的阶段自己渲染。 */}
+      {research ? <ResearchMaterialIntake session={research} onChange={setResearch} /> : null}
+      {research ? <ResearchMaterialReview session={research} onChange={setResearch} /> : null}
+      {/* 门②/门③：同样自己判断该不该出现。 */}
+      {research ? <ResearchGatePanel session={research} onChange={setResearch} /> : null}
+      {/* 推进记录：Agent 跳门尝试要被人看见，不能只进日志。 */}
+      {/* 第三步：预测比对表。没有预测时组件自己返回 null。 */}
+      {research ? (
+        <ResearchVerification
+          threadId={research.threadId}
+          predictions={predictions}
+          onChange={setPredictions}
+        />
+      ) : null}
+      {research ? <ResearchAuditTrail threadId={research.threadId} /> : null}
       {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
       <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
     </div>
