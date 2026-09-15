@@ -16,7 +16,7 @@
 
 ```
 /agent/team1（落地页 + 材料预处理）
-        │  上传材料 → 选中 Agent（真实已发布 agentId）
+        │  上传材料 → 按需解析/发布真实 Agent（ensure-agent.ts）
         ▼
 真实 chat 后端（deep-agent 内核 + AGUI 流式协议 + 真实模型）
   · createPersonalThread  新建一条项目对话
@@ -42,32 +42,31 @@
 | 人工确认关口 | 前端状态机模拟，未真正阻断 | 写进任务书让模型主动停下等确认；机械阻断需要 deep-agent-hitl，本版未接线（见「已知限制」） |
 | 可验收性 | 100% 可本地跑分（无模型依赖） | 依赖真实部署 + 真实模型，本会话环境内无法端到端跑出结果（见下） |
 
-## 发布 team1 这个 Agent（2026-09-15 已验证整条链路，脚本已备好）
+## 发布 team1 这个 Agent（2026-09-15 第三版：按需自动发布，不用手工碰库/改部署）
 
-`lib/ic-review/agent-directory.ts` 的 `agentId` 默认读 `NEXT_PUBLIC_TEAM1_AGENT_ID`
-环境变量，没设时为 `null`。**每个部署环境（本机 / devapp / 生产）各自有自己的
-Postgres，agentId 天然不跨环境通用**，所以这一步在每个新环境都要单独跑一次：
+**第二版**（已废弃）要求运维在每个部署环境单独跑一次发布脚本、改 `deploy.env`、
+触发重新部署。人类反馈这太麻烦、也不想有一条"手工改库"的路径。
 
-```bash
-cd apps/api
-API_BASE_URL=<该环境的 API 地址> \
-API_LOGIN_EMAIL=<有 admin 角色的账号> \
-API_LOGIN_PASSWORD=<密码> \
-npx tsx scripts/publish-team1-agent.ts
-```
+**现在**：`lib/ic-review/ensure-agent.ts` 在用户真正点「开始审阅」时，按需通过
+**真实前端 API**（`POST /agents` → `PATCH .../instructions` → `POST .../self-publish`，
+与任何 org admin 在后台手动建一个 Agent 走的是同一条路径）解析或创建它——不是
+第二条手工改库的路径，只是把"点五次表单"自动化成"点一次按钮"。幂等：按名字在
+当前组织里查，找到已发布的直接复用。
 
-脚本幂等：按名字查已有 Agent，存在就复用并刷新 instructions，不会重复创建。跑完把
-打印出的 `agentId` 设进该环境的 `NEXT_PUBLIC_TEAM1_AGENT_ID`（或直接改
-`agent-directory.ts` 里的字面量，本机临时验证更快）。
+**每个部署环境的第一个使用者**：如果点击的用户是 org admin，直接就地创建并发布，
+立刻可用；如果不是 admin（服务端 `createAgent`/`listAgents` 只放行 org admin，
+`ROLE_INSUFFICIENT`），页面会如实提示「需要一位组织管理员先点一次」，并降级成
+「复制审阅任务书」兜底——不假装能用，但也不需要任何人 SSH 上机器。一旦任意一个
+admin 点过一次，同组织所有后续用户（含非 admin）直接复用同一个 Agent。
 
 **这条链路本身已经在真实环境里验证过、不是纸面设计**：2026-09-15 在一个真实起
 的 Postgres 16（含 pgvector）+ Redis + `apps/api`（无 mock、无桩）实例上，完整跑通
-了 `POST /agents` → `PATCH .../instructions` → `POST .../self-publish` → 把发布出的
-Agent 挂进一条真实线程 roster → 发一条真实审阅任务消息，拿到 `202` 与真实
-`agentRunId`（durable message + queued AgentRun）。这证明 `launch-review-thread.ts`
-调用的那一串真实 API 形状是对的、能跑通；唯一没验证的是**真实模型对材料的实际
-输出质量**（那次验证环境没配模型 provider 凭据，AgentRun 停在 queued），这部分要
-在配了真实模型的环境里跑「验收」一节的测试集才能看到。
+了创建 → 写 instructions → self-publish → 把发布出的 Agent 挂进一条真实线程
+roster → 发一条真实审阅任务消息，拿到 `202` 与真实 `agentRunId`（durable message +
+queued AgentRun）。这证明 `launch-review-thread.ts`/`ensure-agent.ts` 调用的那一串
+真实 API 形状是对的、能跑通；唯一没验证的是**真实模型对材料的实际输出质量**
+（那次验证环境没配模型 provider 凭据，AgentRun 停在 queued），这部分要在配了
+真实模型的环境里跑「验收」一节的测试集才能看到。
 
 ## MVP 边界
 
@@ -94,8 +93,8 @@ Agent 挂进一条真实线程 roster → 发一条真实审阅任务消息，�
    provider 凭据，AgentRun 停在 `queued`——没有产生过真正的模型回复。命中率、
    幻觉率这些「验收」一节的指标，必须在配了真实模型的环境里跑一遍测试集 A/B/C
    才能知道。
-3. **`agentId` 每个部署环境要单独发布一次**（脚本已备好，见上），没设时禁用按钮，
-   落地页会如实说明，不假装能用。
+3. **每个部署环境需要至少一位 org admin 点开过一次本页**（自动发布，见上），
+   在此之前非 admin 用户会看到「需要管理员先点一次」+ 复制兜底，不假装能用。
 
 ## Backlog
 
@@ -104,20 +103,21 @@ Agent 挂进一条真实线程 roster → 发一条真实审阅任务消息，�
 | B1 | 上会标准清单 IC-1…IC-8（41 条，任务书用） | ✅ `apps/web/lib/ic-review/standard.ts` |
 | B2 | 材料接收：读取 + sha256 + 可解析性判定 | ✅ `lib/ic-review/intake.ts` |
 | B3 | 审阅任务书生成（标准 + 交叉验证要求 + 输出格式 + 两轮确认约定） | ✅ `lib/ic-review/review-prompt.ts` |
-| B4 | 发起真实对话：建线程 + 挂 Agent + 传附件 + 发任务书 | ✅ `lib/ic-review/launch-review-thread.ts` |
+| B4 | 发起真实对话：建线程 + 挂 Agent + 传附件 + 发任务书 | ✅ `lib/ic-review/launch-review-thread.ts` + `ensure-agent.ts`（按需自动发布） |
 | B5 | `/agent/team1` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` 的 team1 分支 + `components/agent/ic-review-launcher.tsx` |
 | B6 | Studio 智能体列表入口 | ✅ 复用既有 `/agent` 六 team 列表页（#3666），未另建 |
 | B7 | 示例材料包 A/B/C（快速试跑，不用现找文件） | ✅ `lib/ic-review/fixtures.ts` |
-| B8 | 发布 team1 为真实 Agent，回填 `agentId` | ✅ 链路已验证（见上）+ `apps/api/scripts/publish-team1-agent.ts`；⬜ 仍需在目标环境（devapp/生产）实跑一次并配好模型凭据 |
+| B8 | 发布 team1 为真实 Agent | ✅ 按需自动发布（见上），链路已验证；⬜ 仍需在目标环境（devapp/生产）配好模型凭据，真实回复质量才能验证 |
 | B9 | 机械阻断的两轮人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
-| B10 | `agentId` 未发布前的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-launcher.tsx` 的「复制审阅任务书」按钮 |
+| B10 | Agent 未初始化 / 非 admin 用户的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-launcher.tsx` 的「复制审阅任务书」按钮 |
 
 ## 验收：测试集与通过标准
 
 测试集来自《上会材料智能审阅助手大模型测试方案 V1.0》，三包材料全部虚构，内置在
-`lib/ic-review/fixtures.ts`，落地页可一键加载。**验收方式**：B8 完成、`agentId` 回填后，
-在真实部署环境里依次加载三包材料并发起审阅，人工核对模型输出是否命中下表；
-本仓无法在纯前端沙箱里自动跑出这份分数（不同于第一版的本地规则引擎）。
+`lib/ic-review/fixtures.ts`，落地页可一键加载。**验收方式**：在配好真实模型凭据的
+部署环境里，用 org admin 账号打开一次 `/agent/team1`（自动完成发布），随后依次
+加载三包材料并发起审阅，人工核对模型输出是否命中下表；本仓无法在纯前端沙箱里
+自动跑出这份分数（不同于第一版的本地规则引擎）。
 
 | 组 | 考什么 | 通过标准 |
 |---|---|---|
@@ -150,11 +150,10 @@ npx next lint --max-warnings 0  # eslint
 
 ```bash
 rm -rf apps/web/lib/ic-review apps/web/components/agent \
-       apps/api/scripts/publish-team1-agent.ts \
        docs/agents/team1-ic-review-mvp.md
 ```
 再把 `apps/web/app/agent/[teamId]/page.tsx` 里 `if (team.slug === "team1") { ... }`
 那个分支删掉（团队占位卡片会自动退回通用展示态），以及文件头两条关于 Team1 的注释。
-若已按 B8 发布了真实 Agent，记得同时在后台把该 Agent 下线/删除，并撤掉
-`NEXT_PUBLIC_TEAM1_AGENT_ID` 环境变量。
-没有数据库迁移、没有新增后端端点——删完不留残骸。
+若已按 B8 自动发布过真实 Agent，记得同时在后台把该 Agent 下线/删除
+（Studio 后台的 Agent 管理列表里能找到，名字是「上会材料智能审阅助手」）。
+没有数据库迁移、没有新增后端端点、没有环境变量——删完不留残骸。

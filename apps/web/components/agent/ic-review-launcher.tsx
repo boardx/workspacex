@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Copy, FileText, Loader2, Send, Upload } from "lucide-react";
+import { ApiError } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +14,13 @@ import { buildReviewPrompt } from "@/lib/ic-review/review-prompt";
 import type { ReviewDocument, UnparsedFile } from "@/lib/ic-review/types";
 
 /**
- * `/agent/team1` 工作区 —— MVP 架构第二版：只做材料预处理与发起，
+ * `/agent/team1` 工作区 —— MVP 架构第三版：只做材料预处理与发起，
  * 不自建分析结果面板；审阅结果出现在真实 chat 线程里（跳转后可见）。
+ *
+ * 「开始审阅」不再要求预先配置好的 `agentId`——点击时按需解析/发布
+ * （`lib/ic-review/ensure-agent.ts`）。服务端建 Agent 只放行 org admin，
+ * 非 admin 用户第一次点击若撞上 `ROLE_INSUFFICIENT`，降级成「复制审阅任务书」
+ * 兜底，并提示「请先让一位管理员打开本页点一次」——不是本页的错，是权限模型如此。
  */
 export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
   const router = useRouter();
@@ -24,6 +30,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
   const [selectedPackId, setSelectedPackId] = React.useState<string | null>(null);
   const [launching, setLaunching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [needsAdminInit, setNeedsAdminInit] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -55,14 +62,20 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
   };
 
   const start = async () => {
-    if (!agent.agentId || launching || totalCount === 0) return;
+    if (launching || totalCount === 0) return;
     setLaunching(true);
     setError(null);
+    setNeedsAdminInit(false);
     try {
-      const { threadId } = await launchReviewThread({ agentId: agent.agentId, files, extraDocuments: fixtureDocs });
+      const { threadId } = await launchReviewThread({ files, extraDocuments: fixtureDocs });
       router.push(`/chat?thread=${encodeURIComponent(threadId)}`);
-    } catch {
-      setError("发起审阅失败：无法创建对话或上传材料，请稍后重试。");
+    } catch (e) {
+      if (e instanceof ApiError && e.reasonCode === "ROLE_INSUFFICIENT") {
+        setNeedsAdminInit(true);
+        setError("这个 Agent 在当前组织里还没有人发布过，需要一位组织管理员先打开本页点一次「开始审阅」完成初始化——之后所有人都能直接用。");
+      } else {
+        setError("发起审阅失败：无法创建对话或上传材料，请稍后重试。");
+      }
       setLaunching(false);
     }
   };
@@ -93,14 +106,13 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
         </CardContent>
       </Card>
 
-      {!agent.agentId && (
+      {needsAdminInit && (
         <Card>
           <CardContent className="space-y-3 py-4">
             <div className="flex items-start gap-2">
               <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
               <p className="text-12 text-muted-foreground">
-                该 Agent 尚未在后台发布，暂时无法一键发起真实审阅对话。发布步骤见
-                <code className="mx-1 rounded-control bg-muted px-1 py-0.5 text-11">docs/agents/team1-ic-review-mvp.md</code>。
+                这个组织还没有人初始化过该 Agent（需要一位组织管理员来打开本页点一次「开始审阅」）。
                 在此之前，你可以复制下面的审阅任务书，手动粘到任意一条项目对话里、附上材料，照样能用。
               </p>
             </div>
@@ -150,7 +162,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <Button variant="ai" size="sm" onClick={() => void start()} disabled={!agent.agentId || totalCount === 0 || launching}
+            <Button variant="ai" size="sm" onClick={() => void start()} disabled={totalCount === 0 || launching}
               data-testid="agent-start-review">
               {launching ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Send aria-hidden className="size-3.5" />}
               开始审阅（{totalCount} 份，将进入真实项目对话）

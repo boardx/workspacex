@@ -1,28 +1,22 @@
 /**
  * Agent 目录 —— `/agent/<slug>` 落地页文案的单一事实源。
  *
- * MVP 架构（2026-09-15 第二版）：`/agent/team1` 不再是自建工作区，而是「材料预处理 +
- * 发起真实 chat 审阅任务」的启动页；审阅本身在真实项目对话里由挂载了 `agentId` 的
- * 已发布 Agent（真实模型）完成。
+ * MVP 架构（2026-09-15 第三版）：`/agent/team1` 不再是自建工作区，而是「材料预处理 +
+ * 发起真实 chat 审阅任务」的启动页；审阅本身在真实项目对话里由挂载了真实 Agent 的
+ * 已发布模型完成。
  *
- * ⚠ `agentId` 是后端 `agent-runtime` 里这个 Agent 发布后的真实数据库 id，**本文件
- * 不能替它造一个**——每个部署环境（本机开发库 / devapp / 生产）各自有自己的库，
- * id 天然不跨环境通用。二选一：
- *   ① 设置构建时环境变量 `NEXT_PUBLIC_TEAM1_AGENT_ID`（推荐，换环境不用改代码）；
- *   ② 直接改下面 `agentId` 的字面量（本机开发临时验证时更快）。
- * 都没设时保持 `null`——落地页据此禁用「开始审阅」按钮并如实说明还差这一步。
- *
- * 发布方式：`apps/api/scripts/publish-team1-agent.ts`（幂等，一条命令跑完
- * 创建 → 写 instructions → self-publish，2026-09-15 已在真实 Postgres + Redis +
- * apps/api 实例上验证过整条链路：建 Agent → 挂进线程 roster → 发消息 → 收到
- * 202 与 queued AgentRun）。
+ * ⚠ 这里**不再声明一个固定的 `agentId`**——第二版曾经要求「运维手工在目标环境跑
+ * 一次发布脚本、改 deploy.env、重新部署」，人类反馈这太麻烦、也不想手工碰数据库。
+ * 现在改成按需自动发布：`ensure-agent.ts` 在真正点「开始审阅」时才通过真实
+ * `POST /agents` / `.../self-publish` 端点解析或创建它，跟任何一个 org admin 用户
+ * 在后台手动建一个 Agent 是同一条路径，只是自动做一遍，不是手工改库。
+ * 每个部署环境（本机 / devapp / 生产）各自的库里，第一个点「开始审阅」的
+ * org admin 用户就把这一步做完了，后面所有人直接复用同一个 Agent。
  */
 export interface AgentDirectoryEntry {
   readonly slug: string;
   readonly name: string;
   readonly tagline: string;
-  /** 已发布 Agent 的真实 id；未发布前为 null，见上方文件头注。 */
-  readonly agentId: string | null;
   readonly skills: readonly string[];
   readonly capabilities: readonly string[];
   readonly boundaries: readonly string[];
@@ -33,7 +27,6 @@ export const AGENT_DIRECTORY: readonly AgentDirectoryEntry[] = [
     slug: "team1",
     name: "上会材料智能审阅助手",
     tagline: "投决会前，把「读材料、查缺、找矛盾」的机械负担拿走；结论条条可回跳原文。",
-    agentId: process.env.NEXT_PUBLIC_TEAM1_AGENT_ID ?? null,
     skills: ["ic-review-standard（上会标准 IC-1…IC-8，待发布为平台 Skill）"],
     capabilities: [
       "把材料作为附件发进一条真实项目对话，由挂载的模型完成审阅",
