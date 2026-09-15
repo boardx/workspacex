@@ -67,8 +67,13 @@ export class PgArtifactLandingRepository implements ArtifactLandingRepository {
   async findByArtifactId(orgId: OrgId, artifactId: string): Promise<ArtifactLandingRow | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<LandingDbRow>(
+        // ⚠ ORDER BY + LIMIT 1：同一个 artifactId 现在可以有多条 landing 行（一次
+        // 落地 = 一个版本，见 `land-as-artifact.ts` 的 `artifactId` 入参）。没有排序
+        // 时「取第几行」由 PG 的扫描顺序决定——只有一行时无差别，多行时是随机结果。
         `SELECT ${SELECT_COLUMNS} FROM chat_artifact_landings
-          WHERE artifact_id = $1 AND org_id = $2`,
+          WHERE artifact_id = $1 AND org_id = $2
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1`,
         [artifactId, orgId],
       );
       const row = r.rows[0];
@@ -99,7 +104,7 @@ export class PgArtifactLandingRepository implements ArtifactLandingRepository {
       const r = await s.query<LandingDbRow>(
         `SELECT ${SELECT_COLUMNS} FROM chat_artifact_landings
           WHERE thread_id = $1 AND org_id = $2
-          ORDER BY created_at ASC`,
+          ORDER BY created_at ASC, id ASC`,
         [threadId, orgId],
       );
       return r.rows.map(toRow);
