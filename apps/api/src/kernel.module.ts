@@ -557,6 +557,8 @@ import { MessageRatingController } from "./interface/controllers/message-rating.
 import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
+// `/agent/team4` ad-hoc MVP，见 docs/adhoc/team4-post-investment-agent-mvp-backlog.md。
+import { PostInvestmentController } from "./interface/controllers/post-investment.controller";
 import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 import { InboxController } from "./interface/controllers/inbox.controller";
 import { INBOX_ORDER_REPOSITORY } from "./application/inbox/inbox-order.port";
@@ -1009,6 +1011,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillController,
     MessageRatingController,
     FeedbackController,
+    PostInvestmentController,
     SystemErrorLogController,
     SystemDebugTraceController,
     InboxController,
