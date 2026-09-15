@@ -23,7 +23,7 @@ const MIGRATION = readFileSync(
 function checkValues(constraintName: string): string[] {
   const m = MIGRATION.match(new RegExp(`CONSTRAINT ${constraintName} CHECK \\([^)]*IN \\(([^)]*)\\)`, "s"));
   if (!m) throw new Error(`迁移里找不到约束 ${constraintName}——它被删了或改名了`);
-  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+  return [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
 }
 
 describe("契约 ↔ 迁移 枚举一致", () => {

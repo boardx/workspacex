@@ -35,7 +35,7 @@ function makeDeps(session: Partial<ResearchSessionRow> = {}) {
   const deps: PassGateDeps = {
     now: () => NOW,
     uuid: { next: () => `batch-${++uuidN}` },
-    repo: {
+    research: {
       ensureSession: async () => row,
       addMaterials: async () => row,
       setMaterialVerdict: async () => row,
@@ -77,7 +77,7 @@ describe("passGate", () => {
   it("被拒时**也写审计**，且带原因码——静默拒绝会让跳门尝试永远统计不出来", async () => {
     const { deps, audit, transitions } = makeDeps({
       phase: "materials_review",
-      materials: [{ ...accepted(1)[0], verdict: "pending" }],
+      materials: [{ ...accepted(1)[0]!, verdict: "pending" as const }],
     });
 
     await expect(passGate(deps, ORG, "t", "materials")).rejects.toBeInstanceOf(ResearchGateRefusedError);
@@ -111,7 +111,7 @@ describe("passGate", () => {
   it("过门的审计恒为 human——这个字段不接受调用方指定，否则整张审计表失去证据力", async () => {
     const { deps, audit } = makeDeps({ phase: "materials_review", materials: accepted(1) });
     await passGate(deps, ORG, "t", "materials");
-    expect(audit[0].actorKind).toBe("human");
+    expect(audit[0]!.actorKind).toBe("human");
   });
 });
 

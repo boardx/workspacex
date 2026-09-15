@@ -27,7 +27,7 @@ import type { ResearchSessionRow, ResearchWorkflowRepository, UuidFactory } from
 import type { OrgId } from "../../domain/org-id";
 
 export interface PassGateDeps {
-  readonly repo: ResearchWorkflowRepository;
+  readonly research: ResearchWorkflowRepository;
   readonly uuid: UuidFactory;
   /** 注入而非直接读时钟：`verifyDueAt` 的计算要可测。 */
   readonly now: () => Date;
@@ -68,7 +68,7 @@ async function commit(
   nextLineage: ResearchSessionRow["lineage"],
   verifyDueAt: string | null,
 ): Promise<ResearchSessionRow> {
-  await deps.repo.appendAudit({
+  await deps.research.appendAudit({
     orgId,
     threadId: session.threadId,
     actorKind,
@@ -78,7 +78,7 @@ async function commit(
     refusal: decision.ok ? null : decision.refusal,
   });
   if (!decision.ok) throw new ResearchGateRefusedError(decision.refusal, session.phase);
-  return deps.repo.applyTransition(orgId, session.threadId, decision.nextPhase, nextLineage, verifyDueAt);
+  return deps.research.applyTransition(orgId, session.threadId, decision.nextPhase, nextLineage, verifyDueAt);
 }
 
 /**
@@ -95,7 +95,7 @@ export async function passGate(
   threadId: string,
   gate: C.ResearchGateName,
 ): Promise<ResearchSessionRow> {
-  const session = await deps.repo.ensureSession(orgId, threadId);
+  const session = await deps.research.ensureSession(orgId, threadId);
   const decision = decideGate(session, gate);
 
   // 血缘只在放行时才算；被拒时原样带回，避免"拒绝了但版本号还是加了一"。
@@ -125,7 +125,7 @@ export async function advancePhase(
   threadId: string,
   to: C.ResearchPhaseName,
 ): Promise<ResearchSessionRow> {
-  const session = await deps.repo.ensureSession(orgId, threadId);
+  const session = await deps.research.ensureSession(orgId, threadId);
   const decision = decideAdvance(session, to);
   return commit(deps, orgId, session, "agent", `advance:${to}`, decision, session.lineage, session.verifyDueAt);
 }

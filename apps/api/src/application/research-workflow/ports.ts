@@ -56,3 +56,6 @@ export interface ResearchWorkflowRepository {
 export interface UuidFactory {
   next(): string;
 }
+
+/** DI token。 */
+export const RESEARCH_WORKFLOW_REPOSITORY = Symbol("RESEARCH_WORKFLOW_REPOSITORY");
