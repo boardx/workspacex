@@ -9,6 +9,7 @@ if [[ ${1:-} == --prepare ]]; then mode=prepare; shift; fi
 revision=$1
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
+SOURCE_CACHE=/opt/workspacex-cn/release-origin-cache.git
 CONFIG_FILE=/etc/workspacex-cn/deployment.json
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
@@ -180,9 +181,14 @@ if [[ "$mode" == prepare ]]; then
   stage=$(mktemp -d "$RELEASE_TREE_ROOT/.prepare-$revision.XXXXXX")
   cleanup_stage() { rm -rf -- "$stage"; }
   trap cleanup_stage EXIT
-  # --no-local prevents hardlinks to runner-owned object files. The resulting Git
-  # database and worktree are created by root and are independently trustable.
-  git clone --quiet --no-local --no-checkout "$REPOSITORY_DIR" "$stage/checkout"
+  # The runner checkout may be partial and try to lazy-fetch objects from GitHub.
+  # Clone the verified offline cache instead. --no-local prevents hardlinks to
+  # runner-owned objects; the clone and its worktree are created by root.
+  clone_config="$stage/gitconfig"
+  umask 077
+  git config --file "$clone_config" --add safe.directory "$SOURCE_CACHE"
+  GIT_CONFIG_GLOBAL="$clone_config" git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"
+  rm -f "$clone_config"
   git -C "$stage/checkout" checkout --quiet --detach "$revision"
   [[ "$(git -C "$stage/checkout" rev-parse HEAD)" == "$revision" ]] || fail "prepared checkout revision mismatch"
   [[ -z "$(git -C "$stage/checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"

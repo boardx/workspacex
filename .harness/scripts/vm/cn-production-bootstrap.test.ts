@@ -55,7 +55,10 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy).toContain('RELEASE_TREE_ROOT=/var/lib/workspacex-cn/releases');
     expect(deploy).toContain('RUNTIME_ROOT=/var/lib/workspacex-cn/runtime');
     expect(bootstrap).toContain('install -d -o root -g root -m 0700 /var/lib/workspacex-cn');
-    expect(deploy).toContain('git clone --quiet --no-local --no-checkout "$REPOSITORY_DIR" "$stage/checkout"');
+    expect(deploy).toContain('SOURCE_CACHE=/opt/workspacex-cn/release-origin-cache.git');
+    expect(deploy).toContain('git config --file "$clone_config" --add safe.directory "$SOURCE_CACHE"');
+    expect(deploy).toContain('GIT_CONFIG_GLOBAL="$clone_config" git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"');
+    expect(deploy).not.toContain('git clone --quiet --no-local --no-checkout "$REPOSITORY_DIR"');
     expect(deploy).toContain('install --frozen-lockfile --ignore-scripts --package-import-method=copy');
     expect(deploy).toContain('chmod -R go-w "$stage/checkout"');
     expect(deploy).toContain('mv "$stage/checkout" "$release_checkout"');

@@ -193,7 +193,7 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 |---|---|---|
 | 2026-09-15 | `ACR_AUTH_EXPIRED` | 临时凭据 + registry 鉴权 probe + 到期预算 |
 | 2026-09-15 | `RELEASE_LOCK_ORPHANED` | process-group 终止后枚举后代、确认 lock free |
-| 2026-09-15 | `PARTIAL_SOURCE_OBJECT_MISSING` | 完整离线 source artifact 和 object closure 校验 |
+| 2026-09-15 | `PARTIAL_SOURCE_OBJECT_MISSING` | 完整离线 source artifact 和 object closure 校验；Prepare 从已校验的裸仓缓存做 root 私有 `--no-local` 克隆，禁止 partial runner checkout 懒取 GitHub 对象 |
 | 2026-09-15 | `PNPM_VERSION_MISMATCH` | 从 packageManager 固定进程级 pnpm 并在预检执行 |
 | 2026-09-15 | `PNPM_ARGUMENT_PROTOCOL_DRIFT` | 真实 CLI 参数转发反证测试 |
 | 2026-09-15 | `MACHINE_STDOUT_CONTAMINATED` | 唯一前缀 JSON stdout 契约测试 |
