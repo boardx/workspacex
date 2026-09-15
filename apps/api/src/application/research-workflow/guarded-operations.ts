@@ -72,13 +72,26 @@ export async function readSession(
   return open(await deps.research.ensureSession(actor.orgId, actor.threadId));
 }
 
+/**
+ * 加材料。
+ *
+ * ⚠ **第一份材料进来时顺带把阶段从 `empty` 推到 `collecting`**
+ * （2026-09-15 devapp 真机截图实测的缺陷：界面上写着「已登记 2 条材料（未开始）」
+ * ——一条已经有材料的研判说自己"未开始"，用户无从判断是它坏了还是自己没点对）。
+ *
+ * 推进仍然**走状态机**（`empty → collecting` 是它允许的边），不是在这里直接赋值：
+ * 绕过状态机改阶段，等于开了第二个改阶段的入口，三道门就少了一层保证。
+ * 已经在 `collecting` 之后的阶段不动——加材料不该把一条走到图谱待审的研判拽回去。
+ */
 export async function addMaterials(
   deps: ResearchOpsDeps,
   actor: ResearchActor,
   items: readonly { source: string; label: string }[],
 ): Promise<ResearchSessionRow> {
   const open = await openVisible(deps, actor);
-  return open(await deps.research.addMaterials(actor.orgId, actor.threadId, items as never));
+  const after = open(await deps.research.addMaterials(actor.orgId, actor.threadId, items as never));
+  if (after.phase !== "empty") return after;
+  return advancePhase(deps, open, actor.orgId, actor.threadId, "collecting");
 }
 
 /**

@@ -160,41 +160,47 @@ export function Team3Chat(): JSX.Element {
     );
   }
 
+  /**
+   * 研判面板 —— 全部经壳的 `conversationHeader` 插槽渲染到**对话列内部**。
+   *
+   * ⚠ 2026-09-15 devapp 真机截图实测的教训：此前它们是 `CopilotKitV2Shell` 的
+   * **兄弟节点**，而那个壳自己就渲染整套布局（侧边栏 + 对话列）。结果是面板横在
+   * 整个应用之上、侧边栏被挤到下半屏——组件级测试与截图全都看不出来，因为它们
+   * 从来没有把壳一起渲染过。壳是"一整个屏"，不是一个内容块。
+   */
+  const panels = research ? (
+    <div data-testid="team3-panels" className="shrink-0 overflow-y-auto">
+      <ResearchPhaseBar
+        phase={research.phase}
+        publishedGraphVersion={research.lineage.publishedGraphVersion}
+        verifyDueAt={research.verifyDueAt}
+      />
+      {/* 下面每个组件都自己判断该不该出现（不该出现时返回 null），
+          所以这里不再重复一遍阶段条件——两处判断迟早会说不一致。 */}
+      <ResearchMaterialIntake session={research} onChange={setResearch} />
+      <ResearchMaterialReview session={research} onChange={setResearch} />
+      <ResearchGatePanel session={research} onChange={setResearch} />
+      <ResearchVerification
+        threadId={research.threadId}
+        predictions={predictions}
+        onChange={setPredictions}
+      />
+      <ResearchAuditTrail threadId={research.threadId} />
+    </div>
+  ) : null;
+
   return (
     <div data-testid="team3-chat" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* 阶段条在聊天上方：聊天框没有"现在"，用户离开三天回来要靠往上翻消息才能
-          拼出"该我做什么了"。读不到会话时不渲染（而不是渲染一个假的"未开始"）
-          ——把未知显示成已知正是本仓反复判 0 分的那种假界面。 */}
-      {research ? (
-        <ResearchPhaseBar
-          phase={research.phase}
-          publishedGraphVersion={research.lineage.publishedGraphVersion}
-          verifyDueAt={research.verifyDueAt}
-        />
-      ) : null}
-      {/* 门①：只在它真的在等的时候自己渲染（组件内部判断），别的阶段返回 null。 */}
-      {/* 材料录入：只在还能收材料的阶段自己渲染。 */}
-      {research ? <ResearchMaterialIntake session={research} onChange={setResearch} /> : null}
-      {research ? <ResearchMaterialReview session={research} onChange={setResearch} /> : null}
-      {/* 门②/门③：同样自己判断该不该出现。 */}
-      {research ? <ResearchGatePanel session={research} onChange={setResearch} /> : null}
-      {/* 推进记录：Agent 跳门尝试要被人看见，不能只进日志。 */}
-      {/* 第三步：预测比对表。没有预测时组件自己返回 null。 */}
-      {research ? (
-        <ResearchVerification
-          threadId={research.threadId}
-          predictions={predictions}
-          onChange={setPredictions}
-        />
-      ) : null}
-      {research ? <ResearchAuditTrail threadId={research.threadId} /> : null}
       {/* 个人线程 ⇒ projectId 恒为 null（壳的入参本就是 `string | null`）。 */}
-      <CopilotKitV2Shell initialThreadId={resolved.threadId} projectId={null} />
+      <CopilotKitV2Shell
+        initialThreadId={resolved.threadId}
+        projectId={null}
+        conversationHeader={panels}
+      />
     </div>
   );
 }
 
-/** 页面级挂点：把 `/chat` 那三层 provider 原样套上，壳才能正常工作（见文件头注）。 */
 export function Team3ChatScreen(): JSX.Element {
   return (
     <CopilotKitV2AgentSelectionProvider>
