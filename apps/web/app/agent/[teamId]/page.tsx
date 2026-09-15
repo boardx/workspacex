@@ -13,11 +13,17 @@ import {
   type WorkbenchDialog,
   type PreviewRoleCode,
 } from "@/components/postinvest-rating/rating-workbench";
+import { IcReviewLauncher } from "@/components/agent/ic-review-launcher";
+import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP，走真实 chat 后端而非 UI 原型）：与
+ *   Team2 的「mock identity 截图态」不同，Team1 要调真实 `lib/live-chat.ts` API
+ *   （建线程/传附件/发消息），必须走真实登录会话，因此不传 `identity` 覆盖，
+ *   复用页面自身默认的真实 `AppShell`。详情见 `docs/agents/team1-ic-review-mvp.md`。
  * ⚠ Team2 = 投后财务项目评级 Agent 工作台（Phase 16 F03，UI 先行）：这里把 Team2 的只读示例
  *   换成用真实组件 + mock 做出的工作台（ui-prototyper 硬规则 ②③④）。其余 team 仍是只读示例，
  *   示例数据的单一事实源在 `lib/mock/agent-previews.ts`，本页不另写一份 team 名单。
@@ -46,6 +52,23 @@ export default function AgentTeamPage({
 }) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
+
+  if (team.slug === "team1") {
+    const agent = findIcReviewAgent("team1");
+    if (!agent) notFound();
+    return (
+      <AppShell previewRole={null}>
+        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
+          <div data-testid="agent-team-page" data-team="team1" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
+            <p className="text-11 font-medium text-muted-foreground">
+              <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {agent.name}
+            </p>
+            <div className="mt-4"><IcReviewLauncher agent={agent} /></div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (team.slug === "team2") {
     const state = pick(WORKBENCH_STATES, searchParams?.state, "default");
