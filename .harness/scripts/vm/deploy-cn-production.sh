@@ -9,6 +9,7 @@ if [[ ${1:-} == --prepare ]]; then mode=prepare; shift; fi
 revision=$1
 
 REPOSITORY_DIR=/opt/workspacex-cn/repository
+SOURCE_CACHE=/var/lib/workspacex-cn/source-cache.git
 CONFIG_FILE=/etc/workspacex-cn/deployment.json
 RELEASES_DIR=/etc/workspacex-cn/releases
 REQUESTS_DIR=/etc/workspacex-cn/requests
@@ -32,6 +33,8 @@ baseline_state="$runtime/baseline.json"
 baseline_nginx="$runtime/baseline-nginx.conf"
 
 fail() { echo "CN_DEPLOY_REJECTED: $1" >&2; exit 1; }
+pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }
+[[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
 resolve_browser_executable() {
   local candidate path
   for candidate in chromium-browser chromium google-chrome; do
@@ -89,10 +92,10 @@ verify_stable_identity() {
        "$baseline_secret_directory" == "$baseline_runtime/secrets" ]] || fail "legacy baseline secret directory invalid"
     legacy_flag=(--legacy-baseline)
   fi
-  pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
+  pnpm --filter @repo/cloud-deploy stable-secret-preflight "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
 }
 baseline_fingerprint() {
-  pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release -- fingerprint "$1" "$2"
+  pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$1" "$2"
 }
 restore_baseline() {
   local rollback_dir override compose_file
@@ -177,12 +180,17 @@ if [[ "$mode" == prepare ]]; then
   record_event prepare_started
   private_root_file "$preparation_input"
   [[ ! -e "$release_checkout" && ! -e "$runtime" ]] || fail "release preparation already exists"
+  [[ -d "$SOURCE_CACHE" && ! -L "$SOURCE_CACHE" && "$(stat -c '%U:%G:%a' "$SOURCE_CACHE")" == root:root:700 ]] || fail "trusted offline source cache is unavailable"
+  [[ "$(GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" rev-parse refs/heads/main)" == "$revision" ]] || fail "offline source cache revision mismatch"
+  [[ -z "$(find "$SOURCE_CACHE/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || fail "offline source cache is partial"
+  GIT_NO_LAZY_FETCH=1 git -C "$SOURCE_CACHE" fsck --full --no-reflogs >/dev/null || fail "offline source cache object closure is incomplete"
   stage=$(mktemp -d "$RELEASE_TREE_ROOT/.prepare-$revision.XXXXXX")
   cleanup_stage() { rm -rf -- "$stage"; }
   trap cleanup_stage EXIT
-  # --no-local prevents hardlinks to runner-owned object files. The resulting Git
-  # database and worktree are created by root and are independently trustable.
-  git clone --quiet --no-local --no-checkout "$REPOSITORY_DIR" "$stage/checkout"
+  # The runner checkout may be partial and try to lazy-fetch from GitHub.
+  # The preflight-staged cache is root-private and has a complete exact revision.
+  # --no-local prevents hardlinks between the trusted source and release tree.
+  GIT_NO_LAZY_FETCH=1 git clone --quiet --no-local --single-branch --branch main --no-checkout "$SOURCE_CACHE" "$stage/checkout"
   git -C "$stage/checkout" checkout --quiet --detach "$revision"
   [[ "$(git -C "$stage/checkout" rev-parse HEAD)" == "$revision" ]] || fail "prepared checkout revision mismatch"
   [[ -z "$(git -C "$stage/checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
@@ -200,15 +208,15 @@ if [[ "$mode" == prepare ]]; then
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" \
     node .harness/scripts/vm/cn-release-browser-smoke.mjs --preflight >/dev/null \
     || fail "browser runtime preflight failed"
-  pnpm --filter @repo/cloud-deploy prepare-host -- "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
+  pnpm --filter @repo/cloud-deploy prepare-host "$CONFIG_FILE" "$manifest" "$release_checkout" "$runtime"
   [[ -f "$runtime/prepare-receipt.json" ]] || fail "prepare receipt missing"
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
   install -o root -g root -m 0600 "$NGINX_CONFIG" "$baseline_nginx"
   capture_baseline "$baseline_state"
   verify_stable_identity "$baseline_state"
   baseline_sha=$(baseline_fingerprint "$baseline_state" "$baseline_nginx")
-  pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
-  pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
+  pnpm --filter @repo/cloud-deploy cn-fast-safe-release bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
+  pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
   record_event prepare_completed
   printf 'CN_PRODUCTION_RELEASE_PREPARED revision=%s\n' "$revision"
   exit 0
@@ -226,7 +234,7 @@ current_baseline="$current_baseline_dir/baseline.json"
 trap 'rm -rf -- "$current_baseline_dir"' EXIT
 capture_baseline "$current_baseline"
 baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
-pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
+pnpm --filter @repo/cloud-deploy cn-fast-safe-release validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
 verify_stable_identity "$current_baseline"
 
 activation_started=1
@@ -270,7 +278,7 @@ chmod 0600 "$request"
 
 remaining=$((activation_deadline-SECONDS))
 (( remaining > 0 )) || fail "activation deadline exceeded before provision"
-if ! timeout "${remaining}s" pnpm --filter @repo/cloud-deploy provision -- "$request"; then
+if ! timeout "${remaining}s" env COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 --filter @repo/cloud-deploy provision "$request"; then
   fail "provision failed"
 fi
 record_event runtime_ready
