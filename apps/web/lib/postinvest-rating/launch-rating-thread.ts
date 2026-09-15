@@ -3,6 +3,14 @@
  * API（`lib/live-chat.ts`），不新增任何后端端点、不自建聊天 UI。同 team1
  * （`lib/ic-review/ensure-review-thread.ts`）的架构。
  *
+ * ⚠ 2026-09-15 人类实测 403 后改回个人线程（`createPersonalThread`），并去掉项目选择：
+ * 绑项目那条路要求调用者在该项目里有**非 observer 的成员角色**（`mutate-thread.ts` 的
+ * `NO_WRITE_ROLE`——「观察者恒无写权，接口拒绝，不只是按钮不渲染」），而选择器是用
+ * `listProjects`（**可见性**）填的。可见 ≠ 可写：组织管理员能看见全部项目，却可能一个
+ * 都不能写（本仓「管理员不是超级用户」）。于是「所有人都能用」被前端自己挡住了。
+ * 个人线程是 `mutate-thread.ts` 的第一条分支，任何登录用户都能建，不需要项目成员资格。
+ * 记忆协议的检索键改由模型从材料里读出的公司名担任，趋势对比照常成立。
+ *
  * 不做客户端预解析：`chat-file-upload` 的 MIME 白名单已经包含 pdf/xlsx/pptx/docx
  * （`packages/contracts/src/chat-file-upload.ts`），文件作为真实附件直接上传，交给
  * 挂载在 Agent 上的模型用 `wx_document_parse`（native 工具，任何真实 agent run 都有）
@@ -11,18 +19,13 @@
 import type { postinvestRating } from "@repo/contracts";
 
 type MissingDataReason = postinvestRating.MissingDataReason;
-import { createMessage, createThread, getAgentPanel, updateAgentRoster, uploadAttachment } from "@/lib/live-chat";
+import {
+  createMessage, createPersonalThread, getAgentPanel, updateAgentRoster, uploadAttachment,
+} from "@/lib/live-chat";
 import { buildRatingPrompt } from "./rating-prompt";
 
 export interface LaunchRatingThreadInput {
   readonly agentId: string;
-  /**
-   * 评级所属的真实项目（R3-1）。此前建的是个人线程，评级与项目无关联——评级记录、
-   * 历史趋势、权限（R5 的「项目成员」判定）全都无处挂靠。同 team3
-   * （`components/agent/team3-start-chat-button.tsx`）用真实项目线程。
-   */
-  readonly projectId: string;
-  readonly projectName: string;
   readonly files: readonly File[];
   /** R3-3 的「数据缺失说明」表单结果；人工确认事实，随任务书一起投进对话。 */
   readonly missingReason?: MissingDataReason;
@@ -30,22 +33,16 @@ export interface LaunchRatingThreadInput {
 
 export interface LaunchRatingThreadResult {
   readonly threadId: string;
-  readonly projectId: string;
 }
 
 export async function launchRatingThread({
-  agentId, projectId, projectName, files, missingReason,
+  agentId, files, missingReason,
 }: LaunchRatingThreadInput): Promise<LaunchRatingThreadResult> {
-  const thread = await createThread({
-    projectId,
-    groupId: null,
-    title: `投后评级 · ${projectName} · ${new Date().toLocaleDateString("zh-CN")}`,
-    visibilityScope: "private",
-  });
+  const thread = await createPersonalThread(`投后评级 · ${new Date().toLocaleString("zh-CN")}`);
   const threadId = thread.threadId;
 
-  const panel = await getAgentPanel(threadId, projectId);
-  await updateAgentRoster(threadId, projectId, {
+  const panel = await getAgentPanel(threadId, null);
+  await updateAgentRoster(threadId, null, {
     add: [agentId], remove: [], expectedRosterVersion: panel.rosterVersion,
   });
 
@@ -53,10 +50,10 @@ export async function launchRatingThread({
 
   await createMessage(threadId, {
     clientMessageId: crypto.randomUUID(),
-    text: buildRatingPrompt(files.map((f) => f.name), missingReason, projectName),
+    text: buildRatingPrompt(files.map((f) => f.name), missingReason),
     agentId,
     attachmentIds: attachments.map((a) => a.id),
   });
 
-  return { threadId, projectId };
+  return { threadId };
 }

@@ -17,7 +17,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
 
 const listCapabilities = vi.fn();
-const listProjects = vi.fn();
 const launchRatingThread = vi.fn();
 const push = vi.fn();
 
@@ -26,10 +25,6 @@ vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-1" } }),
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities: (...a: unknown[]) => listCapabilities(...a) }));
-vi.mock("@/lib/live-projects", () => ({
-  listProjects: (...a: unknown[]) => listProjects(...a),
-  createProject: vi.fn(),
-}));
 vi.mock("@/lib/postinvest-rating/launch-rating-thread", () => ({
   launchRatingThread: (...a: unknown[]) => launchRatingThread(...a),
 }));
@@ -54,7 +49,6 @@ afterEach(() => {
 describe("开始评级按钮不能静默失灵", () => {
   it("Agent 不在能力目录里时，按钮禁用并说明原因", async () => {
     listCapabilities.mockResolvedValue([]);
-    listProjects.mockResolvedValue([{ id: "p1", name: "供应链创新" }]);
     render(<RatingAgentLauncher agent={{ ...RATING_AGENT, agentId: null }} />);
 
     await waitFor(() => expect(reason()).toContain("没有这个 Agent"));
@@ -63,7 +57,6 @@ describe("开始评级按钮不能静默失灵", () => {
 
   it("Agent 就绪但没上传材料时，按钮禁用并明说缺材料", async () => {
     listCapabilities.mockResolvedValue([agentRow]);
-    listProjects.mockResolvedValue([{ id: "p1", name: "供应链创新" }]);
     render(<RatingAgentLauncher agent={{ ...RATING_AGENT, agentId: null }} />);
 
     await waitFor(() => expect(reason()).toContain("请先上传至少一份材料"));
@@ -72,28 +65,26 @@ describe("开始评级按钮不能静默失灵", () => {
 
   it("条件齐了：按钮可点，点击真的发起并跳进那条线程", async () => {
     listCapabilities.mockResolvedValue([agentRow]);
-    listProjects.mockResolvedValue([{ id: "p1", name: "供应链创新" }]);
-    launchRatingThread.mockResolvedValue({ threadId: "t1", projectId: "p1" });
+    launchRatingThread.mockResolvedValue({ threadId: "t1" });
     render(<RatingAgentLauncher agent={{ ...RATING_AGENT, agentId: null }} />);
 
-    await waitFor(() => expect(listProjects).toHaveBeenCalled());
+    await waitFor(() => expect(listCapabilities).toHaveBeenCalled());
     addFile();
     await waitFor(() => expect(startButton()).not.toBeDisabled());
     expect(screen.queryByTestId("agent-rating-disabled-reason")).toBeNull();
 
     fireEvent.click(startButton());
     await waitFor(() => expect(launchRatingThread).toHaveBeenCalledTimes(1));
-    expect(launchRatingThread.mock.calls[0]![0]).toMatchObject({ agentId: "agent-team2", projectId: "p1", projectName: "供应链创新" });
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat?projectId=p1&threadId=t1"));
+    expect(launchRatingThread.mock.calls[0]![0]).toMatchObject({ agentId: "agent-team2" });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat?threadId=t1"));
   });
 
   it("发起失败时把真实原因显示出来，不是一句笼统文案", async () => {
     listCapabilities.mockResolvedValue([agentRow]);
-    listProjects.mockResolvedValue([{ id: "p1", name: "供应链创新" }]);
     launchRatingThread.mockRejectedValue(new Error("FILE_TYPE_REJECTED"));
     render(<RatingAgentLauncher agent={{ ...RATING_AGENT, agentId: null }} />);
 
-    await waitFor(() => expect(listProjects).toHaveBeenCalled());
+    await waitFor(() => expect(listCapabilities).toHaveBeenCalled());
     addFile();
     await waitFor(() => expect(startButton()).not.toBeDisabled());
     fireEvent.click(startButton());
