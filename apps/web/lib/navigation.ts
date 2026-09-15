@@ -4,6 +4,7 @@ import {
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
   MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler,
 } from "lucide-react";
+import { AGENTS_NAV_LABEL } from "@/lib/mock/agent-previews";
 
 /**
  * 左侧五段语义导航 —— 结构与分组来自对运行态原型的实测
@@ -81,6 +82,31 @@ export interface NavSegment {
   items: NavItem[];
 }
 
+/**
+ * 「海创汇」入口的可见性（2026-09-15 人类直接要求：只有 Workspace 的组织才显示这个标签）。
+ *
+ * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。路由 `/studio/agents`
+ *   本身仍然可直达，它只是一组只读示例卡片；真实能力门控在服务端。
+ */
+export const AGENTS_NAV_ORG_NAME = "Workspace";
+
+export function isAgentsNavVisibleForOrg(orgName: string | null | undefined): boolean {
+  return (orgName ?? "").trim().toLowerCase() === AGENTS_NAV_ORG_NAME.toLowerCase();
+}
+
+/** 受组织可见性约束的一级入口；其余入口对所有组织一视同仁。 */
+const ORG_SCOPED_NAV_KEYS: Record<string, (orgName: string | null | undefined) => boolean> = {
+  agents: isAgentsNavVisibleForOrg,
+};
+
+/** 按当前组织过滤一级导航（空组则整段不渲染）。渲染方一律走这里，不要各自写判断。 */
+export function navSegmentsForOrg(orgName: string | null | undefined): NavSegment[] {
+  return NAV_SEGMENTS.map((seg) => ({
+    ...seg,
+    items: seg.items.filter((item) => ORG_SCOPED_NAV_KEYS[item.key]?.(orgName) ?? true),
+  })).filter((seg) => seg.items.length > 0);
+}
+
 export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: null,
@@ -110,7 +136,12 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
       // #3602：用户明确新增的展示入口；后台 agent-runtime 管理入口保持独立。
-      { key: "agents", label: "智能体", href: "/studio/agents", icon: Bot, ucRefs: [] },
+      // 2026-09-15 人类直接要求：标签改为「海创汇」（文案单一事实源在
+      // `lib/mock/agent-previews.ts` 的 `AGENTS_NAV_LABEL`，页面与导航共用同一个常量），
+      // 且**只对 Workspace 组织显示**——可见性判定在 `isAgentsNavVisibleForOrg`（本文件下方），
+      // 由 `components/shell/icon-rail.tsx` 在渲染时过滤。条目本身留在 NAV_SEGMENTS 里，
+      // 不做成"第二份导航表"：同一入口只声明一次，可见性是它的一个属性，不是另一张表。
+      { key: "agents", label: AGENTS_NAV_LABEL, href: "/studio/agents", icon: Bot, ucRefs: [] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
