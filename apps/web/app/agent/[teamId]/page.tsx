@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
-import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
+import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
+import { PostInvestmentLauncher } from "@/components/agent/post-investment-launcher";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
+import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
@@ -31,6 +33,15 @@ import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
  *   （`rating-workbench.tsx` mock UI；`rating-chat.tsx` 直连
  *   `POST /postinvest-ratings/score` 不经模型）已被这一版取代，前者仍留仓库供 Phase 16
  *   契约束签核材料回溯，后者已删除。
+ * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP，第二版：接真实 chat，取代第一版
+ *   独立粘贴框 + `POST /post-investment/analyze` HTTP 端点）：同 Team1 第三版架构——
+ *   按需自动发布 Agent（`lib/post-investment/ensure-agent.ts`），材料作为真实附件
+ *   发进一条真实项目对话，交给挂载了真实模型的 Agent 用既有的 `wx_document_parse`/
+ *   `data-analysis`（沙箱算派生数值）/`web_search`（受限渠道）/`pdf-create`/
+ *   `xlsx-create`/`wx_knowledge_search` 完成分析、出报告，全过程不新增后端端点或
+ *   工具。详情见 `docs/agents/team4-post-investment-report-mvp.md`。第一版的
+ *   `POST /post-investment/analyze` 端点与 `analyzePostInvestmentMaterial` 用例
+ *   未删除，保留作为派生数值计算（同比等）的参照实现，不再是本页调用路径。
  */
 export function generateStaticParams() {
   return PREVIEW_AGENT_TEAMS.map((team) => ({ teamId: team.slug }));
@@ -39,9 +50,14 @@ export function generateStaticParams() {
 export default function AgentTeamPage({ params }: { params: { teamId: string } }) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
-  // 2026-09-15 ad-hoc MVP（`docs/design/agent-team3-mvp-backlog.md`）——只有 team3 接了
-  // 真实 Agent + 真实对话；其余五个 team 上游没有真实项目数据，维持原占位行为不变。
-  const isTeam3 = team.slug === "team3";
+
+  // 2026-09-15 人类指令：「入口点击以后，会打开类似 chatui 的界面，可以用所有的 chat
+  // 的能力，但是这个是 team3 的 agent」——因此 team3 不再是落地页 + 跳转按钮，而是
+  // 就地挂载 `/chat` 用的同一个 `CopilotKitV2Shell`（同一套 provider、同一套能力），
+  // 线程在进页面时解析成"挂着 team3 的那条"。详见 `components/agent/team3-chat.tsx`。
+  if (team.slug === "team3") {
+    return <Team3ChatScreen />;
+  }
 
   if (team.slug === "team1") {
     const agent = findIcReviewAgent("team1");
@@ -75,6 +91,21 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
     );
   }
 
+  if (team.slug === "team4") {
+    return (
+      <AppShell previewRole={null}>
+        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
+          <div data-testid="agent-team-page" data-team="team4" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
+            <p className="text-11 font-medium text-muted-foreground">
+              <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {POST_INVESTMENT_AGENT.name}
+            </p>
+            <div className="mt-4"><PostInvestmentLauncher agent={POST_INVESTMENT_AGENT} /></div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell previewRole={null}>
       <div className="min-w-0 flex-1 overflow-y-auto bg-background">
@@ -89,11 +120,8 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
           <section className="mt-6 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
             <Bot aria-hidden className="size-8 text-muted-foreground" />
             <p className="mt-4 text-12 leading-relaxed text-muted-foreground">
-              {isTeam3
-                ? "点击下方按钮开始与该 Agent 的真实对话——会新建一条绑定该 Agent 的会话。"
-                : "该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。"}
+              该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。
             </p>
-            {isTeam3 ? <Team3StartChatButton /> : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline" size="sm">
                 <Link href="/projects">查看项目</Link>

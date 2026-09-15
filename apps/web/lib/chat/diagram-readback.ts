@@ -13,6 +13,15 @@ import { getThreadArtifactSource, listThreadArtifacts } from "@/lib/live-chat";
 export interface SavedDiagramSource {
   readonly markdown: string;
   readonly savedAt: string;
+  /**
+   * 这份保存版属于**哪一份 artifact**。
+   *
+   * 调用方（气泡上的「保存」）拿它回传给 `landAsArtifact` 的可选 `artifactId`，
+   * 于是「再存一次」写的是**同一份图谱的下一个版本**，而不是又一份彼此无关的产物。
+   * 刷新页面后这条读回是唯一能把版本线接回去的信息——只靠组件内存里的 id，一刷新
+   * 版本线就断了。
+   */
+  readonly artifactId: string;
 }
 
 export async function fetchLatestSavedDiagramSource(input: {
@@ -57,7 +66,7 @@ export async function fetchLatestSavedDiagramSource(input: {
         // 调用方传 `accepts` 就是在声明「这份源必须属于这个围栏」；候选数量是 1 不改变
         // 这句话，判否就返回 null，由调用方退回原始消息文本（本来就存在的诚实降级）。
         if (!input.accepts || input.accepts(source.markdown)) {
-          return { markdown: source.markdown, savedAt: source.savedAt };
+          return { markdown: source.markdown, savedAt: source.savedAt, artifactId: candidate.artifactId };
         }
       } catch {
         // Another user's draft and a missing artifact intentionally share the same

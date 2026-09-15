@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Maximize2, Save, Check } from "lucide-react";
+import { Maximize2, Save, Check, History } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import {
   markdownToCanvas,
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
+import { ChatGraphVersionHistory } from "./chat-graph-version-history";
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -91,7 +92,17 @@ export function ChatDiagramFabric({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [inView, setInView] = React.useState(false);
   const [maximized, setMaximized] = React.useState(false);
-  const [savedSource, setSavedSource] = React.useState<DiagramSavedSource | null>(null);
+  /**
+   * 这次会话里已知的最新保存版。
+   *
+   * `artifactId` 是让版本线成立的那一半：知道「上次存的是哪一份产物」，「再存一次」
+   * 才能写成**同一份图谱的下一个版本**（`landAsArtifact` 的可选 `artifactId`），而不是
+   * 又落一份互不相干的产物。读回（`fetchLatestSavedDiagramSource`）带它回来，所以
+   * 刷新页面也接得上版本线；`modal` 的本地保存结果没有这个信息，那一路仍是 undefined。
+   */
+  const [savedSource, setSavedSource] =
+    React.useState<(DiagramSavedSource & { artifactId?: string }) | null>(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const [openingReadback, setOpeningReadback] = React.useState(false);
   // 只读预览（气泡里那张小图）实际要画的源——优先用「这次会话里最新保存版」（无论
   // 是 G1 从服务端读回的，还是本地演示保存后 modal 关闭时带回来的），没有保存版
@@ -173,14 +184,29 @@ export function ChatDiagramFabric({
     setQuickSaveState({ status: "saving" });
     try {
       const title = `对话图 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
-      await landAsArtifact(threadId!, { messageId: messageId!, mode: "draft", title, payloadRef: previewCode }, bearer);
+      // 已经知道上次存进哪一份产物 ⇒ 这次写成它的下一个版本（服务端算版本号）。
+      // 不知道（这条图从没存过 / 读回没命中）⇒ 不传，后端行为与本字段存在之前逐字相同。
+      const landed = await landAsArtifact(
+        threadId!,
+        {
+          messageId: messageId!, mode: "draft", title, payloadRef: previewCode,
+          ...(savedSource?.artifactId === undefined ? {} : { artifactId: savedSource.artifactId }),
+        },
+        bearer,
+      );
+      // 记住这次落进的产物 id，于是同一次会话里连存三次 = 一份图谱的三个版本。
+      setSavedSource({
+        markdown: previewCode,
+        savedAt: new Date().toISOString(),
+        artifactId: landed.artifactId,
+      });
       setQuickSaveState({ status: "done" });
       if (quickSaveDoneTimerRef.current !== null) window.clearTimeout(quickSaveDoneTimerRef.current);
       quickSaveDoneTimerRef.current = window.setTimeout(() => setQuickSaveState({ status: "idle" }), 2_000);
     } catch (failure) {
       setQuickSaveState({ status: "error", message: describeMessageFailure(failure, "保存") });
     }
-  }, [canQuickSave, quickSaveState.status, threadId, messageId, bearer, previewCode]);
+  }, [canQuickSave, quickSaveState.status, threadId, messageId, bearer, previewCode, savedSource]);
 
   /**
    * 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）：此前
@@ -255,7 +281,20 @@ export function ChatDiagramFabric({
         canQuickSave={canQuickSave}
         quickSaveState={quickSaveState}
         onQuickSave={handleQuickSave}
+        canShowHistory={canQuickSave}
+        onOpenHistory={() => setHistoryOpen(true)}
       />
+
+      {historyOpen && threadId !== undefined && (
+        <ChatGraphVersionHistory
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          threadId={threadId}
+          projectId={projectId ?? null}
+          bearer={bearer}
+          currentSource={previewCode}
+        />
+      )}
 
       {maximized && (
         <ChatDiagramCanvasModal
@@ -287,7 +326,7 @@ export function ChatDiagramFabric({
  */
 function DiagramCanvasBody({
   previewCode, inView, containerRef, openMaximized, openingReadback,
-  canQuickSave, quickSaveState, onQuickSave,
+  canQuickSave, quickSaveState, onQuickSave, canShowHistory, onOpenHistory,
 }: {
   previewCode: string;
   inView: boolean;
@@ -299,6 +338,9 @@ function DiagramCanvasBody({
   quickSaveState:
     | { status: "idle" } | { status: "saving" } | { status: "done" } | { status: "error"; message: string };
   onQuickSave: () => void;
+  /** 与 `canQuickSave` 同一条判据：没有稳定身份就没有版本线可看，不画这个入口。 */
+  canShowHistory: boolean;
+  onOpenHistory: () => void;
 }) {
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
@@ -438,6 +480,20 @@ function DiagramCanvasBody({
                 : quickSaveState.status === "error"
                   ? "保存失败"
                   : "保存"}
+          </Button>
+        ) : null}
+        {canShowHistory ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenHistory}
+            data-testid="chat-diagram-history"
+            aria-label="查看图谱版本历史"
+            title="查看图谱版本历史"
+          >
+            <History aria-hidden className="h-3.5 w-3.5" />
+            版本
           </Button>
         ) : null}
         <Button

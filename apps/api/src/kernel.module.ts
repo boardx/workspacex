@@ -695,6 +695,7 @@ import {
 import { PgDownloadGrantRepository } from "./infrastructure/files/pg-download-grant-repository";
 import { IsolatedDownloadUrlBuilder } from "./infrastructure/files/isolated-download-url-builder";
 import { FilesDeliveryController } from "./interface/controllers/files-delivery.controller";
+import { ArtifactFileVersionsController } from "./interface/controllers/artifact-file-versions.controller";
 // F33 (files bundle): 批量 zip 导出。⚠ Reads through the SAME `wsx_visible_artifacts()` F31/F32
 // already use (`PgExportContentRepository`, see its header) -- an export must not reach
 // further than the browser already can. `EXPORT_JOB_REPOSITORY` is a separate, plain record
@@ -976,6 +977,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
+    ArtifactFileVersionsController,
     FilesExportController,
     FilesRenameController,
     FilesRetentionController,

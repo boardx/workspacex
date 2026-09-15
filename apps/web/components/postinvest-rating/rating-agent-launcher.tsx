@@ -5,6 +5,8 @@ import { AlertTriangle, FileText, Loader2, Send, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSession } from "@/components/session/session-provider";
+import { listCapabilities } from "@/lib/live-capabilities";
 import { ATTACHMENT_MIME_ALLOWLIST } from "@/lib/live-chat";
 import type { RatingAgentEntry } from "@/lib/postinvest-rating/agent-directory";
 import { launchRatingThread } from "@/lib/postinvest-rating/launch-rating-thread";
@@ -17,10 +19,36 @@ import { launchRatingThread } from "@/lib/postinvest-rating/launch-rating-thread
  */
 export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   const router = useRouter();
+  const { session } = useSession();
+  const orgId = session?.currentOrgId ?? null;
   const [files, setFiles] = React.useState<File[]>([]);
   const [launching, setLaunching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+
+  // agentId 每个部署环境各不相同，前端不能硬编码，也不该要人手工回填：Agent 由部署期
+  // 补种脚本（`apps/api/scripts/backfill-team2-agent.ts`，`deploy.sh` 4d3）幂等落库，
+  // 这里按名字在本组织的能力目录里查真实 id——同 team3
+  // （`components/agent/team3-start-chat-button.tsx`）的既有做法。
+  // `NEXT_PUBLIC_TEAM2_AGENT_ID`（若设）仍然优先，作为本机开发的逃生口。
+  const [resolved, setResolved] = React.useState<{ id: string | null; done: boolean }>(
+    agent.agentId ? { id: agent.agentId, done: true } : { id: null, done: false },
+  );
+  React.useEffect(() => {
+    if (agent.agentId || !orgId) return;
+    let cancelled = false;
+    void listCapabilities(orgId, "agent")
+      .then((list) => {
+        if (cancelled) return;
+        const hit = list.find((c) => c.name === agent.name && c.enabled);
+        setResolved({ id: hit?.id ?? null, done: true });
+      })
+      .catch(() => {
+        if (!cancelled) setResolved({ id: null, done: true });
+      });
+    return () => { cancelled = true; };
+  }, [agent.agentId, agent.name, orgId]);
+  const agentId = resolved.id;
 
   const addFiles = (list: FileList | null) => {
     if (!list?.length) return;
@@ -30,11 +58,11 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   const removeFile = (name: string) => setFiles((prev) => prev.filter((f) => f.name !== name));
 
   const start = async () => {
-    if (!agent.agentId || launching || files.length === 0) return;
+    if (!agentId || launching || files.length === 0) return;
     setLaunching(true);
     setError(null);
     try {
-      const { threadId } = await launchRatingThread({ agentId: agent.agentId, files });
+      const { threadId } = await launchRatingThread({ agentId, files });
       router.push(`/chat?thread=${encodeURIComponent(threadId)}`);
     } catch {
       setError("发起评级失败：无法创建对话或上传材料，请稍后重试。");
@@ -68,12 +96,13 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
         </CardContent>
       </Card>
 
-      {!agent.agentId && (
+      {resolved.done && !agentId && (
         <Card>
           <CardContent className="flex items-start gap-2 py-4">
             <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
             <p className="text-12 text-muted-foreground">
-              该 Agent 尚未在后台发布，暂时无法发起真实评级对话。发布步骤见
+              本组织的能力目录里没有这个 Agent（部署期补种脚本还没跑，或本组织不是 Workspace），
+              暂时无法发起真实评级对话。补种步骤见
               <code className="mx-1 rounded-control bg-muted px-1 py-0.5 text-11">docs/agents/team2-postinvest-rating-mvp.md</code>。
             </p>
           </CardContent>
@@ -109,7 +138,7 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
             ))}
           </ul>
           <div className="flex items-center gap-2">
-            <Button variant="ai" size="sm" onClick={() => void start()} disabled={!agent.agentId || files.length === 0 || launching}
+            <Button variant="ai" size="sm" onClick={() => void start()} disabled={!agentId || files.length === 0 || launching}
               data-testid="agent-rating-start">
               {launching ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Send aria-hidden className="size-3.5" />}
               开始评级（{files.length} 份，将进入真实项目对话）

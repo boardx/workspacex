@@ -97,6 +97,18 @@ export interface LandAsArtifactInput {
   readonly mode: LandingModeName;
   readonly title: string;
   readonly payloadRef: string;
+  /**
+   * 追加到**这个已有 Artifact** 的下一个版本（契约 `landAsArtifact.in.artifactId`）。
+   *
+   * `undefined` = 今天的行为，逐字不变：`materializeArtifact` 自己 `ids.next("art")`
+   * 建新 artifact，版本号 1。给了值则走 `materializeArtifact` 早就支持的
+   * 「adding a version to an EXISTING artifact」分支（版本号 = head + 1，服务端算）。
+   *
+   * ⚠ **不是**随便哪个 artifact 都行：必须已经在**本线程**落地过（下面那道
+   * `findLatestByThreadAndArtifact` 门）。否则这个字段就成了「往组织内任意
+   * artifact 追加一个版本」的口子——落地路径的判权只判线程，判不了别束的 artifact。
+   */
+  readonly artifactId?: string;
 }
 
 export interface LandAsArtifactResult {
@@ -131,6 +143,7 @@ export async function landAsArtifact(
   input: LandAsArtifactInput,
 ): Promise<LandAsArtifactResult> {
   const { userId, orgId, threadId, messageId, mode, title, payloadRef } = input;
+  const targetArtifactId = input.artifactId;
 
   // 消息定位——也是判权的起点（同 `expandToolCallChain` / `locateCitation` 的既有纪律）。
   const location = await deps.chat.findMessageLocation(orgId, messageId);
@@ -167,6 +180,16 @@ export async function landAsArtifact(
     throw new PersonalThreadRequiresDraftError();
   }
 
+  // 追加版本的**归属门**：只能追加到本线程已经落地过的 artifact 上。
+  // 与「不可见/不存在」同一个出口（I-3）——不区分「这个 id 不存在」和「这个 id 存在
+  // 但不属于本线程」，否则这个字段就是一台 artifact 存在性探测器。
+  if (targetArtifactId !== undefined) {
+    const prior = await deps.landings.findLatestByThreadAndArtifact(orgId, threadId, targetArtifactId);
+    if (prior === null) throw new ThreadNotVisibleError();
+    // I-36 的同一条规则：他人的草稿对本人不存在，自然也不能被本人续版本。
+    if (prior.mode === "draft" && prior.createdBy !== userId) throw new ThreadNotVisibleError();
+  }
+
   const citations = await deps.chat.findCitationsForMessage(orgId, messageId);
   const locatableFlags = await Promise.all(
     citations.map((c) => isCitationLocatable(deps.chat, orgId, c)),
@@ -195,10 +218,19 @@ export async function landAsArtifact(
       { store: deps.store, repo: deps.artifacts, ids: deps.artifactIds },
       {
         orgId,
+        // 省略时（`undefined`）`materializeArtifact` 走 `ids.next("art")` 新建分支——
+        // 与本字段存在之前逐字相同。
+        artifactId: targetArtifactId,
+        // 追加版本时 `materializeArtifact` 不会再写 artifacts 行，这两个字段只在
+        // 新建分支有意义；仍原样传，保持与既有调用一致。
         projectId: location.projectId,
         source: "ai-generated",
         title,
         actorId: userId,
+        ...(targetArtifactId === undefined
+          ? {}
+          : // F44 既有的「有人往已有 artifact 上加版本」语义，逐字复用，不新起枚举。
+            { versionCreatorKind: "user" as const, versionChangeSource: "materialize" as const }),
         parts: {
           "content.md": new TextEncoder().encode(payloadRef),
           "provenance.json": new TextEncoder().encode(provenanceJson),
