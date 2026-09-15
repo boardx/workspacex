@@ -21,8 +21,19 @@ install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
 baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)
+baseline_ref=$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty before build"
 checkout_changed=0
+restore_checkout(){
+  if [[ -n "$baseline_ref" ]]; then
+    git -C "$REPOSITORY_DIR" checkout --quiet "${baseline_ref#refs/heads/}" || return 1
+  else
+    git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head" || return 1
+  fi
+  [[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$baseline_head" &&
+     "$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)" == "$baseline_ref" &&
+     -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]]
+}
 cleanup(){
   local status=$?
   trap - EXIT
@@ -31,9 +42,7 @@ cleanup(){
     rm -rf "$DOCKER_CONFIG"
   fi
   if [[ "$checkout_changed" == 1 ]]; then
-    if ! git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head" ||
-       [[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" != "$baseline_head" ]] ||
-       [[ -n "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]]; then
+    if ! restore_checkout; then
       echo "CN_CANDIDATE_BASELINE_RESTORE_FAILED" >&2
       status=1
     fi
@@ -65,7 +74,7 @@ git -C "$REPOSITORY_DIR" clean -ffd
 
 # Credentials are obtained from the ECS RAM role for this process only. An isolated
 # Docker config prevents the short-lived token from entering root's persistent store.
-# The CLI profile name is deliberately explicit: EcsRamRole.
+# The CLI credential mode is deliberately explicit: EcsRamRole.
 set -a
 # shellcheck disable=SC1090
 source "$PUBLISH_ENV"
@@ -87,8 +96,7 @@ rm -f "$credentials_file"
 unset token
 
 "$PUBLISHER" "$revision" "$release"
-git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head" || fail "baseline checkout restoration failed"
-[[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$baseline_head" && -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "baseline checkout restoration failed"
+restore_checkout || fail "baseline checkout restoration failed"
 checkout_changed=0
 record_event candidate_sealed
 printf 'CN_RELEASE_CANDIDATE_READY revision=%s release=%s\n' "$revision" "$release"

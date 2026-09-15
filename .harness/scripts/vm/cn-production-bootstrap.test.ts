@@ -32,7 +32,8 @@ describe("China production trusted deployment entrypoints", () => {
     expect(candidate).toContain('--InstanceId "$instance_id"');
     expect(candidate).toContain("candidate_sealed");
     expect(candidate.indexOf('baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)')).toBeLessThan(candidate.indexOf('checkout --quiet --detach "$revision"'));
-    expect(candidate).toContain('git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head"');
+    expect(candidate).toContain('baseline_ref=$(git -C "$REPOSITORY_DIR" symbolic-ref -q HEAD || true)');
+    expect(candidate).toContain('restore_checkout || fail "baseline checkout restoration failed"');
     expect(candidate).toContain("CN_CANDIDATE_BASELINE_RESTORE_FAILED");
     expect(deploy).toContain("production_available");
     expect(deploy).toContain("release-events");
