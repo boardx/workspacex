@@ -47,20 +47,38 @@
  * 关于"工具收紧在这个部署实际落在哪一层"的诚实说明。
  */
 import pg from "pg";
+import { createHash, randomUUID } from "node:crypto";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
-import { ensureSystemAgent, type SystemAgentTemplate } from "../src/infrastructure/agent/pg-system-agent-repository";
+import {
+  ensureSystemAgent,
+  republishSystemAgentVersion,
+  type SystemAgentTemplate,
+} from "../src/infrastructure/agent/pg-system-agent-repository";
 import { resolveDeepAgentModel } from "../src/infrastructure/agent/pg-default-agent-repository";
+
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
 export const TEAM3_AGENT_STABLE_NAME = "team3-frontier-track-research";
 export const TEAM3_AGENT_NAME = "前沿赛道技术路线研判";
+/**
+ * 2026-09-15 人类追加要求：支持上传 PDF / 给 URL，并用它们产出「分析和推理相关」的
+ * 产业图谱（不是照抄材料的静态框图）。**不新造任何管道**——`wx_document_parse`
+ * （PDF/Word/扫描件解析）、`fetch_url`/`web_search`（URL 材料）、`wx_canvas_update`
+ * （fabric.js 渲染，`chat-diagram-fabric.tsx` 同一条管线）三者已经在
+ * `native-invocation.ts` 的 `NATIVE_PROFILE_TOOLS` 固定表里，对平台每个 agent 一视同仁
+ * 开放，不按 `tool_policy` 过滤（见本文件下方「toolWhitelist」一节的既有说明）。
+ * 这次只是在 instructions 里把「可以用」讲清楚，不补一行工具准入代码。
+ */
 export const TEAM3_AGENT_INSTRUCTIONS =
   "你是本组织的「前沿赛道技术路线研判」分析助手（系统预置，MVP 版本）。\n\n" +
-  "你的工作是帮助用户整理与研判前沿技术赛道（如量子计算、新能源材料等）的产业动态：" +
-  "用户会粘贴或上传专家访谈转录稿、产业链研究纪要、政策汇编等原始材料，你要把它们转成" +
-  "可供投资研究使用的结构化分析。请始终遵守以下分析纪律：\n\n" +
+  "你的工作是帮助用户整理与研判前沿技术赛道（如量子计算、新能源材料等）的产业动态。" +
+  "用户可以用三种方式给你材料：直接粘贴文字、上传文件（PDF、Word、图片等，你可以用" +
+  "文档解析工具读取其内容）、给一个网页链接（你可以用网页抓取工具读取该链接的内容）。" +
+  "拿到专家访谈转录稿、产业链研究纪要、政策汇编等原始材料后，你要把它们转成可供投资" +
+  "研究使用的结构化分析。请始终遵守以下分析纪律：\n\n" +
   "1. 里程碑提取：从材料中提取带时间节点的技术/产业里程碑，标注它在原文中的大致位置" +
-  "（如「访谈第 X 段」「纪要第 X 部分」），不要遗漏也不要编造日期。\n" +
+  "（如「访谈第 X 段」「纪要第 X 部分」「链接第 X 段」），不要遗漏也不要编造日期。\n" +
   "2. 原话与转述必须分开标注：凡是能在原文找到对应语句的专家判断，用引号给出原话" +
   "（可直接摘录），并说明出处；你自己的归纳、总结或转述必须明确标注为转述，不能与" +
   "原话混排导致读者分不清哪句是谁说的。\n" +
@@ -72,9 +90,13 @@ export const TEAM3_AGENT_INSTRUCTIONS =
   "明确说「未在材料中找到相关信息」，而不是编一个听起来合理的答案。\n" +
   "5. 产业链材料按上中下游分层整理，政策材料按地域/层级分层整理，最后给出一段不超过" +
   "500 字的判断与建议摘要，供投研人员快速阅读。\n" +
-  "6. 分析产业链材料时，如果画一张图比纯文字更容易看清上中下游关系，可以用画布工具" +
-  "把产业链画成节点图（上游/中游/下游分层，每个节点标注名称与状态），供用户点开节点" +
-  "查看详情——不是每次都要画，材料结构简单、文字已经说清楚时不必画。\n\n" +
+  "6. 分析产业链材料（不论是粘贴的文字、上传的文件、还是链接抓取的内容）时，优先" +
+  "用画布工具把产业链画成节点图（上游/中游/下游分层）——这张图要体现你的分析和推理，" +
+  "不是照抄材料的静态框图：每个节点标注名称与状态（如优先研究/持续观察/待补证/" +
+  "未评估），状态由你基于材料的判断给出而不是随意打标；节点之间的连线要体现你识别出" +
+  "的供应/应用关系。图画好后，仍然要在文字里说明每个节点状态背后的依据（对应第 1-4 " +
+  "条纪律），不能只有图没有文字依据。材料过于简单、没有产业链结构可画时，不必勉强" +
+  "画图，直接说明即可。\n\n" +
   "不确定或材料信息不足以支撑结论时，直接说明信息缺口，不要用推测冒充结论。";
 
 const TEAM3_AGENT_TEMPLATE: SystemAgentTemplate = {
@@ -94,6 +116,7 @@ export interface Team3BackfillReport {
   readonly skippedNoAdmin: number;
   readonly created: number;
   readonly alreadyExisted: number;
+  readonly instructionsRepaired: number;
 }
 
 export async function backfillTeam3Agent(): Promise<Team3BackfillReport> {
@@ -139,10 +162,54 @@ export async function backfillTeam3Agent(): Promise<Team3BackfillReport> {
     } else {
       console.log("[backfill-team3-agent] nothing to create -- no Workspace-named org missing team3, or none found");
     }
-    return { candidateCount: candidates.length, skippedNoAdmin, created, alreadyExisted };
+    const instructionsRepaired = await repairStaleInstructions(db);
+    return { candidateCount: candidates.length, skippedNoAdmin, created, alreadyExisted, instructionsRepaired };
   } finally {
     await db.close();
   }
+}
+
+/**
+ * 第二遍：修复已存在但 instructions 落后于当前模板的 team3 agent（同
+ * `backfill-default-agents.ts` 的 `repairStaleModelProvider` 一个形状——`agent_versions`
+ * 不可变，指令文案变了就发新版本，不 UPDATE 旧行）。这条存在的理由：如果某个环境
+ * （如 devapp）已经跑过一次旧版脚本种下了 agent，仅仅改这个文件里的
+ * `TEAM3_AGENT_INSTRUCTIONS` 常量、重新部署代码，并不会让那个环境里已经种下的 agent
+ * 自动用上新文案——`ensureSystemAgent` 命中"已存在"就直接返回，不会重新发布。
+ * 不用手写第二份 INSERT/UPDATE：直接复用 `pg-system-agent-repository.ts` 已经为
+ * 这个场景导出的 `republishSystemAgentVersion`。
+ */
+async function repairStaleInstructions(db: PgDatabase): Promise<number> {
+  const instructions = TEAM3_AGENT_INSTRUCTIONS;
+  const instructionDigest = sha256(instructions);
+  const { provider, modelId } = resolveDeepAgentModel();
+
+  const owner = new pg.Pool({ ...migrationConfig(), max: 2 });
+  let stale: { agentId: string; orgId: string; creatorId: string; versionCount: number }[];
+  try {
+    const { rows } = await owner.query<{ agent_id: string; org_id: string; creator_id: string; version_count: string }>(
+      `SELECT av.agent_id, av.org_id, a.creator_id,
+              (SELECT count(*) FROM agent_versions v WHERE v.agent_id = av.agent_id) AS version_count
+         FROM agent_versions av
+         JOIN agents a ON a.id = av.agent_id AND a.published_version_id = av.id
+        WHERE a.stable_name = $1 AND av.instruction_digest <> $2`,
+      [TEAM3_AGENT_STABLE_NAME, instructionDigest],
+    );
+    stale = rows.map((r) => ({
+      agentId: r.agent_id, orgId: r.org_id, creatorId: r.creator_id, versionCount: Number(r.version_count),
+    }));
+  } finally {
+    await owner.end();
+  }
+
+  for (const { agentId, orgId, creatorId, versionCount } of stale) {
+    const semanticLabel = `v${versionCount + 1}`;
+    await republishSystemAgentVersion(db, { instructions }, {
+      orgId, agentId, creatorId, provider, modelId, semanticLabel, now: new Date(),
+    });
+    console.log(`[backfill-team3-agent] repaired stale instructions: org=${orgId} agent=${agentId} -> ${semanticLabel}`);
+  }
+  return stale.length;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
