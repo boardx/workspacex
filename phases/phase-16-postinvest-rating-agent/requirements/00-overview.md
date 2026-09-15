@@ -15,12 +15,12 @@
 
 1. `01-postinvest-rating-agent.md` — UC-16.1 全文（R1–R12 + 能力复用矩阵 + 序列图文字版）。
 
-## 待人类决定（汇总自 01 的 R10）
+## 已定决定（2026-09-15，D1 人类拍板，D2–D5 采纳 agent 推荐；细节见 01 的 R10）
 
-| # | 决定 | 默认假设 |
+| # | 决定 | 结论 |
 |---|---|---|
-| D1 | 路由是 `/agent/team1` 还是 `/agent/team2` | team2 |
-| D2 | 行业背景可信渠道白名单初始清单 | 空（跳过行业背景段） |
-| D3 | 与资深投资经理偏差阈值 + 试点项目名单 | 未定，不进 feature 验收 |
-| D4 | 新 skill 包目录 | `skills/standard-finance/postinvest-rating` |
+| D1 | 路由 | `/agent/team2` |
+| D2 | 可信渠道白名单种子 | 巨潮 / 上交所 / 深交所 / 北交所 / 港交所披露易 / 证监会 / 企业信用公示 / 国家统计局 / 被评公司官网 |
+| D3 | 偏差阈值 + 试点 | 等级一致或相差一级；3 个有人工评级的历史项目（A/B、C、D/E 各一） |
+| D4 | skill 包目录 | `skills/standard-finance/postinvest-rating/` |
 | D5 | 录音上传路径 | `files.ts` 原件上传，不扩聊天附件白名单 |

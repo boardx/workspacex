@@ -10,9 +10,8 @@
 > 3. **序列图**：三阶段——数据供给（人）→ 自动化处理（Agent）→ 结果交付与复核（人+Agent）。
 > 4. **MAAU 画布**（Minimum Actionable Agentic Unit）：意图 / 用户 / 人与 Agent 分工 / 工作流 / 上下文 / 闭环验证。
 >
-> **[假设 · 待人类确认]** 用户给的地址写作 `http://www.boardx.com.cn/agent/team1` 与「2」拼接，
-> 本文按 **`/agent/team2`** 落地（`lib/mock/agent-previews.ts` 六个 team 中的 Team2）。若应为 team1，
-> 只改 R8 的一处 slug 常量即可，其余不受影响。
+> **[人类已拍板 2026-09-15]** 入口为 **`/agent/team2`**（`lib/mock/agent-previews.ts` 六个 team 中的 Team2）。
+> D2–D5 由 agent 推荐、人类同日采纳，见 R10「已定决定」。
 
 ---
 
@@ -245,12 +244,23 @@
 - 技术约束：skill 包遵循 starter-pack 导入格式与双重门禁；确定性脚本只用沙箱预装依赖（Node：`exceljs`/`pdf-lib`；
   Python：pandas/numpy/matplotlib），**不运行时安装**；不引入 Anthropic 官方限制性许可的 skill 原文。
 - 数据约束：无投后管理系统 API；历史数据只有用户上传的历史报表与本 Agent 自己的历史评级记录。
-- 待人类决定：
-  - D1：URL 是 `team1` 还是 `team2`（本文假设 team2）。
-  - D2：可信渠道白名单初始清单（至少：交易所披露平台、被评公司官网域名规则）。
-  - D3：「资深投资经理偏差阈值」的数值与试点项目名单（MAAU 成功指标口径）。
-  - D4：新 skill 包放在既有 `skills/data-workflows/` 还是新建 `skills/standard-finance/`。
-  - D5：录音上传走 `files.ts` 原件上传还是扩 `chat-file-upload` 白名单加音频 MIME（建议前者：不动签核过的白名单）。
+- 已定决定（2026-09-15 人类采纳 agent 推荐）：
+  - D1：入口 `/agent/team2`。
+  - D2：可信渠道白名单初始清单（组织级配置的**种子值**，正式单源在契约 `postinvest-rating.ts` 的默认项，
+    管理员可增删）：巨潮资讯 `cninfo.com.cn`、上交所 `sse.com.cn`、深交所 `szse.cn`、北交所 `bse.cn`、
+    港交所披露易 `hkexnews.hk`、证监会 `csrc.gov.cn`、国家企业信用信息公示系统 `gsxt.gov.cn`、
+    国家统计局 `stats.gov.cn`、被评公司官网（按项目登记，域名精确匹配）。白名单是**域名精确 / 子域匹配**，
+    不做路径级规则；`web_search` 结果域名不在表内即丢弃。
+  - D3：偏差阈值 = **等级一致或相差一级**视为可接受（A–E 五档下「差一级」是同一投后动作区间内的分歧，
+    差两级则意味着投后建议完全不同）；试点选 **3 个已有人工评级的历史项目**，人工等级分别落在 A/B、C、D/E
+    各一，用同一份报表喂 Agent 对比。具体项目名由人类在 `ui-preview/refs/pilot-projects.md` 登记，
+    不进 feature 验收（验收只断言机制，不断言业务命中率）。
+  - D4：新建 `skills/standard-finance/postinvest-rating/`（金融口径与 `data-workflows` 的通用分析是不同能力域，
+    未来投前尽调、估值等 skill 同放此包；随包新增 `skills/starter-packs/standard-finance/1.0.0.json`，
+    并登记到 `ensure-standard-skill-packs.ts` 的 `STANDARD_PLATFORM_PACKS`，让 `lint-shipped-pack-version` 覆盖）。
+  - D5：录音走 `files.ts` 的 `uploadArtifact` 原件上传（不可变 + SHA-256 + 版本），**不扩** `chat-file-upload`
+    白名单：那份白名单是人类签核过的值，改它要重签；而原件上传本来就是为大文件、多格式设计的。
+    上传后以 artifact id 交给 `wx_audio_transcribe`。
 - 偿债项（做 F03 时一并处理）：`apps/web/lib/mock/agent-previews.ts` 是已申报的原型 mock 债务
   （`apps/api/tests/kernel/no-builtin-capability-lists.test.ts` 的 `DECLARED_MOCK_DEBT`），Team2 接真实 agent 后
   该名单要改为从契约 / `capability_listings`（kind=agent）派生，并同步退掉那条债务申报，不许静默消失。
