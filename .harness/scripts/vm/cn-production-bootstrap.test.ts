@@ -124,12 +124,17 @@ describe("China production trusted deployment entrypoints", () => {
   });
 
   it("checks stable production identity before any traffic drain or provision", () => {
-    const preflight = deploy.indexOf("stable-secret-preflight --");
+    const preparePreflight = deploy.indexOf('verify_stable_identity "$baseline_state"');
+    const bind = deploy.indexOf('cn-fast-safe-release -- bind');
+    const preflight = deploy.indexOf('verify_stable_identity "$current_baseline"');
     const activation = deploy.indexOf("activation_started=1");
     const drain = deploy.indexOf("enable_run_drain", activation);
+    expect(preparePreflight).toBeGreaterThan(-1);
+    expect(preparePreflight).toBeLessThan(bind);
     expect(preflight).toBeGreaterThan(-1);
     expect(preflight).toBeLessThan(activation);
     expect(drain).toBeGreaterThan(activation);
+    expect(deploy).toContain("stable-secret-preflight --");
     expect(deploy).toContain("/var/lib/workspacex-cn/stable-secrets");
   });
 

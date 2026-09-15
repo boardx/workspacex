@@ -75,6 +75,16 @@ fs.writeFileSync(path,`${JSON.stringify(value)}\n`,{mode:0o600,flag:"wx"});
 NODE
   chown root:root "$output"; chmod 0600 "$output"
 }
+verify_stable_identity() {
+  local baseline_file=$1 baseline_runtime baseline_secret_directory
+  baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_file")
+  baseline_secret_directory="$baseline_runtime/secrets"
+  if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
+    private_root_file "$baseline_runtime/stable-secret-directory.ref"
+    baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
+  fi
+  pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" /var/lib/workspacex-cn/stable-secrets >/dev/null || fail "stable secret continuity preflight failed"
+}
 baseline_fingerprint() {
   pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release -- fingerprint "$1" "$2"
 }
@@ -189,6 +199,7 @@ if [[ "$mode" == prepare ]]; then
   [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration missing"
   install -o root -g root -m 0600 "$NGINX_CONFIG" "$baseline_nginx"
   capture_baseline "$baseline_state"
+  verify_stable_identity "$baseline_state"
   baseline_sha=$(baseline_fingerprint "$baseline_state" "$baseline_nginx")
   pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- bind "$preparation_input" "$baseline_sha" "$fast_safe_receipt" >/dev/null
   pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null
@@ -210,13 +221,7 @@ trap 'rm -rf -- "$current_baseline_dir"' EXIT
 capture_baseline "$current_baseline"
 baseline_sha=$(baseline_fingerprint "$current_baseline" "$NGINX_CONFIG")
 pnpm --filter @repo/cloud-deploy cn-fast-safe-release -- validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null || fail "prepared baseline or gates changed"
-baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$current_baseline")
-baseline_secret_directory="$baseline_runtime/secrets"
-if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
-  private_root_file "$baseline_runtime/stable-secret-directory.ref"
-  baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
-fi
-pnpm --filter @repo/cloud-deploy stable-secret-preflight -- "$baseline_secret_directory" /var/lib/workspacex-cn/stable-secrets >/dev/null || fail "stable secret continuity preflight failed"
+verify_stable_identity "$current_baseline"
 
 activation_started=1
 activation_deadline=$((SECONDS+300))
