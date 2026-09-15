@@ -98,3 +98,7 @@ export * as standardBrowserTools from "./standard-browser-tools";
 
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
+
+/** `/agent/team4` 投后管理报告 Agent —— ad-hoc MVP，人类已确认后续会删除，见
+ *  `docs/adhoc/team4-post-investment-agent-mvp-backlog.md`。不进任何 phase feature_list。 */
+export * as postInvestmentReport from "./post-investment-report";
