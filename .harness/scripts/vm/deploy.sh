@@ -399,6 +399,12 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
+step "4d2. team3 ad-hoc agent 补种（临时 Agent，docs/design/agent-team3-mvp-backlog.md）"
+# 同 4c/4d 的理由，第三个 stable_name，但只种到名字是「Workspace」的组织——不是每个组织
+# 都该有它，team3 是临时 agent，删除时只需从这里摘掉这一步，不用改共享的注册控制器。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-team3-agent.ts
+
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
 # 消息时才会报错（诚实的 MODEL_CALL_FAILED/MODEL_PROVIDER_NOT_CONFIGURED）。

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
+import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
@@ -20,6 +21,9 @@ export function generateStaticParams() {
 export default function AgentTeamPage({ params }: { params: { teamId: string } }) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
+  // 2026-09-15 ad-hoc MVP（`docs/design/agent-team3-mvp-backlog.md`）——只有 team3 接了
+  // 真实 Agent + 真实对话；其余五个 team 上游没有真实项目数据，维持原占位行为不变。
+  const isTeam3 = team.slug === "team3";
 
   return (
     <AppShell previewRole={null}>
@@ -35,8 +39,11 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
           <section className="mt-6 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-sm">
             <Bot aria-hidden className="size-8 text-muted-foreground" />
             <p className="mt-4 text-12 leading-relaxed text-muted-foreground">
-              该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。
+              {isTeam3
+                ? "点击下方按钮开始与该 Agent 的真实对话——会新建一条绑定该 Agent 的会话。"
+                : "该 team 对应一个 Agent 的项目。当前为示例展示，尚未接入真实项目数据。"}
             </p>
+            {isTeam3 ? <Team3StartChatButton /> : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline" size="sm">
                 <Link href="/projects">查看项目</Link>
