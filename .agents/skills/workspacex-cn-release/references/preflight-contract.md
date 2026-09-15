@@ -25,6 +25,8 @@
     "config.secret_serialization": {"status":"passed","evidenceSha256":"64-hex","metadata":{"checkedRefs":7,"invalidKeys":[]}},
     "cloud.managed_data_permissions": {"status":"passed","evidenceSha256":"64-hex","metadata":{"liveDescribePassed":true,"temporaryPolicyExpires":true,"cleanupRegistered":true}},
     "database.drain_read_access": {"status":"passed","evidenceSha256":"64-hex","metadata":{"role":"app_diag_ro","canReadAgentRuns":true}},
+    "bootstrap.compatibility": {"status":"passed","evidenceSha256":"64-hex","metadata":{"readOnlyTransaction":true,"productionWriteStatements":0,"imageEntrypoint":true,"inputContract":true,"schemaContract":true,"permissionContract":true,"stateClass":"matching-existing","agentSeedContract":true,"exactlyOneMachineRecord":true}},
+    "secrets.stable_continuity": {"status":"passed","evidenceSha256":"64-hex","metadata":{"requiredCount":12,"matchedCount":12,"missingKeyIds":[],"rotatedKeyIds":[],"stableDirectory":true,"baselineReadable":true,"candidateWillReuse":true,"noMutation":true}},
     "build.affected_services": {"status":"passed","evidenceSha256":"64-hex","metadata":{"services":["api","web"]}},
     "deploy.trusted_copy": {"status":"passed","evidenceSha256":"64-hex"},
     "network.dependencies": {"status":"passed","evidenceSha256":"64-hex"}
