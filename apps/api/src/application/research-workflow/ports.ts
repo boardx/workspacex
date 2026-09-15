@@ -11,6 +11,7 @@ import type { OrgId } from "../../domain/org-id";
 
 export type ResearchSessionRow = z.infer<typeof C.ResearchSession>;
 export type ResearchMaterialRow = z.infer<typeof C.ResearchMaterial>;
+export type ResearchPredictionRow = z.infer<typeof C.ResearchPrediction>;
 
 /** 一条审计：谁、做什么、从哪个阶段、结果如何。拒绝时必须带原因码。 */
 export interface GateAuditEntry {
@@ -49,6 +50,22 @@ export interface ResearchWorkflowRepository {
     verifyDueAt: string | null,
   ): Promise<ResearchSessionRow>;
   appendAudit(entry: GateAuditEntry): Promise<void>;
+  /* ── 第三步：预测与回填 ── */
+  listPredictions(orgId: OrgId, threadId: string): Promise<readonly ResearchPredictionRow[]>;
+  addPredictions(
+    orgId: OrgId,
+    threadId: string,
+    graphVersion: number,
+    statements: readonly string[],
+  ): Promise<readonly ResearchPredictionRow[]>;
+  fillPrediction(
+    orgId: OrgId,
+    threadId: string,
+    predictionId: string,
+    actual: string,
+    verdict: C.PredictionVerdictName,
+    rootCause: C.RootCauseName | null,
+  ): Promise<readonly ResearchPredictionRow[]>;
   listAudit(orgId: OrgId, threadId: string, limit: number): Promise<readonly (GateAuditEntry & { createdAt: string })[]>;
 }
 

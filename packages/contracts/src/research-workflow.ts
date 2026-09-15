@@ -168,6 +168,80 @@ export const ResearchSession = z.object({
   updatedAt: z.string().datetime(),
 });
 
+/* ── 第三步：验证回填 ──────────────────────────────────────────── */
+
+/**
+ * 一条预测的兑现判定。
+ *
+ * 三档而不是两档（对/错）：产业判断很少非黑即白，"方向对但时点晚了一年"
+ * 既不是命中也不是落空。把它硬压成二值，复盘时就只剩下"我们大致还行"这种
+ * 无法据以改进的结论。
+ */
+export const PREDICTION_VERDICTS = ["matched", "partial", "missed"] as const;
+export const PredictionVerdict = z.enum(PREDICTION_VERDICTS);
+export type PredictionVerdictName = (typeof PREDICTION_VERDICTS)[number];
+
+export const PREDICTION_VERDICT_LABELS: Readonly<Record<PredictionVerdictName, string>> = {
+  matched: "兑现",
+  partial: "部分兑现",
+  missed: "未兑现",
+};
+
+/**
+ * 根因分类 —— 需求文档第三步的核心产出。
+ *
+ * **框架性**：判断逻辑本身错了（比如"国产化率高就等于供应安全"这条推理站不住）。
+ * **执行性**：逻辑没问题，这一次没做到位（比如漏采了某个环节的材料）。
+ *
+ * 两者对应完全不同的调整动作：前者要改判断逻辑模板（logicVersion+1），
+ * 后者只要改这次的流程执行。混成一句"没做好"就什么都改不了——
+ * 这个区分是复盘能不能产生改进的分水岭。
+ */
+export const ROOT_CAUSES = ["framework", "execution"] as const;
+export const RootCause = z.enum(ROOT_CAUSES);
+export type RootCauseName = (typeof ROOT_CAUSES)[number];
+
+export const ROOT_CAUSE_LABELS: Readonly<Record<RootCauseName, string>> = {
+  framework: "框架性——判断逻辑本身要改",
+  execution: "执行性——逻辑没问题，这次执行没到位",
+};
+
+export const ResearchPrediction = z.object({
+  id: z.string().uuid(),
+  graphVersion: z.number().int().min(1),
+  statement: z.string().min(1).max(1000),
+  actual: z.string().max(1000).nullable(),
+  verdict: PredictionVerdict.nullable(),
+  rootCause: RootCause.nullable(),
+  createdAt: z.string().datetime(),
+  filledAt: z.string().datetime().nullable(),
+});
+
+/**
+ * 登记预测。**必须在发布时做**——事后凭记忆补写的"当初的预测"，是用已知结果
+ * 反推出来的，那不是验证，是自我确认。
+ */
+export const addResearchPredictions = {
+  in: z.object({
+    threadId: z.string().uuid(),
+    statements: z.array(z.string().min(1).max(1000)).min(1).max(20),
+  }),
+  out: z.array(ResearchPrediction),
+};
+
+/** 回填一条预测的实际结果。 */
+export const fillResearchPrediction = {
+  in: z.object({
+    threadId: z.string().uuid(),
+    predictionId: z.string().uuid(),
+    actual: z.string().min(1).max(1000),
+    verdict: PredictionVerdict,
+    /** 未兑现/部分兑现时必须给根因；兑现时可空。由 `fill-prediction.ts` 校验。 */
+    rootCause: RootCause.nullable(),
+  }),
+  out: z.array(ResearchPrediction),
+};
+
 /* ── 拒绝理由 ────────────────────────────────────────────────────── */
 
 /**
@@ -182,6 +256,8 @@ export const RESEARCH_REFUSALS = [
   "MATERIALS_UNRESOLVED",  // 还有材料是 pending / missing / wrong
   "ATTEMPTS_EXHAUSTED",    // 同一条材料重采已达上限
   "NO_MATERIALS",          // 一条材料都没有就要往下走
+  "ROOT_CAUSE_REQUIRED",   // 未兑现/部分兑现却没给根因分类
+  "NO_PREDICTIONS",        // 发布过图谱却一条预测都没登记
 ] as const;
 export const ResearchRefusal = z.enum(RESEARCH_REFUSALS);
 export type ResearchRefusalName = (typeof RESEARCH_REFUSALS)[number];
@@ -192,6 +268,8 @@ export const REFUSAL_LABELS: Readonly<Record<ResearchRefusalName, string>> = {
   MATERIALS_UNRESOLVED: "还有材料没有逐条判定完",
   ATTEMPTS_EXHAUSTED: "这条材料的重新采集次数已用尽",
   NO_MATERIALS: "还没有任何材料",
+  ROOT_CAUSE_REQUIRED: "没兑现的预测必须说清是框架性还是执行性问题",
+  NO_PREDICTIONS: "这一版图谱还没有登记任何预测",
 };
 
 /* ── 端点 ────────────────────────────────────────────────────────── */

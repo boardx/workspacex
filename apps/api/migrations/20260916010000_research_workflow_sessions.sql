@@ -65,3 +65,38 @@ CREATE TABLE IF NOT EXISTS research_gate_audit (
   )
 );
 CREATE INDEX IF NOT EXISTS research_gate_audit_thread_idx ON research_gate_audit (thread_id, created_at DESC);
+
+-- 第三步：验证回填。
+--
+-- 需求文档的第三步是「数月后回来看当初的判断对不对」，判据是**逐条预测**的兑现情况，
+-- 不是一句"大体还行"。所以预测必须在发布时就逐条落下来——事后凭记忆补写的"当初的
+-- 预测"，是用已知结果反推出来的，那不是验证，是自我确认。
+CREATE TABLE IF NOT EXISTS research_predictions (
+  id             uuid PRIMARY KEY,
+  thread_id      uuid NOT NULL REFERENCES research_sessions(thread_id) ON DELETE CASCADE,
+  org_id         uuid NOT NULL,
+  -- 这条预测属于哪一版图谱。三个月后回来要能回答"当时那一版是怎么说的"。
+  graph_version  integer NOT NULL,
+  statement      text NOT NULL,
+  -- 回填结果。null = 还没回填。
+  actual         text,
+  verdict        text,
+  -- 根因分类：框架性（判断逻辑本身错了）vs 执行性（逻辑对，这次执行没做到位）。
+  -- 两者对应完全不同的调整动作，混成一句"没做好"就什么也改不了。
+  root_cause     text,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  filled_at      timestamptz,
+  CONSTRAINT research_prediction_verdict_known CHECK (
+    verdict IS NULL OR verdict IN ('matched','partial','missed')
+  ),
+  CONSTRAINT research_prediction_root_cause_known CHECK (
+    root_cause IS NULL OR root_cause IN ('framework','execution')
+  ),
+  -- 回填过的必须同时有实际值与判定：只填一半等于没填，而"填了一半"看起来像"填了"。
+  CONSTRAINT research_prediction_filled_shape CHECK (
+    (filled_at IS NULL AND actual IS NULL AND verdict IS NULL)
+    OR (filled_at IS NOT NULL AND actual IS NOT NULL AND verdict IS NOT NULL)
+  )
+);
+CREATE INDEX IF NOT EXISTS research_predictions_thread_idx
+  ON research_predictions (thread_id, graph_version, created_at);

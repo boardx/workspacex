@@ -23,6 +23,9 @@ const CALLS: Record<string, (deps: never) => Promise<unknown>> = {
   passGateGuarded: (d) => ops.passGateGuarded(d, ACTOR, "materials"),
   advancePhaseGuarded: (d) => ops.advancePhaseGuarded(d, ACTOR, "collecting"),
   readAudit: (d) => ops.readAudit(d, ACTOR),
+  listPredictions: (d) => ops.listPredictions(d, ACTOR),
+  addPredictions: (d) => ops.addPredictions(d, ACTOR, ["2027 年国产 EDA 覆盖 3 个环节"]),
+  fillPrediction: (d) => ops.fillPrediction(d, ACTOR, "p1", "只覆盖 1 个", "partial", "execution"),
 };
 
 const SESSION = {
@@ -46,6 +49,9 @@ function deps(visible: boolean) {
     applyTransition: vi.fn(async () => SESSION),
     appendAudit: vi.fn(async () => undefined),
     listAudit: vi.fn(async () => []),
+    listPredictions: vi.fn(async () => []),
+    addPredictions: vi.fn(async () => []),
+    fillPrediction: vi.fn(async () => []),
   };
   // authorize 真的会跑：给它一个"组织成员、无额外绑定"的常规身份，好让任何拒绝
   // 都只可能来自线程归属判定，而不是来自我顺手把组织层配成了拒绝。

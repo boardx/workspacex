@@ -1,5 +1,5 @@
 /**
- * 研判工作流的 HTTP 边界 —— 契约 `researchWorkflow` 的五个端点。
+ * 研判工作流的 HTTP 边界 —— 契约 `researchWorkflow` 的八个端点。
  *
  * 协议适配而已：**每一条判断都在 application / domain**。本控制器不判阶段、不判门、
  * 不判可见性——它只负责把 `ResearchGateRefusedError` 翻成 409、把
@@ -22,7 +22,10 @@ import { Inject } from "@nestjs/common";
 import { researchWorkflow as C } from "@repo/contracts";
 import {
   addMaterials,
+  addPredictions,
   advancePhaseGuarded,
+  fillPrediction,
+  listPredictions,
   passGateGuarded,
   readAudit,
   readSession,
@@ -145,6 +148,40 @@ export class ResearchWorkflowController {
     assertPrincipal(principal);
     const parsed = C.passResearchGate.in.parse({ ...(body as object), threadId });
     return this.run(() => passGateGuarded(this.deps(), this.actor(principal, threadId), parsed.gate));
+  }
+
+  @Get("/threads/:threadId/research-predictions")
+  async getPredictions(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
+    assertPrincipal(principal);
+    return this.run(() => listPredictions(this.deps(), this.actor(principal, threadId)));
+  }
+
+  @Post("/threads/:threadId/research-predictions")
+  async postPredictions(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const parsed = C.addResearchPredictions.in.parse({ ...(body as object), threadId });
+    return this.run(() => addPredictions(this.deps(), this.actor(principal, threadId), parsed.statements));
+  }
+
+  @Post("/threads/:threadId/research-predictions/:predictionId/fill")
+  async postFill(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Param("predictionId") predictionId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const parsed = C.fillResearchPrediction.in.parse({ ...(body as object), threadId, predictionId });
+    return this.run(() =>
+      fillPrediction(
+        this.deps(), this.actor(principal, threadId), predictionId,
+        parsed.actual, parsed.verdict, parsed.rootCause,
+      ),
+    );
   }
 
   @Post("/threads/:threadId/research-advance")

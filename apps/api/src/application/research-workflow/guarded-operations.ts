@@ -20,8 +20,9 @@ import {
   type ResolveVisibilityDeps,
 } from "../chat/resolve-visibility";
 import { ThreadNotVisibleError } from "../chat/get-thread";
-import { advancePhase, passGate, type PassGateDeps } from "./pass-gate";
-import type { ResearchSessionRow } from "./ports";
+import { advancePhase, passGate, ResearchGateRefusedError, type PassGateDeps } from "./pass-gate";
+import { decideFill } from "../../domain/research-workflow/verification";
+import type { ResearchPredictionRow, ResearchSessionRow } from "./ports";
 
 export interface ResearchOpsDeps extends PassGateDeps, ResolveVisibilityDeps {}
 
@@ -108,4 +109,67 @@ export async function advancePhaseGuarded(
 export async function readAudit(deps: ResearchOpsDeps, actor: ResearchActor, limit = 50) {
   await assertVisible(deps, actor);
   return deps.research.listAudit(actor.orgId, actor.threadId, limit);
+}
+
+/* ── 第三步：预测与回填 ─────────────────────────────────────────── */
+
+export async function listPredictions(
+  deps: ResearchOpsDeps,
+  actor: ResearchActor,
+): Promise<readonly ResearchPredictionRow[]> {
+  await assertVisible(deps, actor);
+  return deps.research.listPredictions(actor.orgId, actor.threadId);
+}
+
+/**
+ * 登记预测。**挂在当前已发布版本上**——预测是"第 N 版图谱当时是怎么说的"，
+ * 不挂版本号就答不出三个月后那个问题。
+ *
+ * 还没发布过任何版本时拒绝：那意味着这些"预测"没有对应的结论，无从验证。
+ */
+export async function addPredictions(
+  deps: ResearchOpsDeps,
+  actor: ResearchActor,
+  statements: readonly string[],
+): Promise<readonly ResearchPredictionRow[]> {
+  await assertVisible(deps, actor);
+  const session = await deps.research.ensureSession(actor.orgId, actor.threadId);
+  const version = session.lineage.publishedGraphVersion;
+  if (version === 0) throw new ResearchGateRefusedError("NO_PREDICTIONS", session.phase);
+  return deps.research.addPredictions(actor.orgId, actor.threadId, version, statements);
+}
+
+/**
+ * 回填一条预测。
+ *
+ * 「未兑现必须给根因」这条规则在 `domain/verification.ts`，这里只负责执行它并留痕——
+ * 与门的处理同一形状：**被拒也写审计**，因为"有人试图不写根因就把复盘结掉"
+ * 本身就是一条值得留下的记录。
+ */
+export async function fillPrediction(
+  deps: ResearchOpsDeps,
+  actor: ResearchActor,
+  predictionId: string,
+  actual: string,
+  verdict: C.PredictionVerdictName,
+  rootCause: C.RootCauseName | null,
+): Promise<readonly ResearchPredictionRow[]> {
+  await assertVisible(deps, actor);
+  const session = await deps.research.ensureSession(actor.orgId, actor.threadId);
+  const decision = decideFill(verdict, rootCause);
+
+  await deps.research.appendAudit({
+    orgId: actor.orgId,
+    threadId: actor.threadId,
+    actorKind: "human",
+    action: `fill:${predictionId}`,
+    fromPhase: session.phase,
+    outcome: decision.ok ? "allowed" : "refused",
+    refusal: decision.ok ? null : decision.refusal,
+  });
+  if (!decision.ok) throw new ResearchGateRefusedError(decision.refusal, session.phase);
+
+  return deps.research.fillPrediction(
+    actor.orgId, actor.threadId, predictionId, actual, verdict, rootCause,
+  );
 }

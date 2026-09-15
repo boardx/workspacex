@@ -46,6 +46,9 @@ function makeDeps(session: Partial<ResearchSessionRow> = {}) {
       },
       appendAudit: async (e) => void audit.push(e),
       listAudit: async () => [],
+      listPredictions: async () => [],
+      addPredictions: async () => [],
+      fillPrediction: async () => [],
     },
   };
   return { deps, row, audit, transitions };

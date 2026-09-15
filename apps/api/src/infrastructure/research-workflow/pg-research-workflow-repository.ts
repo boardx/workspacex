@@ -177,6 +177,70 @@ export class PgResearchWorkflowRepository implements ResearchWorkflowRepository 
     return this.read(orgId, threadId);
   }
 
+  /* ── 第三步：预测与回填 ── */
+
+  private async readPredictions(orgId: OrgId, threadId: string) {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; graph_version: number; statement: string; actual: string | null;
+        verdict: string | null; root_cause: string | null; created_at: string; filled_at: string | null;
+      }>(
+        `SELECT id, graph_version, statement, actual, verdict, root_cause, created_at, filled_at
+           FROM research_predictions WHERE thread_id = $1 AND org_id = $2
+          ORDER BY graph_version ASC, created_at ASC, id ASC`,
+        [threadId, orgId],
+      );
+      return r.rows.map((x) => ({
+        id: x.id,
+        graphVersion: x.graph_version,
+        statement: x.statement,
+        actual: x.actual,
+        verdict: x.verdict as C.PredictionVerdictName | null,
+        rootCause: x.root_cause as C.RootCauseName | null,
+        createdAt: new Date(x.created_at).toISOString(),
+        filledAt: x.filled_at === null ? null : new Date(x.filled_at).toISOString(),
+      }));
+    });
+  }
+
+  async listPredictions(orgId: OrgId, threadId: string) {
+    return this.readPredictions(orgId, threadId);
+  }
+
+  async addPredictions(orgId: OrgId, threadId: string, graphVersion: number, statements: readonly string[]) {
+    await this.db.withTenant(orgId, async (s) => {
+      for (const statement of statements) {
+        await s.query(
+          `INSERT INTO research_predictions (id, thread_id, org_id, graph_version, statement)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [this.uuid(), threadId, orgId, graphVersion, statement],
+        );
+      }
+    });
+    return this.readPredictions(orgId, threadId);
+  }
+
+  async fillPrediction(
+    orgId: OrgId,
+    threadId: string,
+    predictionId: string,
+    actual: string,
+    verdict: C.PredictionVerdictName,
+    rootCause: C.RootCauseName | null,
+  ) {
+    await this.db.withTenant(orgId, (s) =>
+      s.query(
+        // 实际值、判定、根因、时间**同一条语句**——CHECK 约束
+        // research_prediction_filled_shape 要求它们同时有或同时无，分两条写会中途违约。
+        `UPDATE research_predictions
+            SET actual = $1, verdict = $2, root_cause = $3, filled_at = now()
+          WHERE id = $4 AND thread_id = $5 AND org_id = $6`,
+        [actual, verdict, rootCause, predictionId, threadId, orgId],
+      ),
+    );
+    return this.readPredictions(orgId, threadId);
+  }
+
   async appendAudit(e: GateAuditEntry): Promise<void> {
     await this.db.withTenant(e.orgId, (s) =>
       s.query(

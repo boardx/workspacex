@@ -8,6 +8,6 @@ import { defineConfig } from "vitest/config";
  * 一条必须先起 PG 容器才能验证的规则，实际上没人会去验证。
  */
 export default defineConfig({ test: {
-  include: ["tests/research-workflow/state-machine.test.ts", "tests/research-workflow/phase-enum-parity.test.ts", "tests/research-workflow/pass-gate.test.ts", "tests/research-workflow/guarded-operations.test.ts"],
+  include: ["tests/research-workflow/state-machine.test.ts", "tests/research-workflow/phase-enum-parity.test.ts", "tests/research-workflow/pass-gate.test.ts", "tests/research-workflow/guarded-operations.test.ts", "tests/research-workflow/verification.test.ts"],
   maxWorkers: 1, minWorkers: 1,
 } });

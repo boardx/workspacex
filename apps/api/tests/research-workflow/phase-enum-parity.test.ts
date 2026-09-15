@@ -39,6 +39,24 @@ describe("契约 ↔ 迁移 枚举一致", () => {
     expect(checkValues("research_material_source_known")).toEqual([...C.MATERIAL_SOURCES].sort());
   });
 
+  it("预测判定三档集合逐字相同", () => {
+    expect(checkValues("research_prediction_verdict_known")).toEqual([...C.PREDICTION_VERDICTS].sort());
+  });
+
+  it("根因分类集合逐字相同", () => {
+    expect(checkValues("research_prediction_root_cause_known")).toEqual([...C.ROOT_CAUSES].sort());
+  });
+
+  it("回填「只填一半」的数据层保险还在", () => {
+    // 只填实际值不填判定，看起来像"填了"，实际无法参与统计。CHECK 让它写不进来。
+    expect(MIGRATION).toContain("research_prediction_filled_shape");
+  });
+
+  it("每档判定与每种根因都有中文名", () => {
+    for (const v of C.PREDICTION_VERDICTS) expect(C.PREDICTION_VERDICT_LABELS[v]).toBeTruthy();
+    for (const r of C.ROOT_CAUSES) expect(C.ROOT_CAUSE_LABELS[r]).toBeTruthy();
+  });
+
   it("每个阶段都有中文名（阶段条不会渲染出一个空标签）", () => {
     for (const p of C.RESEARCH_PHASES) expect(C.PHASE_LABELS[p]).toBeTruthy();
   });
