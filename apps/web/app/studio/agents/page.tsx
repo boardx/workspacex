@@ -2,7 +2,8 @@ import { Bot } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
 
-import { AGENTS_NAV_LABEL, PREVIEW_AGENT_TEAMS } from "@/lib/mock/agent-previews";
+import { AGENTS_NAV_LABEL } from "@/lib/navigation";
+import { PREVIEW_AGENT_TEAMS } from "@/lib/mock/agent-previews";
 
 export default function AgentsPage() {
   return (

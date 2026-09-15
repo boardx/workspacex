@@ -5,8 +5,8 @@
  *   ③ 六个 team 各有自己的路由 `/studio/agents/<slug>`。
  */
 import { describe, expect, it } from "vitest";
-import { NAV_SEGMENTS, navSegmentsForOrg, isAgentsNavVisibleForOrg } from "@/lib/navigation";
-import { AGENTS_NAV_LABEL, PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
+import { AGENTS_NAV_LABEL, NAV_SEGMENTS, navSegmentsForOrg, isAgentsNavVisibleForOrg } from "@/lib/navigation";
+import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 
 const keys = (orgName: string | null) => navSegmentsForOrg(orgName).flatMap((s) => s.items.map((i) => i.key));
 

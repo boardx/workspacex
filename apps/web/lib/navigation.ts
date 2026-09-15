@@ -4,7 +4,6 @@ import {
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
   MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler,
 } from "lucide-react";
-import { AGENTS_NAV_LABEL } from "@/lib/mock/agent-previews";
 
 /**
  * 左侧五段语义导航 —— 结构与分组来自对运行态原型的实测
@@ -81,6 +80,16 @@ export interface NavSegment {
   label: string | null;
   items: NavItem[];
 }
+
+/**
+ * 「海创汇」入口的**名字**（2026-09-15 人类直接要求：Nav App 名从「智能体」改成这个）。
+ *
+ * ⚠ 放在这里而不是 `lib/mock/agent-previews.ts`：`tests/session/*-route-no-mock.test.ts`
+ *   有一份「残留 mock 边台账」，导航是真实路由图的一部分，不许挂到 `lib/mock/` 上——
+ *   从那里 import 会让台账多一条边而变红。示例 team 数据仍留在 mock 文件里（它本来
+ *   就是示例），页面从这里取名字、从 mock 取数据，名字仍然只有这一份。
+ */
+export const AGENTS_NAV_LABEL = "海创汇";
 
 /**
  * 「海创汇」入口的可见性（2026-09-15 人类直接要求：只有 Workspace 的组织才显示这个标签）。
