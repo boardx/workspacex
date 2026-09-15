@@ -27,11 +27,68 @@ REQUIRED = {
     "config.secret_serialization",
     "cloud.managed_data_permissions",
     "database.drain_read_access",
+    "bootstrap.compatibility",
+    "secrets.stable_continuity",
     "build.affected_services",
     "deploy.trusted_copy",
     "network.dependencies",
 }
 SERVICES = {"api", "web", "agent", "sandbox"}
+BOOTSTRAP_FAILURE_CODES = {
+    "BOOTSTRAP_IMAGE_INCOMPATIBLE",
+    "BOOTSTRAP_INPUT_INVALID",
+    "BOOTSTRAP_DB_SCHEMA_INCOMPATIBLE",
+    "BOOTSTRAP_DB_PERMISSION_INCOMPATIBLE",
+    "BOOTSTRAP_STATE_CONFLICT",
+    "BOOTSTRAP_EXISTING_ADMIN_MISMATCH",
+    "BOOTSTRAP_AGENT_SEED_INCOMPATIBLE",
+    "BOOTSTRAP_READ_ONLY_GUARD_FAILED",
+    "BOOTSTRAP_MACHINE_OUTPUT_INVALID",
+    "BOOTSTRAP_PROBE_TIMEOUT",
+    "BOOTSTRAP_PROBE_CLEANUP_UNPROVEN",
+    "BOOTSTRAP_COMPATIBILITY_UNKNOWN",
+}
+BOOTSTRAP_SAFE_METADATA_KEYS = {
+    "readOnlyTransaction",
+    "productionWriteStatements",
+    "imageEntrypoint",
+    "inputContract",
+    "schemaContract",
+    "permissionContract",
+    "stateClass",
+    "agentSeedContract",
+    "exactlyOneMachineRecord",
+    "emailSha256",
+    "failedFieldIds",
+    "missingObjectIds",
+    "permissionIds",
+    "templateIds",
+    "durationMs",
+    "budgetMs",
+    "correlationId",
+}
+STABLE_SECRET_FAILURE_CODES = {
+    "STABLE_SECRET_DIRECTORY_VERSION_SCOPED",
+    "STABLE_SECRET_SET_MISMATCH",
+    "STABLE_SECRET_MISSING",
+    "STABLE_SECRET_ROTATION_DETECTED",
+    "STABLE_SECRET_UNSAFE_PATH",
+    "STABLE_SECRET_READ_UNPROVEN",
+    "STABLE_SECRET_CONSUMER_DRIFT",
+    "STABLE_SECRET_CONTINUITY_UNKNOWN",
+}
+STABLE_SECRET_SAFE_METADATA_KEYS = {
+    "requiredCount",
+    "matchedCount",
+    "missingKeyIds",
+    "rotatedKeyIds",
+    "consumerDriftIds",
+    "stableDirectory",
+    "baselineReadable",
+    "candidateWillReuse",
+    "noMutation",
+    "correlationId",
+}
 
 
 class ContractError(ValueError):
@@ -71,6 +128,10 @@ def validate(value: object) -> dict:
         need(isinstance(check.get("evidenceSha256"), str) and HEX64.fullmatch(check["evidenceSha256"]) is not None, f"{key}.evidenceSha256 must be 64 lowercase hex")
         if check["status"] == "failed":
             need(isinstance(check.get("code"), str) and check["code"].strip(), f"{key}.code is required on failure")
+            if key == "bootstrap.compatibility":
+                need(check["code"] in BOOTSTRAP_FAILURE_CODES, "bootstrap.compatibility.code is not a stable allowlisted code")
+            if key == "secrets.stable_continuity":
+                need(check["code"] in STABLE_SECRET_FAILURE_CODES, "secrets.stable_continuity.code is not a stable allowlisted code")
             blockers.append({"check": key, "code": check["code"]})
 
     def if_passed(key: str, predicate: bool, message: str) -> None:
@@ -98,6 +159,34 @@ def validate(value: object) -> dict:
     if_passed("cloud.managed_data_permissions", managed.get("liveDescribePassed") is True and managed.get("temporaryPolicyExpires") is True and managed.get("cleanupRegistered") is True, "managed-data Describe permissions and bounded cleanup must be proved")
     drain = metadata(checks, "database.drain_read_access")
     if_passed("database.drain_read_access", drain.get("role") == "app_diag_ro" and drain.get("canReadAgentRuns") is True, "app_diag_ro drain read is unproved")
+    bootstrap = metadata(checks, "bootstrap.compatibility")
+    need(set(bootstrap) <= BOOTSTRAP_SAFE_METADATA_KEYS, "bootstrap.compatibility.metadata contains a non-redacted key")
+    bootstrap_ok = (
+        bootstrap.get("readOnlyTransaction") is True
+        and bootstrap.get("productionWriteStatements") == 0
+        and bootstrap.get("imageEntrypoint") is True
+        and bootstrap.get("inputContract") is True
+        and bootstrap.get("schemaContract") is True
+        and bootstrap.get("permissionContract") is True
+        and bootstrap.get("stateClass") in {"empty", "matching-existing"}
+        and bootstrap.get("agentSeedContract") is True
+        and bootstrap.get("exactlyOneMachineRecord") is True
+    )
+    if_passed("bootstrap.compatibility", bootstrap_ok, "bootstrap compatibility is unproved or not read-only")
+    continuity = metadata(checks, "secrets.stable_continuity")
+    need(set(continuity) <= STABLE_SECRET_SAFE_METADATA_KEYS, "secrets.stable_continuity.metadata contains a non-redacted key")
+    continuity_ok = (
+        continuity.get("requiredCount") == 12
+        and continuity.get("matchedCount") == 12
+        and continuity.get("missingKeyIds") == []
+        and continuity.get("rotatedKeyIds") == []
+        and continuity.get("consumerDriftIds", []) == []
+        and continuity.get("stableDirectory") is True
+        and continuity.get("baselineReadable") is True
+        and continuity.get("candidateWillReuse") is True
+        and continuity.get("noMutation") is True
+    )
+    if_passed("secrets.stable_continuity", continuity_ok, "all 12 stable deployment secrets must be reused without mutation")
     affected = metadata(checks, "build.affected_services").get("services")
     if_passed("build.affected_services", isinstance(affected, list) and len(affected) == len(set(affected)) and set(affected) <= SERVICES, "affected services must be a unique subset of api/web/agent/sandbox")
 
