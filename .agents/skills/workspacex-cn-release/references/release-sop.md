@@ -207,6 +207,8 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `NOTIFICATIONS_HTTP_FAILED` | 使用显式 Authorization 的同源通知请求必须返回 200 |
 | 2026-09-15 | `NOTIFICATIONS_CONTRACT_DRIFT` | 通知响应必须包含 notifications array 与非负整数 unreadCount |
 | 2026-09-15 | `ACR_CLI_AUTH_PROFILE_UNSUPPORTED` | 候选构建直接使用已在 ECS 验证的 `--mode EcsRamRole --ram-role-name`，禁止临时 profile 初始化；提交前跑命令形状测试和不输出 token 的 ECS 探针 |
+| 2026-09-15 | `ACR_CLI_OUTPUT_FLAG_UNSUPPORTED` | ACR 临时授权命令禁止附加 `--output json`；在 ECS 上先把响应写入 root 0600 临时文件，验证 JSON 和必需字段后立即删除，绝不打印 token |
+| 2026-09-15 | `CANDIDATE_CHECKOUT_DRIFT` | 构建入口在持有 release lock 后记录干净 baseline checkout，成功和失败都在同一个 EXIT trap 恢复；回执必须机械证明 HEAD、`main-cn` 和四个运行容器仍是 baseline |
 
 ## 12. 发布后清理
 

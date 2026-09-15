@@ -20,6 +20,27 @@ fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
+baseline_head=$(git -C "$REPOSITORY_DIR" rev-parse HEAD)
+[[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty before build"
+checkout_changed=0
+cleanup(){
+  local status=$?
+  trap - EXIT
+  if [[ -n ${DOCKER_CONFIG:-} ]]; then
+    docker logout "${registry:-}" >/dev/null 2>&1 || true
+    rm -rf "$DOCKER_CONFIG"
+  fi
+  if [[ "$checkout_changed" == 1 ]]; then
+    if ! git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head" ||
+       [[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" != "$baseline_head" ]] ||
+       [[ -n "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]]; then
+      echo "CN_CANDIDATE_BASELINE_RESTORE_FAILED" >&2
+      status=1
+    fi
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
 record_event(){
   node - "$EVENTS_ROOT/$revision.jsonl" "$revision" "$1" <<'NODE'
 const fs=require("node:fs"),[path,revision,stage]=process.argv.slice(2);
@@ -36,6 +57,7 @@ for attempt in 1 2 3 4 5; do
 done
 git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "revision is unavailable"
 git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "revision is not contained in origin/main"
+checkout_changed=1
 git -C "$REPOSITORY_DIR" checkout --quiet --detach "$revision"
 git -C "$REPOSITORY_DIR" reset --quiet --hard "$revision"
 git -C "$REPOSITORY_DIR" clean -ffd
@@ -54,11 +76,9 @@ role_name=${WSX_ECS_RAM_ROLE_NAME:?set WSX_ECS_RAM_ROLE_NAME in publish.env}
 instance_id=${WSX_ACR_INSTANCE_ID:?set WSX_ACR_INSTANCE_ID in publish.env}
 DOCKER_CONFIG=$(mktemp -d /tmp/workspacex-cn-docker.XXXXXX)
 export DOCKER_CONFIG
-cleanup(){ docker logout "$registry" >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"; }
-trap cleanup EXIT
 credentials_file="$DOCKER_CONFIG/acr-credentials.json"
 umask 077
-aliyun cr GetAuthorizationToken --region "$region" --InstanceId "$instance_id" --mode EcsRamRole --ram-role-name "$role_name" --output json >"$credentials_file" || fail "temporary ACR authorization failed"
+aliyun cr GetAuthorizationToken --region "$region" --InstanceId "$instance_id" --mode EcsRamRole --ram-role-name "$role_name" >"$credentials_file" || fail "temporary ACR authorization failed"
 username=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.TempUsername||v.Username||"")' "$credentials_file")
 token=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.AuthorizationToken||"")' "$credentials_file")
 [[ -n "$username" && -n "$token" ]] || fail "temporary ACR authorization response is incomplete"
@@ -67,5 +87,8 @@ rm -f "$credentials_file"
 unset token
 
 "$PUBLISHER" "$revision" "$release"
+git -C "$REPOSITORY_DIR" checkout --quiet --detach "$baseline_head" || fail "baseline checkout restoration failed"
+[[ "$(git -C "$REPOSITORY_DIR" rev-parse HEAD)" == "$baseline_head" && -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "baseline checkout restoration failed"
+checkout_changed=0
 record_event candidate_sealed
 printf 'CN_RELEASE_CANDIDATE_READY revision=%s release=%s\n' "$revision" "$release"
