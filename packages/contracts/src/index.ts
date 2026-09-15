@@ -98,3 +98,7 @@ export * as standardBrowserTools from "./standard-browser-tools";
 
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
+
+/* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
+ *   design-signoff.md status: pending，待人类签核）──────────────────────── */
+export * as postinvestRating from "./postinvest-rating";
