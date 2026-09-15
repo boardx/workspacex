@@ -76,6 +76,7 @@ gh workflow run real-model-chat-evidence.yml        # 真实模型走完 chat �
 |---|---|---|
 | `git fetch` 报 `Permission denied (publickey)` | 部署密钥在 app 用户下，root 没有 | `sudo -u <app> git fetch` |
 | 部署绿，但改动没生效 | 特权脚本副本没更新 | 重跑 provision，或触发 `devapp-install-trusted-scripts` |
+| **deploy 任务红在第一步**，报 `/usr/local/bin/workspacex-deploy 与仓库的 deploy.sh 不一致` | 有 PR 改了 `deploy.sh`，而特权副本只在 root 跑 provision 时更新；此后**每次合并都部署不上去** | 触发 `devapp-install-trusted-scripts`（十几秒），再重跑那次 deploy 任务。改 `deploy.sh` 的 PR 合入后就该顺手做这一步，见该文件头注（2026-09-15 实测：PR #3682 加了一步补种，devapp 因此连续多次合并未部署） |
 | 改了 Dockerfile 但容器行为不变 | `up -d` 不重建已存在的镜像 | 必须 `--build`（已在脚本里） |
 | `XXX: unbound variable` | deploy.env 是在该键引入之前生成的 | 重跑 provision（逐键补齐，不动已有值） |
 | 沙箱自检报"文件不存在"但构建日志说装好了 | 同一路径声明在 Dockerfile 与 compose 两处 | 删副本，只留镜像 ENV 那一份 |

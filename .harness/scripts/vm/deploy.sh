@@ -7,6 +7,22 @@
 #   ② **迁移先于部署且幂等** —— 顺序写死在这里，不靠人记
 #   ③ 冒烟带漂移探针 —— 收尾的健康检查断言的是 trustworthy，不是「返回了 200」
 #
+# ⚠⚠ 改这个文件的人必读（2026-09-15 实测停摆一小时的教训）
+#
+# 合并到 main **不会**更新目标机器上跑的那份脚本。机器上跑的是特权副本
+# `/usr/local/bin/workspacex-deploy`（sudoers 只放行这一条路径——否则改一个 PR 里的
+# 本文件就等于拿到那台机器的 root，这是故意的安全边界，不是麻烦）。
+# 两份不一致时 `deploy-gate.sh` 直接 fail-closed，**此后每一次合并都部署不上去**，
+# 而现象是「CI 红在 deploy 这一步」，很容易被当成别的问题。
+#
+# 所以：**任何改动本文件的 PR，合入后必须配套做一次特权副本更新**，二选一——
+#   · 触发 `devapp-install-trusted-scripts` workflow（手动触发，十几秒）
+#   · 或在目标机器上以 root 跑：
+#       cd /opt/workspacex/app && git fetch --all && git checkout <ref> && ./.harness/scripts/vm/provision.sh
+#
+# 实测记录：PR #3682 给本文件加了一个补种步骤，之后 devapp 连续多次合并都没部署上去，
+# 直到有人发现 deploy 任务一直红在这条校验上。
+#
 # 用法（在 VM 上）：
 #   /opt/workspacex/app/.harness/scripts/vm/deploy.sh [git-ref]
 #
