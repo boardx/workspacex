@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileText, Loader2, Send, Upload } from "lucide-react";
+import { AlertTriangle, Check, Copy, FileText, Loader2, Send, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import type { AgentDirectoryEntry } from "@/lib/ic-review/agent-directory";
 import { FIXTURE_PACKS } from "@/lib/ic-review/fixtures";
 import { intakeFiles, intakeTexts } from "@/lib/ic-review/intake";
 import { launchReviewThread } from "@/lib/ic-review/launch-review-thread";
+import { buildReviewPrompt } from "@/lib/ic-review/review-prompt";
 import type { ReviewDocument, UnparsedFile } from "@/lib/ic-review/types";
 
 /**
@@ -23,6 +24,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
   const [selectedPackId, setSelectedPackId] = React.useState<string | null>(null);
   const [launching, setLaunching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const addFiles = async (list: FileList | null) => {
@@ -40,6 +42,17 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
   };
 
   const totalCount = files.length + fixtureDocs.length;
+  const materialNames = [...files.map((f) => f.name), ...fixtureDocs.map((d) => d.name)];
+
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(buildReviewPrompt(materialNames));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("复制失败：浏览器拒绝了剪贴板权限，请手动选中任务书文本复制。");
+    }
+  };
 
   const start = async () => {
     if (!agent.agentId || launching || totalCount === 0) return;
@@ -82,12 +95,19 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
 
       {!agent.agentId && (
         <Card>
-          <CardContent className="flex items-start gap-2 py-4">
-            <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
-            <p className="text-12 text-muted-foreground">
-              该 Agent 尚未在后台发布，暂时无法发起真实审阅对话。发布步骤见
-              <code className="mx-1 rounded-control bg-muted px-1 py-0.5 text-11">docs/agents/team1-ic-review-mvp.md</code>。
-            </p>
+          <CardContent className="space-y-3 py-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning-foreground" />
+              <p className="text-12 text-muted-foreground">
+                该 Agent 尚未在后台发布，暂时无法一键发起真实审阅对话。发布步骤见
+                <code className="mx-1 rounded-control bg-muted px-1 py-0.5 text-11">docs/agents/team1-ic-review-mvp.md</code>。
+                在此之前，你可以复制下面的审阅任务书，手动粘到任意一条项目对话里、附上材料，照样能用。
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void copyPrompt()} data-testid="agent-copy-prompt">
+              {copied ? <Check aria-hidden className="size-3.5" /> : <Copy aria-hidden className="size-3.5" />}
+              {copied ? "已复制" : `复制审阅任务书${materialNames.length ? `（含 ${materialNames.length} 份材料名）` : ""}`}
+            </Button>
           </CardContent>
         </Card>
       )}
