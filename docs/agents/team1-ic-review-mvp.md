@@ -72,15 +72,19 @@ queued AgentRun）。这证明 `launch-review-thread.ts`/`ensure-agent.ts` 调�
 
 ### 做（本次交付）
 1. `/agent/team1` 落地页：能做什么 / 不做什么 / 上传材料 / 一键发起。
-2. 材料预处理：读取纯文本族、逐文件哈希记账；读不了的单列清单，不静默跳过。
+2. 材料预处理：按真实附件白名单预检（PDF/DOCX/XLSX/PPTX/txt/md/csv/图片/音频，
+   单文件 25MB、单次 10 份，同 `chat-file-upload` 已签核上限），不在白名单/超限
+   的单列清单，不静默跳过；通过预检的文件原样上传，不做本地内容解析或转换。
 3. 把材料 + 一条结构化任务书（上会标准 IC-1…IC-8 + 交叉验证三分类要求 + 输出格式 +
    两轮人工确认约定）发进一条真实项目对话，交给挂载了真实模型的已发布 Agent 处理。
 4. 跳转进真实 `/chat` 体验，复用它已有的全部能力（消息流、附件、审批卡、产物）。
 
 ### 明确不做（MVP 之外）
 - ❌ 自建分析结果面板（提纲/清单/风险三栏）—— 复用 chat 消息流本身。
-- ❌ PDF / Word / Excel / PPT 解析 —— 这类文件交给 chat 附件面板与后端既有能力，
-  本页只做「能不能先本地转成文本」的粗筛。
+- ❌ 本地内容解析/预览 —— PDF/DOCX/XLSX/PPTX 原样作为真实附件上传，交给服务端
+  `wx_document_parse`（页码/单元格级定位）实际解析；本页只做类型与大小预检，
+  不在浏览器里读取或转换这些格式的内容（早期版本试过把二进制读成文本再重建
+  File，PDF 会被 UTF-8 硬解破坏——已改掉，见 `intake.ts` 头注）。
 - ❌ 机械阻断的人工确认关口 —— 本版只在任务书里用自然语言要求模型停下等确认；
   真正机械阻断需要接 `deep-agent-hitl`，是下一档。
 - ❌ 未登录公开访问、归档模板、通知与定时。
@@ -101,7 +105,7 @@ queued AgentRun）。这证明 `launch-review-thread.ts`/`ensure-agent.ts` 调�
 | # | 条目 | 状态 |
 |---|---|---|
 | B1 | 上会标准清单 IC-1…IC-8（41 条，任务书用） | ✅ `apps/web/lib/ic-review/standard.ts` |
-| B2 | 材料接收：读取 + sha256 + 可解析性判定 | ✅ `lib/ic-review/intake.ts` |
+| B2 | 材料接收：按真实附件白名单/大小预检 + sha256（原始 File 透传，不做本地内容解析） | ✅ `lib/ic-review/intake.ts` |
 | B3 | 审阅任务书生成（标准 + 交叉验证要求 + 输出格式 + 两轮确认约定） | ✅ `lib/ic-review/review-prompt.ts` |
 | B4 | 发起真实对话：建线程 + 挂 Agent + 传附件 + 发任务书 | ✅ `lib/ic-review/launch-review-thread.ts` + `ensure-agent.ts`（按需自动发布） |
 | B5 | `/agent/team1` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` 的 team1 分支 + `components/agent/ic-review-launcher.tsx` |

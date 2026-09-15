@@ -36,8 +36,10 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
 
   const addFiles = async (list: FileList | null) => {
     if (!list?.length) return;
+    // 原始 File 直接透传上传，不经过文本往返——PDF/DOCX/PPTX/XLSX 是二进制格式，
+    // 中间转一趟文本会把字节按 UTF-8 硬解、破坏内容（见 intake.ts 头注）。
     const intake = await intakeFiles(Array.from(list));
-    setFiles((prev) => [...prev, ...intake.documents.map((d) => new File([d.text], d.name))]);
+    setFiles((prev) => [...prev, ...intake.accepted]);
     setUnparsed((prev) => [...prev, ...intake.unparsed]);
   };
 
@@ -132,6 +134,7 @@ export function IcReviewLauncher({ agent }: { agent: AgentDirectoryEntry }) {
               <Upload aria-hidden className="size-3.5" />选择文件
             </Button>
             <input ref={fileRef} type="file" multiple className="hidden" aria-label="上传上会材料"
+              accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.wav,.mp3"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
             {FIXTURE_PACKS.map((p) => (
               <Button key={p.id} variant={selectedPackId === p.id ? "primary" : "outline"} size="sm"
