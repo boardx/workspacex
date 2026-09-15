@@ -7,23 +7,63 @@ import { Button } from "@/components/ui/button";
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
 import { Team3StartChatButton } from "@/components/agent/team3-start-chat-button";
+import { mockIdentity } from "@/lib/identity";
+import {
+  RatingWorkbench,
+  type WorkbenchState,
+  type WorkbenchDialog,
+  type PreviewRoleCode,
+} from "@/components/postinvest-rating/rating-workbench";
 
 /**
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
- * 这里不是弹层、不是 query 参数——地址栏可分享、可刷新、可直达。
- * 内容仍是只读示例（上游没有真实 Agent 项目数据），示例数据的单一事实源在
- * `lib/mock/agent-previews.ts`，本页不另写一份 team 名单。
+ * 地址栏可分享、可刷新、可直达。
+ *
+ * ⚠ Team2 = 投后财务项目评级 Agent 工作台（Phase 16 F03，UI 先行）：这里把 Team2 的只读示例
+ *   换成用真实组件 + mock 做出的工作台（ui-prototyper 硬规则 ②③④）。其余 team 仍是只读示例，
+ *   示例数据的单一事实源在 `lib/mock/agent-previews.ts`，本页不另写一份 team 名单。
  */
 export function generateStaticParams() {
   return PREVIEW_AGENT_TEAMS.map((team) => ({ teamId: team.slug }));
 }
 
-export default function AgentTeamPage({ params }: { params: { teamId: string } }) {
+const WORKBENCH_STATES: readonly WorkbenchState[] = [
+  "default", "loading", "empty", "running", "hitl", "result", "validation", "dependency", "forbidden",
+];
+const WORKBENCH_DIALOGS: readonly WorkbenchDialog[] = ["none", "feedback", "recorded", "confirm"];
+const PREVIEW_ROLES: readonly PreviewRoleCode[] = ["consultant", "lead", "admin", "compliance"];
+
+function pick<T extends string>(allowed: readonly T[], raw: string | string[] | undefined, fallback: T): T {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return (allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback;
+}
+
+export default function AgentTeamPage({
+  params,
+  searchParams,
+}: {
+  params: { teamId: string };
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
   // 2026-09-15 ad-hoc MVP（`docs/design/agent-team3-mvp-backlog.md`）——只有 team3 接了
   // 真实 Agent + 真实对话；其余五个 team 上游没有真实项目数据，维持原占位行为不变。
   const isTeam3 = team.slug === "team3";
+
+  if (team.slug === "team2") {
+    const state = pick(WORKBENCH_STATES, searchParams?.state, "default");
+    const dialog = pick(WORKBENCH_DIALOGS, searchParams?.dialog, "none");
+    const role = pick(PREVIEW_ROLES, searchParams?.role, "consultant");
+    // 原型预览：传 mock identity 让壳层直接渲染（签核阶段不接真实登录/会话，ui-prototyper 硬规则 ③）。
+    return (
+      <AppShell identity={mockIdentity("org-yuanyang", null)} previewRole={null} hideRoleSwitcher>
+        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
+          <RatingWorkbench initialState={state} initialDialog={dialog} initialRole={role} />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell previewRole={null}>
