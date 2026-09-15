@@ -102,6 +102,13 @@ instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRat
 **缺失原因曾经由模型推断。** R3-3 把它定成人工确认事实（「Agent 不得自行推断」），而这条
 分支决定的是「暂估出分」还是「直接判 E」。已补表单。
 
+**任务书曾经依赖一个不存在的 skill。** 第三步原本写「用 `data-analysis` skill 的沙箱脚本
+计算」，而 `data-analysis` 不在 `PLATFORM_SKILL_CATALOG`（平台级默认可见的只有
+pptx/docx/xlsx/pdf-create 四个）；仓库里 `skills/data-workflows/data-analysis/` 这个包存在，
+但要本组织导入启用后才进 run 的 skill 列表。找不到指定 skill 时，模型最可能的退化不是报错
+而是**直接心算**——那正好打穿这个 Agent 唯一不可妥协的规则。已改指 `write_file` + `execute`
+（native 准入表成员，每个真实 run 都有），并加门控防复发。
+
 **评分数值曾经存在两份。** `scoring.ts` 与任务书各一套，改一处不会有任何东西变红。
 已收敛到 `postinvest-rating-rules.ts`，并加了「档位表 ↔ 引擎」一致性断言。
 

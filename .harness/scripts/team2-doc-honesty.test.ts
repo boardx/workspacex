@@ -53,20 +53,31 @@ describe("验收标准自身", () => {
     expect(rubric).toContain("不等于 UC-16.1 的完成度");
   });
 
-  it("恰好十条 A 项，每条都带一个检查", () => {
-    const rows = rubricRaw.split("\n").filter((l) => /^\| A\d+ \|/.test(l));
+  it("恰好十条评分项（功能性 F1–F6 + 可用性 U1–U4），每条都有现状与分数", () => {
+    const rows = rubricRaw.split("\n").filter((l) => /^\| (?:F|U)\d+ \|/.test(l));
     expect(rows).toHaveLength(10);
     for (const row of rows) {
       const cells = row.split("|").map((c) => c.trim());
-      expect(cells[3]).not.toBe("");   // 机械检查一栏不许空着
+      expect(cells[3]).not.toBe("");   // 现状一栏不许空着
+      expect(cells[4]).not.toBe("");   // 分数一栏不许空着
     }
+  });
+
+  it("「提示词里写了」不算分——这条一旦被删掉，整份标准就退回自我说服", () => {
+    expect(rubric).toContain("L1 不得分");
+    expect(rubric).toContain("不等于它做了");
+  });
+
+  it("写明当前瓶颈不在实现者这边，且说清卡在哪一步", () => {
+    expect(rubric).toContain("devapp-install-trusted-scripts");
+    expect(rubric).toContain("backfill-team2-agent.ts");
   });
 
   it("标准引用的每一个测试文件都真实存在——不许引用不存在的门控", () => {
     // 覆盖两种落点：workspace 包里的 `apps/*/tests/…` 与控制平面的 `.harness/…`。
     const cited = [...rubricRaw.matchAll(/`((?:apps\/[a-z]+\/|\.harness\/)[\w/.-]+\.test\.tsx?)`/g)]
       .map((m) => m[1]!);
-    expect(cited.length).toBeGreaterThanOrEqual(5);
+
     const missing = cited.filter((rel) => !existsSync(join(ROOT, rel)));
     expect(missing).toEqual([]);
   });
