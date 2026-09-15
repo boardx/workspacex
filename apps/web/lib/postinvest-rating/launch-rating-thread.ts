@@ -8,19 +8,24 @@
  * 挂载在 Agent 上的模型用 `wx_document_parse`（native 工具，任何真实 agent run 都有）
  * 自己读——不重复实现一遍。
  */
+import type { postinvestRating } from "@repo/contracts";
+
+type MissingDataReason = postinvestRating.MissingDataReason;
 import { createMessage, createPersonalThread, getAgentPanel, updateAgentRoster, uploadAttachment } from "@/lib/live-chat";
 import { buildRatingPrompt } from "./rating-prompt";
 
 export interface LaunchRatingThreadInput {
   readonly agentId: string;
   readonly files: readonly File[];
+  /** R3-3 的「数据缺失说明」表单结果；人工确认事实，随任务书一起投进对话。 */
+  readonly missingReason?: MissingDataReason;
 }
 
 export interface LaunchRatingThreadResult {
   readonly threadId: string;
 }
 
-export async function launchRatingThread({ agentId, files }: LaunchRatingThreadInput): Promise<LaunchRatingThreadResult> {
+export async function launchRatingThread({ agentId, files, missingReason }: LaunchRatingThreadInput): Promise<LaunchRatingThreadResult> {
   const thread = await createPersonalThread(`投后评级 · ${new Date().toLocaleString("zh-CN")}`);
   const threadId = thread.threadId;
 
@@ -33,7 +38,7 @@ export async function launchRatingThread({ agentId, files }: LaunchRatingThreadI
 
   await createMessage(threadId, {
     clientMessageId: crypto.randomUUID(),
-    text: buildRatingPrompt(files.map((f) => f.name)),
+    text: buildRatingPrompt(files.map((f) => f.name), missingReason),
     agentId,
     attachmentIds: attachments.map((a) => a.id),
   });

@@ -9,12 +9,25 @@
  * （模型读不到仓库源码）。数值与 `apps/api/src/domain/postinvest-rating/scoring.ts`
  * （issue #3676 已交付、已用 10 个场景验收）逐字一致，那是本文件数值的参照实现，
  * 改规则先改那份、再原样同步到这里——不要在这里另外发明一套。
+ *
+ * 第二个参数是 R3-3 的「数据缺失说明」表单结果——人工确认事实，模型不得自行推断
+ * （见 `missing-reason.ts` 头注）。不传（如发布 Agent 时把本任务书固化成 instructions）
+ * 就不渲染那一段。
  */
-export function buildRatingPrompt(materialNames: readonly string[]): string {
+import type { postinvestRating } from "@repo/contracts";
+import { buildMissingReasonBrief } from "./missing-reason";
+
+type MissingDataReason = postinvestRating.MissingDataReason;
+
+export function buildRatingPrompt(
+  materialNames: readonly string[],
+  missingReason?: MissingDataReason,
+): string {
+  const brief = missingReason ? buildMissingReasonBrief(missingReason) : null;
   return `你现在是「投后财务项目评级 Agent」。我已经把本次投后项目的材料作为附件发给你${
     materialNames.length ? `（${materialNames.join("、")}）` : ""
   }。请完成以下任务。
-
+${brief ? `\n${brief}\n` : ""}
 ## 第一步：抽取字段
 读附件（可能是财务报表 Excel、审计报告 PDF、访谈录音转写、经营报告 PPT），抽取以下字段
 （本年 / 上年，缺失记 null，不要用 0 顶替，并说明缺失原因）：
@@ -23,7 +36,11 @@ export function buildRatingPrompt(materialNames: readonly string[]): string {
 把抽取结果连同「数值 → 来源文件 + 章节/表头/位置」的依据表一起列出来。
 
 ## 第二步：数据质量判定
-按下表判定标注（可多选），并说明触发依据：
+${
+    brief
+      ? "先看上面那段我确认过的事实：缺失原因、是否只有单体报表 / 经营报告、是否无上年对比，\n一律以那一段为准；那一段没写的，就是我还没确认，需要时问我，不要从材料语气里推断。\n在此前提下按下表判定标注"
+      : "缺失原因这类只有我知道的事实，我没说就是没确认——需要时问我，不要从材料语气里推断。\n按下表判定标注"
+  }（可多选），并说明触发依据：
 - 有审计报告或财务报表 → 正常评分
 - 仅未合并子公司单体报表 / 仅经营报告 → 标注「数据不完整」
 - 无上年对比数据 → 增长类指标按体量给基础分（见下方公式）

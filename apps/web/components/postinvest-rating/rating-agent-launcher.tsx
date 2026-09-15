@@ -10,6 +10,12 @@ import { listCapabilities } from "@/lib/live-capabilities";
 import { ATTACHMENT_MIME_ALLOWLIST } from "@/lib/live-chat";
 import type { RatingAgentEntry } from "@/lib/postinvest-rating/agent-directory";
 import { launchRatingThread } from "@/lib/postinvest-rating/launch-rating-thread";
+import {
+  EMPTY_MISSING_REASON,
+  MISSING_REASON_CODES,
+  MISSING_REASON_LABELS,
+} from "@/lib/postinvest-rating/missing-reason";
+import type { postinvestRating } from "@repo/contracts";
 
 /**
  * `/agent/team2` 工作区——同 team1（`components/agent/ic-review-launcher.tsx`）的架构：
@@ -22,6 +28,7 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const [files, setFiles] = React.useState<File[]>([]);
+  const [missingReason, setMissingReason] = React.useState<postinvestRating.MissingDataReason>(EMPTY_MISSING_REASON);
   const [launching, setLaunching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -57,12 +64,25 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
 
   const removeFile = (name: string) => setFiles((prev) => prev.filter((f) => f.name !== name));
 
+  const toggleReason = (code: postinvestRating.MissingDataReasonCode) =>
+    setMissingReason((prev) => ({
+      ...prev,
+      reasons: prev.reasons.includes(code)
+        ? prev.reasons.filter((c) => c !== code)
+        : [...prev.reasons, code],
+    }));
+  const toggleFlag = (key: "standaloneOnly" | "operatingReportOnly" | "noPriorYear") =>
+    setMissingReason((prev) => ({ ...prev, [key]: !prev[key] }));
+  // 选了「其他」就必须写清楚是什么原因——一个没有说明的「其他」对数据质量分支毫无用处，
+  // 模型只能退回推断，正是本表单要消掉的东西。
+  const otherMissingText = missingReason.reasons.includes("other") && !missingReason.otherText?.trim();
+
   const start = async () => {
-    if (!agentId || launching || files.length === 0) return;
+    if (!agentId || launching || files.length === 0 || otherMissingText) return;
     setLaunching(true);
     setError(null);
     try {
-      const { threadId } = await launchRatingThread({ agentId, files });
+      const { threadId } = await launchRatingThread({ agentId, files, missingReason });
       router.push(`/chat?thread=${encodeURIComponent(threadId)}`);
     } catch {
       setError("发起评级失败：无法创建对话或上传材料，请稍后重试。");
@@ -137,8 +157,78 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
               </li>
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="rating-missing-reason-form">
+        <CardHeader>
+          <CardTitle className="text-14">数据缺失说明（你确认的事实，Agent 不会自己猜）</CardTitle>
+          <p className="mt-1 text-11 text-muted-foreground">
+            这一段决定评级走哪条分支：正常原因（保密期等）+ 有往期报表会按暂估出分，异常原因
+            （诉讼 / 失联 / 停业 / 破产）直接判 E 并标注「公司经营异常」。不填就是未确认，
+            Agent 会在对话里问你，而不是替你判断。
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <h3 className="text-12 font-semibold">财务报表缺失的原因（可多选）</h3>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+              {MISSING_REASON_CODES.map((code) => (
+                <label key={code} className="flex items-center gap-1.5 text-11 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={missingReason.reasons.includes(code)}
+                    onChange={() => toggleReason(code)}
+                    data-testid={`rating-missing-reason-${code}`}
+                  />
+                  {MISSING_REASON_LABELS[code]}
+                </label>
+              ))}
+            </div>
+          </div>
+          {missingReason.reasons.includes("other") && (
+            <div>
+              <input
+                type="text"
+                value={missingReason.otherText ?? ""}
+                onChange={(e) => setMissingReason((prev) => ({ ...prev, otherText: e.target.value }))}
+                placeholder="说明是什么原因"
+                aria-label="其他缺失原因说明"
+                data-testid="rating-missing-reason-other-text"
+                className="w-full rounded-control border border-border bg-background px-2 py-1 text-11"
+              />
+              {otherMissingText && (
+                <p data-testid="rating-missing-reason-other-required" className="mt-1 text-11 text-destructive-foreground">
+                  勾了「其他」就要写清楚原因，否则这条说明帮不到数据质量判定。
+                </p>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {([
+              ["standaloneOnly", "仅有未合并的单体报表"],
+              ["operatingReportOnly", "仅有经营报告"],
+              ["noPriorYear", "无上年对比数据"],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-1.5 text-11 text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={missingReason[key]}
+                  onChange={() => toggleFlag(key)}
+                  data-testid={`rating-missing-flag-${key}`}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 py-4">
           <div className="flex items-center gap-2">
-            <Button variant="ai" size="sm" onClick={() => void start()} disabled={!agentId || files.length === 0 || launching}
+            <Button variant="ai" size="sm" onClick={() => void start()}
+              disabled={!agentId || files.length === 0 || launching || otherMissingText}
               data-testid="agent-rating-start">
               {launching ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Send aria-hidden className="size-3.5" />}
               开始评级（{files.length} 份，将进入真实项目对话）
