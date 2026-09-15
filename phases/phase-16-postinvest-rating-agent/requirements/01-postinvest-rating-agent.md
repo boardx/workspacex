@@ -59,8 +59,8 @@
    也允许「新项目：只填名称」）、上传区、缺失数据原因表单、历史评级列表。
 2. 用户 → 拖入财务报表（xlsx/pdf）、审计报告（pdf/docx）、访谈录音（mp3/m4a/wav），
    系统 → 报表 / 报告走既有 `chat-file-upload` 契约（白名单、单文件上限、张数上限均以该契约为准，本文不复述数值）；
-   **录音不在该白名单内**（现白名单为 pdf / markdown / 图片 / docx / xlsx），录音走 `files.ts` 的
-   `uploadArtifact` 原件上传（不可变 + SHA-256），或扩白名单——由人类决定（R10 D5）；
+   录音**统一**走 `files.ts` 的 `uploadArtifact` 原件上传（不可变 + SHA-256 + 版本；D5）：聊天附件白名单
+   虽含 wav/mp3 但不含 m4a，且受单文件上限约束，录音不走聊天附件路径，以免两条上传路径各一套口径；
    每个文件回显文件名 / 大小 / SHA256 / 识别到的类型（报表 / 审计报告 / 录音 / 未识别）。
 3. 用户 → 在「数据缺失说明」表单里勾选原因：`保密期（上市/并购）` / `关系交恶` / `重大诉讼` / `失联` / `停业` /
    `破产` / `其他（自由文本）`，并可勾选「仅有单体报表 / 仅有经营报告」「无上年对比数据」。
@@ -258,8 +258,9 @@
   - D4：新建 `skills/standard-finance/postinvest-rating/`（金融口径与 `data-workflows` 的通用分析是不同能力域，
     未来投前尽调、估值等 skill 同放此包；随包新增 `skills/starter-packs/standard-finance/1.0.0.json`，
     并登记到 `ensure-standard-skill-packs.ts` 的 `STANDARD_PLATFORM_PACKS`，让 `lint-shipped-pack-version` 覆盖）。
-  - D5：录音走 `files.ts` 的 `uploadArtifact` 原件上传（不可变 + SHA-256 + 版本），**不扩** `chat-file-upload`
-    白名单：那份白名单是人类签核过的值，改它要重签；而原件上传本来就是为大文件、多格式设计的。
+  - D5：录音走 `files.ts` 的 `uploadArtifact` 原件上传（不可变 + SHA-256 + 版本），**不改** `chat-file-upload`
+    白名单（它已含 wav/mp3、不含 m4a，是人类签核过的值，改它要重签）；本 Agent 的上传区对音频一律走原件路径，
+    走聊天附件路径的音频返回 `AUDIO_NOT_ALLOWED_IN_CHAT_UPLOAD`，避免两条路径各一套口径。
     上传后以 artifact id 交给 `wx_audio_transcribe`。
 - 偿债项（做 F03 时一并处理）：`apps/web/lib/mock/agent-previews.ts` 是已申报的原型 mock 债务
   （`apps/api/tests/kernel/no-builtin-capability-lists.test.ts` 的 `DECLARED_MOCK_DEBT`），Team2 接真实 agent 后
