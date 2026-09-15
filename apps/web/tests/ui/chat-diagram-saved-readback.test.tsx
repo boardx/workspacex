@@ -73,7 +73,12 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
 
     expect(listThreadArtifacts).toHaveBeenCalledWith("t", "p", "b");
     expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "a-new", "p", "b");
-    expect(saved).toEqual({ markdown: "flowchart TD\n  a-->第二次保存", savedAt: "2026-08-18T01:00:00.000Z" });
+    expect(saved).toEqual({
+      markdown: "flowchart TD\n  a-->第二次保存",
+      savedAt: "2026-08-18T01:00:00.000Z",
+      // 保存版属于哪一份 artifact——「再存一次」靠它续同一条版本线（见 SavedDiagramSource）。
+      artifactId: "a-new",
+    });
   });
 
   it("无本消息的保存版 ⇒ null，且不打 source 请求", async () => {
