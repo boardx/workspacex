@@ -89,6 +89,22 @@ instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRat
 4. 保留 `apps/api/src/domain/postinvest-rating/scoring.ts` 作为任务书公式的参照实现
    与验收基准（`apps/api/tests/postinvest-rating/`、`apps/api/scripts/postinvest-rating-acceptance.ts`）。
 
+### 已修正的缺陷（2026-09-15 对照 UC-16.1 复核）
+
+**趋势对比曾经结构上恒定空转。** 任务书让模型用 `wx_knowledge_search` 搜自己上次发布的
+评级报告做同比，但 `pg-artifact-index-writer.ts` 的写入 SQL 带着
+`a.source='upload' AND NOT a.synthesized`，而 agent 产出的文件在 `agui-file-events.ts`
+落库时 `source: "agent_run_output"`——永远不进 `segment_text`，永远搜不到。第四步因此
+恒定输出「首次评级，无趋势判断」，且看起来毫无破绽：模型确实搜了、确实没搜到、确实照实
+说了。已改用 `wx_memory_write`/`wx_memory_search`（组织级记忆，literal 模式，真能读回来），
+格式在 `lib/postinvest-rating/rating-memo.ts` 单点声明。
+
+**缺失原因曾经由模型推断。** R3-3 把它定成人工确认事实（「Agent 不得自行推断」），而这条
+分支决定的是「暂估出分」还是「直接判 E」。已补表单。
+
+**评分数值曾经存在两份。** `scoring.ts` 与任务书各一套，改一处不会有任何东西变红。
+已收敛到 `postinvest-rating-rules.ts`，并加了「档位表 ↔ 引擎」一致性断言。
+
 ### 明确不做（MVP 之外）
 - ❌ 自建分析结果面板——复用 chat 消息流本身。
 - ❌ 新增后端端点/工具——文件解析、算分、出报告、历史检索、行业背景、定期提醒全部
@@ -100,12 +116,24 @@ instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRat
   当版本轨迹：反馈与修正后的结论都是同一线程里的新消息，可回看，但不是一张可查询、
   可机械断言状态迁移的表。
 - ❌ 未登录公开访问。
+- ❌ **评级记录落库**（2026-09-15 人类拍板）：team2 是明确会删除的临时 agent，按本仓
+  ad-hoc 惯例不建表、不建仓储——`post-investment.controller.ts`（team4）的文件头逐字
+  立过这条规矩：「这是临时 agent，走 ad-hoc 流程，不是 phase feature——不建仓储、不落库」。
+  代价如实记在这里：**阶段三（结果交付与复核）不做**——没有结论卡页面、没有依据/不确定性/
+  报告三 Tab、没有版本链、没有 `draft → confirmed` 采纳状态、没有输入哈希到 run id 的审计
+  追溯。评级历史只有组织记忆里的摘要（够做趋势对比，不够做审计）与 chat 线程的消息轨迹。
+  要做阶段三，路径是转正规 phase 流程：先由人类签 `phases/phase-16-postinvest-rating-agent/
+  design-proposal/postinvest-rating/design-signoff.md`，再按已生成的 F01–F08 逐个做。
+- ❌ **m4a 录音**：附件白名单（人类签核过的 `chat-file-upload.ts`）含 wav/mpeg 不含 m4a；
+  D5 拍板录音应走 `files.ts` 的 `uploadArtifact` 原件路径，但 apps/web 还没有那条路的客户端
+  （字节走 ingestion 流程，不是小改动）。落地页已如实把可选类型收窄到白名单并写明原因，
+  不再让选择框收下一个上传必被 `FILE_TYPE_REJECTED` 拒掉的文件。
 
 ### BL4 怎么做的（历史对比 / 行业背景 / 反馈闭环 / 定期评级，均靠任务书调用原生工具）
 四项此前登记为"依赖存储和检索基础设施"的能力，实测都有现成的原生工具可以直接用，
 不需要新基础设施——补进了 `rating-prompt.ts` 的第四~七部分：
-- **历史同期对比**：`wx_knowledge_search`/`wx_knowledge_read`（原生工具）搜本项目
-  此前的评级报告，做同比/环比与趋势判断；没搜到就如实写"首次评级"。
+- **历史同期对比**：~~`wx_knowledge_search`~~ → **改为 `wx_memory_search`/`wx_memory_write`**
+  （2026-09-15 复核发现原方案结构上走不通，见下方「已修正的缺陷」）。
 - **受限渠道行业背景**：`web_search`（原生工具）+ 任务书里写死的 9 个可信域名
   （巨潮/上交所/深交所/北交所/港交所披露易/证监会/企业信用公示/统计局/被评公司官网），
   命中以外一律丢弃，不改分数。
@@ -138,7 +166,10 @@ instructions 直接复用 `lib/postinvest-rating/rating-prompt.ts` 的 `buildRat
 | B5 | `/agent/team2` 落地页与材料预处理 UI | ✅ `app/agent/[teamId]` + `components/postinvest-rating/rating-agent-launcher.tsx` |
 | B6 | 让 team2 在每个环境自动可用（部署期补种 + 前端按名字查 id） | ✅ `backfill-team2-agent.ts` + `deploy.sh` 4d3，无人工步骤 |
 | B7 | 机械阻断的人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
-| B8 | 历史同期对比（`wx_knowledge_search`/`wx_knowledge_read`） | ✅ `rating-prompt.ts` 第四步（提示词约定，见「已知限制」） |
+| B8 | 历史同期对比 | ✅ 改用 `wx_memory_*`（`lib/postinvest-rating/rating-memo.ts`）；原 `wx_knowledge_search` 方案恒定空转，已修正 |
+| B12 | 数据缺失说明表单（R3-3 人工确认事实） | ✅ `lib/postinvest-rating/missing-reason.ts` + 落地页表单 |
+| B13 | 评分规则单一事实源 | ✅ `packages/contracts/src/postinvest-rating-rules.ts`，引擎与任务书同源 + 机械门控 |
+| B14 | 评级绑到真实项目 + 材料回显（类型推测 / 真 SHA-256） | ✅ `launch-rating-thread.ts` 改走 `createThread(projectId)`；`lib/postinvest-rating/material-file.ts` |
 | B9 | 受限渠道行业背景（`web_search` + 9 域名白名单） | ✅ `rating-prompt.ts` 第五步（提示词约定） |
 | B10 | 反馈闭环（五类分诊，主观偏差只记录） | ✅ `rating-prompt.ts`「反馈修正」节（提示词约定，非机械阻断） |
 | B11 | 定期评级提醒（`wx_schedule_create`） | ✅ `rating-prompt.ts`「定期评级」节 |

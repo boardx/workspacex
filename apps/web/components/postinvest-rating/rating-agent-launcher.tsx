@@ -208,13 +208,18 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => fileRef.current?.click()} data-testid="agent-rating-upload-trigger">
-              <Upload aria-hidden className="size-3.5" />选择文件（Excel / PDF / PPT / Word / 录音）
+              <Upload aria-hidden className="size-3.5" />选择文件（Excel / PDF / PPT / Word / 录音 wav·mp3）
             </Button>
             <input
               ref={fileRef}
               type="file"
               multiple
-              accept={[...ATTACHMENT_MIME_ALLOWLIST, "audio/*"].join(",")}
+              // 只声明真正收得下的 MIME：附件白名单（`chat-file-upload.ts`，人类签核过的值）
+              // 含 wav/mpeg，不含 m4a。此前这里写了 `audio/*`，等于让选择框收下一个上传必被
+              // FILE_TYPE_REJECTED 拒掉的 m4a——按钮承诺了做不到的事。D5 拍板录音应走
+              // `files.ts` 的 uploadArtifact 原件路径，那条路 apps/web 还没有客户端（不是一个
+              // 小改动：字节传输走 ingestion 流程），所以这一版如实收窄到白名单，不假装支持。
+              accept={ATTACHMENT_MIME_ALLOWLIST.join(",")}
               className="hidden"
               aria-label="上传投后项目材料"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }}
@@ -311,6 +316,9 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
             </Button>
             {error && <span data-testid="agent-rating-error" className="text-11 text-destructive-foreground">{error}</span>}
           </div>
+          <p className="text-11 text-muted-foreground">
+            录音暂只收 wav / mp3：m4a 需要走原件上传路径（D5），本版还没接。
+          </p>
           <p className="text-11 text-muted-foreground">
             点击后会新建一条项目对话，把材料作为附件发送并附上评级任务说明；评分脚本会在沙箱里真实
             执行，等级、依据表与不确定性标注都会出现在那条对话里——本页不重复渲染这些内容。
