@@ -6,10 +6,13 @@ from __future__ import annotations
 import json
 import re
 import sys
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 HEX40 = re.compile(r"^[a-f0-9]{40}$")
 HEX64 = re.compile(r"^[a-f0-9]{64}$")
+UTC_TIME = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 RELEASE = re.compile(r"^v?[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?$")
 
 REQUIRED = {
@@ -33,6 +36,7 @@ REQUIRED = {
     "deploy.trusted_copy",
     "network.dependencies",
 }
+POSTBUILD_ONLY = {"build.target_image"}
 SERVICES = {"api", "web", "agent", "sandbox"}
 BOOTSTRAP_FAILURE_CODES = {
     "BOOTSTRAP_IMAGE_INCOMPATIBLE",
@@ -52,6 +56,7 @@ BOOTSTRAP_SAFE_METADATA_KEYS = {
     "readOnlyTransaction",
     "productionWriteStatements",
     "imageEntrypoint",
+    "sourceEntrypoint",
     "inputContract",
     "schemaContract",
     "permissionContract",
@@ -106,22 +111,57 @@ def metadata(checks: dict, key: str) -> dict:
     return value
 
 
-def validate(value: object) -> dict:
+def receipt_hash(value: dict) -> str:
+    return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def utc_timestamp(value: object, field: str) -> datetime:
+    need(isinstance(value, str) and UTC_TIME.fullmatch(value) is not None, f"{field} must be UTC second-resolution ISO 8601")
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError as error:
+        raise ContractError(f"{field} is not a real UTC time") from error
+
+
+def validate(value: object, now: datetime | None = None) -> dict:
     need(isinstance(value, dict), "root must be an object")
-    need(value.get("schemaVersion") == 1, "schemaVersion must be 1")
+    need(value.get("schemaVersion") == 2, "schemaVersion must be 2")
+    phase = value.get("phase")
+    need(isinstance(phase, str) and phase in {"prebuild", "preactivate"}, "phase must be prebuild or preactivate")
     need(isinstance(value.get("attemptId"), str) and value["attemptId"].strip(), "attemptId is required")
     for field in ("sourceSha", "baselineSha"):
         need(isinstance(value.get(field), str) and HEX40.fullmatch(value[field]) is not None, f"{field} must be 40 lowercase hex")
     need(isinstance(value.get("release"), str) and RELEASE.fullmatch(value["release"]) is not None, "release must be semantic")
-    need(value.get("buildStarted") is False, "aggregate preflight must run before build_started")
+    need(value.get("buildStarted") is (phase == "preactivate"), "buildStarted must match the declared phase")
+    current = now if now is not None else datetime.now(timezone.utc)
+    need(current.tzinfo is not None, "validator clock must be timezone-aware")
+    issued = utc_timestamp(value.get("issuedAt"), "issuedAt")
+    expires = utc_timestamp(value.get("expiresAt"), "expiresAt")
+    need(issued <= current + timedelta(minutes=5), "receipt issued in the future")
+    need(issued <= current < expires, "receipt is expired or not yet valid")
+    need(timedelta(seconds=0) < expires - issued <= timedelta(hours=1), "receipt TTL must be at most one hour")
+    if phase == "prebuild":
+        need("prebuildEvidence" not in value and "prebuildReceiptSha256" not in value, "prebuild cannot contain prior receipt evidence")
+    else:
+        prior = value.get("prebuildEvidence")
+        need(isinstance(prior, dict), "preactivate requires the full prebuild evidence")
+        need(prior.get("phase") == "prebuild", "prior evidence must be prebuild")
+        need(isinstance(value.get("prebuildReceiptSha256"), str) and HEX64.fullmatch(value["prebuildReceiptSha256"]) is not None, "prebuild receipt hash is required")
+        need(receipt_hash(prior) == value["prebuildReceiptSha256"], "prebuild receipt hash differs")
+        for field in ("attemptId", "sourceSha", "baselineSha", "release"):
+            need(prior.get(field) == value[field], f"prebuild {field} differs")
+        prior_result = validate(prior, current)
+        need(prior_result["ready"] is True, "prebuild receipt was not ready")
+        need(utc_timestamp(prior["issuedAt"], "prebuild issuedAt") <= issued, "preactivate precedes prebuild")
 
     checks = value.get("checks")
     need(isinstance(checks, dict), "checks must be an object")
     keys = set(checks)
-    need(keys == REQUIRED, f"check ids differ; missing={sorted(REQUIRED-keys)} unknown={sorted(keys-REQUIRED)}")
+    required = REQUIRED | (POSTBUILD_ONLY if phase == "preactivate" else set())
+    need(keys == required, f"check ids differ; missing={sorted(required-keys)} unknown={sorted(keys-required)}")
 
     blockers = []
-    for key in sorted(REQUIRED):
+    for key in sorted(required):
         check = checks[key]
         need(isinstance(check, dict), f"{key} must be an object")
         need(check.get("status") in {"passed", "failed"}, f"{key}.status must be passed or failed")
@@ -152,7 +192,15 @@ def validate(value: object) -> dict:
     if_passed("runtime.release_lock", metadata(checks, "runtime.release_lock").get("heldByAttempt") is True, "release lock must be held by this attempt")
     if_passed("runtime.no_orphans", metadata(checks, "runtime.no_orphans").get("count") == 0, "orphan release process count must be zero")
     identity = metadata(checks, "config.release_manifest")
-    if_passed("config.release_manifest", identity.get("sourceSha") == value["sourceSha"] and identity.get("release") == value["release"], "config/manifest release identity differs")
+    identity_ok = identity.get("sourceSha") == value["sourceSha"] and identity.get("release") == value["release"]
+    if phase == "prebuild":
+        identity_ok = identity_ok and identity.get("kind") == "source-plan" and "imageDigest" not in identity
+    else:
+        image = metadata(checks, "build.target_image")
+        image_ok = image.get("sourceSha") == value["sourceSha"] and isinstance(image.get("digest"), str) and re.fullmatch(r"sha256:[a-f0-9]{64}", image["digest"]) is not None and image.get("entrypointVerified") is True
+        if_passed("build.target_image", image_ok, "target image digest, source identity or entrypoint is unproved")
+        identity_ok = identity_ok and identity.get("kind") == "sealed-image" and identity.get("imageDigest") == image.get("digest")
+    if_passed("config.release_manifest", identity_ok, "config/manifest release identity or stage differs")
     secrets = metadata(checks, "config.secret_serialization")
     if_passed("config.secret_serialization", isinstance(secrets.get("checkedRefs"), int) and secrets["checkedRefs"] > 0 and secrets.get("invalidKeys") == [], "all secret refs and runtime env maps must pass serialization")
     managed = metadata(checks, "cloud.managed_data_permissions")
@@ -164,7 +212,7 @@ def validate(value: object) -> dict:
     bootstrap_ok = (
         bootstrap.get("readOnlyTransaction") is True
         and bootstrap.get("productionWriteStatements") == 0
-        and bootstrap.get("imageEntrypoint") is True
+        and bootstrap.get("sourceEntrypoint" if phase == "prebuild" else "imageEntrypoint") is True
         and bootstrap.get("inputContract") is True
         and bootstrap.get("schemaContract") is True
         and bootstrap.get("permissionContract") is True
@@ -173,6 +221,10 @@ def validate(value: object) -> dict:
         and bootstrap.get("exactlyOneMachineRecord") is True
     )
     if_passed("bootstrap.compatibility", bootstrap_ok, "bootstrap compatibility is unproved or not read-only")
+    if phase == "prebuild":
+        need("imageEntrypoint" not in bootstrap, "prebuild must not claim a target image entrypoint")
+    else:
+        need("sourceEntrypoint" not in bootstrap, "preactivate must use the built image entrypoint")
     continuity = metadata(checks, "secrets.stable_continuity")
     need(set(continuity) <= STABLE_SECRET_SAFE_METADATA_KEYS, "secrets.stable_continuity.metadata contains a non-redacted key")
     continuity_ok = (
@@ -191,14 +243,19 @@ def validate(value: object) -> dict:
     if_passed("build.affected_services", isinstance(affected, list) and len(affected) == len(set(affected)) and set(affected) <= SERVICES, "affected services must be a unique subset of api/web/agent/sandbox")
 
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
+        "phase": phase,
         "attemptId": value["attemptId"],
         "sourceSha": value["sourceSha"],
+        "baselineSha": value["baselineSha"],
         "release": value["release"],
+        "issuedAt": value["issuedAt"],
+        "expiresAt": value["expiresAt"],
+        "receiptSha256": receipt_hash(value),
         "ready": not blockers,
-        "buildStarted": False,
+        "buildStarted": value["buildStarted"],
         "blockers": blockers,
-        "checkedCount": len(REQUIRED),
+        "checkedCount": len(required),
     }
 
 

@@ -102,3 +102,7 @@ export * as skillFileEdit from "./skill-file-edit";
 /** `/agent/team4` 投后管理报告 Agent —— ad-hoc MVP，人类已确认后续会删除，见
  *  `docs/adhoc/team4-post-investment-agent-mvp-backlog.md`。不进任何 phase feature_list。 */
 export * as postInvestmentReport from "./post-investment-report";
+
+/* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
+ *   design-signoff.md status: pending，待人类签核）──────────────────────── */
+export * as postinvestRating from "./postinvest-rating";
