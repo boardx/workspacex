@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-15：反馈正文 D3 遮蔽后，收件箱侧表标签合并仍可能重新暴露提交人自由文本；共用 `applyTags` 必须保留 `body === null` 的既有披露结果，在标签筛选和 byTag 计数之前清空标签。只测 listFeedback 输出不足，必须覆盖最终 Inbox 列表、私有/共享标签过滤与计数、归档视图（issue #3633）。
 - 2026-09-13：注册入口验收须分别走组织自助注册、单人邀请 `?t=` 与共享邀请 `?lt=`；邀请激活曾调用会话存储却丢弃返回的 bearer，仅回传不能认证的 sessionId，导致完成页仍要求登录。交付应验证标准会话 hydrate、正确组织与刷新持久，且不得覆盖已有/并发切换的账号；会话签发在 PG 激活提交之后，失败不能承诺邀请未消费（出处：issue #3600，前序修复 #3596 / PR #3599 的漏覆盖）。
 - 2026-09-13：邮箱确认的 `completed` 包含幂等重放，不能据此签发会话。注册自动登录仅接受本次原子核销且匹配当前浏览器 HttpOnly pendingVerification proof 的 challenge；签发复用 `issueAuthenticatedSession`，返回标准 bearer，由 SessionProvider 持久化。跨浏览器、已登录与重放只确认邮箱，签发失败后用正常登录恢复，不能重新兑换已消费链接（issue #3596）。
 - 2026-09-02：成员管理分两级——组织级 `PATCH /organizations/:orgId/members/:userId/role`（组织 admin）与平台级 `GET|PATCH /platform/members…`（`PlatformSuperuserGuard`，env 白名单）改的是同一列，「最后一名 admin 不可降级」的判定只有一份（`domain/auth/org-role-change.ts`），且必须与 UPDATE 同一事务、先 `FOR UPDATE` 锁 admin 行再数——事务外先数后写会让两名 admin 并发互降剩零 admin。平台级名册**不要**新造整表 SECURITY DEFINER 函数（`app_rw` 可调 = 没有隔离，见 `20260902012105` 迁移头注三次教训），拼既有的 `credentials` + `kernel_user_org_ids` + `withTenant` 三段读即可。`NOT_PLATFORM_SUPERUSER` 此前从未登记进 `all-exceptions.filter.ts` 的闭集，guard 抛的 403 到前端其实是裸 `forbidden`——现已随 `platformMembers.PlatformMembersError` 接入。（出处：分支 `claude/member-management-two-level-v7ymax`；待裁缺口 `orgAdmin.KNOWN_CONTRACT_GAPS.OA13`：改角色提升 admin 未走邀请路径的双人复核）

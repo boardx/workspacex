@@ -1,0 +1,6 @@
+[stack-admission] load1=22.18 cores=10 perCore=2.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mu1kf5v0-93d8c9c8-b73871b27e9e db=wsx_b73871b27e9e945052c4 compose=wsx-b73871b27e9e945052c4 pg=20650 redis=21650 api=24650 web=25650 sandbox=26650 model=27650 deep-agent=28650 asr=29650 vision=30650 loopback-sandbox=31650
+
+ RUN  v2.1.9 /private/tmp/workspacex-feedback-3633/apps/api
+

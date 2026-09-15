@@ -71,6 +71,11 @@ export function applyTags(
 ): InboxKeyed[] {
   return keyed.map(({ item, key }) => {
     if (item.kind === "exception") return { item, key };
+    // D3: listFeedback uses body === null for withheld detail. Side-table tags must
+    // preserve that decision before list filtering and counts consume this projection.
+    if (item.kind === "feedback" && item.body === null) {
+      return { item: { ...item, tags: [] }, key };
+    }
     const stored = tags.get(boardOrderKeyOf(item.kind, item.id));
     return { item: { ...item, tags: stored === undefined ? [] : [...stored] }, key };
   });
