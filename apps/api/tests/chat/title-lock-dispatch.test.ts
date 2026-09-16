@@ -48,7 +48,7 @@ it.each([false,true])("title transaction failure=%s still re-kicks after a skipp
   const attempt=pending.length;if(attempt===1)secondStarted();
   pending.push((async()=>{if(attempt===0)await locked;const rows=await repo.claimQueued(toOrgId(ORG),1);claims.push(rows.length);if(attempt===0){firstDone();await secondKick;}})());
  });
- const title=vi.spyOn(PgChatRepository.prototype,"autoTitleThreadIfDefault").mockImplementation(async(org,threadId)=>{
+ const title=vi.spyOn(PgChatRepository.prototype,"autoTitleThread").mockImplementation(async(org:Parameters<PgChatRepository["autoTitleThread"]>[0],threadId:string)=>{
   return db.withTenant(org,async c=>{await c.query("UPDATE chat_threads SET title='locked model title' WHERE id=$1",[threadId]);ready();await firstClaim;if(failTitle)throw new Error("title failure");return true;});
  });
  try {const threadId=await newPersonalThread();expect((await postMessage(threadId,"first message")).status).toBe(202);await Promise.all(pending);

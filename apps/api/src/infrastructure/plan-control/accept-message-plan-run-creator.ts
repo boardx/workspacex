@@ -32,7 +32,7 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "../../applicatio
 // 固定合成文案，不是真实用户输入——但 `autoTitleFromFirstMessage` 只在这是线程**首条**
 // 消息时才会真正调用模型（`WHERE title=$默认名`），而 `createConfirmedRun` 的前置条件
 // 是"线程上已有过一次真实 run"，也就必然已有过一条真实的首条消息，这里的模型调用
-// 实践中恒是 no-op（`autoTitleThreadIfDefault` 命中 0 行）。
+// 实践中恒是 no-op（`autoTitleThread` 命中 0 行）。
 import type { GenerateThreadTitleDeps } from "../../application/chat/generate-thread-title";
 
 export interface AcceptMessagePlanRunCreatorDeps extends GenerateThreadTitleDeps {
