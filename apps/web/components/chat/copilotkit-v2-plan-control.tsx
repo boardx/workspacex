@@ -120,6 +120,32 @@ export interface CopilotKitV2PlanControlProps {
    * （`useCopilotKitV2RunRestore`）去判断它现在是什么状态。本组件不判断、不猜测。
    */
   readonly onRunDispatched?: (runId: string) => void;
+  /**
+   * 「这一轮失败的**步骤级**恢复入口此刻在本面板里给出了吗」——`PlanFailureRecovery`
+   * 的渲染事实，原样回传给宿主，供它决定自己那条失败横幅还要不要再给一个重试。
+   *
+   * ## 为什么必须由本组件来报，而不是宿主自己判
+   *
+   * 「有没有可恢复的计划」这件事的权威只有账本（`getPlanLedger.phase === "failed"`
+   * + `canWrite`），而账本只在本组件里轮询。宿主若自己再读一次账本去判，就是把同一
+   * 事实声明到第二处——本仓的头号病。这里回传的**就是**下面那个渲染门用的同一个
+   * 常量 `offersStepRecovery`，不是它的近似。
+   *
+   * ## 它解决的是什么（人类 2026-09-16 截图）
+   *
+   * 一条有计划的 run 失败时，屏幕上同时存在两个「重试」，语义完全不同：
+   *   · 本面板的「重试该步」= UC-10 `retryPlanStep(failedStepId)`——**保留已完成步骤**，
+   *     把失败那步及其后续置回 pending 再续跑；
+   *   · 宿主横幅的「重试」= 重发上一条用户消息（`send` 复用 `clientMessageId`）——
+   *     **整轮从零再来**，已经跑完的步骤白跑。
+   * 而横幅贴着输入框、是红色的、离视线最近，用户几乎必然点它——于是「保留进展」
+   * 这条更好的路径在最需要它的时刻被那条更差的路径盖住。两个入口不是两种能力，
+   * 是同一件事的两种做法；留下能保住进展的那一个。
+   *
+   * 账本还没追上（轮询最多 3 秒）时回传 `false`，宿主行为与改动前逐字一致——
+   * 不会出现「两个入口都没有」的空窗。
+   */
+  readonly onStepRecoveryOfferedChange?: (offered: boolean) => void;
 }
 
 export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
@@ -127,7 +153,7 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 }
 
 function PlanControlSession(
-  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
@@ -149,6 +175,18 @@ function PlanControlSession(
     if (ledger?.phase !== "executing") setRecentErrorTick(null);
   }, [ledger?.phase]);
   const hasRecentError = recentErrorTick !== null;
+
+  /**
+   * `PlanFailureRecovery` 到底渲不渲染的**唯一判据**——下面那个渲染门和上报给宿主的
+   * 值读的是同一个常量，不许在任一侧再写一份等价条件（见 `onStepRecoveryOfferedChange`
+   * 头注）。`ledger` 为空 = 账本还没读回来，此刻我们**不知道**有没有可恢复的计划，
+   * 一律报 `false`（fail open：把重试入口留给宿主横幅，不制造空窗）。
+   */
+  const offersStepRecovery = canWrite && ledger !== null && ledger.phase === "failed";
+  React.useEffect(() => {
+    onStepRecoveryOfferedChange?.(offersStepRecovery);
+  }, [offersStepRecovery, onStepRecoveryOfferedChange]);
+  React.useEffect(() => () => onStepRecoveryOfferedChange?.(false), [onStepRecoveryOfferedChange]);
 
   // 折叠开关：默认折叠。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
@@ -536,7 +574,7 @@ function PlanControlSession(
         * 缺步骤时不编造步骤序号（`PlanFailureRecovery` 两个 props 可选，缺就只说
         * "这次任务执行失败"），重试走 UC-10 的整轮重试（planStepId: null）。
         */}
-      {canWrite && ledger.phase === "failed" && (
+      {offersStepRecovery && (
         <PlanFailureRecovery
           failedStepIndex={failedStep ? failedStepDisplayIndex : undefined}
           failedStepLabel={failedStep?.content}

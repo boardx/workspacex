@@ -33,6 +33,7 @@ import { Loader2, AlertTriangle, Info, ArrowDown, ArrowUp, Check, Paperclip, Pau
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { describeFailedRunBanner, resolveLiveRunErrorOutcome } from "@/lib/copilotkit-v2-failure-banner";
+import { shouldOfferBannerRetry } from "@/lib/copilotkit-v2-banner-retry";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
@@ -260,6 +261,21 @@ export function CopilotKitV2PanelBody({
    * 缩短这个窗口，并在追上真实 phase 之前把"最近报错"这件事显式标出来。
    */
   const [planLedgerRefetchTick, setPlanLedgerRefetchTick] = React.useState(0);
+
+  /**
+   * 人类 2026-09-16 截图复盘 —— 一条**有计划**的 run 失败时，屏幕上曾同时存在两个
+   * 「重试」：计划面板的「重试该步」（UC-10，保留已完成步骤续跑）与下面这条失败横幅的
+   * 「重试」（重发上一条用户消息，整轮从零再来）。两者不是两种能力，是同一件事的两种
+   * 做法，而横幅贴着输入框、红色、离视线最近——用户几乎必然点掉进展的那一个。
+   *
+   * 这个 state 由 `CopilotKitV2PlanControl` 如实回报（它是唯一在读账本的人，见该组件
+   * `onStepRecoveryOfferedChange` 头注）。为真 ⇒ 横幅**不再给重试按钮**，把恢复入口
+   * 留给能保住进展的那一个；横幅本身照常显示——「出了什么错」与「怎么恢复」是两件事，
+   * 收起的是后者，不是前者。
+   *
+   * 账本还没追上、或这条失败根本没有计划可恢复时为 `false`，横幅行为与改动前逐字一致。
+   */
+  const [planStepRecoveryOffered, setPlanStepRecoveryOffered] = React.useState(false);
   /**
    * issue #2130（TW-P0-5①），回指 #2068 —— composer 的 `<textarea>` ref，
    * `/技能`/`@Agent` 两个快捷入口用它读光标位置 + 插入后把焦点还给输入框。
@@ -2021,7 +2037,7 @@ export function CopilotKitV2PanelBody({
             对 AG-UI 事件流完全不可见（见该组件 `onRunDispatched` 的头注）。把契约回的
             真实 runId 接到 `pendingRunId` 上，交给既有的权威读去判断它现在是什么状态
             ——这条 run 撞上工具权限门时，审批卡才有机会挂出来。 */}
-        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} />
+        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} onStepRecoveryOfferedChange={setPlanStepRecoveryOffered} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -2059,7 +2075,13 @@ export function CopilotKitV2PanelBody({
                   会命中同一条幂等分支返回同一个 run，重试因此只是对它重新开一轮
                   轮询，不会在后端并行再跑一次同样的 skill 调用（例如再生成一次
                   PDF）。样式跟随 issue #2039 这张 alert 卡（本轮只加入口，不动展示层）。 */}
-            {lastSentRef.current !== null && !agent.isRunning ? (
+            {/* 人类 2026-09-16 截图复盘 —— 计划面板已经给出「重试该步」时，这里不再
+                给第二个语义不同的重试（见 `planStepRecoveryOffered` 头注）。 */}
+            {shouldOfferBannerRetry({
+              hasResendableMessage: lastSentRef.current !== null,
+              agentIsRunning: agent.isRunning,
+              planStepRecoveryOffered,
+            }) ? (
               <button
                 type="button"
                 data-testid="copilotkit-v2-retry"
