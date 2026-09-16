@@ -18,7 +18,8 @@
     "test": "vitest run",
     "lint": "echo 'lint: ok'",
     "up": "tsx src/cli.ts up",
-    "doctor": "tsx src/cli.ts doctor"
+    "doctor": "tsx src/cli.ts doctor",
+    "start": "tsx src/cli.ts up"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

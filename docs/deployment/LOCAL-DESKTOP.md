@@ -19,9 +19,9 @@ pnpm install
 # 可选：深度 agent 的 Python 运行时（工具调用 / skill 执行需要它）
 ./scripts/local-bundle/prepare-python.sh
 # 起全栈；首次会跑 258 条迁移 + 灌种子（平台库 17 个 skill、20 个画布模板、本地账号、默认 agent、本地模型行）
-pnpm --filter @repo/local-runtime up                # 默认数据目录 ~/.workspacex-local，Web 走 next dev
-pnpm --filter @repo/local-runtime up -- --web none  # 只起 API（验证用）
-pnpm --filter @repo/local-runtime doctor            # 硬件 / 工具链自检
+pnpm --filter @repo/local-runtime run up                # 默认数据目录 ~/.workspacex-local，Web 走 next dev
+pnpm --filter @repo/local-runtime run up -- --web none  # 只起 API（验证用）
+pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自检
 ```
 
 启动完成后终端打印访问地址与登录账号（`me@local.workspacex` + 首次生成的密码，密码存在数据目录 `secrets.json`，0600）。
