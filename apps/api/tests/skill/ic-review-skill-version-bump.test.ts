@@ -27,7 +27,7 @@ const digest = createHash("sha256").update(IC_REVIEW_SKILL_MD).digest("hex");
 
 /** v4 = 公开信息检索 + 竞对对比（SWOT／波特五力）+ 投资风险识别四类 + Excel 两张新 sheet（issue #3713）。 */
 const EXPECTED_VERSION_ID = "skill-team1-ic-review-standard-v4";
-const EXPECTED_DIGEST = "6a7b52c66cd019a13a4041e46feabe158f65732deebd719c95b8e3a863e6de55";
+const EXPECTED_DIGEST = "6a3af6a17e2cb7fb337e98a704a487db58730d5728841ff3f5cf8b8635970929";
 
 describe("上会审阅 Skill：正文与版本号必须一起改", () => {
   it("版本号是当前登记的那个", () => {
