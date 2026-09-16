@@ -141,7 +141,13 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
 
 export type TraceRow =
   | { kind: "entry"; id: string; entry: TraceEntry }
-  | { kind: "skill-group"; id: string; stage: string; members: readonly TraceEntry[] };
+  | { kind: "skill-group"; id: string; stage: string; members: readonly TraceEntry[] }
+  /**
+   * 2026-09-16 人类实测（非技术用户）—— 展开后是**七行一模一样**的
+   * 「已执行 · read_file ✓」。同 `skill-group` 的既有纪律：呈现层折叠，**不是**事实层
+   * 去重，成员一条不少地留在展开层里，顶部「工具 N 次」也照旧数事实条目。
+   */
+  | { kind: "tool-group"; id: string; tool: string; members: readonly TraceEntry[] };
 /**
  * issue #3218 —— 呈现层折叠，**不是**事实层去重。
  *
@@ -153,6 +159,19 @@ export type TraceRow =
  * 不数分组行——分组是从同一个 `entries` 派生出来的视图，不是第二份事实源。
  */
 const GROUPED_STAGES = new Set(["metadata_discovered"]);
+/**
+ * 相邻的同名工具调用可不可以折成一行。
+ *
+ * ⚠ **只折已经安定且成功/已观察到的**：还在跑的（`running`）、失败的（`failed`）、
+ *   带着工具内进展文字的（`progressText`，issue #3322 特意画在折叠行上），都必须保持
+ *   独立一行。把一次失败折进「读取文件 · 7 次」这种行里，等于把用户唯一需要看见的
+ *   那一条藏起来——那是本次折叠要避免的反面，不是它的副作用。
+ */
+function toolGroupable(entry: TraceEntry): boolean {
+  return entry.kind === "tool"
+    && (entry.status === "succeeded" || entry.status === "observed")
+    && entry.progressText === undefined;
+}
 export function groupTraceRows(entries: readonly TraceEntry[]): TraceRow[] {
   const rows: TraceRow[] = [];
   for (const entry of entries) {
@@ -165,6 +184,16 @@ export function groupTraceRows(entries: readonly TraceEntry[]): TraceRow[] {
     if (groupable && previous?.kind === "entry" && previous.entry.kind === "skill" && previous.entry.activityStage === entry.activityStage) {
       rows[rows.length - 1] = { kind: "skill-group", id: `group:${previous.entry.id}`, stage: entry.activityStage!, members: [previous.entry, entry] };
       continue;
+    }
+    if (toolGroupable(entry)) {
+      if (previous?.kind === "tool-group" && previous.tool === entry.text) {
+        rows[rows.length - 1] = { ...previous, members: [...previous.members, entry] };
+        continue;
+      }
+      if (previous?.kind === "entry" && previous.entry.text === entry.text && toolGroupable(previous.entry)) {
+        rows[rows.length - 1] = { kind: "tool-group", id: `tool-group:${previous.entry.id}`, tool: entry.text, members: [previous.entry, entry] };
+        continue;
+      }
     }
     rows.push({ kind: "entry", id: entry.id, entry });
   }

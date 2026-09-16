@@ -29,9 +29,11 @@ describe("run trace disclosure", () => {
      * 事件里一直带着 `toolName`，只有折叠行不说。名字没有隐私顾虑——它在展开层的
      * 工具卡标题上本来就逐字印着（`copilotkit-v2-tool-generic`）。
      */
-    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已执行 · search");
+    // 2026-09-16：折叠行在工具名后面再说一句「对这个对象做的」（`toolObject`）——
+    // 人类实测里七行一模一样的「已执行 · read_file」缺的就是这半句。
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已执行 · search · 资料");
     expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-tool-name", "search");
-    fireEvent.click(screen.getByText("已执行 · search"));
+    fireEvent.click(screen.getByText("已执行 · search · 资料"));
     expect(screen.getByText("done")).toBeVisible();
   });
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {

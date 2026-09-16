@@ -7,7 +7,7 @@ import { Loader2, CheckCircle2, AlertCircle, ListTodo, FileSearch, FileText, Che
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { TOOL_LABEL, toolLabel } from "@/lib/chat-workbench/tool-label";
+import { TOOL_LABEL, toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
 import { evictedToolResultNotice, parseEvictedToolResult } from "@/lib/tool-result-eviction";
 import { useToolCardStatus, isSettled, type ToolCardStatus } from "@/lib/chat-workbench/tool-outcome";
 
@@ -290,15 +290,24 @@ function GenericToolCard({
   result: string | undefined;
 }) {
   const status = useToolCardStatus(frameworkStatus);
+  /**
+   * 2026-09-16 人类实测（非技术用户）—— 这张卡此前把参数**整段 JSON** 印在第二行：
+   * `{"file_path":"/workspace/preview-xlsx-review/page-06.png"}`。对用户来说这一行里
+   * 只有 `page-06.png` 是信息，其余是噪音。改走 `toolObject`（`lib/chat-workbench/
+   * tool-label` 那唯一一份，与执行过程折叠行共用），认不出参数时**才**回落到原来的
+   * JSON 一行截断——不认得就照实印，仍是这张卡当年那条回退纪律。
+   */
   const paramsSummary = React.useMemo(() => {
     if (parameters === undefined || parameters === null) return null;
+    const object = toolObject(name, parameters);
+    if (object !== null) return object;
     try {
       const text = typeof parameters === "string" ? parameters : JSON.stringify(parameters);
       return text === "{}" || text === "" ? null : text;
     } catch {
       return null;
     }
-  }, [parameters]);
+  }, [name, parameters]);
   return (
     <Card data-testid="copilotkit-v2-tool-generic" data-tool-name={name} data-tool-status={status}>
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
@@ -310,7 +319,10 @@ function GenericToolCard({
         {paramsSummary !== null ? (
           <p className="truncate font-mono text-10 text-muted-foreground">{paramsSummary}</p>
         ) : null}
-        {isSettled(status) && typeof result === "string" && result.trim() !== "" ? (
+        {/* `result` 是 `"null"` 这种「等于什么都没有」的字符串时不印它：屏幕上的 `null`
+            对非技术用户不是「空」，是「出错了」，而这一步的图标恰恰是成功。判据走
+            `isEmptyToolResult`（与执行过程展开层共用的那一份）。 */}
+        {isSettled(status) && typeof result === "string" && !isEmptyToolResult(result) ? (
           <ToolResultText result={result} testId="copilotkit-v2-tool-generic-result" />
         ) : null}
       </CardContent>
