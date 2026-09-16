@@ -276,11 +276,16 @@ export class PgChatPresetRepository implements ChatPresetRepository {
 
       await s.query(
         `INSERT INTO chat_threads
-           (id, org_id, project_id, group_id, visibility_scope, title, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, org_id, project_id, group_id, visibility_scope, title, created_by,
+            title_source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           newThread.threadId, orgId, newThread.projectId, newThread.groupId,
           newThread.visibilityScope, newThread.title, newThread.createdBy,
+          // ⚠ 这一列**必须**跟着 `NewThreadInput` 走，不能漏：漏了就落成建表默认的
+          //   `'default'`，自动命名会在第 4 条消息时把预设的开场提示标题改掉
+          //   （见 `application/chat/thread-title-algorithm.ts` 的阶梯）。
+          newThread.titleSource,
         ],
       );
       await s.query(

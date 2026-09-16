@@ -10,6 +10,9 @@ import type { OrgId } from "../../domain/org-id";
 import type { MessageFacts, ThreadFacts } from "../../domain/chat/thread-visibility";
 import type { AgentPanelAgent } from "../../domain/chat/agent-presence";
 import type { Guarded } from "../security/permission-filter";
+import type {
+  ThreadTitleSource, TitleEvidenceMessage,
+} from "../../domain/chat/thread-title-algorithm";
 
 /** 一条消息的正文与作者信息。**只在判定通过后取**。 */
 export interface ChatMessageRow extends MessageFacts {
@@ -82,6 +85,13 @@ export interface NewThreadInput {
   readonly projectId: string | null;
   readonly groupId: string | null;
   readonly title: string;
+  /**
+   * 2026-09-16 会话级标题：这个标题**是谁起的**。项目线程与「新建时自己填了名字」的
+   * 个人线程一律是 `"user"`——自动命名永不碰它们（见 `autoTitleThread`）。此前这条由
+   * `WHERE title = '新对话'` 顺带兜住，允许改写自动名之后那个条件不再够用，必须在
+   * 建表这一刻就记下来，而不是事后猜。
+   */
+  readonly titleSource: ThreadTitleSource;
   readonly visibilityScope: string;
   readonly createdBy: string;
 }
@@ -200,41 +210,62 @@ export interface ChatRepository {
   createThread(input: NewThreadInput): Promise<void>;
 
   /**
-   * 🔴 #2094：**自动命名** —— 仅当标题仍是默认名时才写入（`WHERE title = $defaultTitle`）。
+   * 🔴 #2094 / 2026-09-16 会话级标题：**自动命名写入**。
    *
-   * 「不覆盖用户改过的名字」这条由 **SQL 的 WHERE 保证，不由调用方的约定保证**：
-   * 调用方先 SELECT 看一眼再 UPDATE，两句之间有窗口，而并发改名正好落在那个窗口里
-   * （同 `renameThread` 头注那条乐观并发纪律）。
-   *
-   * 也顺带保证了「只有首条消息起名」：第二条消息进来时标题已不是默认名，UPDATE 命中 0 行。
+   * 「不覆盖用户改过的名字」与「阶梯只前进不回退」两条都由 **SQL 的 WHERE 保证，不由
+   * 调用方的约定保证**：调用方先读状态、再调模型（最多 `THREAD_TITLE_TIMEOUT_MS`）、
+   * 最后才 UPDATE，这中间的窗口足够用户改一次名、也足够另一条消息把更高的档位写进去。
+   *   · `title_source <> 'user'` —— 用户手动改过就永不覆盖（此前由 `title = '新对话'`
+   *     兜底；允许改写自动名之后那个条件不再能区分两者，见迁移 `20260916030000`）。
+   *   · `auto_title_stage < $stage` —— 单调推进。并发下低档那次命中 0 行，不会把高档
+   *     结果盖回去。
    *
    * ⚠ `version` 照常自增——自动命名**是**一次真实修改。不自增会让并发的手动改名
    *   拿着过期版本号却比对成功，把自动名默默盖掉且无人知道。
    * ⚠ **不动 `last_activity_at`**：起名不是活动，不该把线程顶到列表最前
    *   （触发它的那条消息本身已经更新过 `last_activity_at` 了）。
    *
-   * @returns 是否真的改了名（命中 0 行 = 标题已被用户改过，或线程不存在）。
+   * @returns 是否真的改了名（命中 0 行 = 用户已改名 / 已有更高档位 / 线程不存在）。
    */
-  autoTitleThreadIfDefault(
+  autoTitleThread(
     orgId: OrgId,
     threadId: string,
     title: string,
-    defaultTitle: string,
+    stage: number,
   ): Promise<boolean>;
 
   /**
-   * 线程标题是否仍是默认名（= 还没被自动命名、也没被用户改过）。
+   * 自动命名的**判定输入**：标题归谁、走到第几档、这条线程累计多少条人类消息。
    *
-   * 给 `acceptHumanMessage` 的自动命名做**前置短路**：此前每条消息都先调一次起名模型
-   * （最多等 `THREAD_TITLE_TIMEOUT_MS`），再由上面 `autoTitleThreadIfDefault` 的
-   * `WHERE title = $默认名` 把非首条消息的结果丢掉——模型调用白等、发消息链路白慢。
-   * 先问一句「还是默认名吗」，不是就根本不调模型。这不是第二份「只有首条起名」的
-   * 规则：真正的写入判定仍只在 `autoTitleThreadIfDefault` 的 UPDATE 里，这里只是省掉
-   * 一次注定被丢弃的模型往返；两句之间并发改名的窗口由那条 UPDATE 兜底。
+   * 一次读回三样，交给 `planTitleRefresh`（`domain/chat/thread-title-algorithm.ts`）判定
+   * 要不要重算——**不重算就一次模型往返都不发**。这不是第二份「什么时候起名」的规则：
+   * 真正的写入判定仍只在上面 `autoTitleThread` 的 UPDATE 里，这里只是省掉注定被丢弃的
+   * 那次调用（同此前 `isThreadTitleDefault` 与那条 UPDATE 的既有分工）。
    *
-   * @returns 线程不存在时也返回 `false`（没有可命名的对象）。
+   * @returns 线程不存在时 `null`（没有可命名的对象）。
    */
-  isThreadTitleDefault(orgId: OrgId, threadId: string, defaultTitle: string): Promise<boolean>;
+  readThreadTitleState(
+    orgId: OrgId,
+    threadId: string,
+  ): Promise<{
+    readonly title: string;
+    readonly source: ThreadTitleSource;
+    readonly stage: number;
+    readonly humanMessageCount: number;
+  } | null>;
+
+  /**
+   * 自动命名的**取材**：按时间顺序返回这条线程用于起名的消息正文。
+   *
+   * 取的是「最早的一条 + 最近的若干条 + 最早的一条助手回复」这个上界的**超集**，
+   * 具体选材与预算由 `buildTitleEvidence` 一处决定（domain 纯函数）——仓储只负责
+   * 「把可能用得上的行取回来且不多取」，不复述选材规则。
+   */
+  readTitleEvidence(
+    orgId: OrgId,
+    threadId: string,
+    recentLimit: number,
+  ): Promise<readonly TitleEvidenceMessage[]>;
 
   /**
    * 改名 / 删除。乐观并发：`expectedVersion` 不匹配返回 `null`，**不静默覆盖**（V7）。

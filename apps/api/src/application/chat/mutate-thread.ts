@@ -194,6 +194,9 @@ async function createThread(
     projectId,
     groupId: input.groupId,
     title,
+    // 项目线程的标题是用户在创建时**必填**的（`normalizeTitle` 拒绝空标题）——
+    // 它从第一刻起就归用户，自动命名不该有机会碰它。
+    titleSource: "user",
     // 五值封闭由数据库 CHECK 兜（迁移 0021 的 `chat_threads_visibility_scope`）——
     // 这里不再抄一份枚举：抄一份就是第二处声明。
     visibilityScope: input.visibilityScope ?? "group-shared",
@@ -242,6 +245,8 @@ async function createPersonalThread(
     projectId: null,
     groupId: null,
     title,
+    // 留空起的默认名才是「还没起名」；用户自己填了名字就是他起的名，自动命名不碰。
+    titleSource: title === DEFAULT_PERSONAL_THREAD_TITLE ? "default" : "user",
     visibilityScope: input.visibilityScope ?? "private",
     createdBy: input.userId,
   });

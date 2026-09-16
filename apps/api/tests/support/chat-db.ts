@@ -29,18 +29,25 @@ export async function addChatThread(opts: {
   title?: string;
   /** F109：分组用（今天 / 本周 / 本周之前）。缺省 now()。 */
   lastActivityAt?: Date;
+  /** 2026-09-16 会话级标题：标题归谁。缺省按 `title` 推（见下方 INSERT 的注释）。 */
+  titleSource?: "default" | "auto" | "user";
 }): Promise<void> {
   await asApp(opts.orgId, (c) =>
     c.query(
       `INSERT INTO chat_threads
          (id, org_id, project_id, group_id, visibility_scope, phase, archived,
-          ownership_layer, agent_private, created_by, title, last_activity_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12, now()))`,
+          ownership_layer, agent_private, created_by, title, last_activity_at,
+          title_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12, now()),$13)`,
       [
         opts.id, opts.orgId, opts.projectId, opts.groupId ?? null, opts.visibilityScope,
         opts.phase ?? "onsite", opts.archived ?? false, opts.ownershipLayer ?? "project",
         opts.agentPrivate ?? false, opts.createdBy, opts.title ?? "",
         opts.lastActivityAt ?? null,
+        // 与生产的 `createThread` 同一条口径（`mutate-thread.ts`）：夹具给了标题就等于
+        // 「用户起过名」，自动命名不碰它。夹具与生产在这一列上分家，测试就会建立在
+        // 生产写不出来的数据上——本文件头注那条纪律。
+        opts.titleSource ?? ((opts.title ?? "") === "新对话" || (opts.title ?? "") === "" ? "default" : "user"),
       ],
     ),
   );

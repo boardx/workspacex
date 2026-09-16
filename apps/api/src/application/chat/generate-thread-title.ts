@@ -83,12 +83,31 @@ export const THREAD_TITLE_SYSTEM_PROMPT =
   "只输出标题本身这一行文字，不要加引号、句号、markdown 标记或任何解释性文字。";
 
 /**
+ * 2026-09-16 会话级标题（见 `domain/chat/thread-title-algorithm.ts` 头注）：第 2 档起，
+ * 送进去的不再是一条消息，而是 `buildTitleEvidence` 压出来的**带角色前缀的多行摘要**。
+ * 沿用首条那份 prompt 会让模型把「用户：…/助手：…」这些前缀当成正文的一部分抄进标题，
+ * 所以这里明说材料的形状，并且明说**以用户在做的事为准**——助手回复只是用来消歧的，
+ * 不是要被概括的对象（否则长会话的标题会变成「助手解释了 X」）。
+ */
+export const THREAD_TITLE_SESSION_SYSTEM_PROMPT =
+  "你是一个对话系统的标题生成器。下面是一次对话的摘要片段，每行以「用户：」或「助手：」" +
+  "开头，按时间顺序排列。请概括**用户在这次对话里要做的那件事**，生成一个简短的对话标题，" +
+  "6 到 12 个汉字以内（或等效长度的其它语言字符）。以用户的诉求为准，助手的回复只用于" +
+  "消除歧义，不要概括助手说了什么，也不要把「用户：」「助手：」这样的前缀写进标题。" +
+  "只输出标题本身这一行文字，不要加引号、句号、markdown 标记或任何解释性文字。";
+
+/**
  * @returns 模型生成并经过折叠/截断处理的标题；模型不可用、超时、或回复为空一律
  *          返回 `null`（调用点据此落回 `deriveThreadTitle(首条消息原文)`）。
  */
 export async function generateThreadTitle(
   deps: GenerateThreadTitleDeps,
-  input: { readonly firstMessageText: string },
+  input: {
+    /** 送给模型的材料。第 1 档是首条用户消息原文，第 2 档起是 `buildTitleEvidence` 的摘要。 */
+    readonly evidence: string;
+    /** 阶梯档位（`TITLE_REFRESH_LADDER`）。只用来选 system prompt，不进用户内容。 */
+    readonly stage: number;
+  },
 ): Promise<string | null> {
   // ⚠ `readThreadTitleModelConfig` 在开关关闭时把 `provider` 读成 `""`——这里就地
   // 短路，不去碰 `deps.model.complete`。这条路径挂在 `acceptHumanMessage` 上，是
@@ -105,8 +124,10 @@ export async function generateThreadTitle(
         modelId: deps.titleModel.modelId,
         // ⚠ 不传 threadId：同 generate-followup-suggestions.ts 的既有先例，避免
         // DeepAgentModelProvider 把这次「起标题」的调用误当成要接续的真实会话。
-        system: THREAD_TITLE_SYSTEM_PROMPT,
-        user: input.firstMessageText,
+        system: input.stage <= 1
+          ? THREAD_TITLE_SYSTEM_PROMPT
+          : THREAD_TITLE_SESSION_SYSTEM_PROMPT,
+        user: input.evidence,
       }),
       new Promise<never>((_resolve, reject) => {
         setTimeout(() => reject(new Error("thread title model call timed out")), THREAD_TITLE_TIMEOUT_MS);
