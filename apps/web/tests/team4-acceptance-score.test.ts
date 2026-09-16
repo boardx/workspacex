@@ -92,11 +92,27 @@ describe("team4 验收打分器", () => {
     expect(mutated).toBeLessThan(base);
   });
 
-  it("反证③：把入口换回自建上传框（不进真 chat），可用性必须掉分", () => {
+  it("反证③：入口不再挂真 chat 壳（退回自建窄版 UI），可用性必须掉分", () => {
     const base = score(makeCopy());
     const mutated = score(makeCopy((root) => {
       patch(root, "apps/web/components/agent/post-investment-chat-entry.tsx",
-        "router.replace(`/chat/", "noop(`/nowhere/");
+        "CopilotKitV2Shell", "SomeHomemadePanel");
+    }));
+    expect(mutated).toBeLessThan(base);
+  });
+
+  /**
+   * 这条复现的是 2026-09-15 真机截图暴露的那个缺陷本身：Agent 挂进了 roster、chat 也
+   * 打开了，但没把 agentId 交给选择 provider —— 服务端落到 org 动态默认（通用助手）
+   * 回答，专属 Agent 的 instructions 一行都没生效。**当时打分器给的是满分**，因为
+   * 它只看"有没有挂 Skill 的代码"，不看"这个 agent 是不是真被选中"。判据补上了，
+   * 这条反证钉住它不会再悄悄失效。
+   */
+  it("反证⑤：抽掉入口把 agentId 交给选择 provider 的那一步，可用性必须掉分", () => {
+    const base = score(makeCopy());
+    const mutated = score(makeCopy((root) => {
+      patch(root, "apps/web/components/agent/post-investment-chat-entry.tsx",
+        "initialAgentId", "unusedAgentHint");
     }));
     expect(mutated).toBeLessThan(base);
   });

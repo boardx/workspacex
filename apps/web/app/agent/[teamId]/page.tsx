@@ -9,7 +9,7 @@ import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-prev
 import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
-import { PostInvestmentChatEntry } from "@/components/agent/post-investment-chat-entry";
+import { PostInvestmentChatScreen } from "@/components/agent/post-investment-chat-entry";
 import { findAgent as findIcReviewAgent } from "@/lib/ic-review/agent-directory";
 import { RATING_AGENT } from "@/lib/postinvest-rating/agent-directory";
 import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
@@ -33,10 +33,11 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  *   （`rating-workbench.tsx` mock UI；`rating-chat.tsx` 直连
  *   `POST /postinvest-ratings/score` 不经模型）已被这一版取代，前者仍留仓库供 Phase 16
  *   契约束签核材料回溯，后者已删除。
- * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP 第三版）：同 Team1 第五版架构——
- *   本路由是**中转页**不是工作台，只做三件 chat 里做不了的事（按需发布 Agent、
- *   建/复用个人线程并入编、把「投后管理报告」平台内置 Skill 挂进线程），然后
- *   `replace` 进真正的 chat（`/chat/<threadId>`）。方法论住在那个 Skill 里
+ * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP 第四版）：同 Team3 的就地挂壳——
+ *   进页面解析/发布 Agent、建或复用个人线程并入编、把「投后管理报告」平台内置 Skill
+ *   挂进线程，然后**就地**挂 `/chat` 用的同一个 `CopilotKitV2Shell`，并把 agentId 作为
+ *   `initialAgentId` 交给选择 provider（第三版"中转 replace 进 /chat"实测是错的：
+ *   agent 没被选中，回答的是通用助手）。方法论住在那个 Skill 里
  *   （`apps/api/scripts/post-investment-skill-content.ts`），不塞 instructions、
  *   不每条消息重发；判据阈值与派生公式的单一事实源是
  *   `packages/contracts/src/post-investment-rules.ts`。之后传材料/追问/两轮确认/
@@ -95,19 +96,11 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
     );
   }
 
+  // 同 team3：就地挂 chat 壳（自带 AppShell 与三层 provider），不再套外层壳与面包屑
+  // ——上一版是"中转页 + replace 进 /chat"，那条路径下本 Agent 根本没被选中，
+  // 回答的是通用助手（见 `post-investment-chat-entry.tsx` 头注的真机根因）。
   if (team.slug === "team4") {
-    return (
-      <AppShell previewRole={null}>
-        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
-          <div data-testid="agent-team-page" data-team="team4" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
-            <p className="text-11 font-medium text-muted-foreground">
-              <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {POST_INVESTMENT_AGENT.name}
-            </p>
-            <div className="mt-4"><PostInvestmentChatEntry agent={POST_INVESTMENT_AGENT} /></div>
-          </div>
-        </div>
-      </AppShell>
-    );
+    return <PostInvestmentChatScreen />;
   }
 
   return (

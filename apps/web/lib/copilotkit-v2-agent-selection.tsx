@@ -30,21 +30,20 @@ export function CopilotKitV2AgentSelectionProvider({
 }: {
   children: React.ReactNode;
   /**
-   * 首次挂载时的默认选中项。缺省 `null` ⇒ `/chat` 那条路由行为**逐字不变**
-   * （那里"不选"是必须保持可用的状态，见 `copilotkit-v2-panel.tsx`）。
+   * 进来就选中哪个 agent。`null`（缺省）= 保持"未选择"，与 `/chat` 现有行为**逐字相同**。
    *
-   * ⚠ 存在的理由（2026-09-15 真机实测）：单 Agent 入口（`/agent/<team>`）把 Agent
-   * 挂进线程 roster 之后就以为大功告成，但**「挂进 roster」决定的是"这条线程编制里
-   * 有谁"，不决定"这次请求用哪个 agent"**。没选中 ⇒ 请求不带
-   * `COPILOTKIT_V2_SELECTED_AGENT_HEADER` ⇒ 服务端 `resolveEffectiveAgentId` 落到
-   * 「org 动态默认」= 通用助手。于是那个 Agent 的 instructions 一行都没进 system
-   * prompt——用户看到的是通用助手在回答，而不是他点进来的那个 Agent。
+   * ## 为什么需要它（2026-09-15 真机截图暴露）
    *
-   * ⚠ 它必须是 `useState` 的**初值**，不能"先挂载再异步 setState"：
-   * `copilotkit-v2-providers.tsx` 里那段关于 token 的头注记录过同一个时序竞争——
-   * 底层 proxied agent 有一定概率在构造那一帧就把 headers 定死，随后的 prop 变化
-   * 不一定生效。那里的结论是"让首帧就是最终值，消灭空档本身，而不是试图跑赢它"，
-   * 这里沿用同一条。⇒ 调用方必须**解析出 agentId 之后再挂本 provider**。
+   * 专属 Agent 入口（`/agent/team*`）把线程准备好、把自己的 Agent 挂进 roster，然后
+   * 打开 chat。但"挂进 roster"与"这次请求用哪个 agent"是两件事：后者只看这里的
+   * `selectedAgentId`（经 `COPILOTKIT_V2_SELECTED_AGENT_HEADER` 送到 `route.ts` 的
+   * `AgentsFactory`，再到服务端 `resolveEffectiveAgentId`）。初值恒为 `null` 时请求
+   * 不带那个 header，服务端落到"org 动态默认"——也就是**通用助手**在回答，专属
+   * Agent 的 instructions 一行都没进 system prompt。用户问它"你可以做什么"，它答的是
+   * 通用助手的能力清单，看起来像 Agent 配错了，其实是根本没被选中。
+   *
+   * ⚠ 这条只设**初值**，之后用户在 picker 里换 agent 照常生效（`setSelectedAgentId`
+   * 不受影响）——它是"默认选中谁"，不是"锁死不许换"。
    */
   initialAgentId?: string | null;
 }): JSX.Element {
