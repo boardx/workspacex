@@ -25,9 +25,9 @@ import { IC_REVIEW_SKILL_VERSION_ID } from "../../../web/lib/ic-review/skill-ide
 /** 与种子 `ensure-platform-skill-catalog.ts` 逐字同一种算法。 */
 const digest = createHash("sha256").update(IC_REVIEW_SKILL_MD).digest("hex");
 
-/** v2 = 加入任务五（同步产出 Excel 结果文件，issue #3707）。 */
-const EXPECTED_VERSION_ID = "skill-team1-ic-review-standard-v2";
-const EXPECTED_DIGEST = "bbed9d3fa0c8e4ada34a255fb3c6b63f6eef785ba73fa6a48169027aeb29e9e5";
+/** v3 = 项目类型（并购／融资）+ 条目适用范围 + 财务表现五项 + 对赌期三年（issue #3710）。 */
+const EXPECTED_VERSION_ID = "skill-team1-ic-review-standard-v3";
+const EXPECTED_DIGEST = "c2cb9878cdcacd97f78525c88848e8f338b2260b544b2256fdee10c35e20e79e";
 
 describe("上会审阅 Skill：正文与版本号必须一起改", () => {
   it("版本号是当前登记的那个", () => {
@@ -42,5 +42,12 @@ describe("上会审阅 Skill：正文与版本号必须一起改", () => {
     expect(IC_REVIEW_SKILL_MD).toContain("任务五");
     expect(IC_REVIEW_SKILL_MD).toContain("xlsx-create");
     expect(IC_REVIEW_SKILL_MD).toContain("标准检查明细");
+  });
+
+  it("项目类型判定与适用范围真的在正文里（issue #3710）", () => {
+    expect(IC_REVIEW_SKILL_MD).toContain("任务零");
+    expect(IC_REVIEW_SKILL_MD).toContain("无法判定");
+    expect(IC_REVIEW_SKILL_MD).toContain("仅并购类适用");
+    expect(IC_REVIEW_SKILL_MD).toContain("仅融资类适用");
   });
 });

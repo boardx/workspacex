@@ -14,5 +14,6 @@ export const IC_REVIEW_SKILL_ID = "skill-team1-ic-review-standard";
  * 的 never-throw 包住，只剩一行日志），线上静静地停在旧正文上——2026-09-16 真机就这样
  * 踩了一次：Excel 结果文件（任务五）合进 main 了，devapp 上的 Agent 从头到尾没见过它。
  * v2 = 加入任务五（同步产出 Excel 结果文件，issue #3707）。
+ * v3 = 引入项目类型（并购／融资）与条目适用范围、财务表现改五项分析、对赌期按三年（issue #3710）。
  */
-export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v2`;
+export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v3`;

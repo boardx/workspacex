@@ -126,11 +126,32 @@ AgentRun 停在 `queued`），这部分要在配了真实模型的环境里跑�
 3. **每个部署环境需要至少一位 org admin 点开过一次本页**（自动发布，见上），
    在此之前非 admin 用户会看到「需要管理员先点一次」+ 复制兜底，不假装能用。
 
+## 项目类型：并购 / 融资（2026-09-16，issue #3710）
+
+清单原本是按并购写死的。R-14 要求「融资类项目不需要尽调报告」「并购类暂不校验退出
+机制」——两条都以项目类型为前提，所以类型成了清单的一等概念：
+
+- **只声明一次**：`standard.ts` 里 `ProjectType` + `PROJECT_TYPE_RULE`（怎么判类型、
+  判不出来怎么办）+ 每条目可选的 `appliesTo`。`review-prompt.ts` 只渲染，不另写判定规则。
+- **条目适用范围**：IC-3-1…IC-3-5（五类尽调）`appliesTo: ["并购"]`；IC-3-11 退出机制
+  `appliesTo: ["融资"]`。省略 = 两类都判。不适用的条目判「不适用」并写明理由是项目类型，
+  **不判缺失**（判缺失会让人去要一份根本不需要的材料），也不许跳过（跳过会让明细表行数对不上）。
+- **数字仍然是算出来的**：总条数、阻断数、各类型适用条数都由 `IC_STANDARD` 与
+  `countByProjectType()` 算出，正文里没有手写的第二份。
+- **判不出类型就明说**：任务零要求第一行写明类型与依据；材料不足以判定时写
+  「项目类型：无法判定——请确认…」并停下等用户确认，不默认按并购或按融资。
+- **财务表现**（IC-2-3）改为「收入毛利、净利润、营运资金、债务、现金流」五项分析，
+  并明确本条不考核会计政策问题（收入确认/资本化/折旧年限口径仍属任务三交叉验证范围）。
+- **对赌期**：IC-3-9 交易条款加条目级判据——投资对赌期一般按三年；偏离标注并进需核实
+  清单，不因偏离直接判不满足。
+- ⬜ **未处理**：issue 期望能力第 5 条「移除原第五条决策事项」指向不明（提交人编号与
+  IC 编号对不上），已回问提交人，未擅自删除任何一类标准。
+
 ## Backlog
 
 | # | 条目 | 状态 |
 |---|---|---|
-| B1 | 上会标准清单 IC-1…IC-8（41 条） | ✅ `apps/web/lib/ic-review/standard.ts` |
+| B1 | 上会标准清单 IC-1…IC-8（条数与阻断数一律由 `IC_STANDARD` 算出，本文不留第二份数字） | ✅ `apps/web/lib/ic-review/standard.ts` |
 | B2 | 材料接收（白名单/大小/二进制透传） | ✅ 第五版起**直接用 chat composer 自己的**，本 Agent 不再有自建上传框 |
 | B3 | 审阅方法论（标准 + 交叉验证 + 输出格式 + 两轮确认）做成**平台内置 Skill** | ✅ `lib/ic-review/review-prompt.ts`（单源）+ `apps/api/.../ensure-ic-review-skill.ts`（种子，随 API 启动自愈） |
 | B4 | 准备真实对话：复用/建线程 + 挂 Agent + **挂 Skill** | ✅ `lib/ic-review/ensure-review-thread.ts` + `ensure-agent.ts`（按需自动发布） |
@@ -207,8 +228,14 @@ cd apps/api && npx tsc --noEmit
 ```
 `buildIcReviewSkillContent()` 是纯函数，改完可以 `npx tsx -e "..."` 直接打印检查正文。
 ⚠ 改 Skill 正文时**必须同步升** `apps/web/lib/ic-review/skill-identity.ts` 的
-`IC_REVIEW_SKILL_VERSION_ID`（`-v1` → `-v2`）——种子函数会核对内容摘要，版本号没升
-就带着新正文启动会 fail closed 报错，而不是让线上静默停在旧内容。
+`IC_REVIEW_SKILL_VERSION_ID`（当前 `-v3`）——种子函数会核对内容摘要，版本号没升
+就带着新正文启动会 fail closed 报错，而不是让线上静默停在旧内容。该报错被 `main.ts`
+包成 never-throw，只剩一行日志，所以同一条判据已前移到 CI：
+`apps/api/tests/skill/ic-review-skill-version-bump.test.ts` 钉死「版本号 + 正文摘要」，
+改正文必须同时更新这两个常量。新摘要这样算：
+```bash
+pnpm --filter api exec tsx -e "import { createHash } from 'node:crypto'; import { IC_REVIEW_SKILL_MD } from './scripts/ic-review-skill-content'; process.stdout.write(createHash('sha256').update(IC_REVIEW_SKILL_MD).digest('hex'));"
+```
 
 ## 怎么删干净（这个 Agent 是临时的）
 
