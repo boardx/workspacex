@@ -265,6 +265,36 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     await waitFor(() => expect(api.retryPlanStep).toHaveBeenCalledWith("t-7", { planStepId: "s2" }, undefined));
   });
 
+  /**
+   * 人类 2026-09-16 截图复盘 —— 「一次失败只给一个恢复入口」的机械门控。
+   *
+   * 本面板给出「重试该步」（保留已完成步骤）的那一刻，必须如实告诉宿主，宿主据此
+   * 收起自己那条语义不同的横幅重试（整轮重发、丢弃进展）。账本还没读回来时必须报
+   * `false`——不许出现两个入口都没有的空窗。
+   *
+   * 撤掉 `onStepRecoveryOfferedChange` 的上报 ⇒ 这条红。
+   */
+  it("渲染失败恢复卡时向宿主上报 true；非失败态上报 false", async () => {
+    const offered: boolean[] = [];
+    const onOffered = (v: boolean): void => { offered.push(v); };
+
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "failed", failedStepId: "s2" }));
+    const view = render(<CopilotKitV2PlanControl threadId="t-7c" onStepRecoveryOfferedChange={onOffered} />);
+    await screen.findByTestId("chat-task-workbench-failure-retry-step");
+    await waitFor(() => expect(offered.at(-1)).toBe(true));
+    // 第一次上报（账本未回）必须是 false：那时我们还不知道有没有可恢复的计划。
+    expect(offered[0]).toBe(false);
+
+    view.unmount();
+    expect(offered.at(-1)).toBe(false);
+
+    offered.length = 0;
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ phase: "executing", runStatus: "running" }));
+    render(<CopilotKitV2PlanControl threadId="t-7d" onStepRecoveryOfferedChange={onOffered} />);
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(offered.every((v) => v === false)).toBe(true);
+  });
+
   // issue #2451 —— failedStepId 是服务端真实信号，不是前端"第一个未完成的步骤"猜测：
   // 用一个两者会给出不同答案的账本形状钉住这一点（正常写路径下不会出现 s1 仍
   // pending 而 s2 已 in_progress，但 failedStepId 就是为了不依赖这个假设而存在的）。
