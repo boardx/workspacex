@@ -47,7 +47,7 @@ import {
   FollowUpSuggestions,
   type LocalSuggestionChip,
 } from "@/components/chat/copilotkit-v2-assistant-message";
-import { V2UserMessage } from "@/components/chat/copilotkit-v2-user-message";
+import { V2UserMessage, UserMessageAttachmentsCtx } from "@/components/chat/copilotkit-v2-user-message";
 import {
   CopilotKitV2MessageActionsProvider,
   type AssistantMessageLandingValue,
@@ -74,7 +74,7 @@ import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-e
 import { getStoredSessionToken } from "@/lib/api-client";
 import {
   createPersonalThread, listThreadAttachments,
-  type ListThreadAttachmentsOut,
+  type ChatAttachment, type ListThreadAttachmentsOut,
 } from "@/lib/live-chat";
 // issue #2694 修复——`PERSONA_SUMMARY_AUTHOR_ID` 是后端/前端共认的单一事实源
 // （见 `packages/contracts/src/chat.ts` 该常量的文件头注），不在这里另写一份字面量。
@@ -606,6 +606,20 @@ export function CopilotKitV2PanelBody({
    */
   const { index: messageIdentity, registerHydrated, projectMessages, isSettledMessageId } = useChatMessageIdentity(agent);
   const projectedMessages = projectMessages(agent.messages);
+  /**
+   * 2026-09-15 人类实测反馈 —— 「文件在 chat 提交完以后，应该要在 message 上，而不是
+   * 在 chat composer 上」。这张表就是"在 message 上"的那一半：视图消息 id → 随它发出
+   * 的附件行，由 `V2UserMessage` 按 id 查出来渲染（见
+   * `copilotkit-v2-user-message.tsx` 的 `UserMessageAttachmentsCtx`）。
+   *
+   * 两处写入，都不是编出来的：
+   *   · 发送那一刻 —— 键是 `clientMessageId`（乐观插入的那条用户气泡就是这个 id），
+   *     值是 `attach.uploadedAttachments`（服务端上传接口回的原始实体行）。
+   *   · 历史回读 —— 键是真实主键（以及它的 `clientMessageId` 别名，见下方回读处），
+   *     值来自 `listThreadAttachments` 的 `messageId` 投影。
+   */
+  const [userMessageAttachments, setUserMessageAttachments] =
+    React.useState<ReadonlyMap<string, readonly ChatAttachment[]>>(() => new Map());
 
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
@@ -725,9 +739,35 @@ export function CopilotKitV2PanelBody({
           const assistantMessageIds = new Set(
             collected.filter((m) => m.role === "assistant").map((m) => m.id),
           );
-          if (assistantMessageIds.size > 0) {
+          /*
+           * 2026-09-15 —— 同一次 `listThreadAttachments` 顺带回填**用户消息**那一半：
+           * 挂在人类消息上的附件（`message_id` 落在 user 消息行上）就是"这条消息带了
+           * 哪些文件"，刷新/重开线程后消息气泡上要照常看得见，否则它只在发出后的那一
+           * 次浏览器会话里存在（与上面助手侧下载卡片同一类"没有回填路径"的缺口）。
+           *
+           * 一条消息登记两个键：真实主键，以及它的 `clientMessageId`——乐观插入的那条
+           * 用户气泡在 `agent.messages` 里用的是后者（见上方去重那段的头注），两者是
+           * 同一条消息的两个视图 id。
+           */
+          const userMessageKeys = new Map<string, readonly string[]>(
+            collected.filter((m) => m.role === "user").map((m) => [
+              m.id, m.clientMessageId !== null ? [m.id, m.clientMessageId] : [m.id],
+            ] as const),
+          );
+          if (assistantMessageIds.size > 0 || userMessageKeys.size > 0) {
             const attachments = await listThreadAttachments(initialChatThreadId, projectId, bearer);
             if (!cancelled) {
+              const byUserMessage = new Map<string, ChatAttachment[]>();
+              for (const { messageId, ...row } of attachments.items) {
+                for (const key of userMessageKeys.get(messageId) ?? []) {
+                  const rows = byUserMessage.get(key);
+                  if (rows === undefined) byUserMessage.set(key, [row]);
+                  else rows.push(row);
+                }
+              }
+              if (byUserMessage.size > 0) {
+                setUserMessageAttachments((cur) => new Map([...cur, ...byUserMessage]));
+              }
               const rehydrated = attachments.items
                 .filter((item) => assistantMessageIds.has(item.messageId))
                 .map((item) => ({
@@ -1413,11 +1453,22 @@ export function CopilotKitV2PanelBody({
    * 人类消息 + 全新的 agent run，而原来那个 run（真实 skill 调用，例如 PDF 生成）
    * 可能仍在服务端跑，两边互不知情，各自写回一条回复、各自真的生成一次文件。 */
   const lastSentRef = React.useRef<
-    { text: string; attachmentIds: readonly string[]; clientMessageId: string } | null
+    { text: string; attachments: readonly ChatAttachment[]; clientMessageId: string } | null
   >(null);
 
   const send = React.useCallback(
-    async (override?: string, opts?: { readonly clientMessageId?: string }) => {
+    async (
+      override?: string,
+      opts?: {
+        readonly clientMessageId?: string;
+        /**
+         * 「重试」专用：重发失败的那一轮时，composer 的 pending 队列早已在上一次发送
+         * 那一刻清空（见下方 `attach.clear()` 的位置），这里把那一轮真实带过的附件行
+         * 原样传回来，不从已经空了的队列里再读一次。
+         */
+        readonly attachments?: readonly ChatAttachment[];
+      },
+    ) => {
       const text = (override ?? inputDraft).trim();
       if (!canWrite || archived || text === "" || runIsRunning) return false;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
@@ -1440,11 +1491,30 @@ export function CopilotKitV2PanelBody({
       // CK-P4（issue #2054）—— 记住这一轮的用户正文，供失败后的「重试」重发。
       // ⚠ 存的是**已发出**的那句，不是 composer 里的当前草稿：用户看到失败横幅时
       //   很可能已经在输入框里敲别的了，重试要重发失败的那一句。
-      lastSentRef.current = { text, attachmentIds: attach.uploadedIds, clientMessageId };
+      // chat-parity-attachments (issue #2022) -- 本轮真实带出去的附件（服务端上传接口
+      // 回的原始实体行）。`attachmentIds` 从同一份派生，不另数一遍。
+      const sentAttachments = opts?.attachments ?? attach.uploadedAttachments;
+      const attachmentIds = sentAttachments.map((a) => a.id);
+      lastSentRef.current = { text, attachments: sentAttachments, clientMessageId };
       if (!agent.messages.some((message) => message.id === clientMessageId)) agent.addMessage({ id: clientMessageId, role: "user", content: text });
-      // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
-      // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
-      const attachmentIds = attach.uploadedIds;
+      /*
+       * 2026-09-15 人类实测反馈 —— 附件在**发送这一刻**就从 composer 移到那条用户消息
+       * 上，不等这一轮 run 跑完。
+       *
+       * 此前 `attach.clear()` 挂在下面 `await copilotkit.runAgent(...)` 之后：一轮
+       * agent run 动辄几十秒到几分钟，这整段时间里那张附件卡片仍然待在 composer 里，
+       * 看起来像"文件没发出去"（人类截图：任务已在推进，文件还挂在输入框上）。而这条
+       * 消息本身已经乐观插入、`attachmentIds` 也已经随请求发出——composer 里那张卡片
+       * 从那一刻起就不再是"待发送的草稿"，它描述的是一件已经发生的事。
+       *
+       * ⚠ 失败路径不因此丢东西：`lastSentRef` 存的是这一批附件行本身，「重试」经
+       *   `opts.attachments` 原样传回来（见本回调 `opts` 的文档），走的还是同一批
+       *   服务端 id，不需要重新上传。
+       */
+      if (attachmentIds.length > 0) {
+        setUserMessageAttachments((cur) => new Map(cur).set(clientMessageId, sentAttachments));
+        attach.clear();
+      }
       // 附件必须挂在它们实际所在的那条真实线程上（`acceptHumanMessage` 校验
       // attachmentIds 归属），所以本轮一旦带了附件，chatThreadId 就必须是
       // `attachmentThreadId`——即便这是 turn 1（DA-19g 原本"turn 1 不传"的前提是
@@ -1464,7 +1534,6 @@ export function CopilotKitV2PanelBody({
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
         await copilotkit.runAgent({ agent, forwardedProps });
-        if (attachmentIds.length > 0) attach.clear();
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
         // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
         onMessageSent?.();
@@ -1560,6 +1629,22 @@ export function CopilotKitV2PanelBody({
     () => ({ projectId, threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chatThreadIdRef.current, sessionToken, projectId],
+  );
+
+  /**
+   * 2026-09-15 —— 消息气泡上的附件（见上方 `userMessageAttachments` 的头注）。
+   * `threadId` 是 `MessageAttachments` 的弹窗预览/下载要打的那条真实线程：优先读
+   * 已 resolve 的 `chatThreadIdRef`，回落到附件本来就上传到的那条
+   * （`attachmentThreadId`）——同一批附件的归属线程，不是另找一个 id。
+   * 读 ref 当依赖的理由同上一个 memo，不重复一遍。
+   */
+  const userMessageAttachmentsContextValue = React.useMemo(
+    () => ({
+      threadId: chatThreadIdRef.current ?? attachmentThreadId ?? "",
+      byMessageId: userMessageAttachments,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chatThreadIdRef.current, attachmentThreadId, userMessageAttachments],
   );
 
   /**
@@ -1866,6 +1951,7 @@ export function CopilotKitV2PanelBody({
                       <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
                         pendingRunId: pendingPermission?.runId ?? null }}>
                       {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
+                      <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
                       <TaskTimeline
                         onResendInterjection={resendInterjection}
                         events={runTrace.events}
@@ -1878,6 +1964,7 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      </UserMessageAttachmentsCtx.Provider>
                       </InterruptRenderContext.Provider>
                     </ProducedFilesCtx.Provider>
                   </ArtifactLandingCtx.Provider>
@@ -1979,7 +2066,9 @@ export function CopilotKitV2PanelBody({
                 onClick={() => {
                   const last = lastSentRef.current;
                   if (last === null) return;
-                  void send(last.text, { clientMessageId: last.clientMessageId });
+                  void send(last.text, {
+                    clientMessageId: last.clientMessageId, attachments: last.attachments,
+                  });
                 }}
                 className="shrink-0 rounded border border-destructive/30 px-2 py-0.5 text-11 transition-colors duration-fast hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
+import type { ChatAttachment } from "@/lib/live-chat";
 
 /**
  * issue #2787（review #2787 结论，回指 issue #728 同类根因）—— `userMessage` slot
@@ -43,12 +45,55 @@ import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
  * `V2AssistantMessage` 只换 `markdownRenderer`/`copyButton`/`toolCallsView`
  * 等指定子 slot、不另起一套气泡外壳，是同一条纪律。
  */
+
+/* ── 消息气泡上的附件 ──────────────────────────────────────────────────── */
+
+/**
+ * 2026-09-15 人类实测反馈（截图）——「文件在 chat 提交完以后，应该要在 message 上，
+ * 而不是在 chat composer 上」。v2 工作台此前只有旧轨道
+ * （`chat-live-message-panel.tsx`）有「消息气泡下的附件」这一件，v2 的 `userMessage`
+ * slot 从来没接过：附件发出去以后，用户能看到它的唯一地方仍是 composer 里那张
+ * pending 预览卡，看起来像"还没发出去"。
+ *
+ * 这里接的是同一个展示件 `MessageAttachments`（`chat-composer-attachments.tsx`），
+ * 不为 v2 另写一份附件卡片。
+ *
+ * ⚠ 为什么走 context 而不是 props：框架 `CopilotChatUserMessage.MessageRenderer`
+ * 的 props 只有 `{ content, className }`（读 `dist/copilotkit-D0aAnD3i.d.mts` 的
+ * 类型声明确认，不是猜测）——slot 内部够不着 `message.id`，而"这条消息带了哪些
+ * 附件"必须按 id 查。所以由外面这一层（拿得到 `props.message.id`）解析好之后，
+ * 经一层不产生任何 DOM 的 provider 递给 slot 本体。
+ */
+interface UserMessageAttachmentsValue {
+  /** 附件预览/下载要打到的真实线程（`MessageAttachments` 的弹窗预览需要）。 */
+  readonly threadId: string;
+  /**
+   * 视图消息 id → 该消息的附件行。键既可能是乐观插入时的 `clientMessageId`，
+   * 也可能是历史回读后的真实主键——两者都是"同一条消息"在不同时刻的视图 id，
+   * 由填这张表的一方（`copilotkit-v2-panel-body.tsx`）负责两个键都指向同一批行。
+   */
+  readonly byMessageId: ReadonlyMap<string, readonly ChatAttachment[]>;
+}
+
+export const UserMessageAttachmentsCtx =
+  React.createContext<UserMessageAttachmentsValue | null>(null);
+
+/** 当前正在渲染的这一条消息的附件（由 `V2UserMessageImpl` 解析后下发给 slot）。 */
+const CurrentUserMessageAttachmentsCtx =
+  React.createContext<{ threadId: string; items: readonly ChatAttachment[] } | null>(null);
+
 function V2UserMessageRenderer({
   content,
 }: React.ComponentProps<typeof CopilotChatUserMessage.MessageRenderer>): JSX.Element {
+  const attachments = React.useContext(CurrentUserMessageAttachmentsCtx);
   return (
-    <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
-      {content}
+    <div className="flex flex-col gap-1">
+      <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
+        {content}
+      </div>
+      {attachments !== null && attachments.items.length > 0 ? (
+        <MessageAttachments attachments={attachments.items} threadId={attachments.threadId} />
+      ) : null}
     </div>
   );
 }
@@ -56,7 +101,22 @@ function V2UserMessageRenderer({
 function V2UserMessageImpl(
   props: React.ComponentProps<typeof CopilotChatUserMessage>,
 ): JSX.Element {
-  return <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />;
+  const ctx = React.useContext(UserMessageAttachmentsCtx);
+  const items = ctx?.byMessageId.get(props.message.id);
+  // provider 不产生任何 DOM 节点——气泡外壳仍然只有框架渲染的那一个
+  // （`copilotkit-v2.css` 锚定的 `data-testid="copilot-user-message"`），
+  // 不会因为这次接线多出一层包装盒子。
+  const current = React.useMemo(
+    () => (items === undefined || items.length === 0 || ctx === null
+      ? null
+      : { threadId: ctx.threadId, items }),
+    [items, ctx],
+  );
+  return (
+    <CurrentUserMessageAttachmentsCtx.Provider value={current}>
+      <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />
+    </CurrentUserMessageAttachmentsCtx.Provider>
+  );
 }
 
 /**
