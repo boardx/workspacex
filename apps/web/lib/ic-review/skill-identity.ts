@@ -9,4 +9,10 @@
  * 内容哈希漂移（那样前端「已经挂了哪个版本」的判断会和实际内容脱钩）。
  */
 export const IC_REVIEW_SKILL_ID = "skill-team1-ic-review-standard";
-export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v1`;
+/**
+ * ⚠ 正文有实质变化就必须升这个号，否则种子的 fail-closed 摘要门控会抛错（被 `main.ts`
+ * 的 never-throw 包住，只剩一行日志），线上静静地停在旧正文上——2026-09-16 真机就这样
+ * 踩了一次：Excel 结果文件（任务五）合进 main 了，devapp 上的 Agent 从头到尾没见过它。
+ * v2 = 加入任务五（同步产出 Excel 结果文件，issue #3707）。
+ */
+export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v2`;

@@ -22,9 +22,9 @@
  * 过滤）。要开一次全新的审阅 → `/agent/team1?new=1`。
  */
 import { createPersonalThread, getAgentPanel, listPersonalThreads, updateAgentRoster } from "@/lib/live-chat";
-import { listThreadMounts, mountSkills } from "@/lib/live-skill-mount";
+import { listThreadMounts, mountSkills, unmountSkill } from "@/lib/live-skill-mount";
 import { ensureTeam1AgentId } from "./ensure-agent";
-import { IC_REVIEW_SKILL_ID } from "./skill-identity";
+import { IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID } from "./skill-identity";
 
 /** 线程标题即复用的判据——只认整串相等，不认前缀，避免吞掉用户自己改名的对话。 */
 export const IC_REVIEW_THREAD_TITLE = "上会材料审阅";
@@ -37,6 +37,29 @@ async function findExistingThreadId(): Promise<string | null> {
     }
   }
   return null;
+}
+
+/**
+ * 线程挂载是**钉版本**的（服务端 `mount-skill-to-thread.ts` 存的是挂载当刻的
+ * `currentVersionId`）。所以 Skill 正文升版本之后，老线程仍然钉着旧版本——
+ * 2026-09-16 真机踩到的第二层：即便种子把 v2 发布出去，一条 2026-09-15 建的
+ * 「上会材料审阅」线程照旧按 v1 回答，用户看不到新加的任务五。
+ *
+ * 复用线程时因此要对一次版本：挂的不是当前版本就摘掉重挂。摘除是打时间戳不是删行
+ * （契约 `ThreadSkillMount.removedAt` 头注），历史消息的角标不受影响。
+ */
+async function ensureCurrentSkillMounted(threadId: string): Promise<void> {
+  const mounts = await listThreadMounts(threadId, undefined);
+  const mine = mounts.temporary.filter((m) => m.skillId === IC_REVIEW_SKILL_ID && m.removedAt === null);
+  const current = mine.find((m) => m.versionId === IC_REVIEW_SKILL_VERSION_ID);
+  if (current) return;
+
+  for (const stale of mine) await unmountSkill(threadId, stale.mountId, undefined);
+  // ⚠ 摘除会改挂载列表的乐观锁版本号，必须重新读一次再挂，不能复用上面那个。
+  const after = await listThreadMounts(threadId, undefined);
+  await mountSkills(threadId, undefined, {
+    skillIds: [IC_REVIEW_SKILL_ID], expectedVersion: after.version,
+  });
 }
 
 async function createConfiguredThread(): Promise<IcReviewSession> {
@@ -81,7 +104,12 @@ export async function ensureIcReviewSession(forceNew = false): Promise<IcReviewS
   if (!forceNew) {
     const existing = await findExistingThreadId();
     // 复用既有线程时同样要拿到 agentId（解析是幂等的，命中缓存不额外打请求）。
-    if (existing) return { threadId: existing, agentId: await ensureTeam1AgentId() };
+    if (existing) {
+      const agentId = await ensureTeam1AgentId();
+      // 老线程可能钉着旧版本的 Skill——对一次版本，不一致就换挂（理由见函数头注）。
+      await ensureCurrentSkillMounted(existing);
+      return { threadId: existing, agentId };
+    }
   }
   return createConfiguredThread();
 }
