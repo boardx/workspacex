@@ -62,6 +62,7 @@
   "devDependencies": {
     "@repo/dev-mode-accounts": "workspace:*",
     "@repo/fabric-markdown": "workspace:*",
+    "@repo/local-asr-gateway": "workspace:*",
     "@repo/skill-sandbox": "workspace:*",
     "@types/ali-oss": "6.23.3",
     "@types/express": "^5.0.6",

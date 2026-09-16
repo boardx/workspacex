@@ -9,7 +9,8 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { databaseEnv, apiEnv, paths, provisionAdminEnv, type LocalConfig } from "./config";
+import pg from "pg";
+import { databaseEnv, apiEnv, paths, provisionAdminEnv, DB_APP_ROLE, DB_NAME, type LocalConfig } from "./config";
 import { runToCompletion } from "./processes";
 
 const PLATFORM_ORG_ID = "org-platform"; // apps/api/src/domain/org-id.ts
@@ -47,6 +48,27 @@ async function apiScript(c: LocalConfig, rel: string, args: string[], env: Recor
 
 export async function runMigrations(c: LocalConfig, log: Log): Promise<void> {
   await apiScript(c, "src/infrastructure/db/migrate-cli.ts", [], databaseEnv(c), log);
+  await grantLocalServiceDdl(c, log);
+}
+
+/**
+ * The Python deep-agent service creates and migrates its OWN tables at startup (thread
+ * ledger, LangGraph checkpoints, the `workspacex_memory` schema). In the cloud it gets a
+ * database user with DDL rights for that; on one machine every process is `app_rw`
+ * (see pglite-server.ts), so the app role needs CREATE on the schema and the database.
+ * Those tables are the service's private state, never RLS-governed API tables, and
+ * `app_rw` owns what it creates -- so no RLS invariant is weakened. Owner phase only.
+ */
+async function grantLocalServiceDdl(c: LocalConfig, log: Log): Promise<void> {
+  const client = new pg.Client({ host: "127.0.0.1", port: c.ports.postgres, user: "postgres", password: "local", database: DB_NAME });
+  await client.connect();
+  try {
+    await client.query(`GRANT USAGE, CREATE ON SCHEMA public TO ${DB_APP_ROLE}`);
+    await client.query(`GRANT CREATE ON DATABASE ${DB_NAME} TO ${DB_APP_ROLE}`);
+    log(`[seeds] granted schema/database CREATE to ${DB_APP_ROLE} for the deep-agent service`);
+  } finally {
+    await client.end();
+  }
 }
 
 /** Owner-phase seeds: need the migration role (platform org, skills, canvas templates). */

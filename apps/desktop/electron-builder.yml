@@ -24,6 +24,7 @@ extraResources:
       - "apps/api/**"
       - "apps/web/**"
       - "apps/skill-sandbox/**"
+      - "apps/local-asr-gateway/**"
       - "apps/deep-agent-service/**"
       - "packages/**"
       - "skills/starter-packs/**"

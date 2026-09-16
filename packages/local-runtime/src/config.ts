@@ -21,6 +21,7 @@ export interface LocalPorts {
   readonly sandbox: number;
   readonly deepAgent: number;
   readonly ollama: number;
+  readonly asr: number;
 }
 
 export const DEFAULT_PORTS: LocalPorts = {
@@ -30,7 +31,11 @@ export const DEFAULT_PORTS: LocalPorts = {
   sandbox: 3310,
   deepAgent: 2024,
   ollama: 11434,
+  asr: 3320,
 };
+
+/** sherpa-onnx streaming Zipformer, bilingual zh+en (scripts/local-bundle/fetch-asr-model.sh). */
+export const DEFAULT_ASR_MODEL = "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20";
 
 /** Ollama tag. Carries tools / vision / thinking; ~2.5-3 GB at Q4_K_M. */
 export const DEFAULT_CHAT_MODEL = "qwen3.5:4b";
@@ -116,6 +121,8 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
   };
 }
 
+type Env = Record<string, string>;
+
 export const paths = {
   pgData: (c: LocalConfig) => join(c.dataDir, "pgdata"),
   objects: (c: LocalConfig) => join(c.dataDir, "objects"),
@@ -126,9 +133,27 @@ export const paths = {
   sandboxOut: (c: LocalConfig) => join(c.dataDir, "sandbox", "out"),
   seedState: (c: LocalConfig) => join(c.dataDir, "seed-state.json"),
   deepAgentVenv: (c: LocalConfig) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
+  asrModelDir: (c: LocalConfig) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
 };
 
-type Env = Record<string, string>;
+/** Only handed to the API when the model is on disk; otherwise ASR stays "not configured". */
+export function asrEnv(c: LocalConfig): Env {
+  return {
+    KERNEL_ASR_PROVIDER: "local-gateway",
+    KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${c.ports.asr}`,
+    KERNEL_ASR_API_KEY: "local",
+    KERNEL_ASR_MODEL: DEFAULT_ASR_MODEL,
+  };
+}
+
+export function asrGatewayEnv(c: LocalConfig): Env {
+  return {
+    LOCAL_ASR_HOST: "127.0.0.1",
+    LOCAL_ASR_PORT: String(c.ports.asr),
+    LOCAL_ASR_ENGINE: "sherpa",
+    LOCAL_ASR_MODEL_DIR: paths.asrModelDir(c),
+  };
+}
 
 /** Shared by every Node-side process that touches the database (API + seed scripts). */
 export function databaseEnv(c: LocalConfig): Env {
@@ -197,7 +222,8 @@ export function apiEnv(c: LocalConfig): Env {
     KERNEL_SUBTASK_CALLBACK_BASE_URL: `http://127.0.0.1:${c.ports.api}`,
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     // capabilities that are vendor-shaped and unavailable offline stay UNSET on purpose:
-    // KERNEL_ASR_*, KERNEL_IMAGE_PROVIDER, KERNEL_GUIDED_SEARCH_URL, WORKSPACEX_BROWSER_MCP_ENDPOINT.
+    // KERNEL_IMAGE_PROVIDER, KERNEL_GUIDED_SEARCH_URL, WORKSPACEX_BROWSER_MCP_ENDPOINT.
+    // ASR is the exception: `asrEnv()` is merged in by `up` when the local model is present.
   };
 }
 

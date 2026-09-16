@@ -12,7 +12,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:os";
 import {
-  apiEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
+  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
 } from "./config";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
@@ -30,7 +30,7 @@ export interface UpOptions {
 }
 
 export interface RunningStack {
-  readonly urls: { web: string; api: string; ollama: string | null; deepAgent: string | null };
+  readonly urls: { web: string; api: string; ollama: string | null; deepAgent: string | null; asr: string | null };
   readonly login: { email: string; password: string };
   readonly warnings: readonly string[];
   stop(): Promise<void>;
@@ -102,13 +102,30 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     }, log));
     await waitForHttp(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 });
 
+    // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
+    let asrUrl: string | null = null;
+    if (existsSync(join(paths.asrModelDir(c), "tokens.txt"))) {
+      asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
+      managed.push(startManaged({
+        name: "asr-gateway",
+        command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
+        args: ["src/main.ts"],
+        cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
+        env: asrGatewayEnv(c),
+        logDir: paths.logs(c),
+      }, log));
+      await waitForHttp(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 });
+    } else {
+      warnings.push("本地转写模型未下载：录音/访谈的实时转写不可用（运行 scripts/local-bundle/fetch-asr-model.sh 后重启）");
+    }
+
     // ── API ───────────────────────────────────────────────────────────────────
     managed.push(startManaged({
       name: "api",
       command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
       args: ["src/main.ts"],
       cwd: join(c.repoRoot, "apps", "api"),
-      env: apiEnv(c),
+      env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}) },
       logDir: paths.logs(c),
     }, log));
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
@@ -151,7 +168,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const state = readSeedState(c);
     if (!state.provisioned) throw new Error("seed state has no provisioned user after seeding");
     return {
-      urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl },
+      urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
       login: { email: "me@local.workspacex", password: c.secrets.adminPassword },
       warnings,
       stop: stopAll,

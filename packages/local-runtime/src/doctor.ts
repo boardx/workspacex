@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, statfsSync } from "node:fs";
 import { arch, platform, totalmem } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_ASR_MODEL } from "./config";
 
 export interface DoctorReport {
   readonly ok: boolean;
@@ -16,6 +17,7 @@ export interface DoctorReport {
   readonly freeDiskGb: number;
   readonly ollama: { found: boolean; path: string | null; version: string | null };
   readonly python: { venv: boolean };
+  readonly asrModel: boolean;
   readonly findings: readonly string[];
 }
 
@@ -66,16 +68,19 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
   } else {
     findings.push("未找到 Ollama 二进制：聊天将没有模型可用（安装包应随附，开发环境请先安装 Ollama）");
   }
+  const asrModel = existsSync(join(opts.dataDir, "asr-models", DEFAULT_ASR_MODEL, "tokens.txt"));
+  if (!asrModel) findings.push("本地转写模型未下载：实时转写不可用，运行 scripts/local-bundle/fetch-asr-model.sh");
   const venv = existsSync(join(opts.repoRoot, "apps", "deep-agent-service", ".venv"));
   if (!venv) findings.push("deep-agent-service 的 Python 运行时（.venv）不存在：工具调用与 skill 执行不可用，运行 scripts/local-bundle/prepare-python.sh");
   return {
-    ok: findings.every((f) => f.startsWith("未找到 Ollama") || f.startsWith("deep-agent-service")) ,
+    ok: findings.every((f) => f.startsWith("未找到 Ollama") || f.startsWith("deep-agent-service") || f.startsWith("本地转写模型")),
     platform: platform(),
     arch: arch(),
     memoryGb,
     freeDiskGb,
     ollama: { found: ollamaPath !== null, path: ollamaPath, version },
     python: { venv },
+    asrModel,
     findings,
   };
 }
