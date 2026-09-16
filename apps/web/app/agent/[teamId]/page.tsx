@@ -18,11 +18,12 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第五版）：本路由是**中转页**不是工作台——
- *   它只把 Agent 入编、把「上会审阅」Skill 挂进线程，然后 `replace` 进真正的 chat
- *   （`/chat/<threadId>`），之后传材料/追问/确认全部用 chat 自己的能力（附件、历史、
- *   产物落地…），不自建第二套 UI。要调真实 `lib/live-chat.ts` API，必须走真实登录
- *   会话，因此不传 `identity` 覆盖，复用页面自身默认的真实 `AppShell`。
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第六版）：同 team3/team4 的就地挂壳——
+ *   进页面解析/发布 Agent、建或复用个人线程并入编、把「上会审阅」平台内置 Skill 挂进
+ *   线程，然后**就地**挂 `/chat` 用的同一个 `CopilotKitV2Shell`，并把 agentId 作为
+ *   `initialAgentId` 交给选择 provider（第五版"中转 replace 进 /chat"与 team3/team4
+ *   第一版同源地错：agent 没被选中，回答的是通用助手，挂载的 Skill 一行都没进
+ *   system prompt）。之后传材料/追问/两轮确认/Excel 结果文件全部用 chat 自己的能力。
  *   详情见 `docs/agents/team1-ic-review-mvp.md`。
  * ⚠ Team2 = 投后财务项目评级 Agent（issue #3676，ad-hoc MVP 第三版）：同 Team1 架构——
  *   不自建分析/解析引擎，材料作为真实附件（Excel/PDF/PPT/Word/录音，MIME 已在
@@ -64,21 +65,13 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
     return <Team3ChatScreen />;
   }
 
+  // 同 team3/team4：就地挂 chat 壳（组件自带 AppShell 与三层 provider），不再套外层壳
+  // 与面包屑——上一版是「中转页 + replace 进 /chat」，那条路径下本 Agent 根本没被选中，
+  // 回答的是通用助手（见 `ic-review-chat-entry.tsx` 头注的真机根因）。
   if (team.slug === "team1") {
     const agent = findIcReviewAgent("team1");
     if (!agent) notFound();
-    return (
-      <AppShell previewRole={null}>
-        <div className="min-w-0 flex-1 overflow-y-auto bg-background">
-          <div data-testid="agent-team-page" data-team="team1" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
-            <p className="text-11 font-medium text-muted-foreground">
-              <Link href="/agent" className="transition-colors duration-base hover:underline">Studio / {AGENTS_NAV_LABEL}</Link> / {agent.name}
-            </p>
-            <div className="mt-4"><IcReviewChatEntry agent={agent} /></div>
-          </div>
-        </div>
-      </AppShell>
-    );
+    return <IcReviewChatEntry agent={agent} />;
   }
 
   if (team.slug === "team2") {

@@ -15,6 +15,8 @@
  *
  * 之后「传材料、提问、两轮确认」全部是普通 chat 操作，没有第二套 UI。
  *
+ * ⚠ 解析结果是「线程 + Agent」两件事实，不是只有线程——理由见下方 `IcReviewSession`。
+ *
  * 复用而不是每次新建：同一个人反复点入口（或刷新）不该堆出一串空线程，所以按标题
  * 在**服务端**搜一次既有线程（`listPersonalThreads({ q })`，不是在已加载的那一页里
  * 过滤）。要开一次全新的审阅 → `/agent/team1?new=1`。
@@ -37,7 +39,7 @@ async function findExistingThreadId(): Promise<string | null> {
   return null;
 }
 
-async function createConfiguredThread(): Promise<string> {
+async function createConfiguredThread(): Promise<IcReviewSession> {
   const agentId = await ensureTeam1AgentId();
   const thread = await createPersonalThread(IC_REVIEW_THREAD_TITLE);
   const threadId = thread.threadId;
@@ -54,16 +56,32 @@ async function createConfiguredThread(): Promise<string> {
     skillIds: [IC_REVIEW_SKILL_ID], expectedVersion: mounts.version,
   });
 
-  return threadId;
+  return { threadId, agentId };
+}
+
+/**
+ * 一次会话所需的两件事实。
+ *
+ * ⚠ `agentId` 必须一起交出去，不能只给 `threadId`——2026-09-15 team3(#3706)/team4 在
+ * devapp 真机上各栽一次的同一个缺陷：把 Agent 挂进 roster 只决定「这条线程编制里有谁」，
+ * 「不决定这次请求用哪个 agent」。后者看的是 chat 的 `selectedAgentId`
+ * （→ `COPILOTKIT_V2_SELECTED_AGENT_HEADER` → 服务端 `resolveEffectiveAgentId`）。
+ * 不选中，服务端就落到 org 动态默认（通用助手）回答——本 Agent 的 instructions 与挂载的
+ * 「上会审阅」Skill 一行都没进 system prompt，用户看到的是一个泛泛的助手。
+ */
+export interface IcReviewSession {
+  readonly threadId: string;
+  readonly agentId: string;
 }
 
 /**
  * @param forceNew `/agent/team1?new=1` —— 跳过复用，开一条全新的审阅对话。
  */
-export async function ensureIcReviewThreadId(forceNew = false): Promise<string> {
+export async function ensureIcReviewSession(forceNew = false): Promise<IcReviewSession> {
   if (!forceNew) {
     const existing = await findExistingThreadId();
-    if (existing) return existing;
+    // 复用既有线程时同样要拿到 agentId（解析是幂等的，命中缓存不额外打请求）。
+    if (existing) return { threadId: existing, agentId: await ensureTeam1AgentId() };
   }
   return createConfiguredThread();
 }
