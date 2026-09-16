@@ -1,0 +1,36 @@
+{
+  "name": "@repo/local-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WorkspaceX Local 的进程编排层（issue #3716 / PROP-LOCAL-WORKSPACE-001）：在一台没有 Docker、没有 Redis、没有外部 PostgreSQL 的机器上，用 PGlite 起数据库、跑迁移与种子、拉起 API / 深度 agent / Skill 沙箱 / Web / Ollama。纯 Node，无 Electron 依赖——桌面外壳（apps/desktop）与 CLI（pnpm local-runtime up）共用这一份编排。",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "local-runtime": "./src/cli.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo 'lint: ok'",
+    "up": "tsx src/cli.ts up",
+    "doctor": "tsx src/cli.ts doctor"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
+    "@electric-sql/pglite-socket": "0.2.11"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "pg": "^8.13.1",
+    "@types/pg": "^8.11.10",
+    "tsx": "*",
+    "typescript": "*",
+    "vitest": "^2.0.0"
+  }
+}

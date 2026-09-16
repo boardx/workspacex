@@ -80,7 +80,11 @@ if (socketPath !== undefined && socketPath !== "") {
       `SKILL_SANDBOX_PORT must be a positive integer, got ${String(process.env.SKILL_SANDBOX_PORT)}`,
     );
   }
-  server.listen(port, "0.0.0.0", () => {
-    process.stdout.write(`skill-sandbox listening on ${port}\n`);
+  // `SKILL_SANDBOX_HOST`: the desktop/local build (issue #3716) runs this as a plain child
+  // process on the user's machine and must not expose the sandbox beyond loopback. The
+  // container form keeps 0.0.0.0 (network:none makes it unreachable anyway).
+  const host = process.env.SKILL_SANDBOX_HOST ?? "0.0.0.0";
+  server.listen(port, host, () => {
+    process.stdout.write(`skill-sandbox listening on ${host}:${port}\n`);
   });
 }
