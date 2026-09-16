@@ -35,6 +35,27 @@ vi.mock("@/components/chat/copilotkit-v2-shell", () => ({
   ),
 }));
 
+/** 记录选择 provider 每次挂载时拿到的初值——这是本次修复的要害。 */
+const selectionInitialAgentIds: (string | null | undefined)[] = [];
+vi.mock("@/lib/copilotkit-v2-agent-selection", () => ({
+  CopilotKitV2AgentSelectionProvider: ({
+    children,
+    initialAgentId,
+  }: {
+    children: React.ReactNode;
+    initialAgentId?: string | null;
+  }) => {
+    selectionInitialAgentIds.push(initialAgentId);
+    return <>{children}</>;
+  },
+}));
+vi.mock("@/app/chat/copilotkit-v2/copilotkit-v2-providers", () => ({
+  CopilotKitV2Providers: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+vi.mock("@/components/shell/app-shell", () => ({
+  AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-1" } }),
 }));
@@ -72,13 +93,15 @@ vi.mock("@/lib/live-research-workflow", async () => {
   };
 });
 
-const { Team3Chat } = await import("@/components/agent/team3-chat");
+const { Team3Chat, Team3ChatScreen } = await import("@/components/agent/team3-chat");
+
+const RESOLVED = { threadId: "t1", agentId: "a1" } as const;
 
 afterEach(cleanup);
 
 describe("面板的装配位置", () => {
   it("面板在对话列内部，而不是壳的外面", async () => {
-    render(<Team3Chat />);
+    render(<Team3Chat resolved={RESOLVED} />);
     const panels = await screen.findByTestId("team3-panels");
 
     const column = screen.getByTestId("shell-conversation-column");
@@ -86,7 +109,7 @@ describe("面板的装配位置", () => {
   });
 
   it("面板不是侧边栏的祖先或兄弟之前（那正是真机上看到的错位）", async () => {
-    render(<Team3Chat />);
+    render(<Team3Chat resolved={RESOLVED} />);
     const panels = await screen.findByTestId("team3-panels");
     const sidebar = screen.getByTestId("copilotkit-v2-thread-sidebar");
 
@@ -99,8 +122,34 @@ describe("面板的装配位置", () => {
   });
 
   it("阶段条确实在那组面板里（装配对了，内容也得在）", async () => {
-    render(<Team3Chat />);
+    render(<Team3Chat resolved={RESOLVED} />);
     const panels = await screen.findByTestId("team3-panels");
     expect(panels.querySelector('[data-testid="research-phase-bar"]')).not.toBeNull();
+  });
+});
+
+/**
+ * 2026-09-15 第二个真机缺陷：Agent 被挂进线程 roster，却从没被**选中**。
+ *
+ * 「挂进 roster」决定的是"这条线程编制里有谁"，**不决定"这次请求用哪个 agent"**。
+ * 不把 agentId 交给选择 provider，请求就不带 `COPILOTKIT_V2_SELECTED_AGENT_HEADER`，
+ * 服务端落到 org 动态默认（通用助手）——本 Agent 的 instructions 一行都进不了
+ * system prompt，用户问什么都由通用助手回答。
+ *
+ * 前 210 条前端测试全绿，因为没有一条断言过"这个 agent 真的被选中了"。
+ */
+describe("Agent 真的被选中", () => {
+  it("解析出的 agentId 被交给选择 provider 作为初值", async () => {
+    render(<Team3ChatScreen />);
+    await screen.findByTestId("shell-root");
+    expect(selectionInitialAgentIds.at(-1), "没把 agentId 交给选择 provider").toBe("a1");
+  });
+
+  it("解析完成之前不挂 provider（headers 有构造时定死的时序竞争，见 providers 头注）", () => {
+    selectionInitialAgentIds.length = 0;
+    render(<Team3ChatScreen />);
+    // 首帧还在解析：加载态在、provider 尚未挂载
+    expect(screen.getByTestId("team3-chat-loading")).toBeInTheDocument();
+    expect(selectionInitialAgentIds).toEqual([]);
   });
 });
