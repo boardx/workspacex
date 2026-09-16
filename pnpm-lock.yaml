@@ -481,7 +481,7 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.13.0
-        version: 4.13.0(playwright-core@1.63.0-alpha-2026-08-31)
+        version: 4.13.0(playwright-core@1.62.0)
       '@playwright/test':
         specifier: ^1.62.0
         version: 1.62.0
@@ -518,6 +518,9 @@ importers:
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1(canvas@3.2.3)
+      playwright-core:
+        specifier: ^1.62.0
+        version: 1.62.0
       postcss:
         specifier: ^8.4.47
         version: 8.5.19
@@ -10316,10 +10319,10 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
 
-  '@axe-core/playwright@4.13.0(playwright-core@1.63.0-alpha-2026-08-31)':
+  '@axe-core/playwright@4.13.0(playwright-core@1.62.0)':
     dependencies:
       axe-core: 4.13.0
-      playwright-core: 1.63.0-alpha-2026-08-31
+      playwright-core: 1.62.0
 
   '@azure/abort-controller@2.2.0':
     dependencies:
@@ -13068,7 +13071,7 @@ snapshots:
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 22.20.1
-      pg-protocol: 1.15.0
+      pg-protocol: 1.16.0
       pg-types: 2.2.0
 
   '@types/plist@3.0.5':
