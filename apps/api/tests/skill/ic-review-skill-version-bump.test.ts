@@ -25,9 +25,9 @@ import { IC_REVIEW_SKILL_VERSION_ID } from "../../../web/lib/ic-review/skill-ide
 /** 与种子 `ensure-platform-skill-catalog.ts` 逐字同一种算法。 */
 const digest = createHash("sha256").update(IC_REVIEW_SKILL_MD).digest("hex");
 
-/** v3 = 项目类型（并购／融资）+ 条目适用范围 + 财务表现五项 + 对赌期三年（issue #3710）。 */
-const EXPECTED_VERSION_ID = "skill-team1-ic-review-standard-v3";
-const EXPECTED_DIGEST = "c2cb9878cdcacd97f78525c88848e8f338b2260b544b2256fdee10c35e20e79e";
+/** v4 = 公开信息检索 + 竞对对比（SWOT／波特五力）+ 投资风险识别四类 + Excel 两张新 sheet（issue #3713）。 */
+const EXPECTED_VERSION_ID = "skill-team1-ic-review-standard-v4";
+const EXPECTED_DIGEST = "6a7b52c66cd019a13a4041e46feabe158f65732deebd719c95b8e3a863e6de55";
 
 describe("上会审阅 Skill：正文与版本号必须一起改", () => {
   it("版本号是当前登记的那个", () => {
@@ -42,6 +42,27 @@ describe("上会审阅 Skill：正文与版本号必须一起改", () => {
     expect(IC_REVIEW_SKILL_MD).toContain("任务五");
     expect(IC_REVIEW_SKILL_MD).toContain("xlsx-create");
     expect(IC_REVIEW_SKILL_MD).toContain("标准检查明细");
+  });
+
+  it("Excel 仍是最后一步，且装得下新内容（issue #3713）", () => {
+    expect(IC_REVIEW_SKILL_MD).toContain("任务八：同步产出 Excel 结果文件");
+    expect(IC_REVIEW_SKILL_MD).toContain("「竞对对比」");
+    expect(IC_REVIEW_SKILL_MD).toContain("「风险清单」");
+    // 任务八之后不得再有任务标题——Excel 必须是最后一个任务。
+    expect(IC_REVIEW_SKILL_MD.split("\n## 任务").pop()).toContain("八：");
+  });
+
+  it("公开信息 / 竞对 / 风险三段与防编造条款都在正文里（issue #3713）", () => {
+    expect(IC_REVIEW_SKILL_MD).toContain("任务四：公开信息检索与行业画像");
+    expect(IC_REVIEW_SKILL_MD).toContain("任务五：竞对对比与框架分析");
+    expect(IC_REVIEW_SKILL_MD).toContain("任务六：投资风险识别");
+    expect(IC_REVIEW_SKILL_MD).toContain("来源四要素");
+    expect(IC_REVIEW_SKILL_MD).toContain("未检索到");
+    expect(IC_REVIEW_SKILL_MD).toContain("不许编造竞对财务数据");
+    expect(IC_REVIEW_SKILL_MD).toContain("证据不足");
+    expect(IC_REVIEW_SKILL_MD).toContain("外部冲突");
+    // 边界不因新增风险识别而破。
+    expect(IC_REVIEW_SKILL_MD).toContain("不给投资建议");
   });
 
   it("项目类型判定与适用范围真的在正文里（issue #3710）", () => {

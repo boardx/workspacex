@@ -15,5 +15,7 @@ export const IC_REVIEW_SKILL_ID = "skill-team1-ic-review-standard";
  * 踩了一次：Excel 结果文件（任务五）合进 main 了，devapp 上的 Agent 从头到尾没见过它。
  * v2 = 加入任务五（同步产出 Excel 结果文件，issue #3707）。
  * v3 = 引入项目类型（并购／融资）与条目适用范围、财务表现改五项分析、对赌期按三年（issue #3710）。
+ * v4 = 新增任务四公开信息检索、任务五竞对对比与 SWOT／波特五力、任务六投资风险识别（四类），
+ *      需核实清单顺延为任务七、Excel 顺延为任务八并加「竞对对比」「风险清单」两个 sheet（issue #3713）。
  */
-export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v3`;
+export const IC_REVIEW_SKILL_VERSION_ID = `${IC_REVIEW_SKILL_ID}-v4`;
