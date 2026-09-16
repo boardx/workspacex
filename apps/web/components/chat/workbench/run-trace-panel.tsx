@@ -4,7 +4,7 @@ import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } f
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
-import { toolLabel } from "@/lib/chat-workbench/tool-label";
+import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
@@ -41,7 +41,19 @@ function eventLabel(entry: TraceEntry): string {
    * 至今**只有开始与结束两个时刻**，中间的真实进展从来没有被产生过——那是能力缺失，
    * 按 #3316 的要求另立 **#3322**，不夹带进这个 PR。
    */
-  return `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? "正在执行" : "已执行"} · ${toolLabel(entry.text)}`;
+  /**
+   * 2026-09-16 人类实测（非技术用户）—— 光有工具名仍然是七行一模一样的「已执行 ·
+   * 读取文件」。**读的是哪个文件**这件事实一直在 `args` 里，此前只以 JSON 原文出现在
+   * 展开层。`toolObject`（`lib/chat-workbench/tool-label`，与工具卡共用的那一份）把它
+   * 抽成一句人话接在后面；认不出参数时返回 `null`，这一行就退回原来的样子，**不编**。
+   */
+  const verb = `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? "正在执行" : "已执行"} · ${toolLabel(entry.text)}`;
+  const object = toolObject(entry.text, entry.args);
+  return object === null ? verb : `${verb} · ${object}`;
+}
+/** 成组折叠行的抬头：「读取文件 · 7 次」。工具名走同一张表，计数就是成员数。 */
+function toolGroupLabel(tool: string, count: number): string {
+  return `${toolLabel(tool)} · ${count} 次`;
 }
 /**
  * issue #3316 ①（2026-09-10 devapp 人类实测）—— 「正在执行工具操作」那一行的小动画是
@@ -120,7 +132,25 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     </button>
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
-        {rows.map((row) => row.kind === "skill-group"
+        {rows.map((row) => row.kind === "tool-group"
+          ? <li key={row.id} data-testid="run-trace-entry" data-kind="tool-group" data-status="succeeded" data-tool-name={row.tool} data-member-count={row.members.length}>
+              {/* 2026-09-16：相邻同名工具折成一行（`groupTraceRows` 的 `tool-group`）。
+                  成员一条不少地留在展开层里，每条带自己的对象短语（page-06.png），
+                  这样「它到底读了哪几个文件」仍然一眼可查——折的是重复，不是事实。 */}
+              <details className="min-w-0">
+                <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="inline-flex items-center gap-2">
+                    <Wrench aria-hidden className="h-3.5 w-3.5" />
+                    <span data-testid="chat-task-workbench-event-row">{toolGroupLabel(row.tool, row.members.length)}</span>
+                    <Check data-testid="run-trace-entry-status-icon" aria-label="工具调用完成" className="h-3 w-3" />
+                  </span>
+                </summary>
+                <ul className="space-y-1 pl-4 pt-1">
+                  {row.members.map((member) => <li key={member.id} data-testid="run-trace-group-member" data-status={member.status}>{toolObject(member.text, member.args) ?? toolLabel(member.text)}</li>)}
+                </ul>
+              </details>
+            </li>
+          : row.kind === "skill-group"
           ? <li key={row.id} data-testid="run-trace-entry" data-kind="skill-group" data-status="observed" data-member-count={row.members.length}>
               <details className="min-w-0">
                 <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -166,8 +196,29 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
                 {entry.activityStage ? null : renderTool?.(entry)}
                 {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
-                {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}
-                {entry.result !== undefined ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
+                {/* 2026-09-16 人类实测（非技术用户）—— 展开后迎面是两块 JSON，外加一个
+                    大写的 `null`。三条分流，事实一件不少：
+                      · 结果等于什么都没有（isEmptyToolResult：null / 空串 / 空对象）⇒
+                        写一句「这一步没有返回内容」。屏幕上的 `null` 对非技术用户不是
+                        「空」，是「出错了」——而这一步其实是成功的（图标就是 ✓）。
+                      · 结果是一段文字 ⇒ 照旧直接显示。那是人能读的内容，不是机器语法，
+                        把它也藏起来就是拿「减少噪音」做借口删信息。
+                      · 其余（对象/数组的 JSON）与输入一律收进「技术细节」这层折叠，
+                        默认收起。输入的要点已经在折叠行上说成人话了（`toolObject`），
+                        JSON 原文留给排障，不摆在第一屏。渐进式披露，不是删减。 */}
+                {entry.result !== undefined && isEmptyToolResult(entry.result)
+                  ? <p data-testid="run-trace-entry-empty-result">这一步没有返回内容。</p> : null}
+                {typeof entry.result === "string" && !isEmptyToolResult(entry.result)
+                  ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre></div> : null}
+                {entry.args !== undefined || (entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result))
+                  ? <details data-testid="run-trace-entry-raw">
+                      <summary className="cursor-pointer text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">技术细节</summary>
+                      <div className="mt-1 space-y-2">
+                        {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}
+                        {entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result) ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
+                      </div>
+                    </details>
+                  : null}
               </div>
             </details>}
         </li>)(row.entry))}
