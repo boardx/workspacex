@@ -12,7 +12,7 @@
 import { app, BrowserWindow, dialog, shell } from "electron";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveLocalConfig, runDoctor, up, type RunningStack } from "@repo/local-runtime";
+import { localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack } from "@repo/local-runtime";
 
 let stack: RunningStack | null = null;
 let win: BrowserWindow | null = null;
@@ -114,7 +114,16 @@ async function boot(): Promise<void> {
   //   log forever (人类实测 2026-09-17: every start with a warning "hung" on this page).
   showingApp = true;
   if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
-  await win.loadURL(stack.urls.web);
+  // Single-user desktop: sign in with the account the runtime generated and hand the session
+  // to the login page (人类决策 2026-09-17: 本地版不该还要登录). If that fails for any
+  // reason the plain login page is the fallback -- never a blank window.
+  let target = stack.urls.web;
+  try {
+    target = localSessionUrl(stack.urls.web, await signInLocal(stack.urls.api, stack.login));
+  } catch (e) {
+    log(`自动登录失败，改为显示登录页: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  await win.loadURL(target);
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: "deny" }; });
 }
 
