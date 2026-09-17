@@ -18,6 +18,8 @@
  * 这正是本测试要强制的那件事。
  */
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { IC_REVIEW_SKILL_MD } from "../../scripts/ic-review-skill-content";
 import { IC_REVIEW_SKILL_VERSION_ID } from "../../../web/lib/ic-review/skill-identity";
@@ -70,5 +72,30 @@ describe("上会审阅 Skill：正文与版本号必须一起改", () => {
     expect(IC_REVIEW_SKILL_MD).toContain("无法判定");
     expect(IC_REVIEW_SKILL_MD).toContain("仅并购类适用");
     expect(IC_REVIEW_SKILL_MD).toContain("仅融资类适用");
+  });
+});
+
+describe("导出到别的系统的那一份，必须就是线上跑的这一份", () => {
+  /**
+   * `skills/standard-finance/ic-review/SKILL.md` 由
+   * `skills/standard-finance/scripts/build.ts` 从同一个 `IC_REVIEW_SKILL_MD` 导出。
+   * 它存在的意义是「别的系统装的就是我们线上跑的」——一旦有人改了正文没重新导出，
+   * 这句话当场变成假话，而且看不出来（导出物本身长得很正常）。所以逐字节对。
+   *
+   * 改了正文之后怎么办：`node --import tsx skills/standard-finance/scripts/build.ts`
+   * 重新导出并提交，不要手改 SKILL.md。
+   */
+  const exported = readFileSync(
+    fileURLToPath(new URL("../../../../skills/standard-finance/ic-review/SKILL.md", import.meta.url)),
+    "utf8",
+  );
+
+  it("导出的 SKILL.md 与 IC_REVIEW_SKILL_MD 逐字节相同", () => {
+    expect(exported).toBe(IC_REVIEW_SKILL_MD);
+  });
+
+  it("导出物带标准 Agent Skill 的 YAML frontmatter（别的系统靠它识别）", () => {
+    expect(exported.startsWith("---\nname: ic-review-standard\n")).toBe(true);
+    expect(exported).toContain("description:");
   });
 });
