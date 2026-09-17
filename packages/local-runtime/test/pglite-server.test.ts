@@ -64,3 +64,15 @@ describe("pglite two-phase server", () => {
     }
   });
 });
+
+describe("port guard", () => {
+  it("names another running instance instead of letting PGlite abort", async () => {
+    const { assertPostgresPortFree } = await import("../src/pglite-server");
+    const net = await import("node:net");
+    const holder = net.createServer();
+    const port = await new Promise<number>((r) => holder.listen(0, "127.0.0.1", () => r((holder.address() as { port: number }).port)));
+    await expect(assertPostgresPortFree(port)).rejects.toThrow(/another WorkspaceX Local/);
+    await new Promise<void>((r) => holder.close(() => r()));
+    await expect(assertPostgresPortFree(port)).resolves.toBeUndefined();
+  });
+});
