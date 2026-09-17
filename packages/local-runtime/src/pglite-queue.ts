@@ -38,6 +38,7 @@ import type { PGlite } from "@electric-sql/pglite";
 
 interface QueueItem {
   readonly handlerId: number;
+  readonly enqueuedAt: number;
   readonly message: Uint8Array;
   readonly onData: (chunk: Uint8Array) => void;
   readonly resolve: (bytes: number) => void;
@@ -57,16 +58,22 @@ export class SessionAwareQueryQueue {
   private ownerAwaitingReady = false;
   /** SQL text of the owner's last Parse/Query, for the idle-release diagnostic */
   private ownerLastSql = "";
+  /** called when a message waited longer than `longWaitMs` for the backend (who was busy, and with what) */
+  onLongWait: (info: { handlerId: number; waitedMs: number; busyHandlerId: number | null; busySql: string; queued: number }) => void = () => {};
+  longWaitMs = 3_000;
   /** called when an owner is taken away by the idle guard; an anomaly worth a log line */
   onIdleRelease: (info: { handlerId: number; heldMs: number; inTransaction: boolean; lastSql: string; why: string; lastTypes: string }) => void = () => {};
   /** frontend message types the owner sent since it claimed the backend (diagnostics) */
   private ownerTypes: string[] = [];
+  /** who ran the previous message and its SQL (for the long-wait diagnostic) */
+  private lastRunHandler: number | null = null;
+  private lastRunSql = "";
   /** the last chunk of backend output for the in-flight message, to detect ReadyForQuery */
   constructor(private readonly db: PGlite, private readonly ownerIdleMs = 5_000) {}
 
   enqueue(handlerId: number, message: Uint8Array, onData: (chunk: Uint8Array) => void): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-      this.queue.push({ handlerId, message: rewriteNames(handlerId, message), onData, resolve, reject });
+      this.queue.push({ handlerId, enqueuedAt: Date.now(), message: rewriteNames(handlerId, message), onData, resolve, reject });
       if (!this.processing) void this.processQueue();
     });
   }
@@ -132,10 +139,15 @@ export class SessionAwareQueryQueue {
           if (this.owner !== null && this.queue.length > 0) { await sleep(2); continue; }
           break;
         }
+        const waited = Date.now() - item.enqueuedAt;
+        if (waited > this.longWaitMs) this.onLongWait({ handlerId: item.handlerId, waitedMs: waited, busyHandlerId: this.lastRunHandler, busySql: this.lastRunSql, queued: this.queue.length });
         const type = item.message[0];
         this.ownerTypes.push(String.fromCharCode(type!));
         if (type === 0x50 /* P */ && parseStatementName(item.message) === "") this.pendingUnnamedParse.add(item.handlerId);
         if (type === 0x50 || type === 0x51) this.ownerLastSql = sqlText(item.message);
+        if (item.handlerId !== this.lastRunHandler) this.lastRunSql = "";
+        this.lastRunHandler = item.handlerId;
+        if (type === 0x50 || type === 0x51) this.lastRunSql = this.ownerLastSql;
         if (type === 0x42 /* B */ || type === 0x51 /* Q */) this.pendingUnnamedParse.delete(item.handlerId);
         let bytes = 0;
         const tracker = new BackendMessageTracker();

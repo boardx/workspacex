@@ -69,7 +69,21 @@ class PostgresLedger:
         self._dsn = dsn
 
     def _connect(self):
-        return psycopg.connect(self._dsn, autocommit=True, row_factory=dict_row, connect_timeout=5)
+        # Every ledger call opens a fresh connection. On a single-session backend (WorkspaceX
+        # Local / PGlite) the connect handshake queues behind whoever is busy, and 5 s was hit
+        # in the middle of long canvas runs -> the run ended with "ConnectionTimeout" although
+        # nothing was wrong (Mac实测 2026-09-17). Timeout and a bounded retry are configurable;
+        # the cloud default stays 5 s / no retry.
+        timeout = int(os.environ.get("DEEP_AGENT_PG_CONNECT_TIMEOUT_SECONDS", "5"))
+        retries = int(os.environ.get("DEEP_AGENT_PG_CONNECT_RETRIES", "0"))
+        attempt = 0
+        while True:
+            try:
+                return psycopg.connect(self._dsn, autocommit=True, row_factory=dict_row, connect_timeout=timeout)
+            except psycopg.errors.ConnectionTimeout:
+                if attempt >= retries:
+                    raise
+                attempt += 1
 
     async def _call(self, operation: Callable[[], Any]) -> Any:
         return await asyncio.to_thread(operation)

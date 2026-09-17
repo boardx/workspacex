@@ -202,6 +202,9 @@ export function apiEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     PORT: String(c.ports.api),
     NODE_ENV: "development",
+    // A local 4B model with skill calls needs well over the cloud default of 5 min per run
+    // (three-lenses canvas hit the 300 s deadline on a Mac, 2026-09-17).
+    KERNEL_DEEP_AGENT_TIMEOUT_MS: "900000",
     // The API loads <repo>/.env.local in development; a developer's cloud settings there
     // (native-session socket, Bailian keys) would silently override the local shape.
     KERNEL_SKIP_LOCAL_ENV_FILE: "1",
@@ -251,6 +254,9 @@ export function deepAgentEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     DATABASE_URI: uri,
     DEEP_AGENT_CHECKPOINT_DB: uri,
+    // single-session backend: a connect can legitimately queue behind a busy neighbour
+    DEEP_AGENT_PG_CONNECT_TIMEOUT_SECONDS: "30",
+    DEEP_AGENT_PG_CONNECT_RETRIES: "2",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),

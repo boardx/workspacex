@@ -55,6 +55,7 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
   // built-in one interleaves clients between Parse and Bind and shares statement names.
   const queue = new SessionAwareQueryQueue(db);
   queue.onIdleRelease = (i) => console.warn(`[pglite] backend taken from idle connection #${i.handlerId} after ${i.heldMs}ms (why=${i.why} types=${i.lastTypes}) last sql: ${i.lastSql}`);
+  queue.onLongWait = (i) => console.warn(`[pglite] connection #${i.handlerId} waited ${i.waitedMs}ms for the backend (busy: #${i.busyHandlerId} ${i.busySql || "?"}; queued=${i.queued})`);
   (server as unknown as { queryQueue: unknown }).queryQueue = queue;
   await server.start();
   let stopped = false;
