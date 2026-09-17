@@ -201,3 +201,19 @@ def test_default_thinking_disable_ids_match_typescript_side() -> None:
     src = ts.read_text(encoding="utf-8")
     needle = f'env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "{_DEFAULT_THINKING_DISABLE_MODEL_IDS}"'
     assert needle in src, f"TS 侧默认值与 Python 不一致，期望片段：{needle}"
+
+
+def test_reasoning_effort_env_lands_in_extra_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://127.0.0.1:11434/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "ollama-local")
+    monkeypatch.setenv("KERNEL_MODEL_REASONING_EFFORT", "none")
+    model = build_chat_model()
+    assert model.extra_body == {"reasoning_effort": "none"}
+
+
+def test_reasoning_effort_unset_sends_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://127.0.0.1:11434/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "ollama-local")
+    monkeypatch.delenv("KERNEL_MODEL_REASONING_EFFORT", raising=False)
+    model = build_chat_model()
+    assert not model.extra_body

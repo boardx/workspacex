@@ -16,6 +16,7 @@ import {
 } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
+import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import { assertPortFree, killTree, startManaged, waitForHttp, waitForManaged, runToCompletion, type Managed } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
@@ -42,7 +43,7 @@ export interface RunningStack {
 }
 
 export async function up(opts: UpOptions): Promise<RunningStack> {
-  const c = opts.config;
+  let c = opts.config;
   const log = opts.log ?? ((l: string) => process.stdout.write(`${l}\n`));
   const warnings: string[] = [];
   const managed: Managed[] = [];
@@ -82,8 +83,15 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const ollamaBin = findOllama(opts.bundleBinDir);
     let ollamaUrl: string | null = null;
     if (ollamaBin) {
+      const running = await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama}`);
+      const choice = chooseOllama({ running, binary: ollamaBinaryVersion(ollamaBin), port: c.ports.ollama });
+      log(`[ollama] ${choice.reason}`);
+      if (choice.port !== c.ports.ollama) {
+        await assertPortFree(choice.port, "ollama");
+        c = { ...c, ports: { ...c.ports, ollama: choice.port } };
+      }
       ollamaUrl = `http://127.0.0.1:${c.ports.ollama}`;
-      const already = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false);
+      const already = choice.reuse;
       // Bundled models go into whichever store the Ollama we are about to talk to serves from:
       // ours (data dir) when we spawn it, the user's own (OLLAMA_MODELS or ~/.ollama/models)
       // when one is already running -- copying into ours would be invisible to that one.

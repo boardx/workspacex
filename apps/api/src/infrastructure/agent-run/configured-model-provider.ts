@@ -109,6 +109,13 @@ export interface ConfiguredModelProviderConfig {
    * JSON 解析失败）。`undefined` = 不发这个字段 ⇒ 与加这个开关之前逐字相同。
    */
   readonly maxOutputTokens?: number;
+  /**
+   * `reasoning_effort` on the request body (OpenAI-style). WorkspaceX Local sets `none`: on
+   * Ollama ≥ 0.34 that switches Qwen3.5's thinking off (`think:false` on `/v1` is ignored,
+   * measured 2026-09-17: 12 s / 429 reasoning chars → 1.2 s / 0). Unset = not sent, so every
+   * existing deployment's request body is byte-for-byte unchanged.
+   */
+  readonly reasoningEffort?: string;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -129,6 +136,7 @@ export function readModelProviderConfig(
   // 迭代 12：缺省**不传**，不是填一个我们编的默认值——那会在所有部署上悄悄改变行为。
   const rawMaxOut = Number(env.KERNEL_MODEL_MAX_OUTPUT_TOKENS ?? "");
   const maxOut = Number.isFinite(rawMaxOut) && rawMaxOut > 0 ? Math.floor(rawMaxOut) : undefined;
+  const reasoningEffort = (env.KERNEL_MODEL_REASONING_EFFORT ?? "").trim();
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
     baseUrl,
@@ -139,6 +147,7 @@ export function readModelProviderConfig(
     thinkingDisableModelIds: readThinkingDisableModelIds(env),
     bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
     ...(maxOut === undefined ? {} : { maxOutputTokens: maxOut }),
+    ...(reasoningEffort === "" ? {} : { reasoningEffort }),
   };
 }
 
@@ -485,6 +494,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             ? { enable_thinking: false }
             : {}),
           ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
+          ...(this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
         }),
       });
     } catch (err) {

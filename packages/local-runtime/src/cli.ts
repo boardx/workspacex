@@ -10,6 +10,7 @@
  *        --ports api=3200,web=3100,deepAgent=2024,...   override any port from DEFAULT_PORTS
  *        --models-bundle <dir>   Ollama models shipped with the app (imported before the pull step)
  *        --asr-bundle <dir>      streaming ASR model shipped with the app (used in place when the data dir has none)
+ *        --bundle-bin <dir>      directory holding the bundled ollama binary (apps/desktop/bin)
  *   export-models [--source <ollama store>] [--dest <dir>] [--models a,b]   build-machine: copy models into the bundle
  */
 import { homedir } from "node:os";
@@ -52,7 +53,8 @@ if (cmd === "doctor") {
   const webMode = (flag("web") ?? "dev") as "dev" | "start" | "none";
   const bundleModelsDir = flag("models-bundle");
   const bundleAsrModelsDir = flag("asr-bundle");
-  const stack = await up({ config: c, webMode, pullModel: !process.argv.includes("--no-pull"), ...(bundleModelsDir ? { bundleModelsDir: resolve(bundleModelsDir) } : {}), ...(bundleAsrModelsDir ? { bundleAsrModelsDir: resolve(bundleAsrModelsDir) } : {}) });
+  const bundleBinDir = flag("bundle-bin");
+  const stack = await up({ config: c, webMode, pullModel: !process.argv.includes("--no-pull"), ...(bundleModelsDir ? { bundleModelsDir: resolve(bundleModelsDir) } : {}), ...(bundleAsrModelsDir ? { bundleAsrModelsDir: resolve(bundleAsrModelsDir) } : {}), ...(bundleBinDir ? { bundleBinDir: resolve(bundleBinDir) } : {}) });
   console.log("\n✅ WorkspaceX Local 已启动");
   console.log(`   打开：${stack.urls.web}`);
   console.log(`   登录：${stack.login.email} / ${stack.login.password}`);

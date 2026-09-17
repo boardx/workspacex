@@ -198,6 +198,9 @@ export function modelEnv(c: LocalConfig): Env {
     // A 4B model with thinking on is several times slower; the API already knows how to
     // send `enable_thinking:false` for ids in this list.
     KERNEL_MODEL_THINKING_DISABLE_IDS: c.chatModel,
+    // Ollama >= 0.34: `reasoning_effort: "none"` on /v1 switches Qwen3.5 thinking off
+    // (the bailian `enable_thinking` field is not sent to Ollama). Measured: one-liner 12 s -> 1.2 s.
+    KERNEL_MODEL_REASONING_EFFORT: "none",
     KERNEL_MODEL_BAILIAN_EXTENSIONS: "0",
     KERNEL_EMBEDDING_MODEL_ID: c.embeddingModel,
     KERNEL_EMBEDDING_MODEL_VERSION: "local-1",
