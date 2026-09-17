@@ -489,7 +489,12 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
     # harness.py already tolerates a missing confirm_task_intent (falls back to write_todos).
     # Unset = unchanged for every server deployment.
     if hitl_clarification_disabled():
-        return [list_org_skills, call_skill, spawn_async_task]
+        # WorkspaceX Local runs the legacy profile (no native session socket), which never
+        # carried the standard web tools -- so `fetch_url` in the prompt was "not a valid tool"
+        # and the 4B model told the user it cannot access URLs (Mac实测 2026-09-18, #3716).
+        # The tools call back into the local API's standard-web endpoint like the native profile.
+        from .standard_web_tools import standard_web_tools
+        return [list_org_skills, call_skill, spawn_async_task, *standard_web_tools()]
     return [
         list_org_skills,
         call_skill,
