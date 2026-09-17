@@ -20,6 +20,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { DB_NAME } from "./config";
+import { SessionAwareQueryQueue } from "./pglite-queue";
 
 export interface PgliteServerOptions {
   readonly dataDir: string;
@@ -49,6 +50,9 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
     // Default is 1, and the API's pool (max 5) + pg-boss + Python would ECONNRESET.
     maxConnections: opts.maxConnections ?? 32,
   });
+  // Replace the per-message queue with a session-aware one (see pglite-queue.ts): the
+  // built-in one interleaves clients between Parse and Bind and shares statement names.
+  (server as unknown as { queryQueue: unknown }).queryQueue = new SessionAwareQueryQueue(db);
   await server.start();
   let stopped = false;
   return {
