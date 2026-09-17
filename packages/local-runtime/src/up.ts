@@ -10,11 +10,12 @@
  */
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { platform } from "node:os";
+import { homedir, platform } from "node:os";
 import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
 } from "./config";
 import { findOllama } from "./doctor";
+import { importModels } from "./model-bundle";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import { assertPortFree, killTree, startManaged, waitForHttp, waitForManaged, runToCompletion, type Managed } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
@@ -25,6 +26,8 @@ export interface UpOptions {
   /** `dev` = `next dev` (no build step, slow first paint); `start` = `next start` on a prior `next build`. */
   readonly webMode?: "dev" | "start" | "none";
   readonly bundleBinDir?: string;
+  /** Ollama models shipped in the bundle (scripts/local-bundle/fetch-models.sh); imported into the store the running Ollama uses. */
+  readonly bundleModelsDir?: string;
   /** Skip pulling the model even if Ollama is up (tests, offline). */
   readonly pullModel?: boolean;
 }
@@ -79,6 +82,21 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     if (ollamaBin) {
       ollamaUrl = `http://127.0.0.1:${c.ports.ollama}`;
       const already = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false);
+      // Bundled models go into whichever store the Ollama we are about to talk to serves from:
+      // ours (data dir) when we spawn it, the user's own (OLLAMA_MODELS or ~/.ollama/models)
+      // when one is already running -- copying into ours would be invisible to that one.
+      if (opts.bundleModelsDir && !existsSync(opts.bundleModelsDir)) {
+        warnings.push(`随包模型目录不存在，跳过导入：${opts.bundleModelsDir}`);
+      } else if (opts.bundleModelsDir) {
+        const store = already ? (process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models")) : paths.models(c);
+        try {
+          const r = importModels(opts.bundleModelsDir, store);
+          if (r.imported.length) log(`[ollama] imported bundled model(s) into ${store}: ${r.imported.join(", ")}`);
+          else log(`[ollama] bundled model(s) already in ${store}: ${r.skipped.join(", ")}`);
+        } catch (e) {
+          warnings.push(`随包模型导入失败（将回退到联网拉取）：${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
       if (!already) {
         managed.push(startManaged({ name: "ollama", command: ollamaBin, args: ["serve"], cwd: c.dataDir, env: ollamaEnv(c), logDir: paths.logs(c) }, log));
         await waitForHttp(`${ollamaUrl}/api/tags`, { timeoutMs: 30_000 });

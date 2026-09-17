@@ -6,6 +6,7 @@
 # This is the "run the repo with tsx" alpha shape; a compiled/pruned bundle is R1 work.
 #
 # resources/bin: the Ollama binary, placed there by scripts/local-bundle/fetch-ollama.sh.
+# resources/models: the chat + embedding models, placed there by scripts/local-bundle/fetch-models.sh.
 appId: com.workspacex.local
 productName: WorkspaceX Local
 directories:
@@ -39,6 +40,10 @@ extraResources:
       - "!apps/web/.next-*/**"
   - from: bin
     to: bin
+  # Ollama models (manifests + blobs) exported by scripts/local-bundle/fetch-models.sh; imported
+  # into the running Ollama's store on first start so no download is needed (人类决策 2026-09-17).
+  - from: models
+    to: models
 asar: false
 mac:
   target:

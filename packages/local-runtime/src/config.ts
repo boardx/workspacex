@@ -201,6 +201,10 @@ export function apiEnv(c: LocalConfig): Env {
     ...databaseEnv(c),
     ...modelEnv(c),
     PORT: String(c.ports.api),
+    KERNEL_LISTEN_HOST: "127.0.0.1",
+    // the platform catalog is seeded in the owner phase (seeds.ts); the API-side self-heal
+    // would only hit RLS as app_rw and print 42501/23503 stacks on every boot
+    KERNEL_PLATFORM_SKILL_SELFHEAL: "off",
     NODE_ENV: "development",
     // A local 4B model with skill calls needs well over the cloud default of 5 min per run
     // (three-lenses canvas hit the 300 s deadline on a Mac, 2026-09-17).

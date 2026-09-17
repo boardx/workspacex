@@ -8,6 +8,8 @@
  *
  * Flags: --data-dir <path> (default ~/.workspacex-local) --repo-root <path> --web dev|start|none --no-pull
  *        --ports api=3200,web=3100,deepAgent=2024,...   override any port from DEFAULT_PORTS
+ *        --models-bundle <dir>   Ollama models shipped with the app (imported before the pull step)
+ *   export-models [--source <ollama store>] [--dest <dir>] [--models a,b]   build-machine: copy models into the bundle
  */
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { apiEnv, resolveLocalConfig, type LocalPorts } from "./config";
 import { runDoctor } from "./doctor";
 import { up } from "./up";
+import { exportModels } from "./model-bundle";
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,7 +49,8 @@ if (cmd === "doctor") {
 } else if (cmd === "up") {
   const c = resolveLocalConfig({ repoRoot, dataDir, ports });
   const webMode = (flag("web") ?? "dev") as "dev" | "start" | "none";
-  const stack = await up({ config: c, webMode, pullModel: !process.argv.includes("--no-pull") });
+  const bundleModelsDir = flag("models-bundle");
+  const stack = await up({ config: c, webMode, pullModel: !process.argv.includes("--no-pull"), ...(bundleModelsDir ? { bundleModelsDir: resolve(bundleModelsDir) } : {}) });
   console.log("\n✅ WorkspaceX Local 已启动");
   console.log(`   打开：${stack.urls.web}`);
   console.log(`   登录：${stack.login.email} / ${stack.login.password}`);
@@ -61,7 +65,15 @@ if (cmd === "doctor") {
   process.on("SIGTERM", () => void shutdown());
   process.on("uncaughtException", (e) => { console.error(e); void shutdown(); });
   process.on("unhandledRejection", (e) => { console.error(e); void shutdown(); });
+} else if (cmd === "export-models") {
+  // Build-machine step (scripts/local-bundle/fetch-models.sh): copy the configured models out
+  // of an Ollama store into the bundle dir that electron-builder ships as resources/models.
+  const source = resolve(flag("source") ?? process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models"));
+  const dest = resolve(flag("dest") ?? join(repoRoot, "apps", "desktop", "models"));
+  const c = resolveLocalConfig({ repoRoot, dataDir, ports });
+  const models = (flag("models") ?? `${c.chatModel},${c.embeddingModel}`).split(",").filter(Boolean);
+  for (const r of exportModels(source, dest, models)) console.log(`exported ${r.model}: ${r.blobs} blob(s), ${(r.bytes / 1024 / 1024).toFixed(0)} MB -> ${dest}`);
 } else {
-  console.log("usage: local-runtime up|doctor|env [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull]");
+  console.log("usage: local-runtime up|doctor|env|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b]");
   process.exit(cmd === "help" ? 0 : 2);
 }
