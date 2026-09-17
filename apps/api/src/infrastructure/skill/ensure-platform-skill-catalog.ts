@@ -71,7 +71,7 @@ export { POST_INVESTMENT_SKILL_ID, POST_INVESTMENT_SKILL_VERSION_ID };
 
 /** 两个 backfill 共用的服务身份——`org-platform` 唯一成员，结构上不可登录
  *  （见下方 `ensurePlatformOrgSeeded` 的头注）。 */
-const SERVICE_ACTOR_ID = "svc-platform-templates";
+export const SERVICE_ACTOR_ID = "svc-platform-templates";
 
 export interface PlatformOrgBackfillReport {
   readonly orgCreated: boolean;

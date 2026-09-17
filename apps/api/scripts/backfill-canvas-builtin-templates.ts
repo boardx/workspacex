@@ -69,6 +69,7 @@
  *
  * 用法：`pnpm --filter api exec tsx scripts/backfill-canvas-builtin-templates.ts <orgId>`
  */
+import { isCliEntry } from "./cli-entry";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { PgIdentityRepository } from "../src/infrastructure/identity/pg-identity-repository";
@@ -404,7 +405,7 @@ export async function backfillCanvasBuiltinTemplates(
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   const orgId = process.argv[2];
   if (!orgId) {
     console.error(

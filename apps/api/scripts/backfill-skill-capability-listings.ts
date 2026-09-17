@@ -12,6 +12,7 @@
  * (matched by id, since `pg-skill-url-import-repository.ts` uses the skill's own id as the
  * listing's id -- same convention `pg-skill-starter-import-repository.ts` uses).
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { migrationConfig } from "../src/infrastructure/db/pg-config";
 
@@ -56,6 +57,6 @@ export async function backfillSkillCapabilityListings(): Promise<SkillListingBac
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillSkillCapabilityListings();
 }

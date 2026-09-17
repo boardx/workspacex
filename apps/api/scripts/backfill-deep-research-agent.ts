@@ -13,6 +13,7 @@
  * reachable (`KERNEL_DEEP_RESEARCH_BASE_URL`) is checked at RUN time by
  * `DeepResearchModelProvider`, not baked into the stored row.
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
@@ -83,6 +84,6 @@ export async function backfillDeepResearchAgent(): Promise<DeepResearchBackfillR
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillDeepResearchAgent();
 }

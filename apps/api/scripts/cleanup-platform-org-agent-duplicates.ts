@@ -35,6 +35,7 @@
  *
  * Usage: `pnpm --filter api exec tsx scripts/cleanup-platform-org-agent-duplicates.ts`
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { agentDefaults } from "@repo/contracts";
 import { migrationConfig } from "../src/infrastructure/db/pg-config";
@@ -107,6 +108,6 @@ export async function cleanupPlatformOrgAgentDuplicates(): Promise<PlatformOrgAg
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await cleanupPlatformOrgAgentDuplicates();
 }
