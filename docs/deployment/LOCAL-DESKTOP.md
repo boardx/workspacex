@@ -46,7 +46,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```bash
 ./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
-pnpm --filter web build                       # apps/web/.next（桌面用 next start）
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
 
@@ -61,6 +61,10 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 换引擎（Qwen3-ASR / Whisper）= 在网关里加一个 `Engine` 实现，协议不动。
 
 ## 已知偏差（如实登记）
+
+- 浏览器直连 API（3100 → 3200 跨域）：API 仅在 `KERNEL_CORS_ORIGINS` 列出精确 origin 时开启 CORS，本地版列 `127.0.0.1:3100` 与 `localhost:3100`；生产不设该变量，行为不变。
+
+- API 在开发模式会加载仓库根的 `.env.local`；local-runtime 设 `KERNEL_SKIP_LOCAL_ENV_FILE=1` 跳过它，并把 `NATIVE_SESSION_*` 钉空——本机不跑 bubblewrap 原生会话（Linux-only），运行走 legacy profile + TCP 沙箱。
 
 - pglite-socket 忽略客户端登录角色：所有连接都是实例打开时的角色。启动分两段：先以 `postgres` 迁移 + 种子，再以 `app_rw` 对外服务；`session_user` 仍是 postgres，`SET ROLE postgres` 不会被拒。仅适用于单用户本机回环，**不是**多机部署形态。
 - API 启动时的「平台 skill 目录自愈」以 owner 凭据写 `organizations`，在 app 阶段会被 RLS 拒绝并打一条 `42501` 日志；种子已在 owner 阶段完成，功能不受影响。

@@ -46,6 +46,13 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     for (const m of [...managed].reverse()) await m.stop();
     await pg?.stop();
   };
+  // If the supervisor itself dies (uncaught error, SIGKILL is the one thing we cannot catch),
+  // the children must not outlive it: an orphaned sandbox/API keeps its port and the next
+  // start fails with EADDRINUSE. `exit` is synchronous, so only signal here, no awaiting.
+  const killChildrenOnExit = (): void => {
+    for (const m of managed) if (m.child.exitCode === null) m.child.kill("SIGTERM");
+  };
+  process.once("exit", killChildrenOnExit);
 
   for (const d of [paths.objects(c), paths.logs(c), paths.sandboxIn(c), paths.sandboxOut(c), paths.models(c)]) {
     mkdirSync(d, { recursive: true });
@@ -154,9 +161,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const webMode = opts.webMode ?? "dev";
     const webUrl = `http://127.0.0.1:${c.ports.web}`;
     if (webMode !== "none") {
+      // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
       managed.push(startManaged({
         name: "web",
-        command: join(c.repoRoot, "node_modules", ".bin", "next"),
+        command: join(c.repoRoot, "apps", "web", "node_modules", ".bin", "next"),
         args: [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"],
         cwd: join(c.repoRoot, "apps", "web"),
         env: webEnv(c),

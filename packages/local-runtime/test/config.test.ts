@@ -39,7 +39,10 @@ describe("local config", () => {
     expect(sandboxEnv(c).SKILL_SANDBOX_HOST).toBe("127.0.0.1");
     expect(api.KERNEL_DEEP_AGENT_BASE_URL).toBe("http://127.0.0.1:2024");
     expect(api.DEEP_AGENT_SERVICE_INTERNAL_KEY).toBe(py.DEEP_AGENT_SERVICE_INTERNAL_KEY);
+    // browser calls the API directly; the API allows exactly the origins the web is served on
     expect(webEnv(c).NEXT_PUBLIC_API_URL).toBe("http://127.0.0.1:4200");
+    expect(webEnv(c).NEXT_PUBLIC_API_WS_URL).toBe("http://127.0.0.1:4200");
+    expect(api.KERNEL_CORS_ORIGINS).toBe("http://127.0.0.1:4100,http://localhost:4100");
     for (const v of Object.values({ ...api, ...py })) {
       if (/^https?:\/\//.test(v)) expect(v).toMatch(/^https?:\/\/127\.0\.0\.1[:/]/);
     }
@@ -48,5 +51,9 @@ describe("local config", () => {
       expect(api[k]).toBeUndefined();
     }
     expect(readFileSync(join(c.dataDir, "secrets.json"), "utf8")).toContain(api.MODEL_CREDENTIAL_KEY);
+    // a developer's .env.local must not leak into the local shape; native sessions stay off
+    expect(api.KERNEL_SKIP_LOCAL_ENV_FILE).toBe("1");
+    expect(api.NATIVE_SESSION_SOCKET).toBe("");
+    expect(api.KERNEL_NATIVE_RUNTIME).toBe("0");
   });
 });

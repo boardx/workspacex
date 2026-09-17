@@ -59,6 +59,8 @@ if (cmd === "doctor") {
   };
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
+  process.on("uncaughtException", (e) => { console.error(e); void shutdown(); });
+  process.on("unhandledRejection", (e) => { console.error(e); void shutdown(); });
 } else {
   console.log("usage: local-runtime up|doctor|env [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull]");
   process.exit(cmd === "help" ? 0 : 2);

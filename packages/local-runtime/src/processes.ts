@@ -53,6 +53,15 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
       file?.end();
       resolve(code);
     });
+    // ENOENT etc.: without a handler Node throws an unhandled 'error' and takes the whole
+    // supervisor down; here it becomes a logged line + a failed readiness wait instead.
+    child.on("error", (e) => {
+      const line = `[${spec.name}] failed to start ${spec.command}: ${e.message}`;
+      file?.write(`${new Date().toISOString()} ${line}\n`);
+      log(line);
+      file?.end();
+      resolve(null);
+    });
   });
   return {
     name: spec.name,

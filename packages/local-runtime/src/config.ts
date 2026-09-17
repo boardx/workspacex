@@ -202,8 +202,17 @@ export function apiEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     PORT: String(c.ports.api),
     NODE_ENV: "development",
+    // The API loads <repo>/.env.local in development; a developer's cloud settings there
+    // (native-session socket, Bailian keys) would silently override the local shape.
+    KERNEL_SKIP_LOCAL_ENV_FILE: "1",
+    // Native (bubblewrap) sessions are Linux-only; local runs use the legacy profile with
+    // the TCP sandbox. Pinned to empty so nothing inherited can re-enable them.
+    NATIVE_SESSION_SOCKET: "",
+    NATIVE_SESSION_BINDING_KEY: "",
+    KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
+    KERNEL_CORS_ORIGINS: webOrigins(c).join(","),
     // no Redis on this machine (issue #3716)
     KERNEL_SESSION_STORE: "file",
     KERNEL_SESSION_STORE_FILE: paths.sessions(c),
@@ -248,12 +257,25 @@ export function deepAgentEnv(c: LocalConfig): Env {
   };
 }
 
+/**
+ * The browser calls the API directly on its own port. The API has no CORS layer in
+ * production (Caddy makes it same-origin there); for the local build the API enables CORS
+ * for exactly the origins the web app is served on (`KERNEL_CORS_ORIGINS`, see apiEnv), so
+ * both `localhost` and `127.0.0.1` tabs work. Bearer tokens, no cookies.
+ */
 export function webEnv(c: LocalConfig): Env {
+  const api = `http://127.0.0.1:${c.ports.api}`;
   return {
     PORT: String(c.ports.web),
-    NEXT_PUBLIC_API_URL: `http://127.0.0.1:${c.ports.api}`,
+    NEXT_PUBLIC_API_URL: api,
+    NEXT_PUBLIC_API_WS_URL: api,
     NEXT_TELEMETRY_DISABLED: "1",
   };
+}
+
+/** Origins the web app may be opened on; the API's CORS allowlist is exactly this. */
+export function webOrigins(c: LocalConfig): string[] {
+  return [`http://127.0.0.1:${c.ports.web}`, `http://localhost:${c.ports.web}`];
 }
 
 export function ollamaEnv(c: LocalConfig): Env {
