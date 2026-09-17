@@ -46,7 +46,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```bash
 ./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
-pnpm --filter web build                       # apps/web/.next（桌面用 next start）
+FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:3200 pnpm --filter web build   # rewrites 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
 

@@ -248,10 +248,25 @@ export function deepAgentEnv(c: LocalConfig): Env {
   };
 }
 
+/**
+ * The browser must reach the API same-origin: the API has no CORS layer (production puts
+ * Caddy in front; see provision.sh), so a direct 3100 → 3200 call is blocked and the login
+ * page reports "登录服务暂时不可用". apps/web already ships a same-origin proxy for exactly
+ * this (next.config.mjs `rewrites()`, gated by FULLSTACK_E2E_API_ORIGIN, prefix
+ * /__fullstack_api) -- the fullstack e2e lane uses it the same way. WebSockets are not
+ * proxied by Next rewrites, so they go straight to the API origin (no CORS on WS).
+ *
+ * ⚠ Rewrites are baked in at `next build`; a packaged bundle must be built with the same
+ * FULLSTACK_E2E_API_ORIGIN / ports it will run with.
+ */
 export function webEnv(c: LocalConfig): Env {
+  const api = `http://127.0.0.1:${c.ports.api}`;
   return {
     PORT: String(c.ports.web),
-    NEXT_PUBLIC_API_URL: `http://127.0.0.1:${c.ports.api}`,
+    NEXT_PUBLIC_API_URL: `http://127.0.0.1:${c.ports.web}`,
+    NEXT_PUBLIC_API_PATH_PREFIX: "/__fullstack_api",
+    NEXT_PUBLIC_API_WS_URL: api,
+    FULLSTACK_E2E_API_ORIGIN: api,
     NEXT_TELEMETRY_DISABLED: "1",
   };
 }
