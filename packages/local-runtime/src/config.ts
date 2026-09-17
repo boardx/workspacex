@@ -263,7 +263,12 @@ export function webEnv(c: LocalConfig): Env {
   const api = `http://127.0.0.1:${c.ports.api}`;
   return {
     PORT: String(c.ports.web),
-    NEXT_PUBLIC_API_URL: `http://127.0.0.1:${c.ports.web}`,
+    // Relative: api-client resolves it against window.location.origin, so the page works
+    // whether the user typed localhost or 127.0.0.1 (an absolute 127.0.0.1 URL was a
+    // cross-origin call from a localhost tab -- CORS-blocked). Server-side rendering needs
+    // the absolute internal URL instead.
+    NEXT_PUBLIC_API_URL: "/",
+    API_INTERNAL_URL: api,
     NEXT_PUBLIC_API_PATH_PREFIX: "/__fullstack_api",
     NEXT_PUBLIC_API_WS_URL: api,
     FULLSTACK_E2E_API_ORIGIN: api,

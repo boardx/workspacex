@@ -40,7 +40,8 @@ describe("local config", () => {
     expect(api.KERNEL_DEEP_AGENT_BASE_URL).toBe("http://127.0.0.1:2024");
     expect(api.DEEP_AGENT_SERVICE_INTERNAL_KEY).toBe(py.DEEP_AGENT_SERVICE_INTERNAL_KEY);
     // browser talks same-origin through the Next proxy; only WebSockets go straight to the API
-    expect(webEnv(c).NEXT_PUBLIC_API_URL).toBe("http://127.0.0.1:4100");
+    expect(webEnv(c).NEXT_PUBLIC_API_URL).toBe("/");
+    expect(webEnv(c).API_INTERNAL_URL).toBe("http://127.0.0.1:4200");
     expect(webEnv(c).NEXT_PUBLIC_API_PATH_PREFIX).toBe("/__fullstack_api");
     expect(webEnv(c).FULLSTACK_E2E_API_ORIGIN).toBe("http://127.0.0.1:4200");
     expect(webEnv(c).NEXT_PUBLIC_API_WS_URL).toBe("http://127.0.0.1:4200");
