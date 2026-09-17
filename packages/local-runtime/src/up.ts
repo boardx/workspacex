@@ -12,7 +12,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:os";
 import {
-  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
+  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
 } from "./config";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
@@ -106,6 +106,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     }
 
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
+    if (!sandboxModulesDir(c)) {
+      warnings.push("skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）");
+    }
     managed.push(startManaged({
       name: "skill-sandbox",
       command: join(c.repoRoot, "node_modules", ".bin", "tsx"),

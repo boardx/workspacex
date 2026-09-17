@@ -239,12 +239,23 @@ export function apiEnv(c: LocalConfig): Env {
   };
 }
 
+/** Flat, real module tree for skill scripts (scripts/local-bundle/prepare-sandbox-modules.sh); null when not prepared. */
+export function sandboxModulesDir(c: LocalConfig): string | null {
+  const dir = join(c.repoRoot, "apps", "skill-sandbox", "preinstalled", "node_modules");
+  return existsSync(join(dir, "pptxgenjs")) ? dir : null;
+}
+
 export function sandboxEnv(c: LocalConfig): Env {
+  const modules = sandboxModulesDir(c);
   return {
     SKILL_SANDBOX_HOST: "127.0.0.1",
     SKILL_SANDBOX_PORT: String(c.ports.sandbox),
     SKILL_SANDBOX_INPUT_DIR: paths.sandboxIn(c),
     SKILL_SANDBOX_OUT_DIR: paths.sandboxOut(c),
+    // Without this every require('pptxgenjs') inside a skill script is MODULE_NOT_FOUND
+    // (the sandbox runs scripts in a tmp dir, not in the workspace). See the header of
+    // scripts/local-bundle/prepare-sandbox-modules.sh.
+    ...(modules ? { SKILL_SANDBOX_MODULES_DIR: modules } : {}),
   };
 }
 

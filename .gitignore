@@ -128,3 +128,6 @@ apps/deep-agent-service/.golden-evidence/
 apps/desktop/dist/
 apps/desktop/release/
 apps/desktop/bin/
+
+# skill sandbox flat preinstalled modules (scripts/local-bundle/prepare-sandbox-modules.sh)
+apps/skill-sandbox/preinstalled/
