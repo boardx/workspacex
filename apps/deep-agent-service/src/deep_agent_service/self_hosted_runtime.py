@@ -9,12 +9,15 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from contextlib import AsyncExitStack
 from dataclasses import asdict, dataclass, is_dataclass
 from functools import lru_cache
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Protocol
 from uuid import uuid4
+
+import threading
 
 import psycopg
 from psycopg.rows import dict_row
@@ -58,7 +61,8 @@ class Ledger(Protocol):
     async def get_run(self, thread_id: str, run_id: str) -> dict[str, Any] | None: ...
     async def latest_run(self, thread_id: str) -> dict[str, Any] | None: ...
     async def append_event(self, run_id: str, event: str, data: Any) -> None: ...
-    async def events(self, run_id: str) -> list[dict[str, Any]]: ...
+    async def append_events(self, run_id: str, items: list[tuple[str, Any]]) -> None: ...
+    async def events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]: ...
     async def mark_orphaned(self) -> None: ...
 
 
@@ -67,6 +71,27 @@ class PostgresLedger:
         if not dsn.strip():
             raise RuntimeError("DEEP_AGENT_CHECKPOINT_DB_REQUIRED")
         self._dsn = dsn
+        # Hot path (events / run status, hit once per streamed token and every 50 ms by the
+        # SSE reader) reuses ONE connection under a lock. A fresh connect per call cost
+        # ~300 ms on the single-session PGlite backend, so an 1 800-token canvas answer
+        # took 9 minutes to persist after the model had finished in 72 s (Mac实测
+        # 2026-09-17, #3716). Rare control-plane calls keep opening their own connection.
+        self._hot_lock = threading.Lock()
+        self._hot: Any = None
+
+    def _hot_call(self, fn: Callable[[Any], Any]) -> Any:
+        with self._hot_lock:
+            for attempt in (0, 1):
+                if self._hot is None or getattr(self._hot, "closed", False):
+                    self._hot = self._connect()
+                try:
+                    return fn(self._hot)
+                except psycopg.OperationalError:
+                    # server went away (restart, idle kill): drop and retry exactly once
+                    try: self._hot.close()
+                    except Exception: pass
+                    self._hot = None
+                    if attempt: raise
 
     def _connect(self):
         # Every ledger call opens a fresh connection. On a single-session backend (WorkspaceX
@@ -128,16 +153,12 @@ class PostgresLedger:
         await self._call(operation)
 
     async def update_run(self, run_id: str, status: str, error: str | None = None) -> None:
-        def operation():
-            with self._connect() as connection:
-                connection.execute("UPDATE wsx_agent_runs SET status=%s,error=%s,updated_at=now() WHERE run_id=%s", (status, error, run_id))
-        await self._call(operation)
+        await self._call(lambda: self._hot_call(lambda connection:
+            connection.execute("UPDATE wsx_agent_runs SET status=%s,error=%s,updated_at=now() WHERE run_id=%s", (status, error, run_id))))
 
     async def get_run(self, thread_id: str, run_id: str) -> dict[str, Any] | None:
-        def operation():
-            with self._connect() as connection:
-                return connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE thread_id=%s AND run_id=%s", (thread_id, run_id)).fetchone()
-        return await self._call(operation)
+        return await self._call(lambda: self._hot_call(lambda connection:
+            connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE thread_id=%s AND run_id=%s", (thread_id, run_id)).fetchone()))
 
     async def latest_run(self, thread_id: str) -> dict[str, Any] | None:
         def operation():
@@ -146,16 +167,24 @@ class PostgresLedger:
         return await self._call(operation)
 
     async def append_event(self, run_id: str, event: str, data: Any) -> None:
-        def operation():
-            with self._connect() as connection:
-                connection.execute("INSERT INTO wsx_agent_events(run_id,event,data) VALUES (%s,%s,%s::jsonb)", (run_id, event, json.dumps(_jsonable(data))))
-        await self._call(operation)
+        await self.append_events(run_id, [(event, data)])
 
-    async def events(self, run_id: str) -> list[dict[str, Any]]:
-        def operation():
-            with self._connect() as connection:
-                return list(connection.execute("SELECT sequence,event,data FROM wsx_agent_events WHERE run_id=%s ORDER BY sequence", (run_id,)).fetchall())
-        return await self._call(operation)
+    async def append_events(self, run_id: str, items: list[tuple[str, Any]]) -> None:
+        """One INSERT for a whole batch (streamed token chunks are batched by the runtime);
+        the identity column keeps the order of the VALUES list."""
+        if not items:
+            return
+        params: list[Any] = []
+        for event, data in items:
+            params.extend((run_id, event, json.dumps(_jsonable(data))))
+        sql = "INSERT INTO wsx_agent_events(run_id,event,data) VALUES " + ",".join(["(%s,%s,%s::jsonb)"] * len(items))
+        await self._call(lambda: self._hot_call(lambda connection: connection.execute(sql, params)))
+
+    async def events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+        """Events with sequence > `after` -- the SSE reader passes the last sequence it sent,
+        so a long run is not re-read from row 1 on every 50 ms poll."""
+        return await self._call(lambda: self._hot_call(lambda connection: list(connection.execute(
+            "SELECT sequence,event,data FROM wsx_agent_events WHERE run_id=%s AND sequence>%s ORDER BY sequence", (run_id, after)).fetchall())))
 
     async def mark_orphaned(self) -> None:
         def operation():
@@ -292,9 +321,13 @@ class Runtime:
             # `ainvoke` discards LangGraph's custom channel. Skill audit facts and
             # tool progress live only on that channel, so replay every requested
             # mode through the same durable SSE ledger as terminal state.
+            # Token chunks ("messages") are written in batches (see EventBatcher): one row
+            # per token was one round trip per token, slower than the model itself.
+            batcher = EventBatcher(self.ledger, run_id)
             async for mode, data in graph.astream(payload, config=config, stream_mode=modes):
-                await self.ledger.append_event(run_id, mode, _jsonable(data))
+                await batcher.add(mode, _jsonable(data))
                 emitted_values = emitted_values or mode == "values"
+            await batcher.flush()
             snapshot = await graph.aget_state(config)
             next_nodes = list(getattr(snapshot, "next", ()) or ())
             status = "interrupted" if next_nodes else "success"
@@ -311,6 +344,37 @@ class Runtime:
             await self.ledger.append_event(run_id, "metadata", {"status": "error"})
         finally:
             await self._release_graph(run_id)
+
+
+class EventBatcher:
+    """Coalesces streamed "messages" chunks into one ledger write.
+
+    Flush points: any non-chunk event (order between modes must hold), `max_items` chunks,
+    or `max_age_s` since the first buffered chunk -- so the SSE reader still sees tokens
+    within ~0.15 s while the database sees ~1/30 of the rows.
+    """
+
+    def __init__(self, ledger: Ledger, run_id: str, max_items: int = 32, max_age_s: float = 0.15):
+        self._ledger, self._run_id, self._max_items, self._max_age_s = ledger, run_id, max_items, max_age_s
+        self._buffer: list[tuple[str, Any]] = []
+        self._since: float | None = None
+
+    async def add(self, mode: str, data: Any) -> None:
+        if mode != "messages":
+            await self.flush()
+            await self._ledger.append_events(self._run_id, [(mode, data)])
+            return
+        now = time.monotonic()
+        self._buffer.append((mode, data))
+        self._since = self._since if self._since is not None else now
+        if len(self._buffer) >= self._max_items or now - self._since >= self._max_age_s:
+            await self.flush()
+
+    async def flush(self) -> None:
+        if not self._buffer:
+            return
+        pending, self._buffer, self._since = self._buffer, [], None
+        await self._ledger.append_events(self._run_id, pending)
 
 
 @lru_cache(maxsize=1)

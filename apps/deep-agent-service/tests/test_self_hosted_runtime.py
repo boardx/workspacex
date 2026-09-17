@@ -33,10 +33,12 @@ class MemoryLedger:
     async def latest_run(self, thread_id):
         rows = [row for row in self.runs.values() if row["thread_id"] == thread_id]
         return rows[-1] if rows else None
+    async def append_events(self, run_id, items):
+        for event, data in items: await self.append_event(run_id, event, data)
     async def append_event(self, run_id, event, data):
         rows = self.recorded.setdefault(run_id, [])
         rows.append({"sequence": len(rows) + 1, "event": event, "data": data})
-    async def events(self, run_id): return self.recorded.get(run_id, [])
+    async def events(self, run_id, after=0): return [e for e in self.recorded.get(run_id, []) if e.get("sequence", 0) > after]
 
 
 @dataclass
