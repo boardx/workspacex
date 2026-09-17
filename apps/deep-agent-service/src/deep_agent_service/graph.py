@@ -167,6 +167,8 @@ LOCAL_DIRECT_EXECUTION_NOTE = (
     "\n\n本部署是单人本地版：confirm_task_intent、fill_run_params、choose_execution_option 这三个"
     "工具不可用，也不要用文字向用户确认假设、追问参数或摆方案让用户选。直接采用合理的默认"
     "假设完成任务（画布、画像、文档都直接产出），并在结果末尾用一两句公开你采用的关键假设。"
+    "产出画布时，```canvas 围栏第一行的『模板: <key>』必须逐字使用画布指引里列出的模板 key"
+    "（例如用户画像就是 persona），不要自造或翻译 key。"
 )
 
 
