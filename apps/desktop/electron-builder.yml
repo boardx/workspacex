@@ -8,9 +8,11 @@
 # resources/bin: the Ollama binary, placed there by scripts/local-bundle/fetch-ollama.sh.
 # resources/models: the chat + embedding models, placed there by scripts/local-bundle/fetch-models.sh.
 appId: com.workspacex.local
-productName: WorkspaceX Local
+productName: WorkspaceX
 directories:
   output: release
+  buildResources: build
+artifactName: "${productName}-${version}-${arch}.${ext}"
 files:
   - dist/**
   - package.json
@@ -38,6 +40,8 @@ extraResources:
       # e2e lanes build into sibling dirs (.next-e2e, .next-fullstack-e2e, ...): 5 GB of stale
       # output on a dev machine that must never ride into the DMG (Mac实测 2026-09-17).
       - "!apps/web/.next-*/**"
+  - from: build/logo.png
+    to: logo.png
   - from: bin
     to: bin
   # Ollama models (manifests + blobs) exported by scripts/local-bundle/fetch-models.sh; imported
@@ -49,6 +53,7 @@ extraResources:
     to: asr-models
 asar: false
 mac:
+  icon: build/icon.png
   target:
     - target: dmg
       arch: [arm64]

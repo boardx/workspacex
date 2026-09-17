@@ -1,5 +1,5 @@
 /**
- * WorkspaceX Local -- Electron main process.
+ * WorkspaceX (desktop) -- Electron main process.
  *
  * Responsibilities, and only these: decide where the bundle and the data dir are, run the
  * hardware doctor, drive `@repo/local-runtime`'s `up()`, show progress while it runs, open
@@ -10,7 +10,7 @@
  * `next build` inside the bundle. Auto-update, tray, Windows: R1.
  */
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack } from "@repo/local-runtime";
 
@@ -45,12 +45,72 @@ function bundleBinDir(): string | undefined {
   return app.isPackaged && existsSync(dir) ? dir : undefined;
 }
 
-function progressHtml(lines: string[]): string {
+/**
+ * Startup screen: brand + a step progress bar driven by the runtime's log prefixes, the
+ * current step in words, elapsed time; the raw log stays folded and only opens itself on
+ * failure (人类反馈 2026-09-17: 每次启动先看一屏日志不像个正常 app).
+ */
+const STARTUP_STEPS: readonly { readonly label: string; readonly match: RegExp }[] = [
+  { label: "准备数据库", match: /^\[pglite\]|^\[src\/infrastructure\/db|^\[seeds\]|^\[scripts\// },
+  { label: "检查本地模型", match: /^\[ollama\]/ },
+  { label: "启动技能沙箱", match: /^\[skill-sandbox\]/ },
+  { label: "启动语音转写", match: /^\[asr-gateway\]/ },
+  { label: "启动服务", match: /^\[api\]/ },
+  { label: "启动智能体", match: /^\[deep-agent\]/ },
+  { label: "加载界面", match: /^\[web\]/ },
+];
+
+const SLOGAN = "Where Humans and AI Create Together.";
+/** The wordmark from apps/web/public (resized copy in build/logo.png), inlined so the splash needs no server. */
+const LOGO_DATA_URL = (() => {
+  for (const candidate of [join(__dirname, "..", "build", "logo.png"), join(process.resourcesPath ?? "", "logo.png")]) {
+    if (existsSync(candidate)) return `data:image/png;base64,${readFileSync(candidate).toString("base64")}`;
+  }
+  return null;
+})();
+
+function progressHtml(lines: string[], state: { startedAt: number; failed: boolean }): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch] ?? ch));
-  return `<!doctype html><html lang="zh"><meta charset="utf-8"><title>WorkspaceX Local</title>
-<style>body{font:14px -apple-system,system-ui,sans-serif;margin:0;padding:24px;background:#0f1115;color:#e6e6e6}
-h1{font-size:18px;margin:0 0 12px}pre{white-space:pre-wrap;font:12px ui-monospace,monospace;color:#9aa4b2;max-height:70vh;overflow:auto}</style>
-<h1>WorkspaceX Local 正在启动……</h1><p>首次启动会跑数据库迁移并下载模型，可能需要几分钟。</p><pre>${esc(lines.slice(-200).join("\n"))}</pre></html>`;
+  let step = 0;
+  for (const line of lines) {
+    const i = STARTUP_STEPS.findIndex((st) => st.match.test(line));
+    if (i > step) step = i;
+  }
+  const total = STARTUP_STEPS.length;
+  const pct = state.failed ? 100 : Math.min(96, Math.round(((step + 0.5) / total) * 100));
+  const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
+  const current = state.failed ? "启动失败" : `${STARTUP_STEPS[step]!.label}…`;
+  const firstRun = lines.some((l) => /database created|applied [1-9]/.test(l));
+  const hint = state.failed
+    ? "下面是启动日志，把它发给开发者即可定位。"
+    : firstRun ? "首次启动要初始化数据库，通常 1–2 分钟。" : "通常 15–30 秒。";
+  const logo = LOGO_DATA_URL ? `<img class="logo" src="${LOGO_DATA_URL}" alt="WorkspaceX">` : `<div class="wordmark">WorkspaceX</div>`;
+  return `<!doctype html><html lang="zh"><meta charset="utf-8"><title>WorkspaceX</title>
+<style>
+  body{font:14px -apple-system,system-ui,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;color:#111827}
+  .card{width:min(520px,90vw)}
+  .brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:30px}
+  .logo{width:220px;height:auto}.wordmark{font-size:28px;font-weight:700;color:#ff1f7a}
+  .slogan{color:#6b7280;font-size:14px;letter-spacing:.01em}
+  .bar{height:6px;border-radius:3px;background:#f1f3f6;overflow:hidden}
+  .fill{height:100%;width:${pct}%;background:${state.failed ? "#ef4444" : "linear-gradient(90deg,#ff9a3d,#ff1f7a)"};transition:width .4s}
+  .row{display:flex;justify-content:space-between;margin-top:10px;color:#374151}
+  .row .t{color:#9ca3af;font-variant-numeric:tabular-nums}
+  .steps{display:flex;gap:6px;margin-top:14px}.steps i{flex:1;height:3px;border-radius:2px;background:#f1f3f6}
+  .steps i.done{background:#ff5c8a}.steps i.now{background:#ff1f7a}
+  .hint{color:#9ca3af;font-size:12px;margin-top:14px}
+  details{margin-top:18px}summary{cursor:pointer;color:#9ca3af;font-size:12px}
+  pre{white-space:pre-wrap;font:11px ui-monospace,monospace;color:#4b5563;max-height:40vh;overflow:auto;margin:8px 0 0;background:#f6f7f9;padding:10px;border-radius:8px}
+  .err{color:#dc2626}
+</style>
+<body><div class="card">
+  <div class="brand">${logo}<div class="slogan">${esc(SLOGAN)}</div></div>
+  <div class="bar"><div class="fill"></div></div>
+  <div class="row"><span class="${state.failed ? "err" : ""}">${esc(current)}</span><span class="t">${elapsed}s</span></div>
+  <div class="steps">${STARTUP_STEPS.map((_, i) => `<i class="${i < step ? "done" : i === step && !state.failed ? "now" : ""}"></i>`).join("")}</div>
+  <div class="hint">${esc(hint)}</div>
+  <details${state.failed ? " open" : ""}><summary>启动日志</summary><pre>${esc(lines.slice(-200).join("\n"))}</pre></details>
+</div></body></html>`;
 }
 
 /**
@@ -70,10 +130,19 @@ function ensureNodeOnPath(): void {
   process.env.PATH = `${shimDir}:${process.env.PATH ?? "/usr/bin:/bin"}`;
 }
 
+/** The alpha DMGs were named "WorkspaceX Local"; keep those users' data when the product name changed (2026-09-17). */
+function migrateLegacyDataDir(dataDir: string): void {
+  if (existsSync(dataDir)) return;
+  const legacy = join(app.getPath("userData"), "..", "WorkspaceX Local", "local");
+  if (!existsSync(legacy)) return;
+  try { mkdirSync(join(dataDir, ".."), { recursive: true }); renameSync(legacy, dataDir); } catch { /* fall back to a fresh data dir */ }
+}
+
 async function boot(): Promise<void> {
   ensureNodeOnPath();
   const repoRoot = bundleRoot();
   const dataDir = join(app.getPath("userData"), "local");
+  migrateLegacyDataDir(dataDir);
   const doctor = runDoctor({ dataDir, repoRoot, bundleBinDir: bundleBinDir() });
   if (!doctor.ok) {
     await dialog.showMessageBox({ type: "error", title: "这台电脑不满足运行要求", message: doctor.findings.join("\n") });
@@ -81,9 +150,10 @@ async function boot(): Promise<void> {
     return;
   }
 
-  win = new BrowserWindow({ width: 1280, height: 860, show: true, webPreferences: { contextIsolation: true } });
+  win = new BrowserWindow({ width: 1280, height: 860, show: true, title: "WorkspaceX", webPreferences: { contextIsolation: true } });
   const lines: string[] = [];
-  const render = (): void => { void win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines))}`); };
+  const progress = { startedAt: Date.now(), failed: false };
+  const render = (): void => { void win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines, progress))}`); };
   let renderTimer: NodeJS.Timeout | null = null;
   let showingApp = false; // once the web UI is loaded, the progress page must never repaint over it
   // Same lines as the window, on disk: a failure behind a modal dialog is otherwise invisible
@@ -103,7 +173,10 @@ async function boot(): Promise<void> {
   try {
     stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir() });
   } catch (e) {
+    progress.failed = true;
     log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);
+    if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+    render();
     await dialog.showMessageBox({ type: "error", title: "启动失败", message: e instanceof Error ? e.message : String(e), detail: lines.slice(-30).join("\n") });
     app.quit();
     return;
