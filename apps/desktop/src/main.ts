@@ -60,7 +60,8 @@ const STARTUP_STEPS: readonly { readonly label: string; readonly match: RegExp }
   { label: "加载界面", match: /^\[web\]/ },
 ];
 
-const SLOGAN = "Where Humans and AI Create Together.";
+const SLOGAN_EN = "A New Way to Create Together.";
+const SLOGAN_ZH = "一种全新的共同创造方式。";
 /** The wordmark from apps/web/public (resized copy in build/logo.png), inlined so the splash needs no server. */
 const LOGO_DATA_URL = (() => {
   for (const candidate of [join(__dirname, "..", "build", "logo.png"), join(process.resourcesPath ?? "", "logo.png")]) {
@@ -91,7 +92,7 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
   .card{width:min(520px,90vw)}
   .brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:30px}
   .logo{width:220px;height:auto}.wordmark{font-size:28px;font-weight:700;color:#ff1f7a}
-  .slogan{color:#6b7280;font-size:14px;letter-spacing:.01em}
+  .slogan{color:#374151;font-size:15px;letter-spacing:.01em;line-height:1.6}.slogan .zh{color:#9ca3af;font-size:13px}
   .bar{height:6px;border-radius:3px;background:#f1f3f6;overflow:hidden}
   .fill{height:100%;width:${pct}%;background:${state.failed ? "#ef4444" : "linear-gradient(90deg,#ff9a3d,#ff1f7a)"};transition:width .4s}
   .row{display:flex;justify-content:space-between;margin-top:10px;color:#374151}
@@ -104,7 +105,7 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
   .err{color:#dc2626}
 </style>
 <body><div class="card">
-  <div class="brand">${logo}<div class="slogan">${esc(SLOGAN)}</div></div>
+  <div class="brand">${logo}<div class="slogan">${esc(SLOGAN_EN)}<br><span class="zh">${esc(SLOGAN_ZH)}</span></div></div>
   <div class="bar"><div class="fill"></div></div>
   <div class="row"><span class="${state.failed ? "err" : ""}">${esc(current)}</span><span class="t">${elapsed}s</span></div>
   <div class="steps">${STARTUP_STEPS.map((_, i) => `<i class="${i < step ? "done" : i === step && !state.failed ? "now" : ""}"></i>`).join("")}</div>
