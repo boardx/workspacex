@@ -85,6 +85,7 @@ async function boot(): Promise<void> {
   const lines: string[] = [];
   const render = (): void => { void win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines))}`); };
   let renderTimer: NodeJS.Timeout | null = null;
+  let showingApp = false; // once the web UI is loaded, the progress page must never repaint over it
   // Same lines as the window, on disk: a failure behind a modal dialog is otherwise invisible
   // to anyone not sitting at the screen (Mac实测 2026-09-17, two silent "启动失败" in a row).
   mkdirSync(dataDir, { recursive: true });
@@ -92,8 +93,8 @@ async function boot(): Promise<void> {
   const log = (line: string): void => {
     try { appendFileSync(desktopLog, `${new Date().toISOString()} ${line}\n`); } catch { /* best effort */ }
     lines.push(line);
-    if (renderTimer) return;
-    renderTimer = setTimeout(() => { renderTimer = null; render(); }, 300);
+    if (showingApp || renderTimer) return;
+    renderTimer = setTimeout(() => { renderTimer = null; if (!showingApp) render(); }, 300);
   };
   render();
 
@@ -108,6 +109,11 @@ async function boot(): Promise<void> {
     return;
   }
   for (const w of stack.warnings) log(`⚠ ${w}`);
+  // ⚠ Order matters: the warning lines above armed a 300 ms repaint of the progress page; if
+  //   the web UI is loaded first, that repaint replaces it and the window looks stuck on the
+  //   log forever (人类实测 2026-09-17: every start with a warning "hung" on this page).
+  showingApp = true;
+  if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
   await win.loadURL(stack.urls.web);
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: "deny" }; });
 }
