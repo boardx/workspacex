@@ -40,10 +40,15 @@ extraResources:
       # e2e lanes build into sibling dirs (.next-e2e, .next-fullstack-e2e, ...): 5 GB of stale
       # output on a dev machine that must never ride into the DMG (Mac实测 2026-09-17).
       - "!apps/web/.next-*/**"
+      # The dev venv hard-codes build-machine paths; the DMG ships resources/python instead (bundle-python.sh).
+      - "!apps/deep-agent-service/.venv/**"
   - from: build/logo.png
     to: logo.png
   - from: bin
     to: bin
+  # Relocatable CPython + site-packages for deep-agent-service (scripts/local-bundle/bundle-python.sh).
+  - from: python
+    to: python
   # Ollama models (manifests + blobs) exported by scripts/local-bundle/fetch-models.sh; imported
   # into the running Ollama's store on first start so no download is needed (人类决策 2026-09-17).
   - from: models

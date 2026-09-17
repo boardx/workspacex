@@ -16,7 +16,7 @@ export interface DoctorReport {
   readonly memoryGb: number;
   readonly freeDiskGb: number;
   readonly ollama: { found: boolean; path: string | null; version: string | null };
-  readonly python: { venv: boolean };
+  readonly python: { venv: boolean; bundled: boolean };
   readonly asrModel: boolean;
   readonly findings: readonly string[];
 }
@@ -44,7 +44,7 @@ export function findOllama(bundleBinDir?: string): string | null {
   return null;
 }
 
-export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDir?: string }): DoctorReport {
+export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDir?: string; bundlePythonDir?: string }): DoctorReport {
   const findings: string[] = [];
   const memoryGb = Math.round((totalmem() / 1024 ** 3) * 10) / 10;
   if (memoryGb < MIN_MEMORY_GB) findings.push(`内存 ${memoryGb} GB 低于最低要求 ${MIN_MEMORY_GB} GB`);
@@ -71,7 +71,8 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
   const asrModel = existsSync(join(opts.dataDir, "asr-models", DEFAULT_ASR_MODEL, "tokens.txt"));
   if (!asrModel) findings.push("本地转写模型未下载：实时转写不可用，运行 scripts/local-bundle/fetch-asr-model.sh");
   const venv = existsSync(join(opts.repoRoot, "apps", "deep-agent-service", ".venv"));
-  if (!venv) findings.push("deep-agent-service 的 Python 运行时（.venv）不存在：工具调用与 skill 执行不可用，运行 scripts/local-bundle/prepare-python.sh");
+  const bundled = opts.bundlePythonDir ? existsSync(join(opts.bundlePythonDir, "cpython", "bin", platform() === "win32" ? "python.exe" : "python3")) : false;
+  if (!venv && !bundled) findings.push("deep-agent-service 的 Python 运行时不存在（随包 python/ 或 .venv）：工具调用与 skill 执行不可用，运行 scripts/local-bundle/bundle-python.sh 或 prepare-python.sh");
   return {
     ok: findings.every((f) => f.startsWith("未找到 Ollama") || f.startsWith("deep-agent-service") || f.startsWith("本地转写模型")),
     platform: platform(),
@@ -79,7 +80,7 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
     memoryGb,
     freeDiskGb,
     ollama: { found: ollamaPath !== null, path: ollamaPath, version },
-    python: { venv },
+    python: { venv, bundled },
     asrModel,
     findings,
   };

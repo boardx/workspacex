@@ -40,6 +40,14 @@ function bundleAsrModelsDir(): string | undefined {
   return existsSync(dev) ? dev : undefined;
 }
 
+/** Packaged: resources/python (bundle-python.sh: cpython/ + site/). Dev: apps/desktop/python if present. */
+function bundlePythonDir(): string | undefined {
+  const dir = join(process.resourcesPath ?? "", "python");
+  if (app.isPackaged && existsSync(dir)) return dir;
+  const dev = join(bundleRoot(), "apps", "desktop", "python");
+  return existsSync(dev) ? dev : undefined;
+}
+
 function bundleBinDir(): string | undefined {
   const dir = join(process.resourcesPath ?? "", "bin");
   return app.isPackaged && existsSync(dir) ? dir : undefined;
@@ -176,7 +184,7 @@ async function boot(): Promise<void> {
   const repoRoot = bundleRoot();
   const dataDir = join(app.getPath("userData"), "local");
   migrateLegacyDataDir(dataDir);
-  const doctor = runDoctor({ dataDir, repoRoot, bundleBinDir: bundleBinDir() });
+  const doctor = runDoctor({ dataDir, repoRoot, bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir() });
   if (!doctor.ok) {
     await dialog.showMessageBox({ type: "error", title: "这台电脑不满足运行要求", message: doctor.findings.join("\n") });
     app.quit();
@@ -214,7 +222,7 @@ async function boot(): Promise<void> {
   const config = resolveLocalConfig({ repoRoot, dataDir });
   const built = existsSync(join(repoRoot, "apps", "web", ".next", "BUILD_ID"));
   try {
-    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir() });
+    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir(), bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir() });
   } catch (e) {
     progress.failed = true;
     log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);

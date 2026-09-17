@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
+  resolveDeepAgentLaunch,
 } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
@@ -27,6 +28,8 @@ export interface UpOptions {
   /** `dev` = `next dev` (no build step, slow first paint); `start` = `next start` on a prior `next build`. */
   readonly webMode?: "dev" | "start" | "none";
   readonly bundleBinDir?: string;
+  /** Relocatable Python runtime shipped in the bundle (scripts/local-bundle/bundle-python.sh); preferred over apps/deep-agent-service/.venv. */
+  readonly bundlePythonDir?: string;
   /** Ollama models shipped in the bundle (scripts/local-bundle/fetch-models.sh); imported into the store the running Ollama uses. */
   readonly bundleModelsDir?: string;
   /** Streaming ASR model shipped in the bundle (scripts/local-bundle/bundle-asr-model.sh); used in place when the data dir has none. */
@@ -180,21 +183,21 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
 
     // ── deep agent (python) ───────────────────────────────────────────────────
     let deepAgentUrl: string | null = null;
-    const venv = paths.deepAgentVenv(c);
-    const py = join(venv, platform() === "win32" ? "Scripts" : "bin", platform() === "win32" ? "uvicorn.exe" : "uvicorn");
-    if (existsSync(py)) {
+    const launch = resolveDeepAgentLaunch(c, opts.bundlePythonDir);
+    if (launch) {
       deepAgentUrl = `http://127.0.0.1:${c.ports.deepAgent}`;
+      log(`[deep-agent] python runtime: ${launch.source} (${launch.command})`);
       managed.push(startManaged({
         name: "deep-agent",
-        command: py,
-        args: ["deep_agent_service.http_app:app", "--host", "127.0.0.1", "--port", String(c.ports.deepAgent), "--workers", "1"],
+        command: launch.command,
+        args: [...launch.args],
         cwd: join(c.repoRoot, "apps", "deep-agent-service"),
-        env: deepAgentEnv(c),
+        env: launch.env,
         logDir: paths.logs(c),
       }, log));
       await waitForManaged(managed.at(-1)!, `${deepAgentUrl}/healthz`, { timeoutMs: 120_000 });
     } else {
-      warnings.push("deep-agent-service 未安装 Python 运行时（.venv）：聊天可回复，但工具调用 / skill 执行不可用");
+      warnings.push("deep-agent-service 没有 Python 运行时（随包 python/ 或 .venv 都不存在）：聊天可回复，但工具调用 / skill 执行不可用");
     }
 
     // ── Web ───────────────────────────────────────────────────────────────────

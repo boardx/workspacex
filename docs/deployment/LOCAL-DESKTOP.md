@@ -67,12 +67,18 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ## 打包（macOS，Night 0 目标）
 
 ```bash
-./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
+./scripts/local-bundle/bundle-python.sh       # apps/desktop/python：可搬迁的 CPython + site-packages（随包进 resources/python）
+                                              # ⚠ 不是 prepare-python.sh 的 .venv——venv 写死构建机绝对路径，装到别的 Mac 起不来
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
 ./scripts/local-bundle/fetch-models.sh        # apps/desktop/models（Ollama manifests+blobs，随包 5.2 GB DMG）
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
+
+装到另一台 Mac 的前提：Apple Silicon、≥ 8 GB 内存、≥ 12 GB 空闲磁盘。DMG 自带 Ollama、模型、ASR 模型、Node（Electron）
+与 Python，不联网、不装东西。运行时优先用 `resources/python`，没有才回落到开发机的 `.venv`
+（`packages/local-runtime/src/config.ts` `resolveDeepAgentLaunch`，启动日志一行 `[deep-agent] python runtime: bundled-python|venv`）。
+``````
 
 ## 本地实时转写（ASR）是怎么接的
 

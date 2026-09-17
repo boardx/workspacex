@@ -12,6 +12,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { platform } from "node:os";
 import { join } from "node:path";
 
 export interface LocalPorts {
@@ -293,6 +294,52 @@ export function deepAgentEnv(c: LocalConfig): Env {
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),
   };
+}
+
+/** How the deep-agent process is launched: the relocatable bundled Python, or the dev venv. */
+export interface DeepAgentLaunch {
+  readonly source: "bundled-python" | "venv";
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env: Env;
+}
+
+const UVICORN_ARGS = (c: LocalConfig): string[] =>
+  ["deep_agent_service.http_app:app", "--host", "127.0.0.1", "--port", String(c.ports.deepAgent), "--workers", "1"];
+
+/**
+ * Bundled runtime first (scripts/local-bundle/bundle-python.sh: `cpython/` + `site/`, no venv,
+ * no absolute paths -- the only shape that works on a Mac other than the build machine,
+ * #3716), the developer's `.venv` second, `null` when neither exists (chat still works, tools
+ * and skills do not). `exists` is injectable so the choice is unit-testable without a disk.
+ */
+export function resolveDeepAgentLaunch(
+  c: LocalConfig,
+  bundlePythonDir: string | undefined,
+  exists: (p: string) => boolean = existsSync,
+): DeepAgentLaunch | null {
+  const win = platform() === "win32";
+  if (bundlePythonDir) {
+    const python = join(bundlePythonDir, "cpython", win ? "python.exe" : join("bin", "python3"));
+    if (exists(python)) {
+      const site = join(bundlePythonDir, "site");
+      const base = deepAgentEnv(c);
+      return {
+        source: "bundled-python",
+        command: python,
+        args: ["-m", "uvicorn", ...UVICORN_ARGS(c)],
+        env: {
+          ...base,
+          PYTHONPATH: [site, base.PYTHONPATH].join(win ? ";" : ":"),
+          // never pick up ~/.local/lib/python*/site-packages of whoever runs the app
+          PYTHONNOUSERSITE: "1",
+        },
+      };
+    }
+  }
+  const uvicorn = join(paths.deepAgentVenv(c), win ? "Scripts" : "bin", win ? "uvicorn.exe" : "uvicorn");
+  if (exists(uvicorn)) return { source: "venv", command: uvicorn, args: UVICORN_ARGS(c), env: deepAgentEnv(c) };
+  return null;
 }
 
 /**
