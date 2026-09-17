@@ -152,6 +152,7 @@ import {
   PgCredentialRepository, PgLoginAttemptRepository, PgResetTokenRepository,
 } from "./infrastructure/auth/pg-credential-repository";
 import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
+import { fileSessionStoreFromEnv, sessionStoreKindFromEnv } from "./infrastructure/auth/file-session-token-store";
 import { SessionTokenPrincipalResolver } from "./infrastructure/auth/session-token-principal-resolver";
 import { SystemClock, UuidTokenFactory } from "./infrastructure/auth/system-clock";
 import { DeliveringPasswordMailer } from "./infrastructure/auth/delivering-password-mailer";
@@ -1572,7 +1573,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // Opaque token + Redis (domain §3 ①): JWT cannot satisfy I-5 "all existing sessions
     // invalid immediately" without a blacklist, which is this with extra steps.
-    { provide: SESSION_TOKEN_STORE, useFactory: () => new RedisSessionTokenStore(redisConfig()) },
+    // `KERNEL_SESSION_STORE=file` is the desktop/local build (issue #3716): one machine, no
+    // Redis. Default stays redis -- the cloud composition is unchanged byte-for-byte.
+    {
+      provide: SESSION_TOKEN_STORE,
+      useFactory: () =>
+        sessionStoreKindFromEnv() === "file"
+          ? fileSessionStoreFromEnv()
+          : new RedisSessionTokenStore(redisConfig()),
+    },
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: TOKEN_FACTORY, useClass: UuidTokenFactory },
     { provide: CLOCK, useClass: SystemClock },
