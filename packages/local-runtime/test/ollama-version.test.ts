@@ -12,6 +12,8 @@ describe("ollama version choice", () => {
     expect(chooseOllama({ running: null, binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: false, port: 11434 });
     expect(chooseOllama({ running: "0.34.1", binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: true, port: 11434 });
     expect(chooseOllama({ running: "0.32.15", binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: false, port: 11435 });
+    // our own earlier instance still on the alternate port (crashed app / previous run): reuse it
+    expect(chooseOllama({ running: "0.32.15", binary: "0.34.1", port: 11434, runningOnAlternate: "0.34.1" })).toMatchObject({ reuse: true, port: 11435 });
     // no newer binary to fall back to: reuse and say why replies will be slow
     const r = chooseOllama({ running: "0.32.15", binary: "0.32.15", port: 11434 });
     expect(r).toMatchObject({ reuse: true, port: 11434 });

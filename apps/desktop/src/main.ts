@@ -70,6 +70,23 @@ const LOGO_DATA_URL = (() => {
   return null;
 })();
 
+function progressState(lines: string[], state: { startedAt: number; failed: boolean }) {
+  let step = 0;
+  for (const line of lines) {
+    const i = STARTUP_STEPS.findIndex((st) => st.match.test(line));
+    if (i > step) step = i;
+  }
+  const total = STARTUP_STEPS.length;
+  const pct = state.failed ? 100 : Math.min(96, Math.round(((step + 0.5) / total) * 100));
+  const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
+  const current = state.failed ? "启动失败" : `${STARTUP_STEPS[step]!.label}…`;
+  const firstRun = lines.some((l) => /database created|applied [1-9]/.test(l));
+  const hint = state.failed
+    ? "下面是启动日志，把它发给开发者即可定位。"
+    : firstRun ? "首次启动要初始化数据库，通常 1–2 分钟。" : "通常 15–30 秒。";
+  return { step, pct, elapsed, current, hint, failed: state.failed, log: lines.slice(-200).join("\n") };
+}
+
 function progressHtml(lines: string[], state: { startedAt: number; failed: boolean }): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch] ?? ch));
   let step = 0;
@@ -110,8 +127,23 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
   <div class="row"><span class="${state.failed ? "err" : ""}">${esc(current)}</span><span class="t">${elapsed}s</span></div>
   <div class="steps">${STARTUP_STEPS.map((_, i) => `<i class="${i < step ? "done" : i === step && !state.failed ? "now" : ""}"></i>`).join("")}</div>
   <div class="hint">${esc(hint)}</div>
-  <details${state.failed ? " open" : ""}><summary>启动日志</summary><pre>${esc(lines.slice(-200).join("\n"))}</pre></details>
-</div></body></html>`;
+  <details id="log"${state.failed ? " open" : ""}><summary>启动日志</summary><pre id="pre">${esc(lines.slice(-200).join("\n"))}</pre></details>
+</div>
+<script>
+  // In-place updates: the main process calls window.__wsxUpdate(state) instead of reloading the
+  // page (a reload per log line flickered visibly, 人类反馈 2026-09-17).
+  window.__wsxUpdate = function (u) {
+    var fill = document.querySelector(".fill"); if (fill) { fill.style.width = u.pct + "%"; if (u.failed) fill.style.background = "#ef4444"; }
+    var row = document.querySelector(".row span"); if (row) { row.textContent = u.current; row.className = u.failed ? "err" : ""; }
+    var t = document.querySelector(".row .t"); if (t) t.textContent = u.elapsed + "s";
+    document.querySelectorAll(".steps i").forEach(function (el, i) { el.className = i < u.step ? "done" : (i === u.step && !u.failed ? "now" : ""); });
+    var hint = document.querySelector(".hint"); if (hint) hint.textContent = u.hint;
+    var pre = document.getElementById("pre"); if (pre) pre.textContent = u.log;
+    if (u.failed) { var d = document.getElementById("log"); if (d) d.open = true; }
+  };
+  setInterval(function () { var t = document.querySelector(".row .t"); if (t) t.textContent = (parseInt(t.textContent, 10) + 1) + "s"; }, 1000);
+</script>
+</body></html>`;
 }
 
 /**
@@ -154,7 +186,17 @@ async function boot(): Promise<void> {
   win = new BrowserWindow({ width: 1280, height: 860, show: true, title: "WorkspaceX", webPreferences: { contextIsolation: true } });
   const lines: string[] = [];
   const progress = { startedAt: Date.now(), failed: false };
-  const render = (): void => { void win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines, progress))}`); };
+  let pageLoaded = false;
+  const render = (): void => {
+    if (!win) return;
+    if (!pageLoaded) {
+      pageLoaded = true;
+      void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines, progress))}`);
+      return;
+    }
+    // Same state, pushed into the page -- no reload, no flicker.
+    void win.webContents.executeJavaScript(`window.__wsxUpdate && window.__wsxUpdate(${JSON.stringify(progressState(lines, progress))})`, true).catch(() => undefined);
+  };
   let renderTimer: NodeJS.Timeout | null = null;
   let showingApp = false; // once the web UI is loaded, the progress page must never repaint over it
   // Same lines as the window, on disk: a failure behind a modal dialog is otherwise invisible

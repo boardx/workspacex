@@ -47,11 +47,16 @@ export function ollamaBinaryVersion(bin: string): string | null {
 }
 
 /** Decide between reusing a running Ollama and starting our own beside it. */
-export function chooseOllama(input: { running: string | null; binary: string | null; port: number }): { reuse: boolean; port: number; reason: string } {
+export function chooseOllama(input: { running: string | null; binary: string | null; port: number; runningOnAlternate?: string | null }): { reuse: boolean; port: number; reason: string } {
   if (input.running === null) return { reuse: false, port: input.port, reason: "no Ollama on the port; starting ours" };
   if (compareVersions(input.running, MIN_OLLAMA_VERSION) >= 0) return { reuse: true, port: input.port, reason: `reusing running Ollama ${input.running}` };
   if (input.binary !== null && compareVersions(input.binary, MIN_OLLAMA_VERSION) >= 0) {
-    return { reuse: false, port: input.port + 1, reason: `running Ollama ${input.running} is older than ${MIN_OLLAMA_VERSION} (no thinking control); starting bundled ${input.binary} on ${input.port + 1}` };
+    const alt = input.port + 1;
+    // Our own earlier instance (a crashed app, a previous run) may still be serving there.
+    if (input.runningOnAlternate && compareVersions(input.runningOnAlternate, MIN_OLLAMA_VERSION) >= 0) {
+      return { reuse: true, port: alt, reason: `running Ollama ${input.running} is older than ${MIN_OLLAMA_VERSION}; reusing Ollama ${input.runningOnAlternate} already on ${alt}` };
+    }
+    return { reuse: false, port: alt, reason: `running Ollama ${input.running} is older than ${MIN_OLLAMA_VERSION} (no thinking control); starting bundled ${input.binary} on ${alt}` };
   }
   return { reuse: true, port: input.port, reason: `reusing running Ollama ${input.running} (older than ${MIN_OLLAMA_VERSION}, replies will be slower: thinking cannot be switched off)` };
 }

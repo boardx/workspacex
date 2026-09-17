@@ -84,10 +84,11 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     let ollamaUrl: string | null = null;
     if (ollamaBin) {
       const running = await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama}`);
-      const choice = chooseOllama({ running, binary: ollamaBinaryVersion(ollamaBin), port: c.ports.ollama });
+      const runningOnAlternate = running === null ? null : await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama + 1}`);
+      const choice = chooseOllama({ running, binary: ollamaBinaryVersion(ollamaBin), port: c.ports.ollama, runningOnAlternate });
       log(`[ollama] ${choice.reason}`);
       if (choice.port !== c.ports.ollama) {
-        await assertPortFree(choice.port, "ollama");
+        if (!choice.reuse) await assertPortFree(choice.port, "ollama");
         c = { ...c, ports: { ...c.ports, ollama: choice.port } };
       }
       ollamaUrl = `http://127.0.0.1:${c.ports.ollama}`;

@@ -217,3 +217,16 @@ def test_reasoning_effort_unset_sends_nothing(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("KERNEL_MODEL_REASONING_EFFORT", raising=False)
     model = build_chat_model()
     assert not model.extra_body
+
+
+def test_hitl_tools_are_not_mounted_when_clarification_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import MagicMock
+    from deep_agent_service.tools import build_tools
+    monkeypatch.setenv("DEEP_AGENT_HITL_CLARIFICATION", "off")
+    names = {getattr(t, "name", getattr(t, "__name__", "")) for t in build_tools(MagicMock())}
+    assert "confirm_task_intent" not in names and "fill_run_params" not in names and "choose_execution_option" not in names
+    assert {"list_org_skills", "call_skill", "spawn_async_task"} <= names
+    monkeypatch.delenv("DEEP_AGENT_HITL_CLARIFICATION", raising=False)
+    names_default = {getattr(t, "name", getattr(t, "__name__", "")) for t in build_tools(MagicMock())}
+    assert {"confirm_task_intent", "fill_run_params", "choose_execution_option"} <= names_default
+

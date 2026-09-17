@@ -160,10 +160,25 @@ _model = build_chat_model()
 # 每一项对应哪个 rubric 维度，见 harness.py 模块注释——那里是单一事实源，这里不复述。
 # checkpointer 为 None 时（平台托管环境）create_deep_agent 收到 None 与 0.7.6
 # 之前的行为逐字一致（参数默认值就是 None，实测签名确认）。
+# WorkspaceX Local (DEEP_AGENT_HITL_CLARIFICATION=off): the HITL tools are not mounted (tools.py),
+# and the prompt must stop telling the model to confirm before acting -- otherwise a small model
+# writes the clarification as plain text instead and still never produces the result.
+LOCAL_DIRECT_EXECUTION_NOTE = (
+    "\n\n本部署是单人本地版：confirm_task_intent、fill_run_params、choose_execution_option 这三个"
+    "工具不可用，也不要用文字向用户确认假设、追问参数或摆方案让用户选。直接采用合理的默认"
+    "假设完成任务（画布、画像、文档都直接产出），并在结果末尾用一两句公开你采用的关键假设。"
+)
+
+
+def effective_system_prompt() -> str:
+    from .tools import hitl_clarification_disabled
+    return SYSTEM_PROMPT + LOCAL_DIRECT_EXECUTION_NOTE if hitl_clarification_disabled() else SYSTEM_PROMPT
+
+
 graph = create_deep_agent(
     model=_model,
     tools=build_tools(_model),
-    system_prompt=SYSTEM_PROMPT,
+    system_prompt=effective_system_prompt(),
     middleware=build_middleware(_model),
     checkpointer=build_checkpointer(),
     interrupt_on=build_interrupt_on(),

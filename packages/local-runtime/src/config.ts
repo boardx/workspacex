@@ -287,6 +287,8 @@ export function deepAgentEnv(c: LocalConfig): Env {
     // single-session backend: a connect can legitimately queue behind a busy neighbour
     DEEP_AGENT_PG_CONNECT_TIMEOUT_SECONDS: "30",
     DEEP_AGENT_PG_CONNECT_RETRIES: "2",
+    // single-user desktop + 4B model: no confirm/params/option interrupts, produce directly
+    DEEP_AGENT_HITL_CLARIFICATION: "off",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),

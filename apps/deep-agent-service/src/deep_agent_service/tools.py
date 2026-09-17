@@ -92,6 +92,7 @@ own doc comment describes ("Never throws").
 """
 from __future__ import annotations
 
+import os
 import json
 
 import logging
@@ -249,6 +250,12 @@ def _focused_call(model, system_prompt: str, task: str, progress, skill_name: st
         # 只报**数量**，不报正文：正在生成的脚本内容留在工具结果里，不从进展通道泄出去。
         progress.emit(f"技能「{skill_name}」正在生成…已产出 {total} 字")
     return "".join(parts)
+
+
+def hitl_clarification_disabled() -> bool:
+    """`DEEP_AGENT_HITL_CLARIFICATION=off`: do not mount confirm_task_intent / fill_run_params /
+    choose_execution_option (see build_tools). Read at call time so tests can flip it."""
+    return (os.environ.get("DEEP_AGENT_HITL_CLARIFICATION") or "").strip().lower() == "off"
 
 
 def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> list[Callable[..., str]]:
@@ -475,6 +482,14 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
     # `build_tools(_model)` 的返回值**整体**、无条件地传给
     # `create_deep_agent(tools=...)`（不像 `build_subagents` 那样按名字挑选转发），
     # 验证稳定后按 R6 要求默认开启且开关本身移除，现在无条件注册。
+    # DEEP_AGENT_HITL_CLARIFICATION=off (WorkspaceX Local, 2026-09-17): a 4B model with the three
+    # HITL tools mounted spends its first one or two rounds confirming assumptions / filling
+    # params for "生成一个语文教师的用户画像" and the user never sees the canvas. Single-user
+    # desktop = the user is the only authority anyway, so the tools are not mounted at all;
+    # harness.py already tolerates a missing confirm_task_intent (falls back to write_todos).
+    # Unset = unchanged for every server deployment.
+    if hitl_clarification_disabled():
+        return [list_org_skills, call_skill, spawn_async_task]
     return [
         list_org_skills,
         call_skill,
