@@ -154,9 +154,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const webMode = opts.webMode ?? "dev";
     const webUrl = `http://127.0.0.1:${c.ports.web}`;
     if (webMode !== "none") {
+      // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
       managed.push(startManaged({
         name: "web",
-        command: join(c.repoRoot, "node_modules", ".bin", "next"),
+        command: join(c.repoRoot, "apps", "web", "node_modules", ".bin", "next"),
         args: [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"],
         cwd: join(c.repoRoot, "apps", "web"),
         env: webEnv(c),
