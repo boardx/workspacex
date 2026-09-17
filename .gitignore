@@ -134,3 +134,8 @@ apps/skill-sandbox/preinstalled/
 apps/desktop/models/
 apps/desktop/bin/
 apps/desktop/asr-models/
+
+# 本地打包产物：bundle-python.sh 打出的 CPython 运行时
+apps/desktop/python/
+# 会话临时目录
+scratchpad/
