@@ -146,12 +146,24 @@ export function asrEnv(c: LocalConfig): Env {
   };
 }
 
-export function asrGatewayEnv(c: LocalConfig): Env {
+/**
+ * Where the streaming ASR model lives: the data dir (fetch-asr-model.sh) wins, else the copy
+ * shipped in the bundle (scripts/local-bundle/bundle-asr-model.sh, human decision 2026-09-17:
+ * the ASR model goes into the DMG too). The gateway only reads it, so the bundle copy is used
+ * in place -- nothing to import.
+ */
+export function resolveAsrModelDir(c: LocalConfig, bundleAsrModelsDir?: string): string | null {
+  const candidates = [paths.asrModelDir(c), ...(bundleAsrModelsDir ? [join(bundleAsrModelsDir, DEFAULT_ASR_MODEL)] : [])];
+  for (const dir of candidates) if (existsSync(join(dir, "tokens.txt"))) return dir;
+  return null;
+}
+
+export function asrGatewayEnv(c: LocalConfig, modelDir: string = paths.asrModelDir(c)): Env {
   return {
     LOCAL_ASR_HOST: "127.0.0.1",
     LOCAL_ASR_PORT: String(c.ports.asr),
     LOCAL_ASR_ENGINE: "sherpa",
-    LOCAL_ASR_MODEL_DIR: paths.asrModelDir(c),
+    LOCAL_ASR_MODEL_DIR: modelDir,
   };
 }
 

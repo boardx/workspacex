@@ -12,7 +12,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import {
-  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
+  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
 } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
@@ -28,6 +28,8 @@ export interface UpOptions {
   readonly bundleBinDir?: string;
   /** Ollama models shipped in the bundle (scripts/local-bundle/fetch-models.sh); imported into the store the running Ollama uses. */
   readonly bundleModelsDir?: string;
+  /** Streaming ASR model shipped in the bundle (scripts/local-bundle/bundle-asr-model.sh); used in place when the data dir has none. */
+  readonly bundleAsrModelsDir?: string;
   /** Skip pulling the model even if Ollama is up (tests, offline). */
   readonly pullModel?: boolean;
 }
@@ -139,14 +141,15 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
-    if (existsSync(join(paths.asrModelDir(c), "tokens.txt"))) {
+    const asrModelDir = resolveAsrModelDir(c, opts.bundleAsrModelsDir);
+    if (asrModelDir) {
       asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
       managed.push(startManaged({
         name: "asr-gateway",
         command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
         args: ["src/main.ts"],
         cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
-        env: asrGatewayEnv(c),
+        env: asrGatewayEnv(c, asrModelDir),
         logDir: paths.logs(c),
       }, log));
       await waitForManaged(managed.at(-1)!, `http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 });

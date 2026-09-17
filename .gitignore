@@ -133,3 +133,4 @@ apps/desktop/bin/
 apps/skill-sandbox/preinstalled/
 apps/desktop/models/
 apps/desktop/bin/
+apps/desktop/asr-models/

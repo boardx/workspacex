@@ -32,6 +32,14 @@ function bundleModelsDir(): string | undefined {
   return existsSync(dev) ? dev : undefined;
 }
 
+/** Packaged: resources/asr-models (bundle-asr-model.sh). Dev: apps/desktop/asr-models if present. */
+function bundleAsrModelsDir(): string | undefined {
+  const dir = join(process.resourcesPath ?? "", "asr-models");
+  if (existsSync(dir)) return dir;
+  const dev = join(bundleRoot(), "apps", "desktop", "asr-models");
+  return existsSync(dev) ? dev : undefined;
+}
+
 function bundleBinDir(): string | undefined {
   const dir = join(process.resourcesPath ?? "", "bin");
   return app.isPackaged && existsSync(dir) ? dir : undefined;
@@ -92,7 +100,7 @@ async function boot(): Promise<void> {
   const config = resolveLocalConfig({ repoRoot, dataDir });
   const built = existsSync(join(repoRoot, "apps", "web", ".next", "BUILD_ID"));
   try {
-    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundleModelsDir: bundleModelsDir() });
+    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir() });
   } catch (e) {
     log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);
     await dialog.showMessageBox({ type: "error", title: "启动失败", message: e instanceof Error ? e.message : String(e), detail: lines.slice(-30).join("\n") });
