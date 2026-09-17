@@ -212,6 +212,7 @@ export function apiEnv(c: LocalConfig): Env {
     KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
+    KERNEL_CORS_ORIGINS: webOrigins(c).join(","),
     // no Redis on this machine (issue #3716)
     KERNEL_SESSION_STORE: "file",
     KERNEL_SESSION_STORE_FILE: paths.sessions(c),
@@ -257,31 +258,24 @@ export function deepAgentEnv(c: LocalConfig): Env {
 }
 
 /**
- * The browser must reach the API same-origin: the API has no CORS layer (production puts
- * Caddy in front; see provision.sh), so a direct 3100 → 3200 call is blocked and the login
- * page reports "登录服务暂时不可用". apps/web already ships a same-origin proxy for exactly
- * this (next.config.mjs `rewrites()`, gated by FULLSTACK_E2E_API_ORIGIN, prefix
- * /__fullstack_api) -- the fullstack e2e lane uses it the same way. WebSockets are not
- * proxied by Next rewrites, so they go straight to the API origin (no CORS on WS).
- *
- * ⚠ Rewrites are baked in at `next build`; a packaged bundle must be built with the same
- * FULLSTACK_E2E_API_ORIGIN / ports it will run with.
+ * The browser calls the API directly on its own port. The API has no CORS layer in
+ * production (Caddy makes it same-origin there); for the local build the API enables CORS
+ * for exactly the origins the web app is served on (`KERNEL_CORS_ORIGINS`, see apiEnv), so
+ * both `localhost` and `127.0.0.1` tabs work. Bearer tokens, no cookies.
  */
 export function webEnv(c: LocalConfig): Env {
   const api = `http://127.0.0.1:${c.ports.api}`;
   return {
     PORT: String(c.ports.web),
-    // Relative: api-client resolves it against window.location.origin, so the page works
-    // whether the user typed localhost or 127.0.0.1 (an absolute 127.0.0.1 URL was a
-    // cross-origin call from a localhost tab -- CORS-blocked). Server-side rendering needs
-    // the absolute internal URL instead.
-    NEXT_PUBLIC_API_URL: "/",
-    API_INTERNAL_URL: api,
-    NEXT_PUBLIC_API_PATH_PREFIX: "/__fullstack_api",
+    NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,
-    FULLSTACK_E2E_API_ORIGIN: api,
     NEXT_TELEMETRY_DISABLED: "1",
   };
+}
+
+/** Origins the web app may be opened on; the API's CORS allowlist is exactly this. */
+export function webOrigins(c: LocalConfig): string[] {
+  return [`http://127.0.0.1:${c.ports.web}`, `http://localhost:${c.ports.web}`];
 }
 
 export function ollamaEnv(c: LocalConfig): Env {

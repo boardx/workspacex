@@ -46,7 +46,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```bash
 ./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
-FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:3200 pnpm --filter web build   # rewrites 在 build 期烘焙，端口须与运行时一致
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
 
@@ -61,6 +61,8 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 换引擎（Qwen3-ASR / Whisper）= 在网关里加一个 `Engine` 实现，协议不动。
 
 ## 已知偏差（如实登记）
+
+- 浏览器直连 API（3100 → 3200 跨域）：API 仅在 `KERNEL_CORS_ORIGINS` 列出精确 origin 时开启 CORS，本地版列 `127.0.0.1:3100` 与 `localhost:3100`；生产不设该变量，行为不变。
 
 - API 在开发模式会加载仓库根的 `.env.local`；local-runtime 设 `KERNEL_SKIP_LOCAL_ENV_FILE=1` 跳过它，并把 `NATIVE_SESSION_*` 钉空——本机不跑 bubblewrap 原生会话（Linux-only），运行走 legacy profile + TCP 沙箱。
 

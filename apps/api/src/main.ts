@@ -69,6 +69,12 @@ export async function createApp(): Promise<NestExpressApplication> {
   });
   // Must sit outermost, ahead of the Guard: rejected requests need a traceId too
   // (see middleware/trace.ts).
+  // WorkspaceX Local (issue #3716): the desktop build serves the web app and the API on two
+  // loopback ports with no reverse proxy in front, so the browser's calls are cross-origin.
+  // Production keeps its zero-CORS posture (Caddy makes it same-origin); this only turns on
+  // when the supervisor lists the exact origins it serves. Bearer tokens, no cookies.
+  const corsOrigins = (process.env.KERNEL_CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+  if (corsOrigins.length > 0) app.enableCors({ origin: corsOrigins, credentials: false, maxAge: 600 });
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
