@@ -61,6 +61,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ./scripts/local-bundle/prepare-sandbox-modules.sh # pptx/docx/xlsx/pdf skill 的预装模块（扁平 npm ci，随 apps/skill-sandbox/** 进 DMG）
 ./scripts/local-bundle/fetch-asr-model.sh         # 本地实时转写模型
 ./scripts/local-bundle/fetch-ollama.sh            # 打 DMG 才需要
+./scripts/local-bundle/fetch-models.sh            # 打 DMG 才需要：把聊天/嵌入模型（3.8 GB）导出到 apps/desktop/models 随包，首次启动不联网
 ```
 
 ## 打包（macOS，Night 0 目标）
@@ -68,6 +69,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```bash
 ./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
+./scripts/local-bundle/fetch-models.sh        # apps/desktop/models（Ollama manifests+blobs，随包 5.2 GB DMG）
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
