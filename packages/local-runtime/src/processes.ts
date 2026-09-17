@@ -4,6 +4,8 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
+import net from "node:net";
+import { platform } from "node:os";
 import { join } from "node:path";
 
 export interface SpawnSpec {
@@ -23,10 +25,14 @@ export interface Managed {
 }
 
 export function startManaged(spec: SpawnSpec, log: (line: string) => void = defaultLog): Managed {
+  // Own process group (POSIX): uvicorn `--workers` and `next dev` fork; signalling only the
+  // direct child left a worker listening on the port after the supervisor died, and the next
+  // `up` then took the stale worker's /healthz for its own (Mac实测 2026-09-17).
   const child = spawn(spec.command, [...spec.args], {
     cwd: spec.cwd,
     env: { ...baseEnv(), ...spec.env },
     stdio: ["ignore", "pipe", "pipe"],
+    detached: platform() !== "win32",
   });
   let file: ReturnType<typeof createWriteStream> | null = null;
   if (spec.logDir) {
@@ -69,12 +75,46 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
     exited,
     async stop() {
       if (child.exitCode !== null) return;
-      child.kill("SIGTERM");
-      const t = setTimeout(() => child.kill("SIGKILL"), 8_000);
+      killTree(child, "SIGTERM");
+      const t = setTimeout(() => killTree(child, "SIGKILL"), 8_000);
       await exited;
       clearTimeout(t);
     },
   };
+}
+
+/** Signal the child's whole process group (falls back to the child alone on Windows / if the group is gone). */
+export function killTree(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (child.pid === undefined) return;
+  if (platform() !== "win32") {
+    try { process.kill(-child.pid, signal); return; } catch { /* group already gone, fall through */ }
+  }
+  try { child.kill(signal); } catch { /* already exited */ }
+}
+
+/**
+ * Readiness that cannot be faked by a stale process: rejects as soon as the child exits, and
+ * only resolves on the HTTP probe. Without the race, a child that failed to bind (EADDRINUSE)
+ * was reported ready because whoever held the port answered the probe.
+ */
+export async function waitForManaged(m: Managed, url: string, opts: Parameters<typeof waitForHttp>[1]): Promise<void> {
+  const exited = m.exited.then((code) => { throw new Error(`${m.name} exited with code ${code} before becoming ready (see ${m.name}.log)`); });
+  await Promise.race([waitForHttp(url, opts), exited]);
+}
+
+/** Fail fast and say who to stop, instead of letting a service die on EADDRINUSE behind a probe that a stale process answers. */
+export async function assertPortFree(port: number, what: string): Promise<void> {
+  const inUse = await new Promise<boolean>((resolve) => {
+    const s = net.createServer();
+    s.once("error", () => resolve(true));
+    s.listen(port, "127.0.0.1", () => s.close(() => resolve(false)));
+  });
+  if (inUse) {
+    throw new Error(
+      `127.0.0.1:${port} (${what}) is already in use -- another WorkspaceX Local or a leftover ${what} process is running; ` +
+        `stop it first (lsof -ti :${port} | xargs kill)`,
+    );
+  }
 }
 
 export interface RunResult {

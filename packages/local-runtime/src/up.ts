@@ -16,7 +16,7 @@ import {
 } from "./config";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
-import { startManaged, waitForHttp, runToCompletion, type Managed } from "./processes";
+import { assertPortFree, killTree, startManaged, waitForHttp, waitForManaged, runToCompletion, type Managed } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 
 export interface UpOptions {
@@ -50,7 +50,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   // the children must not outlive it: an orphaned sandbox/API keeps its port and the next
   // start fails with EADDRINUSE. `exit` is synchronous, so only signal here, no awaiting.
   const killChildrenOnExit = (): void => {
-    for (const m of managed) if (m.child.exitCode === null) m.child.kill("SIGTERM");
+    for (const m of managed) if (m.child.exitCode === null) killTree(m.child, "SIGTERM");
   };
   process.once("exit", killChildrenOnExit);
 
@@ -98,6 +98,13 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       warnings.push("未找到 Ollama：API 已启动，但聊天没有可用模型（安装 Ollama 后重启即可）");
     }
 
+    // Every service we spawn must own its port: a stale process there would answer our
+    // readiness probe while our child dies on EADDRINUSE.
+    for (const [port, what] of [[c.ports.sandbox, "skill-sandbox"], [c.ports.asr, "asr-gateway"], [c.ports.api, "api"], [c.ports.deepAgent, "deep-agent"], [c.ports.web, "web"]] as const) {
+      if (what === "web" && (opts.webMode ?? "dev") === "none") continue;
+      await assertPortFree(port, what);
+    }
+
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
     managed.push(startManaged({
       name: "skill-sandbox",
@@ -107,7 +114,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       env: sandboxEnv(c),
       logDir: paths.logs(c),
     }, log));
-    await waitForHttp(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 });
+    await waitForManaged(managed.at(-1)!, `http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 });
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
@@ -121,7 +128,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: asrGatewayEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 });
+      await waitForManaged(managed.at(-1)!, `http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 });
     } else {
       warnings.push("本地转写模型未下载：录音/访谈的实时转写不可用（运行 scripts/local-bundle/fetch-asr-model.sh 后重启）");
     }
@@ -136,7 +143,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       logDir: paths.logs(c),
     }, log));
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
-    await waitForHttp(`${apiUrl}/healthz`, { timeoutMs: 180_000 });
+    await waitForManaged(managed.at(-1)!, `${apiUrl}/healthz`, { timeoutMs: 180_000 });
 
     // ── deep agent (python) ───────────────────────────────────────────────────
     let deepAgentUrl: string | null = null;
@@ -152,7 +159,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: deepAgentEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 });
+      await waitForManaged(managed.at(-1)!, `${deepAgentUrl}/healthz`, { timeoutMs: 120_000 });
     } else {
       warnings.push("deep-agent-service 未安装 Python 运行时（.venv）：聊天可回复，但工具调用 / skill 执行不可用");
     }
@@ -170,7 +177,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: webEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(webUrl, { timeoutMs: 300_000 });
+      await waitForManaged(managed.at(-1)!, webUrl, { timeoutMs: 300_000 });
     }
 
     const state = readSeedState(c);

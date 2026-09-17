@@ -15,11 +15,15 @@
  * ## What this does instead
  *
  *   1. Ownership: the first message from a client claims the backend; other clients' messages
- *      wait. Ownership is released when the backend has answered with ReadyForQuery ('Z')
- *      AND the client is not in the middle of an extended-protocol exchange: an unnamed
- *      Parse ('P' with empty name) keeps ownership until a Bind ('B') from the same client,
- *      so the two-round-trip pattern is safe. A client that goes quiet while owning the
- *      backend loses it after `ownerIdleMs` (a bug guard, not a normal path).
+ *      wait. Ownership is released only when the backend has answered with ReadyForQuery ('Z')
+ *      -- i.e. after the client's Sync (or a simple Query) -- AND the client is not in the
+ *      middle of a two-round-trip exchange: an unnamed Parse ('P' with empty name) keeps
+ *      ownership across the intermediate 'Z' until a Bind ('B') from the same client.
+ *      Within one round trip the messages arrive in one TCP packet but are enqueued one by
+ *      one (PGLiteSocketHandler awaits each), so between Bind and Execute the owner's queue
+ *      is momentarily empty; releasing there let another client's Query destroy the unnamed
+ *      portal ("portal \"\" does not exist", Mac实测 2026-09-17). A client that goes quiet
+ *      while owning the backend loses it after `ownerIdleMs` (a bug guard, not a normal path).
  *   2. Namespacing: named prepared statements and named portals are rewritten per client
  *      (`h<id>.<name>`) in Parse, Bind, Describe, Close and Execute, so two connections that
  *      both prepare "_pg3_0" no longer collide. Names are opaque to clients, so this is
@@ -49,6 +53,14 @@ export class SessionAwareQueryQueue {
   private ownerSince = 0;
   /** handler id → an unnamed Parse was sent and no Bind has followed yet */
   private pendingUnnamedParse = new Set<number>();
+  /** the owner has sent at least one message since the backend last answered ReadyForQuery */
+  private ownerAwaitingReady = false;
+  /** SQL text of the owner's last Parse/Query, for the idle-release diagnostic */
+  private ownerLastSql = "";
+  /** called when an owner is taken away by the idle guard; an anomaly worth a log line */
+  onIdleRelease: (info: { handlerId: number; heldMs: number; inTransaction: boolean; lastSql: string; why: string; lastTypes: string }) => void = () => {};
+  /** frontend message types the owner sent since it claimed the backend (diagnostics) */
+  private ownerTypes: string[] = [];
   /** the last chunk of backend output for the in-flight message, to detect ReadyForQuery */
   constructor(private readonly db: PGlite, private readonly ownerIdleMs = 5_000) {}
 
@@ -70,15 +82,20 @@ export class SessionAwareQueryQueue {
       return false;
     });
     this.pendingUnnamedParse.delete(handlerId);
-    if (this.owner === handlerId) this.owner = null;
+    if (this.owner === handlerId) this.releaseOwner();
     if (!this.processing) void this.processQueue();
+  }
+
+  private releaseOwner(): void {
+    this.owner = null;
+    this.ownerAwaitingReady = false;
   }
 
   async clearTransactionIfNeeded(handlerId: number): Promise<void> {
     if (this.db.isInTransaction() && this.owner === handlerId) {
       await this.db.exec("ROLLBACK");
     }
-    if (this.owner === handlerId) this.owner = null;
+    if (this.owner === handlerId) this.releaseOwner();
     if (!this.processing) void this.processQueue();
   }
 
@@ -88,12 +105,18 @@ export class SessionAwareQueryQueue {
       const i = this.queue.findIndex((q) => q.handlerId === this.owner);
       if (i >= 0) return this.queue.splice(i, 1)[0]!;
       // Owner has nothing queued. If it is mid-exchange, wait for it (bounded); otherwise release.
-      const midExchange = this.pendingUnnamedParse.has(this.owner) || this.db.isInTransaction();
+      const midExchange = this.ownerAwaitingReady || this.pendingUnnamedParse.has(this.owner) || this.db.isInTransaction();
       if (midExchange && Date.now() - this.ownerSince < this.ownerIdleMs) return null;
-      this.owner = null;
+      if (midExchange) {
+        const why = [this.ownerAwaitingReady ? "awaitingReady" : "", this.pendingUnnamedParse.has(this.owner) ? "unnamedParsePending" : "", this.db.isInTransaction() ? "inTransaction" : ""].filter(Boolean).join("+");
+        this.onIdleRelease({ handlerId: this.owner, heldMs: Date.now() - this.ownerSince, inTransaction: this.db.isInTransaction(), lastSql: this.ownerLastSql, why, lastTypes: this.ownerTypes.slice(-12).join("") });
+      }
+      this.releaseOwner();
     }
     const next = this.queue.shift()!;
     this.owner = next.handlerId;
+    this.ownerAwaitingReady = false;
+    this.ownerTypes = [];
     this.ownerSince = Date.now();
     return next;
   }
@@ -110,29 +133,42 @@ export class SessionAwareQueryQueue {
           break;
         }
         const type = item.message[0];
+        this.ownerTypes.push(String.fromCharCode(type!));
         if (type === 0x50 /* P */ && parseStatementName(item.message) === "") this.pendingUnnamedParse.add(item.handlerId);
+        if (type === 0x50 || type === 0x51) this.ownerLastSql = sqlText(item.message);
         if (type === 0x42 /* B */ || type === 0x51 /* Q */) this.pendingUnnamedParse.delete(item.handlerId);
         let bytes = 0;
-        let sawReady = false;
+        const tracker = new BackendMessageTracker();
+        // Flush ('H') and Terminate ('X') are never answered with ReadyForQuery; a lone Flush
+        // (psycopg after COMMIT) must not put the owner into "waiting for Z" -- it held the
+        // backend for the whole idle guard (Mac实测 2026-09-17, why=awaitingReady types=H).
+        if (type !== 0x48 /* H */ && type !== 0x58 /* X */) this.ownerAwaitingReady = true;
         try {
           await this.db.runExclusive(async () => {
             await this.db.execProtocolRawStream(item.message, {
               onRawData: (chunk: Uint8Array) => {
                 bytes += chunk.length;
-                if (endsWithReadyForQuery(chunk)) sawReady = true;
+                tracker.feed(chunk);
                 item.onData(chunk);
               },
             });
           });
         } catch (e) {
           item.reject(e);
-          if (this.owner === item.handlerId) this.owner = null;
+          if (this.owner === item.handlerId) this.releaseOwner();
           continue;
         }
         this.ownerSince = Date.now();
         item.resolve(bytes);
+        // Terminate ('X') gets no reply at all (PGlite returns nothing), so it can never produce
+        // a ReadyForQuery: treat it as the end of the client's session. pg-pool sends it when it
+        // reaps an idle connection; without this the backend stayed with the dead connection
+        // for the whole idle guard (Mac实测 2026-09-17, "last sql: COMMIT" then 5 s stall).
+        const sawReady = tracker.lastCompleteType === READY_FOR_QUERY || type === 0x58 /* X */;
+        if (type === 0x58) this.pendingUnnamedParse.delete(item.handlerId);
+        if (sawReady) this.ownerAwaitingReady = false;
         if (sawReady && !this.pendingUnnamedParse.has(item.handlerId) && !this.db.isInTransaction()) {
-          this.owner = null;
+          this.releaseOwner();
         }
       }
     } finally {
@@ -146,24 +182,54 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Backend messages are `type(1) length(4, includes itself) body`; check the last one is 'Z'. */
-function endsWithReadyForQuery(chunk: Uint8Array): boolean {
-  let i = 0;
-  let last = -1;
-  const view = new DataView(chunk.buffer, chunk.byteOffset, chunk.byteLength);
-  while (i + 5 <= chunk.length) {
-    const len = view.getInt32(i + 1);
-    if (len < 4 || i + 1 + len > chunk.length) break;
-    last = chunk[i]!;
-    i += 1 + len;
+/**
+ * Tracks backend message boundaries across raw output chunks. Backend messages are
+ * `type(1) length(4, includes itself) body`; PGlite streams them in fixed-size chunks, so a
+ * chunk boundary can split a message (a large result set does this on every run). A per-chunk
+ * "does it end with Z" check then misses the ReadyForQuery and the owner is only released by
+ * the idle guard -- 5 s during which every other connection times out (Mac实测 2026-09-17).
+ */
+export class BackendMessageTracker {
+  /** type of the last message whose bytes have fully arrived */
+  lastCompleteType = -1;
+  private header = new Uint8Array(5);
+  private headerFilled = 0;
+  private bodyRemaining = 0;
+  private currentType = -1;
+
+  feed(chunk: Uint8Array): void {
+    let i = 0;
+    while (i < chunk.length) {
+      if (this.bodyRemaining > 0) {
+        const take = Math.min(this.bodyRemaining, chunk.length - i);
+        this.bodyRemaining -= take;
+        i += take;
+        if (this.bodyRemaining === 0) this.lastCompleteType = this.currentType;
+        continue;
+      }
+      this.header[this.headerFilled++] = chunk[i++]!;
+      if (this.headerFilled === 5) {
+        this.headerFilled = 0;
+        this.currentType = this.header[0]!;
+        const len = new DataView(this.header.buffer).getInt32(1);
+        this.bodyRemaining = Math.max(0, len - 4);
+        if (this.bodyRemaining === 0) this.lastCompleteType = this.currentType;
+      }
+    }
   }
-  return last === READY_FOR_QUERY;
 }
 
 function cstrEnd(buf: Uint8Array, from: number): number {
   let i = from;
   while (i < buf.length && buf[i] !== 0) i += 1;
   return i;
+}
+
+/** Query: sql\0 ; Parse: stmt\0 sql\0 -- first 160 chars for diagnostics. */
+function sqlText(msg: Uint8Array): string {
+  let start = 5;
+  if (msg[0] === 0x50) start = cstrEnd(msg, 5) + 1;
+  return new TextDecoder().decode(msg.subarray(start, cstrEnd(msg, start))).replace(/\s+/g, " ").slice(0, 160);
 }
 
 function parseStatementName(msg: Uint8Array): string {

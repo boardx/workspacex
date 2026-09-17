@@ -21,6 +21,7 @@ import { vector } from "@electric-sql/pglite-pgvector";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { DB_NAME } from "./config";
 import { SessionAwareQueryQueue } from "./pglite-queue";
+import { assertPortFree } from "./processes";
 
 export interface PgliteServerOptions {
   readonly dataDir: string;
@@ -52,7 +53,9 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
   });
   // Replace the per-message queue with a session-aware one (see pglite-queue.ts): the
   // built-in one interleaves clients between Parse and Bind and shares statement names.
-  (server as unknown as { queryQueue: unknown }).queryQueue = new SessionAwareQueryQueue(db);
+  const queue = new SessionAwareQueryQueue(db);
+  queue.onIdleRelease = (i) => console.warn(`[pglite] backend taken from idle connection #${i.handlerId} after ${i.heldMs}ms (why=${i.why} types=${i.lastTypes}) last sql: ${i.lastSql}`);
+  (server as unknown as { queryQueue: unknown }).queryQueue = queue;
   await server.start();
   let stopped = false;
   return {
@@ -75,17 +78,7 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
  * PostgreSQL port is another WorkspaceX Local, and we say so instead of letting PGlite abort.
  */
 export async function assertPostgresPortFree(port: number): Promise<void> {
-  const inUse = await new Promise<boolean>((resolve) => {
-    const s = net.createServer();
-    s.once("error", () => resolve(true));
-    s.listen(port, "127.0.0.1", () => s.close(() => resolve(false)));
-  });
-  if (inUse) {
-    throw new Error(
-      `127.0.0.1:${port} is already in use -- another WorkspaceX Local is probably running; ` +
-        "stop it first (Ctrl-C in its terminal, or: lsof -ti :" + port + " | xargs kill)",
-    );
-  }
+  await assertPortFree(port, "PostgreSQL");
 }
 
 /** Turn PGlite's opaque WASM abort into an actionable message. */
