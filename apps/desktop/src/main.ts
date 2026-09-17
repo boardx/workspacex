@@ -10,7 +10,7 @@
  * `next build` inside the bundle. Auto-update, tray, Windows: R1.
  */
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { existsSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveLocalConfig, runDoctor, up, type RunningStack } from "@repo/local-runtime";
 
@@ -37,7 +37,25 @@ h1{font-size:18px;margin:0 0 12px}pre{white-space:pre-wrap;font:12px ui-monospac
 <h1>WorkspaceX Local 正在启动……</h1><p>首次启动会跑数据库迁移并下载模型，可能需要几分钟。</p><pre>${esc(lines.slice(-200).join("\n"))}</pre></html>`;
 }
 
+/**
+ * A GUI app on macOS starts with PATH=/usr/bin:/bin:/usr/sbin:/sbin -- no `node`. Everything
+ * local-runtime spawns from the bundle (`node_modules/.bin/tsx`, `next`) is a `#!/usr/bin/env
+ * node` script, so on a machine without a system Node the first migration run died with
+ * `exec: node: not found` and the window sat behind a modal error (Mac实测 2026-09-17, DMG
+ * launched from Finder). Electron ships Node: expose it as `node` through a tiny shim and put
+ * the shim first on PATH. Children inherit PATH (processes.ts baseEnv), so `tsx` -> `node`
+ * -> this shim -> Electron-as-Node.
+ */
+function ensureNodeOnPath(): void {
+  const shimDir = join(app.getPath("userData"), "bin");
+  mkdirSync(shimDir, { recursive: true });
+  const shim = join(shimDir, "node");
+  writeFileSync(shim, `#!/bin/sh\nexport ELECTRON_RUN_AS_NODE=1\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
+  process.env.PATH = `${shimDir}:${process.env.PATH ?? "/usr/bin:/bin"}`;
+}
+
 async function boot(): Promise<void> {
+  ensureNodeOnPath();
   const repoRoot = bundleRoot();
   const dataDir = join(app.getPath("userData"), "local");
   const doctor = runDoctor({ dataDir, repoRoot, bundleBinDir: bundleBinDir() });
@@ -51,7 +69,12 @@ async function boot(): Promise<void> {
   const lines: string[] = [];
   const render = (): void => { void win?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml(lines))}`); };
   let renderTimer: NodeJS.Timeout | null = null;
+  // Same lines as the window, on disk: a failure behind a modal dialog is otherwise invisible
+  // to anyone not sitting at the screen (Mac实测 2026-09-17, two silent "启动失败" in a row).
+  mkdirSync(dataDir, { recursive: true });
+  const desktopLog = join(dataDir, "desktop.log");
   const log = (line: string): void => {
+    try { appendFileSync(desktopLog, `${new Date().toISOString()} ${line}\n`); } catch { /* best effort */ }
     lines.push(line);
     if (renderTimer) return;
     renderTimer = setTimeout(() => { renderTimer = null; render(); }, 300);
@@ -63,6 +86,7 @@ async function boot(): Promise<void> {
   try {
     stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir() });
   } catch (e) {
+    log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);
     await dialog.showMessageBox({ type: "error", title: "启动失败", message: e instanceof Error ? e.message : String(e), detail: lines.slice(-30).join("\n") });
     app.quit();
     return;
