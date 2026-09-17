@@ -65,6 +65,7 @@ import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-
 import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
+import { normalizeCanvasFenceTemplateKeys, type CanvasTemplateRef } from "../../domain/canvas/normalize-fence-template-key";
 import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
@@ -595,6 +596,7 @@ async function executeClaimed(
   orgId: OrgId,
   run: ClaimedAgentRun,
 ): Promise<void> {
+  let publishedCanvasTemplates: readonly CanvasTemplateRef[] | null = null;
   // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
   // this mirrors an already-true fact (I-3 decoupling).
   publishStatusChange(deps, orgId, run.runId, "running");
@@ -660,9 +662,12 @@ async function executeClaimed(
     // there is no honest cache here, see the port's own doc comment for why not: a template
     // republished a moment ago must show up in the very next run, not after some TTL.
     let canvasGuidance: string | null = null;
+    // published canvas templates read for the guidance; reused to correct fence keys before write-back (人类决策 B, 2026-09-17)
+    publishedCanvasTemplates = null;
     if (deps.canvasTemplates) {
       try {
         const templates = await deps.canvasTemplates.listPublished(orgId, run.requesterUserId);
+        publishedCanvasTemplates = templates.map((t) => ({ key: t.key, displayName: t.displayName }));
         canvasGuidance = buildCanvasTemplateGuidance(templates);
       } catch (e) {
         deps.log("agent run canvas template guidance read failed, continuing without it", {
@@ -1342,6 +1347,16 @@ async function executeClaimed(
 
   if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   /* ── hand off to #413 ── */
+  // 人类决策 B（2026-09-17）：小模型会把 ```canvas 的『模板: <key>』自造成 user-portrait 之类，
+  // 网页端「不猜」未知 key 就不渲染。写回前用本次 run 读到的已发布模板做一次**确定性**校正
+  // （精确名 / 显示名 / 归一化 / 单义别名），命中才改、改了就记日志；校不出的原样留给网页端如实报错。
+  if (publishedCanvasTemplates && publishedCanvasTemplates.length > 0) {
+    const normalized = normalizeCanvasFenceTemplateKeys(text, publishedCanvasTemplates);
+    if (normalized.corrections.length > 0) {
+      deps.log("canvas fence template key corrected before write-back", { runId: run.runId, corrections: normalized.corrections });
+      text = normalized.text;
+    }
+  }
   await deps.runs.storeOutputAwaitingWriteback(
     orgId, run.runId,
     // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。
