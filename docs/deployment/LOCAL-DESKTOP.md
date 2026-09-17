@@ -94,6 +94,7 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 - API 启动时的「平台 skill 目录自愈」以 owner 凭据写 `organizations`，在 app 阶段会被 RLS 拒绝并打一条 `42501` 日志；种子已在 owner 阶段完成，功能不受影响。
 - 沙箱为 L0（子进程，无容器）；LibreOffice / tesseract / ffmpeg 未随附，对应 skill 会报缺依赖。脚本依赖（pptxgenjs 等）必须由 `prepare-sandbox-modules.sh` 装成扁平真实目录（Node 权限模型不认 pnpm 的二级软链），否则 `MODULE_NOT_FOUND`。
 - PGlite 只有一个后端会话：所有 TCP 连接串行复用，排队器只在后端答 ReadyForQuery 后换人（Flush/Terminate 没有回复、大结果集跨块，都单独处理）；一条连接正忙时其它连接的 connect 会排队，所以 deep-agent 账本连接超时设 30 s + 2 次重试、run 总超时 15 min。排队器在兜底释放 / 等待超过 3 s 时各打一行诊断（`backend taken from idle connection …` / `waited …ms for the backend`），排查卡顿先看这两种行。
+- 本地模型的 thinking 由 `KERNEL_MODEL_REASONING_EFFORT=none` 关闭，只对 **Ollama ≥ 0.34** 的 `/v1` 端点生效（`think:false` 在 `/v1` 上被忽略，实测见 evidence）。启动时若发现已在跑的 Ollama 低于 0.34，且随包二进制更新，会在下一端口自起随包版本；两者都旧则复用并如实警告「回复会慢」。
 - 芯片提示词已改为「没聊到的分区按指引推理补全」（与 system prompt 画布指引同向）；小模型在新会话里遇到「留空/不要编造」会反问而不出围栏。
 - 图片生成、web_search、浏览器工具、远程 MCP：本地版未配置，UI/API 走各自的「未配置」状态。ASR 见上节。
 - deep-agent 服务在本机以 `app_rw` 建自己的表（线程账本 / 检查点 / 记忆 schema），owner 阶段给该角色授了 schema 与 database 的 CREATE；这些表不是 RLS 管辖的 API 表。
