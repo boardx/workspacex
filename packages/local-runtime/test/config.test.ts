@@ -53,5 +53,9 @@ describe("local config", () => {
       expect(api[k]).toBeUndefined();
     }
     expect(readFileSync(join(c.dataDir, "secrets.json"), "utf8")).toContain(api.MODEL_CREDENTIAL_KEY);
+    // a developer's .env.local must not leak into the local shape; native sessions stay off
+    expect(api.KERNEL_SKIP_LOCAL_ENV_FILE).toBe("1");
+    expect(api.NATIVE_SESSION_SOCKET).toBe("");
+    expect(api.KERNEL_NATIVE_RUNTIME).toBe("0");
   });
 });

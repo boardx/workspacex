@@ -121,6 +121,10 @@ function isProcessEntry(): boolean {
  */
 function loadLocalEnvFileForDev(): void {
   if (process.env.NODE_ENV === "production") return;
+  // WorkspaceX Local (issue #3716): the desktop supervisor composes the ENTIRE environment
+  // itself and runs the API from a developer checkout, where a .env.local from cloud/dev
+  // work (NATIVE_SESSION_SOCKET, Bailian keys, ...) must not leak in. It sets this flag.
+  if (process.env.KERNEL_SKIP_LOCAL_ENV_FILE === "1") return;
   try {
     process.loadEnvFile(fileURLToPath(new URL("../../../.env.local", import.meta.url)));
   } catch {

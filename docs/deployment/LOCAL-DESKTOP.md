@@ -62,6 +62,8 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 
 ## 已知偏差（如实登记）
 
+- API 在开发模式会加载仓库根的 `.env.local`；local-runtime 设 `KERNEL_SKIP_LOCAL_ENV_FILE=1` 跳过它，并把 `NATIVE_SESSION_*` 钉空——本机不跑 bubblewrap 原生会话（Linux-only），运行走 legacy profile + TCP 沙箱。
+
 - pglite-socket 忽略客户端登录角色：所有连接都是实例打开时的角色。启动分两段：先以 `postgres` 迁移 + 种子，再以 `app_rw` 对外服务；`session_user` 仍是 postgres，`SET ROLE postgres` 不会被拒。仅适用于单用户本机回环，**不是**多机部署形态。
 - API 启动时的「平台 skill 目录自愈」以 owner 凭据写 `organizations`，在 app 阶段会被 RLS 拒绝并打一条 `42501` 日志；种子已在 owner 阶段完成，功能不受影响。
 - 沙箱为 L0（子进程，无容器）；LibreOffice / tesseract / ffmpeg 未随附，对应 skill 会报缺依赖。

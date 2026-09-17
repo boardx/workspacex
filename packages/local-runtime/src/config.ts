@@ -202,6 +202,14 @@ export function apiEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     PORT: String(c.ports.api),
     NODE_ENV: "development",
+    // The API loads <repo>/.env.local in development; a developer's cloud settings there
+    // (native-session socket, Bailian keys) would silently override the local shape.
+    KERNEL_SKIP_LOCAL_ENV_FILE: "1",
+    // Native (bubblewrap) sessions are Linux-only; local runs use the legacy profile with
+    // the TCP sandbox. Pinned to empty so nothing inherited can re-enable them.
+    NATIVE_SESSION_SOCKET: "",
+    NATIVE_SESSION_BINDING_KEY: "",
+    KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
     // no Redis on this machine (issue #3716)
