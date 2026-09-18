@@ -24,18 +24,31 @@ export function downloadDataUrl(dataUrl: string, filename: string): void {
 }
 
 /**
- * 把一张 PNG data URL 嵌进一页 PDF（页面尺寸＝图片像素尺寸转 pt，不额外加白边/
- * 缩放变形），触发下载。`multiplier` 截出来的图分辨率越高，这里页面尺寸换算
- * 用的 `widthPx`/`heightPx` 必须是**截图实际像素尺寸**（`exportPNG()` 已经把
- * `multiplier` 应用过的最终宽高一并返回，不是画布逻辑尺寸），否则图片在 PDF 里
- * 会被拉伸变形。
+ * 把一张 PNG data URL 嵌进一页 PDF（页面尺寸＝画布**逻辑**尺寸转 pt，不额外加白边/
+ * 缩放变形），触发下载。`widthPx`/`heightPx` 是 `exportPNG()` 返回的逻辑尺寸；截图
+ * 本身的像素是它的 `multiplier` 倍，铺到同一页面上就是更高的 DPI，不会拉伸变形。
+ *
+ * ⚠ `compression: "FAST"` 不是可选的优化（2026-09-18 真实事故）：jsPDF 的 `addImage`
+ * 默认 `compression = "NONE"`——它会把 PNG **解码成裸位图**原样写进 PDF，每像素 3～4
+ * 字节，一张 4000×6000 的 mindmap 就是 72 MB（node 里实测；同图 FAST 是 0.49 MB，
+ * 与 PNG 本身相当）。FAST 是无损 Flate，清晰度分毫不减；MEDIUM/SLOW 只多耗 CPU、
+ * 体积几乎不变，所以取 FAST。
  */
+export const PDF_IMAGE_COMPRESSION = "FAST" as const;
+
 export async function exportPngAsPdf(
   pngDataUrl: string,
   widthPx: number,
   heightPx: number,
   filename: string,
 ): Promise<void> {
+  const doc = await buildPdfFromPng(pngDataUrl, widthPx, heightPx);
+  doc.save(filename);
+}
+
+/** 只组装、不下载——让测试能对产出的 PDF 字节断言（体积、Flate 过滤器），而不用
+ *  mock 掉 `save`。 */
+export async function buildPdfFromPng(pngDataUrl: string, widthPx: number, heightPx: number) {
   const { jsPDF } = await import("jspdf");
   // jsPDF 的 'pt' 单位下 1px = 0.75pt（96 dpi 换算，业界导出工具的通行做法，
   // 不是任意选的系数）——页面尺寸按图片像素尺寸换算，图片再原样铺满整页，
@@ -48,6 +61,14 @@ export async function exportPngAsPdf(
     unit: "pt",
     format: [pageWidth, pageHeight],
   });
-  doc.addImage(pngDataUrl, "PNG", 0, 0, pageWidth, pageHeight);
-  doc.save(filename);
+  doc.addImage({
+    imageData: pngDataUrl,
+    format: "PNG",
+    x: 0,
+    y: 0,
+    width: pageWidth,
+    height: pageHeight,
+    compression: PDF_IMAGE_COMPRESSION,
+  });
+  return doc;
 }
