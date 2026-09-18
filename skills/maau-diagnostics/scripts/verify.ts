@@ -7,12 +7,12 @@ import {verifySkillStarterPack} from '../../../apps/api/src/domain/skill/starter
 const require=createRequire(import.meta.url);
 async function main(){
 const root=resolve(import.meta.dirname,'..'),source=new FileSkillStarterPackSource(resolve(root,'../starter-packs'));
-const pack=verifySkillStarterPack(await source.load('maau-diagnostics','2.0.0'),{packId:'maau-diagnostics',packVersion:'2.0.0'});
+const pack=verifySkillStarterPack(await source.load('maau-diagnostics','2.0.1'),{packId:'maau-diagnostics',packVersion:'2.0.1'});
 assert.equal(pack.skills.length,1);assert.equal(pack.skills[0]!.stableName,'maau-venture-valuation');assert.equal(pack.skills[0]!.files.length,8);
 for(const file of pack.skills[0]!.files)assert.deepEqual(Buffer.from(file.contentBase64,'base64'),readFileSync(resolve(root,'maau-venture-valuation',file.path)));
 // 1.0.0 仍可加载（历史清单不动）；篡改被拒。
 assert.equal((await source.load('maau-diagnostics','1.0.0'))?.skills?.[0]?.stableName,'maau-recursive-asset-report');
-const changed=structuredClone(pack);changed.skills[0]!.files[0]!.contentBase64='dGFtcGVy';assert.throws(()=>verifySkillStarterPack(changed,{packId:'maau-diagnostics',packVersion:'2.0.0'}));
+const changed=structuredClone(pack);changed.skills[0]!.files[0]!.contentBase64='dGFtcGVy';assert.throws(()=>verifySkillStarterPack(changed,{packId:'maau-diagnostics',packVersion:'2.0.1'}));
 
 // Calculator 不变量（Requirement V0.5 §16 验收表）。
 const {calculate,formatValue}=require(resolve(root,'maau-venture-valuation/scripts/calc.cjs'));
@@ -47,8 +47,8 @@ const bad=structuredClone(idx);bad.evidence[0].type='fact';assert.ok(calculate(b
 // 渲染：拿得到单面 CJK 字体时真的画 8 页且字节确定。
 const {renderReport,resolveFont}=require(resolve(root,'maau-venture-valuation/scripts/render.cjs'));
 let font:string|null=null;try{font=resolveFont(process.env.MAAU_REPORT_FONT);}catch{font=null;}
-if(font){for(const r of [a,u]){const bytes:Uint8Array=await renderReport(r,font);assert.equal(Buffer.from(bytes.subarray(0,5)).toString(),'%PDF-');assert.equal((Buffer.from(bytes).toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length,8,'fixed 8 pages');const again:Uint8Array=await renderReport(r,font);assert.deepEqual(Buffer.from(bytes),Buffer.from(again),'render must be byte-deterministic');}
- console.log('PASS maau-diagnostics 2.0.0 pack + V0.5 calculator acceptance + 8-page deterministic render (font '+font+'). Not a live model G-SKILL.');}
-else console.log('PASS maau-diagnostics 2.0.0 pack + V0.5 calculator acceptance; PDF render SKIPPED (no single-face CJK font; set MAAU_REPORT_FONT). Not a live model G-SKILL.');
+if(font){for(const r of [a,u]){const bytes:Uint8Array=await renderReport(r,font);assert.equal(Buffer.from(bytes.subarray(0,5)).toString(),'%PDF-');assert.equal((Buffer.from(bytes).toString('latin1').match(/\/Type\s*\/Page[^s]/g)||[]).length,8,'fixed 8 pages');if(/\.ttf$/i.test(font))assert.ok(bytes.length<1_000_000,'TTF font must be subset-embedded: '+bytes.length+' bytes (6.7MB full embeds time out wx_artifact_publish)');const again:Uint8Array=await renderReport(r,font);assert.deepEqual(Buffer.from(bytes),Buffer.from(again),'render must be byte-deterministic');}
+ console.log('PASS maau-diagnostics 2.0.1 pack + V0.5 calculator acceptance + 8-page deterministic render (font '+font+'). Not a live model G-SKILL.');}
+else console.log('PASS maau-diagnostics 2.0.1 pack + V0.5 calculator acceptance; PDF render SKIPPED (no single-face CJK font; set MAAU_REPORT_FONT). Not a live model G-SKILL.');
 }
 void main().catch(error=>{console.error(error);process.exitCode=1;});

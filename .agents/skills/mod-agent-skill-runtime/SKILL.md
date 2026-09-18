@@ -111,6 +111,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
   假 kernel，不是硬编码"总是成功"）。
 - 2026-09-05：给 deep-agent 内核"运行期"传一条新指令，只有一条现成通道——同一个 run 的**下一次** `ModelCallInput`（HITL 之后的 resume 续跑），投影到 LangGraph `config.configurable` 由 harness.py 中间件在 `before_model` 注入；`executeClaimed` 一次只发一次内核调用，run 不停顿就没有"下一次"，别假设网关侧消费=内核已收到（出处：issue #2755，F11 PR #2742 的范围边界）。
 - 2026-09-05：`build_middleware()` 全栈跑假模型时，`TaskClassifierMiddleware` 会自己把多步任务钉成 `write_todos`、`RubricMiddleware` 的 grader 调用自带 `tool_choice="any"`——断言"某个中间件强制了 tool_choice"前先用 `disable_task_auto_classify` 隔离、并按 `bound_tools` 排除 grader 调用，否则正向与反证都在测别人（出处：`tests/golden/test_tc7_interjection_replan.py`，#2755）。
+- 2026-09-18：skill 产出的 PDF 体积直接决定 `wx_artifact_publish` 会不会超时——`maau-venture-valuation` 用 pdf-lib 整份嵌入 `NotoSansSC-Common.otf`（CFF，不能子集化）得到 6.7MB，devapp 上 publish 工具一直没返回（`tool_call_unresolved`），前 3 步都成功也白搭。改嵌 `/usr/share/fonts/workspacex/analysis/AnalysisSans.ttf` + `{subset:true}`（这份 TrueType 子集化实测正常：MuPDF 光栅化、fontTools 解析 488 个字形轮廓全部非空——Dockerfile 里"运行期子集器不可靠"那条只对 DroidSansFallback 与 CFF 成立），8 页压到 ~140KB；缺的希腊字母/数学符号按字符落到 StandardFonts.Symbol / Helvetica，判据读字体本身的 glyph id / 编码表而不是手写清单。教训：**沙箱里生成要发布的文件，先看字节数——超过 1MB 的字体嵌入就是发布链路的隐性超时**（出处：PR #3730 的 devapp 复现，本次修复 PR 见 `git log -- skills/maau-diagnostics/scripts/verify.ts`）。
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 

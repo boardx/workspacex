@@ -2,7 +2,7 @@
 name: maau-venture-valuation
 description: 以一张 MAAU Canvas 为唯一输入，输出「AI 原生递归资产与估值预测」8 页 PDF：递归资产诊断（M/γ/μ）、证据账本（Observed/Target/Planned/Assumption）、Benchmark 锚定的 V_seed、当前 Reference Value、90 天/12 个月 Conservative/Base/Upside 情景预测与价值解锁路线图。用户说「估值诊断」「递归资产报告」「价值预测」「MAAU 估值」时使用。
 capability_id: WX-S022
-version: 2.0.0
+version: 2.0.1
 ---
 
 # AI 原生递归资产与估值预测（MAAU Canvas → 8 页 PDF）
@@ -55,7 +55,8 @@ node /skills/maau-venture-valuation/scripts/cli.cjs /workspace/canvas-evidence.j
 ```
 - 退出码 3 = Preflight 失败（stderr 给缺口）；4 = JSON 不合规（stderr 逐条列字段）→ 改 JSON 重跑，不要手改数字。
 - 成功时 stdout 一行 JSON：state / quadrant / confidence / valueMode / M / γ / μ / EI / V_seed / V_now / V_90d / V_12m。
-- 字体自动用沙箱预装的 `/usr/share/fonts/workspacex/NotoSansSC-Common.otf`；报 `No CJK font found` 就如实说环境缺字体，不要换库、不要安装。
+- 字体自动用沙箱预装的 `/usr/share/fonts/workspacex/analysis/AnalysisSans.ttf`（子集嵌入，8 页 PDF 约 150KB；兜底 NotoSansSC-Common.otf 会整份嵌入到 6.7MB，那正是发布超时的原因）；报 `No CJK font found` 就如实说环境缺字体，不要换库、不要安装。
+- stdout 里 `bytes` 若超过 1MB，说明落到了兜底字体，先在回复里说明，再照常发布。
 
 ### 4. 发布
 `wx_artifact_publish`：`workspacePath: /workspace/venture-valuation.pdf`，`title: venture-valuation.pdf`，`mediaType: application/pdf`，
@@ -69,8 +70,8 @@ node /skills/maau-venture-valuation/scripts/cli.cjs /workspace/canvas-evidence.j
 - 明确标注：Reference Value / Scenario Forecast；Value Index 模式时说明原因（缺可用 Benchmark）。
 
 ## 本地使用
-仓库根：`pnpm maau:report <canvas-evidence.json> <out.pdf> [--font /path/NotoSansSC.otf] [--json out.json]`。
-无 `--font` 时按 `$MAAU_REPORT_FONT` → `$SKILL_SANDBOX_CJK_FONT` → 沙箱预装路径解析；本机要一份**单面**（非 .ttc）简体中文字体。
+仓库根：`pnpm maau:report <canvas-evidence.json> <out.pdf> [--font /path/cjk.ttf] [--json out.json]`。
+无 `--font` 时按 `$MAAU_REPORT_FONT` → `$SKILL_SANDBOX_CJK_FONT` → 沙箱预装路径解析；本机要一份**单面**（非 .ttc）简体中文字体；`.ttf` 会子集嵌入（小），`.otf`/CFF 整份嵌入（大）。
 
 ## 明确不做
 - 不把 M/γ/μ 直接相乘成美元；不把 Target 当 Fact；不用单一 Comparable 定 V_seed；不把 Upside 当最可能结果。
