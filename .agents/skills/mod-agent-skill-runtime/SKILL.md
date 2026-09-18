@@ -55,6 +55,10 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-18：同一个 skill 在 devapp 两次超时（16 分钟）都不是脚本慢，是模型在跑脚本之前的动作：读 3 份
+  references、`write_todos` 拆步骤、对截图 `ls`/`read_file`（PNG 已经是视觉输入，再读一次会撞 `tool_call_unresolved`）。
+  产出文件类 skill 的 SKILL.md 要把"总共 3–4 次工具调用、不写 todo、图片不要再读文件"写成硬规则，速查表放正文里，
+  references 只作备查（出处：issue #3729，`maau-venture-valuation`）。
 - 2026-09-18：需要"确定性计算 + 固定版式 PDF"的 skill，不要让模型现场写 pdf-lib 脚本——把计算
   （`compute.cjs` 纯函数）和渲染（`render-report.cjs`）作为包内 `scripts/*.cjs` 随 starter pack 下发，
   SKILL.md 只让模型做"抽取结构化证据 JSON → 跑一条命令 → 核验 → `wx_artifact_publish`"。原生沙箱

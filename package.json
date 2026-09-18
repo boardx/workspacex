@@ -59,7 +59,7 @@
     "uiux-review-log:stats": "pnpm exec tsx .harness/scripts/uiux-review-log-stats.ts",
     "lint:test-listen-loopback": "pnpm exec tsx .harness/scripts/lint-test-listen-loopback.mjs",
     "deploy:config": "node --import tsx packages/cloud-deploy/src/cli.ts",
-    "maau:report": "node skills/maau-diagnostics/maau-recursive-asset-report/scripts/cli.cjs"
+    "maau:report": "node skills/maau-diagnostics/maau-venture-valuation/scripts/cli.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
