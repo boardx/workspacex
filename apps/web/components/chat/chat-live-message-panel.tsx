@@ -817,6 +817,10 @@ export function ChatLiveMessagePanel({
    * 上下文，不需要新的 `attachmentIds` 语义或新契约面（`attachmentIds` 现有的
    * `ATTACHMENT_NOT_PENDING` 校验本就不允许一个附件被两条消息共享/重复引用，
    * 见 `packages/contracts/src/chat.ts:224-226`——`@` 刻意不碰这条路径）。
+   * issue #3727 起，run 侧还会把正文里的 `@<filename>` 翻译回附件本身：同线程、同作者
+   * 的那份历史附件会挂进沙箱 `/inputs/` 并作为视觉输入送给模型
+   * （`apps/api/src/domain/chat/attachment-mentions.ts`）——所以这里插入的文件名必须
+   * 与 `attachments[].filename` 逐字一致，别再做任何"美化"。
    *
    * 候选列表来自**当前已加载**的历史消息（`messages` state 里每条的
    * `attachments`），按文件名去重；不是全线程的权威清单——足够早的附件如果

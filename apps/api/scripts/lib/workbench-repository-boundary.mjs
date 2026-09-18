@@ -86,7 +86,10 @@ export function checkWorkbenchRepository(path,source,read){
   }ts.forEachChild(n,visit);
  }visit(ast);if(!queryCount)errors.push('boundary SQL disappeared');
  if(path.endsWith('pg-native-run-inputs.ts')){
-  for(const text of ["m.thread_id=r.thread_id", "r.org_id=$1 AND r.id=$2", "m.author_kind='human'", "a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4", 'limits.maxFiles+1'])if(!source.includes(text))errors.push('input scope or bound missing '+text);
+  // issue #3727：范围 = 触发消息附件 ∪ 正文 `@<filename>` 点名的历史附件，两个分支共用
+  // 同线程 ∧ 同作者 ∧ 人类消息三条锚；点名只能来自触发消息正文（$5 = run.body）；候选行
+  // 必须经 domain 纯函数收敛后才判 maxFiles（上限判在收敛之后，不在 SQL LIMIT 里）。
+  for(const text of ["m.thread_id=r.thread_id", "r.org_id=$1 AND r.id=$2", "m.author_kind='human'", "a.thread_id=$2 AND m.author_id=$4 AND m.author_kind='human'", "(a.message_id=$3 OR position('@' || a.filename IN $5) > 0)", "run.author_id,run.body]", "selectRunScopedAttachments(candidates, run.input_message_id, run.body)", "rows.length > limits.maxFiles"])if(!source.includes(text))errors.push('input scope or bound missing '+text);
   // #2931 形状锁：子任务探针只能是这一条、只 SELECT id、按 org+id 打、且必须
   // 出现在父 run 查询之前（否则那句 throw 先执行，探针等于没写）。少任何一条，
   // `subtask_runs` 就不该出现在本文件的 specs 里。
@@ -98,7 +101,7 @@ export function checkWorkbenchRepository(path,source,read){
   require(owner,/inputSet=await this.authorized\(context,async\(\)=>this.inputs\?this.inputs.read\(context\)/,'input bytes require parent authority before reader');
   require(source,/await resolveVisibility\(this.visibility, \{orgId:context.orgId,userId:run.author_id,threadId:run.thread_id,projectId:facts.projectId\}\)/,'input bytes require current source visibility');
   require(source,/if \(decision.kind !== 'allow'\) throw/,'input visibility denial must refuse');
-  if(source.indexOf("if (decision.kind !== 'allow')")>source.indexOf('return (await s.query<Attachment>'))errors.push('input visibility must precede attachments');
+  if(source.indexOf("if (decision.kind !== 'allow')")>source.indexOf('const candidates = (await s.query<Attachment>'))errors.push('input visibility must precede attachments');
  }
  if(path.endsWith('pg-native-output-staging.ts')){
   const methods=[];function methodsIn(n){if(ts.isMethodDeclaration(n))methods.push(n);ts.forEachChild(n,methodsIn);}methodsIn(ast);

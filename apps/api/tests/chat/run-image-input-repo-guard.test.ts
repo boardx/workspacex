@@ -51,9 +51,10 @@ describe("P2 pg-run-image-input 仓储的权限豁免前提", () => {
     expect(repoSource).toContain("withTenant");
   });
 
-  it("(b) 两条 SQL 各自都带 message_id 与 author_id 两条锚（范围锚在本轮触发消息）", () => {
+  it("(b) 两条 SQL 各自都带 message_id 与 author_id 两条锚（范围锚在本轮触发消息 + 正文 @ 点名的同作者历史附件）", () => {
     const statements = [...repoSource.matchAll(/`\s*\n?SELECT[\s\S]*?`/g)].map((m) => m[0]);
     // 两条 SQL：LIST_SQL 与 READ_REF_SQL。少一条说明有人删了独立判权、改成信任调用顺序。
+    // （BODY_SQL 是单行 `SELECT i.body …`，与 MENTION_BODY_SQL 一样只取触发消息自己的正文。）
     expect(statements).toHaveLength(2);
     for (const sql of statements) {
       expect(sql).toContain("a.org_id = $1");
@@ -62,6 +63,11 @@ describe("P2 pg-run-image-input 仓储的权限豁免前提", () => {
       // 这一条是关键：把「run 的请求者」与「消息作者」的一致性变成查询条件本身，
       // 而不是靠一条注释提醒后来的人别忘了判权。
       expect(sql).toContain("m.author_id = $4");
+      // issue #3727：`@` 分支只能扩到**同作者的人类消息**——author_kind 锚少了，这条读路径
+      // 就会把别人（或 agent）在同一线程里贴的文件也纳进来。
+      expect(sql).toContain("m.author_kind = 'human'");
+      // `@` 分支的正文只能来自触发消息自己（同一条 `chat_messages` 行、同一作者锚）。
+      expect(sql).toContain("i.id = $3 AND i.author_id = $4");
     }
   });
 

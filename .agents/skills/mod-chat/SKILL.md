@@ -53,6 +53,15 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-18：composer 的 `@文件名` 只是往正文插纯文本，run 侧此前从不把它翻译回附件——
+  `/inputs` 挂载与视觉输入都只看 `message_id = 触发消息`，用户 @ 上一轮的截图，模型在沙箱里
+  什么都找不到（devapp 实测）。修法不动契约与前端：两条读路径（`pg-native-run-inputs.ts` /
+  `pg-run-image-input.ts`）的 SQL 多一个 OR 分支（同线程 ∧ 同作者 ∧ 人类消息 ∧ 正文含
+  `@<filename>`），词边界与"同名取最新"由 `domain/chat/attachment-mentions.ts` 纯函数决定；
+  `execute-run.ts` 的视觉短路条件从"本轮没挂图"改成"本轮没挂图且正文没有 `@x`"。
+  两个注意：① 文件名可含空格，所以是"拿已知文件名去正文里找"，不能从正文切 token；
+  ② `run-image-input-repo-guard.test.ts` 对最终 SQL 文本断言锚点，子查询要逐字写进两条
+  SQL，不能用模板插值（出处：issue #3727）。
 - 2026-09-14：一条落库 assistant 正文可能由工具边界前后的多条流式气泡共同组成；
   `chat_message_id` 必须同时携带兼容旧客户端的主 id 与供新客户端权威恢复的完整 id 组。
   尾追账本只能延长已显示前缀，不能用空、较短或分叉的部分投影覆盖正文（出处：issue #3397）。

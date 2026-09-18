@@ -328,3 +328,52 @@ describe("回归 —— 不带图的路径与未接通道的部署逐字节不�
     expect(snaps.written().visionOmittedCount).toBe(1);
   });
 });
+
+describe("issue #3727 —— 正文 `@文件名` 点名的历史图片也进模型", () => {
+  it("本轮消息没挂图、正文 @ 了上一轮的截图 → 端口被查询，返回的图进 ModelCallInput.images", async () => {
+    const run = baseRun({ inputText: "@截屏2026-09-18 15.48.24.png 这个是截图，请重新计算", inputAttachments: [] });
+    const model = capturingModel(true);
+    const images = fakeImages([{ attachmentId: "att-old", filename: "截屏2026-09-18 15.48.24.png", mime: PNG, byteSize: 1_000 }]);
+    const snaps = capturingSnapshots();
+
+    await executeQueuedRuns(deps(run, model.port, images.port, snaps.port), { orgId: ORG });
+
+    const seen = model.seen();
+    expect(seen.images).toHaveLength(1);
+    expect(seen.images?.[0]?.filename).toBe("截屏2026-09-18 15.48.24.png");
+    // 范围锚仍是本轮触发消息（@ 的解析发生在端口实现里，锚点不变）。
+    for (const scope of images.scopes) {
+      expect(scope).toEqual({ threadId: "thread-1", messageId: "msg-now", actorUserId: "user-1" });
+    }
+    const snap = snaps.written();
+    expect(snap.visionStatus).toBe("ok");
+    expect(snap.visionImageCount).toBe(1);
+    expect(snap.visionOmittedCount).toBe(0);
+  });
+
+  it("正文 @ 了文件但端口解析后没有图（比如 @ 的是 pdf）→ 与『没有图』逐字节一致", async () => {
+    const run = baseRun({ inputText: "看 @报告.pdf", inputAttachments: [] });
+    const model = capturingModel(true);
+    const images = fakeImages([]);
+    const snaps = capturingSnapshots();
+
+    await executeQueuedRuns(deps(run, model.port, images.port, snaps.port), { orgId: ORG });
+
+    expect(model.seen().images).toBeUndefined();
+    expect(model.seen().user).toBe("看 @报告.pdf");
+    expect(snaps.written().visionStatus).toBe("none");
+  });
+
+  it("只有 @ 引用且模型没有视觉能力 → 不列图、不加『附带 0 张图』的假话", async () => {
+    const run = baseRun({ inputText: "看 @图.png", inputAttachments: [] });
+    const model = capturingModel(false);
+    const images = fakeImages([ref(1)]);
+    const snaps = capturingSnapshots();
+
+    await executeQueuedRuns(deps(run, model.port, images.port, snaps.port), { orgId: ORG });
+
+    expect(images.scopes).toHaveLength(0);
+    expect(model.seen().user).toBe("看 @图.png");
+    expect(snaps.written().visionStatus).toBe("none");
+  });
+});
