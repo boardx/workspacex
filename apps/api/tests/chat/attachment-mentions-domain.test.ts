@@ -20,6 +20,15 @@ describe("isAttachmentMentioned", () => {
     expect(isAttachmentMentioned("请看 @报告.pdf", "报告.pdf")).toBe(true);
     expect(isAttachmentMentioned("请看 @报告.pdf，然后总结", "报告.pdf")).toBe(true);
   });
+  it("文件名后紧跟中文（用户手打、没留空格）也算引用——2026-09-18 devapp 二次实测的坏形态", () => {
+    expect(isAttachmentMentioned("用@MAAU.png做一次估值预测", "MAAU.png")).toBe(true);
+    expect(isAttachmentMentioned("基于@MAAU.png生成报告", "MAAU.png")).toBe(true);
+    expect(isAttachmentMentioned("@MAAU.png：这是画布", "MAAU.png")).toBe(true);
+  });
+  it("反证：文件名后紧跟英数字仍不算（`@MAAU.png2` / `@MAAU.pngx` 不是 `MAAU.png`）", () => {
+    expect(isAttachmentMentioned("看 @MAAU.png2 这张", "MAAU.png")).toBe(false);
+    expect(isAttachmentMentioned("看 @MAAU.pngx 这张", "MAAU.png")).toBe(false);
+  });
   it("正文没有 @ ⇒ 廉价预判为否，不去查历史附件", () => {
     expect(mayMentionAttachments("图里画了什么？")).toBe(false);
     expect(mayMentionAttachments("@x")).toBe(true);

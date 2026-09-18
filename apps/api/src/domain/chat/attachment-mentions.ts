@@ -30,7 +30,15 @@ export interface RunAttachmentCandidate {
   readonly created_at: string | number | Date;
 }
 
-const TRAILING = "(?=\\s|$|[,，。；;:：!！?？)）\\]】])";
+/**
+ * 文件名之后允许的边界：空白 / 行尾 / 常见标点 / **中日韩文字**。
+ * 最后一项是 2026-09-18 devapp 二次实测补的：composer 插的是 `@<filename> `，但用户手打或
+ * 删掉空格后写成「用@MAAU.png做估值」是中文里最自然的写法——SQL 的 `position()` 粗筛通过，
+ * 这里却因为下一个字不是空白/标点而判"没引用"，`/inputs` 与视觉输入双双为空，模型只能回
+ * "文件不存在"。CJK 字不可能是 `.png` 这种扩展名的延续，把它当边界是安全的；
+ * `@a.png.bak` ≠ `a.png`、`@MAAU.png2` ≠ `MAAU.png` 这两条反证仍然成立。
+ */
+const TRAILING = "(?=\\s|$|[,，。；;:：!！?？)）\\]】]|\\p{Script=Han}|\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Hangul})";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
