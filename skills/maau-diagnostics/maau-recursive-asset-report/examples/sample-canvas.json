@@ -1,0 +1,50 @@
+{
+  "project": {
+    "name": "投后项目评级 Agent",
+    "canvasVersion": "MAAU Canvas v0.3",
+    "author": "示例（版式与计算路径演示）",
+    "date": "2026-09-18"
+  },
+  "canvas": {
+    "intent": "把投后季度评级从 5 天人工压缩到 1 天；成功指标：评级结论与专家复核一致率 ≥ 90%。",
+    "user": "投后管理团队分析师；痛点：财务口径不统一、行业基准更新慢、复核意见不沉淀。",
+    "humanAgent": "专家只抽检异常评级；主流程允许 Agent 自主执行财务计算与初评并写回评级规则库。",
+    "workflow": "步骤：拉取财报 → 财务计算 Workflow → 评级 Agent 初评 → 人工对比 Eval 抽检 → 错误分类 Pattern 回灌规则。模块化：财务计算与评级规则为独立可调用模块。",
+    "context": "数据：财报数据库、行业基准表（有版本号，季度刷新）；规则：评级规则库（版本化）；工具：财务计算器；记忆：历史评级案例库。",
+    "validation": "核验：每季抽检 20% 评级与专家对比；纠错：错误分类后写回规则库与 Eval 用例；回灌：下一季初评自动调用更新后的规则。"
+  },
+  "assets": [
+    { "name": "评级 Agent", "type": "Agent", "E": 1, "R": 1, "I": 1, "V": 0.5, "evidence": { "region": "workflow", "quote": "评级 Agent 初评" } },
+    { "name": "财务计算 Workflow", "type": "Workflow", "E": 1, "R": 1, "I": 1, "V": 1, "evidence": { "region": "workflow", "quote": "财务计算与评级规则为独立可调用模块" } },
+    { "name": "评级规则库", "type": "Knowledge", "E": 1, "R": 1, "I": 0.5, "V": 1, "evidence": { "region": "context", "quote": "评级规则库（版本化）" } },
+    { "name": "行业基准表", "type": "Knowledge", "E": 1, "R": 1, "I": 0.5, "V": 0.5, "evidence": { "region": "context", "quote": "行业基准表（有版本号，季度刷新）" } },
+    { "name": "人工对比 Eval", "type": "Eval", "E": 1, "R": 0.5, "I": 1, "V": 1, "evidence": { "region": "validation", "quote": "每季抽检 20% 评级与专家对比" } },
+    { "name": "错误分类 Pattern", "type": "Pattern", "E": 0.5, "R": 1, "I": 0.5, "V": 0.5, "evidence": { "region": "validation", "quote": "错误分类后写回规则库与 Eval 用例" } },
+    { "name": "历史评级案例库", "type": "Knowledge", "E": 0.5, "R": 1, "I": 0.5, "V": 0, "evidence": { "region": "context", "quote": "记忆：历史评级案例库" } }
+  ],
+  "loops": {
+    "L1": { "score": 1, "evidence": { "region": "validation", "quote": "错误分类后写回规则库与 Eval 用例" } },
+    "L2": { "score": 1, "evidence": { "region": "validation", "quote": "回灌：下一季初评自动调用更新后的规则" } },
+    "L3": { "score": 1, "evidence": { "region": "humanAgent", "quote": "自主执行财务计算与初评并写回评级规则库" } },
+    "L4": { "score": 0.5, "evidence": { "region": "context", "quote": "记忆：历史评级案例库（未说明案例如何派生新规则）" } },
+    "L5": { "score": 1, "evidence": { "region": "humanAgent", "quote": "专家只抽检异常评级" } }
+  },
+  "dissipation": {
+    "H": { "score": 0.2, "evidence": { "region": "humanAgent", "quote": "专家只抽检异常评级；主流程允许 Agent 自主执行" } },
+    "D": { "score": 0.4, "evidence": { "region": "context", "quote": "数据：财报数据库（单一来源）" } },
+    "K": { "score": 0.1, "evidence": { "region": "context", "quote": "行业基准表（有版本号，季度刷新）；评级规则库（版本化）" } },
+    "B": { "score": 0.2, "evidence": { "region": "workflow", "quote": "财务计算与评级规则为独立可调用模块" } },
+    "F": { "score": 0.2, "evidence": { "region": "validation", "quote": "纠错：错误分类后写回规则库与 Eval 用例" } }
+  },
+  "friction": {
+    "coreStepHumanDependency": { "score": 0.2, "evidence": { "region": "humanAgent", "quote": "主流程允许 Agent 自主执行财务计算与初评" } },
+    "approvalGateDensity": { "score": 0.2, "evidence": { "region": "humanAgent", "quote": "专家只抽检异常评级" } },
+    "agentAutonomy": { "score": 0.8, "evidence": { "region": "humanAgent", "quote": "主流程允许 Agent 自主执行……并写回" } }
+  },
+  "growth": {
+    "contextSupply": { "score": 0.8, "evidence": { "region": "context", "quote": "财报数据库、行业基准表、评级规则库、历史评级案例库" } },
+    "agentWorkflowMaturity": { "score": 0.7, "evidence": { "region": "workflow", "quote": "模块化：财务计算与评级规则为独立可调用模块" } },
+    "outputToAssetConversion": { "score": 0.6, "evidence": { "region": "validation", "quote": "错误分类后写回规则库与 Eval 用例" } }
+  },
+  "protection": "例：专家只抽检异常；主流程允许 Agent 自主执行与写回。"
+}

@@ -55,6 +55,13 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-18：需要"确定性计算 + 固定版式 PDF"的 skill，不要让模型现场写 pdf-lib 脚本——把计算
+  （`compute.cjs` 纯函数）和渲染（`render-report.cjs`）作为包内 `scripts/*.cjs` 随 starter pack 下发，
+  SKILL.md 只让模型做"抽取结构化证据 JSON → 跑一条命令 → 核验 → `wx_artifact_publish`"。原生沙箱
+  `NODE_PATH=/opt/sandbox/node_modules`（`session/provider.ts`），包内 CJS 脚本直接 `require('pdf-lib')`
+  即可；同一份脚本在仓库根用 `pnpm maau:report` 本地跑（根 devDependencies 补了 `pdf-lib`/`@pdf-lib/fontkit`）。
+  两个实测坑：① 中文字体里 U+2212 "−" 与 U+2022 "•" 可能缺字形成方框，报告里用 ASCII `-` 与画圆代替；
+  ② 本机 `.ttc` 字体集 pdf-lib 拒绝嵌入，本地验证要先抽出单面 `.ttf/.otf`（出处：`skills/maau-diagnostics`）。
 - 2026-09-13：平台文档 Skill 本身是 L0，不代表它派生的原生 `execute` 会自动继承等级；
   风险门看到的工具名仍是 L2 `execute`。继承只能建立在本 run 的钉版本风险快照、真实工具
   历史归因和整串命令 allowlist 三项同时成立时，任一缺失继续 fail-closed，不能把
