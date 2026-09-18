@@ -42,6 +42,16 @@ describe("interview topic refinement", () => {
       expect(provider.complete).toHaveBeenCalledTimes(1);
     }
   });
+  it.each(["请设计一个关于江西足球的访谈主题", "给我一个江西足球访谈主题"])("repairs natural topic requests: %s", async (request) => {
+    const provider = model("江西足球", "江西足球青训参与者的经历、阻碍与支持需求");
+    await completeInterviewSkill(provider, input, { ...context, request });
+    expect(provider.complete).toHaveBeenCalledTimes(2);
+  });
+  it.each(["请生成主题，标题请逐字采用“江西足球”", "优化展示，主题改为江西足球", "Generate a topic, use the exact title Jiangxi football"])("honors an explicit title even with generation wording: %s", async (request) => {
+    const provider = model("江西足球");
+    await completeInterviewSkill(provider, input, { ...context, request });
+    expect(provider.complete).toHaveBeenCalledTimes(1);
+  });
   it("does not retry provider failures", async () => {
     const complete = vi.fn<ModelCallPort["complete"]>().mockRejectedValue(new Error("provider unavailable"));
     await expect(completeInterviewSkill({ complete }, input, context)).rejects.toThrow("provider unavailable");

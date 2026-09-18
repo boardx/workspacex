@@ -24,8 +24,10 @@ export async function completeInterviewSkill(
   if (context.step !== "topic") return model.complete(input);
   const guided = { ...input, system: `${input.system}\n${TOPIC_GUIDANCE}` };
   const completion = await model.complete(guided);
-  const refining = /优化|细化|完善|生成|聚焦|refine|improve|generate/i.test(context.request);
-  if (!refining || !echoesTopic(completion.text, context.topic, context.request)) return completion;
+  // Topic design is the default for this step; only an explicit title instruction
+  // may intentionally reuse words from the draft or request.
+  const explicitTitle = /(?:主题|标题|名称)\s*(?:请)?\s*(?:改为|改成|设为|设置为|命名为|就用|用)|逐字(?:采用|使用|保留)|(?:rename|retitle)\b|(?:title|topic)\s+(?:exactly|verbatim)|(?:use|keep)\s+(?:the\s+)?(?:exact|verbatim)\s+(?:title|topic)/i.test(context.request);
+  if (explicitTitle || !echoesTopic(completion.text, context.topic, context.request)) return completion;
   const repaired = await model.complete({
     ...guided,
     system: `${guided.system}\n上次输出仅复述当前主题（包括只改标点），没有完成本次主题设计。请重新生成，增加具体访谈角度和待探究问题；保持原始请求与 JSON 契约。`,
