@@ -951,8 +951,10 @@ describe("lint-permission-paths: counter-proof", () => {
     //（`a.thread_id = $2 ∧ a.message_id = $3 ∧ m.author_id = $4`）。这批行的元数据 run
     // 早就合法持有——`ClaimedAgentRun.inputAttachments` 由 `pg-agent-run-repository.ts`
     // 从同一张表、按同一个 `message_id`、在同一次 claim 里聚合出来——本文件只是把同一批
-    // 行的字节取出来交给模型，**没有新增任何一个可见面**。跨消息/跨线程的图像今天取不到
-    //（具名缺口 `GAP-VISION-CROSS-TURN-IMAGES`），方向是 fail closed。
+    // 行的字节取出来交给模型，**没有新增任何一个可见面**。issue #3727 起多一个 OR 分支：
+    // 同线程、**同作者**、人类消息上、且触发消息正文 `@<filename>` 点名的历史附件——作者锚
+    // 对两个分支同时生效，可见面仍是"这个用户自己在这个线程里传过的东西"。跨作者/跨线程的
+    // 图像仍取不到（具名缺口 `GAP-VISION-CROSS-TURN-IMAGES` 剩下的那一半），方向是 fail closed。
     //
     // 它的**被强制的前提**：`tests/chat/run-image-input-repo-guard.test.ts` 断言五件——
     // (a) 只命名 `chat_message_attachments`/`chat_messages` 两张租户表；(b) 无

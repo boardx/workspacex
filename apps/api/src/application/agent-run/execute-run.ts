@@ -76,6 +76,7 @@ import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-scrip
 import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
+import { mayMentionAttachments } from "../../domain/chat/attachment-mentions";
 import type { VisionInputStatus } from "./context-snapshot";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
@@ -207,9 +208,14 @@ async function gatherVisionImages(
 }> {
   const attachedImageCount = run.inputAttachments.filter((a) => isModelCallImageMime(a.mime)).length;
   const nothing = { images: [] as readonly ModelCallImage[], notice: null } as const;
-  if (attachedImageCount === 0) return { ...nothing, status: "none", omittedCount: 0 };
+  const none = { ...nothing, status: "none" as const, omittedCount: 0 };
+  // issue #3727：正文里 `@<filename>` 点名的历史图片也在 `runImages.list` 的范围内，
+  // 所以"本轮消息没挂图"不再等于"没有图可看"——只有正文连 `@x` 形态都没有时才短路
+  // （保持无 @ 的 run 逐字节不变：不调图像端口、不多一个字）。
+  const mayMention = mayMentionAttachments(run.inputText);
+  if (attachedImageCount === 0 && !mayMention) return none;
   if (!deps.runImages) {
-    return { ...nothing, status: "not_configured", omittedCount: attachedImageCount };
+    return attachedImageCount === 0 ? none : { ...nothing, status: "not_configured", omittedCount: attachedImageCount };
   }
 
   const degraded = (reason: string, status: VisionInputStatus) => ({
@@ -222,6 +228,9 @@ async function gatherVisionImages(
   // 能力查询缺席 ⇒ false（fail closed），理由逐字见 `ModelCallPort.supportsVision` 的文档。
   const canSee = deps.model.supportsVision?.(run.modelProvider, run.modelId) ?? false;
   if (!canSee) {
+    // 只有 `@` 引用、本轮没挂图时：不去列图（没有视觉能力时不该白白读库），也不报
+    // "附带 0 张图"这种假话——历史附件的存在已由 history 里的附件提示告知模型。
+    if (attachedImageCount === 0) return none;
     // ⚠ 这条分支就是 #1561 交付契约第 4 条：诚实降级，绝不静默丢弃。图**没有**被送出去，
     // 而模型被明确告知它这轮看不到图——用户问起时它答得出真话，不会假装看过。
     return degraded(
@@ -241,8 +250,12 @@ async function gatherVisionImages(
     deps.log("agent run vision image listing failed, continuing without images", {
       runId: run.runId, detail: e instanceof Error ? e.message : "unexpected vision list failure",
     });
+    if (attachedImageCount === 0) return none;
     return degraded("读取这些图片时出错（本轮未能取到图像内容）", "degraded");
   }
+  // 本轮实际在范围内的图 = 本轮挂的 + `@` 点名的历史图；后面的差额与降级文案都以它为准。
+  const scopedImageCount = Math.max(attachedImageCount, refs.length);
+  if (scopedImageCount === 0) return none;
 
   const { accepted, omitted } = selectImagesWithinBounds(refs);
   const images: ModelCallImage[] = [];
@@ -276,14 +289,19 @@ async function gatherVisionImages(
     const detail = allOmitted.length > 0
       ? `这些图都未能送入模型（${allOmitted.map((o) => `${o.filename}：${o.reason}`).join("；")}）`
       : "本轮未能取到任何图像内容";
-    return degraded(detail, "degraded");
+    return {
+      ...nothing,
+      status: "degraded",
+      omittedCount: scopedImageCount,
+      notice: renderVisionNotice(0, [], { imageCount: scopedImageCount, reason: detail } satisfies VisionDegradation),
+    };
   }
   return {
     images,
     notice: renderVisionNotice(images.length, allOmitted, null),
     status: "ok",
-    // 「用户传了几张 vs 模型看到了几张」的差额——审计链上 #1561 要求快照必须能回答的那件事。
-    omittedCount: Math.max(0, attachedImageCount - images.length),
+    // 「范围内有几张 vs 模型看到了几张」的差额——审计链上 #1561 要求快照必须能回答的那件事。
+    omittedCount: Math.max(0, scopedImageCount - images.length),
   };
 }
 
