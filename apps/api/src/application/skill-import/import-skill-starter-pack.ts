@@ -69,7 +69,7 @@ export async function importSkillStarterPack(
     payloadDigest,
   });
   if (existing.kind === "replayed") {
-    return { created: false, result: existing.result, retiredSkillIds: await retireSuperseded(deps, input) };
+    return { created: false, result: existing.result, retiredSkillIds: await retireSuperseded(deps, input, existing.result) };
   }
   if (existing.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
@@ -123,7 +123,7 @@ export async function importSkillStarterPack(
     pack,
   });
   if (outcome.kind === "created" || outcome.kind === "replayed") {
-    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, pack) };
+    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, outcome.result, pack) };
   }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
   if (outcome.kind === "version-label-reused") {
@@ -135,23 +135,31 @@ export async function importSkillStarterPack(
   throwRecordedFailure(outcome.failureCode);
 }
 
-/** 发货全集来自包文件本身；重放路径没有解析过包，这里按坐标再读一次（读不到就不下线——宁可留着也不误杀）。 */
+/**
+ * 发货全集来自包文件本身；重放路径没有解析过包，这里按坐标再读一次（读不到 / 不合规就不下线——
+ * 宁可留着也不误杀）。⚠ 只有当前读到的包与这次导入记录的 `packDigest` **一致**才下线：
+ * 同坐标、同幂等键却换了正文的重放（`import-skill-artifact.ts` 随后判 idempotency 冲突）
+ * 不许先产生任何副作用——`tests/skills/skill-artifact-import.test.ts` 锁的就是这个顺序。
+ */
 async function retireSuperseded(
   deps: ImportSkillStarterPackDeps,
   input: ImportSkillStarterPackInput,
-  verified?: { readonly skills: readonly { readonly stableName: string }[] },
+  recorded: { readonly packDigest: string },
+  verified?: { readonly packDigest: string; readonly skills: readonly { readonly stableName: string }[] },
 ): Promise<readonly string[]> {
-  let keep = verified?.skills.map((skill) => skill.stableName);
-  if (keep === undefined) {
+  let pack = verified;
+  if (pack === undefined) {
     const raw = await deps.packs.load(input.packId, input.packVersion);
     if (raw === null) return [];
     try {
-      keep = verifySkillStarterPack(raw, input).skills.map((skill) => skill.stableName);
+      pack = verifySkillStarterPack(raw, input);
     } catch (error) {
       if (error instanceof InvalidSkillStarterPackError) return [];
       throw error;
     }
   }
+  if (pack.packDigest !== recorded.packDigest) return [];
+  const keep = pack.skills.map((skill) => skill.stableName);
   return deps.imports.retireSuperseded({ orgId: input.orgId, packId: input.packId, keepStableNames: keep });
 }
 
