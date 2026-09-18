@@ -42,6 +42,8 @@ export interface StandardPackSeedOutcome {
   readonly ok: boolean;
   readonly created?: boolean;
   readonly result?: Awaited<ReturnType<typeof importSkillStarterPack>>["result"];
+  /** 这一版不再发货、本次被下线的旧 skill（issue #3733；重放也会算）。 */
+  readonly retiredSkillIds?: readonly string[];
   readonly error?: unknown;
 }
 

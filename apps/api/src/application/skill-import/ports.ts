@@ -46,6 +46,23 @@ export interface SkillStarterImportRepository {
     readonly pack: SkillStarterPack;
   }): Promise<PersistVerifiedImportOutcome>;
 
+  /**
+   * 下线**这个包上一版装进来、这一版已经不再发货**的 skill（issue #3733）。
+   *
+   * 判据与升级路径同源——只认血统：`starter_pack_imports` 里本 org、同 `pack_id`、
+   * `status='succeeded'` 的导入所铸出的 `skillIds`，其中 `stable_name` 不在
+   * `keepStableNames` 里且仍 `status='enabled'` 的行 ⇒ `skills.status='disabled'` +
+   * `capability_listings.enabled=false`（与 `PgCapabilityRepository.setEnabled` 写同两张表）。
+   * 用户自建 / URL 导入 / 别的包的同名 skill 从不在任何导入的 `skillIds` 里，碰不到。
+   *
+   * 幂等：已经 `disabled` 的行不再匹配，重复调用返回空数组。返回本次真正下线的 skill id。
+   */
+  retireSuperseded(input: {
+    readonly orgId: OrgId;
+    readonly packId: string;
+    readonly keepStableNames: readonly string[];
+  }): Promise<readonly string[]>;
+
   recordFailure(input: {
     readonly orgId: OrgId;
     readonly actorId: string;

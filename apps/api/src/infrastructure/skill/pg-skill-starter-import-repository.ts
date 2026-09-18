@@ -208,6 +208,21 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
           const reusableId = reusable.rows[0]?.id;
           skillIds.push(existingSkill.id);
 
+          // 被 `retireSuperseded` 下线过、这一版又重新发货的 stable_name：升级即复活
+          // （issue #3733）。放在 ① 的早退之前——重新发货的正文往往一个字节没变。
+          // 只认本包血统里的行（`upgradeRows` 就是按血统查的），不会把管理员手动停用的
+          // 别家 skill 拉起来。
+          await session.query(
+            `UPDATE skills SET status = 'enabled', updated_at = $3
+              WHERE id = $1 AND org_id = $2 AND status = 'disabled'`,
+            [existingSkill.id, input.orgId, importedAt],
+          );
+          await session.query(
+            `UPDATE capability_listings SET enabled = true
+              WHERE id = $1 AND org_id = $2 AND kind = 'skill' AND enabled = false`,
+            [existingSkill.id, input.orgId],
+          );
+
           if (reusableId !== undefined) {
             versionIds.push(reusableId);
             continue;
@@ -357,6 +372,35 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         [importId, input.orgId, JSON.stringify(result)],
       );
       return { kind: "created", result };
+    });
+  }
+
+  async retireSuperseded(input: Parameters<SkillStarterImportRepository["retireSuperseded"]>[0]) {
+    return this.db.withTenant(input.orgId, async (session) => {
+      await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [input.orgId]);
+      // 血统子查询与 `persistVerified` 里的 `upgradeRows` 逐字同构：只有本包自己上一次
+      // 装进去的行才可能被下线。`keepStableNames` 是这一版仍在发货的全集。
+      const retired = await session.query<{ id: string }>(
+        `UPDATE skills s SET status = 'disabled', updated_at = now()
+          WHERE s.org_id = $1 AND s.status = 'enabled'
+            AND s.stable_name <> ALL($2::text[])
+            AND EXISTS (
+              SELECT 1 FROM starter_pack_imports i
+               WHERE i.org_id = $1 AND i.pack_id = $3 AND i.status = 'succeeded'
+                 AND i.result_json -> 'skillIds' @> to_jsonb(s.id)
+            )
+          RETURNING s.id`,
+        [input.orgId, [...input.keepStableNames], input.packId],
+      );
+      const ids = retired.rows.map((row) => row.id);
+      if (ids.length > 0) {
+        await session.query(
+          `UPDATE capability_listings SET enabled = false
+            WHERE org_id = $1 AND kind = 'skill' AND id = ANY($2::text[])`,
+          [input.orgId, ids],
+        );
+      }
+      return ids;
     });
   }
 
