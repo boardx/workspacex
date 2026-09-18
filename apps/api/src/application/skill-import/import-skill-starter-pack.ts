@@ -37,10 +37,26 @@ export interface ImportSkillStarterPackInput {
   readonly idempotencyKey: string;
 }
 
+export interface ImportSkillStarterPackOutcome {
+  readonly created: boolean;
+  readonly result: SkillStarterImportResult;
+  /**
+   * 本次导入顺带下线的、**这个包上一版装进来但这一版不再发货**的 skill（issue #3733）。
+   *
+   * 事故：`maau-diagnostics` 1.0.0 → 2.0.1 换了 stableName（`maau-recursive-asset-report`
+   * → `maau-venture-valuation`），升级路径只认同名，旧 skill 于是与新 skill 并排留在
+   * 目录里，模型按描述自选时会挑到旧的那个（旧流程正是超时的那套）。
+   *
+   * 下线在**导入成功之后单独跑**，重放（幂等键命中）同样跑：devapp 在本改动部署之前
+   * 就已经装过 2.0.1，若只在「首次落库」那条路径里下线，它永远轮不到。
+   */
+  readonly retiredSkillIds: readonly string[];
+}
+
 export async function importSkillStarterPack(
   deps: ImportSkillStarterPackDeps,
   input: ImportSkillStarterPackInput,
-): Promise<{ readonly created: boolean; readonly result: SkillStarterImportResult }> {
+): Promise<ImportSkillStarterPackOutcome> {
   const membership = await deps.identities.findOrgMembership(input.actorId, input.orgId);
   if (!membership || membership.orgRole !== "admin") {
     throw new SkillStarterImportAdminRequiredError();
@@ -52,7 +68,9 @@ export async function importSkillStarterPack(
     idempotencyKey: input.idempotencyKey,
     payloadDigest,
   });
-  if (existing.kind === "replayed") return { created: false, result: existing.result };
+  if (existing.kind === "replayed") {
+    return { created: false, result: existing.result, retiredSkillIds: await retireSuperseded(deps, input) };
+  }
   if (existing.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
   }
@@ -104,8 +122,9 @@ export async function importSkillStarterPack(
     payloadDigest,
     pack,
   });
-  if (outcome.kind === "created") return { created: true, result: outcome.result };
-  if (outcome.kind === "replayed") return { created: false, result: outcome.result };
+  if (outcome.kind === "created" || outcome.kind === "replayed") {
+    return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds: await retireSuperseded(deps, input, pack) };
+  }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
   if (outcome.kind === "version-label-reused") {
     throw new SkillStarterPackVersionLabelReusedError(outcome.stableName, outcome.semanticVersion);
@@ -116,10 +135,30 @@ export async function importSkillStarterPack(
   throwRecordedFailure(outcome.failureCode);
 }
 
+/** 发货全集来自包文件本身；重放路径没有解析过包，这里按坐标再读一次（读不到就不下线——宁可留着也不误杀）。 */
+async function retireSuperseded(
+  deps: ImportSkillStarterPackDeps,
+  input: ImportSkillStarterPackInput,
+  verified?: { readonly skills: readonly { readonly stableName: string }[] },
+): Promise<readonly string[]> {
+  let keep = verified?.skills.map((skill) => skill.stableName);
+  if (keep === undefined) {
+    const raw = await deps.packs.load(input.packId, input.packVersion);
+    if (raw === null) return [];
+    try {
+      keep = verifySkillStarterPack(raw, input).skills.map((skill) => skill.stableName);
+    } catch (error) {
+      if (error instanceof InvalidSkillStarterPackError) return [];
+      throw error;
+    }
+  }
+  return deps.imports.retireSuperseded({ orgId: input.orgId, packId: input.packId, keepStableNames: keep });
+}
+
 function replayOrThrow(
   outcome: Exclude<Awaited<ReturnType<SkillStarterImportRepository["recordFailure"]>>, never>,
-): { readonly created: boolean; readonly result: SkillStarterImportResult } {
-  if (outcome.kind === "replayed") return { created: false, result: outcome.result };
+): ImportSkillStarterPackOutcome {
+  if (outcome.kind === "replayed") return { created: false, result: outcome.result, retiredSkillIds: [] };
   if (outcome.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
   }
