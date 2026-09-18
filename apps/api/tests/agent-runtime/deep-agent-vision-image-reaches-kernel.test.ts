@@ -19,7 +19,7 @@
  * ## 根因（本文件锁住的那件事）
  *
  * `DeepAgentModelProvider` 既没有实现 `supportsVision`，也从不读 `ModelCallInput.images`：
- * `execute-run.ts` 的 `gatherVisionImages` 因此 fail-closed 走诚实降级，`createRun` 的
+ * `gather-vision-images.ts` 的 `gatherVisionImages`（从 `execute-run.ts` 抽出）因此 fail-closed 走诚实降级，`createRun` 的
  * 报文里 user 消息永远是一个字符串。P2（#1561）建的那条像素通路只接到了
  * `ConfiguredModelProvider`（直连 DashScope 的 chat）——而 devapp 的 chat 跑在 deep-agent
  * 上。#1558 的结论「上传路径是通的，理解路径是断的」在 deep-agent 这条轨道上原封未动。
