@@ -4,14 +4,19 @@
  * render.cjs — valuation.json（calc.cjs 输出）→ 固定 8 页 A4 PDF（Requirement V0.5 §11）。
  *
  * 用法：node render.cjs <valuation.json> <out.pdf> [--font /path/to/cjk.otf|.ttf]
- * 字体解析：--font → $MAAU_REPORT_FONT → $SKILL_SANDBOX_CJK_FONT → /usr/share/fonts/workspacex/NotoSansSC-Common.otf
- * ⚠ 不要给 embedFont 传 { subset: true }（pdf-lib 对这份字体子集化会产出损坏的内嵌字体）。
+ * 字体解析：--font → $MAAU_REPORT_FONT → $SKILL_SANDBOX_CJK_FONT
+ *   → /usr/share/fonts/workspacex/analysis/AnalysisSans.ttf（TrueType，运行期 subset:true，实测子集正常）
+ *   → /usr/share/fonts/workspacex/NotoSansSC-Common.otf（CFF，只能整份嵌入 ≈ 6.7MB，作兜底）。
+ * 体积就是发布是否超时的分水岭（2026-09-18 devapp：6.7MB 的 PDF 在 wx_artifact_publish 里始终没返回）：
+ *   .ttf/.ttc 之外的字体一律整份嵌入；.ttf 用 subset:true，8 页报告压到 ~100KB。
+ * 嵌入字体缺的字形（希腊字母 λργμαβΛ、≈≥≤→ 与间隔号 ·）按字符拆成 run，分别落在内置 Symbol / Helvetica 上，
+ * 由 FontSet 统一测宽与绘制——调用方仍只看到一个 font 对象。
  * 颜色语义（§12.3）：青绿 = 资产 M / 递归能力；橙 = Evidence / Value；深蓝 = Benchmark / 当前状态。
  * 所有金额措辞：Reference Value / Scenario Forecast / Benchmark Range。
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { PDFDocument, rgb } = require('pdf-lib');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const fontkit = require('@pdf-lib/fontkit');
 const { formatValue } = require('./calc.cjs');
 
@@ -27,17 +32,53 @@ const C = {
 };
 const FOOT = 'Reference Value / Scenario Forecast：基于静态 MAAU Canvas 与已披露 Benchmark 的可追溯估计，不是审计、公允价值或融资定价意见。';
 
+const SANDBOX_TTF = '/usr/share/fonts/workspacex/analysis/AnalysisSans.ttf';
+const SANDBOX_CFF = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf';
 function resolveFont(explicit) {
-  const c = [explicit, process.env.MAAU_REPORT_FONT, process.env.SKILL_SANDBOX_CJK_FONT, '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'].filter(Boolean);
+  const c = [explicit, process.env.MAAU_REPORT_FONT, process.env.SKILL_SANDBOX_CJK_FONT, SANDBOX_TTF, SANDBOX_CFF].filter(Boolean);
   for (const p of c) if (fs.existsSync(p)) return p;
   throw new Error(`No CJK font found. Tried: ${c.join(', ') || '(none)'}. Pass --font <single-face .otf/.ttf> or set MAAU_REPORT_FONT.`);
+}
+// 主字体缺的字形按字符逐个回退：Symbol（希腊字母、≈≥≤→∞≠∫↑↓⇒）→ Helvetica（·×—–…§）→ 替换表（①②③④ 等谁都没有的）。
+// 判据读的是字体本身（fontkit 的 glyph id / StandardFonts 的编码表），不是手写清单——换字体也不会静默画方框。
+const SUBSTITUTE = { '①': '(1)', '②': '(2)', '③': '(3)', '④': '(4)', '⑤': '(5)', '⇄': '<->', '↔': '<->' };
+class FontSet {
+  constructor(main, symbol, latin) { this.main = main; this.symbol = symbol; this.latin = latin; this.cache = new Map(); }
+  static async embed(doc, fontPath) {
+    const bytes = fs.readFileSync(fontPath);
+    const subset = /\.ttf$/i.test(fontPath); // CFF(.otf) 子集化会产出乱码，整份嵌入；TrueType 子集实测正常
+    const main = await doc.embedFont(bytes, { subset });
+    return new FontSet(main, await doc.embedFont(StandardFonts.Symbol), await doc.embedFont(StandardFonts.Helvetica));
+  }
+  has(font, ch) {
+    const e = font.embedder;
+    if (e.font && typeof e.font.glyphsForString === 'function') { const g = e.font.glyphsForString(ch); return g.length > 0 && g.every((x) => x.id !== 0); }
+    return e.encoding.canEncodeUnicodeCodePoint(ch.codePointAt(0));
+  }
+  pick(ch) { for (const f of [this.main, this.latin, this.symbol]) if (this.has(f, ch)) return f; return null; }
+  runs(t) {
+    t = String(t);
+    let r = this.cache.get(t);
+    if (r) return r;
+    r = [];
+    const push = (f, str) => { if (r.length && r[r.length - 1].font === f) r[r.length - 1].s += str; else r.push({ font: f, s: str }); };
+    for (const ch of t) {
+      const f = this.pick(ch);
+      if (f) push(f, ch);
+      else { const sub = SUBSTITUTE[ch] || '?'; for (const c of sub) push(this.pick(c) || this.latin, c); }
+    }
+    this.cache.set(t, r);
+    return r;
+  }
+  widthOfTextAtSize(t, s) { let w = 0; for (const r of this.runs(t)) w += r.font.widthOfTextAtSize(r.s, s); return w; }
+  draw(page, t, x, y, s, color) { for (const r of this.runs(t)) { page.drawText(r.s, { x, y, size: s, font: r.font, color }); x += r.font.widthOfTextAtSize(r.s, s); } }
 }
 const f2 = (x, d = 2) => (x === null || x === undefined ? '—' : Number(x).toFixed(d));
 
 class Cv {
   constructor(page, font) { this.page = page; this.font = font; }
   w(t, s) { return this.font.widthOfTextAtSize(t, s); }
-  text(x, y, t, o = {}) { const s = o.size || 9.5; let tx = x; if (o.align === 'center') tx = x - this.w(t, s) / 2; if (o.align === 'right') tx = x - this.w(t, s); this.page.drawText(String(t), { x: tx, y, size: s, font: this.font, color: o.color || C.ink }); }
+  text(x, y, t, o = {}) { const s = o.size || 9.5; let tx = x; if (o.align === 'center') tx = x - this.w(t, s) / 2; if (o.align === 'right') tx = x - this.w(t, s); this.font.draw(this.page, t, tx, y, s, o.color || C.ink); }
   wrap(text, s, maxW) {
     const lines = [];
     for (const para of String(text).split('\n')) {
@@ -306,7 +347,7 @@ async function renderReport(d, fontPath) {
   if (d.errors && d.errors.length) throw new Error(`Input errors: ${d.errors.join('; ')}`);
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(fs.readFileSync(fontPath));
+  const font = await FontSet.embed(doc, fontPath);
   doc.setTitle(`AI 原生递归资产与估值预测 · ${d.maau.name}`); doc.setSubject('Reference Value / Scenario Forecast'); doc.setProducer('maau-venture-valuation');
   doc.setCreationDate(new Date('2026-01-01T00:00:00Z')); doc.setModificationDate(new Date('2026-01-01T00:00:00Z'));
   for (const draw of [p1, p2, p3, p4, p5, p6, p7, p8]) draw(new Cv(doc.addPage([PAGE.w, PAGE.h]), font), d);
