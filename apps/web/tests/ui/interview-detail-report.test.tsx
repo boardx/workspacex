@@ -30,6 +30,24 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("keeps an existing report on cancellation and asks before regeneration", async () => {
+    const view: DigitalInterviewWorkflowView = { ...completed, status: "completed", reportId: "r-existing",
+      report: { reportId: "r-existing", title: "现有报告", executiveSummary: "原摘要", markdown: "原内容", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" } };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ reasonCode: "DEPENDENCY_UNAVAILABLE" }), { status: 503, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PersistentDigitalInterviewWorkflow initialView={view} />);
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+    expect(screen.getByRole("dialog")).toHaveTextContent("报告");
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
+    fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
+    expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("原内容");
+    fireEvent.click(screen.getByTestId("itv-workflow-step-4"));
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
   it("reconstructs the report from append-only chunks and then loads the final state once", async () => {
     const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
       reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,

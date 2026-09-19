@@ -776,6 +776,15 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       [ORG, created.interviewId],
     ));
     expect(reportRows.rows[0]?.count).toBe("1");
+    const regenerated = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-report-again" });
+    expect(regenerated).toMatchObject({ status: "completed", report: { reportId: retried.report!.reportId } });
+    expect(regenerated.version).toBeGreaterThan(retried.version);
+    expect(reportAttempts).toBe(3);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-stale-report" }))
+      .rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(reportAttempts).toBe(3);
     await setup.checkpointer.end();
   });
 });

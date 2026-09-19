@@ -34,6 +34,7 @@ interface DigitalInterviewRow {
   project_id: string | null;
   is_collaborator: boolean;
   quick_interview_id?: string | null;
+  completed_expert_count?: number;
 }
 
 const COLUMNS = `id, org_id, title, tags, topic, digital_status,
@@ -56,7 +57,7 @@ function toStored(row: DigitalInterviewRow): StoredDigitalInterview {
 }
 
 function toListItem(row: DigitalInterviewRow): StoredDigitalInterviewListItem {
-  return { ...toStored(row), updatedAt: new Date(row.updated_at).toISOString(), kind: row.quick_interview_id ? "quick" : "batch" };
+  return { ...toStored(row), completedExpertCount: row.completed_expert_count ?? 0, updatedAt: new Date(row.updated_at).toISOString(), kind: row.quick_interview_id ? "quick" : "batch" };
 }
 
 export class PgDigitalInterviewRepository implements DigitalInterviewRepository {
@@ -184,7 +185,13 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
                 s.source_quick_interview_id, s.selected_expert_ids, s.report_id,
                 s.version, s.created_by, s.updated_at, s.project_id,
-                q.interview_id AS quick_interview_id, ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
+                q.interview_id AS quick_interview_id,
+                (SELECT count(*)::int FROM digital_interview_expert_runs er
+                   JOIN digital_interview_revisions r ON r.org_id=er.org_id AND r.id=er.revision_id
+                     AND r.interview_id=er.interview_id AND r.is_current
+                  WHERE er.org_id=s.org_id AND er.interview_id=s.id AND er.status='completed'
+                    AND er.expert_id=ANY(s.selected_expert_ids)) AS completed_expert_count,
+                ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
           WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false

@@ -503,8 +503,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
 
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
-    expect(await screen.findByText(added.role)).toBeInTheDocument();
+    expect(await within(screen.getByTestId("itv-expert-step")).findByText(expertCandidate.role)).toBeInTheDocument();
+    expect(await within(screen.getByTestId("itv-expert-step")).findByText(added.role)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
@@ -530,6 +530,61 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
     expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+  });
+
+  it("confirms regeneration and leaves the topic draft untouched on cancel", async () => {
+    const transport = installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+    await screen.findByTestId("itv-expert-step");
+    fireEvent.click(screen.getByTestId("itv-workflow-step-1"));
+    fireEvent.change(screen.getByTestId("itv-topic-input"), { target: { value: "更新后的主题" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    expect(screen.getByRole("dialog")).toHaveTextContent("专家、问题、访谈结果和报告");
+    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
+    expect(screen.getByTestId("itv-topic-input")).toHaveValue("更新后的主题");
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", "/topic/confirm")[0]!.body).toMatchObject({ topic: "更新后的主题" });
+  });
+
+  it.each([
+    { step: 2, button: "itv-confirm-experts", endpoint: "/experts/confirm", impact: "问题、访谈结果和报告" },
+    { step: 3, button: "itv-confirm-questions", endpoint: "/questions/confirm", impact: "访谈结果和报告" },
+  ])("warns before regenerating step $step downstream results", async ({ step, button, endpoint, impact }) => {
+    const advanced: LiveInterview = { ...persistedInterview, status: "running", currentStep: "runs",
+      expertSnapshotVersionId: "ev1", questionVersionId: "qv1", questions: [defaultQuestion], questionCandidates: [defaultQuestion] };
+    const transport = installLiveFetch(advanced);
+    render(<DigitalInterviewSetup interviewId={advanced.interviewId} />);
+    await screen.findByTestId("itv-expert-runs");
+    fireEvent.click(screen.getByTestId(`itv-workflow-step-${step}`));
+    fireEvent.click(screen.getByTestId(button));
+    expect(screen.getByRole("dialog")).toHaveTextContent(impact);
+    expect(transport.requests("POST", endpoint)).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
+    expect(transport.requests("POST", endpoint)).toHaveLength(0);
+    fireEvent.click(screen.getByTestId(button));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    await waitFor(() => expect(transport.requests("POST", endpoint)).toHaveLength(1));
+  });
+
+  it("renders structured Skill expert suggestions with profiles and roster changes", async () => {
+    const added = MOCK_DIGITAL_EXPERTS[0]!;
+    const patch = { expertIds: [added.expertId] };
+    installLiveFetch({ ...persistedInterview,
+      skillMessages: [{ messageId: "skill-assistant-f04", skillThreadId: "thread-f04", role: "assistant", text: JSON.stringify(patch), createdAt: "2026-08-15T00:00:00.000Z" }],
+      skillProposals: [{ ...proposal("proposed", patch), baseRevisionId: persistedInterview.revisionId }],
+    });
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+    const assistant = await screen.findByTestId("itv-skill-assistant");
+    expect(assistant).not.toHaveTextContent("expertIds");
+    expect(assistant).not.toHaveTextContent(added.expertId);
+    expect(assistant).toHaveTextContent(added.role);
+    expect(assistant).toHaveTextContent(added.bio);
+    expect(assistant).toHaveTextContent("新增");
+    expect(assistant).toHaveTextContent("移除");
+    expect(assistant).toHaveTextContent(expertCandidate.role);
   });
 
   it("dirty navigation can be cancelled or discarded without persisting the buffer", async () => {

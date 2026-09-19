@@ -40,7 +40,7 @@ describe("访谈专家角色卡片", () => {
     render(<PersistentDigitalInterviewWorkflow initialView={view} />);
     fireEvent.click(screen.getByRole("button", { name: "查看专家详情 AI 教育成效评估专家" }));
     expect(screen.getByTestId("itv-expert-detail-bio")).toHaveTextContent(expert.bio);
-    expect(screen.getByTestId("itv-expert-detail-boundary")).toHaveTextContent("Context Pack");
+    expect(screen.queryByTestId("itv-expert-detail-boundary")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
     fireEvent.click(screen.getByRole("button", { name: "删除专家 AI 教育成效评估专家" }));
     const cards = within(screen.getByTestId("itv-expert-step")).getAllByRole("article");

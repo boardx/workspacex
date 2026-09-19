@@ -116,6 +116,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const [error, setError] = React.useState("");
   const [pendingNavigation, setPendingNavigation] = React.useState<PendingNavigation>(null);
   const [reportPending, setReportPending] = React.useState(initialView.reportGeneration?.status === "running");
+  const [regeneration, setRegeneration] = React.useState<"topic" | "experts" | "questions" | "report" | null>(null);
+  const [confirming, setConfirming] = React.useState(false);
+  const confirmationLock = React.useRef(false);
   const requestIds = React.useRef(new Map<string, { readonly fingerprint: string; readonly requestId: string }>());
   const localReportStream = React.useRef(false);
   const latestView = React.useRef(view);
@@ -212,6 +215,32 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     navigate(next);
   }
 
+  function requestConfirmation(step: "topic" | "experts" | "questions" | "report") {
+    if (confirmationLock.current || reportPending) return;
+    const generated = step === "topic" ? Boolean(view.topicVersionId || view.expertCandidates.length)
+      : step === "experts" ? Boolean(view.expertSnapshotVersionId || view.questionCandidates.length || view.questions.length)
+      : step === "questions" ? Boolean(view.questionVersionId || view.expertRuns.length)
+      : Boolean(view.report || view.reportGeneration);
+    if (generated) setRegeneration(step);
+    else void executeConfirmation(step);
+  }
+
+  async function executeConfirmation(step: "topic" | "experts" | "questions" | "report") {
+    if (confirmationLock.current) return;
+    confirmationLock.current = true;
+    setConfirming(true);
+    setRegeneration(null);
+    try {
+      if (step === "topic") await confirmTopic();
+      else if (step === "experts") await confirmExperts();
+      else if (step === "questions") await confirmQuestions();
+      else await generateReport();
+    } finally {
+      confirmationLock.current = false;
+      setConfirming(false);
+    }
+  }
+
   async function confirmTopic() {
     const topic = buffers.topic.trim();
     if (!topic) return;
@@ -301,24 +330,32 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
 
   const active = activeStep;
   return <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-    <PersistentInterviewSkillAssistant view={view} currentStep={active} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
+    <PersistentInterviewSkillAssistant view={view} currentStep={active} currentExpertIds={buffers.expertIds} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
     <main className="min-w-0 flex-1 overflow-y-auto bg-background p-6 lg:p-10"><div className="mx-auto max-w-5xl">
       <header className="flex items-start justify-between gap-4"><div><p className="text-xs text-primary">批量访谈流程</p><h1 className="mt-2 text-3xl font-semibold">{view.name}</h1><div className="mt-3 flex flex-wrap gap-2">{view.tags.map((tag) => <span key={tag} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{tag}</span>)}</div></div><button data-testid="itv-return-history" type="button" onClick={() => requestNavigation({ href: "/itv?tab=history" })} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"><ArrowLeft className="size-4" aria-hidden />返回访谈列表</button></header>
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
       <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-lg bg-primary p-3 text-left text-xs font-medium text-primary-foreground" : "w-full rounded-lg border border-border p-3 text-left text-xs text-muted-foreground"}>0{index + 1} {step.label}</button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
-        {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
-        {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
-        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
-        {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => void generateReport()} />}
+      <fieldset disabled={confirming || reportPending} className="mt-8 min-w-0 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
+        {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => requestConfirmation("topic")} />}
+        {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => requestConfirmation("experts")} />}
+        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />}
+        {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => requestConfirmation("report")} />}
         {active === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
         }} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
-      </section>
+      </fieldset>
     </div></main>
+    <Dialog open={regeneration !== null} onOpenChange={(open) => { if (!open) setRegeneration(null); }}>
+      <DialogContent><DialogHeader><DialogTitle>是否重新生成？</DialogTitle><DialogDescription>
+        当前步骤已生成过内容。继续将替换{regeneration === "topic" ? "专家、问题、访谈结果和报告" : regeneration === "experts" ? "问题、访谈结果和报告" : regeneration === "questions" ? "访谈结果和报告" : "报告"}，后续步骤需要重新确认。取消会保留现有内容和当前草稿。
+      </DialogDescription></DialogHeader><div className="mt-4 flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={() => setRegeneration(null)}>保留现有内容</Button>
+        <Button type="button" variant="primary" disabled={confirming} onClick={() => { if (regeneration) void executeConfirmation(regeneration); }}>确认重新生成</Button>
+      </div></DialogContent>
+    </Dialog>
     {pendingNavigation && <UnsavedChangesDialog onKeepEditing={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} />}
   </div>;
 }
@@ -354,7 +391,7 @@ function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readon
 
 function ExpertDetailDialog({ expert, open, onOpenChange }: { readonly expert: DigitalExpertCatalogRow | undefined; readonly open: boolean; readonly onOpenChange: (open: boolean) => void }) {
   const staticExpert = expert ? findMockDigitalExpert(expert.expertId) : undefined;
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="itv-expert-detail-dialog" closeTestId="itv-expert-detail-close" className="max-h-[85vh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{expert?.displayName ?? "专家详情"}</DialogTitle><DialogDescription>{staticExpert ? "静态专家档案" : "模型生成专家档案"}</DialogDescription></DialogHeader>{expert && <div className="space-y-4 text-sm"><DetailField testId="itv-expert-detail-role" label="角色" value={expert.role} /><DetailField testId="itv-expert-detail-category" label="分类" value={expert.category} /><DetailField testId="itv-expert-detail-occupation" label="职业" value={expert.occupation} /><DetailField testId="itv-expert-detail-age" label="年龄" value={`${expert.age} 岁`} /><div data-testid="itv-expert-detail-domains"><p className="text-xs font-medium text-muted-foreground">领域</p><div className="mt-2 flex flex-wrap gap-2">{expert.domains.map((domain) => <span key={domain} className="rounded-full bg-muted px-2.5 py-1 text-xs">{domain}</span>)}</div></div><DetailField testId="itv-expert-detail-location" label="地区" value={expert.location} /><DetailField testId="itv-expert-detail-bio" label="简介" value={expert.bio} /><DetailList testId="itv-expert-detail-goals" label="目标" values={expert.goals} /><DetailList testId="itv-expert-detail-interests" label="兴趣" values={expert.interests} /><DetailList testId="itv-expert-detail-pain-points" label="痛点" values={expert.painPoints} /><DetailList testId="itv-expert-detail-motivations" label="动机" values={expert.motivations} /><DetailList testId="itv-expert-detail-influences" label="影响来源" values={expert.influences} /><DetailField testId="itv-expert-detail-traits" label="性格维度" value={`内外向 ${expert.personalityTraits.introvertExtrovert}/10 · 分析创造 ${expert.personalityTraits.analyticalCreative}/10 · 忙闲程度 ${expert.personalityTraits.busyTimeRich}/10`} /><DetailField testId="itv-expert-detail-service-value" label="服务价值" value={expert.serviceValue} /><DetailField testId="itv-expert-detail-advice" label="典型建议" value={expert.typicalAdvice} /><DetailField testId="itv-expert-detail-boundary" label="材料边界" value={expert.materialBoundary} /></div>}</DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="itv-expert-detail-dialog" closeTestId="itv-expert-detail-close" className="max-h-[85vh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{expert?.displayName ?? "专家详情"}</DialogTitle><DialogDescription>{staticExpert ? "静态专家档案" : "模型生成专家档案"}</DialogDescription></DialogHeader>{expert && <div className="space-y-4 text-sm"><DetailField testId="itv-expert-detail-role" label="角色" value={expert.role} /><DetailField testId="itv-expert-detail-category" label="分类" value={expert.category} /><DetailField testId="itv-expert-detail-occupation" label="职业" value={expert.occupation} /><DetailField testId="itv-expert-detail-age" label="年龄" value={`${expert.age} 岁`} /><div data-testid="itv-expert-detail-domains"><p className="text-xs font-medium text-muted-foreground">领域</p><div className="mt-2 flex flex-wrap gap-2">{expert.domains.map((domain) => <span key={domain} className="rounded-full bg-muted px-2.5 py-1 text-xs">{domain}</span>)}</div></div><DetailField testId="itv-expert-detail-location" label="地区" value={expert.location} /><DetailField testId="itv-expert-detail-bio" label="简介" value={expert.bio} /><DetailList testId="itv-expert-detail-goals" label="目标" values={expert.goals} /><DetailList testId="itv-expert-detail-interests" label="兴趣" values={expert.interests} /><DetailList testId="itv-expert-detail-pain-points" label="痛点" values={expert.painPoints} /><DetailList testId="itv-expert-detail-motivations" label="动机" values={expert.motivations} /><DetailList testId="itv-expert-detail-influences" label="影响来源" values={expert.influences} /><DetailField testId="itv-expert-detail-traits" label="性格维度" value={`内外向 ${expert.personalityTraits.introvertExtrovert}/10 · 分析创造 ${expert.personalityTraits.analyticalCreative}/10 · 忙闲程度 ${expert.personalityTraits.busyTimeRich}/10`} /><DetailField testId="itv-expert-detail-service-value" label="服务价值" value={expert.serviceValue} /><DetailField testId="itv-expert-detail-advice" label="典型建议" value={expert.typicalAdvice} />{expert.materialContextPackId && <DetailField testId="itv-expert-detail-boundary" label="材料边界" value={expert.materialBoundary} />}</div>}</DialogContent></Dialog>;
 }
 
 function DetailField({ testId, label, value }: { readonly testId: string; readonly label: string; readonly value: string }) {

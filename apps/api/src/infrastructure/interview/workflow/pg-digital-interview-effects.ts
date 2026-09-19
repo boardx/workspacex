@@ -697,7 +697,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         [input.orgId, input.interviewId, current.revision_id],
       );
       const existingReport = existing.rows[0];
-      if (existingReport && existingReport.generation_status !== "failed") {
+      if (existingReport && existingReport.generation_status === "running") {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const reportId = existingReport?.report_id ?? proposedReportId;
