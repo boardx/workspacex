@@ -359,15 +359,15 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
-    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
+    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-add-expert"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
-    expect(screen.queryAllByText(expertCandidate.displayName)).toHaveLength(1);
+    expect(screen.queryAllByText(expertCandidate.role)).toHaveLength(1);
     fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: "陈宇轩" } });
     fireEvent.click(screen.getByLabelText("选择专家 陈宇轩"));
     fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
-    expect(await screen.findByText("陈宇轩")).toBeInTheDocument();
+    expect(await screen.findByText(MOCK_DIGITAL_EXPERTS.find((expert) => expert.displayName === "陈宇轩")!.role)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
     expect(await screen.findByDisplayValue(defaultQuestion.text)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-questions"));
@@ -406,7 +406,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证专家详情" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
-    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${expertCandidate.displayName}`));
+    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${expertCandidate.role}`));
     let dialog = await screen.findByTestId("itv-expert-detail-dialog");
     expect(within(dialog).getByText(expertCandidate.displayName)).toBeInTheDocument();
     expect(within(dialog).getByTestId("itv-expert-detail-role")).toHaveTextContent(expertCandidate.role);
@@ -425,7 +425,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(within(dialog).getByTestId("itv-expert-detail-motivations")).toHaveTextContent(expertCandidate.motivations[0]!);
     expect(within(dialog).getByTestId("itv-expert-detail-influences")).toHaveTextContent(expertCandidate.influences[0]!);
     expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(expertCandidate.serviceValue);
-    expect(screen.getByLabelText(`删除专家 ${expertCandidate.displayName}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`删除专家 ${expertCandidate.role}`)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
 
     const staticExpert = MOCK_DIGITAL_EXPERTS.find((expert) => expert.displayName === "陈宇轩")!;
@@ -433,7 +433,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: staticExpert.displayName } });
     fireEvent.click(screen.getByLabelText(`选择专家 ${staticExpert.displayName}`));
     fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
-    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${staticExpert.displayName}`));
+    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${staticExpert.role}`));
 
     dialog = await screen.findByTestId("itv-expert-detail-dialog");
     expect(within(dialog).getByText("静态专家档案")).toBeInTheDocument();
@@ -443,7 +443,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(within(dialog).getByTestId("itv-expert-detail-goals")).toHaveTextContent(staticExpert.goals[0]!);
     expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(staticExpert.serviceValue);
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
-    expect(screen.getByLabelText(`删除专家 ${staticExpert.displayName}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`删除专家 ${staticExpert.role}`)).toBeInTheDocument();
   });
 
   it("在未确认主题时切换步骤会警告用户，而不是默默丢弃或保存", async () => {
@@ -489,7 +489,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     const added = MOCK_DIGITAL_EXPERTS[0]!;
     const transport = installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
-    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
+    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "添加一个用户" } });
     fireEvent.click(screen.getByTestId("itv-skill-send"));
@@ -503,8 +503,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
 
-    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
-    expect(await screen.findByText(added.displayName)).toBeInTheDocument();
+    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
+    expect(await screen.findByText(added.role)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
