@@ -30,6 +30,8 @@ import { Progress } from "@/components/ui/progress";
 import { Modal } from "@/components/files/overlay";
 import { ChatAttachmentPreviewModal } from "./chat-attachment-preview-modal";
 import { isSkillDraftFile } from "@/lib/chat-skill-draft";
+import { apiUrl } from "@/lib/api-client";
+import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 
 const MAX_FILE_BYTES = ATTACHMENT_LIMITS.maxBytesPerFile;
 const MAX_ATTACHMENTS = ATTACHMENT_LIMITS.maxAttachmentsPerMessage;
@@ -691,6 +693,42 @@ export function ChatSidebarUploadButton({
  * 没有移除/重试（那是 composer 可编辑预览条的事）——只有文件名 + 类型图标 + 大小 +
  * #1584 起：点击弹窗预览/下载（`ChatAttachmentPreviewModal`）。
  */
+/**
+ * 2026-09-19 人类实测反馈（截图）——「如果是图片的话，需要展示出来图片」：用户消息上挂的
+ * 截图此前只显示成一张"文件名 + 119.1 KB"的卡片，看不到图本身。图片类附件改为内联缩略图
+ * （点开仍是同一个 `ChatAttachmentPreviewModal`）；字节走与预览弹窗**同一条**受鉴权路由
+ * （`GET /chat/threads/:threadId/attachments/:id/content`），同一个 `useAuthedImageSrc`，
+ * 不另起第二份取图实现。取不到（还在加载 / 401 / 网络失败）时回落到原来的文件卡片，
+ * 不留一块裂图。
+ */
+function ImageAttachmentThumb({
+  att, threadId, onOpen, fallback,
+}: { att: ChatAttachment; threadId: string; onOpen: () => void; fallback: React.ReactNode }) {
+  const { src, failed } = useAuthedImageSrc(apiUrl(`/chat/threads/${threadId}/attachments/${att.id}/content`));
+  if (!src || failed) return <>{fallback}</>;
+  return (
+    <button
+      type="button"
+      className="group flex max-w-full flex-col items-start gap-1 rounded-lg border border-border-subtle bg-panel p-1 text-left transition-colors duration-fast hover:bg-muted/60 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid={`chat-message-attachment-${att.id}`}
+      title={`${att.filename} · ${formatBytes(att.bytes)}`}
+      onClick={onOpen}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
+      <img
+        src={src}
+        alt={att.filename}
+        className="max-h-48 max-w-full rounded-md object-contain md:max-h-64"
+        data-testid={`chat-message-attachment-image-${att.id}`}
+      />
+      <span className="flex w-full min-w-0 items-center gap-2 px-1">
+        <span className="min-w-0 truncate text-11 text-card-foreground">{att.filename}</span>
+        <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
+      </span>
+    </button>
+  );
+}
+
 export function MessageAttachments({
   attachments, threadId,
 }: { attachments: readonly ChatAttachment[]; threadId: string }) {
@@ -700,10 +738,10 @@ export function MessageAttachments({
     <>
       <ul className="mt-1 flex flex-col gap-1" data-testid="chat-message-attachments">
         {attachments.map((att) => {
-          const Icon = TYPE_ICON[iconKindForMime(att.mime)];
+          const kind = iconKindForMime(att.mime);
+          const Icon = TYPE_ICON[kind];
           const isSkillDraft = isSkillDraftFile(att.filename, att.mime);
-          return (
-            <li key={att.id}>
+          const card = (
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-lg border border-border-subtle bg-panel px-2 py-1 text-left transition-colors duration-fast hover:bg-muted/60 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -717,6 +755,12 @@ export function MessageAttachments({
                 {isSkillDraft ? <Badge tone="outline" data-testid={`chat-skill-draft-${att.id}`}>技能草稿</Badge> : null}
                 <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
               </button>
+          );
+          return (
+            <li key={att.id}>
+              {kind === "image"
+                ? <ImageAttachmentThumb att={att} threadId={threadId} onOpen={() => setPreviewing(att)} fallback={card} />
+                : card}
             </li>
           );
         })}
