@@ -100,6 +100,28 @@ beforeEach(async () => {
 });
 
 describe("F02 数字访谈首屏 HTTP", () => {
+  it("counts only completed selected experts in the current revision", async () => {
+    await db.withTenant(toOrgId(ORG), async (session) => {
+      await session.query(`UPDATE interview_sessions SET selected_expert_ids=ARRAY['a','b','c'], digital_status='report_pending'
+        WHERE org_id=$1 AND id='itv-f02-visible'`, [ORG]);
+      await session.query(`INSERT INTO digital_interview_revisions
+        (org_id,id,interview_id,revision_number,is_current,created_by,superseded_at)
+        VALUES ($1,'old','itv-f02-visible',1,false,$2,now()),($1,'current','itv-f02-visible',2,true,$2,NULL)`, [ORG,USER]);
+      await session.query(`INSERT INTO digital_interview_expert_runs
+        (org_id,interview_id,revision_id,expert_id,display_name,ordinal,status,total_questions,answers)
+        VALUES ($1,'itv-f02-visible','old','b','Old',1,'completed',1,'[]'),
+               ($1,'itv-f02-visible','current','a','A',1,'completed',1,'[]'),
+               ($1,'itv-f02-visible','current','b','B',2,'failed',1,'[]'),
+               ($1,'itv-f02-visible','current','c','C',3,'running',1,'[]'),
+               ($1,'itv-f02-visible','current','removed','Removed',4,'completed',1,'[]')`, [ORG]);
+    });
+    const result = await fetch(`${base}/interviews/digital`, { headers: auth });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.items.find((item: { interviewId: string }) => item.interviewId === "itv-f02-visible"))
+      .toMatchObject({ expertCount: 3, completedExpertCount: 1 });
+  });
+
   it("历史列表只返回当前用户可见的数字访谈，并携带八态派生操作", async () => {
     const response = await fetch(`${base}/interviews/digital?status=draft`, { headers: auth });
     expect(response.status).toBe(200);

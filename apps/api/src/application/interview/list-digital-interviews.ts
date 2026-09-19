@@ -43,8 +43,7 @@ export async function listDigitalInterviews(
       topic: row.topic,
       status: row.status,
       expertCount: row.selectedExpertIds.length,
-      // F06 接入逐专家运行记录后由同一仓储聚合；当前状态基础中没有可伪造的完成记录。
-      completedExpertCount: 0,
+      completedExpertCount: row.completedExpertCount,
       primaryAction: projectDigitalInterviewState(row.status).primaryAction,
       updatedAt: row.updatedAt,
     })),
