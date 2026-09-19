@@ -16,6 +16,17 @@ const view: DigitalInterviewWorkflowView = {
   questions: [], questionCandidates: [], skillThreadId: "s1", skillMessages: [], skillProposals: [], expertRuns: [],
 };
 describe("访谈专家角色卡片", () => {
+  it("distinguishes controls when two experts share the same role", () => {
+    render(<PersistentDigitalInterviewWorkflow initialView={{ ...view, expertCandidates: [expert, { ...expert, expertId: "static-1", bio: "擅长课堂数据分析。" }] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "查看专家详情 AI 教育成效评估专家（第 2 位）" }));
+    expect(screen.getByTestId("itv-expert-detail-bio")).toHaveTextContent("擅长课堂数据分析。");
+    fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
+    fireEvent.click(screen.getByRole("button", { name: "删除专家 AI 教育成效评估专家（第 2 位）" }));
+    const cards = within(screen.getByTestId("itv-expert-step")).getAllByRole("article");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveTextContent(expert.bio);
+  });
+
   it("shows professional roles and descriptions instead of personal names and technical status", () => {
     render(<PersistentDigitalInterviewWorkflow initialView={view} />);
     const cards = within(screen.getByTestId("itv-expert-step")).getAllByRole("article");
