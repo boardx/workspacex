@@ -72,7 +72,7 @@ export interface AsrProviderPort {
   readonly modelRef?: string;
   /** 提供方是否已配置。未配置时 `open()` 会抛，界面据此显示「未配置转写」。 */
   isConfigured(): boolean;
-  open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual"; readonly signal?: AbortSignal}): Promise<AsrSession>;
+  open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual" | "recording"; readonly signal?: AbortSignal}): Promise<AsrSession>;
 }
 
 export class AsrNotConfiguredError extends Error {
