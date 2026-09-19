@@ -20,7 +20,9 @@ User approved four bounded corrections on 2026-09-19: hide unbound material meta
 - Targeted UI tests: 46 passed before the additional report cancellation test.
 - Web/API lint and the design gate passed.
 - Independent review found no actionable P1/P2, including completed-report regeneration concurrency and revision isolation.
-- Full web suite: pending final result.
+- Full web suite: 465 files passed; 4085 tests passed, 5 skipped (existing), exit 0 in 377.51s.
+- Report cancellation targeted suite: 4 tests passed.
+- Pre-push dependency builds, affected typechecks/lint and design gates passed.
 
 ## Operational boundary
 
