@@ -72,7 +72,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
           .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
         onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
         onClosed:()=>undefined,
-      },{sampleRate:16_000,channels:1,encoding:"pcm16le"}).then(s=>{starting=false;
+      },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording"}).then(s=>{starting=false;
           if(terminal){s.abort();return;}upstream=s;
           send({type:"ready",captureId:auth.captureId});
           for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;

@@ -54,6 +54,7 @@ import {
 } from "../../application/recording/asr-ports";
 
 const DEFAULT_ASR_TURN_SILENCE_MS = 400;
+const DEFAULT_RECORDING_TURN_SILENCE_MS = 800;
 
 interface ProviderConfig {
   readonly provider: string;
@@ -66,12 +67,20 @@ interface ProviderConfig {
    * 默认 400ms；有效正整数可覆盖。显式 null 只保留给内部测试/故障排查，表示不发送。
    */
   readonly turnDetectionSilenceMs?: number | null;
+  /** Long-form recording endpointing only; interim events remain unbuffered. */
+  readonly recordingTurnDetectionSilenceMs?: number;
 }
 
 export function resolveTurnDetectionSilenceMs(raw: string | undefined): number {
   if (raw === undefined || raw.trim() === "") return DEFAULT_ASR_TURN_SILENCE_MS;
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_ASR_TURN_SILENCE_MS;
+}
+
+/** Bound endpointing overrides so recording cannot silently wait seconds per pause. */
+export function resolveRecordingTurnSilenceMs(raw: string | number | undefined): number {
+  const value = typeof raw === "string" && raw.trim() === "" ? NaN : Number(raw);
+  return Number.isInteger(value) && value >= 200 && value <= 2000 ? value : DEFAULT_RECORDING_TURN_SILENCE_MS;
 }
 
 /**
@@ -93,7 +102,8 @@ function readConfig(): ProviderConfig | null {
     }
   }
   const turnDetectionSilenceMs = resolveTurnDetectionSilenceMs(silenceRaw);
-  return { provider, baseUrl, apiKey, model, turnDetectionSilenceMs };
+  return { provider, baseUrl, apiKey, model, turnDetectionSilenceMs,
+    recordingTurnDetectionSilenceMs: resolveRecordingTurnSilenceMs(process.env.KERNEL_ASR_RECORDING_TURN_SILENCE_MS) };
 }
 
 /**
@@ -171,7 +181,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return this.config !== null;
   }
 
-  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual"; readonly signal?: AbortSignal}): Promise<AsrSession> {
+  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual" | "recording"; readonly signal?: AbortSignal}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
     const config = this.config;
     if (config === null) {
@@ -209,6 +219,9 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       if (options?.signal?.aborted) abortSocket();
     });
 
+    const silenceMs = options?.turnDetection === "recording"
+      ? resolveRecordingTurnSilenceMs(config.recordingTurnDetectionSilenceMs)
+      : config.turnDetectionSilenceMs;
     // #802 —— 会话参数确认：模型已经在连接 URL 里定了（见上），这里只是把音频格式
     // 告诉上游。上游不接受这个格式时它回 `error`，我们把它映射成
     // `AUDIO_FORMAT_REJECTED` —— 那是契约里有的码，界面能说人话。
@@ -223,12 +236,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         sample_rate: audio.sampleRate,
         input_audio_transcription: { model: config.model },
         // PROP-CHAT-ASR-LATENCY-001 —— devapp 已验证该字段可用；未配置环境变量时使用
-        // 400ms 默认值，避免回退到上游更慢的默认断句。显式 null 仅用于内部排障。
-        ...(manual ? {turn_detection: null} : config.turnDetectionSilenceMs != null
+        // 聊天保持 400ms；长录音使用独立窗口以减少换气断句，不延迟 interim 事件。
+        ...(manual ? {turn_detection: null} : silenceMs != null
           ? {
               turn_detection: {
                 type: "server_vad",
-                silence_duration_ms: config.turnDetectionSilenceMs,
+                silence_duration_ms: silenceMs,
               },
             }
           : {}),

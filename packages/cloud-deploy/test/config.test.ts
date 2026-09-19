@@ -98,6 +98,12 @@ describe("cloud deployment configuration", () => {
       ...input,
       provision: { ...input.provision, asrProfile },
     }).ok).toBe(true);
+    expect(validateDeploymentConfig({ ...input, provision: { ...input.provision,
+      asrProfile: { ...asrProfile, recordingTurnSilenceMs: 650 } } }).ok).toBe(true);
+    for (const value of [199, 2001, 600.5, "800"]) {
+      expect(validateDeploymentConfig({ ...input, provision: { ...input.provision,
+        asrProfile: { ...asrProfile, recordingTurnSilenceMs: value } } }).ok).toBe(false);
+    }
     for (const invalid of [
       { ...asrProfile, baseUrl: "https://dashscope.aliyuncs.com/api-ws/v1/realtime" },
       { ...asrProfile, baseUrl: "wss://user:secret@dashscope.aliyuncs.com/api-ws/v1/realtime" },
