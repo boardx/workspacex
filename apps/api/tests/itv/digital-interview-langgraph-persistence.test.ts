@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/interview/workflow/digital-report-stream";
+import { listDigitalInterviews } from "../../src/application/interview/list-digital-interviews";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
 import {
@@ -835,6 +836,13 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     const expired = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
     expect(expired).toMatchObject({ status: "completed", report: regenerated.report,
       reportGeneration: { status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" } });
+    const historyDeps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory() };
+    const history = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER });
+    expect(history.items.find((entry) => entry.interviewId === created.interviewId)?.status).toBe("completed");
+    const completedHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "completed" });
+    expect(completedHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(true);
+    const pendingHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "report_pending" });
+    expect(pendingHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(false);
     await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
       expectedVersion: expired.version, requestId: "regenerate-interrupted" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
     failRegeneration = "provider";

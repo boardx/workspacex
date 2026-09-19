@@ -20,6 +20,18 @@ import {
 
 import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
 
+/** Shared by history, status filtering and detail reads (session table alias: s). */
+const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
+  WHEN s.digital_status='report_pending' AND EXISTS (
+    SELECT 1 FROM digital_interview_reports recovery
+      WHERE recovery.org_id=s.org_id AND recovery.interview_id=s.id AND recovery.report_id=s.report_id
+        AND recovery.generation_status='running' AND recovery.previous_report IS NOT NULL
+        AND ${DIGITAL_REPORT_STALE_SQL}
+        AND EXISTS (SELECT 1 FROM digital_interview_revisions current_revision
+          WHERE current_revision.org_id=recovery.org_id AND current_revision.id=recovery.revision_id
+            AND current_revision.interview_id=s.id AND current_revision.is_current)
+  ) THEN 'completed' ELSE s.digital_status END`;
+
 interface DigitalInterviewRow {
   id: string;
   org_id: string;
@@ -129,7 +141,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
   async findVisibleById(orgId: OrgId, viewerUserId: string, interviewId: string) {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<DigitalInterviewRow>(
-        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
                 s.source_quick_interview_id, s.selected_expert_ids, s.report_id,
                 s.version, s.created_by, s.updated_at, s.project_id,
                 q.interview_id AS quick_interview_id, ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
@@ -184,7 +196,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
   }) {
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query<DigitalInterviewRow>(
-        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
                 s.source_quick_interview_id, s.selected_expert_ids, s.report_id,
                 s.version, s.created_by, s.updated_at, s.project_id,
                 q.interview_id AS quick_interview_id,
@@ -197,7 +209,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
           WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false
-            AND ($3::text IS NULL OR s.digital_status = $3)
+            AND ($3::text IS NULL OR (${DIGITAL_INTERVIEW_READ_STATUS_SQL}) = $3)
             AND ${VISIBILITY_PREDICATE}
           ORDER BY s.updated_at DESC, s.id DESC`,
         [input.orgId, input.viewerUserId, input.status ?? null],
@@ -373,7 +385,7 @@ export async function readDigitalInterviewWorkflow(
   interviewId: string,
 ): Promise<DigitalInterviewWorkflowView | null> {
   const base = await session.query<WorkflowBaseRow>(
-    `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+    `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
             s.source_quick_interview_id, s.selected_expert_ids, s.report_id, s.version,
             s.created_by, s.updated_at, s.project_id, s.research_project_id,
             false AS is_collaborator, r.id AS revision_id, r.revision_number,
@@ -485,7 +497,7 @@ export async function readDigitalInterviewWorkflow(
 
   const reportRow = reports.rows[0];
   const stale = reportRow?.stale ?? false;
-  const status = (stale && reportRow?.previous_report ? "completed" : row.digital_status) as DigitalInterviewStatusName;
+  const status = row.digital_status as DigitalInterviewStatusName;
   const scope = row.project_id !== null
     ? { kind: "project" as const, projectId: row.project_id, researchProjectId: null }
     : row.research_project_id !== null
