@@ -295,11 +295,15 @@ describe("实时转录历史工作台", () => {
     api.handlers!.onState("recording");
     await waitFor(() => expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("停止转录"));
     api.read.mockRejectedValue(new Error("network"));
+    api.list.mockRejectedValue(new Error("network"));
     fireEvent.click(screen.getByTestId("rec-live-toggle"));
     expect(await screen.findByText(/转录已停止.*刷新/)).toBeInTheDocument();
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
     expect(api.stopAsr).toHaveBeenCalledTimes(1);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(await screen.findByTestId("rec-history-open-europe-entry")).toBeInTheDocument();
   });
 
   it("编辑完整正文调用持久化 API 并显示服务端结果", async () => {

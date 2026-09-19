@@ -215,10 +215,10 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       }
       if (updated) setActiveSession((current) => current?.sessionId === sessionId ? updated : current);
       setStreamError(null);
+      setListRevision((current) => current + 1);
     } catch {
       setStreamError("转录已停止，已保存文字仍保留；暂时无法刷新最新正文，请稍后重新打开。");
     } finally {
-      setListRevision((current) => current + 1);
       setStreamState("idle");
       streamRef.current = null;
       stoppingRef.current = false;
