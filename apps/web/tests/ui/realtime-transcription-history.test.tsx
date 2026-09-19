@@ -273,6 +273,35 @@ describe("实时转录历史工作台", () => {
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("已持久化的尾部结果");
   });
 
+  it("retries a temporary refresh failure after stopping without reporting ASR failure", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    api.handlers!.onState("recording");
+    await waitFor(() => expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("停止转录"));
+    api.read.mockRejectedValueOnce(new Error("network")).mockResolvedValue({ ...EUROPE, content: "完整尾句" });
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent("完整尾句"));
+    expect(screen.queryByText(/转录收尾失败/)).not.toBeInTheDocument();
+    expect(api.stopAsr).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps saved text and distinguishes persistent refresh failure from stopping failure", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    await waitFor(() => expect(api.handlers).not.toBeNull());
+    api.handlers!.onState("recording");
+    await waitFor(() => expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("停止转录"));
+    api.read.mockRejectedValue(new Error("network"));
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+    expect(await screen.findByText(/转录已停止.*刷新/)).toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
+    expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
+    expect(api.stopAsr).toHaveBeenCalledTimes(1);
+  });
+
   it("编辑完整正文调用持久化 API 并显示服务端结果", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));

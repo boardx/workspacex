@@ -52,6 +52,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
+  const stoppingRef = React.useRef(false);
   const receivedFinalIdsRef = React.useRef(new Set<string>());
 
   React.useEffect(() => {
@@ -135,7 +136,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   }
 
   async function startRealtimeTranscription() {
-    if (!activeSession || streamRef.current || streamState === "connecting") return;
+    if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
     receivedFinalIdsRef.current.clear();
@@ -144,7 +145,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
         sessionToken,
         handlers: {
-          onState: setStreamState,
+          onState: (state) => setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state),
           onInterim: setInterimSegment,
           onFinal: (event) => {
             if (receivedFinalIdsRef.current.has(event.segmentId)) return;
@@ -182,20 +183,45 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       }
       return;
     }
-    if (!handle || !sessionId) return;
+    if (!handle || !sessionId || stoppingRef.current) return;
+    stoppingRef.current = true;
     setStreamError(null);
     setStreamState("stopping");
     try {
       await handle.stop();
-      setInterimSegment("");
-      setActiveSession(await readPersonalTranscription(sessionId, sessionToken));
+    } catch (error) {
+      setStreamState("error");
+      setStreamError(error instanceof Error && error.message === "FINISH_TIMEOUT"
+        ? "实时转录服务未及时确认最后一段，已保存文字仍保留，请检查末尾内容后继续转录。"
+        : "转录连接中断，已保存文字仍保留，最后一段尚未确认，请检查后继续转录。");
+      streamRef.current = null;
+      stoppingRef.current = false;
+      return;
+    }
+    // A completed ASR handshake already confirms persistence. A failed GET must
+    // not turn that successful stop into a failed transcription.
+    setInterimSegment("");
+    setActiveSession((current) => current?.sessionId === sessionId ? { ...current, status: "idle" } : current);
+    try {
+      let updated: PersonalTranscriptionDetail | undefined;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          updated = await readPersonalTranscription(sessionId, sessionToken);
+          break;
+        } catch (error) {
+          if (attempt === 2) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        }
+      }
+      if (updated) setActiveSession((current) => current?.sessionId === sessionId ? updated : current);
+      setStreamError(null);
+    } catch {
+      setStreamError("转录已停止，已保存文字仍保留；暂时无法刷新最新正文，请稍后重新打开。");
+    } finally {
       setListRevision((current) => current + 1);
       setStreamState("idle");
-    } catch {
-      setStreamState("error");
-      setStreamError("转录收尾失败，已保存的最终文字不会丢失，请重新打开后重试。");
-    } finally {
       streamRef.current = null;
+      stoppingRef.current = false;
     }
   }
 
@@ -211,14 +237,14 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
-  React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
+  React.useEffect(() => () => { void streamRef.current?.stop().catch(() => undefined); }, []);
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} errorMessage={streamError}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onSaveContent={saveContent}
-      onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
+      onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;
   }
 
   return (
