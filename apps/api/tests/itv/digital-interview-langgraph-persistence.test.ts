@@ -714,6 +714,11 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
   it("reuses the failed report row when report generation is retried", async () => {
     let reportAttempts = 0;
     let failRegeneration: "provider" | "validation" | null = null;
+    let pauseNext = false;
+    let resumeOld: () => void = () => undefined;
+    let startedOld: () => void = () => undefined;
+    const oldStarted = new Promise<void>((resolve) => { startedOld = resolve; });
+    const oldPaused = new Promise<void>((resolve) => { resumeOld = resolve; });
     const retryingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
@@ -731,6 +736,12 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         };
         if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
         reportAttempts += 1;
+        if (pauseNext) {
+          pauseNext = false;
+          await onDelta(`${JSON.stringify({ type: "meta", title: "被中断的新报告", executiveSummary: "未完成" })}\n`);
+          startedOld();
+          await oldPaused;
+        }
         if (failRegeneration) {
           await onDelta(`${JSON.stringify({ type: "meta", title: "未完成的新报告", executiveSummary: "未完成" })}\n`);
           if (failRegeneration === "provider") throw new Error("regeneration disconnected");
@@ -807,6 +818,36 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       latest = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
       expect(latest).toMatchObject({ status: "completed", reportGeneration: { status: "failed" }, report: regenerated.report });
     }
+    // A suspended worker models process death: no catch-based restoration runs.
+    failRegeneration = null;
+    pauseNext = true;
+    const oldAttempt = setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: latest.version, requestId: "regenerate-interrupted" }).catch((error: unknown) => error);
+    await oldStarted;
+    const active = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    const durable = await asApp(ORG, (session) => session.query<{ previous_report: unknown }>(
+      "SELECT previous_report FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    expect(durable.rows[0]?.previous_report).toEqual(regenerated.report);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: active.version, requestId: "regenerate-too-soon" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    await asApp(ORG, (session) => session.query(
+      "UPDATE digital_interview_reports SET updated_at=now()-interval '6 minutes' WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    const expired = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(expired).toMatchObject({ status: "completed", report: regenerated.report,
+      reportGeneration: { status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" } });
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-interrupted" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    failRegeneration = "provider";
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-recovery-fails" })).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    const recovered = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(recovered.report).toEqual(regenerated.report);
+    failRegeneration = null;
+    const replacement = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: recovered.version, requestId: "regenerate-after-interruption" });
+    resumeOld();
+    expect(await oldAttempt).toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId })).toEqual(replacement);
     await setup.checkpointer.end();
   });
 });

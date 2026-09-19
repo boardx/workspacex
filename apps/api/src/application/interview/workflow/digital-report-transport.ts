@@ -37,9 +37,14 @@ function assertAppendOnly<T>(previous: readonly T[], current: readonly T[], labe
 export class DigitalReportTransportProjector {
   private previous: ReportProjection | null = null;
   private seq = 0;
+  private requestId: string | null = null;
 
   project(workflow: Workflow): readonly TransportEvent[] {
     const generation = workflow.reportGeneration;
+    if (generation && this.requestId && generation.requestId !== this.requestId) {
+      return [this.error("CONCURRENT_MODIFICATION")];
+    }
+    if (generation) this.requestId = generation.requestId;
     // Rollback is not an append to this attempt. End both POST and observing GET
     // streams explicitly; clients reload the preserved report from the workflow.
     if (workflow.report && generation?.status === "failed") return [this.error(generation.errorCode ?? "DEPENDENCY_UNAVAILABLE")];
@@ -53,8 +58,11 @@ export class DigitalReportTransportProjector {
 
     const events: TransportEvent[] = [];
     if (this.previous) {
-      if (!current.markdown.startsWith(this.previous.markdown)) throw new Error("report markdown is not append-only");
-      assertAppendOnly(this.previous.findings, current.findings, "report findings");
+      // An observer can miss the takeover's running state and see its completion.
+      // End the old stream cleanly; the client reloads the authoritative workflow.
+      if (!current.markdown.startsWith(this.previous.markdown)) return [this.error("CONCURRENT_MODIFICATION")];
+      try { assertAppendOnly(this.previous.findings, current.findings, "report findings"); }
+      catch { return [this.error("CONCURRENT_MODIFICATION")]; }
 
       if (current.title && current.executiveSummary &&
           (current.title !== this.previous.title || current.executiveSummary !== this.previous.executiveSummary)) {

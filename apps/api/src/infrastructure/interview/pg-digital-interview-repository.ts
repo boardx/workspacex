@@ -18,6 +18,8 @@ import {
   VISIBILITY_PREDICATE,
 } from "./pg-interview-scope-repository";
 
+import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
+
 interface DigitalInterviewRow {
   id: string;
   org_id: string;
@@ -471,15 +473,19 @@ export async function readDigitalInterviewWorkflow(
       }>;
       generated_at: Date | string; generation_status: "running" | "completed" | "failed";
       request_id: string | null; error_code: string | null; updated_at: Date | string;
+      previous_report: DigitalInterviewWorkflowView["report"]; stale: boolean;
     }>(
       `SELECT report_id,title,executive_summary,markdown,findings,generated_at,
-              generation_status,request_id,error_code,updated_at
+              generation_status,request_id,error_code,updated_at,previous_report,
+              (generation_status='running' AND ${DIGITAL_REPORT_STALE_SQL}) AS stale
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [orgId, interviewId, row.revision_id],
     ),
   ]);
 
-  const status = row.digital_status as DigitalInterviewStatusName;
+  const reportRow = reports.rows[0];
+  const stale = reportRow?.stale ?? false;
+  const status = (stale && reportRow?.previous_report ? "completed" : row.digital_status) as DigitalInterviewStatusName;
   const scope = row.project_id !== null
     ? { kind: "project" as const, projectId: row.project_id, researchProjectId: null }
     : row.research_project_id !== null
@@ -502,17 +508,17 @@ export async function readDigitalInterviewWorkflow(
       markdown: reports.rows[0].markdown!,
       findings: reports.rows[0].findings,
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
-    } : null,
+    } : stale ? reportRow?.previous_report ?? null : null,
     // A failed replacement keeps the last completed report and the attempt error.
     reportGeneration: reports.rows[0] && (reports.rows[0].generation_status !== "completed" || reports.rows[0].error_code !== null) ? {
       reportId: reports.rows[0].report_id,
       requestId: reports.rows[0].request_id!,
-      status: reports.rows[0].generation_status === "completed" ? "failed" : reports.rows[0].generation_status,
+      status: stale || reports.rows[0].generation_status === "completed" ? "failed" : reports.rows[0].generation_status,
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",
       findings: reports.rows[0].findings,
-      errorCode: reports.rows[0].error_code,
+      errorCode: stale ? "DEPENDENCY_UNAVAILABLE" : reports.rows[0].error_code,
       updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
     version: Number(row.version),

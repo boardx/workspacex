@@ -24,6 +24,8 @@ import { scopeIsCoherent } from "../../../domain/interview/scope";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
 
+import { DIGITAL_REPORT_STALE_SQL } from "./digital-report-lease";
+
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === "object") {
@@ -689,25 +691,26 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       await this.lockRequest(session, input.orgId, input.interviewId, "generate_report", input.requestId);
       const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const existing = await session.query<{ report_id: string; generation_status: "running" | "completed" | "failed" }>(
-        `SELECT report_id,generation_status
+      const existing = await session.query<{ report_id: string; generation_status: "running" | "completed" | "failed"; stale: boolean; request_id: string }>(
+        `SELECT report_id,generation_status,request_id,(${DIGITAL_REPORT_STALE_SQL}) AS stale
            FROM digital_interview_reports
           WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
           FOR UPDATE`,
         [input.orgId, input.interviewId, current.revision_id],
       );
       const existingReport = existing.rows[0];
-      if (existingReport && existingReport.generation_status === "running") {
+      if (existingReport && existingReport.generation_status === "running" && (!existingReport.stale || existingReport.request_id === input.requestId)) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const reportId = existingReport?.report_id ?? proposedReportId;
       if (existingReport) {
         await session.query(
           `UPDATE digital_interview_reports
-              SET title=NULL,executive_summary=NULL,markdown='',findings='[]'::jsonb,
+              SET previous_report=CASE WHEN generation_status='completed' THEN $5::jsonb ELSE previous_report END,
+                  title=NULL,executive_summary=NULL,markdown='',findings='[]'::jsonb,
                   generation_status='running',request_id=$4,error_code=NULL,updated_at=now()
             WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
-          [input.orgId, input.interviewId, reportId, input.requestId],
+          [input.orgId, input.interviewId, reportId, input.requestId, JSON.stringify(snapshot.workflow.report)],
         );
       } else {
         await session.query(
@@ -727,16 +730,20 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return { reportId, workflow: guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId)) };
     });
     const reportId = started.reportId;
-    // The authorized snapshot (also retained by the completed command receipt) is
-    // restored on any failed replacement, without publishing it as a new stream.
+    // Restore from the durable backup; a superseded attempt cannot alter its replacement.
     const failGeneration = async (code: string) => this.db.withTenant(input.orgId, async (session) => {
       await session.query("SELECT id FROM interview_sessions WHERE org_id=$1 AND id=$2 FOR UPDATE", [input.orgId, input.interviewId]);
-      const previous = snapshot.workflow.report;
+      const backup = await session.query<{ previous_report: DigitalInterviewWorkflowView["report"] }>(
+        `SELECT previous_report FROM digital_interview_reports
+          WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4 AND generation_status='running' FOR UPDATE`,
+        [input.orgId,input.interviewId,reportId,input.requestId],
+      );
+      const previous = backup.rows[0]?.previous_report;
       if (previous) {
         const restored = await session.query(
           `UPDATE digital_interview_reports
               SET title=$5,executive_summary=$6,markdown=$7,findings=$8,generated_at=$9,
-                  generation_status='completed',error_code=$10,updated_at=now()
+                  generation_status='completed',error_code=$10,previous_report=NULL,updated_at=now()
             WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4
               AND generation_status='running' RETURNING report_id`,
           [input.orgId,input.interviewId,reportId,input.requestId,previous.title,previous.executiveSummary,
@@ -773,6 +780,12 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         // Reuse the write transaction's complete actor-visibility predicate, not merely
         // organization membership: collaborator/project access may be revoked mid-stream.
         await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        const attempt = await session.query(
+          `SELECT report_id FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2
+            AND request_id=$3 AND generation_status='running' AND NOT (${DIGITAL_REPORT_STALE_SQL}) FOR UPDATE`,
+          [input.orgId, reportId, input.requestId],
+        );
+        if (attempt.rows.length !== 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         if (event.type === "meta") {
           await session.query(
             `UPDATE digital_interview_reports
@@ -875,13 +888,15 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         const shape = await session.query<{ valid: boolean }>(
           `SELECT title IS NOT NULL AND executive_summary IS NOT NULL AND length(btrim(markdown)) > 0
                   AND jsonb_array_length(findings) > 0 AS valid
-             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2 FOR UPDATE`,
-          [input.orgId, reportId],
+             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2
+              AND request_id=$3 AND generation_status='running' AND NOT (${DIGITAL_REPORT_STALE_SQL}) FOR UPDATE`,
+          [input.orgId, reportId, input.requestId],
         );
+        if (!shape.rows.length) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         if (!shape.rows[0]?.valid) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
         await session.query(
           `UPDATE digital_interview_reports
-              SET generation_status='completed',error_code=NULL,generated_at=now(),updated_at=now()
+              SET generation_status='completed',error_code=NULL,previous_report=NULL,generated_at=now(),updated_at=now()
             WHERE org_id=$1 AND report_id=$2`,
           [input.orgId, reportId],
         );
