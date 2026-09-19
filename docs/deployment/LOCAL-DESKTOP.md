@@ -80,6 +80,31 @@ pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未
 （`packages/local-runtime/src/config.ts` `resolveDeepAgentLaunch`，启动日志一行 `[deep-agent] python runtime: bundled-python|venv`）。
 ``````
 
+
+## 本地版性能相关开关（#3749，全部由 `packages/local-runtime/src/config.ts` 单点产出）
+
+| 环境变量 | 本地值 | 云端默认 | 作用 |
+|---|---|---|---|
+| `OLLAMA_CONTEXT_LENGTH` / `OLLAMA_KEEP_ALIVE` | 8192 / 24h | — | 随包 Ollama 的上下文与常驻；备用端口上的旧实例启动时重启以应用 |
+| `KERNEL_MODEL_STREAM_ENABLED` / `KERNEL_DEEP_AGENT_STREAM_ENABLED` | 1 | 关 | 流式首字 |
+| `KERNEL_CANVAS_GUIDANCE_MODE` | matched | all | 只注入消息点名的画布模板；mermaid 规则按图意注入 |
+| `KERNEL_MODEL_JSON_SCHEMA` | 1 | 关 | 追问 / 反馈结构化 / 研究方向与大纲走 `response_format: json_schema` |
+| `KERNEL_GUIDED_RESEARCH_MODEL_ID` | 聊天模型 | 契约字面量 | 引导式研究实际调用的模型 id |
+| `LOCAL_RUNTIME_ENDPOINT` / `LOCAL_RUNTIME_MODEL_ID` | 本机 Ollama / 聊天模型 | 11434 / 空 | 个人本地组织的 `/api/generate` |
+| `KERNEL_RERANK_MODE` | embedding | — | 用嵌入余弦重排，不再每次检索调聊天模型 |
+| `KERNEL_THREAD_TITLE_MODEL_ID` 等三个 | `qwen3.5:2b` | 主模型 | 标题 / 追问 / 反馈结构化走小模型 |
+| `KERNEL_SKILL_CATALOG_MODE` / `_MAX` | matched / 8 | all | 目录只列与消息相关的 skill |
+
+主模型：默认 `qwen3.5:4b`；机器 ≥16 GB 且 `qwen3.5:9b` 已在库里时自动用 9B（`preferredChatModel`，不代为下载）。
+
+### 评测 lane
+```bash
+API=http://127.0.0.1:3200 PASSWORD=<local/secrets.json adminPassword> AGENT_ID=<默认 agent id> ORG_ID=<org id> \
+PG_PORT=55432 DEEP_AGENT_URL=http://127.0.0.1:2024 DEEP_AGENT_KEY=<deepAgentInternalKey> \
+node scripts/local-bundle/eval-local.mjs        # SUITE=chat|url|canvas|json|all，OUT=<json>
+```
+从外部打**安装版**：chat / url / canvas 各 5 题 + 追问、反馈结构化、标题三个 JSON 站点；从 deep-agent 账本取首块延迟与块/s，从线程状态取系统提示长度。结果在 `evidence/local-desktop/eval/`。
+
 ## 本地实时转写（ASR）是怎么接的
 
 `apps/local-asr-gateway` 在 `ws://127.0.0.1:3320` 上说与 DashScope 实时接口**一字不差**的
