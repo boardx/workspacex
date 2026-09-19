@@ -16,3 +16,5 @@
 
 
 API lint: PASS. API typecheck: PASS. init.sh: PASS. No real ASR run (configuration absent).
+
+Cloud deployment follow-up: 337 tests / 34 files PASS; cloud-deploy lint/typecheck/schema check PASS.

@@ -11,3 +11,5 @@ Validation: ./init.sh passed; red tests reproduced 3 failures (provider recordin
 Real-provider comparison NOT RUN: all four KERNEL_ASR configuration keys are MISSING in this execution environment. Synthetic tests verify immediate interim delivery, verbatim final punctuation/numbers, stop-tail handling, profile isolation, and bounded overrides; they do not establish acoustic accuracy or punctuation-quality gains. Actual deployment and 400/800 ms audio comparison remain acceptance boundaries.
 
 Coordination: readiness read; direct user bugfix outside queue recorded in issue. Existing requested identity loaded from local credentials but gateway status/tick both failed with network errors; no lease claimed and no coordinator ownership asserted. Work is isolated on codex/recording-punctuation.
+
+PR review follow-up: standard deployment supports `provision.asrProfile.recordingTurnSilenceMs` and projects it to the API-only environment. Strict numeric 200–2000 validation, omitted-field compatibility and generated JSON Schema are tested. Red: 2 failures/37 passes before wiring; green: all 337 cloud-deploy tests and lint/schema check. No production config edited.
