@@ -713,6 +713,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
 
   it("reuses the failed report row when report generation is retried", async () => {
     let reportAttempts = 0;
+    let failRegeneration: "provider" | "validation" | null = null;
     const retryingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
@@ -730,6 +731,11 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         };
         if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
         reportAttempts += 1;
+        if (failRegeneration) {
+          await onDelta(`${JSON.stringify({ type: "meta", title: "未完成的新报告", executiveSummary: "未完成" })}\n`);
+          if (failRegeneration === "provider") throw new Error("regeneration disconnected");
+          return { text: "" };
+        }
         if (reportAttempts === 1) throw new Error("provider stream disconnected");
         const expert = context.experts![0]!;
         const events = [
@@ -785,6 +791,22 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       expectedVersion: retried.version, requestId: "generate-stale-report" }))
       .rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
     expect(reportAttempts).toBe(3);
+    let latest = regenerated;
+    for (const failure of ["provider", "validation", "finalization"] as const) {
+      failRegeneration = failure === "finalization" ? null : failure;
+      let bumped = false;
+      await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+        expectedVersion: latest.version, requestId: `regenerate-fail-${failure}` }, async (progress) => {
+        if (failure === "finalization" && !bumped && progress.reportGeneration?.markdown) {
+          bumped = true;
+          await asApp(ORG, (session) => session.query(
+            "UPDATE interview_sessions SET version=version+1 WHERE org_id=$1 AND id=$2", [ORG,created.interviewId]));
+        }
+      })).rejects.toMatchObject({ code: failure === "provider" ? "DEPENDENCY_UNAVAILABLE"
+        : failure === "validation" ? "AI_GENERATION_UNAVAILABLE" : "CONCURRENT_MODIFICATION" });
+      latest = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+      expect(latest).toMatchObject({ status: "completed", reportGeneration: { status: "failed" }, report: regenerated.report });
+    }
     await setup.checkpointer.end();
   });
 });

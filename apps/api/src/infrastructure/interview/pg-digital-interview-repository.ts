@@ -503,10 +503,11 @@ export async function readDigitalInterviewWorkflow(
       findings: reports.rows[0].findings,
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
     } : null,
-    reportGeneration: reports.rows[0] && reports.rows[0].generation_status !== "completed" ? {
+    // A failed replacement keeps the last completed report and the attempt error.
+    reportGeneration: reports.rows[0] && (reports.rows[0].generation_status !== "completed" || reports.rows[0].error_code !== null) ? {
       reportId: reports.rows[0].report_id,
       requestId: reports.rows[0].request_id!,
-      status: reports.rows[0].generation_status,
+      status: reports.rows[0].generation_status === "completed" ? "failed" : reports.rows[0].generation_status,
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",

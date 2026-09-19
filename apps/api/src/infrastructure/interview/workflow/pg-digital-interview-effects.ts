@@ -727,7 +727,35 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return { reportId, workflow: guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId)) };
     });
     const reportId = started.reportId;
-    await input.onProgress?.(started.workflow);
+    // The authorized snapshot (also retained by the completed command receipt) is
+    // restored on any failed replacement, without publishing it as a new stream.
+    const failGeneration = async (code: string) => this.db.withTenant(input.orgId, async (session) => {
+      await session.query("SELECT id FROM interview_sessions WHERE org_id=$1 AND id=$2 FOR UPDATE", [input.orgId, input.interviewId]);
+      const previous = snapshot.workflow.report;
+      if (previous) {
+        const restored = await session.query(
+          `UPDATE digital_interview_reports
+              SET title=$5,executive_summary=$6,markdown=$7,findings=$8,generated_at=$9,
+                  generation_status='completed',error_code=$10,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4
+              AND generation_status='running' RETURNING report_id`,
+          [input.orgId,input.interviewId,reportId,input.requestId,previous.title,previous.executiveSummary,
+            previous.markdown,JSON.stringify(previous.findings),previous.generatedAt,code],
+        );
+        if (restored.rows.length) await session.query(
+          `UPDATE interview_sessions SET digital_status='completed',version=version+1,updated_at=now()
+            WHERE org_id=$1 AND id=$2 AND report_id=$3 AND digital_status='report_pending'`,
+          [input.orgId,input.interviewId,reportId],
+        );
+      } else {
+        await session.query(
+          `UPDATE digital_interview_reports SET generation_status='failed',error_code=$5,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4 AND generation_status='running'`,
+          [input.orgId,input.interviewId,reportId,input.requestId,code],
+        );
+      }
+      return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+    });
 
     const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
     const decoder = new DigitalReportNdjsonDecoder();
@@ -786,6 +814,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     };
 
     try {
+      await input.onProgress?.(started.workflow);
       const modelInput = {
         modelProvider: this.modelProvider,
         modelId: this.modelId,
@@ -833,16 +862,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         : error instanceof ModelCallError || error instanceof SyntaxError
           ? "AI_GENERATION_UNAVAILABLE"
           : "DEPENDENCY_UNAVAILABLE";
-      const failed = await this.db.withTenant(input.orgId, async (session) => {
-        await session.query(
-          `UPDATE digital_interview_reports
-              SET generation_status='failed',error_code=$4,updated_at=now()
-            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
-          [input.orgId, input.interviewId, reportId, code],
-        );
-        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
-      });
-      await input.onProgress?.(failed);
+      const failed = await failGeneration(code);
+      if (!snapshot.workflow.report) await input.onProgress?.(failed);
       throw new DigitalInterviewWorkflowError(code);
     }
     try {
@@ -876,16 +897,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     } catch (error) {
       console.error("[digital-interview-report] finalization failed", error);
       const code = error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE";
-      const failed = await this.db.withTenant(input.orgId, async (session) => {
-        await session.query(
-          `UPDATE digital_interview_reports
-              SET generation_status='failed',error_code=$4,updated_at=now()
-            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
-          [input.orgId, input.interviewId, reportId, code],
-        );
-        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
-      });
-      await input.onProgress?.(failed);
+      const failed = await failGeneration(code);
+      if (!snapshot.workflow.report) await input.onProgress?.(failed);
       throw error;
     }
   }

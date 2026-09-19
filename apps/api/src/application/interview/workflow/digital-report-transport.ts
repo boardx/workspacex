@@ -40,6 +40,9 @@ export class DigitalReportTransportProjector {
 
   project(workflow: Workflow): readonly TransportEvent[] {
     const generation = workflow.reportGeneration;
+    // Rollback is not an append to this attempt. End both POST and observing GET
+    // streams explicitly; clients reload the preserved report from the workflow.
+    if (workflow.report && generation?.status === "failed") return [this.error(generation.errorCode ?? "DEPENDENCY_UNAVAILABLE")];
     const current = generation ?? (workflow.report ? projectionFromReport(workflow.report) : null);
     if (!current) return [];
 
