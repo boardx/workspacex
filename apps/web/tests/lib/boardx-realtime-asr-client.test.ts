@@ -20,8 +20,69 @@ describe("BoardxRealtimeAsrClient", () => {
   const capture = { onFrame: vi.fn(), stop: stopCapture, sourceSampleRate: 48_000 };
 
   beforeEach(() => {
-    stopCapture.mockClear();
+    stopCapture.mockReset().mockResolvedValue(undefined);
     capture.onFrame.mockClear();
+  });
+
+  async function openForStop() {
+    return openBoardxRealtimeAsr("session-1", {
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
+      capture: async () => capture,
+      finishTimeoutMs: 50,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+  }
+
+  it("accepts completion received before stop and does not send a second stop", async () => {
+    const handle = await openForStop();
+    socket.message({ type: "completed", captureId: "capture-1" });
+    socket.close();
+    await expect(handle.stop()).resolves.toBeUndefined();
+    expect(socket.sent).not.toContain(JSON.stringify({ type: "stop" }));
+    expect(stopCapture).toHaveBeenCalledOnce();
+  });
+
+  it("duplicate stops wait for the same server completion", async () => {
+    const handle = await openForStop();
+    const first = handle.stop();
+    const second = handle.stop();
+    expect(second).toBe(first);
+    await Promise.resolve();
+    socket.message({ type: "completed", captureId: "capture-1" });
+    await Promise.all([first, second]);
+    expect(stopCapture).toHaveBeenCalledOnce();
+  });
+
+  it("bounds an unresponsive stop and closes its resources", async () => {
+    const handle = await openForStop();
+    await expect(handle.stop()).rejects.toThrow("FINISH_TIMEOUT");
+    expect(socket.readyState).toBe(3);
+    expect(stopCapture).toHaveBeenCalledOnce();
+  });
+
+  it("does not convert an interrupted stop into success", async () => {
+    const handle = await openForStop();
+    const stopping = handle.stop();
+    const rejected = expect(stopping).rejects.toThrow();
+    socket.close();
+    await rejected;
+    expect(stopCapture).toHaveBeenCalledOnce();
+  });
+
+  it("closes the socket even when microphone shutdown rejects", async () => {
+    const handle = await openForStop();
+    stopCapture.mockRejectedValueOnce(new Error("audio context closed"));
+    await expect(handle.stop()).rejects.toThrow("audio context closed");
+    expect(socket.readyState).toBe(3);
+    expect(stopCapture).toHaveBeenCalledOnce();
+  });
+
+  it("retains provider failure received before stop", async () => {
+    const handle = await openForStop();
+    socket.message({ type: "error", captureId: "capture-1", reason: "ASR_PROVIDER_UNAVAILABLE" });
+    await expect(handle.stop()).rejects.toThrow("ASR_PROVIDER_UNAVAILABLE");
+    expect(socket.readyState).toBe(3);
   });
 
   it("uses a one-time ticket, sends start, and only publishes BoardX events", async () => {
