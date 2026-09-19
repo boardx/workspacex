@@ -294,9 +294,9 @@ function ExpertContent({ state, preview = false }: { state: LoadState<DigitalExp
               <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
             </div>
           </div>
-          <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+          {expert.materialContextPackId && <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-background-foreground">材料边界：</span>{expert.materialBoundary}
-          </div>
+          </div>}
           <div className="mt-5 flex items-center gap-3">
             <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`} className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
               快捷访谈

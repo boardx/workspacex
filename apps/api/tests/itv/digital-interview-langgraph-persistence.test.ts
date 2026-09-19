@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/interview/workflow/digital-report-stream";
+import { listDigitalInterviews } from "../../src/application/interview/list-digital-interviews";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
 import {
@@ -713,6 +714,12 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
 
   it("reuses the failed report row when report generation is retried", async () => {
     let reportAttempts = 0;
+    let failRegeneration: "provider" | "validation" | null = null;
+    let pauseNext = false;
+    let resumeOld: () => void = () => undefined;
+    let startedOld: () => void = () => undefined;
+    const oldStarted = new Promise<void>((resolve) => { startedOld = resolve; });
+    const oldPaused = new Promise<void>((resolve) => { resumeOld = resolve; });
     const retryingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
@@ -730,6 +737,17 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         };
         if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
         reportAttempts += 1;
+        if (pauseNext) {
+          pauseNext = false;
+          await onDelta(`${JSON.stringify({ type: "meta", title: "被中断的新报告", executiveSummary: "未完成" })}\n`);
+          startedOld();
+          await oldPaused;
+        }
+        if (failRegeneration) {
+          await onDelta(`${JSON.stringify({ type: "meta", title: "未完成的新报告", executiveSummary: "未完成" })}\n`);
+          if (failRegeneration === "provider") throw new Error("regeneration disconnected");
+          return { text: "" };
+        }
         if (reportAttempts === 1) throw new Error("provider stream disconnected");
         const expert = context.experts![0]!;
         const events = [
@@ -776,6 +794,68 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       [ORG, created.interviewId],
     ));
     expect(reportRows.rows[0]?.count).toBe("1");
+    const regenerated = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-report-again" });
+    expect(regenerated).toMatchObject({ status: "completed", report: { reportId: retried.report!.reportId } });
+    expect(regenerated.version).toBeGreaterThan(retried.version);
+    expect(reportAttempts).toBe(3);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-stale-report" }))
+      .rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(reportAttempts).toBe(3);
+    let latest = regenerated;
+    for (const failure of ["provider", "validation", "finalization"] as const) {
+      failRegeneration = failure === "finalization" ? null : failure;
+      let bumped = false;
+      await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+        expectedVersion: latest.version, requestId: `regenerate-fail-${failure}` }, async (progress) => {
+        if (failure === "finalization" && !bumped && progress.reportGeneration?.markdown) {
+          bumped = true;
+          await asApp(ORG, (session) => session.query(
+            "UPDATE interview_sessions SET version=version+1 WHERE org_id=$1 AND id=$2", [ORG,created.interviewId]));
+        }
+      })).rejects.toMatchObject({ code: failure === "provider" ? "DEPENDENCY_UNAVAILABLE"
+        : failure === "validation" ? "AI_GENERATION_UNAVAILABLE" : "CONCURRENT_MODIFICATION" });
+      latest = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+      expect(latest).toMatchObject({ status: "completed", reportGeneration: { status: "failed" }, report: regenerated.report });
+    }
+    // A suspended worker models process death: no catch-based restoration runs.
+    failRegeneration = null;
+    pauseNext = true;
+    const oldAttempt = setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: latest.version, requestId: "regenerate-interrupted" }).catch((error: unknown) => error);
+    await oldStarted;
+    const active = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    const durable = await asApp(ORG, (session) => session.query<{ previous_report: unknown }>(
+      "SELECT previous_report FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    expect(durable.rows[0]?.previous_report).toEqual(regenerated.report);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: active.version, requestId: "regenerate-too-soon" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    await asApp(ORG, (session) => session.query(
+      "UPDATE digital_interview_reports SET updated_at=now()-interval '6 minutes' WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    const expired = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(expired).toMatchObject({ status: "completed", report: regenerated.report,
+      reportGeneration: { status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" } });
+    const historyDeps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory() };
+    const history = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER });
+    expect(history.items.find((entry) => entry.interviewId === created.interviewId)?.status).toBe("completed");
+    const completedHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "completed" });
+    expect(completedHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(true);
+    const pendingHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "report_pending" });
+    expect(pendingHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(false);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-interrupted" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    failRegeneration = "provider";
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-recovery-fails" })).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    const recovered = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(recovered.report).toEqual(regenerated.report);
+    failRegeneration = null;
+    const replacement = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: recovered.version, requestId: "regenerate-after-interruption" });
+    resumeOld();
+    expect(await oldAttempt).toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId })).toEqual(replacement);
     await setup.checkpointer.end();
   });
 });

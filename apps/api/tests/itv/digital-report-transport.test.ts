@@ -40,6 +40,30 @@ describe("数字访谈报告浏览器增量流", () => {
     expect(JSON.stringify(delta)).not.toContain("第一章");
   });
 
+  it("terminates observers with an error when a failed replacement restores an older report", () => {
+    const projector = new DigitalReportTransportProjector();
+    const partial = running("新报告的部分内容");
+    projector.project(partial);
+    const restored: Workflow = { ...partial, status: "completed", version: 10,
+      report: { reportId: "report-1", title: "旧报告", executiveSummary: "旧摘要", markdown: "旧正文", findings: [], generatedAt: "2026-09-02T06:00:00.000Z" },
+      reportGeneration: { ...partial.reportGeneration!, status: "failed", markdown: "旧正文", errorCode: "AI_GENERATION_UNAVAILABLE", updatedAt: "2026-09-03T06:01:00.000Z" } };
+    expect(projector.project(restored)).toEqual([{ type: "error", seq: 1, reasonCode: "AI_GENERATION_UNAVAILABLE" }]);
+    expect(new DigitalReportTransportProjector().project(restored)).toEqual([{ type: "error", seq: 1, reasonCode: "AI_GENERATION_UNAVAILABLE" }]);
+  });
+
+  it("ends an observer instead of appending across a replacement attempt", () => {
+    const old = running("旧尝试正文");
+    const next = running("");
+    next.reportGeneration = { ...next.reportGeneration!, requestId: "replacement-request" };
+    for (const workflow of [next, { ...base, reportGeneration: null, report: {
+      reportId: "report-1", title: "新报告", executiveSummary: "摘要", markdown: "新正文", findings: [], generatedAt: "2026-09-03T07:00:00.000Z",
+    } } as Workflow]) {
+      const projector = new DigitalReportTransportProjector();
+      projector.project(old);
+      expect(projector.project(workflow)).toEqual([{ type: "error", seq: 1, reasonCode: "CONCURRENT_MODIFICATION" }]);
+    }
+  });
+
   it("finding 逐条追加，完成帧只携带定位终态所需的标识", () => {
     const finding = {
       findingId: "finding-1", title: "开发者掌控", summary: "需要可解释上下文。",
