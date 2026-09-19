@@ -14,6 +14,7 @@ import { StandardRunCancelController } from "./interface/controllers/standard-ru
 import { OrganizationHybridRetrieval } from "./infrastructure/retrieval/organization-hybrid-retrieval";
 import { PgSegmentRetriever } from "./infrastructure/retrieval/pg-segment-retriever";
 import { langChainRerankClientFromEnv } from "./infrastructure/retrieval/langchain-rerank-client";
+import { EmbeddingCosineRerank } from "./infrastructure/retrieval/embedding-cosine-rerank";
 import { EMBEDDING_PORT, RERANK_PORT, type RerankPort, type EmbeddingPort } from "./application/retrieval/ports";
 import { ARTIFACT_INDEX_PRODUCER, type ArtifactIndexProducer } from "./application/retrieval/index-artifact-version";
 import { ARTIFACT_INDEXING_SERVICE } from "./application/retrieval/request-artifact-index";
@@ -1420,7 +1421,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
-    { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
+    {
+      provide: RERANK_PORT,
+      // #3749 B2.1：本地版用同一个嵌入模型做余弦重排（`KERNEL_RERANK_MODE=embedding`），
+      // 不再为每次检索调一遍聊天模型；未设置 ⇒ 与之前逐字节相同的 listwise 重排客户端。
+      useFactory: (embeddings: EmbeddingPort | null) =>
+        process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
+      inject: [EMBEDDING_PORT],
+    },
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>

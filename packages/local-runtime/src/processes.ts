@@ -2,6 +2,7 @@
  * Child-process plumbing shared by `up` and the seed runner: spawn with a log prefix,
  * run-to-completion with captured output, and HTTP readiness polling.
  */
+import { execFileSync } from "node:child_process";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import net from "node:net";
@@ -115,6 +116,33 @@ export async function assertPortFree(port: number, what: string): Promise<void> 
         `stop it first (lsof -ti :${port} | xargs kill)`,
     );
   }
+}
+
+/**
+ * Stop whatever listens on a loopback port and wait until it is free. Only for ports this
+ * runtime owns outright (the alternate Ollama port): a process there is a previous instance of
+ * ours that would otherwise be reused with stale env (no OLLAMA_CONTEXT_LENGTH, #3749 B1.1).
+ */
+export async function stopListenerOnPort(port: number, timeoutMs = 15_000): Promise<boolean> {
+  let pids: number[] = [];
+  try {
+    const out = execFileSync("lsof", ["-tiTCP:" + String(port), "-sTCP:LISTEN"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    pids = out.split(/\s+/).map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0);
+  } catch { return false; }
+  if (pids.length === 0) return false;
+  for (const pid of pids) { try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ } }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const free = await new Promise<boolean>((resolve) => {
+      const s = net.createServer();
+      s.once("error", () => resolve(false));
+      s.listen(port, "127.0.0.1", () => s.close(() => resolve(true)));
+    });
+    if (free) return true;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  for (const pid of pids) { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+  return true;
 }
 
 export interface RunResult {

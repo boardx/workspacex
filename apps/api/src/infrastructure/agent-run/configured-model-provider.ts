@@ -63,6 +63,8 @@ export interface ConfiguredModelProviderConfig {
   readonly timeoutMs: number;
   /** #654 阶段2a. Default `false` -- see this file's own header for why. */
   readonly streamEnabled: boolean;
+  /** #3749 B1.4：`ModelCallInput.responseSchema` → `response_format: json_schema`；默认关。 */
+  readonly jsonSchemaEnabled?: boolean;
   /**
    * P2（#1561）—— 这个部署认为**哪些 modelId 真的能看图**。
    *
@@ -143,6 +145,7 @@ export function readModelProviderConfig(
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
+    jsonSchemaEnabled: env.KERNEL_MODEL_JSON_SCHEMA === "1",
     visionModelIds: readVisionModelIds(env),
     thinkingDisableModelIds: readThinkingDisableModelIds(env),
     bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
@@ -495,6 +498,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
             : {}),
           ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
           ...(this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
+          ...(this.config.jsonSchemaEnabled && input.responseSchema
+            ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
+            : {}),
         }),
       });
     } catch (err) {

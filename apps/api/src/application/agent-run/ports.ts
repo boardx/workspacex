@@ -915,9 +915,22 @@ export interface ModelCallImage {
   readonly bytes: Uint8Array;
 }
 
+/** A JSON schema the provider may enforce at decode time (OpenAI `response_format` shape). */
+export interface ModelResponseSchema {
+  readonly name: string;
+  readonly schema: Record<string, unknown>;
+}
+
 export interface ModelCallInput {
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
   readonly signal?: AbortSignal;
+  /**
+   * #3749 B1.4：要求模型输出恰好符合这份 JSON schema。OPTIONAL——只有开启了
+   * `KERNEL_MODEL_JSON_SCHEMA=1` 的 `ConfiguredModelProvider` 会把它作为 `response_format`
+   * 发出（Ollama / llama.cpp 用语法约束解码，不再靠 prompt-and-parse）；其余 provider 与未开
+   * 开关的部署忽略它，请求逐字节不变。
+   */
+  readonly responseSchema?: ModelResponseSchema;
   /** Non-secret binding issued by the trusted native session owner. */
   readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */

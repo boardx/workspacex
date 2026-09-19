@@ -10,6 +10,7 @@
  * `next build` inside the bundle. Auto-update, tray, Windows: R1.
  */
 import { app, BrowserWindow, dialog, shell } from "electron";
+import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack } from "@repo/local-runtime";
@@ -95,6 +96,16 @@ function progressState(lines: string[], state: { startedAt: number; failed: bool
   return { step, pct, elapsed, current, hint, failed: state.failed, log: lines.slice(-200).join("\n") };
 }
 
+/** `0.2.0 (8c11c8d)`: version from package.json, SHA from build-info.json (dev: git). */
+function buildLabel(): string {
+  let sha = "";
+  for (const candidate of [join(process.resourcesPath ?? "", "build-info.json"), join(__dirname, "..", "build", "build-info.json")]) {
+    try { sha = (JSON.parse(readFileSync(candidate, "utf8")) as { sha?: string }).sha ?? ""; if (sha) break; } catch { /* next */ }
+  }
+  if (!sha) { try { sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: bundleRoot(), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { /* dev without git */ } }
+  return sha ? `${app.getVersion()} (${sha})` : app.getVersion();
+}
+
 function progressHtml(lines: string[], state: { startedAt: number; failed: boolean }): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch] ?? ch));
   let step = 0;
@@ -116,6 +127,7 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
   body{font:14px -apple-system,system-ui,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;color:#111827}
   .card{width:min(520px,90vw)}
   .brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:30px}
+  .ver{font-size:11px;color:#8a8f98;letter-spacing:.02em}
   .logo{width:220px;height:auto}.wordmark{font-size:28px;font-weight:700;color:#ff1f7a}
   .slogan{color:#374151;font-size:15px;letter-spacing:.01em;line-height:1.6}.slogan .zh{color:#9ca3af;font-size:13px}
   .bar{height:6px;border-radius:3px;background:#f1f3f6;overflow:hidden}
@@ -130,7 +142,7 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
   .err{color:#dc2626}
 </style>
 <body><div class="card">
-  <div class="brand">${logo}<div class="slogan">${esc(SLOGAN_EN)}<br><span class="zh">${esc(SLOGAN_ZH)}</span></div></div>
+  <div class="brand">${logo}<div class="slogan">${esc(SLOGAN_EN)}<br><span class="zh">${esc(SLOGAN_ZH)}</span></div><div class="ver">${esc(buildLabel())}</div></div>
   <div class="bar"><div class="fill"></div></div>
   <div class="row"><span class="${state.failed ? "err" : ""}">${esc(current)}</span><span class="t">${elapsed}s</span></div>
   <div class="steps">${STARTUP_STEPS.map((_, i) => `<i class="${i < step ? "done" : i === step && !state.failed ? "now" : ""}"></i>`).join("")}</div>

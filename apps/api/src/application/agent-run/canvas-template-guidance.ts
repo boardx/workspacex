@@ -41,6 +41,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates";
+import { matchCanvasTemplatesInText, mentionsCanvasIntent } from "../../domain/canvas/normalize-fence-template-key";
 
 /** prompt 拼接只需要这四个字段——不是 `CanvasTemplateListing` 的全部（`version`/`status`/
  *  `builtin`/`visibility`/`underlyingType`/`usageCount` 都是列表页用的展示字段，模型不需要）。 */
@@ -101,6 +102,31 @@ export interface CanvasTemplateGuidancePort {
     orgId: OrgId,
     userId: string,
   ) => Promise<readonly CanvasTemplateGuidanceInfo[]>;
+  /** How much of the library goes into the system prompt; absent = `all` (cloud default). */
+  readonly mode?: CanvasGuidanceMode;
+}
+
+/**
+ * `all`: every published template's section dictionary rides in every run's system prompt
+ * (cloud default, unchanged). `matched`: only the templates the current message names, or
+ * the whole library when the message asks for "a canvas" without naming one, or nothing.
+ * WorkspaceX Local sets `matched`: 6k of 10.7k prompt characters were this dictionary, and a
+ * 4B model steered by it wrote a PESTEL canvas for "analyse this URL" (#3749 B1.2).
+ */
+export type CanvasGuidanceMode = "all" | "matched";
+
+export function canvasGuidanceModeFromEnv(env: NodeJS.ProcessEnv = process.env): CanvasGuidanceMode {
+  return env.KERNEL_CANVAS_GUIDANCE_MODE === "matched" ? "matched" : "all";
+}
+
+export function selectGuidanceTemplates<T extends { readonly key: string; readonly displayName: string }>(
+  templates: readonly T[],
+  input: { readonly mode: CanvasGuidanceMode; readonly text: string },
+): readonly T[] {
+  if (input.mode === "all" || templates.length === 0) return templates;
+  const named = new Set(matchCanvasTemplatesInText(input.text, templates));
+  if (named.size > 0) return templates.filter((t) => named.has(t.key));
+  return mentionsCanvasIntent(input.text) ? templates : [];
 }
 
 /**
@@ -112,8 +138,12 @@ export interface CanvasTemplateGuidancePort {
  *   （表头字段 = `type: "短文本"` 的分区）。同一件事实两处声明是本仓栽过五次的形状，
  *   而回填之后这两处还会打架——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
  */
-export function createCanvasTemplateGuidancePort(deps: ListTemplatesDeps): CanvasTemplateGuidancePort {
+export function createCanvasTemplateGuidancePort(
+  deps: ListTemplatesDeps,
+  mode: CanvasGuidanceMode = canvasGuidanceModeFromEnv(),
+): CanvasTemplateGuidancePort {
   return {
+    mode,
     listPublished: async (orgId, userId) => {
       const { templates } = await listTemplates(deps, { userId, orgId, filter: "published" });
       // ⚠ 原样透传 `sections`（含 `type`/`layout`）。表头/正文的切分、`layout.max` 怎么
@@ -170,6 +200,18 @@ export const CANVAS_GUIDANCE_HEADER = "## 工作坊协作画布（canvas 围栏�
  *   `CANVAS_GUIDANCE_HEADER` 同一条纪律（AGENTS.md「同一事实不得声明在两处」）。
  */
 export const CANVAS_INFERRED_MARKER = "（推理）";
+
+/**
+ * The one place the header/body split of a template's sections is decided (type `短文本` =
+ * header field, `文本对象` = static chrome, everything else = a body section the model fills).
+ * Used by the prompt builder below and by the write-back correction of section names.
+ */
+export function templateSectionNames(t: CanvasTemplateGuidanceInfo): { readonly fields: readonly string[]; readonly sections: readonly string[] } {
+  const placed = t.sections.some((s) => s.layout != null) ? t.sections.filter((s) => s.layout != null) : t.sections;
+  const header = placed.filter((s) => s.type === "短文本").map((s) => s.name);
+  const body = placed.filter((s) => s.type !== "短文本" && s.type !== "文本对象").map((s) => s.name);
+  return { fields: header.length > 0 ? header : (t.fields ?? []), sections: body };
+}
 
 export function buildCanvasTemplateGuidance(
   templates: readonly CanvasTemplateGuidanceInfo[],

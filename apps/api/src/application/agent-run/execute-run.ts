@@ -65,8 +65,8 @@ import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-
 import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
-import { normalizeCanvasFenceTemplateKeys, type CanvasTemplateRef } from "../../domain/canvas/normalize-fence-template-key";
-import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
+import { normalizeCanvasFenceSections, normalizeCanvasFenceTemplateKeys, type CanvasTemplateShape } from "../../domain/canvas/normalize-fence-template-key";
+import { buildCanvasTemplateGuidance, selectGuidanceTemplates, templateSectionNames, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
@@ -74,7 +74,7 @@ import { createSkillActivityWriter, createToolProgressWriter } from "./skill-act
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
-import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
+import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -564,16 +564,23 @@ export const VISUALIZATION_GUIDANCE = [
  * 远端真实工具 `call_skill`（`buildDeepAgentSkillCatalogBlock` 头注）。
  * `skills.length === 0` 时两种模式输出完全相同（没有目录可拼）。
  */
+/** The message asks for a picture: the only case the mermaid rules are worth their tokens. */
+export function mentionsDiagramIntent(text: string): boolean {
+  return /画|图|流程|时序|结构|示意|可视化|mermaid|脑图|导图|甘特|diagram|chart|flow/i.test(text);
+}
+
 export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
   mode: "full" | "deep-agent-catalog" | "native" = "full",
+  options: { readonly visualization?: boolean } = {},
 ): string {
   const skillParts = skills.length === 0 || mode === "native" ? []
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
     : skills.map((s) => s.content);
-  const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
+  // default true: every existing caller keeps a byte-identical prompt
+  const parts = [instructions, ...skillParts, ...(options.visualization === false ? [] : [VISUALIZATION_GUIDANCE])];
   if (canvasGuidance) parts.push(canvasGuidance);
   return parts.join("\n\n");
 }
@@ -596,7 +603,7 @@ async function executeClaimed(
   orgId: OrgId,
   run: ClaimedAgentRun,
 ): Promise<void> {
-  let publishedCanvasTemplates: readonly CanvasTemplateRef[] | null = null;
+  let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
   // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
   // this mirrors an already-true fact (I-3 decoupling).
   publishStatusChange(deps, orgId, run.runId, "running");
@@ -667,8 +674,11 @@ async function executeClaimed(
     if (deps.canvasTemplates) {
       try {
         const templates = await deps.canvasTemplates.listPublished(orgId, run.requesterUserId);
-        publishedCanvasTemplates = templates.map((t) => ({ key: t.key, displayName: t.displayName }));
-        canvasGuidance = buildCanvasTemplateGuidance(templates);
+        // the correction table always sees the whole library; only the PROMPT is narrowed
+        publishedCanvasTemplates = templates.map((t) => ({ key: t.key, displayName: t.displayName, ...templateSectionNames(t) }));
+        canvasGuidance = buildCanvasTemplateGuidance(
+          selectGuidanceTemplates(templates, { mode: deps.canvasTemplates.mode ?? "all", text: run.inputText }),
+        );
       } catch (e) {
         deps.log("agent run canvas template guidance read failed, continuing without it", {
           runId: run.runId,
@@ -681,7 +691,16 @@ async function executeClaimed(
     // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
     // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
     const systemPromptMode = isDeepAgentRun && deps.nativeSessions ? "native" : isDeepAgentRun ? "deep-agent-catalog" : "full";
-    system = buildSystemPrompt(run.instructions, skills, canvasGuidance, systemPromptMode);
+    // #3749 B3：deep-agent 目录模式下，本地只列与本轮消息相关的 skill（`KERNEL_SKILL_CATALOG_MODE=matched`）；
+    // `toolSkills`（远端 call_skill 能调的集合）不变，变的只是提示里的目录。
+    const catalogCfg = skillCatalogModeFromEnv();
+    const catalogSkills = systemPromptMode === "deep-agent-catalog" ? selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max }) : skills;
+    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 ? buildSkillCatalogHint(skills.length) : null;
+    system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
+      // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
+      // only when the message asks for a diagram (#3749 B1.2)
+      visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
+    });
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *
@@ -1355,6 +1374,13 @@ async function executeClaimed(
     if (normalized.corrections.length > 0) {
       deps.log("canvas fence template key corrected before write-back", { runId: run.runId, corrections: normalized.corrections });
       text = normalized.text;
+    }
+    // #3749 B1.3：分区名 / 表头字段名同一条纪律——模型加了括号、换了顺序、丢了分隔符的名字
+    // 在这里按模板真名确定性改回；改不回的原样留下，网页端如实渲染成空白块。
+    const sections = normalizeCanvasFenceSections(text, publishedCanvasTemplates);
+    if (sections.corrections.length > 0) {
+      deps.log("canvas fence section names corrected before write-back", { runId: run.runId, corrections: sections.corrections });
+      text = sections.text;
     }
   }
   await deps.runs.storeOutputAwaitingWriteback(

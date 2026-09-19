@@ -5,7 +5,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STORE="${OLLAMA_MODELS:-$HOME/.ollama/models}"
-MODELS="${MODELS:-qwen3.5:4b,qwen3-embedding:0.6b}"
+MODELS="${MODELS:-qwen3.5:4b,qwen3.5:2b,qwen3-embedding:0.6b}"
 command -v ollama >/dev/null || { echo "ollama CLI not found; install Ollama first" >&2; exit 1; }
 IFS=, read -ra LIST <<< "$MODELS"
 for m in "${LIST[@]}"; do

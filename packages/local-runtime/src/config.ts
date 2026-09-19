@@ -40,6 +40,22 @@ export const DEFAULT_ASR_MODEL = "sherpa-onnx-streaming-zipformer-bilingual-zh-e
 
 /** Ollama tag. Carries tools / vision / thinking; ~2.5-3 GB at Q4_K_M. */
 export const DEFAULT_CHAT_MODEL = "qwen3.5:4b";
+/** Bigger sibling picked automatically when the machine can carry it (#3749 B2.3). */
+export const UPGRADED_CHAT_MODEL = "qwen3.5:9b";
+export const CHAT_MODEL_UPGRADE_MIN_MEMORY_GB = 16;
+/** Meta tasks (thread title, follow-up suggestions, feedback structuring) run on this (#3749 B2.2). */
+export const DEFAULT_META_MODEL = "qwen3.5:2b";
+
+/**
+ * Which chat model to serve: the configured one, unless it is the default 4B, the machine has
+ * ≥16 GB and the 9B is already in the store -- then the 9B (never downloaded on the user's
+ * behalf; `fetch-models.sh MODELS=...` decides what ships).
+ */
+export function preferredChatModel(input: { readonly configured: string; readonly memoryGb: number; readonly present: readonly string[] }): string {
+  if (input.configured !== DEFAULT_CHAT_MODEL) return input.configured;
+  if (input.memoryGb < CHAT_MODEL_UPGRADE_MIN_MEMORY_GB) return input.configured;
+  return input.present.includes(UPGRADED_CHAT_MODEL) ? UPGRADED_CHAT_MODEL : input.configured;
+}
 /** Ollama embedding model used by the deep-agent retrieval endpoints (`/v1/embeddings`). */
 export const DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:0.6b";
 
@@ -66,6 +82,7 @@ export interface LocalConfig {
   readonly dataDir: string;
   readonly ports: LocalPorts;
   readonly chatModel: string;
+  readonly metaModel: string;
   readonly embeddingModel: string;
   readonly secrets: LocalSecrets;
 }
@@ -75,6 +92,7 @@ export interface ResolveOptions {
   readonly dataDir: string;
   readonly ports?: Partial<LocalPorts>;
   readonly chatModel?: string;
+  readonly metaModel?: string;
   readonly embeddingModel?: string;
 }
 
@@ -117,6 +135,7 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
     dataDir: opts.dataDir,
     ports: { ...DEFAULT_PORTS, ...(opts.ports ?? {}) },
     chatModel: opts.chatModel ?? DEFAULT_CHAT_MODEL,
+    metaModel: opts.metaModel ?? DEFAULT_META_MODEL,
     embeddingModel: opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
     secrets: loadOrCreateSecrets(opts.dataDir),
   };
@@ -198,10 +217,30 @@ export function modelEnv(c: LocalConfig): Env {
     KERNEL_MODEL_VISION_IDS: c.chatModel,
     // A 4B model with thinking on is several times slower; the API already knows how to
     // send `enable_thinking:false` for ids in this list.
-    KERNEL_MODEL_THINKING_DISABLE_IDS: c.chatModel,
+    KERNEL_MODEL_THINKING_DISABLE_IDS: `${c.chatModel},${c.metaModel}`,
     // Ollama >= 0.34: `reasoning_effort: "none"` on /v1 switches Qwen3.5 thinking off
     // (the bailian `enable_thinking` field is not sent to Ollama). Measured: one-liner 12 s -> 1.2 s.
     KERNEL_MODEL_REASONING_EFFORT: "none",
+    // Stream tokens from the provider (#3749 B1.6): first characters reach the UI while the
+    // model is still writing; total time is unchanged.
+    KERNEL_MODEL_STREAM_ENABLED: "1",
+    KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
+    // Only the canvas templates the message names go into the system prompt (#3749 B1.2).
+    KERNEL_CANVAS_GUIDANCE_MODE: "matched",
+    // JSON sites (追问建议 / 反馈结构化 / 研究大纲) decode against a schema (#3749 B1.4).
+    KERNEL_MODEL_JSON_SCHEMA: "1",
+    // meta tasks on the small model (#3749 B2.2); thinking off applies to it too
+    KERNEL_THREAD_TITLE_MODEL_ENABLED: "1",
+    KERNEL_THREAD_TITLE_MODEL_ID: c.metaModel,
+    KERNEL_FOLLOWUP_SUGGESTIONS_MODEL_ID: c.metaModel,
+    KERNEL_FEEDBACK_STRUCTURE_MODEL_ID: c.metaModel,
+    // skill catalog: only the skills relevant to the message (#3749 B3)
+    KERNEL_SKILL_CATALOG_MODE: "matched",
+    KERNEL_SKILL_CATALOG_MAX: "8",
+    // rerank with the embedding model instead of a chat-model call per retrieval (#3749 B2.1)
+    KERNEL_RERANK_MODE: "embedding",
+    // Guided Research directions/outline call the contract-pinned cloud id otherwise (#3749 B1.5).
+    KERNEL_GUIDED_RESEARCH_MODEL_ID: c.chatModel,
     KERNEL_MODEL_BAILIAN_EXTENSIONS: "0",
     KERNEL_EMBEDDING_MODEL_ID: c.embeddingModel,
     KERNEL_EMBEDDING_MODEL_VERSION: "local-1",
@@ -209,6 +248,7 @@ export function modelEnv(c: LocalConfig): Env {
     KERNEL_RERANK_MODEL_VERSION: "local-1",
     // personal-local organizations (F16) probe this native Ollama endpoint; must be loopback.
     LOCAL_RUNTIME_ENDPOINT: base,
+    LOCAL_RUNTIME_MODEL_ID: c.chatModel,
   };
 }
 
@@ -363,10 +403,20 @@ export function webOrigins(c: LocalConfig): string[] {
   return [`http://127.0.0.1:${c.ports.web}`, `http://localhost:${c.ports.web}`];
 }
 
+/** Context window handed to the Ollama server we start ourselves (#3749 B1.1). */
+export const OLLAMA_CONTEXT_LENGTH = 8192;
+
 export function ollamaEnv(c: LocalConfig): Env {
   return {
     OLLAMA_HOST: `127.0.0.1:${c.ports.ollama}`,
     OLLAMA_MODELS: paths.models(c),
+    // Ollama's default slot is 4096 tokens and it truncates SILENTLY: a persona canvas measured
+    // 2050 prompt + 1837 output = 3887 (Mac实测 2026-09-18). 8k costs ~0.5 GB more KV cache on a 4B.
+    OLLAMA_CONTEXT_LENGTH: String(OLLAMA_CONTEXT_LENGTH),
+    // keep the chat model resident between turns; the first request after an unload paid a
+    // 20-30 s reload in the eval lane.
+    OLLAMA_KEEP_ALIVE: "24h",
+    OLLAMA_NUM_PARALLEL: "1",
   };
 }
 

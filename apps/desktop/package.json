@@ -1,7 +1,7 @@
 {
   "name": "@repo/desktop",
   "productName": "WorkspaceX",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "WorkspaceX Local 桌面外壳（issue #3716 / PROP-LOCAL-WORKSPACE-001）：Electron 主进程 = 服务监督器 + 硬件自检 + 主窗口；渲染层就是 apps/web，不另写 UI。编排逻辑全部在 @repo/local-runtime，本包只负责窗口、托盘与打包。",
   "type": "module",
@@ -9,7 +9,8 @@
   "scripts": {
     "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --external:electron --external:@electric-sql/pglite --external:@electric-sql/pglite-pgvector --external:@electric-sql/pglite-socket --outfile=dist/main.cjs",
     "dev": "pnpm run build:main && electron .",
-    "dist:mac": "pnpm run build:main && electron-builder --mac --config electron-builder.yml",
+    "build:info": "node -e \"require('fs').writeFileSync('build/build-info.json', JSON.stringify({ sha: require('child_process').execSync('git rev-parse --short HEAD').toString().trim(), builtAt: new Date().toISOString() }))\"",
+    "dist:mac": "pnpm run build:main && pnpm run build:info && electron-builder --mac --config electron-builder.yml",
     "dist:win": "pnpm run build:main && electron-builder --win --config electron-builder.yml",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",

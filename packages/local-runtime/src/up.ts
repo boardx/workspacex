@@ -10,16 +10,15 @@
  */
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { homedir, platform } from "node:os";
+import { homedir, platform, totalmem } from "node:os";
 import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
-  resolveDeepAgentLaunch,
-} from "./config";
+  resolveDeepAgentLaunch, preferredChatModel } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
-import { assertPortFree, killTree, startManaged, waitForHttp, waitForManaged, runToCompletion, type Managed } from "./processes";
+import { assertPortFree, stopListenerOnPort, killTree, startManaged, waitForHttp, waitForManaged, runToCompletion, type Managed } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 
 export interface UpOptions {
@@ -90,12 +89,20 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       const runningOnAlternate = running === null ? null : await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama + 1}`);
       const choice = chooseOllama({ running, binary: ollamaBinaryVersion(ollamaBin), port: c.ports.ollama, runningOnAlternate });
       log(`[ollama] ${choice.reason}`);
+      let already = choice.reuse;
       if (choice.port !== c.ports.ollama) {
-        if (!choice.reuse) await assertPortFree(choice.port, "ollama");
+        if (choice.reuse) {
+          // The alternate port is ours alone: what runs there is an earlier instance of this
+          // runtime, possibly started before OLLAMA_CONTEXT_LENGTH / KEEP_ALIVE existed. Restart
+          // it so the server settings are the ones this build declares (#3749 B1.1).
+          log(`[ollama] restarting our earlier instance on ${choice.port} to apply current server settings`);
+          await stopListenerOnPort(choice.port);
+          already = false;
+        }
+        await assertPortFree(choice.port, "ollama");
         c = { ...c, ports: { ...c.ports, ollama: choice.port } };
       }
       ollamaUrl = `http://127.0.0.1:${c.ports.ollama}`;
-      const already = choice.reuse;
       // Bundled models go into whichever store the Ollama we are about to talk to serves from:
       // ours (data dir) when we spawn it, the user's own (OLLAMA_MODELS or ~/.ollama/models)
       // when one is already running -- copying into ours would be invisible to that one.
@@ -118,7 +125,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         log("[ollama] already running, reusing");
       }
       if (opts.pullModel !== false) {
-        for (const model of [c.chatModel, c.embeddingModel]) {
+        for (const model of [c.chatModel, c.metaModel, c.embeddingModel]) {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
           log(`[ollama] pulling ${model} (first start only; several GB for the chat model)`);
@@ -135,6 +142,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     for (const [port, what] of [[c.ports.sandbox, "skill-sandbox"], [c.ports.asr, "asr-gateway"], [c.ports.api, "api"], [c.ports.deepAgent, "deep-agent"], [c.ports.web, "web"]] as const) {
       if (what === "web" && (opts.webMode ?? "dev") === "none") continue;
       await assertPortFree(port, what);
+    }
+
+    // #3749 B2.3：机器带得动且 9B 已在库里 ⇒ 用 9B；否则保持配置的模型。只换 c，后面的 env 都从 c 派生。
+    if (ollamaUrl) {
+      const present = await listModels(ollamaUrl);
+      const memoryGb = totalmem() / 1024 ** 3;
+      const chosen = preferredChatModel({ configured: c.chatModel, memoryGb, present });
+      if (chosen !== c.chatModel) {
+        log(`[ollama] ${String(Math.round(memoryGb))} GB RAM and ${chosen} present: serving ${chosen} instead of ${c.chatModel}`);
+        c = { ...c, chatModel: chosen };
+      }
     }
 
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
@@ -227,6 +245,16 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   } catch (e) {
     await stopAll();
     throw e;
+  }
+}
+
+async function listModels(ollamaUrl: string): Promise<readonly string[]> {
+  try {
+    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const body = (await res.json()) as { models?: { name: string }[] };
+    return (body.models ?? []).map((m) => m.name);
+  } catch {
+    return [];
   }
 }
 

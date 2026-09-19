@@ -44,6 +44,9 @@ extraResources:
       - "!apps/deep-agent-service/.venv/**"
   - from: build/logo.png
     to: logo.png
+  # commit short SHA + build time, shown on the startup page next to the version (#3749)
+  - from: build/build-info.json
+    to: build-info.json
   - from: bin
     to: bin
   # Relocatable CPython + site-packages for deep-agent-service (scripts/local-bundle/bundle-python.sh).

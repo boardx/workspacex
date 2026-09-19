@@ -84,3 +84,105 @@ export function normalizeCanvasFenceTemplateKeys(text: string, templates: readon
   });
   return { text: out, corrections };
 }
+
+/**
+ * Which published templates a piece of user text names -- by key, display name or one of the
+ * ALIASES above (same normalization as the fence-key correction, so "用户画像" and
+ * "user profile" both resolve to `persona`). Used to inject only the named templates'
+ * guidance instead of the whole library (#3749 B1.2).
+ */
+export function matchCanvasTemplatesInText(text: string, templates: readonly CanvasTemplateRef[]): readonly string[] {
+  const hay = norm(text);
+  if (!hay) return [];
+  const hits: string[] = [];
+  for (const t of templates) {
+    const names = [t.key, t.displayName, ...(ALIASES[t.key] ?? [])].map(norm).filter((n) => n.length >= 2);
+    if (names.some((n) => hay.includes(n))) hits.push(t.key);
+  }
+  return hits;
+}
+
+/** Does the text ask for a workshop canvas at all (without naming which one)? */
+export function mentionsCanvasIntent(text: string): boolean {
+  return /画布|工作坊|协作模板|canvas/i.test(text);
+}
+
+/** A published template with the names the fence body must use (see `templateSectionNames`). */
+export interface CanvasTemplateShape extends CanvasTemplateRef {
+  readonly sections?: readonly string[];
+  readonly fields?: readonly string[];
+}
+
+export interface FenceSectionCorrection {
+  readonly template: string;
+  readonly kind: "section" | "field";
+  readonly from: string;
+  readonly to: string;
+}
+
+/** Strip what a small model likes to add to a name: brackets, counts, numbering, spacing. */
+function bareName(raw: string): string {
+  return raw
+    .replace(/[（(【\[][^）)】\]]*[）)】\]]/g, "")   // （最多4条） / (6) / 【…】
+    .replace(/^\s*\d+\s*[.、)）:：-]\s*/, "")       // "1. " / "1、"
+    .replace(/[:：]\s*$/, "")
+    .trim();
+}
+
+function resolveName(raw: string, names: readonly string[]): string | null {
+  if (names.includes(raw)) return raw;
+  const bare = bareName(raw);
+  if (names.includes(bare)) return bare;
+  const n = norm(bare);
+  if (n === "") return null;
+  const exact = names.filter((x) => norm(x) === n);
+  if (exact.length === 1) return exact[0]!;
+  // "阶段1行为" vs "行为 · 阶段1": same characters, different order / separators
+  const sameChars = names.filter((x) => { const a = [...norm(x)].sort().join(""); return a === [...n].sort().join(""); });
+  if (sameChars.length === 1) return sameChars[0]!;
+  const contains = names.filter((x) => { const m = norm(x); return m.length >= 2 && (n.includes(m) || m.includes(n)); });
+  if (contains.length === 1) return contains[0]!;
+  return null;
+}
+
+const FENCE_BLOCK = /(```canvas[^\n]*\n)([\s\S]*?)(\n```)/g;
+const HEADING = /^(##\s+)(.+?)\s*$/;
+const FIELD = /^([^#\-\n][^:：\n]{0,60}?)\s*([:：])(.*)$/;
+
+/**
+ * Rewrite `## 分区名` and header `字段名: 值` lines inside every ```canvas fence to the
+ * template's real names when the model decorated, reordered or re-spelled them (the three
+ * shapes the 2026-09-10 journey-map lost a whole canvas to). Unknown names stay untouched.
+ * Runs after `normalizeCanvasFenceTemplateKeys`, so `模板:` already holds a real key.
+ */
+export function normalizeCanvasFenceSections(text: string, templates: readonly CanvasTemplateShape[]): { text: string; corrections: readonly FenceSectionCorrection[] } {
+  if (templates.length === 0 || !text.includes("```canvas")) return { text, corrections: [] };
+  const corrections: FenceSectionCorrection[] = [];
+  const out = text.replace(FENCE_BLOCK, (whole, head: string, body: string, tail: string) => {
+    const lines = body.split("\n");
+    const keyLine = lines.find((l) => /^\s*模板\s*[:：]/.test(l));
+    const key = keyLine?.replace(/^\s*模板\s*[:：]\s*/, "").trim();
+    const t = templates.find((x) => x.key === key);
+    if (!t || (!t.sections?.length && !t.fields?.length)) return whole;
+    let seenHeading = false;
+    const fixed = lines.map((line) => {
+      const h = HEADING.exec(line);
+      if (h) {
+        seenHeading = true;
+        const to = t.sections?.length ? resolveName(h[2]!, t.sections) : null;
+        if (to !== null && to !== h[2]) { corrections.push({ template: t.key, kind: "section", from: h[2]!, to }); return `${h[1]}${to}`; }
+        return line;
+      }
+      if (!seenHeading && t.fields?.length && !/^\s*模板\s*[:：]/.test(line)) {
+        const f = FIELD.exec(line);
+        if (f) {
+          const to = resolveName(f[1]!.trim(), t.fields);
+          if (to !== null && to !== f[1]!.trim()) { corrections.push({ template: t.key, kind: "field", from: f[1]!.trim(), to }); return `${to}${f[2]}${f[3]}`; }
+        }
+      }
+      return line;
+    });
+    return `${head}${fixed.join("\n")}${tail}`;
+  });
+  return { text: out, corrections };
+}

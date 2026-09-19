@@ -142,3 +142,47 @@ export function appendSkillFullContent(
 export function appendSkillNotMountedNotice(system: string, requestedStableName: string): string {
   return `${system}\n\n---\n\nThe Skill "${requestedStableName}" is not mounted in this conversation — it is not among the Skills listed above. Do not request it again; use only the Skills listed above, or answer without one if none of them apply.`;
 }
+
+/** Character bigrams -- works for Chinese and English alike without a tokenizer. */
+function bigrams(text: string): Set<string> {
+  const t = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const out = new Set<string>();
+  for (const word of t.split(" ")) {
+    if (word.length < 2) continue;
+    if (/^[a-z0-9]+$/.test(word)) { out.add(word); continue; }
+    for (let i = 0; i + 1 < word.length; i++) out.add(word.slice(i, i + 2));
+  }
+  return out;
+}
+
+/**
+ * #3749 B3：目录检索化的第一步——只把与本轮消息相关的 skill 列进目录。
+ * 相关度 = 消息与「stableName + 一行摘要」的字符二元组重合数；命中为 0 的不列。
+ * 最多 `max` 条。返回空数组时调用方应保留一句「还有 N 个 skill，可用 list_org_skills 查看」，
+ * 让模型仍知道目录存在。`mode: "all"` 与之前逐字节相同。
+ */
+export function selectCatalogSkills<T extends Pick<PinnedSkillContent, "stableName" | "content">>(
+  skills: readonly T[],
+  input: { readonly mode: "all" | "matched"; readonly text: string; readonly max?: number },
+): readonly T[] {
+  if (input.mode === "all") return skills;
+  const msg = bigrams(input.text);
+  if (msg.size === 0) return [];
+  const scored = skills.map((s, i) => {
+    const grams = bigrams(`${s.stableName} ${deriveSkillSummary(s.content)}`);
+    let hits = 0; for (const g of grams) if (msg.has(g)) hits++;
+    return { s, i, hits };
+  }).filter((x) => x.hits >= 2);
+  scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
+  return scored.slice(0, input.max ?? 8).map((x) => x.s);
+}
+
+export function skillCatalogModeFromEnv(env: NodeJS.ProcessEnv = process.env): { readonly mode: "all" | "matched"; readonly max: number } {
+  const max = Number(env.KERNEL_SKILL_CATALOG_MAX ?? "8");
+  return { mode: env.KERNEL_SKILL_CATALOG_MODE === "matched" ? "matched" : "all", max: Number.isFinite(max) && max > 0 ? Math.floor(max) : 8 };
+}
+
+/** The one-line stand-in for an omitted catalog: the model still knows skills exist and how to list them. */
+export function buildSkillCatalogHint(total: number): string {
+  return `本组织有 ${String(total)} 个已启用的 Skill，本轮未列出目录；需要时先调用 \`list_org_skills\` 查看，再用 \`call_skill\` 调用。`;
+}
