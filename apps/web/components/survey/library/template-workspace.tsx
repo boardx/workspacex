@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { surveyRequest } from "@/lib/survey/runtime-client";
+import { getBuiltinSurveyTemplate } from "@/lib/survey/builtin-templates";
 import { SurveyQuestionEditor } from "../live/question-editor";
 import { FlexibleReportEditor } from "../report/template-editor";
 
@@ -33,7 +34,19 @@ const readTemplate = (value: unknown, kind: Kind): SurveyLibraryTemplate => {
 };
 
 // Response metadata is not part of the bounded write request.
-const templateDraft = ({kind,title,description,questions,template}: SurveyLibraryTemplate): SurveyTemplateInput => ({kind,title,description,questions,template});
+const templateDraft = ({
+  kind,
+  title,
+  description,
+  questions,
+  template,
+}: SurveyTemplateInput): SurveyTemplateInput => ({
+  kind,
+  title,
+  description,
+  questions,
+  template,
+});
 
 export function SurveyTemplateWorkspace({
   templateId,
@@ -45,6 +58,8 @@ export function SurveyTemplateWorkspace({
   const router = useRouter();
   const [saved, setSaved] = React.useState<SurveyLibraryTemplate | null>(null);
   const [draft, setDraft] = React.useState<SurveyTemplateInput | null>(null);
+  const [builtinBaseline, setBuiltinBaseline] =
+    React.useState<SurveyTemplateInput | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -63,13 +78,14 @@ export function SurveyTemplateWorkspace({
       ? "/studio/survey/question-templates"
       : "/studio/survey/templates";
   const list = `/studio/survey?tab=${kind === "question" ? "modules" : "reports"}`;
+  const isBuiltin = templateId.startsWith("builtin-") && !saved;
+  const baseline = saved ? templateDraft(saved) : builtinBaseline;
   const dirty =
     !!draft &&
-    (!saved ||
-      JSON.stringify(draft) !==
-        JSON.stringify(templateDraft(saved)));
+    (!baseline || JSON.stringify(draft) !== JSON.stringify(baseline));
   const accept = React.useCallback((value: SurveyLibraryTemplate) => {
     setSaved(value);
+    setBuiltinBaseline(null);
     setDraft(templateDraft(value));
   }, []);
   const load = React.useCallback(async () => {
@@ -84,6 +100,16 @@ export function SurveyTemplateWorkspace({
       return;
     }
     try {
+      if (templateId.startsWith("builtin-")) {
+        const builtin = getBuiltinSurveyTemplate(templateId, kind);
+        if (!builtin)
+          throw new Error("内置模板不存在或类型不匹配，请返回模板列表选择。");
+        const configuration = templateDraft(builtin);
+        setSaved(null);
+        setDraft(configuration);
+        setBuiltinBaseline(structuredClone(configuration));
+        return;
+      }
       const value = readTemplate(
         await surveyRequest(
           `/surveys/templates/${encodeURIComponent(templateId)}`,
@@ -101,6 +127,7 @@ export function SurveyTemplateWorkspace({
   React.useEffect(() => {
     setSaved(null);
     setDraft(null);
+    setBuiltinBaseline(null);
     setTab(kind === "question" ? "questions" : "report");
     void load();
     return invalidate;
@@ -119,7 +146,11 @@ export function SurveyTemplateWorkspace({
         ...(asCopy ? { title: `${draft.title.slice(0, 197)} 副本` } : {}),
       });
       if (!parsed.success)
-        throw new Error(parsed.error.issues.find(issue => issue.code === "custom" && issue.path.length === 0)?.message ?? "请检查模板名称、说明、题目选项和报告配置后重试。");
+        throw new Error(
+          parsed.error.issues.find(
+            (issue) => issue.code === "custom" && issue.path.length === 0,
+          )?.message ?? "请检查模板名称、说明、题目选项和报告配置后重试。",
+        );
       const create = asCopy || !saved;
       const result = readTemplate(
         await surveyRequest(
@@ -172,7 +203,7 @@ export function SurveyTemplateWorkspace({
           </Button>
           <div className="min-w-0 flex-1">
             <h1 className="text-20 font-semibold">
-              {templateId === "new" ? "新建" : "编辑"}
+              {isBuiltin ? "内置" : templateId === "new" ? "新建" : "编辑"}
               {label}
             </h1>
             <p className="mt-1 text-11 text-muted-foreground">
@@ -180,7 +211,9 @@ export function SurveyTemplateWorkspace({
                 ? "有未保存修改"
                 : saved
                   ? `已保存 · ${new Date(saved.updatedAt).toLocaleString("zh-CN")}`
-                  : "正在加载"}
+                  : builtinBaseline
+                    ? "内置模板 · 未修改"
+                    : "正在加载"}
             </p>
           </div>
           {saved && (
@@ -202,12 +235,17 @@ export function SurveyTemplateWorkspace({
             </>
           )}
           <Button
-            disabled={busy || loading || !draft || !dirty}
+            disabled={busy || loading || !draft || (!dirty && !isBuiltin)}
             onClick={() => void save()}
           >
-            {busy ? "正在保存…" : "保存模板"}
+            {busy ? "正在保存…" : isBuiltin ? "保存为我的模板" : "保存模板"}
           </Button>
         </div>
+        {isBuiltin && draft && (
+          <p className="text-12 text-muted-foreground">
+            内置模板不会被更改。可直接使用，或调整后保存为自己的独立模板。
+          </p>
+        )}
         {draft && (
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-12">

@@ -48,9 +48,7 @@ export function LiveSurveyLibrary() {
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
         </div>
-        <Button onClick={() => router.push("/studio/survey/new")}>
-          创建问卷
-        </Button>
+        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push("/studio/survey/new")}>创建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
@@ -115,9 +113,7 @@ export function LiveSurveyLibrary() {
           ))}
       </div>
       {!busy && !error && items.length === 0 && (
-        <p className="py-16 text-center text-muted-foreground">
-          还没有问卷，创建后即可设计题目和报告模板。
-        </p>
+        <div className="space-y-4 py-16 text-center"><p className="text-muted-foreground">还没有问卷，可以使用内置模板开始，也可以创建空白问卷。</p><Link className="inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=modules">浏览问卷模板</Link><Link className="ml-3 inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=reports">浏览报告模板</Link></div>
       )}
     </main>
   );

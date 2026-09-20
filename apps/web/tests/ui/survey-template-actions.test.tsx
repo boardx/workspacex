@@ -268,7 +268,13 @@ describe("survey template actions", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "使用问卷模板" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("模板数据");
-    expect(screen.queryByLabelText("选择问卷模板")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "团队模板" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "我的模板" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "内置模板" })).toBeInTheDocument();
   });
   it("disables an already-open application dialog while the parent is saving", async () => {
     request.mockResolvedValueOnce([template()]);
@@ -302,11 +308,15 @@ describe("survey template actions", () => {
 });
 
 it("超限模板在客户端明确提示且不发送请求，输入保留", async () => {
-  const data=draft();
-  data.questions[1]!.options=Array.from({length:60},()=>"中".repeat(1000));
-  render(<SurveyTemplateActions kind="question" draft={data} onApply={vi.fn()} />);
-  fireEvent.click(screen.getByRole("button",{name:"保存为问卷模板"}));
-  fireEvent.click(screen.getByRole("button",{name:"保存到模板库"}));
+  const data = draft();
+  data.questions[1]!.options = Array.from({ length: 60 }, () =>
+    "中".repeat(1000),
+  );
+  render(
+    <SurveyTemplateActions kind="question" draft={data} onApply={vi.fn()} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "保存为问卷模板" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存到模板库" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(/90/);
   expect(screen.getByLabelText("保存模板名称")).toHaveValue("当前问卷");
   expect(request).not.toHaveBeenCalled();
