@@ -27,6 +27,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {}, back: () => {}, forward: () => {} }),
 }));
 
+/**
+ * 2026-09-20 起两个治理入口各自有可见性判据（人类要求：平台管理菜单只给平台管理员，
+ * 组织管理后台只给组织管理员——见 `lib/navigation.ts` 的 `SCOPED_NAV_KEYS`）。
+ * §1 断言的是「两个入口都存在且 href 不同」，所以这里把查看者桩成**两者都够格**的人：
+ * 平台准入桩在这里（它是一次网络读），组织角色由下面传 `orgRole: "admin"` 的身份给。
+ * ⚠ 桩掉的是"我是谁"，不是可见性判定本身——判定仍由 `navSegmentsForViewer` 跑。
+ * 可见性矩阵（谁看得见 / 看不见）在 `nav-admin-menu-visibility.test.tsx` 里单独验。
+ */
+vi.mock("@/lib/live-platform-access", () => ({
+  usePlatformAccess: () => ({ platformSuperuser: true, platformAdmin: false, platformOperator: true }),
+}));
+
 afterEach(() => cleanup());
 
 const SCOPES: AdminScope[] = ["org", "platform"];
@@ -42,7 +54,7 @@ describe("§1 一级导航：治理段有两个入口", () => {
     const { mockIdentity, MOCK_ORGS } = await import("@/lib/identity");
     render(
       <IconRail
-        identity={mockIdentity("org-yuanyang", null)}
+        identity={{ ...mockIdentity("org-yuanyang", null), orgRole: "admin" }}
         organizations={MOCK_ORGS.map((o) => ({ id: o.id, label: o.name }))}
         onSwitchOrganization={() => undefined}
         avatarInitial="X"

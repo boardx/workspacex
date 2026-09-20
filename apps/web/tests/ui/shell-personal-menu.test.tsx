@@ -24,7 +24,13 @@ import { MOCK_ORGS, mockIdentity } from "@/lib/identity";
  *   - 左下角头像从直接 `<Link href="/profile">` 换成下拉个人菜单（`personal-menu.tsx`），
  *     退出从顶栏挪进来，`onLogout` 缺失时（旧版 `identity` 直传原型页）不渲染退出项。
  */
-const IDENTITY = mockIdentity("org-yuanyang", null);
+/**
+ * ⚠ 2026-09-20 起「组织管理」这一项只对组织管理员渲染（人类要求，见
+ *   `components/shell/org-menu.tsx`）。`mockIdentity` 默认是 consultant，
+ *   所以这里显式升成 admin——本文件验的是"入口在哪、只有一处"，不是可见性矩阵
+ *   （后者见 `nav-admin-menu-visibility.test.tsx`，含非 admin 看不到的反证）。
+ */
+const IDENTITY = { ...mockIdentity("org-yuanyang", null), orgRole: "admin" as const };
 const ORGS = MOCK_ORGS.map((o) => ({ id: o.id, label: o.name }));
 
 function renderRail(extra?: { onLogout?: () => void; onSwitch?: (orgId: string) => void }) {
