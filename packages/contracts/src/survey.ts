@@ -68,3 +68,5 @@ export type SurveyWorkflowModel = z.infer<typeof SurveyWorkflowSchema>;
 export type SurveyWorkflowQuestion = z.infer<typeof SurveyWorkflowQuestionSchema>;
 export type SurveyChartType = z.infer<typeof SurveyChartTypeSchema>;
 export type SurveyResponse = z.infer<typeof SurveyResponseSchema>;
+
+export * from "./survey-report";

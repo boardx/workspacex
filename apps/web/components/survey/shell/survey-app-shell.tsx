@@ -2,27 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { ChartNoAxesCombined, ClipboardList, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Badge } from "@/components/ui/badge";
-import { mockIdentity } from "@/lib/identity";
-import {
-  SURVEY_LIBRARY_CARDS,
-  SURVEY_QUESTION_MODULE_CARDS,
-  SURVEY_TEMPLATE_CARDS,
-} from "@/lib/survey/resource-library";
 import { cn } from "@/lib/utils";
 
 const SURVEY_SECTIONS = [
-  { id: "surveys", label: "问卷列表", href: "/studio/survey", icon: FileText, count: SURVEY_LIBRARY_CARDS.length },
-  { id: "modules", label: "问卷模块", href: "/studio/survey?tab=modules", icon: ClipboardList, count: SURVEY_QUESTION_MODULE_CARDS.length },
-  { id: "reports", label: "报告模块", href: "/studio/survey?tab=reports", icon: ChartNoAxesCombined, count: SURVEY_TEMPLATE_CARDS.length },
+  { id: "surveys", label: "我的问卷", href: "/studio/survey", icon: FileText },
 ] as const;
 
 export function SurveyAppShell({ children }: { children: React.ReactNode }) {
   return (
-    <AppShell identity={mockIdentity("org-yuanyang", null)} previewRole={null} hideRoleSwitcher left={<SurveySectionNav />}>
+    <AppShell previewRole={null} hideRoleSwitcher left={<SurveySectionNav />}>
       {children}
     </AppShell>
   );
@@ -37,19 +27,7 @@ function SurveySectionNav() {
 }
 
 function SurveySectionNavWithLocation() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const activeSection = pathname.startsWith("/studio/survey/templates")
-    ? "reports"
-    : searchParams.get("mode") === "module"
-      ? "modules"
-      : searchParams.get("intent") === "create-survey"
-        ? "surveys"
-        : searchParams.get("tab") === "modules"
-        ? "modules"
-        : searchParams.get("tab") === "reports"
-          ? "reports"
-          : "surveys";
+  const activeSection = "surveys" as const;
 
   return <SurveySectionNavContent activeSection={activeSection} />;
 }
@@ -76,7 +54,6 @@ function SurveySectionNavContent({ activeSection }: { activeSection: (typeof SUR
           >
             <Icon className="h-4 w-4" aria-hidden />
             <span className="flex-1">{section.label}</span>
-            <Badge tone="outline">{section.count}</Badge>
           </Link>
         );
       })}
