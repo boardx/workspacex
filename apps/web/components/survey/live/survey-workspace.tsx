@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
 import { survey } from "@repo/contracts";
 import {
@@ -18,6 +19,7 @@ import {
   printSurveyReport,
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
+import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 const STEPS = [
   ["design", "设计问卷"],
@@ -90,15 +92,7 @@ export function LiveSurveyWorkspace({
           questions: runtime.questions,
           template: runtime.template,
         }));
-  React.useEffect(() => {
-    if (!dirty) return;
-    const before = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", before);
-    return () => window.removeEventListener("beforeunload", before);
-  }, [dirty]);
+  useSurveyUnsavedNavigation(dirty);
   const execute = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true;
@@ -251,21 +245,23 @@ export function LiveSurveyWorkspace({
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
-          {step === "design" && (
+          {step === "design" && (<>
+            <SurveyTemplateActions kind="question" draft={draft} onApply={setDraft} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               questions={draft.questions}
               locked={!!runtime?.publication}
               onChange={(questions) => setDraft({ ...draft, questions })}
             />
-          )}
-          {step === "template" && (
+          </>)}
+          {step === "template" && (<>
+            <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
             <FlexibleReportEditor
               template={draft.template}
               onChange={(template) => setDraft({ ...draft, template })}
               questions={draft.questions}
               responses={runtime?.responses ?? []}
             />
-          )}
+          </>)}
           {step === "publish" && (
             <section className="mx-auto max-w-3xl space-y-5 p-6">
               <h1 className="text-20 font-semibold">发布与回收</h1>

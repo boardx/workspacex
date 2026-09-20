@@ -1,3 +1,4 @@
+import { SURVEY_TEMPLATE_REPOSITORY } from "./application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "./interface/guards/survey-submission-rate-limit.guard";
 import { SurveyController, PublicSurveyController } from "./interface/controllers/survey.controller";
 import { SURVEY_REPOSITORY } from "./application/survey/survey-service";
@@ -1037,6 +1038,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
     SurveySubmissionRateLimitGuard,
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },

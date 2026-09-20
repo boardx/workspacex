@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, ClipboardList, ChartNoAxesCombined } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { cn } from "@/lib/utils";
 
 const SURVEY_SECTIONS = [
-  { id: "surveys", label: "我的问卷", href: "/studio/survey", icon: FileText },
+  { id: "surveys", label: "问卷列表", href: "/studio/survey", icon: FileText },
+  { id: "modules", label: "问卷模板", href: "/studio/survey?tab=modules", icon: ClipboardList },
+  { id: "reports", label: "报告模板", href: "/studio/survey?tab=reports", icon: ChartNoAxesCombined },
 ] as const;
 
 export function SurveyAppShell({ children }: { children: React.ReactNode }) {
@@ -27,7 +30,14 @@ function SurveySectionNav() {
 }
 
 function SurveySectionNavWithLocation() {
-  const activeSection = "surveys" as const;
+  const path = usePathname();
+  const params = useSearchParams();
+  const tab = params.get("tab");
+  const activeSection = path.startsWith("/studio/survey/question-templates") ? "modules"
+    : path.startsWith("/studio/survey/templates") ? "reports"
+    : path === "/studio/survey" && ["modules", "question-templates"].includes(tab ?? "") ? "modules"
+    : path === "/studio/survey" && ["reports", "templates"].includes(tab ?? "") ? "reports"
+    : "surveys";
 
   return <SurveySectionNavContent activeSection={activeSection} />;
 }

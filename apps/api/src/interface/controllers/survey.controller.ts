@@ -1,3 +1,5 @@
+import { SurveyTemplateInputSchema, SurveyTemplateSaveInputSchema, SurveyTemplateKindSchema } from "@repo/contracts/survey-template-library";
+import { SurveyTemplateService, SURVEY_TEMPLATE_REPOSITORY, type SurveyTemplateRepository } from "../../application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "../guards/survey-submission-rate-limit.guard";
 import {
   BadRequestException,
@@ -54,8 +56,10 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
 @Controller("/surveys")
 export class SurveyController {
   private readonly service: SurveyService;
-  constructor(@Inject(SURVEY_REPOSITORY) repo: SurveyRepository) {
+  private readonly templates: SurveyTemplateService;
+  constructor(@Inject(SURVEY_REPOSITORY) repo: SurveyRepository, @Inject(SURVEY_TEMPLATE_REPOSITORY) templateRepo: SurveyTemplateRepository) {
     this.service = new SurveyService(repo);
+    this.templates = new SurveyTemplateService(templateRepo);
   }
   @Get() list(@CurrentPrincipal() p: Principal) {
     assertPrincipal(p);
@@ -65,6 +69,25 @@ export class SurveyController {
     assertPrincipal(p);
     const input = parse(SurveyDraftInputSchema, body);
     return run(() => this.service.create(p.orgId, p.userId, input));
+  }
+  @Get("/templates") listTemplates(@CurrentPrincipal() p: Principal, @Query("kind") kind: unknown) {
+    assertPrincipal(p); const filter = parse(SurveyTemplateKindSchema.optional(), kind);
+    return run(() => this.templates.list(p.orgId, p.userId, filter));
+  }
+  @Post("/templates") createTemplate(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
+    assertPrincipal(p); const input = parse(SurveyTemplateInputSchema, body);
+    return run(() => this.templates.create(p.orgId, p.userId, input));
+  }
+  @Get("/templates/:templateId") getTemplate(@CurrentPrincipal() p: Principal, @Param("templateId") id: string) {
+    assertPrincipal(p); return run(() => this.templates.get(p.orgId, p.userId, id));
+  }
+  @Put("/templates/:templateId") saveTemplate(@CurrentPrincipal() p: Principal, @Param("templateId") id: string, @Body() body: unknown) {
+    assertPrincipal(p); const input = parse(SurveyTemplateSaveInputSchema, body);
+    return run(() => this.templates.save(p.orgId, p.userId, id, input.expectedVersion, input));
+  }
+  @Delete("/templates/:templateId") deleteTemplate(@CurrentPrincipal() p: Principal, @Param("templateId") id: string, @Query("expectedVersion") version: unknown) {
+    assertPrincipal(p); const expectedVersion = parse(z.coerce.number().int().positive(), version);
+    return run(async () => { await this.templates.delete(p.orgId, p.userId, id, expectedVersion); return { deleted: true }; });
   }
   @Get("/:id") get(@CurrentPrincipal() p: Principal, @Param("id") id: string) {
     assertPrincipal(p);

@@ -18,6 +18,14 @@ vi.mock("next/navigation", () => ({
 afterEach(()=>{cleanup();request.mockReset();});
 
 describe("Survey route layout", () => {
+  it.each([["modules", "question"], ["reports", "report"]])("%s 入口加载真实模板库", async (tab, kind) => {
+    request.mockRejectedValueOnce(new Error("模板读取失败"));
+    render(<SurveyPage searchParams={{tab}} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("模板读取失败");
+    expect(request).toHaveBeenCalledWith("/surveys/templates", { query: { kind } });
+    expect(screen.queryByTestId("survey-resource-library")).not.toBeInTheDocument();
+  });
+
   it("默认列表路由请求持久问卷，失败时不回退模拟数据", async()=>{
     request.mockRejectedValueOnce(new Error("无权读取问卷"));
     render(<SurveyPage searchParams={{}}/>);

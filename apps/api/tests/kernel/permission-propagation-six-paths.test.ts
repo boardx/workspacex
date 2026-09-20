@@ -354,6 +354,15 @@ describe("lint-permission-paths: counter-proof", () => {
     const { SurveyDraftInputSchema } = await import("@repo/contracts/survey-runtime");
     const service = new SurveyService(new PgSurveyRepository(db));
     const orgId = toOrgId(ORG);
+    const { SurveyTemplateService } = await import("../../src/application/survey/survey-template-service");
+    const templates = new SurveyTemplateService(new PgSurveyRepository(db));
+    const templateInput = { kind: "report" as const, title: SECRET, description: "", questions: [], template: { id: "t", title: SECRET, sections: [] } };
+    const libraryTemplate = await templates.create(orgId, "u-energy", templateInput);
+    expect(await templates.list(orgId, "u-platform")).toEqual([]);
+    await expect(templates.get(orgId, "u-platform", libraryTemplate.id)).rejects.toThrow("not_found");
+    await expect(templates.save(orgId, "u-platform", libraryTemplate.id, 1, templateInput)).rejects.toThrow("not_found");
+    await expect(templates.delete(orgId, "u-platform", libraryTemplate.id, 1)).rejects.toThrow("not_found");
+    expect((await templates.get(orgId, "u-energy", libraryTemplate.id)).title).toBe(SECRET);
     const draft = SurveyDraftInputSchema.parse({
       title: "Owner-only survey",
       questions: [{ id: "q", order: 1, chapterId: "s", type: "single", title: "Choice", required: true, options: ["yes", "no"] }],
