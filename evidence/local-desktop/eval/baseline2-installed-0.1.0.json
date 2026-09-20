@@ -1,0 +1,384 @@
+{
+  "api": "http://127.0.0.1:3200",
+  "at": "2026-09-20T02:45:31.261Z",
+  "transient5xx": 0,
+  "runs": [
+    {
+      "category": "chat",
+      "text": "用一句话介绍你自己",
+      "threadId": "thr-6e25d068-6675-4f98-b31b-05ba182fa3b9",
+      "runId": "9fdfc767-db9f-47fa-8514-600507bbcb21",
+      "status": "succeeded",
+      "wallMs": 31311,
+      "firstChunkMs": 28502,
+      "chunks": 22,
+      "chunksPerSec": 41.9,
+      "lastEventMs": 29317,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 43,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把下面这句话改得更正式：我们明天再聊吧",
+      "threadId": "thr-0bbd7adf-4538-4b01-bd5d-850e662a8c39",
+      "runId": "6075a426-f941-40ba-a41f-4d3ae947e7a8",
+      "status": "succeeded",
+      "wallMs": 8299,
+      "firstChunkMs": 2061,
+      "chunks": 114,
+      "chunksPerSec": 25.9,
+      "lastEventMs": 6632,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 233,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "列出三个提高会议效率的办法",
+      "threadId": "thr-c4f7baee-4a95-4062-b9e5-45df2a097ae6",
+      "runId": "04e55568-deea-4682-8950-d4192867451a",
+      "status": "succeeded",
+      "wallMs": 10686,
+      "firstChunkMs": 1520,
+      "chunks": 220,
+      "chunksPerSec": 29.9,
+      "lastEventMs": 9341,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 397,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "解释一下什么是用户画像，两句话",
+      "threadId": "thr-0c9588dc-7b9a-4130-bbea-956ea5e5dc20",
+      "runId": "48c9f12d-0f7d-4f1f-8849-a2cce5d7b166",
+      "status": "succeeded",
+      "wallMs": 4292,
+      "firstChunkMs": 1484,
+      "chunks": 68,
+      "chunksPerSec": 34.7,
+      "lastEventMs": 3492,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 131,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把 1234 乘以 56 算出来，只给结果",
+      "threadId": "thr-604815ce-7d3e-484c-8a36-536398d0bf34",
+      "runId": "b6a82d60-f3da-4c89-a519-76103a3d9523",
+      "status": "succeeded",
+      "wallMs": 4267,
+      "firstChunkMs": 1777,
+      "chunks": 7,
+      "chunksPerSec": 636.4,
+      "lastEventMs": 2594,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 5,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么",
+      "threadId": "thr-fde1c5dc-62c9-4fdf-8aa2-b93d738f7240",
+      "runId": "726b53df-838d-47be-8431-eb4028af9870",
+      "status": "succeeded",
+      "wallMs": 18804,
+      "firstChunkMs": 2762,
+      "chunks": 57,
+      "chunksPerSec": 22.2,
+      "lastEventMs": 16638,
+      "systemPromptChars": 10727,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 113,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "分析网址：https://www.baidu.com/ 的内容是什么网站",
+      "threadId": "thr-db654b78-a1bf-4dc2-a6c0-e7a72c0c995c",
+      "runId": "ac9da4d8-3b27-4120-9571-d202eda9a2e0",
+      "status": "succeeded",
+      "wallMs": 95938,
+      "firstChunkMs": 3148,
+      "chunks": 1200,
+      "chunksPerSec": 18.3,
+      "lastEventMs": 94610,
+      "systemPromptChars": 10727,
+      "tools": [
+        "web-research",
+        "call_skill"
+      ],
+      "outputChars": 820,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题",
+      "threadId": "thr-79a3e993-456a-493b-ae57-b8e9815c869a",
+      "runId": "073fbd92-40f1-47a6-979f-54665d5b8a31",
+      "status": "succeeded",
+      "wallMs": 348700,
+      "firstChunkMs": 7016,
+      "chunks": 1282,
+      "chunksPerSec": 7,
+      "lastEventMs": 226386,
+      "systemPromptChars": 10727,
+      "tools": [
+        "fetch_url",
+        "call_skill"
+      ],
+      "outputChars": 274,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "https://www.baidu.com/ 这个页面的标题是什么",
+      "threadId": "thr-91244cac-1bc4-4874-9590-5a96adba55fd",
+      "runId": "a3bd4422-08b8-4d21-9da6-9de1d76f483b",
+      "status": "succeeded",
+      "wallMs": 22709,
+      "firstChunkMs": 5291,
+      "chunks": 98,
+      "chunksPerSec": 19.5,
+      "lastEventMs": 21746,
+      "systemPromptChars": 10727,
+      "tools": [
+        "web-research"
+      ],
+      "outputChars": 204,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html 并总结三点",
+      "threadId": "thr-c75d13c6-dc63-4573-b39b-a7e5fb6b1bd8",
+      "runId": "23897527-5612-4de3-a87b-e957d6035ae4",
+      "status": "succeeded",
+      "wallMs": 218429,
+      "firstChunkMs": 2622,
+      "chunks": 948,
+      "chunksPerSec": 15.9,
+      "lastEventMs": 96779,
+      "systemPromptChars": 10727,
+      "tools": [
+        "fetch_url",
+        "call_skill"
+      ],
+      "outputChars": 840,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "生成一个用户画像：AI 转型时代的传媒大学教授",
+      "threadId": "thr-65a0fac0-c697-4572-a481-e1af81faba24",
+      "runId": "552487f5-cd82-43a7-afbe-53a16b7837db",
+      "status": "succeeded",
+      "wallMs": 244143,
+      "firstChunkMs": 7200,
+      "chunks": 1313,
+      "chunksPerSec": 17.1,
+      "lastEventMs": 121556,
+      "systemPromptChars": 10727,
+      "tools": [
+        "call_skill"
+      ],
+      "outputChars": 413,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "生成一个高等教育创新者的画像",
+      "threadId": "thr-36942788-dc49-40bf-92ac-d3e42cdb0143",
+      "runId": "bfc59492-783a-4056-bdfe-9365685daede",
+      "status": "running",
+      "wallMs": 367696,
+      "firstChunkMs": 13423,
+      "chunks": 3380,
+      "chunksPerSec": 11.1,
+      "lastEventMs": 319200,
+      "systemPromptChars": 10727,
+      "tools": [
+        "call_skill"
+      ],
+      "outputChars": 0,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为一家社区咖啡店做一张 SWOT 画布",
+      "threadId": "thr-d955a3ed-f178-45a4-8f49-b7e9c0f97eab",
+      "runId": "815e9274-9fb4-4f26-a422-8dd896da6cbc",
+      "status": "succeeded",
+      "wallMs": 213411,
+      "firstChunkMs": 42405,
+      "chunks": 766,
+      "chunksPerSec": 5.4,
+      "lastEventMs": 211004,
+      "systemPromptChars": 10727,
+      "tools": [
+        "call_skill"
+      ],
+      "outputChars": 960,
+      "canvasFence": true,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为一款面向高校的 AI 助教产品做商业模式画布",
+      "threadId": "thr-4b4fbcf6-2640-488b-bca9-d09b4118717e",
+      "runId": "1b4e7034-4d34-4885-8c2d-609312b1e910",
+      "status": "succeeded",
+      "wallMs": 85914,
+      "firstChunkMs": 3353,
+      "chunks": 838,
+      "chunksPerSec": 10.4,
+      "lastEventMs": 84368,
+      "systemPromptChars": 10727,
+      "tools": [],
+      "outputChars": 1701,
+      "canvasFence": true,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为大学生求职者做一张 JTBD 画布",
+      "threadId": "thr-7959f27f-f745-48a5-b66e-a37537550759",
+      "runId": "7e08506a-cad4-4997-8ac1-0a1099680b6b",
+      "status": "succeeded",
+      "wallMs": 164593,
+      "firstChunkMs": 25,
+      "chunks": 1055,
+      "chunksPerSec": 8.1,
+      "lastEventMs": 153308,
+      "systemPromptChars": 10727,
+      "tools": [
+        "write_todos",
+        "call_skill",
+        "write_todos",
+        "write_file"
+      ],
+      "outputChars": 311,
+      "canvasFence": false,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [
+      {
+        "ms": 1129,
+        "ok": true,
+        "n": 2,
+        "suggestions": [
+          "能否举例说明日常任务？",
+          "帮我写个简单的介绍文案，"
+        ]
+      },
+      {
+        "ms": 1900,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "推荐哪个场景版本？",
+          "需要侧重商务语气吗？",
+          "是否包含邮件范例？"
+        ]
+      },
+      {
+        "ms": 1765,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否展开会前议程准备的具体步骤？",
+          "计时工具推荐和控时技巧有哪些？",
+          "如何区分不同类型的会议议题？"
+        ]
+      },
+      {
+        "ms": 5067,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否举例说明用户画像的构成？",
+          "想了解如何构建用户画像的具体步骤。",
+          "不同行业中的用户画像有什么差异？"
+        ]
+      },
+      {
+        "ms": 1610,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "如何简化计算步骤？",
+          "结果能验证一下吗？",
+          "能否用竖式演示？"
+        ]
+      }
+    ],
+    "feedback": [
+      {
+        "ms": 10245,
+        "ok": true,
+        "title": "画布生成长超时且无进度反馈"
+      },
+      {
+        "ms": 5337,
+        "ok": true,
+        "title": "本地版无需输入密码即可直接登录"
+      },
+      {
+        "ms": 5535,
+        "ok": true,
+        "title": "技能列表为空且点击无响应"
+      },
+      {
+        "ms": 14436,
+        "ok": true,
+        "title": "中文字符夹杂英文输入时常出现拼写错误"
+      },
+      {
+        "ms": 8681,
+        "ok": false,
+        "error": "POST /feedback/structure-draft -> 503 {\"error\":\"dependency_unavailable\",\"traceId\":\"613d497d-473a-4946-9c1c-8f78a3df0d6c\""
+      }
+    ],
+    "title": [
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      }
+    ]
+  },
+  "summary": "| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|\n| chat | 5 | 5 | 8 | 1.8 | 34.7 | 10727 | 0 | 0 |\n| url | 5 | 5 | 96 | 3.1 | 18.3 | 10727 | 5 | 0 |\n| canvas | 5 | 4 | 213 | 7.2 | 10.4 | 10727 | 4 | 2 |\n| followup | 5 | 5 | 1.8 | - | - | - | - | - |\n| feedback | 5 | 4 | 8.7 | - | - | - | - | - |\n| title | 5 | 0 | 0.0 | - | - | - | - | - |"
+}
