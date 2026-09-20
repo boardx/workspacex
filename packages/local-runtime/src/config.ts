@@ -227,6 +227,9 @@ export function modelEnv(c: LocalConfig): Env {
     KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
     // Only the canvas templates the message names go into the system prompt (#3749 B1.2).
     KERNEL_CANVAS_GUIDANCE_MODE: "matched",
+    // single-session PGlite: a connect legitimately queues behind a long COMMIT (12 s measured in the
+    // eval lane); the cloud default 5 s turned that into HTTP 500 on a status poll (#3749)
+    PGCONNECT_TIMEOUT_MS: "30000",
     // JSON sites (追问建议 / 反馈结构化 / 研究大纲) decode against a schema (#3749 B1.4).
     KERNEL_MODEL_JSON_SCHEMA: "1",
     // meta tasks on the small model (#3749 B2.2); thinking off applies to it too

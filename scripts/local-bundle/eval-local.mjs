@@ -35,12 +35,17 @@ async function login() {
   if (!r.ok) throw new Error(`login ${r.status}`);
   const j = await r.json(); H.Authorization = `Bearer ${j.sessionToken}`;
 }
-async function j(m, p, b) {
-  const r = await fetch(API + p, { method: m, headers: H, body: b ? JSON.stringify(b) : undefined });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${m} ${p} -> ${r.status} ${t.slice(0, 160)}`);
-  return t ? JSON.parse(t) : null;
+async function j(m, p, b, attempts = m === "GET" ? 4 : 1) {
+  for (let i = 1; ; i++) {
+    const r = await fetch(API + p, { method: m, headers: H, body: b ? JSON.stringify(b) : undefined });
+    const t = await r.text();
+    if (r.ok) return t ? JSON.parse(t) : null;
+    // a transient 5xx on a read (PGlite backend busy) is retried; it is recorded, not fatal
+    if (r.status >= 500 && i < attempts) { transient5xx++; await sleep(2000 * i); continue; }
+    throw new Error(`${m} ${p} -> ${r.status} ${t.slice(0, 160)}`);
+  }
 }
+let transient5xx = 0;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPTS = {
@@ -135,6 +140,7 @@ for (const f of jsons.followup) console.log(`[followup] ok=${f.ok} ${f.ms}ms n=$
 for (const t of jsons.title) console.log(`[title] ok=${t.ok} ${t.title ?? ""}`);
 const summary = summarize(runs, jsons);
 console.log("\n" + summary);
-writeFileSync(OUT, JSON.stringify({ api: API, at: new Date().toISOString(), runs, jsons, summary }, null, 2));
+console.log(`transient 5xx on reads: ${transient5xx}`);
+writeFileSync(OUT, JSON.stringify({ api: API, at: new Date().toISOString(), transient5xx, runs, jsons, summary }, null, 2));
 console.log(`\nwritten ${OUT}`);
 await client.end().catch(() => {});
