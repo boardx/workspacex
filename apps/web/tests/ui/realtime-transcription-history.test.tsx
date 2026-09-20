@@ -144,10 +144,10 @@ describe("实时转录历史工作台", () => {
     fireEvent.click(screen.getByTestId("rec-create-open"));
 
     expect(screen.getByTestId("rec-create-dialog")).toBeVisible();
-    expect(screen.getByTestId("rec-create-name")).toHaveValue("");
-    expect(screen.getByTestId("rec-create-name-count")).toHaveTextContent("0/100");
+    expect(screen.getByTestId("rec-create-name")).toHaveValue("未命名转录");
+    expect(screen.getByTestId("rec-create-name-count")).toHaveTextContent("5/100");
     expect(screen.getByTestId("rec-create-tag-count")).toHaveTextContent("0/5");
-    expect(screen.getByTestId("rec-create-submit")).toBeDisabled();
+    expect(screen.getByTestId("rec-create-submit")).not.toBeDisabled();
   });
 
   it("提交新建转录走真实 API，保留自定义标签并立即进入该场工作台", async () => {

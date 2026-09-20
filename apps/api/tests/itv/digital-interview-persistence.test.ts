@@ -3,7 +3,6 @@ import { createDigitalInterviewDraft } from "../../src/application/interview/cre
 import { transitionDigitalInterviewStatus } from "../../src/application/interview/transition-digital-interview-status";
 import { getDigitalInterview } from "../../src/application/interview/get-digital-interview";
 import {
-  DigitalInterviewInputInvalidError,
   DigitalInterviewStepInvalidError,
 } from "../../src/application/interview/errors";
 import { projectDigitalInterviewState } from "../../src/domain/interview/digital-interview";
@@ -161,26 +160,25 @@ describe("F01 — 数字专家访谈草稿与八态持久化", () => {
     expect(restored.version).toBe(2);
   });
 
-  it("拒绝缺少标签的草稿且不写入半成品", async () => {
-    await expect(
-      createDigitalInterviewDraft(
-        { repo, ids },
-        {
-          orgId: toOrgId(ORG),
-          actorId: RESEARCHER,
-          scope: { kind: "none", projectId: null, researchProjectId: null },
-          name: "德国采购决策链",
-          tags: [],
-          topic: "储能采购中谁拥有否决权",
-        },
-      ),
-    ).rejects.toThrow(DigitalInterviewInputInvalidError);
+  it("允许没有标签的草稿且不写入半成品", async () => {
+    const created = await createDigitalInterviewDraft(
+      { repo, ids },
+      {
+        orgId: toOrgId(ORG),
+        actorId: RESEARCHER,
+        scope: { kind: "none", projectId: null, researchProjectId: null },
+        name: "德国采购决策链",
+        tags: [],
+        topic: "储能采购中谁拥有否决权",
+      },
+    );
+    expect(created.tags).toEqual([]);
 
-    await expect(
-      getDigitalInterview(
-        { repo, scope, decisions },
-        { orgId: toOrgId(ORG), viewerUserId: RESEARCHER, interviewId: INTERVIEW },
-      ),
-    ).rejects.toThrow(/NO_INTERVIEW_ACCESS/);
+    const restored = await getDigitalInterview(
+      { repo, scope, decisions },
+      { orgId: toOrgId(ORG), viewerUserId: RESEARCHER, interviewId: INTERVIEW },
+    );
+    expect(restored.tags).toEqual([]);
+    expect(restored.status).toBe("draft");
   });
 });

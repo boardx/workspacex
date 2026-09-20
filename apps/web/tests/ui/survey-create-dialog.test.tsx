@@ -9,7 +9,7 @@ describe("SurveyCreateDialog", () => {
     const onCreate = vi.fn();
     render(<SurveyCreateDialog open mode="blank" onOpenChange={vi.fn()} onCreate={onCreate} />);
 
-    expect(screen.getByRole("button", { name: "创建问卷" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "创建问卷" })).not.toBeDisabled();
     fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "  季度协作调查  " } });
     const tagInput = screen.getByLabelText("标签（可选）");
     fireEvent.change(tagInput, { target: { value: "协作" } });
@@ -38,7 +38,7 @@ describe("SurveyCreateDialog", () => {
 
     view.rerender(<SurveyCreateDialog open={false} mode="blank" onOpenChange={onOpenChange} onCreate={vi.fn()} />);
     view.rerender(<SurveyCreateDialog open mode="blank" onOpenChange={onOpenChange} onCreate={vi.fn()} />);
-    expect(screen.getByLabelText("问卷名称")).toHaveValue("");
+    expect(screen.getByLabelText("问卷名称")).toHaveValue("未命名问卷");
   });
 
   it("模块创建保留元数据并且只能选择一个模块", () => {
