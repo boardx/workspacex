@@ -11,3 +11,5 @@
 Report presets restore reference structure and real statistical blocks. Narrative analysis blocks remain empty until filled with actual evidence; this is surfaced in template description. No fabricated historical samples, targets, conclusions, or timestamps are seeded. Existing personal data is untouched.
 
 Independent review identified and fixed a late library GET overwriting a newly created copy, and fixed static methodology text that assumed a 1–5 scale after remapping.
+
+PR review follow-up: built-in report cards now omit survey creation, matching personal report templates. Their shared original reference-question configuration is explicitly described; obsolete preview-only 20/12/24 card counts now derive from that shared content. The old `survey-template-editor-shell.tsx` used `createSurveyWorkflowMock()` for every report preset and only sliced its report sections; no separate historical per-preset question definitions exist to recover. Screenshots precede this card-action correction.

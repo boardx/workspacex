@@ -193,6 +193,7 @@ describe("original built-in templates", () => {
     expect(await screen.findByText(title)).toBeInTheDocument();
     const builtins=screen.getByRole("region",{name:"内置模板"});
     expect(within(builtins).getAllByRole("article")).toHaveLength(count);
+    if(kind === "report") expect(within(builtins).queryByRole("button",{name:"使用并创建问卷"})).not.toBeInTheDocument();
     expect(within(builtins).queryByRole("button",{name:"删除模板"})).not.toBeInTheDocument();
     expect(within(builtins).queryByText(/更新于|份答卷/)).not.toBeInTheDocument();
     await screen.findByText(`还没有个人${kind==="question"?"问卷模板":"报告模板"}`);

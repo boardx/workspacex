@@ -43,7 +43,7 @@ function reportSections(count: number, questions: survey.SurveyWorkflowQuestion[
 function reportDescription(count: number): string {
   const instructions = getSurveyReferenceReportSections().slice(0, count)
     .map(section => `${section.title}：${section.managementQuestion} 方法：${section.method}。`).join("\n");
-  return `内置参考结构。业务含义、行动和路线图正文留空，需结合真实证据完成后才能生成报告。缺口章节暂展示实际均值，差距目标由作者配置；雷达图仅展示实际评分，不模拟情景。\n${instructions}`;
+  return `保留原有章节结构，使用通用参考题目；应用时请映射到实际问卷。业务含义、行动和路线图正文留空，需结合真实证据完成后才能生成报告。缺口章节暂展示实际均值，差距目标由作者配置；雷达图仅展示实际评分，不模拟情景。\n${instructions}`;
 }
 function buildTemplates(kind: Kind): BuiltinSurveyTemplate[] {
   const questions = publishableQuestions();

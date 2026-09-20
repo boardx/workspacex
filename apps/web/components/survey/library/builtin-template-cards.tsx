@@ -17,7 +17,7 @@ export function BuiltinTemplateCards({items,base,busy,onCopy,onCreate}:{
    <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
     <Link href={`${base}/${encodeURIComponent(item.id)}`} className="rounded-md border border-border px-3 py-2 text-12 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">查看并编辑</Link>
     <Button variant="outline" disabled={busy} onClick={()=>onCopy(item)}>保存到我的模板</Button>
-    <Button disabled={busy} onClick={()=>onCreate(item)}>使用并创建问卷</Button>
+    {item.kind === "question" && <Button disabled={busy} onClick={()=>onCreate(item)}>使用并创建问卷</Button>}
    </div>
   </article>)}</div>
   {!items.length&&<p className="text-13 text-muted-foreground">没有匹配的内置模板。</p>}
