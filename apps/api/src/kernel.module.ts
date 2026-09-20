@@ -670,6 +670,7 @@ import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-
 // platform-admin-role delta：落库的"平台管理员"名册。
 import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
 import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
+import { PlatformAccessController } from "./interface/controllers/platform-access.controller";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -976,6 +977,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteLinkController,
     CheckinBoardController,
     OrgAdminManagementController,
+    PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,

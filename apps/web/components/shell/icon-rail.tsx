@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navSegmentsForOrg } from "@/lib/navigation";
+import { navSegmentsForViewer } from "@/lib/navigation";
+import { usePlatformAccess } from "@/lib/live-platform-access";
+import { useOptionalSession } from "@/components/session/session-provider";
 import type { Identity } from "@/lib/identity";
 import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
@@ -43,9 +45,17 @@ export function IconRail({
   onLogout?: () => void;
 }) {
   const pathname = usePathname();
-  // 一级入口按当前组织过滤（「海创汇」只对 Workspace 组织显示，2026-09-15 人类要求）。
-  // 判定不写在这里——`navSegmentsForOrg` 是单一事实源，见 `lib/navigation.ts`。
-  const segments = navSegmentsForOrg(identity.org.name);
+  // 一级入口按当前登录者过滤（「海创汇」只对 Workspace 组织显示，2026-09-15 人类要求；
+  // 「组织后台」只对组织管理员、「平台后台」只对平台运维，2026-09-20 人类要求）。
+  // 判定不写在这里——`navSegmentsForViewer` 是单一事实源，见 `lib/navigation.ts`。
+  // ⚠ 过滤是展示层的事，不是权限：服务端的 guard 一条都没有因此变松。
+  const session = useOptionalSession();
+  const access = usePlatformAccess(session?.session?.userId ?? null);
+  const segments = navSegmentsForViewer({
+    orgName: identity.org.name,
+    orgRole: identity.orgRole,
+    platformOperator: access?.platformOperator,
+  });
   return (
     <TooltipProvider delayDuration={300}>
     <nav
