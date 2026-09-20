@@ -10,7 +10,9 @@ describe("ollama version choice", () => {
   });
   it("starts our own when nothing runs; reuses a new enough server; sidesteps an old one when the bundle is newer", () => {
     expect(chooseOllama({ running: null, binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: false, port: 11434 });
-    expect(chooseOllama({ running: "0.34.1", binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: true, port: 11434 });
+    // a new-enough server on the port is still NOT reused when we have a bundle: server settings must be ours (#3749 B1.1)
+    expect(chooseOllama({ running: "0.34.1", binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: false, port: 11435 });
+    expect(chooseOllama({ running: "0.34.1", binary: null, port: 11434 })).toMatchObject({ reuse: true, port: 11434 });
     expect(chooseOllama({ running: "0.32.15", binary: "0.34.1", port: 11434 })).toMatchObject({ reuse: false, port: 11435 });
     // our own earlier instance still on the alternate port (crashed app / previous run): reuse it
     expect(chooseOllama({ running: "0.32.15", binary: "0.34.1", port: 11434, runningOnAlternate: "0.34.1" })).toMatchObject({ reuse: true, port: 11435 });
