@@ -694,7 +694,13 @@ async function executeClaimed(
     // #3749 B3：deep-agent 目录模式下，本地只列与本轮消息相关的 skill（`KERNEL_SKILL_CATALOG_MODE=matched`）；
     // `toolSkills`（远端 call_skill 能调的集合）不变，变的只是提示里的目录。
     const catalogCfg = skillCatalogModeFromEnv();
-    const catalogSkills = systemPromptMode === "deep-agent-catalog" ? selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max }) : skills;
+    // A canvas request answers with a ```canvas fence, never through a skill: in matched mode a
+    // listed canvas-ish skill (maau-canvas, diagram-and-canvas) sent the 4B on a 4-5 minute
+    // call_skill detour before the fence (eval lane 2026-09-20: persona 351 s, first chunk at 74 s).
+    const canvasRequested = (deps.canvasTemplates?.mode ?? "all") === "matched" && !!canvasGuidance;
+    const catalogSkills = systemPromptMode !== "deep-agent-catalog" ? skills
+      : canvasRequested && catalogCfg.mode === "matched" ? []
+      : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
     const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 ? buildSkillCatalogHint(skills.length) : null;
     system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along

@@ -126,7 +126,8 @@ await login();
 const client = new pg.Client({ host: "127.0.0.1", port: PG_PORT, user: "postgres", password: "local", database: "workspacex" });
 await client.connect().then(() => client.query("select set_config('app.current_org',$1,false)", [ORG_ID])).catch((e) => { console.error("pg connect failed, ledger timing disabled:", e.message); });
 const runs = [], jsons = { followup: [], feedback: [], title: [] };
-const want = (c) => SUITE === "all" || SUITE === c;
+// `json` needs the chat threads for title / follow-up, so it runs the chat prompts too
+const want = (c) => SUITE === "all" || SUITE === c || (SUITE === "json" && c === "chat");
 for (const category of ["chat", "url", "canvas"]) {
   if (!want(category)) continue;
   for (const text of PROMPTS[category]) for (let i = 0; i < REPS; i++) {
