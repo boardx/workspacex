@@ -114,14 +114,13 @@ describe("数字专家访谈契约", () => {
     }).success).toBe(false);
   });
 
-  it("草稿只保存非空名称和至少一个标签，主题留待显式确认", () => {
+  it("草稿只保存非空名称，标签可选，主题留待显式确认", () => {
     expect(DigitalInterviewDraftInput.parse({
       name: " 德国采购决策链 ", tags: [" 采购决策 "],
     })).toEqual({ name: "德国采购决策链", tags: ["采购决策"] });
 
     for (const invalid of [
       { name: "", tags: ["采购"] },
-      { name: "采购决策链", tags: [] },
       { name: "采购决策链", tags: ["采购"], topic: "不应在创建时写入" },
     ]) {
       expect(DigitalInterviewDraftInput.safeParse(invalid).success).toBe(false);
