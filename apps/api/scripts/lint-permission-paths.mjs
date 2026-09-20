@@ -72,7 +72,7 @@ const SUBTASK_BOUNDARIES = new Set([
 const ALLOWLIST = new Map([
   [
     "src/infrastructure/survey/pg-survey-repository.ts",
-    "#3754 personal survey aggregate has no ACL object. List SQL restricts owner_id; all get/change/delete go through SurveyService owner equality before disclosure. Public reads and submissions require the publication 256-bit secret and expose only the frozen public projection. Tenant RLS and row locks protect all queries. tests/survey/survey-runtime.test.ts and survey-persistence.test.ts exercise wrong owner/tenant, tampered token, expiry, concurrency, RLS and immutable reports. Remove this exception if those tests are removed or project sharing is introduced.",
+    "#3754 personal survey aggregate has no ACL object. List SQL restricts owner_id; all get/change/delete go through SurveyService owner equality before disclosure. Public reads and submissions require the publication 256-bit secret and expose only the frozen public projection. Tenant RLS and row locks protect all queries. tests/kernel/permission-propagation-six-paths.test.ts enforces owner-scoped list/get/save/delete and secret-gated public projection on real PG; tests/survey/survey-runtime.test.ts and survey-persistence.test.ts additionally exercise wrong tenant, expiry, concurrency, RLS and immutable reports. Remove this exception if those tests are removed or project sharing is introduced.",
   ],
   [
     "src/infrastructure/skill/pg-skill-trial-run-store.ts",
