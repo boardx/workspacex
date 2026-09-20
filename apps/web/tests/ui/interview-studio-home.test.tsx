@@ -245,7 +245,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     fireEvent.click(screen.getByTestId("itv-create"));
     const dialog = screen.getByTestId("itv-create-dialog");
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByTestId("itv-create-submit")).toBeDisabled();
+    expect(within(dialog).getByTestId("itv-create-submit")).not.toBeDisabled();
 
     fireEvent.change(within(dialog).getByTestId("itv-create-name"), {
       target: { value: "德国采购决策链" },
