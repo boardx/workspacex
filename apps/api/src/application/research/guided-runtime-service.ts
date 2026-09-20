@@ -226,6 +226,7 @@ export class GuidedRuntimeService {
       if (hit.decision === "excluded") continue;
       const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
       if (existing) {
+        if (hit.presentation) existing.presentation = hit.presentation;
         existing.taskIds = [...new Set([...sourceTaskIds(existing), task.id])];
         // reviewSources validated old associations before this search; the new
         // association was independently checked against the same stored excerpt.

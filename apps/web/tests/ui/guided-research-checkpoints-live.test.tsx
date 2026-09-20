@@ -32,6 +32,6 @@ describe("human confirmation in the durable model-backed workflow", () => {
     fireEvent.change(title, { target: { value: "人工编辑章节" } });
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "confirm", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
-    expect(await screen.findByRole("button", { name: "开始真实检索" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /搜索资料|补充搜索/ })).toBeInTheDocument();
   });
 });
