@@ -26,3 +26,5 @@
 - B1.7 HNSW：按设计不建（见 issue 评论）。B4 级联/蒸馏：本机无云端凭据与训练数据，未做。
 - 2B 元任务模型：16 GB 上每次换模型 2 s，抵消收益，已改为 ≥24 GB 才启用；随包仍带 2B。
 - 评测时机器上同时有用户的 Ollama.app 0.34.1；改后版本始终起自己的实例（`OLLAMA_CONTEXT_LENGTH=8192`）。
+
+**DMG** `WorkspaceX-0.2.0-arm64.dmg`（代码 2b9ee9e52）：8 147 346 839 B，sha256 `0339d1ea76a45473a7ec9c61af2a255450921d6eb3ca7a477994d08d3332b7b2`。挂载核对：`build-info.json` = {sha: 2b9ee9e52}，随包模型 qwen3.5:4b + qwen3.5:2b + qwen3-embedding，bundle 内 execute-run 含 selectGuidanceTemplates，Info.plist 版本 0.2.0。体积比 0.1.0 多 2.5 GB（2B 模型）。
