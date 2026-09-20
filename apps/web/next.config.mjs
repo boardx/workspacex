@@ -165,6 +165,8 @@ export default {
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
     const afterFiles = [
+      { source: `${prefix}/surveys/:path*`, destination: `${apiOrigin}/surveys/:path*` },
+      { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、

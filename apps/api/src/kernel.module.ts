@@ -1,3 +1,7 @@
+import { SurveySubmissionRateLimitGuard } from "./interface/guards/survey-submission-rate-limit.guard";
+import { SurveyController, PublicSurveyController } from "./interface/controllers/survey.controller";
+import { SURVEY_REPOSITORY } from "./application/survey/survey-service";
+import { PgSurveyRepository } from "./infrastructure/survey/pg-survey-repository";
 import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
 import type { DeliveryDeps } from "./application/files/deliver-artifact";
 import { AGENT_ARTIFACT_DELIVERY_SOURCE, type AgentArtifactDeliverySource } from "./application/files/agent-artifact-delivery-source";
@@ -942,6 +946,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    SurveyController, PublicSurveyController,
     HealthController,
     KernelProbeController,
     IdentityController,
@@ -1032,6 +1037,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    SurveySubmissionRateLimitGuard,
+    { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches

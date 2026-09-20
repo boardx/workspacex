@@ -1,9 +1,11 @@
+import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
 import { SurveyResourceLibrary } from "@/components/survey/resource-library/survey-resource-library";
 import type { SurveyResourceState, SurveyResourceTab } from "@/lib/survey/resource-library";
 
 export default function SurveyPage({ searchParams }: {
-  searchParams: { tab?: string; state?: string; intent?: string };
+  searchParams: { tab?: string; state?: string; intent?: string; preview?: string };
 }) {
+  if (searchParams.preview !== "1") return <LiveSurveyLibrary />;
   const tab: SurveyResourceTab = searchParams.tab === "templates"
     ? "reports"
     : searchParams.tab === "modules" || searchParams.tab === "reports"
