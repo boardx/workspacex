@@ -45,6 +45,19 @@ export const UPGRADED_CHAT_MODEL = "qwen3.5:9b";
 export const CHAT_MODEL_UPGRADE_MIN_MEMORY_GB = 16;
 /** Meta tasks (thread title, follow-up suggestions, feedback structuring) run on this (#3749 B2.2). */
 export const DEFAULT_META_MODEL = "qwen3.5:2b";
+/** Below this the 2B and the chat model cannot both stay resident: every swap costs ~2 s (16 GB Mac, 2026-09-20). */
+export const META_MODEL_MIN_MEMORY_GB = 24;
+
+/**
+ * The small model only pays off when it stays loaded next to the chat model. Measured on a
+ * 16 GB Mac: follow-up on the 2B 3.3 s + a 2 s swap each way, on the already-loaded 4B 3.9-4.3 s
+ * with no swap -- so under 24 GB the meta tasks run on the chat model.
+ */
+export function preferredMetaModel(input: { readonly configured: string; readonly chatModel: string; readonly memoryGb: number; readonly present: readonly string[] }): string {
+  if (input.configured === input.chatModel) return input.chatModel;
+  if (input.memoryGb < META_MODEL_MIN_MEMORY_GB) return input.chatModel;
+  return input.present.includes(input.configured) ? input.configured : input.chatModel;
+}
 
 /**
  * Which chat model to serve: the configured one, unless it is the default 4B, the machine has

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { homedir, platform, totalmem } from "node:os";
 import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
-  resolveDeepAgentLaunch, preferredChatModel } from "./config";
+  resolveDeepAgentLaunch, preferredChatModel, preferredMetaModel } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
@@ -152,6 +152,11 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       if (chosen !== c.chatModel) {
         log(`[ollama] ${String(Math.round(memoryGb))} GB RAM and ${chosen} present: serving ${chosen} instead of ${c.chatModel}`);
         c = { ...c, chatModel: chosen };
+      }
+      const meta = preferredMetaModel({ configured: c.metaModel, chatModel: c.chatModel, memoryGb, present });
+      if (meta !== c.metaModel) {
+        log(`[ollama] meta tasks on ${meta} (${String(Math.round(memoryGb))} GB RAM: the ${c.metaModel} would swap in and out with the chat model)`);
+        c = { ...c, metaModel: meta };
       }
     }
 

@@ -74,7 +74,9 @@ async function systemPromptChars(remoteThreadId) {
 }
 
 async function chatRun(client, category, text) {
-  const th = await j("POST", "/chat/threads/mutate", { op: "create", projectId: null, threadId: null, groupId: null, title: `eval ${category}`, visibilityScope: null, expectedVersion: null, reason: null });
+  // an explicit title is never replaced by auto-titling; try an untitled thread first so the title metric is real
+  const mk = (title) => j("POST", "/chat/threads/mutate", { op: "create", projectId: null, threadId: null, groupId: null, title, visibilityScope: null, expectedVersion: null, reason: null });
+  const th = await mk(null).catch(() => mk(`eval ${category}`));
   const t0 = Date.now();
   const m = await j("POST", `/chat/threads/${th.threadId}/messages`, { text, agentId: AGENT_ID, clientMessageId: crypto.randomUUID() });
   let run;
