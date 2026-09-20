@@ -157,8 +157,9 @@ describe("F180 signed guided-research visual contract", () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("search"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(screen.getByRole("heading", { name: "研究检索进度" })).toBeInTheDocument();
-    expect(screen.getByTestId("research-search-summary")).toContainElement(screen.getByTestId("research-current-query"));
+    expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-sources")).toBeVisible();
+    expect(screen.getByText("查看搜索详情").parentElement).not.toHaveAttribute("open");
 
     search.unmount();
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
