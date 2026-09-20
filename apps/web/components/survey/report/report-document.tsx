@@ -207,10 +207,10 @@ export function SurveyReportChart({
 function ReportImage({ block }: { block: survey.CompiledSurveyBlock }) {
   const [failed, setFailed] = useState(false);
   // Report images retain their original URLs for isolated print and Word export.
-  // eslint-disable-next-line @next/next/no-img-element
   return (
     <figure>
       {block.imageUrl && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={block.imageUrl}
           alt={block.caption ?? block.title}
