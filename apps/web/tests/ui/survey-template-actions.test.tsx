@@ -300,3 +300,14 @@ describe("survey template actions", () => {
     expect(onApply).not.toHaveBeenCalled();
   });
 });
+
+it("超限模板在客户端明确提示且不发送请求，输入保留", async () => {
+  const data=draft();
+  data.questions[1].options=Array.from({length:60},()=>"中".repeat(1000));
+  render(<SurveyTemplateActions kind="question" draft={data} onApply={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button",{name:"保存为问卷模板"}));
+  fireEvent.click(screen.getByRole("button",{name:"保存到模板库"}));
+  expect(await screen.findByRole("alert")).toHaveTextContent(/90/);
+  expect(screen.getByLabelText("保存模板名称")).toHaveValue("当前问卷");
+  expect(request).not.toHaveBeenCalled();
+});

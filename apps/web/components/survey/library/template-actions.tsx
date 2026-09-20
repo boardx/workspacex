@@ -100,7 +100,7 @@ export function SurveyTemplateActions({
         template: draft.template,
       });
       if (!input.success)
-        throw new Error("请填写模板名称，并先完善题目和内容块配置。");
+        throw new Error(input.error.issues.find(issue => issue.code === "custom" && issue.path.length === 0)?.message ?? "请填写模板名称，并先完善题目和内容块配置。");
       const saved = SurveyLibraryTemplateSchema.safeParse(
         await surveyRequest("/surveys/templates", {
           method: "POST",

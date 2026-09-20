@@ -32,6 +32,9 @@ const readTemplate = (value: unknown, kind: Kind): SurveyLibraryTemplate => {
   return result.data;
 };
 
+// Response metadata is not part of the bounded write request.
+const templateDraft = ({kind,title,description,questions,template}: SurveyLibraryTemplate): SurveyTemplateInput => ({kind,title,description,questions,template});
+
 export function SurveyTemplateWorkspace({
   templateId,
   kind,
@@ -64,10 +67,10 @@ export function SurveyTemplateWorkspace({
     !!draft &&
     (!saved ||
       JSON.stringify(draft) !==
-        JSON.stringify(SurveyTemplateInputSchema.parse(saved)));
+        JSON.stringify(templateDraft(saved)));
   const accept = React.useCallback((value: SurveyLibraryTemplate) => {
     setSaved(value);
-    setDraft(SurveyTemplateInputSchema.parse(value));
+    setDraft(templateDraft(value));
   }, []);
   const load = React.useCallback(async () => {
     const current = ++generation.current;
@@ -116,7 +119,7 @@ export function SurveyTemplateWorkspace({
         ...(asCopy ? { title: `${draft.title.slice(0, 197)} 副本` } : {}),
       });
       if (!parsed.success)
-        throw new Error("请检查模板名称、说明、题目选项和报告配置后重试。");
+        throw new Error(parsed.error.issues.find(issue => issue.code === "custom" && issue.path.length === 0)?.message ?? "请检查模板名称、说明、题目选项和报告配置后重试。");
       const create = asCopy || !saved;
       const result = readTemplate(
         await surveyRequest(

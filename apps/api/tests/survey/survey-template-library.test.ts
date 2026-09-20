@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { SurveyLibraryTemplateSchema, SurveyTemplateInputSchema } from "@repo/contracts/survey-template-library";
+import { SurveyLibraryTemplateSchema, SurveyTemplateInputSchema, SurveyTemplateSaveInputSchema, SURVEY_TEMPLATE_REQUEST_MAX_BYTES, isSurveyTemplateRequestWithinLimit } from "@repo/contracts/survey-template-library";
 import { migrateOnce, resetOrgs, seedOrg, addOrgMember, asOwner } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -85,4 +85,48 @@ it("installs organization freeze restrictions on template writes while preservin
   } finally {
     await asOwner(client => client.query("UPDATE organizations SET status='active',disabled_at=NULL,retention_until=NULL WHERE id=$1", [ORG]));
   }
+});
+
+function sizedTemplate(bytes: number) {
+  const model = SurveyTemplateInputSchema.parse({ ...input, kind: "report", template: { ...input.template, sections: [{ id: "size-section", title: "内容", blocks: [{ id: "size-block", title: "正文", type: "text", text: "" }] }] } });
+  const available = bytes - Buffer.byteLength(JSON.stringify(model));
+  model.template.sections[0]!.blocks[0]!.text = "中".repeat(Math.floor(available / 3)) + "x".repeat(available % 3);
+  expect(Buffer.byteLength(JSON.stringify(model))).toBe(bytes);
+  return model;
+}
+it("measures the entire UTF-8 request including save revision, not report character length", () => {
+  const boundary = sizedTemplate(SURVEY_TEMPLATE_REQUEST_MAX_BYTES - 128);
+  expect(SurveyTemplateInputSchema.safeParse(boundary).success).toBe(true);
+  expect(SurveyTemplateSaveInputSchema.safeParse({ ...boundary, expectedVersion: Number.MAX_SAFE_INTEGER }).success).toBe(true);
+  expect(isSurveyTemplateRequestWithinLimit({ ...boundary, unexpected: "x" }, 128)).toBe(false);
+  expect(SurveyTemplateInputSchema.safeParse({ ...boundary, unexpected: "x" }).success).toBe(false);
+  const savePayload = { ...sizedTemplate(SURVEY_TEMPLATE_REQUEST_MAX_BYTES), expectedVersion: 1 };
+  expect(SurveyTemplateSaveInputSchema.safeParse(savePayload).success).toBe(false);
+  const oversize = sizedTemplate(101 * 1024);
+  expect(JSON.stringify(oversize).length).toBeLessThan(90 * 1024);
+  expect(SurveyTemplateInputSchema.safeParse(oversize).success).toBe(false);
+  expect(SurveyTemplateSaveInputSchema.safeParse({ ...oversize, expectedVersion: 1 }).success).toBe(false);
+});
+it("round-trips near-90KB multibyte templates and copies them to surveys without raising parser limits", async () => {
+  const near = sizedTemplate(SURVEY_TEMPLATE_REQUEST_MAX_BYTES - 128);
+  const created = await request("/surveys/templates", "POST", near);
+  expect(created.status).toBe(201);
+  let row = SurveyLibraryTemplateSchema.parse(await created.json());
+  const saved = await request(`/surveys/templates/${row.id}`, "PUT", { ...near, expectedVersion: row.version });
+  expect(saved.status).toBe(200); row = SurveyLibraryTemplateSchema.parse(await saved.json());
+  const copy = { title: row.title, questions: row.questions, template: row.template };
+  expect(Buffer.byteLength(JSON.stringify(copy))).toBeLessThan(100 * 1024);
+  const questionnaire = await request("/surveys", "POST", copy);
+  expect(questionnaire.status).toBe(201);
+  const copied = await questionnaire.json();
+  expect(copied.template).toEqual(row.template);
+  const aboveContract = sizedTemplate(SURVEY_TEMPLATE_REQUEST_MAX_BYTES + 128);
+  expect((await request("/surveys/templates", "POST", aboveContract)).status).toBe(400);
+  expect((await request(`/surveys/templates/${row.id}`, "PUT", { ...aboveContract, expectedVersion: row.version })).status).toBe(400);
+  const aboveParser = sizedTemplate(101 * 1024);
+  // The existing global exception filter translates native body-parser errors to
+  // 500. This test pins rejection/no mutation, without widening that unrelated parser.
+  expect((await request("/surveys/templates", "POST", aboveParser)).ok).toBe(false);
+  expect((await request(`/surveys/templates/${row.id}`, "PUT", { ...aboveParser, expectedVersion: row.version })).ok).toBe(false);
+  expect(SurveyLibraryTemplateSchema.parse(await (await request(`/surveys/templates/${row.id}`)).json()).version).toBe(row.version);
 });
