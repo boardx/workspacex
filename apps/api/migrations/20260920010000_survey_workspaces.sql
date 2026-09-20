@@ -18,3 +18,7 @@ CREATE POLICY survey_workspaces_tenant ON survey_workspaces
   WITH CHECK(org_id=current_setting('app.current_org',true));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON survey_workspaces TO app_rw;
+
+-- Install canonical org-disabled write restrictions on the first apply too.
+-- The earlier catalog migration cannot see this table until forced replay.
+SELECT kernel_apply_org_freeze_policies();
