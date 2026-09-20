@@ -48,12 +48,13 @@ export const SurveySubmissionInputSchema = z.object({
     )
     .max(200),
   durationSeconds: z.number().int().nonnegative().max(604800).default(0),
-  role: z.string().max(200).default("未填写"),
-  companySize: z.string().max(200).default("未填写"),
+  role: z.string().trim().min(1).max(200).default("未填写"),
+  companySize: z.string().trim().min(1).max(200).default("未填写"),
 });
 export const SurveyRuntimeSchema = SurveyDraftInputSchema.extend({
   id: z.string(),
   version: z.number().int().positive(),
+  answerRevision: z.number().int().nonnegative().default(0),
   updatedAt: z.string().datetime(),
   responses: z.array(SurveyResponseSchema),
   publication: z
@@ -67,6 +68,7 @@ export const SurveyRuntimeSchema = SurveyDraftInputSchema.extend({
     .nullable(),
   report: CompiledSurveyReportSchema.nullable(),
   reportBasisVersion: z.number().int().positive().nullable(),
+  reportBasisAnswerRevision: z.number().int().nonnegative().nullable().default(null),
   reportGeneratedAt: z.string().datetime().nullable(),
 });
 export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;

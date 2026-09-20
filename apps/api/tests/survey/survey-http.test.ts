@@ -21,14 +21,26 @@ it('wires real HTTP authentication, persistence, public submission, review, repo
   const publicView=await request(`/public/surveys/${token}`,'GET',undefined,{});expect(publicView.status).toBe(200);const visible=await publicView.json();expect(visible.title).toBe('HTTP已保存');expect(visible).not.toHaveProperty('template');expect(visible).not.toHaveProperty('responses');expect(visible).not.toHaveProperty('publication');
   expect((await request(`/public/surveys/${token}x`,'GET',undefined,{})).status).toBe(404);
   const submission={submissionId:'http-request-3754',answers:[{questionId:'q1',value:'4'}]};const publicHeaders={'content-type':'application/json'};
+  for(const metadata of [{role:''},{companySize:'   '}]) {
+    const invalid=await request(`/public/surveys/${token}/responses`,'POST',{...submission,...metadata},publicHeaders);
+    expect(invalid.status).toBe(400);
+    const stillValid=SurveyRuntimeSchema.parse(await (await request(`/surveys/${id}`)).json());
+    expect(stillValid.responses).toHaveLength(0);
+  }
+
   const submitted=await request(`/public/surveys/${token}/responses`,'POST',submission,publicHeaders);expect(submitted.status).toBe(201);const receipt=await submitted.json();
   const replay=await request(`/public/surveys/${token}/responses`,'POST',submission,publicHeaders);expect(replay.status).toBe(201);expect(await replay.json()).toEqual({...receipt,replayed:true});
+  const editorVersion=m.version;
   m=SurveyRuntimeSchema.parse(await (await request(`/surveys/${id}`)).json());expect(m.responses).toHaveLength(1);
+  expect(m.version).toBe(editorVersion);expect(m.answerRevision).toBe(1);
+  expect(m.responses[0]).toMatchObject({role:'未填写',companySize:'未填写'});
+  const saveWhileCollecting=await request(`/surveys/${id}`,'PUT',{...draft,expectedVersion:editorVersion});
+  expect(saveWhileCollecting.status).toBe(200);m=SurveyRuntimeSchema.parse(await saveWhileCollecting.json());expect(m.responses).toHaveLength(1);
   const report=await request(`/surveys/${id}/report`,'POST',{expectedVersion:m.version});expect(report.status).toBe(201);m=SurveyRuntimeSchema.parse(await report.json());expect(m.report!.sections[0]!.blocks[0]!.rows[0]!.value).toBe(4);
   const reviewed=await request(`/surveys/${id}/responses/${receipt.responseId}`,'PATCH',{expectedVersion:m.version,quality:'review'});expect(reviewed.status).toBe(200);m=SurveyRuntimeSchema.parse(await reviewed.json());expect(m.responses[0]!.quality).toBe('review');
   // Changing caller-controlled forwarding headers cannot reset the direct peer-IP key.
   expect(app.getHttpAdapter().getInstance().get('trust proxy')).toBe(false);
-  for(let n=0;n<18;n++)expect((await request(`/public/surveys/${token}/responses`,'POST',submission,{...publicHeaders,'x-forwarded-for':`198.51.100.${n}`})).status).toBe(201);
+  for(let n=0;n<16;n++)expect((await request(`/public/surveys/${token}/responses`,'POST',submission,{...publicHeaders,'x-forwarded-for':`198.51.100.${n}`})).status).toBe(201);
   expect((await request(`/public/surveys/${token}/responses`,'POST',submission,{...publicHeaders,'x-forwarded-for':'203.0.113.99'})).status).toBe(429);
   const close=await request(`/surveys/${id}/close`,'POST',{expectedVersion:m.version});expect(close.status).toBe(201);expect((await request(`/public/surveys/${token}`,'GET',undefined,{})).status).toBe(410);
 });

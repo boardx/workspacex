@@ -56,19 +56,34 @@ export class SurveyService {
     private readonly repo: SurveyRepository,
     private readonly now = () => new Date(),
   ) {}
-  list(orgId: OrgId, actor: string) {
-    return this.repo.list(orgId, actor);
+  private revisions(model: SurveyRuntime): SurveyRuntime {
+    // Legacy JSON aggregates predate the independent answer clock. Unknown report
+    // provenance stays null so an old snapshot is conservatively shown as stale.
+    model.answerRevision ??= 0;
+    model.reportBasisAnswerRevision ??= null;
+    return model;
+  }
+  private transact<T>(orgId: OrgId, id: string, work: (record: SurveyRecord) => T): Promise<T> {
+    return this.repo.transact(orgId, id, record => {
+      this.revisions(record.model);
+      return work(record);
+    });
+  }
+  async list(orgId: OrgId, actor: string) {
+    return (await this.repo.list(orgId, actor)).map(model => this.revisions(model));
   }
   async create(orgId: OrgId, actor: string, input: SurveyDraftInput) {
     const model: SurveyRuntime = {
       ...input,
       id: randomUUID(),
       version: 1,
+      answerRevision: 0,
       updatedAt: this.now().toISOString(),
       responses: [],
       publication: null,
       report: null,
       reportBasisVersion: null,
+      reportBasisAnswerRevision: null,
       reportGeneratedAt: null,
     };
     await this.repo.create(orgId, { ownerId: actor, model, receipts: {} });
@@ -80,7 +95,7 @@ export class SurveyService {
       throw new SurveyError("version_conflict");
   }
   get(orgId: OrgId, actor: string, id: string) {
-    return this.repo.transact(orgId, id, (r) => {
+    return this.transact(orgId, id, (r) => {
       this.own(r, actor);
       return r.model;
     });
@@ -95,7 +110,7 @@ export class SurveyService {
     version: number,
     work: (model: SurveyRuntime) => void,
   ) {
-    return this.repo.transact(orgId, id, (r) => {
+    return this.transact(orgId, id, (r) => {
       this.own(r, actor, version);
       work(r.model);
       r.model.version++;
@@ -173,10 +188,19 @@ export class SurveyService {
     responseId: string,
     quality: "normal" | "review",
   ) {
-    return this.change(orgId, actor, id, version, (m) => {
-      const r = m.responses.find((r) => r.id === responseId);
-      if (!r) throw new SurveyError("not_found");
-      r.quality = quality;
+    return this.transact(orgId, id, record => {
+      this.own(record, actor, version);
+      const m = record.model;
+      const response = m.responses.find(r => r.id === responseId);
+      if (!response) throw new SurveyError("not_found");
+      // Quality is answer state, not a template edit. Repeating the same decision
+      // is a no-op; simultaneous different decisions use transaction order.
+      if (response.quality !== quality) {
+        response.quality = quality;
+        m.answerRevision++;
+        m.updatedAt = this.now().toISOString();
+      }
+      return m;
     });
   }
   report(orgId: OrgId, actor: string, id: string, version: number) {
@@ -195,6 +219,7 @@ export class SurveyService {
         throw new SurveyError("invalid_report");
       m.report = structuredClone(report);
       m.reportBasisVersion = m.version;
+      m.reportBasisAnswerRevision = m.answerRevision;
       m.reportGeneratedAt = this.now().toISOString();
     });
   }
@@ -226,7 +251,7 @@ export class SurveyService {
   }
   publicGet(token: string) {
     const [orgId, id] = this.locate(token);
-    return this.repo.transact(orgId, id, (r) => {
+    return this.transact(orgId, id, (r) => {
       const p = this.publicRecord(r, token);
       return {
         id,
@@ -239,7 +264,7 @@ export class SurveyService {
   }
   submit(token: string, input: SurveySubmissionInput) {
     const [orgId, id] = this.locate(token);
-    return this.repo.transact(orgId, id, (r) => {
+    return this.transact(orgId, id, (r) => {
       const p = this.publicRecord(r, token);
       const fingerprint = hash(JSON.stringify(input)).toString("hex");
       const receiptKey = hash(input.submissionId).toString("hex");
@@ -300,7 +325,7 @@ export class SurveyService {
         answers: input.answers,
       });
       r.receipts[receiptKey] = { hash: fingerprint, responseId };
-      r.model.version++;
+      r.model.answerRevision++;
       r.model.updatedAt = this.now().toISOString();
       return { responseId, replayed: false };
     });

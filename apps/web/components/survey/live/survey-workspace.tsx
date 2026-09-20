@@ -433,7 +433,8 @@ export function LiveSurveyWorkspace({
               ) : null}
               {runtime?.report &&
                 (dirty ||
-                  runtime.reportBasisVersion !== runtime.version - 1) && (
+                  runtime.reportBasisVersion !== runtime.version - 1 ||
+                  runtime.reportBasisAnswerRevision !== runtime.answerRevision) && (
                   <p className="text-12 text-muted-foreground">
                     模板或答卷已有更新，当前展示上次生成的报告。重新生成后更新内容。
                   </p>

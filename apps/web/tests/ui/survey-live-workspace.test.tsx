@@ -6,7 +6,7 @@ const request=vi.hoisted(()=>vi.fn());
 const router=vi.hoisted(()=>({replace:vi.fn(),push:vi.fn()}));
 vi.mock('@/lib/survey/runtime-client',()=>({surveyRequest:request}));
 vi.mock('next/navigation',()=>({useRouter:()=>router}));
-const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
+const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
  it('retains unsaved inputs when saving fails and never shows a success notice',async()=>{
@@ -37,7 +37,7 @@ describe('live survey workspace persistence',()=>{
  });
  it('marks an older report stale while preserving it and clears the warning after generation returns',async()=>{
   const report={id:'report',title:'上次生成报告',sections:[{id:'s',title:'真实章节',blocks:[]}],issues:[]};
-  request.mockResolvedValueOnce(runtime({report,reportBasisVersion:2,reportGeneratedAt:'2026-09-19T10:00:00.000Z'})).mockResolvedValueOnce(runtime({version:5,report:{...report,title:'新生成报告'},reportBasisVersion:4,reportGeneratedAt:'2026-09-20T10:00:00.000Z'}));
+  request.mockResolvedValueOnce(runtime({report,reportBasisVersion:3,answerRevision:1,reportBasisAnswerRevision:0,reportGeneratedAt:'2026-09-19T10:00:00.000Z'})).mockResolvedValueOnce(runtime({version:5,answerRevision:1,reportBasisAnswerRevision:1,report:{...report,title:'新生成报告'},reportBasisVersion:4,reportGeneratedAt:'2026-09-20T10:00:00.000Z'}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="report"/>);
   await screen.findByRole('heading',{name:'上次生成报告'});
   expect(screen.getByText(/当前展示上次生成的报告/)).toBeInTheDocument();
