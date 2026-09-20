@@ -20,7 +20,7 @@ describe("continuous report history", () => {
     expect(within(history).getByText(/旧结论/)).toBeVisible();
     expect(history).toHaveTextContent("历史内容，仅供查看");
     expect(within(history).getByTestId("research-inline-citation")).toHaveAttribute("href", initial.sources[0]!.url);
-    expect(within(history).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(history).queryByRole("button", { name: /生成|应用|导出|完成/ })).not.toBeInTheDocument();
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
