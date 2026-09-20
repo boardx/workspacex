@@ -303,7 +303,7 @@ describe("survey template actions", () => {
 
 it("超限模板在客户端明确提示且不发送请求，输入保留", async () => {
   const data=draft();
-  data.questions[1].options=Array.from({length:60},()=>"中".repeat(1000));
+  data.questions[1]!.options=Array.from({length:60},()=>"中".repeat(1000));
   render(<SurveyTemplateActions kind="question" draft={data} onApply={vi.fn()} />);
   fireEvent.click(screen.getByRole("button",{name:"保存为问卷模板"}));
   fireEvent.click(screen.getByRole("button",{name:"保存到模板库"}));
