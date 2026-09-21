@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { SurveyWorkflowQuestionSchema, SurveyResponseSchema } from "./survey";
+import {
+  SurveyWorkflowQuestionSchema,
+  SurveyResponseSchema,
+  SurveyAnswerValueSchema,
+} from "./survey";
 import {
   SurveyReportTemplateSchema,
   CompiledSurveyReportSchema,
@@ -36,14 +40,12 @@ export const SurveyPublishInputSchema = SurveyVersionInputSchema.extend({
 });
 export const SurveySubmissionInputSchema = z.object({
   submissionId: z.string().min(8).max(128),
+  uploadSessionToken: z.string().min(1).max(512).optional(),
   answers: z
     .array(
       z.object({
         questionId: z.string().min(1),
-        value: z.union([
-          z.string().max(20000),
-          z.array(z.string().max(2000)).max(100),
-        ]),
+        value: SurveyAnswerValueSchema,
       }),
     )
     .max(200),
@@ -68,7 +70,12 @@ export const SurveyRuntimeSchema = SurveyDraftInputSchema.extend({
     .nullable(),
   report: CompiledSurveyReportSchema.nullable(),
   reportBasisVersion: z.number().int().positive().nullable(),
-  reportBasisAnswerRevision: z.number().int().nonnegative().nullable().default(null),
+  reportBasisAnswerRevision: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(null),
   reportGeneratedAt: z.string().datetime().nullable(),
 });
 export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;

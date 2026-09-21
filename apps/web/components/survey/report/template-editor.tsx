@@ -9,6 +9,8 @@ import {
   newBlock,
   copySection,
   moveItem,
+  availableReportStatistics,
+  SURVEY_STATISTIC_LABELS,
 } from "@/lib/survey/report-template";
 import { SurveyReportDocument } from "./report-document";
 
@@ -403,6 +405,26 @@ function BlockFields({
   update: (patch: Partial<survey.SurveyReportBlock>) => void;
 }) {
   const data = !["text", "image", "page-break"].includes(block.type);
+  const statisticsFor = (ids: string[]) =>
+    availableReportStatistics(
+      questions.filter((question) => ids.includes(question.id)),
+    ).filter((statistic) =>
+      ["radar", "gap"].includes(block.type)
+        ? statistic === "mean"
+        : ["bar", "line"].includes(block.type)
+          ? statistic !== "responses"
+          : true,
+    );
+  const statistics = statisticsFor(block.questionIds);
+  const bindQuestions = (questionIds: string[]) => {
+    const next = statisticsFor(questionIds);
+    update({
+      questionIds,
+      ...(next.length && !next.includes(block.statistic)
+        ? { statistic: next[0] }
+        : {}),
+    });
+  };
   return (
     <div className="space-y-3">
       {block.type !== "page-break" && (
@@ -451,24 +473,26 @@ function BlockFields({
           >
             <legend className="px-1 text-11">绑定题目（可多选）</legend>
             <div className="grid max-h-48 gap-2 overflow-auto sm:grid-cols-2">
-              {questions.map((q) => (
-                <label key={q.id} className="flex items-start gap-2 text-11">
-                  <input
-                    type="checkbox"
-                    checked={block.questionIds.includes(q.id)}
-                    onChange={(e) =>
-                      update({
-                        questionIds: e.target.checked
-                          ? [...block.questionIds, q.id]
-                          : block.questionIds.filter((id) => id !== q.id),
-                      })
-                    }
-                  />
-                  <span>
-                    {q.order}. {q.title}
-                  </span>
-                </label>
-              ))}
+              {questions
+                .filter((q) => !survey.isSurveyPageElement(q))
+                .map((q) => (
+                  <label key={q.id} className="flex items-start gap-2 text-11">
+                    <input
+                      type="checkbox"
+                      checked={block.questionIds.includes(q.id)}
+                      onChange={(e) =>
+                        bindQuestions(
+                          e.target.checked
+                            ? [...block.questionIds, q.id]
+                            : block.questionIds.filter((id) => id !== q.id),
+                        )
+                      }
+                    />
+                    <span>
+                      {q.order}. {q.title}
+                    </span>
+                  </label>
+                ))}
               {questions.length === 0 && (
                 <p className="text-11 text-muted-foreground">
                   请先添加问卷题目。
@@ -491,9 +515,18 @@ function BlockFields({
                   })
                 }
               >
-                <option value="mean">量表均值</option>
-                <option value="count">答题人数</option>
-                <option value="distribution">选项分布</option>
+                {!statistics.includes(block.statistic) && (
+                  <option value={block.statistic} disabled>
+                    {block.questionIds.length
+                      ? `${SURVEY_STATISTIC_LABELS[block.statistic]}（当前绑定不支持）`
+                      : "请先绑定题目"}
+                  </option>
+                )}
+                {statistics.map((statistic) => (
+                  <option key={statistic} value={statistic}>
+                    {SURVEY_STATISTIC_LABELS[statistic]}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="text-11 text-muted-foreground">
@@ -509,7 +542,9 @@ function BlockFields({
               >
                 <option value="">不分组</option>
                 {questions
-                  .filter((q) => q.type === "single")
+                  .filter((q) =>
+                    ["single", "dropdown", "image_single"].includes(q.type),
+                  )
                   .map((q) => (
                     <option key={q.id} value={q.id}>
                       {q.title}

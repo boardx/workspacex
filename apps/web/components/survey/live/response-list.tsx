@@ -1,19 +1,25 @@
 "use client";
 import * as React from "react";
+import { formatSurveyAnswer, isSurveyPageElement } from "@repo/contracts/survey";
 import type { survey } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
+import { downloadSurveyAttachment } from "@/lib/survey/runtime-client";
 import { Input } from "@/components/ui/input";
 export function LiveResponseList({
+  surveyId,
   responses,
   questions,
   onReview,
   busy,
 }: {
+  surveyId?: string;
   responses: survey.SurveyResponse[];
   questions: survey.SurveyWorkflowQuestion[];
   onReview: (id: string, quality: "normal" | "review") => void;
   busy: boolean;
 }) {
+  const [downloadError, setDownloadError] = React.useState("");
+  const [downloading, setDownloading] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [quality, setQuality] = React.useState("all");
   const [page, setPage] = React.useState(0);
@@ -140,8 +146,9 @@ export function LiveResponseList({
               </Button>
             </div>
           </div>
+          {downloadError && <p role="alert" className="mt-3 text-12 text-destructive">{downloadError}</p>}
           <ol className="mt-4 space-y-4">
-            {questions.map((q, i) => {
+            {questions.filter(q => !isSurveyPageElement(q)).map((q, i) => {
               const answer = item.answers.find((a) => a.questionId === q.id);
               return (
                 <li key={q.id}>
@@ -149,10 +156,20 @@ export function LiveResponseList({
                     {i + 1}. {q.title}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-12 text-muted-foreground">
-                    {Array.isArray(answer?.value)
-                      ? answer.value.join("、")
-                      : answer?.value || "未填写"}
+                    {answer ? formatSurveyAnswer(q, answer.value) : "未填写"}
                   </p>
+                  {(q.type === "file" || q.type === "signature") && Array.isArray(answer?.value) && answer.value.map((id, index) => (
+                    <Button key={id} size="xs" variant="outline" className="mr-2 mt-2" disabled={!surveyId || downloading !== null}
+                      onClick={async () => {
+                        if (!surveyId) return;
+                        setDownloadError(""); setDownloading(id);
+                        try { await downloadSurveyAttachment(surveyId, item.id, id); }
+                        catch (error) { setDownloadError(error instanceof Error ? error.message : "附件下载失败，请重试。"); }
+                        finally { setDownloading(null); }
+                      }}>
+                      {downloading === id ? "正在下载…" : q.type === "signature" ? "下载签名" : `下载附件 ${index + 1}`}
+                    </Button>
+                  ))}
                 </li>
               );
             })}

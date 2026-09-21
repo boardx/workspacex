@@ -355,6 +355,7 @@ export function LiveSurveyWorkspace({
           )}
           {step === "responses" && (
             <LiveResponseList
+              surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
               questions={runtime?.publication?.questions ?? draft.questions}
               busy={busy}

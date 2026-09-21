@@ -1,5 +1,14 @@
 import { z } from "zod";
 import type { SurveyResponse, SurveyWorkflowQuestion } from "./survey";
+import {
+  surveyChoices,
+  surveyQuestionStatistics,
+  surveySelectedValues,
+  validateSurveyAnswer,
+  visibleSurveyQuestions,
+  formatSurveyAnswer,
+  type SurveyAnswerValue,
+} from "./survey-question-types";
 
 const imageUrl = z
   .string()
@@ -28,7 +37,19 @@ export const SurveyReportBlockSchema = z.object({
     "page-break",
   ]),
   questionIds: z.array(z.string().min(1)).default([]),
-  statistic: z.enum(["mean", "count", "distribution"]).default("mean"),
+  statistic: z
+    .enum([
+      "mean",
+      "count",
+      "distribution",
+      "nps",
+      "mean_rank",
+      "first_choice",
+      "sum",
+      "responses",
+      "percentage",
+    ])
+    .default("mean"),
   groupByQuestionId: z.string().min(1).optional(),
   target: z.number().finite().optional(),
   text: z.string().optional(),
@@ -89,6 +110,9 @@ export const SurveyReportRowSchema = z.object({
 });
 export const CompiledSurveyBlockSchema = SurveyReportBlockSchema.extend({
   rows: z.array(SurveyReportRowSchema),
+  answerTexts: z
+    .array(z.object({ label: z.string(), value: z.string() }))
+    .optional(),
   issues: z.array(z.string()),
   warnings: z.array(z.string()).optional(),
 });
@@ -109,21 +133,131 @@ export type SurveyReportRow = z.infer<typeof SurveyReportRowSchema>;
 export type CompiledSurveyBlock = z.infer<typeof CompiledSurveyBlockSchema>;
 export type CompiledSurveyReport = z.infer<typeof CompiledSurveyReportSchema>;
 
-function selections(
+type Projection = {
+  key: string;
+  label: string;
+  values: string[];
+  numeric?: number;
+  options: { id: string; label: string }[];
+};
+function hasAnswer(
+  value: SurveyAnswerValue | undefined,
+): value is SurveyAnswerValue {
+  return (
+    value !== undefined &&
+    (typeof value === "string"
+      ? !!value.trim()
+      : Array.isArray(value)
+        ? !!value.length
+        : Object.values(value).some((v) =>
+            Array.isArray(v) ? v.length > 0 : !!v.trim(),
+          ))
+  );
+}
+function acceptedAnswer(
   question: SurveyWorkflowQuestion,
-  response: SurveyResponse,
-): string[] {
-  const answers = response.answers.filter(
-    (answer) => answer.questionId === question.id,
-  );
-  if (answers.length !== 1) return [];
-  const value = answers[0]!.value;
-  if (question.type === "open")
-    return typeof value === "string" && value.trim() ? [value] : [];
-  if (question.type !== "multi" && typeof value !== "string") return [];
-  return [...new Set(Array.isArray(value) ? value : [value])].filter((v) =>
-    question.options.includes(v),
-  );
+  value: SurveyAnswerValue | undefined,
+): SurveyAnswerValue | undefined {
+  if (!hasAnswer(value)) return undefined;
+  // Historical selections were label-based and tolerated repeated/invalid list items.
+  // Retain that read behavior; current submission validation rejects those inputs.
+  if (
+    !question.config &&
+    ["single", "multi", "scale", "open"].includes(question.type)
+  ) {
+    if (question.type === "open")
+      return typeof value === "string" ? value : undefined;
+    if (question.type === "multi")
+      return Array.isArray(value)
+        ? [...new Set(value.filter((v) => question.options.includes(v)))]
+        : undefined;
+    return typeof value === "string" && question.options.includes(value)
+      ? value
+      : undefined;
+  }
+  return validateSurveyAnswer(question, value).length ? undefined : value;
+}
+function project(
+  question: SurveyWorkflowQuestion,
+  value: SurveyAnswerValue,
+  title: string,
+): Projection[] {
+  const options = surveyChoices(question),
+    canonical = (raw: string) =>
+      options.find((option) => option.id === raw || option.label === raw)?.id ??
+      raw;
+  const numeric = (raw: string) =>
+    Number(
+      options.find((option) => option.id === raw || option.label === raw)
+        ?.label ?? raw,
+    );
+  const base = { key: question.id, label: title, options };
+  if (
+    question.type.startsWith("matrix_") &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  )
+    return (question.config?.rows ?? []).flatMap((row) => {
+      const raw = value[row.id];
+      if (!hasAnswer(raw)) return [];
+      const values = (Array.isArray(raw) ? raw : [raw as string]).map(
+        canonical,
+      );
+      return [
+        {
+          ...base,
+          key: `${question.id}/${row.id}`,
+          label: `${title} · ${row.label}`,
+          values,
+          ...(question.type === "matrix_scale"
+            ? { numeric: numeric(values[0]!) }
+            : {}),
+        },
+      ];
+    });
+  if (question.type === "ranking" && Array.isArray(value)) {
+    const ordered = value.map(canonical);
+    return options.map((option) => ({
+      ...base,
+      key: `${question.id}/${option.id}`,
+      label: `${title} · ${option.label}`,
+      values: [option.id],
+      options: [],
+      numeric: ordered.indexOf(option.id) + 1,
+    }));
+  }
+  if (
+    question.type === "allocation" &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  )
+    return options.flatMap((option) => {
+      const raw = value[option.id];
+      return typeof raw === "string" && raw.trim()
+        ? [
+            {
+              ...base,
+              key: `${question.id}/${option.id}`,
+              label: `${title} · ${option.label}`,
+              values: [raw],
+              options: [],
+              numeric: Number(raw),
+            },
+          ]
+        : [];
+    });
+  const values = surveySelectedValues(question, value);
+  if (!values.length && typeof value === "object" && !Array.isArray(value))
+    return [{ ...base, values: [formatSurveyAnswer(question, value)] }];
+  return [
+    {
+      ...base,
+      values,
+      ...(["scale", "number", "rating", "nps", "slider"].includes(question.type)
+        ? { numeric: numeric(values[0]!) }
+        : {}),
+    },
+  ];
 }
 function compileBlock(
   block: SurveyReportBlock,
@@ -160,15 +294,18 @@ function compileBlock(
   if (block.type === "radar") {
     const axes = selected.filter((q): q is SurveyWorkflowQuestion => !!q);
     const domain = (q: SurveyWorkflowQuestion) =>
-      [...q.options].sort().join("\u0000");
+      q.type === "scale"
+        ? [...q.options].sort().join("\u0000")
+        : JSON.stringify([q.config?.min, q.config?.max, q.config?.step]);
     if (
       axes.length < 3 ||
       block.statistic !== "mean" ||
       axes.some(
         (q) =>
-          q.type !== "scale" ||
+          !["scale", "rating", "slider", "nps"].includes(q.type) ||
           domain(q) !== domain(axes[0]!) ||
-          q.options.some((v) => !v.trim() || !Number.isFinite(Number(v))),
+          (q.type === "scale" &&
+            q.options.some((v) => !v.trim() || !Number.isFinite(Number(v)))),
       )
     ) {
       issue("雷达图需要至少三个同量纲的量表题目，并使用均值");
@@ -180,44 +317,65 @@ function compileBlock(
     : undefined;
   if (
     block.groupByQuestionId &&
-    (!groupQuestion || groupQuestion.type !== "single")
+    (!groupQuestion ||
+      !["single", "dropdown", "image_single"].includes(groupQuestion.type))
   ) {
     issue("分组题目必须是存在的单选题");
     return result;
   }
-  const samples = responses.filter(
-    (r) => block.samplePolicy === "all" || r.quality === "normal",
-  );
+  const samples = responses
+    .filter((r) => block.samplePolicy === "all" || r.quality === "normal")
+    .map((sample) => {
+      const counts = new Map<string, number>();
+      sample.answers.forEach((answer) =>
+        counts.set(answer.questionId, (counts.get(answer.questionId) ?? 0) + 1),
+      );
+      const answers = Object.fromEntries(
+        sample.answers
+          .filter((answer) => counts.get(answer.questionId) === 1)
+          .map((answer) => [answer.questionId, answer.value]),
+      );
+      return {
+        sample,
+        answers,
+        visible: new Set(
+          visibleSurveyQuestions(questions, answers).map((q) => q.id),
+        ),
+      };
+    });
   if (!samples.length) issue("没有可用样本");
   for (const question of selected) {
     if (!question) continue;
-    const displayTitle =
+    const title =
       questions.filter((q) => q.title === question.title).length > 1
         ? `${question.title}（${question.id}）`
         : question.title;
-    if (block.statistic === "mean" && question.type !== "scale") {
-      issue(`${question.title}：均值仅适用于量表题目`);
-      continue;
-    }
-    if (block.statistic === "distribution" && question.type === "open") {
-      issue(`${question.title}：开放题不支持选项分布`);
-      continue;
-    }
-    const buckets = new Map<
-      string,
-      { group?: string; date?: string; values: string[][] }
-    >();
-    for (const sample of samples) {
-      const values = selections(question, sample).filter(
-        (v) =>
-          block.statistic !== "mean" ||
-          (v.trim() !== "" && Number.isFinite(Number(v))),
+    if (!surveyQuestionStatistics(question).includes(block.statistic)) {
+      issue(
+        `${title}：此题型不支持${block.statistic === "mean" ? "均值" : block.statistic === "distribution" ? "选项分布" : "该统计方式"}`,
       );
-      if (!values.length) continue;
-      const group = groupQuestion
-        ? selections(groupQuestion, sample)[0]
-        : undefined;
-      if (groupQuestion && !group) continue;
+      continue;
+    }
+    type Bucket = {
+      group?: string;
+      date?: string;
+      label: string;
+      options: { id: string; label: string }[];
+      values: Projection[];
+      texts: string[];
+    };
+    const buckets = new Map<string, Bucket>();
+    for (const { sample, answers, visible } of samples) {
+      if (!visible.has(question.id)) continue;
+      const answer = acceptedAnswer(question, answers[question.id]);
+      if (!hasAnswer(answer)) continue;
+      let group: string | undefined;
+      if (groupQuestion) {
+        if (!visible.has(groupQuestion.id)) continue;
+        const raw = acceptedAnswer(groupQuestion, answers[groupQuestion.id]);
+        if (!hasAnswer(raw)) continue;
+        group = formatSurveyAnswer(groupQuestion, raw);
+      }
       const date =
         block.type === "line"
           ? Number.isFinite(Date.parse(sample.submittedAt))
@@ -228,73 +386,130 @@ function compileBlock(
         issue("存在无效提交时间，已排除");
         continue;
       }
-      const key = JSON.stringify([group, date]);
-      const bucket = buckets.get(key) ?? { group, date, values: [] };
-      bucket.values.push(values);
-      buckets.set(key, bucket);
+      const projections =
+        block.statistic === "responses"
+          ? [{ key: question.id, label: title, values: [], options: [] }]
+          : project(question, answer, title);
+      for (const projection of projections) {
+        if (block.statistic !== "responses" && !projection.values.length)
+          continue;
+        if (
+          ["mean", "sum", "nps", "mean_rank", "first_choice"].includes(
+            block.statistic,
+          ) &&
+          !Number.isFinite(projection.numeric)
+        )
+          continue;
+        const key = JSON.stringify([projection.key, group, date]);
+        const bucket = buckets.get(key) ?? {
+          group,
+          date,
+          label: projection.label,
+          options: projection.options,
+          values: [],
+          texts: [],
+        };
+        bucket.values.push(projection);
+        if (block.statistic === "responses")
+          bucket.texts.push(
+            ["file", "signature"].includes(question.type)
+              ? `附件 ${Array.isArray(answer) ? answer.length : 0} 个`
+              : formatSurveyAnswer(question, answer),
+          );
+        buckets.set(key, bucket);
+      }
     }
-    if (!buckets.size) issue(`${question.title}：没有合法作答样本`);
+    if (!buckets.size) issue(`${title}：没有合法作答样本`);
     for (const bucket of [...buckets.values()].sort(
       (a, b) =>
         (a.date ?? "").localeCompare(b.date ?? "") ||
         (a.group ?? "").localeCompare(b.group ?? ""),
     )) {
-      if (groupQuestion && bucket.values.length < block.minGroupSize) {
+      const count = bucket.values.length;
+      if (groupQuestion && count < block.minGroupSize) {
         const warning = `分组有效样本不足 ${block.minGroupSize}，已隐藏`;
         if (!result.warnings!.includes(warning)) result.warnings!.push(warning);
         continue;
       }
-      const label = bucket.date ?? displayTitle;
+      const label = bucket.date ?? bucket.label;
       const group = bucket.date
-        ? [displayTitle, bucket.group].filter(Boolean).join(" · ")
+        ? [bucket.label, bucket.group].filter(Boolean).join(" · ")
         : bucket.group;
       const append = (row: SurveyReportRow) =>
         result.rows.push({ ...row, ...(group ? { group } : {}) });
-      if (block.statistic === "distribution") {
-        for (const option of [...new Set(question.options)]) {
-          const count = bucket.values.filter((values) =>
-            values.includes(option),
+      if (block.statistic === "responses") {
+        result.answerTexts ??= [];
+        bucket.texts.forEach((value) =>
+          result.answerTexts!.push({
+            label: [label, group].filter(Boolean).join(" · "),
+            value,
+          }),
+        );
+        continue;
+      }
+      if (
+        block.statistic === "distribution" ||
+        block.statistic === "percentage"
+      ) {
+        const options = bucket.options.length
+          ? [...bucket.options]
+          : [...new Set(bucket.values.flatMap((row) => row.values))]
+              .sort((a, b) => Number(a) - Number(b) || a.localeCompare(b))
+              .map((value) => ({ id: value, label: value }));
+        if (bucket.values.some((row) => row.values.includes("__other__")))
+          options.push({ id: "__other__", label: "其他" });
+        for (const option of options) {
+          const count = bucket.values.filter((row) =>
+            row.values.includes(option.id),
           ).length;
+          const value =
+            block.statistic === "percentage"
+              ? (100 * count) / bucket.values.length
+              : count;
           if (bucket.date)
             result.rows.push({
               label,
-              value: count,
+              value,
               count,
-              group: `${group} · ${option}`,
+              group: `${group} · ${option.label}`,
             });
-          else append({ label: `${label} · ${option}`, value: count, count });
+          else append({ label: `${label} · ${option.label}`, value, count });
         }
-      } else {
-        const count = bucket.values.length;
-        const value =
-          block.statistic === "count"
-            ? count
-            : bucket.values.reduce(
-                (sum, values) => sum + Number(values[0]) / count,
-                0,
-              );
-        if (!Number.isFinite(value)) {
-          issue("统计值超出有限数值范围");
-          continue;
-        }
-        const gap =
-          block.target === undefined ? undefined : block.target - value;
-        if (gap !== undefined && !Number.isFinite(gap)) {
-          issue("差距超出有限数值范围");
-          continue;
-        }
-        append({
-          label,
-          value,
-          count,
-          ...(block.type === "gap" ? { target: block.target, gap } : {}),
-        });
+        continue;
       }
+      const numbers = bucket.values.map((row) => row.numeric!);
+      let value = count;
+      if (block.statistic === "nps")
+        value =
+          (100 *
+            (numbers.filter((n) => n >= 9).length -
+              numbers.filter((n) => n <= 6).length)) /
+          count;
+      else if (block.statistic === "first_choice")
+        value = (100 * numbers.filter((n) => n === 1).length) / count;
+      else if (block.statistic === "sum")
+        value = numbers.reduce((sum, n) => sum + n, 0);
+      else if (block.statistic === "mean" || block.statistic === "mean_rank")
+        value = numbers.reduce((sum, n) => sum + n / count, 0);
+      if (!Number.isFinite(value)) {
+        issue("统计值超出有限数值范围");
+        continue;
+      }
+      const gap = block.target === undefined ? undefined : block.target - value;
+      if (gap !== undefined && !Number.isFinite(gap)) {
+        issue("差距超出有限数值范围");
+        continue;
+      }
+      append({
+        label,
+        value,
+        count,
+        ...(block.type === "gap" ? { target: block.target, gap } : {}),
+      });
     }
   }
-  if (block.type === "radar") {
-    const groups = new Set(result.rows.map((row) => row.group));
-    for (const group of groups) {
+  if (block.type === "radar")
+    for (const group of new Set(result.rows.map((row) => row.group)))
       if (
         result.rows.filter((row) => row.group === group).length !==
         selected.length
@@ -302,9 +517,8 @@ function compileBlock(
         result.rows = result.rows.filter((row) => row.group !== group);
         issue("雷达图存在无样本轴，已隐藏不完整比较");
       }
-    }
-  }
-  if (!result.rows.length) issue("没有可用于图表的合法作答样本");
+  if (!result.rows.length && !result.answerTexts?.length)
+    issue("没有可用于图表的合法作答样本");
   return result;
 }
 /** Pure compiler: no clock, network, random values, or generated narrative. */
@@ -333,6 +547,7 @@ export function compileSurveyReport(
       !section.blocks.some(
         (block) =>
           block.rows.length ||
+          block.answerTexts?.length ||
           (block.type === "text" && block.text?.trim()) ||
           (block.type === "image" && block.imageUrl),
       )
