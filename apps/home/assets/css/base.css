@@ -15,9 +15,9 @@
 
   /* ---- ink -------------------------------------------------------------- */
   --fg:          #f6f4f9;
-  --fg-soft:     #b9b3c6;
-  --fg-dim:      #8b8499;
-  --fg-faint:    #635d72;
+  --fg-soft:     #b9b3c6;   /* 9.88:1 */
+  --fg-dim:      #8b8499;   /* 5.60:1 */
+  --fg-faint:    #837d93;   /* 5.09:1 on --bg. #635d72 was 3.19 and failed AA. */
 
   /* ---- accent ----------------------------------------------------------- */
   --c-1:         #ff7a18;   /* orange  */
@@ -26,6 +26,10 @@
   --accent:      var(--c-2);
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
   --grad-soft:   linear-gradient(100deg, rgba(255,122,24,.16), rgba(255,46,115,.16) 52%, rgba(177,75,255,.16));
+  /* Text placed ON the gradient. White fails AA over the orange stop (2.61:1);
+     this near-black clears 4.74:1 over every stop, so the brand colour keeps
+     its saturation instead of being muddied to make white work. */
+  --on-grad:     #12080d;
 
   /* semantic accents used by diagrams so hues carry meaning, not decoration */
   --c-human:     #ffb23d;
@@ -144,6 +148,21 @@ p { text-wrap: pretty; }
   outline: 2px solid var(--c-2);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+/* ---- forced / high contrast ---------------------------------------------- */
+/* Readers who ask for more contrast get flat surfaces and hard borders: the
+   translucent panels this design leans on are the first thing to fail them. */
+@media (prefers-contrast: more) {
+  :root {
+    --fg-soft:    #ded9e6;
+    --fg-dim:     #c3bdd0;
+    --fg-faint:   #a9a2b8;
+    --hairline:   rgba(255, 255, 255, 0.28);
+    --hairline-2: rgba(255, 255, 255, 0.45);
+    --surface:    rgba(255, 255, 255, 0.09);
+    --surface-2:  rgba(255, 255, 255, 0.14);
+  }
 }
 
 /* ---- selection ----------------------------------------------------------- */

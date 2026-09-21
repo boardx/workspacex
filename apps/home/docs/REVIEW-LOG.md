@@ -56,3 +56,36 @@ at. That is a content failure, not a craft one.
 | 10 | The workspace illustration is three columns; at phone width that is three unreadable slivers. | Under 900 px the roster is dropped — it repeats what the canvas already shows — and the canvas plus evidence trail stack. |
 
 Translation count: 149 → 228 keys, gate green.
+
+---
+
+## Round 3 — accessibility
+
+Audited with axe-core 4.10 (WCAG 2.0/2.1 A + AA + best-practice) in both
+languages, plus a keyboard-operation test and a structural lint, because the
+three most serious findings here were ones axe cannot see.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The six loop steps carried `aria-selected` on plain `<li>` elements — invalid ARIA outside a listbox, and axe's only critical finding. | Each step is a real `<button>` with `aria-current`. |
+| 2 | Worse than the ARIA: the steps were mouse-only. The one genuinely interactive control on the page could not be reached or operated by keyboard at all. | Native buttons: reachable by Tab, activated by Enter and Space. Verified by test — focusing step 5 and pressing Enter moves the ring to Verify. |
+| 3 | The first pass at that fix put `<div>` inside `<button>`, which is invalid and gets reparented by the parser. | `<span>` with `display: block`. Caught by the new structural lint, not by eye. |
+| 4 | `--fg-faint` was `#635d72` — **3.19:1**, below the 4.5:1 required for body text, and used across every mono caption and diagram label. | `#837d93`, **5.09:1**. Every ink token's measured ratio is now recorded in `base.css`. |
+| 5 | **White on the primary button failed badly — 2.61:1 over the orange stop.** axe reported nothing because it cannot evaluate text over a gradient. The main call to action on the page was the least readable thing on it. | Near-black `--on-grad` (`#12080d`) instead: **4.74:1 at the worst stop, 7.17:1 at the best**, and the brand gradient keeps full saturation rather than being darkened to make white work. Applied to every gradient-backed control. |
+| 6 | Footer used `<h4>` directly after `<h2>`, skipping a level. | `<h3>`. |
+| 7 | Nav links were ~32 px tall and the language buttons ~29 px — fine for a mouse, under every touch guideline. | 44 px minimum under `@media (pointer: coarse)`. |
+| 8 | **At 390 px the nav bar overflowed and pushed the burger off-screen.** The menu was completely unreachable on a phone — found only because a Playwright click timed out with "element is outside of the viewport". | Below 760 px the language switch, GitHub link and primary CTA relocate into the menu panel; the bar keeps the brand and the burger. |
+| 9 | The footer logo referenced `<use href="#bm-use">`, an id that does not exist, and depended on a gradient defined inside the header's SVG. | One hidden sprite defines the gradient and the mark; both logos `<use>` it. |
+| 10 | `list-style: none` strips list semantics in VoiceOver, and three non-interactive cards carried `tabindex="0"`, adding tab stops that do nothing. | `role="list"` on the styled lists; `tabindex` removed. Also added `prefers-contrast: more` support and `lang="zh-Hans"` on the 中文 button so it is pronounced correctly. |
+
+Also fixed: the stuck nav at 72% opacity let headline text read straight
+through it; raised to 86% with an opaque `@supports` fallback for engines
+without `backdrop-filter`.
+
+New tool: `scripts/check-html.mjs` — a dependency-free structural lint for
+flow content inside buttons, nested anchors, duplicate ids, skipped heading
+levels, and anchors or `aria-labelledby` pointing at ids that do not exist.
+It is what found gap 9.
+
+**Result: axe reports 0 violations in both languages; keyboard test clean
+across 37 tab stops.**

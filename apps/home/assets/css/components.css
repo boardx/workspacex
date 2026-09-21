@@ -18,7 +18,7 @@
 .btn:active { transform: translateY(0); }
 
 .btn--primary {
-  color: #fff;
+  color: var(--on-grad);
   background: var(--grad);
   box-shadow: 0 6px 24px -10px rgba(255, 46, 115, 0.85);
 }
@@ -150,21 +150,26 @@
 /* ---- step rail (numbered vertical list) ---------------------------------- */
 .rail { list-style: none; padding: 0; display: grid; gap: 0.25rem; }
 .rail__item {
+  /* A real <button>: reachable by Tab, activated by Enter and Space, announced
+     as a control. It used to be a clickable <li> carrying aria-selected, which
+     is invalid ARIA outside a listbox and unreachable without a mouse. */
   display: grid; grid-template-columns: 2.25rem 1fr; gap: 1rem;
+  width: 100%; text-align: left;
   padding: 0.95rem 0.75rem;
   border-radius: 12px;
   transition: background var(--dur-fast) var(--ease-out);
   cursor: pointer;
 }
 .rail__item:hover { background: var(--surface); }
-.rail__item[aria-selected="true"] { background: var(--surface-2); }
+.rail__item[aria-current="true"] { background: var(--surface-2); }
 .rail__num {
   font-family: var(--font-mono); font-size: var(--t-micro);
   color: var(--fg-faint); padding-top: 0.25rem;
 }
-.rail__item[aria-selected="true"] .rail__num { color: var(--c-2); }
-.rail__title { font-weight: 600; font-size: 0.9375rem; }
-.rail__body { font-size: var(--t-small); color: var(--fg-dim); margin-top: 0.2rem; }
+.rail__item[aria-current="true"] .rail__num { color: var(--c-2); }
+.rail__text { display: block; }
+.rail__title { display: block; font-weight: 600; font-size: 0.9375rem; }
+.rail__body { display: block; font-size: var(--t-small); color: var(--fg-dim); margin-top: 0.2rem; }
 
 /* ---- CTA band ------------------------------------------------------------ */
 .cta {
