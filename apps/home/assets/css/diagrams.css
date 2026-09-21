@@ -4,16 +4,19 @@
    label class sets it explicitly.
    ========================================================================== */
 
+/* `--dscale` is published per-svg by diagrams.js: viewBox width / rendered
+   width. Multiplying by it makes each size a REAL rendered pixel size, so a
+   label reads the same whether its diagram is 320 units wide or 1000. */
 .d-label {
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: calc(13px * var(--dscale, 1));
   fill: var(--fg-soft);
   letter-spacing: 0.01em;
 }
-.d-label--lg    { font-size: 15px; font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
-.d-label--xs    { font-size: 11px; }
+.d-label--lg    { font-size: calc(15px * var(--dscale, 1)); font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
+.d-label--xs    { font-size: calc(11.5px * var(--dscale, 1)); }
 .d-label--dim   { fill: var(--fg-dim); }
-.d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: 10px; }
+.d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: calc(11px * var(--dscale, 1)); }
 .d-label--fail  { fill: var(--c-fail); }
 .d-label--on    { fill: #fff; font-weight: 600; }
 
@@ -62,8 +65,8 @@
 .d-loop__node[data-active="true"] .d-loop__dot  { r: 11; }
 .d-loop__node:not([data-active="true"]) .d-loop__dot { opacity: .45; }
 .d-loop__title {
-  font-family: var(--font-display); font-size: 30px; font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display); font-size: calc(30px * var(--dscale, 1));
+  font-weight: 600; letter-spacing: -0.02em;
 }
 
 /* ---- architecture -------------------------------------------------------- */
@@ -117,4 +120,16 @@
   .d-graph__edge { stroke-dashoffset: 0 !important; }
   .d-axis__fill  { stroke-dashoffset: 0 !important; }
   .d-break__spark { display: none; }
+}
+
+/* ---- narrow variants ------------------------------------------------------ */
+@media (max-width: 700px) {
+  /* The vertical diagrams are tall and slim; cap their width so they do not
+     stretch edge to edge and leave the labels floating in the margin. */
+  .d-chain, .d-break, .d-harness, .d-graph { max-width: 340px; margin-inline: auto; }
+  .d-axis { width: 100%; height: auto; max-width: 320px; margin-inline: auto; }
+  .d-arch { max-width: 360px; margin-inline: auto; }
+  .d-loop { max-width: min(100%, 340px); }
+  /* the ring's outer labels need the room the desktop layout takes for granted */
+  .d-loop .d-label--lg { font-size: calc(13px * var(--dscale, 1)); }
 }

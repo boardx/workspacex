@@ -12,6 +12,12 @@ import { reducedMotion } from './motion.js';
 let LANG = 'en';
 const t = (key) => STRINGS[key]?.[LANG] ?? STRINGS[key]?.en ?? key;
 
+/* A 1000-unit-wide viewBox squeezed into a 350 px phone renders its 13 px
+   labels at about 4.5 px. Scaling down is not a responsive strategy for text,
+   so the wide diagrams have genuine vertical variants instead. */
+const NARROW_Q = '(max-width: 700px)';
+const isNarrow = () => window.matchMedia(NARROW_Q).matches;
+
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
   const node = document.createElementNS(NS, name);
@@ -21,6 +27,35 @@ const el = (name, attrs = {}, text) => {
 };
 const svg = (viewBox, extra = {}) =>
   el('svg', { viewBox, fill: 'none', 'aria-hidden': 'true', ...extra });
+
+/* SVG text is drawn in viewBox units, so the browser scales it along with the
+   drawing: a 13-unit label inside a 760-unit box rendered 660 px wide comes out
+   at 8.3 px — measured, across every breakpoint including desktop. Sizing it in
+   CSS pixels is not possible from inside the viewBox, so instead each svg
+   publishes its own scale factor and the label rules multiply by it. The result
+   is text at a real, chosen pixel size whatever the viewBox happens to be. */
+const SCALED = new Set();
+
+function syncScale(node) {
+  const vb = node.viewBox?.baseVal;
+  const width = node.getBoundingClientRect().width;
+  if (!vb?.width || !width) return;
+  node.style.setProperty('--dscale', String(vb.width / width));
+}
+
+export function syncDiagramScales() {
+  SCALED.forEach((node) => {
+    if (node.isConnected) syncScale(node);
+    else SCALED.delete(node);
+  });
+}
+
+function registerScale(node) {
+  SCALED.add(node);
+  // first pass now, again once fonts land and the container settles
+  requestAnimationFrame(() => syncScale(node));
+  document.fonts?.ready.then(() => syncScale(node));
+}
 
 /* Shared gradient/marker defs, injected once per svg that needs them. */
 function defs(target, id = 'g1') {
@@ -39,7 +74,35 @@ function defs(target, id = 'g1') {
 /* =========================================================================
    1 · Hero chain — five stages closing into a loop, with a pulse going round
    ========================================================================= */
-function chain(host) {
+function chainNarrow(host) {
+  const items = ['context', 'agents', 'action', 'evidence', 'memory'];
+  const W = 330, rowH = 62, H = items.length * rowH + 30;
+  const s = svg(`0 0 ${W} ${H}`, { class: 'd-chain', preserveAspectRatio: 'xMidYMid meet' });
+  defs(s);
+  // the return arc swings out to x - 52, so x must leave that much room
+  const x = 60;
+  s.append(el('line', {
+    x1: x, y1: 26, x2: x, y2: 26 + rowH * (items.length - 1),
+    stroke: 'rgba(255,255,255,.14)', 'stroke-width': 1.5,
+  }));
+  items.forEach((key, i) => {
+    const y = 26 + rowH * i;
+    const g = el('g', { class: 'd-chain__node', style: `--i:${i}` });
+    g.append(el('circle', { cx: x, cy: y, r: 16, fill: '#0c0a10', stroke: 'rgba(255,255,255,.16)' }));
+    g.append(el('circle', { cx: x, cy: y, r: 4.5, fill: 'url(#g1)', class: 'd-chain__core' }));
+    g.append(el('text', { x: x + 30, y: y + 5, class: 'd-label d-label--lg' }, t(`d.chain.${key}`)));
+    s.append(g);
+  });
+  // the return arc that makes it a cycle
+  s.append(el('path', {
+    d: `M ${x} ${26 + rowH * (items.length - 1) + 22} q 0 24 -26 24 q -26 0 -26 -26 V 52 q 0 -26 26 -26 q 26 0 26 22`,
+    stroke: 'rgba(255,255,255,.10)', 'stroke-width': 1.5, 'stroke-dasharray': '4 5', fill: 'none',
+  }));
+  host.replaceChildren(s);
+  registerScale(s);
+}
+
+function chainWide(host) {
   const W = 1000, H = 150;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-chain', preserveAspectRatio: 'xMidYMid meet' });
   defs(s);
@@ -85,12 +148,35 @@ function chain(host) {
   }
 
   host.replaceChildren(s);
+  registerScale(s);
 }
+
+const chain = (host) => (isNarrow() ? chainNarrow(host) : chainWide(host));
 
 /* =========================================================================
    2 · Shift axis — value migrating along a three-stop track
    ========================================================================= */
-function axis(host) {
+function axisNarrow(host) {
+  const W = 320, H = 240;
+  const s = svg(`0 0 ${W} ${H}`, { class: 'd-axis d-axis--v', preserveAspectRatio: 'xMidYMid meet' });
+  defs(s, 'g2');
+  const x = 26;
+  s.append(el('line', { x1: x, y1: 26, x2: x, y2: H - 46, stroke: 'rgba(255,255,255,.12)', 'stroke-width': 2 }));
+  s.append(el('line', {
+    x1: x, y1: 26, x2: x, y2: H - 46, stroke: 'url(#g2)', 'stroke-width': 2,
+    class: 'd-axis__fill', 'stroke-linecap': 'round',
+  }));
+  [['a1', 26], ['a2', (H - 20) / 2], ['a3', H - 46]].forEach(([key, y], i) => {
+    s.append(el('circle', { cx: x, cy: y, r: i === 2 ? 7 : 5, fill: i === 2 ? 'url(#g2)' : 'rgba(255,255,255,.35)' }));
+    s.append(el('text', { x: x + 22, y: y + 5, class: 'd-label d-label--lg' }, t(`d.axis.${key}`)));
+  });
+  s.append(el('text', { x: x + 22, y: 12, class: 'd-label d-label--xs d-label--dim' }, t('d.axis.was')));
+  s.append(el('text', { x: x + 22, y: H - 18, class: 'd-label d-label--xs d-label--dim' }, t('d.axis.now')));
+  host.replaceChildren(s);
+  registerScale(s);
+}
+
+function axisWide(host) {
   const W = 1000, H = 92;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-axis', preserveAspectRatio: 'none' });
   defs(s, 'g2');
@@ -112,12 +198,57 @@ function axis(host) {
   s.append(el('text', { x: W - 40, y: y + 28, 'text-anchor': 'end', class: 'd-label d-label--dim' }, t('d.axis.now')));
 
   host.replaceChildren(s);
+  registerScale(s);
 }
+
+const axis = (host) => (isNarrow() ? axisNarrow(host) : axisWide(host));
 
 /* =========================================================================
    3 · Broken chain — five islands, context evaporating between them
    ========================================================================= */
-function brokenChain(host) {
+function brokenChainNarrow(host) {
+  const items = ['ask', 'answer', 'redo', 'check', 'file'];
+  const W = 320, rowH = 74, H = items.length * rowH + 34;
+  const s = svg(`0 0 ${W} ${H}`, { class: 'd-break', preserveAspectRatio: 'xMidYMid meet' });
+  const boxW = 210, boxH = 46, x = (W - boxW) / 2;
+
+  s.append(el('text', {
+    x: W / 2, y: 16, 'text-anchor': 'middle', class: 'd-label d-label--xs d-label--fail',
+  }, t('d.break.lost')));
+
+  items.forEach((key, i) => {
+    const y = 32 + rowH * i;
+    const g = el('g', { class: 'd-break__box', style: `--i:${i}` });
+    g.append(el('rect', {
+      x, y, width: boxW, height: boxH, rx: 11,
+      fill: 'rgba(255,255,255,.07)', stroke: 'rgba(255,255,255,.22)',
+    }));
+    g.append(el('text', { x: W / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.break.${key}`)));
+    s.append(g);
+
+    if (i < items.length - 1) {
+      const gy = y + boxH + (rowH - boxH) / 2;
+      const b = el('g', { class: 'd-break__gap', style: `--i:${i}` });
+      b.append(el('path', {
+        d: `M ${W / 2 - 9} ${gy - 5} l 9 4 l -9 4 M ${W / 2 + 9} ${gy - 5} l -9 4 l 9 4`,
+        stroke: 'var(--c-fail)', 'stroke-width': 1.6, 'stroke-linecap': 'round', fill: 'none', opacity: '.75',
+      }));
+      if (!reducedMotion()) {
+        for (let p = 0; p < 3; p += 1) {
+          b.append(el('circle', {
+            cx: W / 2 + 24 + p * 7, cy: gy, r: 1.6,
+            fill: 'var(--c-fail)', class: 'd-break__spark', style: `--p:${p}`,
+          }));
+        }
+      }
+      s.append(b);
+    }
+  });
+  host.replaceChildren(s);
+  registerScale(s);
+}
+
+function brokenChainWide(host) {
   const W = 1000, H = 150;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-break', preserveAspectRatio: 'xMidYMid meet' });
 
@@ -170,7 +301,10 @@ function brokenChain(host) {
   });
 
   host.replaceChildren(s);
+  registerScale(s);
 }
+
+const brokenChain = (host) => (isNarrow() ? brokenChainNarrow(host) : brokenChainWide(host));
 
 /* =========================================================================
    4 · The loop — six stages on a ring, driven by scroll progress
@@ -233,6 +367,7 @@ function loopRing(host) {
   s.append(centre);
 
   host.replaceChildren(s);
+  registerScale(s);
 
   return {
     /** @param {number} p 0→1 */
@@ -261,7 +396,8 @@ const ARCH_LAYERS = [
 ];
 
 function arch(host) {
-  const W = 760, rowH = 74, gap = 10;
+  const narrow = isNarrow();
+  const W = narrow ? 340 : 760, rowH = narrow ? 62 : 74, gap = 10;
   const H = ARCH_LAYERS.length * (rowH + gap) + 10;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-arch', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g5');
@@ -271,17 +407,18 @@ function arch(host) {
     const g = el('g', { class: 'd-arch__row', 'data-tone': layer.tone, style: `--i:${ARCH_LAYERS.length - 1 - i}` });
 
     g.append(el('rect', {
-      x: 40, y, width: W - 210, height: rowH, rx: 12,
+      x: narrow ? 26 : 40, y, width: W - (narrow ? 36 : 210), height: rowH, rx: 12,
       class: 'd-arch__plate',
     }));
     // the stable core gets a lit left edge — the one visual weight difference
     if (layer.tone === 'core') {
-      g.append(el('rect', { x: 40, y, width: 3, height: rowH, rx: 2, fill: 'url(#g5)' }));
+      g.append(el('rect', { x: narrow ? 26 : 40, y, width: 3, height: rowH, rx: 2, fill: 'url(#g5)' }));
     }
-    g.append(el('text', { x: 62, y: y + 30, class: 'd-label d-label--lg' }, t(`d.arch.${layer.id}`)));
-    g.append(el('text', { x: 62, y: y + 51, class: 'd-label d-label--xs d-label--dim' }, t(`d.arch.${layer.id}d`)));
+    const tx = narrow ? 42 : 62;
+    g.append(el('text', { x: tx, y: y + (narrow ? 26 : 30), class: 'd-label d-label--lg' }, t(`d.arch.${layer.id}`)));
+    g.append(el('text', { x: tx, y: y + (narrow ? 45 : 51), class: 'd-label d-label--xs d-label--dim' }, t(`d.arch.${layer.id}d`)));
     g.append(el('text', {
-      x: 22, y: y + rowH / 2 + 4, 'text-anchor': 'middle', class: 'd-label d-label--xs d-label--faint',
+      x: narrow ? 12 : 22, y: y + rowH / 2 + 4, 'text-anchor': 'middle', class: 'd-label d-label--xs d-label--faint',
     }, layer.id.toUpperCase()));
     s.append(g);
   });
@@ -289,6 +426,7 @@ function arch(host) {
   // side brackets: "moves fast" over L5–L4, "must stay stable" over L3–L2
   const bx = W - 200;
   const bracket = (y1, y2, label, cls) => {
+    if (narrow) return;   // no room beside the stack; the copy carries this
     const g = el('g', { class: `d-arch__bracket ${cls}` });
     g.append(el('path', {
       d: `M ${bx} ${y1} h 8 V ${y2} h -8`,
@@ -303,6 +441,7 @@ function arch(host) {
   bracket(5 + (rowH + gap) * 2, 5 + (rowH + gap) * 2 + rowH * 2 + gap, t('d.arch.stable'), 'is-core');
 
   host.replaceChildren(s);
+  registerScale(s);
 }
 
 /* =========================================================================
@@ -310,7 +449,62 @@ function arch(host) {
    ========================================================================= */
 const GATES = ['authorize', 'execute', 'observe', 'verify', 'evidence'];
 
-function harness(host) {
+function harnessNarrow(host) {
+  const W = 320, rowH = 62, H = GATES.length * rowH + 40;
+  const s = svg(`0 0 ${W} ${H}`, { class: 'd-harness', preserveAspectRatio: 'xMidYMid meet' });
+  defs(s, 'g6');
+  const boxW = 184, boxH = 44, x = 58;
+  const centres = [];
+
+  GATES.forEach((key, i) => {
+    const y = 30 + rowH * i;
+    centres.push(y + boxH / 2);
+    const g = el('g', { class: 'd-harness__gate', 'data-gate': key, style: `--i:${i}` });
+    g.append(el('rect', {
+      x, y, width: boxW, height: boxH, rx: 11,
+      fill: 'rgba(255,255,255,.05)', stroke: 'rgba(255,255,255,.16)', class: 'd-harness__plate',
+    }));
+    g.append(el('text', { x: x + boxW / 2, y: y + boxH / 2 + 5, 'text-anchor': 'middle', class: 'd-label' }, t(`d.harness.${key}`)));
+    s.append(g);
+    if (i < GATES.length - 1) {
+      s.append(el('path', {
+        d: `M ${x + boxW / 2} ${y + boxH + 4} V ${y + rowH - 6} m -4 -6 l 4 6 l 4 -6`,
+        stroke: 'rgba(255,255,255,.22)', 'stroke-width': 1.3, fill: 'none',
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      }));
+    }
+  });
+
+  // rollback runs down the right-hand gutter, verify -> execute
+  const vy = centres[3], ey = centres[1];
+  s.append(el('path', {
+    d: `M ${x + boxW + 6} ${vy} q 26 0 26 -26 V ${ey + 26} q 0 -26 -26 -26`,
+    stroke: 'var(--c-fail)', 'stroke-width': 1.5, fill: 'none',
+    'stroke-dasharray': '5 4', opacity: '.65', class: 'd-harness__rollback',
+  }));
+  s.append(el('text', {
+    x: W - 4, y: (vy + ey) / 2, 'text-anchor': 'end',
+    class: 'd-label d-label--xs d-label--fail',
+  }, t('d.harness.rollback')));
+
+  const token = el('g', { class: 'd-harness__token' });
+  token.append(el('circle', { r: 8, fill: 'url(#g6)' }));
+  s.append(token);
+  const status = el('text', { x: W / 2, y: 16, 'text-anchor': 'middle', class: 'd-label d-label--xs' }, '');
+  s.append(status);
+  host.replaceChildren(s);
+  registerScale(s);
+
+  const park = () => {
+    token.setAttribute('transform', `translate(${x - 18} ${centres[4]})`);
+    status.textContent = t('d.harness.pass');
+    status.setAttribute('fill', 'var(--c-evidence)');
+  };
+  if (reducedMotion()) { park(); return () => {}; }
+  return runHarness({ token, status, s, at: (i) => `translate(${x - 18} ${centres[i]})` });
+}
+
+function harnessWide(host) {
   const W = 1000, H = 210;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-harness', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g6');
@@ -361,6 +555,7 @@ function harness(host) {
   s.append(status);
 
   host.replaceChildren(s);
+  registerScale(s);
 
   if (reducedMotion()) {
     // Park it clear of the last gate's label rather than on top of it.
@@ -370,35 +565,46 @@ function harness(host) {
     return () => {};
   }
 
-  /* The run: walk to verify, fail, roll back to execute, walk again, pass.
-     It is a loop, but a slow one — the failing path is the whole message, so
-     it gets to sit on screen long enough to read. */
+  return runHarness({
+    token, status, s,
+    at: (i) => `translate(${centres[i]} ${y + boxH / 2})`,
+    lerp: (a, b, e) => `translate(${centres[a] + (centres[b] - centres[a]) * e} ${y + boxH / 2})`,
+  });
+}
+
+const harness = (host) => (isNarrow() ? harnessNarrow(host) : harnessWide(host));
+
+/* The run: walk to verify, fail, roll back to execute, walk again, pass.
+   A slow loop on purpose — the failing path is the whole message, so it has to
+   sit on screen long enough to read. Shared by both orientations; only the
+   position function differs. */
+const HARNESS_TL = [
+  { at: 0,    gate: 0, s: '' },
+  { at: 900,  gate: 1, s: '' },
+  { at: 1800, gate: 2, s: '' },
+  { at: 2700, gate: 3, s: 'fail' },
+  { at: 4200, gate: 1, s: 'fail' },
+  { at: 5400, gate: 2, s: '' },
+  { at: 6300, gate: 3, s: '' },
+  { at: 7200, gate: 4, s: 'pass' },
+  { at: 8800, gate: 0, s: '' },
+];
+
+function runHarness({ token, status, s, at, lerp }) {
   let raf = 0, start = 0;
-  const TL = [
-    { at: 0,    x: () => centres[0], s: '' },
-    { at: 900,  x: () => centres[1], s: '' },
-    { at: 1800, x: () => centres[2], s: '' },
-    { at: 2700, x: () => centres[3], s: 'fail' },
-    { at: 4200, x: () => centres[1], s: 'fail' },
-    { at: 5400, x: () => centres[2], s: '' },
-    { at: 6300, x: () => centres[3], s: '' },
-    { at: 7200, x: () => centres[4], s: 'pass' },
-    { at: 8800, x: () => centres[0], s: '' },
-  ];
-  const total = TL[TL.length - 1].at;
+  const total = HARNESS_TL[HARNESS_TL.length - 1].at;
 
   const tick = (now) => {
     if (!start) start = now;
     const time = (now - start) % total;
     let i = 0;
-    while (i < TL.length - 1 && TL[i + 1].at <= time) i += 1;
-    const a = TL[i], b = TL[Math.min(i + 1, TL.length - 1)];
+    while (i < HARNESS_TL.length - 1 && HARNESS_TL[i + 1].at <= time) i += 1;
+    const a = HARNESS_TL[i], b = HARNESS_TL[Math.min(i + 1, HARNESS_TL.length - 1)];
     const span = Math.max(1, b.at - a.at);
     const k = Math.min(1, (time - a.at) / span);
     // ease so the token settles into each gate instead of sliding linearly
     const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
-    const x = a.x() + (b.x() - a.x()) * e;
-    token.setAttribute('transform', `translate(${x} ${y + boxH / 2})`);
+    token.setAttribute('transform', lerp ? lerp(a.gate, b.gate, e) : at(e < 0.5 ? a.gate : b.gate));
 
     const state = a.s;
     status.textContent = state === 'fail' ? t('d.harness.fail')
@@ -433,10 +639,24 @@ const GRAPH_EDGES = [
   ['decision', 'memory'], ['person', 'action'], ['evidence', 'artifact'],
 ];
 
+/* Taller, narrower arrangement of the same seven nodes and nine edges — at
+   phone width the wide layout renders its labels at about 8 px. */
+const GRAPH_NODES_NARROW = [
+  { id: 'person',   x: 62,  y: 54,  r: 26 },
+  { id: 'project',  x: 178, y: 40,  r: 28 },
+  { id: 'decision', x: 250, y: 132, r: 30 },
+  { id: 'evidence', x: 140, y: 166, r: 28, tone: 'ev' },
+  { id: 'action',   x: 52,  y: 246, r: 26 },
+  { id: 'artifact', x: 168, y: 300, r: 26 },
+  { id: 'memory',   x: 258, y: 236, r: 30, tone: 'hot' },
+];
+
 function graph(host) {
-  const s = svg('0 0 540 270', { class: 'd-graph', preserveAspectRatio: 'xMidYMid meet' });
+  const narrow = isNarrow();
+  const nodes = narrow ? GRAPH_NODES_NARROW : GRAPH_NODES;
+  const s = svg(narrow ? '0 0 320 350' : '0 0 540 270', { class: 'd-graph', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g7');
-  const byId = Object.fromEntries(GRAPH_NODES.map((n) => [n.id, n]));
+  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
   GRAPH_EDGES.forEach(([a, b], i) => {
     const n1 = byId[a], n2 = byId[b];
@@ -447,7 +667,7 @@ function graph(host) {
     }));
   });
 
-  GRAPH_NODES.forEach((n, i) => {
+  nodes.forEach((n, i) => {
     const g = el('g', { class: 'd-graph__node', 'data-tone': n.tone ?? '', style: `--i:${i}` });
     g.append(el('circle', {
       cx: n.x, cy: n.y, r: n.r,
@@ -463,6 +683,7 @@ function graph(host) {
   });
 
   host.replaceChildren(s);
+  registerScale(s);
 }
 
 /* =========================================================================
@@ -489,3 +710,11 @@ export function renderDiagrams(lang) {
 }
 
 export const getLoop = () => loopApi;
+
+/* Crossing the narrow breakpoint changes which variant is correct, so the
+   diagrams are rebuilt — resizing past it otherwise leaves a horizontal
+   diagram squeezed into a phone-width column. */
+export function watchBreakpoint(rerender) {
+  const q = window.matchMedia(NARROW_Q);
+  q.addEventListener('change', rerender);
+}
