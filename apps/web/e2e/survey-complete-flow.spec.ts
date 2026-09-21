@@ -41,7 +41,7 @@ async function answerPublishedSurvey(page: Page) {
 
 test("用户可从模板完整走通创建、发布、答题、查看答卷和正式报告", async ({
   page,
-  context,
+  browser,
 }) => {
   test.setTimeout(120_000);
   await loginAsAdmin(page);
@@ -75,10 +75,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const publicUrl = await page.getByLabel("答题链接").inputValue();
   expect(publicUrl).toMatch(/\/surveys\/[A-Za-z0-9._-]+$/);
 
-  const respondent = await context.newPage();
+  const respondentContext = await browser.newContext();
+  const respondent = await respondentContext.newPage();
   await respondent.goto(publicUrl);
   await answerPublishedSurvey(respondent);
-  await respondent.close();
+  await respondentContext.close();
 
   await page.getByRole("button", { name: "刷新" }).click();
   await expect(page.getByText(/正在回收 · 1 份答卷/)).toBeVisible();
@@ -100,9 +101,20 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.getByRole("button", { name: "导出 Word" }).click();
   const word = await download;
   expect(word.suggestedFilename()).toMatch(/\.docx$/);
-  expect((await word.createReadStream())?.readable).toBe(true);
+  const wordStream = await word.createReadStream();
+  expect(wordStream).not.toBeNull();
+  const chunks: Buffer[] = [];
+  for await (const chunk of wordStream!) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const wordBytes = Buffer.concat(chunks);
+  expect(wordBytes.byteLength).toBeGreaterThan(1_024);
+  expect(wordBytes.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
 
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
-  await expect(page.getByRole("link", { name: TEMPLATE_TITLE }).first()).toBeVisible();
+  const persistedSurvey = page.locator("article").filter({
+    has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
+  });
+  await expect(persistedSurvey).toContainText("8 道题 · 1 份答卷 · 回收中");
 });
