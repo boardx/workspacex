@@ -143,6 +143,13 @@ jobs:
       # 都判成「还不在 main 上」；deploy 的条件是 needs: gates，后果是 tag 触发的
       # 部署从来就不可能成功（见 #483/#499）。本 job 已用 fetch-depth: 0 排除了它。
       - name: 审计链体检（严格模式）
+        env:
+          # #394：没有 token 时 gh 在 Actions 里直接失败，doctor 会把 ①②③⑤（issue 存在 /
+          # issue 已被 PR 关闭 / 关闭 PR 合入时全绿）整段跳过。在「问不到 = 绿」的旧行为下
+          # 这一步看起来一直是过的——完成定义第 7 条其实**从未在 CI 里真正跑过**。
+          # 现在「问不到」会判 UNREACHABLE 并在 --strict 下 exit 1，所以这里必须给它授权，
+          # 与 harness-verify.yml 里那份非 strict 的 doctor 步骤对齐。
+          GH_TOKEN: ${{ github.token }}
         run: pnpm harness doctor --strict
 
       - name: 契约单源 / 洋葱分层
