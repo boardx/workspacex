@@ -192,7 +192,7 @@ describe("判据单一事实源：本模块不重新判断「有没有路由」"
   });
 
   it("报告里没有的 operation 不会被本模块凭空判成缺口", () => {
-    const v = judge(report({ gaps: [] , bundles: report().bundles}), []);
+    const v = judge(report({ gaps: [] }), []);
     expect(v.newGaps).toEqual([]);
     expect(v.incomplete).toBe(false);
   });
