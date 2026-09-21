@@ -823,8 +823,14 @@ import {
   CANVAS_TEMPLATE_REPOSITORY,
   type CanvasTemplateRepository,
 } from "./application/canvas/template-ports";
+import {
+  CANVAS_SEGMENT_SKILL_REPOSITORY,
+  type CanvasSegmentSkillRepository,
+} from "./application/canvas/segment-skill-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
+import { PgCanvasSegmentSkillRepository } from "./infrastructure/canvas/pg-canvas-segment-skill-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+import { CanvasSegmentSkillController } from "./interface/controllers/canvas-segment-skill.controller";
 // #1493（UC-7.3 第一块）：画布实例源码链（instantiateForSegment / getSource / updateSource）。
 import {
   CANVAS_INSTANCE_REPOSITORY,
@@ -1002,6 +1008,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    CanvasSegmentSkillController,
     CanvasInstanceController,
     BlueprintController,
     ApplyBlueprintController,
@@ -2584,6 +2591,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: CANVAS_TEMPLATE_REPOSITORY,
       useFactory: (db: DatabasePort): CanvasTemplateRepository =>
         new PgCanvasTemplateRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #1468：议程环节 ↔ skill 绑定。独立 provider（独立的表 `canvas_segment_skill_bindings`
+    // 与独立的端口），与模板注册表那条没有共享的读写路径——理由见
+    // `application/canvas/segment-skill-ports.ts` 的文件头。
+    {
+      provide: CANVAS_SEGMENT_SKILL_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasSegmentSkillRepository =>
+        new PgCanvasSegmentSkillRepository(db),
       inject: [DATABASE_PORT],
     },
     // #1493：画布实例 + immutable 版本链。读写 `canvas_instances` 与
