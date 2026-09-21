@@ -82,6 +82,32 @@ export function skillActivityDeliveryDiscipline(
 export const SKILL_ACTIVITY_GAP_NOTE =
   "本轮的技能溯源事实没有全部收到（本地版降级：不因此判本次执行失败）。已执行的工具与产出不受影响，但这一轮的技能使用记录可能不完整。";
 
+/* ─────────────────────── 长时间不返回的工具调用 ─────────────────────── */
+
+/**
+ * 一次工具调用**开了多久还没回来**就该在界面上说一句 —— `null` = 这个版次不说。
+ *
+ * ## 为什么本地版必须说，而在线版这一轮不说
+ *
+ * 本地版一次画布请求的实测是**分钟级**（4B 模型 + 单模型槽 + PGlite 串行），而界面上
+ * 只有一个转圈的图标：用户看不出「还在跑」和「卡死了」的区别。人类 2026-09-22 给的那张
+ * 截图就是这一幕的终点——等了几分钟，最后得到一句「有一次工具调用始终没有返回结果」。
+ * 在线版这一轮**不开**，理由是纪律而非偏好：它的账本内容不该因为本地版的一个体验改动
+ * 而多出事件（`tool_progress` 虽然是有损展示通道，但「云端逐字节不变」是本次改动的前提）。
+ *
+ * ⚠ 它**只是展示**：不改任何终态判定，不是超时，也不取消那次调用。
+ * 消费端不许拿它推断工具成功与否——那是 `tool_end.ok` 唯一负责的事。
+ */
+export function toolStallNoticeMs(edition: DeploymentEditionValue): number | null {
+  return edition === "local" ? 60_000 : null;
+}
+
+/** 那句话。占位符由调用方替换成真实分钟数；总长受 `ToolProgressFields.message` 的 200 字限制。 */
+export function toolStallNotice(toolName: string, elapsedMs: number): string {
+  const minutes = Math.max(1, Math.round(elapsedMs / 60_000));
+  return `「${toolName}」已经执行 ${String(minutes)} 分钟，仍在等它的结果（本地模型较慢，这是正常范围内的等待，不是卡死）。`;
+}
+
 /* ──────────────────────────── 切到在线正式系统 ──────────────────────────── */
 
 /**

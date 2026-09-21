@@ -71,6 +71,7 @@ import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
 import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
+import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
@@ -371,6 +372,15 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  /**
+   * 2026-09-22 —— 这份部署的版次。**可选**，缺省 `cloud`：既有测试与不关心版次的执行
+   * 路径（`trial-run-agent` 一类）构造这个对象时不必都改，而生产合成
+   * （`kernel.module.ts` → `AgentRunExecutor`）注入真值。同 `usage` / `retrieval` 的既有先例。
+   *
+   * ⚠ 不在这个文件里读 `process.env`，也不 import `infrastructure/`——洋葱方向由
+   * `lint-arch-deps` 机械看住（本次改动第一版就是这样被它拦下来的）。
+   */
+  readonly edition?: DeploymentEditionValue;
   /** Admission of new native runs; existing native continuations still use nativeSessions. */
   readonly nativeRuntimeEnabled?: boolean;
   readonly nativeSessions?: NativeSessionOwner;
@@ -1104,7 +1114,24 @@ async function executeClaimed(
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
   // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
-  const openToolCalls = new OpenToolCalls();
+  /*
+   * 2026-09-22 —— 本地版给长时间不返回的工具调用加一条**展示**通知（见契约
+   * `toolStallNoticeMs`）。本地一次画布请求是分钟级，而界面上只有一个转圈的图标：
+   * 用户分不出「还在跑」和「卡死了」。写的是 `tool_progress`（有损展示通道），
+   * 不改任何终态判定、不取消调用；`null` ⇒ 一个计时器都不创建，行为逐字节不变。
+   */
+  const stallAfterMs = toolStallNoticeMs(deps.edition ?? "cloud");
+  const openToolCalls = new OpenToolCalls(stallAfterMs === null ? undefined : {
+    afterMs: stallAfterMs,
+    repeatEveryMs: stallAfterMs,
+    notify: async ({ toolCallId, sourceToolCallId, toolName, elapsedMs }) => {
+      await deps.runs.appendExecutionEvent?.(orgId, run.runId, {
+        kind: "tool_progress", attemptId: executionAttemptId, toolCallId,
+        ...(sourceToolCallId === undefined ? {} : { sourceToolCallId }),
+        toolName, message: toolStallNotice(toolName, elapsedMs),
+      });
+    },
+  });
   const closeOpenToolCalls = (outcome: RunTerminationOutcome) => openToolCalls.closeAll(
     outcome,
     (event) => deps.runs.appendExecutionEvent?.(orgId, run.runId, event) ?? Promise.resolve(),

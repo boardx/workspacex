@@ -60,7 +60,7 @@ it("cloud edition is untouched: the same upstream failure still fails the run", 
   // 反证：把纪律换回 cloud（也等价于字段缺席），同一个故障必须照旧判失败——
   // 否则本次改动就不是「本地版降级」，而是把线上的账本纪律一起放掉了。
   for (const config of [
-    { skillActivityDelivery: skillActivityDeliveryDiscipline("cloud") as const },
+    { skillActivityDelivery: skillActivityDeliveryDiscipline("cloud") },
     {},
   ]) {
     const provider = new DeepAgentModelProvider({
