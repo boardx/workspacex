@@ -24,6 +24,7 @@ import type { Response } from "express";
 import { Public } from "../public.decorator";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
+import { SurveyAttachmentRateLimitGuard } from "../guards/survey-attachment-rate-limit.guard";
 import { SurveySubmissionRateLimitGuard } from "../guards/survey-submission-rate-limit.guard";
 import {
   SURVEY_ATTACHMENT_SERVICE,
@@ -64,11 +65,9 @@ export class SurveyUploadCapabilityGuard implements CanActivate {
     private readonly service: SurveyAttachmentService,
   ) {}
   async canActivate(ctx: ExecutionContext) {
-    const req = ctx
-      .switchToHttp()
-      .getRequest<{
-        params: { token: string; sessionToken: string; questionId: string };
-      }>();
+    const req = ctx.switchToHttp().getRequest<{
+      params: { token: string; sessionToken: string; questionId: string };
+    }>();
     await run(() =>
       this.service.authorize(
         req.params.token,
@@ -101,7 +100,7 @@ export class SurveyAttachmentController {
     );
   }
   @Public()
-  @UseGuards(SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard)
+  @UseGuards(SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard)
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -130,7 +129,7 @@ export class SurveyAttachmentController {
     );
   }
   @Public()
-  @UseGuards(SurveySubmissionRateLimitGuard)
+  @UseGuards(SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard)
   @Delete(`${path}/:attachmentId`)
   remove(
     @Param("token") token: string,
@@ -144,7 +143,7 @@ export class SurveyAttachmentController {
     });
   }
   @Public()
-  @UseGuards(SurveySubmissionRateLimitGuard)
+  @UseGuards(SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard)
   @Get(`${path}/:attachmentId`)
   async preview(
     @Param("token") token: string,

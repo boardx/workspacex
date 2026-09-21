@@ -1,3 +1,4 @@
+import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
 import { SURVEY_ATTACHMENT_SERVICE, SurveyAttachmentService } from "./application/survey/survey-attachment-service";
@@ -1043,7 +1044,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
   ],
   providers: [
     { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
-    SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard,
+    SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -1090,6 +1091,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         stallMs: Number(process.env.DEBUG_TRACE_STALL_MS) || undefined,
       }),
       inject: [DEBUG_TRACE_PORT],
+    },
+    {
+      provide: SURVEY_ATTACHMENT_RATE_LIMITER,
+      useFactory: (clock: Clock) => new InMemoryRateLimiter(clock, 60_000, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE),
+      inject: [CLOCK],
     },
     {
       provide: RATE_LIMITER_PORT,

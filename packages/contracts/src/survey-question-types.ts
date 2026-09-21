@@ -79,7 +79,7 @@ export const SurveyQuestionConfigSchema = z.object({
   minLength: z.number().int().min(0).max(20000).optional(),
   maxLength: z.number().int().min(0).max(20000).optional(),
   minSelections: z.number().int().nonnegative().max(100).optional(),
-  maxSelections: z.number().int().nonnegative().max(100).optional(),
+  maxSelections: z.number().int().positive().max(100).optional(),
   total: z.number().finite().nonnegative().optional(),
   unit: z.string().max(100).optional(),
   lowLabel: shortString.optional(),
@@ -112,6 +112,7 @@ export const SurveyQuestionConfigSchema = z.object({
     .optional(),
   allowedExtensions: z
     .array(z.enum(SURVEY_UPLOAD_ALLOWED_EXTENSIONS))
+    .min(1)
     .max(SURVEY_UPLOAD_ALLOWED_EXTENSIONS.length)
     .optional(),
 });

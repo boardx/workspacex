@@ -443,3 +443,17 @@ describe("new question statistics", () => {
       expect(compiled(q(type), "mean", ["1"]).rows).toEqual([]);
   });
 });
+
+it.each(["multi", "image_multi", "matrix_multi"] as const)(
+  "rejects zero maximum selections for %s",
+  (type) => {
+    const question = q(type);
+    question.config = { ...question.config, maxSelections: 0 };
+    expect(validateSurveyQuestion(question).length).toBeGreaterThan(0);
+  },
+);
+it("rejects an empty file format allowlist", () => {
+  const question = q("file");
+  question.config = { ...question.config, allowedExtensions: [] };
+  expect(validateSurveyQuestion(question).length).toBeGreaterThan(0);
+});
