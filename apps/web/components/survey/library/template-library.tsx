@@ -8,11 +8,15 @@ import {
   SurveyLibraryTemplateSchema,
   SurveyTemplateInputSchema,
   type SurveyLibraryTemplate,
+  type SurveyTemplateInput,
 } from "@repo/contracts/survey-template-library";
 import { SurveyRuntimeSchema } from "@repo/contracts/survey-runtime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { surveyRequest } from "@/lib/survey/runtime-client";
+
+import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
+import { BuiltinTemplateCards } from "./builtin-template-cards";
 
 type Kind = SurveyLibraryTemplate["kind"];
 export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
@@ -22,8 +26,10 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [loadError, setLoadError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const generation = React.useRef(0);
+  const createdDuringLoad = React.useRef<SurveyLibraryTemplate[]>([]);
   const invalidate = React.useCallback(() => {
     generation.current++;
   }, []);
@@ -41,18 +47,22 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   };
   const refresh = React.useCallback(async () => {
     const current = ++generation.current;
+    createdDuringLoad.current = [];
     setLoading(true);
-    setError("");
+    setLoadError("");
     try {
       const parsed = SurveyLibraryTemplateSchema.array().safeParse(
         await surveyRequest("/surveys/templates", { query: { kind } }),
       );
       if (!parsed.success || parsed.data.some((item) => item.kind !== kind))
         throw new Error("模板数据格式不正确，请刷新后重试。");
-      if (current === generation.current) setItems(parsed.data);
+      if (current === generation.current) {
+        const created = createdDuringLoad.current;
+        setItems([...created, ...parsed.data.filter(item => !created.some(copy => copy.id === item.id))]);
+      }
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "模板加载失败，请重试。");
+        setLoadError(e instanceof Error ? e.message : "模板加载失败，请重试。");
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -81,7 +91,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       setBusy(false);
     }
   };
-  const duplicate = (item: SurveyLibraryTemplate) =>
+  const duplicate = (item: SurveyTemplateInput) =>
     execute(async (current) => {
       const body = SurveyTemplateInputSchema.parse({
         kind: item.kind,
@@ -94,6 +104,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
         await surveyRequest("/surveys/templates", { method: "POST", body }),
       );
       if (current !== generation.current) return;
+      if (loading) createdDuringLoad.current = [saved, ...createdDuringLoad.current];
       setItems((previous) => [saved, ...previous]);
       setQuery("");
       setNotice("副本已创建，原模板保持不变。");
@@ -115,7 +126,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       setNotice("模板已删除。");
     });
   };
-  const createSurvey = (item: SurveyLibraryTemplate) =>
+  const createSurvey = (item: SurveyTemplateInput) =>
     execute(async (current) => {
       const parsed = SurveyRuntimeSchema.safeParse(
         await surveyRequest("/surveys", {
@@ -137,6 +148,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
   );
+  const builtins = getBuiltinSurveyTemplates(kind).filter(item => `${item.title} ${item.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 text-background-foreground sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -176,10 +188,10 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           刷新
         </Button>
       </div>
-      {error && (
+      {(error || loadError) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-card p-4">
           <p role="alert" className="text-13 text-destructive">
-            {error}
+            {[loadError,error].filter(Boolean).join("；")}
           </p>
           <Button
             variant="outline"
@@ -195,6 +207,8 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           {notice}
         </p>
       )}
+      <BuiltinTemplateCards items={builtins} base={base} busy={busy} onCopy={item=>void duplicate(item)} onCreate={item=>void createSurvey(item)} />
+      <h2 className="border-t border-border pt-6 text-16 font-semibold">我的模板</h2>
       {loading && (
         <p role="status" className="py-8 text-13 text-muted-foreground">
           正在加载模板…
@@ -272,19 +286,19 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           </article>
         ))}
       </div>
-      {!loading && !error && visible.length === 0 && (
+      {!loading && !error && !loadError && visible.length === 0 && (
         <div className="rounded-lg border border-dashed border-border px-6 py-14 text-center">
           <FileText
             className="mx-auto mb-4 h-8 w-8 text-muted-foreground"
             aria-hidden
           />
           <p className="text-16 font-medium">
-            {items.length ? "没有匹配的模板" : `还没有${label}`}
+            {items.length ? "没有匹配的模板" : `还没有个人${label}`}
           </p>
           <p className="mt-2 text-13 text-muted-foreground">
             {items.length
               ? "试试其他关键词。"
-              : "新建一份模板，保存自己的常用配置。"}
+              : "可以将上方内置模板保存为个人副本，也可以新建模板。"}
           </p>
         </div>
       )}

@@ -18,6 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import {
+  getBuiltinSurveyTemplates,
+  type BuiltinSurveyTemplate,
+} from "@/lib/survey/builtin-templates";
+import {
   remapReportTemplate,
   requiredTemplateQuestions,
 } from "@/lib/survey/template-reuse";
@@ -42,6 +46,7 @@ export function SurveyTemplateActions({
   const [mode, setMode] = React.useState<"save" | "use" | null>(null);
   const [name, setName] = React.useState("");
   const [error, setError] = React.useState("");
+  const [loadError, setLoadError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const saveLock = React.useRef(false);
@@ -50,7 +55,12 @@ export function SurveyTemplateActions({
   const [selected, setSelected] = React.useState("");
   const [bindings, setBindings] = React.useState<Record<string, string>>({});
   const [attempt, setAttempt] = React.useState(0);
-  const source = rows.find((row) => row.id === selected);
+  const builtins = React.useMemo(() => getBuiltinSurveyTemplates(kind), [kind]);
+  const choices: (SurveyLibraryTemplate | BuiltinSurveyTemplate)[] = [
+    ...builtins,
+    ...rows,
+  ];
+  const source = choices.find((row) => row.id === selected);
   const refs =
     source && kind === "report"
       ? requiredTemplateQuestions(source.template)
@@ -59,10 +69,8 @@ export function SurveyTemplateActions({
     if (mode !== "use") return;
     let active = true;
     setLoading(true);
-    setError("");
+    setLoadError("");
     setRows([]);
-    setSelected("");
-    setBindings({});
     void surveyRequest<unknown>(`/surveys/templates?kind=${kind}`)
       .then((data) => {
         const parsed = SurveyLibraryTemplateSchema.array().safeParse(data);
@@ -71,7 +79,7 @@ export function SurveyTemplateActions({
         if (active) setRows(parsed.data);
       })
       .catch((e) => {
-        if (active) setError((e as Error).message);
+        if (active) setLoadError((e as Error).message);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -84,6 +92,9 @@ export function SurveyTemplateActions({
     setName(kind === "question" ? draft.title : draft.template.title);
     setError("");
     setNotice("");
+    setLoadError("");
+    setSelected("");
+    setBindings({});
     setMode(next);
   };
   const save = async () => {
@@ -100,7 +111,11 @@ export function SurveyTemplateActions({
         template: draft.template,
       });
       if (!input.success)
-        throw new Error(input.error.issues.find(issue => issue.code === "custom" && issue.path.length === 0)?.message ?? "请填写模板名称，并先完善题目和内容块配置。");
+        throw new Error(
+          input.error.issues.find(
+            (issue) => issue.code === "custom" && issue.path.length === 0,
+          )?.message ?? "请填写模板名称，并先完善题目和内容块配置。",
+        );
       const saved = SurveyLibraryTemplateSchema.safeParse(
         await surveyRequest("/surveys/templates", {
           method: "POST",
@@ -210,6 +225,11 @@ export function SurveyTemplateActions({
               {error}
             </p>
           )}
+          {mode === "use" && loadError && (
+            <p role="alert" className="text-12 text-destructive">
+              {loadError}
+            </p>
+          )}
           {mode === "save" ? (
             <>
               <label className="space-y-2 text-12">
@@ -231,102 +251,111 @@ export function SurveyTemplateActions({
             </>
           ) : (
             <>
-              {loading ? (
-                <p role="status">正在加载模板…</p>
-              ) : (
-                <>
-                  {error && !rows.length && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setAttempt((n) => n + 1)}
-                    >
-                      重试加载
-                    </Button>
-                  )}
-                  {!error && !rows.length && (
-                    <p className="text-12 text-muted-foreground">
-                      还没有{label}，可先保存当前配置或前往模板库创建。
-                    </p>
-                  )}
-                  {rows.length > 0 && (
-                    <label className="space-y-2 text-12">
-                      选择{label}
-                      <select
-                        aria-label={`选择${label}`}
-                        className={selectStyle}
-                        value={selected}
-                        onChange={(e) => {
-                          setSelected(e.target.value);
-                          setBindings({});
-                          setError("");
-                        }}
-                      >
-                        <option value="">请选择模板</option>
+              {loading && <p role="status">正在加载我的模板…</p>}
+              {loadError && (
+                <Button
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => setAttempt((n) => n + 1)}
+                >
+                  重试加载
+                </Button>
+              )}
+              {!loading && !loadError && !rows.length && (
+                <p className="text-12 text-muted-foreground">
+                  还没有个人{label}，可选择内置模板，或先保存自己的配置。
+                </p>
+              )}
+              {choices.length > 0 && (
+                <label className="space-y-2 text-12">
+                  选择{label}
+                  <select
+                    aria-label={`选择${label}`}
+                    className={selectStyle}
+                    value={selected}
+                    disabled={busy || disabled}
+                    onChange={(event) => {
+                      setSelected(event.target.value);
+                      setBindings({});
+                      setError("");
+                    }}
+                  >
+                    <option value="">请选择模板</option>
+                    <optgroup label="内置模板">
+                      {builtins.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {rows.length > 0 && (
+                      <optgroup label="我的模板">
                         {rows.map((row) => (
                           <option key={row.id} value={row.id}>
                             {row.title}
                           </option>
                         ))}
-                      </select>
-                    </label>
-                  )}
-                  {source && (
-                    <p className="text-12 text-muted-foreground">
-                      {source.questions.length} 道题目 ·{" "}
-                      {source.template.sections.length} 个报告章节
-                    </p>
-                  )}
-                  {refs.length > 0 && (
-                    <fieldset className="space-y-3">
-                      <legend className="mb-3 text-14 font-medium">
-                        将模板题目对应到当前问卷
-                      </legend>
-                      {refs.map((id) => {
-                        const question = source!.questions.find(
-                          (q) => q.id === id,
-                        );
-                        return (
-                          <label key={id} className="block space-y-1 text-12">
-                            {question?.title ?? "模板题目引用已失效"}
-                            <select
-                              aria-label={`对应题目：${question?.title ?? id}`}
-                              className={selectStyle}
-                              value={bindings[id] ?? ""}
-                              onChange={(e) =>
-                                setBindings({
-                                  ...bindings,
-                                  [id]: e.target.value,
-                                })
-                              }
-                            >
-                              <option value="">请选择当前问卷题目</option>
-                              {draft.questions
-                                .filter((q) => q.type === question?.type)
-                                .map((q) => (
-                                  <option key={q.id} value={q.id}>
-                                    {q.order}. {q.title}
-                                  </option>
-                                ))}
-                            </select>
-                          </label>
-                        );
-                      })}
-                    </fieldset>
-                  )}
-                  <Button
-                    disabled={
-                      !source ||
-                      busy ||
-                      disabled ||
-                      locked ||
-                      refs.some((id) => !bindings[id])
-                    }
-                    onClick={apply}
-                  >
-                    应用模板
-                  </Button>
-                </>
+                      </optgroup>
+                    )}
+                  </select>
+                </label>
               )}
+              {source && (
+                <p className="text-12 text-muted-foreground">
+                  {source.questions.length} 道题目 ·{" "}
+                  {source.template.sections.length} 个报告章节
+                  {source.id.startsWith("builtin-")
+                    ? " · 内置配置，应用后独立编辑"
+                    : ""}
+                </p>
+              )}
+              {refs.length > 0 && (
+                <fieldset className="space-y-3" disabled={busy || disabled}>
+                  <legend className="mb-3 text-14 font-medium">
+                    将模板题目对应到当前问卷
+                  </legend>
+                  {refs.map((id) => {
+                    const question = source!.questions.find((q) => q.id === id);
+                    return (
+                      <label key={id} className="block space-y-1 text-12">
+                        {question?.title ?? "模板题目引用已失效"}
+                        <select
+                          aria-label={`对应题目：${question?.title ?? id}`}
+                          className={selectStyle}
+                          value={bindings[id] ?? ""}
+                          onChange={(event) =>
+                            setBindings({
+                              ...bindings,
+                              [id]: event.target.value,
+                            })
+                          }
+                        >
+                          <option value="">请选择当前问卷题目</option>
+                          {draft.questions
+                            .filter((q) => q.type === question?.type)
+                            .map((q) => (
+                              <option key={q.id} value={q.id}>
+                                {q.order}. {q.title}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+              )}
+              <Button
+                disabled={
+                  !source ||
+                  busy ||
+                  disabled ||
+                  locked ||
+                  refs.some((id) => !bindings[id])
+                }
+                onClick={apply}
+              >
+                应用模板
+              </Button>
             </>
           )}
         </DialogContent>

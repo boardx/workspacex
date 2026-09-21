@@ -185,3 +185,57 @@ describe("persisted survey template library", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("original built-in templates", () => {
+  it.each([["question",6,"组织画像"],["report",4,"企业数字协作成熟度诊断模板"]] as const)("keeps %s presets visible when personal library is empty",async(kind,count,title)=>{
+    request.mockResolvedValue([]);
+    render(<SurveyTemplateLibrary kind={kind}/>);
+    expect(await screen.findByText(title)).toBeInTheDocument();
+    const builtins=screen.getByRole("region",{name:"内置模板"});
+    expect(within(builtins).getAllByRole("article")).toHaveLength(count);
+    if(kind === "report") expect(within(builtins).queryByRole("button",{name:"使用并创建问卷"})).not.toBeInTheDocument();
+    expect(within(builtins).queryByRole("button",{name:"删除模板"})).not.toBeInTheDocument();
+    expect(within(builtins).queryByText(/更新于|份答卷/)).not.toBeInTheDocument();
+    await screen.findByText(`还没有个人${kind==="question"?"问卷模板":"报告模板"}`);
+  });
+  it("keeps builtin contents available while showing a personal load failure",async()=>{
+    request.mockRejectedValue(new Error("个人模板无法读取"));
+    render(<SurveyTemplateLibrary kind="question"/>);
+    expect(await screen.findByRole("alert")).toHaveTextContent("个人模板无法读取");
+    expect(screen.getByText("组织画像")).toBeInTheDocument();
+    const card=screen.getByText("组织画像").closest("article")!;
+    expect(within(card).getByRole("button",{name:"使用并创建问卷"})).toBeEnabled();
+  });
+  it("copies builtin configuration into personal storage without fake runtime fields",async()=>{
+    request.mockResolvedValueOnce([]).mockImplementationOnce(async(_path,options)=>({ ...options.body,id:"saved-copy",version:1,updatedAt:"2026-09-21T00:00:00.000Z" }));
+    render(<SurveyTemplateLibrary kind="question"/>);
+    const card=(await screen.findByText("组织画像")).closest("article")!;
+    fireEvent.click(within(card).getByRole("button",{name:"保存到我的模板"}));
+    await screen.findByText("组织画像 副本");
+    const [path,options]=request.mock.calls[1]!;
+    expect(path).toBe("/surveys/templates");
+    expect(options.body.questions).toHaveLength(3);
+    expect(Object.keys(options.body).sort()).toEqual(["description","kind","questions","template","title"]);
+    expect(within(screen.getByRole("region",{name:"内置模板"})).getByText("组织画像")).toBeInTheDocument();
+  });
+  it("creates a real empty-response survey from the original organization preset",async()=>{
+    request.mockResolvedValueOnce([]).mockImplementationOnce(async(_path,options)=>({ ...options.body,id:"survey-from-builtin",version:1,answerRevision:0,updatedAt:"2026-09-21T00:00:00.000Z",responses:[],publication:null,report:null,reportBasisVersion:null,reportBasisAnswerRevision:null,reportGeneratedAt:null }));
+    render(<SurveyTemplateLibrary kind="question"/>);
+    const card=(await screen.findByText("组织画像")).closest("article")!;
+    fireEvent.click(within(card).getByRole("button",{name:"使用并创建问卷"}));
+    await waitFor(()=>expect(router.push).toHaveBeenCalledWith("/studio/survey/survey-from-builtin"));
+    expect(Object.keys(request.mock.calls[1]![1].body).sort()).toEqual(["questions","template","title"]);
+  });
+});
+
+it("late initial GET cannot hide a builtin copy saved while loading",async()=>{
+  let resolveLoad!:(value:unknown)=>void;
+  request.mockImplementationOnce(()=>new Promise(resolve=>{resolveLoad=resolve;})).mockImplementationOnce(async(_path,options)=>({...options.body,id:"created-while-loading",version:1,updatedAt:"2026-09-21T00:00:00.000Z"}));
+  render(<SurveyTemplateLibrary kind="question"/>);
+  const card=screen.getByText("组织画像").closest("article")!;
+  fireEvent.click(within(card).getByRole("button",{name:"保存到我的模板"}));
+  await screen.findByText("组织画像 副本");
+  resolveLoad([]);
+  await waitFor(()=>expect(screen.queryByText("正在加载模板…")).not.toBeInTheDocument());
+  expect(screen.getByText("组织画像 副本")).toBeInTheDocument();
+});
