@@ -12,9 +12,11 @@
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
+// 「哪个 issue 是 work-cycle issue、怎么读它的评论」只写一处：#534 的门与本表共用
+// 同一个读取口，免得门与健康表各读各的、判断不一致（AGENTS.md：同一事实不得声明在两处）。
+import { WORK_CYCLE_LABEL, fetchWorkCycleComments } from "./lib/cycle-result-gate";
 
 const CYCLE_HOURS = 3;
-const WORK_CYCLE_LABEL = "coordination:work-cycle";
 
 interface PrSummary {
   number: number;
@@ -55,27 +57,6 @@ function median(values: number[]): number | null {
   return upper ?? null;
 }
 
-function findWorkCycleIssue(): number | null {
-  const result = sh(
-    `gh issue list --state open --label ${JSON.stringify(WORK_CYCLE_LABEL)} --json number --limit 1`
-  );
-  if (result.code !== 0) return null;
-  const parsed = JSON.parse(result.stdout || "[]") as Array<{ number: number }>;
-  return parsed[0]?.number ?? null;
-}
-
-function readCycleComments(issueNumber: number): IssueComment[] {
-  const result = sh(
-    `gh issue view ${issueNumber} --json comments --jq '[.comments[-60:][] | {body, createdAt}]'`
-  );
-  if (result.code !== 0) return [];
-  try {
-    return JSON.parse(result.stdout || "[]") as IssueComment[];
-  } catch {
-    return [];
-  }
-}
-
 function listPrs(state: "open" | "merged", limit: number): PrSummary[] {
   const fields = state === "merged" ? "number,title,createdAt,mergedAt" : "number,title,createdAt";
   const result = sh(`gh pr list --state ${state} --limit ${limit} --json ${fields}`);
@@ -108,11 +89,16 @@ export async function cycleReport(_args: Args): Promise<void> {
   log.step(`当前周期：${id}（已进行 ${elapsedMinutes} 分钟 / ${CYCLE_HOURS * 60} 分钟）`);
 
   // 1. cycle-plan / cycle-result 评论
-  const issueNumber = findWorkCycleIssue();
-  if (issueNumber === null) {
-    log.warn(`未找到 label 为 ${WORK_CYCLE_LABEL} 的 work-cycle issue——cycle-plan/result 无处可读。`);
+  const fetched = fetchWorkCycleComments({ limit: 60 });
+  if (fetched.kind !== "ok") {
+    log.warn(
+      fetched.kind === "no-issue"
+        ? `未找到 label 为 ${WORK_CYCLE_LABEL} 的 work-cycle issue——cycle-plan/result 无处可读。`
+        : `读不到 work-cycle issue 的评论（${fetched.reason}）——cycle-plan/result 这一节不做判断。`,
+    );
   } else {
-    const comments = readCycleComments(issueNumber);
+    const issueNumber = fetched.issue;
+    const comments: IssueComment[] = fetched.comments;
     const plans = comments.filter((c) => c.body.startsWith("cycle-plan") && c.body.includes(`cycle:${id}`));
     const results = comments.filter((c) => c.body.startsWith("cycle-result"));
     log.info(`work-cycle issue：#${issueNumber}`);
