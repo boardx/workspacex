@@ -111,9 +111,21 @@ export function SurveyReportDocument({
           className="mb-10 scroll-mt-4"
         >
           <h2 className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
+          {!!section.analysis?.length && (
+            <div className="mb-6 space-y-4" data-testid="survey-section-analysis">
+              {section.analysis.map((insight, index) => (
+                <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
+                  <h3 className="mb-2 text-16 font-semibold text-primary">{insight.title}</h3>
+                  <p className="text-14 leading-7">{insight.evidence}</p>
+                  <p className="mt-3 text-14 leading-7"><strong>建议行动：</strong>{insight.action}</p>
+                </div>
+              ))}
+            </div>
+          )}
           {!section.blocks.length && (
             <p className="text-muted-foreground">本章尚无内容</p>
           )}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {section.blocks.map((block) =>
             block.type === "page-break" ? (
               <div
@@ -122,7 +134,7 @@ export function SurveyReportDocument({
                 style={{ breakAfter: "page" }}
               />
             ) : (
-              <div key={block.id} className="mb-8 rounded-lg border border-border p-5 sm:p-6" data-report-block={block.id}>
+              <div key={block.id} className={`rounded-lg border border-border p-5 ${block.type === "metric" ? "" : "sm:col-span-2"}`} data-report-block={block.id}>
                 <h3 className="mb-3 text-16 font-semibold">{block.title}</h3>
                 {block.text && (
                   <p className="mb-4 whitespace-pre-wrap text-14 leading-7">
@@ -202,6 +214,7 @@ export function SurveyReportDocument({
               </div>
             ),
           )}
+          </div>
         </section>
       ))}
     </article>
