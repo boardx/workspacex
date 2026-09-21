@@ -72,6 +72,14 @@ const CHANGED_HIGHLIGHT_MS = 6000;
 /** 共用同一个空集：每次渲染新建一个会让画布的 context 每帧都变。 */
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
+/**
+ * 迭代 16（#3773 R7）：刚建好的项目自动发的第一句话。
+ *
+ * 不重复背景内容——服务端每一轮都带着 `problem`、`criteria` 和澄清问答的结果，
+ * 再抄一遍只会把同一件事说两遍。这句话只说"开始"。
+ */
+const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原型。";
+
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
@@ -117,11 +125,17 @@ type Load =
  */
 export function DesignDetailScreen({
   projectId,
+  autoStart = false,
   onBack,
   onOpenInbox,
   onNextDesign,
 }: {
   projectId: string;
+  /**
+   * 迭代 16（#3773 R7）：这是**刚建好**的项目，进来就照背景画第一版。
+   * 由创建流程跳转时带上（`?new=1`），不是每次打开详情页都成立——见 `autoStartedRef` 那段。
+   */
+  autoStart?: boolean;
   onBack?: () => void;
   onOpenInbox?: () => void;
   onNextDesign?: () => void;
@@ -200,6 +214,25 @@ export function DesignDetailScreen({
   const [pushError, setPushError] = React.useState<string | null>(null);
   const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * 迭代 16（#3773 R7）—— **刚建好的项目自动画第一版**，不让用户把刚说过的话再说一遍。
+   *
+   * 在这之前的路径是：新建 → 回答六个澄清问题 → 写背景 → 进详情页 → **画布是空的**，
+   * 还要在左边再描述一遍要什么，才开始画。用户刚刚才把这个产品讲了一遍，进来看到的
+   * 却是一句「在左边描述你要的界面」——这一步纯粹是让他重说，是「基本上不能用」里
+   * 最没道理的一段摩擦。
+   *
+   * 触发条件四条**同时**成立，缺一不可：
+   *   ① 调用方明确说了这是**刚建好**的项目（`autoStart`，由创建流程跳转时带上）。
+   *      ⚠ 这一条最重要：只看"没有原型 + 没说过话"的话，半年前建了没画的老项目
+   *      被打开时也会自动跑起来——替用户花掉一次生成，他没要过。
+   *   ② 还没有任何原型（不覆盖已有的画布）；
+   *   ③ 用户一句话都还没说过（`chat` 里没有 `user` 轮——导入留痕是 `system`，不算）；
+   *   ④ 背景非空（没有背景就真的无从画起，那时候该让他先说）。
+   * 并且**每个项目只自动发一次**（`autoStartedRef` 按 id 记），失败也不重试——
+   * 自动重试会让一个必然失败的请求在用户面前反复跑。
+   */
+  const autoStartedRef = React.useRef<string | null>(null);
   /**
    * 迭代 16（#3773 R2）——**生成期间轮询项目，画布一页页长出来**。
    *
@@ -423,6 +456,20 @@ export function DesignDetailScreen({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  React.useEffect(() => {
+    if (project === null || sending) return;
+    if (!autoStart || autoStartedRef.current === project.id) return;
+    const saidSomething = project.chat.some((t) => t.role === "user");
+    if (project.prototype.length > 0 || saidSomething || project.problem.trim() === "") return;
+    autoStartedRef.current = project.id;
+    // 发的是一句**真的会出现在对话里**的话——不是隐形的自动行为。
+    // 用户看得见它说了什么，也就能接着改它。
+    void send(AUTO_FIRST_PROMPT);
+    // `send` 每次渲染都是新函数，进依赖数组会让这个 effect 每帧都重跑；
+    // 真正的守卫是 `autoStartedRef`（每个项目只发一次），不是依赖数组。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, sending, autoStart]);
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，

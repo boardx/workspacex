@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 
 /**
@@ -12,11 +12,14 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  */
 export default function StudioDesignDetailPage() {
   const params = useParams();
+  const search = useSearchParams();
   const router = useRouter();
   const projectId = Array.isArray(params.projectId) ? params.projectId[0] : params.projectId;
   return (
     <DesignDetailScreen
       projectId={projectId ?? ""}
+      // 迭代 16（#3773 R7）：只有创建流程跳过来时才带 `?new=1`（见 `studio-workbench-screen.tsx`）。
+      autoStart={search.get("new") === "1"}
       onBack={() => router.push("/studio/design-workbench")}
       onOpenInbox={() => router.push("/platform-admin/inbox")}
       onNextDesign={() => router.push("/studio/design-workbench")}

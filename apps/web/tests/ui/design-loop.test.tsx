@@ -1950,7 +1950,9 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     expect(screen.getByTestId("workbench-generating")).toBeTruthy();
     expect(onOpenProject).not.toHaveBeenCalled();
     resolveCreate({ project: project({ id: "p-real", name: "新设计" }) });
-    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith("p-real"));
+    // 迭代 16（#3773 R7）：第二个参数 `justCreated` 说明这一次是**刚建出来的**——
+    // 详情页据它决定要不要照背景自动画第一版（列表里点开老项目不带它）。
+    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith("p-real", true));
   });
 
   it("删除：调真实 deleteProject 成功才从列表移除", async () => {
@@ -3203,6 +3205,65 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
     fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
+  });
+
+  it("迭代 16（#3773 R7）：刚建好的项目**自动照背景画第一版**，不让用户把刚说过的话再说一遍", async () => {
+    const posted: { text?: string }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string } }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ problem: "客服团队要一个内部对话助手", prototype: [] as never, frames: [], chat: [] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: project({ problem: "客服团队要一个内部对话助手", frames: ["聊天"], prototype: [{ type: "text", id: "t", props: { content: "聊天" } }] as never,
+            chat: [{ role: "user", text: opts.body?.text ?? "", at: "2026-09-08T00:00:00.000Z" }] }),
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+
+    // ⭐ 反证锚点：去掉自动开画 ⇒ 这条红。用户刚回答完六个澄清问题、写完背景，
+    // 进来看到的却是一句「在左边描述你要的界面」——纯粹是让他重说一遍。
+    render(<DesignDetailScreen projectId="p1" autoStart />);
+    await waitFor(() => expect(posted).toHaveLength(1));
+    // 发的是一句**真的出现在对话里**的话，不是隐形的自动行为——用户看得见它说了什么。
+    expect(posted[0]?.text).toContain("画第一版原型");
+    expect((await screen.findByTestId("design-detail-chat")).textContent).toContain("画第一版原型");
+    // 只发一次：不会因为重渲染反复开画。
+    await new Promise((r) => setTimeout(r, 50));
+    expect(posted).toHaveLength(1);
+  });
+
+  it("迭代 16（#3773 R7）：**不带 `autoStart` 打开老项目不会自动开画**（不替用户花掉一次生成）", async () => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ problem: "半年前写的背景", prototype: [] as never, frames: [], chat: [] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") { posted.push(1); return {}; }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(posted).toHaveLength(0);
+    // 这种项目照旧看到起手式示例。
+    expect(screen.getByTestId("design-detail-starters")).toBeTruthy();
+  });
+
+  it("迭代 16（#3773 R7）：背景为空 ⇒ 即便带 `autoStart` 也不开画（无从画起，该让他先说）", async () => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ problem: "", prototype: [] as never, frames: [], chat: [] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") { posted.push(1); return {}; }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" autoStart />);
+    await screen.findByTestId("design-detail");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(posted).toHaveLength(0);
   });
 
   it("迭代 16（#3773 R6）：预览里跳过去之后能**返回**，像用真的 App 一样走一遍", async () => {
