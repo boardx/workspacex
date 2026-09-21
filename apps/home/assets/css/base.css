@@ -115,6 +115,14 @@ h3 { font-size: var(--t-h3); letter-spacing: -0.02em; line-height: 1.2; }
 :lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4 { letter-spacing: -0.01em; }
 :lang(zh) body, :lang(zh) p { line-height: 1.75; }
 
+/* Han glyphs fill their em box; latin letters do not. At an identical pixel
+   size a Chinese headline therefore reads noticeably heavier and larger than
+   the English one it replaces, and the two languages stop looking like the
+   same design. Scaling the display sizes back restores the match. */
+:lang(zh) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:lang(zh) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:lang(zh) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+
 p { text-wrap: pretty; }
 
 /* ---- utility ------------------------------------------------------------- */
@@ -167,3 +175,34 @@ p { text-wrap: pretty; }
 
 /* ---- selection ----------------------------------------------------------- */
 ::selection { background: rgba(255, 46, 115, 0.3); color: #fff; }
+
+/* ==========================================================================
+   Text shaping details
+   ========================================================================== */
+
+/* Chinese line breaking: `strict` keeps closing brackets, small kana and the
+   like from starting a line, which `normal` permits. Chinese has no spaces, so
+   `word-break: normal` is what allows breaks between Han characters at all. */
+:lang(zh) body,
+:lang(zh) p,
+:lang(zh) li,
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3 {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
+   in a narrow column and will otherwise push the whole layout sideways. */
+p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
+
+/* Numerals in the mono indices are read as a column; proportional figures make
+   that column ragged. */
+.card__index, .rail__num, .unit__n, .eyebrow, .tag, .surface__path {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quotation marks and the leading dash of a list hang into the margin where
+   the engine supports it, which is what stops a typeset paragraph looking
+   indented by accident. Safari only today; harmless elsewhere. */
+p, .lead, .keyline { hanging-punctuation: first last; }
