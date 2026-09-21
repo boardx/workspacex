@@ -14,6 +14,7 @@
     "lint:spec-gate-coverage": "node .harness/scripts/lint-spec-gate-coverage.mjs",
     "lint:chat-path-coverage": "node .harness/scripts/lint-chat-path-coverage.mjs",
     "lint:graph": "pnpm harness graph validate --no-cache",
+    "lint:feature-transition": "pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition",
     "lint:body-path-param-leak": "pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs",
     "test:uiux-review-log-schema": "vitest run --config .harness/vitest.config.ts --dir .harness uiux-review-log-schema.test.ts",
     "test:uiux-review-log-stats": "vitest run --config .harness/vitest.config.ts --dir .harness uiux-review-log-stats.test.ts",
