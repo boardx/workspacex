@@ -73,13 +73,19 @@ export function SurveyQuestionEditor({
   }
   const issues = question ? validateSurveyQuestion(question) : [];
   if (overviewFirst && !editing) {
+    const answerQuestions = questions.filter(
+      (item) => !["description", "page_break"].includes(item.type),
+    );
+    const answerOrdinalById = new Map(
+      answerQuestions.map((item, answerIndex) => [item.id, answerIndex + 1]),
+    );
     return (
       <div className="mx-auto w-full max-w-4xl space-y-5 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
           <div>
             <h2 className="text-18 font-semibold">一页查看问卷</h2>
             <p className="mt-1 text-12 text-muted-foreground">
-              共 {questions.filter((item) => item.type !== "page_break").length} 题
+              共 {answerQuestions.length} 题
             </p>
           </div>
           {!locked && (
@@ -96,41 +102,52 @@ export function SurveyQuestionEditor({
         </div>
         {questions.length ? (
           <ol className="space-y-4" aria-label="问卷全部题目">
-            {questions.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-lg border border-border bg-card p-4 sm:p-5"
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <span className="text-12 font-medium text-muted-foreground">
-                    {item.type === "page_break" ? "分节" : `第 ${item.order} 题`}
-                  </span>
-                  {!locked && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={`编辑第 ${item.order} 题`}
-                      onClick={() => {
-                        setId(item.id);
-                        setPendingType(undefined);
-                        setEditing(true);
-                      }}
-                    >
-                      编辑
-                    </Button>
-                  )}
-                </div>
-                <SurveyQuestionRenderer
-                  question={item}
-                  value={answers[item.id]}
-                  showDescription={false}
-                  onChange={(value) =>
-                    setAnswers((current) => ({ ...current, [item.id]: value }))
-                  }
-                />
-              </li>
-            ))}
+            {questions.map((item) => {
+              const answerOrdinal = answerOrdinalById.get(item.id);
+              const itemLabel = answerOrdinal
+                ? `第 ${answerOrdinal} 题`
+                : item.type === "page_break"
+                  ? "分节"
+                  : "说明";
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-lg border border-border bg-card p-4 sm:p-5"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <span className="text-12 font-medium text-muted-foreground">
+                      {itemLabel}
+                    </span>
+                    {!locked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`编辑${itemLabel}`}
+                        onClick={() => {
+                          setId(item.id);
+                          setPendingType(undefined);
+                          setEditing(true);
+                        }}
+                      >
+                        编辑
+                      </Button>
+                    )}
+                  </div>
+                  <SurveyQuestionRenderer
+                    question={item}
+                    value={answers[item.id]}
+                    showDescription={false}
+                    onChange={(value) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [item.id]: value,
+                      }))
+                    }
+                  />
+                </li>
+              );
+            })}
           </ol>
         ) : (
           <div className="rounded-lg border border-dashed border-border py-16 text-center">

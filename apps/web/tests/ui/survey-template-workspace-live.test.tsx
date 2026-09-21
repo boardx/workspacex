@@ -43,8 +43,16 @@ describe("persisted template workspace", () => {
           row().questions[0]!,
           {
             ...row().questions[0]!,
-            id: "q-2",
+            id: "section-break",
             order: 2,
+            type: "page_break",
+            title: "工作体验",
+            required: false,
+          },
+          {
+            ...row().questions[0]!,
+            id: "q-2",
+            order: 3,
             title: "第二题",
             options: ["同意", "不同意"],
             config: { description: "仅供编辑时查看的题目说明" },
@@ -60,6 +68,9 @@ describe("persisted template workspace", () => {
     expect(screen.getByRole("group", { name: /第二题/ })).toBeInTheDocument();
     expect(screen.getByLabelText("好")).toBeInTheDocument();
     expect(screen.getByLabelText("同意")).toBeInTheDocument();
+    expect(screen.getByText("共 2 题")).toBeInTheDocument();
+    expect(screen.getByText("第 2 题")).toBeInTheDocument();
+    expect(screen.queryByText("第 3 题")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("问题内容")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("所属章节")).not.toBeInTheDocument();
     expect(screen.queryByText("高级规则")).not.toBeInTheDocument();
