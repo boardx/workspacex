@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { BROWSER_FAILURE_CLASSES } from '../../src/application/agent-run/standard-browser-tools';
 import type { BrowserContext, BrowserInvocationOutput } from '../../src/application/agent-run/standard-browser-tools';
 import type { DatabasePort, QueryResult, TenantSession } from '../../src/application/ports/database.port';
 import { PgBrowserExecutionReceipts } from '../../src/infrastructure/agent-run/pg-browser-execution-receipts';
@@ -9,6 +10,7 @@ interface Row {
   args_digest: string;
   status: 'pending' | 'succeeded' | 'unconfirmed';
   result: unknown;
+  unconfirmed_reason?: string;
 }
 
 function database() {
@@ -32,7 +34,10 @@ function database() {
         return { rows: [{ saved: true }] as R[] };
       }
       if (sql.includes('kernel_mark_browser_execution_unconfirmed')) {
-        if (row?.status === 'pending' && row.tool_name === params[3] && row.args_digest === params[4]) row.status = 'unconfirmed';
+        if (row?.status === 'pending' && row.tool_name === params[3] && row.args_digest === params[4]) {
+          row.status = 'unconfirmed';
+          row.unconfirmed_reason = String(params[5]);
+        }
         return { rows: [] };
       }
       throw new Error(`unexpected query: ${sql}`);
@@ -74,8 +79,30 @@ describe('Pg browser execution receipts', () => {
     const receipts = new PgBrowserExecutionReceipts(db);
     expect(await receipts.claim(context('call-unknown'), invocation, 'digest-a', deadline())).toEqual({ kind: 'claimed' });
     expect(await new PgBrowserExecutionReceipts(db).claim(context('call-unknown'), invocation, 'digest-a', deadline())).toEqual({ kind: 'unconfirmed' });
-    await receipts.markUnconfirmed(context('call-unknown'), invocation, 'digest-a');
+    await receipts.markUnconfirmed(context('call-unknown'), invocation, 'digest-a', 'session_launch_failed');
     expect(await receipts.claim(context('call-unknown'), invocation, 'digest-a', deadline())).toEqual({ kind: 'unconfirmed' });
+  });
+
+  it('stores why the outcome is unknown so BLOCKED and FAIL are not the same durable row', async () => {
+    const { db, rows } = database();
+    const receipts = new PgBrowserExecutionReceipts(db);
+    await receipts.claim(context('call-blocked'), invocation, 'digest-a', deadline());
+    await receipts.markUnconfirmed(context('call-blocked'), invocation, 'digest-a', 'session_launch_failed');
+    await receipts.claim(context('call-failed'), invocation, 'digest-a', deadline());
+    await receipts.markUnconfirmed(context('call-failed'), invocation, 'digest-a', 'upstream_tool_error');
+    expect(rows.get('org:run-a:call-blocked')?.unconfirmed_reason).toBe('session_launch_failed');
+    expect(rows.get('org:run-a:call-failed')?.unconfirmed_reason).toBe('upstream_tool_error');
+  });
+
+  it('persists the reason through a function that refuses an unshaped one', () => {
+    const sql = readFileSync(new URL('../../migrations/20260921120000_browser_unconfirmed_reason.sql', import.meta.url), 'utf8');
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS unconfirmed_reason text NULL');
+    expect(sql).toContain('DROP FUNCTION IF EXISTS public.kernel_mark_browser_execution_unconfirmed(text,text,text,text,text)');
+    expect(sql).toContain("p_reason !~ '^[a-z][a-z_]{2,63}$'");
+    expect(sql).toContain('unconfirmed_reason=p_reason');
+    expect(sql).toContain("status='pending'");
+    // The reason list itself stays in BROWSER_FAILURE_CLASSES; a SQL CHECK would be a second copy.
+    for (const value of BROWSER_FAILURE_CLASSES) expect(sql).not.toContain(`'${value}'`);
   });
 
   it('locks the running leased run and exposes only narrow browser receipt functions', () => {
