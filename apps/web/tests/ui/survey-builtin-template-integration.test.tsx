@@ -80,6 +80,7 @@ describe("builtin template integration", () => {
     fireEvent.change(screen.getByLabelText("模板名称"), {
       target: { value: "我的改进版" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题" }));
     fireEvent.change(screen.getByLabelText("问题内容"), {
       target: { value: "修改的问题" },
     });
