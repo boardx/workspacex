@@ -188,10 +188,15 @@ export function normalizeCanvasFenceSections(text: string, templates: readonly C
        * real section of THIS template, with nothing after the colon and a bullet underneath,
        * is rewritten; anything else is left exactly as the model wrote it.
        */
-      const bare = /^\s*([^#\-\s][^:：\n]{0,40})\s*[:：][ \t]*(.*)$/.exec(line);
+      // Three shapes seen from a 4B, all meaning "this is a section" (eval lane 2026-09-22):
+      //   `分区名:` + bullets ／ `分区名：一整段内容` ／ `分区名` on its own line + bullets.
+      // Only a line that resolves to a real section of THIS template is touched.
+      const withColon = /^\s*([^#\-\s][^:：\n]{0,40})\s*[:：][ \t]*(.*)$/.exec(line);
+      const bareLine = withColon ? null : /^\s*([^#\-\s][^:：\n]{0,40})\s*$/.exec(line);
+      const bare = withColon ?? bareLine;
       if (bare && t.sections?.length) {
         const name = bare[1]!.trim();
-        const rest = bare[2] ?? "";
+        const rest = withColon ? (bare[2] ?? "") : "";
         const next = lines.slice(i + 1).find((l) => l.trim() !== "");
         const bulletsFollow = next !== undefined && /^\s*[-*]\s+\S/.test(next);
         // `分区名:` + bullets, or `分区名：一整段内容` on one line — both are a section the

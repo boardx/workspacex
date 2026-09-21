@@ -74,3 +74,20 @@ describe("one-line sections and the format-spec echo", () => {
     expect(normalizeCanvasFenceSections(text, P).text).toBe(text);
   });
 });
+
+describe("a section name on a bare line", () => {
+  const J = [{ key: "jtbd", displayName: "JTBD", fields: ["执行者"], sections: ["情境触发", "核心任务"] }];
+
+  it("promotes `分区名` + bullets, with no colon at all (third shape seen from a 4B)", () => {
+    const text = "```canvas\n模板: jtbd\n执行者：在校大学生\n情境触发\n- 就业与考研的分流焦虑\n核心任务\n- 自我定位与岗位匹配\n```";
+    const r = normalizeCanvasFenceSections(text, J);
+    expect(r.text).toContain("\n## 情境触发\n");
+    expect(r.text).toContain("\n## 核心任务\n");
+    expect(r.text).toContain("执行者：在校大学生");
+  });
+
+  it("leaves a bare line that is not a section name, and one with no bullets under it", () => {
+    const text = "```canvas\n模板: jtbd\n一句普通的话\n- x\n情境触发\n又一句普通的话\n```";
+    expect(normalizeCanvasFenceSections(text, J).text).toBe(text);
+  });
+});
