@@ -604,6 +604,8 @@ async function executeClaimed(
   run: ClaimedAgentRun,
 ): Promise<void> {
   let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
+  // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
+  let excludedTools: readonly string[] | undefined;
   // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
   // this mirrors an already-true fact (I-3 decoupling).
   publishStatusChange(deps, orgId, run.runId, "running");
@@ -701,7 +703,15 @@ async function executeClaimed(
     const catalogSkills = systemPromptMode !== "deep-agent-catalog" ? skills
       : canvasRequested && catalogCfg.mode === "matched" ? []
       : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
-    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 ? buildSkillCatalogHint(skills.length) : null;
+    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 && !canvasRequested ? buildSkillCatalogHint(skills.length) : null;
+    /**
+     * #3749 R2 —— 一张工作坊画布是靠写 ```canvas 围栏产出的，没有任何 skill 能代劳。
+     * 把 skill 工具留在桌面上，4B 会：臆造一个 skill 名 → 报「未知技能」→ 调
+     * `list_org_skills` 查目录 → 把画布委托给 `diagram-and-canvas`，后者回一张 markdown
+     * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
+     * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
+     */
+    excludedTools = canvasRequested ? ["call_skill", "list_org_skills", "web_search", "fetch_url"] : undefined;
     system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
@@ -1151,6 +1161,7 @@ async function executeClaimed(
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
+        ...(excludedTools === undefined ? {} : { excludedTools }),
         // deep-agent 专属字段（`hitlSkillNames` #2767 / `planConfirmMinSteps` #3132）的
         // 判定住在 `deep-agent-kernel-fields.ts`，网关只负责摊开——同 `invokeKernel`。
         ...buildDeepAgentKernelFields({ isDeepAgentRun, mountedSkillCount: toolSkills.length, skillRisks }),
@@ -1345,6 +1356,7 @@ async function executeClaimed(
             user: feedback,
             history: [...history, { role: "assistant", content: text }],
             skills: toolSkills,
+            ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
           /*

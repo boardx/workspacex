@@ -57,12 +57,17 @@ const PROMPTS = {
 
 async function ledgerTiming(client, remoteRunId) {
   if (!client || !remoteRunId) return {};
+  // `modelCalls` is the low-variance measure of agent-loop efficiency: wall time on a busy
+  // laptop swings 3x for the same prompt, the number of model round trips does not.
+  const nodes = await client.query("select data from wsx_agent_events where run_id=$1 and event='updates'", [remoteRunId]);
+  const modelCalls = nodes.rows.filter((x) => Object.keys(x.data ?? {}).includes("model")).length;
+  const toolNodes = nodes.rows.filter((x) => Object.keys(x.data ?? {}).includes("tools")).length;
   const r = await client.query("select event, created_at from wsx_agent_events where run_id=$1 order by sequence", [remoteRunId]);
   const rows = r.rows; if (!rows.length) return {};
   const chunks = rows.filter((x) => x.event === "messages");
   const first = rows[0].created_at, firstChunk = chunks[0]?.created_at, lastChunk = chunks.at(-1)?.created_at;
   const genMs = firstChunk && lastChunk ? lastChunk - firstChunk : null;
-  return { firstChunkMs: firstChunk ? firstChunk - first : null, chunks: chunks.length, chunksPerSec: genMs ? +(chunks.length / (genMs / 1000)).toFixed(1) : null, lastEventMs: rows.at(-1).created_at - first };
+  return { modelCalls, toolNodes, firstChunkMs: firstChunk ? firstChunk - first : null, chunks: chunks.length, chunksPerSec: genMs ? +(chunks.length / (genMs / 1000)).toFixed(1) : null, lastEventMs: rows.at(-1).created_at - first };
 }
 async function systemPromptChars(remoteThreadId) {
   if (!process.env.DEEP_AGENT_URL || !process.env.DEEP_AGENT_KEY || !remoteThreadId) return null;
@@ -118,9 +123,9 @@ async function titleAfter(threadId, sentText) {
 function summarize(runs, jsons) {
   const by = {}; for (const r of runs) (by[r.category] ??= []).push(r);
   const med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
-  const lines = ["| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |", "|---|---|---|---|---|---|---|---|---|"];
-  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length} |`);
-  for (const [name, xs] of Object.entries(jsons)) if (xs.length) lines.push(`| ${name} | ${xs.length} | ${xs.filter((x) => x.ok).length} | ${(med(xs.map((x) => x.ms)) / 1000).toFixed(1)} | - | - | - | - | - |`);
+  const lines = ["| 类别 | n | 成功 | 模型调用中位 | wall 中位 s | 首块中位 s | 块/s 中位 | 提示 chars | 用工具的 run | 画布围栏 |", "|---|---|---|---|---|---|---|---|---|---|"];
+  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${med(rs.map((r) => r.modelCalls)) ?? "-"} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length} |`);
+  for (const [name, xs] of Object.entries(jsons)) if (xs.length) lines.push(`| ${name} | ${xs.length} | ${xs.filter((x) => x.ok).length} | - | ${(med(xs.map((x) => x.ms)) / 1000).toFixed(1)} | - | - | - | - | - |`);
   return lines.join("\n");
 }
 
@@ -134,7 +139,7 @@ for (const category of ["chat", "url", "canvas"]) {
   if (!want(category)) continue;
   for (const text of PROMPTS[category]) for (let i = 0; i < REPS; i++) {
     const r = await chatRun(client, category, text); runs.push(r);
-    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence} :: ${text.slice(0, 30)}`);
+    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s calls=${r.modelCalls ?? "-"} first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence} :: ${text.slice(0, 30)}`);
     if (category === "chat" && (SUITE === "all" || SUITE === "json")) { jsons.title.push(await titleAfter(r.threadId, text)); jsons.followup.push(await followup(r.threadId)); }
   }
 }

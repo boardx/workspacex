@@ -57,3 +57,22 @@ async def test_middleware_passes_the_request_through_untouched_when_nothing_matc
 
 @pytest.fixture
 def anyio_backend(): return "asyncio"
+
+
+@pytest.mark.anyio
+async def test_per_run_exclusions_come_from_configurable(monkeypatch):
+    """The API decides per turn (canvas request ⇒ no skill tools); env and config union."""
+    import deep_agent_service.tool_budget as tb
+    monkeypatch.setattr(tb, "per_run_excluded_tools", lambda: frozenset({"call_skill", "list_org_skills"}))
+    seen = []
+    async def handler(req):
+        seen.append(req); return "ok"
+    req = Req([{"name": "call_skill"}, {"name": "list_org_skills"}, {"name": "write_todos"}, {"name": "grep"}])
+    await tb.ToolBudgetMiddleware(excluded=frozenset({"grep"})).awrap_model_call(req, handler)
+    assert [t["name"] for t in seen[-1].tools] == ["write_todos"]
+
+
+def test_per_run_exclusions_are_empty_outside_a_graph_run():
+    """`get_config()` raises outside a LangGraph node; that is 'no per-run exclusions', not a crash."""
+    from deep_agent_service.tool_budget import per_run_excluded_tools
+    assert per_run_excluded_tools() == frozenset()

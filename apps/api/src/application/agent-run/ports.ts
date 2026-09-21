@@ -931,6 +931,12 @@ export interface ModelCallInput {
    * 开关的部署忽略它，请求逐字节不变。
    */
   readonly responseSchema?: ModelResponseSchema;
+  /**
+   * #3749 R2：本次调用不该让模型看见的工具名。OPTIONAL——只有 deep-agent provider 转发
+   * （`configurable.excluded_tools`，远端 `ToolBudgetMiddleware` 读），其余 provider 忽略。
+   * 缺席 ⇒ 请求逐字节不变。
+   */
+  readonly excludedTools?: readonly string[];
   /** Non-secret binding issued by the trusted native session owner. */
   readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */

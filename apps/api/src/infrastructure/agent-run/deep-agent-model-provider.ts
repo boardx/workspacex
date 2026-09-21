@@ -1191,6 +1191,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
               org_skills: toWireSkills(input.skills),
+            // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
+            ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
               ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
               ...this.subtaskConfig(input),
               ...this.memoryConfig(input),
@@ -1286,6 +1288,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
               ...this.nativeConfig(input),
               ...this.runControlConfig(input),
             org_skills: toWireSkills(input.skills),
+            // #3749 R2：本轮不挂载的工具（画布请求不需要 skill 工具；见 tool_budget.py）
+            ...(input.excludedTools && input.excludedTools.length > 0 ? { excluded_tools: [...input.excludedTools] } : {}),
             ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
             /*
              * #1747 —— 脚本执行协议原样转发给远端。

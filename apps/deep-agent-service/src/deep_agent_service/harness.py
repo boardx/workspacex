@@ -1280,7 +1280,9 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         *build_precompletion_middleware(model),
         # LAST on purpose: every tool-injecting middleware above has already run, so this
         # sees the full set the model would be shown (#3749 R1). Unset env ⇒ not appended.
-        *([ToolBudgetMiddleware(excluded=_excluded)] if (_excluded := excluded_tool_names()) else []),
+        # Mounted whenever the deployment excludes tools OR the caller may exclude them per
+        # run (`configurable.excluded_tools`); a request with neither passes through untouched.
+        ToolBudgetMiddleware(excluded=excluded_tool_names()),
     ]
 
 

@@ -34,6 +34,30 @@ def excluded_tool_names(env: dict[str, str] | None = None) -> frozenset[str]:
     return frozenset(name.strip() for name in raw.split(",") if name.strip())
 
 
+EXCLUDED_TOOLS_CONFIG_KEY = "excluded_tools"
+
+
+def per_run_excluded_tools() -> frozenset[str]:
+    """Exclusions the API computed for THIS turn (`configurable.excluded_tools`).
+
+    A canvas request is answered by writing a ```canvas fence, never by a skill; with
+    `call_skill` still mounted a 4B invented a skill name, spent two round trips discovering
+    the real catalog, then delegated the canvas to `diagram-and-canvas`, which answered with a
+    markdown table and no fence at all (recording proxy, 2026-09-22). Tools that cannot help
+    with this turn are removed for this turn.
+    """
+    try:
+        from langgraph.config import get_config
+
+        configurable = (get_config() or {}).get("configurable") or {}
+    except Exception:
+        return frozenset()
+    raw = configurable.get(EXCLUDED_TOOLS_CONFIG_KEY)
+    if not isinstance(raw, (list, tuple)):
+        return frozenset()
+    return frozenset(str(name) for name in raw if isinstance(name, str) and name.strip())
+
+
 def _tool_name(tool: Any) -> str | None:
     if isinstance(tool, dict):
         name = tool.get("name")
@@ -69,13 +93,16 @@ class ToolBudgetMiddleware(AgentMiddleware):
         tools = getattr(request, "tools", None)
         if not tools:
             return request
-        kept = prune_tools(list(tools), self._excluded)
+        excluded = self._excluded | per_run_excluded_tools()
+        if not excluded:
+            return request
+        kept = prune_tools(list(tools), excluded)
         if len(kept) == len(tools):
             return request
         # `tool_choice` naming a tool we just removed would make the request unsatisfiable.
         choice = getattr(request, "tool_choice", None)
         overrides: dict[str, Any] = {"tools": kept}
-        if isinstance(choice, str) and choice in self._excluded:
+        if isinstance(choice, str) and choice in excluded:
             overrides["tool_choice"] = None
         return request.override(**overrides)
 

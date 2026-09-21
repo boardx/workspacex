@@ -44,3 +44,20 @@
 8. Laya CPU 延迟/内存实测回帖 #3770
 9. 冷启动首条消息端到端复测（验证预热真的省了 12 s）
 10. 反馈结构化 2.9 s 中位仍偏高，看是否也在重算前缀
+## 第 2 轮（逐请求工具预算 + 评测口径换成低噪指标）
+
+**取证**（记录代理，一次画像请求的真实轨迹）：
+1. 模型臆造 skill 名 `create_user_profile_canvas` → 「未知技能」
+2. 调 `list_org_skills` 查目录
+3. 把画布委托给 `diagram-and-canvas` skill（整轮子调用，独立 system prompt）
+4. 该 skill 回了一张 **markdown 表格，一个围栏都没有** → 这就是围栏 4/5 的那次
+5. 收尾还有一次 grader 调用（`You are a grader…`，user 4 534 字符）
+
+即：一张画布 = 5 次模型调用，其中两次纯绕路。而且子调用穿插在主对话之间，**把单槽 KV 缓存冲掉**，主对话下一次调用只能整段重算（`cached n_tokens = 0`）。
+
+**改动**
+- `configurable.excluded_tools`：API 逐请求告诉远端哪些工具本轮不挂。画布请求排除 `call_skill / list_org_skills / web_search / fetch_url`——画布是写围栏写出来的，没有 skill 能代劳，也不需要联网。
+- `ToolBudgetMiddleware` 改为恒挂载，按「部署级 env ∪ 本轮 config」过滤；两者都空 ⇒ 请求原样透传。
+- 评测加 `modelCalls` 列。理由：同一类提示的墙钟在这台机上从 26 s 摆到 149 s，用它判优劣是自欺；模型调用次数不受 CPU 负载影响。
+
+**数字**：画布 5 次里 4 次实现零工具调用（第 1 轮是混合）。墙钟受 Laya 权重下载与 torch 推理争用，本轮不作数——第 3 轮空闲机器重测。
