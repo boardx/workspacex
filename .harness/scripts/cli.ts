@@ -8,6 +8,7 @@ import { verifyTimingReport } from "./verify-timing-report";
 import { syncGithub } from "./sync-github";
 import { genSubagents } from "./gen-subagents";
 import { claim } from "./claim";
+import { activeFeatures } from "./active-features";
 import { migrateLabels } from "./migrate-labels";
 import { sweepUnblock } from "./sweep-unblock";
 import { sweepWorktrees } from "./sweep-worktrees";
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
     case "sync":          syncGithub(args); break;
     case "gen-subagents": genSubagents(args); break;
     case "claim":         claim(args); break;
+    case "active-features": activeFeatures(args); break;
     case "migrate-labels": migrateLabels(args); break;
     case "sweep-unblock":  sweepUnblock(args); break;
     case "sweep-worktrees": sweepWorktrees(args); break;
@@ -130,6 +132,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sync          --phase NN [--apply]");
       log.info("  pnpm harness gen-subagents             # 从 .harness/agents/*.yaml 生成 Claude + Codex subagents");
       log.info("  pnpm harness claim         --phase NN --feature F01 --owner <agent-id>");
+      log.info("  pnpm harness active-features [--phase NN] [--sprint MM]  # 开工第 2 步：从权威 feature_list.json 重建 sprint 派生视图（不入库）并打印 in_progress（#401）");
       log.info("  pnpm harness migrate-labels            # 收敛线上 label 到规范 status:*（ADR-004）；加 --apply 执行");
       log.info("  pnpm harness sweep-unblock [--dry-run]                 # depends_on 全 passing 的 blocked → not_started");
       log.info("  pnpm harness sweep-worktrees [--threshold-minutes N]   # 巡检未提交改动的 worker worktree（默认阈值 60）");

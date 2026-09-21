@@ -108,6 +108,8 @@ feature-implementer 在动手实现前**应该重新跑一遍确认它此刻仍�
 
 ```bash
 # 1. 锁定唯一目标 feature（只能有一个 in_progress）
+#    active-features.json 是不入库的派生投影（H3A-009），干净 clone 上先重建再读（#401）
+pnpm harness active-features --phase <NN> --sprint <MM>
 cat phases/<phase>/sprints/sprint-<MM>/active-features.json \
   | jq '[.features[] | select(.status=="in_progress")]'
 ```

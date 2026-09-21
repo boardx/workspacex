@@ -114,7 +114,8 @@ new-sprint --features F01,F02
   ——待分配的 feature 所属契约束必须已在束级 `design-signoff.md` 签核
   （ADR-023），排期排得再好，签核没过一样 `die()`。排 sprint 前先确认目标
   feature 的契约束状态，不要排完才发现开不了工。
-- **下游消费者**：`feature-implementer` 读 `active-features.json` 找
+- **下游消费者**：`feature-implementer` 跑 `pnpm harness active-features` 重建后读
+  `active-features.json`（不入库的派生投影，#401）找
   in_progress；`pnpm harness verify --sprint` 读同一份 sprint 归属决定验证范围；
   `github-projector` 的 `sync` 读 sprint 归属决定 issue 该打哪个 `sprint:*` label。
 

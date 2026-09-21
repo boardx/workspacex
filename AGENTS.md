@@ -52,7 +52,9 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
    在对应 issue 里写一句为什么，不要默默做。判据与聚合规则见
    `.harness/instructions/core-loop-readiness-standard.md`。
 1. 读当前 sprint 的 `progress.md` 和 `session-handoff.md`。
-2. 读当前 sprint 的 `active-features.json`(派生视图),找到唯一 `in_progress` 的 feature。
+2. 跑 `pnpm harness active-features`(可带 `--phase NN --sprint MM`)重建当前 sprint 的
+   `active-features.json`(派生视图)并读出唯一 `in_progress` 的 feature——该文件是**不入库**
+   的投影(H3A-009),干净 clone 上不存在,直接去 `cat` 会读到空(#401)。
 3. 只做那一个 feature。做完用验证命令证明,再收尾。
 
 ## 不可违反的硬约束
