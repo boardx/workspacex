@@ -17,6 +17,7 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 import { describePlanFailureReason } from "@/lib/plan-control-copy";
 import { useEdition } from "@/lib/edition";
+import { planAllDoneButFailedNote } from "@/lib/chat-workbench/plan-failure-shape";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -585,6 +586,10 @@ function PlanControlSession(
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
           reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason, edition)}
+          // 2026-09-22 —— 「3/3 步已标记完成」与「这次任务执行失败」同屏那一幕的解释。
+          // 这个渲染门（`offersStepRecovery`）已经要求 `phase === "failed"`，但**不写死 true**：
+          // 判据原样传给那个纯函数，它的头注才不会变成一句会说谎的注释。
+          note={planAllDoneButFailedNote(ledger.steps, ledger.phase === "failed")}
           onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
           onEditInput={handleEditInput}
         />
