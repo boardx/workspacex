@@ -41,6 +41,7 @@ export async function openBoardxRealtimeAsr(
     readonly capture?: () => Promise<PcmAudioWorkletHandle>;
     readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null) => Promise<unknown>;
     readonly handshakeTimeoutMs?: number;
+    readonly finishTimeoutMs?: number;
   },
 ): Promise<BoardxRealtimeAsrHandle> {
   deps.handlers.onState("connecting");
@@ -74,15 +75,26 @@ export async function openBoardxRealtimeAsr(
     throw error;
   }
 
-  let completedResolve: (() => void) | undefined;
-  let completedReject: ((error: Error) => void) | undefined;
+  let completedResolve!: () => void;
+  let completedReject!: (error: Error) => void;
+  const completion = new Promise<void>((resolve, reject) => {
+    completedResolve = resolve;
+    completedReject = reject;
+  });
+  // Errors may arrive before the user presses stop; retain the outcome without
+  // creating an unhandled rejection while no stop caller is waiting yet.
+  void completion.catch(() => undefined);
   let completed = false;
   let stopping = false;
+  let stopPromise: Promise<void> | undefined;
+  let captureStop: Promise<void> | undefined;
+  const stopCapture = () => captureStop ??= capture.stop();
   let cleaningUp = false;
-  const releaseResources = async () => {
+  const releaseResources = () => {
     if (cleaningUp) return;
     cleaningUp = true;
-    await capture.stop();
+    // Closing the transport must not depend on AudioContext.close succeeding.
+    void stopCapture().catch(() => undefined);
     socket.close();
   };
   socket.addEventListener("message", (event) => {
@@ -107,7 +119,8 @@ export async function openBoardxRealtimeAsr(
     }
     completed = true;
     deps.handlers.onState("idle");
-    completedResolve?.();
+    completedResolve();
+    releaseResources();
   });
   socket.addEventListener("close", () => {
     if (completed || cleaningUp) return;
@@ -116,6 +129,7 @@ export async function openBoardxRealtimeAsr(
       void releaseResources();
       return;
     }
+    completedReject(new Error("CONNECTION_FAILED"));
     deps.handlers.onState("error");
     deps.handlers.onError("CONNECTION_FAILED");
     void releaseResources();
@@ -123,24 +137,38 @@ export async function openBoardxRealtimeAsr(
 
   socket.send(JSON.stringify({ type: "start" }));
   capture.onFrame((frame) => {
-    if (socket.readyState === socket.OPEN) socket.send(frame);
+    if (!completed && !cleaningUp && socket.readyState === socket.OPEN) socket.send(frame);
   });
 
   return {
     captureId: ticket.captureId,
-    stop: async () => {
-      if (stopping) return;
+    stop: () => {
+      if (stopPromise) return stopPromise;
       stopping = true;
       deps.handlers.onState("stopping");
-      if (!cleaningUp) await capture.stop();
-      if (socket.readyState !== socket.OPEN) throw new Error("ASR connection is not open");
-      const completion = new Promise<void>((resolve, reject) => {
-        completedResolve = resolve;
-        completedReject = reject;
+      let timer: ReturnType<typeof setTimeout>;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const error = new Error("FINISH_TIMEOUT");
+          completedReject(error);
+          reject(error);
+        }, deps.finishTimeoutMs ?? 30_000);
       });
-      socket.send(JSON.stringify({ type: "stop" }));
-      await completion;
-      socket.close();
+      const finish = async () => {
+        if (!completed && !cleaningUp) {
+          await stopCapture();
+          if (!completed && !cleaningUp) {
+            if (socket.readyState !== socket.OPEN) throw new Error("CONNECTION_FAILED");
+            socket.send(JSON.stringify({ type: "stop" }));
+          }
+        }
+        await completion;
+      };
+      stopPromise = Promise.race([finish(), timeout]).finally(() => {
+        clearTimeout(timer);
+        releaseResources();
+      });
+      return stopPromise;
     },
   };
 }

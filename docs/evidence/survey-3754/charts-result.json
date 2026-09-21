@@ -1,0 +1,30 @@
+{
+  "success": true,
+  "types": [
+    "text",
+    "bar",
+    "radar",
+    "line",
+    "gap",
+    "table"
+  ],
+  "scores": [
+    {
+      "label": "组织协作",
+      "value": 2,
+      "count": 1
+    },
+    {
+      "label": "工具支持",
+      "value": 3,
+      "count": 1
+    },
+    {
+      "label": "知识共享",
+      "value": 4,
+      "count": 1
+    }
+  ],
+  "word": true,
+  "pdfPrintFullDocument": true
+}

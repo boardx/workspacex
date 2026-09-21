@@ -120,13 +120,13 @@ describe("F180 signed guided-research visual contract", () => {
     }
   });
 
-  it("keeps the research Skill assistant beside the final report", async () => {
+  it("keeps the assistant available in the report reading layout", async () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
 
     await screen.findByTestId("research-flow-report");
     const assistant = screen.getByTestId("research-skill-assistant");
-    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "skill-workspace-thirds");
+    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "report-reading");
     expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
@@ -157,8 +157,9 @@ describe("F180 signed guided-research visual contract", () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("search"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(screen.getByRole("heading", { name: "研究检索进度" })).toBeInTheDocument();
-    expect(screen.getByTestId("research-search-summary")).toContainElement(screen.getByTestId("research-current-query"));
+    expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-sources")).toBeVisible();
+    expect(screen.getByText("查看搜索详情").parentElement).not.toHaveAttribute("open");
 
     search.unmount();
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));

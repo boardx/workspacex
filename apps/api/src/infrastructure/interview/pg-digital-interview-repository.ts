@@ -18,6 +18,20 @@ import {
   VISIBILITY_PREDICATE,
 } from "./pg-interview-scope-repository";
 
+import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
+
+/** Shared by history, status filtering and detail reads (session table alias: s). */
+const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
+  WHEN s.digital_status='report_pending' AND EXISTS (
+    SELECT 1 FROM digital_interview_reports recovery
+      WHERE recovery.org_id=s.org_id AND recovery.interview_id=s.id AND recovery.report_id=s.report_id
+        AND recovery.generation_status='running' AND recovery.previous_report IS NOT NULL
+        AND ${DIGITAL_REPORT_STALE_SQL}
+        AND EXISTS (SELECT 1 FROM digital_interview_revisions current_revision
+          WHERE current_revision.org_id=recovery.org_id AND current_revision.id=recovery.revision_id
+            AND current_revision.interview_id=s.id AND current_revision.is_current)
+  ) THEN 'completed' ELSE s.digital_status END`;
+
 interface DigitalInterviewRow {
   id: string;
   org_id: string;
@@ -34,6 +48,7 @@ interface DigitalInterviewRow {
   project_id: string | null;
   is_collaborator: boolean;
   quick_interview_id?: string | null;
+  completed_expert_count?: number;
 }
 
 const COLUMNS = `id, org_id, title, tags, topic, digital_status,
@@ -56,7 +71,7 @@ function toStored(row: DigitalInterviewRow): StoredDigitalInterview {
 }
 
 function toListItem(row: DigitalInterviewRow): StoredDigitalInterviewListItem {
-  return { ...toStored(row), updatedAt: new Date(row.updated_at).toISOString(), kind: row.quick_interview_id ? "quick" : "batch" };
+  return { ...toStored(row), completedExpertCount: row.completed_expert_count ?? 0, updatedAt: new Date(row.updated_at).toISOString(), kind: row.quick_interview_id ? "quick" : "batch" };
 }
 
 export class PgDigitalInterviewRepository implements DigitalInterviewRepository {
@@ -126,7 +141,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
   async findVisibleById(orgId: OrgId, viewerUserId: string, interviewId: string) {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<DigitalInterviewRow>(
-        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
                 s.source_quick_interview_id, s.selected_expert_ids, s.report_id,
                 s.version, s.created_by, s.updated_at, s.project_id,
                 q.interview_id AS quick_interview_id, ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
@@ -181,14 +196,20 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
   }) {
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query<DigitalInterviewRow>(
-        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+        `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
                 s.source_quick_interview_id, s.selected_expert_ids, s.report_id,
                 s.version, s.created_by, s.updated_at, s.project_id,
-                q.interview_id AS quick_interview_id, ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
+                q.interview_id AS quick_interview_id,
+                (SELECT count(*)::int FROM digital_interview_expert_runs er
+                   JOIN digital_interview_revisions r ON r.org_id=er.org_id AND r.id=er.revision_id
+                     AND r.interview_id=er.interview_id AND r.is_current
+                  WHERE er.org_id=s.org_id AND er.interview_id=s.id AND er.status='completed'
+                    AND er.expert_id=ANY(s.selected_expert_ids)) AS completed_expert_count,
+                ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
           WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false
-            AND ($3::text IS NULL OR s.digital_status = $3)
+            AND ($3::text IS NULL OR (${DIGITAL_INTERVIEW_READ_STATUS_SQL}) = $3)
             AND ${VISIBILITY_PREDICATE}
           ORDER BY s.updated_at DESC, s.id DESC`,
         [input.orgId, input.viewerUserId, input.status ?? null],
@@ -364,7 +385,7 @@ export async function readDigitalInterviewWorkflow(
   interviewId: string,
 ): Promise<DigitalInterviewWorkflowView | null> {
   const base = await session.query<WorkflowBaseRow>(
-    `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+    `SELECT s.id, s.org_id, s.title, s.tags, s.topic, ${DIGITAL_INTERVIEW_READ_STATUS_SQL} AS digital_status,
             s.source_quick_interview_id, s.selected_expert_ids, s.report_id, s.version,
             s.created_by, s.updated_at, s.project_id, s.research_project_id,
             false AS is_collaborator, r.id AS revision_id, r.revision_number,
@@ -464,14 +485,18 @@ export async function readDigitalInterviewWorkflow(
       }>;
       generated_at: Date | string; generation_status: "running" | "completed" | "failed";
       request_id: string | null; error_code: string | null; updated_at: Date | string;
+      previous_report: DigitalInterviewWorkflowView["report"]; stale: boolean;
     }>(
       `SELECT report_id,title,executive_summary,markdown,findings,generated_at,
-              generation_status,request_id,error_code,updated_at
+              generation_status,request_id,error_code,updated_at,previous_report,
+              (generation_status='running' AND ${DIGITAL_REPORT_STALE_SQL}) AS stale
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [orgId, interviewId, row.revision_id],
     ),
   ]);
 
+  const reportRow = reports.rows[0];
+  const stale = reportRow?.stale ?? false;
   const status = row.digital_status as DigitalInterviewStatusName;
   const scope = row.project_id !== null
     ? { kind: "project" as const, projectId: row.project_id, researchProjectId: null }
@@ -495,16 +520,17 @@ export async function readDigitalInterviewWorkflow(
       markdown: reports.rows[0].markdown!,
       findings: reports.rows[0].findings,
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
-    } : null,
-    reportGeneration: reports.rows[0] && reports.rows[0].generation_status !== "completed" ? {
+    } : stale ? reportRow?.previous_report ?? null : null,
+    // A failed replacement keeps the last completed report and the attempt error.
+    reportGeneration: reports.rows[0] && (reports.rows[0].generation_status !== "completed" || reports.rows[0].error_code !== null) ? {
       reportId: reports.rows[0].report_id,
       requestId: reports.rows[0].request_id!,
-      status: reports.rows[0].generation_status,
+      status: stale || reports.rows[0].generation_status === "completed" ? "failed" : reports.rows[0].generation_status,
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",
       findings: reports.rows[0].findings,
-      errorCode: reports.rows[0].error_code,
+      errorCode: stale ? "DEPENDENCY_UNAVAILABLE" : reports.rows[0].error_code,
       updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
     version: Number(row.version),

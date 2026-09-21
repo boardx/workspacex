@@ -1,11 +1,13 @@
+import { LiveSurveyWorkspace } from "@/components/survey/live/survey-workspace";
 import { survey } from "@repo/contracts";
 import { SurveyWorkflowShell, type SurveyPrototypeState } from "@/components/survey/workflow/survey-workflow-shell";
 import { decodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 
 export default function SurveyWorkflowPage({ params, searchParams }: {
   params: { surveyId: string };
-  searchParams: { step?: string; state?: string; readonly?: string; mode?: string; draft?: string };
+  searchParams: { step?: string; state?: string; readonly?: string; mode?: string; draft?: string; preview?: string };
 }) {
+  if (searchParams.preview !== "1") return <LiveSurveyWorkspace key={params.surveyId} surveyId={params.surveyId} initialStep={searchParams.step} />;
   const parsedStep = survey.SurveyWorkflowStepSchema.safeParse(searchParams.step);
   const state = (["loading", "empty", "error"] as const).includes(searchParams.state as "loading" | "empty" | "error")
     ? searchParams.state as SurveyPrototypeState

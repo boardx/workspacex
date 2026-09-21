@@ -218,6 +218,109 @@ it("① ② ③ ④ 同一个 stable_name 的新包版本走升级，历史不�
   }
 }, 300000);
 
+/**
+ * 用例 ⑧ 的夹具：从 `standard-web` 1.1.1 派生，但可以**指定只保留哪些 stableName**——
+ * 模拟 `maau-diagnostics` 1.0.0 → 2.0.1 那种「换了 stableName」的升级（issue #3733）。
+ */
+function writeDerivedPackKeeping(dir: string, packId: string, packVersion: string, suffix: string, keep: (stableName: string) => boolean): void {
+  const raw = JSON.parse(readFileSync(join(PACK_DIR, "standard-web", "1.1.1.json"), "utf8")) as {
+    schemaVersion: unknown; packId: string; packVersion: string; packDigest: string;
+    skills: { stableName: string; name: string }[];
+  };
+  const skills = raw.skills.filter((skill) => keep(skill.stableName)).map((skill) => ({
+    ...skill,
+    stableName: `${skill.stableName}-${suffix}`,
+    name: `${skill.name}-${suffix}`,
+  }));
+  const unsigned = { schemaVersion: raw.schemaVersion, packId, packVersion, skills };
+  const pack = { ...unsigned, packDigest: sha256(JSON.stringify(unsigned)) };
+  mkdirSync(join(dir, packId), { recursive: true });
+  writeFileSync(join(dir, packId, `${packVersion}.json`), JSON.stringify(pack));
+}
+
+async function skillState(orgId: string, stableName: string): Promise<{ status: string; listed: boolean | null }> {
+  const rows = await asApp(orgId, (c) =>
+    c.query<{ status: string; listed: boolean | null }>(
+      `SELECT s.status, cl.enabled AS listed FROM skills s
+         LEFT JOIN capability_listings cl ON cl.id = s.id AND cl.org_id = s.org_id AND cl.kind = 'skill'
+        WHERE s.org_id = $1 AND s.stable_name = $2`,
+      [orgId, stableName],
+    ));
+  if (rows.rows.length !== 1) throw new Error(`${stableName} 应恰好一行，实际 ${rows.rows.length}`);
+  return rows.rows[0]!;
+}
+
+it("⑧ 升级换了 stableName：上一版装进来、这一版不再发货的 skill 被下线；重放幂等；重新发货即复活；别人的同名 skill 不动", async () => {
+  const suffix = randomUUID().slice(0, 8);
+  const packId = `retire-fixture-${suffix}`;
+  const dir = mkdtempSync(join(tmpdir(), "wsx-pack-"));
+  const artifact = `web-artifact-${suffix}`;
+  const research = `web-research-${suffix}`;
+  writeDerivedPackKeeping(dir, packId, "1.0.0", suffix, () => true);
+  writeDerivedPackKeeping(dir, packId, "2.0.0", suffix, (name) => name === "web-artifact");
+  writeDerivedPackKeeping(dir, packId, "3.0.0", suffix, () => true);
+
+  try {
+    await withOrg(async (orgId, db) => {
+      const deps = {
+        identities: new PgIdentityRepository(db),
+        packs: new FileSkillStarterPackSource(dir),
+        imports: new PgSkillStarterImportRepository(db),
+      };
+      const run = (packVersion: string) => importSkillStarterPack(deps, {
+        actorId: ADMIN, orgId: toOrgId(orgId), packId, packVersion,
+        idempotencyKey: `test:${packId}:${packVersion}`,
+      });
+      // 运行时读法（`pg-skill-contract-repository.listAll` / `pg-enabled-skill-version-reader`）：
+      // `skills.status = 'enabled'` 且有已发布版本——目录与 `#` 挂载认的就是这一条。
+      const listed = async () => (await asApp(orgId, (c) => c.query<{ stable_name: string }>(
+        `SELECT s.stable_name FROM skills s
+          WHERE s.org_id = $1 AND s.status = 'enabled' AND s.stable_name LIKE $2
+            AND EXISTS (SELECT 1 FROM skill_versions v WHERE v.skill_id = s.id AND v.org_id = s.org_id AND v.published)
+          ORDER BY s.stable_name`, [orgId, `%-${suffix}`]))).rows.map((r) => r.stable_name);
+
+      // 用户自己建的一个 skill，恰好和「将被下线」的那个 stableName 只差后缀——不在任何导入血统里，绝不能被误杀。
+      const mineId = `skill-${randomUUID()}`;
+      await asApp(orgId, (c) => c.query(
+        `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,'enabled',$5,now(),now())`,
+        [mineId, orgId, `${research}-mine`, `mine-${suffix}`, ADMIN]));
+
+      const first = await run("1.0.0");
+      expect(first.retiredSkillIds).toEqual([]);
+      expect(await listed()).toEqual([artifact, research].sort());
+      const researchRow = await currentVersion(orgId, research);
+
+      // 2.0.0 只发货 web-artifact ⇒ web-research 下线：两张表一起写，运行时目录不再列出
+      const second = await run("2.0.0");
+      expect(second.created).toBe(true);
+      expect(second.retiredSkillIds).toEqual([researchRow.skill_id]);
+      expect(await skillState(orgId, research)).toEqual({ status: "disabled", listed: false });
+      expect(await skillState(orgId, artifact)).toEqual({ status: "enabled", listed: true });
+      expect(await listed()).toEqual([artifact]);
+      // 历史版本原样留着（下线不是删除）
+      expect(await versionsOf(orgId, research)).toHaveLength(1);
+      // 用户自建的同名前缀 skill 不动
+      expect(await skillState(orgId, `${research}-mine`)).toMatchObject({ status: "enabled" });
+
+      // 重放 2.0.0（幂等键命中）：下线步骤照跑，但已经 disabled 的行不再匹配 ⇒ 空
+      const replay = await run("2.0.0");
+      expect(replay.created).toBe(false);
+      expect(replay.retiredSkillIds).toEqual([]);
+      expect(await skillState(orgId, research)).toEqual({ status: "disabled", listed: false });
+
+      // 3.0.0 重新发货 web-research ⇒ 升级路径复活它，不多铸 skill 行
+      const third = await run("3.0.0");
+      expect(third.retiredSkillIds).toEqual([]);
+      expect(await skillState(orgId, research)).toEqual({ status: "enabled", listed: true });
+      expect(await listed()).toEqual([artifact, research].sort());
+      expect(new Set((await versionsOf(orgId, research)).map((r) => r.skill_id)).size).toBe(1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 300000);
+
 it("⑤ 反证：真正的重名冲突照旧被拒——放宽的只是升级目标自己那几行", async () => {
   await withOrg(async (orgId, db) => {
     // 平台组织名下的官方 skill 对每个 org 可见；它不是本 org 的行，因此不是升级目标。

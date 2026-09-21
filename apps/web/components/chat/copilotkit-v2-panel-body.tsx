@@ -326,7 +326,9 @@ export function CopilotKitV2PanelBody({
    * **已随消息发出**的附件（外壳下传的「材料」同一份数据），选中把 `@文件名 `
    * 当纯文本插进正文——靠 F155 file-retrieval 的 `search_tsv`（filename 已编进
    * 检索索引）自然召回，不碰 `attachmentIds`（那条路径的 `ATTACHMENT_NOT_PENDING`
-   * 校验本就不允许一个附件被两条消息重复引用）。
+   * 校验本就不允许一个附件被两条消息重复引用）。issue #3727 起，run 侧会把正文里的
+   * `@<filename>` 翻译回附件本身（挂进沙箱 `/inputs/` + 视觉输入），所以插入的文件名
+   * 必须与附件的 `filename` 逐字一致（`apps/api/src/domain/chat/attachment-mentions.ts`）。
    */
   const attachmentOptions = React.useMemo(() => {
     const byFilename = new Map<string, { id: string; filename: string }>();

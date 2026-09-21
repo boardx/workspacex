@@ -53,6 +53,7 @@ it("projects realtime ASR to the API only as a complete atomic profile", async (
     baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
     modelId: "qwen3-asr-flash-realtime",
     apiKeySecretRef: "env:WORKSPACEX_ASR_KEY",
+    recordingTurnSilenceMs: 650,
   };
   const source = {
     WORKSPACEX_MODEL_KEY: "model-key",
@@ -67,11 +68,15 @@ it("projects realtime ASR to the API only as a complete atomic profile", async (
     KERNEL_ASR_BASE_URL: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
     KERNEL_ASR_API_KEY: "asr-key",
     KERNEL_ASR_MODEL: "qwen3-asr-flash-realtime",
+    KERNEL_ASR_RECORDING_TURN_SILENCE_MS: "650",
   });
   for (const target of [maps.agent, maps.web, maps.migration, maps.bootstrap]) {
     expect(Object.keys(target).some((key) => key.startsWith("KERNEL_ASR_"))).toBe(false);
   }
 
+  delete configured.provision.asrProfile.recordingTurnSilenceMs;
+  const defaultProfile = await runtimeEnvironment(configured, await directory(), source);
+  expect(defaultProfile.api.KERNEL_ASR_RECORDING_TURN_SILENCE_MS).toBeUndefined();
   const unconfigured = await runtimeEnvironment(deploymentExample("production"), await directory(), source);
   expect(Object.keys(unconfigured.api).some((key) => key.startsWith("KERNEL_ASR_"))).toBe(false);
 });

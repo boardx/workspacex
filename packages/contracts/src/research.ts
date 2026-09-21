@@ -884,11 +884,15 @@ export const GuidedResearchSearchProviderResponse = z.object({ results: z.array(
 })) });
 
 // Durable five-step research. The model never creates source identifiers or URLs.
+export const GuidedResearchSourcePresentation = z.object({
+  title: z.string().trim().min(1).max(300), summary: z.string().trim().min(1).max(600),
+}).strict();
 export const GuidedResearchSource = z.object({
   id: z.string().min(1), taskId: z.string().min(1), taskIds: z.array(z.string().min(1)).optional(), title: z.string().min(1),
   url: z.string().url().refine((url) => /^https?:\/\//.test(url)),
   content: z.string().min(1).max(30000), retrievedAt: z.string(),
   decision: z.enum(["pending", "accepted", "excluded"]),
+  presentation: GuidedResearchSourcePresentation.optional(),
   // Server-owned provenance; absent on legacy search results until rechecked.
   relevanceBasis: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   addedByUser: z.boolean().optional(),

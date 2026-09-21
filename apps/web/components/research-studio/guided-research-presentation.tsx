@@ -26,6 +26,10 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
   onNavigate: (node: ResearchNode) => void;
   onBack: () => void;
 }) {
+  if (node === "report") return <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3" data-testid="research-progress-shell" data-layout="report-toolbar">
+    <Button variant="ghost" size="sm" onClick={onBack} data-testid="research-flow-back"><ArrowLeft className="h-4 w-4" aria-hidden />返回</Button>
+    <details className="relative"><summary className="cursor-pointer rounded-md px-3 py-2 text-12 text-muted-foreground">查看研究流程</summary><nav aria-label="研究步骤" data-testid="research-flow-progress" className="absolute right-0 z-40 mt-2 flex w-56 flex-col rounded-lg border border-border bg-card p-2 shadow-lg">{researchSteps.map((step, index) => <Button key={step} variant="ghost" disabled={busy || !availableNodes.includes(step)} aria-current={step === node ? "step" : undefined} onClick={() => onNavigate(step)}>{index + 1}. {researchStepLabels[step]}</Button>)}</nav></details>
+  </div>;
   const furthest = Math.max(...availableNodes.map((item) => researchSteps.indexOf(item)), 0);
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]" data-testid="research-progress-shell" data-layout="right-aligned-progress">

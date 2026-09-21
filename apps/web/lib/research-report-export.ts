@@ -19,6 +19,7 @@ export async function buildResearchWord(root: HTMLElement): Promise<Blob> {
     children.push(new Paragraph({ children: runs, ...(heading ? { heading, keepNext: true } : {}), ...(bullet === undefined ? {} : { bullet: { level: Math.min(bullet, 8) } }), spacing: { after: 160, line: 360 } }));
   }
   function visit(element: Element, level = 0) {
+    if (element.hasAttribute("data-report-ui")) return;
     if (element.tagName === "TABLE") {
       children.push(new Table({ rows: Array.from(element.querySelectorAll("tr")).map((row) => new TableRow({ children: Array.from(row.children).map((cell) => new TableCell({ children: [new Paragraph({ children: inline(cell), spacing: { after: 100 } })] })) })) }));
     } else if (element.tagName === "LI" && element.closest("nav")) {
@@ -61,7 +62,9 @@ export function printResearchPdf(root: HTMLElement, title?: string) {
   const target = frame.contentDocument; const view = frame.contentWindow;
   if (!target || !view) { frame.remove(); throw new Error("Print unavailable"); }
   const style = target.createElement("style"); style.textContent = "@page{size:A4;margin:20mm}body{font:11pt/1.8 sans-serif;color:#111}h2{font-size:22pt}h3{font-size:16pt}h4{font-size:13pt}h2,h3,h4,h5{break-after:avoid}p{orphans:3;widows:3}a{color:inherit;overflow-wrap:anywhere}sup{font-size:8pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6pt}nav{break-inside:avoid}li{margin-bottom:6pt}section{margin-top:18pt}";
-  target.head.append(style); target.body.append(target.importNode(root, true)); target.title = title ?? root.querySelector("h2")?.textContent ?? "研究报告";
+  const report = target.importNode(root, true);
+  report.querySelectorAll("[data-report-ui]").forEach((control) => control.remove());
+  target.head.append(style); target.body.append(report); target.title = title ?? root.querySelector("h2")?.textContent ?? "研究报告";
   view.addEventListener("afterprint", () => frame.remove(), { once: true });
   // Give the isolated document one frame to lay out before printing.
   view.requestAnimationFrame(() => { view.focus(); view.print(); });

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
 import { GuidedResearchReportDocument } from "@/components/research-studio/guided-research-report-document";
 import { GuidedResearchReportPreview } from "@/components/research-studio/guided-research-report-preview";
@@ -66,7 +66,7 @@ describe("research chapter document", () => {
     const article = screen.getByTestId("research-report-preview-text");
     expect(article).toHaveTextContent("样本覆盖不足是本研究的实际限制。");
     expect(article).not.toHaveTextContent(/runtime evidence warning|QUALITY_GATE_FAILED|草稿|内容仍在生成|待最终校验/);
-    expect(screen.getByText("草稿").closest("article")).toBeNull();
+    expect(screen.queryByText("草稿")).not.toBeInTheDocument();
     const markdown = researchReportMarkdown(document, true, 3);
     expect(markdown).toContain("样本覆盖不足是本研究的实际限制。");
     expect(markdown).toContain("结论正文");
@@ -81,8 +81,9 @@ describe("research chapter document", () => {
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("尚未完成");
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(screen.getByText("导出报告"));
     expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
-    expect(screen.getByText("草稿")).toBeInTheDocument();
+    expect(screen.queryByText("草稿")).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
   });
 });

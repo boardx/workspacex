@@ -131,7 +131,8 @@ export function OrgMenu({
 
   // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；
   // admin-only 空补丁读只作为上传头像后（invalidateOrgAvatar）的刷新通道。
-  const adminCanRefresh = session?.status === "authenticated" && identity.orgRole === "admin";
+  const isOrgAdmin = identity.orgRole === "admin";
+  const adminCanRefresh = session?.status === "authenticated" && isOrgAdmin;
   const avatarUrl = useOrgAvatarUrl(identity.org.id, identity.org.avatarUrl, adminCanRefresh);
   // ⚠ 用 `apiUrl()` 拼，不许 `${apiBaseUrl()}${path}` 字符串拼接——后者会吃掉
   //   `NEXT_PUBLIC_API_PATH_PREFIX`（fullstack e2e 的同源代理前缀），实测 404。
@@ -193,20 +194,30 @@ export function OrgMenu({
           ))}
         </MenuRadioGroup>
 
-        <MenuSeparator />
+        {isOrgAdmin && <MenuSeparator />}
 
-        {/* 组织功能区块：只放有真实后端支撑的入口，不发明死入口 */}
-        <MenuItem asChild>
-          <Link
-            href="/org-admin"
-            data-testid={`org-admin-entry${testIdSuffix}`}
-            aria-label="组织管理"
-            className="gap-2"
-          >
-            <Settings aria-hidden className="h-3.5 w-3.5" />
-            组织管理
-          </Link>
-        </MenuItem>
+        {/*
+          组织功能区块：只放有真实后端支撑的入口，不发明死入口。
+
+          ⚠ 2026-09-20 人类要求「组织管理员才可以看到组织管理后台」：非 admin 不渲染这一项。
+            `/org-admin` 的四个标签页（团队/成员/邀请/资料）后端全部要本组织 admin，
+            非 admin 点进去只能看到一屏 403——那不是功能入口，是把人引到一堵墙上。
+          ⚠ 仍然是展示过滤而非权限（UC-0.3 R5）：路由本身没有下线，直接敲 URL 进去
+            由服务端拒绝并由屏自己解释，不靠这里藏着来保证安全。
+        */}
+        {isOrgAdmin && (
+          <MenuItem asChild>
+            <Link
+              href="/org-admin"
+              data-testid={`org-admin-entry${testIdSuffix}`}
+              aria-label="组织管理"
+              className="gap-2"
+            >
+              <Settings aria-hidden className="h-3.5 w-3.5" />
+              组织管理
+            </Link>
+          </MenuItem>
+        )}
       </MenuContent>
     </Menu>
   );

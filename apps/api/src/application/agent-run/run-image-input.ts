@@ -18,8 +18,11 @@
  * 不跨项目。这不是「省事」，是刻意的：run 已经合法持有这条消息的正文与附件元数据
  * （`ClaimedAgentRun.inputText` / `inputAttachments` 就是从它来的），把同一条消息的图像
  * 字节交给模型，可见性判定与既有的那份**完全同一个**，没有新增任何一个可见面。
- * 「上一轮传的图这一轮还能不能看」因此**今天是不能**——那需要跨消息的可见性判定，
- * 具名缺口 `GAP-VISION-CROSS-TURN-IMAGES`，要接就得让判权先以批量谓词形态可复用，
+ * 「上一轮传的图这一轮还能不能看」：issue #3727 起，**同作者、同线程**且触发消息正文里以
+ * `@<filename>` 点名的历史图片也在范围内（`pg-run-image-input.ts` 的 OR 分支 +
+ * `domain/chat/attachment-mentions.ts` 纯函数）——可见面仍是"这个用户自己在这个线程里传过
+ * 的东西"，作者锚对两个分支同时生效。跨作者 / 跨线程的图仍取不到，那一半仍是具名缺口
+ * `GAP-VISION-CROSS-TURN-IMAGES`，要接就得让判权先以批量谓词形态可复用，
  * 不是在这里抄一份（同 `pg-file-retrieval.ts` 的 `GAP-CE-FTS-SCOPE-GROUP-VISIBILITY`）。
  *
  * ## 上界不是"截断"，是"如实告知的取舍"

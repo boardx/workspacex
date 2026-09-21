@@ -1,6 +1,6 @@
 import * as React from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
 import { researchReportPreview } from "@/lib/research-report-preview";
 import { GuidedResearchReportDocument } from "@/components/research-studio/guided-research-report-document";
@@ -14,7 +14,7 @@ describe("formal research report", () => {
     const doc = researchReportDocument({ title: "欧洲储能市场进入研究", summary: "核心判断[[source:second]]", introduction: `覆盖2026年欧洲市场，交叉核验政策[[${uuid}]]`, sections: [{ sectionId: "o1", body: `### 准入要求\n\n- 核实并网[${uuid}]`, sourceIds: [uuid] }], conclusion: "优先开展试点[[source:second]]" }, sources, runtime.outline);
     render(<GuidedResearchReportDocument document={doc} />);
     const reader = screen.getByTestId("research-report-document");
-    expect(reader).toHaveClass("max-w-4xl");
+    expect(reader).toHaveClass("xl:grid-cols-[12rem_minmax(0,1fr)]");
     expect(screen.getByRole("heading", { name: "欧洲储能市场进入研究" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "1. 政策章节" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "研究范围与方法" })).toBeInTheDocument();
@@ -35,11 +35,12 @@ describe("formal research report", () => {
     const state = { ...runtime, report: null, progress: { stage: "synthesizing" as const, completed: 0, total: 1 }, reportCheckpoint: { basis: "basis", chapters: runtime.report!.sections }, reportStream: { requestId: "request", sequence: 1, status: "streaming" as const, text: JSON.stringify({ sections: runtime.report!.sections }) } };
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByRole("heading", { name: runtime.brief.topic })).toBeInTheDocument();
-    expect(screen.getByText("草稿", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("草稿", { exact: true })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 1 / 1 个章节。章节核验状态见生成过程；报告尚未完成");
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /完成/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("导出报告"));
     expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
     expect(screen.queryByText(/当前导出为未完成草稿/)).not.toBeInTheDocument();
   });

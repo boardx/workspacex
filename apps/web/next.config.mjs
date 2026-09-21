@@ -165,6 +165,8 @@ export default {
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
     const afterFiles = [
+      { source: `${prefix}/surveys/:path*`, destination: `${apiOrigin}/surveys/:path*` },
+      { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
@@ -470,6 +472,16 @@ export default {
       // `GET /system/error-logs`、`POST /system/client-error-reports`。没有裸 `/system` 路由，
       // 同 `plan-control` 先例只补 `:path*`。
       { source: `${prefix}/system/:path*`, destination: `${apiOrigin}/system/:path*` },
+      // 2026-09-20（权限 review）：平台级成员管理与「我有没有平台运营准入」的自查
+      // （`platform-member.controller.ts` / `platform-access.controller.ts`，都是空前缀）：
+      // `GET /platform/members`、`PATCH /platform/members/:userId/organizations/:orgId/role`、
+      // `POST|DELETE /platform/members/:userId/platform-admin`、`GET /platform/access`。
+      // ⚠ 这条**此前一直缺**：`/platform/members` 走同源代理时被 Next 自己接住返回 404 HTML，
+      //   `PlatformMembersScreen` 那屏因此在 fullstack e2e 里从没真的打通过。
+      //   `lint-rewrite-coverage` 没抓到它，是因为这些 controller 的路径来自契约常量
+      //   （`C.operations.x.path`）而不是字面量字符串，扫描器看不见——这条的补法照
+      //   `/system` 的先例：没有裸 `/platform` 路由，只补 `:path*`。
+      { source: `${prefix}/platform/:path*`, destination: `${apiOrigin}/platform/:path*` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },
