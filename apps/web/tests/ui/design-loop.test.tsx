@@ -2340,6 +2340,69 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-inspector-delta")).toBeTruthy();
   });
 
+  it("迭代 16（#3773 R2）生成期间画布一页页长出来：轮询读到中间态 ⇒ 页标签先出现、进度报真实页数、取消保留已画好的页", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const tree = (label: string) => ({
+      type: "stack" as const, id: `s-${label}`,
+      children: [{ type: "text" as const, id: `t-${label}`, props: { content: label, variant: "title" as const } }],
+    });
+    /**
+     * 服务端那次 POST 一直挂着（真实情况：它要画好几页、几分钟才返回）；
+     * 与此同时 `persistProgress` 一页页往库里写，于是 GET 每次读到的都比上次多一页。
+     */
+    let stage = 0;
+    const STAGES = [
+      // 骨架刚定下：三页全是占位（`prototype` 与 `frames` 等长、元素为 null）。
+      { frames: ["待办", "详情", "我的"], prototype: [null, null, null] },
+      { frames: ["待办", "详情", "我的"], prototype: [tree("待办"), null, null] },
+      { frames: ["待办", "详情", "我的"], prototype: [tree("待办"), tree("详情"), null] },
+    ];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; signal?: AbortSignal }) => {
+      if (path === "/pm-designs") {
+        const st = STAGES[Math.min(stage, STAGES.length - 1)]!;
+        return { items: [project({ frames: st.frames, prototype: st.prototype as never })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return new Promise((_resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+        });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个待办 App" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-generating");
+
+      // ① 骨架回来：三页的标签当场出现在画布上（在这之前这几分钟画布是全空的）。
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      await waitFor(() => expect(screen.getByTestId("design-detail-frame-2")).toBeTruthy());
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("已完成 0 / 3 页");
+      // 还没轮到的页说的是「正在画」，不是「没画出来」——后者会请用户为一件正在发生的事重新下单。
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      expect(screen.getByTestId("design-detail-phone-drawing")).toBeTruthy();
+      expect(screen.queryByTestId("design-detail-regenerate-frame")).toBeNull();
+
+      // ② 第一页画好：进度是从库里读出来的事实，不是按秒数编的文案。
+      stage = 1;
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      await waitFor(() => expect(screen.getByTestId("design-detail-generating").textContent).toContain("已完成 1 / 3 页"));
+
+      // ③ 取消：已经画好的页留在屏上，不是前功尽弃。
+      stage = 2;
+      fireEvent.click(screen.getByTestId("design-detail-cancel"));
+      await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
+      await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("待办"));
+      // 取消之后还没画出来的页回到「没画出来 + 可补画」——这时候它确实不再有人在画了。
+      fireEvent.click(screen.getByTestId("design-detail-frame-2"));
+      expect(screen.getByTestId("design-detail-phone-ungenerated")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let mode: "hang" | "fail" | "ok" = "hang";
@@ -2366,7 +2429,9 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       await screen.findByTestId("design-detail-generating");
       await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
       expect(screen.getByTestId("design-detail-elapsed").textContent).toBe("5s");
-      expect(screen.getByTestId("design-detail-generating").textContent).toContain("生成页面结构");
+      // 迭代 16（#3773 R2）：还没有骨架时报的是「正在规划页面」；有了骨架之后报的是
+      // **真实**的「已完成 x / y 页」（另有用例钉它），不再按秒数猜阶段。
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("正在规划页面");
       fireEvent.click(screen.getByTestId("design-detail-cancel"));
       await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
       expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();

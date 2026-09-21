@@ -70,7 +70,35 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
   readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
   readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
+  /**
+   * 迭代 16（#3773 R2）——**分页生成的中间结果出口**。
+   *
+   * 首次生成要一次画 3–6 页，每页一次模型调用，最坏几分钟。在这之前这段时间里
+   * 用户屏上只有一个转圈，画布全程空白，而**服务端其实早就知道有哪几页了**
+   * （骨架轮十来秒就回来）——这个事实被一直扣着不发，直到全部画完才一次性交出去。
+   * 用户的原话是「基本上不能用」，这里是最大的一处来源。
+   *
+   * 给了这个回调，`generatePaged` 会在两个时刻叫它：
+   *   · 骨架轮回来后立刻叫一次（全是没有 `root` 的占位页）——页标签当场出现在画布上；
+   *   · 每画好一页叫一次——那一页当场长出来。
+   *
+   * ⚠ 回调**抛了不能让整轮生成挂掉**：它做的是"顺便早点存一下"，不是这条链路的成败。
+   *   调用方（`append-project-chat.ts`）把它实现成一次落库；落库失败只记日志，
+   *   最终那次原子写回照常兜底。
+   *
+   * ⚠ 它也**不是**取代最后那次写回：最后仍然按完整页序原子写一次，
+   *   中途落库只是让画布早点有东西看。两者写的是同一份事实，不是两份。
+   */
+  readonly onProgress?: (screens: readonly PagedScreen[]) => Promise<void>;
 };
+
+/** 分页生成的一页。`root` 缺省 = 规划了但还没画出来（正在画，或者画失败了）。 */
+export interface PagedScreen {
+  readonly frame: string;
+  readonly root?: designPrototype.PrototypeNode;
+  readonly notes?: string;
+  readonly links?: readonly designPrototype.PrototypeLink[];
+}
 
 export interface DesignChatReplyResult {
   readonly text: string;
@@ -93,12 +121,7 @@ export interface DesignChatReplyResult {
    * 「模型没画」和「模型说这页不用画」。哪一页没画出来是**服务端知道的事实**，
    * 所以走一条服务端自己的通道。给了这个字段就以它为准，`writeback.prototype` 不再看。
    */
-  readonly pagedScreens?: readonly {
-    readonly frame: string;
-    readonly root?: designPrototype.PrototypeNode;
-    readonly notes?: string;
-    readonly links?: readonly designPrototype.PrototypeLink[];
-  }[];
+  readonly pagedScreens?: readonly PagedScreen[];
 }
 
 export interface DesignChatModel {
@@ -499,6 +522,36 @@ export class ModelDesignChatReplier implements DesignChatModel {
     this.deps.log("design chat: outline ready", { pages: outline.length });
 
     const done: { frame: string; screen: Record<string, unknown> }[] = [];
+    /**
+     * 迭代 16（#3773 R2）：把"此刻画到哪了"发出去。失败只记日志——
+     * 早点让画布有东西看是**额外**的好处，不是这条链路的成败条件。
+     */
+    const publish = async (screens: readonly PagedScreen[]): Promise<void> => {
+      if (ctx.onProgress === undefined) return;
+      try {
+        await ctx.onProgress(screens);
+      } catch (e) {
+        this.deps.log("design chat: progress publish failed, generation continues", {
+          detail: e instanceof Error ? e.message : "unknown",
+        });
+      }
+    };
+    /** 按骨架顺序拼出「完整页序 + 已画好的那些」——中途和收尾用的是同一个拼法。 */
+    const snapshot = (): readonly PagedScreen[] => {
+      const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
+      return outline.map((e) => {
+        const hit = byFrame.get(e.frame);
+        if (hit === undefined) return { frame: e.frame };
+        return {
+          frame: e.frame,
+          root: hit.root as designPrototype.PrototypeNode,
+          ...(typeof hit.notes === "string" ? { notes: hit.notes } : {}),
+          ...(Array.isArray(hit.links) ? { links: hit.links as readonly designPrototype.PrototypeLink[] } : {}),
+        };
+      });
+    };
+    // 骨架一回来就发一次：页标签当场出现，用户看见"它在画这五页"，而不是一片空白。
+    await publish(snapshot());
     let retriesLeft = qualityRetryBudget(outline.length);
     const failed: string[] = [];
     for (const [i, entry] of outline.entries()) {
@@ -591,6 +644,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
         }
       }
       done.push({ frame: entry.frame, screen: best.screen });
+      // 这一页当场长出来（前端在生成期间轮询项目，看到的就是一页页填上）。
+      await publish(snapshot());
     }
 
     if (done.length === 0) {
@@ -604,17 +659,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
      * 痕迹说明另外 2 页去哪了（用户原话：「一次性生成了全部5个页面……似乎未经过迭代」）。
      * 契约 §1.2 本来就写了「该页在画布上标为『未生成』」，只是当时因为 §1.2b 一并放弃了。
      */
-    const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
-    const pagedScreens = outline.map((e) => {
-      const hit = byFrame.get(e.frame);
-      if (hit === undefined) return { frame: e.frame };
-      return {
-        frame: e.frame,
-        root: hit.root as designPrototype.PrototypeNode,
-        ...(typeof hit.notes === "string" ? { notes: hit.notes } : {}),
-        ...(Array.isArray(hit.links) ? { links: hit.links as readonly designPrototype.PrototypeLink[] } : {}),
-      };
-    });
+    const pagedScreens = snapshot();
     const reply = typeof obj.reply === "string" && obj.reply.trim() !== ""
       ? obj.reply.trim()
       : `画了 ${done.length} 页：${done.map((d) => d.frame).join("、")}。`;

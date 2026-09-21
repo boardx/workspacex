@@ -653,3 +653,48 @@ describe("迭代 16：设计基调在骨架轮定一次、每页轮都带着（#
     expect(model.complete.mock.calls[1]?.[0].user).not.toContain("设计基调");
   });
 });
+
+describe("迭代 16：分页生成的中间结果当场发出去（#3773 R2）", () => {
+  const outline = '{"reply":"拆成三页。","outline":[{"frame":"待办","intent":"看今天要做什么"},{"frame":"详情","intent":"处理一条"},{"frame":"我的","intent":"看设置"}]}';
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] };
+
+  it("骨架一回来就发一次（全是占位页），之后每画好一页再发一次", async () => {
+    const seen: string[][] = [];
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    await r.reply({
+      ...fresh,
+      onProgress: async (screens) => {
+        seen.push(screens.map((x) => (x.root === undefined ? `${x.frame}:空` : `${x.frame}:有`)));
+      },
+    });
+    // 1 次骨架 + 3 次每页 = 4 次
+    expect(seen.length).toBe(4);
+    // 第一次：三页全是占位——页标签当场就能出现在画布上，而不是等几分钟。
+    expect(seen[0]).toEqual(["待办:空", "详情:空", "我的:空"]);
+    // 之后逐页填上，且**页序不变**（不是画好一页就重排）。
+    expect(seen[1]).toEqual(["待办:有", "详情:空", "我的:空"]);
+    expect(seen[3]).toEqual(["待办:有", "详情:有", "我的:有"]);
+  });
+
+  it("回调抛了 ⇒ 记一条日志，生成照常走完（它只是「早点存一下」，不是成败条件）", async () => {
+    let call = 0;
+    const { r, log } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply({
+      ...fresh,
+      onProgress: async () => { throw new Error("db down"); },
+    });
+    expect(out.source).toBe("model");
+    expect(out.pagedScreens?.length).toBe(3);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+    expect(log.mock.calls.some(([m]) => String(m).includes("progress publish failed"))).toBe(true);
+  });
+
+  it("没给回调 ⇒ 一切照旧（老调用方不受影响）", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply(fresh);
+    expect(out.pagedScreens?.length).toBe(3);
+  });
+});

@@ -60,6 +60,12 @@ const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
   prototype: "原型画布",
 };
 
+/**
+ * 迭代 16（#3773 R2）：生成期间多久读一次项目。
+ * 2.5s——比单页生成快得多（一页十几到几十秒），又不至于把列表接口打成心跳。
+ */
+const GENERATION_POLL_MS = 2500;
+
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
@@ -165,6 +171,21 @@ export function DesignDetailScreen({
   const [pushError, setPushError] = React.useState<string | null>(null);
   const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * 迭代 16（#3773 R2）——**生成期间轮询项目，画布一页页长出来**。
+   *
+   * 首次生成要画 3–6 页、每页一次模型调用，最坏几分钟。在这之前这段时间里屏上只有
+   * 一个转圈、画布全程空白，用户没法判断是在画还是已经死了——这是「基本上不能用」
+   * 最大的一处来源。服务端现在每定下骨架、每画好一页就落一次库（`append-project-chat.ts`
+   * 的 `persistProgress`），这里在同一轮请求还没返回时把它读出来。
+   *
+   * ⚠ 轮询结果**不许盖掉最终结果**：`send` 在写最终 `project` 之前先 `stopPoll()`，
+   *   而每个 tick 落地前再查一次 `pollRef.current !== null`。少了后面那道，
+   *   一个在途的 tick 会在收尾之后把画布退回上一帧。
+   * ⚠ 只更新**画布相关**的事实。`chat` 这时候服务端还没写（它在收尾时才追加两条），
+   *   整份替换正好也把 chat 保持在"还没有这一轮"的状态，与实际一致。
+   */
+  const pollRef = React.useRef<number | null>(null);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -182,6 +203,16 @@ export function DesignDetailScreen({
   }, [reload]);
 
   const project = load.kind === "ready" ? load.project : null;
+  /**
+   * 迭代 16（#3773 R2）：这一轮**真实**画到第几页。`null` = 还没有骨架（无事可报）。
+   * 只在生成中有意义——不在生成中时画布本来就是最终状态，报进度只会让人以为还在跑。
+   */
+  const drawnPages = React.useMemo(() => {
+    if (project === null || project.prototype.length === 0) return null;
+    const total = project.prototype.length;
+    const done = project.prototype.filter((r) => r !== null).length;
+    return done >= total ? null : { done, total };
+  }, [project]);
   /** 迭代 14：当前镜头 = 用户选的，没选过就跟项目模板走。 */
   const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
   const lensSize = rotated(lens, landscape);
@@ -400,6 +431,22 @@ export function DesignDetailScreen({
     setElapsed(0);
     const started = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    const stopPoll = () => {
+      if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    };
+    pollRef.current = window.setInterval(() => {
+      void (async () => {
+        if (pollRef.current === null) return;
+        try {
+          const { items } = await listMyProjects();
+          const found = items.find((p) => p.id === project.id);
+          // 再查一次：这个 await 期间 send 可能已经收尾了。
+          if (found !== undefined && pollRef.current !== null) setLoad({ kind: "ready", project: found });
+        } catch {
+          // 轮询失败不打扰用户——它只是"早点看见"，失败了照旧等最终结果。
+        }
+      })();
+    }, GENERATION_POLL_MS);
     try {
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
@@ -410,6 +457,7 @@ export function DesignDetailScreen({
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
         project.refImages.map((r) => r.id),
       );
+      stopPoll();
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
       setFallbackReason(reply.fallbackReason ?? null);
@@ -423,12 +471,17 @@ export function DesignDetailScreen({
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
         // 下次读取会看到它；这里不假装它一定没发生。
         setText(value);
+        // 迭代 16（#3773 R2）：取消之前**已经画好并落库**的页要留在屏上。
+        // 在这之前取消等于前功尽弃——服务端照样画完、照样计费，用户什么也没拿到。
+        stopPoll();
+        void reload();
       } else {
         setText(value);
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
       }
     } finally {
+      stopPoll();
       window.clearInterval(tick);
       abortRef.current = null;
       setSending(false);
@@ -565,8 +618,15 @@ export function DesignDetailScreen({
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
               <span className="truncate">
-                {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
-                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "页数多的时候会久一些，仍在生成…"}
+                {/*
+                 * 迭代 16（#3773 R2）：有了中途落库，这里终于能说**真实进度**而不是按秒数猜。
+                 * 骨架一回来 `frames` 就有了，每画好一页 `prototype` 里就多一棵树——
+                 * 「3 / 5 页」是从库里读出来的事实，不是文案编的。
+                 * 还没有骨架时（前十几秒）仍然按秒数给分阶段文案，那时候确实无事可报。
+                 */}
+                {drawnPages === null
+                  ? elapsed < 4 ? "正在理解你的要求…" : "正在规划页面…"
+                  : `正在画：已完成 ${drawnPages.done} / ${drawnPages.total} 页`}
                 <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
               </span>
               <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
@@ -823,6 +883,7 @@ export function DesignDetailScreen({
                       links={frameLinks}
                       mode={canvasMode}
                       theme={project.theme}
+                      drawing={preview === null && sending}
                       onNavigate={setFrame}
                     />
                   ) : (
@@ -854,6 +915,14 @@ export function DesignDetailScreen({
                        */
                       ungenerated={
                         preview === null &&
+                        !sending &&
+                        (project.prototype.length > 0) &&
+                        (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
+                      }
+                      /* 迭代 16（#3773 R2）：这一轮还在生成 ⇒ 空页说的是「正在画」，不是「没画出来」。 */
+                      drawing={
+                        preview === null &&
+                        sending &&
                         (project.prototype.length > 0) &&
                         (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
                       }

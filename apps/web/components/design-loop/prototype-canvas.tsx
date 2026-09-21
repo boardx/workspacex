@@ -9,7 +9,7 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
-import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock } from "lucide-react";
+import { Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
 
@@ -422,7 +422,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -431,6 +431,14 @@ export function PrototypeCanvas({
    * 5 页只出来 3 页，而画布上没有任何痕迹。
    */
   ungenerated?: boolean;
+  /**
+   * 迭代 16（#3773 R2）：这一页**正在画**——分页生成还在跑，它排在后面还没轮到。
+   *
+   * 与 `ungenerated` 是两件事，必须分开说：`ungenerated` 的含义是「这一轮画失败了，
+   * 你可以让我补画」，而这一页只是还没轮到——这时候给一个「补画这一页」按钮，
+   * 等于请用户为一件正在发生的事重新下单。
+   */
+  drawing?: boolean;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -477,13 +485,18 @@ export function PrototypeCanvas({
       {root === null ? (
         <div
           className="flex flex-1 flex-col gap-2 p-3"
-          data-testid={ungenerated ? "design-detail-phone-ungenerated" : "design-detail-phone-placeholder"}
+          data-testid={drawing ? "design-detail-phone-drawing" : ungenerated ? "design-detail-phone-ungenerated" : "design-detail-phone-placeholder"}
         >
           <div className="h-8 rounded-control bg-panel" aria-hidden />
           <div className="h-20 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-3/4 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-1/2 rounded-control bg-panel" aria-hidden />
-          {ungenerated ? (
+          {drawing ? (
+            <div className="mt-auto flex flex-col items-center gap-1.5" role="status">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-center text-11 text-muted-foreground">正在画这一页…</p>
+            </div>
+          ) : ungenerated ? (
             <div className="mt-auto flex flex-col items-center gap-1.5">
               {/* 说的是事实：这一页规划过、这一轮没画出来，别的页不受影响。 */}
               <p className="text-center text-11 text-muted-foreground">这一页没画出来。其余页不受影响。</p>
