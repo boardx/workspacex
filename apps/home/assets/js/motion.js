@@ -165,31 +165,111 @@ export function initScene(selector, onProgress) {
     return () => {};
   }
 
-  let ticking = false;
-  const measure = () => {
-    if (small()) { onProgress(1, true); return; }
+  /* A scene driven 1:1 by scrollTop tracks a trackpad's jitter and reads as
+     mechanical. Easing the rendered value toward the scroll value each frame
+     — the damping every well-made pinned section uses — costs one rAF loop
+     while the scene is on screen and makes the difference between "attached
+     to the scrollbar" and "following you". */
+  const DAMPING = 0.14;
+  let target = 0;
+  let value = 0;
+  let raf = 0;
+  let running = false;
+
+  const readTarget = () => {
     const rect = track.getBoundingClientRect();
-    const pinHeight = window.innerHeight;
-    const scrollable = rect.height - pinHeight;
-    if (scrollable <= 0) { onProgress(1, false); return; }
-    const p = Math.min(1, Math.max(0, -rect.top / scrollable));
-    onProgress(p, false);
+    const scrollable = rect.height - window.innerHeight;
+    if (scrollable <= 0) return 1;
+    return Math.min(1, Math.max(0, -rect.top / scrollable));
+  };
+
+  const frame = () => {
+    const delta = target - value;
+    value += delta * DAMPING;
+    // snap once the remaining distance is below a pixel's worth of progress
+    if (Math.abs(delta) < 0.0004) { value = target; running = false; }
+    onProgress(value, false);
+    raf = running ? requestAnimationFrame(frame) : 0;
+  };
+
+  const start = () => {
+    if (running) return;
+    running = true;
+    raf = requestAnimationFrame(frame);
   };
 
   const onScroll = () => {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => { measure(); ticking = false; });
+    if (small()) { onProgress(1, true); return; }
+    target = readTarget();
+    start();
   };
 
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll, { passive: true });
-  measure();
+  // The loop only runs while the scene is anywhere near the viewport; off
+  // screen there is nothing to animate and no reason to burn frames.
+  let near = true;
+  if ('IntersectionObserver' in window) {
+    near = false;
+    new IntersectionObserver(
+      ([e]) => { near = e.isIntersecting; if (near) onScroll(); },
+      { rootMargin: '200px 0px' },
+    ).observe(track);
+  }
+
+  const onScrollGuarded = () => { if (near) onScroll(); };
+
+  window.addEventListener('scroll', onScrollGuarded, { passive: true });
+  window.addEventListener('resize', onScrollGuarded, { passive: true });
+  target = readTarget();
+  value = target;
+  onProgress(value, small());
 
   return () => {
-    window.removeEventListener('scroll', onScroll);
-    window.removeEventListener('resize', onScroll);
+    cancelAnimationFrame(raf);
+    running = false;
+    window.removeEventListener('scroll', onScrollGuarded);
+    window.removeEventListener('resize', onScrollGuarded);
   };
+}
+
+/* -------------------------------------------------------------------------
+   Pause looping animations while their section is off screen
+   ------------------------------------------------------------------------- */
+/* The aurora, the context-loss particles and the live pip all animate forever.
+   Off screen they still composite every frame, on a page this tall, on a
+   phone, on a battery. Toggling a class lets CSS stop them. */
+export function initOffscreenPause() {
+  if (!('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver(
+    (entries) => entries.forEach((e) => {
+      e.target.classList.toggle('is-offscreen', !e.isIntersecting);
+    }),
+    { rootMargin: '120px 0px' },
+  );
+  document.querySelectorAll('[data-animates]').forEach((el) => io.observe(el));
+}
+
+/* -------------------------------------------------------------------------
+   Hero parallax — the aurora drifts slower than the page
+   ------------------------------------------------------------------------- */
+export function initHeroParallax() {
+  const hero = document.querySelector('.hero');
+  const aurora = hero?.querySelector('.hero__aurora');
+  const inner = hero?.querySelector('.hero__inner');
+  if (!hero || !aurora || reducedMotion()) return;
+
+  let raf = 0;
+  const apply = () => {
+    raf = 0;
+    const y = window.scrollY;
+    if (y > window.innerHeight * 1.2) return;    // past the hero: nothing to do
+    aurora.style.transform = `translate3d(0, ${y * 0.22}px, 0)`;
+    inner.style.transform = `translate3d(0, ${y * 0.07}px, 0)`;
+    inner.style.opacity = String(Math.max(0, 1 - y / (window.innerHeight * 0.85)));
+  };
+  window.addEventListener('scroll', () => {
+    if (!raf) raf = requestAnimationFrame(apply);
+  }, { passive: true });
+  apply();
 }
 
 /* -------------------------------------------------------------------------

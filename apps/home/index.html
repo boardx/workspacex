@@ -88,7 +88,7 @@
      Hero
      ====================================================================== -->
 <section class="hero">
-  <div class="hero__aurora" aria-hidden="true">
+  <div class="hero__aurora" data-animates aria-hidden="true">
     <div class="hero__blob hero__blob--1"></div>
     <div class="hero__blob hero__blob--2"></div>
     <div class="hero__blob hero__blob--3"></div>
@@ -112,7 +112,7 @@
       <a class="btn btn--ghost btn--lg" href="#shift" data-i18n="hero.cta2">See how it works</a>
     </div>
 
-    <div class="hero__chain" data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
+    <div class="hero__chain" data-animates data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
     <p class="visually-hidden" id="chain-desc" data-i18n="hero.chainDesc">A closed chain of five linked stages: context, agents, action, evidence, memory — each feeding the next.</p>
   </div>
 
@@ -172,7 +172,7 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="stage__inner" data-diagram="break" role="img" aria-labelledby="break-desc"></div>
+      <div class="stage__inner" data-animates data-diagram="break" role="img" aria-labelledby="break-desc"></div>
       <p class="stage__caption" id="break-desc" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
     </div>
 
@@ -294,7 +294,7 @@
       <p class="lead" data-i18n="surface.lead">Not a chat window bolted onto a document. A canvas you and your agents both act on, with the evidence trail running alongside it.</p>
     </header>
 
-    <div class="surface" data-reveal="scale">
+    <div class="surface" data-animates data-reveal="scale">
       <div class="surface__chrome">
         <span class="surface__dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="surface__path" data-i18n="surface.path">Acme · Q3 market entry</span>
@@ -415,7 +415,7 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="stage__inner" data-diagram="harness" role="img" aria-labelledby="harness-desc"></div>
+      <div class="stage__inner" data-animates data-diagram="harness" role="img" aria-labelledby="harness-desc"></div>
       <p class="stage__caption" id="harness-desc" data-i18n="trust.caption">Every action passes six gates: authorize, execute, observe, verify, evidence, and — when verification fails — rollback. The run above shows a failing check being caught and reversed. That path is the point: a system that can only succeed cannot be trusted.</p>
     </div>
 

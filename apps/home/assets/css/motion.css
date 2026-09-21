@@ -18,6 +18,14 @@
 }
 [data-reveal="left"]  { transform: translate3d(-24px, 0, 0); }
 [data-reveal="right"] { transform: translate3d(24px, 0, 0); }
+
+/* On a stacked layout the horizontal offset adds nothing, and it is actively
+   harmful: an unrevealed element parked 24px to the side of a full-width
+   column sticks out past the viewport and gives the whole page a horizontal
+   scroll range until it happens to be revealed. */
+@media (max-width: 900px) {
+  [data-reveal="left"], [data-reveal="right"] { transform: translate3d(0, 22px, 0); }
+}
 [data-reveal="scale"] { transform: scale(0.965); }
 [data-reveal].is-in   { opacity: 1; transform: none; }
 
@@ -150,4 +158,44 @@
   /* Sticky scrubbing becomes a plain stacked layout. */
   .scene__track { height: auto; }
   .scene__pin { position: static; height: auto; }
+}
+
+/* ---- off-screen pause ----------------------------------------------------- */
+/* `.is-offscreen` is toggled by an IntersectionObserver. Perpetual animations
+   composite every frame even when nobody can see them; on a page this tall
+   that is a measurable battery cost for zero effect. */
+.is-offscreen .hero__blob,
+.is-offscreen .d-break__spark,
+.is-offscreen .d-chain__pulse,
+.is-offscreen .surface__pip,
+.is-offscreen.hero__aurora .hero__blob {
+  animation-play-state: paused;
+}
+
+/* ---- evidence trail fills in on reveal ------------------------------------ */
+/* The trail is the argument of that section, so it is worth watching it
+   assemble once rather than arriving pre-built. */
+.surface .trail__item {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out);
+}
+.surface .trail__item:nth-child(1) { transition-delay: 320ms; }
+.surface .trail__item:nth-child(2) { transition-delay: 520ms; }
+.surface .trail__item:nth-child(3) { transition-delay: 720ms; }
+.surface .trail__item:nth-child(4) { transition-delay: 920ms; }
+.surface.is-in .trail__item { opacity: 1; transform: none; }
+
+.surface .note {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.97);
+  transition: opacity 620ms var(--ease-out), transform 620ms var(--ease-out);
+}
+.surface .note--a { transition-delay: 120ms; }
+.surface .note--b { transition-delay: 280ms; }
+.surface .note--c { transition-delay: 440ms; }
+.surface.is-in .note { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .surface .trail__item, .surface .note { opacity: 1 !important; transform: none !important; }
 }
