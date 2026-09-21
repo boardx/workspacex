@@ -13,6 +13,7 @@ import {
   type MindmapEditor,
 } from "@repo/fabric-markdown";
 import { serializeCanvasMarkdown } from "@/lib/canvas/serialize-canvas-markdown";
+import { movedNodeIds, snapshotGeometry, type GeometrySnapshot } from "@/lib/canvas/layout-drift";
 import { resolveExportMultiplier } from "@/lib/canvas/export-scale";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -128,6 +129,21 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
    * 不因为加了这个能力而被动改变。
    */
   fitOnLoad?: boolean;
+  /**
+   * issue #3642——「挪了框、保存回成功、刷新回原位」。`onMarkdownChange` 吐出的
+   * markdown 里**没有坐标**（R7 ②「坐标不写回 Markdown」，见本文件头），所以
+   * 「只挪了位置」这件事对上层是**完全不可见**的：markdown 逐字没变，上层既判不出
+   * 用户改过东西，也无从知道这次改动保存不了，于是保存照常回成功态。
+   *
+   * 这个回调补的就是那条缺失的信号：本次加载之后被挪动 / 改过尺寸的节点 id
+   * （相对「刚加载完」那一刻的几何，判据见 `lib/canvas/layout-drift.ts`）。
+   * 重新加载 markdown（撤销到底、切版本、源码手改）后回到 `[]`——那时画布几何
+   * 就是这份源码重新渲染出来的结果，没有任何"存不下"的改动悬着。
+   *
+   * ⚠ 本组件只报告事实，不决定怎么处理——拦保存、提示、还是照常存结构，是调用方
+   * 的产品决策（chat 全屏编辑器与画布主界面对此的答案不同）。
+   */
+  onGeometryDriftChange?: (movedNodeIds: readonly string[]) => void;
 }>(function CanvasStage({
   readOnly,
   tool,
@@ -138,6 +154,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   onCanvasClick,
   onCanvasHover,
   fitOnLoad,
+  onGeometryDriftChange,
 }, ref) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
@@ -174,6 +191,13 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   const onZoomChangeRef = React.useRef(onZoomChange);
   const fitOnLoadRef = React.useRef(fitOnLoad);
   fitOnLoadRef.current = fitOnLoad;
+  // 几何漂移（issue #3642，见 `onGeometryDriftChange` 注释）：加载完那一刻的几何是
+  // 基线，每次编辑后与它比对。`lastDriftRef` 只是为了「结果没变就不再通知」，
+  // 免得每拖一像素都把上层 re-render 一遍。
+  const onGeometryDriftChangeRef = React.useRef(onGeometryDriftChange);
+  onGeometryDriftChangeRef.current = onGeometryDriftChange;
+  const loadedGeometryRef = React.useRef<GeometrySnapshot | null>(null);
+  const lastDriftRef = React.useRef<string>("");
   const inlineEditorRef = React.useRef<HTMLTextAreaElement>(null);
   const editingTargetRef = React.useRef<FlowNode | FlowEdge | null>(null);
   // 撤销/重做（人类实测反馈：此前拖歪/删错一个节点没有任何挽回手段，只能关掉
@@ -231,6 +255,35 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     historyCursorRef.current = hist.length - 1;
   }, []);
 
+  /**
+   * 当前几何 vs 加载时几何，变了就通知上层（issue #3642）。`baseline` 为 null
+   * （还没加载完）时什么都不报——那时没有可比的基线，报什么都是猜的。
+   */
+  const reportGeometryDrift = React.useCallback((snapshot: GeometrySnapshot) => {
+    const baseline = loadedGeometryRef.current;
+    if (!baseline) return;
+    const moved = movedNodeIds(baseline, snapshot);
+    const key = moved.join("\u0000");
+    if (key === lastDriftRef.current) return;
+    lastDriftRef.current = key;
+    onGeometryDriftChangeRef.current?.(moved);
+  }, []);
+
+  /**
+   * 重新加载 markdown 后重置基线：新画布几何就是这份源码渲染出来的，漂移归零。
+   *
+   * ⚠ 基线必须从**画布**（`extractModel`）取，不能用 `markdownToCanvas` 回传的那份
+   * model：`renderToCanvas` 会把 mermaid 布局整体平移到画布边距（`margin - min`），
+   * 平移量只作用在建出来的 fabric 对象上，**不回写那份 model**。拿 model 当基线，
+   * 等于把整张图的平移量算成"用户挪了每一个节点"——第一次编辑就会误报一片漂移。
+   */
+  const resetGeometryBaseline = React.useCallback((canvas: FabricCanvas) => {
+    loadedGeometryRef.current = snapshotGeometry(extractModel(canvas));
+    if (lastDriftRef.current === "") return;
+    lastDriftRef.current = "";
+    onGeometryDriftChangeRef.current?.([]);
+  }, []);
+
   const syncFromCanvas = React.useCallback(() => {
     const canvas = fabricRef.current;
     if (!canvas) return;
@@ -238,7 +291,10 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     // 模型序列化用错了函数（见该文件文件头注释），会把画布模板编辑结果拼成乱码。
     const next = serializeCanvasMarkdown(canvas, markdownRef.current);
     emit(next);
-  }, [emit]);
+    // markdown 与几何是两条独立的信号：只挪位置时上面这份 next 与挪之前逐字相同，
+    // 唯有这里能看出用户改过东西（issue #3642）。
+    reportGeometryDrift(snapshotGeometry(extractModel(canvas)));
+  }, [emit, reportGeometryDrift]);
 
   // 便签颜色菜单点一个色块——issue #3336。`FlowNode.setColor` 是 vendor 早就
   // 备好的方法（`packages/fabric-markdown/src/fabric-objects.ts`，注释写着
@@ -848,6 +904,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         setIgnoredCount(ignored);
         setLoading(false);
         if (fitOnLoadRef.current) fitToContent();
+        resetGeometryBaseline(canvas);
         void model;
       })
       .catch((err: unknown) => {
@@ -873,6 +930,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         setIgnoredCount(countIgnoredFences(markdown));
         setLoading(false);
         if (fitOnLoadRef.current) fitToContent();
+        resetGeometryBaseline(canvas);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
