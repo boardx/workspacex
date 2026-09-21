@@ -239,6 +239,9 @@ const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 // 从 FL_01 搬进这个归档文件——探针要打的 device-session-30d 那条随时可能已经搬家，
 // 见下面 replaceOnceAcross。
 const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
+// contract-state-names 门守的两处下游：TW-P0-3 的 spec 与它的判据文档。
+const STATE_NAME_SPEC = "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts";
+const STATE_NAME_DOC = ".harness/instructions/chat-task-workbench-acceptance.md";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -318,6 +321,23 @@ export const GATE_SPECS: readonly GateSpec[] = [
           "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
           "echo probe-bogus-verification",
         ),
+      },
+    ],
+  },
+  {
+    gate: "contract-state-names",
+    // #3140：契约签核之后，spec 与验收文档里的态名没有任何东西保证跟得上契约枚举。
+    // 两条变异对应 2026-09-08 当天真实发生过的两种漂移方向：代码侧改错名、文档侧改错名。
+    run: tsx(".harness/scripts/lint-contract-state-names.mjs"),
+    guards: (_r, io) => io.exists(STATE_NAME_SPEC) && io.exists(STATE_NAME_DOC),
+    mutations: [
+      {
+        name: "把 spec 里的态名改成枚举外的值",
+        apply: replaceOnce(STATE_NAME_SPEC, '"data-phase", "done"', '"data-phase", "completed"'),
+      },
+      {
+        name: "把验收文档态机链里的一段改成契约文案外的写法",
+        apply: replaceOnce(STATE_NAME_DOC, "执行 → 审批 → 完成", "执行 → 等待审批 → 完成"),
       },
     ],
   },
