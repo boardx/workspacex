@@ -9,7 +9,7 @@
     "lint:nav-reachability": "node .harness/scripts/lint-nav-reachability.mjs",
     "lint:third-artifact": "node .harness/scripts/lint-third-artifact.mjs",
     "lint:shipped-pack-version": "node .harness/scripts/lint-shipped-pack-version.mjs",
-    "lint:skill-metadata-source": "node .harness/scripts/lint-skill-metadata-source.mjs",
+    "lint:skill-metadata-source": "pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs",
     "lint:ui-prototyper-single-source": "node .harness/scripts/lint-ui-prototyper-single-source.mjs",
     "lint:spec-gate-coverage": "node .harness/scripts/lint-spec-gate-coverage.mjs",
     "lint:chat-path-coverage": "node .harness/scripts/lint-chat-path-coverage.mjs",

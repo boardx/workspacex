@@ -7,7 +7,7 @@
 //   种进去的东西与其它文件调用它的结果逐字节相同（幂等），不新增任何本文件独有的全局行。
 // @global-scope-fixture seeder:ensureStandardSkillPacksSeeded: 用例 ⑥ 注入的两项里，失败那项
 //   （`standard-web@9.9.9`）只写一行 `failed` 的 `starter_pack_imports`；成功那项
-//   （`standard-canvas@1.0.0`）本来就在 `STANDARD_PLATFORM_PACKS` 里、任何调用方都会种同一份，
+//   （`standard-canvas@1.0.1`）本来就在 `STANDARD_PLATFORM_PACKS` 里、任何调用方都会种同一份，
 //   幂等键相同 ⇒ 不会留下别的文件看不见的额外状态。
 /**
  * 标准 skill 包的**升级路径**，以及 seeding 循环的**单包隔离**。
@@ -401,7 +401,7 @@ it("⑥ 单包隔离：第一个包失败不拖垮后面的包", async () => {
   try {
     const reports = await ensureStandardSkillPacksSeeded(db, "svc-platform-templates", [
       { packId: "standard-web", packVersion: "9.9.9" },
-      { packId: "standard-canvas", packVersion: "1.0.0" },
+      { packId: "standard-canvas", packVersion: "1.0.1" },
     ]);
     expect(reports).toHaveLength(2);
     expect(reports[0]!.ok).toBe(false);
@@ -411,7 +411,7 @@ it("⑥ 单包隔离：第一个包失败不拖垮后面的包", async () => {
     expect(reports[1]!.packId).toBe("standard-canvas");
     const canvas = await asApp(PLATFORM_ORG_ID, (c) =>
       c.query(`SELECT 1 FROM starter_pack_imports
-                WHERE org_id = $1 AND idempotency_key = 'platform-builtin:standard-canvas:1.0.0'
+                WHERE org_id = $1 AND idempotency_key = 'platform-builtin:standard-canvas:1.0.1'
                   AND status = 'succeeded'`, [PLATFORM_ORG_ID]));
     expect(canvas.rows).toHaveLength(1);
   } finally {
