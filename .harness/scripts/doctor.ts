@@ -13,12 +13,16 @@ import { findPhaseDir, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_D
 import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
-import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
+import { checkFingerprint } from "./lib/evidence-fingerprint";
+import {
+  judgeLegacyEvidenceRatchet, legacyEntryFor, loadLegacyEvidence,
+  LEGACY_EVIDENCE_PATH, type LegacyEvidenceList, type LegacyKey, type LegacyObservation,
+} from "./lib/evidence-legacy";
 import { auditSignoff } from "./lib/design-signoff";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
 import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import {
-  allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey, type PhaseFeatures,
+  allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey,
 } from "./lib/feature-evidence-ratchet";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
@@ -157,12 +161,13 @@ function checkPassingEvidence(
       msg: `${f.id} 的 evidence 日志正文与 verify 落盘时的指纹不一致（${rel}）——日志在产出之后被改过。别手动编辑证据日志，重跑 pnpm harness verify --sprint ${phaseId}/${f.sprint}`,
     });
   } else if (fp.kind === "missing") {
+    const legacy = legacyEntryFor(phaseId, f.id);
     findings.push(
-      isLegacyEvidence(phaseId, f.id)
+      legacy
         ? {
             level: "WARN",
             phase: phaseId,
-            msg: `${f.id} 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint ${phaseId}/${f.sprint} --backfill-evidence 补上后把它从名单里删掉`,
+            msg: `${f.id} 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免至 ${legacy.review_by}）——跑 pnpm harness verify --sprint ${phaseId}/${f.sprint} --backfill-evidence 补上后把它从名单里删掉`,
           }
         : {
             level: "FAIL",
@@ -175,6 +180,101 @@ function checkPassingEvidence(
   // （全仓 85 FAIL 的最大来源正是"verify 落盘了日志但从未 commit"）。
   if (sh(`git ls-files --error-unmatch "${rel}"`).code !== 0) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 日志只在本地磁盘、未提交进 git（${rel}）——git add 它，否则 origin 上证据链是断的` });
+  }
+}
+
+/**
+ * #391：一条历史豁免今天是否还用得着——「对应 feature 仍是 passing，且它的 evidence
+ * 日志今天仍然缺指纹」。任何一个条件不成立（补上指纹了 / 状态变了 / 日志没了 /
+ * feature 被删了），这条豁免就已经是陈旧的死条目，必须从名单里删掉。
+ *
+ * 判据与 checkPassingEvidence 的指纹那一档共用 `checkFingerprint`，不另起一套。
+ */
+export function observeLegacyEntry(phaseId: string, features: readonly Feature[], featureId: string): LegacyObservation {
+  const f = features.find((x) => x.id === featureId);
+  if (!f || f.status !== "passing" || !f.sprint) return { stillMissingFingerprint: false };
+  if (!f.evidence || !EVIDENCE_PATH_RE.test(f.evidence)) return { stillMissingFingerprint: false };
+  const logPath = join(sprintDir(phaseId, f.sprint), "evidence", `${f.id}.verify.log`);
+  if (!existsSync(logPath)) return { stillMissingFingerprint: false };
+  return { stillMissingFingerprint: checkFingerprint(readFileSync(logPath, "utf8")).kind === "missing" };
+}
+
+/**
+ * #391 evidence-legacy.json 的反向一致性门。
+ *
+ * 此前这份名单只有人话写着「只减不增」，没有任何脚本执行它——实测 9 条豁免里 6 条
+ * 早就用不着了却躺了近两个月，而往名单里偷加一条 doctor 照样 exit 0。三项机械判红：
+ *
+ *   ① 陈旧：条目对应的 feature 已不在「passing + 日志缺指纹」集合里 ⇒ 删掉
+ *   ② 长大：条目不在 `_baseline`（门控落地时的冻结快照）里 ⇒ 这条是偷加的
+ *   ③ 过期：过了 `review_by` ⇒ 豁免无声长期化，要么清掉要么显式续期
+ *
+ * ① 只对本次真正扫到的 phase 判，`doctor --phase 01` 不该把没扫到的 phase 误判成
+ * 「不再需要」（同 #1136 棘轮的 in-scope 纪律）；②③ 只看名单自身，与扫描范围无关。
+ */
+function checkLegacyEvidenceRatchet(
+  scanned: readonly { readonly phaseId: string; readonly features: readonly Feature[] }[],
+  findings: Finding[],
+): void {
+  let list: LegacyEvidenceList | null;
+  try {
+    list = loadLegacyEvidence();
+  } catch (e) {
+    // 名单读不懂 ⇒ 判红，不是静默跳过：一份写坏的名单会表现得像一份干净的名单。
+    findings.push({
+      level: "FAIL",
+      phase: "-",
+      msg: `读不懂 ${relative(REPO_ROOT, LEGACY_EVIDENCE_PATH)}：${(e as Error).message}`,
+    });
+    return;
+  }
+  if (!list) return;
+
+  const observations = new Map<LegacyKey, LegacyObservation>();
+  for (const { phaseId, features } of scanned) {
+    for (const entry of list.entries) {
+      const [entryPhase, featureId] = entry.key.split("/");
+      if (entryPhase !== phaseId || !featureId) continue;
+      observations.set(entry.key, observeLegacyEntry(phaseId, features, featureId));
+    }
+  }
+
+  const verdict = judgeLegacyEvidenceRatchet(list, observations, new Date());
+  const phaseOf = (key: LegacyKey): string => key.split("/")[0] ?? "-";
+  for (const key of verdict.stale) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 已陈旧（对应 feature 已不在「passing + evidence 日志缺指纹」集合里——多半是已经补上了指纹）——请删掉这一条，留着会遮住未来的回归`,
+    });
+  }
+  for (const key of verdict.grown) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 不在 _baseline（${list.gateLandedAt} 门控落地时的冻结快照）里——历史豁免名单只减不增，新增 passing 一律不得进入本名单`,
+    });
+  }
+  for (const key of verdict.malformed) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 缺少可审计的 reason 或合法的 review_by（YYYY-MM-DD）——没有理由、没有期限的豁免就是口头豁免`,
+    });
+  }
+  for (const entry of verdict.expired) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(entry.key),
+      msg: `evidence-legacy.json 里的 "${entry.key}" 已过复核期限（review_by=${entry.review_by}）——补真实日志（pnpm harness verify --sprint <NN>/<MM> --backfill-evidence）后删掉它，或由人类显式续期 review_by`,
+    });
+  }
+  if (verdict.active.length > 0) {
+    findings.push({
+      level: "INFO",
+      phase: "-",
+      msg: `evidence-legacy.json：${verdict.active.length} 条历史豁免仍然生效（${verdict.active.map((e) => `${e.key} 至 ${e.review_by}`).join("、")}）——只减不增，过期即判红`,
+    });
   }
 }
 
@@ -677,7 +777,9 @@ export function doctor(args: Args): void {
   const evidenceAllowlistSet = new Set(evidenceAllowlist);
   // #1136 棘轮体检的输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类局部
   // 运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
-  const scannedForRatchet: PhaseFeatures[] = [];
+  // #391 的反向一致性门要读 sprint / evidence 路径，所以这里存完整的 Feature；
+  // #1136 棘轮只用得到其中三个字段（PhaseFeatures），同一份快照喂两道门，不留第二份。
+  const scannedForRatchet: { phaseId: string; features: readonly Feature[] }[] = [];
 
   for (const id of phaseIds) {
     let fl;
@@ -717,6 +819,8 @@ export function doctor(args: Args): void {
       msg: `feature-evidence-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 已不再是「passing + 自由文本 evidence」）——请删掉这一条，留着会遮住未来的回归`,
     });
   }
+
+  checkLegacyEvidenceRatchet(scannedForRatchet, findings);
 
   const fails = findings.filter((f) => f.level === "FAIL");
   const warns = findings.filter((f) => f.level === "WARN");
