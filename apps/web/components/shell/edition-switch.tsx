@@ -81,8 +81,8 @@ export function EditionSwitch(): React.ReactElement {
             {cloudUrl === null ? (
               // 没配地址：说清楚是什么状况 + 还能做什么，而不是一个点了没反应的按钮
               <p data-testid="edition-switch-unconfigured" className="text-11 text-warning-foreground">
-                这份安装包还没配在线系统的地址，没法直接打开。请向管理员要在线地址；本地的成果可以先用
-                「导出到正式组织」带过去。
+                这份安装包还没配在线系统的地址，没法直接打开。请向提供这份安装包的人要在线地址。
+                本机的成果不受影响：在产出上用「下载」保存下来，之后在在线系统里上传即可。
               </p>
             ) : (
               <Button asChild data-testid="edition-switch-confirm">

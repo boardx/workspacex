@@ -51,8 +51,11 @@ it("says so honestly when this build has no online address, instead of a dead bu
   expect(screen.queryByTestId("edition-switch-confirm")).toBeNull();
   const said = screen.getByTestId("edition-switch-unconfigured").textContent ?? "";
   expect(said).toContain("还没配");
-  // 还留一条可行的路，不是只说「不行」
-  expect(said).toContain("导出到正式组织");
+  // 还留一条**真的可行**的路，不是只说「不行」，也不是指一条还没实现的通道
+  // （R6：这里原本写的是「导出到正式组织」，而那一屏是演示态）
+  expect(said).toContain("下载");
+  expect(said).toContain("上传");
+  expect(said).not.toContain("联系管理员");
 });
 
 it("refuses an unsafe or malformed address at the contract level", () => {

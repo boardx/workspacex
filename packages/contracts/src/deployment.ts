@@ -184,7 +184,13 @@ export function parseCloudUrl(raw: string | null | undefined): string | null {
 export const CLOUD_SWITCH_NOTES = [
   {
     id: "data-stays",
-    statement: "本地的对话、画布与文件不会跟着走：它们在这台电脑上，在线系统看不到。要带过去，用「导出到正式组织」。",
+    /*
+     * ⚠ 这句话曾经写成「要带过去，用『导出到正式组织』」。那是**不真实的**：
+     * `/admin/local` 那一屏的三步导出流程用的是契约生成的样例响应与写死的演示成果，
+     * 一次网络调用都不发（见 `apps/web/components/admin/local-export-panel.tsx`）。
+     * 在真实导出通道实现之前，这里只说真话：自己下载、到那边上传。
+     */
+    statement: "本地的对话、画布与文件不会跟着走：它们在这台电脑上，在线系统看不到。真正的自动搬运还没实现——现在要带走，请把产出下载到本地，再到在线系统里上传。",
   },
   {
     id: "separate-account",
