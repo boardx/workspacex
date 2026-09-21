@@ -10,6 +10,7 @@ import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScal
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
+import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
@@ -65,6 +66,11 @@ const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
  * 2.5s——比单页生成快得多（一页十几到几十秒），又不至于把列表接口打成心跳。
  */
 const GENERATION_POLL_MS = 2500;
+
+/** 改动高亮亮多久（毫秒）。够看清一眼，又不至于变成一个常驻状态。 */
+const CHANGED_HIGHLIGHT_MS = 6000;
+/** 共用同一个空集：每次渲染新建一个会让画布的 context 每帧都变。 */
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
@@ -186,6 +192,14 @@ export function DesignDetailScreen({
    *   整份替换正好也把 chat 保持在"还没有这一轮"的状态，与实际一致。
    */
   const pollRef = React.useRef<number | null>(null);
+  /**
+   * 迭代 16（#3773 R5）：这一轮模型改动过的节点 id，画布上给一圈虚线。
+   *
+   * 几秒之后自动清掉——它说的是"刚刚"，不是一个持续状态。留着不清会让用户下一次
+   * 打开项目时看到一圈莫名其妙的高亮，而那时"刚刚"早已过去。
+   */
+  const [changed, setChanged] = React.useState<ReadonlySet<string>>(EMPTY_SET);
+  const changedTimer = React.useRef<number | null>(null);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -458,7 +472,17 @@ export function DesignDetailScreen({
         project.refImages.map((r) => r.id),
       );
       stopPoll();
+      /*
+       * 迭代 16（#3773 R5）：先算 diff 再换 project——换完就拿不到"之前"那一份了。
+       * 首次生成（之前没有任何树）不高亮：整页都是新的，满屏闪烁说明不了任何事。
+       */
+      const marks = changedNodeIds(project.prototype, updated.prototype);
       setLoad({ kind: "ready", project: updated });
+      if (changedTimer.current !== null) window.clearTimeout(changedTimer.current);
+      setChanged(marks);
+      if (marks.size > 0) {
+        changedTimer.current = window.setTimeout(() => { setChanged(EMPTY_SET); changedTimer.current = null; }, CHANGED_HIGHLIGHT_MS);
+      }
       setLastApplied(reply.applied);
       setFallbackReason(reply.fallbackReason ?? null);
       setSuggestions(reply.suggestions);
@@ -884,6 +908,7 @@ export function DesignDetailScreen({
                       mode={canvasMode}
                       theme={project.theme}
                       drawing={preview === null && sending}
+                      changed={preview === null ? changed : undefined}
                       onNavigate={setFrame}
                     />
                   ) : (
@@ -926,6 +951,7 @@ export function DesignDetailScreen({
                         (project.prototype.length > 0) &&
                         (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
                       }
+                      changed={preview === null ? changed : undefined}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
                         const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";

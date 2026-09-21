@@ -3205,6 +3205,63 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
+  it("迭代 16（#3773 R5）：一轮对话之后，**改动过的节点**在画布上有一圈高亮，几秒后自动消失", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const before = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "我的待办", variant: "title" as const } },
+        { type: "button" as const, id: "b1", props: { label: "保存", variant: "primary" as const } },
+        { type: "button" as const, id: "b2", props: { label: "取消", variant: "ghost" as const } },
+      ],
+    };
+    const after = {
+      ...before,
+      children: [
+        before.children[0]!,
+        { type: "button" as const, id: "b1", props: { label: "保存修改", variant: "primary" as const } },
+        before.children[2]!,
+      ],
+    };
+    let turn = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: ["待办"], prototype: [(turn === 0 ? before : after)] as never })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        turn = 1;
+        return {
+          project: project({ frames: ["待办"], prototype: [after] as never }),
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "把保存按钮说清楚点" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+
+      const tree = await screen.findByTestId("design-detail-phone-tree");
+      /*
+       * ⭐ 反证锚点：不算 diff ⇒ 这条红。三页里改了一个按钮文案、屏上没有任何痕迹说明
+       * 哪里变了，用户只能逐页找——"改一点点"于是和"重看一遍全部"一样贵。
+       */
+      await waitFor(() => expect(tree.querySelector('[data-node-id="b1"][data-changed="true"]')).not.toBeNull());
+      // 没改的节点不亮：父容器与另一个按钮都不该跟着亮（否则整条链全亮 = 等于没有高亮）。
+      expect(tree.querySelector('[data-node-id="b2"][data-changed="true"]')).toBeNull();
+      expect(tree.querySelector('[data-node-id="s"][data-changed="true"]')).toBeNull();
+
+      // 它说的是"刚刚"，不是一个持续状态——几秒后自己清掉。
+      await act(async () => { await vi.advanceTimersByTimeAsync(6500); });
+      await waitFor(() => expect(tree.querySelector('[data-changed="true"]')).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("迭代 16（#3773 R4）：底部导航的图标**按内容**给，不是按位置轮转", async () => {
     const page = {
       type: "stack" as const, id: "s", children: [

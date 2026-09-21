@@ -430,6 +430,9 @@ export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
 
 export interface OutlineEntry { readonly frame: string; readonly intent: string; }
 
+/** `writeback.prototype` 的元素形状——zod 推出来的是可变数组，别在这里自己再写一份只读版。 */
+type WritebackScreens = NonNullable<DesignChatWriteback["prototype"]>;
+
 /** 某页被截断之后，重试那一页时追加的要求。只改输出**体量**，不改这一页要做什么。 */
 /**
  * V54：模型看不了图时，**在给用户的那句话里说出来**。
@@ -717,6 +720,54 @@ export class ModelDesignChatReplier implements DesignChatModel {
     }
   }
 
+  /**
+   * 迭代 16（#3773 R5）：逐页打分，低于线的**带着具体反馈重问那一页**，只保留更好的那版。
+   *
+   * 三条纪律与分页那条路逐字相同（#3340 定下的）：反馈必须具体、只保留更好的那版、
+   * 有预算上限。预算按页数给（`qualityRetryBudget`），与首次生成同一个口径——
+   * 同一件事在两条路上用两套预算，就是同一事实两处。
+   */
+  private async liftScreenQuality(
+    ctx: DesignChatContext,
+    screens: WritebackScreens,
+  ): Promise<WritebackScreens> {
+    let budget = qualityRetryBudget(screens.length);
+    const out: WritebackScreens[number][] = [];
+    for (const [i, screen] of screens.entries()) {
+      const report = scorePrototypeScreen(screen.root);
+      if (report.total >= PROTOTYPE_QUALITY_THRESHOLD || budget <= 0) {
+        if (report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+          this.deps.log("design chat: rewrite quality below bar but retry budget spent", { index: i, score: report.total });
+        }
+        out.push(screen);
+        continue;
+      }
+      budget -= 1;
+      this.deps.log("design chat: rewrite quality below bar, asking again with feedback", { index: i, score: report.total });
+      const context =
+        describeProject(ctx) +
+        `\n\n这个项目共 ${screens.length} 页（序号从 0 起）：` +
+        screens.map((x, k) => `${k}. 「${x.frame}」`).join("、") +
+        `\n\n现在只重画第 ${i} 页「${screen.frame}」。links 的 to 用上面的页序号。`;
+      const better = await this.retryForQuality(context, ctx, screen.frame, report.feedback);
+      if (better === null) { out.push(screen); continue; }
+      const root = (better as { root?: unknown }).root as designPrototype.PrototypeNode;
+      const after = scorePrototypeScreen(root);
+      this.deps.log("design chat: rewrite quality retry done", { index: i, before: report.total, after: after.total });
+      // 更好才换——重问也可能更差。
+      if (after.total <= report.total) { out.push(screen); continue; }
+      out.push({
+        frame: screen.frame,
+        root,
+        ...(typeof (better as { notes?: unknown }).notes === "string" ? { notes: (better as { notes: string }).notes } : screen.notes === undefined ? {} : { notes: screen.notes }),
+        ...(Array.isArray((better as { links?: unknown }).links)
+          ? { links: [...((better as { links: readonly designPrototype.PrototypeLink[] }).links)] }
+          : screen.links === undefined ? {} : { links: screen.links }),
+      });
+    }
+    return out;
+  }
+
   /** 传了图但模型看不了 ⇒ 那句提示；没传图或看得了 ⇒ 空串。 */
   private blindNotice(ctx: DesignChatContext): string {
     return (ctx.refImages ?? []).length > 0 && !this.canSeeImages() ? BLIND_MODEL_NOTICE : "";
@@ -838,8 +889,30 @@ export class ModelDesignChatReplier implements DesignChatModel {
     // 在此之前只能靠"JSON 解析失败"反推，那把「输出不合语法」和「输出被切断」混成一件事，
     // 而屏上给用户的下一步不同（换个说法 vs 拆小一点／单页重试）。
     if (truncated) {
-      this.deps.log("design chat: model reported truncated output", { length: text.length });
-      return fallbackWith("MODEL_OUTPUT_TRUNCATED");
+      /**
+       * 迭代 16（#3773 R5）—— 截断**不再直接判失败，改落到分页生成**。
+       *
+       * 这条路（已有原型、单次调用）在用户说「整体重画一遍」「把这几页统一一下风格」
+       * 时，要一次吐出所有页的完整组件树——那正是 R2 之前首次生成必然撞顶的那件事，
+       * 只是换了个入口。首次生成早就拆成了「一次骨架 + 每页一次」，而这条路上
+       * 撞顶之后只会退回一句"AI 这次没说完"，让用户一遍遍重试一个**必然**再次截断的请求。
+       *
+       * 分页那条路对这种请求同样成立（骨架轮会把现有页重新规划一遍，`describeProject`
+       * 里带着当前原型，它看得见原来有哪几页）。所以这里不是新逻辑，是把已经修好的
+       * 那条路接上来。
+       *
+       * ⚠ 只在**截断**时落过去，不是每次都走分页：局部改动（patch）一次调用足够，
+       *   无脑分页只会让一句「把按钮文案改一下」花 N 倍的钱。
+       */
+      this.deps.log("design chat: model reported truncated output, falling back to paged generation", { length: text.length });
+      try {
+        return await this.generatePaged(ctx);
+      } catch (e) {
+        this.deps.log("design chat: paged fallback after truncation also failed", {
+          detail: e instanceof Error ? e.message : "unknown",
+        });
+        return fallbackWith("MODEL_OUTPUT_TRUNCATED");
+      }
     }
     let raw: unknown;
     try {
@@ -870,6 +943,17 @@ export class ModelDesignChatReplier implements DesignChatModel {
         // 修复轮里合法的字段覆盖首轮；首轮已合法、修复轮没给的字段保留。
         writeback = { ...writeback, ...repaired };
       }
+    }
+    /**
+     * 迭代 16（#3773 R5）—— **整页写回也要过质量门**。
+     *
+     * 质量门（`scorePrototypeScreen` + 定向重问）此前**只跑在首次分页生成上**。
+     * 也就是说：第一次画出来的几页被认真审过，而用户接下来每一轮迭代（「重画首页」
+     * 「这三页重新排一下」）产出的页**一次都没被审过**。用户越迭代质量越飘，
+     * 而迭代恰恰是这个工具的主用途——这是 R1 登记、留到本轮修的那一条。
+     */
+    if (writeback.prototype !== undefined) {
+      writeback = { ...writeback, prototype: await this.liftScreenQuality(ctx, writeback.prototype) };
     }
     const suggestions = parseSuggestions(obj.suggestions);
     if (reply === "") {

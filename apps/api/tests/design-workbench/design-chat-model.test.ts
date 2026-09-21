@@ -61,7 +61,25 @@ describe("B5.2 ModelDesignChatReplier", () => {
 
   it("迭代 7 修复轮：首轮 prototype 不合法 ⇒ 带原话理由再问一次；修复轮合法 ⇒ 用它；修复轮也失败 ⇒ 保留首轮合法字段与回复", async () => {
     const bad = '{"reply":"画好了。","writeback":{"criteria":["c1"],"prototype":[{"frame":"聊天","root":{"type":"iframe"}}]}}';
-    const good = '{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":{"type":"text","props":{"content":"hi"}}}]}}';
+    /*
+     * 迭代 16（#3773 R5）：修复轮产出的页**也要过质量门**了，所以这里的"修好了"那一页
+     * 必须本身是一页说得过去的界面——否则会多出一次质量重问，这条用例就不再是在测修复轮。
+     * 这正是本轮要的效果：迭代产出的页不再无人把关（另有用例专门钉它）。
+     */
+    const goodRoot = {
+      type: "stack",
+      children: [
+        { type: "text", props: { content: "客服会话", variant: "title" } },
+        { type: "text", props: { content: "12 条待回复", variant: "caption", muted: true } },
+        { type: "text", props: { content: "今天", variant: "label" } },
+        { type: "list", props: { items: ["王女士：订单还没发货", "李先生：想改收货地址", "赵小姐：申请退款"], leading: "avatar" } },
+        { type: "text", props: { content: "已处理", variant: "label" } },
+        { type: "list", props: { items: ["陈先生：发票抬头", "周女士：尺码咨询"], leading: "avatar" } },
+        { type: "input", props: { placeholder: "搜索会话" } },
+        { type: "button", props: { label: "开始回复", variant: "primary", full: true } },
+      ],
+    };
+    const good = `{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":${JSON.stringify(goodRoot)}}]}}`;
     let n = 0;
     const ok = replier(async () => ({ text: (n += 1) === 1 ? bad : good }));
     const out = await ok.r.reply(CTX);
@@ -70,7 +88,7 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(repairPrompt).toContain("没通过契约校验");
     expect(repairPrompt).toContain("prototype");
     expect(out.text).toBe("画好了。"); // 回复文字沿用首轮
-    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: { type: "text", props: { content: "hi" } } }] });
+    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: goodRoot }] });
 
     let m = 0;
     const stillBad = replier(async () => { m += 1; if (m === 1) return { text: bad }; throw new Error("boom"); });
@@ -715,5 +733,95 @@ describe("迭代 16：裁剪不许裁掉系统留痕（#3773 R3）", () => {
     expect(user).not.toContain("闲聊 0");
     // 钉住顺序：留痕仍排在被保留的那些闲聊之前，不是被挪到末尾。
     expect(user.indexOf("从线程《导出慢》")).toBeLessThan(user.indexOf(`闲聊 ${String(noise.length - 1)}`));
+  });
+});
+
+/* ───────────────── 迭代 16（#3773 R5）：迭代产出也要被管住 ───────────────── */
+
+const THIN_PAGE = { type: "stack", children: [{ type: "text", props: { content: "空空如也" } }] };
+const SOLID_PAGE = {
+  type: "stack",
+  children: [
+    { type: "text", props: { content: "我的订单", variant: "title" } },
+    { type: "text", props: { content: "近 30 天共 8 单", variant: "caption", muted: true } },
+    { type: "text", props: { content: "进行中", variant: "label" } },
+    { type: "list", props: { items: ["楼下的面馆", "书店", "水果摊"], detail: ["牛肉面 × 1", "三本书", "两斤橙子"], trailing: ["¥28", "¥136", "¥19"], leading: "icon", icons: ["cart"] } },
+    { type: "text", props: { content: "已完成", variant: "label" } },
+    { type: "list", props: { items: ["咖啡店", "便利店"], trailing: ["¥32", "¥15"] } },
+    { type: "input", props: { placeholder: "搜索订单" } },
+    { type: "button", props: { label: "再来一单", icon: "refresh", variant: "primary", full: true } },
+  ],
+};
+
+describe("整页写回也过质量门（#3773 R5）", () => {
+  it("写回的页低于线 ⇒ 带着具体反馈重问那一页；更好就换", async () => {
+    // ⭐ 反证锚点：把 `liftScreenQuality` 摘掉 ⇒ 这条红。质量门此前**只跑在首次分页生成上**，
+    // 用户每一轮迭代产出的页一次都没被审过——而迭代恰恰是这个工具的主用途。
+    const first = `{"reply":"重画了首页。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(THIN_PAGE)}}]}}`;
+    const retry = `{"frame":"订单","root":${JSON.stringify(SOLID_PAGE)},"notes":"列出进行中与已完成的订单。"}`;
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? first : retry }));
+    const out = await r.reply(CTX);
+    expect(model.complete).toHaveBeenCalledTimes(2);
+    // 第二次是**单页**重问，带着具体缺什么，不是一句"再试一次"。
+    const second = model.complete.mock.calls[1]?.[0];
+    expect(second?.system).toBe(DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+    expect(second?.user).toContain("刚才这一页画得不够好");
+    expect(second?.user).toContain("元素");
+    expect(out.writeback.prototype?.[0]?.root).toEqual(SOLID_PAGE);
+    expect(out.writeback.prototype?.[0]?.notes).toBe("列出进行中与已完成的订单。");
+  });
+
+  it("重问反而更差 ⇒ 保留原来那版（不能越修越坏）", async () => {
+    const first = `{"reply":"重画了。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(THIN_PAGE)}}]}}`;
+    const worse = '{"frame":"订单","root":{"type":"stack","children":[{"type":"divider"}]}}';
+    let n = 0;
+    const { r } = replier(async () => ({ text: (n += 1) === 1 ? first : worse }));
+    const out = await r.reply(CTX);
+    expect(out.writeback.prototype?.[0]?.root).toEqual(THIN_PAGE);
+  });
+
+  it("写回的页本来就过线 ⇒ 一次都不重问（不为了 1 分多花一次调用）", async () => {
+    const first = `{"reply":"重画了。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(SOLID_PAGE)}}]}}`;
+    const { r, model } = replier(async () => ({ text: first }));
+    await r.reply(CTX);
+    expect(model.complete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("整页重画被截断 ⇒ 落到分页生成，而不是直接判失败（#3773 R5）", () => {
+  it("首轮 truncated ⇒ 改走「一次骨架 + 每页一次」，用户拿到的是页，不是一句「没说完」", async () => {
+    /*
+     * ⭐ 反证锚点：改回 `return fallbackWith("MODEL_OUTPUT_TRUNCATED")` ⇒ 这条红。
+     * 「整体重画一遍」要一次吐出所有页的完整树，正是首次生成早就拆掉的那件事，
+     * 只是换了个入口；退回一句"AI 这次没说完"会让用户一遍遍重试一个必然再次截断的请求。
+     */
+    const outline = '{"reply":"重画成两页。","outline":[{"frame":"订单","intent":"看订单"},{"frame":"详情","intent":"看一单"}]}';
+    const screen = `{"frame":"x","root":${JSON.stringify(SOLID_PAGE)},"notes":"说明"}`;
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: "{\"reply\":\"重画中", truncated: true } as never;
+      return { text: n === 2 ? outline : screen };
+    });
+    const out = await r.reply(CTX);
+    expect(out.source).toBe("model");
+    expect(out.fallbackReason).toBeUndefined();
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["订单", "详情"]);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+    // 1 次首轮 + 1 次骨架 + 2 次每页
+    expect(model.complete).toHaveBeenCalledTimes(4);
+  });
+
+  it("落过去的分页生成也失败 ⇒ 仍然如实报「被截断」，不假装成别的原因", async () => {
+    let n = 0;
+    const { r } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: "{半截", truncated: true } as never;
+      throw new ModelCallError("MODEL_CALL_FAILED", "boom");
+    });
+    const out = await r.reply(CTX);
+    expect(out.source).toBe("fallback");
+    expect(out.fallbackReason).toBe("MODEL_OUTPUT_TRUNCATED");
   });
 });

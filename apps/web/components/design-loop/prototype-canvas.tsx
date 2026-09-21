@@ -45,7 +45,9 @@ const SelectionCtx = React.createContext<{
   mode: PrototypeCanvasMode;
   links: ReadonlyMap<string, number>;
   onNavigate: ((to: number) => void) | null;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null });
+  /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——屏上给一圈高亮，说清"它改了这里"。 */
+  changed: ReadonlySet<string>;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set() });
 
 /** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
 function useLinkTap(id: string | undefined, item?: number) {
@@ -70,7 +72,7 @@ function useLinkTap(id: string | undefined, item?: number) {
 
 /** 每个节点根元素要挂的属性：id、选中标记、点击选中（冒泡到父节点前停住，父子重叠时选最内层）。 */
 function useTap(node: PrototypeNode) {
-  const { selectedId, onSelect, mode } = React.useContext(SelectionCtx);
+  const { selectedId, onSelect, mode, changed } = React.useContext(SelectionCtx);
   const id = node.id;
   // 单目标原语在预览模式下的跳转（多项原语与 navbar 由各自的项挂 `useLinkTap`，这里 item 恒 0 会查不到，正好）。
   const link = useLinkTap(id);
@@ -80,6 +82,8 @@ function useTap(node: PrototypeNode) {
   return {
     "data-node-id": id,
     "data-selected": id !== undefined && id === selectedId ? "true" : undefined,
+    // 迭代 16（#3773 R5）：这一轮改了它。纯标记，样式挂在画布根上的 arbitrary variant 里。
+    "data-changed": id !== undefined && changed.has(id) ? "true" : undefined,
     "data-linked": link.linked ? "true" : undefined,
     // 可选中时是一个真正的控件：role/tabIndex/aria-pressed + Enter/Space 触发（Codex P2：不能只挂 onClick）。
     ...(interactive
@@ -204,6 +208,9 @@ export type { PrototypeDevicePreset, PrototypeChrome };
 export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevicePreset {
   return defaultPresetFor(template);
 }
+/** 没有改动时共用的同一个空集——每次渲染新建一个会让 context 每帧都变。 */
+const EMPTY_CHANGED: ReadonlySet<string> = new Set();
+
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
 /**
@@ -555,7 +562,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -572,6 +579,14 @@ export function PrototypeCanvas({
    * 等于请用户为一件正在发生的事重新下单。
    */
   drawing?: boolean;
+  /**
+   * 迭代 16（#3773 R5）：这一轮新增/改动的节点 id。
+   *
+   * 一轮对话之后画布整体换了一份，而屏上没有任何痕迹说明**哪里**变了——三页里改了一个
+   * 按钮文案，用户只能自己逐页找。于是"改一点点"和"重看一遍全部"一样贵，
+   * 而快速建模靠的恰恰是"改一点点"足够便宜。
+   */
+  changed?: ReadonlySet<string>;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -597,7 +612,7 @@ export function PrototypeCanvas({
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
@@ -655,6 +670,13 @@ export function PrototypeCanvas({
             // 选中态：静态 arbitrary variant（Tailwind 扫得到），选中节点描边 + 可点节点显示手型。
             mode === "edit" && onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
             "[&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1",
+            /*
+             * 迭代 16（#3773 R5）：这一轮改动过的节点给一圈虚线。
+             * 用 `success` 而不是 `primary`——primary 已经是"选中"的意思，
+             * 两件事共用一个颜色，用户分不清"我选了它"和"它刚被改了"。
+             * 虚线也是为此：选中是实线。
+             */
+            "[&_[data-changed=true]]:outline-dashed [&_[data-changed=true]]:outline-2 [&_[data-changed=true]]:outline-success [&_[data-changed=true]]:outline-offset-1",
             // 迭代 11 预览态：只有带跳转的可点位显示手型 + 悬停描边；其余节点没有任何可点暗示。
             mode === "preview" && "[&_[data-linked=true]]:cursor-pointer [&_[data-linked=true]:hover]:outline [&_[data-linked=true]:hover]:outline-2 [&_[data-linked=true]:hover]:outline-primary [&_[data-linked=true]:hover]:outline-offset-1",
           )}

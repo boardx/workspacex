@@ -29,7 +29,7 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
@@ -44,6 +44,8 @@ export function PrototypeBoard({
   mode?: PrototypeCanvasMode;
   /** 迭代 16（#3773 R2）：整份原型正在被分页生成——没树的页显示「正在画这一页…」。 */
   drawing?: boolean;
+  /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——画板上同样高亮，不然要切到单页才看得见。 */
+  changed?: ReadonlySet<string>;
   /** 迭代 13：原型自己的明暗主题，透传给每块画板。 */
   theme?: "light" | "dark";
   onNavigate?: ((to: number) => void) | null;
@@ -234,6 +236,7 @@ export function PrototypeBoard({
                 frameIndex={i}
                 /* 迭代 16（#3773 R2）：这一轮还在生成 ⇒ 还没轮到的页说「正在画」，不是一片空白。 */
                 drawing={drawing && (prototype[i] ?? null) === null}
+                changed={changed}
                 mode={mode}
                 links={links[i]}
                 onNavigate={onNavigate}
