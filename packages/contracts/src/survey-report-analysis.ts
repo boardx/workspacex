@@ -43,9 +43,15 @@ export function analyzeSurveySection(blocks: CompiledSurveyBlock[], questions: S
       const selected=block.rows.filter(r=>r.count>0);
       if (!selected.length) continue;
       insights.push({title:`${block.title}：实际选择情况`,evidence:selected.map(r=>`“${r.label}”有 ${r.count} 份选择${block.statistic==='percentage'?`（${number(r.value)}%）`:''}`).join('；')+'。统计仅描述本次作答。',action:`围绕“${block.title}”核对选择背后的具体原因，并结合其他题目反馈确定是否需要跟进。`,blockIds:[block.id]});
-    } else if (block.statistic === 'mean' && block.rows.length === 1) {
-      const row=block.rows[0]!;
-      insights.push({title:`${block.title}：作答结果`, evidence:`“${row.label}”的均值为 ${number(row.value)}。${scope(row.count)}${row.target===undefined?'未配置目标基准，不判定达标或不达标。':`模板目标为 ${number(row.target)}，目标减当前值为 ${number(row.gap!)}。`}`,action:`请受访者针对“${row.label}”补充一个具体实例及期望变化，作为后续改进依据。`,blockIds:[block.id]});
+    } else if (['mean', 'nps', 'count', 'sum', 'first_choice'].includes(block.statistic)) {
+      const labels: Record<string, string> = {mean:'均值',nps:'NPS',count:'有效作答数',sum:'合计',first_choice:'首选比例'};
+      const unit = block.statistic === 'first_choice' ? '%' : '';
+      insights.push({
+        title: `${block.title}：${labels[block.statistic]}解读`,
+        evidence: block.rows.map(row => `“${row.label}”的${labels[block.statistic]}为 ${number(row.value)}${unit}。${scope(row.count)}${row.target===undefined?'':`模板目标为 ${number(row.target)}，目标减当前值为 ${number(row.gap!)}。`}`).join(' ') + (block.statistic === 'nps' ? 'NPS 为推荐者比例减贬损者比例，范围为 -100 至 100；单份结果不是群体口碑。' : ''),
+        action: `围绕“${block.title}”补充具体经历和期望变化，再确定行动；${block.statistic === 'first_choice' ? '首选比例只反映作答排序，实施次序还需结合成本与可行性。' : '未配置评价标准的数值不直接判定好坏，也不合并不同量纲。'}`,
+        blockIds: [block.id],
+      });
     }
   }
   for (const block of blocks.filter(b => !b.issues.length && !b.groupByQuestionId && b.answerTexts?.length && b.questionIds.every(id => questions.find(q => q.id === id)?.type === 'open'))) {

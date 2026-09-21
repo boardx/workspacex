@@ -43,3 +43,21 @@ it('summarizes ranking with ascending rank semantics and preserves a single open
  expect(result.sections[0]!.analysis![0]!.action).toContain('工具');
  expect(JSON.stringify(result.sections[0]!.analysis)).toContain('找资料需要切换三个系统');
 });
+it('interprets NPS and multi-question mean tables with one valid answer',()=>{
+ const qs=[...questions,{...questions[0]!,id:'nps',title:'推荐',type:'nps' as const,config:{min:0,max:10},options:[]}];
+ const t=SurveyReportTemplateSchema.parse({id:'t',title:'报告',sections:[{id:'s',title:'整体感受',blocks:[{id:'multi',title:'战略',type:'table',questionIds:['q0','q1'],statistic:'mean'},{id:'n',title:'推荐',type:'metric',questionIds:['nps'],statistic:'nps'}]}]});
+ const r={...response,answers:[...response.answers,{questionId:'nps',value:'9'}]};
+ const result=compileSurveyReport(t,qs,[r]);
+ expect(result.issues).toEqual([]);
+ expect(result.sections[0]!.analysis?.map(a=>a.blockIds[0])).toEqual(['multi','n']);
+ expect(result.sections[0]!.analysis![1]!.evidence).toContain('NPS为 100');
+});
+it.each(['count','sum','first_choice'] as const)('interprets %s without confusing units',statistic=>{
+ const q={...questions[0]!,type:statistic==='first_choice'?'ranking' as const:'scale' as const};
+ const t=SurveyReportTemplateSchema.parse({id:'t',title:'报告',sections:[{id:'s',title:'结果',blocks:[{id:'b',title:'结果',type:'table',questionIds:[q.id],statistic}]}]});
+ const r={...response,answers:[{questionId:q.id,value:statistic==='first_choice'?['1','2','3','4','5']:'3'}]};
+ const result=compileSurveyReport(t,[q],[r]);
+ expect(result.issues).toEqual([]);
+ expect(result.sections[0]!.analysis).toHaveLength(1);
+ expect(result.sections[0]!.analysis![0]!.evidence).toContain('受访者');
+});
