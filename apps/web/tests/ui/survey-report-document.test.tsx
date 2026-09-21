@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { inflateRawSync } from 'node:zlib';
 import { render, screen } from '@testing-library/react';
 import type { survey } from '@repo/contracts';
@@ -7,6 +7,7 @@ import { printSurveyReport, buildSurveyReportWord } from '@/components/survey/re
 const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
 const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
 describe('survey report document',()=>{
+ beforeEach(()=>{ vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); });
  it('renders captions exactly once on every content type and retains them in print',async()=>{
   const types: survey.CompiledSurveyBlock['type'][]=['text','metric','table','bar','radar','line','gap','image','page-break'];
   const all={...report,sections:[{id:'captions',title:'图注',blocks:types.map(type=>({...block(type),...(type==='image'?{imageUrl:'https://example.com/report.png'}:{})}))}]};
@@ -40,7 +41,9 @@ describe('survey report document',()=>{
   expect(container.querySelector('script')).toBeNull();
   expect(screen.getByText('<script>不能执行</script>')).toBeTruthy();
   expect(container.querySelectorAll('svg')).toHaveLength(3);
-  expect(container.querySelector('[data-chart="bar"] rect')?.getAttribute('width')).not.toBe('0');
+  expect(container.querySelectorAll('[data-chart="bar"] path').length).toBeGreaterThan(0);
+  expect(container.querySelector('[data-report-block="bar"] table')).toBeNull();
+  expect(container.querySelector('[data-report-block="gap"] table')).not.toBeNull();
   expect(screen.getByText('-2')).toBeTruthy();
   expect(screen.getByText('样本不足')).toBeTruthy();
   expect(container.querySelector('[data-page-break]')).toBeTruthy();
