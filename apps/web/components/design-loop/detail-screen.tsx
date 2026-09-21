@@ -80,6 +80,17 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
  */
 const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原型。";
 
+/**
+ * 迭代 16（#3773 R8）：哪些退路原因值得给一个「再试一次」。
+ *
+ * ⚠ `MODEL_NOT_CONFIGURED` **不在**这里：这个部署根本没配模型，重试一百次也一样，
+ *   给一个必然失败的按钮是在骗人。那一条的下一步是找运维，文案里已经说了。
+ * `MODEL_NO_REPLY_TEXT` 也不在：写回可能已经生效了，重发同一句会再改一遍。
+ */
+const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
+  "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
+]);
+
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
@@ -277,6 +288,12 @@ export function DesignDetailScreen({
    * 迭代 16（#3773 R2）：这一轮**真实**画到第几页。`null` = 还没有骨架（无事可报）。
    * 只在生成中有意义——不在生成中时画布本来就是最终状态，报进度只会让人以为还在跑。
    */
+  /** 迭代 16（#3773 R8）：最后一句**用户**说的话——退路重试要原样重发它。 */
+  const lastUserText = React.useMemo(() => {
+    const turns = project?.chat ?? [];
+    for (let i = turns.length - 1; i >= 0; i -= 1) if (turns[i]?.role === "user") return turns[i]!.text;
+    return null;
+  }, [project]);
   const drawnPages = React.useMemo(() => {
     if (project === null || project.prototype.length === 0) return null;
     const total = project.prototype.length;
@@ -692,9 +709,30 @@ export function DesignDetailScreen({
                 )}
                 {/* 2026-09-07：退路原因（闭集 → 人话），只挂最后一条，说清该重试还是该找运维 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && fallbackReason !== null && (
-                  <p className="mt-1 text-10 text-muted-foreground" data-testid="design-detail-fallback-reason">
-                    {FALLBACK_REASON_TEXT[fallbackReason]}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <p data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[fallbackReason]}</p>
+                    {/*
+                      * 迭代 16（#3773 R8）：退路里**该重试的那几种**给一个「再试一次」。
+                      *
+                      * 在这之前这里只有一句解释，而屏上唯一的重试入口挂在"没能发送"那条
+                      * 错误条带上——也就是说：网络层失败给了重试，**模型层失败反而没有**，
+                      * 而后者才是用户真正会撞上的那一类（超时、被截断、输出不是 JSON）。
+                      * 用户当时能做的只有把刚才那句话再手打一遍。
+                      *
+                      * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
+                      * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
+                      */}
+                    {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
+                      <button
+                        type="button"
+                        onClick={() => void send(lastUserText)}
+                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-fallback-retry"
+                      >
+                        再试一次
+                      </button>
+                    )}
+                  </div>
                 )}
                 {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (

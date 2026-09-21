@@ -440,6 +440,15 @@ type WritebackScreens = NonNullable<DesignChatWriteback["prototype"]>;
  */
 export const BLIND_MODEL_NOTICE = "\n\n⚠ 这个部署的 AI 模型看不了图，你传的参考图它没有看到，上面是按你的文字描述画的。";
 
+/**
+ * 迭代 16（#3773 R9）：每页轮的并发度。
+ *
+ * 刻意小。上游 provider 通常有并发与速率限制，开大了换来的是 429，
+ * 而 429 在这条链路上的表现是「某几页没画出来」——比慢更糟。
+ * 2 已经把 5 页项目的等待砍掉将近一半（1 + ⌈4/2⌉ = 3 轮，而不是 5 轮）。
+ */
+export const SCREEN_CONCURRENCY = 2;
+
 export const SIMPLER_SCREEN_HINT =
   "\n\n⚠ 你上一次的输出没写完就被长度限制截断了。这一次请把这一页画得**更简单**：" +
   "节点数控制在 30 个以内、嵌套不超过 3 层，只保留这一页最核心的结构与主操作，" +
@@ -553,6 +562,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     };
     /** 按骨架顺序拼出「完整页序 + 已画好的那些」——中途和收尾用的是同一个拼法。 */
     const snapshot = (): readonly PagedScreen[] => {
+      // ⚠ 按**骨架顺序**还原页序：`done` 的顺序是完成顺序（并发之后不再等于页序）。
       const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
       return outline.map((e) => {
         const hit = byFrame.get(e.frame);
@@ -567,105 +577,44 @@ export class ModelDesignChatReplier implements DesignChatModel {
     };
     // 骨架一回来就发一次：页标签当场出现，用户看见"它在画这五页"，而不是一片空白。
     await publish(snapshot());
-    let retriesLeft = qualityRetryBudget(outline.length);
+    const budget = { left: qualityRetryBudget(outline.length) };
     const failed: string[] = [];
-    for (const [i, entry] of outline.entries()) {
-      const context =
-        describeProject(ctx) +
-        (tone === "" ? "" : `\n\n整套界面的设计基调（每一页都要守住它，风格不要在页与页之间漂）：${tone}`) +
-        `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
-        outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
-        (done.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + done.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +
-        `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
-      let one: { text: string; truncated: boolean };
-      try {
-        // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
-        one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
-      } catch (e) {
-        this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
-        failed.push(entry.frame);
-        continue;
-      }
-      // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
-      const needsSimpler = one.truncated || !canParse(one.text);
-      if (needsSimpler) {
-        this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
-        try {
-          one = await this.callModel(
-            context + SIMPLER_SCREEN_HINT,
-            DESIGN_CHAT_REPAIR_TIMEOUT_MS,
-            DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
-            ctx.refImages,
-          );
-        } catch (e) {
-          this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
-          failed.push(entry.frame);
-          continue;
-        }
-        if (one.truncated) {
-          this.deps.log("design chat: smaller retry still truncated", { index: i });
-          failed.push(entry.frame);
-          continue;
-        }
-      }
-      let parsed: unknown;
-      try {
-        parsed = extractJsonObject(one.text);
-      } catch {
-        this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
-        failed.push(entry.frame);
-        continue;
-      }
-      const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
-      // 逐页过契约：这一页不合法就只丢这一页，不连累别的页——与整页写回「一页被拒整批拒」
-      // 刻意不同，那条纪律的前提是"半套原型比没有更糟"，分页之后前提变了：
-      // 缺一页且**说清楚缺哪页**，比八页全没有好。
-      if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
-        this.deps.log("design chat: screen rejected by contract", { index: i });
-        failed.push(entry.frame);
-        continue;
-      }
-      /**
-       * issue #3340：**质量自审 + 定向重问一次**。
-       *
-       * 在这之前，这条链路上唯一的重试是「截断了 ⇒ 要求画简单一点」——方向是更简陋，
-       * 从来没有一处在问「画出来的东西够不够像个界面」。用户实测：「界面质量很差，
-       * 感觉没有迭代就提交了，流程没有完整执行」。
-       *
-       * 三条纪律：
-       * ① 反馈必须**具体**（少几个元素、只有一档字号、几个空容器），不是「再试一次」；
-       * ② **只保留更好的那一版**——重问可能更差，那就用原来的，不能越修越坏；
-       * ③ 有预算上限，超了如实记日志，不静默（8 页项目不该把用户的等待翻倍）。
-       */
-      // `screen` 是 `{...parsed, frame}` 的展开，TS 推不出索引签名——显式当成记录用。
-      const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
-      // 迭代 16（#3773 R6）：带上这一页的跳转表与总页数——「主操作有没有去处」要它们。
-      const scoreOf = (x: Record<string, unknown>): ReturnType<typeof scorePrototypeScreen> =>
-        scorePrototypeScreen(x.root as designPrototype.PrototypeNode, {
-          ...(Array.isArray(x.links) ? { links: x.links as readonly designPrototype.PrototypeLink[] } : {}),
-          screenCount: outline.length,
-        });
-      let best: { screen: Record<string, unknown>; report: ReturnType<typeof scorePrototypeScreen> } = {
-        screen: asRecord(screen),
-        report: scoreOf(asRecord(screen)),
-      };
-      if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
-        if (retriesLeft <= 0) {
-          this.deps.log("design chat: quality below bar but retry budget spent", { index: i, score: best.report.total });
-        } else {
-          retriesLeft -= 1;
-          this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
-          const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
-          if (better !== null) {
-            const report = scoreOf(asRecord(better));
-            // 更好才换——重问也可能更差。
-            if (report.total > best.report.total) best = { screen: better, report };
-            this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
-          }
-        }
-      }
-      done.push({ frame: entry.frame, screen: best.screen });
-      // 这一页当场长出来（前端在生成期间轮询项目，看到的就是一页页填上）。
+    /**
+     * 迭代 16（#3773 R9）—— **第一页串行定调，其余页成批并发**。
+     *
+     * 在这之前 N 页是严格串行的：5 页 × 每页几十秒 = 用户干等两三分钟，
+     * 而这几次调用之间**没有真正的依赖**——每一页各画各的，唯一的关联是
+     * 「已画好的页给个结构轮廓供保持风格一致」。
+     *
+     * 所以：
+     *   · **第 0 页仍然串行**。它是风格的锚——后面每一页的上下文里都带着它的轮廓。
+     *     把它和别人一起并发，就等于所有页都在没有锚的情况下各画各的，
+     *     省下的时间要拿页间风格漂移去换（R1-⑩ 刚修过的正是这件事）。
+     *   · 其余页按 `SCREEN_CONCURRENCY` 成批跑。批内共享**同一份**已完成轮廓——
+     *     批内彼此看不到是并发的代价，批不大时这个代价很小。
+     *   · 每批结束发一次进度（前端轮询看到的是"一批批长出来"，仍然是逐页可见）。
+     *
+     * ⚠ 并发度刻意小（2）：上游 provider 通常有并发与速率限制，开大了换来的是 429，
+     *   而 429 在这条链路上的表现是"某几页没画出来"——比慢更糟。
+     */
+    const drawn = new Map<string, Record<string, unknown>>();
+    const runOne = async (i: number, entry: OutlineEntry, anchors: readonly { frame: string; screen: Record<string, unknown> }[]): Promise<void> => {
+      const screen = await this.drawOneScreen(ctx, { outline, tone, index: i, entry, anchors, budget });
+      if (screen === null) { failed.push(entry.frame); return; }
+      drawn.set(entry.frame, screen);
+      // `done` 是给后面几批当风格锚用的，按完成顺序追加即可（页序由 `snapshot()` 按骨架还原）。
+      done.push({ frame: entry.frame, screen });
+    };
+
+    const first = outline[0];
+    if (first !== undefined) {
+      await runOne(0, first, []);
+      await publish(snapshot());
+    }
+    for (let at = 1; at < outline.length; at += SCREEN_CONCURRENCY) {
+      const batch = outline.slice(at, at + SCREEN_CONCURRENCY);
+      const anchors = [...done];
+      await Promise.all(batch.map((entry, k) => runOne(at + k, entry, anchors)));
       await publish(snapshot());
     }
 
@@ -697,6 +646,103 @@ export class ModelDesignChatReplier implements DesignChatModel {
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
+  }
+
+
+  /**
+   * 迭代 16（#3773 R9）：画**一页**——从组上下文到质量自审的整条路。
+   *
+   * 从 `generatePaged` 的循环体里原样搬出来（行为逐字不变），搬出来是为了能让若干页
+   * 并发跑同一个函数。三段降级仍然是原来的三段：
+   *   ① 截断 / JSON 不完整 ⇒ 同一页**要求画简单一点**再来一次（方向是更简陋）；
+   *   ② 过不了契约 ⇒ 只丢这一页，不连累别的页；
+   *   ③ 质量低于线 ⇒ 带着**具体缺什么**重问一次，只保留更好的那版（方向是补足）。
+   *
+   * 画不出来 ⇒ 返回 `null`（调用方记进 `failed`，回复里如实说是哪几页没画出来）。
+   */
+  private async drawOneScreen(
+    ctx: DesignChatContext,
+    args: {
+      readonly outline: readonly OutlineEntry[];
+      readonly tone: string;
+      readonly index: number;
+      readonly entry: OutlineEntry;
+      /** 已经画好的页（结构轮廓），供保持风格一致。并发批内共享同一份。 */
+      readonly anchors: readonly { readonly frame: string; readonly screen: Record<string, unknown> }[];
+      /** 这一轮**共享**的质量重试预算。并发下先减后 await，不会两页同时看到同一个余额。 */
+      readonly budget: { left: number };
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const { outline, tone, index: i, entry, anchors, budget } = args;
+    const context =
+      describeProject(ctx) +
+      (tone === "" ? "" : `\n\n整套界面的设计基调（每一页都要守住它，风格不要在页与页之间漂）：${tone}`) +
+      `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
+      outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
+      (anchors.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + anchors.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +
+      `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
+
+    let one: { text: string; truncated: boolean };
+    try {
+      // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
+      one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+    } catch (e) {
+      this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+      return null;
+    }
+    // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
+    if (one.truncated || !canParse(one.text)) {
+      this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
+      try {
+        one = await this.callModel(context + SIMPLER_SCREEN_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+      } catch (e) {
+        this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        return null;
+      }
+      if (one.truncated) {
+        this.deps.log("design chat: smaller retry still truncated", { index: i });
+        return null;
+      }
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractJsonObject(one.text);
+    } catch {
+      this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
+      return null;
+    }
+    const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
+    // 逐页过契约：这一页不合法就只丢这一页，不连累别的页。
+    if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
+      this.deps.log("design chat: screen rejected by contract", { index: i });
+      return null;
+    }
+
+    // 质量自审 + 定向重问一次（issue #3340 定下的三条纪律，逐字不变）。
+    const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
+    const scoreOf = (x: Record<string, unknown>): ReturnType<typeof scorePrototypeScreen> =>
+      scorePrototypeScreen(x.root as designPrototype.PrototypeNode, {
+        ...(Array.isArray(x.links) ? { links: x.links as readonly designPrototype.PrototypeLink[] } : {}),
+        screenCount: outline.length,
+      });
+    let best = { screen: asRecord(screen), report: scoreOf(asRecord(screen)) };
+    if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+      // ⚠ **先减后 await**：并发下两页同时读到同一个余额、各花一次，预算就超了。
+      if (budget.left <= 0) {
+        this.deps.log("design chat: quality below bar but retry budget spent", { index: i, score: best.report.total });
+      } else {
+        budget.left -= 1;
+        this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
+        const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
+        if (better !== null) {
+          const report = scoreOf(asRecord(better));
+          // 更好才换——重问也可能更差。
+          if (report.total > best.report.total) best = { screen: better, report };
+          this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
+        }
+      }
+    }
+    return best.screen;
   }
 
   /**

@@ -12,6 +12,7 @@ import {
   DESIGN_OUTLINE_SYSTEM_PROMPT,
   DESIGN_PRINCIPLES,
   DESIGN_QUALITY_BAR,
+  SCREEN_CONCURRENCY,
   CHAT_HISTORY_MAX_TURNS,
   CHAT_TURN_MAX_CHARS,
   ModelDesignChatReplier,
@@ -687,13 +688,18 @@ describe("迭代 16：分页生成的中间结果当场发出去（#3773 R2）",
         seen.push(screens.map((x) => (x.root === undefined ? `${x.frame}:空` : `${x.frame}:有`)));
       },
     });
-    // 1 次骨架 + 3 次每页 = 4 次
-    expect(seen.length).toBe(4);
+    /*
+     * 迭代 16（#3773 R9）之后是**一批一次**：1 次骨架 + 第 0 页（串行定调）
+     * + 其余页按 `SCREEN_CONCURRENCY` 成批 ⇒ 三页项目共 3 次。
+     * 逐页可见这件事没有变（用户看到的仍然是一批批长出来），变的是不再一页页干等。
+     */
+    expect(seen.length).toBe(3);
     // 第一次：三页全是占位——页标签当场就能出现在画布上，而不是等几分钟。
     expect(seen[0]).toEqual(["待办:空", "详情:空", "我的:空"]);
-    // 之后逐页填上，且**页序不变**（不是画好一页就重排）。
+    // 第 0 页先单独画完（它是后面几页的风格锚）。
     expect(seen[1]).toEqual(["待办:有", "详情:空", "我的:空"]);
-    expect(seen[3]).toEqual(["待办:有", "详情:有", "我的:有"]);
+    // 最后一次：全部画好，且**页序按骨架还原**——并发之后完成顺序不再等于页序。
+    expect(seen[2]).toEqual(["待办:有", "详情:有", "我的:有"]);
   });
 
   it("回调抛了 ⇒ 记一条日志，生成照常走完（它只是「早点存一下」，不是成败条件）", async () => {
@@ -823,5 +829,67 @@ describe("整页重画被截断 ⇒ 落到分页生成，而不是直接判失�
     const out = await r.reply(CTX);
     expect(out.source).toBe("fallback");
     expect(out.fallbackReason).toBe("MODEL_OUTPUT_TRUNCATED");
+  });
+});
+
+describe("迭代 16：每页轮成批并发（#3773 R9）", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+
+  it("第 0 页串行定调，其余页按并发度成批——同一批的调用真的是同时在跑", async () => {
+    const outline = '{"reply":"五页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"},{"frame":"D","intent":"d"},{"frame":"E","intent":"e"}]}';
+    let inFlight = 0;
+    let peak = 0;
+    let call = 0;
+    const { r } = replier(async () => {
+      const n = (call += 1);
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((res) => setTimeout(res, 1));
+      inFlight -= 1;
+      return { text: n === 1 ? outline : screen };
+    });
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    // ⭐ 反证锚点：改回串行 ⇒ peak 恒为 1，这条红。5 页 × 每页几十秒 = 用户干等两三分钟，
+    // 而这几次调用之间没有真正的依赖。
+    expect(peak).toBe(SCREEN_CONCURRENCY);
+    // 并发度不许被悄悄放大：429 在这条链路上的表现是「某几页没画出来」，比慢更糟。
+    expect(peak).toBeLessThanOrEqual(SCREEN_CONCURRENCY);
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C", "D", "E"]);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+  });
+
+  it("第 0 页**不**与别人并发——它是后面每一页的风格锚", async () => {
+    const outline = '{"reply":"三页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"}]}';
+    const order: string[] = [];
+    let call = 0;
+    const { r, model } = replier(async () => {
+      const n = (call += 1);
+      if (n > 1) order.push("start");
+      await new Promise((res) => setTimeout(res, 1));
+      if (n > 1) order.push("end");
+      return { text: n === 1 ? outline : screen };
+    });
+    await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    // 第一页：start,end 成对；之后 B、C 同批 ⇒ start,start,end,end。
+    expect(order.slice(0, 2)).toEqual(["start", "end"]);
+    expect(order.slice(2)).toEqual(["start", "start", "end", "end"]);
+    // 后面几页的上下文里带着第 0 页的结构轮廓。
+    const laterUser = model.complete.mock.calls[2]?.[0].user ?? "";
+    expect(laterUser).toContain("已经画好的页");
+  });
+
+  it("并发批里某一页失败 ⇒ 只损失那一页，其余照常，页序仍按骨架还原", async () => {
+    const outline = '{"reply":"三页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"}]}';
+    let call = 0;
+    const { r } = replier(async () => {
+      const n = (call += 1);
+      if (n === 1) return { text: outline };
+      if (n === 3) throw new ModelCallError("MODEL_CALL_FAILED", "boom");
+      return { text: screen };
+    });
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C"]);
+    expect(out.pagedScreens?.filter((x) => x.root === undefined)).toHaveLength(1);
+    expect(out.text).toContain("没画出来");
   });
 });

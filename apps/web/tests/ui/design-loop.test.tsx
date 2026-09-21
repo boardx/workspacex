@@ -3207,6 +3207,47 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
+  it("迭代 16（#3773 R8）：模型层失败也有「再试一次」，而「没配模型」不给（给一个必然失败的按钮是在骗人）", async () => {
+    let reason = "MODEL_TIMEOUT";
+    const posted: { text?: string }[] = [];
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string } }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-08T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-08T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: reason },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+
+    /*
+     * ⭐ 反证锚点：去掉这个按钮 ⇒ 这条红。在这之前屏上唯一的重试挂在"没能发送"那条
+     * 错误条带上——网络层失败给了重试，**模型层失败反而没有**，而后者（超时、被截断、
+     * 输出不是 JSON）才是用户真正会撞上的那一类；他当时能做的只有把刚才那句话再手打一遍。
+     */
+    fireEvent.click(await screen.findByTestId("design-detail-fallback-retry"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.text).toBe("做个客服待办"); // 原样重发最后那句用户的话
+
+    // 「这个部署没配模型」不给重试：重试一百次也一样，文案里已经说了该找运维。
+    reason = "MODEL_NOT_CONFIGURED";
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "再来" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-fallback-reason").textContent).toContain("还没配置 AI 模型"));
+    expect(screen.queryByTestId("design-detail-fallback-retry")).toBeNull();
+  });
+
   it("迭代 16（#3773 R7）：刚建好的项目**自动照背景画第一版**，不让用户把刚说过的话再说一遍", async () => {
     const posted: { text?: string }[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string } }) => {
