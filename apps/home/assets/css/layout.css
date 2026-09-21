@@ -179,7 +179,6 @@
 }
 @media (max-width: 560px) {
   .brand__tag { display: none; }
-  .btn--sm-hide-label .btn__label { display: none; }
 }
 
 /* Touch targets. 0.45rem of padding gives a ~32px tall link — fine for a mouse,

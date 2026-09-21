@@ -53,7 +53,12 @@
 /* aurora: three slow drifting blobs. GPU-cheap, pure transform. */
 .hero__aurora {
   position: absolute; inset: -20%; z-index: -2; pointer-events: none;
-  filter: blur(70px); opacity: 0.55;
+  /* A 70px blur over three viewport-sized elements is an expensive paint for a
+     backdrop nobody looks at directly. The blobs are already soft radial
+     gradients, so most of the blur was doing nothing a smaller radius does not
+     — and `contain: paint` keeps the filter from invalidating the whole hero. */
+  filter: blur(44px); opacity: 0.6;
+  contain: paint;
 }
 .hero__blob { position: absolute; border-radius: 50%; }
 .hero__blob--1 {
