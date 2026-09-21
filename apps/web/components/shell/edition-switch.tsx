@@ -80,7 +80,18 @@ export function EditionSwitch(): React.ReactElement {
             </Button>
             {cloudUrl === null ? (
               // 没配地址：说清楚是什么状况 + 还能做什么，而不是一个点了没反应的按钮
-              <p data-testid="edition-switch-unconfigured" className="text-11 text-warning-foreground">
+              // 2026-09-22 实测修正：这里原本是裸的 `text-warning-foreground`，**没有背景**。
+              // `--warning-foreground` 是给实心 `bg-warning` 配的前景色，在浅色主题里它是
+              // **白色**——于是这段话是白字白底，用户什么也看不见。
+              // ⚠ 而所有几何判据都说它「可见」：`isVisible()` 为真、`getBoundingClientRect`
+              //   给出 373×48、`elementFromPoint` 返回它自己。对比度不在它们的判据里。
+              //   浏览器面板当时是深色主题，读到的是深棕色，更掩盖了这件事。
+              //   改用成对的 tint 档（`bg-warning-tint` + `text-warning-tint-foreground`，
+              //   该组合由 `scripts/check-token-contrast.mjs` 看住），与本地版导出面板那条一致。
+              <p
+                data-testid="edition-switch-unconfigured"
+                className="rounded-card border border-warning-tint-foreground/30 bg-warning-tint px-2 py-1.5 text-11 text-warning-tint-foreground"
+              >
                 这份安装包还没配在线系统的地址，没法直接打开。请向提供这份安装包的人要在线地址。
                 本机的成果不受影响：在产出上用「下载」保存下来，之后在在线系统里上传即可。
               </p>
