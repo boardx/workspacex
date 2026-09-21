@@ -5,7 +5,7 @@ import { SurveyReportChart } from "./report-chart";
 export { SurveyReportChart } from "./report-chart";
 import type { survey } from "@repo/contracts";
 
-import { reportNumber } from "./report-format";
+import { reportNumber, REPORT_COLORS } from "./report-format";
 export { reportNumber } from "./report-format";
 const rowLabel = (row: survey.SurveyReportRow) =>
   [row.label, row.group].filter(Boolean).join(" · ");
@@ -103,14 +103,14 @@ export function SurveyReportDocument({
       {!report.sections.length && (
         <p className="text-muted-foreground">尚无报告章节</p>
       )}
-      {report.sections.map((section) => (
+      {report.sections.map((section, sectionIndex) => (
         <section
           key={section.id}
           id={`survey-report-anchor-${section.id}`}
           data-section-id={section.id}
           className="mb-10 scroll-mt-4"
         >
-          <h2 className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
+          <h2 style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length], borderLeftColor: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
           {!section.blocks.length && (
             <p className="text-muted-foreground">本章尚无内容</p>
           )}
@@ -163,7 +163,7 @@ export function SurveyReportDocument({
                                   <dt className="text-13 text-muted-foreground">
                                     {rowLabel(row) !== block.title ? rowLabel(row) : null}
                                   </dt>
-                                  <dd className="text-24 font-semibold">
+                                  <dd style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="text-24 font-semibold">
                                     {reportNumber(row.value)}
                                   </dd>
                                   <dd className="text-12 text-muted-foreground">

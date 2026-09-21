@@ -102,6 +102,19 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await report.locator("[data-chart]").first().scrollIntoViewIfNeeded();
   await report.locator("[data-chart]").first().screenshot({ path: test.info().outputPath("template-chart.png") });
 
+  // New answers arrive while the owner keeps the existing report open.
+  const secondContext = await browser.newContext();
+  const secondRespondent = await secondContext.newPage();
+  await secondRespondent.goto(publicUrl);
+  await answerPublishedSurvey(secondRespondent);
+  await secondContext.close();
+  const regenerated = page.waitForResponse(response => response.url().endsWith("/report") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "重新生成报告" }).click();
+  expect((await regenerated).ok()).toBeTruthy();
+  await expect(page.getByText("报告已按最新答卷和报告模板重新生成")).toBeVisible();
+  await expect(page.getByTestId("survey-report-generated-at")).toBeVisible();
+  await expect(report.locator("[data-chart] svg").first()).toContainText("2");
+
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 Word" }).click();
   const word = await download;
@@ -121,5 +134,5 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const persistedSurvey = page.locator("article").filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
-  await expect(persistedSurvey).toContainText("8 道题 · 1 份答卷 · 回收中");
+  await expect(persistedSurvey).toContainText("8 道题 · 2 份答卷 · 回收中");
 });
