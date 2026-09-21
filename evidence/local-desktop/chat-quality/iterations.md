@@ -53,8 +53,14 @@
    一次画布请求看停滞通知 → 断一次 SSE 看 run 不再失败」，截图存证。
 2. **`declared-only` 三条缺口收一条**：`collaboration`（后台成员/邀请屏在本地版照旧可达）。
 3. **真实的本地→正式导出通道**（R6 承认它今天是演示态；契约与后端路由已在）。
-4. **`personal-local` 组织在桌面版根本没启用**：`provision-admin` 建的是普通 organization，
-   于是「个人本地组织」那套出站守卫在桌面版一律不生效（`mcp-egress` 因此只是 unset-by-default）。
+4. **默认工作区不是那个个人本地组织**（2026-09-22 更正，原文写的是「personal-local 组织
+   在桌面版根本没启用」，**那是错的**）：向本机 API 要 `GET /identity/local-org` 拿到 200
+   ——`org-local-88ced53c…`、kind `personal-local`、memberCount 1。注册路径在同一个事务里
+   就建好了它。真正的缺口是**作用域**：桌面版默认进入的是普通组织「我的本地工作区」，
+   聊天发生在它里面，所以 org 级出站守卫对默认工作区不生效。
+   ⚠ 我犯的两个错都值得留着：① 从 `provision-admin.ts` 的代码推断「没有」，而没问运行中的
+   系统；② 去查库时读到「只有一行」就以为证实了——那张表 `relforcerowsecurity` 为真，
+   连 postgres 都被 RLS 过滤，那个计数从来不是权威。
 5. **run 级重试的代价**：`retryPlanStep` 是整轮重跑，本地 4B 上又是几分钟；能否从
    checkpoint 续跑（deep-agent 侧已有 LangGraph checkpoint）。
 6. **`MODEL_PROVIDER_NOT_CONFIGURED` 的本地文案**：R5 的下一步表按 `failureReason` 分，

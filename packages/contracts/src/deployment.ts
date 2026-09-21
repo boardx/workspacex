@@ -306,7 +306,17 @@ export const EDITION_CAPABILITIES = [
     why: "MCP 调用必然出网，与本地版「数据不出本机」相冲突。",
     enforcement: "unset-by-default",
     enforcementRef: null,
-    // 不设 WORKSPACEX_BROWSER_MCP_ENDPOINT ⇒ MCP 工具不存在；但没有任何东西阻止有人把它配上。个人本地**组织**那条出站守卫只管 personal-local 组织，而桌面版 provision 出来的是普通组织。
+    // 不设 WORKSPACEX_BROWSER_MCP_ENDPOINT ⇒ MCP 工具不存在；但没有任何东西阻止有人把它配上。
+    // ⚠ 更正（2026-09-22 实测）：这条注释原本写「桌面版 provision 出来的是普通组织，所以
+    // 个人本地组织那套出站守卫在桌面版根本不生效」——**前半句错了**。向本机 API 要
+    // `GET /identity/local-org` 拿到的是 200：`org-local-88ced53c…`、kind `personal-local`、
+    // memberCount 1、canInvite false。注册路径在同一个事务里就把它建好了
+    // （`pg-identity-repository.ts` 的 `newLocalOrgId` / 那对 INSERT）。
+    // 我当初是从 `provision-admin.ts` 的代码推断出「没有」，而没有问运行中的系统；
+    // 更糟的是我第一次去查库时读到「只有一行」就以为证实了——那张表 `relforcerowsecurity`
+    // 为真，连 postgres 都被 RLS 过滤，那个计数从来不是权威。
+    // 真正成立的说法是**作用域**：桌面版默认进入的是那个普通组织（「我的本地工作区」），
+    // 聊天发生在它里面，所以 org 级的出站守卫对默认工作区不生效——而不是「那个组织不存在」。
   },
   {
     id: "subagents",
