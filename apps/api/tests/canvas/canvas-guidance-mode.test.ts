@@ -17,6 +17,10 @@ describe("selectGuidanceTemplates", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "分析网址：https://news.cnyes.com/news/id/1 的内容" })).toEqual([]);
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "用一句话介绍你自己" })).toEqual([]);
   });
+  it("matched: a bare production verb counts — 「做商业模式画布」 has no 一张/个 (eval regression, R6)", () => {
+    expect(selectGuidanceTemplates([{ key: "bmc", displayName: "商业模式画布" }], { mode: "matched", text: "为一款面向高校的 AI 助教产品做商业模式画布" }).map((t) => t.key)).toEqual(["bmc"]);
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "给大学生求职者出一张 JTBD" }).length).toBeGreaterThan(0);
+  });
   it("matched: only the named template (key, display name or alias)", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "生成一个用户画像：传媒大学教授" }).map((t) => t.key)).toEqual(["persona"]);
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "make a SWOT for a cafe" }).map((t) => t.key)).toEqual(["swot"]);
@@ -25,7 +29,7 @@ describe("selectGuidanceTemplates", () => {
   it("matched: naming a template without asking for one gets nothing (a question, not a request)", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "解释一下什么是用户画像，两句话" })).toEqual([]);
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "SWOT 分析是什么意思" })).toEqual([]);
-    expect(selectGuidanceTemplates(T, { mode: "matched", text: "我们上次那张画布放哪了" })).toEqual([]);
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "画布怎么做" })).toEqual([]);
   });
   it("matched: a canvas request that names no template gets the whole library so the model can pick", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "帮我做一张画布" })).toHaveLength(4);

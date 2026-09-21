@@ -110,7 +110,10 @@ export function matchCanvasTemplatesInText(text: string, templates: readonly Can
  * sentences of prose (eval lane, 2026-09-22). A canvas request says make/draw/produce.
  */
 export function asksToProduce(text: string): boolean {
-  return /生成|制作|做一?[张份个]|做个|画一?[张份]|画出|产出|出一?[张份]|整理成|填一?[张份]|帮我做|给我一?[张份]|来一?[张份]|create|make|draw|generate|produce|build/i.test(text);
+  // A question about a template is not a request for one. Checked first: 「用户画像是什么」
+  // names `persona` and contains no production verb, but 「画布怎么做」 contains 做.
+  if (/什么是|是什么|怎么做|怎么用|如何做|为什么|区别|解释|含义|定义|介绍一下/.test(text)) return false;
+  return /生成|制作|做|画|产出|出一|整理|填|写|来一|给我|帮我|create|make|draw|generate|produce|build/i.test(text);
 }
 
 /** Does the text ask for a workshop canvas at all (without naming which one)? */
