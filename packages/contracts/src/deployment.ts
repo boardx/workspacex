@@ -24,6 +24,9 @@
  * 「本地版里的普通组织」既拿不到桌面版该有的降级，又被误判成有云端能力。
  */
 import { z } from "zod";
+import { AgentRunFailureReason } from "./wave2-runtime";
+
+type AgentRunFailureReasonValue = z.infer<typeof AgentRunFailureReason>;
 
 export const DeploymentEdition = z.enum(["cloud", "local"]);
 export type DeploymentEditionValue = z.infer<typeof DeploymentEdition>;
@@ -81,6 +84,44 @@ export function skillActivityDeliveryDiscipline(
 /** 降级时写进账本的那句话。系统自己说的事实，不冒充模型或工具的输出。 */
 export const SKILL_ACTIVITY_GAP_NOTE =
   "本轮的技能溯源事实没有全部收到（本地版降级：不因此判本次执行失败）。已执行的工具与产出不受影响，但这一轮的技能使用记录可能不完整。";
+
+/* ──────────────────────── 失败之后该做什么（按版次） ──────────────────────── */
+
+/**
+ * 一次失败之后**这台机器上**能做的下一步 —— 本地版专用的一句可执行建议。
+ *
+ * ## 为什么必须分版次
+ *
+ * `apps/web/lib/agent-run.ts` 里那套失败文案是照**云端部署**写的：
+ * 「请联系管理员」「所选模型服务尚未配置，请联系管理员」「请把这次的任务编号报给管理员」。
+ * 本地版是**单人单机**——没有第二个人，用户自己就是管理员。让他去联系一个不存在的人，
+ * 等于告诉他「没救了」，而真实情况往往是「重发一次就好」或者「日志在这个路径下」。
+ *
+ * ⚠ key 集合与 `wave2-runtime.ts` 的 `AgentRunFailureReason` 是**同一件事**：
+ * 新增枚举值时 TypeScript 会在这里报缺 key，不会静默漏一句建议。
+ * ⚠ 这里只**追加**一句本地建议，不改任何一句既有文案——「哪一类终态」「什么成因」
+ * 仍然由 `agent-run.ts` 那两张表回答，本表回答的是第三个问题：「那我现在做什么」。
+ */
+export const LOCAL_FAILURE_NEXT_STEP: Record<AgentRunFailureReasonValue, string> = {
+  provider_returned_empty: "本机的小模型偶尔会空转一轮。原样重发一次通常就好；连续两次都空，把问题说得更具体一点再试。",
+  provider_rejected: "这是本机那个智能体服务自己报的错。重发一次；仍然失败就看 logs/deep-agent.log 的最后几十行。",
+  provider_timeout: "本机模型比云端慢得多，复杂任务容易超预算。把任务拆小（比如先只要画布的一个分区），或者稍后重试。",
+  provider_transport_failed: "本机的服务之间断了一下——刚启动时最常见。等十几秒再重发。",
+  runtime_unavailable: "本地运行时没起全。退出应用再打开一次；反复如此就看 logs/api.log 与 logs/deep-agent.log。",
+  tool_call_unresolved: "有一次工具调用没回来。原样重发；如果每次都停在同一个工具上，把它涉及的输入（文件/网址）换一个再试。",
+  executor_defect: "这是程序自己的缺陷，不是你的操作问题。本机没有管理员——请把这次的任务编号和 logs/api.log 一起反馈给我们。",
+  run_reaped: "执行它的进程中途没了（常见于应用被强制退出或睡眠唤醒）。重发即可，这条不会自己恢复。",
+  unknown: "没能归类出原因。原样重发一次；如果稳定复现，请把任务编号和 logs/api.log 一起反馈给我们。",
+};
+
+/** 本版次在失败之后给不给这句额外建议。在线版不给：那套文案本来就是为它写的。 */
+export function failureNextStep(
+  edition: DeploymentEditionValue,
+  reason: keyof typeof LOCAL_FAILURE_NEXT_STEP | null | undefined,
+): string | null {
+  if (edition !== "local" || reason === null || reason === undefined) return null;
+  return LOCAL_FAILURE_NEXT_STEP[reason] ?? null;
+}
 
 /* ─────────────────────── 长时间不返回的工具调用 ─────────────────────── */
 

@@ -16,6 +16,7 @@ import {
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 import { describePlanFailureReason } from "@/lib/plan-control-copy";
+import { useEdition } from "@/lib/edition";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -190,6 +191,8 @@ function PlanControlSession(
 
   // 折叠开关：默认折叠。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
+  // 2026-09-22 —— 失败之后那句「下一步」按版次不同（本地版没有管理员可联系）。
+  const edition = useEdition();
   const [collapsed, setCollapsed] = React.useState(true);
   //
   // ⚠ 合并注：原写法是 `gate.required && phase !== "executing"`，与下面渲染
@@ -581,7 +584,7 @@ function PlanControlSession(
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
-          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason)}
+          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason, edition)}
           onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
           onEditInput={handleEditInput}
         />
