@@ -762,7 +762,11 @@ import {
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
 // `pg-project-membership-repository.ts` / `pg-invite-token-member-resolver.ts` 的注释。
-import { MEMBER_SUBJECT_RESOLVER, PROJECT_MEMBERSHIP_REPOSITORY } from "./application/project/member-ports";
+import {
+  MEMBER_SUBJECT_RESOLVER,
+  PROJECT_MEMBERSHIP_REPOSITORY,
+  PROJECT_MEMBER_ROSTER_REPOSITORY,
+} from "./application/project/member-ports";
 import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
@@ -2563,6 +2567,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PROJECT_MEMBERSHIP_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectMembershipRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #609：`listProjectMembers` 的读端口。`useExisting` 而不是再 new 一个——
+    //   同一个类同时实现读写两个接口（见 `pg-project-membership-repository.ts`），
+    //   两个 provider 各造一个实例只会让「同一份仓储」在运行时变成两份。
+    {
+      provide: PROJECT_MEMBER_ROSTER_REPOSITORY,
+      useExisting: PROJECT_MEMBERSHIP_REPOSITORY,
     },
     // F125：独立 provider，见 `pg-invite-token-member-resolver.ts` 文件头。
     {
