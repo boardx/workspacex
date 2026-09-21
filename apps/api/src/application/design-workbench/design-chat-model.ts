@@ -160,7 +160,7 @@ export const DESIGN_PRINCIPLES =
   "③层级靠 text.variant（title/subtitle/body/caption），不靠堆 spacer；" +
   "④列表 ≥ 3 项才用 list，否则用 card；⑤每页至少考虑一种非理想态（空态/加载/错误）并在 notes 里说明；" +
   "⑥别一次塞超过 5 个功能块，超了就分页；" +
-  "⑦每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮。" +
+  "⑦每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮，并且**每一项都要给 icons**（不给会由画布按标签名猜，猜不到就是一个中性圆点）。" +
   "【视觉】⑧一页只有一个视觉重点（hero / 大标题 / 关键数字三选一，且只出现一次），其余安静下来；" +
   "⑨字号要有级差：title 一页最多一次，subtitle 用于分区，caption 只用于真正的次要信息——" +
   "整页全是 body 说明你没做层级；⑩间距成体系：一页里 gap/padding 最多用两档，相邻同级区块用同一档；" +
@@ -195,10 +195,12 @@ export const DESIGN_FEW_SHOT =
   '{"type":"stack","props":{"direction":"row","gap":"sm","padding":"sm"},"children":[' +
   '{"type":"chip","props":{"label":"全部","selected":true}},{"type":"chip","props":{"label":"今天"}},{"type":"chip","props":{"label":"已完成"}}]},' +
   '{"type":"stack","props":{"fill":true,"direction":"column","gap":"sm","padding":"sm"},"children":[' +
-  '{"type":"list","props":{"items":["买牛奶","写周报","订下周去上海的机票"],"leading":"check"}},' +
+  // 列表行写成真实的三段式（主标题 / 副标题 / 右侧值）——只有一列字的列表比真实界面薄一截。
+  '{"type":"list","props":{"items":["买牛奶","写周报","订下周去上海的机票"],' +
+  '"detail":["顺便买鸡蛋","这周的，周五下班前","往返，周三走周五回"],"trailing":["今天","周五","10 月 8 日"],"leading":"check"}},' +
   '{"type":"text","props":{"content":"已完成","variant":"label","muted":true}},' +
-  '{"type":"list","props":{"items":["交房租","回复客户邮件"],"leading":"check"}}]},' +
-  '{"id":"add","type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
+  '{"type":"list","props":{"items":["交房租","回复客户邮件"],"trailing":["昨天","昨天"],"leading":"check"}}]},' +
+  '{"id":"add","type":"button","props":{"label":"新增待办","icon":"plus","variant":"primary","full":true}}]},' +
   '"notes":"首页按今天/已完成分组列出待办；点条目前的勾即完成。没有任何待办时整页换成一句「今天还没有安排，先加一件」和新增按钮。","links":[{"from":"add","to":1}]},' +
   '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[' +
   '{"id":"back","type":"navbar","props":{"title":"新增待办","left":"返回"}},' +

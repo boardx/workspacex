@@ -9,9 +9,18 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
-import { Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock } from "lucide-react";
+import {
+  Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
+  // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
+  Menu, MoreHorizontal, SlidersHorizontal, LayoutGrid, List as ListIcon, ArrowLeft, ArrowRight,
+  Users, MessageCircle, Send, Share2, Heart, Star, Camera, File, Folder, Bookmark, Tag, Link2,
+  Download, Upload, Plus, Pencil, Trash2, X as XIcon, RefreshCw, Play, Pause, Eye,
+  ShoppingCart, CreditCard, BarChart3, Calendar, Clock, MapPin, Mail, Phone, Info, AlertTriangle,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
+import { designPrototype } from "@repo/contracts";
 
 /**
  * 迭代 2：选中态。`selectedId` 当前选中的节点 id；`onSelect(id | null)` 点节点/点空白。
@@ -137,7 +146,51 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
   warning: "bg-warning/20 text-warning",
   danger: "bg-destructive/20 text-destructive",
 };
-const NAV_ICONS = [Home, Search, Bell, User, Settings] as const;
+/**
+ * 迭代 16（#3773 R4）：契约图标闭集 → lucide 组件。
+ *
+ * `Record<PrototypeIcon, …>` **穷举**：契约加了新图标这里编译不过，不会静默渲染成空
+ * ——同这个文件头注对渲染表的既有纪律。
+ */
+const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+  home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
+  filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
+  user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,
+  heart: Heart, star: Star,
+  image: ImageIcon, camera: Camera, file: File, folder: Folder, bookmark: Bookmark, tag: Tag,
+  link: Link2, download: Download, upload: Upload,
+  plus: Plus, edit: Pencil, trash: Trash2, check: Check, close: XIcon, refresh: RefreshCw,
+  play: Play, pause: Pause, lock: Lock, eye: Eye,
+  cart: ShoppingCart, card: CreditCard, chart: BarChart3, calendar: Calendar, clock: Clock,
+  location: MapPin, mail: Mail, phone: Phone, info: Info, warning: AlertTriangle,
+};
+
+/**
+ * 迭代 16（#3773 R4）：底部导航没给 `icons` 时，**按标签名猜**。
+ *
+ * 在这之前是 `NAV_ICONS[i % 5]`——按**位置**轮转，一个叫「消息」的标签页会拿到齿轮图标。
+ * 那不是"没有图标"，是"图标在撒谎"，比没有更坏。猜不到就给一个中性圆点，
+ * 不硬凑一个语义不对的图标。
+ */
+const NAV_KEYWORDS: readonly (readonly [readonly string[], designPrototype.PrototypeIcon])[] = [
+  [["首页", "主页", "home", "发现"], "home"],
+  [["搜索", "查找", "search"], "search"],
+  [["消息", "聊天", "对话", "chat", "message"], "message"],
+  [["通知", "提醒", "动态", "bell"], "bell"],
+  [["我的", "个人", "账户", "我", "profile", "me"], "user"],
+  [["设置", "配置", "setting"], "settings"],
+  [["购物车", "车", "cart"], "cart"],
+  [["订单", "单", "order"], "file"],
+  [["数据", "统计", "报表", "用量", "分析"], "chart"],
+  [["日历", "日程", "calendar"], "calendar"],
+  [["收藏", "喜欢", "star", "favorite"], "star"],
+  [["团队", "成员", "联系人"], "users"],
+];
+export function guessNavIcon(label: string): designPrototype.PrototypeIcon | null {
+  const l = label.toLowerCase();
+  for (const [keys, icon] of NAV_KEYWORDS) if (keys.some((k) => l.includes(k.toLowerCase()))) return icon;
+  return null;
+}
 /** 迭代 6：设备尺寸——由项目模板派生（mobile → 手机，ui → 桌面，wireframe → 平板）；画布内同一套原语按宽度自适应。 */
 /**
  * 迭代 14：设备尺寸与外观**都从 `lib/prototype-devices` 那张预设表来**，这里不再自己声明。
@@ -152,6 +205,63 @@ export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevi
   return defaultPresetFor(template);
 }
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
+
+/**
+ * 迭代 16（#3773 R4）—— `image` 按**语义**画占位，不是一律一个灰块。
+ *
+ * 一张商品图、一张地图、一条折线图在屏上长得一模一样时，原型就没法让人判断
+ * 「这块视觉分量够不够」——而那正是看原型最主要的用途之一。
+ * 这里画的是各自的**形状**（地图有路网、图表有柱/线、头像是圆的），
+ * 仍然是占位（没有真图），但一眼能看出是什么。
+ */
+function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: "image" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const kind = p.kind ?? "photo";
+  const box = cn("relative flex w-full items-center justify-center overflow-hidden rounded-control bg-panel text-muted-foreground", RATIO[p.ratio ?? "video"]);
+  if (kind === "avatar") {
+    return (
+      <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap} aria-label={p.alt}>
+        <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-full bg-panel"><User className="h-6 w-6 text-muted-foreground" /></span>
+        <span className="sr-only">{p.alt}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={box} data-proto="image" data-image-kind={kind} {...tap} aria-label={p.alt}>
+      {kind === "map" && (
+        // 路网：两横两纵 + 一个定位点。够表达「这是一张地图」，不假装是真地图。
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <rect width="120" height="60" className="fill-card" />
+          <g className="stroke-border" strokeWidth="2" fill="none">
+            <path d="M0 18 H120 M0 42 H120 M32 0 V60 M86 0 V60" />
+          </g>
+          <circle cx="60" cy="30" r="5" className="fill-primary" />
+        </svg>
+      )}
+      {kind === "chart" && (
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <g className="fill-primary/30">
+            <rect x="10" y="34" width="14" height="22" /><rect x="34" y="22" width="14" height="34" />
+            <rect x="58" y="28" width="14" height="28" /><rect x="82" y="12" width="14" height="44" />
+          </g>
+          <path d="M17 32 L41 20 L65 26 L89 10" className="stroke-primary" strokeWidth="2" fill="none" />
+        </svg>
+      )}
+      {kind === "video" && (
+        <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-inverse/40"><Play className="h-4 w-4 text-background-foreground" /></span>
+      )}
+      {kind === "logo" && <span aria-hidden className="h-8 w-8 rounded-control bg-primary/30" />}
+      {kind === "illustration" && (
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <circle cx="42" cy="26" r="14" className="fill-primary/25" />
+          <rect x="58" y="24" width="34" height="22" rx="4" className="fill-border" />
+        </svg>
+      )}
+      {kind === "photo" && <ImageIcon aria-hidden className="h-4 w-4" />}
+      <span className="sr-only">{p.alt}</span>
+    </div>
+  );
+}
 
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
@@ -218,6 +328,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
           )}
           data-proto="button" {...tap}
         >
+          {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
+          {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
           {p.label}
         </span>
       );
@@ -234,24 +346,40 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       );
     }
     case "image":
-      return (
-        <div className={cn("flex w-full items-center justify-center rounded-control bg-panel text-muted-foreground", RATIO[node.props.ratio ?? "video"])} data-proto="image" {...tap} aria-label={node.props.alt}>
-          <ImageIcon aria-hidden className="h-4 w-4" />
-          <span className="sr-only">{node.props.alt}</span>
-        </div>
-      );
+      return <ImagePlaceholder node={node} tap={tap} />;
     case "list": {
-      const lead = node.props.leading ?? "dot";
+      const p = node.props;
+      const lead = p.leading ?? "dot";
       return (
         <ul className="flex w-full flex-col divide-y divide-border" data-proto="list" {...tap}>
-          {node.props.items.map((item, i) => (
-            <ItemTap key={i} as="li" id={node.id} item={i} className="flex items-center gap-2 py-1.5 text-12">
-              {lead === "dot" && <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />}
-              {lead === "check" && <Check aria-hidden className="h-3 w-3 shrink-0 text-success" />}
-              {lead === "avatar" && <span aria-hidden className="h-5 w-5 shrink-0 rounded-full bg-panel" />}
-              <span className="truncate">{item}</span>
-            </ItemTap>
-          ))}
+          {p.items.map((item, i) => {
+            /*
+             * 迭代 16（#3773 R4）：真实的列表行是三段式——主标题 / 副标题 / 右侧值。
+             * `detail` / `trailing` / `icons` 与 `items` **逐位对应**，缺这一位就没有那一段
+             * （契约刻意不要求等长：要求等长会让模型为了补一个空字符串把整条写回作废）。
+             */
+            const detail = p.detail?.[i]?.trim();
+            const trailing = p.trailing?.[i]?.trim();
+            const rowIcon = lead === "icon" ? p.icons?.[i] : undefined;
+            return (
+              <ItemTap key={i} as="li" id={node.id} item={i} className="flex items-center gap-2 py-1.5 text-12">
+                {lead === "dot" && <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />}
+                {lead === "check" && <Check aria-hidden className="h-3 w-3 shrink-0 text-success" />}
+                {lead === "avatar" && <span aria-hidden className="h-5 w-5 shrink-0 rounded-full bg-panel" />}
+                {/* icons 缺这一位 ⇒ 退回圆点，不留一个空缺口让这一行比别的行窄。 */}
+                {lead === "icon" && (rowIcon === undefined
+                  ? <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />
+                  : React.createElement(ICONS[rowIcon], { "aria-hidden": true, className: "h-4 w-4 shrink-0 text-muted-foreground" }))}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate">{item}</span>
+                  {detail !== undefined && detail !== "" && <span className="truncate text-10 text-muted-foreground">{detail}</span>}
+                </span>
+                {trailing !== undefined && trailing !== "" && (
+                  <span className="shrink-0 text-10 text-muted-foreground" data-proto-slot="trailing">{trailing}</span>
+                )}
+              </ItemTap>
+            );
+          })}
         </ul>
       );
     }
@@ -291,7 +419,12 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <nav className="mt-auto flex w-full shrink-0 items-stretch border-t border-border pt-1" data-proto="bottomnav" {...tap}>
           {node.props.items.map((item, i) => {
-            const Icon = NAV_ICONS[i % NAV_ICONS.length]!;
+            /*
+             * 迭代 16（#3773 R4）：先用模型给的 `icons[i]`，没给就按标签名猜，猜不到给中性圆点。
+             * 在这之前是按**位置**轮转，「消息」拿到齿轮图标——图标在撒谎比没有图标更坏。
+             */
+            const named = node.props.icons?.[i] ?? guessNavIcon(item);
+            const Icon = named === null || named === undefined ? Circle : ICONS[named];
             return (
               <ItemTap key={i} id={node.id} item={i} className={cn("flex flex-1 flex-col items-center gap-0.5 py-1 text-10", i === active ? "text-primary" : "text-muted-foreground")}>
                 <Icon aria-hidden className="h-4 w-4" />

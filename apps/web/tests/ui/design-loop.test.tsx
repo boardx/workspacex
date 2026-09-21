@@ -3205,6 +3205,73 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
+  it("迭代 16（#3773 R4）：底部导航的图标**按内容**给，不是按位置轮转", async () => {
+    const page = {
+      type: "stack" as const, id: "s", children: [
+        { type: "text" as const, id: "t", props: { content: "首页", variant: "title" as const } },
+        // 模型给了 icons ⇒ 用它；没给的那几项按标签名猜。
+        { type: "bottomnav" as const, id: "nav", props: { items: ["首页", "消息", "我的"], active: 0 } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["首页"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const nav = screen.getByTestId("design-detail-phone-tree").querySelector('[data-proto="bottomnav"]') as HTMLElement;
+    const icons = [...nav.querySelectorAll("svg")].map((el) => el.getAttribute("class") ?? "");
+    /*
+     * ⭐ 反证锚点：改回 `NAV_ICONS[i % NAV_ICONS.length]` ⇒ 这条红。
+     * 那时「消息」拿到的是第 2 个轮转图标（Search），与它的名字无关——
+     * 图标在撒谎比没有图标更坏。这里只断言三项各自拿到了**不同**的图标、
+     * 且第二项确实是消息类图标（lucide 把名字写在 class 上）。
+     */
+    expect(icons).toHaveLength(3);
+    expect(nav.querySelector('[data-lucide], .lucide-house, .lucide-home')).not.toBeNull();
+    expect(nav.innerHTML).toContain("message-circle");
+    expect(nav.innerHTML).toContain("user");
+  });
+
+  it("迭代 16（#3773 R4）：列表行是三段式（主标题 / 副标题 / 右侧值），按钮能带图标，image 按语义画", async () => {
+    const page = {
+      type: "stack" as const, id: "s", children: [
+        { type: "text" as const, id: "t", props: { content: "我的订单", variant: "title" as const } },
+        {
+          type: "list" as const, id: "l",
+          props: {
+            items: ["楼下的面馆", "书店"],
+            detail: ["牛肉面 × 1，加蛋", "三本书"],
+            trailing: ["¥28", "¥136"],
+            leading: "icon" as const,
+            icons: ["cart" as const],
+          },
+        },
+        { type: "image" as const, id: "m", props: { alt: "取餐地点", kind: "map" as const } },
+        { type: "button" as const, id: "b", props: { label: "再来一单", icon: "refresh" as const, variant: "primary" as const } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["订单"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const tree = screen.getByTestId("design-detail-phone-tree");
+    // 三段都在屏上——只有一列字的列表比真实界面薄一截。
+    for (const t of ["楼下的面馆", "牛肉面 × 1，加蛋", "¥28", "书店", "¥136"]) expect(tree.textContent).toContain(t);
+    expect(tree.querySelectorAll('[data-proto-slot="trailing"]')).toHaveLength(2);
+    // `icons` 只给了第一行 ⇒ 第二行退回圆点，不留一个空缺口让这一行比别的行窄。
+    expect(tree.querySelector('[data-proto="list"]')?.innerHTML).toContain("shopping-cart");
+    // image 按语义画：地图不是一个灰块。
+    expect(tree.querySelector('[data-proto="image"]')?.getAttribute("data-image-kind")).toBe("map");
+    expect(tree.querySelector('[data-proto="image"] svg')).not.toBeNull();
+    // 按钮带图标。
+    expect(tree.querySelector('[data-proto="button"]')?.innerHTML).toContain("refresh-cw");
+  });
+
   it("迭代 16（#3773 R3）：同一段对话抽出的验收标准逐条可勾，确认时和背景一起写进项目", async () => {
     const bodies = stubImport(undefined, ["导出成功率 ≥ 99%", "历史会话可回看与继续", "首屏 2 秒内可下单"]);
     render(<DesignDetailScreen projectId="p1" />);

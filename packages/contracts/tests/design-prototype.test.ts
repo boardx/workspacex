@@ -539,15 +539,34 @@ describe("PROTOTYPE_SCHEMA_GUIDE 覆盖每一个 props 键", () => {
   });
 
   it("视觉档位的**取值**也写在那一段里（只说键名，模型不知道能填什么）", () => {
+    /**
+     * 迭代 16（#3773 R4）：取值写在**自己那一段**或**共用名册**里都算数。
+     *
+     * 名册这条口子只为图标开：`icon`/`icons` 出现在三种原语上，46 个名字抄三遍既是
+     * 「同一事实声明三处」，也会把这段说明的信噪比压垮。别的视觉档位（圆角、间距、
+     * 色调）各自只有三五个值、只属于自己那一段，照旧要求就地写全。
+     */
     const missing: string[] = [];
     for (const type of dp.PrototypeNodeType.options) {
       const seg = segmentOf(type);
       for (const f of dp.PROTOTYPE_FIELDS[type]) {
         if (f.group !== "visual" || f.kind !== "enum") continue;
-        for (const o of f.options ?? []) if (!seg.includes(o)) missing.push(`${type}.${f.key}=${o}`);
+        for (const o of f.options ?? []) {
+          if (!seg.includes(o) && !dp.PROTOTYPE_ICON_ROSTER.includes(o)) missing.push(`${type}.${f.key}=${o}`);
+        }
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("迭代 16：图标名册列全了，而且**只在 guide 里出现一次**（同一事实不得声明两处）", () => {
+    for (const o of dp.PrototypeIcon.options) {
+      expect(dp.PROTOTYPE_ICON_ROSTER, `名册里缺 ${o}`).toContain(o);
+    }
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(dp.PROTOTYPE_ICON_ROSTER);
+    // ⭐ 反证：把名册整段在 button 那一段里再抄一遍 ⇒ 这条红。
+    const occurrences = dp.PROTOTYPE_SCHEMA_GUIDE.split(dp.PROTOTYPE_ICON_ROSTER).length - 1;
+    expect(occurrences).toBe(1);
   });
 });
 
