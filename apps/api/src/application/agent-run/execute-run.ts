@@ -70,7 +70,7 @@ import { buildCanvasTemplateGuidance, selectGuidanceTemplates, templateSectionNa
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
-import { createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
+import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
@@ -1129,6 +1129,8 @@ async function executeClaimed(
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
         executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
         onSkillActivity: createSkillActivityWriter(deps.runs, orgId, run.runId, executionAttemptId),
+        // 2026-09-22 —— 溯源缺页标记（本地版 best-effort 纪律；云端拿不到缺页，因为云端照旧 fail closed）。
+        onSkillActivityGap: createSkillActivityGapWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
         // #3322 —— 工具执行期间的中间进展；有损通道，写失败只 log（见 writer 头注）。
         onToolProgress: createToolProgressWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
         // Resume the existing checkpoint after a decision; never resend user input.

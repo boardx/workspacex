@@ -6,6 +6,7 @@ import fonts from "./fonts.module.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
+import { readDeploymentEdition } from "@/lib/edition-server";
 
 // Keep the existing font families and real variable weights while packaging assets locally.
 export const metadata: Metadata = {
@@ -32,14 +33,23 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  /*
+   * 2026-09-22 —— 版次在**请求时**从服务端读一次，然后走两条路下发：
+   *   · `<html data-edition>`：CSS 据它整屏换标识色（`globals.css`），不需要 JS 就生效，
+   *     也不会在 hydration 之前先闪一下在线版的外观；
+   *   · `EditionProvider`：组件据它决定文案与能力矩阵。
+   * 人类 2026-09-22 的原话是「整个界面需要有明显的变化」——一行 `text-10` 的说明条
+   * （改动前顶栏那条，且 <lg 直接隐藏）不算。
+   */
+  const edition = readDeploymentEdition();
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN" data-edition={edition} suppressHydrationWarning>
       <head>
         {/* 主题阻塞脚本：早于 hydration 执行，读 localStorage 定初始 `.dark`，避免刷新闪烁。 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className={`${fonts.variables} font-sans antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers edition={edition}>{children}</Providers>
       </body>
     </html>
   );

@@ -937,6 +937,15 @@ export interface ModelCallInput {
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
   /**
+   * 2026-09-22 —— 这一轮有溯源事实**没收到**时写一条缺页标记（本地版 best-effort 纪律，
+   * 见 `@repo/contracts/deployment` 的 `skillActivityDeliveryDiscipline`）。
+   *
+   * ⚠ 缺席 ⇒ provider 不记缺页；而**是否因此判 run 失败**由 provider 自己的
+   * `skillActivityDelivery` 决定，不由这个回调在不在决定——两件事分开，否则「没接回调」
+   * 会悄悄变成「顺便放宽了纪律」。
+   */
+  readonly onSkillActivityGap?: (note: string) => Promise<void>;
+  /**
    * issue #3322 —— 一次工具调用**执行期间**的中间进展。
    *
    * ⚠ 与 `onSkillActivity` 的**故障纪律相反**，这是有意的：技能溯源事实丢一条就是账本

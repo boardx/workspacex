@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/components/session/session-provider";
 import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
 import { DisablePageZoom } from "@/components/system/disable-page-zoom";
+import { EditionProvider } from "@/lib/edition";
+import type { DeploymentEditionValue } from "@repo/contracts/deployment";
 
 /**
  * ADR-110 —— 客户端数据获取层的根 Provider。
@@ -29,15 +31,20 @@ function createQueryClient(): QueryClient {
   });
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers(
+  { children, edition = "cloud" }: { children: React.ReactNode; edition?: DeploymentEditionValue },
+) {
   const [queryClient] = React.useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider>
-        <GlobalErrorReporter />
-        <DisablePageZoom />
-        {children}
-      </SessionProvider>
+      {/* 版次由服务端 layout 在请求时读出后传进来；缺省 `cloud`，见 `lib/edition.tsx` 头注。 */}
+      <EditionProvider edition={edition}>
+        <SessionProvider>
+          <GlobalErrorReporter />
+          <DisablePageZoom />
+          {children}
+        </SessionProvider>
+      </EditionProvider>
     </QueryClientProvider>
   );
 }

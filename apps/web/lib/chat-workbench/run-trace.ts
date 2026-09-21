@@ -2,7 +2,7 @@ import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 
 export type TraceStore = Readonly<Record<string, readonly ExecutionEvent[]>>;
 export type TraceEntry = {
-  id: string; messageId?: string; kind: "progress" | "tool" | "skill"; text: string;
+  id: string; messageId?: string; kind: "progress" | "tool" | "skill" | "skill-gap"; text: string;
   status: "observed" | "running" | "succeeded" | "failed"; source?: "legacy"; args?: unknown; result?: unknown;
   activityStage?: string; attemptIds?: string[];
   /**
@@ -67,6 +67,18 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
   const skillExecutions = new Map<string, TraceEntry>();
   for (const event of events) {
     if (event.kind === "final_message" || event.kind === "status" || event.kind === "interjection") continue;
+    /*
+     * 2026-09-22 —— 缺页标记必须在下面那个 `else` 之前被认掉，理由与 #3322 的 `tool_progress`
+     * 完全相同：那个 `else` 是写给 `tool_end` 的、读 `event.ok`，缺页事件掉进去会被读成
+     * `ok: undefined` ⇒ 在界面上变成一条失败的工具调用。它不是工具调用，也不是失败。
+     */
+    if (event.kind === "skill_activity_gap") {
+      entries.push({
+        id: `skill-gap:${String(event.seq)}`, kind: "skill-gap", text: event.note, status: "observed",
+        attemptIds: event.attemptId ? [event.attemptId] : [],
+      });
+      continue;
+    }
     if (event.kind === "skill_activity") {
       const fact = event.fact;
       const toolCallId = "toolCallId" in fact ? fact.toolCallId : undefined;

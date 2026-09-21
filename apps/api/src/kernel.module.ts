@@ -129,7 +129,8 @@ import { DebugRecorder, debugRecorderOptionsFromEnv } from "./application/diagno
 import { PgDebugEventStore } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { DEBUG_REQUEST_RECORDER, DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
 import { SystemDebugTraceController } from "./interface/controllers/system-debug-trace.controller";
-import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { PgErrorLogWriter, errorLogAiDepsForEdition } from "./infrastructure/logging/pg-error-log-writer";
+import { readDeploymentEdition } from "./infrastructure/deployment/edition";
 import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
 import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
 import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
@@ -1051,11 +1052,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         model: ModelCallPort,
         summaryModel: ErrorLogSummaryModelConfig,
         logger: LoggerPort,
-      ) => new PgErrorLogWriter(db, readDb, {
-        model,
-        summaryModel,
-        log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
-      }),
+      ) => new PgErrorLogWriter(db, readDb,
+        /*
+         * 2026-09-22 —— 本地版**不注入** AI 摘要依赖，于是走 `PgErrorLogWriter` 自己
+         * 早就写好的那条路：「未注入 = 不生成 AI 摘要，`record()` 行为逐字节相同」。
+         *
+         * 取证：用户那台机器的 `logs/api.log` 里有数十条
+         * `error log summarization timed out`——一个给运维看的元任务，在只有一个模型槽的
+         * 机器上每条异常都要占用 30 s，异常成串出现时（那份日志里一分钟二十多条）直接
+         * 把用户正在等的回答挤到后面。上限是 5 条**并发**，也就是最坏情况下五个 4B 请求
+         * 同时排在用户前面。判据来自契约的能力矩阵，不是这里自己发明的条件。
+         */
+        errorLogAiDepsForEdition(readDeploymentEdition(), {
+          model,
+          summaryModel,
+          log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
+        })),
       inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
     },
     // issue #3082 —— debug recorder：写 app_rw、读 app_diag_ro，同 ERROR_LOG_PORT 的两池分工。

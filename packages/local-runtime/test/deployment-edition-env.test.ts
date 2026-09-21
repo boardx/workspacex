@@ -1,0 +1,43 @@
+/**
+ * 2026-09-22 —— 把 `config.ts` 里那个**字面量** `WORKSPACEX_EDITION: "local"` 钉在契约上。
+ *
+ * 这个包刻意不依赖 `@repo/contracts`（见 package.json），所以那一行不能 import 契约常量。
+ * 于是它就是「同一事实的第二份声明」——本仓头号病。这份测试直接**读契约源码**来核对：
+ * 变量名或版次枚举值哪天在契约里改了名，这里当场红，而不是等到本地版悄悄按 cloud 跑。
+ */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, it } from "vitest";
+import { apiEnv, type LocalConfig } from "../src/config";
+
+const contractSource = readFileSync(
+  join(import.meta.dirname, "..", "..", "contracts", "src", "deployment.ts"),
+  "utf8",
+);
+
+function envName(): string {
+  const m = /DEPLOYMENT_EDITION_ENV\s*=\s*"([^"]+)"/.exec(contractSource);
+  if (m === null) throw new Error("contract no longer declares DEPLOYMENT_EDITION_ENV as a string literal");
+  return m[1]!;
+}
+
+function editions(): readonly string[] {
+  const m = /DeploymentEdition\s*=\s*z\.enum\(\[([^\]]+)\]\)/.exec(contractSource);
+  if (m === null) throw new Error("contract no longer declares DeploymentEdition as a z.enum literal");
+  return [...m[1]!.matchAll(/"([^"]+)"/g)].map((x) => x[1]!);
+}
+
+const fakeConfig = {
+  repoRoot: "/repo", dataDir: "/data",
+  ports: { api: 1, web: 2, postgres: 3, deepAgent: 4, sandbox: 5, ollama: 6, asr: 7 },
+  chatModel: "m", metaModel: "m",
+  secrets: { adminPassword: "p", deepAgentInternalKey: "k", sessionSecret: "s", emailVerificationSecret: "e" },
+} as unknown as LocalConfig;
+
+it("hands the API exactly the edition variable the contract declares", () => {
+  const env = apiEnv(fakeConfig) as Record<string, string>;
+  const name = envName();
+  expect(name).toBe("WORKSPACEX_EDITION");
+  expect(env[name]).toBe("local");
+  expect(editions()).toContain(env[name]);
+});
