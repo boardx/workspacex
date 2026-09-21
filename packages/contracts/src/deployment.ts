@@ -262,6 +262,21 @@ export const CAPABILITY_AVAILABILITY_LABEL: Record<CapabilityAvailabilityValue, 
  * ⚠ `why` 写的是**原因**，不是安慰。用户在界面上读到它就该知道「要它就得去在线版」
  * 还是「这台机器上本来就没有这条路」。
  */
+/**
+ * 一条能力差异是**怎么**成立的 —— 加这一栏的理由：一张只被界面读的矩阵会慢慢变成装饰。
+ *
+ *   gated            代码真的按这张矩阵（或一个等价的具名判据）做了分支。`enforcementRef`
+ *                    必须能在 `apps/api/src` / `apps/web` / `packages/local-runtime/src`
+ *                    里被搜到，由 `.harness/scripts/lint-edition-capabilities.mjs` 机械核对。
+ *   unset-by-default 本地版根本没配它，于是它不存在——但**没有任何东西阻止**有人把它配上。
+ *                    这与 `gated` 是两件事，混在一起会让「关掉了」和「恰好没开」看起来一样。
+ *   by-construction  没什么可执行的：这一行说的是本地版**多**出来的东西（离线可用、随包模型）。
+ *   declared-only    **已知缺口**：界面照它说话，但今天没有任何机械手段保证它。
+ *                    门控会把这些逐条打印出来，好让它不会悄悄变多。
+ */
+export const CapabilityEnforcement = z.enum(["gated", "unset-by-default", "by-construction", "declared-only"]);
+export type CapabilityEnforcementValue = z.infer<typeof CapabilityEnforcement>;
+
 export const EDITION_CAPABILITIES = [
   {
     id: "cloud-models",
@@ -269,6 +284,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "本地版只调用随包的本机模型，请求不出网——这是本地版的产品承诺，不是开关。",
+    enforcement: "gated",
+    enforcementRef: "KERNEL_MODEL_BASE_URL",
+    // 本地版把模型端点钉在 127.0.0.1（local-runtime 的 modelEnv）。
   },
   {
     id: "local-models",
@@ -276,6 +294,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "limited",
     local: "full",
     why: "在线版可以接自托管端点，但不随包模型权重；断网后在线版不能工作。",
+    enforcement: "by-construction",
+    enforcementRef: null,
+    // 这一行说的是本地版多出来的东西，没有什么要拦。
   },
   {
     id: "mcp-egress",
@@ -283,6 +304,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "MCP 调用必然出网，与本地版「数据不出本机」相冲突。",
+    enforcement: "unset-by-default",
+    enforcementRef: null,
+    // 不设 WORKSPACEX_BROWSER_MCP_ENDPOINT ⇒ MCP 工具不存在；但没有任何东西阻止有人把它配上。个人本地**组织**那条出站守卫只管 personal-local 组织，而桌面版 provision 出来的是普通组织。
   },
   {
     id: "subagents",
@@ -290,6 +314,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "一台机器上的小模型跑多智能体只会更慢更差，本地版把这些工具从模型请求里去掉了。",
+    enforcement: "declared-only",
+    enforcementRef: null,
+    // 并行的一条改动（逐请求工具预算 DEEP_AGENT_EXCLUDED_TOOLS）会把它变成 unset-by-default；合入之前这一行只是界面在说话。
   },
   {
     id: "collaboration",
@@ -297,6 +324,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "本地版是单人单机部署，没有第二个账号，也没有共享存储。",
+    enforcement: "declared-only",
+    enforcementRef: null,
+    // 后台的成员/邀请屏在本地版照旧可达，没有按版次关掉。
   },
   {
     id: "outbound-notifications",
@@ -304,6 +334,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "本地版不配发信通道，通知只留在本机收件箱里。",
+    enforcement: "declared-only",
+    enforcementRef: null,
+    // 本地版没配发信通道，但也没有一处按版次显式拒绝发信。
   },
   {
     id: "image-generation",
@@ -311,6 +344,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "出图要调云端出图服务（百炼 / OpenAI），本地版既不出网也不随包出图模型权重。",
+    enforcement: "gated",
+    enforcementRef: "image-generation",
+    // select-image-provider.ts 与 kernel.module.ts 的 provider 路由表都读这一行的 id。
   },
   {
     id: "error-log-ai-summary",
@@ -318,6 +354,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "它是给运维团队看的元任务，而本机只有你一个人；而且它每条异常都要占用同一个本地模型，异常风暴时会把你正在等的回答挤到后面。",
+    enforcement: "gated",
+    enforcementRef: "error-log-ai-summary",
+    // errorLogAiDepsForEdition 读这一行的 id。
   },
   {
     id: "audit-provenance",
@@ -325,6 +364,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "limited",
     why: "本地版在溯源事实投递不成功时会明确标记缺页并继续执行，而不是把整次执行判失败。",
+    enforcement: "gated",
+    enforcementRef: "skillActivityDeliveryDiscipline",
+    // deep-agent-model-provider.ts 读同名判据函数。
   },
   {
     id: "export-to-organization",
@@ -332,6 +374,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "limited",
     local: "full",
     why: "导出豁口是本地→正式的单向通道；在线版只作为接收方。",
+    enforcement: "declared-only",
+    enforcementRef: null,
+    // /admin/local 那一屏的导出流程今天是演示态，真实通道尚未实现。
   },
   {
     id: "offline",
@@ -339,6 +384,9 @@ export const EDITION_CAPABILITIES = [
     cloud: "absent",
     local: "full",
     why: "本地版的模型、数据库与技能沙箱都在本机，断网只影响联网工具。",
+    enforcement: "by-construction",
+    enforcementRef: null,
+    // 同 local-models：说的是本地版多出来的东西。
   },
 ] as const satisfies ReadonlyArray<{
   readonly id: string;
@@ -346,6 +394,9 @@ export const EDITION_CAPABILITIES = [
   readonly cloud: CapabilityAvailabilityValue;
   readonly local: CapabilityAvailabilityValue;
   readonly why: string;
+  readonly enforcement: CapabilityEnforcementValue;
+  /** `gated` 必填：能在代码里搜到的那个字符串。其余取值恒 `null`。 */
+  readonly enforcementRef: string | null;
 }>;
 
 export type EditionCapabilityId = (typeof EDITION_CAPABILITIES)[number]["id"];
