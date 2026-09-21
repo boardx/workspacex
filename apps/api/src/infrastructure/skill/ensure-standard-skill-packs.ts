@@ -47,12 +47,27 @@ export interface StandardPackSeedOutcome {
   readonly error?: unknown;
 }
 
+/**
+ * 这段自愈逻辑从哪儿读 pack 文件。
+ *
+ * ⚠ 此前只有写死的仓库相对路径，而运行中的 API 走的是 DI 里的 `SKILL_STARTER_PACK_ROOT`
+ *   （`kernel.module.ts`）——**同一件事的两份声明**。两份在开发机上恰好都对，在别处不一定：
+ *   桌面/单机形态把仓库子集解包到 bundle 里运行，相对路径是否还指向那堆 pack 取决于打包
+ *   布局，而不取决于这里写了什么。部署显式配置过的那一份是更可信的那一份，优先用它；
+ *   没配时才退回相对路径，既有部署逐字不变。
+ */
+function standardPackRoot(): string {
+  const configured = process.env.SKILL_STARTER_PACK_ROOT?.trim();
+  if (configured !== undefined && configured !== '') return configured;
+  return fileURLToPath(new URL('../../../../../skills/starter-packs/', import.meta.url));
+}
+
 export async function ensureStandardSkillPacksSeeded(
   db: DatabasePort,
   actorId: string,
   packs: readonly { readonly packId: string; readonly packVersion: string }[] = STANDARD_PLATFORM_PACKS,
 ): Promise<readonly StandardPackSeedOutcome[]> {
-  const source = new FileSkillStarterPackSource(fileURLToPath(new URL('../../../../../skills/starter-packs/', import.meta.url)));
+  const source = new FileSkillStarterPackSource(standardPackRoot());
   const deps = { identities: new PgIdentityRepository(db), packs: source, imports: new PgSkillStarterImportRepository(db) };
   const reports: StandardPackSeedOutcome[] = [];
   for (const pack of packs) {
