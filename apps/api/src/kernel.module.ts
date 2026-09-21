@@ -130,6 +130,7 @@ import { PgDebugEventStore } from "./infrastructure/diagnostics/pg-debug-event-s
 import { DEBUG_REQUEST_RECORDER, DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
 import { SystemDebugTraceController } from "./interface/controllers/system-debug-trace.controller";
 import { PgErrorLogWriter, errorLogAiDepsForEdition } from "./infrastructure/logging/pg-error-log-writer";
+import { capabilityAvailability } from "@repo/contracts/deployment";
 import { readDeploymentEdition } from "./infrastructure/deployment/edition";
 import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
 import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
@@ -1801,7 +1802,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
           [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
-          [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
+          /*
+           * 2026-09-22 —— 本地版**不注册**这一家。否则图片生成 agent 的 run 会路由到它，
+           * 而它在本地版拿到的是 `KERNEL_MODEL_API_KEY="ollama-local"`（给本机 Ollama 的
+           * 占位 key）+ 默认 baseUrl `https://dashscope.aliyuncs.com`：一个声明「数据不出
+           * 本机」的构建会把提示词发到公网，然后 401。实测取证见
+           * `select-image-provider.ts` 里那段注释。
+           * 不注册 ⇒ 这条 run 以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实失败，且不出网。
+           */
+          ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
+            ? []
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
         ]));
       },
     },

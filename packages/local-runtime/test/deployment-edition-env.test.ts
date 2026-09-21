@@ -57,3 +57,15 @@ it("passes the online address through only when the host actually set one", () =
   const passed = webEnv(fakeConfig, { WORKSPACEX_CLOUD_URL: " https://app.example.com " }) as Record<string, string>;
   expect(passed[cloudEnvName!]).toBe("https://app.example.com");
 });
+
+it("still hands the API the Ollama placeholder key, which is why the image gate is needed", () => {
+  /*
+   * 这一条不是要求「必须这么设」，而是把**另一半证据**钉在这里：
+   * `apps/api/tests/agent-runtime/local-edition-no-image-egress.test.ts` 的前提是
+   * 「本地版 env 里 KERNEL_MODEL_API_KEY 是一个非空占位值、且没有 KERNEL_IMAGE_PROVIDER」。
+   * 那个前提一旦在这里被改掉（比如换成空串），那边的反证就会悄悄失去意义。
+   */
+  const env = apiEnv(fakeConfig) as Record<string, string | undefined>;
+  expect(env.KERNEL_MODEL_API_KEY).toBe("ollama-local");
+  expect(env.KERNEL_IMAGE_PROVIDER).toBeUndefined();
+});

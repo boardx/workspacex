@@ -272,6 +272,13 @@ export const EDITION_CAPABILITIES = [
     why: "本地版不配发信通道，通知只留在本机收件箱里。",
   },
   {
+    id: "image-generation",
+    capability: "AI 出图（文生图）",
+    cloud: "full",
+    local: "absent",
+    why: "出图要调云端出图服务（百炼 / OpenAI），本地版既不出网也不随包出图模型权重。",
+  },
+  {
     id: "error-log-ai-summary",
     capability: "系统异常的 AI 研判摘要",
     cloud: "full",
