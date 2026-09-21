@@ -19,10 +19,10 @@
  * 「无人认领」——猜出来的归属会诱导 agent 去抢一个其实有人在做的活，
  * 比没有归属更糟（#823 是同型事故：队列顶部留着已关闭的 issue，让人去做已做完的事）。
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parse } from "yaml";
-import { REPO_ROOT, STATE_DIR } from "./lib/paths";
+import { STATE_DIR } from "./lib/paths";
+import { readKnownAgentIdentities, type AgentIdentity } from "./lib/agent-identity";
 import { log } from "./lib/log";
 import { sh } from "./lib/sh";
 import type { Args } from "./lib/args";
@@ -34,72 +34,9 @@ import {
 } from "./lib/role-scorecard";
 
 const CHARTER_PATH = join(STATE_DIR, "role-charter.json");
-const REGISTRY_PATH = join(REPO_ROOT, ".harness", "agents", "registry.yaml");
-
-interface RegistryAgent { id: string; kind?: string; reports_to?: string; active?: boolean }
-interface Identity { kind: string; reportsTo: string | null; active: boolean }
-
-/**
- * 读 `registry.yaml` 里**所有**身份分组，不只是 `agents:`。
- *
- * ⚠ 实测踩过：第一版只读 `agents:`，于是 `rev-e2e` / `rev-uiux` 被判成「不在 registry」——
- * 它们其实在 `reviewers:` 分组下。registry 是分组的（agents / reviewers / …），
- * 按单个键名去读等于给自己造了一份「registry 的子集」当事实源。
- * 这里改成扫描所有「数组且元素带 id」的顶层键，新增分组时不用回来改这里。
- */
-function readRegistry(): Map<string, Identity> {
-  const out = new Map<string, Identity>();
-  if (!existsSync(REGISTRY_PATH)) return out;
-  const doc = parse(readFileSync(REGISTRY_PATH, "utf8")) as Record<string, unknown>;
-  for (const value of Object.values(doc)) {
-    if (!Array.isArray(value)) continue;
-    for (const entry of value as RegistryAgent[]) {
-      if (!entry || typeof entry !== "object" || typeof entry.id !== "string") continue;
-      out.set(entry.id, {
-        kind: entry.kind ?? "unknown",
-        reportsTo: entry.reports_to ?? null,
-        // 缺省视为在编：registry 里绝大多数条目不写 active，写 false 才是明确的停用裁决。
-        active: entry.active !== false,
-      });
-    }
-  }
-  return out;
-}
-
-/**
- * 便携 subagent 规格（`.harness/agents/<name>.yaml`，`registry.yaml` 除外）也是**合法身份来源**。
- *
- * ⚠ 实测踩过第二次同型：第一版 S2 只认 `registry.yaml`，于是 `rev-uiux` 被判成
- * 「不在 registry 里」。但 `rev-uiux` 是**便携 subagent 角色**（由该 yaml 生成
- * `.claude/agents/rev-uiux.md`），它**根本不需要** registry 那套 Directory ULID / token
- * ——registry 收的是 coordinator / reviewer 那类需要授权凭据的身份。
- *
- * 实测依据（coord-main 2026-08-12 提的问题，我查的结论）：
- * `core-loop-readiness.ts` **零 import、零 registry/yaml 引用**，G3 的
- * `allowed_scorers.includes(scored_by)` 是 JSON 内部的字符串比对，
- * **从不拿 registry.yaml 做鉴权**。所以 CLR 的评分授权与 registry 身份是两套东西，
- * 把它们混成一套正是我第一版的错。
- *
- * ⇒ 角色的权威来源是**两者的并集**，不是 registry 一家。
- */
-function readSubagentSpecs(): Map<string, Identity> {
-  const out = new Map<string, Identity>();
-  const dir = join(REPO_ROOT, ".harness", "agents");
-  if (!existsSync(dir)) return out;
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith(".yaml") || f === "registry.yaml") continue;
-    try {
-      const doc = parse(readFileSync(join(dir, f), "utf8")) as { name?: string };
-      if (typeof doc?.name === "string") {
-        out.set(doc.name, { kind: "subagent", reportsTo: null, active: true });
-      }
-    } catch { /* 读不了就跳过：宁可少认一个，也不要伪造一个身份 */ }
-  }
-  return out;
-}
 
 /** 身份那一行怎么显示——`active: false` 是**真实信号**，不能吞掉。 */
-function identityLine(ident: Identity | undefined): string {
+function identityLine(ident: AgentIdentity | undefined): string {
   if (!ident) return "⚠ 既不在 registry.yaml，也不在 .harness/agents/*.yaml —— 给一个不存在的角色发分毫无意义";
   const base = `${ident.kind}（reports_to: ${ident.reportsTo ?? "—"}）`;
   return ident.active ? base : `${base}  ⚠ registry 标记为**停用**（active: false）`;
@@ -143,7 +80,8 @@ export function roleScorecard(args: Args): void {
   const charter = JSON.parse(readFileSync(CHARTER_PATH, "utf8")) as CharterFile;
 
   // 角色权威 = registry 身份 ∪ 便携 subagent 规格。registry 优先（它带 kind/reports_to）。
-  const registry = new Map([...readSubagentSpecs(), ...readRegistry()]);
+  // 判据在 lib/agent-identity.ts —— #1142 起是单一事实源，feature.owner 的机械门读同一份。
+  const registry = readKnownAgentIdentities();
   const { state, verdict } = computeReadiness();
 
   const verdicts = new Map<string, TrackVerdictLike>(verdict.tracks.map((t) => [t.id, t]));
