@@ -50,8 +50,11 @@ describe("China production trusted deployment entrypoints", () => {
     expect(deploy.match(/"\$PREFLIGHT_VERIFIER" preactivate/g)).toHaveLength(2);
     expect(preflight).toContain('git -C "$REPOSITORY_DIR" show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py"');
     expect(preflight).toContain('protected receipt must be root:root 0600');
+    expect(preflight).toContain('readlink "/proc/$PPID/fd/9"');
+    expect(preflight).toContain('if flock -n 8; then');
+    expect(preflight).toContain('canonical-release-lock-held');
     expect(preflight).toContain('if(canonical(input.prebuildEvidence)!==canonical(prior))process.exit(1)');
-    expect(preflight).toContain('install_once_or_identical "$input" "$raw_receipt"');
+    expect(preflight).toContain('install_once_or_identical "$evidence" "$raw_receipt"');
   });
 
   it("requires Docker Buildx before installing the deployment entrypoint", () => {

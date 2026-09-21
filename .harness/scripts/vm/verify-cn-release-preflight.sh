@@ -14,6 +14,7 @@ release=$3
 REPOSITORY_DIR=/opt/workspacex-cn/repository
 INPUT_ROOT=/etc/workspacex-cn/preflights
 RECEIPT_ROOT=/var/lib/workspacex-cn/preflight-receipts
+LOCK_FILE=/var/lib/workspacex-cn/runtime/release.lock
 input="$INPUT_ROOT/$revision.$phase.json"
 receipt_dir="$RECEIPT_ROOT/$revision"
 raw_receipt="$receipt_dir/$phase.json"
@@ -41,6 +42,18 @@ git -C "$REPOSITORY_DIR" cat-file -e "$revision^{commit}" 2>/dev/null || fail "r
 private_root_file "$input"
 install -d -o root -g root -m 0700 "$RECEIPT_ROOT" "$receipt_dir"
 
+# Do not trust a static heldByAttempt claim. Both trusted callers open the
+# canonical lock as fd 9 before invoking this verifier. The parent-fd check
+# binds the caller to the right file; acquiring a new open description must
+# fail while the parent holds flock, otherwise the receipt is rejected.
+[[ "$(readlink "/proc/$PPID/fd/9" 2>/dev/null || true)" == "$LOCK_FILE" ]] \
+  || fail "caller does not expose the canonical release lock"
+exec 8>"$LOCK_FILE"
+if flock -n 8; then
+  flock -u 8
+  fail "canonical release lock is not held by the caller"
+fi
+
 work=$(mktemp -d /tmp/workspacex-cn-preflight.XXXXXX)
 cleanup() { rm -rf -- "$work"; }
 trap cleanup EXIT
@@ -49,15 +62,30 @@ git -C "$REPOSITORY_DIR" show "$revision:.agents/skills/workspacex-cn-release/sc
   || fail "exact validator is unavailable"
 chmod 0500 "$validator"
 
+# The root-protected input is a probe template. Replace the lock assertion with
+# evidence produced inside the live critical section; the resulting evidence,
+# not the template, becomes the immutable receipt and is embedded by preactivate.
+evidence="$work/evidence.json"
+node - "$input" "$evidence" "$phase" <<'NODE'
+const fs=require("node:fs"),crypto=require("node:crypto");
+const [inputPath,outputPath,phase]=process.argv.slice(2);
+const value=JSON.parse(fs.readFileSync(inputPath,"utf8"));
+const lock=value?.checks?.["runtime.release_lock"];
+if(!lock||value.phase!==phase||typeof value.attemptId!=="string"||!value.attemptId)process.exit(1);
+const fact=`${value.attemptId}|${phase}|canonical-release-lock-held`;
+value.checks["runtime.release_lock"]={status:"passed",evidenceSha256:crypto.createHash("sha256").update(fact).digest("hex"),metadata:{heldByAttempt:true}};
+fs.writeFileSync(outputPath,`${JSON.stringify(value)}\n`,{mode:0o600,flag:"wx"});
+NODE
+
 output="$work/validated.out"
-if ! python3 "$validator" "$input" >"$output"; then
+if ! python3 "$validator" "$evidence" >"$output"; then
   fail "$phase receipt validation failed"
 fi
 [[ "$(wc -l <"$output" | tr -d ' ')" == 1 ]] || fail "validator stdout must contain exactly one record"
 grep -q '^CN_RELEASE_PREFLIGHT_JSON=' "$output" || fail "validator machine record is missing"
 sed 's/^CN_RELEASE_PREFLIGHT_JSON=//' "$output" >"$work/result.json"
 
-node - "$input" "$work/result.json" "$phase" "$revision" "$release" "$stored_prebuild" <<'NODE' \
+node - "$evidence" "$work/result.json" "$phase" "$revision" "$release" "$stored_prebuild" <<'NODE' \
   || fail "receipt identity, readiness, or prior evidence differs"
 const fs=require("node:fs");
 const [inputPath,resultPath,phase,revision,release,storedPrebuild]=process.argv.slice(2);
@@ -73,6 +101,6 @@ if(phase==="preactivate"){
 }
 NODE
 
-install_once_or_identical "$input" "$raw_receipt"
+install_once_or_identical "$evidence" "$raw_receipt"
 install_once_or_identical "$work/result.json" "$validated_receipt"
 cat "$output"
