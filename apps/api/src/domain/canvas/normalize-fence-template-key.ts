@@ -179,7 +179,34 @@ export function normalizeCanvasFenceSections(text: string, templates: readonly C
     const t = templates.find((x) => x.key === key);
     if (!t || (!t.sections?.length && !t.fields?.length)) return whole;
     let seenHeading = false;
-    const fixed = lines.map((line) => {
+    const fixed = lines.map((line, i) => {
+      /**
+       * `情境触发:` followed by bullets is a section heading the model forgot to prefix with
+       * `##`. Everything the user asked for is in the fence; the renderer just cannot find it,
+       * so all six blocks come out blank (eval lane 2026-09-22: 5/5 fences, 2/5 complete —
+       * the two failures had every section written this way). Only a name that resolves to a
+       * real section of THIS template, with nothing after the colon and a bullet underneath,
+       * is rewritten; anything else is left exactly as the model wrote it.
+       */
+      const bare = /^\s*([^#\-\s][^:：\n]{0,40})\s*[:：][ \t]*(.*)$/.exec(line);
+      if (bare && t.sections?.length) {
+        const name = bare[1]!.trim();
+        const rest = bare[2] ?? "";
+        const next = lines.slice(i + 1).find((l) => l.trim() !== "");
+        const bulletsFollow = next !== undefined && /^\s*[-*]\s+\S/.test(next);
+        // `分区名:` + bullets, or `分区名：一整段内容` on one line — both are a section the
+        // model wrote without `##`. The second form keeps its content, as that section's
+        // first bullet. A name that is a header FIELD of this template is never promoted.
+        const isField = (t.fields ?? []).some((f) => resolveName(name, t.fields ?? []) === f);
+        if (!isField && (rest === "" ? bulletsFollow : rest.length > 0)) {
+          const to = resolveName(name, t.sections);
+          if (to !== null) {
+            seenHeading = true;
+            corrections.push({ template: t.key, kind: "section", from: name, to: `## ${to}` });
+            return rest === "" ? `## ${to}` : `## ${to}\n- ${rest}`;
+          }
+        }
+      }
       const h = HEADING.exec(line);
       if (h) {
         seenHeading = true;

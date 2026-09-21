@@ -19,7 +19,7 @@ describe("selectGuidanceTemplates", () => {
   });
   it("matched: a bare production verb counts — 「做商业模式画布」 has no 一张/个 (eval regression, R6)", () => {
     expect(selectGuidanceTemplates([{ key: "bmc", displayName: "商业模式画布" }], { mode: "matched", text: "为一款面向高校的 AI 助教产品做商业模式画布" }).map((t) => t.key)).toEqual(["bmc"]);
-    expect(selectGuidanceTemplates(T, { mode: "matched", text: "给大学生求职者出一张 JTBD" }).length).toBeGreaterThan(0);
+    expect(selectGuidanceTemplates([...T, { key: "jtbd", displayName: "JTBD" }], { mode: "matched", text: "给大学生求职者出一张 JTBD" }).map((t) => t.key)).toEqual(["jtbd"]);
   });
   it("matched: only the named template (key, display name or alias)", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "生成一个用户画像：传媒大学教授" }).map((t) => t.key)).toEqual(["persona"]);
