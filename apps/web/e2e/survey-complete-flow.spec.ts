@@ -96,6 +96,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(report).toBeVisible();
   await expect(report).toContainText(`${TEMPLATE_TITLE}分析报告`);
   await expect(report).not.toContainText("草稿");
+  await expect(report.locator("[data-chart] svg").first()).toBeVisible();
+  await expect(report.locator("[data-report-block]").filter({ has: page.locator("[data-chart]") }).locator("table")).toHaveCount(0);
+  await expect(report.locator("[data-chart] svg").first()).not.toContainText("会议时长是否合适？");
+  await report.locator("[data-chart]").first().scrollIntoViewIfNeeded();
+  await report.locator("[data-chart]").first().screenshot({ path: test.info().outputPath("template-chart.png") });
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出 Word" }).click();
