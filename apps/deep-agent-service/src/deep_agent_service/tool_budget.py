@@ -71,11 +71,17 @@ def _tool_name(tool: Any) -> str | None:
     return name if isinstance(name, str) else None
 
 
+ALL_TOOLS = "*"
+"""Exclusion entry meaning "this turn needs no tools at all" (a canvas is written, not fetched)."""
+
+
 def prune_tools(tools: list[Any], excluded: frozenset[str]) -> list[Any]:
     """Every tool whose name is not excluded, order preserved. Unnamed tools are kept:
-    a tool we cannot identify is not a tool we may silently drop."""
+    a tool we cannot identify is not a tool we may silently drop. `"*"` excludes all."""
     if not excluded:
         return tools
+    if ALL_TOOLS in excluded:
+        return []
     return [t for t in tools if (_tool_name(t) or "") not in excluded]
 
 

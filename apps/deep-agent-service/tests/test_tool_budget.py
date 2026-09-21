@@ -76,3 +76,8 @@ def test_per_run_exclusions_are_empty_outside_a_graph_run():
     """`get_config()` raises outside a LangGraph node; that is 'no per-run exclusions', not a crash."""
     from deep_agent_service.tool_budget import per_run_excluded_tools
     assert per_run_excluded_tools() == frozenset()
+
+
+def test_star_excludes_every_tool():
+    from deep_agent_service.tool_budget import ALL_TOOLS, prune_tools
+    assert prune_tools([{"name": "a"}, {"name": "b"}], frozenset({ALL_TOOLS})) == []

@@ -711,7 +711,11 @@ async function executeClaimed(
      * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
      * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
      */
-    excludedTools = canvasRequested ? ["call_skill", "list_org_skills", "web_search", "fetch_url"] : undefined;
+    // `"*"` = 本轮一个工具都不挂：一张工作坊画布是写 ```canvas 围栏写出来的，没有任何工具
+    // 参与其中。实测（2026-09-22）画布请求的提示里工具 schema 仍占约 2 200 token（`write_todos`
+    // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
+    // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
+    excludedTools = canvasRequested ? ["*"] : undefined;
     system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)

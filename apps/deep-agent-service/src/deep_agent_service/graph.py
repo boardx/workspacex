@@ -164,8 +164,7 @@ _model = build_chat_model()
 # and the prompt must stop telling the model to confirm before acting -- otherwise a small model
 # writes the clarification as plain text instead and still never produces the result.
 LOCAL_DIRECT_EXECUTION_NOTE = (
-    "\n\n本部署是单人本地版：confirm_task_intent、fill_run_params、choose_execution_option 这三个"
-    "工具不可用，也不要用文字向用户确认假设、追问参数或摆方案让用户选。直接采用合理的默认"
+    "\n\n本部署是单人本地版：不要用文字向用户确认假设、追问参数或摆方案让用户选。直接采用合理的默认"
     "假设完成任务（画布、画像、文档都直接产出），并在结果末尾用一两句公开你采用的关键假设。"
     "产出画布时，```canvas 围栏第一行的『模板: <key>』必须逐字使用画布指引里列出的模板 key"
     "（例如用户画像就是 persona），不要自造或翻译 key。"
@@ -178,8 +177,19 @@ LOCAL_DIRECT_EXECUTION_NOTE = (
 
 
 def effective_system_prompt() -> str:
+    """The cloud prompt verbatim, or — when this deployment mounts fewer tools — the same
+    prompt with every sentence about an absent tool removed, plus the local note (#3749 R3).
+
+    Advertising a tool the model cannot call costs prefill on every turn AND makes the prompt
+    self-contradictory; both were measured on the local build (see `prompt_pruning`).
+    """
+    from .prompt_pruning import absent_tools, prune_absent_tool_sentences
     from .tools import hitl_clarification_disabled
-    return SYSTEM_PROMPT + LOCAL_DIRECT_EXECUTION_NOTE if hitl_clarification_disabled() else SYSTEM_PROMPT
+
+    if not hitl_clarification_disabled():
+        return SYSTEM_PROMPT
+    absent = absent_tools(hitl_disabled=True, browser_mounted=False)
+    return prune_absent_tool_sentences(SYSTEM_PROMPT, absent) + LOCAL_DIRECT_EXECUTION_NOTE
 
 
 graph = create_deep_agent(
