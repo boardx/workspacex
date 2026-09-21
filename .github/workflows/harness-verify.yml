@@ -227,6 +227,17 @@ jobs:
       - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
         run: pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs --strict
 
+      # 测试代码不许对共享角色做无限定 GRANT/REVOKE（#522 的第六种共享可变状态）。
+      # 放在 PR 门控而不是 `verify:harness:raw` 链里的理由，与上一步的 #2490 逐字同源：
+      # 那条链只被 main 的 `e2e-full` 调用，而这类缺陷**只在写下那条 REVOKE 的 PR 里产生**，
+      # 合入之后它伤的是别人——权限是库级的，vitest 四个文件并行跑在同一个 Postgres 上，
+      # 撤销窗口里别的文件的夹具插同一张表就 permission denied，受害者由调度决定 ⇒
+      # 在 CI 上长成 flake，单跑永远是绿的（#522 五组控制变量实测）。「当场红」必须是 PR。
+      # 只读 apps/ 与 packages/ 下的测试源码文本，不碰 DB，毫秒级；反证套件见
+      # .harness/scripts/lint-test-shared-grant.test.ts（下面那步跑）。
+      - name: 测试代码不对共享角色做无限定 GRANT/REVOKE（第六种共享可变状态）
+        run: pnpm exec tsx .harness/scripts/lint-test-shared-grant.mjs
+
       # 不存在「写了但没人跑」的 e2e spec（#512）。
       # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
       # 有 `playwright.chat-read.config.ts`，但零个 npm script / CI job 调它。
