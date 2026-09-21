@@ -86,6 +86,29 @@ export function initNav() {
     ).observe(sentinel);
   }
 
+  /* --- narrow bar: relocate the secondary actions into the menu panel ---
+     At 390 px the brand, language switch, GitHub link, primary CTA and the
+     burger do not fit on one row; the burger was pushed off-screen entirely,
+     leaving the menu unreachable. Rather than shrink everything past the touch
+     target minimum, move what does not have to be in the bar into the panel. */
+  const panel = document.getElementById('nav-panel-actions');
+  const movable = [...document.querySelectorAll('[data-mobile-move]')];
+  const homes = new Map(movable.map((n) => [n, { parent: n.parentNode, next: n.nextSibling }]));
+  const narrow = window.matchMedia('(max-width: 760px)');
+  const placeActions = () => {
+    if (!panel) return;
+    if (narrow.matches) {
+      movable.forEach((n) => panel.append(n));
+    } else {
+      movable.forEach((n) => {
+        const home = homes.get(n);
+        home.parent.insertBefore(n, home.next);
+      });
+    }
+  };
+  placeActions();
+  narrow.addEventListener('change', placeActions);
+
   // --- mobile menu ---
   if (burger && links) {
     const close = () => {

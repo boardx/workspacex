@@ -35,7 +35,7 @@
   /* Without the pin, the rail is a plain list — remove the selected-state
      affordance that only makes sense while scrubbing. */
   .rail__item { cursor: default; }
-  .rail__item[aria-selected="true"] { background: none; }
+  .rail__item[aria-current="true"] { background: none; }
 }
 
 /* ---- 04 Three Scales ----------------------------------------------------- */
@@ -62,12 +62,12 @@
   background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
   transition: border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
 }
-.scales__card:hover, .scales__card:focus-visible { border-color: var(--hairline-2); }
+.scales__card:hover { border-color: var(--hairline-2); }
 .scales__num {
   display: grid; place-items: center;
   width: 2rem; height: 2rem; border-radius: 50%;
   font-family: var(--font-mono); font-size: var(--t-micro);
-  color: #fff; background: var(--grad);
+  color: var(--on-grad); background: var(--grad);
   margin-bottom: 1.5rem;
   position: relative; z-index: 1;
 }

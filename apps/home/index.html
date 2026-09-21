@@ -27,6 +27,19 @@
 </head>
 <body>
 
+<!-- Shared brand mark. Defined once; both the header and footer logos <use> it,
+     so the gradient cannot be orphaned by editing one of them. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a18"/><stop offset=".55" stop-color="#ff2e73"/><stop offset="1" stop-color="#b14bff"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 32 32">
+      <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
 <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
 
 <!-- ======================================================================
@@ -35,14 +48,7 @@
 <header class="nav" id="nav" data-stuck="false">
   <div class="nav__inner">
     <a class="brand" href="#top" aria-label="WorkspaceX home">
-      <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
-        <defs>
-          <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#ff7a18"/><stop offset=".55" stop-color="#ff2e73"/><stop offset="1" stop-color="#b14bff"/>
-          </linearGradient>
-        </defs>
-        <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
       <span class="brand__name">WorkspaceX</span>
       <span class="brand__tag">Beta</span>
     </a>
@@ -54,18 +60,19 @@
       <a class="nav__link" href="#architecture" data-i18n="nav.architecture">Architecture</a>
       <a class="nav__link" href="#trust"        data-i18n="nav.trust">Trust</a>
       <a class="nav__link" href="#open"         data-i18n="nav.open">Open</a>
+      <div class="nav__panelactions" id="nav-panel-actions"></div>
     </nav>
 
     <div class="nav__actions">
-      <div class="langswitch" role="group" aria-label="Language">
+      <div class="langswitch" data-mobile-move role="group" aria-label="Language">
         <button class="langswitch__btn" data-lang="en" aria-pressed="true">EN</button>
-        <button class="langswitch__btn" data-lang="zh" aria-pressed="false">中文</button>
+        <button class="langswitch__btn" data-lang="zh" aria-pressed="false" lang="zh-Hans">中文</button>
       </div>
-      <a class="nav__ghost nav__ghost--signin" href="https://github.com/boardx/workspacex" rel="noopener">
+      <a class="nav__ghost nav__ghost--signin" data-mobile-move href="https://github.com/boardx/workspacex" rel="noopener">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         <span data-i18n="nav.github">GitHub</span>
       </a>
-      <a class="btn btn--primary" href="https://app.boardx.us" rel="noopener">
+      <a class="btn btn--primary" data-mobile-move href="https://app.boardx.us" rel="noopener">
         <span class="btn__label" data-i18n="nav.launch">Launch App</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
@@ -203,48 +210,60 @@
       <div class="wrap loop__layout">
         <div class="loop__visual" data-diagram="loop" role="img" aria-labelledby="loop-desc"></div>
         <div class="loop__panel">
-          <ol class="rail" id="loop-rail">
-            <li class="rail__item" data-step="0" aria-selected="true">
-              <span class="rail__num">01</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s1.t">Intent</div>
-                <div class="rail__body" data-i18n="loop.s1.b">A human states what matters and why. Not a prompt — a goal with a value judgement attached.</div>
-              </div>
+          <ol class="rail" role="list" id="loop-rail">
+            <li>
+              <button type="button" class="rail__item" data-step="0" aria-current="true">
+                <span class="rail__num">01</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s1.t">Intent</span>
+                <span class="rail__body" data-i18n="loop.s1.b">A human states what matters and why. Not a prompt — a goal with a value judgement attached.</span>
+                </span>
+              </button>
             </li>
-            <li class="rail__item" data-step="1">
-              <span class="rail__num">02</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s2.t">Explore</div>
-                <div class="rail__body" data-i18n="loop.s2.b">Agents plan, divide the work and run in parallel across your context, not the open web alone.</div>
-              </div>
+            <li>
+              <button type="button" class="rail__item" data-step="1">
+                <span class="rail__num">02</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s2.t">Explore</span>
+                <span class="rail__body" data-i18n="loop.s2.b">Agents plan, divide the work and run in parallel across your context, not the open web alone.</span>
+                </span>
+              </button>
             </li>
-            <li class="rail__item" data-step="2">
-              <span class="rail__num">03</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s3.t">Create</div>
-                <div class="rail__body" data-i18n="loop.s3.b">Drafts, models and options take shape on a shared surface, where a human can grab the pen at any moment.</div>
-              </div>
+            <li>
+              <button type="button" class="rail__item" data-step="2">
+                <span class="rail__num">03</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s3.t">Create</span>
+                <span class="rail__body" data-i18n="loop.s3.b">Drafts, models and options take shape on a shared surface, where a human can grab the pen at any moment.</span>
+                </span>
+              </button>
             </li>
-            <li class="rail__item" data-step="3">
-              <span class="rail__num">04</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s4.t">Act</div>
-                <div class="rail__body" data-i18n="loop.s4.b">Tools get called and real systems change — inside an authorization boundary, never outside it.</div>
-              </div>
+            <li>
+              <button type="button" class="rail__item" data-step="3">
+                <span class="rail__num">04</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s4.t">Act</span>
+                <span class="rail__body" data-i18n="loop.s4.b">Tools get called and real systems change — inside an authorization boundary, never outside it.</span>
+                </span>
+              </button>
             </li>
-            <li class="rail__item" data-step="4">
-              <span class="rail__num">05</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s5.t">Verify</div>
-                <div class="rail__body" data-i18n="loop.s5.b">The result is checked against a stated standard and leaves evidence. Failing verification is an outcome, not an error.</div>
-              </div>
+            <li>
+              <button type="button" class="rail__item" data-step="4">
+                <span class="rail__num">05</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s5.t">Verify</span>
+                <span class="rail__body" data-i18n="loop.s5.b">The result is checked against a stated standard and leaves evidence. Failing verification is an outcome, not an error.</span>
+                </span>
+              </button>
             </li>
-            <li class="rail__item" data-step="5">
-              <span class="rail__num">06</span>
-              <div>
-                <div class="rail__title" data-i18n="loop.s6.t">Learn</div>
-                <div class="rail__body" data-i18n="loop.s6.b">What worked becomes a reusable skill; what was decided becomes memory. The next run starts further ahead.</div>
-              </div>
+            <li>
+              <button type="button" class="rail__item" data-step="5">
+                <span class="rail__num">06</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s6.t">Learn</span>
+                <span class="rail__body" data-i18n="loop.s6.b">What worked becomes a reusable skill; what was decided becomes memory. The next run starts further ahead.</span>
+                </span>
+              </button>
             </li>
           </ol>
 
@@ -300,7 +319,7 @@
 
         <aside class="surface__evidence" aria-hidden="true">
           <div class="roster__head" data-i18n="surface.trail">Evidence trail</div>
-          <ol class="trail">
+          <ol class="trail" role="list">
             <li class="trail__item trail__item--ok"><b data-i18n="surface.e1">Sources verified</b><i data-i18n="surface.e1s">24 read · 3 rejected as stale</i></li>
             <li class="trail__item trail__item--ok"><b data-i18n="surface.e2">Model checked</b><i data-i18n="surface.e2s">recomputed against Q2 actuals</i></li>
             <li class="trail__item trail__item--warn"><b data-i18n="surface.e3">Needs a human</b><i data-i18n="surface.e3s">pricing assumption unproven</i></li>
@@ -326,19 +345,19 @@
     </header>
 
     <div class="scales" data-diagram="scales">
-      <article class="scales__card" data-scale="0" tabindex="0">
+      <article class="scales__card" data-scale="0">
         <span class="scales__num">1</span>
         <h3 data-i18n="scales.s1.t">I work</h3>
         <p class="scales__sub" data-i18n="scales.s1.s">Research · writing · analysis · planning</p>
         <p class="scales__body" data-i18n="scales.s1.b">Your own agents, your own knowledge, your own files. Local-first where it matters, and nothing leaves without you saying so.</p>
       </article>
-      <article class="scales__card" data-scale="1" tabindex="0">
+      <article class="scales__card" data-scale="1">
         <span class="scales__num">2</span>
         <h3 data-i18n="scales.s2.t">We work</h3>
         <p class="scales__sub" data-i18n="scales.s2.s">Canvas · docs · meetings · projects</p>
         <p class="scales__body" data-i18n="scales.s2.b">Multiplayer with agents in the room. An agent team joins the project the way a colleague does — with a role, a brief and a record.</p>
       </article>
-      <article class="scales__card" data-scale="2" tabindex="0">
+      <article class="scales__card" data-scale="2">
         <span class="scales__num">3</span>
         <h3 data-i18n="scales.s3.t">The organization works</h3>
         <p class="scales__sub" data-i18n="scales.s3.s">Ontology · memory · governance · standard skills</p>
@@ -459,7 +478,7 @@
       <p class="lead" data-i18n="unit.lead">A minimum actionable agentic unit has a defined input, a defined output, a responsible boundary and a way to be checked. That is what makes it something you can buy, verify, reuse and price — instead of something you can only be impressed by.</p>
     </header>
 
-    <ol class="unit__steps" data-stagger>
+    <ol class="unit__steps" role="list" data-stagger>
       <li class="unit__step"><span class="unit__n">1</span><b data-i18n="unit.s1">Intent</b><i data-i18n="unit.s1s">the goal and its boundary</i></li>
       <li class="unit__step"><span class="unit__n">2</span><b data-i18n="unit.s2">Context</b><i data-i18n="unit.s2s">data, knowledge, rules</i></li>
       <li class="unit__step"><span class="unit__n">3</span><b data-i18n="unit.s3">Agent team</b><i data-i18n="unit.s3s">planner, expert, executor</i></li>
@@ -491,7 +510,7 @@
     <div class="open__cols" data-stagger>
       <section class="open__col" style="--i:0">
         <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">Build</span><span class="open__sub" data-i18n="open.c1.s">What we must own</span></h3>
-        <ul class="open__list">
+        <ul class="open__list" role="list">
           <li data-i18n="open.c1.i1">Workspace object model</li>
           <li data-i18n="open.c1.i2">Ontology &amp; context</li>
           <li data-i18n="open.c1.i3">Human–agent experience</li>
@@ -502,7 +521,7 @@
       </section>
       <section class="open__col" style="--i:1">
         <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">Adopt</span><span class="open__sub" data-i18n="open.c2.s">Proven infrastructure</span></h3>
-        <ul class="open__list">
+        <ul class="open__list" role="list">
           <li data-i18n="open.c2.i1">Yjs / CRDT</li>
           <li data-i18n="open.c2.i2">Postgres / pgvector</li>
           <li data-i18n="open.c2.i3">Object storage</li>
@@ -513,7 +532,7 @@
       </section>
       <section class="open__col" style="--i:2">
         <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">Integrate</span><span class="open__sub" data-i18n="open.c3.s">Kept replaceable</span></h3>
-        <ul class="open__list">
+        <ul class="open__list" role="list">
           <li data-i18n="open.c3.i1">LLM providers</li>
           <li data-i18n="open.c3.i2">M365 / Google / Lark / DingTalk</li>
           <li data-i18n="open.c3.i3">Identity &amp; SSO</li>
@@ -577,7 +596,7 @@
       <h2 data-i18n="hz.title">Prove the unit. Then the team. Then the economy.</h2>
     </header>
 
-    <ol class="hz" data-stagger>
+    <ol class="hz" role="list" data-stagger>
       <li class="hz__item hz__item--now">
         <span class="hz__when" data-i18n="hz.h1w">Now</span>
         <h3 data-i18n="hz.h1t">High-value units of work</h3>
@@ -622,13 +641,13 @@
     <div class="footer__grid">
       <div class="footer__col footer__col--brand">
         <a class="brand" href="#top" aria-label="WorkspaceX home">
-          <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#bm-use"/><path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
           <span class="brand__name">WorkspaceX</span>
         </a>
         <p class="footer__blurb" data-i18n="footer.blurb">The open operating workspace for human + AI collaboration. A BoardX product.</p>
       </div>
       <div class="footer__col">
-        <h4 data-i18n="footer.h1">Product</h4>
+        <h3 class="footer__h" data-i18n="footer.h1">Product</h3>
         <ul>
           <li><a href="#loop" data-i18n="footer.l1">How it works</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
@@ -637,14 +656,14 @@
         </ul>
       </div>
       <div class="footer__col">
-        <h4 data-i18n="footer.h2">Build</h4>
+        <h3 class="footer__h" data-i18n="footer.h2">Build</h3>
         <ul>
           <li><a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="footer.l5">GitHub</a></li>
           <li><a href="https://develop.boardx.us" rel="noopener" data-i18n="footer.l6">Developer portal</a></li>
         </ul>
       </div>
       <div class="footer__col">
-        <h4 data-i18n="footer.h3">Company</h4>
+        <h3 class="footer__h" data-i18n="footer.h3">Company</h3>
         <ul>
           <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">Contact</a></li>
           <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>

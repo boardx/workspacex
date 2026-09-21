@@ -58,10 +58,17 @@
 }
 /* Solid only once scrolled — the hero keeps its full bleed. */
 .nav[data-stuck="true"] {
-  background: rgba(8, 7, 11, 0.72);
+  /* 0.72 let headline text read straight through the bar. The blur alone does
+     not rescue 5rem type sliding underneath it. */
+  background: rgba(8, 7, 11, 0.86);
   backdrop-filter: saturate(150%) blur(18px);
   -webkit-backdrop-filter: saturate(150%) blur(18px);
   border-bottom-color: var(--hairline);
+}
+/* Firefox before 103, and anything with the effect disabled, gets no blur at
+   all — there the translucency is the whole problem, so go opaque. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav[data-stuck="true"] { background: #08070b; }
 }
 
 .nav__inner {
@@ -116,7 +123,7 @@
               background var(--dur-fast) var(--ease-out);
 }
 .langswitch__btn[aria-pressed="true"] {
-  color: #fff;
+  color: var(--on-grad);
   background: var(--grad);
 }
 
@@ -175,6 +182,16 @@
   .btn--sm-hide-label .btn__label { display: none; }
 }
 
+/* Touch targets. 0.45rem of padding gives a ~32px tall link — fine for a mouse,
+   too small for a thumb. WCAG 2.5.8 asks for 24px, Apple and Google both say
+   44px; on coarse pointers we take the larger number. */
+@media (pointer: coarse) {
+  .nav__link       { min-height: 44px; display: flex; align-items: center; }
+  .nav__ghost      { min-height: 44px; }
+  .langswitch__btn { min-height: 40px; display: inline-flex; align-items: center; }
+  .footer__col a   { display: inline-block; padding-block: 0.35rem; }
+}
+
 /* ==========================================================================
    Footer
    ========================================================================== */
@@ -188,7 +205,7 @@
   grid-template-columns: minmax(14rem, 1.4fr) repeat(3, minmax(8rem, 1fr));
   gap: clamp(1.75rem, 4vw, 3rem);
 }
-.footer__col h4 {
+.footer__h {
   font-size: var(--t-micro); font-family: var(--font-mono);
   letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: 1rem; font-weight: 500;
@@ -207,4 +224,19 @@
 @media (max-width: 760px) {
   .footer__grid { grid-template-columns: repeat(2, 1fr); }
   .footer__col--brand { grid-column: 1 / -1; }
+}
+
+/* ---- nav actions relocated into the menu panel on narrow screens ---------- */
+.nav__panelactions { display: none; }
+@media (max-width: 760px) {
+  .nav__panelactions {
+    display: grid; gap: 0.75rem;
+    padding-top: 1rem; margin-top: 0.5rem;
+    border-top: 1px solid var(--hairline);
+  }
+  .nav__panelactions .langswitch { justify-self: start; }
+  .nav__panelactions .nav__ghost--signin { display: inline-flex; justify-self: start; }
+  .nav__panelactions .btn--primary { justify-content: center; }
+  /* the bar keeps only what a thumb needs at a glance */
+  .nav__inner { gap: 0.75rem; }
 }

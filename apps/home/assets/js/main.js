@@ -43,7 +43,7 @@ function wireLoopScene() {
   if (!ring) return;
 
   const select = (idx) => {
-    items.forEach((li, i) => li.setAttribute('aria-selected', String(i === idx)));
+    items.forEach((li, i) => li.setAttribute('aria-current', String(i === idx)));
   };
 
   // Clicking a step scrolls to the matching point in the track — the rail is a
@@ -66,7 +66,7 @@ function wireLoopScene() {
   detachScene = initScene('[data-scene="loop"]', (p, stacked) => {
     const idx = ring.render(stacked ? 1 : p);
     if (!stacked) select(idx);
-    else items.forEach((li) => li.removeAttribute('aria-selected'));
+    else items.forEach((li) => li.removeAttribute('aria-current'));
   });
 }
 
