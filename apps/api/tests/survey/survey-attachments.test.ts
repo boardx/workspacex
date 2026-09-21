@@ -237,7 +237,7 @@ it("accepts grayscale, indexed, 16-bit and Adam7 PNGs while rejecting invalid co
   ])
     expect(() => validateSurveyUpload(bytes, "image/png")).toThrow();
   const corrupt = png({ color: 0 });
-  corrupt[corrupt.length - 1] ^= 1;
+  corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 1;
   expect(() => validateSurveyUpload(corrupt, "image/png")).toThrow();
 });
 it("accepts real grayscale and palette file uploads through HTTP", async () => {
