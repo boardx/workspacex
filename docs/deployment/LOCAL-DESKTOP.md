@@ -27,6 +27,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```
 
 启动完成后终端打印访问地址与登录账号（`me@local.workspacex` + 首次生成的密码，密码存在数据目录 `secrets.json`，0600）。
+桌面外壳不进登录页，先显示一屏账号密码 + 本次没起来的能力（随时可从「帮助 → 显示本地账号」调回）。
 
 ## 已实测（2026-09-16，Linux 容器，无 Docker / Redis / Ollama / Python venv）
 
@@ -46,7 +47,7 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ```bash
 ./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
-NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙；端口对不上时 `up` 会直接拒绝用这份产物（web-build.ts）
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
 
@@ -62,12 +63,46 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 
 ## 已知偏差（如实登记）
 
-- 浏览器直连 API（3100 → 3200 跨域）：API 仅在 `KERNEL_CORS_ORIGINS` 列出精确 origin 时开启 CORS，本地版列 `127.0.0.1:3100` 与 `localhost:3100`；生产不设该变量，行为不变。
+> ⚠ 这一节**不再逐条复述判据**。本地形态与云端形态的差异现在有两份机器可读的单一事实源，
+> 它们各自带测试；这里只说哪份管什么，以及三条没法写进代码的偏差。
+> （2026-09-21 起；此前这一节自己就是第四份副本，而 `up()` 与 `doctor` 还各自用**字符串
+> 前缀**判断一条发现算不算致命——改一句提示语就会改变程序的行为。）
 
-- API 在开发模式会加载仓库根的 `.env.local`；local-runtime 设 `KERNEL_SKIP_LOCAL_ENV_FILE=1` 跳过它，并把 `NATIVE_SESSION_*` 钉空——本机不跑 bubblewrap 原生会话（Linux-only），运行走 legacy profile + TCP 沙箱。
+| 问题 | 去哪儿看 |
+|---|---|
+| API 读的某个环境变量，本地为什么没有？ | `packages/local-runtime/src/parity.ts`（四档闭集；`test/parity.test.ts` 扫 `apps/api/src` 机械核对，漏一个就红） |
+| 本地缺哪些能力、为什么、用户能做什么？ | `packages/local-runtime/src/capabilities.ts`（与 parity 双向咬合；`pnpm --filter @repo/local-runtime run doctor` 直接打印本机结果） |
 
-- pglite-socket 忽略客户端登录角色：所有连接都是实例打开时的角色。启动分两段：先以 `postgres` 迁移 + 种子，再以 `app_rw` 对外服务；`session_user` 仍是 postgres，`SET ROLE postgres` 不会被拒。仅适用于单用户本机回环，**不是**多机部署形态。
-- API 启动时的「平台 skill 目录自愈」以 owner 凭据写 `organizations`，在 app 阶段会被 RLS 拒绝并打一条 `42501` 日志；种子已在 owner 阶段完成，功能不受影响。
-- 沙箱为 L0（子进程，无容器）；LibreOffice / tesseract / ffmpeg 未随附，对应 skill 会报缺依赖。
-- 图片生成、web_search、浏览器工具、远程 MCP：本地版未配置，UI/API 走各自的「未配置」状态。ASR 见上节。
-- deep-agent 服务在本机以 `app_rw` 建自己的表（线程账本 / 检查点 / 记忆 schema），owner 阶段给该角色授了 schema 与 database 的 CREATE；这些表不是 RLS 管辖的 API 表。
+### 写不进代码的三条
+
+- **数据库角色**：pglite-socket 忽略客户端登录角色——`current_user` 是 `app_rw`、RLS 生效，
+  但 `session_user` 恒为 `postgres`，`SET ROLE postgres` 不会被拒（真 Postgres 会拒）。
+  偏差本身与「API 从不发 `SET ROLE`」这条前提都已写成断言
+  （`test/pglite-server.test.ts`、`test/no-set-role.test.ts`）。**仅适用于单用户本机回环，
+  不是多机部署形态。**
+- **API 启动时的平台 skill 目录自愈**会以 owner 凭据写 `organizations`，在 app 阶段被 RLS 拒绝，
+  日志里留一条 `42501`。种子已在 owner 阶段完成，功能不受影响。这条是**噪声**，不是故障；
+  没有顺手消掉它，是因为把它静音与掩盖一个真实的权限缺陷在代码里长得一模一样。
+- **deep-agent 服务**在本机以 `app_rw` 建自己的表（线程账本 / 检查点 / 记忆 schema），
+  owner 阶段给该角色授了 schema 与 database 的 CREATE；这些表不受 RLS 管辖，也不是 API 表。
+
+### 其它已登记项
+
+- 浏览器直连 API（3100 → 3200 跨域）：API 仅在 `KERNEL_CORS_ORIGINS` 列出精确 origin 时开启 CORS，
+  本地版列 `127.0.0.1:3100` 与 `localhost:3100`；生产不设该变量，行为不变。
+  （云端把 `NEXT_PUBLIC_API_URL` 设成相对路径 `/api`、按浏览器 origin 运行期解析，因而没有这个问题。）
+- API 在开发模式会加载仓库根的 `.env.local`；local-runtime 设 `KERNEL_SKIP_LOCAL_ENV_FILE=1` 跳过它，
+  并把 `NATIVE_SESSION_*` 钉空——本机不跑 bubblewrap 原生会话（Linux-only），运行走 legacy profile + TCP 沙箱。
+- 本地版的 API 以 `NODE_ENV=development` 运行（它从源码跑）。凡是判据写成 `NODE_ENV !== production`
+  的逃生口，在这里就只差一个环境变量——所以「这些变量不设」是 `parity.ts` 的 `must-stay-unset` 一档
+  加上 `processes.ts` 的父进程过滤，两道都有测试，而不是一句约定。
+
+## 启动时会做什么检查（2026-09-21 起）
+
+| 时机 | 检查 | 不过时 |
+|---|---|---|
+| 起任何东西之前 | 要绑定的回环端口是否空闲（Ollama 除外：已在跑的会被复用） | 直接失败，并给出换端口的命令 |
+| `--web start` 之前 | Web 产物是不是按本次运行的 API 地址构建的 | 直接失败——`NEXT_PUBLIC_*` 是构建期内联的，端口对不上时页面能打开、一个报错也没有，而每个请求都打向旧地址 |
+| 每个子进程就绪等待 | 进程死了就立刻失败，并带上它最后 40 行输出 | 不再把就绪预算等满（API 那一条是 180 秒）再报超时 |
+| Ollama 就绪后 | 配置的 chat / embedding 模型**真的能回话**（一个 token 的补全 + 一次 embedding） | 不中止启动：没有模型的本地版仍然可用；如实记进能力清单并把服务端原话带给用户 |
+| 起来之后 | 任何子进程退出 | 在启动日志里说出来，桌面版弹提示并指向那份日志 |
