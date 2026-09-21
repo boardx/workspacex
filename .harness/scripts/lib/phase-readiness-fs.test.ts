@@ -65,6 +65,7 @@ function manifest(kind: "runtime" | "e2e", artifact: string, commit = COMMIT_A):
     kind,
     command: `pnpm verify:${kind} --phase ${PHASE}`,
     exit_code: 0,
+    executed: 7,
     commit,
     recorded_at: "2026-08-04T00:00:00.000Z",
     artifacts: [artifact],
