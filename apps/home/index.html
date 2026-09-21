@@ -50,6 +50,7 @@
     <nav class="nav__links" id="navlinks" aria-label="Section navigation">
       <a class="nav__link" href="#shift"        data-i18n="nav.shift">The Shift</a>
       <a class="nav__link" href="#loop"         data-i18n="nav.loop">The Loop</a>
+      <a class="nav__link" href="#surface"      data-i18n="nav.surface">The Workspace</a>
       <a class="nav__link" href="#architecture" data-i18n="nav.architecture">Architecture</a>
       <a class="nav__link" href="#trust"        data-i18n="nav.trust">Trust</a>
       <a class="nav__link" href="#open"         data-i18n="nav.open">Open</a>
@@ -264,12 +265,62 @@
 </section>
 
 <!-- ======================================================================
+     3.5 · The workspace itself
+     ====================================================================== -->
+<section class="section" id="surface">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="surface.eyebrow">04 — The workspace</span>
+      <h2 data-i18n="surface.title">One surface. The work, the agents, and the proof — in the same place.</h2>
+      <p class="lead" data-i18n="surface.lead">Not a chat window bolted onto a document. A canvas you and your agents both act on, with the evidence trail running alongside it.</p>
+    </header>
+
+    <div class="surface" data-reveal="scale">
+      <div class="surface__chrome">
+        <span class="surface__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="surface__path" data-i18n="surface.path">Acme · Q3 market entry</span>
+        <span class="surface__live"><span class="surface__pip" aria-hidden="true"></span><span data-i18n="surface.live">4 agents working</span></span>
+      </div>
+
+      <div class="surface__body">
+        <aside class="surface__roster" aria-hidden="true">
+          <div class="roster__head" data-i18n="surface.roster">Agent team</div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">Researcher</b><i data-i18n="surface.r1s">reading 24 sources</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">Analyst</b><i data-i18n="surface.r2s">building the model</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">Writer</b><i data-i18n="surface.r3s">drafting section 2</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">You</b><i data-i18n="surface.r4s">reviewing</i></span></div>
+        </aside>
+
+        <div class="surface__canvas" aria-hidden="true">
+          <div class="note note--a" data-note="a"><span class="note__tag" data-i18n="surface.n1t">Decision</span><span data-i18n="surface.n1">Enter through partners, not direct sales</span></div>
+          <div class="note note--b" data-note="b"><span class="note__tag" data-i18n="surface.n2t">Open question</span><span data-i18n="surface.n2">Which three partners actually reach the buyer?</span></div>
+          <div class="note note--c" data-note="c"><span class="note__tag" data-i18n="surface.n3t">Draft</span><span data-i18n="surface.n3">Market entry brief · v4</span></div>
+          <svg class="surface__links" aria-hidden="true"></svg>
+        </div>
+
+        <aside class="surface__evidence" aria-hidden="true">
+          <div class="roster__head" data-i18n="surface.trail">Evidence trail</div>
+          <ol class="trail">
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e1">Sources verified</b><i data-i18n="surface.e1s">24 read · 3 rejected as stale</i></li>
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e2">Model checked</b><i data-i18n="surface.e2s">recomputed against Q2 actuals</i></li>
+            <li class="trail__item trail__item--warn"><b data-i18n="surface.e3">Needs a human</b><i data-i18n="surface.e3s">pricing assumption unproven</i></li>
+            <li class="trail__item"><b data-i18n="surface.e4">Decision recorded</b><i data-i18n="surface.e4s">linked to 6 pieces of evidence</i></li>
+          </ol>
+        </aside>
+      </div>
+    </div>
+
+    <p class="surface__note" data-reveal data-i18n="surface.note">Illustration of the working surface. The evidence column is the part that does not exist anywhere else: every claim on the canvas can be traced back to what produced it.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
      4 · Three Scales
      ====================================================================== -->
 <section class="section" id="scales">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="scales.eyebrow">04 — One Workspace</span>
+      <span class="eyebrow" data-i18n="scales.eyebrow">05 — One Workspace</span>
       <h2 data-i18n="scales.title">One workspace. Three scales. One context.</h2>
       <p class="lead" data-i18n="scales.lead">Not three products bolted together — the same context flowing from your own desk to your team to the whole organization.</p>
     </header>
@@ -303,7 +354,7 @@
 <section class="section" id="architecture">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="arch.eyebrow">05 — Architecture</span>
+      <span class="eyebrow" data-i18n="arch.eyebrow">06 — Architecture</span>
       <h2 data-i18n="arch.title">Five layers. The top moves fast. The middle must not move at all.</h2>
       <p class="lead" data-i18n="arch.lead">Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
     </header>
@@ -339,7 +390,7 @@
 <section class="section" id="trust">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="trust.eyebrow">06 — Trust</span>
+      <span class="eyebrow" data-i18n="trust.eyebrow">07 — Trust</span>
       <h2 data-i18n="trust.title">An agent you cannot audit is an agent you cannot deploy.</h2>
       <p class="lead" data-i18n="trust.lead">The harness is what turns a capable model into an action your organization is willing to be accountable for.</p>
     </header>
@@ -367,7 +418,7 @@
 <section class="section" id="start">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="start.eyebrow">07 — Where it starts</span>
+      <span class="eyebrow" data-i18n="start.eyebrow">08 — Where it starts</span>
       <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
       <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive.</p>
     </header>
@@ -398,12 +449,41 @@
 </section>
 
 <!-- ======================================================================
+     7.5 · The unit of work
+     ====================================================================== -->
+<section class="section" id="unit">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="unit.eyebrow">09 — The unit of work</span>
+      <h2 data-i18n="unit.title">"Use AI" is not a deliverable. A unit of work is.</h2>
+      <p class="lead" data-i18n="unit.lead">A minimum actionable agentic unit has a defined input, a defined output, a responsible boundary and a way to be checked. That is what makes it something you can buy, verify, reuse and price — instead of something you can only be impressed by.</p>
+    </header>
+
+    <ol class="unit__steps" data-stagger>
+      <li class="unit__step"><span class="unit__n">1</span><b data-i18n="unit.s1">Intent</b><i data-i18n="unit.s1s">the goal and its boundary</i></li>
+      <li class="unit__step"><span class="unit__n">2</span><b data-i18n="unit.s2">Context</b><i data-i18n="unit.s2s">data, knowledge, rules</i></li>
+      <li class="unit__step"><span class="unit__n">3</span><b data-i18n="unit.s3">Agent team</b><i data-i18n="unit.s3s">planner, expert, executor</i></li>
+      <li class="unit__step"><span class="unit__n">4</span><b data-i18n="unit.s4">Workflow</b><i data-i18n="unit.s4s">tools, hand-offs, state</i></li>
+      <li class="unit__step"><span class="unit__n">5</span><b data-i18n="unit.s5">Validation</b><i data-i18n="unit.s5s">evidence, evals, guardrails</i></li>
+      <li class="unit__step"><span class="unit__n">6</span><b data-i18n="unit.s6">Outcome</b><i data-i18n="unit.s6s">a business result, not a transcript</i></li>
+    </ol>
+
+    <div class="grid grid--4 unit__props" data-stagger>
+      <div class="prop"><b data-i18n="unit.p1">Deliverable</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
+      <div class="prop"><b data-i18n="unit.p2">Verifiable</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
+      <div class="prop"><b data-i18n="unit.p3">Reusable</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
      8 · Open
      ====================================================================== -->
 <section class="section" id="open">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="open.eyebrow">08 — Open by design</span>
+      <span class="eyebrow" data-i18n="open.eyebrow">10 — Open by design</span>
       <h2 data-i18n="open.title">Own the semantics. Not every implementation.</h2>
       <p class="lead" data-i18n="open.lead">Writing software keeps getting cheaper. What is worth owning is the core abstraction, the collaboration runtime and the human–agent experience. Everything else should be adopted or kept replaceable.</p>
     </header>
@@ -445,6 +525,75 @@
     </div>
 
     <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">Open core, open standards, open ecosystem — with governance, reliability and scale as the enterprise edge.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     9.5 · Objections
+     ====================================================================== -->
+<section class="section" id="questions">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="faq.eyebrow">11 — Straight answers</span>
+      <h2 data-i18n="faq.title">The questions that decide whether this is deployable.</h2>
+    </header>
+
+    <div class="faq" data-stagger>
+      <details class="faq__item">
+        <summary data-i18n="faq.q1">Where does our data live?</summary>
+        <p data-i18n="faq.a1">Wherever you decide. Cloud, your own infrastructure, a hybrid, or local-first on the machine itself. Deployment is a configuration choice, not a different edition with features removed.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q2">What happens when we want to change models?</summary>
+        <p data-i18n="faq.a2">You change them. Models sit at the runtime layer, above your ontology and below your experience. Swapping a provider — frontier, domestic or fully local — does not touch how your organization's knowledge is modelled, and does not invalidate the evidence already recorded.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q3">How do we stop an agent doing something it should not?</summary>
+        <p data-i18n="faq.a3">Every action goes through the harness: an authorization boundary before it runs, observation while it runs, a verification step against a stated standard, and a rollback path when that check fails. An agent cannot reach a tool it was not granted, and it cannot record an outcome it cannot evidence.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q4">Do we have to replace what we already use?</summary>
+        <p data-i18n="faq.a4">No — that is the opposite of the point. WorkspaceX connects to Microsoft 365, Google Workspace, Lark, DingTalk, Slack, GitHub and your systems of record. It is the layer where work runs across them, not a replacement for any of them.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q5">Is this open source?</summary>
+        <p data-i18n="faq.a5">Open core. The workspace object model, the agent and skill format and the connector interfaces are open and readable — the source is on GitHub. Governance, reliability and scale are the commercial edge. You should be able to read how your work is executed.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q6">What stage is it at?</summary>
+        <p data-i18n="faq.a6">Early, and honest about it. We are building with a small number of design partners who have real, verifiable, high-value work — not running a waitlist. If that is you, the next step is a conversation, not a signup form.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     11 · Horizons
+     ====================================================================== -->
+<section class="section" id="horizons">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="hz.eyebrow">12 — Where this goes</span>
+      <h2 data-i18n="hz.title">Prove the unit. Then the team. Then the economy.</h2>
+    </header>
+
+    <ol class="hz" data-stagger>
+      <li class="hz__item hz__item--now">
+        <span class="hz__when" data-i18n="hz.h1w">Now</span>
+        <h3 data-i18n="hz.h1t">High-value units of work</h3>
+        <p data-i18n="hz.h1b">A small number of agentic work units, run end to end with real evidence, inside real organizations.</p>
+      </li>
+      <li class="hz__item">
+        <span class="hz__when" data-i18n="hz.h2w">Next</span>
+        <h3 data-i18n="hz.h2t">Cross-functional agentic work</h3>
+        <p data-i18n="hz.h2b">Ontology and memory spanning departments; agent teams with governance, and a marketplace for skills that travel between organizations.</p>
+      </li>
+      <li class="hz__item">
+        <span class="hz__when" data-i18n="hz.h3w">Then</span>
+        <h3 data-i18n="hz.h3t">An open work runtime</h3>
+        <p data-i18n="hz.h3b">Work units — not seats — as the thing that gets measured and paid for, on a runtime anyone can build on.</p>
+      </li>
+    </ol>
   </div>
 </section>
 

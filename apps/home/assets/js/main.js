@@ -7,6 +7,7 @@
 import { initI18n } from './i18n.js';
 import { initReveals, initNav, initScene, splitWords, reducedMotion } from './motion.js';
 import { renderDiagrams, getLoop } from './diagrams.js';
+import { initSurface } from './surface.js';
 
 const boot = () => {
   const i18n = initI18n();
@@ -16,6 +17,7 @@ const boot = () => {
 
   initNav();
   initReveals();
+  initSurface();
   wireLoopScene();
 
   // Language changes rewrite text nodes, so anything JS generated from copy

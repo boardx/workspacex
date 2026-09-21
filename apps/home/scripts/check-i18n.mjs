@@ -28,6 +28,19 @@ const orphan = [...defined].filter((k) => !used.has(k));
 // failure mode that looks like a layout bug and gets debugged for an hour.
 const blank = [...defined].filter((k) => String(zh[k]).trim() === '');
 
+// Stray Cyrillic in the Chinese copy: a real slip that happened while writing
+// this file, and one no reviewer of a 200-key dictionary reliably catches.
+const cyrillic = [...defined].filter((k) => /[\u0400-\u04FF]/.test(String(zh[k])));
+
+// Chinese that is still entirely English usually means a key was copied over
+// and never translated. Punctuation-only and brand-name values are exempt.
+const EXEMPT = new Set(['footer.l5', 'footer.l8', 'nav.github']);
+const untranslated = [...defined].filter((k) => {
+  if (EXEMPT.has(k)) return false;
+  const v = String(zh[k]);
+  return /[A-Za-z]/.test(v) && !/[\u4e00-\u9fff]/.test(v) && !/^[\s\p{P}A-Za-z0-9/&·+—-]+$/u.test(v);
+});
+
 let failed = false;
 const report = (label, list) => {
   if (!list.length) return;
@@ -39,6 +52,8 @@ const report = (label, list) => {
 report('keys used in index.html but missing from zh.js', missing);
 report('keys defined in zh.js but unused in index.html', orphan);
 report('keys with an empty translation', blank);
+report('Chinese values containing Cyrillic characters', cyrillic);
+report('keys that look untranslated (no Han characters)', untranslated);
 
 if (failed) process.exit(1);
 console.log(`✓ i18n in sync — ${used.size} keys, en + zh`);
