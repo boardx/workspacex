@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@langchain/langgraph-checkpoint-postgres>@langchain/langgraph-checkpoint': 0.1.1
-
 importers:
 
   .:
