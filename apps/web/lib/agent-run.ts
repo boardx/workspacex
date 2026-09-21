@@ -21,6 +21,7 @@
  * 也不在客户端编造回复文本。助手回复始终来自 `listMessages` 的持久行。
  */
 import { wave2Runtime } from "@repo/contracts";
+import { failureNextStep, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -96,6 +97,27 @@ export function describeAgentRunFailure(
   if (reason === null || reason === undefined) return head;
   const tail = AGENT_RUN_FAILURE_REASON_TEXT[reason];
   return tail === undefined ? head : `${head}：${tail}`;
+}
+
+/**
+ * 2026-09-22 —— 同一句失败文案，**再加一句「那我现在做什么」**，且这一句按版次不同。
+ *
+ * 上面那两张表回答的是「哪一类终态」与「什么成因」。它们是照云端部署写的，所以到处是
+ * 「请联系管理员」——本地版单人单机，用户自己就是管理员，让他去找一个不存在的人等于
+ * 告诉他没救了，而真实情况往往是「重发一次就好」或者「日志在这个路径下」。
+ *
+ * 建议文案的单一事实源是契约的 `LOCAL_FAILURE_NEXT_STEP`（key 集合与
+ * `AgentRunFailureReason` 由 TypeScript 钉住）。在线版拿到 `null` ⇒ 返回值与
+ * `describeAgentRunFailure` **逐字相同**。
+ */
+export function describeAgentRunFailureForEdition(
+  code: AgentRunError | null,
+  reason: AgentRunFailureReason | null | undefined,
+  edition: DeploymentEditionValue,
+): string {
+  const base = describeAgentRunFailure(code, reason);
+  const next = failureNextStep(edition, reason ?? null);
+  return next === null ? base : `${base}\n\n下一步：${next}`;
 }
 
 /**

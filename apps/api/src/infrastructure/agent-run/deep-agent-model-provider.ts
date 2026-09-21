@@ -5,6 +5,10 @@ import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contra
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
 import { ToolProgressStream } from "@repo/contracts/execution-journal";
+import {
+  DEPLOYMENT_EDITION_ENV, SKILL_ACTIVITY_GAP_NOTE, parseDeploymentEdition,
+  skillActivityDeliveryDiscipline, type SkillActivityDeliveryDisciplineValue,
+} from "@repo/contracts/deployment";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
 import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
 import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
@@ -191,6 +195,16 @@ export interface DeepAgentProviderConfig {
    * `ConfiguredModelProvider` 读的**是同一份**，这里不解析第二次。
    */
   readonly visionModelIds?: ReadonlySet<string>;
+  /**
+   * 2026-09-22 —— 技能溯源事实投递不成功时的**故障纪律**。唯一事实源是契约的
+   * `skillActivityDeliveryDiscipline(edition)`（`@repo/contracts/deployment`），这里只是
+   * 把它读进 provider。缺席 ⇒ `fail-closed`，与本次改动之前**逐字节相同**。
+   *
+   * ⚠ 放宽的是「投递不成功要不要把整条 run 判失败」，**不是**「缺页要不要记下来」：
+   * `best-effort` 下每一次缺页都写一条 `skill_activity_gap` 进账本（`onSkillActivityGap`），
+   * 静默降级在本仓是禁止的。
+   */
+  readonly skillActivityDelivery?: SkillActivityDeliveryDisciplineValue;
 }
 
 export function readDeepAgentProviderConfig(
@@ -214,6 +228,7 @@ export function readDeepAgentProviderConfig(
     // `supportsVision` 恒 false，行为与本次改动之前逐字节相同（诚实降级，不是赌）。
     kernelModelId: (env.KERNEL_DEEP_AGENT_MODEL_ID ?? "").trim(),
     visionModelIds: readVisionModelIds(env),
+    skillActivityDelivery: skillActivityDeliveryDiscipline(parseDeploymentEdition(env[DEPLOYMENT_EDITION_ENV])),
   };
 }
 
@@ -226,6 +241,15 @@ interface WireToolCallRequest {
   readonly id?: unknown;
   readonly name?: unknown;
   readonly args?: unknown;
+}
+
+/**
+ * 2026-09-22 —— **技能溯源**投递失败，与 `ProgressDeliveryError`（工具事件/delta 投递失败）
+ * 分开一个类型，因为两者的故障纪律不同：工具事件是持久观察者，任何版次都 fail closed；
+ * 溯源事实在本地版可以降级成「记一条缺页、继续跑」。合成一个类型就没法只放宽其中一条。
+ */
+class SkillActivityDeliveryError extends Error {
+  constructor(readonly original: unknown) { super("skill activity delivery failed"); }
 }
 
 /** Delivery failure is not a transport reconnect: the durable observer must fail closed. */
@@ -490,6 +514,16 @@ function isAiMessageChunkType(type: unknown): boolean {
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
+  /** 缺席 ⇒ fail-closed（本次改动之前的行为）。 */
+  private get skillActivityBestEffort(): boolean {
+    return this.config.skillActivityDelivery === "best-effort";
+  }
+
+  /** 记一条缺页。写不进去也不能把一条正在被救回来的 run 再翻成失败——那正好是本次要治的病。 */
+  private async noteSkillActivityGap(write?: (note: string) => Promise<void>): Promise<void> {
+    try { await write?.(SKILL_ACTIVITY_GAP_NOTE); } catch { /* best-effort by construction */ }
+  }
+
   private memoryConfig(input: ModelCallInput): Record<string, unknown> {
     if (input.executionMode === "text-only" || input.trustedMemoryScope === undefined) return {};
     const scope = SC.TrustedMemoryScope.parse(input.trustedMemoryScope);
@@ -673,7 +707,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       while (true) {
         const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
           async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-          async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity, input.onToolProgress);
+          async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity, input.onToolProgress, input.onSkillActivityGap);
         if (streamed) {
           const status = await this.readRunStatus(baseUrl, threadId, runId);
           if (status === "success") {
@@ -703,7 +737,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
           }
         }
         if (!streamed && input.onSkillActivity) {
-          throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+          // 流根本没建立起来（不变量 I）。云端照旧 fail closed；本地版记一条缺页后落回
+          // 轮询——轮询路径照样收 tool 事件与终稿，只是这一轮的 skill 溯源不完整。
+          if (!this.skillActivityBestEffort) {
+            throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+          }
+          await this.noteSkillActivityGap(input.onSkillActivityGap);
         }
         break;
       }
@@ -822,6 +861,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     deadline: number,
     onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
     onToolProgress?: (progress: ToolProgressStream) => Promise<void>,
+    onSkillActivityGap?: (note: string) => Promise<void>,
   ): Promise<boolean> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
@@ -892,7 +932,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           try {
             parsed = JSON.parse(dataLines.join(""));
           } catch {
-            if (onSkillActivity) throw new ProgressDeliveryError(new Error("skill_activity_stream_invalid"));
+            if (onSkillActivity) throw new SkillActivityDeliveryError(new Error("skill_activity_stream_invalid"));
             continue;
           }
           if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
@@ -900,7 +940,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
               const event = SkillActivityStream.parse(parsed);
               if (!onSkillActivity) throw new Error("skill_activity_writer_unavailable");
               await onSkillActivity(event.fact);
-            } catch (error) { throw new ProgressDeliveryError(error); }
+            } catch (error) { throw new SkillActivityDeliveryError(error); }
             continue;
           }
           /*
@@ -963,11 +1003,30 @@ export class DeepAgentModelProvider implements ModelCallPort {
           }
         }
       }
-      if (onSkillActivity && buffer.trim()) throw new ProgressDeliveryError(new Error("skill_activity_stream_incomplete"));
+      if (onSkillActivity && buffer.trim()) throw new SkillActivityDeliveryError(new Error("skill_activity_stream_incomplete"));
       return true;
     } catch (error) {
       if (error instanceof ProgressDeliveryError) throw error.original;
-      if (onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+      /*
+       * 2026-09-22 —— 本地版把**溯源投递**的故障纪律从 fail-closed 放宽成 best-effort。
+       * 判据来自契约（`skillActivityDeliveryDiscipline`），不是这里自己发明的条件。
+       * 取证：用户那台机器 `logs/api.log` 里两条 run 失败**全部**是
+       * `skill_activity_delivery_unavailable`——图还在跑、答案还在生成，却因为一条
+       * 展示/溯源事实没送到而整轮判失败。放宽后这一支落回下面的轮询循环，终稿不会丢。
+       * 缺页照记（`onSkillActivityGap`），云端一个字节都不变。
+       */
+      if (error instanceof SkillActivityDeliveryError) {
+        if (!this.skillActivityBestEffort) throw error.original;
+        await this.noteSkillActivityGap(onSkillActivityGap);
+        return true;
+      }
+      if (onSkillActivity) {
+        if (!this.skillActivityBestEffort) {
+          throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+        }
+        await this.noteSkillActivityGap(onSkillActivityGap);
+        return true;
+      }
       // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
       return true;
     } finally {

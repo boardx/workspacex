@@ -300,6 +300,17 @@ export function apiEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     PORT: String(c.ports.api),
     KERNEL_LISTEN_HOST: "127.0.0.1",
+    /**
+     * 2026-09-22 —— 版次标记。**唯一**声明处是契约 `@repo/contracts/deployment`
+     * （`DEPLOYMENT_EDITION_ENV` / `parseDeploymentEdition`）；这里只是把「这份部署是本机
+     * 装的」这个事实告诉后端。后端据它决定故障纪律与能力差异，前端据它整屏换外观。
+     * 不设这个变量的部署一律按 `cloud` 处理，行为逐字节不变。
+     *
+     * ⚠ 这里写的是**字面量**而不是 import 契约常量：这个包刻意不依赖 `@repo/contracts`
+     * （它要能在桌面包里独立跑起来编排，见本包 package.json 的依赖表）。字面量与契约的
+     * 一致性由 `test/deployment-edition-env.test.ts` 机械核对——不是靠人记得改两处。
+     */
+    WORKSPACEX_EDITION: "local",
     // the platform catalog is seeded in the owner phase (seeds.ts); the API-side self-heal
     // would only hit RLS as app_rw and print 42501/23503 stacks on every boot
     KERNEL_PLATFORM_SKILL_SELFHEAL: "off",
@@ -445,13 +456,22 @@ export function resolveDeepAgentLaunch(
  * for exactly the origins the web app is served on (`KERNEL_CORS_ORIGINS`, see apiEnv), so
  * both `localhost` and `127.0.0.1` tabs work. Bearer tokens, no cookies.
  */
-export function webEnv(c: LocalConfig): Env {
+export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): Env {
   const api = `http://127.0.0.1:${c.ports.api}`;
+  /*
+   * 2026-09-22 —— 「切到在线正式系统」要有个地址才走得通。本仓里**没有**已知的生产域名，
+   * 所以这里只做**透传**：宿主环境设了 `WORKSPACEX_CLOUD_URL` 就带给 web，没设就不带，
+   * 界面如实说这份安装包没配（`components/shell/edition-switch.tsx`）。
+   * 编一个域名塞进来，就是给用户一个会把他送去错误地方的按钮。
+   */
+  const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,
     NEXT_TELEMETRY_DISABLED: "1",
+    WORKSPACEX_EDITION: "local",
+    ...(cloudUrl === "" ? {} : { WORKSPACEX_CLOUD_URL: cloudUrl }),
   };
 }
 
