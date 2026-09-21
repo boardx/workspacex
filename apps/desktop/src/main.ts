@@ -12,7 +12,7 @@
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { resolveLocalConfig, runDoctor, up, type RunningStack } from "@repo/local-runtime";
+import { checkWebBuild, resolveLocalConfig, runDoctor, up, type RunningStack } from "@repo/local-runtime";
 import { welcomeDataUrl } from "./welcome";
 
 let stack: RunningStack | null = null;
@@ -62,10 +62,14 @@ async function boot(): Promise<void> {
   render();
 
   const config = resolveLocalConfig({ repoRoot, dataDir });
-  const built = existsSync(join(repoRoot, "apps", "web", ".next", "BUILD_ID"));
+  // ⚠ 「产物存在」不等于「产物能用」：NEXT_PUBLIC_* 是构建期内联的，按另一个端口烘焙的
+  //   产物会让页面正常打开、每个 API 请求打向旧地址、一个报错也没有。所以判据是
+  //   checkWebBuild，不是 BUILD_ID 是否存在；退回 dev 时把原因写进启动日志，不静默。
+  const webCheck = checkWebBuild(join(repoRoot, "apps", "web"), `http://127.0.0.1:${config.ports.api}`);
+  if (!webCheck.usable) log(`[web] 不使用已构建产物：${webCheck.reason ?? ""}`);
   try {
     stack = await up({
-      config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(),
+      config, log, webMode: webCheck.usable ? "start" : "dev", bundleBinDir: bundleBinDir(),
       // 起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」——
       // 原因在日志里，而没人会去翻。说出来，并指向那一份日志。
       onServiceExit: ({ name, code }) => {
