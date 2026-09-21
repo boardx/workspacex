@@ -240,6 +240,18 @@ jobs:
       - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
         run: node .harness/scripts/lint-spec-gate-coverage.mjs
 
+      # 对契约的否定性断言不得说谎（#473）。
+      # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而
+      # `createMessage` 早在 PR #429 就进了 `packages/contracts/src/chat.ts`。那句注释写下
+      # 时是真的，契约变了它没跟着变——coord-main 据它建了不必要的 issue #461、派了不必要
+      # 的高优先级任务、把「签 #461」列为人类第一优先待办，并重排了两条链的优先级（全部已回滚）。
+      # 放在 PR 门控的理由：这类漂移**在改契约的那个 PR 里产生**，而它的代价是别人按一句
+      # 假事实做决策——合并后才发现，误导已经发生过了。
+      # 只读 `packages/contracts/src/**` 与 `apps/{web,api}/**` 的源码文本，毫秒级、不碰 DB；
+      # 且 `.harness/` 不是 workspace 包，turbo --affected 覆盖不到 ⇒ 必须显式跑。
+      - name: 对契约的否定性断言仍然成立（注释不得说谎）
+        run: pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
+
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
