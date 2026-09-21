@@ -53,9 +53,9 @@ it('interprets NPS and multi-question mean tables with one valid answer',()=>{
  expect(result.sections[0]!.analysis![1]!.evidence).toContain('NPS为 100');
 });
 it.each(['count','sum','first_choice'] as const)('interprets %s without confusing units',statistic=>{
- const q={...questions[0]!,type:statistic==='first_choice'?'ranking' as const:'scale' as const};
+ const q={...questions[0]!,type:statistic==='first_choice'?'ranking' as const:statistic==='sum'?'allocation' as const:'scale' as const};
  const t=SurveyReportTemplateSchema.parse({id:'t',title:'报告',sections:[{id:'s',title:'结果',blocks:[{id:'b',title:'结果',type:'table',questionIds:[q.id],statistic}]}]});
- const r={...response,answers:[{questionId:q.id,value:statistic==='first_choice'?['1','2','3','4','5']:'3'}]};
+ const r={...response,answers:[{questionId:q.id,value:statistic==='first_choice'?['1','2','3','4','5']:statistic==='sum'?{'1':'1','2':'2','3':'3','4':'4','5':'5'}:'3'}]};
  const result=compileSurveyReport(t,[q],[r]);
  expect(result.issues).toEqual([]);
  expect(result.sections[0]!.analysis).toHaveLength(1);
