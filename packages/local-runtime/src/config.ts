@@ -415,13 +415,22 @@ export function resolveDeepAgentLaunch(
  * for exactly the origins the web app is served on (`KERNEL_CORS_ORIGINS`, see apiEnv), so
  * both `localhost` and `127.0.0.1` tabs work. Bearer tokens, no cookies.
  */
-export function webEnv(c: LocalConfig): Env {
+export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): Env {
   const api = `http://127.0.0.1:${c.ports.api}`;
+  /*
+   * 2026-09-22 —— 「切到在线正式系统」要有个地址才走得通。本仓里**没有**已知的生产域名，
+   * 所以这里只做**透传**：宿主环境设了 `WORKSPACEX_CLOUD_URL` 就带给 web，没设就不带，
+   * 界面如实说这份安装包没配（`components/shell/edition-switch.tsx`）。
+   * 编一个域名塞进来，就是给用户一个会把他送去错误地方的按钮。
+   */
+  const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,
     NEXT_TELEMETRY_DISABLED: "1",
+    WORKSPACEX_EDITION: "local",
+    ...(cloudUrl === "" ? {} : { WORKSPACEX_CLOUD_URL: cloudUrl }),
   };
 }
 

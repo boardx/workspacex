@@ -82,6 +82,57 @@ export function skillActivityDeliveryDiscipline(
 export const SKILL_ACTIVITY_GAP_NOTE =
   "本轮的技能溯源事实没有全部收到（本地版降级：不因此判本次执行失败）。已执行的工具与产出不受影响，但这一轮的技能使用记录可能不完整。";
 
+/* ──────────────────────────── 切到在线正式系统 ──────────────────────────── */
+
+/**
+ * 在线正式系统的地址。**没有默认值**——本仓里不存在一个已知的生产域名，编一个出来
+ * 就是在界面上放一个会把用户送去错误地方的按钮（本仓「不猜」纪律）。没配 ⇒ 界面如实说
+ * 这份安装包还没配在线地址，并给出仍然可用的那条路（把成果导出到正式组织）。
+ */
+export const DEPLOYMENT_CLOUD_URL_ENV = "WORKSPACEX_CLOUD_URL";
+
+/**
+ * 解析在线地址，**拒绝**一切不能安全交给浏览器打开的东西：
+ *   · 只认 `http:` / `https:`（`javascript:` / `data:` / `file:` 一律拒）
+ *   · 不认带用户名密码的 URL（凭据不该出现在一个会被展示、会被点击的地址里）
+ * 解析不出来 ⇒ `null`，等价于「没配」。绝不返回一个「差不多能用」的字符串。
+ */
+export function parseCloudUrl(raw: string | null | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "") return null;
+  let url: URL;
+  try { url = new URL(trimmed); } catch { return null; }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username !== "" || url.password !== "") return null;
+  return url.toString();
+}
+
+/**
+ * 从本地版切到在线正式系统时，用户必须先知道的事 —— **结构化**，不是一段散文。
+ *
+ * 为什么不写成一段话：界面要逐条列（每条一个 `data-testid`，反证才打得准），而「数据
+ * 不会跟着走」这一条是**不可省**的——本地版的库、模型、产物都在这台机器上，打开在线
+ * 系统不等于搬家。省掉它，用户会以为切过去就能看到自己的东西。
+ */
+export const CLOUD_SWITCH_NOTES = [
+  {
+    id: "data-stays",
+    statement: "本地的对话、画布与文件不会跟着走：它们在这台电脑上，在线系统看不到。要带过去，用「导出到正式组织」。",
+  },
+  {
+    id: "separate-account",
+    statement: "在线正式系统用的是你的在线账号，与本地版这个只存在于本机的账号不是同一个。",
+  },
+  {
+    id: "network-required",
+    statement: "在线系统需要联网，请求会离开这台电脑；本地版的「数据不出本机」承诺在那里不适用。",
+  },
+  {
+    id: "local-stays-running",
+    statement: "本地版不会被关掉：在线系统在浏览器里打开，这个窗口照旧是本地的。",
+  },
+] as const;
+
 /* ───────────────────────────── 能力差异矩阵 ───────────────────────────── */
 
 /** 一项能力在某个版次里的状态。 */

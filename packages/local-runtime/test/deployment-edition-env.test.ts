@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { apiEnv, type LocalConfig } from "../src/config";
+import { apiEnv, webEnv, type LocalConfig } from "../src/config";
 
 const contractSource = readFileSync(
   join(import.meta.dirname, "..", "..", "contracts", "src", "deployment.ts"),
@@ -40,4 +40,20 @@ it("hands the API exactly the edition variable the contract declares", () => {
   expect(name).toBe("WORKSPACEX_EDITION");
   expect(env[name]).toBe("local");
   expect(editions()).toContain(env[name]);
+});
+
+it("marks the web process as the local edition too", () => {
+  // 后端与前端读的是**同一个**变量名；前端少了它就会整屏按在线版渲染，
+  // 而它恰好是「界面上看得出本地版」这件事的唯一开关。
+  const env = webEnv(fakeConfig, {}) as Record<string, string>;
+  expect(env[envName()]).toBe("local");
+});
+
+it("passes the online address through only when the host actually set one", () => {
+  const cloudEnvName = /DEPLOYMENT_CLOUD_URL_ENV\s*=\s*"([^"]+)"/.exec(contractSource)?.[1];
+  expect(cloudEnvName).toBe("WORKSPACEX_CLOUD_URL");
+  // 没设 ⇒ 键根本不出现（不是空串：空串会让下游以为「配过但配空了」）
+  expect(Object.keys(webEnv(fakeConfig, {}))).not.toContain(cloudEnvName!);
+  const passed = webEnv(fakeConfig, { WORKSPACEX_CLOUD_URL: " https://app.example.com " }) as Record<string, string>;
+  expect(passed[cloudEnvName!]).toBe("https://app.example.com");
 });

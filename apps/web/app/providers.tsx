@@ -32,13 +32,14 @@ function createQueryClient(): QueryClient {
 }
 
 export function Providers(
-  { children, edition = "cloud" }: { children: React.ReactNode; edition?: DeploymentEditionValue },
+  { children, edition = "cloud", cloudUrl = null }:
+  { children: React.ReactNode; edition?: DeploymentEditionValue; cloudUrl?: string | null },
 ) {
   const [queryClient] = React.useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
       {/* 版次由服务端 layout 在请求时读出后传进来；缺省 `cloud`，见 `lib/edition.tsx` 头注。 */}
-      <EditionProvider edition={edition}>
+      <EditionProvider edition={edition} cloudUrl={cloudUrl}>
         <SessionProvider>
           <GlobalErrorReporter />
           <DisablePageZoom />

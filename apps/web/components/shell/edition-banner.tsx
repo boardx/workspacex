@@ -20,6 +20,7 @@ import { HardDrive, Info } from "lucide-react";
 import { CAPABILITY_AVAILABILITY_LABEL } from "@repo/contracts/deployment";
 import { DEPLOYMENT_EDITION_LABEL, useEdition, useMissingCapabilities } from "@/lib/edition";
 import { cn } from "@/lib/utils";
+import { EditionSwitch } from "./edition-switch";
 
 export function EditionBanner({ className }: { className?: string }): React.ReactElement | null {
   const edition = useEdition();
@@ -52,6 +53,7 @@ export function EditionBanner({ className }: { className?: string }): React.Reac
           <Info aria-hidden className="h-3 w-3" />
           与在线版有 {missing.length} 项能力不同
         </button>
+        <EditionSwitch />
       </div>
       {open && (
         <ul data-testid="edition-capability-gaps" className="border-t border-ai-tint-foreground/20 px-3 py-2">

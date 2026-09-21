@@ -21,12 +21,20 @@ import {
   type DeploymentEditionValue,
 } from "@repo/contracts/deployment";
 
-const EditionContext = React.createContext<DeploymentEditionValue>("cloud");
+interface EditionContextValue {
+  readonly edition: DeploymentEditionValue;
+  /** 在线正式系统的地址；`null` = 这份安装包没配（界面必须如实说，不许编）。 */
+  readonly cloudUrl: string | null;
+}
+
+const EditionContext = React.createContext<EditionContextValue>({ edition: "cloud", cloudUrl: null });
 
 export function EditionProvider(
-  { edition, children }: { edition: DeploymentEditionValue; children: React.ReactNode },
+  { edition, cloudUrl = null, children }:
+  { edition: DeploymentEditionValue; cloudUrl?: string | null; children: React.ReactNode },
 ): React.ReactElement {
-  return <EditionContext.Provider value={edition}>{children}</EditionContext.Provider>;
+  const value = React.useMemo<EditionContextValue>(() => ({ edition, cloudUrl }), [edition, cloudUrl]);
+  return <EditionContext.Provider value={value}>{children}</EditionContext.Provider>;
 }
 
 /**
@@ -34,7 +42,11 @@ export function EditionProvider(
  * 认不出来就按「在线」处理，不给一份线上界面挂上本地版的承诺标识。
  */
 export function useEdition(): DeploymentEditionValue {
-  return React.useContext(EditionContext);
+  return React.useContext(EditionContext).edition;
+}
+
+export function useCloudUrl(): string | null {
+  return React.useContext(EditionContext).cloudUrl;
 }
 
 export function useIsLocalEdition(): boolean {

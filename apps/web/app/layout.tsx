@@ -6,7 +6,7 @@ import fonts from "./fonts.module.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
-import { readDeploymentEdition } from "@/lib/edition-server";
+import { readCloudUrl, readDeploymentEdition } from "@/lib/edition-server";
 
 // Keep the existing font families and real variable weights while packaging assets locally.
 export const metadata: Metadata = {
@@ -42,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
    * （改动前顶栏那条，且 <lg 直接隐藏）不算。
    */
   const edition = readDeploymentEdition();
+  const cloudUrl = readCloudUrl();
   return (
     <html lang="zh-CN" data-edition={edition} suppressHydrationWarning>
       <head>
@@ -49,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className={`${fonts.variables} font-sans antialiased`}>
-        <Providers edition={edition}>{children}</Providers>
+        <Providers edition={edition} cloudUrl={cloudUrl}>{children}</Providers>
       </body>
     </html>
   );
