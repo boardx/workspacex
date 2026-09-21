@@ -314,9 +314,12 @@ export const EDITION_CAPABILITIES = [
     cloud: "full",
     local: "absent",
     why: "一台机器上的小模型跑多智能体只会更慢更差，本地版把这些工具从模型请求里去掉了。",
-    enforcement: "declared-only",
+    enforcement: "unset-by-default",
     enforcementRef: null,
-    // 并行的一条改动（逐请求工具预算 DEEP_AGENT_EXCLUDED_TOOLS）会把它变成 unset-by-default；合入之前这一行只是界面在说话。
+    // 合并 `claude/local-perf-3749` 之后成立：本地版给 deep-agent 传
+    // `DEEP_AGENT_EXCLUDED_TOOLS: "grep,glob,delete,edit_file,task,spawn_async_task"`
+    // （`local-runtime/src/config.ts` 的 `deepAgentEnv`），`task` / `spawn_async_task` 因此
+    // 不出现在模型请求里。不是 `gated`：判据是一份 env 里的工具名清单，不读这张矩阵。
   },
   {
     id: "collaboration",

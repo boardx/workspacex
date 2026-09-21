@@ -30,7 +30,7 @@ const KNOWN = new Set(["gated", "unset-by-default", "by-construction", "declared
  * 今天允许存在的「已知缺口」条数。**改这个数字要连带解释为什么**——它存在的唯一目的
  * 就是让缺口不能悄悄变多（同本仓其它计数型门控的做法）。
  */
-const EXPECTED_DECLARED_ONLY = 4;
+const EXPECTED_DECLARED_ONLY = 3;
 
 const source = readFileSync(CONTRACT, "utf8");
 

@@ -33,7 +33,7 @@ it("passes on the real matrix and names every known gap", () => {
   const r = run();
   expect(r.code, r.out).toBe(0);
   expect(r.out).toContain("已知缺口");
-  for (const id of ["subagents", "collaboration", "outbound-notifications", "export-to-organization"]) {
+  for (const id of ["collaboration", "outbound-notifications", "export-to-organization"]) {
     expect(r.out).toContain(id);
   }
 });
@@ -57,7 +57,7 @@ it("rejects a new known gap that nobody accounted for", () => {
   ));
   const r = run();
   expect(r.code).toBe(1);
-  expect(r.out).toContain("已知缺口数从 4 变成 5");
+  expect(r.out).toContain("已知缺口数从 3 变成 4");
 });
 
 it("rejects a non-gated row that carries a ref nobody checks", () => {
