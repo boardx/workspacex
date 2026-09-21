@@ -123,19 +123,21 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
 
 type Env = Record<string, string>;
 
+type PathsOf = Pick<LocalConfig, "repoRoot" | "dataDir">;
+
 export const paths = {
-  pgData: (c: LocalConfig) => join(c.dataDir, "pgdata"),
-  objects: (c: LocalConfig) => join(c.dataDir, "objects"),
-  sessions: (c: LocalConfig) => join(c.dataDir, "sessions.json"),
-  models: (c: LocalConfig) => join(c.dataDir, "models"),
-  logs: (c: LocalConfig) => join(c.dataDir, "logs"),
-  sandboxIn: (c: LocalConfig) => join(c.dataDir, "sandbox", "in"),
-  sandboxOut: (c: LocalConfig) => join(c.dataDir, "sandbox", "out"),
-  seedState: (c: LocalConfig) => join(c.dataDir, "seed-state.json"),
-  deepAgentVenv: (c: LocalConfig) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
-  asrModelDir: (c: LocalConfig) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  pgData: (c: PathsOf) => join(c.dataDir, "pgdata"),
+  objects: (c: PathsOf) => join(c.dataDir, "objects"),
+  sessions: (c: PathsOf) => join(c.dataDir, "sessions.json"),
+  models: (c: PathsOf) => join(c.dataDir, "models"),
+  logs: (c: PathsOf) => join(c.dataDir, "logs"),
+  sandboxIn: (c: PathsOf) => join(c.dataDir, "sandbox", "in"),
+  sandboxOut: (c: PathsOf) => join(c.dataDir, "sandbox", "out"),
+  seedState: (c: PathsOf) => join(c.dataDir, "seed-state.json"),
+  deepAgentVenv: (c: PathsOf) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
+  asrModelDir: (c: PathsOf) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
   /** The signed skill starter packs shipped in the repo/bundle (`skills/starter-packs/<pack>/<version>.json`). */
-  skillStarterPacks: (c: LocalConfig) => join(c.repoRoot, "skills", "starter-packs"),
+  skillStarterPacks: (c: PathsOf) => join(c.repoRoot, "skills", "starter-packs"),
 };
 
 /** Only handed to the API when the model is on disk; otherwise ASR stays "not configured". */

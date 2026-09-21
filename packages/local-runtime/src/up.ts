@@ -15,6 +15,7 @@ import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv,
   DB_APP_ROLE, DB_OWNER_ROLE, LOCAL_ADMIN_EMAIL, type LocalConfig,
 } from "./config";
+import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import { startManaged, portInUse, waitForHttp, waitForHttpOrExit, runToCompletion, type Managed } from "./processes";
@@ -33,6 +34,8 @@ export interface UpOptions {
 }
 
 export interface RunningStack {
+  /** 本次启动下每条能力的实际状态（capabilities.ts 是唯一事实源）。 */
+  readonly capabilities: readonly CapabilityStatus[];
   readonly urls: { web: string; api: string; ollama: string | null; deepAgent: string | null; asr: string | null };
   readonly login: { email: string; password: string };
   readonly warnings: readonly string[];
@@ -105,9 +108,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
           if (r.code !== 0) warnings.push(`拉取模型 ${model} 失败：${r.stderr.trim().split("\n").pop() ?? ""}`);
         }
       }
-    } else {
-      warnings.push("未找到 Ollama：API 已启动，但聊天没有可用模型（安装 Ollama 后重启即可）");
     }
+    // ⚠ 「没找到 Ollama」这句话不在这里说。缺件清单只有一份（capabilities.ts），
+    //   在 up() 结束时统一产出——否则同一件事会在 doctor 与这里各写一遍，
+    //   且两份的措辞迟早不一样。
 
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
     managed.push(startManaged({
@@ -133,8 +137,6 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         logDir: paths.logs(c),
       }, log));
       await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
-    } else {
-      warnings.push("本地转写模型未下载：录音/访谈的实时转写不可用（运行 scripts/local-bundle/fetch-asr-model.sh 后重启）");
     }
 
     // ── API ───────────────────────────────────────────────────────────────────
@@ -164,8 +166,6 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         logDir: paths.logs(c),
       }, log));
       await waitForHttpOrExit(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 }, managed[managed.length - 1]!);
-    } else {
-      warnings.push("deep-agent-service 未安装 Python 运行时（.venv）：聊天可回复，但工具调用 / skill 执行不可用");
     }
 
     // ── Web ───────────────────────────────────────────────────────────────────
@@ -199,10 +199,13 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         opts.onServiceExit?.({ name: m.name, code, recentOutput: why });
       });
     }
+    const capabilities = localCapabilities(c, { ollama: ollamaBin !== null });
     return {
+      capabilities,
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
       login: { email: LOCAL_ADMIN_EMAIL, password: c.secrets.adminPassword },
-      warnings,
+      // 本次启动里真出了问题的事（拉模型失败之类）＋ 缺件/缺能力的统一清单。
+      warnings: [...warnings, ...capabilityNotices(capabilities)],
       stop: stopAll,
     };
   } catch (e) {
