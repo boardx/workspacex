@@ -17,7 +17,7 @@
  */
 import * as React from "react";
 import { HardDrive, Info } from "lucide-react";
-import { CAPABILITY_AVAILABILITY_LABEL } from "@repo/contracts/deployment";
+import { CAPABILITY_AVAILABILITY_LABEL, LOCAL_EGRESS_FACTS } from "@repo/contracts/deployment";
 import { DEPLOYMENT_EDITION_LABEL, useEdition, useMissingCapabilities } from "@/lib/edition";
 import { cn } from "@/lib/utils";
 import { EditionSwitch } from "./edition-switch";
@@ -42,7 +42,12 @@ export function EditionBanner({ className }: { className?: string }): React.Reac
         <span className="text-11 font-semibold" data-testid="edition-banner-label">
           {DEPLOYMENT_EDITION_LABEL[edition]}
         </span>
-        <span className="text-11">模型与数据都在这台电脑上，请求不出网</span>
+        {/*
+          2026-09-22 R9 —— 这里原本写的是「模型与数据都在这台电脑上，请求不出网」。
+          后半句是假的：#3716 起本地版刻意挂了 `fetch_url` / `web_search`，用它们就会出网
+          （详见契约 `LOCAL_EGRESS_FACTS` 的头注）。一条假承诺比没有承诺更糟。
+        */}
+        <span className="text-11">模型与数据都在这台电脑上；只有你让它读网页或搜索时才会出网</span>
         <button
           type="button"
           data-testid="edition-banner-toggle"
@@ -56,7 +61,20 @@ export function EditionBanner({ className }: { className?: string }): React.Reac
         <EditionSwitch />
       </div>
       {open && (
-        <ul data-testid="edition-capability-gaps" className="border-t border-ai-tint-foreground/20 px-3 py-2">
+        <div className="border-t border-ai-tint-foreground/20 px-3 py-2">
+        {/* 出网事实与能力差异是**两份**清单，各有自己的容器：合在一个 <ul> 里会让
+            「差异有几条」这个断言把出网那一块也数进去（R9 第一版就是这样红的）。 */}
+        <p className="text-11 font-medium">出网这件事，分三类</p>
+        <ul data-testid="edition-egress-facts" className="mb-1.5 mt-0.5">
+          {LOCAL_EGRESS_FACTS.map((fact) => (
+            <li key={fact.id} data-testid={`edition-egress-${fact.id}`} className="py-0.5 text-11">
+              <span className="font-medium">{fact.when}</span>
+              <span className="mx-1 opacity-70">·</span>
+              <span className="opacity-80">{fact.statement}</span>
+            </li>
+          ))}
+        </ul>
+        <ul data-testid="edition-capability-gaps">
           {missing.map((row) => (
             <li key={row.id} data-testid={`edition-capability-gap-${row.id}`} className="py-0.5 text-11">
               <span className="font-medium">{row.capability}</span>
@@ -69,6 +87,7 @@ export function EditionBanner({ className }: { className?: string }): React.Reac
             </li>
           ))}
         </ul>
+        </div>
       )}
     </div>
   );

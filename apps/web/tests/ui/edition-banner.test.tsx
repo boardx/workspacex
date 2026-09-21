@@ -6,7 +6,7 @@
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { CAPABILITY_AVAILABILITY_LABEL, capabilitiesMissingIn } from "@repo/contracts/deployment";
+import { CAPABILITY_AVAILABILITY_LABEL, LOCAL_EGRESS_FACTS, capabilitiesMissingIn } from "@repo/contracts/deployment";
 import { EditionProvider } from "@/lib/edition";
 import { EditionBanner } from "@/components/shell/edition-banner";
 
@@ -37,4 +37,31 @@ it("lists exactly the contract's capability gaps, with the contract's own reason
     expect(within(item).getByTestId(`edition-capability-state-${row.id}`).textContent)
       .toBe(`本地版${CAPABILITY_AVAILABILITY_LABEL[row.local]}`);
   }
+});
+
+/*
+ * R9 —— 这条横幅原本逐字写着「请求不出网」。那是假的：#3716 起本地版刻意挂了
+ * `fetch_url` / `web_search`，用它们就会真的出网（`standard-web-service.ts` 那条路径
+ * 还显式传 `localOnlyOrg: false`，不走个人本地组织的出站守卫）。一条假承诺比没有承诺更糟。
+ */
+it("never claims that requests do not leave the machine", () => {
+  render(<EditionProvider edition="local"><EditionBanner /></EditionProvider>);
+  const banner = screen.getByTestId("edition-banner").textContent ?? "";
+  expect(banner).not.toContain("请求不出网");
+  expect(banner).toContain("读网页");
+});
+
+it("classifies egress into the contract's three buckets, verbatim", () => {
+  render(<EditionProvider edition="local"><EditionBanner /></EditionProvider>);
+  fireEvent.click(screen.getByTestId("edition-banner-toggle"));
+  const facts = screen.getByTestId("edition-egress-facts");
+  expect(facts.children.length).toBe(LOCAL_EGRESS_FACTS.length);
+  for (const fact of LOCAL_EGRESS_FACTS) {
+    const row = within(facts).getByTestId(`edition-egress-${fact.id}`).textContent ?? "";
+    expect(row).toContain(fact.when);
+    expect(row).toContain(fact.statement);
+  }
+  // 「只在你明确要求时」那一条必须说清楚是什么离开了这台电脑
+  const onRequest = LOCAL_EGRESS_FACTS.find((f) => f.id === "on-request");
+  expect(onRequest?.statement).toContain("离开这台电脑");
 });
