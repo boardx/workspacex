@@ -239,6 +239,10 @@ const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 // 从 FL_01 搬进这个归档文件——探针要打的 device-session-30d 那条随时可能已经搬家，
 // 见下面 replaceOnceAcross。
 const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
+// e2e-testid-gate 打的是「源码里删掉一个 testid，而锚着它的 spec 没跟进」——
+// 这个声明点是全仓唯一一处（`copilotkit-v2-thread-persistence.spec.ts` 等多条
+// spec 锚着它），改掉它必须当场红。
+const V2_MESSAGES_DECL = "apps/web/components/chat/copilotkit-v2-panel-body.tsx";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -318,6 +322,17 @@ export const GATE_SPECS: readonly GateSpec[] = [
           "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
           "echo probe-bogus-verification",
         ),
+      },
+    ],
+  },
+  {
+    gate: "e2e-testid-gate",
+    run: node(".harness/scripts/lint-e2e-testid-gate.mjs"),
+    guards: (_r, io) => io.exists(V2_MESSAGES_DECL),
+    mutations: [
+      {
+        name: "源码里改掉一个 e2e 还锚着的 testid（模拟 #2128 的「删东西」）",
+        apply: replaceOnce(V2_MESSAGES_DECL, 'data-testid="copilotkit-v2-messages"', 'data-testid="copilotkit-v2-messages-probe-renamed"'),
       },
     ],
   },
