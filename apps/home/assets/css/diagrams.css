@@ -1,0 +1,120 @@
+/* ==========================================================================
+   diagrams.css — styling for the SVG the JS draws
+   Text inside SVG does not inherit the page font stack reliably, so every
+   label class sets it explicitly.
+   ========================================================================== */
+
+.d-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  fill: var(--fg-soft);
+  letter-spacing: 0.01em;
+}
+.d-label--lg    { font-size: 15px; font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
+.d-label--xs    { font-size: 11px; }
+.d-label--dim   { fill: var(--fg-dim); }
+.d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: 10px; }
+.d-label--fail  { fill: var(--c-fail); }
+.d-label--on    { fill: #fff; font-weight: 600; }
+
+/* ---- hero chain ---------------------------------------------------------- */
+.d-chain { width: 100%; height: auto; overflow: visible; }
+.d-chain__node {
+  opacity: 0;
+  animation: d-pop 700ms var(--ease-out) forwards;
+  animation-delay: calc(600ms + var(--i) * 110ms);
+}
+@keyframes d-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.d-chain__core { filter: drop-shadow(0 0 6px rgba(255,46,115,.6)); }
+.d-chain__pulse { filter: drop-shadow(0 0 7px rgba(255,255,255,.85)); opacity: .9; }
+
+/* ---- shift axis ---------------------------------------------------------- */
+.d-axis { width: 100%; height: 92px; overflow: visible; }
+.d-axis__fill {
+  stroke-dasharray: 1000; stroke-dashoffset: 1000;
+  transition: stroke-dashoffset 1.8s var(--ease-out);
+}
+.is-in .d-axis__fill, [data-reveal].is-in .d-axis__fill { stroke-dashoffset: 0; }
+
+/* ---- broken chain -------------------------------------------------------- */
+.d-break { width: 100%; height: auto; overflow: visible; }
+.d-break__spark {
+  animation: d-evaporate 2.6s var(--ease-io) infinite;
+  animation-delay: calc(var(--i) * 420ms + var(--p) * 260ms);
+  opacity: 0;
+}
+@keyframes d-evaporate {
+  0%   { opacity: 0;   transform: translateY(0)    scale(1); }
+  22%  { opacity: .85; }
+  100% { opacity: 0;   transform: translateY(-26px) scale(.4); }
+}
+
+/* ---- the loop ------------------------------------------------------------ */
+.d-loop { width: 100%; max-width: 520px; height: auto; margin-inline: auto; overflow: visible; }
+.d-loop__arc { transition: stroke-dashoffset 120ms linear; }
+.d-loop__ring, .d-loop__dot {
+  transition: r 320ms var(--ease-out), opacity 320ms var(--ease-out),
+              stroke 320ms var(--ease-out);
+}
+.d-loop__node .d-label { transition: fill 320ms var(--ease-out); fill: var(--fg-dim); }
+.d-loop__node[data-active="true"] .d-label { fill: var(--fg); }
+.d-loop__node[data-active="true"] .d-loop__ring { stroke: rgba(255,255,255,.4); }
+.d-loop__node[data-active="true"] .d-loop__dot  { r: 11; }
+.d-loop__node:not([data-active="true"]) .d-loop__dot { opacity: .45; }
+.d-loop__title {
+  font-family: var(--font-display); font-size: 30px; font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* ---- architecture -------------------------------------------------------- */
+.d-arch { width: 100%; height: auto; overflow: visible; }
+.d-arch__plate {
+  fill: rgba(255,255,255,.035);
+  stroke: rgba(255,255,255,.12);
+  transition: fill var(--dur) var(--ease-out), stroke var(--dur) var(--ease-out);
+}
+.d-arch__row[data-tone="core"] .d-arch__plate {
+  fill: rgba(255,46,115,.055);
+  stroke: rgba(255,46,115,.24);
+}
+.d-arch__row {
+  opacity: 0; transform: translateY(14px);
+  transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+  transition-delay: calc(var(--i) * 110ms);
+}
+[data-reveal].is-in .d-arch__row { opacity: 1; transform: none; }
+.d-arch__bracket.is-fast { color: var(--fg-faint); }
+.d-arch__bracket.is-core { color: var(--c-2); }
+
+/* ---- harness ------------------------------------------------------------- */
+.d-harness { width: 100%; height: auto; overflow: visible; }
+.d-harness__plate { transition: stroke var(--dur-fast) linear, fill var(--dur-fast) linear; }
+.d-harness__gate[data-state="fail"] .d-harness__plate {
+  stroke: var(--c-fail); fill: rgba(255,93,93,.09);
+}
+.d-harness__token { filter: drop-shadow(0 0 9px rgba(255,46,115,.75)); }
+.d-harness__rollback { opacity: .25; transition: opacity var(--dur-fast) linear; }
+.d-harness__rollback[data-on="true"] { opacity: .9; }
+
+/* ---- graph --------------------------------------------------------------- */
+.d-graph { width: 100%; height: auto; overflow: visible; }
+.d-graph__edge {
+  stroke-dasharray: 260; stroke-dashoffset: 260;
+  transition: stroke-dashoffset 900ms var(--ease-out);
+  transition-delay: calc(var(--i) * 90ms);
+}
+.d-graph__node {
+  opacity: 0; transition: opacity 500ms var(--ease-out);
+  transition-delay: calc(240ms + var(--i) * 90ms);
+}
+.trust__graph.is-in .d-graph__edge,
+[data-reveal].is-in .d-graph__edge { stroke-dashoffset: 0; }
+.trust__graph.is-in .d-graph__node,
+[data-reveal].is-in .d-graph__node { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .d-chain__node, .d-graph__node { opacity: 1 !important; animation: none !important; }
+  .d-graph__edge { stroke-dashoffset: 0 !important; }
+  .d-axis__fill  { stroke-dashoffset: 0 !important; }
+  .d-break__spark { display: none; }
+}

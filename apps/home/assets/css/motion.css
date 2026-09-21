@@ -1,0 +1,153 @@
+/* ==========================================================================
+   motion.css — scroll reveals, sticky scenes, hero
+   Every animation here has to survive `prefers-reduced-motion`. The rule at
+   the bottom of this file is the contract: motion is an enhancement, the
+   content is never gated behind it.
+   ========================================================================== */
+
+/* ---- reveal -------------------------------------------------------------- */
+/* Elements start displaced; .is-in (set by IntersectionObserver) settles them.
+   `will-change` is deliberately NOT set globally — it is toggled in JS only
+   while an element is mid-flight, otherwise a long page pins dozens of layers. */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+[data-reveal="left"]  { transform: translate3d(-24px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(24px, 0, 0); }
+[data-reveal="scale"] { transform: scale(0.965); }
+[data-reveal].is-in   { opacity: 1; transform: none; }
+
+/* staggered children */
+[data-stagger] > * {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+[data-stagger].is-in > * { opacity: 1; transform: none; }
+
+/* ---- hero ---------------------------------------------------------------- */
+.hero {
+  position: relative;
+  min-height: min(100svh, 940px);
+  display: grid; align-items: center;
+  padding-block: calc(var(--nav-h) + 4rem) clamp(3rem, 8vh, 6rem);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* aurora: three slow drifting blobs. GPU-cheap, pure transform. */
+.hero__aurora {
+  position: absolute; inset: -20%; z-index: -2; pointer-events: none;
+  filter: blur(70px); opacity: 0.55;
+}
+.hero__blob { position: absolute; border-radius: 50%; }
+.hero__blob--1 {
+  width: 46vw; height: 46vw; left: 6%; top: 4%;
+  background: radial-gradient(circle, rgba(255,122,24,.5), transparent 65%);
+  animation: drift-1 22s var(--ease-io) infinite alternate;
+}
+.hero__blob--2 {
+  width: 52vw; height: 52vw; right: 2%; top: 12%;
+  background: radial-gradient(circle, rgba(255,46,115,.45), transparent 65%);
+  animation: drift-2 27s var(--ease-io) infinite alternate;
+}
+.hero__blob--3 {
+  width: 40vw; height: 40vw; left: 32%; bottom: -8%;
+  background: radial-gradient(circle, rgba(177,75,255,.4), transparent 65%);
+  animation: drift-3 31s var(--ease-io) infinite alternate;
+}
+@keyframes drift-1 { to { transform: translate3d(9%, 7%, 0)  scale(1.12); } }
+@keyframes drift-2 { to { transform: translate3d(-8%, 10%, 0) scale(0.9);  } }
+@keyframes drift-3 { to { transform: translate3d(6%, -9%, 0) scale(1.15); } }
+
+/* a vignette so the aurora never fights the type */
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(90% 65% at 50% 45%, transparent 20%, rgba(8,7,11,.72) 78%),
+    linear-gradient(180deg, rgba(8,7,11,.5), transparent 28%, rgba(8,7,11,.9));
+}
+
+.hero__inner { display: grid; justify-items: center; text-align: center; gap: 1.5rem; }
+.hero__title { max-width: 18ch; }
+.hero__sub {
+  font-size: var(--t-lead); color: var(--fg-soft);
+  max-width: 42rem; margin-top: 0.25rem;
+}
+.hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.75rem; }
+
+/* headline words rise in sequence */
+.hero__title .word {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 0.5em, 0);
+  animation: word-rise 900ms var(--ease-out) forwards;
+  animation-delay: calc(140ms + var(--i) * 65ms);
+}
+@keyframes word-rise { to { opacity: 1; transform: none; } }
+
+/* hero chain diagram sits under the fold line as an invitation to scroll */
+.hero__chain { width: 100%; max-width: 60rem; margin-top: clamp(2rem, 5vh, 3.5rem); }
+
+.scroll-cue {
+  position: absolute; left: 50%; bottom: 1.75rem;
+  transform: translateX(-50%);
+  display: grid; justify-items: center; gap: 0.5rem;
+  font-family: var(--font-mono); font-size: 0.625rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-faint);
+}
+.scroll-cue__line {
+  width: 1px; height: 30px;
+  background: linear-gradient(180deg, var(--fg-faint), transparent);
+  animation: cue 2.2s var(--ease-io) infinite;
+  transform-origin: top;
+}
+@keyframes cue {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.35; }
+  50%      { transform: scaleY(1);    opacity: 1; }
+}
+
+/* ---- sticky scene -------------------------------------------------------- */
+/* A tall track; the visual pins inside it while the scroll position drives
+   a --progress custom property (0 → 1) written by JS. */
+.scene { position: relative; }
+.scene__track { height: var(--scene-track, 320vh); }
+.scene__pin {
+  position: sticky; top: var(--nav-h);
+  height: calc(100svh - var(--nav-h));
+  display: grid; align-content: center;
+}
+
+@media (max-width: 860px) {
+  /* Pinned scrubbing is hostile on touch: it eats the scroll and the diagram
+     ends up smaller than the caption. Fall back to a plain stacked read. */
+  .scene__track { height: auto; }
+  .scene__pin { position: static; height: auto; }
+}
+
+/* ---- reduced motion ------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  /* Reveals must land visible, not stay at opacity 0. */
+  [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
+  .hero__title .word { opacity: 1; transform: none; }
+  .hero__aurora { animation: none; opacity: 0.3; }
+
+  /* Sticky scrubbing becomes a plain stacked layout. */
+  .scene__track { height: auto; }
+  .scene__pin { position: static; height: auto; }
+}
