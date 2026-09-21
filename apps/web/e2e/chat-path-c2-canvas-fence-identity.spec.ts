@@ -6,9 +6,9 @@ import { openFreshEchoAgentThread, sendInV2AndAwaitStoredReply } from "./support
  * 路径矩阵 **C2 · 画布编辑往返**——补的是这条判据里此前无人断言的那半：
  * 重开时看到的保存版，**必须是这个围栏自己的**。
  *
- * ## 被测缺陷（issue #3252，**当前未修**）
+ * ## 被测缺陷（issue #3252，**已修**）
  *
- * 画布的身份判定粒度是**模板名**，不是围栏。保存链路上唯一的关联键是
+ * 画布的身份判定粒度曾经是**模板名**，不是围栏。保存链路上唯一的关联键是
  * `(threadId, messageId)`（表 `chat_artifact_landings` 没有围栏序号也没有模板列），
  * 围栏之间的区分完全靠客户端 `chat-canvas-fabric.tsx` 的这段：
  *
@@ -22,6 +22,11 @@ import { openFreshEchoAgentThread, sendInV2AndAwaitStoredReply } from "./support
  * 于是**同一条助手消息里两个同模板的画布会互相认领对方的保存版**：编辑并保存第一个，
  * 第二个在挂载即读回时把第一个的字节当成"自己的保存版"读进来。
  *
+ * 修法是把身份粒度做到**围栏级**：围栏原文的内容指纹随落地标题走，读回时按指纹
+ * 归属（`lib/canvas/canvas-fence-identity.ts`，**不是**按出现顺序编号——重排/增删/
+ * 流式重放都会让顺序变化）。同一判据在组件层的反证见
+ * `tests/ui/chat-canvas-fence-identity-readback.test.tsx`。
+ *
  * ⚠ 这个形态在真实使用里**很可能出现，不是构造出来的极端**：#3243 那次人类实测一轮
  * 就要了 10 个画布模板，其中出现重复模板几乎是必然。
  *
@@ -31,12 +36,11 @@ import { openFreshEchoAgentThread, sendInV2AndAwaitStoredReply } from "./support
  * 写出来的用例对这个缺陷恒绿，等于没测。缺陷的形状就是"同模板不可分"，判据必须长成
  * 同一个形状。C4 那条 dual 剧本产出的两个围栏正好共用同一个模板 key，直接复用。
  *
- * ## 处置：`test.fixme`，阻塞于 #3252
+ * ## 处置：`test.fixme` → `test`（#3252 修复随附）
  *
- * 断言是对的、产品还没做到 —— 沿用本仓既有裁决（issue #2997 方案 B，A3/C8 两次先例）：
- * **不删断言、不改宽、不 `test.skip`**。#3252 补上围栏级身份之后把 `fixme` 改回
- * `test` 即可，正文一个字都不用动。`test.skip` 刻意不用：skip 掉的差距等于不存在，
- * 那正是这套门控要挡的（`lint-chat-path-coverage.mjs` 也只认 `test` 与 `test.fixme`）。
+ * 这条断言当初按本仓既有裁决（issue #2997 方案 B，A3/C8 两次先例）停放成 `test.fixme`：
+ * **不删断言、不改宽、不 `test.skip`**，等产品补上围栏级身份再转回真断言。现在围栏级
+ * 身份已经补上，按当初说好的**只把 `fixme` 改回 `test`，正文一个字没动**。
  */
 test.setTimeout(240_000);
 
@@ -45,7 +49,7 @@ const PROOF = `帮我并排出两张图，代号 ${CHAT_READ_E2E.canvasGuidanceS
 const OWN_FIRST = "之一";
 const OWN_SECOND = "之二";
 
-test.fixme("@path:C2 同一消息内两个同模板画布：各自的保存版不互相认领（阻塞于 #3252）", async ({ page }) => {
+test("@path:C2 同一消息内两个同模板画布：各自的保存版不互相认领（#3252 回归门）", async ({ page }) => {
   const threadId = await openFreshEchoAgentThread(page);
   await sendInV2AndAwaitStoredReply(page, threadId, PROOF, ["```canvas", OWN_SECOND]);
 
