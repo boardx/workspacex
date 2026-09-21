@@ -10,11 +10,11 @@
  * 「整道门在真 worktree 上跑一遍」那层由 `pnpm harness gate-probe --gate contract-state-names`
  * 负责（登记在 lib/gate-mutation-spec.ts），两者不重叠。
  */
-import { beforeAll, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 // @ts-expect-error —— .mjs 无类型声明，故意直接引（单行写法：@ts-expect-error 必须贴在报错那一行上）
-import { BINDINGS, LABEL_CHAIN_ACTIVATION, auditContractStateNames, blankComments, extractCodeClaims, extractDocClaims, inScope, judgeClaims, loadVocabulary, selfCheck } from "./lint-contract-state-names.mjs";
+import { BINDINGS, LABEL_CHAIN_ACTIVATION, auditContractStateNames, blankComments, extractCodeClaims, extractDocClaims, inScope, judgeClaims, loadVocabulary, parseVocabulary, selfCheck } from "./lint-contract-state-names.mjs";
 
 const REPO_ROOT = join(__dirname, "..", "..");
 const PLAN_PHASE = BINDINGS.find((b: { name: string }) => b.name === "PlanPhase")!;
@@ -24,11 +24,10 @@ const ANCHOR = PLAN_PHASE.scopeAnchors[0];
  * 词表**从契约里取**，不在本文件里抄一份：抄了就又是「同一事实声明在两处」——
  * 本仓已五次因此漂移，而一份抄歪的期望值清单会让整套反证对着错的东西变绿。
  */
-let VALUES: string[];
-let LABELS: Record<string, string>;
-beforeAll(async () => {
-  ({ values: VALUES, labels: LABELS } = await loadVocabulary(PLAN_PHASE));
-});
+const { values: VALUES, labels: LABELS } = loadVocabulary(PLAN_PHASE) as {
+  values: string[];
+  labels: Record<string, string>;
+};
 
 function violationsIn(source: string, { doc = false } = {}) {
   const claims = doc
@@ -38,8 +37,8 @@ function violationsIn(source: string, { doc = false } = {}) {
 }
 
 describe("词表来自契约本身，不是副本", () => {
-  it("枚举与文案都从 plan-control.ts 读出来", async () => {
-    const { values, labels } = await loadVocabulary(PLAN_PHASE);
+  it("枚举与文案都从 plan-control.ts 读出来", () => {
+    const { values, labels } = loadVocabulary(PLAN_PHASE);
     // 只断言形状，与那两个今天确实出过事的名字**不在**里面。
     expect(values.length).toBeGreaterThan(0);
     expect(values).not.toContain("awaiting-approval");
@@ -47,13 +46,34 @@ describe("词表来自契约本身，不是副本", () => {
     expect(Object.keys(labels).sort()).toEqual([...values].sort());
   });
 
-  it("契约模块不存在 / export 改名 ⇒ 抛错，不是静默放行", async () => {
-    await expect(loadVocabulary({ ...PLAN_PHASE, module: "packages/contracts/src/no-such-file.ts" }))
-      .rejects.toThrow(/契约模块不存在/);
-    await expect(loadVocabulary({ ...PLAN_PHASE, valuesExport: "PlanPhaseRenamed" }))
-      .rejects.toThrow(/读不到非空枚举/);
-    await expect(loadVocabulary({ ...PLAN_PHASE, labelsExport: "LABELS_RENAMED" }))
-      .rejects.toThrow(/读不到文案映射/);
+  it("契约文件不存在 / export 改名 ⇒ 抛错，不是静默放行", () => {
+    expect(() => loadVocabulary({ ...PLAN_PHASE, module: "packages/contracts/src/no-such-file.ts" }))
+      .toThrow(/契约模块不存在/);
+    expect(() => loadVocabulary({ ...PLAN_PHASE, valuesExport: "PlanPhaseRenamed" }))
+      .toThrow(/读不到/);
+    expect(() => loadVocabulary({ ...PLAN_PHASE, labelsExport: "LABELS_RENAMED" }))
+      .toThrow(/读不到文案映射/);
+  });
+
+  it("解析不出东西时**抛**，不是当成空枚举放行（恒真门的经典造法）", () => {
+    expect(() => parseVocabulary("export const PlanPhase = z.enum([]);", PLAN_PHASE))
+      .toThrow(/读不到|0 个态名/);
+    // 键集与枚举对不上 ⇒ 要么契约漂了要么正则没抓全，两种都当场红。
+    expect(() => parseVocabulary(
+      'export const PlanPhase = z.enum(["done"]);\nexport const PLAN_PHASE_LABEL_ZH = Object.freeze({ finished: "完成" });',
+      PLAN_PHASE,
+    )).toThrow(/键集与/);
+  });
+
+  it("契约改一个态名，判据当场跟着改（词表不是副本）", () => {
+    const vocab = parseVocabulary(
+      'export const PlanPhase = z.enum(["done", "shipped"]);\n' +
+      'export const PLAN_PHASE_LABEL_ZH = Object.freeze({ done: "完成", shipped: "已发布" });',
+      PLAN_PHASE,
+    );
+    expect(vocab.values).toEqual(["done", "shipped"]);
+    const claims = extractCodeClaims(`const PHASES = ["shipped", "approving"];`, PLAN_PHASE);
+    expect(judgeClaims({ claims, ...vocab }).map((v: { name: string }) => v.name)).toEqual(["approving"]);
   });
 });
 
@@ -173,8 +193,8 @@ describe("自检：门自己不许变成恒真门", () => {
 });
 
 describe("真仓库：基线绿，注入漂移红", () => {
-  it("今天的 main 上没有对不上的态名", async () => {
-    const reports = await auditContractStateNames();
+  it("今天的 main 上没有对不上的态名", () => {
+    const reports = auditContractStateNames();
     const violations = reports.flatMap((r: any) =>
       r.surfaces.flatMap((s: any) => s.files.flatMap((f: any) => f.violations.map((v: any) => `${f.rel}:${v.line} ${v.name}`))),
     );
@@ -182,8 +202,8 @@ describe("真仓库：基线绿，注入漂移红", () => {
     for (const r of reports) expect(selfCheck(r)).toEqual([]);
   });
 
-  it("门确实盯着那两个文件，且在看真东西（不是扫了个空）", async () => {
-    const reports = await auditContractStateNames();
+  it("门确实盯着那两个文件，且在看真东西（不是扫了个空）", () => {
+    const reports = auditContractStateNames();
     const files = reports.flatMap((r: any) => r.surfaces.flatMap((s: any) => s.files));
     const spec = files.find((f: any) => f.rel.endsWith("chat-task-workbench-workflow-states.spec.ts"));
     const doc = files.find((f: any) => f.rel.endsWith("chat-task-workbench-acceptance.md"));
@@ -191,8 +211,8 @@ describe("真仓库：基线绿，注入漂移红", () => {
     expect(doc.claims.length).toBeGreaterThan(0);
   });
 
-  it("把 #3140 现场的两个错名注回真文件内容 ⇒ 红", async () => {
-    const { values, labels } = await loadVocabulary(PLAN_PHASE);
+  it("把 #3140 现场的两个错名注回真文件内容 ⇒ 红", () => {
+    const { values, labels } = loadVocabulary(PLAN_PHASE);
     const rel = "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts";
     const drifted = readFileSync(join(REPO_ROOT, rel), "utf8")
       .replace(/"approving"/g, '"awaiting-approval"')

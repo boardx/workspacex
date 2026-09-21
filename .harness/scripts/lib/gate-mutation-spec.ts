@@ -328,7 +328,7 @@ export const GATE_SPECS: readonly GateSpec[] = [
     gate: "contract-state-names",
     // #3140：契约签核之后，spec 与验收文档里的态名没有任何东西保证跟得上契约枚举。
     // 两条变异对应 2026-09-08 当天真实发生过的两种漂移方向：代码侧改错名、文档侧改错名。
-    run: tsx(".harness/scripts/lint-contract-state-names.mjs"),
+    run: node(".harness/scripts/lint-contract-state-names.mjs"),
     guards: (_r, io) => io.exists(STATE_NAME_SPEC) && io.exists(STATE_NAME_DOC),
     mutations: [
       {

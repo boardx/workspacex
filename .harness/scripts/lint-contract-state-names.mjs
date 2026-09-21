@@ -19,9 +19,16 @@
  *
  * ## 判定口径（读到这里的人请按这个理解，别按直觉）
  *
- * 契约枚举是**唯一事实源，本文件一个字都不抄**：态名与中文文案都在运行时从
- * `plan-control.ts` 里 import 出来（所以本门控用 `tsx` 跑，不是 `node`）。
- * 契约改一个值，判据当场跟着改；契约里那个 export 没了，本门控**红**，不是静默放行。
+ * 契约枚举是**唯一事实源，本文件一个字都不抄**：态名与中文文案都是运行时从
+ * `plan-control.ts` 的源码里读出来的。契约改一个值，判据当场跟着改；契约里那个
+ * export 没了或换了形状，本门控**红**，不是静默放行。
+ *
+ * 为什么读源码文本而不是 `import` 那个模块：变异探针
+ * （`gate-mutation-probe.ts`）在临时 worktree 里跑门，那里只软链了**仓库根**的
+ * `node_modules`，`packages/contracts/node_modules` 不在 ⇒ import 会因为解析不到
+ * `zod` 而红。一道只能在主工作树里跑的门拿不到变异反证，等于没有证据说它在工作。
+ * 读文本没有这个依赖，`node` 直接能跑；代价是解析必须"要么读到、要么抛"，
+ * 绝不允许"读不到就当空枚举"——那正是恒真门的经典造法。
  *
  * 一条「声明」（claim）= spec / 验收文档里一处**自称是该契约态名**的字面量。
  * 怎么认出「自称」是本门控唯一需要小心的地方——`data-phase` 这个属性名并不为
@@ -54,7 +61,7 @@
  * ## 不做恒真门（#3122 刚栽过）
  *
  * 一道抓不到东西的门比没有门更坏。所以本门控对**自己**也有三条自检，任一不满足判红：
- *   · 契约模块 import 不到 / 该 export 不在 / 枚举为空 → 红（守着空气）
+ *   · 契约文件读不到 / 该 export 不在 / 枚举解析为空 → 红（守着空气）
  *   · 某条绑定的锚点一个文件都没匹配上 → 红（范围划空了）
  *   · 某个面（spec / 验收文档）一条声明都没抽到 → 红（抽取规则漂移了，此时
  *     门会"全绿"而实际什么都没在看——正是 #3122 那种失效）
@@ -78,7 +85,7 @@ const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const BINDINGS = [
   {
     name: "PlanPhase",
-    /** 态名与中文文案的唯一事实源；本文件不存副本，运行时 import。 */
+    /** 态名与中文文案的唯一事实源；本文件不存副本，运行时从它的源码里读。 */
     module: "packages/contracts/src/plan-control.ts",
     valuesExport: "PlanPhase",
     labelsExport: "PLAN_PHASE_LABEL_ZH",
@@ -172,7 +179,7 @@ export function extractDocClaims(markdown, binding, labels) {
 
   const lines = markdown.split("\n");
   lines.forEach((text, i) => {
-    for (const chain of text.matchAll(/[一-龥]+(?:\s*→\s*[一-龥]+)+/g)) {
+    for (const chain of text.matchAll(/[\u4e00-\u9fa5]+(?:\s*→\s*[\u4e00-\u9fa5]+)+/g)) {
       const segments = chain[0].split("→").map((s) => s.trim());
       const hits = segments.filter((s) => labelValues.has(s)).length;
       if (hits < LABEL_CHAIN_ACTIVATION) continue; // 不是态机链，别乱判
@@ -195,33 +202,63 @@ export function judgeClaims({ claims, values, labels }) {
   return claims.filter((c) => !(c.chinese ? allowedLabels : allowedNames).has(c.name));
 }
 
-/** 读绑定的词表。契约那边缺了东西就抛——不给「守着空气」留余地。 */
-export async function loadVocabulary(binding) {
-  const abs = path.join(REPO_ROOT, binding.module);
-  if (!existsSync(abs)) {
-    throw new Error(`绑定 ${binding.name} 的契约模块不存在：${binding.module}`);
-  }
-  const mod = await import(abs);
-  const values = mod[binding.valuesExport]?.options;
-  if (!Array.isArray(values) || values.length === 0) {
+/**
+ * 从契约源码里解析词表，**纯函数**（文本进、词表出，便于反证套件喂构造输入）。
+ * 每一步都是「要么读到、要么抛」：解析不到就红，不存在「读不到当空枚举」这条路。
+ */
+export function parseVocabulary(source, binding) {
+  const enumMatch = new RegExp(
+    `export\\s+const\\s+${binding.valuesExport}\\s*=\\s*z\\.enum\\(\\[([\\s\\S]*?)\\]\\)`,
+  ).exec(source);
+  if (!enumMatch) {
     throw new Error(
-      `绑定 ${binding.name}：${binding.module} 里读不到非空枚举 ${binding.valuesExport}.options——` +
+      `绑定 ${binding.name}：${binding.module} 里读不到 \`export const ${binding.valuesExport} = z.enum([...])\`——` +
         `契约改名或改形状了，先把本绑定对齐，不要让门静默放行。`,
     );
   }
-  const labels = mod[binding.labelsExport];
-  if (!labels || typeof labels !== "object") {
+  const values = [...enumMatch[1].matchAll(/["']([^"'\n]+)["']/g)].map((m) => m[1]);
+  if (values.length === 0) {
+    throw new Error(`绑定 ${binding.name}：${binding.valuesExport} 解析出 0 个态名——守着空枚举的门不是门。`);
+  }
+
+  const labelMatch = new RegExp(
+    `export\\s+const\\s+${binding.labelsExport}\\b[^=]*=\\s*(?:Object\\.freeze\\()?\\{([\\s\\S]*?)\\}`,
+  ).exec(source);
+  if (!labelMatch) {
     throw new Error(
-      `绑定 ${binding.name}：${binding.module} 里读不到文案映射 ${binding.labelsExport}——同上。`,
+      `绑定 ${binding.name}：${binding.module} 里读不到文案映射 ${binding.labelsExport} 的对象字面量——同上。`,
+    );
+  }
+  const labels = {};
+  for (const m of labelMatch[1].matchAll(/([A-Za-z0-9_$]+)\s*:\s*["']([^"'\n]+)["']/g)) {
+    labels[m[1]] = m[2];
+  }
+  // 解析对不对，有一条不用人判的验算：键集必须等于枚举。不等 ⇒ 要么契约漂了，
+  // 要么正则没抓全——两种都得当场红，不能带着半份词表继续判。
+  const missing = values.filter((v) => !(v in labels));
+  const extra = Object.keys(labels).filter((k) => !values.includes(k));
+  if (missing.length > 0 || extra.length > 0) {
+    throw new Error(
+      `绑定 ${binding.name}：${binding.labelsExport} 的键集与 ${binding.valuesExport} 对不上` +
+        `（缺 ${missing.join("/") || "无"}，多 ${extra.join("/") || "无"}）。`,
     );
   }
   return { values, labels };
 }
 
-export async function auditContractStateNames() {
+/** 读绑定的词表。契约文件缺了就抛——不给「守着空气」留余地。 */
+export function loadVocabulary(binding) {
+  const abs = path.join(REPO_ROOT, binding.module);
+  if (!existsSync(abs)) {
+    throw new Error(`绑定 ${binding.name} 的契约模块不存在：${binding.module}`);
+  }
+  return parseVocabulary(readFileSync(abs, "utf8"), binding);
+}
+
+export function auditContractStateNames() {
   const reports = [];
   for (const binding of BINDINGS) {
-    const { values, labels } = await loadVocabulary(binding);
+    const { values, labels } = loadVocabulary(binding);
     const surfaces = [];
     for (const surface of SURFACES) {
       const files = [];
@@ -269,48 +306,49 @@ export function selfCheck(report) {
 }
 
 function main() {
-  return auditContractStateNames().then((reports) => {
-    const failures = [];
+  const reports = auditContractStateNames();
+  const failures = [];
 
-    for (const report of reports) {
-      const { binding, values } = report;
-      console.log(`绑定 ${binding.name} ← ${binding.module}`);
-      console.log(`  枚举（唯一事实源，本门控不存副本）：${values.join(" / ")}`);
-      for (const surface of report.surfaces) {
-        for (const file of surface.files) {
-          const mark = file.violations.length > 0 ? "❌" : "🧾";
-          console.log(`  ${mark} [${surface.id}] ${file.rel}  声明 ${file.claims.length} 条`);
-        }
-      }
-
-      failures.push(...selfCheck(report));
-
-      for (const surface of report.surfaces) {
-        for (const file of surface.files) {
-          for (const v of file.violations) {
-            failures.push(
-              `${file.rel}:${v.line} 里的「${v.name}」（${v.via}）不在契约 ` +
-                `${binding.name} 里。允许值：${(v.chinese ? Object.values(report.labels) : values).join(" / ")}。` +
-                `契约在 ${binding.module}${binding.contractDoc ? `，签核过的界面口径见 ${binding.contractDoc}` : ""}——` +
-                `以契约为准改这处断言，不要反过来改契约迁就断言。`,
-            );
-          }
-        }
+  for (const report of reports) {
+    const { binding, values } = report;
+    console.log(`绑定 ${binding.name} ← ${binding.module}`);
+    console.log(`  枚举（唯一事实源，本门控不存副本）：${values.join(" / ")}`);
+    for (const surface of report.surfaces) {
+      for (const file of surface.files) {
+        const mark = file.violations.length > 0 ? "❌" : "🧾";
+        console.log(`  ${mark} [${surface.id}] ${file.rel}  声明 ${file.claims.length} 条`);
       }
     }
 
-    if (failures.length > 0) {
-      console.error("\n✗ spec / 验收文档里的态名与契约对不上：");
-      for (const f of failures) console.error(`  - ${f}`);
-      process.exit(1);
+    failures.push(...selfCheck(report));
+
+    for (const surface of report.surfaces) {
+      for (const file of surface.files) {
+        for (const v of file.violations) {
+          failures.push(
+            `${file.rel}:${v.line} 里的「${v.name}」（${v.via}）不在契约 ` +
+              `${binding.name} 里。允许值：${(v.chinese ? Object.values(report.labels) : values).join(" / ")}。` +
+              `契约在 ${binding.module}${binding.contractDoc ? `，签核过的界面口径见 ${binding.contractDoc}` : ""}——` +
+              `以契约为准改这处断言，不要反过来改契约迁就断言。`,
+          );
+        }
+      }
     }
-    console.log("\n✅ 在范围内的 spec 与验收文档，态名全部落在契约枚举里");
-  });
+  }
+
+  if (failures.length > 0) {
+    console.error("\n✗ spec / 验收文档里的态名与契约对不上：");
+    for (const f of failures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
+  console.log("\n✅ 在范围内的 spec 与验收文档，态名全部落在契约枚举里");
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((e) => {
-    console.error(`✗ ${e.message}`);
-    process.exit(1);
-  });
+  try {
+  main();
+  } catch (e) {
+  console.error(`✗ ${e.message}`);
+  process.exit(1);
+  }
 }
