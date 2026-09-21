@@ -4,7 +4,7 @@
  * 两层反证，缺一不可：
  *
  * ① **源文件字节层**——本仓已经栽过一次「肃然无声的坏」：`chat-attachment.controller.ts`
- *    第 128 行的正则 `/[^ -ÿ]/`，那个本该是空格 U+0020 的下界实际是 U+0000。行为上没人
+ *    第 128 行的正则 `/[^\u0020-\u00ff]/`，那个本该是空格 U+0020 的下界实际是 U+0000。行为上没人
  *    看得出区别，但 git 的二进制判定就是「前 8000 字节内出现 NUL」——该 NUL 落在 offset
  *    7719，于是 git 从此把整个文件当二进制：`git diff` 只吐 `Bin 15455 bytes`，blame 逐行
  *    失效，`git grep` 连函数名都搜不到（`git grep -I -c decodeMultipartFilename HEAD --
@@ -68,11 +68,11 @@ describe("#1718 decodeMultipartFilename 行为", () => {
   });
 
   it("反证：含 C0 控制字符的名字原样返回，而不是被拿去做一次必然乱码的重解", () => {
-    // 下界若是 NUL（修复前），这串整体落在 [\u0000-ÿ] 内 → 走 latin1→utf8 重解；
+    // 下界若是 NUL（修复前），这串整体落在 [\u0000-\u00ff] 内 → 走 latin1→utf8 重解；
     // 0xE6 0x01 不是合法 UTF-8 序列，结果是一串 U+FFFD，把名字毁掉。
-    // 下界是空格（修复后）→ 命中 `[^ -ÿ]` → 原样返回。
+    // 下界是空格（修复后）→ 命中 `[^\u0020-\u00ff]` → 原样返回。
     const withControl = "æ\u0001æ.png";
     expect(decodeMultipartFilename(withControl)).toBe(withControl);
-    expect(decodeMultipartFilename(withControl)).not.toContain("�");
+    expect(decodeMultipartFilename(withControl)).not.toContain("\uFFFD");
   });
 });
