@@ -53,6 +53,17 @@
 <link rel="stylesheet" href="../assets/css/motion.css">
 <link rel="stylesheet" href="../assets/css/diagrams.css">
 <link rel="stylesheet" href="../assets/css/sections.css">
+<link rel="stylesheet" href="../assets/css/print.css" media="print">
+
+<!-- Scripting off: the reveal mechanism has nothing to reveal it, so drop it
+     entirely. An inline <style> rather than a class toggle because there is no
+     script to run, and the CSP permits inline styles but not inline scripts. -->
+<noscript><style>
+  [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
+  .scene__track { height: auto !important; }
+  .scene__pin { position: static !important; height: auto !important; }
+  .hero__chain, [data-diagram] { display: none; }
+</style></noscript>
 
 <script type="application/ld+json">
 {

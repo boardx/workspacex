@@ -8,7 +8,21 @@
 /* ---- reveal -------------------------------------------------------------- */
 /* Elements start displaced; .is-in (set by IntersectionObserver) settles them.
    `will-change` is deliberately NOT set globally — it is toggled in JS only
-   while an element is mid-flight, otherwise a long page pins dozens of layers. */
+   while an element is mid-flight, otherwise a long page pins dozens of layers.
+
+   FAILING VISIBLE. Starting at opacity 0 means the page is blank unless
+   something arrives to reveal it — and measured, with scripting off, that is
+   exactly what happened: 37 elements stuck at zero and nothing to read. Two
+   independent guarantees now cover that:
+
+     1. `<noscript>` in the head drops the whole mechanism when scripting is
+        off. Instant, no flash, no dependency on anything loading.
+     2. `main.js` marks `<html class="js">` as its first act. If it never runs
+        — a 404, a parse error, a blocked request — the class is absent and the
+        failsafe animation below reveals everything a second later.
+
+   Neither can be removed on the grounds that the other exists: the first does
+   nothing when scripting is on, the second does nothing when it is off. */
 [data-reveal] {
   opacity: 0;
   transform: translate3d(0, 22px, 0);
@@ -28,6 +42,14 @@
 }
 [data-reveal="scale"] { transform: scale(0.965); }
 [data-reveal].is-in   { opacity: 1; transform: none; }
+
+/* Scripting is on but our script never arrived: show everything rather than
+   leave a blank page. Scoped to :not(.js) so it never fires on a healthy load. */
+html:not(.js) [data-reveal],
+html:not(.js) [data-stagger] > * {
+  animation: reveal-failsafe 1ms linear 1.2s forwards;
+}
+@keyframes reveal-failsafe { to { opacity: 1; transform: none; } }
 
 /* staggered children */
 [data-stagger] > * {

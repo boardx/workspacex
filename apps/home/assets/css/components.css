@@ -235,3 +235,27 @@
 @media (prefers-reduced-motion: reduce) {
   .langhint { transition: none; opacity: 1; }
 }
+
+/* ---- forced colors -------------------------------------------------------- */
+/* In Windows high-contrast mode the engine replaces every colour with the
+   user's palette and drops background images — a gradient-filled button becomes
+   invisible text on nothing. Borders are the one thing forced-colors keeps, so
+   the controls are given real ones. */
+@media (forced-colors: active) {
+  .btn, .langswitch__btn, .chip, .nav__ghost {
+    border: 1px solid ButtonBorder;
+    forced-color-adjust: none;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+  .btn--primary, .langswitch__btn[aria-current="true"] {
+    color: HighlightText;
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .card, .scales__card, .open__col, .stage, .surface, .faq__item {
+    border: 1px solid CanvasText;
+  }
+  .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
+  .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
+}
