@@ -50,6 +50,9 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
       KERNEL_ASR_BASE_URL: config.provision.asrProfile.baseUrl,
       KERNEL_ASR_API_KEY: asrKey,
       KERNEL_ASR_MODEL: config.provision.asrProfile.modelId,
+      ...(config.provision.asrProfile.recordingTurnSilenceMs === undefined ? {} : {
+        KERNEL_ASR_RECORDING_TURN_SILENCE_MS: String(config.provision.asrProfile.recordingTurnSilenceMs),
+      }),
     });
   }
   const githubIssue: Record<string, string> = {};

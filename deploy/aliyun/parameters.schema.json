@@ -480,6 +480,11 @@
             "asrProfile": {
               "type": "object",
               "properties": {
+                "recordingTurnSilenceMs": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 2000
+                },
                 "provider": {
                   "type": "string",
                   "minLength": 1,

@@ -159,7 +159,11 @@ describe("§3 渲染层：入口有且只有一处", () => {
     const { mockIdentity, MOCK_ORGS } = await import("@/lib/identity");
     render(
       <IconRail
-        identity={mockIdentity("org-yuanyang", null)}
+        /* 2026-09-20 起「组织后台」一级项只对组织管理员可见（`lib/navigation.ts`
+           的 `SCOPED_NAV_KEYS`）——这里的阳性对照要的就是它画出来，所以身份是 admin。
+           本用例关心的是一级/二级分界，不是可见性矩阵（后者见
+           `nav-admin-menu-visibility.test.tsx`）。 */
+        identity={{ ...mockIdentity("org-yuanyang", null), orgRole: "admin" }}
         organizations={MOCK_ORGS.map((o) => ({ id: o.id, label: o.name }))}
         onSwitchOrganization={() => undefined}
         avatarInitial="X"

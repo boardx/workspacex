@@ -259,7 +259,7 @@ export const InterviewRow = z.object({
 /** 数字专家访谈草稿的用户输入。trim 在契约边界完成，存储层不保存空白噪声。 */
 export const DigitalInterviewDraftInput = z.object({
   name: z.string().trim().min(1),
-  tags: z.array(z.string().trim().min(1)).min(1),
+  tags: z.array(z.string().trim().min(1)),
 }).strict();
 
 const validateUniqueExpertIds = (expertIds: readonly string[], context: z.RefinementCtx) => {

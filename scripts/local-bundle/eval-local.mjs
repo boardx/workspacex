@@ -50,19 +50,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPTS = {
   chat: ["用一句话介绍你自己", "把下面这句话改得更正式：我们明天再聊吧", "列出三个提高会议效率的办法", "解释一下什么是用户画像，两句话", "把 1234 乘以 56 算出来，只给结果"],
-  url: ["读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么", "分析网址：https://www.baidu.com/ 的内容是什么网站", "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题", "https://www.baidu.com/ 这个页面的标题是什么", "读取 https://www.ruanyifeng.com/blog/index.html 并总结三点"],
+  // pages this network can actually fetch and that carry real article text: a search
+  // homepage (baidu) has none, so the model searched instead and the suite measured flailing
+  url: ["读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么",
+    "读取 https://www.gov.cn/ 并列出首页上提到的两个主题",
+    "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题",
+    "https://news.qq.com/ 这个页面是做什么的，一句话",
+    "读取 https://www.36kr.com/ 并总结两点"],
   canvas: ["生成一个用户画像：AI 转型时代的传媒大学教授", "生成一个高等教育创新者的画像", "为一家社区咖啡店做一张 SWOT 画布", "为一款面向高校的 AI 助教产品做商业模式画布", "为大学生求职者做一张 JTBD 画布"],
   feedback: ["我觉得画布生成太慢了，等了四分钟才出来，而且中间没有任何进度提示", "登录页在本地版还要输密码，应该直接进去", "技能列表是空的，点了没反应，不知道是不是坏了", "语音识别中文夹英文时经常把英文单词写错", "导出的 PDF 太大了，一张画布 30 MB"],
 };
 
 async function ledgerTiming(client, remoteRunId) {
   if (!client || !remoteRunId) return {};
+  // `modelCalls` is the low-variance measure of agent-loop efficiency: wall time on a busy
+  // laptop swings 3x for the same prompt, the number of model round trips does not.
+  const nodes = await client.query("select data from wsx_agent_events where run_id=$1 and event='updates'", [remoteRunId]);
+  const modelCalls = nodes.rows.filter((x) => Object.keys(x.data ?? {}).includes("model")).length;
+  const toolNodes = nodes.rows.filter((x) => Object.keys(x.data ?? {}).includes("tools")).length;
   const r = await client.query("select event, created_at from wsx_agent_events where run_id=$1 order by sequence", [remoteRunId]);
   const rows = r.rows; if (!rows.length) return {};
   const chunks = rows.filter((x) => x.event === "messages");
   const first = rows[0].created_at, firstChunk = chunks[0]?.created_at, lastChunk = chunks.at(-1)?.created_at;
   const genMs = firstChunk && lastChunk ? lastChunk - firstChunk : null;
-  return { firstChunkMs: firstChunk ? firstChunk - first : null, chunks: chunks.length, chunksPerSec: genMs ? +(chunks.length / (genMs / 1000)).toFixed(1) : null, lastEventMs: rows.at(-1).created_at - first };
+  return { modelCalls, toolNodes, firstChunkMs: firstChunk ? firstChunk - first : null, chunks: chunks.length, chunksPerSec: genMs ? +(chunks.length / (genMs / 1000)).toFixed(1) : null, lastEventMs: rows.at(-1).created_at - first };
 }
 async function systemPromptChars(remoteThreadId) {
   if (!process.env.DEEP_AGENT_URL || !process.env.DEEP_AGENT_KEY || !remoteThreadId) return null;
@@ -118,9 +129,9 @@ async function titleAfter(threadId, sentText) {
 function summarize(runs, jsons) {
   const by = {}; for (const r of runs) (by[r.category] ??= []).push(r);
   const med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
-  const lines = ["| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |", "|---|---|---|---|---|---|---|---|---|"];
-  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length} |`);
-  for (const [name, xs] of Object.entries(jsons)) if (xs.length) lines.push(`| ${name} | ${xs.length} | ${xs.filter((x) => x.ok).length} | ${(med(xs.map((x) => x.ms)) / 1000).toFixed(1)} | - | - | - | - | - |`);
+  const lines = ["| 类别 | n | 成功 | 模型调用中位 | wall 中位 s | 首块中位 s | 块/s 中位 | 提示 chars | 用工具的 run | 画布围栏 |", "|---|---|---|---|---|---|---|---|---|---|"];
+  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${med(rs.map((r) => r.modelCalls)) ?? "-"} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length} |`);
+  for (const [name, xs] of Object.entries(jsons)) if (xs.length) lines.push(`| ${name} | ${xs.length} | ${xs.filter((x) => x.ok).length} | - | ${(med(xs.map((x) => x.ms)) / 1000).toFixed(1)} | - | - | - | - | - |`);
   return lines.join("\n");
 }
 
@@ -134,7 +145,7 @@ for (const category of ["chat", "url", "canvas"]) {
   if (!want(category)) continue;
   for (const text of PROMPTS[category]) for (let i = 0; i < REPS; i++) {
     const r = await chatRun(client, category, text); runs.push(r);
-    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence} :: ${text.slice(0, 30)}`);
+    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s calls=${r.modelCalls ?? "-"} first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence} :: ${text.slice(0, 30)}`);
     if (category === "chat" && (SUITE === "all" || SUITE === "json")) { jsons.title.push(await titleAfter(r.threadId, text)); jsons.followup.push(await followup(r.threadId)); }
   }
 }

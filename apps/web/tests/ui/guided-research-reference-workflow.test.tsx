@@ -16,6 +16,7 @@ describe("reference research workflow", () => {
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     expect(await screen.findByTestId("research-runtime-progress")).toHaveTextContent("检索资料 · 已处理 2 / 5 · 成功 2 · 失败 0");
     expect(screen.getByRole("progressbar")).toHaveAttribute("value", "2");
+    fireEvent.click(screen.getByText("查看搜索详情"));
     fireEvent.click(screen.getByText("研究计划"));
     expect(screen.getByText("哪些市场值得优先进入？")).toBeVisible();
     fireEvent.click(screen.getByText(/检索任务明细/));
@@ -43,7 +44,7 @@ describe("reference research workflow", () => {
     const state = { ...initial, report: null, reportSourceAliases: [{ alias: "S1", sourceId: "source1" }, { alias: "S2", sourceId: "excluded" }], sources: [...initial.sources, { ...initial.sources[0]!, id: "excluded", decision: "excluded" as const }], reportStream: { requestId: "r", sequence: 3, status: "streaming" as const, text: '{"summary":"真实结论[[source:S1]]。待证实[[source:S2]][[source:missing]]' } };
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", initial.sources[0]!.url);
-    expect(screen.getByTestId("research-preview-citations-pending")).toHaveTextContent("2 处草稿引用待核对");
+    expect(screen.getByTestId("research-preview-citations-pending")).toHaveTextContent("2 处内容引用待核对");
     expect(screen.queryByText(/来源不可用/)).not.toBeInTheDocument();
     expect(within(screen.getByTestId("research-report-references")).getAllByRole("listitem")).toHaveLength(1);
   });

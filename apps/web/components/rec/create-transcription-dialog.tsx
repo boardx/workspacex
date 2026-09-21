@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
+const DEFAULT_TRANSCRIPTION_NAME = "未命名转录";
+
 export interface NewTranscriptionDraft {
   readonly name: string;
   readonly tags: readonly string[];
@@ -20,14 +22,14 @@ export function CreateTranscriptionDialog({
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: NewTranscriptionDraft) => void | Promise<void>;
 }) {
-  const [name, setName] = React.useState("");
+  const [name, setName] = React.useState(DEFAULT_TRANSCRIPTION_NAME);
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState(false);
 
   function reset() {
-    setName("");
+    setName(DEFAULT_TRANSCRIPTION_NAME);
     setTags([]);
     setTagDraft("");
     setSubmitError(false);

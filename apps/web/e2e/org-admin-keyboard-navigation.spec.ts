@@ -60,6 +60,17 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await page.getByTestId("login-submit").click();
     await expect(page).toHaveURL(/\/projects$/);
 
+    /* ── ⓪ 2026-09-20 权限 review 的**正面**落点（人类要求：「组织管理员才可以看到
+       组织管理后台」）：这一位是组织 admin，所以左上角菜单里有「组织管理」、一级导航
+       里有「组织后台」。反面（consultant 两者都看不见）在 `fullstack-smoke.spec.ts`。
+       ⚠ 「平台后台」这里**不断言**：平台运营准入与组织角色无关，这个账号不在
+         `PLATFORM_SUPERUSER_EMAILS` 里，它看不见平台入口是对的。 */
+    await expect(page.getByTestId("rail-admin")).toHaveAttribute("href", "/admin");
+    await page.getByTestId("org-switcher").click();
+    await expect(page.getByTestId("org-admin-entry")).toHaveAttribute("href", "/org-admin");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("org-menu")).toHaveCount(0);
+
     /* ── ① 三个独立左栏入口之间的键盘可达性 ──────────────────────────────
        "成员"→"邀请"→"组织资料" 现在是三条独立路由，不再是同页的三个标签——
        验证它们仍然是 Tab 序列里的真实链接（`AdminNav` 用 `Link` 渲染），且

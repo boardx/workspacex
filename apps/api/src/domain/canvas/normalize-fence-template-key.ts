@@ -102,6 +102,17 @@ export function matchCanvasTemplatesInText(text: string, templates: readonly Can
   return hits;
 }
 
+/**
+ * Does the message ask for something to be PRODUCED?
+ *
+ * Naming a template is not asking for one: 「解释一下什么是用户画像」 matched `persona` and
+ * got 3 600 characters of canvas guidance plus the fence rules for a question that wanted two
+ * sentences of prose (eval lane, 2026-09-22). A canvas request says make/draw/produce.
+ */
+export function asksToProduce(text: string): boolean {
+  return /生成|制作|做一?[张份个]|做个|画一?[张份]|画出|产出|出一?[张份]|整理成|填一?[张份]|帮我做|给我一?[张份]|来一?[张份]|create|make|draw|generate|produce|build/i.test(text);
+}
+
 /** Does the text ask for a workshop canvas at all (without naming which one)? */
 export function mentionsCanvasIntent(text: string): boolean {
   return /画布|工作坊|协作模板|canvas/i.test(text);

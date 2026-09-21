@@ -38,6 +38,8 @@ import type { PermissionDecision } from "../../../domain/identity/permission-dec
 import type { OrgId } from "../../../domain/org-id";
 import type { PgConfig } from "../../db/pg-config";
 
+import { completeInterviewSkill } from "./interview-skill-completion";
+
 const CHECKPOINT_NS = "digital-interview:v1";
 
 function storedCheckpointConfig(config: RunnableConfig, checkpointNamespace: string): RunnableConfig {
@@ -346,7 +348,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
 
     let completion: { readonly text: string };
     try {
-      completion = await this.deps.model.complete({
+      completion = await completeInterviewSkill(this.deps.model, {
         modelProvider: this.deps.skillModelProvider,
         modelId: this.deps.skillModelId,
         system: "你是数字专家访谈设计 Skill。只返回当前步骤的严格 JSON patch，不得返回解释文字。专家步骤只允许 {\"expertIds\":[\"id\"]}，ID 必须来自 currentDraft.availableExperts 或 currentDraft.expertIds；用户要求添加、增加或补充时，选择尚未选中的专家，不能删除现有专家。主题步骤只允许 {\"topic\":\"...\"}；问题步骤只允许 {\"questions\":[...]}；访谈或报告步骤只允许 {\"instruction\":\"...\"}。",
@@ -362,6 +364,9 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
           request: input.text,
         }),
         history: current.workflow.skillMessages.map((message) => ({ role: message.role, content: message.text })),
+      }, {
+        step: input.currentStep, request: input.text,
+        topic: input.draftContext.step === "topic" ? input.draftContext.topic : "",
       });
     } catch (error) {
       if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");

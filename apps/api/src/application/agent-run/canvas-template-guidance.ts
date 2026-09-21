@@ -41,7 +41,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates";
-import { matchCanvasTemplatesInText, mentionsCanvasIntent } from "../../domain/canvas/normalize-fence-template-key";
+import { asksToProduce, matchCanvasTemplatesInText, mentionsCanvasIntent } from "../../domain/canvas/normalize-fence-template-key";
 
 /** prompt 拼接只需要这四个字段——不是 `CanvasTemplateListing` 的全部（`version`/`status`/
  *  `builtin`/`visibility`/`underlyingType`/`usageCount` 都是列表页用的展示字段，模型不需要）。 */
@@ -124,6 +124,9 @@ export function selectGuidanceTemplates<T extends { readonly key: string; readon
   input: { readonly mode: CanvasGuidanceMode; readonly text: string },
 ): readonly T[] {
   if (input.mode === "all" || templates.length === 0) return templates;
+  // Naming a template is not asking for one (「解释一下什么是用户画像」). Both halves are
+  // required: a template the message names AND a request to produce something.
+  if (!asksToProduce(input.text)) return [];
   const named = new Set(matchCanvasTemplatesInText(input.text, templates));
   if (named.size > 0) return templates.filter((t) => named.has(t.key));
   return mentionsCanvasIntent(input.text) ? templates : [];

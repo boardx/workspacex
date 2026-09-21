@@ -71,7 +71,7 @@ describe("F168 guided research home live data", () => {
 
     fireEvent.click(screen.getByTestId("research-create"));
     expect(screen.getByTestId("research-create-dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("research-create-submit")).toBeDisabled();
+    expect(screen.getByTestId("research-create-submit")).not.toBeDisabled();
 
     fireEvent.change(screen.getByTestId("research-create-name"), { target: { value: "欧洲储能进入研究" } });
     fireEvent.change(screen.getByTestId("research-create-tags"), { target: { value: "欧洲" } });

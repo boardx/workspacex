@@ -30,6 +30,55 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("keeps an existing report on cancellation and asks before regeneration", async () => {
+    const view: DigitalInterviewWorkflowView = { ...completed, status: "completed", reportId: "r-existing",
+      report: { reportId: "r-existing", title: "现有报告", executiveSummary: "原摘要", markdown: "原内容", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" } };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ reasonCode: "DEPENDENCY_UNAVAILABLE" }), { status: 503, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PersistentDigitalInterviewWorkflow initialView={view} />);
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+    expect(screen.getByRole("dialog")).toHaveTextContent("报告");
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
+    fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
+    expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("原内容");
+    fireEvent.click(screen.getByTestId("itv-workflow-step-4"));
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("shows the preserved report and a failure notice when regeneration fails", async () => {
+    const prior: DigitalInterviewWorkflowView = { ...completed, status: "completed", reportId: "r-existing",
+      report: { reportId: "r-existing", title: "保留的报告", executiveSummary: "原摘要", markdown: "不可丢失的原内容", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" } };
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== "POST") return new Response(JSON.stringify({ ...prior, version: prior.version + 2 }), { headers: { "content-type": "application/json" } });
+      const snapshot = { type: "snapshot", seq: 0, reportId: "r-existing", requestId: "new-request", status: "running",
+        title: "未完成的新报告", executiveSummary: null, markdown: "部分新内容", findings: [], errorCode: null, updatedAt: "2026-09-01T02:02:00.000Z" };
+      return new Response(`${JSON.stringify(snapshot)}\n${JSON.stringify({ type: "error", seq: 1, reasonCode: "AI_GENERATION_UNAVAILABLE" })}\n`, { headers: { "content-type": "application/x-ndjson" } });
+    }));
+    render(<PersistentDigitalInterviewWorkflow initialView={prior} />);
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    expect(await screen.findByTestId("itv-report-markdown")).toHaveTextContent("不可丢失的原内容");
+    expect(await screen.findByRole("alert")).toHaveTextContent("AI_GENERATION_UNAVAILABLE");
+  });
+
+  it("reloads a preserved report after an observing stream receives the regeneration failure", async () => {
+    const partial: DigitalInterviewWorkflowView = { ...completed, currentStep: "report", status: "report_pending",
+      reportGeneration: { reportId: "r-observed", requestId: "req-observed", status: "running", title: "新报告", executiveSummary: null,
+        markdown: "未完成的新正文", findings: [], errorCode: null, updatedAt: "2026-09-01T02:02:00.000Z" } };
+    const restored: DigitalInterviewWorkflowView = { ...partial, status: "completed", version: 14,
+      report: { reportId: "r-observed", title: "观察连接恢复的旧报告", executiveSummary: "旧摘要", markdown: "恢复的旧正文", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" },
+      reportGeneration: { ...partial.reportGeneration!, status: "failed", errorCode: "AI_GENERATION_UNAVAILABLE" } };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/report/stream")
+      ? new Response(`${JSON.stringify({ type: "snapshot", seq: 0, ...partial.reportGeneration })}\n${JSON.stringify({ type: "error", seq: 1, reasonCode: "AI_GENERATION_UNAVAILABLE" })}\n`, { headers: { "content-type": "application/x-ndjson" } })
+      : new Response(JSON.stringify(restored), { headers: { "content-type": "application/json" } })));
+    render(<PersistentDigitalInterviewWorkflow initialView={partial} />);
+    expect(await screen.findByTestId("itv-report-markdown")).toHaveTextContent("恢复的旧正文");
+    expect(await screen.findByText("报告重新生成失败，已保留上一份报告。请重试。" )).toBeInTheDocument();
+  });
+
   it("reconstructs the report from append-only chunks and then loads the final state once", async () => {
     const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
       reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,

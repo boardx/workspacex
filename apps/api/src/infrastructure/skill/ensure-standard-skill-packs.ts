@@ -17,6 +17,7 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-authoring',packVersion:'1.0.0'},
   {packId:'standard-visual',packVersion:'1.0.1'},
   {packId:'standard-audio',packVersion:'1.1.1'},
+  {packId:'maau-diagnostics',packVersion:'2.0.1'},
 ] as const;
 /**
  * 一个包炸掉，**不许**让后面的包收不到。
@@ -41,6 +42,8 @@ export interface StandardPackSeedOutcome {
   readonly ok: boolean;
   readonly created?: boolean;
   readonly result?: Awaited<ReturnType<typeof importSkillStarterPack>>["result"];
+  /** 这一版不再发货、本次被下线的旧 skill（issue #3733；重放也会算）。 */
+  readonly retiredSkillIds?: readonly string[];
   readonly error?: unknown;
 }
 

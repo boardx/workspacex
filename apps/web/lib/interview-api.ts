@@ -217,6 +217,9 @@ export async function generateDigitalInterviewReportStream(
   onProgress: (view: DigitalInterviewWorkflowView) => void,
   signal?: AbortSignal,
 ): Promise<DigitalInterviewWorkflowView> {
+  const previousReport = initialView.report;
+  const isRestoredReport = (view: DigitalInterviewWorkflowView) => Boolean(previousReport && view.report
+    && view.report.reportId === previousReport.reportId && view.report.generatedAt === previousReport.generatedAt);
   const token = getStoredSessionToken();
   try {
     const response = await fetch(apiUrl(`/interviews/digital/${input.interviewId}/report/generate/stream`), {
@@ -242,12 +245,15 @@ export async function generateDigitalInterviewReportStream(
     if (signal?.aborted) throw cause;
     const recovered = await loadDigitalInterviewWorkflow(input.interviewId, signal);
     onProgress(recovered);
+    if (isRestoredReport(recovered)) throw cause;
     if (reportGenerationFinished(recovered)) return recovered;
     if (!reportGenerationRunning(recovered)) throw cause;
     initialView = recovered;
   }
 
-  return observeDigitalInterviewReportStream(input.interviewId, initialView, onProgress, signal);
+  const final = await observeDigitalInterviewReportStream(input.interviewId, initialView, onProgress, signal);
+  if (isRestoredReport(final)) throw new ApiError(503, "REPORT_REGENERATION_FAILED", null);
+  return final;
 }
 
 export async function observeDigitalInterviewReportStream(
@@ -273,7 +279,12 @@ export async function observeDigitalInterviewReportStream(
       initialView = streamed.latest;
       if (reportGenerationFinished(streamed.latest) || !reportGenerationRunning(streamed.latest)) return streamed.latest;
     } catch (cause) {
-      if (signal?.aborted || !isRetryableReportStreamError(cause)) throw cause;
+      if (signal?.aborted) throw cause;
+      if (!isRetryableReportStreamError(cause)) {
+        const recovered = await loadDigitalInterviewWorkflow(interviewId, signal);
+        onProgress(recovered);
+        throw cause;
+      }
     }
     await waitForReportStreamRetry(signal);
   }

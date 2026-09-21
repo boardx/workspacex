@@ -1,3 +1,13 @@
+import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
+import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
+import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
+import { SURVEY_ATTACHMENT_SERVICE, SurveyAttachmentService } from "./application/survey/survey-attachment-service";
+import { PHYSICAL_PURGE_PORT, type PhysicalPurgePort } from "./application/files/physical-delete-ports";
+import { SURVEY_TEMPLATE_REPOSITORY } from "./application/survey/survey-template-service";
+import { SurveySubmissionRateLimitGuard } from "./interface/guards/survey-submission-rate-limit.guard";
+import { SurveyController, PublicSurveyController } from "./interface/controllers/survey.controller";
+import { SURVEY_REPOSITORY } from "./application/survey/survey-service";
+import { PgSurveyRepository } from "./infrastructure/survey/pg-survey-repository";
 import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
 import type { DeliveryDeps } from "./application/files/deliver-artifact";
 import { AGENT_ARTIFACT_DELIVERY_SOURCE, type AgentArtifactDeliverySource } from "./application/files/agent-artifact-delivery-source";
@@ -673,6 +683,7 @@ import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-
 // platform-admin-role delta：落库的"平台管理员"名册。
 import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
 import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
+import { PlatformAccessController } from "./interface/controllers/platform-access.controller";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -944,6 +955,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
     IdentityController,
@@ -979,6 +991,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteLinkController,
     CheckinBoardController,
     OrgAdminManagementController,
+    PlatformAccessController,
     PlatformMemberController,
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
@@ -1033,6 +1046,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
+    SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
+    { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
+    { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
@@ -1088,6 +1105,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         stallMs: Number(process.env.DEBUG_TRACE_STALL_MS) || undefined,
       }),
       inject: [DEBUG_TRACE_PORT],
+    },
+    {
+      provide: SURVEY_ATTACHMENT_RATE_LIMITER,
+      useFactory: (clock: Clock) => new InMemoryRateLimiter(clock, 60_000, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE),
+      inject: [CLOCK],
     },
     {
       provide: RATE_LIMITER_PORT,

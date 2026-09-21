@@ -25,9 +25,11 @@ describe("personal realtime ASR gateway", () => {
     const usage: AsrUsageEvent[] = [];
     let handlers: AsrSessionHandlers | undefined;
     let format: unknown;
+    let options: unknown;
     const provider: AsrProviderPort = {
       isConfigured: () => true,
-      open: async (nextHandlers, audio) => {
+      open: async (nextHandlers, audio, nextOptions) => {
+        options = nextOptions;
         handlers = nextHandlers;
         format = audio;
         return {
@@ -49,6 +51,7 @@ describe("personal realtime ASR gateway", () => {
     expect(await client.next()).toMatchObject({ type: "ready", captureId: CAPTURE });
     expect(format).toEqual({ sampleRate: 16_000, channels: 1, encoding: "pcm16le" });
 
+    expect(options).toEqual({ turnDetection: "recording" });
     handlers?.onPartial({ text: "临时文本", confidence: null });
     expect(await client.next()).toMatchObject({ type: "interim", text: "临时文本" });
     client.ws.send(Buffer.alloc(48_000));
@@ -135,8 +138,7 @@ describe("personal realtime ASR gateway", () => {
     client.ws.close();
     await once(client.ws, "close");
     resolveOpen?.(sessionStub(() => { aborted = true; }));
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(aborted).toBe(true);
+    await expect.poll(() => aborted).toBe(true);
   });
 
   it("closes and aborts immediately when final persistence and cleanup both fail", async () => {
@@ -182,8 +184,7 @@ describe("personal realtime ASR gateway", () => {
 
     client.ws.close();
     await once(client.ws, "close");
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(aborted).toBe(true);
+    await expect.poll(() => aborted).toBe(true);
     resolveFinish?.();
   });
 });

@@ -14,13 +14,13 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
   const expired = Boolean(state.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   const fallback = !currentHasContent || (!state.report && !state.reportDraft && (Boolean(state.errorCode) || expired));
   return <details key={fallback ? "fallback" : "archive"} open={fallback} className="rounded-xl border border-border bg-muted/20 p-4" data-testid="research-report-history">
-    <summary className="cursor-pointer text-13 font-semibold">上一轮{previous.report ? "报告" : "草稿"} · 历史内容，仅供查看</summary>
+    <summary className="cursor-pointer text-13 font-semibold">上一轮{previous.report ? "报告" : "报告"} · 历史内容，仅供查看</summary>
     <div className="mt-4 space-y-3"><p className="text-12 text-muted-foreground">上一轮内容独立保留，仅供回顾。保存时间：<time dateTime={previous.createdAt}>{previous.createdAt}</time></p>
       {previous.partial && <p className="text-12 text-muted-foreground" data-testid="previous-report-evidence-gap">上一轮报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
       {!!previous.evidenceWarnings?.length && <p className="text-12 text-muted-foreground" data-testid="previous-report-evidence-warning">上一轮有 {previous.evidenceWarnings.length} 批证据包含未通过校验的内容，已排除无效部分。历史内容的证据覆盖可能不完整。</p>}
-      {!!previous.qualityWarnings?.length && <p className="text-12 text-muted-foreground">上一轮草稿有 {previous.qualityWarnings.length} 个章节尚未通过质量核验。</p>}
+      {!!previous.qualityWarnings?.length && <p className="text-12 text-muted-foreground">上一轮报告有 {previous.qualityWarnings.length} 个章节尚未通过质量核验。</p>}
       <GuidedResearchReportDocument document={document} provisional={!previous.report} historical idPrefix="previous-" />
-      {!!document.unresolvedReferences && <p className="text-12 text-muted-foreground">{document.unresolvedReferences} 处历史草稿引用待核对。</p>}
+      {!!document.unresolvedReferences && <p className="text-12 text-muted-foreground">{document.unresolvedReferences} 处历史报告引用待核对。</p>}
     </div>
   </details>;
 }

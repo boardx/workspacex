@@ -11,12 +11,18 @@ importers:
 
   .:
     devDependencies:
+      '@pdf-lib/fontkit':
+        specifier: ^1.1.1
+        version: 1.1.1
       '@repo/coord-protocol':
         specifier: workspace:*
         version: link:packages/coord-protocol
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.1
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       tsx:
         specifier: ^4.19.0
         version: 4.23.1
@@ -461,6 +467,9 @@ importers:
       docx:
         specifier: ^9.7.1
         version: 9.7.1
+      echarts:
+        specifier: 5.6.0
+        version: 5.6.0
       fabric:
         specifier: 7.4.0
         version: 7.4.0

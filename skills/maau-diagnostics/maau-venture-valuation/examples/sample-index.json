@@ -1,0 +1,69 @@
+{
+  "maau": {
+    "name": "上会材料智能审阅助手",
+    "summary": "AI 先读全量上会资料并交叉验证外部信息，输出结构化汇总与缺失清单，投资经理在此基础上做判断与追问。",
+    "archetype": "Service as Software",
+    "stage": "Prototype",
+    "domain": "Finance",
+    "labelsEvidence": {
+      "archetype": { "quote": "AI 先行、人后审核的协作模式；不替代投决判断本身" },
+      "stage": { "quote": "核心链路可在现有工具能力下跑通；嵌入对象的解析覆盖率需实测验证（推断）" },
+      "domain": { "quote": "集团投资平台投资经理，负责商会并购项目的风险分析与上会材料审阅" }
+    },
+    "date": "2026-09-18"
+  },
+  "canvas": {
+    "intent": "目标：将上会材料的阅读、归纳、缺失识别与外部对标从人工串行作业变为 AI 先行、人后审核的协作模式。价值：节约投资经理在基础整理与信息搜集上的时间。指标：单项目资料审阅耗时较当前基线缩短 ≥40%；AI 输出的缺失项/风险点中经人工确认有效的比例 ≥70%；10 个项目后同类行业/阶段的分析模板复用率 ≥60%。",
+    "user": "用户：集团投资平台投资经理。需求：快速建立对陌生标的的基础认知，识别材料缺失与矛盾点。痛点：阅读多格式材料耗时长；可比数据与行业研报搜索效率低；不同项目组提供的底层数据详尽程度不一；看材料过程中容易忘记还要查什么。",
+    "humanAgent": "资料审阅 Agent：读取全量上会材料，生成结构化汇总提纲；对照上会标准模板逐项检查材料完整性，输出缺失项清单；检索公开渠道的行业数据、可比公司、交易倍数并交叉验证；识别财务数据异常与逻辑矛盾。投资经理（人）：上传资料、补充业务背景、确认 AI 提出的缺失项是否真实缺失。",
+    "workflow": "自动：投资经理将全量上会资料上传至指定文件夹。自动：Agent 逐文件读取所有格式，提取结构化文本。自动：Agent 生成项目背景摘要与资料汇总提纲。自动：Agent 对照上会标准模板逐项比对，输出材料缺失项清单。自动：Agent 检索公开行业数据、可比公司、交易倍数，标注来源。自动：Agent 交叉验证内外部信息，标记矛盾点与财务异常。",
+    "context": "知识库：集团上会材料标准模板与检查清单。知识库：历史项目分析报告与风险案例库（推断）。数据源：项目组上传的全量上会资料包。数据源：公开资讯平台、上市公司年报、第三方行业研报。工具：多格式文档解析；联网检索与摘要。",
+    "validation": "能执行：核心链路可在现有工具能力下跑通；嵌入对象的解析覆盖率需实测验证（推断）。有价值：效率提升可通过单项目审阅耗时对比衡量；每项目复盘时记录（推断）。能进化：每次人工反馈沉淀为检查清单更新与 Prompt 优化；10 个项目后按行业/阶段分类形成可复用分析模板（推断）。边界声明：本 MAAU 不替代投决判断。"
+  },
+  "assets": [
+    { "name": "资料审阅 Agent", "type": "Agent", "E": 1, "R": 1, "I": 1, "V": 0.5, "evidence": { "region": "humanAgent", "quote": "资料审阅 Agent：读取全量上会材料，生成结构化汇总提纲" } },
+    { "name": "多格式读取与提取 Workflow", "type": "Workflow", "E": 1, "R": 1, "I": 0.5, "V": 0.5, "evidence": { "region": "workflow", "quote": "Agent 逐文件读取所有格式，提取结构化文本" } },
+    { "name": "模板比对与缺失项清单 Workflow", "type": "Workflow", "E": 1, "R": 1, "I": 1, "V": 1, "evidence": { "region": "workflow", "quote": "对照上会标准模板逐项比对，输出材料缺失项清单" } },
+    { "name": "外部检索与交叉验证 Workflow", "type": "Workflow", "E": 1, "R": 1, "I": 0.5, "V": 0.5, "evidence": { "region": "workflow", "quote": "交叉验证内外部信息，标记矛盾点与财务异常" } },
+    { "name": "上会材料标准模板与检查清单", "type": "Knowledge", "E": 1, "R": 1, "I": 1, "V": 1, "evidence": { "region": "context", "quote": "集团上会材料标准模板与检查清单" } },
+    { "name": "历史项目分析报告与风险案例库", "type": "Knowledge", "E": 0.5, "R": 1, "I": 0.5, "V": 0, "evidence": { "region": "context", "quote": "历史项目分析报告与风险案例库（推断）" } },
+    { "name": "人工确认缺失项 Eval", "type": "Eval", "E": 1, "R": 1, "I": 0.5, "V": 1, "evidence": { "region": "intent", "quote": "AI 输出的缺失项/风险点中经人工确认有效的比例 ≥70%" } },
+    { "name": "行业/阶段分析模板 Pattern", "type": "Pattern", "E": 0.5, "R": 1, "I": 0.5, "V": 0.5, "evidence": { "region": "validation", "quote": "10 个项目后按行业/阶段分类形成可复用分析模板" } }
+  ],
+  "loops": {
+    "L1": { "score": 0.5, "evidence": { "region": "validation", "quote": "每次人工反馈沉淀为检查清单更新与 Prompt 优化（推断）" } },
+    "L2": { "score": 1, "evidence": { "region": "validation", "quote": "沉淀为检查清单更新" } },
+    "L3": { "score": 0.5, "evidence": { "region": "workflow", "quote": "生成项目背景摘要……作为后续检索的上下文锚点（未写明跨项目写回）" } },
+    "L4": { "score": 0.5, "evidence": { "region": "validation", "quote": "10 个项目后按行业/阶段分类形成可复用分析模板（推断）" } },
+    "L5": { "score": 1, "evidence": { "region": "humanAgent", "quote": "投资经理（人）：确认 AI 提出的缺失项是否真实缺失" } }
+  },
+  "dissipation": {
+    "H": { "score": 0.4, "evidence": { "region": "validation", "quote": "本 MAAU 不替代投决判断；特殊项目需人工调整分析框架" } },
+    "D": { "score": 0.5, "evidence": { "region": "context", "quote": "不同项目组提供的底层数据详尽程度不一" } },
+    "K": { "score": 0.5, "evidence": { "region": "context", "quote": "上会材料标准模板与检查清单（未写明版本与刷新机制）" } },
+    "B": { "score": 0.3, "evidence": { "region": "validation", "quote": "嵌入对象的解析覆盖率需实测验证（推断）" } },
+    "F": { "score": 0.3, "evidence": { "region": "validation", "quote": "每次人工反馈沉淀为检查清单更新与 Prompt 优化（推断）" } }
+  },
+  "engine": {
+    "lambda": { "score": 0.5, "evidence": { "region": "validation", "quote": "人工反馈沉淀为检查清单更新与 Prompt 优化（推断）——沉淀有意图、无机制" } },
+    "rho": { "score": 0.6, "evidence": { "region": "workflow", "quote": "对照上会标准模板逐项比对（模板默认被每个项目调用）" } },
+    "C": { "score": 0.7, "evidence": { "region": "context", "quote": "多格式文档解析；联网检索与摘要；两个知识库、两类数据源" } },
+    "H": { "score": 0.7, "evidence": { "region": "humanAgent", "quote": "投资经理确认缺失项是否真实缺失；专家参与有边界、有反馈" } }
+  },
+  "evidence": [
+    { "id": "ev-1", "type": "observed", "level": "E1", "region": "user", "statement": "痛点：阅读多格式材料耗时长；可比数据与行业研报搜索效率低；不同项目组提供的底层数据详尽程度不一" },
+    { "id": "ev-2", "type": "target", "region": "intent", "statement": "单项目资料审阅耗时较当前基线缩短 ≥40%" },
+    { "id": "ev-3", "type": "target", "region": "intent", "statement": "AI 输出的缺失项/风险点中经人工确认有效的比例 ≥70%" },
+    { "id": "ev-4", "type": "planned", "level": "E2", "horizon": "90d", "region": "validation", "statement": "核心链路可在现有工具能力下跑通；嵌入对象的解析覆盖率需实测验证" },
+    { "id": "ev-5", "type": "planned", "level": "E4", "horizon": "12m", "region": "validation", "statement": "每项目复盘时记录审阅耗时对比与有效风险点占比" },
+    { "id": "ev-6", "type": "planned", "level": "E6", "horizon": "12m", "region": "validation", "statement": "10 个项目后按行业/阶段分类形成可复用分析模板，由投资团队维护" },
+    { "id": "ev-7", "type": "assumption", "region": "context", "statement": "历史项目分析报告与风险案例库可用于模式匹配（推断）" }
+  ],
+  "benchmark": {
+    "benchmarkDate": "2026-09-18",
+    "comparables": [
+      { "name": "示例 Comparable A（AI 尽调审阅工具）", "archetype": "Service as Software", "stage": "Validation", "domain": "Finance", "similarities": "同为投资尽调材料的 AI 审阅；人后审核", "differences": "面向外部客户售卖，本 MAAU 为集团内部", "valueUsd": null, "source": "示例：未公开", "sourceDate": null, "evidenceGrade": "D" },
+      { "name": "示例 Comparable B（文档合规审查 SaaS）", "archetype": "AI SaaS", "stage": "Revenue", "domain": "Legal", "similarities": "多格式文档解析 + 检查清单比对", "differences": "领域为法务合规", "valueUsd": null, "source": "示例：未公开", "sourceDate": null, "evidenceGrade": "D" }
+    ]
+  }
+}

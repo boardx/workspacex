@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const DEFAULT_RESEARCH_NAME = "未命名研究";
+
 export interface GuidedResearchCreateDraft {
   readonly title: string;
   readonly tags: readonly string[];
@@ -22,12 +24,12 @@ export function CreateGuidedResearchDialog({
   onOpenChange: (open: boolean) => void;
   onContinue: (draft: GuidedResearchCreateDraft) => void;
 }) {
-  const [title, setTitle] = React.useState("");
+  const [title, setTitle] = React.useState(DEFAULT_RESEARCH_NAME);
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
 
   function reset() {
-    setTitle("");
+    setTitle(DEFAULT_RESEARCH_NAME);
     setTags([]);
     setTagDraft("");
   }

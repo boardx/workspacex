@@ -1,0 +1,101 @@
+{
+  "api": "http://127.0.0.1:3201",
+  "at": "2026-09-21T17:24:22.204Z",
+  "transient5xx": 0,
+  "runs": [
+    {
+      "category": "canvas",
+      "text": "生成一个用户画像：AI 转型时代的传媒大学教授",
+      "threadId": "thr-18f95d81-c518-4f4b-966f-e3a2f1021d78",
+      "runId": "1b58c9c0-05a1-40ad-b3a8-369d7219c4db",
+      "status": "succeeded",
+      "wallMs": 87421,
+      "firstChunkMs": 21850,
+      "chunks": 675,
+      "chunksPerSec": 11,
+      "lastEventMs": 84664,
+      "systemPromptChars": 4227,
+      "tools": [],
+      "outputChars": 1407,
+      "canvasFence": true,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "生成一个高等教育创新者的画像",
+      "threadId": "thr-e8136fff-121e-4d72-8bc6-fa16bd87f663",
+      "runId": "bd8a0202-9264-4ec7-ab4d-e870476944ba",
+      "status": "succeeded",
+      "wallMs": 51373,
+      "firstChunkMs": 6028,
+      "chunks": 518,
+      "chunksPerSec": 12.6,
+      "lastEventMs": 48643,
+      "systemPromptChars": 4227,
+      "tools": [],
+      "outputChars": 1035,
+      "canvasFence": true,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为一家社区咖啡店做一张 SWOT 画布",
+      "threadId": "thr-d25b4333-ebfa-4caa-ae22-9a3764010d6d",
+      "runId": "f6faa7b4-f207-4a9f-9611-4949afa7e527",
+      "status": "succeeded",
+      "wallMs": 66051,
+      "firstChunkMs": 22305,
+      "chunks": 446,
+      "chunksPerSec": 11.7,
+      "lastEventMs": 62116,
+      "systemPromptChars": 4141,
+      "tools": [],
+      "outputChars": 866,
+      "canvasFence": true,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为一款面向高校的 AI 助教产品做商业模式画布",
+      "threadId": "thr-d8c46e80-45f1-4bbc-bd1a-810e6f83b674",
+      "runId": "1721d5a2-c01b-4405-b2ef-23c5b1723a51",
+      "status": "succeeded",
+      "wallMs": 148979,
+      "firstChunkMs": 58,
+      "chunks": 185,
+      "chunksPerSec": 2.4,
+      "lastEventMs": 113341,
+      "systemPromptChars": 4221,
+      "tools": [
+        "write_todos",
+        "web_search"
+      ],
+      "outputChars": 344,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "canvas",
+      "text": "为大学生求职者做一张 JTBD 画布",
+      "threadId": "thr-be7699d5-694e-4286-9e49-9a918b96feca",
+      "runId": "725bb74c-135b-474a-8fce-b3cc3d9d3005",
+      "status": "succeeded",
+      "wallMs": 74441,
+      "firstChunkMs": 23175,
+      "chunks": 509,
+      "chunksPerSec": 10.8,
+      "lastEventMs": 71831,
+      "systemPromptChars": 4206,
+      "tools": [],
+      "outputChars": 959,
+      "canvasFence": true,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [],
+    "feedback": [],
+    "title": []
+  },
+  "summary": "| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|\n| canvas | 5 | 5 | 74 | 21.9 | 11 | 4221 | 1 | 4 |"
+}

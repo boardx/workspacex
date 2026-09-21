@@ -7,15 +7,17 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
 import { createDigitalInterviewDraft } from "@/lib/interview-api";
 
+const DEFAULT_INTERVIEW_NAME = "未命名访谈";
+
 export function DigitalInterviewCreate() {
   const { push } = useRouter();
-  const [name, setName] = React.useState("");
+  const [name, setName] = React.useState(DEFAULT_INTERVIEW_NAME);
   const [tags, setTags] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const requestId = React.useRef(crypto.randomUUID());
   const parsedTags = tags.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean);
-  const valid = name.trim().length > 0 && parsedTags.length > 0;
+  const valid = name.trim().length > 0;
 
   async function submit() {
     if (!valid || busy) return;

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import type { DigitalInterviewStep, DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import type { MockDigitalInterviewDraft, MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
 
+import { InterviewSkillContent, parseSkillPatch } from "./interview-skill-content";
+
 const QUICK_PROMPTS = ["优化访谈主题", "推荐专家", "补充针对性问题", "检查诱导性", "优化报告结构"];
 
 export function InterviewSkillAssistant({ draft, onSend, onApply, onUndo }: {
@@ -51,12 +53,14 @@ function suggestionFor(text: string, draft: MockDigitalInterviewDraft): MockSkil
 export function PersistentInterviewSkillAssistant({
   view,
   currentStep,
+  currentExpertIds,
   onSend,
   onApply,
   onReject,
 }: {
   readonly view: DigitalInterviewWorkflowView;
   readonly currentStep: DigitalInterviewStep;
+  readonly currentExpertIds?: readonly string[];
   readonly onSend: (text: string) => Promise<boolean>;
   readonly onApply: (proposalId: string) => Promise<boolean>;
   readonly onReject: (proposalId: string) => Promise<boolean>;
@@ -80,9 +84,13 @@ export function PersistentInterviewSkillAssistant({
       <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" aria-hidden /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">消息与建议即时保存；应用建议仍需在当前步骤明确确认。</p>
       <div className="mt-5 min-h-40 flex-1 space-y-3 overflow-y-auto">
-        {view.skillMessages.map((message) => <div key={message.messageId} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.text}</div>)}
+        {view.skillMessages.map((message) => <div key={message.messageId} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.role === "assistant" && parseSkillPatch(message.text)
+          ? <InterviewSkillContent patch={view.skillProposals.find((proposal) => proposal.sourceMessageId === message.messageId)?.patch ?? parseSkillPatch(message.text)!} view={view} />
+          : message.text}</div>)}
         {view.skillProposals.map((proposal) => <div data-testid={`itv-skill-proposal-${proposal.proposalId}`} key={proposal.proposalId} className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-5">
-          <strong>Skill 建议</strong><p className="mt-1">{proposalText(proposal.patch)}</p>
+          <strong>Skill 建议</strong><InterviewSkillContent patch={proposal.patch} view={view}
+            compareExpertIds={proposal.status === "proposed" && proposal.baseRevisionId === view.revisionId
+              ? currentExpertIds ?? (view.selectedExpertIds.length ? view.selectedExpertIds : view.expertCandidates.map((expert) => expert.expertId)) : undefined} />
           {proposal.status === "proposed" && proposal.targetStep === currentStep && <div className="mt-3 flex gap-2"><Button data-testid="itv-skill-apply" type="button" variant="primary" size="sm" onClick={() => void onApply(proposal.proposalId)}>应用建议</Button><Button data-testid="itv-skill-reject" type="button" variant="outline" size="sm" onClick={() => void onReject(proposal.proposalId)}>拒绝</Button></div>}
           {proposal.status === "proposed" && proposal.targetStep !== currentStep && <p className="mt-2 text-muted-foreground">切换到对应步骤后可应用或拒绝。</p>}
           {proposal.status === "applied_to_draft" && <p className="mt-2 font-medium text-primary">已应用到本地草稿，待确认。</p>}
@@ -95,11 +103,4 @@ export function PersistentInterviewSkillAssistant({
       <p className="mt-3 text-[10px] text-muted-foreground">持久 Skill 线程 · 建议不会自动确认业务数据</p>
     </div>
   </aside>;
-}
-
-function proposalText(patch: Record<string, unknown>): string {
-  if (typeof patch.topic === "string") return patch.topic;
-  if (Array.isArray(patch.expertIds)) return "建议调整访谈专家。";
-  if (Array.isArray(patch.questions)) return "建议调整针对性问题。";
-  return "建议更新当前步骤草稿。";
 }

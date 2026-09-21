@@ -226,6 +226,7 @@ export class GuidedRuntimeService {
       if (hit.decision === "excluded") continue;
       const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
       if (existing) {
+        if (hit.presentation) existing.presentation = hit.presentation;
         existing.taskIds = [...new Set([...sourceTaskIds(existing), task.id])];
         // reviewSources validated old associations before this search; the new
         // association was independently checked against the same stored excerpt.
@@ -420,7 +421,11 @@ export class GuidedRuntimeService {
       if (command.draft) applyDraft(state, command.draft);
       await this.generate(state, node, persist, command.message, action === "retry"); return;
     }
-    if ((action === "start" || action === "retry") && node === "research") { await this.executeSearch(state, persist); return; }
+    if ((action === "start" || action === "retry") && node === "research") {
+      // Explicit refresh retries missing reading metadata without resetting successful searches.
+      if (action === "start") for (const source of state.sources) if (!source.presentation && !source.addedByUser && source.decision !== "excluded") delete source.relevanceBasis;
+      await this.executeSearch(state, persist); return;
+    }
     if (action === "confirm" || action === "complete") {
       if (node !== state.currentNode && !command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
       if (command.draft) applyDraft(state, command.draft);

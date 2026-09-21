@@ -8,11 +8,11 @@ import { executeResearchRuntime, getResearchRuntime } from "@/lib/guided-researc
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
 const source = runtimeFixture("research").sources[0]!;
 describe("compact research sources", () => {
-  it("distinguishes screened results, legacy sources awaiting review, and user additions", () => {
+  it("shows sources without technical screening badges", () => {
     render(<GuidedResearchSources sources={[source, { ...source, id: "screened", relevanceBasis: "a".repeat(64) }, { ...source, id: "manual", addedByUser: true }]} disabled={false} onAdd={vi.fn()} onRemove={vi.fn()} />);
-    expect(screen.getByText("待复核")).toBeInTheDocument();
-    expect(screen.getByText("已筛选")).toBeInTheDocument();
-    expect(screen.getByText("手动添加")).toBeInTheDocument();
+    expect(screen.queryByText("待复核")).not.toBeInTheDocument();
+    expect(screen.queryByText("已筛选")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(3);
   });
   it("includes pending sources, hides removed ones, and exposes complete descriptions on hover/focus/touch", () => {
     const content = "完整描述。".repeat(1000);

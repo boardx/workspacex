@@ -108,6 +108,50 @@ export type PlatformMembersError = z.infer<typeof PlatformMembersError>;
 
 export const operations = {
   /**
+   * getPlatformAccess —— 「我有没有平台运营准入」的**自查**路由（permissions-review delta，
+   * 2026-09-20 人类要求：「只有平台管理员可以看到平台管理菜单」）。
+   *
+   * ## 为什么需要一条新路由，而不是拿 403 当答案
+   *
+   * 本束其余路由的授权形状是「不够格就 403」。界面要决定**画不画平台后台那个菜单入口**，
+   * 只能靠「先打一条注定 403 的请求、看它红不红」——那是把错误当信号：每个普通用户每次
+   * 进壳层都会在服务端留下一条 403，运维看不出哪条是真异常。这条路由把同一个判定做成
+   * **正常的 200 布尔**：全体登录者可调，答案就是三个布尔。
+   *
+   * ## 判定与 `PlatformOperatorGuard` 逐字同源
+   *
+   * `platformOperator` 不是第三个身份，它就是 `isPlatformOperator(superuser, admin)`
+   * ——同一个域函数（`domain/system/platform-admin.ts`），由 controller 复用
+   * `isRequestorPlatformOperator` 求值，不新写一套判法。前端因此不需要自己拼
+   * 「超管 || 管理员」：那会是同一事实的第二份声明（AGENTS.md 已踩五次）。
+   *
+   * ⚠ **这是展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。菜单藏起来之后
+   *   `/platform-admin/*` 仍然可以直接敲 URL 进，那些屏本来就各自被服务端 403 挡住并
+   *   渲染成「仅平台运维可见」的说明——菜单可见性只决定「会不会被引导过去」。
+   */
+  getPlatformAccess: {
+    method: "GET",
+    path: "/platform/access",
+    in: z.object({}).strict(),
+    out: z
+      .object({
+        /** 只读回显：邮箱在 `PLATFORM_SUPERUSER_EMAILS` 白名单里。 */
+        platformSuperuser: z.boolean(),
+        /** 落库的平台管理员（`platform_admins`）。 */
+        platformAdmin: z.boolean(),
+        /** = `isPlatformOperator(platformSuperuser, platformAdmin)`，见文件头与本操作注释。 */
+        platformOperator: z.boolean(),
+      })
+      .strict(),
+    /**
+     * 空数组是**故意**的：任何登录者都能问「我够不够格」，不够格的答案是
+     * `platformOperator: false` 的 200，不是 403。未登录由 `PrincipalGuard` 统一 401，
+     * 那不是本束的业务失败模式。
+     */
+    err: [] as const,
+  },
+
+  /**
    * 平台超管专用：全平台账号名册，按注册时间正序。
    *
    * ⚠ 不分页：这是一份运维名册，不是一条持续增长的事件流（对比 `listSystemErrorLogs`

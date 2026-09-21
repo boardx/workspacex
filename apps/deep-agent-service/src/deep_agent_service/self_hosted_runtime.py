@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 from contextlib import AsyncExitStack
@@ -64,6 +65,7 @@ class Ledger(Protocol):
     async def append_events(self, run_id: str, items: list[tuple[str, Any]]) -> None: ...
     async def events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]: ...
     async def mark_orphaned(self) -> None: ...
+    async def prune_events(self) -> int: ...
 
 
 class PostgresLedger:
@@ -186,6 +188,38 @@ class PostgresLedger:
         return await self._call(lambda: self._hot_call(lambda connection: list(connection.execute(
             "SELECT sequence,event,data FROM wsx_agent_events WHERE run_id=%s AND sequence>%s ORDER BY sequence", (run_id, after)).fetchall())))
 
+    async def prune_events(self) -> int:
+        """Drop the streamed token chunks of runs that finished long ago.
+
+        Every chunk is a row carrying a ~900-byte `AIMessageChunk` JSON to persist one token;
+        one night of local testing left 38 557 rows / 47 MB in `wsx_agent_events`
+        (2026-09-22). They exist to replay an SSE stream to a client that reconnects — once a
+        run is terminal and older than the retention window, nobody can still be attached, and
+        the run's final state lives in the API's own tables and in the LangGraph checkpoint.
+
+        `values` / `updates` / `metadata` events are KEPT: they are the run's audit trail and
+        are few. Only `messages` (the per-token chunks) are pruned. Retention comes from
+        `DEEP_AGENT_EVENT_RETENTION_HOURS` (default 24; `0` disables pruning entirely).
+        """
+        hours = float(os.environ.get("DEEP_AGENT_EVENT_RETENTION_HOURS", "24"))
+        if hours <= 0:
+            return 0
+
+        def operation():
+            with self._connect() as connection:
+                row = connection.execute(
+                    """DELETE FROM wsx_agent_events e
+                        USING wsx_agent_runs r
+                        WHERE e.run_id = r.run_id
+                          AND e.event = 'messages'
+                          AND r.status IN ('success','error','cancelled')
+                          AND r.updated_at < now() - make_interval(hours => %s)
+                        RETURNING 1""",
+                    (int(hours),),
+                ).fetchall()
+                return len(row)
+        return await self._call(operation)
+
     async def mark_orphaned(self) -> None:
         def operation():
             with self._connect() as connection:
@@ -262,6 +296,15 @@ class Runtime:
     async def start(self) -> None:
         await self.ledger.prepare()
         await self.ledger.mark_orphaned()
+        # Bounded growth for a long-lived single-machine install: one night of testing put
+        # 47 MB of per-token chunks in the ledger (#3749 R4). Never fatal — a database that
+        # will not prune is still a database that serves.
+        try:
+            pruned = await self.ledger.prune_events()
+            if pruned:
+                logging.getLogger(__name__).info("pruned %d replayed stream chunks from the event ledger", pruned)
+        except Exception:
+            logging.getLogger(__name__).warning("event ledger prune skipped", exc_info=True)
 
     async def stop(self) -> None:
         tasks = list(self.tasks.values())

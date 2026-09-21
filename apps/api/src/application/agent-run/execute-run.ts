@@ -54,10 +54,9 @@ import type {
   PinnedSkillContent, RunFailureCode, RunFailureReason, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
-import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
+import { DEEP_AGENT_PROVIDER_NAME, ModelCallError } from "./ports";
 import { classifyModelCallFailureReason } from "../../domain/agent-run/model-call-failure-reason";
 import { withRunHeartbeat } from "./run-heartbeat";
-import type { ModelCallImage } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
 } from "./file-retrieval";
@@ -76,9 +75,8 @@ import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
-import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
-import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
-import type { VisionInputStatus } from "./context-snapshot";
+import type { RunImagePort } from "./run-image-input";
+import { gatherVisionImages } from "./gather-vision-images";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
@@ -179,116 +177,6 @@ export function trimHistoryToBudget(
  *   保证总量不超预算，且**近几轮优先**（摘要挤不下时缩的是更旧的保留轮，不是最近的）。
  * - 摘要只是 `role/content` 伪消息，`ModelCallInput` 与 `ModelCallPort` 形状不变。
  */
-/**
- * P2（#1561）—— 本轮图像输入的全部决策，一处做完：**送不送、送几张、没送的怎么如实交代**。
- *
- * ## 这个函数的存在理由，就是不要复刻 #1558
- *
- * #1558 里用户上传了一张有内容的 PNG、看到了附件卡片、合理预期模型能看到，问了才发现
- * 看不到——「产品允许传图，却在任何地方都没告诉用户『图我看不了』」。所以这里**每一条
- * 不送的路径都必须留下一句模型能读到的话**，没有任何一条分支是"悄悄地什么都不做"。
- *
- * ## 分支与它们对应的快照态（唯一事实源在 `VisionInputStatus` 的文档）
- *
- *   本轮没挂图                        → `none`，不加任何文本（保持既有 run 逐字节不变）。
- *   挂了图但没接 `deps.runImages`      → `not_configured`，也不额外加文本：F153 的附件提示
- *                                       已经如实说过「这个附件读不到内容」。
- *   挂了图但模型没有视觉能力           → `not_supported` + 明确告知（#1561 交付契约第 4 条）。
- *   有能力、但取字节这一步没成         → `degraded` + 明确告知（"这次没取到"，不是"本来没图"）。
- *   送成了至少一张                     → `ok`；被上界挡下的那几张逐条写清原因（不静默截断）。
- */
-async function gatherVisionImages(
-  deps: ExecuteAgentRunDeps,
-  orgId: OrgId,
-  run: ClaimedAgentRun,
-): Promise<{
-  readonly images: readonly ModelCallImage[];
-  readonly notice: string | null;
-  readonly status: VisionInputStatus;
-  readonly omittedCount: number;
-}> {
-  const attachedImageCount = run.inputAttachments.filter((a) => isModelCallImageMime(a.mime)).length;
-  const nothing = { images: [] as readonly ModelCallImage[], notice: null } as const;
-  if (attachedImageCount === 0) return { ...nothing, status: "none", omittedCount: 0 };
-  if (!deps.runImages) {
-    return { ...nothing, status: "not_configured", omittedCount: attachedImageCount };
-  }
-
-  const degraded = (reason: string, status: VisionInputStatus) => ({
-    ...nothing,
-    status,
-    omittedCount: attachedImageCount,
-    notice: renderVisionNotice(0, [], { imageCount: attachedImageCount, reason } satisfies VisionDegradation),
-  });
-
-  // 能力查询缺席 ⇒ false（fail closed），理由逐字见 `ModelCallPort.supportsVision` 的文档。
-  const canSee = deps.model.supportsVision?.(run.modelProvider, run.modelId) ?? false;
-  if (!canSee) {
-    // ⚠ 这条分支就是 #1561 交付契约第 4 条：诚实降级，绝不静默丢弃。图**没有**被送出去，
-    // 而模型被明确告知它这轮看不到图——用户问起时它答得出真话，不会假装看过。
-    return degraded(
-      `本次运行绑定的模型（${run.modelProvider} / ${run.modelId}）不具备视觉输入能力`,
-      "not_supported",
-    );
-  }
-
-  let refs;
-  try {
-    refs = await deps.runImages.list(orgId, {
-      threadId: run.threadId,
-      messageId: run.inputMessageId,
-      actorUserId: run.requesterUserId,
-    });
-  } catch (e) {
-    deps.log("agent run vision image listing failed, continuing without images", {
-      runId: run.runId, detail: e instanceof Error ? e.message : "unexpected vision list failure",
-    });
-    return degraded("读取这些图片时出错（本轮未能取到图像内容）", "degraded");
-  }
-
-  const { accepted, omitted } = selectImagesWithinBounds(refs);
-  const images: ModelCallImage[] = [];
-  const allOmitted: OmittedRunImage[] = [...omitted];
-  for (const ref of accepted) {
-    let bytes: Uint8Array | null;
-    try {
-      bytes = await deps.runImages.read(orgId, {
-        threadId: run.threadId,
-        messageId: run.inputMessageId,
-        actorUserId: run.requesterUserId,
-      }, ref.attachmentId);
-    } catch (e) {
-      deps.log("agent run vision image read failed", {
-        runId: run.runId, detail: e instanceof Error ? e.message : "unexpected vision read failure",
-      });
-      allOmitted.push({ filename: ref.filename, reason: "读取图像字节时出错" });
-      continue;
-    }
-    if (bytes === null) {
-      // 元数据在、字节没了——一个确定的「这张取不到」，与上面的抛错在日志里分得开。
-      allOmitted.push({ filename: ref.filename, reason: "图像内容在存储中不存在" });
-      continue;
-    }
-    if (!isModelCallImageMime(ref.mime)) continue; // `selectImagesWithinBounds` 已挡；类型收窄用。
-    images.push({ filename: ref.filename, mime: ref.mime, bytes });
-  }
-
-  if (images.length === 0) {
-    // 有能力、也确实有图，但一张都没送成。这不是 `ok` 的零张——如实记 `degraded`。
-    const detail = allOmitted.length > 0
-      ? `这些图都未能送入模型（${allOmitted.map((o) => `${o.filename}：${o.reason}`).join("；")}）`
-      : "本轮未能取到任何图像内容";
-    return degraded(detail, "degraded");
-  }
-  return {
-    images,
-    notice: renderVisionNotice(images.length, allOmitted, null),
-    status: "ok",
-    // 「用户传了几张 vs 模型看到了几张」的差额——审计链上 #1561 要求快照必须能回答的那件事。
-    omittedCount: Math.max(0, attachedImageCount - images.length),
-  };
-}
-
 export async function assembleHistory(
   recent: readonly ThreadHistoryMessage[],
   maxChars: number,
@@ -614,6 +502,8 @@ async function executeClaimed(
   run: ClaimedAgentRun,
 ): Promise<void> {
   let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
+  // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
+  let excludedTools: readonly string[] | undefined;
   // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
   // this mirrors an already-true fact (I-3 decoupling).
   publishStatusChange(deps, orgId, run.runId, "running");
@@ -711,7 +601,19 @@ async function executeClaimed(
     const catalogSkills = systemPromptMode !== "deep-agent-catalog" ? skills
       : canvasRequested && catalogCfg.mode === "matched" ? []
       : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
-    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 ? buildSkillCatalogHint(skills.length) : null;
+    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 && !canvasRequested ? buildSkillCatalogHint(skills.length) : null;
+    /**
+     * #3749 R2 —— 一张工作坊画布是靠写 ```canvas 围栏产出的，没有任何 skill 能代劳。
+     * 把 skill 工具留在桌面上，4B 会：臆造一个 skill 名 → 报「未知技能」→ 调
+     * `list_org_skills` 查目录 → 把画布委托给 `diagram-and-canvas`，后者回一张 markdown
+     * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
+     * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
+     */
+    // `"*"` = 本轮一个工具都不挂：一张工作坊画布是写 ```canvas 围栏写出来的，没有任何工具
+    // 参与其中。实测（2026-09-22）画布请求的提示里工具 schema 仍占约 2 200 token（`write_todos`
+    // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
+    // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
+    excludedTools = canvasRequested ? ["*"] : undefined;
     system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
@@ -1180,6 +1082,7 @@ async function executeClaimed(
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
+        ...(excludedTools === undefined ? {} : { excludedTools }),
         // deep-agent 专属字段（`hitlSkillNames` #2767 / `planConfirmMinSteps` #3132）的
         // 判定住在 `deep-agent-kernel-fields.ts`，网关只负责摊开——同 `invokeKernel`。
         ...buildDeepAgentKernelFields({ isDeepAgentRun, mountedSkillCount: toolSkills.length, skillRisks }),
@@ -1374,6 +1277,7 @@ async function executeClaimed(
             user: feedback,
             history: [...history, { role: "assistant", content: text }],
             skills: toolSkills,
+            ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
           /*

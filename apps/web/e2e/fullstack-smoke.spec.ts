@@ -93,8 +93,15 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   const currentOrgOption = page.getByTestId(`org-switcher-option-${FULLSTACK_E2E.orgId}`);
   await expect(currentOrgOption).toHaveText(`org ${FULLSTACK_E2E.orgId}`);
   await expect(currentOrgOption).toHaveAttribute("aria-checked", "true");
-  // 组织管理入口也在这同一个左上角菜单里（org-admin-entry → /org-admin）。
-  await expect(page.getByTestId("org-admin-entry")).toHaveAttribute("href", "/org-admin");
+  // 2026-09-20 权限 review（人类要求：「组织管理员才可以看到组织管理后台」）：
+  // 这一位种子账号是 **consultant**（见 `fullstack-smoke-fixture.ts` 的长注，刻意不升权），
+  // 所以左上角菜单里**不该**有「组织管理」项——这是那条可见性判据在真栈上的反证。
+  // 组织管理员那一面（入口存在、指向 /org-admin）在 `org-admin-keyboard-navigation.spec.ts`
+  // 里用 admin 账号验，两面各有落点，不靠同一个账号两说。
+  await expect(page.getByTestId("org-admin-entry")).toHaveCount(0);
+  // 治理两个一级入口同理：consultant 既不是组织 admin 也不是平台运维，两个都不画。
+  await expect(page.getByTestId("rail-admin")).toHaveCount(0);
+  await expect(page.getByTestId("rail-platform-admin")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("org-menu")).toHaveCount(0);
   // 退出已从顶栏挪进左下角个人菜单（2026-08-09 信息架构调整）——先展开菜单再断言。
