@@ -5,7 +5,7 @@ import type { survey } from '@repo/contracts';
 import { SurveyReportDocument } from '@/components/survey/report/report-document';
 import { printSurveyReport, buildSurveyReportWord } from '@/components/survey/report/report-export';
 const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
-const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']}]}]};
+const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
 describe('survey report document',()=>{
  it('renders captions exactly once on every content type and retains them in print',async()=>{
   const types: survey.CompiledSurveyBlock['type'][]=['text','metric','table','bar','radar','line','gap','image','page-break'];
@@ -36,6 +36,7 @@ describe('survey report document',()=>{
  it('renders every chapter, real chart geometry, gap cells and escaped prose',()=>{
   const {container}=render(<SurveyReportDocument report={report}/>);
   expect(screen.getByRole('heading',{name:'末章'})).toBeTruthy();
+  expect(screen.getByText(/请改善检索体验/)).toBeTruthy();
   expect(container.querySelector('script')).toBeNull();
   expect(screen.getByText('<script>不能执行</script>')).toBeTruthy();
   expect(container.querySelectorAll('svg')).toHaveLength(3);
@@ -60,7 +61,7 @@ describe('survey report document',()=>{
   }
   for(const type of ['text','gap','table']) expect(xml).toContain(`${type} 图注`);
   expect(xml).not.toContain('page-break 图注');
-  expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
+  expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
  });
  it('does not claim image export success when an image cannot be loaded',async()=>{

@@ -58,3 +58,42 @@ export function copySection(
     })),
   };
 }
+
+/** Contract-backed statistics; the editor and template mapping share these capabilities. */
+export const SURVEY_STATISTIC_LABELS: Record<
+  survey.SurveyReportBlock["statistic"],
+  string
+> = {
+  mean: "均值",
+  count: "有效样本数",
+  distribution: "选项数量",
+  percentage: "选择比例（%）",
+  nps: "NPS（推荐者减贬损者）",
+  mean_rank: "平均名次",
+  first_choice: "首选比例（%）",
+  sum: "合计",
+  responses: "回答清单",
+};
+export function reportQuestionSupportsStatistic(
+  question: survey.SurveyWorkflowQuestion,
+  statistic: survey.SurveyReportBlock["statistic"],
+): boolean {
+  return survey.surveyQuestionStatistics(question).includes(statistic);
+}
+export function availableReportStatistics(
+  questions: survey.SurveyWorkflowQuestion[],
+): survey.SurveyReportBlock["statistic"][] {
+  if (!questions.length) return [];
+  return survey
+    .surveyQuestionStatistics(questions[0]!)
+    .filter((statistic) =>
+      questions.every((question) =>
+        reportQuestionSupportsStatistic(question, statistic),
+      ),
+    );
+}
+export function defaultReportStatistic(
+  question: survey.SurveyWorkflowQuestion,
+): survey.SurveyReportBlock["statistic"] | undefined {
+  return survey.surveyQuestionStatistics(question)[0];
+}

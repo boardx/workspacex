@@ -134,7 +134,12 @@ export async function buildSurveyReportWord(
         );
       if (block.caption) paragraph(block.caption);
       if (!["text", "image"].includes(block.type)) {
-        if (!block.rows.length) paragraph("暂无可展示数据");
+        if (block.answerTexts?.length) {
+          for (const answer of block.answerTexts) {
+            paragraph(answer.label);
+            paragraph(answer.value);
+          }
+        } else if (!block.rows.length) paragraph("暂无可展示数据");
         else {
           const values = [
             [

@@ -187,7 +187,7 @@ describe("persisted survey template library", () => {
 });
 
 describe("original built-in templates", () => {
-  it.each([["question",6,"组织画像"],["report",4,"企业数字协作成熟度诊断模板"]] as const)("keeps %s presets visible when personal library is empty",async(kind,count,title)=>{
+  it.each([["question",12,"组织画像"],["report",6,"企业数字协作成熟度诊断模板"]] as const)("keeps %s presets visible when personal library is empty",async(kind,count,title)=>{
     request.mockResolvedValue([]);
     render(<SurveyTemplateLibrary kind={kind}/>);
     expect(await screen.findByText(title)).toBeInTheDocument();

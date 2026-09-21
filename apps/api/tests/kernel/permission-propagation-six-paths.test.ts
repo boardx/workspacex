@@ -1250,7 +1250,13 @@ describe("lint-permission-paths: counter-proof", () => {
     }
     const total = Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1);
     expect(total).toBeGreaterThanOrEqual(boundaryAudit.rules.length);
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(91);
+    // #3760 adds one capability-scoped personal survey attachment repository.
+    // Its real HTTP/PG/object-store negative proofs live in
+    // tests/survey/survey-attachments.test.ts: wrong owner/session/question,
+    // expired/closed publication, claim rollback and claimed-file cleanup safety.
+    // No ACL ObjectRef exists for a survey response. Remove this increment with
+    // the exception if its capability/owner gates or those tests disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(92);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

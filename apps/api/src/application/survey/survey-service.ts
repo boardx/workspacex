@@ -6,6 +6,11 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { survey } from "@repo/contracts";
+import {
+  validateSurveyQuestions,
+  validateSurveyAnswer,
+  visibleSurveyQuestions,
+} from "@repo/contracts/survey-question-types";
 import type {
   SurveyDraftInput,
   SurveyRuntime,
@@ -18,13 +23,26 @@ export interface SurveyRecord {
   model: SurveyRuntime;
   receipts: Record<string, { hash: string; responseId: string }>;
 }
+export interface SurveyAttachmentClaim {
+  publicationVersion: number;
+  submissionId: string;
+  uploadSessionToken?: string;
+  responseId: string;
+  references: { questionId: string; attachmentIds: string[] }[];
+}
+export interface SurveyTransaction {
+  claimAttachments(input: SurveyAttachmentClaim): Promise<void>;
+}
 export interface SurveyRepository {
   list(orgId: OrgId, ownerId: string): Promise<SurveyRuntime[]>;
   create(orgId: OrgId, record: SurveyRecord): Promise<void>;
   transact<T>(
     orgId: OrgId,
     id: string,
-    work: (record: SurveyRecord) => T,
+    work: (
+      record: SurveyRecord,
+      transaction?: SurveyTransaction,
+    ) => T | Promise<T>,
   ): Promise<T>;
   delete(
     orgId: OrgId,
@@ -63,14 +81,23 @@ export class SurveyService {
     model.reportBasisAnswerRevision ??= null;
     return model;
   }
-  private transact<T>(orgId: OrgId, id: string, work: (record: SurveyRecord) => T): Promise<T> {
-    return this.repo.transact(orgId, id, record => {
+  private transact<T>(
+    orgId: OrgId,
+    id: string,
+    work: (
+      record: SurveyRecord,
+      transaction?: SurveyTransaction,
+    ) => T | Promise<T>,
+  ): Promise<T> {
+    return this.repo.transact(orgId, id, (record, transaction) => {
       this.revisions(record.model);
-      return work(record);
+      return work(record, transaction);
     });
   }
   async list(orgId: OrgId, actor: string) {
-    return (await this.repo.list(orgId, actor)).map(model => this.revisions(model));
+    return (await this.repo.list(orgId, actor)).map((model) =>
+      this.revisions(model),
+    );
   }
   async create(orgId: OrgId, actor: string, input: SurveyDraftInput) {
     const model: SurveyRuntime = {
@@ -143,19 +170,10 @@ export class SurveyService {
     return this.change(orgId, actor, id, version, (m) => {
       if (m.publication) throw new SurveyError("closed");
       if (
-        !m.questions.length ||
-        new Set(m.questions.map((q) => q.id)).size !== m.questions.length ||
-        m.questions.some(
-          (q) =>
-            !q.title.trim() ||
-            ((q.type === "single" ||
-              q.type === "multi" ||
-              q.type === "scale") &&
-              (q.options.length < 2 ||
-                new Set(q.options).size !== q.options.length)) ||
-            (q.type === "scale" &&
-              q.options.some((v) => !v.trim() || !Number.isFinite(Number(v)))),
-        )
+        !m.questions.some(
+          (q) => !["description", "page_break"].includes(q.type),
+        ) ||
+        validateSurveyQuestions(m.questions).length
       )
         throw new SurveyError("invalid_survey");
       const end = expiresAt
@@ -188,10 +206,10 @@ export class SurveyService {
     responseId: string,
     quality: "normal" | "review",
   ) {
-    return this.transact(orgId, id, record => {
+    return this.transact(orgId, id, (record) => {
       this.own(record, actor, version);
       const m = record.model;
-      const response = m.responses.find(r => r.id === responseId);
+      const response = m.responses.find((r) => r.id === responseId);
       if (!response) throw new SurveyError("not_found");
       // Quality is answer state, not a template edit. Repeating the same decision
       // is a no-op; simultaneous different decisions use transaction order.
@@ -264,7 +282,7 @@ export class SurveyService {
   }
   submit(token: string, input: SurveySubmissionInput) {
     const [orgId, id] = this.locate(token);
-    return this.transact(orgId, id, (r) => {
+    return this.transact(orgId, id, (r, transaction) => {
       const p = this.publicRecord(r, token);
       const fingerprint = hash(JSON.stringify(input)).toString("hex");
       const receiptKey = hash(input.submissionId).toString("hex");
@@ -291,43 +309,56 @@ export class SurveyService {
         )
       )
         throw new SurveyError("invalid_answers");
-      for (const q of p.questions) {
-        const v = answers.get(q.id);
-        if (v === undefined || v === "" || (Array.isArray(v) && !v.length)) {
-          if (q.required) throw new SurveyError("invalid_answers");
-          continue;
-        }
-        if (q.type === "multi") {
-          if (
-            !Array.isArray(v) ||
-            new Set(v).size !== v.length ||
-            v.some((x) => !q.options.includes(x))
-          )
-            throw new SurveyError("invalid_answers");
-        } else if (
-          typeof v !== "string" ||
-          (q.type === "single" && !q.options.includes(v)) ||
-          (q.type === "scale" &&
-            (!q.options.includes(v) ||
-              !v.trim() ||
-              !Number.isFinite(Number(v))))
-        )
+      const activeQuestions = visibleSurveyQuestions(
+        p.questions,
+        Object.fromEntries(answers),
+      );
+      const activeIds = new Set(
+        activeQuestions
+          .filter((q) => !["description", "page_break"].includes(q.type))
+          .map((q) => q.id),
+      );
+      if (input.answers.some((a) => !activeIds.has(a.questionId)))
+        throw new SurveyError("invalid_answers");
+      for (const q of activeQuestions) {
+        if (validateSurveyAnswer(q, answers.get(q.id)).length)
           throw new SurveyError("invalid_answers");
       }
       const responseId = randomUUID();
-      r.model.responses.push({
-        id: responseId,
-        quality: "normal",
-        submittedAt: this.now().toISOString(),
-        role: input.role,
-        companySize: input.companySize,
-        durationSeconds: input.durationSeconds,
-        answers: input.answers,
-      });
-      r.receipts[receiptKey] = { hash: fingerprint, responseId };
-      r.model.answerRevision++;
-      r.model.updatedAt = this.now().toISOString();
-      return { responseId, replayed: false };
+      const commit = () => {
+        r.model.responses.push({
+          id: responseId,
+          quality: "normal",
+          submittedAt: this.now().toISOString(),
+          role: input.role,
+          companySize: input.companySize,
+          durationSeconds: input.durationSeconds,
+          answers: input.answers,
+        });
+        r.receipts[receiptKey] = { hash: fingerprint, responseId };
+        r.model.answerRevision++;
+        r.model.updatedAt = this.now().toISOString();
+        return { responseId, replayed: false };
+      };
+      const references = activeQuestions
+        .filter((q) => q.type === "file" || q.type === "signature")
+        .flatMap((q) => {
+          const value = answers.get(q.id);
+          return Array.isArray(value) && value.length
+            ? [{ questionId: q.id, attachmentIds: value }]
+            : [];
+        });
+      if (!references.length) return commit();
+      if (!transaction) throw new SurveyError("invalid_answers");
+      return transaction
+        .claimAttachments({
+          publicationVersion: p.version,
+          submissionId: input.submissionId,
+          uploadSessionToken: input.uploadSessionToken,
+          responseId,
+          references,
+        })
+        .then(commit);
     });
   }
 }

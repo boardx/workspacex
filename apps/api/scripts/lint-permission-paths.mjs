@@ -71,6 +71,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/survey/pg-survey-attachment-repository.ts",
+    "#3760 personal survey attachments have no ACL object. Every public read first locks and validates the frozen publication secret/status/expiry, then the upload capability scoped to that publication, question and unclaimed session; owner reads require survey_workspaces.owner_id equality and claimed response_id. claimSurveyAttachments executes within the answer aggregate transaction after publication and answer validation, locks the capability and binds all question/attachment IDs atomically. All SQL uses withTenant/RLS; cleanup has no disclosure and only deletes expired unclaimed objects. tests/survey/survey-attachments.test.ts proves actual HTTP/PG/object-store owner denial, cross-session/question denial, expiry, closed publications, transactional rollback, replay and safe cleanup. Remove this exception if those tests or guards are removed or project sharing is introduced.",
+  ],
+  [
     "src/infrastructure/survey/pg-survey-repository.ts",
     "#3754/#3756 personal survey_workspaces and survey_library_templates aggregates have no ACL object. Template reads/updates/deletes additionally constrain owner_id in every SQL predicate; kind is immutable and publication tokens never authorize template access. tests/survey/survey-template-library.test.ts proves HTTP/PG owner/tenant CRUD isolation, version conflicts and separation from the live surveys list. List SQL restricts owner_id; all get/change/delete go through SurveyService owner equality before disclosure. Public reads and submissions require the publication 256-bit secret and expose only the frozen public projection. Tenant RLS and row locks protect all queries. tests/kernel/permission-propagation-six-paths.test.ts enforces owner-scoped list/get/save/delete and secret-gated public projection on real PG; tests/survey/survey-runtime.test.ts and survey-persistence.test.ts additionally exercise wrong tenant, expiry, concurrency, RLS and immutable reports. Remove this exception if those tests are removed or project sharing is introduced.",
   ],

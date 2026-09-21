@@ -328,7 +328,20 @@ export function SurveyReportDocument({
                 ) : (
                   block.type !== "text" && (
                     <>
-                      {!block.rows.length ? (
+                      {block.answerTexts?.length ? (
+                        <dl className="space-y-3">
+                          {block.answerTexts.map((answer, index) => (
+                            <div key={index}>
+                              <dt className="text-13 font-medium">
+                                {answer.label}
+                              </dt>
+                              <dd className="whitespace-pre-wrap text-14 leading-7">
+                                {answer.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : !block.rows.length ? (
                         <p className="text-13 text-muted-foreground">
                           暂无可展示数据
                         </p>
