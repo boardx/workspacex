@@ -124,3 +124,24 @@ open-core stance.
 Latin only. CJK falls back to the system face (PingFang SC on macOS, Microsoft
 YaHei on Windows, Noto Sans SC on Linux) — what Chinese readers expect, and it
 avoids shipping several megabytes of webfont.
+
+## Before this goes live — two things to set
+
+Both are placeholders I could not resolve from the repository. They are wrong
+until someone who knows the answer changes them.
+
+**1. The public domain.** Every absolute URL currently says
+`https://workspacex.boardx.us`. That domain is a guess. It appears in:
+
+- `index.html` — `canonical`, three `hreflang` links, `og:url`, `og:image`,
+  `twitter:image`
+- `scripts/build-i18n.mjs` — the `SITE` constant, which rewrites those for `/zh/`
+- `sitemap.xml`, `robots.txt`
+
+Change `SITE` in `build-i18n.mjs` and the same string in `index.html`, then run
+`node scripts/build-i18n.mjs`. Getting this wrong means canonical tags pointing
+at a domain that does not exist and social cards that never load.
+
+**2. The product link.** "Launch App" and "Launch Workspace" point at
+`https://devapp.boardx.us`, the only app host referenced anywhere in this
+repository. If the public site should send people somewhere else, change it.

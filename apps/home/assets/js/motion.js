@@ -15,8 +15,14 @@ export const reducedMotion = () =>
 export function initReveals() {
   const targets = document.querySelectorAll('[data-reveal], [data-stagger]');
 
+  // `.scales` draws its connecting thread off `.is-in` too, and it is not a
+  // [data-reveal] target — marking it here keeps the thread from being lost
+  // on the reduced-motion and no-IntersectionObserver paths.
+  const scales = document.querySelector('.scales');
+
   if (reducedMotion() || !('IntersectionObserver' in window)) {
     targets.forEach((el) => el.classList.add('is-in'));
+    scales?.classList.add('is-in');
     return;
   }
 
@@ -55,8 +61,6 @@ export function initReveals() {
     io.observe(el);
   });
 
-  // `.scales` animates its own connecting thread on entry.
-  const scales = document.querySelector('.scales');
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),

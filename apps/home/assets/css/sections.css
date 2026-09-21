@@ -45,14 +45,23 @@
   gap: clamp(0.875rem, 1.6vw, 1.25rem);
   position: relative;
 }
-/* the context thread that runs through all three cards */
+/* The context thread that runs through all three cards. Behind them, and
+   aligned to the centre of the numbered badges rather than to a guessed
+   offset — card padding is fluid, so the number moves with the viewport. */
+.scales { isolation: isolate; }
 .scales::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 4.25rem; height: 2px;
+  content: ""; position: absolute; left: 0; right: 0; z-index: -1; height: 2px;
+  top: calc(clamp(1.4rem, 2.2vw, 2rem) + 1rem);
   background: var(--grad); opacity: 0.35;
   transform: scaleX(0); transform-origin: left;
   transition: transform 1.4s var(--ease-out);
 }
 .scales.is-in::before { transform: scaleX(1); }
+/* Without this the thread never draws at all for anyone who asked for less
+   motion — it was wired only into the animated code path. */
+@media (prefers-reduced-motion: reduce) {
+  .scales::before { transform: scaleX(1); transition: none; }
+}
 
 .scales__card {
   position: relative;

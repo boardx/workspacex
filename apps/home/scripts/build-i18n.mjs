@@ -20,6 +20,9 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK = process.argv.includes('--check');
 
+/* PLACEHOLDER. The public domain was not resolvable from this repository.
+   It is also written into index.html, sitemap.xml and robots.txt — see the
+   "Before this goes live" section of the README. */
 const SITE = 'https://workspacex.boardx.us';
 const META = {
   zh: {
