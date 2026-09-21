@@ -215,6 +215,13 @@ export function apiEnv(c: LocalConfig): Env {
     NATIVE_SESSION_BINDING_KEY: "",
     KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
+    // ⚠ 这两个开关在 API 里默认**关**，理由是「新模型调用行为按部署显式开」（灰度纪律，
+    //   见 configured-model-provider.ts 的 `completeStream is OFF by default`）。对云端那是
+    //   对的；对本地版不是：这里跑的是 5–10 tok/s 的 4B 模型，不开流式，用户点完发送要
+    //   对着空白等一分钟才见到第一个字。同一条默认值在两种部署形态下的代价不是一个量级，
+    //   所以本地版显式把它打开——这正是「按部署显式开」这句话的意思。
+    KERNEL_MODEL_STREAM_ENABLED: "1",
+    KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
     KERNEL_CORS_ORIGINS: webOrigins(c).join(","),
     // no Redis on this machine (issue #3716)

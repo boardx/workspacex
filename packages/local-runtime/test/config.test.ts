@@ -34,6 +34,9 @@ describe("local config", () => {
     expect(api.KERNEL_MODEL_ID).toBe("qwen3.5:4b");
     expect(api.LOCAL_RUNTIME_ENDPOINT).toBe("http://127.0.0.1:41434");
     expect(api.KERNEL_SESSION_STORE).toBe("file");
+    // 本地模型慢，第一个字什么时候出现决定这个产品好不好用；流式不是可选项
+    expect(api.KERNEL_MODEL_STREAM_ENABLED).toBe("1");
+    expect(api.KERNEL_DEEP_AGENT_STREAM_ENABLED).toBe("1");
     expect(api.WORKSPACEX_OBJECT_STORE).toBe("fs");
     expect(api.KERNEL_SKILL_SANDBOX_BASE_URL).toBe(`http://127.0.0.1:${sandboxEnv(c).SKILL_SANDBOX_PORT}`);
     expect(sandboxEnv(c).SKILL_SANDBOX_HOST).toBe("127.0.0.1");

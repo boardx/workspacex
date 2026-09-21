@@ -113,11 +113,9 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "KERNEL_VISION_TIMEOUT_MS", "KERNEL_VISION_MAX_IMAGE_BYTES",
       "KERNEL_DEEP_RESEARCH_BASE_URL",         // 独立 deep-research 服务，本地不随包
       "KERNEL_DEEP_RESEARCH_POLL_INTERVAL_MS", "KERNEL_DEEP_RESEARCH_TIMEOUT_MS",
-      // ⚠ 这三条是「默认关、按部署显式开」的新模型行为（见 thread-title-model-config.ts
-      //   文件头）。云端可以慢慢灰度；本地版跑的是 5–10 tok/s 的 4B 模型，不开流式就是
-      //   「点完发送盯着空白等一分钟」。归在这里是**如实登记现状**，不是认可它——
-      //   R6 会把它们变成 config.ts 供给的值，届时本清单必须相应删掉这三行。
-      "KERNEL_MODEL_STREAM_ENABLED", "KERNEL_DEEP_AGENT_STREAM_ENABLED",
+      // ⚠ 流式的两个开关已由 config.ts 显式打开（见那里的注释），所以不在这一档。
+      //   这一条留着：会话命名走不走模型，是本地版刻意的取舍——见 capabilities.ts
+      //   的 thread-titles 条目。
       "KERNEL_THREAD_TITLE_MODEL_ENABLED",
     ],
   },
