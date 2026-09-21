@@ -103,7 +103,7 @@ async function chatRun(client, category, text) {
   if (client) { const r = await client.query("select remote_run_id, remote_thread_id from agent_runs where id=$1", [m.agentRunId]).catch(() => ({ rows: [] })); remote = r.rows[0] ?? {}; }
   const timing = await ledgerTiming(client, remote.remote_run_id);
   const tools = (run.steps ?? []).filter((s) => s.kind === "tool_call").map((s) => s.toolName);
-  return { category, text, threadId: th.threadId, runId: m.agentRunId, status: run.status, wallMs, ...timing, systemPromptChars: await systemPromptChars(remote.remote_thread_id), tools, outputChars: agent.length, canvasFence: /```canvas\n模板: /.test(agent), mermaid: /```mermaid/.test(agent) };
+  return { category, text, threadId: th.threadId, runId: m.agentRunId, status: run.status, wallMs, ...timing, systemPromptChars: await systemPromptChars(remote.remote_thread_id), tools, outputChars: agent.length, canvasFence: /```canvas\n模板: /.test(agent), quality: canvasQuality(agent, TEMPLATES), mermaid: /```mermaid/.test(agent) };
 }
 
 async function followup(threadId) {
@@ -126,16 +126,53 @@ async function titleAfter(threadId, sentText) {
   return { ok: false };
 }
 
+/**
+ * Quality of a produced canvas, not just "is there a fence": every section the template
+ * declares must appear as `## <name>` AND carry at least one bullet, because a heading with
+ * no bullets renders as a blank block (issue #2605). `sections` comes from the API so the
+ * check is against what the model was actually told to fill.
+ */
+function canvasQuality(text, templates) {
+  const m = /```canvas\n模板:\s*([^\n]+)\n([\s\S]*?)```/.exec(text ?? "");
+  if (!m) return null;
+  const key = m[1].trim(), body = m[2];
+  const t = templates.find((x) => x.key === key);
+  if (!t) return { key, knownTemplate: false };
+  const filled = new Set();
+  let current = null;
+  for (const line of body.split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) { current = h[1]; continue; }
+    if (current && /^\s*-\s+\S/.test(line)) filled.add(current);
+  }
+  const missing = (t.sections ?? []).filter((n) => !filled.has(n));
+  const fieldLines = body.split("\n").slice(0, 40).filter((l) => /^[^#\-\s][^:：]{0,40}[:：]/.test(l));
+  const fieldsGiven = new Set(fieldLines.map((l) => l.split(/[:：]/)[0].trim()));
+  const missingFields = (t.fields ?? []).filter((n) => !fieldsGiven.has(n));
+  return { key, knownTemplate: true, sections: (t.sections ?? []).length, missingSections: missing.length,
+    missingFields: missingFields.length, complete: missing.length === 0 && missingFields.length === 0 };
+}
+
 function summarize(runs, jsons) {
   const by = {}; for (const r of runs) (by[r.category] ??= []).push(r);
   const med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
   const lines = ["| 类别 | n | 成功 | 模型调用中位 | wall 中位 s | 首块中位 s | 块/s 中位 | 提示 chars | 用工具的 run | 画布围栏 |", "|---|---|---|---|---|---|---|---|---|---|"];
-  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${med(rs.map((r) => r.modelCalls)) ?? "-"} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length} |`);
+  for (const [c, rs] of Object.entries(by)) lines.push(`| ${c} | ${rs.length} | ${rs.filter((r) => r.status === "succeeded").length} | ${med(rs.map((r) => r.modelCalls)) ?? "-"} | ${(med(rs.map((r) => r.wallMs)) / 1000).toFixed(0)} | ${med(rs.map((r) => r.firstChunkMs)) != null ? (med(rs.map((r) => r.firstChunkMs)) / 1000).toFixed(1) : "-"} | ${med(rs.map((r) => r.chunksPerSec)) ?? "-"} | ${med(rs.map((r) => r.systemPromptChars)) ?? "-"} | ${rs.filter((r) => r.tools.length).length} | ${rs.filter((r) => r.canvasFence).length}${c === "canvas" ? ` (完整 ${rs.filter((r) => r.quality?.complete).length})` : ""} |`);
   for (const [name, xs] of Object.entries(jsons)) if (xs.length) lines.push(`| ${name} | ${xs.length} | ${xs.filter((x) => x.ok).length} | - | ${(med(xs.map((x) => x.ms)) / 1000).toFixed(1)} | - | - | - | - | - |`);
   return lines.join("\n");
 }
 
 await login();
+// template shapes for the canvas quality check (section + header-field names, from the API)
+let TEMPLATES = [];
+try {
+  const t = await j("GET", `/canvas/templates?orgId=${ORG_ID}`);
+  TEMPLATES = (t.templates ?? t.items ?? []).map((x) => ({
+    key: x.key,
+    sections: (x.sections ?? []).filter((s) => s.type !== "短文本" && s.type !== "文本对象").map((s) => s.name),
+    fields: (x.sections ?? []).filter((s) => s.type === "短文本").map((s) => s.name),
+  }));
+} catch { /* quality check degrades to "fence or not" */ }
 const client = new pg.Client({ host: "127.0.0.1", port: PG_PORT, user: "postgres", password: "local", database: "workspacex" });
 await client.connect().then(() => client.query("select set_config('app.current_org',$1,false)", [ORG_ID])).catch((e) => { console.error("pg connect failed, ledger timing disabled:", e.message); });
 const runs = [], jsons = { followup: [], feedback: [], title: [] };
@@ -145,7 +182,7 @@ for (const category of ["chat", "url", "canvas"]) {
   if (!want(category)) continue;
   for (const text of PROMPTS[category]) for (let i = 0; i < REPS; i++) {
     const r = await chatRun(client, category, text); runs.push(r);
-    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s calls=${r.modelCalls ?? "-"} first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence} :: ${text.slice(0, 30)}`);
+    console.log(`[${category}] ${r.status} wall=${(r.wallMs / 1000).toFixed(0)}s calls=${r.modelCalls ?? "-"} first=${r.firstChunkMs ?? "-"}ms chunks=${r.chunks ?? "-"} cps=${r.chunksPerSec ?? "-"} sys=${r.systemPromptChars ?? "-"} tools=${r.tools.join(",") || "-"} fence=${r.canvasFence}${r.quality ? `/完整=${r.quality.complete ? "y" : `缺${r.quality.missingSections}区${r.quality.missingFields}字段`}` : ""} :: ${text.slice(0, 30)}`);
     if (category === "chat" && (SUITE === "all" || SUITE === "json")) { jsons.title.push(await titleAfter(r.threadId, text)); jsons.followup.push(await followup(r.threadId)); }
   }
 }

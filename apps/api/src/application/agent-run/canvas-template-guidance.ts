@@ -216,6 +216,30 @@ export function templateSectionNames(t: CanvasTemplateGuidanceInfo): { readonly 
   return { fields: header.length > 0 ? header : (t.fields ?? []), sections: body };
 }
 
+/**
+ * The worked example in the format block.
+ *
+ * With exactly one template in the guidance (the local `matched` mode), the example uses THAT
+ * template's real key, first header field and first section. A 4B copied the abstract
+ * placeholder verbatim — nine lines reading `字段名: 姓名`, i.e. the spec where the values
+ * belonged (eval lane 2026-09-22) — the same shape as the 2026-09-10 `（最多4条）` loss, where
+ * the guidance itself was the trap. A concrete example cannot be copied wrongly: copying it
+ * IS the right answer.
+ */
+export function formatExample(templates: readonly CanvasTemplateGuidanceInfo[]): readonly string[] {
+  const only = templates.length === 1 ? templates[0] : undefined;
+  if (only === undefined) return ["模板: <模板key>", "<表头字段名>: <该字段的值>", "## <分区名>", "- <这个分区的一条要点>"];
+  const { fields, sections } = templateSectionNames(only);
+  const field = fields[0];
+  const section = sections[0] ?? "分区名";
+  return [
+    `模板: ${only.key}`,
+    ...(field === undefined ? [] : [`${field}: （这里写 ${field} 的实际内容，不要写「${field}」四个字本身）`]),
+    `## ${section}`,
+    "- （这个分区的一条要点）",
+  ];
+}
+
 export function buildCanvasTemplateGuidance(
   templates: readonly CanvasTemplateGuidanceInfo[],
 ): string | null {
@@ -273,10 +297,7 @@ export function buildCanvasTemplateGuidance(
     }),
     "格式：",
     "```canvas",
-    "模板: <key>",
-    "字段名: 字段值",
-    "## 分区名",
-    "- 要点",
+    ...formatExample(templates),
     "```",
     "只用上面列出的模板 key；分区名必须与该模板列出的分区名逐字一致，不要自己发明分区或模板。",
     "⚠ `## ` 后面**只写分区名本身**——不要加括号、条数、编号、序号或任何补充说明。"

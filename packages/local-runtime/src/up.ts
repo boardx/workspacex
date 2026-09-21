@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { homedir, platform, totalmem } from "node:os";
 import {
   apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv, sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
-  resolveDeepAgentLaunch, preferredChatModel, preferredMetaModel } from "./config";
+  resolveDeepAgentLaunch, preferredChatModel, preferredMetaModel, MLX_SUFFIX } from "./config";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
@@ -153,6 +153,21 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         log(`[ollama] ${String(Math.round(memoryGb))} GB RAM and ${chosen} present: serving ${chosen} instead of ${c.chatModel}`);
         c = { ...c, chatModel: chosen };
       }
+      // #3749 R9：MLX 构建更快，但「库里有这个标签」不等于「这台机器能跑它」。预热就是
+      // 那次验证：预热不过就换回非 MLX 版，宁可慢也不能让用户的第一条消息撞上起不来的运行器。
+      if (chosen.endsWith(MLX_SUFFIX)) {
+        const fallback = chosen.slice(0, -MLX_SUFFIX.length);
+        if (await warmModel(ollamaUrl, chosen) === null) {
+          if (present.includes(fallback)) {
+            log(`[ollama] ${chosen} failed to load on this machine; falling back to ${fallback}`);
+            c = { ...c, chatModel: fallback };
+          } else {
+            warnings.push(`随包的 ${chosen} 在这台机器上加载失败，且库里没有非 MLX 版可回落`);
+          }
+        } else {
+          log(`[ollama] ${chosen} loaded (MLX runner)`);
+        }
+      }
       const meta = preferredMetaModel({ configured: c.metaModel, chatModel: c.chatModel, memoryGb, present });
       if (meta !== c.metaModel) {
         log(`[ollama] meta tasks on ${meta} (${String(Math.round(memoryGb))} GB RAM: the ${c.metaModel} would swap in and out with the chat model)`);
@@ -165,9 +180,11 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     // 模型在用户还在看启动页时就位；失败只是没预热，不影响任何功能。
     if (ollamaUrl) {
       const url = ollamaUrl;
-      void warmModel(url, c.chatModel).then((ms) => {
-        if (ms !== null) log(`[ollama] ${c.chatModel} warmed in ${String(Math.round(ms / 100) / 10)}s`);
-      });
+      if (!c.chatModel.endsWith(MLX_SUFFIX)) {
+        void warmModel(url, c.chatModel).then((ms) => {
+          if (ms !== null) log(`[ollama] ${c.chatModel} warmed in ${String(Math.round(ms / 100) / 10)}s`);
+        });
+      }
       if (c.metaModel !== c.chatModel) void warmModel(url, c.metaModel);
     }
 

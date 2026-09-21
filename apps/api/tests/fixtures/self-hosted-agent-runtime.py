@@ -56,20 +56,6 @@ class MemoryLedger:
     async def append_event(self, run_id: str, event: str, data: Any):
         await self.append_events(run_id, [(event, data)])
 
-    # 2026-09-22：下面三个成员是 `Ledger` 协议（`self_hosted_runtime.py` 的 `class Ledger`）
-    # 现有的形状，这个替身此前落后于它，于是那个协议的三处调用在替身上全部炸掉：
-    #   · `events(run_id, after)` —— SSE 读取器会把「已发到第几条」传进来（#3716 增量读取），
-    #     旧签名只收一个参数 ⇒ `TypeError: events() takes 2 positional arguments but 3 were
-    #     given`，**在 SSE 处理器内部抛出** ⇒ 连接当场断掉。对客户端的症状是
-    #     `SocketError: other side closed`，对走 skill 事实那条路的客户端则是
-    #     `skill_activity_delivery_unavailable`——两条 CI 红都是它。
-    #   · `append_events(run_id, items)` —— token 片段批量写入（#3716），替身完全没有。
-    #   · `prune_events()` —— 事件账本裁剪（#3749 R4）。它的调用点包了 try/except，
-    #     所以只在启动时打一行 warning，不致命；但它和上面两个是同一个原因：**替身没跟上协议**。
-    #
-    # ⚠ 教训写在这里而不是提交信息里：一个落后于协议的替身不会报「我过期了」，它会
-    # 在一个完全不相关的地方以「连接断了」的形状出现。本仓已多次栽在
-    # 「替身的方言 ≠ 上游的方言」这件事上。
     async def append_events(self, run_id: str, items: list[tuple[str, Any]]):
         rows = self.run_events[run_id]
         for event, data in items:
@@ -78,8 +64,7 @@ class MemoryLedger:
     async def events(self, run_id: str, after: int = 0):
         return [row for row in self.run_events.get(run_id, []) if row["sequence"] > after]
 
-    async def prune_events(self) -> int:
-        return 0
+    async def prune_events(self) -> int: return 0
 
 
 @dataclass
