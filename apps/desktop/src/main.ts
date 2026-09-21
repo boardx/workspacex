@@ -64,7 +64,19 @@ async function boot(): Promise<void> {
   const config = resolveLocalConfig({ repoRoot, dataDir });
   const built = existsSync(join(repoRoot, "apps", "web", ".next", "BUILD_ID"));
   try {
-    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir() });
+    stack = await up({
+      config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(),
+      // 起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」——
+      // 原因在日志里，而没人会去翻。说出来，并指向那一份日志。
+      onServiceExit: ({ name, code }) => {
+        void dialog.showMessageBox({
+          type: "warning",
+          title: "一个后台服务已停止",
+          message: `${name} 已退出（code ${String(code)}），依赖它的能力现在不可用。`,
+          detail: `日志：${join(dataDir, "logs", `${name}.log`)}\n重启应用可以重新拉起它。`,
+        });
+      },
+    });
   } catch (e) {
     await dialog.showMessageBox({ type: "error", title: "启动失败", message: e instanceof Error ? e.message : String(e), detail: lines.slice(-30).join("\n") });
     app.quit();

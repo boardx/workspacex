@@ -17,7 +17,7 @@ import {
 } from "./config";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
-import { startManaged, waitForHttp, runToCompletion, type Managed } from "./processes";
+import { startManaged, portInUse, waitForHttp, waitForHttpOrExit, runToCompletion, type Managed } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 
 export interface UpOptions {
@@ -28,6 +28,8 @@ export interface UpOptions {
   readonly bundleBinDir?: string;
   /** Skip pulling the model even if Ollama is up (tests, offline). */
   readonly pullModel?: boolean;
+  /** Called when a service dies AFTER the stack came up. See the note at the end of `up`. */
+  readonly onServiceExit?: (info: { name: string; code: number | null; recentOutput: string }) => void;
 }
 
 export interface RunningStack {
@@ -43,7 +45,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   const warnings: string[] = [];
   const managed: Managed[] = [];
   let pg: PgliteHandle | null = null;
+  let stopping = false;
   const stopAll = async (): Promise<void> => {
+    stopping = true;
     for (const m of [...managed].reverse()) await m.stop();
     await pg?.stop();
   };
@@ -58,6 +62,12 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   for (const d of [paths.objects(c), paths.logs(c), paths.sandboxIn(c), paths.sandboxOut(c), paths.models(c)]) {
     mkdirSync(d, { recursive: true });
   }
+
+  // ⚠ Before anything starts. A port already taken otherwise shows up as "not ready after
+  //   180000ms" three minutes into the boot, which reads exactly like a slow machine --
+  //   and the second start after a hard kill is the common case, not the exotic one.
+  //   Ollama is excluded on purpose: a user's own `ollama serve` is reused, not a conflict.
+  await assertPortsFree(c, opts.webMode ?? "dev");
 
   try {
     // ── phase 1: database as owner, migrate + seed ─────────────────────────────
@@ -82,7 +92,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       const already = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false);
       if (!already) {
         managed.push(startManaged({ name: "ollama", command: ollamaBin, args: ["serve"], cwd: c.dataDir, env: ollamaEnv(c), logDir: paths.logs(c) }, log));
-        await waitForHttp(`${ollamaUrl}/api/tags`, { timeoutMs: 30_000 });
+        await waitForHttpOrExit(`${ollamaUrl}/api/tags`, { timeoutMs: 30_000 }, managed[managed.length - 1]!);
       } else {
         log("[ollama] already running, reusing");
       }
@@ -108,7 +118,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       env: sandboxEnv(c),
       logDir: paths.logs(c),
     }, log));
-    await waitForHttp(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 });
+    await waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
@@ -122,7 +132,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: asrGatewayEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 });
+      await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
     } else {
       warnings.push("本地转写模型未下载：录音/访谈的实时转写不可用（运行 scripts/local-bundle/fetch-asr-model.sh 后重启）");
     }
@@ -137,7 +147,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       logDir: paths.logs(c),
     }, log));
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
-    await waitForHttp(`${apiUrl}/healthz`, { timeoutMs: 180_000 });
+    await waitForHttpOrExit(`${apiUrl}/healthz`, { timeoutMs: 180_000 }, managed[managed.length - 1]!);
 
     // ── deep agent (python) ───────────────────────────────────────────────────
     let deepAgentUrl: string | null = null;
@@ -153,7 +163,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: deepAgentEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 });
+      await waitForHttpOrExit(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 }, managed[managed.length - 1]!);
     } else {
       warnings.push("deep-agent-service 未安装 Python 运行时（.venv）：聊天可回复，但工具调用 / skill 执行不可用");
     }
@@ -171,11 +181,24 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: webEnv(c),
         logDir: paths.logs(c),
       }, log));
-      await waitForHttp(webUrl, { timeoutMs: 300_000 });
+      await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);
     }
 
     const state = readSeedState(c);
     if (!state.provisioned) throw new Error("seed state has no provisioned user after seeding");
+
+    // Until now a crash was fatal (readiness fails). From now on the stack is "up", and a
+    // service that dies afterwards would simply stop answering -- the user would meet it as
+    // a hung chat box. Say it, loudly, on the one channel the shell and the CLI share.
+    for (const m of managed) {
+      void m.exited.then((code) => {
+        if (stopping) return;
+        const why = m.recentOutput().trim();
+        log(`[${m.name}] ⚠ 进程已退出（code ${String(code)}），依赖它的能力现在不可用` +
+          (why === "" ? "" : `\n--- ${m.name} 最后的输出 ---\n${why}`));
+        opts.onServiceExit?.({ name: m.name, code, recentOutput: why });
+      });
+    }
     return {
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
       login: { email: LOCAL_ADMIN_EMAIL, password: c.secrets.adminPassword },
@@ -186,6 +209,38 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     await stopAll();
     throw e;
   }
+}
+
+/**
+ * Every loopback port this run intends to BIND must be free.
+ *
+ * ⚠ Ollama is deliberately absent: `up` reuses an already-running `ollama serve` rather than
+ *   treating it as a conflict, so a busy 11434 is the normal case, not a failure.
+ * ⚠ PostgreSQL is checked here too AND again inside `startPgliteServer`; that second check
+ *   is not redundant -- it is the one that protects a caller who does not go through `up`.
+ */
+async function assertPortsFree(c: LocalConfig, webMode: "dev" | "start" | "none"): Promise<void> {
+  const wanted: { name: string; port: number }[] = [
+    { name: "PostgreSQL (PGlite)", port: c.ports.postgres },
+    { name: "API", port: c.ports.api },
+    { name: "Skill 沙箱", port: c.ports.sandbox },
+  ];
+  if (webMode !== "none") wanted.push({ name: "Web", port: c.ports.web });
+  const taken = (await Promise.all(wanted.map(async (w) => ({ ...w, busy: await portInUse(w.port) }))))
+    .filter((w) => w.busy);
+  if (taken.length === 0) return;
+  throw new Error(
+    `以下端口已被占用，无法启动：\n${taken.map((t) => `  ${t.port}  ${t.name}`).join("\n")}\n` +
+      "多半是上一个 WorkspaceX Local 还在跑（在它的终端里 Ctrl-C），" +
+      `或者别的程序占了这些端口（可用 --ports ${taken.map((t) => `${portFlagName(t.name)}=<新端口>`).join(",")} 换开）。`,
+  );
+}
+
+function portFlagName(serviceName: string): string {
+  return serviceName.startsWith("API") ? "api"
+    : serviceName.startsWith("Web") ? "web"
+    : serviceName.startsWith("Skill") ? "sandbox"
+    : "postgres";
 }
 
 async function hasModel(ollamaUrl: string, model: string): Promise<boolean> {
