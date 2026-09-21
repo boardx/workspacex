@@ -11,6 +11,8 @@ import {
   PlanPhase,
   PLAN_PHASE_LABEL_ZH,
   PlanGateReason,
+  PLAN_GATE_REASON_LABEL_ZH,
+  planGateReasonLabelZh,
   PlanGateDecision,
   RunControlAction,
   PlanAppliedTo,
@@ -113,6 +115,65 @@ describe("F972 · PlanGateDecision（domain.md 一·6，UC-8 判定表）", () =
     const decision = evaluatePlanGate({ todoCount: 0, userForced: false });
     expect(decision.required).toBe(false);
     expect(decision.reason).toBe("no-plan");
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * issue #2486 —— `PlanGateReason` → 中文文案的单一事实源
+ * ────────────────────────────────────────────────────────────────────── */
+
+describe("issue #2486 · PLAN_GATE_REASON_LABEL_ZH 是判定码到中文的单一映射", () => {
+  it("六值全覆盖，没有遗漏也没有多余键", () => {
+    expect(Object.keys(PLAN_GATE_REASON_LABEL_ZH).sort()).toEqual([...PlanGateReason.options].sort());
+  });
+
+  it("每个值都映射到非空中文，且**不含枚举码本身**", () => {
+    for (const reason of PlanGateReason.options) {
+      const label = PLAN_GATE_REASON_LABEL_ZH[reason];
+      expect(typeof label).toBe("string");
+      expect(label.length).toBeGreaterThan(0);
+      // 这条是本 issue 的核心反证：文案里不许漏出 `multi-step` 这类判定码。
+      expect(label).not.toContain(reason);
+      expect(label).toMatch(/[\u4e00-\u9fa5]/);
+    }
+  });
+
+  it("六句文案互不相同——否则等于某两个判定码对用户没有区别", () => {
+    const labels = PlanGateReason.options.map((r) => PLAN_GATE_REASON_LABEL_ZH[r]);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("planGateReasonLabelZh 对已知值就是查表", () => {
+    for (const reason of PlanGateReason.options) {
+      expect(planGateReasonLabelZh(reason)).toBe(PLAN_GATE_REASON_LABEL_ZH[reason]);
+    }
+  });
+
+  it("未知值兜底成一句可辨识的人话——不是空串、不是 undefined、不回吐枚举码", () => {
+    // 服务端先上线新枚举值、前端还没发版：静态类型拦不住这个运行时场景。
+    const label = planGateReasonLabelZh("some-future-reason");
+    expect(label.length).toBeGreaterThan(0);
+    expect(label).not.toContain("some-future-reason");
+    expect(label).not.toContain("undefined");
+    expect(label).toMatch(/[\u4e00-\u9fa5]/);
+  });
+
+  it("映射表是冻结的，运行时改不动（单一事实源不许被就地打补丁）", () => {
+    expect(Object.isFrozen(PLAN_GATE_REASON_LABEL_ZH)).toBe(true);
+  });
+
+  it("反证：evaluatePlanGate 产出的每个 reason 都能查到文案（表与判定表不脱节）", () => {
+    const decisions = [
+      evaluatePlanGate({ todoCount: 0, userForced: false }),
+      evaluatePlanGate({ todoCount: 1, userForced: false }),
+      evaluatePlanGate({ todoCount: 2, userForced: false }),
+      evaluatePlanGate({ todoCount: 0, userForced: true }),
+      evaluatePlanGate({ todoCount: 3, userForced: false, taskRiskClass: "multi_step_low_risk" }),
+      evaluatePlanGate({ todoCount: 3, userForced: false, taskRiskClass: "multi_step_high_risk" }),
+    ];
+    for (const d of decisions) {
+      expect(PLAN_GATE_REASON_LABEL_ZH[d.reason]).toBeTruthy();
+    }
   });
 });
 

@@ -22,15 +22,15 @@ const steps: PlanStep[] = PLAN_STEPS.map((s) => ({
 }));
 
 /**
- * ⚠ `lib/mock/plan-control.ts` 的 `PlanGate.reason` 是给人看的一句话
- * （"这是一个多步…"），契约 `PlanGateDecision.reason` 是封闭枚举（UC-8 判定码，
- * 不是文案）——两者不是同一件事。`plan-confirm-gate.tsx` 目前**直接把这个枚举码
- * 当文案渲染给用户**（`{gate.reason}`），没有一层"枚举→中文"的映射——这是一个
- * 真实存在、但不在本轮范围内的独立缺口（本轮只做 token/视觉，不改文案/业务
- * 逻辑）。这里为了让预览截图仍然可读，用类型断言塞一句人话，不代表生产环境
- * 会显示这句话——生产环境现在显示的是字面 "multi-step"。
+ * issue #2486 已收口：`lib/mock/plan-control.ts` 的 `PlanGate.reason` 现在就是契约
+ * 的 `PlanGateReason` 枚举本身，"枚举 → 中文"这层映射落在契约的单一事实源
+ * `PLAN_GATE_REASON_LABEL_ZH` 上，由 `PlanConfirmGate` 渲染。
+ *
+ * ⚠ 所以这里**不再需要** `as unknown as` 那道类型断言——当初那道断言是在往一个
+ * 枚举字段里塞一句人话（mock 手写的文案与契约字段根本不是同一件事），它正是这个
+ * 缺陷被发现的地方。形状现在真的对得上，就不该再用断言把它按下去。
  */
-const gate = { required: GATE_REQUIRED.required, reason: GATE_REQUIRED.reason } as unknown as PlanGateDecision;
+const gate: PlanGateDecision = { required: GATE_REQUIRED.required, reason: GATE_REQUIRED.reason };
 
 export default function PlanControlLivePreviewPage() {
   return (
