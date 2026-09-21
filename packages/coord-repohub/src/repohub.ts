@@ -134,6 +134,10 @@ export class RepoHub extends DurableObject {
       if (req.method === "POST" && p === "/tasks") return this.taskDispatch(await req.json());
       if (req.method === "GET" && p === "/tasks") return this.taskList(url);
       if (req.method === "POST" && p === "/tasks/import") return this.taskImport(await req.json());
+      // 单条任务读（#480）：gateway 判定 coordinator 撤回是否落在本人 areas 内，
+      // 需要先知道这条任务挂在哪个 issue 上。内部面——不在 REST allowlist 里。
+      const tone = p.match(/^\/tasks\/(\d+)$/);
+      if (req.method === "GET" && tone) return this.taskGet(Number(tone[1]));
       if (req.method === "POST" && p === "/intents") return this.intentCreate(await req.json());
       if (req.method === "GET" && p === "/intents") return this.listIntents(url);
       const tt = p.match(/^\/tasks\/(\d+)\/(ack|complete|recall)$/);
@@ -143,8 +147,9 @@ export class RepoHub extends DurableObject {
       if (req.method === "GET" && p === "/stream") return this.streamUpgrade(req, url);
       const rt = p.match(/^\/realtime\/(issues|prs)$/);
       if (req.method === "GET" && rt) return this.realtimeList(rt[1] === "prs" ? "pr" : "issue", url);
-      const one = p.match(/^\/realtime\/prs\/(\d+)$/);
-      if (req.method === "GET" && one) return this.realtimeOne("pr", Number(one[1]));
+      const one = p.match(/^\/realtime\/(issues|prs)\/(\d+)$/);
+      if (req.method === "GET" && one)
+        return this.realtimeOne(one[1] === "prs" ? "pr" : "issue", Number(one[2]));
       // 工作区分片三面（p30/F04）：需求流水线 / sprint 面板 / talk 对话流，逻辑全在 workspace.ts
       const ws = await handleWorkspace(
         { sql: this.sql, emit: (t, r, a, pl) => this.emit(t, r, a, pl) }, req, url,
@@ -662,7 +667,9 @@ export class RepoHub extends DurableObject {
 
   // ---------- Tasks 收件箱（F10 前置：迁自 coord-service routes/tasks.ts，#614/#631） ----------
   // 语义等价对照：字段/状态机/轮询契约与 D1 版一致；差异集中在鉴权载体——
-  //   派工/撤回 = gateway admin 面（COORD_ADMIN_TOKEN，原 COORDINATOR_KINDS 判定）；
+  //   派工/撤回 = gateway 的 dispatch-authz 分层门（COORD_ADMIN_TOKEN 或 Directory
+  //     里协调层的 scoped token + areas 范围判定——原 COORDINATOR_KINDS 判定于
+  //     #480 补回，此前一度收窄成"只有 admin 能派"）；
   //   ack/complete = scoped 面 + agent_id 强绑定（原 requireAgent 本人判定）；
   //   assignee 在册校验上移到 devportal broker（DO 无 agents 表）。
   // D1 版的原子条件 UPDATE（防 TOCTOU）保留——DO 单线程已消灭并发窗口，但
@@ -694,7 +701,9 @@ export class RepoHub extends DurableObject {
       if (b["note"].length > TASK_NOTE_MAX_LENGTH) return json(400, { error: "note_too_long" });
       note = b["note"];
     }
-    // 派工方身份：admin 面无 token 身份，broker 自报（devportal-broker / 缺省 admin）
+    // 派工方身份：admin 面无 token 身份，broker 自报（devportal-broker / 缺省 admin）；
+    // 协调层 scoped token 派工时由 gateway 强绑定成其 Directory agent_id（#480），
+    // 自证他人在 gateway 就被 403 拦掉——审计链里的派工方是真实决策者
     const createdBy = typeof b?.["created_by"] === "string" && b["created_by"].length > 0
       ? (b["created_by"] as string) : "admin";
 
@@ -712,8 +721,17 @@ export class RepoHub extends DurableObject {
     return json(201, { task });
   }
 
+  /** GET /tasks/:id — 单条任务（#480）。gateway 的撤回范围判定要读 task.issue，
+   *  之前只能靠列表兜底；这里给一个精确读。无身份语义——鉴权全在 gateway。 */
+  private taskGet(id: number): Response {
+    const task = [...this.sql.exec<TaskRow>(`SELECT * FROM tasks WHERE id=?`, id)][0];
+    if (!task) return json(404, { error: "task_not_found" });
+    return json(200, { task });
+  }
+
   /** GET /tasks?assignee=&status= — 收件箱。可见性由 gateway 把守：
-   *  scoped token 被强制 assignee=<本人>；assignee=* 仅 admin/ops 面可达（列全队，#706）。 */
+   *  worker 的 scoped token 被强制 assignee=<本人>；assignee=* 对 admin/ops 面
+   *  （列全队，#706）与协调层 scoped token（#480）可达。 */
   private taskList(url: URL): Response {
     const assignee = url.searchParams.get("assignee");
     const status = url.searchParams.get("status");
@@ -733,7 +751,8 @@ export class RepoHub extends DurableObject {
 
   /** POST /tasks/:id/(ack|complete|recall) — 状态迁移。body 可为空（recall 无 body）。
    *  ack/complete：body.agent_id（gateway 对 scoped 强绑定注入）必须 === assignee；
-   *  recall：admin 面，agent_id 可选（缺省 "admin"）。 */
+   *  recall：派工面（admin 或协调层 scoped token，#480），agent_id 可选（缺省 "admin"）——
+   *  协调层撤回时 gateway 会注入其 agent_id，事件流里的撤回方因此是真实决策者。 */
   private taskTransition(id: number, action: "ack" | "complete" | "recall", rawBody: string): Response {
     let b: Record<string, unknown> | null = null;
     if (rawBody.length > 0) {

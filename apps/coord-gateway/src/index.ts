@@ -19,6 +19,7 @@ import {
   isAllowedRestSubpath,
   requireAdmin,
 } from "./auth";
+import { coordinatorOfPrincipal, handleTasksWrite } from "./dispatch-authz";
 import { handleStreamRoute } from "./stream";
 
 export { RepoHub, PlatformDirectory, CoordBrain };
@@ -172,12 +173,17 @@ async function handleRest(req: Request, env: Env, url: URL): Promise<Response> {
   // agent_id 强绑定（#721）：scoped token 不得在 body 里自证他人身份
   const bound = await bindScopedAgentRequest(req, access.principal);
   if (bound instanceof Response) return bound;
-  // 收件箱可见性（F10-pre）：scoped token 的 GET /tasks 强制 assignee=<本人>
+  // 收件箱可见性（F10-pre）：scoped token 的 GET /tasks 强制 assignee=<本人>；
+  // 协调层 scoped token 例外——可查他人/列全队（#480 §3：worker 的 inbox_is_private
+  // 语义是对的，别一起放开；只有 Directory 判定为在岗协调者的 token 才越过这道门）。
   let search = url.search;
   if (req.method === "GET" && m[3] === "/tasks") {
     const inbox = bindScopedInboxQuery(url.searchParams, access.principal);
-    if (inbox instanceof Response) return inbox;
-    search = `?${inbox.toString()}`;
+    if (inbox instanceof Response) {
+      if (!(await coordinatorOfPrincipal(env, access.principal))) return inbox;
+    } else {
+      search = `?${inbox.toString()}`;
+    }
   }
   return repoStub(env, `${m[1]}/${m[2]}`).fetch(
     new Request(new URL(m[3]! + search, url.origin), bound),
@@ -220,14 +226,15 @@ export default {
     const mir = url.pathname.match(/^\/api\/coord\/repos\/([^/]+)\/([^/]+)(\/mirror\/upsert)$/);
     if (req.method === "POST" && mir)
       return handleAdmin(req, env, `${mir[1]}/${mir[2]}`, mir[3]!);
-    // tasks 派工面（F10-pre）：POST /tasks（派工）、/tasks/:id/recall（撤回）、
-    // /tasks/import（割接导入）是 COORD_ADMIN_TOKEN 管理特权（原 coord-service
-    // COORDINATOR_KINDS 判定的迁移落点）；GET /tasks 带 admin bearer（devportal
+    // tasks 派工面：POST /tasks（派工）、/tasks/:id/recall（撤回）走 dispatch-authz
+    // 的分层门——COORD_ADMIN_TOKEN **或** Directory 里协调层的 scoped token，后者还要
+    // 过 areas 范围判定（#480 把原 coord-service COORDINATOR_KINDS 判定补了回来）；
+    // /tasks/import（割接导入）仍是 admin 独占。GET /tasks 带 admin bearer（devportal
     // broker，assignee=* 列全队，#706）直通管理面，其余落下方 REST scoped 面。
     const tasks = url.pathname.match(/^\/api\/coord\/repos\/([^/]+)\/([^/]+)(\/tasks(?:\/import|\/\d+\/recall)?)$/);
     if (tasks) {
       if (req.method === "POST")
-        return handleAdmin(req, env, `${tasks[1]}/${tasks[2]}`, tasks[3]!);
+        return handleTasksWrite(req, env, `${tasks[1]}/${tasks[2]}`, tasks[3]!);
       if (req.method === "GET" && tasks[3] === "/tasks" && isAdminBearer(req, env))
         return handleAdmin(req, env, `${tasks[1]}/${tasks[2]}`, `/tasks${url.search}`);
     }
