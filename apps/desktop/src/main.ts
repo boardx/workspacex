@@ -9,13 +9,16 @@
  * Night 0 scope (PROP §4): unsigned macOS build, web served by `next start` from a prior
  * `next build` inside the bundle. Auto-update, tray, Windows: R1.
  */
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { resolveLocalConfig, runDoctor, up, type RunningStack } from "@repo/local-runtime";
+import { welcomeDataUrl } from "./welcome";
 
 let stack: RunningStack | null = null;
 let win: BrowserWindow | null = null;
+/** 首启那一屏的内容；「帮助 → 显示本地账号」再打开它时读的是同一份。 */
+let welcomeUrl: string | null = null;
 
 /** Packaged: resources/bundle is the monorepo subset electron-builder copied (see electron-builder.yml). Dev: the repo itself. */
 function bundleRoot(): string {
@@ -68,8 +71,42 @@ async function boot(): Promise<void> {
     return;
   }
   for (const w of stack.warnings) log(`⚠ ${w}`);
-  await win.loadURL(stack.urls.web);
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: "deny" }; });
+
+  // ⚠ 这里**不能**直接 loadURL(web)。本地账号的密码是首启随机生成、只落在数据目录里的；
+  //   CLI 把它打印在终端，双击安装包的人没有终端。直接进登录页 = 装完了登不进去。
+  welcomeUrl = welcomeDataUrl({
+    webUrl: stack.urls.web,
+    email: stack.login.email,
+    password: stack.login.password,
+    warnings: stack.warnings,
+    dataDir,
+  });
+  installMenu();
+  await win.loadURL(welcomeUrl);
+}
+
+/**
+ * 菜单只加一条：把首启那一屏重新调出来。密码是随机的，人第一次多半没记住，
+ * 而唯一的另一条路是去数据目录读一个 0600 的 JSON——那不是一条可以要求用户走的路。
+ */
+function installMenu(): void {
+  const template = Menu.getApplicationMenu()?.items.map((item) => item) ?? [];
+  const help = {
+    label: "帮助",
+    submenu: [
+      {
+        label: "显示本地账号",
+        click: () => { if (welcomeUrl !== null) void win?.loadURL(welcomeUrl); },
+      },
+      { type: "separator" as const },
+      {
+        label: "打开数据目录",
+        click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
+      },
+    ],
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([...template, help]));
 }
 
 app.whenReady().then(() => void boot());

@@ -12,7 +12,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:os";
 import {
-  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, type LocalConfig,
+  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv,
+  DB_APP_ROLE, DB_OWNER_ROLE, LOCAL_ADMIN_EMAIL, type LocalConfig,
 } from "./config";
 import { findOllama } from "./doctor";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
@@ -177,7 +178,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     if (!state.provisioned) throw new Error("seed state has no provisioned user after seeding");
     return {
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
-      login: { email: "me@local.workspacex", password: c.secrets.adminPassword },
+      login: { email: LOCAL_ADMIN_EMAIL, password: c.secrets.adminPassword },
       warnings,
       stop: stopAll,
     };
