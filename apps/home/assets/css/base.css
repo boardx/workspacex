@@ -6,7 +6,6 @@
 :root {
   /* ---- surface ---------------------------------------------------------- */
   --bg:          #08070b;
-  --bg-raise:    #0e0c13;
   --bg-sink:     #050408;
   --surface:     rgba(255, 255, 255, 0.035);
   --surface-2:   rgba(255, 255, 255, 0.06);
@@ -23,9 +22,7 @@
   --c-1:         #ff7a18;   /* orange  */
   --c-2:         #ff2e73;   /* pink    */
   --c-3:         #b14bff;   /* violet  */
-  --accent:      var(--c-2);
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
-  --grad-soft:   linear-gradient(100deg, rgba(255,122,24,.16), rgba(255,46,115,.16) 52%, rgba(177,75,255,.16));
   /* Text placed ON the gradient. White fails AA over the orange stop (2.61:1);
      this near-black clears 4.74:1 over every stop, so the brand colour keeps
      its saturation instead of being muddied to make white work. */
@@ -66,7 +63,6 @@
   --dur:       520ms;
   --dur-slow:  620ms;
 
-  --radius:    14px;
   --radius-lg: 22px;
   --nav-h:     64px;
 }

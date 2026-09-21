@@ -148,3 +148,32 @@
   /* the ring's outer labels need the room the desktop layout takes for granted */
   .d-loop .d-label--lg { font-size: calc(13px * var(--dscale, 1)); }
 }
+
+/* ==========================================================================
+   Reserved space
+   Diagrams are built by JS, so their hosts are empty at first paint and the
+   page reflows when the SVG lands — measured as the page's only layout shift
+   (0.031, in the hero). Declaring each host's aspect up front removes it:
+   the box is the right size before anything is drawn into it.
+   ========================================================================== */
+[data-diagram="chain"]   { aspect-ratio: 1000 / 150; }
+[data-diagram="axis"]    { aspect-ratio: 1000 / 92;  }
+[data-diagram="break"]   { min-height: 150px; }
+[data-diagram="harness"] { min-height: 210px; }
+[data-diagram="arch"]    { aspect-ratio: 760 / 430; }
+[data-diagram="graph"]   { aspect-ratio: 540 / 270; }
+[data-diagram="loop"]    { aspect-ratio: 1 / 1; }
+
+@media (max-width: 700px) {
+  [data-diagram="chain"]   { aspect-ratio: 330 / 340; }
+  [data-diagram="axis"]    { aspect-ratio: 320 / 240; }
+  [data-diagram="break"]   { min-height: 404px; }
+  [data-diagram="harness"] { min-height: 350px; }
+  [data-diagram="arch"]    { aspect-ratio: 340 / 370; }
+  [data-diagram="graph"]   { aspect-ratio: 320 / 350; }
+}
+@media (max-width: 860px) {
+  /* the ring sits above the rail instead of beside it, and the reserved
+     square would otherwise eat most of a phone screen */
+  [data-diagram="loop"] { aspect-ratio: 1 / 1; max-width: 340px; margin-inline: auto; }
+}

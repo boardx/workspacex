@@ -18,6 +18,18 @@
 <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/fonts.css">
 
+<!-- The module graph is three levels deep (main -> i18n/motion/diagrams/surface
+     -> zh/diagram-strings), and each level is only discovered once its importer
+     has been fetched and parsed. Declaring them up front collapses that
+     waterfall into a single round of parallel requests. -->
+<link rel="modulepreload" href="assets/js/main.js">
+<link rel="modulepreload" href="assets/js/i18n.js">
+<link rel="modulepreload" href="assets/js/motion.js">
+<link rel="modulepreload" href="assets/js/diagrams.js">
+<link rel="modulepreload" href="assets/js/surface.js">
+<link rel="modulepreload" href="assets/js/zh.js">
+<link rel="modulepreload" href="assets/js/diagram-strings.js">
+
 <link rel="stylesheet" href="assets/css/base.css">
 <link rel="stylesheet" href="assets/css/layout.css">
 <link rel="stylesheet" href="assets/css/components.css">
