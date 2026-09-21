@@ -5,8 +5,8 @@ import { SurveyReportChart } from "./report-chart";
 export { SurveyReportChart } from "./report-chart";
 import type { survey } from "@repo/contracts";
 
-export const reportNumber = (value: number) =>
-  new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
+import { reportNumber } from "./report-format";
+export { reportNumber } from "./report-format";
 const rowLabel = (row: survey.SurveyReportRow) =>
   [row.label, row.group].filter(Boolean).join(" · ");
 
