@@ -109,6 +109,11 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 按钮的渲染条件是 `!isAtBottom && !historyLoading && projectedMessages.length > 0`
+    // （见 copilotkit-v2-panel-body.tsx）。本地历史瞬间就绪，CI 的高负载 runner 上不是：
+    // 不等这个前置条件就滚，按钮不出现，断言超时（2026-09-21 verify-affected 实测红，
+    // 本地连跑 5 次全绿）。等到消息真的渲染出来，才谈得上「往上翻」。
+    await screen.findByTestId("chat-user-message-text");
     // 初始 isAtBottom=true（组件默认值），此时不该有按钮。
     expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull();
 
