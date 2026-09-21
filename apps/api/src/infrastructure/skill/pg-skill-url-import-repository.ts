@@ -50,15 +50,38 @@
  * 目录表里永远不存在一行——这才是那句人类原话背后的真实机制，`pg-skill-starter-import
  * -repository.ts` 早就有这一行（"the same transaction so the UI can never see a Skill
  * definition without its row"），URL 导入这条姊妹路径漏了同一步。
+ *
+ * ## G3（#3066）—— `SKILL.md` 前言的 `name:` 必须等于 `stable_name`
+ *
+ * Agent Skills 规范要求 `SKILL.md` 前言的 `name` 等于**包含它的目录名**，而我们的目录名
+ * 就是 `stable_name`（运行时把包铺成 `/skills/<stable_name>/SKILL.md`）。URL 导入的
+ * `SKILL.md` 由上游作者写，`name:` 是任意展示名（"PDF Creator"）——与 `stable_name` 天然不等。
+ * #3033 第三层已把 Deep Agent 侧的「不等」从致命错降为 warning（`native_skill_activity.py`
+ * 里那条 `skill frontmatter name differs …` 日志），**运行不再炸，但包本身仍不符合规范**：
+ * 模型在系统提示里看到的 skill 名与工具身份名不是同一个。
+ * ⚠ 那条日志文本**故意没有抄全**：`url-import-repo-guard.test.ts` 用一条
+ *   `FROM|JOIN|INTO|UPDATE` + 标识符的正则从本文件里抠表名，而日志原文里紧跟在
+ *   `differs` 之后的那个介词短语会被它当成一张同名的表而误红。要读原文去看
+ *   `native_skill_activity.py`——那里才是它的单一事实源。
+ *
+ * ⚠ 为什么改写只能发生在**这里**：`skill_versions` 有 `immutable` 触发器，包一旦落地就
+ *   不可改——「导入时」是唯一的窗口。而 `stable_name` 直到下面那个 SAVEPOINT 重试循环
+ *   跑完才最终确定（同 slug 撞了会追加 `-2` 后缀），所以改写排在循环之后、写文件之前。
+ * ⚠ 改写之后**必须重算**文件摘要与包摘要，否则库里的 `digest`/`content_digest` 与实际字节
+ *   分叉——Deep Agent 侧的身份判定正是「路径 + 包内容摘要」，分叉会让它判不出身份。
+ *   包摘要按**原构造**重算：`manifestDigestOf` 直接 import 用例层那一份，不抄第二份。
+ * 遗留包不动（摘要已固化，且不可改）；Deep Agent 的那条 warning 会指出哪些是遗留包。
  */
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
-import type {
-  SkillUrlImportRepository,
+import {
+  manifestDigestOf,
+  type SkillUrlImportRepository,
 } from "../../application/skill-import/import-skill-from-url";
 import type { ImportSkillFromUrlResult } from "../../application/skill-import/url-import-draft";
 import { SkillNameConflictError } from "../../application/skill/ports";
+import { sha256 } from "../../domain/skill/starter-pack";
 
 interface ImportRow {
   readonly skill_id: string;
@@ -128,6 +151,90 @@ function slugifyForStableName(name: string): string {
   return ascii === "" ? fallback() : ascii;
 }
 export const NATIVE_STABLE_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** skill 包的约定根文件。`wave2_publish_skill_version` 要求每个版本恰好有一份。 */
+const ROOT_SKILL_FILE = "SKILL.md";
+
+/**
+ * `SKILL.md` 的 YAML 前言块。捕获组 1 是块内容（不含两道 `---` 分隔符）。
+ *
+ * ⚠ 只认**文件开头**的前言——正文中间一行 `---` 是 Markdown 的分隔线，不是前言。
+ */
+const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/;
+
+/**
+ * 把一份 `SKILL.md` 的前言 `name:` 改写成 `stableName`（G3 / #3066）。
+ *
+ * - 有前言、有 `name:` → 就地替换那一行的值。
+ * - 有前言、没有 `name:` → 在块首补一行（规范要求它存在）。
+ * - 没有前言 → 前置一段最小前言。
+ *
+ * ⚠ 只改**顶层**的 `name:`（行首无缩进）——嵌套结构里的同名键不是规范说的那一个。
+ * ⚠ `stableName` 恒是 slug（`slugifyForStableName` 的值域），是合法的 YAML 平铺标量，
+ *   不需要加引号；这里也因此不引入 YAML 序列化器。
+ * ⚠ 含 NUL 字节的按二进制处理、原样返回：改写一个不是文本的 `SKILL.md` 只会把它弄坏。
+ */
+export function alignSkillMdFrontmatterName(content: Buffer, stableName: string): Buffer {
+  if (content.includes(0)) return content;
+  const text = content.toString("utf8");
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const match = FRONTMATTER_RE.exec(text);
+  if (match === null) {
+    return Buffer.from(`---${eol}name: ${stableName}${eol}---${eol}${eol}${text}`, "utf8");
+  }
+
+  const lines = (match[1] ?? "").split(/\r?\n/);
+  const nameAt = lines.findIndex((line) => /^name:(?:[ \t]|$)/.test(line));
+  if (nameAt === -1) {
+    lines.unshift(`name: ${stableName}`);
+  } else {
+    let end = nameAt + 1;
+    // 块标量（`name: |` / `name: >`）的值在后续缩进行里。只替换首行会把那些续行
+    // 留成悬空文本——那是非法 YAML，比不改还糟——所以连着它的续行一起换掉。
+    if (/^[|>]/.test(lines[nameAt]!.slice("name:".length).trim())) {
+      while (end < lines.length && (lines[end] === "" || /^[ \t]/.test(lines[end]!))) end += 1;
+    }
+    lines.splice(nameAt, end - nameAt, `name: ${stableName}`);
+  }
+
+  // `match[0]` 以 `---` 收尾（不含其后的换行），余下正文原样接回。
+  const rest = text.slice(match[0].length).replace(/^\r?\n/, "");
+  const rewritten = `---${eol}${lines.join(eol)}${eol}---${eol}${rest}`;
+  return rewritten === text ? content : Buffer.from(rewritten, "utf8");
+}
+
+type ImportFile = Parameters<SkillUrlImportRepository["persist"]>[0]["files"][number];
+
+/**
+ * 把整个文件集合里的根 `SKILL.md` 对齐到 `stableName`，并重算它的文件摘要。
+ * 其余文件原样（**同一个对象引用**，下面的「有没有改过」判定依赖这一点）。
+ */
+function alignRootSkillFile(files: readonly ImportFile[], stableName: string): readonly ImportFile[] {
+  return files.map((file) => {
+    if (file.path !== ROOT_SKILL_FILE) return file;
+    const content = alignSkillMdFrontmatterName(file.content, stableName);
+    return content === file.content ? file : { ...file, content, digest: sha256(content) };
+  });
+}
+
+/**
+ * 改写之后的包摘要。
+ *
+ * ⚠ 按**原来那一次**用的构造重算，不另立一种：用例层对单文件导入取 `sha256(字节)`、
+ *   对目录导入取 `manifestDigestOf`（见 `import-skill-from-url.ts`）。这里用「原摘要
+ *   等于哪一种构造」把当时走的是哪条分支认出来——认不出来（未来新增第三种构造）就
+ *   原样保留，宁可不动，也不要悄悄换一种算法让两边的摘要分叉。
+ */
+function realignedContentDigest(
+  previous: string,
+  before: readonly ImportFile[],
+  after: readonly ImportFile[],
+): string {
+  const single = before.length === 1 ? before[0]! : null;
+  if (single !== null && previous === single.digest) return after[0]!.digest;
+  if (previous === manifestDigestOf(before)) return manifestDigestOf(after);
+  return previous;
+}
 
 export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -256,6 +363,13 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
         }
       }
       await session.query("RELEASE SAVEPOINT try_insert_skill");
+
+      // G3（#3066）：`stable_name` 到这里才最终确定（上面的后缀重试可能改过它），
+      // 现在把根 `SKILL.md` 的前言 `name:` 对齐过去，再按原构造重算包摘要。
+      // 下面一律用 `files`/`contentDigest`，不要再碰 `input.files`/`input.contentDigest`。
+      const files = alignRootSkillFile(input.files, stableName);
+      const contentDigest = realignedContentDigest(input.contentDigest, input.files, files);
+
       await session.query(
         `INSERT INTO skill_versions
            (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id,
@@ -265,13 +379,13 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
           versionId,
           input.orgId,
           skillId,
-          input.contentDigest,
+          contentDigest,
           JSON.stringify({ sourceUrl: input.sourceUrl }),
           input.actorId,
           now,
         ],
       );
-      for (const file of input.files) {
+      for (const file of files) {
         await session.query(
           `INSERT INTO skill_version_files (org_id, version_id, path, content, media_type, digest)
            VALUES ($1,$2,$3,$4,$5,$6)`,
@@ -301,7 +415,7 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
           input.orgId,
           input.idempotencyKey,
           input.sourceUrl,
-          input.contentDigest,
+          contentDigest,
           skillId,
           versionId,
           input.actorId,
@@ -312,8 +426,8 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
       return {
         skillId,
         versionId,
-        filePaths: input.files.map((f) => f.path),
-        contentDigest: input.contentDigest,
+        filePaths: files.map((f) => f.path),
+        contentDigest,
         replayed: false,
       };
     });
