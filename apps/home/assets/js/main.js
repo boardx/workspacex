@@ -6,7 +6,7 @@
  */
 import { initI18n } from './i18n.js';
 import { initReveals, initNav, initScene, splitWords, reducedMotion } from './motion.js';
-import { renderDiagrams, getLoop } from './diagrams.js';
+import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './diagrams.js';
 import { initSurface } from './surface.js';
 
 const boot = () => {
@@ -18,6 +18,15 @@ const boot = () => {
   initNav();
   initReveals();
   initSurface();
+  watchBreakpoint(() => { renderDiagrams(i18n.current); wireLoopScene(); });
+
+  // Diagram label sizes are derived from each svg's rendered width, so they
+  // have to be recomputed whenever that width can change.
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(syncDiagramScales, 120);
+  }, { passive: true });
   wireLoopScene();
 
   // Language changes rewrite text nodes, so anything JS generated from copy

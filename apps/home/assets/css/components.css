@@ -38,7 +38,9 @@
 
 /* ---- chips / badges ------------------------------------------------------ */
 .chip {
-  display: inline-flex; align-items: center; gap: 0.55rem;
+  /* Aligns to the first line: the label wraps to two lines on a phone, and a
+     centred dot then sits in the gutter between them. */
+  display: inline-flex; align-items: flex-start; gap: 0.55rem;
   padding: 0.45rem 0.95rem 0.45rem 0.6rem;
   border-radius: 999px;
   border: 1px solid var(--hairline-2);
@@ -49,6 +51,7 @@
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--grad);
   flex-shrink: 0;
+  margin-top: 0.52em;
 }
 
 .tag {
