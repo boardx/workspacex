@@ -11,6 +11,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { findPhaseDir, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
+import { duplicateFeatureIds, isPlaceholderFeatureId } from "./lib/feature-id";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
@@ -230,6 +231,58 @@ function checkOrphanInProgress(phaseId: string, findings: Finding[]): void {
       phase: phaseId,
       msg: `多 agent 并行阶段存在无 owner 的 in_progress：${orphans.map((f) => f.id).join(", ")}——认领断档（claim 被 ADR-001 拒后没有回补），用 pnpm harness claim 补 owner`,
     });
+  }
+}
+
+/**
+ * ⑥ 编号完整性（#1094，coord-main 2026-08-13 裁决的「机械门」那一半）。
+ *
+ * 撞号此前**完全没有机械检查**：两个 agent 各自在飞分支上用同一个号，本地全绿，
+ * 合并时才炸；2026-08-12 那次是靠人工核对发现的，而人工核对不可复制。
+ * 三条判据，全部只看清单自身，不需要网络：
+ *
+ *   ① 同一 phase 内 id 不得重复（live + archive 合并后算——归档只是搬家，号还占着）；
+ *   ② evidence 路径里的编号必须就是本条目的 id。证据链以编号为键
+ *      （`covers:`、`depends_on`、`F168.verify.log`），指错号 = 指向**别人的** feature，
+ *      而原有检查是拿 `f.id` 去拼路径的，evidence 字符串里写着谁的号它根本不看；
+ *   ③ 占位 id（`F-TBD-*`）不得活过 claim：claim 会取号回填，还带着占位 id 却已经
+ *      in_progress/passing，说明这条绕过了取号那一步。
+ */
+export function judgeDuplicateFeatureIds(ids: readonly string[]): string | null {
+  const dup = duplicateFeatureIds(ids);
+  if (dup.length === 0) return null;
+  return (
+    `同一 phase 内有重复 feature id：${dup.join(", ")}（live + archive 合并后）——` +
+    "两条不同的 feature 共用一个号，covers: / depends_on / evidence 文件名全都会指错人。" +
+    "用 pnpm harness claim 取号（#1094），不要手挑 max+1。"
+  );
+}
+
+/** evidence 字符串里的编号 ≠ 条目 id（#1094 实测：差点把失败的 F168.verify.log 提交进已改号的条目）。 */
+export function judgeEvidenceIdMismatch(f: Pick<Feature, "id" | "evidence">): string | null {
+  const m = EVIDENCE_PATH_RE.exec((f.evidence ?? "").trim());
+  if (!m) return null; // 非标准形态由 checkPassingEvidence 那条棘轮门管
+  const declared = m[1]!;
+  if (declared === f.id) return null;
+  return (
+    `${f.id} 的 evidence 指向 evidence/${declared}.verify.log——文件名里的编号不是本条目的 id。` +
+    `编号撞过之后只改了一半（#1094）：证据链以编号为键，这条 evidence 现在指着别人的 feature。`
+  );
+}
+
+/** 占位 id 活过了 claim（#1094）。 */
+export function judgePlaceholderIdSurvived(f: Pick<Feature, "id" | "status">): string | null {
+  if (!isPlaceholderFeatureId(f.id)) return null;
+  if (f.status === "not_started" || f.status === "blocked") return null; // 还没开工，正常形态
+  return (
+    `${f.id} 是 status=${f.status} 却还带着占位 id——正式编号应该在 pnpm harness claim 时取（#1094）。` +
+    `它现在无法被 issue / evidence / covers: 稳定引用。`
+  );
+}
+
+function checkFeatureIdIntegrity(phaseId: string, f: Feature, findings: Finding[]): void {
+  for (const msg of [judgeEvidenceIdMismatch(f), judgePlaceholderIdSurvived(f)]) {
+    if (msg) findings.push({ level: "FAIL", phase: phaseId, msg });
   }
 }
 
@@ -693,6 +746,7 @@ export function doctor(args: Args): void {
         checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
       }
       checkSpecRef(id, f, findings);
+      checkFeatureIdIntegrity(id, f, findings);
       if (issues) {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
@@ -700,6 +754,9 @@ export function doctor(args: Args): void {
         checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
     }
+    // #1094 的重复 id 判定按 phase 做一次（不是逐 feature）：它查的是集合性质。
+    const dupMsg = judgeDuplicateFeatureIds(fl.features.map((f) => f.id));
+    if (dupMsg) findings.push({ level: "FAIL", phase: id, msg: dupMsg });
     checkProgressRow(id, findings);
     checkRoadmapDrift(id, findings);
     checkOrphanInProgress(id, findings);

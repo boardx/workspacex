@@ -95,6 +95,12 @@ prototype: <区块/截图>  ·  路由/界面: <interface-operation-inventory �
 
 - **1 agent = 1 owner**；`pnpm harness claim --phase NN --feature Fxx --owner <agent>` 原子认领，
   每 owner 同时只有一个 in_progress（ADR-001）。N 个 owner = N 路并行。
+- **编号在 claim 那一刻才分配**（#1094）：requirement-author 生成的新条目带占位 id
+  `F-TBD-<slug>`，`claim --feature F-TBD-<slug>` 会在写盘的同一个临界区里取号回填，
+  命令回显 `取号：F-TBD-xxx → Fnnn`。**不要自己挑 max+1**——从挑号到落盘隔着整个实现
+  周期，那段时间 main 上的号还在涨，撞号是常态且不会报错。`doctor` 会机械检查
+  「同 phase 无重复 id」与「evidence 文件名 = 条目 id」。判据与实现见
+  `.harness/scripts/lib/feature-id.ts`（本文件不复述规则）。
 - **隔离**：每个 agent 在自己的 git worktree / 分支 `feat/<issue-id>` 上工作（避免互踩工作树）。
   worktree 建好后先跑一次 `bash scripts/init-worktree-env.sh`，给这个 worktree 分配独占的
   docker compose 端口 + project name（写入 gitignored 的 `apps/web/.env.local` + 根 `.env`），
