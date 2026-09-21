@@ -12,11 +12,13 @@ REPOSITORY_DIR=/opt/workspacex-cn/repository
 RUNTIME_ROOT=/var/lib/workspacex-cn/runtime
 PUBLISH_ENV=/etc/workspacex-cn/publish.env
 PUBLISHER=/usr/local/lib/workspacex-cn/publish-cn-release.sh
+PREFLIGHT_VERIFIER=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
 EVENTS_ROOT=/var/lib/workspacex-cn/release-events
 
 fail(){ echo "CN_CANDIDATE_REJECTED: $1" >&2; exit 1; }
 [[ -f "$PUBLISH_ENV" && ! -L "$PUBLISH_ENV" && "$(stat -c '%U:%G:%a' "$PUBLISH_ENV")" == root:root:600 ]] || fail "publish environment is not protected"
 [[ -x "$PUBLISHER" && ! -L "$PUBLISHER" ]] || fail "trusted publisher is unavailable"
+[[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
 install -d -o root -g root -m 0700 "$RUNTIME_ROOT" "$EVENTS_ROOT"
 exec 9>"$RUNTIME_ROOT/release.lock"
 flock -n 9 || fail "another release operation is active"
@@ -57,8 +59,6 @@ fs.appendFileSync(path,`${JSON.stringify({schemaVersion:1,revision,stage,at:new 
 NODE
   chown root:root "$EVENTS_ROOT/$revision.jsonl"; chmod 0600 "$EVENTS_ROOT/$revision.jsonl"
 }
-record_event candidate_build_started
-
 for attempt in 1 2 3 4 5; do
   git -C "$REPOSITORY_DIR" fetch --quiet origin main && break
   (( attempt < 5 )) || fail "main fetch failed"
@@ -71,6 +71,14 @@ git -C "$REPOSITORY_DIR" checkout --quiet --detach "$revision"
 git -C "$REPOSITORY_DIR" reset --quiet --hard "$revision"
 git -C "$REPOSITORY_DIR" clean -ffd
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain)" ]] || fail "release checkout is dirty"
+
+# A fresh schema-v2 prebuild receipt is the admission ticket for any image build.
+# The verifier persists the exact raw evidence before candidate_build_started can
+# be recorded, so manifest/seal artifacts can never masquerade as preflight.
+"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release" >/dev/null \
+  || fail "prebuild receipt is missing or invalid"
+record_event prebuild_validated
+record_event candidate_build_started
 
 # Credentials are obtained from the ECS RAM role for this process only. An isolated
 # Docker config prevents the short-lived token from entering root's persistent store.

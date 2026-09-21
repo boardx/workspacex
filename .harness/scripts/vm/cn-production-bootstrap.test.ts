@@ -6,6 +6,7 @@ const directory = import.meta.dirname;
 const bootstrap = readFileSync(resolve(directory, "bootstrap-cn-production.sh"), "utf8");
 const deploy = readFileSync(resolve(directory, "deploy-cn-production.sh"), "utf8");
 const candidate = readFileSync(resolve(directory, "build-cn-release-candidate.sh"), "utf8");
+const preflight = readFileSync(resolve(directory, "verify-cn-release-preflight.sh"), "utf8");
 const browserSmoke = readFileSync(resolve(directory, "cn-release-browser-smoke.mjs"), "utf8");
 
 describe("China production trusted deployment entrypoints", () => {
@@ -37,6 +38,20 @@ describe("China production trusted deployment entrypoints", () => {
     expect(candidate).toContain("CN_CANDIDATE_BASELINE_RESTORE_FAILED");
     expect(deploy).toContain("production_available");
     expect(deploy).toContain("release-events");
+  });
+
+  it("fails closed on fresh two-stage preflight receipts before build and activation", () => {
+    const prebuild = candidate.indexOf('"$PREFLIGHT_VERIFIER" prebuild "$revision" "$release"');
+    const buildStarted = candidate.indexOf("record_event candidate_build_started");
+    const publisher = candidate.indexOf('"$PUBLISHER" "$revision" "$release"');
+    expect(prebuild).toBeGreaterThan(-1);
+    expect(prebuild).toBeLessThan(buildStarted);
+    expect(buildStarted).toBeLessThan(publisher);
+    expect(deploy.match(/"\$PREFLIGHT_VERIFIER" preactivate/g)).toHaveLength(2);
+    expect(preflight).toContain('git -C "$REPOSITORY_DIR" show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py"');
+    expect(preflight).toContain('protected receipt must be root:root 0600');
+    expect(preflight).toContain('if(canonical(input.prebuildEvidence)!==canonical(prior))process.exit(1)');
+    expect(preflight).toContain('install_once_or_identical "$input" "$raw_receipt"');
   });
 
   it("requires Docker Buildx before installing the deployment entrypoint", () => {

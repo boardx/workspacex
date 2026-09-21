@@ -47,4 +47,7 @@ jobs:
             release="${INPUT_RELEASE}"
           fi
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
-          sudo /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}"
+          if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}"; then
+            echo "::error::CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED: verify the exact NOPASSWD sudoers rule and protected prebuild receipt"
+            exit 1
+          fi

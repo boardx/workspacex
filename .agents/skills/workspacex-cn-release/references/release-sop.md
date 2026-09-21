@@ -112,6 +112,8 @@ ACR 检查使用 ECS RAM 角色和 IMDSv2 获取短期凭据，在节点内完�
 
 用 `scripts/validate_preflight.py` 分别验证 `schemaVersion=2` 的 prebuild 和 preactivate 汇总结果。前者 `ready=true` 只准开始构建；后者必须携带完整 prebuild 原始 JSON 及其机器收据 SHA-256，由验证器复验同 attempt/source/baseline/release、未过期且两阶段 TTL 均不超过一小时，再核 exact 目标镜像才准进入激活门。失败输出必须包含稳定 `code`，但不得包含密钥和原始 provider 返回。
 
+生产主机只接受 root:root `0600` 的 `/etc/workspacex-cn/preflights/<SHA>.prebuild.json` 与 `<SHA>.preactivate.json`。可信入口通过 `/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh` 从 exact SHA 提取验证器：prebuild 在 `candidate_build_started` 之前验证并不可变保存；preactivate 在 `prepare_started` 之前验证，并在 activation 改 ingress 之前再次复验 TTL。preactivate 内嵌的原始 prebuild 必须与主机已经固化的那份深度相同。self-hosted runner 一律使用 `sudo -n`；缺少精确 NOPASSWD 规则时立即以 `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` 红退，不能等待交互密码。
+
 `bootstrap.compatibility` 的执行书和 failure code 映射见 [bootstrap-compatibility.md](bootstrap-compatibility.md)。源码和只读数据库检查在构建前运行；目标镜像与只读数据库复验在 prepare receipt/迁移前运行。任一阶段失败不得进入 canonical provision，因此不会出现“migration 已写入、bootstrap 才发现不兼容”的半程状态。
 
 `secrets.stable_continuity` 的执行书、修复与回滚见 [stable-secret-continuity.md](stable-secret-continuity.md)。它在 runtime bundle 写入前运行；任何缺失或变化都退出常规发布通道。
@@ -210,6 +212,8 @@ Plan B 必须在发布开始前就准备好：私有 OSS 上有 exact SHA 的完
 | 2026-09-15 | `PNPM_CLI_LITERAL_SEPARATOR` | pnpm 9.15 的 package script 会把脚本名后的 `--` 原样传给 Node CLI；CN deploy 的七处调用只传实际参数，并用真实 pnpm 执行参数协议回归测试 |
 | 2026-09-15 | `ACR_CLI_OUTPUT_FLAG_UNSUPPORTED` | ACR 临时授权命令禁止附加 `--output json`；在 ECS 上先把响应写入 root 0600 临时文件，验证 JSON 和必需字段后立即删除，绝不打印 token |
 | 2026-09-15 | `CANDIDATE_CHECKOUT_DRIFT` | 构建入口在持有 release lock 后记录干净 baseline checkout，成功和失败都在同一个 EXIT trap 恢复；回执必须机械证明 HEAD、`main-cn` 和四个运行容器仍是 baseline |
+| 2026-09-21 | `CN_RELEASE_PREFLIGHT_REJECTED` | prebuild 在构建事件之前、preactivate 在 prepare 与 activation 之前由 exact-SHA 验证器强制复验；原始证据与验证结果 root-only、create-once 或 byte-identical reuse |
+| 2026-09-21 | `CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED` | workflow 使用 `sudo -n` 调用精确可信入口；sudoers 漂移立即失败并指向 bootstrap 修复，不再占用 runner 等密码 |
 
 ## 12. 发布后清理
 
