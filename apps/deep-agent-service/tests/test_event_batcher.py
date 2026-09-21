@@ -79,3 +79,34 @@ async def test_hot_connection_is_replaced_once_after_operational_error(monkeypat
     monkeypatch.setattr(ledger, "_connect", lambda: made.append(Flaky()) or made[-1])
     await ledger.update_run("r", "success")
     assert len(made) == 2 and made[1].calls
+
+
+@pytest.mark.anyio
+async def test_prune_events_deletes_only_replayed_chunks_of_finished_runs(monkeypatch):
+    """#3749 R4: per-token rows of terminal runs go; the audit trail stays."""
+    ledger = PostgresLedger("postgresql://x")
+    seen = []
+    class Conn:
+        closed = False
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params=None):
+            seen.append((sql, params))
+            class R:
+                def fetchall(_): return [1, 1, 1]
+                def fetchone(_): return None
+            return R()
+    monkeypatch.setattr(ledger, "_connect", lambda: Conn())
+    monkeypatch.setenv("DEEP_AGENT_EVENT_RETENTION_HOURS", "24")
+    assert await ledger.prune_events() == 3
+    sql = seen[-1][0]
+    assert "event = 'messages'" in sql and "status IN ('success','error','cancelled')" in sql
+    assert seen[-1][1] == (24,)
+
+
+@pytest.mark.anyio
+async def test_prune_is_disabled_by_zero_retention(monkeypatch):
+    ledger = PostgresLedger("postgresql://x")
+    monkeypatch.setattr(ledger, "_connect", lambda: (_ for _ in ()).throw(AssertionError("must not connect")))
+    monkeypatch.setenv("DEEP_AGENT_EVENT_RETENTION_HOURS", "0")
+    assert await ledger.prune_events() == 0

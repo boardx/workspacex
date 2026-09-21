@@ -22,8 +22,14 @@ describe("selectGuidanceTemplates", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "make a SWOT for a cafe" }).map((t) => t.key)).toEqual(["swot"]);
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "请基于对话用「用户旅程图」（模板 key：journey-map）产出" }).map((t) => t.key)).toEqual(["journey-map"]);
   });
+  it("matched: naming a template without asking for one gets nothing (a question, not a request)", () => {
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "解释一下什么是用户画像，两句话" })).toEqual([]);
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "SWOT 分析是什么意思" })).toEqual([]);
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "我们上次那张画布放哪了" })).toEqual([]);
+  });
   it("matched: a canvas request that names no template gets the whole library so the model can pick", () => {
     expect(selectGuidanceTemplates(T, { mode: "matched", text: "帮我做一张画布" })).toHaveLength(4);
+    expect(selectGuidanceTemplates(T, { mode: "matched", text: "画一张工作坊协作模板" })).toHaveLength(4);
   });
   it("mode comes from KERNEL_CANVAS_GUIDANCE_MODE, default all", () => {
     expect(canvasGuidanceModeFromEnv({} as NodeJS.ProcessEnv)).toBe("all");
