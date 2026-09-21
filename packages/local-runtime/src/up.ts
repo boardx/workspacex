@@ -160,6 +160,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       }
     }
 
+    // #3749 R1：把聊天模型预加载进显存。冷加载实测 11.7 s（4B，Apple Silicon），而用户的第一条
+    // 消息正好付这笔钱；`keep_alive` 只防卸载，防不了首次加载。不 await——启动不因此变慢，
+    // 模型在用户还在看启动页时就位；失败只是没预热，不影响任何功能。
+    if (ollamaUrl) {
+      const url = ollamaUrl;
+      void warmModel(url, c.chatModel).then((ms) => {
+        if (ms !== null) log(`[ollama] ${c.chatModel} warmed in ${String(Math.round(ms / 100) / 10)}s`);
+      });
+      if (c.metaModel !== c.chatModel) void warmModel(url, c.metaModel);
+    }
+
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
     if (!sandboxModulesDir(c)) {
       warnings.push("skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）");
@@ -250,6 +261,25 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   } catch (e) {
     await stopAll();
     throw e;
+  }
+}
+
+/**
+ * One-token completion so llama.cpp maps the weights before a human is waiting on them.
+ * Returns the load time, or null when it failed (a warmup is never a startup failure).
+ */
+async function warmModel(ollamaUrl: string, model: string): Promise<number | null> {
+  const started = Date.now();
+  try {
+    const res = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: "hi" }], max_tokens: 1, stream: false }),
+      signal: AbortSignal.timeout(180_000),
+    });
+    return res.ok ? Date.now() - started : null;
+  } catch {
+    return null;
   }
 }
 

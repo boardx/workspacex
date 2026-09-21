@@ -346,6 +346,16 @@ export function deepAgentEnv(c: LocalConfig): Env {
     DEEP_AGENT_PG_CONNECT_RETRIES: "2",
     // single-user desktop + 4B model: no confirm/params/option interrupts, produce directly
     DEEP_AGENT_HITL_CLARIFICATION: "off",
+    /**
+     * #3749 R1：工具 schema 是本地提示的最大单项。实测一次画布请求 25 519 字符里
+     * 17 347 是 15 个工具的 schema（记录代理取证，2026-09-22），4 098 token 的提示
+     * 光预填充就 14.6 s。这六个在桌面单人场景基本不被调用：grep / glob / delete /
+     * edit_file 针对的是 deepagents 的虚拟文件系统，task 派子代理对 4B 太重，
+     * spawn_async_task 是后台长任务。保留 ls / read_file / write_file（文档理解类
+     * skill 读上传件走它）、write_todos（规划中间件依赖）、call_skill、
+     * list_org_skills、fetch_url、web_search。
+     */
+    DEEP_AGENT_EXCLUDED_TOOLS: "grep,glob,delete,edit_file,task,spawn_async_task",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),
