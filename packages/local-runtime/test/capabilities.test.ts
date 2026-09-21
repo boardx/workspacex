@@ -41,13 +41,13 @@ describe("local capability list", () => {
 
   it("flips the installable ones once the thing is actually on disk", () => {
     const dataDir = tmp();
-    const before = localCapabilities({ repoRoot: REPO_ROOT, dataDir }, { ollama: false });
+    const before = localCapabilities({ repoRoot: REPO_ROOT, dataDir }, { chatModel: false });
     expect(before.find((c) => c.id === "live-transcription")?.available).toBe(false);
     expect(before.find((c) => c.id === "chat-model")?.available).toBe(false);
 
     mkdirSync(join(dataDir, "asr-models", DEFAULT_ASR_MODEL), { recursive: true });
     writeFileSync(join(dataDir, "asr-models", DEFAULT_ASR_MODEL, "tokens.txt"), "");
-    const after = localCapabilities({ repoRoot: REPO_ROOT, dataDir }, { ollama: true });
+    const after = localCapabilities({ repoRoot: REPO_ROOT, dataDir }, { chatModel: true });
     expect(after.find((c) => c.id === "live-transcription")?.available).toBe(true);
     expect(after.find((c) => c.id === "chat-model")?.available).toBe(true);
     // 装了东西以后，这条就不该再出现在给用户的提示里

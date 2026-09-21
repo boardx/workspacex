@@ -148,8 +148,15 @@ export interface CapabilityStatus extends LocalCapability {
 }
 
 export interface CapabilityProbe {
-  /** Ollama 二进制找到了吗（找不到 = 聊天没有模型）。 */
-  readonly ollama: boolean;
+  /**
+   * 聊天模型可用吗。
+   *
+   * ⚠ 两种证据强度都走这一个字段，是故意的：`up()` 起完栈能给出「模型真的回了话」
+   *   （`model-preflight.ts` 的一次真实调用），而 `doctor` 在没起栈时只能给出
+   *   「找到了 Ollama 二进制」。调用方用它手上最强的那条证据填这里；把两者做成两个
+   *   字段只会让每个读它的人再判断一次哪个更可信。
+   */
+  readonly chatModel: boolean;
 }
 
 /**
@@ -172,10 +179,10 @@ export function localCapabilities(
       id: "chat-model",
       label: "聊天（本地模型）",
       state: "needs-install",
-      because: "没有找到 Ollama，本机没有可用的模型。",
-      remedy: "安装 Ollama 后重启本应用（安装包应随附；开发环境请自行安装）。",
+      because: "本机还没有能回话的模型（没装 Ollama，或模型没下全/装不进内存）。",
+      remedy: "安装 Ollama 并确保模型下载完整，然后重启本应用；启动日志里有那次验证调用的原话。",
       envKeys: [],
-      available: probe.ollama,
+      available: probe.chatModel,
     },
     {
       id: "tools-and-skills",

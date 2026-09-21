@@ -80,7 +80,9 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
   }
   const capabilities = localCapabilities(
     { repoRoot: opts.repoRoot, dataDir: opts.dataDir },
-    { ollama: ollamaPath !== null },
+    // doctor 不起栈，能拿到的最强证据就是「二进制在不在」；真正的「能不能回话」
+    // 由 up() 的 preflight 给出（见 capabilities.ts 里 chatModel 字段的说明）。
+    { chatModel: ollamaPath !== null },
   );
   const byId = (id: string): boolean => capabilities.find((c) => c.id === id)?.available ?? false;
   return {
