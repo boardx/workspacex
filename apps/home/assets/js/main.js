@@ -12,16 +12,31 @@ import {
 import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './diagrams.js';
 import { initSurface } from './surface.js';
 
-const boot = () => {
-  renderDiagrams(pageLang());
-  splitWords(document.querySelector('[data-split]'));
+/* Marks the document as script-capable. Read by the reveal failsafe in
+   motion.css: if this never executes, the page reveals itself anyway. */
+document.documentElement.classList.add('js');
 
-  initNav();
-  initReveals();
-  initSurface();
-  initOffscreenPause();
-  initHeroParallax();
-  watchBreakpoint(() => { renderDiagrams(); wireLoopScene(); });
+/* One broken step must not take the rest of the page with it. Measured: with
+   diagrams.js blocked, zero reveals ran and the page stayed blank, because a
+   failure anywhere in the module aborted all of boot. */
+const step = (label, fn) => {
+  try { fn(); } catch (error) { console.error(`[home] ${label} failed:`, error); }
+};
+
+const boot = () => {
+  step('diagrams', () => renderDiagrams(pageLang()));
+  step('headline', () => splitWords(document.querySelector('[data-split]')));
+
+  // Reveals first: if anything below throws, the content is already visible.
+  step('reveals', initReveals);
+  step('nav', initNav);
+  step('surface', initSurface);
+  step('offscreen pause', initOffscreenPause);
+  step('hero parallax', initHeroParallax);
+  step('breakpoint', () => watchBreakpoint(() => {
+    step('diagrams', () => renderDiagrams());
+    step('loop scene', wireLoopScene);
+  }));
 
   // Diagram label sizes are derived from each svg's rendered width, so they
   // have to be recomputed whenever that width can change.
@@ -30,9 +45,8 @@ const boot = () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(syncDiagramScales, 120);
   }, { passive: true });
-  wireLoopScene();
-
-  initLangHint();
+  step('loop scene', wireLoopScene);
+  step('language hint', initLangHint);
 };
 
 /* -------------------------------------------------------------------------

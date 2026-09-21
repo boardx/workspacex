@@ -56,7 +56,9 @@ node scripts/build-og.mjs        # regenerates the social cards from og-card.htm
     /       English    index.html      authored by hand
     /zh/    Chinese    zh/index.html   GENERATED — do not edit
 
-English is authored inline in `index.html` against `data-i18n` keys.
+English is authored inline in `index.html` against `data-i18n` keys, so the
+markup is complete without JavaScript — see `motion.css` for the two guarantees
+that keep it readable when scripting is off or a script fails to load.
 `assets/js/zh.js` holds the Chinese for every key, and
 `scripts/build-i18n.mjs` prerenders `zh/index.html` from the two. There is no
 second copy of the English anywhere, and no text is swapped at runtime.
