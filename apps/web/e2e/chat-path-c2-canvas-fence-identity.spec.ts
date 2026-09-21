@@ -40,7 +40,16 @@ import { openFreshEchoAgentThread, sendInV2AndAwaitStoredReply } from "./support
  *
  * 这条断言当初按本仓既有裁决（issue #2997 方案 B，A3/C8 两次先例）停放成 `test.fixme`：
  * **不删断言、不改宽、不 `test.skip`**，等产品补上围栏级身份再转回真断言。现在围栏级
- * 身份已经补上，按当初说好的**只把 `fixme` 改回 `test`，正文一个字没动**。
+ * 身份已经补上，于是转回 `test`。
+ *
+ * ⚠ 转回来之后**首次真跑就红了，红在取数机制上，不在判据上**：它点的是气泡里的
+ * 只读预览 `chat-canvas-fabric-surface`，而全屏编辑器 `fixed inset-0 z-50` 正盖在
+ * 它上面，那一点全落到遮罩上，便签根本没落下去（详见下面 ① 处注释）。
+ * **停放期间写下的断言从来没有被执行过，所以它的取数机制也从来没有被验证过**——
+ * 这正是 `test.fixme` 这种停放方式的代价：判据可以是对的、跑法可以是错的，而只要
+ * 它没跑过就没人知道，「正文一个字都不用动」这句当初的预期也就无从成立。修的是
+ * 选择器（换成编辑器自己那张 `canvas-fabric-surface`），**一条 `expect` 都没有
+ * 放宽、没有删除、没有 skip**。
  */
 test.setTimeout(240_000);
 
@@ -65,10 +74,24 @@ test("@path:C2 同一消息内两个同模板画布：各自的保存版不互�
     page.getByTestId("chat-canvas-loaded-saved"),
     "第一次打开：这条消息名下还没有任何保存版，不该出现读回提示条",
   ).toHaveCount(0);
-  await expect(page.getByTestId("chat-canvas-fabric-surface").last()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
 
   await page.getByTestId("chat-canvas-tool-sticky").click();
-  const surface = page.getByTestId("chat-canvas-fabric-surface").last();
+  /*
+   * ⚠ 这里必须是 `canvas-fabric-surface`（全屏编辑器 `CanvasStage` 里那张**可编辑**
+   *   画布），**不是** `chat-canvas-fabric-surface`（气泡里的只读预览）——两者共享
+   *   fabric.js 但是两份 DOM 节点，`chat-canvas-guidance-render.spec.ts` 已经把这个
+   *   区分写在注释里了。本用例首次真跑（此前一直是 `test.fixme`）时点的是只读预览的
+   *   坐标，而 `ChatCanvasModal` 是 `fixed inset-0 z-50` 铺满视口的：`page.mouse.click`
+   *   只按绝对坐标找**最上层**元素派发事件，于是这一点全部落在 modal 遮罩上，便签
+   *   根本没落下去，`chat-canvas-dirty` 永远不出现（CI 实测：:74 等待超时）。
+   * ⚠ 用 `page.mouse.click` 而不是 `locator.click({position})`：testid 挂在 fabric 的
+   *   lower-canvas 上，真正监听指针事件的是叠在它上面的 upper-canvas，可达性检查会
+   *   如实挡下这次点击。两条坑的完整推导见 `canvas-template-simulate-smoke.spec.ts`
+   *   同名注释，此处不复述；坐标取 80%/80% 与既有先例
+   *   `chat-diagram-save-reopen-roundtrip.spec.ts` 逐字一致。
+   */
+  const surface = page.getByTestId("canvas-fabric-surface");
   const box = (await surface.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.8);
   await expect(page.getByTestId("chat-canvas-dirty")).toBeVisible();
@@ -101,7 +124,7 @@ test("@path:C2 同一消息内两个同模板画布：各自的保存版不互�
    *   · 含「之二」不含「之一」⇒ modal 是用**第二个围栏自己的**原文初始化的（应该的样子）；
    *   · 含「之一」⇒ 它把第一个围栏的保存字节当成了自己的（#3252 的直接现形）。
    */
-  await expect(page.getByTestId("chat-canvas-fabric-surface").last()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("chat-canvas-save").click();
   await expect(page.getByTestId("chat-canvas-saved")).toBeVisible();
   const secondSaved = await page.getByTestId("chat-canvas-saved-source").textContent();
