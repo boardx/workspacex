@@ -10,7 +10,22 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  * 不跳回平台后台；跳转收件箱仍是唯一那个后台屏 `/platform-admin/inbox`——
  * 收件箱没有 Studio 独立入口，不重复建一个。
  */
+/**
+ * ⚠ `useSearchParams` 必须在 Suspense 里（同 `app/preview/feedback-loop/page.tsx` 的成例）。
+ *
+ * 少了它，`next build` 预渲染这条路由时会当场报错——而它是 App Router 里一条静态规则，
+ * 不是这一页特有的事。`fallback={null}`：这一瞬间本来就什么都还没读到，
+ * 给一个骨架屏反而会在真正的加载态之前闪一下。
+ */
 export default function StudioDesignDetailPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <StudioDesignDetailBody />
+    </React.Suspense>
+  );
+}
+
+function StudioDesignDetailBody() {
   const params = useParams();
   const search = useSearchParams();
   const router = useRouter();
