@@ -50,7 +50,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const PROMPTS = {
   chat: ["用一句话介绍你自己", "把下面这句话改得更正式：我们明天再聊吧", "列出三个提高会议效率的办法", "解释一下什么是用户画像，两句话", "把 1234 乘以 56 算出来，只给结果"],
-  url: ["读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么", "分析网址：https://www.baidu.com/ 的内容是什么网站", "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题", "https://www.baidu.com/ 这个页面的标题是什么", "读取 https://www.ruanyifeng.com/blog/index.html 并总结三点"],
+  // pages this network can actually fetch and that carry real article text: a search
+  // homepage (baidu) has none, so the model searched instead and the suite measured flailing
+  url: ["读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么",
+    "读取 https://www.gov.cn/ 并列出首页上提到的两个主题",
+    "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题",
+    "https://news.qq.com/ 这个页面是做什么的，一句话",
+    "读取 https://www.36kr.com/ 并总结两点"],
   canvas: ["生成一个用户画像：AI 转型时代的传媒大学教授", "生成一个高等教育创新者的画像", "为一家社区咖啡店做一张 SWOT 画布", "为一款面向高校的 AI 助教产品做商业模式画布", "为大学生求职者做一张 JTBD 画布"],
   feedback: ["我觉得画布生成太慢了，等了四分钟才出来，而且中间没有任何进度提示", "登录页在本地版还要输密码，应该直接进去", "技能列表是空的，点了没反应，不知道是不是坏了", "语音识别中文夹英文时经常把英文单词写错", "导出的 PDF 太大了，一张画布 30 MB"],
 };

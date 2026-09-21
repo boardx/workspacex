@@ -356,6 +356,11 @@ export function deepAgentEnv(c: LocalConfig): Env {
      * list_org_skills、fetch_url、web_search。
      */
     DEEP_AGENT_EXCLUDED_TOOLS: "grep,glob,delete,edit_file,task,spawn_async_task",
+    // #3749 R5：一页网页最多进模型 6 000 字符（约 2 400 token）。契约允许 60 000，
+    // 那是本地 8 192 token 上下文的三倍——一次抓取就把它自己所服务的对话挤掉。
+    DEEP_AGENT_WEB_TEXT_CHARS: "6000",
+    // 工具结果超过这个 token 数就从历史里驱逐（库默认 8 000 ≈ 整个本地上下文）
+    KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS: "2500",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),

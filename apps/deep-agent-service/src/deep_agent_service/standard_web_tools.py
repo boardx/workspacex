@@ -1,6 +1,7 @@
 """Standard tools call an authorized gateway; fetched text is untrusted source material."""
 import asyncio
 import json
+import os
 from pathlib import Path
 from urllib.parse import quote,urlsplit
 import httpx
@@ -59,8 +60,50 @@ async def _invoke(name,args,runtime):
                         content.extend(chunk)
                     result=json.loads(content)
                     Draft7Validator(_SCHEMA['tools'][name]['output'],format_checker=FormatChecker()).validate(result)
-                    return result
+                    return _clip_for_context(result)
     except Exception:raise StandardWebError('Web source unavailable or request refused; no content confirmed') from None
+
+def web_text_budget_chars() -> int:
+    """How much fetched page text may reach the model (`DEEP_AGENT_WEB_TEXT_CHARS`, 0 = no cap).
+
+    The contract lets `fetch_url` return 60 000 characters — roughly 24 000 tokens, three
+    times a local 8 192-token context. One fetched page then evicts the conversation it was
+    fetched for. The API still returns the contract-shaped full text and the caller still
+    records `contentHash` over all of it; only what is handed to THIS model is clipped, with
+    the cut made visible in the payload so the model knows it is reading an excerpt.
+    """
+    raw = (os.environ.get('DEEP_AGENT_WEB_TEXT_CHARS') or '').strip()
+    return int(raw) if raw.isdigit() else 0
+
+
+def _clip_for_context(result):
+    budget = web_text_budget_chars()
+    if budget <= 0 or not isinstance(result, dict):
+        return result
+    text = result.get('text')
+    if isinstance(text, str) and len(text) > budget:
+        clipped = dict(result)
+        clipped['text'] = text[:budget]
+        clipped['truncated'] = True
+        clipped['clippedForContext'] = {'keptChars': budget, 'originalChars': len(text)}
+        return clipped
+    snippets = result.get('results')
+    if isinstance(snippets, list):
+        clipped_hits, spent = [], 0
+        for hit in snippets:
+            if not isinstance(hit, dict):
+                clipped_hits.append(hit); continue
+            snippet = hit.get('snippet')
+            if isinstance(snippet, str) and spent + len(snippet) > budget:
+                room = max(budget - spent, 0)
+                hit = {**hit, 'snippet': snippet[:room]}
+                snippet = hit['snippet']
+            spent += len(snippet) if isinstance(snippet, str) else 0
+            clipped_hits.append(hit)
+        if spent >= budget:
+            return {**result, 'results': clipped_hits, 'truncated': True}
+    return result
+
 
 def standard_web_tools():
     def build(name,description):
