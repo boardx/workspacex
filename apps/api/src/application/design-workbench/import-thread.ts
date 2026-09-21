@@ -197,7 +197,16 @@ async function readThread(
 export function importTraceText(imported: C.ImportedThread, truncated: boolean): string {
   return (
     `从线程《${imported.title}》导入了 ${imported.messageCount} 条消息作为背景。` +
-    (truncated ? `（线程更长，只读了最近 ${C.IMPORT_THREAD_MAX_MESSAGES} 条）` : "")
+    /*
+     * 迭代 16（#3773 R3）：截断从「只取最近 N 条」改成**首尾兼顾**之后，这句话也得跟着改。
+     *
+     * 留着「只读了最近 N 条」就是一句**不准确的留痕**——实际读的是开头几条 + 最近的部分。
+     * 留痕的全部价值在于半年后它说的还是真话；改了行为不改这句话，等于亲手造了一份
+     * 会骗人的证据，而这正是它本来要防的那件事（静默截断）。
+     */
+    (truncated
+      ? `（线程更长，只读了开头 ${IMPORT_HEAD_MESSAGES} 条与最近的部分，中间略过）`
+      : "")
   );
 }
 

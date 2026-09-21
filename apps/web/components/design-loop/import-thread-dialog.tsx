@@ -249,7 +249,7 @@ export function ImportThreadDialog({
             <p className="text-11 text-muted-foreground" data-testid="import-thread-source">
               来自《{stage.imported.title}》的 {stage.imported.messageCount} 条消息
               {/* 截断必须说出来：静默截断会让用户以为模型看过它其实没看过的那段 */}
-              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，只读了最近这些）</span>}
+              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，读了开头几条与最近的部分，中间略过）</span>}
             </p>
             <Textarea
               rows={10}

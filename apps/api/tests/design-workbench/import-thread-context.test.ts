@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { designWorkbench as C } from "@repo/contracts";
 import {
   IMPORT_HEAD_MESSAGES,
+  importTraceText,
   parseImportedCriteria,
   selectImportMessages,
 } from "../../src/application/design-workbench/import-thread";
@@ -55,5 +56,29 @@ describe("抽出来的验收标准逐条过契约", () => {
   it("抽不到 ⇒ 空数组（**不编**：编出来的一条会一路走到排期里去）", () => {
     expect(parseImportedCriteria(undefined)).toEqual([]);
     expect(parseImportedCriteria([])).toEqual([]);
+  });
+});
+
+describe("留痕说的必须是真话（#3773 R3）", () => {
+  const imported = { threadId: "th-1", title: "很长的线", messageCount: C.IMPORT_THREAD_MAX_MESSAGES, at: "2026-09-21T00:00:00.000Z" };
+
+  it("没截断 ⇒ 只说读了多少条，不提截断", () => {
+    const text = importTraceText({ ...imported, messageCount: 12 }, false);
+    expect(text).toContain("12 条消息");
+    expect(text).not.toContain("略过");
+  });
+
+  it("截断了 ⇒ 说的是**首尾兼顾**，不是「只读了最近 N 条」", () => {
+    /*
+     * ⭐ 反证锚点：把这句话改回「只读了最近 N 条」⇒ 这条红。
+     *
+     * 行为在本轮从「只取最近 N 条」改成了首尾兼顾，而这句话是留在项目对话里的**证据**。
+     * 改了行为不改这句话，等于亲手造了一份会骗人的留痕——而它本来要防的正是这件事
+     * （静默截断，让用户以为模型看过它其实没看过的那段）。
+     */
+    const text = importTraceText(imported, true);
+    expect(text).toContain(`开头 ${String(IMPORT_HEAD_MESSAGES)} 条`);
+    expect(text).toContain("中间略过");
+    expect(text).not.toContain("只读了最近");
   });
 });
