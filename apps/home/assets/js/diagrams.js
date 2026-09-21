@@ -8,8 +8,9 @@
  */
 import STRINGS from './diagram-strings.js';
 import { reducedMotion } from './motion.js';
+import { pageLang } from './lang.js';
 
-let LANG = 'en';
+let LANG = pageLang();
 const t = (key) => STRINGS[key]?.[LANG] ?? STRINGS[key]?.en ?? key;
 
 /* A 1000-unit-wide viewBox squeezed into a 350 px phone renders its 13 px
@@ -719,7 +720,7 @@ const BUILDERS = { chain, axis, break: brokenChain, arch, harness, graph };
 let teardowns = [];
 let loopApi = null;
 
-export function renderDiagrams(lang) {
+export function renderDiagrams(lang = pageLang()) {
   LANG = lang;
   teardowns.forEach((fn) => fn?.());
   teardowns = [];

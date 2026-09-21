@@ -1,10 +1,10 @@
 /**
  * main.js — wiring.
  *
- * Order matters: capture the English DOM before anything rewrites it, then
- * language, then diagrams (which read the language), then scroll behaviour.
+ * The page arrives in its final language (each one is its own prerendered
+ * URL), so boot is just: draw the diagrams, then attach scroll behaviour.
  */
-import { initI18n } from './i18n.js';
+import { pageLang, initLangHint } from './lang.js';
 import {
   initReveals, initNav, initScene, splitWords, reducedMotion,
   initOffscreenPause, initHeroParallax,
@@ -13,9 +13,7 @@ import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './d
 import { initSurface } from './surface.js';
 
 const boot = () => {
-  const i18n = initI18n();
-
-  renderDiagrams(i18n.current);
+  renderDiagrams(pageLang());
   splitWords(document.querySelector('[data-split]'));
 
   initNav();
@@ -23,7 +21,7 @@ const boot = () => {
   initSurface();
   initOffscreenPause();
   initHeroParallax();
-  watchBreakpoint(() => { renderDiagrams(i18n.current); wireLoopScene(); });
+  watchBreakpoint(() => { renderDiagrams(); wireLoopScene(); });
 
   // Diagram label sizes are derived from each svg's rendered width, so they
   // have to be recomputed whenever that width can change.
@@ -34,13 +32,7 @@ const boot = () => {
   }, { passive: true });
   wireLoopScene();
 
-  // Language changes rewrite text nodes, so anything JS generated from copy
-  // has to be rebuilt — diagrams and the split headline both are.
-  document.addEventListener('langchange', (e) => {
-    renderDiagrams(e.detail.lang);
-    splitWords(document.querySelector('[data-split]'));
-    wireLoopScene();
-  });
+  initLangHint();
 };
 
 /* -------------------------------------------------------------------------

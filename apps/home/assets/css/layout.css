@@ -115,6 +115,7 @@
   padding: 2px; border-radius: 999px;
   border: 1px solid var(--hairline); background: var(--surface);
 }
+.langswitch__btn:hover { color: var(--fg); }
 .langswitch__btn {
   padding: 0.3rem 0.7rem; border-radius: 999px;
   font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.02em;
@@ -122,7 +123,7 @@
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
 }
-.langswitch__btn[aria-pressed="true"] {
+.langswitch__btn[aria-current="true"] {
   color: var(--on-grad);
   background: var(--grad);
 }

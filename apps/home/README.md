@@ -31,21 +31,56 @@ Open <http://127.0.0.1:4310>.
 ## Check it
 
 ```bash
-node scripts/check-i18n.mjs      # EN/ZH key parity — must pass before commit
+node scripts/check-all.mjs       # everything below; must pass before commit
+```
+
+| script | what it fails on |
+|---|---|
+| `check-i18n.mjs` | a key used but untranslated, translated but unused, translated to whitespace, containing Cyrillic, or left in English |
+| `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `href="#…"` or `aria-labelledby` pointing at nothing |
+| `check-css.mjs` | a class or custom property defined and never used, or a `var()` reading a property nothing declares |
+| `check-copy.mjs` | straight quotes and apostrophes, half-width punctuation between Han characters, missing CJK/latin spacing, `...` instead of `……` |
+| `build-i18n.mjs --check` | `zh/index.html` out of date with `index.html` + `zh.js` |
+
+Two generators are run by hand, not by the checks, because they need
+Playwright:
+
+```bash
+node scripts/build-og.mjs        # regenerates the social cards from og-card.html
 ```
 
 ## How the two languages work
 
-English is authored inline in `index.html`, so the page is complete and
-indexable with JavaScript disabled. `assets/js/zh.js` supplies Chinese for every
-`data-i18n` key; switching swaps `textContent` and sets `lang`. There is no
-second copy of the English anywhere.
+**Language is a URL, not runtime state.**
 
-Diagram labels are the exception: JS draws them, so there is no DOM to author
-them in. Both languages sit together in `assets/js/diagram-strings.js`.
+    /       English    index.html      authored by hand
+    /zh/    Chinese    zh/index.html   GENERATED — do not edit
 
-`scripts/check-i18n.mjs` is the gate over both. A key used but untranslated,
-translated but unused, or translated to whitespace fails the check.
+English is authored inline in `index.html` against `data-i18n` keys.
+`assets/js/zh.js` holds the Chinese for every key, and
+`scripts/build-i18n.mjs` prerenders `zh/index.html` from the two. There is no
+second copy of the English anywhere, and no text is swapped at runtime.
+
+That matters: with client-side switching the Chinese site had one URL, English
+in the markup, and no way to link anyone to it. It was unindexable and
+unshareable. Now each language is a real page with its own canonical URL,
+`hreflang` alternates, title, description and social card.
+
+After editing `index.html` or `zh.js`, regenerate:
+
+```bash
+node scripts/build-i18n.mjs
+```
+
+`check-all.mjs` fails if you forget — it re-generates in memory and compares.
+
+Diagram labels are the exception to the dictionary split: JS draws them, so
+there is no DOM to author them in. Both languages sit together in
+`assets/js/diagram-strings.js`.
+
+A visitor whose browser prefers the other language gets a dismissible offer
+(`lang.js`), never an automatic redirect — redirecting breaks the back button,
+hides one language from crawlers, and overrides a deliberate choice.
 
 ## Layout
 
@@ -59,12 +94,17 @@ assets/css/sections.css    per-section layout
 assets/css/motion.css      reveals, hero, sticky scenes, reduced-motion contract
 assets/css/diagrams.css    SVG styling
 assets/js/main.js          wiring
-assets/js/i18n.js          language switching
+assets/js/lang.js          reports the page language; offers the other one
 assets/js/zh.js            Chinese page copy
 assets/js/diagram-strings.js  bilingual diagram labels
 assets/js/motion.js        IntersectionObserver reveals, nav, scroll scenes
 assets/js/diagrams.js      the seven concept illustrations
-scripts/check-i18n.mjs     translation completeness gate
+assets/img/og.png          social card (generated)
+assets/img/og-zh.png       Chinese social card (generated)
+zh/index.html              Chinese page (GENERATED — do not edit)
+404.html  robots.txt  sitemap.xml  _headers
+scripts/                   the checks above, plus the two generators
+scripts/og-card.html       source for the social cards
 docs/REVIEW-LOG.md         what each iteration round found and changed
 ```
 
