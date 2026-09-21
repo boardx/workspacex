@@ -45,6 +45,9 @@ export const UPGRADED_CHAT_MODEL = "qwen3.5:9b";
 export const CHAT_MODEL_UPGRADE_MIN_MEMORY_GB = 16;
 /** Meta tasks (thread title, follow-up suggestions, feedback structuring) run on this (#3749 B2.2). */
 export const DEFAULT_META_MODEL = "qwen3.5:2b";
+// NOTE: not bundled for Mac. On 16 GB it swaps in and out with the chat model (2 s each way,
+// measured), so `preferredMetaModel` only reaches for it at ≥24 GB; a machine that wants it
+// pulls it once. `fetch-models.sh MODELS=…` decides what ships.
 /** Below this the 2B and the chat model cannot both stay resident: every swap costs ~2 s (16 GB Mac, 2026-09-20). */
 export const META_MODEL_MIN_MEMORY_GB = 24;
 
