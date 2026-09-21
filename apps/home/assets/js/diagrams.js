@@ -348,7 +348,8 @@ function loopRing(host) {
     const y = C + R * Math.sin(angle);
     const g = el('g', { class: 'd-loop__node', 'data-step': i });
     g.append(el('circle', { cx: x, cy: y, r: 27, fill: '#0c0a10', stroke: 'rgba(255,255,255,.16)', class: 'd-loop__ring' }));
-    g.append(el('circle', { cx: x, cy: y, r: 7, fill: LEAD_COLOR[stage.lead], class: 'd-loop__dot' }));
+    const dot = el('circle', { cx: x, cy: y, r: 7, fill: LEAD_COLOR[stage.lead], class: 'd-loop__dot' });
+    g.append(dot);
     // labels pushed outward along the radius so they never sit on the ring
     const lx = C + (R + 52) * Math.cos(angle);
     const ly = C + (R + 52) * Math.sin(angle);
@@ -369,16 +370,40 @@ function loopRing(host) {
   host.replaceChildren(s);
   registerScale(s);
 
+  const N = LOOP_STAGES.length;
+  let shown = -1;
+
   return {
     /** @param {number} p 0→1 */
     render(p) {
-      const idx = Math.min(LOOP_STAGES.length - 1, Math.floor(p * LOOP_STAGES.length));
+      const head = p * N;
+      const idx = Math.min(N - 1, Math.floor(head));
       arc.setAttribute('stroke-dashoffset', String(circumference * (1 - p)));
-      nodes.forEach((g, i) => g.setAttribute('data-active', String(i === idx)));
-      const stage = LOOP_STAGES[idx];
-      title.textContent = t(`d.loop.${stage.key}`);
-      who.textContent = t(LEAD_LABEL[stage.lead]);
-      title.setAttribute('fill', LEAD_COLOR[stage.lead]);
+
+      /* Emphasis is continuous, not a class that flips at the stage boundary:
+         each node reacts as the head approaches and recedes, so the ring reads
+         as one moving thing rather than six lights switching on and off. */
+      nodes.forEach((g, i) => {
+        const distance = Math.abs(head - (i + 0.5));
+        // Falloff of 1 meant only the node under the head ever lit; widening it
+        // lets the neighbours glow as the head approaches, which is what makes
+        // the ring read as one travelling highlight.
+        const emphasis = Math.max(0, 1 - distance / 1.45);
+        g.style.setProperty('--e', emphasis.toFixed(3));
+        g.setAttribute('data-active', String(i === idx));
+      });
+
+      if (idx !== shown) {
+        shown = idx;
+        const stage = LOOP_STAGES[idx];
+        title.textContent = t(`d.loop.${stage.key}`);
+        who.textContent = t(LEAD_LABEL[stage.lead]);
+        title.setAttribute('fill', LEAD_COLOR[stage.lead]);
+        // re-trigger the crossfade without a class-removal round trip
+        centre.style.animation = 'none';
+        void centre.getBoundingClientRect();
+        centre.style.animation = '';
+      }
       return idx;
     },
   };

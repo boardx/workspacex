@@ -5,7 +5,10 @@
  * language, then diagrams (which read the language), then scroll behaviour.
  */
 import { initI18n } from './i18n.js';
-import { initReveals, initNav, initScene, splitWords, reducedMotion } from './motion.js';
+import {
+  initReveals, initNav, initScene, splitWords, reducedMotion,
+  initOffscreenPause, initHeroParallax,
+} from './motion.js';
 import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './diagrams.js';
 import { initSurface } from './surface.js';
 
@@ -18,6 +21,8 @@ const boot = () => {
   initNav();
   initReveals();
   initSurface();
+  initOffscreenPause();
+  initHeroParallax();
   watchBreakpoint(() => { renderDiagrams(i18n.current); wireLoopScene(); });
 
   // Diagram label sizes are derived from each svg's rendered width, so they

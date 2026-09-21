@@ -91,7 +91,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
+  /* `clip` rather than `hidden`: hidden turns the body into a scroll container,
+     which breaks position: sticky inside it and interferes with scroll
+     anchoring. This is a backstop — anything that actually overflows is a bug
+     to fix at the source. */
+  overflow-x: clip;
 }
 
 img, svg, video, canvas { display: block; max-width: 100%; }
