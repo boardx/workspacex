@@ -15,6 +15,7 @@ import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { auditSignoff } from "./lib/design-signoff";
+import { contractRouteCoverage } from "./lib/contract-route-coverage-fs";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
 import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import {
@@ -243,6 +244,52 @@ function checkSpecRef(phaseId: string, f: Feature, findings: Finding[]): void {
   const r = resolveSpecRef(phaseId, f.spec_ref);
   if (!r.ok) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 正在 in_progress 但没有可追溯的 story：${r.reason}` });
+  }
+}
+
+
+/**
+ * 契约 ↔ 路由覆盖（issue #1177）。
+ *
+ * 「契约里声明了 `path` 的 operation，如果它落在一个已经交付完的契约束里，
+ * `apps/api/src/interface/` 里必须有对应路由」——判据、为什么不是「每条 operation
+ * 都必须有路由」、束级近似的假阴性，全部写在 `lib/contract-route-coverage.ts` 的头注里，
+ * 这里不复述。
+ *
+ * ⚠ **级别固定 WARN，`--strict` 也不升 FAIL。** issue #1177「已知的难点」第 3 条逐字：
+ *   225 条里绝大多数是合法未实现，一上来就 FAIL 会逼人去关掉它。先让清单可见、
+ *   等它收敛，升级是人的决定。
+ *
+ * ⚠ 一个束一行，不是一条缺口一行：本仓今天的清单是三位数，逐条塞进 doctor 会把
+ *   别的 finding 全部淹掉。逐条看 `pnpm harness contract-routes`。
+ */
+function checkContractRouteCoverage(phaseIds: readonly string[], findings: Finding[]): void {
+  let report;
+  try {
+    report = contractRouteCoverage(phaseIds);
+  } catch (e) {
+    // 扫不动（契约包结构变了 / interface 目录不在）时**说出来**，不要静默当绿——
+    // 一道扫了 0 行的门永远是绿的，那正是这条检查自己要挡的失效形状。
+    findings.push({
+      level: "WARN",
+      phase: "-",
+      msg: `契约↔路由覆盖：扫描失败，本次未判定（${e instanceof Error ? e.message : String(e)}）`,
+    });
+    return;
+  }
+  for (const b of report.bundles) {
+    if (!b.inScope) continue;
+    const gaps = report.gaps.filter((g) => g.bundle === b.bundle);
+    if (gaps.length === 0) continue;
+    const sample = gaps.slice(0, 3).map((g) => `${g.method} ${g.path}`).join("、");
+    findings.push({
+      level: "WARN",
+      phase: b.phase,
+      msg:
+        `契约↔路由覆盖：束 ${b.bundle} 有 ${gaps.length}/${b.operationsWithPath} 条声明了 path 的 operation ` +
+        `在 apps/api/src/interface/ 里没有对应路由（${sample}${gaps.length > 3 ? " 等" : ""}）` +
+        `——「这个束的 feature 已 passing」推不出「这些路径今天能跑」。逐条：pnpm harness contract-routes --phase ${b.phase}`,
+    });
   }
 }
 
@@ -706,6 +753,9 @@ export function doctor(args: Args): void {
     checkSignoffChain(id, findings);
     checkPhaseReadiness(id, findings);
   }
+
+  // 一次扫完 interface 目录（440+ 个路由装饰器），不按 phase 重复解析
+  checkContractRouteCoverage(phaseIds, findings);
 
   // 棘轮只许收缩：只对本次实际扫到的 phase 判陈旧，不动没扫到的那部分名单。
   const scannedPhaseIds = new Set(scannedForRatchet.map((p) => p.phaseId));

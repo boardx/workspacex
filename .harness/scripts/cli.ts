@@ -17,6 +17,7 @@ import { tick } from "./tick";
 import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { archivePassing } from "./archive-passing";
+import { contractRoutes } from "./contract-routes";
 import { phaseReadiness } from "./phase-readiness";
 import { coreLoopReadiness } from "./core-loop-readiness-doctor";
 import { roleScorecard } from "./role-scorecard";
@@ -60,6 +61,7 @@ async function main(): Promise<void> {
     case "graph":          graphCommand(args); break;
     case "dev-mode":       devMode(args); break;
     case "doctor":         doctor(args); break;
+    case "contract-routes": contractRoutes(args); break;
     case "archive-passing": archivePassing(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "readiness":      coreLoopReadiness(args); break;
@@ -139,6 +141,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness graph compile [--no-cache]               # 从权威源确定性编译 Graph Snapshot");
       log.info("  pnpm harness graph validate [--no-cache]              # 校验类型、引用、端点与依赖环");
       log.info("  pnpm harness doctor [--phase NN]                       # 审计链体检：passing 证据真实性 + 派生视图一致性（ADR-012）");
+      log.info("  pnpm harness contract-routes [--phase NN] [--json]     # 契约声明了 path 的 operation 有没有对应路由（issue #1177）；只出清单，永不阻断");
       log.info("  pnpm harness phase-readiness --phase NN                # 查看独立 runtime/E2E readiness");
       log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
       log.info("  pnpm harness phase-readiness --phase NN --to not_ready --actor <id> --reason <text>");
