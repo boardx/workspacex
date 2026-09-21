@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS projector_state (
   value TEXT NOT NULL
 );
 
+-- 反向投影发件箱（#376）：追加式 GitHub 动作（issue 评论）的持久幂等键。
+-- 批次部分成功时上层不推进游标、下 tick 重放整批；没有本表，已经成功的评论会随每次
+-- 重试再刷一条（可见的重复副作用）。每条逻辑动作投递成功后在此登记一行，重放时先查后发。
+-- 与 deliveries（webhook GUID 去重）同构：只 INSERT + 保留窗口清理，不暴露 UPDATE。
+CREATE TABLE IF NOT EXISTS projection_outbox (
+  idem_key     TEXT PRIMARY KEY,           -- engine.ts issueCommentKey() 推导，跨重放稳定
+  delivered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_projection_outbox_delivered_at
+  ON projection_outbox(delivered_at);
+
 -- evidence manifest 原文存档（F07）：manifest 是"完成声明"留痕对象（evidence.md），
 -- 原文全量保存，评审/复核端按 resource_id 检索；append 语义，不暴露 UPDATE/DELETE
 CREATE TABLE IF NOT EXISTS evidence_manifests (

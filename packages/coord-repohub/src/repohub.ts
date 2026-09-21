@@ -70,6 +70,15 @@ interface TaskRow {
 // pending 直接 done 允许——跳过 ack 直接交付是 D1 现行为）
 // deliveries（webhook GUID 去重）保留窗口：30 天（#712，alarm 里顺带清理）
 const DELIVERIES_RETENTION_MS = 30 * 24 * 3600 * 1000;
+// projection_outbox（投影幂等键）保留窗口：同口径 30 天（#376，alarm 里顺带清理）。
+// 键只需覆盖"游标停在该事件批上的重放窗口"——正常是下一 tick（分钟级），卡住的批
+// 靠人修；30 天远超之，删掉更早的行不会让任何仍可能重放的动作失去去重保护。
+const PROJECTION_OUTBOX_RETENTION_MS = 30 * 24 * 3600 * 1000;
+// 一次发件箱查询的键数上限：投影一批最多 EVENTS_BATCH(500) 条事件，取 1000 留余量
+const OUTBOX_KEYS_MAX = 1000;
+// 单条 IN 查询的分块大小：SQLite 绑定变量上限（默认 999）之下取整
+const OUTBOX_QUERY_CHUNK = 100;
+const OUTBOX_KEY_MAX_LENGTH = 512;
 
 const TASK_PRIORITIES = new Set(["high", "normal", "low"]);
 const TASK_STATUSES = new Set(["pending", "acked", "done", "recalled"]);
@@ -122,6 +131,13 @@ export class RepoHub extends DurableObject {
       if (req.method === "GET" && p === "/andon") return this.andonStatus();
       if (req.method === "GET" && p === "/projector/cursor") return this.cursorGet();
       if (req.method === "PUT" && p === "/projector/cursor") return this.cursorPut(await req.json());
+      // 发件箱（#376）：查询用 POST 而非 GET——一批最多 EVENTS_BATCH 个键，
+      // 逐个塞 query string 会撞 URL 长度上限。两条都不在 gateway 的 REST allowlist 里
+      // （isAllowedRestSubpath 默认拒绝 /projector/*），只有投影 cron 经 DO stub 可达。
+      if (req.method === "POST" && p === "/projector/outbox/delivered")
+        return this.outboxDelivered(await req.json());
+      if (req.method === "POST" && p === "/projector/outbox/record")
+        return this.outboxRecord(await req.json());
       if (req.method === "POST" && p === "/evidence") return this.submitEvidence(await req.json());
       if (req.method === "GET" && p === "/evidence") return this.listEvidence(url);
       if (req.method === "POST" && p === "/mirror/upsert") return this.mirrorUpsert(await req.json());
@@ -253,6 +269,11 @@ export class RepoHub extends DurableObject {
     // （无行可删即 no-op），防 DO SQLite 无界增长。活跃仓库租约活动常在，
     // alarm 常态有排；完全无租约活动的静默仓库也没有新 deliveries 进来。
     this.sql.exec(`DELETE FROM deliveries WHERE at <= ?`, iso(now - DELIVERIES_RETENTION_MS));
+    // 投影发件箱同口径清理（#376）：同样只 INSERT 的去重表，同样需要有界增长
+    this.sql.exec(
+      `DELETE FROM projection_outbox WHERE delivered_at <= ?`,
+      iso(now - PROJECTION_OUTBOX_RETENTION_MS),
+    );
     const due = [...this.sql.exec<LeaseRow>(
       `SELECT * FROM leases WHERE status='in_progress' AND expires_at <= ?`, iso(now),
     )];
@@ -491,6 +512,41 @@ export class RepoHub extends DurableObject {
       cursor,
     );
     return json(200, { ok: true, cursor });
+  }
+
+  // ---------- 投影发件箱（#376） ----------
+
+  /** 批量查询哪些幂等键已经投递过。分块查询：SQLite 绑定变量有上限，不能把整批摊平进一条 IN。 */
+  private outboxDelivered(body: unknown): Response {
+    const raw = (body as Record<string, unknown> | null)?.["keys"];
+    if (!Array.isArray(raw)) return json(422, { error: "invalid_outbox_keys" });
+    // 上限按**原始**长度判（不是过滤后的）：否则塞一堆非法项就能绕过这道闸
+    if (raw.length > OUTBOX_KEYS_MAX)
+      return json(422, { error: "too_many_outbox_keys", details: [`最多 ${OUTBOX_KEYS_MAX} 个键`] });
+    // 非字符串/空串按"未投递"处理（fail-open 到重发，绝不误判成已投递而吞掉动作）
+    const keys = raw.filter((k): k is string => typeof k === "string" && k.length > 0);
+    const delivered: string[] = [];
+    for (let i = 0; i < keys.length; i += OUTBOX_QUERY_CHUNK) {
+      const chunk = keys.slice(i, i + OUTBOX_QUERY_CHUNK);
+      const holes = chunk.map(() => "?").join(",");
+      for (const row of this.sql.exec<{ idem_key: string }>(
+        `SELECT idem_key FROM projection_outbox WHERE idem_key IN (${holes})`, ...chunk,
+      )) delivered.push(row.idem_key);
+    }
+    return json(200, { delivered });
+  }
+
+  /** 登记一条已成功投递的逻辑动作。幂等：重复登记不报错，也不覆盖首次投递时间。 */
+  private outboxRecord(body: unknown): Response {
+    const key = (body as Record<string, unknown> | null)?.["key"];
+    if (typeof key !== "string" || key.length === 0) return json(422, { error: "invalid_outbox_key" });
+    if (key.length > OUTBOX_KEY_MAX_LENGTH) return json(422, { error: "outbox_key_too_long" });
+    const seen = [...this.sql.exec(`SELECT 1 FROM projection_outbox WHERE idem_key=?`, key)][0];
+    if (seen) return json(200, { ok: true, duplicate: true });
+    this.sql.exec(
+      `INSERT INTO projection_outbox (idem_key, delivered_at) VALUES (?,?)`, key, iso(Date.now()),
+    );
+    return json(200, { ok: true, duplicate: false });
   }
 
   // ---------- Mirror（F04） ----------
