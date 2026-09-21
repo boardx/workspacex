@@ -1,6 +1,7 @@
 import { research as C } from "@repo/contracts";
 import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
+import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
 
 type BriefNodeState = z.infer<typeof C.BriefNodeInputState>;
@@ -8,7 +9,6 @@ type GuidedResearchDirection = z.infer<typeof C.GuidedResearchDirection>;
 
 export const GUIDED_RESEARCH_DIRECTION_GENERATOR = Symbol("GuidedResearchDirectionGenerator");
 
-export const GUIDED_RESEARCH_DIRECTION_MODEL_ID = "qwen3.7-plus";
 export const GUIDED_RESEARCH_DIRECTION_SCHEMA_VERSION = "guided-research-directions:v1";
 
 export class GuidedResearchDirectionGenerationError extends Error {
@@ -20,7 +20,7 @@ export class GuidedResearchDirectionGenerationError extends Error {
 export interface GuidedResearchDirectionGeneration {
   readonly directions: readonly GuidedResearchDirection[];
   readonly modelProvider: string;
-  readonly modelId: typeof GUIDED_RESEARCH_DIRECTION_MODEL_ID;
+  readonly modelId: string;
   readonly modelInvocationId: string;
   readonly modelOutputSchemaVersion: typeof GUIDED_RESEARCH_DIRECTION_SCHEMA_VERSION;
 }
@@ -36,9 +36,8 @@ export interface GuidedResearchDirectionGenerator {
 export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDirectionGenerator {
   constructor(
     private readonly model: ModelCallPort,
-    private readonly modelProvider = process.env.KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER
-      ?? process.env.KERNEL_MODEL_PROVIDER
-      ?? "",
+    private readonly modelProvider = guidedModelConfig().provider,
+    private readonly modelId = guidedModelConfig().id,
   ) {}
 
   async generate(input: {
@@ -50,7 +49,7 @@ export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDire
     try {
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
-        modelId: GUIDED_RESEARCH_DIRECTION_MODEL_ID,
+        modelId: this.modelId,
         system: [
           "You generate Guided Research directions for BoardX.",
           "Return JSON only. Do not include markdown, prose, citations, or comments.",
@@ -79,7 +78,7 @@ export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDire
     return {
       directions: parsed.directions.map((direction, order) => ({ ...direction, order })),
       modelProvider: this.modelProvider,
-      modelId: GUIDED_RESEARCH_DIRECTION_MODEL_ID,
+      modelId: this.modelId,
       modelInvocationId: `${input.sessionId}:${input.requestId}:qwen3.7-plus`,
       modelOutputSchemaVersion: GUIDED_RESEARCH_DIRECTION_SCHEMA_VERSION,
     };
