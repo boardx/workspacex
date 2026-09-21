@@ -193,3 +193,50 @@ describe("门不误伤合格的一页（阈值回归）", () => {
     expect(scorePrototypeScreen(page).total).toBeGreaterThanOrEqual(PROTOTYPE_QUALITY_THRESHOLD);
   });
 });
+
+describe("M8 死路（#3773 R6）", () => {
+  const primary = (id?: string): N =>
+    ({ ...(id === undefined ? {} : { id }), type: "button", props: { label: "去结算", variant: "primary" } }) as unknown as N;
+
+  it("多页项目里主操作连了线 ⇒ 满分", () => {
+    const page = stack([text("购物车", "title"), primary("go")]);
+    const part = scorePrototypeScreen(page, { links: [{ from: "go", to: 1 }], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBe(1);
+  });
+
+  it("主操作没有去处 ⇒ 扣分，且反馈点名是哪个按钮", () => {
+    // ⭐ 反证锚点：删掉 M8 ⇒ 这条红。「每页的主操作都要有去处」此前只写在提示词里，
+    // 表现是用户点进预览按遍所有按钮都没反应。
+    const page = stack([text("购物车", "title"), primary("go")]);
+    const part = scorePrototypeScreen(page, { links: [], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBeLessThan(1);
+    expect(part.hint).toContain("去结算");
+  });
+
+  it("模型没给节点写 id ⇒ 同样判死路（指不到它就连不了线）", () => {
+    const part = scorePrototypeScreen(stack([text("购物车", "title"), primary()]), { links: [], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBeLessThan(1);
+    expect(part.hint).toContain("自己给那个节点写 id");
+  });
+
+  it("单页项目 ⇒ 不判（没有地方可去，那不是死路）", () => {
+    const page = stack([text("购物车", "title"), primary("go")]);
+    expect(scorePrototypeScreen(page, { links: [], screenCount: 1 }).parts.find((p) => p.metric === "deadEnds")?.score).toBe(1);
+    // 不给 context 时按单页看待——拿不到跳转表就不该凭空判它有死路。
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "deadEnds")?.score).toBe(1);
+  });
+
+  it("「取消」这种次要按钮没连线 ⇒ 不判（只判主操作与底部导航）", () => {
+    const page = stack([
+      text("购物车", "title"), primary("go"),
+      { type: "button", id: "c", props: { label: "取消", variant: "ghost" } } as unknown as N,
+    ]);
+    expect(
+      scorePrototypeScreen(page, { links: [{ from: "go", to: 1 }], screenCount: 3 })
+        .parts.find((p) => p.metric === "deadEnds")?.score,
+    ).toBe(1);
+  });
+});

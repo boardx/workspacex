@@ -3205,6 +3205,58 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
+  it("迭代 16（#3773 R6）：预览里跳过去之后能**返回**，像用真的 App 一样走一遍", async () => {
+    const home = {
+      type: "stack" as const, id: "s0",
+      children: [
+        { type: "text" as const, id: "t0", props: { content: "我的订单", variant: "title" as const } },
+        { type: "button" as const, id: "go", props: { label: "查看详情", variant: "primary" as const } },
+      ],
+    };
+    const detail = {
+      type: "stack" as const, id: "s1",
+      children: [{ type: "text" as const, id: "t1", props: { content: "订单详情", variant: "title" as const } }],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({
+          frames: ["订单", "详情"],
+          prototype: [home, detail] as never,
+          frameLinks: [[{ from: "go", to: 1 }], []] as never,
+        })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-mode-preview"));
+
+    // 还没跳转 ⇒ 没有返回条。一个永远在那里、点了没反应的返回按钮比没有更糟。
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="go"]') as HTMLElement);
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("订单详情"));
+
+    /*
+     * ⭐ 反证锚点：`onNavigate={setFrame}`（不记返回栈）⇒ 这条红。
+     * 预览的承诺是「像用真的 App 一样走一遍」，而真的 App 里每一次跳转都能退回来；
+     * 少了它，走两层就断了，主流程根本走不完。
+     */
+    const bar = await screen.findByTestId("design-detail-preview-back-bar");
+    expect(bar.textContent).toContain("从「订单」过来");
+    fireEvent.click(screen.getByTestId("design-detail-preview-back"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("我的订单"));
+    // 退回起点之后返回条消失——没有更早的地方可退了。
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+
+    // 退出预览会清空返回栈：回到编辑态点页签是"我要看这一页"，不是"后退"。
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="go"]') as HTMLElement);
+    await screen.findByTestId("design-detail-preview-back-bar");
+    fireEvent.click(screen.getByTestId("design-detail-mode-edit"));
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+  });
+
   it("迭代 16（#3773 R5）：一轮对话之后，**改动过的节点**在画布上有一圈高亮，几秒后自动消失", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const before = {

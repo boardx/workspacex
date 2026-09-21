@@ -216,10 +216,48 @@ function placeholderCopy(nodes: readonly designPrototype.PrototypeNode[]): Quali
   };
 }
 
+/**
+ * M8 死路（迭代 16，#3773 R6）：这一页的**主操作没有去处**。
+ *
+ * `DESIGN_PRINCIPLES` 第 ⑦ 条写着「每页的主操作都要有去处，底部导航每一项都连到它那一页，
+ * 别留死按钮」——和 ① 一样，写在提示词里、没有任何门控。表现就是用户点进预览、
+ * 按遍所有按钮都没反应，「可点击原型」这件事只在文档里成立。
+ *
+ * ⚠ 只在**整个项目多于一页**时判：单页项目没有地方可去，那不是死路。
+ * ⚠ 只判主操作与底部导航，不判每一个按钮：一个「取消」按钮没有连线是正常的。
+ */
+function deadEnds(
+  nodes: readonly designPrototype.PrototypeNode[],
+  links: readonly designPrototype.PrototypeLink[] | undefined,
+  screenCount: number,
+): QualityDeduction {
+  if (screenCount <= 1) return { metric: "deadEnds", score: 1, hint: "" };
+  const linked = new Set((links ?? []).map((l) => l.from));
+  const misses: string[] = [];
+  const primary = nodes.find(
+    (n): n is Extract<designPrototype.PrototypeNode, { type: "button" }> =>
+      n.type === "button" && (n.props.variant ?? "primary") === "primary",
+  );
+  if (primary !== undefined && (primary.id === undefined || !linked.has(primary.id))) {
+    misses.push(`主操作「${primary.props.label}」`);
+  }
+  const nav = nodes.find((n) => n.type === "bottomnav");
+  if (nav !== undefined && (nav.id === undefined || !linked.has(nav.id))) misses.push("底部导航");
+  if (misses.length === 0) return { metric: "deadEnds", score: 1, hint: "" };
+  return {
+    metric: "deadEnds",
+    score: Math.max(0, 1 - misses.length * 0.5),
+    hint:
+      `${misses.join("、")}点下去没有去处——预览时它就是个死按钮。用 links 把它连到对应的页` +
+      "（想连线就**自己给那个节点写 id**，不写的由服务端补，那样你就指不到它）。",
+  };
+}
+
 const WEIGHTS: Readonly<Record<string, number>> = {
-  substance: 0.22, hierarchy: 0.16, emptyContainers: 0.14, affordance: 0.14, duplicateCopy: 0.08,
-  // 迭代 16：新加的两条各占一成半——它们量的是「像不像人做的」，与前五条量的「有没有内容」同等重要。
-  primaryFocus: 0.14, placeholderCopy: 0.12,
+  substance: 0.2, hierarchy: 0.15, emptyContainers: 0.12, affordance: 0.12, duplicateCopy: 0.07,
+  // 迭代 16：新加的三条——它们量的是「像不像人做的」「点不点得动」，
+  // 与前五条量的「有没有内容」同等重要。
+  primaryFocus: 0.13, placeholderCopy: 0.11, deadEnds: 0.1,
 };
 
 /**
@@ -227,7 +265,16 @@ const WEIGHTS: Readonly<Record<string, number>> = {
  *
  * ⚠ 空集防线：树遍历不出任何节点（不该发生）⇒ **判 0**，不因为「没发现问题」而判绿。
  */
-export function scorePrototypeScreen(root: designPrototype.PrototypeNode): QualityReport {
+export function scorePrototypeScreen(
+  root: designPrototype.PrototypeNode,
+  /**
+   * 迭代 16（#3773 R6）：这一页的跳转表与整个项目的页数——判「主操作有没有去处」要它们。
+   *
+   * 省略 ⇒ 按**单页项目**看待，M8 不扣分。这是刻意的保守：调用方拿不到跳转表时
+   * （比如只想给一棵孤立的树打分）不该凭空判它有死路。
+   */
+  context?: { readonly links?: readonly designPrototype.PrototypeLink[]; readonly screenCount?: number },
+): QualityReport {
   const nodes: designPrototype.PrototypeNode[] = [];
   walk(root, (n) => nodes.push(n));
   if (nodes.length === 0) {
@@ -236,6 +283,7 @@ export function scorePrototypeScreen(root: designPrototype.PrototypeNode): Quali
   const parts = [
     substance(nodes), hierarchy(nodes), emptyContainers(nodes), affordance(nodes), duplicateCopy(nodes),
     primaryFocus(nodes), placeholderCopy(nodes),
+    deadEnds(nodes, context?.links, context?.screenCount ?? 1),
   ];
   const total = Math.round(parts.reduce((sum, p) => sum + p.score * (WEIGHTS[p.metric] ?? 0), 0) * 100);
   const hints = parts.filter((p) => p.hint !== "").map((p) => `· ${p.hint}`);

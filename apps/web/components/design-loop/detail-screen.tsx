@@ -158,6 +158,29 @@ export function DesignDetailScreen({
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
   /**
+   * 迭代 16（#3773 R6）—— 预览模式的**返回栈**。
+   *
+   * 预览的承诺是「像用真的 App 一样走一遍」，而真的 App 里每一次跳转都能退回来。
+   * 在这之前点进详情页就只能靠上面那排页签自己跳回去——那是设计稿的操作，不是用 App
+   * 的操作，走两层就断了，于是"走一遍主流程"这件事根本走不完。
+   *
+   * 栈只在预览态存在：退出预览时清掉（回到编辑态再点页签是"我要看这一页"，不是"后退"）。
+   */
+  const [backStack, setBackStack] = React.useState<readonly number[]>([]);
+  /** 预览里的一次跳转：记下从哪来，再换页。 */
+  const navigateTo = React.useCallback((to: number) => {
+    setBackStack((prev) => [...prev, frame].slice(-50));
+    setFrame(to);
+  }, [frame]);
+  const goBack = React.useCallback(() => {
+    setBackStack((prev) => {
+      const last = prev[prev.length - 1];
+      if (last === undefined) return prev;
+      setFrame(last);
+      return prev.slice(0, -1);
+    });
+  }, []);
+  /**
    * 迭代 14：预览用的**镜头**——设备预设与横竖。刻意**不写库**：它是"我现在用什么尺寸看"，
    * 不是"这稿是给什么设备的"（后者由项目 template 决定，见 `lib/prototype-devices` 头注）。
    * `null` = 跟随项目模板的默认镜头；用户切过之后才有值。
@@ -362,7 +385,16 @@ export function DesignDetailScreen({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing = t !== null && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
-      if (typing || canvasMode !== "edit" || preview !== null) return;
+      /*
+       * 迭代 16（#3773 R6）：预览态只认一个键——返回（Backspace / ←），与浏览器一致。
+       * 其余快捷键（删除、复制、方向选节点）是编辑态的语义，预览里按下去应该什么都不发生。
+       */
+      if (typing || preview !== null) return;
+      if (canvasMode === "preview") {
+        if (e.key === "Backspace" || e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
+        return;
+      }
+      if (canvasMode !== "edit") return;
       if (e.key === "Escape") { setSelectedId(null); return; }
       if (selectedId === null || project === null) return;
       const tree = project.prototype;
@@ -790,11 +822,11 @@ export function DesignDetailScreen({
                 </div>
                 {/* 迭代 11：编辑 / 预览。预览点有跳转的节点 = 换页；进预览时清掉选中，退出再选。 */}
                 <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布模式">
-                  <button type="button" onClick={() => setCanvasMode("edit")} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
+                  <button type="button" onClick={() => { setCanvasMode("edit"); setBackStack([]); }} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "edit" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
                     <Crosshair aria-hidden className="h-3 w-3" /> 编辑
                   </button>
-                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
+                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); setBackStack([]); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
                     <Play aria-hidden className="h-3 w-3" /> 预览
                   </button>
@@ -874,6 +906,25 @@ export function DesignDetailScreen({
               <div className="relative flex min-h-0 flex-1">
                 {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
                 <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
+                  {/*
+                    * 迭代 16（#3773 R6）：预览里的「返回」。只在真的有地方可退时出现——
+                    * 一个永远在那里、点了没反应的返回按钮，比没有更糟。
+                    */}
+                  {canvasMode === "preview" && preview === null && backStack.length > 0 && (
+                    <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-border bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-back-bar">
+                      <button
+                        type="button"
+                        onClick={goBack}
+                        className="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-preview-back"
+                      >
+                        <ArrowLeft aria-hidden className="h-3 w-3" />返回
+                      </button>
+                      <span className="text-muted-foreground">
+                        从「{project.frames[backStack[backStack.length - 1]!] ?? ""}」过来
+                      </span>
+                    </div>
+                  )}
                   {preview !== null && (
                     <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
@@ -909,7 +960,7 @@ export function DesignDetailScreen({
                       theme={project.theme}
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
-                      onNavigate={setFrame}
+                      onNavigate={navigateTo}
                     />
                   ) : (
                     /*
@@ -961,7 +1012,7 @@ export function DesignDetailScreen({
                       theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
-                      onNavigate={setFrame}
+                      onNavigate={navigateTo}
                     />
                       </div>
                     </div>

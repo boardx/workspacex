@@ -225,7 +225,7 @@ export const DESIGN_FEW_SHOT =
  *   （两处都是给模型/门控用的同一组数，契约测试 `prototype-quality.test.ts` 钉住阈值。）
  */
 export const DESIGN_QUALITY_BAR =
-  " 每一页画完会被自动打分，不达标会被打回重画。评分看这七条，先照着做：" +
+  " 每一页画完会被自动打分，不达标会被打回重画。评分看这八条，先照着做：" +
   "①元素数 ≥ 12（少于 12 个渲染出来几乎是空的）；②至少三档 text.variant（title/subtitle/body/caption/label）；" +
   "③没有空容器（stack/card/grid 里必须有孩子）；④至少有一个可操作控件；⑤同一句文案不要出现三次以上；" +
   "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）。";
@@ -639,9 +639,15 @@ export class ModelDesignChatReplier implements DesignChatModel {
        */
       // `screen` 是 `{...parsed, frame}` 的展开，TS 推不出索引签名——显式当成记录用。
       const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
+      // 迭代 16（#3773 R6）：带上这一页的跳转表与总页数——「主操作有没有去处」要它们。
+      const scoreOf = (x: Record<string, unknown>): ReturnType<typeof scorePrototypeScreen> =>
+        scorePrototypeScreen(x.root as designPrototype.PrototypeNode, {
+          ...(Array.isArray(x.links) ? { links: x.links as readonly designPrototype.PrototypeLink[] } : {}),
+          screenCount: outline.length,
+        });
       let best: { screen: Record<string, unknown>; report: ReturnType<typeof scorePrototypeScreen> } = {
         screen: asRecord(screen),
-        report: scorePrototypeScreen(asRecord(screen).root as designPrototype.PrototypeNode),
+        report: scoreOf(asRecord(screen)),
       };
       if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
         if (retriesLeft <= 0) {
@@ -651,7 +657,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
           this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
           const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
           if (better !== null) {
-            const report = scorePrototypeScreen(asRecord(better).root as designPrototype.PrototypeNode);
+            const report = scoreOf(asRecord(better));
             // 更好才换——重问也可能更差。
             if (report.total > best.report.total) best = { screen: better, report };
             this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
@@ -734,7 +740,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     let budget = qualityRetryBudget(screens.length);
     const out: WritebackScreens[number][] = [];
     for (const [i, screen] of screens.entries()) {
-      const report = scorePrototypeScreen(screen.root);
+      const report = scorePrototypeScreen(screen.root, { ...(screen.links === undefined ? {} : { links: screen.links }), screenCount: screens.length });
       if (report.total >= PROTOTYPE_QUALITY_THRESHOLD || budget <= 0) {
         if (report.total < PROTOTYPE_QUALITY_THRESHOLD) {
           this.deps.log("design chat: rewrite quality below bar but retry budget spent", { index: i, score: report.total });
@@ -752,7 +758,10 @@ export class ModelDesignChatReplier implements DesignChatModel {
       const better = await this.retryForQuality(context, ctx, screen.frame, report.feedback);
       if (better === null) { out.push(screen); continue; }
       const root = (better as { root?: unknown }).root as designPrototype.PrototypeNode;
-      const after = scorePrototypeScreen(root);
+      const after = scorePrototypeScreen(root, {
+        ...(Array.isArray((better as { links?: unknown }).links) ? { links: (better as { links: readonly designPrototype.PrototypeLink[] }).links } : screen.links === undefined ? {} : { links: screen.links }),
+        screenCount: screens.length,
+      });
       this.deps.log("design chat: rewrite quality retry done", { index: i, before: report.total, after: after.total });
       // 更好才换——重问也可能更差。
       if (after.total <= report.total) { out.push(screen); continue; }
