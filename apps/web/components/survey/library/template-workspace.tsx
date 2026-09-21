@@ -353,6 +353,7 @@ export function SurveyTemplateWorkspace({
               <SurveyQuestionEditor
                 questions={draft.questions}
                 onChange={(questions) => setDraft({ ...draft, questions })}
+                overviewFirst={kind === "question"}
               />
             ) : (
               <FlexibleReportEditor

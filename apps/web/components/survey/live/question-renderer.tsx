@@ -23,6 +23,7 @@ type Props = {
   upload?: SurveyUpload;
   removeUpload?: SurveyRemoveUpload;
   shuffleSeed?: string;
+  showDescription?: boolean;
 };
 export function SurveyQuestionRenderer({
   question: q,
@@ -32,6 +33,7 @@ export function SurveyQuestionRenderer({
   upload,
   removeUpload,
   shuffleSeed = "preview",
+  showDescription = true,
 }: Props) {
   const config = q.config ?? {};
   const choices = surveyChoices(q);
@@ -607,7 +609,7 @@ export function SurveyQuestionRenderer({
         {label}
         {q.required ? " *" : ""}
       </legend>
-      {config.description && (
+      {showDescription && config.description && (
         <p className="whitespace-pre-wrap text-13 text-muted-foreground">
           {config.description}
         </p>

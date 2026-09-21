@@ -36,6 +36,55 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 describe("persisted template workspace", () => {
+  it("opens question templates as a one-page questionnaire and only reveals settings for the selected question", async () => {
+    request.mockResolvedValueOnce(
+      row({
+        questions: [
+          row().questions[0]!,
+          {
+            ...row().questions[0]!,
+            id: "section-break",
+            order: 2,
+            type: "page_break",
+            title: "工作体验",
+            required: false,
+          },
+          {
+            ...row().questions[0]!,
+            id: "q-2",
+            order: 3,
+            title: "第二题",
+            options: ["同意", "不同意"],
+            config: { description: "仅供编辑时查看的题目说明" },
+          },
+        ],
+      }),
+    );
+
+    render(<SurveyTemplateWorkspace templateId="saved" kind="question" />);
+
+    await screen.findByRole("heading", { name: "一页查看问卷" });
+    expect(screen.getByRole("group", { name: /体验题/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /第二题/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("好")).toBeInTheDocument();
+    expect(screen.getByLabelText("同意")).toBeInTheDocument();
+    expect(screen.getByText("共 2 题")).toBeInTheDocument();
+    expect(screen.getByText("第 2 题")).toBeInTheDocument();
+    expect(screen.queryByText("第 3 题")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("问题内容")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("所属章节")).not.toBeInTheDocument();
+    expect(screen.queryByText("高级规则")).not.toBeInTheDocument();
+    expect(screen.queryByText("仅供编辑时查看的题目说明")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 2 题" }));
+    expect(screen.getByLabelText("问题内容")).toHaveValue("第二题");
+    expect(screen.getByLabelText("题型")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "完成编辑" }));
+    expect(screen.getByRole("heading", { name: "一页查看问卷" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("问题内容")).not.toBeInTheDocument();
+  });
+
   it("saves conflicted local edits as a new entity without updating the source", async () => {
     request
       .mockResolvedValueOnce(row())
@@ -48,6 +97,7 @@ describe("persisted template workspace", () => {
     fireEvent.change(screen.getByLabelText("模板名称"), {
       target: { value: "本地修改" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题" }));
     fireEvent.change(screen.getByLabelText("问题内容"), {
       target: { value: "待保留题目" },
     });
@@ -94,6 +144,7 @@ describe("persisted template workspace", () => {
     fireEvent.change(screen.getByLabelText("模板名称"), {
       target: { value: "待保存名称" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 题" }));
     fireEvent.change(screen.getByLabelText("问题内容"), {
       target: { value: "修改后的体验题" },
     });

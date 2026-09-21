@@ -19,10 +19,12 @@ export function SurveyQuestionEditor({
   questions,
   onChange,
   locked = false,
+  overviewFirst = false,
 }: {
   questions: SurveyWorkflowQuestion[];
   onChange: (questions: SurveyWorkflowQuestion[]) => void;
   locked?: boolean;
+  overviewFirst?: boolean;
 }) {
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
@@ -34,6 +36,7 @@ export function SurveyQuestionEditor({
     index: number;
   }>();
   const [preview, setPreview] = React.useState(false);
+  const [editing, setEditing] = React.useState(!overviewFirst);
   const [mobile, setMobile] = React.useState(false);
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
@@ -69,20 +72,123 @@ export function SurveyQuestionEditor({
     setPendingType(undefined);
   }
   const issues = question ? validateSurveyQuestion(question) : [];
+  if (overviewFirst && !editing) {
+    const answerQuestions = questions.filter(
+      (item) => !["description", "page_break"].includes(item.type),
+    );
+    const answerOrdinalById = new Map(
+      answerQuestions.map((item, answerIndex) => [item.id, answerIndex + 1]),
+    );
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-5 p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+          <div>
+            <h2 className="text-18 font-semibold">一页查看问卷</h2>
+            <p className="mt-1 text-12 text-muted-foreground">
+              共 {answerQuestions.length} 题
+            </p>
+          </div>
+          {!locked && (
+            <Button
+              type="button"
+              onClick={() => {
+                setPicking(true);
+                setEditing(true);
+              }}
+            >
+              新增题目
+            </Button>
+          )}
+        </div>
+        {questions.length ? (
+          <ol className="space-y-4" aria-label="问卷全部题目">
+            {questions.map((item) => {
+              const answerOrdinal = answerOrdinalById.get(item.id);
+              const itemLabel = answerOrdinal
+                ? `第 ${answerOrdinal} 题`
+                : item.type === "page_break"
+                  ? "分节"
+                  : "说明";
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-lg border border-border bg-card p-4 sm:p-5"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <span className="text-12 font-medium text-muted-foreground">
+                      {itemLabel}
+                    </span>
+                    {!locked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`编辑${itemLabel}`}
+                        onClick={() => {
+                          setId(item.id);
+                          setPendingType(undefined);
+                          setEditing(true);
+                        }}
+                      >
+                        编辑
+                      </Button>
+                    )}
+                  </div>
+                  <SurveyQuestionRenderer
+                    question={item}
+                    value={answers[item.id]}
+                    showDescription={false}
+                    onChange={(value) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [item.id]: value,
+                      }))
+                    }
+                  />
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border py-16 text-center">
+            <p className="text-13 text-muted-foreground">
+              添加第一道题目，开始设计问卷。
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-5 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-12 text-muted-foreground">
           选择题型，配置题目，再用实时预览试填。
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          aria-expanded={preview}
-          onClick={() => setPreview(!preview)}
-        >
-          {preview ? "收起实时预览" : "展开实时预览"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {overviewFirst && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPicking(false);
+                setEditing(false);
+              }}
+            >
+              完成编辑
+            </Button>
+          )}
+          {!overviewFirst && (
+            <Button
+              type="button"
+              variant="outline"
+              aria-expanded={preview}
+              onClick={() => setPreview(!preview)}
+            >
+              {preview ? "收起实时预览" : "展开实时预览"}
+            </Button>
+          )}
+        </div>
       </div>
       <div
         className={`grid min-w-0 gap-6 ${preview ? "xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
@@ -362,7 +468,7 @@ export function SurveyQuestionEditor({
             </p>
           )}
         </section>
-        {preview && (
+        {preview && !overviewFirst && (
           <aside aria-label="实时预览" className="min-w-0 space-y-4">
             <div className="flex gap-2">
               <Button
