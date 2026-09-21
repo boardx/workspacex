@@ -327,7 +327,9 @@
 @media (max-width: 480px) { .unit__steps { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---- 11 straight answers ------------------------------------------------- */
-.faq { display: grid; gap: 0; max-width: 54rem; }
+/* 54rem left the chevron marooned at the far end of the row, visually
+   detached from the question it belongs to. */
+.faq { display: grid; gap: 0; max-width: 46rem; }
 .faq__item { border-bottom: 1px solid var(--hairline); }
 .faq__item:first-child { border-top: 1px solid var(--hairline); }
 .faq__item summary {
@@ -353,8 +355,8 @@
 }
 .faq__item summary:hover { color: var(--c-2); }
 .faq__item p {
-  padding: 0 3rem 1.5rem 0.25rem;
-  color: var(--fg-dim); font-size: var(--t-small); max-width: 46rem;
+  padding: 0 2.25rem 1.5rem 0.25rem;
+  color: var(--fg-dim); font-size: var(--t-small);
 }
 
 /* ---- 12 horizons --------------------------------------------------------- */
