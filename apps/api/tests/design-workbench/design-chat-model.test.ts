@@ -4,13 +4,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { designWorkbench as C } from "@repo/contracts";
+import { designPrototype, designWorkbench as C } from "@repo/contracts";
 import { MODEL_CALL_IMAGE_MIMES, ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
   DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
   DESIGN_OUTLINE_SYSTEM_PROMPT,
   DESIGN_PRINCIPLES,
+  DESIGN_QUALITY_BAR,
+  CHAT_HISTORY_MAX_TURNS,
+  CHAT_TURN_MAX_CHARS,
   ModelDesignChatReplier,
   parseSuggestions,
   parseWriteback,
@@ -567,5 +570,86 @@ describe("迭代 13：参考图", () => {
   it("没传图 ⇒ 不管模型能不能看图，都不加那句提示", async () => {
     const { r } = replier(async () => ({ text: '{"reply":"好的。"}' }));
     expect((await r.reply(CTX)).text).not.toContain("看不了图");
+  });
+});
+
+/* ───────────────── 迭代 16（#3773 R1）：上下文膨胀与提示词一致性 ───────────────── */
+
+describe("迭代 16：喂给模型的对话历史有上限（#3773 R1-⑦）", () => {
+  it("超过上限 ⇒ 只带最近 N 轮，并如实说明省略了多少轮", async () => {
+    const chat = Array.from({ length: CHAT_HISTORY_MAX_TURNS + 8 }, (_, i) => ({
+      role: i % 2 === 0 ? ("user" as const) : ("ai" as const),
+      text: `第 ${String(i)} 句`,
+      at: "2026-09-05T00:00:00.000Z",
+      ...(i % 2 === 0 ? {} : { source: "model" as const }),
+    }));
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    // 最早的几句不该还在上下文里；最后一句必须在。
+    expect(user).not.toContain("第 0 句");
+    expect(user).toContain(`第 ${String(chat.length - 1)} 句`);
+    // 不静默截断：模型要知道前面还有话，才不会把「用户没说过」当事实。
+    expect(user).toContain("更早的 8 轮已省略");
+  });
+
+  it("单条超长消息被截断，不把预算一次吃光", async () => {
+    const huge = "长".repeat(CHAT_TURN_MAX_CHARS + 500);
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat: [{ role: "user", text: huge, at: "2026-09-05T00:00:00.000Z" }] });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    expect(user).toContain("（本条已截断）");
+    expect(user).not.toContain(huge);
+  });
+});
+
+describe("迭代 16：提示词与服务端质量门不再互相矛盾（#3773 R1-⑤⑥）", () => {
+  it("两个系统提示词都写明了质量门的判据", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(DESIGN_QUALITY_BAR);
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(DESIGN_QUALITY_BAR);
+  });
+
+  it("few-shot 里的第一页**自己过得了质量门**——模型照抄范例不该被我们自己判不及格", async () => {
+    // 回归钉：原来的范例首页只有 5 个节点、零个 text，按 `scorePrototypeScreen` 是不及格的。
+    const { scorePrototypeScreen, PROTOTYPE_QUALITY_THRESHOLD } =
+      await import("../../src/application/design-workbench/prototype-quality");
+    const { DESIGN_FEW_SHOT } = await import("../../src/application/design-workbench/design-chat-model");
+    const start = DESIGN_FEW_SHOT.indexOf("{\"reply\"");
+    const end = DESIGN_FEW_SHOT.indexOf("}]}}", start) + 4;
+    const parsed = JSON.parse(DESIGN_FEW_SHOT.slice(start, end)) as {
+      writeback: { prototype: { frame: string; root: unknown }[] };
+    };
+    const screens = parsed.writeback.prototype;
+    expect(screens.length).toBeGreaterThanOrEqual(2);
+    // 每一页都要过契约（范例里写错一个 props 键，模型就会照着写错）。
+    for (const s of screens) expect(designPrototype.PrototypeScreen.safeParse(s).success).toBe(true);
+    // 首页要过质量门。
+    expect(scorePrototypeScreen(screens[0]!.root as never).total).toBeGreaterThanOrEqual(PROTOTYPE_QUALITY_THRESHOLD);
+  });
+});
+
+describe("迭代 16：设计基调在骨架轮定一次、每页轮都带着（#3773 R1-⑩）", () => {
+  it("骨架轮给了 tone ⇒ 每一页的上下文里都有它", async () => {
+    const outline = '{"reply":"拆成两页。","tone":"面向一线客服、信息密度高、以待办列表为视觉重点","outline":[{"frame":"待办","intent":"看今天要做什么"},{"frame":"详情","intent":"处理一条"}]}';
+    const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] });
+    const perScreen = model.complete.mock.calls.slice(1);
+    expect(perScreen.length).toBeGreaterThanOrEqual(2);
+    for (const [input] of perScreen) {
+      expect(input.system).toBe(DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+      expect(input.user).toContain("面向一线客服、信息密度高、以待办列表为视觉重点");
+    }
+  });
+
+  it("骨架轮没给 tone ⇒ 不往上下文里塞空句子（照常生成）", async () => {
+    const outline = '{"reply":"一页。","outline":[{"frame":"待办","intent":"看今天要做什么"}]}';
+    const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]}}';
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] });
+    expect(out.source).toBe("model");
+    expect(model.complete.mock.calls[1]?.[0].user).not.toContain("设计基调");
   });
 });

@@ -22,7 +22,7 @@ import { designAiCollab, designPrototype, designWorkbench } from "@repo/contract
 import {
   scorePrototypeScreen,
   PROTOTYPE_QUALITY_THRESHOLD,
-  PROTOTYPE_QUALITY_MAX_RETRIES,
+  qualityRetryBudget,
 } from "./prototype-quality";
 import type { z } from "zod";
 import type { ModelCallPort } from "../agent-run/ports";
@@ -150,19 +150,60 @@ export const DESIGN_PRINCIPLES =
   "⑯用用户的词不用系统的词，句子式大小写，不写填充语，每个文案元素只干一件事。" +
   "【收尾自查】⑰生成完回看一遍：有没有一处装饰是删掉也不损失信息的？有就删掉它。";
 
-/** 迭代 9：一个极短的 few-shot——让模型看见「整页」与「patch」各长什么样，而不只是读规则。 */
+/**
+ * 迭代 16（#3773 R1-⑤）—— **few-shot 必须自己先过质量门**。
+ *
+ * 原来的示例 1 第一页只有 5 个节点、一个 text 都没有。而服务端的 `scorePrototypeScreen`
+ * 要求「≥ 12 个元素、≥ 3 档字号」——也就是说：**模型照抄我们给的范例，会被我们自己的
+ * 质量门判不及格然后打回重画**。提示词和门控互相矛盾时，模型两头都做不好，
+ * 表现就是用户看到的「生成的页很空、然后又慢」（多花的是那次没必要的重试）。
+ *
+ * 所以示例 1 的第一页重写成一个**真的过得了门**的页：14 个节点、title/body/caption
+ * 三档字号、唯一一个 primary、真实文案、带空态说明与跳转。few-shot 是模型真正照抄的
+ * 地方——这里画到什么水准，产出就是什么水准。
+ */
 export const DESIGN_FEW_SHOT =
-  // 迭代 11：示例 1 带上 links——few-shot 是模型真正照抄的地方，只在规则里写"要连线"而例子里
-  // 不连，模型多半也不连。这里同时演示了"想连线就自己给节点写 id"。
   ' 示例 1（还没有原型，用户说「做一个待办 App」）→ {"reply":"画了两页：待办首页、新增待办页，点「新增待办」会进第二页。","suggestions":["加一个完成筛选","给新增页加提醒时间"],' +
-  '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"我的待办"}},' +
-  '{"type":"stack","props":{"fill":true},"children":[{"type":"list","props":{"items":["买牛奶","写周报","订机票"],"leading":"check"}}]},' +
+  '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[' +
+  '{"type":"navbar","props":{"title":"我的待办","right":"筛选"}},' +
+  '{"type":"stack","props":{"direction":"column","gap":"none","padding":"sm"},"children":[' +
+  '{"type":"text","props":{"content":"今天","variant":"title"}},' +
+  '{"type":"text","props":{"content":"3 件没做完，2 件已完成","variant":"caption","muted":true}}]},' +
+  '{"type":"stack","props":{"direction":"row","gap":"sm","padding":"sm"},"children":[' +
+  '{"type":"chip","props":{"label":"全部","selected":true}},{"type":"chip","props":{"label":"今天"}},{"type":"chip","props":{"label":"已完成"}}]},' +
+  '{"type":"stack","props":{"fill":true,"direction":"column","gap":"sm","padding":"sm"},"children":[' +
+  '{"type":"list","props":{"items":["买牛奶","写周报","订下周去上海的机票"],"leading":"check"}},' +
+  '{"type":"text","props":{"content":"已完成","variant":"label","muted":true}},' +
+  '{"type":"list","props":{"items":["交房租","回复客户邮件"],"leading":"check"}}]},' +
   '{"id":"add","type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
-  '"notes":"首页列出未完成待办；空态显示「还没有待办」和新增按钮。","links":[{"from":"add","to":1}]},' +
-  '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"新增待办","left":"返回"}},' +
-  '{"type":"input","props":{"label":"内容","placeholder":"要做什么？"}},{"type":"button","props":{"label":"保存","variant":"primary","full":true}}]},' +
-  '"notes":"填内容后保存回到首页；内容为空时保存不可点。","links":[{"from":"n7","item":0,"to":0}]}]}}。' +
+  '"notes":"首页按今天/已完成分组列出待办；点条目前的勾即完成。没有任何待办时整页换成一句「今天还没有安排，先加一件」和新增按钮。","links":[{"from":"add","to":1}]},' +
+  '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[' +
+  '{"id":"back","type":"navbar","props":{"title":"新增待办","left":"返回"}},' +
+  '{"type":"stack","props":{"direction":"column","gap":"sm","padding":"sm","fill":true},"children":[' +
+  '{"type":"input","props":{"label":"要做什么","placeholder":"例如：写周报"}},' +
+  '{"type":"input","props":{"label":"备注","placeholder":"补充信息，可不填","multiline":true}},' +
+  '{"type":"switch","props":{"label":"到时间提醒我","on":true}},' +
+  '{"type":"text","props":{"content":"提醒会在当天早上 9:00 发送","variant":"caption","muted":true}}]},' +
+  '{"type":"button","props":{"label":"保存待办","variant":"primary","full":true}}]},' +
+  '"notes":"填标题后才能保存；保存成功回到首页并把新条目排在最上面。标题为空时保存按钮不可点。","links":[{"from":"back","item":0,"to":0}]}]}}。' +
   ' 示例 2（已有原型，节点 n5 是按钮「新增待办」，用户说「按钮改成加号图标风格的文案」）→ {"reply":"改成了「＋ 新增」。","suggestions":["把按钮固定在底部"],"writeback":{"patch":[{"op":"setProps","id":"n5","props":{"label":"＋ 新增"}}]}}。';
+
+/**
+ * 迭代 16（#3773 R1-⑥）—— **把服务端质量门的判据原话告诉模型**。
+ *
+ * `prototype-quality.ts` 会按七条指标给每一页打分，低于 70 就带着反馈重问一次。
+ * 在这之前模型**从来不知道这七条存在**：它按提示词画，我们按另一套标准判，
+ * 每次都要多花一轮才能碰上。把判据前置说清楚，第一轮就能过的比例才提得上来——
+ * 省下的那一轮既是钱也是用户在等的时间。
+ *
+ * ⚠ 这里是**转述**，权威仍在 `prototype-quality.ts`；改了那边的阈值要回来同步这句话。
+ *   （两处都是给模型/门控用的同一组数，契约测试 `prototype-quality.test.ts` 钉住阈值。）
+ */
+export const DESIGN_QUALITY_BAR =
+  " 每一页画完会被自动打分，不达标会被打回重画。评分看这七条，先照着做：" +
+  "①元素数 ≥ 12（少于 12 个渲染出来几乎是空的）；②至少三档 text.variant（title/subtitle/body/caption/label）；" +
+  "③没有空容器（stack/card/grid 里必须有孩子）；④至少有一个可操作控件；⑤同一句文案不要出现三次以上；" +
+  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）。";
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
   "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +
@@ -179,8 +220,16 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   "**只改页面标签、页数不变**时才用 writeback.frames（完整标签列表）；增页/删页必须整页给 prototype（它自带标签）——只给 frames 会让页数与组件树对不上，那次写回会被服务端拒绝。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
-  DESIGN_PRINCIPLES + DESIGN_FEW_SHOT +
+  DESIGN_PRINCIPLES + DESIGN_QUALITY_BAR + DESIGN_FEW_SHOT +
   "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";
+
+/**
+ * 喂给模型的对话历史上限（迭代 16，#3773 R1-⑦）。见 `describeProject` 里那段头注。
+ * 20 轮 ≈ 用户与助手各十来句，足够承接「刚才说的那个」这类指代，又不会随项目寿命无限增长。
+ */
+export const CHAT_HISTORY_MAX_TURNS = 20;
+/** 单条消息喂进去的上限：挡住「整段贴需求文档」一次吃光预算。 */
+export const CHAT_TURN_MAX_CHARS = 1200;
 
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
@@ -199,7 +248,25 @@ function describeProject(ctx: DesignChatContext): string {
   }
   lines.push("对话记录（按时间顺序，最后一条是用户刚说的）：");
   if (ctx.chat.length === 0) lines.push("（还没有对话）");
-  for (const t of ctx.chat) lines.push(`${t.role === "user" ? "用户" : "助手"}：${t.text}`);
+  /**
+   * 迭代 16（#3773 R1-⑦）—— **对话历史有上限**。
+   *
+   * 在这之前这里是 `for (const t of ctx.chat)`：本项目的**全部**历史，一条不落。
+   * 一个被认真用了两周的项目会有上百轮，每轮里还夹着模型那几百字的回复；加上同一段
+   * 上下文里已经有完整组件树，输入长度只增不减。撞到模型上下文上限的表现不是报错，
+   * 是**provider 把前面截掉**——于是「项目名称/模板/当前原型」这些开头的关键事实先被丢，
+   * 留下的全是闲聊。用户看到的就是「聊得越久越听不懂话」。
+   *
+   * 取最近 `CHAT_HISTORY_MAX_TURNS` 轮，并**如实说明省略了多少轮**（不静默截断：
+   * 模型知道前面还有话，才不会把「用户没说过」当成事实）。每条再各自限长，
+   * 挡住单条超长消息（比如用户整段贴了一篇需求文档）把预算一次吃光。
+   */
+  const omitted = Math.max(0, ctx.chat.length - CHAT_HISTORY_MAX_TURNS);
+  if (omitted > 0) lines.push(`（更早的 ${omitted} 轮已省略，只给最近 ${CHAT_HISTORY_MAX_TURNS} 轮）`);
+  for (const t of ctx.chat.slice(-CHAT_HISTORY_MAX_TURNS)) {
+    const text = t.text.length > CHAT_TURN_MAX_CHARS ? `${t.text.slice(0, CHAT_TURN_MAX_CHARS)}……（本条已截断）` : t.text;
+    lines.push(`${t.role === "user" ? "用户" : "助手"}：${text}`);
+  }
   return lines.join("\n");
 }
 
@@ -299,11 +366,22 @@ function rawScreenTooDeep(screen: unknown): boolean {
  * 而在此之前它和"每页长什么样"绑在同一次输出里，一起超时、一起截断、一起没有。
  */
 export const DESIGN_OUTLINE_SYSTEM_PROMPT =
-  "你是 PM 设计工作台里的设计协作助手。用户描述了一个要做的产品，你现在**只做一件事**：把它拆成几个页面。" +
+  "你是 PM 设计工作台里的设计协作助手。用户描述了一个要做的产品，你现在**只做两件事**：定下整套界面的**设计基调**，再把它拆成几个页面。" +
   "不要输出任何组件树。只输出一个 JSON 对象：" +
-  '{"reply":"给用户看的一句话，中文，不超过 100 字","outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
+  '{"reply":"给用户看的一句话，中文，不超过 100 字",' +
+  '"tone":"这套界面的设计基调，一句话（给谁用、什么气质、信息密度高还是留白多、以什么为视觉重点）",' +
+  '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
-  "页标签是用户会说的话（「登录」「我的订单」），不是「页面1」。";
+  // 迭代 16（#3773 R1-⑨）：骨架轮此前**没有任何质量约束**，而后面每一页都建在它上面——
+  // 页分得不对，每页画得再好也是一套用不了的原型。这三条是能机械看出来的最常见错法。
+  "页面划分的三条硬要求：" +
+  "①页标签是用户会说的话（「登录」「我的订单」），不是「页面1」「主页面」这种编号；" +
+  "②这几页连起来要能走通**一条完整的主流程**（从哪进来 → 做那件事 → 看到结果），" +
+  "不要给一堆并列的展示页却没有一条路能走完；" +
+  "③「设置」「关于」「帮助」这类边角页不要排进前三页——用户第一眼要看到的是这个产品的主线。" +
+  // 迭代 16（#3773 R1-⑩）：基调在这里定一次，后面每页轮都带着它 —— 见 `generatePaged`。
+  "tone 会原样发给后面每一页的生成，请写得具体、可执行（「面向一线客服、信息密度高、以待办列表为视觉重点、克制用色」" +
+  "比「简洁现代」有用得多）。";
 
 /** 每页轮的系统提示：只画**一页**。 */
 export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
@@ -313,7 +391,7 @@ export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
   "只画被指定的那一页，不要输出别的页。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
-  DESIGN_PRINCIPLES;
+  DESIGN_PRINCIPLES + DESIGN_QUALITY_BAR;
 
 export interface OutlineEntry { readonly frame: string; readonly intent: string; }
 
@@ -403,6 +481,17 @@ export class ModelDesignChatReplier implements DesignChatModel {
     }
     const obj = outlineRaw as Record<string, unknown>;
     const outline = parseOutline(obj.outline);
+    /**
+     * 迭代 16（#3773 R1-⑩）——**设计基调在骨架轮定一次，每页轮都带着它**。
+     *
+     * 此前每页轮拿到的「风格线索」只有 `summarizeScreen` 给的类型序列（`stack > navbar > list`）。
+     * 类型序列说明不了气质：同一串类型可以画成留白很大的消费级界面，也可以画成密密麻麻的
+     * 后台表格。于是八页各画各的——用户看到的就是「每一页像不同的人做的」。
+     *
+     * 基调是**文字**而不是档位枚举：这一层要传的是判断（给谁用、什么重点），
+     * 不是某个具体数值；数值那一层已经由原语的档位闭集管住了。
+     */
+    const tone = typeof obj.tone === "string" ? obj.tone.trim().slice(0, 400) : "";
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
       return this.fallback("MODEL_EMPTY_OUTPUT");
@@ -410,11 +499,12 @@ export class ModelDesignChatReplier implements DesignChatModel {
     this.deps.log("design chat: outline ready", { pages: outline.length });
 
     const done: { frame: string; screen: Record<string, unknown> }[] = [];
-    let retriesLeft = PROTOTYPE_QUALITY_MAX_RETRIES;
+    let retriesLeft = qualityRetryBudget(outline.length);
     const failed: string[] = [];
     for (const [i, entry] of outline.entries()) {
       const context =
         describeProject(ctx) +
+        (tone === "" ? "" : `\n\n整套界面的设计基调（每一页都要守住它，风格不要在页与页之间漂）：${tone}`) +
         `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
         outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
         (done.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + done.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +

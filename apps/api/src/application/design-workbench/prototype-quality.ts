@@ -50,6 +50,22 @@ export const PROTOTYPE_QUALITY_THRESHOLD = 70;
  */
 export const PROTOTYPE_QUALITY_MAX_RETRIES = 3;
 
+/** 预算的硬顶。页数再多也不超过它——这是「用户愿意等多久」的上限，不是质量上限。 */
+export const PROTOTYPE_QUALITY_RETRY_CAP = 6;
+
+/**
+ * 迭代 16（#3773 R1-④）——**按页数给预算**，而不是全局固定 3 次。
+ *
+ * 固定 3 次的实际表现是：前三页各差一点，预算就见底，第 4 页往后**无论多烂都不重问**，
+ * 而骨架轮本来就把最核心的页排在前面——于是预算全花在了本来就最好的几页上，
+ * 越往后越差。用户看到的正是「后面几页明显敷衍」。
+ *
+ * 现在：每页各有一次机会（`pages` 次），封顶 `PROTOTYPE_QUALITY_RETRY_CAP`。
+ * 3–6 页的常见项目因此**每一页都能被重问一次**，而 20 页的极端项目仍然只多花 6 次调用。
+ */
+export const qualityRetryBudget = (pages: number): number =>
+  Math.min(Math.max(pages, PROTOTYPE_QUALITY_MAX_RETRIES), PROTOTYPE_QUALITY_RETRY_CAP);
+
 const INTERACTIVE = new Set(["button", "input", "tabs", "bottomnav", "switch", "checkbox", "chip", "list"]);
 const CONTAINER = new Set(["stack", "card", "grid"]);
 
@@ -75,7 +91,20 @@ function hierarchy(nodes: readonly designPrototype.PrototypeNode[]): QualityDedu
   const variants = new Set(
     nodes.filter((n) => n.type === "text").map((n) => (n.props as { variant?: string }).variant ?? "body"),
   );
-  if (variants.size === 0) return { metric: "hierarchy", score: 1, hint: "" };
+  /**
+   * 迭代 16（#3773 R1-①）：**整页一个 `text` 节点都没有时判 0.3，不是满分**。
+   *
+   * 原来这里 `variants.size === 0 ⇒ score 1`——「没有文字」被当成「没有层次问题」，
+   * 于是最该扣分的那种页（全是控件、一句真实文案都没有）在层次这条上拿满分。
+   * 这正是本仓那条「空集不许判绿」：没有文字不是没有问题，是问题更大。
+   */
+  if (variants.size === 0) {
+    return {
+      metric: "hierarchy",
+      score: 0.3,
+      hint: "这一页没有任何文字节点——只有控件没有说明，用户不知道这页是干什么的。补上标题（variant:\"title\"）和必要的说明文字。",
+    };
+  }
   if (variants.size >= 3) return { metric: "hierarchy", score: 1, hint: "" };
   if (variants.size === 2) return { metric: "hierarchy", score: 0.75, hint: "字号只有两档，层次偏弱。" };
   return {
@@ -124,8 +153,73 @@ function duplicateCopy(nodes: readonly designPrototype.PrototypeNode[]): Quality
   };
 }
 
+/**
+ * M6 主操作（迭代 16，#3773 R1-②）：`DESIGN_PRINCIPLES` 第 ① 条写着「每页只有一个主操作」，
+ * 而此前**没有任何一处在量它**——写在提示词里、没有门控的规范，就是本仓那条「没有脚本的
+ * 规范条目视为未落地」。一页排着三个 primary 按钮，是「一眼看出是生成的」头号特征。
+ *
+ * 0 个也扣：没有主操作的页多半是漏了去处（用户走到这里就走不动了）。只有**纯展示页**
+ * （没有任何 button）才豁免——那种页的主操作可能在 bottomnav 上。
+ */
+function primaryFocus(nodes: readonly designPrototype.PrototypeNode[]): QualityDeduction {
+  const buttons = nodes.filter((n) => n.type === "button");
+  if (buttons.length === 0) return { metric: "primaryFocus", score: 1, hint: "" };
+  const primaries = buttons.filter((n) => ((n.props as { variant?: string }).variant ?? "primary") === "primary");
+  if (primaries.length === 1) return { metric: "primaryFocus", score: 1, hint: "" };
+  if (primaries.length === 0) {
+    return {
+      metric: "primaryFocus",
+      score: 0.5,
+      hint: "这一页有按钮但没有一个是主操作（variant:\"primary\"）——挑出这页最想让用户做的那一件事，把它设成 primary。",
+    };
+  }
+  return {
+    metric: "primaryFocus",
+    score: Math.max(0, 1 - (primaries.length - 1) * 0.4),
+    hint: `这一页有 ${String(primaries.length)} 个 primary 按钮，视觉重点被摊平了。只留最想让用户做的那一个，其余改成 secondary 或 ghost。`,
+  };
+}
+
+/**
+ * M7 占位文案（迭代 16，#3773 R1-③）：提示词里写了两遍「不要用占位符文字」，同样没有门控。
+ *
+ * ⚠ 判据刻意保守——只认**明显不是真实产品文案**的那几种形态（Lorem、`标题1`、`xxx`、
+ *   `示例文本`、`待定`、`TODO`）。宁可漏判也不要误判：真实文案里出现「示例」二字是常有的事，
+ *   误判会让一页好页被打回重画，比漏判贵。
+ */
+const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
+  /lorem ipsum/i,
+  /^(标题|副标题|正文|文本|内容|按钮|描述|说明)\s*[0-9一二三四五六七八九十]*$/,
+  /^(item|title|text|label|button|placeholder|content)\s*[0-9]*$/i,
+  /^[xX]{3,}$/,
+  /^(待定|待补充|占位|示例文本|示例内容|todo|tbd)$/i,
+];
+
+function placeholderCopy(nodes: readonly designPrototype.PrototypeNode[]): QualityDeduction {
+  const strings: string[] = [];
+  for (const n of nodes) {
+    // `divider` 没有 props 键，联合类型上取不到——统一当记录看。
+    const props = ((n as { props?: unknown }).props ?? {}) as Record<string, unknown>;
+    for (const key of ["content", "label", "title", "subtitle", "alt", "placeholder", "cta", "value", "name"]) {
+      const v = props[key];
+      if (typeof v === "string" && v.trim() !== "") strings.push(v.trim());
+    }
+    const items = props.items;
+    if (Array.isArray(items)) for (const it of items) if (typeof it === "string" && it.trim() !== "") strings.push(it.trim());
+  }
+  const hits = strings.filter((v) => PLACEHOLDER_PATTERNS.some((re) => re.test(v)));
+  if (hits.length === 0) return { metric: "placeholderCopy", score: 1, hint: "" };
+  return {
+    metric: "placeholderCopy",
+    score: Math.max(0, 1 - hits.length * 0.34),
+    hint: `有 ${String(hits.length)} 处占位文案（如「${hits[0]!.slice(0, 20)}」）。换成这个产品里真的会出现的话——原型的价值就在于让人看见真实内容。`,
+  };
+}
+
 const WEIGHTS: Readonly<Record<string, number>> = {
-  substance: 0.3, hierarchy: 0.2, emptyContainers: 0.2, affordance: 0.2, duplicateCopy: 0.1,
+  substance: 0.22, hierarchy: 0.16, emptyContainers: 0.14, affordance: 0.14, duplicateCopy: 0.08,
+  // 迭代 16：新加的两条各占一成半——它们量的是「像不像人做的」，与前五条量的「有没有内容」同等重要。
+  primaryFocus: 0.14, placeholderCopy: 0.12,
 };
 
 /**
@@ -139,7 +233,10 @@ export function scorePrototypeScreen(root: designPrototype.PrototypeNode): Quali
   if (nodes.length === 0) {
     return { total: 0, parts: [], feedback: "这一页是空的——拒绝下判断。" };
   }
-  const parts = [substance(nodes), hierarchy(nodes), emptyContainers(nodes), affordance(nodes), duplicateCopy(nodes)];
+  const parts = [
+    substance(nodes), hierarchy(nodes), emptyContainers(nodes), affordance(nodes), duplicateCopy(nodes),
+    primaryFocus(nodes), placeholderCopy(nodes),
+  ];
   const total = Math.round(parts.reduce((sum, p) => sum + p.score * (WEIGHTS[p.metric] ?? 0), 0) * 100);
   const hints = parts.filter((p) => p.hint !== "").map((p) => `· ${p.hint}`);
   return {
