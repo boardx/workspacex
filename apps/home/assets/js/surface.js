@@ -61,5 +61,4 @@ export function initSurface() {
     clearTimeout(t);
     t = setTimeout(draw, 120);
   }, { passive: true });
-  document.addEventListener('langchange', () => setTimeout(draw, 60));
 }

@@ -7,11 +7,27 @@
 <meta name="description" content="WorkspaceX is the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.">
 <meta name="theme-color" content="#08070b">
 
+<link rel="canonical" href="https://workspacex.boardx.us/">
+
+<!-- Language is a URL, not client state: each version is indexable, linkable
+     and shareable on its own. x-default points at the English page. -->
+<link rel="alternate" hreflang="en"      href="https://workspacex.boardx.us/">
+<link rel="alternate" hreflang="zh-Hans" href="https://workspacex.boardx.us/zh/">
+<link rel="alternate" hreflang="x-default" href="https://workspacex.boardx.us/">
+
 <meta property="og:type" content="website">
 <meta property="og:title" content="WorkspaceX — The Open Operating Workspace for Human + AI">
 <meta property="og:description" content="Not another collaboration tool. The operating layer where humans and AI do the work together — with shared context, verifiable action and organizational memory.">
 <meta property="og:site_name" content="WorkspaceX">
+<meta property="og:url" content="https://workspacex.boardx.us/">
+<meta property="og:locale" content="en">
+<meta property="og:locale:alternate" content="zh_Hans">
+<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og.png">
 
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -23,7 +39,7 @@
      has been fetched and parsed. Declaring them up front collapses that
      waterfall into a single round of parallel requests. -->
 <link rel="modulepreload" href="assets/js/main.js">
-<link rel="modulepreload" href="assets/js/i18n.js">
+<link rel="modulepreload" href="assets/js/lang.js">
 <link rel="modulepreload" href="assets/js/motion.js">
 <link rel="modulepreload" href="assets/js/diagrams.js">
 <link rel="modulepreload" href="assets/js/surface.js">
@@ -36,6 +52,20 @@
 <link rel="stylesheet" href="assets/css/motion.css">
 <link rel="stylesheet" href="assets/css/diagrams.css">
 <link rel="stylesheet" href="assets/css/sections.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "WorkspaceX",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Windows, macOS",
+  "description": "The operating layer that connects context, agents, action, evidence and memory, so humans and AI do the work together.",
+  "url": "https://workspacex.boardx.us/",
+  "inLanguage": ["en", "zh-Hans"],
+  "publisher": { "@type": "Organization", "name": "BoardX", "url": "https://boardx.us" }
+}
+</script>
 </head>
 <body>
 
@@ -76,10 +106,10 @@
     </nav>
 
     <div class="nav__actions">
-      <div class="langswitch" data-mobile-move role="group" aria-label="Language">
-        <button class="langswitch__btn" data-lang="en" aria-pressed="true">EN</button>
-        <button class="langswitch__btn" data-lang="zh" aria-pressed="false" lang="zh-Hans">中文</button>
-      </div>
+      <nav class="langswitch" data-mobile-move aria-label="Language">
+        <a class="langswitch__btn" href="/" aria-current="true" hreflang="en">EN</a>
+        <a class="langswitch__btn" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">中文</a>
+      </nav>
       <a class="nav__ghost nav__ghost--signin" data-mobile-move href="https://github.com/boardx/workspacex" rel="noopener">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         <span data-i18n="nav.github">GitHub</span>

@@ -189,3 +189,49 @@
   display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;
   margin-top: 2.25rem;
 }
+
+/* ---- language hint ------------------------------------------------------- */
+/* Shown only when the browser's preferred language differs from the page's.
+   An offer, not a redirect: auto-redirecting breaks back navigation, hides the
+   other language from crawlers, and overrides a choice the visitor may have
+   made deliberately. */
+.langhint {
+  position: fixed; z-index: 90;
+  left: 50%; bottom: 1.25rem;
+  transform: translate(-50%, calc(100% + 2rem));
+  display: flex; align-items: center; gap: 0.85rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.65rem 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background: rgba(20, 17, 26, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.95);
+  font-size: var(--t-small);
+  transition: transform 620ms var(--ease-out), opacity 620ms var(--ease-out);
+  opacity: 0;
+}
+.langhint.is-in { transform: translate(-50%, 0); opacity: 1; }
+.langhint__text { color: var(--fg-soft); }
+.langhint__go {
+  color: var(--c-2); font-weight: 600; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 46, 115, 0.4);
+}
+.langhint__go:hover { text-decoration-color: currentColor; }
+.langhint__close {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  color: var(--fg-dim); font-size: 1.05rem; line-height: 1;
+  flex-shrink: 0;
+}
+.langhint__close:hover { color: var(--fg); background: var(--surface-2); }
+
+@media (max-width: 520px) {
+  .langhint { left: 1rem; right: 1rem; transform: translateY(calc(100% + 2rem)); max-width: none; }
+  .langhint.is-in { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .langhint { transition: none; opacity: 1; }
+}
