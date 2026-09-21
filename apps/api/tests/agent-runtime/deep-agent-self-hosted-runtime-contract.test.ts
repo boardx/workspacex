@@ -21,8 +21,14 @@ async function freePort(): Promise<number> {
   return address.port;
 }
 
+/**
+ * 2026-09-22：轮询预算原本是 100 × 50 ms = **5 秒**，而 `beforeAll` 声明的超时是 30 秒——
+ * 两个数字对不上，等于把 25 秒的预算白放着。这台 Mac 上 fixture 冷启动（uvicorn +
+ * 导入整个 deep_agent_service）实测超过 10 秒，于是这个文件在本地**一条都跑不起来**，
+ * 只能在 CI 上暴露问题；负载高的 runner 上同样会随机撞上。改成用满声明的预算。
+ */
 async function waitForHealth(url: string): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 560; attempt += 1) {
     try {
       const response = await fetch(`${url}/healthz`);
       if (response.ok) return;
