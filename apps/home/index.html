@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX — The Open Operating Workspace for Human + AI</title>
+<meta name="description" content="WorkspaceX is the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.">
+<meta name="theme-color" content="#08070b">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="WorkspaceX — The Open Operating Workspace for Human + AI">
+<meta property="og:description" content="Not another collaboration tool. The operating layer where humans and AI do the work together — with shared context, verifiable action and organizational memory.">
+<meta property="og:site_name" content="WorkspaceX">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/fonts.css">
+
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/motion.css">
+<link rel="stylesheet" href="assets/css/diagrams.css">
+<link rel="stylesheet" href="assets/css/sections.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+<!-- ======================================================================
+     Navigation
+     ====================================================================== -->
+<header class="nav" id="nav" data-stuck="false">
+  <div class="nav__inner">
+    <a class="brand" href="#top" aria-label="WorkspaceX home">
+      <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ff7a18"/><stop offset=".55" stop-color="#ff2e73"/><stop offset="1" stop-color="#b14bff"/>
+          </linearGradient>
+        </defs>
+        <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand__name">WorkspaceX</span>
+      <span class="brand__tag">Beta</span>
+    </a>
+
+    <nav class="nav__links" id="navlinks" aria-label="Section navigation">
+      <a class="nav__link" href="#shift"        data-i18n="nav.shift">The Shift</a>
+      <a class="nav__link" href="#loop"         data-i18n="nav.loop">The Loop</a>
+      <a class="nav__link" href="#architecture" data-i18n="nav.architecture">Architecture</a>
+      <a class="nav__link" href="#trust"        data-i18n="nav.trust">Trust</a>
+      <a class="nav__link" href="#open"         data-i18n="nav.open">Open</a>
+    </nav>
+
+    <div class="nav__actions">
+      <div class="langswitch" role="group" aria-label="Language">
+        <button class="langswitch__btn" data-lang="en" aria-pressed="true">EN</button>
+        <button class="langswitch__btn" data-lang="zh" aria-pressed="false">中文</button>
+      </div>
+      <a class="nav__ghost nav__ghost--signin" href="https://github.com/boardx/workspacex" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span data-i18n="nav.github">GitHub</span>
+      </a>
+      <a class="btn btn--primary" href="https://app.boardx.us" rel="noopener">
+        <span class="btn__label" data-i18n="nav.launch">Launch App</span>
+        <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<span id="top"></span>
+
+<!-- ======================================================================
+     Hero
+     ====================================================================== -->
+<section class="hero">
+  <div class="hero__aurora" aria-hidden="true">
+    <div class="hero__blob hero__blob--1"></div>
+    <div class="hero__blob hero__blob--2"></div>
+    <div class="hero__blob hero__blob--3"></div>
+  </div>
+
+  <div class="wrap hero__inner">
+    <span class="chip">
+      <span class="chip__dot" aria-hidden="true"></span>
+      <span data-i18n="hero.chip">The Open Operating Workspace for Human + AI</span>
+    </span>
+
+    <h1 class="hero__title" data-split data-i18n="hero.title">Where humans and AI actually get work done.</h1>
+
+    <p class="hero__sub" data-i18n="hero.sub">WorkspaceX is not another collaboration tool. It is the operating layer that connects context, agents, action, evidence and memory — so that intent becomes work, and work leaves proof.</p>
+
+    <div class="hero__actions">
+      <a class="btn btn--primary btn--lg" href="https://app.boardx.us" rel="noopener">
+        <span data-i18n="hero.cta1">Launch Workspace</span>
+        <svg class="btn__arrow" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn btn--ghost btn--lg" href="#shift" data-i18n="hero.cta2">See how it works</a>
+    </div>
+
+    <div class="hero__chain" data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
+    <p class="visually-hidden" id="chain-desc" data-i18n="hero.chainDesc">A closed chain of five linked stages: context, agents, action, evidence, memory — each feeding the next.</p>
+  </div>
+
+  <div class="scroll-cue" aria-hidden="true">
+    <span data-i18n="hero.scroll">Scroll</span>
+    <span class="scroll-cue__line"></span>
+  </div>
+</section>
+
+<!-- ======================================================================
+     1 · The Shift
+     ====================================================================== -->
+<section class="section" id="shift">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="shift.eyebrow">01 — The Shift</span>
+      <h2 data-i18n-html="shift.title">Software <span class="grad-text">&#8594;</span> Work</h2>
+      <p class="lead" data-i18n="shift.lead">The next platform shift is not about which model is smartest. It is about where work happens — and who is accountable when it does.</p>
+    </header>
+
+    <div class="shift__axis" data-diagram="axis" data-reveal aria-hidden="true"></div>
+
+    <div class="grid grid--4 shift__cards" data-stagger>
+      <article class="card card--lit" style="--i:0">
+        <div class="card__index">01</div>
+        <h3 class="card__title" data-i18n="shift.c1.t">Compute → Intelligence → Work</h3>
+        <p class="card__body" data-i18n="shift.c1.b">The centre of gravity is moving off raw compute and model scores, onto agents, workflow and the outcome they produce.</p>
+      </article>
+      <article class="card card--lit" style="--i:1">
+        <div class="card__index">02</div>
+        <h3 class="card__title" data-i18n="shift.c2.t">Seat → Work Unit → Outcome</h3>
+        <p class="card__body" data-i18n="shift.c2.b">Software stops being a tool a person operates. A person states intent; the work gets executed and delivered back.</p>
+      </article>
+      <article class="card card--lit" style="--i:2">
+        <div class="card__index">03</div>
+        <h3 class="card__title" data-i18n="shift.c3.t">Software budget → Service budget</h3>
+        <p class="card__body" data-i18n="shift.c3.b">AI does not only sell software. It reaches into research, legal, finance, engineering, design and operations — work that used to be bought as a service.</p>
+      </article>
+      <article class="card card--lit" style="--i:3">
+        <div class="card__index">04</div>
+        <h3 class="card__title" data-i18n="shift.c4.t">Model moat → Context + Trust</h3>
+        <p class="card__body" data-i18n="shift.c4.b">Models are replaceable and getting more so. Your context, your verification, your permissions and your organizational memory are not.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     2 · The Problem
+     ====================================================================== -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="problem.eyebrow">02 — The Problem</span>
+      <h2 data-i18n="problem.title">Today AI answers well. The work still falls apart.</h2>
+      <p class="lead" data-i18n="problem.lead">Every step works on its own. The work as a whole has no shared state, no evidence and no memory.</p>
+    </header>
+
+    <div class="stage stage--grid" data-reveal="scale">
+      <div class="stage__inner" data-diagram="break" role="img" aria-labelledby="break-desc"></div>
+      <p class="stage__caption" id="break-desc" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
+    </div>
+
+    <div class="grid grid--3 problem__losses" data-stagger>
+      <div class="loss" style="--i:0">
+        <h3 class="loss__title" data-i18n="problem.l1.t">Context evaporates</h3>
+        <p class="loss__body" data-i18n="problem.l1.b">What the model knew at 10:04 is gone at 10:06. The next person — or the next agent — starts from nothing.</p>
+      </div>
+      <div class="loss" style="--i:1">
+        <h3 class="loss__title" data-i18n="problem.l2.t">Action is disconnected</h3>
+        <p class="loss__body" data-i18n="problem.l2.b">The answer is in one window, the system of record in another. A human is the integration layer, by hand, every time.</p>
+      </div>
+      <div class="loss" style="--i:2">
+        <h3 class="loss__title" data-i18n="problem.l3.t">Nothing can be proven</h3>
+        <p class="loss__body" data-i18n="problem.l3.b">"It looks right" is not verification. Without evidence there is no accountability, and without accountability AI never gets the important work.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     3 · The Loop  (sticky, scroll-scrubbed)
+     ====================================================================== -->
+<section class="section scene" id="loop" data-scene="loop" style="--scene-track: 300vh">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="loop.eyebrow">03 — The Loop</span>
+      <h2 data-i18n="loop.title">The core experience is not a conversation. It is a loop that can be verified.</h2>
+      <p class="lead" data-i18n="loop.lead">Intent, explore, create, act, verify, learn. Humans and agents work the same loop — with different responsibilities at every stage.</p>
+    </header>
+  </div>
+
+  <div class="scene__track">
+    <div class="scene__pin">
+      <div class="wrap loop__layout">
+        <div class="loop__visual" data-diagram="loop" role="img" aria-labelledby="loop-desc"></div>
+        <div class="loop__panel">
+          <ol class="rail" id="loop-rail">
+            <li class="rail__item" data-step="0" aria-selected="true">
+              <span class="rail__num">01</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s1.t">Intent</div>
+                <div class="rail__body" data-i18n="loop.s1.b">A human states what matters and why. Not a prompt — a goal with a value judgement attached.</div>
+              </div>
+            </li>
+            <li class="rail__item" data-step="1">
+              <span class="rail__num">02</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s2.t">Explore</div>
+                <div class="rail__body" data-i18n="loop.s2.b">Agents plan, divide the work and run in parallel across your context, not the open web alone.</div>
+              </div>
+            </li>
+            <li class="rail__item" data-step="2">
+              <span class="rail__num">03</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s3.t">Create</div>
+                <div class="rail__body" data-i18n="loop.s3.b">Drafts, models and options take shape on a shared surface, where a human can grab the pen at any moment.</div>
+              </div>
+            </li>
+            <li class="rail__item" data-step="3">
+              <span class="rail__num">04</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s4.t">Act</div>
+                <div class="rail__body" data-i18n="loop.s4.b">Tools get called and real systems change — inside an authorization boundary, never outside it.</div>
+              </div>
+            </li>
+            <li class="rail__item" data-step="4">
+              <span class="rail__num">05</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s5.t">Verify</div>
+                <div class="rail__body" data-i18n="loop.s5.b">The result is checked against a stated standard and leaves evidence. Failing verification is an outcome, not an error.</div>
+              </div>
+            </li>
+            <li class="rail__item" data-step="5">
+              <span class="rail__num">06</span>
+              <div>
+                <div class="rail__title" data-i18n="loop.s6.t">Learn</div>
+                <div class="rail__body" data-i18n="loop.s6.b">What worked becomes a reusable skill; what was decided becomes memory. The next run starts further ahead.</div>
+              </div>
+            </li>
+          </ol>
+
+          <div class="legend loop__legend">
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-human)"></span><span data-i18n="loop.legendHuman">Human</span></span>
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-ai)"></span><span data-i18n="loop.legendAi">Agent team</span></span>
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-evidence)"></span><span data-i18n="loop.legendEv">Evidence</span></span>
+          </div>
+        </div>
+      </div>
+      <p class="visually-hidden" id="loop-desc" data-i18n="loop.desc">A six-stage circular loop — intent, explore, create, act, verify, learn — with human and agent responsibilities shown on each stage.</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <p class="keyline loop__keyline" data-reveal data-i18n="loop.keyline">What the loop produces is not one answer. It is organizational capability that compounds.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     4 · Three Scales
+     ====================================================================== -->
+<section class="section" id="scales">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="scales.eyebrow">04 — One Workspace</span>
+      <h2 data-i18n="scales.title">One workspace. Three scales. One context.</h2>
+      <p class="lead" data-i18n="scales.lead">Not three products bolted together — the same context flowing from your own desk to your team to the whole organization.</p>
+    </header>
+
+    <div class="scales" data-diagram="scales">
+      <article class="scales__card" data-scale="0" tabindex="0">
+        <span class="scales__num">1</span>
+        <h3 data-i18n="scales.s1.t">I work</h3>
+        <p class="scales__sub" data-i18n="scales.s1.s">Research · writing · analysis · planning</p>
+        <p class="scales__body" data-i18n="scales.s1.b">Your own agents, your own knowledge, your own files. Local-first where it matters, and nothing leaves without you saying so.</p>
+      </article>
+      <article class="scales__card" data-scale="1" tabindex="0">
+        <span class="scales__num">2</span>
+        <h3 data-i18n="scales.s2.t">We work</h3>
+        <p class="scales__sub" data-i18n="scales.s2.s">Canvas · docs · meetings · projects</p>
+        <p class="scales__body" data-i18n="scales.s2.b">Multiplayer with agents in the room. An agent team joins the project the way a colleague does — with a role, a brief and a record.</p>
+      </article>
+      <article class="scales__card" data-scale="2" tabindex="0">
+        <span class="scales__num">3</span>
+        <h3 data-i18n="scales.s3.t">The organization works</h3>
+        <p class="scales__sub" data-i18n="scales.s3.s">Ontology · memory · governance · standard skills</p>
+        <p class="scales__body" data-i18n="scales.s3.b">Decisions, evidence and learning accumulate into an asset the company owns — not a transcript in someone's account.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     5 · Architecture
+     ====================================================================== -->
+<section class="section" id="architecture">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="arch.eyebrow">05 — Architecture</span>
+      <h2 data-i18n="arch.title">Five layers. The top moves fast. The middle must not move at all.</h2>
+      <p class="lead" data-i18n="arch.lead">Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
+    </header>
+
+    <div class="arch">
+      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="img" aria-labelledby="arch-desc"></div>
+      <div class="arch__why">
+        <div class="arch__whyitem" data-reveal="right">
+          <h3 data-i18n="arch.w1.t">Model-agnostic</h3>
+          <p data-i18n="arch.w1.b">Frontier, domestic or fully local models plug into the same runtime. Swapping one does not touch your ontology.</p>
+        </div>
+        <div class="arch__whyitem" data-reveal="right">
+          <h3 data-i18n="arch.w2.t">Context becomes an asset</h3>
+          <p data-i18n="arch.w2.b">Entities, relations and events are modelled once and reused by every agent, every workflow, every surface.</p>
+        </div>
+        <div class="arch__whyitem" data-reveal="right">
+          <h3 data-i18n="arch.w3.t">Trust by design</h3>
+          <p data-i18n="arch.w3.b">Permission, audit and evidence live in the harness layer — not bolted on after a security review.</p>
+        </div>
+        <div class="arch__whyitem" data-reveal="right">
+          <h3 data-i18n="arch.w4.t">Deploy anywhere</h3>
+          <p data-i18n="arch.w4.b">Cloud, on-premise, hybrid or local-first. Data sovereignty is a deployment choice, not a different product.</p>
+        </div>
+      </div>
+    </div>
+    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">Five stacked layers, from infrastructure at the base through ontology and knowledge, the harness, agents and workflow, up to the experience layer.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     6 · Trust / Harness
+     ====================================================================== -->
+<section class="section" id="trust">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="trust.eyebrow">06 — Trust</span>
+      <h2 data-i18n="trust.title">An agent you cannot audit is an agent you cannot deploy.</h2>
+      <p class="lead" data-i18n="trust.lead">The harness is what turns a capable model into an action your organization is willing to be accountable for.</p>
+    </header>
+
+    <div class="stage stage--grid" data-reveal="scale">
+      <div class="stage__inner" data-diagram="harness" role="img" aria-labelledby="harness-desc"></div>
+      <p class="stage__caption" id="harness-desc" data-i18n="trust.caption">Every action passes six gates: authorize, execute, observe, verify, evidence, and — when verification fails — rollback. The run above shows a failing check being caught and reversed. That path is the point: a system that can only succeed cannot be trusted.</p>
+    </div>
+
+    <div class="trust__split">
+      <div data-reveal="left">
+        <h3 class="trust__h" data-i18n="trust.m1.t">Memory is more than transcripts</h3>
+        <p class="trust__b" data-i18n="trust.m1.b">A chat log tells you what was said. Organizational memory tells you what was decided, on what evidence, what was done about it, what the result was, and what everyone learned. That is the part a competitor cannot copy and a model upgrade cannot replace.</p>
+        <p class="trust__formula" data-i18n="trust.formula">Organizational memory = decision + evidence + action + result + learning</p>
+      </div>
+      <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
+      <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">A knowledge graph linking people, projects, decisions, evidence, actions, artifacts and memory.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     7 · Where to start
+     ====================================================================== -->
+<section class="section" id="start">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="start.eyebrow">07 — Where it starts</span>
+      <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
+      <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive.</p>
+    </header>
+
+    <div class="grid grid--4" data-stagger>
+      <article class="card card--lit" style="--i:0">
+        <h3 class="card__title" data-i18n="start.a1.t">Enterprise teams</h3>
+        <p class="card__body" data-i18n="start.a1.b">Cross-functional projects where an agent team, its evidence and the resulting memory outlive the project itself.</p>
+        <p class="card__meta" data-i18n="start.a1.m">AI transformation · legal · finance · research · operations</p>
+      </article>
+      <article class="card card--lit" style="--i:1">
+        <h3 class="card__title" data-i18n="start.a2.t">Consultants</h3>
+        <p class="card__body" data-i18n="start.a2.b">Turn a methodology into agents, skills and workflows the client keeps using after you leave.</p>
+        <p class="card__meta" data-i18n="start.a2.m">One project → a running system → recurring value</p>
+      </article>
+      <article class="card card--lit" style="--i:2">
+        <h3 class="card__title" data-i18n="start.a3.t">Education</h3>
+        <p class="card__body" data-i18n="start.a3.b">A space built for question → evidence → co-creation → work → feedback → reflection, instead of a faster way to get the answer.</p>
+        <p class="card__meta" data-i18n="start.a3.m">AI-native learning, not AI-assisted cheating</p>
+      </article>
+      <article class="card card--lit" style="--i:3">
+        <h3 class="card__title" data-i18n="start.a4.t">Independent creators</h3>
+        <p class="card__body" data-i18n="start.a4.b">One person running a team of agent roles across research, design, content, operations and analysis.</p>
+        <p class="card__meta" data-i18n="start.a4.m">A studio the size of one desk</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     8 · Open
+     ====================================================================== -->
+<section class="section" id="open">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="open.eyebrow">08 — Open by design</span>
+      <h2 data-i18n="open.title">Own the semantics. Not every implementation.</h2>
+      <p class="lead" data-i18n="open.lead">Writing software keeps getting cheaper. What is worth owning is the core abstraction, the collaboration runtime and the human–agent experience. Everything else should be adopted or kept replaceable.</p>
+    </header>
+
+    <div class="open__cols" data-stagger>
+      <section class="open__col" style="--i:0">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">Build</span><span class="open__sub" data-i18n="open.c1.s">What we must own</span></h3>
+        <ul class="open__list">
+          <li data-i18n="open.c1.i1">Workspace object model</li>
+          <li data-i18n="open.c1.i2">Ontology &amp; context</li>
+          <li data-i18n="open.c1.i3">Human–agent experience</li>
+          <li data-i18n="open.c1.i4">Harness &amp; evidence</li>
+          <li data-i18n="open.c1.i5">Canvas semantic model</li>
+          <li data-i18n="open.c1.i6">Memory &amp; lineage</li>
+        </ul>
+      </section>
+      <section class="open__col" style="--i:1">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">Adopt</span><span class="open__sub" data-i18n="open.c2.s">Proven infrastructure</span></h3>
+        <ul class="open__list">
+          <li data-i18n="open.c2.i1">Yjs / CRDT</li>
+          <li data-i18n="open.c2.i2">Postgres / pgvector</li>
+          <li data-i18n="open.c2.i3">Object storage</li>
+          <li data-i18n="open.c2.i4">WebRTC / LiveKit</li>
+          <li data-i18n="open.c2.i5">OpenUSD / WebXR</li>
+          <li data-i18n="open.c2.i6">Queue &amp; workflow infra</li>
+        </ul>
+      </section>
+      <section class="open__col" style="--i:2">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">Integrate</span><span class="open__sub" data-i18n="open.c3.s">Kept replaceable</span></h3>
+        <ul class="open__list">
+          <li data-i18n="open.c3.i1">LLM providers</li>
+          <li data-i18n="open.c3.i2">M365 / Google / Lark / DingTalk</li>
+          <li data-i18n="open.c3.i3">Identity &amp; SSO</li>
+          <li data-i18n="open.c3.i4">CRM / ERP / GitHub</li>
+          <li data-i18n="open.c3.i5">Cloud &amp; on-premise</li>
+          <li data-i18n="open.c3.i6">MCP &amp; connectors</li>
+        </ul>
+      </section>
+    </div>
+
+    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">Open core, open standards, open ecosystem — with governance, reliability and scale as the enterprise edge.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     CTA
+     ====================================================================== -->
+<section class="cta" id="contact">
+  <div class="wrap wrap--text">
+    <h2 data-reveal data-i18n="cta.title">The work layer is being built now.</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">We are looking for design partners with real, verifiable, high-value work — and for ecosystem partners building agents, skills and connectors on top.</p>
+    <div class="cta__actions" data-reveal>
+      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
+        <span data-i18n="cta.primary">Become a design partner</span>
+      </a>
+      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">Read the source</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ======================================================================
+     Footer
+     ====================================================================== -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__grid">
+      <div class="footer__col footer__col--brand">
+        <a class="brand" href="#top" aria-label="WorkspaceX home">
+          <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#bm-use"/><path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="brand__name">WorkspaceX</span>
+        </a>
+        <p class="footer__blurb" data-i18n="footer.blurb">The open operating workspace for human + AI collaboration. A BoardX product.</p>
+      </div>
+      <div class="footer__col">
+        <h4 data-i18n="footer.h1">Product</h4>
+        <ul>
+          <li><a href="#loop" data-i18n="footer.l1">How it works</a></li>
+          <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
+          <li><a href="#trust" data-i18n="footer.l3">Trust &amp; evidence</a></li>
+          <li><a href="#open" data-i18n="footer.l4">Open ecosystem</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 data-i18n="footer.h2">Build</h4>
+        <ul>
+          <li><a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="footer.l5">GitHub</a></li>
+          <li><a href="https://develop.boardx.us" rel="noopener" data-i18n="footer.l6">Developer portal</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 data-i18n="footer.h3">Company</h4>
+        <ul>
+          <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">Contact</a></li>
+          <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span data-i18n="footer.copy">© 2026 BoardX. All rights reserved.</span>
+      <span data-i18n="footer.note">Built as an open core.</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>
