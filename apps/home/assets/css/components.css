@@ -116,9 +116,14 @@
 }
 .stage__inner { padding: clamp(1.25rem, 3vw, 2.5rem); }
 
-/* grid paper backdrop, very faint — reads as "engineering surface" */
+/* Grid-paper backdrop, very faint — reads as an engineering surface.
+   `z-index: -1` is load-bearing: a positioned pseudo-element paints above
+   static in-flow content, so without it this grid sat ON TOP of the diagram
+   it is meant to sit behind. `isolation` on the parent keeps it from
+   escaping behind the section background instead. */
+.stage--grid { isolation: isolate; }
 .stage--grid::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1;
   background-image:
     linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
@@ -176,12 +181,15 @@
 /* ---- CTA band ------------------------------------------------------------ */
 .cta {
   position: relative;
+  isolation: isolate;
   padding-block: clamp(4.5rem, 9vw, 8rem);
   text-align: center;
   overflow: hidden;
 }
+/* Same trap as `.stage--grid::before`: this glow was painting over the
+   headline, tinting white type pink and taking contrast with it. */
 .cta::before {
-  content: ""; position: absolute; inset: -40% -10% auto -10%; height: 140%;
+  content: ""; position: absolute; inset: -40% -10% auto -10%; height: 140%; z-index: -1;
   background: radial-gradient(50% 50% at 50% 40%, rgba(255,46,115,.15), transparent 70%);
   pointer-events: none;
 }

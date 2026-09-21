@@ -239,3 +239,46 @@ What happens when conditions are not ideal: no scripting, a blocked request,
 
 Gaps 7, 8, 9 and 10 needed no code change. They are listed because "checked and
 found correct" is a result, and the alternative is checking them again later.
+
+---
+
+## Round 10 — final sweep
+
+A pass over the sections that had not been looked at since they were built,
+plus the checks that only make sense once everything else is settled.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Two invented URLs were sitting in the markup.** "Launch App" pointed at `https://app.boardx.us`, which appears nowhere in this repository — the only app host referenced anywhere is `devapp.boardx.us`. | Corrected, and the remaining placeholder — the public domain in every canonical, `hreflang`, `og:url` and sitemap entry — is now flagged at its definition and documented under "Before this goes live" in the README. It is a guess and it is labelled as one. |
+| 2 | **The CTA's glow was painting over its own headline.** An absolutely positioned pseudo-element outranks static in-flow content, so the pink radial sat on top of the white type, tinting it and eating contrast. | `z-index: -1` with `isolation` on the parent. Verified by sampling the rendered pixels: glyph interiors measure exactly `rgb(246, 244, 249)`, the intended ink. The remaining warmth is the glow around the letters, which is the effect. |
+| 3 | Same mistake in the diagram stages: the grid-paper backdrop was painting *over* the diagrams it exists to sit behind. | Same fix. |
+| 4 | **The context thread joining the three scale cards never drew for anyone who asked for less motion** — it was wired only into the animated code path, and the reduced-motion branch returned before reaching it. | Marked in both branches, plus a CSS fallback so it draws even if the observer never runs. |
+| 5 | That thread was positioned at a hand-guessed `4.25rem`, while the badges it should run through sit at a fluid offset that moves with the viewport. | Derived from the same `clamp()` the card padding uses, so they track together. |
+| 6 | Scale card subtitles mixed cases — `Research · writing · analysis · planning`. | Consistent capitalization across all three. |
+| 7 | A sweep for the same layering mistake everywhere else: ten absolutely positioned pseudo-elements without a `z-index`. | Seven are small marks — bullets, underlines, the burger bars — where painting above is correct. Three were backdrops, and all three were wrong. Fixed. |
+| 8 | Whether the whole thing still holds together after nine rounds of change. | Every harness re-run: axe 0 violations in both languages, keyboard clean, responsive clean across eleven widths, motion clean, robustness clean, bilingual clean, CSP clean. |
+| 9 | Page weight drifted up as content was added. | 257 KB, FCP/LCP 312 ms, CLS 0. The growth since round 6 is the two social cards, which are not on the critical path. |
+| 10 | The five gates were only ever run by hand, one at a time. | `check-all.mjs` is the single command, and it covers i18n parity, HTML structure, dead CSS, copy typography and Chinese-page freshness. |
+
+---
+
+## Where it stands
+
+**Verified, not asserted:**
+
+| | |
+|---|---|
+| Accessibility | axe-core 0 violations, EN and ZH; 37 tab stops all reachable and focus-ringed |
+| Responsive | clean at 320 / 360 / 390 / 430 / 600 / 768 / 900 / 1024 / 1280 / 1440 / 1920 |
+| Performance | 257 KB, FCP/LCP 312 ms, CLS 0.0000 |
+| Bilingual | `/zh/` carries 2,691 Han characters with JavaScript disabled |
+| Robustness | readable with no JS, with a failed module, at 200% zoom, in forced colors, and on paper |
+| Security | strict same-origin CSP, verified by replaying every response with the header attached |
+
+**Known placeholders:** the public domain, and the product link. Both are
+documented in the README.
+
+**Deliberately not on the site:** the deck's market sizing, competitive
+positioning map, business model and go-to-market. The deck labels those figures
+internal scenario models rather than third-party forecasts, and publishing them
+as fact would be misleading.
