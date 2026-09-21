@@ -43,7 +43,11 @@ describe("local config", () => {
     expect(webEnv(c).NEXT_PUBLIC_API_URL).toBe("http://127.0.0.1:4200");
     expect(webEnv(c).NEXT_PUBLIC_API_WS_URL).toBe("http://127.0.0.1:4200");
     expect(api.KERNEL_CORS_ORIGINS).toBe("http://127.0.0.1:4100,http://localhost:4100");
-    for (const v of Object.values({ ...api, ...py })) {
+    for (const [k, v] of Object.entries({ ...api, ...py })) {
+      // The isolated download origin is the one deliberate exception: it must NOT be the
+      // origin the session lives on (uploaded HTML/SVG would execute there), and
+      // `*.localhost` resolves to 127.0.0.1 in every current browser, so it is still local.
+      if (k === "WORKSPACEX_DOWNLOAD_ORIGIN") { expect(v).toMatch(/^http:\/\/downloads\.localhost:/); continue; }
       if (/^https?:\/\//.test(v)) expect(v).toMatch(/^https?:\/\/127\.0\.0\.1[:/]/);
     }
     // vendor-shaped capabilities stay unconfigured rather than pointed at a cloud

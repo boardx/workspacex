@@ -134,6 +134,8 @@ export const paths = {
   seedState: (c: LocalConfig) => join(c.dataDir, "seed-state.json"),
   deepAgentVenv: (c: LocalConfig) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
   asrModelDir: (c: LocalConfig) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  /** The signed skill starter packs shipped in the repo/bundle (`skills/starter-packs/<pack>/<version>.json`). */
+  skillStarterPacks: (c: LocalConfig) => join(c.repoRoot, "skills", "starter-packs"),
 };
 
 /** Only handed to the API when the model is on disk; otherwise ASR stays "not configured". */
@@ -223,6 +225,18 @@ export function apiEnv(c: LocalConfig): Env {
     EMAIL_VERIFICATION_SECRET: c.secrets.emailVerificationSecret,
     PLATFORM_SUPERUSER_EMAILS: LOCAL_ADMIN_EMAIL,
     // skill sandbox: TCP loopback child process (L0 isolation, see PROP §3.5)
+    // Without a root the pack source returns NOT_FOUND for every pack and never falls back
+    // (`FileSkillStarterPackSource`, domain I-10), so an unset root does not degrade the
+    // import surface -- it removes it. The cloud deployer sets this; the local build is its
+    // own deployer, and the packs ship inside the very bundle this points into.
+    SKILL_STARTER_PACK_ROOT: paths.skillStarterPacks(c),
+    // The isolated download origin is a security boundary, not a deployment detail
+    // (`isolated-download-url-builder.ts`): uploaded HTML/SVG must not execute on the origin
+    // that owns the session. `*.localhost` resolves to 127.0.0.1 in every current browser, so
+    // a distinct HOST on the API's own port keeps that property with nothing to install. It is
+    // set rather than left to the default because the default hard-codes port 3200 and would
+    // point at nothing as soon as `--ports api=` moves the API.
+    WORKSPACEX_DOWNLOAD_ORIGIN: `http://downloads.localhost:${c.ports.api}`,
     KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${c.ports.sandbox}`,
     SKILL_SANDBOX_INPUT_DIR: paths.sandboxIn(c),
     SKILL_SANDBOX_OUT_DIR: paths.sandboxOut(c),
