@@ -1,0 +1,43 @@
+{
+  "_readme": [
+    "#610 棘轮名单（反方向）：截至 2026-09-21 已经存在的「rewrite 把一条前端动态路由吃干净」。",
+    "与 rewrite-coverage-allowlist.json 是两个方向、两份名单：那份记「API 路由前端够不到」，",
+    "这份记「前端页面被 rewrite 代理走」。判据与只判动态路由的理由见 lib/rewrite-shadow.ts 头注。",
+    "",
+    "规则：这个数组只能变短。每条必须写明 reason（为什么今天是安全的 / 谁在修）——",
+    "没有理由的条目等于没有登记。补好之后必须把对应条目删掉：",
+    "lint-rewrite-coverage 会把「已经不遮了却还留在名单里」的条目报成陈旧并变红，",
+    "因为留着一条已修好的豁免，等于给未来的回归留一扇没人看守的门。",
+    "",
+    "为什么不是全绿门：#610 评论里作者自己撤过一版反向门，理由逐字保留——",
+    "「写一个必然被放宽到能过为止的门，就是再造一个空转。」棘轮今天就能合，",
+    "且从今天起，任何新增的遮蔽都会当场红。"
+  ],
+  "shadows": [
+    {
+      "route": "/canvas/[screen]",
+      "rewrite": "/canvas/:path*",
+      "reason": "真实缺陷，不是安全的重叠：issue #3492 实测（25022 端口）整页刷新 /canvas/template-admin 拿到 API 的 JSON 而不是页面。正由 PR #3806 逐屏放行修复（放行表与 lib/canvas-screens.ts 的一致性由 apps/web/tests/canvas-screen-rewrite.test.ts 机械核对）。⚠ #3806 合入后本条会被本门判为陈旧并要求删除——那正是棘轮该有的行为，不要改门去迁就它。"
+    },
+    {
+      "route": "/projects/[projectId]",
+      "rewrite": "/projects/:path*",
+      "reason": "与 #3492 同型的既有债，今天不炸：这条遮蔽只在**空前缀同源代理**部署里成立（CHAT_READ_E2E_API_ORIGIN；FULLSTACK_E2E_API_ORIGIN 那套 prefix 是 /__fullstack_api，source 根本撞不上真实页面路径），而今天用空前缀的两条车道（playwright.chat-read.config.ts / playwright.self-service-profile.config.ts）的 testMatch 白名单里没有任何 spec 打开项目页；访问项目页的 spec（core-loop / fullstack-smoke / project-*）全跑在 /__fullstack_api 那套下。不设 apiOrigin 时 afterFiles 整张表为空（next.config.mjs 提前 return），所以浏览器直连 API 的部署也不受影响。⚠ 要修的话照 #3806 的做法：放行前端屏，而不是把通配收窄成 API 命名空间枚举（#2090 就是枚举表漏项栽的）。"
+    },
+    {
+      "route": "/projects/[projectId]/canvas",
+      "rewrite": "/projects/:path*",
+      "reason": "同 /projects/[projectId] 一条通配、同一份理由——放行 /projects/:projectId 那一层时这条会一起好，届时两条一起删。"
+    },
+    {
+      "route": "/projects/[projectId]/files",
+      "rewrite": "/projects/:path*",
+      "reason": "同 /projects/[projectId] 一条通配、同一份理由——放行 /projects/:projectId 那一层时这条会一起好，届时两条一起删。"
+    },
+    {
+      "route": "/surveys/[token]",
+      "rewrite": "/surveys/:path*",
+      "reason": "同型既有债：/surveys/:path* 是 afterFiles 第一条，把答卷页 app/surveys/[token]/page.tsx 整条吃掉。同样只在空前缀同源代理下成立，且该部署的两条车道不访问答卷页（survey 相关 spec 跑在 /__fullstack_api 那套下）。⚠ 注意 API 侧另有 /public/surveys/:path*，答卷页要的是前端渲染，不是那条 API。"
+    }
+  ]
+}
