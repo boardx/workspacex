@@ -698,3 +698,22 @@ describe("迭代 16：分页生成的中间结果当场发出去（#3773 R2）",
     expect(out.pagedScreens?.length).toBe(3);
   });
 });
+
+describe("迭代 16：裁剪不许裁掉系统留痕（#3773 R3）", () => {
+  it("很早的一条「从对话导入」留痕，即使被 20 轮窗口挤出去也仍然在上下文里", async () => {
+    const trace = { role: "ai" as const, text: "从线程《导出慢》导入了 12 条消息作为背景。", at: "2026-09-05T00:00:00.000Z", source: "system" as const };
+    const noise = Array.from({ length: CHAT_HISTORY_MAX_TURNS + 5 }, (_, i) => ({
+      role: i % 2 === 0 ? ("user" as const) : ("ai" as const),
+      text: `闲聊 ${String(i)}`,
+      at: "2026-09-05T00:00:00.000Z",
+      ...(i % 2 === 0 ? {} : { source: "model" as const }),
+    }));
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat: [trace, ...noise] });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    expect(user).toContain("从线程《导出慢》导入了 12 条消息");
+    expect(user).not.toContain("闲聊 0");
+    // 钉住顺序：留痕仍排在被保留的那些闲聊之前，不是被挪到末尾。
+    expect(user.indexOf("从线程《导出慢》")).toBeLessThan(user.indexOf(`闲聊 ${String(noise.length - 1)}`));
+  });
+});

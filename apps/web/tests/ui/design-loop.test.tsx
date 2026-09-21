@@ -3133,7 +3133,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
   });
 
   /** 预览回一段服务端摘要；确认回写好之后的项目。两次都是同一条路由，靠 body 区分。 */
-  const stubImport = (initial = project({ id: "p1", problem: "用户已经写好的背景" })) => {
+  const stubImport = (initial = project({ id: "p1", problem: "用户已经写好的背景" }), criteria: readonly string[] = []) => {
     const bodies: Record<string, unknown>[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
       if (path === "/pm-designs") return { items: [initial] };
@@ -3146,6 +3146,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
             project: initial,
             imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
             summary: "服务端摘出来的背景",
+            criteria,
             truncated: false,
           };
         }
@@ -3153,6 +3154,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
           project: project({ id: "p1", problem: String(problem) }),
           imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
           summary: String(problem),
+          criteria: (opts.body?.criteria as string[] | undefined) ?? [],
           truncated: false,
         };
       }
@@ -3201,6 +3203,44 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
     fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
+  });
+
+  it("迭代 16（#3773 R3）：同一段对话抽出的验收标准逐条可勾，确认时和背景一起写进项目", async () => {
+    const bodies = stubImport(undefined, ["导出成功率 ≥ 99%", "历史会话可回看与继续", "首屏 2 秒内可下单"]);
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    await screen.findByTestId("import-thread-preview");
+
+    // 三条都列出来，默认全选——模型只抽"真的定下来过"的口径，默认不选等于让用户再做一遍。
+    const boxes = screen.getAllByTestId("import-thread-criterion").map((l) => l.querySelector("input") as HTMLInputElement);
+    expect(boxes).toHaveLength(3);
+    expect(boxes.every((b) => b.checked)).toBe(true);
+    expect(screen.getByTestId("import-thread-criteria").textContent).toContain("导出成功率 ≥ 99%");
+
+    // 取消掉中间那条，确认。
+    fireEvent.click(boxes[1]!);
+    fireEvent.click(screen.getByTestId("import-thread-confirm"));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    // ⭐ 反证锚点：把"全部候选"而不是"勾上的那些"交上去 ⇒ 这条红。
+    expect(bodies[1]).toEqual({
+      threadId: "th-1",
+      problem: "服务端摘出来的背景",
+      criteria: ["导出成功率 ≥ 99%", "首屏 2 秒内可下单"],
+    });
+  });
+
+  it("迭代 16（#3773 R3）：一条验收标准都没抽到 ⇒ 不显示那一块，也**不传** criteria（语义是「不动」，不是清空）", async () => {
+    const bodies = stubImport();
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    await screen.findByTestId("import-thread-preview");
+    expect(screen.queryByTestId("import-thread-criteria")).toBeNull();
+    fireEvent.click(screen.getByTestId("import-thread-confirm"));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(Object.keys(bodies[1]!)).not.toContain("criteria");
   });
 
   it("system 留痕在对话里标「系统」，不标成模型的「未生成」", async () => {

@@ -284,9 +284,19 @@ function describeProject(ctx: DesignChatContext): string {
    * 模型知道前面还有话，才不会把「用户没说过」当成事实）。每条再各自限长，
    * 挡住单条超长消息（比如用户整段贴了一篇需求文档）把预算一次吃光。
    */
-  const omitted = Math.max(0, ctx.chat.length - CHAT_HISTORY_MAX_TURNS);
-  if (omitted > 0) lines.push(`（更早的 ${omitted} 轮已省略，只给最近 ${CHAT_HISTORY_MAX_TURNS} 轮）`);
-  for (const t of ctx.chat.slice(-CHAT_HISTORY_MAX_TURNS)) {
+  /**
+   * 迭代 16（#3773 R3）：裁剪**不许裁掉系统留痕**。
+   *
+   * `source: "system"` 的那几条是"这个项目的上下文是从哪来的"（目前只有一种：
+   * 从对话线程导入）。它们是**事实记录**，不是闲聊——被 20 轮的窗口挤出去之后，
+   * 模型在第 30 轮就再也不知道这个项目的背景是照着一段真实讨论写的。
+   * 条数极少（一个项目通常 0–2 条），钉住它们不占预算。
+   */
+  const recent = new Set(ctx.chat.slice(-CHAT_HISTORY_MAX_TURNS));
+  const kept = ctx.chat.filter((t) => recent.has(t) || t.source === "system");
+  const omitted = ctx.chat.length - kept.length;
+  if (omitted > 0) lines.push(`（更早的 ${omitted} 轮已省略，只给最近 ${CHAT_HISTORY_MAX_TURNS} 轮与全部系统留痕）`);
+  for (const t of kept) {
     const text = t.text.length > CHAT_TURN_MAX_CHARS ? `${t.text.slice(0, CHAT_TURN_MAX_CHARS)}……（本条已截断）` : t.text;
     lines.push(`${t.role === "user" ? "用户" : "助手"}：${text}`);
   }

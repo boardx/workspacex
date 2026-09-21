@@ -33,7 +33,15 @@ import { useDialogFocus } from "./use-dialog-focus";
 type Stage =
   | { kind: "picking" }
   /** 预览：服务端已经摘好一段，还没写库。`text` 是用户可以随便改的那份。 */
-  | { kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean };
+  | {
+      kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean;
+      /**
+       * 迭代 16（#3773 R3）：从同一段对话抽出来的验收标准候选，逐条可勾可改。
+       * `picked` 记住哪几条要写进去——默认全选（模型只抽"真的定下来过"的口径，
+       * 默认不选等于让用户把这件事再做一遍）。
+       */
+      criteria: readonly string[]; picked: readonly boolean[];
+    };
 
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) {
@@ -134,7 +142,15 @@ export function ImportThreadDialog({
     setError(null);
     try {
       const out = await importThread(projectId, thread.id);
-      setStage({ kind: "preview", thread, imported: out.imported, text: out.summary, truncated: out.truncated });
+      setStage({
+        kind: "preview", thread, imported: out.imported, text: out.summary, truncated: out.truncated,
+        /*
+         * `?? []`：契约上 `criteria` 是必给的，但滚动发布期间前端可能先上、后端还是旧版，
+         * 那时这个键不存在。少了这道，整个导入预览会当场白屏——为一个可选增强
+         * 赔掉一条本来能用的路径。
+         */
+        criteria: out.criteria ?? [], picked: (out.criteria ?? []).map(() => true),
+      });
     } catch (e) {
       setError(describeFailure(e));
     } finally {
@@ -148,7 +164,13 @@ export function ImportThreadDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = await importThread(projectId, stage.thread.id, stage.text);
+      const chosen = stage.criteria.filter((_, i) => stage.picked[i] === true);
+      // 一条都没抽到 ⇒ 不传这个键（语义是「不动」）；抽到了但用户全取消 ⇒ 传空数组，
+      // 那是「这次导入不带验收标准」，与「不动」是两件事。
+      const out = await importThread(
+        projectId, stage.thread.id, stage.text,
+        stage.criteria.length === 0 ? undefined : chosen,
+      );
       onImported(out.project);
       onClose();
     } catch (e) {
@@ -236,6 +258,24 @@ export function ImportThreadDialog({
               aria-label="导入预览"
               data-testid="import-thread-preview"
             />
+            {stage.criteria.length > 0 && (
+              <div className="flex flex-col gap-1" data-testid="import-thread-criteria">
+                <p className="text-11 font-medium">这段对话里定下来的验收标准（勾上的会一起写进项目）</p>
+                {stage.criteria.map((c, i) => (
+                  <label key={c} className="flex items-start gap-2 text-12" data-testid="import-thread-criterion">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={stage.picked[i] === true}
+                      onChange={(e) =>
+                        setStage({ ...stage, picked: stage.picked.map((v, k) => (k === i ? e.target.checked : v)) })
+                      }
+                    />
+                    <span className="min-w-0 flex-1">{c}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             <p className="text-10 text-muted-foreground">改完再确认——写进项目的是上面这段文字，不是原始对话。</p>
           </>
         )}
