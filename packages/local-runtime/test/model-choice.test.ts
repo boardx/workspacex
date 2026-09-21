@@ -18,3 +18,19 @@ describe("preferredMetaModel (#3749 B2.2)", () => {
     expect(preferredMetaModel({ ...base, memoryGb: 32, present: [] })).toBe(DEFAULT_CHAT_MODEL);
   });
 });
+
+describe("preferredChatModel: MLX runner (#3749 R9)", () => {
+  const base = { memoryGb: 16, appleSilicon: true };
+  it("prefers the -mlx build of whatever size was chosen, when it is in the store", () => {
+    expect(preferredChatModel({ ...base, configured: DEFAULT_CHAT_MODEL, present: [DEFAULT_CHAT_MODEL, `${DEFAULT_CHAT_MODEL}-mlx`] })).toBe(`${DEFAULT_CHAT_MODEL}-mlx`);
+    // size preference first, then runner: 9B present ⇒ 9B, and its -mlx build wins if there
+    expect(preferredChatModel({ ...base, configured: DEFAULT_CHAT_MODEL, present: [UPGRADED_CHAT_MODEL, `${UPGRADED_CHAT_MODEL}-mlx`] })).toBe(`${UPGRADED_CHAT_MODEL}-mlx`);
+  });
+  it("never picks MLX off Apple Silicon, and never invents a tag that is not in the store", () => {
+    expect(preferredChatModel({ configured: DEFAULT_CHAT_MODEL, memoryGb: 16, appleSilicon: false, present: [DEFAULT_CHAT_MODEL, `${DEFAULT_CHAT_MODEL}-mlx`] })).toBe(DEFAULT_CHAT_MODEL);
+    expect(preferredChatModel({ ...base, configured: DEFAULT_CHAT_MODEL, present: [DEFAULT_CHAT_MODEL] })).toBe(DEFAULT_CHAT_MODEL);
+  });
+  it("leaves an explicitly configured -mlx model alone", () => {
+    expect(preferredChatModel({ ...base, configured: "qwen3.5:4b-mlx", present: ["qwen3.5:4b-mlx"] })).toBe("qwen3.5:4b-mlx");
+  });
+});

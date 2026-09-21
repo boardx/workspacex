@@ -12,7 +12,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { platform } from "node:os";
+import { arch, platform } from "node:os";
 import { join } from "node:path";
 
 export interface LocalPorts {
@@ -60,15 +60,38 @@ export function preferredMetaModel(input: { readonly configured: string; readonl
 }
 
 /**
- * Which chat model to serve: the configured one, unless it is the default 4B, the machine has
- * ≥16 GB and the 9B is already in the store -- then the 9B (never downloaded on the user's
- * behalf; `fetch-models.sh MODELS=...` decides what ships).
+ * Which chat model to serve.
+ *
+ * Two independent preferences, applied in this order:
+ *
+ * 1. **Size**: the default 4B becomes the 9B when the machine has ≥16 GB and the 9B is
+ *    already in the store (never downloaded on the user's behalf; `fetch-models.sh MODELS=…`
+ *    decides what ships).
+ * 2. **Runner**: on Apple Silicon an `-mlx` build of the chosen model, when present, replaces
+ *    it. Measured 2026-09-22 on the same prompt, same machine, warm: first token 3 984 →
+ *    2 106 ms, generation unchanged at ~30 tok/s. Prefill dominates every local request, so
+ *    this is a real cut, and it costs nothing at generation time.
  */
-export function preferredChatModel(input: { readonly configured: string; readonly memoryGb: number; readonly present: readonly string[] }): string {
-  if (input.configured !== DEFAULT_CHAT_MODEL) return input.configured;
-  if (input.memoryGb < CHAT_MODEL_UPGRADE_MIN_MEMORY_GB) return input.configured;
-  return input.present.includes(UPGRADED_CHAT_MODEL) ? UPGRADED_CHAT_MODEL : input.configured;
+export function preferredChatModel(input: {
+  readonly configured: string;
+  readonly memoryGb: number;
+  readonly present: readonly string[];
+  readonly appleSilicon?: boolean;
+}): string {
+  let chosen = input.configured;
+  if (chosen === DEFAULT_CHAT_MODEL && input.memoryGb >= CHAT_MODEL_UPGRADE_MIN_MEMORY_GB && input.present.includes(UPGRADED_CHAT_MODEL)) {
+    chosen = UPGRADED_CHAT_MODEL;
+  }
+  const appleSilicon = input.appleSilicon ?? (platform() === "darwin" && arch() === "arm64");
+  if (appleSilicon && !chosen.endsWith(MLX_SUFFIX)) {
+    const mlx = `${chosen}${MLX_SUFFIX}`;
+    if (input.present.includes(mlx)) return mlx;
+  }
+  return chosen;
 }
+
+/** Ollama tag suffix for the MLX runner build (Apple Silicon only). */
+export const MLX_SUFFIX = "-mlx";
 /** Ollama embedding model used by the deep-agent retrieval endpoints (`/v1/embeddings`). */
 export const DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:0.6b";
 
