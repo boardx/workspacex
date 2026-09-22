@@ -200,7 +200,18 @@ export function ShellChrome({
   const [switchingTo, setSwitchingTo] = React.useState<string | null>(null);
   const [landing, setLanding] = React.useState<OrgSwitchLanding | null>(null);
 
-  React.useEffect(() => { setLanding(takeOrgSwitchLanding()); }, []);
+  /**
+   * `prev ?? ` 不是防御性写法，是修一个真 bug。React 严格模式（dev）把 effect 跑两次：
+   * 第一次 `takeOrgSwitchLanding()` 读走并清掉标记、置位；第二次读到 null，
+   * 直接 `setLanding(null)` 就把刚拿到的落地信息**覆盖掉了**——实测现象是切换完成、
+   * 标记确实被消费了，而那条「已切换到 X」从来没出现过。jsdom 测试看不见这个：
+   * RTL 默认不套 StrictMode。
+   *
+   * 为什么不改成「模块级缓存，同一次页面加载返回同一个答案」：换路由时 AppShell 会
+   * 真的重新挂载，那时候该读到 null（不该再弹一次），缓存会让它重弹。
+   * 严格模式的双调用保留 state，真重挂载不保留——`prev ?? ` 正好区分这两件事。
+   */
+  React.useEffect(() => { setLanding((prev) => prev ?? takeOrgSwitchLanding()); }, []);
 
   const currentOrgLabel = React.useMemo(
     () => effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "",

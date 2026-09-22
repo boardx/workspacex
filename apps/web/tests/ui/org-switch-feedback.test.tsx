@@ -196,6 +196,21 @@ describe("壳层：切换的三段体感", () => {
     expect((await screen.findByTestId("org-switch-landed-note")).textContent).toContain("3 个任务");
   });
 
+  it("严格模式下 effect 跑两次也不把落地信息冲掉", async () => {
+    // 2026-09-23 真浏览器实测抓到的：第一次读走并置位，第二次读到 null 覆盖掉，
+    // 结果标记被消费了而提示从没出现。RTL 默认不套 StrictMode，所以这条要显式套。
+    rememberOrgSwitch({ toLabel: "市场部", fromLabel: "研发一部", runsLeftBehind: 1 });
+    render(
+      <React.StrictMode>
+        <Shell organizations={[{ id: "o1", label: "研发一部" }]}>
+          <div />
+        </Shell>
+      </React.StrictMode>,
+    );
+    const landed = await screen.findByTestId("org-switch-landed");
+    expect(landed.textContent).toContain("市场部");
+  });
+
   it("没切换过就不弹落地确认", async () => {
     render(<Shell organizations={[{ id: "o1", label: "研发一部" }]}><div /></Shell>);
     await waitFor(() => expect(screen.getByTestId("app-shell")).toBeTruthy());
