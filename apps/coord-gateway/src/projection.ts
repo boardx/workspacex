@@ -1,7 +1,8 @@
 // 反向投影 cron 编排（F06）：逐仓拉事件 → 纯函数引擎 → 应用 GitHub 调用 → 推进游标。
 // 引擎与认证全在 @repo/coord-projection；本文件只做 DO/GitHub 之间的搬运，
-// 单仓失败只记日志不影响其他仓，游标仅在 apply 之后推进（at-least-once，
-// GitHub status/check 按 context/name 幂等覆盖，重投无害）。
+// 单仓失败只记日志不影响其他仓，游标仅在 apply 之后推进（at-least-once：
+// GitHub status/check 按 context/name 幂等覆盖，重投无害；issue 评论是追加语义，
+// 靠 RepoHub DO 里的持久发件箱按 idempotency_key 去重，#376）。
 import {
   applyCalls,
   createGitHubAppAuth,
@@ -11,6 +12,7 @@ import {
   type GitHubAppAuth,
   type OpenPr,
   type ProjectionEvent,
+  type ProjectionOutbox,
 } from "@repo/coord-projection";
 import type { Env } from "./index";
 
@@ -28,6 +30,29 @@ async function doJson<T>(stub: DurableObjectStub, path: string, init?: RequestIn
   const res = await stub.fetch(`https://repohub${path}`, init);
   if (!res.ok) throw new Error(`repohub_${res.status}: ${path}`);
   return res.json<T>();
+}
+
+/**
+ * 投影发件箱的生产实现（#376）：持久层就是本仓的 RepoHub DO。
+ * 放在这里而不是 coord-projection 包里，是为了让引擎/应用层不依赖 DO 运行时——
+ * 包只认 ProjectionOutbox 端口，宿主负责接上真正的存储。
+ */
+function repoHubOutbox(stub: DurableObjectStub): ProjectionOutbox {
+  const post = (path: string, payload: unknown) =>
+    doJson<Record<string, unknown>>(stub, path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  return {
+    async delivered(keys: string[]): Promise<string[]> {
+      const r = await post("/projector/outbox/delivered", { keys });
+      return (r["delivered"] as string[] | undefined) ?? [];
+    },
+    async record(key: string): Promise<void> {
+      await post("/projector/outbox/record", { key });
+    },
+  };
 }
 
 async function projectRepo(
@@ -54,11 +79,15 @@ async function projectRepo(
   const calls = project({ events, openPrs: items, andon, leases, now: Date.now() });
   if (calls.length > 0) {
     const token = await auth.installationToken(owner, name);
-    const r = await apply({ owner, repo: name, token, calls });
+    const r = await apply({ owner, repo: name, token, calls, outbox: repoHubOutbox(stub) });
     if (r.failed > 0) {
-      // 不推进游标：下一 tick 重放整批。status/check-run 是覆盖式幂等；issue comment
-      // 的完整 exactly-once 需要后续 outbox，但漏投比可见的重复更危险。
-      console.error(`[projection] ${repo}: ${r.failed}/${calls.length} 条投影失败（游标保持，下 tick 重试）`);
+      // 不推进游标：下一 tick 重放整批。重放的追加式动作（issue 评论）由发件箱按
+      // idempotency_key 挡掉，已成功的那几条不会再刷一遍（#376）；status/check-run
+      // 仍然每次重发——它们是覆盖式的，重发正是 andon/lease 对账所依赖的。
+      console.error(
+        `[projection] ${repo}: ${r.failed}/${calls.length} 条投影失败（游标保持，下 tick 重试；` +
+          `本轮已投递 ${r.applied} 条，发件箱跳过 ${r.skipped} 条）`,
+      );
       return;
     }
   }
