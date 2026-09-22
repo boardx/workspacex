@@ -362,3 +362,29 @@ gets written.
 
 Net effect: three duplicated blocks removed, one sharper paragraph added, and
 a page that says each thing once.
+
+---
+
+## Round 14 — the design system, audited
+
+Not a look-and-feel round. A count of what the stylesheets actually do, which
+turned out to be quite different from what the token block claims.
+
+**Before: 40 tokens, and then twelve border-radius values, seventeen font sizes
+and nine gap values chosen outside them.**
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Twelve distinct border radii**: 22, 14, 12, 11, 10, 9, 8, 6, 3, 2, 1.5 px and `50%`. Each one arrived reasonably — a component needed *just a bit* rounder — and together they are why a page stops feeling designed. | A four-step surface scale (`--r-xs` 6, `--r-sm` 10, `--r-md` 14, `--r-lg` 22) plus the two shapes. Values moved by at most 2 px, which is the point. |
+| 2 | **Seventeen font sizes set as literals outside the type scale**, while `--t-*` tokens sat unused beside them. | The missing steps named: `--t-nano`, `--t-tiny`, `--t-xs`, `--t-md`, `--t-base`, `--t-lg`, `--t-xl`. |
+| 3 | Nine ad-hoc gap values between 0.25 and 1.5 rem. | A six-step space scale, applied to gap, padding and margin. |
+| 4 | `--radius-lg` was the only radius token and even it was bypassed half the time. | Replaced by the scale and the last literal removed. |
+| 5 | **Nothing stopped any of this from happening again**, which is why it happened at all. | `check-css.mjs` now fails on any `border-radius` or `font-size` set outside the token system. The `:root` block is exempt, since that is where the scales are declared, and `print.css` is exempt because it is measured in points on purpose — an explicit carve-out rather than one that passes by accident. |
+| 6 | The space scale I first wrote had a step (`--s-7`) nothing used. A scale with dead steps invites picking the nearest thing rather than stepping along it. | Removed. |
+| 7 | The few-pixel marks — list bullets, legend swatches, the horizon bars — sit below the smallest surface radius and had no home. | `--r-nub`, rather than an exemption. A carve-out for "small things" becomes a carve-out for everything. |
+| 8 | Mixed colour literals for near-background surfaces (`#0b0910`, `#050408`) alongside the tokens. | Left as is deliberately — they are distinct surfaces, not drift — but now visible in the audit rather than buried. |
+| 9 | Unknown whether a mechanical rewrite of every radius, size, gap, padding and margin in five stylesheets broke anything. | Re-verified: responsive clean at eleven widths, axe 0 in both languages, keyboard clean, and both new interactions clean. |
+| 10 | The audit itself was a one-off script run by hand. | Its findings are now assertions in the gate, so the next person does not have to think to notice. |
+
+**After: 59 tokens, and every radius, size and spacing value stepping along
+them.**
