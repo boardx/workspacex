@@ -22,15 +22,52 @@ function json(status: number, body: unknown): Response {
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
 
-/** repo 短名 → 目录 slug：小写化、非法字符折叠为 "-"，两端裁剪，兜底 "repo"。 */
-export function deriveSlug(repoName: string): string {
-  const cleaned = repoName
+// slug 预算（受 directory 的 SLUG_RE 约束：长度 2..63，首字符必须是字母数字）：
+//   可读前缀(<=46) + "-"(1) + 摘要(16) = 63 上限，最短 1+1+16 = 18，天然满足下限 2。
+const SLUG_MAX = 63;
+const SLUG_DIGEST_HEX = 16; // 64 bit：定向撞到某个受害者 slug 需 ~2^64 次构造，不可行
+const SLUG_HEAD_MAX = SLUG_MAX - SLUG_DIGEST_HEX - 1;
+
+/** 项目全局身份的**唯一事实源**：小写化的 `owner/repo`。
+ *  slug、以及任何将来需要「同一个仓」判定的地方都从它派生，不要另起一套。 */
+export function canonicalRepoId(owner: string, repo: string): string {
+  return `${owner.trim().toLowerCase()}/${repo.trim().toLowerCase()}`;
+}
+
+/** 小写化、非法字符折叠为 "-"、连字符去重、两端裁剪——只做可读前缀，不承担唯一性。
+ *  （连字符去重是拼接 owner+repo 后才需要的：`--edge--` + `--repo--` 否则会拼出
+ *   `edge-----repo`。唯一性由摘要兜底，所以这里怎么折叠都不会引入撞号。） */
+function sanitizeSlugPart(raw: string): string {
+  return raw
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "");
-  const candidate = cleaned.length > 0 ? cleaned : "repo";
-  const padded = candidate.length < 2 ? `${candidate}0` : candidate;
-  return padded.slice(0, 63);
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** `owner` + `repo` → 目录 slug。
+ *
+ *  为什么不能只取 repo 短名（#377）：directory 的 `projects.slug` 是**全局唯一索引**
+ *  （`packages/coord-directory/src/schema.ts` 的 `uq_projects_slug`），而 `owner-a/demo`
+ *  与 `owner-b/demo` 的短名相同——第二个仓注册时必然撞 409，又被 registerProject 当作
+ *  「幂等，已在册」吞掉，于是它被静默并进了**别人的**项目行。那不是重复注册，是跨租户
+ *  身份混淆。
+ *
+ *  形状 `<owner>-<repo>-<sha256(owner/repo) 前 16 hex>`：前缀保可读（运维一眼看出是哪个仓），
+ *  唯一性全部由摘要承担。摘要覆盖**完整**的 canonical id，所以前缀被截断、或 `a-b/c` 与
+ *  `a/b-c` 折叠成同一个前缀时，slug 依然互不相同。同一个 owner/repo 永远得到同一个 slug
+ *  （稳定，可重复投递）。 */
+export async function deriveProjectSlug(owner: string, repo: string): Promise<string> {
+  const canonical = canonicalRepoId(owner, repo);
+  const digest = (await sha256Hex(canonical)).slice(0, SLUG_DIGEST_HEX);
+  // 截断后可能落在连字符上（如 "acme-" ），再裁一次尾部，避免出现 "acme--<digest>"。
+  const head = sanitizeSlugPart(sanitizeSlugPart(`${owner}-${repo}`).slice(0, SLUG_HEAD_MAX));
+  return `${head.length > 0 ? head : "repo"}-${digest}`;
 }
 
 export interface InstalledRepo {
@@ -39,13 +76,21 @@ export interface InstalledRepo {
   private: boolean;
 }
 
+/** `owner/repo` 取 owner；没有 "/" 时退化为整串（调用方已保证 full_name 形状）。 */
+function ownerOf(fullName: string): string {
+  return fullName.includes("/") ? fullName.slice(0, fullName.indexOf("/")) : fullName;
+}
+
 function directoryStub(env: Env): DurableObjectStub {
   return env.DIRECTORY.get(env.DIRECTORY.idFromName("platform"));
 }
 
-/** 单仓注册：POST /directory/projects（内部直调，幂等——slug 已占用视为「已注册」非错误）。 */
+/** 单仓注册：POST /directory/projects（内部直调，幂等——slug 已占用视为「已注册」非错误）。
+ *  这条幂等吞 409 的前提是 slug 一一对应 `owner/repo`：撞上 409 ⟺ **同一个仓**已在册。
+ *  slug 只取短名时该前提不成立，409 会把别的 owner 的同名仓吞成「已在册」（#377）。 */
 async function registerProject(env: Env, repo: InstalledRepo): Promise<{ slug: string; registered: boolean }> {
-  const slug = deriveSlug(repo.name);
+  // owner 取自 full_name（`owner/repo`）——InstalledRepo.name 只有短名，不足以定身份。
+  const slug = await deriveProjectSlug(ownerOf(repo.full_name), repo.name);
   const res = await directoryStub(env).fetch("https://directory/directory/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -167,19 +212,21 @@ export async function listInstallationRepos(
       return { r, fullName, owner, name, permission };
     }),
   );
-  return withPermission
+  return await Promise.all(
+    withPermission
     .filter(({ permission }) => permission !== null && permission !== "none")
-    .map(({ r, fullName, owner, name, permission }): OnboardRepo => ({
+    .map(async ({ r, fullName, owner, name, permission }): Promise<OnboardRepo> => ({
       full_name: fullName,
       owner,
       name,
-      slug: deriveSlug(name),
+      slug: await deriveProjectSlug(owner, name),
       description: typeof r["description"] === "string" ? (r["description"] as string) : null,
       language: typeof r["language"] === "string" ? (r["language"] as string) : null,
       private: r["private"] === true,
       default_branch: typeof r["default_branch"] === "string" ? (r["default_branch"] as string) : "main",
       is_admin: permission === "admin",
-    }));
+    })),
+  );
 }
 
 // ---------- 自动体检（真实四项：webhook / 镜像种子 / CODEOWNERS·CONTRIBUTING / 分支保护） ----------
