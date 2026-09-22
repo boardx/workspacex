@@ -21,6 +21,8 @@ import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/liv
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
+import { ChatArtifactView } from "@/components/chat/chat-artifact-view";
+import { ArrowLeft, Maximize2 } from "lucide-react";
 
 const mobileQuery = "(max-width: 767px)";
 /** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
@@ -94,6 +96,8 @@ export interface ChatTaskInspectorProps {
   /** issue #2099 —— 产物条目点击回调；不传时「产物」页签的条目诚实退回不可点
    *  （见 `ChatArtifactsPanel` 自己的 `onOpen` 可选约定），不是这里另造一条规则。 */
   readonly onOpenArtifact?: (item: ListThreadArtifactsOut["items"][number]) => void;
+  /** 取产物源用的会话令牌。不传时 `ChatArtifactView` 退回同源 cookie 那条路径。 */
+  readonly bearer?: string;
   /** 已上传但还没随消息发出的材料条数（composer 附件区），与已落库材料一起算「材料」。 */
   readonly pendingMaterialsCount: number;
   /**
@@ -180,6 +184,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const effectivePlanTodos = ledgerTodos ?? planTodos;
 
   const [activeTab, setActiveTab] = React.useState<InspectorTab>("progress");
+  /**
+   * 2026-09-23 人类交办「对标 Claude Code / Codex，应该在右边可以打开结果」——
+   * 右栏里被打开的那一个产物。非 null = 产物页签进入**详情态**（列表 ↔ 详情，
+   * 带返回），此前唯一的打开方式是模态对话框，模态挡住对话就没法边看边追问。
+   *
+   * ⚠ 按 threadId 清空：换线程后旧线程的产物 id 在新线程上取不到源，会渲染成
+   * 一条 NOT_VISIBLE，看起来像「这个产物坏了」而不是「你换线程了」。
+   */
+  const [openInPanel, setOpenInPanel] =
+    React.useState<ListThreadArtifactsOut["items"][number] | null>(null);
+  React.useEffect(() => { setOpenInPanel(null); }, [threadId]);
   /**
    * 人类实测反馈（2026-08-30）—— 右栏展开后（有任务在跑/有产物材料），点头部
    * 「收起」按钮没有反应，要等任务结束、信号清空才会真的收起，看起来像"延迟"。
@@ -426,6 +441,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             />
           ) : activeTab === "artifacts" ? (
             <>
+            {openInPanel && threadId ? (
+              <ArtifactDetail
+                threadId={threadId}
+                projectId={props.projectId ?? null}
+                bearer={props.bearer}
+                item={openInPanel}
+                onBack={() => setOpenInPanel(null)}
+                onEnlarge={onOpenArtifact ? () => onOpenArtifact(openInPanel) : undefined}
+              />
+            ) : (
+            <>
             {threadId && <AgentArtifactVersionsPanel
               key={threadId}
               threadId={threadId}
@@ -440,8 +466,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               loading={loading}
               error={artifactsError}
               onRetry={onRetry}
-              onOpen={onOpenArtifact}
+              onOpen={threadId ? setOpenInPanel : onOpenArtifact}
             />
+            </>
+            )}
             </>
           ) : activeTab === "roster" && roster !== undefined ? (
             <RosterPanel {...roster} />
@@ -573,5 +601,64 @@ function RunDetailsTab({
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * 右栏里的产物详情态。
+ *
+ * 这一档与模态的分工（2026-09-23）：**默认在右栏**（不挡对话，可以边看结果边追问，
+ * 边界可拖），需要更大幅面时点「放大」才升到模态。两处渲染同一个 `ChatArtifactView`，
+ * 不是两套展示逻辑——同一事实不得声明在两处。
+ *
+ * `onEnlarge` 可选：宿主没给模态入口时（如 `onOpenArtifact` 未传）不画这颗按钮，
+ * 而不是画一颗点了没反应的——同 `ChatArtifactsPanel` 的 `onOpen` 可选约定（#2099）。
+ */
+function ArtifactDetail({
+  threadId, projectId, bearer, item, onBack, onEnlarge,
+}: {
+  readonly threadId: string;
+  readonly projectId: string | null;
+  readonly bearer: string | undefined;
+  readonly item: ListThreadArtifactsOut["items"][number];
+  readonly onBack: () => void;
+  readonly onEnlarge?: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-inspector-artifact-detail">
+      <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+        <button
+          type="button"
+          onClick={onBack}
+          data-testid="chat-inspector-artifact-back"
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden />
+          产物
+        </button>
+        <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground" title={item.title}>
+          {item.title}
+        </span>
+        {onEnlarge ? (
+          <button
+            type="button"
+            onClick={onEnlarge}
+            data-testid="chat-inspector-artifact-enlarge"
+            aria-label="放大查看"
+            title="放大查看"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Maximize2 className="size-3.5" aria-hidden />
+          </button>
+        ) : null}
+      </div>
+      <ChatArtifactView
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13"
+        threadId={threadId}
+        projectId={projectId}
+        artifactId={item.artifactId}
+        bearer={bearer}
+      />
+    </div>
   );
 }
