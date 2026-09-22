@@ -178,6 +178,15 @@ export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
 export const IMPORT_THREAD_MAX_MESSAGES = 40;
 
 /**
+ * 迭代 16（#3773 R3）：一次导入最多带回几条验收标准。
+ *
+ * 与 `DesignChatWriteback.criteria` 的上限（20）同量级、同形状（≤ 200 字一条）——
+ * 它们写的是**同一个字段**，两边口径不一样的表现是「模型写得进去、导入写不进去」。
+ */
+export const IMPORT_THREAD_MAX_CRITERIA = 20;
+export const ImportedCriterion = z.string().min(1).max(200);
+
+/**
  * 一次导入的**留痕**：这一刻从哪条线程读了多少条。
  *
  * ⚠ 它是**事实记录，不是订阅句柄**（delta §2.1 取舍 ③=A）。项目不长期挂靠线程：
@@ -534,6 +543,14 @@ export const operations = {
         threadId: z.string(),
         /** 见头注「两个阶段」：省略 = 预览（不写）；给出 = 确认写入这段（用户编辑后的）文本。 */
         problem: z.string().max(4000).optional(),
+        /**
+         * 迭代 16（#3773 R3）：确认阶段一并写入的**验收标准**（用户在预览里改过的那份）。
+         *
+         * 省略 = 不动项目现有的 `criteria`（不是"清空"）。只在 `problem` 也给出时有意义——
+         * 它和 problem 是同一次导入的两半，分开写会让"这个项目的背景是从哪来的"
+         * 出现两个时间点。
+         */
+        criteria: z.array(ImportedCriterion).max(IMPORT_THREAD_MAX_CRITERIA).optional(),
       })
       .strict(),
     out: z
@@ -543,6 +560,16 @@ export const operations = {
         imported: ImportedThread,
         /** 预览阶段：模型生成的摘要正文（给用户编辑）。确认阶段：本次真正写进 `problem` 的那段。 */
         summary: z.string(),
+        /**
+         * 迭代 16（#3773 R3）：从同一段对话里抽出来的**验收标准建议**。
+         *
+         * 为什么不只给一段 `problem`：一次产品讨论里真正难复述的恰恰是那些具体口径
+         * （「导出成功率 ≥ 99%」「历史会话要能继续」）。把它们一起压进 600 字散文，
+         * 等于让用户再读一遍对话把它们挑出来——而他要的正是别自己复制粘贴。
+         *
+         * 抽不到 ⇒ **空数组**，不是编几条。没聊到的口径不许替他造。
+         */
+        criteria: z.array(ImportedCriterion).max(IMPORT_THREAD_MAX_CRITERIA),
         /** 线程长于 `IMPORT_THREAD_MAX_MESSAGES` ⇒ 真。屏上与留痕都要说出来，不许静默截断。 */
         truncated: z.boolean(),
       })

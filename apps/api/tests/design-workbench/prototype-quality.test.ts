@@ -3,6 +3,8 @@ import type { designPrototype } from "@repo/contracts";
 import {
   scorePrototypeScreen,
   PROTOTYPE_QUALITY_THRESHOLD,
+  PROTOTYPE_QUALITY_RETRY_CAP,
+  qualityRetryBudget,
 } from "../../src/application/design-workbench/prototype-quality";
 
 /**
@@ -114,5 +116,127 @@ describe("总分与反馈", () => {
     // 走不到的形状，但门控不许因为「没发现问题」而判绿（本仓九次全绿空转）。
     const r = scorePrototypeScreen({ type: "stack", children: [] } as unknown as N);
     expect(r.total).toBeLessThan(PROTOTYPE_QUALITY_THRESHOLD);
+  });
+});
+
+/* ───────────────── 迭代 16（#3773 R1）：新加的三条 + 预算 ───────────────── */
+
+const button = (label: string, variant?: string): N =>
+  ({ type: "button", props: { label, ...(variant === undefined ? {} : { variant }) } }) as unknown as N;
+
+describe("M2 层次：整页没有文字（#3773 R1-①）", () => {
+  it("一个 text 节点都没有 ⇒ 判低分，不是满分", () => {
+    // 回归钉：原来 `variants.size === 0` 直接判 1——「没有文字」被当成「没有层次问题」。
+    const page = stack([button("开始", "primary"), button("跳过", "ghost")]);
+    const part = scorePrototypeScreen(page).parts.find((p) => p.metric === "hierarchy")!;
+    expect(part.score).toBeLessThan(0.5);
+    expect(part.hint).toContain("没有任何文字节点");
+  });
+});
+
+describe("M6 主操作（#3773 R1-②）", () => {
+  it("恰好一个 primary ⇒ 满分", () => {
+    const page = stack([text("标题", "title"), button("保存修改", "primary"), button("取消", "ghost")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(1);
+  });
+  it("三个 primary ⇒ 扣分，且反馈说得出有几个", () => {
+    const page = stack([text("标题", "title"), button("A", "primary"), button("B", "primary"), button("C", "primary")]);
+    const part = scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")!;
+    expect(part.score).toBeLessThan(0.5);
+    expect(part.hint).toContain("3 个 primary");
+  });
+  it("一个按钮都没有的纯展示页 ⇒ 不扣（主操作可能在 bottomnav 上）", () => {
+    const page = stack([text("标题", "title"), text("正文说明", "body")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(1);
+  });
+});
+
+describe("M7 占位文案（#3773 R1-③）", () => {
+  it("真实文案 ⇒ 满分", () => {
+    const page = stack([text("今天", "title"), button("新增待办", "primary")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "placeholderCopy")?.score).toBe(1);
+  });
+  it("「标题1」「示例文本」这种 ⇒ 扣分并点名", () => {
+    const page = stack([text("标题1", "title"), text("示例文本", "body")]);
+    const part = scorePrototypeScreen(page).parts.find((p) => p.metric === "placeholderCopy")!;
+    expect(part.score).toBeLessThan(1);
+    expect(part.hint).toContain("占位文案");
+  });
+  it("误判防线：文案里**含有**「示例」但不是占位 ⇒ 不扣", () => {
+    const page = stack([text("看三个示例问题", "body"), text("标题党检测", "title")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "placeholderCopy")?.score).toBe(1);
+  });
+});
+
+describe("重试预算按页数给（#3773 R1-④）", () => {
+  it("页数少时至少给到基础预算", () => {
+    expect(qualityRetryBudget(1)).toBeGreaterThanOrEqual(3);
+  });
+  it("常见的 3–6 页项目 ⇒ 每页各有一次机会", () => {
+    expect(qualityRetryBudget(5)).toBe(5);
+    expect(qualityRetryBudget(6)).toBe(6);
+  });
+  it("页数再多也不超过硬顶 ⇒ 用户不会等到翻倍", () => {
+    expect(qualityRetryBudget(20)).toBe(PROTOTYPE_QUALITY_RETRY_CAP);
+  });
+});
+
+describe("门不误伤合格的一页（阈值回归）", () => {
+  it("十几个节点、三档字号、唯一 primary、真实文案 ⇒ 过线", () => {
+    const page = stack([
+      text("我的待办", "title"), text("3 件没做完", "caption"), text("今天", "label"),
+      text("买牛奶", "body"), text("写周报", "body"), text("订机票", "body"),
+      text("已完成", "label"), text("交房租", "body"), text("回复邮件", "body"),
+      button("新增待办", "primary"), button("筛选", "ghost"),
+      { type: "input", props: { placeholder: "搜索待办" } } as unknown as N,
+    ]);
+    expect(scorePrototypeScreen(page).total).toBeGreaterThanOrEqual(PROTOTYPE_QUALITY_THRESHOLD);
+  });
+});
+
+describe("M8 死路（#3773 R6）", () => {
+  const primary = (id?: string): N =>
+    ({ ...(id === undefined ? {} : { id }), type: "button", props: { label: "去结算", variant: "primary" } }) as unknown as N;
+
+  it("多页项目里主操作连了线 ⇒ 满分", () => {
+    const page = stack([text("购物车", "title"), primary("go")]);
+    const part = scorePrototypeScreen(page, { links: [{ from: "go", to: 1 }], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBe(1);
+  });
+
+  it("主操作没有去处 ⇒ 扣分，且反馈点名是哪个按钮", () => {
+    // ⭐ 反证锚点：删掉 M8 ⇒ 这条红。「每页的主操作都要有去处」此前只写在提示词里，
+    // 表现是用户点进预览按遍所有按钮都没反应。
+    const page = stack([text("购物车", "title"), primary("go")]);
+    const part = scorePrototypeScreen(page, { links: [], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBeLessThan(1);
+    expect(part.hint).toContain("去结算");
+  });
+
+  it("模型没给节点写 id ⇒ 同样判死路（指不到它就连不了线）", () => {
+    const part = scorePrototypeScreen(stack([text("购物车", "title"), primary()]), { links: [], screenCount: 3 })
+      .parts.find((p) => p.metric === "deadEnds")!;
+    expect(part.score).toBeLessThan(1);
+    expect(part.hint).toContain("自己给那个节点写 id");
+  });
+
+  it("单页项目 ⇒ 不判（没有地方可去，那不是死路）", () => {
+    const page = stack([text("购物车", "title"), primary("go")]);
+    expect(scorePrototypeScreen(page, { links: [], screenCount: 1 }).parts.find((p) => p.metric === "deadEnds")?.score).toBe(1);
+    // 不给 context 时按单页看待——拿不到跳转表就不该凭空判它有死路。
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "deadEnds")?.score).toBe(1);
+  });
+
+  it("「取消」这种次要按钮没连线 ⇒ 不判（只判主操作与底部导航）", () => {
+    const page = stack([
+      text("购物车", "title"), primary("go"),
+      { type: "button", id: "c", props: { label: "取消", variant: "ghost" } } as unknown as N,
+    ]);
+    expect(
+      scorePrototypeScreen(page, { links: [{ from: "go", to: 1 }], screenCount: 3 })
+        .parts.find((p) => p.metric === "deadEnds")?.score,
+    ).toBe(1);
   });
 });

@@ -16,6 +16,7 @@ import {
 import { deleteProject } from "../../src/application/design-workbench/delete-project";
 import {
   DesignThreadSummaryUnavailableError,
+  IMPORT_HEAD_MESSAGES,
   importThread,
 } from "../../src/application/design-workbench/import-thread";
 import { ThreadNotVisibleError } from "../../src/application/chat/get-thread";
@@ -879,7 +880,7 @@ describe("V57 导入是一次性的，且留痕", () => {
     expect(view[0]!.problem).not.toContain("社交分享");
   });
 
-  it("线程太长 ⇒ 按最近 N 条截断，truncated 为真，且**留痕里写明截断了**", async () => {
+  it("线程太长 ⇒ 首尾兼顾地截断，truncated 为真，且**留痕里写明截断了**", async () => {
     const projects = new FakeDesignProjectRepo();
     projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner" }));
     const chat = new FakeChatThreadSource();
@@ -890,14 +891,33 @@ describe("V57 导入是一次性的，且留痕", () => {
     const preview = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-long" });
     expect(preview.truncated).toBe(true);
     expect(preview.imported.messageCount).toBe(C.IMPORT_THREAD_MAX_MESSAGES);
-    // 取的是**最近** N 条：最早那几句不在喂给模型的正文里，最后一句在。
+    /*
+     * 迭代 16（#3773 R3）：截断**首尾兼顾**，不再是只取最近 N 条。
+     *
+     * 原来这里断言的是 `not.toContain("第 0 句")`。那条断言编码的正是被换掉的行为：
+     * 一条讨论线程的开头几条往往是需求原文——「我们要做一个什么」，后面再也不会重复
+     * 一遍。只取尾部的实际表现是摘要里全是细节修正，读完不知道这是个什么产品。
+     * 后面的结论该赢这一点没有变，所以尾部照旧是最近的那些。
+     */
     const prompt = model.complete.mock.calls[0]![0]!.user;
-    expect(prompt).not.toContain("第 0 句");
+    // 开头留着（需求原文）
+    expect(prompt).toContain("第 0 句");
+    // 尾部仍然是最近的那些（后面的结论该赢）
     expect(prompt).toContain(`第 ${long.length - 1} 句`);
+    // 中间被略过，而且**在正文里说出来**——模型不知道少了东西，就会把断档两侧当成连续的一段话。
+    expect(prompt).toContain("这里省略了中间的若干条");
+    // ⭐ 反证锚点：把整条线程原样喂进去（不截断）⇒ 这条红。
+    expect(prompt).not.toContain(`第 ${IMPORT_HEAD_MESSAGES} 句`);
 
     await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-long", problem: "截断后的背景" });
-    // ⭐ 反证锚点：静默截断（留痕里不写）⇒ 这条红。用户会以为模型看过它其实没看过的那段。
-    expect(projects.rows.get("dp-1")!.chat[0]!.text).toContain("只读了最近");
+    /*
+     * ⭐ 反证锚点：静默截断（留痕里不写）⇒ 这条红。用户会以为模型看过它其实没看过的那段。
+     * ⚠ 留痕文案同样跟着行为改过：再写「只读了最近 N 条」就是一句不准确的留痕，
+     *   而留痕的全部价值在于半年后它说的还是真话。
+     */
+    const trace = projects.rows.get("dp-1")!.chat[0]!.text;
+    expect(trace).toContain("中间略过");
+    expect(trace).not.toContain("只读了最近");
   });
 
   it("摘要做不出来 ⇒ 报 DEPENDENCY_UNAVAILABLE 那一类，不给一段假摘要，项目不变", async () => {
