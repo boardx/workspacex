@@ -41,6 +41,7 @@ import {
   type PrototypeLink,
   type PrototypeVersion,
   type PrototypeAccent,
+  PROJECT_TEMPLATE_LABEL,
   type ProjectTemplate,
   type DesignShareScope,
 } from "@/lib/live-design-workbench";
@@ -129,11 +130,7 @@ const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
   "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
 ]);
 
-const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
-  mobile: "移动端设计",
-  ui: "UI 原型",
-  wireframe: "线框图",
-};
+const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
 
 type Load =
   | { kind: "loading" }

@@ -58,6 +58,7 @@ import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { describeFailure } from "@/lib/design-failure";
 import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
+import { PROJECT_TEMPLATE_LABEL } from "@/lib/live-design-workbench";
 import { PrototypeBoard } from "@/components/design-loop/prototype-board";
 import { DEVICE_PRESETS } from "@/components/design-loop/prototype-canvas";
 import { humanTime as when } from "@/lib/human-time";
@@ -4585,5 +4586,45 @@ describe("迭代 32：画板上的手感——别把用户调好的视图冲掉�
     const title = await screen.findByTestId("design-layers-title");
     expect(title.textContent).toContain("页面结构");
     expect(title.textContent).toMatch(/\d+ 块/);
+  });
+});
+
+describe("迭代 33：同一件事，在这几屏上不许说四种话", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it("工作台首页加载失败 ⇒ 说人话，不端 reasonCode，也不把异常对象倒到屏上", async () => {
+    /*
+     * ⭐ 反证锚点：把 `workbench-screen.tsx` 里那份本地 describeFailure 放回去 ⇒ 这条红。
+     * 迭代 27 只把**详情页**那一份换成了人话表，而首页、草稿、收件箱各抄着一份旧的——
+     * 偏偏这三屏才是第一眼看到的地方。
+     */
+    apiRequest.mockImplementation(async () => { throw new ApiError(500, "PROJECT_NOT_FOUND", {}); });
+    render(<DesignWorkbenchHome state="default" />);
+    const box = await screen.findByTestId("dep-failed");
+    expect(box.textContent).not.toContain("PROJECT_NOT_FOUND");
+    expect(box.textContent).not.toContain("http_500");
+    expect(box.textContent).toContain("这个设计项目找不到了"); // 走的是单源那张「码 → 人话」表
+  });
+
+  it("首页遇到不认识的异常也不把 String(err) 倒上屏", async () => {
+    // ⭐ 反证锚点：把兜底改回 `return String(err)` ⇒ 这条红（屏上会出现一段英文栈）。
+    apiRequest.mockImplementation(async () => { throw new Error("boom at Object.<anonymous> (/app/x.js:1:1)"); });
+    render(<DesignWorkbenchHome state="default" />);
+    const box = await screen.findByTestId("dep-failed");
+    expect(box.textContent).not.toContain("boom");
+    expect(box.textContent).toContain("稍后再试");
+  });
+
+  it("三种模板的中文名只有一份——首页下拉与详情页状态栏读的是同一张表", () => {
+    /*
+     * ⭐ 反证锚点：在任一屏里另写一份 `{ mobile: …, ui: …, wireframe: … }` ⇒
+     * 这条测不到，但 `lint-user-facing-error-text` 之外还有这条断言钉住"两边一致"：
+     * 改其中一处而不改另一处，下面的相等就不成立。
+     */
+    // 键集合恰好是契约闭集：多一个少一个都说明有人在别处又攒了一份。
+    expect(Object.keys(PROJECT_TEMPLATE_LABEL).sort()).toEqual([...designWorkbench.ProjectTemplate.options].sort());
+    for (const t of designWorkbench.ProjectTemplate.options) {
+      expect(PROJECT_TEMPLATE_LABEL[t], `模板 ${t} 没有中文名`).toBeTruthy();
+    }
   });
 });

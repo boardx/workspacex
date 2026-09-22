@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
 import {
   FEEDBACK_KINDS,
   deleteFeedbackDraft,
@@ -50,11 +51,12 @@ type ListState =
   | { kind: "ready"; items: readonly FeedbackDraft[] }
   | { kind: "failed"; reason: string };
 
-function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器（可能正在部署或网络中断），请稍后重试";
-  return String(err);
-}
+/**
+ * 迭代 33：这三处（工作台首页 / 草稿列表 / 收件箱）原来各抄了一份
+ * 「reasonCode 取不到就拼 HTTP 状态、再不行 String(err)」。迭代 27 只把详情页那一份
+ * 换成了人话表，而这三屏恰恰是用户**第一眼**看到的地方。同一事实不得声明在两处：
+ * 统一走 `lib/design-failure.ts`，并由 `lint-user-facing-error-text` 机械挡住回潮。
+ */
 
 function isDraftEmpty(err: unknown): boolean {
   return err instanceof ApiError && err.reasonCode === "DRAFT_EMPTY";

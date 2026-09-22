@@ -26,6 +26,7 @@ import { Loader2, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure as describeGeneric } from "@/lib/design-failure";
 import { listPersonalThreads, type ThreadCard } from "@/lib/live-chat";
 import { importThread, type DesignProject, type ImportedThread } from "@/lib/live-design-workbench";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -59,10 +60,14 @@ function describeFailure(err: unknown): string {
       return "服务器出错了，这次没能保存。你编辑的这段文字还在，可以再点一次确认。";
     }
     if (err.status === 403) return "这个设计项目不是你的，不能改它的背景。";
-    return "这次导入没成功，可以再试一次。";
+    return describeGeneric(err);
   }
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return "这次导入没成功，可以再试一次。";
+  /*
+   * 迭代 33：这两句原来各写各的（「无法连接服务器，请稍后重试」在全仓有四份不同措辞）。
+   * 本文件上面那几条 404/503/500/403 的特判是**这条路独有的信息**，留着；
+   * 剩下的退回单源 `describeFailure`，同一类失败在所有屏上说同一句话。
+   */
+  return describeGeneric(err);
 }
 
 export function ImportThreadDialog({
