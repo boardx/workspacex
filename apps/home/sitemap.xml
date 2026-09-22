@@ -17,4 +17,20 @@
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>https://workspacex.boardx.us/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://workspacex.boardx.us/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://workspacex.boardx.us/zh/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://workspacex.boardx.us/privacy.html"/>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://workspacex.boardx.us/zh/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://workspacex.boardx.us/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://workspacex.boardx.us/zh/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://workspacex.boardx.us/privacy.html"/>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>

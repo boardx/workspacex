@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
-const html = read('index.html');
+const html = ['index.html', 'privacy.html', '404.html'].map(read).join('\n');
 const zhSource = read('assets/js/zh.js');
 const diagramSource = read('assets/js/diagram-strings.js');
 

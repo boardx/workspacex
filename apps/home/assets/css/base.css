@@ -82,6 +82,9 @@
   --t-base:   1rem;
   --t-lg:     1.125rem;
   --t-xl:     1.25rem;
+  /* Relative on purpose: inline code should track whatever text surrounds it,
+     not a fixed step. Declared so it is a decision rather than a stray literal. */
+  --t-inline-code: 0.9em;
 
   /* ---- space ------------------------------------------------------------ */
   --gutter:      clamp(1.25rem, 4vw, 3rem);

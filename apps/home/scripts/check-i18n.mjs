@@ -13,7 +13,10 @@ import { dirname, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 
-const html = readFileSync(join(root, 'index.html'), 'utf8');
+/* Every hand-authored page. Naming one input is how privacy.html reached
+   production without a single gate having looked at it. */
+const SOURCES = ['index.html', 'privacy.html', '404.html'];
+const html = SOURCES.map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
 const used = new Set(
   [...html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)].map((m) => m[1]),
 );

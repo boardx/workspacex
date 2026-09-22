@@ -145,3 +145,9 @@ at a domain that does not exist and social cards that never load.
 **2. The product link.** "Launch App" and "Launch Workspace" point at
 `https://devapp.boardx.us`, the only app host referenced anywhere in this
 repository. If the public site should send people somewhere else, change it.
+
+**3. The ICP filing notice.** A site served from mainland China must display
+its ICP record number in the footer. There is no number in this repository and
+none has been invented. If `/zh/` is going to be served from inside China, add
+it to `footer.copy` in `assets/js/zh.js` and regenerate. If the Chinese pages
+are served from outside China, this does not apply.
