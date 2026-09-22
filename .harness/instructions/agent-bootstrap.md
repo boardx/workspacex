@@ -157,9 +157,14 @@ pnpm harness claim --phase <阶段> --feature <Fxx> --owner <你的身份id>
 ## 第 6 步 — 验证与交付（没有证据 = 没有完成）
 
 ```bash
-pnpm harness verify --sprint <阶段>/<sprint>   # 必须用 --sprint 模式
+pnpm harness verify --sprint <阶段>/<sprint> --owner <你的-agent-id>   # 必须用 --sprint 模式
+# 收口单条也可以点名：--sprint <阶段>/<sprint> --feature F0x
 ```
 
+- **`--owner` / `--feature` 决定本次动谁**（#1025）：默认只跑并只写这两者圈定的
+  feature，同 sprint 里别人名下的会被跳过并打印一行说明。要连别人的一起跑得显式加
+  `--all`——它会覆写别人的 evidence（失败的运行也照写），那是别人的审计材料，
+  没有明确理由不要用。
 - **只有这条命令能把 feature 翻成 passing**。你绝不手改 feature_list.json 的
   status / evidence——手改会被派生视图矛盾暴露并被 review Block（2026-07-09
   出过真实事故，见 PR #517 的教训）。

@@ -90,6 +90,11 @@ export async function buildSurveyReportWord(
   paragraph(report.title, HeadingLevel.TITLE);
   for (const section of report.sections) {
     paragraph(section.title, HeadingLevel.HEADING_1);
+    for (const insight of section.analysis ?? []) {
+      paragraph(insight.title, HeadingLevel.HEADING_2);
+      paragraph(insight.evidence);
+      paragraph(`建议行动：${insight.action}`);
+    }
     if (!section.blocks.length) paragraph("本章尚无内容");
     for (const block of section.blocks) {
       if (block.type === "page-break") {

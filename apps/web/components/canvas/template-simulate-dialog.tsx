@@ -1,5 +1,5 @@
 "use client";
-import type { GridColsValue } from "@repo/contracts/canvas";
+import { DEFAULT_GRID_ROWS, type GridColsValue, type GridRowsValue } from "@repo/contracts/canvas";
 
 /**
  * chat 模拟弹窗 —— 人类原话：「这个界面需要有测试的功能，做好了设置以后，需要有一个
@@ -91,6 +91,7 @@ import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate, getTemplate
 import { isCanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { canvas } from "@repo/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
@@ -151,7 +152,8 @@ export function usesAutoLayoutSpec(
 }
 
 export function TemplateSimulateDialog({
-  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, promptText, onClose,
+  templateKey, layoutSource, sectionsDirty, sections, gridCols, gridRows = DEFAULT_GRID_ROWS,
+  title, footer, promptText, onClose,
 }: {
   readonly templateKey: string;
   /**
@@ -172,6 +174,11 @@ export function TemplateSimulateDialog({
    * 同一个 state，不另起一份。
    */
   readonly gridCols: GridColsValue;
+  /**
+   * 网格行数（issue #3358）——同 `gridCols`，`layout.row/h` 是相对它的坐标。
+   * 缺省 `DEFAULT_GRID_ROWS`：不传等于按老模板的 8 行算，与改动前逐字节同解。
+   */
+  readonly gridRows?: GridRowsValue;
   readonly title: string;
   /** 页脚署名——与保存/真实 chat 渲染同源，模拟里也要画出来（issue #2527）。 */
   readonly footer: string;
@@ -241,6 +248,7 @@ export function TemplateSimulateDialog({
               displayName: title || templateKey,
               footer,
               gridCols,
+              gridRows,
               sections: sections
                 .filter((s) => s.layout != null)
                 .map((s) => (
@@ -295,7 +303,7 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, gridRows, title, footer, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -324,12 +332,12 @@ export function TemplateSimulateDialog({
           与真实 chat 完全一致（fabric.js），可以直接在下面拖动/编辑便签。
         </p>
 
-        <textarea
+        <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="如：帮我画一份新用户画像，产品是一款效率工具"
           spellCheck={false}
-          className="h-[100px] w-full flex-none resize-none rounded-control border border-border bg-background p-2 text-11 leading-relaxed transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-[100px] min-h-0 w-full flex-none p-2 text-11 leading-relaxed transition-colors duration-fast"
           data-testid="tpladmin-editor-simulate-input"
           aria-label="模拟提示词"
         />

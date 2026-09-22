@@ -208,6 +208,12 @@ describe("scoped token auth（F08）", () => {
       expect(mirror.status).toBe(401);
       expect((await SELF.fetch(API(REPO, "/webhook/ingest"), { method: "POST", headers, body: "{}" })).status).toBe(404);
       expect((await SELF.fetch(API(REPO, "/projector/cursor"), { headers })).status).toBe(404);
+      // 投影发件箱（#376）同属 /projector/* 内部面：写端点绝不能从公网可达，
+      // 否则任何 scoped token 都能凭空登记幂等键，把别人的意图评论永久吞掉。
+      for (const sub of ["/projector/outbox/record", "/projector/outbox/delivered"]) {
+        const r = await SELF.fetch(API(REPO, sub), { method: "POST", headers, body: JSON.stringify({ key: "k", keys: ["k"] }) });
+        expect(r.status).toBe(404);
+      }
       // 允许面之外的方法也拒（andon 只放 GET）
       expect((await SELF.fetch(API(REPO, "/andon"), { method: "POST", headers, body: "{}" })).status).toBe(401); // admin 路由把守
       expect((await SELF.fetch(API(REPO, "/events"), { method: "POST", headers, body: "{}" })).status).toBe(404);

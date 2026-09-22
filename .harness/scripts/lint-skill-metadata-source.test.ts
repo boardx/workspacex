@@ -1,90 +1,131 @@
 /**
- * lint-skill-metadata-source 的反证套件。
+ * lint-skill-metadata-source 的反证套件（issue #3154）。
  * 每条断言都先造一种破坏方式确认它会红。最后一组是**反向反证**：真仓库今天必须判绿，
- * 且解析器确实抓到了数据——正则失配会让全称断言平凡为真。
+ * 且解析器/计数器确实抓到了数据——正则失配会让全称断言平凡为真。
+ *
+ * ⚠ 收敛前这份套件的「真仓库判绿」那条是**红的**：那时 10 个 build.ts 全都手写着
+ *   `semanticVersion:'1.1.0'` / `capabilityId:'WX-S016'`，且 7 个 SKILL.md 的 frontmatter
+ *   根本没有 version / capability_id。它是这次修复的反证锚点。
  */
 import { describe, it, expect } from "vitest";
 // @ts-expect-error —— .mjs 无类型声明
-import { checkSkillMetadata, readFrontmatter, loadRecords, run, CONVENTION_DEBT } from "./lint-skill-metadata-source.mjs";
+import { checkSkillMetadataSource, inspectBuildScript, stripCommentsAndStrings, loadRecords, run, LEGACY_NESTED_METADATA } from "./lint-skill-metadata-source.mjs";
 
-const complete = (key: string, over: Record<string, unknown> = {}) => ({
-  key,
-  built: { stableName: key.split("/")[1], semanticVersion: "1.0.0", capabilityId: "WX-S001" },
-  frontmatter: { name: key.split("/")[1], version: "1.0.0", capability_id: "WX-S001", ...over },
-});
+interface Offence { readonly field: string; readonly total: number; readonly conforming: number }
+interface Build { readonly sourceFile: string; readonly offending: readonly Offence[]; readonly importsReader: boolean; readonly callsReader: boolean }
+interface Skill { readonly key: string; readonly error: string | null; readonly nestedMetadata: boolean }
 
-describe("判定①：两处都出现的字段必须逐字相等", () => {
-  it("version 漂移 ⇒ 红并点名两侧的值", () => {
-    const r = checkSkillMetadata([complete("p/a", { version: "9.9.9" })], []);
+const cleanBuild = (over: Partial<Build> = {}): Build =>
+  ({ sourceFile: "skills/p/scripts/build.ts", offending: [], importsReader: true, callsReader: true, ...over });
+const cleanSkill = (key: string, over: Partial<Skill> = {}): Skill =>
+  ({ key, error: null, nestedMetadata: false, ...over });
+
+const CONFORMING_BUILD = `
+import {parseSkillFrontmatter} from '../../../apps/api/src/domain/skill/skill-frontmatter';
+const meta=parseSkillFrontmatter(readFileSync('SKILL.md','utf8'),'a');
+const skills=[{stableName:meta.stableName,name:'显示名',semanticVersion:meta.semanticVersion,manifest:{capabilityId:meta.capabilityId},files}];
+`;
+
+describe("判定①：build.ts 不许自己写这三个字段的值", () => {
+  it("合规写法（右值就是 frontmatter 对象的同名字段）⇒ 零违规", () => {
+    expect(inspectBuildScript(CONFORMING_BUILD).offending).toEqual([]);
+  });
+  it("字面量 semanticVersion ⇒ 红并报出计数", () => {
+    const source = CONFORMING_BUILD.replace("semanticVersion:meta.semanticVersion", "semanticVersion:'1.1.0'");
+    expect(inspectBuildScript(source).offending).toEqual([{ field: "semanticVersion", total: 1, conforming: 0 }]);
+  });
+  it("字面量 capabilityId ⇒ 红", () => {
+    const source = CONFORMING_BUILD.replace("capabilityId:meta.capabilityId", "capabilityId:'WX-S016'");
+    expect(inspectBuildScript(source).offending.map((o: Offence) => o.field)).toEqual(["capabilityId"]);
+  });
+  it("三元表达式算出来的 semanticVersion ⇒ 红（standard-audio 迁移前的真实写法）", () => {
+    const source = CONFORMING_BUILD.replace("semanticVersion:meta.semanticVersion", "semanticVersion:stableName==='meeting-minutes'?'1.1.1':'1.1.0'");
+    expect(inspectBuildScript(source).offending.some((o: Offence) => o.field === "semanticVersion")).toBe(true);
+  });
+  it("从字面量表解构出来的变量再简写 ⇒ 红（standard-context 迁移前的真实写法）", () => {
+    const source = CONFORMING_BUILD.replace("stableName:meta.stableName", "stableName");
+    expect(inspectBuildScript(source).offending.some((o: Offence) => o.field === "stableName")).toBe(true);
+  });
+  it("注释里提到字段名不算声明——不许因为写了说明就判红", () => {
+    const source = `// semanticVersion / stableName / capabilityId 都从 frontmatter 读\n${CONFORMING_BUILD}`;
+    expect(inspectBuildScript(source).offending).toEqual([]);
+  });
+  it("字符串里的 // 不会把后半行当注释吃掉", () => {
+    expect(stripCommentsAndStrings("const a='https://x/y',capabilityId:m.capabilityId;")).toBe('const a="",capabilityId:m.capabilityId;');
+  });
+  it("违规计数原样进 failures 并点名文件", () => {
+    const r = checkSkillMetadataSource([cleanBuild({ offending: [{ field: "capabilityId", total: 3, conforming: 1 }] })], [cleanSkill("p/a")], []);
     expect(r.ok).toBe(false);
-    expect(r.failures[0]).toMatch(/version 两处不一致.*"9\.9\.9".*"1\.0\.0"/);
-  });
-  it("capability_id 漂移 ⇒ 红", () => {
-    expect(checkSkillMetadata([complete("p/a", { capability_id: "WX-S999" })], []).ok).toBe(false);
-  });
-  it("stable_name 漂移 ⇒ 红", () => {
-    expect(checkSkillMetadata([complete("p/a", { name: "renamed" })], []).ok).toBe(false);
-  });
-  it("全一致 ⇒ 绿（反向反证：一道永远红的门控等于没有）", () => {
-    expect(checkSkillMetadata([complete("p/a")], [])).toMatchObject({ ok: true, failures: [] });
-  });
-  it("债务名单不豁免判定①——名单里的 skill 字段冲突照样红", () => {
-    const rec = complete("p/a", { version: null, capability_id: null, name: "renamed" });
-    expect(checkSkillMetadata([rec], ["p/a"]).failures.some((f: string) => /stable_name 两处不一致/.test(f))).toBe(true);
+    expect(r.failures[0]).toMatch(/skills\/p\/scripts\/build\.ts: capabilityId 在构建脚本里出现 3 次/);
   });
 });
 
-describe("判定②：约定一致性，债务名单只减不增", () => {
-  it("名单外的 skill 缺字段 ⇒ 红（新增不许再少写）", () => {
-    const r = checkSkillMetadata([complete("p/new", { version: null })], []);
-    expect(r.failures[0]).toMatch(/缺 version——约定是三个字段都写/);
+describe("判定②：反空转——不读 frontmatter 的脚本上判定①平凡为真", () => {
+  it("没 import 单源解析器 ⇒ 红", () => {
+    const r = checkSkillMetadataSource([cleanBuild({ importsReader: false })], [cleanSkill("p/a")], []);
+    expect(r.failures[0]).toMatch(/没有 import .*parseSkillFrontmatter/);
   });
-  it("名单内的 skill 缺字段 ⇒ 绿（记账，不阻断）", () => {
-    expect(checkSkillMetadata([complete("p/old", { version: null, capability_id: null })], ["p/old"]).ok).toBe(true);
+  it("import 了却没调用 ⇒ 红", () => {
+    const r = checkSkillMetadataSource([cleanBuild({ callsReader: false })], [cleanSkill("p/a")], []);
+    expect(r.failures[0]).toMatch(/却没调用它/);
   });
-  it("名单条目已补齐却没删 ⇒ 红（陈旧条目会让债务上限变成移动靶）", () => {
-    const r = checkSkillMetadata([complete("p/fixed")], ["p/fixed"]);
-    expect(r.failures[0]).toMatch(/已补齐，但还留在 CONVENTION_DEBT 名单里/);
+  it("真实构建脚本确实 import 并调用了它", () => {
+    const probe = inspectBuildScript(CONFORMING_BUILD);
+    expect(probe.importsReader).toBe(true);
+    expect(probe.callsReader).toBe(true);
+  });
+});
+
+describe("判定③：SKILL.md 解析不出来就红，不是判绿", () => {
+  it("解析器的报错原样进 failures", () => {
+    const r = checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/a", { error: "frontmatter 缺 version" })], []);
+    expect(r.ok).toBe(false);
+    expect(r.failures[0]).toBe("p/a: frontmatter 缺 version");
+  });
+});
+
+describe("判定④：metadata: 嵌套名单只减不增", () => {
+  it("名单外的嵌套写法 ⇒ 红（新增一律顶层）", () => {
+    const r = checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/new", { nestedMetadata: true })], []);
+    expect(r.failures[0]).toMatch(/嵌在 metadata: 下——新增一律顶层写/);
+  });
+  it("名单内的嵌套写法 ⇒ 绿（记账，不阻断）", () => {
+    expect(checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/old", { nestedMetadata: true })], ["p/old"]).ok).toBe(true);
+  });
+  it("名单条目已经改成顶层却没删 ⇒ 红（陈旧条目会让上限变成移动靶）", () => {
+    const r = checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/fixed")], ["p/fixed"]);
+    expect(r.failures[0]).toMatch(/已经改成顶层写法，但还留在 LEGACY_NESTED_METADATA/);
   });
   it("名单条目在仓库里找不到 ⇒ 红", () => {
-    expect(checkSkillMetadata([complete("p/a")], ["gone/skill"]).failures[0]).toMatch(/找不到——名单陈旧/);
+    expect(checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/a")], ["gone/skill"]).failures[0]).toMatch(/找不到——名单陈旧/);
   });
 });
 
 describe("空集防线：没有对象不等于没有问题", () => {
-  it("一个 skill 都没扫到 ⇒ 红", () => {
-    expect(checkSkillMetadata([], []).ok).toBe(false);
+  it("一个 build.ts 都没扫到 ⇒ 红", () => {
+    expect(checkSkillMetadataSource([], [cleanSkill("p/a")], []).failures[0]).toMatch(/一个都没扫到/);
   });
-  it("SKILL.md 没有 frontmatter ⇒ 红（取不到声明不等于一致）", () => {
-    const r = checkSkillMetadata([{ ...complete("p/a"), frontmatter: null }], []);
-    expect(r.failures[0]).toMatch(/没有 frontmatter/);
+  it("一个 SKILL.md 都没扫到 ⇒ 红", () => {
+    expect(checkSkillMetadataSource([cleanBuild()], [], []).failures[0]).toMatch(/一个 SKILL\.md 都没扫到/);
   });
   it("加载期错误原样进 failures（拒绝下判断，不是判绿）", () => {
-    expect(checkSkillMetadata([complete("p/a")], [], ["构建产物不存在"]).ok).toBe(false);
+    expect(checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/a")], [], ["skills/ 目录不存在"]).ok).toBe(false);
   });
-});
-
-describe("frontmatter 解析器对两种真实写法都有效", () => {
-  it("顶层字段", () => {
-    expect(readFrontmatter("---\nname: a\nversion: 1.0.0\ncapability_id: WX-S001\n---\n#")).toEqual({ name: "a", version: "1.0.0", capability_id: "WX-S001" });
-  });
-  it("metadata 嵌一层（standard-authoring 的写法）", () => {
-    expect(readFrontmatter("---\nname: a\nmetadata:\n  capability_id: WX-S015\n  version: 1.0.0\n---\n#")).toEqual({ name: "a", version: "1.0.0", capability_id: "WX-S015" });
-  });
-  it("没有 frontmatter ⇒ null，不是空对象", () => {
-    expect(readFrontmatter("# 没有 frontmatter")).toBeNull();
+  it("全都干净 ⇒ 绿（反向反证：一道永远红的门控等于没有）", () => {
+    expect(checkSkillMetadataSource([cleanBuild()], [cleanSkill("p/a")], [])).toMatchObject({ ok: true, failures: [] });
   });
 });
 
 describe("真仓库", () => {
-  it("扫到 10 个以上 skill 且 build 侧字段非空——正则失配会让全称断言平凡为真", () => {
-    const { records, loadErrors } = loadRecords();
+  it("扫到 10 个构建脚本、10 个以上 SKILL.md，且没有加载期错误", () => {
+    const { builds, skills, loadErrors } = loadRecords();
     expect(loadErrors).toEqual([]);
-    expect(records.length).toBeGreaterThan(10);
-    expect(records.every((r: { built: { stableName?: string; semanticVersion?: string; capabilityId?: string } }) => r.built.stableName && r.built.semanticVersion && r.built.capabilityId)).toBe(true);
+    expect(builds.length).toBe(10);
+    expect(skills.length).toBeGreaterThan(10);
   });
-  it("今天判绿，且债务名单正好是那 7 条现存缺口", () => {
+  it("今天判绿；metadata: 嵌套遗留正好是名单里那 5 条", () => {
     expect(run()).toMatchObject({ ok: true });
-    expect(CONVENTION_DEBT.length).toBe(7);
+    expect(LEGACY_NESTED_METADATA.length).toBe(5);
+    expect(run().nested).toBe(5);
   });
 });

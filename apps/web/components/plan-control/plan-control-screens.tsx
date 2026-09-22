@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
   PLAN_STEPS, PLAN_PHASE_LABEL, PHASE_LINE, STEP_STATUS_LABEL, ORPHAN_CONSTRAINT,
-  GATE_REQUIRED, GATE_NOT_REQUIRED, RUN_PROGRESS, RUN_FAILURE, formatElapsed,
+  GATE_REQUIRED, GATE_NOT_REQUIRED, planGateReasonLabel, RUN_PROGRESS, RUN_FAILURE, formatElapsed,
   type PlanStepPreview, type PlanStepStatus, type PlanPhase, type PlanControlScreenKey,
 } from "@/lib/mock/plan-control";
 
@@ -320,7 +320,7 @@ function ConfirmGate() {
           <span className="text-13 font-semibold">确认后执行</span>
           <Badge tone="warning" className="text-10">需确认</Badge>
         </div>
-        <p className="text-12 text-muted-foreground">{GATE_REQUIRED.reason}</p>
+        <p className="text-12 text-muted-foreground">{planGateReasonLabel(GATE_REQUIRED)}</p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="primary" data-testid="chat-task-workbench-plan-confirm-run">确认并执行</Button>
           <Button size="sm" variant="outline" data-testid="chat-task-workbench-plan-confirm-edit">继续编辑</Button>
@@ -350,7 +350,7 @@ function ScreenConfirmGate() {
           <Card><CardContent className="py-3 text-13 text-muted-foreground">
             <p className="text-background-foreground">「北京今天天气怎么样？」</p>
             <p className="mt-2">直接作答，无计划面板、无确认门。</p>
-            <p className="mt-2 text-11">{GATE_NOT_REQUIRED.reason}</p>
+            <p className="mt-2 text-11">{planGateReasonLabel(GATE_NOT_REQUIRED)}</p>
             <p className="mt-2 rounded-control border border-dashed border-border px-2 py-1 text-11">
               此处<b>没有</b> <code className="text-11">chat-task-workbench-plan-confirm</code> 节点（不在 DOM，非隐藏）。
             </p>

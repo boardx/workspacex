@@ -5,6 +5,7 @@ import { Package, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatPanelSkeleton } from "@/components/chat/chat-panel-skeleton";
+import { stripCanvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
 
 /**
@@ -78,7 +79,11 @@ export function ChatArtifactsPanel({
             const body = (
               <>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 flex-1 truncate text-11 font-medium">{item.title}</p>
+                  {/* 画布落地标题末尾带一段围栏身份（issue #3252）——那是读回归属用的
+                      内部关联键，不该出现在用户看的产物清单里。非画布产物原样显示。 */}
+                  <p className="min-w-0 flex-1 truncate text-11 font-medium">
+                    {stripCanvasFenceIdentity(item.title)}
+                  </p>
                   <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{ARTIFACT_MODE_TEXT[item.mode]}</Badge>
                 </div>
                 <p className="mt-1 text-10 text-muted-foreground">

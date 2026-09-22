@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { analyzeSurveySection } from "./survey-report-analysis";
 import type { SurveyResponse, SurveyWorkflowQuestion } from "./survey";
 import {
   surveyChoices,
@@ -66,6 +67,7 @@ export const SurveyReportTemplateSchema = z
       z.object({
         id: z.string().min(1),
         title: z.string().min(1),
+        interpretation: z.boolean().optional(),
         blocks: z.array(SurveyReportBlockSchema),
       }),
     ),
@@ -124,6 +126,7 @@ export const CompiledSurveyReportSchema = z.object({
       id: z.string().min(1),
       title: z.string().min(1),
       blocks: z.array(CompiledSurveyBlockSchema),
+      analysis: z.array(z.object({ title: z.string(), evidence: z.string(), action: z.string(), blockIds: z.array(z.string()) })).optional(),
     }),
   ),
   issues: z.array(z.string()),
@@ -521,19 +524,17 @@ function compileBlock(
     issue("没有可用于图表的合法作答样本");
   return result;
 }
-/** Pure compiler: no clock, network, random values, or generated narrative. */
+/** Pure compiler: no clock, network or random values; interpretations use validated aggregates. */
 export function compileSurveyReport(
   template: SurveyReportTemplate,
   questions: SurveyWorkflowQuestion[],
   responses: SurveyResponse[],
 ): CompiledSurveyReport {
   const parsed = SurveyReportTemplateSchema.parse(template);
-  const sections = parsed.sections.map((section) => ({
-    ...section,
-    blocks: section.blocks.map((block) =>
-      compileBlock(block, questions, responses),
-    ),
-  }));
+  const sections = parsed.sections.map((section) => {
+    const blocks = section.blocks.map((block) => compileBlock(block, questions, responses));
+    return { ...section, blocks, analysis: section.interpretation === false ? [] : analyzeSurveySection(blocks, questions) };
+  });
   const issues = sections.flatMap((section) =>
     section.blocks.flatMap((block) =>
       block.issues.map(

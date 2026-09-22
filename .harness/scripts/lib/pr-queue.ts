@@ -178,6 +178,15 @@ export const APPROVE_CHECK_SUSPENDED = true;
  */
 export const VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED = true;
 
+/*
+ * ⚠ 2026-09-21（#1441）：上面 APPROVE_CHECK_SUSPENDED 门控的那条检查，**判据本身**
+ * 同时被改窄了——它现在问的是 `hasIndependentApproval`（原生 APPROVE 或 review:*-ok
+ * 标签，二者取一），不再是"verdict label 必须有原生 APPROVE 背书"。所以把常量改回
+ * false 恢复的是**新判据**：有 -ok 标签的 PR 不会因此被拦，只有两条路都不满足的才
+ * 会退回 WAITING_REVIEW。这一点必须和 merge-gate.ts 条件 3 保持一致——两边共用
+ * hasIndependentApproval，不要再各写一份。
+ */
+
 export function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
 }
@@ -188,9 +197,11 @@ export function isOkVerdict(label: string): boolean {
  * fail-closed 纪律（每一条都对应 #451 的一个必需反证）：
  * - 事实缺失一律按最坏处理：声明过的 required check 没出现 = "没跑"，不是"CI 绿"；
  *   `mergeStateStatus` 为 UNKNOWN = 不可合并，不是"大概能合"。
- * - verdict label 只有被**锚定当前 head SHA 的正式 review** 背书才算数；head 一漂移
- *   旧 review 立即失效（铁律 9）。
- * - 作者自审不算 review——approve 者与 PR 作者同一人时，该 approve 直接不计入。
+ * - 独立 approve = **原生 APPROVE 或 `review:*-ok` 标签，二者取一**（#1441，判据本体
+ *   见 hasIndependentApproval）。原生 review 路径锚定 head SHA，head 一漂移旧 review
+ *   立即失效（铁律 9）；标签路径没有快照 SHA 概念，**不做**漂移检查——已知的弱化点。
+ * - 作者自审不算 review——approve 者与 PR 作者同一人时，该 approve 直接不计入，且
+ *   **任何标签都顶不掉这条**（比 merge-gate.ts 严，那边自审分支在条件 3 内部会被标签短路）。
  *
  * 严重度优先级（从上往下第一个命中的决定 state；reasons 仍收集全部命中项）：
  *   MERGE_BLOCKED → WAITING_WORKER → CHANGES_REQUIRED → WAITING_CI → WAITING_REVIEW → READY_TO_MERGE
@@ -311,11 +322,11 @@ export function classifyPr(facts: PrFacts, policy: CheckPolicy = CURRENT_POLICY)
     waitingCi.push(...gaps.waitingCi);
   }
 
-  // ── 5. review 锚定 SHA + 禁止自审 ────────────────────────────────────────
+  // ── 5. 独立 approve（原生 APPROVE 或 review:*-ok 标签，二者取一）+ 禁止自审 ──
   // 事实分类走共享的 classifyApprovals（与 merge-gate.ts 同一份算法，见其定义处）；
-  // 但**怎么用**这些事实两边不同，那是各自的规则，不共享。
-  const { independentCurrentSha: currentShaApprovals, selfApprovals, staleApprovals } =
-    classifyApprovals(facts.formalReviews, facts.author, facts.headSha);
+  // 判据本体走共享的 hasIndependentApproval（#1441，同样两个模块共用一份）。
+  const approvalFacts = classifyApprovals(facts.formalReviews, facts.author, facts.headSha);
+  const { selfApprovals, staleApprovals } = approvalFacts;
   if (selfApprovals.length > 0) {
     blocked.push(`作者自审：${facts.author} 自己 approve 了自己的 PR——独立性是 review 的全部意义（铁律 1）`);
   }
@@ -326,26 +337,35 @@ export function classifyPr(facts: PrFacts, policy: CheckPolicy = CURRENT_POLICY)
   if (hasChanges) {
     changes.push(`带 ${CHANGES_VERDICT} label——等 worker 返工`);
   }
-  if (okLabels.length > 0 && currentShaApprovals.length === 0) {
+  // #1441：本条原本要求"verdict label 必须有锚定当前 head 的**原生** APPROVE 背书"，
+  // 否则 MERGE_BLOCKED。实测本仓最近 100 个已合并 PR 里 0 个有原生 APPROVE，全仓也
+  // 搜不到任何脚本调用过 `gh pr review`——这个判据没有对应的真实信号源，恒为真的
+  // "缺背书"结论只会训练所有人忽略它（#848「恒红的门比没有门更糟」的同一课）。
+  // 改成与 merge-gate.ts 条件 3 完全一致的"二者取一"，判据本体共用
+  // hasIndependentApproval，两个模块此后不会对同一个 PR 给出矛盾结论。
+  //
+  // 代价显式记录（抄 merge-gate.ts 已做过的同款权衡，不在这里重新论证）：GitHub
+  // label 不记快照 SHA，接受标签路径就等于**放弃"绑定当前 head"这层保护**；标签
+  // 本身也能被任何有写权限的人/agent 自己打。两者都是已知的弱化点，不是疏漏。
+  if (!hasIndependentApproval(approvalFacts, facts.verdictLabels)) {
     const reason =
-      `verdict label ${okLabels.join("/")} 没有锚定当前 head \`${facts.headSha}\` 的独立 approve 背书` +
+      `当前 head \`${facts.headSha}\` 上既没有独立 APPROVE review，也没有 \`review:*-ok\` 标签` +
       (staleApprovals.length > 0
-        ? `（只有锚在 ${staleApprovals.map((r) => r.commit).join("/")} 的旧 review，head 已漂移，旧结论失效，铁律 9）`
-        : "（根本查不到对应的正式 review——来路不明的 verdict 应摘除后重判，铁律 1）");
-    // APPROVE_CHECK_SUSPENDED 时降级为 advisory，不再进 blocked（见该常量定义处）。
-    (APPROVE_CHECK_SUSPENDED ? advisories : blocked).push(
+        ? `（只有锚在 ${staleApprovals.map((r) => r.commit).join("/")} 的旧 APPROVE，head 已漂移，旧结论失效，铁律 9）`
+        : "（COMMENT/CHANGES_REQUESTED 都不算 APPROVE）");
+    // APPROVE_CHECK_SUSPENDED 时降级为 advisory，不再进 waitingReview（见该常量定义处）。
+    (APPROVE_CHECK_SUSPENDED ? advisories : waitingReview).push(
       APPROVE_CHECK_SUSPENDED ? `[已暂停，仅记录] ${reason}` : reason,
     );
   }
   if (okLabels.length === 0) {
-    // VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED 时降级为 advisory，不再进
-    // waitingReview（见该常量定义处，2026-08-16 人类第三次裁决）。
+    // 标签存在性是**另一条**判据（各有各的开关）：上面那条问"有没有人独立背书过"，
+    // 这条问"有没有正式落过 verdict"。VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED 时
+    // 降级为 advisory，不再进 waitingReview（见该常量定义处，2026-08-16 第三次裁决）。
     const reason = "还没有 `review:*-ok` verdict——按 SOP §3 路由调起必需 reviewer";
     (VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? advisories : waitingReview).push(
       VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? `[已暂停，仅记录] ${reason}` : reason,
     );
-  } else if (!APPROVE_CHECK_SUSPENDED && currentShaApprovals.length === 0) {
-    waitingReview.push(`需要针对当前 head \`${facts.headSha}\` 重新派 exact-SHA review`);
   }
 
   // ── 6. Draft ─────────────────────────────────────────────────────────────
@@ -453,6 +473,23 @@ export function classifyApprovals(
     selfApprovals: approvals.filter((r) => r.author === author),
     staleApprovals: approvals.filter((r) => r.author !== author && r.commit !== headSha),
   };
+}
+
+/**
+ * 独立 approve 判据（#1441）：**原生 APPROVE 或 `review:*-ok` 标签，二者取一**。
+ *
+ * `classifyPr`（本文件条件 5）与 `evaluateMergeGate`（merge-gate.ts 条件 3）共用这
+ * 一份——同一条"什么算独立 approve"不允许在两处各写一份（AGENTS.md「同一事实不得
+ * 声明在两处」；本仓已因此漂移五次，其中 2026-08-16 一天内就为这套判据在两个文件
+ * 里同步改了三轮，见 ADR-107）。
+ *
+ * 为什么标签能单独算数：实测本仓最近 100 个已合并 PR 里 0 个有原生 APPROVE，全仓
+ * 也搜不到任何脚本调用过 `gh pr review`——只认原生 APPROVE 的判据在本仓恒为"不
+ * 满足"。代价已显式接受：标签没有快照 SHA 概念，标签路径**不做 head 漂移检查**，
+ * 且标签本身能被任何有写权限的人/agent 自己打。
+ */
+export function hasIndependentApproval(approvals: ApprovalFacts, labels: readonly string[]): boolean {
+  return approvals.independentCurrentSha.length > 0 || labels.some(isOkVerdict);
 }
 
 export interface MergeAuthorization {

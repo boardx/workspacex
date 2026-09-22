@@ -3,6 +3,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createGitHubAppAuth } from "../src/github-app";
 import { applyCalls } from "../src/apply";
+import { issueCommentKey } from "../src/engine";
 
 let privatePem = "";
 let publicKey: CryptoKey;
@@ -153,7 +154,7 @@ describe("应用层 applyCalls", () => {
         { kind: "check_run", head_sha: "aaa1111", name: "coord/lease", conclusion: "success", title: "持有者 wrk-1", summary: "s" },
       ],
     });
-    expect(r).toEqual({ applied: 2, failed: 1 });
+    expect(r).toEqual({ applied: 2, failed: 1, skipped: 0 });
     expect(seen[1]!.url).toContain("/repos/boardx/workspacex/statuses/aaa1111");
     expect(seen[2]!.url).toContain("/repos/boardx/workspacex/check-runs");
     expect(seen[2]!.body).toMatchObject({ name: "coord/lease", head_sha: "aaa1111", conclusion: "success" });
@@ -167,9 +168,13 @@ describe("应用层 applyCalls", () => {
     }) as typeof fetch;
     const r = await applyCalls({
       owner: "boardx", repo: "workspacex", token: "ghs_x", fetchImpl,
-      calls: [{ kind: "issue_comment", issue_number: 900, body: "📨 **intent.assign** · `coord-main`" }],
+      calls: [{
+        kind: "issue_comment", issue_number: 900, body: "📨 **intent.assign** · `coord-main`",
+        idempotency_key: issueCommentKey(900, "evt_x"),
+      }],
     });
-    expect(r).toEqual({ applied: 1, failed: 0 });
+    // 未注入发件箱：保持老调用方行为（不去重），skipped 恒为 0
+    expect(r).toEqual({ applied: 1, failed: 0, skipped: 0 });
     expect(seen[0]!.method).toBe("POST");
     expect(seen[0]!.url).toBe("https://api.github.com/repos/boardx/workspacex/issues/900/comments");
     expect(seen[0]!.body).toEqual({ body: "📨 **intent.assign** · `coord-main`" });
