@@ -151,3 +151,21 @@ its ICP record number in the footer. There is no number in this repository and
 none has been invented. If `/zh/` is going to be served from inside China, add
 it to `footer.copy` in `assets/js/zh.js` and regenerate. If the Chinese pages
 are served from outside China, this does not apply.
+
+## Build steps
+
+Three generators. None is needed to *serve* the site — every output is
+committed — but all three are checked, so a stale one cannot ship.
+
+```bash
+node scripts/build-css.mjs      # assets/css/*.css  -> assets/css/site.css
+node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html
+node scripts/build-og.mjs       # og-card.html      -> assets/img/og*.png   (needs playwright)
+node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
+```
+
+The stylesheets are authored split by concern and shipped as one file: six
+render-blocking requests on a high-latency link meant nothing painted for
+6.2 seconds. The bundler also strips comments, which are written for whoever
+edits the source and have no reason to travel to a browser — 74 KB of sources
+become 52 KB shipped, 11 KB over the wire.

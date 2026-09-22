@@ -23,7 +23,9 @@ const files = (dir, ext) => readdirSync(join(root, dir)).filter((f) => f.endsWit
    gate from flagging the note that explains a fix as the thing it fixed. */
 const strip = (body) => body.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
 
-const css = files('assets/css', '.css').map((f) => [basename(f), strip(read(f))]);
+const css = files('assets/css', '.css')
+  .filter((f) => !f.endsWith('site.css'))   // generated bundle; its sources are checked
+  .map((f) => [basename(f), strip(read(f))]);
 const js = files('assets/js', '.js')
   .map((f) => [basename(f), strip(read(f))])
   .concat([['index.html', strip(read('index.html'))]]);

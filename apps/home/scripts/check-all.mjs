@@ -13,6 +13,7 @@ const checks = [
   ['html structure', 'check-html.mjs'],
   ['css dead code', 'check-css.mjs'],
   ['copy typography', 'check-copy.mjs'],
+  ['css bundle up to date', 'build-css.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],
 ];
 

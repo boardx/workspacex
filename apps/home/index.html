@@ -33,31 +33,31 @@
 <!-- The hero's backdrop. Preloaded because it is the first thing above the
      fold that is not text, and discovered late otherwise: it is referenced
      from a stylesheet, not from the markup. -->
-<link rel="preload" href="assets/img/aurora.jpg" as="image" fetchpriority="high">
+<!-- Ordering here is the whole of first paint on a slow link. Measured on a
+     400 kbps connection, nothing rendered at all until 6.2 s, because six
+     render-blocking stylesheets, nine preloaded modules, two fonts and an
+     image all arrived at once and the browser could not paint until the last
+     stylesheet landed. The stylesheet comes first now and nothing else is
+     allowed to compete with it. -->
+<link rel="stylesheet" href="assets/css/site.css">
+
+<!-- The display face, which the headline is set in. Inter is not preloaded:
+     it swaps in, and at 47 KB it was taking bandwidth the stylesheet needed. -->
 <link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/fonts.css">
 
-<!-- The module graph is three levels deep (main -> i18n/motion/diagrams/surface
-     -> zh/diagram-strings), and each level is only discovered once its importer
-     has been fetched and parsed. Declaring them up front collapses that
-     waterfall into a single round of parallel requests. -->
-<link rel="modulepreload" href="assets/js/main.js">
-<link rel="modulepreload" href="assets/js/lang.js">
-<link rel="modulepreload" href="assets/js/motion.js">
-<link rel="modulepreload" href="assets/js/diagrams.js">
-<link rel="modulepreload" href="assets/js/surface.js">
-<link rel="modulepreload" href="assets/js/compare.js">
-<link rel="modulepreload" href="assets/js/mq.js">
-<link rel="modulepreload" href="assets/js/zh.js">
-<link rel="modulepreload" href="assets/js/diagram-strings.js">
+<!-- Decorative, so it must not outrank the text. It was marked
+     fetchpriority="high", which put a 23 KB backdrop ahead of the words. -->
+<link rel="preload" href="assets/img/aurora.jpg" as="image" fetchpriority="low">
 
-<link rel="stylesheet" href="assets/css/base.css">
-<link rel="stylesheet" href="assets/css/layout.css">
-<link rel="stylesheet" href="assets/css/components.css">
-<link rel="stylesheet" href="assets/css/motion.css">
-<link rel="stylesheet" href="assets/css/diagrams.css">
-<link rel="stylesheet" href="assets/css/sections.css">
+<!-- No modulepreload. The page is complete and readable without JavaScript
+     (see the noscript block below), so scripts have no business competing for
+     bandwidth with the stylesheet that decides when anything appears. They are
+     discovered when main.js parses, one round trip later, which costs nothing
+     that matters on a fast link and saves seconds on a slow one. One of them,
+     zh.js, was not even used at runtime — 24 KB fetched on every English page
+     load for a file only the build reads. -->
+
+
 <link rel="stylesheet" href="assets/css/print.css" media="print">
 
 <!-- Scripting off: the reveal mechanism has nothing to reveal it, so drop it
