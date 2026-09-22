@@ -1,31 +1,10 @@
-export type FeatureStatus = "not_started" | "in_progress" | "blocked" | "passing";
-export const FEATURE_STATES: FeatureStatus[] = ["not_started", "in_progress", "blocked", "passing"];
-
-export interface Feature {
-  id: string;
-  priority: number;
-  area: string;
-  title: string;
-  user_visible_behavior: string;
-  status: FeatureStatus;
-  sprint: string | null;
-  /** 认领此 feature 的 agent 标识（null = 未认领；认领后不可被他人抢占） */
-  owner: string | null;
-  /** 所属能力平面（CAP-WEB / CAP-DATA / CAP-WORKFLOW…）；可选，便于按平面归类与并行 */
-  capability?: string;
-  /** 前置依赖：同阶段写 "F0x"；跨阶段写 "p9:F0x" 这种形式。用于 sweep-unblock / dep-graph。 */
-  depends_on?: string[];
-  /** 派发波次，纯提示性，不参与门控逻辑 */
-  wave?: number;
-  /** 设计参照（prototype 锚点 / mockup 路径 / 已确认 UI 组件路径）；投影进 issue 供实现者定位 */
-  design_ref?: string;
-  /** story 出处：`<requirements 文件名>#R<n>`，指向 phases/<phase>/requirements/ 下的具体章节。
-   *  2026-07-19 起新 feature 硬性要求（claim/verify 双重门控）；历史 feature 缺失时 doctor 报 WARN 不报 FAIL。 */
-  spec_ref?: string;
-  verification: string[];
-  evidence: string;
-  notes: string;
-}
+// feature 的字段表、TS 类型、JSON 模板与校验器同出一源：lib/feature-schema.ts（issue #386）。
+// 这里只做**再导出**——曾经手写在本文件里的 `interface Feature` 已经删除：它当时缺 `points`，
+// 而模板缺 `spec_ref`/`depends_on`/`points`，validate-fl 又自建第三份，三份各自漂移。
+// 想改字段或必填性，改字段表，不要在这里加回一份。
+import type { Feature } from "./feature-schema";
+export type { Feature, FeatureStatus, RawFeature } from "./feature-schema";
+export { FEATURE_STATES, FEATURE_FIELDS, FEATURE_FIELD_NAMES } from "./feature-schema";
 
 export interface FeatureList {
   phase: string;

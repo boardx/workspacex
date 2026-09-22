@@ -2,6 +2,8 @@
 name: knowledge-grounded-answer
 description: 回答组织资料、内部政策或项目知识问题，用户需要有出处的回答时使用。
 license: See LICENSE.txt
+capability_id: WX-S001
+version: 1.1.1
 ---
 
 # 组织知识问答

@@ -99,7 +99,7 @@ export function TemplateEditor({
                       <span className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full", t.from === "ai" ? "bg-ai-tint text-ai" : "bg-muted text-muted-foreground")}>
                         {t.from === "ai" ? <Bot aria-hidden className="h-3 w-3" /> : <User aria-hidden className="h-3 w-3" />}
                       </span>
-                      <div className={cn("flex max-w-[85%] flex-col gap-1.5 rounded-lg px-2.5 py-1.5 text-12", t.from === "ai" ? "bg-panel text-foreground" : "bg-primary text-primary-foreground")}>
+                      <div className={cn("flex max-w-[85%] flex-col gap-1.5 rounded-lg px-2.5 py-1.5 text-12", t.from === "ai" ? "bg-panel text-panel-foreground" : "bg-primary text-primary-foreground")}>
                         <span>{t.text}</span>
                         {t.parsed && (
                           <span className="flex items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 text-10 text-background-foreground" data-testid={`tpled-dialog-parsed-${i}`}>

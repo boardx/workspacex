@@ -30,6 +30,7 @@ import {
   type PrFacts,
   type RequiredCheck,
 } from "./lib/pr-queue";
+import { resolveMergeRoute } from "./lib/merge-queue";
 
 /** gh pr view/list 的 JSON 形状（只声明用得上的字段）。 */
 interface GhPr {
@@ -97,6 +98,9 @@ function toFacts(pr: GhPr): PrFacts {
 
 function render(results: Array<{ facts: PrFacts; result: PrClassification }>, args: Args): void {
   const mode = resolveCoordMode(args.flags);
+  // #3238：默认 false（fail-closed）。GitHub 合并队列是仓库设置，agent 看不到它有没有开，
+  // 所以由调用方显式声明；没声明就按「没开」处理，打印的是直接合并那条路线。
+  const queueEnabled = args.flags["queue-enabled"] === true;
   if (args.flags["json"] === true) {
     console.log(
       JSON.stringify(
@@ -108,6 +112,8 @@ function render(results: Array<{ facts: PrFacts; result: PrClassification }>, ar
             author: facts.author,
             closes: facts.closesIssues,
             merge_authorization: mergeAuthorization(result.state, mode),
+            // #3238：队列启用后「入队」与「直接合并」不是同义词，判定走 lib/merge-queue.ts
+            merge_route: resolveMergeRoute({ state: result.state, mode, queueEnabled }),
           })),
         },
         null,
@@ -120,9 +126,13 @@ function render(results: Array<{ facts: PrFacts; result: PrClassification }>, ar
     log.step(`PR #${result.number} → ${result.state}（head ${facts.headSha.slice(0, 12)}，作者 ${facts.author}）`);
     for (const reason of result.reasons) log.info(`   · ${reason}`);
     for (const advisory of result.advisories) log.info(`   · ${advisory}`);
-    const auth = mergeAuthorization(result.state, mode);
-    log.info(`   合并授权：${auth.allowed ? "允许" : "拒绝"} — ${auth.reason}`);
-    if (auth.allowed) log.info(`   人类执行：gh pr merge ${result.number} --squash --delete-branch`);
+    const route = resolveMergeRoute({ state: result.state, mode, queueEnabled });
+    log.info(`   合并授权：${route.allowed ? "允许" : "拒绝"}（路线 ${route.route}） — ${route.reason}`);
+    if (route.allowed) {
+      log.info(`   人类执行：gh pr merge ${result.number} --squash --delete-branch`);
+      // 队列启用时同一条命令是**入队**而不是立即合并——说清楚，免得把「已入队」读成「已合入」。
+      if (route.route === "enqueue") log.info("   （合并队列已启用：这条命令是把 PR 加入队列，候选组跑完完整验证才会真正合入）");
+    }
   }
   const blockedCount = results.filter((r) => r.result.state === "MERGE_BLOCKED").length;
   const readyCount = results.filter((r) => r.result.state === "READY_TO_MERGE").length;

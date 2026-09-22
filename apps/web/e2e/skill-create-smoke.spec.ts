@@ -61,7 +61,7 @@ test("F192 · /skill 库屏没有「完全新建」入口，弹窗默认落在�
   await expect(dialog).toBeVisible();
 
   // 这些 testid 曾经是「完全新建（契约表单）」面板的入口/字段——真实浏览器里也不该出现。
-  await expect(page.getByTestId("skill-create-panel")).toHaveCount(0);
+  await expect(page.getByTestId("skill-create-panel")).toHaveCount(0); // testid-gate: absent 「完全新建（契约表单）」面板已撤，锚点不该存在
   await expect(page.getByTestId("skill-create-mode-form")).toHaveCount(0);
   await expect(page.getByTestId("skill-create-name")).toHaveCount(0);
   await expect(page.getByTestId("skill-create-submit")).toHaveCount(0);
