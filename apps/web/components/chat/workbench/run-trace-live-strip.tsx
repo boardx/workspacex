@@ -58,6 +58,17 @@ export function RunTraceLiveStrip({ entries, active }: {
   if (!active) return null;
   const runningEntry = entries.find((entry) => entry.status === "running");
   const completed = entries.filter((entry) => entry.status === "succeeded" || entry.status === "failed").length;
+  /*
+   * 2026-09-22 —— 没有在飞的工具时，说**刚做完的那一步**，而不是一句恒定的「正在推进任务」。
+   *
+   * 人类实测截图里这一行是「正在推进任务 · 已完成 17 步」：17 步都做完了、`runningEntry`
+   * 却是 `undefined`，于是最有信息量的那一段退化成一个常量。这不是偶发——本地模型两次工具
+   * 之间要思考几十秒，**「什么都没在飞」才是常态**，所以那句常量是用户大部分时间看到的东西。
+   *
+   * 「刚完成 X」与「正在做 X」都取自同一份日志事实（entry.status），只是取最后一条已收尾的
+   * 而不是唯一一条在跑的；`completed` 会继续增长，活性仍然可判。
+   */
+  const lastSettled = [...entries].reverse().find((entry) => entry.status === "succeeded" || entry.status === "failed");
   return <span
     data-testid="run-trace-live-strip"
     data-has-detail={runningEntry === undefined ? "false" : "true"}
@@ -65,20 +76,35 @@ export function RunTraceLiveStrip({ entries, active }: {
     className="flex min-w-0 items-center"
   >
     <span data-testid="run-trace-live-label" className="truncate">
-      {runningEntry === undefined ? "正在推进任务" : liveLabel(runningEntry)}
-      {completed > 0 ? ` · 已完成 ${String(completed)} 步` : ""}
+      {runningEntry !== undefined
+        ? liveLabel(runningEntry)
+        : lastSettled === undefined ? "正在推进任务" : settledLabel(lastSettled)}
+      {completed > 0 ? ` · 已完成 ${String(completed)} 个动作` : ""}
     </span>
   </span>;
+}
+
+/**
+ * 刚收尾的那一步。用「刚完成 / 刚失败」而不是「正在」——它说的是过去式，不能借活性文案
+ * 的位置假装有东西在跑。
+ */
+function settledLabel(entry: TraceEntry): string {
+  const what = entry.kind === "skill" ? `技能 · ${entry.text}` : actionName(entry.text);
+  return entry.status === "failed" ? `刚失败：${what}` : `刚完成：${what}`;
 }
 
 /** 与折叠行同一套动作措辞，但只说**此刻**在做什么——不带「有失败步骤」这种恒在的后缀。 */
 function liveLabel(entry: TraceEntry): string {
   if (entry.activityStage) return "正在执行技能";
   if (entry.kind === "skill") return `正在调用技能 · ${entry.text}`;
-  const action = entry.text === "search_documents" ? "检索资料"
-    : entry.text === "spawn_async_task" ? "派发后台任务"
-    : entry.text === "write_todos" ? "更新执行计划"
-    : entry.text === "run_script" ? "执行生成脚本"
+  return `正在${actionName(entry.text)}`;
+}
+
+/** 动作措辞的单一事实源：`liveLabel`（进行中）与 `settledLabel`（已收尾）共用。 */
+function actionName(tool: string): string {
+  return tool === "search_documents" ? "检索资料"
+    : tool === "spawn_async_task" ? "派发后台任务"
+    : tool === "write_todos" ? "更新执行计划"
+    : tool === "run_script" ? "执行生成脚本"
     : "执行工具操作";
-  return `正在${action}`;
 }

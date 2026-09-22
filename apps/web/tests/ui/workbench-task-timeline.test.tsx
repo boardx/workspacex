@@ -67,7 +67,14 @@ describe("framework task timeline", () => {
         messageRuns={{ answer: "run-a" }} events={{ "run-a": planEvents }} isRunning />
     </CopilotKit>);
 
-    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    /*
+     * 2026-09-22：这里原本要**点一下**才展开。现在这条 run 的形状（还在跑、日志里一条正文
+     * 事件都没有、已经三个动作）落进了「默认展开」——见 `run-trace-panel.tsx` 那段头注与
+     * `run-trace-default-expanded.test.tsx`。再点一下会把它**收起**，后面的可见性断言随即失败。
+     * 所以这里断言它本来就开着，而不是去点它；本测试要证的是**内容**（同名工具折成一组、
+     * 成员一条不少、不投影成第二张计划卡），与开合无关。
+     */
+    expect(screen.getByTestId("run-trace-body")).not.toHaveAttribute("hidden");
     // 2026-09-16：相邻的同名工具调用折成一行（`groupTraceRows` 的 `tool-group`），
     // 两次 write_todos 的审计行**一条不少**地留在组的成员里——折的是重复，不是事实。
     const planRows = screen.getAllByTestId("chat-task-workbench-event-row");
