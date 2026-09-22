@@ -444,3 +444,33 @@ three are the first attachments a procurement review asks for.
 
 New pages verified at 390 and 1440 in both languages: axe 0 violations, no
 horizontal scroll, every stylesheet resolving from the subdirectory.
+
+---
+
+## Round 17 — performance under conditions that are not a localhost
+
+Round 6 measured an unthrottled desktop against a server on the same machine.
+That is the easy case, and it hid the two worst numbers on the page.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Scrolling ran at 15 fps.** Median frame 66.7 ms, p95 116.6 ms — and not on a phone: on an unthrottled 1440 px desktop, where the throttled phones were managing a clean 16.7 ms. | Isolated by elimination: removing the hero aurora restored 16.7 ms, removing its blur restored 16.7 ms, and removing anything else changed nothing. **Three ~50 vw circles under a CSS blur were the entire cost.** |
+| 2 | Round 5's off-screen pause did not help, and neither did `visibility: hidden` with `filter: none` — verified with the class actually applied and the computed filter actually `none`. Only removing the element from the DOM restored 60 fps. The compositor keeps carrying those layers regardless. | The blur never changes, so it has no business being recomputed sixty times a second. `scripts/build-aurora.mjs` bakes it once to a **23 KB** JPEG; the only thing that moves at runtime is a transform. **16.7 ms median and p95, through the hero and through the pinned scene alike.** |
+| 3 | **CLS had regressed to 0.0174 on mobile** while desktop read 0.0000 — so round 6's "CLS is zero" was true only of the viewport it was measured at. | Attributed: `.nav__actions` renders 87 px tall and snaps to 40 px at 245 ms, because round 3's relocation of the secondary controls into the menu panel runs in JS after first paint. The end state is declared in CSS now, so the bar is never wrong even for one frame. **Mobile CLS back to 0.0000.** |
+| 4 | Found while fixing that: **without JavaScript there is no navigation at all on a phone.** The burger cannot open the panel, and the panel is where everything lives. | The `<noscript>` block lays the nav out statically — links inline, actions back in the bar, no burger. |
+| 5 | The aurora is referenced from a stylesheet, so it is discovered only after the CSS parses — late, for the first thing above the fold that is not text. | `preload` with `fetchpriority="high"`. |
+| 6 | Round 16's un-nesting of the brand left `.brand__home` shrinkable, so the mark and the wordmark wrapped onto two lines at desktop widths. | `flex-shrink: 0`. The brand is the one thing in the bar that never gives. |
+| 7 | The CSS dead-code gate read `url("../img/aurora.jpg")` as a class called `.jpg`. | `url()` payloads are stripped before class matching. |
+| 8 | Nothing measured frame timing at all, so item 1 had been true for twelve rounds. | A harness that scrolls the pinned scene under `requestAnimationFrame` and reports median, p95, worst and the share of frames over 33 ms, at four device profiles. |
+
+**Measured after, four profiles:**
+
+| profile | load | LCP | CLS | scroll median | frames > 33 ms |
+|---|---|---|---|---|---|
+| desktop, unthrottled | 231 ms | 260 ms | 0 | 16.7 ms | 0% |
+| mid phone (4× CPU) | 1 069 ms | 416 ms | 0 | 16.7 ms | 0% |
+| low phone (6× CPU) | 1 140 ms | 496 ms | 0 | 16.7 ms | 0% |
+| slow 3G + 4× CPU | 6 978 ms | 5 820 ms | 0 | 16.7 ms | 0% |
+
+**The slow-3G LCP of 5.8 s is not acceptable and is not fixed here.** It is
+recorded rather than rounded off; round 18 takes it.

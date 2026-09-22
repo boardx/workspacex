@@ -72,35 +72,24 @@ html:not(.js) [data-stagger] > * {
   isolation: isolate;
 }
 
-/* aurora: three slow drifting blobs. GPU-cheap, pure transform. */
+/* The aurora is a baked image, not three blurred elements.
+   Measured before: 66.7ms per frame — 15fps — for as long as the blurred
+   layers existed, on the hero and on every section below it. Hiding them off
+   screen did not release the cost; the compositor still carried them. A blur
+   that never changes does not need to be recomputed sixty times a second, so
+   it is rendered once by scripts/build-aurora.mjs (23 KB) and the only thing
+   that moves at runtime is a transform, which is free. */
 .hero__aurora {
-  position: absolute; inset: -20%; z-index: -2; pointer-events: none;
-  /* A 70px blur over three viewport-sized elements is an expensive paint for a
-     backdrop nobody looks at directly. The blobs are already soft radial
-     gradients, so most of the blur was doing nothing a smaller radius does not
-     — and `contain: paint` keeps the filter from invalidating the whole hero. */
-  filter: blur(44px); opacity: 0.6;
-  contain: paint;
+  position: absolute; inset: -12%; z-index: -2; pointer-events: none;
+  background: url("../img/aurora.jpg") center / cover no-repeat;
+  opacity: 0.85;
+  animation: drift 26s var(--ease-io) infinite alternate;
+  will-change: transform;
 }
-.hero__blob { position: absolute; border-radius: var(--r-round); }
-.hero__blob--1 {
-  width: 46vw; height: 46vw; left: 6%; top: 4%;
-  background: radial-gradient(circle, rgba(255,122,24,.5), transparent 65%);
-  animation: drift-1 22s var(--ease-io) infinite alternate;
+@keyframes drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1.04); }
+  to   { transform: translate3d(1.5%, 2%, 0)  scale(1.12); }
 }
-.hero__blob--2 {
-  width: 52vw; height: 52vw; right: 2%; top: 12%;
-  background: radial-gradient(circle, rgba(255,46,115,.45), transparent 65%);
-  animation: drift-2 27s var(--ease-io) infinite alternate;
-}
-.hero__blob--3 {
-  width: 40vw; height: 40vw; left: 32%; bottom: -8%;
-  background: radial-gradient(circle, rgba(177,75,255,.4), transparent 65%);
-  animation: drift-3 31s var(--ease-io) infinite alternate;
-}
-@keyframes drift-1 { to { transform: translate3d(9%, 7%, 0)  scale(1.12); } }
-@keyframes drift-2 { to { transform: translate3d(-8%, 10%, 0) scale(0.9);  } }
-@keyframes drift-3 { to { transform: translate3d(6%, -9%, 0) scale(1.15); } }
 
 /* a vignette so the aurora never fights the type */
 .hero::after {
@@ -180,7 +169,7 @@ html:not(.js) [data-stagger] > * {
   /* Reveals must land visible, not stay at opacity 0. */
   [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
   .hero__title .word { opacity: 1; transform: none; }
-  .hero__aurora { animation: none; opacity: 0.3; }
+  .hero__aurora { animation: none; opacity: 0.55; }
 
   /* Sticky scrubbing becomes a plain stacked layout. */
   .scene__track { height: auto; }
@@ -191,11 +180,13 @@ html:not(.js) [data-stagger] > * {
 /* `.is-offscreen` is toggled by an IntersectionObserver. Perpetual animations
    composite every frame even when nobody can see them; on a page this tall
    that is a measurable battery cost for zero effect. */
-.is-offscreen .hero__blob,
+/* `data-animates` sits on the hero itself, not on the aurora: an observer
+   watching an element it is about to collapse never sees it return. */
+.is-offscreen .hero__aurora { animation-play-state: paused; }
+
 .is-offscreen .d-break__spark,
 .is-offscreen .d-chain__pulse,
-.is-offscreen .surface__pip,
-.is-offscreen.hero__aurora .hero__blob {
+.is-offscreen .surface__pip {
   animation-play-state: paused;
 }
 
