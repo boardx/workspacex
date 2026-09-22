@@ -2,8 +2,7 @@
  * Child-process plumbing shared by `up` and the seed runner: spawn with a log prefix,
  * run-to-completion with captured output, and HTTP readiness polling.
  */
-import { execFileSync } from "node:child_process";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import net from "node:net";
 import { platform } from "node:os";
@@ -22,8 +21,13 @@ export interface Managed {
   readonly name: string;
   readonly child: ChildProcess;
   readonly exited: Promise<number | null>;
+  /** The last lines this child printed. A crash that only says "exit 1" is not actionable. */
+  recentOutput(): string;
   stop(): Promise<void>;
 }
+
+/** How many trailing output lines to keep per child for crash reporting. */
+const TAIL_LINES = 40;
 
 export function startManaged(spec: SpawnSpec, log: (line: string) => void = defaultLog): Managed {
   // Own process group (POSIX): uvicorn `--workers` and `next dev` fork; signalling only the
@@ -35,6 +39,7 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
     stdio: ["ignore", "pipe", "pipe"],
     detached: platform() !== "win32",
   });
+  const tail: string[] = [];
   let file: ReturnType<typeof createWriteStream> | null = null;
   if (spec.logDir) {
     mkdirSync(spec.logDir, { recursive: true });
@@ -49,6 +54,8 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
       buf = lines.pop() ?? "";
       for (const line of lines) {
         file?.write(`${new Date().toISOString()} ${line}\n`);
+        tail.push(line);
+        if (tail.length > TAIL_LINES) tail.shift();
         log(`[${spec.name}] ${line}`);
       }
     });
@@ -63,9 +70,10 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
     // ENOENT etc.: without a handler Node throws an unhandled 'error' and takes the whole
     // supervisor down; here it becomes a logged line + a failed readiness wait instead.
     child.on("error", (e) => {
-      const line = `[${spec.name}] failed to start ${spec.command}: ${e.message}`;
+      const line = `failed to start ${spec.command}: ${e.message}`;
       file?.write(`${new Date().toISOString()} ${line}\n`);
-      log(line);
+      tail.push(line);
+      log(`[${spec.name}] ${line}`);
       file?.end();
       resolve(null);
     });
@@ -74,6 +82,7 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
     name: spec.name,
     child,
     exited,
+    recentOutput: () => tail.join("\n"),
     async stop() {
       if (child.exitCode !== null) return;
       killTree(child, "SIGTERM");
@@ -91,16 +100,6 @@ export function killTree(child: ChildProcess, signal: NodeJS.Signals): void {
     try { process.kill(-child.pid, signal); return; } catch { /* group already gone, fall through */ }
   }
   try { child.kill(signal); } catch { /* already exited */ }
-}
-
-/**
- * Readiness that cannot be faked by a stale process: rejects as soon as the child exits, and
- * only resolves on the HTTP probe. Without the race, a child that failed to bind (EADDRINUSE)
- * was reported ready because whoever held the port answered the probe.
- */
-export async function waitForManaged(m: Managed, url: string, opts: Parameters<typeof waitForHttp>[1]): Promise<void> {
-  const exited = m.exited.then((code) => { throw new Error(`${m.name} exited with code ${code} before becoming ready (see ${m.name}.log)`); });
-  await Promise.race([waitForHttp(url, opts), exited]);
 }
 
 /** Fail fast and say who to stop, instead of letting a service die on EADDRINUSE behind a probe that a stale process answers. */
@@ -168,11 +167,41 @@ export function runToCompletion(spec: Omit<SpawnSpec, "logDir">): Promise<RunRes
   });
 }
 
-export async function waitForHttp(url: string, opts: { timeoutMs: number; intervalMs?: number; accept?: (status: number) => boolean }): Promise<void> {
+/**
+ * Readiness, but a child that has already died stops the wait immediately.
+ *
+ * ⚠ Without this, a service that crashes two seconds in still burns its whole readiness
+ *   budget -- for the API that is 180 seconds of a progress bar that cannot succeed -- and
+ *   then reports a timeout, which points the reader at the wrong thing entirely. The real
+ *   cause is in the lines the child printed just before exiting, so those come along.
+ */
+export async function waitForHttpOrExit(
+  url: string,
+  opts: { timeoutMs: number; intervalMs?: number; accept?: (status: number) => boolean },
+  managed: Managed,
+): Promise<void> {
+  let exitCode: number | null | undefined;
+  const died = managed.exited.then((code) => { exitCode = code; });
+  await Promise.race([waitForHttp(url, opts, () => exitCode !== undefined), died]);
+  if (exitCode !== undefined) {
+    const why = managed.recentOutput().trim();
+    throw new Error(
+      `${managed.name} exited (code ${String(exitCode)}) before it became ready at ${url}` +
+        (why === "" ? "" : `\n--- ${managed.name} 最后的输出 ---\n${why}`),
+    );
+  }
+}
+
+export async function waitForHttp(
+  url: string,
+  opts: { timeoutMs: number; intervalMs?: number; accept?: (status: number) => boolean },
+  abandoned: () => boolean = () => false,
+): Promise<void> {
   const started = Date.now();
   const accept = opts.accept ?? ((s) => s >= 200 && s < 500);
   let lastError = "";
   while (Date.now() - started < opts.timeoutMs) {
+    if (abandoned()) return;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(2_000) });
       if (accept(res.status)) return;
@@ -183,6 +212,20 @@ export async function waitForHttp(url: string, opts: { timeoutMs: number; interv
     await new Promise((r) => setTimeout(r, opts.intervalMs ?? 500));
   }
   throw new Error(`${url} not ready after ${opts.timeoutMs}ms (${lastError})`);
+}
+
+/**
+ * Is something already listening on this loopback port?
+ *
+ * Used before starting anything: a port taken by an unrelated process otherwise surfaces as
+ * "not ready after 180000ms", and the reader has no way to tell that from a slow boot.
+ */
+export function portInUse(port: number, host = "127.0.0.1"): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(true));
+    server.listen(port, host, () => server.close(() => resolve(false)));
+  });
 }
 
 /** Inherit PATH/HOME etc., but never leak the parent's cloud model / DB configuration into a child. */

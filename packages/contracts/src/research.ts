@@ -725,7 +725,19 @@ export const GuidedResearchNodeMeta = z.object({
   version: z.number().int().nonnegative(),
   confirmedVersion: z.number().int().nonnegative().nullable(),
   contentVersionId: z.string().nullable(),
-  modelId: z.literal("qwen3.7-plus").nullable(),
+  /**
+   * 产出这一节内容的模型 id。
+   *
+   * ⚠ 2026-09-21 之前这里是 `z.literal("qwen3.7-plus")`——契约**把一个部署配置钉成了
+   *   协议**。后果不是不雅：Guided Research 的模型 id 本来就可由
+   *   `KERNEL_GUIDED_RESEARCH_MODEL_ID` / `KERNEL_MODEL_ID` 配置（见
+   *   `application/research/guided-model-config.ts` 与 docs/research/guided-runtime.md），
+   *   于是任何把它配成别的值的部署，响应都会被全局 ValidationPipe 判非法 → 500。
+   *   WorkspaceX Local（模型池里只有 `qwen3.5:4b`）与云端的 personal-local 组织
+   *   （承诺只走本机/自托管端点）**必然**落在这一档里。
+   *   契约要说的是「用了哪个模型」，不是「必须是哪个模型」。
+   */
+  modelId: z.string().min(1).nullable(),
   modelInvocationId: z.string().nullable(),
   modelOutputSchemaVersion: z.string().nullable(),
   confirmedAt: z.string().nullable(),
@@ -768,7 +780,8 @@ export const GuidedResearchSkillDraft = z.discriminatedUnion("node", [
 export const GuidedResearchSkillTurnResponse = z.object({
   assistantMessage: z.string().trim().min(1).max(10_000),
   proposal: GuidedResearchSkillDraft,
-  modelId: z.literal("qwen3.7-plus"),
+  /** 同 `GuidedResearchNodeMeta.modelId`：报出用了哪个模型，不规定必须是哪个。 */
+  modelId: z.string().min(1),
   modelInvocationId: z.string().min(1),
 }).strict();
 

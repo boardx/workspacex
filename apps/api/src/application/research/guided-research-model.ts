@@ -1,18 +1,11 @@
 /**
- * Which model the Guided Research generators actually CALL.
+ * Guided Research 生成器调用模型时用的**结构化输出 schema**（#3749 B1.4）。
  *
- * The contract pins the *reported* `modelId` of directions/outline nodes to the literal
- * `qwen3.7-plus` (`packages/contracts/src/research.ts`), and `packages/contracts` is not ours
- * to change here. WorkspaceX Local has no such model: every call went to Ollama with an id it
- * does not serve and failed as RESEARCH_WORKFLOW_UNAVAILABLE (#3749 B1.5). This resolves the
- * id used for the invocation only; what is recorded on the node stays the contract literal.
+ * ⚠ 用哪个模型 id 不在这里回答——唯一事实源是 `guided-model-config.ts` 的
+ * `guidedModelConfig()`。本文件此前还有一份 `guidedResearchInvocationModelId()`，
+ * 它存在的前提是「契约把 modelId 钉成 `qwen3.7-plus`、不能改」；该 `z.literal`
+ * 已放宽为 `z.string().min(1)`，前提消失，那份副本随之删除（同一事实不得声明在两处）。
  */
-export const GUIDED_RESEARCH_REPORTED_MODEL_ID = "qwen3.7-plus";
-
-export function guidedResearchInvocationModelId(env: NodeJS.ProcessEnv = process.env): string {
-  const override = (env.KERNEL_GUIDED_RESEARCH_MODEL_ID ?? "").trim();
-  return override || GUIDED_RESEARCH_REPORTED_MODEL_ID;
-}
 
 const ITEMS = { type: "array", items: { type: "string" }, maxItems: 12 } as const;
 
