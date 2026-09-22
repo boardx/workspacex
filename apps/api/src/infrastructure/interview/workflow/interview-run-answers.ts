@@ -16,7 +16,7 @@ export class InvalidInterviewAnswersError extends Error {
   constructor() { super("MODEL_OUTPUT_INVALID"); }
 }
 
-export function parseInterviewRunAnswers(text: string, questions: readonly Question[]): readonly InterviewRunAnswer[] {
+function availableInterviewRunAnswers(text: string, questions: readonly Question[]): ReadonlyMap<string, InterviewRunAnswer> {
   const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(text.trim());
   let parsed: unknown;
   try { parsed = JSON.parse(fenced?.[1] ?? text.trim()); }
@@ -25,12 +25,22 @@ export function parseInterviewRunAnswers(text: string, questions: readonly Quest
     throw new InvalidInterviewAnswersError();
   }
   const candidates = (parsed as { answers: unknown[] }).answers;
-  return questions.map((question) => {
+  const available = new Map<string, InterviewRunAnswer>();
+  for (const question of questions) {
     const candidate = candidates.find((value) => value !== null && typeof value === "object"
       && (value as { questionId?: unknown }).questionId === question.question_id) as { answer?: unknown } | undefined;
     const answer = typeof candidate?.answer === "string" ? candidate.answer.trim() : "";
+    if (answer) available.set(question.question_id, { questionId: question.question_id, question: question.body, answer });
+  }
+  return available;
+}
+
+export function parseInterviewRunAnswers(text: string, questions: readonly Question[]): readonly InterviewRunAnswer[] {
+  const available = availableInterviewRunAnswers(text, questions);
+  return questions.map((question) => {
+    const answer = available.get(question.question_id);
     if (!answer) throw new InvalidInterviewAnswersError();
-    return { questionId: question.question_id, question: question.body, answer };
+    return answer;
   });
 }
 
@@ -51,18 +61,25 @@ export async function completeInterviewRunAnswers(input: {
     user: userPrompt, history: [],
   });
   const first = await call(system, user);
-  try { return parseInterviewRunAnswers(first.text, input.questions); }
+  let available: ReadonlyMap<string, InterviewRunAnswer>;
+  try { available = availableInterviewRunAnswers(first.text, input.questions); }
   catch (error) {
     if (!(error instanceof InvalidInterviewAnswersError)) throw error;
+    available = new Map();
   }
-  // A long multi-question answer can be truncated or omit an ID. Retry once, one question at
-  // a time, so one malformed answer does not discard the other questions.
-  const answers: InterviewRunAnswer[] = [];
-  for (const question of input.questions) {
-    const response = await call(`${system}\n这次只回答一题，返回一个 answers 条目。`, JSON.stringify({
-      topic: input.topic, questions: [{ questionId: question.question_id, question: question.body, purpose: question.purpose }],
+  const missing = input.questions.filter((question) => !available.has(question.question_id));
+  if (missing.length === 0) return input.questions.map((question) => available.get(question.question_id)!);
+  const recovered = new Map(available);
+  // Normal interviews have three questions. A custom confirmation can contain more, so cap
+  // the recovery at three individual calls and use one bounded batch call beyond that.
+  const groups = missing.length <= 3 ? missing.map((question) => [question]) : [missing];
+  for (const group of groups) {
+    const response = await call(`${system}\n只回答本次输入的问题，返回对应的 answers 条目。`, JSON.stringify({
+      topic: input.topic, questions: group.map((question) => ({
+        questionId: question.question_id, question: question.body, purpose: question.purpose,
+      })),
     }));
-    answers.push(...parseInterviewRunAnswers(response.text, [question]));
+    for (const answer of parseInterviewRunAnswers(response.text, group)) recovered.set(answer.questionId, answer);
   }
-  return answers;
+  return input.questions.map((question) => recovered.get(question.question_id)!);
 }
