@@ -107,6 +107,79 @@ interface GeneratedInterviewQuestion {
   readonly purpose: string;
 }
 
+interface ReportSourceAnswer {
+  readonly expertId: string;
+  readonly displayName: string;
+  readonly questionId: string;
+  readonly question: string;
+  readonly answer: string;
+}
+
+function excerpt(value: string, max = 120): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
+}
+
+function stripMarkdownHeadings(value: string): string {
+  return value
+    .split("\n")
+    .filter((line) => !/^#{1,6}\s+/.test(line.trim()))
+    .join("\n")
+    .trim();
+}
+
+function buildFallbackReportMarkdown(input: {
+  readonly topic: string;
+  readonly answers: readonly ReportSourceAnswer[];
+  readonly sections: readonly string[];
+  readonly findings: readonly { readonly title: string; readonly summary: string; readonly expertId: string; readonly questionId: string }[];
+}): string {
+  const sourceById = new Map(input.answers.map((answer) => [`${answer.expertId}:${answer.questionId}`, answer]));
+  const findings = input.findings.length > 0
+    ? input.findings
+    : input.answers.slice(0, 3).map((answer, index) => ({
+      title: `关键发现 ${index + 1}`,
+      summary: `${answer.displayName}围绕“${answer.question}”指出：“${excerpt(answer.answer)}”。该回答为当前判断提供直接证据，仍需真人访谈或业务数据复核。`,
+      expertId: answer.expertId,
+      questionId: answer.questionId,
+    }));
+  const sourceLines = input.answers.map((answer, index) => `${index + 1}. ${answer.displayName}｜${answer.question}\n   > ${excerpt(answer.answer, 180)}`);
+  const streamedMarkdown = input.sections.map((section) => section.trim()).filter(Boolean).join("\n\n");
+  const generatedNarrativeText = input.sections
+    .map(stripMarkdownHeadings)
+    .filter(Boolean)
+    .join("\n\n");
+  const roleLines = input.answers.map((answer) => {
+    return `- ${answer.displayName}：在“${answer.question}”中回答“${excerpt(answer.answer, 140)}”。`;
+  });
+  const findingLines = findings.map((finding, index) => {
+    const source = sourceById.get(`${finding.expertId}:${finding.questionId}`);
+    const sourceLabel = source ? `${source.displayName}｜${source.question}` : `${finding.expertId}:${finding.questionId}`;
+    return `${index + 1}. **${finding.title}**：${finding.summary}\n   证据：${sourceLabel}`;
+  });
+  const distinctExpertCount = new Set(input.answers.map((answer) => answer.expertId)).size;
+  const formalAppendix = [
+    "## 研究范围与方法",
+    `本报告围绕“${input.topic}”整理数字专家模拟访谈结果。样本为 ${input.answers.length} 条已完成回答，来自 ${distinctExpertCount} 位数字专家。分析仅基于页面已确认的专家回答，不引入外部事实；结论属于探索性发现，正式决策前需要真人访谈或业务数据验证。`,
+    sourceLines.join("\n"),
+    "## 核心洞察",
+    findingLines.join("\n\n"),
+    "## 分角色深度分析",
+    roleLines.join("\n"),
+    "## 跨角色主题分析",
+    generatedNarrativeText || "当前模型已生成的正文不足以支撑额外主题展开；以上结论仅依据已完成回答。",
+    "## 分歧与共识",
+    distinctExpertCount > 1
+      ? "不同专家回答之间的共识与分歧需要结合后续真人访谈继续校验；当前报告保留每条回答的来源，避免把少量样本推成总体结论。"
+      : "当前只有一位专家的有效回答，不能判断跨角色共识或分歧；该回答只能作为后续追访和验证的起点。",
+    "## 行动建议",
+    findings.map((finding, index) => `- P${Math.min(index, 2)}：围绕“${finding.title}”设计下一轮验证动作，补充真人访谈、业务数据或试点观察，确认该判断是否可进入决策。`).join("\n"),
+    "## 研究局限与后续验证",
+    "本报告基于数字专家模拟访谈生成，样本规模和语境有限。后续应补充真人专家、利益相关方访谈和实际业务数据，优先验证高影响结论、角色差异和可执行建议。",
+  ].filter((part) => part.trim().length > 0).join("\n\n");
+  return [streamedMarkdown, formalAppendix].filter((part) => part.trim().length > 0).join("\n\n");
+}
+
 function parseStringList(value: unknown): readonly string[] {
   return Array.isArray(value)
     ? Array.from(new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)))
@@ -765,12 +838,20 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
 
     const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
+    const sourceAnswers: ReportSourceAnswer[] = snapshot.completed.flatMap((run) => run.answers.map((answer) => ({
+      expertId: run.expertId,
+      displayName: run.displayName,
+      questionId: answer.questionId,
+      question: answer.question,
+      answer: answer.answer,
+    })));
     const decoder = new DigitalReportNdjsonDecoder();
     let sawDelta = false;
     let metaCount = 0;
     let sectionCount = 0;
     let findingCount = 0;
     const reportSections: string[] = [];
+    const reportFindings: Array<{ title: string; summary: string; expertId: string; questionId: string }> = [];
     const findingSources = new Set<string>();
     const persistEvent = async (event: ParsedDigitalReportStreamEvent): Promise<void> => {
       if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
@@ -822,6 +903,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       } else {
         findingCount += 1;
         findingSources.add(`${event.expertId}:${event.questionId}`);
+        reportFindings.push({ title: event.title, summary: event.summary, expertId: event.expertId, questionId: event.questionId });
       }
       await input.onProgress?.(progress);
     };
@@ -854,6 +936,21 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         for (const event of decoder.push(completion.text)) await persistEvent(event);
       }
       for (const event of decoder.finish()) await persistEvent(event);
+      const minimumFindings = Math.min(3, validSources.size);
+      if (metaCount === 1 && sectionCount >= 1 && findingSources.size < minimumFindings) {
+        for (const answer of sourceAnswers) {
+          if (findingSources.size >= minimumFindings) break;
+          const sourceAnswerId = `${answer.expertId}:${answer.questionId}`;
+          if (findingSources.has(sourceAnswerId)) continue;
+          await persistEvent({
+            type: "finding",
+            title: `补充发现：${excerpt(answer.question, 32)}`,
+            summary: `${answer.displayName}回答：“${excerpt(answer.answer)}”。该发现由已确认回答直接生成，用于补齐报告的可追溯发现，仍需真人研究验证。`,
+            expertId: answer.expertId,
+            questionId: answer.questionId,
+          });
+        }
+      }
       const reportMarkdown = reportSections.join("\n\n");
       let headingCursor = 0;
       const hasRequiredStructure = DIGITAL_REPORT_REQUIRED_HEADINGS.every((heading) => {
@@ -862,11 +959,29 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         headingCursor = index + heading.length;
         return true;
       });
-      const minimumFindings = Math.min(3, validSources.size);
       if (metaCount !== 1 || sectionCount < 1
-        || !hasRequiredStructure || findingCount < minimumFindings
+        || findingCount < minimumFindings
         || findingSources.size < minimumFindings) {
         throw new SyntaxError("incomplete streamed report");
+      }
+      if (!hasRequiredStructure) {
+        const normalizedMarkdown = buildFallbackReportMarkdown({
+          topic: snapshot.workflow.topic ?? "未命名研究主题",
+          answers: sourceAnswers,
+          sections: reportSections,
+          findings: reportFindings,
+        });
+        await this.db.withTenant(input.orgId, async (session) => {
+          const attempt = await session.query(
+            `UPDATE digital_interview_reports
+                SET markdown=$5,updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4
+                AND generation_status='running' AND NOT (${DIGITAL_REPORT_STALE_SQL})
+              RETURNING report_id`,
+            [input.orgId, input.interviewId, reportId, input.requestId, normalizedMarkdown],
+          );
+          if (attempt.rows.length !== 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+        });
       }
     } catch (error) {
       console.error("[digital-interview-report] streaming generation failed", error);
