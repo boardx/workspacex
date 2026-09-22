@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2, Share2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import { ShareDialog } from "./share-dialog";
+import { CanvasAppearance } from "./canvas-appearance";
 import {
   appendProjectChat as apiAppendProjectChat,
   uploadRefImage,
@@ -254,6 +255,8 @@ export function DesignDetailScreen({
   const [confirming, setConfirming] = React.useState(false);
   /** 迭代 22：发布与分享。 */
   const [sharing, setSharing] = React.useState(false);
+  /** 迭代 24：窄屏下右侧那栏（图层 / 属性 / 历史）要不要展开；md 及以上恒展开，见渲染处。 */
+  const [sideOpen, setSideOpen] = React.useState(false);
   const [shareBusy, setShareBusy] = React.useState(false);
   const [shareError, setShareError] = React.useState<string | null>(null);
   const [pushBusy, setPushBusy] = React.useState(false);
@@ -477,7 +480,15 @@ export function DesignDetailScreen({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    /*
+     * 迭代 24：依赖里必须有 `viewMode`。
+     *
+     * `stageRef` 只挂在**单页视图**那块 DOM 上，而默认视图是画板——于是这个 effect 在挂载时
+     * `stageRef.current === null`，直接 return，观察器**根本没装上**；后来切到单页也不会重跑。
+     * 结果：`stage` 永远是 `{0,0}`，`fitScale` 永远返回 1，**单页视图的自适应缩放从来没生效过**。
+     * 实测表现是 1280×720 下手机画板按 852px 满高渲染、顶部滑到页头底下点不到。
+     */
+  }, [viewMode]);
 
   /**
    * 迭代 15：画布快捷键。**只在编辑态、且不在输入框里**时生效——
@@ -719,7 +730,11 @@ export function DesignDetailScreen({
         <Button variant="ghost" size="sm" onClick={onBack} data-testid="design-detail-back">
           <ArrowLeft aria-hidden className="h-4 w-4" /> 工作台
         </Button>
-        <span className="min-w-0 truncate text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
+        {/*
+          * 迭代 24：375 档下「返回 + 面包屑 + 三个动作」放不下，整个页面因此横向滚动 49px。
+          * 面包屑里唯一的新信息是项目名，而项目名在窄屏上本来就会被截断——先让它退场。
+          */}
+        <span className="hidden min-w-0 truncate text-12 text-muted-foreground sm:inline">工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
@@ -737,13 +752,18 @@ export function DesignDetailScreen({
             <Share2 aria-hidden className="h-3.5 w-3.5" />
             {(project.share ?? null) === null ? "分享" : project.share?.stale === true ? "已分享（有更新）" : "已分享"}
           </Button>
+          {/*
+            * 迭代 24：窄屏只留图标。三个动作里「推送到收件箱」是**内部流程**——它对第一次
+            * 来做原型的人最没有意义，却一直是唯一的 primary 按钮、还是最长的一个标签。
+            * 宽屏保持原样（那里放得下，文字也确实更好认），窄屏让位给「分享」和「导出」。
+            */}
           {project.pushed ? (
-            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
-              <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
+            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="已推送到收件箱">
+              <Check aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">已推送到收件箱</span>
             </Button>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
-              <Upload aria-hidden className="h-3.5 w-3.5" /> 推送到收件箱
+            <Button variant="primary" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="推送到收件箱">
+              <Upload aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">推送到收件箱</span>
             </Button>
           )}
         </div>
@@ -970,7 +990,21 @@ export function DesignDetailScreen({
 
           {tab === "canvas" ? (
             <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
-              <div className="flex items-center gap-1 border-b border-border px-4 py-2">
+              {/*
+                * 迭代 24：`flex-wrap` —— 放不下就换行，而不是把整个页面撑出横向滚动。
+                * 宽屏一行照旧放得下，所以这一条对桌面是零改动。
+                */}
+              <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2">
+                {/*
+                  * 迭代 24：页签自己横向滚，不把工具条撑宽。此前在 375 档页签被 flex 压到
+                  * 每字一行（「历」「史」「会」「话」竖着排），而整条工具条仍然溢出——
+                  * 两个毛病同一个根：一行里塞了太多东西，却既不许滚也不许换行。
+                  */}
+                <div
+                  className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto"
+                  data-allow-x-scroll="页签多时自己横向滚动，不撑宽工具条"
+                  data-testid="design-detail-frames"
+                >
                 {(preview ?? project).frames.map((f, i) => (
                   <button
                     key={f}
@@ -981,7 +1015,7 @@ export function DesignDetailScreen({
                     aria-pressed={frame === i}
                     data-testid={`design-detail-frame-${i}`}
                     className={cn(
-                      "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "shrink-0 whitespace-nowrap rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       frame === i ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                     )}
                     onDoubleClick={() => {
@@ -1000,7 +1034,7 @@ export function DesignDetailScreen({
                   * 但从来没有 UI 够得着——模型能加删页，用户不能。
                   */}
                 {canvasMode === "edit" && preview === null && (
-                  <span className="flex items-center gap-0.5" data-testid="design-detail-pages">
+                  <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
                     <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
                       className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
                       <Plus aria-hidden className="h-3 w-3" />
@@ -1016,6 +1050,7 @@ export function DesignDetailScreen({
                     </button>
                   </span>
                 )}
+                </div>
                 <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
                   <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
@@ -1038,75 +1073,44 @@ export function DesignDetailScreen({
                   </button>
                 </div>
                 {/*
-                 * 迭代 13（delta §5.2）：切**原型自己的**明暗，后台主题不跟着变——
-                 * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
-                 */}
-                <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="原型主题">
-                  {(["light", "dark"] as const).map((t) => (
-                    <button
-                      key={t} type="button" data-testid={`design-detail-theme-${t}`}
-                      aria-pressed={project.theme === t}
-                      title={t === "light" ? "原型按浅色渲染（不影响后台）" : "原型按深色渲染（不影响后台）"}
-                      onClick={() => void changeTheme(t)}
-                      className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast",
-                        project.theme === t ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
-                    >
-                      {t === "light" ? <Sun aria-hidden className="h-3 w-3" /> : <Moon aria-hidden className="h-3 w-3" />}
-                      {t === "light" ? "白天" : "黑夜"}
-                    </button>
-                  ))}
-                </div>
-                {/*
-                  * 迭代 17：强调色档位。**色块本身就是标签**——给一行中文色名（「靛蓝」「湖绿」）
-                  * 反而比色块更难扫，而这一排的用途就是"扫一眼挑一个"。
-                  * 无障碍那一半由 `aria-label` + `title` 给，不靠视觉。
+                  * 迭代 24：明暗 / 强调色 / 设备三组收进一个「外观」面板。
+                  *
+                  * 它们的共同点是**设一次就不再动**，而此前它们在工具条上平铺了十几个控件，
+                  * 其中八个是没有名字的彩色圆点——第一次来做原型的人最显眼看到的就是它们，
+                  * 既不知道那是什么，也不知道该不该动。收起来之后，常态工具条只剩每天真用得上的
+                  * 那几个；点开之后每一节有中文小标题，圆点第一次有了名字。
+                  *
+                  * 顺带把 375 档那 460px 的横向滚动消掉（见 `canvas-appearance.tsx` 头注）。
                   */}
-                <div className="inline-flex items-center gap-0.5 rounded-control border border-border p-0.5" role="group" aria-label="原型强调色" data-testid="design-detail-accents">
-                  {ACCENT_OPTIONS.map((a) => (
-                    <button
-                      key={a} type="button" data-testid={`design-detail-accent-${a}`}
-                      aria-pressed={project.accent === a}
-                      aria-label={ACCENT_LABEL[a]}
-                      title={ACCENT_LABEL[a]}
-                      onClick={() => void changeAccent(a)}
-                      className={cn(
-                        "h-4 w-4 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        project.accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
-                        a === "neutral" && "bg-muted",
-                      )}
-                      style={a === "neutral" ? undefined : { backgroundColor: `hsl(${ACCENT_SWATCH[a]})` }}
-                    />
-                  ))}
-                </div>
-                {/*
-                  * 迭代 14：设备镜头。**不写库** —— 换设备只改画板尺寸，原型没有断点，
-                  * 内容按 flex 自适应；title 里如实说清楚，免得有人以为切过去就看到了响应式结果。
-                  */}
-                <div className="flex items-center gap-0.5 rounded-control bg-panel p-0.5" data-testid="design-detail-devices">
-                  <select
-                    value={lens.id}
-                    onChange={(e) => setDeviceId(e.target.value)}
-                    data-testid="design-detail-device"
-                    title="换个设备尺寸看。原型没有断点，换设备只改画板尺寸，内容按 flex 自适应。"
-                    className="h-6 rounded-control border-0 bg-transparent px-1 text-10 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {DEVICE_PRESETS.map((d) => (
-                      <option key={d.id} value={d.id}>{d.label} {d.w}×{d.h}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setLandscape((v) => !v)}
-                    disabled={!lens.rotatable}
-                    aria-pressed={landscape && lens.rotatable}
-                    data-testid="design-detail-rotate"
-                    title={lens.rotatable ? "横过来看" : "这个尺寸没有竖屏一说"}
-                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
-                      landscape && lens.rotatable ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
-                  >
-                    <RotateCw aria-hidden className="h-3 w-3" />
-                  </button>
-                </div>
+                <CanvasAppearance
+                  theme={project.theme}
+                  onTheme={(t) => void changeTheme(t)}
+                  accent={project.accent}
+                  accentOptions={ACCENT_OPTIONS}
+                  accentLabel={ACCENT_LABEL}
+                  accentSwatch={ACCENT_SWATCH}
+                  onAccent={(a) => void changeAccent(a)}
+                  devices={DEVICE_PRESETS}
+                  deviceId={lens.id}
+                  onDevice={setDeviceId}
+                  landscape={landscape}
+                  onLandscape={() => setLandscape((v) => !v)}
+                  rotatable={lens.rotatable}
+                />
+                {/* 迭代 24：窄屏才有的「图层」开关——md 及以上那一栏一直在，不需要这个按钮。 */}
+                <button
+                  type="button"
+                  onClick={() => setSideOpen((v) => !v)}
+                  aria-pressed={sideOpen}
+                  data-testid="design-detail-side-toggle"
+                  title="图层与属性"
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast md:hidden",
+                    sideOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
+                  )}
+                >
+                  <Layers aria-hidden className="h-3 w-3" /> 图层
+                </button>
                 {/* 迭代 16：一键撤销。此前要开历史面板、找条目、点恢复——三步。 */}
                 <button
                   type="button"
@@ -1120,7 +1124,9 @@ export function DesignDetailScreen({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
+                  // 迭代 24：点「历史」就是要看历史——窄屏下顺手把收起的那一栏打开，
+                  // 否则按钮按下去 `aria-pressed` 变了而屏上什么也没发生。
+                  onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); else setSideOpen(true); }}
                   aria-pressed={historyOpen}
                   data-testid="design-detail-history-toggle"
                   className={cn(
@@ -1132,8 +1138,19 @@ export function DesignDetailScreen({
                 </button>
               </div>
               <div className="relative flex min-h-0 flex-1">
-                {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
-                <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
+                {/*
+                  * 迭代 24：单页视图改成**填满可用空间的一列**，不再是 `grid place-items-center + overflow-auto`。
+                  *
+                  * 旧写法把画板居中，而画板（手机 852px + 内边距 = 884px）比容器高——居中的结果是
+                  * 它的顶部被顶到容器上边之外、滑到页头底下：实测 1280×720 下原型的导航栏落在 y=15，
+                  * 而页头占 0–49，**导航栏根本点不到**（`design-prototype-loop` 的预览用例就卡在这里）。
+                  * 而自适应缩放对单页视图**从来没生效过**：量尺寸的 ResizeObserver 只在挂载时装一次，
+                  * 那时默认是画板视图、`stageRef` 还是 null（见该 effect 的依赖数组那条注释）。
+                  *
+                  * 改成 flex 列之后 stage 是 `flex-1`，量到的是真正的可用空间，画板按它缩小；
+                  * 普通人也就不必先上下滚一段才看得到手机顶部。
+                  */}
+                <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "flex flex-col")}>
                   {/*
                     * 迭代 16（#3773 R6）：预览里的「返回」。只在真的有地方可退时出现——
                     * 一个永远在那里、点了没反应的返回按钮，比没有更糟。
@@ -1205,7 +1222,13 @@ export function DesignDetailScreen({
                       data-testid="design-detail-stage"
                       data-scale={scale.toFixed(3)}
                     >
-                      <div style={{ transform: `scale(${scale})`, transformOrigin: "top center", width: lensSize.w, height: lensSize.h }}>
+                      {/*
+                        * 迭代 24：外层按**缩放后的尺寸**占位，内层才做 transform。
+                        * `transform` 不改变布局盒子——只写 transform 的话，容器仍按 852px 算高度，
+                        * 于是画面明明已经缩小放得下了，旁边还挂着一条滚不出任何东西的滚动条。
+                        */}
+                      <div style={{ width: lensSize.w * scale, height: lensSize.h * scale }}>
+                      <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: lensSize.w, height: lensSize.h }}>
                     <PrototypeCanvas
                       label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
@@ -1247,6 +1270,7 @@ export function DesignDetailScreen({
                       onNavigate={navigateTo}
                     />
                       </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1254,7 +1278,24 @@ export function DesignDetailScreen({
                 {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
                 {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
                 {(historyOpen || (preview === null && canvasMode === "edit") || (focus !== null && preview === null)) && (
-                  <div className="absolute inset-y-0 right-0 z-10 flex w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:max-w-none md:bg-card/40" data-testid="design-detail-side">
+                  /*
+                   * 迭代 24：窄屏下这块**默认收起**。
+                   *
+                   * 它此前是 `absolute inset-y-0 right-0 w-64 max-w-[85%]`，而显示条件基本等于
+                   * 「编辑态」——也就是默认状态。结果：在手机上打开一个设计，画布被这块盖掉 85%，
+                   * 而且**原型里的任何东西都点不到**（点击落在面板上）。里面装的又恰好是
+                   * 「纵向布局 / 横向布局 / 卡片」这类只有做过设计的人才懂的词。
+                   *
+                   * 所以窄屏改成"要看才打开"，由工具条上的「图层」按钮开关；md 及以上**一个像素都不变**
+                   * （那里它是并排的一栏，不挡任何东西）。
+                   */
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 right-0 z-10 w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:flex md:max-w-none md:bg-card/40",
+                      sideOpen ? "flex" : "hidden",
+                    )}
+                    data-testid="design-detail-side"
+                  >
                     {/*
                       * 迭代 15：图层面板。一个 stack 套 stack 在画板上分不出层级，
                       * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。

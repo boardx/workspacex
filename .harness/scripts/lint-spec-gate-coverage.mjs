@@ -50,12 +50,15 @@
  *    `.test.ts`（apps/web/vitest.config.ts:23、apps/devportal/vitest.config.ts:13），
  *    所以 `.spec.ts` 在本仓是 Playwright 专属地盘，不会与 vitest 重叠。
  * 3. **`*.setup.ts` 不入总体**。它没有独立价值，只能经由某个 config 的 project 被拉起。
- * 4. **粒度到 config，不到 project**（已知边界，别以为已经解决）。`--list` 报的是
- *    整份 config 的文件集，而 CI 里常常只跑其中一个 `--project`。举例：
- *    `chat-task-workbench` 那批 spec 由 `playwright.chat-read.config.ts` 接住，
- *    该 config 同时被无条件的 `chat-read` job 调用 ⇒ 本门控判它们 `covered`，
- *    但真正跑它们的那个 project 只在手动 `workflow_dispatch` 下开火。
- *    收紧到 project 粒度要把 `--project` 参数也接进可达性闭包，不在 #523 范围内。
+ * 4. **粒度到 project**（迭代 24 收紧；这一条原文曾是「粒度到 config，不到 project——已知边界，
+ *    别以为已经解决」）。CI 命令里的每个 `--project` 都原样传给 `--list`，Playwright 自己
+ *    把该 project 的 `dependencies` 闭包一起算出来。
+ *    ⚠ 这条边界不是学术问题：收紧之前，`playwright.fullstack-smoke.config.ts` 注册了十几个
+ *    project 而 CI 只跑 `--project=seeded-github-import`，于是 `design-loop-responsive` /
+ *    `design-prototype-loop` / `design-share` / `axe-*` **一次都没在 CI 上执行过**，
+ *    门控却一直报它们 covered。实测代价：`design-loop-responsive` 的 36 条里 7 条在 main 上
+ *    红着（375 档横向溢出 460px、收件箱看板整屏白），没有任何人知道。
+ *    仍在的边界：`-g` / `--grep` 过滤没有接进来（本仓的 CI 命令目前不用它）。
  *
  * ## 豁免的代价
  *
@@ -82,7 +85,63 @@ const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
  * 加一条之前先自问：这条 spec 接进门控真的做不到，还是只是麻烦？只是麻烦的话，
  * 正确动作是接进去，不是写进这里。
  */
+/**
+ * 迭代 24 —— **口径从 config 收紧到 project 那一刻暴露出来的存量**。
+ *
+ * 本文件头「口径边界 4」原文写着：「粒度到 config，不到 project（已知边界，别以为已经解决）」。
+ * 这一轮把 `--project` 接进了可达性闭包，于是那条已知边界背后的东西一次性露了出来：
+ * `playwright.fullstack-smoke.config.ts` 注册了十几个 project，而 CI 只跑
+ * `--project=seeded-github-import`；`playwright.chat-read.config.ts` 同理。
+ *
+ * 代价不是理论上的。同一轮实测：`design-loop-responsive` 的 36 条里有 7 条在 main 上红着
+ * （375 档横向溢出 460px；收件箱看板整屏白），而门控一直报它们 covered。
+ *
+ * 这份名单是**棘轮：只能变短**。每一条的正确终局是把它归进一条无条件 job 的 `--project`
+ * （本轮已经这样处理了 design-loop-responsive / design-prototype-loop / design-share），
+ * 而不是让它一直躺在这里。之所以先登记而不是一次性全接：那些 spec 属于 chat / UI 原语几条线，
+ * 它们各自要多少 CI 时间、该挂哪条 job，不是设计工作台这一轮能替它们决定的——
+ * 但**让它们从"报绿"变成"记在册上的债"**，是这一轮欠它们的。
+ */
+const PROJECT_GRANULARITY_LEGACY = (owner) =>
+  "【口径收紧存量·只减不增】迭代 24 把 spec-gate 的可达性闭包从 config 粒度收紧到 project 粒度" +
+  "（`--project` 接进 `--list`）。这条 spec 此前被判 covered，靠的是「它所在的 config 被 CI 调过」，" +
+  "而 CI 那条命令只跑其中某一个 `--project`，从来没跑到它。收紧后如实记为存量，" +
+  `归属：${owner}。终局是把它归进某条无条件 job 的 --project 并从本名单删掉；` +
+  "在那之前它红了没人会发现——这一句是这条豁免的真实代价，不是免责声明。";
+
 const EXEMPTIONS = [
+  {
+    spec: "apps/web/e2e/axe-image-alt.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UIUX 基线（无障碍）"),
+  },
+  {
+    spec: "apps/web/e2e/axe-keyboard-focus.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UIUX 基线（无障碍）"),
+  },
+  {
+    spec: "apps/web/e2e/composite-primitives-kitchen-sink.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UI 原语线"),
+  },
+  {
+    spec: "apps/web/e2e/icon-rail-short-viewport.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UI 原语线"),
+  },
+  {
+    spec: "apps/web/e2e/motion-orchestration-reduced-motion.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UI 原语线"),
+  },
+  {
+    spec: "apps/web/e2e/overlay-primitives-keyboard.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UI 原语线"),
+  },
+  {
+    spec: "apps/web/e2e/overlay-primitives-kitchen-sink.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("UI 原语线"),
+  },
+  {
+    spec: "apps/web/e2e/project-results-shots.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("取证脚本（shots:project-results）"),
+  },
   {
     spec: "apps/web/e2e/responsive.spec.ts",
     reason:
@@ -171,6 +230,70 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  {
+    spec: "apps/web/e2e/chat-path-ab-hitl-continuity.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-c1-canvas-survives-run-finalization.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-c2-canvas-fence-identity.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-c6-office-artifacts.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-c8-subtask-artifact-writeback.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-d1-failed-tool-card-status.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-f1-failure-cause-distinguishable.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-f2-network-drop-reconnect.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-f3-pause-resume-retry-step.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-a11y.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-approval.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-inspector.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-tool-events.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
   {
     spec: "apps/web/e2e/real-model-pdf-smoke.spec.ts",
     reason:
@@ -285,11 +408,22 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
   const seenScripts = new Set();
   const configs = new Map();
 
-  const note = (configPath, pkgDir, unconditional, via) => {
-    const existing = configs.get(configPath) ?? { pkgDir, configPath, unconditional: false, via: [] };
+  /**
+   * 迭代 24：键是 **config + 这次调用选中的 project 集合**，不再只是 config。
+   *
+   * 旧版把 `--project` 丢掉，于是「这份 config 里注册了某个 project」被当成
+   * 「CI 会跑到它」——那正是本文件头「口径边界 4」写下的已知洞。它不是理论上的：
+   * `playwright.fullstack-smoke.config.ts` 注册了 10+ 个 project，而 CI 只跑
+   * `--project=seeded-github-import`；`design-loop-responsive` / `design-prototype-loop`
+   * / `design-share` / `axe-*` 因此**一次都没在 CI 上执行过**，而门控一直报它们 covered。
+   * 代价已经兑现：375 档横向溢出 460px 在 main 上存在且无人知道。
+   */
+  const note = (configPath, pkgDir, unconditional, via, projects) => {
+    const key = `${configPath}::${[...projects].sort().join(",")}`;
+    const existing = configs.get(key) ?? { pkgDir, configPath, projects: [...projects], unconditional: false, via: [] };
     existing.unconditional = existing.unconditional || unconditional;
     if (!existing.via.includes(via)) existing.via.push(via);
-    configs.set(configPath, existing);
+    configs.set(key, existing);
   };
 
   while (queue.length > 0) {
@@ -318,7 +452,9 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
       const configFile = configArg ? configArg[1] : "playwright.config.ts";
       const configPath = path.posix.join(targetDir, configFile);
       if (!existsSync(path.join(root, configPath))) continue;
-      note(configPath, targetDir, unconditional, via);
+      // `--project` 可以出现多次；一次都没有 ⇒ 整份 config 的全部 project 都跑。
+      const projects = [...args.matchAll(/--project[=\s]+(\S+)/g)].map((m) => m[1]);
+      note(configPath, targetDir, unconditional, via, projects);
     }
   }
   for (const config of configs.values()) {
@@ -340,11 +476,17 @@ export function allSpecFiles() {
  * 问 Playwright 自己：这份 config 到底会跑哪些文件。
  * `--list` 不起 webServer、不需要浏览器；env 给的是占位值，只为让 `required()` 不抛。
  */
-export function specsMatchedBy({ pkgDir, configPath }) {
+export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
   const configFile = path.posix.relative(pkgDir, configPath);
   const raw = execFileSync(
     "pnpm",
-    ["exec", "playwright", "test", "--config", configFile, "--list", "--reporter=json"],
+    [
+      "exec", "playwright", "test", "--config", configFile, "--list", "--reporter=json",
+      // 迭代 24：把 CI 命令里的 `--project` 原样传给 `--list`。Playwright 自己会把
+      // 该 project 的 `dependencies` 闭包一起算进来——这正是我们不手写闭包的理由，
+      // 同文件头「最后一跳刻意不自己解析」那一段。
+      ...projects.map((p) => `--project=${p}`),
+    ],
     {
       cwd: path.join(REPO_ROOT, pkgDir),
       encoding: "utf8",

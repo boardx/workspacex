@@ -951,6 +951,17 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
   });
 });
 
+
+/**
+ * 迭代 24：明暗 / 强调色 / 设备收进了「外观」面板（`canvas-appearance.tsx`），
+ * 所以要先把它点开才够得着——这几条用例断的是那些控件的**行为**，不是它们摆在哪。
+ */
+const openAppearance = () => {
+  if (screen.queryByTestId("design-detail-appearance-panel") === null) {
+    fireEvent.click(screen.getByTestId("design-detail-appearance"));
+  }
+};
+
 /* ─────────────────────────── B4.5：PM 设计工作台真栈 ─────────────────────────── */
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
@@ -1516,6 +1527,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().getAttribute("data-chrome")).toBe("phone");
       expect(frame().style.width).toBe("393px");
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().getAttribute("data-device")).toBe("laptop");
       expect(frame().getAttribute("data-chrome")).toBe("browser");
@@ -1525,7 +1537,9 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
 
     it("换镜头**不写库**——一次 PATCH 都不发", async () => {
       const bodies = await mount("mobile");
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "ipad" } });
+      openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("ipad"));
       // ⭐ 反证：把镜头做成 DesignProject 的字段（像 theme 那样 PATCH）⇒ 这条红。
@@ -1537,11 +1551,14 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       await mount("mobile");
       const frame = () => screen.getByTestId("design-detail-phone");
       expect(frame().style.width).toBe("393px");
+      openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       expect(frame().style.width).toBe("852px");
       expect(frame().getAttribute("data-landscape")).toBe("true");
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "desktop" } });
+      openAppearance();
       expect((screen.getByTestId("design-detail-rotate") as HTMLButtonElement).disabled).toBe(true);
       // 不可旋转的镜头即便 landscape 状态还留着，也不该被转过来
       expect(frame().getAttribute("data-landscape")).toBe("false");
@@ -1557,10 +1574,12 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().querySelector('[data-chrome="browser"]')).toBeNull();
 
       // iPhone SE 是上下额头，不是灵动岛——两者靠形状区分，不是同一个东西
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "iphone-se" } });
       expect(frame().querySelector('[data-chrome="notch"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="island"]')).toBeNull();
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().querySelector('[data-chrome="browser"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="home"]')).toBeNull();
@@ -1839,6 +1858,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     const phone = await screen.findByTestId("design-detail-phone");
     expect(phone.className).toContain("dark");
 
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-theme-light"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-theme")).toBe("light"));
     // 画布拿到浅色作用域
@@ -3268,12 +3288,14 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     );
 
     // 切一档：乐观更新（不等往返），并真的发出 PATCH。
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
     await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
 
     // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
     failNext = true;
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-green"));
     await screen.findByTestId("design-detail-chat-error");
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
