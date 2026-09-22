@@ -21,7 +21,8 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  *   末尾的通用占位卡，前后端实现（`components/agent/team3-chat.tsx`、研判面板、
  *   `research-workflow` 整层、补种脚本）已删除。保留的是那条线顺手修好的通用能力
  *   （mermaid 标签换行、制品版本历史/差异、deploy.sh 加固），它们与 team3 无耦合。
- *   历史与设计档案仍在 `docs/design/agent-team3-*.md`。
+ *   设计档案与验收证据也一并删除——那份 instructions 是私有的分析方法，不留副本。
+ *   库里已种下的 agent 行由 `apps/api/scripts/purge-team3-agent.ts` 清除。
  *
  * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第六版）：同 team4 的就地挂壳——
  *   进页面解析/发布 Agent、建或复用个人线程并入编、把「上会审阅」平台内置 Skill 挂进
