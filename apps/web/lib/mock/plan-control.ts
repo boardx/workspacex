@@ -13,9 +13,12 @@
  * `constraintId`/`planStepId`），所以特意不与契约同名，避免「看着像同一份契约、
  * 实际字段对不上」的误导；真正接线时以契约字段名为准，这份 mock 类型会被替换掉。
  */
-import { PLAN_PHASE_LABEL_ZH, type PlanPhase, type PlanStepStatus } from "@repo/contracts/plan-control";
+import {
+  PLAN_PHASE_LABEL_ZH, planGateReasonLabelZh,
+  type PlanGateReason, type PlanPhase, type PlanStepStatus,
+} from "@repo/contracts/plan-control";
 
-export type { PlanPhase, PlanStepStatus };
+export type { PlanGateReason, PlanPhase, PlanStepStatus };
 
 export const PLAN_PHASE_LABEL = PLAN_PHASE_LABEL_ZH;
 
@@ -71,21 +74,34 @@ export const ORPHAN_CONSTRAINT: PlanConstraintPreview = {
   formerHostLabel: "生成竞品分析报告",
 };
 
-/** 确认门（S4 / UC-8）。渲染条件唯一：gate.required === true（前端不自行判断复杂度）。 */
+/**
+ * 确认门（S4 / UC-8）。渲染条件唯一：gate.required === true（前端不自行判断复杂度）。
+ *
+ * ⚠ issue #2486：`reason` 是**契约的封闭枚举 `PlanGateReason`（判定码），不是文案**。
+ * 这份 mock 原先在这里手写了两句中文，等于给"这个判定码对用户说什么"建了第二份
+ * 事实源——而契约侧没有任何映射，组件想渲染就只能原样把枚举码给用户看，正是本
+ * issue 的缺陷成因。现在文案统一从 `PLAN_GATE_REASON_LABEL_ZH` 读
+ * （下方 `planGateReasonLabel` 只是那张表的**派生读法**，不是第二份声明）。
+ */
 export interface PlanGate {
   readonly required: boolean;
-  readonly reason: string;
+  readonly reason: PlanGateReason;
 }
 
 export const GATE_REQUIRED: PlanGate = {
   required: true,
-  reason: "这是一个多步、会产出对外报告的任务。执行前请确认计划与约束无误。",
+  reason: "multi-step",
 };
 
 export const GATE_NOT_REQUIRED: PlanGate = {
   required: false,
-  reason: "简单提问，直接作答，无需确认计划。",
+  reason: "single-step",
 };
+
+/** `PlanGate` → 给人看的那句话。派生自契约映射，本文件不另存一份文案。 */
+export function planGateReasonLabel(gate: PlanGate): string {
+  return planGateReasonLabelZh(gate.reason);
+}
 
 /** 执行态进度（S5 / UC-9）。elapsedMs 来自 getPlanLedger.progress，刷新后仍对（非前端计时器）。 */
 export interface RunProgress {
