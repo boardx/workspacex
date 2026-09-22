@@ -328,6 +328,8 @@ export class DesignWorkbenchController {
         {
           projectId, ownerId: principal.userId, text: body.text,
           ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          // 迭代 20：这一轮的页数上限（服务端截断执行，不是提示）。
+          ...(body.maxScreens !== undefined ? { maxScreens: body.maxScreens } : {}),
           ...(refImages.length > 0 ? { refImages } : {}),
         },
       );

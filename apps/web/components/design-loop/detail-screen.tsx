@@ -106,6 +106,14 @@ const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Objec
  *   给一个必然失败的按钮是在骗人。那一条的下一步是找运维，文案里已经说了。
  * `MODEL_NO_REPLY_TEXT` 也不在：写回可能已经生效了，重发同一句会再改一遍。
  */
+/**
+ * 迭代 20：「少画几页再试」按几页。
+ *
+ * 3 是骨架轮页数区间（3–6）的下限——再少就不是"这个产品长什么样"而是一张孤立的屏了。
+ * 这个数会作为 `maxScreens` 交上去，由服务端**截断执行**，不是一句提示。
+ */
+const FEWER_PAGES_CAP = 3;
+
 const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
   "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
 ]);
@@ -566,7 +574,7 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async (override?: string) => {
+  const send = async (override?: string, maxScreens?: number) => {
     const value = (override ?? text).trim();
     if (value === "") return;
     const controller = new AbortController();
@@ -603,6 +611,7 @@ export function DesignDetailScreen({
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
         project.refImages.map((r) => r.id),
+        maxScreens,
       );
       stopPoll();
       /*
@@ -759,6 +768,25 @@ export function DesignDetailScreen({
                       * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
                       * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
                       */}
+                    {/*
+                      * 迭代 20：超时的那句话一直写着「试试少要几页」，而用户**没有任何
+                      * 控制页数的手段**——页数由骨架轮自己定，界面上没有旋钮，
+                      * 说「只画 3 页」也只是一句模型可以不听的话。又一句做不到的许诺。
+                      * 现在这个按钮把那句话变成一个真的动作：`maxScreens` 是服务端
+                      * 强制截断的上限，不是提示。
+                      * 只在**超时**时给——别的退路原因（输出不是 JSON、没配模型）
+                      * 与页数无关，给了只会把人往错的方向引。
+                      */}
+                    {fallbackReason === "MODEL_TIMEOUT" && lastUserText !== null && !sending && (
+                      <button
+                        type="button"
+                        onClick={() => void send(lastUserText, FEWER_PAGES_CAP)}
+                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-fewer-pages"
+                      >
+                        只画 {FEWER_PAGES_CAP} 页再试
+                      </button>
+                    )}
                     {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
                       <button
                         type="button"

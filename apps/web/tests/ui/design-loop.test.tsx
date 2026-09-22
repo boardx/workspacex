@@ -3347,6 +3347,68 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect(phone.style.getPropertyValue("--primary")).toBe("");
   });
 
+  it("迭代 20：超时时的「只画 3 页再试」真的把页数上限交上去（那句话此前是做不到的许诺）", async () => {
+    const posted: { text?: string; maxScreens?: number }[] = [];
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string; maxScreens?: number } }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_TIMEOUT" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 退路文案本来就说「试试少要几页」——现在旁边真的有这个动作。
+    expect(screen.getByTestId("design-detail-fallback-reason").textContent).toContain("少要几页");
+
+    /*
+     * ⭐ 反证锚点：不把 `maxScreens` 交上去 ⇒ 这条红。
+     * 在这之前用户没有任何控制页数的手段，说「只画 3 页」也只是一句模型可以不听的话。
+     */
+    fireEvent.click(await screen.findByTestId("design-detail-fewer-pages"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.text).toBe("做个客服待办");
+    expect(posted[1]?.maxScreens).toBe(3);
+    // 普通「再试一次」不带上限——它是"原样重来"，不是"少画几页"。
+    expect(posted[0]?.maxScreens).toBeUndefined();
+  });
+
+  it("迭代 20：只有**超时**才给「少画几页」（别的退路原因与页数无关）", async () => {
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_BAD_JSON" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 输出不是 JSON 与页数无关，给了只会把人往错的方向引。
+    expect(screen.queryByTestId("design-detail-fewer-pages")).toBeNull();
+    expect(screen.getByTestId("design-detail-fallback-retry")).toBeTruthy();
+  });
+
   it("迭代 16（#3773 R8）：模型层失败也有「再试一次」，而「没配模型」不给（给一个必然失败的按钮是在骗人）", async () => {
     let reason = "MODEL_TIMEOUT";
     const posted: { text?: string }[] = [];

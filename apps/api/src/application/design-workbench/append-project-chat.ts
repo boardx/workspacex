@@ -151,6 +151,8 @@ export async function appendProjectChat(
     readonly ownerId: string;
     readonly text: string;
     readonly focusNodeId?: string;
+    /** 迭代 20：这一轮最多画几页（服务端强制截断）。不给 ⇒ 不设限。 */
+    readonly maxScreens?: number;
     /**
      * 迭代 13：这一轮带给模型看的参考图**字节**。由 controller 用 `loadRefImageBytes` 取好传进来——
      * 本用例不认识对象存储，也不该为了几张图长出一个存储依赖。
@@ -200,6 +202,7 @@ export async function appendProjectChat(
 
   const ai = await deps.ai.reply({
     onProgress: persistProgress,
+    ...(input.maxScreens === undefined ? {} : { maxScreens: input.maxScreens }),
     name: current.name,
     template: current.template,
     problem: current.problem,

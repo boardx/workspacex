@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { DesignPrototypePatch, PrototypeLink, PrototypeNode, PrototypeNodeId } from "./design-prototype";
+import { DesignPrototypePatch, PROTOTYPE_MAX_SCREENS, PrototypeLink, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -786,6 +786,18 @@ export const operations = {
         refImageIds: z.array(z.string()).max(PROTOTYPE_MAX_REF_IMAGES).optional(),
         /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
         focusNodeId: PrototypeNodeId.optional(),
+        /**
+         * 迭代 20：**这一轮最多画几页**。
+         *
+         * 超时的退路文案一直写着「试试少要几页、或把要求说得更具体一点再发一次」——
+         * 而用户**没有任何控制页数的手段**：页数由骨架轮自己定（3–6 页），
+         * 界面上没有旋钮，说「只画 3 页」也只是一句模型可以不听的话。
+         * 又一句做不到的许诺。
+         *
+         * 所以这不是一个给模型的提示，是一条**服务端强制执行**的上限：骨架轮回来之后
+         * 按它截断（见 `generatePaged`）。省略 ⇒ 不设限，行为与这个字段出现之前逐字相同。
+         */
+        maxScreens: z.number().int().min(1).max(PROTOTYPE_MAX_SCREENS).optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject, reply: DesignChatReply }).strict(),

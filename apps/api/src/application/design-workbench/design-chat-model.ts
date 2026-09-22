@@ -90,6 +90,11 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
    *   中途落库只是让画布早点有东西看。两者写的是同一份事实，不是两份。
    */
   readonly onProgress?: (screens: readonly PagedScreen[]) => Promise<void>;
+  /**
+   * 迭代 20：这一轮最多画几页。**服务端强制**——骨架轮回来之后按它截断，
+   * 不是一句"请你少画几页"的提示（那是模型可以不听的）。省略 ⇒ 不设限。
+   */
+  readonly maxScreens?: number;
 };
 
 /** 分页生成的一页。`root` 缺省 = 规划了但还没画出来（正在画，或者画失败了）。 */
@@ -433,6 +438,9 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   `"accent":"这套界面的强调色，从这几档里挑一个：${designWorkbench.PrototypeAccent.options.join("/")}（neutral = 不用强调色）",` +
   '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
+  // 迭代 20：上限由服务端截断执行（见 `generatePaged`），这句话只是让模型一开始就别多规划，
+  // 省得画了又被砍掉。两者不矛盾：提示是省钱，截断是保证。
+  "如果用户这一轮明确说了只要几页，就按他说的数目给，不要多给。" +
   // 迭代 16（#3773 R1-⑨）：骨架轮此前**没有任何质量约束**，而后面每一页都建在它上面——
   // 页分得不对，每页画得再好也是一套用不了的原型。这三条是能机械看出来的最常见错法。
   "页面划分的三条硬要求：" +
@@ -555,7 +563,22 @@ export class ModelDesignChatReplier implements DesignChatModel {
       return this.fallback("MODEL_BAD_JSON");
     }
     const obj = outlineRaw as Record<string, unknown>;
-    const outline = parseOutline(obj.outline);
+    /**
+     * 迭代 20：**按用户给的上限截断**。
+     *
+     * 超时退路一直写着「试试少要几页」，而用户此前没有任何控制页数的手段——页数由骨架轮
+     * 自己定。现在上限是一条服务端执行的事实：说了只画 3 页就是 3 页，不管模型规划了几页。
+     *
+     * ⚠ 截的是**前 N 页**：骨架轮的提示词要求「先给最核心的」，所以前几页就是最重要的那几页。
+     *   随机挑或者截后几页都会把主流程的起点砍掉。
+     */
+    const planned = parseOutline(obj.outline);
+    const outline = ctx.maxScreens === undefined ? planned : planned.slice(0, ctx.maxScreens);
+    if (outline.length < planned.length) {
+      this.deps.log("design chat: outline truncated to requested page cap", {
+        planned: planned.length, cap: ctx.maxScreens ?? 0,
+      });
+    }
     /**
      * 迭代 16（#3773 R1-⑩）——**设计基调在骨架轮定一次，每页轮都带着它**。
      *

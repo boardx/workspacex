@@ -126,6 +126,11 @@ export async function appendProjectChat(
   signal?: AbortSignal,
   /** 迭代 13：这一轮要让模型看的参考图。空数组与不传等价——服务端不认空数组以外的差别。 */
   refImageIds?: readonly string[],
+  /**
+   * 迭代 20：这一轮最多画几页。**服务端强制截断**，不是给模型的提示。
+   * 不给 ⇒ 不设限（行为与这个参数出现之前逐字相同）。
+   */
+  maxScreens?: number,
 ): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -135,6 +140,7 @@ export async function appendProjectChat(
         text,
         ...(focusNodeId !== undefined ? { focusNodeId } : {}),
         ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
+        ...(maxScreens !== undefined ? { maxScreens } : {}),
       },
       signal,
     },
