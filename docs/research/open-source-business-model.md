@@ -1,198 +1,277 @@
-# WorkspaceX 开源商业模式方案研究
+# WorkspaceX 开源商业模式方案（v11）
 
-> 状态：**研究稿，待人类决策**（2026-09-20）。
-> 目标读者：创始人/决策者 + 后续执行本方案的 agent。
-> 本文只做分析与建议，不改代码、不改许可证；第 7 节列出需要人类拍板的决策点。
-> 勘探基础：`.harness/instructions/architecture.md`、`docs/architecture/context-engine.md`、
-> `docs/proposals/PROP-LOCAL-WORKSPACE-001.md`、`phases/` 阶段清单、`apps/` `packages/` 目录。
+> 状态：**研究稿，待人类决策**（2026-09-22）。v11 = 初稿经十轮迭代、100 个问题修订而成；
+> 迭代过程见 `open-source-business-model-iterations.md`。
+> 本文只做分析，不改代码、不改许可证。**事实带出处，假设带标签。**
 
 ---
 
-## 0. 一句话结论
+## 0. 一页纸
 
-**采用「开放核心（Open Core）+ 云托管 + 垂直 Skill 市场」三层模式**：
-核心运行时（API / Web / Agent kernel / Context Engine / 桌面版）以 **Apache-2.0** 开源，
-组织级治理、SSO、审计、多租户托管作为商业版，行业 Skill（IC 审阅、投后评级、投后报告等）
-作为付费内容与生态分成。开源边界与仓库现有的架构边界（洋葱层 + 契约单源 + 模块清单）**天然重合**，
-不需要为了商业化重新切代码。
+**今天就能做的三件事**（不依赖任何决策，全部无悔）：
+
+1. 给每个 package.json 补 `license` 字段，生成 SBOM，盘点 2160 个依赖的许可证。
+2. 写 `SECURITY.md`，定漏洞披露渠道与时限。
+3. 跑全 git 历史的凭据扫描。
+
+**核心建议**：开放核心（Apache-2.0）+ 托管云 + 垂直 Skill 市场。但**这个建议依赖 D7 的答案**——
+开源是为了什么。若答案是「销售线索与信任」，本方案成立；若是「招聘」或「行业标准」，切法不同。
+
+**最大风险不是被云厂商托管，是没人用。**
+
+**证伪条件**：若目标客户访谈显示金融机构不关心源码可审计性，开放核心的主要销售杠杆就不存在，
+应退回「桌面免费版 + 闭源云」。
 
 ---
 
-## 1. 现状盘点（决定"能开源什么"的事实）
+## 1. 术语
 
-| 事实 | 出处 | 对商业模式的含义 |
+| 词 | 本文定义 |
+|---|---|
+| OSS | Apache-2.0 授权、可自由使用与再分发的部分 |
+| EE | 源码公开可见但需商业许可才能合法使用的部分（GitLab 模式） |
+| open core | 核心 OSS、外围 EE 的模式 |
+| source-available | 源码可见但非 OSI 开源（如 FSL/BSL），本文不采用但列为选项 |
+
+---
+
+## 2. 现状盘点
+
+仓库目前**没有 LICENSE 文件**，`package.json` 标 `private: true`，法律上是保留所有权利。
+开源是尚未发生的决策，边界可从零设计。
+
+| 事实 | 出处 | 含义 |
 |---|---|---|
-| 仓库**无 LICENSE 文件**，`package.json` 为 `private: true` | 仓库根目录 | 当前法律状态 = 保留所有权利。开源是一个**尚未发生的决策**，可以从零设计边界 |
-| 模型接入是 **OpenAI 兼容适配器 + model registry**，支持 Ollama 本地回环、egress guard 零出网 | `apps/api/src/infrastructure/agent-run/configured-model-provider.ts`、`local-egress-guard.ts` | 具备「本地免费 / 云端付费」的分叉点：模型与出网是天然计费线 |
-| 已有 `personal-local` 组织类型与桌面发行版提案（Ollama + qwen3.5:4b） | `packages/contracts/src/identity.ts`、`PROP-LOCAL-WORKSPACE-001` | 免费自托管产品形态已在路线图上，是开源增长飞轮的入口 |
-| 洋葱架构，`domain/application/infrastructure/interface` 由 `lint-arch-deps` 机械强制 | ADR-020 | 商业功能可作为 **infrastructure 层的替换实现** 或独立 NestJS 模块挂载，不污染开源核心 |
-| API 契约 zod 单源 → DTO / client / OpenAPI / mock 全部生成 | `contract-design.md` | 开源核心可以只发布**契约**，闭源实现遵守同一契约；生态方（第三方 skill）也靠它对接 |
-| 21 个业务模块，8 个模块知识库（chat / agent-skill-runtime / research-studio / asset-artifact / org-identity / coord-platform / devportal / project） | `PROJECT.md` 模块清单 | 模块清单就是开源/闭源切分的粒度 |
-| 17 个 skill、20 个画布模板、45 个原生工具；`skill-sandbox` 与 `devportal` 已存在 | `PROP-LOCAL-WORKSPACE-001` §0 | Skill 市场的基础设施已具备一半 |
-| 垂直阶段：IC 材料审阅 agent、投后评级 agent、投后报告 agent（phase 16/17） | `phases/` | 这些是**行业 know-how**，是最不该无偿开源的资产 |
-| harness（`.harness/`、coord-*）本身是独立模板项目（agentic-harness-template） | README | 可以作为**第二个开源产品**独立运营，面向 AI 工程团队 |
+| 无 LICENSE，无任何 `license` 字段，2160 个依赖无许可证清单 | 仓库根目录、`pnpm-lock.yaml` | **不做依赖许可证盘点就不能开源**，这是前置条件 |
+| `deploy/` 下只有 `aliyun`；CI 含 `deploy-cn-production.yml`、`prepare-cn-release.yml` | `deploy/`、`.github/workflows/` | 这是中国部署优先的项目，开源策略须双轨 |
+| 263 个源文件硬编码 `workspacex` | `grep -ril workspacex apps packages` | 品牌与代码强耦合，fork 与白标成本高 |
+| 6 个 CI workflow 依赖真实模型 key | `real-model-chat-evidence.yml` 等 | 外部贡献者的 CI 必须走回环模型 lane |
+| 模型接入是 OpenAI 兼容适配器 + model registry | `configured-model-provider.ts` | 模型与出网是天然计费线 |
+| `personal-local` 组织 + 进程级 egress guard，零出网 | `local-egress-guard.ts`、`identity.ts` | 本地免费与云端付费的分叉点已存在 |
+| 桌面发行版提案（Ollama + qwen3.5:4b） | `PROP-LOCAL-WORKSPACE-001` | 免费自托管形态已在路线图上 |
+| 洋葱架构由 `lint-arch-deps.mjs` 机械强制 | ADR-020 | 商业功能可挂载而不污染核心 |
+| API 契约 zod 单源，DTO/client/OpenAPI/mock 全生成 | `contract-design.md` | 生态靠契约对接；兼容性可机械 diff |
+| 21 个业务模块，8 个模块知识库 | `PROJECT.md` | 模块清单就是切分粒度 |
+| phase-16/17 是 IC 审阅、投后评级与报告 agent | `phases/` | 行业 know-how，最不该无偿开源 |
+
+**尚未核实，需先勘探**：phase-16/17 与核心的耦合度；skill 与模板的真实数量（旧文档里的数字是静态痕迹，
+按项目铁律不可直接引用）；`@firecrawl/anydoc` 等第三方包能否随产品再分发。
 
 ---
 
-## 2. 系统架构视角：开源边界怎么切
+## 3. 定位：为什么有人选它
 
-### 2.1 切分原则（三条，都能机械检查）
+切分之前先回答这个。**WorkspaceX 不是通用 agent 搭建平台**，那条赛道已被 Dify、Coze、FastGPT、
+OpenWebUI 占住。差异点是 Context Engine：不可变原件为证据、版本与血缘可追、片段可引用、
+权限约束检索。这是投研与咨询场景要的东西，通用 chatbot 平台没有。
 
-1. **按模块切，不按文件切**：以 `PROJECT.md` 模块清单为粒度，每个模块整体归属 OSS 或 EE。
-2. **闭源只能出现在两种位置**：(a) `infrastructure/` 层的端口替换实现；(b) 独立 NestJS 模块目录
-   `apps/api/src/ee/` 与 `apps/web/ee/`。`domain/` 与 `application/` **永远开源**——它们是契约与不变量，
-   闭源后生态无法对接。
-3. **EE 代码物理隔离**：EE 目录单独 LICENSE（Commercial），CI 加一道 `lint-ee-boundary`：OSS 目录不得
-   import `ee/`；EE 可以 import OSS。构建时 `EE_ENABLED=false` 即得纯开源产物。
+| 竞品 | 他们是什么 | 我们的差异 |
+|---|---|---|
+| Dify / Coze | 提示词与工作流编排平台 | 我们以证据库为中心，不是以工作流为中心 |
+| OpenWebUI | 模型前端 | 我们有项目容器、访谈录制、产出物治理 |
+| LangGraph | 编排库 | 我们是成品工作台，且内部就用 LangGraph |
+| 通用 RAG 框架 | 检索管线 | 我们做血缘与可引用性，不只做召回 |
 
-### 2.2 建议的分层归属
+**为什么不会被模型厂商内建吃掉**：客户要的是私有证据库归属与审计留痕，不会交给模型厂。
 
+---
+
+## 4. 系统架构视角：边界怎么切
+
+三条原则，都能机械检查。第一，按模块切不按文件切。第二，闭源只能出现在 `infrastructure` 层的
+端口替换实现或独立 `ee/` 目录，`domain` 与 `application` 永远开源。第三，EE 物理隔离，
+`lint-ee-boundary` 禁止 OSS 依赖 EE；**EE 同样遵守洋葱分层**。
+
+```mermaid
+flowchart TD
+    L1["契约与协议<br/>Apache-2.0"]
+    L2["产品核心<br/>Apache-2.0"]
+    L3["企业治理 ee/<br/>商业许可"]
+    L4["行业 Skill<br/>付费内容"]
+    L2 --> L1
+    L3 --> L2
+    L3 --> L1
+    L4 --> L1
+    OSS["EE_ENABLED=false<br/>纯开源产物"] --> L2
 ```
-┌────────────────────────────────────────────────────────────────┐
-│  L4  行业 Skill / 模板（IC 审阅、投后评级、投后报告、行研模板）   │  付费内容 / 市场分成
-├────────────────────────────────────────────────────────────────┤
-│  L3  企业治理（SSO/SCIM、审计日志、RLS 策略包、配额、计费、        │  EE 商业许可
-│      多租户控制面、合规导出、私有模型网关高级路由）                 │
-├────────────────────────────────────────────────────────────────┤
-│  L2  产品核心（chat、research-studio、asset-artifact、project、    │  Apache-2.0
-│      agent-skill-runtime、context-engine、canvas、devportal、       │
-│      skill-sandbox、desktop 本地版、基础 org-identity）             │
-├────────────────────────────────────────────────────────────────┤
-│  L1  契约与协议（packages/contracts、coord-protocol、               │  Apache-2.0（必须最宽松）
-│      skill 规格、AG-UI 事件 schema）                                 │
-├────────────────────────────────────────────────────────────────┤
-│  L0  开发过程 harness（.harness/、coord-brain/directory/           │  Apache-2.0，独立仓/独立品牌
-│      projection/repohub、agentic-harness-template）                 │
-└────────────────────────────────────────────────────────────────┘
-```
 
-**模块级归属表**：
+箭头方向就是允许的依赖方向，反向由门控拦下。
+
+### 模块级归属
 
 | 模块 | 归属 | 理由 |
 |---|---|---|
-| mod-chat | OSS | 门面能力，不开源没人用 |
-| mod-agent-skill-runtime | OSS（runtime）+ EE（企业 skill 治理：审批流、版本冻结、租户白名单） | 运行时是生态基础；治理是企业买单点 |
-| mod-research-studio | OSS 基础（访谈/录制/转写/问卷）；EE：团队级洞察库、跨项目检索 | 单人可用 → 团队协作付费 |
-| mod-asset-artifact / canvas | OSS | 与开源画布生态对齐 |
-| mod-project | OSS | 项目容器是最小可用单元 |
-| mod-org-identity | OSS：本地/单组织、邮箱登录；EE：SSO/SCIM/多组织/审计 | 经典 open core 切线 |
-| mod-coord-platform | 拆到 harness 产品，独立开源 | 与业务无关 |
-| mod-devportal / skill-sandbox | OSS | 生态入口必须开放 |
-| phase-16/17 行业 agent | **闭源**，作为付费 Skill 包发布 | 行业 know-how，是护城河 |
-| deep-agent-service（LangGraph 深度研究） | OSS，但**云端算力版**作为托管增值 | 本地可跑；云端更快更稳收费 |
+| mod-chat | OSS | 门面能力 |
+| mod-agent-skill-runtime | OSS 运行时 + EE 治理 | 运行时是生态基础，治理是买单点 |
+| mod-research-studio | OSS 基础 + EE 团队洞察库 | 单人可用，团队协作付费 |
+| mod-asset-artifact、canvas | OSS | 与开源画布生态对齐 |
+| mod-project | OSS | 最小可用单元 |
+| mod-org-identity | OSS 单组织 + EE SSO/审计 | 经典 open core 切线 |
+| mod-coord-platform | 独立开源到 harness 产品 | 与业务无关 |
+| mod-devportal、skill-sandbox | OSS | 生态入口必须开放 |
+| phase-16/17 行业 agent | 闭源付费包（待耦合度勘探确认） | 行业 know-how |
+| deep-agent-service | OSS + 云端算力版增值 | 本地可跑，云端更快 |
 
-### 2.3 需要新增的架构件
+### 切不干净的地方与处理
 
-| 件 | 作用 | 落点 |
-|---|---|---|
-| `lint-ee-boundary` | OSS 不得依赖 EE | `.harness/scripts/`，与 `lint-arch-deps` 同级 |
-| Feature flag / license key 校验 | EE 模块按许可证激活；离线许可证签名 | `apps/api/src/ee/licensing/` |
-| Skill 包签名与来源标识 | 市场分发的 skill 必须可验签、可追溯 | `skill-sandbox` + `devportal` |
-| 计量（metering）事件 | 云版按 token / 座席 / 项目数计费的原始数据 | `application/` 定义端口，EE 实现 |
-| 遥测 opt-in | 开源版匿名使用统计（默认关） | `apps/api` 启动配置，写入 PROJECT.md 事实 |
-| 双仓或单仓 monorepo 策略 | 见 §7 决策 D2 | — |
+- **多租户与 RLS**：RLS 基座在 OSS 的 PG 层，EE 只加租户路由与配额，不动基座。
+- **许可证校验**：开源代码里可被删除。威胁模型明确为防君子不防小人，靠合同执行。
+- **计量事件**：OSS 版默认不发送，遥测 opt-in，代码可审计。
+- **Cloudflare 依赖**：邮件等能力抽成适配器，提供 SMTP 默认实现，自托管者不被迫绑云。
 
----
+### 需要新增的工程件
 
-## 3. 商业模式视角：钱从哪来
-
-### 3.1 候选模式对比
-
-| 模式 | 代表 | 适配 WorkspaceX？ | 风险 |
-|---|---|---|---|
-| **Open Core** | GitLab、Cal.com、Dify | ✅ 主线。企业治理天然可切 | 切线过深会「自己和自己竞争」 |
-| **托管云（Hosted）** | Supabase、n8n、Plausible | ✅ 与 open core 叠加。云上模型/算力/存储是刚性成本，可加成定价 | 大云厂商可以托管你的开源版（用 Apache-2.0 时尤其） |
-| **Source-available / 延迟开源** | Sentry（FSL）、HashiCorp（BSL） | ⚠ 可作为**防云厂商**兜底，但会失去「真开源」的社区与 GitHub star 增长 | 社区信任成本高，2023 后争议大 |
-| **Skill / 模板市场** | Zapier、Figma Community、Dify 插件 | ✅ 与 devportal + skill-sandbox 现状高度契合 | 市场冷启动需要自己先供货（即 phase 16/17 那批） |
-| **支持与服务** | Red Hat | 🔸 早期主要来源之一（私有部署实施），但难规模化 | 人力型收入 |
-| **双许可（AGPL + 商业）** | MongoDB 早期、Qt | 🔸 可选：核心 AGPL，闭源集成方买商业许可 | AGPL 会让企业用户法务望而却步，损伤生态 |
-
-**建议组合：Open Core（Apache-2.0）+ 托管云 + Skill 市场，早期用实施服务补现金流。**
-
-### 3.2 定价梯度（草案，数字待市场验证）
-
-| 层 | 对象 | 价格形态 | 包含 |
-|---|---|---|---|
-| Local（免费） | 个人 | 0 | 桌面版，本地模型，全部 OSS 功能，零出网 |
-| Cloud Free | 个人/小团队试用 | 0 + 用量上限 | 托管，1 组织，云端模型配额 |
-| Cloud Pro | 小团队 | 按座席/月 + 用量 | 团队协作、云端深度研究、更高配额 |
-| Enterprise / 私有部署 | 机构（券商、基金、咨询） | 年费 + 实施 | SSO/SCIM、审计、私有模型网关、行业 Skill 包、SLA |
-| Skill 市场 | 开发者 & 用户 | 一次性/订阅，平台抽成 | 第三方与官方行业 skill、模板 |
-
-### 3.3 护城河在哪（开源后还剩什么）
-
-1. **行业 Skill 与评测集**：IC 审阅、投后评级的提示词、流程、评测数据是多年沉淀，不开源。
-2. **Context Engine 的运营数据**：证据/Claim/血缘图谱的质量靠使用积累，托管版天然领先。
-3. **合规与信任**：金融客户买的是「谁给我兜底」，不是代码。
-4. **harness 工程过程**：Agent 团队交付效率本身是竞争力，可独立成产品。
+`lint-ee-boundary`、SBOM 与 `lint-license-compat`、许可证校验与 feature flag、
+Skill 包签名与来源标识、计量事件端口、opt-in 遥测、`harness oss-readiness` 就绪检查、
+通用 docker compose（目前不存在，需造）。
 
 ---
 
-## 4. 用户视角：每类用户为什么用、为什么付钱
+## 5. 商业模式视角：钱从哪来
 
-| 用户 | 需求 | 开源给他什么 | 付费点 | 流失/反感点 |
+组合是开放核心 + 托管云 + Skill 市场，**前 12 个月现金流由实施与定制承担**。
+
+| 模式 | 代表 | 适配度 | 风险 |
+|---|---|---|---|
+| 开放核心 | GitLab、Cal.com、Dify | 主线 | 切线过深会自己和自己竞争 |
+| 托管云 | Supabase、n8n | 与开放核心叠加 | 大云厂可托管开源版 |
+| 延迟开源 | Sentry、HashiCorp | 防云厂兜底 | 社区信任成本高 |
+| Skill 市场 | Dify 插件、Figma Community | 与 devportal 高度契合 | 冷启动需自己先供货 |
+| 支持与服务 | Red Hat | 早期主要现金流 | 人力型，难规模化 |
+| 双许可 | MongoDB 早期 | 可选 | AGPL 让企业法务却步 |
+
+### 定价梯度（全部为假设，待验证）
+
+| 层 | 对象 | 价格形态 | 转化墙 |
+|---|---|---|---|
+| Local | 个人 | 免费 | 无，功能完整 |
+| Cloud Free | 小团队试用 | 免费 + 配额 | 第二个组织成员 |
+| Cloud Pro | 小团队 | 座席月费 + 用量 | 云端深度研究次数、数据保留期 |
+| Enterprise | 基金、券商、咨询 | 年费 + 实施 | SSO、审计、私有模型网关、SLA |
+| Skill 市场 | 开发者与用户 | 一次性或订阅 | 平台抽成 |
+
+超配额时**降级到小模型而不是断服务**。中国与海外分别定价，货币与支付通道分开。
+
+### 单位经济与止损
+
+- 建最小单位经济模型：每活跃用户月均 token × 单价 = 变动成本，对照座席价。
+- 开源本身的成本计入预算：至少 0.5 FTE 社区运营 + 0.2 FTE 安全响应。
+- **实施收入占比超过 60% 触发复盘**，防止被拖成外包公司。
+- **止损条件**：12 个月后自助付费为零，则回退到纯服务模式或闭源。
+
+### 护城河
+
+行业 Skill 与评测集；Context Engine 的运营数据；合规与信任；harness 工程过程。
+接口会被照抄，评测集与数据积累不会。
+
+---
+
+## 6. 用户视角
+
+免费层必须完整可用，付费只在多人、合规、算力、行业内容四个维度加价。
+
+| 用户 | 开源给他什么 | 付费点 | 反感点 |
+|---|---|---|---|
+| 个人研究者与分析师 | 桌面版加本地模型，完整 studio | 云端更强模型、跨设备同步 | 免费版故意阉割核心流程 |
+| 小型咨询与投研团队 | 自托管全功能 | Cloud Pro：免运维、协作、算力 | 自托管文档烂、升级痛 |
+| 机构 IT | 可审计的核心源码 | EE 许可、行业 Skill、实施 | 许可证不清晰、EE 边界移动 |
+| Skill 与集成开发者 | 契约包、沙箱、devportal | 市场分成（他们是收入方） | 契约频繁 breaking、自营挤压 |
+| 云厂与 SI 伙伴 | Apache-2.0 允许托管 | 联合销售、OEM | 无，这是 Apache 的代价 |
+| 社区贡献者 | **外部贡献快车道**：小改动只需 PR + CI 绿 | 无，换口碑 | 被内部 sprint 流程劝退 |
+| AI 工程团队 | agentic-harness-template | 未来托管协调服务 | 与主产品耦合太深 |
+
+---
+
+## 7. 社区与治理
+
+- **治理**：起步 BDFL + 公开 ADR，写进 `GOVERNANCE.md`。至少两名有合并权的维护者，降低关键人风险。
+- **贡献快车道**：外部小改动不走 sprint 流程，只需 issue + PR + CI 绿。内部流程不对外强加。
+- **语言**：英文只维护入口层（README、CONTRIBUTING、契约文档），深层容忍中文。
+- **Roadmap**：公开 roadmap 只露 phase 目标与季度，不露内部 feature。
+- **安全**：`SECURITY.md`、披露时限、CVE 流程，P0 就要有，这是企业客户硬门槛。
+- **兼容性**：契约单源让 API 兼容性可机械 diff，做成发布门控，承诺 SemVer。
+- **响应 SLA**：承诺 issue 与 PR 首次响应时间，并公开达成率。
+- **agent 参与度公开披露**：PR 标注生成来源，人类维护者负最终责任。这是本项目独有的新问题，
+  正面处理比被质疑后解释好。
+
+---
+
+## 8. 路线与度量
+
+依赖关系：P1 依赖 P0；P2 依赖 P1；P4 依赖 P2 与 P3；P5 可并行。
+
+| 阶段 | 目标 | 北极星 | 护栏 | 退出判据（可机械检查） |
 |---|---|---|---|---|
-| **个人研究者 / 分析师** | 本机跑，数据不出网，免费 | 桌面版 + Ollama，完整 studio | 云端更强模型、跨设备同步 | 免费版故意阉割核心流程 |
-| **小型咨询/投研团队（3-20 人）** | 协作、共享知识库、快 | 自托管 docker compose 全功能 | Cloud Pro：免运维、协作、算力 | 自托管文档烂、升级痛 |
-| **机构（基金/券商/咨询公司 IT）** | 合规、审计、SSO、私有模型、可审计源码 | 可审计的核心源码（这是开源最大的销售助推） | EE 许可 + 行业 Skill 包 + 实施 | 许可证不清晰、EE 边界经常移动 |
-| **Skill / 集成开发者** | 稳定契约、沙箱、分发渠道、收益 | contracts + skill-sandbox + devportal | 市场分成（他们是收入方，也是生态） | 契约频繁 breaking、平台自营 skill 挤压 |
-| **模型/云厂商与 SI 合作伙伴** | 可托管、可贴牌 | Apache-2.0 允许 | 联合销售、OEM 许可 | 无（这是 Apache 的代价，见 D1） |
-| **贡献者 / 社区** | 清晰的贡献路径、能被 merge | harness 的 issue→PR→verify 流程本身就是贡献指南 | 无（换来产品质量与口碑） | 「开源但不接 PR」 |
-| **AI 工程团队（harness 用户）** | 让 agent 团队可控地交付软件 | agentic-harness-template | 未来：托管协调服务（coord-gateway 云版）、培训 | 与主产品耦合太深无法单独用 |
+| P0 决策与法务（4-6 周） | 拍板 D0-D8 | 决策签核数 | 法务未过不进 P2 | LICENSE、SECURITY.md、SBOM、依赖许可证盘点、全历史凭据扫描报告落盘 |
+| P1 边界落地 | 代码物理隔离 | 纯 OSS 构建可用 | 不新增 OSS 功能 | `verify:base` 绿；`EE_ENABLED=false` 构建跑通 core-loop smoke |
+| P2 开源发布 | 公开仓库 | 首月部署数 | 仓库清洗未过不发布 | 干净容器跑安装脚本，计时脚本产出证据；仓库清洗与历史清洗报告 |
+| P3 云与计费 | 收入通路 | 第一笔自助付费 | 毛利不为负 | 计量事件、订阅、配额上线并有真实交易 |
+| P4 Skill 市场 | 生态通路 | 第三方 skill 交易数 | 自营不挤压第三方排序 | 第一个第三方 skill 上架并成交 |
+| P5 harness 独立 | 第二产品 | 外部团队采用数 | 不占用主产品专职资源 | 至少一个外部团队采用 |
 
-**用户视角结论**：免费层必须**完整可用**（个人本地版不缺功能），付费只在「多人、合规、算力、行业内容」四个维度加价。
-这是 Open Core 不被社区反噬的唯一做法。
+**发布前必须做 dry-run**：在私有仓构建纯 OSS 产物，完整跑一遍验收。公开发布不可撤回，
+能调整的只有后续版本与投入强度，不是已发布的那一版。
 
----
+**增长漏斗测量点**：star → 部署 → 30 天留存 → 贡献 → 付费线索，每一环单独测。
 
-## 5. 与仓库现有约束的兼容性
-
-- **契约单源**：开源核心发布 `packages/contracts`，EE 与第三方 skill 都消费它——不新增第二份事实。
-- **一个 issue 一个 PR**：开源社区贡献沿用现流程；外部 PR 走同一道 `harness verify` + `classifyChecks` 绿门。
-- **静态痕迹 ≠ 动态事实**：许可证状态要以仓库根 `LICENSE` + `package.json.license` + CI `lint-license-headers` 为动态事实，不靠文档声明。
-- **同一事实不得声明在两处**：OSS/EE 归属表只放一处（建议 `PROJECT.md` 新增「许可归属」节），本文定稿后引用而非复制。
+**开源前先测基线**：当前部署数、贡献者数、issue 响应时间、客户数。没有基线就无法判断成败。
 
 ---
 
-## 6. 分阶段路线（建议，每阶段可独立成 phase）
+## 9. 需要拍板的决策
 
-| 阶段 | 目标 | 关键产出 | 退出判据 |
-|---|---|---|---|
-| **P0 决策与法务**（2 周） | 拍板 §7 决策 | LICENSE、CLA/DCO、商标政策、EE 边界表 | 人类签核 |
-| **P1 边界落地**（1 sprint） | 代码物理隔离 | `ee/` 目录、`lint-ee-boundary`、`EE_ENABLED` 构建、license key | `verify:base` 绿；纯 OSS 构建可跑通 core-loop smoke |
-| **P2 开源发布**（1 sprint） | 公开仓库 | README 英文化、docker compose 一键起、桌面版（对齐 PROP-LOCAL-WORKSPACE-001）、CONTRIBUTING | 外部人 30 分钟内跑起来（实测） |
-| **P3 云与计费**（2 sprint） | 收入通路 | 计量事件、订阅、组织配额 | 第一笔自助付费 |
-| **P4 Skill 市场**（2 sprint） | 生态通路 | 签名/审核/分成、官方行业 Skill 上架 | 第一个第三方 skill 上架并产生交易 |
-| **P5 harness 独立**（并行） | 第二产品 | agentic-harness-template 独立仓与品牌 | 独立 star 增长与至少一个外部团队采用 |
+按依赖顺序排列。D7 与 D0 先定，它们决定其余所有。
 
----
+| 编号 | 决策 | A | B | C | 可逆性 | 建议 |
+|---|---|---|---|---|---|---|
+| D7 | **开源是为了什么** | 销售线索与信任 | 生态与标准 | 招聘与品牌 | 高 | 先答这个，它决定其余切法 |
+| D0 | **是否开源** | 开源 | 不开源，只发桌面二进制 | 先私有一年再定 | 中 | A，前提是 D7 选 A 或 B |
+| D8 | 中国优先还是全球优先 | 双轨并行 | 中国优先 | 全球优先 | 高 | A，两边渠道与合规分开做 |
+| D1 | 核心许可证 | Apache-2.0 | AGPL-3.0 + 商业双许可 | FSL/BSL 延迟开源 | **不可逆** | A；主要风险是没人用，不是被托管 |
+| D6 | 贡献协议 | DCO | CLA | 无 | 中 | **取决于 D1**：选 DCO 就放弃将来改许可证的权利 |
+| D2 | 仓库结构 | 单仓公开，`ee/` 商业许可 | 双仓 overlay | 先私有 | 中，切换有成本 | A，与单仓、契约单源、门控最兼容 |
+| D3 | EE 切线深度 | 仅治理与合规 | 加团队协作 | 再加深度研究 | 低（**承诺只进不退**） | A；切线移动是社区分叉的头号诱因 |
+| D4 | 行业 Skill 处置 | 闭源付费包 | 开源换生态 | 模板开源、评测集闭源 | 高 | **可延后**，先做 5 家目标客户访谈 |
+| D5 | harness 是否独立品牌 | 独立仓独立名 | 留在主仓 | 不推广 | 高 | A，但不投专职资源 |
 
-## 7. 需要人类拍板的决策（收窄成 A/B/C，按 `human-decision-packaging.md`）
-
-| # | 决策 | A | B | C | 建议 |
-|---|---|---|---|---|---|
-| D1 | 核心许可证 | **Apache-2.0**（最宽松，生态最好，云厂商可托管） | AGPL-3.0 + 商业双许可（防托管，损生态） | FSL/BSL 延迟开源（防托管，非 OSI 开源） | **A**。当前规模的主要风险是没人用，不是被云厂商托管 |
-| D2 | 仓库结构 | 单 monorepo 公开，`ee/` 目录商业许可（GitLab 模式） | 双仓：公开 OSS 仓 + 私有 EE 仓 overlay | 先私有，只发布桌面版二进制 | **A**。与 turbo/pnpm 单仓、契约单源、harness 门控最兼容 |
-| D3 | EE 切线深度 | 仅治理/合规/多租户 | 治理 + 团队协作 | 治理 + 协作 + 深度研究 | **A**。免费层完整是社区信任的前提 |
-| D4 | 行业 Skill 处置 | 闭源付费包 | 开源换生态 | 部分开源（模板开源、评测集闭源） | **A**，视市场冷启动情况改 C |
-| D5 | harness 是否独立品牌 | 独立仓独立名 | 留在主仓 `docs/` | 不推广 | **A** |
-| D6 | 贡献协议 | DCO | CLA | 无 | **A**（DCO 摩擦最小；若要保留将来改许可证的权利选 B） |
+每条决策需补：签核人、截止日期、复审触发条件。
 
 ---
 
-## 8. 未决风险
+## 10. 风险
 
-- **Apache-2.0 的托管风险**：若某云厂商托管开源版，我们只能靠 EE 功能与行业 Skill 竞争。可接受，但需要 EE 切线**稳定**——频繁把 OSS 功能挪进 EE 是社区最大反感点。
-- **市场冷启动**：Skill 市场没有第三方供货前只有自营内容，要接受 6-12 个月自营期。
-- **合规成本**：金融客户的私有部署验收周期长，实施收入是人力型，注意不要被拖成外包公司。
-- **免费本地版的模型质量**：qwen3.5:4b 本地体验决定第一印象；桌面版发布前要有明确的「本地/云端能力差异」说明，而不是让用户以为产品本身弱。
+| 风险 | 概率 | 影响 | 早期信号 | 应对 |
+|---|---|---|---|---|
+| **开源后无人问津** | 高 | 致命 | 首月部署数低于两位数 | 定位与品类词先验证；渠道双轨；必要时收缩为纯服务 |
+| 内部信息随仓库泄露 | 中 | 致命 | 清洗报告有遗漏项 | HEAD 与历史都洗；必要时从干净仓重新发布 |
+| 依赖不可再分发 | 中 | 高 | 许可证盘点出现 copyleft 或商业包 | 替换或改为运行时下载 |
+| 安全事件 | 中 | 高 | 沙箱逃逸报告 | SECURITY.md、沙箱加固列 P1 |
+| 供应链攻击 | 中 | 高 | 依赖异常更新 | 锁定、SBOM、签名发布 |
+| EE 切线移动引发分叉 | 低 | 高 | 社区对新功能归属的抗议 | 承诺切线只进不退 |
+| 云厂托管开源版 | 低 | 中 | 出现托管竞品 | 靠 EE 与行业 Skill 竞争 |
+| 关键人风险 | 中 | 高 | 单人合并权 | 两名以上维护者 |
+| 中美政策变化 | 中 | 中 | 合规要求变更 | 双轨部署与双轨社区 |
+| agent 产出被质疑质量 | 中 | 中 | 社区对 PR 来源的讨论 | 公开披露 + 每个 feature 带可复现验证 |
 
 ---
+
+## 11. 下一步
+
+本方案批准后按项目规则执行：**每个阶段开 issue，一 issue 一 PR**，不许无 issue 开发。
+OSS/EE 归属表批准后落到 `PROJECT.md`（单一事实源），本文只引用不复制，并加脚本核对防漂移。
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 说明 |
+|---|---|---|
+| v1 | 2026-09-20 | 初稿 |
+| v11 | 2026-09-22 | 经十轮迭代、100 个问题修订；见 `open-source-business-model-iterations.md` |
 
 ## 参考
 
-- `.harness/instructions/architecture.md`（洋葱架构 + 契约单源）
-- `docs/architecture/context-engine.md`
-- `docs/proposals/PROP-LOCAL-WORKSPACE-001.md`
-- `.harness/instructions/human-decision-packaging.md`
-- 业界案例：GitLab（open core 单仓 `ee/`）、Cal.com（AGPL + 商业）、Dify（Apache-2.0 + 插件市场 + 云）、Sentry（FSL）
+- 仓库内：`.harness/instructions/architecture.md`、`docs/architecture/context-engine.md`、
+  `docs/proposals/PROP-LOCAL-WORKSPACE-001.md`、`.harness/instructions/human-decision-packaging.md`、
+  `.harness/instructions/static-trace-vs-live-fact.md`
+- 业界案例：GitLab（单仓 `ee/`）、Cal.com（AGPL + 商业）、Dify（Apache-2.0 + 插件市场 + 云）、Sentry（FSL）
