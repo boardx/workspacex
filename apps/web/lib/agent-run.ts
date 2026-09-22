@@ -116,7 +116,9 @@ export function describeAgentRunFailureForEdition(
   edition: DeploymentEditionValue,
 ): string {
   const base = describeAgentRunFailure(code, reason);
-  const next = failureNextStep(edition, reason ?? null);
+  // 成因给不出建议时退到终态码那张表（例：`MODEL_PROVIDER_NOT_CONFIGURED` 没有成因，
+  // 而它的原文案是「请联系管理员」——本地版没有管理员）。永远只出一句「下一步」。
+  const next = failureNextStep(edition, reason ?? null, code);
   return next === null ? base : `${base}\n\n下一步：${next}`;
 }
 
