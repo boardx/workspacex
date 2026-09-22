@@ -249,6 +249,10 @@ const STATE_NAME_DOC = ".harness/instructions/chat-task-workbench-acceptance.md"
 
 const KERNEL_MODULE = "apps/api/src/kernel.module.ts";
 const UI_WIRING_MANIFEST = ".harness/scripts/ui-wiring-manifest.json";
+// e2e-testid-gate 打的是「源码里删掉一个 testid，而锚着它的 spec 没跟进」——
+// 这个声明点是全仓唯一一处（`copilotkit-v2-thread-persistence.spec.ts` 等多条
+// spec 锚着它），改掉它必须当场红。
+const V2_MESSAGES_DECL = "apps/web/components/chat/copilotkit-v2-panel-body.tsx";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -413,6 +417,17 @@ export const GATE_SPECS: readonly GateSpec[] = [
           "apps/web/lib/live-chat.ts",
           "// 变异探针：契约里没有 `createMessage` 这个写端口。",
         ),
+      },
+    ],
+  },
+  {
+    gate: "e2e-testid-gate",
+    run: node(".harness/scripts/lint-e2e-testid-gate.mjs"),
+    guards: (_r, io) => io.exists(V2_MESSAGES_DECL),
+    mutations: [
+      {
+        name: "源码里改掉一个 e2e 还锚着的 testid（模拟 #2128 的「删东西」）",
+        apply: replaceOnce(V2_MESSAGES_DECL, 'data-testid="copilotkit-v2-messages"', 'data-testid="copilotkit-v2-messages-probe-renamed"'),
       },
     ],
   },

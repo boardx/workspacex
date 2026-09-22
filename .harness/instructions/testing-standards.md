@@ -93,6 +93,28 @@ config 覆盖，否则 `lint-spec-gate-coverage.mjs` 会挡：一个没人跑的
 纯取证/截图脚本（不承担 gate 职责）可以登记进该脚本的 `EXEMPTIONS` 并写明理由
 （先例：`chat-main-shots.spec.ts` / `vz-fabric-shots.spec.ts`）。
 
+### spec 引用的 testid 必须在源码里存在（`lint:e2e-testid-gate`，#2128）
+
+e2e 只认 `data-testid`，于是「**删掉一个 testid 而 spec 没跟进**」这个形状 2026-08-26
+一天内咬了两次（`tpladmin-editor-add-section`；撤表格视图时连带没了的 `tpladmin-row-*`
+与 `canvas-template-usage-*`）。两次都是**改动侧全绿**——lint / tsc / 单测都不看 testid
+字符串，只有跑完整栈浏览器 e2e 才会红，那是最慢最贵、最容易被当成环境抖动的一层。
+
+`.harness/scripts/lint-e2e-testid-gate.mjs` 把它提前到秒级：纯文本比对，不起浏览器、
+不连库，`verify:harness` 里跑。它只回答一个问题——**这个 testid 在源码里出现过吗**；
+不查它在不在正确的组件里，更不查它当前渲染得出来（那些只有真 e2e 能证），判据与
+已知宽松点逐条写在脚本头注里。
+
+「断言它不存在」的引用（如表格视图撤掉后断言 `tpladmin-table` 的 `toHaveCount(0)`）用
+**行内标注**豁免，不维护允许清单：
+
+```ts
+await expect(page.getByTestId("tpladmin-table")).toHaveCount(0); // testid-gate: absent 表格视图已撤（#2123）
+```
+
+标注写在行尾只豁免该行，独占一行则豁免下一行；覆盖不到引用、或被豁免的 testid 又回到
+源码里，都判红——豁免不会悄悄烂掉。
+
 Chat Agent 的延迟、流式连续性、HITL 恢复、轨迹和画布性能门控统一见
 [`chat-agent-performance-acceptance.md`](./chat-agent-performance-acceptance.md)。相关测试不得在
 各 spec 内另写一套冲突阈值。
