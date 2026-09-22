@@ -85,7 +85,8 @@ CREATE TABLE IF NOT EXISTS stream_tickets (
 );
 
 -- tasks 收件箱（F10 前置）：字段语义等价 coord-service migrations/0002_tasks.sql（#614）。
--- coordinator 经 admin 面派工，assignee 轮询 GET + ack，纯 HTTP + bearer token。
+-- coordinator 经派工面（admin token 或其 Directory scoped token，#480）派工，
+-- assignee 轮询 GET + ack，纯 HTTP + bearer token。
 -- 与 D1 版的差异：assignee/created_by 不再 REFERENCES agents(id)——DO 无 agents 表，
 -- 派工资格与 assignee 在册校验上移到调用方（devportal broker 对 registry.yaml 校验）。
 -- id 保留 AUTOINCREMENT：割接导入显式 id 后 sqlite_sequence 自动推进，新派工不撞号。
