@@ -21,8 +21,9 @@ import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/liv
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
-import { ChatArtifactView } from "@/components/chat/chat-artifact-view";
-import { ArrowLeft, Maximize2 } from "lucide-react";
+import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
+import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
+import { ArrowLeft, Check, Copy, Download, Maximize2 } from "lucide-react";
 
 const mobileQuery = "(max-width: 767px)";
 /** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
@@ -624,6 +625,37 @@ function ArtifactDetail({
   readonly onBack: () => void;
   readonly onEnlarge?: () => void;
 }): React.JSX.Element {
+  /**
+   * 载入到的那一份。动作条按它开关：**没载到就不给按**——一颗点了没反应的
+   * 「复制」比没有这颗按钮更糟（#2099 同一条纪律）。
+   */
+  const [doc, setDoc] = React.useState<LoadedArtifact | null>(null);
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => { setCopied(false); }, 1600);
+    return () => { clearTimeout(timer); };
+  }, [copied]);
+
+  const copy = (): void => {
+    if (doc === null) return;
+    void navigator.clipboard?.writeText(doc.markdown).then(() => { setCopied(true); });
+  };
+  const download = (): void => {
+    if (doc === null) return;
+    // 下载的是**已经载到的这一份**，不重新取源：否则会出现「看到的是 v3、
+    // 存下来的是 v4」这种同一动作里两处不一致。
+    const url = URL.createObjectURL(new Blob([doc.markdown], { type: "text/markdown;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = artifactFileName(item.title);
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const actionClass =
+    "rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-inspector-artifact-detail">
       <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
@@ -639,6 +671,23 @@ function ArtifactDetail({
         <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground" title={item.title}>
           {item.title}
         </span>
+        <button
+          type="button" onClick={copy} disabled={doc === null}
+          data-testid="chat-inspector-artifact-copy"
+          aria-label={copied ? "已复制" : "复制全文"} title={copied ? "已复制" : "复制全文"}
+          className={actionClass}
+        >
+          {copied
+            ? <Check className="size-3.5 text-success" aria-hidden />
+            : <Copy className="size-3.5" aria-hidden />}
+        </button>
+        <button
+          type="button" onClick={download} disabled={doc === null}
+          data-testid="chat-inspector-artifact-download"
+          aria-label="下载" title="下载" className={actionClass}
+        >
+          <Download className="size-3.5" aria-hidden />
+        </button>
         {onEnlarge ? (
           <button
             type="button"
@@ -646,18 +695,24 @@ function ArtifactDetail({
             data-testid="chat-inspector-artifact-enlarge"
             aria-label="放大查看"
             title="放大查看"
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className={actionClass}
           >
             <Maximize2 className="size-3.5" aria-hidden />
           </button>
         ) : null}
       </div>
       <ChatArtifactView
-        className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13"
+        /*
+         * 窄栏守卫：右栏可以被拖到 240px，代码块与表格在那个宽度下会横向溢出，
+         * 把整条右栏撑出横向滚动条（连标题栏一起歪掉）。给它们各自的横向滚动，
+         * 正文本身仍然在栏宽内重排。
+         */
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13 [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
         threadId={threadId}
         projectId={projectId}
         artifactId={item.artifactId}
         bearer={bearer}
+        onLoaded={setDoc}
       />
     </div>
   );

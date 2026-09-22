@@ -22,8 +22,14 @@ import { getThreadArtifactSource } from "@/lib/live-chat";
  * `threadId`/`messageId`/`bearer`（`canPersist` 门槛，见 #2070）：这是「看已经落地的产物」，
  * 不是「编辑一条消息里的图表」，这里不该画第二条落地路径。
  */
+export interface LoadedArtifact {
+  readonly markdown: string;
+  readonly version: number | null;
+  readonly savedAt: string;
+}
+
 export function ChatArtifactView({
-  threadId, projectId, artifactId, bearer, className,
+  threadId, projectId, artifactId, bearer, className, onLoaded,
 }: {
   readonly threadId: string;
   /** `null` = 个人线程——同 `getThreadArtifactSource` 同名参数注释。 */
@@ -31,6 +37,11 @@ export function ChatArtifactView({
   readonly artifactId: string;
   readonly bearer: string | undefined;
   readonly className?: string;
+  /**
+   * 载入成功时回一份内容给宿主。动作条（复制 / 下载）要的就是这份文本——
+   * 让它自己再取一遍源会出现「看到的是 v3、复制到的是 v4」这种两处不一致。
+   */
+  readonly onLoaded?: (doc: LoadedArtifact | null) => void;
 }): React.JSX.Element {
   const [state, setState] = React.useState<
     | { status: "loading" }
@@ -38,14 +49,19 @@ export function ChatArtifactView({
     | { status: "ready"; markdown: string; version: number | null; savedAt: string }
   >({ status: "loading" });
 
+  const notify = React.useRef(onLoaded);
+  notify.current = onLoaded;
+
   React.useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
+    notify.current?.(null);
     (async () => {
       try {
         const out = await getThreadArtifactSource(threadId, artifactId, projectId, bearer);
         if (cancelled) return;
         setState({ status: "ready", markdown: out.markdown, version: out.version, savedAt: out.savedAt });
+        notify.current?.({ markdown: out.markdown, version: out.version, savedAt: out.savedAt });
       } catch (e) {
         if (cancelled) return;
         // 契约错码原样回显（NOT_VISIBLE / STORAGE_UNAVAILABLE 用户的处置完全不同），
