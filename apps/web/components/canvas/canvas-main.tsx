@@ -6,6 +6,7 @@ import type { UiState } from "@/lib/ui-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 import type { ProjectRole } from "@/lib/identity";
 import { CanvasToolbar, ZOOM_MIN, ZOOM_MAX, type CanvasTool } from "./canvas-toolbar";
 import { CanvasStage } from "./canvas-stage";
@@ -204,8 +205,8 @@ function SourceView({
           </Button>
         )}
       </div>
-      <textarea
-        className="min-h-0 flex-1 resize-none overflow-auto rounded-md border border-border bg-muted p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      <Textarea
+        className="min-h-0 flex-1 overflow-auto rounded-md bg-muted p-3 font-mono text-11 leading-relaxed"
         data-testid="canvas-source-textarea"
         value={draft}
         readOnly={readOnly}

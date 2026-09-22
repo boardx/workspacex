@@ -12,13 +12,23 @@ import type { CanvasTemplate } from "@/lib/live-canvas";
 import { canvas } from "@repo/contracts";
 import { getTemplate } from "@repo/fabric-markdown";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, GRID_ROWS, TONE_COLORS, STANDARD_NOTE_MM,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
-import type { GridColsValue } from "@repo/contracts/canvas";
+import { DEFAULT_GRID_ROWS, type GridColsValue, type GridRowsValue } from "@repo/contracts/canvas";
 
-export { GRID_ROWS };
+/*
+ * ⚠ 行数从**模块常量**变成了**每个纯函数的入参**（issue #3358 第 8 项）——本文件
+ * 此前重新导出 `GRID_ROWS` 供 `template-display-panel.tsx` 的步进器上限使用，
+ * 那份导出连同 `explicit-template-layout.ts` 里的常量一起删了。理由见该文件相应位置：
+ * 一张模板现在记着自己是 8 行还是 16 行，行数不再是"全仓一个数"。
+ *
+ * 下面这几个函数（`defaultLayoutAt`/`autoFillLayout`/`clampLayout`/`maxFreeH`/
+ * `sectionGeometryMmOf`/`checkTemplateHealth`）的 `gridRows` 一律**排在既有参数
+ * 之后**并带缺省值：既有调用点与测试的实参次序因此一个字不用改，缺省值就是老数据
+ * 的落库默认值（`DEFAULT_GRID_ROWS`），逐字节同解。
+ */
 
 // 单一事实源迁到 `explicit-template-layout.ts`（issue #2372：`buildExplicitTemplateSpec`
 // 现在也要按 `tone` 取贴纸颜色，lib 层需要能直接读到这份色板，不能反过来从组件层
@@ -311,6 +321,7 @@ export function defaultStickyColsFor(
 export function defaultLayoutAt(
   type: SectionFieldType, col: number, row: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
   limits?: { readonly maxW?: number; readonly maxH?: number },
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): SectionLayoutDraft {
   // 落到画布上的默认尺寸：**一律 2×2**，不按类型分档。
   //
@@ -323,7 +334,7 @@ export function defaultLayoutAt(
   // ⚠ 与网格制式无关：2 就是 2 格，不随 6/12/24 列缩放。使用者说的是「2×2」这个
   //   格数，不是「六分之一幅」这种比例——按比例算会让 24 列制下的默认块又变回四格宽。
   const w = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
-  const h = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
+  const h = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, gridRows - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
   const cols = defaultStickyColsFor(type, w, gridCols, size);
   return {
     col, row, w, h,
@@ -340,7 +351,10 @@ export function defaultLayoutAt(
      *
      *   下限 1：再小的框也至少宣称一条，否则右栏的步进器一落地就卡在 0。
      */
-    max: clamp(sectionGeometryMm({ w, h, cols, gridCols, size }).fits, LAYOUT_BOUNDS.max.min, LAYOUT_BOUNDS.max.max),
+    max: clamp(
+      sectionGeometryMm({ w, h, cols, gridCols, gridRows, size }).fits,
+      LAYOUT_BOUNDS.max.min, LAYOUT_BOUNDS.max.max,
+    ),
     tone: 0,
     overflow: "缩小字号",
   };
@@ -349,9 +363,6 @@ export function defaultLayoutAt(
 function blockWidthMm(w: number, gridCols: GridColsValue, size: PaperSizeKey = "A1"): number {
   return (w / gridCols) * contentMmFor(size).w - GRID_GAP_MM;
 }
-
-/** 自动排版用的行数——与画布网格是同一个数（`GRID_ROWS` 是唯一声明处）。 */
-const AUTO_LAYOUT_GRID_ROWS = GRID_ROWS;
 
 /**
  * 「不要手工排版」——2026-08-27 人类原话：「在编辑界面因该有一个按钮，可以根据字段
@@ -388,6 +399,7 @@ export function autoFillLayout(
   drafts: readonly SectionDraft[],
   gridCols: GridColsValue,
   size: PaperSizeKey = "A1",
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): SectionDraft[] {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   const header = named.filter((d) => d.type === "短文本");
@@ -412,7 +424,8 @@ export function autoFillLayout(
   }
 
   // ② 正文：剩余的行全部铺满，不留白带。
-  const remainingRows = Math.max(1, AUTO_LAYOUT_GRID_ROWS - (row - 1));
+  // 自动排版铺满的是**这张模板自己的**网格（8 行或 16 行），不是一个全局常量。
+  const remainingRows = Math.max(1, gridRows - (row - 1));
   if (body.length > 0) {
     // 每行份数：优先 3 个一行（与内置模板的常见版式一致），但不能让所需行数
     // 超过剩余可用行数——超过时改为「按剩余行数反推」，保证放得下。
@@ -461,14 +474,16 @@ export function clamp(n: number, lo: number, hi: number): number {
 }
 
 /** 把一个区块夹回画布内（拖到越界时用，`Design.pdf` §4.2「越界时自动夹到画布内」）。 */
-export function clampLayout(layout: SectionLayoutDraft, gridCols: GridColsValue): SectionLayoutDraft {
+export function clampLayout(
+  layout: SectionLayoutDraft, gridCols: GridColsValue, gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
+): SectionLayoutDraft {
   const w = clamp(layout.w, 1, gridCols);
-  const h = clamp(layout.h, 1, GRID_ROWS);
+  const h = clamp(layout.h, 1, gridRows);
   return {
     ...layout,
     w, h,
     col: clamp(layout.col, 1, gridCols - w + 1),
-    row: clamp(layout.row, 1, GRID_ROWS - h + 1),
+    row: clamp(layout.row, 1, gridRows - h + 1),
   };
 }
 
@@ -543,8 +558,9 @@ export function maxFreeW(
 /** 同 `maxFreeW`，朝下的方向。 */
 export function maxFreeH(
   sections: readonly SectionDraft[], sectionId: string, col: number, row: number, w: number,
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): number {
-  const bound = GRID_ROWS - row + 1;
+  const bound = gridRows - row + 1;
   let h = 1;
   while (h < bound && !collidesWithOthers(sections, sectionId, { col, row, w, h: h + 1 })) h += 1;
   return h;
@@ -552,10 +568,13 @@ export function maxFreeH(
 
 export function sectionGeometryMmOf(
   s: SectionDraft, gridCols: GridColsValue, size: PaperSizeKey = "A1",
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
-  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, max: layout.max, gridCols, size });
+  return sectionGeometryMm({
+    w: layout.w, h: layout.h, cols: layout.cols, max: layout.max, gridCols, gridRows, size,
+  });
 }
 
 /**
@@ -649,6 +668,7 @@ export function extractPromptPlaceholders(promptText: string): string[] {
 
 export function checkTemplateHealth(
   drafts: readonly SectionDraft[], gridCols: GridColsValue, promptText = "", size: PaperSizeKey = "A1",
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   // 「文本对象」是静态装帧文字，不绑定 `{{key}}`、不进 AI 输出结构——字段计数/
@@ -662,7 +682,7 @@ export function checkTemplateHealth(
   const overflowing: { section: SectionDraft; max: number; fits: number }[] = [];
   for (const d of dataFields) {
     if (!d.layout || d.type !== "便利贴列表") continue;
-    const geom = sectionGeometryMmOf(d, gridCols, size);
+    const geom = sectionGeometryMmOf(d, gridCols, size, gridRows);
     if (d.layout.max > geom.fits) overflowing.push({ section: d, max: d.layout.max, fits: geom.fits });
   }
   const seen = new Set<string>();

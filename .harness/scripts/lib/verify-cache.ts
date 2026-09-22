@@ -3,7 +3,9 @@
 // 记录：commit SHA、验证类型、命令、退出码、完成时间、关键输入指纹。指纹覆盖
 // "同一 SHA 但工作树有未提交改动"这类情况——只用 SHA 做 key 会把这类改动误判成
 // "没变"，指纹里叠了 HEAD 差异（含未跟踪文件）+ lockfile 哈希，任何一处变了就是
-// 不同指纹，旧记录不会被误命中。
+// 不同指纹，旧记录不会被误命中。唯一的例外是 harness 自己在验证过程中写出的派生物
+// （#1341），逐条点名在 `FINGERPRINT_EXCLUDED_PATHS`——清单与论证只在那一处，本头
+// 注释不复述。
 //
 // 存储：.harness/state/.cache/verify-credentials.jsonl（已 gitignore，运行时生成物，
 // 不是权威——凭证只是"这份指纹在这个环境下跑过一次、结果是什么"的备忘，不代表
@@ -75,16 +77,63 @@ export function currentSha(): string {
 }
 
 /**
+ * 指纹**不看**的路径：harness 自己在验证过程中写出的派生物（#1341）。
+ *
+ * 这是本模块的单一事实源——`git diff` 与未跟踪文件清单共用同一份清单，不允许
+ * 第二处声明（AGENTS.md「同一事实不得声明在两处」）。每一条都必须能论证"它是
+ * 验证的**输出**，不是输入"，排宽一条就是一次假绿：真实的输入变化被忽略 →
+ * 缓存误命中 → 跳过本该跑的验证。因此这里是**逐条点名**，不是按目录一把梭。
+ *
+ * · `.harness/state/PROGRESS.md` —— `verify.ts` 结尾无条件调 `refreshProgress()`
+ *   重写它，正文里嵌着运行时刻（`lib/progress.ts`:`_最近聚合:<ISO>_`）。它是
+ *   feature_list.json 的只读聚合视图，没有任何门控把它当输入读。这正是 #1341
+ *   实测到的"连跑 3 次 verify、3 条缓存记录、0 次命中"的直接成因。
+ * · `phases/**\/evidence/**` —— `verify.ts` 每验证一个 feature 就把日志写进
+ *   `<sprint>/evidence/<id>.verify.log`。证据按定义是验证的产物；.gitignore 里
+ *   `!phases/**\/evidence/*.log` 让它们入库，所以既会进 `git diff HEAD`，新建的
+ *   那次还会进未跟踪清单——两条路径都要排除。
+ *
+ * ── 明确**不**排除（排了就是假绿）────────────────────────────────────────
+ * · `.harness/config/**`：`harness.config.yaml` 定义 profile 映射，改它就是改验证
+ *   行为（#1341 正文点名要求确认这一条）。
+ * · `.harness/state/` 下的其它文件：这个目录**不是**纯派生物——
+ *   `roadmap.yaml`、`rewrite-coverage-allowlist.json`、`feature-evidence-allowlist.json`
+ *   等是门控真正读的输入，按目录整体排除会让"改了允许清单却复用旧结果"成为可能。
+ * · `phases/*\/feature_list.json`：它同时装着输入（`verification` 命令、`spec_ref`）
+ *   和输出（`status`、`evidence` 指针）。改验证命令必须让旧结果失效，所以整份留在
+ *   指纹里。代价是"某次 verify 把 feature 翻成 passing"之后的**下一次**调用仍会
+ *   miss（权威清单确实变了），再下一次才稳定命中；宁可多跑一次，不换假绿。
+ * · `**\/active-features.json`、`.harness/state/.cache/**`：已被 .gitignore 排除，
+ *   本来就不进指纹，不需要在这里重复声明第二遍。
+ */
+export const FINGERPRINT_EXCLUDED_PATHS = [
+  ".harness/state/PROGRESS.md",
+  "phases/**/evidence/**",
+] as const;
+
+/**
+ * 把排除清单编成 git pathspec 参数：`. ':(exclude,glob)<path>' …`。
+ * `glob` magic 是必须的——默认 pathspec 不把 `**` 当跨目录通配符。
+ */
+function excludePathspec(): string {
+  return ["."]
+    .concat(FINGERPRINT_EXCLUDED_PATHS.map((p) => `':(exclude,glob)${p}'`))
+    .join(" ");
+}
+
+/**
  * 关键输入指纹：HEAD 相对工作树的完整 diff（含 staged/unstaged）+ 未跟踪文件的
- * 路径与内容 + lockfile 哈希。任何一处变化都会让指纹变化，即使 SHA 没变——这是
+ * 路径与内容 + lockfile 哈希，**扣掉 `FINGERPRINT_EXCLUDED_PATHS` 里 harness 自己
+ * 产出的派生物**（#1341）。任何一处变化都会让指纹变化，即使 SHA 没变——这是
  * "代码发生变化时旧结果必须自动失效"这条要求的机械实现，不是靠约定。
  *
  * `root` 默认是本仓库根，生产调用方不传；测试传隔离的临时 git 仓库——指纹吃进
  * 未跟踪文件内容，对真实仓库算指纹会与并行测试创建/删除的临时文件竞争（issue #2040）。
  */
 export function computeFingerprint(sha: string, root: string = ROOT): string {
-  const diff = shOrEmpty("git diff HEAD --", root);
-  const untrackedFiles = shOrEmpty("git ls-files --others --exclude-standard", root)
+  const pathspec = excludePathspec();
+  const diff = shOrEmpty(`git diff HEAD -- ${pathspec}`, root);
+  const untrackedFiles = shOrEmpty(`git ls-files --others --exclude-standard -- ${pathspec}`, root)
     .split("\n")
     .filter(Boolean)
     .sort();

@@ -5,7 +5,7 @@ import { SurveyReportChart } from "./report-chart";
 export { SurveyReportChart } from "./report-chart";
 import type { survey } from "@repo/contracts";
 
-import { reportNumber } from "./report-format";
+import { reportNumber, REPORT_COLORS } from "./report-format";
 export { reportNumber } from "./report-format";
 const rowLabel = (row: survey.SurveyReportRow) =>
   [row.label, row.group].filter(Boolean).join(" · ");
@@ -103,17 +103,29 @@ export function SurveyReportDocument({
       {!report.sections.length && (
         <p className="text-muted-foreground">尚无报告章节</p>
       )}
-      {report.sections.map((section) => (
+      {report.sections.map((section, sectionIndex) => (
         <section
           key={section.id}
           id={`survey-report-anchor-${section.id}`}
           data-section-id={section.id}
           className="mb-10 scroll-mt-4"
         >
-          <h2 className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
+          <h2 style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length], borderLeftColor: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="mb-6 border-l-2 border-primary pl-4 text-20 font-semibold">{section.title}</h2>
+          {!!section.analysis?.length && (
+            <div className="mb-6 space-y-4" data-testid="survey-section-analysis">
+              {section.analysis.map((insight, index) => (
+                <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
+                  <h3 className="mb-2 text-16 font-semibold text-primary">{insight.title}</h3>
+                  <p className="text-14 leading-7">{insight.evidence}</p>
+                  <p className="mt-3 text-14 leading-7"><strong>建议行动：</strong>{insight.action}</p>
+                </div>
+              ))}
+            </div>
+          )}
           {!section.blocks.length && (
             <p className="text-muted-foreground">本章尚无内容</p>
           )}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {section.blocks.map((block) =>
             block.type === "page-break" ? (
               <div
@@ -122,7 +134,7 @@ export function SurveyReportDocument({
                 style={{ breakAfter: "page" }}
               />
             ) : (
-              <div key={block.id} className="mb-8 rounded-lg border border-border p-5 sm:p-6" data-report-block={block.id}>
+              <div key={block.id} className={`rounded-lg border border-border p-5 ${block.type === "metric" ? "" : "sm:col-span-2"}`} data-report-block={block.id}>
                 <h3 className="mb-3 text-16 font-semibold">{block.title}</h3>
                 {block.text && (
                   <p className="mb-4 whitespace-pre-wrap text-14 leading-7">
@@ -163,7 +175,7 @@ export function SurveyReportDocument({
                                   <dt className="text-13 text-muted-foreground">
                                     {rowLabel(row) !== block.title ? rowLabel(row) : null}
                                   </dt>
-                                  <dd className="text-24 font-semibold">
+                                  <dd style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="text-24 font-semibold">
                                     {reportNumber(row.value)}
                                   </dd>
                                   <dd className="text-12 text-muted-foreground">
@@ -202,6 +214,7 @@ export function SurveyReportDocument({
               </div>
             ),
           )}
+          </div>
         </section>
       ))}
     </article>

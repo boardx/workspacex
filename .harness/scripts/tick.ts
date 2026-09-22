@@ -4,18 +4,34 @@
 // ——因为"续约"全靠会话想起来做；同期 cycle-report 用本地时钟算周期，机器时钟一漂
 // 各算各的。教训与 ADR-012 同款：**能机械化的纪律，绝不交给记性**。
 //
-// 一条命令做完一个 loop 该做的四件事，任何 runtime 都能在自己的循环里调它：
+// 一条命令做完一个 loop 该做的五件事，任何 runtime 都能在自己的循环里调它：
 //   1. 读权威时钟（coord-gateway GET /api/coord/time）——现在几点、当前哪个周期、还剩多久
 //   2. 报本地时钟漂移（>60s 告警：你按错误时间协调会误判租约新鲜度/周期边界）
 //   3. 续自己的租约（acquire-or-renew，避免静默过期）
+//   3.5 判周期汇报义务（#534）：持协调租约却没发上一周期的 cycle-result ⇒ 红。
+//       第 1 步那句「结束前必须发 cycle-result」此前只是提示，十几个周期无人发现——
+//       提示与门放在同一条命令里，判据见 lib/cycle-result-gate.ts。
 //   4. 拉任务收件箱（有 pending 就提示 ack）
 // 输出是给人/agent 读的行动清单；正常退出 0，权威缺失/不可达退出非 0；--json 供脚本消费。
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import { createCoordClient } from "@repo/coord-protocol/client";
 import { errDetail } from "./lib/coord-client";
+import {
+  fetchWorkCycleComments,
+  isCoordinatorLease,
+  judgeCycleResults,
+  type FetchWorkCycleCommentsOptions,
+  type LeaseLike,
+  type WorkCycleCommentsResult,
+} from "./lib/cycle-result-gate";
 
 const DRIFT_WARN_SECONDS = 60;
+
+/** 测试注入口：默认走真实 gh。 */
+export interface TickDeps {
+  readWorkCycleComments?: (opts: FetchWorkCycleCommentsOptions) => WorkCycleCommentsResult;
+}
 
 interface TimePayload {
   now: string;
@@ -43,7 +59,7 @@ function fmtRemaining(seconds: number): string {
   return h > 0 ? `${h}h${m}m` : `${m}m`;
 }
 
-export async function tick(args: Args): Promise<void> {
+export async function tick(args: Args, deps: TickDeps = {}): Promise<void> {
   const sessionId = args.opts["session"] ?? env("COORD_AGENT_ID");
   const asJson = args.flags["json"] === true;
   const baseUrl = env("COORD_GATEWAY_URL")?.replace(/\/+$/, "");
@@ -116,6 +132,8 @@ export async function tick(args: Args): Promise<void> {
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   // ── 3. 续租约（acquire-or-renew，防静默过期）─────────────────────────────
+  // myLeases 同时是第 3.5 步周期汇报门的输入：null = 问不到（≠ 没有租约）。
+  let myLeases: LeaseLike[] | null = null;
   const claims = await client.listActiveClaims();
   if (claims.kind === "error") {
     log.err(`[lease] 查询 coord-gateway 权威租约失败（${errDetail(claims)}）——问不到不等于空闲。`);
@@ -123,6 +141,7 @@ export async function tick(args: Args): Promise<void> {
     process.exitCode = 1;
   } else {
     const mine = claims.leases.filter((lease) => lease.agent_id === sessionId);
+    myLeases = mine;
     if (mine.length === 0) {
       if (!asJson) log.info(`[lease] agent=${sessionId} 无活跃租约——如你正在履职，先运行对应的 lock-acquire/claim。`);
       out["lease"] = { agent_id: sessionId, renewed: false, absent: true };
@@ -147,6 +166,36 @@ export async function tick(args: Args): Promise<void> {
       out["lease"] = { agent_id: sessionId, renewed: renewed.every((item) => item.renewed), leases: renewed };
     }
   }
+
+  // ── 3.5 周期汇报门（#534）────────────────────────────────────────────────
+  // 上面第 1 步每一轮都逐字提示「结束前必须发 cycle-result」——而在此之前没有任何脚本
+  // 会因为它没被履行而变红，于是十几个周期无人发现（包括当事人自己）。提示就在这条命令里，
+  // 门也放在这条命令里：判据与红线 10 的前置失败区分全在 lib/cycle-result-gate.ts。
+  const coordinatorLeases = myLeases === null ? null : myLeases.filter(isCoordinatorLease);
+  // 只有背义务的角色才去读 gh（worker 每个 loop 不必多付一次子进程）。
+  const commentsResult =
+    coordinatorLeases !== null && coordinatorLeases.length > 0
+      ? (deps.readWorkCycleComments ?? fetchWorkCycleComments)({ repo })
+      : null;
+  const cycleGate = judgeCycleResults({
+    cycle: time.cycle,
+    leases: coordinatorLeases,
+    comments: commentsResult?.kind === "ok" ? commentsResult.comments : null,
+    workCycleIssueFound: commentsResult === null ? undefined : commentsResult.kind !== "no-issue",
+    agents: [sessionId],
+  });
+  for (const finding of cycleGate.findings) {
+    const line = `[cycle-result] ${finding.message}`;
+    if (finding.level === "FAIL") log.err(line);
+    else if (finding.level === "WARN") log.warn(line);
+    else if (!asJson) log.info(line);
+  }
+  out["cycle_result"] = {
+    judged_cycle: cycleGate.judgedCycle,
+    failed: cycleGate.failed,
+    findings: cycleGate.findings,
+  };
+  if (cycleGate.failed) process.exitCode = 1;
 
   // ── 4. 任务收件箱（#594 平台中立派工）────────────────────────────────────
   const inbox = await fetchJson<{ tasks: Array<{ id: number; issue: number; priority: string; note: string | null }> }>(

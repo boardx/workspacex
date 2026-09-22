@@ -2,7 +2,7 @@
 // 覆盖：andon 对账（active 补投 / cleared 恢复）、lease→关联 PR 匹配、
 // 无关事件忽略、同 sha 去重后者覆盖。
 import { describe, expect, it } from "vitest";
-import { project, type ActiveLease, type OpenPr, type ProjectionEvent, type AndonState } from "../src/engine";
+import { issueCommentKey, project, type ActiveLease, type OpenPr, type ProjectionEvent, type AndonState } from "../src/engine";
 
 const NOW = Date.parse("2026-07-18T04:00:00Z");
 
@@ -276,5 +276,49 @@ describe("intent.* → GitHub issue 双写（p30/F09）", () => {
       expect(c.body).not.toMatch(/\n🔴/);
       expect(c.body).toMatch(/`[^`]*🔴 FAKE DECIDE[^`]*`/);
     }
+  });
+});
+
+// #376：重放去重的前提是"同一逻辑动作在任意次投影里推导出同一个键"。
+// 键若不稳定（比如掺了 Date.now()），发件箱形同虚设——这里把稳定性钉死。
+describe("#376 issue 评论的幂等键", () => {
+  const intentEvents: ProjectionEvent[] = [
+    ev({ event_id: "evt_k1", type: "intent.assign", resource_id: "issue:371", payload: { to: "wrk-1" } }),
+    ev({ event_id: "evt_k2", type: "intent.progress", resource_id: "issue:371", payload: { summary: "推进中" } }),
+    ev({ event_id: "evt_k3", type: "intent.progress", resource_id: "issue:372", payload: { summary: "另一个 issue" } }),
+  ];
+
+  it("同一批事件重放（不同时钟）推导出完全相同的键集合", () => {
+    const keysAt = (now: number) =>
+      project({ events: intentEvents, openPrs: [], andon: noAndon, now })
+        .filter((c) => c.kind === "issue_comment")
+        .map((c) => c.idempotency_key);
+
+    expect(keysAt(NOW)).toEqual([
+      issueCommentKey(371, "evt_k1"),
+      issueCommentKey(371, "evt_k2"),
+      issueCommentKey(372, "evt_k3"),
+    ]);
+    // 下一 tick 的 now 不同，键必须一字不差
+    expect(keysAt(NOW + 15 * 60_000)).toEqual(keysAt(NOW));
+  });
+
+  it("不同事件 → 不同键（同一 issue 上的两条意图不会互相吞掉）", () => {
+    const keys = project({ events: intentEvents, openPrs: [], andon: noAndon, now: NOW })
+      .filter((c) => c.kind === "issue_comment")
+      .map((c) => c.idempotency_key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("覆盖式动作（commit_status / check_run）不带幂等键——要靠每 tick 重发对账", () => {
+    const calls = project({
+      events: [ev({ type: "lease.claimed", resource_id: "issue:698", payload: { lease_id: "lse_1", ttl_seconds: 3600 } })],
+      openPrs: [pr({ title: "feat: 修 #698", head_sha: "aaa1111" })],
+      andon: activeAndon,
+      now: NOW,
+    });
+    const overwriting = calls.filter((c) => c.kind !== "issue_comment");
+    expect(overwriting.length).toBeGreaterThan(0);
+    for (const c of overwriting) expect(c).not.toHaveProperty("idempotency_key");
   });
 });
