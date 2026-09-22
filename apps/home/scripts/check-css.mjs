@@ -44,7 +44,13 @@ for (const file of cssFiles) {
 const unusedClasses = [...classes.keys()].filter((c) => !consumers.includes(c));
 const declared = new Set([...css.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]));
 const referenced = new Set([...(css + js).matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
-const unusedTokens = [...declared].filter((t) => !referenced.has(t));
+/* A property read by COMPUTED name never appears in a var(), so the dead-token
+   rule would call it dead. mq.js reads `--bp-${name}`; the prefix is what makes
+   that legible here rather than a magic exception. */
+const DYNAMIC = /getPropertyValue\(`(--[\w-]+)\$\{/g;
+const dynamicPrefixes = [...js.matchAll(DYNAMIC)].map((m) => m[1]);
+const readDynamically = (t) => dynamicPrefixes.some((p) => t.startsWith(p));
+const unusedTokens = [...declared].filter((t) => !referenced.has(t) && !readDynamically(t));
 const dangling = [...referenced].filter((t) => !declared.has(t) && !JS_WRITTEN.has(t));
 
 let failed = false;
@@ -103,6 +109,19 @@ for (const file of ['index.html', 'privacy.html', '404.html', 'scripts/og-card.h
   });
 }
 
+/* --- a breakpoint token must govern a real query ------------------------
+   The --bp-* values exist so JavaScript can read the numbers the stylesheets
+   use instead of carrying its own copies. That only holds while each token
+   actually matches a media query; a token nothing queries is a number JS
+   trusts and CSS ignores. */
+const bpLeaks = [];
+for (const m of css.matchAll(/^\s*(--bp-[\w-]+):\s*([^;]+);/gm)) {
+  const value = m[2].trim();
+  if (!new RegExp(`\\(\\s*(?:max|min)-width:\\s*${value.replace('.', '\\.')}\\s*\\)`).test(css)) {
+    bpLeaks.push(`${m[1]}: ${value} — no media query uses it`);
+  }
+}
+report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);
 report('classes defined in CSS but used nowhere', unusedClasses, (c) => `.${c}  (${classes.get(c)})`);

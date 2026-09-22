@@ -138,7 +138,7 @@
 }
 
 /* ---- narrow variants ------------------------------------------------------ */
-@media (max-width: 700px) {
+@media (max-width: 43.75rem) {
   /* The vertical diagrams are tall and slim; cap their width so they do not
      stretch edge to edge and leave the labels floating in the margin. */
   .d-chain, .d-break, .d-harness, .d-graph { max-width: 340px; margin-inline: auto; }
@@ -164,7 +164,7 @@
 [data-diagram="graph"]   { aspect-ratio: 540 / 270; }
 [data-diagram="loop"]    { aspect-ratio: 1 / 1; }
 
-@media (max-width: 700px) {
+@media (max-width: 43.75rem) {
   [data-diagram="chain"]   { aspect-ratio: 330 / 340; }
   [data-diagram="axis"]    { aspect-ratio: 320 / 240; }
   [data-diagram="break"]   { min-height: 404px; }
@@ -172,7 +172,7 @@
   [data-diagram="arch"]    { aspect-ratio: 340 / 370; }
   [data-diagram="graph"]   { aspect-ratio: 320 / 350; }
 }
-@media (max-width: 860px) {
+@media (max-width: 53.75rem) {
   /* the ring sits above the rail instead of beside it, and the reserved
      square would otherwise eat most of a phone screen */
   [data-diagram="loop"] { aspect-ratio: 1 / 1; max-width: 340px; margin-inline: auto; }

@@ -758,3 +758,32 @@ Three runs had "hung". Round 23 made them legible; this round found the cause.
 | 8 | Considered a back-to-top control for a 22 000 px page — and rejected it. The nav is `position: fixed`, so the brand is already a permanent route up. | Nothing added. Not shipping the clutter is the finding. |
 | 9 | The hero chip broke after the `+` at 390 px, leaving **"AI" alone on the second line**. | `text-wrap: balance`; engines without it wrap exactly as before, so there is nothing to guard. |
 | 10 | A screenshot taken after scrolling captured a **nearly blank page** — reveals need produced frames, and headless produces none. The entire visual pass was reading artefacts as design. | Frames pumped before every capture. The same root cause as rounds 25 and 26/1, arriving for the third time in a different disguise. |
+
+### Round 27 — the reader's own text size
+
+WCAG 1.4.4 says text must reach 200% without losing content or function.
+Nothing had ever checked it. It failed — **in English only**, because the
+Chinese strings are short enough to fit, so a single-language check would have
+called it clean. Same lesson as round 21, in a new place.
+
+The cause was never the type. It was every measurement that grows with the
+text and is bounded by nothing.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | At 200% on a 390 px phone the hero chip, headline and both buttons sat past the right edge — and `overflow-x: clip` makes that **unreachable**, not merely clipped. | Everything below. |
+| 2 | The **floor** of `clamp(2.5rem, 6vw, 5rem)` is in rem: 40 px normally, 80 px at 200%, on a 390 px screen. | `clamp(min(2.5rem, 12vw), …)` — the floor is capped against the viewport. Same for `--t-h2`. |
+| 3 | `--gutter` had the same shape, so a phone lost 80 px to margins alone. | Same treatment. |
+| 4 | `.wrap` is a grid item, and a grid item defaults to `min-width: auto` — it refuses to shrink below its content. It grew to **486 px inside a 390 px section**. | `min-width: 0`. |
+| 5 | `.hero__title { max-width: 18ch }` — `ch` scales with the font size, so the measure was 406 px. | `min(18ch, 100%)`. |
+| 6 | `white-space: nowrap` on `.btn` makes the label's min-content the grid track's floor, so one button widened the **whole hero column** past the screen. | Labels wrap; the hero track is `minmax(0, 1fr)`. |
+| 7 | The footer's `minmax(14rem, …)` floors totalled 38rem — 1216 px at 200%. Capping them with `min()` was not enough: **a track is never smaller than its content's min-content unless the floor is zero.** | `minmax(0, …)`, with the proportions carried by the `fr` units where they belonged. |
+| 8 | Every media query was in **px**, so a text-size preference could not move a single breakpoint. | 27 converted to rem — exact at the default size, responsive to the reader's setting. And a thing worth knowing: inside a media condition `rem` resolves against the **initial** font size, not the current one, so a text-only zoom still moves no breakpoint. The nav links wrap instead of overflowing. |
+| 9 | Three breakpoints were then declared **twice** — rem in CSS, px in JS — so at 200% the stylesheet stacked a scene the script still thought was wide. | CSS declares `--bp-narrow/stack/scene`; `mq.js` reads them. |
+| 10 | The dead-token rule would have called all three dead, because a property read by **computed name** never appears in a `var()`. | It learns the dynamic prefixes from the JS itself, rather than carrying an exception list. |
+
+**And one check that could never have failed.** The responsive suite asserted
+`scrollX === 0` after scrolling right — but the page sets `overflow-x: clip`,
+so there is nothing to scroll and the value is always 0. That assertion passed
+for twenty-six rounds without ever being capable of failing. It now measures
+what actually matters: whether any element sits past the right edge.

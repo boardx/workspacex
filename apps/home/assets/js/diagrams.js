@@ -9,7 +9,7 @@
 import STRINGS from './diagram-strings.js';
 import { reducedMotion } from './motion.js';
 import { pageLang } from './lang.js';
-import { onMediaChange } from './mq.js';
+import { onMediaChange, bp } from './mq.js';
 
 let LANG = pageLang();
 const t = (key) => STRINGS[key]?.[LANG] ?? STRINGS[key]?.en ?? key;
@@ -17,7 +17,7 @@ const t = (key) => STRINGS[key]?.[LANG] ?? STRINGS[key]?.en ?? key;
 /* A 1000-unit-wide viewBox squeezed into a 350 px phone renders its 13 px
    labels at about 4.5 px. Scaling down is not a responsive strategy for text,
    so the wide diagrams have genuine vertical variants instead. */
-const NARROW_Q = '(max-width: 700px)';
+const NARROW_Q = bp('narrow');
 const isNarrow = () => window.matchMedia(NARROW_Q).matches;
 
 const NS = 'http://www.w3.org/2000/svg';

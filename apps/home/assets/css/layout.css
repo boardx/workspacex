@@ -5,6 +5,11 @@
 /* ---- containers ---------------------------------------------------------- */
 .wrap {
   width: 100%;
+  /* A grid or flex item defaults to min-width: auto, which means it refuses
+     to shrink below its own content — so at a large text size the wrap grew
+     to 486 px inside a 390 px section and pushed the hero off the screen,
+     where `overflow-x: clip` made it unreachable rather than just ugly. */
+  min-width: 0;
   max-width: var(--measure);
   margin-inline: auto;
   padding-inline: var(--gutter);
@@ -49,7 +54,7 @@
    ========================================================================== */
 .nav {
   position: fixed; inset: 0 0 auto 0; z-index: 100;
-  height: var(--nav-h);
+  min-height: var(--nav-h);
   display: flex; align-items: center;
   transition: background var(--dur) var(--ease-out),
               border-color var(--dur) var(--ease-out),
@@ -84,17 +89,22 @@
 }
 .nav__links { min-width: 0; }
 
-.brand { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
 /* The lockup is a flex row of its own. Without this it was an inline anchor
    that shrank under nav pressure and wrapped the wordmark BELOW the mark at
    1280px — shipped that way, because "does the nav overflow" and "is the
    lockup intact" are different questions and only the first was being asked. */
-.brand__home { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
 .brand__name {
   font-family: var(--font-display);
   font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
   color: var(--fg);
+  /* At a doubled text size the wordmark alone is 370 px, and with the bar's
+     items unable to shrink the whole row ran past the viewport. Truncating is
+     an ugly last resort, but a clipped wordmark beats a Launch button that
+     has left the screen. */
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* The wordmark takes the brand gradient, but only where the clip is actually
    supported. Setting -webkit-text-fill-color: transparent unconditionally is
@@ -122,7 +132,13 @@
    a stage and leaving the visitor to guess what it means. */
 a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); }
 
-.nav__links { display: flex; align-items: center; gap: var(--s-1); margin-inline: auto; }
+/* Wrapping never happens at a normal text size — the row has room. At 200%
+   it does, and a second line of links with a taller bar loses nothing, where
+   clipping or overflowing both lose a link. rem media queries cannot help
+   here: inside a media condition rem resolves against the INITIAL font size,
+   not the current one, so a text-only zoom moves no breakpoint at all. */
+.nav__links { display: flex; align-items: center; flex-wrap: wrap;
+              gap: var(--s-1); margin-inline: auto; }
 .nav__link {
   position: relative;
   /* 0.75rem here left the eighth link sitting 51 px underneath the language
@@ -141,7 +157,8 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   height: 2px; border-radius: var(--r-nub); background: var(--grad);
 }
 
-.nav__actions { display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0; }
+.nav__actions {
+  min-width: 0; display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0; }
 
 /* language toggle — a real segmented control, not two links */
 .langswitch {
@@ -195,7 +212,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 
 /* Between the widest the inline nav can be and the burger breakpoint, buy
    room by tightening rather than by letting anything clip. */
-@media (max-width: 1320px) {
+@media (max-width: 82.5rem) {
   /* At its fullest the bar carries brand, tag, eight links, the language
      switch, GitHub and the primary button. `.nav__links` has min-width: 0,
      so under pressure it shrinks BELOW its content and the last link slides
@@ -210,7 +227,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 
 /* Raised from 1040 px: at 1100 the row fit only by a 20 px margin, which is
    not a margin once a translation makes a label one character longer. */
-@media (max-width: 1160px) {
+@media (max-width: 72.5rem) {
   .nav__burger { display: inline-flex; }
   .nav__links {
     position: fixed; inset: var(--nav-h) 0 auto 0;
@@ -230,7 +247,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   .nav__inner { justify-content: space-between; }
   .nav__ghost--signin { display: none; }
 }
-@media (max-width: 560px) {
+@media (max-width: 35.0rem) {
   .brand__tag { display: none; }
 }
 
@@ -254,7 +271,13 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 }
 .footer__grid {
   display: grid;
-  grid-template-columns: minmax(14rem, 1.4fr) repeat(3, minmax(8rem, 1fr));
+  /* The rem MINIMUMS are what break under a text-size preference: 14rem and
+     three 8rem columns are 38rem of floor — 608 px normally, 1216 px at 200%,
+     wider than the page. minmax(0, …) removes the floor entirely; capping it
+     with min() is not enough, because a track is never smaller than its
+     content's min-content unless the floor is zero. The proportions are
+     carried by the fr units, which is where they belonged. */
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
   gap: clamp(1.75rem, 4vw, 3rem);
 }
 .footer__h {
@@ -262,6 +285,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: var(--s-4); font-weight: 500;
 }
+.footer__col { min-width: 0; overflow-wrap: break-word; }
 .footer__col ul { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
 .footer__col a { font-size: var(--t-small); color: var(--fg-soft); }
 .footer__col a:hover { color: var(--fg); }
@@ -273,14 +297,14 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   align-items: center; justify-content: space-between;
   font-size: var(--t-micro); color: var(--fg-faint);
 }
-@media (max-width: 760px) {
+@media (max-width: 47.5rem) {
   .footer__grid { grid-template-columns: repeat(2, 1fr); }
   .footer__col--brand { grid-column: 1 / -1; }
 }
 
 /* ---- nav actions relocated into the menu panel on narrow screens ---------- */
 .nav__panelactions { display: none; }
-@media (max-width: 760px) {
+@media (max-width: 47.5rem) {
   /* Hidden while they are still children of the bar. The relocation into the
      panel happens in JS, after first paint, so without this the bar renders
      ~87px tall with the actions wrapped and then snaps to 40px — measured as

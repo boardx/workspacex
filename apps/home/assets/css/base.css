@@ -79,8 +79,13 @@
   --s-6: 2rem;
 
   /* fluid scale — clamp(min, preferred, max) */
-  --t-hero:   clamp(2.5rem, 6vw, 5rem);
-  --t-h2:     clamp(2rem,   4.4vw, 3.75rem);
+  /* The FLOOR of a clamp is the part that breaks under a text-size
+     preference: 2.5rem is 40 px normally and 80 px at 200%, which is wider
+     than a 390 px phone once a long word lands on it. min() makes the floor
+     viewport-aware, so the type still grows with the reader's setting but
+     can never outgrow the screen it is on. */
+  --t-hero:   clamp(min(2.5rem, 12vw), 6vw, 5rem);
+  --t-h2:     clamp(min(2rem, 10vw), 4.4vw, 3.75rem);
   --t-h3:     clamp(1.35rem, 2.1vw, 1.9rem);
   --t-lead:   clamp(1.05rem, 1.55vw, 1.4rem);
   --t-body:   clamp(0.975rem, 1.1vw, 1.0625rem);
@@ -101,7 +106,22 @@
   --t-inline-code: 0.9em;
 
   /* ---- space ------------------------------------------------------------ */
-  --gutter:      clamp(1.25rem, 4vw, 3rem);
+  /* Same clamp-floor trap as the type scale: 1.25rem is 20 px normally and
+     40 px at a 200% text setting, so a phone lost 80 px to margins alone and
+     the content box ended up wider than the screen. The floor is capped
+     against the viewport. */
+  --gutter:      clamp(min(1.25rem, 5vw), 4vw, 3rem);
+  /* Breakpoints. The media queries below must spell these values out — a
+     custom property cannot appear in an @media condition — but JavaScript
+     CAN read them, and used to carry its own px copies of the same three
+     numbers. In rem they moved with the reader's text size while the JS ones
+     did not, so at a 200% setting the CSS stacked a scene the script still
+     thought was wide. check-css.mjs fails if a --bp-* value has no matching
+     query. */
+  --bp-narrow:   43.75rem;    /* diagrams switch to their narrow variants */
+  --bp-stack:    47.5rem;     /* the nav rail stacks                      */
+  --bp-scene:    53.75rem;    /* the pinned scene gives up and stacks     */
+
   --measure:     72rem;       /* max content width            */
   --measure-text: 44rem;      /* max width for reading prose  */
   --section-y:   clamp(5.5rem, 11vw, 10rem);
@@ -170,6 +190,9 @@ h1, h2, h3, h4 {
   letter-spacing: -0.028em;
   text-wrap: balance;
 }
+/* A single long word at a doubled font size overflows rather than wrapping,
+   and `overflow-x: clip` then makes it unreachable rather than merely ugly. */
+h1, h2, h3 { overflow-wrap: break-word; }
 h1 { font-size: var(--t-hero); letter-spacing: -0.04em; }
 h2 { font-size: var(--t-h2); }
 h3 { font-size: var(--t-h3); letter-spacing: -0.02em; line-height: 1.2; }

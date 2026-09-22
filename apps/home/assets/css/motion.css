@@ -37,7 +37,7 @@
    harmful: an unrevealed element parked 24px to the side of a full-width
    column sticks out past the viewport and gives the whole page a horizontal
    scroll range until it happens to be revealed. */
-@media (max-width: 900px) {
+@media (max-width: 56.25rem) {
   [data-reveal="left"], [data-reveal="right"] { transform: translate3d(0, 22px, 0); }
 }
 [data-reveal="scale"] { transform: scale(0.965); }
@@ -99,8 +99,17 @@ html:not(.js) [data-stagger] > * {
     linear-gradient(180deg, rgba(8,7,11,.5), transparent 28%, rgba(8,7,11,.9));
 }
 
-.hero__inner { display: grid; justify-items: center; text-align: center; gap: var(--s-5); }
-.hero__title { max-width: 18ch; }
+/* minmax(0, 1fr) rather than the default auto track: an auto track takes the
+   largest item's min-content as its floor, so one unwrappable child could
+   widen the whole column past the screen. */
+.hero__inner { display: grid; grid-template-columns: minmax(0, 1fr);
+               justify-items: center; text-align: center; gap: var(--s-5); }
+/* `ch` scales with the font size, so an 18ch headline measures 406 px once
+   the reader doubles their text — wider than the phone it is on, and
+   `justify-items: center` then sizes the box to that instead of to the track.
+   Capping against the container keeps the measure on a desktop and the
+   headline on the screen everywhere else. */
+.hero__title { max-width: min(18ch, 100%); }
 .hero__sub {
   font-size: var(--t-lead); color: var(--fg-soft);
   max-width: 42rem; margin-top: var(--s-1);
@@ -149,7 +158,7 @@ html:not(.js) [data-stagger] > * {
   display: grid; align-content: center;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 53.75rem) {
   /* Pinned scrubbing is hostile on touch: it eats the scroll and the diagram
      ends up smaller than the caption. Fall back to a plain stacked read. */
   .scene__track { height: auto; }

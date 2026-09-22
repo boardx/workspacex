@@ -163,9 +163,20 @@ for (const [lang, path] of LANGS) {
 
       r.step(`${path} @${width} · measure`);
       const res = await evaluateWithin(page, 30_000, `measure ${path} @${width}`, () => {
-        window.scrollTo(9999, window.scrollY);
-        const scrolledX = window.scrollX;
-        window.scrollTo(0, window.scrollY);
+        /* `scrollX` after scrolling right cannot detect anything: the page
+           sets overflow-x: clip, so there is nothing to scroll and the value
+           is always 0. That assertion passed for twenty-six rounds without
+           ever being able to fail. What matters is whether an element sits
+           past the viewport edge, where clip makes it UNREACHABLE rather
+           than merely ugly. */
+        const past = [];
+        document.querySelectorAll('.nav__inner *, .btn, .chip, h1, h2, h3, .card, .cases__tab')
+          .forEach((el) => {
+            const b = el.getBoundingClientRect();
+            if (b.width > 0 && b.right > window.innerWidth + 1) {
+              past.push(`${(el.className || el.tagName).toString().trim().slice(0, 16)}@${Math.round(b.right)}`);
+            }
+          });
         const tiny = [];
         document.querySelectorAll('svg text').forEach((t) => {
           const vb = t.ownerSVGElement?.viewBox.baseVal;
@@ -196,10 +207,11 @@ for (const [lang, path] of LANGS) {
             }
           }
         }
-        return { scrolledX, tiny: [...new Set(tiny)], navRight: Math.round(nav.right),
+        return { past: [...new Set(past)].slice(0, 4), tiny: [...new Set(tiny)],
+                 navRight: Math.round(nav.right),
                  vw: window.innerWidth, overlaps: [...new Set(overlaps)] };
       });
-      r.check(res.scrolledX === 0, `${path} @${width}: page scrolls sideways`);
+      r.check(res.past.length === 0, `${path} @${width}: past the right edge — ${res.past.join(', ')}`);
       r.check(res.tiny.length === 0, `${path} @${width}: svg text under 9px — ${res.tiny.slice(0, 3).join(', ')}`);
       r.check(res.navRight <= res.vw, `${path} @${width}: nav actions clipped at x=${res.navRight}`);
       r.check(res.overlaps.length === 0, `${path} @${width}: nav items overlap — ${res.overlaps.slice(0, 3).join(', ')}`);
@@ -319,6 +331,43 @@ for (const [lang, path] of LANGS) {
     [...document.querySelectorAll('[data-reveal]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
   r.equal(stillHidden, 0, 'elements left invisible when a module fails');
   await broken.close();
+  ok = r.finish() && ok;
+}
+
+/* -------------------------------------------------------- text resize --- */
+/* WCAG 1.4.4: text has to reach 200% without losing content or function.
+   Nothing checked it, and it failed — in English only, because the Chinese
+   strings are short enough to fit. A single-language check would have called
+   it clean, which is the same lesson as round 21 in a new place.
+   The cause was never the type: it was every clamp FLOOR, every `ch` measure
+   and every `min-width: auto` grid item, each of which grows with the text
+   and none of which is bounded by the screen. */
+for (const [lang, path] of LANGS) {
+  const r = reporter(`text resize [${lang}] — 200%, the reader's own setting`);
+  for (const width of [390, 768, 1280]) {
+    r.step(`${path} @${width}`);
+    const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+    const page = await ctx.newPage();
+    page.setDefaultTimeout(20_000);
+    await page.goto(base + path, { waitUntil: 'networkidle' });
+    await evaluateWithin(page, 15_000, 'double the text', () => {
+      document.documentElement.style.fontSize = '32px';
+    });
+    await page.waitForTimeout(250);
+    const past = await evaluateWithin(page, 15_000, `measure ${width}`, () => {
+      const out = [];
+      document.querySelectorAll('.nav__inner *, .btn, .chip, h1, h2, h3, p, .card, .cases__tab')
+        .forEach((el) => {
+          const b = el.getBoundingClientRect();
+          if (b.width > 0 && b.right > window.innerWidth + 1) {
+            out.push(`${(el.className || el.tagName).toString().trim().slice(0, 16)}@${Math.round(b.right)}`);
+          }
+        });
+      return [...new Set(out)].slice(0, 4);
+    });
+    r.check(past.length === 0, `@${width} at 200% text: past the right edge — ${past.join(', ')}`);
+    await ctx.close();
+  }
   ok = r.finish() && ok;
 }
 

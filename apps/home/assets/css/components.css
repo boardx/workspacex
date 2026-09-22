@@ -10,7 +10,12 @@
   padding: 0.8rem 1.35rem;
   border-radius: var(--r-sm);
   font-size: var(--t-small); font-weight: 600; letter-spacing: 0.005em;
-  white-space: nowrap;
+  /* NOT nowrap. A nowrap label's min-content is the whole label, and in a
+     grid that becomes the track's minimum — at a 200% text setting the hero's
+     column was forced to 426 px inside a 390 px phone, taking the headline and
+     the chip out of the viewport with it. Labels here are short enough that
+     they only wrap when wrapping is the right answer. */
+  white-space: normal; text-wrap: balance; max-width: 100%;
   transition: transform var(--dur-fast) var(--ease-out),
               box-shadow var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out),
@@ -43,6 +48,7 @@
   /* Aligns to the first line: the label wraps to two lines on a phone, and a
      centred dot then sits in the gutter between them. */
   display: inline-flex; align-items: flex-start; gap: var(--s-2);
+  max-width: 100%;
   padding: 0.45rem 0.95rem 0.45rem 0.6rem;
   border-radius: var(--r-pill);
   border: 1px solid var(--hairline-2);
@@ -103,10 +109,10 @@
 .grid { display: grid; gap: clamp(0.875rem, 1.6vw, 1.25rem); }
 .grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 960px) {
+@media (max-width: 60.0rem) {
   .grid--3, .grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 620px) {
+@media (max-width: 38.75rem) {
   .grid--3, .grid--4 { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -242,7 +248,7 @@
 }
 .langhint__close:hover { color: var(--fg); background: var(--surface-2); }
 
-@media (max-width: 520px) {
+@media (max-width: 32.5rem) {
   .langhint { left: 1rem; right: 1rem; transform: translateY(calc(100% + 2rem)); max-width: none; }
   .langhint.is-in { transform: translateY(0); }
 }

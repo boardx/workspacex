@@ -16,3 +16,14 @@ export function onMediaChange(query, handler) {
   mql.addListener(handler);
   return () => mql.removeListener(handler);
 }
+
+/**
+ * The breakpoints live in base.css as --bp-* and are read from there, because
+ * a number that governs both a stylesheet and a script has to be written once
+ * or the two drift — which is exactly what happened when the queries moved to
+ * rem and these stayed in px.
+ */
+export const bp = (name) => {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(`--bp-${name}`).trim();
+  return `(max-width: ${v || '48rem'})`;
+};
