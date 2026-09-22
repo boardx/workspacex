@@ -22,9 +22,9 @@
 .btn--primary {
   color: var(--on-grad);
   background: var(--grad);
-  box-shadow: 0 6px 24px -10px rgba(255, 46, 115, 0.85);
+  box-shadow: 0 6px 24px -10px rgb(var(--c-2-rgb) / 0.85);
 }
-.btn--primary:hover { box-shadow: 0 10px 32px -10px rgba(255, 46, 115, 0.95); }
+.btn--primary:hover { box-shadow: 0 10px 32px -10px rgb(var(--c-2-rgb) / 0.95); }
 
 .btn--ghost {
   color: var(--fg);
@@ -82,7 +82,7 @@
 /* the thin gradient hairline that lights the top edge of a card */
 .card--lit::before {
   content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,46,115,.55), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--c-2-rgb) / .55), transparent);
   opacity: 0; transition: opacity var(--dur) var(--ease-out);
 }
 .card--lit:hover::before { opacity: 1; }
@@ -112,7 +112,7 @@
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255,46,115,.07), transparent 60%),
+    radial-gradient(120% 90% at 50% 0%, rgb(var(--c-2-rgb) / .07), transparent 60%),
     linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.008));
   overflow: hidden;
 }
@@ -192,7 +192,7 @@
    headline, tinting white type pink and taking contrast with it. */
 .cta::before {
   content: ""; position: absolute; inset: -40% -10% auto -10%; height: 140%; z-index: -1;
-  background: radial-gradient(50% 50% at 50% 40%, rgba(255,46,115,.15), transparent 70%);
+  background: radial-gradient(50% 50% at 50% 40%, rgb(var(--c-2-rgb) / .15), transparent 70%);
   pointer-events: none;
 }
 .cta__actions {
@@ -227,7 +227,7 @@
 .langhint__go {
   color: var(--c-2); font-weight: 600; white-space: nowrap;
   text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: rgba(255, 46, 115, 0.4);
+  text-decoration-color: rgb(var(--c-2-rgb) / 0.4);
 }
 .langhint__go:hover { text-decoration-color: currentColor; }
 .langhint__close {

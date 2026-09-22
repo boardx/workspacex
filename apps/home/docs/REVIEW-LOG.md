@@ -643,3 +643,28 @@ defensible.
 
 **All 8 gates green, 11 browser suites across both languages. 149 KB, LCP
 248 ms desktop and 1 912 ms on slow 3G, CLS 0, 60 fps.**
+
+### One home for the palette
+
+Preparation for the brand recolour, done before the new logo arrived so the
+recolour itself becomes a three-line change rather than a hunt.
+
+The gradient's three stops were declared in **six** places: `base.css`, the
+`defs()` builder in `diagrams.js`, the inline `<linearGradient>` sprite in
+`index.html` and in `privacy.html`, the social card, and `build-aurora.mjs` as
+`rgba()`. Twenty-two further translucent glows, borders and shadows restated
+the same triplets by hand to get an alpha. Changing the palette meant finding
+twenty-eight sites and shipping two brands on one page if you missed one —
+exactly what AGENTS.md forbids as 「同一事实不得声明在两处」.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Four SVG gradients hard-coded the stop hexes. | `style="stop-color:var(--c-N)"` in all four, including the builder. |
+| 2 | Twenty-two `rgba()` restatements existed only to apply an alpha. | Channel tokens: `--c-2-rgb: 255 46 115` read as `rgb(var(--c-2-rgb) / .15)`. Chosen over `color-mix()`, which Safari only supports from 16.2. |
+| 3 | The social card's three glows still carried raw `rgba()`, and it already loads `base.css`. | Composed from the channels. Re-rendering both cards produced **byte-identical PNGs** — the refactor is provably a no-op. |
+| 4 | `build-aurora.mjs` inlined its own copy of the gradient. | It serves `base.css` and reads the tokens. |
+| 5 | Nothing stopped the next hard-coded colour. | A gate in `check-css.mjs` fails the build on any brand literal — hex *or* decimal triplet — outside the token block, scanning the pages, the scripts, the stylesheets and the build tools. |
+| 6 | The gate had never been seen to fail. | Probed in both forms: an `rgba()` in a stylesheet and a string in a build script. Both went red, with file and line. |
+
+**All 8 gates green, 11 browser suites across both languages. 149.5 KB, LCP
+236 ms desktop and 2 088 ms on slow 3G, CLS 0.0007, 60 fps.**

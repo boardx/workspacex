@@ -28,7 +28,7 @@
   animation-delay: calc(600ms + var(--i) * 110ms);
 }
 @keyframes d-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.d-chain__core { filter: drop-shadow(0 0 6px rgba(255,46,115,.6)); }
+.d-chain__core { filter: drop-shadow(0 0 6px rgb(var(--c-2-rgb) / .6)); }
 .d-chain__pulse { filter: drop-shadow(0 0 7px rgba(255,255,255,.85)); opacity: .9; }
 
 /* ---- shift axis ---------------------------------------------------------- */
@@ -92,8 +92,8 @@
   transition: fill var(--dur) var(--ease-out), stroke var(--dur) var(--ease-out);
 }
 .d-arch__row[data-tone="core"] .d-arch__plate {
-  fill: rgba(255,46,115,.055);
-  stroke: rgba(255,46,115,.24);
+  fill: rgb(var(--c-2-rgb) / .055);
+  stroke: rgb(var(--c-2-rgb) / .24);
 }
 .d-arch__row {
   opacity: 0; transform: translateY(14px);
@@ -110,7 +110,7 @@
 .d-harness__gate[data-state="fail"] .d-harness__plate {
   stroke: var(--c-fail); fill: rgba(255,93,93,.09);
 }
-.d-harness__token { filter: drop-shadow(0 0 9px rgba(255,46,115,.75)); }
+.d-harness__token { filter: drop-shadow(0 0 9px rgb(var(--c-2-rgb) / .75)); }
 .d-harness__rollback { opacity: .25; transition: opacity var(--dur-fast) linear; }
 .d-harness__rollback[data-on="true"] { opacity: .9; }
 
@@ -188,14 +188,14 @@
   stroke: var(--c-2); stroke-width: 2;
 }
 .d-arch__row[data-selected="true"] .d-arch__plate {
-  fill: rgba(255, 46, 115, 0.12);
-  stroke: rgba(255, 46, 115, 0.55);
+  fill: rgb(var(--c-2-rgb) / 0.12);
+  stroke: rgb(var(--c-2-rgb) / 0.55);
 }
 /* Layers a change at the selected layer would reach. The point of the whole
    interaction is how few light up when you pick the model layer. */
 .d-arch__row[data-impacted="true"] .d-arch__plate {
-  fill: rgba(255, 122, 24, 0.07);
-  stroke: rgba(255, 122, 24, 0.3);
+  fill: rgb(var(--c-1-rgb) / 0.07);
+  stroke: rgb(var(--c-1-rgb) / 0.3);
   stroke-dasharray: 4 3;
 }
 .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); }

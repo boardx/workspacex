@@ -17,11 +17,11 @@
   }
   .glow { position: absolute; inset: -30%; z-index: -2; filter: blur(80px); opacity: .95; }
   .b1 { position: absolute; width: 640px; height: 640px; border-radius: 50%; left: 4%; top: -10%;
-        background: radial-gradient(circle, rgba(255,122,24,.62), transparent 64%); }
+        background: radial-gradient(circle, rgb(var(--c-1-rgb) / .62), transparent 64%); }
   .b2 { position: absolute; width: 700px; height: 700px; border-radius: 50%; right: -6%; top: 8%;
-        background: radial-gradient(circle, rgba(255,46,115,.58), transparent 64%); }
+        background: radial-gradient(circle, rgb(var(--c-2-rgb) / .58), transparent 64%); }
   .b3 { position: absolute; width: 560px; height: 560px; border-radius: 50%; left: 42%; bottom: -26%;
-        background: radial-gradient(circle, rgba(177,75,255,.55), transparent 64%); }
+        background: radial-gradient(circle, rgb(var(--c-3-rgb) / .55), transparent 64%); }
   /* Just enough scrim to hold the type; the first pass at .82 erased the
      aurora entirely and left a flat black card. */
   .card::after { content:""; position:absolute; inset:0; z-index:-1;
@@ -44,7 +44,7 @@
   <div class="glow"><div class="b1"></div><div class="b2"></div><div class="b3"></div></div>
   <div class="brand">
     <svg viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff7a18"/><stop offset=".55" stop-color="#ff2e73"/><stop offset="1" stop-color="#b14bff"/>
+      <stop offset="0" style="stop-color:var(--c-1)"/><stop offset=".55" style="stop-color:var(--c-2)"/><stop offset="1" style="stop-color:var(--c-3)"/>
     </linearGradient></defs>
     <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <b>WorkspaceX</b>
