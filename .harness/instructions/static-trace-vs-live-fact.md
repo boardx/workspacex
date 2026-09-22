@@ -74,6 +74,11 @@
 - **契约 ↔ 路由覆盖**（issue #1177）：已交付契约束里声明了 `path` 却没有对应路由的 operation
   逐条进清单，`doctor` 出 WARN。判据与它**够不到**的部分（束级近似的假阴性）写在
   `.harness/scripts/lib/contract-route-coverage.ts` 的头注里
+- **契约 → 路由棘轮**（issue #564）：上面那份清单的**只减不增**版本。今天的 253 条记进
+  `.harness/state/contract-route-coverage-allowlist.json`，名单只能变短；新增一条「契约声明了
+  `path` 却不接线」的 operation ⇒ PR 上当场红（`pnpm run lint:contract-route-coverage`）。
+  ⚠ 名单里的条目**不在今天的缺口清单里**同样是一个静态痕迹：它有两种相反的成因
+  （路由补上了 / 所属束退出判定范围了），判据见 `lib/contract-route-ratchet.ts` 的头注
 
 ⚠ **覆盖不到的部分要诚实**：散文里的过期断言（issue 正文、代码注释）没有门能自动抓，
 只能靠上面那三条习惯。`sweep-docker` 的归属推断问题登记在 #841，修法方向是**让归属可证明

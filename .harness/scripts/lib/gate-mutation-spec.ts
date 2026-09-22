@@ -233,6 +233,7 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
 const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
+const CONTRACT_ROUTE_ALLOWLIST = ".harness/state/contract-route-coverage-allowlist.json";
 const CONTRACT_TS = "packages/contracts/src/skills.ts";
 const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 // `harness archive-passing` 会把已 passing 的 feature（含它的 verification 字符串）
@@ -288,6 +289,31 @@ export const GATE_SPECS: readonly GateSpec[] = [
         name: "往棘轮 allowlist 里加一条不该有的豁免",
         // 棘轮「只能变短」：加一条今天并不缺的前缀，必须当场红。
         apply: replaceOnce(REWRITE_ALLOWLIST, '"downloads",', '"downloads",\n    "probe-bogus-prefix",'),
+      },
+    ],
+  },
+  {
+    gate: "contract-route-ratchet",
+    run: tsx(".harness/scripts/lint-contract-route-coverage.mjs"),
+    guards: (_r, io) => io.exists(CONTRACT_ROUTE_ALLOWLIST),
+    mutations: [
+      {
+        name: "往棘轮 allowlist 里加一条不该有的豁免",
+        // 棘轮「只能变短」：`agent-runtime` 束今天在判定范围内，给它加一条并不存在的
+        // operation，必须当场判成陈旧而红。选它而不是随便一个束名是有讲究的——
+        // 束不在判定范围时该条目会被判成**休眠**（保留、不红），那时这条变异就会
+        // 静默失效，而探针会把它读成「门漏过」。见 lib/contract-route-ratchet.ts 头注。
+        apply: replaceOnce(
+          CONTRACT_ROUTE_ALLOWLIST,
+          '"agent-runtime:applyRedispatch",',
+          '"agent-runtime:applyRedispatch",\n    "agent-runtime:probeBogusOperation",',
+        ),
+      },
+      {
+        name: "从棘轮 allowlist 里删掉一条仍然缺着的豁免",
+        // 反方向：名单少一条 ⇒ 那条缺口变成「新增」⇒ 必须红。
+        // 两条变异合起来才说明这道门在判**差集**，而不是只会数名单长度。
+        apply: replaceOnce(CONTRACT_ROUTE_ALLOWLIST, '    "agent-runtime:applyRedispatch",\n', ""),
       },
     ],
   },

@@ -239,6 +239,18 @@ jobs:
       - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
         run: pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs --strict
 
+      # issue #564 解决方案 2 第 1 条：同一条链再往上一格——**契约 → 路由**。
+      # 上面那道守的是「路由有了但前端够不到」，这道守的是「契约签了但根本没接线」：
+      # 实测 253 条已签契约束里声明了 path 的 operation 在 apps/api/src/interface/ 里
+      # 没有对应路由。棘轮（只减不增）：这 253 条记进
+      # .harness/state/contract-route-coverage-allowlist.json，名单只能变短，
+      # 新增一条不接线的 operation 当场红。缺口判据不在这道门里，在
+      # lib/contract-route-coverage.ts（issue #1177）——同一事实不得声明在两处。
+      # 放 PR 门控的理由同上一步（#2490）：「当场红」的「当场」必须是 PR。
+      # 只读 packages/contracts 与 apps/api/src/interface，不碰 DB，秒级。
+      - name: 契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）
+        run: pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs --strict
+
       # 不存在「写了但没人跑」的 e2e spec（#512）。
       # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
       # 有 `playwright.chat-read.config.ts`，但零个 npm script / CI job 调它。
