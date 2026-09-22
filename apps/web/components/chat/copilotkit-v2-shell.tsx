@@ -26,6 +26,7 @@ import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
+import { useReportShellBusy } from "@/lib/shell-busy";
 
 /**
  * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
@@ -1045,6 +1046,15 @@ export function CopilotKitV2Shell({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
+
+  /**
+   * 向壳层登记「这条会话有活在跑」。壳层切换组织之前要回答「切走会怎样」，
+   * 而知道答案的是这里——`runState.isRunning` 就是用户屏幕上那个「正在跑」。
+   * 登记而不是让壳层去问服务端：壳层挂在 47 个页面上，加一条常驻轮询的代价
+   * 远大于它要说的那一句话，而且轮询来的数字可能跟用户眼前看到的不一致。
+   * key 带 threadId，换会话自动换账；组件卸载自动销账。
+   */
+  useReportShellBusy(`chat:${selectedThreadId ?? "none"}`, runState.isRunning);
 
   /**
    * 对话列表保鲜（状态点 / 排序）：每 10 秒 + 窗口回焦各刷一次。

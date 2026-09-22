@@ -271,7 +271,11 @@ test("旅程①：开放注册出的新用户，验证邮箱、登录后能真�
   // 落在了 bootstrap 顺手建的 personal-local 组织或别的什么地方。
   await page.getByTestId("org-switcher").click();
   await expect(page.getByTestId("org-menu")).toBeVisible();
-  await expect(page.getByTestId("org-menu").getByText(user.orgName)).toBeVisible();
+  // 2026-09-23（#3866 R2）：菜单现在先有一段「当前所在」，于是组织名在菜单里会出现
+  // 两次（当前所在 + 切换列表里的那一项），原来那条不限定作用域的 getByText 会撞上
+  // strict mode。**收窄不是放宽**：原来只要求「菜单里某处出现这个名字」，现在要求
+  // 「当前所在那一格就是这个名字」——落在别的组织上会红，而旧写法不会。
+  await expect(page.getByTestId("org-menu-current")).toContainText(user.orgName);
 });
 
 /**
