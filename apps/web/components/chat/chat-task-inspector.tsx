@@ -23,7 +23,13 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
 import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
-import { ArrowLeft, Check, Copy, Download, Maximize2 } from "lucide-react";
+import {
+  // `activeTab` 这个名字在本文件里已经是「右栏四个页签里选中的那一个」（InspectorTab）。
+  // 同名会静默遮蔽——tsc 正是在这里报的 TS2349，重命名而不是让两个概念共用一个词。
+  EMPTY_ARTIFACT_TABS, activateTab, activeTab as activeArtifactTab, closeTab, openTab,
+  type ArtifactTab, type ArtifactTabState,
+} from "@/lib/chat-workbench/artifact-tabs";
+import { ArrowLeft, Check, Copy, Download, Maximize2, X } from "lucide-react";
 
 const mobileQuery = "(max-width: 767px)";
 /** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
@@ -193,9 +199,35 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * ⚠ 按 threadId 清空：换线程后旧线程的产物 id 在新线程上取不到源，会渲染成
    * 一条 NOT_VISIBLE，看起来像「这个产物坏了」而不是「你换线程了」。
    */
-  const [openInPanel, setOpenInPanel] =
-    React.useState<ListThreadArtifactsOut["items"][number] | null>(null);
-  React.useEffect(() => { setOpenInPanel(null); }, [threadId]);
+  const [artifactTabs, setArtifactTabs] = React.useState<ArtifactTabState>(EMPTY_ARTIFACT_TABS);
+  React.useEffect(() => { setArtifactTabs(EMPTY_ARTIFACT_TABS); setArtifactListMode(true); }, [threadId]);
+  /**
+   * 「回到列表」与「开着哪几份」是**两件事**，不能用一个状态表示。
+   *
+   * 第一版让「返回」直接把开着的几份全清掉——于是「看完 A，回列表点开 B」之后
+   * A 就没了，页签条永远只有一份，这个功能等于不存在（两条测试当场红）。
+   * 返回只是把列表铺回来，开着的那几份仍然开着，随时能切回去。
+   */
+  const [artifactListMode, setArtifactListMode] = React.useState(true);
+  /*
+   * ⚠ 这里**故意没有**「关掉最后一份 ⇒ 回到列表」那条 effect。
+   *
+   * 我先写了它，然后发现它守的状态从界面上到不了：页签条只在开着 ≥2 份时才画，
+   * 只剩一份时没有关闭按钮，所以「把份数关到 0」在 UI 上不存在（写它的那条测试
+   * 当场红在「找不到关闭按钮」上）。份数为 0 只在换线程时出现，而换线程那条
+   * effect 已经把列表态一起设回去了。
+   *
+   * 留着它就是一段永远不执行的分支加一条永远绿的测试——[[red-does-not-mean-it-ran]]
+   * 的同一形状。要么让它可达，要么不写；这里选不写。
+   */
+  const openInPanel = artifactListMode ? null : activeArtifactTab(artifactTabs);
+  const openArtifactInPanel = React.useCallback(
+    (item: ArtifactTab) => {
+      setArtifactTabs((prev) => openTab(prev, item));
+      setArtifactListMode(false);
+    },
+    [],
+  );
   /**
    * 人类实测反馈（2026-08-30）—— 右栏展开后（有任务在跑/有产物材料），点头部
    * 「收起」按钮没有反应，要等任务结束、信号清空才会真的收起，看起来像"延迟"。
@@ -444,11 +476,14 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             <>
             {openInPanel && threadId ? (
               <ArtifactDetail
+                tabs={artifactTabs}
+                onActivate={(id) => { setArtifactTabs((prev) => activateTab(prev, id)); }}
+                onClose={(id) => { setArtifactTabs((prev) => closeTab(prev, id)); }}
                 threadId={threadId}
                 projectId={props.projectId ?? null}
                 bearer={props.bearer}
                 item={openInPanel}
-                onBack={() => setOpenInPanel(null)}
+                onBack={() => { setArtifactListMode(true); }}
                 onEnlarge={onOpenArtifact ? () => onOpenArtifact(openInPanel) : undefined}
               />
             ) : (
@@ -467,7 +502,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               loading={loading}
               error={artifactsError}
               onRetry={onRetry}
-              onOpen={threadId ? setOpenInPanel : onOpenArtifact}
+              onOpen={threadId ? openArtifactInPanel : onOpenArtifact}
             />
             </>
             )}
@@ -616,7 +651,7 @@ function RunDetailsTab({
  * 而不是画一颗点了没反应的——同 `ChatArtifactsPanel` 的 `onOpen` 可选约定（#2099）。
  */
 function ArtifactDetail({
-  threadId, projectId, bearer, item, onBack, onEnlarge,
+  threadId, projectId, bearer, item, onBack, onEnlarge, tabs, onActivate, onClose,
 }: {
   readonly threadId: string;
   readonly projectId: string | null;
@@ -624,6 +659,9 @@ function ArtifactDetail({
   readonly item: ListThreadArtifactsOut["items"][number];
   readonly onBack: () => void;
   readonly onEnlarge?: () => void;
+  readonly tabs: ArtifactTabState;
+  readonly onActivate: (artifactId: string) => void;
+  readonly onClose: (artifactId: string) => void;
 }): React.JSX.Element {
   /**
    * 载入到的那一份。动作条按它开关：**没载到就不给按**——一颗点了没反应的
@@ -701,6 +739,45 @@ function ArtifactDetail({
           </button>
         ) : null}
       </div>
+      {/* 同时开着好几份时才画页签条：只开着一份时它是一条重复了上面标题的空行。
+          R2 之后「看完 A 再看 B」要返回列表、在列表里重新找 B——来回切两三次就是
+          六到八次点击。开着的几份之间切换应该是一次点击。判据（满了淘汰谁、关掉
+          当前这份落到哪）在 lib/chat-workbench/artifact-tabs.ts，不写成内联三元。 */}
+      {tabs.tabs.length > 1 ? (
+        <div
+          role="tablist" aria-label="已打开的结果"
+          data-testid="chat-inspector-artifact-tabs"
+          className="flex min-w-0 gap-0.5 overflow-x-auto border-b border-border px-1.5 py-1"
+        >
+          {tabs.tabs.map((tab) => {
+            const current = tab.artifactId === item.artifactId;
+            return (
+              <span
+                key={tab.artifactId}
+                className={cn(
+                  "group inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-11",
+                  current ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60",
+                )}
+              >
+                <button
+                  type="button" role="tab" aria-selected={current}
+                  data-testid="chat-inspector-artifact-tab"
+                  onClick={() => { onActivate(tab.artifactId); }}
+                  className="min-w-0 truncate focus-visible:outline-none"
+                  title={tab.title}
+                >{tab.title}</button>
+                <button
+                  type="button"
+                  data-testid="chat-inspector-artifact-tab-close"
+                  aria-label={`关闭 ${tab.title}`}
+                  onClick={() => { onClose(tab.artifactId); }}
+                  className="shrink-0 rounded text-muted-foreground hover:text-foreground"
+                ><X className="size-3" aria-hidden /></button>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
       <ChatArtifactView
         /*
          * 窄栏守卫：右栏可以被拖到 240px，代码块与表格在那个宽度下会横向溢出，
@@ -708,6 +785,7 @@ function ArtifactDetail({
          * 正文本身仍然在栏宽内重排。
          */
         className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13 [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
+        key={item.artifactId}
         threadId={threadId}
         projectId={projectId}
         artifactId={item.artifactId}

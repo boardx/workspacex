@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatTaskInspector, type ChatTaskInspectorProps } from "@/components/chat/chat-task-inspector";
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
 
@@ -38,7 +38,10 @@ vi.mock("@/components/chat/workbench/agent-artifact-versions-panel", () => ({
 }));
 
 const artifacts = {
-  items: [{ artifactId: "a-1", title: "调研报告", kind: "markdown", createdAt: new Date().toISOString() }],
+  items: [
+    { artifactId: "a-1", title: "调研报告", kind: "markdown", createdAt: new Date().toISOString() },
+    { artifactId: "a-2", title: "财务测算", kind: "markdown", createdAt: new Date().toISOString() },
+  ],
 } as unknown as ListThreadArtifactsOut;
 
 function props(overrides: Partial<ChatTaskInspectorProps> = {}): ChatTaskInspectorProps {
@@ -144,4 +147,76 @@ it("\u4e0b\u8f7d\uff1a\u6587\u4ef6\u540d\u7531\u6807\u9898\u6765\uff0c\u5185\u5b
   expect(click).toHaveBeenCalledTimes(1);
   expect(names).toEqual(["\u8c03\u7814\u62a5\u544a.md"]);
   click.mockRestore();
+});
+
+/**
+ * R5 —— 同时开着几份，在它们之间切。
+ *
+ * R2 之后「看完 A 再看 B」要返回列表、在列表里重新找 B；来回切两三次就是六到八次点击。
+ * 这里钉的是**接线**（页签条在不在、切换有没有真换内容）；判据本身（满了淘汰谁、
+ * 关掉当前那份落到哪）在 tests/lib/artifact-tabs.test.ts。
+ */
+function openBoth(): void {
+  openArtifactsTab();
+  fireEvent.click(screen.getByText("调研报告"));
+  fireEvent.click(screen.getByTestId("chat-inspector-artifact-back"));
+  fireEvent.click(screen.getByText("财务测算"));
+}
+
+it("只开着一份时不画页签条（那只是重复一遍上面的标题）", () => {
+  render(<ChatTaskInspector {...props({ onOpenArtifact: vi.fn() })} />);
+  openArtifactsTab();
+  fireEvent.click(screen.getByText("调研报告"));
+  expect(screen.queryByTestId("chat-inspector-artifact-tabs")).not.toBeInTheDocument();
+});
+
+it("开着两份时出页签条，一次点击就能切回另一份（不经过列表）", () => {
+  render(<ChatTaskInspector {...props({ onOpenArtifact: vi.fn() })} />);
+  openBoth();
+  const strip = screen.getByTestId("chat-inspector-artifact-tabs");
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-2");
+  fireEvent.click(within(strip).getByText("调研报告"));
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-1");
+});
+
+it("关掉不是当前的那一份，当前这份不会被静默切走", () => {
+  render(<ChatTaskInspector {...props({ onOpenArtifact: vi.fn() })} />);
+  openBoth();
+  const strip = screen.getByTestId("chat-inspector-artifact-tabs");
+  fireEvent.click(within(strip).getByLabelText("关闭 调研报告"));
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-2");
+  // 只剩一份，页签条随之收起。
+  expect(screen.queryByTestId("chat-inspector-artifact-tabs")).not.toBeInTheDocument();
+});
+
+it("返回列表后详情态整个关掉", () => {
+  render(<ChatTaskInspector {...props({ onOpenArtifact: vi.fn() })} />);
+  openArtifactsTab();
+  fireEvent.click(screen.getByText("调研报告"));
+  fireEvent.click(screen.getByTestId("chat-inspector-artifact-back"));
+  expect(screen.queryByTestId("chat-inspector-artifact-detail")).not.toBeInTheDocument();
+});
+
+/**
+ * 并行会话 2026-09-23 实测教训：RTL 默认不套 StrictMode，effect 只跑一遍，
+ * 「更新函数里带副作用 / 挂载读一次」这类形状在 jsdom 里全绿、真实浏览器里是坏的。
+ * 页签这套状态有两个 setState 互相牵动（开着的份数 → 列表态），显式跑一遍双调用。
+ */
+it("StrictMode 下开两份、切换、关闭，结果与单跑一致", () => {
+  render(
+    <React.StrictMode>
+      <ChatTaskInspector {...props({ onOpenArtifact: vi.fn() })} />
+    </React.StrictMode>,
+  );
+  openBoth();
+  const strip = screen.getByTestId("chat-inspector-artifact-tabs");
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-2");
+  fireEvent.click(within(strip).getByText("调研报告"));
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-1");
+  fireEvent.click(within(strip).getByLabelText("关闭 财务测算"));
+  expect(screen.getByTestId("chat-artifact-preview-content")).toHaveTextContent("a-1");
+  // 只剩一份，页签条收起；「返回」把列表铺回来，但那一份仍然开着。
+  expect(screen.queryByTestId("chat-inspector-artifact-tabs")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("chat-inspector-artifact-back"));
+  expect(screen.queryByTestId("chat-inspector-artifact-detail")).not.toBeInTheDocument();
 });
