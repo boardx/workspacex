@@ -33,6 +33,12 @@ import {
   type OwnerAllowlistKey, type PhaseFeatureOwners,
 } from "./lib/feature-owner";
 import { readKnownAgentIdentities } from "./lib/agent-identity";
+import {
+  describeMissingTargets,
+  judgeVerificationTargetRatchet,
+  staleVerificationTargetEntries,
+  type TargetAllowlistKey,
+} from "./lib/verification-targets";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
@@ -45,6 +51,7 @@ import type { Feature } from "./lib/types";
 
 const FEATURE_EVIDENCE_ALLOWLIST_PATH = join(STATE_DIR, "feature-evidence-allowlist.json");
 const FEATURE_OWNER_ALLOWLIST_PATH = join(STATE_DIR, "feature-owner-allowlist.json");
+const VERIFICATION_TARGET_ALLOWLIST_PATH = join(STATE_DIR, "verification-target-allowlist.json");
 
 /** #1136 棘轮名单读取。缺文件视为空名单（拒绝任何非标准 evidence），不是「跳过检查」。 */
 function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
@@ -62,6 +69,13 @@ function readFeatureOwnerAllowlist(): readonly OwnerAllowlistKey[] {
 
 /** 一次体检扫到的一个 phase。两道棘轮门各取所需字段，扫描只做一遍。 */
 type ScannedPhase = PhaseFeatures & PhaseFeatureOwners;
+
+/** #965 棘轮名单读取。同上：缺文件 = 空名单（存量一条都不豁免），不是「跳过检查」。 */
+function readVerificationTargetAllowlist(): readonly TargetAllowlistKey[] {
+  if (!existsSync(VERIFICATION_TARGET_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(VERIFICATION_TARGET_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as TargetAllowlistKey[]) : [];
+}
 
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
@@ -1157,11 +1171,13 @@ export function doctor(args: Args): void {
   }
   const evidenceAllowlist = readFeatureEvidenceAllowlist();
   const evidenceAllowlistSet = new Set(evidenceAllowlist);
-  // 三道门（#1136 evidence 棘轮 / #1142 owner 棘轮 / #391 反向一致性）的共同输入：
-  // 只收本次真正扫到的 phase，避免 `--phase 01` 这类局部运行把「没扫到的 phase」
-  // 误判成「不再需要」——那会把陈旧检查变成假阳性门。
-  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，另两道各自只用得到
-  // 其中几个字段（PhaseFeatures / PhaseFeatureOwners）。同一份快照喂三道门，不留第二份。
+  const targetAllowlist = readVerificationTargetAllowlist();
+  // 四道门（#1136 evidence 形态 / #965 指向物存在性 / #1142 owner 命名空间 /
+  // #391 反向一致性）的共同输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类
+  // 局部运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
+  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，其余三道各自只用得到
+  // 其中几个字段。同一份快照喂四道门，不留第二份（多份各推一次，将来任何一边
+  // 多一个 continue 就会无声分叉）。
   const scannedPhases: { readonly phaseId: string; readonly features: readonly Feature[] }[] = [];
 
   for (const id of phaseIds) {
@@ -1218,6 +1234,32 @@ export function doctor(args: Args): void {
     });
   }
 
+  // #965 指向物存在性棘轮：一条 feature 已经 passing，却指不着自己声称跑过的测试文件，
+  // 只有两种可能——当初就没跑，或者跑完（在某个 worktree 里）从没被提交。两种都是断链，
+  // 而 evidence 的形态/指纹/入 main 三道既有检查一条都看不见它：F166 的证据日志逐字真实、
+  // 指纹对得上、实现也在 main 上，它声称跑绿的三个测试文件却从来没进过任何 ref。
+  const inScopeTargetAllowlist = targetAllowlist.filter((key) =>
+    scannedPhaseIds.has(key.split("/")[0] ?? ""),
+  );
+  const targetVerdict = judgeVerificationTargetRatchet(scannedPhases, inScopeTargetAllowlist);
+  for (const gap of targetVerdict.newGaps) {
+    findings.push({ level: "FAIL", phase: gap.phaseId, msg: describeMissingTargets(gap.featureId, gap.missing) });
+  }
+  for (const key of targetVerdict.grandfathered) {
+    findings.push({
+      level: "WARN",
+      phase: key.split("/")[0] ?? "-",
+      msg: `${key} 的 verification 指向的测试文件不存在——存量豁免（见 verification-target-allowlist.json 的逐条取证），待清理`,
+    });
+  }
+  for (const stale of staleVerificationTargetEntries(scannedPhases, inScopeTargetAllowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg: `verification-target-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 的指向物已补齐，或已不再是 passing）——请删掉这一条，留着会遮住未来的回归`,
+    });
+  }
+
   checkLegacyEvidenceRatchet(scannedPhases, findings);
 
   const fails = findings.filter((f) => f.level === "FAIL");
@@ -1240,4 +1282,13 @@ export function doctor(args: Args): void {
   else if (verdict.outcome === "PASS_WITH_DEBT") log.info(`~ ${verdict.summary}`);
   else log.err(verdict.summary);
   if (verdict.exitCode !== 0) process.exitCode = verdict.exitCode;
+  // 指向物一条单独说，不并进上面那句——上面那句在存量豁免还没清干净时说「都在仓库里」
+  // 就是假的，而 doctor 打印一句此刻不成立的话，正是 #1136 记下的那种失效。
+  if (!fails.length) {
+    log.info(
+      targetVerdict.grandfathered.length > 0
+        ? `· 指向物存在性：${targetVerdict.grandfathered.length} 条存量豁免待清理（见 verification-target-allowlist.json），新增一律 FAIL`
+        : "· 指向物存在性：每条 passing 声称跑过的测试文件都真的在仓库里（棘轮已满）",
+    );
+  }
 }
