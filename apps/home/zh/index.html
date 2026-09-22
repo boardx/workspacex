@@ -104,13 +104,14 @@
     <a class="brand" href="#top" aria-label="WorkspaceX home">
       <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
       <span class="brand__name">WorkspaceX</span>
-      <span class="brand__tag">Beta</span>
+      <a class="brand__tag" href="#questions" data-i18n="nav.stage">早期开放</a>
     </a>
 
     <nav class="nav__links" id="navlinks" aria-label="Section navigation">
       <a class="nav__link" href="#shift"        data-i18n="nav.shift">转变</a>
       <a class="nav__link" href="#loop"         data-i18n="nav.loop">工作闭环</a>
       <a class="nav__link" href="#surface"      data-i18n="nav.surface">工作空间</a>
+      <a class="nav__link" href="#capabilities"  data-i18n="nav.caps">有什么</a>
       <a class="nav__link" href="#architecture" data-i18n="nav.architecture">架构</a>
       <a class="nav__link" href="#trust"        data-i18n="nav.trust">可信</a>
       <a class="nav__link" href="#open"         data-i18n="nav.open">开放</a>
@@ -388,12 +389,60 @@
 </section>
 
 <!-- ======================================================================
+     4.5 · What is actually in it
+     ====================================================================== -->
+<section class="section" id="capabilities">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="caps.eyebrow">05 — 里面有什么</span>
+      <h2 data-i18n="caps.title">今天它里面真正有什么。</h2>
+      <p class="lead" data-i18n="caps.lead">这不是路线图。以下是已经跑起来的界面——它们共用同一份上下文、同一批智能体、同一条证据链。</p>
+    </header>
+
+    <div class="caps" data-stagger>
+      <article class="cap">
+        <h3 data-i18n="caps.c1">和一支智能体团队对话</h3>
+        <p data-i18n="caps.c1b">不是一个助手，而是一份有角色的名单：并发执行，彼此交接，也把活交回给你。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c2">画布与图</h3>
+        <p data-i18n="caps.c2b">一块你和智能体共同动笔的空间表面。这里的图是系统读得懂的结构，不是一张图片。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c3">深度研究</h3>
+        <p data-i18n="caps.c3b">有引导的多来源调研，回来的是一份提纲、支撑它的来源，以及被它剔除掉的东西。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c4">智能体与技能</h3>
+        <p data-i18n="caps.c4b">定义智能体、授予工具的运行时；把奏效的做法打包成技能，别的团队直接能跑。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c5">实时协作</h3>
+        <p data-i18n="caps.c5b">在场状态与实时同步——四个人加四个智能体的一场协作，仍然是一场。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c6">会议与转写</h3>
+        <p data-i18n="caps.c6b">实时转写直接落进工作空间成为上下文，而不是一份没人会再打开的文件。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c7">用户研究与访谈</h3>
+        <p data-i18n="caps.c7b">问卷、访谈工作台，以及背后的分析——原始材料始终挂在结论旁边。</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c8">项目与治理</h3>
+        <p data-i18n="caps.c8b">组织、角色、权限与资产治理——决定上面这些到底允不允许碰生产的那一层。</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
      4 · Three Scales
      ====================================================================== -->
 <section class="section" id="scales">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="scales.eyebrow">05 — 同一个工作空间</span>
+      <span class="eyebrow" data-i18n="scales.eyebrow">06 — 同一个工作空间</span>
       <h2 data-i18n="scales.title">一个工作空间，三个尺度，同一份上下文。</h2>
       <p class="lead" data-i18n="scales.lead">不是三个产品拼在一起，而是同一份上下文，从你的桌面流到团队，再流到整个组织。</p>
     </header>
@@ -427,7 +476,7 @@
 <section class="section" id="architecture">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="arch.eyebrow">06 — 架构</span>
+      <span class="eyebrow" data-i18n="arch.eyebrow">07 — 架构</span>
       <h2 data-i18n="arch.title">五层。上面那层要跑得快，中间那层一步都不能动。</h2>
       <p class="lead" data-i18n="arch.lead">模型可替换，工具可组合。你的语义、你的证据、你的组织记忆，是丢不起的那一部分。</p>
     </header>
@@ -463,7 +512,7 @@
 <section class="section" id="trust">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="trust.eyebrow">07 — 可信</span>
+      <span class="eyebrow" data-i18n="trust.eyebrow">08 — 可信</span>
       <h2 data-i18n="trust.title">审计不了的智能体，就是上不了线的智能体。</h2>
       <p class="lead" data-i18n="trust.lead">harness 是把一个有能力的模型，变成一次你的组织愿意为之负责的行动的那样东西。</p>
     </header>
@@ -491,7 +540,7 @@
 <section class="section" id="start">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="start.eyebrow">08 — 从哪里开始</span>
+      <span class="eyebrow" data-i18n="start.eyebrow">09 — 从哪里开始</span>
       <h2 data-i18n="start.title">从价值高、而且结果查得出来的地方开始。</h2>
       <p class="lead" data-i18n="start.lead">数字化输入充分、流程可拆解、结果可验证、风险可治理。这四条同时成立，智能体工作才是真的，而不只是看着厉害。</p>
     </header>
@@ -527,7 +576,7 @@
 <section class="section" id="unit">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="unit.eyebrow">09 — 工作单元</span>
+      <span class="eyebrow" data-i18n="unit.eyebrow">10 — 工作单元</span>
       <h2 data-i18n="unit.title">“用了 AI”不是交付物。一个工作单元才是。</h2>
       <p class="lead" data-i18n="unit.lead">一个最小可行动的智能体单元，有明确的输入、明确的输出、清楚的责任边界，以及一种被检查的方式。这才让它成为可以买、可以验、可以复用、可以定价的东西——而不是只能让人觉得厉害的东西。</p>
     </header>
@@ -556,7 +605,7 @@
 <section class="section" id="open">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="open.eyebrow">10 — 开放是设计选择</span>
+      <span class="eyebrow" data-i18n="open.eyebrow">11 — 开放是设计选择</span>
       <h2 data-i18n="open.title">掌握语义，而不是掌握每一行实现。</h2>
       <p class="lead" data-i18n="open.lead">写软件只会越来越便宜。值得自己掌握的是核心抽象、协作运行时，以及人与智能体之间的体验。其余的，要么直接采用，要么保持可替换。</p>
     </header>
@@ -602,12 +651,38 @@
 </section>
 
 <!-- ======================================================================
+     10.5 · Built by the system it describes
+     ====================================================================== -->
+<section class="section proof" id="proof">
+  <div class="wrap">
+    <div class="proof__inner">
+      <div class="proof__copy" data-reveal="left">
+        <span class="eyebrow" data-i18n="proof.eyebrow">11 — 我们最有力的论据</span>
+        <h2 data-i18n="proof.title">WorkspaceX 本身，就是由智能体团队在它自己的 harness 下建起来的。</h2>
+        <p class="lead" data-i18n="proof.lead">我们不是先做了一套证据系统，然后手写功能。仓库就是证据：活是智能体干的，而这一页主张的那些门，正是它们绕不过去的门。</p>
+        <a class="btn btn--ghost" href="https://github.com/boardx/workspacex" rel="noopener">
+          <span data-i18n="proof.cta">去看仓库</span>
+          <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+
+      <ul class="proof__rules" data-reveal="right" role="list">
+        <li><b data-i18n="proof.r1">没有 issue 就不许开发。</b><span data-i18n="proof.r1b">在 GitHub 上看不见的 feature 不存在。看不见的开发，只有做的人自己知道在做什么。</span></li>
+        <li><b data-i18n="proof.r2">智能体不能给自己的活打「完成」。</b><span data-i18n="proof.r2b">只有验证脚本能把一个 feature 转成 passing，而 passing 不可逆。</span></li>
+        <li><b data-i18n="proof.r3">没有证据就等于没做。</b><span data-i18n="proof.r3b">命令输出、日志、commit、截图。“看起来能跑”不是这个系统里存在的状态。</span></li>
+        <li><b data-i18n="proof.r4">合进主干、CI 全绿、由 PR 关闭。</b><span data-i18n="proof.r4b">停在分支上的代码对别人不存在，所以不算做完。</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
      9.5 · Objections
      ====================================================================== -->
 <section class="section" id="questions">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="faq.eyebrow">11 — 直接回答</span>
+      <span class="eyebrow" data-i18n="faq.eyebrow">13 — 直接回答</span>
       <h2 data-i18n="faq.title">决定这东西能不能上线的那几个问题。</h2>
     </header>
 
@@ -646,7 +721,7 @@
 <section class="section" id="horizons">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="hz.eyebrow">12 — 会走到哪里</span>
+      <span class="eyebrow" data-i18n="hz.eyebrow">14 — 会走到哪里</span>
       <h2 data-i18n="hz.title">先证明单元，再证明团队，最后是经济体。</h2>
     </header>
 
@@ -704,6 +779,7 @@
         <h3 class="footer__h" data-i18n="footer.h1">产品</h3>
         <ul>
           <li><a href="#loop" data-i18n="footer.l1">它怎么工作</a></li>
+          <li><a href="#capabilities" data-i18n="footer.l9">里面有什么</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">架构</a></li>
           <li><a href="#trust" data-i18n="footer.l3">可信与证据</a></li>
           <li><a href="#open" data-i18n="footer.l4">开放生态</a></li>
@@ -714,6 +790,7 @@
         <ul>
           <li><a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="footer.l5">GitHub</a></li>
           <li><a href="https://develop.boardx.us" rel="noopener" data-i18n="footer.l6">开发者门户</a></li>
+          <li><a href="#proof" data-i18n="footer.l10">它是怎么建起来的</a></li>
         </ul>
       </div>
       <div class="footer__col">
