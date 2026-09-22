@@ -11,7 +11,7 @@
  * （它需要人看一眼，而不是拦住一次排查）。
  */
 import { chromium } from "@playwright/test";
-import { AA_LARGE, AA_NORMAL, auditTextContrast } from "../e2e/support/text-contrast";
+import { AA_LARGE, AA_NORMAL, auditTextContrast, examinedFloor } from "../e2e/support/text-contrast";
 
 /* apps/web 不是 ESM 包（package.json 无 `type: module`），tsx 编成 CJS，
  * 顶层 await 不可用，所以整段包进 `main()`。 */
@@ -24,9 +24,6 @@ async function main(): Promise<void> {
   const session = process.env.SESSION_JSON === undefined ? null : JSON.parse(process.env.SESSION_JSON) as {
     userId: string; orgs: string[]; currentOrgId: string; expiresAt: string; token: string;
   };
-
-  /** 低于这个候选元素数就认为「这页没渲染出来」——空白页与全通过在输出上无法分辨。 */
-  const MIN_EXAMINED = 40;
 
   const browser = await chromium.launch();
   let failed = 0;
@@ -81,8 +78,8 @@ async function main(): Promise<void> {
       console.log(`  ? 判不了  ${h.tag}${h.testid === null ? "" : `[${h.testid}]`}  —— ${h.why}`);
       console.log(`         「${h.sample}」  class=${h.cls}`);
     }
-    if (r.examined < MIN_EXAMINED) {
-      console.log(`   ⚠ 只审到 ${String(r.examined)} 个元素——这更像是页面没渲染出来（重定向/空态/未登录），不是「全都通过」。本页计为未审到。`);
+    if (r.examined < examinedFloor(url)) {
+      console.log(`   ⚠ 只审到 ${String(r.examined)} 个元素（基线 ${String(examinedFloor(url))}）——这更像是页面没渲染出来（重定向/空态/未登录），不是「全都通过」。本页计为未审到。`);
       unaudited.push(url);
     }
     failed += r.fail.length;

@@ -30,6 +30,38 @@
 export const AA_NORMAL = 4.5;
 export const AA_LARGE = 3.0;
 
+/**
+ * 每条路由「至少该审到多少个元素」的**基线**，来自实测而不是拍脑袋。
+ *
+ * ## 为什么必须按页记，而不是一个全局阈值
+ *
+ * 页面之间差得很远（实测：`/chat` 230、`/tpl` 206、`/preview/agent-kernel` 43）。
+ * 一个绝对阈值要么对内容少的页面误杀、要么对内容多的页面形同虚设——`agent-kernel` 的 43
+ * 距离我第一版 CLI 里那个 40 只差 3 个元素，**再少一点就会被判成「未审到」**。
+ *
+ * ⚠ 这一份是**单一事实源**。第一版把下限写在两个消费者里（门控 20、CLI 40），也就是同一个
+ * 判据声明在两处——本仓头号病，而且两个数还不一样。并行会话复核时点出了这件事。
+ *
+ * 取值 = 实测值的一半（向下取整到十位）：真渲染出来的页面不会掉一半，而重定向到登录页/
+ * 空白页只有个位数，一定掉破。页面内容大改之后这个数要跟着改，改的时候顺手把新实测值记进来。
+ */
+export const EXAMINED_BASELINE: Readonly<Record<string, number>> = {
+  "/preview/live-collab-orchestration": 24, // 实测 49
+  "/preview/agent-kernel": 20,              // 实测 43
+  "/preview/plan-control": 20,              // 实测 40+
+  "/preview/chat-viz": 20,                  // 实测 40+
+};
+
+/** 没有记过基线的路由用这个兜底。刻意保守：宁可漏判，也不要因为一个拍的数字误杀。 */
+export const EXAMINED_FALLBACK = 12;
+
+/** 这条 URL 的下限。按 pathname 匹配，所以同一条路由在不同端口/主机上共用一份基线。 */
+export function examinedFloor(url: string): number {
+  let pathname = url;
+  try { pathname = new URL(url, "http://localhost").pathname; } catch { /* 已经是 path */ }
+  return EXAMINED_BASELINE[pathname] ?? EXAMINED_FALLBACK;
+}
+
 export interface ContrastHit {
   readonly ratio: number; readonly threshold: number; readonly tag: string;
   readonly testid: string | null; readonly cls: string; readonly sample: string;
