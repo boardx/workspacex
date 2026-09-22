@@ -1,0 +1,31 @@
+{
+  "_readme": [
+    "机械门 `lint-test-shared-grant.mjs`（issue #522）的棘轮豁免名单。",
+    "规则：这个数组只能变短。",
+    "",
+    "⚠ 这四条**不是「门有假阳性」**，跟 body-path-param-leak 那份名单的性质正相反——",
+    "它们是**真的存量危险**，是 #522 描述的那一类：权限挂在共享角色 `app_rw` 上，",
+    "`organizations` / `provenance_events` 两张表是所有并行 worker 都在写的表，",
+    "撤销窗口里别的测试文件插这两张表就会 permission denied（#522 实测同款语句、",
+    "同款角色、同款库）。它们今天还在名单里，只是因为「上线即全红」等于没有门",
+    "（coord-main 2026-08-13 对 #1136 的同款裁决，见 lib/feature-evidence-ratchet.ts 头注）。",
+    "",
+    "**要怎么清掉它们**（顺序不重要，两个文件互不相干）：",
+    "  · admin-audit-access-visible-to-lead.test.ts —— 它要的是「这一次审计读的写回失败」。",
+    "    照 PR #516 的范例换成双重限定触发器：BEFORE INSERT ON provenance_events，",
+    "    只在 `NEW.org_id = <本文件的 ORG>` 时 RAISE。别的文件观察不到，DDL 也从每用例两次",
+    "    降到每文件两次。",
+    "  · provenance-append-only.test.ts —— 它要的是「DELETE 权限回来之后，触发器仍然拒绝级联」。",
+    "    这条没法只靠触发器改写（它本来就是在验证触发器），得换成一个**本文件自己建的角色**：",
+    "    `CREATE ROLE <本文件专属>` + 只给这个角色 DELETE，用它去发起攻击，",
+    "    app_rw 的权限一个字节都不动。门认这种写法（verdict = grantee-owned）。",
+    "两处都必须在能跑真实 Postgres 的车道上验证（本门控只判静态文本，证明不了改写之后行为不变），",
+    "所以没有在 #522 这个 PR 里顺手改——那会是一次无法验证的盲改。"
+  ],
+  "entries": [
+    "apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts :: REVOKE INSERT ON provenance_events FROM app_rw",
+    "apps/api/tests/kernel/admin-audit-access-visible-to-lead.test.ts :: GRANT INSERT ON provenance_events TO app_rw",
+    "apps/api/tests/kernel/provenance-append-only.test.ts :: GRANT DELETE ON organizations TO app_rw",
+    "apps/api/tests/kernel/provenance-append-only.test.ts :: REVOKE DELETE ON organizations FROM app_rw"
+  ]
+}
