@@ -89,6 +89,23 @@ for (const m of html.matchAll(/<a\b[^>]*href="https?:\/\/[^"]*"[^>]*>/g)) {
 
 }
 
+/* --- 9. generated pages must not send the reader back to the other language -
+   The Chinese home page linked to the English privacy page, and the Chinese
+   privacy page's "back to the site" landed in English. Both shipped, because
+   nothing checked that a translated page keeps the reader in its language.
+   The language switch is exempt: pointing at the other language is its job. */
+for (const file of ['zh/index.html', 'zh/privacy.html']) {
+  let body;
+  try { body = readFileSync(join(root, file), 'utf8'); } catch { continue; }
+  for (const m of body.matchAll(/<a\b[^>]*>/g)) {
+    if (m[0].includes('langswitch__btn')) continue;
+    const href = m[0].match(/href="(\/[^"]*)"/)?.[1];
+    if (href && !href.startsWith('/zh/')) {
+      problems.push(`${file}:${body.slice(0, m.index).split('\n').length}: links to ${href}, outside its own language`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ ${problems.length} structural problem(s):`);
   problems.forEach((p) => console.error(`    ${p}`));
