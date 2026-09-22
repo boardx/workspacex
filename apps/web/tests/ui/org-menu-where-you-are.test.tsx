@@ -37,6 +37,14 @@ describe("组织菜单先说「你在哪」", () => {
     expect(screen.getByTestId("org-menu").textContent).not.toContain("切换组织");
   });
 
+  it("云端单组织时，「当前所在」那一格的文本**就是**组织名，不多不少", () => {
+    // e2e（`fullstack-smoke.spec.ts`）对这一格用的是 `toHaveText` 整串精确匹配。
+    // 那条断言的强度取决于这一格不夹带别的文字——在这里先钉住，免得真栈上才发现。
+    render(<OrgMenu identity={identity("cloud", "org org-fullstack")} organizations={[{ id: "o1", label: "org org-fullstack" }]} onSelect={() => {}} />);
+    open();
+    expect(screen.getByTestId("org-menu-current").textContent).toBe("org org-fullstack");
+  });
+
   it("多个组织时照旧给出切换", () => {
     render(
       <OrgMenu
