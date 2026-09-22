@@ -240,3 +240,31 @@ describe("M8 死路（#3773 R6）", () => {
     ).toBe(1);
   });
 });
+
+describe("M6 主操作：破坏性动作也是主操作（迭代 18）", () => {
+  const danger = (label: string): N =>
+    ({ type: "button", props: { label, variant: "danger" } }) as unknown as N;
+
+  it("生成中的对话页：唯一一个「停止」（danger）⇒ 满分，不判「没有主操作」", () => {
+    /*
+     * ⭐ 反证锚点：改回「没有 primary 就扣分」⇒ 这条红。
+     * 把这类页判成"没有主操作"，等于逼着设计把破坏性动作画成普通主按钮——那才是坏设计。
+     */
+    const page = stack([text("对话助手", "title"), text("正在生成…", "caption"), danger("停止")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(1);
+  });
+
+  it("两个 danger 且没有 primary ⇒ 仍然扣分（焦点还是被摊平了）", () => {
+    const page = stack([text("设置", "title"), danger("删除账号"), danger("清空数据")]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(0.5);
+  });
+
+  it("有 primary 时 danger 不参与计数（保存 + 删除是正常的一页）", () => {
+    const page = stack([
+      text("编辑", "title"),
+      { type: "button", props: { label: "保存修改", variant: "primary" } } as unknown as N,
+      danger("删除"),
+    ]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(1);
+  });
+});

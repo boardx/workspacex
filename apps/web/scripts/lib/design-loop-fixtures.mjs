@@ -246,39 +246,73 @@ export const DESIGN_PROJECTS = [
       "按最近更新排序；搜索匹配标题与首条消息；左滑删除，删除前二次确认。",
       "本月用量与配额进度一屏可见；超额前给出提醒；底部导航停在「用量」。",
     ],
+    /*
+     * 迭代 18 —— 这份夹具**自己过不了我们的质量门**，而它同时是两样东西：
+     * `prototype-audit`（全仓最强的视觉门）的取样对象，和签核第 ① 件的截图材料。
+     *
+     * 实测（`scorePrototypeScreen`）：三页分别 83 / 81 / 89，其中
+     *   · 三页**全部**只有一档 text variant（「标题和正文一样大、没有层次」）；
+     *   · 第 2、3 页**一个 text 节点都没有**；
+     *   · 第 2 页只有 7 个元素（「渲染出来几乎是空的」）。
+     * 于是审计门报的 `density=17%（偏稀）` 说的是夹具稀，不是产品稀——而我们拿它
+     * 当"产物长什么样"的证据。这是「few-shot 过不了质量门」的上一层版本：
+     * **给门做体检的样本，本身不像产物**。
+     *
+     * 所以这一版把三页补成真的像产物的样子：每页有标题与辅助说明（三档字号）、
+     * 有明确的焦点动作、内容量够。改的是"样本像不像产物"，不是"把分数刷上去"——
+     * 分数是顺带的结果。
+     *
+     * ⚠ **每个被引用的节点都显式写 id**（`withIds` 认 `n.id ?? nK`）。
+     *   在这之前 `frameLinks` 与 `asV1` 引用的是 `n2`/`n14`/`n34` 这类**按遍历序补出来**
+     *   的 id——往树里插一个节点，后面所有 id 集体平移，连线和 v1 回滚会静默连到别的
+     *   节点上。这正是本仓那条"想连线就自己给那个节点写 id"，只是这次要求的是我们自己。
+     */
     prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
         children: [
-          { type: "navbar", props: { title: "对话助手", left: "☰", right: "新对话" } },
+          { id: "chat-nav", type: "navbar", props: { title: "对话助手", left: "☰", right: "新对话" } },
           {
             type: "stack", props: { fill: true, gap: "sm", padding: "sm" },
             children: [
+              { type: "text", props: { content: "退款政策改写", variant: "title" } },
+              { type: "text", props: { content: "今天 14:02 · 已生成 2 条", variant: "caption", muted: true } },
               { type: "stack", props: { direction: "row", gap: "sm", align: "end" }, children: [{ type: "card", children: [{ type: "text", props: { content: "帮我把这段退款政策改成客户能看懂的话。" } }] }] },
               { type: "stack", props: { direction: "row", gap: "sm" }, children: [
                 { type: "avatar", props: { name: "AI" } },
-                { type: "card", children: [
+                { id: "chat-reply", type: "card", children: [
                   { type: "text", props: { content: "好的。简版：7 天内未使用可全额退款；已使用按剩余天数按比例退。" } },
-                  { type: "badge", props: { label: "正在生成…", tone: "info" } },
+                  { id: "chat-generating", type: "badge", props: { label: "正在生成…", tone: "info" } },
                 ] },
               ] },
             ],
           },
-          { type: "stack", props: { direction: "row", gap: "sm", align: "end", padding: "sm" }, children: [
+          { id: "chat-composer", type: "stack", props: { direction: "row", gap: "sm", align: "end", padding: "sm" }, children: [
             { type: "input", props: { placeholder: "发送消息", multiline: true } },
-            { type: "button", props: { label: "停止", variant: "danger" } },
+            { id: "chat-send", type: "button", props: { label: "停止", variant: "danger" } },
           ] },
         ],
       },
       {
         type: "stack", props: { direction: "column", gap: "sm" },
         children: [
-          { type: "navbar", props: { title: "历史会话", left: "返回", right: "编辑" } },
+          { id: "history-nav", type: "navbar", props: { title: "历史会话", left: "返回", right: "编辑" } },
+          { type: "stack", props: { direction: "column", gap: "none", padding: "sm" }, children: [
+            { type: "text", props: { content: "最近 30 天", variant: "title" } },
+            { type: "text", props: { content: "12 个会话，2 个已收藏", variant: "caption", muted: true } },
+          ] },
           { type: "input", props: { placeholder: "搜索会话" } },
           { type: "tabs", props: { items: ["全部", "已收藏"], active: 0 } },
-          { type: "list", props: { items: ["退款政策改写", "周报润色", "英文邮件翻译", "面试题整理"], leading: "dot" } },
-          { type: "spacer", props: { size: "lg" } },
-          { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
+          { type: "text", props: { content: "本周", variant: "label", muted: true } },
+          { id: "history-list", type: "list", props: {
+            items: ["退款政策改写", "周报润色", "英文邮件翻译"],
+            detail: ["7 天内未使用可全额退", "把三件事压成一句", "语气改得更客气"],
+            trailing: ["今天", "周三", "周一"],
+            leading: "dot",
+          } },
+          { type: "text", props: { content: "更早", variant: "label", muted: true } },
+          { type: "list", props: { items: ["面试题整理"], trailing: ["9 月 2 日"], leading: "dot" } },
+          { id: "history-new", type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
         ],
       },
       // 迭代 6：新原语一页——hero / grid+stat / progress / chip / switch / checkbox / bottomnav
@@ -290,23 +324,26 @@ export const DESIGN_PROJECTS = [
             { type: "stat", props: { label: "对话数", value: "1,284", delta: "+12% 环比", tone: "success" } },
             { type: "stat", props: { label: "平均响应", value: "2.4s", delta: "-0.3s", tone: "success" } },
           ] },
+          { type: "text", props: { content: "配额", variant: "label", muted: true } },
           { type: "progress", props: { value: 68, label: "配额" } },
+          { type: "text", props: { content: "超过 80% 会在这里提醒你，也会发一封邮件。", variant: "caption", muted: true } },
           { type: "stack", props: { direction: "row", gap: "sm" }, children: [
             { type: "chip", props: { label: "本周", selected: true } }, { type: "chip", props: { label: "本月" } }, { type: "chip", props: { label: "全部" } },
           ] },
           { type: "switch", props: { label: "用量提醒", on: true } },
           { type: "checkbox", props: { label: "包含测试对话", checked: false } },
-          { type: "bottomnav", props: { items: ["聊天", "历史", "用量", "我的"], active: 2 } },
+          { id: "usage-nav", type: "bottomnav", props: { items: ["聊天", "历史", "用量", "我的"], icons: ["message", "clock", "chart", "user"], active: 2 } },
         ],
       },
     ]),
     // 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系。签核前后端不发这个
-    // 字段，夹具先给——UI 先行材料（预览模式 / 画板连线 / 属性面板跳转下拉）靠它拍。id 是
-    // `withIds` 按遍历序补出来的（n2 对话页 navbar、n16/n19/n21 历史会话页、n34 用量页 bottomnav）。
+    // 字段，夹具先给——UI 先行材料（预览模式 / 画板连线 / 属性面板跳转下拉）靠它拍。
+    // 迭代 18：改用**显式 id**（见 prototype 那段的 ⚠）——按遍历序补出来的 id 会随任何一次
+    // 插入集体平移，连线会静默连到别的节点上。
     frameLinks: [
-      [{ from: "n2", item: 0, to: 1 }],                                   // 对话：☰ → 历史会话
-      [{ from: "n16", item: 0, to: 0 }, { from: "n19", item: 0, to: 0 }, { from: "n21", to: 0 }], // 历史会话：返回 / 第一条 / 开始新对话 → 对话
-      [{ from: "n34", item: 0, to: 0 }, { from: "n34", item: 1, to: 1 }], // 用量：底部导航 聊天 / 历史
+      [{ from: "chat-nav", item: 0, to: 1 }],                             // 对话：☰ → 历史会话
+      [{ from: "history-nav", item: 0, to: 0 }, { from: "history-list", item: 0, to: 0 }, { from: "history-new", to: 0 }], // 历史会话：返回 / 第一条 / 开始新对话 → 对话
+      [{ from: "usage-nav", item: 0, to: 0 }, { from: "usage-nav", item: 1, to: 1 }], // 用量：底部导航 聊天 / 历史
     ],
     pushed: false, pushedAt: null, linkedFeedbackId: null,
     githubIssueUrl: null, githubIssueNumber: null,
@@ -326,8 +363,8 @@ export const DESIGN_PROJECTS = [
 function asV1(screens) {
   const walk = (n) => ({
     ...n,
-    ...(n.id === "n14" ? { props: { ...n.props, label: "发送", variant: "primary" } } : {}),
-    ...(n.children ? { children: n.children.filter((c) => c.id !== "n11").map(walk) } : {}),
+    ...(n.id === "chat-send" ? { props: { ...n.props, label: "发送", variant: "primary" } } : {}),
+    ...(n.children ? { children: n.children.filter((c) => c.id !== "chat-generating").map(walk) } : {}),
   });
   return (screens ?? []).map(walk);
 }
@@ -423,8 +460,8 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     // 增量修改这条路径必须**真的改画布**：回复说"加好了"而画布上没有，是屏上肉眼可见的矛盾
     // （rev-uiux 复评 D2/D10 判 0 的根因就是这里原先回 `applied: []` 只写字不动树）。
     applyFixturePatch(project.prototype, [
-      { nodeId: "n12", index: 0, node: { id: "n90", type: "button", props: { label: "＋", variant: "ghost" } } },
-      { nodeId: "n9", index: 2, node: { id: "n91", type: "button", props: { label: "复制", variant: "ghost" } } },
+      { nodeId: "chat-composer", index: 0, node: { id: "n90", type: "button", props: { label: "＋", variant: "ghost" } } },
+      { nodeId: "chat-reply", index: 2, node: { id: "n91", type: "button", props: { label: "复制", variant: "ghost" } } },
     ]);
     project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区左侧加了附件按钮，AI 回复下方加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
     project.updatedAt = NOW;

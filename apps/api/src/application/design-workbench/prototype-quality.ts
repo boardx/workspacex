@@ -167,10 +167,23 @@ function primaryFocus(nodes: readonly designPrototype.PrototypeNode[]): QualityD
   const primaries = buttons.filter((n) => ((n.props as { variant?: string }).variant ?? "primary") === "primary");
   if (primaries.length === 1) return { metric: "primaryFocus", score: 1, hint: "" };
   if (primaries.length === 0) {
+    /**
+     * 迭代 18：**`danger` 也算主操作**。
+     *
+     * 这条原来一刀切：没有 `primary` 就扣分。但「正在生成中」的对话页上，那个
+     * 「停止」按钮就是这一页唯一、也是最想让用户按的那一件事，它只是**语义上是
+     * 破坏性的**，所以该用 danger 而不是 primary。同理「删除这条记录」的确认页。
+     * 把这类页判成"没有主操作"，等于逼着设计把破坏性动作画成普通主按钮——
+     * 那才是真正的坏设计。
+     *
+     * 判据因此是「有没有一个视觉上的焦点动作」，而不是「有没有 primary 这个字面量」。
+     */
+    const danger = buttons.filter((n) => (n.props as { variant?: string }).variant === "danger");
+    if (danger.length === 1) return { metric: "primaryFocus", score: 1, hint: "" };
     return {
       metric: "primaryFocus",
       score: 0.5,
-      hint: "这一页有按钮但没有一个是主操作（variant:\"primary\"）——挑出这页最想让用户做的那一件事，把它设成 primary。",
+      hint: "这一页有按钮但没有一个是主操作——挑出这页最想让用户做的那一件事，把它设成 variant:\"primary\"（破坏性动作用 \"danger\"，同样算主操作）。",
     };
   }
   return {
