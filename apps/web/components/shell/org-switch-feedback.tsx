@@ -102,6 +102,52 @@ export function OrgSwitchProgress({ toLabel }: { toLabel: string }) {
 }
 
 /**
+ * 切换没成：说出来。**不自动消失**——出错的提示自己飘走，等于没说过。
+ *
+ * 改这条之前，`runSwitch` 的 `.catch()` 只是把遮罩收掉，用户看到的是「点了组织名，
+ * 转了一下，什么都没发生，还在原来的组织里」——连「失败了」这件事都不知道，
+ * 只会再点一次。
+ */
+export function OrgSwitchFailed({
+  toLabel, onRetry, onDismiss,
+}: {
+  toLabel: string;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      data-testid="org-switch-failed"
+      role="alert"
+      className="fixed bottom-4 left-1/2 z-50 w-[min(92vw,26rem)] -translate-x-1/2 rounded-lg border border-destructive bg-card p-3 text-card-foreground shadow-lg"
+    >
+      <p className="text-13 font-medium">没能切换到「{toLabel}」</p>
+      <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
+        你仍然在原来的组织里，没有任何东西被改动。
+      </p>
+      <div className="mt-2.5 flex justify-end gap-2">
+        <button
+          type="button"
+          data-testid="org-switch-failed-dismiss"
+          onClick={onDismiss}
+          className="rounded-md border border-border px-2.5 py-1 text-12 transition-colors hover:bg-muted"
+        >
+          知道了
+        </button>
+        <button
+          type="button"
+          data-testid="org-switch-retry"
+          onClick={onRetry}
+          className="rounded-md bg-primary px-2.5 py-1 text-12 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          重试
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * 落地：一条会自己消失的确认。**不是 toast 系统**——本仓没有 toast，
  * 为一句确认引入一套全局通知栈是把范围放大到不需要的地方。
  */

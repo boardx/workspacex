@@ -18,7 +18,7 @@ import { sanitizeReturnTo } from "@/lib/return-to";
 import { buildOrgSwitchUrl, forgetOrgSwitch, rememberOrgSwitch, takeOrgSwitchLanding, type OrgSwitchLanding } from "@/lib/org-switch";
 import { ShellBusyProvider, useShellBusyCount } from "@/lib/shell-busy";
 import {
-  OrgSwitchConfirm, OrgSwitchLanded, OrgSwitchProgress,
+  OrgSwitchConfirm, OrgSwitchFailed, OrgSwitchLanded, OrgSwitchProgress,
   shouldConfirmOrgSwitch, type PendingOrgSwitch,
 } from "./org-switch-feedback";
 
@@ -198,6 +198,7 @@ export function ShellChrome({
   const busyCount = useShellBusyCount();
   const [pendingSwitch, setPendingSwitch] = React.useState<PendingOrgSwitch | null>(null);
   const [switchingTo, setSwitchingTo] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState<PendingOrgSwitch | null>(null);
   const [landing, setLanding] = React.useState<OrgSwitchLanding | null>(null);
 
   /**
@@ -220,6 +221,7 @@ export function ShellChrome({
 
   const runSwitch = React.useCallback((target: PendingOrgSwitch) => {
     setPendingSwitch(null);
+    setFailed(null);
     if (onSwitchOrganization) {
       setSwitching(true);
       setSwitchingTo(target.toLabel);
@@ -232,6 +234,7 @@ export function ShellChrome({
         .catch(() => {
           forgetOrgSwitch();   // 切换没成，别让下一次跳转弹出一条「已切换到 X」的假消息
           setSwitchingTo(null);
+          setFailed(target);   // 静默失败 = 用户只会再点一次；说出来并给一次重试
         })
         .finally(() => setSwitching(false));
       return;
@@ -415,6 +418,13 @@ export function ShellChrome({
         />
       )}
       {switching && switchingTo !== null && <OrgSwitchProgress toLabel={switchingTo} />}
+      {failed !== null && !switching && (
+        <OrgSwitchFailed
+          toLabel={failed.toLabel}
+          onRetry={() => runSwitch({ ...failed, runsInFlight: busyCount })}
+          onDismiss={() => setFailed(null)}
+        />
+      )}
       {landing !== null && (
         <OrgSwitchLanded
           toLabel={landing.toLabel}

@@ -183,6 +183,39 @@ describe("壳层：切换的三段体感", () => {
     expect(takeOrgSwitchLanding()).toBeNull();
   });
 
+  it("切换失败要说出来，并给一次重试——不能只是静悄悄地什么都没发生", async () => {
+    const onSwitch = vi.fn()
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockImplementationOnce(() => new Promise<void>(() => {}));
+    render(
+      <Shell organizations={[{ id: "o1", label: "研发一部" }, { id: "o2", label: "市场部" }]} onSwitchOrganization={onSwitch}>
+        <Busy busy={false} />
+      </Shell>,
+    );
+    openOrgMenu();
+    chooseOrg("o2");
+    const box = await screen.findByTestId("org-switch-failed");
+    expect(box.textContent).toContain("市场部");
+    expect(box.textContent).toContain("仍然在原来的组织里");
+    fireEvent.click(screen.getByTestId("org-switch-retry"));
+    await waitFor(() => expect(onSwitch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByTestId("org-switch-failed")).toBeNull());
+  });
+
+  it("「知道了」关掉失败提示，且不留下落地标记", async () => {
+    const onSwitch = vi.fn(() => Promise.reject(new Error("boom")));
+    render(
+      <Shell organizations={[{ id: "o1", label: "研发一部" }, { id: "o2", label: "市场部" }]} onSwitchOrganization={onSwitch}>
+        <Busy busy={false} />
+      </Shell>,
+    );
+    openOrgMenu();
+    chooseOrg("o2");
+    fireEvent.click(await screen.findByTestId("org-switch-failed-dismiss"));
+    await waitFor(() => expect(screen.queryByTestId("org-switch-failed")).toBeNull());
+    expect(takeOrgSwitchLanding()).toBeNull();
+  });
+
   it("新页面挂载时读到标记就确认落地，并说出任务留在哪", async () => {
     rememberOrgSwitch({ toLabel: "市场部", fromLabel: "研发一部", runsLeftBehind: 3 });
     render(
