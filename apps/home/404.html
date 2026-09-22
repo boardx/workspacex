@@ -6,7 +6,12 @@
 <title>Not found · 页面不存在 — WorkspaceX</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#08070b">
+<!-- iOS ignores the manifest's short_name; without this the home-screen
+     label is the <title>, truncated to something like "WorkspaceX — Th". -->
+<meta name="apple-mobile-web-app-title" content="WorkspaceX">
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<link rel="manifest" href="/assets/site.webmanifest">
 <link rel="stylesheet" href="/assets/css/site.css">
 <style>
   /* Both languages at once, on purpose: an error page cannot know which one

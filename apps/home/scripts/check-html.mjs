@@ -62,11 +62,12 @@ for (const m of html.matchAll(/<h([1-6])\b/g)) {
   previous = level;
 }
 
-/* --- 5. anchors that point at nothing ------------------------------------- */
-const targets = new Set(ids);
-for (const m of html.matchAll(/href="#([^"]+)"/g)) {
-  if (!targets.has(m[1])) problems.push(`${where(m.index)}: href="#${m[1]}" has no matching id`);
-}
+/* --- 5. (retired) anchors that point at nothing -------------------------
+   check-links.mjs does this across all FIVE pages, including the generated
+   Chinese ones this file deliberately skips, and resolves file references
+   in the same pass. Two gates asserting one fact is the duplication this
+   project keeps paying for. The id set it built is still needed below. */
+const targets = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
 /* --- 6. aria-labelledby that points at nothing ---------------------------- */
 for (const m of html.matchAll(/aria-labelledby="([^"]+)"/g)) {

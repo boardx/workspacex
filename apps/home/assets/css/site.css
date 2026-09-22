@@ -71,9 +71,9 @@
 
 
 
-  --c-1-rgb:     255 122 24;
-  --c-2-rgb:     255 46 115;
-  --c-3-rgb:     177 75 255;
+  --c-1-rgb:     255 148 69;
+  --c-2-rgb:     255 63 127;
+  --c-3-rgb:     240 42 168;
   --c-1:         rgb(var(--c-1-rgb));
   --c-2:         rgb(var(--c-2-rgb));
   --c-3:         rgb(var(--c-3-rgb));
@@ -350,10 +350,21 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 .nav__links { min-width: 0; }
 
 .brand { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
-.brand__mark { width: 26px; height: 26px; }
+
+.brand__home { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
 .brand__name {
   font-family: var(--font-display);
   font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .brand__name {
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 .brand__tag {
   font-family: var(--font-mono);
@@ -371,7 +382,8 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .nav__links { display: flex; align-items: center; gap: var(--s-1); margin-inline: auto; }
 .nav__link {
   position: relative;
-  padding: 0.45rem 0.75rem; border-radius: var(--r-xs);
+
+  padding: 0.45rem 0.5rem; border-radius: var(--r-xs);
   font-size: var(--t-small); color: var(--fg-soft);
   transition: color var(--dur-fast) var(--ease-out);
   white-space: nowrap;
@@ -434,7 +446,8 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .nav__burger[aria-expanded="true"] span::after  { opacity: 0; }
 
 @media (max-width: 1320px) {
-  .nav__link { padding-inline: 0.55rem; font-size: var(--t-xs); }
+
+  .nav__link { padding-inline: 0.35rem; font-size: var(--t-xs); }
   .nav__inner { gap: 0.9rem; }
   .nav__ghost { padding-inline: 0.55rem; }
 }
@@ -573,6 +586,8 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   border: 1px solid var(--hairline-2);
   background: rgba(255, 255, 255, 0.03);
   font-size: var(--t-small); color: var(--fg-soft);
+
+  text-wrap: balance;
 }
 .chip__dot {
   width: 6px; height: 6px; border-radius: var(--r-round);
@@ -751,6 +766,8 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 }
 
 @media (forced-colors: active) {
+
+  .brand__name { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
   .btn, .langswitch__btn, .chip, .nav__ghost {
     border: 1px solid ButtonBorder;
     forced-color-adjust: none;

@@ -13,7 +13,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { serve, launcher, launchOptions, reporter, pageFacts, ROOT } from './harness.mjs';
+import * as H from './harness.mjs';
+import { serve, launcher, launchOptions, reporter, pageFacts, evaluateWithin, ROOT } from './harness.mjs';
 
 const chromium = await launcher();
 if (!chromium) {
@@ -26,6 +27,23 @@ const facts = await pageFacts();
 const { base, close } = await serve();
 const browser = await chromium.launch(launchOptions());
 let ok = true;
+
+/* A suite that throws used to print a stack and then hang forever, because
+   the browser and the server were still open and nothing tore them down.
+   Every failure therefore looked like a stall. These three turn any crash —
+   including one inside page.evaluate — into a named failure and an exit. */
+const bail = async (what, err) => {
+  console.error(`\n✗ ${H.current} — ${what}: ${err?.message ?? err}`);
+  console.error(`    browser connected: ${browser.isConnected()}`);
+  try { close(); } catch { /* already down */ }
+  try { await browser.close(); } catch { /* already down */ }
+  process.exit(1);
+};
+process.on('uncaughtException', (e) => { bail('threw', e); });
+process.on('unhandledRejection', (e) => { bail('rejected', e); });
+/* And a ceiling, so a genuinely stuck await cannot burn a CI job silently. */
+const watchdog = setTimeout(() => bail('exceeded its time budget', new Error('300s')), 300_000);
+watchdog.unref();
 
 const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
 
@@ -116,17 +134,35 @@ for (const [lang, path] of LANGS) {
   const r = reporter(`responsive — ${WIDTHS.length} widths, both languages`);
   for (const path of ['/', '/zh/']) {
     for (const width of WIDTHS) {
+      r.step(`${path} @${width} · context`);
       const ctx = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
       const page = await ctx.newPage();
+      /* Without this a stuck action waits forever. It cost two full runs
+         diagnosed as "still going" before the suite could say otherwise. */
+      page.setDefaultTimeout(20_000);
+      r.step(`${path} @${width} · goto`);
       await page.goto(base + path, { waitUntil: 'networkidle' });
-      await page.evaluate(async () => {
-        const step = window.innerHeight * 0.8;
-        for (let y = 0; y < document.body.scrollHeight; y += step) {
-          window.scrollTo(0, y); await new Promise((d) => setTimeout(d, 30));
-        }
-        window.scrollTo(0, 0);
-      });
-      const res = await page.evaluate(() => {
+      /* What this suite asserts — sideways overflow, svg text under 9 px, a
+         clipped nav — needs the page LAID OUT, not animated. It used to walk
+         the page in twenty-nine steps, which meant twenty-nine renderer
+         round-trips per case and 638 across the suite, and roughly half of
+         all runs stalled on one of them.
+
+         Measured, in these contexts: a single scrollTo is 2 ms, no task runs
+         over 50 ms, the heap is flat, and requestAnimationFrame fires exactly
+         ONCE and never again — the renderer is not producing frames at all,
+         so nothing in the page is running to block anything. The stall is in
+         waiting on a frame that never comes, and the fix is to stop asking
+         for hundreds of them. Bottom and back is enough to force layout of
+         everything below the fold. */
+      r.step(`${path} @${width} · scroll`);
+      await evaluateWithin(page, 15_000, `to bottom ${path} @${width}`,
+        () => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(120);
+      await evaluateWithin(page, 15_000, `to top ${path} @${width}`, () => window.scrollTo(0, 0));
+
+      r.step(`${path} @${width} · measure`);
+      const res = await evaluateWithin(page, 30_000, `measure ${path} @${width}`, () => {
         window.scrollTo(9999, window.scrollY);
         const scrolledX = window.scrollX;
         window.scrollTo(0, window.scrollY);
@@ -139,11 +175,34 @@ for (const [lang, path] of LANGS) {
           if (px < 9) tiny.push(`${t.textContent.slice(0, 12)}=${px.toFixed(1)}px`);
         });
         const nav = document.querySelector('.nav__actions').getBoundingClientRect();
-        return { scrolledX, tiny: [...new Set(tiny)], navRight: Math.round(nav.right), vw: window.innerWidth };
+
+        /* "Does the nav reach past the viewport" and "is the nav legible" are
+           different questions, and only the first was being asked. Adding one
+           link slid the last one UNDERNEATH the language switch — entirely
+           inside the viewport, entirely unreadable, and green. */
+        const bar = [...document.querySelectorAll('.nav__inner > *')]
+          .flatMap((g) => (g.matches('.nav__links, .nav__actions, .brand')
+            ? [...g.children].filter((c) => c.offsetParent !== null) : [g]))
+          .map((el) => ({ el, r: el.getBoundingClientRect() }))
+          .filter(({ r }) => r.width > 0 && r.height > 0);
+        const overlaps = [];
+        for (let i = 0; i < bar.length; i += 1) {
+          for (let j = i + 1; j < bar.length; j += 1) {
+            const a = bar[i].r; const b = bar[j].r;
+            const dx = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const dy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (dx > 1 && dy > 1) {
+              overlaps.push(`${bar[i].el.textContent.trim().slice(0, 10)}/${bar[j].el.textContent.trim().slice(0, 10)}`);
+            }
+          }
+        }
+        return { scrolledX, tiny: [...new Set(tiny)], navRight: Math.round(nav.right),
+                 vw: window.innerWidth, overlaps: [...new Set(overlaps)] };
       });
       r.check(res.scrolledX === 0, `${path} @${width}: page scrolls sideways`);
       r.check(res.tiny.length === 0, `${path} @${width}: svg text under 9px — ${res.tiny.slice(0, 3).join(', ')}`);
       r.check(res.navRight <= res.vw, `${path} @${width}: nav actions clipped at x=${res.navRight}`);
+      r.check(res.overlaps.length === 0, `${path} @${width}: nav items overlap — ${res.overlaps.slice(0, 3).join(', ')}`);
       await ctx.close();
     }
   }
@@ -260,6 +319,52 @@ for (const [lang, path] of LANGS) {
     [...document.querySelectorAll('[data-reveal]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
   r.equal(stillHidden, 0, 'elements left invisible when a module fails');
   await broken.close();
+  ok = r.finish() && ok;
+}
+
+/* ------------------------------------------------------------- motion --- */
+/* The probe that root-caused the responsive stall found something worse than
+   the stall: requestAnimationFrame fires ONCE in these contexts and never
+   again, because a headless renderer with nothing asking for frames does not
+   produce any. Everything in motion.js and the diagram scale sync is driven
+   by rAF — so the pinned loop scene, the hero parallax, the reading progress
+   and --dscale had never been executed by a single check. Eleven suites, and
+   an entire subsystem untested.
+   A screenshot forces a frame, which is what makes rAF run at all here. */
+{
+  const r = reporter('motion — the rAF layer actually runs');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(20_000);
+  await page.goto(base + '/', { waitUntil: 'networkidle' });
+
+  const frame = async () => { await page.screenshot({ clip: { x: 0, y: 0, width: 8, height: 8 } }); };
+  await frame();
+  const ticks = await evaluateWithin(page, 15_000, 'rAF alive', () => new Promise((res) => {
+    let n = 0;
+    const t = () => { n += 1; if (n < 3) requestAnimationFrame(t); else res(n); };
+    requestAnimationFrame(t);
+    setTimeout(() => res(n), 3000);
+  }));
+  await frame();
+  r.check(ticks >= 3, `requestAnimationFrame produced ${ticks} of 3 frames — the motion layer never ran`);
+
+  /* Reading progress is written by a rAF scroll handler. */
+  const scene = await evaluateWithin(page, 15_000, 'scroll into scene',
+    () => { const t = document.querySelector('[data-scene="loop"]'); window.scrollTo(0, t.offsetTop + t.offsetHeight * 0.5); return true; });
+  r.check(scene, 'the loop scene is in the document');
+  for (let i = 0; i < 6; i += 1) await frame();
+  const state = await evaluateWithin(page, 15_000, 'read motion state', () => ({
+    read: parseFloat(getComputedStyle(document.querySelector('.nav__progress i')).getPropertyValue('--read')) || 0,
+    current: document.querySelectorAll('#loop-rail [aria-current="true"]').length,
+    scaled: [...document.querySelectorAll('[data-diagram] svg')]
+      .filter((s) => parseFloat(getComputedStyle(s).getPropertyValue('--dscale')) > 0).length,
+    diagrams: document.querySelectorAll('[data-diagram] svg').length,
+  }));
+  r.check(state.read > 0, `reading progress stayed at ${state.read} after scrolling half the page`);
+  r.check(state.current === 1, `the loop rail marks ${state.current} current steps, expected 1`);
+  r.equal(state.scaled, state.diagrams, 'diagrams with --dscale resolved');
+  await ctx.close();
   ok = r.finish() && ok;
 }
 

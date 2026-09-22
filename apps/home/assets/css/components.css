@@ -48,6 +48,10 @@
   border: 1px solid var(--hairline-2);
   background: rgba(255, 255, 255, 0.03);
   font-size: var(--t-small); color: var(--fg-soft);
+  /* At 390 px the label broke after the "+" and left "AI" alone on the second
+     line. Balancing splits it after "Workspace" instead. Engines without it
+     wrap exactly as before, so there is nothing to guard. */
+  text-wrap: balance;
 }
 .chip__dot {
   width: 6px; height: 6px; border-radius: var(--r-round);
@@ -252,6 +256,9 @@
    invisible text on nothing. Borders are the one thing forced-colors keeps, so
    the controls are given real ones. */
 @media (forced-colors: active) {
+  /* Same trap as print: the gradient behind the wordmark is a background
+     image, which this mode drops, and the transparent text fill survives. */
+  .brand__name { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
   .btn, .langswitch__btn, .chip, .nav__ghost {
     border: 1px solid ButtonBorder;
     forced-color-adjust: none;

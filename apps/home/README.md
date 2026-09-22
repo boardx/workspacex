@@ -31,7 +31,7 @@ Open <http://127.0.0.1:4310>.
 ## Check it
 
 ```bash
-node scripts/check-all.mjs                 # everything, ~70s
+node scripts/check-all.mjs                 # everything, ~90s
 node scripts/check-all.mjs --static-only   # just the text gates, ~2s
 ```
 
@@ -47,12 +47,14 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | script | what it fails on |
 |---|---|
 | `check-i18n.mjs` | a key used but untranslated, translated but unused, translated to whitespace, containing Cyrillic, or left in English |
-| `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `href="#…"` or `aria-labelledby` pointing at nothing |
+| `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `aria-labelledby` pointing at nothing, images without alt |
+| `check-links.mjs` | a local `href`/`src`/card image that resolves to no file, a fragment with no matching id, a `_redirects` target that is not there, a sitemap `<loc>` that is not there or a page missing from the sitemap, a self-referential URL that disagrees with `SITE` |
 | `check-css.mjs` | a class or custom property defined and never used, or a `var()` reading a property nothing declares |
 | `check-copy.mjs` | straight quotes and apostrophes, half-width punctuation between Han characters, missing CJK/latin spacing, `...` instead of `……` |
 | `check-compat.mjs` | a feature with known engine gaps used without its guard |
 | `build-css.mjs --check` | `site.css` out of date with its sources |
-| `build-i18n.mjs --check` | a generated page out of date with its sources |
+| `build-i18n.mjs --check` | a generated page, `sitemap.xml` or `robots.txt` out of date with its sources |
+| `build-brand.mjs --check` | the mark or the manifest out of date with `brand.mjs` and the token block |
 | `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path |
 | `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget |
 
@@ -121,8 +123,10 @@ assets/js/zh.js            Chinese page copy
 assets/js/diagram-strings.js  bilingual diagram labels
 assets/js/motion.js        IntersectionObserver reveals, nav, scroll scenes
 assets/js/diagrams.js      the seven concept illustrations
-assets/img/og.png          social card (generated)
-assets/img/og-zh.png       Chinese social card (generated)
+assets/img/og.jpg          social card (generated)
+assets/img/og-zh.jpg       Chinese social card (generated)
+assets/img/apple-touch-icon.png  iOS home screen (generated)
+assets/site.webmanifest    name, icons, theme (generated)
 zh/index.html              Chinese page (GENERATED — do not edit)
 404.html  robots.txt  sitemap.xml  _headers
 scripts/                   the checks above, plus the two generators
@@ -153,10 +157,11 @@ until someone who knows the answer changes them.
 **1. The public domain.** Every absolute URL currently says
 `https://workspacex.boardx.us`. That domain is a guess. It appears in:
 
-- `index.html` — `canonical`, three `hreflang` links, `og:url`, `og:image`,
-  `twitter:image`
-- `scripts/build-i18n.mjs` — the `SITE` constant, which rewrites those for `/zh/`
-- `sitemap.xml`, `robots.txt`
+- `scripts/build-i18n.mjs` — the `SITE` constant. This is the only place it is
+  chosen: `sitemap.xml` and `robots.txt` are generated from it, and
+  `check-links.mjs` fails if `index.html`'s canonical, hreflang, `og:url` or
+  card images disagree with it.
+- `index.html` — the same absolute URLs, which the gate above holds to `SITE`.
 
 Change `SITE` in `build-i18n.mjs` and the same string in `index.html`, then run
 `node scripts/build-i18n.mjs`. Getting this wrong means canonical tags pointing
@@ -179,8 +184,9 @@ committed — but all three are checked, so a stale one cannot ship.
 
 ```bash
 node scripts/build-css.mjs      # assets/css/*.css  -> assets/css/site.css
-node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html
-node scripts/build-og.mjs       # og-card.html      -> assets/img/og*.png   (needs playwright)
+node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html, sitemap.xml, robots.txt
+node scripts/build-brand.mjs    # brand.mjs + base.css  -> sprites, favicon.svg, site.webmanifest
+node scripts/build-og.mjs       # og-card.html      -> assets/img/og*.jpg + apple-touch-icon.png (needs playwright)
 node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
 ```
 

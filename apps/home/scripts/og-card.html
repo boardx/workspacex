@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- Source for assets/img/og.png. Rendered at 1200x630 by scripts/build-og.mjs.
+<!-- Source for assets/img/og.jpg. Rendered at 1200x630 by scripts/build-og.mjs.
      Kept as a real page rather than a hand-drawn image so the card cannot drift
      away from the site's own tokens and typeface. -->
 <head>
@@ -43,10 +43,18 @@
 <div class="card">
   <div class="glow"><div class="b1"></div><div class="b2"></div><div class="b3"></div></div>
   <div class="brand">
-    <svg viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" style="stop-color:var(--c-1)"/><stop offset=".55" style="stop-color:var(--c-2)"/><stop offset="1" style="stop-color:var(--c-3)"/>
-    </linearGradient></defs>
-    <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 32 32" aria-hidden="true"><defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
+      <stop offset="0" style="stop-color:var(--c-1)"/>
+      <stop offset="0.52" style="stop-color:var(--c-2)"/>
+      <stop offset="1" style="stop-color:var(--c-3)"/>
+    </linearGradient>
+    </defs>
+    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)"/>
+    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(90 16 16)"/>
+    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(180 16 16)"/>
+    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(270 16 16)"/>
+    </svg>
     <b>WorkspaceX</b>
   </div>
   <h1 data-en="Where humans and AI actually get work done." data-zh="人与 AI，真正把工作完成的地方。">Where humans and AI actually get work done.</h1>

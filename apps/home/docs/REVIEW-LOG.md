@@ -668,3 +668,93 @@ exactly what AGENTS.md forbids as 「同一事实不得声明在两处」.
 
 **All 8 gates green, 11 browser suites across both languages. 149.5 KB, LCP
 236 ms desktop and 2 088 ms on slow 3G, CLS 0.0007, 60 fps.**
+
+---
+
+## A brand of its own
+
+The logo files never arrived, so the mark is drawn here — four lobes in the
+pink/orange the reference described, and the palette moved to match.
+
+### Round 22 — the mark, and what carrying a brand actually costs
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The nav lockup wrapped to two lines at 1280 px** — wordmark below the mark. `.brand__home` was introduced in round 16 to un-nest an `<a>` and given no CSS at all, so it shrank under nav pressure and its inline children wrapped. Shipped to main. | `display: flex` on the lockup. The responsive suite asked "does the nav overflow" and never "is the lockup intact" — different questions, and only the first was being asked. |
+| 2 | Each lobe resolved the gradient against **its own** bounding box (the SVG default), so all four came out identically shaded and the mark read as one flat colour. | `gradientUnits="userSpaceOnUse"` across the whole 32×32 box, so the top lobe sits in the orange and the bottom in the magenta. |
+| 3 | The mark's path would have been hand-copied into **four documents that cannot share a runtime**: two page sprites, the social card, and the favicon a browser fetches on its own. | `scripts/brand.mjs` holds the geometry; `build-brand.mjs` writes all four and `--check` fails the build when one drifts. |
+| 4 | `favicon.svg` carried the palette as literal hexes — a **fifth** declaration, and the one nobody looks at. | Generated, with the colours read out of `base.css` at build time. |
+| 5 | `--on-grad` was chosen against a violet third stop that no longer exists. | Recomputed for the new stops: 5.25:1 at worst, up from 4.99:1. |
+| 6 | **The new gate's first run caught a live one** — my own favicon, built before the palette swap and still orange/pink/violet. | Regenerated. A gate that has never been seen to fail is a decoration; this one failed on its first outing, on the person who wrote it. |
+| 7 | No `apple-touch-icon`: iOS saves a screenshot of the page to the home screen. | 180×180, rendered from `favicon.svg` so raster and vector cannot disagree. |
+| 8 | No web manifest: Android's add-to-home had no name, icon or theme. | `assets/site.webmanifest`, generated — name from the page's own `<title>`, colours from the token block. |
+| 9 | The two social cards were **492 KB of committed PNG**. The performance budget never saw them, because it measures what the page fetches and no page fetches a social card. | JPEG at quality 92: 123 KB, visually identical. |
+| 10 | Changing the brand does not change the card's URL, and scrapers cache by URL. The new mark would never have reached a single shared link. | The same JPEG switch renames the files, so every scraper re-fetches. |
+
+### Round 23 — the things that fail where nobody is looking
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | `depth: 1` was declared on every page in `build-i18n` and **read by nothing** — the rewrite hardcoded a single `../`. A page two levels down would have emitted 404ing asset paths, with a field sitting right there that looked like it governed them. | `'../'.repeat(page.depth)`. A field that looks authoritative and governs nothing is worse than no field. |
+| 2 | The README still listed `og.png` and `og-zh.png`. | Updated, plus the two newly generated files. |
+| 3 | `og-card.html`'s own header comment named the PNG it no longer produces. | Updated. |
+| 4 | A manifest served as `application/octet-stream` is **ignored entirely** by Chromium, and neither `_headers` nor the test server declared the type. | Both do now. |
+| 5 | iOS ignores the manifest's `short_name`, so the home-screen label was the full `<title>`, truncated. | `apple-mobile-web-app-title`. |
+| 6 | The wordmark is gradient text, and print drops backgrounds. The nav is hidden on paper — but **the footer carries the same wordmark and is not**, so every printed copy lost the product's name. | Covered by the existing print rule. |
+| 7 | Same trap in Windows high-contrast: the gradient is a background image, which the mode drops, while the transparent text fill survives. | `forced-colors` reset on `.brand__name`. |
+| 8 | **A suite that threw hung forever.** The browser and the server were still open and nothing tore them down, so node never exited — a failure and a stall were indistinguishable from outside, and I diagnosed two of them as "still running". | The server is `unref`'d, and `uncaughtException` / `unhandledRejection` tear down and exit 1. A 300 s watchdog stops a genuinely stuck await from burning a CI job in silence. |
+| 9 | The reporter printed a suite's name only when it **passed**, so a stall left the previous suite as the last line — pointing at the wrong one. | Announced on entry. |
+| 10 | The page declares files it never renders — a manifest, a touch icon, a preloaded font, a social card only scrapers fetch. Nothing on screen changes when one of those paths is wrong. | `check-links.mjs`: every local `href`, `src` and og image on all five pages resolved against the filesystem, every fragment against its own document's ids, plus `_redirects` targets. 58 files, 44 anchors. Proved red on a one-character typo and a dead anchor. |
+
+**Still open and honestly so:** the responsive suite's page occasionally closes
+mid-run. Three occurrences, not reproducible on demand, no OOM (15 GB free).
+Round 23 did not fix it — it made it *legible*: the next occurrence names its
+suite, reports whether the browser is still connected, and exits instead of
+hanging.
+
+### Round 24 — what the machines are told
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The scroll loop's step was `innerHeight * 0.8`, which is **zero before the viewport is laid out** — and `y += 0` never terminates. A latent infinite loop inside the page that no Playwright timeout reaches and no stack trace shows. | A 200 px floor and a hard iteration cap. |
+| 2 | The loop's bound was re-read from a live document on every iteration. | Snapshotted. |
+| 3 | `page.setDefaultTimeout` governs actions and navigations and **does not reach `page.evaluate`** — the one call that was hanging had no ceiling at all. | `evaluateWithin()` races every evaluate against a deadline. |
+| 4 | The crash handler named the suite. The responsive suite is 22 cases. | `r.step()` names the case and the await inside it. |
+| 5 | `sitemap.xml` was hand-maintained beside `PAGES` — a **second declaration of what pages exist**. Adding a page would have left it unlisted, silently. | Generated from `PAGES`, `--check`ed. |
+| 6 | The JSON-LD block was copied to `/zh/` untouched: the one machine-readable statement the Chinese page makes about itself declared the **English url and an English description**. | Localized. |
+| 7 | There is a logo now, and the structured data did not mention it. | `image` and `publisher.logo`. |
+| 8 | `og:image:type` was never declared, and the card had just become a JPEG. | Declared. |
+| 9 | `twitter:image:alt` was missing — Twitter reads its own, not `og:image:alt`. | Added, and translated. |
+| 10 | Nothing checked the sitemap: a `<loc>` pointing at a page that is gone, or a page missing from it, look identical from the site. | Both directions, in `check-links.mjs`. Proved red. |
+
+### Round 25 — the intermittent, root-caused
+
+Three runs had "hung". Round 23 made them legible; this round found the cause.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The failure was **4 of 8 runs**, always in the responsive scroll, at a different width each time. | Soaked instead of re-run. A failure seen once is an anecdote. |
+| 2 | First hypothesis — Chromium throttling timers in a hidden context — was wrong: **753 ms for 750 ms requested** across six background contexts. | Measured before acting. |
+| 3 | Second hypothesis — the page blocking its own main thread — was also wrong: when the scroll completes it takes **878 ms and records zero tasks over 50 ms**. The page is not slow. | Ruled the site out with numbers, not with confidence. |
+| 4 | What was left: a single **async** `page.evaluate` awaiting a page-side `setTimeout`. On a failure it produced no partial progress at all — not slow, never settled. | Driven from Node instead: one synchronous evaluate per step, Node-side waits. **8 of 8 clean, from 4 of 8 failing.** |
+| 5 | On the Chinese page the "EN" switch had no `lang="en"` — read aloud in a Chinese voice. The mirror of a fix already made in the other direction, applied one way only. | Both ways now. |
+| 6 | `check-html` and `check-links` both asserted that fragments resolve, over different page sets. | Retired from `check-html`; `check-links` covers all five pages. (Removing it broke the `aria-labelledby` rule that shared its id set — caught on the next run.) |
+| 7 | `SITE` was chosen in **four places**: the constant, `index.html`, `sitemap.xml`, `robots.txt`. The README documented the duplication instead of removing it. | `robots.txt` joins the sitemap as a projection of the constant. |
+| 8 | Nothing held `index.html`'s canonical, hreflang, `og:url` and card images to `SITE`. A canonical tag naming a domain the site is not served from is invisible on screen and costs the entire index. | Gated. The first version of the rule matched anything containing `boardx.us` and flagged the GitHub repo, the app and the developer portal — three different and correct destinations. Narrowed to self-referential metadata. |
+| 9 | The README's gate table listed neither new gate and described a rule that had been retired. | Rewritten. |
+| 10 | The README's build list still produced `og*.png`. | Updated, with the two new builders. |
+
+### Round 26 — the nav, and a subsystem nothing had ever run
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The probe that root-caused round 25 found something worse than the stall: **requestAnimationFrame fires once in a headless context and never again**, because a renderer with nothing asking for frames produces none. Everything in `motion.js` and the diagram scale sync is rAF-driven — the pinned loop scene, the hero parallax, the reading progress and `--dscale` had **never been executed by a single check**. Eleven suites, one whole subsystem untested. | A `motion` suite that forces frames with throwaway screenshots and asserts rAF ticks, `--read` advances, the loop rail marks exactly one current step, and every diagram resolves `--dscale`. Proved red by deleting one line of `initReadingProgress`. |
+| 2 | The industry examples — the legal, design-thinking and education cases — sat ten sections down with **no route from the navigation**. | A `Use cases` link. |
+| 3 | Which immediately slid the last link **51 px underneath the language switch**. Entirely inside the viewport, entirely unreadable, and green: the responsive check asked "is the nav clipped at the viewport" and never "is the nav legible". | Every visible item in the bar is now checked against every other for overlap. It caught the regression on the first run. |
+| 4 | `.nav__links` carries `min-width: 0`, so under pressure it shrinks **below its own content** and links leave their box rather than being clipped — which is why nothing looked wrong to a viewport-edge check. | Documented where it bites, and the bar tightened so it does not. |
+| 5 | Two labels were long enough that eight links could not fit, and three of them began with "The". | `The Workspace` → `Workspace`, `In the box` → `Inside`. |
+| 6 | My first probe measured the **container** and reported 58 px to spare while its contents overflowed by 51. A container that has been shrunk below its content reports the shrunken width. | Measured every child box instead. The all-clear was the bug. |
+| 7 | The fix went into a new `@media` block placed **above** an existing one at equal specificity, so the later block silently won and the padding never changed. Two runs looked like "the fix did not help". | Applied to the rule that actually wins. |
+| 8 | Considered a back-to-top control for a 22 000 px page — and rejected it. The nav is `position: fixed`, so the brand is already a permanent route up. | Nothing added. Not shipping the clutter is the finding. |
+| 9 | The hero chip broke after the `+` at 390 px, leaving **"AI" alone on the second line**. | `text-wrap: balance`; engines without it wrap exactly as before, so there is nothing to guard. |
+| 10 | A screenshot taken after scrolling captured a **nearly blank page** — reveals need produced frames, and headless produces none. The entire visual pass was reading artefacts as design. | Frames pumped before every capture. The same root cause as rounds 25 and 26/1, arriving for the third time in a different disguise. |

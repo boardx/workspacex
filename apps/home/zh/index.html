@@ -7,6 +7,9 @@
 <title>WorkspaceX — 面向人与 AI 的开放协作运行空间</title>
 <meta name="description" content="WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。">
 <meta name="theme-color" content="#08070b">
+<!-- iOS ignores the manifest's short_name; without this the home-screen
+     label is the <title>, truncated to something like "WorkspaceX — Th". -->
+<meta name="apple-mobile-web-app-title" content="WorkspaceX">
 
 <link rel="canonical" href="https://workspacex.boardx.us/zh/">
 
@@ -23,14 +26,20 @@
 <meta property="og:url" content="https://workspacex.boardx.us/zh/">
 <meta property="og:locale" content="zh_Hans">
 <meta property="og:locale:alternate" content="en">
-<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og-zh.png">
+<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og-zh.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
+<!-- The card became a JPEG when 492 KB of PNG turned out to be invisible
+     to the performance budget. Scrapers should not have to sniff it. -->
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="WorkspaceX——面向人与 AI 协作的开放运行空间。">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og-zh.png">
+<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og-zh.jpg">
+<meta name="twitter:image:alt" content="WorkspaceX——面向人与 AI 协作的开放运行空间。">
 
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+<link rel="manifest" href="../assets/site.webmanifest">
 <!-- The hero's backdrop. Preloaded because it is the first thing above the
      fold that is not text, and discovered late otherwise: it is referenced
      from a stylesheet, not from the markup. -->
@@ -88,10 +97,16 @@
   "name": "WorkspaceX",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web, Windows, macOS",
-  "description": "The operating layer that connects context, agents, action, evidence and memory, so humans and AI do the work together.",
-  "url": "https://workspacex.boardx.us/",
-  "inLanguage": ["en", "zh-Hans"],
-  "publisher": { "@type": "Organization", "name": "BoardX", "url": "https://boardx.us" }
+  "description": "WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。",
+  "url": "https://workspacex.boardx.us/zh/",
+  "inLanguage": ["zh-Hans", "en"],
+  "image": "https://workspacex.boardx.us/assets/img/og-zh.jpg",
+  "publisher": {
+    "@type": "Organization",
+    "name": "BoardX",
+    "url": "https://boardx.us",
+    "logo": "https://workspacex.boardx.us/assets/img/apple-touch-icon.png"
+  }
 }
 </script>
 </head>
@@ -101,11 +116,16 @@
      so the gradient cannot be orphaned by editing one of them. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" style="stop-color:var(--c-1)"/><stop offset=".55" style="stop-color:var(--c-2)"/><stop offset="1" style="stop-color:var(--c-3)"/>
+    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
+      <stop offset="0" style="stop-color:var(--c-1)"/>
+      <stop offset="0.52" style="stop-color:var(--c-2)"/>
+      <stop offset="1" style="stop-color:var(--c-3)"/>
     </linearGradient>
     <symbol id="mark" viewBox="0 0 32 32">
-      <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
     </symbol>
   </defs>
 </svg>
@@ -131,6 +151,7 @@
       <a class="nav__link" href="#surface"      data-i18n="nav.surface">工作空间</a>
       <a class="nav__link" href="#capabilities"  data-i18n="nav.caps">有什么</a>
       <a class="nav__link" href="#architecture" data-i18n="nav.architecture">架构</a>
+      <a class="nav__link" href="#start"        data-i18n="nav.start">场景</a>
       <a class="nav__link" href="#trust"        data-i18n="nav.trust">可信</a>
       <a class="nav__link" href="#open"         data-i18n="nav.open">开放</a>
       <div class="nav__panelactions" id="nav-panel-actions"></div>
@@ -138,7 +159,7 @@
 
     <div class="nav__actions">
       <nav class="langswitch" data-mobile-move aria-label="语言" data-i18n-aria="aria.language">
-        <a class="langswitch__btn" href="/"  hreflang="en">EN</a>
+        <a class="langswitch__btn" href="/"  hreflang="en" lang="en">EN</a>
         <a class="langswitch__btn" href="/zh/" aria-current="true" hreflang="zh-Hans" lang="zh-Hans">中文</a>
       </nav>
       <a class="nav__ghost nav__ghost--signin" data-mobile-move href="https://github.com/boardx/workspacex" rel="noopener">

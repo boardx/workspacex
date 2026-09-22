@@ -25,9 +25,9 @@ const TYPES = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
   '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.jpg': 'image/jpeg', '.xml': 'application/xml', '.txt': 'text/plain',
-  '.json': 'application/json',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json',
 };
-const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.svg', '.xml', '.txt', '.json']);
+const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.svg', '.xml', '.txt', '.json', '.webmanifest']);
 
 /** A server that compresses, because every host does and measuring without it
  *  overstates transfer sizes about fourfold for text. */
@@ -51,9 +51,29 @@ export function serve() {
   });
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
+      /* unref so a suite that throws cannot leave node alive on this handle
+         alone. Before this, any error in a suite printed its stack and then
+         the process simply never exited — a failure and a hang looked the
+         same from outside, and both were diagnosed as "still running". */
+      server.unref();
       resolve({ base: `http://127.0.0.1:${server.address().port}`, close: () => server.close() });
     });
   });
+}
+
+/**
+ * page.evaluate has NO timeout — setDefaultTimeout governs actions and
+ * navigations and does not reach it. An evaluate that never resolves therefore
+ * hangs the whole suite with no location, which is exactly what happened three
+ * times. Racing it turns that into a named failure.
+ */
+export async function evaluateWithin(page, ms, label, fn, arg) {
+  let timer;
+  const ceiling = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`evaluate "${label}" exceeded ${ms}ms`)), ms);
+  });
+  try { return await Promise.race([page.evaluate(fn, arg), ceiling]); }
+  finally { clearTimeout(timer); }
 }
 
 /** Resolves to the chromium launcher, or null when Playwright is absent. */
@@ -70,9 +90,20 @@ export const launchOptions = () =>
   (process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 
 /* ---- tiny assertion helper, so every check reports the same way ---------- */
+/** The suite currently running, for the crash handler to name. */
+export let current = '(not started)';
+
 export function reporter(name) {
   const failures = [];
+  /* Announced on entry. Until this existed, a suite that never returned left
+     the last SUCCESSFUL line as the only clue, which points at the suite
+     before the one that is actually stuck. */
+  current = name;
   return {
+    /* Names the CASE inside a suite. Twenty-two widths run under one suite
+       name; when one of them hung, "responsive" was all the crash handler
+       could say. */
+    step(what) { current = `${name} · ${what}`; },
     check(condition, message) { if (!condition) failures.push(message); },
     equal(actual, expected, what) {
       if (actual !== expected) failures.push(`${what}: expected ${expected}, got ${actual}`);

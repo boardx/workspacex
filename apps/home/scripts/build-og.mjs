@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-og.mjs — renders scripts/og-card.html to assets/img/og.png at 1200x630.
+ * build-og.mjs — renders scripts/og-card.html to assets/img/og.jpg at 1200x630.
  *
  * The card is a real page using the site's own tokens and typeface, so it
  * cannot drift away from the design the way a hand-drawn image does. Playwright
@@ -32,14 +32,32 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const { port } = server.address();
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-for (const [lang, file] of [['en', 'og.png'], ['zh', 'og-zh.png']]) {
+for (const [lang, file] of [['en', 'og.jpg'], ['zh', 'og-zh.jpg']]) {
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
   await page.goto(`http://127.0.0.1:${port}/scripts/og-card.html?lang=${lang}`, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
-  await page.screenshot({ path: join(root, 'assets/img', file) });
+  /* JPEG, not PNG. The card is a photographic gradient: PNG stored it
+     losslessly at 254 KB, JPEG at quality 92 is visually identical and a
+     fifth of that. Nothing on the page loads these, which is exactly why
+     half a megabyte of them sat in the repository unnoticed — the
+     performance budget only measures what the page actually fetches. */
+  await page.screenshot({ path: join(root, 'assets/img', file), type: 'jpeg', quality: 92 });
   await page.close();
   console.log(`✓ wrote assets/img/${file} (1200x630, ${lang})`);
 }
+/* iOS has no SVG icon support for the home screen: without this it saves a
+   screenshot of the page instead of the mark. Rendered from favicon.svg so
+   the raster and the vector cannot disagree. */
+{
+  const page = await browser.newPage({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1 });
+  await page.setContent(
+    `<body style="margin:0"><img src="http://127.0.0.1:${port}/assets/img/favicon.svg" width="180" height="180"></body>`);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: join(root, 'assets/img/apple-touch-icon.png') });
+  await page.close();
+  console.log('✓ wrote assets/img/apple-touch-icon.png (180x180)');
+}
+
 await browser.close();
 server.close();

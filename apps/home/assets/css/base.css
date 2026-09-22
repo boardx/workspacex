@@ -25,16 +25,18 @@
      palette change was a twenty-one-place hunt and missing one left the old
      pink glowing beside the new. `rgb(R G B / A)` is supported far more
      widely than color-mix — Safari 12.1, Chrome 65, Firefox 52. */
-  --c-1-rgb:     255 122 24;   /* orange  */
-  --c-2-rgb:     255 46 115;   /* pink    */
-  --c-3-rgb:     177 75 255;   /* violet  */
+  --c-1-rgb:     255 148 69;   /* orange  */
+  --c-2-rgb:     255 63 127;   /* pink    */
+  --c-3-rgb:     240 42 168;   /* magenta */
   --c-1:         rgb(var(--c-1-rgb));
   --c-2:         rgb(var(--c-2-rgb));
   --c-3:         rgb(var(--c-3-rgb));
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
-  /* Text placed ON the gradient. White fails AA over the orange stop (2.61:1);
-     this near-black clears 4.74:1 over every stop, so the brand colour keeps
-     its saturation instead of being muddied to make white work. */
+  /* Text placed ON the gradient. White fails AA over the orange stop (2.19:1);
+     this near-black clears 5.25:1 over every stop, so the brand colour keeps
+     its saturation instead of being muddied to make white work. Recomputed
+     when the palette moved to the logo's orange/pink/magenta: the old ink was
+     chosen against a violet third stop and only cleared 4.99:1. */
   --on-grad:     #12080d;
 
   /* semantic accents used by diagrams so hues carry meaning, not decoration */

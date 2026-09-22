@@ -17,8 +17,10 @@ const checks = [
   ['html structure', 'check-html.mjs'],
   ['css dead code', 'check-css.mjs'],
   ['copy typography', 'check-copy.mjs'],
+  ['link integrity', 'check-links.mjs'],
   ['css bundle up to date', 'build-css.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],
+  ['brand mark up to date', 'build-brand.mjs', '--check'],
 ];
 
 /* The browser suites need Playwright, which is a dev tool rather than a

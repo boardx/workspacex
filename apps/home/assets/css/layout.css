@@ -85,10 +85,27 @@
 .nav__links { min-width: 0; }
 
 .brand { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
-.brand__mark { width: 26px; height: 26px; }
+/* The lockup is a flex row of its own. Without this it was an inline anchor
+   that shrank under nav pressure and wrapped the wordmark BELOW the mark at
+   1280px — shipped that way, because "does the nav overflow" and "is the
+   lockup intact" are different questions and only the first was being asked. */
+.brand__home { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
 .brand__name {
   font-family: var(--font-display);
   font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
+  color: var(--fg);
+}
+/* The wordmark takes the brand gradient, but only where the clip is actually
+   supported. Setting -webkit-text-fill-color: transparent unconditionally is
+   how a wordmark goes invisible: a browser that honours the fill colour but
+   not the clip paints nothing at all. Guarded, the fallback is solid ink. */
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .brand__name {
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 }
 .brand__tag {
   font-family: var(--font-mono);
@@ -108,7 +125,11 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .nav__links { display: flex; align-items: center; gap: var(--s-1); margin-inline: auto; }
 .nav__link {
   position: relative;
-  padding: 0.45rem 0.75rem; border-radius: var(--r-xs);
+  /* 0.75rem here left the eighth link sitting 51 px underneath the language
+     switch — inside the viewport, so the old "is the nav clipped" check was
+     green while the nav was unreadable. Eight links times 4 px a side is the
+     64 px that buys it back. */
+  padding: 0.45rem 0.5rem; border-radius: var(--r-xs);
   font-size: var(--t-small); color: var(--fg-soft);
   transition: color var(--dur-fast) var(--ease-out);
   white-space: nowrap;
@@ -175,7 +196,14 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 /* Between the widest the inline nav can be and the burger breakpoint, buy
    room by tightening rather than by letting anything clip. */
 @media (max-width: 1320px) {
-  .nav__link { padding-inline: 0.55rem; font-size: var(--t-xs); }
+  /* At its fullest the bar carries brand, tag, eight links, the language
+     switch, GitHub and the primary button. `.nav__links` has min-width: 0,
+     so under pressure it shrinks BELOW its content and the last link slides
+     out of its own box and under the language switch — nothing clipped at
+     the viewport, so the check that only asked about the viewport was green.
+     (A second rule added above this one did nothing: this block is later in
+     the bundle at equal specificity and quietly won.) */
+  .nav__link { padding-inline: 0.35rem; font-size: var(--t-xs); }
   .nav__inner { gap: 0.9rem; }
   .nav__ghost { padding-inline: 0.55rem; }
 }
