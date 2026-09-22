@@ -7,7 +7,7 @@
  * ⚠ 版本号是固定值，不是内容摘要。**方法论正文有实质变化时必须手动升到 -v2**，
  * 否则 seeding 会 fail closed（同一个版本 id 的内容摘要对不上就抛错，见 seeding
  * 处的注释）——那是有意的：静默让线上停在旧内容比报错难查得多。
- * 本 Skill 正文由 `@repo/contracts/post-investment-rules` 的阈值渲染而成，所以
+ * 本 Skill 正文由 `@repo/maau-postinvest-report` 的阈值渲染而成，所以
  * **改那份契约的阈值也算实质变化**，同样要升版本号。
  */
 export const POST_INVESTMENT_SKILL_ID = "skill-team4-post-investment-report";

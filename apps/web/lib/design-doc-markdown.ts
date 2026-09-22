@@ -13,6 +13,12 @@ const { isPrototypeContainer } = designPrototype;
 
 const TEMPLATE_LABEL: Record<DesignProject["template"], string> = { mobile: "移动端设计", ui: "UI 原型", wireframe: "线框图" };
 
+/** 迭代 21：强调色档位 → 人话。闭集来自契约，漏一档编译不过。 */
+const ACCENT_LABEL: Record<DesignProject["accent"], string> = {
+  neutral: "无（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
+  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+};
+
 /** 一个节点在大纲里的一行文字：类型 + 最能代表它的文案。 */
 export function describeNode(n: PrototypeNode): string {
   switch (n.type) {
@@ -20,10 +26,32 @@ export function describeNode(n: PrototypeNode): string {
     case "card": return n.props?.title !== undefined ? `卡片「${n.props.title}」` : "卡片";
     case "navbar": return `导航栏「${n.props.title}」${n.props.left !== undefined ? `，左：${n.props.left}` : ""}${n.props.right !== undefined ? `，右：${n.props.right}` : ""}`;
     case "text": return `文本${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}：${n.props.content}`;
-    case "button": return `按钮「${n.props.label}」${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}`;
+    // 迭代 21：图标是**设计决定**，工程照着实现时要知道按哪个图标。此前 describeNode
+    // 不提它，于是这条信息在交付文档里凭空消失。
+    case "button": return `按钮「${n.props.label}」${n.props.icon !== undefined ? `（图标 ${n.props.icon}）` : ""}${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}`;
     case "input": return `输入框${n.props.label !== undefined ? `「${n.props.label}」` : ""}${n.props.placeholder !== undefined ? `，占位：${n.props.placeholder}` : ""}${n.props.multiline === true ? "，多行" : ""}`;
-    case "image": return `图片：${n.props.alt}`;
-    case "list": return `列表：${n.props.items.join(" / ")}`;
+    case "image": return `图片（${n.props.kind ?? "photo"}）：${n.props.alt}`;
+    /**
+     * 迭代 21 —— 列表行的**副标题与右侧值不能丢**。
+     *
+     * 前面几轮给 `list` 加了 `detail`（副标题）/ `trailing`（右侧值）/ `icons`，画布渲染
+     * 了、导出的 HTML 渲染了，而这份交付文档只写 `items`——于是「店名 / 三件商品 / ¥128」
+     * 到了工程手里只剩「店名」。工程照着文档实现，根本不知道那两列存在。
+     *
+     * 这是我自己在前几轮造成的洞，而且是本仓反复点名的那一类：**一处加了数据，
+     * 下游少了一处跟进，界面上有、交付物里没有**。所以三段式在这里也写成三段式。
+     */
+    case "list": {
+      const rows = n.props.items.map((item, i) => {
+        const detail = n.props.detail?.[i]?.trim();
+        const trailing = n.props.trailing?.[i]?.trim();
+        const icon = n.props.leading === "icon" && n.props.icons?.[i] !== undefined ? `[${n.props.icons[i]!}] ` : "";
+        return icon + item
+          + (detail !== undefined && detail !== "" ? `（${detail}）` : "")
+          + (trailing !== undefined && trailing !== "" ? ` → ${trailing}` : "");
+      });
+      return `列表：${rows.join(" / ")}`;
+    }
     case "divider": return "分隔线";
     case "spacer": return "留白";
     case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
@@ -49,7 +77,12 @@ export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] =
 export function buildDesignDocMarkdown(project: DesignProject, now: Date = new Date()): string {
   const lines: string[] = [];
   lines.push(`# ${project.name}`, "");
-  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}`);
+  /*
+   * 迭代 21：**视觉设定进文档**。模板（含保真度）、明暗、强调色都是工程要照着实现的
+   * 设计决定；此前文档只写模板名，拿到文档的人不知道这稿是按哪个主色定的。
+   */
+  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}${project.template === "wireframe" ? "（低保真线框图：不靠颜色传达信息）" : ""}`);
+  lines.push(`- 视觉：${project.theme === "light" ? "浅色" : "深色"} · 强调色 ${ACCENT_LABEL[project.accent] ?? project.accent}`);
   lines.push(`- 负责人：${project.ownerName ?? "（未知）"}`);
   if (project.linkedFeedbackId !== null) lines.push(`- 来源反馈：${project.linkedFeedbackId}`);
   if (project.githubIssueUrl !== null) lines.push(`- 开发 issue：${project.githubIssueUrl}`);

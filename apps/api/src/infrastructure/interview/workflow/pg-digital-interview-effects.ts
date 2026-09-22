@@ -25,6 +25,7 @@ import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
 
 import { DIGITAL_REPORT_STALE_SQL } from "./digital-report-lease";
+import { completeInterviewRunAnswers, InvalidInterviewAnswersError } from "./interview-run-answers";
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
@@ -643,27 +644,18 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     // make the runs immediately visible, while each completion independently writes its result.
     void Promise.all(pendingExperts.map(async (expert) => {
       const questions = snapshot.questions.filter((question) => question.expert_id === expert.expert_id);
+      let answers: Awaited<ReturnType<typeof completeInterviewRunAnswers>>;
       try {
-        const completion = await this.model.complete({
-          modelProvider: this.modelProvider,
-          modelId: this.modelId,
-          system: `你正在模拟受访专家“${expert.display_name}”。角色：${expert.role}；领域：${expert.domains.join("、")}。请始终以该专家第一人称、结合其专业背景具体作答。只返回 JSON：{"answers":[{"questionId":"...","answer":"..."}]}。`,
-          user: JSON.stringify({ topic: snapshot.topic, questions: questions.map((question) => ({
-            questionId: question.question_id, question: question.body, purpose: question.purpose,
-          })) }),
-          history: [],
+        answers = await completeInterviewRunAnswers({
+          model: this.model, modelProvider: this.modelProvider!, modelId: this.modelId!,
+          topic: snapshot.topic, expert, questions,
         });
-        const parsed = JSON.parse(completion.text) as { answers?: Array<{ questionId?: string; answer?: string }> };
-        const answers = questions.map((question) => {
-          const answer = parsed.answers?.find((candidate) => candidate.questionId === question.question_id)?.answer?.trim();
-          if (!answer) throw new Error("MODEL_OUTPUT_INVALID");
-          return { questionId: question.question_id, question: question.body, answer };
-        });
-        await this.persistRun(input, expert, questions.length, "completed", answers, null);
       } catch (error) {
-        const code = error instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_OUTPUT_INVALID";
+        const code = error instanceof InvalidInterviewAnswersError ? "MODEL_OUTPUT_INVALID" : "MODEL_CALL_FAILED";
         await this.persistRun(input, expert, questions.length, "failed", [], code);
+        return;
       }
+      await this.persistRun(input, expert, questions.length, "completed", answers, null);
     })).catch(() => undefined);
   }
 

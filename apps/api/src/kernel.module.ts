@@ -578,7 +578,7 @@ import { INBOX_ORDER_REPOSITORY } from "./application/inbox/inbox-order.port";
 import { PgInboxOrderRepository } from "./infrastructure/inbox/pg-inbox-order-repository";
 import { INBOX_TAG_REPOSITORY } from "./application/inbox/inbox-tags.port";
 import { PgInboxTagRepository } from "./infrastructure/inbox/pg-inbox-tag-repository";
-import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
+import { DesignWorkbenchController, PublicDesignShareController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
 import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
@@ -709,9 +709,6 @@ import { PgDownloadGrantRepository } from "./infrastructure/files/pg-download-gr
 import { IsolatedDownloadUrlBuilder } from "./infrastructure/files/isolated-download-url-builder";
 import { FilesDeliveryController } from "./interface/controllers/files-delivery.controller";
 import { ArtifactFileVersionsController } from "./interface/controllers/artifact-file-versions.controller";
-import { ResearchWorkflowController } from "./interface/controllers/research-workflow.controller";
-import { RESEARCH_WORKFLOW_REPOSITORY } from "./application/research-workflow/ports";
-import { PgResearchWorkflowRepository } from "./infrastructure/research-workflow/pg-research-workflow-repository";
 // F33 (files bundle): 批量 zip 导出。⚠ Reads through the SAME `wsx_visible_artifacts()` F31/F32
 // already use (`PgExportContentRepository`, see its header) -- an export must not reach
 // further than the browser already can. `EXPORT_JOB_REPOSITORY` is a separate, plain record
@@ -1006,7 +1003,6 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
     ArtifactFileVersionsController,
-    ResearchWorkflowController,
     FilesExportController,
     FilesRenameController,
     FilesRetentionController,
@@ -1050,6 +1046,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
+    PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
     SkillReviewController,
@@ -2251,14 +2248,6 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: ARTIFACT_LANDING_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgArtifactLandingRepository(db),
-      inject: [DATABASE_PORT],
-    },
-    // Team3 研判工作流脊柱：阶段 + 血缘 + 三道人工门的审计。
-    // uuid 从这里注入而不是让领域层去 import crypto——领域层不许碰随机数，
-    // 否则"过门产生哪个批次 id"就不可测。
-    {
-      provide: RESEARCH_WORKFLOW_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgResearchWorkflowRepository(db, () => randomUUID()),
       inject: [DATABASE_PORT],
     },
     // F112. 批准卡的模型/单价数据窄读 F48 的 `models` 表——见该 provider 实现文件头。

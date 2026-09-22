@@ -9,15 +9,20 @@
  * Night 0 scope (PROP §4): unsigned macOS build, web served by `next start` from a prior
  * `next build` inside the bundle. Auto-update, tray, Windows: R1.
  */
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack } from "@repo/local-runtime";
+import {
+  checkWebBuild, localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack,
+} from "@repo/local-runtime";
+import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
 let win: BrowserWindow | null = null;
+/** 首启那一屏的内容；「帮助 → 显示本地账号」再打开它时读的是同一份。 */
+let welcomeUrl: string | null = null;
 
 /** Packaged: resources/bundle is the monorepo subset electron-builder copied (see electron-builder.yml). Dev: the repo itself. */
 function bundleRoot(): string {
@@ -193,9 +198,27 @@ async function boot(): Promise<void> {
   render();
 
   const config = resolveLocalConfig({ repoRoot, dataDir });
-  const built = existsSync(join(repoRoot, "apps", "web", ".next", "BUILD_ID"));
+  // ⚠ 「产物存在」不等于「产物能用」：NEXT_PUBLIC_* 是构建期内联的，按另一个端口烘焙的
+  //   产物会让页面正常打开、每个 API 请求打向旧地址、一个报错也没有。所以判据是
+  //   checkWebBuild，不是 BUILD_ID 是否存在；退回 dev 时把原因写进启动日志，不静默。
+  const webCheck = checkWebBuild(join(repoRoot, "apps", "web"), `http://127.0.0.1:${config.ports.api}`);
+  if (!webCheck.usable) log(`[web] 不使用已构建产物：${webCheck.reason ?? ""}`);
   try {
-    stack = await up({ config, log, webMode: built ? "start" : "dev", bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir(), bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir() });
+    stack = await up({
+      config, log, webMode: webCheck.usable ? "start" : "dev",
+      bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir(),
+      bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir(),
+      // 起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」——
+      // 原因在日志里，而没人会去翻。说出来，并指向那一份日志。
+      onServiceExit: ({ name, code }) => {
+        void dialog.showMessageBox({
+          type: "warning",
+          title: "一个后台服务已停止",
+          message: `${name} 已退出（code ${String(code)}），依赖它的能力现在不可用。`,
+          detail: `日志：${join(dataDir, "logs", `${name}.log`)}\n重启应用可以重新拉起它。`,
+        });
+      },
+    });
   } catch (e) {
     progress.failed = true;
     log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);
@@ -220,8 +243,44 @@ async function boot(): Promise<void> {
   } catch (e) {
     log(`自动登录失败，改为显示登录页: ${e instanceof Error ? e.message : String(e)}`);
   }
-  await win.loadURL(target);
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: "deny" }; });
+
+  // ⚠ 本地账号的密码是首启随机生成、只落在数据目录里的（0600 的 secrets.json）；CLI 把它
+  //   打印在终端，双击安装包的人没有终端。自动登录让首启不必用到它，但「哪天要用」这件事
+  //   仍然得有一条人能走的路——那就是下面这一屏 + 「帮助 → 显示本地账号」。
+  welcomeUrl = welcomeDataUrl({
+    webUrl: stack.urls.web,
+    email: stack.login.email,
+    password: stack.login.password,
+    warnings: stack.warnings,
+    dataDir,
+  });
+  installMenu();
+  // 自动登录失败时 target 退回登录页；那种情况下先给用户看账号密码屏，否则他无从登录。
+  await win.loadURL(target === stack.urls.web ? welcomeUrl : target);
+}
+
+/**
+ * 菜单只加一条：把首启那一屏重新调出来。密码是随机的，人第一次多半没记住，
+ * 而唯一的另一条路是去数据目录读一个 0600 的 JSON——那不是一条可以要求用户走的路。
+ */
+function installMenu(): void {
+  const template = Menu.getApplicationMenu()?.items.map((item) => item) ?? [];
+  const help = {
+    label: "帮助",
+    submenu: [
+      {
+        label: "显示本地账号",
+        click: () => { if (welcomeUrl !== null) void win?.loadURL(welcomeUrl); },
+      },
+      { type: "separator" as const },
+      {
+        label: "打开数据目录",
+        click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
+      },
+    ],
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([...template, help]));
 }
 
 app.whenReady().then(() => void boot());

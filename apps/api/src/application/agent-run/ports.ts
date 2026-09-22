@@ -1370,7 +1370,21 @@ export interface ModelCallPort {
    * 正确的下游 port，同 `supportsProgress(modelProvider)`/`supportsVision(modelProvider,
    * modelId)` 的既有形状——一个只服务单一 provider 的叶子 port 可以忽略这个参数。
    */
-  checkKernelHealth?(modelProvider: string): Promise<KG.KernelHealthStatus>;
+  /**
+   * `onDiagnosis` —— 判定为 `"unavailable"` 时，把**为什么**用一句人读文案交回调用方
+   * （`execute-run.ts` 把它写进那条 `kernel health check failed` 日志）。此前这条路径
+   * 只留下「某个 run 以 KERNEL_UNAVAILABLE 失败」，分不出「地址没配」还是「连不上」，
+   * 每次线上排查都要上机器手工复现（2026-09-22 devapp 实测：用户看到"服务暂时不可用"，
+   * 服务端日志里没有任何可据以行动的信息）。判 `"healthy"` 时不回调。
+   *
+   * 可选参数：不传 ⇒ 行为与本次改动之前逐字节相同；不实现它的 port 不受影响。
+   * 诊断文案只进日志，**不**外露给用户（裸地址/异常串不是人话，见
+   * `copilotkit-v2-error-copy.ts` 的同一条纪律）。
+   */
+  checkKernelHealth?(
+    modelProvider: string,
+    onDiagnosis?: (detail: string) => void,
+  ): Promise<KG.KernelHealthStatus>;
 }
 
 export interface AgentRunClock {

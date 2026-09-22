@@ -16,6 +16,7 @@ import {
 import { refreshProgress } from "./lib/progress";
 import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
+import { describeMissingTargets, missingVerificationTargets } from "./lib/verification-targets";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
 import { cacheReadDisabled, computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
@@ -110,6 +111,34 @@ export async function verify(args: Args): Promise<void> {
         ok = false;
         logs.push(`[SPEC_REF] ${specCheck.reason}`);
         log.err(`${f.id} 缺少可追溯的 story：${specCheck.reason}`);
+      }
+    }
+
+    // 0.5) 指向物存在性门控（#965）：verification 声称要跑的测试文件必须真的在仓库里。
+    //
+    // 为什么不能只靠「命令跑不绿」兜住——2026-09-21 实测，两条独立的路径都能让
+    // 「声称的测试文件不存在」一路绿到 passing：
+    //   ① vitest 的路径参数是**子串过滤器**不是文件名。
+    //      `pnpm --filter @repo/contracts exec vitest run tests/contract-shape.test.ts tests/__nope__.test.ts`
+    //      → `Test Files  1 passed (1)` **exit 0**（同一条命令只给那个不存在的路径时 exit 1）。
+    //      声称跑两个、实际跑一个，退出码看不出差别，而本函数只看退出码。
+    //   ② 命令在 agent worktree 里跑绿，测试文件却没被提交（F166 的证据日志就是这样，
+    //      见 verification-target-allowlist.json 的取证）。
+    // ⇒ 判据必须独立于退出码：先问「指向物在不在」，再谈「跑没跑绿」。
+    //
+    // 只在「正在被推向 passing」的路径上生效，跳过补写模式（isBackfill 同 spec_ref 门控的
+    // 理由：补写不重新评判，只如实记录）。还没实现的 feature 在清单里先写下将来要建的测试
+    // 路径是本仓的正常用法（`lint-verification-can-fail.mjs` 为此**故意**不查存在性），
+    // 它在这里判红不改变任何结果：那条 verification 本来就跑不绿，而失败不产生状态转移
+    // （见下方 2026-08-12 那条注释）。差别只在报错说的是哪件事——
+    // 「你声称的测试文件不存在」比 vitest 的 `No test files found` 指得准。
+    if (ok && !isBackfill) {
+      const missing = missingVerificationTargets(f);
+      if (missing.length > 0) {
+        ok = false;
+        const detail = describeMissingTargets(f.id, missing);
+        logs.push(`[VERIFICATION_TARGET]\n${detail}`);
+        log.err(detail);
       }
     }
 

@@ -72,7 +72,10 @@ test("工具失败之后，后续工具的进行态不用展开就可见，且�
     .toMatchObject({ attached: true, bboxNonZero: true, inViewport: true, hitTest: true });
   // 细节：说得出此刻在做什么（`execute` ⇒「正在执行工具操作」），且完成步数已经长到 2
   // ——「已完成 N 步」会随失败之后的每次收尾增大，与恒在的「· 有失败步骤」不同，它是会变的。
-  await expect(page.getByTestId("run-trace-live-label")).toHaveText("正在执行工具操作 · 已完成 2 步");
+  // 2026-09-22：「步」改成「个动作」——折叠行的「步」与计划面板的「N/M 步」曾是同一个字两个
+  // 含义，同屏出现读起来自相矛盾（人类截图里正是 17 与 5/6 并列）。默认折叠这条前提没变：
+  // 「最近几步」预览挂在折叠区**外面**，不碰展开语义（见 `RunTraceLivePreview` 头注）。
+  await expect(page.getByTestId("run-trace-live-label")).toHaveText("正在执行工具操作 · 已完成 2 个动作");
   await expect(strip).toHaveAttribute("data-has-detail", "true");
   await expect(strip).toHaveAttribute("data-completed", "2");
   // 且它与折叠行是**同一行**：活性文案挂在 `run-trace-toggle` 里面，不再另起一条。

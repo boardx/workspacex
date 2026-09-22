@@ -1,0 +1,578 @@
+/* ==========================================================================
+   sections.css — layout that belongs to one section only
+   ========================================================================== */
+
+/* ---- 01 The Shift -------------------------------------------------------- */
+.shift__axis { margin-bottom: clamp(2rem, 4vw, 3rem); }
+.shift__cards .card__title { font-size: var(--t-base); line-height: 1.35; }
+
+/* ---- 02 The Problem ------------------------------------------------------ */
+.problem__losses { margin-top: clamp(2rem, 4vw, 3rem); }
+.loss {
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--hairline);
+}
+.loss__title {
+  font-size: var(--t-base); font-weight: 600; margin-bottom: 0.45rem;
+  font-family: var(--font-display); letter-spacing: -0.015em;
+}
+.loss__body { font-size: var(--t-small); color: var(--fg-dim); }
+
+/* ---- 03 The Loop --------------------------------------------------------- */
+.loop__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+}
+.loop__visual { min-width: 0; }
+.loop__panel { min-width: 0; }
+.loop__legend { margin-top: 1.25rem; padding-left: 0.75rem; }
+.loop__keyline { margin-top: clamp(2.5rem, 5vw, 4rem); color: var(--fg-soft); }
+
+@media (max-width: 860px) {
+  .loop__layout { grid-template-columns: minmax(0, 1fr); }
+  /* Without the pin, the rail is a plain list — remove the selected-state
+     affordance that only makes sense while scrubbing. */
+  .rail__item { cursor: default; }
+  .rail__item[aria-current="true"] { background: none; }
+}
+
+/* ---- 04 Three Scales ----------------------------------------------------- */
+.scales {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.875rem, 1.6vw, 1.25rem);
+  position: relative;
+}
+/* The context thread that runs through all three cards. Behind them, and
+   aligned to the centre of the numbered badges rather than to a guessed
+   offset — card padding is fluid, so the number moves with the viewport. */
+.scales { isolation: isolate; }
+.scales::before {
+  content: ""; position: absolute; left: 0; right: 0; z-index: -1; height: 2px;
+  top: calc(clamp(1.4rem, 2.2vw, 2rem) + 1rem);
+  background: var(--grad); opacity: 0.35;
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 1.4s var(--ease-out);
+}
+.scales.is-in::before { transform: scaleX(1); }
+/* Without this the thread never draws at all for anyone who asked for less
+   motion — it was wired only into the animated code path. */
+@media (prefers-reduced-motion: reduce) {
+  .scales::before { transform: scaleX(1); transition: none; }
+}
+
+.scales__card {
+  position: relative;
+  padding: clamp(1.4rem, 2.2vw, 2rem);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  transition: border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.scales__card:hover { border-color: var(--hairline-2); }
+.scales__num {
+  display: grid; place-items: center;
+  width: 2rem; height: 2rem; border-radius: var(--r-round);
+  font-family: var(--font-mono); font-size: var(--t-micro);
+  color: var(--on-grad); background: var(--grad);
+  margin-bottom: var(--s-5);
+  position: relative; z-index: 1;
+}
+.scales__card h3 { font-size: var(--t-xl); margin-bottom: 0.4rem; }
+.scales__sub {
+  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: 0.06em;
+  color: var(--c-2); margin-bottom: 0.9rem;
+}
+.scales__body { font-size: var(--t-small); color: var(--fg-dim); }
+
+@media (max-width: 860px) {
+  .scales { grid-template-columns: minmax(0, 1fr); }
+  .scales::before { display: none; }
+}
+
+/* ---- 05 Architecture ----------------------------------------------------- */
+.arch {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(1.75rem, 4vw, 3.5rem);
+  align-items: start;
+}
+.arch__why { display: grid; gap: var(--s-5); padding-top: var(--s-2); }
+.arch__whyitem h3 { font-size: var(--t-base); margin-bottom: 0.4rem; }
+.arch__whyitem p { font-size: var(--t-small); color: var(--fg-dim); }
+@media (max-width: 900px) { .arch { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 06 Trust ------------------------------------------------------------ */
+.trust__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(1.75rem, 4vw, 3.5rem);
+  align-items: center;
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+}
+.trust__h { font-size: var(--t-h3); margin-bottom: 0.9rem; }
+.trust__b { color: var(--fg-dim); font-size: var(--t-small); max-width: 34rem; }
+.trust__formula {
+  margin-top: var(--s-5); padding: 0.85rem 1.1rem;
+  border-radius: var(--r-sm); border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-family: var(--font-mono); font-size: var(--t-xs);
+  color: var(--fg-soft);
+}
+@media (max-width: 900px) { .trust__split { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* ---- 08 Open ------------------------------------------------------------- */
+.open__cols {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+.open__col {
+  padding: clamp(1.4rem, 2.2vw, 1.9rem);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.008));
+}
+.open__h { display: grid; gap: var(--s-1); margin-bottom: 1.35rem; }
+.open__label {
+  font-family: var(--font-display); font-size: var(--t-xl); font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.open__col:nth-child(1) .open__label { color: var(--c-1); }
+.open__col:nth-child(2) .open__label { color: var(--c-2); }
+.open__col:nth-child(3) .open__label { color: var(--c-3); }
+.open__sub {
+  font-family: var(--font-mono); font-size: var(--t-tiny);
+  letter-spacing: 0.08em; color: var(--fg-faint); text-transform: uppercase;
+}
+.open__list { list-style: none; padding: 0; display: grid; gap: 0.7rem; }
+.open__list li {
+  font-size: var(--t-small); color: var(--fg-soft);
+  padding-left: 1.1rem; position: relative;
+}
+.open__list li::before {
+  content: ""; position: absolute; left: 0; top: 0.6em;
+  width: 5px; height: 5px; border-radius: var(--r-nub);
+  background: currentColor; opacity: 0.35;
+}
+.open__keyline { margin-top: clamp(2.5rem, 5vw, 4rem); color: var(--fg-soft); max-width: 46rem; }
+@media (max-width: 860px) { .open__cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- CTA ----------------------------------------------------------------- */
+.cta__lead { margin-inline: auto; }
+
+/* ==========================================================================
+   Round 2 additions
+   ========================================================================== */
+
+/* ---- 04 the workspace surface -------------------------------------------- */
+.surface {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline-2);
+  background: linear-gradient(180deg, #131018, #0b0910);
+  overflow: hidden;
+  box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.9);
+}
+.surface__chrome {
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: var(--t-micro);
+}
+.surface__dots { display: inline-flex; gap: 6px; }
+.surface__dots i { width: 9px; height: 9px; border-radius: var(--r-round); background: rgba(255,255,255,.14); }
+.surface__path { color: var(--fg-dim); font-family: var(--font-mono); }
+.surface__live {
+  margin-left: auto; display: inline-flex; align-items: center; gap: var(--s-2);
+  color: var(--c-evidence);
+}
+.surface__pip {
+  width: 6px; height: 6px; border-radius: var(--r-round); background: var(--c-evidence);
+  box-shadow: 0 0 0 0 rgba(74, 222, 154, .6);
+  animation: pip 2.4s var(--ease-io) infinite;
+}
+@keyframes pip {
+  0%   { box-shadow: 0 0 0 0 rgba(74,222,154,.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(74,222,154,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,222,154,0); }
+}
+
+.surface__body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 230px;
+  min-height: 300px;
+}
+.surface__roster, .surface__evidence {
+  padding: var(--s-4);
+  font-size: var(--t-micro);
+}
+.surface__roster   { border-right: 1px solid var(--hairline); }
+.surface__evidence { border-left: 1px solid var(--hairline); background: rgba(255,255,255,.015); }
+.roster__head {
+  font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--fg-faint); margin-bottom: 0.9rem; font-size: var(--t-nano);
+}
+.roster__row { display: flex; gap: var(--s-2); align-items: center; padding: 0.42rem 0; }
+.roster__av {
+  width: 26px; height: 26px; border-radius: var(--r-xs); flex-shrink: 0;
+  display: grid; place-items: center;
+  font-size: var(--t-nano); font-weight: 700; letter-spacing: 0.04em;
+  color: #0b0910; background: var(--c);
+}
+.roster__meta { display: grid; min-width: 0; }
+.roster__meta b { font-weight: 600; color: var(--fg-soft); font-size: var(--t-tiny); }
+.roster__meta i {
+  font-style: normal; color: var(--fg-faint); font-size: var(--t-nano);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.surface__canvas {
+  position: relative; padding: 1.25rem;
+  background-image:
+    radial-gradient(rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.surface__links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.note {
+  position: absolute;
+  display: grid; gap: var(--s-1);
+  width: 172px; padding: 0.65rem 0.7rem;
+  border-radius: var(--r-sm); border: 1px solid var(--hairline-2);
+  background: #16121d;
+  font-size: var(--t-tiny); color: var(--fg-soft); line-height: 1.45;
+  box-shadow: 0 10px 22px -12px rgba(0,0,0,.9);
+}
+.note__tag {
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.note--a { left: 6%;  top: 14%; }
+.note--a .note__tag { color: var(--c-2); }
+.note--b { left: 52%; top: 40%; }
+.note--b .note__tag { color: var(--c-1); }
+.note--c { left: 14%; top: 66%; }
+.note--c .note__tag { color: var(--c-ai); }
+
+.trail { list-style: none; padding: 0; display: grid; gap: 0.7rem; }
+.trail__item {
+  display: grid; gap: 0.15rem;
+  padding-left: 1rem; position: relative;
+}
+.trail__item::before {
+  content: ""; position: absolute; left: 0; top: 0.35em;
+  width: 7px; height: 7px; border-radius: var(--r-round);
+  background: var(--fg-faint);
+}
+.trail__item--ok::before   { background: var(--c-evidence); }
+.trail__item--warn::before { background: var(--c-human); }
+.trail__item b { font-weight: 600; color: var(--fg-soft); font-size: var(--t-tiny); }
+.trail__item i { font-style: normal; color: var(--fg-faint); font-size: var(--t-nano); }
+
+.surface__note {
+  margin-top: 1.25rem; font-size: var(--t-small);
+  color: var(--fg-dim); max-width: 46rem;
+}
+
+@media (max-width: 900px) {
+  /* Three columns at phone width would be three unreadable slivers. Keep the
+     canvas and the evidence trail — they are the argument — and drop the
+     roster, which repeats what the canvas already shows. */
+  .surface__body { grid-template-columns: minmax(0, 1fr); }
+  .surface__roster { display: none; }
+  .surface__evidence { border-left: 0; border-top: 1px solid var(--hairline); }
+  .surface__canvas { min-height: 270px; }
+  .note { width: 148px; font-size: var(--t-nano); }
+  .note--b { left: 46%; }
+}
+
+/* ---- 09 the unit of work ------------------------------------------------- */
+.unit__steps {
+  list-style: none; padding: 0; margin-bottom: clamp(2rem, 4vw, 3rem);
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s-2);
+  counter-reset: unit;
+}
+.unit__step {
+  position: relative;
+  display: grid; gap: var(--s-1); align-content: start;
+  padding: 1rem 0.9rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+}
+/* the chevron that makes it read as a sequence, not six boxes */
+.unit__step:not(:last-child)::after {
+  content: ""; position: absolute; right: -0.5rem; top: 50%;
+  width: 0.5rem; height: 1px; background: var(--hairline-2);
+}
+.unit__n {
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  color: var(--c-2); letter-spacing: 0.1em;
+}
+.unit__step b { font-size: var(--t-small); font-weight: 600; }
+.unit__step i { font-style: normal; font-size: var(--t-micro); color: var(--fg-dim); }
+
+.prop {
+  display: grid; gap: var(--s-2); align-content: start;
+  padding-top: var(--s-4); border-top: 2px solid; border-image: var(--grad) 1;
+}
+.prop b { font-family: var(--font-display); font-size: var(--t-base); }
+.prop span { font-size: var(--t-small); color: var(--fg-dim); }
+
+@media (max-width: 900px) {
+  .unit__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .unit__step:not(:last-child)::after { display: none; }
+}
+@media (max-width: 480px) { .unit__steps { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 11 straight answers ------------------------------------------------- */
+/* 54rem left the chevron marooned at the far end of the row, visually
+   detached from the question it belongs to. */
+.faq { display: grid; gap: 0; max-width: 46rem; }
+.faq__item { border-bottom: 1px solid var(--hairline); }
+.faq__item:first-child { border-top: 1px solid var(--hairline); }
+.faq__item summary {
+  display: flex; align-items: center; gap: var(--s-4);
+  padding: 1.35rem 0.25rem;
+  cursor: pointer; list-style: none;
+  font-family: var(--font-display);
+  font-size: clamp(1.0625rem, 1.5vw, 1.25rem); font-weight: 500;
+  letter-spacing: -0.015em;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary::after {
+  content: ""; margin-left: auto; flex-shrink: 0;
+  width: 11px; height: 11px;
+  border-right: 1.5px solid var(--fg-dim); border-bottom: 1.5px solid var(--fg-dim);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform var(--dur) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.faq__item[open] summary::after {
+  transform: rotate(-135deg) translate(-2px, -2px);
+  border-color: var(--c-2);
+}
+.faq__item summary:hover { color: var(--c-2); }
+.faq__item p {
+  padding: 0 2.25rem 1.5rem 0.25rem;
+  color: var(--fg-dim); font-size: var(--t-small);
+}
+
+/* ---- 12 horizons --------------------------------------------------------- */
+.hz {
+  list-style: none; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+  position: relative;
+}
+.hz__item {
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--hairline);
+  position: relative;
+}
+.hz__item::before {
+  content: ""; position: absolute; left: 0; top: -1px;
+  width: 2.5rem; height: 2px; background: var(--hairline-2);
+}
+.hz__item--now::before { background: var(--grad); width: 4.5rem; }
+.hz__when {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--fg-faint); margin-bottom: 0.9rem;
+}
+.hz__item--now .hz__when { color: var(--c-2); }
+.hz__item h3 { font-size: var(--t-lg); margin-bottom: var(--s-2); }
+.hz__item p { font-size: var(--t-small); color: var(--fg-dim); }
+@media (max-width: 820px) { .hz { grid-template-columns: minmax(0, 1fr); } }
+
+/* ==========================================================================
+   Round 11 additions
+   ========================================================================== */
+
+/* ---- 05 in the box -------------------------------------------------------- */
+.caps {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+/* A hairline grid rather than eight separate cards: these are facets of one
+   product, and eight floating boxes would say the opposite. */
+.cap {
+  padding: clamp(1.25rem, 2vw, 1.75rem);
+  background: var(--bg);
+  transition: background var(--dur) var(--ease-out);
+}
+.cap:hover { background: #0d0b12; }
+.cap h3 {
+  font-size: var(--t-md); margin-bottom: var(--s-2);
+  display: flex; align-items: baseline; gap: var(--s-2);
+}
+.cap h3::before {
+  content: ""; width: 5px; height: 5px; border-radius: var(--r-nub);
+  background: var(--grad); flex-shrink: 0;
+}
+.cap p { font-size: var(--t-small); color: var(--fg-dim); }
+
+@media (max-width: 1000px) { .caps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .caps { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 12 built by the system it describes ---------------------------------- */
+.proof { position: relative; isolation: isolate; }
+.proof::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(70% 60% at 22% 40%, rgb(var(--c-3-rgb) / 0.09), transparent 70%);
+}
+.proof__inner {
+  display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+/* A full-width h2 size in a half-width column ran to four lines and dwarfed
+   the rules beside it, which are the substance here. */
+.proof__copy h2 { font-size: clamp(1.75rem, 3.1vw, 2.6rem); }
+.proof__copy .lead { margin-bottom: var(--s-6); }
+.proof__rules { list-style: none; padding: 0; display: grid; gap: 1px; background: var(--hairline); }
+.proof__rules li {
+  display: grid; gap: 0.35rem;
+  padding: 1.15rem 1.25rem;
+  background: var(--bg);
+  position: relative;
+}
+.proof__rules li::before {
+  content: ""; position: absolute; left: 0; top: 1.35rem; bottom: 1.35rem; width: 2px;
+  background: var(--grad); opacity: 0.55;
+}
+.proof__rules b {
+  font-family: var(--font-display); font-size: var(--t-md); font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.proof__rules span { font-size: var(--t-small); color: var(--fg-dim); }
+
+@media (max-width: 900px) { .proof__inner { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- architecture detail readout ------------------------------------------ */
+.arch__detail {
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+  margin-bottom: var(--s-2);
+  /* The panel swaps between paragraphs of different lengths; without a floor
+     the column above it jumps every time you pick a layer. */
+  min-height: 7.5rem;
+  display: grid; align-content: center;
+}
+.arch__detail p { font-size: var(--t-small); color: var(--fg-soft); }
+@media (max-width: 900px) { .arch__detail { min-height: 0; } }
+
+/* ---- standalone document pages -------------------------------------------- */
+.doc { padding-block: calc(var(--nav-h) + var(--s-6)) calc(var(--s-6) * 2); }
+.doc h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: var(--s-4); }
+.doc .lead { margin-bottom: var(--s-6); }
+.doc h2 {
+  font-size: var(--t-lg);
+  margin-top: var(--s-6); margin-bottom: var(--s-2);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--hairline);
+}
+.doc p { color: var(--fg-dim); }
+.doc a:not(.nav__ghost):not(.langswitch__btn):not(.brand) {
+  color: var(--c-2);
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgb(var(--c-2-rgb) / 0.4);
+}
+.doc code {
+  font-family: var(--font-mono); font-size: var(--t-inline-code);
+  padding: 0.1em 0.4em; border-radius: var(--r-xs);
+  background: var(--surface); border: 1px solid var(--hairline);
+  word-break: break-all;
+}
+.doc__meta {
+  margin-top: var(--s-6); padding-top: var(--s-4);
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono); font-size: var(--t-micro);
+  color: var(--fg-faint);
+}
+
+/* ---- 09 worked examples by discipline ------------------------------------- */
+.cases {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+  overflow: hidden;
+}
+.cases__tabs {
+  display: flex; flex-direction: column;
+  padding: var(--s-4);
+  border-right: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+}
+.cases__tab {
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--r-sm);
+  font-size: var(--t-md); font-weight: 500;
+  color: var(--fg-dim);
+  min-height: 42px;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.cases__tab:hover { color: var(--fg-soft); background: var(--surface); }
+.cases__tab[aria-selected="true"] {
+  color: var(--fg); background: var(--surface-2); font-weight: 600;
+  position: relative;
+}
+.cases__tab[aria-selected="true"]::before {
+  content: ""; position: absolute; left: 0; top: 0.6rem; bottom: 0.6rem;
+  width: 2px; border-radius: var(--r-nub); background: var(--grad);
+}
+@media (pointer: coarse) { .cases__tab { min-height: 48px; } }
+
+.cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem) clamp(1.25rem, 2.5vw, 2rem) clamp(1.25rem, 2.5vw, 2rem) 0; }
+.case:focus-visible { outline-offset: 6px; }
+.case__work {
+  font-size: clamp(1.125rem, 1.9vw, 1.5rem);
+  margin-bottom: var(--s-5);
+  max-width: 34rem;
+}
+.case__grid { display: grid; gap: var(--s-4); margin: 0; }
+.case__grid > div {
+  display: grid; gap: var(--s-1);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+}
+.case__grid dt {
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--c-2);
+}
+/* 10px is a readable caption in latin and an unreadable one in Hanzi: Han
+   glyphs carry far more strokes in the same box. */
+:lang(zh) .case__grid dt { letter-spacing: 0.06em; font-size: var(--t-micro); }
+.case__grid dd { margin: 0; font-size: var(--t-small); color: var(--fg-dim); max-width: 44rem; }
+
+.cases__note {
+  margin-top: var(--s-4);
+  font-size: var(--t-small); color: var(--fg-faint);
+  max-width: 46rem;
+}
+
+@media (max-width: 860px) {
+  .cases { grid-template-columns: minmax(0, 1fr); }
+  .cases__tabs {
+    flex-direction: row; flex-wrap: wrap; gap: var(--s-1);
+    border-right: 0; border-bottom: 1px solid var(--hairline);
+  }
+  .cases__tab { flex: 1 1 auto; text-align: center; }
+  .cases__tab[aria-selected="true"]::before { inset: auto 0.6rem 0 0.6rem; width: auto; height: 2px; top: auto; }
+  .cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem); }
+}

@@ -8,7 +8,7 @@
  *    用户复制它粘进任意一条普通对话，照样能用，只是没有挂载的 Skill 与固定编制）。
  *
  * ⚠ 判据阈值与派生公式**不在这里手写数字**——由
- * `@repo/contracts/post-investment-rules` 的 `renderRiskCriteria()` /
+ * `@repo/maau-postinvest-report` 的 `renderRiskCriteria()` /
  * `renderDerivedFormulas()` 渲染进来。改阈值只改那份契约（ADR-020；本仓已因
  * "同一事实声明在两处"漂移过五次）。改任一侧的实质内容都要按
  * `skill-identity.ts` 的要求升 Skill 版本号。
@@ -16,7 +16,7 @@
  * ⚠ 测试方案的标准答案**不进这里**、不进任何模型可读上下文。这份正文写的是
  * "怎么判"（判据能力），不是"答案是什么"。
  */
-import { renderDerivedFormulas, renderRiskCriteria, renderSelfChecks } from "@repo/contracts/post-investment-rules";
+import { renderDerivedFormulas, renderRiskCriteria, renderSelfChecks } from "@repo/maau-postinvest-report";
 
 /** Skill 正文（`SKILL.md` 的 body）。 */
 export function buildPostInvestmentSkillContent(): string {

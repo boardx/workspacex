@@ -6,13 +6,13 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import * as React from "react";
-import { buildPrototypeExportHtml, classTokensOf, exportScreenId, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
+import { EXPORT_SHELL_PALETTE, buildPrototypeExportHtml, classTokensOf, exportScreenId, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-canvas";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const PROJECT: DesignProject = {
-  id: "p1", name: "订阅管理", template: "mobile", theme: "dark", tags: [], refImages: [], problem: "退订找不到", criteria: ["三步内退订"],
+  id: "p1", name: "订阅管理", template: "mobile", theme: "dark", accent: "neutral", tags: [], refImages: [], share: null, problem: "退订找不到", criteria: ["三步内退订"],
   frames: ["对话", "设置"],
   frameNotes: ["首屏即可发消息。", ""],
   prototype: [
@@ -24,6 +24,13 @@ const PROJECT: DesignProject = {
   chat: [], ownerId: "u1", ownerName: "我", createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z",
 };
 const NOW = new Date("2026-09-07T12:00:00.000Z");
+
+/** 迭代 23：主题化的构建——模块级，两个 describe 共用（原来只在 V69 那个块里）。 */
+const buildWithTheme = async (theme: "light" | "dark") => {
+  const p = { ...PROJECT, theme };
+  const screens = await renderScreensToMarkup(p);
+  return buildPrototypeExportHtml({ project: p, screens, css: "", now: NOW });
+};
 
 const build = async (forPrint = false) => {
   const screens = await renderScreensToMarkup(PROJECT);
@@ -110,15 +117,9 @@ describe("V48 PDF 打印视图：界面一节每页图文齐全", () => {
  * 与导出时后台碰巧是什么色无关。
  */
 describe("V69 导出跟随原型主题", () => {
-  const buildWith = async (theme: "light" | "dark") => {
-    const p = { ...PROJECT, theme };
-    const screens = await renderScreensToMarkup(p);
-    return buildPrototypeExportHtml({ project: p, screens, css: "", now: NOW });
-  };
-
   it("浅色项目导出浅色；深色项目导出深色", async () => {
-    const light = await buildWith("light");
-    const dark = await buildWith("dark");
+    const light = await buildWithTheme("light");
+    const dark = await buildWithTheme("dark");
     expect(light).toContain('class="wx-light"');
     expect(light).toContain("color-scheme:light");
     expect(dark).toContain('class="dark"');
@@ -131,5 +132,98 @@ describe("V69 导出跟随原型主题", () => {
     const markup = (await renderScreensToMarkup({ ...PROJECT, theme: "light" }))[0]!.markup;
     expect(markup).toContain("wx-light");
     expect(markup).toContain('data-theme="light"');
+  });
+});
+
+/* ───────────── 迭代 23：交付物上的三件事——外壳配色、打印、跳转清单 ───────────── */
+
+/** WCAG 相对亮度 / 对比度，吃 `#rrggbb`。与契约那侧同一套公式，这里只用在产物外壳上。 */
+function contrastOf(a: string, b: string): number {
+  const lum = (hex: string): number => {
+    const ch = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = ch.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x! + 0.05) / (y! + 0.05);
+}
+
+describe("导出产物的外壳跟随项目主题，而不是硬编码深色", () => {
+  it("浅色导出里不许再出现那几个深色字面量", async () => {
+    /*
+     * ⭐ 反证锚点：把 `.wx-tab` 的背景改回 `#17181c` ⇒ 这条红。
+     *
+     * 这是「原型自己的明暗主题」只做了一半：画布那一半跟着 token 走了，外壳（页签、
+     * 分隔线、次要文字）留在深色。浅色项目导出来是米白底上扣着一排近黑药丸。
+     * 既有的那条「浅色导出浅色」用例之所以一直绿，是因为它只比了 body 和 html
+     * ——测试还在，它守的东西已经不完整了。
+     */
+    const light = await buildWithTheme("light");
+    for (const dark of ["#17181c", "#33343a", "#0b0b0c"]) {
+      expect(light, `浅色产物里不该出现深色字面量 ${dark}`).not.toContain(dark);
+    }
+    expect(light).toContain(EXPORT_SHELL_PALETTE.light.chip);
+    expect(light).toContain(EXPORT_SHELL_PALETTE.light.line);
+  });
+
+  it("两套外壳配色的文字对比度都过 AA（4.5:1），页签选中态也算", () => {
+    // ⭐ 反证锚点：把 light.muted 调到 #b0b0b0（看着"淡一点更好看"）⇒ 这条红。
+    for (const theme of ["light", "dark"] as const) {
+      const p = EXPORT_SHELL_PALETTE[theme];
+      expect(contrastOf(p.bg, p.fg), `${theme} 正文`).toBeGreaterThanOrEqual(4.5);
+      expect(contrastOf(p.bg, p.muted), `${theme} 次要文字`).toBeGreaterThanOrEqual(4.5);
+      expect(contrastOf(p.chipOn, p.chipOnFg), `${theme} 页签选中态`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
+describe("打印视图：PDF 不多一张白纸，纸上不留点不动的虚线", () => {
+  it("末页不再分页", async () => {
+    /*
+     * ⭐ 反证锚点：删掉 `.wx-page:last-of-type{page-break-after:auto}` ⇒ 这条红。
+     * `page-break-after:always` 对每一页生效，最后一页后面那一次分页在 PDF 结尾
+     * 凭空多出一张空白纸——屏上看不出来，交付物上每次都在。
+     */
+    const html = await build(true);
+    expect(html).toContain("page-break-after:auto");
+    expect(html).toMatch(/\.wx-page:last-of-type\{[^}]*page-break-after:auto/);
+  });
+
+  it("可跳转的虚线框在纸上撤掉——解释它的那句提示语打印时本来就被隐藏了", async () => {
+    // ⭐ 反证锚点：去掉打印里的 `outline:none` ⇒ 这条红。纸上会留一圈没人说得清是什么的虚线。
+    const html = await build(true);
+    const printBlock = /@media print\{([\s\S]*?)\n\}/.exec(html)?.[1] ?? "";
+    expect(printBlock, "没抓到 @media print 块，这条会以错误的理由通过").not.toBe("");
+    expect(printBlock).toContain("[data-proto][data-linked]{outline:none}");
+    expect(printBlock).toContain(".wx-hint{display:none}".replace(".wx-hint", ".wx-tabs,.wx-hint"));
+  });
+
+  it("画板与说明块不许被拦腰切开", async () => {
+    const printBlock = /@media print\{([\s\S]*?)\n\}/.exec(await build(true))?.[1] ?? "";
+    expect(printBlock).toContain("break-inside:avoid");
+  });
+});
+
+describe("跳转清单写人话标签，不是裸节点 id", () => {
+  it("「按钮「发送」 → 第 2 页「设置」」，而不是「send → 第 2 页」", async () => {
+    /*
+     * ⭐ 反证锚点：把 `labelOf(l.from)` 改回 `l.from` ⇒ 这条红。
+     *
+     * `design-doc-markdown.ts` 早在迭代 11 就改成了人话标签，注释里逐字写着
+     * 「文档的读者是人」——而这份导出的 HTML 是同一批读者，一直在打印裸 id。
+     * 同一件事在一处修了、另一处没跟上。
+     */
+    const html = await build();
+    expect(html).toContain("按钮「发送」");
+    expect(html).not.toMatch(/<li>send/);
+  });
+
+  it("id 在树里找不到时回落成裸 id，不编一个标签出来", async () => {
+    const screens = await renderScreensToMarkup(PROJECT);
+    const html = buildPrototypeExportHtml({
+      project: { ...PROJECT, frameLinks: [[{ from: "已经不在了", to: 1 }], []] },
+      screens, css: "", now: NOW,
+    });
+    expect(html).toContain("已经不在了");
   });
 });

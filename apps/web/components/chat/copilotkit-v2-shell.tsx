@@ -200,20 +200,9 @@ function renameCardInThreadList(list: ListPersonalThreadsOut, threadId: string, 
 export function CopilotKitV2Shell({
   initialThreadId,
   projectId = null,
-  conversationHeader = null,
 }: {
   initialThreadId: string | null;
   projectId?: string | null;
-  /**
-   * 挂在**对话列内部**（标题条之下、消息区之上）的附加内容。默认 `null`，
-   * 所以 `/chat` 那条路由一个像素都不变。
-   *
-   * ⚠ 存在的理由（2026-09-15 devapp 真机截图实测）：team3 曾把阶段条与材料面板
-   * 渲染成本壳的**兄弟节点**，结果它们横在整个应用之上、侧边栏被挤到下半屏——
-   * 因为本壳自己就渲染完整布局（`<aside>` + 对话列），它不是一个"内容块"。
-   * 想往对话里加东西，只能从这个口进来。
-   */
-  conversationHeader?: React.ReactNode;
 }): JSX.Element {
   const router = useRouter();
   const { session } = useSession();
@@ -1287,8 +1276,6 @@ export function CopilotKitV2Shell({
             {projectId ? "按对话权限可见" : "仅自己可见"}
           </span>
         </div>
-        {/* 挂在对话列内部：见 `conversationHeader` 的头注。默认 null ⇒ /chat 不变。 */}
-        {conversationHeader}
         {/*
           ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），
           不再是 `initialThreadId`（route 参数、Next Router 软导航结算后才会变，

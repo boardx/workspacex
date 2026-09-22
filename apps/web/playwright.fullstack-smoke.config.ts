@@ -503,6 +503,18 @@ export default defineConfig({
       name: "design-prototype-loop",
       testMatch: ["design-prototype-loop.spec.ts"],
     },
+    {
+      /**
+       * 迭代 22 —— 发布与分享：设计者那一侧（发布 → 拿到链接 → 取消发布）与访客那一侧
+       * （`/d/<token>` 翻页、点得动的跳转、375px 不横向溢出、链接打不开时的话）。
+       *
+       * 与上面两条同一份 `page.route()` 夹具，访客页那几条另外自带
+       * `/public/design-shares/*` 的路由夹具——不读 DB、不需要登录态（分享页本来就是
+       * 给没账号的人点的），所以同样独立成不带 dependencies 的 project。
+       */
+      name: "design-share",
+      testMatch: ["design-share.spec.ts"],
+    },
   ],
   fullyParallel: false,
   /**

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Source for assets/img/og.png. Rendered at 1200x630 by scripts/build-og.mjs.
+     Kept as a real page rather than a hand-drawn image so the card cannot drift
+     away from the site's own tokens and typeface. -->
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../assets/css/fonts.css">
+<link rel="stylesheet" href="../assets/css/base.css">
+<style>
+  body { width: 1200px; height: 630px; overflow: hidden; margin: 0; }
+  .card {
+    position: relative; width: 1200px; height: 630px;
+    display: grid; align-content: center; gap: 26px;
+    padding: 0 86px; isolation: isolate;
+    background: var(--bg);
+  }
+  .glow { position: absolute; inset: -30%; z-index: -2; filter: blur(80px); opacity: .95; }
+  .b1 { position: absolute; width: 640px; height: 640px; border-radius: 50%; left: 4%; top: -10%;
+        background: radial-gradient(circle, rgb(var(--c-1-rgb) / .62), transparent 64%); }
+  .b2 { position: absolute; width: 700px; height: 700px; border-radius: 50%; right: -6%; top: 8%;
+        background: radial-gradient(circle, rgb(var(--c-2-rgb) / .58), transparent 64%); }
+  .b3 { position: absolute; width: 560px; height: 560px; border-radius: 50%; left: 42%; bottom: -26%;
+        background: radial-gradient(circle, rgb(var(--c-3-rgb) / .55), transparent 64%); }
+  /* Just enough scrim to hold the type; the first pass at .82 erased the
+     aurora entirely and left a flat black card. */
+  .card::after { content:""; position:absolute; inset:0; z-index:-1;
+    background: radial-gradient(120% 90% at 30% 45%, rgba(8,7,11,.28), rgba(8,7,11,.72) 78%); }
+
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand svg { width: 42px; height: 42px; }
+  .brand b { font-family: var(--font-display); font-size: 31px; font-weight: 700; letter-spacing: -.02em; }
+  h1 { font-size: 78px; line-height: 1.04; letter-spacing: -.042em; max-width: 17ch; }
+  p { font-size: 27px; color: var(--fg-soft); max-width: 30ch; line-height: 1.45; }
+  .chain { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+  .chain span { font-family: var(--font-mono); font-size: 16px; letter-spacing: .12em;
+                text-transform: uppercase; color: var(--fg-dim); }
+  .chain i { width: 7px; height: 7px; border-radius: 50%;
+             background: linear-gradient(100deg, var(--c-1), var(--c-2), var(--c-3)); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="glow"><div class="b1"></div><div class="b2"></div><div class="b3"></div></div>
+  <div class="brand">
+    <svg viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color:var(--c-1)"/><stop offset=".55" style="stop-color:var(--c-2)"/><stop offset="1" style="stop-color:var(--c-3)"/>
+    </linearGradient></defs>
+    <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b>WorkspaceX</b>
+  </div>
+  <h1 data-en="Where humans and AI actually get work done." data-zh="人与 AI，真正把工作完成的地方。">Where humans and AI actually get work done.</h1>
+  <p data-en="The open operating workspace — shared context, verifiable action, organizational memory." data-zh="开放的协作运行空间——共享上下文、可验证的行动、属于组织的记忆。">The open operating workspace — shared context, verifiable action, organizational memory.</p>
+  <div class="chain">
+    <i></i><span data-en="Context" data-zh="上下文">Context</span>
+    <i></i><span data-en="Agents" data-zh="智能体">Agents</span>
+    <i></i><span data-en="Action" data-zh="行动">Action</span>
+    <i></i><span data-en="Evidence" data-zh="证据">Evidence</span>
+    <i></i><span data-en="Memory" data-zh="记忆">Memory</span>
+  </div>
+</div>
+<script>
+  // ?lang=zh renders the Chinese card from the same source, so the two cannot
+  // drift apart in layout, colour or type.
+  const lang = new URLSearchParams(location.search).get('lang');
+  if (lang === 'zh') {
+    document.documentElement.lang = 'zh-Hans';
+    document.querySelectorAll('[data-zh]').forEach((el) => { el.textContent = el.dataset.zh; });
+    document.querySelector('.chain').style.letterSpacing = '0';
+  }
+</script>
+</body>
+</html>

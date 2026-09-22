@@ -38,6 +38,10 @@ export function GuidedResearchSkillAssistant({
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState(false);
+  // ⚠ 这行字以前写死「由 qwen3.7-plus 生成建议」。模型 id 是部署配置（见
+  //   application/research/guided-model-config.ts），在 WorkspaceX Local 上就是
+  //   qwen3.5:4b——写死等于在界面上对用户说一句不成立的话。响应里本来就带 modelId。
+  const [modelId, setModelId] = React.useState<string | null>(null);
   const [skillState, setSkillState] = React.useState<ResearchSkillState>(() => loadResearchSkillState(sessionKey, step));
 
   React.useEffect(() => {
@@ -73,6 +77,7 @@ export function GuidedResearchSkillAssistant({
         message: prompt,
         draft: apiDraft(),
       });
+      setModelId(response.modelId);
       const proposal = response.proposal;
       const suggestion = proposal.node === "brief"
         ? { step: "brief" as const, prompt, text: response.assistantMessage, value: proposal.value }
@@ -182,7 +187,7 @@ export function GuidedResearchSkillAssistant({
         />
         <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim() || sending} onClick={() => void send()}>{sending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Send aria-hidden className="size-4" />}</Button>
       </div>
-      <p className="mt-3 text-11 text-muted-foreground">由 qwen3.7-plus 生成建议；应用前不会修改研究内容。</p>
+      <p className="mt-3 text-11 text-muted-foreground">{modelId === null ? "建议由模型生成；应用前不会修改研究内容。" : `由 ${modelId} 生成建议；应用前不会修改研究内容。`}</p>
     </section>
   );
 }

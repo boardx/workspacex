@@ -52,7 +52,9 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
+import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
+import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -954,8 +956,10 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
+  accent: "neutral",
     tags: [],
     refImages: [],
+    share: null,
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
@@ -1891,14 +1895,25 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     // brief 真的发出去了（问题是按它生成的，不是固定问卷）
     expect((calls.find((c) => c.path === "/pm-designs/intake-questions")?.body as { brief: string }).brief).toBe("会员在线下单");
     fireEvent.change(screen.getByTestId("intake-answer-who"), { target: { value: "两档：普通与金卡" } });
+    fireEvent.change(screen.getByTestId("intake-answer-success"), { target: { value: "三步之内" } });
     // task 那条**故意不答** —— 它不该出现在 intake 里
     fireEvent.click(screen.getByTestId("intake-next"));
     const guideline = await screen.findByTestId("intake-guideline");
     expect((guideline as HTMLTextAreaElement).value).toContain("两档：普通与金卡");
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(calls.some((c) => c.path === "/pm-designs" && c.body !== undefined)).toBe(true));
-    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as { intake: { question: string }[] };
-    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？"]);
+    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as {
+      intake: { question: string; dimension?: string }[];
+    };
+    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？", "几步算合格？"]);
+    /*
+     * ⭐ 迭代 17 反证锚点：`answered()` 不带 `dimension` ⇒ 这条红。
+     *
+     * 维度就在前端手上（`q.dimension`），此前被丢掉，于是服务端无从分辨哪一条属于
+     * 「成功长什么样」那一维——它退而求其次把**全部**答案都当成验收标准，
+     * 「会员分几档」这种背景句就这样进了验收口径，一路走到设计文档和排期里。
+     */
+    expect(body.intake.map((x) => x.dimension)).toEqual(["who", "success"]);
   });
 
   it("V62 模型没能生成针对性问题 ⇒ 界面如实说是兜底", async () => {
@@ -1950,7 +1965,9 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     expect(screen.getByTestId("workbench-generating")).toBeTruthy();
     expect(onOpenProject).not.toHaveBeenCalled();
     resolveCreate({ project: project({ id: "p-real", name: "新设计" }) });
-    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith("p-real"));
+    // 迭代 16（#3773 R7）：第二个参数 `justCreated` 说明这一次是**刚建出来的**——
+    // 详情页据它决定要不要照背景自动画第一版（列表里点开老项目不带它）。
+    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith("p-real", true));
   });
 
   it("删除：调真实 deleteProject 成功才从列表移除", async () => {
@@ -2340,6 +2357,69 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-inspector-delta")).toBeTruthy();
   });
 
+  it("迭代 16（#3773 R2）生成期间画布一页页长出来：轮询读到中间态 ⇒ 页标签先出现、进度报真实页数、取消保留已画好的页", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const tree = (label: string) => ({
+      type: "stack" as const, id: `s-${label}`,
+      children: [{ type: "text" as const, id: `t-${label}`, props: { content: label, variant: "title" as const } }],
+    });
+    /**
+     * 服务端那次 POST 一直挂着（真实情况：它要画好几页、几分钟才返回）；
+     * 与此同时 `persistProgress` 一页页往库里写，于是 GET 每次读到的都比上次多一页。
+     */
+    let stage = 0;
+    const STAGES = [
+      // 骨架刚定下：三页全是占位（`prototype` 与 `frames` 等长、元素为 null）。
+      { frames: ["待办", "详情", "我的"], prototype: [null, null, null] },
+      { frames: ["待办", "详情", "我的"], prototype: [tree("待办"), null, null] },
+      { frames: ["待办", "详情", "我的"], prototype: [tree("待办"), tree("详情"), null] },
+    ];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; signal?: AbortSignal }) => {
+      if (path === "/pm-designs") {
+        const st = STAGES[Math.min(stage, STAGES.length - 1)]!;
+        return { items: [project({ frames: st.frames, prototype: st.prototype as never })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return new Promise((_resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+        });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个待办 App" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-generating");
+
+      // ① 骨架回来：三页的标签当场出现在画布上（在这之前这几分钟画布是全空的）。
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      await waitFor(() => expect(screen.getByTestId("design-detail-frame-2")).toBeTruthy());
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("已完成 0 / 3 页");
+      // 还没轮到的页说的是「正在画」，不是「没画出来」——后者会请用户为一件正在发生的事重新下单。
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      expect(screen.getByTestId("design-detail-phone-drawing")).toBeTruthy();
+      expect(screen.queryByTestId("design-detail-regenerate-frame")).toBeNull();
+
+      // ② 第一页画好：进度是从库里读出来的事实，不是按秒数编的文案。
+      stage = 1;
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      await waitFor(() => expect(screen.getByTestId("design-detail-generating").textContent).toContain("已完成 1 / 3 页"));
+
+      // ③ 取消：已经画好的页留在屏上，不是前功尽弃。
+      stage = 2;
+      fireEvent.click(screen.getByTestId("design-detail-cancel"));
+      await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
+      await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("待办"));
+      // 取消之后还没画出来的页回到「没画出来 + 可补画」——这时候它确实不再有人在画了。
+      fireEvent.click(screen.getByTestId("design-detail-frame-2"));
+      expect(screen.getByTestId("design-detail-phone-ungenerated")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let mode: "hang" | "fail" | "ok" = "hang";
@@ -2366,7 +2446,9 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       await screen.findByTestId("design-detail-generating");
       await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
       expect(screen.getByTestId("design-detail-elapsed").textContent).toBe("5s");
-      expect(screen.getByTestId("design-detail-generating").textContent).toContain("生成页面结构");
+      // 迭代 16（#3773 R2）：还没有骨架时报的是「正在规划页面」；有了骨架之后报的是
+      // **真实**的「已完成 x / y 页」（另有用例钉它），不再按秒数猜阶段。
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("正在规划页面");
       fireEvent.click(screen.getByTestId("design-detail-cancel"));
       await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
       expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();
@@ -3068,7 +3150,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
   });
 
   /** 预览回一段服务端摘要；确认回写好之后的项目。两次都是同一条路由，靠 body 区分。 */
-  const stubImport = (initial = project({ id: "p1", problem: "用户已经写好的背景" })) => {
+  const stubImport = (initial = project({ id: "p1", problem: "用户已经写好的背景" }), criteria: readonly string[] = []) => {
     const bodies: Record<string, unknown>[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
       if (path === "/pm-designs") return { items: [initial] };
@@ -3081,6 +3163,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
             project: initial,
             imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
             summary: "服务端摘出来的背景",
+            criteria,
             truncated: false,
           };
         }
@@ -3088,6 +3171,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
           project: project({ id: "p1", problem: String(problem) }),
           imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
           summary: String(problem),
+          criteria: (opts.body?.criteria as string[] | undefined) ?? [],
           truncated: false,
         };
       }
@@ -3138,6 +3222,509 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
+  it("迭代 17：项目的强调色档位真的落到画布上，且切换走 updateProject（乐观更新 + 失败回滚）", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "我的账本", variant: "title" as const } },
+        { type: "button" as const, id: "b", props: { label: "记一笔", variant: "primary" as const } },
+      ],
+    };
+    let accent = "blue";
+    let failNext = false;
+    const patches: { accent?: string }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { accent?: string } }) => {
+      if (path === "/pm-designs") {
+        // ⚠ 显式 `mobile`：默认夹具是 `wireframe`，而迭代 19 起线框图会把强调色压成灰阶
+        // （那是**功能**，见下面那两条线框图用例）——这里测的是强调色，得用高保真模板。
+        return { items: [project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never })] };
+      }
+      if (path === "/pm-designs/p1" && opts?.method === "PATCH") {
+        patches.push(opts.body ?? {});
+        if (failNext) throw new TypeError("Failed to fetch");
+        accent = opts.body?.accent ?? accent;
+        return { project: project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：不把档位翻成画布根上的 token 覆盖 ⇒ 这条红。
+     *
+     * 整棵树的颜色都是 `hsl(var(--primary))` 形态，所以强调色**只能**从根上覆盖变量来实现；
+     * 少了这一层，不管做的是儿童记账还是医院排班，按钮和选中态一律是同一个中性灰。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBe("blue");
+    expect(phone.style.getPropertyValue("--primary")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+    // 焦点环跟着主色走——只改 --primary 会让键盘焦点停在旧色上，一眼看出是补丁。
+    expect(phone.style.getPropertyValue("--ring")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+
+    // 切一档：乐观更新（不等往返），并真的发出 PATCH。
+    fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
+    await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
+
+    // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
+    failNext = true;
+    fireEvent.click(screen.getByTestId("design-detail-accent-green"));
+    await screen.findByTestId("design-detail-chat-error");
+    expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
+  });
+
+  it("迭代 19：线框图模板真的画成线框图——语义色全部压成灰阶，强调色让位", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } },
+        { type: "badge" as const, id: "b", props: { label: "已发货", tone: "success" as const } },
+        { type: "button" as const, id: "go", props: { label: "确认收货", variant: "primary" as const } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        // 项目同时设了强调色——低保真要**优先**：选了线框图还上强调色，
+        // 等于把刚拿掉的那层信息又加回去。
+        return { items: [project({ template: "wireframe", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：`template` 只决定设备预设（改之前就是这样）⇒ 这条红。
+     * 那时选「线框图」拿到的是彩色高保真稿，只是画在平板上——选项许诺了一件事，
+     * 底下没有人去做它。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBe("wireframe");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    // 主色、成功、警告、危险——全部同一个灰。
+    const primary = phone.style.getPropertyValue("--primary");
+    expect(primary).not.toBe("");
+    for (const token of ["--success", "--warning", "--destructive"]) {
+      expect(phone.style.getPropertyValue(token)).toBe(primary);
+    }
+    // 只压颜色不压结构：字号档位照旧（线框图不是"把东西画丑"）。
+    expect(phone.querySelector('[data-node-id="t"]')?.className).toContain("text-18");
+  });
+
+  it("迭代 19：非线框图模板不受影响（mobile/ui 照旧高保真 + 强调色）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
+    expect(phone.getAttribute("data-accent")).toBe("rose");
+    expect(phone.style.getPropertyValue("--success")).toBe("");
+  });
+
+  it("迭代 17：neutral ⇒ 一个 token 都不覆盖（这个字段出现之前的行为逐字不变）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "标题", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      // 同上：测「neutral 不覆盖任何 token」要用高保真模板，否则压色的是线框图不是 neutral。
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", frames: ["页"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
+    expect(phone.style.getPropertyValue("--primary")).toBe("");
+  });
+
+  it("迭代 20：超时时的「只画 3 页再试」真的把页数上限交上去（那句话此前是做不到的许诺）", async () => {
+    const posted: { text?: string; maxScreens?: number }[] = [];
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string; maxScreens?: number } }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_TIMEOUT" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 退路文案本来就说「试试少要几页」——现在旁边真的有这个动作。
+    expect(screen.getByTestId("design-detail-fallback-reason").textContent).toContain("少要几页");
+
+    /*
+     * ⭐ 反证锚点：不把 `maxScreens` 交上去 ⇒ 这条红。
+     * 在这之前用户没有任何控制页数的手段，说「只画 3 页」也只是一句模型可以不听的话。
+     */
+    fireEvent.click(await screen.findByTestId("design-detail-fewer-pages"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.text).toBe("做个客服待办");
+    expect(posted[1]?.maxScreens).toBe(3);
+    // 普通「再试一次」不带上限——它是"原样重来"，不是"少画几页"。
+    expect(posted[0]?.maxScreens).toBeUndefined();
+  });
+
+  it("迭代 20：只有**超时**才给「少画几页」（别的退路原因与页数无关）", async () => {
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_BAD_JSON" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 输出不是 JSON 与页数无关，给了只会把人往错的方向引。
+    expect(screen.queryByTestId("design-detail-fewer-pages")).toBeNull();
+    expect(screen.getByTestId("design-detail-fallback-retry")).toBeTruthy();
+  });
+
+  it("迭代 16（#3773 R8）：模型层失败也有「再试一次」，而「没配模型」不给（给一个必然失败的按钮是在骗人）", async () => {
+    let reason = "MODEL_TIMEOUT";
+    const posted: { text?: string }[] = [];
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string } }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-08T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-08T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: reason },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+
+    /*
+     * ⭐ 反证锚点：去掉这个按钮 ⇒ 这条红。在这之前屏上唯一的重试挂在"没能发送"那条
+     * 错误条带上——网络层失败给了重试，**模型层失败反而没有**，而后者（超时、被截断、
+     * 输出不是 JSON）才是用户真正会撞上的那一类；他当时能做的只有把刚才那句话再手打一遍。
+     */
+    fireEvent.click(await screen.findByTestId("design-detail-fallback-retry"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.text).toBe("做个客服待办"); // 原样重发最后那句用户的话
+
+    // 「这个部署没配模型」不给重试：重试一百次也一样，文案里已经说了该找运维。
+    reason = "MODEL_NOT_CONFIGURED";
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "再来" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-fallback-reason").textContent).toContain("还没配置 AI 模型"));
+    expect(screen.queryByTestId("design-detail-fallback-retry")).toBeNull();
+  });
+
+  it("迭代 16（#3773 R7）：刚建好的项目**自动照背景画第一版**，不让用户把刚说过的话再说一遍", async () => {
+    const posted: { text?: string }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string } }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ problem: "客服团队要一个内部对话助手", prototype: [] as never, frames: [], chat: [] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: project({ problem: "客服团队要一个内部对话助手", frames: ["聊天"], prototype: [{ type: "text", id: "t", props: { content: "聊天" } }] as never,
+            chat: [{ role: "user", text: opts.body?.text ?? "", at: "2026-09-08T00:00:00.000Z" }] }),
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+
+    // ⭐ 反证锚点：去掉自动开画 ⇒ 这条红。用户刚回答完六个澄清问题、写完背景，
+    // 进来看到的却是一句「在左边描述你要的界面」——纯粹是让他重说一遍。
+    render(<DesignDetailScreen projectId="p1" autoStart />);
+    await waitFor(() => expect(posted).toHaveLength(1));
+    // 发的是一句**真的出现在对话里**的话，不是隐形的自动行为——用户看得见它说了什么。
+    expect(posted[0]?.text).toContain("画第一版原型");
+    expect((await screen.findByTestId("design-detail-chat")).textContent).toContain("画第一版原型");
+    // 只发一次：不会因为重渲染反复开画。
+    await new Promise((r) => setTimeout(r, 50));
+    expect(posted).toHaveLength(1);
+  });
+
+  it("迭代 16（#3773 R7）：**不带 `autoStart` 打开老项目不会自动开画**（不替用户花掉一次生成）", async () => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ problem: "半年前写的背景", prototype: [] as never, frames: [], chat: [] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") { posted.push(1); return {}; }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(posted).toHaveLength(0);
+    // 这种项目照旧看到起手式示例。
+    expect(screen.getByTestId("design-detail-starters")).toBeTruthy();
+  });
+
+  it("迭代 16（#3773 R7）：背景为空 ⇒ 即便带 `autoStart` 也不开画（无从画起，该让他先说）", async () => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ problem: "", prototype: [] as never, frames: [], chat: [] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") { posted.push(1); return {}; }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" autoStart />);
+    await screen.findByTestId("design-detail");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(posted).toHaveLength(0);
+  });
+
+  it("迭代 16（#3773 R6）：预览里跳过去之后能**返回**，像用真的 App 一样走一遍", async () => {
+    const home = {
+      type: "stack" as const, id: "s0",
+      children: [
+        { type: "text" as const, id: "t0", props: { content: "我的订单", variant: "title" as const } },
+        { type: "button" as const, id: "go", props: { label: "查看详情", variant: "primary" as const } },
+      ],
+    };
+    const detail = {
+      type: "stack" as const, id: "s1",
+      children: [{ type: "text" as const, id: "t1", props: { content: "订单详情", variant: "title" as const } }],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({
+          frames: ["订单", "详情"],
+          prototype: [home, detail] as never,
+          frameLinks: [[{ from: "go", to: 1 }], []] as never,
+        })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-mode-preview"));
+
+    // 还没跳转 ⇒ 没有返回条。一个永远在那里、点了没反应的返回按钮比没有更糟。
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="go"]') as HTMLElement);
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("订单详情"));
+
+    /*
+     * ⭐ 反证锚点：`onNavigate={setFrame}`（不记返回栈）⇒ 这条红。
+     * 预览的承诺是「像用真的 App 一样走一遍」，而真的 App 里每一次跳转都能退回来；
+     * 少了它，走两层就断了，主流程根本走不完。
+     */
+    const bar = await screen.findByTestId("design-detail-preview-back-bar");
+    expect(bar.textContent).toContain("从「订单」过来");
+    fireEvent.click(screen.getByTestId("design-detail-preview-back"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("我的订单"));
+    // 退回起点之后返回条消失——没有更早的地方可退了。
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+
+    // 退出预览会清空返回栈：回到编辑态点页签是"我要看这一页"，不是"后退"。
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="go"]') as HTMLElement);
+    await screen.findByTestId("design-detail-preview-back-bar");
+    fireEvent.click(screen.getByTestId("design-detail-mode-edit"));
+    expect(screen.queryByTestId("design-detail-preview-back-bar")).toBeNull();
+  });
+
+  it("迭代 16（#3773 R5）：一轮对话之后，**改动过的节点**在画布上有一圈高亮，几秒后自动消失", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const before = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "我的待办", variant: "title" as const } },
+        { type: "button" as const, id: "b1", props: { label: "保存", variant: "primary" as const } },
+        { type: "button" as const, id: "b2", props: { label: "取消", variant: "ghost" as const } },
+      ],
+    };
+    const after = {
+      ...before,
+      children: [
+        before.children[0]!,
+        { type: "button" as const, id: "b1", props: { label: "保存修改", variant: "primary" as const } },
+        before.children[2]!,
+      ],
+    };
+    let turn = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: ["待办"], prototype: [(turn === 0 ? before : after)] as never })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        turn = 1;
+        return {
+          project: project({ frames: ["待办"], prototype: [after] as never }),
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "把保存按钮说清楚点" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+
+      const tree = await screen.findByTestId("design-detail-phone-tree");
+      /*
+       * ⭐ 反证锚点：不算 diff ⇒ 这条红。三页里改了一个按钮文案、屏上没有任何痕迹说明
+       * 哪里变了，用户只能逐页找——"改一点点"于是和"重看一遍全部"一样贵。
+       */
+      await waitFor(() => expect(tree.querySelector('[data-node-id="b1"][data-changed="true"]')).not.toBeNull());
+      // 没改的节点不亮：父容器与另一个按钮都不该跟着亮（否则整条链全亮 = 等于没有高亮）。
+      expect(tree.querySelector('[data-node-id="b2"][data-changed="true"]')).toBeNull();
+      expect(tree.querySelector('[data-node-id="s"][data-changed="true"]')).toBeNull();
+
+      // 它说的是"刚刚"，不是一个持续状态——几秒后自己清掉。
+      await act(async () => { await vi.advanceTimersByTimeAsync(6500); });
+      await waitFor(() => expect(tree.querySelector('[data-changed="true"]')).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("迭代 16（#3773 R4）：底部导航的图标**按内容**给，不是按位置轮转", async () => {
+    const page = {
+      type: "stack" as const, id: "s", children: [
+        { type: "text" as const, id: "t", props: { content: "首页", variant: "title" as const } },
+        // 模型给了 icons ⇒ 用它；没给的那几项按标签名猜。
+        { type: "bottomnav" as const, id: "nav", props: { items: ["首页", "消息", "我的"], active: 0 } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["首页"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const nav = screen.getByTestId("design-detail-phone-tree").querySelector('[data-proto="bottomnav"]') as HTMLElement;
+    const icons = [...nav.querySelectorAll("svg")].map((el) => el.getAttribute("class") ?? "");
+    /*
+     * ⭐ 反证锚点：改回 `NAV_ICONS[i % NAV_ICONS.length]` ⇒ 这条红。
+     * 那时「消息」拿到的是第 2 个轮转图标（Search），与它的名字无关——
+     * 图标在撒谎比没有图标更坏。这里只断言三项各自拿到了**不同**的图标、
+     * 且第二项确实是消息类图标（lucide 把名字写在 class 上）。
+     */
+    expect(icons).toHaveLength(3);
+    expect(nav.querySelector('[data-lucide], .lucide-house, .lucide-home')).not.toBeNull();
+    expect(nav.innerHTML).toContain("message-circle");
+    expect(nav.innerHTML).toContain("user");
+  });
+
+  it("迭代 16（#3773 R4）：列表行是三段式（主标题 / 副标题 / 右侧值），按钮能带图标，image 按语义画", async () => {
+    const page = {
+      type: "stack" as const, id: "s", children: [
+        { type: "text" as const, id: "t", props: { content: "我的订单", variant: "title" as const } },
+        {
+          type: "list" as const, id: "l",
+          props: {
+            items: ["楼下的面馆", "书店"],
+            detail: ["牛肉面 × 1，加蛋", "三本书"],
+            trailing: ["¥28", "¥136"],
+            leading: "icon" as const,
+            icons: ["cart" as const],
+          },
+        },
+        { type: "image" as const, id: "m", props: { alt: "取餐地点", kind: "map" as const } },
+        { type: "button" as const, id: "b", props: { label: "再来一单", icon: "refresh" as const, variant: "primary" as const } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["订单"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const tree = screen.getByTestId("design-detail-phone-tree");
+    // 三段都在屏上——只有一列字的列表比真实界面薄一截。
+    for (const t of ["楼下的面馆", "牛肉面 × 1，加蛋", "¥28", "书店", "¥136"]) expect(tree.textContent).toContain(t);
+    expect(tree.querySelectorAll('[data-proto-slot="trailing"]')).toHaveLength(2);
+    // `icons` 只给了第一行 ⇒ 第二行退回圆点，不留一个空缺口让这一行比别的行窄。
+    expect(tree.querySelector('[data-proto="list"]')?.innerHTML).toContain("shopping-cart");
+    // image 按语义画：地图不是一个灰块。
+    expect(tree.querySelector('[data-proto="image"]')?.getAttribute("data-image-kind")).toBe("map");
+    expect(tree.querySelector('[data-proto="image"] svg')).not.toBeNull();
+    // 按钮带图标。
+    expect(tree.querySelector('[data-proto="button"]')?.innerHTML).toContain("refresh-cw");
+  });
+
+  it("迭代 16（#3773 R3）：同一段对话抽出的验收标准逐条可勾，确认时和背景一起写进项目", async () => {
+    const bodies = stubImport(undefined, ["导出成功率 ≥ 99%", "历史会话可回看与继续", "首屏 2 秒内可下单"]);
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    await screen.findByTestId("import-thread-preview");
+
+    // 三条都列出来，默认全选——模型只抽"真的定下来过"的口径，默认不选等于让用户再做一遍。
+    const boxes = screen.getAllByTestId("import-thread-criterion").map((l) => l.querySelector("input") as HTMLInputElement);
+    expect(boxes).toHaveLength(3);
+    expect(boxes.every((b) => b.checked)).toBe(true);
+    expect(screen.getByTestId("import-thread-criteria").textContent).toContain("导出成功率 ≥ 99%");
+
+    // 取消掉中间那条，确认。
+    fireEvent.click(boxes[1]!);
+    fireEvent.click(screen.getByTestId("import-thread-confirm"));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    // ⭐ 反证锚点：把"全部候选"而不是"勾上的那些"交上去 ⇒ 这条红。
+    expect(bodies[1]).toEqual({
+      threadId: "th-1",
+      problem: "服务端摘出来的背景",
+      criteria: ["导出成功率 ≥ 99%", "首屏 2 秒内可下单"],
+    });
+  });
+
+  it("迭代 16（#3773 R3）：一条验收标准都没抽到 ⇒ 不显示那一块，也**不传** criteria（语义是「不动」，不是清空）", async () => {
+    const bodies = stubImport();
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    await screen.findByTestId("import-thread-preview");
+    expect(screen.queryByTestId("import-thread-criteria")).toBeNull();
+    fireEvent.click(screen.getByTestId("import-thread-confirm"));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(Object.keys(bodies[1]!)).not.toContain("criteria");
+  });
+
   it("system 留痕在对话里标「系统」，不标成模型的「未生成」", async () => {
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/pm-designs") {
@@ -3154,5 +3741,149 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     // ⭐ 反证锚点：把 system 也渲染成 fallback 的「未生成」⇒ 这两条红。
     expect(await screen.findByTestId("design-detail-turn-system")).toBeTruthy();
     expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
+  });
+});
+
+/* ═══════════ 迭代 23：工作台首屏——第一眼看到的那几句话要与事实相符 ═══════════ */
+
+describe("工作台首屏不再指向已经不存在的东西", () => {
+  it("页头副标题不提「从模板起一个设计」——三张模板卡片在迭代 13 就删了", async () => {
+    /*
+     * ⭐ 反证锚点：把那句话改回「从模板起一个设计……」⇒ 这条红。
+     * 这是新用户看到的第一行字，而它指的那条路已经不存在。
+     */
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    const head = await screen.findByTestId("design-workbench");
+    expect(head.textContent).not.toContain("从模板起一个设计");
+  });
+
+  it("真空态给的是能点的下一步：三条起手 brief，点一下预填进新建弹窗", async () => {
+    /*
+     * ⭐ 反证锚点：把起手卡片去掉、只留一句话 ⇒ 这条红。
+     * 空工作台此前只有「从上面挑一个模板开始」——指向不存在的东西，且没有任何可点的下一步。
+     */
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    const starters = screen.getByTestId("empty-starters");
+    expect(starters.querySelectorAll("button")).toHaveLength(DESIGN_WORKBENCH_STARTERS.length);
+
+    fireEvent.click(screen.getByTestId(`empty-starter-${DESIGN_WORKBENCH_STARTERS[0]!.label}`));
+    // 预填进的是**新建弹窗的输入**，不是直接建项目——用户还能改，也还要走澄清问答。
+    await screen.findByTestId("project-dialog");
+    expect((screen.getByTestId("project-dialog-name") as HTMLInputElement).value).toBe(DESIGN_WORKBENCH_STARTERS[0]!.label);
+    expect((screen.getByTestId("project-dialog-problem") as HTMLTextAreaElement).value).toBe(DESIGN_WORKBENCH_STARTERS[0]!.prompt);
+  });
+
+  it("搜索筛空 ⇒ 说「被筛掉了」并给清除按钮，而不是说「还没有设计项目」", async () => {
+    /*
+     * ⭐ 反证锚点：把两种空合回一种 ⇒ 这条红。
+     * 用户刚打了两个字，屏上就告诉他自己的项目一个都没有——而它们只是被筛掉了。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, string> }) => {
+      if (path === "/pm-designs") return { items: (opts?.query?.q ?? "") === "" ? [project({ id: "p1" })] : [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "查无此项" } });
+    const box = await screen.findByTestId("empty-filtered", {}, { timeout: 3000 });
+    expect(box.textContent).toContain("你的项目还在");
+    expect(screen.queryByTestId("empty")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("empty-clear-filter"));
+    await screen.findByTestId("project-card-p1");
+  });
+});
+
+describe("新建时就能带参考图（照这个画）", () => {
+  const png = () => new File([new Uint8Array([1, 2, 3])], "截图.png", { type: "image/png" });
+
+  it("建完项目再逐张上传，最后才跳转——用户只按了一次确定", async () => {
+    /*
+     * ⭐ 反证锚点：不上传就跳转 ⇒ 这条红。
+     *
+     * 契约的 `createProject` 不收字节，所以"新建时带参考图"只能是先建后传；
+     * 但那是实现细节，对用户必须是一步。此前的真实路径是：建空项目 → 进详情页 →
+     * 传图 → 再说一句"照这个画"，四步，而第一步要他先给还不存在的东西起名字。
+     */
+    const calls: string[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      calls.push(`${opts?.method ?? "GET"} ${path}`);
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p-new", name: "照着画" }) };
+      throw new Error(`unexpected ${path}`);
+    });
+    // 上传走 multipart（原生 fetch），不经 apiRequest——所以这里两条 mock 都要有。
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      calls.push(`POST ${new URL(url, "http://x").pathname}`);
+      return {
+        ok: true, status: 201,
+        text: async () => JSON.stringify({
+          image: { id: "ri1", name: "截图.png", size: 3, mime: "image/png", createdAt: "2026-09-22T00:00:00.000Z" },
+          project: project({ id: "p-new", name: "照着画" }),
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onOpen = vi.fn();
+    render(<DesignWorkbenchHome state="default" onOpenProject={onOpen} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "照着画" } });
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png()] } });
+    await screen.findByTestId("ref-image-picked-0");
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
+
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith("p-new", true));
+    // 顺序要对：先建、再传、最后才跳
+    expect(calls.filter((c) => c.startsWith("POST"))).toEqual(["POST /pm-designs", "POST /pm-designs/p-new/ref-images"]);
+  });
+
+  it("图传失败不静默跳转——项目是建出来了，但 AI 看不到那张图", async () => {
+    /*
+     * ⭐ 反证锚点：失败也照样跳转 ⇒ 这条红。
+     * 那意味着用户以为"AI 会照着我那张图画"，而模型根本没拿到它——
+     * 屏上不会有任何痕迹说明发生过这件事。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p-new", name: "照着画" }) };
+      throw new Error(`unexpected ${path}`);
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 400,
+      text: async () => JSON.stringify({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: "SIZE" }),
+    }));
+    const onOpen = vi.fn();
+    render(<DesignWorkbenchHome state="default" onOpenProject={onOpen} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "照着画" } });
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png()] } });
+    await screen.findByTestId("ref-image-picked-0");
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
+
+    const banner = await screen.findByTestId("workbench-partial-create");
+    expect(banner.textContent).toContain("已经建好了");
+    expect(banner.textContent).toContain("1 张参考图没传上去");
+    expect(onOpen).not.toHaveBeenCalled();
+    // 项目是真的存在的，得给一个直接进去的出口——不能让人以为白填了一遍。
+    fireEvent.click(screen.getByTestId("workbench-partial-open"));
+    expect(onOpen).toHaveBeenCalledWith("p-new", true);
+  });
+
+  it("最多三张，满了之后按钮禁用并说清为什么", async () => {
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png(), png(), png(), png()] } });
+    await screen.findByTestId("ref-image-picked-2");
+    expect(screen.queryByTestId("ref-image-picked-3")).toBeNull();
+    expect((screen.getByTestId("ref-image-pick") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("ref-image-picker").textContent).toContain("去掉一张才能再加");
   });
 });

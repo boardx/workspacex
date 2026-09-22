@@ -19,6 +19,7 @@ import * as React from "react";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PrototypeCanvas, rotated, linkKey, type PrototypeCanvasMode, type PrototypeDevicePreset } from "./prototype-canvas";
+import type { designWorkbench } from "@repo/contracts";
 import { linkSlotsOf, findPrototypeNodePath, type PrototypeLink, type PrototypeNode } from "@/lib/live-design-workbench";
 
 const MIN = 0.25;
@@ -29,7 +30,7 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark",}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
@@ -42,6 +43,14 @@ export function PrototypeBoard({
   /** 迭代 11：每页出发的跳转关系（`links[i]` 属于第 i 页）；编辑/预览；预览点跳转 ⇒ `onNavigate`。 */
   links?: readonly (readonly PrototypeLink[])[];
   mode?: PrototypeCanvasMode;
+  /** 迭代 16（#3773 R2）：整份原型正在被分页生成——没树的页显示「正在画这一页…」。 */
+  drawing?: boolean;
+  /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——画板上同样高亮，不然要切到单页才看得见。 */
+  changed?: ReadonlySet<string>;
+  /** 迭代 17：项目的强调色档位——画板上的每一块屏都跟着它，不然只有单页视图有身份。 */
+  accent?: designWorkbench.PrototypeAccent;
+  /** 迭代 19：低保真（线框图模板）。画板上每一块屏同样要压成灰阶，不然两个视图对不上。 */
+  wireframe?: boolean;
   /** 迭代 13：原型自己的明暗主题，透传给每块画板。 */
   theme?: "light" | "dark";
   onNavigate?: ((to: number) => void) | null;
@@ -230,6 +239,11 @@ export function PrototypeBoard({
                 device={device}
                 landscape={landscape}
                 frameIndex={i}
+                /* 迭代 16（#3773 R2）：这一轮还在生成 ⇒ 还没轮到的页说「正在画」，不是一片空白。 */
+                drawing={drawing && (prototype[i] ?? null) === null}
+                changed={changed}
+                accent={accent}
+                wireframe={wireframe}
                 mode={mode}
                 links={links[i]}
                 onNavigate={onNavigate}

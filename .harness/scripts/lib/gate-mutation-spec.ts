@@ -233,6 +233,8 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
 const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
+const REWRITE_SHADOW_ALLOWLIST = ".harness/state/rewrite-shadow-allowlist.json";
+const NEXT_CONFIG = "apps/web/next.config.mjs";
 const CONTRACT_ROUTE_ALLOWLIST = ".harness/state/contract-route-coverage-allowlist.json";
 const CONTRACT_TS = "packages/contracts/src/skills.ts";
 // #473 的门守的是「注释说契约里没有 X」，它的变异要打在一个真实存在的 operation 上，
@@ -302,6 +304,31 @@ export const GATE_SPECS: readonly GateSpec[] = [
         name: "往棘轮 allowlist 里加一条不该有的豁免",
         // 棘轮「只能变短」：加一条今天并不缺的前缀，必须当场红。
         apply: replaceOnce(REWRITE_ALLOWLIST, '"downloads",', '"downloads",\n    "probe-bogus-prefix",'),
+      },
+    ],
+  },
+  {
+    // #610：同一个脚本的**反方向**。正方向的变异动的是「API 路由够不够得到」，
+    // 这两条动的是「rewrite 会不会把前端页面代理走」——两个方向各自会不会空转，
+    // 要各自被变异证一次，不能靠上面那条替它背书。
+    gate: "rewrite-shadow",
+    run: tsx(".harness/scripts/lint-rewrite-coverage.mjs"),
+    guards: (_r, io) => io.exists(REWRITE_SHADOW_ALLOWLIST) && io.exists(NEXT_CONFIG),
+    mutations: [
+      {
+        name: "把 /admin 的逐条 rewrite 放宽回通配（#610 原始现场）",
+        // 这正是 #595 段 3 写出来过、在旧门下全绿的那一条：它把整片
+        // app/admin/[module] 前端页面代理去 API。
+        apply: replaceOnce(
+          NEXT_CONFIG,
+          "{ source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },",
+          "{ source: `${prefix}/admin/:path*`, destination: `${apiOrigin}/admin/:path*` },",
+        ),
+      },
+      {
+        name: "删掉反向棘轮里一条今天仍然成立的遮蔽登记",
+        // 名单只能变短**且必须诚实**：删掉一条还遮着的登记，那条遮蔽就变成新增，必须红。
+        apply: replaceOnce(REWRITE_SHADOW_ALLOWLIST, '"route": "/surveys/[token]"', '"route": "/surveys/[token-probe-bogus]"'),
       },
     ],
   },
