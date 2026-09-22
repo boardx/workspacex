@@ -5,7 +5,7 @@ import type { survey } from '@repo/contracts';
 import { SurveyReportDocument } from '@/components/survey/report/report-document';
 import { printSurveyReport, buildSurveyReportWord } from '@/components/survey/report/report-export';
 const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
-const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
+const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',analysis:[{title:'章节发现',evidence:'仅反映该受访者反馈',action:'核对具体经历',blockIds:['bar']}],blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
 describe('survey report document',()=>{
  beforeEach(()=>{ vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); });
  it('renders captions exactly once on every content type and retains them in print',async()=>{
@@ -46,6 +46,7 @@ describe('survey report document',()=>{
   expect(container.querySelector('[data-report-block="gap"] table')).not.toBeNull();
   expect(screen.getByText('-2')).toBeTruthy();
   expect(screen.getByText('样本不足')).toBeTruthy();
+  expect(screen.getByText('仅反映该受访者反馈')).toBeTruthy();
   expect(container.querySelector('[data-page-break]')).toBeTruthy();
  });
  it('exports a genuine Word archive with every chapter',async()=>{
@@ -64,6 +65,7 @@ describe('survey report document',()=>{
   }
   for(const type of ['text','gap','table']) expect(xml).toContain(`${type} 图注`);
   expect(xml).not.toContain('page-break 图注');
+  expect(xml).toContain('仅反映该受访者反馈');expect(xml).toContain('核对具体经历');
   expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
  });

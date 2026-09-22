@@ -66,7 +66,7 @@ import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
  */
 import { outputFileMime } from "./output-file-mime";
 import type { ObjectStore } from "../artifact/ports";
-import { ModelCallError, type RunOutputFile } from "./ports";
+import { ModelCallError, ModelCallInterruptedError, type ModelCallCompletion, type RunOutputFile } from "./ports";
 import {
   MAX_SCRIPT_ATTEMPTS,
   ScriptFailedAfterRetriesError,
@@ -89,6 +89,28 @@ export type ProducedFile = RunOutputFile;
 
 class ScriptCancelledAtBoundary extends Error {}
 
+/**
+ * 一次脚本执行失败的**归类**。
+ *
+ * ⚠ 只声明在这里一处：`SkillScriptOutcome` 与 `toFailure` 原来各写了一份同样的字面量
+ *   联合，加一个码要改两处，漏一处就是一条只在某一侧存在的契约（本仓「同一事实声明
+ *   在两处」栽过五次的同一个形状）。
+ */
+export type SkillScriptFailureCode =
+  | "SANDBOX_UNAVAILABLE"
+  | "SANDBOX_TIMEOUT"
+  | "SCRIPT_FAILED_AFTER_RETRIES"
+  /** #2718 F13：回喂重试时 `regenerate` 触发的模型调用本身失败（与"脚本写错了"
+   *  或"沙箱挂了"是两件事，运维该去查的地方也不同——见 `toFailure` 的分支）。 */
+  | "MODEL_CALL_FAILED"
+  /** issue #2893：回喂重试时内核停在 interrupt（自己发起 HITL 工具等人裁决）。
+   *  与 `MODEL_CALL_FAILED` 是两件事——调用没有失败，是它在等一个人回答问题，
+   *  运维去查模型/内核故障只会一无所获。 */
+  | "SCRIPT_RETRY_INTERRUPTED"
+  /** 诚实的兜底：分类器认不出这个异常属于以上哪一类时用这个,不得借用一个具体但
+   *  错误的分类顶替（R7，`requirements/05-error-observability.md`）。 */
+  | "UNKNOWN_EXECUTION_ERROR";
+
 export type SkillScriptOutcome =
   | { readonly kind: "cancelled"; readonly text: string; readonly files: readonly [] }
   /** 判据不成立 ⇒ 一次都没碰沙箱。`text` 恒为传进来的 `reply` 本身。 */
@@ -104,16 +126,7 @@ export type SkillScriptOutcome =
     readonly kind: "failed";
     readonly text: string;
     readonly files: readonly [];
-    readonly failureCode:
-      | "SANDBOX_UNAVAILABLE"
-      | "SANDBOX_TIMEOUT"
-      | "SCRIPT_FAILED_AFTER_RETRIES"
-      /** #2718 F13：回喂重试时 `regenerate` 触发的模型调用本身失败（与"脚本写错了"
-       *  或"沙箱挂了"是两件事，运维该去查的地方也不同——见 `toFailure` 的分支）。 */
-      | "MODEL_CALL_FAILED"
-      /** 诚实的兜底：分类器认不出这个异常属于以上哪一类时用这个,不得借用一个具体但
-       *  错误的分类顶替（R7，`requirements/05-error-observability.md`）。 */
-      | "UNKNOWN_EXECUTION_ERROR";
+    readonly failureCode: SkillScriptFailureCode;
     readonly stderr: string;
   };
 
@@ -151,6 +164,47 @@ export interface MaybeRunSkillScriptInput {
    *   工具结果是链路中间产物，把它贴给用户等于让用户看到两份互相矛盾的答案。
    */
   readonly scriptSources?: readonly string[];
+}
+
+/**
+ * 回喂重试拿回来的一次 completion → **拿去解析脚本的那段文本**。
+ *
+ * 原来内联在 `execute-run.ts` 的 `regenerate` 里；issue #2893 把它挪到这里，理由是
+ * 这条规则的两个分支（下面两段）最终都由**本文件**归类与写文案，规则与消费者隔一个
+ * 文件放着，改一边漏一边就是一条只在半路上成立的契约。
+ *
+ * ## #1747 —— 也要去工具结果里找脚本，理由与第一次尝试逐字相同
+ *
+ * 少了这一条，deep-agent 那条路的失败诚实性会被悄悄换掉：第 1 次跑的是工具结果里的
+ * 真脚本、真的失败了、拿到了真的 stderr；第 2 次却因为最终回复里没有代码围栏而以
+ * 「model reply contained no fenced script block」终止——用户看到的就不再是沙箱返回的
+ * 真实错误，而是一句关于回复格式的内部抱怨。真因照样消失，只是换了个消失的姿势
+ * （#660 / #1611 那条纪律的同一个缺口）。
+ *
+ * 一个候选都没有时**退回 `retry.text`**，让循环照常报它那条诚实的「这次回复里根本
+ * 没有脚本」——不在这里替它编一个空脚本。
+ *
+ * ## issue #2893 —— 停在 interrupt 的 completion 不是"这轮没写脚本"
+ *
+ * 内核可能在**脚本重生成**这一步自己发起 `confirm_task_intent` / `fill_run_params`
+ * 停下来等人回答。这种 completion 的 `text` 是空串（见 `ModelCallCompletion.interrupted`
+ * 的头注：必须先查这个字段再判空文本）。不在这里认出来，它就会伪装成「模型这轮没给
+ * 脚本块」，让重试循环把剩下的次数全花在一个已经停住等人的线程上，最后报一个与真实
+ * 处境无关的失败。走轮询的 provider 抛 `ModelCallInterruptedError`、走流式的返回
+ * `interrupted` 摘要——两种形态在这里收敛成**同一个事实**。
+ *
+ * ⚠ 待批工具名只进异常的 `detail`（服务端日志），不进用户文案：那是内核的内部工具名。
+ */
+export function retryScriptSource(
+  retry: Pick<ModelCallCompletion, "text" | "scriptCandidates" | "interrupted">,
+): string {
+  if (retry.interrupted) {
+    throw new ModelCallInterruptedError(
+      `script regeneration stopped at a kernel interrupt (${retry.interrupted.toolName})`,
+    );
+  }
+  const candidates = [retry.text, ...(retry.scriptCandidates ?? [])];
+  return candidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
 }
 
 export async function maybeRunSkillScript(
@@ -232,6 +286,13 @@ export async function maybeRunSkillScript(
     const failure = toFailure(e);
     deps.log("chat run skill script execution failed", {
       runId: input.runId, code: failure.failureCode, stderrExcerpt: failure.stderr.slice(0, 500),
+      /*
+       * issue #2893 —— 用户文案不再外露内部字符串（见 `renderFailure`），那句内部措辞
+       * 就必须在**这里**落地，否则它只是被删掉了：排查的人既看不到用户那条消息里的
+       * 原话，日志里也没有。`detail` 本来就是 `ModelCallError` 头注指定的去处
+       * （"for the SERVER LOG only"）。
+       */
+      ...(e instanceof ModelCallError ? { modelCallDetail: e.detail } : {}),
     });
     return {
       kind: "failed",
@@ -244,12 +305,7 @@ export async function maybeRunSkillScript(
 }
 
 function toFailure(e: unknown): {
-  readonly failureCode:
-    | "SANDBOX_UNAVAILABLE"
-    | "SANDBOX_TIMEOUT"
-    | "SCRIPT_FAILED_AFTER_RETRIES"
-    | "MODEL_CALL_FAILED"
-    | "UNKNOWN_EXECUTION_ERROR";
+  readonly failureCode: SkillScriptFailureCode;
   readonly stderr: string;
 } {
   if (e instanceof SandboxUnavailableError) {
@@ -261,6 +317,25 @@ function toFailure(e: unknown): {
   if (e instanceof ScriptFailedAfterRetriesError) {
     // ⚠ 原样带回，不加工（#660）。
     return { failureCode: "SCRIPT_FAILED_AFTER_RETRIES", stderr: e.lastStderr };
+  }
+  /*
+   * issue #2893 —— 内核在**脚本重生成**这一步停在 interrupt（它自己发起
+   * `confirm_task_intent` / `fill_run_params` 之类的 HITL 工具，等人回答）。
+   *
+   * 实测形态：pptx 脚本第一次在沙箱失败（环境缺模块）→ 回喂重试 → 重生成的那个 run
+   * 停在 interrupt → 用户看到的是
+   * 「脚本执行失败（MODEL_CALL_FAILED）……沙箱返回的真实错误输出：deep agent run
+   * ended with status "interrupted"」。那句话里**没有一个字是真的**：不是沙箱返回的，
+   * 沙箱这一次根本没被调用；也不是一次失败的模型调用，是它在等人。
+   *
+   * ⚠ 分支必须排在下面的 `ModelCallError` 之前：`ModelCallInterruptedError` 是它的
+   *   子类（见 `ports.ts` 那个类为什么这么定义），顺序反了就会先被父类分支吃掉——
+   *   与本文件下面那条「`ModelCallError` 必须排在兜底之前」逐字同一个坑。
+   */
+  if (e instanceof ModelCallInterruptedError) {
+    // stderr 恒为空串：这一路**没有**沙箱输出，编一个或把内核状态塞进这个字段，
+    // 就是把「沙箱说了什么」这个事实伪造出来（#660 / #1611 那条纪律的反面）。
+    return { failureCode: "SCRIPT_RETRY_INTERRUPTED", stderr: "" };
   }
   /*
    * #2718 F13 —— 回喂重试的 `deps.regenerate(feedback)` 是一次真正的模型调用
@@ -304,18 +379,56 @@ function renderSuccess(reply: string, files: readonly ProducedFile[]): string {
  * ⚠ 这里是 #660 / #1611 两次事故的落点：**真实 stderr 原样出现**，不翻译成
  *   「生成失败，请重试」。T4 断言这段文本里出现 stderr 原文、且**不**匹配
  *   `/请重试|please try again/i`。
+ *
+ * ⚠ issue #2893 在同一段文字上发现了**反方向**的一条：这段文案原来对**每一种**失败
+ *   都说「沙箱返回的真实错误输出：」，然后把 `stderr` 字段原样贴出来。可这个字段只在
+ *   沙箱真的跑过时才装着沙箱的话；模型调用失败那一路装的是 `ModelCallError.detail`，
+ *   而那按 `ports.ts` 的纪律是**只进服务端日志**的内部字符串。于是实测里用户看到的是
+ *   「沙箱返回的真实错误输出：deep agent run ended with status "interrupted"」——
+ *   一句既不是沙箱说的、也不是给用户看的话，被一个"诚实"的标签背书成了真因。
+ *   **说出真因**与**把内部状态原样倒给用户**不是同一件事；来源不同，文案就必须不同。
  */
-function renderFailure(reply: string, code: string, stderr: string): string {
-  const detail = stderr.trim() === "" ? "（沙箱未返回 stderr）" : stderr;
-  return [
-    reply,
-    "",
-    "---",
-    "",
-    `⚠ 脚本执行失败（${code}），本轮**没有**产出文件。沙箱返回的真实错误输出：`,
-    "",
-    "```",
-    detail,
-    "```",
-  ].join("\n");
+function renderFailure(reply: string, code: SkillScriptFailureCode, stderr: string): string {
+  return [reply, "", "---", "", ...failureBody(code, stderr)].join("\n");
+}
+
+/** 按失败**来源**给文案，不按"有没有字符串可贴"。 */
+function failureBody(code: SkillScriptFailureCode, stderr: string): readonly string[] {
+  switch (code) {
+    case "SCRIPT_RETRY_INTERRUPTED":
+      /*
+       * 沙箱在这一步根本没被调用（失败发生在"再问模型要一版脚本"这一步，而那次
+       * 请求停在了等人裁决上）。既没有沙箱输出可报，也不把内核状态原样外露——
+       * 内部措辞由 `deps.log` 带进服务端日志，用户这里只留下**他能据以行动**的事实。
+       */
+      return [
+        "⚠ 重新生成脚本时运行被中断（在等待一次人工确认），本轮**没有**产出文件。",
+        "这一步没有执行沙箱，因此没有沙箱输出可报。补充说明你要的产物后可以继续。",
+      ];
+    case "MODEL_CALL_FAILED":
+      // provider 的原话（`ModelCallError.detail`）到服务端日志为止——那条纪律写在
+      // `ModelCallError` 自己的头注里：这个对象上没有任何一个字段是可以顺手交给客户端的。
+      return [
+        `⚠ 重新生成脚本时模型调用失败（${code}），本轮**没有**产出文件。`,
+        "失败发生在向模型请求脚本这一步，不是沙箱执行；详细原因已记入服务端日志。",
+      ];
+    case "UNKNOWN_EXECUTION_ERROR":
+      // 认不出的异常：照实说"执行器抛了这个"，不冒充成沙箱的输出。
+      return [
+        `⚠ 脚本执行失败（${code}），本轮**没有**产出文件。执行器抛出的异常：`,
+        "",
+        "```",
+        stderr.trim() === "" ? "（无异常信息）" : stderr,
+        "```",
+      ];
+    default:
+      // 沙箱真的跑过的三种失败：**真实 stderr 原样出现**（#660 / #1611，T4 钉死）。
+      return [
+        `⚠ 脚本执行失败（${code}），本轮**没有**产出文件。沙箱返回的真实错误输出：`,
+        "",
+        "```",
+        stderr.trim() === "" ? "（沙箱未返回 stderr）" : stderr,
+        "```",
+      ];
+  }
 }

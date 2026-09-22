@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { phaseFeatureListPath, phaseFeatureArchivePath, sprintDir } from "./paths";
 import type { Feature, FeatureList, FeatureStatus } from "./types";
+import { featurePriority } from "./feature-schema";
 
 /** 读归档文件的 id 集合（不存在则返回空集）。saveFeatureList 用它过滤，防止归档记录被写回 live 文件。 */
 function loadArchivedIds(phaseId: string): Set<string> {
@@ -37,7 +38,7 @@ export function saveFeatureList(phaseId: string, fl: FeatureList): void {
 export function featuresForSprint(fl: FeatureList, sprintId: string): Feature[] {
   return fl.features
     .filter((f) => f.sprint === sprintId)
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => featurePriority(a) - featurePriority(b));
 }
 
 /** 单一来源原则：同一 owner 同时最多一个 in_progress

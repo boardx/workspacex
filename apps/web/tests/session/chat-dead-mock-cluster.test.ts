@@ -94,10 +94,10 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
   /**
    * 台账：`components/chat/` 下**任何路由都走不到**、却仍 import `lib/mock/**` 的文件。
    *
-   * ⚠ 这几个（VZ-01 前是七个，见下方断言旁注为何降为六个）**不是**「顺手就能删的死代码」，
+   * ⚠ 这几个（VZ-01 前是七个；#821 起从六个降为五个，见下方断言旁注）**不是**「顺手就能删的死代码」，
    *   删除已从 #462 的范围里拿掉、上报待裁：
    * · 它们不是各自孤立的，而是一条**链**：`chat-main.tsx` → `composer.tsx` →
-   *   `composer-settings.tsx`，`chat-main.tsx` 还牵着 `message-stream` / `reassign-bar`。
+   *   `composer-settings.tsx`，`chat-main.tsx` 还牵着 `message-stream`。
    *   只删链尾会当场把 `chat-main.tsx` 的 typecheck 打红（实测：
    *   `error TS2307: Cannot find module './composer'`）。
    * · `chat-main` / `chat-left-panel`（`chat-right-panel` 已于 UX-9 Line D1 删除）被 `app/chat/live/page.tsx`
@@ -108,7 +108,7 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    *
    * 所以这里如实钉住而不假装已清理，也不偷偷删。
    */
-  it("如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这六个", () => {
+  it("如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这五个", () => {
     const { visited } = walkImports(routeEntries());
     // 反空转：全路由闭包必须真的走到了活着的 chat 屏，否则「都走不到」是因为什么都没走。
     expect(visited).toContain("components/chat/chat-read-screen.tsx");
@@ -121,13 +121,24 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     //   预览路由 import（用它演示 markdown/mermaid 渲染），routeEntries() 含 `app/**` 全部路由，
     //   故它不再是「任何路由都走不到」——如实从本台账移出。它仍是原型组件、仍 import `lib/mock/chat`
     //   的类型；产品 /chat 路由依旧不经它（活体 AI 渲染在 `chat-live-message-panel.tsx`）。
+    // ⚠ #821 起从六个降为五个：`reassign-bar.tsx` 已**真的删除**（不是移出台账）。
+    //   #715 裁决「委派/转派功能不做」——后端没有改派 HTTP 路由，而这个组件长得很完整，
+    //   下一个 agent 顺手把它接到某条路由上，一个假按钮就上线了，正是
+    //   `chat-ux-acceptance-criteria.md` 第 1 条要防的。随之删掉的还有
+    //   `lib/mock/chat.ts` 的 `REASSIGN_SUGGESTION`/`ReassignSuggestion`（唯一引用者就是它）
+    //   与 `chat-main.tsx` 的 import + 渲染两行——上面注释里预判的「只删链尾会打红
+    //   typecheck」正是指这两行，所以它们必须同一次改掉。`chat-main.tsx` 自身零引用者
+    //   （下一条 it 机械钉住），改它不影响任何活路由。
+    //   ⚠ 未动的是已签核契约材料：`contracts/chat/ui.md:68` 仍登记 `reassign-bar.tsx`、
+    //   `coverage.md:64` 的 V11 仍是 ✅。按 ADR-023「签核是人的动作」不由 agent 改；
+    //   且 `verify-uc-coverage.ts` 要求 V 编号逐条在表里出现，删 V11 行会直接打红门控。
+    //   同型先例：`chat-right-panel.tsx` 已于 UX-9 Line D1 删除，`ui.md:70` 与 V9 仍列着它。
     expect(orphanMockFiles).toEqual([
       "components/chat/approval-card.tsx",     // UC-8.2 批准卡（后端无审批路由）
       "components/chat/chat-main.tsx",         // UC-8.2 三栏原型主区：整条链的根，零引用者
       "components/chat/composer-settings.tsx", // 输入区「更多设置」，被 composer.tsx 引
       "components/chat/composer.tsx",          // 输入区：**唯一引用者是 chat-main.tsx:11 的 `./composer`**
       "components/chat/message-stream.tsx",    // UC-8.2 转录流
-      "components/chat/reassign-bar.tsx",      // UC-8.2 改派建议（后端无改派路由）
     ]);
   });
 

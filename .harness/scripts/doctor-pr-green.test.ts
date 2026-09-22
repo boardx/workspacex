@@ -34,6 +34,8 @@ type Scenario = {
   statuses?: Array<[string, string, number]>;
   /** statuses 端点失败（exit 1） */
   statusesFail?: boolean;
+  /** 这次合并由 GitHub 合并队列 bot 落地（#3238 第 5 条） */
+  mergedByQueue?: boolean;
   strict?: boolean;
 };
 
@@ -45,7 +47,7 @@ function runDoctorWithFakeGh(sc: Scenario): string {
   const gh = join(dir, "gh");
   const merged = sc.merged ?? true;
   const issue = JSON.stringify([{ number: 1, state: "CLOSED", stateReason: "COMPLETED", closedAt: sc.closedAt, body: "<!-- harness-feature: 00/F14 -->" }]);
-  const pr900 = { number: 900, merged, mergedAt: merged ? MERGED_AT : null, headRefOid: "d".repeat(40), mergeCommit: { parents: { nodes: [{ oid: "a".repeat(40) }] } } };
+  const pr900 = { number: 900, merged, mergedAt: merged ? MERGED_AT : null, headRefOid: "d".repeat(40), mergedBy: { login: sc.mergedByQueue ? "github-merge-queue" : "usamshen" }, mergeCommit: { parents: { nodes: [{ oid: "a".repeat(40) }] } } };
   const page = (nodes: object[], hasNextPage: boolean) =>
     JSON.stringify({ data: { repository: { issue: { closedByPullRequestsReferences: {
       nodes,
@@ -218,5 +220,20 @@ describe("doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义�
     const line = out.split("\n").find((l) => l.includes("查不到关闭 issue #1 的 PR"));
     expect(line, out).toBeDefined();
     expect(line!.includes("⚠")).toBe(true);
+  });
+
+  // ── #3238 第 5 条：队列合入时，「绿」必须读自候选组，不是 PR head ──────────
+  it("反证：队列 bot 合入、PR head 全绿 → 不判 ok，报「查不到候选组 commit」（strict FAIL）", () => {
+    const out = runDoctorWithFakeGh({ closedAt: AFTER, vcp: [["success", -10]], mergedByQueue: true, strict: true });
+    const line = out.split("\n").find((l) => l.includes("查不到候选组 commit"));
+    expect(line, out).toBeDefined();
+    expect(line!.includes("✗")).toBe(true);
+    expect(line).toContain("完成定义第 7 条无法判定");
+  });
+
+  it("同一份 PR head 绿、由人直接合入 → 判定行为一字不变（兼容存量，不倒逼全仓变红）", () => {
+    const out = runDoctorWithFakeGh({ closedAt: AFTER, vcp: [["success", -10]], strict: true });
+    expect(out).not.toContain("查不到候选组 commit");
+    expect(out).not.toContain("完成定义第 7 条");
   });
 });

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { planGateReasonLabelZh } from "@repo/contracts/plan-control";
 import type { PlanGateDecision, PlanGateReason, PlanStep } from "@repo/contracts/plan-control";
 
 /**
@@ -141,6 +142,7 @@ function AutoDeliveredPlanCard(
 export const PLAN_CONFIRM_GATE_TESTID = "chat-task-workbench-plan-confirm";
 export const PLAN_CONFIRM_RUN_TESTID = "chat-task-workbench-plan-confirm-run";
 export const PLAN_CONFIRM_EDIT_TESTID = "chat-task-workbench-plan-confirm-edit";
+export const PLAN_CONFIRM_REASON_TESTID = "chat-task-workbench-plan-confirm-reason";
 export const PLAN_CONFIRM_STEP_TESTID = "chat-task-workbench-plan-confirm-step";
 export const PLAN_CONFIRM_STEP_EXTERNAL_TESTID = "chat-task-workbench-plan-confirm-step-external";
 export const PLAN_CONFIRM_STEP_ADJUST_TESTID = "chat-task-workbench-plan-confirm-step-adjust";
@@ -180,6 +182,15 @@ function PendingConfirmPlanCard(
             {isHighRisk ? "涉及对外动作，确认后执行" : "确认后执行"}
           </span>
         </div>
+        {/*
+          issue #2486 —— "为什么要你确认"这句话取自契约的单一事实源
+          `PLAN_GATE_REASON_LABEL_ZH`（经 `planGateReasonLabelZh` 读，未知值兜底成
+          一句人话）。不在本组件里现造文案，也不把 `gate.reason` 原样渲染——
+          它是 UC-8 的判定码（字面 `multi-step` 之类），不是给用户看的文本。
+        */}
+        <p data-testid={PLAN_CONFIRM_REASON_TESTID} className="text-12 text-warning-tint-foreground/80">
+          {planGateReasonLabelZh(gate.reason)}
+        </p>
         {isHighRisk && (
           <p className="flex items-center gap-1.5 text-11 text-warning-tint-foreground/80">
             <ShieldAlert aria-hidden className="h-3 w-3 shrink-0" />

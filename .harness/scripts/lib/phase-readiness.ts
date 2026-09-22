@@ -14,6 +14,8 @@ export interface ReadinessEvidenceManifest {
   kind: ReadinessEvidenceKind;
   command: string;
   exit_code: 0;
+  /** 日志正文里解析出的真实执行条数（#3008）：零收集不得算通过 */
+  executed: number;
   commit: string;
   recorded_at: string;
   artifacts: string[];
@@ -100,6 +102,9 @@ export function parseEvidenceManifest(
   else if (/^\s*(?:echo|printf)\b|\|\|\s*true\b/i.test(raw["command"]))
     errors.push("command must not be a placeholder or suppress failure");
   if (raw["exit_code"] !== 0) errors.push("exit_code must equal 0");
+  // #3008：退出码 0 不代表跑过东西——零收集的 runner 也退出 0。
+  if (typeof raw["executed"] !== "number" || !Number.isInteger(raw["executed"]) || raw["executed"] < 1)
+    errors.push("executed must be an integer of at least 1 (zero collection is not a pass)");
   if (typeof raw["commit"] !== "string" || !COMMIT_RE.test(raw["commit"]))
     errors.push("commit must be a 40-character lowercase git SHA");
   if (typeof raw["recorded_at"] !== "string" || !isIso(raw["recorded_at"]))
