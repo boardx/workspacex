@@ -6,6 +6,7 @@
 // 的 URL，断言 cursor 为 null 时请求的是 since=MIN_EVENT_ID，而非无 since。
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { applyCalls } from "@repo/coord-projection";
 import { runProjectionTick } from "../src/projection";
 import type { Env } from "../src/index";
 
@@ -114,6 +115,94 @@ describe("projection 冷启动 since 哨兵", () => {
     expect(eventsCall).toContain(`since=${establishedCursor}`);
   });
 
+  // ---- #376 端到端反证：真 RepoHub DO + 真 applyCalls + 真发件箱接线 ----
+  // 两条 intent 事件锚在同一 issue 上；第一次 tick 注入"第二条评论失败"，
+  // 于是游标不推进、下一 tick 重放整批。断言第一条评论全程恰好投递一次。
+  async function seedTwoIntents(stub: DurableObjectStub): Promise<void> {
+    for (const summary of ["第一条：已经成功投递", "第二条：投递时 GitHub 挂了"]) {
+      const r = await stub.fetch("https://repohub/intents", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "intent.progress", resource_id: "issue:376", agent_id: "coord-main", payload: { summary },
+        }),
+      });
+      expect(r.status).toBe(201);
+    }
+  }
+
+  /** 记录真实打到 GitHub 的评论正文；含 failMarker 的那条返回 500。 */
+  function githubSpy(failMarker: string | null) {
+    const comments: string[] = [];
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      const text = String(body["body"] ?? "");
+      if (String(url).endsWith("/comments")) {
+        if (failMarker !== null && text.includes(failMarker)) return new Response("boom", { status: 500 });
+        comments.push(text);
+      }
+      return new Response(JSON.stringify({ id: comments.length }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const countWith = (marker: string) => comments.filter((c) => c.includes(marker)).length;
+    return { comments, fetchImpl, countWith };
+  }
+
+  it("反证（修复前的形态）：绕过发件箱时，部分失败重放会把已成功的意图评论再刷一条", async () => {
+    const repo = "test/projection-outbox-regression";
+    const stub = env.REPOHUB.get(env.REPOHUB.idFromName(repo));
+    await seedTwoIntents(stub);
+    const testEnv: Env = {
+      ...(env as unknown as Env), GITHUB_APP_ID: "test", GITHUB_APP_PRIVATE_KEY: privatePem, PROJECTION_REPOS: repo,
+    };
+    const auth = { installationToken: async () => "token" } as never;
+
+    const t1 = githubSpy("第二条");
+    // outbox: undefined 刻意抹掉 projectRepo 接上的发件箱 —— 复现修复前的代码路径
+    await runProjectionTick(testEnv, { auth, apply: (o) => applyCalls({ ...o, outbox: undefined, fetchImpl: t1.fetchImpl }) });
+    expect(t1.countWith("第一条")).toBe(1);
+
+    const { cursor } = await (await stub.fetch("https://repohub/projector/cursor")).json<{ cursor: string | null }>();
+    expect(cursor).toBeNull(); // 有失败 → 游标未推进 → 下 tick 重放整批
+
+    const t2 = githubSpy(null); // GitHub 恢复
+    await runProjectionTick(testEnv, { auth, apply: (o) => applyCalls({ ...o, outbox: undefined, fetchImpl: t2.fetchImpl }) });
+
+    // 缺陷本体：第一条评论在 issue 上出现了两次
+    expect(t1.countWith("第一条") + t2.countWith("第一条")).toBe(2);
+  });
+
+  it("修复后：发件箱让重放幂等——已成功的评论恰好一次，剩余动作补齐，游标随后推进", async () => {
+    const repo = "test/projection-outbox-fixed";
+    const stub = env.REPOHUB.get(env.REPOHUB.idFromName(repo));
+    await seedTwoIntents(stub);
+    const testEnv: Env = {
+      ...(env as unknown as Env), GITHUB_APP_ID: "test", GITHUB_APP_PRIVATE_KEY: privatePem, PROJECTION_REPOS: repo,
+    };
+    const auth = { installationToken: async () => "token" } as never;
+
+    // tick 1：第一条成功（并登记进 DO 的发件箱）、第二条 500
+    const t1 = githubSpy("第二条");
+    await runProjectionTick(testEnv, { auth, apply: (o) => applyCalls({ ...o, fetchImpl: t1.fetchImpl }) });
+    expect(t1.countWith("第一条")).toBe(1);
+    expect(t1.countWith("第二条")).toBe(0);
+    expect((await (await stub.fetch("https://repohub/projector/cursor")).json<{ cursor: string | null }>()).cursor).toBeNull();
+
+    // tick 2：重放同一批，GitHub 已恢复
+    const t2 = githubSpy(null);
+    await runProjectionTick(testEnv, { auth, apply: (o) => applyCalls({ ...o, fetchImpl: t2.fetchImpl }) });
+
+    expect(t2.countWith("第一条")).toBe(0);                        // 被发件箱挡下
+    expect(t1.countWith("第一条") + t2.countWith("第一条")).toBe(1); // 全程恰好一次
+    expect(t2.countWith("第二条")).toBe(1);                        // 剩余动作补齐
+
+    // 整批无失败 → 游标推进；再来一个 tick 不会重复投递任何东西
+    const cursorAfter = (await (await stub.fetch("https://repohub/projector/cursor")).json<{ cursor: string | null }>()).cursor;
+    expect(cursorAfter).toMatch(/^evt_/);
+    const t3 = githubSpy(null);
+    await runProjectionTick(testEnv, { auth, apply: (o) => applyCalls({ ...o, fetchImpl: t3.fetchImpl }) });
+    expect(t3.comments).toHaveLength(0);
+  });
+
   it("GitHub apply 有失败时不推进游标，下一 tick 可重放同一事件批", async () => {
     const repo = "test/projection-apply-failure";
     const stub = env.REPOHUB.get(env.REPOHUB.idFromName(repo));
@@ -133,7 +222,7 @@ describe("projection 冷启动 since 哨兵", () => {
       { ...(env as unknown as Env), GITHUB_APP_ID: "test", GITHUB_APP_PRIVATE_KEY: privatePem, PROJECTION_REPOS: repo },
       {
         auth: { installationToken: async () => "token" } as never,
-        apply: async () => ({ applied: 0, failed: 1 }),
+        apply: async () => ({ applied: 0, failed: 1, skipped: 0 }),
       },
     );
 

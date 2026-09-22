@@ -13,7 +13,7 @@
  * 直接跑真仓库的 phase-00——一道永远红的门控等于没有。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error —— .mjs 无类型声明，故意直接引
@@ -206,6 +206,65 @@ describe("反证 —— 逐条破坏必须变红", () => {
 
   it("⑤' 空集防线：有 contracts/ 目录却零个束目录 ⇒ 红", () => {
     mkdirSync(join(root, "phases", PHASE, "contracts"), { recursive: true });
+    expect(run().errors.join("\n")).toContain("[零契约束]");
+  });
+});
+
+/**
+ * #1021：本门控扫的是**真实** phases/，而 .harness 的多个测试把 fixture 阶段
+ * 建在真实 phases/ 下再删掉（design-signoff.test.ts / sync-github.test.ts）。
+ * 全量套件并行时，「真实仓库状态必须绿」那条用例会红在别人的夹具目录上
+ * ——scandir ENOENT，或者干脆替那个夹具报 `[零契约束]`。
+ *
+ * 下面三条各自对应一种漏法，破坏任意一条修法都会让对应用例红。
+ */
+describe("并行污染防线 —— 扫描器不许被别人的测试夹具带红（#1021）", () => {
+  /** 一个结构上**故意不合规**的束：只要被扫到，必定至少报一条错。 */
+  function brokenBundleIn(phase: string) {
+    write(`phases/${phase}/contracts/broken/coverage.md`, "# coverage\n");
+  }
+
+  it("① `*-fixture` 后缀的阶段不进扫描范围 —— 测试夹具不是签核对象", () => {
+    bundle();                                        // 一个真·合规束，避免触发空集防线
+    brokenBundleIn("phase-zz-signoff-test-fixture"); // design-signoff.test.ts 的真实夹具名
+    brokenBundleIn("phase-p27-fixture");             // sync-github.test.ts 的真实夹具名
+    const { errors, rows, skippedFixtures } = run();
+    expect(errors).toEqual([]);
+    expect(rows.map((r: { label: string }) => r.label)).toEqual([`${PHASE}/${BUNDLE}`]);
+    // 跳过必须是**可见**的：被豁免掉的阶段要留下名字，不许无声消失。
+    expect(skippedFixtures).toEqual(["phase-p27-fixture", "phase-zz-signoff-test-fixture"]);
+  });
+
+  it("② 点名扫某个阶段时，不替没点名的阶段报错（`[零契约束]` 不外溢）", () => {
+    bundle();
+    // 别的阶段此刻恰好是「有 contracts/ 但还没建束」——它自己该不该红是它自己的事，
+    // 不该把一条 `only: [PHASE]` 的扫描带红。
+    mkdirSync(join(root, "phases", "phase-other", "contracts"), { recursive: true });
+    const { errors, rows } = lintThirdArtifact({
+      root,
+      phasesRoot: join(root, "phases"),
+      contractsSrc: join(root, "packages", "contracts", "src"),
+      schemaMapFile: join(root, ".harness", "scripts", "third-artifact-map.json"),
+      only: [PHASE],
+    });
+    expect(errors).toEqual([]);
+    expect(rows.map((r: { label: string }) => r.label)).toEqual([`${PHASE}/${BUNDLE}`]);
+  });
+
+  it("③ 目录项在 readdir 与 stat 之间消失 ⇒ 跳过，不是抛穿", () => {
+    bundle();
+    // readdir 列得到、stat 已经没了——把「扫描途中被 rm」这件事变成确定性的现象：
+    // 一条指向不存在目标的符号链接，stat 抛的就是同一个 ENOENT。
+    symlinkSync(join(root, "phases", PHASE, "contracts", "已经没了"),
+                join(root, "phases", PHASE, "contracts", "vanishing"));
+    expect(() => run()).not.toThrow();
+    const { errors, rows } = run();
+    expect(errors).toEqual([]);
+    expect(rows.map((r: { label: string }) => r.label)).toEqual([`${PHASE}/${BUNDLE}`]);
+  });
+
+  it("③' 容忍不是放行：contracts/ 里没有任何束目录（只有文件）仍然红", () => {
+    write(`phases/${PHASE}/contracts/README.md`, "# 还没建束\n");
     expect(run().errors.join("\n")).toContain("[零契约束]");
   });
 });

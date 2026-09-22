@@ -10,6 +10,7 @@ import type { ProjectRole } from "@/lib/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import {
   archiveCanvasTemplate,
@@ -717,9 +718,9 @@ export function TemplateAdmin({
           {/* #1：按名字/key 搜索——纯前端过滤，见 rows 派生处的注释。 */}
           <label className="relative flex min-w-0 max-w-64 flex-1 items-center">
             <Search aria-hidden className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
+            <Input
               type="search"
-              className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-12"
+              className="w-full rounded-md py-1.5 pl-7 pr-2 text-12"
               placeholder="按名字或 key 搜索…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -1223,8 +1224,8 @@ function CreateDialog({
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">模板 key（开新版锁定为来源版本的 key，不可改）</span>
-          <input
-            className="rounded-md border border-border bg-disabled px-2 py-1.5 font-mono text-12 text-disabled-foreground"
+          <Input
+            className="rounded-md px-2 py-1.5 font-mono text-12"
             value={mintFrom.key}
             disabled
             data-testid="tpladmin-create-key"
@@ -1233,8 +1234,8 @@ function CreateDialog({
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">显示名</span>
-          <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
+          <Input
+            className="rounded-md px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             onBlur={() => setNameTouched(true)}
@@ -1277,8 +1278,8 @@ function CreateDialog({
           <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区，之后仍可在编辑界面改）</span>
           {sectionNames.map((name, i) => (
             <div key={i} className="flex items-center gap-1">
-              <input
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-12"
+              <Input
+                className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-12"
                 placeholder={`分区 ${i + 1}`}
                 value={name}
                 onChange={(e) => setSectionNames(sectionNames.map((n, j) => (j === i ? e.target.value : n)))}
@@ -1397,8 +1398,8 @@ function MinimalCreateDialog({ onClose, onSubmit, knownTags, renaming }: {
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">模板名称</span>
-          <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
+          <Input
+            className="rounded-md px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             onBlur={() => setTouched(true)}

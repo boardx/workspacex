@@ -29,6 +29,7 @@
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
 import { classifyChecks, statusContextToCheck, type RequiredCheck, type CheckPolicy } from "./pr-queue";
+import { queueEvidenceFailure, type QueueMergeEvidence } from "./merge-queue";
 
 /** 第 7 条生效时刻 = 规则 PR（#2541）开出的时刻。此前关闭的 issue 不判。 */
 export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";
@@ -73,6 +74,17 @@ export interface ClosingPr {
   runs: CheckRunObservation[];
   /** Policy from the first parent of the merge commit; never from today. */
   policy?: CheckPolicy;
+  /**
+   * 这次合并经由合并队列时，「绿」的证据必须锚在**候选组** commit 上（#3238 第 5 条）。
+   *
+   * 队列合并之后，`headSha` 上那批 check 是「这个分支单独看是绿的」——它没有和排在
+   * 它前面的其它 PR、也没有和此刻的 main 一起验证过。拿它冒充「这个组合合入之后是
+   * 绿的」是确定性的假绿，与文件头列的三种「直接读 head 现在的 check」同类。
+   *
+   * 缺席（存量 / 直接合并）时判定行为一字不变——判据见 lib/merge-queue.ts 的
+   * queueEvidenceFailure，不在本文件另写一份。
+   */
+  queueEvidence?: QueueMergeEvidence;
 }
 
 function ts(iso: string | null): number | null {
@@ -147,6 +159,12 @@ export function judgeClosingPrGreen(input: {
       return { kind: "unknown", reason: `PR #${pr.number} 标记为已合入却没有 mergedAt，无法重建合入时刻的 check` };
     }
     if (!pr.policy) return { kind: "unknown", reason: `PR #${pr.number} 缺少合入前的 CI 策略，不能用当前策略追溯判定` };
+    // #3238 第 5 条：队列合并时，这批 check 必须读自候选组 commit。证据不成立一律
+    // unknown（strict 下 FAIL），不得因为 PR head 上恰好有一批绿就判 ok。
+    if (pr.queueEvidence) {
+      const evidenceFailure = queueEvidenceFailure(pr.queueEvidence);
+      if (evidenceFailure) return { kind: "unknown", reason: `PR #${pr.number}：${evidenceFailure}` };
+    }
     const gaps = classifyChecks(reconstructMergeTimeChecks(pr.runs, pr.mergedAt), pr.policy);
     for (const r of [...gaps.blocked, ...gaps.changes, ...gaps.waitingCi]) reasons.push(`PR #${pr.number}@${pr.headSha.slice(0, 8)}（合入于 ${pr.mergedAt}）：${r}`);
   }

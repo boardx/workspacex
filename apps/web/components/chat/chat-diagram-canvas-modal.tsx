@@ -29,6 +29,22 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
  * `/preview/chat-diagram-fabric` 这类无鉴权预览路由、以及流式草稿消息（还没有稳定
  * `messageId`）都会走这条退路，不是 bug，是刻意的降级——没有真实身份/消息可挂，
  * 硬发请求只会 100% 撞 401/404。
+ *
+ * ## 「挪了框保存不了」在这里如实说（issue #3642）
+ * 持久化形式是 **mermaid 源码**（D-08 / R7 规则②，由
+ * `apps/api/tests/canvas/coords-not-written-back.test.ts` 机械钉死）：mermaid 语法
+ * 里没有坐标位，几何改动在保存那一刻必然丢失。**这条设计本身不在本组件的职责里、
+ * 也不在本次修改范围内**——本组件修的是它此前对用户撒的谎：挪完框点保存，界面回
+ * 「已保存 · hh:mm:ss」，刷新后方框回原位。
+ *
+ * 之所以撒得下去，是因为本组件**看不见**这件事：`CanvasStage` 回吐的只有 markdown，
+ * 而只挪位置产出的 markdown 与挪之前逐字相同。现在由
+ * `CanvasStage.onGeometryDriftChange` 补上那条信号，本组件据此：
+ *   · 挪过框 ⇒ 常驻提示条（`chat-diagram-layout-unsavable`）当场说明存不了；
+ *   · **只**挪了位置（没有任何结构改动）⇒ 点保存被拦下
+ *     （`chat-diagram-layout-blocked`），因为那次保存注定是假成功；留
+ *     「仍要保存结构」出口，不把人堵死；
+ *   · 挪过框 + 有结构改动 ⇒ 照常保存，但徽标与侧栏写明「不含位置改动」。
  */
 /**
  * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：调用方
@@ -96,6 +112,13 @@ export function ChatDiagramCanvasModal({
   >(null);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  // issue #3642：被挪动 / 改过尺寸、但**保存不进 mermaid 源**的节点（判据与理由见
+  // `CanvasStage.onGeometryDriftChange`）。这是本组件唯一能知道"用户挪过框"的途径——
+  // `markdown` 里没有坐标，只挪位置时它逐字不变。
+  const [movedNodes, setMovedNodes] = React.useState<readonly string[]>([]);
+  // 「只挪了位置、没有任何结构改动」时点保存的拦截说明。点「仍要保存结构」可越过，
+  // 但越过之后徽标也如实写明位置没存（见 `handleSave`）。
+  const [layoutBlocked, setLayoutBlocked] = React.useState<string | null>(null);
   const stageRef = React.useRef<CanvasStageHandle>(null);
   const [exportError, setExportError] = React.useState<string | null>(null);
 
@@ -105,12 +128,16 @@ export function ChatDiagramCanvasModal({
   // 否则刚加载完保存版就会被误标成「有未保存的改动」。
   const baseline = viewing === "saved" && savedMarkdown !== null ? savedMarkdown : initialMarkdown;
   const dirty = markdown !== baseline;
+  // 「这次改动**只有**位置」——mermaid 源与基线逐字相同，保存下去等于什么都没存。
+  // 这正是 issue #3642 的现场：界面回「已保存」，刷新后方框回原位。
+  const layoutOnlyChange = movedNodes.length > 0 && !dirty;
 
   const revertToOriginal = React.useCallback(() => {
     setViewing("original");
     setMarkdown(initialMarkdown);
     setSaved(null);
     setSaveError(null);
+    setLayoutBlocked(null);
   }, [initialMarkdown]);
 
   const backToSavedVersion = React.useCallback(() => {
@@ -119,12 +146,19 @@ export function ChatDiagramCanvasModal({
     setMarkdown(savedMarkdown);
     setSaved(null);
     setSaveError(null);
+    setLayoutBlocked(null);
   }, [savedMarkdown]);
 
   const handleMarkdownChange = React.useCallback((next: string) => {
     setMarkdown(next);
     setSaved(null); // 有新编辑 → 「已保存」态失效，需重新保存
     setSaveError(null);
+    setLayoutBlocked(null);
+  }, []);
+
+  const handleGeometryDriftChange = React.useCallback((moved: readonly string[]) => {
+    setMovedNodes(moved);
+    if (moved.length === 0) setLayoutBlocked(null);
   }, []);
 
   // 关闭统一走这一个出口（ESC / 右上角 X 都调它）——带不带保存结果只取决于
@@ -142,7 +176,22 @@ export function ChatDiagramCanvasModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [closeModal]);
 
-  const handleSave = React.useCallback(async () => {
+  /**
+   * `force` = 用户在拦截条上点了「仍要保存结构」。默认不 force：
+   * 「只挪了位置」时保存是一次**必然的假成功**（落库的 mermaid 源与上一版逐字相同，
+   * 刷新后 mermaid 重新自动布局 ⇒ 方框回原位），先如实拦下并说明，不让用户事后
+   * 靠刷新才发现（issue #3642）。
+   */
+  const handleSave = React.useCallback(async ({ force = false }: { force?: boolean } = {}) => {
+    if (layoutOnlyChange && !force) {
+      setLayoutBlocked(
+        `这次只挪动了 ${movedNodes.length} 个节点的位置，没有可保存的结构改动。` +
+          "画布存成 mermaid 源码，语法里没有坐标位——存下去刷新后方框会回到原位，" +
+          "所以这里不回一个会骗人的「已保存」。",
+      );
+      return;
+    }
+    setLayoutBlocked(null);
     // 保存 = 取编辑后 markdown 里的 mermaid 源（canvasToMarkdown 已在 onMarkdownChange 产出）。
     const block = extractMermaidBlocks(markdown).find((b) => b.lang === "mermaid");
     // 序列化边界解转义（main agent 决定 ④）：fabric-markdown 的 canvasToMarkdown 会把节点标签里的
@@ -177,7 +226,7 @@ export function ChatDiagramCanvasModal({
     } finally {
       setSaving(false);
     }
-  }, [markdown, canPersist, threadId, messageId, bearer]);
+  }, [markdown, canPersist, threadId, messageId, bearer, layoutOnlyChange, movedNodes.length]);
 
   // 导出（人类要求："要可以下载，画布在前端要有 pdf，png 的导出"）——`CanvasStage`
   // 自己截图（内容包围盒 + viewport 复位是它的职责，它握着真实 fabric 实例），
@@ -320,6 +369,9 @@ export function ChatDiagramCanvasModal({
                   （没有稳定消息身份可挂），徽标却与真实落库长得一模一样。未落库就
                   在徽标上直说，不让用户事后才发现。 */}
               {saved.artifactId === null ? `已保存（仅本地演示，刷新后丢失）· ${saved.at}` : `已保存 · ${saved.at}`}
+              {/* 结构存住了、位置没存住——两件事分开说，别让一枚「已保存」把后半句
+                  盖掉（issue #3642）。 */}
+              {movedNodes.length > 0 ? "（不含位置改动）" : null}
             </Badge>
           )}
           {!saved && !saveError && dirty && (
@@ -330,7 +382,7 @@ export function ChatDiagramCanvasModal({
           <Button
             variant="primary"
             size="sm"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving || (!dirty && saved !== null && saveError === null)}
             data-testid="chat-diagram-save"
           >
@@ -386,6 +438,38 @@ export function ChatDiagramCanvasModal({
         </div>
       ) : null}
 
+      {/* issue #3642 —— 挪动节点保存不了，界面必须当场说，不能等用户刷新才发现。
+          常驻提示条（挪过就在），点保存被拦时再多一条说明 + 越过出口。 */}
+      {movedNodes.length > 0 ? (
+        <div
+          data-testid="chat-diagram-layout-unsavable"
+          className="flex flex-wrap items-center gap-2 border-b border-border bg-panel-alt px-3 py-1.5 text-11 text-destructive"
+        >
+          <span>
+            已挪动 {movedNodes.length} 个节点的位置——<strong className="font-semibold">位置改动保存不了</strong>
+            ：画布存成 mermaid 源码，语法里没有坐标位，刷新后由 mermaid 重新自动布局。
+            改标签 / 增删节点 / 连线这些结构改动可以正常保存。
+          </span>
+        </div>
+      ) : null}
+      {layoutBlocked ? (
+        <div
+          data-testid="chat-diagram-layout-blocked"
+          className="flex flex-wrap items-center gap-2 border-b border-border bg-panel-alt px-3 py-1.5 text-11 text-muted-foreground"
+        >
+          <span>{layoutBlocked}</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            data-testid="chat-diagram-save-structure-anyway"
+            onClick={() => void handleSave({ force: true })}
+          >
+            仍要保存结构（不含位置）
+          </Button>
+        </div>
+      ) : null}
+
       {/* 主体：可编辑画布 + 保存回环侧栏 */}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -397,6 +481,7 @@ export function ChatDiagramCanvasModal({
             onZoomChange={setZoom}
             markdown={markdown}
             onMarkdownChange={handleMarkdownChange}
+            onGeometryDriftChange={handleGeometryDriftChange}
           />
         </div>
 
@@ -417,6 +502,13 @@ export function ChatDiagramCanvasModal({
                     ? <>已落成 canvas artifact（<code className="font-mono">{saved.artifactId}</code>），以下是保存的 mermaid 源：</>
                     : "以下 mermaid 源是本地演示——没有真实身份/消息可挂，未落库："}
                 </p>
+                {movedNodes.length > 0 && (
+                  // 这份源码就是「位置没存住」的物证：用户挪过框，源码里却一个坐标都没有。
+                  // 与其让用户自己看出来，不如在它上面直接写明（issue #3642）。
+                  <p className="mb-1.5 text-11 text-destructive" data-testid="chat-diagram-saved-without-layout">
+                    注意：下面这份源码里没有坐标位，你挪动的 {movedNodes.length} 个节点位置不在其中，刷新后会回到 mermaid 自动布局的位置。
+                  </p>
+                )}
                 <pre
                   data-testid="chat-diagram-saved-source"
                   className="overflow-x-auto rounded-md border border-border-subtle bg-panel-alt p-2 font-mono text-11 leading-relaxed text-card-foreground"
@@ -426,8 +518,9 @@ export function ChatDiagramCanvasModal({
               </>
             ) : (
               <p className="text-11 text-muted-foreground" data-testid="chat-diagram-save-hint">
-                拖动节点、改标签、＋节点或删除后，点「保存」——这里会显示将被持久化为
-                canvas artifact 的 mermaid 源。
+                改标签、＋节点、连线或删除后，点「保存」——这里会显示将被持久化为
+                canvas artifact 的 mermaid 源。拖动节点只改当前画布的排版：mermaid
+                语法里没有坐标位，位置不进这份源码，也就保存不了（issue #3642）。
               </p>
             )}
           </div>

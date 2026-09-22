@@ -13,6 +13,7 @@ import {
 import { StandardBrowserToolsController } from '../../src/interface/controllers/standard-browser-tools.controller';
 import type {
   BrowserExecutionReceipts,
+  BrowserFailureClass,
   BrowserInvocationOutput,
   StandardBrowserService,
 } from '../../src/application/agent-run/standard-browser-tools';
@@ -35,6 +36,7 @@ function fixture(options: {
   deadlineSignal?: () => AbortSignal;
   callGate?: { name: string; started: () => void; wait: Promise<void> };
   snapshotBody?: string;
+  createFailure?: Error;
 } = {}) {
   let allowed = true;
   let failNext: string | null = null;
@@ -44,6 +46,7 @@ function fixture(options: {
     async create(key) {
       options.onCreate?.();
       if (options.createGate) await options.createGate;
+      if (options.createFailure) throw options.createFailure;
       const outputDir = await mkdtemp(join(tmpdir(), `browser-unit-${key.slice(0, 8)}-`));
       roots.push(outputDir);
       const sessionCalls: { name: string; args: Record<string, unknown> }[] = [];
@@ -88,7 +91,8 @@ function fixture(options: {
     },
   });
   const authority = { check: async () => ({ allowed, reason: allowed ? 'allowed' : 'approval_required' }) } as unknown as Pick<ToolExecutionAuthority, 'check'>;
-  const rows = new Map<string, { tool: string; digest: string; status: 'pending' | 'succeeded' | 'unconfirmed'; result?: BrowserInvocationOutput }>();
+  const rows = new Map<string, { tool: string; digest: string; status: 'pending' | 'succeeded' | 'unconfirmed'; result?: BrowserInvocationOutput; failure?: BrowserFailureClass }>();
+  const failures: BrowserFailureClass[] = [];
   const receipts: BrowserExecutionReceipts = {
     async claim(context, invocation, digest) {
       const key = `${context.orgId}:${context.parentRunId}:${context.toolCallId}`;
@@ -100,9 +104,10 @@ function fixture(options: {
     async succeed(context, invocation, digest, result) {
       rows.set(`${context.orgId}:${context.parentRunId}:${context.toolCallId}`, { tool: invocation.toolName, digest, status: 'succeeded', result });
     },
-    async markUnconfirmed(context, invocation, digest) {
+    async markUnconfirmed(context, invocation, digest, failure) {
       const key = `${context.orgId}:${context.parentRunId}:${context.toolCallId}`;
-      if (rows.get(key)?.status === 'pending') rows.set(key, { tool: invocation.toolName, digest, status: 'unconfirmed' });
+      failures.push(failure);
+      if (rows.get(key)?.status === 'pending') rows.set(key, { tool: invocation.toolName, digest, status: 'unconfirmed', failure });
     },
   };
   const network = { async assertAllowed() { if (options.networkDenied) throw new Error('browser_network_denied'); } };
@@ -111,12 +116,26 @@ function fixture(options: {
   const context = (bindingId: string, run: string, toolCallId = `${run}-call-${++sequence}`) =>
     ({ orgId: 'org' as never, parentRunId: run, attemptId: `${run}:0`, leaseEpoch: 1, bindingId, toolCallId });
   return {
-    adapter, calls, files, context, rows,
+    adapter, calls, files, context, rows, failures,
     putFile: (path: string, content: string) => files.set(path, Buffer.from(content).toString('base64')),
     putFileFor: (bindingId: string, path: string, content: string) => bindingFiles(bindingId).set(path, Buffer.from(content).toString('base64')),
     deny: () => { allowed = false; }, denyAfter: (name: string) => { denyAfter = name; },
     fail: (name: string) => { failNext = name; },
   };
+}
+
+/** The reason chain the adapter used to discard at the language level (`catch {`). */
+function causeMessages(error: unknown): string[] {
+  const messages: string[] = [];
+  for (let current: unknown = error; current instanceof Error && messages.length < 8; current = current.cause) {
+    messages.push(current.message);
+  }
+  return messages;
+}
+
+async function rejection(action: Promise<unknown>): Promise<unknown> {
+  try { await action; } catch (error) { return error; }
+  throw new Error('expected a rejection');
 }
 
 function refFor(snapshot: string, label: string): string {
@@ -378,5 +397,77 @@ describe('Playwright MCP browser adapter contract', () => {
     expect(() => new RemotePlaywrightMcpSessionFactory('http://127.0.0.1:58931/mcp')).not.toThrow();
     expect(() => new RemotePlaywrightMcpSessionFactory('https://browser.example/mcp')).toThrow('endpoint_denied');
     expect(() => new RemotePlaywrightMcpSessionFactory('http://127.0.0.1:58931/other')).toThrow('endpoint_denied');
+  });
+  // Regression: `PlaywrightMcpBrowserAdapter.invoke` used to end in a bare `catch {` that
+  // rethrew one string with no `cause`, so a missing Chromium (BLOCKED) and a refused tool
+  // call (FAIL) produced byte-identical evidence. Judging between them required patching a
+  // `console.error` into the adapter -- which an acceptance reviewer cannot do.
+  it('records why a browser outcome is unknown instead of collapsing every failure into one string', async () => {
+    const launchFailure = new Error("browserType.launch: Executable doesn't exist at /opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell");
+    const { adapter, context, rows, failures } = fixture({ createFailure: launchFailure });
+    const call = context(BINDING_A, 'run-a', 'missing-chromium');
+    const error = await rejection(adapter.invoke(call, { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } }));
+
+    expect((error as Error).message).toBe('browser_execution_unconfirmed_no_replay');
+    expect(causeMessages(error)).toContain(launchFailure.message);
+    expect(failures).toEqual(['session_launch_failed']);
+    expect(rows.get('org:run-a:missing-chromium')?.failure).toBe('session_launch_failed');
+  });
+
+  // Without this the classification degrades into a tautology: every unknown outcome would
+  // answer `upstream_tool_error`, which is exactly as useless as one shared string.
+  it('does not answer upstream_tool_error when the browser runtime never came up', async () => {
+    const { adapter, context, failures } = fixture({ createFailure: new Error('spawn ENOENT') });
+    await expect(adapter.invoke(context(BINDING_A, 'run-a', 'no-runtime'), {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' },
+    })).rejects.toThrow('unconfirmed_no_replay');
+    expect(failures).toEqual(['session_launch_failed']);
+    expect(failures).not.toContain('upstream_tool_error');
+  });
+
+  it('separates an upstream tool failure, a revoked authorization and a deadline', async () => {
+    const upstream = fixture();
+    upstream.fail('browser_navigate');
+    await expect(upstream.adapter.invoke(upstream.context(BINDING_A, 'run-a', 'upstream'), {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' },
+    })).rejects.toThrow('unconfirmed_no_replay');
+    expect(upstream.failures).toEqual(['upstream_tool_error']);
+
+    const revoked = fixture();
+    revoked.denyAfter('browser_navigate');
+    await expect(revoked.adapter.invoke(revoked.context(BINDING_A, 'run-a', 'revoked'), {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' },
+    })).rejects.toThrow('unconfirmed_no_replay');
+    expect(revoked.failures).toEqual(['policy_denied']);
+
+    const controller = new AbortController();
+    let created!: () => void;
+    const createStarted = new Promise<void>(resolve => { created = resolve; });
+    const expired = fixture({ createGate: new Promise<void>(() => {}), onCreate: created, deadlineSignal: () => controller.signal });
+    const pending = expired.adapter.invoke(expired.context(BINDING_A, 'run-b', 'expired'), {
+      toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' },
+    });
+    await createStarted;
+    controller.abort();
+    await expect(pending).rejects.toThrow('unconfirmed_no_replay');
+    expect(expired.failures).toEqual(['timeout']);
+  });
+
+  it('classifies an oversize upstream response apart from a stale element handle', async () => {
+    const oversize = fixture({ snapshotBody: 'x'.repeat(L.maxResponseBytes + 1) });
+    const page = await oversize.adapter.invoke(oversize.context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } });
+    await expect(oversize.adapter.invoke(oversize.context(BINDING_A, 'run-a', 'oversize'), {
+      toolName: 'browser_snapshot', toolArgs: { pageRef: 'pageRef' in page ? page.pageRef : '' },
+    })).rejects.toThrow('unconfirmed_no_replay');
+    expect(oversize.failures).toEqual(['oversize']);
+
+    const stale = fixture();
+    const opened = await stale.adapter.invoke(stale.context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } });
+    const pageRef = 'pageRef' in opened ? opened.pageRef : '';
+    await stale.adapter.invoke(stale.context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com/next' } });
+    await expect(stale.adapter.invoke(stale.context(BINDING_A, 'run-a', 'stale-page'), {
+      toolName: 'browser_snapshot', toolArgs: { pageRef },
+    })).rejects.toThrow('unconfirmed_no_replay');
+    expect(stale.failures).toEqual(['stale_ref']);
   });
 });
