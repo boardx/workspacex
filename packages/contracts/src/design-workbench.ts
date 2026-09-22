@@ -159,9 +159,27 @@ export const IntakeQuestion = z
   .strict();
 export type IntakeQuestion = z.infer<typeof IntakeQuestion>;
 
-/** 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。 */
+/**
+ * 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。
+ *
+ * ## `dimension` 为什么必须跟着答案走（迭代 17，#3773 后续）
+ *
+ * 只有「成功长什么样」那一维的答案该变成验收标准，其余五维是**背景**。在这个字段出现
+ * 之前，答案里只有 `question` 文本，服务端无从分辨它属于哪一维——于是 controller 退而
+ * 求其次，把**全部**问题都当成「成功」那一维交下去，结果是六维答案全都被写成验收标准。
+ * 「谁会用这个东西」「现在他们怎么绕过去」这种背景句就这样进了验收口径，一路走到
+ * 设计文档和排期里。
+ *
+ * ⚠ 可选是为了兼容老客户端。**缺这个键的答案不算「成功」那一维**（见
+ *   `foldIntakeIntoCriteria`）：宁可少几条验收标准，也不要把背景当成验收口径——
+ *   前者用户自己补得回来，后者他未必看得出来。
+ */
 export const IntakeAnswer = z
-  .object({ question: z.string().min(1).max(200), answer: z.string().min(1).max(1000) })
+  .object({
+    question: z.string().min(1).max(200),
+    answer: z.string().min(1).max(1000),
+    dimension: IntakeQuestion.shape.dimension.optional(),
+  })
   .strict();
 export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
 

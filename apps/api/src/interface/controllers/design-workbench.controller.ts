@@ -253,7 +253,6 @@ export class DesignWorkbenchController {
           problem: body.problem,
           linkedFeedbackId: body.linkedFeedbackId,
           intake: body.intake,
-          successQuestions: (body.intake ?? []).map((a) => a.question),
           tags: body.tags,
           theme: body.theme,
         },

@@ -22,8 +22,6 @@ export interface CreateProjectInput {
   readonly linkedFeedbackId?: string;
   /** 迭代 13：澄清问答的结果（跳过的题不在数组里）。 */
   readonly intake?: readonly designWorkbench.IntakeAnswer[];
-  /** 「成功长什么样」那一维问了哪几句——只有它们的答案进 `criteria`。 */
-  readonly successQuestions?: readonly string[];
   /** 迭代 13（delta §4）：项目标签。 */
   readonly tags?: readonly string[];
   /** 迭代 13（delta §5.2）：新建时就能定原型主题；不给 ⇒ 库里的默认 `dark`。 */
@@ -47,7 +45,7 @@ export async function createProject(
     problem: (input.problem ?? "").trim() !== ""
       ? input.problem!
       : foldIntakeIntoProblem("", input.intake ?? []),
-    criteria: foldIntakeIntoCriteria(input.intake ?? [], input.successQuestions ?? []),
+    criteria: foldIntakeIntoCriteria(input.intake ?? []),
     frames: designWorkbench.DESIGN_PROJECT_INITIAL_FRAMES,
     prototype: [],
     frameNotes: [],

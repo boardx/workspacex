@@ -1891,14 +1891,25 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     // brief 真的发出去了（问题是按它生成的，不是固定问卷）
     expect((calls.find((c) => c.path === "/pm-designs/intake-questions")?.body as { brief: string }).brief).toBe("会员在线下单");
     fireEvent.change(screen.getByTestId("intake-answer-who"), { target: { value: "两档：普通与金卡" } });
+    fireEvent.change(screen.getByTestId("intake-answer-success"), { target: { value: "三步之内" } });
     // task 那条**故意不答** —— 它不该出现在 intake 里
     fireEvent.click(screen.getByTestId("intake-next"));
     const guideline = await screen.findByTestId("intake-guideline");
     expect((guideline as HTMLTextAreaElement).value).toContain("两档：普通与金卡");
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(calls.some((c) => c.path === "/pm-designs" && c.body !== undefined)).toBe(true));
-    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as { intake: { question: string }[] };
-    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？"]);
+    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as {
+      intake: { question: string; dimension?: string }[];
+    };
+    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？", "几步算合格？"]);
+    /*
+     * ⭐ 迭代 17 反证锚点：`answered()` 不带 `dimension` ⇒ 这条红。
+     *
+     * 维度就在前端手上（`q.dimension`），此前被丢掉，于是服务端无从分辨哪一条属于
+     * 「成功长什么样」那一维——它退而求其次把**全部**答案都当成验收标准，
+     * 「会员分几档」这种背景句就这样进了验收口径，一路走到设计文档和排期里。
+     */
+    expect(body.intake.map((x) => x.dimension)).toEqual(["who", "success"]);
   });
 
   it("V62 模型没能生成针对性问题 ⇒ 界面如实说是兜底", async () => {

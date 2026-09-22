@@ -21,6 +21,7 @@ import {
   updateProject as apiUpdateProject,
   PROJECT_TEMPLATE_OPTIONS,
   type DesignProject,
+  type IntakeAnswer,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
 import type { designWorkbench } from "@repo/contracts";
@@ -165,7 +166,7 @@ export function DesignWorkbenchHome({
 
   const startCreate = (template: ProjectTemplate) => setDialog({ mode: "create", template });
 
-  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly { question: string; answer: string }[] }) => {
+  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly IntakeAnswer[] }) => {
     setDialog(null);
     setActionError(null);
     setGenerating(input.name);
@@ -394,7 +395,7 @@ function ProjectDialog({
   editing: boolean;
   busy: boolean;
   onClose: () => void;
-  onCreate: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly { question: string; answer: string }[] }) => void;
+  onCreate: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly IntakeAnswer[] }) => void;
   /** 编辑走 `updateProject`（.strict()，没有 intake）——所以这里的入参**不含** intake，类型上就不给带。 */
   onSave: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[] }) => void;
 }) {
@@ -428,7 +429,14 @@ function ProjectDialog({
 
   const answered = () =>
     questions
-      .map((q) => ({ question: q.text, answer: (answers[q.text] ?? "").trim() }))
+      /*
+       * 迭代 17：**把维度一起交上去**。
+       *
+       * 维度就在 `q.dimension` 里，此前被丢掉了，于是服务端无从分辨哪一条属于
+       * 「成功长什么样」那一维——它退而求其次把全部答案都当成验收标准，
+       * 「谁会用这个东西」这种背景句就这样进了验收口径。
+       */
+      .map((q) => ({ question: q.text, answer: (answers[q.text] ?? "").trim(), dimension: q.dimension }))
       // 跳过的题**不进数组**，不是给一个空串——"没答"和"答了空"是两件事。
       .filter((a) => a.answer !== "");
 

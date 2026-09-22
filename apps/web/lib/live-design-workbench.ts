@@ -55,6 +55,8 @@ export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatF
 
 /** 迭代 13：按一句 brief 生成澄清问题。**从不失败**——模型不可用时服务端回退通用六问并置 `fallback`。 */
 export type IntakeQuestionsOut = z.infer<typeof designWorkbench.operations.intakeQuestions.out>;
+/** 迭代 17：答案**带着维度**交上去——只有 `success` 那一维会变成验收标准。 */
+export type IntakeAnswer = z.infer<typeof designWorkbench.IntakeAnswer>;
 export async function intakeQuestions(brief: string): Promise<IntakeQuestionsOut> {
   return apiRequest<IntakeQuestionsOut>(designWorkbench.operations.intakeQuestions.path, {
     method: "POST",
