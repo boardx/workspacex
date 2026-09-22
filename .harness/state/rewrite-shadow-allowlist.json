@@ -11,14 +11,14 @@
     "",
     "为什么不是全绿门：#610 评论里作者自己撤过一版反向门，理由逐字保留——",
     "「写一个必然被放宽到能过为止的门，就是再造一个空转。」棘轮今天就能合，",
-    "且从今天起，任何新增的遮蔽都会当场红。"
+    "且从今天起，任何新增的遮蔽都会当场红。",
+    "",
+    "变短记录（棘轮只往这个方向走）：",
+    "· 2026-09-22 删 /canvas/[screen] ← /canvas/:path* —— PR #3806（issue #3492）合入 main，",
+    "  逐屏放行规则落地，本门当场把这条登记判成陈旧并变红，按它说的删掉。",
+    "  这是本名单第一次被机械地推着变短，不是谁记得要来清理。"
   ],
   "shadows": [
-    {
-      "route": "/canvas/[screen]",
-      "rewrite": "/canvas/:path*",
-      "reason": "真实缺陷，不是安全的重叠：issue #3492 实测（25022 端口）整页刷新 /canvas/template-admin 拿到 API 的 JSON 而不是页面。正由 PR #3806 逐屏放行修复（放行表与 lib/canvas-screens.ts 的一致性由 apps/web/tests/canvas-screen-rewrite.test.ts 机械核对）。⚠ #3806 合入后本条会被本门判为陈旧并要求删除——那正是棘轮该有的行为，不要改门去迁就它。"
-    },
     {
       "route": "/projects/[projectId]",
       "rewrite": "/projects/:path*",
