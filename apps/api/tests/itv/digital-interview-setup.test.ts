@@ -98,6 +98,7 @@ beforeAll(async () => {
         experts?: Array<{
           expertId: string; occupation: string; goals: string[]; painPoints: string[]; typicalAdvice: string;
         }>;
+        questions?: Array<{ questionId: string }>;
       };
       const patch = context.operation === "generate_interview_experts"
         ? { experts: [
@@ -113,6 +114,10 @@ beforeAll(async () => {
               { text: `针对“${expert.painPoints[0]}”，您会如何判断和行动？`, purpose: "深挖专业痛点" },
               { text: `“${expert.typicalAdvice}”有哪些真实案例或证据？`, purpose: "验证典型建议" },
             ],
+          })) }
+        : context.questions?.length
+          ? { answers: context.questions.map((question) => ({
+            questionId: question.questionId, answer: "我会先核对赛事数据，再结合本地实践提出建议。",
           })) }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
@@ -367,6 +372,18 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     });
     expect(questions.status).toBe(201);
     expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: generatedQuestions, version: 4 });
+
+    let runs: DigitalInterviewResponse["expertRuns"] = [];
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const current = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+      expect(current.status).toBe(200);
+      runs = ((await current.json()) as DigitalInterviewResponse).expertRuns;
+      if (runs.length === 2 && runs.every((run) => run.status !== "running")) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ expertId: staticExpert.expertId, status: "completed", completedQuestions: 3 }),
+    ]));
 
     const earlierStepMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },

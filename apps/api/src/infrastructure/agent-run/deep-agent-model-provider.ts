@@ -657,13 +657,29 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * `loopback-deep-agent-provider.ts`/`loopback-model-provider.ts` 都实现它）——真实
    * `apps/deep-agent-service` 部署预期也会长出这条路由，只是**探测判据不依赖它答
    * 2xx**，这样即使真部署这条路由暂时挂了（而进程本身没死），也不会被这道门误伤。
+   *
+   * `onDiagnosis`（2026-09-22）—— 这两个 `unavailable` 分支此前一个是裸 `return`、一个是
+   * `catch {}`，把**唯一**能区分它们的信息（地址没配 vs. 配了但连不上、连不上的底层原因）
+   * 整个吞掉；`execute-run.ts` 那条日志只有 `runId`/`modelProvider`，于是线上只剩「某个 run
+   * 以 KERNEL_UNAVAILABLE 失败」这一句，排查必须上机器手工复现。回调把原因交回给调用方
+   * 落日志，不改判定、不改用户可见文案、不改这次探测的任何判据。
    */
-  async checkKernelHealth(): Promise<KG.KernelHealthStatus> {
-    if (this.config.baseUrl === "") return "unavailable";
+  async checkKernelHealth(
+    _modelProvider?: string,
+    onDiagnosis?: (detail: string) => void,
+  ): Promise<KG.KernelHealthStatus> {
+    if (this.config.baseUrl === "") {
+      onDiagnosis?.("KERNEL_DEEP_AGENT_BASE_URL is not set for this deployment");
+      return "unavailable";
+    }
     try {
       await fetch(`${this.config.baseUrl}/healthz`, { method: "GET" });
       return "healthy";
-    } catch {
+    } catch (e) {
+      onDiagnosis?.(
+        `GET ${this.config.baseUrl}/healthz threw before any HTTP response: ` +
+        (e instanceof Error ? e.message : "unexpected non-Error probe failure"),
+      );
       return "unavailable";
     }
   }

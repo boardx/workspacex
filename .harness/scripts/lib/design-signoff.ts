@@ -209,6 +209,26 @@ export function readDeltaSignoffs(phaseId: string): DeltaSignoff[] {
     });
 }
 
+/**
+ * #1094：取号把占位 id 换成正式编号时，`covers:` 里那条引用必须跟着改——
+ * 否则这条 feature 在签核审计里立刻变成「不属于任何契约束」，claim 刚放行、
+ * doctor 就判红。返回 `covers:` 里确实声明了该 id 的签核文件（束 + delta），绝对路径。
+ *
+ * 只返回路径、不改文件：改写由取号那**一个**临界区统一做（单一写入点）。
+ * 被改写的只有那个编号 token——`status` / `confirmed_by` / `confirmed_at` 一字不动，
+ * 签核仍然是人的动作，这里换的只是它指向谁的那个指针。
+ */
+export function signoffFilesCovering(phaseId: string, featureId: string): string[] {
+  const out: string[] = [];
+  for (const b of readBundleSignoffs(phaseId)) {
+    if (b.features.includes(featureId)) out.push(join(REPO_ROOT, b.signoffPath));
+  }
+  for (const d of readDeltaSignoffs(phaseId)) {
+    if (d.features.includes(featureId)) out.push(join(REPO_ROOT, d.signoffPath));
+  }
+  return out;
+}
+
 export interface Coherence {
   path: string;
   status: SignoffStatus;

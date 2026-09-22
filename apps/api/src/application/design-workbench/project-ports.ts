@@ -20,6 +20,7 @@
  */
 import type { z } from "zod";
 import type { designPrototype, designWorkbench } from "@repo/contracts";
+import type { ShareSnapshot } from "./share-snapshot";
 
 export const DESIGN_PROJECT_REPOSITORY = Symbol("DesignProjectRepository");
 
@@ -46,6 +47,8 @@ export interface DesignProjectRow {
   readonly frameNotes: readonly string[];
   /** 迭代 13：原型自己的明暗主题；老行为空。 */
   readonly theme?: "light" | "dark";
+  /** 迭代 17：原型的强调色档位；老行为空（读侧退回 `neutral`）。 */
+  readonly accent?: designWorkbench.PrototypeAccent;
   /** 迭代 13（delta §4）：项目标签；老行为空。 */
   readonly tags?: readonly string[];
   /** 迭代 13：参考图元信息（不含字节）；老行为空。 */
@@ -64,6 +67,16 @@ export interface DesignProjectRow {
    */
   readonly githubIssueUrl: string | null;
   readonly githubIssueNumber: number | null;
+  /**
+   * 迭代 22：发布状态。`undefined` = 没发布过（或已取消发布）。
+   * `token` 是明文（owner 要能再复制一次链接，见迁移头注）；`snapshot` 是冻结的那一份。
+   */
+  readonly share?: {
+    readonly token: string;
+    readonly scope: designWorkbench.DesignShareScope;
+    readonly publishedAt: string;
+    readonly snapshot: ShareSnapshot;
+  };
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -126,6 +139,8 @@ export interface DesignProjectPatch {
   /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
   readonly frameNotes?: readonly string[];
   readonly theme?: "light" | "dark";
+  /** 迭代 17：强调色档位。不给 ⇒ 沿用库里那份（不是"改回 neutral"）。 */
+  readonly accent?: designWorkbench.PrototypeAccent;
   /** 迭代 13（delta §4）：**整份替换**标签（不是增删）。 */
   readonly tags?: readonly string[];
   /** 迭代 11：与 `frames`/`prototype` 一起给的跳转关系；不给 ⇒ 沿用库里已有的那份。 */
@@ -226,6 +241,26 @@ export interface DesignProjectRepository {
    * ——调用方在这之前已经用 `get()` 判过 owner 并抛过 `NOT_PROJECT_OWNER`，这里的
    * owner 谓词是防"判过之后 owner 变了"的第二道，不是错误来源。
    */
+  /**
+   * 迭代 22：发布（或重新发布）——写入令牌、档位、发布时刻与快照。仅 owner。
+   *
+   * ⚠ **令牌只在第一次发布时生成**：调用方传的 `token` 只在这一行当前没有令牌时写入，
+   *   已有令牌的行沿用旧的。重新发布换一条链接，会让已经发到别人聊天记录里的那条
+   *   静默失效——而那条链接你收不回来，只能眼看着对方说"打不开"。
+   *   （"换链接"这个意图有自己的动作：取消发布 + 再发布。）
+   * 不存在/不是 owner ⇒ `null`。
+   */
+  publishShare(
+    projectId: string,
+    ownerId: string,
+    share: { readonly token: string; readonly scope: designWorkbench.DesignShareScope; readonly snapshot: ShareSnapshot },
+  ): Promise<DesignProjectRow | null>;
+  /**
+   * 迭代 22：取消发布——令牌、发布时刻、快照一并置空（见迁移头注：没有"已撤销"标志位，
+   * 唯一能让链接失效的事实就是没有令牌）。仅 owner。不存在/不是 owner ⇒ `null`。
+   */
+  unpublishShare(projectId: string, ownerId: string): Promise<DesignProjectRow | null>;
+
   claimGithubIssueCreation(projectId: string, ownerId: string): Promise<boolean>;
   /**
    * 建失败时释放认领，让下一次重试能立刻重新抢到（不必等过期）。

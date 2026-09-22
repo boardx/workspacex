@@ -76,3 +76,43 @@ describe("port guard", () => {
     await expect(assertPostgresPortFree(port)).resolves.toBeUndefined();
   });
 });
+
+/**
+ * 已知偏差，**写成会红的断言而不是一句注释**（AGENTS.md：静态痕迹 ≠ 动态事实）。
+ *
+ * pglite-socket 忽略客户端的登录角色：每一条连接就是打开实例时的那个角色。`current_user`
+ * 因此是 `app_rw`、RLS 生效（上面那条测的就是它），但 `session_user` 仍然是 `postgres`，
+ * 于是 `SET ROLE postgres` 不会被拒——真 Postgres 会拒。
+ *
+ * 这条偏差目前无害，理由**不在数据库里**，而在于 API 从不发 `SET ROLE`。那是一条会被
+ * 人改掉的前提，所以它也被钉成断言（见 `no-set-role.test.ts`）。哪天 pglite-socket 修了
+ * 这件事，这里会红——那时该更新的是文档里的「已知偏差」，不是把这条测试删掉。
+ */
+describe("known deviation: the login role is ignored", () => {
+  it("serves as app_rw while session_user stays postgres", async () => {
+    const dataDir = join(dir, "pgdata-deviation");
+    await ensureDatabaseExists(dataDir);
+    const port = await freePort();
+    const owner = await startPgliteServer({ dataDir, port, username: "postgres" });
+    const o = new pg.Client({ host: "127.0.0.1", port, user: "postgres", password: "x", database: "workspacex" });
+    await o.connect();
+    await o.query("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='app_rw') THEN CREATE ROLE app_rw LOGIN; END IF; END $$");
+    await o.end();
+    await owner.stop();
+
+    const app = await startPgliteServer({ dataDir, port, username: "app_rw" });
+    // 连接时声明的登录角色是 someone_else，服务端不理会——这正是偏差本身
+    const c = new pg.Client({ host: "127.0.0.1", port, user: "someone_else", password: "x", database: "workspacex" });
+    await c.connect();
+    try {
+      const r = await c.query<{ cu: string; su: string }>("select current_user as cu, session_user as su");
+      expect(r.rows[0]?.cu).toBe("app_rw");
+      expect(r.rows[0]?.su).toBe("postgres");
+      // 真 Postgres 会拒绝这一句；这里不会。单用户回环部署可接受，多机部署不可。
+      await expect(c.query("SET ROLE postgres")).resolves.toBeDefined();
+    } finally {
+      await c.end();
+      await app.stop();
+    }
+  }, 30_000);
+});

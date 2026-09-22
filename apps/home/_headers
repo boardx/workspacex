@@ -1,0 +1,40 @@
+# Cloudflare Pages headers.
+#
+# Fonts and the favicon are content-addressed by nothing, so they are cached for
+# a year only because they never change in place: replacing a face means a new
+# filename. CSS and JS are cached briefly and revalidated, because they DO
+# change in place on every deploy and a stale stylesheet against fresh markup
+# is worse than a round trip.
+
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/assets/img/*
+  Cache-Control: public, max-age=604800
+
+/assets/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  # Everything the page loads is same-origin — no third-party fonts, analytics
+  # or scripts — so the policy can be strict.
+  #
+  # 'unsafe-inline' under style-src covers two things: style ATTRIBUTES (the
+  # stagger indices and the per-node values the diagrams write) and two inline
+  # <style> blocks (the noscript fallback, and the 404 page's own layout).
+  #
+  # script-src has no 'unsafe-inline' and must not gain one. The single inline
+  # <script> on the page is a type="application/ld+json" data block, which is
+  # never executed and which script-src therefore does not govern — verified
+  # by replaying every response with this header and confirming the structured
+  # data still parses.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'

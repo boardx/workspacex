@@ -5,7 +5,9 @@ import type { DesignProjectRow } from "./project-ports";
 export async function loadOwnerNamesAndProject(
   deps: DesignProjectDeps,
   rows: readonly DesignProjectRow[],
+  /** 迭代 22：谁在读——只影响 `share.token` 给不给（见 `project-shared.ts` 的 `shareView`）。 */
+  viewerId: string | null = null,
 ): Promise<readonly DesignProjectView[]> {
   const names = await ownerNamesFor(deps, rows.map((r) => r.ownerId));
-  return rows.map((row) => projectDesignProject(row, names.get(row.ownerId) ?? null));
+  return rows.map((row) => projectDesignProject(row, names.get(row.ownerId) ?? null, viewerId));
 }

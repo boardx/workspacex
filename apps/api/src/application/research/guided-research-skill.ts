@@ -1,13 +1,13 @@
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
+import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
 
 type SkillTurnInput = z.infer<typeof C.operations.runGuidedResearchSkillTurn.in>;
 type SkillTurnOutput = z.infer<typeof C.operations.runGuidedResearchSkillTurn.out>;
 
 export const GUIDED_RESEARCH_SKILL = Symbol("GuidedResearchSkill");
-export const GUIDED_RESEARCH_SKILL_MODEL_ID = "qwen3.7-plus";
 
 export class GuidedResearchSkillError extends Error {
   constructor(readonly reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" | "RESEARCH_NODE_STATE_INVALID") {
@@ -22,9 +22,8 @@ export interface GuidedResearchSkill {
 export class ModelGuidedResearchSkill implements GuidedResearchSkill {
   constructor(
     private readonly model: ModelCallPort,
-    private readonly modelProvider = process.env.KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER
-      ?? process.env.KERNEL_MODEL_PROVIDER
-      ?? "",
+    private readonly modelProvider = guidedModelConfig().provider,
+    private readonly modelId = guidedModelConfig().id,
   ) {}
 
   async turn(input: SkillTurnInput): Promise<SkillTurnOutput> {
@@ -32,7 +31,7 @@ export class ModelGuidedResearchSkill implements GuidedResearchSkill {
     try {
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
-        modelId: GUIDED_RESEARCH_SKILL_MODEL_ID,
+        modelId: this.modelId,
         system: [
           "You are BoardX's conversational research skill.",
           "Help the user complete the current step of a five-step research workflow.",
@@ -58,8 +57,8 @@ export class ModelGuidedResearchSkill implements GuidedResearchSkill {
       }
       return {
         ...parsed,
-        modelId: GUIDED_RESEARCH_SKILL_MODEL_ID,
-        modelInvocationId: `${input.requestId}:${GUIDED_RESEARCH_SKILL_MODEL_ID}`,
+        modelId: this.modelId,
+        modelInvocationId: `${input.requestId}:${this.modelId}`,
       };
     } catch (error) {
       if (error instanceof GuidedResearchSkillError) throw error;

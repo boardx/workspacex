@@ -27,10 +27,9 @@ import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 import type { IdentityRepository } from "../identity/ports";
 import { buildCanvasTemplateGuidance, type CanvasTemplateGuidanceInfo } from "../agent-run/canvas-template-guidance";
+import { canvasTemplateModelConfig } from "./canvas-template-model-config";
 import { CanvasError } from "./errors";
 import { requireTemplateAdmin } from "./template-admin";
-
-export const SIMULATE_TEMPLATE_RUN_MODEL_ID = "qwen3.7-plus";
 
 export interface SimulateTemplateRunDeps {
   readonly identity: IdentityRepository;
@@ -52,7 +51,7 @@ export interface SimulateTemplateRunInput {
 export interface SimulatedTemplateRun {
   readonly text: string;
   readonly modelProvider: string;
-  readonly modelId: typeof SIMULATE_TEMPLATE_RUN_MODEL_ID;
+  readonly modelId: string;
 }
 
 export async function simulateTemplateRun(
@@ -78,19 +77,16 @@ export async function simulateTemplateRun(
     ?? "You are a workshop facilitator assistant. The user is testing a prompt for a " +
       "canvas template that has no sections placed yet, so there is no structure to follow.";
 
-  const modelProvider = deps.modelProvider
-    ?? process.env.KERNEL_CANVAS_TEMPLATE_MODEL_PROVIDER
-    ?? process.env.KERNEL_MODEL_PROVIDER
-    ?? "";
+  const { provider: modelProvider, id: modelId } = canvasTemplateModelConfig(deps.modelProvider);
 
   try {
     const completion = await deps.model.complete({
       modelProvider,
-      modelId: SIMULATE_TEMPLATE_RUN_MODEL_ID,
+      modelId,
       system,
       user: input.prompt,
     });
-    return { text: completion.text, modelProvider, modelId: SIMULATE_TEMPLATE_RUN_MODEL_ID };
+    return { text: completion.text, modelProvider, modelId };
   } catch (error) {
     if (error instanceof ModelCallError) {
       throw new CanvasError("TEMPLATE_SIMULATION_UNAVAILABLE");

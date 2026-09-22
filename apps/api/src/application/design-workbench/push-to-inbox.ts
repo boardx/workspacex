@@ -122,7 +122,7 @@ export async function pushToInbox(
   });
 
   return {
-    project: projectDesignProject(result.project, names.get(result.project.ownerId) ?? null),
+    project: projectDesignProject(result.project, names.get(result.project.ownerId) ?? null, input.ownerId),
     inboxCode,
   };
 }
