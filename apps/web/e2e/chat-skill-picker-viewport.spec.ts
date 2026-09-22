@@ -30,7 +30,13 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 700 
     await page.setViewportSize(viewport);
     const trigger = page.getByTestId("chat-skill-mount");
     const openPicker = async () => {
-      if (!await trigger.isVisible()) await page.getByTestId("chat-composer-attach").click();
+      // ⚠ 这里原本有一条兜底：`if (!await trigger.isVisible()) getByTestId("chat-composer-attach").click()`。
+      // `chat-composer-attach` 这个 testid **在 apps/web 里从来没有存在过**（#2128 门控查出）——
+      // 触发器今天是 composer 上常驻的图标按钮（`copilotkit-v2-panel-body.tsx` 的
+      // `chat-skill-mount`），不藏在任何展开菜单里，所以那条分支一次都没走到过，也就
+      // 没人发现它锚在虚空上。改成**如实断言这个前提**：触发器必须可见；哪天它真的被
+      // 收进菜单了，这里会红，而不是抛一个"元素找不到"的噪声错误。
+      await expect(trigger).toBeVisible();
       await expect(trigger).toBeEnabled(); await trigger.click();
     };
     await openPicker();

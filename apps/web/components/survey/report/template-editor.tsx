@@ -204,6 +204,11 @@ export function FlexibleReportEditor({
                       onChange={(e) => updateSection({ title: e.target.value })}
                     />
                   </label>
+                  <label className="flex items-center gap-2 text-13">
+                    <input type="checkbox" checked={section.interpretation !== false} disabled={readonly}
+                      onChange={(event) => updateSection({ interpretation: event.target.checked })} />
+                    生成章节解读与行动建议
+                  </label>
                   {!readonly && (
                     <>
                       <Button

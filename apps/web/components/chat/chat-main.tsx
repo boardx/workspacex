@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { MessageStream } from "./message-stream";
-import { ReassignBar } from "./reassign-bar";
 import { Composer } from "./composer";
 import {
   ACTIVE_THREAD,
@@ -20,10 +19,14 @@ import {
 
 /**
  * 对话中栏（UC-8.2 R3 二/三）—— 线程头部 + 消息流 + 输入区，并统一走 `StateShell`
- * 承载七态。交互（发送、改派、批准）都在子客户端组件里，本组件只做编排与状态分发。
+ * 承载七态。交互（发送、批准）都在子客户端组件里，本组件只做编排与状态分发。
  *
- * 观察者（readOnly）投影（UC-8.5 R5/R6）：输入区、改派条、批准卡、转录卡**不渲染**
+ * 观察者（readOnly）投影（UC-8.5 R5/R6）：输入区、批准卡、转录卡**不渲染**
  * （不是禁用）。⚠ 这是**界面投影**，真实权限由服务端不下发实现，视角切换只是预览手段。
+ *
+ * ⚠ 改派条（`reassign-bar.tsx`）已于 #821 随 #715「委派/转派功能不做」的裁决删除：
+ * 后端没有改派 HTTP 路由，留着一个完整的假按钮迟早会被接上线。**不要重建它**——
+ * 要做改派得先有产品/契约决策（ADR-023 签核），不是实现细节。
  */
 export function ChatMain({ state, readOnly = false }: { state: UiState; readOnly?: boolean }) {
   // 观察者只读：滤掉操作面（批准卡）与原始转写（转录卡）——服务端不下发的界面等价
@@ -33,7 +36,6 @@ export function ChatMain({ state, readOnly = false }: { state: UiState; readOnly
 
   // 输入区在这些态可见；loading / dep-failed / denied 由 StateShell 接管中栏，不显示输入区
   const showComposer = !readOnly && ["default", "invalid", "success", "empty"].includes(state);
-  const showReassign = !readOnly && ["default", "success"].includes(state);
 
   return (
     <div className="flex h-full flex-col" data-testid="chat-main">
@@ -73,10 +75,9 @@ export function ChatMain({ state, readOnly = false }: { state: UiState; readOnly
         </StateShell>
       </div>
 
-      {/* 底部：改派条 + 输入区 / 或观察者只读说明 */}
+      {/* 底部：输入区 / 或观察者只读说明 */}
       {(showComposer || readOnly) && (
         <div className="flex flex-col gap-2 border-t border-border px-4 py-3">
-          {showReassign && <ReassignBar />}
           {showComposer ? (
             <Composer invalid={state === "invalid"} />
           ) : (

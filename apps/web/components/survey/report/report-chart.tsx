@@ -5,7 +5,7 @@ import * as echarts from "echarts/core";
 import { BarChart, LineChart, RadarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent, AriaComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { reportNumber } from "./report-format";
+import { reportNumber, REPORT_COLORS } from "./report-format";
 import type { survey } from "@repo/contracts";
 
 echarts.use([BarChart, LineChart, RadarChart, GridComponent, LegendComponent, TooltipComponent, AriaComponent, SVGRenderer]);
@@ -25,7 +25,7 @@ export function reportChartOptions(block: survey.CompiledSurveyBlock): echarts.E
   const labels = reportChartLabels(block);
   const base = {
     animation: false,
-    color: ["#237c74", "#548bc1", "#b58b46", "#8c78ad", "#ce7663"],
+    color: REPORT_COLORS,
     textStyle: { fontFamily: "sans-serif", fontSize: 12 },
     aria: { enabled: true },
     tooltip: { trigger: "item", renderMode: "richText", valueFormatter: (value: unknown) => typeof value === "number" ? reportNumber(value) : Array.isArray(value) ? value.map(item => typeof item === "number" ? reportNumber(item) : "—").join("、") : "—" },
@@ -35,7 +35,7 @@ export function reportChartOptions(block: survey.CompiledSurveyBlock): echarts.E
     grid: { left: 12, right: 55, top: 12, bottom: 24, containLabel: true },
     xAxis: { type: "value", minInterval: ["distribution", "count"].includes(block.statistic) ? 1 : undefined, splitLine: { lineStyle: { color: "#e8eeec" } } },
     yAxis: { type: "category", inverse: true, data: labels, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { formatter: wrap, color: "#405450", lineHeight: 18 } },
-    series: [{ type: "bar", data: block.rows.map(row => row.value), barMaxWidth: 22, itemStyle: { borderRadius: 3 }, label: { show: true, position: "right", formatter: (params: { value: unknown }) => typeof params.value === "number" ? reportNumber(params.value) : "" } }],
+    series: [{ type: "bar", colorBy: ["distribution", "percentage"].includes(block.statistic) ? "data" : "series", data: block.rows.map(row => row.value), barMaxWidth: 22, itemStyle: { borderRadius: 3 }, label: { show: true, position: "right", formatter: (params: { value: unknown }) => typeof params.value === "number" ? reportNumber(params.value) : "" } }],
   };
   const categories = [...new Set(block.rows.map(row => row.label))];
   const groups = [...new Set(block.rows.map(row => row.group ?? "数据"))];

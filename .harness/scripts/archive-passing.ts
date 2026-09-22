@@ -9,6 +9,7 @@ import { phaseFeatureListPath, phaseFeatureArchivePath } from "./lib/paths";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature, FeatureList } from "./lib/types";
+import { featurePriority } from "./lib/feature-schema";
 
 export function archivePassing(args: Args): void {
   const phaseId = args.opts["phase"];
@@ -39,7 +40,7 @@ export function archivePassing(args: Args): void {
   const seen = new Set(existingArchive.features.map((f) => f.id));
   const newlyArchived = toArchive.filter((f) => !seen.has(f.id));
   const mergedArchive: Feature[] = [...existingArchive.features, ...newlyArchived].sort(
-    (a, b) => a.priority - b.priority
+    (a, b) => featurePriority(a) - featurePriority(b)
   );
 
   log.info(`${phaseId}: ${newlyArchived.length} 个 feature 将从 feature_list.json 移入 feature_list.archive.json：`);
