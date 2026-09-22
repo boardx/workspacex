@@ -2,9 +2,8 @@
 
 > 这是 agent 每次开工读的第一个文件。它是**目录页,不是百科全书**。
 > 详细规则都拆到 `.harness/instructions/` 和各级 scoped 的 AGENTS.md 里,按需加载。
-> **硬上限 140 行**——本行是这个预算的唯一声明处,由 `pnpm run lint:root-router` 机械核对
-> (2026-09-21 #390:模板默认的「~100 行」从来没有门控过,于是长到了 167 行)。要加新条目?
-> 先把等量的细节搬进 `.harness/instructions/`,不要往这里堆。
+> **硬上限 140 行**——本行是这个预算的唯一声明处,由 `pnpm run lint:root-router` 机械核对(#390:
+> 模板默认的「~100 行」从来没门控过,于是长到 167 行)。要加新条目?先搬等量的细节出去,不要堆在这里。
 
 ## 项目是什么
 - **WorkSpaceX**——AI 原生的团队协作 / 知识管理系统(组织与身份、聊天、Agent 与 Skill、
@@ -52,15 +51,17 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
    （ADR/issue #814）。不在队列上的活不占工时；确有理由做队列外的活，在对应 issue 里写一句为
    什么，不要默默做。判据与聚合规则见 `.harness/instructions/core-loop-readiness-standard.md`。
 1. 读当前 sprint 的 `progress.md` 和 `session-handoff.md`。
-2. 读当前 sprint 的 `active-features.json`(派生视图),找到唯一 `in_progress` 的 feature。
+2. 跑 `pnpm harness active-features`(可带 `--phase NN --sprint MM`)重建当前 sprint 的
+   `active-features.json`(派生视图)并读出唯一 `in_progress` 的 feature——该文件是**不入库**
+   的投影(H3A-009),干净 clone 上不存在,直接去 `cat` 会读到空(#401)。
 3. 只做那一个 feature。做完用验证命令证明,再收尾。
 
 ## 不可违反的硬约束
 - **仓库即唯一事实来源**:你看不到的东西就不存在。所有上下文进仓库。
 - **功能清单是权威**:`phases/<phase>/feature_list.json` 是该阶段唯一权威来源;sprint 的
-  `active-features.json` 是脚本派生的只读视图,**禁止手改**。同目录 `feature_list.archive.json`
-  (若存在)存放已 `harness archive-passing` 搬出的 passing feature——只是搬家,不是第二份事实源;
-  一律用 `lib/features.ts` 的 `loadFeatureList`/`saveFeatureList` 读写,不要手改或直接 `readFileSync`。
+  `active-features.json` 是脚本派生的只读视图,**禁止手改**;同目录 `feature_list.archive.json`(若存在)
+  存放已 `harness archive-passing` 搬出的 passing feature——只是搬家,不是第二份事实源。一律用
+  `lib/features.ts` 的 `loadFeatureList`/`saveFeatureList` 读写,不要手改或直接 `readFileSync`。
 - **一次只做一个 feature**:每个 owner 同一时刻最多一个 `in_progress`;无 owner(`owner: null`)
   时退化为全局只能有一个(单 agent 兼容)。由 `assertSingleInProgress` 门控,见 ADR-001。
 - **状态不能自己改**:你不能把 feature 直接标成 `passing`。只能跑 `pnpm harness verify`,由验证

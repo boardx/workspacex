@@ -47,6 +47,45 @@
    `// @global-scope-fixture <key>: <谁收敛它>`,声明过期同样判红。
    当前清单 `node apps/api/scripts/lint-global-scope-test-fixtures.mjs --list`。
 
+### 数据库授权（GRANT / REVOKE）是共享可变状态（#522）
+
+本仓的「共享可变状态」清单从五条变六条：git 索引 / 工作树 / stash 栈（ADR-005 的 worktree
+隔离）、开发库（`test-isolation`）、scratchpad（约定），第六条是**数据库授权**。
+它的特别之处：**既不在文件系统里，也不在 git 里**——权限挂在**角色**上，
+所以既有的隔离手段一条都挡不住。同一个库里所有并行 worker 共用同一个 `app_rw`。
+
+实测（#413 / PR #516 的实现者，同语句、同角色、同库）：
+
+```
+revoke 前：org-f109badge 插入 chat_messages → INSERT 0 1
+revoke 中：同一条                          → ERROR: permission denied for table chat_messages
+```
+
+`apps/api/vitest.config.ts` 是 forks 池 + `maxWorkers: 4` ⇒ **四个测试文件并行跑在同一个
+Postgres 上**。某个文件用 `REVOKE INSERT ON chat_messages FROM app_rw` 注入写回失败，
+别的文件的夹具只要在那个窗口里插同一张表就挂——**受害者是谁由 vitest 调度决定**，
+于是它在 CI 上长成 flake，而单跑与单文件重跑永远是绿的。别用"上一轮它是绿的"判断这颗雷不存在。
+
+**要注入权限失败，就限定到本用例自己的数据。** 范例是 PR #516 的修法
+（`apps/api/tests/agent-runtime/no-tool-run-writeback.test.ts` 的
+`installWritebackFailureInjector`）：装一个**双重限定**的触发器——只在
+`NEW.org_id = <本文件的 org>` **且** body 带本文件的 sentinel 前缀时 `RAISE`，
+安装期间别的文件观察不到任何差别；DDL 也从每用例两次降到每文件两次，
+不再在并行跑的中间去拿表级锁。
+
+⚠ **不是禁止一切 GRANT/REVOKE。** 由 `.harness/scripts/lint-test-shared-grant.mjs` 机械门控
+（已挂进 PR 门控 `harness-verify.yml` 与 `verify:harness:raw`），判据是
+**授权对象是否被本文件独占**，不是「出现了 GRANT 这个词」。这四类照常放行：
+
+- 对象由本文件 `CREATE` 出来（自己的 schema 前缀，或自己建的探针表）；
+- 接受方是本文件 `CREATE ROLE` 出来的角色（`app_rw` 的权限一个字节没动）；
+- 只是读迁移文本**断言**里面有某条 GRANT，并不执行它；
+- 文件显式声明独占一次性实例（`WORKSPACEX_DATA_TEST=1`），不在并行池里。
+
+库级权限（`REVOKE CONNECT ON DATABASE …`）**刻意不判**：本仓的并行隔离单位就是库，
+那一层的洞归 #468（端口碰撞）/ #487（拆库掐连接）。
+存量豁免在 `.harness/state/test-shared-grant-allowlist.json`，只许变短，每条都写了怎么清掉。
+
 断言侧配套:平台自有的 skill 一律**按归属**(`org_id = 'org-platform'`,用
 `tests/support/platform-owned-skills.ts`)排除,不要按名字——按名字是同一事实的第二份
 副本,第 5 个平台 skill 出现时就已经失效。
