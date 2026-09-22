@@ -282,3 +282,33 @@ documented in the README.
 positioning map, business model and go-to-market. The deck labels those figures
 internal scenario models rather than third-party forecasts, and publishing them
 as fact would be misleading.
+
+---
+
+# Second pass — rounds 11 to 20
+
+The first ten rounds made the page work. These ten ask a harder question: is it
+*persuasive*, and does it hold up to someone looking for reasons to disbelieve
+it.
+
+---
+
+## Round 11 — credibility
+
+The page argued a thesis, showed a mock of the product and asked for design
+partners. It offered no evidence that any of it exists.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Nothing on the page said what the product actually contains. A reader had no way to tell whether this is a running system or a position paper. | New **In the box** section: eight surfaces that exist in the repository today — agent-team chat, canvas and diagrams, deep research, the agent/skill runtime, live collaboration, transcription, research and interviews, projects and governance. Drawn from the module list, not invented. |
+| 2 | **The strongest available argument was missing entirely: WorkspaceX is built by agent teams under the harness it ships.** A product that claims evidence-gated agentic work, and is itself produced that way, has proof no competitor can copy. | New **Built by the system it describes** section, with four rules taken verbatim from the repository's own contract: no issue, no work; an agent cannot mark its own work done; evidence or it did not happen; merged, green, closed by a pull request. Links to the public repository so the claim is checkable. |
+| 3 | **At 1280 px the "Launch App" button was clipped off the screen.** `.nav__actions` ended at x = 1318 in a 1280 px viewport. Invisible as a symptom, because `overflow-x: clip` on the body removes the scrollbar that would have revealed it. Adding a seventh nav item pushed it over. | The bar runs to 84 rem rather than the 72 rem content measure, link padding tightens below 1320 px, and the burger breakpoint moves from 1040 px to 1160 px — at 1100 px the row fit by 20 px, which is not a margin once a translated label is one character longer. Verified at 8 widths × 2 languages. |
+| 4 | Nothing would have caught gap 3, since the clip produced no scrollbar and no error. | A nav-fit harness that asserts the actions never pass the viewport edge and never collide with the links while the inline nav is showing. |
+| 5 | The section numbering drifted again once two sections were inserted. | Re-derived from DOM order across both languages, as in round 2. |
+| 6 | A straight double quote went into the new English copy. | Caught by `check-copy.mjs` — the gate paying for itself two rounds after it was written. |
+| 7 | The Chinese copy had drifted into using 「」 in one place and “” everywhere else. | Unified on “”. |
+| 8 | The proof section's headline used the full-width `h2` size inside a half-width column and ran to four lines, dwarfing the rules beside it, which are the substance. | Scaled down for that column. |
+| 9 | The footer had never learned about the sections added in rounds 2 and 11. | Both added. |
+| 10 | The nav carried a "Beta" tag that asserted a stage and explained nothing. | It is now a link reading "Early access" that jumps to the answer about what stage this is at. |
+
+228 → 296 translated values, all gates green.

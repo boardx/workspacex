@@ -71,11 +71,18 @@
   .nav[data-stuck="true"] { background: #08070b; }
 }
 
+/* The bar is allowed to run wider than the content measure. Constrained to
+   72rem, seven nav items plus the actions did not fit between roughly 1100 and
+   1330 px: `.nav__actions` ended at x=1318 inside a 1280 px viewport and the
+   primary button was clipped away entirely — silently, because `overflow-x:
+   clip` on the body removes the scrollbar that would have shown it. */
 .nav__inner {
-  width: 100%; max-width: var(--measure);
+  width: 100%; max-width: 84rem;
   margin-inline: auto; padding-inline: var(--gutter);
   display: flex; align-items: center; gap: 1.25rem;
+  min-width: 0;
 }
+.nav__links { min-width: 0; }
 
 .brand { display: flex; align-items: center; gap: 0.625rem; flex-shrink: 0; }
 .brand__mark { width: 26px; height: 26px; }
@@ -90,7 +97,11 @@
   color: var(--c-2);
   border: 1px solid rgba(255, 46, 115, 0.35);
   background: rgba(255, 46, 115, 0.08);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
+/* It is a link now: it answers the question it raises, rather than asserting
+   a stage and leaving the visitor to guess what it means. */
+a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(255, 46, 115, 0.6); }
 
 .nav__links { display: flex; align-items: center; gap: 0.25rem; margin-inline: auto; }
 .nav__link {
@@ -159,7 +170,17 @@
 .nav__burger[aria-expanded="true"] span::before { transform: translateY(5px) rotate(-90deg); }
 .nav__burger[aria-expanded="true"] span::after  { opacity: 0; }
 
-@media (max-width: 1040px) {
+/* Between the widest the inline nav can be and the burger breakpoint, buy
+   room by tightening rather than by letting anything clip. */
+@media (max-width: 1320px) {
+  .nav__link { padding-inline: 0.55rem; font-size: 0.8125rem; }
+  .nav__inner { gap: 0.9rem; }
+  .nav__ghost { padding-inline: 0.55rem; }
+}
+
+/* Raised from 1040 px: at 1100 the row fit only by a 20 px margin, which is
+   not a margin once a translation makes a label one character longer. */
+@media (max-width: 1160px) {
   .nav__burger { display: inline-flex; }
   .nav__links {
     position: fixed; inset: var(--nav-h) 0 auto 0;

@@ -103,13 +103,14 @@
     <a class="brand" href="#top" aria-label="WorkspaceX home">
       <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
       <span class="brand__name">WorkspaceX</span>
-      <span class="brand__tag">Beta</span>
+      <a class="brand__tag" href="#questions" data-i18n="nav.stage">Early access</a>
     </a>
 
     <nav class="nav__links" id="navlinks" aria-label="Section navigation">
       <a class="nav__link" href="#shift"        data-i18n="nav.shift">The Shift</a>
       <a class="nav__link" href="#loop"         data-i18n="nav.loop">The Loop</a>
       <a class="nav__link" href="#surface"      data-i18n="nav.surface">The Workspace</a>
+      <a class="nav__link" href="#capabilities"  data-i18n="nav.caps">In the box</a>
       <a class="nav__link" href="#architecture" data-i18n="nav.architecture">Architecture</a>
       <a class="nav__link" href="#trust"        data-i18n="nav.trust">Trust</a>
       <a class="nav__link" href="#open"         data-i18n="nav.open">Open</a>
@@ -387,12 +388,60 @@
 </section>
 
 <!-- ======================================================================
+     4.5 · What is actually in it
+     ====================================================================== -->
+<section class="section" id="capabilities">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="caps.eyebrow">05 — In the box</span>
+      <h2 data-i18n="caps.title">What is actually in it today.</h2>
+      <p class="lead" data-i18n="caps.lead">Not a roadmap. These are the surfaces that exist and run — each one sharing the same context, the same agents and the same evidence trail.</p>
+    </header>
+
+    <div class="caps" data-stagger>
+      <article class="cap">
+        <h3 data-i18n="caps.c1">Chat with an agent team</h3>
+        <p data-i18n="caps.c1b">Not one assistant — a roster with roles, running in parallel, handing work between each other and back to you.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c2">Canvas and diagrams</h3>
+        <p data-i18n="caps.c2b">A spatial surface you and the agents both draw on, where a diagram is a structure the system understands, not a picture.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c3">Deep research</h3>
+        <p data-i18n="caps.c3b">Guided, multi-source investigation that comes back with an outline, the sources behind it, and what it rejected.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c4">Agents and skills</h3>
+        <p data-i18n="caps.c4b">A runtime for defining agents, granting them tools, and packaging what works as a skill other teams can run.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c5">Live collaboration</h3>
+        <p data-i18n="caps.c5b">Multiplayer presence and real-time sync, so a session with four people and four agents stays one session.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c6">Meetings and transcription</h3>
+        <p data-i18n="caps.c6b">Real-time transcription that lands in the workspace as context, not as a file nobody opens.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c7">Research and interviews</h3>
+        <p data-i18n="caps.c7b">Surveys, interview studios and the analysis behind them, with the raw material kept attached to the conclusions.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c8">Projects and governance</h3>
+        <p data-i18n="caps.c8b">Organizations, roles, permissions and asset governance — the part that decides whether any of the above is allowed to touch production.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
      4 · Three Scales
      ====================================================================== -->
 <section class="section" id="scales">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="scales.eyebrow">05 — One Workspace</span>
+      <span class="eyebrow" data-i18n="scales.eyebrow">06 — One Workspace</span>
       <h2 data-i18n="scales.title">One workspace. Three scales. One context.</h2>
       <p class="lead" data-i18n="scales.lead">Not three products bolted together — the same context flowing from your own desk to your team to the whole organization.</p>
     </header>
@@ -426,7 +475,7 @@
 <section class="section" id="architecture">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="arch.eyebrow">06 — Architecture</span>
+      <span class="eyebrow" data-i18n="arch.eyebrow">07 — Architecture</span>
       <h2 data-i18n="arch.title">Five layers. The top moves fast. The middle must not move at all.</h2>
       <p class="lead" data-i18n="arch.lead">Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
     </header>
@@ -462,7 +511,7 @@
 <section class="section" id="trust">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="trust.eyebrow">07 — Trust</span>
+      <span class="eyebrow" data-i18n="trust.eyebrow">08 — Trust</span>
       <h2 data-i18n="trust.title">An agent you cannot audit is an agent you cannot deploy.</h2>
       <p class="lead" data-i18n="trust.lead">The harness is what turns a capable model into an action your organization is willing to be accountable for.</p>
     </header>
@@ -490,7 +539,7 @@
 <section class="section" id="start">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="start.eyebrow">08 — Where it starts</span>
+      <span class="eyebrow" data-i18n="start.eyebrow">09 — Where it starts</span>
       <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
       <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive.</p>
     </header>
@@ -526,7 +575,7 @@
 <section class="section" id="unit">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="unit.eyebrow">09 — The unit of work</span>
+      <span class="eyebrow" data-i18n="unit.eyebrow">10 — The unit of work</span>
       <h2 data-i18n="unit.title">“Use AI” is not a deliverable. A unit of work is.</h2>
       <p class="lead" data-i18n="unit.lead">A minimum actionable agentic unit has a defined input, a defined output, a responsible boundary and a way to be checked. That is what makes it something you can buy, verify, reuse and price — instead of something you can only be impressed by.</p>
     </header>
@@ -555,7 +604,7 @@
 <section class="section" id="open">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="open.eyebrow">10 — Open by design</span>
+      <span class="eyebrow" data-i18n="open.eyebrow">11 — Open by design</span>
       <h2 data-i18n="open.title">Own the semantics. Not every implementation.</h2>
       <p class="lead" data-i18n="open.lead">Writing software keeps getting cheaper. What is worth owning is the core abstraction, the collaboration runtime and the human–agent experience. Everything else should be adopted or kept replaceable.</p>
     </header>
@@ -601,12 +650,38 @@
 </section>
 
 <!-- ======================================================================
+     10.5 · Built by the system it describes
+     ====================================================================== -->
+<section class="section proof" id="proof">
+  <div class="wrap">
+    <div class="proof__inner">
+      <div class="proof__copy" data-reveal="left">
+        <span class="eyebrow" data-i18n="proof.eyebrow">12 — The strongest argument we have</span>
+        <h2 data-i18n="proof.title">WorkspaceX is built by agent teams, under the harness it ships.</h2>
+        <p class="lead" data-i18n="proof.lead">We did not build an evidence system and then write features by hand. The repository is the proof: agents do the work, and the same gates this page argues for are the ones they cannot get around.</p>
+        <a class="btn btn--ghost" href="https://github.com/boardx/workspacex" rel="noopener">
+          <span data-i18n="proof.cta">Read the repository</span>
+          <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+
+      <ul class="proof__rules" data-reveal="right" role="list">
+        <li><b data-i18n="proof.r1">No issue, no work.</b><span data-i18n="proof.r1b">A feature that is not visible on GitHub does not exist. Development nobody can see is development only its author understands.</span></li>
+        <li><b data-i18n="proof.r2">An agent cannot mark its own work done.</b><span data-i18n="proof.r2b">Only a verification script can move a feature to passing, and passing is irreversible.</span></li>
+        <li><b data-i18n="proof.r3">Evidence or it did not happen.</b><span data-i18n="proof.r3b">Command output, logs, commits, screenshots. “It looks like it works” is not a state the system has.</span></li>
+        <li><b data-i18n="proof.r4">Merged, green, closed by a pull request.</b><span data-i18n="proof.r4b">Code sitting on a branch does not exist for anyone else, so it does not count as finished.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
      9.5 · Objections
      ====================================================================== -->
 <section class="section" id="questions">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="faq.eyebrow">11 — Straight answers</span>
+      <span class="eyebrow" data-i18n="faq.eyebrow">13 — Straight answers</span>
       <h2 data-i18n="faq.title">The questions that decide whether this is deployable.</h2>
     </header>
 
@@ -645,7 +720,7 @@
 <section class="section" id="horizons">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="hz.eyebrow">12 — Where this goes</span>
+      <span class="eyebrow" data-i18n="hz.eyebrow">14 — Where this goes</span>
       <h2 data-i18n="hz.title">Prove the unit. Then the team. Then the economy.</h2>
     </header>
 
@@ -703,6 +778,7 @@
         <h3 class="footer__h" data-i18n="footer.h1">Product</h3>
         <ul>
           <li><a href="#loop" data-i18n="footer.l1">How it works</a></li>
+          <li><a href="#capabilities" data-i18n="footer.l9">What is in it</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
           <li><a href="#trust" data-i18n="footer.l3">Trust &amp; evidence</a></li>
           <li><a href="#open" data-i18n="footer.l4">Open ecosystem</a></li>
@@ -713,6 +789,7 @@
         <ul>
           <li><a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="footer.l5">GitHub</a></li>
           <li><a href="https://develop.boardx.us" rel="noopener" data-i18n="footer.l6">Developer portal</a></li>
+          <li><a href="#proof" data-i18n="footer.l10">How this is built</a></li>
         </ul>
       </div>
       <div class="footer__col">
