@@ -1,0 +1,189 @@
+{
+  "api": "http://127.0.0.1:3201",
+  "at": "2026-09-20T01:50:48.643Z",
+  "transient5xx": 0,
+  "runs": [
+    {
+      "category": "chat",
+      "text": "用一句话介绍你自己",
+      "threadId": "thr-6c365bfe-f5d3-49dc-b747-2b0a0ac86c4c",
+      "runId": "d8a06879-3fb4-4a33-901b-e17bf2ec2889",
+      "status": "succeeded",
+      "wallMs": 22383,
+      "firstChunkMs": 18553,
+      "chunks": 25,
+      "chunksPerSec": 27.7,
+      "lastEventMs": 20064,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 49,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把下面这句话改得更正式：我们明天再聊吧",
+      "threadId": "thr-d436a8d7-731c-41f1-a968-07043dfac65b",
+      "runId": "5bf69ce1-4563-428b-a394-b6831ebdc17b",
+      "status": "succeeded",
+      "wallMs": 20217,
+      "firstChunkMs": 15148,
+      "chunks": 75,
+      "chunksPerSec": 25.7,
+      "lastEventMs": 18464,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 155,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "列出三个提高会议效率的办法",
+      "threadId": "thr-cb4c536b-d861-40b9-914a-9bfda97f54bb",
+      "runId": "5c2cbc5a-04a4-44ee-b951-4fe8417992da",
+      "status": "succeeded",
+      "wallMs": 20145,
+      "firstChunkMs": 12946,
+      "chunks": 161,
+      "chunksPerSec": 31.7,
+      "lastEventMs": 18821,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 313,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "解释一下什么是用户画像，两句话",
+      "threadId": "thr-2295f5e9-2b22-422f-8bb5-017eb667c54b",
+      "runId": "4b583874-9319-4cfc-b2e4-04779f8925c6",
+      "status": "succeeded",
+      "wallMs": 12112,
+      "firstChunkMs": 8991,
+      "chunks": 55,
+      "chunksPerSec": 38.7,
+      "lastEventMs": 10437,
+      "systemPromptChars": 4304,
+      "tools": [],
+      "outputChars": 105,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把 1234 乘以 56 算出来，只给结果",
+      "threadId": "thr-ce93f72e-1b1b-4b51-92c7-d3edf8586ff8",
+      "runId": "2601c1c4-3d56-4435-9674-c600eb303da6",
+      "status": "succeeded",
+      "wallMs": 16323,
+      "firstChunkMs": 12949,
+      "chunks": 17,
+      "chunksPerSec": 54.8,
+      "lastEventMs": 13903,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 21,
+      "canvasFence": false,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [
+      {
+        "ms": 2735,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "你是否了解DeepThinker的核心功能？",
+          "能否演示具体应用案例？",
+          "是否需要深入讨论某个技术点？"
+        ]
+      },
+      {
+        "ms": 2688,
+        "ok": true,
+        "n": 2,
+        "suggestions": [
+          "您希望明日讨论的具体目标是什么吗？",
+          "是否有其他相关事项需要一并提及？"
+        ]
+      },
+      {
+        "ms": 3015,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否细化每项议程的具体讨论方向？",
+          "是否可以在会中强制打断冗长发言？",
+          "会后如何确保产出目标被所有人认领执行？"
+        ]
+      },
+      {
+        "ms": 2948,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否结合具体行业细节进一步剖析？",
+          "希望展开第二点关于实际应用场景的说明吗？",
+          "能否补充不同细分领域中的画像差异分析？"
+        ]
+      },
+      {
+        "ms": 2481,
+        "ok": true,
+        "n": 2,
+        "suggestions": [
+          "能否展示计算步骤？",
+          "需要验证这个结果吗？"
+        ]
+      }
+    ],
+    "feedback": [
+      {
+        "ms": 4603,
+        "ok": true,
+        "title": "画布生成功能耗时过长且无进度反馈，严重影响用户体验"
+      },
+      {
+        "ms": 2202,
+        "ok": true,
+        "title": "取消登录本地版的密码验证"
+      },
+      {
+        "ms": 482,
+        "ok": true,
+        "title": "技能列表是空的，点了没反应，不知道是不是坏了"
+      },
+      {
+        "ms": 2624,
+        "ok": true,
+        "title": "中英文混合输入识别错误率较高"
+      },
+      {
+        "ms": 2732,
+        "ok": true,
+        "title": "导出PDF文件过大导致性能问题"
+      }
+    ],
+    "title": [
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      },
+      {
+        "ok": false
+      }
+    ]
+  },
+  "summary": "| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|\n| chat | 5 | 5 | 20 | 12.9 | 31.7 | 629 | 0 | 0 |\n| followup | 5 | 5 | 2.7 | - | - | - | - | - |\n| feedback | 5 | 5 | 2.6 | - | - | - | - | - |\n| title | 5 | 0 | 0.0 | - | - | - | - | - |"
+}

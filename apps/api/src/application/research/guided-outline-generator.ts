@@ -2,6 +2,7 @@ import { research as C } from "@repo/contracts";
 import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
 import { extractJson } from "./guided-structured-json";
+import { guidedResearchInvocationModelId, GUIDED_RESEARCH_OUTLINE_RESPONSE_SCHEMA } from "./guided-research-model";
 
 type DirectionsNodeState = z.infer<typeof C.DirectionsNodeInputState>;
 type GuidedResearchWorkflowOutlineSection = z.infer<typeof C.GuidedResearchWorkflowOutlineSection>;
@@ -50,7 +51,8 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
     try {
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
-        modelId: GUIDED_RESEARCH_OUTLINE_MODEL_ID,
+        modelId: guidedResearchInvocationModelId(),
+        responseSchema: GUIDED_RESEARCH_OUTLINE_RESPONSE_SCHEMA,
         system: [
           "You generate Guided Research report outlines for BoardX.",
           "Return JSON only. Do not include markdown, prose, citations, or comments.",

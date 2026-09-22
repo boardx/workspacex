@@ -27,10 +27,22 @@ export function localRuntimeEndpoint(): string {
   return process.env.LOCAL_RUNTIME_ENDPOINT ?? DEFAULT_LOCAL_RUNTIME_ENDPOINT;
 }
 
+/**
+ * Ollama's `/api/generate` refuses a request without `model` (HTTP 400) and streams NDJSON
+ * unless `stream:false` -- the first cut sent `{ prompt }` alone and returned the raw body, so
+ * a personal-local completion could never have produced text (#3749 B1.5). The model is the
+ * one the local build serves (`KERNEL_MODEL_ID`), overridable per runtime.
+ */
+export function localRuntimeModelId(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.LOCAL_RUNTIME_MODEL_ID ?? env.KERNEL_MODEL_ID ?? "").trim();
+}
+
 export class HttpLocalModelRuntime implements LocalModelRuntime {
   readonly endpoint: string;
+  readonly modelId: string;
 
-  constructor(endpoint: string = localRuntimeEndpoint()) {
+  constructor(endpoint: string = localRuntimeEndpoint(), modelId: string = localRuntimeModelId()) {
+    this.modelId = modelId;
     if (!isLocalEndpoint(endpoint)) {
       // Fails at construction, i.e. at boot, not on the first user request. A process that
       // cannot honour the promise must not start serving personal-local organizations at all.
@@ -57,7 +69,21 @@ export class HttpLocalModelRuntime implements LocalModelRuntime {
     // No retry, no fallback endpoint, no "if this fails try the other one". The absence is
     // the feature: every one of those is a place a cloud call could be added later and still
     // read as local-first.
-    return this.request("POST", "/api/generate", JSON.stringify({ prompt }), 30_000);
+    const raw = await this.request(
+      "POST", "/api/generate",
+      JSON.stringify({ model: this.modelId, prompt, stream: false }),
+      120_000,
+    );
+    // `{ "response": "..." }` on success; anything else (an `error` object, a non-JSON body) is
+    // surfaced verbatim so the operator sees what the runtime actually said.
+    try {
+      const parsed = JSON.parse(raw) as { response?: unknown; error?: unknown };
+      if (typeof parsed.response === "string") return parsed.response;
+      if (parsed.error !== undefined) throw new Error(`local runtime error: ${String(parsed.error)}`);
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("local runtime error")) throw e;
+    }
+    return raw;
   }
 
   private request(method: string, path: string, body: string | undefined, timeoutMs: number): Promise<string> {

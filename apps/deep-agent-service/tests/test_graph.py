@@ -143,3 +143,24 @@ def test_system_prompt_flags_research_report_tasks_as_needing_confirm_task_inten
     # regression guard：新规则不能吞掉"用户已经讲清楚就不用问"这条既有豁免，否则会
     # 反向制造 B7 判据自己点名的另一种缺陷（"一句『你好』也非要确认一遍"）。
     assert "只有当" in prompt and "才可以跳过这一步直接执行" in prompt
+
+
+def test_local_prompt_note_only_when_clarification_is_off(monkeypatch):  # noqa: ANN001, ANN201
+    """DEEP_AGENT_HITL_CLARIFICATION=off (WorkspaceX Local) appends the direct-execution note
+    AND drops every sentence about a tool this deployment does not mount (#3749 R3);
+    unset leaves SYSTEM_PROMPT byte-for-byte as the graph's system prompt."""
+    monkeypatch.delenv("DEEP_AGENT_HITL_CLARIFICATION", raising=False)
+    graph = _import_graph_with_fake_model_env(monkeypatch)
+    assert graph.effective_system_prompt() == graph.SYSTEM_PROMPT
+    monkeypatch.setenv("DEEP_AGENT_HITL_CLARIFICATION", "off")
+    local = graph.effective_system_prompt()
+    assert local.endswith(graph.LOCAL_DIRECT_EXECUTION_NOTE)
+    # the three HITL tools and the browser tools are not mounted locally, so the prompt must
+    # not mention them at all — telling the model they exist and then that they do not is the
+    # contradiction this replaced
+    for absent in ("confirm_task_intent", "fill_run_params", "choose_execution_option", "browser_navigate"):
+        assert absent not in local
+    # guidance about tools that ARE mounted survives, byte-identical
+    for present in ("call_skill", "list_org_skills", "fetch_url", "web_search", "write_todos"):
+        assert present in local
+    assert len(local) < len(graph.SYSTEM_PROMPT), "the local prompt must be the shorter one"
