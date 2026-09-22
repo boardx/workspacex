@@ -15,7 +15,9 @@ import { dirname, join, basename } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
-const list = (dir, ext) => readdirSync(join(root, dir)).filter((f) => f.endsWith(ext)).map((f) => `${dir}/${f}`);
+const list = (dir, ext) => readdirSync(join(root, dir))
+  .filter((f) => f.endsWith(ext) && f !== 'site.css')   // generated bundle, not a source
+  .map((f) => `${dir}/${f}`);
 
 const html = ['index.html', 'privacy.html', '404.html'].map(read).join('\n');
 const js = list('assets/js', '.js').map(read).join('\n');

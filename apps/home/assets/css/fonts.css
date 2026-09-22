@@ -39,3 +39,27 @@
   src: url('../fonts/outfit-latin-ext.woff2') format('woff2-variations');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+
+/* ---- metric-matched fallbacks --------------------------------------------
+   Inter is no longer preloaded — at 47 KB it was taking bandwidth from the
+   stylesheet that decides when anything paints at all. The cost of that is a
+   reflow when it swaps in, measured as CLS 0.0089 on a slow connection.
+   These faces fix that: a local system font re-scaled so its line boxes match
+   Inter's, used until the real file arrives. The swap then changes the shapes
+   and nothing else. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22.43%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 97%;
+  ascent-override: 103%;
+  descent-override: 26%;
+  line-gap-override: 0%;
+}

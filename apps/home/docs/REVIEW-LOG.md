@@ -474,3 +474,34 @@ That is the easy case, and it hid the two worst numbers on the page.
 
 **The slow-3G LCP of 5.8 s is not acceptable and is not fixed here.** It is
 recorded rather than rounded off; round 18 takes it.
+
+---
+
+## Round 18 — the 5.8 second load
+
+Round 17 ended with slow-3G LCP at 5.8 s and a note that it was not acceptable.
+The first thing the profile showed was that FCP and LCP were the *same*
+number: nothing rendered at all until the last stylesheet landed.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every performance number in this log had been measured against an uncompressed origin.** `python -m http.server` does not compress; no real host serves that way. The figures were roughly 4× pessimistic for text. | A compressing server for measurement. Over the wire the stylesheet is **11 KB**, not 52, and the page **14 KB**, not 45. |
+| 2 | Six render-blocking stylesheets, six requests, nothing painting until all of them arrived. | `build-css.mjs` bundles them. The sources stay split by concern, because that is how they are edited; the page fetches one file, because that is how it is fetched. `--check` fails on a stale bundle. |
+| 3 | The stylesheets are heavily commented on purpose — most of it records *why* a value is what it is. None of it has any reason to reach a browser. | Stripped in the bundle only: 74 KB of sources become 52 KB shipped. The commentary stays where it is read. |
+| 4 | **`zh.js` was preloaded on every page and imported by nothing at runtime.** It is a build-time input; the round-8 restructure removed the import and left the preload. 24 KB fetched on every English page load, for a file the browser never used. | Removed. |
+| 5 | Nine `modulepreload` links put the scripts in direct competition with the stylesheet that decides when anything appears — on a page that is, since round 9, completely readable without them. | All removed. The modules are discovered when `main.js` parses, one round trip later: nothing on a fast link, seconds on a slow one. |
+| 6 | Inter, 47 KB, preloaded — taking bandwidth from that same stylesheet. | Only the display face is preloaded now. |
+| 7 | The aurora carried `fetchpriority="high"`: a decorative backdrop ranked above the words. | `low`. It now finishes *after* first paint, which is where a backdrop belongs. |
+| 8 | Dropping the Inter preload reintroduced layout shift — it swaps in late and reflows the body copy. CLS 0.0089. | Metric-matched fallback faces (`size-adjust`, `ascent-override`, `descent-override`) so the stand-in holds the exact line boxes the real face will occupy. The swap changes letterforms and nothing else. **CLS back to 0.** |
+| 9 | Restructuring the head dropped `print.css` from the home page, and the earlier regex removed the 404 page's stylesheet entirely. | Both restored — caught because the document-page harness from round 16 checks that every stylesheet resolves. |
+| 10 | The bilingual harness still expected 7 diagrams after round 12 added an eighth. | Updated. |
+
+**Slow 3G, 4× CPU: 6 204 ms → 1 960 ms LCP.** And with compression, which is
+what will actually be served:
+
+| profile | load | LCP | CLS | scroll |
+|---|---|---|---|---|
+| desktop | 205 ms | 204 ms | 0 | 16.7 ms |
+| mid phone (4× CPU) | 809 ms | 460 ms | 0 | 16.7 ms |
+| low phone (6× CPU) | 1 287 ms | 588 ms | 0 | 16.7 ms |
+| slow 3G + 4× CPU | 3 728 ms | 1 960 ms | 0.0007 | 16.7 ms |
