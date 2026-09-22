@@ -17,6 +17,7 @@
 import { BailianImageProvider, readBailianImageProviderConfig } from "./bailian-image-provider";
 import { OpenAiImageProvider, readOpenAiImageProviderConfig } from "./openai-image-provider";
 import type { ImageGenerator } from "../../application/agent-run/standard-image-tools";
+import { DEPLOYMENT_EDITION_ENV, capabilityAvailability, parseDeploymentEdition } from "@repo/contracts/deployment";
 
 export type ImageProviderChoice = "openai" | "bailian";
 
@@ -26,6 +27,31 @@ export interface SelectedImageProvider {
 }
 
 export function selectImageProvider(env: NodeJS.ProcessEnv = process.env): SelectedImageProvider | null {
+  /*
+   * 2026-09-22 —— 本地版**一家都不选**，而且这条判断必须在读 key 之前。
+   *
+   * ## 实测（不是推理）
+   *
+   * 用本地版真实交给 API 的那份 env（`packages/local-runtime/src/config.ts` 的 `apiEnv`）
+   * 调本函数，返回的是 **bailian**：
+   *     KERNEL_MODEL_API_KEY = "ollama-local"      ← 给本机 Ollama 的占位 key
+   *     KERNEL_IMAGE_PROVIDER = undefined          ← 本地版刻意不设
+   *     bailian baseUrl = https://dashscope.aliyuncs.com   apiKey = "ollama-local"
+   *     selectImageProvider => bailian
+   * 原因是 `readBailianImageProviderConfig` 的 `apiKey` 读的就是 `KERNEL_MODEL_API_KEY`，
+   * 于是 `bailianReady` 恒真，下面那句 `if (bailianReady)` 直接命中。
+   *
+   * 后果有两条，任何一条都足以修：
+   *   ① 一个声明「数据不出本机」的构建会把用户的出图提示词发到**公网** DashScope；
+   *   ② 那把 key 是假的，请求必然 401 —— 用户看到的是又一次不可解释的失败。
+   * 本地版刻意不设 `KERNEL_IMAGE_PROVIDER` 的那句注释因此是**失效的**：它防不住这条路。
+   *
+   * 判据取自契约的能力矩阵（`image-generation` 在本地版是 `absent`），不是这里自己发明
+   * 的条件；界面上那条「与在线版有 N 项能力不同」列的就是同一行。
+   */
+  if (capabilityAvailability(parseDeploymentEdition(env[DEPLOYMENT_EDITION_ENV]), "image-generation") === "absent") {
+    return null;
+  }
   const bailian = readBailianImageProviderConfig(env);
   const openai = readOpenAiImageProviderConfig(env);
   const bailianReady = bailian.apiKey.trim() !== "";

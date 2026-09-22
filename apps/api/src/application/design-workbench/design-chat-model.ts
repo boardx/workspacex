@@ -22,7 +22,7 @@ import { designAiCollab, designPrototype, designWorkbench } from "@repo/contract
 import {
   scorePrototypeScreen,
   PROTOTYPE_QUALITY_THRESHOLD,
-  PROTOTYPE_QUALITY_MAX_RETRIES,
+  qualityRetryBudget,
 } from "./prototype-quality";
 import type { z } from "zod";
 import type { ModelCallPort } from "../agent-run/ports";
@@ -70,7 +70,35 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
   readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
   readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
+  /**
+   * 迭代 16（#3773 R2）——**分页生成的中间结果出口**。
+   *
+   * 首次生成要一次画 3–6 页，每页一次模型调用，最坏几分钟。在这之前这段时间里
+   * 用户屏上只有一个转圈，画布全程空白，而**服务端其实早就知道有哪几页了**
+   * （骨架轮十来秒就回来）——这个事实被一直扣着不发，直到全部画完才一次性交出去。
+   * 用户的原话是「基本上不能用」，这里是最大的一处来源。
+   *
+   * 给了这个回调，`generatePaged` 会在两个时刻叫它：
+   *   · 骨架轮回来后立刻叫一次（全是没有 `root` 的占位页）——页标签当场出现在画布上；
+   *   · 每画好一页叫一次——那一页当场长出来。
+   *
+   * ⚠ 回调**抛了不能让整轮生成挂掉**：它做的是"顺便早点存一下"，不是这条链路的成败。
+   *   调用方（`append-project-chat.ts`）把它实现成一次落库；落库失败只记日志，
+   *   最终那次原子写回照常兜底。
+   *
+   * ⚠ 它也**不是**取代最后那次写回：最后仍然按完整页序原子写一次，
+   *   中途落库只是让画布早点有东西看。两者写的是同一份事实，不是两份。
+   */
+  readonly onProgress?: (screens: readonly PagedScreen[]) => Promise<void>;
 };
+
+/** 分页生成的一页。`root` 缺省 = 规划了但还没画出来（正在画，或者画失败了）。 */
+export interface PagedScreen {
+  readonly frame: string;
+  readonly root?: designPrototype.PrototypeNode;
+  readonly notes?: string;
+  readonly links?: readonly designPrototype.PrototypeLink[];
+}
 
 export interface DesignChatReplyResult {
   readonly text: string;
@@ -93,12 +121,7 @@ export interface DesignChatReplyResult {
    * 「模型没画」和「模型说这页不用画」。哪一页没画出来是**服务端知道的事实**，
    * 所以走一条服务端自己的通道。给了这个字段就以它为准，`writeback.prototype` 不再看。
    */
-  readonly pagedScreens?: readonly {
-    readonly frame: string;
-    readonly root?: designPrototype.PrototypeNode;
-    readonly notes?: string;
-    readonly links?: readonly designPrototype.PrototypeLink[];
-  }[];
+  readonly pagedScreens?: readonly PagedScreen[];
 }
 
 export interface DesignChatModel {
@@ -137,7 +160,7 @@ export const DESIGN_PRINCIPLES =
   "③层级靠 text.variant（title/subtitle/body/caption），不靠堆 spacer；" +
   "④列表 ≥ 3 项才用 list，否则用 card；⑤每页至少考虑一种非理想态（空态/加载/错误）并在 notes 里说明；" +
   "⑥别一次塞超过 5 个功能块，超了就分页；" +
-  "⑦每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮。" +
+  "⑦每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮，并且**每一项都要给 icons**（不给会由画布按标签名猜，猜不到就是一个中性圆点）。" +
   "【视觉】⑧一页只有一个视觉重点（hero / 大标题 / 关键数字三选一，且只出现一次），其余安静下来；" +
   "⑨字号要有级差：title 一页最多一次，subtitle 用于分区，caption 只用于真正的次要信息——" +
   "整页全是 body 说明你没做层级；⑩间距成体系：一页里 gap/padding 最多用两档，相邻同级区块用同一档；" +
@@ -150,19 +173,62 @@ export const DESIGN_PRINCIPLES =
   "⑯用用户的词不用系统的词，句子式大小写，不写填充语，每个文案元素只干一件事。" +
   "【收尾自查】⑰生成完回看一遍：有没有一处装饰是删掉也不损失信息的？有就删掉它。";
 
-/** 迭代 9：一个极短的 few-shot——让模型看见「整页」与「patch」各长什么样，而不只是读规则。 */
+/**
+ * 迭代 16（#3773 R1-⑤）—— **few-shot 必须自己先过质量门**。
+ *
+ * 原来的示例 1 第一页只有 5 个节点、一个 text 都没有。而服务端的 `scorePrototypeScreen`
+ * 要求「≥ 12 个元素、≥ 3 档字号」——也就是说：**模型照抄我们给的范例，会被我们自己的
+ * 质量门判不及格然后打回重画**。提示词和门控互相矛盾时，模型两头都做不好，
+ * 表现就是用户看到的「生成的页很空、然后又慢」（多花的是那次没必要的重试）。
+ *
+ * 所以示例 1 的第一页重写成一个**真的过得了门**的页：14 个节点、title/body/caption
+ * 三档字号、唯一一个 primary、真实文案、带空态说明与跳转。few-shot 是模型真正照抄的
+ * 地方——这里画到什么水准，产出就是什么水准。
+ */
 export const DESIGN_FEW_SHOT =
-  // 迭代 11：示例 1 带上 links——few-shot 是模型真正照抄的地方，只在规则里写"要连线"而例子里
-  // 不连，模型多半也不连。这里同时演示了"想连线就自己给节点写 id"。
   ' 示例 1（还没有原型，用户说「做一个待办 App」）→ {"reply":"画了两页：待办首页、新增待办页，点「新增待办」会进第二页。","suggestions":["加一个完成筛选","给新增页加提醒时间"],' +
-  '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"我的待办"}},' +
-  '{"type":"stack","props":{"fill":true},"children":[{"type":"list","props":{"items":["买牛奶","写周报","订机票"],"leading":"check"}}]},' +
-  '{"id":"add","type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
-  '"notes":"首页列出未完成待办；空态显示「还没有待办」和新增按钮。","links":[{"from":"add","to":1}]},' +
-  '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"新增待办","left":"返回"}},' +
-  '{"type":"input","props":{"label":"内容","placeholder":"要做什么？"}},{"type":"button","props":{"label":"保存","variant":"primary","full":true}}]},' +
-  '"notes":"填内容后保存回到首页；内容为空时保存不可点。","links":[{"from":"n7","item":0,"to":0}]}]}}。' +
+  '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[' +
+  '{"type":"navbar","props":{"title":"我的待办","right":"筛选"}},' +
+  '{"type":"stack","props":{"direction":"column","gap":"none","padding":"sm"},"children":[' +
+  '{"type":"text","props":{"content":"今天","variant":"title"}},' +
+  '{"type":"text","props":{"content":"3 件没做完，2 件已完成","variant":"caption","muted":true}}]},' +
+  '{"type":"stack","props":{"direction":"row","gap":"sm","padding":"sm"},"children":[' +
+  '{"type":"chip","props":{"label":"全部","selected":true}},{"type":"chip","props":{"label":"今天"}},{"type":"chip","props":{"label":"已完成"}}]},' +
+  '{"type":"stack","props":{"fill":true,"direction":"column","gap":"sm","padding":"sm"},"children":[' +
+  // 列表行写成真实的三段式（主标题 / 副标题 / 右侧值）——只有一列字的列表比真实界面薄一截。
+  '{"type":"list","props":{"items":["买牛奶","写周报","订下周去上海的机票"],' +
+  '"detail":["顺便买鸡蛋","这周的，周五下班前","往返，周三走周五回"],"trailing":["今天","周五","10 月 8 日"],"leading":"check"}},' +
+  '{"type":"text","props":{"content":"已完成","variant":"label","muted":true}},' +
+  '{"type":"list","props":{"items":["交房租","回复客户邮件"],"trailing":["昨天","昨天"],"leading":"check"}}]},' +
+  '{"id":"add","type":"button","props":{"label":"新增待办","icon":"plus","variant":"primary","full":true}}]},' +
+  '"notes":"首页按今天/已完成分组列出待办；点条目前的勾即完成。没有任何待办时整页换成一句「今天还没有安排，先加一件」和新增按钮。","links":[{"from":"add","to":1}]},' +
+  '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[' +
+  '{"id":"back","type":"navbar","props":{"title":"新增待办","left":"返回"}},' +
+  '{"type":"stack","props":{"direction":"column","gap":"sm","padding":"sm","fill":true},"children":[' +
+  '{"type":"input","props":{"label":"要做什么","placeholder":"例如：写周报"}},' +
+  '{"type":"input","props":{"label":"备注","placeholder":"补充信息，可不填","multiline":true}},' +
+  '{"type":"switch","props":{"label":"到时间提醒我","on":true}},' +
+  '{"type":"text","props":{"content":"提醒会在当天早上 9:00 发送","variant":"caption","muted":true}}]},' +
+  '{"type":"button","props":{"label":"保存待办","variant":"primary","full":true}}]},' +
+  '"notes":"填标题后才能保存；保存成功回到首页并把新条目排在最上面。标题为空时保存按钮不可点。","links":[{"from":"back","item":0,"to":0}]}]}}。' +
   ' 示例 2（已有原型，节点 n5 是按钮「新增待办」，用户说「按钮改成加号图标风格的文案」）→ {"reply":"改成了「＋ 新增」。","suggestions":["把按钮固定在底部"],"writeback":{"patch":[{"op":"setProps","id":"n5","props":{"label":"＋ 新增"}}]}}。';
+
+/**
+ * 迭代 16（#3773 R1-⑥）—— **把服务端质量门的判据原话告诉模型**。
+ *
+ * `prototype-quality.ts` 会按七条指标给每一页打分，低于 70 就带着反馈重问一次。
+ * 在这之前模型**从来不知道这七条存在**：它按提示词画，我们按另一套标准判，
+ * 每次都要多花一轮才能碰上。把判据前置说清楚，第一轮就能过的比例才提得上来——
+ * 省下的那一轮既是钱也是用户在等的时间。
+ *
+ * ⚠ 这里是**转述**，权威仍在 `prototype-quality.ts`；改了那边的阈值要回来同步这句话。
+ *   （两处都是给模型/门控用的同一组数，契约测试 `prototype-quality.test.ts` 钉住阈值。）
+ */
+export const DESIGN_QUALITY_BAR =
+  " 每一页画完会被自动打分，不达标会被打回重画。评分看这八条，先照着做：" +
+  "①元素数 ≥ 12（少于 12 个渲染出来几乎是空的）；②至少三档 text.variant（title/subtitle/body/caption/label）；" +
+  "③没有空容器（stack/card/grid 里必须有孩子）；④至少有一个可操作控件；⑤同一句文案不要出现三次以上；" +
+  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）。";
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
   "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +
@@ -179,8 +245,16 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   "**只改页面标签、页数不变**时才用 writeback.frames（完整标签列表）；增页/删页必须整页给 prototype（它自带标签）——只给 frames 会让页数与组件树对不上，那次写回会被服务端拒绝。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
-  DESIGN_PRINCIPLES + DESIGN_FEW_SHOT +
+  DESIGN_PRINCIPLES + DESIGN_QUALITY_BAR + DESIGN_FEW_SHOT +
   "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";
+
+/**
+ * 喂给模型的对话历史上限（迭代 16，#3773 R1-⑦）。见 `describeProject` 里那段头注。
+ * 20 轮 ≈ 用户与助手各十来句，足够承接「刚才说的那个」这类指代，又不会随项目寿命无限增长。
+ */
+export const CHAT_HISTORY_MAX_TURNS = 20;
+/** 单条消息喂进去的上限：挡住「整段贴需求文档」一次吃光预算。 */
+export const CHAT_TURN_MAX_CHARS = 1200;
 
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
@@ -199,7 +273,35 @@ function describeProject(ctx: DesignChatContext): string {
   }
   lines.push("对话记录（按时间顺序，最后一条是用户刚说的）：");
   if (ctx.chat.length === 0) lines.push("（还没有对话）");
-  for (const t of ctx.chat) lines.push(`${t.role === "user" ? "用户" : "助手"}：${t.text}`);
+  /**
+   * 迭代 16（#3773 R1-⑦）—— **对话历史有上限**。
+   *
+   * 在这之前这里是 `for (const t of ctx.chat)`：本项目的**全部**历史，一条不落。
+   * 一个被认真用了两周的项目会有上百轮，每轮里还夹着模型那几百字的回复；加上同一段
+   * 上下文里已经有完整组件树，输入长度只增不减。撞到模型上下文上限的表现不是报错，
+   * 是**provider 把前面截掉**——于是「项目名称/模板/当前原型」这些开头的关键事实先被丢，
+   * 留下的全是闲聊。用户看到的就是「聊得越久越听不懂话」。
+   *
+   * 取最近 `CHAT_HISTORY_MAX_TURNS` 轮，并**如实说明省略了多少轮**（不静默截断：
+   * 模型知道前面还有话，才不会把「用户没说过」当成事实）。每条再各自限长，
+   * 挡住单条超长消息（比如用户整段贴了一篇需求文档）把预算一次吃光。
+   */
+  /**
+   * 迭代 16（#3773 R3）：裁剪**不许裁掉系统留痕**。
+   *
+   * `source: "system"` 的那几条是"这个项目的上下文是从哪来的"（目前只有一种：
+   * 从对话线程导入）。它们是**事实记录**，不是闲聊——被 20 轮的窗口挤出去之后，
+   * 模型在第 30 轮就再也不知道这个项目的背景是照着一段真实讨论写的。
+   * 条数极少（一个项目通常 0–2 条），钉住它们不占预算。
+   */
+  const recent = new Set(ctx.chat.slice(-CHAT_HISTORY_MAX_TURNS));
+  const kept = ctx.chat.filter((t) => recent.has(t) || t.source === "system");
+  const omitted = ctx.chat.length - kept.length;
+  if (omitted > 0) lines.push(`（更早的 ${omitted} 轮已省略，只给最近 ${CHAT_HISTORY_MAX_TURNS} 轮与全部系统留痕）`);
+  for (const t of kept) {
+    const text = t.text.length > CHAT_TURN_MAX_CHARS ? `${t.text.slice(0, CHAT_TURN_MAX_CHARS)}……（本条已截断）` : t.text;
+    lines.push(`${t.role === "user" ? "用户" : "助手"}：${text}`);
+  }
   return lines.join("\n");
 }
 
@@ -299,11 +401,22 @@ function rawScreenTooDeep(screen: unknown): boolean {
  * 而在此之前它和"每页长什么样"绑在同一次输出里，一起超时、一起截断、一起没有。
  */
 export const DESIGN_OUTLINE_SYSTEM_PROMPT =
-  "你是 PM 设计工作台里的设计协作助手。用户描述了一个要做的产品，你现在**只做一件事**：把它拆成几个页面。" +
+  "你是 PM 设计工作台里的设计协作助手。用户描述了一个要做的产品，你现在**只做两件事**：定下整套界面的**设计基调**，再把它拆成几个页面。" +
   "不要输出任何组件树。只输出一个 JSON 对象：" +
-  '{"reply":"给用户看的一句话，中文，不超过 100 字","outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
+  '{"reply":"给用户看的一句话，中文，不超过 100 字",' +
+  '"tone":"这套界面的设计基调，一句话（给谁用、什么气质、信息密度高还是留白多、以什么为视觉重点）",' +
+  '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
-  "页标签是用户会说的话（「登录」「我的订单」），不是「页面1」。";
+  // 迭代 16（#3773 R1-⑨）：骨架轮此前**没有任何质量约束**，而后面每一页都建在它上面——
+  // 页分得不对，每页画得再好也是一套用不了的原型。这三条是能机械看出来的最常见错法。
+  "页面划分的三条硬要求：" +
+  "①页标签是用户会说的话（「登录」「我的订单」），不是「页面1」「主页面」这种编号；" +
+  "②这几页连起来要能走通**一条完整的主流程**（从哪进来 → 做那件事 → 看到结果），" +
+  "不要给一堆并列的展示页却没有一条路能走完；" +
+  "③「设置」「关于」「帮助」这类边角页不要排进前三页——用户第一眼要看到的是这个产品的主线。" +
+  // 迭代 16（#3773 R1-⑩）：基调在这里定一次，后面每页轮都带着它 —— 见 `generatePaged`。
+  "tone 会原样发给后面每一页的生成，请写得具体、可执行（「面向一线客服、信息密度高、以待办列表为视觉重点、克制用色」" +
+  "比「简洁现代」有用得多）。";
 
 /** 每页轮的系统提示：只画**一页**。 */
 export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
@@ -313,9 +426,12 @@ export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
   "只画被指定的那一页，不要输出别的页。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
-  DESIGN_PRINCIPLES;
+  DESIGN_PRINCIPLES + DESIGN_QUALITY_BAR;
 
 export interface OutlineEntry { readonly frame: string; readonly intent: string; }
+
+/** `writeback.prototype` 的元素形状——zod 推出来的是可变数组，别在这里自己再写一份只读版。 */
+type WritebackScreens = NonNullable<DesignChatWriteback["prototype"]>;
 
 /** 某页被截断之后，重试那一页时追加的要求。只改输出**体量**，不改这一页要做什么。 */
 /**
@@ -323,6 +439,15 @@ export interface OutlineEntry { readonly frame: string; readonly intent: string;
  * 不说的话，界面显示"图已上传"而模型根本没看过——用户会以为它照着画了。
  */
 export const BLIND_MODEL_NOTICE = "\n\n⚠ 这个部署的 AI 模型看不了图，你传的参考图它没有看到，上面是按你的文字描述画的。";
+
+/**
+ * 迭代 16（#3773 R9）：每页轮的并发度。
+ *
+ * 刻意小。上游 provider 通常有并发与速率限制，开大了换来的是 429，
+ * 而 429 在这条链路上的表现是「某几页没画出来」——比慢更糟。
+ * 2 已经把 5 页项目的等待砍掉将近一半（1 + ⌈4/2⌉ = 3 轮，而不是 5 轮）。
+ */
+export const SCREEN_CONCURRENCY = 2;
 
 export const SIMPLER_SCREEN_HINT =
   "\n\n⚠ 你上一次的输出没写完就被长度限制截断了。这一次请把这一页画得**更简单**：" +
@@ -403,6 +528,17 @@ export class ModelDesignChatReplier implements DesignChatModel {
     }
     const obj = outlineRaw as Record<string, unknown>;
     const outline = parseOutline(obj.outline);
+    /**
+     * 迭代 16（#3773 R1-⑩）——**设计基调在骨架轮定一次，每页轮都带着它**。
+     *
+     * 此前每页轮拿到的「风格线索」只有 `summarizeScreen` 给的类型序列（`stack > navbar > list`）。
+     * 类型序列说明不了气质：同一串类型可以画成留白很大的消费级界面，也可以画成密密麻麻的
+     * 后台表格。于是八页各画各的——用户看到的就是「每一页像不同的人做的」。
+     *
+     * 基调是**文字**而不是档位枚举：这一层要传的是判断（给谁用、什么重点），
+     * 不是某个具体数值；数值那一层已经由原语的档位闭集管住了。
+     */
+    const tone = typeof obj.tone === "string" ? obj.tone.trim().slice(0, 400) : "";
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
       return this.fallback("MODEL_EMPTY_OUTPUT");
@@ -410,97 +546,76 @@ export class ModelDesignChatReplier implements DesignChatModel {
     this.deps.log("design chat: outline ready", { pages: outline.length });
 
     const done: { frame: string; screen: Record<string, unknown> }[] = [];
-    let retriesLeft = PROTOTYPE_QUALITY_MAX_RETRIES;
-    const failed: string[] = [];
-    for (const [i, entry] of outline.entries()) {
-      const context =
-        describeProject(ctx) +
-        `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
-        outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
-        (done.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + done.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +
-        `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
-      let one: { text: string; truncated: boolean };
+    /**
+     * 迭代 16（#3773 R2）：把"此刻画到哪了"发出去。失败只记日志——
+     * 早点让画布有东西看是**额外**的好处，不是这条链路的成败条件。
+     */
+    const publish = async (screens: readonly PagedScreen[]): Promise<void> => {
+      if (ctx.onProgress === undefined) return;
       try {
-        // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
-        one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+        await ctx.onProgress(screens);
       } catch (e) {
-        this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
-        failed.push(entry.frame);
-        continue;
+        this.deps.log("design chat: progress publish failed, generation continues", {
+          detail: e instanceof Error ? e.message : "unknown",
+        });
       }
-      // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
-      const needsSimpler = one.truncated || !canParse(one.text);
-      if (needsSimpler) {
-        this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
-        try {
-          one = await this.callModel(
-            context + SIMPLER_SCREEN_HINT,
-            DESIGN_CHAT_REPAIR_TIMEOUT_MS,
-            DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
-            ctx.refImages,
-          );
-        } catch (e) {
-          this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
-          failed.push(entry.frame);
-          continue;
-        }
-        if (one.truncated) {
-          this.deps.log("design chat: smaller retry still truncated", { index: i });
-          failed.push(entry.frame);
-          continue;
-        }
-      }
-      let parsed: unknown;
-      try {
-        parsed = extractJsonObject(one.text);
-      } catch {
-        this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
-        failed.push(entry.frame);
-        continue;
-      }
-      const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
-      // 逐页过契约：这一页不合法就只丢这一页，不连累别的页——与整页写回「一页被拒整批拒」
-      // 刻意不同，那条纪律的前提是"半套原型比没有更糟"，分页之后前提变了：
-      // 缺一页且**说清楚缺哪页**，比八页全没有好。
-      if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
-        this.deps.log("design chat: screen rejected by contract", { index: i });
-        failed.push(entry.frame);
-        continue;
-      }
-      /**
-       * issue #3340：**质量自审 + 定向重问一次**。
-       *
-       * 在这之前，这条链路上唯一的重试是「截断了 ⇒ 要求画简单一点」——方向是更简陋，
-       * 从来没有一处在问「画出来的东西够不够像个界面」。用户实测：「界面质量很差，
-       * 感觉没有迭代就提交了，流程没有完整执行」。
-       *
-       * 三条纪律：
-       * ① 反馈必须**具体**（少几个元素、只有一档字号、几个空容器），不是「再试一次」；
-       * ② **只保留更好的那一版**——重问可能更差，那就用原来的，不能越修越坏；
-       * ③ 有预算上限，超了如实记日志，不静默（8 页项目不该把用户的等待翻倍）。
-       */
-      // `screen` 是 `{...parsed, frame}` 的展开，TS 推不出索引签名——显式当成记录用。
-      const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
-      let best: { screen: Record<string, unknown>; report: ReturnType<typeof scorePrototypeScreen> } = {
-        screen: asRecord(screen),
-        report: scorePrototypeScreen(asRecord(screen).root as designPrototype.PrototypeNode),
-      };
-      if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
-        if (retriesLeft <= 0) {
-          this.deps.log("design chat: quality below bar but retry budget spent", { index: i, score: best.report.total });
-        } else {
-          retriesLeft -= 1;
-          this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
-          const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
-          if (better !== null) {
-            const report = scorePrototypeScreen(asRecord(better).root as designPrototype.PrototypeNode);
-            // 更好才换——重问也可能更差。
-            if (report.total > best.report.total) best = { screen: better, report };
-            this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
-          }
-        }
-      }
-      done.push({ frame: entry.frame, screen: best.screen });
+    };
+    /** 按骨架顺序拼出「完整页序 + 已画好的那些」——中途和收尾用的是同一个拼法。 */
+    const snapshot = (): readonly PagedScreen[] => {
+      // ⚠ 按**骨架顺序**还原页序：`done` 的顺序是完成顺序（并发之后不再等于页序）。
+      const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
+      return outline.map((e) => {
+        const hit = byFrame.get(e.frame);
+        if (hit === undefined) return { frame: e.frame };
+        return {
+          frame: e.frame,
+          root: hit.root as designPrototype.PrototypeNode,
+          ...(typeof hit.notes === "string" ? { notes: hit.notes } : {}),
+          ...(Array.isArray(hit.links) ? { links: hit.links as readonly designPrototype.PrototypeLink[] } : {}),
+        };
+      });
+    };
+    // 骨架一回来就发一次：页标签当场出现，用户看见"它在画这五页"，而不是一片空白。
+    await publish(snapshot());
+    const budget = { left: qualityRetryBudget(outline.length) };
+    const failed: string[] = [];
+    /**
+     * 迭代 16（#3773 R9）—— **第一页串行定调，其余页成批并发**。
+     *
+     * 在这之前 N 页是严格串行的：5 页 × 每页几十秒 = 用户干等两三分钟，
+     * 而这几次调用之间**没有真正的依赖**——每一页各画各的，唯一的关联是
+     * 「已画好的页给个结构轮廓供保持风格一致」。
+     *
+     * 所以：
+     *   · **第 0 页仍然串行**。它是风格的锚——后面每一页的上下文里都带着它的轮廓。
+     *     把它和别人一起并发，就等于所有页都在没有锚的情况下各画各的，
+     *     省下的时间要拿页间风格漂移去换（R1-⑩ 刚修过的正是这件事）。
+     *   · 其余页按 `SCREEN_CONCURRENCY` 成批跑。批内共享**同一份**已完成轮廓——
+     *     批内彼此看不到是并发的代价，批不大时这个代价很小。
+     *   · 每批结束发一次进度（前端轮询看到的是"一批批长出来"，仍然是逐页可见）。
+     *
+     * ⚠ 并发度刻意小（2）：上游 provider 通常有并发与速率限制，开大了换来的是 429，
+     *   而 429 在这条链路上的表现是"某几页没画出来"——比慢更糟。
+     */
+    const drawn = new Map<string, Record<string, unknown>>();
+    const runOne = async (i: number, entry: OutlineEntry, anchors: readonly { frame: string; screen: Record<string, unknown> }[]): Promise<void> => {
+      const screen = await this.drawOneScreen(ctx, { outline, tone, index: i, entry, anchors, budget });
+      if (screen === null) { failed.push(entry.frame); return; }
+      drawn.set(entry.frame, screen);
+      // `done` 是给后面几批当风格锚用的，按完成顺序追加即可（页序由 `snapshot()` 按骨架还原）。
+      done.push({ frame: entry.frame, screen });
+    };
+
+    const first = outline[0];
+    if (first !== undefined) {
+      await runOne(0, first, []);
+      await publish(snapshot());
+    }
+    for (let at = 1; at < outline.length; at += SCREEN_CONCURRENCY) {
+      const batch = outline.slice(at, at + SCREEN_CONCURRENCY);
+      const anchors = [...done];
+      await Promise.all(batch.map((entry, k) => runOne(at + k, entry, anchors)));
+      await publish(snapshot());
     }
 
     if (done.length === 0) {
@@ -514,17 +629,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
      * 痕迹说明另外 2 页去哪了（用户原话：「一次性生成了全部5个页面……似乎未经过迭代」）。
      * 契约 §1.2 本来就写了「该页在画布上标为『未生成』」，只是当时因为 §1.2b 一并放弃了。
      */
-    const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
-    const pagedScreens = outline.map((e) => {
-      const hit = byFrame.get(e.frame);
-      if (hit === undefined) return { frame: e.frame };
-      return {
-        frame: e.frame,
-        root: hit.root as designPrototype.PrototypeNode,
-        ...(typeof hit.notes === "string" ? { notes: hit.notes } : {}),
-        ...(Array.isArray(hit.links) ? { links: hit.links as readonly designPrototype.PrototypeLink[] } : {}),
-      };
-    });
+    const pagedScreens = snapshot();
     const reply = typeof obj.reply === "string" && obj.reply.trim() !== ""
       ? obj.reply.trim()
       : `画了 ${done.length} 页：${done.map((d) => d.frame).join("、")}。`;
@@ -541,6 +646,103 @@ export class ModelDesignChatReplier implements DesignChatModel {
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
+  }
+
+
+  /**
+   * 迭代 16（#3773 R9）：画**一页**——从组上下文到质量自审的整条路。
+   *
+   * 从 `generatePaged` 的循环体里原样搬出来（行为逐字不变），搬出来是为了能让若干页
+   * 并发跑同一个函数。三段降级仍然是原来的三段：
+   *   ① 截断 / JSON 不完整 ⇒ 同一页**要求画简单一点**再来一次（方向是更简陋）；
+   *   ② 过不了契约 ⇒ 只丢这一页，不连累别的页；
+   *   ③ 质量低于线 ⇒ 带着**具体缺什么**重问一次，只保留更好的那版（方向是补足）。
+   *
+   * 画不出来 ⇒ 返回 `null`（调用方记进 `failed`，回复里如实说是哪几页没画出来）。
+   */
+  private async drawOneScreen(
+    ctx: DesignChatContext,
+    args: {
+      readonly outline: readonly OutlineEntry[];
+      readonly tone: string;
+      readonly index: number;
+      readonly entry: OutlineEntry;
+      /** 已经画好的页（结构轮廓），供保持风格一致。并发批内共享同一份。 */
+      readonly anchors: readonly { readonly frame: string; readonly screen: Record<string, unknown> }[];
+      /** 这一轮**共享**的质量重试预算。并发下先减后 await，不会两页同时看到同一个余额。 */
+      readonly budget: { left: number };
+    },
+  ): Promise<Record<string, unknown> | null> {
+    const { outline, tone, index: i, entry, anchors, budget } = args;
+    const context =
+      describeProject(ctx) +
+      (tone === "" ? "" : `\n\n整套界面的设计基调（每一页都要守住它，风格不要在页与页之间漂）：${tone}`) +
+      `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
+      outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
+      (anchors.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + anchors.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +
+      `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
+
+    let one: { text: string; truncated: boolean };
+    try {
+      // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
+      one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+    } catch (e) {
+      this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+      return null;
+    }
+    // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
+    if (one.truncated || !canParse(one.text)) {
+      this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
+      try {
+        one = await this.callModel(context + SIMPLER_SCREEN_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
+      } catch (e) {
+        this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        return null;
+      }
+      if (one.truncated) {
+        this.deps.log("design chat: smaller retry still truncated", { index: i });
+        return null;
+      }
+    }
+    let parsed: unknown;
+    try {
+      parsed = extractJsonObject(one.text);
+    } catch {
+      this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
+      return null;
+    }
+    const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
+    // 逐页过契约：这一页不合法就只丢这一页，不连累别的页。
+    if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
+      this.deps.log("design chat: screen rejected by contract", { index: i });
+      return null;
+    }
+
+    // 质量自审 + 定向重问一次（issue #3340 定下的三条纪律，逐字不变）。
+    const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
+    const scoreOf = (x: Record<string, unknown>): ReturnType<typeof scorePrototypeScreen> =>
+      scorePrototypeScreen(x.root as designPrototype.PrototypeNode, {
+        ...(Array.isArray(x.links) ? { links: x.links as readonly designPrototype.PrototypeLink[] } : {}),
+        screenCount: outline.length,
+      });
+    let best = { screen: asRecord(screen), report: scoreOf(asRecord(screen)) };
+    if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+      // ⚠ **先减后 await**：并发下两页同时读到同一个余额、各花一次，预算就超了。
+      if (budget.left <= 0) {
+        this.deps.log("design chat: quality below bar but retry budget spent", { index: i, score: best.report.total });
+      } else {
+        budget.left -= 1;
+        this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
+        const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
+        if (better !== null) {
+          const report = scoreOf(asRecord(better));
+          // 更好才换——重问也可能更差。
+          if (report.total > best.report.total) best = { screen: better, report };
+          this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
+        }
+      }
+    }
+    return best.screen;
   }
 
   /**
@@ -568,6 +770,57 @@ export class ModelDesignChatReplier implements DesignChatModel {
       this.deps.log("design chat: quality retry failed", { detail: e instanceof Error ? e.message : "unknown" });
       return null;
     }
+  }
+
+  /**
+   * 迭代 16（#3773 R5）：逐页打分，低于线的**带着具体反馈重问那一页**，只保留更好的那版。
+   *
+   * 三条纪律与分页那条路逐字相同（#3340 定下的）：反馈必须具体、只保留更好的那版、
+   * 有预算上限。预算按页数给（`qualityRetryBudget`），与首次生成同一个口径——
+   * 同一件事在两条路上用两套预算，就是同一事实两处。
+   */
+  private async liftScreenQuality(
+    ctx: DesignChatContext,
+    screens: WritebackScreens,
+  ): Promise<WritebackScreens> {
+    let budget = qualityRetryBudget(screens.length);
+    const out: WritebackScreens[number][] = [];
+    for (const [i, screen] of screens.entries()) {
+      const report = scorePrototypeScreen(screen.root, { ...(screen.links === undefined ? {} : { links: screen.links }), screenCount: screens.length });
+      if (report.total >= PROTOTYPE_QUALITY_THRESHOLD || budget <= 0) {
+        if (report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+          this.deps.log("design chat: rewrite quality below bar but retry budget spent", { index: i, score: report.total });
+        }
+        out.push(screen);
+        continue;
+      }
+      budget -= 1;
+      this.deps.log("design chat: rewrite quality below bar, asking again with feedback", { index: i, score: report.total });
+      const context =
+        describeProject(ctx) +
+        `\n\n这个项目共 ${screens.length} 页（序号从 0 起）：` +
+        screens.map((x, k) => `${k}. 「${x.frame}」`).join("、") +
+        `\n\n现在只重画第 ${i} 页「${screen.frame}」。links 的 to 用上面的页序号。`;
+      const better = await this.retryForQuality(context, ctx, screen.frame, report.feedback);
+      if (better === null) { out.push(screen); continue; }
+      const root = (better as { root?: unknown }).root as designPrototype.PrototypeNode;
+      const after = scorePrototypeScreen(root, {
+        ...(Array.isArray((better as { links?: unknown }).links) ? { links: (better as { links: readonly designPrototype.PrototypeLink[] }).links } : screen.links === undefined ? {} : { links: screen.links }),
+        screenCount: screens.length,
+      });
+      this.deps.log("design chat: rewrite quality retry done", { index: i, before: report.total, after: after.total });
+      // 更好才换——重问也可能更差。
+      if (after.total <= report.total) { out.push(screen); continue; }
+      out.push({
+        frame: screen.frame,
+        root,
+        ...(typeof (better as { notes?: unknown }).notes === "string" ? { notes: (better as { notes: string }).notes } : screen.notes === undefined ? {} : { notes: screen.notes }),
+        ...(Array.isArray((better as { links?: unknown }).links)
+          ? { links: [...((better as { links: readonly designPrototype.PrototypeLink[] }).links)] }
+          : screen.links === undefined ? {} : { links: screen.links }),
+      });
+    }
+    return out;
   }
 
   /** 传了图但模型看不了 ⇒ 那句提示；没传图或看得了 ⇒ 空串。 */
@@ -691,8 +944,30 @@ export class ModelDesignChatReplier implements DesignChatModel {
     // 在此之前只能靠"JSON 解析失败"反推，那把「输出不合语法」和「输出被切断」混成一件事，
     // 而屏上给用户的下一步不同（换个说法 vs 拆小一点／单页重试）。
     if (truncated) {
-      this.deps.log("design chat: model reported truncated output", { length: text.length });
-      return fallbackWith("MODEL_OUTPUT_TRUNCATED");
+      /**
+       * 迭代 16（#3773 R5）—— 截断**不再直接判失败，改落到分页生成**。
+       *
+       * 这条路（已有原型、单次调用）在用户说「整体重画一遍」「把这几页统一一下风格」
+       * 时，要一次吐出所有页的完整组件树——那正是 R2 之前首次生成必然撞顶的那件事，
+       * 只是换了个入口。首次生成早就拆成了「一次骨架 + 每页一次」，而这条路上
+       * 撞顶之后只会退回一句"AI 这次没说完"，让用户一遍遍重试一个**必然**再次截断的请求。
+       *
+       * 分页那条路对这种请求同样成立（骨架轮会把现有页重新规划一遍，`describeProject`
+       * 里带着当前原型，它看得见原来有哪几页）。所以这里不是新逻辑，是把已经修好的
+       * 那条路接上来。
+       *
+       * ⚠ 只在**截断**时落过去，不是每次都走分页：局部改动（patch）一次调用足够，
+       *   无脑分页只会让一句「把按钮文案改一下」花 N 倍的钱。
+       */
+      this.deps.log("design chat: model reported truncated output, falling back to paged generation", { length: text.length });
+      try {
+        return await this.generatePaged(ctx);
+      } catch (e) {
+        this.deps.log("design chat: paged fallback after truncation also failed", {
+          detail: e instanceof Error ? e.message : "unknown",
+        });
+        return fallbackWith("MODEL_OUTPUT_TRUNCATED");
+      }
     }
     let raw: unknown;
     try {
@@ -723,6 +998,17 @@ export class ModelDesignChatReplier implements DesignChatModel {
         // 修复轮里合法的字段覆盖首轮；首轮已合法、修复轮没给的字段保留。
         writeback = { ...writeback, ...repaired };
       }
+    }
+    /**
+     * 迭代 16（#3773 R5）—— **整页写回也要过质量门**。
+     *
+     * 质量门（`scorePrototypeScreen` + 定向重问）此前**只跑在首次分页生成上**。
+     * 也就是说：第一次画出来的几页被认真审过，而用户接下来每一轮迭代（「重画首页」
+     * 「这三页重新排一下」）产出的页**一次都没被审过**。用户越迭代质量越飘，
+     * 而迭代恰恰是这个工具的主用途——这是 R1 登记、留到本轮修的那一条。
+     */
+    if (writeback.prototype !== undefined) {
+      writeback = { ...writeback, prototype: await this.liftScreenQuality(ctx, writeback.prototype) };
     }
     const suggestions = parseSuggestions(obj.suggestions);
     if (reply === "") {

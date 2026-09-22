@@ -76,6 +76,15 @@ export const ToolProgressStream = z.object({
 export type ToolProgressStream = z.infer<typeof ToolProgressStream>;
 export const ExecutionEvent = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("skill_activity"), fact: SkillActivityFact }),
+  /**
+   * 2026-09-22（本地版故障纪律，`deployment.ts` 的 `skillActivityDeliveryDiscipline`）——
+   * 这一轮有技能溯源事实**没收到**，而本版次的纪律是不因此判整次执行失败。
+   *
+   * ⚠ 它是一条**缺页标记**，不是一条溯源事实：不进 `SkillActivityFact`（那个联合是严格的
+   * 公共溯源形状，往里塞一个「我不知道」会污染「用了哪个 skill 的哪个版本」这件事）。
+   * 排障时「这轮没用 skill」与「用了但没记下来」必须分得开——这条事件就是那个分界。
+   */
+  z.object({ ...base, kind: z.literal("skill_activity_gap"), note: z.string().min(1).max(400) }),
   z.object({ ...base, kind: z.literal("interjection"), interjectionId: z.string(), text: z.string(), status: InterjectionStatus }),
   z.object({ ...base, kind: z.literal("status"), status: z.enum(["running", "succeeded", "failed", "paused", "cancelled", "awaiting_tool_permission"]) }),
   z.object({ ...base, kind: z.literal("final_message"), messageId: z.string().min(1) }),

@@ -31,13 +31,15 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
 | `GET …/events?since=` | 拉内部协调事件流 | agent API 只读；事件由 claims/tasks/andon 等受控动作产生 |
 | `POST …/tasks` | 派工（仅 coordinator 层 token） | note ≤2000；deadline 必须合法 ISO（脏值直接 400，不静默） |
 | `GET …/tasks?assignee=` | 收件箱（自己）；`assignee=*` 列全队（仅 coordinator） | |
-| `POST …/tasks/:id/ack·done·recall` | 状态流转 pending→acked→done / →recalled | **状态前置判定必须与写入原子**（条件 UPDATE / DO 串行），409 报真实当前状态 |
+| `POST …/tasks/:id/ack` · `…/complete` | 受派方自己流转 pending→acked→done | 公开（scoped/API token）面；调用方身份必须 === assignee |
+| `POST …/tasks/:id/recall` | 派工方撤回 pending/acked→recalled | **仅 admin token**（与 `POST …/tasks` 派工同一级），普通 token 一律 404 |
 
 ## 实现方的四条硬要求（上游全部付过学费）
 
 1. **原子认领**（同上）——这是协议存在的意义，破了它一切失效。
 2. **权威时钟不许断**：agent 的 loop 纪律（tick）建立在 `GET /time` 上。
-3. **任务流转原子**：并发 ack 只能有一个成功且只记一条事件。
+3. **任务流转原子**：并发 ack 只能有一个成功且只记一条事件。前置状态判定与写入
+   必须原子（条件 UPDATE / DO 串行），409 报真实当前状态。
 4. **部署走 CD**：协调权威绝不手动部署（上游两个分支手动 deploy 互相覆盖、
    线上收件箱静默消失的事故是这条的出处）；冒烟脚本要带**漂移探针**
   （关键端点存在性断言：如 POST /tasks 无 token 应 401 而非 404）。

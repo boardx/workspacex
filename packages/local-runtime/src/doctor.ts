@@ -8,7 +8,6 @@ import { existsSync, statfsSync } from "node:fs";
 import { arch, platform, totalmem } from "node:os";
 import { join } from "node:path";
 import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
-import { DEFAULT_ASR_MODEL } from "./config";
 
 export interface DoctorReport {
   /**
@@ -25,7 +24,7 @@ export interface DoctorReport {
   readonly memoryGb: number;
   readonly freeDiskGb: number;
   readonly ollama: { found: boolean; path: string | null; version: string | null };
-  readonly python: { venv: boolean };
+  readonly python: { venv: boolean; bundled: boolean };
   readonly asrModel: boolean;
   /** 本次自检下每条能力的实际状态（capabilities.ts 是唯一事实源）。 */
   readonly capabilities: readonly CapabilityStatus[];
@@ -56,7 +55,7 @@ export function findOllama(bundleBinDir?: string): string | null {
   return null;
 }
 
-export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDir?: string }): DoctorReport {
+export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDir?: string; bundlePythonDir?: string }): DoctorReport {
   const blocking: string[] = [];
   const memoryGb = Math.round((totalmem() / 1024 ** 3) * 10) / 10;
   if (memoryGb < MIN_MEMORY_GB) blocking.push(`内存 ${memoryGb} GB 低于最低要求 ${MIN_MEMORY_GB} GB`);
@@ -78,11 +77,15 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
       version = null;
     }
   }
+  const venv = existsSync(join(opts.repoRoot, "apps", "deep-agent-service", ".venv"));
+  const bundled = opts.bundlePythonDir
+    ? existsSync(join(opts.bundlePythonDir, "cpython", platform() === "win32" ? "python.exe" : join("bin", "python3")))
+    : false;
   const capabilities = localCapabilities(
     { repoRoot: opts.repoRoot, dataDir: opts.dataDir },
     // doctor 不起栈，能拿到的最强证据就是「二进制在不在」；真正的「能不能回话」
     // 由 up() 的 preflight 给出（见 capabilities.ts 里 chatModel 字段的说明）。
-    { chatModel: ollamaPath !== null },
+    { chatModel: ollamaPath !== null, toolsAndSkills: venv || bundled },
   );
   const byId = (id: string): boolean => capabilities.find((c) => c.id === id)?.available ?? false;
   return {
@@ -92,7 +95,7 @@ export function runDoctor(opts: { dataDir: string; repoRoot: string; bundleBinDi
     memoryGb,
     freeDiskGb,
     ollama: { found: ollamaPath !== null, path: ollamaPath, version },
-    python: { venv: byId("tools-and-skills") },
+    python: { venv, bundled },
     asrModel: byId("live-transcription"),
     capabilities,
     findings: [...blocking, ...capabilityNotices(capabilities)],

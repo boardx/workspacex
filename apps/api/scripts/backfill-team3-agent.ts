@@ -46,6 +46,7 @@
  * 所以这里如实跟随既有约定写空数组，不假装这一列在做它实际不做的事；PR 描述另有
  * 关于"工具收紧在这个部署实际落在哪一层"的诚实说明。
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { createHash, randomUUID } from "node:crypto";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
@@ -230,6 +231,6 @@ async function repairStaleInstructions(db: PgDatabase): Promise<number> {
   return stale.length;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillTeam3Agent();
 }

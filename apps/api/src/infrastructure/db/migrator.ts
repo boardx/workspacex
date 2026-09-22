@@ -15,10 +15,19 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 import type { PgConfig } from "./pg-config";
 
-export const MIGRATIONS_DIR = new URL("../../../migrations/", import.meta.url).pathname;
+/**
+ * `fileURLToPath`, not `.pathname`: a URL keeps percent-encoding, so a checkout or bundle
+ * under a path with a space ("WorkspaceX Local.app") resolved to `.../WorkspaceX%20Local.app/...`
+ * and every migration run died with ENOENT (Mac DMG 实测 2026-09-17).
+ */
+export function migrationsDirFrom(moduleUrl: string): string {
+  return fileURLToPath(new URL("../../../migrations/", moduleUrl));
+}
+export const MIGRATIONS_DIR = migrationsDirFrom(import.meta.url);
 
 const VERSION_TABLE = `
 CREATE TABLE IF NOT EXISTS _kernel_migrations (

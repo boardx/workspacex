@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
 import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
+import { GUIDED_RESEARCH_DIRECTIONS_RESPONSE_SCHEMA } from "./guided-research-model";
 
 type BriefNodeState = z.infer<typeof C.BriefNodeInputState>;
 type GuidedResearchDirection = z.infer<typeof C.GuidedResearchDirection>;
@@ -50,6 +51,7 @@ export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDire
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
+        responseSchema: GUIDED_RESEARCH_DIRECTIONS_RESPONSE_SCHEMA,
         system: [
           "You generate Guided Research directions for BoardX.",
           "Return JSON only. Do not include markdown, prose, citations, or comments.",

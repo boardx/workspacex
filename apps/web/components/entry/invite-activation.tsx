@@ -5,6 +5,7 @@ import { CircleAlert, DoorOpen, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract, orgAdmin } from "@repo/contracts";
 import { ApiError, apiRequest, getStoredSessionToken } from "@/lib/api-client";
 import { contractFieldIssues } from "@/lib/auth";
+import type { ActivationLinkClaims } from "@/lib/activation-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,8 +26,17 @@ type ActivateOut = typeof orgAdmin.operations.activateOrgMember.out._output;
  *   （V10 防枚举）——这里也只渲染**同一句**，不猜原因。
  * · 本页**不回显**组织名/角色/任何成员信息：token 只证明「被邀请过」，组织的存在性
  *   不该由一个落地页替服务端泄露。授予内容恒为服务端记录值（AC5，篡改无效）。
+ * · `claims` = 链接上实际带着的 `?org=&role=&team=`（issue #592）。它们**只**随激活
+ *   请求的查询串原样上行，不参与任何判断、不进请求体、不渲染。服务端拿它们与邀请
+ *   记录比对后往 `org_invite_tamper_attempts` 留痕——前端不转发，审计表就永远是空的。
  */
-export function InviteActivation({ token }: { token: string | null }) {
+export function InviteActivation({
+  token,
+  claims,
+}: {
+  token: string | null;
+  claims?: ActivationLinkClaims;
+}) {
   const [mode, setMode] = React.useState<"new" | "existing">("new");
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
@@ -82,6 +92,9 @@ export function InviteActivation({ token }: { token: string | null }) {
     try {
       const result = await apiRequest<ActivateOut>(orgAdmin.operations.activateOrgMember.path, {
         method: "POST",
+        // ⚠ 只进查询串。契约 `activateOrgMember.in` 是 `.strict()` 的，把这三个塞进
+        //   body 会被 `ZodBodyPipe` 直接 400——它们本来就不是输入，是留痕材料。
+        query: claims,
         // 新用户分支不带会话；已有账号分支带 stored token（Guard 据此解析 principal，
         // body.sessionId 只是「我带着会话来」这一事实的契约形状，不是身份本身）。
         sessionToken: mode === "new" ? null : initialToken,

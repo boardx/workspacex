@@ -1,0 +1,51 @@
+$ pnpm --filter web run lint:design
+[exit 0]
+
+> web@0.1.0 lint:design /home/user/workspacex/apps/web
+> ./scripts/lint-design.sh
+
+
+✅ lint-design：全部通过（扫描 app components lib）
+
+
+$ pnpm --filter web exec tsc --noEmit
+[exit 0]
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/canvas-primitive-adoption.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /home/user/workspacex/apps/web
+
+ ✓ tests/ui/canvas-primitive-adoption.test.tsx (53 tests) 145ms
+
+ Test Files  1 passed (1)
+      Tests  53 passed (53)
+   Start at  18:26:25
+   Duration  4.30s (transform 1.56s, setup 179ms, collect 2.58s, tests 145ms, environment 866ms, prepare 68ms)
+
+
+## 反证：修复前同一个测试是红的
+
+$ git stash push -- components/canvas   # 只回退实现，保留新测试
+$ pnpm --filter web exec vitest run tests/ui/canvas-primitive-adoption.test.tsx
+[exit 1]
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > canvas-main.tsx 不含裸 <input>/<textarea>/checkbox 9ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > canvas-stage.tsx 不含裸 <input>/<textarea>/checkbox 2ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > canvas-template-gallery.tsx 不含裸 <input>/<textarea>/checkbox 2ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > knowledge-backflow.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-admin.tsx 不含裸 <input>/<textarea>/checkbox 2ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-display-panel.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-dry-run-drawer.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-editor-panel.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-prompt-drawer.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-simulate-dialog.tsx 不含裸 <input>/<textarea>/checkbox 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-display-panel.tsx 不含裸 -foreground 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-dry-run-drawer.tsx 不含裸 -foreground 1ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-editor-panel.tsx 不含裸 -foreground 2ms
+   × F22：canvas 目录不再有手写裸控件 / 裸 -foreground > template-editor.tsx 不含裸 -foreground 1ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  14 failed | 39 passed (53)

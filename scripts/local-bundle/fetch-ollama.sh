@@ -30,10 +30,14 @@ case "$ASSET" in
 esac
 BIN="$(find "$TMP" -maxdepth 3 -type f \( -name ollama -o -name ollama.exe \) | head -1)"
 [ -n "$BIN" ] || { echo "no ollama binary in $ASSET" >&2; exit 1; }
-cp "$BIN" "$OUT/"
-# Ollama's macOS archive ships the GPU runners next to the binary; keep them.
-if [ -d "$(dirname "$BIN")/lib" ]; then cp -R "$(dirname "$BIN")/lib" "$OUT/"; fi
-chmod +x "$OUT"/ollama* || true
+# The archive is one flat directory: `ollama` + `llama-server` + the ggml/llama dylibs. Ollama
+# looks for llama-server NEXT TO its own binary, so ship the whole directory, not just `ollama`
+# -- with only the binary, every model load fails with "llama-server binary not found"
+# (Mac实测 2026-09-17, only visible on a machine that has no Ollama.app of its own).
+rm -rf "$OUT"; mkdir -p "$OUT"
+cp -R "$(dirname "$BIN")/." "$OUT/"
+chmod +x "$OUT"/ollama* "$OUT"/llama-* 2>/dev/null || true
+[ -f "$OUT/llama-server" ] || [ -f "$OUT/lib/ollama/llama-server" ] || { echo "archive layout changed: llama-server not found" >&2; exit 1; }
 rm -rf "$TMP"
 "$OUT/ollama" --version 2>/dev/null || "$OUT/ollama.exe" --version
 echo "ollama placed in $OUT"

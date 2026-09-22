@@ -28,6 +28,7 @@
  * 用法：`pnpm --filter api exec tsx scripts/backfill-platform-org.ts`（无参数——
  * 平台组织只有一个，不像 `backfill-canvas-builtin-templates.ts` 那样按组织传参）。
  */
+import { isCliEntry } from "./cli-entry";
 import {
   ensurePlatformOrgSeeded,
   type PlatformOrgBackfillReport,
@@ -36,7 +37,7 @@ import {
 export type { PlatformOrgBackfillReport };
 export const backfillPlatformOrg = ensurePlatformOrgSeeded;
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   const report = await backfillPlatformOrg();
   console.log(
     `[backfill-platform-org] 完成：组织${report.orgCreated ? "已新建" : "已存在，跳过"}、` +

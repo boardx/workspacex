@@ -114,7 +114,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
    * 的那两句。`active` 期间恒定不变的事实（历时 / 计数 / 有没有失败过）留在后半段。
    */
   const head = active ? null : failed ? `${label} · 有失败步骤` : label;
-  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次 · 技能活动 ${String(skills)} 项`;
+  // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
+  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

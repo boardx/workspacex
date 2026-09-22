@@ -44,17 +44,72 @@ function startsWith(bytes: Uint8Array, sig: readonly number[], offset = 0): bool
   return true;
 }
 
+/** 非法 UTF-8 之外，还要挡住「合法 UTF-8 但明显不是给人读的」载荷的控制字节占比上限。 */
+const MAX_CONTROL_RATIO = 0.02;
+
 /**
- * 采样前若干字节判「是否像 UTF-8 文本」：出现 NUL(0x00) 即判非文本。
- * 白名单里的文本类型（txt/md/csv）是 UTF-8，正常不含 NUL；二进制文件几乎必然在前几 KB 命中 NUL。
- * 这是启发式，故意保守：真文本极少误杀，二进制冒充文本极难绕过。空文件视为文本（空 csv 合法）。
+ * 某个多字节序列的首个续字节的合法区间（其余续字节一律 0x80-0xBF）。
+ * 返回 null = 这个前导字节根本不合法（0x80-0xC1 落单/过长前缀、0xF5-0xFF 码点越界）。
+ */
+function sequenceSpec(lead: number): { length: number; firstMin: number; firstMax: number } | null {
+  if (lead >= 0xc2 && lead <= 0xdf) return { length: 2, firstMin: 0x80, firstMax: 0xbf };
+  if (lead === 0xe0) return { length: 3, firstMin: 0xa0, firstMax: 0xbf }; // 排除过长编码
+  if (lead === 0xed) return { length: 3, firstMin: 0x80, firstMax: 0x9f }; // 排除 UTF-16 代理区
+  if (lead >= 0xe1 && lead <= 0xef) return { length: 3, firstMin: 0x80, firstMax: 0xbf };
+  if (lead === 0xf0) return { length: 4, firstMin: 0x90, firstMax: 0xbf }; // 排除过长编码
+  if (lead === 0xf4) return { length: 4, firstMin: 0x80, firstMax: 0x8f }; // 上限 U+10FFFF
+  if (lead >= 0xf1 && lead <= 0xf3) return { length: 4, firstMin: 0x80, firstMax: 0xbf };
+  return null;
+}
+
+/**
+ * 采样前若干字节判「是否是 UTF-8 文本」——**fail-closed**：不能证明是文本的，一律不是文本。
+ *
+ * ⚠ #964（PR #961 事后取证）：本函数原先只判 NUL(0x00)，于是「不含 NUL 的任意字节」
+ * 都被当成文本收下——gzip 魔数 `1F 8B 08`、落单的续字节 `80 80 80`、过长编码 `C0 AF`、
+ * UTF-16 代理区 `ED A0 80` 全部判 text，攻击者把二进制改 Content-Type 成 text/plain 即可
+ * 绕过字节校验。那是 fail-open：判不出来就放行。现在改成真的按 UTF-8 语法逐序列校验，
+ * 任何一处不合法即判非文本；白名单里的 txt/md/csv 本来就要求是 UTF-8，合法文本不受影响。
+ *
+ * 另外挡一类「合法 UTF-8 但不是文本」的载荷：C0 控制字符（TAB/LF/CR 除外）与 DEL 占比超过
+ * `MAX_CONTROL_RATIO` 即判非文本。
+ *
+ * 采样窗口（8 KiB）可能把一个多字节序列拦腰切断：这时**不**判非法（否则合法长文本会被误杀），
+ * 但若缓冲区本身就在序列中间结束，那就是货真价实的非法 UTF-8，判非文本。
+ * 空文件仍视为文本（空 csv 合法）。
  */
 function looksLikeText(bytes: Uint8Array): boolean {
   const sample = Math.min(bytes.length, 8192);
-  for (let i = 0; i < sample; i++) {
-    if (bytes[i] === 0x00) return false;
+  const windowTruncated = bytes.length > sample;
+  let controls = 0;
+  let i = 0;
+
+  while (i < sample) {
+    const lead = bytes[i]!;
+    if (lead === 0x00) return false; // NUL 永远不是文本
+    if (lead < 0x80) {
+      const isPlainControl = lead < 0x20 && lead !== 0x09 && lead !== 0x0a && lead !== 0x0d;
+      if (isPlainControl || lead === 0x7f) controls++;
+      i++;
+      continue;
+    }
+
+    const spec = sequenceSpec(lead);
+    if (spec === null) return false;
+    if (i + spec.length > sample) {
+      // 序列跨过采样窗口尾部：是窗口切的就放过，是文件本身断的就判非法。
+      return windowTruncated ? controls / sample < MAX_CONTROL_RATIO : false;
+    }
+    const first = bytes[i + 1]!;
+    if (first < spec.firstMin || first > spec.firstMax) return false;
+    for (let k = 2; k < spec.length; k++) {
+      const cont = bytes[i + k]!;
+      if (cont < 0x80 || cont > 0xbf) return false;
+    }
+    i += spec.length;
   }
-  return true;
+
+  return sample === 0 || controls / sample < MAX_CONTROL_RATIO;
 }
 
 /** 从实际字节的 magic number 归一到族；都不匹配且像文本 → text；否则 → null（未知二进制）。 */

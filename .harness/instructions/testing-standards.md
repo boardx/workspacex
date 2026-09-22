@@ -47,6 +47,45 @@
    `// @global-scope-fixture <key>: <谁收敛它>`,声明过期同样判红。
    当前清单 `node apps/api/scripts/lint-global-scope-test-fixtures.mjs --list`。
 
+### 数据库授权（GRANT / REVOKE）是共享可变状态（#522）
+
+本仓的「共享可变状态」清单从五条变六条：git 索引 / 工作树 / stash 栈（ADR-005 的 worktree
+隔离）、开发库（`test-isolation`）、scratchpad（约定），第六条是**数据库授权**。
+它的特别之处：**既不在文件系统里，也不在 git 里**——权限挂在**角色**上，
+所以既有的隔离手段一条都挡不住。同一个库里所有并行 worker 共用同一个 `app_rw`。
+
+实测（#413 / PR #516 的实现者，同语句、同角色、同库）：
+
+```
+revoke 前：org-f109badge 插入 chat_messages → INSERT 0 1
+revoke 中：同一条                          → ERROR: permission denied for table chat_messages
+```
+
+`apps/api/vitest.config.ts` 是 forks 池 + `maxWorkers: 4` ⇒ **四个测试文件并行跑在同一个
+Postgres 上**。某个文件用 `REVOKE INSERT ON chat_messages FROM app_rw` 注入写回失败，
+别的文件的夹具只要在那个窗口里插同一张表就挂——**受害者是谁由 vitest 调度决定**，
+于是它在 CI 上长成 flake，而单跑与单文件重跑永远是绿的。别用"上一轮它是绿的"判断这颗雷不存在。
+
+**要注入权限失败，就限定到本用例自己的数据。** 范例是 PR #516 的修法
+（`apps/api/tests/agent-runtime/no-tool-run-writeback.test.ts` 的
+`installWritebackFailureInjector`）：装一个**双重限定**的触发器——只在
+`NEW.org_id = <本文件的 org>` **且** body 带本文件的 sentinel 前缀时 `RAISE`，
+安装期间别的文件观察不到任何差别；DDL 也从每用例两次降到每文件两次，
+不再在并行跑的中间去拿表级锁。
+
+⚠ **不是禁止一切 GRANT/REVOKE。** 由 `.harness/scripts/lint-test-shared-grant.mjs` 机械门控
+（已挂进 PR 门控 `harness-verify.yml` 与 `verify:harness:raw`），判据是
+**授权对象是否被本文件独占**，不是「出现了 GRANT 这个词」。这四类照常放行：
+
+- 对象由本文件 `CREATE` 出来（自己的 schema 前缀，或自己建的探针表）；
+- 接受方是本文件 `CREATE ROLE` 出来的角色（`app_rw` 的权限一个字节没动）；
+- 只是读迁移文本**断言**里面有某条 GRANT，并不执行它；
+- 文件显式声明独占一次性实例（`WORKSPACEX_DATA_TEST=1`），不在并行池里。
+
+库级权限（`REVOKE CONNECT ON DATABASE …`）**刻意不判**：本仓的并行隔离单位就是库，
+那一层的洞归 #468（端口碰撞）/ #487（拆库掐连接）。
+存量豁免在 `.harness/state/test-shared-grant-allowlist.json`，只许变短，每条都写了怎么清掉。
+
 断言侧配套:平台自有的 skill 一律**按归属**(`org_id = 'org-platform'`,用
 `tests/support/platform-owned-skills.ts`)排除,不要按名字——按名字是同一事实的第二份
 副本,第 5 个平台 skill 出现时就已经失效。
@@ -92,6 +131,28 @@ Studio 面板），在 feature 的 `notes` 里显式写清楚这是故意的，�
 config 覆盖，否则 `lint-spec-gate-coverage.mjs` 会挡：一个没人跑的 spec 红了没人发现。
 纯取证/截图脚本（不承担 gate 职责）可以登记进该脚本的 `EXEMPTIONS` 并写明理由
 （先例：`chat-main-shots.spec.ts` / `vz-fabric-shots.spec.ts`）。
+
+### spec 引用的 testid 必须在源码里存在（`lint:e2e-testid-gate`，#2128）
+
+e2e 只认 `data-testid`，于是「**删掉一个 testid 而 spec 没跟进**」这个形状 2026-08-26
+一天内咬了两次（`tpladmin-editor-add-section`；撤表格视图时连带没了的 `tpladmin-row-*`
+与 `canvas-template-usage-*`）。两次都是**改动侧全绿**——lint / tsc / 单测都不看 testid
+字符串，只有跑完整栈浏览器 e2e 才会红，那是最慢最贵、最容易被当成环境抖动的一层。
+
+`.harness/scripts/lint-e2e-testid-gate.mjs` 把它提前到秒级：纯文本比对，不起浏览器、
+不连库，`verify:harness` 里跑。它只回答一个问题——**这个 testid 在源码里出现过吗**；
+不查它在不在正确的组件里，更不查它当前渲染得出来（那些只有真 e2e 能证），判据与
+已知宽松点逐条写在脚本头注里。
+
+「断言它不存在」的引用（如表格视图撤掉后断言 `tpladmin-table` 的 `toHaveCount(0)`）用
+**行内标注**豁免，不维护允许清单：
+
+```ts
+await expect(page.getByTestId("tpladmin-table")).toHaveCount(0); // testid-gate: absent 表格视图已撤（#2123）
+```
+
+标注写在行尾只豁免该行，独占一行则豁免下一行；覆盖不到引用、或被豁免的 testid 又回到
+源码里，都判红——豁免不会悄悄烂掉。
 
 Chat Agent 的延迟、流式连续性、HITL 恢复、轨迹和画布性能门控统一见
 [`chat-agent-performance-acceptance.md`](./chat-agent-performance-acceptance.md)。相关测试不得在

@@ -72,6 +72,7 @@ import { updateProjectTags } from "../../application/project/update-project-tags
 import { addProjectMember } from "../../application/project/add-project-member";
 import { changeProjectRole } from "../../application/project/change-project-role";
 import { removeProjectMember } from "../../application/project/remove-project-member";
+import { listProjectMembers } from "../../application/project/list-project-members";
 import {
   ProjectArchiveBlockedByActiveSegmentError,
   ProjectError,
@@ -96,7 +97,9 @@ import {
 import {
   MEMBER_SUBJECT_RESOLVER,
   PROJECT_MEMBERSHIP_REPOSITORY,
+  PROJECT_MEMBER_ROSTER_REPOSITORY,
   type MemberSubjectResolver,
+  type ProjectMemberRosterRepository,
   type ProjectMembershipRepository,
 } from "../../application/project/member-ports";
 import {
@@ -151,6 +154,8 @@ type CreateAgendaSegmentBody = z.infer<typeof C.operations.createAgendaSegment.i
 
 /** 同上，`getProjectOverview` 的入参契约（F123）。 */
 export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
+/** #609：GET 没有 body，路径参数照样要过一遍契约的 `in`——同 `overview` 那条路由的理由。 */
+export const LIST_PROJECT_MEMBERS_SCHEMA = C.operations.listProjectMembers.in;
 /** 同上，`archiveProject` / `unarchiveProject` 的入参契约（F124）。两者形状相同：`{ projectId }`。 */
 export const ARCHIVE_PROJECT_SCHEMA = C.operations.archiveProject.in;
 export const UNARCHIVE_PROJECT_SCHEMA = C.operations.unarchiveProject.in;
@@ -183,6 +188,7 @@ export class ProjectController {
     @Inject(PROJECT_ARCHIVE_REPOSITORY) private readonly archiveRepo: ProjectArchiveRepository,
     @Inject(PROJECT_TAGS_REPOSITORY) private readonly tagsRepo: ProjectTagsRepository,
     @Inject(PROJECT_MEMBERSHIP_REPOSITORY) private readonly members: ProjectMembershipRepository,
+    @Inject(PROJECT_MEMBER_ROSTER_REPOSITORY) private readonly roster: ProjectMemberRosterRepository,
     @Inject(MEMBER_SUBJECT_RESOLVER) private readonly memberSubjects: MemberSubjectResolver,
     @Inject(BINDING_REPOSITORY) private readonly bindings: BindingRepository,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
@@ -646,6 +652,45 @@ export class ProjectController {
         }
         if (e.reasonCode === "PROJECT_NOT_FOUND") {
           throw new NotFoundException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * #609 UC-P9 `listProjectMembers` —— 与 `addProjectMember` **同路径不同方法**
+   * （`POST` 写 / `GET` 读）。拒绝面与同束其它读路由同型：`AUTH_SERVICE_UNAVAILABLE` → 503
+   * （判定服务不可用不是一个裁定，渲染成 403 会让用户去找管理员要一个他本来就有的权限），
+   * 其余 → 403。
+   *
+   * ⚠ 非工作坊两类返回的是 `{ members: null }` 的 **200**，不是 404 也不是空数组——
+   *   「这一类容器的名单尚未建（设计缺口）」是一个如实的成功响应，前端据此显示那句话；
+   *   见 `application/project/list-project-members.ts` 文件头。
+   */
+  @Get("/projects/:projectId/members")
+  async listMembers(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(LIST_PROJECT_MEMBERS_SCHEMA).transform({ projectId }) as {
+      projectId: string;
+    };
+
+    try {
+      const result = await listProjectMembers(
+        { auth: { repo: this.identity, ids: this.decisions }, roster: this.roster },
+        { userId: principal.userId, orgId: principal.orgId, projectId: input.projectId },
+      );
+      // 响应体过一遍契约（contract-design 硬规则 6）——`out` 是 `.strict()` 的，
+      // 多一个字段会在这里红，而不是在联调时。
+      return C.operations.listProjectMembers.out.parse(result);
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }

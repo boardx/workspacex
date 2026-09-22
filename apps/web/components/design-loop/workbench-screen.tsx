@@ -73,7 +73,8 @@ export function DesignWorkbenchHome({
   onOpenProject,
 }: {
   state?: UiState;
-  onOpenProject?: (id: string) => void;
+  /** 迭代 16（#3773 R7）：`justCreated` = 这一次是刚建出来的，调用方据它决定是否自动开画。 */
+  onOpenProject?: (id: string, justCreated?: boolean) => void;
 }) {
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
@@ -181,7 +182,7 @@ export function DesignWorkbenchHome({
       });
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [project, ...prev.items] } : prev));
       setGenerating(null);
-      onOpenProject?.(project.id);
+      onOpenProject?.(project.id, true);
     } catch (err) {
       setGenerating(null);
       setActionError(`没能创建设计项目（${describeFailure(err)}）`);

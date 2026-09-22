@@ -208,6 +208,66 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect((raised[0]!["payload"] as Record<string, unknown>)["severity"]).toBe("stop-merge");
   });
 
+  // #376：投影发件箱——追加式动作（issue 评论）的持久幂等键。
+  // 持久性是这套去重的全部前提：键只活在 Worker 内存里，DO 一换实例就重复满天飞。
+  it("投影发件箱：登记后跨请求可查回；重复登记幂等；未登记的键查不到", async () => {
+    const K1 = "issue_comment:issue:376:event:evt_out1";
+    const K2 = "issue_comment:issue:376:event:evt_out2";
+
+    const before = await (await post("/projector/outbox/delivered", { keys: [K1, K2] }))
+      .json<{ delivered: string[] }>();
+    expect(before.delivered).toEqual([]);
+
+    const rec = await (await post("/projector/outbox/record", { key: K1 })).json<{ duplicate: boolean }>();
+    expect(rec.duplicate).toBe(false);
+    // 重复登记不报错、也不新增行（apply 的 record() 语义要求幂等）
+    const again = await (await post("/projector/outbox/record", { key: K1 })).json<{ duplicate: boolean }>();
+    expect(again.duplicate).toBe(true);
+
+    const after = await (await post("/projector/outbox/delivered", { keys: [K1, K2] }))
+      .json<{ delivered: string[] }>();
+    expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
+  });
+
+  it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
+    const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
+    for (const k of keys.filter((_, i) => i % 2 === 0)) {
+      expect((await post("/projector/outbox/record", { key: k })).status).toBe(200);
+    }
+    const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
+      .json<{ delivered: string[] }>();
+    expect(delivered.sort()).toEqual(keys.filter((_, i) => i % 2 === 0).sort());
+  });
+
+  it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
+    expect((await post("/projector/outbox/delivered", { keys: "nope" })).status).toBe(422);
+    expect((await post("/projector/outbox/record", { key: "" })).status).toBe(422);
+    expect((await post("/projector/outbox/delivered", {
+      keys: Array.from({ length: 1001 }, (_, i) => `k${i}`),
+    })).status).toBe(422);
+  });
+
+  it("投影发件箱：保留窗口外的行在 alarm 里被清掉（同 deliveries，防 DO 无界增长）", async () => {
+    const OLD = "issue_comment:issue:376:event:evt_ancient";
+    await post("/projector/outbox/record", { key: OLD });
+    const stub = env.REPOHUB.get(env.REPOHUB.idFromName("boardx/workspacex"));
+    await runInDurableObject(stub, async (_i: unknown, state: DurableObjectState) => {
+      state.storage.sql.exec(
+        `UPDATE projection_outbox SET delivered_at='2000-01-01T00:00:00Z' WHERE idem_key=?`, OLD,
+      );
+    });
+    // 借一次租约到期把 alarm 排上并立即执行（清理挂在同一个 alarm 里）
+    const lease = await (await post("/claims", claimBody("wrk-outbox-gc", "issue:37600"))).json<Record<string, unknown>>();
+    await runInDurableObject(stub, async (_i: unknown, state: DurableObjectState) => {
+      state.storage.sql.exec(`UPDATE leases SET expires_at='2000-01-01T00:00:00Z' WHERE lease_id=?`, lease["lease_id"]);
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+
+    const { delivered } = await (await post("/projector/outbox/delivered", { keys: [OLD] }))
+      .json<{ delivered: string[] }>();
+    expect(delivered).toEqual([]);
+  });
+
   it("投影游标：初始 null → PUT 后可读回；坏 cursor 422", async () => {
     const empty = await (await SELF.fetch(`${BASE}/projector/cursor`)).json<{ cursor: string | null }>();
     expect(empty.cursor).toBeNull();

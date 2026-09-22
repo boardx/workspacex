@@ -10,15 +10,21 @@
  */
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { platform } from "node:os";
+import { homedir, platform, totalmem } from "node:os";
 import {
-  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, sandboxEnv, webEnv,
-  DB_APP_ROLE, DB_OWNER_ROLE, LOCAL_ADMIN_EMAIL, type LocalConfig,
+  apiEnv, asrEnv, asrGatewayEnv, deepAgentEnv, ollamaEnv, paths, resolveAsrModelDir, sandboxEnv,
+  sandboxModulesDir, webEnv, DB_APP_ROLE, DB_OWNER_ROLE, LOCAL_ADMIN_EMAIL, type LocalConfig,
+  resolveDeepAgentLaunch, preferredChatModel, preferredMetaModel, MLX_SUFFIX,
 } from "./config";
 import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
 import { findOllama } from "./doctor";
+import { importModels } from "./model-bundle";
+import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
-import { startManaged, portInUse, waitForHttp, waitForHttpOrExit, runToCompletion, type Managed } from "./processes";
+import {
+  assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse,
+  waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
+} from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
@@ -29,6 +35,12 @@ export interface UpOptions {
   /** `dev` = `next dev` (no build step, slow first paint); `start` = `next start` on a prior `next build`. */
   readonly webMode?: "dev" | "start" | "none";
   readonly bundleBinDir?: string;
+  /** Relocatable Python runtime shipped in the bundle (scripts/local-bundle/bundle-python.sh); preferred over apps/deep-agent-service/.venv. */
+  readonly bundlePythonDir?: string;
+  /** Ollama models shipped in the bundle (scripts/local-bundle/fetch-models.sh); imported into the store the running Ollama uses. */
+  readonly bundleModelsDir?: string;
+  /** Streaming ASR model shipped in the bundle (scripts/local-bundle/bundle-asr-model.sh); used in place when the data dir has none. */
+  readonly bundleAsrModelsDir?: string;
   /** Skip pulling the model even if Ollama is up (tests, offline). */
   readonly pullModel?: boolean;
   /** Skip the real model round-trip (tests, offline). Default is to probe. */
@@ -47,7 +59,7 @@ export interface RunningStack {
 }
 
 export async function up(opts: UpOptions): Promise<RunningStack> {
-  const c = opts.config;
+  let c = opts.config;
   const log = opts.log ?? ((l: string) => process.stdout.write(`${l}\n`));
   const warnings: string[] = [];
   const managed: Managed[] = [];
@@ -62,7 +74,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   // the children must not outlive it: an orphaned sandbox/API keeps its port and the next
   // start fails with EADDRINUSE. `exit` is synchronous, so only signal here, no awaiting.
   const killChildrenOnExit = (): void => {
-    for (const m of managed) if (m.child.exitCode === null) m.child.kill("SIGTERM");
+    for (const m of managed) if (m.child.exitCode === null) killTree(m.child, "SIGTERM");
   };
   process.once("exit", killChildrenOnExit);
 
@@ -95,8 +107,39 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const ollamaBin = findOllama(opts.bundleBinDir);
     let ollamaUrl: string | null = null;
     if (ollamaBin) {
+      const running = await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama}`);
+      const runningOnAlternate = running === null ? null : await runningOllamaVersion(`http://127.0.0.1:${c.ports.ollama + 1}`);
+      const choice = chooseOllama({ running, binary: ollamaBinaryVersion(ollamaBin), port: c.ports.ollama, runningOnAlternate });
+      log(`[ollama] ${choice.reason}`);
+      let already = choice.reuse;
+      if (choice.port !== c.ports.ollama) {
+        if (choice.reuse) {
+          // The alternate port is ours alone: what runs there is an earlier instance of this
+          // runtime, possibly started before OLLAMA_CONTEXT_LENGTH / KEEP_ALIVE existed. Restart
+          // it so the server settings are the ones this build declares (#3749 B1.1).
+          log(`[ollama] restarting our earlier instance on ${choice.port} to apply current server settings`);
+          await stopListenerOnPort(choice.port);
+          already = false;
+        }
+        await assertPortFree(choice.port, "ollama");
+        c = { ...c, ports: { ...c.ports, ollama: choice.port } };
+      }
       ollamaUrl = `http://127.0.0.1:${c.ports.ollama}`;
-      const already = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false);
+      // Bundled models go into whichever store the Ollama we are about to talk to serves from:
+      // ours (data dir) when we spawn it, the user's own (OLLAMA_MODELS or ~/.ollama/models)
+      // when one is already running -- copying into ours would be invisible to that one.
+      if (opts.bundleModelsDir && !existsSync(opts.bundleModelsDir)) {
+        warnings.push(`随包模型目录不存在，跳过导入：${opts.bundleModelsDir}`);
+      } else if (opts.bundleModelsDir) {
+        const store = already ? (process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models")) : paths.models(c);
+        try {
+          const r = importModels(opts.bundleModelsDir, store);
+          if (r.imported.length) log(`[ollama] imported bundled model(s) into ${store}: ${r.imported.join(", ")}`);
+          else log(`[ollama] bundled model(s) already in ${store}: ${r.skipped.join(", ")}`);
+        } catch (e) {
+          warnings.push(`随包模型导入失败（将回退到联网拉取）：${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
       if (!already) {
         managed.push(startManaged({ name: "ollama", command: ollamaBin, args: ["serve"], cwd: c.dataDir, env: ollamaEnv(c), logDir: paths.logs(c) }, log));
         await waitForHttpOrExit(`${ollamaUrl}/api/tags`, { timeoutMs: 30_000 }, managed[managed.length - 1]!);
@@ -104,6 +147,12 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         log("[ollama] already running, reusing");
       }
       if (opts.pullModel !== false) {
+        // The meta model is an OPTIMISATION, never a download: `preferredMetaModel` falls back
+        // to the chat model when it is absent, and on a 16 GB machine that fallback is the
+        // faster choice anyway. It was in this list while it was still bundled; after it was
+        // dropped from the Mac bundle (#3749 R10) every first start pulled 2.6 GB over the
+        // network to get something the machine would then decline to use (实测 2026-09-22,
+        // 用户的首次启动卡在「检查本地模型」7 分钟).
         for (const model of [c.chatModel, c.embeddingModel]) {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
@@ -133,7 +182,61 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       if (!embed.ok) warnings.push(`${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
     }
 
+    // Every service we spawn must own its port: a stale process there would answer our
+    // readiness probe while our child dies on EADDRINUSE.
+    for (const [port, what] of [[c.ports.sandbox, "skill-sandbox"], [c.ports.asr, "asr-gateway"], [c.ports.api, "api"], [c.ports.deepAgent, "deep-agent"], [c.ports.web, "web"]] as const) {
+      if (what === "web" && (opts.webMode ?? "dev") === "none") continue;
+      await assertPortFree(port, what);
+    }
+
+    // #3749 B2.3：机器带得动且 9B 已在库里 ⇒ 用 9B；否则保持配置的模型。只换 c，后面的 env 都从 c 派生。
+    if (ollamaUrl) {
+      const present = await listModels(ollamaUrl);
+      const memoryGb = totalmem() / 1024 ** 3;
+      const chosen = preferredChatModel({ configured: c.chatModel, memoryGb, present });
+      if (chosen !== c.chatModel) {
+        log(`[ollama] ${String(Math.round(memoryGb))} GB RAM and ${chosen} present: serving ${chosen} instead of ${c.chatModel}`);
+        c = { ...c, chatModel: chosen };
+      }
+      // #3749 R9：MLX 构建更快，但「库里有这个标签」不等于「这台机器能跑它」。预热就是
+      // 那次验证：预热不过就换回非 MLX 版，宁可慢也不能让用户的第一条消息撞上起不来的运行器。
+      if (chosen.endsWith(MLX_SUFFIX)) {
+        const fallback = chosen.slice(0, -MLX_SUFFIX.length);
+        if (await warmModel(ollamaUrl, chosen) === null) {
+          if (present.includes(fallback)) {
+            log(`[ollama] ${chosen} failed to load on this machine; falling back to ${fallback}`);
+            c = { ...c, chatModel: fallback };
+          } else {
+            warnings.push(`随包的 ${chosen} 在这台机器上加载失败，且库里没有非 MLX 版可回落`);
+          }
+        } else {
+          log(`[ollama] ${chosen} loaded (MLX runner)`);
+        }
+      }
+      const meta = preferredMetaModel({ configured: c.metaModel, chatModel: c.chatModel, memoryGb, present });
+      if (meta !== c.metaModel) {
+        log(`[ollama] meta tasks on ${meta} (${String(Math.round(memoryGb))} GB RAM: the ${c.metaModel} would swap in and out with the chat model)`);
+        c = { ...c, metaModel: meta };
+      }
+    }
+
+    // #3749 R1：把聊天模型预加载进显存。冷加载实测 11.7 s（4B，Apple Silicon），而用户的第一条
+    // 消息正好付这笔钱；`keep_alive` 只防卸载，防不了首次加载。不 await——启动不因此变慢，
+    // 模型在用户还在看启动页时就位；失败只是没预热，不影响任何功能。
+    if (ollamaUrl) {
+      const url = ollamaUrl;
+      if (!c.chatModel.endsWith(MLX_SUFFIX)) {
+        void warmModel(url, c.chatModel).then((ms) => {
+          if (ms !== null) log(`[ollama] ${c.chatModel} warmed in ${String(Math.round(ms / 100) / 10)}s`);
+        });
+      }
+      if (c.metaModel !== c.chatModel) void warmModel(url, c.metaModel);
+    }
+
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
+    if (!sandboxModulesDir(c)) {
+      warnings.push("skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）");
+    }
     managed.push(startManaged({
       name: "skill-sandbox",
       command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
@@ -146,14 +249,15 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
-    if (existsSync(join(paths.asrModelDir(c), "tokens.txt"))) {
+    const asrModelDir = resolveAsrModelDir(c, opts.bundleAsrModelsDir);
+    if (asrModelDir) {
       asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
       managed.push(startManaged({
         name: "asr-gateway",
         command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
         args: ["src/main.ts"],
         cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
-        env: asrGatewayEnv(c),
+        env: asrGatewayEnv(c, asrModelDir),
         logDir: paths.logs(c),
       }, log));
       await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
@@ -173,16 +277,16 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
 
     // ── deep agent (python) ───────────────────────────────────────────────────
     let deepAgentUrl: string | null = null;
-    const venv = paths.deepAgentVenv(c);
-    const py = join(venv, platform() === "win32" ? "Scripts" : "bin", platform() === "win32" ? "uvicorn.exe" : "uvicorn");
-    if (existsSync(py)) {
+    const launch = resolveDeepAgentLaunch(c, opts.bundlePythonDir);
+    if (launch) {
       deepAgentUrl = `http://127.0.0.1:${c.ports.deepAgent}`;
+      log(`[deep-agent] python runtime: ${launch.source} (${launch.command})`);
       managed.push(startManaged({
         name: "deep-agent",
-        command: py,
-        args: ["deep_agent_service.http_app:app", "--host", "127.0.0.1", "--port", String(c.ports.deepAgent), "--workers", "1"],
+        command: launch.command,
+        args: [...launch.args],
         cwd: join(c.repoRoot, "apps", "deep-agent-service"),
-        env: deepAgentEnv(c),
+        env: launch.env,
         logDir: paths.logs(c),
       }, log));
       await waitForHttpOrExit(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 }, managed[managed.length - 1]!);
@@ -227,7 +331,13 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     }
     // ⚠ 传的是「模型真的回了话」，不是「找到了 Ollama 二进制」。后者是 doctor 在没起栈时
     //   能拿到的最好证据；到了这里我们有更强的证据，就该用更强的那个。
-    const capabilities = localCapabilities(c, { chatModel: chatModelAnswers });
+    const capabilities = localCapabilities(c, {
+      chatModel: chatModelAnswers,
+      // 随包 python / 随包转写模型的部署里，「有没有」不等于 `.venv` 或数据目录里有没有——
+      // 用这次启动真正解析到的东西回答。
+      toolsAndSkills: launch !== null,
+      liveTranscription: asrModelDir !== null,
+    });
     return {
       capabilities,
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
@@ -272,6 +382,35 @@ function portFlagName(serviceName: string): string {
     : serviceName.startsWith("Web") ? "web"
     : serviceName.startsWith("Skill") ? "sandbox"
     : "postgres";
+}
+
+/**
+ * One-token completion so llama.cpp maps the weights before a human is waiting on them.
+ * Returns the load time, or null when it failed (a warmup is never a startup failure).
+ */
+async function warmModel(ollamaUrl: string, model: string): Promise<number | null> {
+  const started = Date.now();
+  try {
+    const res = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: "hi" }], max_tokens: 1, stream: false }),
+      signal: AbortSignal.timeout(180_000),
+    });
+    return res.ok ? Date.now() - started : null;
+  } catch {
+    return null;
+  }
+}
+
+async function listModels(ollamaUrl: string): Promise<readonly string[]> {
+  try {
+    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const body = (await res.json()) as { models?: { name: string }[] };
+    return (body.models ?? []).map((m) => m.name);
+  } catch {
+    return [];
+  }
 }
 
 async function hasModel(ollamaUrl: string, model: string): Promise<boolean> {

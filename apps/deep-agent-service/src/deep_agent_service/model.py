@@ -146,6 +146,14 @@ def build_chat_model() -> ChatOpenAI:
         # models" for why, and why this mirrors `configured-model-provider.ts`'s two-axis gate.
         extra_body["enable_thinking"] = False
 
+    # KERNEL_MODEL_REASONING_EFFORT (OpenAI-style `reasoning_effort`): WorkspaceX Local sets
+    # `none` -- on Ollama >= 0.34 that is the only field that switches Qwen3.5 thinking off
+    # (`think:false` on /v1 is ignored; measured 2026-09-17: 72 s / 6.5k reasoning chars -> 1.2 s / 0).
+    # Mirrors configured-model-provider.ts; unset = not sent.
+    reasoning_effort = (os.environ.get("KERNEL_MODEL_REASONING_EFFORT") or "").strip()
+    if reasoning_effort:
+        extra_body["reasoning_effort"] = reasoning_effort
+
     return ChatOpenAI(
         base_url=base_url,
         api_key=api_key,

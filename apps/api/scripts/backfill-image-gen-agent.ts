@@ -10,6 +10,7 @@
  * none: `model_provider` is the hardcoded constant `"bailian-image"` (see
  * `ensure-image-gen-agent.ts`), never read from `KERNEL_MODEL_PROVIDER` -- nothing to repair.
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
@@ -80,6 +81,6 @@ export async function backfillImageGenAgent(): Promise<ImageGenBackfillReport> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillImageGenAgent();
 }

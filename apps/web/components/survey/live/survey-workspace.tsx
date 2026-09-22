@@ -46,6 +46,7 @@ export function LiveSurveyWorkspace({
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
   const [draft, setDraft] = React.useState<SurveyDraftInput | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [generatingReport, setGeneratingReport] = React.useState(false);
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
@@ -384,8 +385,14 @@ export function LiveSurveyWorkspace({
                 <h1 className="w-full text-20 font-semibold sm:w-auto sm:flex-1">
                   分析报告
                 </h1>
-                <Button onClick={() => void execute(() => command("report"))}>
-                  {runtime?.report ? "重新生成报告" : "生成报告"}
+                <Button variant="primary" aria-busy={generatingReport} onClick={() => void execute(async () => {
+                  setGeneratingReport(true);
+                  try {
+                    await command("report");
+                    setNotice("报告已按最新答卷和报告模板重新生成");
+                  } finally { setGeneratingReport(false); }
+                })}>
+                  {generatingReport ? "正在生成报告…" : runtime?.report ? "重新生成报告" : "生成报告"}
                 </Button>
                 {runtime?.report && (
                   <>
@@ -413,6 +420,11 @@ export function LiveSurveyWorkspace({
                   </>
                 )}
               </div>
+              {runtime?.reportGeneratedAt && (
+                <p className="text-12 text-muted-foreground" data-testid="survey-report-generated-at">
+                  生成时间：{new Date(runtime.reportGeneratedAt).toLocaleString("zh-CN")}
+                </p>
+              )}
               {!runtime?.report && (
                 <p className="rounded-md bg-muted p-4 text-12">
                   先设计报告模板并回收答卷，再按模板生成报告。

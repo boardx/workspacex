@@ -18,6 +18,7 @@ STABLE_SECRET_DIRECTORY=/var/lib/workspacex-cn/stable-secrets
 RELEASE_TREE_ROOT=/var/lib/workspacex-cn/releases
 EVENTS_ROOT=/var/lib/workspacex-cn/release-events
 PREPARATIONS_DIR=/etc/workspacex-cn/preparations
+PREFLIGHT_VERIFIER=/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh
 AGENT_ENV_FILE=/etc/workspacex-cn/agent.env
 RUNNER_ID_FILE=/etc/workspacex-cn/runner-user
 NGINX_CONFIG=/etc/nginx/conf.d/workspacex-cn.conf
@@ -154,6 +155,7 @@ private_root_file "$CONFIG_FILE"
 runner_readable_manifest "$manifest"
 runner_readable_manifest "$seal"
 private_root_file "$AGENT_ENV_FILE"
+[[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
 install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
 install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
 
@@ -177,6 +179,11 @@ if(manifest.sourceRevision!==revision||seal.schemaVersion!==1||seal.status!=="se
 NODE
 
 if [[ "$mode" == prepare ]]; then
+  # The post-build receipt must bind the exact immutable image to the same fresh
+  # prebuild evidence before dependency installation, migration, or traffic work.
+  "$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+    || fail "preactivate receipt is missing or invalid"
+  record_event preactivate_validated
   record_event prepare_started
   private_root_file "$preparation_input"
   [[ ! -e "$release_checkout" && ! -e "$runtime" ]] || fail "release preparation already exists"
@@ -228,6 +235,11 @@ fi
 [[ -z "$(git -C "$release_checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
 
 cd "$release_checkout"
+
+# Revalidate freshness immediately before activation. A prepared receipt cannot
+# extend the one-hour evidence TTL or substitute static artifacts for live facts.
+"$PREFLIGHT_VERIFIER" preactivate "$revision" "$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")" >/dev/null \
+  || fail "preactivate receipt expired or changed after prepare"
 
 current_baseline_dir=$(mktemp -d "$runtime/.baseline-current.XXXXXX")
 current_baseline="$current_baseline_dir/baseline.json"

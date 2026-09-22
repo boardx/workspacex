@@ -71,16 +71,66 @@ async function grantLocalServiceDdl(c: LocalConfig, log: Log): Promise<void> {
   }
 }
 
+/**
+ * What the platform library must contain before the app phase starts. Read from the
+ * database itself, **not** from `seed-state.json`: on 2026-09-17 that file said
+ * `platformSeeded: true` for a database that had been created 5 s earlier (the three seed
+ * scripts had exited 0 without running -- see `apps/api/scripts/cli-entry.ts`), so the
+ * local app served zero canvas templates and zero mountable skills. Static trace ≠ live fact.
+ */
+export interface PlatformLibraryProbe {
+  readonly platformOrg: boolean;
+  readonly officialSkills: number;
+  readonly canvasTemplates: number;
+}
+
+/** Human-readable list of what is missing; empty means the library is complete enough to serve. */
+export function platformLibraryGaps(p: PlatformLibraryProbe): readonly string[] {
+  const gaps: string[] = [];
+  if (!p.platformOrg) gaps.push(`platform org ${PLATFORM_ORG_ID}`);
+  if (p.officialSkills < 1) gaps.push("official platform skills");
+  if (p.canvasTemplates < 1) gaps.push("built-in canvas templates");
+  return gaps;
+}
+
+/** Owner phase runs as the PGlite superuser, which bypasses RLS -- counts are the whole truth. */
+async function probePlatformLibrary(c: LocalConfig): Promise<PlatformLibraryProbe> {
+  const client = new pg.Client({ host: "127.0.0.1", port: c.ports.postgres, user: "postgres", password: "local", database: DB_NAME });
+  await client.connect();
+  try {
+    const r = await client.query<{ org: string; skills: string; canvas: string }>(
+      `SELECT (SELECT count(*) FROM organizations WHERE id = $1) AS org,
+              (SELECT count(*) FROM skills WHERE org_id = $1) AS skills,
+              (SELECT count(*) FROM canvas_templates WHERE org_id = $1) AS canvas`,
+      [PLATFORM_ORG_ID],
+    );
+    const row = r.rows[0]!;
+    return { platformOrg: Number(row.org) > 0, officialSkills: Number(row.skills), canvasTemplates: Number(row.canvas) };
+  } finally {
+    await client.end();
+  }
+}
+
 /** Owner-phase seeds: need the migration role (platform org, skills, canvas templates). */
 export async function runOwnerSeeds(c: LocalConfig, log: Log): Promise<void> {
   const state = readSeedState(c);
   const env = apiEnv(c);
-  if (!state.platformSeeded) {
+  const before = await probePlatformLibrary(c);
+  const gaps = platformLibraryGaps(before);
+  if (gaps.length > 0) {
+    log(`[seeds] platform library incomplete (${gaps.join(", ")}); seeding`);
     await apiScript(c, "scripts/backfill-platform-org.ts", [], env, log);
     await apiScript(c, "scripts/backfill-platform-skills.ts", [], env, log);
     await apiScript(c, "scripts/backfill-canvas-builtin-templates.ts", [PLATFORM_ORG_ID], env, log);
-    writeSeedState(c, { ...state, platformSeeded: true });
+    const after = platformLibraryGaps(await probePlatformLibrary(c));
+    if (after.length > 0) throw new Error(`platform seed scripts exited 0 but the library is still missing: ${after.join(", ")}`);
+  } else {
+    log(`[seeds] platform library present: ${String(before.officialSkills)} skills, ${String(before.canvasTemplates)} canvas templates`);
   }
+  // The nine standard packs are imported idempotently on every owner phase -- the same
+  // cadence as the cloud API's boot-time self-heal, which the local app has switched off.
+  await apiScript(c, "scripts/backfill-standard-skill-packs.ts", [], env, log);
+  writeSeedState(c, { ...readSeedState(c), platformSeeded: true });
   if (!state.provisioned) {
     const out = await apiScript(c, "scripts/provision-admin.ts", [], { ...env, ...provisionAdminEnv(c) }, log);
     const line = out.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("{")).pop();

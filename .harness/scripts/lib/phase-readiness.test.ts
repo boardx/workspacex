@@ -29,6 +29,7 @@ function proof(kind: "runtime" | "e2e"): EvidenceProof {
       kind,
       command: kind === "runtime" ? "pnpm verify:runtime --phase 01" : "pnpm verify:full --phase 01",
       exit_code: 0,
+      executed: kind === "runtime" ? 12 : 87,
       commit: COMMIT,
       recorded_at: "2026-08-04T00:00:00.000Z",
       artifacts: [`evidence/${kind}.log`],

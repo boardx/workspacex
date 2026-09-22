@@ -11,9 +11,10 @@ RUNNER_USER=${RUNNER_USER:-ghrunner}
 TRUSTED_DEPLOY_BIN=${TRUSTED_DEPLOY_BIN:-/usr/local/bin/workspacex-cn-deploy}
 TRUSTED_CANDIDATE_BIN=${TRUSTED_CANDIDATE_BIN:-/usr/local/bin/workspacex-cn-build-candidate}
 TRUSTED_PUBLISH_BIN=${TRUSTED_PUBLISH_BIN:-/usr/local/lib/workspacex-cn/publish-cn-release.sh}
+TRUSTED_PREFLIGHT_BIN=${TRUSTED_PREFLIGHT_BIN:-/usr/local/lib/workspacex-cn/verify-cn-release-preflight.sh}
 SUDOERS_FILE=${SUDOERS_FILE:-/etc/sudoers.d/workspacex-cn-deploy}
 
-[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
+[[ "$REPOSITORY_DIR" == /* && "$TRUSTED_DEPLOY_BIN" == /* && "$TRUSTED_CANDIDATE_BIN" == /* && "$TRUSTED_PUBLISH_BIN" == /* && "$TRUSTED_PREFLIGHT_BIN" == /* && "$SUDOERS_FILE" == /* ]] || {
   echo "CN_BOOTSTRAP_PATHS_MUST_BE_ABSOLUTE" >&2; exit 1;
 }
 [[ "$RUNNER_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo "CN_BOOTSTRAP_INVALID_RUNNER_USER" >&2; exit 1; }
@@ -37,10 +38,12 @@ source_script="$REPOSITORY_DIR/.harness/scripts/vm/deploy-cn-production.sh"
 [[ -f "$source_script" && ! -L "$source_script" ]] || { echo "CN_BOOTSTRAP_DEPLOY_SOURCE_MISSING" >&2; exit 1; }
 candidate_script="$REPOSITORY_DIR/.harness/scripts/vm/build-cn-release-candidate.sh"
 publisher_script="$REPOSITORY_DIR/.harness/scripts/vm/publish-cn-release.sh"
-[[ -f "$candidate_script" && ! -L "$candidate_script" && -f "$publisher_script" && ! -L "$publisher_script" ]] || { echo "CN_BOOTSTRAP_CANDIDATE_SOURCE_MISSING" >&2; exit 1; }
+preflight_script="$REPOSITORY_DIR/.harness/scripts/vm/verify-cn-release-preflight.sh"
+[[ -f "$candidate_script" && ! -L "$candidate_script" && -f "$publisher_script" && ! -L "$publisher_script" && -f "$preflight_script" && ! -L "$preflight_script" ]] || { echo "CN_BOOTSTRAP_CANDIDATE_SOURCE_MISSING" >&2; exit 1; }
 
 install -d -o root -g "$RUNNER_GROUP" -m 0750 /etc/workspacex-cn /etc/workspacex-cn/releases
 install -d -o root -g root -m 0700 /etc/workspacex-cn/requests
+install -d -o root -g root -m 0700 /etc/workspacex-cn/preflights /var/lib/workspacex-cn/preflight-receipts
 install -d -o "$RUNNER_USER" -g "$RUNNER_GROUP" -m 0755 /opt/workspacex-cn
 install -d -o root -g root -m 0700 /var/lib/workspacex-cn /var/lib/workspacex-cn/runtime /var/lib/workspacex-cn/releases
 printf '%s\n' "$RUNNER_USER" > /etc/workspacex-cn/runner-user
@@ -49,6 +52,7 @@ chmod 0600 /etc/workspacex-cn/runner-user
 install -o root -g root -m 0755 "$source_script" "$TRUSTED_DEPLOY_BIN"
 install -d -o root -g root -m 0755 "$(dirname "$TRUSTED_PUBLISH_BIN")"
 install -o root -g root -m 0755 "$publisher_script" "$TRUSTED_PUBLISH_BIN"
+install -o root -g root -m 0755 "$preflight_script" "$TRUSTED_PREFLIGHT_BIN"
 install -o root -g root -m 0755 "$candidate_script" "$TRUSTED_CANDIDATE_BIN"
 
 sudoers_temp=$(mktemp)

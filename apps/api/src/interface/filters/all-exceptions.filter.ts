@@ -603,6 +603,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const res = http.getResponse<Response>();
     const traceId = traceIdOf(http.getRequest());
 
+    // A streaming handler (SSE / chunked) that fails after its headers went out cannot get a JSON
+    // body: `res.json` would throw ERR_HTTP_HEADERS_SENT out of the filter and take the whole
+    // process down (WorkspaceX Local 实测 2026-09-17, a DB stall mid-stream killed the API).
+    // Log, close the connection so the client sees a broken stream, and stop.
+    if (res.headersSent) {
+      this.logger.error("exception after headers sent; closing response", { traceId, err: exception });
+      res.end();
+      return;
+    }
+
     if (exception instanceof ContractValidationError) {
       // Field-level errors are PART OF THE CONTRACT, not internal detail:
       // a path plus a zod code, never the submitted value.

@@ -116,14 +116,6 @@ export const LOCAL_CAPABILITY_BASELINE: readonly LocalCapability[] = [
     ],
   },
   {
-    id: "thread-title-model",
-    label: "会话名由模型总结",
-    state: "degraded",
-    because: "本机只有一个模型槽位，让它去起标题会推迟你真正等的那个回答。",
-    remedy: "会话名取自你的第一句话，功能不缺；想要模型总结的名字，连接云端后可用。",
-    envKeys: ["KERNEL_THREAD_TITLE_MODEL_ENABLED"],
-  },
-  {
     id: "skill-sandbox-isolation",
     label: "Skill 沙箱隔离等级",
     state: "degraded",
@@ -157,6 +149,13 @@ export interface CapabilityProbe {
    *   字段只会让每个读它的人再判断一次哪个更可信。
    */
   readonly chatModel: boolean;
+  /**
+   * 工具调用 / Skill 执行可用吗。缺省只看 `.venv`；随包 python 的部署（桌面版）把
+   * `resolveDeepAgentLaunch()` 的结论填进来——两种运行时都算「有」。
+   */
+  readonly toolsAndSkills?: boolean;
+  /** 实时转写模型在不在。缺省只看数据目录；随包 asr-models 的部署把结论填进来。 */
+  readonly liveTranscription?: boolean;
 }
 
 /**
@@ -191,7 +190,7 @@ export function localCapabilities(
       because: "工具循环在 deep-agent-service 里，它需要 Python 运行时。",
       remedy: "运行 ./scripts/local-bundle/prepare-python.sh 后重启。",
       envKeys: [],
-      available: existsSync(paths.deepAgentVenv(where)),
+      available: probe.toolsAndSkills ?? existsSync(paths.deepAgentVenv(where)),
     },
     {
       id: "live-transcription",
@@ -200,7 +199,7 @@ export function localCapabilities(
       because: "本地转写模型还没下载。",
       remedy: "运行 ./scripts/local-bundle/fetch-asr-model.sh 后重启（约 300 MB，纯 CPU）。",
       envKeys: [],
-      available: existsSync(join(paths.asrModelDir(where), "tokens.txt")),
+      available: probe.liveTranscription ?? existsSync(join(paths.asrModelDir(where), "tokens.txt")),
     },
   ];
   return [

@@ -154,10 +154,22 @@ export async function importThread(
   projectId: string,
   threadId: string,
   problem?: string,
+  /**
+   * 迭代 16（#3773 R3）：确认阶段一并写入的验收标准（用户在预览里勾/改过的那份）。
+   * 省略 = 不动项目现有的（**不是**清空）——所以「一条都不要」要传空数组，不是不传。
+   */
+  criteria?: readonly string[],
 ): Promise<ImportThreadOut> {
   return apiRequest<ImportThreadOut>(
     designWorkbench.operations.importThread.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { threadId, ...(problem !== undefined ? { problem } : {}) } },
+    {
+      method: "POST",
+      body: {
+        threadId,
+        ...(problem !== undefined ? { problem } : {}),
+        ...(criteria !== undefined ? { criteria: [...criteria] } : {}),
+      },
+    },
   );
 }
 

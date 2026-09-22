@@ -126,7 +126,42 @@ export async function appendProjectChat(
   if (current === null) throw new DesignProjectNotFoundError();
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
 
+  /**
+   * 迭代 16（#3773 R2）—— **生成期间就把画到一半的结果落库**。
+   *
+   * 在这之前，首次生成是「一次 HTTP 请求里画完 3–6 页再一次性写回」：用户屏上
+   * 几分钟只有一个转圈，画布全程空白，刷新一下前功尽弃。而骨架轮十来秒就已经
+   * 知道有哪几页了——那个事实一直被扣着不发。
+   *
+   * 现在 `generatePaged` 每定下骨架、每画好一页都会叫一次这个回调，这里把它落成
+   * 一次**不记版本**的 `projects.update`。前端在这次请求还没返回时轮询项目，
+   * 看到的就是页标签先出现、然后一页页长出来。
+   *
+   * 三条纪律：
+   * ① **不记版本快照**——一次生成会叫 N+1 次，每次都记版本会把原型历史刷成一串半成品；
+   *    版本只在收尾那次原子写回时记一条（"这一轮生成"是一版，不是六版）。
+   * ② **抛了不影响生成**——`ModelDesignChatReplier.publish` 已经把它包在 try 里；
+   *    这里再记一次日志，让"中途没存上"是看得见的，而不是悄悄退回老行为。
+   * ③ **写的是同一份事实**——中途写和收尾写用同一个 `ensureIdsKeepingHoles`、同一个
+   *    页序来源，不是两套拼法。收尾那次照写，中途写只是让它早点可见。
+   */
+  const persistProgress = async (screens: readonly { readonly frame: string; readonly root?: designPrototype.PrototypeNode; readonly notes?: string; readonly links?: readonly designPrototype.PrototypeLink[] }[]): Promise<void> => {
+    const check = designPrototype.validateLinks(screens.map((x) => ({ root: x.root, links: x.links })));
+    const written = await deps.projects.update(input.projectId, input.ownerId, {
+      frames: screens.map((x) => x.frame),
+      prototype: ensureIdsKeepingHoles(screens),
+      frameNotes: screens.map((x) => (x.notes ?? "").trim()),
+      frameLinks: check.links.map((l) => [...l]),
+    });
+    if (written === null) {
+      deps.logger?.info("design chat: progress write skipped, project no longer owned", {
+        projectId: input.projectId, traceId: deps.traceId ?? "",
+      });
+    }
+  };
+
   const ai = await deps.ai.reply({
+    onProgress: persistProgress,
     name: current.name,
     template: current.template,
     problem: current.problem,

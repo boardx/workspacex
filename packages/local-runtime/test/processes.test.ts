@@ -4,6 +4,7 @@
  * 之所以值得测：这三件事失败时的表现都**看起来像别的东西**——端口被占看起来像机器慢，
  * 子进程崩了看起来像还在启动，启动后崩了看起来像聊天框卡住。误诊的代价比故障本身大。
  */
+import { execSync } from "node:child_process";
 import net from "node:net";
 import { describe, expect, it } from "vitest";
 import { portInUse, startManaged, waitForHttpOrExit } from "../src/processes";
@@ -73,4 +74,19 @@ describe("waitForHttpOrExit", () => {
       await managed.stop();
     }
   }, 30_000);
+});
+
+describe("startManaged", () => {
+  it("stop() takes the whole process group down, not just the direct child", async () => {
+    // sh forks `sleep`; killing only sh would leave sleep running (the uvicorn --workers shape)
+    const m = startManaged({ name: "tree", command: "sh", args: ["-c", "sleep 300 & wait"], cwd: process.cwd(), env: {} }, () => {});
+    await new Promise((r) => setTimeout(r, 300));
+    const pgid = m.child.pid!;
+    const before = execSync(`ps -o pid= -g ${pgid} | wc -l`).toString().trim();
+    expect(Number(before)).toBeGreaterThanOrEqual(2);
+    await m.stop();
+    await new Promise((r) => setTimeout(r, 300));
+    const after = execSync(`ps -o pid= -g ${pgid} | wc -l`).toString().trim();
+    expect(Number(after)).toBe(0);
+  });
 });

@@ -260,6 +260,10 @@ async function resolveByKey(input: {
         key,
         ...framing,
         gridCols: row.gridCols ?? canvas.DEFAULT_GRID_COLS,
+        // 行数同理（issue #3358 第 8 项）：编辑器现在能把一张模板存成 16 行，
+        // 这里若仍然吃缺省的 8 行，同一份 `layout.row/h` 在真实 chat 里指的是
+        // 纸面上另一个位置——列数那条链刚修过的同一个 bug，换成纵轴。
+        gridRows: row.gridRows ?? canvas.DEFAULT_GRID_ROWS,
         sections: row.sections
           .filter((s) => s.layout != null)
           .map((s) => (
