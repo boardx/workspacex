@@ -15,6 +15,21 @@
 import * as React from "react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 
+const DIAGRAM = [
+  "画一张流程给你：",
+  "",
+  "```mermaid",
+  "graph TD",
+  "  A[收到询价] --> B{有现成报价吗}",
+  "  B -->|有| C[直接回复]",
+  "  B -->|没有| D[向供应商询价]",
+  "  D --> E[汇总比价]",
+  "  E --> C",
+  "```",
+  "",
+  "要我把比价那一步展开吗？",
+].join("\n");
+
 const FENCE = [
   "这就为你整理一张商业模式画布：",
   "",
@@ -48,27 +63,44 @@ const FENCE = [
 ].join("\n");
 
 export default function CanvasStreamingPreviewPage() {
+  const [kind, setKind] = React.useState<"canvas" | "mermaid">("canvas");
+  const text = kind === "canvas" ? FENCE : DIAGRAM;
   const [n, setN] = React.useState(0);
   const [running, setRunning] = React.useState(true);
   const [elapsed, setElapsed] = React.useState(0);
   const startedAt = React.useRef<number | null>(null);
+  const reset = React.useCallback(() => { setN(0); setElapsed(0); startedAt.current = null; setRunning(true); }, []);
 
   React.useEffect(() => {
-    if (!running || n >= FENCE.length) return;
+    if (!running || n >= text.length) return;
     if (startedAt.current === null) startedAt.current = Date.now();
     const t = window.setTimeout(() => {
-      setN((v) => Math.min(FENCE.length, v + 1));
+      setN((v) => Math.min(text.length, v + 1));
       setElapsed(Date.now() - (startedAt.current ?? Date.now()));
     }, 33);                                  // ≈30 tok/s，与本地版 4B 实测速率同量级
-    return () => window.clearTimeout(t);
-  }, [running, n]);
 
-  const reset = () => { setN(0); setElapsed(0); startedAt.current = null; setRunning(true); };
+  return () => window.clearTimeout(t);
+  }, [running, n, text]);
+
 
   return (
     <main className="min-h-screen bg-background p-6 text-background-foreground">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-11 font-medium text-muted-foreground">画布围栏流式重放（mock，不接后端）</span>
+        <span className="text-11 font-medium text-muted-foreground">围栏流式重放（mock，不接后端）</span>
+        {(["canvas", "mermaid"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            data-testid={`canvas-streaming-kind-${k}`}
+            data-active={kind === k}
+            onClick={() => { setKind(k); reset(); }}
+            className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-base ${
+              kind === k ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
+            }`}
+          >
+            {k === "canvas" ? "画布" : "流程图"}
+          </button>
+        ))}
         <button
           type="button"
           data-testid="canvas-streaming-toggle"
@@ -88,17 +120,17 @@ export default function CanvasStreamingPreviewPage() {
         <button
           type="button"
           data-testid="canvas-streaming-finish"
-          onClick={() => { setN(FENCE.length); setRunning(false); }}
+          onClick={() => { setN(text.length); setRunning(false); }}
           className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-base hover:bg-muted"
         >
           直接到终态
         </button>
         <span data-testid="canvas-streaming-clock" className="text-11 tabular-nums text-muted-foreground">
-          {(elapsed / 1000).toFixed(1)}s · {n}/{FENCE.length} 字
+          {(elapsed / 1000).toFixed(1)}s · {n}/{text.length} 字
         </span>
       </div>
       <div className="max-w-3xl rounded-lg border border-border bg-card p-4">
-        <MarkdownMessage text={FENCE.slice(0, n)} />
+        <MarkdownMessage text={text.slice(0, n)} />
       </div>
     </main>
   );

@@ -74,6 +74,18 @@ type Status =
   | { phase: "valid" }
   | { phase: "error"; reason: "whitelist" | "syntax"; detail: string };
 
+/**
+ * 流式中途「这一帧值不值得画」的**便宜同步**判据：已经能认出是哪种图（白名单内），
+ * 而且至少有一行图体。真正的合法性仍由 `mermaid.parse` 判——这里只是别在
+ * 「graph T」这种时候就把唯一的一帧用掉。
+ */
+export const __canStartDiagramForTest = (code: string): boolean => canStartDiagram(code);
+
+function canStartDiagram(code: string): boolean {
+  if (!resolveDiagramType(code).inWhitelist) return false;
+  return code.trimEnd().split("\n").filter((l) => l.trim() !== "").length >= 2;
+}
+
 export function ChatDiagramFabric({
   code, closed = true, threadId, messageId, bearer, projectId,
 }: {
@@ -124,7 +136,22 @@ export function ChatDiagramFabric({
    * 保存版替换（`savedSource`）是一次性的终态，`closed` 恒真时取样器立即跟上，
    * 所以这里不需要为它开特例。
    */
-  const renderCode = useSampledFenceCode(previewCode, savedSource !== null ? true : closed);
+  /**
+   * 流式取样。这里用 `first-then-final` 而不是 canvas 那条的 `progressive`，
+   * 因为渲染层的机制不同：`DiagramCanvasBody` 靠 key 重挂载（那条 key 守着一个真崩过页的
+   * 事故，见下面的注释，不能动），每跟进一次就重挂一次、状态机回到 validating、
+   * canvas 被卸载——真实浏览器实测是图在流式中途整个消失 0.8 秒再回来。
+   * 所以未闭合期间只取一帧，闭合时一次到终态。
+   *
+   * 那一帧落在哪由 `canStartDiagram` 决定：不给判据的话它会在几乎没有内容时就被取走、
+   * 然后冻到闭合，等于整条流都不渲染。
+   */
+  const renderCode = useSampledFenceCode(
+    previewCode,
+    savedSource !== null ? true : closed,
+    "first-then-final",
+    canStartDiagram,
+  );
 
   /**
    * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：点「最大化」
@@ -288,8 +315,18 @@ export function ChatDiagramFabric({
   return (
     <>
       <DiagramCanvasBody
-        // key 跟着取样后的源码走：原本是 `key={previewCode}`，流式期间等于每个 token
-        // 把整个组件重挂一次（重跑 mermaid.parse + 重建 FabricCanvas）。
+        /*
+          key 仍然跟着源码走——「不要」改成「实时/保存版」两值。
+
+          我试过那个改法（为了消掉流式中途图消失 0.8 秒的闪），
+          `chat-diagram-fabric-postmount-readback-no-crash.test.tsx` 立刻红：那条 key 守的是
+          一个生产上真崩过页的事故（fabric 塞进 DOM 的包裹节点在 valid→error 切换时撞
+          `removeChild`，2026-08-22 devapp 实测 + 截图 + console 原文）。
+          拿真实崩溃风险换一个观感上的闪，不划算。
+
+          闪的问题改用取样模式解决：`first-then-final` 让流式期间只取一帧，
+          于是只重挂一次。见下面 `renderCode` 的注释。
+        */
         key={renderCode}
         previewCode={renderCode}
         closed={closed}
@@ -367,6 +404,12 @@ function DiagramCanvasBody({
   const fabricRef = React.useRef<FabricCanvas | null>(null);
   const [status, setStatus] = React.useState<Status>({ phase: "validating" });
   const [ready, setReady] = React.useState(false);
+  /**
+   * 首帧渲染成功过就不再打回「渲染图中…」遮罩。流式期间每取样一次就重建一次 fabric，
+   * 每次都把遮罩打回来的话，用户看到的是一张不停闪的图——比晚一点出现更糟。
+   * 与 canvas 围栏同款处置。
+   */
+  const everReadyRef = React.useRef(false);
   const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(previewCode), [previewCode]);
 
   // 阶段一：校验（**不挂 canvas**）。白名单闸门 + mermaid.parse 语法闸门（与 VZ-01 一致）。
@@ -432,6 +475,7 @@ function DiagramCanvasBody({
         });
         fitToContent(canvas, { padding: 24 });
         canvas.requestRenderAll();
+        everReadyRef.current = true;
         setReady(true);
       })
       .catch(() => {
@@ -548,7 +592,7 @@ function DiagramCanvasBody({
           {inView ? "校验并渲染图中…" : "滚动到此处即渲染"}
         </div>
       )}
-      {status.phase === "valid" && !ready && (
+      {status.phase === "valid" && !ready && !everReadyRef.current && (
         <div
           data-testid="chat-diagram-loading"
           className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"

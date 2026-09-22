@@ -48,3 +48,20 @@ describe("流式 mermaid", () => {
     await waitFor(() => expect(screen.getByTestId("chat-ai-mermaid-error")).toBeTruthy());
   });
 });
+
+/**
+ * `canStartDiagram` 决定流式期间那**唯一一帧**落在哪。没有它，第一帧会在几乎没有内容时
+ * 被取走然后冻到闭合，等于整条流都不渲染——那是我加它的原因，所以它得有自己的反证。
+ */
+describe("流式期间那一帧落在哪", () => {
+  it("认不出图种、或只有一行时不占用那一帧", async () => {
+    const { __canStartDiagramForTest } = await import("@/components/chat/chat-diagram-fabric");
+    expect(__canStartDiagramForTest("graph T")).toBe(false);
+    expect(__canStartDiagramForTest("graph TD")).toBe(false);          // 只有图种行，没有图体
+    expect(__canStartDiagramForTest("随便写点什么\n还有一行")).toBe(false);
+  });
+  it("认得出图种且有图体时就可以画了", async () => {
+    const { __canStartDiagramForTest } = await import("@/components/chat/chat-diagram-fabric");
+    expect(__canStartDiagramForTest("graph TD\n  A[开始] --> B")).toBe(true);
+  });
+});

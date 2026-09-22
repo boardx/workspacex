@@ -70,10 +70,39 @@ export function nextSample(next: string, now: number): SampleState {
  * 返回的 `renderCode` 就是渲染层该消费的源码：围栏闭合后与 `code` 一致；
  * 未闭合时按上面的规则跟进。
  */
-export function useSampledFenceCode(code: string, closed: boolean): string {
+export type SampleMode =
+  /** 每次签名变化 + 间隔到点都跟进。给「重算但不重挂」的渲染层（canvas 围栏）。 */
+  | "progressive"
+  /**
+   * 未闭合期间只取第一帧，之后按兵不动，闭合时一次到终态。
+   *
+   * 给**靠 key 重挂载**的渲染层（mermaid 围栏：`DiagramCanvasBody` 的 key 跟着源码走，
+   * 一重挂状态机就回到 validating、canvas 被卸载）。在那里跟进每一次签名变化的代价是
+   * 图在流式中途整个消失零点几秒再回来——真实浏览器实测 4.0s→4.8s 就是这么一段空白。
+   * 一张会闪的图比一张晚零点几秒才完整的图糟得多。
+   */
+  | "first-then-final";
+
+export function useSampledFenceCode(
+  code: string,
+  closed: boolean,
+  mode: SampleMode = "progressive",
+  /**
+   * `first-then-final` 专用：那**一帧**什么时候才值得取。
+   *
+   * 不给判据的话第一帧会在几乎没有内容的时候就被取走、然后一直冻到闭合，
+   * 等于整条流都不渲染。给一个便宜的同步判据（比如「已经能认出是哪种图 + 至少两行」），
+   * 那一帧就落在一个画得出东西的位置上。
+   */
+  canStart: (code: string) => boolean = () => true,
+): string {
   const [sample, setSample] = React.useState<SampleState | null>(null);
   React.useEffect(() => {
     const now = Date.now();
+    if (mode === "first-then-final" && !closed) {
+      if (sample !== null) return;
+      if (!canStart(code)) return;
+    }
     if (shouldResample(sample, code, closed, now, DEFAULT_SAMPLE_INTERVAL_MS)) {
       setSample(nextSample(code, now));
       return;
@@ -87,6 +116,6 @@ export function useSampledFenceCode(code: string, closed: boolean): string {
       wait + 10,
     );
     return () => window.clearTimeout(t);
-  }, [code, closed, sample]);
+  }, [code, closed, sample, mode, canStart]);
   return sample?.code ?? code;
 }

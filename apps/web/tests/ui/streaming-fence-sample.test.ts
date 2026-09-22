@@ -21,6 +21,20 @@ describe("内容签名只反映「画布上会多出东西」", () => {
   });
 });
 
+describe("first-then-final 模式（给靠 key 重挂载的渲染层）", () => {
+  const G = "graph TD\n  A --> B";
+  it("未闭合期间只取一帧，之后按兵不动", () => {
+    const first = nextSample(G, 1000);
+    expect(shouldResample(null, G, false, 1000)).toBe(true);
+    // 冻结由 hook 里的早退实现，这里钉住的是「闭合时必须一次到终态」这一半
+    expect(shouldResample(first, G + "\n  B --> C", true, 1001)).toBe(true);
+  });
+  it("闭合时即便间隔远没到也要跟上", () => {
+    const first = nextSample(G, 1000);
+    expect(shouldResample(first, G + "\n  B --> C", true, 1000)).toBe(true);
+  });
+});
+
 describe("取样规则", () => {
   it("第一帧尽快给", () => {
     expect(shouldResample(null, withSections(1), false, 1000)).toBe(true);
