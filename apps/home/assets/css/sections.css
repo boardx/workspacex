@@ -427,7 +427,7 @@
 .proof { position: relative; isolation: isolate; }
 .proof::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(70% 60% at 22% 40%, rgba(177, 75, 255, 0.09), transparent 70%);
+  background: radial-gradient(70% 60% at 22% 40%, rgb(var(--c-3-rgb) / 0.09), transparent 70%);
 }
 .proof__inner {
   display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
@@ -486,7 +486,7 @@
 .doc a:not(.nav__ghost):not(.langswitch__btn):not(.brand) {
   color: var(--c-2);
   text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: rgba(255, 46, 115, 0.4);
+  text-decoration-color: rgb(var(--c-2-rgb) / 0.4);
 }
 .doc code {
   font-family: var(--font-mono); font-size: var(--t-inline-code);
