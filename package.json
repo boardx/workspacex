@@ -16,6 +16,7 @@
     "lint:e2e-testid-gate": "node .harness/scripts/lint-e2e-testid-gate.mjs",
     "lint:chat-path-coverage": "node .harness/scripts/lint-chat-path-coverage.mjs",
     "lint:graph": "pnpm harness graph validate --no-cache",
+    "lint:feature-transition": "pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition",
     "lint:body-path-param-leak": "pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs",
     "lint:contract-negative-assertion": "pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs",
     "lint:contract-state-names": "node .harness/scripts/lint-contract-state-names.mjs",
