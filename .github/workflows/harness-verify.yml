@@ -250,6 +250,17 @@ jobs:
       # 只读 packages/contracts 与 apps/api/src/interface，不碰 DB，秒级。
       - name: 契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）
         run: pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs --strict
+      # #397：屏 → live 适配器 → controller → application 用例这条**跨层接线**必须成立。
+      # 审计（#384 P0）实证过的形状：页面做好了、导航也连上了，而 controller 根本没挂进
+      # kernel 的 controllers[]，用户点进去拿不到任何东西——而在这道门之前，全仓没有任何
+      # 检查会因此变红（ui-material 只管截图、nav-reachability 只管导航走得到、
+      # rewrite-coverage 只管 controller ↔ rewrites 成对）。
+      # 形态是棘轮：mock 豁免清单只减不增，新增 mock 驱动的产品路由当场红。
+      # 放 PR 门控的理由与上面 rewrite-coverage 同：它要挡的失效就发生在加那条屏的 PR 里。
+      # 只读源码（import 闭包 + 装饰器 + kernel 注册表），不碰 DB / 浏览器，秒级。
+      # 反证见 .harness/scripts/lint-ui-wiring.test.ts（真假仓库 + 注入缺陷）。
+      - name: 跨层接线（屏 → 适配器 → controller → application 用例）
+        run: pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
 
       # 不存在「写了但没人跑」的 e2e spec（#512）。
       # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
