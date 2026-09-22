@@ -6,10 +6,12 @@ import { loadCommitPolicy } from "./lib/ci-check-policy.mjs";
 // 判定它们。本命令补上这个缺口：把"reviewer 逐字节人肉验"变成"一条命令跑完"。
 //
 // 用法：pnpm harness doctor [--phase NN]   （默认体检 roadmap 里的全部 phase）
-// 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0。
+// 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0；
+//   权威没问到（GitHub 不可达 / feature_list 读不动）= UNREACHABLE，本地 0、`--strict` 1。
+//   完整策略表见 classifyDoctorOutcome——「问不到」是独立结论，不是绿（#394）。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { findPhaseDir, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
+import { findPhaseDir, phaseFeatureListPath, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
@@ -28,7 +30,7 @@ import {
 import { readKnownAgentIdentities } from "./lib/agent-identity";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
-import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
+import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
 import { PR_GREEN_RULE_EFFECTIVE_FROM, commitStatusToObservation, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
 import type { QueueMergeEvidence } from "./lib/merge-queue";
 import { parse as parseYaml } from "yaml";
@@ -60,6 +62,107 @@ interface Finding {
   level: "FAIL" | "WARN" | "INFO";
   phase: string;
   msg: string;
+}
+
+// ─── 结论三态（#394）────────────────────────────────────────────────────────
+//
+// 原来这里只有两态：`fails.length ? 断裂 : 审计链完整`。于是「本次根本没问到 GitHub」
+// 和「问到了，全绿」渲染成同一句话。2026-09-21 在无 gh 的环境实测 `doctor --phase 01`：
+//
+//   doctor：体检 1 个 phase — 0 FAIL / 211 WARN
+//   ✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main…   （exit 0）
+//
+// ①②③⑤ 四项检查因 `issues === null` 被整段跳过，一条 issue 都没查过，却逐字宣称
+// 「有对应 issue 且已合入 main」——而那 211 条 WARN 说的正是反话。
+//
+// 这正是 AGENTS.md 的「静态痕迹 ≠ 动态事实」：**不可达被当成了「查过，没问题」**。
+// 修法不是把文案写软一点，而是让「问不到」成为一个独立且不为绿的结论。
+
+/** doctor 的四种结论。CLEAN 是唯一允许出现完整性断言的一种。 */
+export type DoctorOutcome = "CLEAN" | "PASS_WITH_DEBT" | "UNREACHABLE" | "FAIL";
+
+export interface OutcomeInput {
+  failCount: number;
+  warnCount: number;
+  /** 本次体检**没问到**的权威（GitHub issue 清单、读不动的 feature_list…）。
+   *  非空 ⇒ 审计链有一段没被检查过 ⇒ 不许打绿。 */
+  authorityGaps: string[];
+  /** `--strict`：CI 用。见下面的退出码策略。 */
+  strict: boolean;
+}
+
+export interface OutcomeVerdict {
+  outcome: DoctorOutcome;
+  exitCode: 0 | 1;
+  /** 终局那一行文案。CLEAN 之外一律不含完整性断言。 */
+  summary: string;
+}
+
+/**
+ * 把 FAIL / WARN / 权威缺口三个输入收敛成一个结论 + 一个显式退出码。
+ *
+ * 优先级：FAIL > UNREACHABLE > PASS_WITH_DEBT > CLEAN。
+ * 「有 FAIL」压过一切——权威缺口不会把已经看见的断裂稀释掉。
+ *
+ * ## 退出码策略（显式写在这里，不散落在调用点）
+ *
+ * | 结论            | 触发                       | 非 strict | `--strict`(CI) |
+ * |-----------------|----------------------------|-----------|----------------|
+ * | FAIL            | failCount > 0              | 1         | 1              |
+ * | UNREACHABLE     | 无 FAIL，但有权威缺口      | **0**     | **1**          |
+ * | PASS_WITH_DEBT  | 无 FAIL 无缺口，有 WARN    | 0         | 0              |
+ * | CLEAN           | 三者皆无                   | 0         | 0              |
+ *
+ * UNREACHABLE 非 strict 放行、strict 拦截，与本文件既有的 ②③⑤ 同一套约定
+ * （pre-push WARN / CI FAIL）：本地没装 gh 很常见，不该阻断开发；但 CI 上
+ * 「问不到 GitHub」不等于绿——AGENTS.md 完成定义第 7 条写的就是这句。
+ * 关键在于：**即便退出码是 0，结论也不是 CLEAN**，文案必须说出缺了哪一段。
+ */
+export function classifyDoctorOutcome(input: OutcomeInput): OutcomeVerdict {
+  const { failCount, warnCount, authorityGaps, strict } = input;
+
+  if (failCount > 0) {
+    return {
+      outcome: "FAIL",
+      exitCode: 1,
+      summary:
+        `审计链存在断裂（${failCount} FAIL）。FAIL 项修复前不要开 PR / 交 review` +
+        `——reviewer 会用同样的标准 Block。`,
+    };
+  }
+
+  if (authorityGaps.length > 0) {
+    return {
+      outcome: "UNREACHABLE",
+      exitCode: strict ? 1 : 0,
+      summary:
+        `本次体检有权威没问到，结论不成立（${failCount} FAIL / ${warnCount} WARN，但下列检查未曾执行）：\n` +
+        authorityGaps.map((g) => `    · ${g}`).join("\n") +
+        `\n  “问不到”不等于“没问题”。` +
+        (strict
+          ? `CI（--strict）不接受在残缺授权上作出的结论。`
+          : `本地已放行（退出码 0），但别拿这一跑当绿；在能访问 GitHub 的环境重跑，或用 --strict 让它拦下来。`),
+    };
+  }
+
+  if (warnCount > 0) {
+    return {
+      outcome: "PASS_WITH_DEBT",
+      exitCode: 0,
+      summary:
+        `权威均已查证，无阻断性断裂，但带着 ${warnCount} 条待清理的债（见上方 ⚠ 行）——` +
+        `这不是“全绿”，是“没有硬错，债还在”。`,
+    };
+  }
+
+  return {
+    outcome: "CLEAN",
+    exitCode: 0,
+    summary:
+      "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
+      "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；" +
+      "phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。",
+  };
 }
 
 // 「实现是否已在 main 上」的判据抽到 lib/evidence-integration.ts（#1557）：sync 关 issue
@@ -482,9 +585,21 @@ export interface GhIssue {
  */
 // 清单加载已收敛到 lib/github-issues.ts（#2483）：sync 的同款 `--limit 500` 停了一个月没跟上
 // 这里 2026-08-05 的修法，同一件事两处各写一套正是漂移的来源。这里只保留 doctor 的降级语义。
-function loadIssues(): GhIssue[] | null {
+/**
+ * 读不到 issue 清单时，这里给出**权威缺口**的说明（#394）。
+ *
+ * 返回 null ⇒ 清单可信，①②③⑤ 照常判。返回字符串 ⇒ 这一段审计链本次没有被检查过，
+ * 结论只能是 UNREACHABLE。注意 `truncated` 与 `unavailable` 同级：一份可能残缺的清单
+ * 同样不足以支撑「这个 feature 没有 issue」这种否定性判断。
+ */
+export function issueAuthorityGap(r: IssueListResult): string | null {
+  if (r.kind === "ok") return null;
+  return `${describeIssueListFailure(r)}——「开发任务必须在 issue 上可见」「issue 已被 PR 关闭」「关闭 PR 合入时全绿」三项本次均未执行`;
+}
+
+function loadIssues(): { issues: GhIssue[] | null; gap: string | null } {
   const r = listAllIssues({ cwd: REPO_ROOT });
-  if (r.kind === "ok") return r.issues;
+  if (r.kind === "ok") return { issues: r.issues, gap: null };
   if (r.kind === "truncated") {
     // 触顶 ⇒ 可能被截断 ⇒ 这份清单不足以支撑「某个 feature 没有 issue」这种否定性判断。
     // 走 stdout：doctor 其余的 ✗/⚠ 都在这条流上，另开一条会让它在 CI 日志里
@@ -493,7 +608,9 @@ function loadIssues(): GhIssue[] | null {
       `⚠ [doctor] ${describeIssueListFailure(r)}——本次跳过「开发任务必须在 issue 上可见」的检查，而不是用残缺清单误判。\n`,
     );
   }
-  return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
+  // 没装 gh / 没登录 / 离线：仍然不阻断本地开发（退出码见 classifyDoctorOutcome），
+  // 但它是一个**说得出口的权威缺口**，不再被后面那句「审计链完整」盖过去。
+  return { issues: null, gap: issueAuthorityGap(r) };
 }
 
 function findIssue(issues: GhIssue[], phaseId: string, f: Feature): GhIssue | undefined {
@@ -850,10 +967,13 @@ export function doctor(args: Args): void {
   });
 
   const findings: Finding[] = [];
+  /** 本次体检「没问到」的权威。非空 ⇒ 结论是 UNREACHABLE，不许打绿（#394）。 */
+  const authorityGaps: string[] = [];
   // GitHub 侧一次拉全，离线时降级为一条 WARN 而不是阻断本地开发
-  const issues = loadIssues();
+  const { issues, gap: issueGap } = loadIssues();
   const repo = syncRepo();
-  if (issues === null) {
+  if (issueGap) {
+    authorityGaps.push(issueGap);
     findings.push({
       level: "WARN",
       phase: "-",
@@ -871,7 +991,13 @@ export function doctor(args: Args): void {
     let fl;
     try {
       fl = loadFeatureList(id);
-    } catch {
+    } catch (error) {
+      // 「文件不存在」与「文件存在但读不动」是两件事，此前都被这个 catch 吞成同一件（#394）。
+      // 前者是纯 requirements 期的正常状态；后者意味着该 phase 的**权威清单本次没读到**，
+      // 它下面所有 feature 的检查一条都没跑过——那不是健康，是没看。
+      if (existsSync(phaseFeatureListPath(id))) {
+        authorityGaps.push(`phase ${id} 的 feature_list.json 读取失败（${(error as Error).message}）——该 phase 的全部 feature 检查本次均未执行`);
+      }
       continue; // 没有 feature_list 的 phase（纯 requirements 期）不体检
     }
     scannedPhases.push({ phaseId: id, features: fl.features });
@@ -917,15 +1043,18 @@ export function doctor(args: Args): void {
   for (const f of fails) log.err(`[${f.phase}] ${f.msg}`);
   for (const f of warns) log.info(`⚠ [${f.phase}] ${f.msg}`);
   for (const f of infos) log.info(`· [${f.phase}] ${f.msg}`);
-  log.info(`doctor：体检 ${phaseIds.length} 个 phase — ${fails.length} FAIL / ${warns.length} WARN`);
-  if (fails.length) {
-    log.err("审计链存在断裂。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。");
-    process.exitCode = 1;
-  } else {
-    log.ok(
-      "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
-        "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；" +
-        "phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。",
-    );
-  }
+  const verdict = classifyDoctorOutcome({
+    failCount: fails.length,
+    warnCount: warns.length,
+    authorityGaps,
+    strict,
+  });
+  log.info(
+    `doctor：体检 ${phaseIds.length} 个 phase — ${fails.length} FAIL / ${warns.length} WARN` +
+      ` / ${authorityGaps.length} 权威缺口 ⇒ ${verdict.outcome}`,
+  );
+  if (verdict.outcome === "CLEAN") log.ok(verdict.summary);
+  else if (verdict.outcome === "PASS_WITH_DEBT") log.info(`~ ${verdict.summary}`);
+  else log.err(verdict.summary);
+  if (verdict.exitCode !== 0) process.exitCode = verdict.exitCode;
 }
