@@ -2,6 +2,8 @@
 name: internal-communications
 description: 撰写内部公告、领导更新、FAQ、3P周报或项目沟通草稿时使用。
 license: See LICENSE.txt
+capability_id: WX-S011
+version: 1.1.1
 ---
 
 # 组织沟通文稿

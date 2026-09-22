@@ -11,8 +11,9 @@ import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import { KIND_TO_LAYER, checkSpecialistWorkerSpecs, type RawAgentSpec } from "./lib/agent-spec-shape";
 import { findOrphanArtifacts } from "./lib/subagent-orphans";
+import { classifyAgentDocument } from "./lib/agent-spec-discovery";
 
-interface AgentSpec {
+export interface AgentSpec {
   name: string;
   description: string;
   role: string;
@@ -321,6 +322,48 @@ export function generatePersistentCodexToml(spec: PersistentRoleSpec): string {
   ].join("\n");
 }
 
+/** 一份已读入并 YAML 解析过的 `.harness/agents/*.yaml` 文档。 */
+export interface AgentSpecDocument {
+  readonly file: string;
+  readonly parsed: unknown;
+}
+
+export interface AgentSpecSelection {
+  /** 按 schema 认定为 agent 规格、该生成两种格式的文档。 */
+  readonly specs: ReadonlyArray<{ readonly file: string; readonly spec: AgentSpec }>;
+  /** 按 schema 认出的非 agent 规格文档（如身份注册表）——正常跳过，不是异常。 */
+  readonly skipped: ReadonlyArray<{ readonly file: string; readonly kind: "registry" }>;
+  /** 既不是注册表也不是合法 agent 规格的文档，逐条警告文案。 */
+  readonly warnings: ReadonlyArray<string>;
+}
+
+/**
+ * issue #399：发现逻辑曾经是「扩展名是 .yaml 就当 agent 规格解析」，于是
+ * `registry.yaml` 每次都被判「缺少 name 字段」并警告一次。注册表不该有 name，
+ * 缺的是判定不是字段。这里按 schema 分流（见 lib/agent-spec-discovery.ts），
+ * 注册表静默跳过，真正漏写 name 的 agent 规格仍然警告。
+ *
+ * 纯函数、无 IO，便于单测钉住选型行为。
+ */
+export function selectAgentSpecs(documents: readonly AgentSpecDocument[]): AgentSpecSelection {
+  const specs: Array<{ file: string; spec: AgentSpec }> = [];
+  const skipped: Array<{ file: string; kind: "registry" }> = [];
+  const warnings: string[] = [];
+  for (const { file, parsed } of documents) {
+    const classification = classifyAgentDocument(file, parsed);
+    if (classification.kind === "registry") {
+      skipped.push({ file, kind: "registry" });
+      continue;
+    }
+    if (classification.kind === "unrecognized") {
+      warnings.push(`${file} ${classification.reason}，跳过`);
+      continue;
+    }
+    specs.push({ file, spec: parsed as AgentSpec });
+  }
+  return { specs, skipped, warnings };
+}
+
 export function genSubagents(_args: Args): void {
   if (!existsSync(AGENTS_DIR)) {
     log.info(`找不到 ${AGENTS_DIR}，跳过（无 agent 规格文件）`);
@@ -338,13 +381,19 @@ export function genSubagents(_args: Args): void {
 
   let generated = 0;
   const generatedNames: string[] = [];
-  for (const file of yamlFiles) {
-    const raw = readFileSync(join(AGENTS_DIR, file), "utf8");
-    const spec = parse(raw) as AgentSpec;
-    if (!spec.name) {
-      log.warn(`${file} 缺少 name 字段，跳过`);
-      continue;
-    }
+  const selection = selectAgentSpecs(
+    yamlFiles.map((file) => ({
+      file,
+      parsed: parse(readFileSync(join(AGENTS_DIR, file), "utf8")) as unknown,
+    })),
+  );
+  for (const { file } of selection.skipped) {
+    log.info(`${file} 是身份注册表（不是 agent 规格），跳过`);
+  }
+  for (const warning of selection.warnings) {
+    log.warn(warning);
+  }
+  for (const { file, spec } of selection.specs) {
     assertSpecialistWorkerSpec(file, { sourceFile: file, name: spec.name, role: spec.role, tools: spec.tools });
 
     // 生成 Claude md

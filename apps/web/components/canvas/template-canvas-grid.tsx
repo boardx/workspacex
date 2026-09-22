@@ -2,8 +2,8 @@
 import * as React from "react";
 import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf, findOverlappingSections } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
-import type { GridColsValue } from "@repo/contracts/canvas";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { DEFAULT_GRID_ROWS, type GridColsValue, type GridRowsValue } from "@repo/contracts/canvas";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -80,12 +80,20 @@ const {
 } = BLOCK_HEADER_CQW;
 
 export function TemplateCanvasGrid({
-  sections, gridCols, showSample, runData, selectedId, editable,
+  sections, gridCols, gridRows = DEFAULT_GRID_ROWS, showSample, runData, selectedId, editable,
   title, footer, paperSize = "A1",
   onSelect, onPlace, onMove, onEditText,
 }: {
   readonly sections: readonly SectionDraft[];
   readonly gridCols: GridColsValue;
+  /**
+   * 网格行数（issue #3358）——画布真的画几行、落点换算按几行分。缺省
+   * `DEFAULT_GRID_ROWS`，兼容既有调用方（老模板都是 8 行）。
+   *
+   * ⚠ 它必须与 `cellFrom` 的除数是同一个数：网格画 16 行、落点按 8 行算，
+   *   拖到下半张纸会整体差一倍，正是 #3358 第 1 项那类"拖拽不准"的形状。
+   */
+  readonly gridRows?: GridRowsValue;
   readonly showSample: boolean;
   /** 纸张尺寸——决定纸面比例/页边距/mm 换算。缺省 `"A1"`，兼容既有调用方。 */
   readonly paperSize?: PaperSizeKey;
@@ -160,7 +168,7 @@ export function TemplateCanvasGrid({
     const ratioY = (e.clientY - r.top) / r.height;
     return {
       col: Math.min(gridCols, Math.max(1, 1 + Math.floor(ratioX * gridCols))),
-      row: Math.min(GRID_ROWS, Math.max(1, 1 + Math.floor(ratioY * GRID_ROWS))),
+      row: Math.min(gridRows, Math.max(1, 1 + Math.floor(ratioY * gridRows))),
     };
   }
 
@@ -173,7 +181,7 @@ export function TemplateCanvasGrid({
     if (!cell) return null;
     return {
       col: Math.min(gridCols, Math.max(1, cell.col - (payload.dCol ?? 0))),
-      row: Math.min(GRID_ROWS, Math.max(1, cell.row - (payload.dRow ?? 0))),
+      row: Math.min(gridRows, Math.max(1, cell.row - (payload.dRow ?? 0))),
     };
   }
 
@@ -303,16 +311,17 @@ export function TemplateCanvasGrid({
       {/* 网格幽灵层：拖动中才显形（`Design.pdf` §4.2「拖动中画布网格线显形」）。 */}
       <div
         className="pointer-events-none"
+        data-testid="tpladmin-editor-grid-ghost"
         style={{
           gridArea: "1 / 1",
           display: "grid",
           gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          gridTemplateRows: `repeat(${gridRows}, 1fr)`,
           // 6mm 间距 ÷ 821mm 内容区宽 = 0.72%（`Design.pdf` §5「网格」原话）。
           gap: "0.72%",
         }}
       >
-        {Array.from({ length: gridCols * GRID_ROWS }, (_, i) => (
+        {Array.from({ length: gridCols * gridRows }, (_, i) => (
           <div
             key={i}
             className="rounded-control border border-dashed transition-colors duration-fast"
@@ -344,7 +353,7 @@ export function TemplateCanvasGrid({
           gridArea: "1 / 1",
           display: "grid",
           gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          gridTemplateRows: `repeat(${gridRows}, 1fr)`,
           gap: "0.72%",
         }}
       >
@@ -365,7 +374,7 @@ export function TemplateCanvasGrid({
               />
             );
           }
-          const geom = sectionGeometryMmOf(s, gridCols, paperSize);
+          const geom = sectionGeometryMmOf(s, gridCols, paperSize, gridRows);
           const isList = s.type === "便利贴列表";
           /**
            * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-09-01 推翻

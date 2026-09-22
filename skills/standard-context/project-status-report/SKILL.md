@@ -2,6 +2,8 @@
 name: project-status-report
 description: 依据项目现有状态和授权资料生成周报、里程碑或领导状态简报时使用。
 license: See LICENSE.txt
+capability_id: WX-S014
+version: 1.1.1
 ---
 
 # 项目进展报告
