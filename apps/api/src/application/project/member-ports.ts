@@ -30,6 +30,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { ProjectKind } from "../../domain/project/create-project-rules";
 
 export interface ProjectMembershipSnapshot {
   readonly projectId: string;
@@ -128,3 +129,47 @@ export interface MemberSubjectResolver {
 }
 
 export const MEMBER_SUBJECT_RESOLVER = Symbol("MemberSubjectResolver");
+
+/* ═══════════════ 成员名单的读端（#609 `listProjectMembers`） ═══════════════ */
+
+/**
+ * 名单里的一条成员。四个字段与契约 `project.ProjectMemberEntry` 逐字对应；
+ * `displayName` 来自 `credentials.display_name` 的服务端 JOIN（见契约操作头注：
+ * F125「展示别名不落库」防的是把别名**写进** `project_memberships`，不是「不许在响应里出现」）。
+ */
+export interface ProjectMemberRosterEntry {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly projectRole: ProjectRole;
+  readonly isHost: boolean;
+}
+
+/**
+ * `listProjectMembers` 的读端口。
+ *
+ * ## 为什么是**两个方法**而不是一个「把名单查出来」的方法
+ *
+ * #609 裁「**仅 `kind='workshop'`**」。如果把 kind 判定塞进仓储的同一条 SQL
+ * （`... JOIN projects p ON p.kind = 'workshop'`），那条收窄就变成**只有连上真库才看得见**
+ * 的东西：用例层读不到它，针对用例的反证测试也钉不住它——把一条已裁的设计收窄
+ * 藏进 SQL 谓词里，等于它在应用层不存在。
+ *
+ * ⇒ 容器种类单独读一次（`findProjectKind`），**由用例决定要不要去查名单**；
+ *   非工作坊两类时 `listWorkshopMembers` **根本不会被调用**，这是
+ *   `tests/project/list-project-members.test.ts` 直接断言的东西。
+ *
+ * ## 为什么与写端 `ProjectMembershipRepository` 分成两个接口
+ *
+ * 同一张表、同一个 Pg 实现类（见 `pg-project-membership-repository.ts`），但**依赖方向**
+ * 不同：`listProjectMembers` 只读，不该因为注入一个端口就拿到 `addMember`/`removeMember`
+ * 三个写方法（用例能调到的东西就是它能做的事）。窄端口同时让本用例的测试替身只需要
+ * 实现两个方法，而不是为了测一条读路径去桩三个写方法。
+ */
+export interface ProjectMemberRosterRepository {
+  /** 容器不存在（或在该租户下不可见）时返回 `null`。 */
+  findProjectKind(orgId: OrgId, projectId: string): Promise<ProjectKind | null>;
+  /** ⚠ 仅在调用方已确认 `kind === "workshop"` 后调用，见接口头注。 */
+  listWorkshopMembers(orgId: OrgId, projectId: string): Promise<readonly ProjectMemberRosterEntry[]>;
+}
+
+export const PROJECT_MEMBER_ROSTER_REPOSITORY = Symbol("ProjectMemberRosterRepository");

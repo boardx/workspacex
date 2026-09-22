@@ -119,6 +119,7 @@ import type {
 import {
   DEEP_AGENT_PROVIDER_NAME,
   ModelCallError,
+  ModelCallInterruptedError,
   type ModelCallPort,
 } from "../../application/agent-run/ports";
 
@@ -1056,7 +1057,21 @@ export class DeepAgentModelProvider implements ModelCallPort {
     while (true) {
       const status = await this.readRunStatus(baseUrl, threadId, runId);
       if (status === "success") return;
-      if (status === "error" || status === "timeout" || status === "interrupted") {
+      /*
+       * issue #2893 —— `interrupted` 与 `error`/`timeout` 是**两件事**：前者是内核
+       * 停下来等人裁决（`completeWithProgress` 那条路径为此专门返回 `interrupted`
+       * 摘要，见上面的 DA-07b 分支），后者才是这次调用真的失败了。这条路径不返回
+       * 摘要（`complete()` 的调用方没有 HITL 接管面，返回一个空文本会被它们当成
+       * 「模型什么都没说」），但抛出的类型必须说清楚到底是哪一件——否则调用方只能
+       * 去认 `detail` 里的措辞，而那是只该进日志的字符串。
+       * ⚠ `detail` 文案与 `code` 一个字都没改：`classifyModelCallFailureReason` 的
+       *   `/run ended with status/` 规则、以及按 `code` 落终态的既有 catch 点行为
+       *   因此逐字不变（`ModelCallInterruptedError` 是 `ModelCallError` 的子类）。
+       */
+      if (status === "interrupted") {
+        throw new ModelCallInterruptedError(`deep agent run ended with status "${status}"`);
+      }
+      if (status === "error" || status === "timeout") {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
       }
       if (Date.now() >= deadline) {

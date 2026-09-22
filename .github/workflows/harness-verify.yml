@@ -33,6 +33,17 @@ name: harness-verify
 
 on:
   pull_request:
+  # 2026-09-21（#3238 第 1 条）：合并队列的候选组。GitHub 在 `refs/heads/gh-readonly-queue/
+  # <base>/pr-<N>-<base sha>` 上开火，事件里 `github.event.pull_request.*` 与
+  # `github.base_ref` **都是空的**，要读的是 `github.event.merge_group.head_sha` /
+  # `.base_sha`——照抄 PR 分支的写法只会拿到空串，而空串不会报错，只会静悄悄地
+  # 把 diff 基线变成「没有基线」。解析规则在 `.harness/scripts/lib/merge-queue.ts`
+  # （唯一事实源），本文件的表达式由 merge-queue.test.ts 机械核对。
+  #
+  # ⚠ 候选组上跑的是**完整**必需验证，不是快检：它是「这个组合合入 main 之后长什么样」
+  # 的唯一证据。在这里省任何一条，整套队列设计就只剩排队没有验证。
+  # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
+  merge_group:
   push:
     branches: [main]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
@@ -183,13 +194,14 @@ jobs:
       - name: 标准包发货版本 == 构建版本（单一事实源）
         run: node .harness/scripts/lint-shipped-pack-version.mjs
 
-      # 标准 skill 的 stable_name/version/capability_id 在 SKILL.md frontmatter 与
+      # 标准 skill 的 stable_name/version/capability_id 曾在 SKILL.md frontmatter 与
       # scripts/build.ts 各写一遍（15+ 个 skill，8 个两处都写、7 个只写一处），从没被比对过。
+      # #3154 收敛成 frontmatter 单源，这道门改成钉「build.ts 里不许再长出第二份副本」。
       # ui-prototyper 的八条硬规则此前在 yaml/SKILL.md/AGENTS.md 三处手写，同样从没被比对过。
       # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
-      # 覆盖不到，必须显式跑。
-      - name: 标准 skill 元数据两处逐字一致（约定债务只减不增）
-        run: node .harness/scripts/lint-skill-metadata-source.mjs
+      # 覆盖不到，必须显式跑。用 tsx 跑是因为它 import 了那个 TypeScript 写的单源解析器。
+      - name: 标准 skill 元数据只有 SKILL.md frontmatter 一处（metadata 嵌套写法只减不增）
+        run: pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs
 
       - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
         run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
@@ -227,6 +239,17 @@ jobs:
       - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
         run: pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs --strict
 
+      # issue #564 解决方案 2 第 1 条：同一条链再往上一格——**契约 → 路由**。
+      # 上面那道守的是「路由有了但前端够不到」，这道守的是「契约签了但根本没接线」：
+      # 实测 253 条已签契约束里声明了 path 的 operation 在 apps/api/src/interface/ 里
+      # 没有对应路由。棘轮（只减不增）：这 253 条记进
+      # .harness/state/contract-route-coverage-allowlist.json，名单只能变短，
+      # 新增一条不接线的 operation 当场红。缺口判据不在这道门里，在
+      # lib/contract-route-coverage.ts（issue #1177）——同一事实不得声明在两处。
+      # 放 PR 门控的理由同上一步（#2490）：「当场红」的「当场」必须是 PR。
+      # 只读 packages/contracts 与 apps/api/src/interface，不碰 DB，秒级。
+      - name: 契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）
+        run: pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs --strict
       # #397：屏 → live 适配器 → controller → application 用例这条**跨层接线**必须成立。
       # 审计（#384 P0）实证过的形状：页面做好了、导航也连上了，而 controller 根本没挂进
       # kernel 的 controllers[]，用户点进去拿不到任何东西——而在这道门之前，全仓没有任何
@@ -251,6 +274,30 @@ jobs:
       # turbo --affected 覆盖不到：.harness/ 与 .github/ 都不是 workspace 包。
       - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
         run: node .harness/scripts/lint-spec-gate-coverage.mjs
+
+      # 对契约的否定性断言不得说谎（#473）。
+      # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而
+      # `createMessage` 早在 PR #429 就进了 `packages/contracts/src/chat.ts`。那句注释写下
+      # 时是真的，契约变了它没跟着变——coord-main 据它建了不必要的 issue #461、派了不必要
+      # 的高优先级任务、把「签 #461」列为人类第一优先待办，并重排了两条链的优先级（全部已回滚）。
+      # 放在 PR 门控的理由：这类漂移**在改契约的那个 PR 里产生**，而它的代价是别人按一句
+      # 假事实做决策——合并后才发现，误导已经发生过了。
+      # 只读 `packages/contracts/src/**` 与 `apps/{web,api}/**` 的源码文本，毫秒级、不碰 DB；
+      # 且 `.harness/` 不是 workspace 包，turbo --affected 覆盖不到 ⇒ 必须显式跑。
+      - name: 对契约的否定性断言仍然成立（注释不得说谎）
+        run: pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
+      # #3140：spec / 验收文档里的态名必须是契约枚举里真有的那个名。
+      # 2026-09-08 一天两次同一形态：契约/裁决更新了，下游 spec 与
+      # .harness/instructions/*-acceptance.md 没跟上，于是 spec 对着不存在的态名断言、
+      # 永远红，红的原因还与被测能力无关。放在 PR 门控的理由与上面几步同源、且更硬：
+      # 这类失效**只在改 spec / 改验收文档 / 改契约的那个 PR 里产生**，而
+      # .harness/ 与 phases/ 都不是 workspace 包 ⇒ turbo --affected 一个包都不 affected；
+      # 只挂在 `verify:harness:raw` 上同样不够——那条链只被 main 的 e2e-full 调用
+      # （见上面「路由可达性」那步的注释：门的「当场」必须是 PR）。
+      # 只读源码文本，不需要 Docker/PG/浏览器，毫秒级。
+      # 反证：pnpm harness gate-probe --gate contract-state-names（两条变异全部 CAUGHT）。
+      - name: 态名单源（spec / 验收文档 ↔ 契约枚举）
+        run: node .harness/scripts/lint-contract-state-names.mjs
 
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
@@ -313,7 +360,7 @@ jobs:
       # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
       - name: 受影响模块 typecheck/lint
         env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
         run: pnpm turbo run typecheck lint --affected
 
       # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
@@ -326,7 +373,7 @@ jobs:
       # 跑一遍，不可接受的是不跑）。
       - name: 受影响模块 test
         env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
           # 这里声明 "workspacex" 是**诚实的**，不是绕门：GitHub 托管 runner 是独占的
           # 一次性 VM，postgres 由 ensureDatabase() 在本 job 里现起，不存在与任何其它
@@ -402,10 +449,16 @@ jobs:
   # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
   # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
   merge-gate:
-    if: github.event_name == 'pull_request'
+    # #3238：候选组（merge_group）上也必须出结论——这是 required check，候选组上
+    # SKIPPED 等于队列永久卡住。候选组里的 PR 号由 lib/merge-queue.ts 的
+    # parseMergeGroupPrNumbers 从队列 ref + 区间 commit 标题解析，解析不出就失败。
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # 候选组要 `git log base..head` 拿区间内各 PR 的 commit 标题
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -413,9 +466,17 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: 机械合并门禁（独立 APPROVE + 唯一 verdict label + Closes 关联）
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness merge-gate --pr ${{ github.event.pull_request.number }}
+      - name: 机械合并门禁（合并队列候选组：组里每个 PR 逐个判）
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: pnpm harness merge-gate --merge-group
 
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'

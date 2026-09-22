@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tick } from "./tick";
 import type { Args } from "./lib/args";
@@ -223,5 +224,95 @@ describe("tick coord-gateway cutover", () => {
     await tick(args);
     expect(process.exitCode).toBe(1);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining("不能把不可达伪装成空收件箱"));
+  });
+});
+
+// ── #534：周期汇报门（cycle-result）────────────────────────────────────────────
+// tick 的第 1 步每轮都逐字提示「结束前必须发 cycle-result」，此前没有任何脚本会因为
+// 它没被履行而变红。这里证明提示所在的这条命令现在自己会红，且红在对的理由上。
+describe("tick 的 cycle-result 门（#534）", () => {
+  const fixture = (name: string): string =>
+    readFileSync(new URL(`./fixtures/cycle-result-gate/${name}`, import.meta.url), "utf8");
+  const missingComments = JSON.parse(fixture("gh-comments-missing.json")) as Array<{ body: string; createdAt: string }>;
+  const reportedComments = JSON.parse(fixture("gh-comments-reported.json")) as Array<{ body: string; createdAt: string }>;
+
+  /** 事故现场的时钟：周期 2026-08-04T21Z 刚结束，本周期已过 20 分钟（超出宽限期）。 */
+  function incidentTime(): Record<string, unknown> {
+    const now = new Date("2026-08-05T00:20:00Z");
+    return {
+      now: now.toISOString(),
+      epoch_ms: now.getTime(),
+      cycle: {
+        id: "2026-08-05T00Z",
+        started_at: "2026-08-05T00:00:00.000Z",
+        ends_at: "2026-08-05T03:00:00.000Z",
+        remaining_seconds: 160 * 60,
+        elapsed_seconds: 20 * 60,
+      },
+    };
+  }
+
+  function stubGateway(lease: Record<string, unknown>): void {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith("/api/coord/time")) return json(incidentTime());
+      if (url.endsWith("/claims") && (init?.method ?? "GET") === "GET") return json({ leases: [lease] });
+      if (url.includes("/heartbeat")) return json({ lease_id: lease["lease_id"] });
+      if (url.includes("/tasks?")) return json({ tasks: [] });
+      return json({ error: "unexpected" }, 404);
+    }));
+  }
+
+  const coordinatorLease = {
+    protocol: "coord/0.1", lease_id: "lse_chat_e2e", resource_id: "module:chat-e2e",
+    resource_type: "module", agent_id: "coord-chat-e2e", status: "in_progress",
+    claimed_at: "2026-08-04T09:12:00Z", last_heartbeat_at: "2026-08-05T00:18:41Z",
+    ttl_seconds: 10800, expires_at: "2026-08-05T03:18:41Z", handoff_note: null,
+  };
+  const session = { _: [], flags: { json: true }, opts: { session: "coord-chat-e2e" } } satisfies Args;
+
+  // 本地时钟停在今天，而 fixture 的权威时刻是 2026-08-05——漂移告警会响（它本来就该响），
+  // 但它不是本组断言的对象：这里看的是 exitCode 的理由，所以逐条核对输出里的 cycle-result 行。
+  const cycleResultLines = (): string[] =>
+    (console.error as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .map((c) => String(c[0]))
+      .filter((line) => line.includes("[cycle-result]"));
+
+  it("持协调租约、上一周期没发 cycle-result ⇒ 红（反证）", async () => {
+    configured();
+    stubGateway(coordinatorLease);
+    await tick(session, { readWorkCycleComments: () => ({ kind: "ok", issue: 323, comments: missingComments }) });
+
+    expect(process.exitCode).toBe(1);
+    expect(cycleResultLines().join("\n")).toContain("2026-08-04T21Z");
+    expect(cycleResultLines().join("\n")).toContain("coord-chat-e2e");
+  });
+
+  it("补发之后同一条命令转绿", async () => {
+    configured();
+    stubGateway(coordinatorLease);
+    await tick(session, { readWorkCycleComments: () => ({ kind: "ok", issue: 323, comments: reportedComments }) });
+
+    expect(cycleResultLines()).toEqual([]);
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it("红线 10：读不到 work-cycle 评论时不红（问不到 ≠ 没发）", async () => {
+    configured();
+    stubGateway(coordinatorLease);
+    await tick(session, { readWorkCycleComments: () => ({ kind: "unavailable", reason: "gh: command not found" }) });
+
+    expect(process.exitCode).toBeUndefined();
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[cycle-result]"));
+  });
+
+  it("worker 的 issue 租约不背义务，也不为此多跑一次 gh", async () => {
+    configured();
+    stubGateway({ ...coordinatorLease, lease_id: "lse_worker", resource_id: "issue:534", resource_type: "issue" });
+    const reader = vi.fn(() => ({ kind: "unavailable" as const, reason: "不该被调用" }));
+    await tick(session, { readWorkCycleComments: reader });
+
+    expect(reader).not.toHaveBeenCalled();
+    expect(process.exitCode).toBeUndefined();
   });
 });
