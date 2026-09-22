@@ -1,6 +1,6 @@
 /** B5.3 `buildDesignDocMarkdown` / `outlinePrototype` 纯函数正例。 */
 import { describe, expect, it } from "vitest";
-import { buildDesignDocMarkdown, buildPrototypeSpecJson, designDocFileName, outlinePrototype, prototypeSpecFileName } from "@/lib/design-doc-markdown";
+import { buildDesignDocMarkdown, buildPrototypeSpecJson, describeNode, designDocFileName, outlinePrototype, prototypeSpecFileName } from "@/lib/design-doc-markdown";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const base: DesignProject = {
@@ -70,5 +70,51 @@ describe("buildDesignDocMarkdown", () => {
     expect(outlinePrototype({ type: "card", props: { title: "T" }, children: [{ type: "divider" }] })).toEqual(["- 卡片「T」", "  - 分隔线"]);
     expect(designDocFileName(base, NOW)).toBe("UI-2026-09-06.md"); // 非 ASCII 去掉（Chromium 会把中文 download 名退成「download」）
     expect(designDocFileName({ ...base, name: "对话助手" }, NOW)).toBe("design-2026-09-06.md");
+  });
+});
+
+/* ───────────── 迭代 21：前几轮加的数据不能在交付文档里凭空消失 ───────────── */
+
+describe("交付文档带上列表三段式、图标、图片语义与视觉设定", () => {
+  const richList = {
+    type: "list" as const,
+    props: {
+      items: ["楼下的面馆", "书店"],
+      detail: ["牛肉面 × 1，加蛋", "三本书"],
+      trailing: ["¥28", "¥136"],
+      leading: "icon" as const,
+      icons: ["cart" as const],
+    },
+  };
+
+  it("列表行的副标题与右侧值都在（工程照着文档实现，不能只看到主标题）", () => {
+    /*
+     * ⭐ 反证锚点：`describeNode` 只写 `items` ⇒ 这条红。
+     * 那正是前几轮留下的洞：画布渲染了三段式、导出的 HTML 渲染了，而交付文档只剩一段，
+     * 「店名 / 三件商品 / ¥128」到工程手里只剩「店名」。
+     */
+    const line = describeNode(richList as never);
+    expect(line).toContain("楼下的面馆");
+    expect(line).toContain("牛肉面 × 1，加蛋");
+    expect(line).toContain("¥28");
+    // icons 只给了第一行 ⇒ 第二行没有图标标记，不编一个出来
+    expect(line).toContain("[cart]");
+    expect(line.match(/\[cart\]/g)).toHaveLength(1);
+  });
+
+  it("按钮图标与图片语义也在", () => {
+    expect(describeNode({ type: "button", props: { label: "再来一单", icon: "refresh", variant: "primary" } } as never))
+      .toContain("图标 refresh");
+    expect(describeNode({ type: "image", props: { alt: "取餐地点", kind: "map" } } as never)).toContain("map");
+  });
+
+  it("文档头部写清视觉设定：主题 + 强调色 + 保真度", () => {
+    const md = buildDesignDocMarkdown(
+      { ...base, template: "wireframe", theme: "light", accent: "rose" } as never,
+      new Date("2026-09-22T00:00:00.000Z"),
+    );
+    expect(md).toContain("低保真线框图");
+    expect(md).toContain("浅色");
+    expect(md).toContain("玫红");
   });
 });
