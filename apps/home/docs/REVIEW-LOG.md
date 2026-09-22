@@ -898,5 +898,40 @@ no local run had ever produced.
 | 1 | Every local run measures a **warm font cache** and reports CLS 0. A first-time visitor does not, and neither does a CI runner. The budget could not see font-swap shift at all. | The cold case is measured now: the fonts are held back 400 ms, deterministically, in both languages. |
 | 2 | Reproduced, the shift named `brand__tag`, `nav__links` and `hero__title`. My first guess was the `flex-wrap: wrap` added to the nav in round 27. **Measured with it off: identical.** Not the cause. | Isolating the two faces showed Inter at CLS 0 and Outfit at 0.0094 — the display face alone. |
 | 3 | `Outfit Fallback` was **5–13% narrower** than Outfit across representative strings ("WorkspaceX" 1.074, the hero headline 1.060, "Architecture" 1.132) while `size-adjust` made it narrower still at 97%. Inter's fallback holds at 0, which is what a metric-matched face is supposed to do. | `size-adjust: 104.2%`, with the vertical overrides divided by the same factor so the line box is untouched. Ratios now 0.97–1.05; the nav stops moving entirely and the shift falls to 0.0055. |
-| 4 | `font-display: optional` takes it to a clean **0** — and was rejected. Verified on a throttled link: the face downloads but is not used for that render, so a first-time visitor on a slow connection reads the whole pitch in Arial. The typeface is part of what this page is selling. | Kept `swap` and the corrected metrics, which is the fix the failure actually needed rather than the one that makes the number smallest. |
+| 4 | `font-display: optional` takes it to a clean **0**. Rejected on the first pass — a first-time visitor on a slow link would read the pitch in the fallback — and **adopted on the second**, when CI came back with the same 0.0219 and the reason turned out to be bigger than CI. See below. |
 | 5 | Changing `fonts.css` then made the social cards stale — and `check-assets.mjs`, written an hour earlier in this same round, **caught it**. | Rebuilt and re-recorded. |
+
+### Round 31c — the number that would not move
+
+The corrected metrics went in, and CI returned **exactly 0.0219 again**. A
+number that does not move is not noise: it is a deterministic shift, and one
+that is English-only — the Chinese page reported 0.
+
+The fallback faces resolve through `local('Arial')`, `local('Helvetica')`,
+`local('Liberation Sans')`. If none of them exists on the machine, the
+`size-adjust` and the ascent and descent overrides describe a face that is not
+there, and the stack falls through to an unadjusted generic. Measured here by
+pointing the fallback at a font that does not exist:
+
+| | CLS |
+|---|---|
+| fallback resolves | **0.0055** |
+| fallback does not resolve | **0.0968** |
+| the CI runner, resolving something else again | **0.0219** |
+
+The same page, three answers, and which one a visitor gets is not something
+this site controls. **Android has none of those three faces.** So this was
+never a CI number — it was a real defect for a large share of real visitors,
+and it had been invisible because every local run happened to sit at the good
+end of the range.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | A metric-matched fallback is **conditional on a font the visitor may not have**, and nothing anywhere said so. | `font-display: optional` on both faces: the real face is used when it is ready and skipped for that navigation when it is not, so there is no repaint to shift anything. **CLS 0 in all three worlds**, including the one where the fallback does not resolve at all. |
+| 2 | The obvious objection to `optional` is that it costs the typeface. | Checked rather than assumed: the faces are same-origin and the display face is preloaded, and a normal load renders in Outfit — confirmed by looking at the letterforms, because metric matching makes the heights identical and a measurement cannot tell them apart. |
+| 3 | Round 31b's fallback metrics might look wasted now. | They matter **more**: under `optional` the fallback is exactly what a slow first-time visitor sees. |
+| 4 | Three guesses were made and measured before the right one: the nav's `flex-wrap` (identical with it off), the word-splitting JS (0 px change to the headline box at three widths), and the font metrics (real, but a third of the problem). | Each was tested rather than believed. |
+| 5 | Editing `fonts.css` invalidated the social cards again — `check-assets.mjs` caught it a second time in one evening. | Rebuilt and re-recorded. |
+
+Final: **CLS 0 on every configuration in both languages** — warm, cold-font and
+slow-3G — where the budget is 0.02.
