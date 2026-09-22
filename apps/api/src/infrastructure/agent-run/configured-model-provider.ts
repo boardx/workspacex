@@ -63,6 +63,8 @@ export interface ConfiguredModelProviderConfig {
   readonly timeoutMs: number;
   /** #654 阶段2a. Default `false` -- see this file's own header for why. */
   readonly streamEnabled: boolean;
+  /** #3749 B1.4：`ModelCallInput.responseSchema` → `response_format: json_schema`；默认关。 */
+  readonly jsonSchemaEnabled?: boolean;
   /**
    * P2（#1561）—— 这个部署认为**哪些 modelId 真的能看图**。
    *
@@ -109,6 +111,13 @@ export interface ConfiguredModelProviderConfig {
    * JSON 解析失败）。`undefined` = 不发这个字段 ⇒ 与加这个开关之前逐字相同。
    */
   readonly maxOutputTokens?: number;
+  /**
+   * `reasoning_effort` on the request body (OpenAI-style). WorkspaceX Local sets `none`: on
+   * Ollama ≥ 0.34 that switches Qwen3.5's thinking off (`think:false` on `/v1` is ignored,
+   * measured 2026-09-17: 12 s / 429 reasoning chars → 1.2 s / 0). Unset = not sent, so every
+   * existing deployment's request body is byte-for-byte unchanged.
+   */
+  readonly reasoningEffort?: string;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -129,16 +138,19 @@ export function readModelProviderConfig(
   // 迭代 12：缺省**不传**，不是填一个我们编的默认值——那会在所有部署上悄悄改变行为。
   const rawMaxOut = Number(env.KERNEL_MODEL_MAX_OUTPUT_TOKENS ?? "");
   const maxOut = Number.isFinite(rawMaxOut) && rawMaxOut > 0 ? Math.floor(rawMaxOut) : undefined;
+  const reasoningEffort = (env.KERNEL_MODEL_REASONING_EFFORT ?? "").trim();
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
     baseUrl,
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
+    jsonSchemaEnabled: env.KERNEL_MODEL_JSON_SCHEMA === "1",
     visionModelIds: readVisionModelIds(env),
     thinkingDisableModelIds: readThinkingDisableModelIds(env),
     bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
     ...(maxOut === undefined ? {} : { maxOutputTokens: maxOut }),
+    ...(reasoningEffort === "" ? {} : { reasoningEffort }),
   };
 }
 
@@ -485,6 +497,10 @@ export class ConfiguredModelProvider implements ModelCallPort {
             ? { enable_thinking: false }
             : {}),
           ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
+          ...(this.config.reasoningEffort === undefined ? {} : { reasoning_effort: this.config.reasoningEffort }),
+          ...(this.config.jsonSchemaEnabled && input.responseSchema
+            ? { response_format: { type: "json_schema", json_schema: { name: input.responseSchema.name, schema: input.responseSchema.schema } } }
+            : {}),
         }),
       });
     } catch (err) {

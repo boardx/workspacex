@@ -63,7 +63,25 @@ export function LocalExportPanel() {
         <ArrowUpFromLine aria-hidden className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-14 font-semibold">导出到正式组织</h2>
         <Badge tone="outline">承诺的唯一豁口</Badge>
+        <Badge tone="warning" data-testid="local-export-demo-badge">演示态</Badge>
       </div>
+
+      {/*
+        2026-09-22 —— 这一屏的三步流程用的是契约生成的样例响应（`previewExportMock` /
+        `exportToOrganizationMock`）与写死的 `DEMO_ARTIFACTS`，一次网络调用都不发
+        （本文件里只有两个 `setStep`）。此前屏幕上没有任何一句说这件事，于是它看起来
+        像一条能用的导出通道——用户点完三步会以为东西已经进了正式组织。
+        本仓的验收线把「实质性假功能」单列为不可豁免项，所以这条说明是必需的，
+        不是谦辞。真实导出通道尚未实现（契约与后端路由在，前端与搬运没接）。
+      */}
+      <p
+        data-testid="local-export-demo-notice"
+        className="rounded-card border border-warning-tint-foreground/30 bg-warning-tint px-2 py-1.5 text-11 text-warning-tint-foreground"
+      >
+        下面这三步是<strong>流程演示</strong>：列出的成果是样例数据，点「确认导出」不会真的把任何东西
+        送去正式组织，也不会产生审计记录。真正的导出通道还没实现。现在要把本机的成果带走，
+        请在产出上用「下载」保存到本地，再到在线系统里上传。
+      </p>
 
       <Card>
         <CardContent className="flex flex-col gap-3 pt-3">

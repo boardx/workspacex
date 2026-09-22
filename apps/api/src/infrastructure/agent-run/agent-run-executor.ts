@@ -52,12 +52,20 @@ import type { InterjectionCarryOverDelivery } from "../../application/agent-run/
 import { sweepInterjectionCarryOver } from "../../application/agent-run/interjection-carry-over";
 import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
 import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
+import { readDeploymentEdition } from "../deployment/edition";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
     now: () => new Date().toISOString(),
     newStepId: () => randomUUID(),
   };
+
+  /**
+   * 2026-09-22 —— 这份部署的版次，进程启动时读一次。读 env 的动作留在 infrastructure 层
+   * （`execute-run.ts` 是 application 层，它只接受注入的值——第一版把 reader import 进去
+   * 时被 `lint-arch-deps` 当场拦下）。
+   */
+  private readonly edition = readDeploymentEdition();
 
   constructor(
     private readonly runs: AgentRunStore,
@@ -193,7 +201,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       });
     }
     const executed = await executeQueuedRuns({
-      runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
+      runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
       files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
@@ -231,7 +239,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       );
       if (carried > 0) {
         await executeQueuedRuns({
-          runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
+          runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
           files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,

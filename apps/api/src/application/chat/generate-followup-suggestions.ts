@@ -119,15 +119,33 @@ export const FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT =
  * **不**做「按行猜」的宽松兜底：猜不出结构就是没有建议，交给上层判失败，而不是把模型
  * 说的某一行文字硬当成建议塞给用户（那会是编造，不是真实解析）。
  */
+/** Schema handed to providers that enforce output shape (#3749 B1.4); parser accepts both forms. */
+export const FOLLOWUP_SUGGESTIONS_RESPONSE_SCHEMA = {
+  name: "followup_suggestions",
+  schema: {
+    type: "object",
+    properties: { suggestions: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 } },
+    required: ["suggestions"],
+    additionalProperties: false,
+  },
+} as const;
+
 export function parseFollowUpSuggestions(text: string): readonly string[] {
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end < start) return [];
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return [];
+  // constrained decoding returns the object form; free text returns a bare array somewhere in it
+  const obj = text.indexOf("{"), arr = text.indexOf("[");
+  if (obj !== -1 && (arr === -1 || obj < arr)) {
+    try { const o = JSON.parse(text.slice(obj, text.lastIndexOf("}") + 1)) as { suggestions?: unknown }; parsed = o.suggestions; } catch { parsed = undefined; }
+  }
+  if (!Array.isArray(parsed)) {
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    if (start === -1 || end === -1 || end < start) return [];
+    try {
+      parsed = JSON.parse(text.slice(start, end + 1));
+    } catch {
+      return [];
+    }
   }
   if (!Array.isArray(parsed)) return [];
   const suggestions = parsed
@@ -183,6 +201,7 @@ export async function generateFollowUpSuggestions(
       system: FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT,
       user: "请基于以上对话生成追问建议。只输出 JSON 数组。",
       history,
+      responseSchema: FOLLOWUP_SUGGESTIONS_RESPONSE_SCHEMA,
     });
   } catch (e) {
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";

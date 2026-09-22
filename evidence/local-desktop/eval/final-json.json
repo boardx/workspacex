@@ -1,0 +1,218 @@
+{
+  "api": "http://127.0.0.1:3201",
+  "at": "2026-09-21T19:29:21.236Z",
+  "transient5xx": 0,
+  "runs": [
+    {
+      "category": "chat",
+      "text": "用一句话介绍你自己",
+      "threadId": "thr-21ef468c-13df-4645-ae44-7748ab6c6d65",
+      "runId": "c3fb6735-90e8-4145-a340-dbf223dc6665",
+      "status": "succeeded",
+      "wallMs": 2352,
+      "modelCalls": 1,
+      "toolNodes": 0,
+      "firstChunkMs": 523,
+      "chunks": 15,
+      "chunksPerSec": 54.5,
+      "lastEventMs": 819,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 26,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把下面这句话改得更正式：我们明天再聊吧",
+      "threadId": "thr-76cbd3af-19ed-4b3a-b45d-388f058bcd6b",
+      "runId": "e1ed8088-e26c-46fb-9f64-5c07b2c0c1f0",
+      "status": "succeeded",
+      "wallMs": 6378,
+      "modelCalls": 1,
+      "toolNodes": 0,
+      "firstChunkMs": 749,
+      "chunks": 74,
+      "chunksPerSec": 15.4,
+      "lastEventMs": 5944,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 129,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "列出三个提高会议效率的办法",
+      "threadId": "thr-4f3286c8-4ba6-46e5-8ce2-297bc4c9d18e",
+      "runId": "99236a5b-844a-423c-8546-bdac9b2a1e95",
+      "status": "succeeded",
+      "wallMs": 28714,
+      "modelCalls": 2,
+      "toolNodes": 1,
+      "firstChunkMs": 3075,
+      "chunks": 147,
+      "chunksPerSec": 17.7,
+      "lastEventMs": 26837,
+      "systemPromptChars": 629,
+      "tools": [
+        "write_todos"
+      ],
+      "outputChars": 300,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "解释一下什么是用户画像，两句话",
+      "threadId": "thr-a08b70cc-3ba2-4448-840e-13334d5ec6b3",
+      "runId": "eac35ecb-ce6b-4238-a660-f99ac30f5c7e",
+      "status": "succeeded",
+      "wallMs": 7491,
+      "modelCalls": 1,
+      "toolNodes": 0,
+      "firstChunkMs": 3692,
+      "chunks": 38,
+      "chunksPerSec": 36.2,
+      "lastEventMs": 5448,
+      "systemPromptChars": 1708,
+      "tools": [],
+      "outputChars": 78,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "chat",
+      "text": "把 1234 乘以 56 算出来，只给结果",
+      "threadId": "thr-6685e99f-37b7-4973-afe4-cadc7e71f27a",
+      "runId": "a40c62df-409d-4e6f-bc73-e1c879c14a66",
+      "status": "succeeded",
+      "wallMs": 2570,
+      "modelCalls": 1,
+      "toolNodes": 0,
+      "firstChunkMs": 900,
+      "chunks": 6,
+      "chunksPerSec": null,
+      "lastEventMs": 924,
+      "systemPromptChars": 629,
+      "tools": [],
+      "outputChars": 4,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [
+      {
+        "ms": 1155,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否展开具体功能说明？",
+          "有哪些日常任务能处理？",
+          "能否举例说明应用场景？"
+        ]
+      },
+      {
+        "ms": 1137,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否提供改写示例？",
+          "有哪些正式程度选项？",
+          "后续还需修改吗？"
+        ]
+      },
+      {
+        "ms": 1144,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "第一个办法能如何落地？",
+          "控制时间的具体技巧有哪些？",
+          "会后跟进的最佳工具是？"
+        ]
+      },
+      {
+        "ms": 950,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能否举例说明？",
+          "与竞品如何对比？",
+          "哪些数据最核心？"
+        ]
+      },
+      {
+        "ms": 1030,
+        "ok": true,
+        "n": 3,
+        "suggestions": [
+          "能详细展示计算过程吗？",
+          "能否验证一下乘法公式？",
+          "还有没有相关的例题？"
+        ]
+      }
+    ],
+    "feedback": [
+      {
+        "ms": 8726,
+        "ok": true,
+        "title": "画布生成耗时过长且无进度提示"
+      },
+      {
+        "ms": 6086,
+        "ok": true,
+        "title": "本地版无需输入密码即可进入页面"
+      },
+      {
+        "ms": 5590,
+        "ok": true,
+        "title": "技能列表为空且点击无效"
+      },
+      {
+        "ms": 6531,
+        "ok": true,
+        "title": "语音转文字中文夹杂英文时常出现拼写错误"
+      },
+      {
+        "ms": 6183,
+        "ok": true,
+        "title": "导出单张大尺寸画布 PDF 体积异常过大问题"
+      }
+    ],
+    "title": [
+      {
+        "ok": true,
+        "title": "我是对话系统标题生成器",
+        "waitedS": 0
+      },
+      {
+        "ok": true,
+        "title": "明日再议",
+        "waitedS": 0
+      },
+      {
+        "ok": true,
+        "title": "三个提高会议效率的方法",
+        "waitedS": 0
+      },
+      {
+        "ok": true,
+        "title": "用户画像是对群体特征的可视化总结。它用于精准分…",
+        "waitedS": 0
+      },
+      {
+        "ok": true,
+        "title": "计算 1234 乘 56 结果",
+        "waitedS": 0
+      }
+    ]
+  },
+  "summary": "| 类别 | n | 成功 | 模型调用中位 | wall 中位 s | 首块中位 s | 块/s 中位 | 提示 chars | 用工具的 run | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|---|\n| chat | 5 | 5 | 1 | 6 | 0.9 | 36.2 | 629 | 1 | 0 |\n| followup | 5 | 5 | - | 1.1 | - | - | - | - | - |\n| feedback | 5 | 5 | - | 6.2 | - | - | - | - | - |\n| title | 5 | 5 | - | 0.0 | - | - | - | - | - |"
+}

@@ -55,6 +55,7 @@
  * `repairStaleModelProvider` below no longer reads `readModelProviderConfig()` at all; its
  * target is `DEEP_AGENT_PROVIDER_NAME`, unconditionally, every run.
  */
+import { isCliEntry } from "./cli-entry";
 import { randomUUID, createHash } from "node:crypto";
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
@@ -198,6 +199,6 @@ async function repairStaleModelProvider(db: PgDatabase): Promise<number> {
 
 // Only run as a CLI entry point -- `import.meta.url === entry script` guards against this
 // firing a second time when the test file imports `backfillDefaultAgents` directly.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillDefaultAgents();
 }
