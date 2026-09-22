@@ -58,6 +58,8 @@ import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { describeFailure } from "@/lib/design-failure";
 import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
+import { PrototypeBoard } from "@/components/design-loop/prototype-board";
+import { DEVICE_PRESETS } from "@/components/design-loop/prototype-canvas";
 import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -4485,5 +4487,103 @@ describe("迭代 31：拖进来的图，收没收下要说清楚", () => {
     // ⭐ 反证锚点：把文案改回写死的 "4MB" 而常量改成别的值 ⇒ 这条红。
     const mb = Math.round(designWorkbench.PROTOTYPE_REF_IMAGE_MAX_BYTES / (1024 * 1024));
     expect(refImageRejectText(new ApiError(400, "REF_IMAGE_REJECTED", { rejectReason: "SIZE" }))).toContain(`${mb}MB`);
+  });
+});
+
+describe("迭代 32：画板上的手感——别把用户调好的视图冲掉，别让图标自己猜", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = (t: string) => ({ type: "text" as const, id: `n-${t}`, props: { content: t } });
+
+  const openBoard = async (frames: readonly string[]) => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: [...frames], prototype: frames.map(tree) })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    const view = render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-board"));
+    await screen.findByTestId("design-detail-board");
+    return view;
+  };
+
+  it("用户手动缩放过之后，AI 又画出一页 ⇒ 视图不被冲回「适应」", () => {
+    /*
+     * ⭐ 反证锚点：把 `if (!touched.current)` 从页数那条 effect 上去掉 ⇒ 这条红。
+     * 迭代 26 已经给窗口尺寸变化立过这条规矩（他自己挑的比例不能被冲掉），
+     * 而页数变化这条路一直没跟上：放大盯着改，第 3 页画出来的那一刻比例全没了。
+     * 这条直接测 `PrototypeBoard`——页数变化要在**同一个实例**上发生，
+     * 套在详情页上重渲染会连组件一起换掉，`touched` 跟着归零，就测不到这件事了。
+     */
+    // `links` / `prototype` 必须是稳定引用：组件里 `measure` 依赖它们，
+    // 每次渲染新建一个数组会让布局 effect 每帧重跑（真实调用点传的都是稳定值）。
+    const noLinks: readonly (readonly never[])[] = [];
+    const trees = [tree("一"), tree("二"), tree("三")];
+    const board = (n: number) => (
+      <PrototypeBoard
+        links={noLinks}
+        frames={["一", "二", "三"].slice(0, n)}
+        prototype={trees.slice(0, n)}
+        activeFrame={0}
+        onFocusFrame={() => undefined}
+        selectedId={null}
+        onSelect={() => undefined}
+        device={DEVICE_PRESETS[0]!}
+      />
+    );
+    const { rerender } = render(board(2));
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    const after = screen.getByTestId("design-detail-zoom-level").textContent;
+    rerender(board(3));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe(after);
+  });
+
+  it("缩放到头就把按钮禁用，而不是让人一直点一个不动的东西", async () => {
+    // ⭐ 反证锚点：去掉 disabled ⇒ 这条红。
+    await openBoard(["一"]);
+    const zin = () => screen.getByTestId("design-detail-zoom-in") as HTMLButtonElement;
+    for (let i = 0; i < 30 && !zin().disabled; i += 1) fireEvent.click(zin());
+    expect(zin().disabled).toBe(true);
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe("250%"); // 上限 MAX
+    const zout = () => screen.getByTestId("design-detail-zoom-out") as HTMLButtonElement;
+    for (let i = 0; i < 30 && !zout().disabled; i += 1) fireEvent.click(zout());
+    expect(zout().disabled).toBe(true);
+  });
+
+  it("工具条每颗按钮都说得出自己是什么、快捷键是哪个", async () => {
+    // ⭐ 反证锚点：去掉 title ⇒ 这条红。图标按钮只有 aria-label，用鼠标的人一个字都看不到。
+    await openBoard(["一"]);
+    expect(screen.getByTestId("design-detail-zoom-in").getAttribute("title")).toContain("＝");
+    expect(screen.getByTestId("design-detail-zoom-out").getAttribute("title")).toContain("−");
+    expect(screen.getByTestId("design-detail-zoom-fit").getAttribute("title")).toContain("方向键");
+  });
+
+  it("点百分比回到 100%——所有人都会先去点那个数字", async () => {
+    // ⭐ 反证锚点：把百分比改回 <span> ⇒ 这条红。
+    await openBoard(["一"]);
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).not.toBe("100%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-level"));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe("100%");
+  });
+
+  it("方向键能平移画板——聚焦之后不必回去摸鼠标", async () => {
+    // ⭐ 反证锚点：去掉方向键分支 ⇒ 这条红。
+    await openBoard(["一", "二"]);
+    const board = screen.getByTestId("design-detail-board");
+    const before = screen.getByTestId("design-detail-board-stage").getAttribute("style");
+    fireEvent.keyDown(board, { key: "ArrowRight" });
+    expect(screen.getByTestId("design-detail-board-stage").getAttribute("style")).not.toBe(before);
+  });
+
+  it("图层那一栏说的是「页面结构」和有几块，不是行话", async () => {
+    // ⭐ 反证锚点：改回「图层」⇒ 这条红。
+    await openBoard(["一"]);
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const title = await screen.findByTestId("design-layers-title");
+    expect(title.textContent).toContain("页面结构");
+    expect(title.textContent).toMatch(/\d+ 块/);
   });
 });
