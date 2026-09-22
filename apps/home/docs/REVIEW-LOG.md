@@ -846,3 +846,42 @@ was behaving correctly.
 | 8 | My probe sampled at **exactly** the failsafe's 1.2 s boundary and reported 30 invisible elements. It looked like a serious defect and was a stopwatch error. | Sample past the boundary, and say so in the code. |
 | 9 | A second probe sampled 700 ms after a nav jump and reported two section headings stuck invisible. They were mid-transition. **Twice in one round**, a boundary-timed probe cried wolf. | Settle, then measure. |
 | 10 | The first version of the new assertion then accused a working page: with only a font blocked the scripts still run, so below-the-fold content is waiting on the observer rather than broken. | Scroll, then assert — and the suite caught my mistake, which is the argument for writing the assertion into the suite rather than reading a probe's output and believing it. |
+
+### Round 31 — the gates nobody runs
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **No CI workflow referenced `apps/home` at all.** Ten gates and fifteen browser suites, every one of them proved able to go red, ran only when a person remembered to type the command. The site merged into `main` behind 24 green checks and not one of them had looked at it. This is `AGENTS.md`'s own rule at the outermost level: a script nothing calls is not landed. | `.github/workflows/home-gates.yml` — static gates on every PR touching the directory, browser suites and the budget behind them. |
+| 2 | `check-compat.mjs` existed, was listed in the README's gate table, and **was not in `check-all.mjs`**. It had never run as part of the standard verification. | Wired in. |
+| 3 | Nothing ensured the *next* one would be. | A gate on the gates: `check-all.mjs` fails on any `check-*.mjs` in the directory that its own list does not call. Proved red by unwiring `check-compat` again. |
+| 4 | `build-css`, `build-i18n` and `build-brand` all have `--check`. The three builders that emit **binaries** had none — edit the card source or the palette, forget to rebuild, and the committed image keeps showing the old brand. **That is exactly what happened in round 22**, where the favicon was generated before the palette swap. | `check-assets.mjs`. Byte-comparing is impossible (JPEG and PNG encoders are not reproducible), so it records a hash of each asset's inputs. Proved red by changing one channel of the pink by 1. |
+| 5 | The README quoted the bundler's sizes — "74 KB of sources become 52 KB shipped". Actual: 85.8 → 56.2. **16% stale**, and a second declaration of a number the build already prints. | The numbers come out of the build now, and the README says so. |
+| 6 | It also said six render-blocking stylesheets. There are seven. | Corrected. |
+| 7 | The browser suite was **one row** in the README's table. Fifteen suites, most running twice for language, and a reader could not tell what any of them verified. | Listed, with what each one would catch. |
+| 8 | The web manifest had no `description` and no `lang`. | Both, read from the page they describe. |
+| 9 | **One manifest served both languages**, so a Chinese visitor who installed the site got an English name and an English description on their home screen — the one surface where an install prompt shows text, and the only page of the site with no Chinese version of it. | One per language, generated from each page's own `<title>` and description. |
+| 10 | The `Content-Type` rule for it was written for **one exact path**. The moment a second manifest existed it would have been served as `octet-stream` and silently ignored — Chromium refuses a manifest without the JSON media type, and nothing on the site would have looked any different. | A glob. |
+
+---
+
+## Where this ended up
+
+Thirty-one rounds. The page is 150 KB over the wire, paints in 272 ms on a
+desktop and just under two seconds on a throttled 3G phone, holds CLS at
+0.0007, scrolls at 60 fps, and works with no JavaScript, no stylesheet, no
+fonts, no images, at a 200% text setting, in forced colors, and in two
+languages that are each a real URL rather than a runtime toggle.
+
+The durable lesson is not in any of those numbers. Across thirty-one rounds
+the longest-surviving defects were almost never in the page — they were in the
+things watching the page:
+
+- a `scrollX` assertion that could not fail, for twenty-six rounds
+- a budget that measured one of two languages, for twenty-seven
+- a check that existed and was never called, for its entire life
+- fifty-four translation keys whose gate was described in a header and never
+  written
+- and, at the end, **the whole suite, which CI had never run once**
+
+Every gate in this directory has now been watched to fail before being trusted.
+That is the only property of a check that actually matters.

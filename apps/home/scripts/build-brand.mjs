@@ -72,20 +72,37 @@ ${lobes('url(#g)', '    ')}
    restated by hand and then quietly disagree with the site. It sits beside
    the assets so build-i18n's depth rewriting carries it into /zh/ unchanged,
    and its icon paths resolve relative to itself. */
-const title = read('index.html').match(/<title>([^<]*)<\/title>/)[1];
 const bg = base.match(/--bg:\s*(#[0-9a-f]{3,8})/i)[1];
-const manifest = JSON.stringify({
-  name: title,
-  short_name: 'WorkspaceX',
-  start_url: '/',
-  display: 'standalone',
-  background_color: bg,
-  theme_color: bg,
-  icons: [
-    { src: 'img/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-    { src: 'img/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-  ],
-}, null, 2) + '\n';
+const meta = (page) => {
+  const html = read(page);
+  return {
+    title: html.match(/<title>([^<]*)<\/title>/)[1],
+    description: html.match(/<meta name="description" content="([^"]*)"/)[1],
+    lang: html.match(/<html lang="([^"]*)"/)[1],
+  };
+};
+/* One manifest per language. A single shared one meant a Chinese visitor who
+   installed the site got an English name and an English description on their
+   home screen — the one place the install prompt shows text at all, and the
+   one page of the site that had no Chinese version of it. Both are read from
+   the page they describe rather than typed here. */
+const manifest = (page, start) => {
+  const m = meta(page);
+  return JSON.stringify({
+    name: m.title,
+    short_name: 'WorkspaceX',
+    description: m.description,
+    lang: m.lang,
+    start_url: start,
+    display: 'standalone',
+    background_color: bg,
+    theme_color: bg,
+    icons: [
+      { src: 'img/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+      { src: 'img/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  }, null, 2) + '\n';
+};
 
 const SPRITE_RE = /<svg width="0" height="0" style="position:absolute"[\s\S]*?<\/svg>/;
 const CARD_RE = /<svg viewBox="0 0 32 32"[\s\S]*?<\/svg>/;
@@ -95,7 +112,8 @@ const targets = [
   ['privacy.html', SPRITE_RE, sprite],
   ['scripts/og-card.html', CARD_RE, card],
   ['assets/img/favicon.svg', null, favicon],
-  ['assets/site.webmanifest', null, manifest],
+  ['assets/site.webmanifest', null, manifest('index.html', '/')],
+  ['assets/site.zh.webmanifest', null, manifest('zh/index.html', '/zh/')],
 ];
 
 let stale = 0;
