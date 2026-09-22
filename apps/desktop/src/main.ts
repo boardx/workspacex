@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack } from "@repo/local-runtime";
+import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
 let win: BrowserWindow | null = null;
@@ -54,21 +55,6 @@ function bundleBinDir(): string | undefined {
   return app.isPackaged && existsSync(dir) ? dir : undefined;
 }
 
-/**
- * Startup screen: brand + a step progress bar driven by the runtime's log prefixes, the
- * current step in words, elapsed time; the raw log stays folded and only opens itself on
- * failure (人类反馈 2026-09-17: 每次启动先看一屏日志不像个正常 app).
- */
-const STARTUP_STEPS: readonly { readonly label: string; readonly match: RegExp }[] = [
-  { label: "准备数据库", match: /^\[pglite\]|^\[src\/infrastructure\/db|^\[seeds\]|^\[scripts\// },
-  { label: "检查本地模型", match: /^\[ollama\]/ },
-  { label: "启动技能沙箱", match: /^\[skill-sandbox\]/ },
-  { label: "启动语音转写", match: /^\[asr-gateway\]/ },
-  { label: "启动服务", match: /^\[api\]/ },
-  { label: "启动智能体", match: /^\[deep-agent\]/ },
-  { label: "加载界面", match: /^\[web\]/ },
-];
-
 const SLOGAN_EN = "A New Way to Create Together.";
 const SLOGAN_ZH = "一种全新的共同创造方式。";
 /** The wordmark from apps/web/public (resized copy in build/logo.png), inlined so the splash needs no server. */
@@ -78,23 +64,6 @@ const LOGO_DATA_URL = (() => {
   }
   return null;
 })();
-
-function progressState(lines: string[], state: { startedAt: number; failed: boolean }) {
-  let step = 0;
-  for (const line of lines) {
-    const i = STARTUP_STEPS.findIndex((st) => st.match.test(line));
-    if (i > step) step = i;
-  }
-  const total = STARTUP_STEPS.length;
-  const pct = state.failed ? 100 : Math.min(96, Math.round(((step + 0.5) / total) * 100));
-  const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
-  const current = state.failed ? "启动失败" : `${STARTUP_STEPS[step]!.label}…`;
-  const firstRun = lines.some((l) => /database created|applied [1-9]/.test(l));
-  const hint = state.failed
-    ? "下面是启动日志，把它发给开发者即可定位。"
-    : firstRun ? "首次启动要初始化数据库，通常 1–2 分钟。" : "通常 15–30 秒。";
-  return { step, pct, elapsed, current, hint, failed: state.failed, log: lines.slice(-200).join("\n") };
-}
 
 /** `0.2.0 (8c11c8d)`: version from package.json, SHA from build-info.json (dev: git). */
 function buildLabel(): string {
@@ -108,19 +77,11 @@ function buildLabel(): string {
 
 function progressHtml(lines: string[], state: { startedAt: number; failed: boolean }): string {
   const esc = (s: string) => s.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch] ?? ch));
-  let step = 0;
-  for (const line of lines) {
-    const i = STARTUP_STEPS.findIndex((st) => st.match.test(line));
-    if (i > step) step = i;
-  }
+  // 首屏 HTML 与后续每秒推送的更新必须说同一句话——这段计算此前在本文件里抄了两份
+  // （`progressState` 一份、这里一份），于是给「拉模型进度」加的那一支只改到了其中一份，
+  // 首屏会显示旧文案、一秒后又跳成新文案。同一件事实不许声明在两处。
+  const { step, pct, elapsed, current, hint } = progressState(lines, state);
   const total = STARTUP_STEPS.length;
-  const pct = state.failed ? 100 : Math.min(96, Math.round(((step + 0.5) / total) * 100));
-  const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
-  const current = state.failed ? "启动失败" : `${STARTUP_STEPS[step]!.label}…`;
-  const firstRun = lines.some((l) => /database created|applied [1-9]/.test(l));
-  const hint = state.failed
-    ? "下面是启动日志，把它发给开发者即可定位。"
-    : firstRun ? "首次启动要初始化数据库，通常 1–2 分钟。" : "通常 15–30 秒。";
   const logo = LOGO_DATA_URL ? `<img class="logo" src="${LOGO_DATA_URL}" alt="WorkspaceX">` : `<div class="wordmark">WorkspaceX</div>`;
   return `<!doctype html><html lang="zh"><meta charset="utf-8"><title>WorkspaceX</title>
 <style>
