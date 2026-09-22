@@ -20,9 +20,9 @@
 // 是 GitHub 仓库设置，必须人类在 Settings → Branches 手动做，见 merge-gate.ts
 // CLI 与 PR 描述里的说明。
 //
-// `Closes #N` 解析复用 pr-queue.ts 的 parseClosesIssues、"OK 档 verdict" 判定复用
-// 同文件的 isOkVerdict——同一条判定规则不允许在两处各写一份（AGENTS.md「同一
-// 事实不得声明在两处」；本仓已因此漂移五次）。
+// `Closes #N` 解析复用 pr-queue.ts 的 parseClosesIssues、"独立 approve"判据复用
+// 同文件的 hasIndependentApproval（内含 isOkVerdict）——同一条判定规则不允许在
+// 两处各写一份（AGENTS.md「同一事实不得声明在两处」；本仓已因此漂移五次）。
 //
 // ⚠ 2026-08-16 修正：条件 1 原本**只**接受 GitHub 原生 APPROVE review。实测本仓
 // 最近 100 个已合并 PR 里，0 个有原生 APPROVE，全仓也搜不到任何脚本调用过
@@ -48,8 +48,8 @@
 import {
   APPROVE_CHECK_SUSPENDED,
   VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED,
-  isOkVerdict,
   classifyApprovals,
+  hasIndependentApproval,
   issueTraceabilityFailure,
 } from "./pr-queue";
 
@@ -126,10 +126,15 @@ export function evaluateMergeGate(facts: MergeGateFacts): MergeGateResult {
   // 有原生 APPROVE。标签本身没有"是否锚定当前 head"这个概念（GitHub label 不
   // 记快照 SHA），所以标签路径**不做 head 漂移检查**——这是已知的、比原生 review
   // 路径更弱的地方，不是疏漏。
-  const { independentCurrentSha: independentCurrentShaApprovals, selfApprovals, staleApprovals } =
-    classifyApprovals(facts.reviews, facts.author, facts.headSha);
-  const hasOkVerdictLabel = facts.labels.some(isOkVerdict);
-  if (independentCurrentShaApprovals.length === 0 && !hasOkVerdictLabel) {
+  //
+  // 2026-09-21（#1441）：pr-queue.ts 的 classifyPr 条件 5 同款改完之后，这条判据
+  // 收敛成 hasIndependentApproval 一份，两个模块共用。本文件这里的行为**没有变**
+  // （原条件与该函数等值），merge-gate.test.ts 全绿即是证据。
+  const approvalFacts = classifyApprovals(facts.reviews, facts.author, facts.headSha);
+  const { selfApprovals, staleApprovals } = approvalFacts;
+  // 判据本体走 pr-queue.ts 的 hasIndependentApproval——#1441 起两个模块共用一份
+  // "什么算独立 approve"，不再各写一份等值条件（本仓已因此漂移五次）。
+  if (!hasIndependentApproval(approvalFacts, facts.labels)) {
     let reason: string;
     if (selfApprovals.length > 0) {
       reason = `作者自审：${facts.author} 自己 approve 了自己的 PR——独立性是 review 的全部意义`;

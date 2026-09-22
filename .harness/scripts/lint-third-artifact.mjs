@@ -140,22 +140,86 @@ export function hasExecutableCommand(cell) {
   return false;
 }
 
-/* ── 束的枚举 ─────────────────────────────────────────────────────────── */
+/* ── 束的枚举 ───────────────────────────────────────────────────────────
+ * 这棵目录树**在扫描途中会变**：本仓多个 .harness 测试把 fixture 阶段建在
+ * **真实** `phases/` 下再删掉（design-signoff.test.ts 的
+ * `phase-zz-signoff-test-fixture`、sync-github.test.ts 的
+ * `phase-zz-sync-test-fixture`）。全量套件并行跑时，本扫描器会在
+ * existsSync 与 readdir 之间撞上那个 rm ⇒ scandir ENOENT 抛穿，
+ * 「真实仓库状态必须绿」那条用例红在一个跟它毫无关系的目录上（#1021）。
+ *
+ * 三条一起才收得住，缺一条都还会漏：
+ *   ① **只读 `only` 点名的阶段**。没点名的阶段既不该被读，更不该替它报错
+ *      ——原来 `only` 是在枚举**之后**才过滤的，`[零契约束]` 却在过滤之前就
+ *      推进了 errors：扫 phase-00 的用例会因为别的阶段的目录状态变红。
+ *   ② **`*-fixture` 后缀的阶段一律跳过**。它是测试的临时产物，不是签核对象；
+ *      让它进扫描范围，本门控就是在审计别人的测试夹具。
+ *      ⚠ 跳过是**印出来的**，不是沉默的：真有一个阶段被这条规则漏掉，
+ *        它会出现在 CLI 的「跳过」行里，而不是无声地不见（纪律第 10 条）。
+ *   ③ **ENOENT 当作「此刻它不在」跳过**，不是失败：readdir 列出的目录项到
+ *      stat 的那一刻可以已经没了，这是文件系统的常态，不是契约束的问题。
+ *      ⚠ 只吞 ENOENT/ENOTDIR。权限、IO 这类真故障仍然抛——把它们一起吞掉，
+ *        就成了「扫不到所以全绿」，正是本文件通篇在堵的那种空集平凡为真。
+ * ──────────────────────────────────────────────────────────────────── */
 
-function findBundles(phasesRoot) {
+/** 测试夹具阶段的命名约定（`phase-zz-…-fixture` / `phase-p27-fixture`）。 */
+const FIXTURE_PHASE = /-fixture$/;
+
+/** 这个错误是否等于「这条路径此刻不存在」。 */
+function isGone(err) {
+  return err instanceof Error && (err.code === "ENOENT" || err.code === "ENOTDIR");
+}
+
+/** readdir，目录已消失时返回 null（其余错误照抛）。 */
+function readdirOrGone(dir) {
+  try {
+    return readdirSync(dir);
+  } catch (err) {
+    if (isGone(err)) return null;
+    throw err;
+  }
+}
+
+/** 是目录吗；路径已消失时返回 null（其余错误照抛）。 */
+function isDirOrGone(p) {
+  try {
+    return statSync(p).isDirectory();
+  } catch (err) {
+    if (isGone(err)) return null;
+    throw err;
+  }
+}
+
+function findBundles(phasesRoot, only = []) {
   const out = [];
   const emptyPhases = [];
-  if (!existsSync(phasesRoot)) return { out, emptyPhases };
-  for (const phase of readdirSync(phasesRoot).sort()) {
+  const skippedFixtures = [];
+  const phases = readdirOrGone(phasesRoot);
+  if (phases === null) return { out, emptyPhases, skippedFixtures };
+  for (const phase of phases.sort()) {
+    if (FIXTURE_PHASE.test(phase)) { skippedFixtures.push(phase); continue; }
+    if (only.length && !only.includes(phase)) continue;
     const contracts = join(phasesRoot, phase, "contracts");
-    if (!existsSync(contracts) || !statSync(contracts).isDirectory()) continue;
-    const bundles = readdirSync(contracts)
-      .filter((n) => statSync(join(contracts, n)).isDirectory())
+    if (isDirOrGone(contracts) !== true) continue;
+    const entries = readdirOrGone(contracts);
+    if (entries === null) continue;
+    let gone = 0;
+    const bundles = entries
+      .filter((n) => {
+        const dir = isDirOrGone(join(contracts, n));
+        if (dir === null) { gone++; return false; }
+        return dir;
+      })
       .sort();
-    if (bundles.length === 0) { emptyPhases.push(phase); continue; }
+    if (bundles.length === 0) {
+      // 目录项是在扫描途中消失的 ⇒ 这不是「建了 contracts/ 却零个束」，是竞态。
+      // 真·零束（空目录、或里面只有文件）仍然照样点名，门控强度不变。
+      if (gone === 0) emptyPhases.push(phase);
+      continue;
+    }
     for (const bundle of bundles) out.push({ phase, bundle, dir: join(contracts, bundle) });
   }
-  return { out, emptyPhases };
+  return { out, emptyPhases, skippedFixtures };
 }
 
 /* ── 主体 ─────────────────────────────────────────────────────────────── */
@@ -169,7 +233,7 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schem
     ? JSON.parse(readFileSync(schemaMapFile, "utf8"))
     : {};
 
-  const { out: found, emptyPhases } = findBundles(PH);
+  const { out: found, emptyPhases, skippedFixtures } = findBundles(PH, only);
   for (const p of emptyPhases) {
     errors.push(
       `[零契约束] ${p} 有 contracts/ 目录，但里面一个束目录都没有。\n` +
@@ -178,14 +242,13 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schem
     );
   }
 
-  let targets = found;
-  if (only.length) targets = targets.filter((t) => only.includes(t.phase));
+  const targets = found;   // `only` 已在 findBundles 里生效，这里不再二次过滤
   if (targets.length === 0) {
     errors.push(
       `没有找到任何 phases/<phase>/contracts/<束>/ —— 门控无对象可查，视为失败（空集不许平凡为真）。` +
       (only.length ? `\n    （本次只扫：${only.join(" ")}）` : ""),
     );
-    return { errors, rows };
+    return { errors, rows, skippedFixtures };
   }
 
   for (const { phase, bundle, dir } of targets) {
@@ -320,12 +383,18 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schem
     rows.push(row);
   }
 
-  return { errors, rows };
+  return { errors, rows, skippedFixtures };
 }
 
 /* ── CLI ──────────────────────────────────────────────────────────────── */
 if (process.argv[1] && process.argv[1].endsWith("lint-third-artifact.mjs")) {
-  const { errors, rows } = lintThirdArtifact({ only: process.argv.slice(2) });
+  const { errors, rows, skippedFixtures } = lintThirdArtifact({ only: process.argv.slice(2) });
+  if (skippedFixtures.length) {
+    console.log(
+      `  ⤬ 跳过 ${skippedFixtures.length} 个测试夹具阶段（\`*-fixture\`，不是签核对象）：` +
+      skippedFixtures.join(" "),
+    );
+  }
   for (const r of rows) {
     console.log(
       `  ${r.form ? "✓" : "✗"} ${r.label.padEnd(44)} ${r.form ? `形态 ${r.form}` : "第 ③ 件缺失"}` +

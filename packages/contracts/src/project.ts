@@ -340,6 +340,26 @@ export const WorkshopRoleCounts = z
   .strict();
 
 /**
+ * 名单里的一条成员（`listProjectMembers`，#609）。
+ *
+ * 四个字段与同束写操作 `addProjectMember.out` **逐字同名同型**
+ * （`userId` / `projectRole` / `isHost`），`displayName` 照同类读端点
+ * `orgAdmin.listOrgMembers.out[].displayName` 的先例——不新造字段名。
+ *
+ * ⚠ 不用 `memberId` / `role`：同一个概念在仓里有两个名字，正是 AGENTS.md 点名、
+ *   本项目已漂移五次的那条反模式。人类 2026-08-13 的签核件逐条确认了这两处命名。
+ */
+export const ProjectMemberEntry = z
+  .object({
+    userId: z.string(),
+    displayName: z.string(),
+    /** ⚠ 四取值闭集，引用 phase-00 `identity.ProjectRole` 语义，本束不改写。 */
+    projectRole: z.enum(["facilitator", "groupLead", "member", "observer"]),
+    isHost: z.boolean(),
+  })
+  .strict();
+
+/**
  * **禁止存在的路由**（UC-P5 / I-P40 / U-3①）。
  *
  * 交付物是**一条断言它不存在的测试**，不是一个接口——理由逐字照抄 N-5：
@@ -802,6 +822,67 @@ export const operations = {
     ] as const,
   },
 
+  /**
+   * UC-P9 `listProjectMembers` —— 成员名单的**读**端（#609 coord-main 裁决，2026-08-06，
+   * ADR-023 contract-delta，待人类在束级 `design-signoff.md` 补签）。
+   *
+   * ## 为什么这条读端点不是「顺手补齐」
+   *
+   * 同束三个写成员的操作（`addProjectMember` / `changeProjectRole` / `removeProjectMember`）
+   * 齐全，**读端零个**：后两个都要求一个 `userId`，而调用方无从得知这个项目里有哪些
+   * `userId`——三个写端点不是坏了，是**够不着**。唯一沾边的 `getProjectOverview.out.roleCounts`
+   * 是四个整数（计数不是名单）。
+   *
+   * ## ⚠ **仅 `kind='workshop'`**，另两类容器 `members` 恒为 `null`，**不是空数组**
+   *
+   * U-1 只裁了 `research_project` / `user_insight` 两类的**数据形状**
+   * （`NonWorkshopMemberRole`，`owner`/`collaborator` 两档），**没有对应的契约操作**
+   * （`KNOWN_CONTRACT_GAPS.P2`）——真扩展要另走一轮签核。#609 因此明确：那两类
+   * **不做**，且前端要显式显示「尚未建（设计缺口）」，**不假装空列表**。
+   *
+   * `null` 与 `[]` 的区别正是这句话在契约里的落点：一个空数组说的是「这个工作坊
+   * 一个成员都没有」（合法状态），`null` 说的是「这一类容器的名单这条路径还没有被设计」。
+   * 塌缩成空数组 = 把一个**设计缺口**渲染成一个**正常的空态**，没有任何东西会报警。
+   * 形状与同束 `getProjectOverview.out.roleCounts` 的 `nullable`（「⚠ 仅 `kind='workshop'`；
+   * 另两类此字段为 null」）逐字同型，不新造一套约定。
+   *
+   * ## 权限：复用 `read.published`，四种项目角色（含 `observer`）皆可读
+   *
+   * 与 `getProjectOverview` / `listAgendaSegments` **同一个动作词**，不新造：概览已经把
+   * 四类角色的**人数**给了项目成员，从「有 3 个组员」到「这 3 个组员是谁」不构成新的
+   * 可见性层级。`observer` 同样可读——`usecases.md` 明确禁止观察者看的是原始转写与私聊，
+   * 不含姓名（#609 对这处模糊地带的明确补充）。
+   * ⇒ `err` 与 `listAgendaSegments` 同源：`PROJECT_ROLE_INSUFFICIENT` 在这条动作上不可达
+   *   （四种角色都持有它），所以不在 `err` 里。
+   *
+   * ## `displayName` 是服务端 JOIN `credentials.display_name` 之后的值
+   *
+   * 与同类读端点 `orgAdmin.listOrgMembers.out[].displayName` 同一模式。F125 的
+   * 「展示别名**不落库**」防的是把别名写进 `project_memberships`，不是「不许在响应里出现」
+   * ——identity 束没有「按 userId 批量取显示名」的端点，前端自己解析这条路不存在。
+   *
+   * ⚠ **`joinedAt` 不在本版 `out` 里**：`project_memberships`（`0003-identity.sql:60`）
+   *   没有 `joined_at` 列，要它就要一次 schema 变更 + 回填（照 `org_memberships` 的 i363
+   *   形制）。人类已在 `phases/phase-01-run-a-project/design-deltas/
+   *   project-member-read-and-archive-code/design-signoff.md` 里选了
+   *   `joinedAt-with-migration`——那是**那个 delta（#999 / PJ-05）连同迁移一起落地**的范围，
+   *   本操作不把一次 schema 变更藏进「顺手加个字段」里。加字段是向后兼容的扩展，
+   *   字段命名（`userId` / `projectRole`，非 `memberId` / `role`）已按该签核件执行。
+   */
+  listProjectMembers: {
+    method: "GET",
+    /** 与 `addProjectMember` 同路径，方法不同（`POST` 写 / `GET` 读）。 */
+    path: "/projects/:projectId/members",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        /** ⚠ **仅 `kind='workshop'`**；另两类容器恒为 `null`（见操作头注，不是空数组）。 */
+        members: z.array(ProjectMemberEntry).nullable(),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
   /* UC-P10 无项目归属内容的读取 —— **本束不提供操作**。
    * Q-10 裁 A：把 phase-00 `readContent.in.projectId` 放开为 `nullable`，
    * 且**作为契约缺陷报告提给 `artifact` / `identity` 两束的签核人**，
@@ -834,6 +915,11 @@ export const KNOWN_CONTRACT_GAPS = {
    * ⇒ `NonWorkshopMemberRole` 有枚举无接口。加操作 = 签核后新增，需要重新签核。
    * ⚠ 不补的后果：`apps/web/lib/mock/itv.ts:26` 已自造三档视角（研究员/受访者/观察者）
    *   并自注「待迁入 packages/contracts」——那就是第二份事实源正在长出来的样子。
+   *
+   * 🟡 **仍然成立，但自 #609 起它在响应里是可见的**：`listProjectMembers`（本束唯一的
+   *   成员读端点）对这两类容器返回 `members: null` 而不是空数组——名单这条路径对它们
+   *   **尚未设计**，而不是「这个容器没有成员」。这不补上本缺口（补它 = 为这两类新增
+   *   契约操作 = 重新签核），只是不再让缺口伪装成一个正常的空态。
    */
   P2: "U-1 ruled the member model for research_project / user_insight (owner|collaborator), but usecases.md UC-P9 still says 'not written, pending U-1'; no operation exists for either container type",
   /**
