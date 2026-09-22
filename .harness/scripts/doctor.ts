@@ -29,7 +29,7 @@ import {
 } from "./lib/feature-evidence-ratchet";
 import {
   judgeFeatureOwners, staleOwnerAllowlistEntries,
-  type OwnerAllowlistKey, type PhaseFeatureOwners,
+  type OwnerAllowlistKey,
 } from "./lib/feature-owner";
 import { readKnownAgentIdentities } from "./lib/agent-identity";
 import { sh } from "./lib/sh";
@@ -59,8 +59,17 @@ function readFeatureOwnerAllowlist(): readonly OwnerAllowlistKey[] {
   return Array.isArray(doc.entries) ? (doc.entries as OwnerAllowlistKey[]) : [];
 }
 
-/** 一次体检扫到的一个 phase。两道棘轮门各取所需字段，扫描只做一遍。 */
-type ScannedPhase = PhaseFeatures & PhaseFeatureOwners;
+/**
+ * 一次体检扫到的一个 phase：**完整的 Feature**，三道门各取所需字段
+ * （#1136 evidence / #1142 owner / #391 legacy），扫描只做一遍。
+ *
+ * 这是那份快照形状的**唯一**声明——`scannedPhases` 直接用它。原本这里写的是
+ * `PhaseFeatures & PhaseFeatureOwners` 的交集，而收敛成「存完整 Feature」之后
+ * 交集里的 `PhaseFeatures` 已不再 import，留下一个悬空的类型名：
+ * `tsc` 报 `TS2304: Cannot find name 'PhaseFeatures'`，而 CI 没有任何一步会发现它
+ * ——`.harness/` 不是 turbo 包，`turbo run typecheck` 扫不到它。
+ */
+type ScannedPhase = { readonly phaseId: string; readonly features: readonly Feature[] };
 
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
@@ -1108,8 +1117,8 @@ export function doctor(args: Args): void {
   // 只收本次真正扫到的 phase，避免 `--phase 01` 这类局部运行把「没扫到的 phase」
   // 误判成「不再需要」——那会把陈旧检查变成假阳性门。
   // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，另两道各自只用得到
-  // 其中几个字段（PhaseFeatures / PhaseFeatureOwners）。同一份快照喂三道门，不留第二份。
-  const scannedPhases: { readonly phaseId: string; readonly features: readonly Feature[] }[] = [];
+  // 其中几个字段。同一份快照喂三道门，形状只在 ScannedPhase 声明一次。
+  const scannedPhases: ScannedPhase[] = [];
 
   for (const id of phaseIds) {
     let fl;
