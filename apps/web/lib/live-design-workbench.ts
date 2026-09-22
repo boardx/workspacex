@@ -303,3 +303,53 @@ export async function createDesignGithubIssue(
     { method: "POST", body: { draft } },
   );
 }
+
+/* ─────────────────── 迭代 22：发布与分享 ─────────────────── */
+
+export type DesignShare = z.infer<typeof designWorkbench.DesignShare>;
+export type DesignShareScope = z.infer<typeof designWorkbench.DesignShareScope>;
+export type SharedDesign = z.infer<typeof designWorkbench.SharedDesign>;
+export type PublishProjectOut = z.infer<typeof designWorkbench.operations.publishProject.out>;
+export type UnpublishProjectOut = z.infer<typeof designWorkbench.operations.unpublishProject.out>;
+export type GetSharedDesignOut = z.infer<typeof designWorkbench.operations.getSharedDesign.out>;
+export const DESIGN_SHARE_SCOPES = designWorkbench.DesignShareScope.options;
+
+/** 发布 / 重新发布。`scope` 省略 = 沿用上一次那档（从未发布过 ⇒ 服务端取 `prototype`）。 */
+export async function publishProject(projectId: string, scope?: DesignShareScope): Promise<PublishProjectOut> {
+  return apiRequest<PublishProjectOut>(
+    designWorkbench.operations.publishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: scope === undefined ? {} : { scope } },
+  );
+}
+
+/** 取消发布——链接立刻失效。幂等：没发布过也返回 200。 */
+export async function unpublishProject(projectId: string): Promise<UnpublishProjectOut> {
+  return apiRequest<UnpublishProjectOut>(
+    designWorkbench.operations.unpublishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "DELETE" },
+  );
+}
+
+/**
+ * 读一条分享链接。**显式 `sessionToken: null`**——这条路径是给没登录的人用的，
+ * 而 `apiRequest` 缺省会把浏览器里存着的会话令牌带上。带上它本身不会出错（服务端根本不看），
+ * 但那会让"这条接口到底要不要登录"在本地永远验不出来：开发者自己是登录态，
+ * 于是一条其实 401 的接口在他机器上一直好使。
+ */
+export async function fetchSharedDesign(token: string): Promise<GetSharedDesignOut> {
+  return apiRequest<GetSharedDesignOut>(
+    designWorkbench.operations.getSharedDesign.path.replace(":token", encodeURIComponent(token)),
+    { sessionToken: null },
+  );
+}
+
+/**
+ * 分享链接的**页面**地址（不是 API 地址）——`/d/<token>`。
+ *
+ * 短路径是刻意的：这串东西要被粘进微信、飞书、邮件，长一截就多一次折行。
+ * `origin` 由调用方传入（浏览器里就是 `window.location.origin`），这一层不去读
+ * `window`——纯函数才测得了。
+ */
+export function designShareUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/$/, "")}/d/${encodeURIComponent(token)}`;
+}

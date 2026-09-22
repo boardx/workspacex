@@ -100,5 +100,5 @@ export async function patchPrototype(
   });
   if (written === null) throw new DesignProjectNotOwnerError();
   const names = await ownerNamesFor(deps, [written.ownerId]);
-  return { project: projectDesignProject(written, names.get(written.ownerId) ?? null) };
+  return { project: projectDesignProject(written, names.get(written.ownerId) ?? null, input.ownerId) };
 }

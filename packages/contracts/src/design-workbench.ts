@@ -389,6 +389,42 @@ export const DESIGN_PROJECT_TAG_MAX_CHARS = 20;
 export const DesignProjectTag = z.string().trim().min(1).max(DESIGN_PROJECT_TAG_MAX_CHARS);
 export const DesignProjectTags = z.array(DesignProjectTag).max(DESIGN_PROJECT_MAX_TAGS);
 
+/* ─────────── 迭代 22：发布与分享（对外只读链接） ─────────── */
+
+/**
+ * 分享链接带出去多少东西。**闭集两档**，默认 `prototype`。
+ *
+ * 为什么必须有这个开关、而不是"分享就是分享整个项目"：`problem` 很可能是从一条内部
+ * 对话线程导进来的（`importThread`），里面带着立项背景、内部吐槽、客户名字。把一个
+ * 原型发给外部评审，和把立项讨论发给外部评审，是两件事。
+ *
+ * ⚠ **两档都不含 `chat`**。对话是设计过程里最容易夹带内部信息的地方（澄清问答、
+ *   "老板说不行"、模型的失败退路），它永远不随链接出去——这一条由
+ *   `SharedDesign` 的字段闭集在编译期钉住，不是一句承诺。
+ */
+export const DesignShareScope = z.enum(["prototype", "full"]);
+export type DesignShareScope = z.infer<typeof DesignShareScope>;
+
+/** 一个项目当前的发布状态（未发布 ⇒ `DesignProject.share` 为 `null`）。 */
+export const DesignShare = z
+  .object({
+    /** 链接里的那串令牌。owner 自己看得到（要能再复制一次），别人读项目时**不返回**（见下方 `DesignProject.share` 头注）。 */
+    token: z.string().nullable(),
+    scope: DesignShareScope,
+    publishedAt: z.string(),
+    /**
+     * 已发布的那一份与**现在画布上这一份**已经不一样了。
+     *
+     * 这个字段存在的理由就是本仓那条「静态痕迹 ≠ 动态事实」：发布一次之后，
+     * 界面上留下的是「已分享」这个**痕迹**，而画布还在继续改。没有它，用户以为
+     * 对方看到的是最新稿，对方看到的其实是三轮之前——而两边都不会发现。
+     * 由服务端逐字段比对快照与当前行算出，不是前端猜的。
+     */
+    stale: z.boolean(),
+  })
+  .strict();
+export type DesignShare = z.infer<typeof DesignShare>;
+
 export const DesignProject = z
   .object({
     id: z.string(),
@@ -450,6 +486,14 @@ export const DesignProject = z
      */
     githubIssueUrl: z.string().nullable(),
     githubIssueNumber: z.number().int().positive().nullable(),
+    /**
+     * 迭代 22：这个项目的发布状态；`null` = 没发布过（或已取消发布）。
+     *
+     * ⚠ `share.token` 只对 **owner** 返回，其他组织成员读到的是 `null`——组织内全员可读
+     *   说的是"看得见这个项目"，不是"可以替 owner 把它发到组织外面去"。那两件事之间
+     *   隔着一次明确的发布动作，而令牌就是那次动作的凭证。
+     */
+    share: DesignShare.nullable().default(null),
     chat: z.array(DesignProjectChatTurn),
     ownerId: z.string(),
     /** 见上方可见性口径注释 */
@@ -470,6 +514,42 @@ export const DesignProject = z
     }
   });
 export type DesignProject = z.infer<typeof DesignProject>;
+
+/**
+ * 一个**已发布**设计项目对外的只读投影——免登录的分享页读到的全部内容。
+ *
+ * ## 这里的字段闭集就是隐私边界本身
+ *
+ * 它刻意**不是** `DesignProject.omit(...)`：`omit` 的默认方向是"新加的字段自动跟着漏出去"。
+ * 本仓已经五次栽在"一处加了数据、下游少了一处跟进"上；在一条对**公网**开放的投影上，
+ * 那个方向的默认值必须反过来——**新字段默认不出去**，要出去得在这里显式写一行。
+ *
+ * 所以这里没有、且不许有：`chat`（对话）、`refImages`（参考图字节的句柄）、`ownerId`、
+ * `linkedFeedbackId`、`githubIssueUrl`、`pushed`、`tags`、`id`。
+ * 由 `packages/contracts/tests/design-workbench.test.ts` 的字段闭集断言守着（加一个字段
+ * 而不更新那条断言 ⇒ 红）。
+ */
+export const SharedDesign = z
+  .object({
+    name: z.string(),
+    template: ProjectTemplate,
+    theme: z.enum(["light", "dark"]),
+    accent: PrototypeAccent,
+    frames: z.array(z.string()),
+    /** 与 `DesignProject.prototype` 同形：单项 `null` = 这一页规划了但没画出来。 */
+    prototype: z.array(PrototypeNode.nullable()),
+    frameNotes: z.array(z.string()),
+    frameLinks: z.array(z.array(PrototypeLink)),
+    /** 发布**那一刻**的时间——不是项目的 `updatedAt`。访客据它知道自己看的是哪一版。 */
+    publishedAt: z.string(),
+    /** 谁发布的。`null` = 取不到名字（不编一个）。 */
+    ownerName: z.string().nullable(),
+    /** `scope: "full"` 才有；`"prototype"` 档恒为 `null`（不是空串——空串会被渲染成"写了但是空的"）。 */
+    problem: z.string().nullable(),
+    criteria: z.array(z.string()).nullable(),
+  })
+  .strict();
+export type SharedDesign = z.infer<typeof SharedDesign>;
 
 /* ─────────────────────────── 错误码 ─────────────────────────── */
 
@@ -525,6 +605,21 @@ export const DesignWorkbenchError = z.enum([
   "DESIGN_ISSUE_IN_PROGRESS",
   /** 2026-09-05——GitHub 那一侧建失败（超时/鉴权/限流）。fail closed：库里不会留下半个 issue。 */
   "DESIGN_ISSUE_CREATION_FAILED",
+  /**
+   * 迭代 22：分享链接打不开——令牌不对、项目已取消发布、或项目被删了。
+   *
+   * **三种情形合成一个码，且不区分**：对一条公网可达的链接，"这个令牌不存在"与
+   * "这个令牌存在但已经取消发布"分开报，等于给试令牌的人一个进度条。同
+   * `feedback-loop.ts` 的 404 非 403 纪律。
+   */
+  "SHARE_NOT_FOUND",
+  /**
+   * 迭代 22：这个项目还没有任何画出来的页，没什么可发布的。
+   *
+   * 不是"允许发布一个空链接"：访客打开看到一片空白，只会以为链接坏了——而链接是好的，
+   * 坏的是"发布"这个动作本身在这一刻没有意义。
+   */
+  "NOTHING_TO_PUBLISH",
 ]);
 export type DesignWorkbenchError = z.infer<typeof DesignWorkbenchError>;
 
@@ -981,5 +1076,67 @@ export const operations = {
       "DESIGN_ISSUE_CREATION_FAILED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+  /* ─────────── 迭代 22：发布与分享 ─────────── */
+
+  /**
+   * 发布（或**重新发布**）这个项目，拿到一条免登录的只读链接。
+   *
+   * ## 发布的是**快照**，不是活链接
+   *
+   * 这是本操作最重要的一条语义，理由是这个代码库自己的事实：原型是**分页渐进落库**的
+   * （`append-project-chat.ts` 的 `persistProgress` 每画完一页就写一次库）。活链接意味着
+   * 评审在你重新生成的那三十秒里刷新一下，看到的是三页空白 + 一页画到一半——然后他截图
+   * 发到群里问"这就是你要给我看的？"。发布=冻结，之后你怎么改画布都不影响已经发出去的那一份。
+   *
+   * 代价是快照会过期，而这个代价**必须在界面上说出来**：`DesignShare.stale` 就是那句话，
+   * 由服务端比对算出。再点一次发布 = 更新快照（同一条链接，令牌不变——重新发布换一条链接
+   * 会让之前发出去的那条静默失效，而发出去的链接在别人的聊天记录里，你收不回来）。
+   *
+   * ⚠ 仅 owner。⚠ 一个项目同一时刻只有一条有效链接（幂等键 = `projectId`）。
+   */
+  publishProject: {
+    method: "POST",
+    path: "/pm-designs/:projectId/share",
+    in: z
+      .object({
+        projectId: z.string(),
+        /** 省略 = 沿用已发布那份的档位；从未发布过 ⇒ `prototype`（保守的那一档）。 */
+        scope: DesignShareScope.optional(),
+      })
+      .strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "NOTHING_TO_PUBLISH", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 取消发布——链接**立刻**失效（访客再打开是 `SHARE_NOT_FOUND`）。
+   *
+   * ⚠ 令牌一并作废，不保留。再次发布会生成**新**令牌：取消发布的语义是"我收回了它"，
+   *   如果旧令牌还能用，这个动作就没有做到它名字上写的那件事。
+   * ⚠ 仅 owner。⚠ 幂等：没发布过也返回 200（要的状态已经达成了）。
+   */
+  unpublishProject: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/share",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 读一条分享链接。**免登录**——这是本束唯一一条不带 principal 的操作。
+   *
+   * 令牌形如 `<locator>.<secret>`：`locator` 是 base64url 的 `[orgId, projectId]`，
+   * 只用来路由到那一行（RLS 按 org 判，没有组织上下文就查不出任何东西）；`secret` 是
+   * 256 位随机数，**在任何内容返回之前**用定时安全比较验过。这套形状不是这里发明的，
+   * 逐字照搬 `survey-service.ts` 的公开问卷令牌——同一个问题在一个仓库里只该有一种解法。
+   */
+  getSharedDesign: {
+    method: "GET",
+    path: "/public/design-shares/:token",
+    in: z.object({ token: z.string() }).strict(),
+    out: z.object({ design: SharedDesign }).strict(),
+    err: ["SHARE_NOT_FOUND"] as const,
   },
 } as const;

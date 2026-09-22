@@ -49,5 +49,5 @@ export async function updateProject(
   });
   if (updated === null) throw new DesignProjectNotOwnerError();
 
-  return { project: await loadProjectView(deps, input.projectId) };
+  return { project: await loadProjectView(deps, input.projectId, input.ownerId) };
 }

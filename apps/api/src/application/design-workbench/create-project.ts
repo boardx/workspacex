@@ -69,5 +69,5 @@ export async function createProject(
     await deps.projects.update(projectId, input.ownerId, visual);
   }
 
-  return { project: await loadProjectView(deps, projectId) };
+  return { project: await loadProjectView(deps, projectId, input.ownerId) };
 }

@@ -218,7 +218,7 @@ export const DESIGN_PROJECTS = [
     ],
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [],
+    theme: "dark", tags: [], refImages: [], share: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-03T02:00:00.000Z", updatedAt: "2026-09-03T02:05:00.000Z",
   },
@@ -229,7 +229,7 @@ export const DESIGN_PROJECTS = [
     pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [],
+    theme: "dark", tags: [], refImages: [], share: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
   },
@@ -353,7 +353,7 @@ export const DESIGN_PROJECTS = [
     ],
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [],
+    theme: "dark", tags: [], refImages: [], share: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
   },
@@ -424,7 +424,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
         pushed: false, pushedAt: null, linkedFeedbackId: body.linkedFeedbackId ?? null, chat: [],
         // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [],
+    theme: "dark", tags: [], refImages: [], share: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
         createdAt: NOW, updatedAt: NOW,
       };
@@ -472,6 +472,34 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     });
     // suggestions 是"下一步"，不能是刚做完的那两件——否则助手说"加好了"，紧跟着建议"去加一下"。
     return json(route, { project, reply: { source: "model", applied: ["prototype"], suggestions: ["把发送键做成图标", "给历史会话加分组", "设计设置页"] } });
+  });
+
+  /*
+   * 迭代 22：发布与分享。**真的把 share 挂到项目上**（不是回显 200）——回显的话屏上不会
+   * 出现链接框，e2e 就在验一个不存在的行为（同上面参考图那条的教训）。
+   * 令牌沿用、取消发布换新令牌这两条也照真实语义来，否则 e2e 会在一个生产里不存在的行为上变绿。
+   */
+  await page.route((url) => /^\/pm-designs\/[^/]+\/share$/.test(new URL(url).pathname), (route) => {
+    const req = route.request();
+    const id = decodeURIComponent(new URL(req.url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    if (req.method() === "POST") {
+      if (!project.prototype.some((r) => r !== null && r !== undefined)) {
+        return json(route, { reasonCode: "NOTHING_TO_PUBLISH" }, 409);
+      }
+      const scope = (req.postDataJSON() ?? {}).scope ?? project.share?.scope ?? "prototype";
+      project.share = {
+        token: project.share?.token ?? `Zml4.${id}-secret`,
+        scope, publishedAt: NOW, stale: false,
+      };
+      return json(route, { project });
+    }
+    if (req.method() === "DELETE") {
+      project.share = null;
+      return json(route, { project });
+    }
+    return json(route, {}, 405);
   });
 
   /**

@@ -958,6 +958,7 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
   accent: "neutral",
     tags: [],
     refImages: [],
+    share: null,
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,

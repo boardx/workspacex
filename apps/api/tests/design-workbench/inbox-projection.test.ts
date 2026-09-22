@@ -15,6 +15,7 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
     accent: "neutral",
     tags: [],
     refImages: [],
+    share: null,
     problem: "",
     criteria: [],
     frames: [],

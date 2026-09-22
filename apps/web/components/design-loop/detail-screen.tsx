@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
+import { ShareDialog } from "./share-dialog";
 import {
   appendProjectChat as apiAppendProjectChat,
   uploadRefImage,
@@ -27,6 +28,8 @@ import {
   updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
+  publishProject as apiPublishProject,
+  unpublishProject as apiUnpublishProject,
   DESIGN_WORKBENCH_CHAT_INTRO,
   DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
@@ -38,6 +41,7 @@ import {
   type PrototypeVersion,
   type PrototypeAccent,
   type ProjectTemplate,
+  type DesignShareScope,
 } from "@/lib/live-design-workbench";
 import { designWorkbench } from "@repo/contracts";
 
@@ -248,6 +252,10 @@ export function DesignDetailScreen({
    */
   const [importing, setImporting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
+  /** 迭代 22：发布与分享。 */
+  const [sharing, setSharing] = React.useState(false);
+  const [shareBusy, setShareBusy] = React.useState(false);
+  const [shareError, setShareError] = React.useState<string | null>(null);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
   const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
@@ -655,6 +663,41 @@ export function DesignDetailScreen({
   };
   const cancel = () => abortRef.current?.abort();
 
+  /**
+   * 迭代 22：发布 / 取消发布。两条都把**服务端返回的整个项目**放回状态，而不是在本地
+   * 拼一个 `share` 对象——`stale` 是服务端逐字段比出来的，本地拼等于第二份判断，
+   * 而它一定会先于服务端那份过期。
+   */
+  const doPublish = async (scope: DesignShareScope) => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiPublishProject(project.id, scope);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(
+        err instanceof ApiError && err.reasonCode === "NOTHING_TO_PUBLISH"
+          ? "这个项目还没有画出来的页，没什么可发布的。"
+          : `没能发布（${describeFailure(err)}）`,
+      );
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const doUnpublish = async () => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiUnpublishProject(project.id);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(`没能取消发布（${describeFailure(err)}）`);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
   const confirmPush = async (note: string) => {
     setPushBusy(true);
     setPushError(null);
@@ -681,6 +724,19 @@ export function DesignDetailScreen({
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
           <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
+          {/*
+            * 迭代 22：分享。已发布时按钮说"已分享"，快照过期时**在按钮上就说出来**——
+            * 把它藏进弹窗里，等于要用户先怀疑才会去看。
+            */}
+          <Button
+            variant={(project.share ?? null) === null ? "outline" : "ghost"}
+            size="sm"
+            onClick={() => { setSharing(true); setShareError(null); }}
+            data-testid="design-detail-share"
+          >
+            <Share2 aria-hidden className="h-3.5 w-3.5" />
+            {(project.share ?? null) === null ? "分享" : project.share?.stale === true ? "已分享（有更新）" : "已分享"}
+          </Button>
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -1302,6 +1358,17 @@ export function DesignDetailScreen({
           projectId={project.id}
           onClose={() => setImporting(false)}
           onImported={(next) => setLoad({ kind: "ready", project: next })}
+        />
+      )}
+
+      {sharing && (
+        <ShareDialog
+          project={project}
+          busy={shareBusy}
+          error={shareError}
+          onClose={() => { if (!shareBusy) { setSharing(false); setShareError(null); } }}
+          onPublish={(scope) => void doPublish(scope)}
+          onUnpublish={() => void doUnpublish()}
         />
       )}
 

@@ -29,6 +29,7 @@ const project: dw.DesignProject = {
   theme: "dark",
   accent: "neutral",
   tags: [],
+  share: null,
   refImages: [],
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
   criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
@@ -374,5 +375,54 @@ describe("迭代 17：强调色是闭集，且每一档的对比度都验过", (
       const dark = relativeLuminance(tokens.dark.primary);
       expect(dark, `${name}：深色画布上的强调色该比浅色画布上的更亮`).toBeGreaterThan(light);
     }
+  });
+});
+
+/* ───────────── 迭代 22：发布与分享——对外投影的字段闭集就是隐私边界 ───────────── */
+
+describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
+  it("SharedDesign 的字段逐个列举——加一个字段而不动这里 ⇒ 红", () => {
+    /*
+     * ⭐ 反证锚点：把 `chat` 加进 `SharedDesign` ⇒ 这条红。
+     *
+     * 这条断言是「分享不会把对话带出去」这句承诺的**唯一**机械落点。没有它，那句话
+     * 就只是文件头注里的一段中文——而本仓的结论是「没有脚本的规范条目视为未落地」。
+     * 用 `omit` 派生会让新字段**默认跟着漏出去**；对一条公网可达的投影，默认方向必须反过来。
+     */
+    expect(Object.keys(dw.SharedDesign.shape).sort()).toEqual(
+      [
+        "accent", "criteria", "frameLinks", "frameNotes", "frames", "name",
+        "ownerName", "problem", "prototype", "publishedAt", "template", "theme",
+      ].sort(),
+    );
+  });
+
+  it("这些字段一个都不许在里面：对话、参考图、owner id、来源反馈、issue、推送态", () => {
+    const leak = ["chat", "refImages", "ownerId", "id", "linkedFeedbackId", "githubIssueUrl", "githubIssueNumber", "pushed", "pushedAt", "tags", "share"];
+    for (const k of leak) {
+      expect(Object.keys(dw.SharedDesign.shape), `${k} 不该随分享链接出去`).not.toContain(k);
+    }
+  });
+
+  it("scope 是闭集两档，默认那档是保守的那一档", () => {
+    expect(dw.DesignShareScope.options).toEqual(["prototype", "full"]);
+    // 契约层不写默认值（默认在用例层：从未发布过 ⇒ prototype），这里钉住"保守的那档排在前面"
+    // 只是为了让 UI 的选项顺序有据可依；真正的默认由 `share-project.test.ts` 守。
+    expect(dw.DesignShareScope.options[0]).toBe("prototype");
+  });
+
+  it("公开读操作是本束唯一一条 GET /public/... 路由，且错误闭集只有一个码", () => {
+    expect(dw.operations.getSharedDesign.path.startsWith("/public/")).toBe(true);
+    // ⭐ 反证锚点：给它加一个能区分"不存在 / 已取消发布"的第二个错误码 ⇒ 这条红。
+    // 那正是给试令牌的人一个进度条。
+    expect(dw.operations.getSharedDesign.err).toEqual(["SHARE_NOT_FOUND"]);
+    const publicPaths = Object.values(dw.operations).filter((o) => o.path.startsWith("/public/"));
+    expect(publicPaths).toHaveLength(1);
+  });
+
+  it("发布与取消发布走同一条路径的两个动词——一个项目只有一条链接", () => {
+    expect(dw.operations.publishProject.path).toBe(dw.operations.unpublishProject.path);
+    expect(dw.operations.publishProject.method).toBe("POST");
+    expect(dw.operations.unpublishProject.method).toBe("DELETE");
   });
 });
