@@ -1,0 +1,1987 @@
+{
+  "_readme": [
+    "screen → live adapter → controller → application use case 的**跨层接线清单**（issue #397）。",
+    "判定在 .harness/scripts/lib/ui-wiring.ts，入口是 lint-ui-wiring.mjs（两处都写着为什么这道门必须存在）。",
+    "形态是棘轮不是全绿门：mock 豁免只减不增；每个接线 PR 顺手把自己那条从 kind=mock 改成 kind=wired。",
+    "事实字段（adapters/contracts/controllers/mocks/useCases）用 `pnpm run lint:ui-wiring:update` 重生成，不要手改；",
+    "人类字段（note/reason/ratchet.maxMockRoutes/previewPrefixes/nonApiAdapters）才是手写的。"
+  ],
+  "ratchet": {
+    "maxMockRoutes": 36,
+    "frozenAt": "2026-09-21",
+    "issue": 397,
+    "note": "冻结上限 = 落地当天实测的 mock 驱动产品路由条数。要抬高它，就得在 PR 里显式改这个数字——一次可 grep 的回退，而不是悄悄多一条。"
+  },
+  "previewPrefixes": [
+    {
+      "prefix": "/preview",
+      "reason": "UI 先行原型命名空间（ADR-003 签核第 ① 件材料），按定义就是 mock 驱动的。"
+    },
+    {
+      "prefix": "/kitchen-sink",
+      "reason": "设计系统活文档（UC-0.4 R8），只渲染组件七态，没有产品数据面。"
+    },
+    {
+      "prefix": "/profile/preview",
+      "reason": "个人资料屏的离线预览（PreviewSessionProvider 注入 mock 身份、零网络），与生产 /profile 是两条独立路径。"
+    },
+    {
+      "prefix": "/org-admin/preview",
+      "reason": "org-admin 能力域的 UI 先行原型（UC-1.3/1.4/1.6），真实权限在服务端 Guard + RLS。"
+    },
+    {
+      "prefix": "/chat/copilotkit-preview",
+      "reason": "#654 阶段 1a 的独立预览路由，刻意不挂在 /chat 生产入口下。"
+    }
+  ],
+  "nonApiAdapters": [
+    {
+      "module": "apps/web/lib/live-recording.ts",
+      "reason": "纯浏览器端采音（MediaRecorder / AudioWorklet），没有 HTTP 面——它的产物由 live-asr.ts 经 WebSocket 送出。"
+    }
+  ],
+  "controllers": {
+    "AgentController": {
+      "useCases": [
+        "agent/create-agent",
+        "agent/get-agent-capability-graph",
+        "agent/list-agents",
+        "agent/self-publish-toolless-agent",
+        "agent/set-agent-instructions",
+        "agent/set-agent-role-label"
+      ]
+    },
+    "AgentPublishController": {
+      "useCases": [
+        "agent/agent-publish"
+      ]
+    },
+    "AgentRunController": {
+      "useCases": [
+        "agent-run/cancel-run",
+        "agent-run/context-snapshot",
+        "agent-run/decide-agent-run",
+        "agent-run/decide-tool-permission",
+        "agent-run/get-run-transcript",
+        "agent-run/interject-run",
+        "agent-run/interjection-store",
+        "agent-run/parent-run-control",
+        "agent-run/read-run",
+        "agent-run/read-run-context-snapshot",
+        "agent-run/retry-run",
+        "agent-run/stream-run",
+        "chat/resolve-visibility"
+      ]
+    },
+    "AgentSkillPinsController": {
+      "useCases": [
+        "agent-skill-pins/set-agent-skill-pins",
+        "agent-skill-pins/set-agent-skill-pins-draft"
+      ]
+    },
+    "AgentTrialRunController": {
+      "useCases": [
+        "agent-run/trial-run-agent"
+      ]
+    },
+    "ArtifactBindingController": {
+      "useCases": [
+        "artifact/bind-to-project-step",
+        "artifact/binding-errors",
+        "artifact/list-backflow",
+        "artifact/pin-version",
+        "artifact/upgrade-binding"
+      ]
+    },
+    "ArtifactFileVersionsController": {
+      "useCases": [
+        "files/list-artifact-file-versions"
+      ]
+    },
+    "ArtifactReferenceController": {
+      "useCases": [
+        "artifact/binding-errors",
+        "artifact/reference-for-downstream"
+      ]
+    },
+    "AuthController": {
+      "useCases": [
+        "auth/errors",
+        "auth/inspect-password-reset-throttle",
+        "auth/login",
+        "auth/password-reset"
+      ]
+    },
+    "AuthOrgController": {
+      "useCases": [
+        "auth/errors",
+        "auth/export-organization",
+        "auth/join-org-with-invite",
+        "auth/switch-org-at-login",
+        "identity/errors"
+      ]
+    },
+    "AuthRegistrationController": {
+      "useCases": [
+        "agent/ensure-deep-research-agent",
+        "agent/ensure-default-agent",
+        "agent/ensure-image-gen-agent",
+        "auth/bootstrap-first-user",
+        "auth/errors",
+        "auth/register-new-account"
+      ]
+    },
+    "CanvasInstanceController": {
+      "useCases": [
+        "canvas/apply-sticky-change",
+        "canvas/classify-canvas-change",
+        "canvas/errors",
+        "canvas/export-canvas-source",
+        "canvas/get-canvas-source",
+        "canvas/instantiate-canvases-for-segment",
+        "canvas/render-canvas",
+        "canvas/segment-binding-errors",
+        "canvas/update-canvas-source"
+      ]
+    },
+    "CanvasTemplateController": {
+      "useCases": [
+        "canvas/adopt-template",
+        "canvas/archive-template",
+        "canvas/bind-template-to-segment",
+        "canvas/create-template",
+        "canvas/errors",
+        "canvas/list-templates",
+        "canvas/mint-template-version",
+        "canvas/publish-template",
+        "canvas/restore-template",
+        "canvas/segment-binding-errors",
+        "canvas/simulate-template-run",
+        "canvas/suggest-template-sections",
+        "canvas/trial-template",
+        "canvas/update-template-draft",
+        "canvas/update-template-metadata"
+      ]
+    },
+    "CapabilityController": {
+      "useCases": [
+        "identity/errors",
+        "identity/list-capabilities",
+        "identity/mutate-capability"
+      ]
+    },
+    "ChatAttachmentController": {
+      "useCases": [
+        "chat/attachment-extraction-store",
+        "chat/get-attachment-content",
+        "chat/get-thread",
+        "chat/list-thread-attachments",
+        "chat/resolve-visibility",
+        "chat/upload-attachment"
+      ]
+    },
+    "ChatController": {
+      "useCases": [
+        "chat/admin-audit-read",
+        "chat/approval-model-registry",
+        "chat/check-downstream-eligibility",
+        "chat/create-approval-request",
+        "chat/decide-approval",
+        "chat/dispatch-preset",
+        "chat/expand-tool-call-chain",
+        "chat/generate-thread-title",
+        "chat/get-agent-panel",
+        "chat/get-background-task",
+        "chat/get-preset-usage",
+        "chat/get-thread",
+        "chat/get-thread-artifact-source",
+        "chat/get-thread-messages-file",
+        "chat/land-as-artifact",
+        "chat/list-personal-threads",
+        "chat/list-thread-artifacts",
+        "chat/list-threads",
+        "chat/locate-citation",
+        "chat/message-roundtrip",
+        "chat/mutate-thread",
+        "chat/recommend-canvas-templates",
+        "chat/resolve-visibility",
+        "chat/start-preset-instance",
+        "chat/summarize-persona-from-thread",
+        "chat/update-agent-roster",
+        "chat/upsert-preset"
+      ]
+    },
+    "ChatFollowUpSuggestionsController": {
+      "useCases": [
+        "chat/generate-followup-suggestions",
+        "chat/get-thread"
+      ]
+    },
+    "CheckinBoardController": {
+      "useCases": [
+        "auth/get-checkin-board",
+        "auth/org-invite-errors"
+      ]
+    },
+    "CopilotkitAguiController": {
+      "useCases": [
+        "agent-run/agui-bridge",
+        "agent-run/agui-file-events",
+        "agent-run/decide-tool-permission",
+        "agent-run/tool-permission-grants",
+        "chat/generate-thread-title",
+        "chat/list-thread-attachments",
+        "chat/resolve-visibility",
+        "chat/upload-attachment"
+      ]
+    },
+    "DesignWorkbenchController": {
+      "useCases": [
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "design-workbench/append-project-chat",
+        "design-workbench/create-design-github-issue",
+        "design-workbench/create-project",
+        "design-workbench/delete-project",
+        "design-workbench/design-chat-model",
+        "design-workbench/import-thread",
+        "design-workbench/intake-questions",
+        "design-workbench/list-my-projects",
+        "design-workbench/patch-prototype",
+        "design-workbench/project-shared",
+        "design-workbench/prototype-versions",
+        "design-workbench/push-to-inbox",
+        "design-workbench/ref-images",
+        "design-workbench/update-project",
+        "feedback/structure-feedback-draft"
+      ]
+    },
+    "DeviceSessionController": {
+      "useCases": [
+        "auth/device-sessions"
+      ]
+    },
+    "DigitalInterviewController": {
+      "useCases": [
+        "interview/errors",
+        "interview/list-digital-interviews",
+        "interview/manage-digital-interview",
+        "interview/quick-digital-interview"
+      ]
+    },
+    "DocumentGenerationAutoApproveController": {
+      "useCases": [
+        "agent-run/tool-permission-grants"
+      ]
+    },
+    "EmailVerificationController": {
+      "useCases": [
+        "auth/email-verification",
+        "auth/errors",
+        "auth/issue-authenticated-session"
+      ]
+    },
+    "EvidenceWithdrawalController": {
+      "useCases": [
+        "artifact/binding-errors",
+        "artifact/withdraw-evidence"
+      ]
+    },
+    "FeedbackController": {
+      "useCases": [
+        "feedback/comment-on-feedback-github-issue",
+        "feedback/deepen-feedback",
+        "feedback/download-feedback-attachment",
+        "feedback/drafts/count-my-feedback-drafts",
+        "feedback/drafts/create-feedback-draft",
+        "feedback/drafts/delete-feedback-draft",
+        "feedback/drafts/draft-refine-model",
+        "feedback/drafts/draft-shared",
+        "feedback/drafts/list-my-feedback-drafts",
+        "feedback/drafts/submit-feedback-draft",
+        "feedback/drafts/update-feedback-draft",
+        "feedback/get-feedback-github-issue",
+        "feedback/list-feedback",
+        "feedback/list-feedback-events",
+        "feedback/list-feedback-github-issue-comments",
+        "feedback/structure-feedback-draft",
+        "feedback/submit-feedback",
+        "feedback/triage-feedback",
+        "feedback/upload-feedback-attachment",
+        "feedback/vote-feedback"
+      ]
+    },
+    "FilesBrowserController": {
+      "useCases": [
+        "files/browse-artifacts"
+      ]
+    },
+    "FilesDeletionController": {
+      "useCases": [
+        "files/deletion-http-deps",
+        "files/get-deletion-receipt",
+        "files/preview-delete-impact",
+        "files/read-deletion-status",
+        "files/request-deletion"
+      ]
+    },
+    "FilesDeliveryController": {
+      "useCases": [
+        "files/agent-artifact-delivery-source",
+        "files/deliver-artifact"
+      ]
+    },
+    "FilesExportController": {
+      "useCases": [
+        "files/export-artifacts"
+      ]
+    },
+    "FilesRenameController": {
+      "useCases": [
+        "files/rename-artifact"
+      ]
+    },
+    "FilesRetentionController": {
+      "useCases": [
+        "files/get-retention-policy",
+        "files/set-retention-policy"
+      ]
+    },
+    "IdentityController": {
+      "useCases": [
+        "identity/authorize",
+        "identity/change-own-password",
+        "identity/list-own-activity",
+        "identity/personal-layer-summary",
+        "identity/read-content",
+        "identity/resolve-model-constraint",
+        "identity/switch-organization",
+        "identity/update-own-profile",
+        "identity/upload-own-avatar"
+      ]
+    },
+    "InboxController": {
+      "useCases": [
+        "inbox/get-inbox-counts",
+        "inbox/list-inbox",
+        "inbox/reorder-inbox-item",
+        "inbox/set-inbox-item-tags",
+        "system/platform-operator-check"
+      ]
+    },
+    "InterviewInsightController": {
+      "useCases": [
+        "interview/confirm-insight",
+        "interview/errors",
+        "interview/extract-quotes",
+        "interview/generate-candidate-insights"
+      ]
+    },
+    "InterviewScopeController": {
+      "useCases": [
+        "interview/attach-to-project-step",
+        "interview/detach-from-project-step",
+        "interview/errors",
+        "interview/get-interview",
+        "interview/list-interviews"
+      ]
+    },
+    "KernelProbeController": {
+      "useCases": [],
+      "note": "内核探针：只做一次 `SELECT 1` 级别的连通性自检（直接用 DATABASE_PORT），没有业务用例——它本来就不该经 application 层。"
+    },
+    "LocalExportController": {
+      "useCases": [
+        "identity/errors",
+        "identity/export-to-organization"
+      ]
+    },
+    "LocalOrgController": {
+      "useCases": [
+        "identity/errors",
+        "identity/invoke-local-model",
+        "identity/personal-local-org"
+      ]
+    },
+    "McpRemoteDiscoveryController": {
+      "useCases": [
+        "mcp/discover-remote-server"
+      ]
+    },
+    "McpServersController": {
+      "useCases": [
+        "mcp/list-mcp-servers"
+      ]
+    },
+    "MessageRatingController": {
+      "useCases": [
+        "skill/submit-message-rating"
+      ]
+    },
+    "ModelController": {
+      "useCases": [
+        "model/list-model-pool",
+        "model/register-model"
+      ]
+    },
+    "OrgAdminManagementController": {
+      "useCases": [
+        "auth/get-token-quotas",
+        "auth/list-org-invites",
+        "auth/list-org-members",
+        "auth/org-invite-errors",
+        "auth/remove-org-member",
+        "auth/resend-org-invite",
+        "auth/review-admin-invite",
+        "auth/revoke-org-invite",
+        "auth/set-org-member-role",
+        "auth/set-token-quota",
+        "auth/update-organization",
+        "auth/upload-org-avatar",
+        "skill/assign-reviewer-function",
+        "skill/list-reviewer-functions",
+        "skill/revoke-reviewer-function"
+      ]
+    },
+    "OrgAdminScopeController": {
+      "useCases": [
+        "org-admin/resolve-resource-scope"
+      ]
+    },
+    "OrgInviteController": {
+      "useCases": [
+        "auth/activate-org-member",
+        "auth/errors",
+        "auth/invite-org-member",
+        "auth/org-invite-errors"
+      ]
+    },
+    "OrgInviteLinkController": {
+      "useCases": [
+        "auth/activate-via-org-invite-link",
+        "auth/create-org-invite-link",
+        "auth/errors",
+        "auth/list-org-invite-links",
+        "auth/org-invite-errors",
+        "auth/review-org-invite-link",
+        "auth/revoke-org-invite-link"
+      ]
+    },
+    "PlatformAccessController": {
+      "useCases": [],
+      "note": "只读访问位：回答「当前 principal 是不是平台管理员」，直接读 CREDENTIAL/PLATFORM_ADMIN 仓储，没有独立用例模块。"
+    },
+    "ProjectController": {
+      "useCases": [
+        "project/add-project-member",
+        "project/advance-agenda-segment",
+        "project/advance-agenda-segment-errors",
+        "project/archive-project",
+        "project/change-project-role",
+        "project/create-agenda-segment",
+        "project/create-project",
+        "project/errors",
+        "project/get-project-overview",
+        "project/list-agenda-segments",
+        "project/list-projects",
+        "project/preview-as-role",
+        "project/remove-project-member",
+        "project/render-role-view",
+        "project/unarchive-project",
+        "project/update-project-tags"
+      ]
+    },
+    "RecordingController": {
+      "useCases": [
+        "recording/capture",
+        "recording/consent-decision",
+        "recording/personal-realtime-asr",
+        "recording/personal-transcription-usecases",
+        "recording/recording-file-upload",
+        "recording/session-lifecycle"
+      ]
+    },
+    "SkillController": {
+      "useCases": [
+        "security/permission-filter",
+        "skill/disable-skill",
+        "skill/list-skills"
+      ]
+    },
+    "SkillFileEditController": {
+      "useCases": [
+        "skill/edit-skill-files"
+      ]
+    },
+    "SkillMountController": {
+      "useCases": [
+        "chat/resolve-visibility",
+        "security/permission-filter",
+        "skill/authorize-thread-mount",
+        "skill/list-thread-deviations",
+        "skill/mount-skill-to-thread",
+        "skill/unmount-skill-from-thread"
+      ]
+    },
+    "SkillReviewController": {
+      "useCases": [
+        "skill/review-skill-version",
+        "skill/run-security-scan",
+        "skill/submit-skill-for-review"
+      ]
+    },
+    "SkillTrialRunController": {
+      "useCases": [
+        "skill/submit-trial-run",
+        "skill/trial-run-skill"
+      ]
+    },
+    "ToolPermissionGrantController": {
+      "useCases": [
+        "agent-run/tool-permission-grants"
+      ]
+    }
+  },
+  "routes": {
+    "/": {
+      "kind": "shell",
+      "screen": "apps/web/app/page.tsx"
+    },
+    "/admin": {
+      "kind": "mock",
+      "screen": "apps/web/app/admin/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/admin/[module]": {
+      "kind": "mock",
+      "screen": "apps/web/app/admin/[module]/page.tsx",
+      "mocks": [
+        "apps/web/lib/generated/identity.mock.ts",
+        "apps/web/lib/mock/admin-limits.ts",
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts",
+        "apps/web/lib/mock/org-admin.ts"
+      ]
+    },
+    "/admin/agent/[id]": {
+      "kind": "shell",
+      "screen": "apps/web/app/admin/agent/[id]/page.tsx"
+    },
+    "/admin/skill/[id]": {
+      "kind": "shell",
+      "screen": "apps/web/app/admin/skill/[id]/page.tsx"
+    },
+    "/agent": {
+      "kind": "mock",
+      "screen": "apps/web/app/agent/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/agent-previews.ts"
+      ]
+    },
+    "/agent/[teamId]": {
+      "kind": "mock",
+      "screen": "apps/web/app/agent/[teamId]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/agent-previews.ts"
+      ]
+    },
+    "/asset-governance": {
+      "kind": "mock",
+      "screen": "apps/web/app/asset-governance/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/asset-governance.ts"
+      ]
+    },
+    "/auth/activate": {
+      "kind": "shell",
+      "screen": "apps/web/app/(entry)/auth/activate/page.tsx"
+    },
+    "/auth/register": {
+      "kind": "shell",
+      "screen": "apps/web/app/(entry)/auth/register/page.tsx"
+    },
+    "/auth/reset-password": {
+      "kind": "shell",
+      "screen": "apps/web/app/(entry)/auth/reset-password/page.tsx"
+    },
+    "/auth/verify-email": {
+      "kind": "shell",
+      "screen": "apps/web/app/(entry)/auth/verify-email/page.tsx"
+    },
+    "/brain": {
+      "kind": "mock",
+      "screen": "apps/web/app/brain/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/brain.ts"
+      ]
+    },
+    "/canvas": {
+      "kind": "shell",
+      "screen": "apps/web/app/canvas/page.tsx"
+    },
+    "/canvas/[screen]": {
+      "kind": "mock",
+      "screen": "apps/web/app/canvas/[screen]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts",
+        "apps/web/lib/mock/projects.ts"
+      ]
+    },
+    "/chat": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/(v2)/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-asr.ts",
+        "apps/web/lib/live-canvas.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-skill.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "canvas",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "files",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "recording",
+        "skills"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactFileVersionsController",
+        "ArtifactReferenceController",
+        "CanvasInstanceController",
+        "CanvasTemplateController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "FilesBrowserController",
+        "FilesDeletionController",
+        "FilesDeliveryController",
+        "FilesExportController",
+        "FilesRenameController",
+        "FilesRetentionController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "MessageRatingController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "RecordingController",
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/chat/[threadId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/(v2)/[threadId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-asr.ts",
+        "apps/web/lib/live-canvas.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-skill.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "canvas",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "files",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "recording",
+        "skills"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactFileVersionsController",
+        "ArtifactReferenceController",
+        "CanvasInstanceController",
+        "CanvasTemplateController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "FilesBrowserController",
+        "FilesDeletionController",
+        "FilesDeliveryController",
+        "FilesExportController",
+        "FilesRenameController",
+        "FilesRetentionController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "MessageRatingController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "RecordingController",
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/chat/copilotkit-preview": {
+      "kind": "preview",
+      "screen": "apps/web/app/chat/copilotkit-preview/page.tsx"
+    },
+    "/chat/copilotkit-v2": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/copilotkit-v2/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-asr.ts",
+        "apps/web/lib/live-canvas.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-skill.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "canvas",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "files",
+        "identity",
+        "recording",
+        "skills"
+      ],
+      "controllers": [
+        "ArtifactFileVersionsController",
+        "CanvasInstanceController",
+        "CanvasTemplateController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "FeedbackController",
+        "FilesBrowserController",
+        "FilesDeletionController",
+        "FilesDeliveryController",
+        "FilesExportController",
+        "FilesRenameController",
+        "FilesRetentionController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "MessageRatingController",
+        "RecordingController",
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController"
+      ]
+    },
+    "/chat/copilotkit-v2/[threadId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/copilotkit-v2/[threadId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-asr.ts",
+        "apps/web/lib/live-canvas.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-skill.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "canvas",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "files",
+        "identity",
+        "recording",
+        "skills"
+      ],
+      "controllers": [
+        "ArtifactFileVersionsController",
+        "CanvasInstanceController",
+        "CanvasTemplateController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "FeedbackController",
+        "FilesBrowserController",
+        "FilesDeletionController",
+        "FilesDeliveryController",
+        "FilesExportController",
+        "FilesRenameController",
+        "FilesRetentionController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "MessageRatingController",
+        "RecordingController",
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController"
+      ]
+    },
+    "/chat/landing": {
+      "kind": "mock",
+      "screen": "apps/web/app/chat/landing/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/chat.ts"
+      ]
+    },
+    "/chat/legacy": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/legacy/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-asr.ts",
+        "apps/web/lib/live-canvas.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-message-rating.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-mount.ts",
+        "apps/web/lib/live-skill.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "canvas",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "files",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "recording",
+        "skills"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactFileVersionsController",
+        "ArtifactReferenceController",
+        "CanvasInstanceController",
+        "CanvasTemplateController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "FilesBrowserController",
+        "FilesDeletionController",
+        "FilesDeliveryController",
+        "FilesExportController",
+        "FilesRenameController",
+        "FilesRetentionController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "MessageRatingController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "RecordingController",
+        "SkillController",
+        "SkillMountController",
+        "SkillReviewController",
+        "SkillTrialRunController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/chat/live": {
+      "kind": "wired",
+      "screen": "apps/web/app/chat/live/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-projects.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "project"
+      ],
+      "controllers": [
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CopilotkitAguiController",
+        "EvidenceWithdrawalController",
+        "ProjectController"
+      ]
+    },
+    "/chat/preset": {
+      "kind": "mock",
+      "screen": "apps/web/app/chat/preset/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/chat.ts"
+      ]
+    },
+    "/consent": {
+      "kind": "mock",
+      "screen": "apps/web/app/(entry)/consent/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/group": {
+      "kind": "mock",
+      "screen": "apps/web/app/(entry)/group/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/itv": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
+    "/itv/[interviewId]/setup": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/[interviewId]/setup/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
+    "/itv/experts/[expertId]": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/experts/[expertId]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
+    "/itv/live": {
+      "kind": "wired",
+      "screen": "apps/web/app/itv/live/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-interviews.ts"
+      ],
+      "contracts": [
+        "auth",
+        "interview"
+      ],
+      "controllers": [
+        "AuthController",
+        "AuthOrgController",
+        "AuthRegistrationController",
+        "DigitalInterviewController",
+        "EmailVerificationController",
+        "InterviewInsightController",
+        "InterviewScopeController"
+      ]
+    },
+    "/itv/new": {
+      "kind": "shell",
+      "screen": "apps/web/app/itv/new/page.tsx"
+    },
+    "/itv/quick/[interviewId]": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/quick/[interviewId]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
+    "/join": {
+      "kind": "mock",
+      "screen": "apps/web/app/(entry)/join/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/kitchen-sink": {
+      "kind": "preview",
+      "screen": "apps/web/app/kitchen-sink/page.tsx"
+    },
+    "/login": {
+      "kind": "mock",
+      "screen": "apps/web/app/(entry)/login/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/org-admin": {
+      "kind": "shell",
+      "screen": "apps/web/app/org-admin/page.tsx"
+    },
+    "/org-admin/invites": {
+      "kind": "mock",
+      "screen": "apps/web/app/org-admin/invites/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/org-admin/members": {
+      "kind": "mock",
+      "screen": "apps/web/app/org-admin/members/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/org-admin/preview": {
+      "kind": "preview",
+      "screen": "apps/web/app/org-admin/preview/page.tsx"
+    },
+    "/org-admin/profile": {
+      "kind": "mock",
+      "screen": "apps/web/app/org-admin/profile/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/platform-admin": {
+      "kind": "mock",
+      "screen": "apps/web/app/platform-admin/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/platform-admin/[module]": {
+      "kind": "mock",
+      "screen": "apps/web/app/platform-admin/[module]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/platform-admin/agent/[id]": {
+      "kind": "mock",
+      "screen": "apps/web/app/platform-admin/agent/[id]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/platform-admin/design-workbench/[projectId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/platform-admin/design-workbench/[projectId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-design-workbench.ts",
+        "apps/web/lib/live-inbox.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "chat",
+        "chat-file-upload",
+        "design-ai-collab",
+        "design-prototype",
+        "design-workbench",
+        "inbox"
+      ],
+      "controllers": [
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "InboxController"
+      ]
+    },
+    "/platform-admin/skill/[id]": {
+      "kind": "wired",
+      "screen": "apps/web/app/platform-admin/skill/[id]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-skill-files.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "skill-file-edit"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "SkillFileEditController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/platform-admin/skill/[id]/bindings": {
+      "kind": "wired",
+      "screen": "apps/web/app/platform-admin/skill/[id]/bindings/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-agent-skill-pins.ts",
+        "apps/web/lib/live-skill-files.ts"
+      ],
+      "contracts": [
+        "agent-runtime",
+        "skill-file-edit"
+      ],
+      "controllers": [
+        "AgentController",
+        "AgentPublishController",
+        "AgentSkillPinsController",
+        "AgentTrialRunController",
+        "McpRemoteDiscoveryController",
+        "McpServersController",
+        "ModelController",
+        "SkillFileEditController"
+      ]
+    },
+    "/preview/agent-interrupts": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/agent-interrupts/page.tsx"
+    },
+    "/preview/agent-kernel": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/agent-kernel/page.tsx"
+    },
+    "/preview/agent-runtime": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/agent-runtime/page.tsx"
+    },
+    "/preview/agent-tool-chain": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/agent-tool-chain/page.tsx"
+    },
+    "/preview/ai-capability-studio/adapt": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/adapt/page.tsx"
+    },
+    "/preview/ai-capability-studio/connections": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/connections/page.tsx"
+    },
+    "/preview/ai-capability-studio/governance": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/governance/page.tsx"
+    },
+    "/preview/ai-capability-studio/import": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/import/page.tsx"
+    },
+    "/preview/ai-capability-studio/source": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/source/page.tsx"
+    },
+    "/preview/ai-capability-studio/uploads": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/uploads/page.tsx"
+    },
+    "/preview/ai-capability-studio/workbench": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/ai-capability-studio/workbench/page.tsx"
+    },
+    "/preview/canvas-template-gallery": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/canvas-template-gallery/page.tsx"
+    },
+    "/preview/chat-attach-modal": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-attach-modal/page.tsx"
+    },
+    "/preview/chat-create-project": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-create-project/page.tsx"
+    },
+    "/preview/chat-diagram-fabric": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-diagram-fabric/page.tsx"
+    },
+    "/preview/chat-file-upload": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-file-upload/page.tsx"
+    },
+    "/preview/chat-viz": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-viz/page.tsx"
+    },
+    "/preview/feedback-design-loop": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/feedback-design-loop/page.tsx"
+    },
+    "/preview/feedback-loop": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/feedback-loop/page.tsx"
+    },
+    "/preview/live-collab-orchestration": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/live-collab-orchestration/page.tsx"
+    },
+    "/preview/plan-control": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/plan-control/page.tsx"
+    },
+    "/preview/plan-control-live": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/plan-control-live/page.tsx"
+    },
+    "/profile": {
+      "kind": "wired",
+      "screen": "apps/web/app/profile/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/profile/preview": {
+      "kind": "preview",
+      "screen": "apps/web/app/profile/preview/page.tsx"
+    },
+    "/project": {
+      "kind": "shell",
+      "screen": "apps/web/app/project/page.tsx"
+    },
+    "/project/live": {
+      "kind": "wired",
+      "screen": "apps/web/app/project/live/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-projects.ts"
+      ],
+      "contracts": [
+        "artifact",
+        "project"
+      ],
+      "controllers": [
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "EvidenceWithdrawalController",
+        "ProjectController"
+      ]
+    },
+    "/project/new": {
+      "kind": "mock",
+      "screen": "apps/web/app/project/new/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/project.ts",
+        "apps/web/lib/mock/tpl.ts"
+      ]
+    },
+    "/projects": {
+      "kind": "wired",
+      "screen": "apps/web/app/projects/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/projects/[projectId]": {
+      "kind": "mock",
+      "screen": "apps/web/app/projects/[projectId]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/project.ts"
+      ]
+    },
+    "/projects/[projectId]/canvas": {
+      "kind": "mock",
+      "screen": "apps/web/app/projects/[projectId]/canvas/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/projects.ts"
+      ]
+    },
+    "/projects/[projectId]/files": {
+      "kind": "mock",
+      "screen": "apps/web/app/projects/[projectId]/files/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/files.ts"
+      ]
+    },
+    "/rec": {
+      "kind": "mock",
+      "screen": "apps/web/app/rec/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/realtime-transcriptions.ts",
+        "apps/web/lib/mock/rec-v2.ts",
+        "apps/web/lib/mock/rec.ts"
+      ]
+    },
+    "/research": {
+      "kind": "mock",
+      "screen": "apps/web/app/research/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/guided-research-demo-state.ts",
+        "apps/web/lib/mock/guided-research.ts",
+        "apps/web/lib/mock/project.ts",
+        "apps/web/lib/mock/research-studio.ts"
+      ]
+    },
+    "/session": {
+      "kind": "mock",
+      "screen": "apps/web/app/(entry)/session/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/skill": {
+      "kind": "mock",
+      "screen": "apps/web/app/skill/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts",
+        "apps/web/lib/mock/skill.ts"
+      ]
+    },
+    "/studio/design-workbench": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/design-workbench/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-design-workbench.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-inbox.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-ai-collab",
+        "design-prototype",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "inbox",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "InboxController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/design-workbench/[projectId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/design-workbench/[projectId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-design-workbench.ts",
+        "apps/web/lib/live-inbox.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "chat",
+        "chat-file-upload",
+        "design-ai-collab",
+        "design-prototype",
+        "design-workbench",
+        "inbox"
+      ],
+      "controllers": [
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "InboxController"
+      ]
+    },
+    "/studio/feedback-drafts": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/feedback-drafts/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/interview": {
+      "kind": "shell",
+      "screen": "apps/web/app/studio/interview/page.tsx"
+    },
+    "/studio/interview/[id]": {
+      "kind": "shell",
+      "screen": "apps/web/app/studio/interview/[id]/page.tsx"
+    },
+    "/studio/prototype": {
+      "kind": "shell",
+      "screen": "apps/web/app/studio/prototype/page.tsx"
+    },
+    "/studio/research": {
+      "kind": "mock",
+      "screen": "apps/web/app/studio/research/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/research.ts"
+      ]
+    },
+    "/studio/survey": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/survey/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/survey/[surveyId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/survey/[surveyId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/survey/question-templates/[templateId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/survey/question-templates/[templateId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/survey/templates/[templateId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/survey/templates/[templateId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/surveys/[token]": {
+      "kind": "shell",
+      "screen": "apps/web/app/surveys/[token]/page.tsx"
+    },
+    "/tasks": {
+      "kind": "mock",
+      "screen": "apps/web/app/tasks/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/tasks.ts"
+      ]
+    },
+    "/tpl": {
+      "kind": "mock",
+      "screen": "apps/web/app/tpl/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/tpl.ts"
+      ]
+    },
+    "/tpl/designer": {
+      "kind": "mock",
+      "screen": "apps/web/app/tpl/designer/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/agent-runtime.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts",
+        "apps/web/lib/mock/skill.ts"
+      ]
+    },
+    "/tpl/list": {
+      "kind": "mock",
+      "screen": "apps/web/app/tpl/list/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/admin.ts",
+        "apps/web/lib/mock/asset-governance.ts",
+        "apps/web/lib/mock/canvas.ts"
+      ]
+    }
+  }
+}

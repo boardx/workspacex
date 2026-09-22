@@ -422,5 +422,5 @@ test("TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试�
 
   // `packages/contracts/src/plan-control.ts` 明确删除了任意历史 checkpoint 恢复，
   // 且契约测试机械禁止该 action。Web 不渲染一个无法调用统一契约的假按钮。
-  await expect(page.getByTestId("chat-task-workbench-failure-restore-checkpoint")).toHaveCount(0);
+  await expect(page.getByTestId("chat-task-workbench-failure-restore-checkpoint")).toHaveCount(0); // testid-gate: absent 契约明确删除任意历史 checkpoint 恢复，按钮从不渲染
 });

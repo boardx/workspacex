@@ -15,6 +15,7 @@ import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { auditSignoff } from "./lib/design-signoff";
+import { contractRouteCoverage } from "./lib/contract-route-coverage-fs";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
 import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import {
@@ -29,6 +30,7 @@ import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
 import { PR_GREEN_RULE_EFFECTIVE_FROM, commitStatusToObservation, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
+import type { QueueMergeEvidence } from "./lib/merge-queue";
 import { parse as parseYaml } from "yaml";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -349,6 +351,52 @@ function checkSpecRef(phaseId: string, f: Feature, findings: Finding[]): void {
 
 
 /**
+ * 契约 ↔ 路由覆盖（issue #1177）。
+ *
+ * 「契约里声明了 `path` 的 operation，如果它落在一个已经交付完的契约束里，
+ * `apps/api/src/interface/` 里必须有对应路由」——判据、为什么不是「每条 operation
+ * 都必须有路由」、束级近似的假阴性，全部写在 `lib/contract-route-coverage.ts` 的头注里，
+ * 这里不复述。
+ *
+ * ⚠ **级别固定 WARN，`--strict` 也不升 FAIL。** issue #1177「已知的难点」第 3 条逐字：
+ *   225 条里绝大多数是合法未实现，一上来就 FAIL 会逼人去关掉它。先让清单可见、
+ *   等它收敛，升级是人的决定。
+ *
+ * ⚠ 一个束一行，不是一条缺口一行：本仓今天的清单是三位数，逐条塞进 doctor 会把
+ *   别的 finding 全部淹掉。逐条看 `pnpm harness contract-routes`。
+ */
+function checkContractRouteCoverage(phaseIds: readonly string[], findings: Finding[]): void {
+  let report;
+  try {
+    report = contractRouteCoverage(phaseIds);
+  } catch (e) {
+    // 扫不动（契约包结构变了 / interface 目录不在）时**说出来**，不要静默当绿——
+    // 一道扫了 0 行的门永远是绿的，那正是这条检查自己要挡的失效形状。
+    findings.push({
+      level: "WARN",
+      phase: "-",
+      msg: `契约↔路由覆盖：扫描失败，本次未判定（${e instanceof Error ? e.message : String(e)}）`,
+    });
+    return;
+  }
+  for (const b of report.bundles) {
+    if (!b.inScope) continue;
+    const gaps = report.gaps.filter((g) => g.bundle === b.bundle);
+    if (gaps.length === 0) continue;
+    const sample = gaps.slice(0, 3).map((g) => `${g.method} ${g.path}`).join("、");
+    findings.push({
+      level: "WARN",
+      phase: b.phase,
+      msg:
+        `契约↔路由覆盖：束 ${b.bundle} 有 ${gaps.length}/${b.operationsWithPath} 条声明了 path 的 operation ` +
+        `在 apps/api/src/interface/ 里没有对应路由（${sample}${gaps.length > 3 ? " 等" : ""}）` +
+        `——「这个束的 feature 已 passing」推不出「这些路径今天能跑」。逐条：pnpm harness contract-routes --phase ${b.phase}`,
+    });
+  }
+}
+
+
+/**
  * 签核链体检（ADR-023 决策六）。
  *
  * doctor 覆盖了证据链、派生视图链、GitHub 可见性链——**签核链是唯一没覆盖的那条**。
@@ -553,7 +601,7 @@ function syncRepo(): string | null {
 
 /** GraphQL closedByPullRequestsReferences 一页的形状 */
 interface ClosingRefsPage {
-  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string; mergeCommit?: { parents?: { nodes?: Array<{ oid: string }> } } | null }>;
+  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string; mergedBy?: { login?: string } | null; mergeCommit?: { parents?: { nodes?: Array<{ oid: string }> } } | null }>;
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 }
 /** 分页上限：超过就当问不到（null）。一个 issue 被 2000 个 PR 关闭不是现实，是数据坏了，坏数据不放行。 */
@@ -586,6 +634,44 @@ function parseJsonLines<T extends object>(stdout: string): T[] | null {
  * 任何一步失败（gh 非 0、输出不是 JSON、翻页超上限）一律返回 null——调用方按级别报「问不到」，不当绿。
  * `exec` 可注入以便纯测翻页；默认走 sh。
  */
+/**
+ * GitHub 合并队列合入时的登录名。队列合入的 PR 由这个 bot 落地，不是人。
+ * 这是「这次合并有没有走队列」**会随状况改变的信号**（对比 PR 正文/标签那种写下来
+ * 就不再变的痕迹，见 static-trace-vs-live-fact.md）。
+ */
+const MERGE_QUEUE_BOT_LOGIN = "github-merge-queue";
+
+/**
+ * 第 5 条（#3238）：队列合入的 PR，「绿」的证据必须锚在**候选组** commit 上。
+ *
+ * 上面那两条 REST 查询读的是 `headRefOid`（PR 自己的 head）——对直接合并来说那就是
+ * 被验证的 commit，没有问题；但队列合入时，跑完整验证的是候选组（merge_group.head_sha），
+ * PR head 上那批绿只证明「这个分支单独看是绿的」。
+ *
+ * doctor 目前**没有**办法从 GraphQL 反查某个 PR 落在哪个候选组里（一个组可以批量含多个
+ * PR，只有组头那一个 commit 上有 check；非组头的 PR 的 mergeCommit 上没有）。所以这里
+ * 如实声明 candidateSha 未知 ⇒ judgeClosingPrGreen 判 unknown（--strict 下 FAIL），
+ * **不**拿 PR head 的绿冒充候选组通过。
+ *
+ * ⚠ 这意味着**队列启用之前必须先把这条补上**（反查候选组 commit 并从它上面读 check），
+ * 否则队列一开，每个队列合入的 PR 在 doctor ⑤ 都会判 unknown。这正是 issue #3238
+ * 「先完成兼容实现…再分阶段启用规则」的意思：宁可显式地说「证明不了」，也不要
+ * 悄悄放行——本仓已经九次栽在「全绿但空转」上。
+ *
+ * 直接合并（绝大多数存量）返回空对象 ⇒ ClosingPr 不带 queueEvidence ⇒ 判定行为一字不变。
+ */
+function queueEvidenceFor(node: ClosingRefsPage["nodes"][number]): { queueEvidence?: QueueMergeEvidence } {
+  if (node.mergedBy?.login !== MERGE_QUEUE_BOT_LOGIN) return {};
+  return {
+    queueEvidence: {
+      mergedViaQueue: true,
+      candidateSha: null,
+      prHeadSha: node.headRefOid,
+      checksObservedOn: node.headRefOid,
+    },
+  };
+}
+
 export function fetchClosingPrs(
   repo: string,
   issueNumber: number,
@@ -599,7 +685,7 @@ export function fetchClosingPrs(
     const args = cursor === null ? "first:100,includeClosedPrs:true" : "first:100,after:$c,includeClosedPrs:true";
     const query =
       `query($o:String!,$r:String!,$n:Int!${cursor === null ? "" : ",$c:String!"}){repository(owner:$o,name:$r){issue(number:$n){` +
-      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid mergeCommit{parents(first:1){nodes{oid}}}} pageInfo{hasNextPage endCursor}}}}}`;
+      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid mergedBy{login} mergeCommit{parents(first:1){nodes{oid}}}} pageInfo{hasNextPage endCursor}}}}}`;
     const r = exec(
       // 查询串必须用**单引号**交给 bash：双引号会把 `$o/$r/$n` 展开成空串，gh 收到 `query(:String!…)`
       // 直接 400（Expected VAR_SIGN），fetch 恒回 null → --strict 下每个 passing feature 都红（2026-09-05 实测）。
@@ -664,7 +750,7 @@ export function fetchClosingPrs(
     try {
       const parent = node.mergeCommit?.parents?.nodes?.[0]?.oid;
       const policy = loadCommitPolicy(parent, exec);
-      out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs, policy });
+      out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs, policy, ...queueEvidenceFor(node) });
     } catch { return null; }
   }
   return out;
@@ -810,6 +896,9 @@ export function doctor(args: Args): void {
   }
 
   checkFeatureOwnerNamespace(scannedPhases, findings);
+
+  // 一次扫完 interface 目录（440+ 个路由装饰器），不按 phase 重复解析
+  checkContractRouteCoverage(phaseIds, findings);
 
   // 棘轮只许收缩：只对本次实际扫到的 phase 判陈旧，不动没扫到的那部分名单。
   const scannedPhaseIds = new Set(scannedPhases.map((p) => p.phaseId));
