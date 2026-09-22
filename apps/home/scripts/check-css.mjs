@@ -76,6 +76,34 @@ for (const file of cssFiles) {
   }
 }
 
+/* --- the brand palette has one home ------------------------------------
+   Its three stops were restated in four places: base.css, diagrams.js, the
+   inline sprite in each page, and the social card. Changing the palette then
+   means finding all four, and missing one ships two brands on one page. The
+   token block declares them; everything else reads them. */
+const BRAND_LITERAL = new RegExp([
+  '#(?:ff7a18|ff2e73|b14bff)\\b',                  // hex, as the sprite and the card wrote it
+  '\\b255\\s*[, ]\\s*122\\s*[, ]\\s*24\\b',          // and the same three as channels, which is
+  '\\b255\\s*[, ]\\s*46\\s*[, ]\\s*115\\b',          // how twenty-two translucent glows and
+  '\\b177\\s*[, ]\\s*75\\s*[, ]\\s*255\\b',          // borders used to restate them
+].join('|'), 'i');
+const brandLeaks = [];
+for (const file of ['index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
+                    ...list('assets/js', '.js'), ...cssFiles,
+                    ...list('scripts', '.mjs').filter((f) => !f.endsWith('check-css.mjs'))]) {
+  let body;
+  try { body = read(file); } catch { continue; }
+  body = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+  if (basename(file) === 'base.css') {
+    // the declaration itself lives here; only look outside the token block
+    body = body.replace(/:root\s*\{[\s\S]*?\n\}/, '');
+  }
+  body.split('\n').forEach((line, i) => {
+    if (BRAND_LITERAL.test(line)) brandLeaks.push(`${file}:${i + 1}: ${line.trim().slice(0, 70)}`);
+  });
+}
+
+report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);
 report('classes defined in CSS but used nowhere', unusedClasses, (c) => `.${c}  (${classes.get(c)})`);
 report('custom properties declared but never read', unusedTokens);

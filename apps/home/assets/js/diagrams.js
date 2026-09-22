@@ -63,10 +63,15 @@ function registerScale(node) {
 function defs(target, id = 'g1') {
   const d = el('defs');
   const lg = el('linearGradient', { id, x1: '0', y1: '0', x2: '1', y2: '0' });
+  /* The stops read the palette tokens rather than restating the hex. The brand
+     gradient used to be declared in four places — here, base.css, the inline
+     sprite in each page, and the social card — which is the "same fact in two
+     places" the repo's own rules forbid, and a palette change that misses one
+     of them ships two brands on one page. */
   lg.append(
-    el('stop', { offset: '0', 'stop-color': '#ff7a18' }),
-    el('stop', { offset: '0.52', 'stop-color': '#ff2e73' }),
-    el('stop', { offset: '1', 'stop-color': '#b14bff' }),
+    el('stop', { offset: '0',    style: 'stop-color:var(--c-1)' }),
+    el('stop', { offset: '0.52', style: 'stop-color:var(--c-2)' }),
+    el('stop', { offset: '1',    style: 'stop-color:var(--c-3)' }),
   );
   d.append(lg);
   target.append(d);
