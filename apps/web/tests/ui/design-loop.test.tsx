@@ -52,6 +52,7 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
+import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
@@ -3740,5 +3741,149 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     // ⭐ 反证锚点：把 system 也渲染成 fallback 的「未生成」⇒ 这两条红。
     expect(await screen.findByTestId("design-detail-turn-system")).toBeTruthy();
     expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
+  });
+});
+
+/* ═══════════ 迭代 23：工作台首屏——第一眼看到的那几句话要与事实相符 ═══════════ */
+
+describe("工作台首屏不再指向已经不存在的东西", () => {
+  it("页头副标题不提「从模板起一个设计」——三张模板卡片在迭代 13 就删了", async () => {
+    /*
+     * ⭐ 反证锚点：把那句话改回「从模板起一个设计……」⇒ 这条红。
+     * 这是新用户看到的第一行字，而它指的那条路已经不存在。
+     */
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    const head = await screen.findByTestId("design-workbench");
+    expect(head.textContent).not.toContain("从模板起一个设计");
+  });
+
+  it("真空态给的是能点的下一步：三条起手 brief，点一下预填进新建弹窗", async () => {
+    /*
+     * ⭐ 反证锚点：把起手卡片去掉、只留一句话 ⇒ 这条红。
+     * 空工作台此前只有「从上面挑一个模板开始」——指向不存在的东西，且没有任何可点的下一步。
+     */
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    const starters = screen.getByTestId("empty-starters");
+    expect(starters.querySelectorAll("button")).toHaveLength(DESIGN_WORKBENCH_STARTERS.length);
+
+    fireEvent.click(screen.getByTestId(`empty-starter-${DESIGN_WORKBENCH_STARTERS[0]!.label}`));
+    // 预填进的是**新建弹窗的输入**，不是直接建项目——用户还能改，也还要走澄清问答。
+    await screen.findByTestId("project-dialog");
+    expect((screen.getByTestId("project-dialog-name") as HTMLInputElement).value).toBe(DESIGN_WORKBENCH_STARTERS[0]!.label);
+    expect((screen.getByTestId("project-dialog-problem") as HTMLTextAreaElement).value).toBe(DESIGN_WORKBENCH_STARTERS[0]!.prompt);
+  });
+
+  it("搜索筛空 ⇒ 说「被筛掉了」并给清除按钮，而不是说「还没有设计项目」", async () => {
+    /*
+     * ⭐ 反证锚点：把两种空合回一种 ⇒ 这条红。
+     * 用户刚打了两个字，屏上就告诉他自己的项目一个都没有——而它们只是被筛掉了。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, string> }) => {
+      if (path === "/pm-designs") return { items: (opts?.query?.q ?? "") === "" ? [project({ id: "p1" })] : [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "查无此项" } });
+    const box = await screen.findByTestId("empty-filtered", {}, { timeout: 3000 });
+    expect(box.textContent).toContain("你的项目还在");
+    expect(screen.queryByTestId("empty")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("empty-clear-filter"));
+    await screen.findByTestId("project-card-p1");
+  });
+});
+
+describe("新建时就能带参考图（照这个画）", () => {
+  const png = () => new File([new Uint8Array([1, 2, 3])], "截图.png", { type: "image/png" });
+
+  it("建完项目再逐张上传，最后才跳转——用户只按了一次确定", async () => {
+    /*
+     * ⭐ 反证锚点：不上传就跳转 ⇒ 这条红。
+     *
+     * 契约的 `createProject` 不收字节，所以"新建时带参考图"只能是先建后传；
+     * 但那是实现细节，对用户必须是一步。此前的真实路径是：建空项目 → 进详情页 →
+     * 传图 → 再说一句"照这个画"，四步，而第一步要他先给还不存在的东西起名字。
+     */
+    const calls: string[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      calls.push(`${opts?.method ?? "GET"} ${path}`);
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p-new", name: "照着画" }) };
+      throw new Error(`unexpected ${path}`);
+    });
+    // 上传走 multipart（原生 fetch），不经 apiRequest——所以这里两条 mock 都要有。
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      calls.push(`POST ${new URL(url, "http://x").pathname}`);
+      return {
+        ok: true, status: 201,
+        text: async () => JSON.stringify({
+          image: { id: "ri1", name: "截图.png", size: 3, mime: "image/png", createdAt: "2026-09-22T00:00:00.000Z" },
+          project: project({ id: "p-new", name: "照着画" }),
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onOpen = vi.fn();
+    render(<DesignWorkbenchHome state="default" onOpenProject={onOpen} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "照着画" } });
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png()] } });
+    await screen.findByTestId("ref-image-picked-0");
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
+
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith("p-new", true));
+    // 顺序要对：先建、再传、最后才跳
+    expect(calls.filter((c) => c.startsWith("POST"))).toEqual(["POST /pm-designs", "POST /pm-designs/p-new/ref-images"]);
+  });
+
+  it("图传失败不静默跳转——项目是建出来了，但 AI 看不到那张图", async () => {
+    /*
+     * ⭐ 反证锚点：失败也照样跳转 ⇒ 这条红。
+     * 那意味着用户以为"AI 会照着我那张图画"，而模型根本没拿到它——
+     * 屏上不会有任何痕迹说明发生过这件事。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p-new", name: "照着画" }) };
+      throw new Error(`unexpected ${path}`);
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 400,
+      text: async () => JSON.stringify({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: "SIZE" }),
+    }));
+    const onOpen = vi.fn();
+    render(<DesignWorkbenchHome state="default" onOpenProject={onOpen} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "照着画" } });
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png()] } });
+    await screen.findByTestId("ref-image-picked-0");
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
+
+    const banner = await screen.findByTestId("workbench-partial-create");
+    expect(banner.textContent).toContain("已经建好了");
+    expect(banner.textContent).toContain("1 张参考图没传上去");
+    expect(onOpen).not.toHaveBeenCalled();
+    // 项目是真的存在的，得给一个直接进去的出口——不能让人以为白填了一遍。
+    fireEvent.click(screen.getByTestId("workbench-partial-open"));
+    expect(onOpen).toHaveBeenCalledWith("p-new", true);
+  });
+
+  it("最多三张，满了之后按钮禁用并说清为什么", async () => {
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("ref-image-input"), { target: { files: [png(), png(), png(), png()] } });
+    await screen.findByTestId("ref-image-picked-2");
+    expect(screen.queryByTestId("ref-image-picked-3")).toBeNull();
+    expect((screen.getByTestId("ref-image-pick") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("ref-image-picker").textContent).toContain("去掉一张才能再加");
   });
 });
