@@ -25,7 +25,13 @@ export interface PendingOrgSwitch {
   readonly runsInFlight: number;
 }
 
-/** 走之前：有在途任务时先说清去向，没有就不打断（`shouldConfirm` 为 false）。 */
+/**
+ * 走之前：有在途任务时先说清去向，没有就不打断。
+ *
+ * ⚠ `runsInFlight` 为 0 有两种含义（见 `lib/shell-busy.tsx` 的边界一节）：真的没有，
+ * 或者用户此刻不在聊天页、没人登记。两种都走「不打断」——因为切换本身不会损坏任何
+ * 东西，拦一道没有内容可说的确认只是多一次点击。
+ */
 export function shouldConfirmOrgSwitch(runsInFlight: number): boolean {
   return runsInFlight > 0;
 }
