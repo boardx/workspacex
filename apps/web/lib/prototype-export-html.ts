@@ -17,7 +17,29 @@
  * 无外链：不引 CDN、不引字体文件、没有 `<script src>`。字体走系统栈。
  * 换页那一小段脚本是**内联**的，且只做一件事：显示/隐藏页。
  */
+import { designPrototype } from "@repo/contracts";
 import type { DesignProject } from "@/lib/live-design-workbench";
+
+/**
+ * 迭代 23 —— 产物外壳（页签、分隔线、次要文字）的配色。
+ *
+ * 此前这几处是**硬编码的深色值**（`#33343a` / `#17181c` / `#a0a0a8`），而 `body` 的底色
+ * 按项目 theme 切换。于是浅色项目导出来是：米白底上扣着一排近黑的药丸页签、深灰的分隔线。
+ * 「原型自己的明暗主题」这件事只做了一半——画布那一半跟着 token 走了，外壳没跟上。
+ *
+ * 不复用画布的 CSS 变量：外壳不在画布的作用域里（`.wx-light` 加在 `<html>` 上，而
+ * `collectPageCss` 抽的是画布用到的规则），硬要共用就得把整套 token 也搬进产物并在两层
+ * 作用域上各定义一遍。外壳只有六个颜色，写成一张按 theme 取的表更直接——**但对比度要过门**，
+ * 见 `tests/ui/prototype-export-html.test.tsx` 那条断言（它算的是真实的 WCAG 比值）。
+ */
+interface ShellPalette {
+  readonly bg: string; readonly fg: string; readonly muted: string;
+  readonly line: string; readonly chip: string; readonly chipOn: string; readonly chipOnFg: string;
+}
+export const EXPORT_SHELL_PALETTE: Readonly<Record<"light" | "dark", ShellPalette>> = {
+  light: { bg: "#fbfbfa", fg: "#17171a", muted: "#5c5c64", line: "#dcdad4", chip: "#ffffff", chipOn: "#17171a", chipOnFg: "#fbfbfa" },
+  dark: { bg: "#0b0b0c", fg: "#e8e8ea", muted: "#a0a0a8", line: "#33343a", chip: "#17181c", chipOn: "#e8e8ea", chipOnFg: "#0b0b0c" },
+};
 
 /**
  * 从 markup 里取出 class token。
@@ -81,7 +103,7 @@ const escapeHtml = (s: string): string =>
  * 本函数不认识 React，这样它可以在 jsdom 里被直接单测。
  */
 export function buildPrototypeExportHtml(input: {
-  readonly project: Pick<DesignProject, "name" | "frames" | "frameNotes" | "theme"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] };
+  readonly project: Pick<DesignProject, "name" | "frames" | "frameNotes" | "theme" | "prototype"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] };
   readonly screens: readonly { readonly markup: string }[];
   readonly css: string;
   readonly now?: Date;
@@ -95,15 +117,39 @@ export function buildPrototypeExportHtml(input: {
   const { project, screens, css } = input;
   const forPrint = input.forPrint === true;
   const now = input.now ?? new Date();
+  const shell = EXPORT_SHELL_PALETTE[project.theme];
+  /*
+   * 迭代 23 —— 打印那一段 `@media print` 的三条规则，每一条都是纸上才成立的事实：
+   *
+   * ① 末页不再分页。`page-break-after:always` 对每一页生效，最后一页后面那一次分页会让
+   *    PDF 结尾凭空多出一张空白纸。屏上看不出来，交付物上每次都在。
+   * ② 可跳转元素的虚线框去掉。它是屏上的可供性提示，而纸上点不动；更糟的是解释它的那句
+   *    提示语在打印时被隐藏了，于是纸上留下一圈没人说得清是什么的虚线。
+   * ③ 画板与说明块不许被拦腰切开。一台手机被分在两页上，读的人要来回翻。
+   */
   const nav = project.frames
     .map((f, i) => `<button type="button" class="wx-tab" data-go="${i}">${i + 1}. ${escapeHtml(f)}</button>`)
     .join("");
+  const labelOf = (nodeId: string): string => {
+    const found = designPrototype.findPrototypeNodePath(project.prototype, nodeId);
+    return found === null ? nodeId : designPrototype.prototypeNodeLabel(found.path[found.path.length - 1]!);
+  };
   const pages = screens
     .map((s, i) => {
       const links = project.frameLinks?.[i] ?? [];
+      /*
+       * 迭代 23：跳转清单写**人话标签**，不是裸节点 id。
+       *
+       * `design-doc-markdown.ts` 早在迭代 11 就改成了「按钮「发送」 → 第 2 页「设置」」，
+       * 注释里逐字写着「文档的读者是人」——而这份导出的 HTML 是同一批读者，却一直在打印
+       * `send → 第 2 页`。同一件事在一处修了、另一处没跟上：本仓点名过的那种漂移，
+       * 这次是文档那侧先修、HTML 这侧留在原地。
+       *
+       * 找不到节点（树被改过、id 已不在）⇒ 回落成裸 id，不编一个标签出来。
+       */
       const linkList = links.length === 0
         ? '<p class="wx-muted">这一页没有跳转。</p>'
-        : `<ul>${links.map((l) => `<li>${escapeHtml(l.from)}${l.item === undefined ? "" : `（第 ${l.item + 1} 项）`} → 第 ${l.to + 1} 页「${escapeHtml(project.frames[l.to] ?? "")}」</li>`).join("")}</ul>`;
+        : `<ul>${links.map((l) => `<li>${escapeHtml(labelOf(l.from))}${l.item === undefined ? "" : `（第 ${l.item + 1} 项）`} → 第 ${l.to + 1} 页「${escapeHtml(project.frames[l.to] ?? "")}」</li>`).join("")}</ul>`;
       const note = (project.frameNotes[i] ?? "").trim();
       return `<section class="wx-page" id="${exportScreenId(i)}"${i === 0 || forPrint ? "" : " hidden"}>
 <h2>${i + 1}. ${escapeHtml(project.frames[i] ?? "")}</h2>
@@ -122,19 +168,29 @@ export function buildPrototypeExportHtml(input: {
 <title>${escapeHtml(project.name)} · 可点击原型</title>
 <style>
 ${css}
-body{margin:0;color-scheme:${project.theme};font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:${project.theme === "light" ? "#fbfbfa" : "#0b0b0c"};color:${project.theme === "light" ? "#17171a" : "#e8e8ea"}}
+body{margin:0;color-scheme:${project.theme};font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:${shell.bg};color:${shell.fg}}
 .wx-shell{max-width:1000px;margin:0 auto;padding:24px}
 .wx-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
-.wx-tab{cursor:pointer;border:1px solid #33343a;background:#17181c;color:inherit;border-radius:999px;padding:6px 14px;font:inherit}
-.wx-tab[aria-pressed=true]{background:#e8e8ea;color:#0b0b0c}
+.wx-tab{cursor:pointer;border:1px solid ${shell.line};background:${shell.chip};color:inherit;border-radius:999px;padding:6px 14px;font:inherit}
+.wx-tab[aria-pressed=true]{background:${shell.chipOn};color:${shell.chipOnFg}}
 .wx-page h2{font-size:18px;margin:0 0 16px}
 .wx-stage{display:flex;justify-content:center;padding:20px 0}
-.wx-meta{border-top:1px solid #33343a;margin-top:20px;padding-top:16px}
-.wx-meta h3{font-size:13px;margin:16px 0 6px;color:#a0a0a8}
-.wx-muted{color:#a0a0a8}
-.wx-hint{color:#a0a0a8;font-size:12px;margin-top:28px}
+.wx-meta{border-top:1px solid ${shell.line};margin-top:20px;padding-top:16px}
+.wx-meta h3{font-size:13px;margin:16px 0 6px;color:${shell.muted}}
+.wx-muted{color:${shell.muted}}
+.wx-hint{color:${shell.muted};font-size:12px;margin-top:28px}
 [data-proto][data-linked]{cursor:pointer;outline:1px dashed rgba(120,160,255,.5);outline-offset:2px}
-@media print{.wx-tabs,.wx-hint{display:none}.wx-page{display:block!important;page-break-after:always}.wx-page[hidden]{display:block!important}}
+/* 打印 = 这份产物的 PDF 视图；三条纸上才成立的规则，理由见源码注释 */
+@media print{
+  @page{margin:12mm}
+  .wx-tabs,.wx-hint{display:none}
+  .wx-shell{max-width:none;padding:0}
+  .wx-page{display:block!important;page-break-after:always}
+  .wx-page:last-of-type{page-break-after:auto}
+  .wx-page[hidden]{display:block!important}
+  .wx-stage,.wx-meta{break-inside:avoid;page-break-inside:avoid}
+  [data-proto][data-linked]{outline:none}
+}
 </style></head>
 <body><div class="wx-shell">
 <h1>${escapeHtml(project.name)}</h1>

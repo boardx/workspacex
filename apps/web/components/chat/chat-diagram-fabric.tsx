@@ -14,6 +14,7 @@ import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
 import { ChatGraphVersionHistory } from "./chat-graph-version-history";
+import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -73,10 +74,31 @@ type Status =
   | { phase: "valid" }
   | { phase: "error"; reason: "whitelist" | "syntax"; detail: string };
 
+/**
+ * 流式中途「这一帧值不值得画」的**便宜同步**判据：已经能认出是哪种图（白名单内），
+ * 而且至少有一行图体。真正的合法性仍由 `mermaid.parse` 判——这里只是别在
+ * 「graph T」这种时候就把唯一的一帧用掉。
+ */
+export const __canStartDiagramForTest = (code: string): boolean => canStartDiagram(code);
+
+function canStartDiagram(code: string): boolean {
+  if (!resolveDiagramType(code).inWhitelist) return false;
+  return code.trimEnd().split("\n").filter((l) => l.trim() !== "").length >= 2;
+}
+
 export function ChatDiagramFabric({
-  code, threadId, messageId, bearer, projectId,
+  code, closed = true, threadId, messageId, bearer, projectId,
 }: {
   code: string;
+  /**
+   * 围栏是否已闭合（#3866 R5）。`false` = 模型还在写这张图。
+   *
+   * 不透传它之前，流式期间 `mermaid.parse` 拿到的是半截源码、必然抛错，状态机直接进
+   * error：用户在模型画图的整段时间里盯着一个红框和一段残缺源码，写完才翻成图。
+   * 「还没写完」不是「写错了」——与 canvas 围栏（issue #2298）同一条纪律，
+   * 那边早就透传了，这边一直漏着。
+   */
+  closed?: boolean;
   /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
    * `ChatDiagramCanvasModal` 文件头注释。原样透传，本组件不判断。 */
   threadId?: string;
@@ -109,6 +131,27 @@ export function ChatDiagramFabric({
   // 才退回原始消息文本。此前恒用 `code`：保存/关闭全屏后气泡卡片纹丝不动就是因为
   // 这条预览渲染从没读过 `savedSource`（人类实测反馈）。
   const previewCode = savedSource?.markdown ?? code;
+  /**
+   * 流式取样（与 canvas 围栏共用 `streaming-fence-sample.ts` 的同一份节奏）。
+   * 保存版替换（`savedSource`）是一次性的终态，`closed` 恒真时取样器立即跟上，
+   * 所以这里不需要为它开特例。
+   */
+  /**
+   * 流式取样。这里用 `first-then-final` 而不是 canvas 那条的 `progressive`，
+   * 因为渲染层的机制不同：`DiagramCanvasBody` 靠 key 重挂载（那条 key 守着一个真崩过页的
+   * 事故，见下面的注释，不能动），每跟进一次就重挂一次、状态机回到 validating、
+   * canvas 被卸载——真实浏览器实测是图在流式中途整个消失 0.8 秒再回来。
+   * 所以未闭合期间只取一帧，闭合时一次到终态。
+   *
+   * 那一帧落在哪由 `canStartDiagram` 决定：不给判据的话它会在几乎没有内容时就被取走、
+   * 然后冻到闭合，等于整条流都不渲染。
+   */
+  const renderCode = useSampledFenceCode(
+    previewCode,
+    savedSource !== null ? true : closed,
+    "first-then-final",
+    canStartDiagram,
+  );
 
   /**
    * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：点「最大化」
@@ -272,8 +315,21 @@ export function ChatDiagramFabric({
   return (
     <>
       <DiagramCanvasBody
-        key={previewCode}
-        previewCode={previewCode}
+        /*
+          key 仍然跟着源码走——「不要」改成「实时/保存版」两值。
+
+          我试过那个改法（为了消掉流式中途图消失 0.8 秒的闪），
+          `chat-diagram-fabric-postmount-readback-no-crash.test.tsx` 立刻红：那条 key 守的是
+          一个生产上真崩过页的事故（fabric 塞进 DOM 的包裹节点在 valid→error 切换时撞
+          `removeChild`，2026-08-22 devapp 实测 + 截图 + console 原文）。
+          拿真实崩溃风险换一个观感上的闪，不划算。
+
+          闪的问题改用取样模式解决：`first-then-final` 让流式期间只取一帧，
+          于是只重挂一次。见下面 `renderCode` 的注释。
+        */
+        key={renderCode}
+        previewCode={renderCode}
+        closed={closed}
         inView={inView}
         containerRef={containerRef}
         openMaximized={openMaximized}
@@ -325,10 +381,12 @@ export function ChatDiagramFabric({
  * 化的 canvas 换成别的东西。见 `ChatDiagramFabric` 文件头大注释。
  */
 function DiagramCanvasBody({
-  previewCode, inView, containerRef, openMaximized, openingReadback,
+  previewCode, closed, inView, containerRef, openMaximized, openingReadback,
   canQuickSave, quickSaveState, onQuickSave, canShowHistory, onOpenHistory,
 }: {
   previewCode: string;
+  /** 见 `ChatDiagramFabric` 同名 prop：`false` 时绝不判错，只停在加载态。 */
+  closed: boolean;
   inView: boolean;
   containerRef: React.RefObject<HTMLDivElement>;
   openMaximized: () => void;
@@ -346,6 +404,12 @@ function DiagramCanvasBody({
   const fabricRef = React.useRef<FabricCanvas | null>(null);
   const [status, setStatus] = React.useState<Status>({ phase: "validating" });
   const [ready, setReady] = React.useState(false);
+  /**
+   * 首帧渲染成功过就不再打回「渲染图中…」遮罩。流式期间每取样一次就重建一次 fabric，
+   * 每次都把遮罩打回来的话，用户看到的是一张不停闪的图——比晚一点出现更糟。
+   * 与 canvas 围栏同款处置。
+   */
+  const everReadyRef = React.useRef(false);
   const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(previewCode), [previewCode]);
 
   // 阶段一：校验（**不挂 canvas**）。白名单闸门 + mermaid.parse 语法闸门（与 VZ-01 一致）。
@@ -354,6 +418,9 @@ function DiagramCanvasBody({
   React.useEffect(() => {
     if (!inView) return;
     if (!inWhitelist) {
+      // 流式刚开头时 `graph`/`sequenceDiagram` 这些词本身还没写全，落不进白名单——
+      // 那是还没写完，不是用了不支持的图种。
+      if (!closed) return;
       setStatus({ phase: "error", reason: "whitelist", detail: rawToken || "（空）" });
       return;
     }
@@ -368,18 +435,21 @@ function DiagramCanvasBody({
         await mermaid.parse(previewCode);
         if (!cancelled) setStatus({ phase: "valid" });
       } catch (e) {
-        if (!cancelled)
-          setStatus({
-            phase: "error",
-            reason: "syntax",
-            detail: e instanceof Error ? e.message : String(e),
-          });
+        if (cancelled) return;
+        // 半截源码过不了 parse 是意料之中的，不是语法错误。停在 validating（加载态），
+        // 等下一次取样。闭合之后仍然过不了，才是真的写错了。
+        if (!closed) return;
+        setStatus({
+          phase: "error",
+          reason: "syntax",
+          detail: e instanceof Error ? e.message : String(e),
+        });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [previewCode, inWhitelist, rawToken, inView]);
+  }, [previewCode, inWhitelist, rawToken, inView, closed]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {
@@ -405,6 +475,7 @@ function DiagramCanvasBody({
         });
         fitToContent(canvas, { padding: 24 });
         canvas.requestRenderAll();
+        everReadyRef.current = true;
         setReady(true);
       })
       .catch(() => {
@@ -521,7 +592,7 @@ function DiagramCanvasBody({
           {inView ? "校验并渲染图中…" : "滚动到此处即渲染"}
         </div>
       )}
-      {status.phase === "valid" && !ready && (
+      {status.phase === "valid" && !ready && !everReadyRef.current && (
         <div
           data-testid="chat-diagram-loading"
           className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"

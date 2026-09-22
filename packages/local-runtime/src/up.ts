@@ -26,6 +26,7 @@ import {
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
 } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
+import { pullModelWithProgress } from "./pull-progress";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
 
@@ -157,8 +158,11 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
           log(`[ollama] pulling ${model} (first start only; several GB for the chat model)`);
-          const r = await runToCompletion({ name: "ollama-pull", command: ollamaBin, args: ["pull", model], cwd: c.dataDir, env: ollamaEnv(c) });
-          if (r.code !== 0) warnings.push(`拉取模型 ${model} 失败：${r.stderr.trim().split("\n").pop() ?? ""}`);
+          // 走流式的 `POST /api/pull` 而不是 `ollama pull` 子进程：CLI 的输出是给终端看的
+          // （回车重绘同一行），解析不稳当，而且 `runToCompletion` 要等它整个结束才有输出——
+          // 于是启动屏在下载这三个多 GB 的几分钟里一动不动（2026-09-22 用户实测的那一幕）。
+          const r = await pullModelWithProgress(ollamaUrl, model, log);
+          if (!r.ok) warnings.push(`拉取模型 ${model} 失败：${r.detail}`);
         }
       }
     }

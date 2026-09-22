@@ -101,20 +101,6 @@ export interface ObjectRef {
    * 「owner 本人」，落在 `application/feedback/drafts/draft-attachment-decision.ts`。
    * 排除在 `AclObjectRef` 之外的理由不变。
    */
-  /**
-   * ⚠ `research_session` 由 team3 研判工作流加入，理由与 `interview` / `feedback_draft`
-   * **完全同型**：一条研判会话的阶段、材料清单与审计是租户内容，必须走
-   * `permission-filter` 这道唯一的门；但它的可见性**不来自 `acl_bindings`** ——
-   * 它跟着所在的 chat 线程走（`application/chat/resolve-visibility.ts`：个人线程看
-   * 创建者，项目线程看项目成员资格）。把它放进 `AclObjectRef` 会让
-   * `authorizeBatch` 查不到绑定行、落回宽松的默认 scope，从而对组织里任何人
-   * 产出一个看起来正常的 "allowed" —— 与三道人工门要保护的东西正好相反。
-   * 排除在 `AclObjectRef` 之外让那成为编译错误而不是静默放行。
-   *
-   * ⚠ 不复用已有的 `research`：那是 guided-research 的会话（id 是它自己的会话 id），
-   * 本 kind 的 id 是 **chat 线程 id**。两个不同的对象空间共用一个 kind，
-   * 审计里就分不清一条 ref 指的是哪一种东西。
-   */
   readonly kind:
     | AclObjectRef["kind"]
     | "capability"
@@ -123,8 +109,7 @@ export interface ObjectRef {
     | "subject"
     | "research"
     | "feedback"
-    | "feedback_draft"
-    | "research_session";
+    | "feedback_draft";
   readonly id: string;
 }
 

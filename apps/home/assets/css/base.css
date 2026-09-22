@@ -19,9 +19,18 @@
   --fg-faint:    #837d93;   /* 5.09:1 on --bg. #635d72 was 3.19 and failed AA. */
 
   /* ---- accent ----------------------------------------------------------- */
-  --c-1:         #ff7a18;   /* orange  */
-  --c-2:         #ff2e73;   /* pink    */
-  --c-3:         #b14bff;   /* violet  */
+  /* Declared as channels so everything that needs the brand colour AT AN
+     ALPHA composes it from the same numbers. Twenty-one translucent glows,
+     borders and shadows used to restate these triplets by hand, which meant a
+     palette change was a twenty-one-place hunt and missing one left the old
+     pink glowing beside the new. `rgb(R G B / A)` is supported far more
+     widely than color-mix — Safari 12.1, Chrome 65, Firefox 52. */
+  --c-1-rgb:     255 122 24;   /* orange  */
+  --c-2-rgb:     255 46 115;   /* pink    */
+  --c-3-rgb:     177 75 255;   /* violet  */
+  --c-1:         rgb(var(--c-1-rgb));
+  --c-2:         rgb(var(--c-2-rgb));
+  --c-3:         rgb(var(--c-3-rgb));
   --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
   /* Text placed ON the gradient. White fails AA over the orange stop (2.61:1);
      this near-black clears 4.74:1 over every stop, so the brand colour keeps
@@ -140,7 +149,7 @@ body {
   /* Safari only learned `clip` in 16.4. Below that the declaration is dropped
      and nothing constrains the page at all, so fall back to the older
      behaviour there rather than to none. */
-  -webkit-tap-highlight-color: rgba(255, 46, 115, 0.22);
+  -webkit-tap-highlight-color: rgb(var(--c-2-rgb) / 0.22);
 }
 @supports not (overflow: clip) {
   body { overflow-x: hidden; }
@@ -240,7 +249,7 @@ p { text-wrap: pretty; }
 ::-webkit-scrollbar-thumb:hover { background: #453e54; }
 
 /* ---- selection ----------------------------------------------------------- */
-::selection { background: rgba(255, 46, 115, 0.3); color: #fff; }
+::selection { background: rgb(var(--c-2-rgb) / 0.3); color: #fff; }
 
 /* ==========================================================================
    Text shaping details

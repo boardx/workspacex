@@ -102,7 +102,6 @@ export * as skillFileEdit from "./skill-file-edit";
 /** `/agent/team4` 投后管理报告 Agent（ad-hoc 临时 Agent）的判据阈值、派生公式与自检
  *  算例的单一事实源；方法论正文与后端参照实现都从这里派生。见
  *  `docs/agents/team4-post-investment-report-mvp.md`。不进任何 phase feature_list。 */
-export * as postInvestmentRules from "./post-investment-rules";
 
 /* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
  *   design-signoff.md status: pending，待人类签核）──────────────────────── */
@@ -113,4 +112,3 @@ export * as postinvestRating from "./postinvest-rating";
 export * as postinvestRatingRules from "./postinvest-rating-rules";
 
 /* ── Team3 研判工作流（ad-hoc）：活动图的等价形式——阶段状态机 + 三道人工硬门 ───────── */
-export * as researchWorkflow from "./research-workflow";

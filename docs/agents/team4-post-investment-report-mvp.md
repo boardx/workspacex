@@ -23,7 +23,7 @@
 | 谁在回答 | 专用端点（无 agent） | ❌ **通用助手**（本 Agent 没被选中） | ✅ 本 Agent（`initialAgentId` 交给选择 provider） |
 | 材料 | 粘贴纯文本 | 真实附件，多份 | 同左（在 chat 里传，没有第二套上传框） |
 | 方法论 | 后端 prompt 常量 | **平台内置 Skill**，挂进线程 | 同左 |
-| 判据阈值 | 散在 prompt 里 | `post-investment-rules.ts` 单一事实源 | 同左 |
+| 判据阈值 | 散在 prompt 里 | `@repo/maau-postinvest-report` 单一事实源 | 同左 |
 | 后端面 | 新增 `POST /post-investment/analyze` | 零新增端点 | 同左 |
 
 ### 第三版错在哪（2026-09-15 真机截图，这一版就是为修它）
@@ -80,7 +80,7 @@ router.replace(`/chat/<threadId>`) —— 之后全部是普通 chat 操作：
 
 | 事实 | 唯一住处 | 消费方 |
 |---|---|---|
-| 风险判据阈值、派生公式、自检算例 | `packages/contracts/src/post-investment-rules.ts` | 方法论正文（渲染）、后端参照实现（import）、参照实现测试（遍历） |
+| 风险判据阈值、派生公式、自检算例 | `packages/maau-postinvest-report/src/index.ts` | 方法论正文（渲染）、后端参照实现（import）、参照实现测试（遍历） |
 | 方法论正文 | `apps/web/lib/post-investment/methodology.ts` | 内置 Skill 的 `SKILL.md`、非管理员降级时可复制的任务书 |
 | Skill id / 版本号 | `apps/web/lib/post-investment/skill-identity.ts` | 前端挂载、后端 seeding |
 | 落地页能力承诺 | `agent-directory.ts`（每条带 `evidence` 锚点） | 打分器机械核对"承诺在方法论里兑现" |
@@ -131,7 +131,7 @@ cd apps/api && npx vitest run tests/post-investment      # 派生公式 + 自检
 
 | # | 条目 | 状态 |
 |---|---|---|
-| B1 | 判据阈值/派生公式/自检算例单一事实源 | ✅ `packages/contracts/src/post-investment-rules.ts` |
+| B1 | 判据阈值/派生公式/自检算例单一事实源 | ✅ `packages/maau-postinvest-report/src/index.ts` |
 | B2 | 方法论正文（15 个测试点判据 + 硬边界） | ✅ `lib/post-investment/methodology.ts` |
 | B3 | 铸成平台内置 Skill + 启动自愈 seeding + 内容钉版 | ✅ 与 team1 共用 `seedAdHocAgentSkill` |
 | B4 | 中转页：建/复用线程 + 入编 + 挂 Skill + 进 chat | ✅ `ensure-thread.ts` + `post-investment-chat-entry.tsx` |
@@ -154,7 +154,7 @@ rm -rf apps/web/lib/post-investment \
        apps/api/scripts/post-investment-skill-content.ts \
        apps/api/src/application/post-investment \
        apps/api/tests/post-investment \
-       packages/contracts/src/post-investment-rules.ts \
+       packages/maau-postinvest-report/src/index.ts \
        docs/agents/team4-post-investment-report-mvp.md \
        docs/agents/team4-acceptance-rubric.md
 ```

@@ -26,6 +26,7 @@ import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
+import { useReportShellBusy } from "@/lib/shell-busy";
 
 /**
  * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
@@ -199,20 +200,9 @@ function renameCardInThreadList(list: ListPersonalThreadsOut, threadId: string, 
 export function CopilotKitV2Shell({
   initialThreadId,
   projectId = null,
-  conversationHeader = null,
 }: {
   initialThreadId: string | null;
   projectId?: string | null;
-  /**
-   * 挂在**对话列内部**（标题条之下、消息区之上）的附加内容。默认 `null`，
-   * 所以 `/chat` 那条路由一个像素都不变。
-   *
-   * ⚠ 存在的理由（2026-09-15 devapp 真机截图实测）：team3 曾把阶段条与材料面板
-   * 渲染成本壳的**兄弟节点**，结果它们横在整个应用之上、侧边栏被挤到下半屏——
-   * 因为本壳自己就渲染完整布局（`<aside>` + 对话列），它不是一个"内容块"。
-   * 想往对话里加东西，只能从这个口进来。
-   */
-  conversationHeader?: React.ReactNode;
 }): JSX.Element {
   const router = useRouter();
   const { session } = useSession();
@@ -1058,6 +1048,15 @@ export function CopilotKitV2Shell({
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
 
   /**
+   * 向壳层登记「这条会话有活在跑」。壳层切换组织之前要回答「切走会怎样」，
+   * 而知道答案的是这里——`runState.isRunning` 就是用户屏幕上那个「正在跑」。
+   * 登记而不是让壳层去问服务端：壳层挂在 47 个页面上，加一条常驻轮询的代价
+   * 远大于它要说的那一句话，而且轮询来的数字可能跟用户眼前看到的不一致。
+   * key 带 threadId，换会话自动换账；组件卸载自动销账。
+   */
+  useReportShellBusy(`chat:${selectedThreadId ?? "none"}`, runState.isRunning);
+
+  /**
    * 对话列表保鲜（状态点 / 排序）：每 10 秒 + 窗口回焦各刷一次。
    *
    * ⚠ 这条节奏此前**寄生在铃铛组件的 `onRefresh` 上**。#3246 把铃铛搬去
@@ -1277,8 +1276,6 @@ export function CopilotKitV2Shell({
             {projectId ? "按对话权限可见" : "仅自己可见"}
           </span>
         </div>
-        {/* 挂在对话列内部：见 `conversationHeader` 的头注。默认 null ⇒ /chat 不变。 */}
-        {conversationHeader}
         {/*
           ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），
           不再是 `initialThreadId`（route 参数、Next Router 软导航结算后才会变，

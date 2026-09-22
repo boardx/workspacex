@@ -21,7 +21,7 @@ import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib
 
 type Segment =
   | { kind: "md"; text: string; key: string }
-  | { kind: "mermaid"; code: string; key: string }
+  | { kind: "mermaid"; code: string; key: string; closed: boolean }
   | {
       kind: "canvas"; code: string; lang: CanvasFenceLang; key: string; closed: boolean;
       /** 见 `ChatCanvasFabric` 同名 prop（issue #3252）。 */
@@ -94,7 +94,7 @@ function segment(text: string): Segment[] {
         templateKeyAmbiguous: checked.ok && (templateKeyCounts.get(checked.key) ?? 0) > 1,
       });
     } else {
-      out.push({ kind: "mermaid", code: b.code, key: `mmd-${i}` });
+      out.push({ kind: "mermaid", code: b.code, key: `mmd-${i}`, closed: b.closed });
     }
     cursor = b.end;
   });
@@ -167,6 +167,9 @@ export function MarkdownMessage({
           <ChatDiagramFabric
             key={s.key}
             code={s.code}
+            // 围栏是否已闭合（#3866 R5）。canvas 那条一直透传，mermaid 这条一直漏着，
+            // 于是模型画图的整段时间里用户看到的是一个「语法错误」红框。
+            closed={s.closed}
             threadId={threadId}
             messageId={messageId}
             bearer={bearer}

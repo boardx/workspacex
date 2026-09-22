@@ -9,7 +9,7 @@
  * ——仓库里、CI 里、PR 里没有任何东西会红。于是"改了方法论忘了升版本号"这件事的第一
  * 现场是线上启动日志，而症状是「Skill 内容还是旧的，模型行为没变」，极难往回追。
  *
- * 这条测试把那次失败提前到 PR：正文（包括它从 `@repo/contracts/post-investment-rules`
+ * 这条测试把那次失败提前到 PR：正文（包括它从 `@repo/maau-postinvest-report`
  * 渲染进来的阈值、公式、自检算例）任何一处实质变化，摘要就对不上，测试红，提示去升
  * `POST_INVESTMENT_SKILL_VERSION_ID`。
  *
