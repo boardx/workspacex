@@ -147,3 +147,16 @@ R4 的产出动词表只认「做一张/做个」，漏了裸「做」：`做商
 **留给下一轮的两条**
 1. 画布完整性判据是二值的，掩盖了「从缺 6 个降到缺 1 个」这段进展，应换成填充率。
 2. 出图闭环：在 `packages/local-runtime/test/` 用真实 `apiEnv()` 喂 `selectImageProvider` 断言返回 null，并做反证（去掉 `WORKSPACEX_EDITION` 必须又变回 bailian）。
+
+## 最终 DMG（合并 main 与两条并行线之后）
+
+`WorkspaceX-0.2.0-arm64.dmg`，9 004 514 111 B，
+sha256 `bdfb6195e257cfd6d103b6bc794e2f358684b28d29ca7dea95fcb85a526a0399`，
+`build-info` = `7b16f2e27`。
+
+挂载核对：随包 `qwen3.5:4b` + `qwen3.5:4b-mlx`；`up.ts` 的启动拉取清单已是
+`[c.chatModel, c.embeddingModel]`（元任务模型不再联网下载，见 `d30dbe397`）。
+
+合并后复核的四条不变量（`execute-run.ts`）：按意图装配 6 处、`excludedTools` 声明 506 /
+赋值 616 / 使用 1085 与 1280、`templateSectionNames(t)` 在 578、`catalogHint` 带
+`!canvasRequested` 在 604。
