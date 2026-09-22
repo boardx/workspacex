@@ -1,6 +1,8 @@
 ---
 name: diagram-and-canvas
 description: 为已有 WorkspaceX 画布整理图意、修改 Mermaid 或画布 Markdown 源码时使用；需要保留对象身份并处理版本冲突。
+capability_id: WX-S012
+version: 1.0.1
 ---
 
 # 图表与画布

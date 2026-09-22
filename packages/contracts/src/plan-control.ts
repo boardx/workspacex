@@ -116,6 +116,41 @@ export const PlanGateReason = z.enum([
 ]);
 export type PlanGateReason = z.infer<typeof PlanGateReason>;
 
+/**
+ * `PlanGateReason` → 中文文案，**单一事实源**（issue #2486）。
+ *
+ * 枚举值本身是 UC-8 的判定码，不是给用户看的文案——`"multi-step"` 这种字面量
+ * 一旦被组件原样渲染，用户看到的就是一个英文枚举码。本表是这层"判定码 → 人话"
+ * 的唯一映射：前端不得在组件里现造第二份文案，同 `PLAN_PHASE_LABEL_ZH` 一套纪律
+ * （`domain.md` 一·5；本仓已五次因"同一事实声明在两处"漂移）。
+ *
+ * ⚠ 给枚举加值时这张表必须同步长出对应键——`Record<PlanGateReason, string>` 会
+ * 在漏写时让 `tsc` 直接红，不是靠人记得。反证见
+ * `packages/contracts/tests/plan-control/plan-control-schema-single-source.test.ts`。
+ */
+export const PLAN_GATE_REASON_LABEL_ZH: Readonly<Record<PlanGateReason, string>> = Object.freeze({
+  "no-plan": "这是一步到位的任务，不需要先出计划。",
+  "single-step": "只有一个步骤，直接执行即可，无需确认。",
+  "multi-step": "这是一个多步任务，执行前请确认计划与约束无误。",
+  "user-forced": "你要求了执行前先确认，请核对计划与约束无误。",
+  "multi-step-low-risk": "多步任务，但不涉及对外动作，已按计划自动执行。",
+  "multi-step-high-risk": "这是一个多步、且会产生对外可见影响的任务，执行前请确认。",
+});
+
+/**
+ * `PlanGateReason` → 中文文案的**安全读法**：永远返回一句人话，绝不把枚举码
+ * 漏给用户。
+ *
+ * 为什么需要它而不是直接下标：`reason` 的静态类型是封闭枚举，但值是从服务端
+ * JSON 里来的——类型断言拦不住一个没见过的字符串（服务端先上线新枚举值、前端
+ * 还没发版，就是这个场景）。直接下标那时会渲染出 `undefined`；返回枚举码本身
+ * 又正好是 issue #2486 要修的那个缺陷。所以兜底是一句**可辨识的人话**，既不是
+ * 空字符串，也不泄漏判定码。
+ */
+export function planGateReasonLabelZh(reason: PlanGateReason | (string & {})): string {
+  return PLAN_GATE_REASON_LABEL_ZH[reason as PlanGateReason] ?? "执行前请确认计划与约束无误。";
+}
+
 export const PlanGateDecision = z.object({
   required: z.boolean(),
   reason: PlanGateReason,

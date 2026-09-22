@@ -24,8 +24,10 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { findPhaseDir } from "./lib/paths";
 import { auditSignoff, readBundleSignoffs, readCoherence } from "./lib/design-signoff";
+import type { RawFeature } from "./lib/feature-schema";
 
-interface Feature { id: string; spec_ref?: string; points?: number }
+// 第四份手写的 feature 字段声明曾经也在这里。字段集的单一事实源是
+// lib/feature-schema.ts（issue #386）；这里读的是未校验的磁盘数据，所以用 RawFeature。
 
 let totalBad = 0;
 
@@ -52,13 +54,13 @@ for (const phaseId of process.argv.slice(2)) {
 
   const fl = JSON.parse(
     readFileSync(join(dir, "feature_list.json"), "utf8"),
-  ) as { features: Feature[] };
+  ) as { features: RawFeature[] };
   // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
   // feature_list.archive.json（只是搬家，不是第二份事实源）——覆盖矩阵要按阶段全部
   // feature 校验（见下方④），漏并回来会把已归档的 feature 误判成「不属于任何契约束」。
   const archivePath = join(dir, "feature_list.archive.json");
   if (existsSync(archivePath)) {
-    const archiveFl = JSON.parse(readFileSync(archivePath, "utf8")) as { features: Feature[] };
+    const archiveFl = JSON.parse(readFileSync(archivePath, "utf8")) as { features: RawFeature[] };
     fl.features = [...archiveFl.features, ...fl.features];
   }
 

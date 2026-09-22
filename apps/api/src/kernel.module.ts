@@ -762,7 +762,11 @@ import {
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
 // `pg-project-membership-repository.ts` / `pg-invite-token-member-resolver.ts` 的注释。
-import { MEMBER_SUBJECT_RESOLVER, PROJECT_MEMBERSHIP_REPOSITORY } from "./application/project/member-ports";
+import {
+  MEMBER_SUBJECT_RESOLVER,
+  PROJECT_MEMBERSHIP_REPOSITORY,
+  PROJECT_MEMBER_ROSTER_REPOSITORY,
+} from "./application/project/member-ports";
 import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
@@ -823,8 +827,14 @@ import {
   CANVAS_TEMPLATE_REPOSITORY,
   type CanvasTemplateRepository,
 } from "./application/canvas/template-ports";
+import {
+  CANVAS_SEGMENT_SKILL_REPOSITORY,
+  type CanvasSegmentSkillRepository,
+} from "./application/canvas/segment-skill-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
+import { PgCanvasSegmentSkillRepository } from "./infrastructure/canvas/pg-canvas-segment-skill-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+import { CanvasSegmentSkillController } from "./interface/controllers/canvas-segment-skill.controller";
 // #1493（UC-7.3 第一块）：画布实例源码链（instantiateForSegment / getSource / updateSource）。
 import {
   CANVAS_INSTANCE_REPOSITORY,
@@ -1002,6 +1012,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    CanvasSegmentSkillController,
     CanvasInstanceController,
     BlueprintController,
     ApplyBlueprintController,
@@ -2564,6 +2575,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectMembershipRepository(db),
       inject: [DATABASE_PORT],
     },
+    // #609：`listProjectMembers` 的读端口。`useExisting` 而不是再 new 一个——
+    //   同一个类同时实现读写两个接口（见 `pg-project-membership-repository.ts`），
+    //   两个 provider 各造一个实例只会让「同一份仓储」在运行时变成两份。
+    {
+      provide: PROJECT_MEMBER_ROSTER_REPOSITORY,
+      useExisting: PROJECT_MEMBERSHIP_REPOSITORY,
+    },
     // F125：独立 provider，见 `pg-invite-token-member-resolver.ts` 文件头。
     {
       provide: MEMBER_SUBJECT_RESOLVER,
@@ -2584,6 +2602,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: CANVAS_TEMPLATE_REPOSITORY,
       useFactory: (db: DatabasePort): CanvasTemplateRepository =>
         new PgCanvasTemplateRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #1468：议程环节 ↔ skill 绑定。独立 provider（独立的表 `canvas_segment_skill_bindings`
+    // 与独立的端口），与模板注册表那条没有共享的读写路径——理由见
+    // `application/canvas/segment-skill-ports.ts` 的文件头。
+    {
+      provide: CANVAS_SEGMENT_SKILL_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasSegmentSkillRepository =>
+        new PgCanvasSegmentSkillRepository(db),
       inject: [DATABASE_PORT],
     },
     // #1493：画布实例 + immutable 版本链。读写 `canvas_instances` 与

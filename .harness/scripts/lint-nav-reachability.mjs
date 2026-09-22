@@ -13,7 +13,7 @@
  *   而**没有任何门控能发现它**——旧门控（lint-ui-material / verify-ui-states）只验
  *   单屏七态，不验跨屏可达。这道门控补的正是这个盲区。
  *
- * 判定五条：
+ * 判定六条：
  *   ① 配置一致：nav-reachability.config[phase].bundleRoutes 的**键集合**必须与
  *      ui-material-map.json[phase] 的束集合**逐个相等**。新增束忘了配路由 ⇒ 红（点名）。
  *   ② 正向可达：每个束的 bundleRoute 必须**直接出现在** navigation.ts 的导航 href 里。
@@ -24,6 +24,21 @@
  *   ④ 无死链：navigation.ts 与 config 里出现的每个路由都必须能解析到 apps/web/app 下
  *      真实存在的 page（支持 [param] / [...catch] / (group)）。指向 404 ⇒ 红。
  *   ⑤ 非空：导航 href 集合、束集合都不得为空——空集会让 ②③ 平凡为真（本仓栽过的形状）。
+ *   ⑥ 束内无孤儿页：某束路由**子树下**的每个 page（`/tpl` 束下的 `/tpl/designer` 之类）
+ *      必须至少被一条**真实链接**引用（`href=` / `router.push()` / `redirect()`）。
+ *      ①～⑤ 只看「导航树 ↔ 束入口」这一层，完全不看束入口**再往里**分叉出的屏：
+ *      F318（issue #318）的病根正是这个盲区——`/tpl/designer` 是蓝本设计器的真实挂载点、
+ *      路由解析得到、配置里也有，但全仓零 `<Link>`/`router.push` 指向它，导航和 CTA
+ *      都还接在 `/tpl?screen=designer` 这个原型态上，五条判定全绿而屏仍然走不到。
+ *      不算孤儿的四种情形（**三种机械判定 + 一种显式登记**）：
+ *        · 该路由本身是某束的 bundleRoute，或已在导航 href / allowRoutes 里（①～③ 已覆盖）；
+ *        · 该 page 是**重定向桩**（模块里只有 `redirect()`/`permanentRedirect()`、不渲染 JSX），
+ *          如 `/itv/new`、`/studio/interview`——退役路由本就不该再被链接；
+ *        · `next.config.mjs` 的 `redirects()` 把该路由声明成了 source（如 `/chat/copilotkit-v2`），
+ *          正常流量根本到不了这棵树；
+ *        · config 的 `linkExemptRoutes` 里**带理由**显式登记（故意只能敲 URL 进的独立路由）。
+ *          它是**棘轮**：登记了却已经被链接 / 已经不存在的条目会红，只能变短，不能养成
+ *          「一堆误报靠人肉豁免」的清单。
  *
  * 断言的是**性质不是数量**（COORDINATOR-LOOP 纪律第 9 条）：不写「导航项必须恰好 N 个」。
  *
@@ -31,15 +46,19 @@
  *       不带参数 = 扫 config 里声明的全部 phase。
  */
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..");
 const MAP_FILE = join(HERE, "ui-material-map.json");
 const CONFIG_FILE = join(HERE, "nav-reachability.config.json");
-const NAV_FILE = join(ROOT, "apps", "web", "lib", "navigation.ts");
-const APP_DIR = join(ROOT, "apps", "web", "app");
+const WEB_DIR = join(ROOT, "apps", "web");
+const NAV_FILE = join(WEB_DIR, "lib", "navigation.ts");
+const APP_DIR = join(WEB_DIR, "app");
+const NEXT_CONFIG_FILE = join(WEB_DIR, "next.config.mjs");
+/** ⑥ 扫「谁链接了谁」的范围。lib/ 也要扫：AdminNav（lib/mock/admin.ts）是真实的二级导航源。 */
+const LINK_SCAN_DIRS = [APP_DIR, join(WEB_DIR, "components"), join(WEB_DIR, "lib")];
 
 /** 从 navigation.ts 抽出所有导航 href（只认 `href: "..."` 键，注释里的裸路径不算）。 */
 export function extractNavHrefs(navSource) {
@@ -89,11 +108,201 @@ export function appRouteExists(urlPath, appDir = APP_DIR) {
   return walk(appDir, segs);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   判定⑥ 的纯函数们 —— 「束内页面必须至少被一条真实链接引用」
+   ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * 去掉注释，只留会真的执行到的代码。
+ *
+ * ⚠ 不能用 `/\*[\s\S]*?\*\//` 这种全文正则：本仓的行注释里大量出现 `/admin/*`、
+ * `/platform-admin/*` 这类**路由通配写法**，它会被当成块注释起点，一路吞掉后面
+ * 几十行真代码（实测：`lib/mock/admin.ts` 的 `href: "/tpl/list"` 就是这么被吞掉的，
+ * 结果 `/tpl/list` 被误判成孤儿页）。这种漏掉链接的方向恰恰是**误报变红**的方向，
+ * 正是 issue #319 点名要避免的「一堆误报靠人肉豁免」。
+ *
+ * 所以改成逐行处理，只把**行首**的 `/*` 当块注释起点（本仓 JSDoc 的写法），
+ * 行内的 `//`、`/*` 则先判断是否落在引号里再决定截断。
+ */
+export function stripCommentsForLinkScan(source) {
+  const out = [];
+  let inBlock = false;
+  let inBacktick = false;
+  for (const raw of source.split("\n")) {
+    let line = raw;
+    if (inBlock) {
+      const end = line.indexOf("*/");
+      if (end === -1) { out.push(""); continue; }
+      line = line.slice(end + 2);
+      inBlock = false;
+    }
+    // 行首就是块注释 / JSDoc 续行 ⇒ 整行丢弃（本仓的注释一律这个形状）
+    const trimmed = line.trim();
+    if (!inBacktick && trimmed.startsWith("/*")) {
+      if (!trimmed.includes("*/")) inBlock = true;
+      out.push("");
+      continue;
+    }
+    if (!inBacktick && trimmed.startsWith("*")) { out.push(""); continue; }
+
+    // 行内扫描：跟踪引号状态，只在引号外才认 `//`
+    let quote = inBacktick ? "`" : null;
+    let cut = line.length;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === "\\") { i++; continue; }
+      if (quote) { if (c === quote) quote = null; continue; }
+      if (c === '"' || c === "'" || c === "`") { quote = c; continue; }
+      if (c === "/" && line[i + 1] === "/") { cut = i; break; }
+    }
+    inBacktick = quote === "`";
+    out.push(line.slice(0, cut));
+  }
+  return out.join("\n");
+}
+
+/**
+ * 从一份源码里抽出所有**真实链接目标**。
+ * 认的形状：`href="…"` / `href: "…"` / `href={"…"}`、`router.push/replace/prefetch("…")`、
+ * `redirect("…")` / `permanentRedirect("…")`。模板字面量原样留着（带 `${}`），
+ * 由 `routeMatchesTarget` 当通配处理。
+ */
+export function extractLinkTargets(source) {
+  const code = stripCommentsForLinkScan(source);
+  const RES = [
+    /\bhref\s*[:=]\s*\{?\s*["'`]([^"'`]+)["'`]/g,
+    /\b(?:router|navigation)\s*\.\s*(?:push|replace|prefetch)\s*\(\s*["'`]([^"'`]+)["'`]/g,
+    /\b(?:redirect|permanentRedirect)\s*\(\s*["'`]([^"'`]+)["'`]/g,
+  ];
+  const out = [];
+  for (const re of RES) for (const m of code.matchAll(re)) out.push(m[1]);
+  return out;
+}
+
+/**
+ * 枚举 apps/web/app 下所有 page，算出各自的 URL 路由。
+ * `(group)` 透明不吃段；`[param]` / `[...slug]` 原样保留，由 `routeMatchesTarget` 做通配匹配。
+ */
+export function listAppPageRoutes(appDir = APP_DIR) {
+  const PAGE_RE = /^page\.(tsx|jsx|ts|js|mdx)$/;
+  const out = [];
+  const walk = (dir, segs) => {
+    let entries;
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const name of entries) {
+      const abs = join(dir, name);
+      let st;
+      try { st = statSync(abs); } catch { continue; }
+      if (st.isDirectory()) walk(abs, /^\(.+\)$/.test(name) ? segs : [...segs, name]);
+      else if (PAGE_RE.test(name)) out.push({ route: "/" + segs.join("/"), file: abs });
+    }
+  };
+  walk(appDir, []);
+  // 同一路由可能由多个 (group) 各挂一份 page —— 去重，取第一份做「自身文件」
+  const seen = new Map();
+  for (const p of out) {
+    const route = p.route.length > 1 ? p.route.replace(/\/+$/, "") : "/";
+    if (!seen.has(route)) seen.set(route, { route, file: p.file });
+  }
+  return [...seen.values()].sort((a, b) => a.route.localeCompare(b.route));
+}
+
+/**
+ * 一条链接目标能否落到某个 page 路由上。
+ *
+ * 两头都可能带未知量，所以是**双向宽松**匹配（宁可算命中，不可算孤儿——
+ * 漏判只是少拦一次，误判会逼人加豁免）：
+ *   · 路由侧 `[param]` 吃任意一段，`[...slug]` 吃剩下全部；
+ *   · 目标侧含 `${…}`（运行时拼出来的）的那一段视为通配。
+ */
+export function routeMatchesTarget(route, target) {
+  const clean = String(target).split("?")[0].split("#")[0];
+  if (!clean.startsWith("/")) return false;          // 相对路径 / 外链 / 锚点：解析不了，不算
+  const rs = route.split("/").filter(Boolean);
+  const ts = clean.split("/").filter(Boolean);
+  for (let i = 0; i < rs.length; i++) {
+    const seg = rs[i];
+    if (/^\[\.\.\..+\]$/.test(seg)) return ts.length >= i + 1;   // catch-all 吞掉剩余
+    if (i >= ts.length) return false;
+    if (/^\[.+\]$/.test(seg)) continue;                          // 单段动态：吃任意一段
+    if (ts[i] === seg) continue;
+    if (ts[i].includes("${")) continue;                          // 运行时拼的段：当通配
+    return false;
+  }
+  return ts.length === rs.length;
+}
+
+/**
+ * 这个 page 是不是**重定向桩**（退役路由的兼容落点）。
+ * 判据：去注释后调了 `redirect()`/`permanentRedirect()`，且整份文件不渲染任何 JSX。
+ * 例：`app/itv/new/page.tsx`、`app/project/page.tsx`、`app/studio/interview/page.tsx`。
+ */
+export function isRedirectStubPage(source) {
+  const code = stripCommentsForLinkScan(source);
+  if (!/\b(?:redirect|permanentRedirect)\s*\(/.test(code)) return false;
+  return !/<[A-Za-z]/.test(code);
+}
+
+/**
+ * 从 next.config.mjs 的 `redirects()` 里抽出所有 `source`。
+ * 这些路由正常流量根本到不了（构建期就被跳走），不该要求仓内还有链接指向它。
+ * ⚠ 只扫 `redirects()` 这一个函数体，不扫 `rewrites()`（那是反代到 API 的，不是页面路由）。
+ */
+export function extractNextConfigRedirectSources(source) {
+  const at = source.search(/\bredirects\s*\(\s*\)\s*\{/);
+  if (at === -1) return [];
+  const open = source.indexOf("{", source.indexOf("(", at));
+  let depth = 0;
+  let end = source.length;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+  }
+  const body = stripCommentsForLinkScan(source.slice(open, end));
+  return [...body.matchAll(/\bsource\s*:\s*["'`]([^"'`]+)["'`]/g)]
+    // Next 的 `:threadId` / `:path*` 动态段换成本文件统一的 `[param]` 记法
+    .map((m) => m[1].replace(/:([A-Za-z0-9_]+)\*/g, "[...$1]").replace(/:([A-Za-z0-9_]+)/g, "[$1]"));
+}
+
+/** 递归收集可扫描的源码文件（.ts/.tsx/.js/.jsx/.mjs）。 */
+function collectSourceFiles(dir, out = []) {
+  let entries;
+  try { entries = readdirSync(dir); } catch { return out; }
+  for (const name of entries) {
+    if (name === "node_modules" || name === ".next") continue;
+    const abs = join(dir, name);
+    let st;
+    try { st = statSync(abs); } catch { continue; }
+    if (st.isDirectory()) collectSourceFiles(abs, out);
+    else if (/\.(ts|tsx|js|jsx|mjs)$/.test(name)) out.push(abs);
+  }
+  return out;
+}
+
+/** 建「文件 → 该文件里的链接目标」索引（一次调用内跨 phase 复用，只在真有候选页时才建）。 */
+export function buildLinkIndex(dirs) {
+  const index = new Map();
+  for (const dir of dirs) {
+    for (const file of collectSourceFiles(dir)) {
+      if (index.has(file)) continue;
+      let src;
+      try { src = readFileSync(file, "utf8"); } catch { continue; }
+      index.set(file, extractLinkTargets(src));
+    }
+  }
+  return index;
+}
+
 export function lintNavReachability({
   mapFile = MAP_FILE, configFile = CONFIG_FILE, navFile = NAV_FILE, appDir = APP_DIR, only = [],
+  linkScanDirs = null, nextConfigFile = NEXT_CONFIG_FILE,
 } = {}) {
   const errors = [];
   const rows = [];
+  // ⑥ 的扫描范围：默认 app + components + lib。测试传合成 appDir 时跟着换，别扫真仓库。
+  const scanDirs = linkScanDirs ?? (appDir === APP_DIR ? LINK_SCAN_DIRS : [appDir]);
+  let linkIndex = null;            // 懒建：没有候选页的调用一份文件都不读
+  const linkTargetsOf = () => (linkIndex ??= buildLinkIndex(scanDirs));
   const map = JSON.parse(readFileSync(mapFile, "utf8"));
   const config = JSON.parse(readFileSync(configFile, "utf8"));
 
@@ -192,11 +401,86 @@ export function lintNavReachability({
       }
     }
 
+    /* ── ⑥ 束内孤儿页：束路由子树下的每个 page 必须被真实链接引用过 ─────────── */
+    // `//`-前缀键是本仓 JSON 配置统一的注释写法（见 config 顶部），不是路由。
+    const linkExemptRoutes = Object.fromEntries(
+      Object.entries(config[phase]?.linkExemptRoutes ?? {}).filter(([k]) => !k.startsWith("//")),
+    );
+    const bundleRouteValues = [...new Set(Object.values(bundleRoutes))];
+    const coveredByEarlierRules = new Set([...bundleRouteValues, ...allowRoutes, ...navHrefs]);
+    const pages = listAppPageRoutes(appDir);
+
+    // 「同束内页面」= 某个 bundleRoute 的**严格后代**路由（/tpl 束下的 /tpl/designer）。
+    // 束入口本身由 ② 管，顶层无关路由不是本束的事——把范围收在子树里，才不会把
+    // 「本来就只由导航可达的叶子页」整片拖进来（issue #319 点名的误报风险）。
+    const candidates = pages.filter(
+      (pg) => bundleRouteValues.some((br) => br !== "/" && pg.route.startsWith(br + "/")),
+    );
+
+    const usedExemptions = new Set();
+    let redirectSources = null;
+    for (const pg of candidates) {
+      if (coveredByEarlierRules.has(pg.route)) continue;
+
+      // 机械豁免 a：重定向桩（退役路由的兼容落点，本就不该再被链接）
+      let pageSource = "";
+      try { pageSource = readFileSync(pg.file, "utf8"); } catch { /* 读不到就按非桩处理 */ }
+      if (isRedirectStubPage(pageSource)) continue;
+
+      // 机械豁免 b：next.config 的 redirects() 把它声明成了 source，正常流量到不了
+      redirectSources ??= existsSync(nextConfigFile)
+        ? extractNextConfigRedirectSources(readFileSync(nextConfigFile, "utf8"))
+        : [];
+      if (redirectSources.some((src) => src === pg.route || routeMatchesTarget(pg.route, src))) continue;
+
+      // 真找链接（**先查再豁免**：已经有入边的路由，它的豁免就是过期的，
+      // 不能因为登记过就算「用上了」——否则清单只会越养越长，棘轮就废了）
+      const hit = [...linkTargetsOf()].some(
+        ([file, targets]) => file !== pg.file && targets.some((t) => routeMatchesTarget(pg.route, t)),
+      );
+      if (hit) continue;
+
+      // 显式豁免：config 里带理由登记过
+      if (Object.prototype.hasOwnProperty.call(linkExemptRoutes, pg.route)) {
+        usedExemptions.add(pg.route);
+        if (!String(linkExemptRoutes[pg.route] ?? "").trim()) {
+          errors.push(
+            `[豁免无理由] ${label}: linkExemptRoutes 里的 ${pg.route} 理由是空的。\n` +
+            `    「故意只能敲 URL 进」是个结论，得写清楚为什么——空理由的豁免就是静默漏检。`,
+          );
+        }
+        continue;
+      }
+
+      const owner = bundleRouteValues.filter((br) => br !== "/" && pg.route.startsWith(br + "/"));
+      errors.push(
+        `[束内孤儿页] ${label}: ${pg.route}（${relative(ROOT, pg.file)}）挂在束路由 ${owner.join(" / ")} 底下，` +
+        `但全仓没有任何真实链接指向它。\n` +
+        `    它路由解析得到、配置里也齐全，所以①～⑤ 全绿——F318 的病根就是这个形状：\n` +
+        `    屏做好了、挂对了，入口却还接在别的原型态上，用户一路点永远走不到。\n` +
+        `    修三选一：(a) 在导航/CTA 里补一条指向它的 href 或 router.push；\n` +
+        `             (b) 若它已退役，改成 redirect() 桩或在 next.config 的 redirects() 里登记；\n` +
+        `             (c) 若它**故意**只能敲 URL 进，去 nav-reachability.config 的 linkExemptRoutes\n` +
+        `                 登记 "${pg.route}": "<为什么>"——理由不许空。`,
+      );
+    }
+
+    // 棘轮：登记了却已经不需要的豁免必须清掉，否则清单只会越养越长
+    for (const route of Object.keys(linkExemptRoutes)) {
+      if (usedExemptions.has(route)) continue;
+      errors.push(
+        `[豁免已过期] ${label}: linkExemptRoutes 登记了 ${route}，但它现在不是待判的束内孤儿页` +
+        `（已经被链接上了 / 已经是重定向桩 / 页面没了 / 不在任何束子树下）。\n` +
+        `    删掉这一行——豁免清单只许变短。留着它，下次这个路由真的漂了也不会有人发现。`,
+      );
+    }
+
     rows.push({
       label,
       bundles: declaredBundles.length,
       navHrefs: navHrefs.length,
       reachable: Object.values(bundleRoutes).filter((r) => navHrefs.includes(r)).length,
+      subPages: candidates.length,
     });
   }
 
@@ -210,7 +494,7 @@ if (process.argv[1] && process.argv[1].endsWith("lint-nav-reachability.mjs")) {
     const ok = r.reachable === r.bundles;
     console.log(
       `  ${ok ? "✓" : "✗"} ${r.label.padEnd(30)} 束可达 ${String(r.reachable).padStart(2)}/${String(r.bundles).padEnd(2)}` +
-      ` · 导航项 ${r.navHrefs}`,
+      ` · 导航项 ${r.navHrefs} · 束内子页 ${r.subPages}`,
     );
   }
   if (errors.length) {
@@ -224,6 +508,6 @@ if (process.argv[1] && process.argv[1].endsWith("lint-nav-reachability.mjs")) {
   }
   console.log(
     `✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，` +
-    `且导航里没有指向非束/旧骨架屏的入口，无死链。`,
+    `且导航里没有指向非束/旧骨架屏的入口，无死链，束内也没有零引用的孤儿页。`,
   );
 }

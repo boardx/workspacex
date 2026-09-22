@@ -509,20 +509,6 @@ export const CHAT_MESSAGES: ChatMessage[] = [
   },
 ];
 
-/* ─────────────────────────── 改派建议条（UC-4.2 R3 步骤 9 / UC-8.2 R3 步骤 11）─────────────────────────── */
-
-export interface ReassignSuggestion {
-  targetAgent: string;
-  /** 具体授权名 —— 不得只说「更合适」（UC-4.2 R7 / V11 reason 非空）*/
-  reason: string;
-  detail: string;
-}
-export const REASSIGN_SUGGESTION: ReassignSuggestion = {
-  targetAgent: "Scout",
-  reason: "有行业数据库授权",
-  detail: "这条更适合 Scout：它有行业数据库授权，改派后本轮由它回答",
-};
-
 /* ─────────────────────────── 输入区状态四段（UC-8.2 R3 步骤 10）─────────────────────────── */
 
 export const COMPOSER_STATUS = {

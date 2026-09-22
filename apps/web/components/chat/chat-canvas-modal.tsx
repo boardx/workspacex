@@ -4,6 +4,7 @@ import { MousePointer2, StickyNote, Trash2, Maximize, Save, X, Check, ImageDown,
 import { wrapAsMermaidBlock, extractMermaidBlocks, getTemplate } from "@repo/fabric-markdown";
 import { CanvasStage, type CanvasStageHandle } from "@/components/canvas/canvas-stage";
 import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { tagCanvasArtifactTitle } from "@/lib/canvas/canvas-fence-identity";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
 import { downloadDataUrl, exportPngAsPdf } from "@/lib/canvas/export-image";
@@ -48,6 +49,7 @@ export function ChatCanvasModal({
   messageId,
   bearer,
   savedSource,
+  fenceIdentity,
 }: {
   code: string;
   lang: CanvasFenceLang;
@@ -65,6 +67,15 @@ export function ChatCanvasModal({
   messageId?: string;
   bearer?: string;
   savedSource?: { readonly markdown: string; readonly savedAt: string } | null;
+  /**
+   * 发起本次编辑的那个围栏的身份（issue #3252），由 `ChatCanvasFabric` 从**消息
+   * 原文**算出后透传。保存时写进落地标题，下一次读回才分得清「这份保存版是哪个
+   * 围栏的」——`chat_artifact_landings` 没有围栏列，`landAsArtifact.in` 里只有
+   * `title` 是调用方自由字符串，完整推导见 `canvas-fence-identity.ts` 文件头。
+   *
+   * 缺省 / `null`（本地演示、围栏本身不合法）⇒ 标题不加后缀，与改动前逐字一致。
+   */
+  fenceIdentity?: string | null;
 }) {
   // issue #2564：与只读预览（`chat-canvas-fabric.tsx`）同一份根因——模型实际产出的
   // 条数可能比某个分区的框实际放得下的多，vendor 引擎不裁剪，超出的便签会画进
@@ -152,7 +163,12 @@ export function ChatCanvasModal({
 
     setSaving(true);
     try {
-      const title = `工作坊画布 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+      // 标题末尾带上围栏身份（issue #3252）——拼法只在 `tagCanvasArtifactTitle` 里，
+      // 读回侧用同一个模块的 `readCanvasFenceIdentity` 解，两边不各写一遍格式。
+      const title = tagCanvasArtifactTitle(
+        `工作坊画布 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+        fenceIdentity ?? null,
+      );
       const result = await landAsArtifact(
         threadId!,
         { messageId: messageId!, mode: "draft", title, payloadRef: source },
@@ -167,7 +183,7 @@ export function ChatCanvasModal({
     } finally {
       setSaving(false);
     }
-  }, [markdown, canPersist, threadId, messageId, bearer]);
+  }, [markdown, canPersist, threadId, messageId, bearer, fenceIdentity]);
 
   // 导出（人类要求："要可以下载，画布在前端要有 pdf，png 的导出"）——同
   // `ChatDiagramCanvasModal` 同款接线，见该文件对应注释；`CanvasStage` 自己截图

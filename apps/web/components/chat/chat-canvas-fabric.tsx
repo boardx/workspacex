@@ -4,6 +4,7 @@ import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import { markdownToCanvas, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { acceptsSavedCanvasSource, canvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -104,6 +105,7 @@ const ERROR_TITLE: Record<Extract<Status, { phase: "error" }>["reason"], string>
 
 export function ChatCanvasFabric({
   code, lang, closed = true, threadId, messageId, bearer, projectId,
+  templateKeyAmbiguous = false,
 }: {
   code: string;
   lang: CanvasFenceLang;
@@ -121,6 +123,18 @@ export function ChatCanvasFabric({
   bearer?: string;
   /** G1 读回判权用；个人线程（无 projectId）不发读回请求，见 `ChatDiagramFabric` 同款注释。 */
   projectId?: string;
+  /**
+   * 同一条消息里是否还有**另一个同模板**围栏（issue #3252）。由
+   * `markdown-message.tsx` 在切段时按「本消息全部围栏的模板 key」算出来——本组件
+   * 只看得见自己那一段，看不见兄弟围栏，这个事实只能由上面传下来。
+   *
+   * ⚠ 它**不是序号**，是一个集合事实（「这个模板 key 在本消息里出现不止一次」），
+   *   重排围栏不会让它变化。它只决定**旧存量产物**（标题里没有围栏身份后缀的那些）
+   *   能不能被归属，见 `acceptsSavedCanvasSource` 第 ③ 条。
+   *
+   * 默认 `false`：预览页/组件测试里单独渲染一个围栏，与改动前行为逐字一致。
+   */
+  templateKeyAmbiguous?: boolean;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [inView, setInView] = React.useState(false);
@@ -136,11 +150,26 @@ export function ChatCanvasFabric({
     const checked = checkCanvasFence(code, lang);
     return checked.ok ? checked.key : null;
   }, [code, lang]);
-  const acceptsSavedSource = React.useCallback((markdown: string) => {
-    if (sourceTemplateKey === null) return false;
-    const checked = checkCanvasFence(markdown, lang);
-    return checked.ok && checked.key === sourceTemplateKey;
-  }, [sourceTemplateKey, lang]);
+  // 围栏身份（issue #3252）：算自**消息原文里这一段围栏**，不是保存后的内容——
+  // 保存内容会随编辑变，拿它算身份等于编辑一次就换一次身份。判据与格式都只在
+  // `canvas-fence-identity.ts` 里，本文件不复述。
+  const fenceIdentity = React.useMemo(() => canvasFenceIdentity(code, lang), [code, lang]);
+  // 「这份保存版是不是本围栏的」。此前这里只比 `checked.key === sourceTemplateKey`，
+  // 也就是**只比模板名**——同一条消息里两个同模板围栏因此互相认领对方的保存版
+  // （issue #3252）。现在比的是围栏身份，模板名降级为必要条件之一。
+  const acceptsSavedSource = React.useCallback(
+    (candidate: { readonly markdown: string; readonly title: string }) => {
+      const checked = checkCanvasFence(candidate.markdown, lang);
+      return acceptsSavedCanvasSource({
+        fenceIdentity,
+        templateKey: sourceTemplateKey,
+        savedTitle: candidate.title,
+        savedTemplateKey: checked.ok ? checked.key : null,
+        templateKeyAmbiguous,
+      });
+    },
+    [fenceIdentity, sourceTemplateKey, lang, templateKeyAmbiguous],
+  );
   // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
   // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
@@ -252,6 +281,7 @@ export function ChatCanvasFabric({
           messageId={messageId}
           bearer={bearer}
           savedSource={savedSource}
+          fenceIdentity={fenceIdentity}
         />
       )}
     </>

@@ -52,11 +52,14 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.feature
 ## 验证门控（唯一合法路径）
 
 ```bash
-# 验证当前 sprint 的所有 feature
-pnpm harness verify --sprint <NN>/<MM>
+# 验证本 owner 在当前 sprint 名下的 feature（别人名下的会被跳过，见下）
+pnpm harness verify --sprint <NN>/<MM> --owner <你的-agent-id>
 
 # 只验证一个 feature
 pnpm harness verify --sprint <NN>/<MM> --feature F01
+
+# 连同别人名下的一起跑（会覆写别人的 evidence，需要明确理由）
+pnpm harness verify --sprint <NN>/<MM> --all
 ```
 
 verify 会：
