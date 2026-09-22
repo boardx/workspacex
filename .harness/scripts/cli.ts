@@ -126,7 +126,9 @@ async function main(): Promise<void> {
       log.info("  pnpm harness new-adr       --title \"<slug 标题>\" [--id ADR-NNN] [--layer methodology|project]");
       log.info("                             # 原子取号 + scaffold + README 索引登记（占号即登记，防撞号）");
       log.info("  pnpm harness new-sprint    --phase NN --id MM [--goal <g>] [--features F01,F02]");
-      log.info("  pnpm harness verify        --sprint NN/MM | --phase NN [--feature F01] [--owner <id>]");
+      log.info("  pnpm harness verify        --sprint NN/MM | --phase NN [--feature F01] [--owner <id>] [--all]");
+      log.info("                             # 默认只动本次任务对象：--feature 点名的、或 --owner 名下的（#1025）；");
+      log.info("                             # 别人名下的 feature 会被跳过并打印一行说明，要一起跑必须显式 --all");
       log.info("  pnpm harness sync          --phase NN [--apply]");
       log.info("  pnpm harness gen-subagents             # 从 .harness/agents/*.yaml 生成 Claude + Codex subagents");
       log.info("  pnpm harness claim         --phase NN --feature F01 --owner <agent-id>");
