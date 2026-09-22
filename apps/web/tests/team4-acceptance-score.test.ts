@@ -38,7 +38,7 @@ const SCORED_FILES = [
   "apps/api/src/application/post-investment/derive-financial-metrics.ts",
   "apps/api/src/infrastructure/skill/ensure-platform-skill-catalog.ts",
   "apps/api/tests/post-investment/derive-financial-metrics.test.ts",
-  "packages/contracts/src/post-investment-rules.ts",
+  "packages/maau-postinvest-report/src/index.ts",
   "docs/agents/team4-post-investment-report-mvp.md",
   "docs/agents/team4-acceptance-rubric.md",
 ];

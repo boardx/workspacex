@@ -5,19 +5,28 @@
  *
  * 这套数值要同时出现在两个地方：写给模型看的方法论正文（模型读不到仓库源码，判据
  * 只能以文字交给它），和后端的派生数值参照实现。两份都自洽、都看着对，改了一处忘了
- * 另一处不会有任何东西变红——正是本仓已经漂移过五次的形状。同 team2
- * `postinvest-rating-rules.ts` 的做法与理由（那份是评分档位，这份是风险判据）。
+ * 另一处不会有任何东西变红——正是本仓已经漂移过五次的形状。
  *
  * 现在两边都从这里读：`apps/api/src/application/post-investment/derive-financial-
  * metrics.ts` 按常量判定，方法论正文由 `renderRiskCriteria()` 渲染。改判据只改这一
  * 个文件。
  *
+ * ## 为什么在这个包，而不在 @repo/contracts
+ *
+ * 搬家前本文件在 `packages/contracts/src/post-investment-rules.ts`。契约描述系统之间
+ * **怎么通信**，必须最开放，因为它是生态对接面；本文件描述这个工作单元**怎么判断**，
+ * 随行业 know-how 积累，是资产。两者的开放策略相反，放在一起等于把最该积累的东西
+ * 放进了最该开放的包。完整理由见本包 README。
+ *
+ * 同类内容还有 `postinvest-rating-rules.ts`（评分档位），它仍在 contracts 里，
+ * 面临同样的问题，应照本包的样子独立成包——那是一次独立的搬家。
+ *
  * 数值来源：`phases/phase-17-post-investment-report-agent/requirements/
  * 03-analysis-standard-and-evidence.md` 的 C 节（该文件是判据的业务事实源，本文件是
  * 它的可执行形态）。本文件不解释判据为什么这么定，只忠实记录。
  *
- * ⚠ 纯常量与纯函数，不 import 任何东西——`packages/contracts` 被 web 与 api 两端
- * 同时 import，任何一侧的运行时依赖都会污染另一侧。
+ * ⚠ 纯常量与纯函数，不 import 任何东西——本包被 web 与 api 两端同时 import，
+ * 任何一侧的运行时依赖都会污染另一侧。
  */
 
 /** 一条风险判据：阈值 + 渲染进方法论正文时的措辞。 */

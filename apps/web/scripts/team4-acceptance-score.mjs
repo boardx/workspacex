@@ -35,7 +35,7 @@ const has = (rel) => existsSync(join(REPO, rel));
 
 const P = {
   methodology: "apps/web/lib/post-investment/methodology.ts",
-  rules: "packages/contracts/src/post-investment-rules.ts",
+  rules: "packages/maau-postinvest-report/src/index.ts",
   skillIdentity: "apps/web/lib/post-investment/skill-identity.ts",
   skillContent: "apps/api/scripts/post-investment-skill-content.ts",
   skillSeed: "apps/api/src/infrastructure/skill/ensure-platform-skill-catalog.ts",
@@ -294,8 +294,8 @@ const ratio = (hits, total, max) => (total === 0 ? 0 : (hits / total) * max);
   const m = read(P.methodology) ?? "";
   const derive = read(P.derive) ?? "";
   const rulesExists = has(P.rules);
-  const methodologyDerives = /post-investment-rules/.test(m);
-  const deriveDerives = /post-investment-rules/.test(derive);
+  const methodologyDerives = /maau-postinvest-report/.test(m);
+  const deriveDerives = /maau-postinvest-report/.test(derive);
   const skillReuses = /methodology/.test(read(P.skillContent) ?? "");
   const idShared = /skill-identity/.test(read(P.skillSeed) ?? "");
   const hits = [rulesExists, methodologyDerives, deriveDerives, skillReuses, idShared].filter(Boolean).length;
