@@ -14,6 +14,7 @@ import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
 import { ChatGraphVersionHistory } from "./chat-graph-version-history";
+import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -74,9 +75,18 @@ type Status =
   | { phase: "error"; reason: "whitelist" | "syntax"; detail: string };
 
 export function ChatDiagramFabric({
-  code, threadId, messageId, bearer, projectId,
+  code, closed = true, threadId, messageId, bearer, projectId,
 }: {
   code: string;
+  /**
+   * 围栏是否已闭合（#3866 R5）。`false` = 模型还在写这张图。
+   *
+   * 不透传它之前，流式期间 `mermaid.parse` 拿到的是半截源码、必然抛错，状态机直接进
+   * error：用户在模型画图的整段时间里盯着一个红框和一段残缺源码，写完才翻成图。
+   * 「还没写完」不是「写错了」——与 canvas 围栏（issue #2298）同一条纪律，
+   * 那边早就透传了，这边一直漏着。
+   */
+  closed?: boolean;
   /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
    * `ChatDiagramCanvasModal` 文件头注释。原样透传，本组件不判断。 */
   threadId?: string;
@@ -109,6 +119,12 @@ export function ChatDiagramFabric({
   // 才退回原始消息文本。此前恒用 `code`：保存/关闭全屏后气泡卡片纹丝不动就是因为
   // 这条预览渲染从没读过 `savedSource`（人类实测反馈）。
   const previewCode = savedSource?.markdown ?? code;
+  /**
+   * 流式取样（与 canvas 围栏共用 `streaming-fence-sample.ts` 的同一份节奏）。
+   * 保存版替换（`savedSource`）是一次性的终态，`closed` 恒真时取样器立即跟上，
+   * 所以这里不需要为它开特例。
+   */
+  const renderCode = useSampledFenceCode(previewCode, savedSource !== null ? true : closed);
 
   /**
    * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：点「最大化」
@@ -272,8 +288,11 @@ export function ChatDiagramFabric({
   return (
     <>
       <DiagramCanvasBody
-        key={previewCode}
-        previewCode={previewCode}
+        // key 跟着取样后的源码走：原本是 `key={previewCode}`，流式期间等于每个 token
+        // 把整个组件重挂一次（重跑 mermaid.parse + 重建 FabricCanvas）。
+        key={renderCode}
+        previewCode={renderCode}
+        closed={closed}
         inView={inView}
         containerRef={containerRef}
         openMaximized={openMaximized}
@@ -325,10 +344,12 @@ export function ChatDiagramFabric({
  * 化的 canvas 换成别的东西。见 `ChatDiagramFabric` 文件头大注释。
  */
 function DiagramCanvasBody({
-  previewCode, inView, containerRef, openMaximized, openingReadback,
+  previewCode, closed, inView, containerRef, openMaximized, openingReadback,
   canQuickSave, quickSaveState, onQuickSave, canShowHistory, onOpenHistory,
 }: {
   previewCode: string;
+  /** 见 `ChatDiagramFabric` 同名 prop：`false` 时绝不判错，只停在加载态。 */
+  closed: boolean;
   inView: boolean;
   containerRef: React.RefObject<HTMLDivElement>;
   openMaximized: () => void;
@@ -354,6 +375,9 @@ function DiagramCanvasBody({
   React.useEffect(() => {
     if (!inView) return;
     if (!inWhitelist) {
+      // 流式刚开头时 `graph`/`sequenceDiagram` 这些词本身还没写全，落不进白名单——
+      // 那是还没写完，不是用了不支持的图种。
+      if (!closed) return;
       setStatus({ phase: "error", reason: "whitelist", detail: rawToken || "（空）" });
       return;
     }
@@ -368,18 +392,21 @@ function DiagramCanvasBody({
         await mermaid.parse(previewCode);
         if (!cancelled) setStatus({ phase: "valid" });
       } catch (e) {
-        if (!cancelled)
-          setStatus({
-            phase: "error",
-            reason: "syntax",
-            detail: e instanceof Error ? e.message : String(e),
-          });
+        if (cancelled) return;
+        // 半截源码过不了 parse 是意料之中的，不是语法错误。停在 validating（加载态），
+        // 等下一次取样。闭合之后仍然过不了，才是真的写错了。
+        if (!closed) return;
+        setStatus({
+          phase: "error",
+          reason: "syntax",
+          detail: e instanceof Error ? e.message : String(e),
+        });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [previewCode, inWhitelist, rawToken, inView]);
+  }, [previewCode, inWhitelist, rawToken, inView, closed]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {

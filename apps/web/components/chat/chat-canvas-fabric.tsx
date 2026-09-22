@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
-import { DEFAULT_SAMPLE_INTERVAL_MS, nextSample, shouldResample, type SampleState } from "@/lib/canvas/streaming-fence-sample";
+import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
  * 单个 ```canvas / ```persona 围栏在 AI 气泡内的 **fabric 渲染**。
@@ -322,21 +322,7 @@ function CanvasFabricBody({
    * `previewCode`：围栏闭合后两者一致；未闭合时按内容签名 + 最小间隔跟进，
    * 于是画布是边生成边长出来的，而不是 30 多秒一个转圈之后整张蹦出来。
    */
-  const [sample, setSample] = React.useState<SampleState | null>(null);
-  React.useEffect(() => {
-    const now = Date.now();
-    if (shouldResample(sample, previewCode, closed, now, DEFAULT_SAMPLE_INTERVAL_MS)) {
-      setSample(nextSample(previewCode, now));
-      return;
-    }
-    if (closed || sample === null) return;
-    // 签名变了但间隔没到：挂一个定时器在间隔到点时再试，否则这一段内容要等下一个
-    // chunk 才会被画出来——而模型完全可能在这里停顿几秒。
-    const wait = Math.max(0, DEFAULT_SAMPLE_INTERVAL_MS - (now - sample.at));
-    const t = window.setTimeout(() => setSample((prev) => (prev === null ? prev : nextSample(previewCode, Date.now()))), wait + 10);
-    return () => window.clearTimeout(t);
-  }, [previewCode, closed, sample]);
-  const renderCode = sample?.code ?? previewCode;
+  const renderCode = useSampledFenceCode(previewCode, closed);
 
   // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
   // 原始消息流式期间 `previewCode` 会变化，但 `closed=false` 会在下面提前返回，fabric

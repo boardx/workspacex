@@ -17,6 +17,8 @@
  * 这条是 issue #2298 定下的，本文件只改「什么时候值得重画」，不改「什么时候算错」。
  */
 
+import * as React from "react";
+
 /** 内容签名：只反映「画布上会多出东西」的变化，不反映某条便签正在被补完。 */
 export function fenceRenderSignature(code: string): string {
   let sections = 0;
@@ -60,4 +62,31 @@ export function shouldResample(
 
 export function nextSample(next: string, now: number): SampleState {
   return { code: next, signature: fenceRenderSignature(next), at: now };
+}
+
+/**
+ * 取样 hook——canvas 与 mermaid 两条围栏共用**同一份**节奏，不写第二份。
+ *
+ * 返回的 `renderCode` 就是渲染层该消费的源码：围栏闭合后与 `code` 一致；
+ * 未闭合时按上面的规则跟进。
+ */
+export function useSampledFenceCode(code: string, closed: boolean): string {
+  const [sample, setSample] = React.useState<SampleState | null>(null);
+  React.useEffect(() => {
+    const now = Date.now();
+    if (shouldResample(sample, code, closed, now, DEFAULT_SAMPLE_INTERVAL_MS)) {
+      setSample(nextSample(code, now));
+      return;
+    }
+    if (closed || sample === null) return;
+    // 签名变了但间隔没到：挂一个定时器到点再试。否则这一段内容要等下一个 chunk 才会
+    // 被画出来，而模型完全可能在这里停顿几秒。
+    const wait = Math.max(0, DEFAULT_SAMPLE_INTERVAL_MS - (now - sample.at));
+    const t = window.setTimeout(
+      () => setSample((prev) => (prev === null ? prev : nextSample(code, Date.now()))),
+      wait + 10,
+    );
+    return () => window.clearTimeout(t);
+  }, [code, closed, sample]);
+  return sample?.code ?? code;
 }

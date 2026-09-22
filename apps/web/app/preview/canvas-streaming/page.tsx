@@ -73,7 +73,7 @@ export default function CanvasStreamingPreviewPage() {
           type="button"
           data-testid="canvas-streaming-toggle"
           onClick={() => setRunning((v) => !v)}
-          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-200 hover:bg-muted"
+          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-base hover:bg-muted"
         >
           {running ? "暂停" : "继续"}
         </button>
@@ -81,7 +81,7 @@ export default function CanvasStreamingPreviewPage() {
           type="button"
           data-testid="canvas-streaming-reset"
           onClick={reset}
-          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-200 hover:bg-muted"
+          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-base hover:bg-muted"
         >
           重放
         </button>
@@ -89,7 +89,7 @@ export default function CanvasStreamingPreviewPage() {
           type="button"
           data-testid="canvas-streaming-finish"
           onClick={() => { setN(FENCE.length); setRunning(false); }}
-          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-200 hover:bg-muted"
+          className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-base hover:bg-muted"
         >
           直接到终态
         </button>
