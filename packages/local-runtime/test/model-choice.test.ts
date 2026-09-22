@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_MODEL, DEFAULT_META_MODEL, UPGRADED_CHAT_MODEL, preferredChatModel, preferredMetaModel } from "../src/config";
 
@@ -32,5 +33,18 @@ describe("preferredChatModel: MLX runner (#3749 R9)", () => {
   });
   it("leaves an explicitly configured -mlx model alone", () => {
     expect(preferredChatModel({ ...base, configured: "qwen3.5:4b-mlx", present: ["qwen3.5:4b-mlx"] })).toBe("qwen3.5:4b-mlx");
+  });
+});
+
+describe("startup pulls (#3749)", () => {
+  it("the meta model is never in the pull list: it is an optimisation, not a requirement", () => {
+    const up = readFileSync(new URL("../src/up.ts", import.meta.url), "utf8");
+    const line = up.split("\n").find((l) => l.includes("for (const model of ["));
+    expect(line, "the pull loop must exist").toBeTruthy();
+    expect(line).toContain("c.chatModel");
+    expect(line).toContain("c.embeddingModel");
+    // it was here once, and every first start then pulled 2.6 GB for a model the machine
+    // would decline to use (user-visible: 7 minutes stuck on 「检查本地模型」)
+    expect(line).not.toContain("c.metaModel");
   });
 });

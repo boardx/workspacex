@@ -125,7 +125,13 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         log("[ollama] already running, reusing");
       }
       if (opts.pullModel !== false) {
-        for (const model of [c.chatModel, c.metaModel, c.embeddingModel]) {
+        // The meta model is an OPTIMISATION, never a download: `preferredMetaModel` falls back
+        // to the chat model when it is absent, and on a 16 GB machine that fallback is the
+        // faster choice anyway. It was in this list while it was still bundled; after it was
+        // dropped from the Mac bundle (#3749 R10) every first start pulled 2.6 GB over the
+        // network to get something the machine would then decline to use (实测 2026-09-22,
+        // 用户的首次启动卡在「检查本地模型」7 分钟).
+        for (const model of [c.chatModel, c.embeddingModel]) {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
           log(`[ollama] pulling ${model} (first start only; several GB for the chat model)`);
