@@ -31,7 +31,17 @@ Open <http://127.0.0.1:4310>.
 ## Check it
 
 ```bash
-node scripts/check-all.mjs       # everything below; must pass before commit
+node scripts/check-all.mjs                 # everything, ~70s
+node scripts/check-all.mjs --static-only   # just the text gates, ~2s
+```
+
+The static gates need nothing installed. The browser suites need Playwright and
+axe-core, and **skip themselves with a message when those are absent** rather
+than failing, so this stays runnable on a bare checkout:
+
+```bash
+npm i --no-save playwright axe-core
+CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 ```
 
 | script | what it fails on |
@@ -40,7 +50,17 @@ node scripts/check-all.mjs       # everything below; must pass before commit
 | `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `href="#…"` or `aria-labelledby` pointing at nothing |
 | `check-css.mjs` | a class or custom property defined and never used, or a `var()` reading a property nothing declares |
 | `check-copy.mjs` | straight quotes and apostrophes, half-width punctuation between Han characters, missing CJK/latin spacing, `...` instead of `……` |
-| `build-i18n.mjs --check` | `zh/index.html` out of date with `index.html` + `zh.js` |
+| `check-compat.mjs` | a feature with known engine gaps used without its guard |
+| `build-css.mjs --check` | `site.css` out of date with its sources |
+| `build-i18n.mjs --check` | a generated page out of date with its sources |
+| `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path |
+| `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget |
+
+**Expectations in the browser suite are derived from the source, not typed in.**
+The version of it that lived outside this repository went stale four separate
+times by asserting against counts that had since changed — and the first run of
+the derived version immediately found a diagram host that had rendered nothing
+since the site was built.
 
 Two generators are run by hand, not by the checks, because they need
 Playwright:
