@@ -2,7 +2,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { Settings } from "lucide-react";
-import { type Identity } from "@/lib/identity";
+import { isLocalOrg, LOCAL_ORG_GUARANTEES, type Identity } from "@/lib/identity";
+import { HardDrive } from "lucide-react";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -129,6 +130,11 @@ export function OrgMenu({
 }) {
   const session = useOptionalSession();
 
+  // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——隐私模式若不可见，
+  // 等于不存在。顶栏已经这么判（`top-bar.tsx`），组织菜单这里是同一判据的同一读点。
+  const local = isLocalOrg(identity.org);
+  const currentLabel = organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "";
+
   // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；
   // admin-only 空补丁读只作为上传头像后（invalidateOrgAvatar）的刷新通道。
   const isOrgAdmin = identity.orgRole === "admin";
@@ -175,24 +181,54 @@ export function OrgMenu({
         // 固定宽 w-52 不变，超高时列表内部滚动。
         className="max-h-[70vh] w-52 overflow-y-auto"
       >
-        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
-        <MenuRadioGroup
-          value={identity.org.id}
-          onValueChange={(id) => {
-            if (id !== identity.org.id) onSelect(id);
-          }}
-        >
-          {organizations.map((o) => (
-            <MenuRadioItem
-              key={o.id}
-              value={o.id}
-              data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
-              className={cn(o.id === identity.org.id ? "font-medium text-primary" : "text-card-foreground")}
+        {/*
+          「你在哪」永远先说，「能去哪」才跟在后面。
+
+          ⚠ 只有一个组织时「不渲染单选组」：那是一个已经选中、点了不会有任何事发生的
+          单选项（`onValueChange` 里 `id !== identity.org.id` 直接挡掉），顶上还压着
+          「切换组织」四个字——本地版就是这个样子，它只有一个组织
+          （`packages/local-runtime/src/seeds.ts` 种一个用户一个组织）。
+          判据用的是「列表长度」而不是「是不是本地版」：云端用户只属于一个组织时
+          症状一模一样，按版次硬编码会漏掉他们。
+        */}
+        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">当前所在</MenuLabel>
+        <div data-testid={`org-menu-current${testIdSuffix}`} className="px-2 pb-1.5">
+          <div className="flex items-center gap-1.5">
+            {local && <HardDrive aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />}
+            <span className="min-w-0 flex-1 truncate text-13 font-medium text-card-foreground">
+              {currentLabel}
+            </span>
+          </div>
+          {local && (
+            <p data-testid={`org-menu-local-note${testIdSuffix}`} className="mt-0.5 text-11 leading-snug text-muted-foreground">
+              本机工作区 · {LOCAL_ORG_GUARANTEES[0].statement}
+            </p>
+          )}
+        </div>
+
+        {organizations.length > 1 && (
+          <>
+            <MenuSeparator />
+            <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
+            <MenuRadioGroup
+              value={identity.org.id}
+              onValueChange={(id) => {
+                if (id !== identity.org.id) onSelect(id);
+              }}
             >
-              <span className="min-w-0 flex-1 truncate">{o.label}</span>
-            </MenuRadioItem>
-          ))}
-        </MenuRadioGroup>
+              {organizations.map((o) => (
+                <MenuRadioItem
+                  key={o.id}
+                  value={o.id}
+                  data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
+                  className={cn(o.id === identity.org.id ? "font-medium text-primary" : "text-card-foreground")}
+                >
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                </MenuRadioItem>
+              ))}
+            </MenuRadioGroup>
+          </>
+        )}
 
         {isOrgAdmin && <MenuSeparator />}
 
