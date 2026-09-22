@@ -247,6 +247,9 @@ const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
 const STATE_NAME_SPEC = "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts";
 const STATE_NAME_DOC = ".harness/instructions/chat-task-workbench-acceptance.md";
 
+const KERNEL_MODULE = "apps/api/src/kernel.module.ts";
+const UI_WIRING_MANIFEST = ".harness/scripts/ui-wiring-manifest.json";
+
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
 const tsx = (script: string) => ["tsx", script] as const;
@@ -320,6 +323,27 @@ export const GATE_SPECS: readonly GateSpec[] = [
         // 反方向：名单少一条 ⇒ 那条缺口变成「新增」⇒ 必须红。
         // 两条变异合起来才说明这道门在判**差集**，而不是只会数名单长度。
         apply: replaceOnce(CONTRACT_ROUTE_ALLOWLIST, '    "agent-runtime:applyRedispatch",\n', ""),
+      },
+    ],
+  },
+  {
+    gate: "ui-wiring",
+    // #397 的跨层接线门。两条变异分别打它守的两件事：
+    //   ① "controller 真的挂进了路由表" —— 摘掉一个注册项，屏就再也够不到后端；
+    //   ② "mock 棘轮只减不增" —— 新增一条 mock 驱动的产品路由。
+    run: tsx(".harness/scripts/lint-ui-wiring.mjs"),
+    guards: (_r, io) => io.exists(UI_WIRING_MANIFEST),
+    mutations: [
+      {
+        name: "把已接线路由的 controller 从 kernel controllers[] 里摘掉",
+        apply: replaceOnce(KERNEL_MODULE, "\n    IdentityController,", ""),
+      },
+      {
+        name: "新增一条 mock 驱动的产品路由（棘轮只减不增）",
+        apply: trackNewFile(
+          "apps/web/app/probe-bogus/page.tsx",
+          'import { ADMIN_NAV } from "@/lib/mock/admin";\n\nexport default function ProbeBogusPage() {\n  return <div>{ADMIN_NAV.length}</div>;\n}\n',
+        ),
       },
     ],
   },
