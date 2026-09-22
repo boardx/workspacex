@@ -75,7 +75,7 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   // 锚点从 context 读（永远是最新的一份），不再从可能被 memo 冻住的 `props.messages` 里重算。
   const isAnchor = runId !== undefined && anchors?.[runId] === props.message.id;
   return <>
-    {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId]} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
+    {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
     {trace && isAnchor ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
     <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={
       // Journal tailing can deliver an earlier tool boundary after the live TEXT_MESSAGE_END.
@@ -100,6 +100,6 @@ export function TaskTimeline({ events, messageRuns, toolCallMessageIds = EMPTY_I
   return <TraceContext.Provider value={value}>
     <CopilotChatMessageView {...props} assistantMessage={TraceAssistantSlot} />
     {Object.entries(events).filter(([runId]) => !displayed.has(runId)).map(([runId, trace]) =>
-      <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId]} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
+      <React.Fragment key={runId}><RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /><RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /></React.Fragment>)}
   </TraceContext.Provider>;
 }

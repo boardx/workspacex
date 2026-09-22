@@ -5,6 +5,7 @@ import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
+import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
@@ -82,7 +83,8 @@ function toolGroupLabel(tool: string, count: number): string {
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
-  const [localExpanded, setLocalExpanded] = React.useState<boolean | undefined>(undefined);
+  const [localExpanded, setLocalExpanded] = React.useState(false);
+  const expanded = controlledExpanded ?? localExpanded;
   const setExpanded = onExpandedChange ?? setLocalExpanded;
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
@@ -98,51 +100,11 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   }, [active]);
   if (!events.length) return null;
   /*
-   * 2026-09-22 —— **正文还没出来、run 还在跑时默认展开**。
-   *
-   * ## 为什么改这条默认值
-   *
-   * 人类实测截图（深度研究，历时 05:20、已完成 17 步、17 次工具、25 项技能活动、
-   * 「有失败步骤」）：整屏**除了这一行折叠标题之外什么都没有**——正文一个字都还没产生，
-   * 而已经发生的 17 步全在这个 `hidden` 区块里。用户能看到的只有一行字和一只蝴蝶。
-   *
-   * 这正是 #3320 自己诊断出的主机制 (b)「渲染了但默认折叠且无活性信号」。当时的修法是
-   * 折叠行里那条活性文案（`RunTraceLiveStrip`）——它在**有正文**的普通对话里够用，
-   * 因为那时屏幕上还有别的东西可读；但在一次五分钟、零正文的长任务里，一行字撑不起
-   * 一整屏，而它说的又是最抽象的那一层（「已完成 N 步」，不是「刚做了什么」）。
-   *
-   * ## 判据与边界
-   *
-   * 只在「还活着」且「本轮还没有 final_message」时**默认**展开：
-   *   · run 结束后不再自动展开（历史记录照旧默认折叠，不然整个会话会被撑开）；
-   *   · 正文一出现（哪怕只是第一个流式增量）就不再需要它来填屏——此时屏幕上已经有字在
-   *     长出来，收起是合理默认，用户想看细节自己点。
-   * 「还活着」取自本面板自己的 `active`（执行账本的 status 事实），**不新增第二处推导**
-   * ——本文件头注记着 #3316 就是因为这件事被声明在两处而出过「静止的 spinner」。
-   *
-   * ## 为什么门槛是「两个动作」，而不是「有动作就展开」
-   *
-   * 既有默认是「哪怕只有一个工具也折叠」（`run-trace-panel.test.ts` 那条断言）。这条默认
-   * 有它的道理，而且与本次改动并不矛盾——分界线是**展开层里有没有折叠行说不出的东西**：
-   *   · 只有 1 个动作：折叠行已经把它说完了（「正在执行工具操作 · 已完成 1 个动作」），
-   *     展开层里没有第二条信息，展开只是把聊天撑开。
-   *   · ≥ 2 个动作：折叠行只说得出**最后**一条，其余的只有展开才看得见——而这正是那张
-   *     截图的处境（17 步，能看到的是 0 步）。
-   * 所以门槛不是拍的数字，是「折叠行的信息容量」这个事实。
-   *
-   * ⚠ 这只是**默认值**：`controlledExpanded`（或本地 state）一旦不是 `undefined`，
-   * 就是用户显式选过了，用户的选择永远优先。所以调用方传的是
-   * `expanded?.[runId]`（未选过时是 `undefined`），不是 `?? false`——后者会把
-   * 「没选过」和「选了收起」压成同一个值，默认值也就永远不可能生效。
-   */
-  /*
-   * 「屏幕上有没有别的东西可读」= 这一轮有没有产出过正文。判据取**两种**正文事件：
-   * 流式增量（`text_delta`）与终稿（`final_message`）。只判 `final_message` 是不够的——
-   * 正文流到一半时它还没来，而那时屏幕上明明已经有字在长出来了，再把轨迹撑开就是添乱。
+   * 2026-09-22 —— 「屏幕上有没有别的东西可读」= 这一轮有没有产出过正文。两种正文事件都算：
+   * 流式增量与终稿。只判 `final_message` 不够——正文流到一半时它还没来，而那时屏幕上已经
+   * 有字在长出来，再摆一块预览就是添乱。给下面折叠区**外面**那块最近几步预览用。
    */
   const hasAssistantText = events.some((event) => event.kind === "text_delta" || event.kind === "final_message");
-  const autoExpanded = active && !hasAssistantText && entries.length >= 2;
-  const expanded = controlledExpanded ?? localExpanded ?? autoExpanded;
   const started = events.find((event) => event.kind === "status" && event.status === "running") ?? events[0]!;
   const start = Date.parse(started.emittedAt);
   const end = active ? now : Date.parse(events[events.length - 1]!.emittedAt);
@@ -176,6 +138,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       </span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {/*
+      折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
+      改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
+      这块只在「还活着 + 这一轮还没有任何正文 + 已经 ≥2 个动作」时出现，正文一来就消失。
+    */}
+    {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
