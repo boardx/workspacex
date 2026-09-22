@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 import { machineScore, assertNoClipping, type AuditSample } from "../scripts/lib/prototype-audit-metrics.mjs";
+import { AA_LARGE, AA_NORMAL, auditTextContrast } from "./support/text-contrast";
 
 /**
  * 原型截图审计——**机器硬判**那一半，`< 80` 判红（2026-09-09 人类指令：
@@ -162,6 +163,56 @@ test.describe("clipping collector", () => {
       expect(sample.nodes[0]!.clipped).toBe(scenario.clipped);
       if (scenario.clipped) expect(() => assertNoClipping(sample)).toThrow("零裁切门失败");
       else expect(() => assertNoClipping(sample)).not.toThrow();
+    });
+  }
+});
+
+/*
+ * 2026-09-22 —— 可见文本的**对比度**门控。
+ *
+ * 为什么挂在这条车道：它自带 `webServer`、不需要 postgres/docker（被审页面的数据由
+ * `page.route` 夹具或 `/preview` 自己的 mock 提供），而且**已经在 CI 上真的跑**——
+ * 本仓有三条 playwright 车道从来没在 CI 上跑过，再加一条永远跑不起来的等于假门。
+ *
+ * 判据单源在 `e2e/support/text-contrast.ts`（手工排查的 CLI 共用同一份）。
+ *
+ * ⚠ 浅色主题。深色主题会把这一整类缺陷**藏起来**：`--warning-foreground` 在浅色里是纯白、
+ *   在深色里是近黑，所以用深色审查的人永远看不到白字白底。
+ *
+ * 实测抓到的（都已修，留在这里当回归护栏）：
+ *   · `/preview/live-collab-orchestration` 的「UI 先行原型 · 纯 MOCK 数据」横幅 1.1:1
+ *     —— 「这些数据是假的」这句警告本身看不见；
+ *   · 同页 `bg-inverse` 条上的「环节 3/7」用了 `text-muted-foreground`，2.91:1。
+ */
+const CONTRAST_ROUTES = [
+  "/preview/live-collab-orchestration",
+  "/preview/agent-kernel",
+  "/preview/plan-control",
+  "/preview/chat-viz",
+] as const;
+
+/** 低于这个候选元素数就认为「这页没渲染出来」——空白页与全通过在输出上无法分辨。 */
+const MIN_EXAMINED = 20;
+
+test.describe("可见文本对比度（WCAG AA，浅色主题）", () => {
+  for (const route of CONTRAST_ROUTES) {
+    test(`${route} 没有低于 AA 的可见文本`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto(route, { waitUntil: "networkidle" });
+      await page.waitForTimeout(600);
+
+      const report = await page.evaluate(auditTextContrast, { aaNormal: AA_NORMAL, aaLarge: AA_LARGE });
+
+      // 空集防线（同本文件上方那条）：量不到元素 ⇒ 判失败，绝不因为「没发现问题」而判绿
+      expect(report.examined, `${route}：只审到 ${String(report.examined)} 个元素——这页更像是没渲染出来，拒绝下判断`)
+        .toBeGreaterThanOrEqual(MIN_EXAMINED);
+
+      const describe = (hits: readonly { ratio?: number; threshold?: number; tag: string; testid: string | null; sample: string; cls: string; fg?: string; bg?: string; why?: string }[]) =>
+        hits.map((h) => `\n  ${h.ratio !== undefined ? `${String(h.ratio)} < ${String(h.threshold)}` : h.why ?? ""} ${h.tag}${h.testid ? `[${h.testid}]` : ""}${h.fg ? ` ${h.fg} on ${h.bg}` : ""}\n    「${h.sample}」 class=${h.cls}`).join("");
+
+      expect(report.fail, `${route} 低于 AA：${describe(report.fail)}`).toEqual([]);
+      // 「判不了」不算通过：祖先链上有 opacity/filter/渐变底时，算出来的对比度不可信
+      expect(report.unknown, `${route} 有判不了的元素（祖先改变了呈现但不改 backgroundColor）：${describe(report.unknown)}`).toEqual([]);
     });
   }
 });
