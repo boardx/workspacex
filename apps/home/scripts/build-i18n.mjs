@@ -24,21 +24,44 @@ const CHECK = process.argv.includes('--check');
    It is also written into index.html, sitemap.xml and robots.txt — see the
    "Before this goes live" section of the README. */
 const SITE = 'https://workspacex.boardx.us';
-const META = {
-  zh: {
-    title: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
-    description: 'WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。',
-    ogTitle: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
-    ogDescription: '不是另一个协作工具，而是人与 AI 真正一起把工作完成的运行层：共享上下文、可验证的行动、属于组织的记忆。',
+/* Every page that has a Chinese twin. `path` is the URL the Chinese version
+   lives at, which is what canonical, hreflang and og:url have to say. */
+const PAGES = [
+  {
+    source: 'index.html',
+    target: 'zh/index.html',
+    path: '/zh/',
+    enPath: '/',
+    depth: 1,
+    zh: {
+      title: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
+      description: 'WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。',
+      ogTitle: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
+      ogDescription: '不是另一个协作工具，而是人与 AI 真正一起把工作完成的运行层：共享上下文、可验证的行动、属于组织的记忆。',
+    },
   },
-};
+  {
+    source: 'privacy.html',
+    target: 'zh/privacy.html',
+    path: '/zh/privacy.html',
+    enPath: '/privacy.html',
+    depth: 1,
+    zh: {
+      title: '隐私与数据 — WorkspaceX',
+      description: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
+      ogTitle: '隐私与数据 — WorkspaceX',
+      ogDescription: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
+    },
+  },
+];
 
 const escapeHtml = (s) => s
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function build() {
-  const html = readFileSync(join(root, 'index.html'), 'utf8');
+function build(page) {
+  const html = readFileSync(join(root, page.source), 'utf8');
   const zhSource = readFileSync(join(root, 'assets/js/zh.js'), 'utf8');
+  const META = { zh: page.zh };
 
   // Read the dictionary without importing it, so this stays a pure text
   // transform with no module cache to invalidate.
@@ -71,12 +94,12 @@ function build() {
   out = out.replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${escapeHtml(META.zh.ogDescription)}$2`);
   out = out.replace('<meta property="og:locale" content="en">', '<meta property="og:locale" content="zh_Hans">');
   out = out.replace('<meta property="og:locale:alternate" content="zh_Hans">', '<meta property="og:locale:alternate" content="en">');
-  out = out.replace(`<link rel="canonical" href="${SITE}/">`, `<link rel="canonical" href="${SITE}/zh/">`);
-  out = out.replace(`<meta property="og:url" content="${SITE}/">`, `<meta property="og:url" content="${SITE}/zh/">`);
+  out = out.replace(`<link rel="canonical" href="${SITE}${page.enPath}">`, `<link rel="canonical" href="${SITE}${page.path}">`);
+  out = out.replace(`<meta property="og:url" content="${SITE}${page.enPath}">`, `<meta property="og:url" content="${SITE}${page.path}">`);
 
-  // 4. which language button is the current one
-  out = out.replace(/(<a class="langswitch__btn" href="\/" )aria-current="true"/, '$1');
-  out = out.replace(/(<a class="langswitch__btn" href="\/zh\/" )/, '$1aria-current="true" ');
+  // 4. which language link is the current one
+  out = out.replace(/(<a class="langswitch__btn" href="[^"]*" )aria-current="true"/, '$1');
+  out = out.replace(new RegExp(`(<a class="langswitch__btn" href="${page.path.replace(/\//g, '\\/')}" )`), '$1aria-current="true" ');
 
   // 5. the Chinese card, not the English one
   out = out.replace(/og\.png/g, 'og-zh.png');
@@ -90,19 +113,25 @@ function build() {
   return out;
 }
 
-const generated = build();
-const target = join(root, 'zh/index.html');
+let stale = 0;
+for (const page of PAGES) {
+  const generated = build(page);
+  const target = join(root, page.target);
 
-if (CHECK) {
-  let current = '';
-  try { current = readFileSync(target, 'utf8'); } catch { /* missing */ }
-  if (current !== generated) {
-    console.error('\n✗ zh/index.html is out of date — run: node scripts/build-i18n.mjs');
-    process.exit(1);
+  if (CHECK) {
+    let current = '';
+    try { current = readFileSync(target, 'utf8'); } catch { /* missing */ }
+    if (current !== generated) {
+      console.error(`✗ ${page.target} is out of date — run: node scripts/build-i18n.mjs`);
+      stale += 1;
+    }
+  } else {
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, generated);
+    console.log(`✓ wrote ${page.target} (${(generated.length / 1024).toFixed(1)} KB)`);
   }
-  console.log('✓ zh/index.html matches index.html + zh.js');
-} else {
-  mkdirSync(join(root, 'zh'), { recursive: true });
-  writeFileSync(target, generated);
-  console.log(`✓ wrote zh/index.html (${(generated.length / 1024).toFixed(1)} KB)`);
+}
+if (CHECK) {
+  if (stale) process.exit(1);
+  console.log(`✓ ${PAGES.length} generated page(s) match their sources`);
 }

@@ -420,3 +420,27 @@ still boots: `html.js` set, 8 diagrams drawn, both interactions initialized, no
 errors. And — per round 9's lesson — it was checked in the other direction
 too: with the shim forced down its modern branch, the test fails with a stack
 trace through boot. A green test is not evidence until it has been seen red.
+
+---
+
+## Round 16 — the pages an enterprise buyer asks for
+
+A site that asks organizations to hand it their work had no privacy statement,
+no way to report a vulnerability, and nothing to say about accessibility. Those
+three are the first attachments a procurement review asks for.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **No privacy statement**, on a site whose own source comments boast about not handing visitor addresses to a font host. | `/privacy.html` and `/zh/privacy.html`. Short, because the truthful version is short: no analytics, no pixel, no A/B testing, no advertising code. |
+| 2 | The site writes one key to local storage and never disclosed it. | Named in the statement, along with what it is for and how to remove it. |
+| 3 | **No way to report a security problem.** | `/.well-known/security.txt` per RFC 9116, plus a section committing to acknowledge reports and not to pursue good-faith researchers. |
+| 4 | No accessibility statement — routinely requested in enterprise procurement. | A section stating the WCAG 2.1 AA target, that axe runs on every build in both languages, and **the two places the page deliberately falls short**, because a statement that admits nothing is not information. |
+| 5 | **The generator only knew how to produce one page**, so a second bilingual page had nowhere to live. | `build-i18n.mjs` takes a page list; canonical, `hreflang`, `og:url` and the language links are derived per page. |
+| 6 | **Every gate named `index.html` as its input.** `privacy.html` passed all five without any of them looking at it — the failure mode of any check that names its input instead of discovering it. | All four now scan every hand-authored page. They immediately found a straight apostrophe and an off-scale font size in the new page. |
+| 7 | **A nested `<a>` had been in the nav since round 11** — the stage tag was placed inside the home link. Browsers silently reparent it, so nothing looked wrong. | The wrapper is a plain element and the two links are siblings, which is what the rendered DOM was anyway. |
+| 8 | **The rule meant to catch that had been reporting clean for four rounds.** A non-greedy `<a>…</a>` match stops at the *first* closing tag, so the inner anchor never appears in the captured body. | Depth counting. The lesson is the same one as round 9: a check that has never been seen red is a decoration. |
+| 9 | The 404 page was English only, so a Chinese visitor hitting a bad URL got English — and an error page cannot know which language they came for. | Both languages on the one page, with the Chinese heading marked as a paragraph rather than a second `<h1>`: same statement, not a second document outline. |
+| 10 | Serving `/zh/` from mainland China legally requires an ICP record number in the footer, and there is none in this repository. | **Not invented.** Documented in the README as the third thing to set before launch. |
+
+New pages verified at 390 and 1440 in both languages: axe 0 violations, no
+horizontal scroll, every stylesheet resolving from the subdirectory.
