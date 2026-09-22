@@ -463,3 +463,18 @@
 .proof__rules span { font-size: var(--t-small); color: var(--fg-dim); }
 
 @media (max-width: 900px) { .proof__inner { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- architecture detail readout ------------------------------------------ */
+.arch__detail {
+  padding: 1.1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+  margin-bottom: 0.5rem;
+  /* The panel swaps between paragraphs of different lengths; without a floor
+     the column above it jumps every time you pick a layer. */
+  min-height: 7.5rem;
+  display: grid; align-content: center;
+}
+.arch__detail p { font-size: var(--t-small); color: var(--fg-soft); }
+@media (max-width: 900px) { .arch__detail { min-height: 0; } }
