@@ -1,0 +1,274 @@
+/* ==========================================================================
+   base.css — design tokens, reset, typography
+   WorkspaceX home. Zero-dependency static site.
+   ========================================================================== */
+
+:root {
+  /* ---- surface ---------------------------------------------------------- */
+  --bg:          #08070b;
+  --bg-sink:     #050408;
+  --surface:     rgba(255, 255, 255, 0.035);
+  --surface-2:   rgba(255, 255, 255, 0.06);
+  --hairline:    rgba(255, 255, 255, 0.09);
+  --hairline-2:  rgba(255, 255, 255, 0.16);
+
+  /* ---- ink -------------------------------------------------------------- */
+  --fg:          #f6f4f9;
+  --fg-soft:     #b9b3c6;   /* 9.88:1 */
+  --fg-dim:      #8b8499;   /* 5.60:1 */
+  --fg-faint:    #837d93;   /* 5.09:1 on --bg. #635d72 was 3.19 and failed AA. */
+
+  /* ---- accent ----------------------------------------------------------- */
+  --c-1:         #ff7a18;   /* orange  */
+  --c-2:         #ff2e73;   /* pink    */
+  --c-3:         #b14bff;   /* violet  */
+  --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
+  /* Text placed ON the gradient. White fails AA over the orange stop (2.61:1);
+     this near-black clears 4.74:1 over every stop, so the brand colour keeps
+     its saturation instead of being muddied to make white work. */
+  --on-grad:     #12080d;
+
+  /* semantic accents used by diagrams so hues carry meaning, not decoration */
+  --c-human:     #ffb23d;
+  --c-ai:        #7ab8ff;
+  --c-evidence:  #4ade9a;
+  --c-fail:      #ff5d5d;
+
+  /* ---- type ------------------------------------------------------------- */
+  /* The `… Fallback` faces are metric-matched stand-ins declared in fonts.css;
+     they hold the exact line boxes the real faces will occupy, so the swap
+     changes letterforms without moving anything. */
+  --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* ---- radius scale ------------------------------------------------------
+     Twelve different radii had accumulated — 22, 12, 11, 10, 9, 8, 6, 3, 2,
+     1.5 px — because every new component picked its own. Four surfaces sizes
+     plus the two shapes is a system; twelve is improvisation that slowly
+     pulls the page out of true. */
+  --r-nub:   2px;    /* the few-pixel marks: bullets, swatches, bars */
+  --r-xs:    6px;    /* chips, tags, inline marks            */
+  --r-sm:    10px;   /* buttons, small panels                */
+  --r-md:    14px;   /* notes, tiles, list rows              */
+  --r-lg:    22px;   /* cards, stages, the large surfaces    */
+  --r-pill:  999px;
+  --r-round: 50%;
+
+  /* ---- space scale -------------------------------------------------------
+     Gaps were being chosen at 0.25 / 0.3 / 0.4 / 0.5 / 0.55 / 0.6 / 0.75 /
+     1 / 1.5rem. Same problem, same fix: a scale you can only step along. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+
+  /* fluid scale — clamp(min, preferred, max) */
+  --t-hero:   clamp(2.5rem, 6vw, 5rem);
+  --t-h2:     clamp(2rem,   4.4vw, 3.75rem);
+  --t-h3:     clamp(1.35rem, 2.1vw, 1.9rem);
+  --t-lead:   clamp(1.05rem, 1.55vw, 1.4rem);
+  --t-body:   clamp(0.975rem, 1.1vw, 1.0625rem);
+  --t-small:  0.875rem;
+  --t-micro:  0.75rem;
+
+  /* The steps between --t-micro and --t-h3 that components kept inventing:
+     seventeen distinct literal sizes existed outside this scale. */
+  --t-nano:   0.625rem;    /* 10px — mono labels, over-line captions */
+  --t-tiny:   0.6875rem;   /* 11px — dense metadata                  */
+  --t-xs:     0.8125rem;   /* 13px                                   */
+  --t-md:     0.9375rem;   /* 15px — control labels, list titles     */
+  --t-base:   1rem;
+  --t-lg:     1.125rem;
+  --t-xl:     1.25rem;
+  /* Relative on purpose: inline code should track whatever text surrounds it,
+     not a fixed step. Declared so it is a decision rather than a stray literal. */
+  --t-inline-code: 0.9em;
+
+  /* ---- space ------------------------------------------------------------ */
+  --gutter:      clamp(1.25rem, 4vw, 3rem);
+  --measure:     72rem;       /* max content width            */
+  --measure-text: 44rem;      /* max width for reading prose  */
+  --section-y:   clamp(5.5rem, 11vw, 10rem);
+
+  /* ---- motion ----------------------------------------------------------- */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);      /* apple-ish settle */
+  --ease-io:   cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:  180ms;
+  --dur:       520ms;
+  --dur-slow:  620ms;
+
+  --nav-h:     64px;
+}
+
+/* ---- reset --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html {
+  /* Tells the engine this is a dark page: the scrollbars, the form controls it
+     draws itself, and the flash of background before paint all follow. Without
+     it Safari and Firefox render a white scrollbar track against a near-black
+     page, which is the single most common "looks broken" report on dark sites. */
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* anchored sections must clear the fixed nav */
+  scroll-padding-top: calc(var(--nav-h) + 12px);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* `clip` rather than `hidden`: hidden turns the body into a scroll container,
+     which breaks position: sticky inside it and interferes with scroll
+     anchoring. This is a backstop — anything that actually overflows is a bug
+     to fix at the source. */
+  overflow-x: clip;
+
+  /* Safari only learned `clip` in 16.4. Below that the declaration is dropped
+     and nothing constrains the page at all, so fall back to the older
+     behaviour there rather than to none. */
+  -webkit-tap-highlight-color: rgba(255, 46, 115, 0.22);
+}
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
+}
+
+img, svg, video, canvas { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- headings ------------------------------------------------------------ */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+h1 { font-size: var(--t-hero); letter-spacing: -0.04em; }
+h2 { font-size: var(--t-h2); }
+h3 { font-size: var(--t-h3); letter-spacing: -0.02em; line-height: 1.2; }
+
+/* CJK does not want negative tracking — it collides. */
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4 { letter-spacing: -0.01em; }
+:lang(zh) body, :lang(zh) p { line-height: 1.75; }
+
+/* Han glyphs fill their em box; latin letters do not. At an identical pixel
+   size a Chinese headline therefore reads noticeably heavier and larger than
+   the English one it replaces, and the two languages stop looking like the
+   same design. Scaling the display sizes back restores the match. */
+:lang(zh) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:lang(zh) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:lang(zh) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+
+p { text-wrap: pretty; }
+
+/* ---- utility ------------------------------------------------------------- */
+.grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; left: 50%; top: 8px;
+  transform: translate(-50%, -140%);
+  z-index: 200;
+  padding: 0.625rem 1.125rem;
+  border-radius: var(--r-pill);
+  background: var(--fg); color: var(--bg-sink);
+  font-weight: 600; font-size: var(--t-small);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.skip-link:focus-visible { transform: translate(-50%, 0); }
+
+/* A single, consistent focus ring. Never remove it. */
+:focus-visible {
+  outline: 2px solid var(--c-2);
+  outline-offset: 3px;
+  border-radius: var(--r-xs);
+}
+
+/* ---- forced / high contrast ---------------------------------------------- */
+/* Readers who ask for more contrast get flat surfaces and hard borders: the
+   translucent panels this design leans on are the first thing to fail them. */
+@media (prefers-contrast: more) {
+  :root {
+    --fg-soft:    #ded9e6;
+    --fg-dim:     #c3bdd0;
+    --fg-faint:   #a9a2b8;
+    --hairline:   rgba(255, 255, 255, 0.28);
+    --hairline-2: rgba(255, 255, 255, 0.45);
+    --surface:    rgba(255, 255, 255, 0.09);
+    --surface-2:  rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ---- scrollbars ----------------------------------------------------------
+   `color-scheme` above gets most of the way there. These two rules are the
+   remaining engine-specific bits: Firefox reads `scrollbar-color`, WebKit and
+   Blink only style the pseudo-elements. */
+* { scrollbar-color: #322d3d var(--bg); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: #322d3d;
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: #453e54; }
+
+/* ---- selection ----------------------------------------------------------- */
+::selection { background: rgba(255, 46, 115, 0.3); color: #fff; }
+
+/* ==========================================================================
+   Text shaping details
+   ========================================================================== */
+
+/* Chinese line breaking: `strict` keeps closing brackets, small kana and the
+   like from starting a line, which `normal` permits. Chinese has no spaces, so
+   `word-break: normal` is what allows breaks between Han characters at all. */
+:lang(zh) body,
+:lang(zh) p,
+:lang(zh) li,
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3 {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
+   in a narrow column and will otherwise push the whole layout sideways. */
+p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
+
+/* Numerals in the mono indices are read as a column; proportional figures make
+   that column ragged. */
+.card__index, .rail__num, .unit__n, .eyebrow, .tag, .surface__path {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quotation marks and the leading dash of a list hang into the margin where
+   the engine supports it, which is what stops a typeset paragraph looking
+   indented by accident. Safari only today; harmless elsewhere. */
+p, .lead, .keyline { hanging-punctuation: first last; }
