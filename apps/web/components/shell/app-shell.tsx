@@ -15,6 +15,12 @@ import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
 import { sanitizeReturnTo } from "@/lib/return-to";
+import { buildOrgSwitchUrl, forgetOrgSwitch, rememberOrgSwitch, takeOrgSwitchLanding, type OrgSwitchLanding } from "@/lib/org-switch";
+import { ShellBusyProvider, useShellBusyCount } from "@/lib/shell-busy";
+import {
+  OrgSwitchConfirm, OrgSwitchLanded, OrgSwitchProgress,
+  shouldConfirmOrgSwitch, type PendingOrgSwitch,
+} from "./org-switch-feedback";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -53,18 +59,24 @@ export function AppShell({
   hideTopBar?: boolean;
 }) {
   const session = useOptionalSession();
+  // `ShellBusyProvider` 包在最外：壳层要读的那个数字由 `children` 里正在跑的那一方登记
+  // （`useReportShellBusy`），所以 Provider 必须同时罩住壳层自己和 children。
   if (identity) {
     return (
-      <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
-        {children}
-      </ShellChrome>
+      <ShellBusyProvider>
+        <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
+          {children}
+        </ShellChrome>
+      </ShellBusyProvider>
     );
   }
   if (!session) throw new Error("Authenticated AppShell requires SessionProvider");
   return (
-    <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
-      {children}
-    </SessionAppShell>
+    <ShellBusyProvider>
+      <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
+        {children}
+      </SessionAppShell>
+    </ShellBusyProvider>
   );
 }
 
@@ -146,7 +158,13 @@ function SessionState({ testId, children }: { testId: string; children: React.Re
   );
 }
 
-function ShellChrome({
+/**
+ * 导出仅为了让切换体感的测试能按**生产那条路的形状**驱动它：
+ * 生产走的是 `SessionAppShell` → `ShellChrome` 并带上 `onSwitchOrganization`，
+ * 而 `AppShell` 自己不接这个 prop。拿 `AppShell` + mock 回落去测，测到的是
+ * `window.location.assign` 那条原型分支，不是用户真正走的那条。
+ */
+export function ShellChrome({
   identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
   organizations, onSwitchOrganization, onLogout,
 }: {
@@ -169,20 +187,67 @@ function ShellChrome({
     () => organizations ?? MOCK_ORGS.map((o) => ({ id: o.id, label: isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name })),
     [organizations],
   );
-  const handleSwitchOrganization = React.useCallback((orgId: string) => {
+  /**
+   * 切换的三段体感。**顺序是刻意的**：先问（只在有活在跑时），再遮（盖住旧组织的
+   * 内容并说正在切到哪），最后在新页面上确认落地。
+   *
+   * 落地标记在 await **之前**写、失败时撤回——不是之后写。`onSwitchOrganization`
+   * 内部成功后立刻 `router.replace`，await 一返回新页面就可能已经在挂载了，
+   * 那时候再写标记就是跟新 AppShell 的读抢时序。
+   */
+  const busyCount = useShellBusyCount();
+  const [pendingSwitch, setPendingSwitch] = React.useState<PendingOrgSwitch | null>(null);
+  const [switchingTo, setSwitchingTo] = React.useState<string | null>(null);
+  const [landing, setLanding] = React.useState<OrgSwitchLanding | null>(null);
+
+  React.useEffect(() => { setLanding(takeOrgSwitchLanding()); }, []);
+
+  const currentOrgLabel = React.useMemo(
+    () => effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "",
+    [effectiveOrganizations, identity.org.id, identity.org.name],
+  );
+
+  const runSwitch = React.useCallback((target: PendingOrgSwitch) => {
+    setPendingSwitch(null);
     if (onSwitchOrganization) {
       setSwitching(true);
-      void onSwitchOrganization(orgId)
-        .catch(() => undefined)
+      setSwitchingTo(target.toLabel);
+      rememberOrgSwitch({
+        toLabel: target.toLabel,
+        fromLabel: target.fromLabel,
+        runsLeftBehind: target.runsInFlight,
+      });
+      void onSwitchOrganization(target.orgId)
+        .catch(() => {
+          forgetOrgSwitch();   // 切换没成，别让下一次跳转弹出一条「已切换到 X」的假消息
+          setSwitchingTo(null);
+        })
         .finally(() => setSwitching(false));
       return;
     }
-    // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
-    const url = new URL(window.location.href);
-    url.searchParams.set("org", orgId);
-    ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
-    window.location.assign(url.toString());
+    // 原型页（无 session）回落：O-12 —— 切组织 = 清空全部项目级上下文，权限重新求值。
+    setSwitchingTo(target.toLabel);
+    rememberOrgSwitch({
+      toLabel: target.toLabel,
+      fromLabel: target.fromLabel,
+      runsLeftBehind: target.runsInFlight,
+    });
+    window.location.assign(buildOrgSwitchUrl(window.location.href, target.orgId));
   }, [onSwitchOrganization]);
+
+  const handleSwitchOrganization = React.useCallback((orgId: string) => {
+    const target: PendingOrgSwitch = {
+      orgId,
+      toLabel: effectiveOrganizations.find((o) => o.id === orgId)?.label ?? orgId,
+      fromLabel: currentOrgLabel,
+      runsInFlight: busyCount,
+    };
+    if (shouldConfirmOrgSwitch(target.runsInFlight)) {
+      setPendingSwitch(target);
+      return;
+    }
+    runSwitch(target);
+  }, [busyCount, currentOrgLabel, effectiveOrganizations, runSwitch]);
 
   /*
    * FB-2：反馈弹层的唯一实例挂在壳层，因为它的三个入口分属三处
@@ -327,6 +392,26 @@ function ShellChrome({
         </div>
         <MobileTabs />
       </div>
+      {/*
+        切换的三段体感挂在壳层最外层，不挂在组织菜单里：菜单一点就关，
+        而这三样东西要在菜单消失之后、跨越一次换页继续说话。
+      */}
+      {pendingSwitch !== null && (
+        <OrgSwitchConfirm
+          pending={pendingSwitch}
+          onConfirm={() => runSwitch(pendingSwitch)}
+          onCancel={() => setPendingSwitch(null)}
+        />
+      )}
+      {switching && switchingTo !== null && <OrgSwitchProgress toLabel={switchingTo} />}
+      {landing !== null && (
+        <OrgSwitchLanded
+          toLabel={landing.toLabel}
+          fromLabel={landing.fromLabel}
+          runsLeftBehind={landing.runsLeftBehind}
+          onDismiss={() => setLanding(null)}
+        />
+      )}
     </div>
     </FeedbackProvider>
   );
