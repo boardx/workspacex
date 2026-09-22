@@ -53,6 +53,7 @@
 | 某段代码在不在 main | 文件在你的工作区里存在 | `git ls-tree origin/main -- <path>`；`git show origin/main:<path>` |
 | 某次测量量的是哪棵树 | 记录里的 SHA 字段 | `git merge-base --is-ancestor <sha> origin/main` |
 | 某个 agent / 栈还活不活 | worktree 或进程痕迹还在 | 心跳、lease、owner label —— **痕迹不是心跳** |
+| 某条契约声明的路径今天能不能跑 | 它所属 feature 是 `passing` | `pnpm harness contract-routes`——**feature 状态本身就是一个静态痕迹**（issue #1177） |
 
 ### 三条可操作的习惯
 
@@ -70,6 +71,9 @@
 - **CLR G5**：`scored_sha` 不是 `origin/main` 的祖先 ⇒ 记 0（对应第 4 次）
 - **CLR G6**：证据必须结构上可解析 ⇒ 挡住手写假锚点
 - **CLR 队列门**：`blocking_issues` 里出现已 CLOSED 的 issue ⇒ 当场红（对应第 1 次的下游后果）
+- **契约 ↔ 路由覆盖**（issue #1177）：已交付契约束里声明了 `path` 却没有对应路由的 operation
+  逐条进清单，`doctor` 出 WARN。判据与它**够不到**的部分（束级近似的假阴性）写在
+  `.harness/scripts/lib/contract-route-coverage.ts` 的头注里
 
 ⚠ **覆盖不到的部分要诚实**：散文里的过期断言（issue 正文、代码注释）没有门能自动抓，
 只能靠上面那三条习惯。`sweep-docker` 的归属推断问题登记在 #841，修法方向是**让归属可证明
