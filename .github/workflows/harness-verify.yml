@@ -33,6 +33,17 @@ name: harness-verify
 
 on:
   pull_request:
+  # 2026-09-21（#3238 第 1 条）：合并队列的候选组。GitHub 在 `refs/heads/gh-readonly-queue/
+  # <base>/pr-<N>-<base sha>` 上开火，事件里 `github.event.pull_request.*` 与
+  # `github.base_ref` **都是空的**，要读的是 `github.event.merge_group.head_sha` /
+  # `.base_sha`——照抄 PR 分支的写法只会拿到空串，而空串不会报错，只会静悄悄地
+  # 把 diff 基线变成「没有基线」。解析规则在 `.harness/scripts/lib/merge-queue.ts`
+  # （唯一事实源），本文件的表达式由 merge-queue.test.ts 机械核对。
+  #
+  # ⚠ 候选组上跑的是**完整**必需验证，不是快检：它是「这个组合合入 main 之后长什么样」
+  # 的唯一证据。在这里省任何一条，整套队列设计就只剩排队没有验证。
+  # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
+  merge_group:
   push:
     branches: [main]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
@@ -302,7 +313,7 @@ jobs:
       # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
       - name: 受影响模块 typecheck/lint
         env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
         run: pnpm turbo run typecheck lint --affected
 
       # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
@@ -315,7 +326,7 @@ jobs:
       # 跑一遍，不可接受的是不跑）。
       - name: 受影响模块 test
         env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
           # 这里声明 "workspacex" 是**诚实的**，不是绕门：GitHub 托管 runner 是独占的
           # 一次性 VM，postgres 由 ensureDatabase() 在本 job 里现起，不存在与任何其它
@@ -391,10 +402,16 @@ jobs:
   # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
   # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
   merge-gate:
-    if: github.event_name == 'pull_request'
+    # #3238：候选组（merge_group）上也必须出结论——这是 required check，候选组上
+    # SKIPPED 等于队列永久卡住。候选组里的 PR 号由 lib/merge-queue.ts 的
+    # parseMergeGroupPrNumbers 从队列 ref + 区间 commit 标题解析，解析不出就失败。
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # 候选组要 `git log base..head` 拿区间内各 PR 的 commit 标题
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -402,9 +419,17 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: 机械合并门禁（独立 APPROVE + 唯一 verdict label + Closes 关联）
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness merge-gate --pr ${{ github.event.pull_request.number }}
+      - name: 机械合并门禁（合并队列候选组：组里每个 PR 逐个判）
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: pnpm harness merge-gate --merge-group
 
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'

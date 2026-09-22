@@ -145,9 +145,10 @@ async function main(): Promise<void> {
       log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
       log.info("  pnpm harness phase-readiness --phase NN --to not_ready --actor <id> --reason <text>");
       log.info("  pnpm harness cycle-report                              # C-cycle 周期健康表（只读，见 work-cycle-proposal.md）");
-      log.info("  pnpm harness pr-queue [--pr N] [--json] [--attended]    # PR 队列状态机（只读，#451）；无 --attended 一律不授权合并");
+      log.info("  pnpm harness pr-queue [--pr N] [--json] [--attended] [--queue-enabled]  # PR 队列状态机（只读，#451）；无 --attended 一律不授权合并；--queue-enabled 时打印的是入队路线而非直接合并（#3238）");
       log.info("  pnpm harness pr-queue --post-merge N [--deployment-tracked]  # 合并后收尾核验：merged + commit 在 main + issue 已关闭");
       log.info("  pnpm harness merge-gate --pr N [--json]                # 机械合并门禁（#956）：当前 SHA 独立 APPROVE + 唯一 verdict label + Closes 关联；失败非 0 退出，供 CI required check 使用");
+      log.info("  pnpm harness merge-gate --merge-group                  # 合并队列候选组模式（#3238）：从队列 ref + 区间 commit 标题解析组里的 PR 逐个判；解析不出 PR 号直接失败");
       log.info("  pnpm harness tick [--session <id>] [--json]            # 每个 loop 跑这条：权威时钟+漂移告警+续租约+收件箱（ADR-014）");
       log.info("  pnpm harness lock-status");
       log.info("  pnpm harness lock-acquire   --session <id> [--force] [--note <text>]");
