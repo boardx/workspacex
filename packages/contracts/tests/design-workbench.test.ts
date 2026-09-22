@@ -27,7 +27,9 @@ const project: dw.DesignProject = {
   name: "反馈导出流程重设计",
   template: "wireframe",
   theme: "dark",
+  accent: "neutral",
   tags: [],
+  share: null,
   refImages: [],
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
   criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
@@ -289,5 +291,138 @@ describe("迭代 13：从对话导入的契约形状", () => {
     for (const code of dw.operations.importThread.err) {
       expect(dw.DesignWorkbenchError.options).toContain(code);
     }
+  });
+});
+
+/* ─────────── 迭代 17：强调色档位的对比度门 ─────────── */
+
+/** HSL 三元组字符串（"221 83% 41%"，与 globals.css 里 token 的写法同形）→ 相对亮度。 */
+function relativeLuminance(hsl: string): number {
+  const m = /^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+  if (m === null) throw new Error(`不是合法的 HSL 三元组：「${hsl}」`);
+  const h = Number(m[1]) / 360;
+  const sat = Number(m[2]) / 100;
+  const l = Number(m[3]) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * sat;
+  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
+  const mm = l - c / 2;
+  const seg = Math.floor(h * 6) % 6;
+  const rgb = [
+    [c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x],
+  ][seg]!.map((v) => v + mm);
+  const lin = rgb.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe("迭代 17：强调色是闭集，且每一档的对比度都验过", () => {
+  it("每个档位（neutral 除外）都在 PROTOTYPE_ACCENTS 里有两套值，一个不漏", () => {
+    // ⭐ 反证锚点：契约加了一个新档位却忘了给值 ⇒ 这条红（画布会渲染成"没有强调色"）。
+    for (const a of dw.PrototypeAccent.options) {
+      if (a === "neutral") continue;
+      const tokens = dw.PROTOTYPE_ACCENTS[a];
+      expect(tokens, `档位 ${a} 没有取值`).toBeDefined();
+      expect(tokens.light.primary.length).toBeGreaterThan(0);
+      expect(tokens.dark.primary.length).toBeGreaterThan(0);
+    }
+    expect(Object.keys(dw.PROTOTYPE_ACCENTS).sort()).toEqual(
+      dw.PrototypeAccent.options.filter((a) => a !== "neutral").slice().sort(),
+    );
+  });
+
+  it("按钮上的字读得出来：每一档的底色 ↔ 字色对比度 ≥ 4.5:1（浅色与深色画布各一套）", () => {
+    /*
+     * ⭐ 反证锚点：把任何一档的 `light.foreground` 改成和底色相近的值 ⇒ 这条红。
+     *
+     * 对比度是这套原语能看起来像成品的**前提**，不是锦上添花：按钮上的字读不清，
+     * 再好的布局也白搭。档位存在的理由正是"每个取值都能被一次性验过并钉住"——
+     * 换成自由色值，这条门就写不出来。
+     */
+    const bad: string[] = [];
+    for (const [name, tokens] of Object.entries(dw.PROTOTYPE_ACCENTS)) {
+      for (const theme of ["light", "dark"] as const) {
+        const { primary, foreground } = tokens[theme];
+        const ratio = contrast(primary, foreground);
+        if (ratio < 4.5) bad.push(`${name}.${theme} = ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("迭代 19：线框图的灰阶走**同一条**对比度门（低保真不是「可以读不清」的借口）", () => {
+    /*
+     * ⭐ 反证锚点：把 dark 那套改回和 light 一样的灰 46% ⇒ 这条红。
+     * 实测那个值当文字压在深色卡片上只有 3.65:1——而这些 token 正是被当文字用的
+     * （底部导航当前项、info badge、列表勾）。
+     */
+    for (const theme of ["light", "dark"] as const) {
+      const { primary, foreground } = dw.PROTOTYPE_WIREFRAME[theme];
+      expect(contrast(primary, foreground), `线框图 ${theme} 的底色↔字色`).toBeGreaterThanOrEqual(4.5);
+    }
+    // 深色画布上的灰要更亮——与强调色同一条取向（照搬一套过去就会读不清）。
+    expect(relativeLuminance(dw.PROTOTYPE_WIREFRAME.dark.primary))
+      .toBeGreaterThan(relativeLuminance(dw.PROTOTYPE_WIREFRAME.light.primary));
+  });
+
+  it("浅色画布用深色块配白字、深色画布用亮色块配近黑字——不是同一套值照搬", () => {
+    // 照搬一套到另一套，表现就是"在其中一种画布上一片糊"。这条钉住取向本身。
+    for (const [name, tokens] of Object.entries(dw.PROTOTYPE_ACCENTS)) {
+      const light = relativeLuminance(tokens.light.primary);
+      const dark = relativeLuminance(tokens.dark.primary);
+      expect(dark, `${name}：深色画布上的强调色该比浅色画布上的更亮`).toBeGreaterThan(light);
+    }
+  });
+});
+
+/* ───────────── 迭代 22：发布与分享——对外投影的字段闭集就是隐私边界 ───────────── */
+
+describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
+  it("SharedDesign 的字段逐个列举——加一个字段而不动这里 ⇒ 红", () => {
+    /*
+     * ⭐ 反证锚点：把 `chat` 加进 `SharedDesign` ⇒ 这条红。
+     *
+     * 这条断言是「分享不会把对话带出去」这句承诺的**唯一**机械落点。没有它，那句话
+     * 就只是文件头注里的一段中文——而本仓的结论是「没有脚本的规范条目视为未落地」。
+     * 用 `omit` 派生会让新字段**默认跟着漏出去**；对一条公网可达的投影，默认方向必须反过来。
+     */
+    expect(Object.keys(dw.SharedDesign.shape).sort()).toEqual(
+      [
+        "accent", "criteria", "frameLinks", "frameNotes", "frames", "name",
+        "ownerName", "problem", "prototype", "publishedAt", "template", "theme",
+      ].sort(),
+    );
+  });
+
+  it("这些字段一个都不许在里面：对话、参考图、owner id、来源反馈、issue、推送态", () => {
+    const leak = ["chat", "refImages", "ownerId", "id", "linkedFeedbackId", "githubIssueUrl", "githubIssueNumber", "pushed", "pushedAt", "tags", "share"];
+    for (const k of leak) {
+      expect(Object.keys(dw.SharedDesign.shape), `${k} 不该随分享链接出去`).not.toContain(k);
+    }
+  });
+
+  it("scope 是闭集两档，默认那档是保守的那一档", () => {
+    expect(dw.DesignShareScope.options).toEqual(["prototype", "full"]);
+    // 契约层不写默认值（默认在用例层：从未发布过 ⇒ prototype），这里钉住"保守的那档排在前面"
+    // 只是为了让 UI 的选项顺序有据可依；真正的默认由 `share-project.test.ts` 守。
+    expect(dw.DesignShareScope.options[0]).toBe("prototype");
+  });
+
+  it("公开读操作是本束唯一一条 GET /public/... 路由，且错误闭集只有一个码", () => {
+    expect(dw.operations.getSharedDesign.path.startsWith("/public/")).toBe(true);
+    // ⭐ 反证锚点：给它加一个能区分"不存在 / 已取消发布"的第二个错误码 ⇒ 这条红。
+    // 那正是给试令牌的人一个进度条。
+    expect(dw.operations.getSharedDesign.err).toEqual(["SHARE_NOT_FOUND"]);
+    const publicPaths = Object.values(dw.operations).filter((o) => o.path.startsWith("/public/"));
+    expect(publicPaths).toHaveLength(1);
+  });
+
+  it("发布与取消发布走同一条路径的两个动词——一个项目只有一条链接", () => {
+    expect(dw.operations.publishProject.path).toBe(dw.operations.unpublishProject.path);
+    expect(dw.operations.publishProject.method).toBe("POST");
+    expect(dw.operations.unpublishProject.method).toBe("DELETE");
   });
 });

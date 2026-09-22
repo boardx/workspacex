@@ -117,7 +117,7 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
 
     const persona = await fetchLatestSavedDiagramSource({
       threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
-      accepts: (markdown) => markdown.startsWith("模板: persona\n"),
+      accepts: ({ markdown }) => markdown.startsWith("模板: persona\n"),
     });
 
     expect(persona?.markdown).toContain("保存后的画像");
@@ -146,7 +146,7 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
 
     const saved = await fetchLatestSavedDiagramSource({
       threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
-      accepts: (markdown) => markdown.startsWith("模板: journey-map\n"),
+      accepts: ({ markdown }) => markdown.startsWith("模板: journey-map\n"),
     });
 
     expect(saved).toBeNull();
@@ -161,7 +161,7 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
 
     const saved = await fetchLatestSavedDiagramSource({
       threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
-      accepts: (markdown) => markdown.startsWith("模板: journey-map\n"),
+      accepts: ({ markdown }) => markdown.startsWith("模板: journey-map\n"),
     });
 
     expect(saved?.markdown).toContain("保存后的旅程");

@@ -27,11 +27,30 @@
  *   `Record<ConsentItemValue, ...>` —— 少一个键或多一个键由 **tsc** 判红。
  *   两条路各有覆盖，本文件只对自己扫得到的那类负责。
  *
+ * ## issue #622：扫描范围补上 `apps/api/scripts/`
+ *
+ * 上面那句「扫 `src/`」曾经**字面上就是全部**——`apps/api/scripts/` 不在根里。
+ * 于是 2026-08-06 出了这条门控自己看不见的漂移：`seed-fullstack-smoke.ts` 里
+ * 字面量 `["record", "transcript", "ai_analysis"]` 三项，X-7/XC-18 裁成四项后没跟着变，
+ * 而**没有任何门控告诉任何人**——发现它靠 `fullstack-smoke` 第 7 步在 CI 上超时、
+ * 人工追出 `403 CONSENT_NOT_COMPLETED`。种子脚本是 `blocksStart` 判定的**上游数据**，
+ * 它答错，产品链路就是真的走不通，所以它和生产代码一样是「声明了第二份事实」。
+ *
+ * ⇒ 扫描根加入 `apps/api/scripts/`。`tests/` 刻意**不**加：本文件与
+ *   `recording-consent-single-source.test.ts` 自己就要把四项逐字列出来对账，
+ *   把测试目录扫进来等于门控判自己红，两周内必被静音。
+ *
  * ## 反证（本仓已九次「全绿但空转」，门控写完当场造）
  *
  * · 把 `RecordingConsentItem` 改回自己声明三项 ⇒ 第 ① 条（同一性）红 +
  *   `recording-consent-single-source.test.ts` 的迁移 CHECK 对账红；
  * · 把任意一处手写副本加回 `src/` ⇒ 第 ② 条红。
+ * · **范围本身也要反证**（#622）：光把一个路径加进数组，读起来像覆盖了，
+ *   而写错根、或者 `walk` 把那棵树跳过了，第 ② 条照样全绿——这正是本条要防的形状。
+ *   所以仓里常驻一份**故意漂移**的夹具
+ *   `apps/api/scripts/__fixtures__/consent-drift-bad.ts`（三项，少 `attribution`）：
+ *   第 ③ 条拿它两头对照：旧的两个根走一遍**扫不到**它（盲区复现）；
+ *   新的三个根走一遍**扫得到且判红**。范围要是再缩回去，第 ③ 条立刻红。
  * 实测记录写在 PR 正文里。
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -42,13 +61,37 @@ import { consentItem, interview, recording } from "@repo/contracts";
 
 const REPO = fileURLToPath(new URL("../../../..", import.meta.url));
 const SINGLE_SOURCE = join(REPO, "packages/contracts/src/consent-item.ts");
-const SCAN_ROOTS = [join(REPO, "apps/api/src"), join(REPO, "packages/contracts/src")];
+
+/** #622 之前的扫描根。**只**被第 ③ 条用来复现盲区，不是现行范围。 */
+const PRE_622_SCAN_ROOTS = [join(REPO, "apps/api/src"), join(REPO, "packages/contracts/src")];
+
+/**
+ * 现行扫描根。`apps/api/scripts` 是 #622 补的：种子/backfill 脚本同样是
+ * 「声明同意项」的地方，而它们答错的后果是产品链路真的跑不通（见文件头）。
+ */
+const SCAN_ROOTS = [...PRE_622_SCAN_ROOTS, join(REPO, "apps/api/scripts")];
+
+/**
+ * 故意漂移的反证夹具（#622）。它**必须**被扫描器认出来——第 ③ 条正向断言这件事——
+ * 同时按精确路径排除在 offenders 之外，与 `lint-naming-single-source.mjs` 的
+ * `SELF_EXCLUDE` 同型。排除一个被正向断言钉住的路径不是给门控开口子；
+ * 别的脚本这么写照红不误。
+ */
+const DRIFT_FIXTURE = join(REPO, "apps/api/scripts/__fixtures__/consent-drift-bad.ts");
 
 /** 裁决钉死的那四项，逐字。**改这里等于改裁决**，需要新的人类裁决。 */
 const RULED_FOUR = ["record", "transcript", "ai_analysis", "attribution"] as const;
 
+/**
+ * ⚠ `__fixtures__` **不在**跳过名单里——#622 的反证夹具就住在那儿，跳过它
+ * 等于把第 ③ 条变成空转。跳的只是装不下事实的目录（依赖、构建产物、本地垃圾）：
+ * `apps/api/scripts/` 下会长出这些东西，而 `src/` 下不会，所以扩范围时才需要这行。
+ */
+const SKIP_DIRS = new Set(["node_modules", "dist", ".next", "generated"]);
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    if (SKIP_DIRS.has(name)) continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
     else if (p.endsWith(".ts") || p.endsWith(".tsx")) out.push(p);
@@ -91,7 +134,7 @@ describe("同意项：一套四项，一处定义（#533 裁决）", () => {
     expect(consentItem.ConsentItemKey.options).toContain("attribution");
   });
 
-  it("② src/ 下除单一事实源外，没有第二处把同意项列成一张表", () => {
+  it("② src/ 与 scripts/ 下除单一事实源外，没有第二处把同意项列成一张表", () => {
     const files = SCAN_ROOTS.flatMap((r) => walk(r));
     // 正样本先行：扫描器必须真的能在单一事实源里认出这张表。认不出的话，
     // 下面那条 `toEqual([])` 会因为「谁也没扫到」而空转通过——本仓九次绿色空转的老形状。
@@ -99,14 +142,15 @@ describe("同意项：一套四项，一处定义（#533 裁决）", () => {
     expect(declaresItemList(stripComments(readFileSync(SINGLE_SOURCE, "utf8")))).toBe(true);
 
     const offenders = files
-      .filter((f) => f !== SINGLE_SOURCE)
+      .filter((f) => f !== SINGLE_SOURCE && f !== DRIFT_FIXTURE)
       .filter((f) => declaresItemList(stripComments(readFileSync(f, "utf8"))))
       .map((f) => f.slice(REPO.length));
 
     expect(
       offenders,
       "这些文件各自把同意项列了一遍。#533 裁决：同意项只能在 " +
-        "packages/contracts/src/consent-item.ts 声明一次，其余一律引用它。",
+        "packages/contracts/src/consent-item.ts 声明一次，其余一律引用它。" +
+        "（#622：种子/backfill 脚本同样算数——它们答错，产品链路是真的跑不通。）",
     ).toEqual([]);
   });
 
@@ -124,5 +168,20 @@ describe("同意项：一套四项，一处定义（#533 裁决）", () => {
     // 反面：单点引用与 SQL 投影**不**判红，否则这条门控会因噪音被静音。
     expect(declaresItemList(`if (item === "ai_analysis") return false;`)).toBe(false);
     expect(declaresItemList(`SELECT record, transcript, ai_analysis FROM t`)).toBe(false);
+  });
+
+  it("③ 扫描范围真的覆盖 apps/api/scripts/（拿常驻的漂移夹具两头对照，#622）", () => {
+    // 夹具本身先立住：它必须存在，且写的确实是漂移的那张表。
+    // 夹具被「修好」了，这条就该红——否则下面两句对照都在拿空气比。
+    const fixture = stripComments(readFileSync(DRIFT_FIXTURE, "utf8"));
+    expect(declaresItemList(fixture), DRIFT_FIXTURE).toBe(true);
+
+    // 盲区复现：#622 之前的两个根走一遍，这个文件**根本不在文件列表里**。
+    // 这正是 seed-fullstack-smoke.ts 那次漂移为什么一路绿到 CI 超时才被人工追出来。
+    expect(PRE_622_SCAN_ROOTS.flatMap((r) => walk(r))).not.toContain(DRIFT_FIXTURE);
+
+    // 修复生效：现行根走一遍，扫得到它。范围要是被缩回去、或者 walk 把那棵树跳过，
+    // 这一句立刻红——「加了个路径」和「真的扫了」由此变成两件可区分的事。
+    expect(SCAN_ROOTS.flatMap((r) => walk(r))).toContain(DRIFT_FIXTURE);
   });
 });

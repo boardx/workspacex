@@ -23,6 +23,8 @@ import type { z } from "zod";
 import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
+/** 迭代 17：原型的强调色档位（闭集，契约单源）。 */
+export type PrototypeAccent = z.infer<typeof designWorkbench.PrototypeAccent>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type DesignProject = z.infer<typeof designWorkbench.DesignProject>;
 export type CreateProjectOut = z.infer<typeof designWorkbench.operations.createProject.out>;
@@ -55,6 +57,8 @@ export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatF
 
 /** 迭代 13：按一句 brief 生成澄清问题。**从不失败**——模型不可用时服务端回退通用六问并置 `fallback`。 */
 export type IntakeQuestionsOut = z.infer<typeof designWorkbench.operations.intakeQuestions.out>;
+/** 迭代 17：答案**带着维度**交上去——只有 `success` 那一维会变成验收标准。 */
+export type IntakeAnswer = z.infer<typeof designWorkbench.IntakeAnswer>;
 export async function intakeQuestions(brief: string): Promise<IntakeQuestionsOut> {
   return apiRequest<IntakeQuestionsOut>(designWorkbench.operations.intakeQuestions.path, {
     method: "POST",
@@ -103,6 +107,8 @@ export async function updateProject(
     readonly template?: ProjectTemplate;
     readonly problem?: string;
     readonly theme?: "light" | "dark";
+    /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+    readonly accent?: PrototypeAccent;
     /** 迭代 13（delta §4）：**整份替换**标签。 */
     readonly tags?: readonly string[];
   },
@@ -120,6 +126,11 @@ export async function appendProjectChat(
   signal?: AbortSignal,
   /** 迭代 13：这一轮要让模型看的参考图。空数组与不传等价——服务端不认空数组以外的差别。 */
   refImageIds?: readonly string[],
+  /**
+   * 迭代 20：这一轮最多画几页。**服务端强制截断**，不是给模型的提示。
+   * 不给 ⇒ 不设限（行为与这个参数出现之前逐字相同）。
+   */
+  maxScreens?: number,
 ): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -129,6 +140,7 @@ export async function appendProjectChat(
         text,
         ...(focusNodeId !== undefined ? { focusNodeId } : {}),
         ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
+        ...(maxScreens !== undefined ? { maxScreens } : {}),
       },
       signal,
     },
@@ -154,10 +166,22 @@ export async function importThread(
   projectId: string,
   threadId: string,
   problem?: string,
+  /**
+   * 迭代 16（#3773 R3）：确认阶段一并写入的验收标准（用户在预览里勾/改过的那份）。
+   * 省略 = 不动项目现有的（**不是**清空）——所以「一条都不要」要传空数组，不是不传。
+   */
+  criteria?: readonly string[],
 ): Promise<ImportThreadOut> {
   return apiRequest<ImportThreadOut>(
     designWorkbench.operations.importThread.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { threadId, ...(problem !== undefined ? { problem } : {}) } },
+    {
+      method: "POST",
+      body: {
+        threadId,
+        ...(problem !== undefined ? { problem } : {}),
+        ...(criteria !== undefined ? { criteria: [...criteria] } : {}),
+      },
+    },
   );
 }
 
@@ -278,4 +302,54 @@ export async function createDesignGithubIssue(
     designWorkbench.operations.createDesignGithubIssue.path.replace(":projectId", encodeURIComponent(projectId)),
     { method: "POST", body: { draft } },
   );
+}
+
+/* ─────────────────── 迭代 22：发布与分享 ─────────────────── */
+
+export type DesignShare = z.infer<typeof designWorkbench.DesignShare>;
+export type DesignShareScope = z.infer<typeof designWorkbench.DesignShareScope>;
+export type SharedDesign = z.infer<typeof designWorkbench.SharedDesign>;
+export type PublishProjectOut = z.infer<typeof designWorkbench.operations.publishProject.out>;
+export type UnpublishProjectOut = z.infer<typeof designWorkbench.operations.unpublishProject.out>;
+export type GetSharedDesignOut = z.infer<typeof designWorkbench.operations.getSharedDesign.out>;
+export const DESIGN_SHARE_SCOPES = designWorkbench.DesignShareScope.options;
+
+/** 发布 / 重新发布。`scope` 省略 = 沿用上一次那档（从未发布过 ⇒ 服务端取 `prototype`）。 */
+export async function publishProject(projectId: string, scope?: DesignShareScope): Promise<PublishProjectOut> {
+  return apiRequest<PublishProjectOut>(
+    designWorkbench.operations.publishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: scope === undefined ? {} : { scope } },
+  );
+}
+
+/** 取消发布——链接立刻失效。幂等：没发布过也返回 200。 */
+export async function unpublishProject(projectId: string): Promise<UnpublishProjectOut> {
+  return apiRequest<UnpublishProjectOut>(
+    designWorkbench.operations.unpublishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "DELETE" },
+  );
+}
+
+/**
+ * 读一条分享链接。**显式 `sessionToken: null`**——这条路径是给没登录的人用的，
+ * 而 `apiRequest` 缺省会把浏览器里存着的会话令牌带上。带上它本身不会出错（服务端根本不看），
+ * 但那会让"这条接口到底要不要登录"在本地永远验不出来：开发者自己是登录态，
+ * 于是一条其实 401 的接口在他机器上一直好使。
+ */
+export async function fetchSharedDesign(token: string): Promise<GetSharedDesignOut> {
+  return apiRequest<GetSharedDesignOut>(
+    designWorkbench.operations.getSharedDesign.path.replace(":token", encodeURIComponent(token)),
+    { sessionToken: null },
+  );
+}
+
+/**
+ * 分享链接的**页面**地址（不是 API 地址）——`/d/<token>`。
+ *
+ * 短路径是刻意的：这串东西要被粘进微信、飞书、邮件，长一截就多一次折行。
+ * `origin` 由调用方传入（浏览器里就是 `window.location.origin`），这一层不去读
+ * `window`——纯函数才测得了。
+ */
+export function designShareUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/$/, "")}/d/${encodeURIComponent(token)}`;
 }

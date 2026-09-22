@@ -41,7 +41,7 @@ import {
   A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_GAP, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER,
   HEADER_ROW_PITCH,
 } from "./auto-template-layout";
-import type { GridColsValue } from "@repo/contracts/canvas";
+import { DEFAULT_GRID_ROWS, type GridColsValue, type GridRowsValue } from "@repo/contracts/canvas";
 
 /**
  * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
@@ -112,17 +112,25 @@ export interface ExplicitLayoutCell {
 
 export interface ExplicitLayout {
   readonly gridCols: GridColsValue;
+  readonly gridRows: GridRowsValue;
   readonly cells: readonly ExplicitLayoutCell[];
   readonly bounds: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
 }
 
-/**
- * 画布网格的行数。⚠ 这是**唯一**声明处——`template-editor-model.ts`（夹取/自动
- * 排版/步进器上限）、`template-canvas-grid.tsx`（编辑器网格）、`sectionGeometryMm`
- * 的 `rowSpanDenominator` 都从这里读。同一个数字散在四个文件里各写一遍，正是
- * AGENTS.md「同一事实不得声明在两处」点名过的漂移来源。
+/*
+ * 画布网格的行数**不再是本文件的模块常量**（issue #3358 第 8 项）。
+ *
+ * 它曾经是 `export const GRID_ROWS = 8`，`template-editor-model.ts`（夹取/自动排版/
+ * 步进器上限）、`template-canvas-grid.tsx`（编辑器网格）、`sectionGeometryMm` 的
+ * `rowSpanDenominator` 都从这里读——那时候"一份声明"是对的，因为行数确实只有一个值。
+ * 现在一张模板记着自己用的是 8 行还是 16 行（`canvas_templates.grid_rows`），
+ * "行数"就不再是一个常量而是**这一行模板的属性**：继续从模块常量读，等于让所有
+ * 16 行的模板都按 8 行算几何，那是 AGENTS.md 说的「静态痕迹 ≠ 动态事实」在数字上的版本。
+ *
+ * 所以每个用到行数的纯函数都**接收** `gridRows`，缺省值统一取契约的
+ * `DEFAULT_GRID_ROWS`（老数据落库默认值，逐字节同解）——唯一事实源从"一个常量"
+ * 变成"契约里的那一栏 + 调用方传进来的值"，仍然只有一处声明。
  */
-export const GRID_ROWS = 8;
 
 /**
  * 网格坐标（1 起的 col/row + 跨度 w/h）→ px 几何。
@@ -137,11 +145,12 @@ export const GRID_ROWS = 8;
 export function computeExplicitLayout(
   sections: readonly ExplicitLayoutSectionInput[],
   gridCols: GridColsValue,
+  gridRows: GridRowsValue = DEFAULT_GRID_ROWS,
 ): ExplicitLayout {
   const areaW = A0_FRAME.right - A0_FRAME.left;
   const areaH = A0_FRAME.bottom - GRID_TOP;
   const cellW = (areaW - (gridCols - 1) * GUTTER) / gridCols;
-  const cellH = (areaH - (GRID_ROWS - 1) * GUTTER) / GRID_ROWS;
+  const cellH = (areaH - (gridRows - 1) * GUTTER) / gridRows;
 
   const cells: ExplicitLayoutCell[] = sections.map((s) => {
     const { col, row, w, h } = s.layout;
@@ -164,6 +173,7 @@ export function computeExplicitLayout(
 
   return {
     gridCols,
+    gridRows,
     cells,
     bounds: { left: A0_FRAME.left, top: A0_FRAME.top, right: A0_FRAME.right, bottom: A0_FRAME.bottom },
   };
@@ -176,6 +186,8 @@ export interface ExplicitTemplateInput {
   readonly footer?: string;
   readonly sections: readonly ExplicitLayoutSectionInput[];
   readonly gridCols: GridColsValue;
+  /** 网格行数。缺省 `DEFAULT_GRID_ROWS`，兼容既有调用方（老模板都是 8 行）。 */
+  readonly gridRows?: GridRowsValue;
 }
 
 export interface ExplicitTemplateResult {
@@ -400,7 +412,7 @@ function stickyWidthOverride(cellW: number, cols: number): { w?: number } {
 }
 
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
-  const rawLayout = computeExplicitLayout(input.sections, input.gridCols);
+  const rawLayout = computeExplicitLayout(input.sections, input.gridCols, input.gridRows ?? DEFAULT_GRID_ROWS);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
   // 「文本对象」（用户直接交办，2026-09-08）需要各自的文字/颜色/字号/粗细，`typeById`
   // 只记类型不够用，另建一份按 sectionId 索引的完整输入。
@@ -749,6 +761,11 @@ export interface SectionGeometryMmInput {
   readonly h: number;
   readonly cols: number;
   readonly gridCols: GridColsValue;
+  /**
+   * 网格行数——`hMm` 的除数。缺省 `DEFAULT_GRID_ROWS`，兼容既有调用方
+   * （老模板都是 8 行；issue #3358 之前这里是模块常量，根本不是入参）。
+   */
+  readonly gridRows?: GridRowsValue;
   /** 纸张尺寸——决定内容区物理 mm 数。缺省 `"A1"`，兼容既有调用方（历史数据的默认尺寸）。 */
   readonly size?: PaperSizeKey;
   /**
@@ -797,7 +814,9 @@ export interface SectionGeometryMm {
  *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
-  const rowSpanDenominator = GRID_ROWS; // 行数是网格常量，列数才切 6/12。
+  // 行列两个除数现在都是**这张模板自己的**网格密度（issue #3358）——行数此前是
+  // 模块常量，于是 16 行的模板会被按 8 行算出两倍高的区块。
+  const rowSpanDenominator = input.gridRows ?? DEFAULT_GRID_ROWS;
   const size = input.size ?? "A1";
   const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;

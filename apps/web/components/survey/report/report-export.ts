@@ -1,6 +1,6 @@
 import type { survey } from "@repo/contracts";
-import { createElement } from "react";
-import { SurveyReportChart, reportNumber } from "./report-document";
+import { reportChartSvg } from "./report-chart";
+import { reportNumber } from "./report-document";
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -90,6 +90,11 @@ export async function buildSurveyReportWord(
   paragraph(report.title, HeadingLevel.TITLE);
   for (const section of report.sections) {
     paragraph(section.title, HeadingLevel.HEADING_1);
+    for (const insight of section.analysis ?? []) {
+      paragraph(insight.title, HeadingLevel.HEADING_2);
+      paragraph(insight.evidence);
+      paragraph(`建议行动：${insight.action}`);
+    }
     if (!section.blocks.length) paragraph("本章尚无内容");
     for (const block of section.blocks) {
       if (block.type === "page-break") {
@@ -107,10 +112,7 @@ export async function buildSurveyReportWord(
         ["bar", "radar", "line"].includes(block.type) &&
         block.rows.length
       ) {
-        const { renderToStaticMarkup } = await import("react-dom/server");
-        const svg = renderToStaticMarkup(
-          createElement(SurveyReportChart, { block }),
-        );
+        const svg = reportChartSvg(block);
         const url = URL.createObjectURL(
           new Blob([svg], { type: "image/svg+xml" }),
         );
@@ -140,7 +142,9 @@ export async function buildSurveyReportWord(
             paragraph(answer.value);
           }
         } else if (!block.rows.length) paragraph("暂无可展示数据");
-        else {
+        else if (block.type === "metric") {
+          for (const row of block.rows) paragraph(`${[row.label, row.group].filter(Boolean).join(" · ")}：${reportNumber(row.value)}（有效样本 ${row.count}）`);
+        } else if (["table", "gap"].includes(block.type)) {
           const values = [
             [
               "指标",

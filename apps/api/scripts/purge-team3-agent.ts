@@ -41,6 +41,7 @@
  */
 import pg from "pg";
 import { migrationConfig } from "../src/infrastructure/db/pg-config";
+import { isCliEntry } from "./cli-entry";
 
 /** 与已删除的 `backfill-team3-agent.ts` 用的是同一个字面量——靠它定位，不靠显示名。 */
 export const TEAM3_AGENT_STABLE_NAME = "team3-frontier-track-research";
@@ -177,7 +178,7 @@ export async function purgeTeam3Agent(
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   const apply = process.argv.includes("--apply");
   const purgeThreads = process.argv.includes("--purge-threads");
   if (purgeThreads && !apply) {

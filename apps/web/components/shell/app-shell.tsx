@@ -7,6 +7,7 @@ import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
 import { MobileTabs } from "./mobile-tabs";
 import { isLocalOrg, MOCK_ORGS, type Identity, type ProjectRole } from "@/lib/identity";
+import { EditionBanner } from "./edition-banner";
 import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
@@ -240,6 +241,11 @@ function ShellChrome({
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
+        {/*
+          2026-09-22 —— 版次标识条。「不受 `hideTopBar` 影响」：藏顶栏的页面（如全屏画布）
+          藏掉的是导航，而「这份程序是本机装的」是处境，处境不该跟着导航一起消失。
+        */}
+        <EditionBanner />
         {!hideTopBar && (
           <TopBar
             identity={identity}

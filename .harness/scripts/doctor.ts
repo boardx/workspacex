@@ -6,30 +6,52 @@ import { loadCommitPolicy } from "./lib/ci-check-policy.mjs";
 // 判定它们。本命令补上这个缺口：把"reviewer 逐字节人肉验"变成"一条命令跑完"。
 //
 // 用法：pnpm harness doctor [--phase NN]   （默认体检 roadmap 里的全部 phase）
-// 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0。
+// 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0；
+//   权威没问到（GitHub 不可达 / feature_list 读不动）= UNREACHABLE，本地 0、`--strict` 1。
+//   完整策略表见 classifyDoctorOutcome——「问不到」是独立结论，不是绿（#394）。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { findPhaseDir, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
+import { findPhaseDir, phaseFeatureListPath, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
+import { duplicateFeatureIds, isPlaceholderFeatureId } from "./lib/feature-id";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
-import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
+import { checkFingerprint } from "./lib/evidence-fingerprint";
+import {
+  judgeLegacyEvidenceRatchet, legacyEntryFor, loadLegacyEvidence,
+  LEGACY_EVIDENCE_PATH, type LegacyEvidenceList, type LegacyKey, type LegacyObservation,
+} from "./lib/evidence-legacy";
 import { auditSignoff } from "./lib/design-signoff";
+import { contractRouteCoverage } from "./lib/contract-route-coverage-fs";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
 import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import {
-  allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey, type PhaseFeatures,
+  allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey,
 } from "./lib/feature-evidence-ratchet";
+import {
+  judgeFeatureOwners, staleOwnerAllowlistEntries,
+  type OwnerAllowlistKey,
+} from "./lib/feature-owner";
+import { readKnownAgentIdentities } from "./lib/agent-identity";
+import {
+  describeMissingTargets,
+  judgeVerificationTargetRatchet,
+  staleVerificationTargetEntries,
+  type TargetAllowlistKey,
+} from "./lib/verification-targets";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
-import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
+import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
 import { PR_GREEN_RULE_EFFECTIVE_FROM, commitStatusToObservation, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
+import type { QueueMergeEvidence } from "./lib/merge-queue";
 import { parse as parseYaml } from "yaml";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
 
 const FEATURE_EVIDENCE_ALLOWLIST_PATH = join(STATE_DIR, "feature-evidence-allowlist.json");
+const FEATURE_OWNER_ALLOWLIST_PATH = join(STATE_DIR, "feature-owner-allowlist.json");
+const VERIFICATION_TARGET_ALLOWLIST_PATH = join(STATE_DIR, "verification-target-allowlist.json");
 
 /** #1136 棘轮名单读取。缺文件视为空名单（拒绝任何非标准 evidence），不是「跳过检查」。 */
 function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
@@ -38,10 +60,137 @@ function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
   return Array.isArray(doc.entries) ? (doc.entries as AllowlistKey[]) : [];
 }
 
+/** #1142 棘轮名单读取。缺文件视为空名单（拒绝任何不在身份命名空间里的 owner），不是「跳过检查」。 */
+function readFeatureOwnerAllowlist(): readonly OwnerAllowlistKey[] {
+  if (!existsSync(FEATURE_OWNER_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(FEATURE_OWNER_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as OwnerAllowlistKey[]) : [];
+}
+
+/**
+ * 一次体检扫到的一个 phase：**完整的 Feature**，三道门各取所需字段
+ * （#1136 evidence / #1142 owner / #391 legacy），扫描只做一遍。
+ *
+ * 这是那份快照形状的**唯一**声明——`scannedPhases` 直接用它。原本这里写的是
+ * `PhaseFeatures & PhaseFeatureOwners` 的交集，而收敛成「存完整 Feature」之后
+ * 交集里的 `PhaseFeatures` 已不再 import，留下一个悬空的类型名：
+ * `tsc` 报 `TS2304: Cannot find name 'PhaseFeatures'`，而 CI 没有任何一步会发现它
+ * ——`.harness/` 不是 turbo 包，`turbo run typecheck` 扫不到它。
+ */
+type ScannedPhase = { readonly phaseId: string; readonly features: readonly Feature[] };
+
+/** #965 棘轮名单读取。同上：缺文件 = 空名单（存量一条都不豁免），不是「跳过检查」。 */
+function readVerificationTargetAllowlist(): readonly TargetAllowlistKey[] {
+  if (!existsSync(VERIFICATION_TARGET_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(VERIFICATION_TARGET_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as TargetAllowlistKey[]) : [];
+}
+
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
   phase: string;
   msg: string;
+}
+
+// ─── 结论三态（#394）────────────────────────────────────────────────────────
+//
+// 原来这里只有两态：`fails.length ? 断裂 : 审计链完整`。于是「本次根本没问到 GitHub」
+// 和「问到了，全绿」渲染成同一句话。2026-09-21 在无 gh 的环境实测 `doctor --phase 01`：
+//
+//   doctor：体检 1 个 phase — 0 FAIL / 211 WARN
+//   ✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main…   （exit 0）
+//
+// ①②③⑤ 四项检查因 `issues === null` 被整段跳过，一条 issue 都没查过，却逐字宣称
+// 「有对应 issue 且已合入 main」——而那 211 条 WARN 说的正是反话。
+//
+// 这正是 AGENTS.md 的「静态痕迹 ≠ 动态事实」：**不可达被当成了「查过，没问题」**。
+// 修法不是把文案写软一点，而是让「问不到」成为一个独立且不为绿的结论。
+
+/** doctor 的四种结论。CLEAN 是唯一允许出现完整性断言的一种。 */
+export type DoctorOutcome = "CLEAN" | "PASS_WITH_DEBT" | "UNREACHABLE" | "FAIL";
+
+export interface OutcomeInput {
+  failCount: number;
+  warnCount: number;
+  /** 本次体检**没问到**的权威（GitHub issue 清单、读不动的 feature_list…）。
+   *  非空 ⇒ 审计链有一段没被检查过 ⇒ 不许打绿。 */
+  authorityGaps: string[];
+  /** `--strict`：CI 用。见下面的退出码策略。 */
+  strict: boolean;
+}
+
+export interface OutcomeVerdict {
+  outcome: DoctorOutcome;
+  exitCode: 0 | 1;
+  /** 终局那一行文案。CLEAN 之外一律不含完整性断言。 */
+  summary: string;
+}
+
+/**
+ * 把 FAIL / WARN / 权威缺口三个输入收敛成一个结论 + 一个显式退出码。
+ *
+ * 优先级：FAIL > UNREACHABLE > PASS_WITH_DEBT > CLEAN。
+ * 「有 FAIL」压过一切——权威缺口不会把已经看见的断裂稀释掉。
+ *
+ * ## 退出码策略（显式写在这里，不散落在调用点）
+ *
+ * | 结论            | 触发                       | 非 strict | `--strict`(CI) |
+ * |-----------------|----------------------------|-----------|----------------|
+ * | FAIL            | failCount > 0              | 1         | 1              |
+ * | UNREACHABLE     | 无 FAIL，但有权威缺口      | **0**     | **1**          |
+ * | PASS_WITH_DEBT  | 无 FAIL 无缺口，有 WARN    | 0         | 0              |
+ * | CLEAN           | 三者皆无                   | 0         | 0              |
+ *
+ * UNREACHABLE 非 strict 放行、strict 拦截，与本文件既有的 ②③⑤ 同一套约定
+ * （pre-push WARN / CI FAIL）：本地没装 gh 很常见，不该阻断开发；但 CI 上
+ * 「问不到 GitHub」不等于绿——AGENTS.md 完成定义第 7 条写的就是这句。
+ * 关键在于：**即便退出码是 0，结论也不是 CLEAN**，文案必须说出缺了哪一段。
+ */
+export function classifyDoctorOutcome(input: OutcomeInput): OutcomeVerdict {
+  const { failCount, warnCount, authorityGaps, strict } = input;
+
+  if (failCount > 0) {
+    return {
+      outcome: "FAIL",
+      exitCode: 1,
+      summary:
+        `审计链存在断裂（${failCount} FAIL）。FAIL 项修复前不要开 PR / 交 review` +
+        `——reviewer 会用同样的标准 Block。`,
+    };
+  }
+
+  if (authorityGaps.length > 0) {
+    return {
+      outcome: "UNREACHABLE",
+      exitCode: strict ? 1 : 0,
+      summary:
+        `本次体检有权威没问到，结论不成立（${failCount} FAIL / ${warnCount} WARN，但下列检查未曾执行）：\n` +
+        authorityGaps.map((g) => `    · ${g}`).join("\n") +
+        `\n  “问不到”不等于“没问题”。` +
+        (strict
+          ? `CI（--strict）不接受在残缺授权上作出的结论。`
+          : `本地已放行（退出码 0），但别拿这一跑当绿；在能访问 GitHub 的环境重跑，或用 --strict 让它拦下来。`),
+    };
+  }
+
+  if (warnCount > 0) {
+    return {
+      outcome: "PASS_WITH_DEBT",
+      exitCode: 0,
+      summary:
+        `权威均已查证，无阻断性断裂，但带着 ${warnCount} 条待清理的债（见上方 ⚠ 行）——` +
+        `这不是“全绿”，是“没有硬错，债还在”。`,
+    };
+  }
+
+  return {
+    outcome: "CLEAN",
+    exitCode: 0,
+    summary:
+      "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
+      "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；" +
+      "phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。",
+  };
 }
 
 // 「实现是否已在 main 上」的判据抽到 lib/evidence-integration.ts（#1557）：sync 关 issue
@@ -157,12 +306,13 @@ function checkPassingEvidence(
       msg: `${f.id} 的 evidence 日志正文与 verify 落盘时的指纹不一致（${rel}）——日志在产出之后被改过。别手动编辑证据日志，重跑 pnpm harness verify --sprint ${phaseId}/${f.sprint}`,
     });
   } else if (fp.kind === "missing") {
+    const legacy = legacyEntryFor(phaseId, f.id);
     findings.push(
-      isLegacyEvidence(phaseId, f.id)
+      legacy
         ? {
             level: "WARN",
             phase: phaseId,
-            msg: `${f.id} 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint ${phaseId}/${f.sprint} --backfill-evidence 补上后把它从名单里删掉`,
+            msg: `${f.id} 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免至 ${legacy.review_by}）——跑 pnpm harness verify --sprint ${phaseId}/${f.sprint} --backfill-evidence 补上后把它从名单里删掉`,
           }
         : {
             level: "FAIL",
@@ -175,6 +325,101 @@ function checkPassingEvidence(
   // （全仓 85 FAIL 的最大来源正是"verify 落盘了日志但从未 commit"）。
   if (sh(`git ls-files --error-unmatch "${rel}"`).code !== 0) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 日志只在本地磁盘、未提交进 git（${rel}）——git add 它，否则 origin 上证据链是断的` });
+  }
+}
+
+/**
+ * #391：一条历史豁免今天是否还用得着——「对应 feature 仍是 passing，且它的 evidence
+ * 日志今天仍然缺指纹」。任何一个条件不成立（补上指纹了 / 状态变了 / 日志没了 /
+ * feature 被删了），这条豁免就已经是陈旧的死条目，必须从名单里删掉。
+ *
+ * 判据与 checkPassingEvidence 的指纹那一档共用 `checkFingerprint`，不另起一套。
+ */
+export function observeLegacyEntry(phaseId: string, features: readonly Feature[], featureId: string): LegacyObservation {
+  const f = features.find((x) => x.id === featureId);
+  if (!f || f.status !== "passing" || !f.sprint) return { stillMissingFingerprint: false };
+  if (!f.evidence || !EVIDENCE_PATH_RE.test(f.evidence)) return { stillMissingFingerprint: false };
+  const logPath = join(sprintDir(phaseId, f.sprint), "evidence", `${f.id}.verify.log`);
+  if (!existsSync(logPath)) return { stillMissingFingerprint: false };
+  return { stillMissingFingerprint: checkFingerprint(readFileSync(logPath, "utf8")).kind === "missing" };
+}
+
+/**
+ * #391 evidence-legacy.json 的反向一致性门。
+ *
+ * 此前这份名单只有人话写着「只减不增」，没有任何脚本执行它——实测 9 条豁免里 6 条
+ * 早就用不着了却躺了近两个月，而往名单里偷加一条 doctor 照样 exit 0。三项机械判红：
+ *
+ *   ① 陈旧：条目对应的 feature 已不在「passing + 日志缺指纹」集合里 ⇒ 删掉
+ *   ② 长大：条目不在 `_baseline`（门控落地时的冻结快照）里 ⇒ 这条是偷加的
+ *   ③ 过期：过了 `review_by` ⇒ 豁免无声长期化，要么清掉要么显式续期
+ *
+ * ① 只对本次真正扫到的 phase 判，`doctor --phase 01` 不该把没扫到的 phase 误判成
+ * 「不再需要」（同 #1136 棘轮的 in-scope 纪律）；②③ 只看名单自身，与扫描范围无关。
+ */
+function checkLegacyEvidenceRatchet(
+  scanned: readonly { readonly phaseId: string; readonly features: readonly Feature[] }[],
+  findings: Finding[],
+): void {
+  let list: LegacyEvidenceList | null;
+  try {
+    list = loadLegacyEvidence();
+  } catch (e) {
+    // 名单读不懂 ⇒ 判红，不是静默跳过：一份写坏的名单会表现得像一份干净的名单。
+    findings.push({
+      level: "FAIL",
+      phase: "-",
+      msg: `读不懂 ${relative(REPO_ROOT, LEGACY_EVIDENCE_PATH)}：${(e as Error).message}`,
+    });
+    return;
+  }
+  if (!list) return;
+
+  const observations = new Map<LegacyKey, LegacyObservation>();
+  for (const { phaseId, features } of scanned) {
+    for (const entry of list.entries) {
+      const [entryPhase, featureId] = entry.key.split("/");
+      if (entryPhase !== phaseId || !featureId) continue;
+      observations.set(entry.key, observeLegacyEntry(phaseId, features, featureId));
+    }
+  }
+
+  const verdict = judgeLegacyEvidenceRatchet(list, observations, new Date());
+  const phaseOf = (key: LegacyKey): string => key.split("/")[0] ?? "-";
+  for (const key of verdict.stale) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 已陈旧（对应 feature 已不在「passing + evidence 日志缺指纹」集合里——多半是已经补上了指纹）——请删掉这一条，留着会遮住未来的回归`,
+    });
+  }
+  for (const key of verdict.grown) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 不在 _baseline（${list.gateLandedAt} 门控落地时的冻结快照）里——历史豁免名单只减不增，新增 passing 一律不得进入本名单`,
+    });
+  }
+  for (const key of verdict.malformed) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(key),
+      msg: `evidence-legacy.json 里的 "${key}" 缺少可审计的 reason 或合法的 review_by（YYYY-MM-DD）——没有理由、没有期限的豁免就是口头豁免`,
+    });
+  }
+  for (const entry of verdict.expired) {
+    findings.push({
+      level: "FAIL",
+      phase: phaseOf(entry.key),
+      msg: `evidence-legacy.json 里的 "${entry.key}" 已过复核期限（review_by=${entry.review_by}）——补真实日志（pnpm harness verify --sprint <NN>/<MM> --backfill-evidence）后删掉它，或由人类显式续期 review_by`,
+    });
+  }
+  if (verdict.active.length > 0) {
+    findings.push({
+      level: "INFO",
+      phase: "-",
+      msg: `evidence-legacy.json：${verdict.active.length} 条历史豁免仍然生效（${verdict.active.map((e) => `${e.key} 至 ${e.review_by}`).join("、")}）——只减不增，过期即判红`,
+    });
   }
 }
 
@@ -233,6 +478,165 @@ function checkOrphanInProgress(phaseId: string, findings: Finding[]): void {
   }
 }
 
+/**
+ * ⑥ 编号完整性（#1094，coord-main 2026-08-13 裁决的「机械门」那一半）。
+ *
+ * 撞号此前**完全没有机械检查**：两个 agent 各自在飞分支上用同一个号，本地全绿，
+ * 合并时才炸；2026-08-12 那次是靠人工核对发现的，而人工核对不可复制。
+ * 三条判据，全部只看清单自身，不需要网络：
+ *
+ *   ① 同一 phase 内 id 不得重复（live + archive 合并后算——归档只是搬家，号还占着）；
+ *   ② evidence 路径里的编号必须就是本条目的 id。证据链以编号为键
+ *      （`covers:`、`depends_on`、`F168.verify.log`），指错号 = 指向**别人的** feature，
+ *      而原有检查是拿 `f.id` 去拼路径的，evidence 字符串里写着谁的号它根本不看；
+ *   ③ 占位 id（`F-TBD-*`）不得活过 claim：claim 会取号回填，还带着占位 id 却已经
+ *      in_progress/passing，说明这条绕过了取号那一步。
+ */
+export function judgeDuplicateFeatureIds(ids: readonly string[]): string | null {
+  const dup = duplicateFeatureIds(ids);
+  if (dup.length === 0) return null;
+  return (
+    `同一 phase 内有重复 feature id：${dup.join(", ")}（live + archive 合并后）——` +
+    "两条不同的 feature 共用一个号，covers: / depends_on / evidence 文件名全都会指错人。" +
+    "用 pnpm harness claim 取号（#1094），不要手挑 max+1。"
+  );
+}
+
+/** evidence 字符串里的编号 ≠ 条目 id（#1094 实测：差点把失败的 F168.verify.log 提交进已改号的条目）。 */
+export function judgeEvidenceIdMismatch(f: Pick<Feature, "id" | "evidence">): string | null {
+  const m = EVIDENCE_PATH_RE.exec((f.evidence ?? "").trim());
+  if (!m) return null; // 非标准形态由 checkPassingEvidence 那条棘轮门管
+  const declared = m[1]!;
+  if (declared === f.id) return null;
+  return (
+    `${f.id} 的 evidence 指向 evidence/${declared}.verify.log——文件名里的编号不是本条目的 id。` +
+    `编号撞过之后只改了一半（#1094）：证据链以编号为键，这条 evidence 现在指着别人的 feature。`
+  );
+}
+
+/** 占位 id 活过了 claim（#1094）。 */
+export function judgePlaceholderIdSurvived(f: Pick<Feature, "id" | "status">): string | null {
+  if (!isPlaceholderFeatureId(f.id)) return null;
+  if (f.status === "not_started" || f.status === "blocked") return null; // 还没开工，正常形态
+  return (
+    `${f.id} 是 status=${f.status} 却还带着占位 id——正式编号应该在 pnpm harness claim 时取（#1094）。` +
+    `它现在无法被 issue / evidence / covers: 稳定引用。`
+  );
+}
+
+function checkFeatureIdIntegrity(phaseId: string, f: Feature, findings: Finding[]): void {
+  for (const msg of [judgeEvidenceIdMismatch(f), judgePlaceholderIdSurvived(f)]) {
+    if (msg) findings.push({ level: "FAIL", phase: phaseId, msg });
+  }
+}
+
+/**
+ * owner 命名空间门（#1142）。
+ *
+ * `feature.owner` 记录的是**写入那一刻**谁在做，而不是**现在**谁负责——与本仓已知的
+ * 「静态痕迹 ≠ 动态事实」同型。实测（2026-09-21，17 个 phase / 450 个 feature）：
+ * 275 个有 owner 的 feature 里只有 32 个落在真实身份命名空间内，其余 243 个是
+ * sprint 期一次性把手（`w2-chat4` `claude-e` `remote-f01`……），sprint 结束即死链接。
+ *
+ * 判据、豁免与「为什么 key 带 owner 取值」见 `lib/feature-owner.ts`；
+ * 「什么算一个真实身份」见 `lib/agent-identity.ts`（与 `harness scorecard` 同一份，
+ * 不在这里第二次定义）。本函数只负责把判定结果翻译成 doctor 的 FAIL / WARN / INFO。
+ */
+function checkFeatureOwnerNamespace(
+  scanned: readonly ScannedPhase[],
+  findings: Finding[],
+  authorityGaps: string[],
+): void {
+  const known = new Set(readKnownAgentIdentities().keys());
+
+  // 空集是这道门最危险的失效形态，而且它**伪装成一屋子精确的判决**：
+  // registry.yaml 结构变了 / 读不到时，每一个 owner 都落到命名空间之外，存量把手
+  // 被 allowlist 接住，于是唯一炸红的恰好是那 32 条**真实正确**的 owner
+  // （dev-chat-e2e / coord-voice / coord-deep-research …）——实测 32 条 FAIL，
+  // 每条都点名一个真角色说它不存在。那不是判定，是编造。
+  //
+  // 这与本 issue 自己的立场同型：宁可说「没问到」，也不要给出一个看起来精确、
+  // 其实无中生有的归属结论。所以这里 fail-closed（P8，同 role-freeze-doctor
+  // 「registry.yaml 是权威数据源，读不到时拒绝下判断」）：登记成权威缺口，
+  // 本次不判，由 #394 的 UNREACHABLE 决定退出码（本地 0、--strict 1）。
+  if (known.size === 0) {
+    authorityGaps.push(
+      "读不到任何 agent 身份（.harness/agents/registry.yaml 与 .harness/agents/*.yaml 都没给出 id）" +
+        "——「feature.owner 必须是真实身份」本次未执行",
+    );
+    return;
+  }
+  // 棘轮只许收缩：`--phase 01` 这类局部运行只对扫到的 phase 判陈旧，
+  // 否则没扫到的 phase 会被误判成「不再需要豁免」——同 #1136 的处理。
+  const scannedIds = new Set(scanned.map((p) => p.phaseId));
+  const allowlist = readFeatureOwnerAllowlist().filter((key) => scannedIds.has(key.split("/")[0] ?? ""));
+  const v = judgeFeatureOwners(scanned, known, allowlist);
+
+  for (const g of v.newGaps) {
+    findings.push({
+      level: "FAIL",
+      phase: g.phaseId,
+      msg:
+        `${g.featureId} 的 owner "${g.owner}" 不是一个真实身份——既不在 .harness/agents/registry.yaml ` +
+        `的任何身份分组里，也不在 .harness/agents/*.yaml 的便携 subagent 规格里。` +
+        `sprint 期一次性把手（w2-chat4 这类）sprint 一结束就是死链接，出了问题没人找得到负责人。` +
+        `改成 registry.yaml 里的真实角色 id；该角色还不存在就先走 registry.yaml 的 PR review 登记，` +
+        `还不知道归谁就留 null（未认领是诚实的，编一个把手不是）`,
+    });
+  }
+
+  for (const phaseId of scannedIds) {
+    const mine = v.grandfathered.filter((g) => g.phaseId === phaseId);
+    if (mine.length === 0) continue;
+    findings.push({
+      level: "WARN",
+      phase: phaseId,
+      msg:
+        `${mine.length} 条 feature 的 owner 不在身份命名空间内——存量豁免（见 feature-owner-allowlist.json），` +
+        `待人裁归一化：${summarizeIds(mine.map((g) => `${g.featureId}=${g.owner}`))}`,
+    });
+  }
+
+  // 「有人动过却无主」——#1142 说的「出了问题不知道该找谁」正是这一档。
+  for (const phaseId of scannedIds) {
+    const mine = v.unownedActive.filter((k) => k.startsWith(`${phaseId}/`)).map((k) => k.slice(phaseId.length + 1));
+    if (mine.length === 0) continue;
+    findings.push({
+      level: "WARN",
+      phase: phaseId,
+      msg:
+        `${mine.length} 条已开工/已完成的 feature 没有任何 owner：${summarizeIds(mine)}——` +
+        `活做完了但仓库里没有任何人的名字，出了问题不知道该找谁`,
+    });
+  }
+
+  // 还没认领的无主是**正常状态**（claim.ts 的保护 1 要求 owner===null 才能认领），
+  // 只给一个计数让它可见，不逐条报——166 条噪音会盖掉上面那几条信号。
+  if (v.unownedNotStarted.length > 0) {
+    findings.push({
+      level: "INFO",
+      phase: "-",
+      msg: `${v.unownedNotStarted.length} 条 not_started 的 feature 尚未认领（owner=null，正常待领状态，非欠债）`,
+    });
+  }
+
+  for (const stale of staleOwnerAllowlistEntries(scanned, known, allowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg:
+        `feature-owner-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 的 owner 已归一化 / 已清空 / feature 已不存在）` +
+        `——请删掉这一条，留着等于给这个取值留一扇没人看守的门`,
+    });
+  }
+}
+
+/** 列表太长时截断，保住可读性——doctor 的输出没人会滚 200 行。 */
+function summarizeIds(ids: readonly string[], cap = 8): string {
+  if (ids.length <= cap) return ids.join(", ");
+  return `${ids.slice(0, cap).join(", ")} …等 ${ids.length} 条`;
+}
+
 /** spec_ref 门控（人类拍板 2026-07-19）。只查 in_progress——claim/verify 已经在
  *  两端把关，这里是"审阅时再确认一次"的第三道门，不对已 passing 的历史存量倒查
  *  （216 个历史 feature 从未被要求过 spec_ref，倒查会制造无意义的 FAIL 风暴，
@@ -243,6 +647,52 @@ function checkSpecRef(phaseId: string, f: Feature, findings: Finding[]): void {
   const r = resolveSpecRef(phaseId, f.spec_ref);
   if (!r.ok) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 正在 in_progress 但没有可追溯的 story：${r.reason}` });
+  }
+}
+
+
+/**
+ * 契约 ↔ 路由覆盖（issue #1177）。
+ *
+ * 「契约里声明了 `path` 的 operation，如果它落在一个已经交付完的契约束里，
+ * `apps/api/src/interface/` 里必须有对应路由」——判据、为什么不是「每条 operation
+ * 都必须有路由」、束级近似的假阴性，全部写在 `lib/contract-route-coverage.ts` 的头注里，
+ * 这里不复述。
+ *
+ * ⚠ **级别固定 WARN，`--strict` 也不升 FAIL。** issue #1177「已知的难点」第 3 条逐字：
+ *   225 条里绝大多数是合法未实现，一上来就 FAIL 会逼人去关掉它。先让清单可见、
+ *   等它收敛，升级是人的决定。
+ *
+ * ⚠ 一个束一行，不是一条缺口一行：本仓今天的清单是三位数，逐条塞进 doctor 会把
+ *   别的 finding 全部淹掉。逐条看 `pnpm harness contract-routes`。
+ */
+function checkContractRouteCoverage(phaseIds: readonly string[], findings: Finding[]): void {
+  let report;
+  try {
+    report = contractRouteCoverage(phaseIds);
+  } catch (e) {
+    // 扫不动（契约包结构变了 / interface 目录不在）时**说出来**，不要静默当绿——
+    // 一道扫了 0 行的门永远是绿的，那正是这条检查自己要挡的失效形状。
+    findings.push({
+      level: "WARN",
+      phase: "-",
+      msg: `契约↔路由覆盖：扫描失败，本次未判定（${e instanceof Error ? e.message : String(e)}）`,
+    });
+    return;
+  }
+  for (const b of report.bundles) {
+    if (!b.inScope) continue;
+    const gaps = report.gaps.filter((g) => g.bundle === b.bundle);
+    if (gaps.length === 0) continue;
+    const sample = gaps.slice(0, 3).map((g) => `${g.method} ${g.path}`).join("、");
+    findings.push({
+      level: "WARN",
+      phase: b.phase,
+      msg:
+        `契约↔路由覆盖：束 ${b.bundle} 有 ${gaps.length}/${b.operationsWithPath} 条声明了 path 的 operation ` +
+        `在 apps/api/src/interface/ 里没有对应路由（${sample}${gaps.length > 3 ? " 等" : ""}）` +
+        `——「这个束的 feature 已 passing」推不出「这些路径今天能跑」。逐条：pnpm harness contract-routes --phase ${b.phase}`,
+    });
   }
 }
 
@@ -333,9 +783,21 @@ export interface GhIssue {
  */
 // 清单加载已收敛到 lib/github-issues.ts（#2483）：sync 的同款 `--limit 500` 停了一个月没跟上
 // 这里 2026-08-05 的修法，同一件事两处各写一套正是漂移的来源。这里只保留 doctor 的降级语义。
-function loadIssues(): GhIssue[] | null {
+/**
+ * 读不到 issue 清单时，这里给出**权威缺口**的说明（#394）。
+ *
+ * 返回 null ⇒ 清单可信，①②③⑤ 照常判。返回字符串 ⇒ 这一段审计链本次没有被检查过，
+ * 结论只能是 UNREACHABLE。注意 `truncated` 与 `unavailable` 同级：一份可能残缺的清单
+ * 同样不足以支撑「这个 feature 没有 issue」这种否定性判断。
+ */
+export function issueAuthorityGap(r: IssueListResult): string | null {
+  if (r.kind === "ok") return null;
+  return `${describeIssueListFailure(r)}——「开发任务必须在 issue 上可见」「issue 已被 PR 关闭」「关闭 PR 合入时全绿」三项本次均未执行`;
+}
+
+function loadIssues(): { issues: GhIssue[] | null; gap: string | null } {
   const r = listAllIssues({ cwd: REPO_ROOT });
-  if (r.kind === "ok") return r.issues;
+  if (r.kind === "ok") return { issues: r.issues, gap: null };
   if (r.kind === "truncated") {
     // 触顶 ⇒ 可能被截断 ⇒ 这份清单不足以支撑「某个 feature 没有 issue」这种否定性判断。
     // 走 stdout：doctor 其余的 ✗/⚠ 都在这条流上，另开一条会让它在 CI 日志里
@@ -344,7 +806,9 @@ function loadIssues(): GhIssue[] | null {
       `⚠ [doctor] ${describeIssueListFailure(r)}——本次跳过「开发任务必须在 issue 上可见」的检查，而不是用残缺清单误判。\n`,
     );
   }
-  return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
+  // 没装 gh / 没登录 / 离线：仍然不阻断本地开发（退出码见 classifyDoctorOutcome），
+  // 但它是一个**说得出口的权威缺口**，不再被后面那句「审计链完整」盖过去。
+  return { issues: null, gap: issueAuthorityGap(r) };
 }
 
 function findIssue(issues: GhIssue[], phaseId: string, f: Feature): GhIssue | undefined {
@@ -452,7 +916,7 @@ function syncRepo(): string | null {
 
 /** GraphQL closedByPullRequestsReferences 一页的形状 */
 interface ClosingRefsPage {
-  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string; mergeCommit?: { parents?: { nodes?: Array<{ oid: string }> } } | null }>;
+  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string; mergedBy?: { login?: string } | null; mergeCommit?: { parents?: { nodes?: Array<{ oid: string }> } } | null }>;
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 }
 /** 分页上限：超过就当问不到（null）。一个 issue 被 2000 个 PR 关闭不是现实，是数据坏了，坏数据不放行。 */
@@ -485,6 +949,44 @@ function parseJsonLines<T extends object>(stdout: string): T[] | null {
  * 任何一步失败（gh 非 0、输出不是 JSON、翻页超上限）一律返回 null——调用方按级别报「问不到」，不当绿。
  * `exec` 可注入以便纯测翻页；默认走 sh。
  */
+/**
+ * GitHub 合并队列合入时的登录名。队列合入的 PR 由这个 bot 落地，不是人。
+ * 这是「这次合并有没有走队列」**会随状况改变的信号**（对比 PR 正文/标签那种写下来
+ * 就不再变的痕迹，见 static-trace-vs-live-fact.md）。
+ */
+const MERGE_QUEUE_BOT_LOGIN = "github-merge-queue";
+
+/**
+ * 第 5 条（#3238）：队列合入的 PR，「绿」的证据必须锚在**候选组** commit 上。
+ *
+ * 上面那两条 REST 查询读的是 `headRefOid`（PR 自己的 head）——对直接合并来说那就是
+ * 被验证的 commit，没有问题；但队列合入时，跑完整验证的是候选组（merge_group.head_sha），
+ * PR head 上那批绿只证明「这个分支单独看是绿的」。
+ *
+ * doctor 目前**没有**办法从 GraphQL 反查某个 PR 落在哪个候选组里（一个组可以批量含多个
+ * PR，只有组头那一个 commit 上有 check；非组头的 PR 的 mergeCommit 上没有）。所以这里
+ * 如实声明 candidateSha 未知 ⇒ judgeClosingPrGreen 判 unknown（--strict 下 FAIL），
+ * **不**拿 PR head 的绿冒充候选组通过。
+ *
+ * ⚠ 这意味着**队列启用之前必须先把这条补上**（反查候选组 commit 并从它上面读 check），
+ * 否则队列一开，每个队列合入的 PR 在 doctor ⑤ 都会判 unknown。这正是 issue #3238
+ * 「先完成兼容实现…再分阶段启用规则」的意思：宁可显式地说「证明不了」，也不要
+ * 悄悄放行——本仓已经九次栽在「全绿但空转」上。
+ *
+ * 直接合并（绝大多数存量）返回空对象 ⇒ ClosingPr 不带 queueEvidence ⇒ 判定行为一字不变。
+ */
+function queueEvidenceFor(node: ClosingRefsPage["nodes"][number]): { queueEvidence?: QueueMergeEvidence } {
+  if (node.mergedBy?.login !== MERGE_QUEUE_BOT_LOGIN) return {};
+  return {
+    queueEvidence: {
+      mergedViaQueue: true,
+      candidateSha: null,
+      prHeadSha: node.headRefOid,
+      checksObservedOn: node.headRefOid,
+    },
+  };
+}
+
 export function fetchClosingPrs(
   repo: string,
   issueNumber: number,
@@ -498,7 +1000,7 @@ export function fetchClosingPrs(
     const args = cursor === null ? "first:100,includeClosedPrs:true" : "first:100,after:$c,includeClosedPrs:true";
     const query =
       `query($o:String!,$r:String!,$n:Int!${cursor === null ? "" : ",$c:String!"}){repository(owner:$o,name:$r){issue(number:$n){` +
-      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid mergeCommit{parents(first:1){nodes{oid}}}} pageInfo{hasNextPage endCursor}}}}}`;
+      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid mergedBy{login} mergeCommit{parents(first:1){nodes{oid}}}} pageInfo{hasNextPage endCursor}}}}}`;
     const r = exec(
       // 查询串必须用**单引号**交给 bash：双引号会把 `$o/$r/$n` 展开成空串，gh 收到 `query(:String!…)`
       // 直接 400（Expected VAR_SIGN），fetch 恒回 null → --strict 下每个 passing feature 都红（2026-09-05 实测）。
@@ -563,7 +1065,7 @@ export function fetchClosingPrs(
     try {
       const parent = node.mergeCommit?.parents?.nodes?.[0]?.oid;
       const policy = loadCommitPolicy(parent, exec);
-      out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs, policy });
+      out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs, policy, ...queueEvidenceFor(node) });
     } catch { return null; }
   }
   return out;
@@ -663,10 +1165,13 @@ export function doctor(args: Args): void {
   });
 
   const findings: Finding[] = [];
+  /** 本次体检「没问到」的权威。非空 ⇒ 结论是 UNREACHABLE，不许打绿（#394）。 */
+  const authorityGaps: string[] = [];
   // GitHub 侧一次拉全，离线时降级为一条 WARN 而不是阻断本地开发
-  const issues = loadIssues();
+  const { issues, gap: issueGap } = loadIssues();
   const repo = syncRepo();
-  if (issues === null) {
+  if (issueGap) {
+    authorityGaps.push(issueGap);
     findings.push({
       level: "WARN",
       phase: "-",
@@ -675,24 +1180,36 @@ export function doctor(args: Args): void {
   }
   const evidenceAllowlist = readFeatureEvidenceAllowlist();
   const evidenceAllowlistSet = new Set(evidenceAllowlist);
-  // #1136 棘轮体检的输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类局部
-  // 运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
-  const scannedForRatchet: PhaseFeatures[] = [];
+  const targetAllowlist = readVerificationTargetAllowlist();
+  // 四道门（#1136 evidence 形态 / #965 指向物存在性 / #1142 owner 命名空间 /
+  // #391 反向一致性）的共同输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类
+  // 局部运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
+  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，其余三道各自只用得到
+  // 其中几个字段。同一份快照喂四道门，不留第二份（多份各推一次，将来任何一边
+  // 多一个 continue 就会无声分叉）；形状只在 ScannedPhase 声明一次。
+  const scannedPhases: ScannedPhase[] = [];
 
   for (const id of phaseIds) {
     let fl;
     try {
       fl = loadFeatureList(id);
-    } catch {
+    } catch (error) {
+      // 「文件不存在」与「文件存在但读不动」是两件事，此前都被这个 catch 吞成同一件（#394）。
+      // 前者是纯 requirements 期的正常状态；后者意味着该 phase 的**权威清单本次没读到**，
+      // 它下面所有 feature 的检查一条都没跑过——那不是健康，是没看。
+      if (existsSync(phaseFeatureListPath(id))) {
+        authorityGaps.push(`phase ${id} 的 feature_list.json 读取失败（${(error as Error).message}）——该 phase 的全部 feature 检查本次均未执行`);
+      }
       continue; // 没有 feature_list 的 phase（纯 requirements 期）不体检
     }
-    scannedForRatchet.push({ phaseId: id, features: fl.features });
+    scannedPhases.push({ phaseId: id, features: fl.features });
     for (const f of fl.features) {
       if (f.status === "passing") {
         checkPassingEvidence(id, f, findings, evidenceAllowlistSet);
         checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
       }
       checkSpecRef(id, f, findings);
+      checkFeatureIdIntegrity(id, f, findings);
       if (issues) {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
@@ -700,6 +1217,9 @@ export function doctor(args: Args): void {
         checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
     }
+    // #1094 的重复 id 判定按 phase 做一次（不是逐 feature）：它查的是集合性质。
+    const dupMsg = judgeDuplicateFeatureIds(fl.features.map((f) => f.id));
+    if (dupMsg) findings.push({ level: "FAIL", phase: id, msg: dupMsg });
     checkProgressRow(id, findings);
     checkRoadmapDrift(id, findings);
     checkOrphanInProgress(id, findings);
@@ -707,10 +1227,15 @@ export function doctor(args: Args): void {
     checkPhaseReadiness(id, findings);
   }
 
+  checkFeatureOwnerNamespace(scannedPhases, findings, authorityGaps);
+
+  // 一次扫完 interface 目录（440+ 个路由装饰器），不按 phase 重复解析
+  checkContractRouteCoverage(phaseIds, findings);
+
   // 棘轮只许收缩：只对本次实际扫到的 phase 判陈旧，不动没扫到的那部分名单。
-  const scannedPhaseIds = new Set(scannedForRatchet.map((p) => p.phaseId));
+  const scannedPhaseIds = new Set(scannedPhases.map((p) => p.phaseId));
   const inScopeAllowlist = evidenceAllowlist.filter((key) => scannedPhaseIds.has(key.split("/")[0] ?? ""));
-  for (const stale of staleFeatureEvidenceEntries(scannedForRatchet, inScopeAllowlist)) {
+  for (const stale of staleFeatureEvidenceEntries(scannedPhases, inScopeAllowlist)) {
     findings.push({
       level: "FAIL",
       phase: stale.split("/")[0] ?? "-",
@@ -718,21 +1243,61 @@ export function doctor(args: Args): void {
     });
   }
 
+  // #965 指向物存在性棘轮：一条 feature 已经 passing，却指不着自己声称跑过的测试文件，
+  // 只有两种可能——当初就没跑，或者跑完（在某个 worktree 里）从没被提交。两种都是断链，
+  // 而 evidence 的形态/指纹/入 main 三道既有检查一条都看不见它：F166 的证据日志逐字真实、
+  // 指纹对得上、实现也在 main 上，它声称跑绿的三个测试文件却从来没进过任何 ref。
+  const inScopeTargetAllowlist = targetAllowlist.filter((key) =>
+    scannedPhaseIds.has(key.split("/")[0] ?? ""),
+  );
+  const targetVerdict = judgeVerificationTargetRatchet(scannedPhases, inScopeTargetAllowlist);
+  for (const gap of targetVerdict.newGaps) {
+    findings.push({ level: "FAIL", phase: gap.phaseId, msg: describeMissingTargets(gap.featureId, gap.missing) });
+  }
+  for (const key of targetVerdict.grandfathered) {
+    findings.push({
+      level: "WARN",
+      phase: key.split("/")[0] ?? "-",
+      msg: `${key} 的 verification 指向的测试文件不存在——存量豁免（见 verification-target-allowlist.json 的逐条取证），待清理`,
+    });
+  }
+  for (const stale of staleVerificationTargetEntries(scannedPhases, inScopeTargetAllowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg: `verification-target-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 的指向物已补齐，或已不再是 passing）——请删掉这一条，留着会遮住未来的回归`,
+    });
+  }
+
+  checkLegacyEvidenceRatchet(scannedPhases, findings);
+
   const fails = findings.filter((f) => f.level === "FAIL");
   const warns = findings.filter((f) => f.level === "WARN");
   const infos = findings.filter((f) => f.level === "INFO");
   for (const f of fails) log.err(`[${f.phase}] ${f.msg}`);
   for (const f of warns) log.info(`⚠ [${f.phase}] ${f.msg}`);
   for (const f of infos) log.info(`· [${f.phase}] ${f.msg}`);
-  log.info(`doctor：体检 ${phaseIds.length} 个 phase — ${fails.length} FAIL / ${warns.length} WARN`);
-  if (fails.length) {
-    log.err("审计链存在断裂。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。");
-    process.exitCode = 1;
-  } else {
-    log.ok(
-      "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
-        "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；" +
-        "phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。",
+  const verdict = classifyDoctorOutcome({
+    failCount: fails.length,
+    warnCount: warns.length,
+    authorityGaps,
+    strict,
+  });
+  log.info(
+    `doctor：体检 ${phaseIds.length} 个 phase — ${fails.length} FAIL / ${warns.length} WARN` +
+      ` / ${authorityGaps.length} 权威缺口 ⇒ ${verdict.outcome}`,
+  );
+  if (verdict.outcome === "CLEAN") log.ok(verdict.summary);
+  else if (verdict.outcome === "PASS_WITH_DEBT") log.info(`~ ${verdict.summary}`);
+  else log.err(verdict.summary);
+  if (verdict.exitCode !== 0) process.exitCode = verdict.exitCode;
+  // 指向物一条单独说，不并进上面那句——上面那句在存量豁免还没清干净时说「都在仓库里」
+  // 就是假的，而 doctor 打印一句此刻不成立的话，正是 #1136 记下的那种失效。
+  if (!fails.length) {
+    log.info(
+      targetVerdict.grandfathered.length > 0
+        ? `· 指向物存在性：${targetVerdict.grandfathered.length} 条存量豁免待清理（见 verification-target-allowlist.json），新增一律 FAIL`
+        : "· 指向物存在性：每条 passing 声称跑过的测试文件都真的在仓库里（棘轮已满）",
     );
   }
 }

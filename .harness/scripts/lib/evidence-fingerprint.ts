@@ -12,10 +12,7 @@
 // 这个真实威胁模型，这一层足够；对蓄意造假者不够 —— 要防后者需要脱离仓库的
 // 信任锚（CI 侧签名 artifact），属于另一个决策。**别把本文件当成防伪。**
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { sh } from "./sh";
-import { REPO_ROOT } from "./paths";
 
 /** 尾行格式：`[harness-verify v1 sha256=<64hex> commit=<sha|unknown> at=<ISO>]` */
 const TRAILER_RE = /^\[harness-verify v1 sha256=([0-9a-f]{64}) commit=(\S+) at=(\S+)\]$/m;
@@ -50,20 +47,6 @@ export function checkFingerprint(content: string): FingerprintVerdict {
   return actual === m[1] ? { kind: "ok", commit: m[2] } : { kind: "tampered", expected: m[1], actual };
 }
 
-const LEGACY_PATH = join(REPO_ROOT, ".harness/state/evidence-legacy.json");
-
-/**
- * 指纹门控上线前就已 passing 的历史存量 —— 缺指纹判 WARN 而非 FAIL。
- *
- * 这个名单是**显式、可数、只减不增**的技术债，不是后门：新做的 feature 不在名单里，
- * 缺指纹一律 FAIL，所以「手写日志冒充 passing」这条路对新增 feature 是堵死的。
- */
-export function isLegacyEvidence(phaseId: string, featureId: string): boolean {
-  if (!existsSync(LEGACY_PATH)) return false;
-  try {
-    const list: unknown = JSON.parse(readFileSync(LEGACY_PATH, "utf8")).grandfathered;
-    return Array.isArray(list) && list.includes(`${phaseId}/${featureId}`);
-  } catch {
-    return false; // 名单读不出来时按「不豁免」处理：宁可多红，不可漏放
-  }
-}
+// 历史存量豁免名单（`.harness/state/evidence-legacy.json`）的 schema、读取与棘轮门
+// 统一声明在 `evidence-legacy.ts` 一处——本文件只管指纹本身，不再自己 parse 一遍那份
+// JSON（#391：两处各自 parse 正是「同一事实声明在两处」，也是那份名单能无声长大的原因）。

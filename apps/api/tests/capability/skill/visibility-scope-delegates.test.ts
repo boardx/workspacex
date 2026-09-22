@@ -21,12 +21,30 @@
  * 排除这一点。本文件照做：下面 `反证` 一节用两个合成图证明走图器**真的会传递**，
  * 而不是在做直接 import 的字符串匹配。
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { isSkillVisibleTo } from "../../../src/domain/skill/visibility-scope";
 
-const SRC = join(process.cwd(), "src");
+/**
+ * `apps/api/src` 的绝对路径，**从本文件自身位置推导**。
+ *
+ * ⚠ 曾经是 `join(process.cwd(), "src")`（#1703）。`vitest --root apps/api` 只改 vitest 的
+ *   root，**不 chdir**——从仓库根跑时它指向 `<repo>/src`，那个目录根本不存在。后果不是
+ *   「报错说路径不对」，而是 ② 的 `readFileSync` 抛 ENOENT、`realGraph()` 的 `catch`
+ *   把整张真实图静默降级成 `{SUBJECT: []}`，于是 ③ 四条跟着红。红得跟「代码真的违规了」
+ *   一模一样，但它守的不变量当时**完全没被检查过**——门控在空图上空转。
+ *
+ * 函数而不是直接写常量：下面 `⓪` 一节要在 `process.cwd()` 被换掉的前提下调它，
+ * 证明解析结果与 cwd 无关。回到 cwd 那版，那条反证立刻红。
+ */
+function resolveSrcDir(): string {
+  return fileURLToPath(new URL("../../../src", import.meta.url));
+}
+
+const SRC = resolveSrcDir();
 const SUBJECT = "domain/skill/visibility-scope.ts";
 const DELEGATE = "domain/identity/capability-listing.ts";
 /** `decide()` 的家。只能经 `capability-listing.ts` 到达，够不着就是没委托。 */
@@ -71,7 +89,19 @@ function realGraph(entry: string): Graph {
     let imports: readonly string[] = [];
     try {
       imports = localImportsOf(id);
-    } catch {
+    } catch (cause) {
+      /**
+       * ⚠ 入口读不到 **不是** 「这个模块是叶子」，而是门控自己坏了（`SRC` 指错、文件被挪）。
+       *   吞掉它会得到一张空图，③ 随后红在「够不着 decide()」上——与真实违规不可区分。
+       *   #1703 就是这么空转的：宁可在这里炸出一条指名道姓的错，也不要那种红。
+       */
+      if (id === entry) {
+        throw new Error(
+          `门控自检失败：读不到入口模块 ${join(SRC, id)}。` +
+            `这是门控坏了（SRC 解析错误），不是被测代码违规。`,
+          { cause },
+        );
+      }
       imports = []; // 解析不到的（.json / 目录索引）当叶子，不让走图器假装走过
     }
     graph.set(id, imports);
@@ -105,6 +135,38 @@ function reachable(graph: Graph, entry: string): ReadonlyMap<string, number> {
 function directImportsOnly(graph: Graph, entry: string): ReadonlySet<string> {
   return new Set(graph.get(entry) ?? []);
 }
+
+/* ─────── ⓪ 门控自检：`SRC` 必须真的指到被测源码 ─────── */
+
+describe("⓪ 门控自检：SRC 解析不到被测源码就直接红（#1703）", () => {
+  it("SRC 下确实有 visibility-scope.ts", () => {
+    expect(
+      existsSync(join(SRC, SUBJECT)),
+      `SRC=${SRC} 解析不到 ${SUBJECT} ⇒ 下面整份门控都在空图上空转`,
+    ).toBe(true);
+  });
+
+  it("★ 反证：SRC 不随 process.cwd() 变（`join(process.cwd(), \"src\")` 那版会红）", () => {
+    const realCwd = process.cwd;
+    try {
+      // 仓库根、文件系统根、临时目录——三种真实会发生的跑法（`vitest --root apps/api`
+      // 从仓库根跑就是第一种，那正是 #1703 的现场）。
+      for (const fake of [join(SRC, "..", "..", ".."), "/", tmpdir()]) {
+        process.cwd = () => fake;
+        expect(resolveSrcDir(), `cwd=${fake} 时 SRC 变了 ⇒ 又变回看 cwd 了`).toBe(SRC);
+        expect(existsSync(join(resolveSrcDir(), SUBJECT)), `cwd=${fake} 时读不到被测源码`).toBe(true);
+      }
+    } finally {
+      process.cwd = realCwd;
+    }
+  });
+
+  it("★ 反证：入口读不到时 realGraph 必须抛错，不得静默降级成空图", () => {
+    // 传一个不存在的入口 ⇒ 旧实现给一张 `{missing: []}` 的空图（size 1），③ 于是红在
+    // 「够不着 decide()」上，和真实违规长得一样。现在它必须炸。
+    expect(() => realGraph("domain/skill/__not_a_real_module__.ts")).toThrow(/门控自检失败/);
+  });
+});
 
 /* ─────────────── ① 行为等价：穷举，不抽样 ─────────────── */
 

@@ -186,6 +186,49 @@ describe("Phase 14 F01 -- 网关转发到内核（gateway → kernel forwarding�
     expect(failedStep).toMatchObject({ status: "failed", failureCode: "KERNEL_UNAVAILABLE" });
   });
 
+  /*
+   * 2026-09-22 devapp 实测缺口：用户看到"服务暂时不可用，请稍后重试"，服务端只留下
+   * 「某个 run 以 KERNEL_UNAVAILABLE 失败」——分不出「地址没配」还是「配了但连不上」，
+   * 排查必须上机器手工复现。下面两条把「原因要落日志」变成会红的东西。
+   */
+  it("健康检查未过时，provider 报的原因被写进日志（不再是只有 runId/modelProvider 的一句话）", async () => {
+    const store = fakeStore(baseRun());
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async (_provider, onDiagnosis) => {
+        onDiagnosis?.("GET http://127.0.0.1:2025/healthz threw before any HTTP response: ECONNREFUSED");
+        return "unavailable";
+      },
+      completeWithProgress: async () => { throw new Error("must not be called"); },
+    };
+    const options = deps(store, model);
+
+    await executeQueuedRuns(options, { orgId: ORG });
+
+    expect(store.failedWith).toBe("KERNEL_UNAVAILABLE");
+    expect(options.log).toHaveBeenCalledWith(
+      "agent run kernel health check failed, run not forwarded",
+      expect.objectContaining({ detail: expect.stringContaining("ECONNREFUSED") }),
+    );
+  });
+
+  it("provider 没报原因时，日志明说\"没报\"——不编一个成因", async () => {
+    const store = fakeStore(baseRun());
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "unavailable",
+      completeWithProgress: async () => { throw new Error("must not be called"); },
+    };
+    const options = deps(store, model);
+
+    await executeQueuedRuns(options, { orgId: ORG });
+
+    expect(options.log).toHaveBeenCalledWith(
+      "agent run kernel health check failed, run not forwarded",
+      expect.objectContaining({ detail: "no diagnosis reported by this provider" }),
+    );
+  });
+
   it("非 deep-agent 的 run（没有内核概念）不受健康检查门控——`checkKernelHealth` 缺席时照常转发", async () => {
     const run = baseRun({ modelProvider: "test-provider", modelId: "test-model" });
     const store = fakeStore(run);

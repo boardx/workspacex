@@ -128,3 +128,18 @@ apps/deep-agent-service/.golden-evidence/
 apps/desktop/dist/
 apps/desktop/release/
 apps/desktop/bin/
+
+# skill sandbox flat preinstalled modules (scripts/local-bundle/prepare-sandbox-modules.sh)
+apps/skill-sandbox/preinstalled/
+apps/desktop/models/
+apps/desktop/bin/
+apps/desktop/asr-models/
+
+# 本地打包产物：bundle-python.sh 打出的 CPython 运行时
+apps/desktop/python/
+# 会话临时目录
+scratchpad/
+# #1094 取号临界区的目录锁（`pnpm harness claim` 持有，命令结束即删）。
+# 运行时态，不入库；留在盘上超过 30 秒会被下一个 claim 当陈旧锁接管
+# （见 .harness/scripts/lib/feature-id.ts 的 STALE_LOCK_MS）。
+phases/*/feature_list.json.lock/

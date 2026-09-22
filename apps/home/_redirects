@@ -1,0 +1,18 @@
+# Cloudflare Pages redirects.
+#
+# Pages resolves /privacy to /privacy.html on its own, but only for its own
+# default behaviour; these are declared so the shapes people actually type
+# resolve the same way regardless of that setting, and so the Chinese pages
+# behave identically to the English ones.
+
+/privacy        /privacy.html       301
+/zh/privacy     /zh/privacy.html    301
+
+# Language roots, with and without the trailing slash.
+/zh             /zh/                301
+/en             /                   301
+/en/*           /:splat             301
+
+# Common guesses at the security contact.
+/security       /.well-known/security.txt   301
+/security.txt   /.well-known/security.txt   301

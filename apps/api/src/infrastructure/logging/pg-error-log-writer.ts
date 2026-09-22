@@ -35,6 +35,26 @@ import {
   summarizeErrorLog,
   type ErrorLogSummaryModelConfig,
 } from "../../application/system/summarize-error-log";
+import { capabilityAvailability, type DeploymentEditionValue } from "@repo/contracts/deployment";
+
+/**
+ * 2026-09-22 —— 这个版次要不要生成「系统异常 AI 研判」。
+ *
+ * 判据取自契约的能力矩阵（`error-log-ai-summary`），不是这里自己发明的条件；返回
+ * `undefined` 时 `PgErrorLogWriter` 走它本来就有的那条路——「未注入 = 不生成 AI 摘要，
+ * `record()` 行为逐字节相同」。
+ *
+ * 取证（为什么本地版必须关）：用户那台机器 `logs/api.log` 里有数十条
+ * `error log summarization timed out`。这是个给运维团队看的元任务，而本机只有用户一个人；
+ * 它每条异常都要占用同一个本地模型 30 s，且上限是 **5 条并发**——异常成串出现时（那份
+ * 日志里一分钟二十多条）最坏会有五个 4B 请求排在用户正在等的那句回答前面。
+ */
+export function errorLogAiDepsForEdition(
+  edition: DeploymentEditionValue,
+  deps: PgErrorLogWriterAiDeps,
+): PgErrorLogWriterAiDeps | undefined {
+  return capabilityAvailability(edition, "error-log-ai-summary") === "absent" ? undefined : deps;
+}
 
 export const RETENTION_DAYS = 30;
 const HOUSEKEEPING_EVERY = 50;

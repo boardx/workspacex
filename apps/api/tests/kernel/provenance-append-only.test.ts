@@ -177,6 +177,11 @@ describe("the cascade -- the door the GRANT was not guarding", () => {
    * still safe, and the narrower barrier is reported as missing.
    */
   it("and if the DELETE grant ever comes back, the trigger still refuses the cascade", async () => {
+    // ⚠ #522: this grant is DATABASE-WIDE and `organizations` is everybody's table -- it is
+    // one of the four sites `lint-test-shared-grant` currently exempts by ratchet
+    // (.harness/state/test-shared-grant-allowlist.json, which carries the conversion plan:
+    // hand the DELETE to a role this file creates, instead of to the shared `app_rw`).
+    // Do not copy this shape into a new test; the gate will refuse it.
     await asOwner((c) => c.query("GRANT DELETE ON organizations TO app_rw"));
     try {
       const err = await appDenies(ORG, "DELETE FROM organizations WHERE id = $1", [ORG]);

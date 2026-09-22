@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -10,11 +10,13 @@ import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScal
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
+import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
+import { ShareDialog } from "./share-dialog";
 import {
   appendProjectChat as apiAppendProjectChat,
   uploadRefImage,
@@ -26,6 +28,8 @@ import {
   updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
+  publishProject as apiPublishProject,
+  unpublishProject as apiUnpublishProject,
   DESIGN_WORKBENCH_CHAT_INTRO,
   DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
@@ -35,8 +39,11 @@ import {
   type DesignWritebackField,
   type PrototypeLink,
   type PrototypeVersion,
+  type PrototypeAccent,
   type ProjectTemplate,
+  type DesignShareScope,
 } from "@/lib/live-design-workbench";
+import { designWorkbench } from "@repo/contracts";
 
 /**
  * 2026-09-07：退路原因 → 人话。键集合来自契约闭集 `DesignChatFallbackReason`（穷举，
@@ -59,6 +66,61 @@ const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
   frames: "画布页",
   prototype: "原型画布",
 };
+
+/**
+ * 迭代 16（#3773 R2）：生成期间多久读一次项目。
+ * 2.5s——比单页生成快得多（一页十几到几十秒），又不至于把列表接口打成心跳。
+ */
+const GENERATION_POLL_MS = 2500;
+
+/** 改动高亮亮多久（毫秒）。够看清一眼，又不至于变成一个常驻状态。 */
+const CHANGED_HIGHLIGHT_MS = 6000;
+/** 共用同一个空集：每次渲染新建一个会让画布的 context 每帧都变。 */
+const EMPTY_SET: ReadonlySet<string> = new Set();
+
+/**
+ * 迭代 16（#3773 R7）：刚建好的项目自动发的第一句话。
+ *
+ * 不重复背景内容——服务端每一轮都带着 `problem`、`criteria` 和澄清问答的结果，
+ * 再抄一遍只会把同一件事说两遍。这句话只说"开始"。
+ */
+const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原型。";
+
+/* ── 迭代 17：强调色档位的展示层元数据。**取值闭集来自契约**，这里不另立一份枚举。 ── */
+const ACCENT_OPTIONS = designWorkbench.PrototypeAccent.options;
+const ACCENT_LABEL: Record<PrototypeAccent, string> = {
+  neutral: "不用强调色（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
+  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+};
+/**
+ * 选择器上那个小圆点用哪一套值。
+ *
+ * ⚠ 固定取 `dark` 那一套，**不跟着项目主题变**：这一排按钮长在深色的工具条上，
+ * 跟着项目主题切会让做浅色稿时一排色点全部压暗，在深色工具条上糊成一片——
+ * 那时它标的就不再是"这个档位长什么样"，而是"这个档位在别处长什么样"。
+ */
+const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Object.fromEntries(
+  Object.entries(designWorkbench.PROTOTYPE_ACCENTS).map(([k, v]) => [k, v.dark.primary]),
+) as Record<Exclude<PrototypeAccent, "neutral">, string>;
+
+/**
+ * 迭代 16（#3773 R8）：哪些退路原因值得给一个「再试一次」。
+ *
+ * ⚠ `MODEL_NOT_CONFIGURED` **不在**这里：这个部署根本没配模型，重试一百次也一样，
+ *   给一个必然失败的按钮是在骗人。那一条的下一步是找运维，文案里已经说了。
+ * `MODEL_NO_REPLY_TEXT` 也不在：写回可能已经生效了，重发同一句会再改一遍。
+ */
+/**
+ * 迭代 20：「少画几页再试」按几页。
+ *
+ * 3 是骨架轮页数区间（3–6）的下限——再少就不是"这个产品长什么样"而是一张孤立的屏了。
+ * 这个数会作为 `maxScreens` 交上去，由服务端**截断执行**，不是一句提示。
+ */
+const FEWER_PAGES_CAP = 3;
+
+const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
+  "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
+]);
 
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
@@ -105,11 +167,17 @@ type Load =
  */
 export function DesignDetailScreen({
   projectId,
+  autoStart = false,
   onBack,
   onOpenInbox,
   onNextDesign,
 }: {
   projectId: string;
+  /**
+   * 迭代 16（#3773 R7）：这是**刚建好**的项目，进来就照背景画第一版。
+   * 由创建流程跳转时带上（`?new=1`），不是每次打开详情页都成立——见 `autoStartedRef` 那段。
+   */
+  autoStart?: boolean;
   onBack?: () => void;
   onOpenInbox?: () => void;
   onNextDesign?: () => void;
@@ -146,6 +214,29 @@ export function DesignDetailScreen({
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
   /**
+   * 迭代 16（#3773 R6）—— 预览模式的**返回栈**。
+   *
+   * 预览的承诺是「像用真的 App 一样走一遍」，而真的 App 里每一次跳转都能退回来。
+   * 在这之前点进详情页就只能靠上面那排页签自己跳回去——那是设计稿的操作，不是用 App
+   * 的操作，走两层就断了，于是"走一遍主流程"这件事根本走不完。
+   *
+   * 栈只在预览态存在：退出预览时清掉（回到编辑态再点页签是"我要看这一页"，不是"后退"）。
+   */
+  const [backStack, setBackStack] = React.useState<readonly number[]>([]);
+  /** 预览里的一次跳转：记下从哪来，再换页。 */
+  const navigateTo = React.useCallback((to: number) => {
+    setBackStack((prev) => [...prev, frame].slice(-50));
+    setFrame(to);
+  }, [frame]);
+  const goBack = React.useCallback(() => {
+    setBackStack((prev) => {
+      const last = prev[prev.length - 1];
+      if (last === undefined) return prev;
+      setFrame(last);
+      return prev.slice(0, -1);
+    });
+  }, []);
+  /**
    * 迭代 14：预览用的**镜头**——设备预设与横竖。刻意**不写库**：它是"我现在用什么尺寸看"，
    * 不是"这稿是给什么设备的"（后者由项目 template 决定，见 `lib/prototype-devices` 头注）。
    * `null` = 跟随项目模板的默认镜头；用户切过之后才有值。
@@ -161,10 +252,56 @@ export function DesignDetailScreen({
    */
   const [importing, setImporting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
+  /** 迭代 22：发布与分享。 */
+  const [sharing, setSharing] = React.useState(false);
+  const [shareBusy, setShareBusy] = React.useState(false);
+  const [shareError, setShareError] = React.useState<string | null>(null);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
   const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * 迭代 16（#3773 R7）—— **刚建好的项目自动画第一版**，不让用户把刚说过的话再说一遍。
+   *
+   * 在这之前的路径是：新建 → 回答六个澄清问题 → 写背景 → 进详情页 → **画布是空的**，
+   * 还要在左边再描述一遍要什么，才开始画。用户刚刚才把这个产品讲了一遍，进来看到的
+   * 却是一句「在左边描述你要的界面」——这一步纯粹是让他重说，是「基本上不能用」里
+   * 最没道理的一段摩擦。
+   *
+   * 触发条件四条**同时**成立，缺一不可：
+   *   ① 调用方明确说了这是**刚建好**的项目（`autoStart`，由创建流程跳转时带上）。
+   *      ⚠ 这一条最重要：只看"没有原型 + 没说过话"的话，半年前建了没画的老项目
+   *      被打开时也会自动跑起来——替用户花掉一次生成，他没要过。
+   *   ② 还没有任何原型（不覆盖已有的画布）；
+   *   ③ 用户一句话都还没说过（`chat` 里没有 `user` 轮——导入留痕是 `system`，不算）；
+   *   ④ 背景非空（没有背景就真的无从画起，那时候该让他先说）。
+   * 并且**每个项目只自动发一次**（`autoStartedRef` 按 id 记），失败也不重试——
+   * 自动重试会让一个必然失败的请求在用户面前反复跑。
+   */
+  const autoStartedRef = React.useRef<string | null>(null);
+  /**
+   * 迭代 16（#3773 R2）——**生成期间轮询项目，画布一页页长出来**。
+   *
+   * 首次生成要画 3–6 页、每页一次模型调用，最坏几分钟。在这之前这段时间里屏上只有
+   * 一个转圈、画布全程空白，用户没法判断是在画还是已经死了——这是「基本上不能用」
+   * 最大的一处来源。服务端现在每定下骨架、每画好一页就落一次库（`append-project-chat.ts`
+   * 的 `persistProgress`），这里在同一轮请求还没返回时把它读出来。
+   *
+   * ⚠ 轮询结果**不许盖掉最终结果**：`send` 在写最终 `project` 之前先 `stopPoll()`，
+   *   而每个 tick 落地前再查一次 `pollRef.current !== null`。少了后面那道，
+   *   一个在途的 tick 会在收尾之后把画布退回上一帧。
+   * ⚠ 只更新**画布相关**的事实。`chat` 这时候服务端还没写（它在收尾时才追加两条），
+   *   整份替换正好也把 chat 保持在"还没有这一轮"的状态，与实际一致。
+   */
+  const pollRef = React.useRef<number | null>(null);
+  /**
+   * 迭代 16（#3773 R5）：这一轮模型改动过的节点 id，画布上给一圈虚线。
+   *
+   * 几秒之后自动清掉——它说的是"刚刚"，不是一个持续状态。留着不清会让用户下一次
+   * 打开项目时看到一圈莫名其妙的高亮，而那时"刚刚"早已过去。
+   */
+  const [changed, setChanged] = React.useState<ReadonlySet<string>>(EMPTY_SET);
+  const changedTimer = React.useRef<number | null>(null);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -182,6 +319,22 @@ export function DesignDetailScreen({
   }, [reload]);
 
   const project = load.kind === "ready" ? load.project : null;
+  /**
+   * 迭代 16（#3773 R2）：这一轮**真实**画到第几页。`null` = 还没有骨架（无事可报）。
+   * 只在生成中有意义——不在生成中时画布本来就是最终状态，报进度只会让人以为还在跑。
+   */
+  /** 迭代 16（#3773 R8）：最后一句**用户**说的话——退路重试要原样重发它。 */
+  const lastUserText = React.useMemo(() => {
+    const turns = project?.chat ?? [];
+    for (let i = turns.length - 1; i >= 0; i -= 1) if (turns[i]?.role === "user") return turns[i]!.text;
+    return null;
+  }, [project]);
+  const drawnPages = React.useMemo(() => {
+    if (project === null || project.prototype.length === 0) return null;
+    const total = project.prototype.length;
+    const done = project.prototype.filter((r) => r !== null).length;
+    return done >= total ? null : { done, total };
+  }, [project]);
   /** 迭代 14：当前镜头 = 用户选的，没选过就跟项目模板走。 */
   const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
   const lensSize = rotated(lens, landscape);
@@ -293,6 +446,24 @@ export function DesignDetailScreen({
   };
 
   /**
+   * 迭代 17：切**原型的强调色档位**。与切主题同一条路径、同一套乐观更新与回滚。
+   * 它是项目的属性（导出的 HTML 也跟着它），不是看的人的偏好，所以落库而不是存在本地。
+   */
+  const changeAccent = async (accent: PrototypeAccent) => {
+    if (project === null || project.accent === accent) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, accent } });
+    try {
+      const out = await updateProject(project.id, { accent });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能切换强调色，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
    * 迭代 14：量画布可用空间，好把 1280 宽的笔记本缩进来。
    * jsdom 没有 `ResizeObserver` 也量不出尺寸 ⇒ stage 保持 0，`fitScale` 返回 1，
    * 测试里按原尺寸渲染（这正是它对 0 尺寸返回 1 的理由）。
@@ -317,7 +488,16 @@ export function DesignDetailScreen({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing = t !== null && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
-      if (typing || canvasMode !== "edit" || preview !== null) return;
+      /*
+       * 迭代 16（#3773 R6）：预览态只认一个键——返回（Backspace / ←），与浏览器一致。
+       * 其余快捷键（删除、复制、方向选节点）是编辑态的语义，预览里按下去应该什么都不发生。
+       */
+      if (typing || preview !== null) return;
+      if (canvasMode === "preview") {
+        if (e.key === "Backspace" || e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
+        return;
+      }
+      if (canvasMode !== "edit") return;
       if (e.key === "Escape") { setSelectedId(null); return; }
       if (selectedId === null || project === null) return;
       const tree = project.prototype;
@@ -346,6 +526,20 @@ export function DesignDetailScreen({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  React.useEffect(() => {
+    if (project === null || sending) return;
+    if (!autoStart || autoStartedRef.current === project.id) return;
+    const saidSomething = project.chat.some((t) => t.role === "user");
+    if (project.prototype.length > 0 || saidSomething || project.problem.trim() === "") return;
+    autoStartedRef.current = project.id;
+    // 发的是一句**真的会出现在对话里**的话——不是隐形的自动行为。
+    // 用户看得见它说了什么，也就能接着改它。
+    void send(AUTO_FIRST_PROMPT);
+    // `send` 每次渲染都是新函数，进依赖数组会让这个 effect 每帧都重跑；
+    // 真正的守卫是 `autoStartedRef`（每个项目只发一次），不是依赖数组。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, sending, autoStart]);
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -388,7 +582,7 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async (override?: string) => {
+  const send = async (override?: string, maxScreens?: number) => {
     const value = (override ?? text).trim();
     if (value === "") return;
     const controller = new AbortController();
@@ -400,6 +594,22 @@ export function DesignDetailScreen({
     setElapsed(0);
     const started = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    const stopPoll = () => {
+      if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    };
+    pollRef.current = window.setInterval(() => {
+      void (async () => {
+        if (pollRef.current === null) return;
+        try {
+          const { items } = await listMyProjects();
+          const found = items.find((p) => p.id === project.id);
+          // 再查一次：这个 await 期间 send 可能已经收尾了。
+          if (found !== undefined && pollRef.current !== null) setLoad({ kind: "ready", project: found });
+        } catch {
+          // 轮询失败不打扰用户——它只是"早点看见"，失败了照旧等最终结果。
+        }
+      })();
+    }, GENERATION_POLL_MS);
     try {
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
@@ -409,8 +619,20 @@ export function DesignDetailScreen({
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
         project.refImages.map((r) => r.id),
+        maxScreens,
       );
+      stopPoll();
+      /*
+       * 迭代 16（#3773 R5）：先算 diff 再换 project——换完就拿不到"之前"那一份了。
+       * 首次生成（之前没有任何树）不高亮：整页都是新的，满屏闪烁说明不了任何事。
+       */
+      const marks = changedNodeIds(project.prototype, updated.prototype);
       setLoad({ kind: "ready", project: updated });
+      if (changedTimer.current !== null) window.clearTimeout(changedTimer.current);
+      setChanged(marks);
+      if (marks.size > 0) {
+        changedTimer.current = window.setTimeout(() => { setChanged(EMPTY_SET); changedTimer.current = null; }, CHANGED_HIGHLIGHT_MS);
+      }
       setLastApplied(reply.applied);
       setFallbackReason(reply.fallbackReason ?? null);
       setSuggestions(reply.suggestions);
@@ -423,18 +645,58 @@ export function DesignDetailScreen({
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
         // 下次读取会看到它；这里不假装它一定没发生。
         setText(value);
+        // 迭代 16（#3773 R2）：取消之前**已经画好并落库**的页要留在屏上。
+        // 在这之前取消等于前功尽弃——服务端照样画完、照样计费，用户什么也没拿到。
+        stopPoll();
+        void reload();
       } else {
         setText(value);
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
       }
     } finally {
+      stopPoll();
       window.clearInterval(tick);
       abortRef.current = null;
       setSending(false);
     }
   };
   const cancel = () => abortRef.current?.abort();
+
+  /**
+   * 迭代 22：发布 / 取消发布。两条都把**服务端返回的整个项目**放回状态，而不是在本地
+   * 拼一个 `share` 对象——`stale` 是服务端逐字段比出来的，本地拼等于第二份判断，
+   * 而它一定会先于服务端那份过期。
+   */
+  const doPublish = async (scope: DesignShareScope) => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiPublishProject(project.id, scope);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(
+        err instanceof ApiError && err.reasonCode === "NOTHING_TO_PUBLISH"
+          ? "这个项目还没有画出来的页，没什么可发布的。"
+          : `没能发布（${describeFailure(err)}）`,
+      );
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const doUnpublish = async () => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiUnpublishProject(project.id);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(`没能取消发布（${describeFailure(err)}）`);
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   const confirmPush = async (note: string) => {
     setPushBusy(true);
@@ -462,6 +724,19 @@ export function DesignDetailScreen({
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
           <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
+          {/*
+            * 迭代 22：分享。已发布时按钮说"已分享"，快照过期时**在按钮上就说出来**——
+            * 把它藏进弹窗里，等于要用户先怀疑才会去看。
+            */}
+          <Button
+            variant={(project.share ?? null) === null ? "outline" : "ghost"}
+            size="sm"
+            onClick={() => { setSharing(true); setShareError(null); }}
+            data-testid="design-detail-share"
+          >
+            <Share2 aria-hidden className="h-3.5 w-3.5" />
+            {(project.share ?? null) === null ? "分享" : project.share?.stale === true ? "已分享（有更新）" : "已分享"}
+          </Button>
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -536,9 +811,49 @@ export function DesignDetailScreen({
                 )}
                 {/* 2026-09-07：退路原因（闭集 → 人话），只挂最后一条，说清该重试还是该找运维 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && fallbackReason !== null && (
-                  <p className="mt-1 text-10 text-muted-foreground" data-testid="design-detail-fallback-reason">
-                    {FALLBACK_REASON_TEXT[fallbackReason]}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <p data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[fallbackReason]}</p>
+                    {/*
+                      * 迭代 16（#3773 R8）：退路里**该重试的那几种**给一个「再试一次」。
+                      *
+                      * 在这之前这里只有一句解释，而屏上唯一的重试入口挂在"没能发送"那条
+                      * 错误条带上——也就是说：网络层失败给了重试，**模型层失败反而没有**，
+                      * 而后者才是用户真正会撞上的那一类（超时、被截断、输出不是 JSON）。
+                      * 用户当时能做的只有把刚才那句话再手打一遍。
+                      *
+                      * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
+                      * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
+                      */}
+                    {/*
+                      * 迭代 20：超时的那句话一直写着「试试少要几页」，而用户**没有任何
+                      * 控制页数的手段**——页数由骨架轮自己定，界面上没有旋钮，
+                      * 说「只画 3 页」也只是一句模型可以不听的话。又一句做不到的许诺。
+                      * 现在这个按钮把那句话变成一个真的动作：`maxScreens` 是服务端
+                      * 强制截断的上限，不是提示。
+                      * 只在**超时**时给——别的退路原因（输出不是 JSON、没配模型）
+                      * 与页数无关，给了只会把人往错的方向引。
+                      */}
+                    {fallbackReason === "MODEL_TIMEOUT" && lastUserText !== null && !sending && (
+                      <button
+                        type="button"
+                        onClick={() => void send(lastUserText, FEWER_PAGES_CAP)}
+                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-fewer-pages"
+                      >
+                        只画 {FEWER_PAGES_CAP} 页再试
+                      </button>
+                    )}
+                    {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
+                      <button
+                        type="button"
+                        onClick={() => void send(lastUserText)}
+                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-fallback-retry"
+                      >
+                        再试一次
+                      </button>
+                    )}
+                  </div>
                 )}
                 {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (
@@ -565,8 +880,15 @@ export function DesignDetailScreen({
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
               <span className="truncate">
-                {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
-                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "页数多的时候会久一些，仍在生成…"}
+                {/*
+                 * 迭代 16（#3773 R2）：有了中途落库，这里终于能说**真实进度**而不是按秒数猜。
+                 * 骨架一回来 `frames` 就有了，每画好一页 `prototype` 里就多一棵树——
+                 * 「3 / 5 页」是从库里读出来的事实，不是文案编的。
+                 * 还没有骨架时（前十几秒）仍然按秒数给分阶段文案，那时候确实无事可报。
+                 */}
+                {drawnPages === null
+                  ? elapsed < 4 ? "正在理解你的要求…" : "正在规划页面…"
+                  : `正在画：已完成 ${drawnPages.done} / ${drawnPages.total} 页`}
                 <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
               </span>
               <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
@@ -706,11 +1028,11 @@ export function DesignDetailScreen({
                 </div>
                 {/* 迭代 11：编辑 / 预览。预览点有跳转的节点 = 换页；进预览时清掉选中，退出再选。 */}
                 <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布模式">
-                  <button type="button" onClick={() => setCanvasMode("edit")} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
+                  <button type="button" onClick={() => { setCanvasMode("edit"); setBackStack([]); }} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "edit" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
                     <Crosshair aria-hidden className="h-3 w-3" /> 编辑
                   </button>
-                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
+                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); setBackStack([]); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
                     <Play aria-hidden className="h-3 w-3" /> 预览
                   </button>
@@ -732,6 +1054,28 @@ export function DesignDetailScreen({
                       {t === "light" ? <Sun aria-hidden className="h-3 w-3" /> : <Moon aria-hidden className="h-3 w-3" />}
                       {t === "light" ? "白天" : "黑夜"}
                     </button>
+                  ))}
+                </div>
+                {/*
+                  * 迭代 17：强调色档位。**色块本身就是标签**——给一行中文色名（「靛蓝」「湖绿」）
+                  * 反而比色块更难扫，而这一排的用途就是"扫一眼挑一个"。
+                  * 无障碍那一半由 `aria-label` + `title` 给，不靠视觉。
+                  */}
+                <div className="inline-flex items-center gap-0.5 rounded-control border border-border p-0.5" role="group" aria-label="原型强调色" data-testid="design-detail-accents">
+                  {ACCENT_OPTIONS.map((a) => (
+                    <button
+                      key={a} type="button" data-testid={`design-detail-accent-${a}`}
+                      aria-pressed={project.accent === a}
+                      aria-label={ACCENT_LABEL[a]}
+                      title={ACCENT_LABEL[a]}
+                      onClick={() => void changeAccent(a)}
+                      className={cn(
+                        "h-4 w-4 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        project.accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
+                        a === "neutral" && "bg-muted",
+                      )}
+                      style={a === "neutral" ? undefined : { backgroundColor: `hsl(${ACCENT_SWATCH[a]})` }}
+                    />
                   ))}
                 </div>
                 {/*
@@ -790,6 +1134,25 @@ export function DesignDetailScreen({
               <div className="relative flex min-h-0 flex-1">
                 {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
                 <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
+                  {/*
+                    * 迭代 16（#3773 R6）：预览里的「返回」。只在真的有地方可退时出现——
+                    * 一个永远在那里、点了没反应的返回按钮，比没有更糟。
+                    */}
+                  {canvasMode === "preview" && preview === null && backStack.length > 0 && (
+                    <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-border bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-back-bar">
+                      <button
+                        type="button"
+                        onClick={goBack}
+                        className="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-preview-back"
+                      >
+                        <ArrowLeft aria-hidden className="h-3 w-3" />返回
+                      </button>
+                      <span className="text-muted-foreground">
+                        从「{project.frames[backStack[backStack.length - 1]!] ?? ""}」过来
+                      </span>
+                    </div>
+                  )}
                   {preview !== null && (
                     <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
@@ -823,7 +1186,11 @@ export function DesignDetailScreen({
                       links={frameLinks}
                       mode={canvasMode}
                       theme={project.theme}
-                      onNavigate={setFrame}
+                      drawing={preview === null && sending}
+                      changed={preview === null ? changed : undefined}
+                      accent={project.accent}
+                      wireframe={project.template === "wireframe"}
+                      onNavigate={navigateTo}
                     />
                   ) : (
                     /*
@@ -854,9 +1221,20 @@ export function DesignDetailScreen({
                        */
                       ungenerated={
                         preview === null &&
+                        !sending &&
                         (project.prototype.length > 0) &&
                         (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
                       }
+                      /* 迭代 16（#3773 R2）：这一轮还在生成 ⇒ 空页说的是「正在画」，不是「没画出来」。 */
+                      drawing={
+                        preview === null &&
+                        sending &&
+                        (project.prototype.length > 0) &&
+                        (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
+                      }
+                      changed={preview === null ? changed : undefined}
+                      accent={project.accent}
+                      wireframe={project.template === "wireframe"}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
                         const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";
@@ -866,7 +1244,7 @@ export function DesignDetailScreen({
                       theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
-                      onNavigate={setFrame}
+                      onNavigate={navigateTo}
                     />
                       </div>
                     </div>
@@ -980,6 +1358,17 @@ export function DesignDetailScreen({
           projectId={project.id}
           onClose={() => setImporting(false)}
           onImported={(next) => setLoad({ kind: "ready", project: next })}
+        />
+      )}
+
+      {sharing && (
+        <ShareDialog
+          project={project}
+          busy={shareBusy}
+          error={shareError}
+          onClose={() => { if (!shareBusy) { setSharing(false); setShareError(null); } }}
+          onPublish={(scope) => void doPublish(scope)}
+          onUnpublish={() => void doUnpublish()}
         />
       )}
 

@@ -136,13 +136,30 @@ export function foldIntakeIntoProblem(brief: string, answers: readonly designWor
 /**
  * 「成功长什么样」那一维的答案直接变成验收标准，追加在默认三条之后。
  * 其余维度不进 `criteria`——它们是背景，不是可验收的条目。
+ *
+ * ## 迭代 17：判据从**答案自己带的 `dimension`** 来，不再由调用方传一份问题清单
+ *
+ * 这个函数原来还收一个 `successQuestions: string[]`，靠"问题文本在不在这张清单里"
+ * 来判断维度。它的单测是对的、还带反证锚点（「把所有答案都塞进 criteria ⇒ 这条红」），
+ * 但那条用例**自己手工构造了那张清单**——而生产代码里 controller 传的是
+ * `body.intake.map(a => a.question)`，也就是**全部**问题。于是：
+ *
+ *   函数是对的 · 单测是对的 · 接线是错的 · 而门控恰好测不到接线。
+ *
+ * 表现是六维答案全都变成验收标准：「谁会用这个东西」「现在他们怎么绕过去」这种背景句
+ * 进了验收口径，一路走到设计文档和排期里。
+ *
+ * 所以判据改成答案**自己**带的 `dimension`（契约 `IntakeAnswer`）——调用方再也没有
+ * 「传错一张清单」这个机会，这一类 bug 被消掉而不是被修掉。
+ *
+ * ⚠ 没带 `dimension` 的答案（老客户端）**不算**「成功」那一维：宁可少几条验收标准，
+ *   也不要把背景当成验收口径——前者用户自己补得回来，后者他未必看得出来。
  */
 export function foldIntakeIntoCriteria(
   answers: readonly designWorkbench.IntakeAnswer[],
-  successQuestions: readonly string[],
 ): readonly string[] {
   const extra = answers
-    .filter((a) => successQuestions.includes(a.question))
+    .filter((a) => a.dimension === "success")
     .map((a) => a.answer.trim())
     .filter((s) => s !== "");
   return [...designWorkbench.DESIGN_PROJECT_INITIAL_CRITERIA, ...extra];

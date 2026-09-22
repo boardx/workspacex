@@ -1,0 +1,32 @@
+{
+  "_readme": "行为测试夹具的清单（见同级 README.md）。它是 lint-ui-wiring 的正样本：干净夹具必须绿，注入缺陷必须红。",
+  "ratchet": {
+    "maxMockRoutes": 0,
+    "frozenAt": "2026-09-21",
+    "issue": 397
+  },
+  "previewPrefixes": [],
+  "nonApiAdapters": [],
+  "controllers": {
+    "WidgetsController": {
+      "useCases": [
+        "widgets/list-widgets"
+      ]
+    }
+  },
+  "routes": {
+    "/widgets": {
+      "kind": "wired",
+      "screen": "apps/web/app/widgets/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-widgets.ts"
+      ],
+      "contracts": [
+        "widgets"
+      ],
+      "controllers": [
+        "WidgetsController"
+      ]
+    }
+  }
+}

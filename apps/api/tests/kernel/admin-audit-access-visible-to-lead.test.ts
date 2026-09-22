@@ -210,6 +210,12 @@ describe("the trail is a precondition of the read, not an epilogue", () => {
     //
     // The failure is injected at the only place it can be: the grant. Wrapping the writer
     // in a mock would test a mock; taking INSERT away tests the real path.
+    //
+    // ⚠ #522: this revoke is DATABASE-WIDE and `provenance_events` is everybody's table --
+    // it is one of the four sites `lint-test-shared-grant` currently exempts by ratchet
+    // (.harness/state/test-shared-grant-allowlist.json, which carries the conversion plan:
+    // a BEFORE INSERT trigger scoped to this file's ORG, the way PR #516 did it). Do not
+    // copy this shape into a new test; the gate will refuse it.
     await asOwner((c) => c.query("REVOKE INSERT ON provenance_events FROM app_rw"));
     try {
       const res = await read("u-admin", "audit");

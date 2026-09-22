@@ -186,6 +186,30 @@ export default {
       // POST 新建（两个方法一条路径），`:path*` 匹配不到没有后缀的那一条 ——
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
+      /**
+       * issue #3492：`/canvas/:path*` 是通配，它同样会吃掉 `app/canvas/[screen]/page.tsx`
+       * 这个**前端动态路由**——afterFiles rewrites 在动态路由**之前**匹配，于是
+       * `/canvas/template-admin` 被代理到 API，整页刷新拿到 `{"error":"not_found"}`
+       * 的 **JSON 文档**而不是页面（实测 25022 端口，`Content-Type: application/json`）。
+       * **这是 #2021（`/chat/:path*` 吃掉 `/chat/copilotkit-v2/[threadId]`）的同型第二次**，
+       * 那条注释就在本文件下面，写着同样的成因。
+       *
+       * 这次不走 #2021 的解法（把通配收窄成 API 命名空间枚举）：`/canvas/` 下的 API
+       * 命名空间今天有 9 个（templates / instances / agenda-segments / ai-rounds / claims /
+       * conflicts / orgs / projects / whitespace-rules，契约 `canvas.operations` 实测），
+       * 枚举表会漏——#2090 就是 `/chat/${ns}` 那张枚举表漏掉 `asr-draft` 栽的。
+       * 改为**放行前端屏**：屏是有限且封闭的一张表（`lib/canvas-screens.ts` 的
+       * `CANVAS_SCREENS`，`[screen]` 路由认不出就 `notFound()`），新增 API 路由不需要
+       * 动这里。放行规则的 `destination` 是内部路径，afterFiles rewrite 自带
+       * `check: true`，命中后立刻解析到 `app/canvas/[screen]/page.tsx`。
+       *
+       * ⚠ 必须排在通配**之前**：afterFiles 按声明顺序匹配，通配先命中就直接代理走了。
+       * ⚠ 这张屏清单与 `CANVAS_SCREENS` 的一致性由
+       *   `tests/canvas-screen-rewrite.test.ts` 机械核对（少放行一个屏就红），
+       *   不靠谁记得两边一起改。
+       */
+      ...["template-admin", "template-editor", "segment-binding", "editor", "ai-draft", "backflow"]
+        .map((screen) => ({ source: `${prefix}/canvas/${screen}`, destination: `/canvas/${screen}` })),
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
       // F173（#991 BP-01）：蓝本的读与写。`/blueprints` 自己既是 GET 列表也是
       // POST 新建 —— 与上面 `/capabilities`、`/canvas/templates`、`/skills` 逐字
@@ -307,6 +331,10 @@ export default {
       // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
       { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },
       { source: `${prefix}/pm-designs/:path*`, destination: `${apiOrigin}/pm-designs/:path*` },
+      // 迭代 22（发布与分享）：分享链接是给**没登录的人**点的，同 `/public/surveys` 那条。
+      // 少了它，分享页在同源代理的部署上拿到的是 Next 自己的 404 HTML——而症状是
+      // `Unexpected token '<'`，看起来像前端解析 bug（api-client 里那段注释说的就是这个）。
+      { source: `${prefix}/public/design-shares/:path*`, destination: `${apiOrigin}/public/design-shares/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // issue #2664（异步子任务派发）：`subtask-run.controller.ts` 挂了

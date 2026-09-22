@@ -216,6 +216,40 @@ describe("DeepAgentModelProvider.complete", () => {
   });
 });
 
+/*
+ * 2026-09-22 devapp 实测：深度研究请求秒失败、界面只给"服务暂时不可用，请稍后重试"，
+ * 服务端日志里没有任何可据以行动的信息——因为这两个 `unavailable` 分支此前一个是裸
+ * `return`、一个是 `catch {}`。下面三条锁住「判定不变、但原因必须交出来」。
+ */
+describe("DeepAgentModelProvider.checkKernelHealth 的失败诊断（onDiagnosis）", () => {
+  it("baseUrl 未配置：报 unavailable，并说明是哪个环境变量没设", async () => {
+    const unconfigured = new DeepAgentModelProvider({ baseUrl: "", timeoutMs: 1000, pollIntervalMs: 10 });
+    const seen: string[] = [];
+
+    expect(await unconfigured.checkKernelHealth(DEEP_AGENT_PROVIDER_NAME, (d) => { seen.push(d); })).toBe("unavailable");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain("KERNEL_DEEP_AGENT_BASE_URL");
+  });
+
+  it("配了地址但连不上：报 unavailable，并带上被探测的地址与底层异常文案", async () => {
+    const unreachable = new DeepAgentModelProvider({
+      baseUrl: "http://127.0.0.1:1", timeoutMs: 1000, pollIntervalMs: 10,
+    });
+    const seen: string[] = [];
+
+    expect(await unreachable.checkKernelHealth(DEEP_AGENT_PROVIDER_NAME, (d) => { seen.push(d); })).toBe("unavailable");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain("http://127.0.0.1:1/healthz");
+  });
+
+  it("探测拿到任何 HTTP 响应就是 healthy，且一次诊断都不报（判据逐字不变）", async () => {
+    const seen: string[] = [];
+
+    expect(await provider().checkKernelHealth(DEEP_AGENT_PROVIDER_NAME, (d) => { seen.push(d); })).toBe("healthy");
+    expect(seen).toEqual([]);
+  });
+});
+
 describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progress)", () => {
   it("每次调用宣布时先报一个 in_progress，结果到达时再报一个 complete，两者共享 toolCallId，按序、终态答案不变", async () => {
     threadId = `thread-${randomUUID()}`;

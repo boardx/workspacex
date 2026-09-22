@@ -9,6 +9,11 @@
  * ② `ChatDiagramCanvasModal`/`ChatCanvasModal` 的「导出 PNG」「导出 PDF」按钮真的
  *    调用了导出/下载工具函数（`downloadDataUrl`/`exportPngAsPdf` mock 掉，这里验证
  *    的是"接线对不对"，不是重新测 jsPDF 库本身怎么生成字节）。
+ *
+ * ⚠ 本文件**只管接线**：它判的是"按钮调到了函数""返回的是 PNG data URL"，
+ * 对产物内容一无所知——这里全绿，画布也可能正在导出一张白纸（#3009 实测：把截图
+ * 区域偏到内容之外，本文件 4 条用例照样全过）。「产物能被重新打开、内容可辨认」
+ * 那一层在 `canvas-export-artifact-readback.test.tsx`，改导出逻辑时两个文件一起看。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";

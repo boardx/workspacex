@@ -16,7 +16,11 @@ export function StudioDesignWorkbenchScreen({ state }: { state: UiState }) {
   return (
     <DesignWorkbenchHome
       state={state}
-      onOpenProject={(id) => router.push(`/studio/design-workbench/${id}`)}
+      /*
+       * 迭代 16（#3773 R7）：`?new=1` 只由**创建**这条路带上——详情页据它决定要不要
+       * 照背景自动画第一版。列表里点开一个老项目不带它，不会替用户花掉一次生成。
+       */
+      onOpenProject={(id, justCreated) => router.push(`/studio/design-workbench/${id}${justCreated === true ? "?new=1" : ""}`)}
     />
   );
 }

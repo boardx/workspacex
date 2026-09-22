@@ -171,7 +171,12 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
     expect(stored.files).toHaveLength(1);
     expect(stored.files[0]!.path).toBe("SKILL.md");
     // ⚠ 断言真实字节，不只是「有一行」。
-    expect(stored.files[0]!.content).toBe("# imported skill\n");
+    // #3066：上游这份 `SKILL.md` 没有 YAML 前言，落库前会补上一段最小前言，
+    // `name:` 取 `stable_name`（Agent Skills 规范要求它等于包目录名）。正文一字不动。
+    expect(stored.files[0]!.content).toBe(
+      `---\nname: ${stored.stableName}\n---\n\n# imported skill\n`,
+    );
+    // 摘要跟着改写后的**真实字节**走——分叉会让 Deep Agent 侧的「路径 + 包摘要」判不出身份。
     expect(stored.files[0]!.digest).toBe(result.contentDigest);
     // 发布只能由 wave2_publish_skill_version 完成——这条锁住那条路径真的走了。
     expect(stored.published).toBe(true);

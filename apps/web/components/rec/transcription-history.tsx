@@ -33,7 +33,20 @@ type ActiveTag = string | undefined;
 
 export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const sessionContext = useOptionalSession();
-  const sessionToken = sessionContext?.session?.sessionToken;
+  /**
+   * #1057 —— bearer 只有一条来源：真实 SessionProvider 的会话。
+   *
+   * 这里此前落到 `undefined`，而 `apiRequest` 把 `undefined` 定义为"调用方没表态"，
+   * 于是回落去读 `localStorage` 的 `wsx.sessionToken`（见 `api-client.ts` 的
+   * `opts.sessionToken !== undefined ? … : getStoredSessionToken()`）。结果是：真实会话
+   * 已经没有身份了，这一屏仍然带着上一位用户留下的陈旧 token 去问 API——页面看起来是
+   * 登录态，直到 `POST /recording/realtime-asr/sessions` 才报一个通用错误。
+   *
+   * `?? null` 把"没有会话"表达成显式的**不带 bearer**（fail-closed），与全仓其他真实
+   * 会话消费点一致（`chat-read-screen` / `copilotkit-v2-shell` / `rail-notifications`
+   * 都是 `session?.sessionToken ?? null`）。同一事实不得有第二处来源。
+   */
+  const sessionToken = sessionContext?.session?.sessionToken ?? null;
   const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);

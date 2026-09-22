@@ -93,6 +93,29 @@ export const STRUCTURE_FEEDBACK_DRAFT_SYSTEM_PROMPT =
  * 需求字段填给缺陷时不"顺手纠正"，直接当没拆出来（`null`）。空对象 `{}` 与没拆出来等价。
  * 解析失败**不抛**：结构化字段是正文的补充，正文（完整原文）才是这次点击的主产物。
  */
+/** Mirrors STRUCTURE_FEEDBACK_DRAFT_SYSTEM_PROMPT for providers that enforce shape (#3749 B1.4). */
+export const STRUCTURE_FEEDBACK_DRAFT_RESPONSE_SCHEMA = {
+  name: "feedback_draft",
+  schema: {
+    type: "object",
+    properties: {
+      kind: { type: "string", enum: ["缺陷", "需求"] },
+      title: { type: "string" },
+      detail: { type: "string" },
+      structured: {
+        type: "object",
+        properties: {
+          reproFrequencyEnv: { type: "string" }, expectedResult: { type: "string" }, actualResult: { type: "string" }, reproSteps: { type: "string" },
+          useScenario: { type: "string" }, expectedCapability: { type: "string" }, priorityScope: { type: "string" },
+        },
+        additionalProperties: false,
+      },
+    },
+    required: ["kind", "title", "detail"],
+    additionalProperties: false,
+  },
+} as const;
+
 export function parseStructuredForKind(kind: FeedbackKind, raw: unknown): FeedbackStructured | null {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
   // 只保留字符串值：模型偶尔会给 null / 数组，契约 `.strict()` 会整段拒掉，先清洗再校验。
@@ -135,6 +158,7 @@ export async function structureFeedbackDraft(
         // DeepAgentModelProvider 把这次元任务调用误当成要接续的真实会话。
         system: STRUCTURE_FEEDBACK_DRAFT_SYSTEM_PROMPT,
         user: input.transcript,
+        responseSchema: STRUCTURE_FEEDBACK_DRAFT_RESPONSE_SCHEMA,
       }),
       new Promise<never>((_resolve, reject) => {
         setTimeout(() => reject(new Error("feedback structuring model call timed out")), STRUCTURE_FEEDBACK_DRAFT_TIMEOUT_MS);
