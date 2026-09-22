@@ -19,15 +19,24 @@
 import * as React from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { describeFailure } from "@/lib/design-failure";
 import {
   PROTOTYPE_MAX_REF_IMAGES,
+  PROTOTYPE_REF_IMAGE_MAX_BYTES,
   type RefImage,
 } from "@/lib/live-design-workbench";
+
+/**
+ * 迭代 31：「4MB」原来是手打在这句话里的字面量，而真正判大小的是契约常量
+ * `PROTOTYPE_REF_IMAGE_MAX_BYTES`。上限一改，服务端拒得更早、屏上还在说 4MB——
+ * 同一事实的第二份副本，本仓已经因此漂过五次。现在从常量算出来。
+ */
+const MAX_MB = Math.round(PROTOTYPE_REF_IMAGE_MAX_BYTES / (1024 * 1024));
 
 /** 被拒的三种情形共用一个错误码，`rejectReason` 决定说哪句话。 */
 const REJECT_TEXT: Record<string, string> = {
   TYPE: "这个文件不是 PNG / JPEG / WebP 图片。",
-  SIZE: "这张图太大了，单张不能超过 4MB。",
+  SIZE: `这张图太大了，单张不能超过 ${MAX_MB}MB。`,
   TOO_MANY: `参考图最多 ${PROTOTYPE_MAX_REF_IMAGES} 张，先删一张再传。`,
 };
 
@@ -39,7 +48,13 @@ const REJECT_TEXT: Record<string, string> = {
 export function refImageRejectText(err: unknown): string {
   const raw = (err as { raw?: { rejectReason?: unknown } } | null)?.raw;
   const reason = typeof raw?.rejectReason === "string" ? raw.rejectReason : "";
-  return REJECT_TEXT[reason] ?? "这张图没能上传，换一张试试。";
+  const known = REJECT_TEXT[reason];
+  if (known !== undefined) return known;
+  /*
+   * 迭代 31：兜底原来一律是「这张图没能上传，换一张试试」——断网、登录过期、
+   * 服务端 500 时都这么说，于是用户去换图，换十张也一样。不是图的问题就别怪图。
+   */
+  return `这张图没能上传：${describeFailure(err)}`;
 }
 
 export function RefImageStrip({
@@ -59,6 +74,25 @@ export function RefImageStrip({
   const fileRef = React.useRef<HTMLInputElement>(null);
   const full = images.length >= PROTOTYPE_MAX_REF_IMAGES;
   const blocked = disabled === true || busy;
+
+  /**
+   * 迭代 31：一次拖进来好几张时，原来是 `take(files[0])` —— 第一张上传，其余**静默消失**。
+   * 用户看到条上多了一张，以为另外两张也在，下一句"照这三张画"就全错了。
+   * 这里不改成批量上传（服务端一次只收一张，改成串行上传是另一件事），
+   * 而是**如实说**只收了一张、剩下的要一张一张来。
+   */
+  const takeMany = (files: readonly File[]) => {
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (files.length > 0 && imgs.length === 0) {
+      setError("这里只收图片（PNG / JPEG / WebP）。");
+      return;
+    }
+    const first = imgs[0];
+    if (first === undefined) return;
+    void take(first).then(() => {
+      if (imgs.length > 1) setError(`一次只能传一张，这次收下了「${first.name}」；另外 ${imgs.length - 1} 张请再拖一次。`);
+    });
+  };
 
   const take = async (file: File | null | undefined) => {
     if (!file || blocked) return;
@@ -107,7 +141,7 @@ export function RefImageStrip({
       onDrop={(e) => {
         e.preventDefault();
         setDragging(false);
-        void take(e.dataTransfer.files[0]);
+        takeMany(Array.from(e.dataTransfer.files));
       }}
       data-testid="design-ref-images"
     >
@@ -159,7 +193,8 @@ export function RefImageStrip({
           {images.length === 0 ? "照着一张图画" : `参考图 ${String(images.length)}`}
         </Button>
         <span className="text-10 text-muted-foreground">
-          {full ? `已满 ${PROTOTYPE_MAX_REF_IMAGES} 张` : "拖进来 / 粘贴截图也行"}
+          {/* 迭代 31：上传中只有按钮上一个小转圈。大图传几秒，屏上得有一句话说它在动。 */}
+          {busy ? "正在上传…" : full ? `已满 ${PROTOTYPE_MAX_REF_IMAGES} 张` : "拖进来 / 粘贴截图也行"}
         </span>
       </div>
       {error !== null && (

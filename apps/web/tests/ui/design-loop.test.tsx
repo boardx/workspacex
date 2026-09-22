@@ -57,6 +57,7 @@ import { ApiError } from "@/lib/api-client";
 import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { describeFailure } from "@/lib/design-failure";
+import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
 import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -1106,6 +1107,40 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       vi.stubGlobal("fetch", fetchMock);
       return fetchMock;
     };
+
+    it("一次拖进来三张 ⇒ 只收得下一张，就明说收了哪一张、剩几张要再来", async () => {
+      /*
+       * ⭐ 反证锚点：把 drop 改回 `take(e.dataTransfer.files[0])` ⇒ 这条红。
+       * 服务端一次只收一张，而原来多余的那两张**静默消失**：条上多了一张，
+       * 用户以为三张都在，下一句「照这三张画」就全错了。
+       */
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      stubUpload();
+      render(<DesignDetailScreen projectId="p1" />);
+      const strip = await screen.findByTestId("design-ref-images");
+      const three = [png(), png(), png()];
+      fireEvent.drop(strip, { dataTransfer: { files: three, items: [], types: ["Files"] } });
+      const note = await screen.findByTestId("design-ref-image-error");
+      expect(note.textContent).toContain("一次只能传一张");
+      expect(note.textContent).toContain("另外 2 张");
+    });
+
+    it("拖进来的根本不是图片 ⇒ 说一句，而不是没反应", async () => {
+      // ⭐ 反证锚点：去掉 takeMany 里那条判断 ⇒ 这条红（旧代码会把 files[0] 直接发上去或静默丢掉）。
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      stubUpload();
+      render(<DesignDetailScreen projectId="p1" />);
+      const strip = await screen.findByTestId("design-ref-images");
+      const doc = new File([new Uint8Array([1])], "需求.pdf", { type: "application/pdf" });
+      fireEvent.drop(strip, { dataTransfer: { files: [doc], items: [], types: ["Files"] } });
+      expect((await screen.findByTestId("design-ref-image-error")).textContent).toContain("只收图片");
+    });
 
     it("选文件后 POST 到本项目的 ref-images，条上出现这张图", async () => {
       apiRequest.mockImplementation(async (path: string) => {
@@ -3921,7 +3956,13 @@ describe("新建时就能带参考图（照这个画）", () => {
     await screen.findByTestId("ref-image-picked-2");
     expect(screen.queryByTestId("ref-image-picked-3")).toBeNull();
     expect((screen.getByTestId("ref-image-pick") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId("ref-image-picker").textContent).toContain("去掉一张才能再加");
+    /*
+     * 迭代 31 起，一次选超量时说的是**更具体**的那一句（收下了几张、剩几张没进来）；
+     * 「去掉一张才能再加」留给"已经满了还想再加"的那一刻。两句都在说为什么，
+     * 这条断言跟着改成前者——意图不变：满了之后按钮禁用，并且屏上说得出原因。
+     */
+    expect(screen.getByTestId("ref-image-picker-note").textContent).toContain("只收下了 3 张");
+    expect(screen.getByTestId("ref-image-picker-note").textContent).toContain("1 张没加进来");
   });
 });
 
@@ -4366,5 +4407,83 @@ describe("迭代 30：对话那一侧——普通人说得出、看得懂、再�
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
     expect(screen.getByTestId("design-detail-input").getAttribute("placeholder")).toContain("你想做个什么");
+  });
+});
+
+describe("迭代 31：拖进来的图，收没收下要说清楚", () => {
+  beforeEach(() => {
+    apiRequest.mockReset();
+    // jsdom 没有 object URL；缩略图只要一个占位字符串就够，这条测的不是图本身。
+    Object.defineProperty(URL, "createObjectURL", { value: () => "blob:x", configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: () => undefined, configurable: true });
+  });
+
+  const img = (name: string) => new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });
+  const pdf = () => new File([new Uint8Array([1])], "需求.pdf", { type: "application/pdf" });
+
+  const openNewDialog = async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    return screen.findByTestId("ref-image-dropzone");
+  };
+
+  const drop = (el: HTMLElement, files: File[]) => {
+    fireEvent.drop(el, { dataTransfer: { files, items: [], types: ["Files"] } });
+  };
+
+  it("一次拖进来超过上限 ⇒ 说清只收下了几张，而不是悄悄丢掉", async () => {
+    /*
+     * ⭐ 反证锚点：把 add() 改回 `incoming.slice(0, room)` 且不提示 ⇒ 这条红。
+     * 用户手里那张图正是他这次最想让 AI 看的东西，丢了却不说，他不会发现。
+     */
+    const picker = await openNewDialog();
+    drop(picker, [img("a.png"), img("b.png"), img("c.png"), img("d.png"), img("e.png")]);
+    const note = await screen.findByTestId("ref-image-picker-note");
+    expect(note.textContent).toContain("只收下了");
+    expect(note.textContent).toContain("没加进来");
+  });
+
+  it("拖进来的不是图片 ⇒ 说一句，而不是「拖了一下什么也没发生」", async () => {
+    // ⭐ 反证锚点：把非图片过滤放回调用点静默 filter ⇒ 这条红。
+    const picker = await openNewDialog();
+    drop(picker, [pdf()]);
+    expect((await screen.findByTestId("ref-image-picker-note")).textContent).toContain("只收图片");
+  });
+
+  it("去掉一张之后，上一条提示跟着消失——不留一句已经不成立的话在屏上", async () => {
+    /*
+     * ⭐ 反证锚点：删掉移除按钮里的 `setNote(null)` ⇒ 这条红。
+     * 「只收下了 3 张，另外 2 张没加进来」在用户删掉一张之后就不再成立；
+     * 留着它，下一次他会以为刚才那两张又被收进来了。静态痕迹不能当现状用。
+     */
+    const picker = await openNewDialog();
+    drop(picker, [img("a.png"), img("b.png"), img("c.png"), img("d.png"), img("e.png")]);
+    expect((await screen.findByTestId("ref-image-picker-note")).textContent).toContain("只收下了");
+    fireEvent.click(screen.getByTestId("ref-image-remove-0"));
+    await waitFor(() =>
+      expect(screen.getByTestId("ref-image-picker-note").textContent).not.toContain("只收下了"),
+    );
+  });
+
+  it("上传失败时，不是图的问题就别怪图——断网说断网，不说「换一张试试」", () => {
+    /*
+     * ⭐ 反证锚点：把兜底改回「这张图没能上传，换一张试试。」⇒ 这条红。
+     * 用户会照着那句话换十张图，而每一张都会以同样的方式失败。
+     */
+    expect(refImageRejectText(new ApiError(400, "REF_IMAGE_REJECTED", { rejectReason: "SIZE" }))).toContain("太大");
+    const offline = refImageRejectText(new TypeError("Failed to fetch"));
+    expect(offline).toContain("网络");
+    expect(offline).not.toContain("换一张");
+  });
+
+  it("单张大小上限是契约常量算出来的，不是手打在文案里的 4MB", () => {
+    // ⭐ 反证锚点：把文案改回写死的 "4MB" 而常量改成别的值 ⇒ 这条红。
+    const mb = Math.round(designWorkbench.PROTOTYPE_REF_IMAGE_MAX_BYTES / (1024 * 1024));
+    expect(refImageRejectText(new ApiError(400, "REF_IMAGE_REJECTED", { rejectReason: "SIZE" }))).toContain(`${mb}MB`);
   });
 });
