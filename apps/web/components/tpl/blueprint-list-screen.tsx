@@ -180,8 +180,14 @@ function BlueprintCard({
           <span data-testid="tpl-row-completion">{row.doneCount}/{total} 已配</span>
         </div>
 
+        {/*
+          2026-09-22 实测（`scripts/audit-text-contrast.mjs` 打在装好的 0.2.0 上）：下面这行原本是
+          `text-warning-foreground`，而该 token 在浅色主题里是 `0 0% 100%` 纯白，打在行的白底上
+          对比度只有 1.0——用户根本看不见「为什么还不能发布」这句话。改用成对的 tint 档
+          （浅底上 6.45:1，由 `scripts/check-token-contrast.mjs` 看住）。
+        */}
         {isDraft && row.draftHint && (
-          <p className="text-11 text-warning-foreground" data-testid="tpl-row-draft-hint">{row.draftHint}</p>
+          <p className="text-11 text-warning-tint-foreground" data-testid="tpl-row-draft-hint">{row.draftHint}</p>
         )}
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">

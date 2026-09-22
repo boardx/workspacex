@@ -148,13 +148,50 @@ export const LOCAL_FAILURE_NEXT_STEP: Record<AgentRunFailureReasonValue, string>
   unknown: "没能归类出原因。原样重发一次；如果稳定复现，请把任务编号和 logs/api.log 一起反馈给我们。",
 };
 
+/**
+ * 按**终态错误码**的本地建议 —— 补上 `LOCAL_FAILURE_NEXT_STEP` 覆盖不到的那一半。
+ *
+ * ## 为什么需要第二张表
+ *
+ * 那张表按 `AgentRunFailureReason` 分，而**有些失败根本没有成因**，只有一个终态码：
+ * `MODEL_PROVIDER_NOT_CONFIGURED` 的人读文案逐字是「所选模型服务尚未配置，请联系管理员」。
+ * 本地版单人单机，没有管理员可联系。
+ *
+ * ⚠ 而这条路径在本地版**变得更常见，正是因为我们自己的改动**：出图那条（`image-generation`
+ * 在本地是 `absent`）现在会以这个码诚实失败——我们把「悄悄出网然后 401」换成了「明确拒绝」，
+ * 于是用户看到的就是这句「请联系管理员」。修一个缺陷把另一句错文案推到了前台，这一张表补它。
+ *
+ * ⚠ key 集合与 `wave2-runtime.ts` 的 `AgentRunError` 是同一件事：TypeScript 会在这里报缺 key。
+ */
+export const LOCAL_ERROR_NEXT_STEP: Record<
+  z.infer<typeof import("./wave2-runtime").AgentRunError>,
+  string | null
+> = {
+  // 人拒的，不需要建议
+  HITL_REJECTED: null,
+  MODEL_PROVIDER_NOT_CONFIGURED:
+    "这次用到的服务本地版没有（最常见的是 AI 出图——出图要调云端服务，本地版不出网）。换一个不需要它的做法，或者到在线正式系统里做这件事。",
+  SKILL_VERSION_UNAVAILABLE:
+    "这个技能包在本机没装好。退出应用再打开一次会重新导入随包技能；仍然不行就看 logs/api.log 里 skill 相关的行。",
+  AGENT_VERSION_UNAVAILABLE: "重新选一个 Agent 再发一次即可；本机的 Agent 列表不会自己变化，这通常是一次性的读取失败。",
+  MODEL_CALL_FAILED: null, // 这一类必定带成因，交给 LOCAL_FAILURE_NEXT_STEP
+  CHAT_WRITEBACK_FAILED: "回复已经生成出来了，只是没写进对话。用失败卡上的重试；本地库偶尔会因为一次长事务排队而写失败。",
+  TOOL_LOOP_LIMIT_EXCEEDED: "本机的小模型容易在工具之间打转。把任务说得更具体、或拆成两步分别发，通常一次就过。",
+  KERNEL_UNAVAILABLE: "本地运行时还没起全（刚打开应用时最常见）。等十几秒再发一次；反复如此就看 logs/deep-agent.log。",
+  RUN_INTERRUPTED: "执行它的本地服务重启过，原样重发即可。",
+};
+
 /** 本版次在失败之后给不给这句额外建议。在线版不给：那套文案本来就是为它写的。 */
 export function failureNextStep(
   edition: DeploymentEditionValue,
   reason: keyof typeof LOCAL_FAILURE_NEXT_STEP | null | undefined,
+  /** 终态错误码。只在成因给不出建议时才用它——**永远只出一句「下一步」**。 */
+  code?: keyof typeof LOCAL_ERROR_NEXT_STEP | null,
 ): string | null {
-  if (edition !== "local" || reason === null || reason === undefined) return null;
-  return LOCAL_FAILURE_NEXT_STEP[reason] ?? null;
+  if (edition !== "local") return null;
+  const byReason = reason === null || reason === undefined ? null : LOCAL_FAILURE_NEXT_STEP[reason] ?? null;
+  if (byReason !== null) return byReason;
+  return code === null || code === undefined ? null : LOCAL_ERROR_NEXT_STEP[code] ?? null;
 }
 
 /* ─────────────────────── 长时间不返回的工具调用 ─────────────────────── */

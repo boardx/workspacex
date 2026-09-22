@@ -203,6 +203,16 @@ export function AdminNav({
                    *   也不假装它是 0。
                    */
                   title={countUnavailable ? `${item.label}：尚未接入真实数据源，因此不显示数字（不是 0）` : undefined}
+                  /*
+                   * 2026-09-22：`scripts/audit-text-contrast.mjs` 量出这一支只有 2.55:1，低于 AA。
+                   * 这是**刻意**的弱化——它要和「接了真实数据源的数字」在视觉上分得开，而含义由
+                   * 上面那个 `title` 承担（#881 的原意）。所以不是提高对比度，而是把例外**声明**出来：
+                   * 审计器据这个属性单独计数并打印理由，不再混进「不通过」。
+                   * ⚠ 只对 `countUnavailable` 那一支声明；接了真实计数的那一支必须照常过 AA。
+                   */
+                  data-contrast-exempt={countUnavailable
+                    ? "占位符「—」故意弱化，以便与接了真实数据源的数字区分；含义由 title 说明（#881）"
+                    : undefined}
                   className={cn(
                     "shrink-0 text-11 tabular-nums",
                     countUnavailable ? "text-muted-foreground/60" : "text-muted-foreground",
