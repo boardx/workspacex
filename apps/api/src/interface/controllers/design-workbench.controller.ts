@@ -59,6 +59,13 @@ import {
   restorePrototypeVersion,
 } from "../../application/design-workbench/prototype-versions";
 import { deleteProject } from "../../application/design-workbench/delete-project";
+import {
+  NothingToPublishError,
+  ShareNotFoundError,
+  getSharedDesign,
+  publishProject,
+  unpublishProject,
+} from "../../application/design-workbench/share-project";
 import { pushToInbox } from "../../application/design-workbench/push-to-inbox";
 import {
   createDesignGithubIssue,
@@ -115,6 +122,7 @@ import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
@@ -127,6 +135,8 @@ type ImportThreadBody = ReturnType<typeof IMPORT_THREAD_SCHEMA.parse>;
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
+export const PUBLISH_PROJECT_SCHEMA = C.operations.publishProject.in.omit({ projectId: true });
+type PublishProjectBody = ReturnType<typeof PUBLISH_PROJECT_SCHEMA.parse>;
 export const CREATE_DESIGN_GITHUB_ISSUE_SCHEMA = C.operations.createDesignGithubIssue.in.omit({ projectId: true });
 type CreateDesignGithubIssueBody = ReturnType<typeof CREATE_DESIGN_GITHUB_ISSUE_SCHEMA.parse>;
 
@@ -167,6 +177,14 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignProjectNotPushedError) return new ConflictException({ reasonCode: "PROJECT_NOT_PUSHED" });
   if (e instanceof DesignIssueAlreadyExistsError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_ALREADY_EXISTS" });
   if (e instanceof DesignIssueInProgressError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_IN_PROGRESS" });
+  /*
+   * 迭代 22：
+   *   · 一页都没画出来就发布 = 请求在当前状态下不合法（前置条件不满足）⇒ 409，
+   *     同 `PROJECT_NOT_PUSHED` 的理由：输入形状没问题，是这一刻做这件事没有意义。
+   *   · 分享链接打不开 ⇒ **裸 404 带一个码**，且不区分"令牌不对 / 已取消发布 / 项目没了"。
+   */
+  if (e instanceof NothingToPublishError) return new ConflictException({ reasonCode: "NOTHING_TO_PUBLISH" });
+  if (e instanceof ShareNotFoundError) return new NotFoundException({ reasonCode: "SHARE_NOT_FOUND" });
   if (e instanceof DesignIssueCreationFailedError) {
     return new ServiceUnavailableException({ reasonCode: "DESIGN_ISSUE_CREATION_FAILED" });
   }
@@ -253,9 +271,9 @@ export class DesignWorkbenchController {
           problem: body.problem,
           linkedFeedbackId: body.linkedFeedbackId,
           intake: body.intake,
-          successQuestions: (body.intake ?? []).map((a) => a.question),
           tags: body.tags,
           theme: body.theme,
+          accent: body.accent,
         },
       );
     } catch (e) {
@@ -297,6 +315,7 @@ export class DesignWorkbenchController {
         template: body.template,
         problem: body.problem,
         theme: body.theme,
+        accent: body.accent,
         tags: body.tags,
       });
     } catch (e) {
@@ -327,6 +346,8 @@ export class DesignWorkbenchController {
         {
           projectId, ownerId: principal.userId, text: body.text,
           ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          // 迭代 20：这一轮的页数上限（服务端截断执行，不是提示）。
+          ...(body.maxScreens !== undefined ? { maxScreens: body.maxScreens } : {}),
           ...(refImages.length > 0 ? { refImages } : {}),
         },
       );
@@ -490,7 +511,7 @@ export class DesignWorkbenchController {
         declaredContentType: contentType,
         bytes: new Uint8Array(file.buffer),
       });
-      return { image, project: await loadProjectView(this.deps(principal), projectId) };
+      return { image, project: await loadProjectView(this.deps(principal), projectId, principal.userId) };
     } catch (e) {
       if (e instanceof RefImageRejectedError) {
         throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: e.reason });
@@ -527,6 +548,68 @@ export class DesignWorkbenchController {
       return await createDesignGithubIssue(
         { ...this.deps(principal), logger: this.logger, githubIssues: this.githubIssues },
         { projectId, ownerId: principal.userId, draft: body.draft },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+  /* ─────────── 迭代 22：发布与分享 ─────────── */
+
+  /**
+   * 发布 / 重新发布。同一条链接（令牌首次生成后沿用），快照更新到这一刻。
+   * ⚠ 路由声明在 `DELETE /pm-designs/:projectId` 之后无所谓——方法不同、路径更长，不会被吃掉。
+   */
+  @Post("/pm-designs/:projectId/share")
+  async publishShare(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(PUBLISH_PROJECT_SCHEMA)) body: PublishProjectBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await publishProject(this.deps(principal), {
+        projectId,
+        ownerId: principal.userId,
+        ...(body.scope === undefined ? {} : { scope: body.scope }),
+      });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /** 取消发布——链接立刻失效。幂等：没发布过也是 200。 */
+  @Delete("/pm-designs/:projectId/share")
+  async unpublishShare(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    try {
+      return await unpublishProject(this.deps(principal), { projectId, ownerId: principal.userId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+}
+
+/**
+ * 迭代 22 —— 免登录的分享页读接口。**独立 controller**，同 `PublicSurveyController` 的形状：
+ * 把"不带 principal 的那条路径"放在它自己的类里，而不是给一个到处 `assertPrincipal` 的
+ * controller 开一个 `@Public()` 的口子——后者意味着以后读这个文件的人要逐个方法确认
+ * "这条到底要不要登录"。
+ */
+@Controller()
+export class PublicDesignShareController {
+  constructor(
+    @Inject(DESIGN_PROJECT_REPOSITORY) private readonly projects: DesignProjectRepositoryFactory,
+    @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+  ) {}
+
+  @Public()
+  @Get("/public/design-shares/:token")
+  async get(@Param("token") token: string) {
+    try {
+      return await getSharedDesign(
+        { projects: this.projects, submitters: this.submitterDirectory, logger: this.logger },
+        token,
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;

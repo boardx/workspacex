@@ -97,6 +97,44 @@ function framesTrimmed(patch: DesignProjectPatch, currentFrames: readonly string
   return rest;
 }
 
+/**
+ * 迭代 17：被丢掉的跳转 → 一句给用户看的人话。
+ *
+ * 原因用**闭集**穷举（`LinkDropReason`），漏一个编译不过——少一种原因的表现是
+ * 屏上说「有 1 条跳转没连上」却说不出为什么，那比不说更让人困惑。
+ *
+ * 最多列三条：一次生成里连错十条通常是同一个原因，全列出来会把回复淹掉；
+ * 多出来的只报个数。
+ */
+const LINK_DROP_TEXT: Record<designPrototype.LinkDropReason, string> = {
+  TARGET_OUT_OF_RANGE: "指向的页不存在",
+  SELF_LINK: "指向了自己这一页",
+  FROM_NOT_FOUND: "这一页上找不到那个节点",
+  ITEM_OUT_OF_RANGE: "指定的第几项超出了范围",
+  DUPLICATE: "同一个位置重复连了两次",
+  TOO_MANY: "这一页的跳转条数超过上限",
+};
+
+const DROPPED_NOTICE_MAX = 3;
+
+export function describeDroppedLinks(
+  dropped: readonly { readonly screen: number; readonly link: designPrototype.PrototypeLink; readonly reason: designPrototype.LinkDropReason }[],
+  frames: readonly string[],
+): string {
+  if (dropped.length === 0) return "";
+  const lines = dropped.slice(0, DROPPED_NOTICE_MAX).map((d) => {
+    const page = frames[d.screen] ?? `第 ${String(d.screen)} 页`;
+    return `「${page}」上 ${d.link.from} → 第 ${String(d.link.to)} 页：${LINK_DROP_TEXT[d.reason]}`;
+  });
+  const rest = dropped.length - lines.length;
+  return (
+    `\n\n⚠ 有 ${String(dropped.length)} 条跳转没连上，预览时点它们不会有反应：\n` +
+    lines.map((l) => `· ${l}`).join("\n") +
+    (rest > 0 ? `\n· 还有 ${String(rest)} 条同类问题。` : "") +
+    "\n告诉我该连到哪一页，我把它们补上。"
+  );
+}
+
 /** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
 function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly (designPrototype.PrototypeNode | null)[] }, id: string | undefined) {
   if (id === undefined) return {};
@@ -113,6 +151,8 @@ export async function appendProjectChat(
     readonly ownerId: string;
     readonly text: string;
     readonly focusNodeId?: string;
+    /** 迭代 20：这一轮最多画几页（服务端强制截断）。不给 ⇒ 不设限。 */
+    readonly maxScreens?: number;
     /**
      * 迭代 13：这一轮带给模型看的参考图**字节**。由 controller 用 `loadRefImageBytes` 取好传进来——
      * 本用例不认识对象存储，也不该为了几张图长出一个存储依赖。
@@ -162,6 +202,7 @@ export async function appendProjectChat(
 
   const ai = await deps.ai.reply({
     onProgress: persistProgress,
+    ...(input.maxScreens === undefined ? {} : { maxScreens: input.maxScreens }),
     name: current.name,
     template: current.template,
     problem: current.problem,
@@ -209,6 +250,23 @@ export async function appendProjectChat(
   const linkCheck = screens === undefined ? undefined : designPrototype.validateLinks(
     screens.map((s) => ({ root: s.root, links: s.links })),
   );
+  /**
+   * 迭代 17 —— 被丢掉的跳转**要让用户看见**，不能只进服务端日志。
+   *
+   * 在这之前这里只 `logger.info` 一行。于是链路是这样的：模型在回复里说「点「去结算」
+   * 会进结算页」→ 那条 link 指向一个不存在的页 → 服务端逐条丢掉（这是对的，悬空跳转
+   * 不该让整页作废）→ 用户切到预览、按下去**没反应**。屏上没有任何痕迹说明这条线被
+   * 丢了，用户只会以为"可点击原型"这件事本身不好使。
+   *
+   * 这正是本仓反复点名的那个形态：**界面声称的事情没有真的发生**。所以把它说出来，
+   * 说清是哪一页的哪个节点、以及为什么——用户据此能直接让模型补一句「把 X 连到 Y」。
+   *
+   * ⚠ 放在**服务端追加的那一段**里，不改模型说的话（同 `BLIND_MODEL_NOTICE` 的成例）：
+   *   模型说了什么是它的事实，服务端丢了什么是服务端的事实，两者不混。
+   */
+  const droppedNotice = linkCheck === undefined || linkCheck.dropped.length === 0
+    ? ""
+    : describeDroppedLinks(linkCheck.dropped, screens?.map((s) => s.frame) ?? []);
   if (linkCheck !== undefined && linkCheck.dropped.length > 0) {
     deps.logger?.info("design chat: links dropped", {
       projectId: input.projectId, traceId: deps.traceId ?? "",
@@ -216,6 +274,15 @@ export async function appendProjectChat(
     });
   }
   const patch: DesignProjectPatch = {
+    /*
+     * 迭代 17：骨架轮挑的强调色。只在**首次分页生成**那条路上会有，且只在它与项目现有
+     * 档位不同的时候才写——否则每一轮对话都往 patch 里塞一个没变化的字段，
+     * 每次都白写一遍库。
+     *
+     * 它**不进 `applied`**（那个闭集是 problem/criteria/frames/prototype 四项）：
+     * 强调色的变化用户在画布上一眼就看见了，屏上再写一行「已更新：强调色」是噪音。
+     */
+    ...(ai.accent !== undefined && ai.accent !== current.accent ? { accent: ai.accent } : {}),
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
@@ -238,7 +305,18 @@ export async function appendProjectChat(
   }
   // `applied` 只列契约闭集里的项目字段（`frameNotes` 随 `prototype` 一起写，不单列）。
   const applied = Object.keys(patch).filter((k): k is DesignWritebackField => (designAiCollabFields as readonly string[]).includes(k));
-  if (applied.length > 0) {
+  /**
+   * ⚠ 写库的条件是 **patch 非空**，不是 `applied` 非空。
+   *
+   * `applied` 是给**用户**看的「这次改了什么」，它的闭集 `DesignWritebackField` 只有
+   * problem/criteria/frames/prototype 四项。迭代 17 往 patch 里加了 `accent`（骨架轮挑的
+   * 强调色）——它不在那个闭集里，所以用 `applied.length > 0` 当写库条件的话，
+   * 「只改了强调色」这一次会被**静默丢掉**：屏上不报错、库里没变化、用户以为设成功了。
+   *
+   * 这两件事本来就是两个问题（「要不要写」与「屏上说改了什么」），之前它们恰好同解，
+   * 于是被写成了一个条件。现在分开。
+   */
+  if (Object.keys(patch).length > 0) {
     // 迭代 3：原型真的变了（整页 / patch）⇒ 与 UPDATE 同一事务追加一条版本快照。只改标签（树被清空）不记——那不是一版原型。
     const version = patch.prototype !== undefined ? { source: "model" as const, summary: ai.text.replace(/\s+/g, " ").trim().slice(0, 120) } : undefined;
     const written = await deps.projects.update(input.projectId, input.ownerId, patch, version);
@@ -247,13 +325,14 @@ export async function appendProjectChat(
 
   const updated = await deps.projects.appendChat(input.projectId, input.ownerId, [
     { role: "user", text: input.text },
-    { role: "ai", text: ai.text, source: ai.source },
+    // 迭代 17：模型说的话 + 服务端追加的「哪几条跳转没连上」。
+    { role: "ai", text: (ai.text + droppedNotice).slice(0, 4200), source: ai.source },
   ]);
   if (updated === null) throw new DesignProjectNotOwnerError();
 
   const names = await ownerNamesFor(deps, [updated.ownerId]);
   return {
-    project: projectDesignProject(updated, names.get(updated.ownerId) ?? null),
+    project: projectDesignProject(updated, names.get(updated.ownerId) ?? null, input.ownerId),
     reply: { source: ai.source, applied, suggestions: [...ai.suggestions], ...(ai.fallbackReason === undefined ? {} : { fallbackReason: ai.fallbackReason }) },
   };
 }

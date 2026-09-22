@@ -144,6 +144,14 @@
         "canvas/update-canvas-source"
       ]
     },
+    "CanvasSegmentSkillController": {
+      "useCases": [
+        "canvas/bind-skill-to-segment",
+        "canvas/errors",
+        "canvas/list-segment-skills",
+        "canvas/segment-binding-errors"
+      ]
+    },
     "CanvasTemplateController": {
       "useCases": [
         "canvas/adopt-template",
@@ -252,6 +260,7 @@
         "design-workbench/prototype-versions",
         "design-workbench/push-to-inbox",
         "design-workbench/ref-images",
+        "design-workbench/share-project",
         "design-workbench/update-project",
         "feedback/structure-feedback-draft"
       ]
@@ -483,12 +492,35 @@
         "project/errors",
         "project/get-project-overview",
         "project/list-agenda-segments",
+        "project/list-project-members",
         "project/list-projects",
         "project/preview-as-role",
         "project/remove-project-member",
         "project/render-role-view",
         "project/unarchive-project",
         "project/update-project-tags"
+      ]
+    },
+    "PublicDesignShareController": {
+      "useCases": [
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "design-workbench/append-project-chat",
+        "design-workbench/create-design-github-issue",
+        "design-workbench/create-project",
+        "design-workbench/delete-project",
+        "design-workbench/design-chat-model",
+        "design-workbench/import-thread",
+        "design-workbench/intake-questions",
+        "design-workbench/list-my-projects",
+        "design-workbench/patch-prototype",
+        "design-workbench/project-shared",
+        "design-workbench/prototype-versions",
+        "design-workbench/push-to-inbox",
+        "design-workbench/ref-images",
+        "design-workbench/share-project",
+        "design-workbench/update-project",
+        "feedback/structure-feedback-draft"
       ]
     },
     "RecordingController": {
@@ -676,6 +708,7 @@
         "ArtifactFileVersionsController",
         "ArtifactReferenceController",
         "CanvasInstanceController",
+        "CanvasSegmentSkillController",
         "CanvasTemplateController",
         "CapabilityController",
         "ChatAttachmentController",
@@ -705,6 +738,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "RecordingController",
         "SkillController",
         "SkillMountController",
@@ -755,6 +789,7 @@
         "ArtifactFileVersionsController",
         "ArtifactReferenceController",
         "CanvasInstanceController",
+        "CanvasSegmentSkillController",
         "CanvasTemplateController",
         "CapabilityController",
         "ChatAttachmentController",
@@ -784,6 +819,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "RecordingController",
         "SkillController",
         "SkillMountController",
@@ -827,6 +863,7 @@
       "controllers": [
         "ArtifactFileVersionsController",
         "CanvasInstanceController",
+        "CanvasSegmentSkillController",
         "CanvasTemplateController",
         "CapabilityController",
         "ChatAttachmentController",
@@ -846,6 +883,7 @@
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
+        "PublicDesignShareController",
         "RecordingController",
         "SkillController",
         "SkillMountController",
@@ -884,6 +922,7 @@
       "controllers": [
         "ArtifactFileVersionsController",
         "CanvasInstanceController",
+        "CanvasSegmentSkillController",
         "CanvasTemplateController",
         "CapabilityController",
         "ChatAttachmentController",
@@ -903,6 +942,7 @@
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
+        "PublicDesignShareController",
         "RecordingController",
         "SkillController",
         "SkillMountController",
@@ -959,6 +999,7 @@
         "ArtifactFileVersionsController",
         "ArtifactReferenceController",
         "CanvasInstanceController",
+        "CanvasSegmentSkillController",
         "CanvasTemplateController",
         "CapabilityController",
         "ChatAttachmentController",
@@ -988,6 +1029,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "RecordingController",
         "SkillController",
         "SkillMountController",
@@ -1033,6 +1075,22 @@
       "screen": "apps/web/app/(entry)/consent/page.tsx",
       "mocks": [
         "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/d/[token]": {
+      "kind": "wired",
+      "screen": "apps/web/app/d/[token]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-design-workbench.ts"
+      ],
+      "contracts": [
+        "design-ai-collab",
+        "design-prototype",
+        "design-workbench"
+      ],
+      "controllers": [
+        "DesignWorkbenchController",
+        "PublicDesignShareController"
       ]
     },
     "/group": {
@@ -1209,7 +1267,8 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
-        "InboxController"
+        "InboxController",
+        "PublicDesignShareController"
       ]
     },
     "/platform-admin/skill/[id]": {
@@ -1265,6 +1324,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "SkillFileEditController",
         "ToolPermissionGrantController"
       ]
@@ -1430,6 +1490,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1516,6 +1577,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1632,6 +1694,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1658,7 +1721,8 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
-        "InboxController"
+        "InboxController",
+        "PublicDesignShareController"
       ]
     },
     "/studio/feedback-drafts": {
@@ -1711,6 +1775,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1783,6 +1848,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1836,6 +1902,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1889,6 +1956,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1942,6 +2010,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },

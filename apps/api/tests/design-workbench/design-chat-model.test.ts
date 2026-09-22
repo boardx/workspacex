@@ -893,3 +893,72 @@ describe("迭代 16：每页轮成批并发（#3773 R9）", () => {
     expect(out.text).toContain("没画出来");
   });
 });
+
+/* ───────────────── 迭代 17：骨架轮挑强调色（#3773 后续） ───────────────── */
+
+describe("迭代 17：强调色在骨架轮定一次，过契约闭集", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "做个记账 App", at: "2026-09-22T00:00:00.000Z" }] };
+  const run = async (outline: string) => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    return r.reply(fresh);
+  };
+
+  it("模型给了合法档位 ⇒ 带出去，调用方据它落库", async () => {
+    // ⭐ 反证锚点：骨架轮不问强调色 ⇒ 这条红。不问的话每个项目都是同一个中性灰，
+    // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
+    const out = await run('{"reply":"两页。","accent":"blue","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBe("blue");
+  });
+
+  it("给了个闭集外的名字 ⇒ 不带（**不猜、不近似匹配**）", async () => {
+    // 「深蓝」和 blue 差一个字就该判不合法：近似匹配会让"模型给了个什么"变得不可复核。
+    const out = await run('{"reply":"两页。","accent":"深蓝","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+  });
+
+  it("压根没给 ⇒ 不带，项目保持原样（不是「改回 neutral」）", async () => {
+    const out = await run('{"reply":"两页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+    expect(out.pagedScreens?.length).toBe(2);
+  });
+
+  it("骨架轮的提示词把可选档位逐个列出来了（不列，模型只会编一个渲染不了的名字）", () => {
+    for (const a of C.PrototypeAccent.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(a);
+  });
+});
+
+describe("迭代 20：页数上限由服务端**截断执行**，不是给模型的提示", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const outline5 = '{"reply":"五页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"},{"frame":"D","intent":"d"},{"frame":"E","intent":"e"}]}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "画", at: "2026-09-22T00:00:00.000Z" }] };
+
+  it("模型规划了 5 页、上限给 3 ⇒ 只画前 3 页（先给最核心的，所以截前面）", async () => {
+    /*
+     * ⭐ 反证锚点：把上限当成提示塞进提示词、不做截断 ⇒ 这条红。
+     * 超时退路一直写着「试试少要几页」，而用户此前没有任何控制页数的手段——
+     * 说「只画 3 页」只是一句模型可以不听的话。
+     */
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply({ ...fresh, maxScreens: 3 });
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C"]);
+    // 1 次骨架 + 3 次每页：被砍掉的两页**一次模型调用都没花**。
+    expect(model.complete).toHaveBeenCalledTimes(4);
+  });
+
+  it("上限比规划的页数大 ⇒ 不影响（不会凭空补页）", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply({ ...fresh, maxScreens: 20 });
+    expect(out.pagedScreens?.length).toBe(5);
+  });
+
+  it("不给上限 ⇒ 行为与这个字段出现之前逐字相同", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply(fresh);
+    expect(out.pagedScreens?.length).toBe(5);
+  });
+});

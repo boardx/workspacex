@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
-import { designPrototype } from "@repo/contracts";
+import { designPrototype, designWorkbench } from "@repo/contracts";
 
 /**
  * 迭代 2：选中态。`selectedId` 当前选中的节点 id；`onSelect(id | null)` 点节点/点空白。
@@ -118,8 +118,25 @@ const SPACE: Record<"none" | "sm" | "md" | "lg", string> = { none: "h-0", sm: "h
 const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
   start: "items-start justify-start", center: "items-center justify-center", end: "items-end justify-end", between: "items-center justify-between",
 };
+/**
+ * 文字档位 → 样式。
+ *
+ * ## 迭代 18：两处改动，各自有理由
+ *
+ * ① **`label` 不再强制全大写**。`DESIGN_PRINCIPLES` 第 ⑬ 条逐字写着「不要用全大写的
+ *    小标签当眉头」——那是「一眼看出是 AI 生成」的头号特征之一。而这张表把**每一个**
+ *    `variant:"label"` 都 `uppercase` 了：规则管住了模型，没管住渲染器。中文看不出来
+ *    （`uppercase` 对汉字是空操作），做英文界面时就原形毕露，而且是我们自己加上去的。
+ *    同一条规矩，提示词里禁止、渲染器里强制，这是本仓那条「同一事实两处」的变体。
+ *
+ * ② **字号级差拉开**。原来是 16 / 13 / 12 / 10：subtitle 与 body 只差 1px，
+ *    在 300px 宽的手机画布上根本分不出来，「层级」于是只剩字重。改成 18 / 14 / 12 / 10，
+ *    相邻两档至少差 2px，肉眼能分辨。
+ *    ⚠ 档**数**没变（截图审计门 `scoreTypeScale` 数的是档数，3–6 档满分），
+ *      变的是档与档之间的距离——那正是肉眼读层级的依据。
+ */
 const TEXT_VARIANT: Record<"title" | "subtitle" | "body" | "caption" | "label", string> = {
-  title: "text-16 font-semibold", subtitle: "text-13 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium uppercase tracking-wide",
+  title: "text-18 font-semibold", subtitle: "text-14 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium tracking-wide",
 };
 /**
  * 迭代 13（delta §6）—— 圆角与尺寸的档位表。
@@ -210,6 +227,76 @@ export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevi
 }
 /** 没有改动时共用的同一个空集——每次渲染新建一个会让 context 每帧都变。 */
 const EMPTY_CHANGED: ReadonlySet<string> = new Set();
+
+/**
+ * 迭代 17（#3773 后续）—— 把强调色档位翻成画布根上的**内联 token 覆盖**。
+ *
+ * 整棵树的颜色都是 `hsl(var(--primary))` 这种形态（`bg-primary` / `text-primary` /
+ * `border-primary` / `fill-primary`…），所以只要在画布根上把这三个变量改掉，
+ * 按钮、选中的 tab、底部导航的当前项、开关、进度条、图表占位……**全部**跟着变，
+ * 不需要在渲染表里逐个节点做第二套颜色逻辑（那才是会漂的做法）。
+ *
+ * `--ring` 一起改：焦点环是主色的语义延伸，只改 `--primary` 会让键盘焦点停在旧色上，
+ * 一眼看出是补丁。
+ *
+ * `neutral` ⇒ 返回 `undefined`，一个变量都不写——这个字段出现之前的行为逐字不变。
+ */
+/**
+ * 迭代 19 —— **线框图模板真的画成线框图**。
+ *
+ * ## 这个选项此前在撒谎
+ *
+ * 新建时的三选一是「移动端设计 / UI 原型 / 线框图」，而 `template` 实际只决定用哪个
+ * 设备预设（iphone / laptop / ipad）。选了「线框图」拿到的是**彩色高保真稿**，只是画在
+ * 平板上——这个选项把「保真度」和「设备」混成一个轴，然后只实现了设备那一半。
+ * 与本仓一路修过的几条同类：界面许诺了一件事，底下没有人去做它。
+ *
+ * ## 为什么低保真值得真的做出来
+ *
+ * 早期讨论要的正是"别谈颜色，先谈结构"。一份彩色稿会把评审拽进"这个蓝好不好看"，
+ * 而线框图把注意力钉在信息层级与流程上。这是两种用途，不是一种用途的两种皮肤。
+ *
+ * ## 实现：和强调色同一个机制
+ *
+ * 画布里所有颜色都走 `hsl(var(--token))`，所以低保真 = 在画布根上把**语义色**全部
+ * 改写成灰阶（主色、成功、警告、危险）。不需要在渲染表里为线框图再写一套分支——
+ * 那才是会漂的做法，而且每加一个原语就要记得改两处。
+ *
+ * ⚠ 只压颜色，**不压结构**：圆角、间距、字号档位原样保留。线框图不是"把东西画丑"，
+ *   是"把颜色这一层信息拿掉"，布局判断仍然要能做。
+ */
+/**
+ * ⚠ 取值在**契约** `PROTOTYPE_WIREFRAME`，不在这里——它要和强调色走同一条对比度门
+ *   （这些 token 不只当块的底色，也当文字色；实测深色画布下灰 46% 只有 3.65:1）。
+ *   在这里再写一份就是「同一事实两处」，而且是门看不见的那一份。
+ */
+export function wireframeStyle(theme: "light" | "dark"): React.CSSProperties {
+  const { primary, foreground } = designWorkbench.PROTOTYPE_WIREFRAME[theme];
+  return {
+    "--primary": primary,
+    "--primary-foreground": foreground,
+    "--ring": primary,
+    // 语义色一并压平：线框图里「成功/警告/危险」不该靠颜色区分，该写出来。
+    "--success": primary,
+    "--warning": primary,
+    "--destructive": primary,
+  } as React.CSSProperties;
+}
+
+export function accentStyle(
+  accent: designWorkbench.PrototypeAccent | undefined,
+  theme: "light" | "dark",
+): React.CSSProperties | undefined {
+  if (accent === undefined || accent === "neutral") return undefined;
+  const tokens = designWorkbench.PROTOTYPE_ACCENTS[accent]?.[theme];
+  // 契约加了新档位却没给值时不硬崩，也不假装有颜色——退回"没有强调色"。
+  if (tokens === undefined) return undefined;
+  return {
+    "--primary": tokens.primary,
+    "--primary-foreground": tokens.foreground,
+    "--ring": tokens.primary,
+  } as React.CSSProperties;
+}
 
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
@@ -408,7 +495,21 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
       return (
-        <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-panel font-medium", AVATAR_SIZE[node.props.size ?? "md"])} data-proto="avatar" {...tap} title={node.props.name}>
+        /*
+         * 迭代 18：头像位用**强调色的淡底 + 强调色的字**，不再是一律的灰圆。
+         *
+         * 一条会话列表里十个一模一样的灰圆，看起来就是十个占位符；而真实界面里头像正是
+         * 把"这些行是不同的人"这件事一眼交代清楚的东西。用 `primary/15` 而不是随机色：
+         * 随机色等于在这套原语外面又开了一个颜色来源，而强调色本来就是这个项目的身份
+         * （`neutral` 的项目里 `--primary` 仍是中性色，于是行为与这一改之前一致）。
+         */
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-medium text-primary",
+            AVATAR_SIZE[node.props.size ?? "md"],
+          )}
+          data-proto="avatar" {...tap} title={node.props.name}
+        >
           {node.props.name.slice(0, 1)}
         </span>
       );
@@ -562,7 +663,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -587,6 +688,18 @@ export function PrototypeCanvas({
    * 而快速建模靠的恰恰是"改一点点"足够便宜。
    */
   changed?: ReadonlySet<string>;
+  /**
+   * 迭代 17：原型的**强调色档位**（项目级）。在这之前，不管做的是儿童记账 App 还是
+   * 医院排班后台，按钮和选中态一律是同一个中性灰——所有产出看起来都像同一个模板的
+   * 不同填空。档位在画布根上覆盖 `--primary` 系列 token，整棵树跟着变。
+   */
+  accent?: designWorkbench.PrototypeAccent;
+  /**
+   * 迭代 19：**低保真**（项目 template 是 `wireframe` 时）。语义色全部压成灰阶，
+   * 结构原样保留——线框图不是"把东西画丑"，是"把颜色这一层信息拿掉"。
+   * 为真时**强调色不生效**：低保真的全部意义就是别谈颜色。
+   */
+  wireframe?: boolean;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -622,7 +735,17 @@ export function PrototypeCanvas({
         // 否则「原型主题与后台主题互不影响」只成立一半。
         theme === "light" ? "wx-light" : "dark",
       )}
-      style={{ width: size.w, height: size.h, borderRadius: device.radius }}
+      /* 迭代 17：强调色是**画布根上的 token 覆盖**，所以写在这里而不是逐节点改颜色。 */
+      /*
+       * 迭代 17/19：强调色与低保真都是**画布根上的 token 覆盖**。
+       * 低保真优先——选了线框图还上强调色，等于把刚拿掉的那层信息又加回去。
+       */
+      style={{
+        width: size.w, height: size.h, borderRadius: device.radius,
+        ...(wireframe ? wireframeStyle(theme) : accentStyle(accent, theme)),
+      }}
+      data-accent={wireframe || accent === "neutral" ? undefined : accent}
+      data-fidelity={wireframe ? "wireframe" : undefined}
       data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}

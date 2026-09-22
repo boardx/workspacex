@@ -29,5 +29,5 @@ export async function listMyProjects(
   const wanted = (input.tags ?? []).map((t) => t.trim()).filter((t) => t !== "");
   const filtered =
     wanted.length === 0 ? byName : byName.filter((r) => wanted.every((t) => (r.tags ?? []).includes(t)));
-  return loadOwnerNamesAndProject(deps, filtered);
+  return loadOwnerNamesAndProject(deps, filtered, input.ownerId);
 }

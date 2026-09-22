@@ -12,6 +12,7 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import { toOrgId } from "../../domain/org-id";
 import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
 import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
+import type { ShareSnapshot } from "../../application/design-workbench/share-snapshot";
 import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
 import type {
   CreateOrGetByLinkedFeedbackResult,
@@ -46,6 +47,8 @@ interface ProjectDbRow {
   readonly screens: unknown;
   /** 迭代 13（delta §5.2）：原型自己的明暗主题；旧行由迁移的 DEFAULT 填成 'dark'。 */
   readonly theme: string | null;
+  /** 迭代 17：原型的强调色档位；老行由迁移的 DEFAULT 填成 'neutral'（= 不覆盖任何 token）。 */
+  readonly accent: string | null;
   /** 迭代 13（delta §4）：项目标签的 jsonb 数组；老行由迁移的 DEFAULT 填成 `[]`。 */
   readonly tags: unknown;
   /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
@@ -56,6 +59,11 @@ interface ProjectDbRow {
   readonly linked_feedback_id: string | null;
   readonly github_issue_url: string | null;
   readonly github_issue_number: number | null;
+  /** 迭代 22：发布与分享（迁移 `20260922120000_design_project_share.sql`）。四列同生同灭，CHECK 约束守着。 */
+  readonly share_token: string | null;
+  readonly share_scope: string | null;
+  readonly share_published_at: Date | string | null;
+  readonly share_snapshot: unknown;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
 }
@@ -233,6 +241,28 @@ function toRefImageRow(row: RefImageDbRow): RefImageRow | null {
   };
 }
 
+/**
+ * 迭代 22：四列 → `DesignProjectRow.share`。
+ *
+ * 任何一列缺席就当**没发布**（返回 `{}`，`share` 保持 undefined）：迁移的 CHECK 已经让
+ * "半个发布状态"在库层不可能存在，这里不是重复那道门，是**读侧不去猜**——真出现半行
+ * （手工改库、以后加列时写漏一处），把它当"没发布"是唯一不会把垃圾投给访客的解释。
+ */
+function shareOf(row: ProjectDbRow): Pick<DesignProjectRow, "share"> {
+  if (row.share_token === null || row.share_published_at === null || row.share_snapshot === null || row.share_snapshot === undefined) {
+    return {};
+  }
+  const scope = row.share_scope === "full" ? "full" : "prototype";
+  return {
+    share: {
+      token: row.share_token,
+      scope,
+      publishedAt: new Date(row.share_published_at).toISOString(),
+      snapshot: row.share_snapshot as ShareSnapshot,
+    },
+  };
+}
+
 function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow {
   return {
     id: row.id,
@@ -257,6 +287,14 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
       };
     })(),
     theme: row.theme === "light" ? "light" : "dark",
+    /*
+     * 迭代 17：库里存的是**档位名**，不是色值。读不出来的值（手工改库、或以后删了某一档）
+     * 一律退回 `neutral`——渲染成"没有强调色"比渲染成一个画布不认识的名字好，
+     * 后者在 `ACCENT_STYLE` 里会查不到而静默变成没有颜色，那时就分不清是没设还是设错了。
+     */
+    accent: designWorkbench.PrototypeAccent.safeParse(row.accent).success
+      ? (row.accent as designWorkbench.PrototypeAccent)
+      : "neutral",
     tags: toStringArray(row.tags),
     refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
@@ -266,6 +304,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     githubIssueUrl: row.github_issue_url,
     githubIssueNumber: row.github_issue_number,
     chat: toChat(chat),
+    ...shareOf(row),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -282,9 +321,10 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
  */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
-  theme, tags,
+  theme, accent, tags,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at,
+  share_token, share_scope, share_published_at, share_snapshot,
   COALESCE((
     SELECT jsonb_agg(jsonb_build_object(
              'id', r.id, 'name', r.name, 'size', r.size_bytes,
@@ -511,6 +551,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
                 frame_notes = $11::jsonb,
                 theme      = COALESCE($12, theme),
                 tags       = COALESCE($13::jsonb, tags),
+                accent     = COALESCE($14, accent),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -523,6 +564,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
           JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
           patch.theme ?? null,
           patch.tags === undefined ? null : JSON.stringify(patch.tags),
+          patch.accent ?? null,
         ],
       );
       const row = rows[0];
@@ -727,6 +769,58 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
         [this.orgId, ownerId, projectId, issue.url, issue.number],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      return toRow(row, await this.chatFor(s, row.id));
+    });
+  }
+
+  /**
+   * 迭代 22：发布（或重新发布）。
+   *
+   * ⚠ `share_token = COALESCE(share_token, $4)`——**令牌只在第一次发布时写入**。
+   *   重新发布换一条链接会让已经发到别人聊天记录里的那条静默失效，而那条链接你收不回来。
+   *   "我要换一条"有它自己的动作：取消发布 + 再发布。
+   * ⚠ **不动 `updated_at`**：列表按它排序，而发布没有改动设计本身；把项目顶到最前面会让
+   *   "最近改过什么"这个信号开始说谎。
+   */
+  async publishShare(
+    projectId: string,
+    ownerId: string,
+    share: { readonly token: string; readonly scope: designWorkbench.DesignShareScope; readonly snapshot: ShareSnapshot },
+  ): Promise<DesignProjectRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<ProjectDbRow>(
+        `UPDATE design_projects
+            SET share_token        = COALESCE(share_token, $4),
+                share_scope        = $5,
+                share_published_at = now(),
+                share_snapshot     = $6::jsonb
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3
+          RETURNING ${SELECT_COLUMNS}`,
+        [this.orgId, ownerId, projectId, share.token, share.scope, JSON.stringify(share.snapshot)],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      return toRow(row, await this.chatFor(s, row.id));
+    });
+  }
+
+  /**
+   * 迭代 22：取消发布——三列一起置空（迁移的 CHECK 要求它们同生同灭）。
+   * `share_scope` 留着上一次的值：它不参与"有没有发布"的判定，留着让下次发布默认沿用同一档。
+   */
+  async unpublishShare(projectId: string, ownerId: string): Promise<DesignProjectRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<ProjectDbRow>(
+        `UPDATE design_projects
+            SET share_token        = NULL,
+                share_published_at = NULL,
+                share_snapshot     = NULL
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3
+          RETURNING ${SELECT_COLUMNS}`,
+        [this.orgId, ownerId, projectId],
       );
       const row = rows[0];
       if (row === undefined) return null;

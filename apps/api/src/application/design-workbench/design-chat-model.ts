@@ -90,6 +90,11 @@ export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "pr
    *   中途落库只是让画布早点有东西看。两者写的是同一份事实，不是两份。
    */
   readonly onProgress?: (screens: readonly PagedScreen[]) => Promise<void>;
+  /**
+   * 迭代 20：这一轮最多画几页。**服务端强制**——骨架轮回来之后按它截断，
+   * 不是一句"请你少画几页"的提示（那是模型可以不听的）。省略 ⇒ 不设限。
+   */
+  readonly maxScreens?: number;
 };
 
 /** 分页生成的一页。`root` 缺省 = 规划了但还没画出来（正在画，或者画失败了）。 */
@@ -107,6 +112,14 @@ export interface DesignChatReplyResult {
   readonly writeback: DesignChatWriteback;
   /** 迭代 9：模型给的下一步建议（已过契约：≤ 3 条、每条 ≤ 40 字；退路 ⇒ `[]`）。 */
   readonly suggestions: readonly string[];
+  /**
+   * 迭代 17：骨架轮挑的**强调色档位**（只在首次分页生成那条路上有）。
+   *
+   * 不走 `writeback`：那是「模型改项目字段」的通道，而强调色是**这一次生成顺带定下的
+   * 视觉身份**，和页序一样属于服务端在分页生成里知道的事实。给了就写一次，
+   * 没给（或给了个不合法的名字）⇒ 不动项目现有的档位。
+   */
+  readonly accent?: designWorkbench.PrototypeAccent;
   /**
    * 2026-09-07：走退路的**为什么**。`source: "fallback"` 时必给（契约 `DesignChatReply`
    * 用 superRefine 机械绑定），让屏上那句话能说清楚是"没配模型"还是"调用失败"——
@@ -259,7 +272,22 @@ export const CHAT_TURN_MAX_CHARS = 1200;
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
     `项目名称：${ctx.name}`,
-    `模板：${ctx.template}（目标设备：${ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav" : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图" : "平板，画布宽 440px"}）`,
+    /*
+     * 迭代 19：模板要同时说清**设备**与**保真度**。
+     *
+     * 在这之前这句话只说设备，于是 `wireframe` 项目与 `ui` 项目拿到的指令实质相同，
+     * 模型照样画依赖颜色的高保真稿——而画布已经把线框图的颜色全压成灰阶了。
+     * 结果是「模型按彩色设计的东西，在一块没有颜色的画布上渲染」：
+     * 用 badge 的 tone 区分状态、用 primary/danger 区分按钮，全都退化成同一个灰。
+     * 告诉它保真度，它才会改用结构和文字去表达那些区别。
+     */
+    `模板：${ctx.template}（${
+      ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav；高保真，可以用颜色表达状态与层级"
+      : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图；高保真，可以用颜色表达状态与层级"
+      : "平板，画布宽 440px；**低保真线框图**——画布会把所有语义色压成灰阶，" +
+        "所以**不要靠颜色传达信息**：状态、优先级、分组一律用文字、位置、分隔线和字号层级表达；" +
+        "badge 的 tone、按钮的 primary/danger 在这里看起来都一样，该说的话要写出来"
+    }）`,
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
@@ -405,8 +433,14 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   "不要输出任何组件树。只输出一个 JSON 对象：" +
   '{"reply":"给用户看的一句话，中文，不超过 100 字",' +
   '"tone":"这套界面的设计基调，一句话（给谁用、什么气质、信息密度高还是留白多、以什么为视觉重点）",' +
+  // 迭代 17：**强调色也在这里定一次**。不定的话每个项目都是同一个中性灰，
+  // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
+  `"accent":"这套界面的强调色，从这几档里挑一个：${designWorkbench.PrototypeAccent.options.join("/")}（neutral = 不用强调色）",` +
   '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
+  // 迭代 20：上限由服务端截断执行（见 `generatePaged`），这句话只是让模型一开始就别多规划，
+  // 省得画了又被砍掉。两者不矛盾：提示是省钱，截断是保证。
+  "如果用户这一轮明确说了只要几页，就按他说的数目给，不要多给。" +
   // 迭代 16（#3773 R1-⑨）：骨架轮此前**没有任何质量约束**，而后面每一页都建在它上面——
   // 页分得不对，每页画得再好也是一套用不了的原型。这三条是能机械看出来的最常见错法。
   "页面划分的三条硬要求：" +
@@ -416,7 +450,9 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   "③「设置」「关于」「帮助」这类边角页不要排进前三页——用户第一眼要看到的是这个产品的主线。" +
   // 迭代 16（#3773 R1-⑩）：基调在这里定一次，后面每页轮都带着它 —— 见 `generatePaged`。
   "tone 会原样发给后面每一页的生成，请写得具体、可执行（「面向一线客服、信息密度高、以待办列表为视觉重点、克制用色」" +
-  "比「简洁现代」有用得多）。";
+  "比「简洁现代」有用得多）。" +
+  "accent 按这个产品**该有的**气质挑，不是按你喜欢什么：记账/银行偏靛蓝或石板灰，健康/环保偏绿，" +
+  "美食/零售偏琥珀或玫红，效率工具偏紫或青；实在拿不准就给 neutral——一个不搭的主色比没有主色更糟。";
 
 /** 每页轮的系统提示：只画**一页**。 */
 export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
@@ -527,7 +563,22 @@ export class ModelDesignChatReplier implements DesignChatModel {
       return this.fallback("MODEL_BAD_JSON");
     }
     const obj = outlineRaw as Record<string, unknown>;
-    const outline = parseOutline(obj.outline);
+    /**
+     * 迭代 20：**按用户给的上限截断**。
+     *
+     * 超时退路一直写着「试试少要几页」，而用户此前没有任何控制页数的手段——页数由骨架轮
+     * 自己定。现在上限是一条服务端执行的事实：说了只画 3 页就是 3 页，不管模型规划了几页。
+     *
+     * ⚠ 截的是**前 N 页**：骨架轮的提示词要求「先给最核心的」，所以前几页就是最重要的那几页。
+     *   随机挑或者截后几页都会把主流程的起点砍掉。
+     */
+    const planned = parseOutline(obj.outline);
+    const outline = ctx.maxScreens === undefined ? planned : planned.slice(0, ctx.maxScreens);
+    if (outline.length < planned.length) {
+      this.deps.log("design chat: outline truncated to requested page cap", {
+        planned: planned.length, cap: ctx.maxScreens ?? 0,
+      });
+    }
     /**
      * 迭代 16（#3773 R1-⑩）——**设计基调在骨架轮定一次，每页轮都带着它**。
      *
@@ -539,6 +590,14 @@ export class ModelDesignChatReplier implements DesignChatModel {
      * 不是某个具体数值；数值那一层已经由原语的档位闭集管住了。
      */
     const tone = typeof obj.tone === "string" ? obj.tone.trim().slice(0, 400) : "";
+    /**
+     * 迭代 17：模型挑的强调色档位。过契约闭集——给了个不存在的名字（或压根没给）
+     * ⇒ `undefined`，调用方不写这个字段，项目保持原样。**不猜、不近似匹配**：
+     * 「深蓝」和 `blue` 差一个字就该判不合法，近似匹配会让"模型给了个什么"这件事
+     * 变得不可复核。
+     */
+    const accentParsed = designWorkbench.PrototypeAccent.safeParse(obj.accent);
+    const accent = accentParsed.success ? accentParsed.data : undefined;
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
       return this.fallback("MODEL_EMPTY_OUTPUT");
@@ -644,6 +703,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       writeback: {},
       pagedScreens,
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
+      ...(accent === undefined ? {} : { accent }),
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
   }

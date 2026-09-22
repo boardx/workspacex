@@ -233,7 +233,7 @@ export async function importThread(
   if (input.problem === undefined) {
     // ── 预览：摘要一段交回去给用户改。**不写任何东西**（V58）。 ──
     const { problem, criteria } = await summarize(deps, messages, omittedAfter);
-    return { project: await loadProjectView(deps, input.projectId), imported, summary: problem, criteria, truncated };
+    return { project: await loadProjectView(deps, input.projectId, input.ownerId), imported, summary: problem, criteria, truncated };
   }
 
   // ── 确认：写用户编辑之后的那段文本 + 留痕。两次仓储调用，顺序同 `appendProjectChat`：
@@ -251,7 +251,7 @@ export async function importThread(
   if (traced === null) throw new DesignProjectNotOwnerError();
 
   return {
-    project: await loadProjectView(deps, input.projectId),
+    project: await loadProjectView(deps, input.projectId, input.ownerId),
     imported,
     summary: input.problem,
     criteria: input.criteria ?? [],

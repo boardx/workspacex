@@ -53,6 +53,7 @@ import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loo
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { ApiError } from "@/lib/api-client";
+import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -954,8 +955,10 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
+  accent: "neutral",
     tags: [],
     refImages: [],
+    share: null,
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
@@ -1891,14 +1894,25 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     // brief 真的发出去了（问题是按它生成的，不是固定问卷）
     expect((calls.find((c) => c.path === "/pm-designs/intake-questions")?.body as { brief: string }).brief).toBe("会员在线下单");
     fireEvent.change(screen.getByTestId("intake-answer-who"), { target: { value: "两档：普通与金卡" } });
+    fireEvent.change(screen.getByTestId("intake-answer-success"), { target: { value: "三步之内" } });
     // task 那条**故意不答** —— 它不该出现在 intake 里
     fireEvent.click(screen.getByTestId("intake-next"));
     const guideline = await screen.findByTestId("intake-guideline");
     expect((guideline as HTMLTextAreaElement).value).toContain("两档：普通与金卡");
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(calls.some((c) => c.path === "/pm-designs" && c.body !== undefined)).toBe(true));
-    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as { intake: { question: string }[] };
-    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？"]);
+    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as {
+      intake: { question: string; dimension?: string }[];
+    };
+    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？", "几步算合格？"]);
+    /*
+     * ⭐ 迭代 17 反证锚点：`answered()` 不带 `dimension` ⇒ 这条红。
+     *
+     * 维度就在前端手上（`q.dimension`），此前被丢掉，于是服务端无从分辨哪一条属于
+     * 「成功长什么样」那一维——它退而求其次把**全部**答案都当成验收标准，
+     * 「会员分几档」这种背景句就这样进了验收口径，一路走到设计文档和排期里。
+     */
+    expect(body.intake.map((x) => x.dimension)).toEqual(["who", "success"]);
   });
 
   it("V62 模型没能生成针对性问题 ⇒ 界面如实说是兜底", async () => {
@@ -3205,6 +3219,195 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
     fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
+  });
+
+  it("迭代 17：项目的强调色档位真的落到画布上，且切换走 updateProject（乐观更新 + 失败回滚）", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "我的账本", variant: "title" as const } },
+        { type: "button" as const, id: "b", props: { label: "记一笔", variant: "primary" as const } },
+      ],
+    };
+    let accent = "blue";
+    let failNext = false;
+    const patches: { accent?: string }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { accent?: string } }) => {
+      if (path === "/pm-designs") {
+        // ⚠ 显式 `mobile`：默认夹具是 `wireframe`，而迭代 19 起线框图会把强调色压成灰阶
+        // （那是**功能**，见下面那两条线框图用例）——这里测的是强调色，得用高保真模板。
+        return { items: [project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never })] };
+      }
+      if (path === "/pm-designs/p1" && opts?.method === "PATCH") {
+        patches.push(opts.body ?? {});
+        if (failNext) throw new TypeError("Failed to fetch");
+        accent = opts.body?.accent ?? accent;
+        return { project: project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：不把档位翻成画布根上的 token 覆盖 ⇒ 这条红。
+     *
+     * 整棵树的颜色都是 `hsl(var(--primary))` 形态，所以强调色**只能**从根上覆盖变量来实现；
+     * 少了这一层，不管做的是儿童记账还是医院排班，按钮和选中态一律是同一个中性灰。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBe("blue");
+    expect(phone.style.getPropertyValue("--primary")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+    // 焦点环跟着主色走——只改 --primary 会让键盘焦点停在旧色上，一眼看出是补丁。
+    expect(phone.style.getPropertyValue("--ring")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+
+    // 切一档：乐观更新（不等往返），并真的发出 PATCH。
+    fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
+    await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
+
+    // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
+    failNext = true;
+    fireEvent.click(screen.getByTestId("design-detail-accent-green"));
+    await screen.findByTestId("design-detail-chat-error");
+    expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
+  });
+
+  it("迭代 19：线框图模板真的画成线框图——语义色全部压成灰阶，强调色让位", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } },
+        { type: "badge" as const, id: "b", props: { label: "已发货", tone: "success" as const } },
+        { type: "button" as const, id: "go", props: { label: "确认收货", variant: "primary" as const } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        // 项目同时设了强调色——低保真要**优先**：选了线框图还上强调色，
+        // 等于把刚拿掉的那层信息又加回去。
+        return { items: [project({ template: "wireframe", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：`template` 只决定设备预设（改之前就是这样）⇒ 这条红。
+     * 那时选「线框图」拿到的是彩色高保真稿，只是画在平板上——选项许诺了一件事，
+     * 底下没有人去做它。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBe("wireframe");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    // 主色、成功、警告、危险——全部同一个灰。
+    const primary = phone.style.getPropertyValue("--primary");
+    expect(primary).not.toBe("");
+    for (const token of ["--success", "--warning", "--destructive"]) {
+      expect(phone.style.getPropertyValue(token)).toBe(primary);
+    }
+    // 只压颜色不压结构：字号档位照旧（线框图不是"把东西画丑"）。
+    expect(phone.querySelector('[data-node-id="t"]')?.className).toContain("text-18");
+  });
+
+  it("迭代 19：非线框图模板不受影响（mobile/ui 照旧高保真 + 强调色）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
+    expect(phone.getAttribute("data-accent")).toBe("rose");
+    expect(phone.style.getPropertyValue("--success")).toBe("");
+  });
+
+  it("迭代 17：neutral ⇒ 一个 token 都不覆盖（这个字段出现之前的行为逐字不变）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "标题", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      // 同上：测「neutral 不覆盖任何 token」要用高保真模板，否则压色的是线框图不是 neutral。
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", frames: ["页"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
+    expect(phone.style.getPropertyValue("--primary")).toBe("");
+  });
+
+  it("迭代 20：超时时的「只画 3 页再试」真的把页数上限交上去（那句话此前是做不到的许诺）", async () => {
+    const posted: { text?: string; maxScreens?: number }[] = [];
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text?: string; maxScreens?: number } }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body ?? {});
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_TIMEOUT" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 退路文案本来就说「试试少要几页」——现在旁边真的有这个动作。
+    expect(screen.getByTestId("design-detail-fallback-reason").textContent).toContain("少要几页");
+
+    /*
+     * ⭐ 反证锚点：不把 `maxScreens` 交上去 ⇒ 这条红。
+     * 在这之前用户没有任何控制页数的手段，说「只画 3 页」也只是一句模型可以不听的话。
+     */
+    fireEvent.click(await screen.findByTestId("design-detail-fewer-pages"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]?.text).toBe("做个客服待办");
+    expect(posted[1]?.maxScreens).toBe(3);
+    // 普通「再试一次」不带上限——它是"原样重来"，不是"少画几页"。
+    expect(posted[0]?.maxScreens).toBeUndefined();
+  });
+
+  it("迭代 20：只有**超时**才给「少画几页」（别的退路原因与页数无关）", async () => {
+    const withChat = (chat: unknown[]) => project({ chat: chat as never, prototype: [] as never, frames: [] });
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [withChat([])] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return {
+          project: withChat([
+            { role: "user", text: "做个客服待办", at: "2026-09-22T00:00:00.000Z" },
+            { role: "ai", text: "稍后会更新画布。", at: "2026-09-22T00:00:01.000Z", source: "fallback" },
+          ]),
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_BAD_JSON" },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "做个客服待办" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await screen.findByTestId("design-detail-fallback-reason");
+    // 输出不是 JSON 与页数无关，给了只会把人往错的方向引。
+    expect(screen.queryByTestId("design-detail-fewer-pages")).toBeNull();
+    expect(screen.getByTestId("design-detail-fallback-retry")).toBeTruthy();
   });
 
   it("迭代 16（#3773 R8）：模型层失败也有「再试一次」，而「没配模型」不给（给一个必然失败的按钮是在骗人）", async () => {

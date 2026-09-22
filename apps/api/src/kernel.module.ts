@@ -578,7 +578,7 @@ import { INBOX_ORDER_REPOSITORY } from "./application/inbox/inbox-order.port";
 import { PgInboxOrderRepository } from "./infrastructure/inbox/pg-inbox-order-repository";
 import { INBOX_TAG_REPOSITORY } from "./application/inbox/inbox-tags.port";
 import { PgInboxTagRepository } from "./infrastructure/inbox/pg-inbox-tag-repository";
-import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
+import { DesignWorkbenchController, PublicDesignShareController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
 import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
@@ -1050,6 +1050,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
+    PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
     SkillReviewController,

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
+import { ShareDialog } from "./share-dialog";
 import {
   appendProjectChat as apiAppendProjectChat,
   uploadRefImage,
@@ -27,6 +28,8 @@ import {
   updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
+  publishProject as apiPublishProject,
+  unpublishProject as apiUnpublishProject,
   DESIGN_WORKBENCH_CHAT_INTRO,
   DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
@@ -36,8 +39,11 @@ import {
   type DesignWritebackField,
   type PrototypeLink,
   type PrototypeVersion,
+  type PrototypeAccent,
   type ProjectTemplate,
+  type DesignShareScope,
 } from "@/lib/live-design-workbench";
+import { designWorkbench } from "@repo/contracts";
 
 /**
  * 2026-09-07：退路原因 → 人话。键集合来自契约闭集 `DesignChatFallbackReason`（穷举，
@@ -80,6 +86,23 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
  */
 const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原型。";
 
+/* ── 迭代 17：强调色档位的展示层元数据。**取值闭集来自契约**，这里不另立一份枚举。 ── */
+const ACCENT_OPTIONS = designWorkbench.PrototypeAccent.options;
+const ACCENT_LABEL: Record<PrototypeAccent, string> = {
+  neutral: "不用强调色（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
+  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+};
+/**
+ * 选择器上那个小圆点用哪一套值。
+ *
+ * ⚠ 固定取 `dark` 那一套，**不跟着项目主题变**：这一排按钮长在深色的工具条上，
+ * 跟着项目主题切会让做浅色稿时一排色点全部压暗，在深色工具条上糊成一片——
+ * 那时它标的就不再是"这个档位长什么样"，而是"这个档位在别处长什么样"。
+ */
+const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Object.fromEntries(
+  Object.entries(designWorkbench.PROTOTYPE_ACCENTS).map(([k, v]) => [k, v.dark.primary]),
+) as Record<Exclude<PrototypeAccent, "neutral">, string>;
+
 /**
  * 迭代 16（#3773 R8）：哪些退路原因值得给一个「再试一次」。
  *
@@ -87,6 +110,14 @@ const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原�
  *   给一个必然失败的按钮是在骗人。那一条的下一步是找运维，文案里已经说了。
  * `MODEL_NO_REPLY_TEXT` 也不在：写回可能已经生效了，重发同一句会再改一遍。
  */
+/**
+ * 迭代 20：「少画几页再试」按几页。
+ *
+ * 3 是骨架轮页数区间（3–6）的下限——再少就不是"这个产品长什么样"而是一张孤立的屏了。
+ * 这个数会作为 `maxScreens` 交上去，由服务端**截断执行**，不是一句提示。
+ */
+const FEWER_PAGES_CAP = 3;
+
 const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
   "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
 ]);
@@ -221,6 +252,10 @@ export function DesignDetailScreen({
    */
   const [importing, setImporting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
+  /** 迭代 22：发布与分享。 */
+  const [sharing, setSharing] = React.useState(false);
+  const [shareBusy, setShareBusy] = React.useState(false);
+  const [shareError, setShareError] = React.useState<string | null>(null);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
   const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
@@ -411,6 +446,24 @@ export function DesignDetailScreen({
   };
 
   /**
+   * 迭代 17：切**原型的强调色档位**。与切主题同一条路径、同一套乐观更新与回滚。
+   * 它是项目的属性（导出的 HTML 也跟着它），不是看的人的偏好，所以落库而不是存在本地。
+   */
+  const changeAccent = async (accent: PrototypeAccent) => {
+    if (project === null || project.accent === accent) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, accent } });
+    try {
+      const out = await updateProject(project.id, { accent });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能切换强调色，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
    * 迭代 14：量画布可用空间，好把 1280 宽的笔记本缩进来。
    * jsdom 没有 `ResizeObserver` 也量不出尺寸 ⇒ stage 保持 0，`fitScale` 返回 1，
    * 测试里按原尺寸渲染（这正是它对 0 尺寸返回 1 的理由）。
@@ -529,7 +582,7 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async (override?: string) => {
+  const send = async (override?: string, maxScreens?: number) => {
     const value = (override ?? text).trim();
     if (value === "") return;
     const controller = new AbortController();
@@ -566,6 +619,7 @@ export function DesignDetailScreen({
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
         project.refImages.map((r) => r.id),
+        maxScreens,
       );
       stopPoll();
       /*
@@ -609,6 +663,41 @@ export function DesignDetailScreen({
   };
   const cancel = () => abortRef.current?.abort();
 
+  /**
+   * 迭代 22：发布 / 取消发布。两条都把**服务端返回的整个项目**放回状态，而不是在本地
+   * 拼一个 `share` 对象——`stale` 是服务端逐字段比出来的，本地拼等于第二份判断，
+   * 而它一定会先于服务端那份过期。
+   */
+  const doPublish = async (scope: DesignShareScope) => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiPublishProject(project.id, scope);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(
+        err instanceof ApiError && err.reasonCode === "NOTHING_TO_PUBLISH"
+          ? "这个项目还没有画出来的页，没什么可发布的。"
+          : `没能发布（${describeFailure(err)}）`,
+      );
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const doUnpublish = async () => {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const out = await apiUnpublishProject(project.id);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setShareError(`没能取消发布（${describeFailure(err)}）`);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
   const confirmPush = async (note: string) => {
     setPushBusy(true);
     setPushError(null);
@@ -635,6 +724,19 @@ export function DesignDetailScreen({
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
           <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
+          {/*
+            * 迭代 22：分享。已发布时按钮说"已分享"，快照过期时**在按钮上就说出来**——
+            * 把它藏进弹窗里，等于要用户先怀疑才会去看。
+            */}
+          <Button
+            variant={(project.share ?? null) === null ? "outline" : "ghost"}
+            size="sm"
+            onClick={() => { setSharing(true); setShareError(null); }}
+            data-testid="design-detail-share"
+          >
+            <Share2 aria-hidden className="h-3.5 w-3.5" />
+            {(project.share ?? null) === null ? "分享" : project.share?.stale === true ? "已分享（有更新）" : "已分享"}
+          </Button>
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -722,6 +824,25 @@ export function DesignDetailScreen({
                       * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
                       * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
                       */}
+                    {/*
+                      * 迭代 20：超时的那句话一直写着「试试少要几页」，而用户**没有任何
+                      * 控制页数的手段**——页数由骨架轮自己定，界面上没有旋钮，
+                      * 说「只画 3 页」也只是一句模型可以不听的话。又一句做不到的许诺。
+                      * 现在这个按钮把那句话变成一个真的动作：`maxScreens` 是服务端
+                      * 强制截断的上限，不是提示。
+                      * 只在**超时**时给——别的退路原因（输出不是 JSON、没配模型）
+                      * 与页数无关，给了只会把人往错的方向引。
+                      */}
+                    {fallbackReason === "MODEL_TIMEOUT" && lastUserText !== null && !sending && (
+                      <button
+                        type="button"
+                        onClick={() => void send(lastUserText, FEWER_PAGES_CAP)}
+                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="design-detail-fewer-pages"
+                      >
+                        只画 {FEWER_PAGES_CAP} 页再试
+                      </button>
+                    )}
                     {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
                       <button
                         type="button"
@@ -936,6 +1057,28 @@ export function DesignDetailScreen({
                   ))}
                 </div>
                 {/*
+                  * 迭代 17：强调色档位。**色块本身就是标签**——给一行中文色名（「靛蓝」「湖绿」）
+                  * 反而比色块更难扫，而这一排的用途就是"扫一眼挑一个"。
+                  * 无障碍那一半由 `aria-label` + `title` 给，不靠视觉。
+                  */}
+                <div className="inline-flex items-center gap-0.5 rounded-control border border-border p-0.5" role="group" aria-label="原型强调色" data-testid="design-detail-accents">
+                  {ACCENT_OPTIONS.map((a) => (
+                    <button
+                      key={a} type="button" data-testid={`design-detail-accent-${a}`}
+                      aria-pressed={project.accent === a}
+                      aria-label={ACCENT_LABEL[a]}
+                      title={ACCENT_LABEL[a]}
+                      onClick={() => void changeAccent(a)}
+                      className={cn(
+                        "h-4 w-4 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        project.accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
+                        a === "neutral" && "bg-muted",
+                      )}
+                      style={a === "neutral" ? undefined : { backgroundColor: `hsl(${ACCENT_SWATCH[a]})` }}
+                    />
+                  ))}
+                </div>
+                {/*
                   * 迭代 14：设备镜头。**不写库** —— 换设备只改画板尺寸，原型没有断点，
                   * 内容按 flex 自适应；title 里如实说清楚，免得有人以为切过去就看到了响应式结果。
                   */}
@@ -1045,6 +1188,8 @@ export function DesignDetailScreen({
                       theme={project.theme}
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
+                      accent={project.accent}
+                      wireframe={project.template === "wireframe"}
                       onNavigate={navigateTo}
                     />
                   ) : (
@@ -1088,6 +1233,8 @@ export function DesignDetailScreen({
                         (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
                       }
                       changed={preview === null ? changed : undefined}
+                      accent={project.accent}
+                      wireframe={project.template === "wireframe"}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
                         const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";
@@ -1211,6 +1358,17 @@ export function DesignDetailScreen({
           projectId={project.id}
           onClose={() => setImporting(false)}
           onImported={(next) => setLoad({ kind: "ready", project: next })}
+        />
+      )}
+
+      {sharing && (
+        <ShareDialog
+          project={project}
+          busy={shareBusy}
+          error={shareError}
+          onClose={() => { if (!shareBusy) { setSharing(false); setShareError(null); } }}
+          onPublish={(scope) => void doPublish(scope)}
+          onUnpublish={() => void doUnpublish()}
         />
       )}
 
