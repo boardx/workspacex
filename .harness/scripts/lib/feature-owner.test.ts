@@ -165,3 +165,26 @@ describe("ownerAllowlistKey", () => {
     expect(ownerAllowlistKey("01", "F123", "w2-chat4")).toBe("01/F123=w2-chat4");
   });
 });
+
+describe("空命名空间 —— 这道门自己最危险的失效形态", () => {
+  // ★ 这是「为什么 doctor 在 known.size === 0 时拒绝下判断」的反证。
+  //
+  // registry.yaml 结构变了 / 读不到 ⇒ 命名空间是空集 ⇒ 每个 owner 都落在外面。
+  // 存量把手被 allowlist 接住，于是唯一炸红的恰好是那些**真实正确**的 owner。
+  // 仓库实测：32 条 FAIL，每条都点名一个真角色（dev-chat-e2e / coord-voice …）说它不存在。
+  //
+  // 判定函数这里**不**兜底——它是纯函数，只回答「给定这个命名空间，谁在外面」。
+  // 兜底在调用方（doctor.ts 把空集登记成权威缺口，走 #394 的 UNREACHABLE）。
+  // 本条把这个危险行为钉死成规格：它必须是可预期的，而不是某天悄悄变了。
+  it("反证：命名空间为空集时，连真实身份也会被判进 newGaps —— 所以调用方必须先拦住空集", () => {
+    const v = judgeFeatureOwners(
+      phases([
+        { id: "F1", owner: "coord-main", status: "passing" },
+        { id: "F2", owner: "dev-chat-e2e", status: "passing" },
+      ]),
+      new Set<string>(),
+      [],
+    );
+    expect(v.newGaps.map((g) => g.owner)).toEqual(["coord-main", "dev-chat-e2e"]);
+  });
+});

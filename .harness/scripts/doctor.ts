@@ -366,8 +366,30 @@ function checkOrphanInProgress(phaseId: string, findings: Finding[]): void {
  * 「什么算一个真实身份」见 `lib/agent-identity.ts`（与 `harness scorecard` 同一份，
  * 不在这里第二次定义）。本函数只负责把判定结果翻译成 doctor 的 FAIL / WARN / INFO。
  */
-function checkFeatureOwnerNamespace(scanned: readonly ScannedPhase[], findings: Finding[]): void {
+function checkFeatureOwnerNamespace(
+  scanned: readonly ScannedPhase[],
+  findings: Finding[],
+  authorityGaps: string[],
+): void {
   const known = new Set(readKnownAgentIdentities().keys());
+
+  // 空集是这道门最危险的失效形态，而且它**伪装成一屋子精确的判决**：
+  // registry.yaml 结构变了 / 读不到时，每一个 owner 都落到命名空间之外，存量把手
+  // 被 allowlist 接住，于是唯一炸红的恰好是那 32 条**真实正确**的 owner
+  // （dev-chat-e2e / coord-voice / coord-deep-research …）——实测 32 条 FAIL，
+  // 每条都点名一个真角色说它不存在。那不是判定，是编造。
+  //
+  // 这与本 issue 自己的立场同型：宁可说「没问到」，也不要给出一个看起来精确、
+  // 其实无中生有的归属结论。所以这里 fail-closed（P8，同 role-freeze-doctor
+  // 「registry.yaml 是权威数据源，读不到时拒绝下判断」）：登记成权威缺口，
+  // 本次不判，由 #394 的 UNREACHABLE 决定退出码（本地 0、--strict 1）。
+  if (known.size === 0) {
+    authorityGaps.push(
+      "读不到任何 agent 身份（.harness/agents/registry.yaml 与 .harness/agents/*.yaml 都没给出 id）" +
+        "——「feature.owner 必须是真实身份」本次未执行",
+    );
+    return;
+  }
   // 棘轮只许收缩：`--phase 01` 这类局部运行只对扫到的 phase 判陈旧，
   // 否则没扫到的 phase 会被误判成「不再需要豁免」——同 #1136 的处理。
   const scannedIds = new Set(scanned.map((p) => p.phaseId));
@@ -1021,7 +1043,7 @@ export function doctor(args: Args): void {
     checkPhaseReadiness(id, findings);
   }
 
-  checkFeatureOwnerNamespace(scannedPhases, findings);
+  checkFeatureOwnerNamespace(scannedPhases, findings, authorityGaps);
 
   // 一次扫完 interface 目录（440+ 个路由装饰器），不按 phase 重复解析
   checkContractRouteCoverage(phaseIds, findings);
