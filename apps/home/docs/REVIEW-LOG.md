@@ -885,3 +885,18 @@ things watching the page:
 
 Every gate in this directory has now been watched to fail before being trusted.
 That is the only property of a check that actually matters.
+
+### Round 31b — what CI found on its first run
+
+The workflow added ten minutes earlier did the thing it was added for.
+`static` went green in 17 seconds; `browser` ran all fifteen suites and then
+failed the budget: **`[en] desktop CLS 0.0219 over budget 0.02`**, for a shift
+no local run had ever produced.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Every local run measures a **warm font cache** and reports CLS 0. A first-time visitor does not, and neither does a CI runner. The budget could not see font-swap shift at all. | The cold case is measured now: the fonts are held back 400 ms, deterministically, in both languages. |
+| 2 | Reproduced, the shift named `brand__tag`, `nav__links` and `hero__title`. My first guess was the `flex-wrap: wrap` added to the nav in round 27. **Measured with it off: identical.** Not the cause. | Isolating the two faces showed Inter at CLS 0 and Outfit at 0.0094 — the display face alone. |
+| 3 | `Outfit Fallback` was **5–13% narrower** than Outfit across representative strings ("WorkspaceX" 1.074, the hero headline 1.060, "Architecture" 1.132) while `size-adjust` made it narrower still at 97%. Inter's fallback holds at 0, which is what a metric-matched face is supposed to do. | `size-adjust: 104.2%`, with the vertical overrides divided by the same factor so the line box is untouched. Ratios now 0.97–1.05; the nav stops moving entirely and the shift falls to 0.0055. |
+| 4 | `font-display: optional` takes it to a clean **0** — and was rejected. Verified on a throttled link: the face downloads but is not used for that render, so a first-time visitor on a slow connection reads the whole pitch in Arial. The typeface is part of what this page is selling. | Kept `swap` and the corrected metrics, which is the fix the failure actually needed rather than the one that makes the number smallest. |
+| 5 | Changing `fonts.css` then made the social cards stale — and `check-assets.mjs`, written an hour earlier in this same round, **caught it**. | Rebuilt and re-recorded. |

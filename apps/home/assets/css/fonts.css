@@ -58,8 +58,16 @@
 @font-face {
   font-family: 'Outfit Fallback';
   src: local('Arial'), local('Helvetica'), local('Liberation Sans');
-  size-adjust: 97%;
-  ascent-override: 103%;
-  descent-override: 26%;
+  /* Widened from 97%. The fallback was 5-13% NARROWER than Outfit across
+     representative strings (measured: "WorkspaceX" 1.074, the hero headline
+     1.060, "Architecture" 1.132), so every swap moved the wordmark, the nav
+     tag beside it and the headline — the only font-swap shift on the page,
+     and the one CI caught on its first run at CLS 0.0219 against a 0.02
+     budget. Inter's fallback holds at 0, which is what this should look like.
+     The vertical overrides are divided by the same factor so the line box is
+     exactly what it was. */
+  size-adjust: 104.2%;
+  ascent-override: 95.88%;
+  descent-override: 24.20%;
   line-gap-override: 0%;
 }

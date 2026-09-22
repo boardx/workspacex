@@ -47,9 +47,10 @@
 @font-face {
   font-family: 'Outfit Fallback';
   src: local('Arial'), local('Helvetica'), local('Liberation Sans');
-  size-adjust: 97%;
-  ascent-override: 103%;
-  descent-override: 26%;
+
+  size-adjust: 104.2%;
+  ascent-override: 95.88%;
+  descent-override: 24.20%;
   line-gap-override: 0%;
 }
 

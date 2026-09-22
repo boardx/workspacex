@@ -38,7 +38,7 @@ const r = reporter('performance budget');
    rounds — and /zh/ is a separately generated document with different text,
    a different LCP element and, it turns out, a preload that does not serve
    it. A budget that watches one of two pages is half a budget. */
-async function profile({ cpu, net, width, height, path = '/' }) {
+async function profile({ cpu, net, width, height, path = '/', delayFonts = 0 }) {
   const ctx = await browser.newContext({ viewport: { width, height } });
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
@@ -47,6 +47,18 @@ async function profile({ cpu, net, width, height, path = '/' }) {
     await cdp.send('Network.enable');
     await cdp.send('Network.emulateNetworkConditions', { offline: false, ...net });
   }
+  /* A local run has the fonts in cache and measures CLS 0; a first-time
+     visitor does not. That gap is not theoretical — the very first CI run of
+     this budget reported 0.0219 against a 0.02 limit for a shift no local run
+     had ever seen, caused by a fallback face 5-13% narrower than the real one.
+     Holding the fonts back reproduces the cold visitor deterministically. */
+  if (delayFonts) {
+    await page.route('**/*.woff2', async (route) => {
+      await new Promise((r) => setTimeout(r, delayFonts));
+      await route.continue();
+    });
+  }
+
   let bytes = 0;
   page.on('response', (res) => {
     const len = Number(res.headers()['content-length'] ?? 0);
@@ -97,6 +109,10 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
   r.check(desktop.cls <= BUDGET.cls, `[${lang}] desktop CLS ${desktop.cls} over budget ${BUDGET.cls}`);
   r.check(desktop.frames.median <= BUDGET.frameMedianMs, `[${lang}] frame median ${desktop.frames.median}ms over budget ${BUDGET.frameMedianMs}ms`);
   r.check(desktop.frames.longPct <= BUDGET.longFramePct, `[${lang}] ${desktop.frames.longPct}% of frames over 33ms, budget ${BUDGET.longFramePct}%`);
+
+  const cold = await profile({ width: 1440, height: 900, path, delayFonts: 400 });
+  r.note(`cold fonts [${lang}] — CLS ${cold.cls}, LCP ${cold.lcp}ms`);
+  r.check(cold.cls <= BUDGET.cls, `[${lang}] CLS ${cold.cls} on a cold font cache, over budget ${BUDGET.cls}`);
 
   const slow = await profile({
     cpu: 4, width: 390, height: 844, path,
