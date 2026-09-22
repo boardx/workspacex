@@ -40,12 +40,21 @@ export type GithubCall =
       summary: string;
     }
   | {
-      // p30/F09：intent.* 事件的 GitHub issue 双写（每条意图消息一条评论，非幂等覆盖——
-      // 与 commit_status/check_run 不同，重投会产生重复评论；游标推进模型下这是可接受的
-      // at-least-once-but-may-under-deliver 取舍，见 apply.ts 顶部注释与 intents.md）。
+      // p30/F09：intent.* 事件的 GitHub issue 双写（每条意图消息一条评论）。
+      // 与 commit_status/check_run 的"同 sha/context 覆盖"不同，POST 评论是**追加**语义：
+      // 同一条动作发两次 = issue 上两条评论。批次部分失败后上层不推进游标、下 tick 重放
+      // 整批（apply.ts 顶部注释），因此必须靠 idempotency_key 在发件箱里做持久去重（#376）。
       kind: "issue_comment";
       issue_number: number;
       body: string;
+      /**
+       * 逻辑动作的持久幂等键（#376）。要求：同一逻辑动作在任意次重放中**必须**推导出
+       * 同一个值，不同动作必须不同。这里取 (issue 号, 源事件 event_id)——event_id 是
+       * RepoHub events 表的主键 ULID，重放读到的是同一行，故键天然稳定；一条意图事件
+       * 恰好产生一条评论，故无碰撞。覆盖式动作（commit_status/check_run）刻意**不带**
+       * 此键：它们要靠每 tick 重发做状态对账，去重反而会让 GitHub 侧漂移无法收敛。
+       */
+      idempotency_key: string;
     };
 
 // 活跃租约快照（RepoHub GET /claims 的行）：lease check 的状态对账输入（#723-2）
@@ -143,6 +152,14 @@ function intentCommentBody(ev: ProjectionEvent): string {
   return lines.join("\n");
 }
 
+/**
+ * issue 评论的幂等键（#376）。唯一的推导点——apply.ts 与发件箱都只认调用描述上
+ * 已经算好的 idempotency_key，不得在别处重新拼一份（同一事实不得声明在两处）。
+ */
+export function issueCommentKey(issueNumber: number, eventId: string): string {
+  return `issue_comment:issue:${issueNumber}:event:${eventId}`;
+}
+
 export function project(input: ProjectionInput): GithubCall[] {
   const { events, openPrs, andon, leases, now } = input;
   // 同一目标（status 同 sha / check 同 sha）多次触发时后者覆盖前者——按事件序保序去重
@@ -211,12 +228,19 @@ export function project(input: ProjectionInput): GithubCall[] {
   // 与 andon/lease 不同：每个事件产生独立评论，不按 sha/issue 去重覆盖——
   // 一条意图消息 = 一条历史记录，覆盖会丢消息。resource_id 非 issue:N（feature:/module:/
   // custom: 锚定）的意图 v1 无 PR/issue 可挂，不双写（events 本身仍是权威历史）。
+  // 批内不去重、跨 tick 重放靠 idempotency_key + 发件箱去重（#376，见 apply.ts）。
   const intentCalls: GithubCall[] = [];
   for (const ev of events) {
     if (!ev.type.startsWith("intent.")) continue;
     const m = ev.resource_id.match(/^issue:(\d+)$/);
     if (!m) continue;
-    intentCalls.push({ kind: "issue_comment", issue_number: Number(m[1]), body: intentCommentBody(ev) });
+    const issueNumber = Number(m[1]);
+    intentCalls.push({
+      kind: "issue_comment",
+      issue_number: issueNumber,
+      body: intentCommentBody(ev),
+      idempotency_key: issueCommentKey(issueNumber, ev.event_id),
+    });
   }
 
   return [...statusBySha.values(), ...checkBySha.values(), ...intentCalls];

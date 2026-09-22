@@ -42,7 +42,7 @@ description: >
   （反例：两个 PR 并行改同一 `rooms/page.tsx`，后合者被迫返工。）
 - **合并顺序按"动共享 spec 多的最后合"**：并行 wave 收尾时，改共享测试/spec 文件
   最少的 PR 先合，动共享 spec 最多的最后合，把 rebase 冲突集中到一处。
-- **认领走 coord-service**：分派时用 `harness claim`（+ 需要跨会话唯一性时用
+- **认领走 coord-gateway**：分派时用 `harness claim`（+ 需要跨会话唯一性时用
   `module-lock-acquire`/`heartbeat`）落地认领——multi-agent-coordination.md §4 讲的
   "issue label 双写 + lease 评论刷新"是 ADR-009（2026-07-08）之前的旧机制，该文件
   顶部已标注"仅作历史记录保留"，不要照它当前有效的操作指令执行；issue label 只是
@@ -114,7 +114,8 @@ new-sprint --features F01,F02
   ——待分配的 feature 所属契约束必须已在束级 `design-signoff.md` 签核
   （ADR-023），排期排得再好，签核没过一样 `die()`。排 sprint 前先确认目标
   feature 的契约束状态，不要排完才发现开不了工。
-- **下游消费者**：`feature-implementer` 读 `active-features.json` 找
+- **下游消费者**：`feature-implementer` 跑 `pnpm harness active-features` 重建后读
+  `active-features.json`（不入库的派生投影，#401）找
   in_progress；`pnpm harness verify --sprint` 读同一份 sprint 归属决定验证范围；
   `github-projector` 的 `sync` 读 sprint 归属决定 issue 该打哪个 `sprint:*` label。
 

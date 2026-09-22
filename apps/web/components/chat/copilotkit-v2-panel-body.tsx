@@ -2288,6 +2288,11 @@ export function CopilotKitV2PanelBody({
               <textarea
                 ref={composerInputRef}
                 data-testid="copilotkit-v2-input"
+                // issue #3022② —— 没有 `aria-label` 时可及名只能回落到 `placeholder`，而下面
+                // 那个 placeholder 会随状态在三句话之间变（常态 / 运行中 / 归档）：屏幕阅读器
+                // 读到的控件名会跟着状态变。名字与旧屏 `chat-live-message-panel.tsx` 逐字相同，
+                // 迁移过来的 e2e 可以直接用回 `getByRole("textbox", { name: "消息内容" })`。
+                aria-label="消息内容"
                 // 2026-09-08 人类反馈「这个框的高度，默认有一行就可以了」——默认 1 行，
                 // 内容变多时由 `syncComposerHeight` 按 scrollHeight 自动长高（封顶
                 // `COMPOSER_MAX_HEIGHT_PX`，超出后内部滚动）。

@@ -3,9 +3,9 @@
 // 2. 反证：指纹变了（哪怕 SHA 没变）→ 不命中，必须真跑。
 // 3. 反证：验证类型换了 → 即使 SHA+指纹相同也不命中，不同 profile 的验证不能互相顶替。
 import { describe, expect, it, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 
 // verify-cache.ts 的 ROOT 是相对本文件路径推导的（真实仓库根），凭证文件因此写进
@@ -19,6 +19,7 @@ import {
   lookupCredential,
   recordCredential,
   credentialsPath,
+  FINGERPRINT_EXCLUDED_PATHS,
 } from "./verify-cache";
 
 describe("verify-cache", () => {
@@ -221,5 +222,124 @@ describe("verify-cache", () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
+  });
+
+  // ── #1341：verify 自己写出的派生物不得进指纹 ──────────────────────────
+  // 缺陷形态：`verify.ts` 结尾无条件 `refreshProgress()` 重写 .harness/state/PROGRESS.md
+  // （正文含运行时刻），该文件 tracked → 进 `git diff HEAD` → 下一次指纹必然不同 →
+  // 跨 verify 调用 100% miss（实测：同 SHA 连跑 3 次，3 条记录 0 次命中）。
+  //
+  // 下面这组用例是**反证**：修复前 `computeFingerprint` 吃进整个工作树 diff，
+  // 「派生物变了指纹不变」的三条断言全红；后面成对的「排除范围不能过宽」几条
+  // 在修复前后都必须绿——它们守的是假绿，一旦有人把排除清单放宽就会红。
+
+  /** 起一个自带 harness 目录结构的临时仓库，返回 (相对路径, 内容) 写入器与 helper。 */
+  function makeHarnessRepo(prefix: string): {
+    dir: string;
+    write: (rel: string, content: string) => void;
+    sha: string;
+    fp: () => string;
+  } {
+    const tmp = mkdtempSync(join(tmpdir(), prefix));
+    const g = (...args: string[]) => execFileSync("git", args, { cwd: tmp, encoding: "utf8" }).trim();
+    const write = (rel: string, content: string) => {
+      mkdirSync(dirname(join(tmp, rel)), { recursive: true });
+      writeFileSync(join(tmp, rel), content);
+    };
+    g("init", "-q");
+    g("config", "user.email", "t@example.com");
+    g("config", "user.name", "t");
+    // 三类路径都建好：源码（输入）、harness 派生物（输出）、harness 配置（输入）
+    write("src/app.ts", "export const x = 1;\n");
+    write(".harness/state/PROGRESS.md", "_最近聚合:2026-08-15T10:37:36.290Z_\n");
+    write(".harness/state/rewrite-coverage-allowlist.json", '{"allow":[]}\n');
+    write(".harness/config/harness.config.yaml", "verification:\n  profiles: {}\n");
+    write("phases/phase-01/feature_list.json", '{"features":[]}\n');
+    write("phases/phase-01/sprints/sprint-01/evidence/F01.verify.log", "$ true\n[exit 0]\n");
+    g("add", "-A");
+    g("commit", "-q", "-m", "init");
+    const sha = g("rev-parse", "HEAD");
+    return { dir: tmp, write, sha, fp: () => computeFingerprint(sha, tmp) };
+  }
+
+  it("反证 #1341：PROGRESS.md 的时间戳变化不得改变指纹（跨 verify 调用能复用）", () => {
+    const r = makeHarnessRepo("verify-cache-1341-progress-");
+    try {
+      const before = r.fp();
+      // verify 跑完一次的真实效果：只有聚合时间戳变了
+      r.write(".harness/state/PROGRESS.md", "_最近聚合:2026-08-15T11:25:20.228Z_\n");
+      expect(r.fp()).toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("反证 #1341：evidence 日志（已有 + 新建）不得改变指纹", () => {
+    const r = makeHarnessRepo("verify-cache-1341-evidence-");
+    try {
+      const before = r.fp();
+      // 已入库的证据被重写（verify 每轮都重写自己跑过的 feature 日志）
+      r.write("phases/phase-01/sprints/sprint-01/evidence/F01.verify.log", "$ true\n[exit 0]\n新一轮\n");
+      expect(r.fp()).toBe(before);
+      // 新 feature 第一次验证：证据日志是未跟踪文件（.gitignore 里 !**/evidence/*.log
+      // 把它从忽略里放了出来），未跟踪那条路径也必须排除
+      r.write("phases/phase-01/sprints/sprint-01/evidence/F02.verify.log", "$ true\n[exit 0]\n");
+      expect(r.fp()).toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("反证 #1341：改一行源码 —— 指纹必须变（排除清单没把真实输入一起排掉）", () => {
+    const r = makeHarnessRepo("verify-cache-1341-src-");
+    try {
+      const before = r.fp();
+      r.write("src/app.ts", "export const x = 2;\n");
+      expect(r.fp()).not.toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("反证 #1341：改 harness.config.yaml 的 profile 映射 —— 指纹必须变", () => {
+    const r = makeHarnessRepo("verify-cache-1341-config-");
+    try {
+      const before = r.fp();
+      r.write(".harness/config/harness.config.yaml", "verification:\n  profiles:\n    high_risk: verify:release\n");
+      expect(r.fp()).not.toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("反证 #1341：feature_list.json 改了 verification 命令 —— 指纹必须变（权威清单不进排除）", () => {
+    const r = makeHarnessRepo("verify-cache-1341-featurelist-");
+    try {
+      const before = r.fp();
+      r.write("phases/phase-01/feature_list.json", '{"features":[{"id":"F01","verification":["pnpm test"]}]}\n');
+      expect(r.fp()).not.toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("反证 #1341：.harness/state/ 下的门控输入（允许清单）改了 —— 指纹必须变，不许按目录一把梭排除", () => {
+    const r = makeHarnessRepo("verify-cache-1341-allowlist-");
+    try {
+      const before = r.fp();
+      r.write(".harness/state/rewrite-coverage-allowlist.json", '{"allow":["packages/foo"]}\n');
+      expect(r.fp()).not.toBe(before);
+    } finally {
+      rmSync(r.dir, { recursive: true, force: true });
+    }
+  });
+
+  it("排除清单本身是收敛的：只有 harness 验证产物两条，扩项必须连带论证", () => {
+    // 这条是防扩散的守门人——改动这个断言的人必须同时在
+    // FINGERPRINT_EXCLUDED_PATHS 的注释里补上"它是输出不是输入"的论证。
+    expect([...FINGERPRINT_EXCLUDED_PATHS]).toEqual([
+      ".harness/state/PROGRESS.md",
+      "phases/**/evidence/**",
+    ]);
   });
 });

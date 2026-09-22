@@ -95,7 +95,7 @@ it('records a wall-clock timeline for one real-model PDF generation',async()=>{
   const office=PLATFORM_SKILL_CATALOG.map(spec=>({stableName:spec.stableName,package:officeSkillPackage({...spec,content:content[spec.stableName as keyof typeof content]}).package}));
   // WX_PDF_PERF_PACKS=all reproduces the devapp shape: 17 starter-pack skills + the 4 office ones = the 21 the user saw.
   const source=new FileSkillStarterPackSource(join(workspace,'skills/starter-packs'));
-  const packVersions:Record<string,string>={'data-workflows':'1.0.0','standard-audio':'1.1.1','standard-authoring':'1.0.0','standard-canvas':'1.0.0','standard-context':'1.1.0','standard-document':'1.2.0','standard-methods':'1.3.0','standard-visual':'1.0.1','standard-web':'1.1.2'};
+  const packVersions:Record<string,string>={'data-workflows':'1.0.0','standard-audio':'1.1.2','standard-authoring':'1.0.0','standard-canvas':'1.0.1','standard-context':'1.1.1','standard-document':'1.2.0','standard-methods':'1.3.0','standard-visual':'1.0.1','standard-web':'1.1.2'};
   const extra=process.env.WX_PDF_PERF_PACKS==='all'?(await Promise.all(Object.entries(packVersions).map(async([packId,packVersion])=>verifySkillStarterPack(await source.load(packId,packVersion),{packId,packVersion})))).flatMap(pack=>pack.skills.map(s=>({stableName:s.stableName,package:{skillId:s.stableName,versionId:s.semanticVersion,files:s.files}}))):[];
   const skills=[...office,...extra];
   const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};

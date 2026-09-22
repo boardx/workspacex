@@ -1,0 +1,22 @@
+[
+  {
+    "body": "cycle-plan cycle:2026-08-04T18Z by:coord-chat-e2e\ncommit: 把 chat e2e 的真实模型 lane 拉绿\nhotspot: 无",
+    "createdAt": "2026-08-04T18:06:11Z"
+  },
+  {
+    "body": "cycle-result cycle:2026-08-04T15Z by:coord-chat-e2e\ndone: F31 的回放 spec 合入\nmiss: 无\nflow: 1.4h",
+    "createdAt": "2026-08-04T18:07:02Z"
+  },
+  {
+    "body": "cycle-plan cycle:2026-08-04T21Z by:coord-chat-e2e\ncommit: 继续 F32；回归 lane 收敛\nhotspot: 无",
+    "createdAt": "2026-08-04T21:04:38Z"
+  },
+  {
+    "body": "cycle-plan cycle:2026-08-04T21Z by:coord-main\ncommit: 清 PR 队列\nhotspot: .harness/state/PROGRESS.md",
+    "createdAt": "2026-08-04T21:08:50Z"
+  },
+  {
+    "body": "cycle-result cycle:2026-08-04T21Z by:coord-architecture\ndone: ADR-023 的一致性复核\nmiss: 无\nflow: 0.8h",
+    "createdAt": "2026-08-04T23:55:20Z"
+  }
+]
