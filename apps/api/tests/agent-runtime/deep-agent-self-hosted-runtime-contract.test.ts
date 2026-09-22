@@ -21,15 +21,26 @@ async function freePort(): Promise<number> {
   return address.port;
 }
 
+const FIXTURE_BOOT_TIMEOUT_MS = 30_000;
+
+/**
+ * Poll for the whole declared budget, not a tenth of it.
+ *
+ * 100 × 50 ms = 5 s, while `beforeAll` declares 30 s — 25 seconds sat unused. This fixture
+ * takes longer than 5 s to boot on a Mac (torch/langgraph import), so the file could not run
+ * locally at all and the failure was only ever visible in CI; a loaded runner hits the same
+ * wall at random. Found while chasing a different failure in this file (2026-09-22).
+ */
 async function waitForHealth(url: string): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  const deadline = Date.now() + FIXTURE_BOOT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
     try {
       const response = await fetch(`${url}/healthz`);
       if (response.ok) return;
     } catch { /* process is still starting */ }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("self-hosted runtime fixture did not become healthy");
+  throw new Error(`self-hosted runtime fixture did not become healthy within ${String(FIXTURE_BOOT_TIMEOUT_MS)}ms`);
 }
 
 beforeAll(async () => {
@@ -39,7 +50,7 @@ beforeAll(async () => {
     `${ROOT}/apps/api/tests/fixtures/self-hosted-agent-runtime.py`, String(port),
   ], { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
   await waitForHealth(baseUrl);
-}, 30_000);
+}, FIXTURE_BOOT_TIMEOUT_MS + 10_000);
 
 afterAll(async () => {
   if (!processHandle || processHandle.exitCode !== null) return;

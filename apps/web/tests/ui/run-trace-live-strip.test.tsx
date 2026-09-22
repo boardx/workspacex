@@ -91,7 +91,8 @@ describe("RunTraceLiveStrip（#3320 失败之后的前进感）", () => {
     const toggle = line(screen.getByTestId("run-trace-toggle"));
     expect(screen.getByTestId("run-trace-toggle").contains(screen.getByTestId("run-trace-live-strip")), "活性文案必须在折叠行里，不许另起一行").toBe(true);
     // 历时是走动的时钟，只判形状。
-    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 历时 \d+:\d{2} · 工具 2 次 · 技能活动 0 项$/);
+    // 技能活动为 0 时不显示（2026-09-17 人类反馈）
+    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 历时 \d+:\d{2} · 工具 2 次$/);
     // 折叠行只说一次「正在执行」：活性文案说了，标题就不再重复。
     expect(toggle.match(/正在执行/g)).toHaveLength(1);
     // 活性动画只剩蝴蝶那一枚——另一枚 `Loader2` 活性条已经不存在。
@@ -101,6 +102,6 @@ describe("RunTraceLiveStrip（#3320 失败之后的前进感）", () => {
   it("失败过但仍在跑时：「有失败步骤」这条恒定事实留在同一行的后半段", () => {
     renderPanel([running, start(2, "t1"), end(3, "t1", false), start(4, "t2", "execute")]);
     const toggle = line(screen.getByTestId("run-trace-toggle"));
-    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 有失败步骤 · 历时 \d+:\d{2} · 工具 2 次 · 技能活动 0 项$/);
+    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 有失败步骤 · 历时 \d+:\d{2} · 工具 2 次$/);
   });
 });

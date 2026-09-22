@@ -19,17 +19,24 @@ import { Button } from "@/components/ui/button";
  */
 export const PLAN_FAILURE_RETRY_STEP_TESTID = "chat-task-workbench-failure-retry-step";
 export const PLAN_FAILURE_EDIT_INPUT_TESTID = "chat-task-workbench-failure-edit-input";
+export const PLAN_FAILURE_NOTE_TESTID = "chat-task-workbench-failure-note";
 
 export interface PlanFailureRecoveryProps {
   readonly failedStepIndex?: number;
   readonly failedStepLabel?: string;
   readonly reason: string;
+  /**
+   * 2026-09-22 —— 「每一步都标了完成、这一轮却失败了」时多说的一句解释
+   * （单一事实源 `lib/chat-workbench/plan-failure-shape.ts`）。缺省 ⇒ 不渲染这一行，
+   * 与本次改动之前逐字节相同。
+   */
+  readonly note?: string | null;
   readonly onRetryStep?: () => void;
   readonly onEditInput?: () => void;
 }
 
 export function PlanFailureRecovery(
-  { failedStepIndex, failedStepLabel, reason, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
+  { failedStepIndex, failedStepLabel, reason, note = null, onRetryStep, onEditInput }: PlanFailureRecoveryProps,
 ): React.JSX.Element {
   return (
     <Card className="border-destructive/30">
@@ -42,7 +49,12 @@ export function PlanFailureRecovery(
                 ? `第 ${failedStepIndex} 步「${failedStepLabel}」失败`
                 : "这次任务执行失败"}
             </span>
-            <span className="text-12 text-muted-foreground">{reason}</span>
+            <span className="whitespace-pre-line text-12 text-muted-foreground">{reason}</span>
+            {note !== null && (
+              <span data-testid={PLAN_FAILURE_NOTE_TESTID} className="mt-1 text-12 text-muted-foreground">
+                {note}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">

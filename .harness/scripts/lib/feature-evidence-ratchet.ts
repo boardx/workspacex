@@ -49,6 +49,18 @@ const EVIDENCE_PATH_RE = /^evidence\/(F\d+)\.verify\.log @ /;
 const BARE_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
 
 /**
+ * 标准 evidence 指针（`evidence/<Fxx>.verify.log @ <ISO>`）里记录的 feature id；
+ * 不是标准指针则返回 null。与 isFreeTextEvidence 共用上面那条正则——
+ * #400 的迁移门要问的是「指针是不是 verify 的产物、指的是不是这条 feature」，
+ * 判据已经在本文件里了，不另立第三份。
+ */
+export function standardEvidenceFeatureId(evidence: string | null | undefined): string | null {
+  if (!evidence) return null;
+  const m = EVIDENCE_PATH_RE.exec(evidence);
+  return m ? m[1]! : null;
+}
+
+/**
  * 一条 passing feature 的 evidence 是否属于「自由文本」这一档——
  * 既不是空（那已经 FAIL）、也不是裸时间戳（那也已经 FAIL）、也不是标准路径。
  */

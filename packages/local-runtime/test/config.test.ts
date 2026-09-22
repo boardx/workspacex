@@ -57,3 +57,22 @@ describe("local config", () => {
     expect(api.KERNEL_NATIVE_RUNTIME).toBe("0");
   });
 });
+
+describe("resolveAsrModelDir", () => {
+  it("prefers the data dir, falls back to the bundle copy, and reports null when neither has tokens.txt", async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { resolveAsrModelDir, resolveLocalConfig, DEFAULT_ASR_MODEL, paths } = await import("../src/config");
+    const dataDir = mkdtempSync(join(tmpdir(), "wsx-data-"));
+    const c = resolveLocalConfig({ repoRoot: REPO_ROOT, dataDir });
+    const bundle = mkdtempSync(join(tmpdir(), "wsx-asr-bundle-"));
+    expect(resolveAsrModelDir(c, bundle)).toBeNull();
+    mkdirSync(join(bundle, DEFAULT_ASR_MODEL), { recursive: true });
+    writeFileSync(join(bundle, DEFAULT_ASR_MODEL, "tokens.txt"), "x");
+    expect(resolveAsrModelDir(c, bundle)).toBe(join(bundle, DEFAULT_ASR_MODEL));
+    mkdirSync(paths.asrModelDir(c), { recursive: true });
+    writeFileSync(join(paths.asrModelDir(c), "tokens.txt"), "x");
+    expect(resolveAsrModelDir(c, bundle)).toBe(paths.asrModelDir(c));
+  });
+});

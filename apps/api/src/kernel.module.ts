@@ -24,6 +24,7 @@ import { StandardRunCancelController } from "./interface/controllers/standard-ru
 import { OrganizationHybridRetrieval } from "./infrastructure/retrieval/organization-hybrid-retrieval";
 import { PgSegmentRetriever } from "./infrastructure/retrieval/pg-segment-retriever";
 import { langChainRerankClientFromEnv } from "./infrastructure/retrieval/langchain-rerank-client";
+import { EmbeddingCosineRerank } from "./infrastructure/retrieval/embedding-cosine-rerank";
 import { EMBEDDING_PORT, RERANK_PORT, type RerankPort, type EmbeddingPort } from "./application/retrieval/ports";
 import { ARTIFACT_INDEX_PRODUCER, type ArtifactIndexProducer } from "./application/retrieval/index-artifact-version";
 import { ARTIFACT_INDEXING_SERVICE } from "./application/retrieval/request-artifact-index";
@@ -138,7 +139,9 @@ import { DebugRecorder, debugRecorderOptionsFromEnv } from "./application/diagno
 import { PgDebugEventStore } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { DEBUG_REQUEST_RECORDER, DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
 import { SystemDebugTraceController } from "./interface/controllers/system-debug-trace.controller";
-import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { PgErrorLogWriter, errorLogAiDepsForEdition } from "./infrastructure/logging/pg-error-log-writer";
+import { capabilityAvailability } from "@repo/contracts/deployment";
+import { readDeploymentEdition } from "./infrastructure/deployment/edition";
 import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
 import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
 import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
@@ -1078,11 +1081,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         model: ModelCallPort,
         summaryModel: ErrorLogSummaryModelConfig,
         logger: LoggerPort,
-      ) => new PgErrorLogWriter(db, readDb, {
-        model,
-        summaryModel,
-        log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
-      }),
+      ) => new PgErrorLogWriter(db, readDb,
+        /*
+         * 2026-09-22 —— 本地版**不注入** AI 摘要依赖，于是走 `PgErrorLogWriter` 自己
+         * 早就写好的那条路：「未注入 = 不生成 AI 摘要，`record()` 行为逐字节相同」。
+         *
+         * 取证：用户那台机器的 `logs/api.log` 里有数十条
+         * `error log summarization timed out`——一个给运维看的元任务，在只有一个模型槽的
+         * 机器上每条异常都要占用 30 s，异常成串出现时（那份日志里一分钟二十多条）直接
+         * 把用户正在等的回答挤到后面。上限是 5 条**并发**，也就是最坏情况下五个 4B 请求
+         * 同时排在用户前面。判据来自契约的能力矩阵，不是这里自己发明的条件。
+         */
+        errorLogAiDepsForEdition(readDeploymentEdition(), {
+          model,
+          summaryModel,
+          log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
+        })),
       inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
     },
     // issue #3082 —— debug recorder：写 app_rw、读 app_diag_ro，同 ERROR_LOG_PORT 的两池分工。
@@ -1453,7 +1467,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
-    { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
+    {
+      provide: RERANK_PORT,
+      // #3749 B2.1：本地版用同一个嵌入模型做余弦重排（`KERNEL_RERANK_MODE=embedding`），
+      // 不再为每次检索调一遍聊天模型；未设置 ⇒ 与之前逐字节相同的 listwise 重排客户端。
+      useFactory: (embeddings: EmbeddingPort | null) =>
+        process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
+      inject: [EMBEDDING_PORT],
+    },
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
@@ -1814,7 +1835,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
           [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
-          [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
+          /*
+           * 2026-09-22 —— 本地版**不注册**这一家。否则图片生成 agent 的 run 会路由到它，
+           * 而它在本地版拿到的是 `KERNEL_MODEL_API_KEY="ollama-local"`（给本机 Ollama 的
+           * 占位 key）+ 默认 baseUrl `https://dashscope.aliyuncs.com`：一个声明「数据不出
+           * 本机」的构建会把提示词发到公网，然后 401。实测取证见
+           * `select-image-provider.ts` 里那段注释。
+           * 不注册 ⇒ 这条 run 以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实失败，且不出网。
+           */
+          ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
+            ? []
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())] as const]),
         ]));
       },
     },

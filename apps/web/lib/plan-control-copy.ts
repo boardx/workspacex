@@ -13,7 +13,8 @@
  * 实则是猜的原因。
  */
 import { wave2Runtime } from "@repo/contracts";
-import { describeAgentRunFailure, type AgentRunError, type AgentRunFailureReason } from "@/lib/agent-run";
+import { describeAgentRunFailureForEdition, type AgentRunError, type AgentRunFailureReason } from "@/lib/agent-run";
+import type { DeploymentEditionValue } from "@repo/contracts/deployment";
 
 const GENERIC_PLAN_FAILURE_REASON =
   "执行未完成——账本读模型目前不提供更具体的失败原因，可重试该步或修改输入后重新确认。";
@@ -30,9 +31,14 @@ const GENERIC_PLAN_FAILURE_REASON =
 export function describePlanFailureReason(
   errorCode: string | null,
   failureReason?: AgentRunFailureReason | null,
+  /**
+   * 2026-09-22 —— 缺省 `cloud` ⇒ 返回值与本次改动之前**逐字相同**（既有调用点与单测
+   * 不必都改）。`/chat` 的调用点传真值，本地版因此多一句可执行的下一步。
+   */
+  edition: DeploymentEditionValue = "cloud",
 ): string {
   if (errorCode === null) return GENERIC_PLAN_FAILURE_REASON;
   const parsed = wave2Runtime.AgentRunError.safeParse(errorCode);
   if (!parsed.success) return GENERIC_PLAN_FAILURE_REASON;
-  return describeAgentRunFailure(parsed.data as AgentRunError, failureReason ?? null);
+  return describeAgentRunFailureForEdition(parsed.data as AgentRunError, failureReason ?? null, edition);
 }

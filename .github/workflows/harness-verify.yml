@@ -285,6 +285,27 @@ jobs:
       - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
         run: node .harness/scripts/lint-spec-gate-coverage.mjs
 
+      # #400：feature 状态迁移的**出处**。此前三道门（doctor 的 checkPassingEvidence、
+      # feature-evidence-ratchet、evidence-fingerprint）全都只看**最终树**，而两条实测
+      # 可行的绕过在最终树上完全自洽，三道门一条都抓不到：
+      #   ① 把 status 手改成 passing，evidence 指向一份**早就存在、指纹也对得上**的旧日志
+      #      （别的 feature 的，或自己在别的 sprint 留下的）——最终树上 status=passing、
+      #      evidence 是标准路径、指纹 ok，三门全绿；
+      #   ② 改写一份已 passing 的 verify.log 正文（`[exit 1]` → `[exit 0]`），再照着
+      #      evidence-fingerprint.ts 重算 sha256 写回尾行——checkFingerprint 返回 ok。
+      #      该文件自己的头注就写着"读得懂本文件的人就能重算哈希"。
+      # 两条的破绽只在 base→head 的差分里：①"status 翻了但这一步没产出任何新证据"，
+      # ②"日志正文变了但 status/evidence 指针没动"。所以本步必须拿两个 ref，
+      # 也因此只在 PR 上跑——push/tag 事件没有"改动前"这个锚点。
+      # 只读 git 对象，毫秒级；phases/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到。
+      # 反证套件见 .harness/scripts/lint-feature-transition.test.ts（含反向反证：
+      # 真仓库两个真 commit 之间必须退 0，一道永远红的门等于没有门）。
+      - name: feature 状态迁移出处（base→head 差分，不只看最终树）
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.sha }}"
       # 对契约的否定性断言不得说谎（#473）。
       # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而
       # `createMessage` 早在 PR #429 就进了 `packages/contracts/src/chat.ts`。那句注释写下

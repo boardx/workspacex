@@ -127,11 +127,11 @@ def create_app(runtime: Runtime | None = None) -> Starlette:
     async def stream(request: Request):
         run_id = request.path_params["run_id"]
         async def generate():
-            sent = 0
+            last_sequence = 0
             while True:
-                rows = await rt(request).ledger.events(run_id)
-                for row in rows[sent:]:
-                    sent += 1
+                rows = await rt(request).ledger.events(run_id, last_sequence)
+                for row in rows:
+                    last_sequence = row["sequence"]
                     if row["event"] == NATIVE_SNAPSHOT_EVENT:
                         continue
                     yield f"id: {row['sequence']}\nevent: {row['event']}\ndata: {json.dumps(row['data'], ensure_ascii=False)}\n\n"

@@ -30,6 +30,7 @@
  * ——落地页发起对话时投进去的任务书与 Agent 自身的 instructions 是同一份规则，
  * 不在这里另抄一份（`publish-team2-agent.ts` 也是这么导入的）。
  */
+import { isCliEntry } from "./cli-entry";
 import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
@@ -110,6 +111,6 @@ export async function backfillTeam2Agent(): Promise<Team2BackfillReport> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   await backfillTeam2Agent();
 }

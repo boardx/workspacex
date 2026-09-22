@@ -27,6 +27,7 @@
  *
  * 用法：`pnpm --filter api exec tsx scripts/backfill-platform-skills.ts`
  */
+import { isCliEntry } from "./cli-entry";
 import {
   ensurePlatformSkillsSeeded,
   OFFICIAL_SKILLS,
@@ -37,7 +38,7 @@ export { OFFICIAL_SKILLS };
 export type { PlatformSkillsBackfillReport };
 export const backfillPlatformSkills = ensurePlatformSkillsSeeded;
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntry(import.meta.url)) {
   const report = await backfillPlatformSkills();
   console.log(
     `[backfill-platform-skills] 完成：新建 ${String(report.created.length)} 个` +

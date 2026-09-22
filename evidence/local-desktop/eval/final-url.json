@@ -1,0 +1,123 @@
+{
+  "api": "http://127.0.0.1:3201",
+  "at": "2026-09-21T19:27:54.125Z",
+  "transient5xx": 0,
+  "runs": [
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么",
+      "threadId": "thr-bfc06a3e-961d-4b8c-b64d-0fb30f6a99e6",
+      "runId": "7573a312-e600-4094-b68d-323b3403046c",
+      "status": "succeeded",
+      "wallMs": 30914,
+      "modelCalls": 2,
+      "toolNodes": 1,
+      "firstChunkMs": 10782,
+      "chunks": 24,
+      "chunksPerSec": 8.3,
+      "lastEventMs": 29046,
+      "systemPromptChars": 1219,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 33,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.gov.cn/ 并列出首页上提到的两个主题",
+      "threadId": "thr-01778270-5595-4482-8f4c-5055383669f3",
+      "runId": "3a68e4ff-1c48-46a5-b607-ce5f34cdf7ac",
+      "status": "succeeded",
+      "wallMs": 31598,
+      "modelCalls": 2,
+      "toolNodes": 1,
+      "firstChunkMs": 8201,
+      "chunks": 113,
+      "chunksPerSec": 13.1,
+      "lastEventMs": 30872,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 218,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题",
+      "threadId": "thr-f351c9b0-e391-4032-a6fb-6bedb81f2fe7",
+      "runId": "32487b14-77c0-4470-a710-7668cc7c9cf6",
+      "status": "succeeded",
+      "wallMs": 243396,
+      "modelCalls": 3,
+      "toolNodes": 1,
+      "firstChunkMs": 2557,
+      "chunks": 173,
+      "chunksPerSec": 6.5,
+      "lastEventMs": 241440,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 206,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "https://news.qq.com/ 这个页面是做什么的，一句话",
+      "threadId": "thr-b10ba93b-76ac-4947-afb1-a5c8436e19bc",
+      "runId": "619e2139-e1e6-48a4-9ed9-fda8017b5857",
+      "status": "succeeded",
+      "wallMs": 18544,
+      "modelCalls": 2,
+      "toolNodes": 1,
+      "firstChunkMs": 1378,
+      "chunks": 24,
+      "chunksPerSec": 9.3,
+      "lastEventMs": 16252,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 33,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.36kr.com/ 并总结两点",
+      "threadId": "thr-26ba6a22-c8a1-4a6c-ac2b-b2d404029e30",
+      "runId": "cbead23f-46ec-4118-af8e-11a1a62c7b4c",
+      "status": "succeeded",
+      "wallMs": 193079,
+      "modelCalls": 3,
+      "toolNodes": 1,
+      "firstChunkMs": 1580,
+      "chunks": 284,
+      "chunksPerSec": 1.8,
+      "lastEventMs": 192273,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 410,
+      "canvasFence": false,
+      "quality": null,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [],
+    "feedback": [],
+    "title": []
+  },
+  "summary": "| 类别 | n | 成功 | 模型调用中位 | wall 中位 s | 首块中位 s | 块/s 中位 | 提示 chars | 用工具的 run | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|---|\n| url | 5 | 5 | 2 | 32 | 2.6 | 8.3 | 629 | 5 | 0 |"
+}

@@ -39,16 +39,71 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 | `GET /models` | 列出 `qwen3.5-4b`（self-hosted，待测试） |
 | `GET /canvas/templates?orgId=…` | 两个组织各可见 20 个模板 |
 | Skill 沙箱子进程 | `127.0.0.1:3310` 监听 |
-| 模型对话 / 工具调用 / 打 DMG | **未测**（本环境无 Ollama、无 Python venv、无 macOS） |
+| 模型对话 / 工具调用 / 打 DMG | 见下节 Mac 实测 |
 
-## 打包（macOS，Night 0 目标；本环境未执行）
+## 已实测（2026-09-17，Apple Silicon Mac，本机 Ollama `qwen3.5:4b`）
+
+完整记录与逐模板数据见 `evidence/local-desktop/mac-e2e-2026-09-17.md`；根因与修法见 issue #3716 评论。
+
+| 项目 | 结果 |
+|---|---|
+| 全栈拉起 | ~75 s 就绪（含 ASR 网关、deep-agent） |
+| 聊天（本地模型真实回复） | 一句话自我介绍 73 s（Ollama 直连约 39 s，含 thinking） |
+| 本地实时转写 | 网关直推真实中文语音：0.8 s 首个 partial，8 s final 与原句逐字一致；API 生产 provider 真实模型车道 1/1 |
+| 录音页麦克风 | **未测**（内置浏览器禁麦克风，需人类实测） |
+| 画布模板 | **20/20** 在聊天里生成并出围栏（单个 21 s–637 s，个别要点一次意图/权限确认） |
+| pptx skill | 沙箱 + 预装模块链路通（直连沙箱 59 KB 真文件）；聊天里 4b 模型 0/3 拿到文件（`call_skill` 参数反复错），换更大模型再测 |
+| DMG | 见 evidence 文件末尾 |
+
+必须先跑的准备脚本（少一个就少一项能力，启动日志会如实警告）：
+```bash
+./scripts/local-bundle/prepare-python.sh          # deep-agent 运行时
+./scripts/local-bundle/prepare-sandbox-modules.sh # pptx/docx/xlsx/pdf skill 的预装模块（扁平 npm ci，随 apps/skill-sandbox/** 进 DMG）
+./scripts/local-bundle/fetch-asr-model.sh         # 本地实时转写模型
+./scripts/local-bundle/fetch-ollama.sh            # 打 DMG 才需要
+./scripts/local-bundle/fetch-models.sh            # 打 DMG 才需要：把聊天/嵌入模型（3.8 GB）导出到 apps/desktop/models 随包，首次启动不联网
+```
+
+## 打包（macOS，Night 0 目标）
 
 ```bash
-./scripts/local-bundle/prepare-python.sh      # deep-agent-service/.venv
+./scripts/local-bundle/bundle-python.sh       # apps/desktop/python：可搬迁的 CPython + site-packages（随包进 resources/python）
+                                              # ⚠ 不是 prepare-python.sh 的 .venv——venv 写死构建机绝对路径，装到别的 Mac 起不来
 ./scripts/local-bundle/fetch-ollama.sh        # apps/desktop/bin/ollama
+./scripts/local-bundle/fetch-models.sh        # apps/desktop/models（Ollama manifests+blobs，随包 5.2 GB DMG）
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3200 pnpm --filter web build   # NEXT_PUBLIC_* 在 build 期烘焙，端口须与运行时一致
 pnpm --filter @repo/desktop dist:mac          # apps/desktop/release/*.dmg（未签名）
 ```
+
+装到另一台 Mac 的前提：Apple Silicon、≥ 8 GB 内存、≥ 12 GB 空闲磁盘。DMG 自带 Ollama、模型、ASR 模型、Node（Electron）
+与 Python，不联网、不装东西。运行时优先用 `resources/python`，没有才回落到开发机的 `.venv`
+（`packages/local-runtime/src/config.ts` `resolveDeepAgentLaunch`，启动日志一行 `[deep-agent] python runtime: bundled-python|venv`）。
+``````
+
+
+## 本地版性能相关开关（#3749，全部由 `packages/local-runtime/src/config.ts` 单点产出）
+
+| 环境变量 | 本地值 | 云端默认 | 作用 |
+|---|---|---|---|
+| `OLLAMA_CONTEXT_LENGTH` / `OLLAMA_KEEP_ALIVE` | 8192 / 24h | — | 随包 Ollama 的上下文与常驻；备用端口上的旧实例启动时重启以应用 |
+| `KERNEL_MODEL_STREAM_ENABLED` / `KERNEL_DEEP_AGENT_STREAM_ENABLED` | 1 | 关 | 流式首字 |
+| `KERNEL_CANVAS_GUIDANCE_MODE` | matched | all | 只注入消息点名的画布模板；mermaid 规则按图意注入 |
+| `KERNEL_MODEL_JSON_SCHEMA` | 1 | 关 | 追问 / 反馈结构化 / 研究方向与大纲走 `response_format: json_schema` |
+| `KERNEL_GUIDED_RESEARCH_MODEL_ID` | 聊天模型 | 契约字面量 | 引导式研究实际调用的模型 id |
+| `LOCAL_RUNTIME_ENDPOINT` / `LOCAL_RUNTIME_MODEL_ID` | 本机 Ollama / 聊天模型 | 11434 / 空 | 个人本地组织的 `/api/generate` |
+| `KERNEL_RERANK_MODE` | embedding | — | 用嵌入余弦重排，不再每次检索调聊天模型 |
+| `KERNEL_THREAD_TITLE_MODEL_ID` 等三个 | `qwen3.5:2b` | 主模型 | 标题 / 追问 / 反馈结构化走小模型 |
+| `KERNEL_SKILL_CATALOG_MODE` / `_MAX` | matched / 8 | all | 目录只列与消息相关的 skill |
+
+主模型：默认 `qwen3.5:4b`；机器 ≥16 GB 且 `qwen3.5:9b` 已在库里时自动用 9B（`preferredChatModel`，不代为下载）。
+
+### 评测 lane
+```bash
+API=http://127.0.0.1:3200 PASSWORD=<local/secrets.json adminPassword> AGENT_ID=<默认 agent id> ORG_ID=<org id> \
+PG_PORT=55432 DEEP_AGENT_URL=http://127.0.0.1:2024 DEEP_AGENT_KEY=<deepAgentInternalKey> \
+node scripts/local-bundle/eval-local.mjs        # SUITE=chat|url|canvas|json|all，OUT=<json>
+```
+从外部打**安装版**：chat / url / canvas 各 5 题 + 追问、反馈结构化、标题三个 JSON 站点；从 deep-agent 账本取首块延迟与块/s，从线程状态取系统提示长度。结果在 `evidence/local-desktop/eval/`。
 
 ## 本地实时转写（ASR）是怎么接的
 
@@ -68,6 +123,9 @@ OpenAI-Realtime 风格协议（`session.update` / `input_audio_buffer.append` / 
 
 - pglite-socket 忽略客户端登录角色：所有连接都是实例打开时的角色。启动分两段：先以 `postgres` 迁移 + 种子，再以 `app_rw` 对外服务；`session_user` 仍是 postgres，`SET ROLE postgres` 不会被拒。仅适用于单用户本机回环，**不是**多机部署形态。
 - API 启动时的「平台 skill 目录自愈」以 owner 凭据写 `organizations`，在 app 阶段会被 RLS 拒绝并打一条 `42501` 日志；种子已在 owner 阶段完成，功能不受影响。
-- 沙箱为 L0（子进程，无容器）；LibreOffice / tesseract / ffmpeg 未随附，对应 skill 会报缺依赖。
+- 沙箱为 L0（子进程，无容器）；LibreOffice / tesseract / ffmpeg 未随附，对应 skill 会报缺依赖。脚本依赖（pptxgenjs 等）必须由 `prepare-sandbox-modules.sh` 装成扁平真实目录（Node 权限模型不认 pnpm 的二级软链），否则 `MODULE_NOT_FOUND`。
+- PGlite 只有一个后端会话：所有 TCP 连接串行复用，排队器只在后端答 ReadyForQuery 后换人（Flush/Terminate 没有回复、大结果集跨块，都单独处理）；一条连接正忙时其它连接的 connect 会排队，所以 deep-agent 账本连接超时设 30 s + 2 次重试、run 总超时 15 min。排队器在兜底释放 / 等待超过 3 s 时各打一行诊断（`backend taken from idle connection …` / `waited …ms for the backend`），排查卡顿先看这两种行。
+- 本地模型的 thinking 由 `KERNEL_MODEL_REASONING_EFFORT=none` 关闭，只对 **Ollama ≥ 0.34** 的 `/v1` 端点生效（`think:false` 在 `/v1` 上被忽略，实测见 evidence）。启动时若发现已在跑的 Ollama 低于 0.34，且随包二进制更新，会在下一端口自起随包版本；两者都旧则复用并如实警告「回复会慢」。
+- 芯片提示词已改为「没聊到的分区按指引推理补全」（与 system prompt 画布指引同向）；小模型在新会话里遇到「留空/不要编造」会反问而不出围栏。
 - 图片生成、web_search、浏览器工具、远程 MCP：本地版未配置，UI/API 走各自的「未配置」状态。ASR 见上节。
 - deep-agent 服务在本机以 `app_rw` 建自己的表（线程账本 / 检查点 / 记忆 schema），owner 阶段给该角色授了 schema 与 database 的 CREATE；这些表不是 RLS 管辖的 API 表。
