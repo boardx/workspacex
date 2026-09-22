@@ -36,8 +36,10 @@ import {
   type DesignWritebackField,
   type PrototypeLink,
   type PrototypeVersion,
+  type PrototypeAccent,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
+import { designWorkbench } from "@repo/contracts";
 
 /**
  * 2026-09-07：退路原因 → 人话。键集合来自契约闭集 `DesignChatFallbackReason`（穷举，
@@ -79,6 +81,23 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
  * 再抄一遍只会把同一件事说两遍。这句话只说"开始"。
  */
 const AUTO_FIRST_PROMPT = "按我写的背景和验收标准，画第一版原型。";
+
+/* ── 迭代 17：强调色档位的展示层元数据。**取值闭集来自契约**，这里不另立一份枚举。 ── */
+const ACCENT_OPTIONS = designWorkbench.PrototypeAccent.options;
+const ACCENT_LABEL: Record<PrototypeAccent, string> = {
+  neutral: "不用强调色（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
+  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+};
+/**
+ * 选择器上那个小圆点用哪一套值。
+ *
+ * ⚠ 固定取 `dark` 那一套，**不跟着项目主题变**：这一排按钮长在深色的工具条上，
+ * 跟着项目主题切会让做浅色稿时一排色点全部压暗，在深色工具条上糊成一片——
+ * 那时它标的就不再是"这个档位长什么样"，而是"这个档位在别处长什么样"。
+ */
+const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Object.fromEntries(
+  Object.entries(designWorkbench.PROTOTYPE_ACCENTS).map(([k, v]) => [k, v.dark.primary]),
+) as Record<Exclude<PrototypeAccent, "neutral">, string>;
 
 /**
  * 迭代 16（#3773 R8）：哪些退路原因值得给一个「再试一次」。
@@ -406,6 +425,24 @@ export function DesignDetailScreen({
     } catch {
       setLoad({ kind: "ready", project: before });
       setChatError("没能切换主题，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
+   * 迭代 17：切**原型的强调色档位**。与切主题同一条路径、同一套乐观更新与回滚。
+   * 它是项目的属性（导出的 HTML 也跟着它），不是看的人的偏好，所以落库而不是存在本地。
+   */
+  const changeAccent = async (accent: PrototypeAccent) => {
+    if (project === null || project.accent === accent) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, accent } });
+    try {
+      const out = await updateProject(project.id, { accent });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能切换强调色，稍后再试。");
       window.setTimeout(() => setChatError(null), 3000);
     }
   };
@@ -936,6 +973,28 @@ export function DesignDetailScreen({
                   ))}
                 </div>
                 {/*
+                  * 迭代 17：强调色档位。**色块本身就是标签**——给一行中文色名（「靛蓝」「湖绿」）
+                  * 反而比色块更难扫，而这一排的用途就是"扫一眼挑一个"。
+                  * 无障碍那一半由 `aria-label` + `title` 给，不靠视觉。
+                  */}
+                <div className="inline-flex items-center gap-0.5 rounded-control border border-border p-0.5" role="group" aria-label="原型强调色" data-testid="design-detail-accents">
+                  {ACCENT_OPTIONS.map((a) => (
+                    <button
+                      key={a} type="button" data-testid={`design-detail-accent-${a}`}
+                      aria-pressed={project.accent === a}
+                      aria-label={ACCENT_LABEL[a]}
+                      title={ACCENT_LABEL[a]}
+                      onClick={() => void changeAccent(a)}
+                      className={cn(
+                        "h-4 w-4 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        project.accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
+                        a === "neutral" && "bg-muted",
+                      )}
+                      style={a === "neutral" ? undefined : { backgroundColor: `hsl(${ACCENT_SWATCH[a]})` }}
+                    />
+                  ))}
+                </div>
+                {/*
                   * 迭代 14：设备镜头。**不写库** —— 换设备只改画板尺寸，原型没有断点，
                   * 内容按 flex 自适应；title 里如实说清楚，免得有人以为切过去就看到了响应式结果。
                   */}
@@ -1045,6 +1104,7 @@ export function DesignDetailScreen({
                       theme={project.theme}
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
+                      accent={project.accent}
                       onNavigate={navigateTo}
                     />
                   ) : (
@@ -1088,6 +1148,7 @@ export function DesignDetailScreen({
                         (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
                       }
                       changed={preview === null ? changed : undefined}
+                      accent={project.accent}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
                         const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";

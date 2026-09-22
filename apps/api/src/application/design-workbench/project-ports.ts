@@ -46,6 +46,8 @@ export interface DesignProjectRow {
   readonly frameNotes: readonly string[];
   /** 迭代 13：原型自己的明暗主题；老行为空。 */
   readonly theme?: "light" | "dark";
+  /** 迭代 17：原型的强调色档位；老行为空（读侧退回 `neutral`）。 */
+  readonly accent?: designWorkbench.PrototypeAccent;
   /** 迭代 13（delta §4）：项目标签；老行为空。 */
   readonly tags?: readonly string[];
   /** 迭代 13：参考图元信息（不含字节）；老行为空。 */
@@ -126,6 +128,8 @@ export interface DesignProjectPatch {
   /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
   readonly frameNotes?: readonly string[];
   readonly theme?: "light" | "dark";
+  /** 迭代 17：强调色档位。不给 ⇒ 沿用库里那份（不是"改回 neutral"）。 */
+  readonly accent?: designWorkbench.PrototypeAccent;
   /** 迭代 13（delta §4）：**整份替换**标签（不是增删）。 */
   readonly tags?: readonly string[];
   /** 迭代 11：与 `frames`/`prototype` 一起给的跳转关系；不给 ⇒ 沿用库里已有的那份。 */

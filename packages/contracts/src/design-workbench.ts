@@ -183,6 +183,65 @@ export const IntakeAnswer = z
   .strict();
 export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
 
+/* ─────────── 迭代 17：项目级强调色（#3773 后续，视觉身份） ─────────── */
+
+/**
+ * 原型的**强调色档位**。闭集，不是自由色值——同 `Radius` / `Scale` / `PrototypeIcon`
+ * 的那条纪律。
+ *
+ * ## 为什么需要它
+ *
+ * 在这之前，这套原语画出来的东西**没有视觉身份**：不管做的是儿童记账 App 还是医院
+ * 排班后台，按钮、选中态、进度条一律是同一个中性灰 `--primary`。一个产品给人的第一印象
+ * 首先是它的主色，其次才是布局——少了这一层，所有产出看起来都像同一个模板的不同填空，
+ * 这正是「和 claude design 有巨大差距」里最容易看出来、也最容易修的一段。
+ *
+ * ## 为什么是档位而不是 `#RRGGBB`
+ *
+ * 给了自由色值，模型和人就会造出 `#7B68EE` 这种在深色画布上读不出来的东西，而对比度
+ * 是这套原语能看起来像成品的**前提**（按钮上的字读不清，再好的布局也白搭）。档位让
+ * 每一个取值的对比度都可以被**一次性验过并钉住**（见 `PROTOTYPE_ACCENTS` 与
+ * `design-workbench.test.ts` 的对比度门）。
+ *
+ * `neutral` = 这个字段出现之前的行为，逐字不变：不覆盖任何 token。
+ */
+export const PrototypeAccent = z.enum([
+  "neutral", "blue", "violet", "teal", "green", "amber", "rose", "slate",
+]);
+export type PrototypeAccent = z.infer<typeof PrototypeAccent>;
+
+/**
+ * 每个档位在**浅色画布 / 深色画布**下的实际取值。HSL 三元组字符串，与
+ * `app/globals.css` 里 token 的写法逐字同形——画布把它们直接写进 `--primary` /
+ * `--primary-foreground` / `--ring` 的内联 style，整棵树因此跟着变，
+ * 不需要在渲染表里逐个节点改颜色。
+ *
+ * ⚠ 两套值不是"同一个色的明暗变体"，是**各自为自己那块底色挑的**：浅色画布上是深色块
+ *   配白字，深色画布上是亮色块配近黑字——与 `globals.css` 里 `--primary` 在 `:root`
+ *   与 `.dark` 下的取向一致。照搬一套到另一套，结果是按钮上的字读不出来。
+ *
+ * ⚠ 改这里的任何一个数，对比度门会重算。**不要为了"更好看"把对比度压到 4.5 以下**：
+ *   那不是好看，是别人读不了。
+ */
+export interface PrototypeAccentTokens {
+  /** 强调面的底色（HSL 三元组）。 */
+  readonly primary: string;
+  /** 压在上面的字色。 */
+  readonly foreground: string;
+}
+
+export const PROTOTYPE_ACCENTS: Readonly<
+  Record<Exclude<PrototypeAccent, "neutral">, { readonly light: PrototypeAccentTokens; readonly dark: PrototypeAccentTokens }>
+> = {
+  blue:   { light: { primary: "221 83% 41%", foreground: "0 0% 100%" }, dark: { primary: "213 94% 73%", foreground: "222 47% 11%" } },
+  violet: { light: { primary: "262 72% 45%", foreground: "0 0% 100%" }, dark: { primary: "255 92% 79%", foreground: "258 45% 15%" } },
+  teal:   { light: { primary: "184 82% 27%", foreground: "0 0% 100%" }, dark: { primary: "172 66% 62%", foreground: "185 60% 12%" } },
+  green:  { light: { primary: "142 66% 26%", foreground: "0 0% 100%" }, dark: { primary: "141 70% 66%", foreground: "144 61% 12%" } },
+  amber:  { light: { primary: "26 90% 33%",  foreground: "0 0% 100%" }, dark: { primary: "43 96% 66%",  foreground: "28 74% 12%" } },
+  rose:   { light: { primary: "346 77% 40%", foreground: "0 0% 100%" }, dark: { primary: "351 95% 77%", foreground: "344 62% 13%" } },
+  slate:  { light: { primary: "215 25% 30%", foreground: "0 0% 100%" }, dark: { primary: "213 27% 76%", foreground: "217 33% 12%" } },
+};
+
 /* ─────────── 迭代 13：从已有对话导入（design-delta `design-chat-inputs` §2） ─────────── */
 
 /**
@@ -349,6 +408,11 @@ export const DesignProject = z
      * 导出的 HTML / PDF 跟随**它**，不是导出时后台碰巧是什么色。
      */
     theme: z.enum(["light", "dark"]).default("dark"),
+    /**
+     * 迭代 17：原型的强调色档位。缺省 `neutral` = 这个字段出现之前的行为（不覆盖任何 token），
+     * 所以老项目读出来一个像素都不会变。
+     */
+    accent: PrototypeAccent.default("neutral"),
     /** 迭代 13（delta §4）：项目标签，用于首页过滤。老行没有这一列 ⇒ 空数组。 */
     tags: DesignProjectTags.default([]),
     /**
@@ -605,6 +669,8 @@ export const operations = {
         linkedFeedbackId: z.string().optional(),
         /** 迭代 13：新建时就能定主题；缺省 `dark`。 */
         theme: z.enum(["light", "dark"]).optional(),
+        /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+        accent: PrototypeAccent.optional(),
         /**
          * 迭代 13：澄清问答的结果。给出即由服务端汇进 `problem`（可验收的条目进 `criteria`）。
          * 与 `problem` 同时给出时：`problem` 是用户在预览里**编辑过**的最终文本，以它为准；
@@ -658,6 +724,8 @@ export const operations = {
         problem: z.string().max(4000).optional(),
         /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
         theme: z.enum(["light", "dark"]).optional(),
+        /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+        accent: PrototypeAccent.optional(),
         /**
          * 迭代 13（delta §4）：标签是**整份替换**，不是增删两个动作。
          * 一个 8 个上限的短列表，PATCH 一整份比 add/remove 两条路径少一半状态，

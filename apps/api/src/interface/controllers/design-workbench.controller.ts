@@ -255,6 +255,7 @@ export class DesignWorkbenchController {
           intake: body.intake,
           tags: body.tags,
           theme: body.theme,
+          accent: body.accent,
         },
       );
     } catch (e) {
@@ -296,6 +297,7 @@ export class DesignWorkbenchController {
         template: body.template,
         problem: body.problem,
         theme: body.theme,
+        accent: body.accent,
         tags: body.tags,
       });
     } catch (e) {

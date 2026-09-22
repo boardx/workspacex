@@ -108,6 +108,14 @@ export interface DesignChatReplyResult {
   /** 迭代 9：模型给的下一步建议（已过契约：≤ 3 条、每条 ≤ 40 字；退路 ⇒ `[]`）。 */
   readonly suggestions: readonly string[];
   /**
+   * 迭代 17：骨架轮挑的**强调色档位**（只在首次分页生成那条路上有）。
+   *
+   * 不走 `writeback`：那是「模型改项目字段」的通道，而强调色是**这一次生成顺带定下的
+   * 视觉身份**，和页序一样属于服务端在分页生成里知道的事实。给了就写一次，
+   * 没给（或给了个不合法的名字）⇒ 不动项目现有的档位。
+   */
+  readonly accent?: designWorkbench.PrototypeAccent;
+  /**
    * 2026-09-07：走退路的**为什么**。`source: "fallback"` 时必给（契约 `DesignChatReply`
    * 用 superRefine 机械绑定），让屏上那句话能说清楚是"没配模型"还是"调用失败"——
    * 用户实测时只看到一句"稍后会更新画布"，无从判断该等还是该找运维。
@@ -405,6 +413,9 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   "不要输出任何组件树。只输出一个 JSON 对象：" +
   '{"reply":"给用户看的一句话，中文，不超过 100 字",' +
   '"tone":"这套界面的设计基调，一句话（给谁用、什么气质、信息密度高还是留白多、以什么为视觉重点）",' +
+  // 迭代 17：**强调色也在这里定一次**。不定的话每个项目都是同一个中性灰，
+  // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
+  `"accent":"这套界面的强调色，从这几档里挑一个：${designWorkbench.PrototypeAccent.options.join("/")}（neutral = 不用强调色）",` +
   '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
   // 迭代 16（#3773 R1-⑨）：骨架轮此前**没有任何质量约束**，而后面每一页都建在它上面——
@@ -416,7 +427,9 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   "③「设置」「关于」「帮助」这类边角页不要排进前三页——用户第一眼要看到的是这个产品的主线。" +
   // 迭代 16（#3773 R1-⑩）：基调在这里定一次，后面每页轮都带着它 —— 见 `generatePaged`。
   "tone 会原样发给后面每一页的生成，请写得具体、可执行（「面向一线客服、信息密度高、以待办列表为视觉重点、克制用色」" +
-  "比「简洁现代」有用得多）。";
+  "比「简洁现代」有用得多）。" +
+  "accent 按这个产品**该有的**气质挑，不是按你喜欢什么：记账/银行偏靛蓝或石板灰，健康/环保偏绿，" +
+  "美食/零售偏琥珀或玫红，效率工具偏紫或青；实在拿不准就给 neutral——一个不搭的主色比没有主色更糟。";
 
 /** 每页轮的系统提示：只画**一页**。 */
 export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
@@ -539,6 +552,14 @@ export class ModelDesignChatReplier implements DesignChatModel {
      * 不是某个具体数值；数值那一层已经由原语的档位闭集管住了。
      */
     const tone = typeof obj.tone === "string" ? obj.tone.trim().slice(0, 400) : "";
+    /**
+     * 迭代 17：模型挑的强调色档位。过契约闭集——给了个不存在的名字（或压根没给）
+     * ⇒ `undefined`，调用方不写这个字段，项目保持原样。**不猜、不近似匹配**：
+     * 「深蓝」和 `blue` 差一个字就该判不合法，近似匹配会让"模型给了个什么"这件事
+     * 变得不可复核。
+     */
+    const accentParsed = designWorkbench.PrototypeAccent.safeParse(obj.accent);
+    const accent = accentParsed.success ? accentParsed.data : undefined;
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
       return this.fallback("MODEL_EMPTY_OUTPUT");
@@ -644,6 +665,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       writeback: {},
       pagedScreens,
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
+      ...(accent === undefined ? {} : { accent }),
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
   }

@@ -27,6 +27,7 @@ const project: dw.DesignProject = {
   name: "反馈导出流程重设计",
   template: "wireframe",
   theme: "dark",
+  accent: "neutral",
   tags: [],
   refImages: [],
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
@@ -288,6 +289,75 @@ describe("迭代 13：从对话导入的契约形状", () => {
     expect([...dw.operations.importThread.err]).toEqual(["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"]);
     for (const code of dw.operations.importThread.err) {
       expect(dw.DesignWorkbenchError.options).toContain(code);
+    }
+  });
+});
+
+/* ─────────── 迭代 17：强调色档位的对比度门 ─────────── */
+
+/** HSL 三元组字符串（"221 83% 41%"，与 globals.css 里 token 的写法同形）→ 相对亮度。 */
+function relativeLuminance(hsl: string): number {
+  const m = /^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(hsl.trim());
+  if (m === null) throw new Error(`不是合法的 HSL 三元组：「${hsl}」`);
+  const h = Number(m[1]) / 360;
+  const sat = Number(m[2]) / 100;
+  const l = Number(m[3]) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * sat;
+  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
+  const mm = l - c / 2;
+  const seg = Math.floor(h * 6) % 6;
+  const rgb = [
+    [c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x],
+  ][seg]!.map((v) => v + mm);
+  const lin = rgb.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe("迭代 17：强调色是闭集，且每一档的对比度都验过", () => {
+  it("每个档位（neutral 除外）都在 PROTOTYPE_ACCENTS 里有两套值，一个不漏", () => {
+    // ⭐ 反证锚点：契约加了一个新档位却忘了给值 ⇒ 这条红（画布会渲染成"没有强调色"）。
+    for (const a of dw.PrototypeAccent.options) {
+      if (a === "neutral") continue;
+      const tokens = dw.PROTOTYPE_ACCENTS[a];
+      expect(tokens, `档位 ${a} 没有取值`).toBeDefined();
+      expect(tokens.light.primary.length).toBeGreaterThan(0);
+      expect(tokens.dark.primary.length).toBeGreaterThan(0);
+    }
+    expect(Object.keys(dw.PROTOTYPE_ACCENTS).sort()).toEqual(
+      dw.PrototypeAccent.options.filter((a) => a !== "neutral").slice().sort(),
+    );
+  });
+
+  it("按钮上的字读得出来：每一档的底色 ↔ 字色对比度 ≥ 4.5:1（浅色与深色画布各一套）", () => {
+    /*
+     * ⭐ 反证锚点：把任何一档的 `light.foreground` 改成和底色相近的值 ⇒ 这条红。
+     *
+     * 对比度是这套原语能看起来像成品的**前提**，不是锦上添花：按钮上的字读不清，
+     * 再好的布局也白搭。档位存在的理由正是"每个取值都能被一次性验过并钉住"——
+     * 换成自由色值，这条门就写不出来。
+     */
+    const bad: string[] = [];
+    for (const [name, tokens] of Object.entries(dw.PROTOTYPE_ACCENTS)) {
+      for (const theme of ["light", "dark"] as const) {
+        const { primary, foreground } = tokens[theme];
+        const ratio = contrast(primary, foreground);
+        if (ratio < 4.5) bad.push(`${name}.${theme} = ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("浅色画布用深色块配白字、深色画布用亮色块配近黑字——不是同一套值照搬", () => {
+    // 照搬一套到另一套，表现就是"在其中一种画布上一片糊"。这条钉住取向本身。
+    for (const [name, tokens] of Object.entries(dw.PROTOTYPE_ACCENTS)) {
+      const light = relativeLuminance(tokens.light.primary);
+      const dark = relativeLuminance(tokens.dark.primary);
+      expect(dark, `${name}：深色画布上的强调色该比浅色画布上的更亮`).toBeGreaterThan(light);
     }
   });
 });

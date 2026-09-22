@@ -893,3 +893,38 @@ describe("迭代 16：每页轮成批并发（#3773 R9）", () => {
     expect(out.text).toContain("没画出来");
   });
 });
+
+/* ───────────────── 迭代 17：骨架轮挑强调色（#3773 后续） ───────────────── */
+
+describe("迭代 17：强调色在骨架轮定一次，过契约闭集", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "做个记账 App", at: "2026-09-22T00:00:00.000Z" }] };
+  const run = async (outline: string) => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    return r.reply(fresh);
+  };
+
+  it("模型给了合法档位 ⇒ 带出去，调用方据它落库", async () => {
+    // ⭐ 反证锚点：骨架轮不问强调色 ⇒ 这条红。不问的话每个项目都是同一个中性灰，
+    // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
+    const out = await run('{"reply":"两页。","accent":"blue","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBe("blue");
+  });
+
+  it("给了个闭集外的名字 ⇒ 不带（**不猜、不近似匹配**）", async () => {
+    // 「深蓝」和 blue 差一个字就该判不合法：近似匹配会让"模型给了个什么"变得不可复核。
+    const out = await run('{"reply":"两页。","accent":"深蓝","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+  });
+
+  it("压根没给 ⇒ 不带，项目保持原样（不是「改回 neutral」）", async () => {
+    const out = await run('{"reply":"两页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+    expect(out.pagedScreens?.length).toBe(2);
+  });
+
+  it("骨架轮的提示词把可选档位逐个列出来了（不列，模型只会编一个渲染不了的名字）", () => {
+    for (const a of C.PrototypeAccent.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(a);
+  });
+});

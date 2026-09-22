@@ -216,6 +216,15 @@ export async function appendProjectChat(
     });
   }
   const patch: DesignProjectPatch = {
+    /*
+     * 迭代 17：骨架轮挑的强调色。只在**首次分页生成**那条路上会有，且只在它与项目现有
+     * 档位不同的时候才写——否则每一轮对话都往 patch 里塞一个没变化的字段，
+     * 每次都白写一遍库。
+     *
+     * 它**不进 `applied`**（那个闭集是 problem/criteria/frames/prototype 四项）：
+     * 强调色的变化用户在画布上一眼就看见了，屏上再写一行「已更新：强调色」是噪音。
+     */
+    ...(ai.accent !== undefined && ai.accent !== current.accent ? { accent: ai.accent } : {}),
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
@@ -238,7 +247,18 @@ export async function appendProjectChat(
   }
   // `applied` 只列契约闭集里的项目字段（`frameNotes` 随 `prototype` 一起写，不单列）。
   const applied = Object.keys(patch).filter((k): k is DesignWritebackField => (designAiCollabFields as readonly string[]).includes(k));
-  if (applied.length > 0) {
+  /**
+   * ⚠ 写库的条件是 **patch 非空**，不是 `applied` 非空。
+   *
+   * `applied` 是给**用户**看的「这次改了什么」，它的闭集 `DesignWritebackField` 只有
+   * problem/criteria/frames/prototype 四项。迭代 17 往 patch 里加了 `accent`（骨架轮挑的
+   * 强调色）——它不在那个闭集里，所以用 `applied.length > 0` 当写库条件的话，
+   * 「只改了强调色」这一次会被**静默丢掉**：屏上不报错、库里没变化、用户以为设成功了。
+   *
+   * 这两件事本来就是两个问题（「要不要写」与「屏上说改了什么」），之前它们恰好同解，
+   * 于是被写成了一个条件。现在分开。
+   */
+  if (Object.keys(patch).length > 0) {
     // 迭代 3：原型真的变了（整页 / patch）⇒ 与 UPDATE 同一事务追加一条版本快照。只改标签（树被清空）不记——那不是一版原型。
     const version = patch.prototype !== undefined ? { source: "model" as const, summary: ai.text.replace(/\s+/g, " ").trim().slice(0, 120) } : undefined;
     const written = await deps.projects.update(input.projectId, input.ownerId, patch, version);

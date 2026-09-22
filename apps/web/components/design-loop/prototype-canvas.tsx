@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
-import { designPrototype } from "@repo/contracts";
+import { designPrototype, designWorkbench } from "@repo/contracts";
 
 /**
  * 迭代 2：选中态。`selectedId` 当前选中的节点 id；`onSelect(id | null)` 点节点/点空白。
@@ -210,6 +210,34 @@ export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevi
 }
 /** 没有改动时共用的同一个空集——每次渲染新建一个会让 context 每帧都变。 */
 const EMPTY_CHANGED: ReadonlySet<string> = new Set();
+
+/**
+ * 迭代 17（#3773 后续）—— 把强调色档位翻成画布根上的**内联 token 覆盖**。
+ *
+ * 整棵树的颜色都是 `hsl(var(--primary))` 这种形态（`bg-primary` / `text-primary` /
+ * `border-primary` / `fill-primary`…），所以只要在画布根上把这三个变量改掉，
+ * 按钮、选中的 tab、底部导航的当前项、开关、进度条、图表占位……**全部**跟着变，
+ * 不需要在渲染表里逐个节点做第二套颜色逻辑（那才是会漂的做法）。
+ *
+ * `--ring` 一起改：焦点环是主色的语义延伸，只改 `--primary` 会让键盘焦点停在旧色上，
+ * 一眼看出是补丁。
+ *
+ * `neutral` ⇒ 返回 `undefined`，一个变量都不写——这个字段出现之前的行为逐字不变。
+ */
+export function accentStyle(
+  accent: designWorkbench.PrototypeAccent | undefined,
+  theme: "light" | "dark",
+): React.CSSProperties | undefined {
+  if (accent === undefined || accent === "neutral") return undefined;
+  const tokens = designWorkbench.PROTOTYPE_ACCENTS[accent]?.[theme];
+  // 契约加了新档位却没给值时不硬崩，也不假装有颜色——退回"没有强调色"。
+  if (tokens === undefined) return undefined;
+  return {
+    "--primary": tokens.primary,
+    "--primary-foreground": tokens.foreground,
+    "--ring": tokens.primary,
+  } as React.CSSProperties;
+}
 
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
@@ -562,7 +590,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -587,6 +615,12 @@ export function PrototypeCanvas({
    * 而快速建模靠的恰恰是"改一点点"足够便宜。
    */
   changed?: ReadonlySet<string>;
+  /**
+   * 迭代 17：原型的**强调色档位**（项目级）。在这之前，不管做的是儿童记账 App 还是
+   * 医院排班后台，按钮和选中态一律是同一个中性灰——所有产出看起来都像同一个模板的
+   * 不同填空。档位在画布根上覆盖 `--primary` 系列 token，整棵树跟着变。
+   */
+  accent?: designWorkbench.PrototypeAccent;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -622,7 +656,9 @@ export function PrototypeCanvas({
         // 否则「原型主题与后台主题互不影响」只成立一半。
         theme === "light" ? "wx-light" : "dark",
       )}
-      style={{ width: size.w, height: size.h, borderRadius: device.radius }}
+      /* 迭代 17：强调色是**画布根上的 token 覆盖**，所以写在这里而不是逐节点改颜色。 */
+      style={{ width: size.w, height: size.h, borderRadius: device.radius, ...accentStyle(accent, theme) }}
+      data-accent={accent === "neutral" ? undefined : accent}
       data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}

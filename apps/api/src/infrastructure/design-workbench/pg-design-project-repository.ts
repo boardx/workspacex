@@ -46,6 +46,8 @@ interface ProjectDbRow {
   readonly screens: unknown;
   /** 迭代 13（delta §5.2）：原型自己的明暗主题；旧行由迁移的 DEFAULT 填成 'dark'。 */
   readonly theme: string | null;
+  /** 迭代 17：原型的强调色档位；老行由迁移的 DEFAULT 填成 'neutral'（= 不覆盖任何 token）。 */
+  readonly accent: string | null;
   /** 迭代 13（delta §4）：项目标签的 jsonb 数组；老行由迁移的 DEFAULT 填成 `[]`。 */
   readonly tags: unknown;
   /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
@@ -257,6 +259,14 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
       };
     })(),
     theme: row.theme === "light" ? "light" : "dark",
+    /*
+     * 迭代 17：库里存的是**档位名**，不是色值。读不出来的值（手工改库、或以后删了某一档）
+     * 一律退回 `neutral`——渲染成"没有强调色"比渲染成一个画布不认识的名字好，
+     * 后者在 `ACCENT_STYLE` 里会查不到而静默变成没有颜色，那时就分不清是没设还是设错了。
+     */
+    accent: designWorkbench.PrototypeAccent.safeParse(row.accent).success
+      ? (row.accent as designWorkbench.PrototypeAccent)
+      : "neutral",
     tags: toStringArray(row.tags),
     refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
@@ -282,7 +292,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
  */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
-  theme, tags,
+  theme, accent, tags,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at,
   COALESCE((
@@ -511,6 +521,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
                 frame_notes = $11::jsonb,
                 theme      = COALESCE($12, theme),
                 tags       = COALESCE($13::jsonb, tags),
+                accent     = COALESCE($14, accent),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -523,6 +534,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
           JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
           patch.theme ?? null,
           patch.tags === undefined ? null : JSON.stringify(patch.tags),
+          patch.accent ?? null,
         ],
       );
       const row = rows[0];

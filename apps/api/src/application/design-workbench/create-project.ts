@@ -26,6 +26,8 @@ export interface CreateProjectInput {
   readonly tags?: readonly string[];
   /** 迭代 13（delta §5.2）：新建时就能定原型主题；不给 ⇒ 库里的默认 `dark`。 */
   readonly theme?: "light" | "dark";
+  /** 迭代 17：新建时就能定强调色；不给 ⇒ 库里的默认 `neutral`（不覆盖任何 token）。 */
+  readonly accent?: designWorkbench.PrototypeAccent;
 }
 
 export async function createProject(
@@ -54,10 +56,17 @@ export async function createProject(
     linkedFeedbackId: input.linkedFeedbackId ?? null,
   });
 
-  // 主题不在 `create` 的入参里（库里有 DEFAULT）——新建时指定了非默认值才补一次 update，
-  // 而不是给 INSERT 多加一列只为一个几乎总是默认的字段。
-  if (input.theme !== undefined && input.theme !== "dark") {
-    await deps.projects.update(projectId, input.ownerId, { theme: input.theme });
+  /*
+   * 主题与强调色都不在 `create` 的入参里（库里有 DEFAULT）——新建时指定了非默认值才补
+   * 一次 update，而不是给 INSERT 多加两列只为两个几乎总是默认的字段。
+   * 两者**合并成一次** update：分两次写会让 `updated_at` 跳两下，也多担一次半成功的风险。
+   */
+  const visual = {
+    ...(input.theme !== undefined && input.theme !== "dark" ? { theme: input.theme } : {}),
+    ...(input.accent !== undefined && input.accent !== "neutral" ? { accent: input.accent } : {}),
+  };
+  if (Object.keys(visual).length > 0) {
+    await deps.projects.update(projectId, input.ownerId, visual);
   }
 
   return { project: await loadProjectView(deps, projectId) };

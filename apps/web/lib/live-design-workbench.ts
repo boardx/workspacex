@@ -23,6 +23,8 @@ import type { z } from "zod";
 import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
+/** 迭代 17：原型的强调色档位（闭集，契约单源）。 */
+export type PrototypeAccent = z.infer<typeof designWorkbench.PrototypeAccent>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type DesignProject = z.infer<typeof designWorkbench.DesignProject>;
 export type CreateProjectOut = z.infer<typeof designWorkbench.operations.createProject.out>;
@@ -105,6 +107,8 @@ export async function updateProject(
     readonly template?: ProjectTemplate;
     readonly problem?: string;
     readonly theme?: "light" | "dark";
+    /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+    readonly accent?: PrototypeAccent;
     /** 迭代 13（delta §4）：**整份替换**标签。 */
     readonly tags?: readonly string[];
   },

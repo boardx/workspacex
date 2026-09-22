@@ -53,6 +53,7 @@ import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loo
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { ApiError } from "@/lib/api-client";
+import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -954,6 +955,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
+  accent: "neutral",
     tags: [],
     refImages: [],
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
@@ -3216,6 +3218,75 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
     fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
+  });
+
+  it("迭代 17：项目的强调色档位真的落到画布上，且切换走 updateProject（乐观更新 + 失败回滚）", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "我的账本", variant: "title" as const } },
+        { type: "button" as const, id: "b", props: { label: "记一笔", variant: "primary" as const } },
+      ],
+    };
+    let accent = "blue";
+    let failNext = false;
+    const patches: { accent?: string }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { accent?: string } }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: ["账本"], prototype: [page] as never, accent: accent as never })] };
+      }
+      if (path === "/pm-designs/p1" && opts?.method === "PATCH") {
+        patches.push(opts.body ?? {});
+        if (failNext) throw new TypeError("Failed to fetch");
+        accent = opts.body?.accent ?? accent;
+        return { project: project({ frames: ["账本"], prototype: [page] as never, accent: accent as never }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：不把档位翻成画布根上的 token 覆盖 ⇒ 这条红。
+     *
+     * 整棵树的颜色都是 `hsl(var(--primary))` 形态，所以强调色**只能**从根上覆盖变量来实现；
+     * 少了这一层，不管做的是儿童记账还是医院排班，按钮和选中态一律是同一个中性灰。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBe("blue");
+    expect(phone.style.getPropertyValue("--primary")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+    // 焦点环跟着主色走——只改 --primary 会让键盘焦点停在旧色上，一眼看出是补丁。
+    expect(phone.style.getPropertyValue("--ring")).toBe(
+      designWorkbench.PROTOTYPE_ACCENTS.blue.dark.primary,
+    );
+
+    // 切一档：乐观更新（不等往返），并真的发出 PATCH。
+    fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
+    await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
+
+    // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
+    failNext = true;
+    fireEvent.click(screen.getByTestId("design-detail-accent-green"));
+    await screen.findByTestId("design-detail-chat-error");
+    expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
+  });
+
+  it("迭代 17：neutral ⇒ 一个 token 都不覆盖（这个字段出现之前的行为逐字不变）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "标题", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    expect(phone.style.getPropertyValue("--primary")).toBe("");
   });
 
   it("迭代 16（#3773 R8）：模型层失败也有「再试一次」，而「没配模型」不给（给一个必然失败的按钮是在骗人）", async () => {
