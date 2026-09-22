@@ -28,7 +28,11 @@ const JS_WRITTEN = new Set(['--i', '--e', '--p', '--c', '--dscale', '--scene-tra
 const classes = new Map();
 let css = '';
 for (const file of cssFiles) {
-  const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '');
+  /* Strip comments and url() payloads before looking for class names:
+     `url("../img/aurora.jpg")` otherwise reads as a class called `.jpg`. */
+  const body = read(file)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/url\([^)]*\)/g, 'url()');
   css += body;
   for (const m of body.matchAll(/\.([A-Za-z][\w-]*)/g)) {
     if (!classes.has(m[1])) classes.set(m[1], basename(file));

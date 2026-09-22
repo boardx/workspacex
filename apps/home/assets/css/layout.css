@@ -253,6 +253,13 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 /* ---- nav actions relocated into the menu panel on narrow screens ---------- */
 .nav__panelactions { display: none; }
 @media (max-width: 760px) {
+  /* Hidden while they are still children of the bar. The relocation into the
+     panel happens in JS, after first paint, so without this the bar renders
+     ~87px tall with the actions wrapped and then snaps to 40px — measured as
+     the page's only layout shift on a phone (CLS 0.0174). Declaring the end
+     state in CSS means the bar is never wrong, even for one frame. */
+  .nav__actions > [data-mobile-move] { display: none; }
+
   .nav__panelactions {
     display: grid; gap: var(--s-3);
     padding-top: var(--s-4); margin-top: var(--s-2);

@@ -31,6 +31,10 @@
 <meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og-zh.png">
 
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<!-- The hero's backdrop. Preloaded because it is the first thing above the
+     fold that is not text, and discovered late otherwise: it is referenced
+     from a stylesheet, not from the markup. -->
+<link rel="preload" href="../assets/img/aurora.jpg" as="image" fetchpriority="high">
 <link rel="preload" href="../assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/css/fonts.css">
@@ -62,6 +66,16 @@
      script to run, and the CSP permits inline styles but not inline scripts. -->
 <noscript><style>
   [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
+  /* The burger needs JS to open the panel, so on a phone without it the whole
+     navigation would be unreachable. Show the links inline and put the actions
+     back in the bar instead. */
+  .nav { position: static; height: auto; background: #08070b; border-bottom: 1px solid rgba(255,255,255,.09); }
+  .nav__inner { flex-wrap: wrap; padding-block: 0.6rem; }
+  .nav__links { display: flex !important; position: static; flex-direction: row; flex-wrap: wrap;
+                background: none; border: 0; padding: 0; margin-inline: 0; }
+  .nav__burger { display: none !important; }
+  .nav__actions > [data-mobile-move] { display: inline-flex !important; }
+  .nav__progress { display: none; }
   .scene__track { height: auto !important; }
   .scene__pin { position: static !important; height: auto !important; }
   .hero__chain, [data-diagram] { display: none; }
@@ -149,12 +163,8 @@
 <!-- ======================================================================
      Hero
      ====================================================================== -->
-<section class="hero">
-  <div class="hero__aurora" data-animates aria-hidden="true">
-    <div class="hero__blob hero__blob--1"></div>
-    <div class="hero__blob hero__blob--2"></div>
-    <div class="hero__blob hero__blob--3"></div>
-  </div>
+<section class="hero" data-animates>
+  <div class="hero__aurora" aria-hidden="true"></div>
 
   <div class="wrap hero__inner">
     <span class="chip">
