@@ -28,9 +28,12 @@ export function parseFeatureList(raw: string, label: string): FeatureList {
 }
 
 /** 按**路径**读一份 feature_list 形态的 JSON（live 或 archive 都走它）。
- *  这是本仓唯一一处 `readFileSync(feature_list)`——AGENTS.md 硬约束「一律用
- *  lib/features.ts 读写、不要直接 readFileSync」是按「只有一份实现」来兑现的，
- *  所以需要按路径访问的调用方（#1094 的取号临界区）也从这里进，不另写一个读法。 */
+ *  本文件内读盘只有 `readFeatureListRawAt` 一处，AGENTS.md 硬约束「一律用
+ *  lib/features.ts 读写、不要直接 readFileSync」就是按「lib 侧只有一份实现」
+ *  兑现的：需要按路径访问的调用方（#1094 的取号临界区、#401 的按目录发现）
+ *  也从这里进，不另写一个读法。
+ *  ⚠ 唯一的例外是 `validate-fl.ts`——它**刻意**自己 readFileSync，因为它是校验
+ *  清单本身写得对不对的独立校验器，用被校验方的读法去读会把结构错误吞掉。 */
 export function readFeatureListAt(path: string): FeatureList {
   return parseFeatureList(readFeatureListRawAt(path), path);
 }
