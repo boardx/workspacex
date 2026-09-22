@@ -241,6 +241,48 @@ const EMPTY_CHANGED: ReadonlySet<string> = new Set();
  *
  * `neutral` ⇒ 返回 `undefined`，一个变量都不写——这个字段出现之前的行为逐字不变。
  */
+/**
+ * 迭代 19 —— **线框图模板真的画成线框图**。
+ *
+ * ## 这个选项此前在撒谎
+ *
+ * 新建时的三选一是「移动端设计 / UI 原型 / 线框图」，而 `template` 实际只决定用哪个
+ * 设备预设（iphone / laptop / ipad）。选了「线框图」拿到的是**彩色高保真稿**，只是画在
+ * 平板上——这个选项把「保真度」和「设备」混成一个轴，然后只实现了设备那一半。
+ * 与本仓一路修过的几条同类：界面许诺了一件事，底下没有人去做它。
+ *
+ * ## 为什么低保真值得真的做出来
+ *
+ * 早期讨论要的正是"别谈颜色，先谈结构"。一份彩色稿会把评审拽进"这个蓝好不好看"，
+ * 而线框图把注意力钉在信息层级与流程上。这是两种用途，不是一种用途的两种皮肤。
+ *
+ * ## 实现：和强调色同一个机制
+ *
+ * 画布里所有颜色都走 `hsl(var(--token))`，所以低保真 = 在画布根上把**语义色**全部
+ * 改写成灰阶（主色、成功、警告、危险）。不需要在渲染表里为线框图再写一套分支——
+ * 那才是会漂的做法，而且每加一个原语就要记得改两处。
+ *
+ * ⚠ 只压颜色，**不压结构**：圆角、间距、字号档位原样保留。线框图不是"把东西画丑"，
+ *   是"把颜色这一层信息拿掉"，布局判断仍然要能做。
+ */
+/**
+ * ⚠ 取值在**契约** `PROTOTYPE_WIREFRAME`，不在这里——它要和强调色走同一条对比度门
+ *   （这些 token 不只当块的底色，也当文字色；实测深色画布下灰 46% 只有 3.65:1）。
+ *   在这里再写一份就是「同一事实两处」，而且是门看不见的那一份。
+ */
+export function wireframeStyle(theme: "light" | "dark"): React.CSSProperties {
+  const { primary, foreground } = designWorkbench.PROTOTYPE_WIREFRAME[theme];
+  return {
+    "--primary": primary,
+    "--primary-foreground": foreground,
+    "--ring": primary,
+    // 语义色一并压平：线框图里「成功/警告/危险」不该靠颜色区分，该写出来。
+    "--success": primary,
+    "--warning": primary,
+    "--destructive": primary,
+  } as React.CSSProperties;
+}
+
 export function accentStyle(
   accent: designWorkbench.PrototypeAccent | undefined,
   theme: "light" | "dark",
@@ -621,7 +663,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -652,6 +694,12 @@ export function PrototypeCanvas({
    * 不同填空。档位在画布根上覆盖 `--primary` 系列 token，整棵树跟着变。
    */
   accent?: designWorkbench.PrototypeAccent;
+  /**
+   * 迭代 19：**低保真**（项目 template 是 `wireframe` 时）。语义色全部压成灰阶，
+   * 结构原样保留——线框图不是"把东西画丑"，是"把颜色这一层信息拿掉"。
+   * 为真时**强调色不生效**：低保真的全部意义就是别谈颜色。
+   */
+  wireframe?: boolean;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -688,8 +736,16 @@ export function PrototypeCanvas({
         theme === "light" ? "wx-light" : "dark",
       )}
       /* 迭代 17：强调色是**画布根上的 token 覆盖**，所以写在这里而不是逐节点改颜色。 */
-      style={{ width: size.w, height: size.h, borderRadius: device.radius, ...accentStyle(accent, theme) }}
-      data-accent={accent === "neutral" ? undefined : accent}
+      /*
+       * 迭代 17/19：强调色与低保真都是**画布根上的 token 覆盖**。
+       * 低保真优先——选了线框图还上强调色，等于把刚拿掉的那层信息又加回去。
+       */
+      style={{
+        width: size.w, height: size.h, borderRadius: device.radius,
+        ...(wireframe ? wireframeStyle(theme) : accentStyle(accent, theme)),
+      }}
+      data-accent={wireframe || accent === "neutral" ? undefined : accent}
+      data-fidelity={wireframe ? "wireframe" : undefined}
       data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}

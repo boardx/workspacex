@@ -1105,6 +1105,7 @@ export function DesignDetailScreen({
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      wireframe={project.template === "wireframe"}
                       onNavigate={navigateTo}
                     />
                   ) : (
@@ -1149,6 +1150,7 @@ export function DesignDetailScreen({
                       }
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      wireframe={project.template === "wireframe"}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
                         const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";

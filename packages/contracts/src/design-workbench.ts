@@ -230,6 +230,21 @@ export interface PrototypeAccentTokens {
   readonly foreground: string;
 }
 
+/**
+ * 迭代 19：**低保真线框图**用的灰阶。与 `PROTOTYPE_ACCENTS` 放在一起、走同一条对比度门。
+ *
+ * 为什么它也要两套值：这些 token 不只当块的底色，也当**文字色**（底部导航当前项、
+ * info badge、列表勾）。实测深色画布下灰 46% 的文字压在卡片上只有 3.65:1，低于 AA——
+ * **低保真不是"可以读不清"的借口**。
+ *
+ * 放进契约而不是留在画布组件里，正是为了让它被那条门看见：这次差点又漏掉一次
+ * 「新来的颜色没人验对比度」。
+ */
+export const PROTOTYPE_WIREFRAME: Readonly<Record<"light" | "dark", PrototypeAccentTokens>> = {
+  light: { primary: "220 9% 46%", foreground: "0 0% 100%" },
+  dark: { primary: "220 9% 70%", foreground: "220 15% 12%" },
+};
+
 export const PROTOTYPE_ACCENTS: Readonly<
   Record<Exclude<PrototypeAccent, "neutral">, { readonly light: PrototypeAccentTokens; readonly dark: PrototypeAccentTokens }>
 > = {

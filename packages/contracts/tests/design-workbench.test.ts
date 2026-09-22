@@ -352,6 +352,21 @@ describe("迭代 17：强调色是闭集，且每一档的对比度都验过", (
     expect(bad).toEqual([]);
   });
 
+  it("迭代 19：线框图的灰阶走**同一条**对比度门（低保真不是「可以读不清」的借口）", () => {
+    /*
+     * ⭐ 反证锚点：把 dark 那套改回和 light 一样的灰 46% ⇒ 这条红。
+     * 实测那个值当文字压在深色卡片上只有 3.65:1——而这些 token 正是被当文字用的
+     * （底部导航当前项、info badge、列表勾）。
+     */
+    for (const theme of ["light", "dark"] as const) {
+      const { primary, foreground } = dw.PROTOTYPE_WIREFRAME[theme];
+      expect(contrast(primary, foreground), `线框图 ${theme} 的底色↔字色`).toBeGreaterThanOrEqual(4.5);
+    }
+    // 深色画布上的灰要更亮——与强调色同一条取向（照搬一套过去就会读不清）。
+    expect(relativeLuminance(dw.PROTOTYPE_WIREFRAME.dark.primary))
+      .toBeGreaterThan(relativeLuminance(dw.PROTOTYPE_WIREFRAME.light.primary));
+  });
+
   it("浅色画布用深色块配白字、深色画布用亮色块配近黑字——不是同一套值照搬", () => {
     // 照搬一套到另一套，表现就是"在其中一种画布上一片糊"。这条钉住取向本身。
     for (const [name, tokens] of Object.entries(dw.PROTOTYPE_ACCENTS)) {

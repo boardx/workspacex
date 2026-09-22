@@ -14,7 +14,7 @@ import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-ca
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 export async function renderScreensToMarkup(
-  project: Pick<DesignProject, "frames" | "prototype" | "template" | "theme"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
+  project: Pick<DesignProject, "frames" | "prototype" | "template" | "theme" | "accent"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
 ): Promise<readonly { readonly markup: string }[]> {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const device = deviceOf(project.template);
@@ -29,6 +29,10 @@ export async function renderScreensToMarkup(
         mode: "preview" as const,
         // 迭代 13：跟随**原型的** theme，不是导出时后台碰巧是什么色（delta §5.2，V69）。
         theme: project.theme,
+        // 迭代 17/19：导出产物跟随**原型自己的**视觉设定——强调色与低保真都要带上，
+        // 否则导出的 HTML 与屏上看到的是两份东西（同 theme 的既有纪律 V69）。
+        accent: project.accent,
+        wireframe: project.template === "wireframe",
         links: project.frameLinks?.[i] ?? [],
       }),
     ),

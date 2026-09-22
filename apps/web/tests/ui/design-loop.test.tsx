@@ -3233,13 +3233,15 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     const patches: { accent?: string }[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { accent?: string } }) => {
       if (path === "/pm-designs") {
-        return { items: [project({ frames: ["账本"], prototype: [page] as never, accent: accent as never })] };
+        // ⚠ 显式 `mobile`：默认夹具是 `wireframe`，而迭代 19 起线框图会把强调色压成灰阶
+        // （那是**功能**，见下面那两条线框图用例）——这里测的是强调色，得用高保真模板。
+        return { items: [project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never })] };
       }
       if (path === "/pm-designs/p1" && opts?.method === "PATCH") {
         patches.push(opts.body ?? {});
         if (failNext) throw new TypeError("Failed to fetch");
         accent = opts.body?.accent ?? accent;
-        return { project: project({ frames: ["账本"], prototype: [page] as never, accent: accent as never }) };
+        return { project: project({ template: "mobile", frames: ["账本"], prototype: [page] as never, accent: accent as never }) };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -3275,10 +3277,65 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
   });
 
+  it("迭代 19：线框图模板真的画成线框图——语义色全部压成灰阶，强调色让位", async () => {
+    const page = {
+      type: "stack" as const, id: "s",
+      children: [
+        { type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } },
+        { type: "badge" as const, id: "b", props: { label: "已发货", tone: "success" as const } },
+        { type: "button" as const, id: "go", props: { label: "确认收货", variant: "primary" as const } },
+      ],
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        // 项目同时设了强调色——低保真要**优先**：选了线框图还上强调色，
+        // 等于把刚拿掉的那层信息又加回去。
+        return { items: [project({ template: "wireframe", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+
+    /*
+     * ⭐ 反证锚点：`template` 只决定设备预设（改之前就是这样）⇒ 这条红。
+     * 那时选「线框图」拿到的是彩色高保真稿，只是画在平板上——选项许诺了一件事，
+     * 底下没有人去做它。
+     */
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBe("wireframe");
+    expect(phone.getAttribute("data-accent")).toBeNull();
+    // 主色、成功、警告、危险——全部同一个灰。
+    const primary = phone.style.getPropertyValue("--primary");
+    expect(primary).not.toBe("");
+    for (const token of ["--success", "--warning", "--destructive"]) {
+      expect(phone.style.getPropertyValue(token)).toBe(primary);
+    }
+    // 只压颜色不压结构：字号档位照旧（线框图不是"把东西画丑"）。
+    expect(phone.querySelector('[data-node-id="t"]')?.className).toContain("text-18");
+  });
+
+  it("迭代 19：非线框图模板不受影响（mobile/ui 照旧高保真 + 强调色）", async () => {
+    const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "订单", variant: "title" as const } }] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", accent: "rose" as never, frames: ["订单"], prototype: [page] as never })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const phone = screen.getByTestId("design-detail-phone");
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
+    expect(phone.getAttribute("data-accent")).toBe("rose");
+    expect(phone.style.getPropertyValue("--success")).toBe("");
+  });
+
   it("迭代 17：neutral ⇒ 一个 token 都不覆盖（这个字段出现之前的行为逐字不变）", async () => {
     const page = { type: "stack" as const, id: "s", children: [{ type: "text" as const, id: "t", props: { content: "标题", variant: "title" as const } }] };
     apiRequest.mockImplementation(async (path: string) => {
-      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [page] as never })] };
+      // 同上：测「neutral 不覆盖任何 token」要用高保真模板，否则压色的是线框图不是 neutral。
+      if (path === "/pm-designs") return { items: [project({ template: "mobile", frames: ["页"], prototype: [page] as never })] };
       throw new Error(`unexpected ${path}`);
     });
     render(<DesignDetailScreen projectId="p1" />);
@@ -3286,6 +3343,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     fireEvent.click(screen.getByTestId("design-detail-view-single"));
     const phone = screen.getByTestId("design-detail-phone");
     expect(phone.getAttribute("data-accent")).toBeNull();
+    expect(phone.getAttribute("data-fidelity")).toBeNull();
     expect(phone.style.getPropertyValue("--primary")).toBe("");
   });
 

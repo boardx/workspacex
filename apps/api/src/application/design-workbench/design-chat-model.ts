@@ -267,7 +267,22 @@ export const CHAT_TURN_MAX_CHARS = 1200;
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
     `项目名称：${ctx.name}`,
-    `模板：${ctx.template}（目标设备：${ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav" : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图" : "平板，画布宽 440px"}）`,
+    /*
+     * 迭代 19：模板要同时说清**设备**与**保真度**。
+     *
+     * 在这之前这句话只说设备，于是 `wireframe` 项目与 `ui` 项目拿到的指令实质相同，
+     * 模型照样画依赖颜色的高保真稿——而画布已经把线框图的颜色全压成灰阶了。
+     * 结果是「模型按彩色设计的东西，在一块没有颜色的画布上渲染」：
+     * 用 badge 的 tone 区分状态、用 primary/danger 区分按钮，全都退化成同一个灰。
+     * 告诉它保真度，它才会改用结构和文字去表达那些区别。
+     */
+    `模板：${ctx.template}（${
+      ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav；高保真，可以用颜色表达状态与层级"
+      : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图；高保真，可以用颜色表达状态与层级"
+      : "平板，画布宽 440px；**低保真线框图**——画布会把所有语义色压成灰阶，" +
+        "所以**不要靠颜色传达信息**：状态、优先级、分组一律用文字、位置、分隔线和字号层级表达；" +
+        "badge 的 tone、按钮的 primary/danger 在这里看起来都一样，该说的话要写出来"
+    }）`,
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,

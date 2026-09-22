@@ -30,7 +30,7 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
@@ -49,6 +49,8 @@ export function PrototypeBoard({
   changed?: ReadonlySet<string>;
   /** 迭代 17：项目的强调色档位——画板上的每一块屏都跟着它，不然只有单页视图有身份。 */
   accent?: designWorkbench.PrototypeAccent;
+  /** 迭代 19：低保真（线框图模板）。画板上每一块屏同样要压成灰阶，不然两个视图对不上。 */
+  wireframe?: boolean;
   /** 迭代 13：原型自己的明暗主题，透传给每块画板。 */
   theme?: "light" | "dark";
   onNavigate?: ((to: number) => void) | null;
@@ -241,6 +243,7 @@ export function PrototypeBoard({
                 drawing={drawing && (prototype[i] ?? null) === null}
                 changed={changed}
                 accent={accent}
+                wireframe={wireframe}
                 mode={mode}
                 links={links[i]}
                 onNavigate={onNavigate}
