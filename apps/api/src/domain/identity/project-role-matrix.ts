@@ -40,6 +40,16 @@ export const PROJECT_ACTIONS = [
    */
   "agendaSegment.bindTemplate",   // 绑定画布模板到环节（#493）
   /**
+   * #1468 (canvas 束 · uc-7-4 R7 `bindSkillToSegment`)：把一个 skill 挂到某个议程环节。
+   * ⚠ 与上面那条同组、同一行，理由也逐字相同——`usecases.md` 的 `pre:` 写的是
+   *   「引导师（**组员不可自行加挂**，uc-7-4 R7）」，括号里那半句是这条动作**唯一**
+   *   被逐字写下来的否定面，所以它只进 facilitator 行。绑定改的是环节的编排，
+   *   不是现场参与，因此归 `agendaSegment.*` 而不是 `content.*`。
+   * ⚠ 这是**转录，不是类推**（对照下面 `agendaSegment.create` 那条注释的处境）：
+   *   UC 表格里有这一行，不需要延伸任何惯例。
+   */
+  "agendaSegment.bindSkill",      // 绑定 skill 到环节（#1468）
+  /**
    * #627（`createAgendaSegment`，`usecases.md` UC-P6）：⚠ **这条不是转录，是类推**——
    * 与本文件其余条目不同，UC-P6 的表格**没有「权限」行**（对照 UC-P7 有），signed-off
    * 的用例文本对「谁能新建环节」本身沉默。没有行可转录时，本文件已有先例是延伸一个
@@ -128,7 +138,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   // Controls the room; sees everything in it. Multiple instances allowed (O-03).
   facilitator: [
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
-    "agendaSegment.bindTemplate", "agendaSegment.create",
+    "agendaSegment.bindTemplate", "agendaSegment.bindSkill", "agendaSegment.create",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "member.manage",
     "artifact.requestDeletion", "artifact.complianceOps",

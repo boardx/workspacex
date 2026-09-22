@@ -21,6 +21,10 @@ describe('template report chart',()=>{
   const rows=[{label:'很长的问题'.repeat(12),group:'A',value:1,count:1},{label:'另一道问题'.repeat(12),group:'B',value:2,count:1}];
   expect(reportChartHeight({...block,rows})).toBeGreaterThan(200);
  });
+ it('uses category colors for distribution while keeping numeric series consistent',()=>{
+  expect(reportChartOptions({...block,statistic:'distribution'}).series).toMatchObject([{colorBy:'data'}]);
+  expect(reportChartOptions({...block,statistic:'mean'}).series).toMatchObject([{colorBy:'series'}]);
+ });
  it('exports actual SVG from the same chart data',()=>{
   const svg=reportChartSvg(block);
   expect(svg).toContain('<svg');expect(svg).toContain('项目负责人');

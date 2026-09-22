@@ -1,6 +1,9 @@
 # 工作周期（Work Cycle）提案 — 3 小时节拍 + 精益协作
 
 > status: Proposed
+> ⚠ 本文是**提案原文**（历史记录），不是现行操作指令。其中的 coord-service (D1) /
+> `GET /status` 等服务选型已于 2026-07-18 被 ADR-017 的 coord-gateway 取代
+> （issue #381）；现行操作以 `coordinator-sop.md` 与 `agent-bootstrap.md` 为准。
 > 作者：coord-main（应用户 2026-07-08 直接要求：把 agent 群当成一个团队、用精益思想管理，
 > 以 ~3 小时为一个工作周期节拍）；实现者：architecture-coordinator。
 > 背景动机：用户明确反馈当前协作"太慢、性能低"。本提案的唯一目标是**缩短流动时间**
@@ -92,6 +95,9 @@ coord-main 汇总成一条全局 cycle-report 发 #323：全仓 done/miss、当�
    (a) 单一 work-cycle issue 的 cycle-plan/result 评论；(b) `gh pr list` 的
    createdAt/mergedAt（flow time）；(c) coord-service `GET /status` 的 active_claims
    （谁持有什么、心跳年龄——SLA 表"in_progress 无进展"检测的权威数据，比翻评论准）。
+   > superseded（issue #381）：(c) 已改读 coord-gateway
+   > `GET /api/coord/repos/<owner>/<name>/claims`，并新增 (0) 权威时钟
+   > `GET /api/coord/time`；本段保留为提案原文。
    输出一张"当前周期健康表"（谁承诺了什么/什么超 SLA/flow time 趋势）。dry-run 只读，
    无 --apply 概念。可以挂进 coordination dashboard（#428/#447 已上线两片）作为后续卡片。
 3. **`.harness/state/hotspots.md`**：初始化热点清单（上面三个文件起步）。

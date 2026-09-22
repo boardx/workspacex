@@ -57,6 +57,17 @@ on:
   # e2e-core-loop 本次补齐同一条。`deploy` 的 `if:` 只认 refs/heads/main 与 refs/tags/v*，
   # PR 的 ref 是 refs/pull/N/merge ⇒ 自建 runner 与部署路径在 PR 上天然不可达。
   pull_request:
+  # 2026-09-21（#3238 第 1 条）：合并队列的候选组。三个 gates job 与 e2e-core-loop 的
+  # `if` 写的是「不是 PR，或者是同仓 PR」——merge_group 天然落进第一支，候选组上会跑
+  # **完整**验证，不需要逐个改条件。要改的是下面两处：
+  #   · `backend-required`（聚合 required check）原本只在 pull_request 上跑，候选组上
+  #     会是 SKIPPED ⇒ 队列永远等不到这道门，PR 卡死在队列里（#848 那种「声明了必需、
+  #     却永不产出结论」的同款失效，只是换成队列版本）；
+  #   · `deploy` 必须显式排除 merge_group——候选组还没合入 main，部署它等于发布一个
+  #     可能马上被踢出队列的组合。
+  # 事件字段的解析规则在 `.harness/scripts/lib/merge-queue.ts`，本文件由
+  # merge-queue.test.ts 机械核对。队列没开时本事件永不触发，这段接线是惰性的。
+  merge_group:
   push:
     tags: ["v*"]
     branches: [main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
@@ -472,7 +483,10 @@ jobs:
   # Stable merge check: matrix gates-test reports success only when every shard passes.
   # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
   backend-required:
-    if: always() && !cancelled() && github.event_name == 'pull_request'
+    # #3238：候选组（merge_group）也必须出结论——这是 required check，候选组上 SKIPPED
+    # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
+    # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
+    if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -491,8 +505,13 @@ jobs:
     # 已经是人的显式动作），不需要再加一道「记得打 tag」。
     # 打 tag 仍然可以触发部署（保留，给需要显式标记发布点的场景用），但不再是唯一路径。
     # Every deployment, including the requested branch preview, requires all gates.
+    # #3238 第 1/6 条：候选组**不触发部署**。merge_group 的 ref 是
+    # `refs/heads/gh-readonly-queue/…`，下面的 ref 白名单本来就不会命中它；这一条
+    # 显式否定是防御性的——ref 白名单哪天被放宽（加个 startsWith 之类），部署一个
+    # 尚未合入、可能下一秒就被踢出队列的组合就会悄悄变成可能。发布仍然只认
+    # refs/heads/main 与 tag，且仍然要全部 gates 通过（第 6 条）。
     if: >-
-      always() && !cancelled() &&
+      always() && !cancelled() && github.event_name != 'merge_group' &&
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
       needs.native-document-chain.result == 'success' &&

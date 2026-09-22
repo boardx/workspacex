@@ -31,8 +31,10 @@ it('two actual connections admit only one execution and unknown pending is never
   const outcomes=await Promise.all([new PgBrowserExecutionReceipts(db).claim(ctx,invocation,digest,deadline()),new PgBrowserExecutionReceipts(secondDb).claim(ctx,invocation,digest,deadline())]);
   expect(outcomes.map(x=>x.kind).sort()).toEqual(['claimed','unconfirmed']);
   expect(await new PgBrowserExecutionReceipts(secondDb).claim(ctx,invocation,digest,deadline())).toEqual({kind:'unconfirmed'});
-  await new PgBrowserExecutionReceipts(db).markUnconfirmed(ctx,invocation,digest);
+  await new PgBrowserExecutionReceipts(db).markUnconfirmed(ctx,invocation,digest,'session_launch_failed');
   await expect(new PgBrowserExecutionReceipts(secondDb).succeed(ctx,invocation,digest,result)).rejects.toThrow('unconfirmed');
+  const stored=await asApp(org,async c=>(await c.query('SELECT status,unconfirmed_reason FROM mcp_tool_executions WHERE org_id=$1 AND run_id=$2 AND tool_call_id=$3',[org,ctx.parentRunId,ctx.toolCallId])).rows[0]);
+  expect(stored).toEqual({status:'unconfirmed',unconfirmed_reason:'session_launch_failed'});
  }finally{await secondDb.close();}
 });
 it('wrong attempt, lease and organization cannot claim or publish another running receipt',async()=>{
