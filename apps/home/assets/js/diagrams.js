@@ -9,6 +9,7 @@
 import STRINGS from './diagram-strings.js';
 import { reducedMotion } from './motion.js';
 import { pageLang } from './lang.js';
+import { onMediaChange } from './mq.js';
 
 let LANG = pageLang();
 const t = (key) => STRINGS[key]?.[LANG] ?? STRINGS[key]?.en ?? key;
@@ -796,6 +797,5 @@ export const getLoop = () => loopApi;
    diagrams are rebuilt — resizing past it otherwise leaves a horizontal
    diagram squeezed into a phone-width column. */
 export function watchBreakpoint(rerender) {
-  const q = window.matchMedia(NARROW_Q);
-  q.addEventListener('change', rerender);
+  onMediaChange(NARROW_Q, rerender);
 }

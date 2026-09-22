@@ -190,6 +190,7 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
     padding: 0.75rem var(--gutter) 1.25rem;
     background: rgba(8, 7, 11, 0.96);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--hairline);
     margin-inline: 0;
     /* collapsed by default on small screens */

@@ -6,6 +6,8 @@
  * marked in immediately and no scroll listener is installed at all.
  */
 
+import { onMediaChange } from './mq.js';
+
 export const reducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -111,7 +113,7 @@ export function initNav() {
     }
   };
   placeActions();
-  narrow.addEventListener('change', placeActions);
+  onMediaChange(narrow, placeActions);
 
   // --- mobile menu ---
   if (burger && links) {
