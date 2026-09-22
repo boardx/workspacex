@@ -104,7 +104,13 @@
 * { margin: 0; }
 
 html {
+  /* Tells the engine this is a dark page: the scrollbars, the form controls it
+     draws itself, and the flash of background before paint all follow. Without
+     it Safari and Firefox render a white scrollbar track against a near-black
+     page, which is the single most common "looks broken" report on dark sites. */
+  color-scheme: dark;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   /* anchored sections must clear the fixed nav */
   scroll-padding-top: calc(var(--nav-h) + 12px);
@@ -124,6 +130,14 @@ body {
      anchoring. This is a backstop — anything that actually overflows is a bug
      to fix at the source. */
   overflow-x: clip;
+
+  /* Safari only learned `clip` in 16.4. Below that the declaration is dropped
+     and nothing constrains the page at all, so fall back to the older
+     behaviour there rather than to none. */
+  -webkit-tap-highlight-color: rgba(255, 46, 115, 0.22);
+}
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
 }
 
 img, svg, video, canvas { display: block; max-width: 100%; }
@@ -204,6 +218,20 @@ p { text-wrap: pretty; }
     --surface-2:  rgba(255, 255, 255, 0.14);
   }
 }
+
+/* ---- scrollbars ----------------------------------------------------------
+   `color-scheme` above gets most of the way there. These two rules are the
+   remaining engine-specific bits: Firefox reads `scrollbar-color`, WebKit and
+   Blink only style the pseudo-elements. */
+* { scrollbar-color: #322d3d var(--bg); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: #322d3d;
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: #453e54; }
 
 /* ---- selection ----------------------------------------------------------- */
 ::selection { background: rgba(255, 46, 115, 0.3); color: #fff; }

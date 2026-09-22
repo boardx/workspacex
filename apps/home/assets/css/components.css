@@ -4,6 +4,8 @@
 
 /* ---- buttons ------------------------------------------------------------- */
 .btn {
+  -webkit-user-select: none;
+  user-select: none;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
   padding: 0.8rem 1.35rem;
   border-radius: var(--r-sm);

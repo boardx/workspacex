@@ -388,3 +388,35 @@ and nine gap values chosen outside them.**
 
 **After: 59 tokens, and every radius, size and spacing value stepping along
 them.**
+
+---
+
+## Round 15 — the other two engines
+
+**Stated plainly: every round up to this point was verified in Chromium only.**
+Playwright's browser CDN is blocked by this environment's egress policy, so
+Firefox and WebKit could not be installed and cannot be run here. That is a
+real limitation of the verification, not something to paper over.
+
+What can be done instead is to stop relying on whoever writes the next line of
+CSS to remember what Safari 15 does with it.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Two `MediaQueryList.addEventListener` calls. That method arrived in **Safari 14**; below it the call throws — and both are attached during boot, so on an older iPhone the exception took the rest of the page's behaviour with it. | `mq.js` prefers the modern API and falls back to `addListener`. |
+| 2 | **The mobile menu's `backdrop-filter` had no `-webkit-` prefix**, so on Safari below 18 the panel had no blur at all — text over text. Every other use on the page was prefixed; this one was added later and missed. | Prefixed. Found by the new gate on its very first run. |
+| 3 | **No `color-scheme: dark`.** Safari and Firefox then draw a white scrollbar track and light form controls against a near-black page — the single most common "your site looks broken" report on dark sites. | Declared. |
+| 4 | `overflow-x: clip` on the body, which **Safari only gained in 16.4**. Below that the declaration is dropped and nothing constrains the page at all, so the fallback was to none. | `@supports not (overflow: clip)` falls back to `hidden`. |
+| 5 | Default scrollbars against the dark page. | `scrollbar-color` for Firefox and the `::-webkit-scrollbar` pseudo-elements for the others. |
+| 6 | iOS Safari flashes a grey box on every tap, which on a dark site reads as a rendering fault. | `-webkit-tap-highlight-color` in the brand tint. |
+| 7 | Double-clicking a button or a segment selected its label. | `user-select: none`, prefixed. |
+| 8 | `text-size-adjust` was only the `-webkit-` form. | Standard property added alongside. |
+| 9 | None of the above was checkable, which is why items 1 to 4 existed. | `scripts/check-compat.mjs`: five rules pairing a risky pattern with what counts as a guard. In `check-all.mjs`. |
+| 10 | Its first version flagged a *comment describing* the `overflow: clip` fallback as an unguarded use of it. | Comments are stripped before matching. A gate that reads commentary as code teaches people to delete comments. |
+
+**The fallback path is exercised, not assumed.** A test replaces `matchMedia`
+with an object exposing only the pre-Safari-14 surface and asserts the page
+still boots: `html.js` set, 8 diagrams drawn, both interactions initialized, no
+errors. And — per round 9's lesson — it was checked in the other direction
+too: with the shim forced down its modern branch, the test fails with a stack
+trace through boot. A green test is not evidence until it has been seen red.
