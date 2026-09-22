@@ -915,14 +915,42 @@ export interface ModelCallImage {
   readonly bytes: Uint8Array;
 }
 
+/** A JSON schema the provider may enforce at decode time (OpenAI `response_format` shape). */
+export interface ModelResponseSchema {
+  readonly name: string;
+  readonly schema: Record<string, unknown>;
+}
+
 export interface ModelCallInput {
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
   readonly signal?: AbortSignal;
+  /**
+   * #3749 B1.4：要求模型输出恰好符合这份 JSON schema。OPTIONAL——只有开启了
+   * `KERNEL_MODEL_JSON_SCHEMA=1` 的 `ConfiguredModelProvider` 会把它作为 `response_format`
+   * 发出（Ollama / llama.cpp 用语法约束解码，不再靠 prompt-and-parse）；其余 provider 与未开
+   * 开关的部署忽略它，请求逐字节不变。
+   */
+  readonly responseSchema?: ModelResponseSchema;
+  /**
+   * #3749 R2：本次调用不该让模型看见的工具名。OPTIONAL——只有 deep-agent provider 转发
+   * （`configurable.excluded_tools`，远端 `ToolBudgetMiddleware` 读），其余 provider 忽略。
+   * 缺席 ⇒ 请求逐字节不变。
+   */
+  readonly excludedTools?: readonly string[];
   /** Non-secret binding issued by the trusted native session owner. */
   readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
+  /**
+   * 2026-09-22 —— 这一轮有溯源事实**没收到**时写一条缺页标记（本地版 best-effort 纪律，
+   * 见 `@repo/contracts/deployment` 的 `skillActivityDeliveryDiscipline`）。
+   *
+   * ⚠ 缺席 ⇒ provider 不记缺页；而**是否因此判 run 失败**由 provider 自己的
+   * `skillActivityDelivery` 决定，不由这个回调在不在决定——两件事分开，否则「没接回调」
+   * 会悄悄变成「顺便放宽了纪律」。
+   */
+  readonly onSkillActivityGap?: (note: string) => Promise<void>;
   /**
    * issue #3322 —— 一次工具调用**执行期间**的中间进展。
    *

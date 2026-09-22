@@ -3,6 +3,7 @@ import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
 import { Avatar } from "@/components/ui/avatar";
 import { LoginForm } from "@/components/entry/login-form";
 import { LoginSessionGate } from "@/components/entry/login-session-gate";
+import { LocalSessionHandoff } from "@/components/entry/local-session-handoff";
 import { LOGIN_BRAND } from "@/lib/mock/entry";
 
 /**
@@ -18,6 +19,7 @@ export default function LoginPage({
 
   return (
     <LoginSessionGate next={searchParams.next}>
+      <LocalSessionHandoff next={searchParams.next} />
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-3 p-4">
       {/* dev 预览条：生产不渲染 */}
       <div className="flex flex-col gap-1">

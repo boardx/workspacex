@@ -2,6 +2,7 @@ import { research as C } from "@repo/contracts";
 import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
 import { extractJson } from "./guided-structured-json";
+import { guidedResearchInvocationModelId, GUIDED_RESEARCH_DIRECTIONS_RESPONSE_SCHEMA } from "./guided-research-model";
 
 type BriefNodeState = z.infer<typeof C.BriefNodeInputState>;
 type GuidedResearchDirection = z.infer<typeof C.GuidedResearchDirection>;
@@ -50,7 +51,8 @@ export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDire
     try {
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
-        modelId: GUIDED_RESEARCH_DIRECTION_MODEL_ID,
+        modelId: guidedResearchInvocationModelId(),
+        responseSchema: GUIDED_RESEARCH_DIRECTIONS_RESPONSE_SCHEMA,
         system: [
           "You generate Guided Research directions for BoardX.",
           "Return JSON only. Do not include markdown, prose, citations, or comments.",

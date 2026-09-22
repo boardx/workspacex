@@ -64,15 +64,17 @@ import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-
 import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
-import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
+import { normalizeCanvasFenceSections, normalizeCanvasFenceTemplateKeys, type CanvasTemplateShape } from "../../domain/canvas/normalize-fence-template-key";
+import { buildCanvasTemplateGuidance, selectGuidanceTemplates, templateSectionNames, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, retryScriptSource, type ProducedFile } from "./run-skill-script";
-import { createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
+import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
+import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
-import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
+import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { RunImagePort } from "./run-image-input";
 import { gatherVisionImages } from "./gather-vision-images";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
@@ -258,6 +260,15 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  /**
+   * 2026-09-22 —— 这份部署的版次。**可选**，缺省 `cloud`：既有测试与不关心版次的执行
+   * 路径（`trial-run-agent` 一类）构造这个对象时不必都改，而生产合成
+   * （`kernel.module.ts` → `AgentRunExecutor`）注入真值。同 `usage` / `retrieval` 的既有先例。
+   *
+   * ⚠ 不在这个文件里读 `process.env`，也不 import `infrastructure/`——洋葱方向由
+   * `lint-arch-deps` 机械看住（本次改动第一版就是这样被它拦下来的）。
+   */
+  readonly edition?: DeploymentEditionValue;
   /** Admission of new native runs; existing native continuations still use nativeSessions. */
   readonly nativeRuntimeEnabled?: boolean;
   readonly nativeSessions?: NativeSessionOwner;
@@ -451,16 +462,23 @@ export const VISUALIZATION_GUIDANCE = [
  * 远端真实工具 `call_skill`（`buildDeepAgentSkillCatalogBlock` 头注）。
  * `skills.length === 0` 时两种模式输出完全相同（没有目录可拼）。
  */
+/** The message asks for a picture: the only case the mermaid rules are worth their tokens. */
+export function mentionsDiagramIntent(text: string): boolean {
+  return /画|图|流程|时序|结构|示意|可视化|mermaid|脑图|导图|甘特|diagram|chart|flow/i.test(text);
+}
+
 export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
   mode: "full" | "deep-agent-catalog" | "native" = "full",
+  options: { readonly visualization?: boolean } = {},
 ): string {
   const skillParts = skills.length === 0 || mode === "native" ? []
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
     : skills.map((s) => s.content);
-  const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
+  // default true: every existing caller keeps a byte-identical prompt
+  const parts = [instructions, ...skillParts, ...(options.visualization === false ? [] : [VISUALIZATION_GUIDANCE])];
   if (canvasGuidance) parts.push(canvasGuidance);
   return parts.join("\n\n");
 }
@@ -483,6 +501,9 @@ async function executeClaimed(
   orgId: OrgId,
   run: ClaimedAgentRun,
 ): Promise<void> {
+  let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
+  // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
+  let excludedTools: readonly string[] | undefined;
   // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
   // this mirrors an already-true fact (I-3 decoupling).
   publishStatusChange(deps, orgId, run.runId, "running");
@@ -548,10 +569,16 @@ async function executeClaimed(
     // there is no honest cache here, see the port's own doc comment for why not: a template
     // republished a moment ago must show up in the very next run, not after some TTL.
     let canvasGuidance: string | null = null;
+    // published canvas templates read for the guidance; reused to correct fence keys before write-back (人类决策 B, 2026-09-17)
+    publishedCanvasTemplates = null;
     if (deps.canvasTemplates) {
       try {
         const templates = await deps.canvasTemplates.listPublished(orgId, run.requesterUserId);
-        canvasGuidance = buildCanvasTemplateGuidance(templates);
+        // the correction table always sees the whole library; only the PROMPT is narrowed
+        publishedCanvasTemplates = templates.map((t) => ({ key: t.key, displayName: t.displayName, ...templateSectionNames(t) }));
+        canvasGuidance = buildCanvasTemplateGuidance(
+          selectGuidanceTemplates(templates, { mode: deps.canvasTemplates.mode ?? "all", text: run.inputText }),
+        );
       } catch (e) {
         deps.log("agent run canvas template guidance read failed, continuing without it", {
           runId: run.runId,
@@ -564,7 +591,34 @@ async function executeClaimed(
     // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
     // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
     const systemPromptMode = isDeepAgentRun && deps.nativeSessions ? "native" : isDeepAgentRun ? "deep-agent-catalog" : "full";
-    system = buildSystemPrompt(run.instructions, skills, canvasGuidance, systemPromptMode);
+    // #3749 B3：deep-agent 目录模式下，本地只列与本轮消息相关的 skill（`KERNEL_SKILL_CATALOG_MODE=matched`）；
+    // `toolSkills`（远端 call_skill 能调的集合）不变，变的只是提示里的目录。
+    const catalogCfg = skillCatalogModeFromEnv();
+    // A canvas request answers with a ```canvas fence, never through a skill: in matched mode a
+    // listed canvas-ish skill (maau-canvas, diagram-and-canvas) sent the 4B on a 4-5 minute
+    // call_skill detour before the fence (eval lane 2026-09-20: persona 351 s, first chunk at 74 s).
+    const canvasRequested = (deps.canvasTemplates?.mode ?? "all") === "matched" && !!canvasGuidance;
+    const catalogSkills = systemPromptMode !== "deep-agent-catalog" ? skills
+      : canvasRequested && catalogCfg.mode === "matched" ? []
+      : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
+    const catalogHint = systemPromptMode === "deep-agent-catalog" && catalogCfg.mode === "matched" && catalogSkills.length === 0 && skills.length > 0 && !canvasRequested ? buildSkillCatalogHint(skills.length) : null;
+    /**
+     * #3749 R2 —— 一张工作坊画布是靠写 ```canvas 围栏产出的，没有任何 skill 能代劳。
+     * 把 skill 工具留在桌面上，4B 会：臆造一个 skill 名 → 报「未知技能」→ 调
+     * `list_org_skills` 查目录 → 把画布委托给 `diagram-and-canvas`，后者回一张 markdown
+     * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
+     * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
+     */
+    // `"*"` = 本轮一个工具都不挂：一张工作坊画布是写 ```canvas 围栏写出来的，没有任何工具
+    // 参与其中。实测（2026-09-22）画布请求的提示里工具 schema 仍占约 2 200 token（`write_todos`
+    // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
+    // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
+    excludedTools = canvasRequested ? ["*"] : undefined;
+    system = buildSystemPrompt(catalogHint ? `${run.instructions}\n\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
+      // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
+      // only when the message asks for a diagram (#3749 B1.2)
+      visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
+    });
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *
@@ -962,7 +1016,24 @@ async function executeClaimed(
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
   // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
-  const openToolCalls = new OpenToolCalls();
+  /*
+   * 2026-09-22 —— 本地版给长时间不返回的工具调用加一条**展示**通知（见契约
+   * `toolStallNoticeMs`）。本地一次画布请求是分钟级，而界面上只有一个转圈的图标：
+   * 用户分不出「还在跑」和「卡死了」。写的是 `tool_progress`（有损展示通道），
+   * 不改任何终态判定、不取消调用；`null` ⇒ 一个计时器都不创建，行为逐字节不变。
+   */
+  const stallAfterMs = toolStallNoticeMs(deps.edition ?? "cloud");
+  const openToolCalls = new OpenToolCalls(stallAfterMs === null ? undefined : {
+    afterMs: stallAfterMs,
+    repeatEveryMs: stallAfterMs,
+    notify: async ({ toolCallId, sourceToolCallId, toolName, elapsedMs }) => {
+      await deps.runs.appendExecutionEvent?.(orgId, run.runId, {
+        kind: "tool_progress", attemptId: executionAttemptId, toolCallId,
+        ...(sourceToolCallId === undefined ? {} : { sourceToolCallId }),
+        toolName, message: toolStallNotice(toolName, elapsedMs),
+      });
+    },
+  });
   const closeOpenToolCalls = (outcome: RunTerminationOutcome) => openToolCalls.closeAll(
     outcome,
     (event) => deps.runs.appendExecutionEvent?.(orgId, run.runId, event) ?? Promise.resolve(),
@@ -987,6 +1058,8 @@ async function executeClaimed(
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
         executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
         onSkillActivity: createSkillActivityWriter(deps.runs, orgId, run.runId, executionAttemptId),
+        // 2026-09-22 —— 溯源缺页标记（本地版 best-effort 纪律；云端拿不到缺页，因为云端照旧 fail closed）。
+        onSkillActivityGap: createSkillActivityGapWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
         // #3322 —— 工具执行期间的中间进展；有损通道，写失败只 log（见 writer 头注）。
         onToolProgress: createToolProgressWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
         // Resume the existing checkpoint after a decision; never resend user input.
@@ -1009,6 +1082,7 @@ async function executeClaimed(
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
+        ...(excludedTools === undefined ? {} : { excludedTools }),
         // deep-agent 专属字段（`hitlSkillNames` #2767 / `planConfirmMinSteps` #3132）的
         // 判定住在 `deep-agent-kernel-fields.ts`，网关只负责摊开——同 `invokeKernel`。
         ...buildDeepAgentKernelFields({ isDeepAgentRun, mountedSkillCount: toolSkills.length, skillRisks }),
@@ -1203,6 +1277,7 @@ async function executeClaimed(
             user: feedback,
             history: [...history, { role: "assistant", content: text }],
             skills: toolSkills,
+            ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
           // 从这次 completion 里取"拿去解析脚本的那段文本"的规则（含 #1747 的候选来源
@@ -1220,6 +1295,23 @@ async function executeClaimed(
 
   if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   /* ── hand off to #413 ── */
+  // 人类决策 B（2026-09-17）：小模型会把 ```canvas 的『模板: <key>』自造成 user-portrait 之类，
+  // 网页端「不猜」未知 key 就不渲染。写回前用本次 run 读到的已发布模板做一次**确定性**校正
+  // （精确名 / 显示名 / 归一化 / 单义别名），命中才改、改了就记日志；校不出的原样留给网页端如实报错。
+  if (publishedCanvasTemplates && publishedCanvasTemplates.length > 0) {
+    const normalized = normalizeCanvasFenceTemplateKeys(text, publishedCanvasTemplates);
+    if (normalized.corrections.length > 0) {
+      deps.log("canvas fence template key corrected before write-back", { runId: run.runId, corrections: normalized.corrections });
+      text = normalized.text;
+    }
+    // #3749 B1.3：分区名 / 表头字段名同一条纪律——模型加了括号、换了顺序、丢了分隔符的名字
+    // 在这里按模板真名确定性改回；改不回的原样留下，网页端如实渲染成空白块。
+    const sections = normalizeCanvasFenceSections(text, publishedCanvasTemplates);
+    if (sections.corrections.length > 0) {
+      deps.log("canvas fence section names corrected before write-back", { runId: run.runId, corrections: sections.corrections });
+      text = sections.text;
+    }
+  }
   await deps.runs.storeOutputAwaitingWriteback(
     orgId, run.runId,
     // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。

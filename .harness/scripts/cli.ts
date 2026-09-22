@@ -30,6 +30,7 @@ import { roleFreezeDoctor } from "./role-freeze-doctor";
 import { graphAuthorityDoctor } from "./graph-authority-doctor";
 import { skillsDoctor } from "./skills-doctor";
 import { gateMutationProbe } from "./gate-mutation-probe";
+import { lintFeatureTransition } from "./lint-feature-transition";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -70,6 +71,7 @@ async function main(): Promise<void> {
     case "scorecard":      roleScorecard(args); break;
     case "pr-queue":       prQueue(args); break;
     case "gate-probe":     gateMutationProbe(args); break;
+    case "lint-feature-transition": lintFeatureTransition(args); break;
     case "merge-gate":     mergeGate(args); break;
     case "templates": {
       // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
@@ -153,6 +155,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness cycle-report                              # C-cycle 周期健康表（只读，见 work-cycle-proposal.md）");
       log.info("  pnpm harness pr-queue [--pr N] [--json] [--attended] [--queue-enabled]  # PR 队列状态机（只读，#451）；无 --attended 一律不授权合并；--queue-enabled 时打印的是入队路线而非直接合并（#3238）");
       log.info("  pnpm harness pr-queue --post-merge N [--deployment-tracked]  # 合并后收尾核验：merged + commit 在 main + issue 已关闭");
+      log.info("  pnpm harness lint-feature-transition --base <ref> [--head <ref>] [--json]  # #400 迁移门：base→head 的 status/owner/evidence 变更是否有合法出处；只判差分，不审全树");
       log.info("  pnpm harness merge-gate --pr N [--json]                # 机械合并门禁（#956）：当前 SHA 独立 APPROVE + 唯一 verdict label + Closes 关联；失败非 0 退出，供 CI required check 使用");
       log.info("  pnpm harness merge-gate --merge-group                  # 合并队列候选组模式（#3238）：从队列 ref + 区间 commit 标题解析组里的 PR 逐个判；解析不出 PR 号直接失败");
       log.info("  pnpm harness tick [--session <id>] [--json]            # 每个 loop 跑这条：权威时钟+漂移告警+续租约+收件箱（ADR-014）");
