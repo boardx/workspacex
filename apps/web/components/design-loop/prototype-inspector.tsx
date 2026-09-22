@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
 import { patchPrototype, prototypeNodeLabel, linkSlotsOf, type DesignProject, type PrototypeLink, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
 
 import { designPrototype } from "@repo/contracts";
@@ -74,14 +75,18 @@ function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
   return out;
 }
 
+/**
+ * 迭代 28：`patchReason` 之外的失败原来退回 `err.reasonCode ?? \`http_${err.status}\``——
+ * 也就是在属性面板里把 `NOT_PROJECT_OWNER` / `http_403` 原样端给用户。改动本身已经在
+ * 迭代 27 于对话那一侧修过一次，这里不再抄第二份人话表，直接走同一个 `describeFailure`。
+ */
 function reason(err: unknown): string {
   if (err instanceof ApiError) {
     const raw = err.raw as { patchReason?: unknown } | null | undefined;
     const parsed = designPrototype.PrototypePatchRejectReason.safeParse(raw?.patchReason);
     if (parsed.success) return REJECT_TEXT[parsed.data];
-    return err.reasonCode ?? `http_${err.status}`;
   }
-  return err instanceof Error ? err.message : String(err);
+  return describeFailure(err);
 }
 
 /** 契约 `patchPrototype.in.summary` ≤ 200：标签本身最长 200，拼上前缀必须截。 */
@@ -205,7 +210,8 @@ export function PrototypeInspector({
               data-testid={`design-inspector-${f.key}`}
             >
               <option value="">（默认）</option>
-              {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+              {/* 迭代 28：显示中文档位，`value` 仍是 schema 的英文字面量——改的是标签，不是取值。 */}
+              {(f.options ?? []).map((o) => <option key={o} value={o}>{designPrototype.prototypeOptionLabel(node.type, f.key, o)}</option>)}
             </select>
           )}
         </div>
@@ -215,7 +221,8 @@ export function PrototypeInspector({
     <section className="flex flex-col gap-2 border-b border-border p-3" data-testid="design-inspector">
       <div className="flex items-center gap-1.5 text-12 font-medium">
         <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" /> {prototypeNodeLabel(node)}
-        <span className="ml-auto font-mono text-10 text-muted-foreground">{id}</span>
+        {/* 迭代 28：节点 id 是内部标识，原来直接占着标题栏右半边。留在 title 里供排查用，不再摆在脸上。 */}
+        <span className="ml-auto text-10 text-muted-foreground" title={id} data-testid="design-inspector-node-id">{node.type}</span>
       </div>
       <p className="truncate text-10 text-muted-foreground" data-testid="design-inspector-path">{path.map(prototypeNodeLabel).join(" › ")}</p>
       {fields.length === 0 && <p className="text-11 text-muted-foreground">这种节点没有可改的属性。</p>}
@@ -227,7 +234,7 @@ export function PrototypeInspector({
             type="button"
             onClick={() => setVisualOpen((v) => !v)}
             aria-expanded={visualOpen}
-            className="flex items-center gap-1 text-10 font-medium uppercase tracking-wide text-muted-foreground transition-colors duration-fast hover:text-background-foreground"
+            className="flex items-center gap-1 text-10 font-medium text-muted-foreground transition-colors duration-fast hover:text-background-foreground"
             data-testid="design-inspector-visual-toggle"
           >
             <ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-fast", visualOpen && "rotate-90")} />
@@ -242,7 +249,7 @@ export function PrototypeInspector({
       )}
       {onSetLinks !== undefined && id !== undefined && slots > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-border pt-2" data-testid="design-inspector-links">
-          <p className="text-10 font-medium uppercase tracking-wide text-muted-foreground">跳转</p>
+          <p className="text-10 font-medium text-muted-foreground">点了之后跳到哪一页</p>
           {Array.from({ length: slots }, (_, slot) => (
             <label key={slot} className="flex items-center gap-1.5 text-11">
               <span className="min-w-0 flex-1 truncate text-muted-foreground">{slotLabel(slot)}</span>
@@ -255,6 +262,15 @@ export function PrototypeInspector({
         </div>
       )}
       {error !== null && <p className="text-11 text-destructive" role="alert" data-testid="design-inspector-error">{error}</p>}
+      {/*
+        迭代 28：改完输入框什么都不会发生——要按「应用」。原来界面上没有任何一处说这件事，
+        普通人改完文案就走了，回头发现画布没变。有未保存改动时明说。
+      */}
+      {dirty && (
+        <p className="text-10 text-muted-foreground" data-testid="design-inspector-dirty">
+          改了 {Object.keys(changes).length} 处，按「应用」才画到画布上。
+        </p>
+      )}
       <div className="flex items-center gap-2 pt-1">
         <Button variant="primary" size="sm" onClick={() => void apply()} disabled={busy || !dirty || id === undefined} data-testid="design-inspector-apply">
           {busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Check aria-hidden className="h-3 w-3" />} 应用
@@ -280,7 +296,7 @@ export function PrototypeInspector({
           </>
         )}
         {path.length > 1 && (
-          <Button variant="ghost" size="sm" onClick={() => void remove()} disabled={busy || id === undefined} className="ml-auto text-destructive" data-testid="design-inspector-remove">
+          <Button variant="ghost" size="sm" onClick={() => void remove()} disabled={busy || id === undefined} className="ml-auto text-destructive" title="删错了可以用画布上方的「撤销」退回去" data-testid="design-inspector-remove">
             <Trash2 aria-hidden className="h-3 w-3" /> 删除
           </Button>
         )}

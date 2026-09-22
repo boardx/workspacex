@@ -25,7 +25,7 @@
  *      到目标条目、目标卡片/行短暂 `data-highlighted`、生产落点把 `?open=<id>` 写进 URL；
  *      目标不在已加载列表里时老实提示而不是静默。
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
@@ -55,7 +55,9 @@ import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { designWorkbench } from "@repo/contracts";
-import { DesignDetailScreen, describeFailure } from "@/components/design-loop/detail-screen";
+import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
+import { describeFailure } from "@/lib/design-failure";
+import { when } from "@/components/design-loop/prototype-history";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -4092,5 +4094,122 @@ describe("错误提示不再把内部错误码端给用户", () => {
       expect(text.length, `错误码 ${code} 没有人话`).toBeGreaterThan(0);
       expect(text, `错误码 ${code} 的"人话"就是那个码本身`).not.toContain(code);
     }
+  });
+});
+
+describe("迭代 28：改一张已经画出来的页——普通人看得懂的那一版", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+
+  const openInspector = async () => {
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    return screen.findByTestId("design-inspector");
+  };
+
+  it("属性面板的下拉给的是中文档位，不是 schema 里的英文字面量", async () => {
+    /*
+     * ⭐ 反证锚点：把 <option> 的文字改回 `{o}` ⇒ 这条红。
+     * 一个不写代码的人在「样式」里看到 primary / secondary / ghost / danger，
+     * 只能靠猜；而取值本身必须仍然是英文——改的是标签不是值，下面一并钉住。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
+    const variant = screen.getByTestId("design-inspector-variant") as HTMLSelectElement;
+    const texts = [...variant.options].map((o) => o.textContent);
+    expect(texts).toContain("主按钮");
+    expect(texts).not.toContain("primary");
+    // 值不变：真发出去的还是契约里的英文字面量
+    expect([...variant.options].map((o) => o.value)).toContain("primary");
+    // 图标 50 个英文单词同样是一张看不懂的表
+    const icon = screen.getByTestId("design-inspector-icon") as HTMLSelectElement;
+    expect([...icon.options].map((o) => o.textContent)).toContain("购物车");
+  });
+
+  it("属性面板：改完不按「应用」不生效——界面明说这件事", async () => {
+    // ⭐ 反证锚点：删掉 design-inspector-dirty 那段 ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    expect(screen.queryByTestId("design-inspector-dirty")).toBeNull();
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    expect(screen.getByTestId("design-inspector-dirty").textContent).toContain("按「应用」");
+  });
+
+  it("属性面板：不是 patchReason 的失败也说人话，不端 http_403", async () => {
+    // ⭐ 反证锚点：把 reason() 改回 `err.reasonCode ?? http_N` ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        throw new ApiError(403, "NOT_PROJECT_OWNER", { reasonCode: "NOT_PROJECT_OWNER" });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    const err = await screen.findByTestId("design-inspector-error");
+    expect(err.textContent).toContain("只有建它的人能改");
+    expect(err.textContent).not.toContain("NOT_PROJECT_OWNER");
+    expect(err.textContent).not.toContain("http_403");
+  });
+
+  it("属性面板不再把节点 id 摆在标题栏上", async () => {
+    // ⭐ 反证锚点：把 {node.type} 改回 {id} ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    const badge = screen.getByTestId("design-inspector-node-id");
+    expect(badge.textContent).not.toContain("n2");
+    expect(badge.getAttribute("title")).toBe("n2"); // 排查时仍然拿得到
+  });
+
+  it("版本历史：来源按「谁做的」说，退回按钮说清旧版不会丢", async () => {
+    /*
+     * ⭐ 反证锚点：把 SOURCE_LABEL 改回「模型 / 手改」、或删掉那句「随时能再回来」⇒ 这条红。
+     * 「恢复」看上去像一次不可逆覆盖，普通人不敢按——而历史其实只追加。
+     */
+    const versions = [
+      { id: "v2", seq: 2, source: "user", createdAt: new Date().toISOString(), summary: "改了按钮", frames: ["页"], notes: [] },
+      { id: "v1", seq: 1, source: "model", createdAt: new Date().toISOString(), summary: "画了首页", frames: ["页"], notes: [] },
+    ];
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/versions") return { items: versions };
+      if (path === "/pm-designs/p1/versions/v1") {
+        return { version: { ...versions[1], frames: ["页"], prototype: [tree] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-history-toggle"));
+    const panel = await screen.findByTestId("design-history");
+    expect(panel.textContent).toContain("AI 画的");
+    expect(panel.textContent).toContain("你改的");
+    expect(panel.textContent).not.toContain("手改");
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    expect((await screen.findByTestId("design-history-restore-safe-1")).textContent).toContain("随时能再回来");
+  });
+
+  it("版本历史的时间：刚才的说「刚刚」，几天前的才落到日期", () => {
+    // ⭐ 反证锚点：把 when() 改回固定的 `M/D HH:mm` ⇒ 这条红。
+    const now = new Date("2026-09-22T14:00:00").getTime();
+    expect(when(new Date(now - 10_000).toISOString(), now)).toBe("刚刚");
+    expect(when(new Date(now - 12 * 60_000).toISOString(), now)).toBe("12 分钟前");
+    expect(when(new Date("2026-09-22T09:05:00").toISOString(), now)).toBe("今天 09:05");
+    expect(when(new Date("2026-09-21T09:05:00").toISOString(), now)).toBe("昨天 09:05");
+    expect(when(new Date("2026-09-10T09:05:00").toISOString(), now)).toBe("9/10 09:05");
   });
 });
