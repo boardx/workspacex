@@ -54,7 +54,15 @@
  *
  * 自动命名与手动改名的优先级由一条 SQL 条件保证、而不是由约定保证：自动命名的
  * UPDATE 带 `WHERE title = '新对话'`，所以只要用户改过名，自动命名就是个 no-op。
- * 见 `pg-chat-repository.ts` 的 `autoTitleThreadIfDefault`。
+ * 见 `pg-chat-repository.ts` 的 `autoTitleThread`。
+ *
+ * ## 2026-09-16 更新：取材时机改成**会话级**，本文件仍是截断规则的唯一来源
+ *
+ * 只看首条消息起名，在「你好」开头的会话上起出来的就是「你好」（人类实测截图）。
+ * 什么时候重算 / 拿哪些消息算 / 算完要不要落地，三件判定都在
+ * `domain/chat/thread-title-algorithm.ts`——**本文件依旧一行没改**：`deriveThreadTitle`
+ * 仍是第 1 档模型不可用时唯一的落地点，`clampModelGeneratedTitle` 仍是模型结果落库前
+ * 唯一的折叠/码点截断入口。
  */
 
 /** 标题上限。远小于 `normalizeTitle` 的 200，侧栏一行放得下才有意义。 */

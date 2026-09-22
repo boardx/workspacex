@@ -1,0 +1,133 @@
+/**
+ * Child-process plumbing shared by `up` and the seed runner: spawn with a log prefix,
+ * run-to-completion with captured output, and HTTP readiness polling.
+ */
+import { spawn, type ChildProcess } from "node:child_process";
+import { createWriteStream, mkdirSync } from "node:fs";
+import { join } from "node:path";
+
+export interface SpawnSpec {
+  readonly name: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly env: Record<string, string>;
+  readonly logDir?: string;
+}
+
+export interface Managed {
+  readonly name: string;
+  readonly child: ChildProcess;
+  readonly exited: Promise<number | null>;
+  stop(): Promise<void>;
+}
+
+export function startManaged(spec: SpawnSpec, log: (line: string) => void = defaultLog): Managed {
+  const child = spawn(spec.command, [...spec.args], {
+    cwd: spec.cwd,
+    env: { ...baseEnv(), ...spec.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let file: ReturnType<typeof createWriteStream> | null = null;
+  if (spec.logDir) {
+    mkdirSync(spec.logDir, { recursive: true });
+    file = createWriteStream(join(spec.logDir, `${spec.name}.log`), { flags: "a" });
+  }
+  const pipe = (stream: NodeJS.ReadableStream | null): void => {
+    if (!stream) return;
+    let buf = "";
+    stream.on("data", (chunk: Buffer) => {
+      buf += chunk.toString("utf8");
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        file?.write(`${new Date().toISOString()} ${line}\n`);
+        log(`[${spec.name}] ${line}`);
+      }
+    });
+  };
+  pipe(child.stdout);
+  pipe(child.stderr);
+  const exited = new Promise<number | null>((resolve) => {
+    child.on("exit", (code) => {
+      file?.end();
+      resolve(code);
+    });
+    // ENOENT etc.: without a handler Node throws an unhandled 'error' and takes the whole
+    // supervisor down; here it becomes a logged line + a failed readiness wait instead.
+    child.on("error", (e) => {
+      const line = `[${spec.name}] failed to start ${spec.command}: ${e.message}`;
+      file?.write(`${new Date().toISOString()} ${line}\n`);
+      log(line);
+      file?.end();
+      resolve(null);
+    });
+  });
+  return {
+    name: spec.name,
+    child,
+    exited,
+    async stop() {
+      if (child.exitCode !== null) return;
+      child.kill("SIGTERM");
+      const t = setTimeout(() => child.kill("SIGKILL"), 8_000);
+      await exited;
+      clearTimeout(t);
+    },
+  };
+}
+
+export interface RunResult {
+  readonly code: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/** Run to completion; never throws on non-zero exit -- the caller decides what a failure means. */
+export function runToCompletion(spec: Omit<SpawnSpec, "logDir">): Promise<RunResult> {
+  return new Promise((resolve) => {
+    const child = spawn(spec.command, [...spec.args], {
+      cwd: spec.cwd,
+      env: { ...baseEnv(), ...spec.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (c: Buffer) => { stdout += c.toString("utf8"); });
+    child.stderr?.on("data", (c: Buffer) => { stderr += c.toString("utf8"); });
+    child.on("exit", (code) => resolve({ code, stdout, stderr }));
+    child.on("error", (e) => resolve({ code: null, stdout, stderr: `${stderr}\n${String(e)}` }));
+  });
+}
+
+export async function waitForHttp(url: string, opts: { timeoutMs: number; intervalMs?: number; accept?: (status: number) => boolean }): Promise<void> {
+  const started = Date.now();
+  const accept = opts.accept ?? ((s) => s >= 200 && s < 500);
+  let lastError = "";
+  while (Date.now() - started < opts.timeoutMs) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+      if (accept(res.status)) return;
+      lastError = `HTTP ${res.status}`;
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+    }
+    await new Promise((r) => setTimeout(r, opts.intervalMs ?? 500));
+  }
+  throw new Error(`${url} not ready after ${opts.timeoutMs}ms (${lastError})`);
+}
+
+/** Inherit PATH/HOME etc., but never leak the parent's cloud model / DB configuration into a child. */
+function baseEnv(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v === undefined) continue;
+    if (/^(KERNEL_|PG|REDIS_|OSS_|S3_|WORKSPACEX_|MODEL_|DEEP_AGENT_|NEXT_PUBLIC_)/.test(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+function defaultLog(line: string): void {
+  process.stdout.write(`${line}\n`);
+}

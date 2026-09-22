@@ -55,6 +55,17 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-18：同一个 skill 在 devapp 两次超时（16 分钟）都不是脚本慢，是模型在跑脚本之前的动作：读 3 份
+  references、`write_todos` 拆步骤、对截图 `ls`/`read_file`（PNG 已经是视觉输入，再读一次会撞 `tool_call_unresolved`）。
+  产出文件类 skill 的 SKILL.md 要把"总共 3–4 次工具调用、不写 todo、图片不要再读文件"写成硬规则，速查表放正文里，
+  references 只作备查（出处：issue #3729，`maau-venture-valuation`）。
+- 2026-09-18：需要"确定性计算 + 固定版式 PDF"的 skill，不要让模型现场写 pdf-lib 脚本——把计算
+  （`compute.cjs` 纯函数）和渲染（`render-report.cjs`）作为包内 `scripts/*.cjs` 随 starter pack 下发，
+  SKILL.md 只让模型做"抽取结构化证据 JSON → 跑一条命令 → 核验 → `wx_artifact_publish`"。原生沙箱
+  `NODE_PATH=/opt/sandbox/node_modules`（`session/provider.ts`），包内 CJS 脚本直接 `require('pdf-lib')`
+  即可；同一份脚本在仓库根用 `pnpm maau:report` 本地跑（根 devDependencies 补了 `pdf-lib`/`@pdf-lib/fontkit`）。
+  两个实测坑：① 中文字体里 U+2212 "−" 与 U+2022 "•" 可能缺字形成方框，报告里用 ASCII `-` 与画圆代替；
+  ② 本机 `.ttc` 字体集 pdf-lib 拒绝嵌入，本地验证要先抽出单面 `.ttf/.otf`（出处：`skills/maau-diagnostics`）。
 - 2026-09-13：平台文档 Skill 本身是 L0，不代表它派生的原生 `execute` 会自动继承等级；
   风险门看到的工具名仍是 L2 `execute`。继承只能建立在本 run 的钉版本风险快照、真实工具
   历史归因和整串命令 allowlist 三项同时成立时，任一缺失继续 fail-closed，不能把
@@ -100,6 +111,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
   假 kernel，不是硬编码"总是成功"）。
 - 2026-09-05：给 deep-agent 内核"运行期"传一条新指令，只有一条现成通道——同一个 run 的**下一次** `ModelCallInput`（HITL 之后的 resume 续跑），投影到 LangGraph `config.configurable` 由 harness.py 中间件在 `before_model` 注入；`executeClaimed` 一次只发一次内核调用，run 不停顿就没有"下一次"，别假设网关侧消费=内核已收到（出处：issue #2755，F11 PR #2742 的范围边界）。
 - 2026-09-05：`build_middleware()` 全栈跑假模型时，`TaskClassifierMiddleware` 会自己把多步任务钉成 `write_todos`、`RubricMiddleware` 的 grader 调用自带 `tool_choice="any"`——断言"某个中间件强制了 tool_choice"前先用 `disable_task_auto_classify` 隔离、并按 `bound_tools` 排除 grader 调用，否则正向与反证都在测别人（出处：`tests/golden/test_tc7_interjection_replan.py`，#2755）。
+- 2026-09-18：skill 产出的 PDF 体积直接决定 `wx_artifact_publish` 会不会超时——`maau-venture-valuation` 用 pdf-lib 整份嵌入 `NotoSansSC-Common.otf`（CFF，不能子集化）得到 6.7MB，devapp 上 publish 工具一直没返回（`tool_call_unresolved`），前 3 步都成功也白搭。改嵌 `/usr/share/fonts/workspacex/analysis/AnalysisSans.ttf` + `{subset:true}`（这份 TrueType 子集化实测正常：MuPDF 光栅化、fontTools 解析 488 个字形轮廓全部非空——Dockerfile 里"运行期子集器不可靠"那条只对 DroidSansFallback 与 CFF 成立），8 页压到 ~140KB；缺的希腊字母/数学符号按字符落到 StandardFonts.Symbol / Helvetica，判据读字体本身的 glyph id / 编码表而不是手写清单。教训：**沙箱里生成要发布的文件，先看字节数——超过 1MB 的字体嵌入就是发布链路的隐性超时**（出处：PR #3730 的 devapp 复现，本次修复 PR 见 `git log -- skills/maau-diagnostics/scripts/verify.ts`）。
+- 2026-09-18：标准包升级只认同 `stable_name`——换了 stableName 的新版（`maau-diagnostics` 1.0.0 `maau-recursive-asset-report` → 2.0.1 `maau-venture-valuation`）会让新旧两个 skill 并排留在目录里，模型按 description 自选时可能挑到旧的。修法是 `SkillStarterImportRepository.retireSuperseded`：按血统（同 `pack_id` 的 succeeded 导入的 `skillIds`）下线本版不再发货的行，写 `skills.status` + `capability_listings.enabled` 两张表；在 `importSkillStarterPack` 成功后**单独跑，重放也跑**（改动部署前已装过新版的环境，只在首次落库那条路径下线永远轮不到）；重新发货即复活，且复活要放在「正文没变早退」之前。教训：**幂等种子只负责"有"，不负责"没有了"**——发货全集变小时，多出来的那部分需要一条独立的收敛步骤（出处：issue #3733）。
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 

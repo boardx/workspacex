@@ -8,7 +8,7 @@ export function GuidedResearchReportTimeline({ state, interrupted = false }: { s
   const collapsed = finished || Boolean(state.reportDraft && !state.busy) || interrupted || Boolean(state.errorCode && !state.busy);
   return <details key={collapsed ? "settled" : "active"} open={!collapsed} className="rounded-xl border border-border bg-card p-5" data-testid="research-report-timeline" aria-label="报告生成过程">
     <summary className="cursor-pointer text-16 font-semibold">报告生成过程{collapsed ? " · 查看详情" : ""}</summary>
-    <p className="mt-2 text-12 text-muted-foreground">{finished ? "报告已生成并保存。" : state.reportDraft && !state.busy ? "完整草稿已保存，部分章节仍需核验。" : interrupted ? "执行已中断，已保存的进度仍可继续。" : state.errorCode ? "本次生成已暂停，请查看错误后重试。" : "各阶段连续处理，进度自动保存。"}</p>
+    <p className="mt-2 text-12 text-muted-foreground">{finished ? "报告已生成并保存。" : state.reportDraft && !state.busy ? "完整报告已保存，部分章节仍需核验。" : interrupted ? "执行已中断，已保存的进度仍可继续。" : state.errorCode ? "本次生成已暂停，请查看错误后重试。" : "各阶段连续处理，进度自动保存。"}</p>
     <ol className="mt-4 space-y-4">{state.reportTimeline.map((item) => {
       const active = item.status === "running" || item.status === "retrying";
       const Icon = item.status === "completed" ? CheckCircle2 : item.status === "failed" || item.status === "warning" ? AlertCircle : active ? Loader2 : Circle;

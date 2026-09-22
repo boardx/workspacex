@@ -230,12 +230,15 @@ export class DigitalInterviewController {
     const projector = new DigitalReportTransportProjector();
     let lastUpdatedAt = "";
     while (!response.destroyed) {
-      const updatedAt = workflow.reportGeneration?.updatedAt ?? workflow.report?.generatedAt ?? "";
+      const updatedAt = JSON.stringify([workflow.reportGeneration?.updatedAt ?? workflow.report?.generatedAt ?? "",
+        workflow.reportGeneration?.status, workflow.reportGeneration?.requestId]);
       if (updatedAt !== lastUpdatedAt) {
-        for (const event of projector.project(C.DigitalInterviewWorkflowView.parse(workflow))) {
+        const events = projector.project(C.DigitalInterviewWorkflowView.parse(workflow));
+        for (const event of events) {
           response.write(`${JSON.stringify(event)}\n`);
         }
         lastUpdatedAt = updatedAt;
+        if (events.some((event) => event.type === "error")) break;
       }
       if (workflow.report || workflow.reportGeneration?.status === "failed" || !workflow.reportGeneration) break;
       await new Promise((resolve) => setTimeout(resolve, 500));

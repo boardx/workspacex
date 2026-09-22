@@ -348,6 +348,49 @@ describe("lint-permission-paths: counter-proof", () => {
     expect(Number(/scanned=(\d+)/.exec(r.out)?.[1] ?? -1)).toBe(1);
   });
 
+  it("survey exemption admits only owner-scoped reads and secret-gated public projections", async () => {
+    const { SurveyService } = await import("../../src/application/survey/survey-service");
+    const { PgSurveyRepository } = await import("../../src/infrastructure/survey/pg-survey-repository");
+    const { SurveyDraftInputSchema } = await import("@repo/contracts/survey-runtime");
+    const service = new SurveyService(new PgSurveyRepository(db));
+    const orgId = toOrgId(ORG);
+    const { SurveyTemplateService } = await import("../../src/application/survey/survey-template-service");
+    const templates = new SurveyTemplateService(new PgSurveyRepository(db));
+    const templateInput = { kind: "report" as const, title: SECRET, description: "", questions: [], template: { id: "t", title: SECRET, sections: [] } };
+    const libraryTemplate = await templates.create(orgId, "u-energy", templateInput);
+    expect(await templates.list(orgId, "u-platform")).toEqual([]);
+    await expect(templates.get(orgId, "u-platform", libraryTemplate.id)).rejects.toThrow("not_found");
+    await expect(templates.save(orgId, "u-platform", libraryTemplate.id, 1, templateInput)).rejects.toThrow("not_found");
+    await expect(templates.delete(orgId, "u-platform", libraryTemplate.id, 1)).rejects.toThrow("not_found");
+    expect((await templates.get(orgId, "u-energy", libraryTemplate.id)).title).toBe(SECRET);
+    const draft = SurveyDraftInputSchema.parse({
+      title: "Owner-only survey",
+      questions: [{ id: "q", order: 1, chapterId: "s", type: "single", title: "Choice", required: true, options: ["yes", "no"] }],
+      template: { id: "private-template", title: SECRET, sections: [] },
+    });
+    let model = await service.create(orgId, "u-energy", draft);
+    expect((await service.list(orgId, "u-energy")).map(row => row.id)).toContain(model.id);
+    expect(await service.list(orgId, "u-platform")).toEqual([]);
+    await expect(service.get(orgId, "u-platform", model.id)).rejects.toThrow("not_found");
+    await expect(service.save(orgId, "u-platform", model.id, model.version, draft)).rejects.toThrow("not_found");
+    await expect(service.delete(orgId, "u-platform", model.id, model.version)).rejects.toThrow("not_found");
+    expect((await service.get(orgId, "u-energy", model.id)).template.title).toBe(SECRET);
+    model = await service.publish(orgId, "u-energy", model.id, model.version);
+    const token = model.publication!.token;
+    const projection = await service.publicGet(token);
+    expect(projection.questions).toEqual(draft.questions);
+    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "title", "version"]);
+    expect(JSON.stringify(projection)).not.toContain(SECRET);
+    // A correct tenant/id locator without the publication secret is not authorization.
+    const forged = `${token.split(".")[0]}.${"A".repeat(43)}`;
+    await expect(service.publicGet(forged)).rejects.toThrow("not_found");
+    await expect(service.submit(forged, {
+      submissionId: "forged-submission", answers: [{ questionId: "q", value: "yes" }],
+      durationSeconds: 0, role: "unspecified", companySize: "unspecified",
+    })).rejects.toThrow("not_found");
+    expect((await service.get(orgId, "u-energy", model.id)).responses).toEqual([]);
+  });
+
   it("the allowlist stays short, and every entry carries a real argument", () => {
     const r = run();
     // A ceiling alone is a number someone bumps. The property that actually matters is
@@ -951,8 +994,10 @@ describe("lint-permission-paths: counter-proof", () => {
     //（`a.thread_id = $2 ∧ a.message_id = $3 ∧ m.author_id = $4`）。这批行的元数据 run
     // 早就合法持有——`ClaimedAgentRun.inputAttachments` 由 `pg-agent-run-repository.ts`
     // 从同一张表、按同一个 `message_id`、在同一次 claim 里聚合出来——本文件只是把同一批
-    // 行的字节取出来交给模型，**没有新增任何一个可见面**。跨消息/跨线程的图像今天取不到
-    //（具名缺口 `GAP-VISION-CROSS-TURN-IMAGES`），方向是 fail closed。
+    // 行的字节取出来交给模型，**没有新增任何一个可见面**。issue #3727 起多一个 OR 分支：
+    // 同线程、**同作者**、人类消息上、且触发消息正文 `@<filename>` 点名的历史附件——作者锚
+    // 对两个分支同时生效，可见面仍是"这个用户自己在这个线程里传过的东西"。跨作者/跨线程的
+    // 图像仍取不到（具名缺口 `GAP-VISION-CROSS-TURN-IMAGES` 剩下的那一半），方向是 fail closed。
     //
     // 它的**被强制的前提**：`tests/chat/run-image-input-repo-guard.test.ts` 断言五件——
     // (a) 只命名 `chat_message_attachments`/`chat_messages` 两张租户表；(b) 无
@@ -1174,6 +1219,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-inbox-tag-repository.ts` 的 ALLOWLIST 条目——`inbox_item_tags` 一行只有
     // 「这个组织的这个 (kind,item_id) 打了哪几个自由文本标签」，不携带任何 D3 门控过的正文，
     // 形状与 `inbox_item_order` 完全一致，配套 `tests/inbox/inbox-tag-repo-guard.test.ts`。
+    // Raised 90 -> 91 by #3754: pg-survey-repository is a personal owner aggregate,
+    // not an ACL object. The real-PG survey exemption test above proves owner-only
+    // list/get/save/delete and a secret-gated public projection that omits private
+    // template/response data. Removing either owner or secret checks makes it red.
+    // Project sharing must replace this exception with the standard project path.
     // Workbench entries are not bare exemptions: their source predicates are checked
     // by the production gate. Keep the existing bare-entry ceiling unchanged.
     const boundaryAudit = JSON.parse(execFileSync("node", ["--input-type=module", "-e", `
@@ -1200,7 +1250,13 @@ describe("lint-permission-paths: counter-proof", () => {
     }
     const total = Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1);
     expect(total).toBeGreaterThanOrEqual(boundaryAudit.rules.length);
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(90);
+    // #3760 adds one capability-scoped personal survey attachment repository.
+    // Its real HTTP/PG/object-store negative proofs live in
+    // tests/survey/survey-attachments.test.ts: wrong owner/session/question,
+    // expired/closed publication, claim rollback and claimed-file cleanup safety.
+    // No ACL ObjectRef exists for a survey response. Remove this increment with
+    // the exception if its capability/owner gates or those tests disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(92);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

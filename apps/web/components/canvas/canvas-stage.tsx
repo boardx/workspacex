@@ -13,6 +13,7 @@ import {
   type MindmapEditor,
 } from "@repo/fabric-markdown";
 import { serializeCanvasMarkdown } from "@/lib/canvas/serialize-canvas-markdown";
+import { resolveExportMultiplier } from "@/lib/canvas/export-scale";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CanvasTool } from "./canvas-toolbar";
@@ -74,7 +75,7 @@ export interface CanvasStageHandle {
    * 不受导出动作影响，截出来的图也不会因为用户当前平移到别处而缺一块。空画布
    * （没有任何节点）返回 null，不产出一张空白 PNG 冒充"导出成功"。
    */
-  exportPNG(opts?: { multiplier?: number }): { dataUrl: string; width: number; height: number } | null;
+  exportPNG(opts?: { multiplier?: number }): { dataUrl: string; width: number; height: number; multiplier: number } | null;
   /**
    * 「看到所有内容」——按全部对象的并集包围盒重算 zoom/pan，让整张画布一次性都出现
    * 在当前视口里，不需要用户再手动滚轮/拖动去找内容（人类原话：「画布默认要可以看到
@@ -925,17 +926,21 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
       // 这次导出影响（截图动作本身不该是一次有副作用的操作）。
       const prevTransform = canvas.viewportTransform ? [...canvas.viewportTransform] as typeof canvas.viewportTransform : undefined;
       canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      // 分辨率不是固定 2 倍：大图（几千像素高的 mindmap）按总像素上限把倍率往下压，
+      // 否则 PNG 就是几十 MB、Safari 直接截出空图。规则与理由见 `export-scale.ts`。
+      const multiplier = resolveExportMultiplier(width, height, opts?.multiplier);
       const dataUrl = canvas.toDataURL({
         format: "png",
         left,
         top,
         width,
         height,
-        multiplier: opts?.multiplier ?? 2,
+        multiplier,
       });
       if (prevTransform) canvas.setViewportTransform(prevTransform);
       canvas.requestRenderAll();
-      return { dataUrl, width, height };
+      // width/height 是**逻辑**尺寸（PDF 页面按它换算物理大小），像素尺寸 = 逻辑 × multiplier。
+      return { dataUrl, width, height, multiplier };
     },
     fitToContent,
   }), [fitToContent]);

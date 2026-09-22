@@ -12,6 +12,8 @@ import {
   type SurveyCreationDraft,
 } from "@/lib/survey/creation-draft";
 
+const DEFAULT_SURVEY_NAME = "未命名问卷";
+
 export type SurveyCreationMode = "blank" | "module";
 
 export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
@@ -21,12 +23,12 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
   onCreate: (draft: SurveyCreationDraft) => void;
 }) {
   const [step, setStep] = React.useState<"metadata" | "module">("metadata");
-  const [draft, setDraft] = React.useState<SurveyCreationDraft>({ name: "", tags: [] });
+  const [draft, setDraft] = React.useState<SurveyCreationDraft>({ name: DEFAULT_SURVEY_NAME, tags: [] });
   const [tagInput, setTagInput] = React.useState("");
 
   const reset = React.useCallback(() => {
     setStep("metadata");
-    setDraft({ name: "", tags: [] });
+    setDraft({ name: DEFAULT_SURVEY_NAME, tags: [] });
     setTagInput("");
   }, []);
 

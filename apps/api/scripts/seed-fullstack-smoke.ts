@@ -405,8 +405,11 @@ await asApp(orgId, async (client) => {
       // `plenary` = 全场（项目内全员可见）。取自契约 `ChatVisibility`，
       // 不是随手选：`member-private` / `group-shared` 会把这条线程的可见性
       // 绑到组关系上，而第 7 步验的是录音，不该顺带引入一个组可见性变量。
-      `INSERT INTO chat_threads (id, org_id, project_id, visibility_scope, title, created_by)
-       VALUES ($1,$2,$3,'plenary',$4,$5)
+      // `title_source = 'user'`：这条线程的标题是种子固定的（下游断言按它找线程），
+      // 不是「还没起名」——不标住它，自动命名会在会话走到阶梯档位时把它改掉。
+      `INSERT INTO chat_threads
+         (id, org_id, project_id, visibility_scope, title, created_by, title_source)
+       VALUES ($1,$2,$3,'plenary',$4,$5,'user')
        ON CONFLICT (id) DO NOTHING`,
       [recordingThreadId, orgId, projectId, recordingThreadTitle, userId],
     );

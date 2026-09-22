@@ -24,6 +24,8 @@ import { scopeIsCoherent } from "../../../domain/interview/scope";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
 
+import { DIGITAL_REPORT_STALE_SQL } from "./digital-report-lease";
+
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === "object") {
@@ -533,7 +535,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const response = await this.model.complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。每位专家必须是与专家列表一致的完整 Persona 档案，数组字段各给出 2 至 4 条，性格分值为 1 至 10 的整数。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"],\"category\":\"专家分类\",\"bio\":\"专业经历简介\",\"location\":\"所在地区\",\"age\":45,\"occupation\":\"职业描述\",\"goals\":[\"目标\"],\"interests\":[\"兴趣\"],\"painPoints\":[\"痛点\"],\"motivations\":[\"动机\"],\"influences\":[\"影响来源\"],\"personalityTraits\":{\"introvertExtrovert\":5,\"analyticalCreative\":7,\"busyTimeRich\":4},\"serviceValue\":\"服务价值说明\",\"typicalAdvice\":\"代表性的建议\"}]}。",
+        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。专家以专业角色而非虚构姓名标识：displayName 和 role 都使用简洁明确的专业角色称谓，不填写人名；role 应体现与当前主题相关的细分专长，避免泛称“行业专家”或只列普通用户身份。bio 用 1 至 2 句话描述具体专业能力、擅长的研究或实践方法，以及能回答的主题关键问题；不要用空泛资历代替能力，不要编造真实机构任职、荣誉或业绩。各专家应覆盖互补的机制研究、实践实施、成效评估或风险治理视角，根据主题选择而非套用固定职业列表。每位专家必须是与专家列表一致的完整虚拟 Persona 档案，数组字段各给出 2 至 4 条，性格分值为 1 至 10 的整数。只返回 JSON：{\"experts\":[{\"displayName\":\"专业角色称谓\",\"role\":\"简洁的细分专业角色\",\"domains\":[\"专业领域\"],\"category\":\"专家分类\",\"bio\":\"具体专长、方法与主题贡献\",\"location\":\"所在地区\",\"age\":45,\"occupation\":\"职业描述\",\"goals\":[\"目标\"],\"interests\":[\"兴趣\"],\"painPoints\":[\"痛点\"],\"motivations\":[\"动机\"],\"influences\":[\"影响来源\"],\"personalityTraits\":{\"introvertExtrovert\":5,\"analyticalCreative\":7,\"busyTimeRich\":4},\"serviceValue\":\"服务价值说明\",\"typicalAdvice\":\"代表性的建议\"}]}。",
         user: JSON.stringify({ operation: "generate_interview_experts", topic }),
       });
       experts = parseGeneratedInterviewExperts(response.text);
@@ -689,25 +691,26 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       await this.lockRequest(session, input.orgId, input.interviewId, "generate_report", input.requestId);
       const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const existing = await session.query<{ report_id: string; generation_status: "running" | "completed" | "failed" }>(
-        `SELECT report_id,generation_status
+      const existing = await session.query<{ report_id: string; generation_status: "running" | "completed" | "failed"; stale: boolean; request_id: string }>(
+        `SELECT report_id,generation_status,request_id,(${DIGITAL_REPORT_STALE_SQL}) AS stale
            FROM digital_interview_reports
           WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
           FOR UPDATE`,
         [input.orgId, input.interviewId, current.revision_id],
       );
       const existingReport = existing.rows[0];
-      if (existingReport && existingReport.generation_status !== "failed") {
+      if (existingReport && existingReport.generation_status === "running" && (!existingReport.stale || existingReport.request_id === input.requestId)) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const reportId = existingReport?.report_id ?? proposedReportId;
       if (existingReport) {
         await session.query(
           `UPDATE digital_interview_reports
-              SET title=NULL,executive_summary=NULL,markdown='',findings='[]'::jsonb,
+              SET previous_report=CASE WHEN generation_status='completed' THEN $5::jsonb ELSE previous_report END,
+                  title=NULL,executive_summary=NULL,markdown='',findings='[]'::jsonb,
                   generation_status='running',request_id=$4,error_code=NULL,updated_at=now()
             WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
-          [input.orgId, input.interviewId, reportId, input.requestId],
+          [input.orgId, input.interviewId, reportId, input.requestId, JSON.stringify(snapshot.workflow.report)],
         );
       } else {
         await session.query(
@@ -727,7 +730,39 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return { reportId, workflow: guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId)) };
     });
     const reportId = started.reportId;
-    await input.onProgress?.(started.workflow);
+    // Restore from the durable backup; a superseded attempt cannot alter its replacement.
+    const failGeneration = async (code: string) => this.db.withTenant(input.orgId, async (session) => {
+      await session.query("SELECT id FROM interview_sessions WHERE org_id=$1 AND id=$2 FOR UPDATE", [input.orgId, input.interviewId]);
+      const backup = await session.query<{ previous_report: DigitalInterviewWorkflowView["report"] }>(
+        `SELECT previous_report FROM digital_interview_reports
+          WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4 AND generation_status='running' FOR UPDATE`,
+        [input.orgId,input.interviewId,reportId,input.requestId],
+      );
+      const previous = backup.rows[0]?.previous_report;
+      if (previous) {
+        const restored = await session.query(
+          `UPDATE digital_interview_reports
+              SET title=$5,executive_summary=$6,markdown=$7,findings=$8,generated_at=$9,
+                  generation_status='completed',error_code=$10,previous_report=NULL,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4
+              AND generation_status='running' RETURNING report_id`,
+          [input.orgId,input.interviewId,reportId,input.requestId,previous.title,previous.executiveSummary,
+            previous.markdown,JSON.stringify(previous.findings),previous.generatedAt,code],
+        );
+        if (restored.rows.length) await session.query(
+          `UPDATE interview_sessions SET digital_status='completed',version=version+1,updated_at=now()
+            WHERE org_id=$1 AND id=$2 AND report_id=$3 AND digital_status='report_pending'`,
+          [input.orgId,input.interviewId,reportId],
+        );
+      } else {
+        await session.query(
+          `UPDATE digital_interview_reports SET generation_status='failed',error_code=$5,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND request_id=$4 AND generation_status='running'`,
+          [input.orgId,input.interviewId,reportId,input.requestId,code],
+        );
+      }
+      return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+    });
 
     const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
     const decoder = new DigitalReportNdjsonDecoder();
@@ -745,6 +780,12 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         // Reuse the write transaction's complete actor-visibility predicate, not merely
         // organization membership: collaborator/project access may be revoked mid-stream.
         await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        const attempt = await session.query(
+          `SELECT report_id FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2
+            AND request_id=$3 AND generation_status='running' AND NOT (${DIGITAL_REPORT_STALE_SQL}) FOR UPDATE`,
+          [input.orgId, reportId, input.requestId],
+        );
+        if (attempt.rows.length !== 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         if (event.type === "meta") {
           await session.query(
             `UPDATE digital_interview_reports
@@ -786,6 +827,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     };
 
     try {
+      await input.onProgress?.(started.workflow);
       const modelInput = {
         modelProvider: this.modelProvider,
         modelId: this.modelId,
@@ -833,16 +875,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         : error instanceof ModelCallError || error instanceof SyntaxError
           ? "AI_GENERATION_UNAVAILABLE"
           : "DEPENDENCY_UNAVAILABLE";
-      const failed = await this.db.withTenant(input.orgId, async (session) => {
-        await session.query(
-          `UPDATE digital_interview_reports
-              SET generation_status='failed',error_code=$4,updated_at=now()
-            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
-          [input.orgId, input.interviewId, reportId, code],
-        );
-        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
-      });
-      await input.onProgress?.(failed);
+      const failed = await failGeneration(code);
+      if (!snapshot.workflow.report) await input.onProgress?.(failed);
       throw new DigitalInterviewWorkflowError(code);
     }
     try {
@@ -854,13 +888,15 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         const shape = await session.query<{ valid: boolean }>(
           `SELECT title IS NOT NULL AND executive_summary IS NOT NULL AND length(btrim(markdown)) > 0
                   AND jsonb_array_length(findings) > 0 AS valid
-             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2 FOR UPDATE`,
-          [input.orgId, reportId],
+             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2
+              AND request_id=$3 AND generation_status='running' AND NOT (${DIGITAL_REPORT_STALE_SQL}) FOR UPDATE`,
+          [input.orgId, reportId, input.requestId],
         );
+        if (!shape.rows.length) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         if (!shape.rows[0]?.valid) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
         await session.query(
           `UPDATE digital_interview_reports
-              SET generation_status='completed',error_code=NULL,generated_at=now(),updated_at=now()
+              SET generation_status='completed',error_code=NULL,previous_report=NULL,generated_at=now(),updated_at=now()
             WHERE org_id=$1 AND report_id=$2`,
           [input.orgId, reportId],
         );
@@ -876,16 +912,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     } catch (error) {
       console.error("[digital-interview-report] finalization failed", error);
       const code = error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE";
-      const failed = await this.db.withTenant(input.orgId, async (session) => {
-        await session.query(
-          `UPDATE digital_interview_reports
-              SET generation_status='failed',error_code=$4,updated_at=now()
-            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
-          [input.orgId, input.interviewId, reportId, code],
-        );
-        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
-      });
-      await input.onProgress?.(failed);
+      const failed = await failGeneration(code);
+      if (!snapshot.workflow.report) await input.onProgress?.(failed);
       throw error;
     }
   }

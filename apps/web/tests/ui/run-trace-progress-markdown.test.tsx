@@ -81,7 +81,9 @@ describe("issue #3387 ② —— 进展摘要里的 markdown 必须渲染成元�
   it("反面：工具的「输入」JSON 不受影响，仍然原样显示（不该被当 markdown 渲染）", () => {
     render(<RunTracePanel runId="run-1" events={events} />);
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
-    fireEvent.click(screen.getByText("正在执行 · fetch_url"));
+    // 2026-09-16：折叠行改成说人话——工具名走词表（fetch_url ⇒ 打开网页），后面接
+    // 「对哪个东西」（`toolObject`：URL 取 host）。本用例要守的是下面那个 <pre>。
+    fireEvent.click(screen.getByText("正在执行 · 打开网页 · example.com"));
     /*
      * 这条守住修法的边界：本次改的是**进展摘要这一处**，不是「把执行过程里所有文本
      * 都当 markdown 渲染」。工具入参里的 `**不是 markdown**` 必须逐字保留在 <pre> 里。

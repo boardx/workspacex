@@ -6,10 +6,12 @@ import { observerMayReadMessage } from "../../domain/chat/thread-visibility";
 // 🔴 #2094：自动命名。规则在 domain 层（纯函数），默认名的字面量单源于 `mutate-thread.ts`
 // ——在这里再写一遍 `"新对话"` 就是「同一事实声明在两处」，而漂移那天没人会收到通知。
 import { deriveThreadTitle } from "../../domain/chat/thread-title";
-import { DEFAULT_PERSONAL_THREAD_TITLE } from "./mutate-thread";
 // 2026-08-27：自动命名叠加模型摘要，见 `generate-thread-title.ts` 头注。
 import type { GenerateThreadTitleDeps } from "./generate-thread-title";
 import { generateThreadTitle } from "./generate-thread-title";
+import {
+  buildTitleEvidence, isLowInformation, planTitleRefresh, shouldReplaceTitle,
+} from "../../domain/chat/thread-title-algorithm";
 import type { ResolveVisibilityDeps } from "./resolve-visibility";
 import { resolveVisibility } from "./resolve-visibility";
 import type {
@@ -263,7 +265,7 @@ export async function acceptHumanMessage(
 }
 
 /**
- * 🔴 #2094：**自动命名** —— 人类裁决落地（回指 #2068）。命名规则与「为什么截断
+ * 🔴 #2094 / 2026-09-16 会话级标题：**自动命名** —— 人类裁决落地（回指 #2068）。命名规则与「为什么截断
  * 而不是让模型生成摘要」在 `domain/chat/thread-title.ts` 的文件头，这里只讲
  * **为什么挂在这一行**。
  *
@@ -286,13 +288,13 @@ export async function acceptHumanMessage(
  * ## 幂等重发不会重复起名
  *
  * 幂等命中在上面 `if (existing)` 处就 return 了，走不到这里。即便走到，
- * `autoTitleThreadIfDefault` 的 `WHERE title = $default` 也会命中 0 行。
+ * `autoTitleThread` 的 `auto_title_stage < $stage` 也会命中 0 行。
  *
  * ## 项目线程为什么天然不受影响
  *
- * 项目线程的标题由用户在创建时必填（`normalizeTitle` 拒绝空标题），不可能等于
- * `DEFAULT_PERSONAL_THREAD_TITLE`，于是这条 UPDATE 对它们恒为 no-op。
- * 这不是加了 `if`，是条件本身就排除了它们。
+ * 项目线程的标题由用户在创建时必填（`normalizeTitle` 拒绝空标题），建表时就带着
+ * `title_source = 'user'`（`mutate-thread.ts` 的 `createThread`），于是这条 UPDATE 对
+ * 它们恒为 no-op。这不是加了 `if`，是条件本身就排除了它们。
  *
  * ## 2026-08-27 更新：先试模型，失败落回截断
  *
@@ -308,35 +310,65 @@ export async function acceptHumanMessage(
  * `autoTitleThreadIfDefault` 的 `WHERE title = $默认名` 丢掉。两处修正：
  *   1. **先 kick 再起名**：`acceptHumanMessage` 在 run 落库后立刻回调 `onAccepted`
  *      （调用方在里面 kick），起名与真正的回答并行，不再串在前面。
- *   2. **标题已不是默认名就不调模型**：先查 `isThreadTitleDefault`，非首条消息一次
- *      模型往返都不发。只有首条起名这条规则仍只由那条 UPDATE 判定（见上「幂等」节）。
+ *   2. **标题已不是默认名就不调模型**：先查一次线程状态，非首条消息一次模型往返都不发。
  * 仍然 `await` 而不是扔到后台：REST 202 返回时标题已定，不出现「先显示新对话、
  * 几秒后自己跳成模型版本」（`generate-thread-title.test.ts` ③ 的断言线）。
+ *
+ * ## 2026-09-16 更新：从「首条消息起名」改成**会话级标题**
+ *
+ * 人类实测截图：侧栏一屏是「你好」「你可以做什么?」「请检查」——每一个都忠实概括了
+ * 首条消息，也每一个都找不回那次会话。取材时机错了，不是模型或截断错了。
+ * 三件判定全部下沉到 `domain/chat/thread-title-algorithm.ts`（纯函数、有逐字单测）：
+ * `planTitleRefresh`（什么时候算：1/4/12 条人类消息的固定阶梯，一生最多三次模型往返）、
+ * `buildTitleEvidence`（拿什么算：定长会话摘要，不是整段 transcript）、
+ * `shouldReplaceTitle`（算完要不要落地：信息增益门，防侧栏名字乱抖）。
+ * **本函数只负责把它们接起来**，一条规则都不在这里复述；并发下「只写一次、不回退、
+ * 不覆盖手动改名」仍由 `autoTitleThread` 的那条 UPDATE 判定（见 `ports.ts` 头注）。
  */
 async function autoTitleFromFirstMessage(
   deps: Deps,
   input: { readonly orgId: OrgId; readonly threadId: string; readonly text: string },
 ): Promise<void> {
-  let stillDefault: boolean;
+  let state: Awaited<ReturnType<typeof deps.chat.readThreadTitleState>>;
   try {
-    stillDefault = await deps.chat.isThreadTitleDefault(
-      input.orgId, input.threadId, DEFAULT_PERSONAL_THREAD_TITLE,
-    );
+    state = await deps.chat.readThreadTitleState(input.orgId, input.threadId);
   } catch {
     return; // 见下：消息已落库，起名链路上的任何失败都不该把请求打红。
   }
-  if (!stillDefault) return;
-  const modelTitle = await generateThreadTitle(deps, { firstMessageText: input.text }).catch(() => null);
-  const title = modelTitle ?? deriveThreadTitle(input.text);
-  // 正文全是空白 ⇒ 没有可用输入（模型也不可能凭空产出）。留着「新对话」，不编一个。
-  if (title === null) return;
+  if (state === null) return;
+
+  const plan = planTitleRefresh({
+    source: state.source,
+    stage: state.stage,
+    humanMessageCount: state.humanMessageCount,
+  });
+  if (!plan.refresh) return; // 绝大多数消息走这里：一次模型往返都不发。
+
+  // 第 1 档的材料就是刚落库的这条消息本身——不回查库（它就在手里），也保持 #2094
+  // 「首条消息起名」那条路径逐字不变。第 2 档起才去取会话摘要。
+  let evidence: string | null;
+  if (plan.stage <= 1) {
+    evidence = isLowInformation(input.text) ? null : input.text;
+  } else {
+    try {
+      const rows = await deps.chat.readTitleEvidence(input.orgId, input.threadId, plan.recentHumanLimit);
+      evidence = buildTitleEvidence(rows, plan.recentHumanLimit);
+    } catch {
+      evidence = null;
+    }
+  }
+  // 材料全是寒暄/空白 ⇒ 没有可用输入（模型也不可能凭空产出）。**不消费这一档**：
+  // 标题停在现状，下一档再来——「你好」开头的会话正是靠这条被后面的档位捞回来的。
+  if (evidence === null) return;
+
+  const modelTitle = await generateThreadTitle(deps, { evidence, stage: plan.stage }).catch(() => null);
+  // 模型不可用时的落地点仍只有 `deriveThreadTitle`（#2094 的截断），且只在第 1 档落回：
+  // 第 2 档起的材料是带「用户：」前缀的摘要，截它的头会产出一个比现状更差的标题。
+  const title = modelTitle ?? (plan.stage <= 1 ? deriveThreadTitle(input.text) : null);
+  if (!shouldReplaceTitle(state.title, title, state.source)) return;
+
   try {
-    await deps.chat.autoTitleThreadIfDefault(
-      input.orgId,
-      input.threadId,
-      title,
-      DEFAULT_PERSONAL_THREAD_TITLE,
-    );
+    await deps.chat.autoTitleThread(input.orgId, input.threadId, title as string, plan.stage);
   } catch {
     // 见上：消息已落库，标题失败不该把整个请求打红。
   }

@@ -1,0 +1,49 @@
+# electron-builder config for WorkspaceX Local (issue #3716). Night 0: unsigned mac DMG.
+#
+# What goes in the bundle (resources/bundle): the monorepo subset local-runtime needs at run
+# time -- apps/api, apps/web (built), apps/skill-sandbox, apps/deep-agent-service (+ .venv from
+# scripts/local-bundle/prepare-python.sh), packages/*, skills/starter-packs and node_modules.
+# This is the "run the repo with tsx" alpha shape; a compiled/pruned bundle is R1 work.
+#
+# resources/bin: the Ollama binary, placed there by scripts/local-bundle/fetch-ollama.sh.
+appId: com.workspacex.local
+productName: WorkspaceX Local
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+extraResources:
+  - from: ../../
+    to: bundle
+    filter:
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.json"
+      - "node_modules/**"
+      - "apps/api/**"
+      - "apps/web/**"
+      - "apps/skill-sandbox/**"
+      - "apps/local-asr-gateway/**"
+      - "apps/deep-agent-service/**"
+      - "packages/**"
+      - "skills/starter-packs/**"
+      - "!**/node_modules/.cache/**"
+      - "!**/*.test.ts"
+      - "!**/tests/**"
+      - "!**/e2e/**"
+      - "!**/evidence/**"
+      - "!apps/web/.next/cache/**"
+  - from: bin
+    to: bin
+asar: false
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.productivity
+  identity: null
+win:
+  target:
+    - target: nsis
+      arch: [x64]

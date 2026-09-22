@@ -68,6 +68,7 @@ export const deploymentInputSchema = z.object({
       apiKeySecretRef: secretRef,
     }).strict(),
     asrProfile: z.object({
+      recordingTurnSilenceMs: z.number().int().min(200).max(2000).optional(),
       provider: identifier,
       baseUrl: websocketUrl,
       modelId: identifier,

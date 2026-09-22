@@ -36,6 +36,9 @@ import type {
 } from "../../domain/chat/thread-visibility";
 import type { AgentPresenceValue } from "../../domain/chat/agent-presence";
 import type { OrgId } from "../../domain/org-id";
+import type {
+  ThreadTitleSource, TitleEvidenceMessage,
+} from "../../domain/chat/thread-title-algorithm";
 
 interface AgentRosterDbRow {
   agent_id: string;
@@ -361,11 +364,12 @@ export class PgChatRepository implements ChatRepository {
     await this.db.withTenant(input.orgId, async (s) => {
       await s.query(
         `INSERT INTO chat_threads
-           (id, org_id, project_id, group_id, visibility_scope, title, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, org_id, project_id, group_id, visibility_scope, title, created_by,
+            title_source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           input.threadId, input.orgId, input.projectId, input.groupId,
-          input.visibilityScope, input.title, input.createdBy,
+          input.visibilityScope, input.title, input.createdBy, input.titleSource,
         ],
       );
     });
@@ -383,8 +387,12 @@ export class PgChatRepository implements ChatRepository {
   ): Promise<number | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{ version: number }>(
+        // ⚠ 同时把 `title_source` 落成 `'user'`：这一列是「自动命名永不覆盖手动改名」
+        //   的唯一依据（见 `autoTitleThread`）。不在这里写，那条 UPDATE 就会在下一个
+        //   档位把用户亲手起的名字改掉——迁移 `20260916030000` 头注的那件事。
         `UPDATE chat_threads
-            SET title = $1, version = version + 1, last_activity_at = now()
+            SET title = $1, title_source = 'user', version = version + 1,
+                last_activity_at = now()
           WHERE id = $2 AND org_id = $3 AND version = $4
       RETURNING version`,
         [title, threadId, orgId, expectedVersion],
@@ -418,41 +426,105 @@ export class PgChatRepository implements ChatRepository {
   }
 
   /**
-   * 🔴 #2094：自动命名。见 `ports.ts` 同名方法头注（为什么条件必须在 SQL 里）。
+   * 🔴 #2094 / 2026-09-16 会话级标题：自动命名写入。见 `ports.ts` 同名方法头注
+   * （为什么两条前提都必须在 SQL 里，而不是调用方先 SELECT 再 UPDATE）。
    *
    * ⚠ 与 `renameThread` 的两处**故意不同**，都不是笔误：
-   *   · 条件是 `title = $4`（还叫默认名）而不是 `version = $n`——自动命名没有
-   *     调用方持有的期望版本，它的前提是「用户还没给它起过名」。
+   *   · 条件是 `title_source <> 'user' AND auto_title_stage < $stage`，不是
+   *     `version = $n`——自动命名没有调用方持有的期望版本，它的前提是「用户还没给它
+   *     起过名」且「这一档比已落地的档位更高」。
    *   · **不写 `last_activity_at`**：起名不是活动。写了会把线程顶到列表最前，
    *     而触发它的那条消息本来就已经更新过 `last_activity_at`。
    */
-  async autoTitleThreadIfDefault(
+  async autoTitleThread(
     orgId: OrgId,
     threadId: string,
     title: string,
-    defaultTitle: string,
+    stage: number,
   ): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       // ⚠ 用 `RETURNING id` + `rows.length` 判命中，不用 `rowCount`：本仓的
       //   `query()` 返回类型上没有 `rowCount`（同 `renameThread` 用 `RETURNING version`）。
       const r = await s.query<{ id: string }>(
         `UPDATE chat_threads
-            SET title = $1, version = version + 1
-          WHERE id = $2 AND org_id = $3 AND title = $4
+            SET title = $1, title_source = 'auto', auto_title_stage = $4,
+                version = version + 1
+          WHERE id = $2 AND org_id = $3 AND title_source <> 'user'
+            AND auto_title_stage < $4
       RETURNING id`,
-        [title, threadId, orgId, defaultTitle],
+        [title, threadId, orgId, stage],
       );
       return r.rows.length > 0;
     });
   }
 
-  async isThreadTitleDefault(orgId: OrgId, threadId: string, defaultTitle: string): Promise<boolean> {
+  async readThreadTitleState(
+    orgId: OrgId,
+    threadId: string,
+  ): Promise<{
+    readonly title: string;
+    readonly source: ThreadTitleSource;
+    readonly stage: number;
+    readonly humanMessageCount: number;
+  } | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ id: string }>(
-        `SELECT id FROM chat_threads WHERE id = $1 AND org_id = $2 AND title = $3`,
-        [threadId, orgId, defaultTitle],
+      // 计数走**子查询**而不是第二次往返：两句之间新落的消息会让「档位」与「条数」
+      // 来自两个不同时刻，判定就会在并发下时好时坏。
+      const r = await s.query<{
+        title: string; title_source: string; auto_title_stage: number; n: string;
+      }>(
+        `SELECT t.title, t.title_source, t.auto_title_stage,
+                (SELECT count(*) FROM chat_messages m
+                  WHERE m.thread_id = t.id AND m.org_id = t.org_id
+                    AND m.author_kind = 'human')::text AS n
+           FROM chat_threads t
+          WHERE t.id = $1 AND t.org_id = $2`,
+        [threadId, orgId],
       );
-      return r.rows.length > 0;
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        title: row.title,
+        source: row.title_source as ThreadTitleSource,
+        stage: Number(row.auto_title_stage),
+        humanMessageCount: Number(row.n),
+      };
+    });
+  }
+
+  async readTitleEvidence(
+    orgId: OrgId,
+    threadId: string,
+    recentLimit: number,
+  ): Promise<readonly TitleEvidenceMessage[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 三段各自 LIMIT 后 UNION，再按时间排序：**不取整段 transcript**。长会话的正文
+      // 全部进内存只为了起一个名字，是把一件装饰性的事做成一次全表读。
+      const take = Math.max(1, Math.min(recentLimit, 20));
+      const r = await s.query<{ author_kind: string; body: string; created_at: Date; id: string }>(
+        `WITH msgs AS (
+           SELECT id, author_kind, body, created_at
+             FROM chat_messages WHERE thread_id = $1 AND org_id = $2
+         ),
+         first_human AS (
+           SELECT * FROM msgs WHERE author_kind = 'human' ORDER BY created_at, id LIMIT 1
+         ),
+         first_agent AS (
+           SELECT * FROM msgs WHERE author_kind = 'agent' ORDER BY created_at, id LIMIT 1
+         ),
+         recent_human AS (
+           SELECT * FROM msgs WHERE author_kind = 'human' ORDER BY created_at DESC, id DESC LIMIT $3
+         )
+         SELECT * FROM first_human
+         UNION SELECT * FROM first_agent
+         UNION SELECT * FROM recent_human
+         ORDER BY created_at, id`,
+        [threadId, orgId, take],
+      );
+      return r.rows.map((row) => ({
+        role: row.author_kind === "human" ? ("human" as const) : ("agent" as const),
+        body: row.body,
+      }));
     });
   }
 

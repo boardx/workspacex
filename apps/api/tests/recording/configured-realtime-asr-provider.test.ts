@@ -15,9 +15,9 @@
  */
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer, type WebSocket as WsWebSocket } from "ws";
-import { ConfiguredRealtimeAsrProvider } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
+import { ConfiguredRealtimeAsrProvider, resolveRecordingTurnSilenceMs } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
 import type { AsrAudioFormat, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
 
 const AUDIO: AsrAudioFormat = { sampleRate: 16_000, channels: 1, encoding: "pcm16le" };
@@ -78,11 +78,19 @@ async function startFakeUpstream(
 let upstream: FakeUpstream | null = null;
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   if (upstream) await upstream.close();
   upstream = null;
 });
 
 describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shape", () => {
+  it.each([undefined, "", "abc", "0", "199", "2001", "600.5", Infinity])("bounds invalid recording endpointing override %s", raw => {
+    expect(resolveRecordingTurnSilenceMs(raw)).toBe(800);
+  });
+  it.each([200, 400, 800, 1200, 2000])("accepts recording endpointing override %s", value => {
+    expect(resolveRecordingTurnSilenceMs(String(value))).toBe(value);
+  });
+
   it("passes the model as a `?model=` query param on the connection URL, not only via a post-connect message", async () => {
     upstream = await startFakeUpstream(() => {});
     const provider = new ConfiguredRealtimeAsrProvider({
@@ -141,6 +149,58 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
       turn_detection: { type: "server_vad", silence_duration_ms: 300 },
     });
     session.abort();
+  });
+
+  it.each([undefined, 650])("uses an isolated recording silence window (%s) without buffering interim text or rewriting finals", async (override) => {
+    const text = "今天 3.14 元，明天呢？可以！";
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
+      if (frame.type === "input_audio_buffer.append") ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.text", text: "今天 3.14", stash: " 元",
+      }));
+      if (frame.type === "input_audio_buffer.commit") ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.completed", transcript: text,
+      }));
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({ provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`,
+      apiKey: "k", model: MODEL, turnDetectionSilenceMs: 300, recordingTurnDetectionSilenceMs: override });
+    const handlers = recordingHandlers();
+    const session = await provider.open(handlers, AUDIO, { turnDetection: "recording" });
+    try {
+      await expect.poll(() => upstream?.seenFrames.find(f => f.type === "session.update")?.session).toMatchObject({
+        turn_detection: { type: "server_vad", silence_duration_ms: override ?? 800 },
+      });
+      session.pushAudio(new Uint8Array(3200));
+      // No final exists yet: partial delivery cannot wait for sentence completion.
+      await expect.poll(() => handlers.partials).toEqual(["今天 3.14 元"]);
+      expect(handlers.finals).toEqual([]);
+      await session.finish();
+      expect(handlers.finals).toEqual([text]);
+      expect(handlers.errors).toEqual([]);
+    } finally { session.abort(); }
+  });
+
+  it.each(["650", "oops", "9000"])("isolates recording env %s from chat and manual sessions on the same provider", async (value) => {
+    upstream = await startFakeUpstream(() => {});
+    vi.stubEnv("KERNEL_ASR_PROVIDER", "dashscope");
+    vi.stubEnv("KERNEL_ASR_BASE_URL", `ws://127.0.0.1:${upstream.port}`);
+    vi.stubEnv("KERNEL_ASR_API_KEY", "synthetic-test-key");
+    vi.stubEnv("KERNEL_ASR_MODEL", MODEL);
+    vi.stubEnv("KERNEL_ASR_TURN_SILENCE_MS", "350");
+    vi.stubEnv("KERNEL_ASR_RECORDING_TURN_SILENCE_MS", value);
+    const provider = new ConfiguredRealtimeAsrProvider();
+    const sessions = [];
+    try {
+      sessions.push(await provider.open(recordingHandlers(), AUDIO, { turnDetection: "recording" }));
+      sessions.push(await provider.open(recordingHandlers(), AUDIO));
+      sessions.push(await provider.open(recordingHandlers(), AUDIO, { turnDetection: "manual" }));
+      await expect.poll(() => upstream?.seenFrames.filter(f => f.type === "session.update").length).toBe(3);
+      expect(upstream.seenFrames.filter(f => f.type === "session.update").map(f => f.session)).toEqual([
+        expect.objectContaining({ turn_detection: { type: "server_vad", silence_duration_ms: value === "650" ? 650 : 800 } }),
+        expect.objectContaining({ turn_detection: { type: "server_vad", silence_duration_ms: 350 } }),
+        expect.objectContaining({ turn_detection: null }),
+      ]);
+    } finally { sessions.forEach(session => session.abort()); }
   });
 
   it("forwards the official text plus stash interim event before the final transcript", async () => {

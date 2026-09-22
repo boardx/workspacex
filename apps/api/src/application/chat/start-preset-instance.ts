@@ -80,6 +80,8 @@ export async function startPresetInstance(
     threadId: deps.threadIds.next("thr"),
     projectId: preset.projectId,
     groupId: null,
+    // 标题是预设的开场提示（见下），不是「还没起名」——自动命名不该改写它。
+    titleSource: "user",
     // 开场提示落在标题位——契约 `Thread`/`ThreadCard` 没有独立的「开场提示」字段，
     // 消息流的第一条消息才是 openingPrompt 真正的落点（uc-8-4 UC-25 出参只有
     // threadId/instanceId），标题使用它是为了让线程列表一眼看出这是哪个预设开的。

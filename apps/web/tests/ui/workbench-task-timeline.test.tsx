@@ -68,11 +68,14 @@ describe("framework task timeline", () => {
     </CopilotKit>);
 
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    // 2026-09-16：相邻的同名工具调用折成一行（`groupTraceRows` 的 `tool-group`），
+    // 两次 write_todos 的审计行**一条不少**地留在组的成员里——折的是重复，不是事实。
     const planRows = screen.getAllByTestId("chat-task-workbench-event-row");
-    expect(planRows.filter((row) => row.textContent === "已执行 · 制定执行计划")).toHaveLength(2);
+    expect(planRows.filter((row) => row.textContent === "制定执行计划 · 2 次")).toHaveLength(1);
+    expect(screen.getAllByTestId("run-trace-group-member")).toHaveLength(2);
     expect(planRows.some((row) => row.textContent?.includes("write_todos"))).toBe(false);
     expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("已执行 · 检索文档"));
+    fireEvent.click(screen.getByText("已执行 · 检索文档 · 资料"));
     expect(screen.getByTestId("copilotkit-v2-tool-search-documents")).toBeVisible();
   });
 
@@ -118,7 +121,7 @@ describe("framework task timeline", () => {
     </CopilotKit>);
     expect(screen.queryByTestId("copilotkit-v2-tool-calls-group"), "绑上 run 之后不许再出现第二份 legacy 分组").not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
-    fireEvent.click(screen.getByText("已执行 · 检索文档"));
+    fireEvent.click(screen.getByText("已执行 · 检索文档 · 取证：请展示多步执行"));
     const card = screen.getByTestId("copilotkit-v2-tool-search-documents");
     expect(card.closest('[data-testid="run-trace-panel"]')).not.toBeNull();
   });
