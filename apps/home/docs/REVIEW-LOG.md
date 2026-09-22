@@ -787,3 +787,18 @@ text and is bounded by nothing.
 so there is nothing to scroll and the value is always 0. That assertion passed
 for twenty-six rounds without ever being capable of failing. It now measures
 what actually matters: whether any element sits past the right edge.
+
+### Round 28 — the Chinese page, measured for the first time
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The performance budget measured the English page only** — one `goto`, for twenty-seven rounds. `/zh/` is a separately generated document with different text, a different LCP element and different shaping cost. | Parameterized over both. |
+| 2 | Measured immediately: the Chinese page is **772 ms slower on slow 3G** (2652 vs 1880) and 140 ms slower on desktop. Inside budget, and invisible until something looked. | Recorded as a number rather than a feeling. |
+| 3 | `content-visibility: auto` on the sections is a **real** win — Chinese desktop LCP 380→244 ms, slow-3G 2652→2116. | **Reverted.** The degradation gate rejected it and was right: without JavaScript only 517 of 900+ words were extractable, and 21 elements stayed invisible when a module failed, because a section that never renders never reveals. The measurement is written into the stylesheet so the next person stops in the same place. |
+| 4 | The revert cut to the wrong `.footer__grid` and left the rule live **inside a media query**. | Caught only because the suite kept failing after a "revert" — which is the argument for running it again rather than trusting the edit. |
+| 5 | Six discipline tabs in a wrapping flex row with `flex: 1 1 auto`: the last row stretches to fill, so they came out four-then-two-double-width. Ragged in English, worse in Chinese where the short labels made the second row read as a different control. | A 2×3 grid. |
+| 6 | The copy gate read **two named files**. 496 Han characters lived elsewhere — the 404 page, the social card, `lang.js`, and the `META` block holding every Chinese `<title>` and meta description, which is the first Chinese a searcher ever sees. | It discovers its inputs. 350 → 387 values, proved red on two of the newly covered files. |
+| 7 | Its rule needed Han on **both** sides of the punctuation, so a trailing half-width comma closing a Chinese clause went straight through. | Found by writing a probe that failed to fail; the rule now covers the clause-final case too. |
+| 8 | The social card's scrim rendered it **near-black**. It is the one image of this brand anybody ever shares, and it showed none of the brand. | Scrim from `.28/.72` to `.06/.52`. |
+| 9 | The card's wordmark was plain white while the nav's had become a gradient — a second version of the logo, which is exactly what the brand source exists to prevent. | Same treatment on both. |
+| 10 | `ch` is the width of a `0`, so `max-width: 17ch` is far narrower for Han than seventeen Han characters: the Chinese card used the **left 45%** of the frame and left the rest empty. | An `em`-based measure for `html[lang^="zh"]`. |

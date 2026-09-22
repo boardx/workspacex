@@ -503,6 +503,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   border-top: 1px solid var(--hairline);
   background: var(--bg-sink);
 }
+
 .footer__grid {
   display: grid;
 
@@ -1374,11 +1375,13 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 
 @media (max-width: 53.75rem) {
   .cases { grid-template-columns: minmax(0, 1fr); }
+
   .cases__tabs {
-    flex-direction: row; flex-wrap: wrap; gap: var(--s-1);
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-1);
     border-right: 0; border-bottom: 1px solid var(--hairline);
   }
-  .cases__tab { flex: 1 1 auto; text-align: center; }
+  .cases__tab { text-align: center; }
   .cases__tab[aria-selected="true"]::before { inset: auto 0.6rem 0 0.6rem; width: auto; height: 2px; top: auto; }
   .cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem); }
 }

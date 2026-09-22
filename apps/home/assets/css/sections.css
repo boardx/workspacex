@@ -568,11 +568,17 @@
 
 @media (max-width: 53.75rem) {
   .cases { grid-template-columns: minmax(0, 1fr); }
+  /* A wrapping flex row with `flex: 1 1 auto` stretches the LAST row's items
+     to fill it, so six tabs came out as four then two double-width ones —
+     ragged in English and worse in Chinese, where the labels are short enough
+     that the second row looked like a different control. A grid gives six
+     equal cells in three tidy rows. */
   .cases__tabs {
-    flex-direction: row; flex-wrap: wrap; gap: var(--s-1);
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-1);
     border-right: 0; border-bottom: 1px solid var(--hairline);
   }
-  .cases__tab { flex: 1 1 auto; text-align: center; }
+  .cases__tab { text-align: center; }
   .cases__tab[aria-selected="true"]::before { inset: auto 0.6rem 0 0.6rem; width: auto; height: 2px; top: auto; }
   .cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem); }
 }

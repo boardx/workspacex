@@ -22,16 +22,28 @@
         background: radial-gradient(circle, rgb(var(--c-2-rgb) / .58), transparent 64%); }
   .b3 { position: absolute; width: 560px; height: 560px; border-radius: 50%; left: 42%; bottom: -26%;
         background: radial-gradient(circle, rgb(var(--c-3-rgb) / .55), transparent 64%); }
-  /* Just enough scrim to hold the type; the first pass at .82 erased the
-     aurora entirely and left a flat black card. */
+  /* Just enough scrim to hold the type. The first pass at .82 erased the
+     aurora entirely; .28/.72 still left a near-black card, which is a poor
+     showing for the one image of this brand that anybody ever shares. The
+     headline is white on a dark field either way — the scrim only has to
+     stop the brightest part of the glow reaching the type. */
   .card::after { content:""; position:absolute; inset:0; z-index:-1;
-    background: radial-gradient(120% 90% at 30% 45%, rgba(8,7,11,.28), rgba(8,7,11,.72) 78%); }
+    background: radial-gradient(120% 90% at 28% 46%, rgba(8,7,11,.06), rgba(8,7,11,.52) 76%); }
 
   .brand { display: flex; align-items: center; gap: 14px; }
-  .brand svg { width: 42px; height: 42px; }
-  .brand b { font-family: var(--font-display); font-size: 31px; font-weight: 700; letter-spacing: -.02em; }
+  .brand svg { width: 48px; height: 48px; }
+  /* The nav's wordmark carries the gradient; a card that does not is a second
+     version of the logo, which is the thing the brand source exists to stop. */
+  .brand b { font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: -.02em;
+             background: var(--grad); -webkit-background-clip: text; background-clip: text;
+             -webkit-text-fill-color: transparent; }
   h1 { font-size: 78px; line-height: 1.04; letter-spacing: -.042em; max-width: 17ch; }
   p { font-size: 27px; color: var(--fg-soft); max-width: 30ch; line-height: 1.45; }
+  /* `ch` is the width of a "0", so 17ch of Han is far narrower than 17 Han
+     characters — the Chinese card was using the left 45% of the frame and
+     leaving the rest empty. */
+  html[lang^="zh"] h1 { max-width: 13em; line-height: 1.18; }
+  html[lang^="zh"] p  { max-width: 20em; line-height: 1.7; }
   .chain { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
   .chain span { font-family: var(--font-mono); font-size: 16px; letter-spacing: .12em;
                 text-transform: uppercase; color: var(--fg-dim); }

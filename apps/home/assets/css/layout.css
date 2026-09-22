@@ -269,6 +269,17 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   border-top: 1px solid var(--hairline);
   background: var(--bg-sink);
 }
+/* NOT content-visibility: auto on the sections.
+   Measured, it is a real win — the Chinese desktop LCP fell from 380 ms to
+   244 ms and its slow-3G paint from 2652 ms to 2116 ms, which is where the
+   cost of laying out a 20 000 px document actually lands. It was reverted
+   because the degradation gate rejected it, and the gate was right: without
+   JavaScript only 517 of 900+ words were extractable, and 21 elements stayed
+   invisible when a module failed, because a section that is not rendered
+   never reveals. This page's fail-visible guarantee is worth more than 80 ms
+   of a paint that is already 240 ms against a 900 ms budget.
+   Written down so the next person measures the same win and stops here. */
+
 .footer__grid {
   display: grid;
   /* The rem MINIMUMS are what break under a text-size preference: 14rem and
