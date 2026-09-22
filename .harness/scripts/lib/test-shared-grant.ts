@@ -27,8 +27,8 @@
  *   ① 授权对象由**本文件自己创建** —— `chat-wave2-fixture-schema.ts` 限定到
  *      `chat_wave2_fixture` schema、`rls-force-nonowner.test.ts` 限定到自己 `CREATE TABLE`
  *      出来的探针表。别的文件看不见这些对象，也就不可能被影响。
- *   ② 语句只是**被断言的迁移文本**，从不执行 —— `tests/capability/model/*.test.ts`、
- *      `research-workflow/phase-enum-parity.test.ts` 读迁移文件断言里面有某条 GRANT。
+ *   ② 语句只是**被断言的迁移文本**，从不执行 —— `tests/capability/model/*.test.ts`
+ *      读迁移文件断言里面有某条 GRANT。
  *   ③ 本文件**独占一个一次性实例** —— `tests/deploy/*.live.ts` 开头就是
  *      `WORKSPACEX_DATA_TEST!=="1"` 抛错，它根本不在并行池里。
  *

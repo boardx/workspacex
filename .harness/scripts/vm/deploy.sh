@@ -415,12 +415,6 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
-step "4d2. team3 ad-hoc agent 补种（临时 Agent，docs/design/agent-team3-mvp-backlog.md）"
-# 同 4c/4d 的理由，第三个 stable_name，但只种到名字是「Workspace」的组织——不是每个组织
-# 都该有它，team3 是临时 agent，删除时只需从这里摘掉这一步，不用改共享的注册控制器。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
-  pnpm --filter api exec tsx scripts/backfill-team3-agent.ts
-
 step "4d3. team2 ad-hoc agent 补种（临时 Agent，docs/agents/team2-postinvest-rating-mvp.md）"
 # 同 4d2 的理由，第四个 stable_name，同样只种到名字是「Workspace」的组织。
 # 这一步存在的意义是消掉「人类去某台机器上手工跑 publish-team2-agent.ts 再回填 id」
