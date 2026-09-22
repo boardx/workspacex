@@ -996,10 +996,20 @@ async function executeClaimed(
    * 落终态——I-3 的"快速失败，不让请求悬挂等超时"，不是重试或降级。
    */
   if (isDeepAgentRun && deps.model.checkKernelHealth) {
-    const health = await deps.model.checkKernelHealth(run.modelProvider);
+    /*
+     * 2026-09-22（devapp 实测）—— 用户看到"服务暂时不可用，请稍后重试"、run 历时 00:00、
+     * 工具 0 次；服务端这条日志此前只有 `runId`/`modelProvider`，分不出「地址没配」还是
+     * 「配了但连不上」，每次都得上机器手工复现。`onDiagnosis` 把探测侧**唯一**知道的那句
+     * 原因带出来落日志（见 `ModelCallPort.checkKernelHealth` 与
+     * `DeepAgentModelProvider.checkKernelHealth` 各自的文档）——不改判定、不改用户可见文案。
+     * provider 没报原因时写一句明说"没报"的话，不编一个成因。
+     */
+    let healthDiagnosis: string | undefined;
+    const health = await deps.model.checkKernelHealth(run.modelProvider, (detail) => { healthDiagnosis = detail; });
     if (health === "unavailable") {
       deps.log("agent run kernel health check failed, run not forwarded", {
         runId: run.runId, modelProvider: run.modelProvider,
+        detail: healthDiagnosis ?? "no diagnosis reported by this provider",
       });
       await record(deps, orgId, {
         runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
