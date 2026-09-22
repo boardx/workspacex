@@ -70,6 +70,15 @@ interface TaskRow {
 // pending 直接 done 允许——跳过 ack 直接交付是 D1 现行为）
 // deliveries（webhook GUID 去重）保留窗口：30 天（#712，alarm 里顺带清理）
 const DELIVERIES_RETENTION_MS = 30 * 24 * 3600 * 1000;
+// projection_outbox（投影幂等键）保留窗口：同口径 30 天（#376，alarm 里顺带清理）。
+// 键只需覆盖"游标停在该事件批上的重放窗口"——正常是下一 tick（分钟级），卡住的批
+// 靠人修；30 天远超之，删掉更早的行不会让任何仍可能重放的动作失去去重保护。
+const PROJECTION_OUTBOX_RETENTION_MS = 30 * 24 * 3600 * 1000;
+// 一次发件箱查询的键数上限：投影一批最多 EVENTS_BATCH(500) 条事件，取 1000 留余量
+const OUTBOX_KEYS_MAX = 1000;
+// 单条 IN 查询的分块大小：SQLite 绑定变量上限（默认 999）之下取整
+const OUTBOX_QUERY_CHUNK = 100;
+const OUTBOX_KEY_MAX_LENGTH = 512;
 
 const TASK_PRIORITIES = new Set(["high", "normal", "low"]);
 const TASK_STATUSES = new Set(["pending", "acked", "done", "recalled"]);
@@ -122,6 +131,13 @@ export class RepoHub extends DurableObject {
       if (req.method === "GET" && p === "/andon") return this.andonStatus();
       if (req.method === "GET" && p === "/projector/cursor") return this.cursorGet();
       if (req.method === "PUT" && p === "/projector/cursor") return this.cursorPut(await req.json());
+      // 发件箱（#376）：查询用 POST 而非 GET——一批最多 EVENTS_BATCH 个键，
+      // 逐个塞 query string 会撞 URL 长度上限。两条都不在 gateway 的 REST allowlist 里
+      // （isAllowedRestSubpath 默认拒绝 /projector/*），只有投影 cron 经 DO stub 可达。
+      if (req.method === "POST" && p === "/projector/outbox/delivered")
+        return this.outboxDelivered(await req.json());
+      if (req.method === "POST" && p === "/projector/outbox/record")
+        return this.outboxRecord(await req.json());
       if (req.method === "POST" && p === "/evidence") return this.submitEvidence(await req.json());
       if (req.method === "GET" && p === "/evidence") return this.listEvidence(url);
       if (req.method === "POST" && p === "/mirror/upsert") return this.mirrorUpsert(await req.json());
@@ -134,6 +150,10 @@ export class RepoHub extends DurableObject {
       if (req.method === "POST" && p === "/tasks") return this.taskDispatch(await req.json());
       if (req.method === "GET" && p === "/tasks") return this.taskList(url);
       if (req.method === "POST" && p === "/tasks/import") return this.taskImport(await req.json());
+      // 单条任务读（#480）：gateway 判定 coordinator 撤回是否落在本人 areas 内，
+      // 需要先知道这条任务挂在哪个 issue 上。内部面——不在 REST allowlist 里。
+      const tone = p.match(/^\/tasks\/(\d+)$/);
+      if (req.method === "GET" && tone) return this.taskGet(Number(tone[1]));
       if (req.method === "POST" && p === "/intents") return this.intentCreate(await req.json());
       if (req.method === "GET" && p === "/intents") return this.listIntents(url);
       const tt = p.match(/^\/tasks\/(\d+)\/(ack|complete|recall)$/);
@@ -143,8 +163,9 @@ export class RepoHub extends DurableObject {
       if (req.method === "GET" && p === "/stream") return this.streamUpgrade(req, url);
       const rt = p.match(/^\/realtime\/(issues|prs)$/);
       if (req.method === "GET" && rt) return this.realtimeList(rt[1] === "prs" ? "pr" : "issue", url);
-      const one = p.match(/^\/realtime\/prs\/(\d+)$/);
-      if (req.method === "GET" && one) return this.realtimeOne("pr", Number(one[1]));
+      const one = p.match(/^\/realtime\/(issues|prs)\/(\d+)$/);
+      if (req.method === "GET" && one)
+        return this.realtimeOne(one[1] === "prs" ? "pr" : "issue", Number(one[2]));
       // 工作区分片三面（p30/F04）：需求流水线 / sprint 面板 / talk 对话流，逻辑全在 workspace.ts
       const ws = await handleWorkspace(
         { sql: this.sql, emit: (t, r, a, pl) => this.emit(t, r, a, pl) }, req, url,
@@ -253,6 +274,11 @@ export class RepoHub extends DurableObject {
     // （无行可删即 no-op），防 DO SQLite 无界增长。活跃仓库租约活动常在，
     // alarm 常态有排；完全无租约活动的静默仓库也没有新 deliveries 进来。
     this.sql.exec(`DELETE FROM deliveries WHERE at <= ?`, iso(now - DELIVERIES_RETENTION_MS));
+    // 投影发件箱同口径清理（#376）：同样只 INSERT 的去重表，同样需要有界增长
+    this.sql.exec(
+      `DELETE FROM projection_outbox WHERE delivered_at <= ?`,
+      iso(now - PROJECTION_OUTBOX_RETENTION_MS),
+    );
     const due = [...this.sql.exec<LeaseRow>(
       `SELECT * FROM leases WHERE status='in_progress' AND expires_at <= ?`, iso(now),
     )];
@@ -493,6 +519,41 @@ export class RepoHub extends DurableObject {
     return json(200, { ok: true, cursor });
   }
 
+  // ---------- 投影发件箱（#376） ----------
+
+  /** 批量查询哪些幂等键已经投递过。分块查询：SQLite 绑定变量有上限，不能把整批摊平进一条 IN。 */
+  private outboxDelivered(body: unknown): Response {
+    const raw = (body as Record<string, unknown> | null)?.["keys"];
+    if (!Array.isArray(raw)) return json(422, { error: "invalid_outbox_keys" });
+    // 上限按**原始**长度判（不是过滤后的）：否则塞一堆非法项就能绕过这道闸
+    if (raw.length > OUTBOX_KEYS_MAX)
+      return json(422, { error: "too_many_outbox_keys", details: [`最多 ${OUTBOX_KEYS_MAX} 个键`] });
+    // 非字符串/空串按"未投递"处理（fail-open 到重发，绝不误判成已投递而吞掉动作）
+    const keys = raw.filter((k): k is string => typeof k === "string" && k.length > 0);
+    const delivered: string[] = [];
+    for (let i = 0; i < keys.length; i += OUTBOX_QUERY_CHUNK) {
+      const chunk = keys.slice(i, i + OUTBOX_QUERY_CHUNK);
+      const holes = chunk.map(() => "?").join(",");
+      for (const row of this.sql.exec<{ idem_key: string }>(
+        `SELECT idem_key FROM projection_outbox WHERE idem_key IN (${holes})`, ...chunk,
+      )) delivered.push(row.idem_key);
+    }
+    return json(200, { delivered });
+  }
+
+  /** 登记一条已成功投递的逻辑动作。幂等：重复登记不报错，也不覆盖首次投递时间。 */
+  private outboxRecord(body: unknown): Response {
+    const key = (body as Record<string, unknown> | null)?.["key"];
+    if (typeof key !== "string" || key.length === 0) return json(422, { error: "invalid_outbox_key" });
+    if (key.length > OUTBOX_KEY_MAX_LENGTH) return json(422, { error: "outbox_key_too_long" });
+    const seen = [...this.sql.exec(`SELECT 1 FROM projection_outbox WHERE idem_key=?`, key)][0];
+    if (seen) return json(200, { ok: true, duplicate: true });
+    this.sql.exec(
+      `INSERT INTO projection_outbox (idem_key, delivered_at) VALUES (?,?)`, key, iso(Date.now()),
+    );
+    return json(200, { ok: true, duplicate: false });
+  }
+
   // ---------- Mirror（F04） ----------
 
   private mirrorUpsert(body: unknown): Response {
@@ -662,7 +723,9 @@ export class RepoHub extends DurableObject {
 
   // ---------- Tasks 收件箱（F10 前置：迁自 coord-service routes/tasks.ts，#614/#631） ----------
   // 语义等价对照：字段/状态机/轮询契约与 D1 版一致；差异集中在鉴权载体——
-  //   派工/撤回 = gateway admin 面（COORD_ADMIN_TOKEN，原 COORDINATOR_KINDS 判定）；
+  //   派工/撤回 = gateway 的 dispatch-authz 分层门（COORD_ADMIN_TOKEN 或 Directory
+  //     里协调层的 scoped token + areas 范围判定——原 COORDINATOR_KINDS 判定于
+  //     #480 补回，此前一度收窄成"只有 admin 能派"）；
   //   ack/complete = scoped 面 + agent_id 强绑定（原 requireAgent 本人判定）；
   //   assignee 在册校验上移到 devportal broker（DO 无 agents 表）。
   // D1 版的原子条件 UPDATE（防 TOCTOU）保留——DO 单线程已消灭并发窗口，但
@@ -694,7 +757,9 @@ export class RepoHub extends DurableObject {
       if (b["note"].length > TASK_NOTE_MAX_LENGTH) return json(400, { error: "note_too_long" });
       note = b["note"];
     }
-    // 派工方身份：admin 面无 token 身份，broker 自报（devportal-broker / 缺省 admin）
+    // 派工方身份：admin 面无 token 身份，broker 自报（devportal-broker / 缺省 admin）；
+    // 协调层 scoped token 派工时由 gateway 强绑定成其 Directory agent_id（#480），
+    // 自证他人在 gateway 就被 403 拦掉——审计链里的派工方是真实决策者
     const createdBy = typeof b?.["created_by"] === "string" && b["created_by"].length > 0
       ? (b["created_by"] as string) : "admin";
 
@@ -712,8 +777,17 @@ export class RepoHub extends DurableObject {
     return json(201, { task });
   }
 
+  /** GET /tasks/:id — 单条任务（#480）。gateway 的撤回范围判定要读 task.issue，
+   *  之前只能靠列表兜底；这里给一个精确读。无身份语义——鉴权全在 gateway。 */
+  private taskGet(id: number): Response {
+    const task = [...this.sql.exec<TaskRow>(`SELECT * FROM tasks WHERE id=?`, id)][0];
+    if (!task) return json(404, { error: "task_not_found" });
+    return json(200, { task });
+  }
+
   /** GET /tasks?assignee=&status= — 收件箱。可见性由 gateway 把守：
-   *  scoped token 被强制 assignee=<本人>；assignee=* 仅 admin/ops 面可达（列全队，#706）。 */
+   *  worker 的 scoped token 被强制 assignee=<本人>；assignee=* 对 admin/ops 面
+   *  （列全队，#706）与协调层 scoped token（#480）可达。 */
   private taskList(url: URL): Response {
     const assignee = url.searchParams.get("assignee");
     const status = url.searchParams.get("status");
@@ -733,7 +807,8 @@ export class RepoHub extends DurableObject {
 
   /** POST /tasks/:id/(ack|complete|recall) — 状态迁移。body 可为空（recall 无 body）。
    *  ack/complete：body.agent_id（gateway 对 scoped 强绑定注入）必须 === assignee；
-   *  recall：admin 面，agent_id 可选（缺省 "admin"）。 */
+   *  recall：派工面（admin 或协调层 scoped token，#480），agent_id 可选（缺省 "admin"）——
+   *  协调层撤回时 gateway 会注入其 agent_id，事件流里的撤回方因此是真实决策者。 */
   private taskTransition(id: number, action: "ack" | "complete" | "recall", rawBody: string): Response {
     let b: Record<string, unknown> | null = null;
     if (rawBody.length > 0) {

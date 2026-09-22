@@ -2,6 +2,7 @@
 // 引擎纯函数、认证与应用层 fetch 可注入；宿主（coord-gateway cron）负责编排。
 export {
   project,
+  issueCommentKey,
   type ProjectionEvent,
   type OpenPr,
   type ActiveLease,
@@ -15,4 +16,9 @@ export {
   type GitHubAppAuthOptions,
   type GitHubAppInstallation,
 } from "./github-app";
-export { applyCalls, type ApplyOptions, type ApplyResult } from "./apply";
+export {
+  applyCalls,
+  type ApplyOptions,
+  type ApplyResult,
+  type ProjectionOutbox,
+} from "./apply";

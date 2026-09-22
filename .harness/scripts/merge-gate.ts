@@ -16,6 +16,7 @@ import { req } from "./lib/args";
 import { log, die } from "./lib/log";
 import { sh } from "./lib/sh";
 import { evaluateMergeGate, type FormalReview, type MergeGateFacts } from "./lib/merge-gate";
+import { parseMergeGroupPrNumbers } from "./lib/merge-queue";
 
 /** gh pr view 的 JSON 形状（只声明用得上的字段）。 */
 interface GhPr {
@@ -86,7 +87,53 @@ export function mergeGateExitCode(passed: boolean, advisoryOnly: boolean): 0 | 1
   return advisoryOnly ? 0 : 1;
 }
 
+/**
+ * 合并队列候选组模式（#3238）：`pnpm harness merge-gate --merge-group`。
+ *
+ * 队列启用后，这道 required check 必须在 merge_group 事件上继续出结论——候选组上
+ * SKIPPED 就是队列永久卡住（#848「声明了必需、却永不产出结论」的队列版本）。
+ * 候选组里可以批量含多个 PR：队列 ref 只写得下最后一个，其余在 `base..head` 区间
+ * 各自的 commit 标题里，两个来源都要（解析规则在 lib/merge-queue.ts，不在这里另写一份）。
+ *
+ * **解析不出任何 PR 号时直接失败**：那说明我们不知道这个组里有什么，不知道就不能放行
+ * （fail-closed）。这条与 MERGE_GATE_ADVISORY_ONLY 不是一回事——后者是「规则判失败但
+ * 人类选择放行」，这里是「根本没能力做判定」，属于门禁完整性问题。
+ */
+function mergeGateForGroup(args: Args): void {
+  const ref = args.opts["ref"] ?? process.env["GITHUB_REF"] ?? "";
+  const baseSha = args.opts["base-sha"] ?? process.env["MERGE_GROUP_BASE_SHA"] ?? "";
+  const headSha = args.opts["head-sha"] ?? process.env["MERGE_GROUP_HEAD_SHA"] ?? "";
+  const subjects =
+    baseSha && headSha
+      ? (() => {
+          const r = sh(`git log --format=%s ${baseSha}..${headSha}`);
+          return r.code === 0 ? r.stdout.split("\n").filter((l) => l.trim() !== "") : [];
+        })()
+      : [];
+  const numbers = parseMergeGroupPrNumbers(ref, subjects);
+  if (numbers.length === 0) {
+    die(
+      `候选组 \`${ref || "(缺失 ref)"}\` 里解析不出任何 PR 号（base=${baseSha || "缺失"} head=${headSha || "缺失"}）——` +
+        "不知道这个组里有什么就不能放行（fail-closed）",
+    );
+  }
+  log.info(`候选组含 PR：${numbers.map((n) => `#${n}`).join(" ")}`);
+  let allPassed = true;
+  for (const num of numbers) {
+    const result = evaluateMergeGate(toFacts(ghJson<GhPr>(`gh pr view ${num} --json ${PR_FIELDS}`)));
+    if (result.passed) log.ok(`PR #${num} 满足机械合并门禁`);
+    else {
+      allPassed = false;
+      log.warn(`PR #${num} 不满足机械合并门禁：`);
+      for (const reason of result.reasons) log.info(`   · ${reason}`);
+    }
+    for (const advisory of result.advisories) log.info(`   · [仅记录] ${advisory}`);
+  }
+  process.exitCode = mergeGateExitCode(allPassed, MERGE_GATE_ADVISORY_ONLY);
+}
+
 export function mergeGate(args: Args): void {
+  if (args.flags["merge-group"] === true) return mergeGateForGroup(args);
   const num = Number(req(args, "pr"));
   const pr = ghJson<GhPr>(`gh pr view ${num} --json ${PR_FIELDS}`);
   const facts = toFacts(pr);

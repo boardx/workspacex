@@ -21,6 +21,8 @@ import { sh } from "./lib/sh";
 import { req } from "./lib/args";
 import { cacheReadDisabled, computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
 import { collectChangedFiles, resolveVerifyProfile } from "./lib/verify-risk";
+import { describeSkipped, nonOwnerWriteWarning, partitionByWriteScope } from "./lib/verify-evidence-scope";
+import type { EvidenceScopeOptions } from "./lib/verify-evidence-scope";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -60,6 +62,22 @@ export async function verify(args: Args): Promise<void> {
   let targets: Feature[] = sprintId ? featuresForSprint(fl, sprintId) : fl.features;
   if (only) targets = targets.filter((f) => f.id === only);
   if (!targets.length) die("没有匹配的 feature 可验证");
+
+  // #1025（coord-main 2026-08-12 批）：只对**本次任务对象**做写操作。
+  // 旧行为把扫到的每一个 feature 的 evidence 日志覆写成本次运行的输出（失败也照写），
+  // 于是 sprint 里并存的其他 owner 的审计材料被静默替换成别人的失败日志
+  // （2026-08-12 dev-project 收口 F158 时连续覆写 F34/F50，实录见 #1025）。
+  // 默认只认 `--feature` 点名的、或 `--owner` 名下的；要动别人的必须显式 `--all`。
+  const scope: EvidenceScopeOptions = {
+    only,
+    owner: args.opts["owner"] ?? null,
+    all: args.flags["all"] === true,
+  };
+  const { inScope, skipped } = partitionByWriteScope(targets, scope);
+  const skipNote = describeSkipped(skipped, scope);
+  if (skipNote) log.warn(skipNote);
+  if (!inScope.length) die("没有属于本次任务对象的 feature 可验证（见上一行跳过说明）");
+  targets = inScope;
 
   // --backfill-evidence：仅补写已 passing feature 的真实证据日志（重跑 verification 命令），
   // 绝不改动 status —— 用于修复"verify 曾在非 --sprint 模式下运行、从未落盘证据"的历史缺口。
@@ -145,6 +163,8 @@ export async function verify(args: Args): Promise<void> {
       // 留给人工核实这条 passing 判定当初是否有效。
       const ev = join(sprintDir(phaseId, sprintId!), "evidence", `${f.id}.verify.log`);
       writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
+      const backfillWarning = nonOwnerWriteWarning(f, scope, ok);
+      if (backfillWarning) log.warn(backfillWarning);
       f.evidence = `evidence/${f.id}.verify.log @ ${new Date().toISOString()}${ok ? "" : " [BACKFILL: 重跑未通过，请人工核实]"}`;
       if (ok) log.ok(`${f.id} 补写证据完成，重跑通过`);
       else log.err(`${f.id} 补写时重跑未通过——status 不变，已在 evidence 中标注，需人工核实`);
@@ -207,9 +227,13 @@ export async function verify(args: Args): Promise<void> {
     }
 
     // 3) 证据落盘到 sprint evidence
+    //    这里写的一定是本次任务对象（作用域在循环外已按 #1025 收窄）；
+    //    经 --all / --feature 写到别人名下且未通过时，额外出声提醒。
     if (sprintId) {
       const ev = join(sprintDir(phaseId, sprintId), "evidence", `${f.id}.verify.log`);
       writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
+      const warning = nonOwnerWriteWarning(f, scope, ok);
+      if (warning) log.warn(warning);
     }
 
     if (ok) {

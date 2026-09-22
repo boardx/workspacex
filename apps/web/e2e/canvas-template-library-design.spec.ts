@@ -100,7 +100,7 @@ test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切�
   // 这条守的是 2026-08-26 修掉的那个真实问题：新设计只做在卡片视图里、默认值仍是
   // 旧表格，使用者刷新后台看到的还是旧界面，而 e2e 因为自己先点了一下卡片视图全绿。
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
-  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0); // testid-gate: absent 表格视图已整个撤掉（人类 2026-08-26 裁决 / PR #2123），锚点不该存在
 
   // 表格视图**已整个撤掉**（人类 2026-08-26：「默认显示 card 不要显示列表」），
   // 所以旧链接里残留的 `?view=list` 也不能把它变回来——那会让"撤掉"变成"藏起来"。
@@ -111,7 +111,7 @@ test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切�
   //   于是看起来像是实现坏了。判红因时先看断言本身是哪一天写的。
   await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
-  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0); // testid-gate: absent 表格视图已整个撤掉（人类 2026-08-26 裁决 / PR #2123），锚点不该存在
 });
 
 test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签", async ({ page }) => {
