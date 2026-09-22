@@ -8,6 +8,7 @@ import { DEP_GRAPH_PATH } from "./lib/paths";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
+import { featurePriority } from "./lib/feature-schema";
 
 function resolveKey(currentPhaseId: string, dep: string): string {
   return dep.includes(":") ? dep : `${currentPhaseId}:${dep}`;
@@ -53,7 +54,7 @@ export function depGraph(_args: Args): void {
     lines.push(`## ${phaseId} (${name})`, "");
     lines.push("| Feature | 标题 | 状态 | owner | depends_on | wave |");
     lines.push("|---|---|---|---|---|---|");
-    for (const f of fl.features.sort((a, b) => a.priority - b.priority)) {
+    for (const f of fl.features.sort((a, b) => featurePriority(a) - featurePriority(b))) {
       lines.push(
         `| ${f.id} | ${f.title} | ${f.status} | ${f.owner ?? "-"} | ${fmtDeps(phaseId, f, statusMap)} | ${f.wave ?? "-"} |`
       );
