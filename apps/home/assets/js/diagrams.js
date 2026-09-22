@@ -785,7 +785,13 @@ export function renderDiagrams(lang = pageLang()) {
     const kind = host.dataset.diagram;
     if (kind === 'loop') { loopApi = loopRing(host); return; }
     const build = BUILDERS[kind];
-    if (!build) return;
+    if (!build) {
+      // A host with no builder renders nothing and reports nothing, which is
+      // how `data-diagram="scales"` sat in the markup from round 1 until a
+      // derived test count noticed the mismatch.
+      console.warn(`[diagrams] no builder for "${kind}" — dead host?`);
+      return;
+    }
     const stop = build(host);
     if (typeof stop === 'function') teardowns.push(stop);
   });

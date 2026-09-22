@@ -505,3 +505,28 @@ what will actually be served:
 | mid phone (4× CPU) | 809 ms | 460 ms | 0 | 16.7 ms |
 | low phone (6× CPU) | 1 287 ms | 588 ms | 0 | 16.7 ms |
 | slow 3G + 4× CPU | 3 728 ms | 1 960 ms | 0.0007 | 16.7 ms |
+
+---
+
+## Round 19 — making the verification survive
+
+Eighteen rounds of checks, and the browser ones lived in a scratch directory
+outside the repository. Nobody else had them. They would have vanished with the
+session. And their expectations were numbers typed in by hand, which had gone
+stale **four separate times**: twice on the diagram count, once on the section
+count, and once on a focus check that could not see an indicator drawn inside
+an SVG. Each time the check reported clean against a page that no longer
+existed.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The browser checks were not in the repository. | `apps/home/tests/` — seven suites in `browser.test.mjs`, a budget in `perf.test.mjs`, shared plumbing in `harness.mjs`. |
+| 2 | Expectations were magic numbers, and magic numbers rot. | Derived from the source: section count, diagram-host count, loop steps and nav links are read out of `index.html` and asserted against the rendered page. A number that changes in the markup changes in the test. |
+| 3 | **The derived count found dead markup on its first run.** `data-diagram="scales"` — a host with no builder, present since round 1, rendering nothing and reporting nothing. Every hardcoded "expect 8" had been quietly agreeing with it. | Removed. |
+| 4 | The renderer shrugged at an unknown diagram kind, which is why item 3 survived eighteen rounds. | It warns now. |
+| 5 | No performance budget, so the two hardest-won numbers on the page — 60 fps scrolling and a 2 s slow-3G LCP — could regress silently and nobody would know until it was old. | `perf.test.mjs` fails on transfer, LCP, CLS or frame time over budget, at two device profiles. Budgets set just above current, so drift is caught while it is small. |
+| 6 | The measurement server did not compress, which made every transfer figure in this log about four times pessimistic. | The in-repo harness compresses, like every real host. **146 KB** over the wire, not 312. |
+| 7 | Playwright and axe-core are dev tools, not dependencies of this project, so a suite that required them would fail on a bare checkout. | Both suites detect and skip with a message. `--static-only` runs the text gates alone in about two seconds. |
+| 8 | The first version of the suite took **over ten minutes** — 22 fresh browser contexts, each loading the page and scrolling its full height. A gate nobody runs is not a gate. | One context per language, resized between widths, and no scroll walk: reduced motion lands every reveal immediately, so the walk was doing nothing. **58 seconds.** |
+| 9 | Checks were invoked one at a time by hand. | `check-all.mjs` runs all eight. **72 seconds, one command.** |
+| 10 | Nothing recorded which numbers were budgets and which were observations. | The budget file says so, and says that raising a number should take an argument rather than a shrug. |
