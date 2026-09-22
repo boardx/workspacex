@@ -275,6 +275,18 @@ jobs:
       # 且 `.harness/` 不是 workspace 包，turbo --affected 覆盖不到 ⇒ 必须显式跑。
       - name: 对契约的否定性断言仍然成立（注释不得说谎）
         run: pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
+      # #3140：spec / 验收文档里的态名必须是契约枚举里真有的那个名。
+      # 2026-09-08 一天两次同一形态：契约/裁决更新了，下游 spec 与
+      # .harness/instructions/*-acceptance.md 没跟上，于是 spec 对着不存在的态名断言、
+      # 永远红，红的原因还与被测能力无关。放在 PR 门控的理由与上面几步同源、且更硬：
+      # 这类失效**只在改 spec / 改验收文档 / 改契约的那个 PR 里产生**，而
+      # .harness/ 与 phases/ 都不是 workspace 包 ⇒ turbo --affected 一个包都不 affected；
+      # 只挂在 `verify:harness:raw` 上同样不够——那条链只被 main 的 e2e-full 调用
+      # （见上面「路由可达性」那步的注释：门的「当场」必须是 PR）。
+      # 只读源码文本，不需要 Docker/PG/浏览器，毫秒级。
+      # 反证：pnpm harness gate-probe --gate contract-state-names（两条变异全部 CAUGHT）。
+      - name: 态名单源（spec / 验收文档 ↔ 契约枚举）
+        run: node .harness/scripts/lint-contract-state-names.mjs
 
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
