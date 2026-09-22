@@ -151,7 +151,12 @@ export function RefImageStrip({
           className="h-6 gap-1 px-1.5 text-10"
         >
           {busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <ImagePlus aria-hidden className="h-3 w-3" />}
-          参考图
+          {/*
+            * 迭代 25：标签从名词「参考图」改成动作。第一次来的人扫过这一行时要判断的是
+            * 「我能干什么」，而「参考图」既像标题也像状态，最不像一个能按的东西；
+            * 新建弹窗里那个同功能入口（`ref-image-picker.tsx`）用的就是这句话，两处对齐。
+            */}
+          {images.length === 0 ? "照着一张图画" : `参考图 ${String(images.length)}`}
         </Button>
         <span className="text-10 text-muted-foreground">
           {full ? `已满 ${PROTOTYPE_MAX_REF_IMAGES} 张` : "拖进来 / 粘贴截图也行"}

@@ -140,29 +140,45 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       {open && (
         <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-card border border-border bg-card p-1 shadow-lg" data-testid="design-detail-export-menu">
           <button type="button" role="menuitem" onClick={doc} className={item} data-testid="design-detail-export-doc">
-            <FileDown aria-hidden className="h-3.5 w-3.5" /> 设计文档 (.md)
+            <FileDown aria-hidden className="h-3.5 w-3.5" /> <Label name="设计文档" hint="给人看：问题、验收标准、逐页说明" />
           </button>
           <button type="button" role="menuitem" onClick={json} className={item} data-testid="design-detail-export-json">
-            <FileJson aria-hidden className="h-3.5 w-3.5" /> 原型规格 (.json)
+            <FileJson aria-hidden className="h-3.5 w-3.5" /> <Label name="原型规格" hint="给工程：机器可读的组件树与跳转" />
           </button>
           <button type="button" role="menuitem" onClick={() => void png()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-png">
             {busy === "png" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon aria-hidden className="h-3.5 w-3.5" />}
-            当前页 PNG{project.frames[frame] !== undefined ? `（${project.frames[frame]}）` : ""}
+            <Label name={`当前页截图${project.frames[frame] !== undefined ? `（${project.frames[frame]}）` : ""}`} hint="贴进文档或聊天窗" />
           </button>
           <button type="button" role="menuitem" onClick={() => void html()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-html">
             {busy === "html" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <MousePointerClick aria-hidden className="h-3.5 w-3.5" />}
-            可点击原型 (.html)
+            <Label name="可点击原型（单个文件）" hint="不联网也能打开；要发给别人建议用「分享」" />
           </button>
           <button type="button" role="menuitem" onClick={() => void pdf()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-pdf">
             {busy === "pdf" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Printer aria-hidden className="h-3.5 w-3.5" />}
-            设计文档 (PDF)
+            <Label name="打印成 PDF" hint="浏览器打印视图，一页一屏" />
           </button>
           <button type="button" role="menuitem" onClick={() => void copy()} disabled={busy !== null} className={cn(item, done === "copy" && "text-success")} data-testid="design-detail-export-copy">
             {done === "copy" ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Copy aria-hidden className="h-3.5 w-3.5" />}
-            {done === "copy" ? "已复制" : "复制 JSON 规格"}
+            {done === "copy" ? "已复制" : <Label name="复制原型规格" hint="直接粘给工程或别的工具" />}
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 迭代 25：每一项加一句「这是给谁的」。
+ *
+ * 此前六项全按**文件格式**命名（.md / .json / PNG / .html / PDF）——而第一次来的人心里的问题
+ * 是「我想给别人看」「我要交给工程」，不是「我要哪种扩展名」。格式仍在（要的人要得到），
+ * 只是不再是唯一的信息。
+ */
+function Label({ name, hint }: { name: string; hint: string }) {
+  return (
+    <span className="flex min-w-0 flex-col text-left">
+      <span className="truncate">{name}</span>
+      <span className="truncate text-10 text-muted-foreground">{hint}</span>
+    </span>
   );
 }

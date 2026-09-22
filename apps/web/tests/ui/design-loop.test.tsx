@@ -3063,7 +3063,14 @@ describe("对话输入区：回车发送 / Shift+Enter 换行 / 输入法组字�
     return waitFor(() => {
       const bar = screen.getByTestId("design-detail-statusbar");
       expect(bar.textContent).not.toMatch(/claude|opus|gpt/i);
-      expect(bar.textContent).toContain("设计系统 WorkspaceX UI");
+      /*
+       * 迭代 25：原来这里断的是「状态条上写着**设计系统 WorkspaceX UI**」——那句话对第一次
+       * 来做原型的人零信息：它既不是这份原型的属性，也不是他能改的东西。换成他正在做的
+       * 那份东西的真实事实（几页 / 画出来几页）。
+       * 「不显示模型名」那条原意仍然由上一行守着，没有被这次替换削弱。
+       */
+      expect(bar.textContent).not.toContain("设计系统");
+      expect(screen.getByTestId("design-detail-statusbar-pages").textContent).toBe("1 页 · 已画出 1 页");
     });
   });
 });
@@ -3907,5 +3914,80 @@ describe("新建时就能带参考图（照这个画）", () => {
     expect(screen.queryByTestId("ref-image-picked-3")).toBeNull();
     expect((screen.getByTestId("ref-image-pick") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("ref-image-picker").textContent).toContain("去掉一张才能再加");
+  });
+});
+
+/* ═══════ 迭代 25：第一次来的人，从零到第一张原型 ═══════ */
+
+describe("界面不再把人指向一个空的地方", () => {
+  /** 这一组自己的样本树——上面那些 `tree` 都是各自 describe 的局部常量。 */
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+
+  const withEmptyCanvas = () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: [], prototype: [] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+  };
+
+  it("空画布的话里没有方位词——md 以下对话面板在**上方**，「在左边」是错的", async () => {
+    /*
+     * ⭐ 反证锚点：把文案改回「在左边描述你要做的产品」⇒ 这条红。
+     *
+     * 布局是 `flex-col md:flex-row`：手机上对话在上、画布在下。一句带方位的引导
+     * 在响应式布局里天然会说谎，而说谎的那一半恰好是新手最需要的那一半。
+     */
+    withEmptyCanvas();
+    render(<DesignDetailScreen projectId="p1" />);
+    const empty = await screen.findByTestId("design-detail-canvas-empty");
+    expect(empty.textContent).not.toContain("左边");
+    expect(empty.textContent).not.toContain("左侧");
+    expect(empty.textContent).toContain("在对话里描述");
+  });
+
+  it("空画布中央给可点的下一步，点一下真的把那句话发出去", async () => {
+    /*
+     * ⭐ 反证锚点：把这组起手按钮删掉 ⇒ 这条红。
+     *
+     * 起手的三条 brief 此前只在左栏作为一排小 chip 存在，而第一次进来的人眼睛在**画布**上
+     * ——那是整屏最大的一块，此前只有两行灰字。用的是同一份契约常量，不是第二份清单。
+     */
+    const sent: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: [], prototype: [] })] };
+      if (path.endsWith("/chat") && opts?.method === "POST") {
+        sent.push(opts.body);
+        return { project: project({ frames: [], prototype: [] }), reply: { source: "model", applied: [], suggestions: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-canvas-empty");
+    const first = DESIGN_WORKBENCH_STARTERS[0]!;
+    fireEvent.click(screen.getByTestId(`design-detail-canvas-starter-${first.label}`));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect((sent[0] as { text: string }).text).toBe(first.prompt);
+  });
+
+  it("改名不再只有「双击页签」一条路——手机上没有双击这回事", async () => {
+    /*
+     * ⭐ 反证锚点：去掉这颗按钮 ⇒ 这条红。改名此前的唯一入口是页签上的 `onDoubleClick`，
+     * 而这排按钮（加页 / 复制 / 删页）本来就在那儿，改名与它们同级。
+     */
+    // 改名走的是 `patchPrototype`（`renameScreen` op），不是 PATCH 项目——同页的加/删页一条路。
+    const ops: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["旧名"], prototype: [sample] })] };
+      if (path.endsWith("/prototype/patch")) { ops.push(opts?.body); return { project: project({ frames: ["新名"], prototype: [sample] }) }; }
+      throw new Error(`unexpected ${path}`);
+    });
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("新名");
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-page-rename");
+    fireEvent.click(screen.getByTestId("design-detail-page-rename"));
+    await waitFor(() => expect(ops).toHaveLength(1));
+    expect((ops[0] as { ops: { op: string; frame: string }[] }).ops[0]).toMatchObject({ op: "renameScreen", frame: "新名" });
+    expect(prompt).toHaveBeenCalledWith("页面名字", "旧名");
+    prompt.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -776,7 +776,11 @@ export function DesignDetailScreen({
         {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
         <div className="flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel md:max-h-none md:w-[360px] md:border-b-0 md:border-r">
           <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
-            <span>设计协作</span>
+            {/*
+              * 迭代 25：原文是「设计协作」——一个不说明这里能做什么的词。第一次进来的人
+              * 需要知道的是「在这儿说话，右边就会变」，不是这块区域在产品体系里叫什么。
+              */}
+            <span>说需求，AI 画界面</span>
             {/* 迭代 13（delta §2.3）：入口在对话面板顶部——「已经在别处聊过了」是**开工之前**
                 的动作，放在输入框旁边等于要求用户先想起来自己还有那条对话。 */}
             <button
@@ -1035,6 +1039,24 @@ export function DesignDetailScreen({
                   */}
                 {canvasMode === "edit" && preview === null && (
                   <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
+                    {/*
+                      * 迭代 25：改名此前**只有双击页签**一条路（还用 `window.prompt`）。
+                      * 手机上没有双击这回事，而这排按钮在哪都点得到——改名与加/复制/删同级，
+                      * 本来就该并排。
+                      */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = (preview ?? project).frames[frame] ?? "";
+                        const name = window.prompt("页面名字", current);
+                        if (name !== null) renamePage(name);
+                      }}
+                      title="给这一页改名"
+                      data-testid="design-detail-page-rename"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground"
+                    >
+                      <Pencil aria-hidden className="h-3 w-3" />
+                    </button>
                     <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
                       className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
                       <Plus aria-hidden className="h-3 w-3" />
@@ -1128,6 +1150,9 @@ export function DesignDetailScreen({
                   // 否则按钮按下去 `aria-pressed` 变了而屏上什么也没发生。
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); else setSideOpen(true); }}
                   aria-pressed={historyOpen}
+                  // 迭代 25：旁边就是「撤销」，而两者的差别对第一次来的人完全不明显。
+                  // 撤销那颗已经写了「回到上一版」，这颗一直没有说明。
+                  title="看所有版本，可以恢复到任意一版"
                   data-testid="design-detail-history-toggle"
                   className={cn(
                     "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -1183,11 +1208,37 @@ export function DesignDetailScreen({
                      * 所以两种视图共用这一个空态，把"下一步该干什么"直接说出来。
                      */
                     <div className="grid h-full place-items-center p-8 text-center" data-testid="design-detail-canvas-empty">
-                      <div className="max-w-sm space-y-2">
+                      <div className="max-w-sm space-y-3">
                         <p className="text-13 font-medium">还没有页面</p>
                         <p className="text-12 text-muted-foreground">
-                          在左边描述你要做的产品，我会先拆出页面划分，再一页页把界面画出来。
+                          {/*
+                            * 迭代 25：这句原文是「**在左边**描述你要做的产品」。md 以下对话面板在
+                            * **上方**（`flex-col md:flex-row`），于是手机上这句话把人指向一个空的地方。
+                            * 方位词在响应式布局里天然会说谎——改成说**做什么**，不说**去哪**。
+                            */}
+                          在对话里描述你要做的产品，我会先拆出页面划分，再一页页把界面画出来。
                         </p>
+                        {/*
+                          * 迭代 25：**画布中央给可点的下一步**。
+                          *
+                          * 起手的三条 brief 此前只在左栏对话里作为一排小 chip 存在，而第一次进来的人
+                          * 眼睛在**画布**上——那是整屏最大的一块，而它此前只有两行灰字。
+                          * 同一份 `DESIGN_WORKBENCH_STARTERS`（契约常量），不是第二份清单。
+                          */}
+                        <div className="flex flex-wrap justify-center gap-1.5" data-testid="design-detail-canvas-starters">
+                          {DESIGN_WORKBENCH_STARTERS.map((st) => (
+                            <button
+                              key={st.label}
+                              type="button"
+                              disabled={sending}
+                              onClick={() => void send(st.prompt)}
+                              data-testid={`design-detail-canvas-starter-${st.label}`}
+                              className="rounded-full border border-border px-2.5 py-1 text-11 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+                            >
+                              {st.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ) : viewMode === "board" ? (
@@ -1342,7 +1393,7 @@ export function DesignDetailScreen({
               <section className="mb-6">
                 <h3 className="text-14 font-semibold">问题与目标</h3>
                 <p className="mt-1.5 whitespace-pre-wrap text-13 text-muted-foreground">
-                  {project.problem || "还没填背景。回到左边对话里说清楚要解决的问题，我会补到这里。"}
+                  {project.problem || "还没填背景。在对话里说清楚要解决的问题，我会补到这里。"}
                 </p>
                 {project.linkedFeedbackId !== null && (
                   <p className="mt-2 text-12">
@@ -1389,8 +1440,17 @@ export function DesignDetailScreen({
         {/* 2026-09-07 人类指令：不显示模型名。它此前是**硬编码的字面量**，与这个部署实际用的
             模型无关（真实值在服务端 `KERNEL_MODEL_*`，前端拿不到）——写死一个名字在屏上，
             部署换了模型它照样这么写，属于会骗人的静态痕迹。要显示就得有真数据源，先删。 */}
-        <span>设计系统 WorkspaceX UI</span>
+        {/*
+          * 迭代 25：原来这里写的是「设计系统 WorkspaceX UI」——对第一次来的人零信息，
+          * 它既不是这份原型的属性，也不是他能改的东西（真正决定外观的是「外观」面板里的档位）。
+          * 换成他**现在正在做的那份东西**的事实：几页、画出来几页。
+          */}
         <span>{TEMPLATE_LABEL[project.template]}</span>
+        <span data-testid="design-detail-statusbar-pages">
+          {project.frames.length === 0
+            ? "还没有页面"
+            : `${project.frames.length} 页 · 已画出 ${project.prototype.filter((r) => r !== null).length} 页`}
+        </span>
         <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
       </footer>
 
