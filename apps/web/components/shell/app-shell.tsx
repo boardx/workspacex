@@ -1,5 +1,6 @@
 "use client";
 
+import { SIDE_PANEL_VISIBLE, SIDE_PANEL_VISIBLE_FLEX } from "@/lib/shell/side-panel-visibility";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
@@ -288,6 +289,9 @@ export function ShellChrome({
   /**
    * UIUX-CK-1（人类实测 3 分的第一条实锤，2026-08-23）：左右栏此前固定宽度、
    * 不可收起——右栏在 xl 以下整个消失，xl 以上永远占位。加收起/展开 toggle，
+   * ⚠ 2026-09-23 更正：这段原话读起来像「xl 以下消失」也一并修了，**其实没有**——
+   * 当时加的 toggle 自身也是 `xl:flex`，修掉的只有「xl 以上永远占位」那一半。
+   * 断点现在收敛到 `lib/shell/side-panel-visibility.ts` 一处（lg），见该文件头注。
    * 状态记忆在 localStorage（每人自己的工作习惯，不是服务端事实，不入库）。
    * 读取放 effect：SSR 无 localStorage，初始渲染两端必须一致，否则 hydration 警告。
    */
@@ -383,7 +387,7 @@ export function ShellChrome({
           {right && !rightCollapsed && (
             <aside
               data-testid="shell-right-panel"
-              className={cn("relative hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt xl:block")}
+              className={cn("relative hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt", SIDE_PANEL_VISIBLE)}
             >
               {/*
                 D9（chat-main-fidelity-rubric.md）—— 此前这颗按钮画在 `left-1 top-1`，
@@ -398,7 +402,7 @@ export function ShellChrome({
                 aria-label="收起右栏"
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:flex"
+                className={cn("absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground", SIDE_PANEL_VISIBLE_FLEX)}
               >
                 <X aria-hidden className="h-3.5 w-3.5" />
               </button>
@@ -411,7 +415,7 @@ export function ShellChrome({
               aria-label="展开右栏"
               data-testid="shell-right-expand"
               onClick={() => togglePanel("right")}
-              className="hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+              className={cn("hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", SIDE_PANEL_VISIBLE_FLEX)}
             >
               ‹
             </button>
