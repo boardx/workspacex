@@ -28,6 +28,11 @@ import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-rea
 import {
   allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey,
 } from "./lib/feature-evidence-ratchet";
+import {
+  judgeFeatureOwners, staleOwnerAllowlistEntries,
+  type OwnerAllowlistKey, type PhaseFeatureOwners,
+} from "./lib/feature-owner";
+import { readKnownAgentIdentities } from "./lib/agent-identity";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
@@ -39,6 +44,7 @@ import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
 
 const FEATURE_EVIDENCE_ALLOWLIST_PATH = join(STATE_DIR, "feature-evidence-allowlist.json");
+const FEATURE_OWNER_ALLOWLIST_PATH = join(STATE_DIR, "feature-owner-allowlist.json");
 
 /** #1136 棘轮名单读取。缺文件视为空名单（拒绝任何非标准 evidence），不是「跳过检查」。 */
 function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
@@ -46,6 +52,16 @@ function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
   const doc = JSON.parse(readFileSync(FEATURE_EVIDENCE_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
   return Array.isArray(doc.entries) ? (doc.entries as AllowlistKey[]) : [];
 }
+
+/** #1142 棘轮名单读取。缺文件视为空名单（拒绝任何不在身份命名空间里的 owner），不是「跳过检查」。 */
+function readFeatureOwnerAllowlist(): readonly OwnerAllowlistKey[] {
+  if (!existsSync(FEATURE_OWNER_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(FEATURE_OWNER_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as OwnerAllowlistKey[]) : [];
+}
+
+/** 一次体检扫到的一个 phase。两道棘轮门各取所需字段，扫描只做一遍。 */
+type ScannedPhase = PhaseFeatures & PhaseFeatureOwners;
 
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
@@ -489,6 +505,113 @@ function checkFeatureIdIntegrity(phaseId: string, f: Feature, findings: Finding[
   for (const msg of [judgeEvidenceIdMismatch(f), judgePlaceholderIdSurvived(f)]) {
     if (msg) findings.push({ level: "FAIL", phase: phaseId, msg });
   }
+}
+
+/**
+ * owner 命名空间门（#1142）。
+ *
+ * `feature.owner` 记录的是**写入那一刻**谁在做，而不是**现在**谁负责——与本仓已知的
+ * 「静态痕迹 ≠ 动态事实」同型。实测（2026-09-21，17 个 phase / 450 个 feature）：
+ * 275 个有 owner 的 feature 里只有 32 个落在真实身份命名空间内，其余 243 个是
+ * sprint 期一次性把手（`w2-chat4` `claude-e` `remote-f01`……），sprint 结束即死链接。
+ *
+ * 判据、豁免与「为什么 key 带 owner 取值」见 `lib/feature-owner.ts`；
+ * 「什么算一个真实身份」见 `lib/agent-identity.ts`（与 `harness scorecard` 同一份，
+ * 不在这里第二次定义）。本函数只负责把判定结果翻译成 doctor 的 FAIL / WARN / INFO。
+ */
+function checkFeatureOwnerNamespace(
+  scanned: readonly ScannedPhase[],
+  findings: Finding[],
+  authorityGaps: string[],
+): void {
+  const known = new Set(readKnownAgentIdentities().keys());
+
+  // 空集是这道门最危险的失效形态，而且它**伪装成一屋子精确的判决**：
+  // registry.yaml 结构变了 / 读不到时，每一个 owner 都落到命名空间之外，存量把手
+  // 被 allowlist 接住，于是唯一炸红的恰好是那 32 条**真实正确**的 owner
+  // （dev-chat-e2e / coord-voice / coord-deep-research …）——实测 32 条 FAIL，
+  // 每条都点名一个真角色说它不存在。那不是判定，是编造。
+  //
+  // 这与本 issue 自己的立场同型：宁可说「没问到」，也不要给出一个看起来精确、
+  // 其实无中生有的归属结论。所以这里 fail-closed（P8，同 role-freeze-doctor
+  // 「registry.yaml 是权威数据源，读不到时拒绝下判断」）：登记成权威缺口，
+  // 本次不判，由 #394 的 UNREACHABLE 决定退出码（本地 0、--strict 1）。
+  if (known.size === 0) {
+    authorityGaps.push(
+      "读不到任何 agent 身份（.harness/agents/registry.yaml 与 .harness/agents/*.yaml 都没给出 id）" +
+        "——「feature.owner 必须是真实身份」本次未执行",
+    );
+    return;
+  }
+  // 棘轮只许收缩：`--phase 01` 这类局部运行只对扫到的 phase 判陈旧，
+  // 否则没扫到的 phase 会被误判成「不再需要豁免」——同 #1136 的处理。
+  const scannedIds = new Set(scanned.map((p) => p.phaseId));
+  const allowlist = readFeatureOwnerAllowlist().filter((key) => scannedIds.has(key.split("/")[0] ?? ""));
+  const v = judgeFeatureOwners(scanned, known, allowlist);
+
+  for (const g of v.newGaps) {
+    findings.push({
+      level: "FAIL",
+      phase: g.phaseId,
+      msg:
+        `${g.featureId} 的 owner "${g.owner}" 不是一个真实身份——既不在 .harness/agents/registry.yaml ` +
+        `的任何身份分组里，也不在 .harness/agents/*.yaml 的便携 subagent 规格里。` +
+        `sprint 期一次性把手（w2-chat4 这类）sprint 一结束就是死链接，出了问题没人找得到负责人。` +
+        `改成 registry.yaml 里的真实角色 id；该角色还不存在就先走 registry.yaml 的 PR review 登记，` +
+        `还不知道归谁就留 null（未认领是诚实的，编一个把手不是）`,
+    });
+  }
+
+  for (const phaseId of scannedIds) {
+    const mine = v.grandfathered.filter((g) => g.phaseId === phaseId);
+    if (mine.length === 0) continue;
+    findings.push({
+      level: "WARN",
+      phase: phaseId,
+      msg:
+        `${mine.length} 条 feature 的 owner 不在身份命名空间内——存量豁免（见 feature-owner-allowlist.json），` +
+        `待人裁归一化：${summarizeIds(mine.map((g) => `${g.featureId}=${g.owner}`))}`,
+    });
+  }
+
+  // 「有人动过却无主」——#1142 说的「出了问题不知道该找谁」正是这一档。
+  for (const phaseId of scannedIds) {
+    const mine = v.unownedActive.filter((k) => k.startsWith(`${phaseId}/`)).map((k) => k.slice(phaseId.length + 1));
+    if (mine.length === 0) continue;
+    findings.push({
+      level: "WARN",
+      phase: phaseId,
+      msg:
+        `${mine.length} 条已开工/已完成的 feature 没有任何 owner：${summarizeIds(mine)}——` +
+        `活做完了但仓库里没有任何人的名字，出了问题不知道该找谁`,
+    });
+  }
+
+  // 还没认领的无主是**正常状态**（claim.ts 的保护 1 要求 owner===null 才能认领），
+  // 只给一个计数让它可见，不逐条报——166 条噪音会盖掉上面那几条信号。
+  if (v.unownedNotStarted.length > 0) {
+    findings.push({
+      level: "INFO",
+      phase: "-",
+      msg: `${v.unownedNotStarted.length} 条 not_started 的 feature 尚未认领（owner=null，正常待领状态，非欠债）`,
+    });
+  }
+
+  for (const stale of staleOwnerAllowlistEntries(scanned, known, allowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg:
+        `feature-owner-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 的 owner 已归一化 / 已清空 / feature 已不存在）` +
+        `——请删掉这一条，留着等于给这个取值留一扇没人看守的门`,
+    });
+  }
+}
+
+/** 列表太长时截断，保住可读性——doctor 的输出没人会滚 200 行。 */
+function summarizeIds(ids: readonly string[], cap = 8): string {
+  if (ids.length <= cap) return ids.join(", ");
+  return `${ids.slice(0, cap).join(", ")} …等 ${ids.length} 条`;
 }
 
 /** spec_ref 门控（人类拍板 2026-07-19）。只查 in_progress——claim/verify 已经在
@@ -1034,11 +1157,12 @@ export function doctor(args: Args): void {
   }
   const evidenceAllowlist = readFeatureEvidenceAllowlist();
   const evidenceAllowlistSet = new Set(evidenceAllowlist);
-  // #1136 棘轮体检的输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类局部
-  // 运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
-  // #391 的反向一致性门要读 sprint / evidence 路径，所以这里存完整的 Feature；
-  // #1136 棘轮只用得到其中三个字段（PhaseFeatures），同一份快照喂两道门，不留第二份。
-  const scannedForRatchet: { phaseId: string; features: readonly Feature[] }[] = [];
+  // 三道门（#1136 evidence 棘轮 / #1142 owner 棘轮 / #391 反向一致性）的共同输入：
+  // 只收本次真正扫到的 phase，避免 `--phase 01` 这类局部运行把「没扫到的 phase」
+  // 误判成「不再需要」——那会把陈旧检查变成假阳性门。
+  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，另两道各自只用得到
+  // 其中几个字段（PhaseFeatures / PhaseFeatureOwners）。同一份快照喂三道门，不留第二份。
+  const scannedPhases: { readonly phaseId: string; readonly features: readonly Feature[] }[] = [];
 
   for (const id of phaseIds) {
     let fl;
@@ -1053,7 +1177,7 @@ export function doctor(args: Args): void {
       }
       continue; // 没有 feature_list 的 phase（纯 requirements 期）不体检
     }
-    scannedForRatchet.push({ phaseId: id, features: fl.features });
+    scannedPhases.push({ phaseId: id, features: fl.features });
     for (const f of fl.features) {
       if (f.status === "passing") {
         checkPassingEvidence(id, f, findings, evidenceAllowlistSet);
@@ -1078,13 +1202,15 @@ export function doctor(args: Args): void {
     checkPhaseReadiness(id, findings);
   }
 
+  checkFeatureOwnerNamespace(scannedPhases, findings, authorityGaps);
+
   // 一次扫完 interface 目录（440+ 个路由装饰器），不按 phase 重复解析
   checkContractRouteCoverage(phaseIds, findings);
 
   // 棘轮只许收缩：只对本次实际扫到的 phase 判陈旧，不动没扫到的那部分名单。
-  const scannedPhaseIds = new Set(scannedForRatchet.map((p) => p.phaseId));
+  const scannedPhaseIds = new Set(scannedPhases.map((p) => p.phaseId));
   const inScopeAllowlist = evidenceAllowlist.filter((key) => scannedPhaseIds.has(key.split("/")[0] ?? ""));
-  for (const stale of staleFeatureEvidenceEntries(scannedForRatchet, inScopeAllowlist)) {
+  for (const stale of staleFeatureEvidenceEntries(scannedPhases, inScopeAllowlist)) {
     findings.push({
       level: "FAIL",
       phase: stale.split("/")[0] ?? "-",
@@ -1092,7 +1218,7 @@ export function doctor(args: Args): void {
     });
   }
 
-  checkLegacyEvidenceRatchet(scannedForRatchet, findings);
+  checkLegacyEvidenceRatchet(scannedPhases, findings);
 
   const fails = findings.filter((f) => f.level === "FAIL");
   const warns = findings.filter((f) => f.level === "WARN");
