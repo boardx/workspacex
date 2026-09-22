@@ -336,3 +336,29 @@ prose and never demonstrated, when demonstrating them is cheap.
 Everything re-verified: axe 0 in both languages, keyboard clean, responsive
 clean at eleven widths, robustness clean, and two new harnesses covering the
 switch and the layer explorer.
+
+---
+
+## Round 13 — the editorial pass
+
+Every word read in sequence, as prose, rather than section by section. What
+surfaces that way is repetition — the page had been making the same point in
+three places without anyone noticing, because nobody reads a page the way it
+gets written.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Mixed spelling conventions**: `centre`, `modelled` (three times) and `judgement` sitting alongside `organization` and `-ize` endings. Nothing looks more unfinished to a careful reader. | Standardized on American, which is what the rest of the copy already used. |
+| 2 | The serial comma appeared twice and was omitted everywhere else. | Omitted throughout. |
+| 3 | **`Model-agnostic` in the architecture column duplicated the new interactive detail panel almost word for word** — the panel now says it better, and only when asked. | Cut. |
+| 4 | `Trust by design` repeated both `arch.d3` and the trust section's lead. | Cut. |
+| 5 | `Deploy anywhere` repeated the first FAQ answer nearly verbatim — "a deployment choice, not a different product" against "a configuration choice, not a different edition". | Cut. |
+| 6 | Having cut three of four, the survivor should earn its place. | Replaced with **why the line sits where it does** — that everything above the harness is meant to be replaceable and everything at or below it is the part that is yours. That argument appears nowhere else on the page, and the section is shorter than before. |
+| 7 | `minimum actionable agentic unit` — jargon introduced in one sentence, never defined, never used again. | Plain language. If a term is not going to be used twice it is not a term, it is friction. |
+| 8 | The proof section's eyebrow read "The strongest argument we have" — a boast in a label position, which undercuts the argument that follows. | "How this is built". Let the reader reach that conclusion. |
+| 9 | The closing headline, "The work layer is being built now", described the weather rather than asking for anything, on the one screen whose whole job is to ask. | "Bring us work that can be checked." |
+| 10 | `Seat → Work Unit → Outcome` against "unit of work" used four times elsewhere. | Aligned. |
+| 11 | Chinese: `那正好是反的` is a literal rendering of "that is the opposite", not something a Chinese writer would produce. | `恰恰相反`. |
+
+Net effect: three duplicated blocks removed, one sharper paragraph added, and
+a page that says each thing once.
