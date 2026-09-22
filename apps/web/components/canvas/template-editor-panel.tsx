@@ -122,18 +122,31 @@ export function TemplateEditorPanel({
    * 就悄悄丢回 12（同 `promptText` 早先那个"两头都空"的形状）。现在它落库了，
    * 就必须从 `row` 读初值、进脏检查、进保存，三处缺一处都是同一种静默丢失。
    *
-   * `gridRows` 目前没有 UI 可选：`GRID_ROWS` 还是模块常量，六处纯函数
-   * （`clampLayout`/`maxFreeH`/`autoFillLayout`/`sectionGeometryMm`/画布网格/步进器上限）
-   * 都从它读。所以这里只做**原样往返**——把这一行存的值读进来、保存时原样带回去，
-   * 不让一次保存把库里的值改掉。等那六处改成接收参数、右栏出「网格密度」选择器时，
-   * 它才会真的变成一个可选项。
+   * `gridRows` 此前只做**原样往返**（读进来、保存时带回去，没有 setter），因为
+   * 行数那条链当时还没通——`GRID_ROWS` 是 `explicit-template-layout.ts` 的模块常量，
+   * 六处纯函数从它读，给了选择器也只会存下一个没人认的数。那六处现在都接收
+   * `gridRows` 参数了（见该文件与 `template-editor-model.ts` 的相应注释），所以它
+   * 跟 `gridCols` 一样是个真的可选项：进脏检查、进保存、当场改变画布几何。
+   *
+   * ⚠ 行数变小（16 → 8）时已放置的区块可能整块落在纸外——**切换的那一刻就重夹**
+   *   （`clampLayout`），不等保存。不夹的话画布上那些区块会凭空消失（CSS 网格只有
+   *   8 行，`gridRow: 12 / span 2` 画不出来），而草稿里的坐标还留着越界的值：
+   *   看不见又还在，正是「静态痕迹 ≠ 动态事实」那类最难查的状态。
    */
   const [gridCols, setGridCols] = React.useState<canvas.GridColsValue>(
     () => (row.gridCols ?? canvas.DEFAULT_GRID_COLS),
   );
-  const [gridRows] = React.useState<canvas.GridRowsValue>(
+  const [gridRows, setGridRows] = React.useState<canvas.GridRowsValue>(
     () => (row.gridRows ?? canvas.DEFAULT_GRID_ROWS),
   );
+
+  /** 换网格行数：先落新值，再把所有已放置区块夹回新网格（理由见上面那条 ⚠）。 */
+  function changeGridRows(next: canvas.GridRowsValue): void {
+    setGridRows(next);
+    setSections((prev) => prev.map((s) => (
+      s.layout ? { ...s, layout: clampLayout(s.layout, gridCols, next) } : s
+    )));
+  }
   // 纸张尺寸——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。内容相关
   // 字段（同 sections），不是装帧：影响 mm 换算，因此进体检、进脏检查、进保存。
   const [paperSize, setPaperSize] = React.useState<PaperSizeKey>((row.size ?? "A1") as PaperSizeKey);
@@ -186,8 +199,8 @@ export function TemplateEditorPanel({
   // ⚠ `promptText` 必须进体检：§6 规则③ 的可达形态是「提示词里写了字段表没有的
   //   占位符」，见 `TemplateHealth.danglingPlaceholders` 的文档。
   const health = React.useMemo(
-    () => checkTemplateHealth(sections, gridCols, promptText, paperSize),
-    [sections, gridCols, promptText, paperSize],
+    () => checkTemplateHealth(sections, gridCols, promptText, paperSize, gridRows),
+    [sections, gridCols, promptText, paperSize, gridRows],
   );
   const selected = sections.find((s) => s.sectionId === selectedId) ?? null;
 
@@ -214,6 +227,7 @@ export function TemplateEditorPanel({
     || recommendAfter.join("\u0000") !== [...(row.recommendAfter ?? [])].join("\u0000")
     || paperSize !== (row.size ?? "A1")
     || gridCols !== (row.gridCols ?? canvas.DEFAULT_GRID_COLS)
+    || gridRows !== (row.gridRows ?? canvas.DEFAULT_GRID_ROWS)
     || sectionsDirty
   );
 
@@ -278,7 +292,7 @@ export function TemplateEditorPanel({
       // 几何原样保留，只重算跟类型+宽度强相关的 `cols`（贴纸默认摆几列）——
       // 那条公式的唯一事实源是 `defaultStickyColsFor`，不在这里第二次写。
       const layout = { ...s.layout, cols: defaultStickyColsFor(type, s.layout.w, gridCols, paperSize) };
-      return { ...s, type, fontSize, valign, fontWeight, layout: clampLayout(layout, gridCols) };
+      return { ...s, type, fontSize, valign, fontWeight, layout: clampLayout(layout, gridCols, gridRows) };
     }));
   }
 
@@ -317,7 +331,7 @@ export function TemplateEditorPanel({
       if (!current) return prev;
       const proposed = compute(current);
       if (!proposed) return prev;
-      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: clampLayout(proposed, gridCols) } : s));
+      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: clampLayout(proposed, gridCols, gridRows) } : s));
     });
   }
 
@@ -326,7 +340,7 @@ export function TemplateEditorPanel({
   }
 
   function place(sectionId: string, col: number, row_: number): void {
-    applyLayout(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize));
+    applyLayout(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize, undefined, gridRows));
     // 放下后自动选中该区块并跳到第三步（§4.2 原话）。
     setSelectedId(sectionId);
     setStep(3);
@@ -905,6 +919,28 @@ export function TemplateEditorPanel({
                 </button>
               ))}
               {/*
+                行数（issue #3358 第 8 项）——人类实测原话：「现在的这个格子感觉不够用
+                ……现在是 8*12」。四阶段 × 五维度的用户旅程图已经把 8 行用满，再加一个
+                阶段就没地方放。列数那半早就有开关（上面那几个按钮），行数这半此前只有
+                后端与契约，界面上没有入口，所以这条反馈在界面上其实一格也没多。
+
+                ⚠ 与列数用同一排、同样的视觉：它们是同一件事（这张纸切成多少格）的两个
+                  轴，分开两处会让使用者以为是两个不相干的设置。
+              */}
+              {([8, 16] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => changeGridRows(g)}
+                  className={`rounded-control border px-2 py-0.5 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    gridRows === g ? "border-inverse bg-inverse text-inverse-foreground" : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                  data-testid={`tpladmin-editor-grid-rows-${g}`}
+                >
+                  {g} 行
+                </button>
+              ))}
+              {/*
                 「不要手工排版」（2026-08-27 人类原话）。全量重排——覆盖所有已放置区块的
                 位置，不是只补未放置的（见 `autoFillLayout` 文件头「全量重排，不是补齐」）。
                 只在 `editable` 时给：只读态（已归档/无权限）不该有任何会改数据的按钮。
@@ -912,7 +948,7 @@ export function TemplateEditorPanel({
               {editable && (
                 <button
                   type="button"
-                  onClick={() => setSections((prev) => autoFillLayout(prev, gridCols, paperSize))}
+                  onClick={() => setSections((prev) => autoFillLayout(prev, gridCols, paperSize, gridRows))}
                   className="rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-testid="tpladmin-editor-autolayout"
                 >
@@ -1119,6 +1155,7 @@ export function TemplateEditorPanel({
               <TemplateCanvasGrid
                 sections={sections}
                 gridCols={gridCols}
+                gridRows={gridRows}
                 showSample={showSample}
                 runData={dryRunData}
                 title={title}
@@ -1152,6 +1189,7 @@ export function TemplateEditorPanel({
             sectionsDirty={sectionsDirty}
             sections={sections}
             gridCols={gridCols}
+            gridRows={gridRows}
             title={title}
             footer={footer}
             promptText={promptText}
@@ -1171,6 +1209,7 @@ export function TemplateEditorPanel({
             section={selected}
             sections={sections}
             gridCols={gridCols}
+            gridRows={gridRows}
             health={health}
             editable={editable}
             paperSize={paperSize}

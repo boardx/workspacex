@@ -6,14 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
-  classifyNoteSize, sectionGeometryMmOf, clamp, collidesWithOthers, GRID_ROWS,
+  classifyNoteSize, sectionGeometryMmOf, clamp, collidesWithOthers,
   isTextual, TEXT_ALIGNS, TEXT_VALIGNS, DEFAULT_FIELD_FONT_SIZE,
   type TextAlign, type TextVAlign,
   FONT_WEIGHT_OPTIONS, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
-import type { GridColsValue } from "@repo/contracts/canvas";
+import { DEFAULT_GRID_ROWS, type GridColsValue, type GridRowsValue } from "@repo/contracts/canvas";
 
 /**
  * 第三步 · 显示方式（R5，2026-08-26）——`Design.pdf` §4.3 右栏逐条实现。
@@ -23,7 +23,8 @@ import type { GridColsValue } from "@repo/contracts/canvas";
  * `Design.pdf` §5 开头那句「所有 mm 换算必须与屏幕渲染同源，不能两套数」。
  */
 export function TemplateDisplayPanel({
-  section, sections, gridCols, health, editable, onPatch, onPatchSection, onRemove, paperSize = "A1",
+  section, sections, gridCols, gridRows = DEFAULT_GRID_ROWS,
+  health, editable, onPatch, onPatchSection, onRemove, paperSize = "A1",
 }: {
   readonly section: SectionDraft | null;
   /**
@@ -33,6 +34,11 @@ export function TemplateDisplayPanel({
    */
   readonly sections: readonly SectionDraft[];
   readonly gridCols: GridColsValue;
+  /**
+   * 网格行数（issue #3358）——「高」步进器的上限除数。缺省 `DEFAULT_GRID_ROWS`，
+   * 兼容既有调用方。选了 16 行之后，高最大能到 16 而不再是写死的 8。
+   */
+  readonly gridRows?: GridRowsValue;
   readonly health: TemplateHealth;
   readonly editable: boolean;
   readonly onPatch: (patch: Partial<SectionLayoutDraft>) => void;
@@ -169,7 +175,7 @@ export function TemplateDisplayPanel({
               <span className="w-6 text-11 text-muted-foreground">高</span>
               <Stepper
                 value={layout.h} min={1}
-                max={GRID_ROWS - layout.row + 1}
+                max={gridRows - layout.row + 1}
                 editable={editable}
                 onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
               />
@@ -193,7 +199,7 @@ export function TemplateDisplayPanel({
   }
 
   const isList = section.type === "便利贴列表";
-  const geom = sectionGeometryMmOf(section, gridCols, paperSize);
+  const geom = sectionGeometryMmOf(section, gridCols, paperSize, gridRows);
   /**
    * 这一块**正压着**旁边的分区吗？压着不再是"改不动"，只是"还没调好"——人类
    * 2026-09-10 直接交办：拖放允许重叠，高亮出来，保存前自己调。所以这里从
@@ -231,7 +237,7 @@ export function TemplateDisplayPanel({
                 平分会窄到点不准，换行成两排更好按。 */}
             <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
-                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, max: layout.max, gridCols, size: paperSize }).noteMm;
+                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, max: layout.max, gridCols, gridRows, size: paperSize }).noteMm;
                 const on = layout.cols === n;
                 return (
                   <button
@@ -405,7 +411,7 @@ export function TemplateDisplayPanel({
           <span className="w-6 text-11 text-muted-foreground">高</span>
           <Stepper
             value={layout.h} min={1}
-            max={GRID_ROWS - layout.row + 1}
+            max={gridRows - layout.row + 1}
             editable={editable}
             onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
           />
