@@ -597,3 +597,49 @@ checks:
 testing the fallback path in both directions because of it, and round 19
 rebuilt every expectation to derive from the source. Both changes found real
 bugs within minutes of being written.
+
+---
+
+## Round 21 — disciplines, and verifying the Chinese page for real
+
+Two requests: worked examples across industries — education, design thinking,
+legal among them — and verification that actually covers both languages.
+
+### Where it starts, rebuilt
+
+The section had four audience cards naming *who* might use this. It now shows
+*what a unit of work looks like* in six disciplines, each answering the same
+three questions: who is in the room, what gets checked, what is left behind.
+
+| | |
+|---|---|
+| **Legal** | Reviewing an inbound contract against your own playbook. Every deviation matched to the clause it departs from; a clause the system cannot place is flagged, not guessed. |
+| **Design thinking** | Getting from twenty interviews to a problem worth solving. Divergence is cheap for agents and convergence is a human judgment — the tool should not blur which is which. |
+| **Education** | A student investigating a question they cannot look up. "No answers" is a permission setting on the agent, not a promise; the reasoning path is the artifact the teacher reads. |
+| **Finance** | Turning a month of numbers into a decision someone will sign. An unproven assumption is allowed to exist; it is not allowed to be silent. |
+| **Research & consulting** | Due diligence on a two-week deadline. The rejected sources are recorded with the reason — knowing what was thrown away is most of what makes a finding trustworthy. |
+| **Operations** | A routine process crossing four systems. The case where the harness stops being a design principle and becomes the reason you are allowed to deploy. |
+
+Presented as a proper `tablist`: arrow keys move between disciplines, Home and
+End jump to the ends, and only the selected tab is in the tab order so six
+panels are one stop rather than six.
+
+**They are labelled as worked examples, not customer stories.** Inventing case
+studies would have been the easiest thing on this page to fake and the least
+defensible.
+
+### Verifying both languages
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Four of the six behavioural suites ran against the English page only.** Keyboard, interaction, degradation and compatibility never touched `/zh/` — a separately generated document that could have shipped broken tabs or an unreachable menu with nothing to say so. | Every suite is parameterized over both languages. Eleven suite runs now, not seven. |
+| 2 | **Found immediately: the compare switch resized the stage by 24 px on the Chinese page** and not the English one. The two captions swap by `display`, and the translations are different lengths. | Both captions share a grid cell, so the taller sets the height; the inactive one is hidden by `visibility` and `aria-hidden` rather than removed. A jump that exists in one language and not the other is precisely what a single-language test cannot see. |
+| 3 | **Every `aria-label` on the page stayed English on `/zh/`** — six of them, invisible unless you are using the screen reader they exist for. | `data-i18n-aria`, translated by the generator and counted by the parity gate. |
+| 4 | The no-JS check asserted "more than 900 words" against Chinese, which has no spaces — `split(/\s+/)` undercounts it by an order of magnitude. It was measuring the wrong thing and would have passed a nearly empty page. | Each language measured by something it actually has: words for English, Han characters for Chinese. |
+| 5 | After moving the captions to `visibility`, the caption assertion still checked `display` — and passed two visible captions as one. | It checks perceivability now: `visibility` plus `aria-hidden`. |
+| 6 | Twelve translation keys for the replaced audience cards were left orphaned in the dictionary. | Removed; the parity gate caught them. |
+| 7 | `.card__meta` styled only those cards. | Removed; the dead-CSS gate caught it. |
+| 8 | Discipline labels at `--t-nano` (10 px): a readable caption in latin, an unreadable one in Hanzi, which carries far more strokes in the same box. | Raised for `:lang(zh)`. |
+
+**All 8 gates green, 11 browser suites across both languages. 149 KB, LCP
+248 ms desktop and 1 912 ms on slow 3G, CLS 0, 60 fps.**

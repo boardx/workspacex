@@ -118,14 +118,14 @@
 <header class="nav" id="nav" data-stuck="false">
   <div class="nav__inner">
     <div class="brand">
-      <a class="brand__home" href="#top" aria-label="WorkspaceX home">
+      <a class="brand__home" href="#top" aria-label="WorkspaceX 首页" data-i18n-aria="aria.home">
         <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
         <span class="brand__name">WorkspaceX</span>
       </a>
       <a class="brand__tag" href="#questions" data-i18n="nav.stage">早期开放</a>
     </div>
 
-    <nav class="nav__links" id="navlinks" aria-label="Section navigation">
+    <nav class="nav__links" id="navlinks" aria-label="章节导航" data-i18n-aria="aria.sectionNav">
       <a class="nav__link" href="#shift"        data-i18n="nav.shift">转变</a>
       <a class="nav__link" href="#loop"         data-i18n="nav.loop">工作闭环</a>
       <a class="nav__link" href="#surface"      data-i18n="nav.surface">工作空间</a>
@@ -137,7 +137,7 @@
     </nav>
 
     <div class="nav__actions">
-      <nav class="langswitch" data-mobile-move aria-label="Language">
+      <nav class="langswitch" data-mobile-move aria-label="语言" data-i18n-aria="aria.language">
         <a class="langswitch__btn" href="/"  hreflang="en">EN</a>
         <a class="langswitch__btn" href="/zh/" aria-current="true" hreflang="zh-Hans" lang="zh-Hans">中文</a>
       </nav>
@@ -149,7 +149,7 @@
         <span class="btn__label" data-i18n="nav.launch">进入产品</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu"><span></span></button>
+      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="菜单" data-i18n-aria="aria.menu"><span></span></button>
     </div>
   </div>
   <!-- Reading progress. The page is roughly seventeen thousand pixels tall;
@@ -244,7 +244,7 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="switch" role="group" aria-label="Compare">
+      <div class="switch" role="group" aria-label="对比" data-i18n-aria="aria.compare">
         <button class="switch__btn" type="button" data-view="break" aria-pressed="true" data-i18n="problem.tabNow">今天</button>
         <button class="switch__btn" type="button" data-view="chain" aria-pressed="false" data-i18n="problem.tabNext">换成 WorkspaceX</button>
       </div>
@@ -254,8 +254,10 @@
         <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
       </div>
 
+      <div class="stage__captions">
       <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">问题进入聊天窗口，答案返回来，有人把它重新敲进真正的业务系统，另一个人在脑子里做了审查，结果落进一份再也不会有人打开的文档。每两步之间，上下文都在蒸发——而且事后没有任何东西可以证明发生过什么。</p>
       <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">同样是这五步，区别在于步与步之间什么都没掉。上下文往前带，每一次行动都在边界之内发生，每一个结果都留下证据，学到的东西成为下一次的起跑点——而不是被扔掉。</p>
+      </div>
     </div>
 
     <div class="grid grid--3 problem__losses" data-stagger>
@@ -557,38 +559,90 @@
 </section>
 
 <!-- ======================================================================
-     7 · Where to start
+     9 · Where it starts — worked examples by discipline
      ====================================================================== -->
 <section class="section" id="start">
   <div class="wrap">
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="start.eyebrow">09 — 从哪里开始</span>
       <h2 data-i18n="start.title">从价值高、而且结果查得出来的地方开始。</h2>
-      <p class="lead" data-i18n="start.lead">数字化输入充分、流程可拆解、结果可验证、风险可治理。这四条同时成立，智能体工作才是真的，而不只是看着厉害。</p>
+      <p class="lead" data-i18n="start.lead">数字化输入充分、流程可拆解、结果可验证、风险可治理。这四条同时成立，智能体工作才是真的，而不只是看着厉害——而它们会出现在非常不同的学科里。</p>
     </header>
 
-    <div class="grid grid--4" data-stagger>
-      <article class="card card--lit" style="--i:0">
-        <h3 class="card__title" data-i18n="start.a1.t">企业团队</h3>
-        <p class="card__body" data-i18n="start.a1.b">跨职能项目——智能体团队、它留下的证据，以及由此形成的组织记忆，活得比项目本身更久。</p>
-        <p class="card__meta" data-i18n="start.a1.m">AI 转型 · 法务 · 财务 · 研究 · 运营</p>
-      </article>
-      <article class="card card--lit" style="--i:1">
-        <h3 class="card__title" data-i18n="start.a2.t">咨询顾问</h3>
-        <p class="card__body" data-i18n="start.a2.b">把方法论变成智能体、技能与工作流——你走之后，客户还在用。</p>
-        <p class="card__meta" data-i18n="start.a2.m">一次项目 → 一套在跑的系统 → 持续的价值</p>
-      </article>
-      <article class="card card--lit" style="--i:2">
-        <h3 class="card__title" data-i18n="start.a3.t">教育创新</h3>
-        <p class="card__body" data-i18n="start.a3.b">为“提问 → 证据 → 共创 → 作品 → 反馈 → 反思”设计的空间，而不是一条更快拿到答案的捷径。</p>
-        <p class="card__meta" data-i18n="start.a3.m">AI 原生的学习，不是 AI 辅助的抄袭</p>
-      </article>
-      <article class="card card--lit" style="--i:3">
-        <h3 class="card__title" data-i18n="start.a4.t">独立创作者</h3>
-        <p class="card__body" data-i18n="start.a4.b">一个人带一支智能体团队，覆盖研究、设计、内容、运营与分析。</p>
-        <p class="card__meta" data-i18n="start.a4.m">一张桌子大小的工作室</p>
-      </article>
+    <div class="cases">
+      <div class="cases__tabs" role="tablist" aria-label="学科" data-i18n-aria="aria.disciplines">
+        <button class="cases__tab" role="tab" id="tab-legal"  aria-controls="panel-legal"  aria-selected="true"  tabindex="0"  data-case="legal"  data-i18n="start.t1">法务</button>
+        <button class="cases__tab" role="tab" id="tab-design" aria-controls="panel-design" aria-selected="false" tabindex="-1" data-case="design" data-i18n="start.t2">设计思维</button>
+        <button class="cases__tab" role="tab" id="tab-edu"    aria-controls="panel-edu"    aria-selected="false" tabindex="-1" data-case="edu"    data-i18n="start.t3">教育</button>
+        <button class="cases__tab" role="tab" id="tab-finance" aria-controls="panel-finance" aria-selected="false" tabindex="-1" data-case="finance" data-i18n="start.t4">财务</button>
+        <button class="cases__tab" role="tab" id="tab-research" aria-controls="panel-research" aria-selected="false" tabindex="-1" data-case="research" data-i18n="start.t5">研究与咨询</button>
+        <button class="cases__tab" role="tab" id="tab-ops"    aria-controls="panel-ops"    aria-selected="false" tabindex="-1" data-case="ops"    data-i18n="start.t6">运营</button>
+      </div>
+
+      <div class="cases__panels">
+        <!-- LEGAL -->
+        <section class="case" role="tabpanel" id="panel-legal" aria-labelledby="tab-legal" data-case="legal" tabindex="0">
+          <h3 class="case__work" data-i18n="start.legal.w">拿一份对方发来的合同，对照你自己的条款底线过一遍。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.legal.r">一个抽条款的智能体、一个手里握着 playbook 的审查智能体、一个出红线稿的起草智能体——以及那个真正决定什么可以接受的律师。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.legal.c">每一处偏离都对上它偏离的那条 playbook，每一条抽出来的条款都指回原文位置。系统放不进任何一条里的条款会被标出来，而不是猜一个。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.legal.l">这次取了什么立场、为什么、最后谈成什么样。下一份同形态的合同从这里起跑，而不是只从 playbook 起跑。</dd></div>
+          </dl>
+        </section>
+
+        <!-- DESIGN THINKING -->
+        <section class="case" role="tabpanel" id="panel-design" aria-labelledby="tab-design" data-case="design" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.design.w">从二十场访谈，走到一个值得解的问题。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.design.r">负责转写、聚类和唱反调的智能体；以及那个对「问题怎么框」负责的主持人。发散对智能体来说很便宜，收敛是人的价值判断——工具不该把这两件事搅在一起。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.design.c">每一条洞察都挂着它来自的访谈片段，所以一个听起来很好、其实只靠一句话撑着的聚类，一眼就看得出来是这样。概念会对照一开始就说定的约束做检查。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.design.l">问题定义、被否掉的方向，以及为什么被否。设计知识大部分丢在第二件事上；一块留得住它的画布，比那份 deck 值钱。</dd></div>
+          </dl>
+        </section>
+
+        <!-- EDUCATION -->
+        <section class="case" role="tabpanel" id="panel-edu" aria-labelledby="tab-edu" data-case="edu" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.edu.w">学生在查一个查不到答案的问题。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.edu.r">一个只问下一个问题、不给答案的引导智能体，一个检查论断有没有证据支撑的证据智能体，学生，以及一个能看到整条路径的老师。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.edu.c">没有挂上证据的结论不算做完——和这套系统其余部分跑的是同一条规则。「不给答案」是智能体的权限配置，不是一句承诺。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.edu.l">推理过程本身就是作品。老师读的是路径——试过什么、丢掉什么、在哪里改了主意——而不是给一段谁写的都有可能的文字打分。</dd></div>
+          </dl>
+        </section>
+
+        <!-- FINANCE -->
+        <section class="case" role="tabpanel" id="panel-finance" aria-labelledby="tab-finance" data-case="finance" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.finance.w">把一个月的数字，变成一个有人会签字的判断。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.finance.r">从业务系统取数、建模、以及独立重算一遍的智能体，加上那个对假设负责的分析师。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.finance.c">模型对照实际数重新算过，每一个背后没有来源的假设都被标成「需要人来定」。一个没被证明的数字可以存在；但它不许不出声。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.finance.l">这次用的口径和做的判断成为下个月的基线，于是「这个数到底算什么」这场反复的争论，只发生一次。</dd></div>
+          </dl>
+        </section>
+
+        <!-- RESEARCH -->
+        <section class="case" role="tabpanel" id="panel-research" aria-labelledby="tab-research" data-case="research" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.research.w">一场尽调，或者一个你只有两周时间搞懂的市场。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.research.r">一支并行处理多来源的研究智能体团队、一个分析智能体、一个撰写智能体——以及那位真正值钱的东西是方法论的顾问。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.research.c">来源可核，被剔除的来源连同原因一起记下来。一个发现值不值得信，大半取决于你知不知道它看过什么、又扔掉了什么。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.research.l">方法论变成客户在项目结束之后还在跑的智能体和技能。这就是「卖一份报告」和「留下一套系统」的区别。</dd></div>
+          </dl>
+        </section>
+
+        <!-- OPERATIONS -->
+        <section class="case" role="tabpanel" id="panel-ops" aria-labelledby="tab-ops" data-case="ops" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.ops.w">一条跨四个系统、总在其中一个上断掉的例行流程。</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">房间里有谁</dt><dd data-i18n="start.ops.r">被精确授予这条流程所需工具、且仅此而已的智能体，加上那个对异常负责的运营。</dd></div>
+            <div><dt data-i18n="start.check">什么会被检查</dt><dd data-i18n="start.ops.c">每一次调用都发生在授权边界之内、运行时被观测、验证没过时有回滚路径。到这个场景，harness 就不再是一条设计原则，而是你被允许上线的理由本身。</dd></div>
+            <div><dt data-i18n="start.left">留下了什么</dt><dd data-i18n="start.ops.l">异常变成规则。同一件事第四次断掉的时候，怎么处理已经写在工作流里了。</dd></div>
+          </dl>
+        </section>
+      </div>
     </div>
+
+    <p class="cases__note" data-reveal data-i18n="start.note">以上是「一个工作单元在各个学科里长什么样」的示例，不是客户案例。我们还早，与其借来一份我们还没挣到的可信度，不如把这东西的形状直接给你看。</p>
   </div>
 </section>
 
@@ -791,7 +845,7 @@
   <div class="wrap">
     <div class="footer__grid">
       <div class="footer__col footer__col--brand">
-        <a class="brand" href="#top" aria-label="WorkspaceX home">
+        <a class="brand" href="#top" aria-label="WorkspaceX 首页" data-i18n-aria="aria.home">
           <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
           <span class="brand__name">WorkspaceX</span>
         </a>

@@ -12,6 +12,7 @@ import {
 import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './diagrams.js';
 import { initSurface } from './surface.js';
 import { initCompare } from './compare.js';
+import { initCases } from './cases.js';
 
 /* Marks the document as script-capable. Read by the reveal failsafe in
    motion.css: if this never executes, the page reveals itself anyway. */
@@ -33,6 +34,7 @@ const boot = () => {
   step('nav', initNav);
   step('surface', initSurface);
   step('compare', initCompare);
+  step('cases', initCases);
   step('offscreen pause', initOffscreenPause);
   step('hero parallax', initHeroParallax);
   step('reading progress', initReadingProgress);
