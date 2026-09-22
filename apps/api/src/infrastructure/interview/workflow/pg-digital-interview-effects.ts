@@ -651,8 +651,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           topic: snapshot.topic, expert, questions,
         });
       } catch (error) {
-        if (!(error instanceof ModelCallError || error instanceof InvalidInterviewAnswersError)) throw error;
-        const code = error instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_OUTPUT_INVALID";
+        const code = error instanceof InvalidInterviewAnswersError ? "MODEL_OUTPUT_INVALID" : "MODEL_CALL_FAILED";
         await this.persistRun(input, expert, questions.length, "failed", [], code);
         return;
       }
