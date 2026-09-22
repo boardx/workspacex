@@ -43,6 +43,13 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # setup-node@v5 turns package-manager caching on by default, sees the
+          # repo's pnpm workspace and then fails with "Unable to locate
+          # executable file: pnpm". The other workflows install pnpm first and
+          # ask for `cache: pnpm`; this one has nothing to cache — apps/home is
+          # dependency-free on purpose, which is the whole reason it has no
+          # package.json. So: off.
+          package-manager-cache: false
       - name: static gates
         working-directory: apps/home
         run: node scripts/check-all.mjs --static-only
@@ -58,6 +65,13 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # setup-node@v5 turns package-manager caching on by default, sees the
+          # repo's pnpm workspace and then fails with "Unable to locate
+          # executable file: pnpm". The other workflows install pnpm first and
+          # ask for `cache: pnpm`; this one has nothing to cache — apps/home is
+          # dependency-free on purpose, which is the whole reason it has no
+          # package.json. So: off.
+          package-manager-cache: false
       - name: install the dev-only browser tools
         working-directory: apps/home
         # 在一个自带 package.json 的临时目录里装，再把包软链进来：仓库根的
