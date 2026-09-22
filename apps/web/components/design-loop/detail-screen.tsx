@@ -840,7 +840,16 @@ export function DesignDetailScreen({
               * 第一次来的人最可能干的事恰恰是先随便说一句。真正的条件是「还没画出来东西」，
               * 这个条件原本就写在里层（`prototype.length === 0`），只是被外层那道门挡住了。
               */}
-            {project.prototype.length === 0 && (
+            {/*
+              * ⚠ 迭代 30 的修法在真浏览器上撞到了一条既有约定（`design-prototype-loop.spec.ts`
+              *   「空项目：起手模板 → 发送 → …」）：点了一条起手模板、AI 回过话并给出
+              *   **它自己的下一步建议**之后，那三条通用示例就该让位——两排 chip 叠在一起，
+              *   更贴题的那一排反而被淹掉。
+              *
+              *   所以条件不是「说过话就收起」（那正是迭代 30 要修的 bug：随口一句「你好」
+              *   把示例永久关掉），而是「还没画出东西 **且** 还没有更贴题的建议」。
+              */}
+            {project.prototype.length === 0 && suggestions.length === 0 && (
               <div className="flex max-w-[90%] flex-col gap-2 self-start">
                 {project.chat.length > 0 && (
                   <p className="text-10 text-muted-foreground" data-testid="design-detail-starters-again">

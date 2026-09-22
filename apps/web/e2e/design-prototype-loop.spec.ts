@@ -99,7 +99,9 @@ test.describe("原型画布主链路（迭代 10）", () => {
     await page.getByTestId("design-detail-history-toggle").click();
     await expect(page.getByTestId("design-history-item-2")).toBeVisible();
     await page.getByTestId("design-history-preview-1").click();
-    await expect(page.getByTestId("design-detail-preview-banner")).toContainText("v1");
+    // 迭代 28 起横幅说的是人话（「正在看第 1 版的样子」），不再是 `v1`——
+    // 断言要的一直是「横幅说得出你在看哪一版」，跟着改成新说法，意图不变。
+    await expect(page.getByTestId("design-detail-preview-banner")).toContainText("第 1 版");
     await page.getByTestId("design-detail-preview-exit").click();
     await expect(page.getByTestId("design-detail-preview-banner")).toHaveCount(0);
     await page.getByTestId("design-detail-export").click();
