@@ -44,6 +44,7 @@
 <link rel="modulepreload" href="../assets/js/motion.js">
 <link rel="modulepreload" href="../assets/js/diagrams.js">
 <link rel="modulepreload" href="../assets/js/surface.js">
+<link rel="modulepreload" href="../assets/js/compare.js">
 <link rel="modulepreload" href="../assets/js/zh.js">
 <link rel="modulepreload" href="../assets/js/diagram-strings.js">
 
@@ -134,6 +135,9 @@
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu"><span></span></button>
     </div>
   </div>
+  <!-- Reading progress. The page is roughly seventeen thousand pixels tall;
+       a scrollbar thumb the size of a grain of rice is not orientation. -->
+  <div class="nav__progress" aria-hidden="true"><i></i></div>
 </header>
 
 <main id="main">
@@ -227,8 +231,18 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="stage__inner" data-animates data-diagram="break" role="img" aria-labelledby="break-desc"></div>
-      <p class="stage__caption" id="break-desc" data-i18n="problem.caption">问题进入聊天窗口，答案返回来，有人把它重新敲进真正的业务系统，另一个人在脑子里做了审查，结果落进一份再也不会有人打开的文档。每两步之间，上下文都在蒸发——而且事后没有任何东西可以证明发生过什么。</p>
+      <div class="switch" role="group" aria-label="Compare">
+        <button class="switch__btn" type="button" data-view="break" aria-pressed="true" data-i18n="problem.tabNow">今天</button>
+        <button class="switch__btn" type="button" data-view="chain" aria-pressed="false" data-i18n="problem.tabNext">换成 WorkspaceX</button>
+      </div>
+
+      <div class="stage__inner compare">
+        <div class="compare__pane is-on" data-animates data-diagram="break" data-view="break" role="img" aria-labelledby="break-desc"></div>
+        <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
+      </div>
+
+      <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">问题进入聊天窗口，答案返回来，有人把它重新敲进真正的业务系统，另一个人在脑子里做了审查，结果落进一份再也不会有人打开的文档。每两步之间，上下文都在蒸发——而且事后没有任何东西可以证明发生过什么。</p>
+      <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">同样是这五步，区别在于步与步之间什么都没掉。上下文往前带，每一次行动都在边界之内发生，每一个结果都留下证据，学到的东西成为下一次的起跑点——而不是被扔掉。</p>
     </div>
 
     <div class="grid grid--3 problem__losses" data-stagger>
@@ -478,12 +492,19 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="arch.eyebrow">07 — 架构</span>
       <h2 data-i18n="arch.title">五层。上面那层要跑得快，中间那层一步都不能动。</h2>
-      <p class="lead" data-i18n="arch.lead">模型可替换，工具可组合。你的语义、你的证据、你的组织记忆，是丢不起的那一部分。</p>
+      <p class="lead" data-i18n="arch.lead">点一层看看，改动它会波及什么。模型可替换，工具可组合。你的语义、你的证据、你的组织记忆，是丢不起的那一部分。</p>
     </header>
 
     <div class="arch">
-      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="img" aria-labelledby="arch-desc"></div>
+      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="group" aria-labelledby="arch-desc"></div>
       <div class="arch__why">
+        <div class="arch__detail" id="arch-detail" aria-live="polite">
+          <p data-layer-detail="l5" hidden data-i18n="arch.d5">换掉一个界面，下面的层毫无察觉。体验层本来就该是你跑得最快的地方。</p>
+          <p data-layer-detail="l4" hidden data-i18n="arch.d4">换模型——前沿的、国产的、或者完全本地的——这条线以下什么都不变。你的本体、证据与权限一动不动。</p>
+          <p data-layer-detail="l3" data-i18n="arch.d3">改动 harness，它上面的一切都得重新验证。授权、执行、留证与回滚都住在这里，所以这层不能随便动。</p>
+          <p data-layer-detail="l2" hidden data-i18n="arch.d2">改变组织怎么被建模，上面每一层都继承这个改动。这是系统里搞错代价最高、做对价值最大的地方。</p>
+          <p data-layer-detail="l1" hidden data-i18n="arch.d1">在云、私有化与本地优先之间迁移，不碰上面任何一层。部署是一个选择，不是产品的另一个分叉。</p>
+        </div>
         <div class="arch__whyitem" data-reveal="right">
           <h3 data-i18n="arch.w1.t">模型无关</h3>
           <p data-i18n="arch.w1.b">前沿模型、国产模型、完全本地的模型，接入同一套运行时。换掉一个，不会碰到你的本体。</p>
@@ -502,7 +523,7 @@
         </div>
       </div>
     </div>
-    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">自下而上五层：基础设施、本体与知识、harness、智能体与工作流、体验层。</p>
+    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">自下而上五层：基础设施、本体与知识、harness、智能体与工作流、体验层。选中一层可以看到改动它会波及什么。</p>
   </div>
 </section>
 

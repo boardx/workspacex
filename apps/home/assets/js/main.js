@@ -7,10 +7,11 @@
 import { pageLang, initLangHint } from './lang.js';
 import {
   initReveals, initNav, initScene, splitWords, reducedMotion,
-  initOffscreenPause, initHeroParallax,
+  initOffscreenPause, initHeroParallax, initReadingProgress,
 } from './motion.js';
 import { renderDiagrams, getLoop, watchBreakpoint, syncDiagramScales } from './diagrams.js';
 import { initSurface } from './surface.js';
+import { initCompare } from './compare.js';
 
 /* Marks the document as script-capable. Read by the reveal failsafe in
    motion.css: if this never executes, the page reveals itself anyway. */
@@ -31,8 +32,10 @@ const boot = () => {
   step('reveals', initReveals);
   step('nav', initNav);
   step('surface', initSurface);
+  step('compare', initCompare);
   step('offscreen pause', initOffscreenPause);
   step('hero parallax', initHeroParallax);
+  step('reading progress', initReadingProgress);
   step('breakpoint', () => watchBreakpoint(() => {
     step('diagrams', () => renderDiagrams());
     step('loop scene', wireLoopScene);

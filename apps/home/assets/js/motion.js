@@ -253,6 +253,26 @@ export function initOffscreenPause() {
 }
 
 /* -------------------------------------------------------------------------
+   Reading progress
+   ------------------------------------------------------------------------- */
+export function initReadingProgress() {
+  const bar = document.querySelector('.nav__progress i');
+  if (!bar) return;
+
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const doc = document.documentElement;
+    const scrollable = doc.scrollHeight - window.innerHeight;
+    const p = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
+    bar.style.setProperty('--read', p.toFixed(4));
+  };
+  window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+  window.addEventListener('resize', () => { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+  update();
+}
+
+/* -------------------------------------------------------------------------
    Hero parallax — the aurora drifts slower than the page
    ------------------------------------------------------------------------- */
 export function initHeroParallax() {

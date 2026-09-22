@@ -267,3 +267,48 @@
   .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
   .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
 }
+
+/* ---- segmented switch ----------------------------------------------------- */
+.switch {
+  display: inline-flex; align-items: center;
+  margin: clamp(1.25rem, 3vw, 2.5rem) clamp(1.25rem, 3vw, 2.5rem) 0;
+  padding: 3px; border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.04);
+}
+.switch__btn {
+  padding: 0.5rem 1rem; border-radius: 999px;
+  font-size: var(--t-small); font-weight: 600;
+  color: var(--fg-dim);
+  min-height: 34px;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.switch__btn:hover { color: var(--fg-soft); }
+.switch__btn[aria-pressed="true"] { color: var(--on-grad); background: var(--grad); }
+@media (pointer: coarse) { .switch__btn { min-height: 44px; } }
+
+/* ---- compare panes -------------------------------------------------------- */
+/* Both states occupy the same grid cell so the frame does not resize when the
+   view changes — a stage that jumps height turns a comparison into a distraction. */
+.compare { display: grid; }
+.compare__pane {
+  grid-area: 1 / 1;
+  /* A grid item defaults to `min-width: auto`, which is its min-content size.
+     An <svg> with a viewBox and no width attribute reports an intrinsic width
+     of the viewBox — 1000px here — so the panes refused to shrink below that
+     and hung 160px outside the stage at every width under ~1100. */
+  min-width: 0;
+  transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+}
+.compare__pane.is-off {
+  opacity: 0; transform: scale(0.985);
+  pointer-events: none;
+}
+.compare__pane.is-on { opacity: 1; transform: none; }
+
+.stage__caption.is-off { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .compare__pane { transition: none; }
+  .compare__pane.is-off { transform: none; }
+}

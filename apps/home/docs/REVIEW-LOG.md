@@ -312,3 +312,27 @@ partners. It offered no evidence that any of it exists.
 | 10 | The nav carried a "Beta" tag that asserted a stage and explained nothing. | It is now a link reading "Early access" that jumps to the answer about what stage this is at. |
 
 228 → 296 translated values, all gates green.
+
+---
+
+## Round 12 — interaction
+
+The page was a scroll and nothing else. Two of its central claims were made in
+prose and never demonstrated, when demonstrating them is cheap.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The most important comparison on the page was never actually shown.** The broken work chain got a diagram; what replaces it was described two sections later in words. The reader had to hold the before in their head to understand the after. | A segmented switch over one frame: *Today* and *With WorkspaceX*, same five steps, swapped in place. Both states share a grid cell so the stage does not resize — measured 417 px against 418 px across the switch. |
+| 2 | **"Model-agnostic" and "the middle must not move" were assertions the diagram never supported.** Five labelled boxes, nothing to do. | Layers are selectable, and selecting one highlights everything a change there would disturb. Selecting the model layer lights up **nothing else** — the claim, demonstrated. Selecting the ontology lights up three. Verified by test, not by eye. |
+| 3 | Making the SVG interactive broke its semantics: it was still `aria-hidden` while containing focusable controls, and its host was still `role="img"` while containing interactive descendants. **Two serious axe violations, both introduced by the feature that was supposed to improve the page.** | `role="group"` on the host, `aria-hidden` removed, and each layer given an `aria-label` — SVG `<text>` does not name its ancestor the way HTML content does. Back to 0 violations. |
+| 4 | **The compare panes hung 160 px outside their stage at every width below ~1100.** A grid item defaults to `min-width: auto`, which is its min-content size, and an `<svg>` with a viewBox and no width attribute reports an intrinsic width of the viewBox — 1000 px. | `min-width: 0`. Caught by the responsive harness at 900 and 1024, which is exactly the range nobody reviews by eye. |
+| 5 | The new layer controls suppressed their outline and relied on a stroke change on a child element — which is unreliable on engines where focus styling inside SVG is patchy. | Both indicators kept. Suppressing either leaves keyboard users guessing on some browser. |
+| 6 | A 17,000 px page offered no sense of position. A scrollbar thumb at that height is a grain of rice. | Reading progress along the bottom edge of the nav, driven per frame with no easing — easing it makes it lag the content it describes. |
+| 7 | The new switch responded to clicks only, when a segmented control should move under the arrow keys. | Left and right move and select. |
+| 8 | The inactive compare pane stayed in the accessibility tree, so a screen reader would announce both versions of the same diagram back to back. | `hidden` and `aria-hidden` on whichever is off. |
+| 9 | The nav's new "Early access" tag wrapped to two lines and stretched the whole brand block. | `white-space: nowrap`. |
+| 10 | Two harnesses went stale against the new page: the diagram count moved from 7 to 8, and the focus-ring check could not see an indicator rendered on an SVG child. | Both updated. A harness that silently measures the old page is worse than no harness. |
+
+Everything re-verified: axe 0 in both languages, keyboard clean, responsive
+clean at eleven widths, robustness clean, and two new harnesses covering the
+switch and the layer explorer.

@@ -177,3 +177,25 @@
      square would otherwise eat most of a phone screen */
   [data-diagram="loop"] { aspect-ratio: 1 / 1; max-width: 340px; margin-inline: auto; }
 }
+
+/* ---- architecture: selectable layers -------------------------------------- */
+.d-arch__row[data-layer] { cursor: pointer; }
+/* Two indicators on purpose. The plate stroke is the one that reads well
+   inside the drawing; the outline is the one that survives engines where
+   focus styling on an SVG child is unreliable. Suppressing either leaves
+   keyboard users guessing on some browser. */
+.d-arch__row[data-layer]:focus-visible .d-arch__plate {
+  stroke: var(--c-2); stroke-width: 2;
+}
+.d-arch__row[data-selected="true"] .d-arch__plate {
+  fill: rgba(255, 46, 115, 0.12);
+  stroke: rgba(255, 46, 115, 0.55);
+}
+/* Layers a change at the selected layer would reach. The point of the whole
+   interaction is how few light up when you pick the model layer. */
+.d-arch__row[data-impacted="true"] .d-arch__plate {
+  fill: rgba(255, 122, 24, 0.07);
+  stroke: rgba(255, 122, 24, 0.3);
+  stroke-dasharray: 4 3;
+}
+.d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); }

@@ -426,6 +426,8 @@ function arch(host) {
   const W = narrow ? 340 : 760, rowH = narrow ? 62 : 74, gap = 10;
   const H = ARCH_LAYERS.length * (rowH + gap) + 10;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-arch', preserveAspectRatio: 'xMidYMid meet' });
+  // It carries real controls now, so it must not be hidden from assistive tech.
+  s.removeAttribute('aria-hidden');
   defs(s, 'g5');
 
   ARCH_LAYERS.forEach((layer, i) => {
@@ -446,6 +448,17 @@ function arch(host) {
     g.append(el('text', {
       x: narrow ? 12 : 22, y: y + rowH / 2 + 4, 'text-anchor': 'middle', class: 'd-label d-label--xs d-label--faint',
     }, layer.id.toUpperCase()));
+
+    /* Selectable: "model-agnostic" and "the middle must not move" are claims
+       the prose makes and the picture never demonstrated. Picking a layer
+       shows what sits in it and whether swapping it touches anything else. */
+    g.setAttribute('tabindex', '0');
+    g.setAttribute('role', 'button');
+    g.setAttribute('data-layer', layer.id);
+    g.setAttribute('aria-pressed', String(layer.id === 'l3'));
+    // SVG <text> does not name its ancestor the way HTML content does.
+    g.setAttribute('aria-label',
+      `${layer.id.toUpperCase()} · ${t(`d.arch.${layer.id}`)} — ${t(`d.arch.${layer.id}d`)}`);
     s.append(g);
   });
 
@@ -468,6 +481,48 @@ function arch(host) {
 
   host.replaceChildren(s);
   registerScale(s);
+  return wireArchSelection(s);
+}
+
+/* Which layers a swap at the selected layer disturbs. The interesting answer
+   is the empty one: changing the model at L4 reaches nothing below it. */
+const ARCH_IMPACT = {
+  l5: ['l5'],
+  l4: ['l4'],
+  l3: ['l3', 'l4', 'l5'],
+  l2: ['l2', 'l3', 'l4', 'l5'],
+  l1: ['l1'],
+};
+
+function wireArchSelection(root) {
+  const rows = [...root.querySelectorAll('[data-layer]')];
+  const detail = document.getElementById('arch-detail');
+  if (!rows.length) return () => {};
+
+  const select = (id) => {
+    const impact = ARCH_IMPACT[id] ?? [id];
+    rows.forEach((row) => {
+      const rid = row.dataset.layer;
+      row.setAttribute('aria-pressed', String(rid === id));
+      row.setAttribute('data-selected', String(rid === id));
+      row.setAttribute('data-impacted', String(rid !== id && impact.includes(rid)));
+    });
+    if (detail) {
+      detail.querySelectorAll('[data-layer-detail]').forEach((d) => {
+        d.toggleAttribute('hidden', d.dataset.layerDetail !== id);
+      });
+    }
+  };
+
+  rows.forEach((row) => {
+    row.addEventListener('click', () => select(row.dataset.layer));
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(row.dataset.layer); }
+    });
+  });
+
+  select('l3');
+  return () => {};
 }
 
 /* =========================================================================

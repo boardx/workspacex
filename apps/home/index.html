@@ -43,6 +43,7 @@
 <link rel="modulepreload" href="assets/js/motion.js">
 <link rel="modulepreload" href="assets/js/diagrams.js">
 <link rel="modulepreload" href="assets/js/surface.js">
+<link rel="modulepreload" href="assets/js/compare.js">
 <link rel="modulepreload" href="assets/js/zh.js">
 <link rel="modulepreload" href="assets/js/diagram-strings.js">
 
@@ -133,6 +134,9 @@
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu"><span></span></button>
     </div>
   </div>
+  <!-- Reading progress. The page is roughly seventeen thousand pixels tall;
+       a scrollbar thumb the size of a grain of rice is not orientation. -->
+  <div class="nav__progress" aria-hidden="true"><i></i></div>
 </header>
 
 <main id="main">
@@ -226,8 +230,18 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="stage__inner" data-animates data-diagram="break" role="img" aria-labelledby="break-desc"></div>
-      <p class="stage__caption" id="break-desc" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
+      <div class="switch" role="group" aria-label="Compare">
+        <button class="switch__btn" type="button" data-view="break" aria-pressed="true" data-i18n="problem.tabNow">Today</button>
+        <button class="switch__btn" type="button" data-view="chain" aria-pressed="false" data-i18n="problem.tabNext">With WorkspaceX</button>
+      </div>
+
+      <div class="stage__inner compare">
+        <div class="compare__pane is-on" data-animates data-diagram="break" data-view="break" role="img" aria-labelledby="break-desc"></div>
+        <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
+      </div>
+
+      <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
+      <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">The same five steps, except nothing is dropped between them. Context carries forward, every action is taken inside a boundary, every result leaves evidence, and what was learned becomes the starting point of the next run rather than being thrown away.</p>
     </div>
 
     <div class="grid grid--3 problem__losses" data-stagger>
@@ -477,12 +491,19 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="arch.eyebrow">07 — Architecture</span>
       <h2 data-i18n="arch.title">Five layers. The top moves fast. The middle must not move at all.</h2>
-      <p class="lead" data-i18n="arch.lead">Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
+      <p class="lead" data-i18n="arch.lead">Pick a layer to see what changing it would disturb. Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
     </header>
 
     <div class="arch">
-      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="img" aria-labelledby="arch-desc"></div>
+      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="group" aria-labelledby="arch-desc"></div>
       <div class="arch__why">
+        <div class="arch__detail" id="arch-detail" aria-live="polite">
+          <p data-layer-detail="l5" hidden data-i18n="arch.d5">Replace a surface and nothing below notices. The experience layer is where you should be able to move fastest.</p>
+          <p data-layer-detail="l4" hidden data-i18n="arch.d4">Swap the model — frontier, domestic, or fully local — and nothing below this line changes. Your ontology, your evidence and your permissions are untouched.</p>
+          <p data-layer-detail="l3" data-i18n="arch.d3">Change the harness and everything above it has to be re-verified. This is where authorization, execution, evidence and rollback live, so it is the layer that must not move casually.</p>
+          <p data-layer-detail="l2" hidden data-i18n="arch.d2">Change how your organization is modelled and every layer above inherits the change. This is the most expensive thing in the system to get wrong, and the most valuable to get right.</p>
+          <p data-layer-detail="l1" hidden data-i18n="arch.d1">Move between cloud, on-premise and local-first without touching anything above. Deployment is a choice, not a fork of the product.</p>
+        </div>
         <div class="arch__whyitem" data-reveal="right">
           <h3 data-i18n="arch.w1.t">Model-agnostic</h3>
           <p data-i18n="arch.w1.b">Frontier, domestic or fully local models plug into the same runtime. Swapping one does not touch your ontology.</p>
@@ -501,7 +522,7 @@
         </div>
       </div>
     </div>
-    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">Five stacked layers, from infrastructure at the base through ontology and knowledge, the harness, agents and workflow, up to the experience layer.</p>
+    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">Five stacked layers, from infrastructure at the base through ontology and knowledge, the harness, agents and workflow, up to the experience layer. Select a layer to see what changing it would disturb.</p>
   </div>
 </section>
 

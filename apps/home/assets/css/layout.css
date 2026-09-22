@@ -93,6 +93,8 @@
 .brand__tag {
   font-family: var(--font-mono);
   font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase;
+  white-space: nowrap;   /* "Early access" was wrapping to two lines and
+                            stretching the whole brand block */
   padding: 0.2rem 0.45rem; border-radius: 999px;
   color: var(--c-2);
   border: 1px solid rgba(255, 46, 115, 0.35);
@@ -260,4 +262,17 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
   .nav__panelactions .btn--primary { justify-content: center; }
   /* the bar keeps only what a thumb needs at a glance */
   .nav__inner { gap: 0.75rem; }
+}
+
+/* ---- reading progress ----------------------------------------------------- */
+.nav__progress {
+  position: absolute; inset: auto 0 0 0; height: 2px;
+  background: transparent; pointer-events: none;
+}
+.nav__progress i {
+  display: block; height: 100%; width: 100%;
+  background: var(--grad);
+  transform: scaleX(var(--read, 0)); transform-origin: left;
+  /* No transition: it is driven per frame from scroll position, and easing it
+     makes it lag the content it is describing. */
 }
