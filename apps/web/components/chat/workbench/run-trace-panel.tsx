@@ -5,6 +5,7 @@ import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
+import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
@@ -80,6 +81,30 @@ function toolGroupLabel(tool: string, count: number): string {
  * `getAnimations()` 的 `playState` + 隔 20 帧的 transform 两帧比对 + 命中测试。
  */
 /** A disclosure never changes the lifetime of the event subscription. */
+/**
+ * 「原始地址」——这次调用打开的那一页，可点。
+ *
+ * 地址来自**模型写的工具参数**，正文那层 `rehype-sanitize` 管不到这条新路径，
+ * 由 `externalHttpUrl` 只放行 http/https；判不过就**整行不画**，而不是画一条
+ * 点了没用（或更糟：点了会执行 javascript:）的链接。
+ */
+function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element | null {
+  const url = toolUrl(args);
+  if (url === null) return null;
+  return (
+    <p className="min-w-0">
+      <span className="mr-2 text-11 text-muted-foreground">原始地址</span>
+      <a
+        data-testid="run-trace-entry-source-url"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-11 text-primary underline underline-offset-2"
+      >{url}</a>
+    </p>
+  );
+}
+
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
@@ -207,6 +232,13 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                   不透明的 bg-card 后画盖掉——人类在 devapp 上看到的「fetch_url 卡片盖住
                   上面那一行」。几何门控见 e2e/chat-trace-disclosure-geometry.spec.ts。 */}
               <div className="mt-1.5 space-y-2 pl-4">
+                {/* 2026-09-23 人类交办点名了「浏览网页」。此前 fetch_url / browser_navigate
+                    抓回来的只剩正文文本：折叠行上只有域名（`toolObject` 刻意截到 host），
+                    完整地址埋在「技术细节」里那段 JSON 的第二层折叠下，而且不可点——
+                    用户想核对「这段结论是从哪一页来的」，得展开两层再用眼睛在 JSON 里找。
+                    ⚠ 地址来自**模型写的工具参数**，正文那层 rehype-sanitize 管不到这条路径，
+                    由 `externalHttpUrl` 只放行 http/https；判不过就不画链接（见该文件头注）。 */}
+                <SourceUrlLine args={entry.args} />
                 {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
                 {entry.activityStage ? null : renderTool?.(entry)}
                 {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
