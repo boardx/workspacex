@@ -5,11 +5,11 @@
  * 数字**，不是编出来的圆整数：公式改坏时，红的是"云帆的资本化率不再是 80%"这种
  * 能直接对回材料的事实，而不是一个抽象的样例。
  *
- * 阈值判定函数一并测：它们从 `@repo/contracts/post-investment-rules` 读阈值，这里
+ * 阈值判定函数一并测：它们从 `@repo/maau-postinvest-report` 读阈值，这里
  * 验证"越线/不越线"两侧都对——只测越线一侧的话，把阈值写成 0 也能全绿。
  */
 import { describe, expect, it } from "vitest";
-import { SELF_CHECK_CASES, type SelfCheckCase } from "@repo/contracts/post-investment-rules";
+import { SELF_CHECK_CASES, type SelfCheckCase } from "@repo/maau-postinvest-report";
 import {
   capitalizationRate,
   cashRunwayMonths,

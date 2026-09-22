@@ -41,7 +41,7 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  *   agent 没被选中，回答的是通用助手）。方法论住在那个 Skill 里
  *   （`apps/api/scripts/post-investment-skill-content.ts`），不塞 instructions、
  *   不每条消息重发；判据阈值与派生公式的单一事实源是
- *   `packages/contracts/src/post-investment-rules.ts`。之后传材料/追问/两轮确认/
+ *   `@repo/maau-postinvest-report`。之后传材料/追问/两轮确认/
  *   定向深挖全部用 chat 自己的能力。详情见
  *   `docs/agents/team4-post-investment-report-mvp.md`，验收口径见
  *   `docs/agents/team4-acceptance-rubric.md`。此前两版原型（独立粘贴框 +
