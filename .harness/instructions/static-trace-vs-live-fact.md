@@ -79,8 +79,19 @@
   `path` 却不接线」的 operation ⇒ PR 上当场红（`pnpm run lint:contract-route-coverage`）。
   ⚠ 名单里的条目**不在今天的缺口清单里**同样是一个静态痕迹：它有两种相反的成因
   （路由补上了 / 所属束退出判定范围了），判据见 `lib/contract-route-ratchet.ts` 的头注
+- **`lint-contract-negative-assertion`**（#473，2026-09-21）：源码里「契约里没有 `X`」这类
+  **对契约的否定性断言**，机械核对 `X` 是不是 `packages/contracts/` 里的一个 operation；
+  契约后来加上了 ⇒ 当场红（对应第 1 次那三条注释的形状）。
+  **它只判点名了标识符的那些**——`契约里没有「分享线程」操作` 这种散文断言机械上不可判定，
+  走「只减不增」的预算（`.harness/state/contract-negative-assertion-budget.json`），
+  即**新写的否定性断言必须点名标识符**，这样它才会被持续复核。写这类断言时照这个形状写：
+  ```ts
+  // ✅ 契约里没有 `deleteTemplate` 操作（本门每次 CI 都替你复核一遍）
+  // ❌ 契约里没有删除模板的操作      ← 机械上没人能核实它，它会随时间变假
+  ```
 
-⚠ **覆盖不到的部分要诚实**：散文里的过期断言（issue 正文、代码注释）没有门能自动抓，
+⚠ **覆盖不到的部分要诚实**：上面那道门只覆盖「对契约做否定性断言」这一类，且只覆盖点名
+标识符的那部分。其余散文断言（issue 正文、注释里对能力/路径/状态的叙述）仍然没有门能自动抓，
 只能靠上面那三条习惯。`sweep-docker` 的归属推断问题登记在 #841，修法方向是**让归属可证明
 （label + lease）而不是可推断**——不要用启发式（"超过 N 小时算孤儿"），那会误伤长任务，
 且违反 `agent-resource-cleanup-sop.md` 已有的硬规矩。
@@ -104,7 +115,7 @@
 一轮去查字体/编码，而根因是那份代码压根没上线。
 
 ## 相关
-- #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
+- #473（会说谎的注释 + 否定性断言机械门）· #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
 - `.harness/instructions/deployment-verification-standard.md`（本条在部署链上的落地规则：四层各要问什么）
 - `.harness/instructions/core-loop-readiness-standard.md`（CLR 的门控总览）
 - `.harness/instructions/agent-resource-cleanup-sop.md`（只清理能证明是自己造的栈）
