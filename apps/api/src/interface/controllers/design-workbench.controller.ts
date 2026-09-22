@@ -364,6 +364,9 @@ export class DesignWorkbenchController {
           ownerId: principal.userId,
           threadId: body.threadId,
           ...(body.problem !== undefined ? { problem: body.problem } : {}),
+          // 迭代 16（#3773 R3）：确认阶段一并写入用户改过的验收标准。给了才传——
+          // 省略的语义是「不动」，不是「清空」。
+          ...(body.criteria !== undefined ? { criteria: body.criteria } : {}),
         },
       );
     } catch (e) {

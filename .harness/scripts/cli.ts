@@ -138,6 +138,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sync          --phase NN [--apply]");
       log.info("  pnpm harness gen-subagents             # 从 .harness/agents/*.yaml 生成 Claude + Codex subagents");
       log.info("  pnpm harness claim         --phase NN --feature F01 --owner <agent-id>");
+      log.info("                             # --feature 也可传占位 id（F-TBD-<slug>）：正式编号在本命令写盘时原子分配（#1094）");
       log.info("  pnpm harness active-features [--phase NN] [--sprint MM]  # 开工第 2 步：从权威 feature_list.json 重建 sprint 派生视图（不入库）并打印 in_progress（#401）");
       log.info("  pnpm harness migrate-labels            # 收敛线上 label 到规范 status:*（ADR-004）；加 --apply 执行");
       log.info("  pnpm harness sweep-unblock [--dry-run]                 # depends_on 全 passing 的 blocked → not_started");

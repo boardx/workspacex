@@ -13,6 +13,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { findPhaseDir, phaseFeatureListPath, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
+import { duplicateFeatureIds, isPlaceholderFeatureId } from "./lib/feature-id";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint } from "./lib/evidence-fingerprint";
@@ -32,6 +33,12 @@ import {
   type OwnerAllowlistKey,
 } from "./lib/feature-owner";
 import { readKnownAgentIdentities } from "./lib/agent-identity";
+import {
+  describeMissingTargets,
+  judgeVerificationTargetRatchet,
+  staleVerificationTargetEntries,
+  type TargetAllowlistKey,
+} from "./lib/verification-targets";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues, type IssueListResult } from "./lib/github-issues";
@@ -44,6 +51,7 @@ import type { Feature } from "./lib/types";
 
 const FEATURE_EVIDENCE_ALLOWLIST_PATH = join(STATE_DIR, "feature-evidence-allowlist.json");
 const FEATURE_OWNER_ALLOWLIST_PATH = join(STATE_DIR, "feature-owner-allowlist.json");
+const VERIFICATION_TARGET_ALLOWLIST_PATH = join(STATE_DIR, "verification-target-allowlist.json");
 
 /** #1136 棘轮名单读取。缺文件视为空名单（拒绝任何非标准 evidence），不是「跳过检查」。 */
 function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
@@ -70,6 +78,13 @@ function readFeatureOwnerAllowlist(): readonly OwnerAllowlistKey[] {
  * ——`.harness/` 不是 turbo 包，`turbo run typecheck` 扫不到它。
  */
 type ScannedPhase = { readonly phaseId: string; readonly features: readonly Feature[] };
+
+/** #965 棘轮名单读取。同上：缺文件 = 空名单（存量一条都不豁免），不是「跳过检查」。 */
+function readVerificationTargetAllowlist(): readonly TargetAllowlistKey[] {
+  if (!existsSync(VERIFICATION_TARGET_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(VERIFICATION_TARGET_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as TargetAllowlistKey[]) : [];
+}
 
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
@@ -460,6 +475,58 @@ function checkOrphanInProgress(phaseId: string, findings: Finding[]): void {
       phase: phaseId,
       msg: `多 agent 并行阶段存在无 owner 的 in_progress：${orphans.map((f) => f.id).join(", ")}——认领断档（claim 被 ADR-001 拒后没有回补），用 pnpm harness claim 补 owner`,
     });
+  }
+}
+
+/**
+ * ⑥ 编号完整性（#1094，coord-main 2026-08-13 裁决的「机械门」那一半）。
+ *
+ * 撞号此前**完全没有机械检查**：两个 agent 各自在飞分支上用同一个号，本地全绿，
+ * 合并时才炸；2026-08-12 那次是靠人工核对发现的，而人工核对不可复制。
+ * 三条判据，全部只看清单自身，不需要网络：
+ *
+ *   ① 同一 phase 内 id 不得重复（live + archive 合并后算——归档只是搬家，号还占着）；
+ *   ② evidence 路径里的编号必须就是本条目的 id。证据链以编号为键
+ *      （`covers:`、`depends_on`、`F168.verify.log`），指错号 = 指向**别人的** feature，
+ *      而原有检查是拿 `f.id` 去拼路径的，evidence 字符串里写着谁的号它根本不看；
+ *   ③ 占位 id（`F-TBD-*`）不得活过 claim：claim 会取号回填，还带着占位 id 却已经
+ *      in_progress/passing，说明这条绕过了取号那一步。
+ */
+export function judgeDuplicateFeatureIds(ids: readonly string[]): string | null {
+  const dup = duplicateFeatureIds(ids);
+  if (dup.length === 0) return null;
+  return (
+    `同一 phase 内有重复 feature id：${dup.join(", ")}（live + archive 合并后）——` +
+    "两条不同的 feature 共用一个号，covers: / depends_on / evidence 文件名全都会指错人。" +
+    "用 pnpm harness claim 取号（#1094），不要手挑 max+1。"
+  );
+}
+
+/** evidence 字符串里的编号 ≠ 条目 id（#1094 实测：差点把失败的 F168.verify.log 提交进已改号的条目）。 */
+export function judgeEvidenceIdMismatch(f: Pick<Feature, "id" | "evidence">): string | null {
+  const m = EVIDENCE_PATH_RE.exec((f.evidence ?? "").trim());
+  if (!m) return null; // 非标准形态由 checkPassingEvidence 那条棘轮门管
+  const declared = m[1]!;
+  if (declared === f.id) return null;
+  return (
+    `${f.id} 的 evidence 指向 evidence/${declared}.verify.log——文件名里的编号不是本条目的 id。` +
+    `编号撞过之后只改了一半（#1094）：证据链以编号为键，这条 evidence 现在指着别人的 feature。`
+  );
+}
+
+/** 占位 id 活过了 claim（#1094）。 */
+export function judgePlaceholderIdSurvived(f: Pick<Feature, "id" | "status">): string | null {
+  if (!isPlaceholderFeatureId(f.id)) return null;
+  if (f.status === "not_started" || f.status === "blocked") return null; // 还没开工，正常形态
+  return (
+    `${f.id} 是 status=${f.status} 却还带着占位 id——正式编号应该在 pnpm harness claim 时取（#1094）。` +
+    `它现在无法被 issue / evidence / covers: 稳定引用。`
+  );
+}
+
+function checkFeatureIdIntegrity(phaseId: string, f: Feature, findings: Finding[]): void {
+  for (const msg of [judgeEvidenceIdMismatch(f), judgePlaceholderIdSurvived(f)]) {
+    if (msg) findings.push({ level: "FAIL", phase: phaseId, msg });
   }
 }
 
@@ -1113,11 +1180,13 @@ export function doctor(args: Args): void {
   }
   const evidenceAllowlist = readFeatureEvidenceAllowlist();
   const evidenceAllowlistSet = new Set(evidenceAllowlist);
-  // 三道门（#1136 evidence 棘轮 / #1142 owner 棘轮 / #391 反向一致性）的共同输入：
-  // 只收本次真正扫到的 phase，避免 `--phase 01` 这类局部运行把「没扫到的 phase」
-  // 误判成「不再需要」——那会把陈旧检查变成假阳性门。
-  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，另两道各自只用得到
-  // 其中几个字段。同一份快照喂三道门，形状只在 ScannedPhase 声明一次。
+  const targetAllowlist = readVerificationTargetAllowlist();
+  // 四道门（#1136 evidence 形态 / #965 指向物存在性 / #1142 owner 命名空间 /
+  // #391 反向一致性）的共同输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类
+  // 局部运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
+  // 存**完整的 Feature**：#391 要读 sprint / evidence 路径，其余三道各自只用得到
+  // 其中几个字段。同一份快照喂四道门，不留第二份（多份各推一次，将来任何一边
+  // 多一个 continue 就会无声分叉）；形状只在 ScannedPhase 声明一次。
   const scannedPhases: ScannedPhase[] = [];
 
   for (const id of phaseIds) {
@@ -1140,6 +1209,7 @@ export function doctor(args: Args): void {
         checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
       }
       checkSpecRef(id, f, findings);
+      checkFeatureIdIntegrity(id, f, findings);
       if (issues) {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
@@ -1147,6 +1217,9 @@ export function doctor(args: Args): void {
         checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
     }
+    // #1094 的重复 id 判定按 phase 做一次（不是逐 feature）：它查的是集合性质。
+    const dupMsg = judgeDuplicateFeatureIds(fl.features.map((f) => f.id));
+    if (dupMsg) findings.push({ level: "FAIL", phase: id, msg: dupMsg });
     checkProgressRow(id, findings);
     checkRoadmapDrift(id, findings);
     checkOrphanInProgress(id, findings);
@@ -1167,6 +1240,32 @@ export function doctor(args: Args): void {
       level: "FAIL",
       phase: stale.split("/")[0] ?? "-",
       msg: `feature-evidence-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 已不再是「passing + 自由文本 evidence」）——请删掉这一条，留着会遮住未来的回归`,
+    });
+  }
+
+  // #965 指向物存在性棘轮：一条 feature 已经 passing，却指不着自己声称跑过的测试文件，
+  // 只有两种可能——当初就没跑，或者跑完（在某个 worktree 里）从没被提交。两种都是断链，
+  // 而 evidence 的形态/指纹/入 main 三道既有检查一条都看不见它：F166 的证据日志逐字真实、
+  // 指纹对得上、实现也在 main 上，它声称跑绿的三个测试文件却从来没进过任何 ref。
+  const inScopeTargetAllowlist = targetAllowlist.filter((key) =>
+    scannedPhaseIds.has(key.split("/")[0] ?? ""),
+  );
+  const targetVerdict = judgeVerificationTargetRatchet(scannedPhases, inScopeTargetAllowlist);
+  for (const gap of targetVerdict.newGaps) {
+    findings.push({ level: "FAIL", phase: gap.phaseId, msg: describeMissingTargets(gap.featureId, gap.missing) });
+  }
+  for (const key of targetVerdict.grandfathered) {
+    findings.push({
+      level: "WARN",
+      phase: key.split("/")[0] ?? "-",
+      msg: `${key} 的 verification 指向的测试文件不存在——存量豁免（见 verification-target-allowlist.json 的逐条取证），待清理`,
+    });
+  }
+  for (const stale of staleVerificationTargetEntries(scannedPhases, inScopeTargetAllowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg: `verification-target-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 的指向物已补齐，或已不再是 passing）——请删掉这一条，留着会遮住未来的回归`,
     });
   }
 
@@ -1192,4 +1291,13 @@ export function doctor(args: Args): void {
   else if (verdict.outcome === "PASS_WITH_DEBT") log.info(`~ ${verdict.summary}`);
   else log.err(verdict.summary);
   if (verdict.exitCode !== 0) process.exitCode = verdict.exitCode;
+  // 指向物一条单独说，不并进上面那句——上面那句在存量豁免还没清干净时说「都在仓库里」
+  // 就是假的，而 doctor 打印一句此刻不成立的话，正是 #1136 记下的那种失效。
+  if (!fails.length) {
+    log.info(
+      targetVerdict.grandfathered.length > 0
+        ? `· 指向物存在性：${targetVerdict.grandfathered.length} 条存量豁免待清理（见 verification-target-allowlist.json），新增一律 FAIL`
+        : "· 指向物存在性：每条 passing 声称跑过的测试文件都真的在仓库里（棘轮已满）",
+    );
+  }
 }

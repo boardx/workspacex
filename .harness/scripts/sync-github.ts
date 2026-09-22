@@ -8,6 +8,7 @@ import { parse } from "yaml";
 import { HARNESS_DIR, findPhaseDir } from "./lib/paths";
 import { loadRoadmap } from "./lib/roadmap";
 import { loadFeatureList, featuresForSprint } from "./lib/features";
+import { isPlaceholderFeatureId } from "./lib/feature-id";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { describeNotIntegrated, evidenceIntegration, type IntegrationFacts } from "./lib/evidence-integration";
@@ -343,6 +344,13 @@ export function syncGithub(args: Args): void {
   // 3) 对近期 sprint 的 feature 开/更新 Issue
   for (const sid of nearTerm) {
     for (const f of featuresForSprint(fl, sid)) {
+      // #1094：还没取号的条目不投影 issue。issue 是按 `[<id>] <title>` + body marker
+      // 认的，占位 id 开出去的 issue 会在 claim 取号后变成一个再也对不上的孤儿。
+      // 取号发生在 claim，所以「先 claim 再 sync」，不是反过来。
+      if (isPlaceholderFeatureId(f.id)) {
+        log.info(`跳过 ${f.id}（占位 id，还没取号）——先 pnpm harness claim 取号再 sync`);
+        continue;
+      }
       const labels = [`sprint:${phaseId}-${sid}`, `${cfg.labels.area_prefix}${f.area}`];
 
       // 完整实现 status_actions（之前只处理了 blocked/passing）
