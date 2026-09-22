@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 import { ListChecks, FolderOpen, Package, Settings2, Users, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
+import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import { cn } from "@/lib/utils";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
@@ -21,6 +23,8 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 
 const mobileQuery = "(max-width: 767px)";
+/** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
+const INSPECTOR_PANEL_ID = "chat-inspector";
 function subscribeViewport(notify: () => void): () => void {
   const query = window.matchMedia?.(mobileQuery);
   query?.addEventListener("change", notify);
@@ -267,12 +271,32 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   /** 拖拽高亮只在真的能接的时候亮——只读态亮一个"松开即上传"是骗人。 */
   const dropActive = dragActive && canUpload;
 
+  /*
+   * 2026-09-23 人类要求：「可以拖拽边界」。此前整个壳里一处拖拽都没有——右栏只有
+   * `w-72`（288px）/ `w-10` 两档写死。现在展开态的宽度由状态给，并持久化到 localStorage：
+   * 用户调过的宽度是他的工作习惯，不是服务端事实，同 `shell.leftCollapsed` 的既有先例。
+   *
+   * ⚠ 初值**不在 useState 里读 localStorage**：SSR 没有 storage，首帧两端必须一致，
+   *   否则 hydration 警告（同 `app-shell.tsx` 折叠态的做法，把读取放进 effect）。
+   *   折叠态与移动态照旧用类名，宽度只作用于「桌面 + 展开」这一档。
+   */
+  const [width, setWidth] = React.useState(PANEL_WIDTH_DEFAULT);
+  React.useEffect(() => {
+    setWidth(readPanelWidth(INSPECTOR_PANEL_ID, typeof window === "undefined" ? null : window.localStorage, window.innerWidth));
+  }, []);
+  const applyWidth = React.useCallback((next: number) => {
+    setWidth(next);
+    writePanelWidth(INSPECTOR_PANEL_ID, next, typeof window === "undefined" ? null : window.localStorage);
+  }, []);
+  const sizable = !mobile && !collapsed;
+
   const inspector = (
     <aside
       {...dragHandlers}
+      style={sizable ? { width: `${String(width)}px` } : undefined}
       className={cn(
         "relative flex shrink-0 flex-col border-l border-border bg-card",
-        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : "w-72",
+        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : undefined,
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
@@ -283,6 +307,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       {/* 遮罩是 `pointer-events-none` 的纯视觉层，drag 事件继续落在挂了 handlers 的
           这个 `aside` 上（同 `ChatFullSurfaceDropOverlay` 的做法）。`relative` 在
           className 里，遮罩才有定位参照。 */}
+      {/* 把手贴在右栏的**左**边界上：往左拖变宽。折叠态（40px 图标条）与移动态不给把手——
+          那两档不是「更窄的同一档」，是另一种形态。 */}
+      {sizable && (
+        <PanelResizeHandle
+          edge="left"
+          width={width}
+          onWidthChange={applyWidth}
+          label="调整任务检查器宽度"
+          testId="chat-task-workbench-inspector-resize"
+        />
+      )}
       <ChatMaterialsDropOverlay active={dropActive} />
       <div
         role="tablist"
