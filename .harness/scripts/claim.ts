@@ -2,12 +2,19 @@
 // pnpm harness claim --phase NN --feature F01 --owner claude
 // 认领规则：feature 必须 not_started 且 owner=null，否则拒绝
 // 认领后：owner=<agent-id>，status=in_progress（每个 owner 只能有一个 in_progress）
+//
+// #1094：--feature 也可以是占位 id（`F-TBD-<slug>`）——那说明这条还没取号，
+// 正式编号在**本命令写盘的那一刻**才分配（方案 B）。编号的分配点与使用点必须重合：
+// 「开工前先挑个 max+1」的号要等数小时才落盘，那段时间里 main 会涨好几个号，
+// 撞号是常态不是意外（见 lib/feature-id.ts 顶部）。
 
 import { loadFeatureList, saveFeatureList, findFeature, writeActiveFeatures } from "./lib/features";
+import { allocateFeatureId, isPlaceholderFeatureId } from "./lib/feature-id";
+import { phaseFeatureArchivePath, phaseFeatureListPath } from "./lib/paths";
 import { refreshProgress } from "./lib/progress";
 import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
-import { assertDesignSignedOff } from "./lib/design-signoff";
+import { assertDesignSignedOff, signoffFilesCovering } from "./lib/design-signoff";
 import { req } from "./lib/args";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -67,19 +74,40 @@ export function claim(args: Args): void {
     );
   }
 
-  // 执行认领
-  f.owner = owner;
-  f.status = "in_progress";
+  // 取号（#1094）：所有门都过了才取，被拒的 claim 不应该消耗一个编号。
+  // 取号自带锁 + 锁内重读 + 写回核对，见 lib/feature-id.ts。
+  let effectiveId = featureId;
+  if (isPlaceholderFeatureId(featureId)) {
+    const alloc = allocateFeatureId({
+      listPath: phaseFeatureListPath(phaseId),
+      archivePath: phaseFeatureArchivePath(phaseId),
+      placeholderId: featureId,
+      // `covers:` 点名过这个占位 id 的签核文件要一起改，否则这条 feature 一取号
+      // 就"不属于任何契约束"了（上面第 0.5 道门用的就是同一份判定）。
+      referenceFiles: signoffFilesCovering(phaseId, featureId),
+    });
+    effectiveId = alloc.id;
+    log.ok(`取号：${featureId} → ${effectiveId}（第 ${alloc.attempts} 次尝试）`);
+    for (const p of alloc.renamedReferences) log.info(`  已同步改写引用：${p}`);
+    log.info(`从现在起一律用 ${effectiveId}：分支名、commit message、测试 describe、evidence 文件名都以它为准。`);
+  }
 
-  saveFeatureList(phaseId, fl);
+  // 执行认领。**重新读一次**：取号刚刚写过盘，此刻内存里的 fl 已经是旧的
+  //（AGENTS.md「静态痕迹 ≠ 动态事实」），拿它回写会把刚分配的号抹掉。
+  const fresh = loadFeatureList(phaseId);
+  const target = findFeature(fresh, effectiveId);
+  target.owner = owner;
+  target.status = "in_progress";
+
+  saveFeatureList(phaseId, fresh);
 
   // 如果 feature 在某个 sprint，刷新 active-features 视图
-  if (f.sprint) {
-    writeActiveFeatures(phaseId, f.sprint, fl);
+  if (target.sprint) {
+    writeActiveFeatures(phaseId, target.sprint, fresh);
   }
 
   refreshProgress();
-  log.ok(`${owner} 已认领 ${featureId}（${f.title}）`);
+  log.ok(`${owner} 已认领 ${effectiveId}（${target.title}）`);
   log.info(`状态：in_progress | owner：${owner}`);
-  log.info(`开始工作前请先读：pnpm harness verify --sprint ${phaseId}/${f.sprint ?? "?"} --feature ${featureId}`);
+  log.info(`开始工作前请先读：pnpm harness verify --sprint ${phaseId}/${target.sprint ?? "?"} --feature ${effectiveId}`);
 }

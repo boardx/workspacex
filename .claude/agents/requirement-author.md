@@ -46,7 +46,11 @@ UI 是否被人类确认过，权威在束级 `contracts/<bundle>/ui.md` + `desi
    共享内核（00-core）、身份（01-auth）必须排在最前。
 
 ## 每个 feature 必须有的字段
-- `id`：`F<两位序号>`，阶段内唯一
+- `id`：**占位 id `F-TBD-<slug>`**（slug 用短横线小写，批内唯一，如 `F-TBD-room-invite`）。
+  ⚠ **不要自己挑 `F<序号>`**——正式编号由 `pnpm harness claim` 在认领那一刻原子分配
+  （#1094，方案 B）。你生成清单到有人真正开工之间隔着数小时，main 上的编号一天能涨 7 个，
+  按你读到的 max+1 挑号必然撞号，而撞了不会报错：两个分支各自本地全绿，直到合并才炸。
+  见 `.harness/scripts/lib/feature-id.ts`。既有条目的编号照原样保留，不要重排。
 - `title`：一句话，**写用户可见的行为**，不是技术任务
 - `user_visible_behavior`：这个 feature 做完后，**人能在界面上看到什么**
 - `spec_ref`：指回 UC 章节，格式 `<相对路径>.md#R<n>`，
