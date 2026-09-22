@@ -46,4 +46,14 @@ describe("backend-required 的依赖：workflow 与策略文件不许漂移", ()
     expect(workflow).toContain("prototype-audit:");
     expect(policy.aggregates["backend-required"]).toContain("prototype-audit");
   });
+
+  /*
+   * 2026-09-22：`design-loop-e2e` 接进来时**真的踩进了**上面文件头预言的那个坑——
+   * 只往 workflow 的 `needs` 里加，没往策略里加，于是它会被跑、会红，而
+   * `backend-required` 根本不看它。补这一条，和 prototype-audit 同形。
+   */
+  it("design-loop-e2e 在两处都在（设计工作台那三条 spec 真的会拦合并）", () => {
+    expect(workflow).toContain("design-loop-e2e:");
+    expect(policy.aggregates["backend-required"]).toContain("design-loop-e2e");
+  });
 });
