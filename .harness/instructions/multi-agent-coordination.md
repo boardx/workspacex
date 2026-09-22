@@ -9,14 +9,17 @@
 > 共享 git 工作目录的隔离规则（任何角色一律 worktree、分支建好立即 push）见 **ADR-005**。
 > 新 agent/新平台加入协作的最小阅读清单见 `agent-onboarding-checklist.md`。
 >
-> ⚠️ **2026-07-08 起（ADR-009）：认领/心跳/退位的权威已整体切换到 coord-service (D1)**
-> （`pnpm harness lock-*` / `module-lock-*`，需要 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN`
-> 凭据）。本文中所有"lease 评论仪式 / claimed-by 评论 / label 认领锁"的段落自该日起
-> **仅作历史记录保留**——GitHub issue 的 feature 规格用途、`status:*` label 作为
-> feature 工作流的单向投影（`sync-github.ts`）不受影响，但它们不再是协调层的锁或
-> 权威。人类看协调实时状态走 coord-service `GET /status` 或 `/admin/coordination`
-> 仪表盘，不再翻 issue 评论。ADR-004 的协调面结论被 ADR-009 取代；ADR-006/008 保留
-> 为历史决策记录。
+> ⚠️ **2026-07-08 起（ADR-009）：认领/心跳/退位的权威不在 GitHub 评论里**
+> （`pnpm harness lock-*` / `module-lock-*`）。现行权威是 **coord-gateway**（ADR-017）；
+> 凭据环境变量与自检命令只写在 `agent-bootstrap.md` 第 3 步，本文不复述（同一事实
+> 不声明在两处）。本文中所有"lease 评论仪式 / claimed-by 评论 / label 认领锁"的段落
+> 自该日起 **仅作历史记录保留**——GitHub issue 的 feature 规格用途、`status:*` label
+> 作为 feature 工作流的单向投影（`sync-github.ts`）不受影响，但它们不再是协调层的锁
+> 或权威。人类看协调实时状态走 coord-gateway
+> `GET /api/coord/repos/<owner>/<name>/claims` 或 `/admin/coordination` 仪表盘，
+> 不再翻 issue 评论。ADR-004 的协调面结论被 ADR-009 取代、ADR-009 选的 coord-service (D1)
+> 又被 ADR-017 取代（`COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已退役，配了也不会被
+> 读取）；ADR-006/008 保留为历史决策记录。
 
 ## 1. 规范 label 集合（唯一事实，禁止漂移）
 
@@ -58,8 +61,8 @@ status:blocked           旁路：外部障碍（缺 key/环境/上游未绿）�
 | `cap:<x>` | feature.capability | sync 投影 |
 | `review:code-ok` `review:e2e-ok` `review:feature-ok` `review:security-ok` | reviewer verdict | reviewer agent 通过时打 |
 | `review:changes` | 有 reviewer 要求改动 | reviewer agent |
-| `coordination:lease` | ~~总 coordinator（coord-main）唯一性心跳锁~~ **已退役（ADR-009）**：唯一性由 D1 `role:coord-main` claim 裁定（`pnpm harness lock-*`）；存量 lease issue 保留为历史记录 | — |
-| `coordination:lease:<module>` | ~~该 module-coordinator 的唯一性心跳锁~~ **已退役（ADR-009）**：唯一性由 D1 `role:coord-<module>` claim 裁定（`pnpm harness module-lock-*`）；存量 lease issue 保留为历史记录 | — |
+| `coordination:lease` | ~~总 coordinator（coord-main）唯一性心跳锁~~ **已退役（ADR-009）**：唯一性由 coord-gateway `role:coord-main` claim 裁定（`pnpm harness lock-*`）；存量 lease issue 保留为历史记录 | — |
+| `coordination:lease:<module>` | ~~该 module-coordinator 的唯一性心跳锁~~ **已退役（ADR-009）**：唯一性由 coord-gateway `role:coord-<module>` claim 裁定（`pnpm harness module-lock-*`）；存量 lease issue 保留为历史记录 | — |
 
 ### 1.3 迁移（消除线上漂移）
 
@@ -112,7 +115,8 @@ reviewer.required_for 含 "*"   OR   reviewer.required_for ∩ {issue.area} ≠ 
 
 ## 4. 认领租约（lease，防死锁）
 
-> **2026-07-08 起（ADR-009）**：租约的权威载体是 D1 claims 表——认领即
+> **2026-07-08 起（ADR-009；服务选型 2026-07-18 起 ADR-017）**：租约的权威载体是
+> coord-gateway 的 claims——认领即
 > `POST /claims`（`uq_active_claim` 原子判定），心跳即 `POST /claims/:id/heartbeat`，
 > 过期回收由服务端 sweeper 按 ttl 机械执行，不再依赖巡检会话恰好注意到。
 > 下述"claimed-by 评论 + coordinator 轮巡检查"仪式保留为历史记录：
@@ -120,8 +124,9 @@ reviewer.required_for 含 "*"   OR   reviewer.required_for ∩ {issue.area} ≠ 
 - ~~认领时评论 `claimed-by:<id> at <ISO8601>`；worker 每次推进（push/评论）刷新时间。~~
 - ~~coordinator 每轮检查：`status:in-progress` 且最后活动 > `LEASE_TTL`（建议 6h）→
   视为 stale：去 `agent:<id>`、回退 `status:ready-for-dev`、`harness` 释放 owner，可重分派。~~
-- 现行：worker 认领 issue 时对 `issue:<n>` resource 做 D1 claim；stale 判定与回收
-  以 D1 sweeper 的过期事件为准，coordinator 依据 `GET /status` 的 active_claims
+- 现行：worker 认领 issue 时对 `issue:<n>` resource 做 coord-gateway claim；stale 判定与回收
+  以服务端 sweeper 的过期事件为准，coordinator 依据
+  `GET /api/coord/repos/<owner>/<name>/claims` 的 leases
   做重分派决策。
 
 ## 5. review-before-merge 门禁
@@ -240,7 +245,7 @@ v0 只做**契约层**，不引入 coordinator 自动化代码（那是 v1）：
 
 | 层 | 信道 | 用途 | 权威性 |
 |---|---|---|---|
-| 0 | **coord-service (D1)**（`lock-*`/`module-lock-*` 命令 + `GET /status`） | 认领/心跳/退位/过期回收——**一切租约类状态** | **权威（ADR-009 起）**。events 表是协调事件的唯一可信历史 |
+| 0 | **coord-gateway**（`lock-*`/`module-lock-*` 命令 + `GET /api/coord/repos/<owner>/<name>/claims`） | 认领/心跳/退位/过期回收——**一切租约类状态** | **权威（ADR-009 定方向、ADR-017 定实现；旧 coord-service (D1) 已退役）**。events 是协调事件的唯一可信历史 |
 | 1 | **issue/PR 总线**（评论 + label） | review verdict、返工清单、分派点名、事故复盘、需要人类可读叙述的一切；`status:*` label 仅为 feature 工作流投影 | 叙述层。租约类状态不再以此为准（ADR-009 前的历史评论保留可查） |
 | 2 | 跨会话直达消息 | 需要对方立即注意的通知：催办、澄清、回执 | **非权威**。消息中声称的状态变化必须同时在层 0/1 有落点；冲突时以层 0 为准 |
 | 3 | 仓库文件（SOP/registry/feature_list） | 协作规则与规范本身 | 规范权威（ADR-004 决策：规范平面，不受 ADR-009 影响） |

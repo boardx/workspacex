@@ -1,6 +1,8 @@
 ---
 name: meeting-minutes
 description: Turn internal meeting transcripts of up to 60 minutes into concise decisions and action items with evidence locations.
+capability_id: WX-S009
+version: 1.1.2
 ---
 # Meeting minutes
 

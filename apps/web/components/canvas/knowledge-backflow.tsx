@@ -8,6 +8,7 @@ import type { UiState } from "@/lib/ui-state";
 import type { ProjectRole } from "@/lib/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
@@ -238,7 +239,7 @@ function BatchConfirmDialog({ checked, onToggle, onClose, onConfirm }: { checked
           {BATCH_CONFIRM_ITEMS.map((n) => (
             <li key={n.id}>
               <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border-subtle bg-panel px-2.5 py-2 transition-colors duration-200 hover:bg-muted" data-testid={`backflow-batch-item-${n.id}`}>
-                <input type="checkbox" checked={checked.has(n.id)} onChange={() => onToggle(n.id)} className="mt-0.5 h-3.5 w-3.5 accent-primary" aria-label={n.label} />
+                <Checkbox checked={checked.has(n.id)} onChange={() => onToggle(n.id)} aria-label={n.label} />
                 <div className="flex flex-col gap-0.5">
                   <span className="text-11 font-medium">{n.label}</span>
                   <span className="text-9 text-muted-foreground">{n.source.group} · {n.source.evidenceCount} 来源 · {n.status}</span>

@@ -144,7 +144,8 @@ verification 全绿 + evidence 落盘 + `init.sh` 基础验证不破 + 行为端
 
 ## 8. 跨 agent 认领锁
 
-> **2026-07-08 起（ADR-009）**：跨会话认领互斥由 coord-service (D1) 承担——label
+> **2026-07-08 起（ADR-009；服务选型 2026-07-18 起按 ADR-017 换为 coord-gateway）**：
+> 跨会话认领互斥由协调权威承担——label
 > 没有 compare-and-swap，两个 agent 抢同一个 issue 可能都"成功"，这正是 D1
 > `uq_active_claim` 唯一索引要解决的原始问题。GitHub label 认领锁（旧 §8）退役。
 

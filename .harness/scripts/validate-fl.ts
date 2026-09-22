@@ -13,21 +13,17 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { resolveSpecRef, hasRequirementsCoverage } from "./lib/spec-ref";
 import { findPhaseDir } from "./lib/paths";
+import { checkFeatureFields, type RawFeature } from "./lib/feature-schema";
 
-interface Feature {
-  id: string;
-  title?: string;
-  user_visible_behavior?: string;
-  spec_ref?: string;
-  depends_on?: string[];
-  points?: number;
-  status?: string;
-  sprint?: string | null;
-  owner?: unknown;
-  verification?: string[];
-  evidence?: unknown;
-  notes?: string;
-}
+/**
+ * feature 的字段集**不在这里再声明一份**。
+ *
+ * 本文件曾自建 `interface Feature`——它有 `points`，而 `lib/types.ts` 的那份没有，
+ * 模板里又缺 `spec_ref`/`depends_on`/`points`：同一事实三处声明，三份各自漂移（issue #386）。
+ * 现在字段表、TS 类型、JSON 模板、结构校验全部出自 `lib/feature-schema.ts`：
+ * 这里读 `RawFeature`（尚未校验的形态），结构判定交给 `checkFeatureFields`，
+ * 本文件只留**跨字段/跨文件的语义判定**（状态自洽、依赖闭合、估点对账……）。
+ */
 
 /**
  * 不可信的 verification 形态清单 —— **不在这里重列一遍**。
@@ -62,14 +58,14 @@ for (const phaseId of process.argv.slice(2)) {
     continue;
   }
 
-  const fl = JSON.parse(readFileSync(flPath, "utf8")) as { phase?: string; features: Feature[] };
+  const fl = JSON.parse(readFileSync(flPath, "utf8")) as { phase?: string; features: RawFeature[] };
   let feats = fl.features ?? [];
   // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
   // feature_list.archive.json（只是搬家，不是第二份事实源）——本文件下面的估点对账、
   // id 唯一性等检查都要按阶段全量算，漏并回来会把归档记录的估点/id 从总数里丢掉。
   const archivePath = join(dir, "feature_list.archive.json");
   if (existsSync(archivePath)) {
-    const archive = JSON.parse(readFileSync(archivePath, "utf8")) as { features: Feature[] };
+    const archive = JSON.parse(readFileSync(archivePath, "utf8")) as { features: RawFeature[] };
     feats = [...(archive.features ?? []), ...feats];
   }
   const ids = new Set(feats.map((f) => f.id));
@@ -92,15 +88,16 @@ for (const phaseId of process.argv.slice(2)) {
   }
 
   for (const f of feats) {
+    // 结构判定（字段在不在、类型对不对、空不空、points 下界）全部按字段表走，
+    // 不在本文件逐字段手写——那正是 issue #386 收敛掉的第三份声明。
+    for (const problem of checkFeatureFields(f)) say(`${f.id} ${problem}`);
+
     const r = resolveSpecRef(phaseId, f.spec_ref);
     if (!r.ok) say(`${f.id} spec_ref "${f.spec_ref}" — ${r.reason}`);
 
     // ⚠ 本校验器最初假设「清单永远在生成态」，一旦有 feature 真的开工就会误报。
-    //   它该验的是**状态合法且与其它字段自洽**，不是「必须是 not_started」。
-    const LEGAL = ["not_started", "in_progress", "blocked", "passing"];
-    if (!LEGAL.includes(f.status ?? "")) {
-      say(`${f.id} status=${f.status} 不是合法状态（${LEGAL.join(" / ")}）`);
-    }
+    //   它该验的是**状态与其它字段自洽**，不是「必须是 not_started」；
+    //   状态取值是否合法由字段表判（status 的取值域就登记在那里）。
     // passing 的归属由 verify 门控写入，此处只查自洽性（证据见下方 evidence 检查）
     if (f.status === "passing" && !f.sprint) {
       say(`${f.id} 是 passing 却没有 sprint 归属 —— passing 必须能追回是哪一轮验的`);
@@ -108,31 +105,26 @@ for (const phaseId of process.argv.slice(2)) {
     if (f.status === "not_started" && f.owner != null) {
       say(`${f.id} 尚未开工却已有 owner=${String(f.owner)}`);
     }
-    // ⚠ harness 的 `Feature.evidence` 是 **string**（见 lib/types.ts），模板 scaffold 成 ""。
+    // ⚠ `evidence` 是 **string**（字段表登记，模板 scaffold 成 ""）。
     //   我曾在 requirement-author 规格里写成 `[]`，导致 225 个 feature 全带错类型——
     //   verify 写入时是字符串，被当数组读就变成 50 个单字符。
-    //   **写规格前没查 harness 自己的类型**，这是根因。
-    if (typeof f.evidence !== "string") {
-      say(`${f.id} evidence 类型应为 string（harness lib/types.ts），实为 ${typeof f.evidence}`);
-    } else if (f.status === "not_started" && f.evidence !== "") {
-      say(`${f.id} 尚未开工却已有 evidence："${f.evidence.slice(0, 40)}"`);
-    } else if (f.status === "passing" && !f.evidence.trim()) {
-      say(`${f.id} 是 passing 却没有 evidence —— 没有证据 = 没有完成（AGENTS.md 完成定义）`);
+    //   **写规格前没查 harness 自己的类型**，这是根因；现在类型只有一处可查。
+    if (typeof f.evidence === "string") {
+      if (f.status === "not_started" && f.evidence !== "") {
+        say(`${f.id} 尚未开工却已有 evidence："${f.evidence.slice(0, 40)}"`);
+      } else if (f.status === "passing" && !f.evidence.trim()) {
+        say(`${f.id} 是 passing 却没有 evidence —— 没有证据 = 没有完成（AGENTS.md 完成定义）`);
+      }
     }
-    if (typeof f.points !== "number" || f.points <= 0) say(`${f.id} points 缺失或非正数`);
-    if (!f.user_visible_behavior?.trim()) say(`${f.id} 缺 user_visible_behavior`);
 
-    if (!Array.isArray(f.verification) || f.verification.length === 0) {
-      say(`${f.id} 没有 verification`);
-    } else {
-      for (const v of f.verification) {
-        const hit = SHAPES.find((s) => s.re.test(v.trim()));
-        if (hit) {
-          say(
-            `${f.id} verification 不可信（${hit.kind === "always-zero" ? "恒 0" : "结果不确定"}:${hit.name}）："${v}"\n` +
-              `      ${hit.why}`,
-          );
-        }
+    // verification 有没有、是不是数组由字段表判；这里只判**每条命令可不可信**。
+    for (const v of f.verification ?? []) {
+      const hit = SHAPES.find((s) => s.re.test(v.trim()));
+      if (hit) {
+        say(
+          `${f.id} verification 不可信（${hit.kind === "always-zero" ? "恒 0" : "结果不确定"}:${hit.name}）："${v}"\n` +
+            `      ${hit.why}`,
+        );
       }
     }
 

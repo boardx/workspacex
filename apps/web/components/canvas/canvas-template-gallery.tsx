@@ -3,6 +3,7 @@ import * as React from "react";
 import { X, Search, ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ProjectRole } from "@/lib/identity";
@@ -107,8 +108,8 @@ export function CanvasTemplateGallery({
         </div>
         <div className="ml-auto flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-11 text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
+              className="items-center"
               checked={seeded}
               onChange={(e) => setSeeded(e.target.checked)}
               data-testid="canvas-tpl-seeded-toggle"

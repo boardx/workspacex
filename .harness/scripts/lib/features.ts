@@ -1,7 +1,17 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { phaseFeatureListPath, phaseFeatureArchivePath, sprintDir } from "./paths";
+import {
+  phaseFeatureListPath,
+  phaseFeatureArchivePath,
+  featureListPathIn,
+  featureArchivePathIn,
+  sprintDirIn,
+  findPhaseDir,
+  phaseIdFromDir,
+} from "./paths";
+import { buildActiveFeaturesView, renderActiveFeaturesView, ACTIVE_FEATURES_BASENAME } from "./startup-discovery";
 import type { Feature, FeatureList, FeatureStatus } from "./types";
+import { featurePriority } from "./feature-schema";
 
 /** 按路径读原始字节。#1094 的取号临界区要拿它做乐观并发比对（写回前确认文件没被
  *  第三方动过）——**整份写是覆盖式的**，不比对就会把不持锁的写入方的改动连同条目
@@ -40,12 +50,22 @@ export function writeFeatureListAt(path: string, fl: FeatureList, archived: Read
 
 /** 合并 live + archive 两个文件的只读视图。archive 只在这里被读入内存，
  *  永不通过 saveFeatureList 写回——它是已冻结（passing）记录的搬家结果，不是第二份可变事实源。 */
-export function loadFeatureList(phaseId: string): FeatureList {
-  const fl = readFeatureListAt(phaseFeatureListPath(phaseId));
-  const archivePath = phaseFeatureArchivePath(phaseId);
+function loadFeatureListFromPaths(livePath: string, archivePath: string): FeatureList {
+  const fl = readFeatureListAt(livePath);
   if (!existsSync(archivePath)) return fl;
   const archive = readFeatureListAt(archivePath);
   return { ...fl, features: [...archive.features, ...fl.features] };
+}
+
+export function loadFeatureList(phaseId: string): FeatureList {
+  return loadFeatureListFromPaths(phaseFeatureListPath(phaseId), phaseFeatureArchivePath(phaseId));
+}
+
+/** 目录版：按**阶段目录**读权威清单，同一份实现（#401）。
+ *  开工发现要遍历目录而不是 id——phases/ 下可以有两个 id 相同的目录，
+ *  按 id 走会漏掉其中一个阶段的 in_progress。 */
+export function loadFeatureListIn(phaseDir: string): FeatureList {
+  return loadFeatureListFromPaths(featureListPathIn(phaseDir), featureArchivePathIn(phaseDir));
 }
 
 /** 只写 live 文件。任何 id 已在归档里的 feature 会被剔除，不回写进 live——
@@ -58,7 +78,7 @@ export function saveFeatureList(phaseId: string, fl: FeatureList): void {
 export function featuresForSprint(fl: FeatureList, sprintId: string): Feature[] {
   return fl.features
     .filter((f) => f.sprint === sprintId)
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => featurePriority(a) - featurePriority(b));
 }
 
 /** 单一来源原则：同一 owner 同时最多一个 in_progress
@@ -95,20 +115,18 @@ export function assertSingleInProgress(fl: FeatureList): void {
   }
 }
 
-/** 把 sprint 的工作集派生成只读视图(绝不手改) */
-export function writeActiveFeatures(phaseId: string, sprintId: string, fl: FeatureList): string {
-  const features = featuresForSprint(fl, sprintId);
-  const view = {
-    phase: phaseId,
-    sprint: sprintId,
-    generated_at: new Date().toISOString(),
-    source: `phases/phase-${phaseId}-*/feature_list.json`,
-    note: "派生视图,只读。修改归属请改阶段 feature_list.json 的 sprint 字段后重新生成。",
-    features,
-  };
-  const out = join(sprintDir(phaseId, sprintId), "active-features.json");
-  writeFileSync(out, JSON.stringify(view, null, 2) + "\n", "utf8");
+/** 把 sprint 的工作集派生成只读视图(绝不手改)。
+ *  视图内容由 lib/startup-discovery.ts 的纯函数构造——**确定性**：同一份权威清单
+ *  ⇒ 同样的字节（#401 验收第二条）。这里只负责落盘。 */
+export function writeActiveFeaturesIn(phaseDir: string, sprintId: string, fl: FeatureList): string {
+  const view = buildActiveFeaturesView(phaseIdFromDir(phaseDir), sprintId, featuresForSprint(fl, sprintId));
+  const out = join(sprintDirIn(phaseDir, sprintId), ACTIVE_FEATURES_BASENAME);
+  writeFileSync(out, renderActiveFeaturesView(view), "utf8");
   return out;
+}
+
+export function writeActiveFeatures(phaseId: string, sprintId: string, fl: FeatureList): string {
+  return writeActiveFeaturesIn(findPhaseDir(phaseId), sprintId, fl);
 }
 
 export type Counts = Record<FeatureStatus, number>;

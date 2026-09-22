@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { PHASES_DIR, phaseDirName } from "./lib/paths";
 import { loadRoadmap, saveRoadmap } from "./lib/roadmap";
 import { renderTemplateFile, render, nowISO } from "./lib/render";
+import { renderFeatureListTemplate } from "./lib/feature-schema";
 import { refreshProgress } from "./lib/progress";
 import { parseArgs, req } from "./lib/args";
 import { log, die } from "./lib/log";
@@ -80,7 +81,10 @@ export function newPhase(args: Args): void {
   );
   writeFileSync(join(reqDir, "00-overview.md"), renderTemplateFile("requirements.template.md", vars));
 
-  writeFileSync(join(dir, "feature_list.json"), renderTemplateFile("feature_list.template.json", vars));
+  // feature_list 的字段结构从 lib/feature-schema.ts 生成，不读模板文件——模板文件是同一份
+  // schema 的生成物（供人当字段说明书读），由 feature-schema-parity.test.ts 逐字对账。
+  // 这样即使有人手改了模板文件，脚手架产出的也仍是 schema 说的那套字段（issue #386）。
+  writeFileSync(join(dir, "feature_list.json"), render(renderFeatureListTemplate(), vars));
   writeFileSync(join(dir, "runtime-readiness.json"), renderTemplateFile("runtime-readiness.template.json", vars));
   writeFileSync(join(dir, "progress.md"), renderTemplateFile("progress.template.md", vars));
   writeFileSync(
