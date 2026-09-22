@@ -60,7 +60,7 @@ export function OrgSwitchConfirm({
             type="button"
             data-testid="org-switch-cancel"
             onClick={onCancel}
-            className="rounded-md border border-border px-3 py-1.5 text-13 hover:bg-muted"
+            className="rounded-md border border-border px-3 py-1.5 text-13 transition-colors hover:bg-muted"
           >
             留在这里
           </button>
@@ -68,7 +68,7 @@ export function OrgSwitchConfirm({
             type="button"
             data-testid="org-switch-confirm-go"
             onClick={onConfirm}
-            className="rounded-md bg-primary px-3 py-1.5 text-13 font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-md bg-primary px-3 py-1.5 text-13 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             切换
           </button>
@@ -96,7 +96,7 @@ export function OrgSwitchProgress({ toLabel }: { toLabel: string }) {
         aria-hidden
         className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary"
       />
-      <p className="text-14 text-foreground">正在切换到「{toLabel}」…</p>
+      <p className="text-14 text-background-foreground">正在切换到「{toLabel}」…</p>
     </div>
   );
 }
@@ -136,7 +136,7 @@ export function OrgSwitchLanded({
         aria-label="关闭切换提示"
         data-testid="org-switch-landed-dismiss"
         onClick={onDismiss}
-        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-card-foreground"
       >
         ×
       </button>
