@@ -343,6 +343,17 @@ export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; reado
 export const DESIGN_WORKBENCH_CHAT_REPLY = "这次没有生成画布——AI 模型没能返回结果。你的这条消息已经记下，可以稍后重试；如果一直这样，让运维看一眼这个部署的模型配置。";
 
 
+/**
+ * 迭代 30 —— 一句话的字数上限（单源）。
+ *
+ * `4000` 在本文件里原本以字面量出现六次（对话轮次、`appendProjectChat` 的入参、
+ * `problem` 的四处）。界面上**一次都没出现过**：用户从别处粘一段长需求进来，
+ * 按下发送才被服务端拒掉，而那时他已经等了一次往返。
+ * 前端要在发送之前就说得出这个数，所以它必须是一个能被 import 的常量，
+ * 而不是抄到输入框旁边的第二份 4000。
+ */
+export const DESIGN_TEXT_MAX_CHARS = 4000;
+
 /* ─────────────────────────── 实体 ─────────────────────────── */
 
 /**
@@ -352,7 +363,7 @@ export const DESIGN_WORKBENCH_CHAT_REPLY = "这次没有生成画布——AI 模
 export const DesignProjectChatTurn = z
   .object({
     role: z.enum(["user", "ai"]),
-    text: z.string().min(1).max(4000),
+    text: z.string().min(1).max(DESIGN_TEXT_MAX_CHARS),
     at: z.string(),
     /** B5.2：`role: "ai"` 的记录带来源（模型 / 退路）；`user` 记录与 B5.2 之前的旧记录没有 */
     source: AiReplySource.optional(),
@@ -431,7 +442,7 @@ export const DesignProject = z
     name: z.string().min(1).max(200),
     template: ProjectTemplate,
     /** 背景/上下文（问题与目标）。可空字符串——新建时未填，不是 `null`（同 `FeedbackDraft.detail`） */
-    problem: z.string().max(4000),
+    problem: z.string().max(DESIGN_TEXT_MAX_CHARS),
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
     /**
@@ -734,7 +745,7 @@ export const operations = {
         projectId: z.string(),
         threadId: z.string(),
         /** 见头注「两个阶段」：省略 = 预览（不写）；给出 = 确认写入这段（用户编辑后的）文本。 */
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
         /**
          * 迭代 16（#3773 R3）：确认阶段一并写入的**验收标准**（用户在预览里改过的那份）。
          *
@@ -775,7 +786,7 @@ export const operations = {
       .object({
         name: z.string().min(1).max(200),
         template: ProjectTemplate,
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
         linkedFeedbackId: z.string().optional(),
         /** 迭代 13：新建时就能定主题；缺省 `dark`。 */
         theme: z.enum(["light", "dark"]).optional(),
@@ -831,7 +842,7 @@ export const operations = {
         projectId: z.string(),
         name: z.string().min(1).max(200).optional(),
         template: ProjectTemplate.optional(),
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
         /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
         theme: z.enum(["light", "dark"]).optional(),
         /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
@@ -873,7 +884,7 @@ export const operations = {
     in: z
       .object({
         projectId: z.string(),
-        text: z.string().min(1).max(4000),
+        text: z.string().min(1).max(DESIGN_TEXT_MAX_CHARS),
         /**
          * 迭代 13（delta §1.2）：这一句要参考哪几张图。图属于**项目**不属于某条消息——
          * 同一张参考图往往要在好几轮里反复被指着说，所以这里传 id 而不是重新上传。

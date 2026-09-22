@@ -4272,3 +4272,99 @@ describe("迭代 29：导出失败不再是静默的", () => {
     expect(err.textContent).not.toContain("tainted canvas"); // 内部异常不端给用户
   });
 });
+
+describe("迭代 30：对话那一侧——普通人说得出、看得懂、再说一遍", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it("用户打的换行在气泡里留着——placeholder 教了 Shift+Enter，就不能把结果吞掉", async () => {
+    // ⭐ 反证锚点：去掉气泡上的 whitespace-pre-wrap ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ chat: [{ role: "user", text: "第一行\n第二行", at: new Date().toISOString() }] })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const bubble = screen.getAllByTestId("design-detail-turn-user")[0]!;
+    expect(bubble.className).toContain("whitespace-pre-wrap");
+    expect(bubble.textContent).toContain("第一行");
+    expect(bubble.textContent).toContain("第二行");
+  });
+
+  it("说过一句话之后，只要还没画出东西，起手模板就还在", async () => {
+    /*
+     * ⭐ 反证锚点：把起手模板挪回 `chat.length === 0` 里 ⇒ 这条红。
+     * 第一次来的人最可能先随便说一句；按旧写法，那一句就把三条示例永久关掉了。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ prototype: [], frames: [], chat: [
+          { role: "user", text: "你好", at: new Date().toISOString() },
+          { role: "ai", text: "你想做个什么？", at: new Date().toISOString() },
+        ] })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-starters")).toBeTruthy();
+    expect(screen.getByTestId("design-detail-starters-again").textContent).toContain("还没画出东西");
+  });
+
+  it("每条气泡说一句「什么时候」，并且用户那句可以「再发一次」", async () => {
+    /*
+     * ⭐ 反证锚点：去掉时间或去掉「再发一次」⇒ 这条红。
+     * 「这轮画得不对，用同一句话再要一次」是普通人最常想做的事，而此前唯一的重试
+     * 只挂在模型退路那一类上——其余时候只能把那句话手打一遍。
+     */
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ chat: [{ role: "user", text: "画一个记账 App", at: new Date().toISOString() }] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        return { project: project({ chat: [] }), reply: { text: "好", applied: [], suggestions: [], source: "model" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-turn-at-0").textContent).toContain("刚刚");
+    fireEvent.click(screen.getByTestId("design-detail-resend-0"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { text: string }).text).toBe("画一个记账 App");
+  });
+
+  it("超过字数上限在**发送之前**就说，并且按钮发不出去", async () => {
+    /*
+     * ⭐ 反证锚点：去掉计数那段、或不禁用发送 ⇒ 这条红。
+     * 上限在契约里（`DESIGN_TEXT_MAX_CHARS`），此前界面上一次都没出现过：
+     * 粘一段长需求进来，按下发送才被服务端拒掉，而那时已经等了一次往返。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const max = designWorkbench.DESIGN_TEXT_MAX_CHARS;
+    expect(screen.queryByTestId("design-detail-input-count")).toBeNull(); // 平时不占地方
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "字".repeat(max + 5) } });
+    const count = screen.getByTestId("design-detail-input-count");
+    expect(count.textContent).toContain("超了 5 个字");
+    expect((screen.getByTestId("design-detail-send") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("画布还空着时，输入框问的是「你想做个什么」而不是「你要改什么」", async () => {
+    // ⭐ 反证锚点：把 placeholder 改回单一文案 ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ prototype: [], frames: [] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-input").getAttribute("placeholder")).toContain("你想做个什么");
+  });
+});

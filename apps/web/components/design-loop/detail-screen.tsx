@@ -46,6 +46,7 @@ import {
 } from "@/lib/live-design-workbench";
 import { designWorkbench } from "@repo/contracts";
 import { describeFailure } from "@/lib/design-failure";
+import { humanTime } from "@/lib/human-time";
 
 
 /**
@@ -121,6 +122,9 @@ const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Objec
  */
 const FEWER_PAGES_CAP = 3;
 
+/** 迭代 30：一句话的字数上限。取自契约单源，不在这里抄第二个 4000。 */
+const MAX_CHARS = designWorkbench.DESIGN_TEXT_MAX_CHARS;
+
 const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
   "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
 ]);
@@ -183,6 +187,8 @@ export function DesignDetailScreen({
   const [tab, setTab] = React.useState<"canvas" | "spec">("canvas");
   const [frame, setFrame] = React.useState(0);
   const [text, setText] = React.useState("");
+  /** 迭代 30：超了就不让发——服务端一定会拒，让用户白等一次往返没有意义。 */
+  const overLimit = text.length > MAX_CHARS;
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
   /** 迭代 7：进行中的请求（可取消）、已等待秒数、上一句失败时留下的原文（供「重试」）。 */
@@ -829,9 +835,22 @@ export function DesignDetailScreen({
             {project.chat.length === 0 && (
               <div className="flex max-w-[90%] flex-col gap-2 self-start">
                 <div className="rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">{DESIGN_WORKBENCH_CHAT_INTRO}</div>
-                {/* 迭代 9：空项目起手模板——三条现成的第一句话，点一下即发（契约常量，不落库） */}
-                {project.prototype.length === 0 && (
-                  <div className="flex flex-wrap gap-1.5" data-testid="design-detail-starters">
+              </div>
+            )}
+            {/*
+              * 迭代 30：起手模板原来锁在 `chat.length === 0` 里——也就是说，**只要说过一句话**，
+              * 哪怕那句是「你好」、哪怕那一轮失败了一页没画出来，三条示例就永远消失。
+              * 第一次来的人最可能干的事恰恰是先随便说一句。真正的条件是「还没画出来东西」，
+              * 这个条件原本就写在里层（`prototype.length === 0`），只是被外层那道门挡住了。
+              */}
+            {project.prototype.length === 0 && (
+              <div className="flex max-w-[90%] flex-col gap-2 self-start">
+                {project.chat.length > 0 && (
+                  <p className="text-10 text-muted-foreground" data-testid="design-detail-starters-again">
+                    还没画出东西？直接点一条试试：
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-1.5" data-testid="design-detail-starters">
                     {DESIGN_WORKBENCH_STARTERS.map((s) => (
                       <button key={s.label} type="button" onClick={() => void send(s.prompt)} disabled={sending}
                         className="rounded-full border border-border px-2.5 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
@@ -839,8 +858,7 @@ export function DesignDetailScreen({
                         {s.label}
                       </button>
                     ))}
-                  </div>
-                )}
+                </div>
               </div>
             )}
             {project.chat.map((turn, i) => (
@@ -848,7 +866,12 @@ export function DesignDetailScreen({
                 key={i}
                 data-testid={`design-detail-turn-${turn.role}`}
                 className={cn(
-                  "max-w-[90%] rounded-card px-2.5 py-1.5 text-12",
+                  /*
+                   * 迭代 30：`whitespace-pre-wrap`。输入框的 placeholder 一直写着
+                   * 「Shift+Enter 换行」，而气泡把换行全折成了一行——教了一个手势，
+                   * 又把它的结果吞掉。粘一段分行的需求进来时尤其明显。
+                   */
+                  "max-w-[90%] whitespace-pre-wrap rounded-card px-2.5 py-1.5 text-12",
                   turn.role === "user" ? "self-end bg-primary text-primary-foreground" : "self-start bg-card text-card-foreground",
                 )}
               >
@@ -856,13 +879,13 @@ export function DesignDetailScreen({
                 {/* 迭代 13（delta §2）：`source: "system"` 不是一次模型回合，是服务端留下的痕迹。
                     标成「系统」而不是「未生成」——后者的含义是"模型本该说话却没说成"，这里模型压根没被叫过。 */}
                 {turn.role === "ai" && turn.source === "system" && (
-                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-system">
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" title="这条不是 AI 说的，是系统在这里留下的一条记录（比如你从别处导入了一段对话）" data-testid="design-detail-turn-system">
                     系统
                   </span>
                 )}
                 {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
                 {turn.role === "ai" && turn.source === "fallback" && (
-                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-fallback">
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" title="这一轮 AI 没能给出画布，下面那句话说了原因；这条回执是系统写的，不是 AI 的答复" data-testid="design-detail-turn-fallback">
                     未生成
                   </span>
                 )}
@@ -911,6 +934,27 @@ export function DesignDetailScreen({
                       </button>
                     )}
                   </div>
+                )}
+                {/*
+                  * 迭代 30：每条气泡说一句「什么时候」。这条对话就是这个项目的全部来龙去脉，
+                  * 隔一天回来接着做时，「哪些是今天说的」只能靠猜。`at` 契约里一直有，
+                  * 只是从来没显示过。时间格式走 `humanTime` 这一份，不另写。
+                  */}
+                <span className={cn("ml-1.5 align-baseline text-10", turn.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground")} data-testid={`design-detail-turn-at-${String(i)}`}>{humanTime(turn.at)}</span>
+                {/*
+                  * 迭代 30：用户那一侧的「再说一遍这句」。原来只有模型退路那一类给了重试，
+                  * 而「这轮画得不对，我想用同一句话再要一次」是普通人最常想做的事——
+                  * 他能做的只有把刚才那句手打一遍。
+                  */}
+                {turn.role === "user" && !sending && (
+                  <button
+                    type="button"
+                    onClick={() => void send(turn.text)}
+                    className={cn("ml-1.5 rounded-control px-1 text-10 underline underline-offset-2 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", turn.role === "user" ? "text-primary-foreground/80 hover:text-primary-foreground" : "text-muted-foreground hover:text-background-foreground")}
+                    data-testid={`design-detail-resend-${String(i)}`}
+                  >
+                    再发一次
+                  </button>
                 )}
                 {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (
@@ -996,6 +1040,22 @@ export function DesignDetailScreen({
               </button>
             </div>
           )}
+          {/*
+            * 迭代 30：字数上限在契约里是 `DESIGN_TEXT_MAX_CHARS`，而界面上**一次都没出现过**——
+            * 从别处粘一段长需求进来，按下发送才被服务端拒掉，那时已经等了一次往返。
+            * 快到上限时才出现（平时不占地方），超了就把发送按钮关掉。
+            */}
+          {text.length > MAX_CHARS * 0.9 && (
+            <p
+              className={cn("px-3 pt-2 text-10", overLimit ? "text-destructive" : "text-muted-foreground")}
+              role={overLimit ? "alert" : undefined}
+              data-testid="design-detail-input-count"
+            >
+              {overLimit
+                ? `超了 ${text.length - MAX_CHARS} 个字——一次最多 ${MAX_CHARS} 字。删掉一些，或者分两次说。`
+                : `还能再打 ${MAX_CHARS - text.length} 个字`}
+            </p>
+          )}
           <div className="flex items-end gap-2 border-t border-border p-3">
             <Textarea
               value={text}
@@ -1012,14 +1072,24 @@ export function DesignDetailScreen({
               }}
               rows={2}
               disabled={sending}
-              placeholder={focus !== null ? "要怎么改这个节点？（回车发送，Shift+Enter 换行）" : "告诉我要改什么，我来更新画布（回车发送，Shift+Enter 换行）"}
+              /*
+               * 迭代 30：画布还空着的时候，「告诉我要改什么」问的是一件**还不存在**的事。
+               * 第一次来的人需要被问的是"你想做个什么"，不是"你要改什么"。
+               */
+              placeholder={
+                focus !== null
+                  ? "要怎么改这个节点？（回车发送，Shift+Enter 换行）"
+                  : project.prototype.length === 0
+                    ? "说说你想做个什么，比如「一个记账 App，能记一笔、看这个月花了多少」（回车发送）"
+                    : "告诉我要改什么，我来更新画布（回车发送，Shift+Enter 换行）"
+              }
               data-testid="design-detail-input"
               className="flex-1"
             />
             <Button
               variant="primary"
               size="icon"
-              disabled={text.trim() === "" || sending}
+              disabled={text.trim() === "" || sending || overLimit}
               onClick={() => void send()}
               aria-label="发送"
               data-testid="design-detail-send"

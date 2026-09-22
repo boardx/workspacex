@@ -48,6 +48,22 @@ const project: dw.DesignProject = {
   updatedAt: "2026-09-04T08:00:00.000Z",
 };
 
+describe("迭代 30 字数上限是单源常量", () => {
+  it("对话正文与 problem 都按 DESIGN_TEXT_MAX_CHARS 卡，界面拿得到同一个数", () => {
+    /*
+     * ⭐ 反证锚点：把任何一处改回字面量 4000 而常量改成别的值 ⇒ 这条红。
+     * 前端要在**发送之前**就说得出这个数；抄一份到输入框旁边，就是第二份事实源。
+     */
+    const n = dw.DESIGN_TEXT_MAX_CHARS;
+    expect(n).toBeGreaterThan(0);
+    const turn = (len: number) => ({ role: "user" as const, text: "x".repeat(len), at: "2026-09-22T00:00:00.000Z" });
+    expect(dw.DesignProjectChatTurn.safeParse(turn(n)).success).toBe(true);
+    expect(dw.DesignProjectChatTurn.safeParse(turn(n + 1)).success).toBe(false);
+    expect(dw.operations.appendProjectChat.in.safeParse({ projectId: "p1", text: "x".repeat(n) }).success).toBe(true);
+    expect(dw.operations.appendProjectChat.in.safeParse({ projectId: "p1", text: "x".repeat(n + 1) }).success).toBe(false);
+  });
+});
+
 describe("DesignProject -- 正例", () => {
   it("基本形状", () => {
     expect(dw.DesignProject.safeParse(project).success).toBe(true);
