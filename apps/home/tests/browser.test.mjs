@@ -87,23 +87,47 @@ for (const [lang, path] of LANGS) {
   const page = await ctx.newPage();
   await page.goto(base + path, { waitUntil: 'networkidle' });
 
+  /* The ceiling used to be a literal 60, and the page has 58 focusable
+     elements. Three more controls and the last of them would have dropped out
+     of this check in silence. Derived, with headroom. */
+  const focusable = await page.evaluate(() => [...document.querySelectorAll(
+    'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    /* Visible, not inside a closed panel, and not explicitly out of the tab
+       order. Both exclusions are things the browser is doing correctly and a
+       naive count reads as a failure: links inside the five hidden discipline
+       panels, and the five unselected tabs, which carry tabindex="-1" because
+       a tablist is a ROVING tab stop — one stop for the whole group, arrows
+       to move within it. `button` matches whatever its tabindex says, so the
+       first version of this count treated a correct widget as five missing
+       controls. */
+    .filter((e) => e.getAttribute('tabindex') !== '-1'
+                && !e.closest('[hidden]')
+                && (e.getBoundingClientRect().width > 0 || e.ownerSVGElement || e.tagName === 'g'))
+    .length);
+
   const stops = [];
-  for (let i = 0; i < 60; i += 1) {
+  for (let i = 0; i < focusable + 5; i += 1) {
     await page.keyboard.press('Tab');
     const info = await page.evaluate(() => {
       const a = document.activeElement;
       if (!a || a === document.body) return null;
       const cs = getComputedStyle(a);
+      /* The arch layers are SVG groups with no outline of their own — their
+         indicator is a stroke on a child plate. That used to be waved through
+         with `|| !!a.querySelector('.d-arch__plate')`, which passes whether or
+         not the rule that draws it still exists. Measure the plate instead. */
+      const plate = a.querySelector?.('.d-arch__plate');
+      const plateStroke = plate ? getComputedStyle(plate).strokeWidth : null;
       return {
         label: (a.textContent || a.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 40),
-        ring: cs.outlineWidth !== '0px' || !!a.querySelector?.('.d-arch__plate'),
+        ring: cs.outlineWidth !== '0px' || (plate ? parseFloat(plateStroke) > 0 : false),
       };
     });
     if (!info) break;
     stops.push(info);
   }
   stops.filter((s) => !s.ring).forEach((s) => r.check(false, `no focus indicator on "${s.label}"`));
-  r.check(stops.length > 20, `only ${stops.length} tab stops found`);
+  r.check(stops.length >= focusable - 2, `only ${stops.length} of ${focusable} focusable elements were reachable by Tab`);
 
   // every loop step is a control, derived from the source
   const railStops = await page.evaluate(() => document.querySelectorAll('.rail__item').length);
@@ -115,6 +139,34 @@ for (const [lang, path] of LANGS) {
   await page.waitForTimeout(1100);
   const centre = await page.evaluate(() => document.querySelector('.d-loop__title')?.textContent);
   r.check(!!centre, 'the loop reports no active stage after Enter');
+
+  /* Reachable is not operable. The interaction suite CLICKS these three; a
+     widget that a mouse can drive and a keyboard cannot would pass both
+     suites. Each is driven from the keyboard here and its state re-read. */
+  await page.locator('.switch__btn').nth(0).focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const switched = await page.evaluate(() =>
+    document.querySelector('.switch__btn:nth-child(2)')?.getAttribute('aria-pressed'));
+  r.equal(switched, 'true', 'the compare switch does not respond to ArrowRight');
+
+  const firstLayer = page.locator('[data-layer]').first();
+  await firstLayer.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(250);
+  const layerPressed = await page.evaluate(() =>
+    document.querySelector('[data-layer]')?.getAttribute('aria-pressed'));
+  r.equal(layerPressed, 'true', 'an architecture layer does not respond to Enter');
+
+  await page.locator('.cases__tab').first().focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const tabbed = await page.evaluate(() => ({
+    selected: document.querySelectorAll('.cases__tab[aria-selected="true"]').length,
+    second: document.querySelectorAll('.cases__tab')[1]?.getAttribute('aria-selected'),
+  }));
+  r.equal(tabbed.selected, 1, 'discipline tabs with aria-selected after ArrowRight');
+  r.equal(tabbed.second, 'true', 'ArrowRight does not move the discipline selection');
 
   // the mobile menu opens and Escape closes it
   await page.setViewportSize({ width: 390, height: 844 });
@@ -409,10 +461,22 @@ for (const [lang, path] of LANGS) {
     scaled: [...document.querySelectorAll('[data-diagram] svg')]
       .filter((s) => parseFloat(getComputedStyle(s).getPropertyValue('--dscale')) > 0).length,
     diagrams: document.querySelectorAll('[data-diagram] svg').length,
+    /* t() falls back to the key itself, so a missing diagram string draws
+       "d.chain.memory" into the picture. Nothing could see that: the static
+       side cannot resolve `t(`d.chain.${key}`)`, and the header of
+       diagram-strings.js claimed a check that had never been written. */
+    rawKeys: [...document.querySelectorAll('[data-diagram] svg text')]
+      .map((n) => n.textContent.trim()).filter((v) => /^d\.[a-z]/.test(v)),
   }));
   r.check(state.read > 0, `reading progress stayed at ${state.read} after scrolling half the page`);
   r.check(state.current === 1, `the loop rail marks ${state.current} current steps, expected 1`);
-  r.equal(state.scaled, state.diagrams, 'diagrams with --dscale resolved');
+  /* Against the count in the SOURCE, not against itself: `scaled === diagrams`
+     is vacuously true when nothing rendered at all, which is exactly the
+     failure it was supposed to catch. */
+  r.equal(state.diagrams, facts.diagrams, 'diagrams that actually rendered');
+  r.equal(state.scaled, facts.diagrams, 'diagrams with --dscale resolved');
+  r.check(state.rawKeys.length === 0,
+    `untranslated diagram keys drawn as labels — ${state.rawKeys.slice(0, 3).join(', ')}`);
   await ctx.close();
   ok = r.finish() && ok;
 }

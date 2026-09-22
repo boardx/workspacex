@@ -275,7 +275,11 @@
         <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
       </div>
 
-      <div class="stage__captions">
+      <!-- Polite, because switching the view swaps which of these two is
+           shown and nothing else says so. The architecture explorer announces
+           its equivalent panel; this one did not — the same interaction
+           treated two ways. -->
+      <div class="stage__captions" aria-live="polite">
       <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">问题进入聊天窗口，答案返回来，有人把它重新敲进真正的业务系统，另一个人在脑子里做了审查，结果落进一份再也不会有人打开的文档。每两步之间，上下文都在蒸发——而且事后没有任何东西可以证明发生过什么。</p>
       <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">同样是这五步，区别在于步与步之间什么都没掉。上下文往前带，每一次行动都在边界之内发生，每一个结果都留下证据，学到的东西成为下一次的起跑点——而不是被扔掉。</p>
       </div>

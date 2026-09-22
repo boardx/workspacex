@@ -44,6 +44,33 @@ const untranslated = [...defined].filter((k) => {
   return /[A-Za-z]/.test(v) && !/[\u4e00-\u9fff]/.test(v) && !/^[\s\p{P}A-Za-z0-9/&·+—-]+$/u.test(v);
 });
 
+/* ---- diagram labels ------------------------------------------------------
+   `diagram-strings.js` says in its own header that this file fails on a
+   missing diagram key. It did not: this check imported zh.js and nothing
+   else, so fifty-four keys drawn into the SVGs had no gate at all. A rule
+   with no script is not a rule — this project's own words.
+
+   Most of the keys are built as `t(`d.chain.${key}`)`, which no static reader
+   can resolve, so the static half checks what it can — both languages
+   present and non-empty, and no key outside a prefix the drawing code
+   actually uses — and the browser suite asserts at runtime that no label
+   rendered as its own key, which is what `t()` falls back to. */
+const diagramSource = readFileSync(join(root, 'assets/js/diagrams.js'), 'utf8');
+const strings = (await import(join(root, 'assets/js/diagram-strings.js'))).default;
+
+const prefixes = [...diagramSource.matchAll(/t\(`([^`$]*)\$\{/g)].map((m) => m[1]);
+const literals = new Set([...diagramSource.matchAll(/t\('([^']+)'\)/g)].map((m) => m[1]));
+
+const dBlank = Object.entries(strings)
+  .filter(([, v]) => !String(v?.en ?? '').trim() || !String(v?.zh ?? '').trim())
+  .map(([k]) => k);
+const dOrphan = Object.keys(strings)
+  .filter((k) => !literals.has(k) && !prefixes.some((p) => k.startsWith(p)));
+const dUntranslated = Object.entries(strings)
+  .filter(([, v]) => /[A-Za-z]/.test(v.zh) && !/[\u4e00-\u9fff]/.test(v.zh)
+                  && !/^[\s\p{P}A-Za-z0-9/&·+—-]+$/u.test(v.zh))
+  .map(([k]) => k);
+
 let failed = false;
 const report = (label, list) => {
   if (!list.length) return;
@@ -57,6 +84,9 @@ report('keys defined in zh.js but unused in index.html', orphan);
 report('keys with an empty translation', blank);
 report('Chinese values containing Cyrillic characters', cyrillic);
 report('keys that look untranslated (no Han characters)', untranslated);
+report('diagram keys missing a language', dBlank);
+report('diagram keys no drawing code can reach', dOrphan);
+report('diagram keys that look untranslated', dUntranslated);
 
 if (failed) process.exit(1);
-console.log(`✓ i18n in sync — ${used.size} keys, en + zh`);
+console.log(`✓ i18n in sync — ${used.size} page keys + ${Object.keys(strings).length} diagram keys, en + zh`);

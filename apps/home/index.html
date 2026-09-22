@@ -274,7 +274,11 @@
         <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
       </div>
 
-      <div class="stage__captions">
+      <!-- Polite, because switching the view swaps which of these two is
+           shown and nothing else says so. The architecture explorer announces
+           its equivalent panel; this one did not — the same interaction
+           treated two ways. -->
+      <div class="stage__captions" aria-live="polite">
       <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
       <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">The same five steps, except nothing is dropped between them. Context carries forward, every action is taken inside a boundary, every result leaves evidence, and what was learned becomes the starting point of the next run rather than being thrown away.</p>
       </div>

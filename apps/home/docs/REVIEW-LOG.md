@@ -802,3 +802,28 @@ what actually matters: whether any element sits past the right edge.
 | 8 | The social card's scrim rendered it **near-black**. It is the one image of this brand anybody ever shares, and it showed none of the brand. | Scrim from `.28/.72` to `.06/.52`. |
 | 9 | The card's wordmark was plain white while the nav's had become a gradient — a second version of the logo, which is exactly what the brand source exists to prevent. | Same treatment on both. |
 | 10 | `ch` is the width of a `0`, so `max-width: 17ch` is far narrower for Han than seventeen Han characters: the Chinese card used the **left 45%** of the frame and left the rest empty. | An `em`-based measure for `html[lang^="zh"]`. |
+
+### Round 29 — the diagrams, and checks that check themselves
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | `diagram-strings.js` states in its own header that `check-i18n.mjs` fails on a missing diagram key. **It does not.** That file imported `zh.js` and nothing else, so fifty-four keys drawn into the SVGs had no gate at all. A rule with no script is not a rule — this project's own words, in its own repository. | Written. |
+| 2 | Most keys are built as ``t(`d.chain.${key}`)``, which no static reader can resolve, so a static gate alone cannot be honest about its coverage. | Static half: both languages present, no key outside a prefix the drawing code uses. Runtime half in the browser. |
+| 3 | `t()` falls back to **the key itself**, so a missing string draws `d.chain.memory` into the picture where nothing could see it. | Asserted at runtime; proved red by deleting a key. |
+| 4 | My own motion check asserted `scaled === diagrams` — **vacuously true when nothing rendered**, which is precisely the failure it was added to catch. | Against the count derived from the source. |
+| 5 | The keyboard suite tabbed a literal **60 times**. The page has 58 focusable controls. Three more and the last of them would have left coverage in silence. | Derived, with headroom. |
+| 6 | Its focus-ring rule exempted anything containing `.d-arch__plate` — which passes whether or not the rule that draws the ring still exists. | It measures the plate's stroke. |
+| 7 | The suite **reached** the widgets and never **operated** them. A widget a mouse can drive and a keyboard cannot would have passed both the interaction suite and this one. | Enter on an architecture layer, arrows on the compare switch and the discipline tabs, with state re-read after each. |
+| 8 | Switching the compare view is silent, while the architecture explorer's equivalent panel is announced. The same interaction, treated two ways. | `aria-live="polite"` on the captions. |
+
+**And two findings that were mine, not the code's.** A probe reported that the
+compare switch and the architecture layers carried no pressed state and that
+nothing was announced — all three were wrong. The probe asked for
+`aria-expanded`; the code sets `aria-pressed`, and `#arch-detail` has been
+`aria-live="polite"` all along. A probe that asks the wrong question gives
+confident wrong answers, and reading the code was what settled it.
+
+The tabbability count then read a **correct** roving-tabindex tablist as five
+missing controls, because `button` matches the selector whatever its
+`tabindex` says. Both are recorded here because the alternative was two
+plausible "fixes" to code that was already right.
