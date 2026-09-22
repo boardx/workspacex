@@ -2,6 +2,7 @@ import { STANDARD_BROWSER_CONTRACTS } from '@repo/contracts/standard-browser-too
 import type {
   BrowserContext,
   BrowserExecutionReceipts,
+  BrowserFailureClass,
   BrowserInvocation,
   BrowserInvocationOutput,
   BrowserReceiptClaim,
@@ -48,10 +49,10 @@ export class PgBrowserExecutionReceipts implements BrowserExecutionReceipts {
     if (saved.rows[0]?.saved !== true) throw new Error('browser_execution_unconfirmed');
   }
 
-  async markUnconfirmed(context: BrowserContext, invocation: BrowserInvocation, argsDigest: string): Promise<void> {
+  async markUnconfirmed(context: BrowserContext, invocation: BrowserInvocation, argsDigest: string, failure: BrowserFailureClass): Promise<void> {
     await this.db.withTenant(context.orgId, session => session.query(
-      'SELECT kernel_mark_browser_execution_unconfirmed($1,$2,$3,$4,$5)',
-      [context.orgId, context.parentRunId, context.toolCallId, invocation.toolName, argsDigest],
+      'SELECT kernel_mark_browser_execution_unconfirmed($1,$2,$3,$4,$5,$6)',
+      [context.orgId, context.parentRunId, context.toolCallId, invocation.toolName, argsDigest, failure],
     ));
   }
 }

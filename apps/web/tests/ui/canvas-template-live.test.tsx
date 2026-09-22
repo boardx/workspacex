@@ -144,7 +144,7 @@ interface TemplateRow {
    * 测不出「来源版本的制式有没有被带上」这件事（本 PR 新增的那条回归正是测它）。
    */
   gridCols?: 6 | 12 | 24;
-  gridRows?: 8;
+  gridRows?: 8 | 16;
   /**
    * 排序功能上线（画布模板库排序）随契约新增的两个时间戳字段——同上面两段注释的既有
    * 纪律：夹具随契约一起扩展，不补齐会在运行时 `undefined.localeCompare` 炸掉
@@ -1474,6 +1474,107 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-6"));
     // 切到 6 列后区块仍在画布上（越界会被夹回，不是消失）。
     await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-block-s1")).toBeInTheDocument());
+  });
+
+  /**
+   * issue #3358 第 8 项「网格密度」——人类实测原话：「现在的这个格子感觉不够用，
+   * 你有什么建议吗？」「现在是 8*12」。
+   *
+   * ⚠ 这一项此前**只落了后端与契约**（`canvas_templates.grid_rows` 那一列、
+   *   `gridRows` 那一栏、`mintVersion` 把它带进请求体），界面上一个入口都没有：
+   *   `gridRows` 是个没有 setter 的 React state，`template-editor-panel.tsx` 的头注
+   *   逐字写着「`gridRows` 目前没有 UI 可选」。也就是说：库里存得下 16 行，使用者
+   *   选不到 16 行，那条反馈在界面上一格也没多。
+   *
+   *   所以这几条钉的是**界面上真的能选、选了真的生效、保存真的带上**——只对
+   *   `clampLayout`/`computeExplicitLayout` 这类纯函数打单测测不出这个缺陷：
+   *   纯函数接了参数照样可以没人给它传值（列数那条链 2026-09-10 栽过同一跤：
+   *   开关是纯 session-local state，一保存就悄悄丢回 12）。
+   */
+  it("网格行数可切 8 行 / 16 行，选了 16 行画布当场画成 16 行（issue #3358 第 8 项）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    // 默认 8 行（老数据的落库默认值）。
+    expect(within(panel).getByTestId("tpladmin-editor-grid-ghost").style.gridTemplateRows)
+      .toBe("repeat(8, 1fr)");
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-rows-16"));
+
+    await waitFor(() => expect(
+      within(panel).getByTestId("tpladmin-editor-grid-ghost").style.gridTemplateRows,
+    ).toBe("repeat(16, 1fr)"));
+    // 区块仍在画布上——换密度不是清空重来。
+    expect(within(panel).getByTestId("tpladmin-editor-block-s1")).toBeInTheDocument();
+  });
+
+  it("行数进脏检查与保存请求体：选了 16 行保存，POST 带的是 16（issue #3358 第 8 项）", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
+        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        posts.push(body);
+        return jsonResponse({
+          key: "swot", version: 1, status: "draft", displayName: body["displayName"],
+          builtin: false, visibility: body["visibility"], underlyingType: "canvas",
+          sections: body["sections"], tags: [], size: "A1",
+        });
+      }
+      return withFields();
+    }));
+    const panel = await openEditor();
+
+    // 只动行数，别的一律不碰——「保存改动」因此能点，说明脏检查认这一栏
+    // （`gridCols` 2026-09-10 之前正是漏在这里：改了不算脏，存了也丢）。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-rows-16"));
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-dirty")).toBeInTheDocument());
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!["gridRows"]).toBe(16);
+  });
+
+  it("16 行下「高」能调到 8 以上——步进器上限跟着这张模板的行数，不是写死的 8", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-rows-16"));
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+
+    // 夹具那个区块是 row=2 / h=3。8 行制下上限是 8-2+1=7，加到 7 就该停；
+    // 16 行制下上限是 15，所以能一路加过 7。
+    const plus = within(display).getByTestId("tpladmin-editor-h-inc");
+    for (let i = 0; i < 6; i += 1) fireEvent.click(plus);
+    await waitFor(() => expect(
+      Number(within(display).getByTestId("tpladmin-editor-h-value").textContent),
+    ).toBeGreaterThan(7));
+  });
+
+  it("从 16 行切回 8 行：越界的区块被夹回纸内，不是留着一个画不出来的坐标", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-rows-16"));
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+
+    // 先把它顶到 8 行放不下的高度。
+    const plus = within(display).getByTestId("tpladmin-editor-h-inc");
+    for (let i = 0; i < 6; i += 1) fireEvent.click(plus);
+    await waitFor(() => expect(
+      Number(within(display).getByTestId("tpladmin-editor-h-value").textContent),
+    ).toBeGreaterThan(7));
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-rows-8"));
+
+    // 切回 8 行：区块还在，且 row + h - 1 已经被夹进 8 行之内。
+    await waitFor(() => expect(
+      within(panel).getByTestId("tpladmin-editor-grid-ghost").style.gridTemplateRows,
+    ).toBe("repeat(8, 1fr)"));
+    const block = within(panel).getByTestId("tpladmin-editor-block-s1");
+    expect(block).toBeInTheDocument();
+    const [start, span] = /(\d+) \/ span (\d+)/.exec(block.style.gridRow)?.slice(1) ?? [];
+    expect(Number(start) + Number(span) - 1).toBeLessThanOrEqual(8);
   });
 });
 

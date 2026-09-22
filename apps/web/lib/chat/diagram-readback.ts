@@ -35,8 +35,13 @@ export async function fetchLatestSavedDiagramSource(input: {
    * keep walking that message's saves from newest to oldest until the source belongs
    * to this concrete fence. Without it, retain the historical "latest per message"
    * behavior used by a single Mermaid diagram.
+   *
+   * ⚠ 判据要的是**整条候选**，不只是字节（issue #3252）：同一消息里两个同模板围栏
+   *   的保存版，markdown 本身分不开彼此，落地标题里那段围栏身份后缀才分得开
+   *   （见 `canvas-fence-identity.ts`）。所以这里传 `{ markdown, title }`，
+   *   由调用方决定怎么判，本模块仍然不认识「围栏」这个概念。
    */
-  accepts?: (markdown: string) => boolean;
+  accepts?: (candidate: { readonly markdown: string; readonly title: string }) => boolean;
 }): Promise<SavedDiagramSource | null> {
   try {
     const list = await listThreadArtifacts(input.threadId, input.projectId, input.bearer);
@@ -65,7 +70,7 @@ export async function fetchLatestSavedDiagramSource(input: {
         //
         // 调用方传 `accepts` 就是在声明「这份源必须属于这个围栏」；候选数量是 1 不改变
         // 这句话，判否就返回 null，由调用方退回原始消息文本（本来就存在的诚实降级）。
-        if (!input.accepts || input.accepts(source.markdown)) {
+        if (!input.accepts || input.accepts({ markdown: source.markdown, title: candidate.title })) {
           return { markdown: source.markdown, savedAt: source.savedAt, artifactId: candidate.artifactId };
         }
       } catch {

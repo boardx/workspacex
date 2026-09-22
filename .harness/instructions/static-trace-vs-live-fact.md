@@ -53,6 +53,7 @@
 | 某段代码在不在 main | 文件在你的工作区里存在 | `git ls-tree origin/main -- <path>`；`git show origin/main:<path>` |
 | 某次测量量的是哪棵树 | 记录里的 SHA 字段 | `git merge-base --is-ancestor <sha> origin/main` |
 | 某个 agent / 栈还活不活 | worktree 或进程痕迹还在 | 心跳、lease、owner label —— **痕迹不是心跳** |
+| 某条契约声明的路径今天能不能跑 | 它所属 feature 是 `passing` | `pnpm harness contract-routes`——**feature 状态本身就是一个静态痕迹**（issue #1177） |
 
 ### 三条可操作的习惯
 
@@ -70,6 +71,14 @@
 - **CLR G5**：`scored_sha` 不是 `origin/main` 的祖先 ⇒ 记 0（对应第 4 次）
 - **CLR G6**：证据必须结构上可解析 ⇒ 挡住手写假锚点
 - **CLR 队列门**：`blocking_issues` 里出现已 CLOSED 的 issue ⇒ 当场红（对应第 1 次的下游后果）
+- **契约 ↔ 路由覆盖**（issue #1177）：已交付契约束里声明了 `path` 却没有对应路由的 operation
+  逐条进清单，`doctor` 出 WARN。判据与它**够不到**的部分（束级近似的假阴性）写在
+  `.harness/scripts/lib/contract-route-coverage.ts` 的头注里
+- **契约 → 路由棘轮**（issue #564）：上面那份清单的**只减不增**版本。今天的 253 条记进
+  `.harness/state/contract-route-coverage-allowlist.json`，名单只能变短；新增一条「契约声明了
+  `path` 却不接线」的 operation ⇒ PR 上当场红（`pnpm run lint:contract-route-coverage`）。
+  ⚠ 名单里的条目**不在今天的缺口清单里**同样是一个静态痕迹：它有两种相反的成因
+  （路由补上了 / 所属束退出判定范围了），判据见 `lib/contract-route-ratchet.ts` 的头注
 - **`lint-contract-negative-assertion`**（#473，2026-09-21）：源码里「契约里没有 `X`」这类
   **对契约的否定性断言**，机械核对 `X` 是不是 `packages/contracts/` 里的一个 operation；
   契约后来加上了 ⇒ 当场红（对应第 1 次那三条注释的形状）。

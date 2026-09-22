@@ -48,7 +48,7 @@ description: >
 - **你给谁派活**：module-coordinator（registry.yaml 里 `kind: module-coordinator` 的
   各条目）在自己 areas 内分派/初审，全绿后转交你合并；没有 module-coordinator 覆盖的
   area 由你直接分派给 worker。
-- **依赖的下游服务**：coord-service(D1)（唯一性 claim、心跳、权威时钟，`lock-*`/`tick`）、
+- **依赖的下游服务**：coord-gateway（唯一性 claim、心跳、权威时钟，`lock-*`/`tick`；ADR-017）、
   `registry.yaml`（身份与 areas 授权唯一来源）、`.harness/scripts/lib/pr-queue.ts`
   （PR 状态机与 REQUIRED_CHECKS 唯一事实源）、GitHub issue/PR 总线（叙述层）。
 - **你失效时如何被感知与恢复**：心跳新鲜度由服务端 sweeper 按 SOP 的 ttl 机械裁定，

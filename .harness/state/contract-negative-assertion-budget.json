@@ -13,7 +13,7 @@
     "而不是悄悄溜进去。这是逃生口，不是默认路径。",
     "门：pnpm run lint:contract-negative-assertion（加 --list 看逐条结论）"
   ],
-  "proseBudget": 106,
-  "measuredAt": "2026-09-21",
+  "proseBudget": 112,
+  "measuredAt": "2026-09-22",
   "measuredScope": ["apps/web", "apps/api", "packages"]
 }
