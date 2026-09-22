@@ -18,7 +18,7 @@ const root = join(here, '..');
 const SOURCES = ['index.html', 'privacy.html', '404.html'];
 const html = SOURCES.map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
 const used = new Set(
-  [...html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)].map((m) => m[1]),
+  [...html.matchAll(/data-i18n(?:-html|-aria)?="([^"]+)"/g)].map((m) => m[1]),
 );
 
 const zh = (await import(join(root, 'assets/js/zh.js'))).default;

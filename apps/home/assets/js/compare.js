@@ -20,9 +20,10 @@ export function initCompare() {
       const on = n.dataset.view === view;
       n.classList.toggle('is-on', on);
       n.classList.toggle('is-off', !on);
-      // A hidden pane must leave the accessibility tree too, or a screen reader
-      // reads both versions of the same diagram back to back.
-      n.toggleAttribute('hidden', !on && n.classList.contains('stage__caption'));
+      /* The inactive pane and caption must leave the accessibility tree, or a
+         screen reader reads both versions back to back. `hidden` is not usable
+         on the caption — it shares a grid cell with the other one, and
+         collapsing it would let the stage resize again. */
       n.setAttribute('aria-hidden', String(!on));
     });
   };

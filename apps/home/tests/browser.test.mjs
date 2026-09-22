@@ -29,6 +29,13 @@ let ok = true;
 
 const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
 
+/* Every behavioural suite runs against both languages. It used to run the
+   keyboard, interaction, degradation and compatibility checks against the
+   English page only — so the Chinese page, which is a separately generated
+   document, could have had broken tabs or an unreachable menu and nothing
+   would have said so. */
+const LANGS = [['en', '/'], ['zh', '/zh/']];
+
 /* ---------------------------------------------------------------- a11y --- */
 {
   const r = reporter('accessibility — axe-core, both languages');
@@ -56,11 +63,11 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
 }
 
 /* ------------------------------------------------------------ keyboard --- */
-{
-  const r = reporter('keyboard — every control reachable and operable');
+for (const [lang, path] of LANGS) {
+  const r = reporter(`keyboard [${lang}] — every control reachable and operable`);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
-  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.goto(base + path, { waitUntil: 'networkidle' });
 
   const stops = [];
   for (let i = 0; i < 60; i += 1) {
@@ -144,12 +151,12 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
 }
 
 /* --------------------------------------------------------- interaction --- */
-{
-  const r = reporter('interaction — compare switch and architecture explorer');
+for (const [lang, path] of LANGS) {
+  const r = reporter(`interaction [${lang}] — switch, layers and discipline tabs`);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => r.check(false, `page error: ${e.message}`));
-  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.goto(base + path, { waitUntil: 'networkidle' });
 
   await page.locator('.switch').scrollIntoViewIfNeeded();
   await page.waitForTimeout(400);
@@ -158,7 +165,10 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
   await page.waitForTimeout(600);
   const after = await page.evaluate(() => ({
     pane: document.querySelector('#problem .compare__pane.is-on')?.dataset.view,
-    captions: [...document.querySelectorAll('#problem .stage__caption')].filter((c) => getComputedStyle(c).display !== 'none').length,
+    /* Perceivable, not merely displayed: the captions share a grid cell and
+       are hidden with `visibility`, so `display` says nothing useful here. */
+    captions: [...document.querySelectorAll('#problem .stage__caption')]
+      .filter((c) => getComputedStyle(c).visibility !== 'hidden' && c.getAttribute('aria-hidden') !== 'true').length,
     height: Math.round(document.querySelector('#problem .stage').getBoundingClientRect().height),
   }));
   r.equal(after.pane, 'chain', 'compare switch pane');
@@ -178,33 +188,73 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
   // the whole point of the interaction: swapping the model reaches nothing else
   r.equal(impact.model.length, 0, 'layers disturbed by a model swap');
   r.equal(impact.details, 1, 'detail paragraphs shown');
+
+  /* the discipline tabs: a real tablist, so only the selected tab is in the
+     tab order and the arrow keys move between them */
+  await page.locator('.cases').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  const tabsInit = await page.evaluate(() => ({
+    tabs: document.querySelectorAll('.cases__tab').length,
+    visiblePanels: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).length,
+    inTabOrder: [...document.querySelectorAll('.cases__tab')].filter((t) => t.tabIndex === 0).length,
+  }));
+  r.equal(tabsInit.tabs, 6, 'discipline tabs');
+  r.equal(tabsInit.visiblePanels, 1, 'panels visible at once');
+  r.equal(tabsInit.inTabOrder, 1, 'tabs in the tab order');
+
+  await page.locator('.cases__tab[data-case="edu"]').click();
+  await page.waitForTimeout(250);
+  const picked = await page.evaluate(() => ({
+    panel: [...document.querySelectorAll('.case')].find((c) => !c.hasAttribute('hidden'))?.dataset.case,
+    han: /[\u4e00-\u9fff]/.test(document.querySelector('.case:not([hidden]) .case__work')?.textContent ?? ''),
+  }));
+  r.equal(picked.panel, 'edu', 'panel shown after clicking a tab');
+  if (lang === 'zh') r.check(picked.han, 'the discipline panel is not translated');
+  if (lang === 'en') r.check(!picked.han, 'the English panel contains Han characters');
+
+  await page.locator('.cases__tab[data-case="edu"]').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(200);
+  const arrowed = await page.evaluate(() => ({
+    panel: [...document.querySelectorAll('.case')].find((c) => !c.hasAttribute('hidden'))?.dataset.case,
+    focused: document.activeElement?.dataset.case,
+  }));
+  r.equal(arrowed.panel, 'finance', 'ArrowRight moves the panel');
+  r.equal(arrowed.focused, 'finance', 'ArrowRight moves focus');
+
   await ctx.close();
   ok = r.finish() && ok;
 }
 
 /* ------------------------------------------------------------- no-JS ----- */
-{
-  const r = reporter('degradation — no JavaScript, and a failed module');
+for (const [lang, path] of LANGS) {
+  const r = reporter(`degradation [${lang}] — no JavaScript, and a failed module`);
   const noJs = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
   const page = await noJs.newPage();
-  await page.goto(base + '/', { waitUntil: 'load' });
+  await page.goto(base + path, { waitUntil: 'load' });
   await page.waitForTimeout(400);
   const res = await page.evaluate(() => ({
     hidden: [...document.querySelectorAll('[data-reveal], [data-stagger]')]
       .filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length,
     navVisible: getComputedStyle(document.getElementById('navlinks')).display !== 'none',
     words: document.body.innerText.trim().split(/\s+/).length,
+    han: (document.body.innerText.match(/[\u4e00-\u9fff]/g) ?? []).length,
+    panels: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).length,
   }));
   r.equal(res.hidden, 0, 'elements left invisible without JS');
   r.check(res.navVisible, 'the navigation is unreachable without JS on a phone');
-  r.check(res.words > 900, `only ${res.words} words render without JS`);
+  /* Chinese has no spaces, so splitting on whitespace undercounts it by an
+     order of magnitude. Measure each language by something it actually has. */
+  if (lang === 'zh') r.check(res.han > 1500, `only ${res.han} Han characters render without JS`);
+  else r.check(res.words > 900, `only ${res.words} words render without JS`);
+  r.check(res.panels >= 1, 'no discipline panel is readable without JS');
   await noJs.close();
 
   // a module that fails to load must not take the content with it
   const broken = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page2 = await broken.newPage();
   await page2.route('**/diagrams.js', (route) => route.abort());
-  await page2.goto(base + '/', { waitUntil: 'load' });
+  await page2.goto(base + path, { waitUntil: 'load' });
   await page2.waitForTimeout(2200);
   const stillHidden = await page2.evaluate(() =>
     [...document.querySelectorAll('[data-reveal]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
@@ -247,8 +297,8 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
 }
 
 /* --------------------------------------------------------- older webkit -- */
-{
-  const r = reporter('compatibility — MediaQueryList without addEventListener');
+for (const [lang, path] of LANGS) {
+  const r = reporter(`compatibility [${lang}] — MediaQueryList without addEventListener`);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript(() => {
     const real = window.matchMedia.bind(window);
@@ -263,7 +313,7 @@ const WIDTHS = [320, 360, 390, 430, 600, 768, 900, 1024, 1280, 1440, 1920];
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(base + '/', { waitUntil: 'networkidle' });
+  await page.goto(base + path, { waitUntil: 'networkidle' });
   await page.waitForTimeout(900);
   const res = await page.evaluate(() => ({
     booted: document.documentElement.classList.contains('js'),

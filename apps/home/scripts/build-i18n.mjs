@@ -84,6 +84,12 @@ function build(page) {
       (dict[key] === undefined ? whole : `${open}${dict[key]}${close}`),
   );
 
+  /* 1b. aria-labels. They are copy too, and every one of them was staying in
+         English on the Chinese page — invisible unless you are using the
+         screen reader they exist for. */
+  out = out.replace(/aria-label="[^"]*"(\s+data-i18n-aria="([\w.]+)")/g,
+    (whole, tail, key) => (dict[key] === undefined ? whole : `aria-label="${escapeHtml(dict[key])}"${tail}`));
+
   // 2. document language
   out = out.replace('<html lang="en"', '<html lang="zh-Hans"');
 

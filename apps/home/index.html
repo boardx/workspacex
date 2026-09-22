@@ -117,14 +117,14 @@
 <header class="nav" id="nav" data-stuck="false">
   <div class="nav__inner">
     <div class="brand">
-      <a class="brand__home" href="#top" aria-label="WorkspaceX home">
+      <a class="brand__home" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
         <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
         <span class="brand__name">WorkspaceX</span>
       </a>
       <a class="brand__tag" href="#questions" data-i18n="nav.stage">Early access</a>
     </div>
 
-    <nav class="nav__links" id="navlinks" aria-label="Section navigation">
+    <nav class="nav__links" id="navlinks" aria-label="Section navigation" data-i18n-aria="aria.sectionNav">
       <a class="nav__link" href="#shift"        data-i18n="nav.shift">The Shift</a>
       <a class="nav__link" href="#loop"         data-i18n="nav.loop">The Loop</a>
       <a class="nav__link" href="#surface"      data-i18n="nav.surface">The Workspace</a>
@@ -136,7 +136,7 @@
     </nav>
 
     <div class="nav__actions">
-      <nav class="langswitch" data-mobile-move aria-label="Language">
+      <nav class="langswitch" data-mobile-move aria-label="Language" data-i18n-aria="aria.language">
         <a class="langswitch__btn" href="/" aria-current="true" hreflang="en">EN</a>
         <a class="langswitch__btn" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">中文</a>
       </nav>
@@ -148,7 +148,7 @@
         <span class="btn__label" data-i18n="nav.launch">Launch App</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu"><span></span></button>
+      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu" data-i18n-aria="aria.menu"><span></span></button>
     </div>
   </div>
   <!-- Reading progress. The page is roughly seventeen thousand pixels tall;
@@ -243,7 +243,7 @@
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
-      <div class="switch" role="group" aria-label="Compare">
+      <div class="switch" role="group" aria-label="Compare" data-i18n-aria="aria.compare">
         <button class="switch__btn" type="button" data-view="break" aria-pressed="true" data-i18n="problem.tabNow">Today</button>
         <button class="switch__btn" type="button" data-view="chain" aria-pressed="false" data-i18n="problem.tabNext">With WorkspaceX</button>
       </div>
@@ -253,8 +253,10 @@
         <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
       </div>
 
+      <div class="stage__captions">
       <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
       <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">The same five steps, except nothing is dropped between them. Context carries forward, every action is taken inside a boundary, every result leaves evidence, and what was learned becomes the starting point of the next run rather than being thrown away.</p>
+      </div>
     </div>
 
     <div class="grid grid--3 problem__losses" data-stagger>
@@ -556,38 +558,90 @@
 </section>
 
 <!-- ======================================================================
-     7 · Where to start
+     9 · Where it starts — worked examples by discipline
      ====================================================================== -->
 <section class="section" id="start">
   <div class="wrap">
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="start.eyebrow">09 — Where it starts</span>
       <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
-      <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive.</p>
+      <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive — and they show up in very different disciplines.</p>
     </header>
 
-    <div class="grid grid--4" data-stagger>
-      <article class="card card--lit" style="--i:0">
-        <h3 class="card__title" data-i18n="start.a1.t">Enterprise teams</h3>
-        <p class="card__body" data-i18n="start.a1.b">Cross-functional projects where an agent team, its evidence and the resulting memory outlive the project itself.</p>
-        <p class="card__meta" data-i18n="start.a1.m">AI transformation · legal · finance · research · operations</p>
-      </article>
-      <article class="card card--lit" style="--i:1">
-        <h3 class="card__title" data-i18n="start.a2.t">Consultants</h3>
-        <p class="card__body" data-i18n="start.a2.b">Turn a methodology into agents, skills and workflows the client keeps using after you leave.</p>
-        <p class="card__meta" data-i18n="start.a2.m">One project → a running system → recurring value</p>
-      </article>
-      <article class="card card--lit" style="--i:2">
-        <h3 class="card__title" data-i18n="start.a3.t">Education</h3>
-        <p class="card__body" data-i18n="start.a3.b">A space built for question → evidence → co-creation → work → feedback → reflection, instead of a faster way to get the answer.</p>
-        <p class="card__meta" data-i18n="start.a3.m">AI-native learning, not AI-assisted cheating</p>
-      </article>
-      <article class="card card--lit" style="--i:3">
-        <h3 class="card__title" data-i18n="start.a4.t">Independent creators</h3>
-        <p class="card__body" data-i18n="start.a4.b">One person running a team of agent roles across research, design, content, operations and analysis.</p>
-        <p class="card__meta" data-i18n="start.a4.m">A studio the size of one desk</p>
-      </article>
+    <div class="cases">
+      <div class="cases__tabs" role="tablist" aria-label="Disciplines" data-i18n-aria="aria.disciplines">
+        <button class="cases__tab" role="tab" id="tab-legal"  aria-controls="panel-legal"  aria-selected="true"  tabindex="0"  data-case="legal"  data-i18n="start.t1">Legal</button>
+        <button class="cases__tab" role="tab" id="tab-design" aria-controls="panel-design" aria-selected="false" tabindex="-1" data-case="design" data-i18n="start.t2">Design thinking</button>
+        <button class="cases__tab" role="tab" id="tab-edu"    aria-controls="panel-edu"    aria-selected="false" tabindex="-1" data-case="edu"    data-i18n="start.t3">Education</button>
+        <button class="cases__tab" role="tab" id="tab-finance" aria-controls="panel-finance" aria-selected="false" tabindex="-1" data-case="finance" data-i18n="start.t4">Finance</button>
+        <button class="cases__tab" role="tab" id="tab-research" aria-controls="panel-research" aria-selected="false" tabindex="-1" data-case="research" data-i18n="start.t5">Research &amp; consulting</button>
+        <button class="cases__tab" role="tab" id="tab-ops"    aria-controls="panel-ops"    aria-selected="false" tabindex="-1" data-case="ops"    data-i18n="start.t6">Operations</button>
+      </div>
+
+      <div class="cases__panels">
+        <!-- LEGAL -->
+        <section class="case" role="tabpanel" id="panel-legal" aria-labelledby="tab-legal" data-case="legal" tabindex="0">
+          <h3 class="case__work" data-i18n="start.legal.w">Reviewing an inbound contract against your own playbook.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.legal.r">A clause-extraction agent, a reviewer agent that holds the playbook, a drafting agent for the redline — and the lawyer who decides what is actually acceptable.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.legal.c">Every deviation is matched to the playbook clause it departs from, and every extracted term points back to its location in the source document. A clause the system cannot place is flagged, not guessed.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.legal.l">The position taken, the reason, and where it landed in negotiation. The next contract of the same shape starts from that, not from the playbook alone.</dd></div>
+          </dl>
+        </section>
+
+        <!-- DESIGN THINKING -->
+        <section class="case" role="tabpanel" id="panel-design" aria-labelledby="tab-design" data-case="design" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.design.w">Getting from twenty interviews to a problem worth solving.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.design.r">Agents that transcribe, cluster and challenge; a facilitator who owns the framing. Divergence is cheap for agents and convergence is a human judgment — the tool should not blur which is which.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.design.c">Every insight carries the interview fragments it came from, so a cluster that sounds good and rests on one quote is visible as exactly that. Concepts are checked against the constraints that were agreed up front.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.design.l">The problem definition, the directions that were rejected, and why. Most design knowledge is lost in the second one; a canvas that keeps it is worth more than the deck.</dd></div>
+          </dl>
+        </section>
+
+        <!-- EDUCATION -->
+        <section class="case" role="tabpanel" id="panel-edu" aria-labelledby="tab-edu" data-case="edu" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.edu.w">A student investigating a question they cannot look up.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.edu.r">A guide agent that asks the next question instead of answering, an evidence agent that checks whether a claim is supported, the student, and a teacher who can see the whole path.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.edu.c">A conclusion without evidence attached does not count as finished — the same rule the rest of this system runs on. The agents are configured to withhold answers, which is a permission setting, not a promise.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.edu.l">The reasoning is the artifact. A teacher reads the path — what was tried, what was discarded, where the student changed their mind — rather than grading a paragraph that could have come from anywhere.</dd></div>
+          </dl>
+        </section>
+
+        <!-- FINANCE -->
+        <section class="case" role="tabpanel" id="panel-finance" aria-labelledby="tab-finance" data-case="finance" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.finance.w">Turning a month of numbers into a decision someone will sign.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.finance.r">Agents that pull from the systems of record, build the model and re-derive it independently, plus the analyst who owns the assumptions.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.finance.c">The model is recomputed against actuals, and every assumption without a source behind it is marked as needing a human. An unproven number is allowed to exist; it is not allowed to be silent.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.finance.l">The definitions used and the judgments made become next month’s baseline, so the recurring argument about what a number means happens once.</dd></div>
+          </dl>
+        </section>
+
+        <!-- RESEARCH -->
+        <section class="case" role="tabpanel" id="panel-research" aria-labelledby="tab-research" data-case="research" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.research.w">Due diligence, or a market you have two weeks to understand.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.research.r">A research agent team working many sources in parallel, an analyst agent, a writer — and a consultant whose method is the thing worth keeping.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.research.c">Sources are verifiable and the rejected ones are recorded with the reason. Knowing what was looked at and thrown away is most of what makes a finding trustworthy.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.research.l">The method becomes an agent and a skill the client keeps running after the engagement ends. That is the difference between selling a report and leaving a system.</dd></div>
+          </dl>
+        </section>
+
+        <!-- OPERATIONS -->
+        <section class="case" role="tabpanel" id="panel-ops" aria-labelledby="tab-ops" data-case="ops" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.ops.w">A routine process that crosses four systems and breaks in one.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.ops.r">Agents granted exactly the tools the process needs and nothing else, plus the operator who owns the exceptions.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.ops.c">Every call happens inside an authorization boundary, is observed while it runs, and has a rollback path when verification fails. This is the case where the harness stops being a design principle and starts being the reason you are allowed to deploy at all.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.ops.l">Exceptions become rules. The fourth time the same thing breaks, the handling is already part of the workflow.</dd></div>
+          </dl>
+        </section>
+      </div>
     </div>
+
+    <p class="cases__note" data-reveal data-i18n="start.note">These are worked examples of how a unit of work is shaped in each discipline — not customer stories. We are early, and we would rather show you the shape of the thing than borrow credibility we have not earned.</p>
   </div>
 </section>
 
@@ -790,7 +844,7 @@
   <div class="wrap">
     <div class="footer__grid">
       <div class="footer__col footer__col--brand">
-        <a class="brand" href="#top" aria-label="WorkspaceX home">
+        <a class="brand" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
           <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
           <span class="brand__name">WorkspaceX</span>
         </a>

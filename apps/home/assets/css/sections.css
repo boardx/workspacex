@@ -123,13 +123,6 @@
 }
 @media (max-width: 900px) { .trust__split { grid-template-columns: minmax(0, 1fr); } }
 
-/* ---- 07 Where it starts -------------------------------------------------- */
-.card__meta {
-  margin-top: var(--s-4); padding-top: 0.85rem;
-  border-top: 1px solid var(--hairline);
-  font-family: var(--font-mono); font-size: var(--t-tiny);
-  letter-spacing: 0.04em; color: var(--fg-faint);
-}
 
 /* ---- 08 Open ------------------------------------------------------------- */
 .open__cols {
@@ -506,4 +499,80 @@
   border-top: 1px solid var(--hairline);
   font-family: var(--font-mono); font-size: var(--t-micro);
   color: var(--fg-faint);
+}
+
+/* ---- 09 worked examples by discipline ------------------------------------- */
+.cases {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+  overflow: hidden;
+}
+.cases__tabs {
+  display: flex; flex-direction: column;
+  padding: var(--s-4);
+  border-right: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+}
+.cases__tab {
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--r-sm);
+  font-size: var(--t-md); font-weight: 500;
+  color: var(--fg-dim);
+  min-height: 42px;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.cases__tab:hover { color: var(--fg-soft); background: var(--surface); }
+.cases__tab[aria-selected="true"] {
+  color: var(--fg); background: var(--surface-2); font-weight: 600;
+  position: relative;
+}
+.cases__tab[aria-selected="true"]::before {
+  content: ""; position: absolute; left: 0; top: 0.6rem; bottom: 0.6rem;
+  width: 2px; border-radius: var(--r-nub); background: var(--grad);
+}
+@media (pointer: coarse) { .cases__tab { min-height: 48px; } }
+
+.cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem) clamp(1.25rem, 2.5vw, 2rem) clamp(1.25rem, 2.5vw, 2rem) 0; }
+.case:focus-visible { outline-offset: 6px; }
+.case__work {
+  font-size: clamp(1.125rem, 1.9vw, 1.5rem);
+  margin-bottom: var(--s-5);
+  max-width: 34rem;
+}
+.case__grid { display: grid; gap: var(--s-4); margin: 0; }
+.case__grid > div {
+  display: grid; gap: var(--s-1);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+}
+.case__grid dt {
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--c-2);
+}
+/* 10px is a readable caption in latin and an unreadable one in Hanzi: Han
+   glyphs carry far more strokes in the same box. */
+:lang(zh) .case__grid dt { letter-spacing: 0.06em; font-size: var(--t-micro); }
+.case__grid dd { margin: 0; font-size: var(--t-small); color: var(--fg-dim); max-width: 44rem; }
+
+.cases__note {
+  margin-top: var(--s-4);
+  font-size: var(--t-small); color: var(--fg-faint);
+  max-width: 46rem;
+}
+
+@media (max-width: 860px) {
+  .cases { grid-template-columns: minmax(0, 1fr); }
+  .cases__tabs {
+    flex-direction: row; flex-wrap: wrap; gap: var(--s-1);
+    border-right: 0; border-bottom: 1px solid var(--hairline);
+  }
+  .cases__tab { flex: 1 1 auto; text-align: center; }
+  .cases__tab[aria-selected="true"]::before { inset: auto 0.6rem 0 0.6rem; width: auto; height: 2px; top: auto; }
+  .cases__panels { padding: clamp(1.25rem, 2.5vw, 2rem); }
 }

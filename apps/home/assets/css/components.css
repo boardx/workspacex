@@ -308,7 +308,14 @@
 }
 .compare__pane.is-on { opacity: 1; transform: none; }
 
-.stage__caption.is-off { display: none; }
+/* Both captions occupy the same grid cell so the taller one sets the height.
+   Swapping them with `display` resized the stage by 24px when switching — on
+   the CHINESE page only, because the two translations are different lengths.
+   A jump that exists in one language and not the other is exactly what a
+   single-language test never sees. */
+.stage__captions { display: grid; }
+.stage__captions > .stage__caption { grid-area: 1 / 1; }
+.stage__caption.is-off { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .compare__pane { transition: none; }
