@@ -41,6 +41,29 @@
                   "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
   --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
+  /* ---- radius scale ------------------------------------------------------
+     Twelve different radii had accumulated — 22, 12, 11, 10, 9, 8, 6, 3, 2,
+     1.5 px — because every new component picked its own. Four surfaces sizes
+     plus the two shapes is a system; twelve is improvisation that slowly
+     pulls the page out of true. */
+  --r-nub:   2px;    /* the few-pixel marks: bullets, swatches, bars */
+  --r-xs:    6px;    /* chips, tags, inline marks            */
+  --r-sm:    10px;   /* buttons, small panels                */
+  --r-md:    14px;   /* notes, tiles, list rows              */
+  --r-lg:    22px;   /* cards, stages, the large surfaces    */
+  --r-pill:  999px;
+  --r-round: 50%;
+
+  /* ---- space scale -------------------------------------------------------
+     Gaps were being chosen at 0.25 / 0.3 / 0.4 / 0.5 / 0.55 / 0.6 / 0.75 /
+     1 / 1.5rem. Same problem, same fix: a scale you can only step along. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+
   /* fluid scale — clamp(min, preferred, max) */
   --t-hero:   clamp(2.5rem, 6vw, 5rem);
   --t-h2:     clamp(2rem,   4.4vw, 3.75rem);
@@ -49,6 +72,16 @@
   --t-body:   clamp(0.975rem, 1.1vw, 1.0625rem);
   --t-small:  0.875rem;
   --t-micro:  0.75rem;
+
+  /* The steps between --t-micro and --t-h3 that components kept inventing:
+     seventeen distinct literal sizes existed outside this scale. */
+  --t-nano:   0.625rem;    /* 10px — mono labels, over-line captions */
+  --t-tiny:   0.6875rem;   /* 11px — dense metadata                  */
+  --t-xs:     0.8125rem;   /* 13px                                   */
+  --t-md:     0.9375rem;   /* 15px — control labels, list titles     */
+  --t-base:   1rem;
+  --t-lg:     1.125rem;
+  --t-xl:     1.25rem;
 
   /* ---- space ------------------------------------------------------------ */
   --gutter:      clamp(1.25rem, 4vw, 3rem);
@@ -63,7 +96,6 @@
   --dur:       520ms;
   --dur-slow:  620ms;
 
-  --radius-lg: 22px;
   --nav-h:     64px;
 }
 
@@ -144,7 +176,7 @@ p { text-wrap: pretty; }
   transform: translate(-50%, -140%);
   z-index: 200;
   padding: 0.625rem 1.125rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--fg); color: var(--bg-sink);
   font-weight: 600; font-size: var(--t-small);
   transition: transform var(--dur-fast) var(--ease-out);
@@ -155,7 +187,7 @@ p { text-wrap: pretty; }
 :focus-visible {
   outline: 2px solid var(--c-2);
   outline-offset: 3px;
-  border-radius: 6px;
+  border-radius: var(--r-xs);
 }
 
 /* ---- forced / high contrast ---------------------------------------------- */

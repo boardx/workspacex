@@ -23,7 +23,7 @@
 .section__head { max-width: 48rem; margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
 
 .eyebrow {
-  display: inline-flex; align-items: center; gap: 0.5rem;
+  display: inline-flex; align-items: center; gap: var(--s-2);
   font-family: var(--font-mono);
   font-size: var(--t-micro);
   letter-spacing: 0.16em;
@@ -88,14 +88,14 @@
 .brand__mark { width: 26px; height: 26px; }
 .brand__name {
   font-family: var(--font-display);
-  font-weight: 700; font-size: 1.0625rem; letter-spacing: -0.02em;
+  font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
 }
 .brand__tag {
   font-family: var(--font-mono);
-  font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: var(--t-nano); letter-spacing: 0.12em; text-transform: uppercase;
   white-space: nowrap;   /* "Early access" was wrapping to two lines and
                             stretching the whole brand block */
-  padding: 0.2rem 0.45rem; border-radius: 999px;
+  padding: 0.2rem 0.45rem; border-radius: var(--r-pill);
   color: var(--c-2);
   border: 1px solid rgba(255, 46, 115, 0.35);
   background: rgba(255, 46, 115, 0.08);
@@ -105,10 +105,10 @@
    a stage and leaving the visitor to guess what it means. */
 a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(255, 46, 115, 0.6); }
 
-.nav__links { display: flex; align-items: center; gap: 0.25rem; margin-inline: auto; }
+.nav__links { display: flex; align-items: center; gap: var(--s-1); margin-inline: auto; }
 .nav__link {
   position: relative;
-  padding: 0.45rem 0.75rem; border-radius: 8px;
+  padding: 0.45rem 0.75rem; border-radius: var(--r-xs);
   font-size: var(--t-small); color: var(--fg-soft);
   transition: color var(--dur-fast) var(--ease-out);
   white-space: nowrap;
@@ -117,20 +117,20 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 .nav__link[aria-current="true"] { color: var(--fg); }
 .nav__link[aria-current="true"]::after {
   content: ""; position: absolute; left: 0.75rem; right: 0.75rem; bottom: 0.15rem;
-  height: 2px; border-radius: 2px; background: var(--grad);
+  height: 2px; border-radius: var(--r-nub); background: var(--grad);
 }
 
-.nav__actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.nav__actions { display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0; }
 
 /* language toggle — a real segmented control, not two links */
 .langswitch {
   display: inline-flex; align-items: center;
-  padding: 2px; border-radius: 999px;
+  padding: 2px; border-radius: var(--r-pill);
   border: 1px solid var(--hairline); background: var(--surface);
 }
 .langswitch__btn:hover { color: var(--fg); }
 .langswitch__btn {
-  padding: 0.3rem 0.7rem; border-radius: 999px;
+  padding: 0.3rem 0.7rem; border-radius: var(--r-pill);
   font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.02em;
   color: var(--fg-dim);
   transition: color var(--dur-fast) var(--ease-out),
@@ -142,8 +142,8 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 }
 
 .nav__ghost {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.45rem 0.7rem; border-radius: 9px;
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 0.45rem 0.7rem; border-radius: var(--r-sm);
   font-size: var(--t-small); color: var(--fg-soft);
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
@@ -153,7 +153,7 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 /* mobile menu button */
 .nav__burger {
   display: none;
-  width: 40px; height: 40px; border-radius: 10px;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
   align-items: center; justify-content: center;
   border: 1px solid var(--hairline); background: var(--surface);
 }
@@ -175,7 +175,7 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 /* Between the widest the inline nav can be and the burger breakpoint, buy
    room by tightening rather than by letting anything clip. */
 @media (max-width: 1320px) {
-  .nav__link { padding-inline: 0.55rem; font-size: 0.8125rem; }
+  .nav__link { padding-inline: 0.55rem; font-size: var(--t-xs); }
   .nav__inner { gap: 0.9rem; }
   .nav__ghost { padding-inline: 0.55rem; }
 }
@@ -196,7 +196,7 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
     display: none;
   }
   .nav__links[data-open="true"] { display: flex; }
-  .nav__link { padding: 0.85rem 0.25rem; font-size: 1rem; }
+  .nav__link { padding: 0.85rem 0.25rem; font-size: var(--t-base); }
   .nav__link[aria-current="true"]::after { left: 0.25rem; right: auto; width: 1.5rem; bottom: 0.45rem; }
   .nav__inner { justify-content: space-between; }
   .nav__ghost--signin { display: none; }
@@ -231,14 +231,14 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 .footer__h {
   font-size: var(--t-micro); font-family: var(--font-mono);
   letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--fg-faint); margin-bottom: 1rem; font-weight: 500;
+  color: var(--fg-faint); margin-bottom: var(--s-4); font-weight: 500;
 }
-.footer__col ul { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+.footer__col ul { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
 .footer__col a { font-size: var(--t-small); color: var(--fg-soft); }
 .footer__col a:hover { color: var(--fg); }
 .footer__blurb { font-size: var(--t-small); color: var(--fg-dim); max-width: 22rem; margin-top: 0.875rem; }
 .footer__bottom {
-  margin-top: clamp(2.5rem, 5vw, 4rem); padding-top: 1.5rem;
+  margin-top: clamp(2.5rem, 5vw, 4rem); padding-top: var(--s-5);
   border-top: 1px solid var(--hairline);
   display: flex; flex-wrap: wrap; gap: 1rem 1.5rem;
   align-items: center; justify-content: space-between;
@@ -253,15 +253,15 @@ a.brand__tag:hover { background: rgba(255, 46, 115, 0.18); border-color: rgba(25
 .nav__panelactions { display: none; }
 @media (max-width: 760px) {
   .nav__panelactions {
-    display: grid; gap: 0.75rem;
-    padding-top: 1rem; margin-top: 0.5rem;
+    display: grid; gap: var(--s-3);
+    padding-top: var(--s-4); margin-top: var(--s-2);
     border-top: 1px solid var(--hairline);
   }
   .nav__panelactions .langswitch { justify-self: start; }
   .nav__panelactions .nav__ghost--signin { display: inline-flex; justify-self: start; }
   .nav__panelactions .btn--primary { justify-content: center; }
   /* the bar keeps only what a thumb needs at a glance */
-  .nav__inner { gap: 0.75rem; }
+  .nav__inner { gap: var(--s-3); }
 }
 
 /* ---- reading progress ----------------------------------------------------- */

@@ -23,7 +23,7 @@ const cssFiles = list('assets/css', '.css');
 const consumers = html + js;
 
 /* Values a stylesheet legitimately reads but only JS ever writes. */
-const JS_WRITTEN = new Set(['--i', '--e', '--p', '--c', '--dscale', '--scene-track']);
+const JS_WRITTEN = new Set(['--i', '--e', '--p', '--c', '--dscale', '--scene-track', '--read']);
 
 const classes = new Map();
 let css = '';
@@ -49,6 +49,28 @@ const report = (label, items, format = (x) => x) => {
   items.forEach((i) => console.error(`    ${format(i)}`));
 };
 
+/* --- the scales must stay scales ---------------------------------------
+   Twelve radii and seventeen font sizes had accumulated outside the token
+   system before anyone looked. Each one arrived reasonably — a component
+   needed "just a bit smaller" — and together they are why a page stops
+   feeling designed. Literals are allowed only where the token block itself
+   declares them, and in print.css, which is measured in points on purpose. */
+const SCALE_EXEMPT = /print\.css|fonts\.css/;
+const offScale = [];
+for (const file of cssFiles) {
+  if (SCALE_EXEMPT.test(file)) continue;
+  const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '');
+  // skip the :root block, which is where the scales are defined
+  const scoped = body.replace(/:root\s*\{[\s\S]*?\}/g, '');
+  for (const m of scoped.matchAll(/(?<![\w-])(border-radius|font-size)\s*:\s*([^;}]+);/g)) {
+    const value = m[2].trim();
+    if (/var\(|calc\(|clamp\(|inherit|currentColor/.test(value)) continue;
+    if (value === '0' || value === '0px') continue;
+    offScale.push(`${basename(file)}: ${m[1]}: ${value}`);
+  }
+}
+
+report('values set outside the radius / type scales', offScale);
 report('classes defined in CSS but used nowhere', unusedClasses, (c) => `.${c}  (${classes.get(c)})`);
 report('custom properties declared but never read', unusedTokens);
 report('var() reading a property nothing declares', dangling);

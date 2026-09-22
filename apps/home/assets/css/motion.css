@@ -82,7 +82,7 @@ html:not(.js) [data-stagger] > * {
   filter: blur(44px); opacity: 0.6;
   contain: paint;
 }
-.hero__blob { position: absolute; border-radius: 50%; }
+.hero__blob { position: absolute; border-radius: var(--r-round); }
 .hero__blob--1 {
   width: 46vw; height: 46vw; left: 6%; top: 4%;
   background: radial-gradient(circle, rgba(255,122,24,.5), transparent 65%);
@@ -110,13 +110,13 @@ html:not(.js) [data-stagger] > * {
     linear-gradient(180deg, rgba(8,7,11,.5), transparent 28%, rgba(8,7,11,.9));
 }
 
-.hero__inner { display: grid; justify-items: center; text-align: center; gap: 1.5rem; }
+.hero__inner { display: grid; justify-items: center; text-align: center; gap: var(--s-5); }
 .hero__title { max-width: 18ch; }
 .hero__sub {
   font-size: var(--t-lead); color: var(--fg-soft);
-  max-width: 42rem; margin-top: 0.25rem;
+  max-width: 42rem; margin-top: var(--s-1);
 }
-.hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 0.75rem; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: center; margin-top: var(--s-3); }
 
 /* headline words rise in sequence */
 .hero__title .word {
@@ -134,8 +134,8 @@ html:not(.js) [data-stagger] > * {
 .scroll-cue {
   position: absolute; left: 50%; bottom: 1.75rem;
   transform: translateX(-50%);
-  display: grid; justify-items: center; gap: 0.5rem;
-  font-family: var(--font-mono); font-size: 0.625rem;
+  display: grid; justify-items: center; gap: var(--s-2);
+  font-family: var(--font-mono); font-size: var(--t-nano);
   letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-faint);
 }
 .scroll-cue__line {
