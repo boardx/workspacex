@@ -481,6 +481,90 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* --------------------------------------------------------- resilience --- */
+/* Two failure paths were covered — scripting switched off, and one module
+   aborting — and the one in between was not: JavaScript enabled and the
+   scripts simply never arriving, which is what a proxy, a CDN outage or a
+   blocker actually does. That path runs on neither the <noscript> block nor
+   the module's own code; it runs on the `html:not(.js)` failsafe, which
+   nothing had ever exercised. Nor had a missing stylesheet, a missing font,
+   a light-scheme visitor, forced colors, or a phone held sideways. */
+{
+  const r = reporter('resilience — missing resources and display preferences');
+
+  const BLOCKED = [
+    ['every script', '**/assets/js/*.js'],
+    ['the stylesheet', '**/site.css'],
+    ['the fonts', '**/*.woff2'],
+    ['the hero image', '**/aurora.jpg'],
+  ];
+  for (const [what, pattern] of BLOCKED) {
+    r.step(`blocked: ${what}`);
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message.slice(0, 60)));
+    await page.route(pattern, (route) => route.abort());
+    await page.goto(base + '/', { waitUntil: 'load' });
+    /* Past the 1.2s reveal failsafe, not on it — sampling exactly on that
+       boundary reported thirty invisible elements that were about to appear.
+       Then scroll: when only a font or an image is missing the scripts still
+       run, so below-the-fold content is waiting on the observer rather than
+       broken, and asserting without scrolling accuses a working page. */
+    await page.waitForTimeout(2400);
+    await evaluateWithin(page, 15_000, 'to bottom', () => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(1200);
+    await evaluateWithin(page, 15_000, 'to top', () => window.scrollTo(0, 0));
+    await page.waitForTimeout(900);
+    const state = await evaluateWithin(page, 15_000, `blocked ${what}`, () => ({
+      words: document.body.innerText.trim().split(/\s+/).length,
+      invisible: [...document.querySelectorAll('[data-reveal], [data-stagger]')]
+        .filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length,
+      nav: !!document.querySelector('.nav a[href]'),
+    }));
+    r.check(state.words > 900, `with ${what} blocked, only ${state.words} words render`);
+    r.equal(state.invisible, 0, `elements still invisible with ${what} blocked`);
+    r.check(state.nav, `the navigation is unusable with ${what} blocked`);
+    r.equal(errors.length, 0, `page errors with ${what} blocked${errors[0] ? `: ${errors[0]}` : ''}`);
+    await ctx.close();
+  }
+
+  const MODES = [
+    ['a light-scheme visitor', { colorScheme: 'light' }],
+    ['forced colors', { forcedColors: 'active' }],
+    ['a phone held sideways', { viewport: { width: 640, height: 360 } }],
+  ];
+  for (const [what, opts] of MODES) {
+    r.step(`mode: ${what}`);
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...opts });
+    const page = await ctx.newPage();
+    await page.goto(base + '/', { waitUntil: 'networkidle' });
+    await evaluateWithin(page, 15_000, 'to bottom', () => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(1200);
+    await evaluateWithin(page, 15_000, 'to top', () => window.scrollTo(0, 0));
+    await page.waitForTimeout(1200);
+    const state = await evaluateWithin(page, 15_000, `mode ${what}`, () => ({
+      words: document.body.innerText.trim().split(/\s+/).length,
+      /* Transparent text is the specific way this page can fail here: the
+         wordmark is painted through background-clip, and a mode that drops
+         background images while keeping the transparent fill erases it. */
+      invisibleText: [...document.querySelectorAll('h1, h2, h3, .brand__name, .btn, .nav__link')]
+        .filter((e) => {
+          const cs = getComputedStyle(e);
+          return cs.webkitTextFillColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none';
+        }).map((e) => (e.className || e.tagName).toString().slice(0, 18)),
+      past: [...document.querySelectorAll('.btn, h1, .chip, .nav__inner *')]
+        .filter((e) => e.getBoundingClientRect().width > 0
+                    && e.getBoundingClientRect().right > window.innerWidth + 1).length,
+    }));
+    r.check(state.words > 900, `with ${what}, only ${state.words} words render`);
+    r.equal(state.invisibleText.length, 0, `text painted transparent with ${what} — ${state.invisibleText.slice(0, 3).join(', ')}`);
+    r.equal(state.past, 0, `content past the right edge with ${what}`);
+    await ctx.close();
+  }
+  ok = r.finish() && ok;
+}
+
 /* ---------------------------------------------------------- bilingual --- */
 {
   const r = reporter('bilingual — the Chinese page stands on its own');

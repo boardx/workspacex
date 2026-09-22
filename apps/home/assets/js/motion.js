@@ -66,7 +66,11 @@ export function initReveals() {
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),
-      { threshold: 0.25 },
+      /* 0, like every other observer here. A threshold of 0.25 cannot be met
+         by an element taller than the viewport — `.scales` is 658 px against
+         a 360 px landscape phone — so the connecting thread was one layout
+         change away from never being drawn, with nothing to say so. */
+      { threshold: 0 },
     );
     io2.observe(scales);
   }

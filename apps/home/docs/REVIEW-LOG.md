@@ -827,3 +827,22 @@ The tabbability count then read a **correct** roving-tabindex tablist as five
 missing controls, because `button` matches the selector whatever its
 `tabindex` says. Both are recorded here because the alternative was two
 plausible "fixes" to code that was already right.
+
+### Round 30 — what happens when things do not arrive
+
+The page turned out to be genuinely resilient. What was missing was coverage —
+and three of this round's ten findings are my own probes accusing a page that
+was behaving correctly.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | Two failure paths were covered — scripting switched off, and one module aborting — and **the one in between was not**: JavaScript enabled and the scripts never arriving, which is what a proxy, a CDN outage or a blocker actually does. It runs on neither the `<noscript>` block nor the module's own code, but on the `html:not(.js)` failsafe, which nothing had ever exercised. | A resilience suite. Proved red by deleting the failsafe: 30 elements stay invisible. |
+| 2 | A missing **stylesheet** was never tested. The page is readable unstyled — 2371 words — and nothing said so. | Asserted. |
+| 3 | Missing **fonts** and a missing **hero image**: likewise. | Asserted. |
+| 4 | `prefers-color-scheme: light`. The site declares `color-scheme: dark`, and nothing verified that a light-preference visitor gets a coherent page rather than dark text on dark. | Asserted. |
+| 5 | `forced-colors: active`. There is CSS for it — including the wordmark fix from round 23, which exists precisely because a transparent text fill survives when the gradient behind it is dropped — and **it had never been run**. | Asserted, on the specific failure: text painted transparent with no background image behind it. |
+| 6 | A phone **held sideways**. The responsive widths are eleven numbers and all of them are portrait; 640×360 is a real device in a real orientation. | In the suite. |
+| 7 | `.scales` was observed at `threshold: 0.25` while every other observer on the page uses 0. **An element taller than the viewport can never be 25% visible** — it is 658 px against a 360 px landscape phone. It happens to work, and was one layout change from silently never drawing its connecting thread. | `threshold: 0`, like the rest. |
+| 8 | My probe sampled at **exactly** the failsafe's 1.2 s boundary and reported 30 invisible elements. It looked like a serious defect and was a stopwatch error. | Sample past the boundary, and say so in the code. |
+| 9 | A second probe sampled 700 ms after a nav jump and reported two section headings stuck invisible. They were mid-transition. **Twice in one round**, a boundary-timed probe cried wolf. | Settle, then measure. |
+| 10 | The first version of the new assertion then accused a working page: with only a font blocked the scripts still run, so below-the-fold content is waiting on the observer rather than broken. | Scroll, then assert — and the suite caught my mistake, which is the argument for writing the assertion into the suite rather than reading a probe's output and believing it. |
