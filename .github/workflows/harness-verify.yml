@@ -183,13 +183,14 @@ jobs:
       - name: 标准包发货版本 == 构建版本（单一事实源）
         run: node .harness/scripts/lint-shipped-pack-version.mjs
 
-      # 标准 skill 的 stable_name/version/capability_id 在 SKILL.md frontmatter 与
+      # 标准 skill 的 stable_name/version/capability_id 曾在 SKILL.md frontmatter 与
       # scripts/build.ts 各写一遍（15+ 个 skill，8 个两处都写、7 个只写一处），从没被比对过。
+      # #3154 收敛成 frontmatter 单源，这道门改成钉「build.ts 里不许再长出第二份副本」。
       # ui-prototyper 的八条硬规则此前在 yaml/SKILL.md/AGENTS.md 三处手写，同样从没被比对过。
       # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
-      # 覆盖不到，必须显式跑。
-      - name: 标准 skill 元数据两处逐字一致（约定债务只减不增）
-        run: node .harness/scripts/lint-skill-metadata-source.mjs
+      # 覆盖不到，必须显式跑。用 tsx 跑是因为它 import 了那个 TypeScript 写的单源解析器。
+      - name: 标准 skill 元数据只有 SKILL.md frontmatter 一处（metadata 嵌套写法只减不增）
+        run: pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs
 
       - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
         run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
