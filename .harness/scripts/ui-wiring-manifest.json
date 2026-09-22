@@ -1395,6 +1395,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/ai-capability-studio/workbench/page.tsx"
     },
+    "/preview/canvas-streaming": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/canvas-streaming/page.tsx"
+    },
     "/preview/canvas-template-gallery": {
       "kind": "preview",
       "screen": "apps/web/app/preview/canvas-template-gallery/page.tsx"
