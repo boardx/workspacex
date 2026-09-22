@@ -129,10 +129,53 @@ const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   wireframe: "线框图",
 };
 
-function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return String(err);
+/**
+ * 迭代 27 —— 错误码 → 人话。
+ *
+ * `describeFailure` 原来是 `err.reasonCode ?? \`http_${err.status}\``，也就是把**内部错误码
+ * 原样端给用户**：屏上出现的是「没能发送（PROJECT_NOT_FOUND），已保留草稿」
+ * 「没能推送到收件箱（http_500）」。对一个不做设计、也不看代码的人，这既不说明发生了什么，
+ * 更不说明下一步该做什么——而这正是他最需要一句人话的时刻。本文件里有 37 处用它。
+ *
+ * ⚠ 键集合是契约闭集 `DesignWorkbenchError`，**漏一个编译不过**——契约新增一个错误码却
+ *   没给人话，会在这里当场变成 TS 错误，而不是悄悄退回到那个码本身。
+ */
+const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, string> = {
+  PROJECT_NOT_FOUND: "这个设计项目找不到了，可能已经被删掉",
+  NAME_REQUIRED: "名字不能为空",
+  NOT_PROJECT_OWNER: "这个项目不是你建的，只有建它的人能改",
+  DEPENDENCY_UNAVAILABLE: "服务暂时不可用，稍后再试一次",
+  VERSION_NOT_FOUND: "这一版历史记录找不到了",
+  REF_IMAGE_REJECTED: "这张图没能用：换一张小一点的 PNG / JPEG / WebP",
+  PROTOTYPE_PATCH_REJECTED: "这次改动没能应用到画布上",
+  FEEDBACK_NOT_FOUND: "来源反馈找不到了",
+  FEEDBACK_DETAIL_NOT_VISIBLE: "你没有查看这条反馈正文的权限",
+  PROJECT_NOT_PUSHED: "得先把方案推送到收件箱，才能转成开发任务",
+  DESIGN_ISSUE_ALREADY_EXISTS: "这个方案已经有对应的开发任务了",
+  DESIGN_ISSUE_IN_PROGRESS: "正在创建开发任务，稍等一下再试",
+  DESIGN_ISSUE_CREATION_FAILED: "创建开发任务失败，稍后再试一次",
+  SHARE_NOT_FOUND: "这条分享链接已经失效",
+  NOTHING_TO_PUBLISH: "还没有画出来的页，没什么可发布的",
+};
+
+/** HTTP 状态兜底：走到这里说明不是本束的已知错误码，仍然要给一句**能照着做**的话。 */
+function httpText(status: number): string {
+  if (status === 401 || status === 403) return "登录状态过期了，刷新页面重新登录";
+  if (status === 404) return "要找的东西不在了";
+  if (status === 429) return "操作太频繁了，等一下再试";
+  if (status >= 500) return "服务器出错了，稍后再试一次";
+  return "这次请求没成功，稍后再试一次";
+}
+
+export function describeFailure(err: unknown): string {
+  if (err instanceof ApiError) {
+    const code = err.reasonCode;
+    if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as designWorkbench.DesignWorkbenchError];
+    return httpText(err.status);
+  }
+  if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
+  // 兜底同样不端出内部细节：`String(err)` 在这里多半是一段栈或一句英文异常。
+  return "出了点问题，稍后再试一次";
 }
 
 type Load =
@@ -201,6 +244,14 @@ export function DesignDetailScreen({
    * 没有东西在生成。
    */
   const [fallbackReason, setFallbackReason] = React.useState<DesignChatFallbackReason | null>(null);
+  /**
+   * 迭代 27：**中性通知**，与红色的 `chatError` 分开。
+   *
+   * 取消不是错误——把它塞进那条红带子，等于告诉用户他刚做错了一件事。
+   * 但也不能什么都不说（见 `send` 里取消分支的注释）：已经画好的页留着了、服务端那一次
+   * 可能还在跑完，这两件事只有系统知道。
+   */
+  const [notice, setNotice] = React.useState<string | null>(null);
   /** 迭代 9：最近一轮模型给的下一步建议（`reply.suggestions`），挂在最后一条 AI 气泡下，点一下即发。 */
   const [suggestions, setSuggestions] = React.useState<readonly string[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
@@ -672,6 +723,16 @@ export function DesignDetailScreen({
         // 在这之前取消等于前功尽弃——服务端照样画完、照样计费，用户什么也没拿到。
         stopPoll();
         void reload();
+        /*
+         * 迭代 27：取消之后**屏上说一句话**。
+         *
+         * 在这之前按下「取消」只是悄悄回到静止：已经画好的页留在那儿，而用户不知道
+         * 那是取消之前画的、还是取消之后又画的、还是根本没动。上面那条注释自己写着
+         * 「服务端那次调用可能仍会完成并落库——这里不假装它一定没发生」，
+         * 而这件事从来没有告诉过用户。
+         */
+        setNotice("已取消。取消之前画好的页留着了；那一次调用可能还在服务端跑完，稍后刷新可能会看到更多页。");
+        window.setTimeout(() => setNotice(null), 6000);
       } else {
         setText(value);
         setRetryText(value);
@@ -935,6 +996,17 @@ export function DesignDetailScreen({
                 <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
               </span>
               <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
+            </div>
+          )}
+          {/*
+            * 迭代 27：中性通知带（取消、以及以后别的"不是错误但要说一句"的事）。
+            * 与下面那条红色的 `chatError` 刻意分开：把取消塞进红带子，等于告诉用户
+            * 他刚做错了一件事。
+            */}
+          {notice !== null && (
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-card border border-border bg-card px-2.5 py-1 text-11 text-card-foreground" data-testid="design-detail-notice" role="status">
+              <span className="min-w-0 flex-1">{notice}</span>
+              <button type="button" onClick={() => setNotice(null)} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-panel"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
           {chatError !== null && (

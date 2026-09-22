@@ -55,7 +55,7 @@ import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { designWorkbench } from "@repo/contracts";
-import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
+import { DesignDetailScreen, describeFailure } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -2440,7 +2440,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     }
   });
 
-  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
+  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、不报错但**说一句**；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let mode: "hang" | "fail" | "ok" = "hang";
     const posted: unknown[] = [];
@@ -2472,12 +2472,18 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       fireEvent.click(screen.getByTestId("design-detail-cancel"));
       await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
       expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();
+      /*
+       * 迭代 27：取消**不是错误**（上面那条断言），但也不能什么都不说——
+       * 已经画好的页留着了、服务端那一次可能还在跑完，这两件事只有系统知道。
+       * ⭐ 反证锚点：把这句通知去掉 ⇒ 这条红；把它塞回红色的 chatError ⇒ 上面那条红。
+       */
+      expect((await screen.findByTestId("design-detail-notice")).textContent).toContain("取消之前画好的页留着了");
       expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("画");
       // 失败 ⇒ 重试
       mode = "fail";
       fireEvent.click(screen.getByTestId("design-detail-send"));
       await screen.findByTestId("design-detail-chat-error");
-      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("无法连接服务器");
+      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("连不上服务器");
       mode = "ok";
       fireEvent.click(screen.getByTestId("design-detail-retry"));
       await waitFor(() => expect(posted).toHaveLength(3));
@@ -4037,5 +4043,54 @@ describe("窄屏的默认值按手机来，不是按桌面来", () => {
     expect(share.className).toContain("bg-primary");
     expect(push.className).not.toContain("bg-primary");
     restore();
+  });
+});
+
+/* ═══════ 迭代 27：出错的时候，屏上说的是人话 ═══════ */
+
+describe("错误提示不再把内部错误码端给用户", () => {
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+
+  it("已知错误码翻成一句能照着做的话，屏上看不到那个码", async () => {
+    /*
+     * ⭐ 反证锚点：把 `describeFailure` 改回 `err.reasonCode ?? http_N` ⇒ 这条红。
+     *
+     * 此前屏上出现的是「没能发送（PROJECT_NOT_FOUND），已保留草稿」——对一个不看代码的人，
+     * 这既不说明发生了什么，更不说明下一步做什么，而那正是他最需要一句人话的时刻。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project({ frames: ["A"], prototype: [sample] })] };
+      throw new ApiError(403, "NOT_PROJECT_OWNER", {});
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-input");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "改一下" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    const err = await screen.findByTestId("design-detail-chat-error");
+    expect(err.textContent).toContain("只有建它的人能改");
+    expect(err.textContent).not.toContain("NOT_PROJECT_OWNER");
+  });
+
+  it("不认识的失败也给能照着做的下一步，而不是 http_500 或一段栈", () => {
+    /*
+     * ⭐ 反证锚点：让兜底分支回 `String(err)` ⇒ 这条红。
+     * 兜底恰恰是最容易漏的地方：已知码有人翻，未知的那些才是用户真正看到的。
+     */
+    expect(describeFailure(new ApiError(500, null, {}))).toBe("服务器出错了，稍后再试一次");
+    expect(describeFailure(new ApiError(401, null, {}))).toContain("重新登录");
+    expect(describeFailure(new TypeError("Failed to fetch"))).toContain("网络");
+    const weird = describeFailure(new Error("boom at Object.<anonymous> (/app/x.js:1:1)"));
+    expect(weird).not.toContain("boom");
+    expect(weird).toContain("稍后再试");
+  });
+
+  it("每一个契约错误码都有人话——闭集穷举，不会出现说不出话的那一种", () => {
+    // ⭐ 反证锚点：契约新增一个错误码而这里没跟上 ⇒ TS 当场编译不过（Record 穷举）；
+    //    真要绕过去让它落到运行期，这条也会红。
+    for (const code of designWorkbench.DesignWorkbenchError.options) {
+      const text = describeFailure(new ApiError(400, code, {}));
+      expect(text.length, `错误码 ${code} 没有人话`).toBeGreaterThan(0);
+      expect(text, `错误码 ${code} 的"人话"就是那个码本身`).not.toContain(code);
+    }
   });
 });
