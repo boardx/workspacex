@@ -20,6 +20,7 @@
  */
 
 import * as React from "react";
+import { Textarea } from "@/components/ui/textarea";
 import type { SectionDraft } from "./template-editor-model";
 
 /** 当前分区 → 一份能直接渲染出东西的 JSON 骨架。 */
@@ -97,7 +98,7 @@ export function TemplateDryRunDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="ml-auto rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-testid="tpladmin-editor-dryrun-close"
         >
           关闭
@@ -108,11 +109,11 @@ export function TemplateDryRunDrawer({
         填一份数据，看它在 A1 纸上真正长什么样。这里的字段名就是运行时 AI 要吐出来的那些。
       </p>
 
-      <textarea
+      <Textarea
         value={text}
         onChange={(e) => onTextChange(e.target.value)}
         spellCheck={false}
-        className="h-[280px] w-full resize-none rounded-control border border-border bg-background p-2 font-mono text-11 leading-relaxed transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-[280px] min-h-0 w-full p-2 font-mono text-11 leading-relaxed transition-colors duration-fast"
         data-testid="tpladmin-editor-dryrun-input"
         aria-label="试运行数据"
       />
@@ -149,7 +150,7 @@ export function TemplateDryRunDrawer({
         <button
           type="button"
           onClick={() => onRun(null)}
-          className="ml-auto rounded-control px-3 py-1.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto rounded-control px-3 py-1.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-testid="tpladmin-editor-dryrun-clear"
         >
           还原

@@ -3,6 +3,7 @@ import * as React from "react";
 import { GripVertical, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import {
   updateCanvasTemplateDraft,
@@ -551,7 +552,7 @@ export function TemplateEditorPanel({
         <Button size="icon" variant="ghost" aria-label="返回模板库" onClick={onClose} data-testid="tpladmin-editor-close">
           <X aria-hidden className="h-3.5 w-3.5" />
         </Button>
-        <button type="button" className="rounded-control text-11 text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClose}>模板库 ／</button>
+        <button type="button" className="rounded-control text-11 text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClose}>模板库 ／</button>
         <h1 id="tpladmin-editor-title" data-testid="tpladmin-editor-title" className="truncate text-14 font-bold">
           {row.displayName} · 模板编辑
         </h1>
@@ -600,7 +601,7 @@ export function TemplateEditorPanel({
               key={n}
               type="button"
               className={`flex items-center gap-1.5 rounded-control px-1 py-0.5 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                step === n ? "text-foreground" : "text-muted-foreground"
+                step === n ? "text-card-foreground" : "text-muted-foreground"
               }`}
               aria-current={step === n ? "step" : undefined}
               onClick={() => { setStep(n); if (n === 1) setPromptOpen(true); }}
@@ -716,8 +717,8 @@ export function TemplateEditorPanel({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <input
-                      className="min-w-0 flex-1 rounded-control border border-transparent bg-transparent px-1 py-0.5 text-11 font-semibold outline-none transition-colors duration-fast focus:border-border focus:bg-background focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+                    <Input
+                      className="h-auto min-w-0 flex-1 border-transparent bg-transparent px-1 py-0.5 text-11 font-semibold transition-colors duration-fast focus:border-border focus:bg-background disabled:cursor-default disabled:bg-transparent disabled:text-card-foreground"
                       value={s.name}
                       disabled={!editable}
                       onChange={(e) => patchSection(s.sectionId, { name: e.target.value })}
@@ -837,15 +838,15 @@ export function TemplateEditorPanel({
             <div className="flex flex-none flex-col gap-2 border-t border-border bg-panel p-3.5">
               <span className="text-11 font-bold">＋ 新增字段</span>
               <div className="flex gap-1.5">
-                <input
-                  className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1.5 font-mono text-10 text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                <Input
+                  className="h-auto min-w-0 flex-1 px-2 py-1.5 font-mono text-10 text-primary"
                   placeholder="key，如 gains"
                   value={newField.key}
                   onChange={(e) => setNewField((p) => ({ ...p, key: e.target.value }))}
                   data-testid="tpladmin-editor-new-key"
                 />
-                <input
-                  className="w-20 rounded-control border border-border bg-background px-2 py-1.5 text-11 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                <Input
+                  className="h-auto w-20 px-2 py-1.5 text-11"
                   placeholder="中文名"
                   value={newField.name}
                   onChange={(e) => setNewField((p) => ({ ...p, name: e.target.value }))}
@@ -967,23 +968,23 @@ export function TemplateEditorPanel({
           */}
           <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-2">
             <label className="shrink-0 text-11 text-muted-foreground" htmlFor="tpl-title">纸面标题</label>
-            <input
+            <Input
               id="tpl-title"
               value={title}
               disabled={!editable}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="如：用户画像 User Persona（留空则不画标题带）"
-              className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground"
+              className="h-auto min-w-0 flex-1 px-2 py-1 text-11 transition-colors duration-fast"
               data-testid="tpladmin-editor-title-input"
             />
             <label className="shrink-0 text-11 text-muted-foreground" htmlFor="tpl-footer">页脚署名</label>
-            <input
+            <Input
               id="tpl-footer"
               value={footer}
               disabled={!editable}
               onChange={(e) => setFooter(e.target.value)}
               placeholder="如：本工具基于 XXX（留空则不画页脚带）"
-              className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground"
+              className="h-auto min-w-0 flex-1 px-2 py-1 text-11 transition-colors duration-fast"
               data-testid="tpladmin-editor-footer-input"
             />
           </div>
@@ -1073,13 +1074,13 @@ export function TemplateEditorPanel({
                 data-testid="tpladmin-editor-recommend-picker"
                 className="absolute left-4 top-full z-20 mt-1 w-72 rounded-control border border-border bg-background p-2 shadow-lg"
               >
-                <input
+                <Input
                   autoFocus
                   value={recommendQuery}
                   onChange={(e) => setRecommendQuery(e.target.value)}
                   placeholder="搜模板名或 key"
                   data-testid="tpladmin-editor-recommend-search"
-                  className="w-full rounded-control border border-border bg-background px-2 py-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-auto w-full px-2 py-1 text-11"
                 />
                 {/* 限高 + 滚动：这一层才是"50 个模板也不会撑爆界面"的兑现处。 */}
                 <div className="mt-1 max-h-56 overflow-y-auto">

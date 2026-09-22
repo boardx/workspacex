@@ -91,6 +91,7 @@ import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate, getTemplate
 import { isCanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { canvas } from "@repo/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
@@ -324,12 +325,12 @@ export function TemplateSimulateDialog({
           与真实 chat 完全一致（fabric.js），可以直接在下面拖动/编辑便签。
         </p>
 
-        <textarea
+        <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="如：帮我画一份新用户画像，产品是一款效率工具"
           spellCheck={false}
-          className="h-[100px] w-full flex-none resize-none rounded-control border border-border bg-background p-2 text-11 leading-relaxed transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-[100px] min-h-0 w-full flex-none p-2 text-11 leading-relaxed transition-colors duration-fast"
           data-testid="tpladmin-editor-simulate-input"
           aria-label="模拟提示词"
         />

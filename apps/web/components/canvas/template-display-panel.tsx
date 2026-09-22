@@ -1,6 +1,9 @@
 "use client";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
   classifyNoteSize, sectionGeometryMmOf, clamp, collidesWithOthers, GRID_ROWS,
@@ -112,8 +115,8 @@ export function TemplateDisplayPanel({
     return (
       <div className="flex flex-1 flex-col gap-3.5 overflow-auto p-3.5" data-testid="tpladmin-editor-display-text">
         <Group label="文本内容">
-          <textarea
-            className="min-h-[64px] rounded-card border border-border bg-background px-2 py-1.5 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+          <Textarea
+            className="rounded-card text-12 disabled:cursor-default"
             value={section.content}
             disabled={!editable}
             onChange={(e) => onPatchSection({ content: e.target.value })}
@@ -121,9 +124,9 @@ export function TemplateDisplayPanel({
           />
         </Group>
         <Group label="颜色">
-          <input
+          <Input
             type="color"
-            className="h-8 w-14 cursor-pointer rounded-control border border-border bg-background disabled:cursor-default"
+            className="w-14 cursor-pointer px-1 disabled:cursor-default"
             value={section.color ?? "#14130F"}
             disabled={!editable}
             onChange={(e) => onPatchSection({ color: e.target.value })}
@@ -248,7 +251,7 @@ export function TemplateDisplayPanel({
                         />
                       ))}
                     </span>
-                    <span className={`text-10 font-bold ${on ? "text-foreground" : "text-muted-foreground"}`}>{n} 列</span>
+                    <span className={`text-10 font-bold ${on ? "text-card-foreground" : "text-muted-foreground"}`}>{n} 列</span>
                     {/* 每个候选各标各的 mm 数——贴纸实尺随列数缩放（`sectionGeometryMm`
                         的 `noteMm = min(MAX_NOTE_MM, wMm/cols)`），列数越多单张贴纸越小，
                         2026-09-01 推翻了 2026-08-30「固定不变」的约定，理由见
@@ -316,8 +319,8 @@ export function TemplateDisplayPanel({
       */}
       <Group label="标题显示">
         <label className="flex cursor-pointer items-center gap-2 text-11">
-          <input
-            type="checkbox"
+          <Checkbox
+            className="items-center"
             checked={section.hideFieldTitle}
             disabled={!editable}
             onChange={(e) => onPatchSection({ hideFieldTitle: e.target.checked })}

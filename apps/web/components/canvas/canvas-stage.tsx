@@ -16,6 +16,7 @@ import { serializeCanvasMarkdown } from "@/lib/canvas/serialize-canvas-markdown"
 import { movedNodeIds, snapshotGeometry, type GeometrySnapshot } from "@/lib/canvas/layout-drift";
 import { resolveExportMultiplier } from "@/lib/canvas/export-scale";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { CanvasTool } from "./canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "./canvas-toolbar";
@@ -1047,10 +1048,14 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         <canvas ref={canvasElRef} data-testid="canvas-fabric-surface" />
         {/* 双击对象打开的内联编辑器（见挂载 effect 的 openInlineEditor/closeInlineEditor）。
             默认隐藏，只有编辑中才 display:block——不占布局、不吃 pointer 事件。 */}
-        <textarea
+        <Textarea
           ref={inlineEditorRef}
           data-testid="canvas-inline-editor"
-          className="absolute resize-none rounded-md border-2 border-primary bg-card p-1 text-12 leading-snug text-card-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          /* min-h-0 是必须的：编辑框的宽高由 openInlineEditor 按对象屏幕矩形逐次写进
+           * inline style（最小 32px 高），原语默认的 min-h-16 会把小对象的编辑框撑到
+           * 64px，盖住相邻对象。
+           */
+          className="absolute min-h-0 rounded-md border-2 border-primary p-1 text-12 leading-snug shadow-md"
           style={{ display: "none" }}
           spellCheck={false}
         />
