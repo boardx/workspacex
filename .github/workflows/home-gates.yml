@@ -30,14 +30,17 @@ concurrency:
   group: home-gates-${{ github.ref }}
   cancel-in-progress: true
 
+# 外部 action 的版本钉在 `.harness/scripts/workflow-actions-node24.test.ts` 的
+# 审计清单里（Node 24 运行时）。本文件第一版写的是 `@v4`，`verify-control-plane`
+# 当场把它判红——本仓自己的控制平面门控抓住了新加进来的 workflow。
 jobs:
   # 静态门：零依赖，秒级。先跑，红了就没必要开浏览器。
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
       - name: static gates
@@ -51,8 +54,8 @@ jobs:
     timeout-minutes: 25
     needs: static
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
       - name: install the dev-only browser tools
