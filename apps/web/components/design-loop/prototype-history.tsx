@@ -11,6 +11,7 @@ import { History, Loader2, RotateCcw, Bot, User, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { describeFailure } from "@/lib/design-failure";
+import { humanTime } from "@/lib/human-time";
 import {
   getPrototypeVersion,
   listPrototypeVersions,
@@ -26,26 +27,6 @@ const SOURCE_LABEL: Record<PrototypeVersionSummary["source"], { text: string; Ic
   user: { text: "你改的", Icon: User },
   restore: { text: "退回来的", Icon: Undo2 },
 };
-
-/**
- * 迭代 28：原来一律是 `9/22 14:03`。绝大多数版本就是刚才那几分钟里堆出来的，
- * 一列一模一样的日期读不出先后；而隔了几天的那一条又看不出"很久以前"。
- * 近的说相对时间，远的才落到日期。导出给测试用。
- */
-export function when(iso: string, now: number = Date.now()): string {
-  const d = new Date(iso);
-  const t = d.getTime();
-  const hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  if (Number.isNaN(t)) return iso;
-  const min = Math.floor((now - t) / 60000);
-  if (min < 0) return hhmm;
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min} 分钟前`;
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  if (t >= startOfToday.getTime()) return `今天 ${hhmm}`;
-  if (t >= startOfToday.getTime() - 86400000) return `昨天 ${hhmm}`;
-  return `${d.getMonth() + 1}/${d.getDate()} ${hhmm}`;
-}
 
 /**
  * 迭代 28：原来是 `err.reasonCode ?? \`http_${err.status}\``——版本历史里把内部码原样端出去。
@@ -137,7 +118,7 @@ export function PrototypeHistoryPanel({
                   <span className="flex items-center gap-1.5 text-11">
                     <span className="font-medium">第 {v.seq} 版</span>
                     <span className="inline-flex items-center gap-0.5 rounded-control bg-panel px-1 text-10 text-muted-foreground"><Icon aria-hidden className="h-2.5 w-2.5" />{text}</span>
-                    <span className="ml-auto text-10 text-muted-foreground">{when(v.createdAt)}</span>
+                    <span className="ml-auto text-10 text-muted-foreground">{humanTime(v.createdAt)}</span>
                     {busy === v.id && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
                   </span>
                   <span className="line-clamp-2 text-10 text-muted-foreground">{v.summary || v.frames.join(" · ")}</span>

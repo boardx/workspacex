@@ -9,6 +9,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 
+// 同 `design-loop-responsive.spec.ts` / `design-share.spec.ts` 的 `PW_EXECUTABLE` 约定：本地沙箱的
+// chromium 版本可能与 @playwright/test pin 的不一致；给了就用它启动，CI 里不设、走 Playwright 自装的。
+// 三份同车道的 spec 里只有这一份漏了这行，表现是本地一跑这条就 `Executable doesn't exist at …chromium-1234`。
+test.use({ launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {} });
+
 async function open(page: Page, scene: string): Promise<void> {
   await routeDrafts(page, { empty: false });
   await routeInbox(page, { empty: false });

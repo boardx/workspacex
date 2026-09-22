@@ -15,6 +15,7 @@ import { buildDesignDocMarkdown, designDocFileName, buildPrototypeSpecJson, prot
 import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import type { DesignProject } from "@/lib/live-design-workbench";
+import { describeFailure } from "@/lib/design-failure";
 
 function download(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -38,6 +39,14 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [done, setDone] = React.useState<string | null>(null);
+  /**
+   * 迭代 29 —— 导出失败过去是**静默**的。
+   *
+   * 六个动作全是 `try { … } finally { setBusy(null) }`，没有一个 catch：剪贴板被浏览器拒、
+   * html2canvas 抛、弹窗被拦——用户看到的是转圈停下、菜单关掉，然后什么也没有。他会再点一次，
+   * 再什么也没有。「交出去」这一步一旦不说话，人只能以为是自己点错了。
+   */
+  const [failed, setFailed] = React.useState<string | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -49,7 +58,9 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  const flash = (key: string) => { setDone(key); window.setTimeout(() => setDone(null), 1500); };
+  const flash = (key: string) => { setDone(key); setFailed(null); window.setTimeout(() => setDone(null), 1500); };
+  /** 失败一律落到这里：菜单**不关**（关掉等于把话说完就跑），并说清下一步。 */
+  const fail = (what: string, err: unknown) => { setFailed(`没能${what}（${describeFailure(err)}）`); };
 
   const doc = () => {
     const now = new Date();
@@ -65,6 +76,9 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
     try {
       await navigator.clipboard.writeText(buildPrototypeSpecJson(project));
       flash("copy");
+    } catch (err) {
+      // 非安全上下文 / 权限没给时浏览器会直接拒——这时「下载原型规格」是能走通的那条路。
+      fail("复制到剪贴板（可以改用上面的「原型规格」下载成文件）", err);
     } finally {
       setBusy(null);
     }
@@ -84,6 +98,8 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       download(new Blob([text], { type: "text/html;charset=utf-8" }), prototypeExportHtmlFileName(project.name, now));
       flash("html");
       setOpen(false);
+    } catch (err) {
+      fail("导出可点击原型", err);
     } finally {
       setBusy(null);
     }
@@ -102,14 +118,22 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       const css = collectPageCss(screens.map((s) => s.markup).join(""), Array.from(document.styleSheets) as CSSStyleSheet[]);
       const text = buildPrototypeExportHtml({ project, screens, css, now: new Date(), forPrint: true });
       const w = window.open("", "_blank");
-      if (w !== null) {
-        w.document.write(text);
-        w.document.close();
-        w.focus();
-        w.print();
+      /*
+       * ⚠ 这里原来是 `if (w !== null) { … }` 之后**无条件** `flash("pdf")`：弹窗被浏览器拦下时
+       * 一个字都没打印出来，屏上却闪一下"完成"。这正是本仓那条"假绿"——没发生的事不许报成发生了。
+       */
+      if (w === null) {
+        setFailed("浏览器把打印窗口拦下了。在地址栏右边允许本站弹出窗口，再点一次；或者先导出「可点击原型」，打开那个文件再打印。");
+        return;
       }
+      w.document.write(text);
+      w.document.close();
+      w.focus();
+      w.print();
       flash("pdf");
       setOpen(false);
+    } catch (err) {
+      fail("生成打印视图", err);
     } finally {
       setBusy(null);
     }
@@ -117,15 +141,25 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
 
   const png = async () => {
     const el = frameElementFor(frame);
-    if (el === null) return;
+    if (el === null) {
+      // 原来是 `return`——点了没反应。当前页还没画出来时说清楚，而不是装作没点过。
+      setFailed("这一页还没画出来，截不了图。先让 AI 画出这一页，或者切到已经画好的那一页。");
+      return;
+    }
     setBusy("png");
     try {
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true, logging: false });
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-      if (blob !== null) download(blob, `${project.name}-${project.frames[frame] ?? frame + 1}.png`);
+      if (blob === null) {
+        setFailed("这一页没能转成图片。可以改用「可点击原型」或「打印成 PDF」。");
+        return;
+      }
+      download(blob, `${project.name}-${project.frames[frame] ?? frame + 1}.png`);
       flash("png");
       setOpen(false);
+    } catch (err) {
+      fail("截这一页的图", err);
     } finally {
       setBusy(null);
     }
@@ -134,11 +168,14 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
   const item = "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground";
   return (
     <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="design-detail-export">
+      <Button variant="ghost" size="sm" onClick={() => { setFailed(null); setOpen((o) => !o); }} aria-haspopup="menu" aria-expanded={open} data-testid="design-detail-export">
         <Download aria-hidden className="h-3.5 w-3.5" /> 导出
       </Button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-card border border-border bg-card p-1 shadow-lg" data-testid="design-detail-export-menu">
+          {failed !== null && (
+            <p role="alert" className="mb-1 rounded-control bg-destructive/10 px-2 py-1.5 text-11 text-destructive" data-testid="design-detail-export-error">{failed}</p>
+          )}
           <button type="button" role="menuitem" onClick={doc} className={item} data-testid="design-detail-export-doc">
             <FileDown aria-hidden className="h-3.5 w-3.5" /> <Label name="设计文档" hint="给人看：问题、验收标准、逐页说明" />
           </button>

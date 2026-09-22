@@ -57,7 +57,7 @@ import { ApiError } from "@/lib/api-client";
 import { designWorkbench } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { describeFailure } from "@/lib/design-failure";
-import { when } from "@/components/design-loop/prototype-history";
+import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -4211,5 +4211,64 @@ describe("迭代 28：改一张已经画出来的页——普通人看得懂的�
     expect(when(new Date("2026-09-22T09:05:00").toISOString(), now)).toBe("今天 09:05");
     expect(when(new Date("2026-09-21T09:05:00").toISOString(), now)).toBe("昨天 09:05");
     expect(when(new Date("2026-09-10T09:05:00").toISOString(), now)).toBe("9/10 09:05");
+  });
+});
+
+describe("迭代 29：导出失败不再是静默的", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+  const openExport = async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    return screen.findByTestId("design-detail-export-menu");
+  };
+
+  it("打印窗口被浏览器拦下 ⇒ 说清怎么办，绝不闪一下「完成」", async () => {
+    /*
+     * ⭐ 反证锚点：把 pdf() 改回「window.open 返回 null 也照样 flash("pdf")」⇒ 这条红。
+     * 一个字都没打印出来却报成功，是本仓最不能留的那种假绿：用户合上电脑，
+     * 以为 PDF 已经在手里了。
+     */
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    try {
+      await openExport();
+      fireEvent.click(screen.getByTestId("design-detail-export-pdf"));
+      const err = await screen.findByTestId("design-detail-export-error");
+      expect(err.textContent).toContain("允许本站弹出窗口");
+      // 菜单没关：话说完就跑等于没说
+      expect(screen.getByTestId("design-detail-export-menu")).toBeTruthy();
+      expect(open).toHaveBeenCalled();
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("剪贴板被拒 ⇒ 指一条走得通的路（下载成文件），不是无事发生", async () => {
+    // ⭐ 反证锚点：把 copy() 的 catch 去掉 ⇒ 这条红（未处理的 rejection，屏上什么都没有）。
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => { throw new Error("NotAllowedError"); }) },
+      configurable: true,
+    });
+    await openExport();
+    fireEvent.click(screen.getByTestId("design-detail-export-copy"));
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能复制到剪贴板");
+    expect(err.textContent).toContain("原型规格");
+  });
+
+  it("html2canvas 抛了 ⇒ 说一句人话，而不是转圈停下什么都没有", async () => {
+    // ⭐ 反证锚点：把 png() 的 catch 去掉 ⇒ 这条红。
+    html2canvasMock.mockImplementation(async () => { throw new Error("tainted canvas"); });
+    await openExport();
+    fireEvent.click(screen.getByTestId("design-detail-export-png"));
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能截这一页的图");
+    expect(err.textContent).not.toContain("tainted canvas"); // 内部异常不端给用户
   });
 });
