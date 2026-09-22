@@ -34,3 +34,40 @@ export const SHARED_LINK_TOKEN_PARAM = "lt";
 export function buildSharedInviteLink(token: string, origin: string): string {
   return `${origin}${ACTIVATION_PAGE_PATH}?${SHARED_LINK_TOKEN_PARAM}=${encodeURIComponent(token)}`;
 }
+
+/**
+ * 篡改声明值的三个查询参数名（issue #592 残余缺口）。
+ *
+ * `org-invite.controller.ts` 的 `claimOf` 从激活请求的**查询串**读这三个值，唯一去处是
+ * `org_invite_tamper_attempts`——它们对授予没有任何影响（契约 `activateOrgMember.in`
+ * 里根本没有这三个字段），但**不收就没得审计**：那样「篡改无效」只能证明到「我们没读」，
+ * 证明不到「有人试过」。controller 注释里那句「由激活落地页把 `?org=&role=&team=`
+ * 原样带上」说的就是本文件这组名字——激活页 URL 与激活请求 URL 共用同一组，不各写一份。
+ *
+ * ⚠ 与上面 `buildActivationLink` **不矛盾**：管理端拼链接时不**签发**这三个参数
+ *   （带上只是给受邀人一个「链接里写着我的角色」的错觉）。这里做的是另一件事——
+ *   把**受邀人手里那条链接上实际出现**的声明值原样转交给服务端留痕。
+ *   不发明声明值，也不丢弃已经出现的声明值。
+ */
+export const ACTIVATION_CLAIM_PARAMS = ["org", "role", "team"] as const;
+
+/** 可直接交给 `apiRequest` 的 `query`：`undefined` = 「没说」，不会出现在 URL 上。 */
+export type ActivationLinkClaims = Record<(typeof ACTIVATION_CLAIM_PARAMS)[number], string | undefined>;
+
+/**
+ * 从激活页自己的 `searchParams` 读出声明值。
+ *
+ * ⚠ 判定逐字照搬服务端的 `claimOf`：**非字符串（重复参数给出的数组）与空串都算「没说」**。
+ *   这里不另立一套（比如"取数组第一项"）——同一个事实在两处有两种判法，正是
+ *   AGENTS.md 点名的那种漂移；而且「没说」被当成「说错了」会让每一次正常激活都写一条
+ *   安全审计，真正的那一条就淹了（`detectTamper` 的注释写的是同一件事）。
+ */
+export function readActivationClaims(
+  searchParams: Record<string, string | string[] | undefined>,
+): ActivationLinkClaims {
+  const claim = (name: string): string | undefined => {
+    const raw = searchParams[name];
+    return typeof raw === "string" && raw.length > 0 ? raw : undefined;
+  };
+  return { org: claim("org"), role: claim("role"), team: claim("team") };
+}

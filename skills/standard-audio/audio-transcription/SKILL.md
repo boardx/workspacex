@@ -1,6 +1,8 @@
 ---
 name: audio-transcription
 description: Transcribe authorized audio into reviewable text, retaining source time ranges and recognition limitations.
+capability_id: WX-S016
+version: 1.1.1
 ---
 # Audio transcription
 

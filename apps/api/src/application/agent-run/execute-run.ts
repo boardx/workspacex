@@ -68,12 +68,12 @@ import { normalizeCanvasFenceSections, normalizeCanvasFenceTemplateKeys, type Ca
 import { buildCanvasTemplateGuidance, selectGuidanceTemplates, templateSectionNames, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
-import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
+import { maybeRunSkillScript, retryScriptSource, type ProducedFile } from "./run-skill-script";
 import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
 import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from "@repo/contracts/deployment";
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
-import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
+import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from "./skill-catalog";
 import type { RunImagePort } from "./run-image-input";
 import { gatherVisionImages } from "./gather-vision-images";
@@ -1280,20 +1280,10 @@ async function executeClaimed(
             ...(excludedTools === undefined ? {} : { excludedTools }),
             ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
-          /*
-           * #1747 —— 回喂重试也要去工具结果里找脚本，理由与第一次尝试逐字相同。
-           *
-           * 少了这一句，deep-agent 那条路的失败诚实性会被悄悄换掉：第 1 次跑的是工具
-           * 结果里的真脚本、真的失败了、拿到了真的 stderr；第 2 次却因为最终回复里没有
-           * 代码围栏而以「model reply contained no fenced script block」终止——用户看到的
-           * 就不再是沙箱返回的真实错误，而是一句关于回复格式的内部抱怨。真因照样消失，
-           * 只是换了个消失的姿势（#660 / #1611 那条纪律的同一个缺口）。
-           *
-           * 一个都没有时**退回 `retry.text`**，让 `extractScript` 照常抛它那条诚实的
-           * 「这次回复里根本没有脚本」——不在这里替它编一个空脚本。
-           */
-          const retryCandidates = [retry.text, ...(retry.scriptCandidates ?? [])];
-          return retryCandidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
+          // 从这次 completion 里取"拿去解析脚本的那段文本"的规则（含 #1747 的候选来源
+          // 与 issue #2893 的中断判定）只写在 `run-skill-script.ts` 一处——那里也是
+          // 归类与文案的落点，规则与它的消费者分开放必然漂移。
+          return retryScriptSource(retry);
         },
       },
       { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },

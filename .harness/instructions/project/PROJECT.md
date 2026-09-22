@@ -27,10 +27,14 @@ env/secret 变更必须与部署原子（同 PR 或先加后删）。
 | 2024 | `open_deep_research` 容器（deep-research agent 上游，先占用） | 该容器自身的 run 配置 |
 | 2025 | `workspacex-deep-agent` 容器宿主侧（deep-agent-service，容器内 2024） | `/opt/workspacex/deploy.env` 的 `KERNEL_DEEP_AGENT_BASE_URL`（deploy.sh 第 4h 步由 `deep_agent_resolve_host_port` 反解端口，唯一声明处） |
 
-## 协调服务（可选——未配置时全套退化为单 agent 模式，依然可用）
-- 基址：`<https://….workers.dev，或留空>`（环境变量 `COORD_SERVICE_URL`）
+## 协调服务 coord-gateway（未接线时协调类命令 fail-closed 报错，不静默降级）
+- 基址：`<https://….workers.dev，或留空>`（`COORD_GATEWAY_URL`；配套 `COORD_API_TOKEN`
+  + `COORD_REPO`。接线命令与自检见 `.harness/instructions/agent-bootstrap.md` 第 3 步）
 - 协议契约见 `docs/coordination-protocol.md`；客户端在 `packages/coord-protocol`
-- 未接线时：`pnpm harness tick` 会明确提示"只读时钟模式/跳过租约"，不静默假装
+- 未接线时：`pnpm harness tick` / `pnpm harness cycle-report` 明确报错并非零退出——
+  问不到权威就不出报告，不按本地时钟硬猜（issue #381）
+- 旧 coord-service 的 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已退役（ADR-017），
+  配了也不会被读取
 
 ## 凭据（只列路径，值永不入 git/聊天/issue）
 - 本机缓存目录：`.harness/state/.cache/`（已 gitignore）

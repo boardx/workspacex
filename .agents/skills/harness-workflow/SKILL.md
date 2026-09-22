@@ -29,6 +29,8 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/progress.md
 cat phases/phase-<NN>-*/sprints/sprint-<MM>/session-handoff.md
 
 # Step 3: 找到唯一 in_progress 的 feature
+#   active-features.json 是不入库的派生投影（H3A-009），干净 clone 上先重建再读（#401）
+pnpm harness active-features --phase <NN> --sprint <MM>
 cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.features[] | select(.status=="in_progress")]'
 ```
 
@@ -52,11 +54,14 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.feature
 ## 验证门控（唯一合法路径）
 
 ```bash
-# 验证当前 sprint 的所有 feature
-pnpm harness verify --sprint <NN>/<MM>
+# 验证本 owner 在当前 sprint 名下的 feature（别人名下的会被跳过，见下）
+pnpm harness verify --sprint <NN>/<MM> --owner <你的-agent-id>
 
 # 只验证一个 feature
 pnpm harness verify --sprint <NN>/<MM> --feature F01
+
+# 连同别人名下的一起跑（会覆写别人的 evidence，需要明确理由）
+pnpm harness verify --sprint <NN>/<MM> --all
 ```
 
 verify 会：
@@ -171,7 +176,8 @@ sprint-planner → new-sprint（把 feature 分配进 sprint，派生 active-fea
 ```
 
 - **输入**：`phases/<phase>/sprints/<sprint>/progress.md`、`session-handoff.md`、
-  `active-features.json`（只读派生视图）——这三个是本 skill 每次开工必读的状态面。
+  `active-features.json`（只读派生视图，不入库；先 `pnpm harness active-features` 重建）——
+  这三个是本 skill 每次开工必读的状态面。
 - **产出**：`evidence/F<NN>.verify.log`（`verify` 写入）、更新后的 `progress.md`/
   `session-handoff.md`（收尾时手写）。
 - **下游消费者**：`pnpm harness doctor` 读 evidence 目录核验"passing 是否有真凭据"；

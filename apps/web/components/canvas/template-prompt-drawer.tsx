@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import { suggestCanvasTemplateSections } from "@/lib/live-canvas";
 import { buildOutputSchemaText, type SectionDraft, type SectionFieldType } from "./template-editor-model";
@@ -75,8 +76,8 @@ export function TemplatePromptDrawer({
           {/* ① 角色与任务 */}
           <div className="flex w-[430px] flex-none flex-col gap-2.5 border-r border-border p-4">
             <span className="text-9 font-bold uppercase tracking-wider text-muted-foreground">角色与任务（顾问写这一段）</span>
-            <textarea
-              className="flex-1 resize-none rounded-card border border-border bg-background p-3 text-12 leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled"
+            <Textarea
+              className="min-h-0 flex-1 rounded-card p-3 text-12 leading-relaxed"
               value={promptText}
               disabled={!editable}
               onChange={(e) => { onPromptChange(e.target.value); setExtracted(null); }}

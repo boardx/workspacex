@@ -1162,6 +1162,34 @@ export class ModelCallError extends Error {
 }
 
 /**
+ * issue #2893 —— 远端 run 停在 **interrupt**（内核自己发起 `confirm_task_intent` /
+ * `fill_run_params` 等 HITL 工具，等人裁决），不是一次失败的模型调用。
+ *
+ * ## 为什么需要一个类型，而不是让调用方去认 `detail` 里的措辞
+ *
+ * 实测（2026-09-07，本地生产镜像矩阵）：技能脚本第一次在沙箱失败后，重试路径用
+ * `complete()` 让内核重生成脚本，这次 run 停在了 interrupt。`pollToTerminal` 对
+ * `interrupted` 一律抛 `MODEL_CALL_FAILED`，于是「内核在等人回答一个问题」与「模型
+ * 调用真的坏了」在调用方那里**不可分辨**——用户拿到的是一句
+ * `deep agent run ended with status "interrupted"`，既不是失败原因，也没有裁决入口。
+ * 唯一能分辨它们的信息此刻只有 `detail` 里的那句话,而按 `ModelCallError` 自己的纪律
+ * 那是**只进服务端日志**的字符串;让调用方去正则匹配它,等于把一条产品判断建在一句
+ * 随时会被改写的日志措辞上（本仓「同一事实声明在两处」栽过五次的同一个形状）。
+ *
+ * ⚠ `code` 仍然是 `MODEL_CALL_FAILED`,**不新增枚举值**：`RunFailureCode` 由契约派生
+ *   （ADR-020），动它是一次跨 SQL CHECK / 前端译码的契约改动,不属于本 issue。既有
+ *   catch 点（`instanceof ModelCallError`、按 `code` 落终态、`classifyModelCallFailureReason`
+ *   按 `detail` 分类）因此**逐字保持原行为**;新增的只是「关心这件事的调用方现在**能**
+ *   分辨它」这一个能力。
+ */
+export class ModelCallInterruptedError extends ModelCallError {
+  constructor(detail: string) {
+    super("MODEL_CALL_FAILED", detail);
+    this.name = "ModelCallInterruptedError";
+  }
+}
+
+/**
  * 一次模型调用的返回。原本是三处逐字重复的内联字面量（`complete` / `completeStream` /
  * `completeWithProgress`），#1747 收敛成一个具名类型——否则新增一个字段要改三处，
  * 漏一处就是一条只在某一条分支上存在的契约。

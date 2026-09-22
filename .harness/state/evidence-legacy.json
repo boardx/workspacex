@@ -1,7 +1,26 @@
 {
-  "_why": "2026-07-29 evidence 指纹门控上线前就已 passing 的 feature。它们的日志由旧版 verify 产出，没有指纹尾行——按缺指纹判 FAIL 会制造无意义的 FAIL 风暴（同 doctor.ts 对 spec_ref 的历史存量处理）。名单只减不增：谁跑过 `pnpm harness verify --sprint <NN>/<MM> --backfill-evidence` 补出真实日志，就把谁从这里删掉。新增 passing 一律不得进入本名单。",
+  "_why": [
+    "2026-07-29 evidence 指纹门控（ADR-022）上线前就已 passing 的 feature。它们的日志由旧版 verify 产出，",
+    "没有指纹尾行——按缺指纹判 FAIL 会制造无意义的 FAIL 风暴（同 doctor.ts 对 spec_ref 的历史存量处理）。",
+    "",
+    "判据、schema 与门控都只声明在 .harness/scripts/lib/evidence-legacy.ts 一处，本文件不复述规则，只放数据。",
+    "",
+    "2026-09-21（#391）：此前「只减不增」只写在这段人话里，没有任何脚本执行它——实测 9 条里有 6 条",
+    "（00/F02 F03 F04 F05 F09 F15）的日志早就补上了指纹，豁免用不着了却躺了近两个月；往名单里偷加一条",
+    "doctor 也照样 exit 0。现在 doctor 三项机械判红：① 已不需要的条目（陈旧）② 不在 _baseline 里的条目",
+    "（名单长大）③ 过了 review_by 的条目（无声长期化）。",
+    "",
+    "清掉一条的办法只有一个：跑 pnpm harness verify --sprint <NN>/<MM> --backfill-evidence 补出真实日志，",
+    "然后把它从 grandfathered 里删掉。新增 passing 一律不得进入本名单。"
+  ],
   "_gate_landed_at": "2026-07-29",
-  "grandfathered": [
+  "_baseline_why": [
+    "2026-07-29 门控落地那一刻「已 passing 且日志缺指纹」的全部 feature——已经发生的历史，永远不变。",
+    "它不是 grandfathered 的副本：grandfathered 是「今天还欠着哪几条」，会随清理收缩；判据是",
+    "grandfathered ⊆ _baseline，所以两者不会各说各话。要往名单里加新条目就必须改这个数组，",
+    "而那是一次在 diff 里显眼、必须过 review 的显式动作——这就是「不得无声长大」的机械含义。"
+  ],
+  "_baseline": [
     "00/F01",
     "00/F02",
     "00/F03",
@@ -11,5 +30,22 @@
     "00/F14",
     "00/F15",
     "00/F18"
+  ],
+  "grandfathered": [
+    {
+      "key": "00/F01",
+      "reason": "sprint 00/03 的旧版 verify 日志，缺指纹尾行；补指纹需要重跑该 sprint 的 verification（#391 未纳入范围，一个 issue 一个 PR）。",
+      "review_by": "2026-12-31"
+    },
+    {
+      "key": "00/F14",
+      "reason": "sprint 00/01 的旧版 verify 日志，缺指纹尾行；同上，待 --backfill-evidence 重跑后删除。",
+      "review_by": "2026-12-31"
+    },
+    {
+      "key": "00/F18",
+      "reason": "sprint 00/02 的旧版 verify 日志，缺指纹尾行；同上，待 --backfill-evidence 重跑后删除。",
+      "review_by": "2026-12-31"
+    }
   ]
 }

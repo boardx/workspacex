@@ -26,6 +26,7 @@ import { schemas } from '@repo/contracts/sandbox-session';
 import type {
   BrowserContext,
   BrowserExecutionReceipts,
+  BrowserFailureClass,
   BrowserInvocation,
   BrowserInvocationOutput,
   BrowserWorkspace,
@@ -246,6 +247,82 @@ async function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T
   });
 }
 
+/**
+ * Phase markers. The adapter's own failures are recognised by their contract string, but the
+ * two phases that surface a *foreign* error -- creating the browser session, and the upstream
+ * MCP call -- can fail with any message at all (a missing Chromium executable, a socket reset).
+ * Wrapping them is what keeps "the browser runtime never came up" distinguishable from "the
+ * page refused this click" without having to pattern-match Playwright's prose.
+ */
+class BrowserSessionLaunchError extends Error {
+  constructor(cause: unknown) { super('browser_session_launch_failed', { cause }); }
+}
+
+class BrowserUpstreamCallError extends Error {
+  constructor(cause: unknown) { super('browser_upstream_call_failed', { cause }); }
+}
+
+const FAILURE_BY_MESSAGE = new Map<string, BrowserFailureClass>([
+  ['browser_action_deadline_exceeded', 'timeout'],
+  ['playwright_mcp_call_failed', 'upstream_tool_error'],
+  ['browser_tool_not_allowed', 'upstream_tool_error'],
+  ['browser_remote_termination_unconfirmed', 'upstream_tool_error'],
+  ['playwright_mcp_result_too_large', 'oversize'],
+  ['browser_preview_size_invalid', 'oversize'],
+  ['browser_page_ref_stale_or_foreign', 'stale_ref'],
+  ['browser_element_ref_stale_or_foreign', 'stale_ref'],
+  ['browser_tool_denied', 'policy_denied'],
+  ['browser_network_denied', 'policy_denied'],
+  ['browser_preview_url_denied', 'policy_denied'],
+  ['playwright_mcp_contract_changed', 'contract_violation'],
+  ['browser_element_not_fillable', 'contract_violation'],
+  ['browser_snapshot_invalid', 'contract_violation'],
+  ['browser_screenshot_invalid', 'contract_violation'],
+  ['browser_screenshot_missing', 'contract_violation'],
+  ['browser_screenshot_readback_failed', 'contract_violation'],
+  ['browser_preview_readback_failed', 'contract_violation'],
+  ['browser_runtime_endpoint_denied', 'policy_denied'],
+]);
+
+/**
+ * Walks the cause chain so the most specific recognised reason wins over the phase marker:
+ * a launch that failed because the upstream tool schemas changed is a contract violation,
+ * while a launch that failed with an unrecognised message is the environment being absent.
+ */
+function classifyBrowserFailure(error: unknown, aborted: boolean): BrowserFailureClass {
+  let launch = false;
+  let upstream = false;
+  let current: unknown = error;
+  for (let depth = 0; current instanceof Error && depth < 8; depth += 1) {
+    if (current instanceof BrowserSessionLaunchError) launch = true;
+    if (current instanceof BrowserUpstreamCallError) upstream = true;
+    const known = FAILURE_BY_MESSAGE.get(current.message);
+    if (known) return known;
+    if (current.name === 'ZodError') return 'contract_violation';
+    if (current.name === 'AbortError' || current.name === 'TimeoutError') return 'timeout';
+    current = current.cause;
+  }
+  if (launch) return 'session_launch_failed';
+  if (upstream) return 'upstream_tool_error';
+  if (aborted) return 'timeout';
+  return 'unknown';
+}
+
+/** One place to mark every upstream MCP rejection, instead of at each of the call sites. */
+function classifiedSession(session: BrowserMcpSession): BrowserMcpSession {
+  return {
+    get outputDir() { return session.outputDir; },
+    async call(name, args, signal) {
+      try {
+        return await session.call(name, args, signal);
+      } catch (cause) {
+        throw new BrowserUpstreamCallError(cause);
+      }
+    },
+    close: () => session.close(),
+  };
+}
+
 function previewRequest(raw: string): { workspacePath: string; viewport: { width: number; height: number } } | null {
   if (!raw.startsWith('https://preview.workspacex.invalid/')) return null;
   if (!/^https:\/\/preview\.workspacex\.invalid\/workspace\/web-artifact\/[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.html\?viewport=(?:desktop|mobile)$/.test(raw)
@@ -344,7 +421,8 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
   private async state(bindingId: string, expiresAt: number): Promise<SessionState> {
     let pending = this.states.get(bindingId);
     if (!pending) {
-      pending = this.factory.create(sha256(bindingId)).then(mcp => {
+      pending = this.factory.create(sha256(bindingId)).then(created => {
+        const mcp = classifiedSession(created);
         const expiry = setTimeout(() => { void this.release(bindingId).catch(() => undefined); }, Math.max(0, expiresAt - Date.now()));
         expiry.unref();
         return { mcp, pageRef: null, generation: 0, url: 'about:blank', title: '', elements: new Map(), tail: Promise.resolve(), expiry };
@@ -423,7 +501,8 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
     }
     if (claim.kind === 'succeeded') return claim.result;
     try {
-      const state = await abortable(this.state(context.bindingId, bound.expiresAt), signal);
+      const state = await abortable(this.state(context.bindingId, bound.expiresAt), signal)
+        .catch(cause => { throw cause instanceof BrowserSessionLaunchError ? cause : new BrowserSessionLaunchError(cause); });
       const postcheck = async () => { await authorize(); await resolveOwner(); };
       const result = await this.serial(state, signal, async () => {
       await authorize();
@@ -535,11 +614,15 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
       await postcheck();
       await abortable(this.receipts.succeed(context, validated, argsDigest, result), signal);
       return result;
-    } catch {
-      if (signal.aborted) void this.receipts.markUnconfirmed(context, validated, argsDigest).catch(() => undefined);
-      else await abortable(this.receipts.markUnconfirmed(context, validated, argsDigest), signal).catch(() => undefined);
+    } catch (cause) {
+      // The outward contract string is unchanged -- callers still see one unknown outcome --
+      // but the reason is no longer discarded at the language level: it rides the `cause`
+      // chain, and its classification is written to the durable receipt.
+      const failure = classifyBrowserFailure(cause, signal.aborted);
+      if (signal.aborted) void this.receipts.markUnconfirmed(context, validated, argsDigest, failure).catch(() => undefined);
+      else await abortable(this.receipts.markUnconfirmed(context, validated, argsDigest, failure), signal).catch(() => undefined);
       void this.release(context.bindingId).catch(() => undefined);
-      throw new Error('browser_execution_unconfirmed_no_replay');
+      throw new Error('browser_execution_unconfirmed_no_replay', { cause });
     }
   }
 

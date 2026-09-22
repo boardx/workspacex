@@ -104,3 +104,42 @@ it('accepts MP3 magic while rejecting AAC, images and executable masquerades',()
  expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0xff,0xf1,0x50,0x80]))).toBe(false);
  expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from('MZ\0binary'))).toBe(false);
 });
+
+/**
+ * #964 —— `looksLikeText` 原先只判 NUL：不含 NUL 的二进制（非法 UTF-8 字节序列）会被判成
+ * text 族、以 text/plain 之名收下（fail-open）。字节校验的职责是「挡住二进制冒充白名单类型」，
+ * 所以这里必须 fail-closed：不是合法 UTF-8 文本 → 不是 text 族。
+ */
+describe("#964 非法 UTF-8 的二进制不得冒充 text（fail-closed）", () => {
+  const notText = (label: string, ...b: number[]) => {
+    const buf = bytes(...b);
+    expect(sniffMimeFamily(buf), `${label} 不应归到 text 族`).not.toBe("text");
+    for (const mime of ["text/plain", "text/markdown", "text/csv"]) {
+      expect(declaredMimeMatchesBytes(mime, buf), `${label} 声明 ${mime} 应判 MIME_MISMATCH`).toBe(false);
+    }
+  };
+
+  it("落单的续字节（0x80-0xBF）不是文本", () => notText("lone continuation", 0x80, 0x80, 0x80, 0x80));
+  it("gzip 魔数（无 NUL 的真二进制）不是文本", () => notText("gzip", 0x1f, 0x8b, 0x08, 0x08, 0x7a, 0x7a, 0x7a));
+  it("过长编码（C0 AF，经典 '/' 绕过）不是文本", () => notText("overlong", 0xc0, 0xaf));
+  it("UTF-16 代理区（ED A0 80）不是文本", () => notText("surrogate", 0xed, 0xa0, 0x80));
+  it("码点越界（F5 及以上）不是文本", () => notText("out-of-range", 0xf5, 0x80, 0x80, 0x80));
+  it("截断的多字节序列不是文本", () => notText("truncated seq", 0xe4, 0xbd));
+  it("控制字节密集的载荷不是文本", () => notText("control-heavy", 0x01, 0x02, 0x03, 0x04, 0x7f, 0x1b));
+
+  it("issue #964 原始反例字节不得以 text 收下", () => {
+    // 注：这串字节如今被 mp3 帧同步分支先认走（详见 PR 说明），此处只钉住「不是 text」。
+    expect(declaredMimeMatchesBytes("text/plain", bytes(255, 254, 253, 252, 251, 250))).toBe(false);
+  });
+
+  it("合法 UTF-8（多字节 / 带 BOM / 含制表与换行）仍判 text", () => {
+    expect(sniffMimeFamily(new TextEncoder().encode("你好，world — ☃\r\n\tok\n"))).toBe("text");
+    expect(sniffMimeFamily(new TextEncoder().encode("\uFEFFname,值\n1,一\n"))).toBe("text");
+    expect(declaredMimeMatchesBytes("text/markdown", new TextEncoder().encode("# 标题\n\n正文 🚀\n"))).toBe(true);
+  });
+
+  it("超过采样窗口(8KiB)的长文本仍判 text，且尾部被截断的多字节序列不误杀", () => {
+    const long = new TextEncoder().encode("中".repeat(10_000)); // 30000 字节，8192 处必然切在序列中间
+    expect(sniffMimeFamily(long)).toBe("text");
+  });
+});
