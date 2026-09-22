@@ -47,11 +47,11 @@
 
 | 状态 | 含义 | 谁该动 |
 |---|---|---|
-| `MERGE_BLOCKED` | 门禁本身出了问题：verdict 自相矛盾、required check 是 `SKIPPED`/`NEUTRAL`/`CANCELLED`（门空转）、`mergeStateStatus` 为 `DIRTY`/`BLOCKED`/`UNKNOWN`、缺 `Closes #N`、作者自审、verdict 没有当前 head SHA 的独立 approve 背书 | coord-main（不是 worker） |
+| `MERGE_BLOCKED` | 门禁本身出了问题：verdict 自相矛盾、required check 是 `SKIPPED`/`NEUTRAL`/`CANCELLED`（门空转）、`mergeStateStatus` 为 `DIRTY`/`BLOCKED`/`UNKNOWN`、缺 `Closes #N`、作者自审 | coord-main（不是 worker） |
 | `WAITING_WORKER` | Draft，或 `BEHIND` 需要 rebase | worker |
 | `CHANGES_REQUIRED` | 带 `review:changes`，或当前 head 上有 CHANGES_REQUESTED，或 required check `FAILURE`/`TIMED_OUT` | worker |
 | `WAITING_CI` | required check 还没有结论；**或一条 required check 都拿不到**（问不到不等于绿） | 等，超时按 Deadline 表分诊 |
-| `WAITING_REVIEW` | 没有 `review:*-ok`，或 head 漂移后需要重派 exact-SHA review | coord-main 派 reviewer |
+| `WAITING_REVIEW` | 没有 `review:*-ok` 标签；或独立 approve 两条路都不满足——既没有锚定当前 head 的原生 APPROVE，也没有 `review:*-ok` 标签（#1441：二者取一即可，判据在 `lib/pr-queue.ts` 的 `hasIndependentApproval`） | coord-main 派 reviewer |
 | `READY_TO_MERGE` | 全部机械门禁绿 | 见下方"两种执行模式" |
 
 判定优先级即上表顺序（第一个命中的决定状态），但 `reasons` 会列出**全部**命中项——
