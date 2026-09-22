@@ -118,8 +118,25 @@ const SPACE: Record<"none" | "sm" | "md" | "lg", string> = { none: "h-0", sm: "h
 const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
   start: "items-start justify-start", center: "items-center justify-center", end: "items-end justify-end", between: "items-center justify-between",
 };
+/**
+ * 文字档位 → 样式。
+ *
+ * ## 迭代 18：两处改动，各自有理由
+ *
+ * ① **`label` 不再强制全大写**。`DESIGN_PRINCIPLES` 第 ⑬ 条逐字写着「不要用全大写的
+ *    小标签当眉头」——那是「一眼看出是 AI 生成」的头号特征之一。而这张表把**每一个**
+ *    `variant:"label"` 都 `uppercase` 了：规则管住了模型，没管住渲染器。中文看不出来
+ *    （`uppercase` 对汉字是空操作），做英文界面时就原形毕露，而且是我们自己加上去的。
+ *    同一条规矩，提示词里禁止、渲染器里强制，这是本仓那条「同一事实两处」的变体。
+ *
+ * ② **字号级差拉开**。原来是 16 / 13 / 12 / 10：subtitle 与 body 只差 1px，
+ *    在 300px 宽的手机画布上根本分不出来，「层级」于是只剩字重。改成 18 / 14 / 12 / 10，
+ *    相邻两档至少差 2px，肉眼能分辨。
+ *    ⚠ 档**数**没变（截图审计门 `scoreTypeScale` 数的是档数，3–6 档满分），
+ *      变的是档与档之间的距离——那正是肉眼读层级的依据。
+ */
 const TEXT_VARIANT: Record<"title" | "subtitle" | "body" | "caption" | "label", string> = {
-  title: "text-16 font-semibold", subtitle: "text-13 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium uppercase tracking-wide",
+  title: "text-18 font-semibold", subtitle: "text-14 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium tracking-wide",
 };
 /**
  * 迭代 13（delta §6）—— 圆角与尺寸的档位表。
@@ -436,7 +453,21 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
       return (
-        <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-panel font-medium", AVATAR_SIZE[node.props.size ?? "md"])} data-proto="avatar" {...tap} title={node.props.name}>
+        /*
+         * 迭代 18：头像位用**强调色的淡底 + 强调色的字**，不再是一律的灰圆。
+         *
+         * 一条会话列表里十个一模一样的灰圆，看起来就是十个占位符；而真实界面里头像正是
+         * 把"这些行是不同的人"这件事一眼交代清楚的东西。用 `primary/15` 而不是随机色：
+         * 随机色等于在这套原语外面又开了一个颜色来源，而强调色本来就是这个项目的身份
+         * （`neutral` 的项目里 `--primary` 仍是中性色，于是行为与这一改之前一致）。
+         */
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-medium text-primary",
+            AVATAR_SIZE[node.props.size ?? "md"],
+          )}
+          data-proto="avatar" {...tap} title={node.props.name}
+        >
           {node.props.name.slice(0, 1)}
         </span>
       );
