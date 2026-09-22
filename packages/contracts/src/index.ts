@@ -113,4 +113,3 @@ export * as postinvestRating from "./postinvest-rating";
 export * as postinvestRatingRules from "./postinvest-rating-rules";
 
 /* ── Team3 研判工作流（ad-hoc）：活动图的等价形式——阶段状态机 + 三道人工硬门 ───────── */
-export * as researchWorkflow from "./research-workflow";
