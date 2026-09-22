@@ -211,8 +211,21 @@ export function ShellChrome({
    * 为什么不改成「模块级缓存，同一次页面加载返回同一个答案」：换路由时 AppShell 会
    * 真的重新挂载，那时候该读到 null（不该再弹一次），缓存会让它重弹。
    * 严格模式的双调用保留 state，真重挂载不保留——`prev ?? ` 正好区分这两件事。
+   *
+   * 为什么依赖 `identity.org.id` 而不是空数组：用户**本来就在 `/projects`** 时
+   * `router.replace("/projects")` 不换页、也不重挂载 AppShell，只挂载时读一次的写法
+   * 在这条路上永远读不到——那条确认会一直躺在 sessionStorage 里，等之后某次不相干的
+   * 跳转才弹出来，变成一条过时的假消息。组织 id 变的那一刻，才是「你现在在 X」成立的时刻。
    */
-  React.useEffect(() => { setLanding((prev) => prev ?? takeOrgSwitchLanding()); }, []);
+  const lastOrgIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const orgId = identity.org.id;
+    const orgChanged = lastOrgIdRef.current !== null && lastOrgIdRef.current !== orgId;
+    lastOrgIdRef.current = orgId;
+    // 组织真的变了 ⇒ 重新读一次（这一刻才是「你现在在 X」成立的时刻）；
+    // 否则是首次挂载 ⇒ `prev ??` 保护严格模式的双调用（见上）。
+    setLanding((prev) => (orgChanged ? takeOrgSwitchLanding() ?? prev : prev ?? takeOrgSwitchLanding()));
+  }, [identity.org.id]);
 
   const currentOrgLabel = React.useMemo(
     () => effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "",

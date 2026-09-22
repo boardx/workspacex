@@ -244,7 +244,73 @@ describe("壳层：切换的三段体感", () => {
     expect(landed.textContent).toContain("市场部");
   });
 
-  it("没切换过就不弹落地确认", async () => {
+  it("同一个壳层里组织变了就确认落地——用户本来就在 /projects 时不会重挂载", async () => {
+    // router.replace("/projects") 在用户已经在 /projects 时不换页、不重挂载 AppShell，
+    // 于是只在 mount 时读一次标记的写法永远读不到，那条确认要拖到之后某次跳转
+    // 才弹出来——变成一条过时的假消息。
+    function Harness() {
+      const [org, setOrg] = React.useState("o1");
+      return (
+        <>
+          <button type="button" data-testid="fake-switch" onClick={() => {
+            rememberOrgSwitch({ toLabel: "市场部", fromLabel: "研发一部", runsLeftBehind: 0 });
+            setOrg("o2");
+          }}>切</button>
+          <ShellBusyProvider>
+            <ShellChrome
+              identity={{ ...IDENTITY, org: { ...IDENTITY.org, id: org, name: org === "o1" ? "研发一部" : "市场部" } } as unknown as Identity}
+              previewRole={null}
+              organizations={[{ id: "o1", label: "研发一部" }, { id: "o2", label: "市场部" }]}
+            >
+              <div />
+            </ShellChrome>
+          </ShellBusyProvider>
+        </>
+      );
+    }
+    render(<Harness />);
+    expect(screen.queryByTestId("org-switch-landed")).toBeNull();
+    fireEvent.click(screen.getByTestId("fake-switch"));
+    const landed = await screen.findByTestId("org-switch-landed");
+    expect(landed.textContent).toContain("市场部");
+  });
+
+  it("六秒内连切两次，确认要说第二次的目的地，不是还挂着第一条", async () => {
+    // `prev ?? take()` 在这条路上会留着上一条：A→B 的提示还没自动消失，
+    // 用户又切到 C，界面会一直说「已切换到 B」。
+    function Harness() {
+      const [org, setOrg] = React.useState("o1");
+      const go = (id: string, label: string, from: string) => {
+        rememberOrgSwitch({ toLabel: label, fromLabel: from, runsLeftBehind: 0 });
+        setOrg(id);
+      };
+      return (
+        <>
+          <button type="button" data-testid="go-o2" onClick={() => go("o2", "市场部", "研发一部")}>B</button>
+          <button type="button" data-testid="go-o3" onClick={() => go("o3", "供应链部", "市场部")}>C</button>
+          <ShellBusyProvider>
+            <ShellChrome
+              identity={{ ...IDENTITY, org: { ...IDENTITY.org, id: org } } as unknown as Identity}
+              previewRole={null}
+              organizations={[{ id: "o1", label: "研发一部" }, { id: "o2", label: "市场部" }, { id: "o3", label: "供应链部" }]}
+            >
+              <div />
+            </ShellChrome>
+          </ShellBusyProvider>
+        </>
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId("go-o2"));
+    expect((await screen.findByTestId("org-switch-landed")).textContent).toContain("市场部");
+    fireEvent.click(screen.getByTestId("go-o3"));
+    await waitFor(() =>
+      expect(screen.getByTestId("org-switch-landed").textContent).toContain("供应链部"),
+    );
+    expect(screen.getByTestId("org-switch-landed").textContent).not.toContain("市场部");
+  });
+
+  it("没切换过就不弹落地确认", async () =>{
     render(<Shell organizations={[{ id: "o1", label: "研发一部" }]}><div /></Shell>);
     await waitFor(() => expect(screen.getByTestId("app-shell")).toBeTruthy());
     expect(screen.queryByTestId("org-switch-landed")).toBeNull();
