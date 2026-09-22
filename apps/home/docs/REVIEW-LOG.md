@@ -530,3 +530,70 @@ existed.
 | 8 | The first version of the suite took **over ten minutes** — 22 fresh browser contexts, each loading the page and scrolling its full height. A gate nobody runs is not a gate. | One context per language, resized between widths, and no scroll walk: reduced motion lands every reveal immediately, so the walk was doing nothing. **58 seconds.** |
 | 9 | Checks were invoked one at a time by hand. | `check-all.mjs` runs all eight. **72 seconds, one command.** |
 | 10 | Nothing recorded which numbers were budgets and which were observations. | The budget file says so, and says that raising a number should take an argument rather than a shrug. |
+
+---
+
+## Round 20 — the deployment, and reading it all again
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The Chinese home page linked to the English privacy page**, and the Chinese privacy page's brand, nav "back" and footer link all landed on the English site. Three links out of the language on one page, shipping. | The generator maps internal links to their translated equivalents. The language switch is exempt by definition — pointing at the other language is the only thing it does. |
+| 2 | Nothing checked for that, which is why it shipped. | A rule in `check-html.mjs`: on a generated page, every internal link outside the language switch must stay inside that language. |
+| 3 | The `_headers` comment asserted "there is no inline `<script>` anywhere". There is one — the JSON-LD block. | Corrected, and the claim underneath it *verified*: every response replayed with the policy attached, confirming the structured data still parses (`SoftwareApplication`, both languages) with no violation. `script-src` does not govern non-executable data blocks, but that was worth demonstrating rather than believing. |
+| 4 | No `_redirects`. `/privacy`, `/zh`, `/security` and `/security.txt` would all 404 — the last two being the shapes a researcher types first. | Declared, including the security-contact aliases. |
+| 5 | Checked whether the README still describes the site after nineteen rounds of change. | Every path it names exists. |
+| 6 | The seven source stylesheets still deploy alongside the bundle. | Deliberate, now that it is deliberate: a visitor holding a cached copy of the pre-bundle HTML still resolves them. |
+
+---
+
+# Where this ended up
+
+**Twenty rounds. Every number below is produced by `node scripts/check-all.mjs`,
+in 72 seconds, from the repository.**
+
+| | |
+|---|---|
+| Accessibility | axe-core: **0 violations** across 5 pages in 2 languages; every control reachable and operable by keyboard |
+| Responsive | clean at 320 / 360 / 390 / 430 / 600 / 768 / 900 / 1024 / 1280 / 1440 / 1920, both languages |
+| Performance | **146 KB** compressed · LCP **276 ms** desktop, **1 976 ms** on slow 3G · CLS **0** · **60 fps** scrolling |
+| Bilingual | `/zh/` carries 2 691 Han characters with JavaScript disabled |
+| Degradation | readable with no JS, with a failed module, at 200% zoom, in forced colors, on paper |
+| Compatibility | the pre-Safari-14 path is exercised, not assumed |
+| Security | strict same-origin CSP, verified by replaying it over every response |
+
+**Eight gates**, all in `check-all.mjs`: translation parity, HTML structure,
+dead CSS and off-scale values, copy typography, engine-compatibility guards,
+two freshness checks on generated files, seven browser suites, and a
+performance budget.
+
+## What is still open
+
+1. **The public domain is a guess.** Every canonical, `hreflang`, `og:url` and
+   sitemap entry says `workspacex.boardx.us`. See the README.
+2. **The ICP filing number** required to serve `/zh/` from mainland China is
+   not in this repository and was not invented.
+3. **Firefox and WebKit have never been run against this.** The browser CDN is
+   blocked in the environment this was built in. `check-compat.mjs` encodes
+   what is known about those engines; it is not a substitute for running them.
+4. The deck's market sizing, competitive map, business model and go-to-market
+   are deliberately absent — the deck itself labels those figures internal
+   scenario models rather than forecasts.
+
+## The pattern worth keeping
+
+The defects that survived longest were not in the page. They were in the
+checks:
+
+- a nested `<a>` that a non-greedy regex could never see, reported clean for
+  four rounds;
+- a no-JavaScript test that sampled styles before the stylesheet applied, and
+  so certified a blank page as fine;
+- four separate stale expectations that agreed with a page which no longer
+  existed;
+- a diagram host with no builder, invisible because every count had been
+  typed in by hand rather than derived.
+
+**A check that has never been seen to fail is a decoration.** Round 15 started
+testing the fallback path in both directions because of it, and round 19
+rebuilt every expectation to derive from the source. Both changes found real
+bugs within minutes of being written.
