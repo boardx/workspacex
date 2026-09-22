@@ -25,8 +25,10 @@ import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import { createCoordClient } from "@repo/coord-protocol/client";
 import { errDetail } from "./lib/coord-client";
+// 「哪个 issue 是 work-cycle issue、怎么读它的评论」只写一处：#534 的门与本表共用
+// 同一个读取口，免得门与健康表各读各的、判断不一致（AGENTS.md：同一事实不得声明在两处）。
+import { WORK_CYCLE_LABEL, fetchWorkCycleComments } from "./lib/cycle-result-gate";
 
-const WORK_CYCLE_LABEL = "coordination:work-cycle";
 const GATEWAY_TIMEOUT_MS = 8_000;
 /** 心跳超过这个年龄的活跃租约标记为可疑（持有者可能已经不在了）。 */
 const STALE_HEARTBEAT_MINUTES = 30;
@@ -36,11 +38,6 @@ interface PrSummary {
   title: string;
   createdAt: string;
   mergedAt?: string;
-}
-
-interface IssueComment {
-  body: string;
-  createdAt: string;
 }
 
 interface CycleInfo {
@@ -170,46 +167,36 @@ export async function cycleReport(_args: Args): Promise<void> {
   }
 
   // ── 3. cycle-plan / cycle-result 评论 ─────────────────────────────────────
-  const workCycleIssues = ghJson<Array<{ number: number }>>(
-    `gh issue list --state open --label ${JSON.stringify(WORK_CYCLE_LABEL)} --json number --limit 1`,
-    "work-cycle issue 列表"
-  );
-  if (workCycleIssues.kind === "error") {
-    log.err(`查不到 work-cycle issue（${workCycleIssues.detail}）——GitHub 叙述源不可达，报告不完整。`);
+  // 读取口只有一份（lib/cycle-result-gate.ts）：#534 的 cycle-result 门与本表共用，
+  // 免得门与健康表各读各的、对「本周期有没有人汇报」给出两套判断
+  // （AGENTS.md：同一事实不得声明在两处）。三态返回里「读不到」不塌缩成「空评论」，
+  // 本表照旧 fail-closed：问不到 GitHub ⇒ 报错 + 非零退出，不渲染成一张完整健康表。
+  const fetched = fetchWorkCycleComments({ limit: 60 });
+  if (fetched.kind === "unavailable") {
+    log.err(`读不到 work-cycle issue 的评论（${fetched.reason}）——GitHub 叙述源不可达，报告不完整。`);
     process.exitCode = 1;
+  } else if (fetched.kind === "no-issue") {
+    log.warn(`未找到 label 为 ${WORK_CYCLE_LABEL} 的 open work-cycle issue——cycle-plan/result 无处可读。`);
   } else {
-    const issueNumber = workCycleIssues.value?.[0]?.number ?? null;
-    if (issueNumber === null) {
-      log.warn(`未找到 label 为 ${WORK_CYCLE_LABEL} 的 open work-cycle issue——cycle-plan/result 无处可读。`);
+    const issueNumber = fetched.issue;
+    const plans = fetched.comments.filter(
+      (c) => c.body.startsWith("cycle-plan") && c.body.includes(`cycle:${cycle.id}`)
+    );
+    const results = fetched.comments.filter((c) => c.body.startsWith("cycle-result"));
+    log.info(`work-cycle issue：#${issueNumber}`);
+    if (plans.length === 0) {
+      log.warn(`本周期（${cycle.id}）还没有任何 cycle-plan——周期开始 10 分钟内每个在任 coordinator 应发一条。`);
     } else {
-      const comments = ghJson<IssueComment[]>(
-        `gh issue view ${issueNumber} --json comments --jq '[.comments[-60:][] | {body, createdAt}]'`,
-        `issue #${issueNumber} 的评论`
-      );
-      if (comments.kind === "error") {
-        log.err(`读不到 work-cycle issue #${issueNumber} 的评论（${comments.detail}）。`);
-        process.exitCode = 1;
-      } else {
-        const plans = comments.value.filter(
-          (c) => c.body.startsWith("cycle-plan") && c.body.includes(`cycle:${cycle.id}`)
-        );
-        const results = comments.value.filter((c) => c.body.startsWith("cycle-result"));
-        log.info(`work-cycle issue：#${issueNumber}`);
-        if (plans.length === 0) {
-          log.warn(`本周期（${cycle.id}）还没有任何 cycle-plan——周期开始 10 分钟内每个在任 coordinator 应发一条。`);
-        } else {
-          log.info(`本周期 cycle-plan（${plans.length} 条）：`);
-          for (const p of plans) {
-            const byMatch = /by:(\S+)/.exec(p.body);
-            const commitLine = p.body.split("\n").find((l) => l.startsWith("commit:")) ?? "";
-            log.info(`  - ${byMatch?.[1] ?? "?"} ${commitLine}`);
-          }
-        }
-        const lastResult = results[results.length - 1];
-        if (lastResult) {
-          log.info(`最近一条 cycle-result（${lastResult.createdAt}）：${lastResult.body.split("\n")[0]}`);
-        }
+      log.info(`本周期 cycle-plan（${plans.length} 条）：`);
+      for (const p of plans) {
+        const byMatch = /by:(\S+)/.exec(p.body);
+        const commitLine = p.body.split("\n").find((l) => l.startsWith("commit:")) ?? "";
+        log.info(`  - ${byMatch?.[1] ?? "?"} ${commitLine}`);
       }
+    }
+    const lastResult = results[results.length - 1];
+    if (lastResult) {
+      log.info(`最近一条 cycle-result（${lastResult.createdAt}）：${lastResult.body.split("\n")[0]}`);
     }
   }
 

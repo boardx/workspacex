@@ -153,6 +153,12 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
 - **热点申报**：动 `.harness/state/hotspots.md` 所列文件的 PR 必须在 cycle-plan
   申报；同周期撞热点由 coord-main 排序。
 - **健康表**：`pnpm harness cycle-report`（只读）聚合当前周期承诺/超时/flow time。
+- **门控**（#534）：`pnpm harness tick` 每个 loop 判一次——**持协调类活跃租约、却没发上
+  一个周期的 cycle-result ⇒ 退出码非 0**。此前这条义务只有提示（tick 每轮逐字印
+  「结束前必须发 cycle-result」）没有门，coord-chat-e2e 与 coord-main 一连十几个周期
+  一条没发、包括当事人自己在内无人发现。判据（判哪个周期、谁背义务、宽限期）与
+  「问不到 ≠ 没发」的前置失败区分**只写在** `.harness/scripts/lib/cycle-result-gate.ts`，
+  本文不复述——同一事实不得声明在两处。
 
 ## 铁律（任何层都不可违反）
 1. **verdict 权威**：`review:*-ok` 只能由 coordinator 编排的 reviewer 产出。发现来路不明的 verdict → 摘除 + 留言，以可核验事实（git ls-tree、命令退出码）重裁。

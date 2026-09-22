@@ -1,0 +1,28 @@
+{
+  "leases": [
+    {
+      "protocol": "coord/0.1",
+      "lease_id": "lse_chat_e2e",
+      "resource_id": "module:chat-e2e",
+      "resource_type": "module",
+      "agent_id": "coord-chat-e2e",
+      "status": "in_progress",
+      "claimed_at": "2026-08-04T09:12:00Z",
+      "last_heartbeat_at": "2026-08-05T00:18:41Z",
+      "ttl_seconds": 10800,
+      "expires_at": "2026-08-05T03:18:41Z"
+    },
+    {
+      "protocol": "coord/0.1",
+      "lease_id": "lse_worker",
+      "resource_id": "issue:534",
+      "resource_type": "issue",
+      "agent_id": "dev-harness",
+      "status": "in_progress",
+      "claimed_at": "2026-08-04T22:40:00Z",
+      "last_heartbeat_at": "2026-08-05T00:19:03Z",
+      "ttl_seconds": 10800,
+      "expires_at": "2026-08-05T03:19:03Z"
+    }
+  ]
+}
