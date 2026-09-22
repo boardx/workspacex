@@ -208,12 +208,23 @@ export function DesignDetailScreen({
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
-  const [viewMode, setViewMode] = React.useState<"board" | "single">("board");
+  const [viewMode, setViewMode] = React.useState<"board" | "single">(
+    () => (typeof window !== "undefined" && window.innerWidth < 768 ? "single" : "board"),
+  );
   /**
    * 迭代 11（design-delta `prototype-navigation`，待签核）：编辑 / 预览。预览下点有跳转的节点 = 换页，
    * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
+  /*
+   * 迭代 26：**窄屏默认单页**。
+   *
+   * 画板（所有页并排）在手机上会被"适应"到 20% 上下——三台指甲盖大小的手机，里面一个字
+   * 都读不出来。那是"我的原型长什么样"这个问题的最差答案，而它偏偏是第一眼。
+   * md 及以上仍然默认画板（那里三页并排正是它的价值）。
+   *
+   * 只在挂载时判一次：之后用户自己切过的选择不该因为转屏被冲掉。
+   */
   /**
    * 迭代 16（#3773 R6）—— 预览模式的**返回栈**。
    *
@@ -245,7 +256,6 @@ export function DesignDetailScreen({
   const [deviceId, setDeviceId] = React.useState<string | null>(null);
   const [landscape, setLandscape] = React.useState(false);
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
-  const stageRef = React.useRef<HTMLDivElement>(null);
   const [stage, setStage] = React.useState({ w: 0, h: 0 });
   /**
    * 迭代 13（delta §2）：「从对话导入」弹窗。**不确认不写**——弹窗自己只在确认那一步
@@ -341,7 +351,8 @@ export function DesignDetailScreen({
   /** 迭代 14：当前镜头 = 用户选的，没选过就跟项目模板走。 */
   const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
   const lensSize = rotated(lens, landscape);
-  const scale = fitScale(stage, { w: lensSize.w, h: lensSize.h + 40 });
+  /* `- 32` 是单页视图那层 `p-4` 的左右内边距：量的是外栏，可用空间要把它扣掉。 */
+  const scale = fitScale({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
     () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
@@ -467,28 +478,29 @@ export function DesignDetailScreen({
   };
 
   /**
-   * 迭代 14：量画布可用空间，好把 1280 宽的笔记本缩进来。
-   * jsdom 没有 `ResizeObserver` 也量不出尺寸 ⇒ stage 保持 0，`fitScale` 返回 1，
-   * 测试里按原尺寸渲染（这正是它对 0 尺寸返回 1 的理由）。
+   * 迭代 26：用**回调 ref** 装观察器，不再是 `useRef` + `useEffect`。
+   *
+   * 这处已经错过两次，两次都是同一种：**effect 跑的那一刻，要观察的那块 DOM 还不在**。
+   *   · 迭代 24 之前：ref 挂在单页视图上，而默认是画板视图 ⇒ 挂载时 `ref.current === null`；
+   *   · 迭代 26 第一版：改成量外面那一栏、依赖清空，可详情页**先渲染加载态**——
+   *     项目还没取回来时那一栏同样不存在，`[]` 依赖于是再也不会重跑。
+   * 两次的表现都一样：`stage` 永远 `{0,0}`、`fitScale` 永远 1、自适应缩放形同虚设。
+   *
+   * 回调 ref 由 React 在**元素真正挂载/卸载时**调用，不依赖任何"我猜它这时候在不在"。
    */
-  React.useEffect(() => {
-    const el = stageRef.current;
+  const roRef = React.useRef<ResizeObserver | null>(null);
+  const stageRef = React.useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
     if (el === null || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(([entry]) => {
       const r = entry?.contentRect;
       if (r !== undefined) setStage({ w: r.width, h: r.height });
     });
     ro.observe(el);
-    return () => ro.disconnect();
-    /*
-     * 迭代 24：依赖里必须有 `viewMode`。
-     *
-     * `stageRef` 只挂在**单页视图**那块 DOM 上，而默认视图是画板——于是这个 effect 在挂载时
-     * `stageRef.current === null`，直接 return，观察器**根本没装上**；后来切到单页也不会重跑。
-     * 结果：`stage` 永远是 `{0,0}`，`fitScale` 永远返回 1，**单页视图的自适应缩放从来没生效过**。
-     * 实测表现是 1280×720 下手机画板按 852px 满高渲染、顶部滑到页头底下点不到。
-     */
-  }, [viewMode]);
+    roRef.current = ro;
+  }, []);
+
 
   /**
    * 迭代 15：画布快捷键。**只在编辑态、且不在输入框里**时生效——
@@ -744,7 +756,14 @@ export function DesignDetailScreen({
             * 把它藏进弹窗里，等于要用户先怀疑才会去看。
             */}
           <Button
-            variant={(project.share ?? null) === null ? "outline" : "ghost"}
+            /*
+             * 迭代 26：primary 从「推送到收件箱」换到「分享」。
+             *
+             * 三个动作里推送是**内部流程**（进运营收件箱排期），而第一次来做原型的人做完
+             * 第一件想做的事是给人看。实心按钮是一屏上最强的指路牌，它此前指着一条
+             * 与新手无关的路。
+             */
+            variant={(project.share ?? null) === null ? "primary" : "outline"}
             size="sm"
             onClick={() => { setSharing(true); setShareError(null); }}
             data-testid="design-detail-share"
@@ -762,7 +781,7 @@ export function DesignDetailScreen({
               <Check aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">已推送到收件箱</span>
             </Button>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="推送到收件箱">
+            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="推送到收件箱">
               <Upload aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">推送到收件箱</span>
             </Button>
           )}
@@ -1038,7 +1057,14 @@ export function DesignDetailScreen({
                   * 但从来没有 UI 够得着——模型能加删页，用户不能。
                   */}
                 {canvasMode === "edit" && preview === null && (
-                  <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
+                  <>
+                    {/*
+                      * 迭代 26：页签与「改名/加页/复制/删页」之间加一道分隔线。
+                      * 它们此前只隔着 4px，而最后一颗是**删这一页**——在手机上手指宽度
+                      * 远大于那个间距，点最后一个页签与删掉它只差几个像素。
+                      */}
+                    <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
+                    <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
                     {/*
                       * 迭代 25：改名此前**只有双击页签**一条路（还用 `window.prompt`）。
                       * 手机上没有双击这回事，而这排按钮在哪都点得到——改名与加/复制/删同级，
@@ -1071,6 +1097,7 @@ export function DesignDetailScreen({
                       <Trash2 aria-hidden className="h-3 w-3" />
                     </button>
                   </span>
+                  </>
                 )}
                 </div>
                 <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
@@ -1175,7 +1202,7 @@ export function DesignDetailScreen({
                   * 改成 flex 列之后 stage 是 `flex-1`，量到的是真正的可用空间，画板按它缩小；
                   * 普通人也就不必先上下滚一段才看得到手机顶部。
                   */}
-                <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "flex flex-col")}>
+                <div ref={stageRef} className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "flex flex-col")}>
                   {/*
                     * 迭代 16（#3773 R6）：预览里的「返回」。只在真的有地方可退时出现——
                     * 一个永远在那里、点了没反应的返回按钮，比没有更糟。
@@ -1268,7 +1295,6 @@ export function DesignDetailScreen({
                      * 与人看设备的习惯一致（不是从中心散开）。
                      */
                     <div
-                      ref={stageRef}
                       className="flex min-h-0 flex-1 justify-center overflow-auto p-4"
                       data-testid="design-detail-stage"
                       data-scale={scale.toFixed(3)}

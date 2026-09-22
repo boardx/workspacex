@@ -3991,3 +3991,51 @@ describe("界面不再把人指向一个空的地方", () => {
     prompt.mockRestore();
   });
 });
+
+/* ═══════ 迭代 26：手机上第一眼看到的那一屏 ═══════ */
+
+describe("窄屏的默认值按手机来，不是按桌面来", () => {
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+  const mount = async (width: number) => {
+    const prev = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["A", "B", "C"], prototype: [sample, sample, sample] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-view-single");
+    return () => Object.defineProperty(window, "innerWidth", { value: prev, configurable: true, writable: true });
+  };
+
+  it("手机宽度进来默认**单页**——三页并排会被适应到 20% 上下，一个字都读不出来", async () => {
+    /*
+     * ⭐ 反证锚点：把默认改回恒 `board` ⇒ 这条红。
+     * 「我的原型长什么样」这个问题的第一眼答案，不该是三台指甲盖大小的手机。
+     */
+    const restore = await mount(390);
+    expect(screen.getByTestId("design-detail-view-single").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("design-detail-view-board").getAttribute("aria-pressed")).toBe("false");
+    restore();
+  });
+
+  it("桌面宽度仍然默认画板——三页并排正是它的价值", async () => {
+    const restore = await mount(1440);
+    expect(screen.getByTestId("design-detail-view-board").getAttribute("aria-pressed")).toBe("true");
+    restore();
+  });
+
+  it("顶栏那颗实心按钮指的是「分享」，不是内部流程「推送到收件箱」", async () => {
+    /*
+     * ⭐ 反证锚点：把 primary 换回 push ⇒ 这条红。
+     * 实心按钮是一屏上最强的指路牌；它此前指着一条与第一次做原型的人无关的路
+     * （推送进运营收件箱排期）。
+     */
+    const restore = await mount(1440);
+    const share = screen.getByTestId("design-detail-share");
+    const push = screen.getByTestId("design-detail-push");
+    expect(share.className).toContain("bg-primary");
+    expect(push.className).not.toContain("bg-primary");
+    restore();
+  });
+});

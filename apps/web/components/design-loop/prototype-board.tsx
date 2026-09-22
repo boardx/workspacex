@@ -81,6 +81,25 @@ export function PrototypeBoard({
   React.useEffect(() => { fit(); }, [fit]);
 
   /**
+   * 迭代 26：**窗口尺寸变了也要重新适应**。
+   *
+   * `fit()` 原来只在挂载与页数变化时跑，于是把窗口拉大、把手机横过来、或者收起侧栏之后，
+   * 画板还停在按旧尺寸算出来的比例——实测同一个页面 390 与 1440 两档量到的都是同一个
+   * 百分比，"适应画板"这件事只在第一眼成立过一次。
+   *
+   * ⚠ 用户手动缩放/平移过就**不再**自动适应：那时屏上的比例是他自己挑的，
+   * 一次窗口变化把它冲掉，比不自适应更糟。「适应画板」那颗按钮随时把他放回来。
+   */
+  const touched = React.useRef(false);
+  React.useEffect(() => {
+    const el = viewportRef.current;
+    if (el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { if (!touched.current) fit(); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
+
+  /**
    * 迭代 11：页与页之间的连线。画在 stage 里（随平移缩放一起变换），坐标按 stage 的**未缩放**坐标系：
    * 从 DOM 量到的 rect 都带着 `scale(k)`，除回去即可。源点 = 可点位的右缘中点（目标在左边则取左缘），
    * 终点 = 目标页画板的左缘中点（或右缘）。jsdom 里所有 rect 都是 0 ⇒ 路径退化成点，但**数量仍等于
@@ -156,6 +175,7 @@ export function PrototypeBoard({
   }, [measure, frames, device, landscape, view.k]);
 
   const zoomAt = (factor: number, cx?: number, cy?: number) => {
+    touched.current = true; // 见上方 ResizeObserver：手动调过就不再自动适应
     setView((v) => {
       const k = clamp(v.k * factor);
       if (cx === undefined || cy === undefined) return { ...v, k };
@@ -171,6 +191,7 @@ export function PrototypeBoard({
     if (e.ctrlKey || e.metaKey) {
       zoomAt(e.deltaY < 0 ? STEP : 1 / STEP, e.clientX - (rect?.left ?? 0), e.clientY - (rect?.top ?? 0));
     } else {
+      touched.current = true;
       setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
     }
   };
@@ -185,6 +206,7 @@ export function PrototypeBoard({
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (d === null) return;
+    touched.current = true;
     setView((v) => ({ ...v, x: d.vx + (e.clientX - d.x), y: d.vy + (e.clientY - d.y) }));
   };
   const onPointerUp = () => { drag.current = null; };
@@ -269,7 +291,7 @@ export function PrototypeBoard({
         <span className="min-w-10 text-center font-mono text-10 text-muted-foreground" data-testid="design-detail-zoom-level">{Math.round(view.k * 100)}%</span>
         <button type="button" aria-label="放大" onClick={() => zoomAt(STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-in"><Plus aria-hidden className="h-3.5 w-3.5" /></button>
         <button type="button" aria-label="实际大小" onClick={() => setView((v) => ({ ...v, k: 1 }))} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-reset"><Scan aria-hidden className="h-3.5 w-3.5" /></button>
-        <button type="button" aria-label="适应画板" onClick={fit} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-fit"><Maximize2 aria-hidden className="h-3.5 w-3.5" /></button>
+        <button type="button" aria-label="适应画板" onClick={() => { touched.current = false; fit(); }} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-fit"><Maximize2 aria-hidden className="h-3.5 w-3.5" /></button>
       </div>
     </div>
   );
