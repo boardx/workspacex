@@ -7,19 +7,16 @@
  * `publish-team2-agent.ts` 要人拿着 admin 账号密码、在某个真实部署环境手工跑一次，
  * 再把打印出来的 agentId 回填进前端（或配一个 NEXT_PUBLIC_ 环境变量重新构建）。
  * 那是两次人工动作、一份跨环境不通用的 id、一个"忘了跑就静默禁用"的失败模式。
- * 正确形状是：部署期幂等补种 + 前端按名字在组织能力目录里查真实 id。本脚本走这条路——
- * 部署即生效，无人工步骤，无需回填任何 id。`publish-team2-agent.ts` 保留为
+ * 正确形状是：部署期幂等补种 + 前端按名字在组织能力目录里查真实 id。本脚本走这条路
+ * ——部署即生效，无人工步骤，无需回填任何 id。`publish-team2-agent.ts` 保留为
  * "本机开发库手工验证"的逃生口。
- *
- * （这个形状最早由 team3 的补种脚本示范，那条线已于 2026-09-22 随 team3 整体下线删除；
- *  同形状的现存参照是 `backfill-deep-research-agent.ts`。）
  *
  * ## 为什么是脚本，不是迁移；为什么不 hook 进注册控制器
  *
- * 同 `backfill-deep-research-agent.ts` 的两段理由，逐字适用，此处不复述（ADR-020：同一事实
- * 不得声明在两处）：`capability_listings` 禁止迁移 INSERT，种子只能走
- * `ensureSystemAgent` 这条应用层写路径；team2 同样是临时 Agent，删除时从
- * `deploy.sh` 摘掉这一步即可，不动共享控制器。
+ * `capability_listings` 禁止迁移 INSERT，种子只能走 `ensureSystemAgent` 这条应用层
+ * 写路径；team2 是临时 Agent，删除时从 `deploy.sh` 摘掉这一步即可，不动共享控制器
+ * ——把补种做成「一个脚本 + 部署期一次调用」而不是焊进共享的注册控制器，为的正是
+ * 这一刻能一步摘干净。
  *
  * ## 目标组织与 model provider
  *
@@ -52,7 +49,7 @@ export const TEAM2_AGENT_TEMPLATE: SystemAgentTemplate = {
   duty: "读取财务报表/审计报告/访谈录音，按固定规则沙箱算分，产出带依据与不确定性标注的 A–E 投后评级",
   roleLabel: "投后评级",
   instructions: buildRatingPrompt([]),
-  // 0x7ea3 曾由 team3 占用（已随其下线删除）；本条沿用一个不与之相撞的常量。
+  // 0x7ea3 已被 team3 占用；换一个不冲突的常量。
   lockKey: 0x7ea4,
   resolveModel: resolveDeepAgentModel,
 };

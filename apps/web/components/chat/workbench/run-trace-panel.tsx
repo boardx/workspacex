@@ -5,6 +5,7 @@ import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
+import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
@@ -98,6 +99,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     return () => window.clearInterval(timer);
   }, [active]);
   if (!events.length) return null;
+  /*
+   * 2026-09-22 —— 「屏幕上有没有别的东西可读」= 这一轮有没有产出过正文。两种正文事件都算：
+   * 流式增量与终稿。只判 `final_message` 不够——正文流到一半时它还没来，而那时屏幕上已经
+   * 有字在长出来，再摆一块预览就是添乱。给下面折叠区**外面**那块最近几步预览用。
+   */
+  const hasAssistantText = events.some((event) => event.kind === "text_delta" || event.kind === "final_message");
   const started = events.find((event) => event.kind === "status" && event.status === "running") ?? events[0]!;
   const start = Date.parse(started.emittedAt);
   const end = active ? now : Date.parse(events[events.length - 1]!.emittedAt);
@@ -131,6 +138,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       </span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {/*
+      折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
+      改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
+      这块只在「还活着 + 这一轮还没有任何正文 + 已经 ≥2 个动作」时出现，正文一来就消失。
+    */}
+    {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
