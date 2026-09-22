@@ -235,11 +235,17 @@ const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
 const CONTRACT_ROUTE_ALLOWLIST = ".harness/state/contract-route-coverage-allowlist.json";
 const CONTRACT_TS = "packages/contracts/src/skills.ts";
+// #473 的门守的是「注释说契约里没有 X」，它的变异要打在一个真实存在的 operation 上，
+// 所以锚的是 chat 束的契约文件（`createMessage` 在里面）。
+const CONTRACT_CHAT_TS = "packages/contracts/src/chat.ts";
 const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 // `harness archive-passing` 会把已 passing 的 feature（含它的 verification 字符串）
 // 从 FL_01 搬进这个归档文件——探针要打的 device-session-30d 那条随时可能已经搬家，
 // 见下面 replaceOnceAcross。
 const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
+// contract-state-names 门守的两处下游：TW-P0-3 的 spec 与它的判据文档。
+const STATE_NAME_SPEC = "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts";
+const STATE_NAME_DOC = ".harness/instructions/chat-task-workbench-acceptance.md";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -343,6 +349,45 @@ export const GATE_SPECS: readonly GateSpec[] = [
           [FL_01, FL_01_ARCHIVE],
           "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
           "echo probe-bogus-verification",
+        ),
+      },
+    ],
+  },
+  {
+    gate: "contract-state-names",
+    // #3140：契约签核之后，spec 与验收文档里的态名没有任何东西保证跟得上契约枚举。
+    // 两条变异对应 2026-09-08 当天真实发生过的两种漂移方向：代码侧改错名、文档侧改错名。
+    run: node(".harness/scripts/lint-contract-state-names.mjs"),
+    guards: (_r, io) => io.exists(STATE_NAME_SPEC) && io.exists(STATE_NAME_DOC),
+    mutations: [
+      {
+        name: "把 spec 里的态名改成枚举外的值",
+        apply: replaceOnce(STATE_NAME_SPEC, '"data-phase", "done"', '"data-phase", "completed"'),
+      },
+      {
+        name: "把验收文档态机链里的一段改成契约文案外的写法",
+        apply: replaceOnce(STATE_NAME_DOC, "执行 → 审批 → 完成", "执行 → 等待审批 → 完成"),
+      },
+    ],
+  },
+  {
+    gate: "contract-negative-assertion",
+    // issue #473：源码注释里「契约里没有 X」这类否定性断言，机械核对 X 是不是契约里的
+    // 一个 operation。守的正是「写下时为真、契约后来变了、注释没跟着改」这条漂移——
+    // 2026-08-04 它让 coord-main 建了不必要的 issue #461、派了不必要的高优先级任务
+    // 并重排了两条链的优先级。
+    run: tsx(".harness/scripts/lint-contract-negative-assertion.mjs"),
+    guards: (_r, io) => io.exists(CONTRACT_CHAT_TS),
+    mutations: [
+      {
+        name: "写一句「契约里没有 `createMessage`」（#473 现场那句谎话的形状）",
+        // 这就是 #473 红线 2 要求的那条反证，固化成探针：`createMessage` 由 PR #429
+        // 加进 `packages/contracts/src/chat.ts`，所以这句断言从落笔起就是假的，门必须红。
+        // 必须带反引号：本门只核对「被否定的那个东西被反引号点名」的断言，散文断言归
+        // 预算管（同 mod-chat SKILL.md 那条变异忘了反引号、得出"漏过"假结论的教训）。
+        apply: appendLine(
+          "apps/web/lib/live-chat.ts",
+          "// 变异探针：契约里没有 `createMessage` 这个写端口。",
         ),
       },
     ],
