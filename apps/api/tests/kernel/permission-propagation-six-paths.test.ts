@@ -1283,7 +1283,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // Phase 18 F08 adds the per-turn knowledge recall read (pg-knowledge-recall.ts): same
     // shape as the L3 pg-file-retrieval.ts entry -- the executor reads the run's OWN thread
     // knowledge into the model context only. Pinned by tests/knowledge-graph/recall-repo-guard.test.ts.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(96);
+    // #3926 adds exactly one private whiteboard metadata repository (96 -> 97).
+    // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
+    // fallback would expose private boards. The exception is bounded to three
+    // tables and actor/owner SQL predicates by resource-repository-guard.test.ts,
+    // including mutation counterexamples. Real PostgreSQL + HTTP evidence is the
+    // 11 passing tests in whiteboard/resource-{lifecycle,http}.test.ts: nonmember,
+    // cross-tenant identity, viewer/editor administration, revocation and auth guard.
+    // Remove this increment and its allowlist entry if those protections disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(97);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
