@@ -8,8 +8,8 @@ for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/preview/whiteboard');
     await expect(page.getByTestId('whiteboard-screen')).toBeVisible();
-    await expect(page.getByTestId('shell-rail')).toHaveCount(0); // testid-gate: absent fullscreen canvas hides global navigation
-    await expect(page.getByTestId('shell-mobile-tabs')).toHaveCount(0); // testid-gate: absent fullscreen canvas hides mobile navigation
+    await expect(page.getByTestId('shell-rail')).toHaveCount(0);
+    await expect(page.getByTestId('shell-mobile-tabs')).toHaveCount(0);
     await expect(page.getByTestId('whiteboard-exit')).toHaveAttribute('href', '/projects');
     const main = await page.getByTestId('shell-main').boundingBox();
     expect(main?.x).toBe(0);
