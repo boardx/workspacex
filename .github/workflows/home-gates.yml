@@ -1,9 +1,14 @@
 # home-gates.yml —— `apps/home`（营销站）自己的门控。
 #
 # ⚠ 2026-09-22 发现：在这个文件之前，**没有任何 workflow 引用过 `apps/home`**。
-# 那个目录里有 10 道静态门和 15 个浏览器套件，每一道都被证明过会红（每轮都先写探针
-# 把它弄红再修），但它们只在有人记得 `cd apps/home && node scripts/check-all.mjs`
-# 时才跑。整个站点带着 24 个绿勾合进了 main，那 24 个 check 没有一个看过它。
+# 那个目录里的每一道静态门、每一个浏览器套件都被证明过会红（每轮都先写探针把它弄红
+# 再修），但它们只在有人记得 `cd apps/home && node scripts/check-all.mjs` 时才跑。
+# 整个站点带着一排绿勾合进了 main，那些 check 没有一个看过它。
+#
+# 这里不写门与套件的数量：权威是 `apps/home/scripts/check-all.mjs` 的清单和
+# `tests/browser.test.mjs` 的 reporter，`check-docs.mjs` 负责让 README 与它们一致。
+# 本文件第一版在这行写了「10 道静态门和 15 个浏览器套件」，一轮之后就是 15 和 21——
+# 同一事实声明在第三处，必然漂移。
 #
 # 这正是本仓 AGENTS.md 自己那条在最外层的复现：「没有脚本的规范条目视为未落地」——
 # 这里是「没有 CI 调用的脚本视为未落地」。不接 CI 的门控是装饰品。

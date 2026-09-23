@@ -22,6 +22,7 @@ const checks = [
   ['stated facts', 'check-sequence.mjs'],
   ['engine compatibility', 'check-compat.mjs'],
   ['deploy files', 'check-deploy.mjs'],
+  ['documentation', 'check-docs.mjs'],
   ['css bundle up to date', 'build-css.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],
   ['brand mark up to date', 'build-brand.mjs', '--check'],

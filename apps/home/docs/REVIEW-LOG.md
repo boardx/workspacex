@@ -1101,3 +1101,21 @@ somebody else's machine. Nothing in this repository had ever opened either.
 | 8 | **Checked and clean.** `harness.mjs` promises that the suites skip cleanly when Playwright is absent and that `check-all` stays runnable on a bare checkout. Thirty-nine rounds, never tested. Moved `node_modules` aside: **14 checks pass**, both browser gates skip and print the install line. The promise is real. |
 | 9 | **Checked and clean.** `_redirects` was already covered — `check-links` resolves every target — and `robots.txt` and `sitemap.xml` are generated from the same `SITE` constant the new checks read, so none of the three can drift. |
 | 10 | The shape of the whole round: every defect in it lived in a file no code reads and no page renders. On a static site, the riskiest text is the text the browser never shows. |
+
+### Round 41 — the map and the territory
+
+The last artefact in this directory that nothing checked was the file that
+describes it.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Two gates were wired in, proved red and shipped without ever appearing in the table that claims to list them** — `check-sequence.mjs` from round 32 and `check-deploy.mjs` from round 40. `check-all`'s gate-on-gates covers the *runner*; nothing covered the *description*. | Both documented. |
+| 2 | The suite table said **fifteen**; twenty-one run. Five suites had no row at all: addressable, console, headers, accumulation, forced colors. | All five added, and the count is now derived rather than typed. |
+| 3 | **The drift ran the other way too, and it cost a real defect.** The Fonts section named *Microsoft YaHei for Windows* while `base.css` did not — the documentation described a fix nobody had made, and round 39 had to make it. A Chinese reader on Windows got a serif for thirty-eight rounds while the README said otherwise. A README nothing checks is a second, unversioned opinion about the code. | The section now points at the single source and says what happened. |
+| 4 | Three more rows described gates as they were, not as they had grown: `check-css` (brand literals, off-scale values, orphan breakpoint tokens, the CJK stacks), `check-links` (card alt text, the two locale grammars), and the browser row. | Rewritten from the scripts. |
+| 5 | **"Two generators are run by hand"** followed by one command; **"Three generators"** followed by five. Two wrong counts in one file, four paragraphs apart. | Both corrected — and the second one lists what it counts. |
+| 6 | The Layout listing omitted `privacy.html`, `site.css`, `print.css`, four of the eight JS modules, `_redirects`, `.well-known/`, the Chinese manifest, the generated favicon, `brand.mjs` and `tests/` entirely. | Filled in. |
+| 7 | Nothing checked any of it. | `check-docs.mjs`, the fifteenth gate. Both directions — a row for a deleted script is as wrong as a script with no row — plus `×2` marking matching which suites run per language, and the prose count derived from the reporters. Proved red four ways. |
+| 8 | **My own gate was wrong twice on its first run.** It read the *script* table's header cell as a suite called "script", and it counted `responsive` as per-language because its label is a template literal — it interpolates its own width count and runs once. | Narrowed to the suite table, and to `[${lang}]` rather than to backticks. Written down because the pattern is now four rounds old: the probe accuses working code first. |
+| 9 | **The same numbers again in a third place.** `home-gates.yml`'s header comment says "10 道静态门和 15 个浏览器套件… 24 个 check". One round later it is 15 and 21. | The numbers removed rather than updated, and the comment now names the two authorities instead. This repository's own rule: a fact declared twice drifts, so declare it once. |
+| 10 | Across these ten rounds the static gates went **10 → 15** and the browser suites **15 → 21**, every one of them proved red before being trusted. This round is the only one whose defects were entirely in prose — and one of them had already been paid for in code. |
