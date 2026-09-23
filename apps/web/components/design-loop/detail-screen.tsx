@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScale } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
@@ -359,7 +359,11 @@ export function DesignDetailScreen({
   const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
   const lensSize = rotated(lens, landscape);
   /* `- 32` 是单页视图那层 `p-4` 的左右内边距：量的是外栏，可用空间要把它扣掉。 */
-  const scale = fitScale({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
+  /*
+   * 单页舞台是 `overflow-auto` 的——所以高度不够时按宽度缩、让人竖着滚，
+   * 而不是缩成一张读不了字的缩略图（手机上实测 0.29，见 `fitScaleScrollable` 头注）。
+   */
+  const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
     () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
@@ -1105,8 +1109,13 @@ export function DesignDetailScreen({
           </div>
         </div>
 
-        {/* 右：画布 / 说明 两 Tab */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/*
+          * 右：画布 / 说明 两 Tab。
+          * `min-h-0` 不能少：窄屏上外层是竖排，少了它这一栏的高度跟着内容走——
+          * 画布量到的「可用高度」就是画布自己撑出来的高度，缩放一变高度跟着变，永远停不下来
+          * （2026-09-23 CI 实测：375 下舞台高度 571→651→775→501… 来回跳，点不中任何元素）。
+          */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="design-detail-right">
           <div className="flex gap-1 border-b border-border px-4 pt-2">
             <DetailTab active={tab === "canvas"} onClick={() => setTab("canvas")} testid="design-detail-tab-canvas">原型画布</DetailTab>
             <DetailTab active={tab === "spec"} onClick={() => setTab("spec")} testid="design-detail-tab-spec">说明与验收标准</DetailTab>
