@@ -1,7 +1,7 @@
 # 实施 Backlog 与并行执行图
 
 > 2026-09-23 · 汇总本系列全部研究的可执行项，标出依赖与可并行轨道。
-> 来源：`open-source-business-model.md`（v32.3）、`devportal-positioning.md`、
+> 来源：`open-source-business-model.md`（v32.8）、`devportal-positioning.md`、
 > `oss-readiness-probe-2026-09-22.md`、三份迭代记录。
 
 ---
@@ -37,7 +37,7 @@
 | | 产品的组织大脑 | 平台大脑 |
 |---|---|---|
 | 内容 | 客户的材料、结论、决策链 | 跨实例运行事实 + 工作 / 创新 / 学习的积累 |
-| 承载 | `knowledge-ontology.md` 四张 PG 表，RLS 隔离 | **同一套四张 PG 表**，在可移植层；边缘只放投影（D14 v32.6） |
+| 承载 | `context-engine.md`：PG + pgvector，RLS 隔离 | 产品的组织大脑 + harness 元本体（开发过程那一半，放哪待 D17）；在可移植层，边缘只放投影 |
 | 归属 | 产品，售卖 | 不交付 · 内部运营平面 |
 
 两个词都要在 `PROJECT.md` 登记为单一事实源，并加一道 lint：文档里出现旧用法即红。
@@ -50,44 +50,129 @@
 
 ```mermaid
 flowchart LR
-    START(["现在"])
-    G["G 人类决策 · D0-D15"]
-    A["A 命名统一 · 4 项"]
-    C["C 门控建设 · 9 项"]
-    D["D 运营平面 · 7 项"]
-    E["E 产品 0→1 · 7 项"]
-    B["B 开源就绪 · 8 项"]
-    F["F devportal · 2 项"]
-
-    START ==> A
-    START ==> C
-    START ==> D
-    START ==> E
-    START ==> B
-    G -. 只挡 B 的 3 项 .-> B
-    G -. 只挡 F 的 1 项 .-> F
+    classDef done fill:#DCEFE3,stroke:#2E7D4F,color:#14381F
+    classDef ready fill:#E3EEF7,stroke:#1F5F8B,color:#10304A
+    classDef block fill:#F8E1DF,stroke:#B3261E,color:#5A120E,stroke-dasharray:4 3
+    classDef dec fill:#26323A,stroke:#26323A,color:#FFFFFF
+    NOW(["现在"])
+    A["A 命名统一<br/>4 / 4 已完成"]:::done
+    C["C 门控建设<br/>8 项可开工 · 1 项等 C1"]:::ready
+    D["D 运营平面<br/>8 项可开工 · 4 项在关键路径上"]:::ready
+    E["E 产品 0→1<br/>6 项可开工 · 1 项等 E1+E2"]:::ready
+    B["B 开源就绪<br/>4 项可开工 · 3 项等 D1"]:::ready
+    F["F devportal<br/>2 项全等 D13"]:::block
+    G{{"待人类决策<br/>D1 · D13 · D16 · D17"}}:::dec
+    NOW -.-> A
+    NOW ==> C
+    NOW ==> D
+    NOW ==> E
+    NOW ==> B
+    G -. "D1 挡 B6 B7 B8" .-> B
+    G -. "D13 挡 F1" .-> F
+    G -. "D16 挡 D9 · D17 挡 D12" .-> D
 ```
 
 粗线是**现在就能开工**的轨道，虚线是被决策挡住的部分。
-B 轨八项里只有三项要等决策，F 轨两项都要等。
+B 轨八项里只有三项要等决策，F 轨两项都要等，D 轨有两项分别等 D16 与 D17。
 
 判据很简单：**一项工作要不要等决策，看它做完后决策改了要不要返工。**
 盘点、门控、体验、运营面都不返工——决策怎么定它们都要做。
 
 ---
 
-## 2. 真正的依赖（只有五条）
+## 2. 完整依赖路径
 
-其余全部可并行。
+42 项里只有 16 条依赖边，其余节点互不依赖，全部可并行。红色粗线是关键路径。
 
 ```mermaid
-flowchart TD
-    C1["C1 补齐 18 处<br/>技能包清单缺口"] --> C2["C2 门控转 strict<br/>接 CI"]
-    E1["E1 定义第一个价值时刻<br/>+ 事件定义"] --> E3["E3 埋点并测量"]
-    E2["E2 内置脱敏示例项目"] --> E3
-    G2["G2 决策 D1 许可证<br/>不可逆"] --> B6["B6 补 license 字段"]
-    G2 --> B7["B7 CLA 或 DCO"]
-    G4["G4 决策 D13<br/>公开层去留"] --> F1["F1 公开层拆域"]
+flowchart LR
+    classDef done fill:#DCEFE3,stroke:#2E7D4F,color:#14381F
+    classDef ready fill:#E3EEF7,stroke:#1F5F8B,color:#10304A
+    classDef part fill:#E3EEF7,stroke:#1F5F8B,color:#10304A,stroke-width:2px,stroke-dasharray:6 2
+    classDef wait fill:#FBF0D9,stroke:#A36A00,color:#4A3000
+    classDef block fill:#F8E1DF,stroke:#B3261E,color:#5A120E,stroke-dasharray:4 3
+    classDef dec fill:#26323A,stroke:#26323A,color:#FFFFFF
+    classDef crit stroke:#B3261E,stroke-width:3px
+
+    subgraph sK["待人类决策"]
+        K1{{"D1 许可证<br/>不可逆"}}:::dec
+        K13{{"D13 公开层去留"}}:::dec
+        K16{{"D16 运行事实<br/>还是客户内容"}}:::dec
+        K17{{"D17 开发过程知识<br/>放哪套图"}}:::dec
+    end
+    subgraph sA["A 命名统一"]
+        A1["A1 商业单元改名技能包"]:::done
+        A2["A2 → 平台大脑"]:::done
+        A3["A3 PROJECT.md 登记"]:::done
+        A4["A4 词汇门控"]:::done
+    end
+    subgraph sB["B 开源就绪"]
+        B1["B1 依赖许可证盘点"]:::part
+        B2["B2 第三方包定性"]:::ready
+        B3["B3 完整 clone 凭据扫描"]:::part
+        B4["B4 扫描报告落盘"]:::wait
+        B5["B5 SECURITY.md 邮箱"]:::part
+        B6["B6 license 字段"]:::block
+        B7["B7 CLA / DCO"]:::block
+        B8["B8 商标政策"]:::block
+    end
+    subgraph sC["C 门控建设"]
+        C1["C1 补齐 18 处清单缺口"]:::ready
+        C2["C2 清单门控转 strict"]:::wait
+        C3["C3 OSS 不依赖 EE"]:::ready
+        C4["C4 契约包边界"]:::ready
+        C5["C5 运营 schema 白名单"]:::ready
+        C6["C6 个人信息字段门控"]:::ready
+        C7["C7 生产不依赖运营面"]:::ready
+        C8["C8 零出网 e2e"]:::ready
+        C9["C9 体验承诺登记表"]:::ready
+    end
+    subgraph sD["D 运营平面"]
+        D5["D5 中国可达性实测"]:::ready
+        D6["D6 Access 策略核对"]:::ready
+        D7["D7 启用 CF_ACCESS_AUD"]:::ready
+        D1["D1 运营面骨架"]:::ready
+        D2["D2 GTM 与漏斗"]:::ready
+        D3["D3 CRM 分层"]:::ready
+        D4["D4 · S1 立我们自己的实例"]:::ready
+        D8["D8 · S2 上报契约定稿"]:::ready
+        D9["D9 · S3 实例侧上报器"]:::block
+        D10["D10 · S4 边缘收集与投影"]:::wait
+        D12["D12 建出路径所需的图节点与边"]:::block
+        D11["D11 · S5 实例进平台大脑"]:::wait
+    end
+    subgraph sE["E 产品 0→1"]
+        E1["E1 第一个价值时刻"]:::ready
+        E2["E2 脱敏示例项目"]:::ready
+        E3["E3 埋点并测量"]:::wait
+        E4["E4 零出网可见化"]:::ready
+        E5["E5 退出自由与导出"]:::ready
+        E6["E6 18 个技能包收成 3 入口"]:::ready
+        E7["E7 根级 compose"]:::ready
+    end
+    subgraph sF["F devportal"]
+        F1["F1 公开层拆域"]:::block
+        F2["F2 公开层接真后端"]:::wait
+    end
+
+    B3 --> B4
+    K1 --> B6
+    K1 --> B7
+    K1 --> B8
+    C1 --> C2
+    E1 --> E3
+    E2 --> E3
+    K13 --> F1
+    F1 --> F2
+    D8 ==> D9
+    K16 ==> D9
+    D9 ==> D10
+    D10 ==> D11
+    D4 --> D11
+    K17 ==> D12
+    D12 ==> D11
+    class D8,D9,D10,D11,D12 crit
+    linkStyle 9,10,11,12,14,15 stroke:#B3261E,stroke-width:3px
 ```
 
 ⚠ **B6 曾被错列为无悔动作。** 写上 `"license": "Apache-2.0"` 就是在执行 D1，
@@ -146,7 +231,8 @@ flowchart TD
 | D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | □ | 无依赖，可与 D4 并行 |
 | D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | □ | D8；**等 D16** |
 | D10 | S4 边缘收集与投影：Workers 收、DO 聚合、Pages 呈现车队 | □ | D9 |
-| D11 | S5 客户实例进组织大脑成一等实体，接六跳路径检索 | □ | D4 D10 |
+| D12 | 建出六跳路径所需的图节点与边：客户实例、版本、缺陷、PR（v32.8 补：此前误以为已存在） | □ | **等 D17**；`ontology_edges` 的节点 kind 由 CHECK 写死，要改迁移 |
+| D11 | S5 客户实例进组织大脑成一等实体，接六跳路径检索 | □ | D4 D10 **D12** |
 | D5 | 中国可达性实测 | □ | **必须实测，不可假设** |
 | D6 | Cloudflare Access 策略核对 | □ | 仓库无声明，控制台才是事实源 |
 | D7 | 启用 `CF_ACCESS_AUD` | □ | 安全待办，独立于定位 |
@@ -180,47 +266,91 @@ flowchart TD
 | G4 | D13 公开层去留 | 中 | F1 F2 |
 | ~~G5~~ | ~~D14 平台大脑是否用自家产品~~ | — | **已定（v32.6）**：既是也不是，三层分开。D4 D8 解锁 |
 | **G7** | **D16 联邦运营的是运行事实还是客户内容** | **极低**（是商业模式换道） | S3 之后全部（D9 D10 D11） |
+| **G8** | **D17 平台大脑开发过程那一半放哪套图** | 中 | D12 → D11。三种读法见 `super-instance-design.md` §2.2 |
 | G6 | D2 D3 D5 D8 D9 D10 D11 D12 D15 | 多为高 | 不挡执行 |
 
 ---
 
-## 4. 十三周排布
+## 4. 排布：AI 开发约 3 周（原按人类估算 13 周）
 
-轨道并行，同一周有多条在跑。
+全部改由 AI 开发后，写代码从「周」降到「小时到天」，**瓶颈移到了人**。三周的前提是每个人类关口一个工作日内答复——关口拖一天，整体拖一天。
+
+| AI 加速不了的关口 | 涉及项 | 为什么 |
+|---|---|---|
+| **决策** | D1 · D13 · D16 · D17，及 E1、C1 的许可证部分 | 商业与法律选择。C1 给 13 个自研技能包填许可证就是在执行 D1 |
+| **设计签核** | S2 契约、运营面骨架、GTM、CRM、E4 E5 E6 | 仓库硬约束：契约束开工前人类签核，agent 不许改签核状态 |
+| **实测与权限** | D4 D5 D6 D7、B3 凭据候选确认、B5 邮箱 | 要人的身份、网络位置或凭据 |
+| **PR 合并** | 约 50 个 PR | 一个 issue 一个 PR、不许合批；实测 PR 开出到合入 47 分到 5 时 19 分 |
+
+新关键路径有两条，都起于决策：**D16 → S3 → S4 → S5**，与 **D17 → D12 建图 → S5**。D16 必须挪到第 1 周。
 
 ```mermaid
 gantt
-    title 十三周实施排布（轨道并行）
+    title AI 开发重估：约 3 周（假设每个人类关口 1 个工作日内答复）
+    dateFormat YYYY-MM-DD
+    axisFormat %m-%d
+    section 人类关口
+    D1 · D13 · D16 · D17 决策        :crit, h1, 2026-09-24, 2d
+    S2 契约签核               :crit, h2, after s2d, 1d
+    实测与权限 D4 D5 D6 D7      :h3, 2026-09-24, 3d
+    凭据候选人工确认 B3         :h4, 2026-09-24, 1d
+    section 关键路径（AI 执行）
+    S2 契约起草               :s2d, 2026-09-24, 1d
+    S3 实例侧上报器            :crit, s3, after h1 h2, 2d
+    S4 边缘收集与投影           :crit, s4, after s3, 3d
+    D12 建出路径图（此前漏算）      :crit, ont, 2026-09-25, 10d
+    S5 实例进平台大脑           :crit, s5, after s4 ont, 3d
+    section 可并行（AI 执行）
+    C 门控八道                :c, 2026-09-24, 3d
+    B 盘点与扫描              :b, 2026-09-24, 2d
+    E 体验六项（含签核）        :e, 2026-09-24, 6d
+    D 运营面骨架 GTM CRM（含签核）:d, 2026-09-25, 7d
+    section 人工审查
+    约 50 个 PR 逐个合并        :rv, 2026-09-24, 15d
+```
+
+原来按人类开发估算的十三周排布保留作对照：
+
+```mermaid
+gantt
+    title 原排布：按人类开发估算（S 期时长为估算，未算入 D12 建图）
     dateFormat X
     axisFormat 第%s周
     section A 命名
-    两词替换与登记        :a1, 0, 1w
-    旧用法 lint          :a2, after a1, 1w
-    section C 门控
-    补齐清单 18 处        :c1, 0, 2w
-    转 strict 接 CI      :c2, after c1, 1w
-    边界与依赖方向四道      :c3, 1, 4w
-    零出网 e2e           :c8, 3, 2w
-    section E 体验
-    第一个价值时刻定义      :e1, 0, 2w
-    脱敏示例项目          :e2, 1, 3w
-    埋点并测量            :e3, after e2, 2w
-    零出网可见化          :e4, 3, 2w
-    退出自由与导出         :e5, 4, 3w
-    根级 compose         :e7, 8, 4w
+    两词替换与登记          :done, a1, 0, 1w
+    词汇门控               :done, a2, after a1, 1w
+    section D 关键路径
+    S2 上报契约定稿         :crit, d8, 0, 3w
+    D16 必须已定           :milestone, crit, g16, after d8, 0d
+    S3 实例侧上报器         :crit, d9, after d8, 3w
+    S4 边缘收集与投影       :crit, d10, after d9, 4w
+    S5 实例进平台大脑       :crit, d11, after d10, 3w
     section D 运营面
-    中国可达性实测         :d5, 0, 1w
-    Access 策略核对       :d6, 0, 1w
-    运营面骨架            :d1, 1, 4w
-    GTM 与漏斗           :d2, 4, 4w
-    CRM 分层             :d3, 6, 4w
+    S1 立我们自己的实例      :d4, 0, 4w
+    中国可达性实测          :d5, 0, 1w
+    Access 策略核对        :d6, 0, 1w
+    运营面骨架             :d1, 1, 4w
+    GTM 与漏斗            :d2, 4, 4w
+    CRM 分层              :d3, 6, 4w
+    section C 门控
+    补齐清单 18 处          :c1, 0, 2w
+    转 strict 接 CI       :c2, after c1, 1w
+    边界与依赖方向四道       :c3, 1, 4w
+    零出网 e2e            :c8, 3, 2w
+    section E 体验
+    第一个价值时刻定义       :e1, 0, 2w
+    脱敏示例项目           :e2, 1, 3w
+    埋点并测量             :e3, after e2, 2w
+    零出网可见化           :e4, 3, 2w
+    退出自由与导出          :e5, 4, 3w
+    根级 compose          :e7, 8, 4w
     section B 开源就绪
-    依赖许可证盘点         :b1, 0, 2w
-    完整 clone 凭据扫描    :b3, 0, 2w
-    第三方包定性          :b2, 2, 2w
+    依赖许可证盘点          :b1, 0, 2w
+    完整 clone 凭据扫描     :b3, 0, 2w
+    第三方包定性           :b2, 2, 2w
 ```
 
-**第 6 周设硬性复盘点**：不达标就砍范围，可砍项预先定好。
+按人类估算时第 6 周设硬性复盘点；按 AI 估算，复盘点应提到第 1 周末——那时四个决策应已定下，否则关键路径已经在滑。
 
 ---
 
@@ -236,11 +366,12 @@ gantt
 
 ---
 
-## 6. 会推翻计划的事（D14 已答，D16 新增）
+## 6. 会推翻计划的事（D14 已答，D16 D17 待答）
 
 | 事 | 若结果不利 | 现在能做什么 |
 |---|---|---|
 | ~~D14：平台大脑用不用自家产品~~ | ~~用了它就在产品栈，D4 作废~~ | **已答（v32.6）：既是也不是，三层分开。D4 D8 可开工** |
 | **D16：联邦运营的是运行事实还是客户内容** | 若是客户内容，开源方案的归属表、数据边界、对自托管客户的全部承诺一起作废 | S1 S2 不受影响，先做这两期 |
+| **D17：开发过程知识放哪套图** | 选了 C（整体搬进产品），违反「仓库即唯一事实来源」 | 推荐 B：同步投影进产品，权威仍是仓库文件 |
 | **中国可达性** | 运营人员连不上，整个运营面要另备旁路 | 第 1 周实测 |
 | **依赖许可证分布** | 出现不可再分发的包，开源前必须替换 | 第 1 周装依赖重跑 |
