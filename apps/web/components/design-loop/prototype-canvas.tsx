@@ -101,14 +101,180 @@ function useTap(node: PrototypeNode) {
 }
 
 /** 多项原语 / navbar 的第 `item` 项要挂的属性（预览模式下有跳转才是控件）。 */
-function ItemTap({ id, item, children, className, as: Tag = "span" }: {
+function ItemTap({ id, item, children, className, as: Tag = "span", role, selected, onActivate }: {
   id: string | undefined; item: number; children: React.ReactNode; className?: string; as?: "span" | "li";
+  /** 对标 R6（#3933）：预览里这一项自己的角色（tab 等）与「没有跳转时点它做什么」。有跳转时跳转优先。 */
+  role?: "tab"; selected?: boolean; onActivate?: (() => void) | null;
 }) {
   const link = useLinkTap(id, item);
+  const own = !link.linked && onActivate != null
+    ? { role, tabIndex: 0, onClick: (e: React.MouseEvent) => { e.stopPropagation(); onActivate(); }, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onActivate(); } } }
+    : role !== undefined ? { role } : {};
   return (
-    <Tag className={className} data-link-item={id !== undefined ? linkKey(id, item) : undefined} data-linked={link.linked ? "true" : undefined} {...link.props}>
+    <Tag className={className} data-link-item={id !== undefined ? linkKey(id, item) : undefined} data-linked={link.linked ? "true" : undefined} {...own} {...(role === "tab" ? { "aria-selected": selected === true } : {})} {...link.props}>
       {children}
     </Tag>
+  );
+}
+
+/* ─────────────── 对标 R6（#3933）：预览里控件是活的 ─────────────── */
+
+/**
+ * 预览态下各控件自己的状态（选中哪个 tab、开关开没开、勾没勾、打了什么字）。
+ *
+ * 在这之前预览只有「点有跳转的东西会换页」这一种反应，其余全是画上去的——点「规格」tab 不动、
+ * 拨开关不动、输入框点不进去。演示给别人看时，这是最先露馅的地方：一看就是张图。
+ *
+ * 状态只在预览里、只在这一次浏览里：不写回项目（原型里的「默认值」是设计，演示时拨一下不是改设计）。
+ * 设计里的初值变了（属性面板改了 on/checked/active）⇒ 跟着重置。
+ */
+function useLive(): boolean {
+  return React.useContext(SelectionCtx).mode === "preview";
+}
+function usePreviewValue<T>(initial: T): readonly [T, (v: T) => void] {
+  const [v, set] = React.useState(initial);
+  React.useEffect(() => set(initial), [initial]);
+  return [v, set] as const;
+}
+/** 键盘与鼠标同一个动作：Enter / 空格触发，事件不冒泡到节点（预览里节点本身不响应）。 */
+function activate(fn: () => void) {
+  return {
+    tabIndex: 0,
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn(); },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); fn(); } },
+  } as const;
+}
+
+function TabsNode({ node, tap }: { node: Extract<PrototypeNode, { type: "tabs" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [active, setActive] = usePreviewValue(node.props.active ?? 0);
+  return (
+    <div className="flex w-full gap-1 border-b border-border text-11" data-proto="tabs" role={live ? "tablist" : undefined} {...tap}>
+      {node.props.items.map((t, i) => (
+        <ItemTap
+          key={i} id={node.id} item={i}
+          className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground", live && "cursor-pointer")}
+          {...(live ? { role: "tab" as const, selected: i === active, onActivate: () => setActive(i) } : {})}
+        >{t}</ItemTap>
+      ))}
+    </div>
+  );
+}
+
+function SwitchNode({ node, tap }: { node: Extract<PrototypeNode, { type: "switch" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [on, setOn] = usePreviewValue(node.props.on === true);
+  return (
+    <div className="flex w-full items-center justify-between py-1 text-12" data-proto="switch" {...tap}>
+      <span className="truncate">{node.props.label}</span>
+      <span
+        className={cn("relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-panel", live && "cursor-pointer")}
+        {...(live ? { role: "switch", "aria-checked": on, "aria-label": node.props.label, ...activate(() => setOn(!on)) } : { "aria-hidden": true })}
+      >
+        <span className={cn("absolute h-4 w-4 rounded-full bg-background shadow", on ? "right-0.5" : "left-0.5")} />
+      </span>
+    </div>
+  );
+}
+
+function CheckboxNode({ node, tap }: { node: Extract<PrototypeNode, { type: "checkbox" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [checked, setChecked] = usePreviewValue(node.props.checked === true);
+  return (
+    <div className="flex w-full items-center gap-2 py-1 text-12" data-proto="checkbox" {...tap}>
+      <span
+        className={cn("inline-flex shrink-0", live && "cursor-pointer")}
+        {...(live ? { role: "checkbox", "aria-checked": checked, "aria-label": node.props.label, ...activate(() => setChecked(!checked)) } : {})}
+      >
+        {checked ? <CheckSquare aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <Square aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </span>
+      <span className="truncate">{node.props.label}</span>
+    </div>
+  );
+}
+
+function ChipNode({ node, tap }: { node: Extract<PrototypeNode, { type: "chip" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [selected, setSelected] = usePreviewValue(node.props.selected === true);
+  // 有跳转的 chip：跳转优先（`tap` 里已经挂好），这里不再抢它的点击。
+  const linked = (tap as { "data-linked"?: string })["data-linked"] === "true";
+  return (
+    <span
+      className={cn("inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-11", selected ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground", live && !linked && "cursor-pointer")}
+      data-proto="chip" {...tap}
+      {...(live && !linked ? { role: "button", "aria-pressed": selected, ...activate(() => setSelected(!selected)) } : {})}
+    >
+      {node.props.label}
+    </span>
+  );
+}
+
+function InputNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "input" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const box = cn("w-full border border-input bg-background px-2 text-12", radius, p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center");
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="input" {...tap}>
+      {p.label !== undefined && <span className="text-10 text-muted-foreground">{p.label}</span>}
+      {live ? (
+        // 预览里是真的输入框：演示时能真的打字，而不是一张画着占位字的图。
+        p.multiline === true
+          ? <textarea className={cn(box, "resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring")} defaultValue={p.value ?? ""} placeholder={p.placeholder} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()} />
+          : <input className={cn(box, "outline-none focus-visible:ring-2 focus-visible:ring-ring")} defaultValue={p.value ?? ""} placeholder={p.placeholder} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()} />
+      ) : (
+        <div className={box}>
+          {p.value !== undefined && p.value !== "" ? <span className="truncate">{p.value}</span> : <span className="truncate text-muted-foreground">{p.placeholder ?? ""}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RadioNode({ node, tap }: { node: Extract<PrototypeNode, { type: "radio" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const [selected, setSelected] = usePreviewValue<number | undefined>(p.selected);
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="radio" {...tap}>
+      {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+      <div role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-x-3 gap-y-1">
+        {p.options.map((o, i) => (
+          <span key={i} role="radio" aria-checked={selected === i} className={cn("inline-flex items-center gap-1.5 text-12", live && "cursor-pointer")} {...(live ? activate(() => setSelected(i)) : {})}>
+            <span aria-hidden className={cn("flex h-3.5 w-3.5 items-center justify-center rounded-full border", selected === i ? "border-primary" : "border-muted-foreground")}>
+              {selected === i && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+            </span>
+            {o}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "select" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="select" {...tap}>
+      {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+      {live ? (
+        // 预览里用原生 <select>：演示时真的能展开选一项，手机上还是系统自己的选择器。
+        <select
+          className={cn("h-8 w-full border border-input bg-background px-2 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring", radius)}
+          defaultValue={p.value ?? ""} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()}
+        >
+          {p.value === undefined && <option value="" disabled>{p.placeholder ?? "请选择"}</option>}
+          {p.value !== undefined && !p.options.includes(p.value) && <option value={p.value}>{p.value}</option>}
+          {p.options.map((o, i) => <option key={i} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <div className={cn("flex h-8 w-full items-center justify-between border border-input bg-background px-2 text-12", radius)}>
+          <span className={cn("truncate", p.value === undefined && "text-muted-foreground")}>{shown}</span>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -486,17 +652,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         </span>
       );
     }
-    case "input": {
-      const p = node.props;
-      return (
-        <div className="flex w-full flex-col gap-1" data-proto="input" {...tap}>
-          {p.label !== undefined && <span className="text-10 text-muted-foreground">{p.label}</span>}
-          <div className={cn("w-full border border-input bg-background px-2 text-12", sc.r("md"), p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center")}>
-            {p.value !== undefined && p.value !== "" ? <span className="truncate">{p.value}</span> : <span className="truncate text-muted-foreground">{p.placeholder ?? ""}</span>}
-          </div>
-        </div>
-      );
-    }
+    case "input":
+      return <InputNode node={node} tap={tap} radius={sc.r("md")} />;
     case "image":
       return <ImagePlaceholder node={node} tap={tap} />;
     case "list": {
@@ -539,16 +696,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <hr className="w-full border-border" data-proto="divider" {...tap} />;
     case "spacer":
       return <div aria-hidden className={cn("w-full shrink-0", sc.space(node.props?.size ?? "md"))} data-proto="spacer" {...tap} />;
-    case "tabs": {
-      const active = node.props.active ?? 0;
-      return (
-        <div className="flex w-full gap-1 border-b border-border text-11" data-proto="tabs" {...tap}>
-          {node.props.items.map((t, i) => (
-            <ItemTap key={i} id={node.id} item={i} className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground")}>{t}</ItemTap>
-          ))}
-        </div>
-      );
-    }
+    case "tabs":
+      return <TabsNode node={node} tap={tap} />;
     case "badge":
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
@@ -601,30 +750,12 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         </nav>
       );
     }
-    case "switch": {
-      const on = node.props.on === true;
-      return (
-        <div className="flex w-full items-center justify-between py-1 text-12" data-proto="switch" {...tap}>
-          <span className="truncate">{node.props.label}</span>
-          <span className={cn("relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-panel")} aria-hidden>
-            <span className={cn("absolute h-4 w-4 rounded-full bg-background shadow", on ? "right-0.5" : "left-0.5")} />
-          </span>
-        </div>
-      );
-    }
+    case "switch":
+      return <SwitchNode node={node} tap={tap} />;
     case "checkbox":
-      return (
-        <div className="flex w-full items-center gap-2 py-1 text-12" data-proto="checkbox" {...tap}>
-          {node.props.checked === true ? <CheckSquare aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <Square aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
-          <span className="truncate">{node.props.label}</span>
-        </div>
-      );
+      return <CheckboxNode node={node} tap={tap} />;
     case "chip":
-      return (
-        <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-11", node.props.selected === true ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground")} data-proto="chip" {...tap}>
-          {node.props.label}
-        </span>
-      );
+      return <ChipNode node={node} tap={tap} />;
     case "progress":
       return (
         <div className="flex w-full flex-col gap-1" data-proto="progress" {...tap}>
@@ -717,37 +848,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       );
     }
     /* ── 对标 R4（#3933）：下拉、单选、叠层 ── */
-    case "select": {
-      const p = node.props;
-      const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
-      return (
-        <div className="flex w-full flex-col gap-1" data-proto="select" {...tap}>
-          {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
-          <div className={cn("flex h-8 w-full items-center justify-between border border-input bg-background px-2 text-12", sc.r("md"))}>
-            <span className={cn("truncate", p.value === undefined && "text-muted-foreground")}>{shown}</span>
-            <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          </div>
-        </div>
-      );
-    }
-    case "radio": {
-      const p = node.props;
-      return (
-        <div className="flex w-full flex-col gap-1" data-proto="radio" {...tap}>
-          {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
-          <div role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-x-3 gap-y-1">
-            {p.options.map((o, i) => (
-              <span key={i} role="radio" aria-checked={p.selected === i} className="inline-flex items-center gap-1.5 text-12">
-                <span aria-hidden className={cn("flex h-3.5 w-3.5 items-center justify-center rounded-full border", p.selected === i ? "border-primary" : "border-muted-foreground")}>
-                  {p.selected === i && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                </span>
-                {o}
-              </span>
-            ))}
-          </div>
-        </div>
-      );
-    }
+    case "select":
+      return <SelectNode node={node} tap={tap} radius={sc.r("md")} />;
+    case "radio":
+      return <RadioNode node={node} tap={tap} />;
     case "overlay": {
       /*
        * 盖满整屏（以画布内容区为定位基准）。modal 居中、sheet 贴底、toast 贴底且**不带遮罩**——

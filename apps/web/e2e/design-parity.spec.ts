@@ -211,3 +211,25 @@ test.describe("R5 落地页与幻灯片（#3933）", () => {
     await expect(page.getByTestId("design-detail-phone-tree")).toHaveAttribute("data-slide-scale", "2");
   });
 });
+
+test.describe("R6 预览里控件是活的（#3933）", () => {
+  test("预览：tabs 切换、开关拨动、输入框打字；切回编辑后点控件 = 选中节点", async ({ page }) => {
+    await openSample(page);
+    await page.getByTestId("design-detail-view-single").click();
+    await page.getByTestId("design-detail-frame-1").click();
+    await page.getByTestId("design-detail-mode-preview").click();
+    const phone = page.getByTestId("design-detail-phone");
+    // 样本第 2 页「历史会话」：tabs「全部 / 已收藏」、搜索框。
+    const fav = phone.getByRole("tab", { name: "已收藏" });
+    await fav.click();
+    await expect(fav).toHaveAttribute("aria-selected", "true");
+    const search = phone.getByPlaceholder("搜索会话");
+    await search.fill("退款");
+    await expect(search).toHaveValue("退款");
+
+    await page.getByTestId("design-detail-mode-edit").click();
+    await expect(phone.getByRole("tab")).toHaveCount(0);
+    await phone.getByText("已收藏", { exact: true }).click();
+    await expect(page.getByTestId("design-inspector")).toBeVisible();
+  });
+});

@@ -505,7 +505,10 @@ test.describe("D9 可交互原型", () => {
     const phone = await single(page);
     await page.getByTestId("design-detail-mode-preview").click();
     await node(phone, "e01-tabs").getByText("历史", { exact: true }).click();
-    await expect(page.getByTestId("design-detail-phone")).toContainText("搜索会话");
+    // R6 修正（评测自身）：「搜索会话」是输入框的占位字。R6 起预览里的输入框是真的 <input>，占位字不在
+    // textContent 里——原来按文字找，等于要求输入框必须是一张画出来的图。改成「占位字或文字」都认，意图不变。
+    const target = page.getByTestId("design-detail-phone");
+    await expect(target.getByPlaceholder("搜索会话").or(target.getByText("搜索会话"))).toBeVisible();
   });
 
   test("[D9.c2] 预览里 tabs 能切：点「规格」，它变成选中", async ({ page }) => {
