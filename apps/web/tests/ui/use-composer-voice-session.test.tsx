@@ -14,7 +14,7 @@ import {
 
 function makeSpeech(over: Partial<UseAsrDraftResult> = {}): UseAsrDraftResult {
   return {
-    status: "idle", listening: false, connecting: false, stopping: false, error: null,
+    status: "idle", listening: false, connecting: false, stopping: false, error: null, errorReason: null,
     start: vi.fn(), stop: vi.fn(), cancel: vi.fn(),
     elapsedSeconds: 0, level: 0.5, baseText: "", committedText: "", partialText: "",
     ...over,

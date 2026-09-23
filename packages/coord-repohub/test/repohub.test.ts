@@ -229,6 +229,10 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
   });
 
+  // 显式超时 30s（默认 5s）来自 #3907，这里保留不动——它当余量用。
+  // #3907 写它时，这条还是顺序打 125 次 DO 往返、本机独跑 ~0.9s 且毫无余量，
+  // 在 CI 上 5017ms 超时红过。本 PR 换掉了前置数据的打法（本机 ~26ms），
+  // 30s 实际不会再被用到；但慢机器上留一道余量没有坏处，所以不撤 #3907 的决定。
   it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
     const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
     const recorded = keys.filter((_, i) => i % 2 === 0);
@@ -257,7 +261,7 @@ describe("F06 andon 状态 + 投影游标", () => {
     const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
       .json<{ delivered: string[] }>();
     expect(delivered.sort()).toEqual(recorded.slice().sort());
-  });
+  }, 30_000);
 
   it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
     expect((await post("/projector/outbox/delivered", { keys: "nope" })).status).toBe(422);

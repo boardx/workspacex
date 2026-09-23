@@ -384,22 +384,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 .brand { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
 
 .brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
-.brand__name {
-  font-family: var(--font-display);
-  font-weight: 700; font-size: var(--t-base); letter-spacing: calc(-0.02em * var(--track-tight));
-  color: var(--fg);
 
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-@supports (-webkit-background-clip: text) or (background-clip: text) {
-  .brand__name {
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
+.brand__logo { display: block; height: 30px; width: auto; flex-shrink: 0; }
 .brand__tag {
   font-family: var(--font-mono);
   font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
@@ -807,8 +793,6 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 }
 
 @media (forced-colors: active) {
-
-  .brand__name { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
   .btn, .langswitch__btn, .chip, .nav__ghost {
     border: 1px solid ButtonBorder;
     forced-color-adjust: none;

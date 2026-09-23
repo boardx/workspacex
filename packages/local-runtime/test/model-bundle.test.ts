@@ -23,7 +23,7 @@ describe("model bundle", () => {
     expect(listModels(s)).toEqual(["qwen3.5:4b"]);
   });
 
-  it("export copies exactly the referenced blobs; import lands them in an empty store and is idempotent", () => {
+  it("export copies exactly the referenced blobs; import lands them in an empty store and is idempotent", async () => {
     const store = mkdtempSync(join(tmpdir(), "store-"));
     fakeStore(store, "qwen3.5:4b", { "sha256:c1": "cfg", "sha256:l1": "weights-4b" });
     fakeStore(store, "other:1b", { "sha256:c2": "cfg2", "sha256:l2": "weights-other" });
@@ -32,10 +32,10 @@ describe("model bundle", () => {
     expect(r).toEqual([{ model: "qwen3.5:4b", blobs: 2, bytes: "cfg".length + "weights-4b".length }]);
     expect(existsSync(join(bundle, "blobs", "sha256-l2"))).toBe(false); // the other model stays out
     const target = mkdtempSync(join(tmpdir(), "target-"));
-    expect(importModels(bundle, target)).toEqual({ imported: ["qwen3.5:4b"], skipped: [] });
+    expect(await importModels(bundle, target)).toEqual({ imported: ["qwen3.5:4b"], skipped: [] });
     expect(readFileSync(join(target, "blobs", "sha256-l1"), "utf8")).toBe("weights-4b");
     expect(listModels(target)).toEqual(["qwen3.5:4b"]);
-    expect(importModels(bundle, target)).toEqual({ imported: [], skipped: ["qwen3.5:4b"] });
+    expect(await importModels(bundle, target)).toEqual({ imported: [], skipped: ["qwen3.5:4b"] });
   });
 
   it("export refuses a model that is not in the store instead of producing a half bundle", () => {

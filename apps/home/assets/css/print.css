@@ -55,7 +55,7 @@
   /* Gradient text prints as nothing when backgrounds are dropped. The nav is
      hidden on paper, but the FOOTER carries the same wordmark and is not — so
      the printed page lost the product's own name at the bottom of every copy. */
-  .grad-text, .brand__name { color: #000 !important; -webkit-text-fill-color: #000 !important; }
+  .grad-text { color: #000 !important; -webkit-text-fill-color: #000 !important; }
   .btn--primary { color: #000 !important; background: none !important; border: 1px solid #000; }
 
   /* A URL the reader cannot click is worth printing next to its label. */

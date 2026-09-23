@@ -1362,3 +1362,18 @@ covered, and nothing below should be read as saying it is.
 | 8 | **No horizontal overflow on any phone in either language — before or after**, even with the larger type. Checked because a page that scrolls sideways on a phone makes the browser zoom the whole thing out. |
 | 9 | **My probe was wrong twice before it was right.** It counted the closed menu's hidden links as undersized; and it reported the compare switch at 42px when CSS computed 44 — because the stage's reveal animation had it at `scale(0.965)`. Measuring with `getBoundingClientRect` asked *when* as well as *what*. | The permanent suite reads `offsetWidth`/`offsetHeight` — the layout box, which a transform cannot change — so it cannot be fooled by animation timing. |
 | 10 | **Permanent coverage.** A `mobile` suite per language, three phones each: no sideways scroll, no touch target under 44×44 with the menu closed or open, no text under 11px (12 for Han), and the menu opening, locking the page, closing and navigating. **Red on the previous stylesheet on every phone, in both languages**, naming the exact defects above. And `check-docs` caught that the README's suite table was stale before I did. |
+
+---
+
+## Round 55 — the owner's logo
+
+The owner judged the four-petal mark redundant beside the name, then pointed
+at the logo to use: the product's own, which `apps/web` already ships as
+`public/workspacex-logo.png`.
+
+| # | Change |
+|---|--------|
+| 1 | The mark is gone from the header, the footer and the privacy page, and so is the sprite that defined it. `build-brand.mjs` no longer writes into the pages; the mark survives only where a wordmark cannot go — the favicon and the home-screen icon. |
+| 2 | The logo is **cut from the app's own file, not redrawn**. `build-logo.mjs` finds the painted pixels in the 2051×874 source, crops away the transparent padding and scales to 2× the displayed 30px. `check-assets` fingerprints the source, so if the app's logo changes the site fails until it is re-cut. |
+| 3 | An image retires three workarounds the gradient text wordmark needed: invisible text where `background-clip: text` is unsupported, no name at all in forced colours, and nothing on paper. |
+| 4 | **The performance gate rejected the first cut.** A 3× PNG was 28 KB: page weight went to 185 KB against a 180 KB budget, and the Chinese page's slow-3G first paint to 3236 ms against 3200. Re-cut as 2× WebP: **7 KB**, both budgets met. The Chinese slow-3G figure is now 3092 ms — inside the budget, but close enough that the next addition to that page should be weighed against it. |
