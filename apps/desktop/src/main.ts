@@ -14,8 +14,8 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkWebBuild, localSessionUrl, resolveLocalConfig, restoreIntoDataDir, runDoctor,
-  signInLocal, up, verifyBackup, type RunningStack,
+  checkWebBuild, dataDirAdvice, dataDirAdviceBody, localSessionUrl, resolveLocalConfig, restoreIntoDataDir,
+  runDoctor, signInLocal, up, verifyBackup, type RunningStack,
 } from "@repo/local-runtime";
 import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
@@ -407,6 +407,28 @@ async function runRestore(): Promise<void> {
   app.quit();
 }
 
+/**
+ * 打开数据目录——**先说一句再开**。
+ *
+ * 这个菜单项等于在邀请用户「把这个文件夹拷走当备份」，而实测证明那样拷出来的副本
+ * 打不开（见 `data-dir-advice.ts` 的头注：硬杀可恢复，活拷贝不可）。
+ * 一次会话只说一遍：重复弹框会让人直接忽略所有弹框。
+ */
+let dataDirAdviceShown = false;
+async function openDataDir(): Promise<void> {
+  const dir = join(app.getPath("userData"), "local");
+  if (!dataDirAdviceShown) {
+    dataDirAdviceShown = true;
+    const a = dataDirAdvice();
+    const r = await dialog.showMessageBox({
+      type: "info", title: a.title, message: dataDirAdviceBody(a),
+      buttons: [...a.actions], defaultId: 0, cancelId: 1,
+    });
+    if (r.response === 0) { void runBackup(); return; }
+  }
+  void shell.openPath(dir);
+}
+
 /** 备份收据上的表名要说人话，用户不认得 `chat_threads`。 */
 const TABLE_LABELS: Readonly<Record<string, string>> = {
   organizations: "工作区", projects: "项目", chat_threads: "对话",
@@ -434,7 +456,7 @@ function installMenu(): void {
       },
       {
         label: "打开数据目录",
-        click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
+        click: () => { void openDataDir(); },
       },
     ],
   };
