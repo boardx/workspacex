@@ -49,7 +49,7 @@ function Card({
 
 function Page(): JSX.Element {
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
+    <main className="min-h-screen bg-background p-6 text-background-foreground">
       {(["fly", "flap", "drift"] as const).map((motion) => (
         <section key={motion} data-shot-section={motion} className="mb-6 flex flex-col gap-2 bg-background p-2">
           <h2 className="text-11 font-medium text-muted-foreground">motion={motion}</h2>

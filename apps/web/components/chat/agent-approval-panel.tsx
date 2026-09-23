@@ -112,7 +112,7 @@ export function AgentApprovalPanel({
       {editing && (
         <div className="mb-1.5">
           <textarea
-            className="h-32 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-10 text-foreground"
+            className="h-32 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-10 text-background-foreground"
             data-testid="agent-approval-edit-textarea"
             value={draft}
             disabled={inFlight !== null}

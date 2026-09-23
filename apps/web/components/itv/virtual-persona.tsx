@@ -147,9 +147,9 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                 <span className="text-10 text-muted-foreground">{VIRTUAL_DEDUCTION.steps}</span>
               </div>
               <div className="mt-2 flex flex-col gap-1.5 text-11">
-                <p className="text-foreground"><span className="text-muted-foreground">立场：</span>{VIRTUAL_DEDUCTION.stance}</p>
-                <p className="text-foreground"><span className="text-muted-foreground">理由：</span>{VIRTUAL_DEDUCTION.reason}</p>
-                <p className="text-foreground"><span className="text-muted-foreground">推得：</span>{VIRTUAL_DEDUCTION.inference}</p>
+                <p className="text-background-foreground"><span className="text-muted-foreground">立场：</span>{VIRTUAL_DEDUCTION.stance}</p>
+                <p className="text-background-foreground"><span className="text-muted-foreground">理由：</span>{VIRTUAL_DEDUCTION.reason}</p>
+                <p className="text-background-foreground"><span className="text-muted-foreground">推得：</span>{VIRTUAL_DEDUCTION.inference}</p>
                 <p className="text-muted-foreground">引用：{VIRTUAL_DEDUCTION.citation}</p>
                 {/* 强制字段：不确定 / 会被推翻 —— 界面必须显示 */}
                 <p className="flex gap-1.5 rounded-md border border-warning/30 bg-warning/5 px-2 py-1 text-warning" data-testid="itv-deduction-uncertain">

@@ -134,7 +134,7 @@ export function CapabilityEditPage({
       {!compact && (
         <Link
           href={backHref}
-          className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
           data-testid={`${prefix}-back`}
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
@@ -144,7 +144,7 @@ export function CapabilityEditPage({
       {compact && state.status !== "ready" && (
         <Link
           href={backHref}
-          className="inline-flex w-fit items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
           data-testid={`${prefix}-back`}
         >
           <ArrowLeft aria-hidden className="h-3 w-3" />
@@ -202,7 +202,7 @@ export function CapabilityEditPage({
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={backHref}
-                className="inline-flex shrink-0 items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-foreground"
+                className="inline-flex shrink-0 items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
                 data-testid={`${prefix}-back`}
               >
                 <ArrowLeft aria-hidden className="h-3 w-3" />

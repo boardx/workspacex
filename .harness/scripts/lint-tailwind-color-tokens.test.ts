@@ -51,4 +51,40 @@ describe("lint-tailwind-color-tokens", () => {
     const noise = 'export const X = () => <p data-testid="fill-params-card" id="from-url">x</p>;';
     expect(scan(fakeRoot(noise))).toEqual([]);
   });
+
+  /*
+   * #3892：原来的扫描只看单行 `className="…"`，全仓 59 处 `text-foreground` 只数到 52 处。
+   * 漏掉的正是下面这两种形状——而它们多半是 active/hover 态，也就是最该被看见的那几处。
+   */
+  it("跨行的 cn(…) 里的死类名也抓得到", () => {
+    const tsx = [
+      "export const X = ({ on }: { on: boolean }) => (",
+      "  <p",
+      "    className={cn(",
+      '      "text-11",',
+      '      on && "text-danger",',
+      "    )}",
+      "  >x</p>",
+      ");",
+    ].join("\n");
+    const hits = scan(fakeRoot(tsx)) as { cls: string; line: number }[];
+    // ⭐ 反证锚点：把扫描改回逐行 + 单行 `className="…"` ⇒ 这条红。
+    expect(hits.map((h) => h.cls)).toEqual(["text-danger"]);
+    expect(hits[0]!.line).toBe(5); // 行号落在字符串本身那一行，不是 className 那一行
+  });
+
+  it("className={…} 里三元两个分支的字符串都扫到", () => {
+    const tsx = 'export const X = ({ on }: { on: boolean }) => <a className={on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-danger"}>x</a>;';
+    expect((scan(fakeRoot(tsx)) as { cls: string }[]).map((h) => h.cls)).toEqual(["text-danger"]);
+  });
+
+  it("括号配对跳过字符串内部：字符串里的 `)` 不会把区域提前截断", () => {
+    // `cn(…)` 单独赋值、不包在 `className={…}` 里——否则外层那个区域会兜住，测不出截断。
+    const tsx = [
+      'const cls = cn("text-11", "a)b", "text-danger");',
+      "export const X = () => <p className={cls}>x</p>;",
+    ].join("\n");
+    // ⭐ 反证锚点：`balancedEnd` 不跳过字符串 ⇒ 区域在 `a)` 处提前结束，`text-danger` 漏掉 ⇒ 这条红。
+    expect((scan(fakeRoot(tsx)) as { cls: string }[]).map((h) => h.cls)).toEqual(["text-danger"]);
+  });
 });

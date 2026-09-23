@@ -40,7 +40,7 @@ export function DigitalInterviewCreate() {
   return (
     <main data-testid="itv-create-page" className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
-        <Link href="/itv?tab=history" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link href="/itv?tab=history" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-background-foreground">
           <ArrowLeft className="size-4" aria-hidden /> 返回历史访谈
         </Link>
 
