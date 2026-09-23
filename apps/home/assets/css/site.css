@@ -1472,6 +1472,24 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   max-width: 38rem;
 }
 
+.notyet {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  padding-top: clamp(1.75rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--hairline);
+}
+.notyet__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
+.notyet__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-5); }
+.notyet__list { list-style: none; padding: 0; display: grid; gap: var(--s-4); max-width: 52rem; }
+.notyet__list li {
+  font-size: var(--t-small); color: var(--fg-dim);
+  padding-left: 1.1rem; position: relative;
+}
+.notyet__list li::before {
+  content: ""; position: absolute; left: 0; top: 0.62em;
+  width: 7px; height: 1px; background: var(--fg-faint);
+}
+.notyet__list b { color: var(--fg-soft); font-weight: 600; }
+
 /* motion.css */
 [data-reveal] {
   opacity: 0;
