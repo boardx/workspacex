@@ -46,7 +46,7 @@ import {
  *   录音/agent run」的真实信号，所以不再在这一层渲染任何等价内容，也不留占位符。
  */
 export function AppShell({
-  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
 }: {
   /** Legacy prototype screens may still provide an explicit projection; authenticated routes omit it. */
   identity?: Identity;
@@ -58,6 +58,8 @@ export function AppShell({
   hideRoleSwitcher?: boolean;
   /** 沉浸式工作台可隐藏横向顶栏，仅保留全局图标栏。 */
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
 }) {
   const session = useOptionalSession();
   // `ShellBusyProvider` 包在最外：壳层要读的那个数字由 `children` 里正在跑的那一方登记
@@ -65,7 +67,7 @@ export function AppShell({
   if (identity) {
     return (
       <ShellBusyProvider>
-        <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
+        <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar} fullscreen={fullscreen}>
           {children}
         </ShellChrome>
       </ShellBusyProvider>
@@ -74,7 +76,7 @@ export function AppShell({
   if (!session) throw new Error("Authenticated AppShell requires SessionProvider");
   return (
     <ShellBusyProvider>
-      <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
+      <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar} fullscreen={fullscreen}>
         {children}
       </SessionAppShell>
     </ShellBusyProvider>
@@ -82,7 +84,7 @@ export function AppShell({
 }
 
 function SessionAppShell({
-  session, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+  session, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
 }: {
   session: SessionContextValue;
   previewRole: ProjectRole | null;
@@ -91,6 +93,8 @@ function SessionAppShell({
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
 }) {
   const router = useRouter();
 
@@ -136,6 +140,7 @@ function SessionAppShell({
       right={right}
       hideRoleSwitcher={hideRoleSwitcher}
       hideTopBar={hideTopBar}
+      fullscreen={fullscreen}
       organizations={organizations}
       onSwitchOrganization={async (orgId) => {
         await session.switchOrganization(orgId);
@@ -166,7 +171,7 @@ function SessionState({ testId, children }: { testId: string; children: React.Re
  * `window.location.assign` 那条原型分支，不是用户真正走的那条。
  */
 export function ShellChrome({
-  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
   organizations, onSwitchOrganization, onLogout,
 }: {
   identity: Identity;
@@ -176,6 +181,8 @@ export function ShellChrome({
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
   organizations?: ReadonlyArray<{ id: string; label: string }>;
   onSwitchOrganization?: (orgId: string) => Promise<void>;
   onLogout?: () => void;
@@ -329,7 +336,7 @@ export function ShellChrome({
         键盘用户要按 113 次 Tab 才能开始打字。见该组件头注。
       */}
       <SkipToContent />
-      <div className="hidden md:flex">
+      {!fullscreen && <div className="hidden md:flex">
         <IconRail
           identity={identity}
           organizations={effectiveOrganizations}
@@ -338,14 +345,14 @@ export function ShellChrome({
           avatarInitial={identity.displayName.slice(0, 1)}
           onLogout={onLogout}
         />
-      </div>
+      </div>}
       <div className="flex min-w-0 flex-1 flex-col">
         {/*
           2026-09-22 —— 版次标识条。「不受 `hideTopBar` 影响」：藏顶栏的页面（如全屏画布）
-          藏掉的是导航，而「这份程序是本机装的」是处境，处境不该跟着导航一起消失。
+          普通 hideTopBar 保留版次信息；fullscreen 为用户明确要求的全窗口画布，隐藏全部导航占位。
         */}
-        <EditionBanner />
-        {!hideTopBar && (
+        {!fullscreen && <EditionBanner />}
+        {!fullscreen && !hideTopBar && (
           <TopBar
             identity={identity}
             previewRole={previewRole}
@@ -425,7 +432,7 @@ export function ShellChrome({
             </button>
           )}
         </div>
-        <MobileTabs />
+        {!fullscreen && <MobileTabs />}
       </div>
       {/*
         切换的三段体感挂在壳层最外层，不挂在组织菜单里：菜单一点就关，
