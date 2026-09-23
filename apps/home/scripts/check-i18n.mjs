@@ -85,7 +85,7 @@ for (const [, out] of BUILT) {
   let built; try { built = readFileSync(join(root, out), 'utf8'); } catch { continue; }
   for (const m of built.matchAll(/<([a-z0-9]+)\b[^>]*\sdata-i18n="([\w.]+)"[^>]*>([\s\S]*?)<\/\1>/g)) {
     const [, , key, body] = m;
-    if (key in zh && body !== esc(zh[key])) notApplied.push(`${out}: ${key} → "${body.slice(0, 40)}"`);
+    if (key in zh && body.replace(/\u200b/g, '') !== esc(zh[key])) notApplied.push(`${out}: ${key} → "${body.slice(0, 40)}"`);
   }
 }
 

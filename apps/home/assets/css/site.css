@@ -54,6 +54,14 @@
   line-gap-override: 0%;
 }
 
+@font-face {
+  font-family: 'Han Punctuation';
+  src: local('PingFang SC'), local('PingFangSC-Regular'), local('Hiragino Sans GB'),
+       local('Microsoft YaHei'), local('Noto Sans CJK SC'), local('Source Han Sans SC'),
+       local('Noto Sans SC'), local('WenQuanYi Zen Hei');
+  unicode-range: U+2014, U+2018-2019, U+201C-201D, U+2026;
+}
+
 /* base.css */
 :root {
 
@@ -95,16 +103,18 @@
   --track-open:  1;
   --track-tight: 1;
 
-  --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
+  --han-punct: ;
+
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
                   "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   sans-serif;
-  --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
                   "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   sans-serif;
 
-  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
                   "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   monospace;
@@ -225,7 +235,7 @@ h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight));
 :where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
 :where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
 
-p { text-wrap: pretty; }
+body { text-wrap: pretty; }
 
 .grad-text {
   background: var(--grad);
@@ -291,6 +301,8 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+:lang(zh) [data-phrase] { word-break: keep-all; }
+
 :lang(zh) { font-synthesis: none; }
 
 p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
@@ -301,7 +313,7 @@ p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
 
 p, .lead, .keyline { hanging-punctuation: first last; }
 
-:lang(zh) { --track-open: 0.3; --track-tight: 0; }
+:lang(zh) { --track-open: 0.3; --track-tight: 0; --han-punct: "Han Punctuation",; }
 
 @media (pointer: coarse) {
   :root { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

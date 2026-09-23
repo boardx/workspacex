@@ -96,3 +96,19 @@
   descent-override: 24.20%;
   line-gap-override: 0%;
 }
+
+/* ---- Chinese punctuation that the latin faces would otherwise take -------
+   On /zh/ the dash —— and the curly quotes “ ” ‘ ’ and the ellipsis ……
+   are Chinese punctuation, but Outfit, Inter and their Arial fallbacks all
+   contain those code points, so the browser drew them in the latin face: the
+   破折号 came out as two short separated dashes and the quotes as narrow latin
+   marks beside full-width Han. This face covers exactly those five code points
+   from whatever Chinese system font the reader has, and sits first in the
+   /zh/ stacks (base.css, --han-punct). Nothing is downloaded: local() only. */
+@font-face {
+  font-family: 'Han Punctuation';
+  src: local('PingFang SC'), local('PingFangSC-Regular'), local('Hiragino Sans GB'),
+       local('Microsoft YaHei'), local('Noto Sans CJK SC'), local('Source Han Sans SC'),
+       local('Noto Sans SC'), local('WenQuanYi Zen Hei');
+  unicode-range: U+2014, U+2018-2019, U+201C-201D, U+2026;
+}

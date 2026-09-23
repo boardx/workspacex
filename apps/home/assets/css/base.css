@@ -69,12 +69,15 @@
      computes to exactly the values it had. */
   --track-open:  1;
   --track-tight: 1;
+  /* Empty on English; on /zh/ it prefixes every stack with the face that
+     draws Chinese punctuation (fonts.css). The comma is part of the value. */
+  --han-punct: ;
 
-  --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
                   "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   sans-serif;
-  --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
                   "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   sans-serif;
@@ -84,7 +87,7 @@
      often not the face the body text uses and sometimes has Japanese glyph
      shapes. Round 39 fixed this for display and body and missed this stack;
      its gate only looked at those two. */
-  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
                   "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
                   monospace;
@@ -247,7 +250,11 @@ h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight));
 :where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
 :where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
 
-p { text-wrap: pretty; }
+/* Pretty wrapping was set on <p> only, and half the page's running text is
+   not in one: the loop's step bodies, the proof rules, the FAQ summaries are
+   spans and list items. On a phone they ended on a lone 错。or 跑。 It is
+   inherited, so it goes on the body; headings keep their own `balance`. */
+body { text-wrap: pretty; }
 
 /* ---- utility ------------------------------------------------------------- */
 .grad-text {
@@ -330,6 +337,10 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+/* Headings and short labels on /zh/ break only between words: build-i18n
+   marks them [data-phrase] and puts a <wbr> at every word boundary. */
+:lang(zh) [data-phrase] { word-break: keep-all; }
+
 /* No faked bold on Han. The display face is latin-only, so Chinese falls
    through to whatever CJK font the machine has — and when that font ships only
    a Regular weight, the engine manufactures 600 by stroking the glyphs. On
@@ -361,7 +372,7 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 /* Han: labels keep a trace of their spacing, display type loses its
    tightening entirely. Inherited, so an element marked lang="zh-Hans" on the
    English page — the language switch — gets it too, which is correct. */
-:lang(zh) { --track-open: 0.3; --track-tight: 0; }
+:lang(zh) { --track-open: 0.3; --track-tight: 0; --han-punct: "Han Punctuation",; }
 
 
 /* ---- the smallest type on a phone ------------------------------------------

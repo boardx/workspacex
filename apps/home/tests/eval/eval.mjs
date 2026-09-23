@@ -54,6 +54,28 @@ const settle = (page) => page.evaluate(() => new Promise((done) => {
   requestAnimationFrame(tick);
 }));
 
+/* The rendered lines of an element: the text, split where the browser
+   actually wrapped it (a character whose box starts lower than the one
+   before it begins a new line). */
+const LINES = () => {
+  window.__lines = (el) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const lines = []; let cur = ''; let lastTop = null;
+    const r = document.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      for (let i = 0; i < n.textContent.length; i += 1) {
+        r.setStart(n, i); r.setEnd(n, i + 1);
+        const b = r.getClientRects()[0];
+        if (!b || !b.width) { cur += n.textContent[i]; continue; }
+        if (lastTop !== null && b.top > lastTop + b.height * 0.5) { lines.push(cur); cur = ''; }
+        lastTop = b.top; cur += n.textContent[i];
+      }
+    }
+    lines.push(cur);
+    return lines.map((l) => l.replace(/\u200b/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  };
+};
+
 const CASES = [
   /* 1 · first impression — what a visitor sees before scrolling */
   ['fold.h1.desk', '首屏', 'Headline fully visible on a 1280×800 screen',
@@ -312,6 +334,47 @@ const CASES = [
     async (c) => c.desk.evaluate((lang) => { const ls = [...document.querySelectorAll('.section__head .lead')]; const n = (t) => (lang === 'zh' ? [...t.replace(/\s/g, '')].length : t.trim().split(/\s+/).length); const bad = ls.filter((l) => n(l.textContent) > (lang === 'zh' ? 90 : 45)); return { score: 1 - bad.length / ls.length, note: `${bad.length}/${ls.length} too long` }; }, c.lang)],
   ['read.para', '可读性', 'No paragraph is a wall (en ≤ 90 words, zh ≤ 180 chars)',
     async (c) => c.desk.evaluate((lang) => { const ps = [...document.querySelectorAll('main p')]; const n = (t) => (lang === 'zh' ? [...t.replace(/\s/g, '')].length : t.trim().split(/\s+/).length); const bad = ps.filter((p) => n(p.textContent) > (lang === 'zh' ? 180 : 90)); return { score: 1 - bad.length / ps.length, note: `${bad.length}/${ps.length} too long` }; }, c.lang)],
+  ['read.wordsplit', '可读性', 'No heading wraps inside a word (zh: at a word boundary; en: never before a dash)',
+    async (c) => {
+      let bad = [];
+      for (const page of [c.desk, c.phone]) {
+        await page.evaluate(LINES);
+        bad = bad.concat(await page.evaluate((lang) => {
+          const seg = new Intl.Segmenter('zh', { granularity: 'word' });
+          const out = [];
+          for (const h of document.querySelectorAll('main h1, main h2, main h3, main summary')) {
+            if (!h.offsetWidth) continue;
+            const ls = window.__lines(h);
+            for (let i = 1; i < ls.length; i += 1) {
+              const a = ls[i - 1]; const b = ls[i];
+              if (/^[—–]/.test(b)) { out.push(`…${a.slice(-4)} / ${b.slice(0, 4)}…`); continue; }
+              if (lang !== 'zh' || !/\p{Script=Han}$/u.test(a) || !/^\p{Script=Han}/u.test(b)) continue;
+              const joined = a.slice(-6) + b.slice(0, 6);
+              const cut = a.slice(-6).length;
+              const at = [...seg.segment(joined)].some((x) => x.index === cut);
+              if (!at) out.push(`${a.slice(-3)}/${b.slice(0, 3)}`);
+            }
+          }
+          return out;
+        }, c.lang));
+      }
+      return { score: clamp(1 - bad.length / 6), note: `${bad.length}: ${bad.slice(0, 4).join(' | ')}` };
+    }],
+  ['read.orphan', '可读性', 'On a phone, no paragraph ends on a line of one Han character or one short word',
+    async (c) => {
+      await c.phone.evaluate(LINES);
+      return c.phone.evaluate((lang) => {
+        const els = [...document.querySelectorAll('main p, main li, main h2, main h3, main summary, main dd')].filter((e) => e.offsetWidth && !e.closest('.visually-hidden') && !e.querySelector('p, li'));
+        const bad = [];
+        for (const e of els) {
+          const ls = window.__lines(e); if (ls.length < 2) continue;
+          const last = ls[ls.length - 1];
+          const core = last.replace(/[\p{P}\s]/gu, '');
+          if (lang === 'zh' ? [...core].length === 1 && /\p{Script=Han}/u.test(core) : /^\S{1,4}$/.test(last) && ls.length > 2) bad.push(`${ls[ls.length - 2].slice(-6)} / ${last}`);
+        }
+        return { n: bad.length, note: `${bad.length}/${els.length}: ${bad.slice(0, 3).join(' | ')}` };
+      }, c.lang).then((r) => ({ score: clamp(1 - r.n / 10), note: r.note }));
+    }],
   ['read.scan', '可读性', 'Each section can be skimmed: a heading plus a list, cards, a diagram or sub-headings',
     async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details') || s.querySelectorAll('h3').length >= 2); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
 ];

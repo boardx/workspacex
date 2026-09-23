@@ -90,6 +90,48 @@ function build(page) {
       (dict[key] === undefined ? whole : `${open}${dict[key]}${close}`),
   );
 
+  /* 1a. Headings and short labels break between words, not inside them.
+         Breaking between any two Han characters is correct for running text
+         — it is how Chinese is typeset — but a display heading that ends a
+         line on 三个尺 and starts the next on 度 splits a word in the one
+         place a reader looks hardest. Seven of the fourteen section headings
+         did. A word segmenter (the ICU dictionary Node ships) finds the word
+         boundaries at build time; each gets a zero-width space, and the CSS
+         sets `word-break: keep-all` on [data-phrase] so those are the only
+         places a line may break inside Han. Section and card headings only:
+         running text breaking between characters is how Chinese is typeset.
+         Not <wbr>: 228 of those cost the Chinese page 150–200 ms of first
+         paint on slow 3G, measured, where the same breaks as U+200B cost
+         nothing measurable. */
+  const seg = new Intl.Segmenter('zh', { granularity: 'word' });
+  const HAN = /\p{Script=Han}/u;
+  /* The product's own vocabulary is not in ICU's dictionary: it splits
+     智能|体 and 闭|环. Offsets inside one of these never get a break. */
+  const TERMS = ['智能体', '闭环', '上下文', '工作空间', '工作单元', '证据链', '可验证', '开放内核', '运行时', '连接器', '本体', '尺度', '上线', '交付物', '经济体', '三个', '三类', '一类'];
+  const locked = (text) => {
+    const no = new Set();
+    for (const term of TERMS) for (let i = text.indexOf(term); i >= 0; i = text.indexOf(term, i + 1)) {
+      for (let k = i + 1; k < i + term.length; k += 1) no.add(k);
+    }
+    return no;
+  };
+  out = out.replace(
+    /(<([a-z0-9]+)\b)([^>]*\sdata-i18n="[\w.]+"[^>]*>)([^<]*)(<\/\2>)/g,
+    (whole, start, tag, rest, body, close) => {
+      const hanCount = [...body].filter((ch) => HAN.test(ch)).length;
+      if (!hanCount || !/^h[23]$/.test(tag)) return whole;
+      const parts = [...seg.segment(body)];
+      const no = locked(body);
+      let joined = '';
+      parts.forEach((x, i) => {
+        const prev = parts[i - 1];
+        if (prev && x.isWordLike && prev.isWordLike && HAN.test(x.segment) && HAN.test(prev.segment) && !no.has(x.index)) joined += '\u200b';
+        joined += x.segment;
+      });
+      return joined === body ? whole : `${start} data-phrase${rest}${joined}${close}`;
+    },
+  );
+
   /* 1b. aria-labels. They are copy too, and every one of them was staying in
          English on the Chinese page — invisible unless you are using the
          screen reader they exist for. */
