@@ -2556,7 +2556,8 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     await screen.findByTestId("design-detail");
     fireEvent.click(screen.getByTestId("design-detail-export"));
     fireEvent.click(screen.getByTestId("design-detail-export-json"));
-    expect(click).toHaveBeenCalledTimes(1);
+    // 文件名要等拼音字典按需加载完——下载因此是异步的。
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     const blob = (create.mock.calls[0] as unknown as [Blob])[0];
     const spec = JSON.parse(await blob.text()) as { version: number; screens: { frame: string; notes: string; root: unknown }[] };
     expect(spec.version).toBe(1);
@@ -2626,7 +2627,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     await screen.findByTestId("design-detail");
     fireEvent.click(screen.getByTestId("design-detail-export"));
     fireEvent.click(screen.getByTestId("design-detail-export-doc"));
-    expect(click).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(create).toHaveBeenCalledTimes(1);
     const blob = (create.mock.calls[0] as unknown as [Blob])[0];
     const md = await blob.text();
@@ -5009,7 +5010,7 @@ describe("UIUX 17：导出菜单剩下的那几处", () => {
     expect(at.getAttribute("data-testid")).toBe("design-detail-export-copy");
   });
 
-  it("导出的 PNG 文件名浏览器留得住（页名是中文时它以前退成 `download`）", async () => {
+  it("导出的 PNG 文件名浏览器留得住，而且中文页名转成拼音（以前退成 `download`）", async () => {
     const create = vi.fn(() => "blob:png");
     Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
     Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
@@ -5024,7 +5025,8 @@ describe("UIUX 17：导出菜单剩下的那几处", () => {
       await waitFor(() => expect(names).toHaveLength(1));
       // ⭐ 反证锚点：把文件名改回 `${project.name}-${frames[frame]}.png` ⇒ 这条红。
       expect(names[0]).toMatch(/^[\x20-\x7e]+$/);
-      expect(names[0]).toBe("B-3-p1.png"); // 项目名「深化 B-3」→ `B-3`；页名「首页」留不住 ⇒ 退成 `p1`
+      // 2026-09-23 人类裁决：中文名转拼音，不再整名退成兜底——「深化 B-3」/「首页」都留得住。
+      expect(names[0]).toBe("shen-hua-B-3-shou-ye.png");
     } finally {
       click.mockRestore();
     }
