@@ -229,6 +229,11 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
   });
 
+  // 显式超时 30s（默认 5s）：这条要顺序打 125 次 DO 往返，是本文件最慢的一条，
+  // 本机独跑 ~0.8s、整文件内 ~1.4s，**没有任何余量**。2026-09-23 在 CI 上
+  // 5017ms 超时红过一次（同一份文件那次跑了 37s，本机 6.7s ⇒ runner 慢约 5.5 倍）。
+  // 本机加 1.5 倍 CPU 竞争即量到 0.8s → 1.6s，纯粹是机器负载，不是被测行为变慢。
+  // 断言一条没动：慢机器上判失败的是机器，不是这段代码。
   it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
     const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
     for (const k of keys.filter((_, i) => i % 2 === 0)) {
@@ -237,7 +242,7 @@ describe("F06 andon 状态 + 投影游标", () => {
     const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
       .json<{ delivered: string[] }>();
     expect(delivered.sort()).toEqual(keys.filter((_, i) => i % 2 === 0).sort());
-  });
+  }, 30_000);
 
   it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
     expect((await post("/projector/outbox/delivered", { keys: "nope" })).status).toBe(422);
