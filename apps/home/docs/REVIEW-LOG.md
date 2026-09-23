@@ -935,3 +935,22 @@ end of the range.
 
 Final: **CLS 0 on every configuration in both languages** — warm, cold-font and
 slow-3G — where the budget is 0.02.
+
+---
+
+## Rounds 32–41
+
+### Round 32 — the things nobody reads
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The hero's second button says **"See how it works"** and pointed at `#shift` — the market-thesis section. The section that answers it is `#loop`, which the **footer has always called "How it works"**. Thirty-one rounds, and the page's most prominent secondary call to action sent the reader to the wrong place. | `#loop`. Found by listing every label that points at each anchor and reading the ones with two names. |
+| 2 | The Chinese eyebrow for `proof` read **11** — which is also `open`'s number. The Chinese page ran 01…11, **11**, 13, 14, with no 12 at all. | 12. |
+| 3 | **Nothing read those numbers.** The key existed, it was translated, it had Han characters, its punctuation was correct — every gate was happy about a section that told the reader it was the eleventh for the second time. | A number in prose is a fact declared twice: once by the order of the sections and once by the digits. |
+| 4 | — | `check-sequence.mjs`, red on its first run on the live bug. |
+| 5 | The privacy page carries a **hand-typed "Last updated"** date, and its own closing line argues that its git history is the change log. Nothing kept the two honest. | Fingerprinted rather than derived from git: deriving it makes the check fail between a commit and a rebuild, chasing itself forever. Change the prose without moving the date and it fails. |
+| 6 | **Nothing asserted a clean console.** A module throwing after boot or an asset 404ing is invisible to every other suite here — the degradation suite only ever watches failures it caused on purpose. | Five pages, errors, warnings and failed requests. Proved red with one `console.warn`. |
+| 7 | No `Strict-Transport-Security`. | Added — without `includeSubDomains`, because this domain does not control what its siblings serve and a promise made on their behalf is one it cannot keep. |
+| 8 | No `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`. | Both, free on a site that loads only its own origin. |
+| 9 | **Checked and dismissed.** The eyebrow casing looked badly inconsistent — "The Shift" beside "The workspace" beside "One Workspace", no system at all. `.eyebrow` is `text-transform: uppercase`: none of it reaches a reader. A pointless change, nearly shipped as a fix. |
+| 10 | **Checked and clean.** Every number in the prose against the real element counts — "five steps" against the chain's five nodes, "six gates", "five layers", "three scales", all correct. And a length-ratio sweep over 133 translation pairs looking for omitted or invented content: median 0.34, and every outlier turned out to be a short label or a latin brand name. |

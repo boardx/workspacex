@@ -292,7 +292,7 @@ export default {
   'caps.c8b': '组织、角色、权限与资产治理——决定上面这些到底允不允许碰生产的那一层。',
 
   /* ---- 11 built by the system it describes ------------------------------ */
-  'proof.eyebrow': '11 — 我们最有力的论据',
+  'proof.eyebrow': '12 — 我们最有力的论据',
   'proof.title': 'WorkspaceX 本身，就是由智能体团队在它自己的 harness 下建起来的。',
   'proof.lead': '我们不是先做了一套证据系统，然后手写功能。仓库就是证据：活是智能体干的，而这一页主张的那些门，正是它们绕不过去的门。',
   'proof.cta': '去看仓库',

@@ -19,6 +19,7 @@ const checks = [
   ['css dead code', 'check-css.mjs'],
   ['copy typography', 'check-copy.mjs'],
   ['link integrity', 'check-links.mjs'],
+  ['stated facts', 'check-sequence.mjs'],
   ['engine compatibility', 'check-compat.mjs'],
   ['css bundle up to date', 'build-css.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],

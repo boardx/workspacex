@@ -481,6 +481,32 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* ------------------------------------------------------------ console --- */
+/* All five pages log nothing today, and nothing kept it that way. A module
+   throwing after boot, an asset 404ing, a deprecation warning from an engine
+   — none of it is visible to any other suite here, because the degradation
+   suite only ever watches failures it caused on purpose. */
+{
+  const r = reporter('console — five pages, nothing logged');
+  for (const path of ['/', '/zh/', '/privacy.html', '/zh/privacy.html', '/404.html']) {
+    r.step(path);
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    const noise = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error' || m.type() === 'warning') noise.push(`${m.type()}: ${m.text().slice(0, 70)}`);
+    });
+    page.on('pageerror', (e) => noise.push(`threw: ${e.message.slice(0, 70)}`));
+    page.on('requestfailed', (q) => noise.push(`failed: ${q.url().split('/').pop()}`));
+    await page.goto(base + path, { waitUntil: 'networkidle' });
+    await evaluateWithin(page, 15_000, `scroll ${path}`, () => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(900);
+    r.equal(noise.length, 0, `${path} logged ${noise.length}: ${noise.slice(0, 2).join(' | ')}`);
+    await ctx.close();
+  }
+  ok = r.finish() && ok;
+}
+
 /* --------------------------------------------------------- resilience --- */
 /* Two failure paths were covered — scripting switched off, and one module
    aborting — and the one in between was not: JavaScript enabled and the
