@@ -680,6 +680,100 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* ------------------------------------------------------- forced colors --- */
+/* The resilience suite has run in forced colors since it was written, and it
+   asked the wrong question: does anything render, is any text transparent, is
+   anything past the edge. All three passed while three of the page's selected
+   states were, by measurement, indistinguishable from their unselected
+   neighbours — because the state was carried by a gradient, and this mode
+   drops background images.
+   So this suite asks the only question that matters about an indicator: does
+   the chosen one look different from the others? Each pair is compared as a
+   computed signature, in forced colors and out of it. */
+{
+  const r = reporter('forced colors — you can still tell what is selected');
+
+  const signature = (el) => {
+    const c = getComputedStyle(el);
+    const before = getComputedStyle(el, '::before');
+    const after = getComputedStyle(el, '::after');
+    return [c.color, c.backgroundColor, c.backgroundImage, c.borderColor, c.outlineColor,
+      c.fontWeight, c.textDecorationLine,
+      before.backgroundColor, before.backgroundImage,
+      after.backgroundColor, after.backgroundImage].join(' | ');
+  };
+
+  for (const [lang, path] of LANGS) {
+    for (const forced of ['active', 'none']) {
+      r.step(`${lang} · forcedColors:${forced}`);
+      const ctx = await browser.newContext({
+        viewport: { width: 1280, height: 900 }, colorScheme: 'dark', forcedColors: forced,
+      });
+      const page = await ctx.newPage();
+      await page.goto(base + path, { waitUntil: 'load' });
+      await page.waitForTimeout(900);
+      /* Into a section, so a nav link is actually current. Measuring at the
+         top of the page found none and quietly fell back to the first link —
+         which is not current, so the comparison was of one unselected link
+         against another and could only ever pass. */
+      await evaluateWithin(page, 15_000, 'to loop', () => document.getElementById('loop')?.scrollIntoView());
+      await page.waitForTimeout(900);
+
+      const pairs = await evaluateWithin(page, 15_000, 'indicator pairs', (src) => {
+        const signature = eval(`(${src})`);
+        const pair = (name, on, off) => (on && off
+          ? { name, same: signature(on) === signature(off) }
+          : { name, missing: true });
+        const tabs = [...document.querySelectorAll('.cases__tab')];
+        const sw = [...document.querySelectorAll('.switch__btn')];
+        const ls = [...document.querySelectorAll('.langswitch__btn')];
+        const rail = [...document.querySelectorAll('.rail__item')];
+        const nav = [...document.querySelectorAll('.nav__link')];
+        const navOn = nav.find((a) => a.getAttribute('aria-current') === 'true');
+        return [
+          pair('discipline tab', tabs.find((t) => t.getAttribute('aria-selected') === 'true'),
+            tabs.find((t) => t.getAttribute('aria-selected') !== 'true')),
+          pair('segmented switch', sw.find((b) => b.getAttribute('aria-pressed') === 'true'),
+            sw.find((b) => b.getAttribute('aria-pressed') !== 'true')),
+          pair('language switch', ls.find((b) => b.getAttribute('aria-current') === 'true'),
+            ls.find((b) => b.getAttribute('aria-current') !== 'true')),
+          pair('loop rail', rail.find((li) => li.getAttribute('aria-current') === 'true'),
+            rail.find((li) => li.getAttribute('aria-current') !== 'true')),
+          pair('nav link', navOn, nav.find((a) => a !== navOn)),
+        ];
+      }, signature.toString());
+
+      for (const p of pairs) {
+        r.check(!p.missing, `${p.name}: no pair to compare — the markup moved`);
+        if (!p.missing) r.check(!p.same, `${p.name}: selected and unselected are identical`);
+      }
+
+      /* The pair comparison is necessary and not sufficient: the discipline
+         tab differed pre-fix by font-weight and a 6%-black wash over a black
+         canvas, so "not identical" passed while the only thing a reader could
+         actually see — the 2px marker — was painting nothing at all. These
+         two markers are the page's smallest indicators; they either paint or
+         they do not. */
+      const markers = await evaluateWithin(page, 15_000, 'markers', () => {
+        const paints = (el, pseudo) => {
+          if (!el) return null;
+          const c = getComputedStyle(el, pseudo);
+          if (c.content === 'none') return false;
+          const alpha = /rgba\([^)]*,\s*0\)/.test(c.backgroundColor);
+          return c.backgroundImage !== 'none' || !alpha;
+        };
+        const tab = document.querySelector('.cases__tab[aria-selected="true"]');
+        const nav = document.querySelector('.nav__link[aria-current="true"]');
+        return { tab: paints(tab, '::before'), nav: paints(nav, '::after') };
+      });
+      r.check(markers.tab !== false, 'the selected discipline tab paints no marker');
+      r.check(markers.nav !== false, 'the current nav link paints no underline');
+      await ctx.close();
+    }
+  }
+  ok = r.finish() && ok;
+}
+
 /* ---------------------------------------------------------- bilingual --- */
 {
   const r = reporter('bilingual — the Chinese page stands on its own');

@@ -281,6 +281,36 @@
   }
   .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
   .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
+
+  /* Every remaining "which one is chosen" on the page. The four controls
+     above were given a forced-colors answer; three more, styled the same way
+     in the same stylesheets, were not — and a dropped gradient does not
+     degrade a selected state, it deletes it. Measured with forcedColors:
+     active: the segmented switch's on and off halves came back byte-identical
+     — same colour, same transparent background, same border — and so did a
+     selected discipline tab beside an unselected one, and the nav link for
+     the section you are reading beside every other. */
+  .switch, .cases__tabs { border-color: CanvasText; }
+  .switch__btn { forced-color-adjust: none; color: ButtonText; background: ButtonFace; }
+  .switch__btn[aria-pressed="true"] {
+    color: HighlightText; background: Highlight;
+  }
+  /* The attribute twice, on purpose. sections.css is bundled AFTER this file,
+     so its `.cases__tab[aria-selected="true"]` rules win at equal specificity
+     and the first version of this fix silently did nothing — caught by
+     measuring the result rather than by reading it. */
+  .cases__tab[aria-selected="true"][aria-selected] {
+    forced-color-adjust: none;
+    color: HighlightText; background: Highlight;
+  }
+  /* The nub and the nav underline are both a 2px gradient — dropped here, so
+     both carry their own colour instead of borrowing the brand's. */
+  .cases__tab[aria-selected="true"][aria-selected]::before,
+  .nav__link[aria-current="true"]::after { background: Highlight; }
+  .nav__link[aria-current="true"] { color: LinkText; text-decoration: underline; }
+  /* The reading progress bar is the same dropped gradient, and it is the only
+     readout of how far down the page you are. */
+  .nav__progress i { background: Highlight; }
 }
 
 /* ---- segmented switch ----------------------------------------------------- */

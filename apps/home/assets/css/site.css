@@ -807,6 +807,24 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   }
   .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
   .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
+
+
+  .switch, .cases__tabs { border-color: CanvasText; }
+  .switch__btn { forced-color-adjust: none; color: ButtonText; background: ButtonFace; }
+  .switch__btn[aria-pressed="true"] {
+    color: HighlightText; background: Highlight;
+  }
+
+  .cases__tab[aria-selected="true"][aria-selected] {
+    forced-color-adjust: none;
+    color: HighlightText; background: Highlight;
+  }
+
+  .cases__tab[aria-selected="true"][aria-selected]::before,
+  .nav__link[aria-current="true"]::after { background: Highlight; }
+  .nav__link[aria-current="true"] { color: LinkText; text-decoration: underline; }
+
+  .nav__progress i { background: Highlight; }
 }
 
 .switch {
