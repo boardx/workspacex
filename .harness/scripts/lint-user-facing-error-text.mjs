@@ -71,7 +71,17 @@ const LEGACY = new Map([
   ["apps/web/components/canvas/template-editor-panel.tsx", 1],
   ["apps/web/components/canvas/template-prompt-drawer.tsx", 1],
   ["apps/web/components/canvas/template-trial-dialog.tsx", 1],
-  ["apps/web/components/chat/chat-artifact-preview-dialog.tsx", 1],
+  // 2026-09-23（#3749 R2）：这一处**换了文件，没有换性质**。取源与渲染从
+  // `chat-artifact-preview-dialog.tsx` 搬进了 `chat-artifact-view.tsx`（右栏与模态共用
+  // 同一遍渲染），那行 `reasonCode ?? …` 跟着搬过去了。所以这里是同一笔债改个门牌：
+  // 文件数与处数都没变（仍是 1 处），不是新增存量。
+  // ⚠ 这一处不能照本门的建议改成 `describeFailure`：它的契约闭集是
+  //   `["NOT_VISIBLE", "STORAGE_UNAVAILABLE"]`（chat.ts getThreadArtifactSource），
+  //   两码用户的处置完全不同，而 `design-failure.ts` 两张表都不含这两个码，走过去会
+  //   落到 `httpText()` 把它们糊成同一句。现行「原样回显」是有测试钉住的决定
+  //   （chat-artifact-preview-dialog.test.tsx:103 断言 textContent === "NOT_VISIBLE"）。
+  //   要销这笔债得先给这两个码各写一句人话并改那条断言——那是独立的一次决定，不在本 PR 内。
+  ["apps/web/components/chat/chat-artifact-view.tsx", 1],
   ["apps/web/components/chat/chat-read-screen.tsx", 1],
   ["apps/web/components/chat/chat-recording-panel.tsx", 2],
   ["apps/web/components/chat/message-rating.tsx", 1],
