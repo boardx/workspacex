@@ -4,6 +4,7 @@
  * The page arrives in its final language (each one is its own prerendered
  * URL), so boot is just: draw the diagrams, then attach scroll behaviour.
  */
+import { bp } from './mq.js';
 import { pageLang, initLangHint } from './lang.js';
 import {
   initReveals, initNav, initScene, splitWords, reducedMotion,
@@ -77,7 +78,7 @@ function wireLoopScene() {
   const track = scene?.querySelector('.scene__track');
   items.forEach((li, i) => {
     li.addEventListener('click', () => {
-      if (!track || reducedMotion() || window.matchMedia('(max-width: 860px)').matches) {
+      if (!track || reducedMotion() || window.matchMedia(bp('scene')).matches) {
         select(i);
         return;
       }

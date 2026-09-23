@@ -6,7 +6,7 @@
  * marked in immediately and no scroll listener is installed at all.
  */
 
-import { onMediaChange } from './mq.js';
+import { onMediaChange, bp } from './mq.js';
 
 export const reducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -66,7 +66,11 @@ export function initReveals() {
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),
-      { threshold: 0.25 },
+      /* 0, like every other observer here. A threshold of 0.25 cannot be met
+         by an element taller than the viewport — `.scales` is 658 px against
+         a 360 px landscape phone — so the connecting thread was one layout
+         change away from never being drawn, with nothing to say so. */
+      { threshold: 0 },
     );
     io2.observe(scales);
   }
@@ -100,7 +104,7 @@ export function initNav() {
   const panel = document.getElementById('nav-panel-actions');
   const movable = [...document.querySelectorAll('[data-mobile-move]')];
   const homes = new Map(movable.map((n) => [n, { parent: n.parentNode, next: n.nextSibling }]));
-  const narrow = window.matchMedia('(max-width: 760px)');
+  const narrow = window.matchMedia(bp('stack'));
   const placeActions = () => {
     if (!panel) return;
     if (narrow.matches) {
@@ -164,7 +168,7 @@ export function initScene(selector, onProgress) {
   if (!scene) return () => {};
 
   const track = scene.querySelector('.scene__track');
-  const small = () => window.matchMedia('(max-width: 860px)').matches;
+  const small = () => window.matchMedia(bp('scene')).matches;
 
   if (reducedMotion() || !track) {
     onProgress(1, true);
