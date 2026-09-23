@@ -71,13 +71,23 @@ describe("产物列表点击查看（issue #2099）", () => {
     });
     render(<Harness />);
 
-    expect(screen.getByTestId("chat-task-workbench-artifact-preview")).toBeVisible();
+    /*
+     * 2026-09-23 —— 这两行原本就摆在**点击之前**，而且都通过了。那正是 TW-P1-4
+     * 的锚点问题本身：`-preview` 挂在列表标题 `<h2>产物预览</h2>` 上，
+     * 什么都没预览它也在。判据没变（产物预览要齐），读法变强了：
+     * 点开之前不该有预览，点开之后才该有。
+     */
+    expect(screen.queryByTestId("chat-task-workbench-artifact-preview")).toBeNull();
+    // ⚠「来源」这颗锚点仍然挂在列表包裹 div 上（结构性，不证明任何出处存在）。
+    // 这轮没修，理由与下一步见 chat-artifacts-panel.tsx 那段注释——不在这里假装它已经实了。
     expect(screen.getByTestId("chat-task-workbench-artifact-sources")).toBeVisible();
 
     fireEvent.click(screen.getByTestId("chat-artifact-art-1"));
     expect(getThreadArtifactSource).toHaveBeenCalledWith("thr-1", "art-1", null, "b");
 
     const content = await screen.findByTestId("chat-artifact-preview-content");
+    // 预览锚点只在真的渲染出正文之后才出现。
+    expect(screen.getByTestId("chat-task-workbench-artifact-preview")).toBeVisible();
     expect(content.querySelector("h2")?.textContent).toContain("用户画像");
     expect(content.textContent).toContain("张三");
   });

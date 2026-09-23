@@ -45,7 +45,7 @@ export function ChatArtifactsPanel({
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium" data-testid="chat-task-workbench-artifact-preview">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
+        <h2 className="text-12 font-medium" data-testid="chat-artifacts-panel-title">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
       </div>
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
@@ -68,6 +68,12 @@ export function ChatArtifactsPanel({
           </Button>
         </div>
       ) : null}
+      {/* TW-P1-4 的「来源」锚点。⚠ 它**仍然挂在列表包裹 div 上**，也就是说列表在
+            就算「来源齐」，哪怕每一条都写着「未挂出处」——与被我这轮修掉的「预览」
+            「版本」两颗是同一个毛病。这轮没修它，因为把它搬到逐条的出处行上会让同名
+            锚点出现 N 次，Playwright 的 `getByTestId` 是 strict 的，当场撞 violation
+            （并行会话今天刚因为「组织名出现两次」红过同一类）。要把它做实，得先让
+            详情态显示这一份产物自己的出处，那是下一轮的活，不是改个 testid 的事。 */}
       {artifacts ? (
         <div className="flex flex-col gap-2 p-3" data-testid="chat-task-workbench-artifact-sources">
           {artifacts.items.length === 0 ? (

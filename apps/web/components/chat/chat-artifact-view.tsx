@@ -90,12 +90,26 @@ export function ChatArtifactView({
     );
   }
   return (
-    <div className={className} data-testid="chat-artifact-preview-content">
+    /*
+     * 外层带 TW-P1-4 的「预览」锚点（判据见
+     * .harness/instructions/chat-task-workbench-acceptance.md）。
+     *
+     * 2026-09-23 从 `chat-artifacts-panel` 的 `<h2>产物预览</h2>` 搬过来——那颗锚点
+     * 挂在**标题文字**上，只要那行标题在就算「预览能力齐」，而在 #2099 之前点产物
+     * 条目根本没反应。锚点在、能力不在。挂在真渲染出来的正文外层，它才可能因为
+     * 「预览坏了」而红。
+     *
+     * 内层保留 `chat-artifact-preview-content`：它是加载/错误/就绪那一组三态 testid
+     * 的一员（`-loading` / `-error` / `-content`），不为了这件事把那组拆散。
+     */
+    <div className={className} data-testid="chat-task-workbench-artifact-preview">
+      <div data-testid="chat-artifact-preview-content">
       <MarkdownMessage text={state.markdown} />
       <p className="mt-3 text-10 text-muted-foreground">
         {state.version !== null ? `版本 ${String(state.version)} · ` : ""}
         保存于 {new Date(state.savedAt).toLocaleString()}
       </p>
+      </div>
     </div>
   );
 }
