@@ -31,12 +31,44 @@
 const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 /**
- * 把任意一段人写的名字收成一个**能安全落盘、且浏览器不会丢掉**的文件名主干。
- * 收成空（比如整名都是中文）时退回 `fallback`——`fallback` 自己必须是 ASCII。
+ * 把一段文字转成拉丁字母（中文 → 拼音）。可注入：纯函数、测试与同步调用方都不必加载字典。
+ * 返回值仍会过下面那道 ASCII 过滤——转写器漏掉的字符（日文假名、emoji）照旧被剥掉。
  */
-export function exportFileStem(name: string, fallback: string): string {
-  const safe = name
+export type Romanize = (text: string) => string;
+
+/**
+ * 2026-09-23 人类裁决：**中文名导出用拼音文件名**（「会员下单」→ `hui-yuan-xia-dan-…`），
+ * 不再整名退成 `design`。
+ *
+ * 为什么是按需加载：`pinyin-pro` 带整本字典（~300KB），而文件名只在用户点「导出」
+ * 的那一刻才需要。放进详情页首屏是让每个打开设计的人为一个多数人不会按的按钮付钱。
+ * 所以这里返回一个 Promise，导出菜单在点击时 `await` 它（同 html2canvas 的先例）。
+ *
+ * 音节之间用 `-` 隔开，而不是连写成 `huiyuanxiadan`：连写要分词才读得出来，
+ * 分词在这里做不对（「重庆」「长大」这种要看上下文），拆开至少每个音节都认得。
+ *
+ * 字典加载失败（离线、分块被拦）⇒ 返回 `null`，调用方退回纯 ASCII 规则：
+ * 文件名差一点也比下载失败强。
+ */
+export async function loadRomanize(): Promise<Romanize | null> {
+  try {
+    const { pinyin } = await import("pinyin-pro");
+    return (text) => pinyin(text, { toneType: "none", type: "array", nonZh: "consecutive", v: true }).join("-");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 把任意一段人写的名字收成一个**能安全落盘、且浏览器不会丢掉**的文件名主干。
+ * 给了 `romanize` 就先转写（中文 → 拼音），再过 ASCII 过滤；收成空时退回 `fallback`
+ * ——`fallback` 自己必须是 ASCII。
+ */
+export function exportFileStem(name: string, fallback: string, romanize?: Romanize | null): string {
+  const latin = romanize === undefined || romanize === null ? name : romanize(name);
+  const safe = latin
     .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "")
     // 长名字截断：各家文件系统的上限是 255 **字节**，再加上后面的日期和扩展名。
     .slice(0, 80)

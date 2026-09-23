@@ -18,7 +18,7 @@
  * 换页那一小段脚本是**内联**的，且只做一件事：显示/隐藏页。
  */
 import { designPrototype } from "@repo/contracts";
-import { exportFileStem } from "./export-file-name";
+import { exportFileStem, type Romanize } from "./export-file-name";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 /**
@@ -258,11 +258,11 @@ export function localTimeStamp(now: Date): string {
   return `${localDateStamp(now)} ${p(now.getHours())}:${p(now.getMinutes())}`;
 }
 
-export function prototypeExportHtmlFileName(name: string, now: Date = new Date()): string {
+export function prototypeExportHtmlFileName(name: string, now: Date = new Date(), romanize?: Romanize | null): string {
   /*
    * 名字里**不许有中文**，包括这四个字「可点击原型」——实测 Chromium 遇到非 ASCII 的
    * `<a download>` 名字会把整个名字连扩展名一起丢成 `download`（见 `export-file-name.ts`
    * 头注那段实测输出）。这条路以前每一次导出都给用户一个叫 `download` 的无扩展名文件。
    */
-  return `${exportFileStem(name, "design")}-prototype-${localDateStamp(now)}.html`;
+  return `${exportFileStem(name, "design", romanize)}-prototype-${localDateStamp(now)}.html`;
 }

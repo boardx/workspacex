@@ -16,7 +16,7 @@ import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName }
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { describeFailure } from "@/lib/design-failure";
-import { exportFileStem } from "@/lib/export-file-name";
+import { exportFileStem, loadRomanize } from "@/lib/export-file-name";
 
 function download(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -98,18 +98,20 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
    * 这两条**同样会抛**（`URL.createObjectURL` 在某些隐私模式下不给、文档大到拼不出串），
    * 于是它们留在了原地：点一下，菜单关掉，什么也没发生。补齐，并且失败时菜单不关。
    */
-  const doc = () => {
+  const doc = async () => {
     try {
       const now = new Date();
-      download(new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" }), designDocFileName(project, now));
+      const romanize = await loadRomanize();
+      download(new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" }), designDocFileName(project, now, romanize));
       setOpen(false);
     } catch (err) {
       fail("导出设计文档", err);
     }
   };
-  const json = () => {
+  const json = async () => {
     try {
-      download(new Blob([buildPrototypeSpecJson(project)], { type: "application/json;charset=utf-8" }), prototypeSpecFileName(project, new Date()));
+      const romanize = await loadRomanize();
+      download(new Blob([buildPrototypeSpecJson(project)], { type: "application/json;charset=utf-8" }), prototypeSpecFileName(project, new Date(), romanize));
       setOpen(false);
     } catch (err) {
       fail("导出原型规格", err);
@@ -139,7 +141,8 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       const css = collectPageCss(screens.map((s) => s.markup).join(""), Array.from(document.styleSheets) as CSSStyleSheet[]);
       const now = new Date();
       const text = buildPrototypeExportHtml({ project, screens, css, now });
-      download(new Blob([text], { type: "text/html;charset=utf-8" }), prototypeExportHtmlFileName(project.name, now));
+      const romanize = await loadRomanize();
+      download(new Blob([text], { type: "text/html;charset=utf-8" }), prototypeExportHtmlFileName(project.name, now, romanize));
       flash("html");
       setOpen(false);
     } catch (err) {
@@ -200,7 +203,8 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
         return;
       }
       /* 页名多半是中文（「首页」「我的」）——不过一次同一份规则，拿到的就是一个叫 `download` 的文件。 */
-      download(blob, `${exportFileStem(project.name, "design")}-${exportFileStem(project.frames[frame] ?? "", `p${String(frame + 1)}`)}.png`);
+      const romanize = await loadRomanize();
+      download(blob, `${exportFileStem(project.name, "design", romanize)}-${exportFileStem(project.frames[frame] ?? "", `p${String(frame + 1)}`, romanize)}.png`);
       flash("png");
       setOpen(false);
     } catch (err) {
@@ -221,10 +225,10 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
           {failed !== null && (
             <p role="alert" className="mb-1 rounded-control bg-destructive/10 px-2 py-1.5 text-11 text-destructive" data-testid="design-detail-export-error">{failed}</p>
           )}
-          <button type="button" role="menuitem" onClick={doc} className={item} data-testid="design-detail-export-doc">
+          <button type="button" role="menuitem" onClick={() => void doc()} className={item} data-testid="design-detail-export-doc">
             <FileDown aria-hidden className="h-3.5 w-3.5" /> <Label name="设计文档" hint="给人看：问题、验收标准、逐页说明" />
           </button>
-          <button type="button" role="menuitem" onClick={json} className={item} data-testid="design-detail-export-json">
+          <button type="button" role="menuitem" onClick={() => void json()} className={item} data-testid="design-detail-export-json">
             <FileJson aria-hidden className="h-3.5 w-3.5" /> <Label name="原型规格" hint="给工程：机器可读的组件树与跳转" />
           </button>
           {/* 灰掉的东西要自己解释：三项一起灰是同一个原因，说一次，别让他一项一项去猜。 */}
