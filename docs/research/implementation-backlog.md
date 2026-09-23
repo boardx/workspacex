@@ -229,7 +229,7 @@ flowchart LR
 | D2 | GTM 活动与漏斗（只放聚合与 ID） | □ | |
 | D3 | CRM：边缘存 ID、源站存个人信息 | □ | 详情页回源 |
 | D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | □ | **无依赖**——D14 已定（v32.6：既是也不是，三层分开）。见 `super-instance-design.md` |
-| D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | □ | 无依赖，可与 D4 并行 |
+| D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | ◐ | R7 已起草 `instance-telemetry.ts`（PROPOSED，不导出）与 `PROP-OPS-INSTANCE-TELEMETRY-001`；**待人类签核** |
 | D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | □ | D8；**等 D16** |
 | D10 | S4 边缘收集与投影：Workers 收、DO 聚合、Pages 呈现车队 | □ | D9 |
 | D12 | 建出六跳路径所需的图节点与边：客户实例、版本、缺陷、PR（v32.8 补：此前误以为已存在） | □ | **等 D17**；`ontology_edges` 的节点 kind 由 CHECK 写死，要改迁移 |
