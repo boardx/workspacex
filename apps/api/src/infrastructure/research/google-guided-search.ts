@@ -47,7 +47,7 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
   async read(url: string) {
     try {
       const parsed = new URL(url);
-      await assertPublicDocumentUrl(parsed);
+      await assertPublicDocumentUrl(parsed, trustedLoopbackOrigin(this.endpoint));
       const response = await this.fetcher(parsed.href, { headers: { Accept: "text/html,text/plain,text/markdown,application/pdf" }, signal: AbortSignal.timeout(10000), redirect: "error" });
       if (!response.ok) throw new Error("unavailable");
       const type = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
@@ -64,10 +64,12 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
   }
 }
 
-async function assertPublicDocumentUrl(url: URL): Promise<void> {
+async function assertPublicDocumentUrl(url: URL, allowedLoopbackOrigin?: string): Promise<void> {
   if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("blocked");
   const hostname = url.hostname.replace(/^\[(.*)]$/, "$1").toLowerCase();
-  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) throw new Error("blocked");
+  if (!hostname) throw new Error("blocked");
+  if (allowedLoopbackOrigin && url.origin === allowedLoopbackOrigin && isLoopbackHost(hostname)) return;
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) throw new Error("blocked");
   const literal = isIP(hostname) ? hostname : null;
   if (literal) {
     if (isPrivateAddress(literal)) throw new Error("blocked");
@@ -75,6 +77,29 @@ async function assertPublicDocumentUrl(url: URL): Promise<void> {
   }
   const records = await lookup(hostname, { all: true, verbatim: true });
   if (!records.length || records.some((record) => isPrivateAddress(record.address))) throw new Error("blocked");
+}
+
+function trustedLoopbackOrigin(endpoint: string): string | undefined {
+  try {
+    const url = new URL(endpoint);
+    const hostname = url.hostname.replace(/^\[(.*)]$/, "$1").toLowerCase();
+    return isLoopbackHost(hostname) ? url.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+  const literal = isIP(hostname) ? hostname : null;
+  return literal ? isLoopbackAddress(literal) : false;
+}
+
+function isLoopbackAddress(address: string): boolean {
+  const normalized = normalizeIp(address);
+  if (normalized.includes(":")) return normalized === "::1";
+  const [first] = normalized.split(".").map((part) => Number(part));
+  return first === 127;
 }
 
 function isPrivateAddress(address: string): boolean {

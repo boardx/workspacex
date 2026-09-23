@@ -73,6 +73,18 @@ describe("BoardX Google guided research search", () => {
       .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
     expect(fetcher).not.toHaveBeenCalled();
   });
+  it("allows the isolated loopback search fixture to read its own evidence document", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("Controlled local evidence", { headers: { "content-type": "text/plain" } }));
+    await expect(new GoogleGuidedSearch(fetcher, "http://127.0.0.1:9999/search").read!("http://127.0.0.1:9999/research-evidence"))
+      .resolves.toMatchObject({ text: "Controlled local evidence", contentKind: "text" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+  it("does not extend loopback fixture trust to other local origins", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(new GoogleGuidedSearch(fetcher, "http://127.0.0.1:9999/search").read!("http://127.0.0.1:10000/research-evidence"))
+      .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("stops reading as soon as a document exceeds the byte limit", async () => {
     let pulled = 0;
     const stream = new ReadableStream<Uint8Array>({
