@@ -174,7 +174,7 @@ export class GuidedRuntimeService {
     if (node === "report") {
       const allowPartial = Boolean(state.reportPartial);
       await this.reviewSources(state, persist);
-      await this.readSourceDocuments(state, persist);
+      await this.readSourceDocuments(state, persist, { retryTransient: resume });
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
       state.currentNode = "report"; state.availableNodes = [...nodes];
@@ -202,14 +202,17 @@ export class GuidedRuntimeService {
     if (node === "report") state.reportStream = null;
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
-  private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence) {
+  private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean } = {}) {
     if (!this.search.read) return;
     const accepted = state.sources.filter((source) => source.decision === "accepted");
     for (const source of accepted) {
-      if (source.document || source.documentError) continue;
+      if (source.document) continue;
+      if (source.documentError && !(options.retryTransient && source.documentError === "unavailable")) continue;
+      if (source.documentError === "unavailable") delete source.documentError;
       try {
         const result = await this.search.read(source.url);
         source.document = { url: source.url, retrievedAt: new Date().toISOString(), text: result.text, contentKind: result.contentKind, truncated: result.truncated, contentHash: createHash("sha256").update(result.text).digest("hex") };
+        delete source.documentError;
       } catch (error) {
         const reason = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_DOCUMENT_UNAVAILABLE";
         source.documentError = reason.includes("BLOCKED") ? "blocked" : reason.includes("UNSUPPORTED") ? "unsupported" : reason.includes("EMPTY") ? "empty" : reason.includes("TOO_LARGE") ? "too_large" : "unavailable";
@@ -329,9 +332,25 @@ export class GuidedRuntimeService {
       const count = () => new Set(state.sources.filter((source) => source.decision !== "excluded" && sourceTaskIds(source).some((id) => state.tasks.find((task) => task.id === id)?.sectionId === section.id)).map((source) => normalizedSourceUrl(source.url))).size;
       const task = state.tasks.find((item) => item.sectionId === section.id);
       if (!task || count() >= 3) continue;
+      task.searchAttempts ??= [];
+      const seenSupplement = new Set(task.searchAttempts.map((attempt) => attempt.query.trim().toLowerCase()));
       for (const query of [`${task.query} primary source`, `${section.title} evidence report`]) {
         if (count() >= 3) break;
-        try { await this.acceptSearchResults(state, task, await this.search.search(query), persist); } catch { /* coverage is best effort */ }
+        const normalizedQuery = query.trim().toLowerCase();
+        if (seenSupplement.has(normalizedQuery) || task.searchAttempts.length >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
+        seenSupplement.add(normalizedQuery);
+        const attempt: NonNullable<typeof task.searchAttempts>[number] = { query, status: "running", errorCode: null };
+        task.searchAttempts.push(attempt);
+        await persist();
+        try {
+          const errorCode = await this.acceptSearchResults(state, task, await this.search.search(query), persist);
+          attempt.status = errorCode ? "failed" : "succeeded";
+          attempt.errorCode = errorCode;
+        } catch (error) {
+          attempt.status = "failed";
+          attempt.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE";
+        }
+        await persist();
       }
     }
     if (state.tasks.some((task) => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");

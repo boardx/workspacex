@@ -302,6 +302,8 @@ describe("chapter-based report generation", () => {
       (state: ResearchRuntime) => { state.brief.goal += " new"; },
       (state: ResearchRuntime) => { state.outline[0]!.questions.push("New question"); },
       (state: ResearchRuntime) => { state.tasks[0]!.status = "failed"; },
+      (state: ResearchRuntime) => { state.sources[0]!.document = { url: state.sources[0]!.url, retrievedAt: "now", text: "Fetched document", contentHash: "a".repeat(64), contentKind: "html", truncated: false }; },
+      (state: ResearchRuntime) => { state.sources[0]!.documentError = "unavailable"; },
       (state: ResearchRuntime) => { state.reportPartial = true; },
     ]) { const changed = structuredClone(f.state); change(changed); expect(reportBasis(changed, config)).not.toBe(baseline); }
     expect(reportBasis(f.state, config, "different instruction")).not.toBe(baseline);
