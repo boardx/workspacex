@@ -40,6 +40,20 @@ env/secret 变更必须与部署原子（同 PR 或先加后删）。
 - 本机缓存目录：`.harness/state/.cache/`（已 gitignore）
 - CI：repo secrets `<清单>`
 
+## 词汇单一事实源（2026-09-23 定）
+
+同一事实不得声明在两处——名字也一样。下面两组各自只有一个正确叫法，
+由 `.harness/scripts/lint-vocabulary.mjs` 机械核对。
+
+| 用这个 | 指什么 | 不要混的 |
+|---|---|---|
+| **技能包** | 商业与分发单元。仓库既有词汇：`ensure-standard-skill-packs.ts`、`skills/`、`SKILL.md`、`capability_id`、`skill-sandbox` | **MAAU 画布**（`maau-canvas`，WX-S021）是设计方法，不是分发单元，保留原名 |
+| **团队记忆** | 我们自己的知识库：ADR、sprint 历史、方法论、经验、GTM 与案例知识 | **组织大脑**是产品概念（`brain-promotion`、`batchConfirmAndWriteBackToBrain`），指客户把产出物沉淀进本组织知识库 |
+
+代码标识符（`@repo/maau-postinvest-report`、`capability_id`、目录名）**允许滞后**——
+标识符不是叫法，改它波及 40 个代码文件，要改另开 issue。
+迭代记录（`*-iterations*.md`）是逐轮追加的历史，**整份豁免**：它记录当时说了什么，改写它等于抹痕迹。
+
 ## 模块清单（对应 .agents/skills/mod-*）
 mod-chat（聊天/对话） / mod-agent-skill-runtime（Agent/Skill 运行时与契约） /
 mod-research-studio（研究/访谈/录制/检索/模板） / mod-asset-artifact（产出物/资产治理；画布归官方 mod-canvas-diagram） /
