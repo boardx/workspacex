@@ -16,6 +16,7 @@ import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName }
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { describeFailure } from "@/lib/design-failure";
+import { exportFileStem } from "@/lib/export-file-name";
 
 function download(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
@@ -52,24 +53,67 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
   React.useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => { if (rootRef.current !== null && !rootRef.current.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    /*
+     * `role="menu"` 对读屏用户是一句承诺：上下键能在项之间走。原来只有 Esc，
+     * Tab 会一路走出菜单（而菜单是绝对定位浮层，走出去等于走丢）。
+     * 禁用项跳过——停在一个点不动的项上等于卡住。
+     */
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
+      const root = rootRef.current;
+      if (root === null) return;
+      const items = Array.from(root.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])'));
+      if (items.length === 0) return;
+      e.preventDefault();
+      const at = items.indexOf(document.activeElement as HTMLButtonElement);
+      const next =
+        e.key === "Home" ? 0
+        : e.key === "End" ? items.length - 1
+        : e.key === "ArrowDown" ? (at + 1) % items.length
+        : (at <= 0 ? items.length : at) - 1;
+      items[next]?.focus();
+    };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
-  const flash = (key: string) => { setDone(key); setFailed(null); window.setTimeout(() => setDone(null), 1500); };
+  /** 「已复制」那一下的定时器：卸载时要清掉，否则菜单先关、1.5 秒后还往一个没了的组件里写。 */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(() => () => {
+    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+  }, []);
+  const flash = (key: string) => {
+    setDone(key);
+    setFailed(null);
+    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setDone(null), 1500);
+  };
   /** 失败一律落到这里：菜单**不关**（关掉等于把话说完就跑），并说清下一步。 */
   const fail = (what: string, err: unknown) => { setFailed(`没能${what}（${describeFailure(err)}）`); };
 
+  /*
+   * 迭代 39：上面迭代 29 那段说的是「六个动作全没有 catch」，但它只补了四个——
+   * 这两条**同样会抛**（`URL.createObjectURL` 在某些隐私模式下不给、文档大到拼不出串），
+   * 于是它们留在了原地：点一下，菜单关掉，什么也没发生。补齐，并且失败时菜单不关。
+   */
   const doc = () => {
-    const now = new Date();
-    download(new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" }), designDocFileName(project, now));
-    setOpen(false);
+    try {
+      const now = new Date();
+      download(new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" }), designDocFileName(project, now));
+      setOpen(false);
+    } catch (err) {
+      fail("导出设计文档", err);
+    }
   };
   const json = () => {
-    download(new Blob([buildPrototypeSpecJson(project)], { type: "application/json;charset=utf-8" }), prototypeSpecFileName(project, new Date()));
-    setOpen(false);
+    try {
+      download(new Blob([buildPrototypeSpecJson(project)], { type: "application/json;charset=utf-8" }), prototypeSpecFileName(project, new Date()));
+      setOpen(false);
+    } catch (err) {
+      fail("导出原型规格", err);
+    }
   };
   const copy = async () => {
     setBusy("copy");
@@ -155,7 +199,8 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
         setFailed("这一页没能转成图片。可以改用「可点击原型」或「打印成 PDF」。");
         return;
       }
-      download(blob, `${project.name}-${project.frames[frame] ?? frame + 1}.png`);
+      /* 页名多半是中文（「首页」「我的」）——不过一次同一份规则，拿到的就是一个叫 `download` 的文件。 */
+      download(blob, `${exportFileStem(project.name, "design")}-${exportFileStem(project.frames[frame] ?? "", `p${String(frame + 1)}`)}.png`);
       flash("png");
       setOpen(false);
     } catch (err) {
@@ -172,7 +217,7 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
         <Download aria-hidden className="h-3.5 w-3.5" /> 导出
       </Button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-card border border-border bg-card p-1 shadow-lg" data-testid="design-detail-export-menu">
+        <div role="menu" aria-label="导出" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-card border border-border bg-card p-1 shadow-lg" data-testid="design-detail-export-menu">
           {failed !== null && (
             <p role="alert" className="mb-1 rounded-control bg-destructive/10 px-2 py-1.5 text-11 text-destructive" data-testid="design-detail-export-error">{failed}</p>
           )}
@@ -182,6 +227,12 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
           <button type="button" role="menuitem" onClick={json} className={item} data-testid="design-detail-export-json">
             <FileJson aria-hidden className="h-3.5 w-3.5" /> <Label name="原型规格" hint="给工程：机器可读的组件树与跳转" />
           </button>
+          {/* 灰掉的东西要自己解释：三项一起灰是同一个原因，说一次，别让他一项一项去猜。 */}
+          {project.prototype.length === 0 && (
+            <p className="mb-1 px-2 py-1 text-10 text-muted-foreground" data-testid="design-detail-export-nothing">
+              还没有画出来的页，所以截图、可点击原型、打印这三项现在导不了。先在对话里说一句你要做什么。
+            </p>
+          )}
           <button type="button" role="menuitem" onClick={() => void png()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-png">
             {busy === "png" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon aria-hidden className="h-3.5 w-3.5" />}
             <Label name={`当前页截图${project.frames[frame] !== undefined ? `（${project.frames[frame]}）` : ""}`} hint="贴进文档或聊天窗" />

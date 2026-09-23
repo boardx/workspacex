@@ -7,6 +7,7 @@
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
 import { designPrototype } from "@repo/contracts";
+import { exportFileStem } from "./export-file-name";
 import { localDateStamp, localTimeStamp } from "./prototype-export-html";
 import { PROJECT_TEMPLATE_LABEL, type DesignProject, type PrototypeNode } from "./live-design-workbench";
 
@@ -157,7 +158,7 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
  * 中文项目名 ⇒ `design-<日期>`；文件内容里项目名仍是原文。
  */
 export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
-  const safe = project.name.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "design";
+  const safe = exportFileStem(project.name, "design");
   /*
    * 迭代 38：**第 14 轮只修了 HTML 那一处**，同一个 UTC 日期 bug 就在隔壁这一行里。
    * 东八区凌晨导出，文档文件名写的是昨天。单源在 `prototype-export-html.ts`。

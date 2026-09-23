@@ -4920,3 +4920,111 @@ describe("UIUX 16：从对话导入的三步里，别把人弄丢", () => {
     expect(screen.getByRole("dialog", { name: "确认要导入的背景" })).toBeTruthy();
   });
 });
+
+/* ────── UIUX 第 17 轮：导出菜单——两条静默的路、一句没人解释的灰、一个走不了的键盘 ────── */
+
+describe("UIUX 17：导出菜单剩下的那几处", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+  const openMenu = async (over: Partial<{ frames: string[]; prototype: unknown[] }> = {}) => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: over.frames ?? ["聊天"], prototype: (over.prototype ?? [tree]) as never })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    return screen.findByTestId("design-detail-export-menu");
+  };
+
+  it("下载设计文档时抛了 ⇒ 说一句人话，菜单不关（迭代 29 只补了四条路，这两条留在原地）", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      value: () => { throw new Error("createObjectURL is not available"); },
+      configurable: true,
+    });
+    await openMenu();
+    fireEvent.click(screen.getByTestId("design-detail-export-doc"));
+    // ⭐ 反证锚点：去掉 doc() 的 try/catch ⇒ 这条红（异常直接抛出，屏上什么都没有）。
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能导出设计文档");
+    expect(err.textContent).not.toContain("createObjectURL is not available");
+    expect(screen.getByTestId("design-detail-export-menu")).toBeTruthy();
+  });
+
+  it("下载原型规格时抛了 ⇒ 同样说话", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      value: () => { throw new Error("boom"); },
+      configurable: true,
+    });
+    await openMenu();
+    fireEvent.click(screen.getByTestId("design-detail-export-json"));
+    // ⭐ 反证锚点：去掉 json() 的 try/catch ⇒ 这条红。
+    expect((await screen.findByTestId("design-detail-export-error")).textContent).toContain("没能导出原型规格");
+  });
+
+  it("还没画出来时，三项一起灰掉要说明为什么", async () => {
+    await openMenu({ prototype: [] });
+    // ⭐ 反证锚点：去掉那句说明 ⇒ 这条红（三个灰按钮，没有一个字解释）。
+    const why = await screen.findByTestId("design-detail-export-nothing");
+    expect(why.textContent).toContain("还没有画出来的页");
+    expect((screen.getByTestId("design-detail-export-png") as HTMLButtonElement).disabled).toBe(true);
+    // 画出来之后这句话不该还在
+    cleanup();
+    await openMenu();
+    expect(screen.queryByTestId("design-detail-export-nothing")).toBeNull();
+  });
+
+  it("role=menu 就得能用上下键走——原来只有 Esc，Tab 会走出这个浮层", async () => {
+    await openMenu();
+    const items = () => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])'));
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    // ⭐ 反证锚点：把 onKey 改回只认 Escape ⇒ 下面四条红。
+    expect(document.activeElement).toBe(items()[0]);
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items()[1]);
+    fireEvent.keyDown(document, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[0]);
+    // 上边界回环到最后一项，不是卡住
+    fireEvent.keyDown(document, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[items().length - 1]);
+    fireEvent.keyDown(document, { key: "Home" });
+    expect(document.activeElement).toBe(items()[0]);
+  });
+
+  it("禁用项被跳过——停在一个点不动的项上等于卡住", async () => {
+    // 还没画出来时菜单里是：文档、规格、[截图]、[原型]、[打印]、复制——中间三项是灰的。
+    await openMenu({ prototype: [] });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    const at = document.activeElement as HTMLButtonElement;
+    // ⭐ 反证锚点：把选择器里的 `:not([disabled])` 去掉 ⇒ 这两条红（焦点停在灰掉的「截图」上，
+    // 再按一下还在灰的里面打转——键盘走到这里等于卡住）。
+    expect(at.disabled).toBe(false);
+    expect(at.getAttribute("data-testid")).toBe("design-detail-export-copy");
+  });
+
+  it("导出的 PNG 文件名浏览器留得住（页名是中文时它以前退成 `download`）", async () => {
+    const create = vi.fn(() => "blob:png");
+    Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    html2canvasMock.mockImplementation(async () => ({ toBlob: (cb) => cb(new Blob(["png"], { type: "image/png" })) }));
+    try {
+      await openMenu({ frames: ["首页"] });
+      fireEvent.click(screen.getByTestId("design-detail-export-png"));
+      await waitFor(() => expect(names).toHaveLength(1));
+      // ⭐ 反证锚点：把文件名改回 `${project.name}-${frames[frame]}.png` ⇒ 这条红。
+      expect(names[0]).toMatch(/^[\x20-\x7e]+$/);
+      expect(names[0]).toBe("B-3-p1.png"); // 项目名「深化 B-3」→ `B-3`；页名「首页」留不住 ⇒ 退成 `p1`
+    } finally {
+      click.mockRestore();
+    }
+  });
+});
