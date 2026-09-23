@@ -40,8 +40,8 @@ describe("formal research report", () => {
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 1 / 1 个章节。章节核验状态见生成过程；报告尚未完成");
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /完成/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("导出报告"));
-    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    expect(screen.getByRole("menuitem", { name: "下载 Word" })).toBeEnabled();
     expect(screen.queryByText(/当前导出为未完成草稿/)).not.toBeInTheDocument();
   });
   it("parses streamed introduction and conclusion and redacts pending unknown identifiers", () => {
