@@ -13,3 +13,13 @@ export {
   BACKUP_FORMAT_VERSION, backupDirName, createBackup, humanBytes, verifyBackup,
   type BackupManifest, type CreateBackupResult,
 } from "./backup";
+
+export {
+  decideRestart, describeServiceFailure, DEFAULT_RESTART_WINDOW,
+  SERVICE_IMPACT, SERVICE_LABELS,
+} from "./supervisor-policy";
+export { superviseManaged, type ServiceHealth } from "./supervisor";
+
+export {
+  decideUnload, explainBudget, idleMsFromExpiry, memoryBudgetBytes, parsePs, RECENTLY_USED_MS,
+} from "./model-memory-budget";
