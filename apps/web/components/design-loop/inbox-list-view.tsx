@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Archive } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { INBOX_STAGE_LABEL, INBOX_STAGE_ORDER, type InboxItem, type InboxStage } from "@/lib/live-inbox";
 import { GithubBadge, SevereBadge } from "./badges";
@@ -92,7 +93,7 @@ export function InboxListView({
             <col className="w-10" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-panel">
-            <tr className="border-b border-border text-left text-10 font-medium uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border text-left text-10 font-medium text-muted-foreground">
               <th className="px-4 py-2">状态</th>
               <th className="px-3 py-2">条目</th>
               <th className="px-3 py-2">类型</th>
@@ -115,7 +116,12 @@ export function InboxListView({
                     )}
                   </>
                 ) : (
-                  <span title={new Date(item.createdAt).toLocaleString("zh-CN")}>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</span>
+                  /*
+                   * 迭代 36：同一列里两种时间——异常条目走 `formatRelative`（「3 分钟前」），
+                   * 普通反馈却是 `toLocaleDateString`（「2026/9/4」）。并排放着，后者既读不出
+                   * 新旧、也和前者对不上。统一走同一个函数。
+                   */
+                  <span title={new Date(item.createdAt).toLocaleString("zh-CN")}>{formatRelative(item.createdAt)}</span>
                 );
               return (
                 <tr
@@ -161,7 +167,19 @@ export function InboxListView({
                   <td className="px-3 py-2.5">{item.github !== null ? <GithubBadge {...item.github} /> : <span className="text-muted-foreground">—</span>}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right text-11 text-muted-foreground">{timeCell}</td>
                   <td className="px-2 py-2.5 text-right">
-                    <div className="inline-flex invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+                    {/*
+                      * 迭代 36：`group-focus:visible` —— 这一格**键盘根本走不到**。
+                      *
+                      * 容器是 `invisible`（`visibility: hidden`），而 CSS 规定 visibility:hidden
+                      * 的子树**不可聚焦**；于是 `group-focus-within:visible` 成了一个死结：
+                      * 要先聚焦进去才显示，而不显示就聚焦不进去。结果是快捷动作菜单
+                      * （转入开发 / 不做 / 归档，也就是分诊台最主要的那几个动作）
+                      * 对只用键盘的人**完全不存在**，他只能打开 drawer 绕一圈。
+                      *
+                      * 行本身是 `tabIndex={0}` 的可聚焦元素，所以 `group-focus`（行自己被聚焦）
+                      * 成立时就把它显示出来——Tab 到这一行 ⇒ 菜单出现 ⇒ 再 Tab 就进得去了。
+                      */}
+                    <div className="inline-flex invisible transition-opacity duration-fast group-hover:visible group-focus:visible group-focus-within:visible">
                       <QuickActionMenu
                         item={item}
                         busy={busy}
@@ -177,9 +195,25 @@ export function InboxListView({
           </tbody>
         </table>
         {items.length === 0 && (
-          <p className="p-8 text-center text-12 text-muted-foreground" data-testid="inbox-list-empty">
-            {archivedView ? "归档箱是空的——在「已完成」或「不做」的反馈上选「归档」即可把它收进来。" : "没有符合当前筛选的条目。"}
-          </p>
+          <div className="flex flex-col items-center gap-2 p-8 text-center" data-testid="inbox-list-empty-box">
+            <p className="text-12 text-muted-foreground" data-testid="inbox-list-empty">
+              {archivedView
+                ? "归档箱是空的——在「已完成」或「不做」的反馈上选「归档」即可把它收进来。"
+                /*
+                 * 迭代 36：原文只说「没有符合当前筛选的条目」，既不说是**哪一层**筛掉的，
+                 * 也不给出路。工作台首屏在第 2 轮学过这一课（说清被筛掉了 + 一个能点的清除），
+                 * 这一屏没跟上。状态分段是这里唯一能一键退回的那一层，就从它说起。
+                 */
+                : stageFilter === "all"
+                  ? "没有符合当前筛选的条目。换个关键词或类型试试。"
+                  : `「${INBOX_STAGE_LABEL[stageFilter]}」这一档里没有条目——其它档里可能有。`}
+            </p>
+            {!archivedView && stageFilter !== "all" && (
+              <Button size="sm" variant="outline" onClick={() => onStageFilter("all")} data-testid="inbox-list-empty-clear">
+                看全部
+              </Button>
+            )}
+          </div>
         )}
         <LoadMoreBar nextCursor={nextCursor} loading={loadingMore} onLoadMore={onLoadMore} />
       </div>

@@ -1136,7 +1136,7 @@ function BoardCard({
         highlighted && HIGHLIGHT_CLASS,
       )}
     >
-      <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 invisible transition-opacity duration-fast group-hover:visible group-focus:visible group-focus-within:visible">
         <button
           type="button"
           aria-label="上移"
