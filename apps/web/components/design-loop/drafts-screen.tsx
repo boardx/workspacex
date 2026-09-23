@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
 import { describeFailure } from "@/lib/design-failure";
+import { humanTime } from "@/lib/human-time";
 import {
+  FEEDBACK_ATTACHMENT_LABEL,
   FEEDBACK_KINDS,
   deleteFeedbackDraft,
   listMyFeedbackDrafts,
@@ -78,6 +80,15 @@ export function DesignLoopDraftsScreen({
   /** 提交/删除失败——按草稿记，不是全局一条：用户要知道**哪一条**没成功。 */
   const [actionError, setActionError] = React.useState<{ draftId: string; empty: boolean; reason: string } | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  /**
+   * 迭代 34：**删草稿之前先问一句**。
+   *
+   * 草稿是用户手里**唯一**的那一份（没有回收站、没有撤销，契约里也没有恢复操作），
+   * 而删除入口有两个：卡片右下角那个垃圾桶图标（挨着「直接提交」，4px 间距），
+   * 以及编辑抽屉底部的「删除草稿」。两个都是点一下就没。
+   * 确认只做一层：谁点的都落到这同一个确认，不在两处各写一遍。
+   */
+  const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setList({ kind: "loading" });
@@ -193,16 +204,39 @@ export function DesignLoopDraftsScreen({
           ) : (
             <span>没能完成这次操作（{actionError.reason}）。草稿没有被改动，可以再试一次。</span>
           )}
-          <button type="button" className="ml-auto text-muted-foreground" aria-label="关闭提示" onClick={() => setActionError(null)}>
+          <button type="button" className="ml-auto rounded-control p-0.5 text-muted-foreground transition-colors duration-fast hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="关闭提示" onClick={() => setActionError(null)}>
             <X aria-hidden className="h-3.5 w-3.5" />
           </button>
+        </div>
+      )}
+
+      {confirmDelete !== null && (
+        <div
+          className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-card border border-destructive/40 bg-destructive/5 px-3 py-2 text-12"
+          role="alertdialog"
+          aria-label="确认删除草稿"
+          data-testid="drafts-delete-confirm"
+        >
+          <span>删掉这条草稿？它只有这一份，删了找不回来。</span>
+          <Button size="xs" variant="outline" onClick={() => { const id = confirmDelete; setConfirmDelete(null); void remove(id); }} data-testid="drafts-delete-confirm-yes">
+            删掉
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setConfirmDelete(null)} data-testid="drafts-delete-confirm-no">
+            不删了
+          </Button>
         </div>
       )}
 
       {drafts.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center" data-testid="empty">
           <p className="text-14 font-medium">暂无草稿。</p>
-          <p className="text-12 text-muted-foreground">点「新建反馈草稿」写点什么，或在快速反馈里选「存为草稿」。</p>
+          {/*
+            * 迭代 34：原文是「或在快速反馈里选『存为草稿』」——而"快速反馈"在哪，这一屏上
+            * 一个字都没说。指向一个用户找不到的入口，等于没指。说这一屏自己能做的那件事。
+            */}
+          <p className="max-w-sm text-12 text-muted-foreground">
+            草稿是你写一半的想法，只有你自己看得到。写好了再决定要不要提交给团队。
+          </p>
           <Button variant="outline" size="sm" onClick={onNewDraft} className="mt-1">
             <Plus aria-hidden className="h-3.5 w-3.5" /> 新建反馈草稿
           </Button>
@@ -216,7 +250,7 @@ export function DesignLoopDraftsScreen({
               busy={busyId === draft.id}
               onEdit={() => setEditId(draft.id)}
               onRefine={() => setRefineId(draft.id)}
-              onDelete={() => void remove(draft.id)}
+              onDelete={() => setConfirmDelete(draft.id)}
               onSubmit={() => void submit(draft.id)}
             />
           ))}
@@ -228,7 +262,7 @@ export function DesignLoopDraftsScreen({
           draft={editing}
           onClose={() => setEditId(null)}
           onSaved={replaceDraft}
-          onDelete={() => void remove(editing.id)}
+          onDelete={() => { setEditId(null); setConfirmDelete(editing.id); }}
           onRefine={() => { setEditId(null); setRefineId(editing.id); }}
         />
       )}
@@ -271,19 +305,30 @@ function DraftCard({
             <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{draft.kind}</span>
             <span className="truncate text-13 font-medium">{draft.title ?? "（未命名草稿）"}</span>
           </div>
-          <p className="mt-0.5 line-clamp-1 text-11 text-muted-foreground">{draft.detail}</p>
+          <p className="mt-0.5 line-clamp-2 text-11 text-muted-foreground">{draft.detail}</p>
           <p className="mt-1 text-10 text-muted-foreground">
-            {new Date(draft.updatedAt).toLocaleDateString("zh-CN")}　对话 {draft.chat.length} 条
-            {draft.attachments.length > 0 && `　附件 ${draft.attachments.length} 个`}
+            {/*
+              * 迭代 34：原来是 `toLocaleDateString("zh-CN")`——**连时分都没有**，
+              * 今天刚改的和上周改的在屏上长得一样，而草稿列表最需要的就是"哪条是我刚写的"。
+              * 时间格式走 `lib/human-time` 这一份（版本历史 / 分享弹窗 / 访客页 / 对话气泡同源），
+              * 这是第四处收敛进来的副本。
+              */}
+            改于 {humanTime(draft.updatedAt)}
+            {draft.chat.length > 0 && `　完善过 ${Math.ceil(draft.chat.length / 2)} 轮`}
+            {draft.attachments.length > 0 && `　${draft.attachments.length} 个附件`}
           </p>
         </div>
       </button>
       <div className="flex shrink-0 flex-col items-end gap-1">
         <Button variant="ai" size="xs" onClick={onRefine} disabled={busy} data-testid={`draft-refine-${draft.id}`}>继续完善</Button>
         <div className="flex gap-1">
-          <Button variant="outline" size="xs" onClick={onSubmit} disabled={busy} data-testid={`draft-submit-${draft.id}`}>
+          {/*
+            * 迭代 34：「直接提交」此前不说提交之后会发生什么。页头写着「草稿只有你自己看得到」，
+            * 那么提交恰恰是**把它从"只有你看得到"变成别人看得到**的那一步——这件事得在按下之前说。
+            */}
+          <Button variant="outline" size="xs" onClick={onSubmit} disabled={busy} title="提交之后这条会进收件箱，团队里的人就看得到了；草稿列表里不再保留" data-testid={`draft-submit-${draft.id}`}>
             {busy && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
-            直接提交
+            提交给团队
           </Button>
           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onDelete} disabled={busy} aria-label="删除草稿" data-testid={`draft-delete-${draft.id}`}>
             <Trash2 aria-hidden className="h-3.5 w-3.5" />
@@ -309,9 +354,21 @@ function EditDrawer({
   const [tagDraft, setTagDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * 迭代 34：**关掉抽屉就把改动丢了，而且一个字都不说。**
+   *
+   * 点遮罩、按 Esc、点右上角 ×——三条路都是直接 `onClose()`，用户刚写的一段正文瞬间消失。
+   * 草稿本来就是"写一半的想法"，写一半正是它的常态；这一屏最不该做的事就是悄悄扔掉它。
+   *
+   * 修法不是弹二次确认打断他，而是**先替他存下来**：关闭时若有未保存改动就跑一次 `save()`，
+   * 存成功才关。存失败则留在原地并把原因显示出来（`error` 那条已有的提示），不假装存好了。
+   */
+  const dirtyRef = React.useRef(false);
+  const closeRef = React.useRef<() => void>(onClose);
+  const requestClose = React.useCallback(() => { closeRef.current(); }, []);
   /** B6.5：焦点进 drawer / Esc 关闭 / 关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
   const panelRef = React.useRef<HTMLElement>(null);
-  useDialogFocus(panelRef, onClose);
+  useDialogFocus(panelRef, requestClose);
 
   /** 只发**改了**的字段（契约四个都 optional）；什么都没改就不打空请求，直接算保存成功。 */
   const save = async (): Promise<boolean> => {
@@ -336,9 +393,20 @@ function EditDrawer({
     }
   };
 
+  const dirty =
+    kind !== draft.kind ||
+    detail !== draft.detail ||
+    JSON.stringify(tags) !== JSON.stringify(draft.tags ?? []) ||
+    tagDraft.trim() !== "";
+  dirtyRef.current = dirty;
+  closeRef.current = () => {
+    if (!dirtyRef.current) { onClose(); return; }
+    void save().then((ok) => { if (ok) onClose(); });
+  };
+
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={onClose} aria-hidden />
+      <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={requestClose} aria-hidden />
       {/* 宽度：26rem 上限 + max-w-full ⇒ 375 下自然全宽（U8）。 */}
       <aside
         ref={panelRef}
@@ -351,7 +419,7 @@ function EditDrawer({
       >
         <header className="flex items-center justify-between border-b border-border p-4">
           <h3 className="text-14 font-semibold">编辑草稿</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭" data-testid="draft-edit-close">
+          <Button variant="ghost" size="icon" onClick={requestClose} aria-label="关闭" data-testid="draft-edit-close">
             <X aria-hidden className="h-4 w-4" />
           </Button>
         </header>
@@ -378,11 +446,17 @@ function EditDrawer({
                 {draft.attachments.map((a) => (
                   <li key={a.id} className="flex items-center gap-1.5 rounded-control bg-panel px-2 py-1 text-11 text-muted-foreground">
                     <Paperclip aria-hidden className="h-3 w-3" />
-                    {a.mime}
+                    {/* 迭代 34：契约里没有文件名，屏上唯一能说明"这是什么"的就是类型——那就别写 MIME。 */}
+                    {FEEDBACK_ATTACHMENT_LABEL[a.mime]}
                   </li>
                 ))}
               </ul>
             </div>
+          )}
+          {dirty && (
+            <p className="text-10 text-muted-foreground" data-testid="draft-edit-dirty">
+              改动会在关闭时自动保存。
+            </p>
           )}
           {error !== null && (
             <p className="text-11 text-destructive" data-testid="draft-edit-error">没能保存（{error}）。草稿还是原来的样子，可以再试一次。</p>
