@@ -169,6 +169,24 @@ export const FeedbackAttachmentMime = z.enum([
 ]);
 export type FeedbackAttachmentMime = z.infer<typeof FeedbackAttachmentMime>;
 
+/**
+ * 迭代 34：附件类型 → 给人看的话。
+ *
+ * 契约里存的是 MIME（`image/png`、`application/pdf`），而草稿屏与收件箱直接把它渲染出来——
+ * 用户看到的是一列 `image/png`。附件没有文件名字段（本契约只有 id/url/mime），
+ * 所以这一行**唯一**能告诉他"这是什么"的信息就是类型，那它就得是人话。
+ *
+ * ⚠ 键集合是契约闭集，漏一个编译不过；契约测试再机械核对一遍每个取值都有中文。
+ */
+export const FEEDBACK_ATTACHMENT_LABEL: Readonly<Record<FeedbackAttachmentMime, string>> = {
+  "image/png": "截图（PNG）",
+  "image/jpeg": "图片（JPEG）",
+  "image/webp": "图片（WebP）",
+  "application/pdf": "PDF 文件",
+  "text/plain": "文本文件",
+  "text/markdown": "Markdown 文件",
+};
+
 /** UC-17.8 D3：一条反馈最多带几个附件。PDF §5.1「上限 5 个，超过后上传入口自动隐藏」。 */
 export const FEEDBACK_ATTACHMENT_MAX = 5;
 

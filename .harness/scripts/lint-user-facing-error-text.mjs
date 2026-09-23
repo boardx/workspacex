@@ -32,7 +32,7 @@ const EXEMPT = new Set(["apps/web/lib/design-failure.ts"]);
  * ⚠ 存量基线（棘轮，**只准变小**）。
  *
  * 这条门是在收敛 design-loop 那一屏时立的，而同一段代码在整个 apps/web 里还有
- * 59 个文件、89 处。一次性改完别人的屏不是这一轮该做的事，但**不登记就等于不存在**——
+ * 一大批存量（立门时 59 个文件 / 89 处；每还掉一处就把基线改小一次，见下）。一次性改完别人的屏不是这一轮该做的事，但**不登记就等于不存在**——
  * 所以这里把它们逐个记下来，带上各自的处数：
  *   · 处数比基线多 ⇒ 失败（不许再长）。
  *   · 处数比基线少 ⇒ 失败，并要求把基线改小（修好了就把债销掉，不留虚账）。
@@ -79,7 +79,6 @@ const LEGACY = new Map([
   ["apps/web/components/entry/invite-activation.tsx", 1],
   ["apps/web/components/entry/link-activation.tsx", 1],
   ["apps/web/components/entry/reset-password.tsx", 1],
-  ["apps/web/components/feedback/feedback-dialog.tsx", 2],
   ["apps/web/components/files/live-files-browser.tsx", 1],
   ["apps/web/components/itv/digital-interview-create-modal.tsx", 1],
   ["apps/web/components/itv/digital-interview-create.tsx", 1],

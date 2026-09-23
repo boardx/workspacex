@@ -23,6 +23,15 @@ export async function renderScreensToMarkup(
       React.createElement(PrototypeCanvas, {
         label,
         root: project.prototype[i] ?? null,
+        /*
+         * 迭代 37：**这一页没画出来时，导出件此前对读者说「在对话里说一句你要做什么，我就画出来」**。
+         * 那是画布空项目态的话——而这是一个交给别人的自包含文件，里面根本没有对话框。
+         * 收件人对着一句做不到的指示，既不知道这页是漏了还是坏了。
+         *
+         * 分享页（访客那一侧）早就按 `ungenerated` 如实说「这一页没画出来。其余页不受影响。」，
+         * 导出这一侧一直没跟上——同一件事在一处修了、另一处留在原地。
+         */
+        ungenerated: project.prototype.length > 0 && (project.prototype[i] ?? null) === null,
         device,
         frameIndex: i,
         // 导出产物里没有"选中去改"这回事：用预览语义渲染，且不接任何回调。

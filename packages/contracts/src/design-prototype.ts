@@ -883,6 +883,20 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
   }
 }
 
+/**
+ * 类型本身的中文名（属性面板标题栏右边那一格）。
+ *
+ * `prototypeNodeLabel` 给的是「这一个节点」的名字（带内容），这里要的是「这是哪一种东西」——
+ * 两件事，所以是两个函数，但都在这一份文件里，不许在前端再抄一张表。
+ * 原来那一格直接印 `node.type`（`bottomnav` / `chip`），对着屏幕的人不是写代码的人。
+ */
+export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, string>> = {
+  stack: "布局", card: "卡片", navbar: "导航栏", text: "文本", button: "按钮", input: "输入框",
+  image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
+  avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
+  progress: "进度", stat: "指标", hero: "头图", grid: "网格",
+};
+
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
 
 /** 只有这些「类型.键」是数字：`stat.value` / `input.value` 是字符串，全局按键名转会把合法节点转坏（Codex P1）。 */

@@ -18,6 +18,7 @@
  * 换页那一小段脚本是**内联**的，且只做一件事：显示/隐藏页。
  */
 import { designPrototype } from "@repo/contracts";
+import { exportFileStem } from "./export-file-name";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 /**
@@ -119,6 +120,11 @@ export function buildPrototypeExportHtml(input: {
   const now = input.now ?? new Date();
   const shell = EXPORT_SHELL_PALETTE[project.theme];
   /*
+   * 迭代 37：整份原型一条跳转都没有时，「点带虚线框的元素可以跳转」说的是一件**不存在的事**——
+   * 收件人会去找那圈虚线，找不到就以为文件坏了。有才说。
+   */
+  const hasAnyLink = (project.frameLinks ?? []).some((ls) => ls.length > 0);
+  /*
    * 迭代 23 —— 打印那一段 `@media print` 的三条规则，每一条都是纸上才成立的事实：
    *
    * ① 末页不再分页。`page-break-after:always` 对每一页生效，最后一页后面那一次分页会让
@@ -180,6 +186,7 @@ body{margin:0;color-scheme:${project.theme};font:14px/1.6 system-ui,-apple-syste
 .wx-muted{color:${shell.muted}}
 .wx-hint{color:${shell.muted};font-size:12px;margin-top:28px}
 [data-proto][data-linked]{cursor:pointer;outline:1px dashed rgba(120,160,255,.5);outline-offset:2px}
+[data-proto][data-linked]:focus-visible{outline:2px solid ${shell.chipOn};outline-offset:2px}
 /* 打印 = 这份产物的 PDF 视图；三条纸上才成立的规则，理由见源码注释 */
 @media print{
   @page{margin:12mm}
@@ -194,7 +201,7 @@ body{margin:0;color-scheme:${project.theme};font:14px/1.6 system-ui,-apple-syste
 </style></head>
 <body><div class="wx-shell">
 <h1>${escapeHtml(project.name)}</h1>
-<p class="wx-muted">导出于 ${now.toISOString().slice(0, 10)} · 共 ${project.frames.length} 页 · 点带虚线框的元素可以跳转</p>
+<p class="wx-muted">导出于 ${localDateStamp(now)} · 共 ${project.frames.length} 页${hasAnyLink ? " · 点带虚线框的元素可以跳转，也可以用 Tab + 回车" : ""}</p>
 ${forPrint ? "" : `<nav class="wx-tabs">${nav}</nav>`}
 ${pages}
 <p class="wx-hint">这是一个自包含文件：不联网也能打开，不依赖任何在线服务。用浏览器「打印 → 保存为 PDF」可得到交付文档。</p>
@@ -214,8 +221,17 @@ ${pages}
       var host = page.querySelector('[data-node-id="' + l.f + '"]') || page.querySelector('#' + CSS.escape(l.f));
       if (host === null) return;
       var target = l.i === null ? host : (host.children[l.i] || host);
+      /*
+       * 迭代 37：此前只挂 click，而挂点又是 div——收件人**用键盘走不动这份原型**。
+       * 导出件的读者常常就是拿着键盘读文档的人。补上 role/tabindex/回车与空格。
+       */
       target.setAttribute('data-linked', '1');
+      target.setAttribute('role', 'link');
+      target.setAttribute('tabindex', '0');
       target.addEventListener('click', function(){ go(l.t); });
+      target.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(l.t); }
+      });
     });
   });
   if (!${forPrint ? "true" : "false"}) go(0);
@@ -224,6 +240,29 @@ ${pages}
 </body></html>`;
 }
 
+/**
+ * 迭代 37 —— 导出日期按**本地日历**，不是 UTC。
+ *
+ * `toISOString().slice(0, 10)` 取的是 UTC 那一天。东八区的人在凌晨 0 点到 8 点之间导出，
+ * 文件名与文件头上写的是**昨天**——一份交付物把自己的生成日期说错一天，
+ * 而这恰恰是收件人用来判断"这是不是最新那版"的那个数。
+ */
+export function localDateStamp(now: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${String(now.getFullYear())}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+}
+
+/** 「2026-09-08 01:23」——给人读的时间戳，同样按本地日历与本地钟。 */
+export function localTimeStamp(now: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${localDateStamp(now)} ${p(now.getHours())}:${p(now.getMinutes())}`;
+}
+
 export function prototypeExportHtmlFileName(name: string, now: Date = new Date()): string {
-  return `${name}-可点击原型-${now.toISOString().slice(0, 10)}.html`;
+  /*
+   * 名字里**不许有中文**，包括这四个字「可点击原型」——实测 Chromium 遇到非 ASCII 的
+   * `<a download>` 名字会把整个名字连扩展名一起丢成 `download`（见 `export-file-name.ts`
+   * 头注那段实测输出）。这条路以前每一次导出都给用户一个叫 `download` 的无扩展名文件。
+   */
+  return `${exportFileStem(name, "design")}-prototype-${localDateStamp(now)}.html`;
 }

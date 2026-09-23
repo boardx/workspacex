@@ -114,7 +114,7 @@ export function StandingToolGrantsSection(): JSX.Element {
             ))}
           </ul>
         )}
-        {error ? <p role="alert" className="text-12 text-danger">{error}</p> : null}
+        {error ? <p role="alert" className="text-12 text-destructive">{error}</p> : null}
       </StateShell>
     </section>
   );
