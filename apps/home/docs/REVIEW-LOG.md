@@ -1455,3 +1455,20 @@ on the code before the fix.
 | 3 | **Lone last lines on a phone** — 错。, 跑。, 记 / 录 — in the loop steps, the proof rules and the unit steps. `text-wrap: pretty` was set on `<p>` only, and that text lives in spans and list items. | Set on `body` (it is inherited; headings keep `balance`). New case `read.orphan`: 0.60 → 1.00 in Chinese. |
 | 4 | **The Chinese dash —— rendered as two separate short dashes**, and “ ” as narrow latin quotes: Outfit, Inter and their Arial fallbacks all contain those code points, so they won over the Chinese font. | A `local()`-only face, *Han Punctuation*, covering exactly U+2014, U+2018–201D and U+2026 from the reader's Chinese system font, first in every `/zh/` stack via `--han-punct` (empty on English). No download. Confirmed with DevTools' platform-font report (WenQuanYi on this machine). |
 | 5 | English: a heading line opened with a dash ("…the proof / — in the same place"), and a card title split "Unit of / work". | Non-breaking spaces. `read.wordsplit` also fails any heading line that starts with a dash. |
+
+### Round 60 — one name per thing (59 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **One destination, three names.** The sign-up URL was *Launch* in the nav, *Launch Workspace* in the hero and *Sign up and start* at the close (进入 / 进入工作空间 / 注册，开始用); the footer's *Get started* went to the closing section, not the app. A reader cannot tell three labels are one door. | *Start free* / 免费开始 everywhere; the footer link is *Where to start* / 从哪里开始. New case `conv.onelabel`: 0 → 1. The verb case now accepts a leading 免费, because Chinese puts the adverb first. |
+| 2 | **A button that opened a mail client without saying so**: "Bring us work that can be checked" was a `mailto:`. | "Email us a task — hello@boardx.us". New case `conv.mailto`: 0 → 1. |
+| 3 | **The roadmap contradicted the proof section**: horizons listed "a first contribution" as available now, twenty lines below "Contributing is not open yet". | Now says only the security disclosure channel exists, and contributing opens with a guide and a fast setup — which is what `check-sequence` already requires the proof section to say. |
+| 4 | **Two spellings.** licence, programme, labelled, modelled, behaviour beside organization, center, color. And the Chinese names for one place differed between nav, footer and eyebrow (有什么 / 里面有什么; 会走到哪里 / 接下来去哪), and the tagline was worded two ways. | American throughout; `check-copy` fails a British form (proved red: 7). Chinese labels aligned. **The sweep itself broke something**: it renamed all fourteen `aria-labelledby` to `aria-labeledby`, and every diagram and tab panel lost its accessible name. axe caught it; `check-html` did not, so it now rejects any `aria-*` attribute the spec does not define (proved red). |
+| 5 | **Four English sentences that only the writer could parse**: "There is a written way down", "Go and find the egress guard", "Seats are a way in, not the meter", and "the organizations being assessed" with nobody said to be assessing them. | Rewritten in plain terms; the Chinese equivalents of the last two with them. |
+
+Investigated and not fixed: the Chinese page paints ~650 ms after the English
+one on the slow-3G profile, with its stylesheet arriving at the same moment —
+main-thread layout of Han text at 4× CPU. `content-visibility` would recover it
+and was already measured and rejected in round 3x for breaking the no-JS path
+(the reason is in `layout.css`); page-wide `text-wrap: pretty` was bisected and
+is not the cause. It sits at ~3000–3150 ms against 3200.

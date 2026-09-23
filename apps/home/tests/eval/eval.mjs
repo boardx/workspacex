@@ -320,10 +320,26 @@ const CASES = [
     async (c) => c.desk.evaluate(() => +(!!document.querySelector('footer a[href^="mailto:"]')))],
   ['conv.doors', '转化', 'The closing section offers a route for each kind of visitor (four)',
     async (c) => c.desk.evaluate(() => +(document.querySelectorAll('#contact .door').length === 4))],
+  ['conv.onelabel', '转化', 'One destination, one name: every primary button to the same place says the same thing',
+    async (c) => c.desk.evaluate(() => {
+      const by = new Map();
+      for (const a of document.querySelectorAll('a.btn--primary')) {
+        const k = a.href; const t = a.textContent.replace(/\s+/g, ' ').trim();
+        by.set(k, (by.get(k) || new Set()).add(t));
+      }
+      const bad = [...by].filter(([, ts]) => ts.size > 1);
+      return { score: +(bad.length === 0), note: bad.map(([h, ts]) => `${h.replace(/^https?:\/\//, '')}: ${[...ts].join(' / ')}`).join(' ; ') };
+    })],
+  ['conv.mailto', '转化', 'A button that opens the mail client says so, with the address',
+    async (c) => c.desk.evaluate(() => {
+      const bs = [...document.querySelectorAll('a.btn[href^="mailto:"]')];
+      const bad = bs.filter((b) => !b.textContent.includes(b.getAttribute('href').slice(7).split('?')[0]));
+      return { score: bs.length ? 1 - bad.length / bs.length : 1, note: bad.map((b) => b.textContent.trim().slice(0, 30)).join(' | ') };
+    })],
   ['conv.faq', '转化', 'The FAQ answers data, open source, security, training and free tier',
     async (c) => c.desk.evaluate(() => { const q = [...document.querySelectorAll('.faq__item summary')].map((s) => s.textContent.toLowerCase()).join(' '); const topics = [/data|数据/, /open source|开源/, /security|安全/, /train|训练/, /free|免费/]; return topics.filter((t) => t.test(q)).length / topics.length; })],
   ['conv.ctaverb', '转化', 'Every primary button starts with a verb the reader can act on',
-    async (c) => c.desk.evaluate((lang) => { const b = [...document.querySelectorAll('.btn--primary')].map((x) => x.textContent.trim()); const ok = b.filter((t) => (lang === 'zh' ? /^(进入|注册|开始|试|打开|联系)/.test(t) : /^(Launch|Sign|Start|Try|Open|Get|Talk|Book)/.test(t))); return { score: ok.length / b.length, note: b.join(' | ') }; }, c.lang)],
+    async (c) => c.desk.evaluate((lang) => { const b = [...document.querySelectorAll('.btn--primary')].map((x) => x.textContent.trim()); const ok = b.filter((t) => (lang === 'zh' ? /^(免费)?(进入|注册|开始|试|打开|联系)/.test(t) : /^(Launch|Sign|Start|Try|Open|Get|Talk|Book)/.test(t))); return { score: ok.length / b.length, note: b.join(' | ') }; }, c.lang)],
 
   /* 10 · readability */
   ['read.sentence', '可读性', 'Average sentence length (en ≤ 20 words full marks, ≥ 30 zero; zh ≤ 40 chars, ≥ 65 zero)',

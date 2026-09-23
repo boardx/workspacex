@@ -69,6 +69,16 @@ for (const m of html.matchAll(/<h([1-6])\b/g)) {
    project keeps paying for. The id set it built is still needed below. */
 const targets = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
+/* --- 5b. aria-* attributes that do not exist --------------------------------
+   Rule 6 checks where aria-labelledby points; it never noticed when a
+   spelling sweep renamed all fourteen of them aria-labeledby. An attribute
+   the spec does not define is silently ignored, so every diagram and tab
+   panel lost its accessible name and only axe, three gates later, said so. */
+const ARIA = new Set(['activedescendant', 'atomic', 'autocomplete', 'busy', 'checked', 'colcount', 'colindex', 'colspan', 'controls', 'current', 'describedby', 'description', 'details', 'disabled', 'errormessage', 'expanded', 'flowto', 'haspopup', 'hidden', 'invalid', 'keyshortcuts', 'label', 'labelledby', 'level', 'live', 'modal', 'multiline', 'multiselectable', 'orientation', 'owns', 'placeholder', 'posinset', 'pressed', 'readonly', 'relevant', 'required', 'roledescription', 'rowcount', 'rowindex', 'rowspan', 'selected', 'setsize', 'sort', 'valuemax', 'valuemin', 'valuenow', 'valuetext']);
+for (const m of html.matchAll(/\saria-([a-z]+)=/g)) {
+  if (!ARIA.has(m[1])) problems.push(`${where(m.index)}: aria-${m[1]} is not an ARIA attribute — it is ignored`);
+}
+
 /* --- 6. aria-labelledby that points at nothing ---------------------------- */
 for (const m of html.matchAll(/aria-labelledby="([^"]+)"/g)) {
   m[1].split(/\s+/).forEach((id) => {

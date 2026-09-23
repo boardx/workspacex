@@ -30,6 +30,11 @@ for (const m of html.matchAll(/data-i18n(?:-html)?="[^"]+"[^>]*>([^<]+)</g)) {
   if (/[A-Za-z]'[A-Za-z]/.test(text)) add('straight apostrophe in English copy', text);
   if (/ -- /.test(text)) add('double hyphen instead of an em dash', text);
   if (/\s{2,}\S/.test(text)) add('doubled space in English copy', text);
+  /* One spelling. The page says organization, center and color, and it also
+     said licence, programme, labelled and behaviour — six British forms in an
+     otherwise American page, which reads as two writers. */
+  const uk = text.match(/\b(licence|programmes?|labell(?:ed|ing)|modell(?:ed|ing)|behaviours?|colours?|organis(?:ation|e|ed|ing)s?|centres?|favou?rite|catalogue|judgement|artefacts?)\b/i);
+  if (uk && !/^(favorite)$/i.test(uk[1])) add(`British spelling "${uk[1]}" — the page is written in American English`, text);
 }
 
 /* ---- Chinese: every source that contains any, not two named files -------
