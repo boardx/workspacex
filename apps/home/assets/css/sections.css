@@ -637,3 +637,16 @@
   box-shadow: inset 0 0 0 1px var(--fg-faint);
   opacity: 0.9;
 }
+
+/* ---- the reader who never signs in ---------------------------------------
+   Requirements on the artifact, not on the runtime. Set apart from the
+   memory argument above it by a rule, because it addresses a different
+   person: everything above is for whoever operates the system, and this is
+   for whoever receives what it produced. */
+.reader {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  padding-top: clamp(1.75rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--hairline);
+}
+.reader__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
+.reader__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-6); }

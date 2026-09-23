@@ -1458,6 +1458,14 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   opacity: 0.9;
 }
 
+.reader {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  padding-top: clamp(1.75rem, 3vw, 2.5rem);
+  border-top: 1px solid var(--hairline);
+}
+.reader__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
+.reader__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-6); }
+
 /* motion.css */
 [data-reveal] {
   opacity: 0;

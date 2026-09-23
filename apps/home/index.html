@@ -582,6 +582,20 @@
       <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
       <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">A knowledge graph linking people, projects, decisions, evidence, actions, artifacts and memory.</p>
     </div>
+
+    <!-- The person the whole chain is for, who never signs in. The plan calls
+         this role the one earlier versions missed entirely, and notes that
+         lineage exists in the engine while nothing presents it in the
+         artifact — a capability is not an experience. -->
+    <div class="reader" data-reveal>
+      <h3 class="reader__title" data-i18n="reader.title">And the person who never signs in</h3>
+      <p class="reader__lead" data-i18n="reader.lead">Most of the people a result has to convince will never open this product. They are handed a document, in a meeting, by someone they trust, and they have to decide. Everything above is worth nothing to them unless it survives the trip into the artifact — so these are requirements on what comes out, not on the runtime. We are designing to them now; a result that cannot meet them is not finished.</p>
+      <div class="grid grid--3 reader__props" data-stagger>
+        <div class="prop"><b data-i18n="reader.p1">You can tell what was generated</b><span data-i18n="reader.p1s">Which passages a model wrote, and which a person did, marked in the document itself — not in a settings page nobody opens.</span></div>
+        <div class="prop"><b data-i18n="reader.p2">Every claim opens to its source</b><span data-i18n="reader.p2s">Doubt a sentence, click it, and the original is there. If a conclusion cannot be opened, that is itself the finding.</span></div>
+        <div class="prop"><b data-i18n="reader.p3">Uncertainty is shown, not smoothed</b><span data-i18n="reader.p3s">Confidence and what is still unknown are part of the result. A document with no visible doubt is not more trustworthy; it is less.</span></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -697,7 +711,7 @@
       <div class="prop"><b data-i18n="unit.p1">Deliverable</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
       <div class="prop"><b data-i18n="unit.p2">Verifiable</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
       <div class="prop"><b data-i18n="unit.p3">Reusable</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task or per unit of work, because the boundary is real. Seats are a way in, not the meter — and outcome pricing only ever works where we run it.</span></div>
     </div>
   </div>
 </section>

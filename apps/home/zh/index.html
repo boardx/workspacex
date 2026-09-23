@@ -583,6 +583,20 @@
       <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
       <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">一张把人、项目、判断、证据、行动、产物与记忆连起来的知识图谱。</p>
     </div>
+
+    <!-- The person the whole chain is for, who never signs in. The plan calls
+         this role the one earlier versions missed entirely, and notes that
+         lineage exists in the engine while nothing presents it in the
+         artifact — a capability is not an experience. -->
+    <div class="reader" data-reveal>
+      <h3 class="reader__title" data-i18n="reader.title">还有那个从不登录的人</h3>
+      <p class="reader__lead" data-i18n="reader.lead">一份结果要说服的大多数人，永远不会打开这个产品。他们是在会议上，从一个信得过的人手里拿到一份文档，然后要做决定。上面这些对他们一文不值——除非它们能活着走进那份产出物里。所以这三条是对「交出去的东西」的要求，不是对运行时的要求。我们正朝这个方向设计；达不到这三条的结果，不算做完。</p>
+      <div class="grid grid--3 reader__props" data-stagger>
+        <div class="prop"><b data-i18n="reader.p1">分得清哪些是生成的</b><span data-i18n="reader.p1s">哪几段是模型写的、哪几段是人写的，标在文档本身上——不是标在某个没人会打开的设置页里。</span></div>
+        <div class="prop"><b data-i18n="reader.p2">每一条结论都能点开看出处</b><span data-i18n="reader.p2s">对某句话起疑，点开，原件就在那里。如果一条结论点不开，这件事本身就是结论。</span></div>
+        <div class="prop"><b data-i18n="reader.p3">不确定性要显示出来，不要抹平</b><span data-i18n="reader.p3s">置信度和还不知道的部分，是结果的一部分。一份看不见任何疑问的文档，不是更可信，是更不可信。</span></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -698,7 +712,7 @@
       <div class="prop"><b data-i18n="unit.p1">可交付</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
       <div class="prop"><b data-i18n="unit.p2">可验证</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
       <div class="prop"><b data-i18n="unit.p3">可复用</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">Per task or per unit of work, because the boundary is real. Seats are a way in, not the meter — and outcome pricing only ever works where we run it.</span></div>
     </div>
   </div>
 </section>
