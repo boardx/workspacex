@@ -49,7 +49,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `check-i18n.mjs` | a key used but untranslated, translated but unused, translated to whitespace, containing Cyrillic, or left in English |
 | `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `aria-labelledby` pointing at nothing, images without alt |
 | `check-links.mjs` | a local `href`/`src`/card image that resolves to no file, a fragment with no matching id, a `_redirects` target that is not there, a sitemap `<loc>` that is not there or a page missing from the sitemap, a self-referential URL that disagrees with `SITE`, a social card with no alt text, an `og:locale` that is not `language_TERRITORY`, or an `hreflang` written with an underscore |
-| `check-css.mjs` | a class or custom property defined and never used, a `var()` reading a property nothing declares, a brand colour written literally outside the token block, a value off the radius or type scale, a `--bp-*` token no media query uses, or a font stack with no CJK face for one of the four platforms |
+| `check-css.mjs` | a `:hover` rule outside `@media (hover: hover)`, a letter-spacing that does not scale with the page language, a class or custom property defined and never used, a `var()` reading a property nothing declares, a brand colour written literally outside the token block, a value off the radius or type scale, a `--bp-*` token no media query uses, or a font stack with no CJK face for one of the four platforms |
 | `check-copy.mjs` | straight quotes and apostrophes, half-width punctuation between Han characters, missing CJK/latin spacing, `...` instead of `……` |
 | `check-compat.mjs` | a feature with known engine gaps used without its guard |
 | `check-sequence.mjs` | a section eyebrow whose number disagrees with the document order, in either language, or the privacy page's prose changing without its "Last updated" date |
@@ -63,7 +63,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path, a selected state invisible in forced colors, a handler or observer accumulating across re-wires, a missing or unenforced security header |
 | `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget, in **both** languages |
 
-`tests/browser.test.mjs` is one row in that table and twenty-one suites in
+`tests/browser.test.mjs` is one row in that table and twenty-three suites in
 practice. Most run once per language, because four of them ran against English
 only for twenty rounds and the Chinese page is a separately generated document:
 
@@ -72,6 +72,7 @@ only for twenty rounds and the Chinese page is a separately generated document:
 | accessibility | axe-core over five pages in two languages |
 | keyboard ×2 | a control that cannot be reached, has no focus indicator, or can be clicked but not operated |
 | responsive | sideways overflow, svg text under 9px, or nav items overlapping each other, at 11 widths |
+| mobile ×2 | on three emulated phones with touch and a coarse pointer: sideways scroll, a touch target under 44×44, text under 11px (12px for Han), or a menu that does not open, lock the page, close and navigate. Chromium only — not WebKit |
 | text resize ×2 | content pushed off screen at a 200% text setting (WCAG 1.4.4) |
 | interaction ×2 | the compare switch, the architecture explorer or the discipline tabs failing to change state |
 | degradation ×2 | the page going blank without JavaScript, or when one module fails |

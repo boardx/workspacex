@@ -134,7 +134,7 @@ html:not(.js) [data-stagger] > * {
   transform: translateX(-50%);
   display: grid; justify-items: center; gap: var(--s-2);
   font-family: var(--font-mono); font-size: var(--t-nano);
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-faint);
+  letter-spacing: calc(0.18em * var(--track-open)); text-transform: uppercase; color: var(--fg-faint);
 }
 .scroll-cue__line {
   width: 1px; height: 30px;

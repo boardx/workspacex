@@ -166,7 +166,7 @@
         <span data-i18n="nav.github">GitHub</span>
       </a>
       <a class="btn btn--primary" data-mobile-move href="https://devapp.boardx.us" rel="noopener">
-        <span class="btn__label" data-i18n="nav.launch">Launch App</span>
+        <span class="btn__label" data-i18n="nav.launch">Launch</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu" data-i18n-aria="aria.menu"><span></span></button>
@@ -882,7 +882,7 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q6">What stage is it at?</summary>
-        <p data-i18n="faq.a6">Early, and honest about it. We are building with a small number of design partners who have real, verifiable, high-value work — not running a waitlist. If that is you, the next step is a conversation, not a signup form.</p>
+        <p data-i18n="faq.a6">Early, and honest about it. You can sign up and start on your own today — that door is open to anyone, and nobody is on a waitlist. Separately from that, we work closely with a small number of design partners who have real, verifiable, high-value work, and that one is a conversation rather than a form. Which of the two you want depends on whether you are trying the thing or betting a workstream on it.</p>
       </details>
     </div>
   </div>
@@ -938,14 +938,50 @@
      CTA
      ====================================================================== -->
 <section class="cta" id="contact">
-  <div class="wrap wrap--text">
-    <h2 data-reveal data-i18n="cta.title">Bring us work that can be checked.</h2>
-    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">We are looking for design partners with real, verifiable, high-value work — and for ecosystem partners building agents, skills and connectors on top.</p>
+  <div class="wrap">
+    <!-- Prose keeps the reading measure; the four routes are a table and take
+         the section's full width. One wrapper for both made the routes 44rem
+         wide and cramped, which the render showed before anything else. -->
+    <div class="cta__head">
+    <h2 data-reveal data-i18n="cta.title">Start where you actually are.</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">People arrive here from four different places, and the first step is not the same one. Find yours below — and where a route is not open yet, it says so rather than letting you discover it.</p>
+    </div>
+
+      <!-- Four doors, because four different people arrive here and the first
+           step is not the same one. Built from the role journeys in
+           docs/research/open-source-business-model.md §4: entry point, first
+           real moment, and — where the route is not open — the reason. -->
+      <ul class="doors" role="list" data-stagger>
+        <li class="door" style="--i:0">
+          <span class="door__who" data-i18n="doors.d1.w">You want to try it</span>
+          <b class="door__step" data-i18n="doors.d1.s">Sign up and open a workspace.</b>
+          <span class="door__then" data-i18n-html="doors.d1.t">No sales call, no waitlist. The moment that should convince you is not the tour — it is putting one real document in and getting back a conclusion with its source attached, so you can check it instead of believing it.</span>
+        </li>
+        <li class="door" style="--i:1">
+          <span class="door__who" data-i18n="doors.d2.w">You have to read it before you trust it</span>
+          <b class="door__step" data-i18n="doors.d2.s">Read the source. It is public.</b>
+          <span class="door__then" data-i18n-html="doors.d2.t">Go and find the egress guard rather than taking the claim from us: local-only work is refused at the network layer, under the application, not promised in a document. What is <em>not</em> open yet is running it yourself — there is no release, no one-command setup, and no licence. That is the same list as further up this page.</span>
+        </li>
+        <li class="door" style="--i:2">
+          <span class="door__who" data-i18n="doors.d3.w">Someone on your team already uses it</span>
+          <b class="door__step" data-i18n="doors.d3.s">Ask them to share the evidence trail, not a demo.</b>
+          <span class="door__then" data-i18n-html="doors.d3.t">The thing worth seeing is a conclusion you did not watch being made, which you can then check yourself. If you cannot, that is the answer — and it is the answer you want before a team depends on this rather than after.</span>
+        </li>
+        <li class="door" style="--i:3">
+          <span class="door__who" data-i18n="doors.d4.w">Someone sent you a result</span>
+          <b class="door__step" data-i18n="doors.d4.s">Nothing to install, nothing to sign into.</b>
+          <span class="door__then" data-i18n-html="doors.d4.t">You are the person most of this is for and the one least likely to ever open the product. Doubt one line and open it to its source. Everything above is worth nothing to you if it did not survive the trip into the document in your hands.</span>
+        </li>
+      </ul>
+
     <div class="cta__actions" data-reveal>
-      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
-        <span data-i18n="cta.primary">Become a design partner</span>
+      <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
+        <span data-i18n="cta.primary">Sign up and start</span>
       </a>
-      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">Read the source</a>
+      <!-- The old primary. It is the right action for one of the four doors,
+           not for all of them, so it keeps the line that was this section's
+           title before the doors were listed above it. -->
+      <a class="btn btn--ghost btn--lg" href="mailto:hello@boardx.us" data-i18n="cta.secondary">Bring us work that can be checked</a>
     </div>
   </div>
 </section>

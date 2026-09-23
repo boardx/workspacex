@@ -136,7 +136,7 @@ const CJK_PLATFORMS = [
   ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
 ];
 const cjkGaps = [];
-for (const m of css.matchAll(/^\s*(--font-(?:display|body)):\s*([^;]+);/gm)) {
+for (const m of css.matchAll(/^\s*(--font-(?:display|body|mono)):\s*([^;]+);/gm)) {
   for (const [platform, families] of CJK_PLATFORMS) {
     if (!families.some((f) => m[2].includes(`"${f}"`))) {
       cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
@@ -144,6 +144,39 @@ for (const m of css.matchAll(/^\s*(--font-(?:display|body)):\s*([^;]+);/gm)) {
   }
 }
 report('font stacks with no CJK face for a platform', cjkGaps);
+/* --- tracking that does not know which script it is tracking -------------
+   Every letter-spacing on this site is a Latin convention — wide on small
+   uppercase labels, tight on display type — and both are wrong for Han. They
+   now multiply by --track-open / --track-tight, which the Chinese page
+   redefines once. A literal em value written tomorrow would quietly bring
+   Latin tracking back onto sixty-odd Chinese labels, and nothing on the
+   English page would look any different. */
+const trackLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    const m = /letter-spacing:\s*([^;]+)/.exec(line);
+    if (!m) return;
+    const v = m[1].trim();
+    if (/^(0|normal)$/.test(v) || /var\(--track-(open|tight)\)/.test(v)) return;
+    trackLeaks.push(`${basename(file)}:${i + 1}: letter-spacing: ${v}`);
+  });
+}
+report('tracking that ignores the page language — multiply by var(--track-open) or var(--track-tight)', trackLeaks);
+/* --- hover on devices that cannot hover ----------------------------------
+   On a touch screen, :hover is applied by a tap and stays until the next tap
+   somewhere else. None of this site's 21 hover rules asked whether the device
+   could hover, so on a phone every tapped control kept its hover styling —
+   and on the loop rail, the step you had tapped stayed lit while the scroll
+   moved the real current step on: two steps that both looked current. */
+const hoverLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    if (!line.includes(':hover')) return;
+    if (/@media\s*\(hover:\s*hover\)/.test(line)) return;
+    hoverLeaks.push(`${basename(file)}:${i + 1}: ${line.trim().slice(0, 70)}`);
+  });
+}
+report(':hover outside @media (hover: hover) — it sticks after a tap on a phone', hoverLeaks);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);
