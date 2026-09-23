@@ -36,4 +36,24 @@ export class GoogleGuidedSearch implements GuidedSearchPort {
       throw new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE");
     }
   }
+
+  async read(url: string) {
+    try {
+      const parsed = new URL(url);
+      if (!["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("blocked");
+      const response = await this.fetcher(parsed.href, { headers: { Accept: "text/html,text/plain,application/pdf" }, signal: AbortSignal.timeout(10000), redirect: "error" });
+      if (!response.ok) throw new Error("unavailable");
+      const type = response.headers.get("content-type")?.split(";", 1)[0] ?? "";
+      if (!["text/html", "text/plain", "text/markdown", "application/pdf"].includes(type)) throw new Error("unsupported");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > 1_048_576) throw new Error("too_large");
+      const text = type === "application/pdf" ? new TextDecoder().decode(bytes).replace(/[^\x20-\x7e\n\u4e00-\u9fff]/g, " ") : new TextDecoder().decode(bytes).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+      const clean = text.replace(/\s+/g, " ").trim().slice(0, 60000);
+      if (!clean) throw new Error("empty");
+      return { text: clean, contentKind: type === "application/pdf" ? "pdf" as const : type === "text/plain" || type === "text/markdown" ? "text" as const : "html" as const, truncated: text.length > 60000 };
+    } catch (error) {
+      if (error instanceof ResearchRuntimeError) throw error;
+      throw new ResearchRuntimeError(`RESEARCH_DOCUMENT_${error instanceof Error ? error.message.toUpperCase() : "UNAVAILABLE"}`);
+    }
+  }
 }

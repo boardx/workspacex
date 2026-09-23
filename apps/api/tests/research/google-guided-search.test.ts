@@ -61,4 +61,9 @@ describe("BoardX Google guided research search", () => {
     expect(hits).toHaveLength(5);
     expect(hits[0]?.content).toHaveLength(30000);
   });
+  it("reads the linked document separately from the search excerpt", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html><body>Full policy text</body></html>", { headers: { "content-type": "text/html" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).resolves.toMatchObject({ text: "Full policy text", contentKind: "html", truncated: false });
+    expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: "error" });
+  });
 });
