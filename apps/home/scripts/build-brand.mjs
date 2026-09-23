@@ -3,10 +3,16 @@
  * build-brand.mjs — writes the brand mark into every document that needs it.
  *
  * Sources: scripts/brand.mjs for the geometry, assets/css/base.css for the
- * colour. Targets: the sprite in index.html and privacy.html, the inline mark
- * in the social card, and assets/img/favicon.svg.
+ * colour. Targets: the inline mark in the social card, and
+ * assets/img/favicon.svg.
  *
- * The first three can name CSS variables, so they do. The favicon cannot — a
+ * The pages themselves no longer carry the mark: the owner judged it
+ * redundant beside the wordmark in the header and footer, so the site
+ * identifies itself by "WorkspaceX" alone. The mark survives where a
+ * wordmark cannot go — the favicon and the home-screen icon, which are
+ * 16–180px squares.
+ *
+ * The social card can name CSS variables, so it does. The favicon cannot — a
  * browser fetches it as a standalone document with no stylesheet — so it gets
  * the resolved hexes, read out of base.css at build time rather than typed in.
  * That is why the favicon is generated instead of hand-edited: a hand-edited
@@ -31,17 +37,6 @@ const hexes = [1, 2, 3].map((n) => {
   if (!m) throw new Error(`base.css declares no --c-${n}-rgb`);
   return '#' + m.slice(1, 4).map((v) => (+v).toString(16).padStart(2, '0')).join('');
 });
-
-/* ---- the sprite the two pages share ------------------------------------- */
-const sprite =
-`<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    ${gradient('bm', (i) => `style="stop-color:var(--c-${i + 1})"`)}
-    <symbol id="mark" viewBox="${VIEWBOX}">
-${lobes('url(#bm)', '      ')}
-    </symbol>
-  </defs>
-</svg>`;
 
 /* ---- the card's own copy, same geometry, its own gradient id ------------- */
 const card =
@@ -104,12 +99,9 @@ const manifest = (page, start) => {
   }, null, 2) + '\n';
 };
 
-const SPRITE_RE = /<svg width="0" height="0" style="position:absolute"[\s\S]*?<\/svg>/;
 const CARD_RE = /<svg viewBox="0 0 32 32"[\s\S]*?<\/svg>/;
 
 const targets = [
-  ['index.html', SPRITE_RE, sprite],
-  ['privacy.html', SPRITE_RE, sprite],
   ['scripts/og-card.html', CARD_RE, card],
   ['assets/img/favicon.svg', null, favicon],
   ['assets/site.webmanifest', null, manifest('index.html', '/')],
