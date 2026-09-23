@@ -167,7 +167,7 @@
         <span data-i18n="nav.github">GitHub</span>
       </a>
       <a class="btn btn--primary" data-mobile-move href="https://devapp.boardx.us" rel="noopener">
-        <span class="btn__label" data-i18n="nav.launch">进入产品</span>
+        <span class="btn__label" data-i18n="nav.launch">进入</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="菜单" data-i18n-aria="aria.menu"><span></span></button>
@@ -883,7 +883,7 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q6">现在到什么阶段了？</summary>
-        <p data-i18n="faq.a6">早期，而且不打算含糊。我们在和少量手上有真实、可验证、高价值工作的共创伙伴一起做——没有在排队名单。如果这说的是你，下一步是一次对话，不是一个注册表单。</p>
+        <p data-i18n="faq.a6">早期，而且不打算含糊。今天你可以自己注册、自己开始——这扇门对任何人都开着，没有排队名单。和这件事分开的是：我们会和少量手上有真实、可验证、高价值工作的共创伙伴紧密合作，那一条是一次对话，不是一个表单。你要哪一个，取决于你是在试这个东西，还是打算把一条工作线压在它上面。</p>
       </details>
     </div>
   </div>
@@ -939,14 +939,50 @@
      CTA
      ====================================================================== -->
 <section class="cta" id="contact">
-  <div class="wrap wrap--text">
-    <h2 data-reveal data-i18n="cta.title">把查得出结果的活交给我们。</h2>
-    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">我们在找有真实、可验证、高价值工作的共创伙伴，也在找基于这一层构建智能体、技能与连接器的生态伙伴。</p>
+  <div class="wrap">
+    <!-- Prose keeps the reading measure; the four routes are a table and take
+         the section's full width. One wrapper for both made the routes 44rem
+         wide and cramped, which the render showed before anything else. -->
+    <div class="cta__head">
+    <h2 data-reveal data-i18n="cta.title">从你真正所在的地方开始。</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">人们是从四个不同的地方走到这里的，第一步并不一样。在下面找到你那一条——哪条路今天还没开，它会直接写出来，而不是让你自己撞上去。</p>
+    </div>
+
+      <!-- Four doors, because four different people arrive here and the first
+           step is not the same one. Built from the role journeys in
+           docs/research/open-source-business-model.md §4: entry point, first
+           real moment, and — where the route is not open — the reason. -->
+      <ul class="doors" role="list" data-stagger>
+        <li class="door" style="--i:0">
+          <span class="door__who" data-i18n="doors.d1.w">你想先试试</span>
+          <b class="door__step" data-i18n="doors.d1.s">注册，打开一个工作空间。</b>
+          <span class="door__then" data-i18n-html="doors.d1.t">不用先跟销售通话，也没有排队名单。真正该说服你的不是那圈导览，而是把一份真实的文档放进去，拿回一条带着出处的结论——你可以去核它，而不是选择相信它。</span>
+        </li>
+        <li class="door" style="--i:1">
+          <span class="door__who" data-i18n="doors.d2.w">你得先读过才谈得上信</span>
+          <b class="door__step" data-i18n="doors.d2.s">去读源码。它是公开的。</b>
+          <span class="door__then" data-i18n-html="doors.d2.t">别听我们说，自己去把那道出网守卫找出来：仅本地的工作是在网络层、在应用之下被拒绝的，不是写在某份文档里的承诺。今天<em>还没开</em>的是自己跑起来——没有 release，没有一条命令的安装，也没有许可证。这和本页上面那份清单是同一份。</span>
+        </li>
+        <li class="door" style="--i:2">
+          <span class="door__who" data-i18n="doors.d3.w">你团队里已经有人在用</span>
+          <b class="door__step" data-i18n="doors.d3.s">让他们分享证据链，而不是演示一遍。</b>
+          <span class="door__then" data-i18n-html="doors.d3.t">值得看的是一条你没有亲眼看着它被做出来的结论，然后你自己去核。如果核不动，那就是答案——而且这是你希望在一个团队压上去之前拿到的答案，不是之后。</span>
+        </li>
+        <li class="door" style="--i:3">
+          <span class="door__who" data-i18n="doors.d4.w">有人发了一份结果给你</span>
+          <b class="door__step" data-i18n="doors.d4.s">没有东西要装，也没有账号要登。</b>
+          <span class="door__then" data-i18n-html="doors.d4.t">这些事大多是为你做的，而你最不可能去打开这个产品。对某一行起疑，把它点开看出处。如果它没能活着走进你手上那份文档，上面所有东西对你都一文不值。</span>
+        </li>
+      </ul>
+
     <div class="cta__actions" data-reveal>
-      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
-        <span data-i18n="cta.primary">成为共创伙伴</span>
+      <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
+        <span data-i18n="cta.primary">注册，开始用</span>
       </a>
-      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">看源码</a>
+      <!-- The old primary. It is the right action for one of the four doors,
+           not for all of them, so it keeps the line that was this section's
+           title before the doors were listed above it. -->
+      <a class="btn btn--ghost btn--lg" href="mailto:hello@boardx.us" data-i18n="cta.secondary">把查得出结果的活交给我们</a>
     </div>
   </div>
 </section>

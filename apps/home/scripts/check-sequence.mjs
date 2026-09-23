@@ -135,6 +135,13 @@ else {
       where: 'faq.a5 and the exit-freedom block',
     },
     {
+      what: 'a one-command setup',
+      present: () => ['docker-compose.yml', 'compose.yml', 'docker-compose.yaml']
+        .some((f) => existsSync(join(repoRoot, f))),
+      says: /no one-command setup|没有一条命令的安装/,
+      where: 'the second door in the closing section',
+    },
+    {
       what: 'a contributor guide',
       present: () => ['CONTRIBUTING.md', '.github/CONTRIBUTING.md', 'CONTRIBUTING.markdown']
         .some((f) => existsSync(join(repoRoot, f))),

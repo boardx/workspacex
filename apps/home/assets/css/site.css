@@ -1490,6 +1490,38 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 }
 .notyet__list b { color: var(--fg-soft); font-weight: 600; }
 
+.doors {
+  list-style: none; padding: 0;
+
+  width: min(60rem, 100%);
+  margin: clamp(2rem, 4vw, 3rem) auto clamp(2rem, 4vw, 3rem);
+  display: grid; gap: 1px; background: var(--hairline);
+  border-radius: var(--r-sm); overflow: hidden;
+  text-align: left;
+}
+.door {
+  display: grid; gap: 0.4rem;
+
+  align-content: start;
+  padding: 1.35rem clamp(1.1rem, 2vw, 1.6rem);
+  background: var(--bg);
+}
+.door__who {
+  font-family: var(--font-mono); font-size: var(--t-micro);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint);
+}
+.door__step {
+  font-family: var(--font-display); font-size: var(--t-md); font-weight: 600;
+  letter-spacing: -0.015em; color: var(--fg);
+}
+.door__then { font-size: var(--t-small); color: var(--fg-dim); }
+.door__then em { font-style: normal; color: var(--fg-soft); }
+@media (min-width: 53.75rem) {
+  .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.cta__head { max-width: var(--measure-text); margin-inline: auto; }
+
 /* motion.css */
 [data-reveal] {
   opacity: 0;

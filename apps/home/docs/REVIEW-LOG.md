@@ -1286,3 +1286,28 @@ and a false claim, and it is this repository's own rule in another costume.
 | 8 | Read end to end, the arc is one finding repeated: **every round from 42 to 50 found something the site claimed, implied or left unsaid that the repository could not back.** The open-source story was the only part of this page never written from evidence, because the evidence lived in a different directory. |
 | 9 | The plan itself is marked 研究稿，待人类决策, and nothing in these ten rounds turned one of its recommendations into a promise. Where the page states a commitment it says it is one; where a commitment is unbuilt it says how much is real. | That rule, set in round 42, held for nine rounds without a single exception. |
 | 10 | **The one thing this batch could not do is the one that matters most: choose a licence.** D1 is marked irreversible and is a human's to make. Until it is made, the strongest sentence on this page about being open is the one admitting it is not yet true — and that is not a consolation prize. It is the only version of the claim a reader can check. |
+
+---
+
+## Round 52 — four doors, because four people arrive
+
+The page had one front door. Everyone got the same button, and the page's
+own copy disagreed with it in two places.
+
+Entry points are taken from the role journeys in
+`docs/research/open-source-business-model.md` §4 — 入口 / 第一个价值时刻 /
+最大卡点 — and from one fact only the owner could supply: `devapp.boardx.us`
+is **public self-serve signup**, which is what made the rest decidable.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The site's most prominent button and its own FAQ said opposite things.** Two primary calls to action read "Launch Workspace" and "Launch App"; `faq.a6` said the next step is *"a conversation, not a signup form"*. One of the two had to be wrong, and no gate could tell which — it is a fact about a service, not about this repository. | Asked, rather than guessed. Anyone can sign up today, so `faq.a6` was the wrong one. |
+| 2 | Its replacement keeps the distinction that made the old sentence worth writing: signing up is open to anyone, *and* a small number of design partners get a conversation — and which one you want depends on whether you are trying the thing or betting a workstream on it. | — |
+| 3 | **The closing section offered one action to everyone**: "Become a design partner", by email, with the self-serve door nowhere in it. The genuinely open door was a corner button in the nav. | Primary is now the open door. The old primary keeps the line that used to be the section's title. |
+| 4 | **Four routes, because four different people arrive and the first step is not the same one.** Try it → sign up. Read it before trusting it → the source is public. Someone on your team uses it → ask for the evidence trail, not a demo. Someone sent you a result → nothing to install at all. | Each says the **first real moment**, not the feature: one real document in and a conclusion with its source attached; the egress guard found for yourself; a conclusion you did not watch being made. |
+| 5 | The second route had to carry its own bad news, and does: **running it yourself is not open** — no release, no one-command setup, no licence — with a pointer to the same list further up the page rather than a softer version of it. | — |
+| 6 | **One destination, two names, again** — this time an external one. The nav said "Launch App", the hero said "Launch Workspace". Round 47's rule covers in-page anchors and deliberately excludes buttons, so it did not and should not fire here; extending it would flag legitimate call-to-action prose. | Aligned by hand to "Launch" and "Launch Workspace", and the limitation recorded rather than papered over with a rule that would cry wolf. |
+| 7 | **The render found two layout defects before anything else did.** The four routes sat in the closing section's 44rem prose measure, two cramped columns of 303px; and door 1 had a hole in it, because grid rows stretch and the gap landed between the step and its explanation when a neighbouring label wrapped. | Prose keeps the reading measure, the routes take the section's width; `align-content: start` closes the hole. |
+| 8 | Four parallel options are not a sequence: the first draft used `<ol>`. | `<ul role="list">` — the role restores list semantics that `list-style: none` removes in Safari, which is why every other list on this page carries it. |
+| 9 | **The claims table from round 51 earned itself.** The second route asserts a third thing about the repository, and adding the row was the promised two lines rather than another copy of the logic: a root `compose.yml` appearing now fails the page in both languages until the sentence changes. | Proved red. |
+| 10 | The shape of it: **the entry experience was the one part of this page nobody had designed** — it had accumulated. Three calls to action pointing three different ways, written in three different rounds, and a contradiction that survived because verifying it needed a person, not a script. |
