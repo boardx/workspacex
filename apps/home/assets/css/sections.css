@@ -14,7 +14,7 @@
 }
 .loss__title {
   font-size: var(--t-base); font-weight: 600; margin-bottom: 0.45rem;
-  font-family: var(--font-display); letter-spacing: -0.015em;
+  font-family: var(--font-display); letter-spacing: calc(-0.015em * var(--track-tight));
 }
 .loss__body { font-size: var(--t-small); color: var(--fg-dim); }
 
@@ -71,7 +71,7 @@
   background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
   transition: border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
 }
-.scales__card:hover { border-color: var(--hairline-2); }
+@media (hover: hover) { .scales__card:hover { border-color: var(--hairline-2); } }
 .scales__num {
   display: grid; place-items: center;
   width: 2rem; height: 2rem; border-radius: var(--r-round);
@@ -82,7 +82,7 @@
 }
 .scales__card h3 { font-size: var(--t-xl); margin-bottom: 0.4rem; }
 .scales__sub {
-  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: 0.06em;
+  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: calc(0.06em * var(--track-open));
   color: var(--c-2); margin-bottom: 0.9rem;
 }
 .scales__body { font-size: var(--t-small); color: var(--fg-dim); }
@@ -138,14 +138,14 @@
 .open__h { display: grid; gap: var(--s-1); margin-bottom: 1.35rem; }
 .open__label {
   font-family: var(--font-display); font-size: var(--t-xl); font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: calc(-0.02em * var(--track-tight));
 }
 .open__col:nth-child(1) .open__label { color: var(--c-1); }
 .open__col:nth-child(2) .open__label { color: var(--c-2); }
 .open__col:nth-child(3) .open__label { color: var(--c-3); }
 .open__sub {
   font-family: var(--font-mono); font-size: var(--t-tiny);
-  letter-spacing: 0.08em; color: var(--fg-faint); text-transform: uppercase;
+  letter-spacing: calc(0.08em * var(--track-open)); color: var(--fg-faint); text-transform: uppercase;
 }
 .open__list { list-style: none; padding: 0; display: grid; gap: 0.7rem; }
 .open__list li {
@@ -212,14 +212,14 @@
 .surface__roster   { border-right: 1px solid var(--hairline); }
 .surface__evidence { border-left: 1px solid var(--hairline); background: rgba(255,255,255,.015); }
 .roster__head {
-  font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--font-mono); letter-spacing: calc(0.1em * var(--track-open)); text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: 0.9rem; font-size: var(--t-nano);
 }
 .roster__row { display: flex; gap: var(--s-2); align-items: center; padding: 0.42rem 0; }
 .roster__av {
   width: 26px; height: 26px; border-radius: var(--r-xs); flex-shrink: 0;
   display: grid; place-items: center;
-  font-size: var(--t-nano); font-weight: 700; letter-spacing: 0.04em;
+  font-size: var(--t-nano); font-weight: 700; letter-spacing: calc(0.04em * var(--track-open));
   color: #0b0910; background: var(--c);
 }
 .roster__meta { display: grid; min-width: 0; }
@@ -247,7 +247,7 @@
 }
 .note__tag {
   font-family: var(--font-mono); font-size: var(--t-nano);
-  letter-spacing: 0.08em; text-transform: uppercase;
+  letter-spacing: calc(0.08em * var(--track-open)); text-transform: uppercase;
 }
 .note--a { left: 6%;  top: 14%; }
 .note--a .note__tag { color: var(--c-2); }
@@ -310,7 +310,7 @@
 }
 .unit__n {
   font-family: var(--font-mono); font-size: var(--t-nano);
-  color: var(--c-2); letter-spacing: 0.1em;
+  color: var(--c-2); letter-spacing: calc(0.1em * var(--track-open));
 }
 .unit__step b { font-size: var(--t-small); font-weight: 600; }
 .unit__step i { font-style: normal; font-size: var(--t-micro); color: var(--fg-dim); }
@@ -340,7 +340,7 @@
   cursor: pointer; list-style: none;
   font-family: var(--font-display);
   font-size: clamp(1.0625rem, 1.5vw, 1.25rem); font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: calc(-0.015em * var(--track-tight));
   transition: color var(--dur-fast) var(--ease-out);
 }
 .faq__item summary::-webkit-details-marker { display: none; }
@@ -355,7 +355,7 @@
   transform: rotate(-135deg) translate(-2px, -2px);
   border-color: var(--c-2);
 }
-.faq__item summary:hover { color: var(--c-2); }
+@media (hover: hover) { .faq__item summary:hover { color: var(--c-2); } }
 .faq__item p {
   padding: 0 2.25rem 1.5rem 0.25rem;
   color: var(--fg-dim); font-size: var(--t-small);
@@ -381,7 +381,7 @@
 .hz__when {
   display: inline-block;
   font-family: var(--font-mono); font-size: var(--t-nano);
-  letter-spacing: 0.14em; text-transform: uppercase;
+  letter-spacing: calc(0.14em * var(--track-open)); text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: 0.9rem;
 }
 .hz__item--now .hz__when { color: var(--c-2); }
@@ -409,7 +409,7 @@
   background: var(--bg);
   transition: background var(--dur) var(--ease-out);
 }
-.cap:hover { background: #0d0b12; }
+@media (hover: hover) { .cap:hover { background: #0d0b12; } }
 .cap h3 {
   font-size: var(--t-md); margin-bottom: var(--s-2);
   display: flex; align-items: baseline; gap: var(--s-2);
@@ -451,7 +451,7 @@
 }
 .proof__rules b {
   font-family: var(--font-display); font-size: var(--t-md); font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: calc(-0.015em * var(--track-tight));
 }
 .proof__rules span { font-size: var(--t-small); color: var(--fg-dim); }
 
@@ -526,7 +526,7 @@
   min-height: 42px;
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
-.cases__tab:hover { color: var(--fg-soft); background: var(--surface); }
+@media (hover: hover) { .cases__tab:hover { color: var(--fg-soft); background: var(--surface); } }
 .cases__tab[aria-selected="true"] {
   color: var(--fg); background: var(--surface-2); font-weight: 600;
   position: relative;
@@ -552,12 +552,12 @@
 }
 .case__grid dt {
   font-family: var(--font-mono); font-size: var(--t-nano);
-  letter-spacing: 0.12em; text-transform: uppercase;
+  letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
   color: var(--c-2);
 }
-/* 10px is a readable caption in latin and an unreadable one in Hanzi: Han
-   glyphs carry far more strokes in the same box. */
-:lang(zh) .case__grid dt { letter-spacing: 0.06em; font-size: var(--t-micro); }
+/* The reasoning that used to live here — 10px is readable Latin and
+   unreadable Hanzi — was right, and applied to one label style out of ten.
+   It now lives once, on the tokens, in base.css. */
 .case__grid dd { margin: 0; font-size: var(--t-small); color: var(--fg-dim); max-width: 44rem; }
 
 .cases__note {
@@ -593,7 +593,7 @@
   border-top: 1px solid var(--hairline);
 }
 .exit__title {
-  font-size: var(--t-h3); letter-spacing: -0.015em;
+  font-size: var(--t-h3); letter-spacing: calc(-0.015em * var(--track-tight));
   margin-bottom: var(--s-3);
 }
 .exit__lead { color: var(--fg-dim); max-width: 44rem; margin-bottom: var(--s-6); }
@@ -609,7 +609,7 @@
 }
 .exit__item b {
   font-family: var(--font-display); font-size: var(--t-md); font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: calc(-0.015em * var(--track-tight));
 }
 .exit__item > span { font-size: var(--t-small); color: var(--fg-dim); }
 .exit__state {
@@ -648,7 +648,7 @@
   padding-top: clamp(1.75rem, 3vw, 2.5rem);
   border-top: 1px solid var(--hairline);
 }
-.reader__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
+.reader__title { font-size: var(--t-h3); letter-spacing: calc(-0.015em * var(--track-tight)); margin-bottom: var(--s-3); }
 .reader__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-6); }
 
 /* The note under "Read the repository": smaller than the claim above it,
@@ -667,7 +667,7 @@
   padding-top: clamp(1.75rem, 3vw, 2.5rem);
   border-top: 1px solid var(--hairline);
 }
-.notyet__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
+.notyet__title { font-size: var(--t-h3); letter-spacing: calc(-0.015em * var(--track-tight)); margin-bottom: var(--s-3); }
 .notyet__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-5); }
 .notyet__list { list-style: none; padding: 0; display: grid; gap: var(--s-4); max-width: 52rem; }
 .notyet__list li {
@@ -706,11 +706,11 @@
 }
 .door__who {
   font-family: var(--font-mono); font-size: var(--t-micro);
-  letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint);
+  letter-spacing: calc(0.08em * var(--track-open)); text-transform: uppercase; color: var(--fg-faint);
 }
 .door__step {
   font-family: var(--font-display); font-size: var(--t-md); font-weight: 600;
-  letter-spacing: -0.015em; color: var(--fg);
+  letter-spacing: calc(-0.015em * var(--track-tight)); color: var(--fg);
 }
 .door__then { font-size: var(--t-small); color: var(--fg-dim); }
 .door__then em { font-style: normal; color: var(--fg-soft); }
