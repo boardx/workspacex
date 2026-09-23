@@ -47,6 +47,17 @@ export type DesignIssueDraft = z.infer<typeof designWorkbench.operations.createD
 /** 首页三类模板入口的闭集顺序——同契约 `ProjectTemplate` 枚举顺序，供下拉框/网格复用。 */
 export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
 
+/**
+ * 迭代 33：三种模板的中文名。原来在 `workbench-screen.tsx`（新建弹窗的下拉）与
+ * `detail-screen.tsx`（详情页状态栏）各写了一份同样的三行——同一事实的第二份副本。
+ * 键集合是契约闭集，漏一种编译不过。
+ */
+export const PROJECT_TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
+  mobile: "移动端设计",
+  ui: "UI 原型",
+  wireframe: "线框图",
+};
+
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */
 export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT_INTRO;
 /** 迭代 9：空项目起手模板（契约常量，展示层）。 */

@@ -16,6 +16,7 @@ import { Check, Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { designShareUrl, type DesignProject, type DesignShareScope } from "@/lib/live-design-workbench";
+import { humanTime } from "@/lib/human-time";
 
 /** 两档的人话。闭集来自契约——漏一档编译不过。 */
 export const SHARE_SCOPE_LABEL: Record<DesignShareScope, string> = {
@@ -46,6 +47,12 @@ export function ShareDialog({
   const share = project.share ?? null;
   const [scope, setScope] = React.useState<DesignShareScope>(share?.scope ?? "prototype");
   const [copied, setCopied] = React.useState(false);
+  /**
+   * 迭代 29：复制失败原来只是 `setCopied(false)` —— 也就是**什么都不说**。
+   * 非安全上下文（http 的内网地址）与没给剪贴板权限都会走到这里，而这恰恰是
+   * "我要把链接发给别人"那一步；一声不吭等于让人以为复制成功了，然后粘出去一片空白。
+   */
+  const [copyFailed, setCopyFailed] = React.useState(false);
   /** 一页都没画出来时服务端会拒（`NOTHING_TO_PUBLISH`）；屏上先说清楚，别让用户点了才知道。 */
   const nothingToPublish = !project.prototype.some((r) => r !== null);
   const url = share?.token === null || share?.token === undefined ? null : designShareUrl(origin, share.token);
@@ -56,10 +63,12 @@ export function ShareDialog({
     try {
       await write(url);
       setCopied(true);
+      setCopyFailed(false);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
       // 剪贴板被浏览器拒了（非安全上下文、权限没给）——链接本身就在输入框里，选中复制即可。
       setCopied(false);
+      setCopyFailed(true);
     }
   };
 
@@ -76,7 +85,7 @@ export function ShareDialog({
           </p>
         ) : (
           <p className="text-12 text-muted-foreground" data-testid="design-share-published-at">
-            已发布于 {new Date(share.publishedAt).toLocaleString("zh-CN")} · {SHARE_SCOPE_LABEL[share.scope]}
+            发布于 {humanTime(share.publishedAt)} · 带出去的是「{SHARE_SCOPE_LABEL[share.scope]}」
           </p>
         )}
 
@@ -117,6 +126,11 @@ export function ShareDialog({
               {copied ? "已复制" : "复制"}
             </Button>
           </div>
+        )}
+        {copyFailed && (
+          <p className="text-11 text-muted-foreground" role="alert" data-testid="design-share-copy-failed">
+            这个浏览器不让网页写剪贴板。链接就在上面那一栏里——点一下会自动选中，按 Ctrl/⌘ + C 复制。
+          </p>
         )}
 
         {/*

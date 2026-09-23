@@ -77,8 +77,34 @@ export function PrototypeBoard({
     setView({ x: Math.max(GAP, (el.clientWidth - contentW * k) / 2), y: Math.max(GAP / 2, (el.clientHeight - contentH * k) / 2), k });
   }, [frames.length, BOARD_W, BOARD_H]);
 
-  // 首次与页数变化时适应一次；jsdom 里 clientWidth 为 0，fit 会把 k 夹到 MIN——测试不依赖具体值。
-  React.useEffect(() => { fit(); }, [fit]);
+  /*
+   * 迭代 32：首次与页数变化时适应一次——**但用户手动调过就不再动他**。
+   *
+   * 迭代 26 给 ResizeObserver 立过这条规矩（"屏上的比例是他自己挑的，一次窗口变化把它冲掉
+   * 比不自适应更糟"），这一处却没跟上：`fit` 的依赖里有 `frames.length`，于是用户把某一页
+   * 放大到 200% 盯着改，AI 画出第 4 页的那一刻，视图被整个冲回"适应"。
+   * 同一条纪律不能只在一半的入口成立。
+   */
+  const touched = React.useRef(false);
+  React.useEffect(() => { if (!touched.current) fit(); }, [fit]);
+
+  /**
+   * 迭代 26：**窗口尺寸变了也要重新适应**。
+   *
+   * `fit()` 原来只在挂载与页数变化时跑，于是把窗口拉大、把手机横过来、或者收起侧栏之后，
+   * 画板还停在按旧尺寸算出来的比例——实测同一个页面 390 与 1440 两档量到的都是同一个
+   * 百分比，"适应画板"这件事只在第一眼成立过一次。
+   *
+   * ⚠ 用户手动缩放/平移过就**不再**自动适应：那时屏上的比例是他自己挑的，
+   * 一次窗口变化把它冲掉，比不自适应更糟。「适应画板」那颗按钮随时把他放回来。
+   */
+  React.useEffect(() => {
+    const el = viewportRef.current;
+    if (el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { if (!touched.current) fit(); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
 
   /**
    * 迭代 11：页与页之间的连线。画在 stage 里（随平移缩放一起变换），坐标按 stage 的**未缩放**坐标系：
@@ -156,6 +182,7 @@ export function PrototypeBoard({
   }, [measure, frames, device, landscape, view.k]);
 
   const zoomAt = (factor: number, cx?: number, cy?: number) => {
+    touched.current = true; // 见上方 ResizeObserver：手动调过就不再自动适应
     setView((v) => {
       const k = clamp(v.k * factor);
       if (cx === undefined || cy === undefined) return { ...v, k };
@@ -171,6 +198,7 @@ export function PrototypeBoard({
     if (e.ctrlKey || e.metaKey) {
       zoomAt(e.deltaY < 0 ? STEP : 1 / STEP, e.clientX - (rect?.left ?? 0), e.clientY - (rect?.top ?? 0));
     } else {
+      touched.current = true;
       setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
     }
   };
@@ -185,14 +213,25 @@ export function PrototypeBoard({
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (d === null) return;
+    touched.current = true;
     setView((v) => ({ ...v, x: d.vx + (e.clientX - d.x), y: d.vy + (e.clientY - d.y) }));
   };
   const onPointerUp = () => { drag.current = null; };
 
+  /** 迭代 32：方向键平移。此前键盘只能缩放——聚焦到画板之后，想看右边那几页只能回去摸鼠标。 */
+  const PAN = 80;
+  const pan = (dx: number, dy: number) => {
+    touched.current = true;
+    setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+  };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomAt(STEP); }
     else if (e.key === "-") { e.preventDefault(); zoomAt(1 / STEP); }
     else if (e.key === "0") { e.preventDefault(); setView((v) => ({ ...v, k: 1 })); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); pan(PAN, 0); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); pan(-PAN, 0); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); pan(0, PAN); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); pan(0, -PAN); }
   };
 
   return (
@@ -264,12 +303,29 @@ export function PrototypeBoard({
           </svg>
         )}
       </div>
+      {/*
+        * 迭代 32：页与页之间的箭头此前没有任何说明。做设计的人一眼知道那是跳转，
+        * 而这一屏的目标读者不知道——他看到的是几条不知道从哪来的线。
+        */}
+      {paths.length > 0 && (
+        <p className="pointer-events-none absolute left-3 top-3 rounded-control bg-card/90 px-2 py-1 text-10 text-muted-foreground" data-testid="design-detail-board-links-legend">
+          箭头 = 点了这个控件会跳到那一页
+        </p>
+      )}
       <div className="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-card border border-border bg-card p-0.5 text-11 shadow-lg" data-testid="design-detail-board-zoom" data-board-controls>
-        <button type="button" aria-label="缩小" onClick={() => zoomAt(1 / STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-out"><Minus aria-hidden className="h-3.5 w-3.5" /></button>
-        <span className="min-w-10 text-center font-mono text-10 text-muted-foreground" data-testid="design-detail-zoom-level">{Math.round(view.k * 100)}%</span>
-        <button type="button" aria-label="放大" onClick={() => zoomAt(STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-in"><Plus aria-hidden className="h-3.5 w-3.5" /></button>
-        <button type="button" aria-label="实际大小" onClick={() => setView((v) => ({ ...v, k: 1 }))} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-reset"><Scan aria-hidden className="h-3.5 w-3.5" /></button>
-        <button type="button" aria-label="适应画板" onClick={fit} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-fit"><Maximize2 aria-hidden className="h-3.5 w-3.5" /></button>
+        {/*
+          * 迭代 32 三件事：
+          *   · 到头了把按钮**禁用**——原来到了 25% / 250% 还能一直点，点了不动，
+          *     而屏上那个百分比也不变，看起来像卡住了。
+          *   · 四颗按钮原来只有 `aria-label`：用鼠标的人看到的是四个图标，猜不出是什么，
+          *     也不知道有快捷键。`title` 把名字和快捷键一起说出来。
+          *   · 百分比本身可点，回到 100%——所有人都会先去点那个数字。
+          */}
+        <button type="button" aria-label="缩小" title="缩小（快捷键 −）" disabled={view.k <= MIN + 1e-6} onClick={() => zoomAt(1 / STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel disabled:text-disabled-foreground" data-testid="design-detail-zoom-out"><Minus aria-hidden className="h-3.5 w-3.5" /></button>
+        <button type="button" title="回到实际大小（快捷键 0）" onClick={() => { touched.current = true; setView((v) => ({ ...v, k: 1 })); }} className="min-w-10 rounded-control text-center text-10 text-muted-foreground transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-level">{Math.round(view.k * 100)}%</button>
+        <button type="button" aria-label="放大" title="放大（快捷键 ＝）" disabled={view.k >= MAX - 1e-6} onClick={() => zoomAt(STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel disabled:text-disabled-foreground" data-testid="design-detail-zoom-in"><Plus aria-hidden className="h-3.5 w-3.5" /></button>
+        <button type="button" aria-label="实际大小" title="回到实际大小（快捷键 0）" onClick={() => { touched.current = true; setView((v) => ({ ...v, k: 1 })); }} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-reset"><Scan aria-hidden className="h-3.5 w-3.5" /></button>
+        <button type="button" aria-label="适应画板" title="缩到刚好看全所有页；方向键可以平移" onClick={() => { touched.current = false; fit(); }} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-fit"><Maximize2 aria-hidden className="h-3.5 w-3.5" /></button>
       </div>
     </div>
   );

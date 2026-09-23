@@ -98,6 +98,34 @@ describe("DesignProject.prototype 不变量", () => {
   });
 });
 
+describe("迭代 28 枚举取值的中文档位（覆盖率门控）", () => {
+  it("PROTOTYPE_FIELDS 里每一个 enum option 都查得到中文——漏一个就判失败", () => {
+    const missing: string[] = [];
+    for (const type of dp.PrototypeNodeType.options) {
+      for (const f of dp.PROTOTYPE_FIELDS[type]) {
+        if (f.kind !== "enum") continue;
+        for (const o of f.options ?? []) {
+          // 查不到中文时 `prototypeOptionLabel` 原样返回英文值——那正是要挡的情况。
+          if (dp.prototypeOptionLabel(type, f.key, o) === o) missing.push(`${type}.${f.key}=${o}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("同名不同义的字段按 `<类型>.<key>` 取到各自的话，其余走字段级", () => {
+    expect(dp.prototypeOptionLabel("stack", "align", "start")).toBe("贴着起点");
+    expect(dp.prototypeOptionLabel("text", "align", "start")).toBe("靠左");
+    expect(dp.prototypeOptionLabel("button", "variant", "primary")).toBe("主按钮");
+    expect(dp.prototypeOptionLabel("text", "variant", "body")).toBe("正文");
+  });
+
+  it("没登记的取值原样返回，不抛", () => {
+    expect(dp.prototypeOptionLabel("button", "variant", "不存在的值")).toBe("不存在的值");
+    expect(dp.prototypeOptionLabel("button", "不存在的字段", "x")).toBe("x");
+  });
+});
+
 describe("迭代 5 属性面板元数据（单源门控）", () => {
   it("每种类型：PROTOTYPE_FIELDS 的 key 集合 == 对应 *Props 的 shape 键集合；枚举 options 与 zod 一致", () => {
     for (const type of dp.PrototypeNodeType.options) {

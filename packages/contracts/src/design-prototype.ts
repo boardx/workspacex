@@ -450,6 +450,56 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   grid: [FNum("columns", "列数", ["2", "3"]), F("gap", "间距", "enum", SCALE_OPTIONS)],
 };
 
+/**
+ * 迭代 28 —— 枚举取值 → 中文档位。
+ *
+ * `PROTOTYPE_FIELDS` 的 `options` 直接取自 zod `.options`，也就是 schema 里的英文字面量。
+ * 属性面板原样把它们渲染进下拉，于是一个不写代码的人在「样式」里看到的是
+ * `primary / secondary / ghost / danger`，在「图标」里看到的是 50 个英文单词。
+ * 标签是给人看的东西，得和取值分开。
+ *
+ * 查表顺序：`"<节点类型>.<字段 key>"` → `"<字段 key>"` → 原样返回。
+ * 带类型的那一层只为**同名不同义**的字段存在（目前只有 `align`：stack 上是交叉轴、
+ * text 上是文字对齐）；其余一律走字段级，避免同一句话抄 20 遍。
+ *
+ * ⚠ 覆盖率由契约测试机械核对：`PROTOTYPE_FIELDS` 里任何一个 enum option 查不到中文
+ *   都判失败——新增枚举值却忘了给话，会在测试里当场红，而不是悄悄漏一个英文到界面上。
+ */
+export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  direction: { row: "横着排", column: "竖着排" },
+  gap: { none: "不留", sm: "小", md: "中", lg: "大" },
+  padding: { none: "不留", sm: "小", md: "中", lg: "大" },
+  size: { none: "不留", sm: "小", md: "中", lg: "大" },
+  radius: { none: "直角", sm: "小圆角", md: "中圆角", lg: "大圆角", full: "全圆" },
+  align: { start: "靠左", center: "居中", end: "靠右", between: "两端撑开" },
+  "stack.align": { start: "贴着起点", center: "居中", end: "贴着末尾", between: "两端撑开" },
+  variant: {
+    title: "大标题", subtitle: "小标题", body: "正文", caption: "小字注释", label: "字段标签",
+    primary: "主按钮", secondary: "次按钮", ghost: "透明按钮", danger: "危险操作",
+  },
+  kind: { photo: "照片", illustration: "插画", avatar: "头像", map: "地图", chart: "图表", logo: "标志", video: "视频" },
+  ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
+  leading: { none: "不加", dot: "圆点", check: "勾选框", avatar: "头像", icon: "图标" },
+  tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
+  columns: { "2": "2 列", "3": "3 列" },
+  icon: {
+    home: "首页", search: "搜索", menu: "菜单", more: "更多", settings: "设置",
+    filter: "筛选", grid: "宫格", list: "列表", back: "返回", forward: "前进",
+    user: "个人", users: "多人", bell: "通知", message: "消息", send: "发送",
+    share: "分享", heart: "喜欢", star: "收藏星",
+    image: "图片", camera: "相机", file: "文件", folder: "文件夹", bookmark: "书签",
+    tag: "标签", link: "链接", download: "下载", upload: "上传",
+    plus: "加号", edit: "编辑", trash: "删除", check: "对勾", close: "关闭",
+    refresh: "刷新", play: "播放", pause: "暂停", lock: "锁", eye: "眼睛",
+    cart: "购物车", card: "银行卡", chart: "图表", calendar: "日历", clock: "时钟",
+    location: "定位", mail: "邮件", phone: "电话", info: "信息", warning: "警告",
+  },
+};
+
+/** 取一个枚举值的中文档位；没登记就原样返回（契约测试保证 `PROTOTYPE_FIELDS` 里不会有这种漏网的）。 */
+export const prototypeOptionLabel = (type: string, fieldKey: string, value: string): string =>
+  PROTOTYPE_OPTION_LABELS[`${type}.${fieldKey}`]?.[value] ?? PROTOTYPE_OPTION_LABELS[fieldKey]?.[value] ?? value;
+
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
 
 export const PROTOTYPE_MAX_PATCH_OPS = 50;

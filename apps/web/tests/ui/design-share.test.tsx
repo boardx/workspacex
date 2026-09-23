@@ -144,7 +144,8 @@ describe("分享页", () => {
     const meta = screen.getByTestId("shared-design-meta").textContent ?? "";
     expect(meta).toContain("小王");
     expect(meta).toContain("只读");
-    expect(meta).toContain("2026");
+    expect(meta).toContain("发布于");
+    expect(meta).toContain("10:00"); // 迭代 29 起是人话时间（今天/昨天/M月D日 + 时分），不再是带秒的 toLocaleString
   });
 
   it("prototype 档不渲染「问题与目标」那一节；full 档才有", async () => {
@@ -179,7 +180,7 @@ describe("分享页", () => {
   it("没画出来的页在页签上如实标出来，不假装这份原型只有几页", async () => {
     render(<SharedDesignView token="t" load={async () => ({ design: shared({ prototype: [screenTree("首页"), null] }) })} />);
     await screen.findByTestId("shared-design-view");
-    expect(screen.getByTestId("shared-design-frame-1").textContent).toContain("未出图");
+    expect(screen.getByTestId("shared-design-frame-1").textContent).toContain("还没画");
   });
 
   it("链接打不开 ⇒ 一句话说清下一步，且不区分「不存在」和「已取消」", async () => {
@@ -198,5 +199,64 @@ describe("分享页", () => {
     const box = await screen.findByTestId("shared-design-error");
     expect(box.textContent).toContain("稍后再试");
     expect(box.textContent).not.toContain("取消分享");
+  });
+});
+
+describe("迭代 29：交出去的那一步不许假装成功", () => {
+  it("复制链接被浏览器拒 ⇒ 屏上说清怎么手动复制，而不是一声不吭", async () => {
+    /*
+     * ⭐ 反证锚点：把 catch 改回只 `setCopied(false)` ⇒ 这条红。
+     * 非安全上下文（内网 http）下剪贴板 API 一律被拒，而这正是"把链接发给别人"那一步：
+     * 不说话，人会以为复制到了，然后粘出去一片空白。
+     */
+    render(
+      <ShareDialog
+        {...dialogProps}
+        project={project({ share: published() })}
+        copy={async () => { throw new Error("NotAllowedError"); }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("design-share-copy"));
+    const note = await screen.findByTestId("design-share-copy-failed");
+    expect(note.textContent).toContain("Ctrl");
+    expect(screen.getByTestId("design-share-copy").textContent).not.toContain("已复制");
+  });
+
+  it("发布时间说人话，不是带秒的机器时间", () => {
+    // ⭐ 反证锚点：改回 `new Date(x).toLocaleString("zh-CN")` ⇒ 这条红。
+    render(<ShareDialog {...dialogProps} project={project({ share: published({ publishedAt: new Date().toISOString() }) })} />);
+    expect(screen.getByTestId("design-share-published-at").textContent).toContain("刚刚");
+  });
+
+  it("访客那边打不开时给「再试一次」，重试真的会重新拉一次", async () => {
+    /*
+     * ⭐ 反证锚点：去掉按钮、或让它不改 reloadAt ⇒ 这条红。
+     * 访客多半在手机上，断网只是过一条隧道；让他回头去找发链接的人是白跑一趟。
+     */
+    let calls = 0;
+    const load = async () => {
+      calls += 1;
+      if (calls === 1) throw new ApiError(503, null, {});
+      return { design: shared() };
+    };
+    render(<SharedDesignView token="t" load={load} />);
+    await screen.findByTestId("shared-design-error");
+    fireEvent.click(screen.getByTestId("shared-design-retry"));
+    await screen.findByTestId("shared-design-view");
+    expect(calls).toBe(2);
+  });
+
+  it("「链接已被取消分享」这一类不给重试——再点一百次也还是那条失效链接", async () => {
+    render(<SharedDesignView token="t" load={async () => { throw new ApiError(404, "SHARE_NOT_FOUND", {}); }} />);
+    await screen.findByTestId("shared-design-error");
+    expect(screen.queryByTestId("shared-design-retry")).toBeNull();
+  });
+
+  it("访客页底部说清这是哪一刻的快照，以及想看最新的该怎么办", async () => {
+    // ⭐ 反证锚点：把底部改回「这是一份只读的设计原型快照」⇒ 这条红。
+    render(<SharedDesignView token="t" load={async () => ({ design: shared({ publishedAt: new Date().toISOString() }) })} />);
+    const view = await screen.findByTestId("shared-design-view");
+    expect(view.textContent).toContain("刚刚");
+    expect(view.textContent).toContain("找发给你的人再发一条");
   });
 });

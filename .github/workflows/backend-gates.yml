@@ -492,6 +492,44 @@ jobs:
           path: apps/web/test-results/prototype-audit/
           if-no-files-found: error
 
+  design-loop-e2e:
+    runs-on: ubuntu-latest
+    # 与其它 gates job 对齐的 fork PR 守卫。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # 设计工作台三条 spec（响应式 / 原型主链路 / 发布与分享）。**不需要 postgres/docker**：
+      # 数据全部由 `page.route` 夹具提供，服务由 config 的 `webServer` 自己起——同
+      # `prototype-audit` 那条车道的成例。
+      #
+      # ⚠ 为什么单独成道而不是挂在 `fullstack-smoke` 上：挂上去之后那个 job（预算 20 分钟，
+      #   还要起 docker + API + 五个回环上游 + 一次 next build）连续两次跑到 18.5 分钟被
+      #   超时取消，这三条因此一次完整结论都没给出过。详见
+      #   `apps/web/playwright.design-loop.config.ts` 的文件头。
+      - name: 设计工作台 e2e（响应式 / 原型主链路 / 分享）
+        run: pnpm run verify:design-loop
+
+      - name: Upload design-loop e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: design-loop-e2e-${{ github.run_id }}
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+
   # Stable merge check: matrix gates-test reports success only when every shard passes.
   # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
   backend-required:
@@ -499,7 +537,7 @@ jobs:
     # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
     # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
     if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit]
+    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit, design-loop-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
