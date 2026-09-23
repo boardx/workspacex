@@ -260,7 +260,7 @@ async function boot(): Promise<void> {
       对独立发布的应用这两句都不成立（见 `startup-failure.ts` 的表）。
       分诊判据在 local-runtime 里（可测），这里只负责把按钮接到动作上。
     */
-    const d = diagnoseStartupFailure(raw, { hasBackup: lastBackupDir() !== null });
+    const d = diagnoseStartupFailure(e, { hasBackup: lastBackupDir() !== null });
     const r = await dialog.showMessageBox({
       type: "error",
       title: d.title,
@@ -274,8 +274,10 @@ async function boot(): Promise<void> {
     if (chosen === undefined) { app.quit(); return; }
     if (chosen.kind === "reclaim-port") {
       // 只收回我们自己独占的 loopback 端口；占用者一定是上一次没退干净的我们自己。
-      const freed = await stopListenerOnPort(chosen.port);
-      log(`[recover] 收回端口 ${chosen.port}: ${freed ? "已释放" : "没找到占用者"}`);
+      for (const port of chosen.ports) {
+        const freed = await stopListenerOnPort(port);
+        log(`[recover] 收回端口 ${port}: ${freed ? "已释放" : "没找到占用者"}`);
+      }
       app.relaunch();
     } else if (chosen.kind === "restore-backup") {
       const dir = lastBackupDir();
