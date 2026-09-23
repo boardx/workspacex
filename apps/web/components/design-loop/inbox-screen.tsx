@@ -462,8 +462,8 @@ export function DesignLoopInboxScreen({
 
   /**
    * B3.5——drawer 里的「创建 GitHub Issue」编辑器确认后调用。**只对 `backlog` 态的反馈
-   * 开放**（见文件头：`doing → doing` 是幂等重放，不会触发 issue 创建这个副作用，
-   * 契约也没有另一条允许携带 `issueDraft` 的边）。
+   * 开放**（见文件头：`doing → doing` 是幂等重放，不会触发 issue 创建这个副作用；
+   * 契约 `triageFeedback` 里允许携带 `issueDraft` 的边只有 `backlog → doing` 这一条）。
    */
   const createGithubIssue = async (item: InboxItem, issueDraft: FeedbackIssueDraft) => {
     // 2026-09-05「转开发」——设计方案走自己的那条操作（`POST /pm-designs/:id/github-issue`）。

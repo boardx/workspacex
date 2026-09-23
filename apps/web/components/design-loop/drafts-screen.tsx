@@ -83,7 +83,7 @@ export function DesignLoopDraftsScreen({
   /**
    * 迭代 34：**删草稿之前先问一句**。
    *
-   * 草稿是用户手里**唯一**的那一份（没有回收站、没有撤销，契约里也没有恢复操作），
+   * 草稿是用户手里**唯一**的那一份（没有回收站、没有撤销，契约里也没有 `restoreFeedbackDraft` 这样的恢复操作），
    * 而删除入口有两个：卡片右下角那个垃圾桶图标（挨着「直接提交」，4px 间距），
    * 以及编辑抽屉底部的「删除草稿」。两个都是点一下就没。
    * 确认只做一层：谁点的都落到这同一个确认，不在两处各写一遍。
@@ -446,7 +446,7 @@ function EditDrawer({
                 {draft.attachments.map((a) => (
                   <li key={a.id} className="flex items-center gap-1.5 rounded-control bg-panel px-2 py-1 text-11 text-muted-foreground">
                     <Paperclip aria-hidden className="h-3 w-3" />
-                    {/* 迭代 34：契约里没有文件名，屏上唯一能说明"这是什么"的就是类型——那就别写 MIME。 */}
+                    {/* 迭代 34：契约里没有 `attachmentFileName`，屏上唯一能说明"这是什么"的就是类型——那就别写 MIME。 */}
                     {FEEDBACK_ATTACHMENT_LABEL[a.mime]}
                   </li>
                 ))}
