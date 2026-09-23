@@ -167,7 +167,7 @@
         <span data-i18n="nav.github">GitHub</span>
       </a>
       <a class="btn btn--primary" data-mobile-move href="https://devapp.boardx.us" rel="noopener">
-        <span class="btn__label" data-i18n="nav.launch">进入产品</span>
+        <span class="btn__label" data-i18n="nav.launch">进入</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="菜单" data-i18n-aria="aria.menu"><span></span></button>
@@ -583,6 +583,20 @@
       <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
       <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">一张把人、项目、判断、证据、行动、产物与记忆连起来的知识图谱。</p>
     </div>
+
+    <!-- The person the whole chain is for, who never signs in. The plan calls
+         this role the one earlier versions missed entirely, and notes that
+         lineage exists in the engine while nothing presents it in the
+         artifact — a capability is not an experience. -->
+    <div class="reader" data-reveal>
+      <h3 class="reader__title" data-i18n="reader.title">还有那个从不登录的人</h3>
+      <p class="reader__lead" data-i18n="reader.lead">一份结果要说服的大多数人，永远不会打开这个产品。他们是在会议上，从一个信得过的人手里拿到一份文档，然后要做决定。上面这些对他们一文不值——除非它们能活着走进那份产出物里。所以这三条是对「交出去的东西」的要求，不是对运行时的要求。我们正朝这个方向设计；达不到这三条的结果，不算做完。</p>
+      <div class="grid grid--3 reader__props" data-stagger>
+        <div class="prop"><b data-i18n="reader.p1">分得清哪些是生成的</b><span data-i18n="reader.p1s">哪几段是模型写的、哪几段是人写的，标在文档本身上——不是标在某个没人会打开的设置页里。</span></div>
+        <div class="prop"><b data-i18n="reader.p2">每一条结论都能点开看出处</b><span data-i18n="reader.p2s">对某句话起疑，点开，原件就在那里。如果一条结论点不开，这件事本身就是结论。</span></div>
+        <div class="prop"><b data-i18n="reader.p3">不确定性要显示出来，不要抹平</b><span data-i18n="reader.p3s">置信度和还不知道的部分，是结果的一部分。一份看不见任何疑问的文档，不是更可信，是更不可信。</span></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -698,7 +712,7 @@
       <div class="prop"><b data-i18n="unit.p1">可交付</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
       <div class="prop"><b data-i18n="unit.p2">可验证</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
       <div class="prop"><b data-i18n="unit.p3">可复用</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">Per task or per unit of work, because the boundary is real. Seats are a way in, not the meter — and outcome pricing only ever works where we run it.</span></div>
     </div>
   </div>
 </section>
@@ -709,48 +723,79 @@
 <section class="section" id="open">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="open.eyebrow">11 — 开放是设计选择</span>
-      <h2 data-i18n="open.title">掌握语义，而不是掌握每一行实现。</h2>
-      <p class="lead" data-i18n="open.lead">写软件只会越来越便宜。值得自己掌握的是核心抽象、协作运行时，以及人与智能体之间的体验。其余的，要么直接采用，要么保持可替换。</p>
+      <span class="eyebrow" data-i18n="open.eyebrow">11 — 什么开放，什么售卖</span>
+      <h2 data-i18n="open.title">三类东西。只有其中一类是你买的产品。</h2>
+      <p class="lead" data-i18n="open.lead">这条线不是功能清单。凡是让我们成为中立工作层的，就该开放；凡是随你自己积累起来的，是我们售卖的。还有第三堆，多数厂商从不点名：我们为了让这件事跑下去而自建的运营机器——你既不会收到它，也不会为它付钱。</p>
+      <p class="lead" data-i18n="open.layer">还得说清楚，这是在哪一层上下的注。WorkspaceX 在 AI 工作空间这一层——和 Copilot、Glean、飞书、钉钉同层——而不是它下面那层智能体基础设施，那一层的开源项目已经不少。而在这一层，一个开源的都没有。这才是「开放」在这里是一个楔子、而不是一张入场券的原因，也是本页再往下那个许可证问题不是细节的原因。</p>
     </header>
 
     <div class="open__cols" data-stagger>
       <section class="open__col" style="--i:0">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">自建</span><span class="open__sub" data-i18n="open.c1.s">必须自己掌握</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">开放</span><span class="open__sub" data-i18n="open.c1.s">中立的工作层</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c1.i1">工作空间对象模型</li>
-          <li data-i18n="open.c1.i2">本体与上下文</li>
-          <li data-i18n="open.c1.i3">人机协作体验</li>
-          <li data-i18n="open.c1.i4">Harness 与证据</li>
-          <li data-i18n="open.c1.i5">画布语义模型</li>
-          <li data-i18n="open.c1.i6">记忆与溯源</li>
+          <li data-i18n="open.c1.i1">工作单元运行时</li>
+          <li data-i18n="open.c1.i2">Agent Harness 与证据</li>
+          <li data-i18n="open.c1.i3">Context Engine</li>
+          <li data-i18n="open.c1.i4">模型路由与适配层</li>
+          <li data-i18n="open.c1.i5">沙箱与本地桌面版</li>
+          <li data-i18n="open.c1.i6">工作单元格式规范</li>
         </ul>
       </section>
       <section class="open__col" style="--i:1">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">采用</span><span class="open__sub" data-i18n="open.c2.s">成熟基础设施</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">售卖</span><span class="open__sub" data-i18n="open.c2.s">随你自己积累的部分</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c2.i1">Yjs / CRDT</li>
-          <li data-i18n="open.c2.i2">Postgres / pgvector</li>
-          <li data-i18n="open.c2.i3">对象存储</li>
-          <li data-i18n="open.c2.i4">WebRTC / LiveKit</li>
-          <li data-i18n="open.c2.i5">OpenUSD / WebXR</li>
-          <li data-i18n="open.c2.i6">队列与工作流基础设施</li>
+          <li data-i18n="open.c2.i1">方法论正文与判据阈值</li>
+          <li data-i18n="open.c2.i2">评测集与护栏</li>
+          <li data-i18n="open.c2.i3">托管执行与算力配额</li>
+          <li data-i18n="open.c2.i4">SSO、审计、多租户</li>
+          <li data-i18n="open.c2.i5">合规导出</li>
+          <li data-i18n="open.c2.i6">市场通道与结算</li>
         </ul>
       </section>
       <section class="open__col" style="--i:2">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">集成</span><span class="open__sub" data-i18n="open.c3.s">保持可替换</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">不交付</span><span class="open__sub" data-i18n="open.c3.s">我们自己运营，不卖给你</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c3.i1">大模型供应商</li>
-          <li data-i18n="open.c3.i2">M365 / Google / 飞书 / 钉钉</li>
-          <li data-i18n="open.c3.i3">身份与 SSO</li>
-          <li data-i18n="open.c3.i4">CRM / ERP / GitHub</li>
-          <li data-i18n="open.c3.i5">云与私有化</li>
-          <li data-i18n="open.c3.i6">MCP 与连接器</li>
+          <li data-i18n="open.c3.i1">协调平面</li>
+          <li data-i18n="open.c3.i2">发布与部署控制台</li>
+          <li data-i18n="open.c3.i3">事故面板</li>
+          <li data-i18n="open.c3.i4">agent 车队状态</li>
+          <li data-i18n="open.c3.i5">CI 指标</li>
+          <li data-i18n="open.c3.i6">密钥轮换台账</li>
         </ul>
       </section>
     </div>
 
-    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">开放内核、开放标准、开放生态——企业级的价值落在治理、可靠性与规模上。</p>
+    <!-- The plan calls this the core difference from Copilot and Lark, and
+         says it has only ever been implied. Written out, with what backs each
+         line today: a promise whose status is hidden is not a promise. -->
+    <div class="exit" data-reveal>
+      <h3 class="exit__title" data-i18n="exit.title">当你不再付费的时候</h3>
+      <p class="exit__lead" data-i18n="exit.lead">这才是开源真正要回答的问题，也是多数厂商只在一份你只读一次的合同里回答的问题。下面是承诺，每一条旁边诚实地写着：今天它有多少是真的。</p>
+      <ul class="exit__list" role="list">
+        <li class="exit__item">
+          <b data-i18n="exit.i1.t">开放的那部分继续能用。</b>
+          <span data-i18n="exit.i1.b">不是会到期的试用。工作层是你的，可以一直跑在你自己的机器上，想跑多久跑多久。</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i1.s">卡在许可证上。目前还没有，所以今天这是一个意图，不是一项权利。</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i2.t">你的数据可以完整拿走。</b>
+          <span data-i18n="exit.i2.b">你放进去的，以及系统产出的，都以开放格式导出，不需要问我们。</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i2.s">只建了一半。单个产出物今天可以导出；把整个工作空间一条命令导出，还不存在。</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i3.t">有一条写下来的退路。</b>
+          <span data-i18n="exit.i3.b">从托管回到自托管有明确路径，双方各有一份清单——而不是提个工单然后摊手。</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i3.s">还没建。方案里点了名，尚未设计。</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i4.t">我们不关掉任何东西。</b>
+          <span data-i18n="exit.i4.b">不会偷偷埋一个开关，也不会在你已经建立依赖之后把某个功能挪到付费墙后面。已经开放的，继续开放。</span>
+          <span class="exit__state" data-state="live" data-i18n="exit.i4.s">已生效。这是一条关于我们自己行为的规矩，也是这里唯一一条不需要工程的。</span>
+        </li>
+      </ul>
+    </div>
+
+    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">凡是让我们成为中立工作层的，开放；凡是随你积累的，售卖。把第三堆点出来才是诚实的那部分——那是我们怎么把这件事跑起来的，不是你在买的东西，也不该要你盲信。</p>
   </div>
 </section>
 
@@ -768,6 +813,11 @@
           <span data-i18n="proof.cta">去看仓库</span>
           <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
+          <!-- Deliberately not a "Contribute" button. The machinery a first
+               contribution needs does not exist yet, and the plan's most likely
+               failure is maintainers burning out, not users failing to arrive.
+               Inviting the work before we can receive it is how that happens. -->
+          <p class="proof__note" data-i18n="proof.note">读，是我们发出的邀请。贡献还没有开放——没有贡献指南，没有一条能快速跑起来的本地环境，也没有任何一个标给新人的 issue；在这些东西就位之前把门打开，只会浪费你一个下午，并把那几个还在回消息的人埋掉。等它开放，会是因为这些准备好了，而不是因为那样听起来友好。</p>
       </div>
 
       <ul class="proof__rules" data-reveal="right" role="list">
@@ -793,7 +843,7 @@
     <div class="faq" data-stagger>
       <details class="faq__item">
         <summary data-i18n="faq.q1">我们的数据放在哪？</summary>
-        <p data-i18n="faq.a1">你说了算。云、你自己的机房、混合，或者完全跑在本机上。部署方式是一个配置选项，不是一个砍掉功能的“另一个版本”。</p>
+        <p data-i18n="faq.a1">你说了算。云、你自己的机房、混合，或者完全跑在本机上——同一份代码跑在所有这些地方，部署方式是一个配置选项，不是一个砍过的构建。版本是另一个维度，与位置无关：商业版多出来的是工作层之上的治理层——单点登录、审计、多租户、合规导出——而这一层你同样可以跑在自己的机房里。</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q2">想换模型的时候会怎样？</summary>
@@ -809,11 +859,31 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q5">这是开源的吗？</summary>
-        <p data-i18n="faq.a5">开放内核。工作空间对象模型、智能体与技能格式、连接器接口都是开放可读的，源码在 GitHub 上。治理、可靠性与规模是商业化的部分。你的工作是怎么被执行的，你应该读得到。</p>
+        <p data-i18n="faq.a5">仓库今天是公开可读的——这一条是事实，你可以自己核。许可证不是：仓库里还没有 LICENSE 文件，所以它没有授予你运行或修改它的权利。在这件事落地之前，我们不会把它叫做开源。方向是开放内核：工作空间对象模型、智能体与技能格式、连接器接口开放，治理、可靠性与规模商业化——而许可证的决定是下一步，不是细节。</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q9">你们会拿我们的数据去训练吗？</summary>
+        <p data-i18n="faq.a9">不会，而且这不是一个要你自己去翻出来的开关。你的材料默认不是训练数据；要用其中任何一部分，都需要专门来问你、并拿到一个专门的同意——而不是一份你当初一次性接受的条款里的一个条目。这是一条承诺而不是一个功能，所以约束我们的诚实办法是合同。比起把一句写在营销页上的话当成足够，我们更希望你去要那份合同。</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q10">免费的那一档到底给什么？</summary>
+        <p data-i18n="faq.a10">整个产品，只是容量有限——不是一个把有用部分拿掉的演示版。我们正朝这个承诺设计：免费档在功能上保持完整，配额用完时降级到更小的模型，而不是在任务中途把你切断——一个跑到一半停住的任务，比一个完成得差一点的任务更糟。付费档多出来的是容量、我们替你运行的托管、治理层，以及方法论内容——换句话说，就是上面那三栏。</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q11">今天做这些活的年轻人会怎么样？</summary>
+        <p data-i18n="faq.a11">诚实的回答是：这取决于你怎么用它，而我们在设计上已经选了一边。人工复核是这个闭环里显式的一步——一个具名的人、一条被记录的判断、以及落在他身上的责任——这让初级分析师成为复核者，而不是被替代的人。那是一份真实的工作，而且是更好的一份；它也是让那条证据链真正有意义的唯一安排：一条没有人负责的链条，不会有人去为它辩护。我们不会假装这个问题不存在，也不会告诉你它没有代价。</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q7">本地工作的时候，到底有什么东西离开这台机器？</summary>
+        <p data-i18n="faq.a7">什么都没有，而且这件事是在应用层之下强制的，不是靠我们自觉。仅本地的工作跑在一道守卫里，它改写了进程中每一个对外网络连接都必须经过的那一个调用——所以某个厂商 SDK 的遥测、或者某个间接依赖里的统计信标，会和我们自己的代码一样被拒绝。你自己网络里的另一台机器，也算另一台机器，同样被拒绝。这个说法是刻意收窄的，因为收窄的那个才是真的：当工作属于一个仅本地的工作空间时，没有任何东西离开它。超出这个边界，一次正常部署的流量就是正常流量，我们不会假装不是。</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q8">我们要过一遍安全审查。可以向你们要什么？</summary>
+        <p data-i18n="faq.a8">今天有的：源码，公开可读；以及两项你可以自己跑、不必信我们一面之词的审计——依赖许可证清单，以及对历史中是否提交过明文凭据的扫描，两个脚本都在仓库里。今天没有的：还没有任何 release，所以不存在附带物料清单的签名发布，也没有给隔离网环境用的离线补丁包。这两件都是我们写下来的承诺，而两件都还不存在——这个回答，比一份暗示它们已经存在的问卷答复有用。</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q6">现在到什么阶段了？</summary>
-        <p data-i18n="faq.a6">早期，而且不打算含糊。我们在和少量手上有真实、可验证、高价值工作的共创伙伴一起做——没有在排队名单。如果这说的是你，下一步是一次对话，不是一个注册表单。</p>
+        <p data-i18n="faq.a6">早期，而且不打算含糊。今天你可以自己注册、自己开始——这扇门对任何人都开着，没有排队名单。和这件事分开的是：我们会和少量手上有真实、可验证、高价值工作的共创伙伴紧密合作，那一条是一次对话，不是一个表单。你要哪一个，取决于你是在试这个东西，还是打算把一条工作线压在它上面。</p>
       </details>
     </div>
   </div>
@@ -846,6 +916,22 @@
         <p data-i18n="hz.h3b">被度量和付费的是工作单元，而不是席位——跑在一个任何人都能在上面构建的运行时上。</p>
       </li>
     </ol>
+
+      <!-- The plan commits H1 to five and a half of twelve roles and writes
+           「暂不承诺」 against the rest, on the grounds that saying so is more
+           credible than pretending to cover them. A roadmap without this list
+           is a wish list. -->
+      <div class="notyet" data-reveal>
+        <h3 class="notyet__title" data-i18n="hz.not.t">「现在」这一档不包括什么</h3>
+        <p class="notyet__lead" data-i18n="hz.not.b">一份只列将来会有什么的路线图，是愿望清单。下面这些，是人们在这个阶段会合理期待、而我们暂时给不了的东西——写在这里，而不是让你在一通电话里才发现。</p>
+        <ul class="notyet__list" role="list">
+          <li data-i18n-html="hz.not.i1"><b>技能市场。</b>不存在。开发者门户是一个内部运营窗口，不是店面；把市场做出来这件事还没有开始。</li>
+          <li data-i18n-html="hz.not.i2"><b>把它挂上你自己的品牌卖。</b>这个名字在源码里到处是硬编码。把它收敛成一个常量是前置条件，而这件事还没做。</li>
+          <li data-i18n-html="hz.not.i3"><b>伙伴或代理商计划。</b>没有分级、没有认证、没有线索报备、没有伙伴沙箱。</li>
+          <li data-i18n-html="hz.not.i4"><b>除了两件很窄的事之外的社区计划。</b>第一次贡献，以及一条安全披露通道。没有论坛、没有固定答疑、没有治理模型。</li>
+          <li data-i18n-html="hz.not.i5"><b>对被评估的那些机构，除了底线之外的任何承诺。</b>告知、一条更正与申诉的路径、默认不拿他们的数据训练——这三条从第一天起就作数。为他们专门设计的体验，不作数。</li>
+        </ul>
+      </div>
   </div>
 </section>
 
@@ -853,14 +939,50 @@
      CTA
      ====================================================================== -->
 <section class="cta" id="contact">
-  <div class="wrap wrap--text">
-    <h2 data-reveal data-i18n="cta.title">把查得出结果的活交给我们。</h2>
-    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">我们在找有真实、可验证、高价值工作的共创伙伴，也在找基于这一层构建智能体、技能与连接器的生态伙伴。</p>
+  <div class="wrap">
+    <!-- Prose keeps the reading measure; the four routes are a table and take
+         the section's full width. One wrapper for both made the routes 44rem
+         wide and cramped, which the render showed before anything else. -->
+    <div class="cta__head">
+    <h2 data-reveal data-i18n="cta.title">从你真正所在的地方开始。</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">人们是从四个不同的地方走到这里的，第一步并不一样。在下面找到你那一条——哪条路今天还没开，它会直接写出来，而不是让你自己撞上去。</p>
+    </div>
+
+      <!-- Four doors, because four different people arrive here and the first
+           step is not the same one. Built from the role journeys in
+           docs/research/open-source-business-model.md §4: entry point, first
+           real moment, and — where the route is not open — the reason. -->
+      <ul class="doors" role="list" data-stagger>
+        <li class="door" style="--i:0">
+          <span class="door__who" data-i18n="doors.d1.w">你想先试试</span>
+          <b class="door__step" data-i18n="doors.d1.s">注册，打开一个工作空间。</b>
+          <span class="door__then" data-i18n-html="doors.d1.t">不用先跟销售通话，也没有排队名单。真正该说服你的不是那圈导览，而是把一份真实的文档放进去，拿回一条带着出处的结论——你可以去核它，而不是选择相信它。</span>
+        </li>
+        <li class="door" style="--i:1">
+          <span class="door__who" data-i18n="doors.d2.w">你得先读过才谈得上信</span>
+          <b class="door__step" data-i18n="doors.d2.s">去读源码。它是公开的。</b>
+          <span class="door__then" data-i18n-html="doors.d2.t">别听我们说，自己去把那道出网守卫找出来：仅本地的工作是在网络层、在应用之下被拒绝的，不是写在某份文档里的承诺。今天<em>还没开</em>的是自己跑起来——没有 release，没有一条命令的安装，也没有许可证。这和本页上面那份清单是同一份。</span>
+        </li>
+        <li class="door" style="--i:2">
+          <span class="door__who" data-i18n="doors.d3.w">你团队里已经有人在用</span>
+          <b class="door__step" data-i18n="doors.d3.s">让他们分享证据链，而不是演示一遍。</b>
+          <span class="door__then" data-i18n-html="doors.d3.t">值得看的是一条你没有亲眼看着它被做出来的结论，然后你自己去核。如果核不动，那就是答案——而且这是你希望在一个团队压上去之前拿到的答案，不是之后。</span>
+        </li>
+        <li class="door" style="--i:3">
+          <span class="door__who" data-i18n="doors.d4.w">有人发了一份结果给你</span>
+          <b class="door__step" data-i18n="doors.d4.s">没有东西要装，也没有账号要登。</b>
+          <span class="door__then" data-i18n-html="doors.d4.t">这些事大多是为你做的，而你最不可能去打开这个产品。对某一行起疑，把它点开看出处。如果它没能活着走进你手上那份文档，上面所有东西对你都一文不值。</span>
+        </li>
+      </ul>
+
     <div class="cta__actions" data-reveal>
-      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
-        <span data-i18n="cta.primary">成为共创伙伴</span>
+      <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
+        <span data-i18n="cta.primary">注册，开始用</span>
       </a>
-      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">看源码</a>
+      <!-- The old primary. It is the right action for one of the four doors,
+           not for all of them, so it keeps the line that was this section's
+           title before the doors were listed above it. -->
+      <a class="btn btn--ghost btn--lg" href="mailto:hello@boardx.us" data-i18n="cta.secondary">把查得出结果的活交给我们</a>
     </div>
   </div>
 </section>
@@ -882,11 +1004,11 @@
       <div class="footer__col">
         <h3 class="footer__h" data-i18n="footer.h1">产品</h3>
         <ul>
-          <li><a href="#loop" data-i18n="footer.l1">它怎么工作</a></li>
+          <li><a href="#loop" data-i18n="footer.l1">工作闭环</a></li>
           <li><a href="#capabilities" data-i18n="footer.l9">里面有什么</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">架构</a></li>
           <li><a href="#trust" data-i18n="footer.l3">可信与证据</a></li>
-          <li><a href="#open" data-i18n="footer.l4">开放生态</a></li>
+          <li><a href="#open" data-i18n="footer.l4">什么开放</a></li>
         </ul>
       </div>
       <div class="footer__col">
