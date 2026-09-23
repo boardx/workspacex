@@ -193,7 +193,7 @@ function ChatDrawer({
               <div
                 className={cn(
                   "max-w-[90%] rounded-lg border p-2.5 text-11 leading-relaxed",
-                  l.self ? "border-inverse bg-inverse text-inverse-foreground" : "border-border-subtle bg-card text-foreground",
+                  l.self ? "border-inverse bg-inverse text-inverse-foreground" : "border-border-subtle bg-card text-background-foreground",
                 )}
               >
                 {l.text}

@@ -544,7 +544,7 @@ function PlanControlSession(
           data-testid={PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID}
           aria-label={collapsed ? "展开计划面板" : "折叠计划面板"}
           onClick={() => setCollapsed((v) => !v)}
-          className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
           <span data-testid="chat-task-workbench-plan-summary">执行计划 · {stateLabel}{ledger.steps.length > 0 ? ` · ${completed}/${ledger.steps.length} 步已标记完成` : ""}</span>

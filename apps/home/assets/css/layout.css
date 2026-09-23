@@ -31,7 +31,7 @@
   display: inline-flex; align-items: center; gap: var(--s-2);
   font-family: var(--font-mono);
   font-size: var(--t-micro);
-  letter-spacing: 0.16em;
+  letter-spacing: calc(0.16em * var(--track-open));
   text-transform: uppercase;
   color: var(--fg-dim);
   margin-bottom: 1.125rem;
@@ -40,7 +40,6 @@
   content: ""; width: 1.5rem; height: 1px;
   background: var(--grad);
 }
-:lang(zh) .eyebrow { letter-spacing: 0.1em; }
 
 .lead {
   font-size: var(--t-lead);
@@ -95,31 +94,17 @@
    1280px — shipped that way, because "does the nav overflow" and "is the
    lockup intact" are different questions and only the first was being asked. */
 .brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
-.brand__name {
-  font-family: var(--font-display);
-  font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
-  color: var(--fg);
-  /* At a doubled text size the wordmark alone is 370 px, and with the bar's
-     items unable to shrink the whole row ran past the viewport. Truncating is
-     an ugly last resort, but a clipped wordmark beats a Launch button that
-     has left the screen. */
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* The wordmark takes the brand gradient, but only where the clip is actually
-   supported. Setting -webkit-text-fill-color: transparent unconditionally is
-   how a wordmark goes invisible: a browser that honours the fill colour but
-   not the clip paints nothing at all. Guarded, the fallback is solid ink. */
-@supports (-webkit-background-clip: text) or (background-clip: text) {
-  .brand__name {
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
+/* The product's own logo, cut from apps/web/public/workspacex-logo.png by
+   scripts/build-logo.mjs — not redrawn, so it cannot drift from the one the
+   app ships. An image also retires three workarounds the old gradient
+   wordmark needed: invisible text where background-clip is unsupported, no
+   name at all in forced colours, and nothing on paper. A picture of the name
+   survives all three. The link around it carries the accessible name, so the
+   image itself is decorative (alt=""). */
+.brand__logo { display: block; height: 30px; width: auto; flex-shrink: 0; }
 .brand__tag {
   font-family: var(--font-mono);
-  font-size: var(--t-nano); letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
   white-space: nowrap;   /* "Early access" was wrapping to two lines and
                             stretching the whole brand block */
   padding: 0.2rem 0.45rem; border-radius: var(--r-pill);
@@ -130,7 +115,7 @@
 }
 /* It is a link now: it answers the question it raises, rather than asserting
    a stage and leaving the visitor to guess what it means. */
-a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); }
+@media (hover: hover) { a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); } }
 
 /* Wrapping never happens at a normal text size — the row has room. At 200%
    it does, and a second line of links with a taller bar loses nothing, where
@@ -150,7 +135,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   transition: color var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
-.nav__link:hover { color: var(--fg); }
+@media (hover: hover) { .nav__link:hover { color: var(--fg); } }
 .nav__link[aria-current="true"] { color: var(--fg); }
 .nav__link[aria-current="true"]::after {
   content: ""; position: absolute; left: 0.75rem; right: 0.75rem; bottom: 0.15rem;
@@ -166,10 +151,10 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   padding: 2px; border-radius: var(--r-pill);
   border: 1px solid var(--hairline); background: var(--surface);
 }
-.langswitch__btn:hover { color: var(--fg); }
+@media (hover: hover) { .langswitch__btn:hover { color: var(--fg); } }
 .langswitch__btn {
   padding: 0.3rem 0.7rem; border-radius: var(--r-pill);
-  font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.02em;
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: calc(0.02em * var(--track-open));
   color: var(--fg-dim);
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
@@ -186,7 +171,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
 }
-.nav__ghost:hover { color: var(--fg); background: var(--surface); }
+@media (hover: hover) { .nav__ghost:hover { color: var(--fg); background: var(--surface); } }
 
 /* mobile menu button */
 .nav__burger {
@@ -293,13 +278,13 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 }
 .footer__h {
   font-size: var(--t-micro); font-family: var(--font-mono);
-  letter-spacing: 0.14em; text-transform: uppercase;
+  letter-spacing: calc(0.14em * var(--track-open)); text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: var(--s-4); font-weight: 500;
 }
 .footer__col { min-width: 0; overflow-wrap: break-word; }
 .footer__col ul { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
 .footer__col a { font-size: var(--t-small); color: var(--fg-soft); }
-.footer__col a:hover { color: var(--fg); }
+@media (hover: hover) { .footer__col a:hover { color: var(--fg); } }
 .footer__blurb { font-size: var(--t-small); color: var(--fg-dim); max-width: 22rem; margin-top: 0.875rem; }
 .footer__bottom {
   margin-top: clamp(2.5rem, 5vw, 4rem); padding-top: var(--s-5);

@@ -8,7 +8,7 @@
 import { ApiError } from "@/lib/api-client";
 // HTTP 兜底搬到 `lib/http-failure-text.ts`（产物取源也要用同一份，见该文件头注）。
 import { httpFailureText } from "@/lib/http-failure-text";
-import { designWorkbench } from "@repo/contracts";
+import { designWorkbench, feedbackLoop } from "@repo/contracts";
 
 /**
  * 迭代 27 —— 错误码 → 人话。
@@ -39,10 +39,36 @@ const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, string> = {
   NOTHING_TO_PUBLISH: "还没有画出来的页，没什么可发布的",
 };
 
+/**
+ * 迭代 35 —— 反馈束的错误码 → 人话。
+ *
+ * 把 `feedback-dialog.tsx` 那第五份本地 `describeFailure` 并进来时才发现：并进来只挡住了
+ * 「码上屏」，却把**反馈自己的那些码**一律落到那句泛泛的兜底（「出了点问题」）。
+ * 而提反馈的人最需要知道的恰恰是具体那件事——他刚写的那段还在不在、该重试还是该找人。
+ * 所以这里再穷举一张反馈束的表，与上面那张并列。
+ *
+ * ⚠ 同样是契约闭集 `FeedbackError`，漏一个编译不过。
+ */
+const FEEDBACK_ERROR_TEXT: Record<feedbackLoop.FeedbackError, string> = {
+  FEEDBACK_NOT_FOUND: "这条反馈找不到了，可能已经被删掉，或者你没有查看它的权限",
+  PERMISSION_REVOKED: "你没有做这件事的权限了，找管理员确认一下",
+  TRIAGE_REASON_REQUIRED: "标成「不做」得写一句为什么",
+  DEPENDENCY_UNAVAILABLE: "服务暂时不可用，你填的内容还在，稍后再试一次",
+  NO_GITHUB_ISSUE: "这条反馈还没有对应的开发任务，先转入开发再来",
+  COMMENT_BODY_REQUIRED: "评论不能是空的",
+  FILE_TOO_LARGE: "这个文件太大了，换一个小一点的",
+  UNSUPPORTED_CONTENT_TYPE: "这个文件类型不收：只收图片、PDF、纯文本 / Markdown",
+  MALWARE_DETECTED: "这个文件没通过安全扫描，没有上传",
+  STRUCTURING_FAILED: "这次没能把你说的整理成结构化内容——你写的原文还在框里，可以直接提交",
+  DRAFT_NOT_FOUND: "这条草稿找不到了，可能已经被删掉",
+  DRAFT_EMPTY: "这条草稿的正文还是空的，先写一句发生了什么",
+};
+
 export function describeFailure(err: unknown): string {
   if (err instanceof ApiError) {
     const code = err.reasonCode;
     if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as designWorkbench.DesignWorkbenchError];
+    if (code !== null && code in FEEDBACK_ERROR_TEXT) return FEEDBACK_ERROR_TEXT[code as feedbackLoop.FeedbackError];
     return httpFailureText(err.status);
   }
   if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";

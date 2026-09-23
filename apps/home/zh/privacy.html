@@ -21,8 +21,22 @@
 <meta property="og:description" content="这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。">
 <meta property="og:site_name" content="WorkspaceX">
 <meta property="og:url" content="https://workspacex.boardx.us/zh/privacy.html">
-<meta property="og:locale" content="zh_Hans">
-<meta property="og:locale:alternate" content="en">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<!-- The card. This page had og:title, description and url and no image at
+     all, so a shared privacy link previewed as text with a blank thumbnail —
+     and `check-links`'s og:image rule, which names this file among its three
+     pages, was validating a tag that was not here. It is linked from the
+     footer of every page and named as the policy in .well-known/security.txt,
+     so it does get shared. -->
+<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og-zh.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="WorkspaceX——面向人与 AI 协作的开放运行空间。">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og-zh.jpg">
+<meta name="twitter:image:alt" content="WorkspaceX——面向人与 AI 协作的开放运行空间。">
 
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
@@ -36,27 +50,11 @@
 
 <a class="skip-link" href="#main" data-i18n="a11y.skip">跳到正文</a>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
-      <stop offset="0" style="stop-color:var(--c-1)"/>
-      <stop offset="0.52" style="stop-color:var(--c-2)"/>
-      <stop offset="1" style="stop-color:var(--c-3)"/>
-    </linearGradient>
-    <symbol id="mark" viewBox="0 0 32 32">
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
-    </symbol>
-  </defs>
-</svg>
 
 <header class="nav" id="nav" data-stuck="true">
   <div class="nav__inner">
     <a class="brand" href="/zh/" aria-label="WorkspaceX 首页" data-i18n-aria="aria.home">
-      <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
-      <span class="brand__name">WorkspaceX</span>
+      <img class="brand__logo" src="../assets/img/logo.webp" width="113" height="30" alt="">
     </a>
     <div class="nav__actions" style="margin-left:auto">
       <nav class="langswitch" aria-label="语言" data-i18n-aria="aria.language">
@@ -81,7 +79,7 @@
     <p data-i18n="doc.p2">没有。网站只在你的浏览器本地存储里写一个键 wsx.langhint.dismissed，而且只在你关掉那条「有中文版」提示时才写。它的作用只是让提示不再出现。它不会离开你的浏览器，清除站点数据就会消失。</p>
 
     <h2 data-i18n="doc.h3">第三方</h2>
-    <p data-i18n="doc.p3">这个网站上没有第三方。字体是从本域名提供的，而不是字体 CDN——正是为了让你打开一个页面时，不把你的地址透露给第三方。这里没有任何东西会请求另一个来源：每个响应上的 Content-Security-Policy 强制这一点，而不是靠自觉。</p>
+    <p data-i18n="doc.p3">这个网站上没有第三方。字体是从本域名提供的，而不是别人家的字体服务——正是为了让你打开一个页面时，不把你的地址透露给第三方。这里没有任何东西会请求另一个来源：每个响应上的 Content-Security-Policy 强制这一点，而不是靠自觉。</p>
 
     <h2 data-i18n="doc.h4">日志</h2>
     <p data-i18n="doc.p4">提供这些文件的主机会保留常规的 Web 服务器日志（包含 IP 地址），保留时间有限，用途是运维。我们不用它们构建画像。</p>
@@ -98,7 +96,7 @@
     <h2 data-i18n="doc.h8">变更</h2>
     <p data-i18n="doc.p8">这个页面和网站本身在同一个公开仓库里，所以它的提交历史就是变更记录。</p>
 
-    <p class="doc__meta"><span data-i18n="doc.updated">最后更新</span> · 2026-09-22 · <a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="doc.source">源码</a></p>
+    <p class="doc__meta"><span data-i18n="doc.updated">最后更新</span> · 2026-09-23 · <a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="doc.source">源码</a></p>
   </div>
 </main>
 

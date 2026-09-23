@@ -287,3 +287,61 @@ describe("迭代 29：交出去的那一步不许假装成功", () => {
     expect(view.textContent).toContain("找发给你的人再发一条");
   });
 });
+
+/* ────── UIUX 第 20 轮：发出去这一步——收回要问，档位改了要说，颜色得真的是红的 ────── */
+
+describe("UIUX 20：分享弹窗", () => {
+  it("「取消发布」先问一句：不确认就不收回", () => {
+    const onUnpublish = vi.fn();
+    render(<ShareDialog {...dialogProps} onUnpublish={onUnpublish} project={project({ share: published() })} />);
+    fireEvent.click(screen.getByTestId("design-share-unpublish"));
+
+    // ⭐ 反证锚点：把按钮接回裸 onUnpublish ⇒ 这三条红——链接可能已经发给客户了，
+    //   收回之后对方再点开就是一句「打不开」，而且不会收到任何通知。
+    expect(onUnpublish).not.toHaveBeenCalled();
+    const box = screen.getByTestId("design-share-unpublish-confirm");
+    expect(box.textContent).toContain("不会收到任何通知");
+
+    fireEvent.click(screen.getByTestId("design-share-unpublish-cancel"));
+    expect(screen.queryByTestId("design-share-unpublish-confirm")).toBeNull();
+    expect(onUnpublish).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("design-share-unpublish"));
+    fireEvent.click(screen.getByTestId("design-share-unpublish-yes"));
+    expect(onUnpublish).toHaveBeenCalledTimes(1);
+  });
+
+  it("已发布之后改了档位 ⇒ 说清要按「更新发布」才对已发出去的链接生效", () => {
+    render(<ShareDialog {...dialogProps} project={project({ share: published({ scope: "prototype" }) })} />);
+    expect(screen.queryByTestId("design-share-scope-pending")).toBeNull();
+    fireEvent.click(screen.getByTestId("design-share-scope-full"));
+    // ⭐ 反证锚点：去掉那句提示 ⇒ 这条红（用户切了下拉就关窗，以为对方已经看得到）。
+    expect(screen.getByTestId("design-share-scope-pending").textContent).toContain("更新发布");
+  });
+
+  it("失败那句话是红的——`text-danger` 在本仓不存在，写了等于没写", () => {
+    render(<ShareDialog {...dialogProps} error="没能发布（服务器出错了）" project={project()} />);
+    const p = screen.getByTestId("design-share-error");
+    // ⭐ 反证锚点：改回 `text-danger` ⇒ 这条红。Tailwind 对不认识的类名不报错、
+    //   只是不生成任何 CSS，于是「发布失败」以正文颜色渲染，和旁边的说明一模一样。
+    expect(p.className).toContain("text-destructive");
+    expect(p.className).not.toContain("text-danger");
+    expect(p.getAttribute("role")).toBe("alert");
+  });
+
+  it("Esc 关得掉（这一屏此前连焦点管理都没有）", () => {
+    const onClose = vi.fn();
+    render(<ShareDialog {...dialogProps} onClose={onClose} project={project()} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    // ⭐ 反证锚点：去掉 useDialogFocus ⇒ 这条红。
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("打开就把焦点放进弹窗里，不是留在背后的页面上", () => {
+    render(<ShareDialog {...dialogProps} project={project()} />);
+    const dialog = screen.getByRole("dialog");
+    // ⭐ 反证锚点：去掉 useDialogFocus ⇒ 这条红（焦点还在打开它的那个按钮上，
+    //   读屏用户不知道弹窗开了，Tab 走的还是背后那一屏）。
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+});

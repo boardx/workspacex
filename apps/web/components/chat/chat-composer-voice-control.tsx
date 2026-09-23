@@ -176,7 +176,10 @@ export function ComposerVoiceControl({
             : phase === "stopping" ? "停止中"
             : listening ? "停止"
             : paused ? "继续"
-            : phase === "error" ? "重试"
+            /*
+             * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
+             * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
+             */
             : "语音"}
         </span>
         {listening ? <LevelBars level={level} /> : null}

@@ -935,3 +935,445 @@ end of the range.
 
 Final: **CLS 0 on every configuration in both languages** — warm, cold-font and
 slow-3G — where the budget is 0.02.
+
+---
+
+## Rounds 32–41
+
+### Round 32 — the things nobody reads
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The hero's second button says **"See how it works"** and pointed at `#shift` — the market-thesis section. The section that answers it is `#loop`, which the **footer has always called "How it works"**. Thirty-one rounds, and the page's most prominent secondary call to action sent the reader to the wrong place. | `#loop`. Found by listing every label that points at each anchor and reading the ones with two names. |
+| 2 | The Chinese eyebrow for `proof` read **11** — which is also `open`'s number. The Chinese page ran 01…11, **11**, 13, 14, with no 12 at all. | 12. |
+| 3 | **Nothing read those numbers.** The key existed, it was translated, it had Han characters, its punctuation was correct — every gate was happy about a section that told the reader it was the eleventh for the second time. | A number in prose is a fact declared twice: once by the order of the sections and once by the digits. |
+| 4 | — | `check-sequence.mjs`, red on its first run on the live bug. |
+| 5 | The privacy page carries a **hand-typed "Last updated"** date, and its own closing line argues that its git history is the change log. Nothing kept the two honest. | Fingerprinted rather than derived from git: deriving it makes the check fail between a commit and a rebuild, chasing itself forever. Change the prose without moving the date and it fails. |
+| 6 | **Nothing asserted a clean console.** A module throwing after boot or an asset 404ing is invisible to every other suite here — the degradation suite only ever watches failures it caused on purpose. | Five pages, errors, warnings and failed requests. Proved red with one `console.warn`. |
+| 7 | No `Strict-Transport-Security`. | Added — without `includeSubDomains`, because this domain does not control what its siblings serve and a promise made on their behalf is one it cannot keep. |
+| 8 | No `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`. | Both, free on a site that loads only its own origin. |
+| 9 | **Checked and dismissed.** The eyebrow casing looked badly inconsistent — "The Shift" beside "The workspace" beside "One Workspace", no system at all. `.eyebrow` is `text-transform: uppercase`: none of it reaches a reader. A pointless change, nearly shipped as a fix. |
+| 10 | **Checked and clean.** Every number in the prose against the real element counts — "five steps" against the chain's five nodes, "six gates", "five layers", "three scales", all correct. And a length-ratio sweep over 133 translation pairs looking for omitted or invented content: median 0.34, and every outlier turned out to be a short label or a latin brand name. |
+
+### Round 33 — the printed page, and an address for the use cases
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The print stylesheet had been edited three times across these rounds and never once rendered and looked at.** | Rendered. |
+| 2 | `.hero::after` paints the dark scrim that holds the headline on screen, and print never removed it. Most browsers drop background graphics — but a reader who ticks "Background graphics", which is a normal thing to do for a page that looks like this, got **black text on a black field across the whole first sheet**. | Hidden in print. |
+| 3 | The same reasoning nobody had applied to the glows: a `box-shadow` is a background graphic. | Cleared on buttons, cards and stages. |
+| 4 | **Checked and dismissed.** The first print probe reported the evidence-trail items invisible. They sit inside `.surface`, which print hides deliberately — the probe read each element's own `display` and not its ancestors'. Re-measured with `getClientRects()`: nothing is invisible in print, in either language. |
+| 5 | **A discipline could not be linked to.** `/#panel-edu` loaded the page with Legal still selected and the education panel `hidden` — so the browser could not even scroll to it. Those six panels are the only place the argument is made in a named profession, and they had no address. | The fragment is read on load and on `hashchange`, accepting either the tab's id or the panel's, because both are in the markup and a reader copying an anchor cannot know which is which. |
+| 6 | And choosing one **did not change the URL**, so there was nothing to copy even after finding it. | `replaceState` on selection: the address bar becomes copyable without a history entry per click. |
+| 7 | Nothing checked either. | An `addressable` suite per language, including an assertion that choosing a tab does **not** grow `history.length`. |
+| 8 | **Checked and clean.** Back and forward across nav anchors restores the right hash. |
+| 9 | **Checked and clean.** A chosen discipline survives hash navigation elsewhere on the page. |
+| 10 | **Checked and clean.** Resizing into the stacked breakpoint mid-scene keeps the ring and correctly clears the rail's `aria-current`. |
+
+### Round 34 — looking at the diagrams
+
+Eight SVGs, captured in both languages and at 390 px, and looked at.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | In the harness diagram the travelling token ran along `y + boxH / 2` — **the line the label sits on**. "Execute" rendered as "ecute", in both languages, on the flagship picture of the argument. | One rail above the gates. |
+| 2 | The collision was **already known**. The reduced-motion branch parks the token at `y - 16` with a comment saying to keep it "clear of the last gate's label rather than on top of it". It was fixed only in the branch almost nobody reaches, while the animated path every reader sees kept running through the text. | The two paths share one constant. The comment was never the problem; two positions for one rail was. |
+| 3 | The **narrow** variant has always had this right — it runs the token up the gutter. Two implementations of one idea, and nobody ever put them side by side. | — |
+| 4 | `.d-label--on { fill: #fff }` paints label text **on the brand gradient**: 2.19:1 over the orange stop, 3.35 and 3.75 over the others. This page solved that exact problem once, for buttons, and named the answer `--on-grad`. The diagram painting on the same gradient never got it. | `var(--on-grad)`: 8.98 / 5.88 / 5.25. |
+| 5 | **axe cannot see this.** It does not evaluate SVG text over a gradient fill, so white-on-gradient passed every accessibility run for thirty-three rounds. | — |
+| 6 | Nothing else could see it either. | A check in the motion suite: any diagram text overlapping a gradient-filled shape must use the ink token. Proved red — it names "Memory". |
+| 7 | Its **first version asked whether the same `<g>` contained a gradient-filled shape**, and reported the axis diagram — whose labels sit above the line and whose only gradient is a 4 px dot at the far end. A group is not a position. | Rewritten as a geometric overlap test, with a 40% threshold. |
+| 8 | **Considered and left alone.** The narrow architecture diagram drops the "moves fast" and "must stay stable" brackets, which is the claim its own `h2` makes verbatim. The code says `if (narrow) return; // no room beside the stack; the copy carries this` — a documented decision with a stated reason, and the copy does carry it. Overriding that on my own judgment would not have been a fix. |
+| 9 | **Checked and clean.** The architecture explorer's state is exactly `ARCH_IMPACT` at both widths — L3 selected, L4 and L5 impacted, L2 and L1 untouched — and the detail panel follows the selection. |
+| 10 | **Checked and clean.** The lit left edge on L2–L3 is the deliberate stable-core marker, not a stuck selection, and the code says so. |
+
+### Round 35 — Han glyphs, and a round that was mostly verification
+
+Two fixes and one gate out of ten items. The defect density is dropping, and
+saying so is more useful than padding the table.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The Chinese loop diagram's centre title rendered with a **dark halo around every stroke** — the counters filled in and the character turned into a blot. | Diagnosed, not guessed at. |
+| 2 | Root cause: the display face is latin-only, so Han falls through to the machine's CJK font — and this machine's only one is **WenQuanYi Zen Hei, Regular-only**. The engine manufactures `font-weight: 600` by stroking the glyphs. | — |
+| 3 | Not every reader sees it: macOS, Windows and Android all ship a bold CJK face. Linux frequently does not, and *"read the repository"* is this product's pitch, so that is not an audience to round off. | `font-synthesis: none` under `:lang(zh)`. |
+| 4 | The rule is **strictly safe**: it disables synthesis, never the use of a real bold face. Nobody who has one is affected. | — |
+| 5 | **Nothing checked where a diagram label lands.** The existing rule measures how *big* a label is and never its position, so a longer translation or a renamed gate could run past the edge of its own `viewBox` and be clipped with nothing to say so. | Asserted against the `viewBox` at every width. Clean across six language × width combinations. |
+| 6 | A fourth blank screenshot out of my own capture tool, which does not pump frames. Recognised in one step this time rather than investigated — which is the only value a recorded mistake has. |
+| 7 | **Checked and dismissed.** The break diagram's scattered dots are mid-flight animation particles, not artefacts. |
+| 8 | **Checked and dismissed.** The workspace illustration drops 22 elements at 390 px. What it drops is the agent roster, and the stylesheet says why: *"Three columns at phone width would be three unreadable slivers. Keep the canvas and the evidence trail — they are the argument."* Verified the evidence trail is 4 of 4 visible at both widths. |
+| 9 | **Checked and clean.** Every diagram label sits inside its `viewBox` at 390, 768 and 1280, in both languages. |
+| 10 | **Checked and clean.** The English loop diagram shows no synthesis artefact — which is what isolated the problem to Han glyphs rather than to the style. |
+
+### Round 36 — who tests the tests
+
+Thirteen gates and nineteen browser suites, and none of them had ever been
+asked the only question that matters about a test: *does it fail when the
+thing it watches breaks?* So ten deliberate defects were injected one at a
+time, each one a plausible regression, and the whole suite run against each.
+**Eight caught, two missed.** Both misses were real.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **An image can lose its alt text and nothing notices.** | The rule that looked like it covered this — `check-html`'s "images without alt" — guards a population of **zero**: this site has no `<img>` elements at all. The hero backdrop is a CSS background, every diagram is inline SVG. |
+| 2 | The only alt text on the site is the **social card's**, and nothing read it. | A card-alt rule in `check-links.mjs`: any page declaring `og:image` must carry `og:image:alt` and `twitter:image:alt`, non-trivially. Proved red on an emptied alt. |
+| 3 | Writing it exposed the reason it had never fired: **`privacy.html` had no `og:image` at all.** It declared `og:title`, `description` and `url`, so a shared privacy link previewed as text with a **blank thumbnail** — and `check-links`'s existing og:image rule, which names this file among its three pages, was happily validating a tag that was not there. | The full card added, both languages. It is linked from the footer of every page and named as the policy in `.well-known/security.txt`; it does get shared. |
+| 4 | **The language switch can lose its `lang` attribute and nothing notices.** The zh→en half was added in round 25 — a real fix, correctly reasoned, shipped without a gate. | `r.equal(stat.switchLangs, 'en|zh-Hans', …)` in the bilingual suite. A fix with no script is **this repository's own named failure mode**, written into AGENTS.md, and eleven rounds of my own work walked into it. |
+| 5 | Eight of ten mutants were caught — a stale generated asset, a broken anchor, a drifted brand path, a wrong section number, a contrast regression, a missing manifest field, a CSP relaxation, a moved breakpoint. The gates that were built defensively, after a real bug, all held. | The two that missed were both rules written **speculatively**, guarding something that was not there. |
+| 6 | **My own error, recorded.** I grepped `og:image\|twitter:image` in `privacy.html`, saw nothing, concluded the page had no Open Graph tags at all, and added a complete duplicate block. Caught on re-read; `git checkout` and start again with only the missing tags. The grep answered exactly what I asked it, which was not what I wanted to know. |
+| 7 | **The same class of error twice in one round.** Counting og tags with a loose pattern counted an HTML **comment** that mentions `og:title` as a tag — so the file appeared to have a duplicate that did not exist. Twice. Resolved by matching `<meta property="og:title"` precisely. |
+| 8 | **The round's own change tripped a gate — correctly in shape, wrongly in scope.** Round 32's privacy-date fingerprint hashed *the whole file* minus the date line, so adding a social-card `<meta>` to the `<head>` demanded a new **"Last updated"** date for a policy whose text had not changed by one word. A gate that forces a false date, in the file whose entire job is keeping stated facts true. | Scoped to `<main>`. Proved both ways: a sentence added to the policy still fails it; a `<meta>` added to the head does not. |
+| 9 | **Checked and clean.** The gate on the gates still holds: `check-all.mjs` fails if any `check-*.mjs` exists that its own list does not call. It is the reason a new script cannot be written and then quietly not run. |
+| 10 | The generalisation, thirty-six rounds in: **the longest-surviving defects in this work were not in the page. They were in the things watching the page.** A gate written after a real bug is anchored to something that happened. A gate written from imagination guards whatever the imagination assumed — and when the assumption is wrong, it reports green forever. |
+
+### Round 37 — the high-contrast reader
+
+Windows high-contrast mode, measured rather than imagined: two contexts per
+language, `forcedColors: active` and `none`, every selected state compared
+against its unselected neighbour as a computed signature.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The segmented switch loses its selected state entirely.** In forced colors the on and off halves came back *byte-identical* — same colour, same transparent background, same border, no background image. The control has two states and shows one. | `Highlight` / `HighlightText`. |
+| 2 | **The navigation's "you are here" disappears.** The current link and every other link were identical, and the 2px gradient underline under it painted a transparent box. In a mode that drops background images, a gradient indicator is not dimmed — it is deleted. | `LinkText` plus a real underline, and the rule itself given `Highlight`. |
+| 3 | **The selected discipline tab paints no marker.** Its 2px nub is the same dropped gradient. | `Highlight` on the nub, `Highlight`/`HighlightText` on the tab. |
+| 4 | The reading-progress bar is the same gradient again, and it is the only readout of how far down the page you are. | `Highlight`. |
+| 5 | **The stylesheet names this exact trap.** The forced-colors block opens with *"a gradient-filled button becomes invisible text on nothing"* and covers `.btn`, `.langswitch__btn`, `.chip`, `.nav__ghost` — while three more controls styled the same way, in the same two files, were not covered. The same shape as round 34's rail: one idea, implemented in one place, and nobody put the two side by side. | — |
+| 6 | **The mode was already under test, asking the wrong question.** The resilience suite has run in `forcedColors: active` since it was written: does anything render, is any text transparent, is anything past the right edge. All three passed on every round while three indicators were invisible. A check can watch the right context and still not be looking at anything. | A suite that asks the only question an indicator has: does the chosen one look different from the others? |
+| 7 | **The first version of the fix silently did nothing.** `sections.css` is bundled *after* `components.css`, so its `.cases__tab[aria-selected="true"]` rules won at equal specificity and the new forced-colors rule never applied. It was caught by measuring the result, not by reading the diff — which is the entire argument for the suite above. | The attribute selector repeated, with the reason written beside it. |
+| 8 | **My own probe, wrong first.** The first nav measurement ran at the top of the page, where no link is `aria-current`, and fell back to the first link — comparing one unselected link against another, a test that could only pass. | The suite scrolls into a section before measuring, and says why. |
+| 9 | **Checked and clean.** SVG is exempt from forced colors: the diagrams keep their real gradients, and `.d-label--on` still measures `rgb(18, 8, 13)` — round 34's `--on-grad` fix survives in this mode, which is exactly where losing it would have hurt most. |
+| 10 | **Checked and clean.** `.grad-text` paints through `background-clip` like the wordmark does, but declares `color: transparent` rather than `-webkit-text-fill-color`, and `color` *is* forced — measured `rgb(255, 255, 255)`. The trap that the wordmark needed a rule for does not repeat here. |
+
+### Round 38 — what accumulates
+
+Thirty-seven rounds, and the page had never been run **twice**. Every suite
+loads it, exercises it once and closes the context, so anything that grows per
+re-wire grew unobserved. Crossing the narrow breakpoint rebuilds the diagrams
+and re-wires the loop scene — which is what rotating a tablet, dragging a
+window across a monitor edge or opening devtools does, repeatedly.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every re-wire added another click handler to the same six rail items.** Measured: 6 at boot, **42 after three crossings**, and one click on a step firing **seven** smooth scrolls to the same place. At five crossings, eleven. | The handlers are kept as explicit removers and released at the top of the next wire. |
+| 2 | `detachScene` existed and worked — it released the scene's own scroll and resize listeners. It **knew nothing about the rail's**, because those are added by the caller. A teardown that covers what one function allocated, called by a function that allocates more. | — |
+| 3 | **`initScene`'s IntersectionObserver was never disconnected.** Twelve created across three crossings, **zero disconnected**. `track` is persistent markup — not rebuilt with the diagrams — so every observer stayed live, holding a closure over a diagram that had already been replaced. | `io.disconnect()` in the detach that was already releasing everything else. |
+| 4 | Nothing could have caught any of it: the page was never re-wired under test. | An `accumulation` suite — five breakpoint crossings and 120 clicks — asserting live observers, DOM nodes, svg count, history entries, and that one rail click still scrolls exactly once. Red on the previous code at 11 scrolls and 16 observers. |
+| 5 | **My first measurement was wrong, and it accused working code.** A global `addEventListener` tally showed the architecture diagram's rows going 5 → 35 and I read it as a third leak. Those rows are rebuilt on every render: their handlers die with the nodes. A tally of registrations is not a count of live handlers. | The suite counts **behaviour** — how many scrolls one click produces — and says in a comment why the tally was rejected. |
+| 6 | The same reasoning saved the observer finding from being over-claimed: observers are counted as `made − disconnected`, which is a live count, not a tally. | — |
+| 7 | An `AbortController` would have been four lines shorter. `signal` in `addEventListener` options is Safari 15, and `check-compat.mjs` shows this page still carrying fallbacks for **Safari 14**. One new baseline assumption is not worth four lines — and the reason is written beside the code so the next person does not have to re-derive it. | — |
+| 8 | **Checked and clean.** DOM nodes: **937 at boot, 937 after five crossings, 937 after 120 clicks.** The diagram rebuild leaves nothing detached behind it, and the svg count holds at 16. |
+| 9 | **Checked and clean.** `history.length` is 2 at boot and 2 after 120 clicks across the tabs, the switch and the architecture layers — round 33's `replaceState` holds under repetition, which is the only condition that could have broken it. |
+| 10 | **Checked and did not over-claim.** The obvious story for a leaked observer is that it resurrects a stale animation loop. Measured: rAF callbacks during one scroll nudge were **87 before the crossings and 82 after** — no multiplication. The leak was real; its worst-case story was not, and the log says so rather than telling it. |
+
+### Round 39 — the Chinese page is not the English page with different words
+
+Thirty-eight rounds have verified that `/zh/` says the same things. This one
+asks whether it *renders* like a page somebody designed.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **A Chinese reader on Windows got a serif.** Both real faces are latin-only, so every Han character is resolved by the fallback tail — which named PingFang (macOS/iOS), Hiragino Sans GB and `"Noto Sans SC"`, and **nothing that ships on Windows**. Falling off the end lands on `sans-serif`, which on a Chinese Windows is SimSun: a serif face, in a design that does not have one. | `"Microsoft YaHei"` in both stacks. |
+| 2 | `"Noto Sans SC"` is the **web font's** name. Linux and Android install the family as `Noto Sans CJK SC` / `Source Han Sans SC`, which neither stack named. The one platform family the list did cover properly was Apple's. | Both names added, plus `"Heiti SC"` for older iOS. |
+| 3 | **Nothing on the English page changes when this list is wrong**, which is exactly why it survived thirty-eight rounds of looking at the English page. | — |
+| 4 | It is also the missing half of round 35. Synthesis was switched off so Han glyphs would stop blotting — correct, and it leaves headings with no weight at all unless the resolved face *has* a Bold. Microsoft YaHei and Noto Sans CJK SC both do. | The fix from four rounds ago only completes with this one. |
+| 5 | Nothing checked it. | `check-css` now requires every `--font-*` stack to name a CJK family for each of four platforms. Red when `"Microsoft YaHei"` is removed: two stacks, named by platform. |
+| 6 | **`og:locale` said `zh_Hans`.** That is hreflang's grammar — language-Script — in a slot whose grammar is language_TERRITORY, and the locale lists the social crawlers accept contain `zh_CN`, `zh_TW`, `zh_HK` and no script tags at all. `en` was the same mistake in the other direction. Nothing renders differently, because the card is built on somebody else's machine. | `en_US` / `zh_CN`, with `hreflang` left as `zh-Hans`, which was always right. Two standards, two places, each now saying its own. |
+| 7 | Nothing checked that either. | `check-links` validates `og:locale` as `xx_YY` **and** rejects an underscore in `hreflang` — the same confusion is possible in both directions, so both are gated. Proved red. |
+| 8 | **Measured, and deliberately not called a defect.** The Chinese page costs about twice the English one to render: FCP **468 ms vs 976 ms** and load **851 ms vs 2025 ms** at 4× CPU throttling. It is not the web fonts — blocking every `.woff2` changes nothing. It is not the scripts — `domInteractive` is ~70 ms for both, and the no-JS gap is identical. It is Han rasterization on a box whose only CJK face is WenQuanYi Zen Hei. An environment measurement, recorded as one. |
+| 9 | **Considered and not adopted.** `text-spacing-trim` and `text-autospace` are the modern answer to full-width punctuation, and Chromium here supports both. Applied to a line of Chinese with brackets and full-width commas, the measured result was **88 px against 88 px** — no difference this environment can show. Adding CSS on faith is precisely how round 36's two missed gates got written. |
+| 10 | **Checked and clean.** The Chinese copy rules already cover what I went looking for: straight quotes, half-width punctuation between Han characters *and* closing a clause, a missing space where Han meets latin or a digit, three dots instead of `……`. 387 values, clean. And under 6× CPU throttling the pinned scene still holds a 16.7 ms median frame in both languages. |
+
+### Round 40 — the files nobody runs
+
+`_headers` and `.well-known/security.txt` are plain text interpreted by
+somebody else's machine. Nothing in this repository had ever opened either.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The security headers were a string in a file no script read.** The Content-Security-Policy, HSTS, COOP, CORP, `nosniff`, the referrer policy, the frame policy and the media type that makes the manifests readable at all — a misspelt header name, a wrongly indented line or a pattern matching nothing would ship green and change nothing visible from here. | — |
+| 2 | **Worse: the browser suites ran without any of it.** The test server sent its own two headers and nothing else, so twenty suites exercised a page under a policy the real site does not serve. The strictest thing this site does was the least tested thing in it. | `harness.mjs` parses `_headers` and serves it. Every suite above now runs under the real policy. |
+| 3 | **The first run under it failed immediately** — axe-core injects an inline `<script>`, and `script-src 'self'` refused it. Which is the policy working. | The *tool* was changed to load from this origin. The policy was not touched. That is the correct direction, and it is available only once the policy is actually on. |
+| 4 | A policy that is sent and ignored looks **identical from the response**. Asserting the header's presence proves nothing about enforcement. | The suite appends a real inline `<script>` at runtime and requires that it does not execute *and* that the browser reports a violation. |
+| 5 | Nothing validated the file itself. | `check-deploy.mjs` — the fourteenth gate. It rejects an indented line that is not `Name: value`, a header declared twice, a rule that sets none, and a pattern that matches no file; requires the eight site-wide headers and ten CSP directives; fails if `script-src` ever gains `'unsafe-inline'` or `'unsafe-eval'`; requires the manifests' media type. Proved red four ways. |
+| 6 | **`security.txt` expires on 2027-09-22, and nothing was watching.** A date that is correct today and wrong later, with no commit in between — RFC 9116 makes the file invalid the moment it passes, and the address a security researcher is meant to write to goes with it. | Fails when expired, fails thirty days ahead so the fix is a commit rather than an incident, and fails if the date is set **more than a year out**, which the RFC also asks for. |
+| 7 | `Canonical` and `Policy` were unchecked. A security contact file naming the wrong host is worse than not having one. | Both resolved — `Canonical` against the single `SITE` constant, `Policy` against the filesystem. |
+| 8 | **Checked and clean.** `harness.mjs` promises that the suites skip cleanly when Playwright is absent and that `check-all` stays runnable on a bare checkout. Thirty-nine rounds, never tested. Moved `node_modules` aside: **14 checks pass**, both browser gates skip and print the install line. The promise is real. |
+| 9 | **Checked and clean.** `_redirects` was already covered — `check-links` resolves every target — and `robots.txt` and `sitemap.xml` are generated from the same `SITE` constant the new checks read, so none of the three can drift. |
+| 10 | The shape of the whole round: every defect in it lived in a file no code reads and no page renders. On a static site, the riskiest text is the text the browser never shows. |
+
+### Round 41 — the map and the territory
+
+The last artefact in this directory that nothing checked was the file that
+describes it.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Two gates were wired in, proved red and shipped without ever appearing in the table that claims to list them** — `check-sequence.mjs` from round 32 and `check-deploy.mjs` from round 40. `check-all`'s gate-on-gates covers the *runner*; nothing covered the *description*. | Both documented. |
+| 2 | The suite table said **fifteen**; twenty-one run. Five suites had no row at all: addressable, console, headers, accumulation, forced colors. | All five added, and the count is now derived rather than typed. |
+| 3 | **The drift ran the other way too, and it cost a real defect.** The Fonts section named *Microsoft YaHei for Windows* while `base.css` did not — the documentation described a fix nobody had made, and round 39 had to make it. A Chinese reader on Windows got a serif for thirty-eight rounds while the README said otherwise. A README nothing checks is a second, unversioned opinion about the code. | The section now points at the single source and says what happened. |
+| 4 | Three more rows described gates as they were, not as they had grown: `check-css` (brand literals, off-scale values, orphan breakpoint tokens, the CJK stacks), `check-links` (card alt text, the two locale grammars), and the browser row. | Rewritten from the scripts. |
+| 5 | **"Two generators are run by hand"** followed by one command; **"Three generators"** followed by five. Two wrong counts in one file, four paragraphs apart. | Both corrected — and the second one lists what it counts. |
+| 6 | The Layout listing omitted `privacy.html`, `site.css`, `print.css`, four of the eight JS modules, `_redirects`, `.well-known/`, the Chinese manifest, the generated favicon, `brand.mjs` and `tests/` entirely. | Filled in. |
+| 7 | Nothing checked any of it. | `check-docs.mjs`, the fifteenth gate. Both directions — a row for a deleted script is as wrong as a script with no row — plus `×2` marking matching which suites run per language, and the prose count derived from the reporters. Proved red four ways. |
+| 8 | **My own gate was wrong twice on its first run.** It read the *script* table's header cell as a suite called "script", and it counted `responsive` as per-language because its label is a template literal — it interpolates its own width count and runs once. | Narrowed to the suite table, and to `[${lang}]` rather than to backticks. Written down because the pattern is now four rounds old: the probe accuses working code first. |
+| 9 | **The same numbers again in a third place.** `home-gates.yml`'s header comment says "10 道静态门和 15 个浏览器套件… 24 个 check". One round later it is 15 and 21. | The numbers removed rather than updated, and the comment now names the two authorities instead. This repository's own rule: a fact declared twice drifts, so declare it once. |
+| 10 | Across these ten rounds the static gates went **10 → 15** and the browser suites **15 → 21**, every one of them proved red before being trusted. This round is the only one whose defects were entirely in prose — and one of them had already been paid for in code. |
+
+---
+
+## Rounds 42–51 — the open-source story, read against the plan
+
+Source: `docs/research/open-source-business-model.md` (v32.2) and its three
+iteration logs — thirty rounds of research in a sibling session. These ten
+rounds ask one question of the site: **does it say what that plan actually
+concluded, and is every word of it true today?**
+
+One rule governs all ten, because the plan's own front matter demands it:
+it is marked **研究稿，待人类决策** — a research draft pending human sign-off,
+whose decision table D0–D13 lists *recommendations*, not decisions. A
+marketing page may state what is **verifiable today** and may state an
+intention **as an intention**. It may not turn a recommendation into a
+promise. That distinction is the difference between a positioning document
+and a false claim, and it is this repository's own rule in another costume.
+
+### Round 42 — "open" is a legal statement, not a tone of voice
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The repository has no LICENSE file.** None at the root, and GitHub's API reports no licence for it. Under default copyright that is *all rights reserved*: a reader may look, and may do nothing else. | Verified against the API rather than assumed: `"visibility": "public"` and no licence field. Public and open source are two different facts, and only the first one was true. |
+| 2 | **The site says "Open core. … the source is on GitHub."** That sentence reads as a grant. The repository grants nothing. The site was making a legal claim the repository does not back — the single most consequential untrue sentence on the page, and thirteen rounds of gates had no opinion about it. | The answer now states what is checkable: the repository is public and readable, there is no LICENSE yet, so nothing grants you the right to run or modify it, and we will not call it open source until it is. |
+| 3 | **The fix is not mine to make.** Adding a licence is decision **D1** in the plan, recommended as Apache-2.0 and explicitly marked **不可逆**. An agent choosing a licence for a company is exactly the class of action that requires a human. | So the page says what is true and names the missing step, rather than quietly picking one. |
+| 4 | The site could not name Apache-2.0 either, for the same reason — a licence name on a marketing page is a promise with a legal meaning. | The gate below refuses any named licence until the file exists. |
+| 5 | Nothing connected the page to the repository it describes. The page lives four directories below a repository whose state it asserts, and every gate so far checked the page against itself. | `check-sequence.mjs` — "stated facts that disagree with reality", which is the right file — now walks up to the repository root and checks the licence claims. |
+| 6 | **The gate's second direction is the one that will actually fire.** The day someone adds a LICENSE, the page must *stop* saying there is none — a sentence that was true when it was written is precisely the static trace this repository has a named rule about. | Both directions gated, and proved red both ways. |
+| 7 | **The first version of the gate was wrong in the way this site has twice been bitten.** It concatenated `index.html` and `zh.js` and asked whether the disclosure appeared anywhere in the result — so deleting it from the English page passed, as long as the Chinese page still carried it. | Per language, in its own file. Proved red by deleting the English sentence alone. |
+| 8 | A third direction: claiming **open core** while no licence exists and *without* saying so is now itself a failure, in either language. Silence is how the original sentence got written. | — |
+| 9 | **`has_discussions: false`.** The plan's answer to maintainer burnout — 问答去讨论区不占 issue — rests on a forum the repository does not have switched on, with 173 open issues already. Not a site defect; recorded because the site is about to invite people to that repository. |
+| 10 | The governing rule of these ten rounds, stated once and applied throughout: **the page may assert what is verifiable, and may state an intention as an intention.** Everything in the plan's D-table is a recommendation awaiting a human. None of it ships as a promise. |
+
+### Round 43 — the section answered a question nobody asked
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **`#open` was a make-vs-buy chart.** *Build / Adopt / Integrate* — "what we must own", "proven infrastructure", "kept replaceable" — is an engineering decision about dependencies. A reader asking what is open and what they pay for got an answer to a different question, in three neat columns. | Replaced with the plan's actual split. |
+| 2 | The plan's dividing line is about ownership and money, not construction: **凡是让我们成为中立工作层的，开源；凡是随客户积累的，售卖。** That sentence had no home on the site. | It is the section's lead and its keyline now, in both languages. |
+| 3 | **The plan's own central correction was missing: there are three piles, not two.** v32.1 records it as a 分类错误 — a category of thing that is neither open-sourced nor sold, because it is never delivered at all: the coordination plane, the deploy console, the incident board, the agent fleet, CI metrics, the key-rotation ledger. Squeezing it into the first two buckets "得出两个都错的结论". | A third column, **Not delivered** — ours to run, never yours to buy. Most vendors never name this pile; naming it is the honest part. |
+| 4 | Every item in the first column is now a real thing from the plan's OSS row rather than an abstraction — runtime, harness and evidence, context engine, model routing, sandbox and local desktop, the format spec. "Ontology & context" was a category; "Context engine" is a component someone can go and read. | — |
+| 5 | **I put an undefined acronym on the page.** The first draft of the column read *"MAAU runtime"* and *"The MAAU format spec"* — a term that appears nowhere else on the site, is never expanded, and which the source plan itself flags as **一词两义**, two meanings inside the repository, unresolved. Shipping a company's internal vocabulary to its customers. | Plain words: "the work-unit runtime", "the work-unit format spec". |
+| 6 | It was caught by **rendering the section and looking at it** — the method that found the diagram defects in rounds 33 and 34, and a method that does not scale. | A rule in `check-copy.mjs`: a bare acronym is a problem unless a reader can be expected to know it, or the page expands it somewhere. The allow-list is deliberately short and boring. Proved red by putting the term back. |
+| 7 | **It immediately found two more that had been there all along.** `CDN` and `WCAG`, both in the privacy notice — a page whose entire value is being understood by a non-specialist. | Split on judgement, not uniformly: "a font CDN" became "a font service run by somebody else", because that sentence exists to be understood. |
+| 8 | `WCAG 2.1 AA` stays, and is allow-listed with the reason written beside it: in an accessibility statement the standard's name **is** the precision, and spelling it out would be less exact, not more. A gate that cannot be argued with produces worse copy than no gate. | — |
+| 9 | **The privacy date gate fired, and this time it was right.** Changing the `CDN` sentence changed the policy's prose, so round 40's scoping — fingerprinting `<main>` rather than the file — did exactly its job: silent for a `<meta>` tag in round 36, red for a word a reader can see. Re-dated to 2026-09-23. |
+| 10 | **Checked and left alone.** The first column's items describe an intention, not a shipped licence — so the section deliberately does not say "open source", and the licence disclosure from round 42 sits two sections away in the FAQ. Round 42's gate holds both languages to that. |
+
+### Round 44 — what happens when you stop paying
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The plan's single most valuable commitment was not on the site at all.** It calls 退出自由 — exit freedom — *"相对 Copilot 与飞书的核心差异"*, and then says it *"一直只停在暗示"*: only ever implied. Decision **D11** recommends writing it out, on the grounds that unwritten it has no sales value. The site did not imply it either; it was simply absent, and the word "lock-in" appears nowhere on the page. | Four clauses, in both languages, in the section that is about exactly this. |
+| 2 | **A promise whose status is hidden is not a promise.** Three of the four clauses are not fully real today, and publishing them flat would have been the same class of untruth as round 42's "Open core". | Each clause carries its own status line, in the reader's own view, not a footnote. |
+| 3 | Clause 1 — *the open part keeps working* — is **blocked on the licence**. Round 42 established there isn't one, so today this is an intention and not a right, and the page says so in those words. | — |
+| 4 | Clause 2 — *your data comes out whole* — checked in the repository rather than copied from the plan: `files-export.controller.ts` runs per-artifact export jobs, and **no whole-workspace export exists**. The plan's own 90-day schedule puts it at weeks 5–7. | "Partly built. Individual artifacts export today; one command for the whole workspace does not exist yet." |
+| 5 | Clause 3 — *a written way down* from hosted to self-hosted — the plan lists the migration playbook under 接缝 as **未设计**. | Said as "not built", not smoothed over. |
+| 6 | Clause 4 — *we do not switch anything off* — is the only one that needs no engineering: it is a rule about our own conduct. It is therefore the only one stated flatly, and it carries the plan's **EE 切线只进不退**: what is open stays open. | — |
+| 7 | **Rendered, all four statuses looked the same.** One pink dot for "In force" and for "Not built" alike — four different answers drawn identically, losing the one distinction the block exists to make. | Two states: solid for live, a hollow ring for planned. Colour is reinforcement, never the carrier — every line says its status in words (WCAG 1.4.1). |
+| 8 | **A contradiction I had just created.** FAQ a1 said deployment is *"not a different edition with features removed"* — written before round 43 put SSO, audit, multi-tenancy and compliance export in a column headed **Sold**, two sections above it. Location and edition are different axes, and a reader who has just read that column will merge them. | a1 now separates the two: the same code everywhere, and what the commercial edition adds is the governance layer — which you can also run yourself. |
+| 9 | **Checked and clean.** The licence's absence is now stated in two places, the FAQ and this block, which is the shape this repository has a rule about. Round 42's gate is per **file**, not per sentence, so both are covered: adding a LICENSE fails the check until every statement of its absence is updated, in each language separately. |
+| 10 | **Checked and clean.** Two columns at 1280, one at 390; item heights equal within each row in English, and the Chinese block is shorter, as Han copy is throughout. |
+
+### Round 45 — the gatekeeper, who holds the veto and was never spoken to
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Six questions in the FAQ, and none of them theirs.** The plan puts 机构 IT 与安全 among the three roles with a veto, and says they are *中国市场开源的全部理由* — the entire reason to open the source in that market. Every question on the page was a buyer's or a user's. | Two questions written for the person who can stop the purchase. |
+| 2 | **`SECURITY.md` still said `<安全联系邮箱，待填>`.** The site publishes `security@boardx.us` in `/.well-known/security.txt` and tells researchers to report responsibly; the repository page they land on carried a placeholder. One address, two files, nothing holding them together. | Filled, and gated. |
+| 3 | `check-deploy.mjs` now walks up to the repository root: if the site publishes a contact, `SECURITY.md` must exist, must not carry a placeholder, and must name the same address. Proved red by putting the placeholder back. | — |
+| 4 | **Zero egress is the strongest thing in the local story and the site never said it.** The plan's own words: 零出网是卖点却不可见. `local-egress-guard.ts` has been shipping and enforcing it the whole time. | A question answering what actually leaves the machine. |
+| 5 | The claim had to be written **exactly as narrow as the code makes it**, because the source file itself warns that a reader assuming the broader claim would be misled. So: it patches the one call every outbound connection passes through — a vendor SDK's telemetry and a beacon in a transitive dependency are refused like our own code; a machine on your own network is still another machine and is refused; and outside a local-only workspace, normal traffic is normal traffic. | The narrow claim is the true one, and it is stronger than the vague one. |
+| 6 | **The security-review answer had to be checked, not written.** No releases exist — verified through the API, `[]` — so there is no signed release with a bill of materials, and no offline patch bundle for an air-gapped install. | The answer says what exists (public source, plus a dependency licence inventory and a credential scan you can run yourself) and what does not, rather than implying the rest. |
+| 7 | **Round 43's acronym gate caught round 45's own copy on its first run.** "TCP", twice, in an answer written for a security reviewer. | Judged, not reflexed: `WCAG` was allow-listed two rounds ago because in an accessibility statement the standard's name *is* the precision. `TCP` is not a citation — the sentence reads better without it. Copy changed, allow-list untouched. |
+| 8 | The `#trust` section is about whether an **agent** can be audited. Procurement security is a different question from a different person, and the page had been treating them as one. | They now sit apart: the section argues the runtime, the FAQ answers the reviewer. |
+| 9 | **Checked and left alone.** `SECURITY.md`'s response times (3 working days to first response, 10 to triage) match the plan's commitments to security researchers, so nothing needed reconciling — the one place the repository was already ahead of the site. |
+| 10 | **Checked and clean.** The two new answers keep the FAQ's own shape: a question in the reader's words, an answer that names what is not true as plainly as what is. Eight entries now, both languages, 335 keys in sync. |
+
+### Round 46 — the person who never signs in
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The site spoke to everyone except the person the work is for.** Buyers, operators, engineers, and after round 45 the security reviewer — but not the investment committee, the partner, the client who is handed a document and has to decide. The plan singles this out as the role earlier versions *完全漏掉*, and notes they **从不登录产品**. | A block at the end of the trust section, addressed to them. |
+| 2 | **The plan's sharpest sentence in this area is about the gap between having a thing and showing it:** *Context Engine 有血缘，但报告里没有呈现设计——能力存在不等于体验存在.* The site made exactly that mistake: it argues lineage as a property of the runtime, and never as something a reader touches. | The three requirements are written as requirements **on the artifact**, and the copy says so: not on the runtime. |
+| 3 | Their biggest obstacle, per the plan, is 分不清哪些是 AI 生成、哪些有证据支撑. | "You can tell what was generated" — marked in the document itself, not in a settings page nobody opens. |
+| 4 | 每条结论可追溯到原件 — and the useful corollary the plan implies: a conclusion that cannot be opened is itself a finding. | "Every claim opens to its source." |
+| 5 | 置信度与不确定性显式呈现. | "Uncertainty is shown, not smoothed" — with the reason, which is the part that persuades: a document with no visible doubt is *less* trustworthy, not more. |
+| 6 | **Honesty check.** The plan lists evidence presentation under its gaps as **缺规范与实现** — neither specified nor built. Writing these as shipped features would have been round 42's mistake again. | They are stated as a standard we design to, in one sentence, without a third status block: *"a result that cannot meet them is not finished."* Two status blocks on one page is a list of excuses; a standard is a commitment. |
+| 7 | **A contradiction with a decided position, found while nearby.** `unit.p4s` offered pricing "per task, per seat **or per outcome**" as three equal options. The plan's D9 puts the meter on task and work-unit usage with seats as an entry point — and states flatly that **outcome pricing is structurally incompatible with self-hosting**: it can only ever exist in hosted and enterprise contracts. | Rewritten: task and work-unit, seats as a way in, and outcome pricing only where we run it. The sentence now survives contact with the open-source story two sections below. |
+| 8 | That is the same class of defect as round 44's edition-versus-location: two true-sounding sentences, written at different times, that a reader passing through the page in order will merge. | — |
+| 9 | **Checked and clean.** The new block reuses `.prop`, the component the unit section already uses for a claim-plus-reason triple, so it inherits the gradient rule and the responsive behaviour rather than introducing a fourth way to draw a list. 221 classes, all referenced. |
+| 10 | **Checked and clean.** 343 keys in sync across both languages; the Chinese block keeps the register of the English — plain, second person, no marketing adjectives — which is the thing 133 translation pairs were swept for back in round 32. |
+
+### Round 47 — which layer this is a bet on
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The site never named the market it is in.** "Copilot" appeared in `index.html` exactly once — inside an HTML comment I had written in round 44. Not one visible sentence placed the product against anything. | The layer, named. |
+| 2 | The plan is explicit and the site was silent: WorkspaceX sits in the **AI workspace layer**, alongside Copilot, Glean, Lark and DingTalk — *not* the agent-infrastructure layer beneath it, which already has plenty of open projects. | — |
+| 3 | And the punchline that makes the whole section mean something: **这一层没有一个开源的** — there is no open option in this layer — so **开源是楔子不是入场券**. Thirteen rounds argued *what* is open without once saying why being first to do it matters. | The paragraph sits **above** the three columns: the why belongs before the what. |
+| 4 | **The sentence had to stop short of the obvious claim.** Until a licence exists (round 42), WorkspaceX is not the open one either. So it says that opening this *is a wedge* and points at the licence question further down the page, rather than awarding itself a crown it has not earned. | The two rounds now hold each other honest in the reader's own path down the page. |
+| 5 | Reused `.lead` rather than inventing a class, which rounds 32–41 deliberately made expensive. | — |
+| 6 | **Round 32's bug class, again, and found by hand again.** The nav called this section "Open"; the footer called it "Open ecosystem"; the section itself had been renamed to "What is open, what is sold" in round 43. One destination, three names, none of them checked. | Footer label fixed in both languages. |
+| 7 | Nothing had ever compared the names given to a destination — round 32 caught its version by listing labels by hand, and then the list was thrown away. | A rule in `check-links.mjs`: an in-page anchor given more than one name is reported. |
+| 8 | **The rule was wrong twice on its first run, and reported eight.** "Trust" and "Trust & evidence" are not two names — one contains the other. And "See how it works" is a **call to action**, not a label: the hero is prose, while the nav and the footer are the two places that *name* a destination. | Narrowed to nav and footer, and tolerant of one label containing another. Buttons excluded, with the reason written down. |
+| 9 | **It then found two genuine ones that had been there since the site was built.** `#loop` was called "The Loop" in the nav and "How it works" in the footer; `#capabilities` was "Inside" and "What is in it". In both languages. | Aligned to the section's own name. |
+| 10 | The shape of this round: one strategic sentence the site had never said, and two label pairs nobody had put side by side. Both are the same failure — **a fact that lives in more than one place drifts**, whether it is a number, a licence, or the name of a section. |
+
+### Round 48 — the questions asked in the room, not on the page
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **"Do you train on our data?" was not on the page, in either language.** It is one of the first two questions in any enterprise evaluation, the plan answers it flatly — 默认不用于训练，要用必须明示并单独授权 — and the site said nothing at all. The word "train" appeared once in the whole file, in an unrelated sentence about design research. | Answered, and answered as what it is. |
+| 2 | The answer refuses the usual dodge. Not a setting to go and find, not a clause in terms accepted once: **a specific ask and a specific yes**. And it ends by telling the reader that a sentence on a marketing page is not what should satisfy them — ask for the contract. | A commitment that points at its own enforcement mechanism is worth more than one that asks for trust. |
+| 3 | **"What does the free tier get?" was also unanswered**, and the plan's position here is unusual enough to be worth saying: 免费层功能完整但配额有限. The whole product, less capacity — not a demonstration with the useful parts taken out. | — |
+| 4 | The sharpest clause is the failure mode: **超配额降级到小模型，不断服务.** Running out of quota drops you to a smaller model rather than stopping you, because a task that halts halfway is worse than one that finishes less well. | Said in those terms, with the reason, because the reason is the part that is believable. |
+| 5 | And it closes the loop with round 43: what the paid tiers add is capacity, hosting, governance and methodology content — *the three columns above*, rather than a second, unrelated list. | The page now argues one split in two places instead of two splits. |
+| 6 | **Nobody had written down what happens to the junior analysts.** It is asked in every real evaluation and it is the plan's own conflict pair 分析师 ↔ 被替代的初级分析师, with a designed answer: 把初级分析师设计成复核者而不是被替代者. | Answered without a slogan. |
+| 7 | That answer also had to avoid the two easy failures — pretending the question does not exist, and promising it has no downside. It does neither: it says the outcome depends on how you deploy it, states which side the design has taken, and says plainly that it will not claim there is no cost. | The strongest argument for it is self-interested, and therefore credible: the evidence chain only means something if a named person is answerable for it. |
+| 8 | **Checked and clean, and it was already right.** `privacy.html` opens by saying it covers *the website you are reading, not the WorkspaceX product*, and offers to answer product questions in writing. Nothing to reconcile — the page had drawn its own boundary before I went looking for it. |
+| 9 | **Checked and clean.** All three answers are commitments rather than shipped behaviour, and every one names itself as such in its own text — after four rounds of this, the page's honesty about status is now a consistent voice rather than a device used once. |
+| 10 | **Checked and clean.** Eleven FAQ entries, 350 keys in sync. The new Chinese keeps the register — plain, second person, no adjectives that would not survive translation back. |
+
+### Round 49 — the invitation, narrowed on purpose
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **"Read the repository" is the site's only word about participation**, and it is accurate as far as it goes. The question is what happens to the reader who acts on it and wants to help. | Answered, in the one place that makes the offer. |
+| 2 | What they find, checked rather than assumed: **no `CONTRIBUTING.md`, no pull-request template, no issue templates, Discussions switched off, 173 open issues**, and — the one that matters most — **zero issues labelled for newcomers**. | — |
+| 3 | The `good first issue` label *exists*, which is exactly the trap this repository has a rule about: GitHub creates it on every repository, and the API reports `totalCount: 0` carrying it. **A label is a static trace; the issues under it are the live fact.** Reading the label alone would have produced a sentence that was true about the settings page and false about the project. | Queried the issues, not the labels. |
+| 4 | **The marketing instinct here is a "Contribute" button, and it is the wrong one.** The plan's pre-mortem ranks the most likely failure first and it is not lack of interest: **维护者先走** — the maintainers leave — with the early signal being unsorted issues piling up. Maintainer experience is listed as a first-class design constraint, not an afterthought. | The opposite of a call to action. |
+| 5 | Inviting contribution before the machinery exists also breaks the one contributor promise H1 actually makes — to the **first-time contributor**: a 15-minute local setup, a fast verification path, and a rejection that explains itself. None of those exist yet. | Saying so keeps the promise instead of failing it at scale. |
+| 6 | And 拒绝方式决定口碑 — most contributions to a project shaped like this get declined, so with no guide the rejection is the first and last thing a contributor experiences. | — |
+| 7 | The note therefore narrows rather than widens: reading is the invitation; contributing is not open yet; here is exactly what is missing; and when it opens it will be **because those are ready, not because it sounded welcoming**. | It costs nothing, because the real offer was always the readable source. |
+| 8 | **My own slip, caught by a gate.** I wrote the CSS for the note before the markup landed — the insertion failed on an indentation mismatch — and `check-css` immediately reported `.proof__note` as a class defined and used nowhere. The gate that has been flagging dead CSS for forty rounds caught a half-applied edit in under a second. | Reinserted against the real markup rather than my memory of it. |
+| 9 | **Checked and clean.** The note sits below the button at `--t-small`, narrower than the claim above it, because it qualifies that claim rather than competing with it. |
+| 10 | **Checked and clean.** 351 keys in sync. The Chinese says the same uncomfortable thing — 把那几个还在回消息的人埋掉 — rather than softening it, which is the failure mode a marketing translation usually has. |
+
+### Round 50 — what "Now" does not include
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The roadmap listed only what is coming.** Now, Next, Then — three horizons, all of them arrivals. A roadmap with no exclusions is a wish list, and everything a reader reasonably expects at this stage was left to be discovered in a sales call. | Five exclusions, inside the same section, because a roadmap and its limits are one statement. |
+| 2 | The plan takes the same position explicitly and for the same reason: H1 commits to **five and a half of twelve** roles and writes 暂不承诺 against the rest — *承诺不到的地方写清楚，比假装覆盖更可信.* | The site now says it in its own voice. |
+| 3 | **There is no marketplace**, and the site's Next horizon promises one. The plan's own probe is blunt: the developer portal is an internal operations window with zero connections to the product API, not a storefront. Building the market has not started. | Named first, because it is the gap most likely to be assumed away. |
+| 4 | **No white-label**, and the reason is concrete rather than strategic: the name is hard-coded throughout the source, and making it one constant is the prerequisite. | Stated as a prerequisite not yet done — which tells a partner what would have to change, not just that the answer is no. |
+| 5 | No partner programme: no tiers, no certification, no deal registration, no sandbox. The plan lists "integrators take it and nothing comes back" as a risk and notes it has no programme to convert that risk into a channel. | — |
+| 6 | No community programme beyond the two narrow things round 49 already named. Saying it here as well is not duplication: round 49 answers the person looking at the repository, this answers the person reading the roadmap. | — |
+| 7 | **The baseline that does hold, for the organizations being assessed by someone else's agents.** They never chose this product and its output is about them. Disclosure, a correction and appeal route, and no training on their data are commitments from day one; a designed experience for them is not. Separating the two is the honest version. | — |
+| 8 | **The acronym gate caught my copy for the third time in nine rounds** — "OEM", twice. | Judged again rather than allow-listed: unlike `WCAG`, it is not a citation, and "selling this under your own brand" is plainer than either word. The rule is now three for three on real finds, all of them mine. |
+| 9 | **Checked and clean.** Five list items carry markup, so they use `data-i18n-html` rather than `data-i18n`; the first draft used the plain attribute and would have shipped `<b>` tags as literal text in Chinese. Caught before the build, by knowing the page's own convention. |
+| 10 | The pattern across rounds 42–50, now visible: **every round found something the site claimed or implied that the repository could not back.** This one is the inverse and the same idea — things the reader would assume, that nobody had said were absent. |
+
+### Round 51 — holding the page to the repository
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Nine rounds put five statements about the repository onto the page** — no licence, no whole-workspace export, no releases, no contributor guide, nothing labelled for newcomers — and round 42's licence rule had already been copied once to cover the second of them. A fact asserted in several places with one checker each is the drift shape this repository has a rule about. | Rewritten as a table: a sentence the page asserts, and the file whose presence makes it false. |
+| 2 | Two rows today, LICENSE and `CONTRIBUTING.md`, and adding the next one is now a two-line change rather than another copy of the logic. | Both proved red, in both languages, by creating the file and watching the page's sentence become a lie. |
+| 3 | **Every row fires in the direction that matters.** These sentences are all true today and all expected to stop being true: the gate exists for the morning somebody does the work and nobody remembers the page says it is undone. | — |
+| 4 | **Two claims cannot be gated here and are recorded rather than faked.** "No releases" and "nothing labelled for newcomers" were verified through the GitHub API during rounds 45 and 49; a gate for them needs the network, which these checks deliberately do not touch. Saying so is better than a rule that quietly checks something weaker. | — |
+| 5 | **Rendered and measured, both languages, 1280 and 390.** All four blocks added in this batch — the three-way split, exit freedom, the reader who never signs in, and what "Now" does not include — reveal correctly, sit inside the gutter, and nothing runs past the right edge at phone width. |
+| 6 | **Checked and clean.** 3,175 English words against 666 Chinese ones — the Han density round 32 measured across 133 translation pairs, unchanged after nine rounds of new copy in both languages. |
+| 7 | **Checked and clean.** 15 static gates and 21 browser suites green on the final state, including the ones these rounds added: the acronym rule, the anchor-alias rule, the security-contact rule and the repository-claims table. |
+| 8 | Read end to end, the arc is one finding repeated: **every round from 42 to 50 found something the site claimed, implied or left unsaid that the repository could not back.** The open-source story was the only part of this page never written from evidence, because the evidence lived in a different directory. |
+| 9 | The plan itself is marked 研究稿，待人类决策, and nothing in these ten rounds turned one of its recommendations into a promise. Where the page states a commitment it says it is one; where a commitment is unbuilt it says how much is real. | That rule, set in round 42, held for nine rounds without a single exception. |
+| 10 | **The one thing this batch could not do is the one that matters most: choose a licence.** D1 is marked irreversible and is a human's to make. Until it is made, the strongest sentence on this page about being open is the one admitting it is not yet true — and that is not a consolation prize. It is the only version of the claim a reader can check. |
+
+---
+
+## Round 52 — four doors, because four people arrive
+
+The page had one front door. Everyone got the same button, and the page's
+own copy disagreed with it in two places.
+
+Entry points are taken from the role journeys in
+`docs/research/open-source-business-model.md` §4 — 入口 / 第一个价值时刻 /
+最大卡点 — and from one fact only the owner could supply: `devapp.boardx.us`
+is **public self-serve signup**, which is what made the rest decidable.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The site's most prominent button and its own FAQ said opposite things.** Two primary calls to action read "Launch Workspace" and "Launch App"; `faq.a6` said the next step is *"a conversation, not a signup form"*. One of the two had to be wrong, and no gate could tell which — it is a fact about a service, not about this repository. | Asked, rather than guessed. Anyone can sign up today, so `faq.a6` was the wrong one. |
+| 2 | Its replacement keeps the distinction that made the old sentence worth writing: signing up is open to anyone, *and* a small number of design partners get a conversation — and which one you want depends on whether you are trying the thing or betting a workstream on it. | — |
+| 3 | **The closing section offered one action to everyone**: "Become a design partner", by email, with the self-serve door nowhere in it. The genuinely open door was a corner button in the nav. | Primary is now the open door. The old primary keeps the line that used to be the section's title. |
+| 4 | **Four routes, because four different people arrive and the first step is not the same one.** Try it → sign up. Read it before trusting it → the source is public. Someone on your team uses it → ask for the evidence trail, not a demo. Someone sent you a result → nothing to install at all. | Each says the **first real moment**, not the feature: one real document in and a conclusion with its source attached; the egress guard found for yourself; a conclusion you did not watch being made. |
+| 5 | The second route had to carry its own bad news, and does: **running it yourself is not open** — no release, no one-command setup, no licence — with a pointer to the same list further up the page rather than a softer version of it. | — |
+| 6 | **One destination, two names, again** — this time an external one. The nav said "Launch App", the hero said "Launch Workspace". Round 47's rule covers in-page anchors and deliberately excludes buttons, so it did not and should not fire here; extending it would flag legitimate call-to-action prose. | Aligned by hand to "Launch" and "Launch Workspace", and the limitation recorded rather than papered over with a rule that would cry wolf. |
+| 7 | **The render found two layout defects before anything else did.** The four routes sat in the closing section's 44rem prose measure, two cramped columns of 303px; and door 1 had a hole in it, because grid rows stretch and the gap landed between the step and its explanation when a neighbouring label wrapped. | Prose keeps the reading measure, the routes take the section's width; `align-content: start` closes the hole. |
+| 8 | Four parallel options are not a sequence: the first draft used `<ol>`. | `<ul role="list">` — the role restores list semantics that `list-style: none` removes in Safari, which is why every other list on this page carries it. |
+| 9 | **The claims table from round 51 earned itself.** The second route asserts a third thing about the repository, and adding the row was the promised two lines rather than another copy of the logic: a root `compose.yml` appearing now fails the page in both languages until the sentence changes. | Proved red. |
+| 10 | The shape of it: **the entry experience was the one part of this page nobody had designed** — it had accumulated. Three calls to action pointing three different ways, written in three different rounds, and a contradiction that survived because verifying it needed a person, not a script. |
+
+---
+
+## Round 53 — "the Chinese looks a bit strange"
+
+Reported by the owner, looking at the page on their own machine. This
+environment has exactly one CJK face (WenQuanYi Zen Hei), so the rendering
+they saw cannot be reproduced here, and nothing was changed on the strength of
+a screenshot. Everything below was found by auditing **computed style** on
+`/zh/`: which elements containing Han characters are being set by rules that
+were written for Latin.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every monospace label on the Chinese page had no Chinese face in its stack.** Section eyebrows ×14, the use-case field labels ×18, the four doors, the status lines, the roadmap tags — 87 elements. `--font-mono` named `ui-monospace, SF Mono, Menlo, monospace` and nothing else, so the browser chose a Han face for *generic monospace* on its own. On a Mac that is frequently not the face the body text uses, and sometimes one with Japanese glyph shapes: labels and the prose beside them visibly in two different Chinese typefaces. | The same CJK tail as the display and body stacks. Every one of the 980 elements on `/zh/` now names a Chinese face; 893 did before. |
+| 2 | **It is round 39's defect in the one stack round 39 did not touch** — and round 39's gate only looked at `--font-display` and `--font-body`, so it had nothing to say. | The gate now covers `--font-mono`. Proved red by removing the tail: four platforms named as missing. |
+| 3 | **Latin tracking on Han, in both directions.** Labels carried +0.06 to +0.18em — the convention for small uppercase Latin, which on Han reads as loose and gappy. Headings carried −0.01 to −0.02em — the convention for Latin display type, which on dense Han makes glyphs touch. 232 elements. | — |
+| 4 | **Three places had noticed.** `.eyebrow`, `.case__grid dt` and the `h1–h4` element selectors each had their own `:lang(zh)` override. Twenty-five rules had none — including every block this batch added in rounds 44–52, whose class-level −0.015em silently outranked the element-level Chinese override. Fixed in one place, drifting in the others: the pattern this log has recorded more than any other. | The three local overrides removed. |
+| 5 | **One mechanism instead of a list.** Every `letter-spacing` now multiplies by `--track-open` or `--track-tight`; the Chinese page sets them to 0.3 and 0 once. Labels keep a trace of their spacing, display type loses its tightening entirely. | 36 declarations rewritten mechanically, not by hand. |
+| 6 | **The claim that English is unchanged was measured, not asserted.** Computed `letter-spacing` for all 983 elements before and after: **exactly one differs** — the `中文` language switch, which carries `lang="zh-Hans"` and correctly inherits the Chinese setting. The other 982 are identical. | — |
+| 7 | **My own probe was wrong on its first read.** It reported "0 → 0" elements with a Chinese face, before and after — because JavaScript wrote `true` and I counted `True`. Recounted: 893 → 980. | Recorded, because a probe that reports no change is the most dangerous kind: it looks like a finding. |
+| 8 | Nothing stopped a literal tracking value coming back tomorrow and quietly re-spacing sixty Chinese labels while the English page looked fine. | `check-css` now rejects any `letter-spacing` in em that does not scale with the language. Proved red. |
+| 9 | **Not changed, deliberately.** Latin words inside Chinese headings — "AI", "WorkspaceX" — are still set in Outfit while the Han around them is in the system face. That is a design choice with a real case on both sides, it cannot be judged without seeing the real render, and the owner may have meant it. | Left alone and named, so it can be decided rather than assumed. |
+| 10 | The honest limit of this round: **both fixes are measured and standard-correct, but neither was seen.** If what looked strange was something else, a screenshot from the machine that showed it is worth more than another audit from one that cannot. |
+
+---
+
+## Round 54 — a phone is not a narrow window
+
+Asked for by the owner. The responsive suite has always narrowed a desktop
+window to eleven widths, and it passed. A phone differs in the things that
+suite never set: touch, a coarse pointer, `hover: none`, a device pixel ratio
+— and every one of those changes what this stylesheet does.
+
+Emulated in Chromium with each phone's real viewport, pixel ratio, touch and
+user agent: iPhone SE (320), iPhone 13 (390), Pixel 7 (412), Galaxy S9+ (320).
+**Not WebKit** — this machine has only Chromium, so iOS Safari itself is not
+covered, and nothing below should be read as saying it is.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every tapped control kept its hover styling.** 21 `:hover` rules, zero `@media (hover: hover)` guards. On a touch screen a tap applies `:hover` and it stays until the next tap elsewhere — confirmed on all five control types tested. The visible consequence is worst on the loop rail: the step you tapped stays lit while scrolling moves the real current step on, so **two steps look current at once**. | All 21 wrapped. `check-css` now rejects an unguarded `:hover`. Proved red. |
+| 2 | **The menu button was 40×40** — the most-tapped control a phone has, below Apple's 44pt and WCAG 2.5.5. The language switch inside the open menu was 40 tall. | 44×44 on coarse pointers only, so the desktop layout does not move. |
+| 3 | **Eleven footer links were 34px tall**, and a one-word link like 架构 was 28px wide. Height alone was not enough: the first fix left short words narrow. | 44 in both directions. |
+| 4 | The home link in the nav was **26px** tall. | 44. |
+| 5 | **On `/zh/` only**: the "Switch to English" hint's link was **25px** tall and its close button **30×30**. A toast covering the bottom of the screen, whose dismiss control was the hardest thing on the page to hit. | 44, both. Only visible on the Chinese page, for a visitor whose browser prefers English — so no English-page test would ever have seen it. |
+| 6 | **Ten label styles at 10–11px.** At arm's length that is under the floor both Apple and Material set for readable text; for Han it is worse — a dense glyph at 10px loses strokes. `/zh/` had exactly one fix for this, on the use-case field labels. The other nine had none. | Raised on the tokens, not per selector: 11px on coarse pointers, 12px for Han everywhere. The one local override removed. |
+| 7 | **The menu itself was already right**, and saying so is part of the measurement: closed, all twelve links hidden; tapped, all visible at 53–55px; the page does not scroll behind it; tapping a link closes it and goes there. | Asserted permanently rather than left to the next person to re-check. |
+| 8 | **No horizontal overflow on any phone in either language — before or after**, even with the larger type. Checked because a page that scrolls sideways on a phone makes the browser zoom the whole thing out. |
+| 9 | **My probe was wrong twice before it was right.** It counted the closed menu's hidden links as undersized; and it reported the compare switch at 42px when CSS computed 44 — because the stage's reveal animation had it at `scale(0.965)`. Measuring with `getBoundingClientRect` asked *when* as well as *what*. | The permanent suite reads `offsetWidth`/`offsetHeight` — the layout box, which a transform cannot change — so it cannot be fooled by animation timing. |
+| 10 | **Permanent coverage.** A `mobile` suite per language, three phones each: no sideways scroll, no touch target under 44×44 with the menu closed or open, no text under 11px (12 for Han), and the menu opening, locking the page, closing and navigating. **Red on the previous stylesheet on every phone, in both languages**, naming the exact defects above. And `check-docs` caught that the README's suite table was stale before I did. |
+
+---
+
+## Round 55 — the owner's logo
+
+The owner judged the four-petal mark redundant beside the name, then pointed
+at the logo to use: the product's own, which `apps/web` already ships as
+`public/workspacex-logo.png`.
+
+| # | Change |
+|---|--------|
+| 1 | The mark is gone from the header, the footer and the privacy page, and so is the sprite that defined it. `build-brand.mjs` no longer writes into the pages; the mark survives only where a wordmark cannot go — the favicon and the home-screen icon. |
+| 2 | The logo is **cut from the app's own file, not redrawn**. `build-logo.mjs` finds the painted pixels in the 2051×874 source, crops away the transparent padding and scales to 2× the displayed 30px. `check-assets` fingerprints the source, so if the app's logo changes the site fails until it is re-cut. |
+| 3 | An image retires three workarounds the gradient text wordmark needed: invisible text where `background-clip: text` is unsupported, no name at all in forced colours, and nothing on paper. |
+| 4 | **The performance gate rejected the first cut.** A 3× PNG was 28 KB: page weight went to 185 KB against a 180 KB budget, and the Chinese page's slow-3G first paint to 3236 ms against 3200. Re-cut as 2× WebP: **7 KB**, both budgets met. The Chinese slow-3G figure is now 3092 ms — inside the budget, but close enough that the next addition to that page should be weighed against it. |

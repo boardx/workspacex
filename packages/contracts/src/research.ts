@@ -900,12 +900,19 @@ export const GuidedResearchSearchProviderResponse = z.object({ results: z.array(
 export const GuidedResearchSourcePresentation = z.object({
   title: z.string().trim().min(1).max(300), summary: z.string().trim().min(1).max(600),
 }).strict();
+export const GuidedResearchDocument = z.object({
+  url: z.string().url(), retrievedAt: z.string(), text: z.string().min(1).max(60000),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/), contentKind: z.enum(["html", "pdf", "text"]),
+  truncated: z.boolean(),
+}).strict();
 export const GuidedResearchSource = z.object({
   id: z.string().min(1), taskId: z.string().min(1), taskIds: z.array(z.string().min(1)).optional(), title: z.string().min(1),
   url: z.string().url().refine((url) => /^https?:\/\//.test(url)),
   content: z.string().min(1).max(30000), retrievedAt: z.string(),
   decision: z.enum(["pending", "accepted", "excluded"]),
   presentation: GuidedResearchSourcePresentation.optional(),
+  document: GuidedResearchDocument.optional(),
+  documentError: z.enum(["blocked", "unavailable", "unsupported", "empty", "too_large"]).optional(),
   // Server-owned provenance; absent on legacy search results until rechecked.
   relevanceBasis: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   addedByUser: z.boolean().optional(),

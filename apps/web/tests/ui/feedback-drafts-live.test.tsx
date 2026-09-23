@@ -275,8 +275,32 @@ describe("④ B1：草稿列表三态", () => {
     render(<DesignLoopDraftsScreen />);
     await screen.findByTestId("draft-card-d1");
     fireEvent.click(screen.getByTestId("draft-delete-d1"));
+    /*
+     * 迭代 34 起中间多了一步确认：草稿是用户手里唯一的那一份（没有回收站、没有撤销），
+     * 而这个垃圾桶就挨着「提交给团队」。点一下先问，确认之后才真删——
+     * 这条用例的原意（真的发 DELETE、行真的消失）原样保住。
+     */
+    expect(callsTo("/feedback/drafts/d1", "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("draft-card-d1")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("drafts-delete-confirm-yes"));
     await waitFor(() => expect(screen.queryByTestId("draft-card-d1")).toBeNull());
     expect(callsTo("/feedback/drafts/d1", "DELETE")).toHaveLength(1);
+  });
+
+  it("确认框里选「不删了」⇒ 一次请求都不发，草稿还在", async () => {
+    // ⭐ 反证锚点：把确认拿掉（垃圾桶直接删）⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (opts?.method === "DELETE") return { draftId: "d1" };
+      return { items: [draft()] };
+    });
+    render(<DesignLoopDraftsScreen />);
+    await screen.findByTestId("draft-card-d1");
+    fireEvent.click(screen.getByTestId("draft-delete-d1"));
+    expect((await screen.findByTestId("drafts-delete-confirm")).textContent).toContain("删了找不回来");
+    fireEvent.click(screen.getByTestId("drafts-delete-confirm-no"));
+    expect(screen.queryByTestId("drafts-delete-confirm")).toBeNull();
+    expect(callsTo("/feedback/drafts/d1", "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("draft-card-d1")).toBeTruthy();
   });
 });
 
@@ -396,4 +420,77 @@ it("draft editor reopens persisted tags and saves an unconfirmed addition", asyn
   fireEvent.change(screen.getByTestId("feedback-tags-input"), {target:{value:"新标签"}});
   fireEvent.click(screen.getByTestId("draft-edit-save"));
   await waitFor(() => expect(callsTo("/feedback/drafts/d1", "PATCH")[0]?.[1]?.body).toEqual({tags:["旧标签","新标签"]}));
+});
+
+describe("迭代 34：草稿是他唯一的那一份", () => {
+  it("编辑抽屉关掉不再把改动丢掉——先存再关", async () => {
+    /*
+     * ⭐ 反证锚点：把关闭改回直接 `onClose()` ⇒ 这条红。
+     * 点遮罩 / Esc / 右上角 × 三条路原来都是直接关，刚写的一段正文瞬间消失，而且一个字都不说。
+     * 草稿本来就是"写一半的想法"，这一屏最不该做的就是悄悄扔掉它。
+     */
+    const patches: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      /*
+       * ⚠ 真实形状是 `{ draft }`（`updateFeedbackDraft` 取的是 `out.draft`）。
+       *   第一版这里直接回了 draft 本身，于是 `onSaved(undefined)` 在 `setList` 的更新函数里
+       *   抛 `Cannot read properties of undefined (reading 'id')`——**而这条用例照样绿**，
+       *   因为崩溃发生在断言之后。vitest 的 "Unhandled Errors" 正是在提醒这种假绿。
+       */
+      if (opts?.method === "PATCH") { patches.push(opts.body); return { draft: draft({ detail: "改完的正文" }) }; }
+      return { items: [draft()] };
+    });
+    render(<DesignLoopDraftsScreen />);
+    fireEvent.click(await screen.findByTestId("draft-open-d1"));
+    await screen.findByTestId("draft-edit-drawer");
+    fireEvent.change(screen.getByTestId("draft-edit-body"), { target: { value: "改完的正文" } });
+    expect(screen.getByTestId("draft-edit-dirty").textContent).toContain("自动保存");
+    fireEvent.click(screen.getByTestId("draft-edit-close"));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0]).toEqual({ detail: "改完的正文" });
+    await waitFor(() => expect(screen.queryByTestId("draft-edit-drawer")).toBeNull());
+  });
+
+  it("没改过就关，不打一次空请求", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (opts?.method === "PATCH") throw new Error("不该发 PATCH");
+      return { items: [draft()] };
+    });
+    render(<DesignLoopDraftsScreen />);
+    fireEvent.click(await screen.findByTestId("draft-open-d1"));
+    await screen.findByTestId("draft-edit-drawer");
+    expect(screen.queryByTestId("draft-edit-dirty")).toBeNull();
+    fireEvent.click(screen.getByTestId("draft-edit-close"));
+    await waitFor(() => expect(screen.queryByTestId("draft-edit-drawer")).toBeNull());
+    expect(callsTo("/feedback/drafts/d1", "PATCH")).toHaveLength(0);
+  });
+
+  it("附件说的是「截图（PNG）」，不是 image/png", async () => {
+    // ⭐ 反证锚点：改回 `{a.mime}` ⇒ 这条红。契约里没有文件名，类型就是屏上唯一能说明它是什么的信息。
+    apiRequest.mockImplementation(async () => ({
+      items: [draft({ attachments: [{ id: "a1", url: "u", mime: "image/png" }] })],
+    }));
+    render(<DesignLoopDraftsScreen />);
+    fireEvent.click(await screen.findByTestId("draft-open-d1"));
+    const drawer = await screen.findByTestId("draft-edit-drawer");
+    expect(drawer.textContent).toContain(feedbackLoop.FEEDBACK_ATTACHMENT_LABEL["image/png"]);
+    expect(drawer.textContent).not.toContain("image/png");
+  });
+
+  it("卡片上的时间说得出「刚刚 / 今天」，不是只有一个日期", async () => {
+    // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这条红（今天改的和上周改的长得一样）。
+    apiRequest.mockImplementation(async () => ({ items: [draft({ updatedAt: new Date().toISOString() })] }));
+    render(<DesignLoopDraftsScreen />);
+    const card = await screen.findByTestId("draft-card-d1");
+    expect(card.textContent).toContain("刚刚");
+  });
+
+  it("「提交给团队」在按下之前就说清它会变成别人看得到的东西", async () => {
+    // ⭐ 反证锚点：改回「直接提交」且不带 title ⇒ 这条红。
+    apiRequest.mockImplementation(async () => ({ items: [draft()] }));
+    render(<DesignLoopDraftsScreen />);
+    const btn = await screen.findByTestId("draft-submit-d1");
+    expect(btn.textContent).toContain("提交给团队");
+    expect(btn.getAttribute("title")).toContain("看得到");
+  });
 });

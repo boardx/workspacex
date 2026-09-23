@@ -19,6 +19,17 @@
   /* The fixed bar would otherwise print on top of every page. */
   .nav, .scroll-cue, .langhint, .hero__aurora, .nav__burger { display: none !important; }
 
+  /* `.hero::after` paints the dark scrim that holds the headline on screen.
+     Most browsers drop background graphics when printing, so it usually
+     vanishes — but a reader who ticks "Background graphics", which is a normal
+     thing to do for a page that looks like this, got black text on a black
+     field across the whole first sheet. The stylesheet had been edited three
+     times across these rounds and never once rendered and looked at. */
+  .hero::after { display: none !important; }
+
+  /* Same reasoning for the glows: a shadow is a background graphic. */
+  .btn, .btn--primary, .card, .stage, .surface { box-shadow: none !important; }
+
   /* Reveals and pinned scrubbing have no meaning on paper. */
   [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
   .scene__track { height: auto !important; }
@@ -44,7 +55,7 @@
   /* Gradient text prints as nothing when backgrounds are dropped. The nav is
      hidden on paper, but the FOOTER carries the same wordmark and is not — so
      the printed page lost the product's own name at the bottom of every copy. */
-  .grad-text, .brand__name { color: #000 !important; -webkit-text-fill-color: #000 !important; }
+  .grad-text { color: #000 !important; -webkit-text-fill-color: #000 !important; }
   .btn--primary { color: #000 !important; background: none !important; border: 1px solid #000; }
 
   /* A URL the reader cannot click is worth printing next to its label. */

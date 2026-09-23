@@ -11,14 +11,19 @@
   font-family: var(--font-body);
   font-size: calc(13px * var(--dscale, 1));
   fill: var(--fg-soft);
-  letter-spacing: 0.01em;
+  letter-spacing: calc(0.01em * var(--track-open));
 }
 .d-label--lg    { font-size: calc(15px * var(--dscale, 1)); font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
 .d-label--xs    { font-size: calc(11.5px * var(--dscale, 1)); }
 .d-label--dim   { fill: var(--fg-dim); }
 .d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: calc(11px * var(--dscale, 1)); }
 .d-label--fail  { fill: var(--c-fail); }
-.d-label--on    { fill: #fff; font-weight: 600; }
+/* NOT #fff. This class exists for labels sitting ON the brand gradient, and
+   white measures 2.19:1 over the orange stop — the very reason --on-grad was
+   computed in the first place, for buttons. The diagram that paints text on
+   the same gradient never got it, and axe cannot see it: it does not evaluate
+   SVG text over a gradient fill, so this passed every accessibility run. */
+.d-label--on    { fill: var(--on-grad); font-weight: 600; }
 
 /* ---- hero chain ---------------------------------------------------------- */
 .d-chain { width: 100%; height: auto; overflow: visible; }
@@ -81,7 +86,7 @@
 }
 .d-loop__title {
   font-family: var(--font-display); font-size: calc(30px * var(--dscale, 1));
-  font-weight: 600; letter-spacing: -0.02em;
+  font-weight: 600; letter-spacing: calc(-0.02em * var(--track-tight));
 }
 
 /* ---- architecture -------------------------------------------------------- */
@@ -198,4 +203,4 @@
   stroke: rgb(var(--c-1-rgb) / 0.3);
   stroke-dasharray: 4 3;
 }
-.d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); }
+@media (hover: hover) { .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); } }

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Check, X, LayoutTemplate, FolderKanban } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { PrototypeDataBanner } from "@/components/shell/prototype-data-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
@@ -57,6 +58,7 @@ export function TplApp({
     <AppShell identity={identity} previewRole={previewRole} left={<TplNav screen={screen} href={href} />}>
       <div className="relative flex h-full min-h-0 flex-col">
         <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />
+        <PrototypeDataBanner className="mx-4 mt-2" />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {screen === "list" && <BlueprintListScreen {...common} />}

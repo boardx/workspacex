@@ -15,6 +15,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
@@ -29,9 +30,47 @@ const TYPES = {
 };
 const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.svg', '.xml', '.txt', '.json', '.webmanifest']);
 
+/**
+ * `_headers`, parsed — Cloudflare Pages' own format: a path pattern on a
+ * column-zero line, then indented `Name: value` lines until the next pattern.
+ *
+ * Until this existed, the file that carries the Content-Security-Policy, HSTS,
+ * COOP, CORP, nosniff, the referrer policy and the manifest's content type was
+ * read by nothing at all. Every browser suite ran against a server that sent
+ * none of it, so twenty suites exercised a page under a policy the real site
+ * does not serve — and a typo in a header name would have changed nothing any
+ * check could see.
+ */
+function parseHeaders(text) {
+  const rules = [];
+  let current = null;
+  for (const raw of text.split('\n')) {
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    if (!/^\s/.test(raw)) {
+      current = { pattern: raw.trim(), headers: {} };
+      rules.push(current);
+      continue;
+    }
+    const m = /^\s+([A-Za-z0-9-]+):\s*(.+)$/.exec(raw);
+    if (m && current) current.headers[m[1].toLowerCase()] = m[2].trim();
+  }
+  return rules;
+}
+
+export function headerRules() {
+  return parseHeaders(readFileSync(join(ROOT, '_headers'), 'utf8'));
+}
+
+/** Cloudflare's matching: `*` is any run of characters, and `:placeholder`
+ *  segments are not used here. */
+const matches = (pattern, path) =>
+  new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`).test(path);
+
 /** A server that compresses, because every host does and measuring without it
- *  overstates transfer sizes about fourfold for text. */
+ *  overstates transfer sizes about fourfold for text — and that sends what
+ *  `_headers` says the real host will send. */
 export function serve() {
+  const rules = headerRules();
   const server = createServer(async (req, res) => {
     let path = decodeURIComponent(req.url.split('?')[0]);
     if (path.endsWith('/')) path += 'index.html';
@@ -39,6 +78,9 @@ export function serve() {
       const body = await readFile(join(ROOT, path));
       const ext = extname(path);
       const headers = { 'content-type': TYPES[ext] ?? 'application/octet-stream' };
+      for (const rule of rules) {
+        if (matches(rule.pattern, path)) Object.assign(headers, rule.headers);
+      }
       if (COMPRESSIBLE.has(ext) && /gzip/.test(req.headers['accept-encoding'] ?? '')) {
         const gz = gzipSync(body, { level: 9 });
         res.writeHead(200, { ...headers, 'content-encoding': 'gzip', 'content-length': gz.length });

@@ -54,7 +54,7 @@ export function RecProcess({ state, view }: { state: UiState; view: RecView }) {
             >
               <TaskIcon state={t.state} />
               <div className="min-w-0 flex-1">
-                <p className={cn("text-11 text-foreground", t.state === "blocked" && "text-muted-foreground")}>
+                <p className={cn("text-11 text-background-foreground", t.state === "blocked" && "text-muted-foreground")}>
                   {t.label}
                 </p>
                 {t.failNote && (
