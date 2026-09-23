@@ -5221,3 +5221,131 @@ describe("UIUX 18：工作台首页与新建弹窗", () => {
     expect((await screen.findByTestId("intake-guideline") as HTMLTextAreaElement).value).toBe(once);
   });
 });
+
+/* ────── UIUX 第 19 轮：属性面板——改完顺手点下一个，那段字不许消失 ────── */
+
+describe("UIUX 19：属性面板", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  /** 两个文本节点：改第一个、点第二个——这就是本轮最主要的那条路。 */
+  const twoTexts = (frames: string[] = ["首页", "详情"]) => project({
+    id: "p1",
+    frames,
+    prototype: [{
+      id: "root", type: "stack",
+      children: [
+        { id: "t1", type: "text", props: { content: "原来的文案" } },
+        { id: "t2", type: "text", props: { content: "另一个" } },
+      ],
+    }, ...(frames.length > 1 ? [{ id: "root2", type: "stack" as const, children: [] }] : [])],
+    frameLinks: frames.map(() => []),
+  });
+
+  const mount = async (p = twoTexts(), patchFails = false) => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [p] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        if (patchFails) throw new ApiError(500, "boom", {});
+        posted.push(opts.body);
+        return { project: p };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    // 画板视图下每一页各有一棵树——先切到单页视图，再按 id 选节点。
+    await screen.findAllByTestId("design-detail-phone-tree");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    return posted;
+  };
+
+  const select = async (nodeId: string) => {
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement);
+    return screen.findByTestId("design-inspector");
+  };
+
+  it("改了没按「应用」就去点另一个节点 ⇒ 那几处自动应用，并且说出来", async () => {
+    const posted = await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "我改过的文案" } });
+    await select("t2");
+
+    // ⭐ 反证锚点：去掉切节点时的自动应用（只剩 setDraft 重置）⇒ 这两条红——
+    //   用户改完一段文案、顺手点下一个要改的，那段字在两次点击之间消失。
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { ops: { id: string; props: unknown }[] }).ops[0]).toMatchObject({ id: "t1", props: { content: "我改过的文案" } });
+    expect((await screen.findByTestId("design-inspector-auto-applied")).textContent).toContain("已经帮你应用了");
+  });
+
+  it("没改过就切节点 ⇒ 一个请求都不发，也不说「帮你应用了」", async () => {
+    const posted = await mount();
+    await select("t1");
+    await select("t2");
+    // ⭐ 反证锚点：把自动应用写成「切走就发一次」⇒ 这两条红。
+    expect(posted).toHaveLength(0);
+    expect(screen.queryByTestId("design-inspector-auto-applied")).toBeNull();
+  });
+
+  it("自动应用失败 ⇒ 老实说没保住，而不是当作已经保存", async () => {
+    await mount(twoTexts(), true);
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "我改过的文案" } });
+    await select("t2");
+    // ⭐ 反证锚点：把 catch 里改成照样 setAutoApplied ⇒ 这两条红（没保住却说保住了）。
+    const err = await screen.findByTestId("design-inspector-error");
+    expect(err.textContent).toContain("没能保存");
+    expect(screen.queryByTestId("design-inspector-auto-applied")).toBeNull();
+  });
+
+  it("单行输入框里按回车就是「应用」（多行的「文案」不算——那里回车是换行）", async () => {
+    const withButton = project({
+      id: "p1", frames: ["首页"],
+      prototype: [{ id: "root", type: "stack", children: [{ id: "b1", type: "button", props: { label: "下单" } }] }],
+      frameLinks: [[]],
+    });
+    const posted = await mount(withButton);
+    await select("b1");
+    const box = screen.getByTestId("design-inspector-label");
+    fireEvent.change(box, { target: { value: "立即下单" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    // ⭐ 反证锚点：去掉 onKeyDown ⇒ 这条红（回车什么也不发生，人只能去找那个按钮）。
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { ops: { props: { label?: string } }[] }).ops[0]!.props.label).toBe("立即下单");
+  });
+
+  it("改错了能一键还原，不用一个字段一个字段改回去", async () => {
+    const posted = await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "改错了" } });
+    expect(screen.getByTestId("design-inspector-dirty")).toBeTruthy();
+    // ⭐ 反证锚点：去掉「还原这几处」⇒ 这两条红。
+    fireEvent.click(screen.getByTestId("design-inspector-revert"));
+    expect((screen.getByTestId("design-inspector-content") as HTMLInputElement).value).toBe("原来的文案");
+    expect(screen.queryByTestId("design-inspector-dirty")).toBeNull();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("标题栏右边那格是中文类型名，不是 `text` / `bottomnav`", async () => {
+    await mount();
+    await select("t1");
+    // ⭐ 反证锚点：改回 `{node.type}` ⇒ 这条红。
+    expect(screen.getByTestId("design-inspector-node-id").textContent).toBe("文本");
+  });
+
+  it("只有一页时说清为什么跳不了，而不是给一个只有「无」的下拉", async () => {
+    await mount(twoTexts(["首页"]));
+    await select("t1");
+    // ⭐ 反证锚点：去掉那句提示 ⇒ 这条红（下拉里只有「无」，人会以为是坏的）。
+    expect((await screen.findByTestId("design-inspector-link-need-pages")).textContent).toContain("只有一页");
+  });
+
+  it("灰掉的上移/下移按钮说得出为什么按不动", async () => {
+    await mount();
+    await select("t1");
+    const up = screen.getByTestId("design-inspector-move-up") as HTMLButtonElement;
+    expect(up.disabled).toBe(true);
+    // ⭐ 反证锚点：把 title / aria-label 改回写死的「上移一格」⇒ 这两条红。
+    expect(up.getAttribute("title")).toContain("已经是同一层里的第一个");
+    expect(up.getAttribute("aria-label")).toContain("已经是同一层里的第一个");
+  });
+});
