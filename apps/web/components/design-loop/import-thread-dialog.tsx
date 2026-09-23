@@ -26,6 +26,7 @@ import { Loader2, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure as describeGeneric } from "@/lib/design-failure";
 import { listPersonalThreads, type ThreadCard } from "@/lib/live-chat";
 import { importThread, type DesignProject, type ImportedThread } from "@/lib/live-design-workbench";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -33,7 +34,15 @@ import { useDialogFocus } from "./use-dialog-focus";
 type Stage =
   | { kind: "picking" }
   /** 预览：服务端已经摘好一段，还没写库。`text` 是用户可以随便改的那份。 */
-  | { kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean };
+  | {
+      kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean;
+      /**
+       * 迭代 16（#3773 R3）：从同一段对话抽出来的验收标准候选，逐条可勾可改。
+       * `picked` 记住哪几条要写进去——默认全选（模型只抽"真的定下来过"的口径，
+       * 默认不选等于让用户把这件事再做一遍）。
+       */
+      criteria: readonly string[]; picked: readonly boolean[];
+    };
 
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) {
@@ -51,10 +60,14 @@ function describeFailure(err: unknown): string {
       return "服务器出错了，这次没能保存。你编辑的这段文字还在，可以再点一次确认。";
     }
     if (err.status === 403) return "这个设计项目不是你的，不能改它的背景。";
-    return "这次导入没成功，可以再试一次。";
+    return describeGeneric(err);
   }
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return "这次导入没成功，可以再试一次。";
+  /*
+   * 迭代 33：这两句原来各写各的（「无法连接服务器，请稍后重试」在全仓有四份不同措辞）。
+   * 本文件上面那几条 404/503/500/403 的特判是**这条路独有的信息**，留着；
+   * 剩下的退回单源 `describeFailure`，同一类失败在所有屏上说同一句话。
+   */
+  return describeGeneric(err);
 }
 
 export function ImportThreadDialog({
@@ -134,7 +147,15 @@ export function ImportThreadDialog({
     setError(null);
     try {
       const out = await importThread(projectId, thread.id);
-      setStage({ kind: "preview", thread, imported: out.imported, text: out.summary, truncated: out.truncated });
+      setStage({
+        kind: "preview", thread, imported: out.imported, text: out.summary, truncated: out.truncated,
+        /*
+         * `?? []`：契约上 `criteria` 是必给的，但滚动发布期间前端可能先上、后端还是旧版，
+         * 那时这个键不存在。少了这道，整个导入预览会当场白屏——为一个可选增强
+         * 赔掉一条本来能用的路径。
+         */
+        criteria: out.criteria ?? [], picked: (out.criteria ?? []).map(() => true),
+      });
     } catch (e) {
       setError(describeFailure(e));
     } finally {
@@ -148,7 +169,13 @@ export function ImportThreadDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = await importThread(projectId, stage.thread.id, stage.text);
+      const chosen = stage.criteria.filter((_, i) => stage.picked[i] === true);
+      // 一条都没抽到 ⇒ 不传这个键（语义是「不动」）；抽到了但用户全取消 ⇒ 传空数组，
+      // 那是「这次导入不带验收标准」，与「不动」是两件事。
+      const out = await importThread(
+        projectId, stage.thread.id, stage.text,
+        stage.criteria.length === 0 ? undefined : chosen,
+      );
       onImported(out.project);
       onClose();
     } catch (e) {
@@ -227,7 +254,7 @@ export function ImportThreadDialog({
             <p className="text-11 text-muted-foreground" data-testid="import-thread-source">
               来自《{stage.imported.title}》的 {stage.imported.messageCount} 条消息
               {/* 截断必须说出来：静默截断会让用户以为模型看过它其实没看过的那段 */}
-              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，只读了最近这些）</span>}
+              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，读了开头几条与最近的部分，中间略过）</span>}
             </p>
             <Textarea
               rows={10}
@@ -236,6 +263,24 @@ export function ImportThreadDialog({
               aria-label="导入预览"
               data-testid="import-thread-preview"
             />
+            {stage.criteria.length > 0 && (
+              <div className="flex flex-col gap-1" data-testid="import-thread-criteria">
+                <p className="text-11 font-medium">这段对话里定下来的验收标准（勾上的会一起写进项目）</p>
+                {stage.criteria.map((c, i) => (
+                  <label key={c} className="flex items-start gap-2 text-12" data-testid="import-thread-criterion">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={stage.picked[i] === true}
+                      onChange={(e) =>
+                        setStage({ ...stage, picked: stage.picked.map((v, k) => (k === i ? e.target.checked : v)) })
+                      }
+                    />
+                    <span className="min-w-0 flex-1">{c}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             <p className="text-10 text-muted-foreground">改完再确认——写进项目的是上面这段文字，不是原始对话。</p>
           </>
         )}

@@ -331,6 +331,10 @@ export default {
       // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
       { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },
       { source: `${prefix}/pm-designs/:path*`, destination: `${apiOrigin}/pm-designs/:path*` },
+      // 迭代 22（发布与分享）：分享链接是给**没登录的人**点的，同 `/public/surveys` 那条。
+      // 少了它，分享页在同源代理的部署上拿到的是 Next 自己的 404 HTML——而症状是
+      // `Unexpected token '<'`，看起来像前端解析 bug（api-client 里那段注释说的就是这个）。
+      { source: `${prefix}/public/design-shares/:path*`, destination: `${apiOrigin}/public/design-shares/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // issue #2664（异步子任务派发）：`subtask-run.controller.ts` 挂了

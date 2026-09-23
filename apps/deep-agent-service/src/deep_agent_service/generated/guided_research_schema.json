@@ -151,6 +151,42 @@
                         "minLength": 1,
                         "maxLength": 2000
                       },
+                      "decisionQuestions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "hypotheses": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "comparisonDimensions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "evidenceNeeds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
                       "enabled": {
                         "type": "boolean"
                       },
@@ -496,7 +532,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "qwen3.7-plus"
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -586,7 +622,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "qwen3.7-plus"
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -676,7 +712,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "qwen3.7-plus"
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -766,7 +802,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "qwen3.7-plus"
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -856,7 +892,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "const": "qwen3.7-plus"
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -989,6 +1025,42 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2000
+                      },
+                      "decisionQuestions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "hypotheses": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "comparisonDimensions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
+                      },
+                      "evidenceNeeds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "maxItems": 12
                       },
                       "enabled": {
                         "type": "boolean"

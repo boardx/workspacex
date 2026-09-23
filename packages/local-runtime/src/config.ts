@@ -182,17 +182,21 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
 
 type Env = Record<string, string>;
 
+type PathsOf = Pick<LocalConfig, "repoRoot" | "dataDir">;
+
 export const paths = {
-  pgData: (c: LocalConfig) => join(c.dataDir, "pgdata"),
-  objects: (c: LocalConfig) => join(c.dataDir, "objects"),
-  sessions: (c: LocalConfig) => join(c.dataDir, "sessions.json"),
-  models: (c: LocalConfig) => join(c.dataDir, "models"),
-  logs: (c: LocalConfig) => join(c.dataDir, "logs"),
-  sandboxIn: (c: LocalConfig) => join(c.dataDir, "sandbox", "in"),
-  sandboxOut: (c: LocalConfig) => join(c.dataDir, "sandbox", "out"),
-  seedState: (c: LocalConfig) => join(c.dataDir, "seed-state.json"),
-  deepAgentVenv: (c: LocalConfig) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
-  asrModelDir: (c: LocalConfig) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  pgData: (c: PathsOf) => join(c.dataDir, "pgdata"),
+  objects: (c: PathsOf) => join(c.dataDir, "objects"),
+  sessions: (c: PathsOf) => join(c.dataDir, "sessions.json"),
+  models: (c: PathsOf) => join(c.dataDir, "models"),
+  logs: (c: PathsOf) => join(c.dataDir, "logs"),
+  sandboxIn: (c: PathsOf) => join(c.dataDir, "sandbox", "in"),
+  sandboxOut: (c: PathsOf) => join(c.dataDir, "sandbox", "out"),
+  seedState: (c: PathsOf) => join(c.dataDir, "seed-state.json"),
+  deepAgentVenv: (c: PathsOf) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
+  asrModelDir: (c: PathsOf) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  /** The signed skill starter packs shipped in the repo/bundle (`skills/starter-packs/<pack>/<version>.json`). */
+  skillStarterPacks: (c: PathsOf) => join(c.repoRoot, "skills", "starter-packs"),
 };
 
 /** Only handed to the API when the model is on disk; otherwise ASR stays "not configured". */
@@ -327,6 +331,13 @@ export function apiEnv(c: LocalConfig): Env {
     NATIVE_SESSION_BINDING_KEY: "",
     KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
+    // ⚠ 这两个开关在 API 里默认**关**，理由是「新模型调用行为按部署显式开」（灰度纪律，
+    //   见 configured-model-provider.ts 的 `completeStream is OFF by default`）。对云端那是
+    //   对的；对本地版不是：这里跑的是 5–10 tok/s 的 4B 模型，不开流式，用户点完发送要
+    //   对着空白等一分钟才见到第一个字。同一条默认值在两种部署形态下的代价不是一个量级，
+    //   所以本地版显式把它打开——这正是「按部署显式开」这句话的意思。
+    KERNEL_MODEL_STREAM_ENABLED: "1",
+    KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
     KERNEL_CORS_ORIGINS: webOrigins(c).join(","),
     // no Redis on this machine (issue #3716)
@@ -339,6 +350,18 @@ export function apiEnv(c: LocalConfig): Env {
     EMAIL_VERIFICATION_SECRET: c.secrets.emailVerificationSecret,
     PLATFORM_SUPERUSER_EMAILS: LOCAL_ADMIN_EMAIL,
     // skill sandbox: TCP loopback child process (L0 isolation, see PROP §3.5)
+    // Without a root the pack source returns NOT_FOUND for every pack and never falls back
+    // (`FileSkillStarterPackSource`, domain I-10), so an unset root does not degrade the
+    // import surface -- it removes it. The cloud deployer sets this; the local build is its
+    // own deployer, and the packs ship inside the very bundle this points into.
+    SKILL_STARTER_PACK_ROOT: paths.skillStarterPacks(c),
+    // The isolated download origin is a security boundary, not a deployment detail
+    // (`isolated-download-url-builder.ts`): uploaded HTML/SVG must not execute on the origin
+    // that owns the session. `*.localhost` resolves to 127.0.0.1 in every current browser, so
+    // a distinct HOST on the API's own port keeps that property with nothing to install. It is
+    // set rather than left to the default because the default hard-codes port 3200 and would
+    // point at nothing as soon as `--ports api=` moves the API.
+    WORKSPACEX_DOWNLOAD_ORIGIN: `http://downloads.localhost:${c.ports.api}`,
     KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${c.ports.sandbox}`,
     SKILL_SANDBOX_INPUT_DIR: paths.sandboxIn(c),
     SKILL_SANDBOX_OUT_DIR: paths.sandboxOut(c),

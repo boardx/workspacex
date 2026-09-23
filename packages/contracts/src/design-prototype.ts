@@ -66,6 +66,56 @@ const Size = z.enum(["sm", "md", "lg"]);
 const Label = z.string().min(1).max(200);
 const Items = z.array(Label).min(1).max(30);
 
+
+/* ─────────────────── 迭代 16（#3773 R4）：图标闭集 ─────────────────── */
+
+/**
+ * 原语可用的图标名——**闭集**，与颜色/圆角同一条纪律（只有这几档）。
+ *
+ * ## 为什么加它
+ *
+ * 在这之前这套原语**一个图标都表达不了**：按钮、列表项、底部导航全是纯文字。
+ * 真实 App 界面的图标密度很高，全文字的产物一眼就是线框图而不是界面——这正是
+ * 「和 claude design 有巨大差距」最直观的一段。
+ *
+ * 更糟的是画布为了补这个缺，把底部导航的图标做成了**按位置轮转**
+ * （`NAV_ICONS[i % 5]`）：一个叫「消息」的标签页会拿到齿轮图标。那不是"没有图标"，
+ * 是"图标在撒谎"，比没有更坏。
+ *
+ * ## 为什么是闭集而不是自由字符串
+ *
+ * 同 `Radius` / `Scale` 的理由：给了自由字符串，模型会输出画布渲染不了的名字，
+ * 而渲染表是 `Record<PrototypeIcon, …>` 穷举——闭集让"模型给了个没有的图标"
+ * 在契约层就被挡住，而不是在屏上变成一个空洞。
+ *
+ * ⚠ 加图标要**同时**改 `apps/web/components/design-loop/prototype-canvas.tsx` 的
+ *   `ICONS` 表（那边穷举，漏了编译不过）。
+ */
+export const PrototypeIcon = z.enum([
+  // 导航与结构
+  "home", "search", "menu", "more", "settings", "filter", "grid", "list", "back", "forward",
+  // 人与社交
+  "user", "users", "bell", "message", "send", "share", "heart", "star",
+  // 内容与文件
+  "image", "camera", "file", "folder", "bookmark", "tag", "link", "download", "upload",
+  // 动作
+  "plus", "edit", "trash", "check", "close", "refresh", "play", "pause", "lock", "eye",
+  // 商务与数据
+  "cart", "card", "chart", "calendar", "clock", "location", "mail", "phone", "info", "warning",
+]);
+export type PrototypeIcon = z.infer<typeof PrototypeIcon>;
+
+/**
+ * `image` 画的是**什么**——语义占位，不是真图。
+ *
+ * 在这之前 `image` 只有 `alt` + `ratio`，一律渲染成一个灰块加一个图片图标。
+ * 一张商品图、一张地图、一条折线图在屏上长得一模一样，而真实界面里它们撑起的
+ * 视觉分量完全不同。给了语义，画布就能画出各自的**形状**（地图有路网、图表有折线、
+ * 头像是圆的），一眼能看出这块是什么。
+ */
+export const PrototypeImageKind = z.enum(["photo", "illustration", "avatar", "map", "chart", "logo", "video"]);
+export type PrototypeImageKind = z.infer<typeof PrototypeImageKind>;
+
 const StackProps = z.object({
   direction: z.enum(["row", "column"]).optional(),
   gap: Scale.optional(),
@@ -84,6 +134,8 @@ const TextProps = z.object({
 }).strict();
 const ButtonProps = z.object({
   label: Label,
+  /** 迭代 16（#3773 R4）：按钮左侧的图标。缺省 = 纯文字按钮（大多数按钮本来就不该有图标）。 */
+  icon: PrototypeIcon.optional(),
   variant: z.enum(["primary", "secondary", "ghost", "danger"]).optional(),
   full: z.boolean().optional(),
   size: Size.optional(),
@@ -95,8 +147,34 @@ const InputProps = z.object({
   value: z.string().max(500).optional(),
   multiline: z.boolean().optional(),
 }).strict();
-const ImageProps = z.object({ alt: Label, ratio: z.enum(["square", "video", "wide", "portrait"]).optional() }).strict();
-const ListProps = z.object({ items: Items, leading: z.enum(["none", "dot", "check", "avatar"]).optional() }).strict();
+const ImageProps = z.object({
+  alt: Label,
+  ratio: z.enum(["square", "video", "wide", "portrait"]).optional(),
+  /** 迭代 16（#3773 R4）：这块图画的是什么（语义占位）。缺省 = `photo`。 */
+  kind: PrototypeImageKind.optional(),
+}).strict();
+/**
+ * 迭代 16（#3773 R4）—— 列表行升级成**真实的列表行**。
+ *
+ * 在这之前 `items` 是一串字符串，渲染成一行截断的小字。而真实界面里的列表行
+ * 几乎都是「主标题 + 一行副标题 + 右侧一个值」（订单：店名 / 三件商品 / ¥128；
+ * 会话：联系人 / 最后一句话 / 时间）。少了这一层，凡是有列表的页都比真实界面薄一截。
+ *
+ * ⚠ **不改 `items` 的形状**（仍是字符串数组）。换成对象数组会让所有已存的原型失效，
+ *   而这里要的只是"多两列可选信息"。`detail` / `trailing` / `icons` 与 `items`
+ *   **逐位对应**，短了后面几行就没有那一列，长了多出来的忽略——不要求等长，
+ *   等长约束会让模型为了补一个空字符串而把整条写回作废。
+ */
+const ListProps = z.object({
+  items: Items,
+  leading: z.enum(["none", "dot", "check", "avatar", "icon"]).optional(),
+  /** 每行第二行的副标题，与 `items` 逐位对应。 */
+  detail: z.array(z.string().max(200)).max(30).optional(),
+  /** 每行右侧的值（金额、时间、数量……），与 `items` 逐位对应。 */
+  trailing: z.array(z.string().max(60)).max(30).optional(),
+  /** `leading: "icon"` 时每行的图标，与 `items` 逐位对应；缺这一位就退回圆点。 */
+  icons: z.array(PrototypeIcon).max(30).optional(),
+}).strict();
 const SpacerProps = z.object({ size: Scale.optional() }).strict();
 /** `active` 必须指向 `items` 里真实存在的一项（Codex：越界会渲染成「没有选中项」）。 */
 const indexWithin = <T extends { items: readonly string[]; active?: number }>(p: T): boolean => p.active === undefined || p.active < p.items.length;
@@ -104,7 +182,18 @@ const TabsPropsBase = z.object({ items: Items, active: z.number().int().min(0).o
 const TabsProps = TabsPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
 const AvatarProps = z.object({ name: Label, size: Size.optional() }).strict();
-const BottomNavPropsBase = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const BottomNavPropsBase = z.object({
+  items: z.array(Label).min(2).max(6),
+  active: z.number().int().min(0).optional(),
+  /**
+   * 迭代 16（#3773 R4）：每一项的图标，与 `items` 逐位对应。
+   *
+   * 不给的那几位由画布**按标签名猜**（「消息」→ message），猜不到才退回一个中性图标。
+   * 在这之前画布是按**位置**轮转 `[Home, Search, Bell, User, Settings]`——
+   * 一个叫「消息」的标签页会拿到齿轮图标。那不是没有图标，是图标在撒谎。
+   */
+  icons: z.array(PrototypeIcon).max(6).optional(),
+}).strict();
 const BottomNavProps = BottomNavPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
 const CheckboxProps = z.object({ label: Label, checked: z.boolean().optional() }).strict();
@@ -271,6 +360,11 @@ export type PrototypeFieldGroup = "content" | "visual";
 const VISUAL_FIELD_KEYS: ReadonlySet<string> = new Set([
   "gap", "padding", "align", "direction", "fill", "variant", "tone", "ratio",
   "leading", "size", "radius", "full", "muted", "columns",
+  // 迭代 16（#3773 R4）：单个图标与"这块图画的是什么"是视觉档位。
+  // ⚠ `icons`（复数）**不在这里**：它与 `items` 逐位对应，是**每一行各自的内容**，
+  //   不是一个可以整体拨的档位——放进视觉组会让属性面板把它和圆角摆在一起，
+  //   而用户改它的时候想的是"第三行是什么图标"。
+  "icon", "kind",
 ]);
 
 export const prototypeFieldGroup = (key: string): PrototypeFieldGroup =>
@@ -322,18 +416,31 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
     F("muted", "弱化", "bool"), F("align", "对齐", "enum", TextProps.shape.align.unwrap().options),
   ],
   button: [
-    F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options),
+    F("label", "文案", "text"), F("icon", "图标", "enum", PrototypeIcon.options),
+    F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options),
     F("full", "通栏", "bool"), F("size", "尺寸", "enum", Size.options), F("radius", "圆角", "enum", Radius.options),
   ],
   input: [F("placeholder", "占位文字", "text"), F("label", "标签", "text"), F("value", "已填内容", "text"), F("multiline", "多行", "bool")],
-  image: [F("alt", "说明", "text"), F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options)],
-  list: [F("items", "条目（一行一项）", "lines"), F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options)],
+  image: [
+    F("alt", "说明", "text"), F("kind", "画的是什么", "enum", PrototypeImageKind.options),
+    F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options),
+  ],
+  list: [
+    F("items", "条目（一行一项）", "lines"),
+    F("detail", "副标题（一行一项，与条目对应）", "lines"),
+    F("trailing", "右侧值（一行一项，与条目对应）", "lines"),
+    F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options),
+    F("icons", "每行图标（一行一项）", "lines"),
+  ],
   divider: [],
   spacer: [F("size", "高度", "enum", SCALE_OPTIONS)],
   tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
   badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
   avatar: [F("name", "名字", "text"), F("size", "尺寸", "enum", Size.options)],
-  bottomnav: [F("items", "项（一行一项，2–6）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  bottomnav: [
+    F("items", "项（一行一项，2–6）", "lines"), F("icons", "每项图标（一行一项）", "lines"),
+    F("active", "当前项（从 0 起）", "number"),
+  ],
   switch: [F("label", "文案", "text"), F("on", "打开", "bool")],
   checkbox: [F("label", "文案", "text"), F("checked", "已选", "bool")],
   chip: [F("label", "文案", "text"), F("selected", "选中", "bool")],
@@ -342,6 +449,56 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
   grid: [FNum("columns", "列数", ["2", "3"]), F("gap", "间距", "enum", SCALE_OPTIONS)],
 };
+
+/**
+ * 迭代 28 —— 枚举取值 → 中文档位。
+ *
+ * `PROTOTYPE_FIELDS` 的 `options` 直接取自 zod `.options`，也就是 schema 里的英文字面量。
+ * 属性面板原样把它们渲染进下拉，于是一个不写代码的人在「样式」里看到的是
+ * `primary / secondary / ghost / danger`，在「图标」里看到的是 50 个英文单词。
+ * 标签是给人看的东西，得和取值分开。
+ *
+ * 查表顺序：`"<节点类型>.<字段 key>"` → `"<字段 key>"` → 原样返回。
+ * 带类型的那一层只为**同名不同义**的字段存在（目前只有 `align`：stack 上是交叉轴、
+ * text 上是文字对齐）；其余一律走字段级，避免同一句话抄 20 遍。
+ *
+ * ⚠ 覆盖率由契约测试机械核对：`PROTOTYPE_FIELDS` 里任何一个 enum option 查不到中文
+ *   都判失败——新增枚举值却忘了给话，会在测试里当场红，而不是悄悄漏一个英文到界面上。
+ */
+export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  direction: { row: "横着排", column: "竖着排" },
+  gap: { none: "不留", sm: "小", md: "中", lg: "大" },
+  padding: { none: "不留", sm: "小", md: "中", lg: "大" },
+  size: { none: "不留", sm: "小", md: "中", lg: "大" },
+  radius: { none: "直角", sm: "小圆角", md: "中圆角", lg: "大圆角", full: "全圆" },
+  align: { start: "靠左", center: "居中", end: "靠右", between: "两端撑开" },
+  "stack.align": { start: "贴着起点", center: "居中", end: "贴着末尾", between: "两端撑开" },
+  variant: {
+    title: "大标题", subtitle: "小标题", body: "正文", caption: "小字注释", label: "字段标签",
+    primary: "主按钮", secondary: "次按钮", ghost: "透明按钮", danger: "危险操作",
+  },
+  kind: { photo: "照片", illustration: "插画", avatar: "头像", map: "地图", chart: "图表", logo: "标志", video: "视频" },
+  ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
+  leading: { none: "不加", dot: "圆点", check: "勾选框", avatar: "头像", icon: "图标" },
+  tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
+  columns: { "2": "2 列", "3": "3 列" },
+  icon: {
+    home: "首页", search: "搜索", menu: "菜单", more: "更多", settings: "设置",
+    filter: "筛选", grid: "宫格", list: "列表", back: "返回", forward: "前进",
+    user: "个人", users: "多人", bell: "通知", message: "消息", send: "发送",
+    share: "分享", heart: "喜欢", star: "收藏星",
+    image: "图片", camera: "相机", file: "文件", folder: "文件夹", bookmark: "书签",
+    tag: "标签", link: "链接", download: "下载", upload: "上传",
+    plus: "加号", edit: "编辑", trash: "删除", check: "对勾", close: "关闭",
+    refresh: "刷新", play: "播放", pause: "暂停", lock: "锁", eye: "眼睛",
+    cart: "购物车", card: "银行卡", chart: "图表", calendar: "日历", clock: "时钟",
+    location: "定位", mail: "邮件", phone: "电话", info: "信息", warning: "警告",
+  },
+};
+
+/** 取一个枚举值的中文档位；没登记就原样返回（契约测试保证 `PROTOTYPE_FIELDS` 里不会有这种漏网的）。 */
+export const prototypeOptionLabel = (type: string, fieldKey: string, value: string): string =>
+  PROTOTYPE_OPTION_LABELS[`${type}.${fieldKey}`]?.[value] ?? PROTOTYPE_OPTION_LABELS[fieldKey]?.[value] ?? value;
 
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
 
@@ -784,16 +941,36 @@ export const PROTOTYPE_PATCH_GUIDE =
  * 给模型看的原语说明——**唯一**一份，`DESIGN_CHAT_SYSTEM_PROMPT` 拼它，不另抄。
  * 与上面各 `*Props` 同步维护；契约测试 `design-prototype.test.ts` 检查每个类型名都出现在这段文字里。
  */
+/**
+ * 迭代 16（#3773 R4）：图标名册——**只声明一次**。
+ *
+ * `icon` / `icons` 出现在 button、list、bottomnav 三处。把 46 个名字在三段里各抄一遍，
+ * 正是本仓那条「同一事实不得声明在两处」的反面；而且它会把这段说明的信噪比压垮。
+ * 所以名册单独一句，三处各自只说"有这么个键"。契约测试 `design-prototype.test.ts`
+ * 认这个形态：闭集的取值写在**自己那一段**或**这份名册**里都算数，但名册必须列全。
+ */
+export const PROTOTYPE_ICON_ROSTER =
+  `图标名（button.icon / list.icons / bottomnav.icons 共用这一份名册）只能取这些：${PrototypeIcon.options.join("/")}。`;
+
 export const PROTOTYPE_SCHEMA_GUIDE =
   "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
   "card{title?, radius:none|sm|md|lg|full, padding:none|sm|md|lg}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align:start|center|end}；" +
-  "button{label, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
-  "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
+  "button{label, icon?, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
+  "image{alt, kind:photo|illustration|avatar|map|chart|logo|video, ratio:square|video|wide|portrait}；" +
+  "list{items:[..], detail?:[..副标题，与 items 逐位对应], trailing?:[..右侧值，与 items 逐位对应], leading:none|dot|check|avatar|icon, icons?:[..每行图标]}；divider{}；" +
   "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
-  "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
+  "bottomnav{items:[2–6 项], icons?:[与 items 逐位对应], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
   "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）。" +
+  // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
+  // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
+  PROTOTYPE_ICON_ROSTER +
+  "什么时候用图标：底部导航**每一项都要给**（不给会按标签名猜，猜不到就是一个中性图标）；" +
+  "列表行在能一眼分辨类别时用（leading:\"icon\" + icons）；按钮只在动作有公认图标时用（加号、搜索、分享），" +
+  "不要每个按钮都挂一个——那是装饰不是信息。" +
+  "列表行尽量写成真实的三段式：items 是主标题，detail 是那一行的补充（「三件商品」「刚刚」），" +
+  "trailing 是右侧的值（金额、时间、数量）。只有一列字的列表比真实界面薄一截。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
   `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
   // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。

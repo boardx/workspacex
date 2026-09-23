@@ -61,5 +61,5 @@ export async function restorePrototypeVersion(
   const recorded = deps.projects.lastRecordedVersion();
   if (recorded === null) throw new Error("design-workbench: restore wrote the project but no version was recorded");
   const names = await ownerNamesFor(deps, [written.ownerId]);
-  return { project: projectDesignProject(written, names.get(written.ownerId) ?? null), version: summaryView(recorded) };
+  return { project: projectDesignProject(written, names.get(written.ownerId) ?? null, input.ownerId), version: summaryView(recorded) };
 }

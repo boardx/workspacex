@@ -1,0 +1,336 @@
+/* ==========================================================================
+   components.css — buttons, cards, chips, diagram furniture
+   ========================================================================== */
+
+/* ---- buttons ------------------------------------------------------------- */
+.btn {
+  -webkit-user-select: none;
+  user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  padding: 0.8rem 1.35rem;
+  border-radius: var(--r-sm);
+  font-size: var(--t-small); font-weight: 600; letter-spacing: 0.005em;
+  /* NOT nowrap. A nowrap label's min-content is the whole label, and in a
+     grid that becomes the track's minimum — at a 200% text setting the hero's
+     column was forced to 426 px inside a 390 px phone, taking the headline and
+     the chip out of the viewport with it. Labels here are short enough that
+     they only wrap when wrapping is the right answer. */
+  white-space: normal; text-wrap: balance; max-width: 100%;
+  transition: transform var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn--primary {
+  color: var(--on-grad);
+  background: var(--grad);
+  box-shadow: 0 6px 24px -10px rgb(var(--c-2-rgb) / 0.85);
+}
+.btn--primary:hover { box-shadow: 0 10px 32px -10px rgb(var(--c-2-rgb) / 0.95); }
+
+.btn--ghost {
+  color: var(--fg);
+  border: 1px solid var(--hairline-2);
+  background: var(--surface);
+}
+.btn--ghost:hover { background: var(--surface-2); border-color: var(--fg-faint); }
+
+.btn--lg { padding: 0.95rem 1.7rem; font-size: var(--t-md); }
+
+.btn__arrow { transition: transform var(--dur-fast) var(--ease-out); }
+.btn:hover .btn__arrow { transform: translateX(3px); }
+
+/* ---- chips / badges ------------------------------------------------------ */
+.chip {
+  /* Aligns to the first line: the label wraps to two lines on a phone, and a
+     centred dot then sits in the gutter between them. */
+  display: inline-flex; align-items: flex-start; gap: var(--s-2);
+  max-width: 100%;
+  padding: 0.45rem 0.95rem 0.45rem 0.6rem;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-2);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: var(--t-small); color: var(--fg-soft);
+  /* At 390 px the label broke after the "+" and left "AI" alone on the second
+     line. Balancing splits it after "Workspace" instead. Engines without it
+     wrap exactly as before, so there is nothing to guard. */
+  text-wrap: balance;
+}
+.chip__dot {
+  width: 6px; height: 6px; border-radius: var(--r-round);
+  background: var(--grad);
+  flex-shrink: 0;
+  margin-top: 0.52em;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.22rem 0.55rem; border-radius: var(--r-xs);
+  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+/* ---- cards --------------------------------------------------------------- */
+.card {
+  position: relative;
+  padding: clamp(1.4rem, 2.2vw, 1.9rem);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  overflow: hidden;
+  transition: border-color var(--dur) var(--ease-out),
+              transform var(--dur) var(--ease-out);
+}
+.card:hover { border-color: var(--hairline-2); }
+
+/* the thin gradient hairline that lights the top edge of a card */
+.card--lit::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--c-2-rgb) / .55), transparent);
+  opacity: 0; transition: opacity var(--dur) var(--ease-out);
+}
+.card--lit:hover::before { opacity: 1; }
+
+.card__index {
+  font-family: var(--font-mono); font-size: var(--t-micro);
+  color: var(--fg-faint); letter-spacing: 0.1em;
+  margin-bottom: 0.9rem;
+}
+.card__title { font-size: var(--t-lg); margin-bottom: 0.55rem; }
+.card__body { font-size: var(--t-small); color: var(--fg-dim); }
+
+/* ---- grids --------------------------------------------------------------- */
+.grid { display: grid; gap: clamp(0.875rem, 1.6vw, 1.25rem); }
+.grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 60.0rem) {
+  .grid--3, .grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 38.75rem) {
+  .grid--3, .grid--4 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- stage: the framed area a diagram lives in --------------------------- */
+.stage {
+  position: relative;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(var(--c-2-rgb) / .07), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.008));
+  overflow: hidden;
+}
+.stage__inner { padding: clamp(1.25rem, 3vw, 2.5rem); }
+
+/* Grid-paper backdrop, very faint — reads as an engineering surface.
+   `z-index: -1` is load-bearing: a positioned pseudo-element paints above
+   static in-flow content, so without it this grid sat ON TOP of the diagram
+   it is meant to sit behind. `isolation` on the parent keeps it from
+   escaping behind the section background instead. */
+.stage--grid { isolation: isolate; }
+.stage--grid::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background-image:
+    linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(100% 70% at 50% 40%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(100% 70% at 50% 40%, #000 30%, transparent 78%);
+}
+
+.stage__caption {
+  font-size: var(--t-small); color: var(--fg-dim);
+  padding: 0 clamp(1.25rem, 3vw, 2.5rem) clamp(1.25rem, 3vw, 2rem);
+  max-width: 46rem;
+}
+
+/* ---- legend -------------------------------------------------------------- */
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; }
+.legend__item {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-size: var(--t-micro); color: var(--fg-dim);
+}
+.legend__swatch { width: 9px; height: 9px; border-radius: var(--r-nub); flex-shrink: 0; }
+
+/* ---- key line: a pull-quote sized statement ------------------------------ */
+.keyline {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.6vw, 2.1rem);
+  font-weight: 500; line-height: 1.28; letter-spacing: -0.02em;
+  max-width: 34rem;
+}
+
+/* ---- step rail (numbered vertical list) ---------------------------------- */
+.rail { list-style: none; padding: 0; display: grid; gap: var(--s-1); }
+.rail__item {
+  /* A real <button>: reachable by Tab, activated by Enter and Space, announced
+     as a control. It used to be a clickable <li> carrying aria-selected, which
+     is invalid ARIA outside a listbox and unreachable without a mouse. */
+  display: grid; grid-template-columns: 2.25rem 1fr; gap: var(--s-4);
+  width: 100%; text-align: left;
+  padding: 0.95rem 0.75rem;
+  border-radius: var(--r-md);
+  transition: background var(--dur-fast) var(--ease-out);
+  cursor: pointer;
+}
+.rail__item:hover { background: var(--surface); }
+.rail__item[aria-current="true"] { background: var(--surface-2); }
+.rail__num {
+  font-family: var(--font-mono); font-size: var(--t-micro);
+  color: var(--fg-faint); padding-top: var(--s-1);
+}
+.rail__item[aria-current="true"] .rail__num { color: var(--c-2); }
+.rail__text { display: block; }
+.rail__title { display: block; font-weight: 600; font-size: var(--t-md); }
+.rail__body { display: block; font-size: var(--t-small); color: var(--fg-dim); margin-top: 0.2rem; }
+
+/* ---- CTA band ------------------------------------------------------------ */
+.cta {
+  position: relative;
+  isolation: isolate;
+  padding-block: clamp(4.5rem, 9vw, 8rem);
+  text-align: center;
+  overflow: hidden;
+}
+/* Same trap as `.stage--grid::before`: this glow was painting over the
+   headline, tinting white type pink and taking contrast with it. */
+.cta::before {
+  content: ""; position: absolute; inset: -40% -10% auto -10%; height: 140%; z-index: -1;
+  background: radial-gradient(50% 50% at 50% 40%, rgb(var(--c-2-rgb) / .15), transparent 70%);
+  pointer-events: none;
+}
+.cta__actions {
+  display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: center;
+  margin-top: 2.25rem;
+}
+
+/* ---- language hint ------------------------------------------------------- */
+/* Shown only when the browser's preferred language differs from the page's.
+   An offer, not a redirect: auto-redirecting breaks back navigation, hides the
+   other language from crawlers, and overrides a choice the visitor may have
+   made deliberately. */
+.langhint {
+  position: fixed; z-index: 90;
+  left: 50%; bottom: 1.25rem;
+  transform: translate(-50%, calc(100% + 2rem));
+  display: flex; align-items: center; gap: 0.85rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.65rem 0.6rem 1.1rem;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-2);
+  background: rgba(20, 17, 26, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.95);
+  font-size: var(--t-small);
+  transition: transform 620ms var(--ease-out), opacity 620ms var(--ease-out);
+  opacity: 0;
+}
+.langhint.is-in { transform: translate(-50%, 0); opacity: 1; }
+.langhint__text { color: var(--fg-soft); }
+.langhint__go {
+  color: var(--c-2); font-weight: 600; white-space: nowrap;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: rgb(var(--c-2-rgb) / 0.4);
+}
+.langhint__go:hover { text-decoration-color: currentColor; }
+.langhint__close {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: var(--r-round);
+  color: var(--fg-dim); font-size: var(--t-base); line-height: 1;
+  flex-shrink: 0;
+}
+.langhint__close:hover { color: var(--fg); background: var(--surface-2); }
+
+@media (max-width: 32.5rem) {
+  .langhint { left: 1rem; right: 1rem; transform: translateY(calc(100% + 2rem)); max-width: none; }
+  .langhint.is-in { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .langhint { transition: none; opacity: 1; }
+}
+
+/* ---- forced colors -------------------------------------------------------- */
+/* In Windows high-contrast mode the engine replaces every colour with the
+   user's palette and drops background images — a gradient-filled button becomes
+   invisible text on nothing. Borders are the one thing forced-colors keeps, so
+   the controls are given real ones. */
+@media (forced-colors: active) {
+  /* Same trap as print: the gradient behind the wordmark is a background
+     image, which this mode drops, and the transparent text fill survives. */
+  .brand__name { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
+  .btn, .langswitch__btn, .chip, .nav__ghost {
+    border: 1px solid ButtonBorder;
+    forced-color-adjust: none;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+  .btn--primary, .langswitch__btn[aria-current="true"] {
+    color: HighlightText;
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .card, .scales__card, .open__col, .stage, .surface, .faq__item {
+    border: 1px solid CanvasText;
+  }
+  .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
+  .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
+}
+
+/* ---- segmented switch ----------------------------------------------------- */
+.switch {
+  display: inline-flex; align-items: center;
+  margin: clamp(1.25rem, 3vw, 2.5rem) clamp(1.25rem, 3vw, 2.5rem) 0;
+  padding: 3px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.04);
+}
+.switch__btn {
+  padding: 0.5rem 1rem; border-radius: var(--r-pill);
+  font-size: var(--t-small); font-weight: 600;
+  color: var(--fg-dim);
+  min-height: 34px;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.switch__btn:hover { color: var(--fg-soft); }
+.switch__btn[aria-pressed="true"] { color: var(--on-grad); background: var(--grad); }
+@media (pointer: coarse) { .switch__btn { min-height: 44px; } }
+
+/* ---- compare panes -------------------------------------------------------- */
+/* Both states occupy the same grid cell so the frame does not resize when the
+   view changes — a stage that jumps height turns a comparison into a distraction. */
+.compare { display: grid; }
+.compare__pane {
+  grid-area: 1 / 1;
+  /* A grid item defaults to `min-width: auto`, which is its min-content size.
+     An <svg> with a viewBox and no width attribute reports an intrinsic width
+     of the viewBox — 1000px here — so the panes refused to shrink below that
+     and hung 160px outside the stage at every width under ~1100. */
+  min-width: 0;
+  transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+}
+.compare__pane.is-off {
+  opacity: 0; transform: scale(0.985);
+  pointer-events: none;
+}
+.compare__pane.is-on { opacity: 1; transform: none; }
+
+/* Both captions occupy the same grid cell so the taller one sets the height.
+   Swapping them with `display` resized the stage by 24px when switching — on
+   the CHINESE page only, because the two translations are different lengths.
+   A jump that exists in one language and not the other is exactly what a
+   single-language test never sees. */
+.stage__captions { display: grid; }
+.stage__captions > .stage__caption { grid-area: 1 / 1; }
+.stage__caption.is-off { visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .compare__pane { transition: none; }
+  .compare__pane.is-off { transform: none; }
+}

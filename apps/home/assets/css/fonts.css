@@ -1,0 +1,98 @@
+/* fonts.css — self-hosted, variable, deduplicated.
+   No third-party request at runtime: one less network dependency, no invisible
+   text when a CDN is blocked, and nothing about visitors handed to a font host.
+   Latin only. CJK falls back to the system face (PingFang SC / Microsoft YaHei
+   / Noto Sans SC) — what Chinese readers expect, and several megabytes saved. */
+
+/* ---- font-display: optional, not swap ---------------------------------
+   `swap` repaints the page when the real face arrives, and that repaint moves
+   things. How much depends on something this site cannot see: the fallback
+   faces below are metric-matched only if `local('Arial')`, `local('Helvetica')`
+   or `local('Liberation Sans')` resolves on the visitor's machine. Measured
+   here, with the fonts held back:
+
+       fallback resolves ......... CLS 0.0055
+       fallback does NOT resolve . CLS 0.0968   (Android has none of the three)
+
+   CI, whose runner resolves a different face again, reported 0.0219 against a
+   0.02 budget — the same page, three answers, none of them under our control.
+
+   `optional` removes the repaint entirely: the browser uses the real face if
+   it is ready within a very short block period and otherwise skips it for that
+   navigation, downloading it for the next one. Measured at CLS **0** in all
+   three worlds. Both faces are same-origin and the display face is preloaded,
+   so a normal load still renders in Outfit — verified by looking at it, since
+   metric matching makes the heights identical and only the letterforms differ.
+
+   The cost is real and accepted: a first-time visitor on a genuinely slow link
+   reads that one page view in the fallback. That is why the overrides below
+   were corrected rather than abandoned — under `optional` the fallback is what
+   slow visitors actually see, so it matters more, not less. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+  src: url('../fonts/inter-latin.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+  src: url('../fonts/inter-latin-ext.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+  src: url('../fonts/outfit-latin.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+  src: url('../fonts/outfit-latin-ext.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---- metric-matched fallbacks --------------------------------------------
+   Inter is no longer preloaded — at 47 KB it was taking bandwidth from the
+   stylesheet that decides when anything paints at all. The cost of that is a
+   reflow when it swaps in, measured as CLS 0.0089 on a slow connection.
+   These faces fix that: a local system font re-scaled so its line boxes match
+   Inter's, used until the real file arrives. The swap then changes the shapes
+   and nothing else. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22.43%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  /* Widened from 97%. The fallback was 5-13% NARROWER than Outfit across
+     representative strings (measured: "WorkspaceX" 1.074, the hero headline
+     1.060, "Architecture" 1.132), so every swap moved the wordmark, the nav
+     tag beside it and the headline — the only font-swap shift on the page,
+     and the one CI caught on its first run at CLS 0.0219 against a 0.02
+     budget. Inter's fallback holds at 0, which is what this should look like.
+     The vertical overrides are divided by the same factor so the line box is
+     exactly what it was. */
+  size-adjust: 104.2%;
+  ascent-override: 95.88%;
+  descent-override: 24.20%;
+  line-gap-override: 0%;
+}

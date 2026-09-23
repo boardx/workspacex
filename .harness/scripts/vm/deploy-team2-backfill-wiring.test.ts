@@ -5,7 +5,7 @@
  * Agent」，看不出是哪一环：
  *   ① `deploy.sh` 根本没调用补种脚本 → 部署了但没种；
  *   ② 模板的展示名与前端查找用的名字不是同一个字面量 → 种了但查不到；
- *   ③ advisory lock key 与另一个系统 agent 撞上 → 两个模板互相排队（#3 是 team3 的 0x7ea3）。
+ *   ③ advisory lock key 与另一个系统 agent 撞上 → 两个模板互相排队（0x7ea3 曾属 team3，已退役）。
  *
  * 这些都不需要数据库就能断言——它们是接线，不是行为。真正写库的那一步
  * （`ensureSystemAgent`）由 `apps/api/tests/agent-runtime/` 既有的真栈用例覆盖。
@@ -19,7 +19,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TEAM2_AGENT_STABLE_NAME, TEAM2_AGENT_TEMPLATE } from "../../../apps/api/scripts/backfill-team2-agent";
-import { TEAM3_AGENT_STABLE_NAME } from "../../../apps/api/scripts/backfill-team3-agent";
+import { DEEP_RESEARCH_AGENT_STABLE_NAME } from "../../../packages/contracts/src/agent-defaults";
 import { RATING_AGENT } from "../../../apps/web/lib/postinvest-rating/agent-directory";
 import { buildRatingPrompt } from "../../../apps/web/lib/postinvest-rating/rating-prompt";
 
@@ -32,10 +32,12 @@ describe("team2 补种脚本的部署接线", () => {
   });
 
   it("补种步骤排在其他 agent 补种之后，与它们同属一段", () => {
-    const team3At = deployScript.indexOf("scripts/backfill-team3-agent.ts");
+    // 原先锚定的是 team3 的补种步骤，它已随 team3 下线删除（2026-09-22）；
+    // 改锚 deep-research——本段最后一个平台级补种，team2 必须排在它之后。
+    const deepResearchAt = deployScript.indexOf("scripts/backfill-deep-research-agent.ts");
     const team2At = deployScript.indexOf("scripts/backfill-team2-agent.ts");
-    expect(team3At).toBeGreaterThan(-1);
-    expect(team2At).toBeGreaterThan(team3At);
+    expect(deepResearchAt).toBeGreaterThan(-1);
+    expect(team2At).toBeGreaterThan(deepResearchAt);
   });
 
   it("展示名与前端查找用的名字是同一个字面量——否则种了也查不到", () => {
@@ -48,13 +50,16 @@ describe("team2 补种脚本的部署接线", () => {
     expect(TEAM2_AGENT_TEMPLATE.instructions.length).toBeGreaterThan(500);
   });
 
-  it("stable_name 与 team3 不同——幂等去重靠它", () => {
+  it("stable_name 与其他 agent 不同——幂等去重靠它", () => {
     expect(TEAM2_AGENT_STABLE_NAME).toBe("team2-postinvest-rating");
-    expect(TEAM2_AGENT_STABLE_NAME).not.toBe(TEAM3_AGENT_STABLE_NAME);
+    expect(TEAM2_AGENT_STABLE_NAME).not.toBe(DEEP_RESEARCH_AGENT_STABLE_NAME);
     expect(TEAM2_AGENT_TEMPLATE.stableName).toBe(TEAM2_AGENT_STABLE_NAME);
   });
 
-  it("advisory lock key 不与 team3 的 0x7ea3 相撞", () => {
+  it("advisory lock key 是整数，且不复用 team3 退役后留下的 0x7ea3", () => {
+    // team3 的补种脚本已于 2026-09-22 删除，0x7ea3 因此空出来了。这里仍然断言不相等：
+    // 那台机器上**可能还留着** team3 当初种进去的 agent 行（删脚本不删数据），
+    // 复用同一个 key 会让两者在同一把 advisory lock 上排队。
     expect(TEAM2_AGENT_TEMPLATE.lockKey).not.toBe(0x7ea3);
     expect(Number.isInteger(TEAM2_AGENT_TEMPLATE.lockKey)).toBe(true);
   });

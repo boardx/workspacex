@@ -415,14 +415,13 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
-step "4d2. team3 ad-hoc agent 补种（临时 Agent，docs/design/agent-team3-mvp-backlog.md）"
-# 同 4c/4d 的理由，第三个 stable_name，但只种到名字是「Workspace」的组织——不是每个组织
-# 都该有它，team3 是临时 agent，删除时只需从这里摘掉这一步，不用改共享的注册控制器。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
-  pnpm --filter api exec tsx scripts/backfill-team3-agent.ts
+# 4d2（team3 ad-hoc agent 补种）已于 2026-09-22 随 team3 下线删除。当初把它做成
+# 「一个脚本 + 部署期一次调用」而不是焊进共享的注册控制器，为的就是此刻：摘掉这一步
+# 即可，不动任何共享代码。已种进库里的那条 agent 记录不会被本次部署删除——它只是
+# 不再被补种；要清干净得手工 DELETE，见下方 PR 说明。
 
 step "4d3. team2 ad-hoc agent 补种（临时 Agent，docs/agents/team2-postinvest-rating-mvp.md）"
-# 同 4d2 的理由，第四个 stable_name，同样只种到名字是「Workspace」的组织。
+# 同 4c/4d 的理由，另一个 stable_name，同样只种到名字是「Workspace」的组织。
 # 这一步存在的意义是消掉「人类去某台机器上手工跑 publish-team2-agent.ts 再回填 id」
 # 这个人工步骤：前端按名字在组织能力目录里查真实 agentId，部署跑完即可用。
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \

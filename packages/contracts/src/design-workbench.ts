@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { DesignPrototypePatch, PrototypeLink, PrototypeNode, PrototypeNodeId } from "./design-prototype";
+import { DesignPrototypePatch, PROTOTYPE_MAX_SCREENS, PrototypeLink, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -159,11 +159,103 @@ export const IntakeQuestion = z
   .strict();
 export type IntakeQuestion = z.infer<typeof IntakeQuestion>;
 
-/** 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。 */
+/**
+ * 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。
+ *
+ * ## `dimension` 为什么必须跟着答案走（迭代 17，#3773 后续）
+ *
+ * 只有「成功长什么样」那一维的答案该变成验收标准，其余五维是**背景**。在这个字段出现
+ * 之前，答案里只有 `question` 文本，服务端无从分辨它属于哪一维——于是 controller 退而
+ * 求其次，把**全部**问题都当成「成功」那一维交下去，结果是六维答案全都被写成验收标准。
+ * 「谁会用这个东西」「现在他们怎么绕过去」这种背景句就这样进了验收口径，一路走到
+ * 设计文档和排期里。
+ *
+ * ⚠ 可选是为了兼容老客户端。**缺这个键的答案不算「成功」那一维**（见
+ *   `foldIntakeIntoCriteria`）：宁可少几条验收标准，也不要把背景当成验收口径——
+ *   前者用户自己补得回来，后者他未必看得出来。
+ */
 export const IntakeAnswer = z
-  .object({ question: z.string().min(1).max(200), answer: z.string().min(1).max(1000) })
+  .object({
+    question: z.string().min(1).max(200),
+    answer: z.string().min(1).max(1000),
+    dimension: IntakeQuestion.shape.dimension.optional(),
+  })
   .strict();
 export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
+
+/* ─────────── 迭代 17：项目级强调色（#3773 后续，视觉身份） ─────────── */
+
+/**
+ * 原型的**强调色档位**。闭集，不是自由色值——同 `Radius` / `Scale` / `PrototypeIcon`
+ * 的那条纪律。
+ *
+ * ## 为什么需要它
+ *
+ * 在这之前，这套原语画出来的东西**没有视觉身份**：不管做的是儿童记账 App 还是医院
+ * 排班后台，按钮、选中态、进度条一律是同一个中性灰 `--primary`。一个产品给人的第一印象
+ * 首先是它的主色，其次才是布局——少了这一层，所有产出看起来都像同一个模板的不同填空，
+ * 这正是「和 claude design 有巨大差距」里最容易看出来、也最容易修的一段。
+ *
+ * ## 为什么是档位而不是 `#RRGGBB`
+ *
+ * 给了自由色值，模型和人就会造出 `#7B68EE` 这种在深色画布上读不出来的东西，而对比度
+ * 是这套原语能看起来像成品的**前提**（按钮上的字读不清，再好的布局也白搭）。档位让
+ * 每一个取值的对比度都可以被**一次性验过并钉住**（见 `PROTOTYPE_ACCENTS` 与
+ * `design-workbench.test.ts` 的对比度门）。
+ *
+ * `neutral` = 这个字段出现之前的行为，逐字不变：不覆盖任何 token。
+ */
+export const PrototypeAccent = z.enum([
+  "neutral", "blue", "violet", "teal", "green", "amber", "rose", "slate",
+]);
+export type PrototypeAccent = z.infer<typeof PrototypeAccent>;
+
+/**
+ * 每个档位在**浅色画布 / 深色画布**下的实际取值。HSL 三元组字符串，与
+ * `app/globals.css` 里 token 的写法逐字同形——画布把它们直接写进 `--primary` /
+ * `--primary-foreground` / `--ring` 的内联 style，整棵树因此跟着变，
+ * 不需要在渲染表里逐个节点改颜色。
+ *
+ * ⚠ 两套值不是"同一个色的明暗变体"，是**各自为自己那块底色挑的**：浅色画布上是深色块
+ *   配白字，深色画布上是亮色块配近黑字——与 `globals.css` 里 `--primary` 在 `:root`
+ *   与 `.dark` 下的取向一致。照搬一套到另一套，结果是按钮上的字读不出来。
+ *
+ * ⚠ 改这里的任何一个数，对比度门会重算。**不要为了"更好看"把对比度压到 4.5 以下**：
+ *   那不是好看，是别人读不了。
+ */
+export interface PrototypeAccentTokens {
+  /** 强调面的底色（HSL 三元组）。 */
+  readonly primary: string;
+  /** 压在上面的字色。 */
+  readonly foreground: string;
+}
+
+/**
+ * 迭代 19：**低保真线框图**用的灰阶。与 `PROTOTYPE_ACCENTS` 放在一起、走同一条对比度门。
+ *
+ * 为什么它也要两套值：这些 token 不只当块的底色，也当**文字色**（底部导航当前项、
+ * info badge、列表勾）。实测深色画布下灰 46% 的文字压在卡片上只有 3.65:1，低于 AA——
+ * **低保真不是"可以读不清"的借口**。
+ *
+ * 放进契约而不是留在画布组件里，正是为了让它被那条门看见：这次差点又漏掉一次
+ * 「新来的颜色没人验对比度」。
+ */
+export const PROTOTYPE_WIREFRAME: Readonly<Record<"light" | "dark", PrototypeAccentTokens>> = {
+  light: { primary: "220 9% 46%", foreground: "0 0% 100%" },
+  dark: { primary: "220 9% 70%", foreground: "220 15% 12%" },
+};
+
+export const PROTOTYPE_ACCENTS: Readonly<
+  Record<Exclude<PrototypeAccent, "neutral">, { readonly light: PrototypeAccentTokens; readonly dark: PrototypeAccentTokens }>
+> = {
+  blue:   { light: { primary: "221 83% 41%", foreground: "0 0% 100%" }, dark: { primary: "213 94% 73%", foreground: "222 47% 11%" } },
+  violet: { light: { primary: "262 72% 45%", foreground: "0 0% 100%" }, dark: { primary: "255 92% 79%", foreground: "258 45% 15%" } },
+  teal:   { light: { primary: "184 82% 27%", foreground: "0 0% 100%" }, dark: { primary: "172 66% 62%", foreground: "185 60% 12%" } },
+  green:  { light: { primary: "142 66% 26%", foreground: "0 0% 100%" }, dark: { primary: "141 70% 66%", foreground: "144 61% 12%" } },
+  amber:  { light: { primary: "26 90% 33%",  foreground: "0 0% 100%" }, dark: { primary: "43 96% 66%",  foreground: "28 74% 12%" } },
+  rose:   { light: { primary: "346 77% 40%", foreground: "0 0% 100%" }, dark: { primary: "351 95% 77%", foreground: "344 62% 13%" } },
+  slate:  { light: { primary: "215 25% 30%", foreground: "0 0% 100%" }, dark: { primary: "213 27% 76%", foreground: "217 33% 12%" } },
+};
 
 /* ─────────── 迭代 13：从已有对话导入（design-delta `design-chat-inputs` §2） ─────────── */
 
@@ -176,6 +268,15 @@ export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
  * 那段它其实没看过的对话，这是本仓反复栽过的形态。
  */
 export const IMPORT_THREAD_MAX_MESSAGES = 40;
+
+/**
+ * 迭代 16（#3773 R3）：一次导入最多带回几条验收标准。
+ *
+ * 与 `DesignChatWriteback.criteria` 的上限（20）同量级、同形状（≤ 200 字一条）——
+ * 它们写的是**同一个字段**，两边口径不一样的表现是「模型写得进去、导入写不进去」。
+ */
+export const IMPORT_THREAD_MAX_CRITERIA = 20;
+export const ImportedCriterion = z.string().min(1).max(200);
 
 /**
  * 一次导入的**留痕**：这一刻从哪条线程读了多少条。
@@ -242,6 +343,17 @@ export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; reado
 export const DESIGN_WORKBENCH_CHAT_REPLY = "这次没有生成画布——AI 模型没能返回结果。你的这条消息已经记下，可以稍后重试；如果一直这样，让运维看一眼这个部署的模型配置。";
 
 
+/**
+ * 迭代 30 —— 一句话的字数上限（单源）。
+ *
+ * `4000` 在本文件里原本以字面量出现六次（对话轮次、`appendProjectChat` 的入参、
+ * `problem` 的四处）。界面上**一次都没出现过**：用户从别处粘一段长需求进来，
+ * 按下发送才被服务端拒掉，而那时他已经等了一次往返。
+ * 前端要在发送之前就说得出这个数，所以它必须是一个能被 import 的常量，
+ * 而不是抄到输入框旁边的第二份 4000。
+ */
+export const DESIGN_TEXT_MAX_CHARS = 4000;
+
 /* ─────────────────────────── 实体 ─────────────────────────── */
 
 /**
@@ -251,7 +363,7 @@ export const DESIGN_WORKBENCH_CHAT_REPLY = "这次没有生成画布——AI 模
 export const DesignProjectChatTurn = z
   .object({
     role: z.enum(["user", "ai"]),
-    text: z.string().min(1).max(4000),
+    text: z.string().min(1).max(DESIGN_TEXT_MAX_CHARS),
     at: z.string(),
     /** B5.2：`role: "ai"` 的记录带来源（模型 / 退路）；`user` 记录与 B5.2 之前的旧记录没有 */
     source: AiReplySource.optional(),
@@ -288,13 +400,49 @@ export const DESIGN_PROJECT_TAG_MAX_CHARS = 20;
 export const DesignProjectTag = z.string().trim().min(1).max(DESIGN_PROJECT_TAG_MAX_CHARS);
 export const DesignProjectTags = z.array(DesignProjectTag).max(DESIGN_PROJECT_MAX_TAGS);
 
+/* ─────────── 迭代 22：发布与分享（对外只读链接） ─────────── */
+
+/**
+ * 分享链接带出去多少东西。**闭集两档**，默认 `prototype`。
+ *
+ * 为什么必须有这个开关、而不是"分享就是分享整个项目"：`problem` 很可能是从一条内部
+ * 对话线程导进来的（`importThread`），里面带着立项背景、内部吐槽、客户名字。把一个
+ * 原型发给外部评审，和把立项讨论发给外部评审，是两件事。
+ *
+ * ⚠ **两档都不含 `chat`**。对话是设计过程里最容易夹带内部信息的地方（澄清问答、
+ *   "老板说不行"、模型的失败退路），它永远不随链接出去——这一条由
+ *   `SharedDesign` 的字段闭集在编译期钉住，不是一句承诺。
+ */
+export const DesignShareScope = z.enum(["prototype", "full"]);
+export type DesignShareScope = z.infer<typeof DesignShareScope>;
+
+/** 一个项目当前的发布状态（未发布 ⇒ `DesignProject.share` 为 `null`）。 */
+export const DesignShare = z
+  .object({
+    /** 链接里的那串令牌。owner 自己看得到（要能再复制一次），别人读项目时**不返回**（见下方 `DesignProject.share` 头注）。 */
+    token: z.string().nullable(),
+    scope: DesignShareScope,
+    publishedAt: z.string(),
+    /**
+     * 已发布的那一份与**现在画布上这一份**已经不一样了。
+     *
+     * 这个字段存在的理由就是本仓那条「静态痕迹 ≠ 动态事实」：发布一次之后，
+     * 界面上留下的是「已分享」这个**痕迹**，而画布还在继续改。没有它，用户以为
+     * 对方看到的是最新稿，对方看到的其实是三轮之前——而两边都不会发现。
+     * 由服务端逐字段比对快照与当前行算出，不是前端猜的。
+     */
+    stale: z.boolean(),
+  })
+  .strict();
+export type DesignShare = z.infer<typeof DesignShare>;
+
 export const DesignProject = z
   .object({
     id: z.string(),
     name: z.string().min(1).max(200),
     template: ProjectTemplate,
     /** 背景/上下文（问题与目标）。可空字符串——新建时未填，不是 `null`（同 `FeedbackDraft.detail`） */
-    problem: z.string().max(4000),
+    problem: z.string().max(DESIGN_TEXT_MAX_CHARS),
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
     /**
@@ -322,6 +470,11 @@ export const DesignProject = z
      * 导出的 HTML / PDF 跟随**它**，不是导出时后台碰巧是什么色。
      */
     theme: z.enum(["light", "dark"]).default("dark"),
+    /**
+     * 迭代 17：原型的强调色档位。缺省 `neutral` = 这个字段出现之前的行为（不覆盖任何 token），
+     * 所以老项目读出来一个像素都不会变。
+     */
+    accent: PrototypeAccent.default("neutral"),
     /** 迭代 13（delta §4）：项目标签，用于首页过滤。老行没有这一列 ⇒ 空数组。 */
     tags: DesignProjectTags.default([]),
     /**
@@ -344,6 +497,14 @@ export const DesignProject = z
      */
     githubIssueUrl: z.string().nullable(),
     githubIssueNumber: z.number().int().positive().nullable(),
+    /**
+     * 迭代 22：这个项目的发布状态；`null` = 没发布过（或已取消发布）。
+     *
+     * ⚠ `share.token` 只对 **owner** 返回，其他组织成员读到的是 `null`——组织内全员可读
+     *   说的是"看得见这个项目"，不是"可以替 owner 把它发到组织外面去"。那两件事之间
+     *   隔着一次明确的发布动作，而令牌就是那次动作的凭证。
+     */
+    share: DesignShare.nullable().default(null),
     chat: z.array(DesignProjectChatTurn),
     ownerId: z.string(),
     /** 见上方可见性口径注释 */
@@ -364,6 +525,42 @@ export const DesignProject = z
     }
   });
 export type DesignProject = z.infer<typeof DesignProject>;
+
+/**
+ * 一个**已发布**设计项目对外的只读投影——免登录的分享页读到的全部内容。
+ *
+ * ## 这里的字段闭集就是隐私边界本身
+ *
+ * 它刻意**不是** `DesignProject.omit(...)`：`omit` 的默认方向是"新加的字段自动跟着漏出去"。
+ * 本仓已经五次栽在"一处加了数据、下游少了一处跟进"上；在一条对**公网**开放的投影上，
+ * 那个方向的默认值必须反过来——**新字段默认不出去**，要出去得在这里显式写一行。
+ *
+ * 所以这里没有、且不许有：`chat`（对话）、`refImages`（参考图字节的句柄）、`ownerId`、
+ * `linkedFeedbackId`、`githubIssueUrl`、`pushed`、`tags`、`id`。
+ * 由 `packages/contracts/tests/design-workbench.test.ts` 的字段闭集断言守着（加一个字段
+ * 而不更新那条断言 ⇒ 红）。
+ */
+export const SharedDesign = z
+  .object({
+    name: z.string(),
+    template: ProjectTemplate,
+    theme: z.enum(["light", "dark"]),
+    accent: PrototypeAccent,
+    frames: z.array(z.string()),
+    /** 与 `DesignProject.prototype` 同形：单项 `null` = 这一页规划了但没画出来。 */
+    prototype: z.array(PrototypeNode.nullable()),
+    frameNotes: z.array(z.string()),
+    frameLinks: z.array(z.array(PrototypeLink)),
+    /** 发布**那一刻**的时间——不是项目的 `updatedAt`。访客据它知道自己看的是哪一版。 */
+    publishedAt: z.string(),
+    /** 谁发布的。`null` = 取不到名字（不编一个）。 */
+    ownerName: z.string().nullable(),
+    /** `scope: "full"` 才有；`"prototype"` 档恒为 `null`（不是空串——空串会被渲染成"写了但是空的"）。 */
+    problem: z.string().nullable(),
+    criteria: z.array(z.string()).nullable(),
+  })
+  .strict();
+export type SharedDesign = z.infer<typeof SharedDesign>;
 
 /* ─────────────────────────── 错误码 ─────────────────────────── */
 
@@ -419,6 +616,21 @@ export const DesignWorkbenchError = z.enum([
   "DESIGN_ISSUE_IN_PROGRESS",
   /** 2026-09-05——GitHub 那一侧建失败（超时/鉴权/限流）。fail closed：库里不会留下半个 issue。 */
   "DESIGN_ISSUE_CREATION_FAILED",
+  /**
+   * 迭代 22：分享链接打不开——令牌不对、项目已取消发布、或项目被删了。
+   *
+   * **三种情形合成一个码，且不区分**：对一条公网可达的链接，"这个令牌不存在"与
+   * "这个令牌存在但已经取消发布"分开报，等于给试令牌的人一个进度条。同
+   * `feedback-loop.ts` 的 404 非 403 纪律。
+   */
+  "SHARE_NOT_FOUND",
+  /**
+   * 迭代 22：这个项目还没有任何画出来的页，没什么可发布的。
+   *
+   * 不是"允许发布一个空链接"：访客打开看到一片空白，只会以为链接坏了——而链接是好的，
+   * 坏的是"发布"这个动作本身在这一刻没有意义。
+   */
+  "NOTHING_TO_PUBLISH",
 ]);
 export type DesignWorkbenchError = z.infer<typeof DesignWorkbenchError>;
 
@@ -533,7 +745,15 @@ export const operations = {
         projectId: z.string(),
         threadId: z.string(),
         /** 见头注「两个阶段」：省略 = 预览（不写）；给出 = 确认写入这段（用户编辑后的）文本。 */
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
+        /**
+         * 迭代 16（#3773 R3）：确认阶段一并写入的**验收标准**（用户在预览里改过的那份）。
+         *
+         * 省略 = 不动项目现有的 `criteria`（不是"清空"）。只在 `problem` 也给出时有意义——
+         * 它和 problem 是同一次导入的两半，分开写会让"这个项目的背景是从哪来的"
+         * 出现两个时间点。
+         */
+        criteria: z.array(ImportedCriterion).max(IMPORT_THREAD_MAX_CRITERIA).optional(),
       })
       .strict(),
     out: z
@@ -543,6 +763,16 @@ export const operations = {
         imported: ImportedThread,
         /** 预览阶段：模型生成的摘要正文（给用户编辑）。确认阶段：本次真正写进 `problem` 的那段。 */
         summary: z.string(),
+        /**
+         * 迭代 16（#3773 R3）：从同一段对话里抽出来的**验收标准建议**。
+         *
+         * 为什么不只给一段 `problem`：一次产品讨论里真正难复述的恰恰是那些具体口径
+         * （「导出成功率 ≥ 99%」「历史会话要能继续」）。把它们一起压进 600 字散文，
+         * 等于让用户再读一遍对话把它们挑出来——而他要的正是别自己复制粘贴。
+         *
+         * 抽不到 ⇒ **空数组**，不是编几条。没聊到的口径不许替他造。
+         */
+        criteria: z.array(ImportedCriterion).max(IMPORT_THREAD_MAX_CRITERIA),
         /** 线程长于 `IMPORT_THREAD_MAX_MESSAGES` ⇒ 真。屏上与留痕都要说出来，不许静默截断。 */
         truncated: z.boolean(),
       })
@@ -556,10 +786,12 @@ export const operations = {
       .object({
         name: z.string().min(1).max(200),
         template: ProjectTemplate,
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
         linkedFeedbackId: z.string().optional(),
         /** 迭代 13：新建时就能定主题；缺省 `dark`。 */
         theme: z.enum(["light", "dark"]).optional(),
+        /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+        accent: PrototypeAccent.optional(),
         /**
          * 迭代 13：澄清问答的结果。给出即由服务端汇进 `problem`（可验收的条目进 `criteria`）。
          * 与 `problem` 同时给出时：`problem` 是用户在预览里**编辑过**的最终文本，以它为准；
@@ -610,9 +842,11 @@ export const operations = {
         projectId: z.string(),
         name: z.string().min(1).max(200).optional(),
         template: ProjectTemplate.optional(),
-        problem: z.string().max(4000).optional(),
+        problem: z.string().max(DESIGN_TEXT_MAX_CHARS).optional(),
         /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
         theme: z.enum(["light", "dark"]).optional(),
+        /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+        accent: PrototypeAccent.optional(),
         /**
          * 迭代 13（delta §4）：标签是**整份替换**，不是增删两个动作。
          * 一个 8 个上限的短列表，PATCH 一整份比 add/remove 两条路径少一半状态，
@@ -650,7 +884,7 @@ export const operations = {
     in: z
       .object({
         projectId: z.string(),
-        text: z.string().min(1).max(4000),
+        text: z.string().min(1).max(DESIGN_TEXT_MAX_CHARS),
         /**
          * 迭代 13（delta §1.2）：这一句要参考哪几张图。图属于**项目**不属于某条消息——
          * 同一张参考图往往要在好几轮里反复被指着说，所以这里传 id 而不是重新上传。
@@ -658,6 +892,18 @@ export const operations = {
         refImageIds: z.array(z.string()).max(PROTOTYPE_MAX_REF_IMAGES).optional(),
         /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
         focusNodeId: PrototypeNodeId.optional(),
+        /**
+         * 迭代 20：**这一轮最多画几页**。
+         *
+         * 超时的退路文案一直写着「试试少要几页、或把要求说得更具体一点再发一次」——
+         * 而用户**没有任何控制页数的手段**：页数由骨架轮自己定（3–6 页），
+         * 界面上没有旋钮，说「只画 3 页」也只是一句模型可以不听的话。
+         * 又一句做不到的许诺。
+         *
+         * 所以这不是一个给模型的提示，是一条**服务端强制执行**的上限：骨架轮回来之后
+         * 按它截断（见 `generatePaged`）。省略 ⇒ 不设限，行为与这个字段出现之前逐字相同。
+         */
+        maxScreens: z.number().int().min(1).max(PROTOTYPE_MAX_SCREENS).optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject, reply: DesignChatReply }).strict(),
@@ -841,5 +1087,67 @@ export const operations = {
       "DESIGN_ISSUE_CREATION_FAILED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+  /* ─────────── 迭代 22：发布与分享 ─────────── */
+
+  /**
+   * 发布（或**重新发布**）这个项目，拿到一条免登录的只读链接。
+   *
+   * ## 发布的是**快照**，不是活链接
+   *
+   * 这是本操作最重要的一条语义，理由是这个代码库自己的事实：原型是**分页渐进落库**的
+   * （`append-project-chat.ts` 的 `persistProgress` 每画完一页就写一次库）。活链接意味着
+   * 评审在你重新生成的那三十秒里刷新一下，看到的是三页空白 + 一页画到一半——然后他截图
+   * 发到群里问"这就是你要给我看的？"。发布=冻结，之后你怎么改画布都不影响已经发出去的那一份。
+   *
+   * 代价是快照会过期，而这个代价**必须在界面上说出来**：`DesignShare.stale` 就是那句话，
+   * 由服务端比对算出。再点一次发布 = 更新快照（同一条链接，令牌不变——重新发布换一条链接
+   * 会让之前发出去的那条静默失效，而发出去的链接在别人的聊天记录里，你收不回来）。
+   *
+   * ⚠ 仅 owner。⚠ 一个项目同一时刻只有一条有效链接（幂等键 = `projectId`）。
+   */
+  publishProject: {
+    method: "POST",
+    path: "/pm-designs/:projectId/share",
+    in: z
+      .object({
+        projectId: z.string(),
+        /** 省略 = 沿用已发布那份的档位；从未发布过 ⇒ `prototype`（保守的那一档）。 */
+        scope: DesignShareScope.optional(),
+      })
+      .strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "NOTHING_TO_PUBLISH", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 取消发布——链接**立刻**失效（访客再打开是 `SHARE_NOT_FOUND`）。
+   *
+   * ⚠ 令牌一并作废，不保留。再次发布会生成**新**令牌：取消发布的语义是"我收回了它"，
+   *   如果旧令牌还能用，这个动作就没有做到它名字上写的那件事。
+   * ⚠ 仅 owner。⚠ 幂等：没发布过也返回 200（要的状态已经达成了）。
+   */
+  unpublishProject: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/share",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 读一条分享链接。**免登录**——这是本束唯一一条不带 principal 的操作。
+   *
+   * 令牌形如 `<locator>.<secret>`：`locator` 是 base64url 的 `[orgId, projectId]`，
+   * 只用来路由到那一行（RLS 按 org 判，没有组织上下文就查不出任何东西）；`secret` 是
+   * 256 位随机数，**在任何内容返回之前**用定时安全比较验过。这套形状不是这里发明的，
+   * 逐字照搬 `survey-service.ts` 的公开问卷令牌——同一个问题在一个仓库里只该有一种解法。
+   */
+  getSharedDesign: {
+    method: "GET",
+    path: "/public/design-shares/:token",
+    in: z.object({ token: z.string() }).strict(),
+    out: z.object({ design: SharedDesign }).strict(),
+    err: ["SHARE_NOT_FOUND"] as const,
   },
 } as const;

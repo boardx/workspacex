@@ -87,7 +87,68 @@ const ELLIPSIS = "…";
  *          那比留着「新对话」更糟：用户看不出是没起名还是起名失败。
  */
 export function deriveThreadTitle(body: string): string | null {
-  return collapseAndClamp(body);
+  return collapseAndClamp(stripLeadingRequestFraming(body));
+}
+
+/**
+ * 剥开场白**只在正文本来就装不进标题时**才做。
+ *
+ * 理由是剥它的收益从哪来：收益只存在于「标题会被截断」这一种情形——那时前十来个码点被
+ * 「我要你做一件事」占掉，真正的主题被截掉。正文本来就装得下时，原文已经是完整的，
+ * 剥掉动词只会把「帮我写一份周报」变成「写一份周报」：同样不截断、同样七个字、少一个人称，
+ * **没有任何收益，还改掉了既有行为**（`thread-title-and-status.test.ts`「短正文原样成为标题」）。
+ *
+ * 所以这道门不是保守起见，是把改动限制在它真正有用的那一段：短正文逐字节不变。
+ */
+function needsFramingStrip(collapsed: string): boolean {
+  return Array.from(collapsed).length > AUTO_TITLE_MAX_LENGTH;
+}
+
+/**
+ * 请求式开场白的**闭集**：只删，不改写、不生成。
+ *
+ * ## 为什么要有这一步（2026-09-22，人类实测截图）
+ *
+ * 那条线程的标题是「做一个深度研究，关于 AI 原型转型在中国的高…」——24 个码点用完了，
+ * 而**信息量最大的那一半被截掉了**：真正的主题是「AI 原型转型在中国的高校的实践」（14 个码点，
+ * 根本不需要省略号）。前 10 个码点讲的是「我要你做一件事」这个所有消息都成立的事实。
+ *
+ * ⚠ 这条落回路径在本地版是**常态而不是例外**：起名的模型往返只有 3 秒预算
+ * （`THREAD_TITLE_TIMEOUT_MS`），而它与用户刚发起的那次 run 抢同一个本地模型槽——实测冷启
+ * 一次起名要 6.2 秒，必然超预算 ⇒ 落回本函数。所以本函数的产出质量，就是本地版大多数
+ * 线程标题的质量。
+ *
+ * ## 纪律：只删已知前缀，且删完必须还剩得下东西
+ *
+ * 不做分词、不做改写、不猜语义——只在**开头**匹配一组固定措辞并删掉它。删完若剩不下
+ * 至少 `MIN_TOPIC_POINTS` 个码点（例如「帮我写一下」整句都是框架），就**原样返回**：
+ * 一个更短但无意义的标题比一个带框架的长标题更糟。
+ */
+const REQUEST_FRAMING = [
+  "做一个深度研究，关于", "做一个深度研究关于", "做一个深度研究",
+  "帮我做一个", "帮我写一个", "帮我写一下", "帮我生成一个", "帮我生成", "帮我分析一下", "帮我分析", "帮我查一下", "帮我查", "帮我",
+  "请帮我", "请你", "请问", "请",
+  "我想要", "我想", "我需要",
+  "写一个", "写一份", "写一下", "生成一个", "生成一份", "生成",
+  "分析一下", "分析", "研究一下", "研究", "调研一下", "调研",
+  "总结一下", "总结", "介绍一下", "介绍",
+] as const;
+
+/** 删掉开场白后至少要剩下这么多码点，否则原样返回（见 `REQUEST_FRAMING` 的纪律一节）。 */
+const MIN_TOPIC_POINTS = 4;
+
+/** 开场白后面常跟的连接词/标点，一并删掉——留着它们会让标题以「，」或「关于」开头。 */
+const LEADING_CONNECTORS = /^[\s,，、:：。.!！?？~—-]*(?:关于|有关|针对)?[\s,，、:：]*/u;
+
+function stripLeadingRequestFraming(body: string): string {
+  const text = body.replace(/\s+/gu, " ").trim();
+  if (!needsFramingStrip(text)) return body;
+  // 最长优先：「做一个深度研究，关于」必须先于「做一个」被匹配到，否则只会剥掉一层。
+  const framing = [...REQUEST_FRAMING].sort((a, b) => b.length - a.length)
+    .find((prefix) => text.startsWith(prefix));
+  if (framing === undefined) return body;
+  const rest = text.slice(framing.length).replace(LEADING_CONNECTORS, "");
+  return Array.from(rest).length >= MIN_TOPIC_POINTS ? rest : body;
 }
 
 /**

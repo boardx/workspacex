@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 
 import { AGENTS_NAV_LABEL } from "@/lib/navigation";
 import { PREVIEW_AGENT_TEAMS, findPreviewAgentTeam } from "@/lib/mock/agent-previews";
-import { Team3ChatScreen } from "@/components/agent/team3-chat";
 import { RatingAgentLauncher } from "@/components/postinvest-rating/rating-agent-launcher";
 import { IcReviewChatEntry } from "@/components/agent/ic-review-chat-entry";
 import { PostInvestmentChatScreen } from "@/components/agent/post-investment-chat-entry";
@@ -18,7 +17,14 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第六版）：同 team3/team4 的就地挂壳——
+ * ⚠ Team3（前沿赛道技术路线研判）已于 2026-09-22 按人类指令**下线**：路由落回本文件
+ *   末尾的通用占位卡，前后端实现（`components/agent/team3-chat.tsx`、研判面板、
+ *   `research-workflow` 整层、补种脚本）已删除。保留的是那条线顺手修好的通用能力
+ *   （mermaid 标签换行、制品版本历史/差异、deploy.sh 加固），它们与 team3 无耦合。
+ *   设计档案与验收证据也一并删除——那份 instructions 是私有的分析方法，不留副本。
+ *   库里已种下的 agent 行由 `apps/api/scripts/purge-team3-agent.ts` 清除。
+ *
+ * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第六版）：同 team4 的就地挂壳——
  *   进页面解析/发布 Agent、建或复用个人线程并入编、把「上会审阅」平台内置 Skill 挂进
  *   线程，然后**就地**挂 `/chat` 用的同一个 `CopilotKitV2Shell`，并把 agentId 作为
  *   `initialAgentId` 交给选择 provider（第五版"中转 replace 进 /chat"与 team3/team4
@@ -34,14 +40,14 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  *   （`rating-workbench.tsx` mock UI；`rating-chat.tsx` 直连
  *   `POST /postinvest-ratings/score` 不经模型）已被这一版取代，前者仍留仓库供 Phase 16
  *   契约束签核材料回溯，后者已删除。
- * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP 第四版）：同 Team3 的就地挂壳——
+ * ⚠ Team4 = 投后管理报告 AI 生成单元（ad-hoc MVP 第四版）：同 Team1 的就地挂壳——
  *   进页面解析/发布 Agent、建或复用个人线程并入编、把「投后管理报告」平台内置 Skill
  *   挂进线程，然后**就地**挂 `/chat` 用的同一个 `CopilotKitV2Shell`，并把 agentId 作为
  *   `initialAgentId` 交给选择 provider（第三版"中转 replace 进 /chat"实测是错的：
  *   agent 没被选中，回答的是通用助手）。方法论住在那个 Skill 里
  *   （`apps/api/scripts/post-investment-skill-content.ts`），不塞 instructions、
  *   不每条消息重发；判据阈值与派生公式的单一事实源是
- *   `packages/contracts/src/post-investment-rules.ts`。之后传材料/追问/两轮确认/
+ *   `@repo/maau-postinvest-report`。之后传材料/追问/两轮确认/
  *   定向深挖全部用 chat 自己的能力。详情见
  *   `docs/agents/team4-post-investment-report-mvp.md`，验收口径见
  *   `docs/agents/team4-acceptance-rubric.md`。此前两版原型（独立粘贴框 +
@@ -57,15 +63,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
   const team = findPreviewAgentTeam(params.teamId);
   if (!team) notFound();
 
-  // 2026-09-15 人类指令：「入口点击以后，会打开类似 chatui 的界面，可以用所有的 chat
-  // 的能力，但是这个是 team3 的 agent」——因此 team3 不再是落地页 + 跳转按钮，而是
-  // 就地挂载 `/chat` 用的同一个 `CopilotKitV2Shell`（同一套 provider、同一套能力），
-  // 线程在进页面时解析成"挂着 team3 的那条"。详见 `components/agent/team3-chat.tsx`。
-  if (team.slug === "team3") {
-    return <Team3ChatScreen />;
-  }
-
-  // 同 team3/team4：就地挂 chat 壳（组件自带 AppShell 与三层 provider），不再套外层壳
+  // 同 team1/team4：就地挂 chat 壳（组件自带 AppShell 与三层 provider），不再套外层壳
   // 与面包屑——上一版是「中转页 + replace 进 /chat」，那条路径下本 Agent 根本没被选中，
   // 回答的是通用助手（见 `ic-review-chat-entry.tsx` 头注的真机根因）。
   if (team.slug === "team1") {
@@ -89,7 +87,7 @@ export default function AgentTeamPage({ params }: { params: { teamId: string } }
     );
   }
 
-  // 同 team3：就地挂 chat 壳（自带 AppShell 与三层 provider），不再套外层壳与面包屑
+  // 同 team1：就地挂 chat 壳（自带 AppShell 与三层 provider），不再套外层壳与面包屑
   // ——上一版是"中转页 + replace 进 /chat"，那条路径下本 Agent 根本没被选中，
   // 回答的是通用助手（见 `post-investment-chat-entry.tsx` 头注的真机根因）。
   if (team.slug === "team4") {

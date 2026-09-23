@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX — The Open Operating Workspace for Human + AI</title>
+<meta name="description" content="WorkspaceX is the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.">
+<meta name="theme-color" content="#08070b">
+<!-- iOS ignores the manifest's short_name; without this the home-screen
+     label is the <title>, truncated to something like "WorkspaceX — Th". -->
+<meta name="apple-mobile-web-app-title" content="WorkspaceX">
+
+<link rel="canonical" href="https://workspacex.boardx.us/">
+
+<!-- Language is a URL, not client state: each version is indexable, linkable
+     and shareable on its own. x-default points at the English page. -->
+<link rel="alternate" hreflang="en"      href="https://workspacex.boardx.us/">
+<link rel="alternate" hreflang="zh-Hans" href="https://workspacex.boardx.us/zh/">
+<link rel="alternate" hreflang="x-default" href="https://workspacex.boardx.us/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="WorkspaceX — The Open Operating Workspace for Human + AI">
+<meta property="og:description" content="Not another collaboration tool. The operating layer where humans and AI do the work together — with shared context, verifiable action and organizational memory.">
+<meta property="og:site_name" content="WorkspaceX">
+<meta property="og:url" content="https://workspacex.boardx.us/">
+<meta property="og:locale" content="en">
+<meta property="og:locale:alternate" content="zh_Hans">
+<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<!-- The card became a JPEG when 492 KB of PNG turned out to be invisible
+     to the performance budget. Scrapers should not have to sniff it. -->
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
+<meta name="twitter:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
+
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="manifest" href="assets/site.webmanifest">
+<!-- The hero's backdrop. Preloaded because it is the first thing above the
+     fold that is not text, and discovered late otherwise: it is referenced
+     from a stylesheet, not from the markup. -->
+<!-- Ordering here is the whole of first paint on a slow link. Measured on a
+     400 kbps connection, nothing rendered at all until 6.2 s, because six
+     render-blocking stylesheets, nine preloaded modules, two fonts and an
+     image all arrived at once and the browser could not paint until the last
+     stylesheet landed. The stylesheet comes first now and nothing else is
+     allowed to compete with it. -->
+<link rel="stylesheet" href="assets/css/site.css">
+
+<!-- The display face, which the headline is set in. Inter is not preloaded:
+     it swaps in, and at 47 KB it was taking bandwidth the stylesheet needed. -->
+<link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+<!-- Decorative, so it must not outrank the text. It was marked
+     fetchpriority="high", which put a 23 KB backdrop ahead of the words. -->
+<link rel="preload" href="assets/img/aurora.jpg" as="image" fetchpriority="low">
+
+<!-- No modulepreload. The page is complete and readable without JavaScript
+     (see the noscript block below), so scripts have no business competing for
+     bandwidth with the stylesheet that decides when anything appears. They are
+     discovered when main.js parses, one round trip later, which costs nothing
+     that matters on a fast link and saves seconds on a slow one. One of them,
+     zh.js, was not even used at runtime — 24 KB fetched on every English page
+     load for a file only the build reads. -->
+
+
+<link rel="stylesheet" href="assets/css/print.css" media="print">
+
+<!-- Scripting off: the reveal mechanism has nothing to reveal it, so drop it
+     entirely. An inline <style> rather than a class toggle because there is no
+     script to run, and the CSP permits inline styles but not inline scripts. -->
+<noscript><style>
+  [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
+  /* The burger needs JS to open the panel, so on a phone without it the whole
+     navigation would be unreachable. Show the links inline and put the actions
+     back in the bar instead. */
+  .nav { position: static; height: auto; background: #08070b; border-bottom: 1px solid rgba(255,255,255,.09); }
+  .nav__inner { flex-wrap: wrap; padding-block: 0.6rem; }
+  .nav__links { display: flex !important; position: static; flex-direction: row; flex-wrap: wrap;
+                background: none; border: 0; padding: 0; margin-inline: 0; }
+  .nav__burger { display: none !important; }
+  .nav__actions > [data-mobile-move] { display: inline-flex !important; }
+  .nav__progress { display: none; }
+  .scene__track { height: auto !important; }
+  .scene__pin { position: static !important; height: auto !important; }
+  .hero__chain, [data-diagram] { display: none; }
+</style></noscript>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "WorkspaceX",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Windows, macOS",
+  "description": "The operating layer that connects context, agents, action, evidence and memory, so humans and AI do the work together.",
+  "url": "https://workspacex.boardx.us/",
+  "inLanguage": ["en", "zh-Hans"],
+  "image": "https://workspacex.boardx.us/assets/img/og.jpg",
+  "publisher": {
+    "@type": "Organization",
+    "name": "BoardX",
+    "url": "https://boardx.us",
+    "logo": "https://workspacex.boardx.us/assets/img/apple-touch-icon.png"
+  }
+}
+</script>
+</head>
+<body>
+
+<!-- Shared brand mark. Defined once; both the header and footer logos <use> it,
+     so the gradient cannot be orphaned by editing one of them. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
+      <stop offset="0" style="stop-color:var(--c-1)"/>
+      <stop offset="0.52" style="stop-color:var(--c-2)"/>
+      <stop offset="1" style="stop-color:var(--c-3)"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 32 32">
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+<!-- ======================================================================
+     Navigation
+     ====================================================================== -->
+<header class="nav" id="nav" data-stuck="false">
+  <div class="nav__inner">
+    <div class="brand">
+      <a class="brand__home" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
+        <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
+        <span class="brand__name">WorkspaceX</span>
+      </a>
+      <a class="brand__tag" href="#questions" data-i18n="nav.stage">Early access</a>
+    </div>
+
+    <nav class="nav__links" id="navlinks" aria-label="Section navigation" data-i18n-aria="aria.sectionNav">
+      <a class="nav__link" href="#shift"        data-i18n="nav.shift">The Shift</a>
+      <a class="nav__link" href="#loop"         data-i18n="nav.loop">The Loop</a>
+      <a class="nav__link" href="#surface"      data-i18n="nav.surface">Workspace</a>
+      <a class="nav__link" href="#capabilities"  data-i18n="nav.caps">Inside</a>
+      <a class="nav__link" href="#architecture" data-i18n="nav.architecture">Architecture</a>
+      <a class="nav__link" href="#start"        data-i18n="nav.start">Use cases</a>
+      <a class="nav__link" href="#trust"        data-i18n="nav.trust">Trust</a>
+      <a class="nav__link" href="#open"         data-i18n="nav.open">Open</a>
+      <div class="nav__panelactions" id="nav-panel-actions"></div>
+    </nav>
+
+    <div class="nav__actions">
+      <nav class="langswitch" data-mobile-move aria-label="Language" data-i18n-aria="aria.language">
+        <a class="langswitch__btn" href="/" aria-current="true" hreflang="en">EN</a>
+        <a class="langswitch__btn" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">中文</a>
+      </nav>
+      <a class="nav__ghost nav__ghost--signin" data-mobile-move href="https://github.com/boardx/workspacex" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <span data-i18n="nav.github">GitHub</span>
+      </a>
+      <a class="btn btn--primary" data-mobile-move href="https://devapp.boardx.us" rel="noopener">
+        <span class="btn__label" data-i18n="nav.launch">Launch App</span>
+        <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu" data-i18n-aria="aria.menu"><span></span></button>
+    </div>
+  </div>
+  <!-- Reading progress. The page is roughly seventeen thousand pixels tall;
+       a scrollbar thumb the size of a grain of rice is not orientation. -->
+  <div class="nav__progress" aria-hidden="true"><i></i></div>
+</header>
+
+<main id="main">
+<span id="top"></span>
+
+<!-- ======================================================================
+     Hero
+     ====================================================================== -->
+<section class="hero" data-animates>
+  <div class="hero__aurora" aria-hidden="true"></div>
+
+  <div class="wrap hero__inner">
+    <span class="chip">
+      <span class="chip__dot" aria-hidden="true"></span>
+      <span data-i18n="hero.chip">The Open Operating Workspace for Human + AI</span>
+    </span>
+
+    <h1 class="hero__title" data-split data-i18n="hero.title">Where humans and AI actually get work done.</h1>
+
+    <p class="hero__sub" data-i18n="hero.sub">WorkspaceX is not another collaboration tool. It is the operating layer that connects context, agents, action, evidence and memory — so that intent becomes work, and work leaves proof.</p>
+
+    <div class="hero__actions">
+      <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
+        <span data-i18n="hero.cta1">Launch Workspace</span>
+        <svg class="btn__arrow" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn btn--ghost btn--lg" href="#shift" data-i18n="hero.cta2">See how it works</a>
+    </div>
+
+    <div class="hero__chain" data-animates data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
+    <p class="visually-hidden" id="chain-desc" data-i18n="hero.chainDesc">A closed chain of five linked stages: context, agents, action, evidence, memory — each feeding the next.</p>
+  </div>
+
+  <div class="scroll-cue" aria-hidden="true">
+    <span data-i18n="hero.scroll">Scroll</span>
+    <span class="scroll-cue__line"></span>
+  </div>
+</section>
+
+<!-- ======================================================================
+     1 · The Shift
+     ====================================================================== -->
+<section class="section" id="shift">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="shift.eyebrow">01 — The Shift</span>
+      <h2 data-i18n-html="shift.title">Software <span class="grad-text">&#8594;</span> Work</h2>
+      <p class="lead" data-i18n="shift.lead">The next platform shift is not about which model is smartest. It is about where work happens — and who is accountable when it does.</p>
+    </header>
+
+    <div class="shift__axis" data-diagram="axis" data-reveal aria-hidden="true"></div>
+
+    <div class="grid grid--4 shift__cards" data-stagger>
+      <article class="card card--lit" style="--i:0">
+        <div class="card__index">01</div>
+        <h3 class="card__title" data-i18n="shift.c1.t">Compute → Intelligence → Work</h3>
+        <p class="card__body" data-i18n="shift.c1.b">The center of gravity is moving off raw compute and model scores, onto agents, workflow and the outcome they produce.</p>
+      </article>
+      <article class="card card--lit" style="--i:1">
+        <div class="card__index">02</div>
+        <h3 class="card__title" data-i18n="shift.c2.t">Seat → Unit of work → Outcome</h3>
+        <p class="card__body" data-i18n="shift.c2.b">Software stops being a tool a person operates. A person states intent; the work gets executed and delivered back.</p>
+      </article>
+      <article class="card card--lit" style="--i:2">
+        <div class="card__index">03</div>
+        <h3 class="card__title" data-i18n="shift.c3.t">Software budget → Service budget</h3>
+        <p class="card__body" data-i18n="shift.c3.b">AI does not only sell software. It reaches into research, legal, finance, engineering, design and operations — work that used to be bought as a service.</p>
+      </article>
+      <article class="card card--lit" style="--i:3">
+        <div class="card__index">04</div>
+        <h3 class="card__title" data-i18n="shift.c4.t">Model moat → Context + Trust</h3>
+        <p class="card__body" data-i18n="shift.c4.b">Models are replaceable and getting more so. Your context, your verification, your permissions and your organizational memory are not.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     2 · The Problem
+     ====================================================================== -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="problem.eyebrow">02 — The Problem</span>
+      <h2 data-i18n="problem.title">Today AI answers well. The work still falls apart.</h2>
+      <p class="lead" data-i18n="problem.lead">Every step works on its own. The work as a whole has no shared state, no evidence and no memory.</p>
+    </header>
+
+    <div class="stage stage--grid" data-reveal="scale">
+      <div class="switch" role="group" aria-label="Compare" data-i18n-aria="aria.compare">
+        <button class="switch__btn" type="button" data-view="break" aria-pressed="true" data-i18n="problem.tabNow">Today</button>
+        <button class="switch__btn" type="button" data-view="chain" aria-pressed="false" data-i18n="problem.tabNext">With WorkspaceX</button>
+      </div>
+
+      <div class="stage__inner compare">
+        <div class="compare__pane is-on" data-animates data-diagram="break" data-view="break" role="img" aria-labelledby="break-desc"></div>
+        <div class="compare__pane" data-diagram="chain" data-view="chain" role="img" aria-labelledby="fix-desc"></div>
+      </div>
+
+      <!-- Polite, because switching the view swaps which of these two is
+           shown and nothing else says so. The architecture explorer announces
+           its equivalent panel; this one did not — the same interaction
+           treated two ways. -->
+      <div class="stage__captions" aria-live="polite">
+      <p class="stage__caption" id="break-desc" data-view="break" data-i18n="problem.caption">A question goes into chat. The answer comes back. Someone re-types it into the real application. Someone else reviews it in their head. The result lands in a document nobody opens again. Between every pair of steps, context evaporates — and nothing that happened can be proven later.</p>
+      <p class="stage__caption is-off" id="fix-desc" data-view="chain" data-i18n="problem.captionFix">The same five steps, except nothing is dropped between them. Context carries forward, every action is taken inside a boundary, every result leaves evidence, and what was learned becomes the starting point of the next run rather than being thrown away.</p>
+      </div>
+    </div>
+
+    <div class="grid grid--3 problem__losses" data-stagger>
+      <div class="loss" style="--i:0">
+        <h3 class="loss__title" data-i18n="problem.l1.t">Context evaporates</h3>
+        <p class="loss__body" data-i18n="problem.l1.b">What the model knew at 10:04 is gone at 10:06. The next person — or the next agent — starts from nothing.</p>
+      </div>
+      <div class="loss" style="--i:1">
+        <h3 class="loss__title" data-i18n="problem.l2.t">Action is disconnected</h3>
+        <p class="loss__body" data-i18n="problem.l2.b">The answer is in one window, the system of record in another. A human is the integration layer, by hand, every time.</p>
+      </div>
+      <div class="loss" style="--i:2">
+        <h3 class="loss__title" data-i18n="problem.l3.t">Nothing can be proven</h3>
+        <p class="loss__body" data-i18n="problem.l3.b">“It looks right” is not verification. Without evidence there is no accountability, and without accountability AI never gets the important work.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     3 · The Loop  (sticky, scroll-scrubbed)
+     ====================================================================== -->
+<section class="section scene" id="loop" data-scene="loop" style="--scene-track: 300vh">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="loop.eyebrow">03 — The Loop</span>
+      <h2 data-i18n="loop.title">The core experience is not a conversation. It is a loop that can be verified.</h2>
+      <p class="lead" data-i18n="loop.lead">Intent, explore, create, act, verify, learn. Humans and agents work the same loop — with different responsibilities at every stage.</p>
+    </header>
+  </div>
+
+  <div class="scene__track">
+    <div class="scene__pin">
+      <div class="wrap loop__layout">
+        <div class="loop__visual" data-diagram="loop" role="img" aria-labelledby="loop-desc"></div>
+        <div class="loop__panel">
+          <ol class="rail" role="list" id="loop-rail">
+            <li>
+              <button type="button" class="rail__item" data-step="0" aria-current="true">
+                <span class="rail__num">01</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s1.t">Intent</span>
+                <span class="rail__body" data-i18n="loop.s1.b">A human states what matters and why. Not a prompt — a goal with a value judgment attached.</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="rail__item" data-step="1">
+                <span class="rail__num">02</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s2.t">Explore</span>
+                <span class="rail__body" data-i18n="loop.s2.b">Agents plan, divide the work and run in parallel across your context, not the open web alone.</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="rail__item" data-step="2">
+                <span class="rail__num">03</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s3.t">Create</span>
+                <span class="rail__body" data-i18n="loop.s3.b">Drafts, models and options take shape on a shared surface, where a human can grab the pen at any moment.</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="rail__item" data-step="3">
+                <span class="rail__num">04</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s4.t">Act</span>
+                <span class="rail__body" data-i18n="loop.s4.b">Tools get called and real systems change — inside an authorization boundary, never outside it.</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="rail__item" data-step="4">
+                <span class="rail__num">05</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s5.t">Verify</span>
+                <span class="rail__body" data-i18n="loop.s5.b">The result is checked against a stated standard and leaves evidence. Failing verification is an outcome, not an error.</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="rail__item" data-step="5">
+                <span class="rail__num">06</span>
+                <span class="rail__text">
+                <span class="rail__title" data-i18n="loop.s6.t">Learn</span>
+                <span class="rail__body" data-i18n="loop.s6.b">What worked becomes a reusable skill; what was decided becomes memory. The next run starts further ahead.</span>
+                </span>
+              </button>
+            </li>
+          </ol>
+
+          <div class="legend loop__legend">
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-human)"></span><span data-i18n="loop.legendHuman">Human</span></span>
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-ai)"></span><span data-i18n="loop.legendAi">Agent team</span></span>
+            <span class="legend__item"><span class="legend__swatch" style="background:var(--c-evidence)"></span><span data-i18n="loop.legendEv">Evidence</span></span>
+          </div>
+        </div>
+      </div>
+      <p class="visually-hidden" id="loop-desc" data-i18n="loop.desc">A six-stage circular loop — intent, explore, create, act, verify, learn — with human and agent responsibilities shown on each stage.</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <p class="keyline loop__keyline" data-reveal data-i18n="loop.keyline">What the loop produces is not one answer. It is organizational capability that compounds.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     3.5 · The workspace itself
+     ====================================================================== -->
+<section class="section" id="surface">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="surface.eyebrow">04 — The workspace</span>
+      <h2 data-i18n="surface.title">One surface. The work, the agents and the proof — in the same place.</h2>
+      <p class="lead" data-i18n="surface.lead">Not a chat window bolted onto a document. A canvas you and your agents both act on, with the evidence trail running alongside it.</p>
+    </header>
+
+    <div class="surface" data-animates data-reveal="scale">
+      <div class="surface__chrome">
+        <span class="surface__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="surface__path" data-i18n="surface.path">Acme · Q3 market entry</span>
+        <span class="surface__live"><span class="surface__pip" aria-hidden="true"></span><span data-i18n="surface.live">4 agents working</span></span>
+      </div>
+
+      <div class="surface__body">
+        <aside class="surface__roster" aria-hidden="true">
+          <div class="roster__head" data-i18n="surface.roster">Agent team</div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">Researcher</b><i data-i18n="surface.r1s">reading 24 sources</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">Analyst</b><i data-i18n="surface.r2s">building the model</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">Writer</b><i data-i18n="surface.r3s">drafting section 2</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">You</b><i data-i18n="surface.r4s">reviewing</i></span></div>
+        </aside>
+
+        <div class="surface__canvas" aria-hidden="true">
+          <div class="note note--a" data-note="a"><span class="note__tag" data-i18n="surface.n1t">Decision</span><span data-i18n="surface.n1">Enter through partners, not direct sales</span></div>
+          <div class="note note--b" data-note="b"><span class="note__tag" data-i18n="surface.n2t">Open question</span><span data-i18n="surface.n2">Which three partners actually reach the buyer?</span></div>
+          <div class="note note--c" data-note="c"><span class="note__tag" data-i18n="surface.n3t">Draft</span><span data-i18n="surface.n3">Market entry brief · v4</span></div>
+          <svg class="surface__links" aria-hidden="true"></svg>
+        </div>
+
+        <aside class="surface__evidence" aria-hidden="true">
+          <div class="roster__head" data-i18n="surface.trail">Evidence trail</div>
+          <ol class="trail" role="list">
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e1">Sources verified</b><i data-i18n="surface.e1s">24 read · 3 rejected as stale</i></li>
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e2">Model checked</b><i data-i18n="surface.e2s">recomputed against Q2 actuals</i></li>
+            <li class="trail__item trail__item--warn"><b data-i18n="surface.e3">Needs a human</b><i data-i18n="surface.e3s">pricing assumption unproven</i></li>
+            <li class="trail__item"><b data-i18n="surface.e4">Decision recorded</b><i data-i18n="surface.e4s">linked to 6 pieces of evidence</i></li>
+          </ol>
+        </aside>
+      </div>
+    </div>
+
+    <p class="surface__note" data-reveal data-i18n="surface.note">Illustration of the working surface. The evidence column is the part that does not exist anywhere else: every claim on the canvas can be traced back to what produced it.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     4.5 · What is actually in it
+     ====================================================================== -->
+<section class="section" id="capabilities">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="caps.eyebrow">05 — In the box</span>
+      <h2 data-i18n="caps.title">What is actually in it today.</h2>
+      <p class="lead" data-i18n="caps.lead">Not a roadmap. These are the surfaces that exist and run — each one sharing the same context, the same agents and the same evidence trail.</p>
+    </header>
+
+    <div class="caps" data-stagger>
+      <article class="cap">
+        <h3 data-i18n="caps.c1">Chat with an agent team</h3>
+        <p data-i18n="caps.c1b">Not one assistant — a roster with roles, running in parallel, handing work between each other and back to you.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c2">Canvas and diagrams</h3>
+        <p data-i18n="caps.c2b">A spatial surface you and the agents both draw on, where a diagram is a structure the system understands, not a picture.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c3">Deep research</h3>
+        <p data-i18n="caps.c3b">Guided, multi-source investigation that comes back with an outline, the sources behind it, and what it rejected.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c4">Agents and skills</h3>
+        <p data-i18n="caps.c4b">A runtime for defining agents, granting them tools, and packaging what works as a skill other teams can run.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c5">Live collaboration</h3>
+        <p data-i18n="caps.c5b">Multiplayer presence and real-time sync, so a session with four people and four agents stays one session.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c6">Meetings and transcription</h3>
+        <p data-i18n="caps.c6b">Real-time transcription that lands in the workspace as context, not as a file nobody opens.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c7">Research and interviews</h3>
+        <p data-i18n="caps.c7b">Surveys, interview studios and the analysis behind them, with the raw material kept attached to the conclusions.</p>
+      </article>
+      <article class="cap">
+        <h3 data-i18n="caps.c8">Projects and governance</h3>
+        <p data-i18n="caps.c8b">Organizations, roles, permissions and asset governance — the part that decides whether any of the above is allowed to touch production.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     4 · Three Scales
+     ====================================================================== -->
+<section class="section" id="scales">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="scales.eyebrow">06 — One Workspace</span>
+      <h2 data-i18n="scales.title">One workspace. Three scales. One context.</h2>
+      <p class="lead" data-i18n="scales.lead">Not three products bolted together — the same context flowing from your own desk to your team to the whole organization.</p>
+    </header>
+
+    <div class="scales">
+      <article class="scales__card" data-scale="0">
+        <span class="scales__num">1</span>
+        <h3 data-i18n="scales.s1.t">I work</h3>
+        <p class="scales__sub" data-i18n="scales.s1.s">Research · Writing · Analysis · Planning</p>
+        <p class="scales__body" data-i18n="scales.s1.b">Your own agents, your own knowledge, your own files. Local-first where it matters, and nothing leaves without you saying so.</p>
+      </article>
+      <article class="scales__card" data-scale="1">
+        <span class="scales__num">2</span>
+        <h3 data-i18n="scales.s2.t">We work</h3>
+        <p class="scales__sub" data-i18n="scales.s2.s">Canvas · Docs · Meetings · Projects</p>
+        <p class="scales__body" data-i18n="scales.s2.b">Multiplayer with agents in the room. An agent team joins the project the way a colleague does — with a role, a brief and a record.</p>
+      </article>
+      <article class="scales__card" data-scale="2">
+        <span class="scales__num">3</span>
+        <h3 data-i18n="scales.s3.t">The organization works</h3>
+        <p class="scales__sub" data-i18n="scales.s3.s">Ontology · Memory · Governance · Standard skills</p>
+        <p class="scales__body" data-i18n="scales.s3.b">Decisions, evidence and learning accumulate into an asset the company owns — not a transcript in someone’s account.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     5 · Architecture
+     ====================================================================== -->
+<section class="section" id="architecture">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="arch.eyebrow">07 — Architecture</span>
+      <h2 data-i18n="arch.title">Five layers. The top moves fast. The middle must not move at all.</h2>
+      <p class="lead" data-i18n="arch.lead">Pick a layer to see what changing it would disturb. Models are replaceable and tools are composable. Your semantics, your evidence and your organizational memory are the part you cannot afford to lose.</p>
+    </header>
+
+    <div class="arch">
+      <div class="arch__stack" data-diagram="arch" data-reveal="left" role="group" aria-labelledby="arch-desc"></div>
+      <div class="arch__why">
+        <div class="arch__detail" id="arch-detail" aria-live="polite">
+          <p data-layer-detail="l5" hidden data-i18n="arch.d5">Replace a surface and nothing below notices. The experience layer is where you should be able to move fastest.</p>
+          <p data-layer-detail="l4" hidden data-i18n="arch.d4">Swap the model — frontier, domestic or fully local — and nothing below this line changes. Your ontology, your evidence and your permissions are untouched.</p>
+          <p data-layer-detail="l3" data-i18n="arch.d3">Change the harness and everything above it has to be re-verified. This is where authorization, execution, evidence and rollback live, so it is the layer that must not move casually.</p>
+          <p data-layer-detail="l2" hidden data-i18n="arch.d2">Change how your organization is modeled and every layer above inherits the change. This is the most expensive thing in the system to get wrong, and the most valuable to get right.</p>
+          <p data-layer-detail="l1" hidden data-i18n="arch.d1">Move between cloud, on-premise and local-first without touching anything above. Deployment is a choice, not a fork of the product.</p>
+        </div>
+        <div class="arch__whyitem" data-reveal="right">
+          <h3 data-i18n="arch.w2.t">Why the split is where it is</h3>
+          <p data-i18n="arch.w2.b">Everything above the harness is meant to be replaced — surfaces, models, tools, even the vendor. Everything at and below it is the part that is yours: how your organization is modeled, what was decided, what was proven, who was allowed. Put the line anywhere else and you either cannot move, or you lose the thing that made moving worthwhile.</p>
+        </div>
+      </div>
+    </div>
+    <p class="visually-hidden" id="arch-desc" data-i18n="arch.desc">Five stacked layers, from infrastructure at the base through ontology and knowledge, the harness, agents and workflow, up to the experience layer. Select a layer to see what changing it would disturb.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     6 · Trust / Harness
+     ====================================================================== -->
+<section class="section" id="trust">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="trust.eyebrow">08 — Trust</span>
+      <h2 data-i18n="trust.title">An agent you cannot audit is an agent you cannot deploy.</h2>
+      <p class="lead" data-i18n="trust.lead">The harness is what turns a capable model into an action your organization is willing to be accountable for.</p>
+    </header>
+
+    <div class="stage stage--grid" data-reveal="scale">
+      <div class="stage__inner" data-animates data-diagram="harness" role="img" aria-labelledby="harness-desc"></div>
+      <p class="stage__caption" id="harness-desc" data-i18n="trust.caption">Every action passes six gates: authorize, execute, observe, verify, evidence, and — when verification fails — rollback. The run above shows a failing check being caught and reversed. That path is the point: a system that can only succeed cannot be trusted.</p>
+    </div>
+
+    <div class="trust__split">
+      <div data-reveal="left">
+        <h3 class="trust__h" data-i18n="trust.m1.t">Memory is more than transcripts</h3>
+        <p class="trust__b" data-i18n="trust.m1.b">A chat log tells you what was said. Organizational memory tells you what was decided, on what evidence, what was done about it, what the result was, and what everyone learned. That is the part a competitor cannot copy and a model upgrade cannot replace.</p>
+        <p class="trust__formula" data-i18n="trust.formula">Organizational memory = decision + evidence + action + result + learning</p>
+      </div>
+      <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
+      <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">A knowledge graph linking people, projects, decisions, evidence, actions, artifacts and memory.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     9 · Where it starts — worked examples by discipline
+     ====================================================================== -->
+<section class="section" id="start">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="start.eyebrow">09 — Where it starts</span>
+      <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
+      <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive — and they show up in very different disciplines.</p>
+    </header>
+
+    <div class="cases">
+      <div class="cases__tabs" role="tablist" aria-label="Disciplines" data-i18n-aria="aria.disciplines">
+        <button class="cases__tab" role="tab" id="tab-legal"  aria-controls="panel-legal"  aria-selected="true"  tabindex="0"  data-case="legal"  data-i18n="start.t1">Legal</button>
+        <button class="cases__tab" role="tab" id="tab-design" aria-controls="panel-design" aria-selected="false" tabindex="-1" data-case="design" data-i18n="start.t2">Design thinking</button>
+        <button class="cases__tab" role="tab" id="tab-edu"    aria-controls="panel-edu"    aria-selected="false" tabindex="-1" data-case="edu"    data-i18n="start.t3">Education</button>
+        <button class="cases__tab" role="tab" id="tab-finance" aria-controls="panel-finance" aria-selected="false" tabindex="-1" data-case="finance" data-i18n="start.t4">Finance</button>
+        <button class="cases__tab" role="tab" id="tab-research" aria-controls="panel-research" aria-selected="false" tabindex="-1" data-case="research" data-i18n="start.t5">Research &amp; consulting</button>
+        <button class="cases__tab" role="tab" id="tab-ops"    aria-controls="panel-ops"    aria-selected="false" tabindex="-1" data-case="ops"    data-i18n="start.t6">Operations</button>
+      </div>
+
+      <div class="cases__panels">
+        <!-- LEGAL -->
+        <section class="case" role="tabpanel" id="panel-legal" aria-labelledby="tab-legal" data-case="legal" tabindex="0">
+          <h3 class="case__work" data-i18n="start.legal.w">Reviewing an inbound contract against your own playbook.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.legal.r">A clause-extraction agent, a reviewer agent that holds the playbook, a drafting agent for the redline — and the lawyer who decides what is actually acceptable.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.legal.c">Every deviation is matched to the playbook clause it departs from, and every extracted term points back to its location in the source document. A clause the system cannot place is flagged, not guessed.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.legal.l">The position taken, the reason, and where it landed in negotiation. The next contract of the same shape starts from that, not from the playbook alone.</dd></div>
+          </dl>
+        </section>
+
+        <!-- DESIGN THINKING -->
+        <section class="case" role="tabpanel" id="panel-design" aria-labelledby="tab-design" data-case="design" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.design.w">Getting from twenty interviews to a problem worth solving.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.design.r">Agents that transcribe, cluster and challenge; a facilitator who owns the framing. Divergence is cheap for agents and convergence is a human judgment — the tool should not blur which is which.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.design.c">Every insight carries the interview fragments it came from, so a cluster that sounds good and rests on one quote is visible as exactly that. Concepts are checked against the constraints that were agreed up front.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.design.l">The problem definition, the directions that were rejected, and why. Most design knowledge is lost in the second one; a canvas that keeps it is worth more than the deck.</dd></div>
+          </dl>
+        </section>
+
+        <!-- EDUCATION -->
+        <section class="case" role="tabpanel" id="panel-edu" aria-labelledby="tab-edu" data-case="edu" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.edu.w">A student investigating a question they cannot look up.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.edu.r">A guide agent that asks the next question instead of answering, an evidence agent that checks whether a claim is supported, the student, and a teacher who can see the whole path.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.edu.c">A conclusion without evidence attached does not count as finished — the same rule the rest of this system runs on. The agents are configured to withhold answers, which is a permission setting, not a promise.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.edu.l">The reasoning is the artifact. A teacher reads the path — what was tried, what was discarded, where the student changed their mind — rather than grading a paragraph that could have come from anywhere.</dd></div>
+          </dl>
+        </section>
+
+        <!-- FINANCE -->
+        <section class="case" role="tabpanel" id="panel-finance" aria-labelledby="tab-finance" data-case="finance" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.finance.w">Turning a month of numbers into a decision someone will sign.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.finance.r">Agents that pull from the systems of record, build the model and re-derive it independently, plus the analyst who owns the assumptions.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.finance.c">The model is recomputed against actuals, and every assumption without a source behind it is marked as needing a human. An unproven number is allowed to exist; it is not allowed to be silent.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.finance.l">The definitions used and the judgments made become next month’s baseline, so the recurring argument about what a number means happens once.</dd></div>
+          </dl>
+        </section>
+
+        <!-- RESEARCH -->
+        <section class="case" role="tabpanel" id="panel-research" aria-labelledby="tab-research" data-case="research" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.research.w">Due diligence, or a market you have two weeks to understand.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.research.r">A research agent team working many sources in parallel, an analyst agent, a writer — and a consultant whose method is the thing worth keeping.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.research.c">Sources are verifiable and the rejected ones are recorded with the reason. Knowing what was looked at and thrown away is most of what makes a finding trustworthy.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.research.l">The method becomes an agent and a skill the client keeps running after the engagement ends. That is the difference between selling a report and leaving a system.</dd></div>
+          </dl>
+        </section>
+
+        <!-- OPERATIONS -->
+        <section class="case" role="tabpanel" id="panel-ops" aria-labelledby="tab-ops" data-case="ops" tabindex="0" hidden>
+          <h3 class="case__work" data-i18n="start.ops.w">A routine process that crosses four systems and breaks in one.</h3>
+          <dl class="case__grid">
+            <div><dt data-i18n="start.room">Who is in the room</dt><dd data-i18n="start.ops.r">Agents granted exactly the tools the process needs and nothing else, plus the operator who owns the exceptions.</dd></div>
+            <div><dt data-i18n="start.check">What gets checked</dt><dd data-i18n="start.ops.c">Every call happens inside an authorization boundary, is observed while it runs, and has a rollback path when verification fails. This is the case where the harness stops being a design principle and starts being the reason you are allowed to deploy at all.</dd></div>
+            <div><dt data-i18n="start.left">What is left behind</dt><dd data-i18n="start.ops.l">Exceptions become rules. The fourth time the same thing breaks, the handling is already part of the workflow.</dd></div>
+          </dl>
+        </section>
+      </div>
+    </div>
+
+    <p class="cases__note" data-reveal data-i18n="start.note">These are worked examples of how a unit of work is shaped in each discipline — not customer stories. We are early, and we would rather show you the shape of the thing than borrow credibility we have not earned.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     7.5 · The unit of work
+     ====================================================================== -->
+<section class="section" id="unit">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="unit.eyebrow">10 — The unit of work</span>
+      <h2 data-i18n="unit.title">“Use AI” is not a deliverable. A unit of work is.</h2>
+      <p class="lead" data-i18n="unit.lead">A unit of work has a defined input, a defined output, a boundary someone is responsible for, and a way to be checked. That is what makes it something you can buy, verify, reuse and price — instead of something you can only be impressed by.</p>
+    </header>
+
+    <ol class="unit__steps" role="list" data-stagger>
+      <li class="unit__step"><span class="unit__n">1</span><b data-i18n="unit.s1">Intent</b><i data-i18n="unit.s1s">the goal and its boundary</i></li>
+      <li class="unit__step"><span class="unit__n">2</span><b data-i18n="unit.s2">Context</b><i data-i18n="unit.s2s">data, knowledge, rules</i></li>
+      <li class="unit__step"><span class="unit__n">3</span><b data-i18n="unit.s3">Agent team</b><i data-i18n="unit.s3s">planner, expert, executor</i></li>
+      <li class="unit__step"><span class="unit__n">4</span><b data-i18n="unit.s4">Workflow</b><i data-i18n="unit.s4s">tools, hand-offs, state</i></li>
+      <li class="unit__step"><span class="unit__n">5</span><b data-i18n="unit.s5">Validation</b><i data-i18n="unit.s5s">evidence, evals, guardrails</i></li>
+      <li class="unit__step"><span class="unit__n">6</span><b data-i18n="unit.s6">Outcome</b><i data-i18n="unit.s6s">a business result, not a transcript</i></li>
+    </ol>
+
+    <div class="grid grid--4 unit__props" data-stagger>
+      <div class="prop"><b data-i18n="unit.p1">Deliverable</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
+      <div class="prop"><b data-i18n="unit.p2">Verifiable</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
+      <div class="prop"><b data-i18n="unit.p3">Reusable</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     8 · Open
+     ====================================================================== -->
+<section class="section" id="open">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="open.eyebrow">11 — Open by design</span>
+      <h2 data-i18n="open.title">Own the semantics. Not every implementation.</h2>
+      <p class="lead" data-i18n="open.lead">Writing software keeps getting cheaper. What is worth owning is the core abstraction, the collaboration runtime and the human–agent experience. Everything else should be adopted or kept replaceable.</p>
+    </header>
+
+    <div class="open__cols" data-stagger>
+      <section class="open__col" style="--i:0">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">Build</span><span class="open__sub" data-i18n="open.c1.s">What we must own</span></h3>
+        <ul class="open__list" role="list">
+          <li data-i18n="open.c1.i1">Workspace object model</li>
+          <li data-i18n="open.c1.i2">Ontology &amp; context</li>
+          <li data-i18n="open.c1.i3">Human–agent experience</li>
+          <li data-i18n="open.c1.i4">Harness &amp; evidence</li>
+          <li data-i18n="open.c1.i5">Canvas semantic model</li>
+          <li data-i18n="open.c1.i6">Memory &amp; lineage</li>
+        </ul>
+      </section>
+      <section class="open__col" style="--i:1">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">Adopt</span><span class="open__sub" data-i18n="open.c2.s">Proven infrastructure</span></h3>
+        <ul class="open__list" role="list">
+          <li data-i18n="open.c2.i1">Yjs / CRDT</li>
+          <li data-i18n="open.c2.i2">Postgres / pgvector</li>
+          <li data-i18n="open.c2.i3">Object storage</li>
+          <li data-i18n="open.c2.i4">WebRTC / LiveKit</li>
+          <li data-i18n="open.c2.i5">OpenUSD / WebXR</li>
+          <li data-i18n="open.c2.i6">Queue &amp; workflow infra</li>
+        </ul>
+      </section>
+      <section class="open__col" style="--i:2">
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">Integrate</span><span class="open__sub" data-i18n="open.c3.s">Kept replaceable</span></h3>
+        <ul class="open__list" role="list">
+          <li data-i18n="open.c3.i1">LLM providers</li>
+          <li data-i18n="open.c3.i2">M365 / Google / Lark / DingTalk</li>
+          <li data-i18n="open.c3.i3">Identity &amp; SSO</li>
+          <li data-i18n="open.c3.i4">CRM / ERP / GitHub</li>
+          <li data-i18n="open.c3.i5">Cloud &amp; on-premise</li>
+          <li data-i18n="open.c3.i6">MCP &amp; connectors</li>
+        </ul>
+      </section>
+    </div>
+
+    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">Open core, open standards, open ecosystem — with governance, reliability and scale as the enterprise edge.</p>
+  </div>
+</section>
+
+<!-- ======================================================================
+     10.5 · Built by the system it describes
+     ====================================================================== -->
+<section class="section proof" id="proof">
+  <div class="wrap">
+    <div class="proof__inner">
+      <div class="proof__copy" data-reveal="left">
+        <span class="eyebrow" data-i18n="proof.eyebrow">12 — How this is built</span>
+        <h2 data-i18n="proof.title">WorkspaceX is built by agent teams, under the harness it ships.</h2>
+        <p class="lead" data-i18n="proof.lead">We did not build an evidence system and then write features by hand. The repository is the proof: agents do the work, and the same gates this page argues for are the ones they cannot get around.</p>
+        <a class="btn btn--ghost" href="https://github.com/boardx/workspacex" rel="noopener">
+          <span data-i18n="proof.cta">Read the repository</span>
+          <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+
+      <ul class="proof__rules" data-reveal="right" role="list">
+        <li><b data-i18n="proof.r1">No issue, no work.</b><span data-i18n="proof.r1b">A feature that is not visible on GitHub does not exist. Development nobody can see is development only its author understands.</span></li>
+        <li><b data-i18n="proof.r2">An agent cannot mark its own work done.</b><span data-i18n="proof.r2b">Only a verification script can move a feature to passing, and passing is irreversible.</span></li>
+        <li><b data-i18n="proof.r3">Evidence or it did not happen.</b><span data-i18n="proof.r3b">Command output, logs, commits, screenshots. “It looks like it works” is not a state the system has.</span></li>
+        <li><b data-i18n="proof.r4">Merged, green, closed by a pull request.</b><span data-i18n="proof.r4b">Code sitting on a branch does not exist for anyone else, so it does not count as finished.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     9.5 · Objections
+     ====================================================================== -->
+<section class="section" id="questions">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="faq.eyebrow">13 — Straight answers</span>
+      <h2 data-i18n="faq.title">The questions that decide whether this is deployable.</h2>
+    </header>
+
+    <div class="faq" data-stagger>
+      <details class="faq__item">
+        <summary data-i18n="faq.q1">Where does our data live?</summary>
+        <p data-i18n="faq.a1">Wherever you decide. Cloud, your own infrastructure, a hybrid, or local-first on the machine itself. Deployment is a configuration choice, not a different edition with features removed.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q2">What happens when we want to change models?</summary>
+        <p data-i18n="faq.a2">You change them. Models sit at the runtime layer, above your ontology and below your experience. Swapping a provider — frontier, domestic or fully local — does not touch how your organization’s knowledge is modelled, and does not invalidate the evidence already recorded.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q3">How do we stop an agent doing something it should not?</summary>
+        <p data-i18n="faq.a3">Every action goes through the harness: an authorization boundary before it runs, observation while it runs, a verification step against a stated standard, and a rollback path when that check fails. An agent cannot reach a tool it was not granted, and it cannot record an outcome it cannot evidence.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q4">Do we have to replace what we already use?</summary>
+        <p data-i18n="faq.a4">No — that is the opposite of the point. WorkspaceX connects to Microsoft 365, Google Workspace, Lark, DingTalk, Slack, GitHub and your systems of record. It is the layer where work runs across them, not a replacement for any of them.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q5">Is this open source?</summary>
+        <p data-i18n="faq.a5">Open core. The workspace object model, the agent and skill format and the connector interfaces are open and readable — the source is on GitHub. Governance, reliability and scale are the commercial edge. You should be able to read how your work is executed.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q6">What stage is it at?</summary>
+        <p data-i18n="faq.a6">Early, and honest about it. We are building with a small number of design partners who have real, verifiable, high-value work — not running a waitlist. If that is you, the next step is a conversation, not a signup form.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================
+     11 · Horizons
+     ====================================================================== -->
+<section class="section" id="horizons">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <span class="eyebrow" data-i18n="hz.eyebrow">14 — Where this goes</span>
+      <h2 data-i18n="hz.title">Prove the unit. Then the team. Then the economy.</h2>
+    </header>
+
+    <ol class="hz" role="list" data-stagger>
+      <li class="hz__item hz__item--now">
+        <span class="hz__when" data-i18n="hz.h1w">Now</span>
+        <h3 data-i18n="hz.h1t">High-value units of work</h3>
+        <p data-i18n="hz.h1b">A small number of agentic work units, run end to end with real evidence, inside real organizations.</p>
+      </li>
+      <li class="hz__item">
+        <span class="hz__when" data-i18n="hz.h2w">Next</span>
+        <h3 data-i18n="hz.h2t">Cross-functional agentic work</h3>
+        <p data-i18n="hz.h2b">Ontology and memory spanning departments; agent teams with governance, and a marketplace for skills that travel between organizations.</p>
+      </li>
+      <li class="hz__item">
+        <span class="hz__when" data-i18n="hz.h3w">Then</span>
+        <h3 data-i18n="hz.h3t">An open work runtime</h3>
+        <p data-i18n="hz.h3b">Work units — not seats — as the thing that gets measured and paid for, on a runtime anyone can build on.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ======================================================================
+     CTA
+     ====================================================================== -->
+<section class="cta" id="contact">
+  <div class="wrap wrap--text">
+    <h2 data-reveal data-i18n="cta.title">Bring us work that can be checked.</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">We are looking for design partners with real, verifiable, high-value work — and for ecosystem partners building agents, skills and connectors on top.</p>
+    <div class="cta__actions" data-reveal>
+      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
+        <span data-i18n="cta.primary">Become a design partner</span>
+      </a>
+      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">Read the source</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ======================================================================
+     Footer
+     ====================================================================== -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__grid">
+      <div class="footer__col footer__col--brand">
+        <a class="brand" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
+          <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
+          <span class="brand__name">WorkspaceX</span>
+        </a>
+        <p class="footer__blurb" data-i18n="footer.blurb">The open operating workspace for human + AI collaboration. A BoardX product.</p>
+      </div>
+      <div class="footer__col">
+        <h3 class="footer__h" data-i18n="footer.h1">Product</h3>
+        <ul>
+          <li><a href="#loop" data-i18n="footer.l1">How it works</a></li>
+          <li><a href="#capabilities" data-i18n="footer.l9">What is in it</a></li>
+          <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
+          <li><a href="#trust" data-i18n="footer.l3">Trust &amp; evidence</a></li>
+          <li><a href="#open" data-i18n="footer.l4">Open ecosystem</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h3 class="footer__h" data-i18n="footer.h2">Build</h3>
+        <ul>
+          <li><a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="footer.l5">GitHub</a></li>
+          <li><a href="https://develop.boardx.us" rel="noopener" data-i18n="footer.l6">Developer portal</a></li>
+          <li><a href="#proof" data-i18n="footer.l10">How this is built</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h3 class="footer__h" data-i18n="footer.h3">Company</h3>
+        <ul>
+          <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">Contact</a></li>
+          <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>
+          <li><a href="/privacy.html" data-i18n="footer.l11">Privacy &amp; security</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span data-i18n="footer.copy">© 2026 BoardX. All rights reserved.</span>
+      <span data-i18n="footer.note">Built as an open core.</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>

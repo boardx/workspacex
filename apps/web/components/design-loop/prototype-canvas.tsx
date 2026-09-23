@@ -9,9 +9,18 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
-import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock } from "lucide-react";
+import {
+  Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
+  // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
+  Menu, MoreHorizontal, SlidersHorizontal, LayoutGrid, List as ListIcon, ArrowLeft, ArrowRight,
+  Users, MessageCircle, Send, Share2, Heart, Star, Camera, File, Folder, Bookmark, Tag, Link2,
+  Download, Upload, Plus, Pencil, Trash2, X as XIcon, RefreshCw, Play, Pause, Eye,
+  ShoppingCart, CreditCard, BarChart3, Calendar, Clock, MapPin, Mail, Phone, Info, AlertTriangle,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
+import { designPrototype, designWorkbench } from "@repo/contracts";
 
 /**
  * 迭代 2：选中态。`selectedId` 当前选中的节点 id；`onSelect(id | null)` 点节点/点空白。
@@ -36,7 +45,9 @@ const SelectionCtx = React.createContext<{
   mode: PrototypeCanvasMode;
   links: ReadonlyMap<string, number>;
   onNavigate: ((to: number) => void) | null;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null });
+  /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——屏上给一圈高亮，说清"它改了这里"。 */
+  changed: ReadonlySet<string>;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set() });
 
 /** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
 function useLinkTap(id: string | undefined, item?: number) {
@@ -61,7 +72,7 @@ function useLinkTap(id: string | undefined, item?: number) {
 
 /** 每个节点根元素要挂的属性：id、选中标记、点击选中（冒泡到父节点前停住，父子重叠时选最内层）。 */
 function useTap(node: PrototypeNode) {
-  const { selectedId, onSelect, mode } = React.useContext(SelectionCtx);
+  const { selectedId, onSelect, mode, changed } = React.useContext(SelectionCtx);
   const id = node.id;
   // 单目标原语在预览模式下的跳转（多项原语与 navbar 由各自的项挂 `useLinkTap`，这里 item 恒 0 会查不到，正好）。
   const link = useLinkTap(id);
@@ -71,6 +82,8 @@ function useTap(node: PrototypeNode) {
   return {
     "data-node-id": id,
     "data-selected": id !== undefined && id === selectedId ? "true" : undefined,
+    // 迭代 16（#3773 R5）：这一轮改了它。纯标记，样式挂在画布根上的 arbitrary variant 里。
+    "data-changed": id !== undefined && changed.has(id) ? "true" : undefined,
     "data-linked": link.linked ? "true" : undefined,
     // 可选中时是一个真正的控件：role/tabIndex/aria-pressed + Enter/Space 触发（Codex P2：不能只挂 onClick）。
     ...(interactive
@@ -105,8 +118,25 @@ const SPACE: Record<"none" | "sm" | "md" | "lg", string> = { none: "h-0", sm: "h
 const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
   start: "items-start justify-start", center: "items-center justify-center", end: "items-end justify-end", between: "items-center justify-between",
 };
+/**
+ * 文字档位 → 样式。
+ *
+ * ## 迭代 18：两处改动，各自有理由
+ *
+ * ① **`label` 不再强制全大写**。`DESIGN_PRINCIPLES` 第 ⑬ 条逐字写着「不要用全大写的
+ *    小标签当眉头」——那是「一眼看出是 AI 生成」的头号特征之一。而这张表把**每一个**
+ *    `variant:"label"` 都 `uppercase` 了：规则管住了模型，没管住渲染器。中文看不出来
+ *    （`uppercase` 对汉字是空操作），做英文界面时就原形毕露，而且是我们自己加上去的。
+ *    同一条规矩，提示词里禁止、渲染器里强制，这是本仓那条「同一事实两处」的变体。
+ *
+ * ② **字号级差拉开**。原来是 16 / 13 / 12 / 10：subtitle 与 body 只差 1px，
+ *    在 300px 宽的手机画布上根本分不出来，「层级」于是只剩字重。改成 18 / 14 / 12 / 10，
+ *    相邻两档至少差 2px，肉眼能分辨。
+ *    ⚠ 档**数**没变（截图审计门 `scoreTypeScale` 数的是档数，3–6 档满分），
+ *      变的是档与档之间的距离——那正是肉眼读层级的依据。
+ */
 const TEXT_VARIANT: Record<"title" | "subtitle" | "body" | "caption" | "label", string> = {
-  title: "text-16 font-semibold", subtitle: "text-13 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium uppercase tracking-wide",
+  title: "text-18 font-semibold", subtitle: "text-14 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium tracking-wide",
 };
 /**
  * 迭代 13（delta §6）—— 圆角与尺寸的档位表。
@@ -137,7 +167,51 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
   warning: "bg-warning/20 text-warning",
   danger: "bg-destructive/20 text-destructive",
 };
-const NAV_ICONS = [Home, Search, Bell, User, Settings] as const;
+/**
+ * 迭代 16（#3773 R4）：契约图标闭集 → lucide 组件。
+ *
+ * `Record<PrototypeIcon, …>` **穷举**：契约加了新图标这里编译不过，不会静默渲染成空
+ * ——同这个文件头注对渲染表的既有纪律。
+ */
+const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+  home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
+  filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
+  user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,
+  heart: Heart, star: Star,
+  image: ImageIcon, camera: Camera, file: File, folder: Folder, bookmark: Bookmark, tag: Tag,
+  link: Link2, download: Download, upload: Upload,
+  plus: Plus, edit: Pencil, trash: Trash2, check: Check, close: XIcon, refresh: RefreshCw,
+  play: Play, pause: Pause, lock: Lock, eye: Eye,
+  cart: ShoppingCart, card: CreditCard, chart: BarChart3, calendar: Calendar, clock: Clock,
+  location: MapPin, mail: Mail, phone: Phone, info: Info, warning: AlertTriangle,
+};
+
+/**
+ * 迭代 16（#3773 R4）：底部导航没给 `icons` 时，**按标签名猜**。
+ *
+ * 在这之前是 `NAV_ICONS[i % 5]`——按**位置**轮转，一个叫「消息」的标签页会拿到齿轮图标。
+ * 那不是"没有图标"，是"图标在撒谎"，比没有更坏。猜不到就给一个中性圆点，
+ * 不硬凑一个语义不对的图标。
+ */
+const NAV_KEYWORDS: readonly (readonly [readonly string[], designPrototype.PrototypeIcon])[] = [
+  [["首页", "主页", "home", "发现"], "home"],
+  [["搜索", "查找", "search"], "search"],
+  [["消息", "聊天", "对话", "chat", "message"], "message"],
+  [["通知", "提醒", "动态", "bell"], "bell"],
+  [["我的", "个人", "账户", "我", "profile", "me"], "user"],
+  [["设置", "配置", "setting"], "settings"],
+  [["购物车", "车", "cart"], "cart"],
+  [["订单", "单", "order"], "file"],
+  [["数据", "统计", "报表", "用量", "分析"], "chart"],
+  [["日历", "日程", "calendar"], "calendar"],
+  [["收藏", "喜欢", "star", "favorite"], "star"],
+  [["团队", "成员", "联系人"], "users"],
+];
+export function guessNavIcon(label: string): designPrototype.PrototypeIcon | null {
+  const l = label.toLowerCase();
+  for (const [keys, icon] of NAV_KEYWORDS) if (keys.some((k) => l.includes(k.toLowerCase()))) return icon;
+  return null;
+}
 /** 迭代 6：设备尺寸——由项目模板派生（mobile → 手机，ui → 桌面，wireframe → 平板）；画布内同一套原语按宽度自适应。 */
 /**
  * 迭代 14：设备尺寸与外观**都从 `lib/prototype-devices` 那张预设表来**，这里不再自己声明。
@@ -151,7 +225,137 @@ export type { PrototypeDevicePreset, PrototypeChrome };
 export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevicePreset {
   return defaultPresetFor(template);
 }
+/** 没有改动时共用的同一个空集——每次渲染新建一个会让 context 每帧都变。 */
+const EMPTY_CHANGED: ReadonlySet<string> = new Set();
+
+/**
+ * 迭代 17（#3773 后续）—— 把强调色档位翻成画布根上的**内联 token 覆盖**。
+ *
+ * 整棵树的颜色都是 `hsl(var(--primary))` 这种形态（`bg-primary` / `text-primary` /
+ * `border-primary` / `fill-primary`…），所以只要在画布根上把这三个变量改掉，
+ * 按钮、选中的 tab、底部导航的当前项、开关、进度条、图表占位……**全部**跟着变，
+ * 不需要在渲染表里逐个节点做第二套颜色逻辑（那才是会漂的做法）。
+ *
+ * `--ring` 一起改：焦点环是主色的语义延伸，只改 `--primary` 会让键盘焦点停在旧色上，
+ * 一眼看出是补丁。
+ *
+ * `neutral` ⇒ 返回 `undefined`，一个变量都不写——这个字段出现之前的行为逐字不变。
+ */
+/**
+ * 迭代 19 —— **线框图模板真的画成线框图**。
+ *
+ * ## 这个选项此前在撒谎
+ *
+ * 新建时的三选一是「移动端设计 / UI 原型 / 线框图」，而 `template` 实际只决定用哪个
+ * 设备预设（iphone / laptop / ipad）。选了「线框图」拿到的是**彩色高保真稿**，只是画在
+ * 平板上——这个选项把「保真度」和「设备」混成一个轴，然后只实现了设备那一半。
+ * 与本仓一路修过的几条同类：界面许诺了一件事，底下没有人去做它。
+ *
+ * ## 为什么低保真值得真的做出来
+ *
+ * 早期讨论要的正是"别谈颜色，先谈结构"。一份彩色稿会把评审拽进"这个蓝好不好看"，
+ * 而线框图把注意力钉在信息层级与流程上。这是两种用途，不是一种用途的两种皮肤。
+ *
+ * ## 实现：和强调色同一个机制
+ *
+ * 画布里所有颜色都走 `hsl(var(--token))`，所以低保真 = 在画布根上把**语义色**全部
+ * 改写成灰阶（主色、成功、警告、危险）。不需要在渲染表里为线框图再写一套分支——
+ * 那才是会漂的做法，而且每加一个原语就要记得改两处。
+ *
+ * ⚠ 只压颜色，**不压结构**：圆角、间距、字号档位原样保留。线框图不是"把东西画丑"，
+ *   是"把颜色这一层信息拿掉"，布局判断仍然要能做。
+ */
+/**
+ * ⚠ 取值在**契约** `PROTOTYPE_WIREFRAME`，不在这里——它要和强调色走同一条对比度门
+ *   （这些 token 不只当块的底色，也当文字色；实测深色画布下灰 46% 只有 3.65:1）。
+ *   在这里再写一份就是「同一事实两处」，而且是门看不见的那一份。
+ */
+export function wireframeStyle(theme: "light" | "dark"): React.CSSProperties {
+  const { primary, foreground } = designWorkbench.PROTOTYPE_WIREFRAME[theme];
+  return {
+    "--primary": primary,
+    "--primary-foreground": foreground,
+    "--ring": primary,
+    // 语义色一并压平：线框图里「成功/警告/危险」不该靠颜色区分，该写出来。
+    "--success": primary,
+    "--warning": primary,
+    "--destructive": primary,
+  } as React.CSSProperties;
+}
+
+export function accentStyle(
+  accent: designWorkbench.PrototypeAccent | undefined,
+  theme: "light" | "dark",
+): React.CSSProperties | undefined {
+  if (accent === undefined || accent === "neutral") return undefined;
+  const tokens = designWorkbench.PROTOTYPE_ACCENTS[accent]?.[theme];
+  // 契约加了新档位却没给值时不硬崩，也不假装有颜色——退回"没有强调色"。
+  if (tokens === undefined) return undefined;
+  return {
+    "--primary": tokens.primary,
+    "--primary-foreground": tokens.foreground,
+    "--ring": tokens.primary,
+  } as React.CSSProperties;
+}
+
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
+
+/**
+ * 迭代 16（#3773 R4）—— `image` 按**语义**画占位，不是一律一个灰块。
+ *
+ * 一张商品图、一张地图、一条折线图在屏上长得一模一样时，原型就没法让人判断
+ * 「这块视觉分量够不够」——而那正是看原型最主要的用途之一。
+ * 这里画的是各自的**形状**（地图有路网、图表有柱/线、头像是圆的），
+ * 仍然是占位（没有真图），但一眼能看出是什么。
+ */
+function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: "image" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const kind = p.kind ?? "photo";
+  const box = cn("relative flex w-full items-center justify-center overflow-hidden rounded-control bg-panel text-muted-foreground", RATIO[p.ratio ?? "video"]);
+  if (kind === "avatar") {
+    return (
+      <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap} aria-label={p.alt}>
+        <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-full bg-panel"><User className="h-6 w-6 text-muted-foreground" /></span>
+        <span className="sr-only">{p.alt}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={box} data-proto="image" data-image-kind={kind} {...tap} aria-label={p.alt}>
+      {kind === "map" && (
+        // 路网：两横两纵 + 一个定位点。够表达「这是一张地图」，不假装是真地图。
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <rect width="120" height="60" className="fill-card" />
+          <g className="stroke-border" strokeWidth="2" fill="none">
+            <path d="M0 18 H120 M0 42 H120 M32 0 V60 M86 0 V60" />
+          </g>
+          <circle cx="60" cy="30" r="5" className="fill-primary" />
+        </svg>
+      )}
+      {kind === "chart" && (
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <g className="fill-primary/30">
+            <rect x="10" y="34" width="14" height="22" /><rect x="34" y="22" width="14" height="34" />
+            <rect x="58" y="28" width="14" height="28" /><rect x="82" y="12" width="14" height="44" />
+          </g>
+          <path d="M17 32 L41 20 L65 26 L89 10" className="stroke-primary" strokeWidth="2" fill="none" />
+        </svg>
+      )}
+      {kind === "video" && (
+        <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-inverse/40"><Play className="h-4 w-4 text-background-foreground" /></span>
+      )}
+      {kind === "logo" && <span aria-hidden className="h-8 w-8 rounded-control bg-primary/30" />}
+      {kind === "illustration" && (
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
+          <circle cx="42" cy="26" r="14" className="fill-primary/25" />
+          <rect x="58" y="24" width="34" height="22" rx="4" className="fill-border" />
+        </svg>
+      )}
+      {kind === "photo" && <ImageIcon aria-hidden className="h-4 w-4" />}
+      <span className="sr-only">{p.alt}</span>
+    </div>
+  );
+}
 
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
@@ -218,6 +422,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
           )}
           data-proto="button" {...tap}
         >
+          {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
+          {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
           {p.label}
         </span>
       );
@@ -234,24 +440,40 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       );
     }
     case "image":
-      return (
-        <div className={cn("flex w-full items-center justify-center rounded-control bg-panel text-muted-foreground", RATIO[node.props.ratio ?? "video"])} data-proto="image" {...tap} aria-label={node.props.alt}>
-          <ImageIcon aria-hidden className="h-4 w-4" />
-          <span className="sr-only">{node.props.alt}</span>
-        </div>
-      );
+      return <ImagePlaceholder node={node} tap={tap} />;
     case "list": {
-      const lead = node.props.leading ?? "dot";
+      const p = node.props;
+      const lead = p.leading ?? "dot";
       return (
         <ul className="flex w-full flex-col divide-y divide-border" data-proto="list" {...tap}>
-          {node.props.items.map((item, i) => (
-            <ItemTap key={i} as="li" id={node.id} item={i} className="flex items-center gap-2 py-1.5 text-12">
-              {lead === "dot" && <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />}
-              {lead === "check" && <Check aria-hidden className="h-3 w-3 shrink-0 text-success" />}
-              {lead === "avatar" && <span aria-hidden className="h-5 w-5 shrink-0 rounded-full bg-panel" />}
-              <span className="truncate">{item}</span>
-            </ItemTap>
-          ))}
+          {p.items.map((item, i) => {
+            /*
+             * 迭代 16（#3773 R4）：真实的列表行是三段式——主标题 / 副标题 / 右侧值。
+             * `detail` / `trailing` / `icons` 与 `items` **逐位对应**，缺这一位就没有那一段
+             * （契约刻意不要求等长：要求等长会让模型为了补一个空字符串把整条写回作废）。
+             */
+            const detail = p.detail?.[i]?.trim();
+            const trailing = p.trailing?.[i]?.trim();
+            const rowIcon = lead === "icon" ? p.icons?.[i] : undefined;
+            return (
+              <ItemTap key={i} as="li" id={node.id} item={i} className="flex items-center gap-2 py-1.5 text-12">
+                {lead === "dot" && <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />}
+                {lead === "check" && <Check aria-hidden className="h-3 w-3 shrink-0 text-success" />}
+                {lead === "avatar" && <span aria-hidden className="h-5 w-5 shrink-0 rounded-full bg-panel" />}
+                {/* icons 缺这一位 ⇒ 退回圆点，不留一个空缺口让这一行比别的行窄。 */}
+                {lead === "icon" && (rowIcon === undefined
+                  ? <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />
+                  : React.createElement(ICONS[rowIcon], { "aria-hidden": true, className: "h-4 w-4 shrink-0 text-muted-foreground" }))}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate">{item}</span>
+                  {detail !== undefined && detail !== "" && <span className="truncate text-10 text-muted-foreground">{detail}</span>}
+                </span>
+                {trailing !== undefined && trailing !== "" && (
+                  <span className="shrink-0 text-10 text-muted-foreground" data-proto-slot="trailing">{trailing}</span>
+                )}
+              </ItemTap>
+            );
+          })}
         </ul>
       );
     }
@@ -273,7 +495,21 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
       return (
-        <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-panel font-medium", AVATAR_SIZE[node.props.size ?? "md"])} data-proto="avatar" {...tap} title={node.props.name}>
+        /*
+         * 迭代 18：头像位用**强调色的淡底 + 强调色的字**，不再是一律的灰圆。
+         *
+         * 一条会话列表里十个一模一样的灰圆，看起来就是十个占位符；而真实界面里头像正是
+         * 把"这些行是不同的人"这件事一眼交代清楚的东西。用 `primary/15` 而不是随机色：
+         * 随机色等于在这套原语外面又开了一个颜色来源，而强调色本来就是这个项目的身份
+         * （`neutral` 的项目里 `--primary` 仍是中性色，于是行为与这一改之前一致）。
+         */
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-medium text-primary",
+            AVATAR_SIZE[node.props.size ?? "md"],
+          )}
+          data-proto="avatar" {...tap} title={node.props.name}
+        >
           {node.props.name.slice(0, 1)}
         </span>
       );
@@ -291,7 +527,12 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <nav className="mt-auto flex w-full shrink-0 items-stretch border-t border-border pt-1" data-proto="bottomnav" {...tap}>
           {node.props.items.map((item, i) => {
-            const Icon = NAV_ICONS[i % NAV_ICONS.length]!;
+            /*
+             * 迭代 16（#3773 R4）：先用模型给的 `icons[i]`，没给就按标签名猜，猜不到给中性圆点。
+             * 在这之前是按**位置**轮转，「消息」拿到齿轮图标——图标在撒谎比没有图标更坏。
+             */
+            const named = node.props.icons?.[i] ?? guessNavIcon(item);
+            const Icon = named === null || named === undefined ? Circle : ICONS[named];
             return (
               <ItemTap key={i} id={node.id} item={i} className={cn("flex flex-1 flex-col items-center gap-0.5 py-1 text-10", i === active ? "text-primary" : "text-muted-foreground")}>
                 <Icon aria-hidden className="h-4 w-4" />
@@ -422,7 +663,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -431,6 +672,34 @@ export function PrototypeCanvas({
    * 5 页只出来 3 页，而画布上没有任何痕迹。
    */
   ungenerated?: boolean;
+  /**
+   * 迭代 16（#3773 R2）：这一页**正在画**——分页生成还在跑，它排在后面还没轮到。
+   *
+   * 与 `ungenerated` 是两件事，必须分开说：`ungenerated` 的含义是「这一轮画失败了，
+   * 你可以让我补画」，而这一页只是还没轮到——这时候给一个「补画这一页」按钮，
+   * 等于请用户为一件正在发生的事重新下单。
+   */
+  drawing?: boolean;
+  /**
+   * 迭代 16（#3773 R5）：这一轮新增/改动的节点 id。
+   *
+   * 一轮对话之后画布整体换了一份，而屏上没有任何痕迹说明**哪里**变了——三页里改了一个
+   * 按钮文案，用户只能自己逐页找。于是"改一点点"和"重看一遍全部"一样贵，
+   * 而快速建模靠的恰恰是"改一点点"足够便宜。
+   */
+  changed?: ReadonlySet<string>;
+  /**
+   * 迭代 17：原型的**强调色档位**（项目级）。在这之前，不管做的是儿童记账 App 还是
+   * 医院排班后台，按钮和选中态一律是同一个中性灰——所有产出看起来都像同一个模板的
+   * 不同填空。档位在画布根上覆盖 `--primary` 系列 token，整棵树跟着变。
+   */
+  accent?: designWorkbench.PrototypeAccent;
+  /**
+   * 迭代 19：**低保真**（项目 template 是 `wireframe` 时）。语义色全部压成灰阶，
+   * 结构原样保留——线框图不是"把东西画丑"，是"把颜色这一层信息拿掉"。
+   * 为真时**强调色不生效**：低保真的全部意义就是别谈颜色。
+   */
+  wireframe?: boolean;
   /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
   onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
@@ -456,7 +725,7 @@ export function PrototypeCanvas({
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
@@ -466,7 +735,17 @@ export function PrototypeCanvas({
         // 否则「原型主题与后台主题互不影响」只成立一半。
         theme === "light" ? "wx-light" : "dark",
       )}
-      style={{ width: size.w, height: size.h, borderRadius: device.radius }}
+      /* 迭代 17：强调色是**画布根上的 token 覆盖**，所以写在这里而不是逐节点改颜色。 */
+      /*
+       * 迭代 17/19：强调色与低保真都是**画布根上的 token 覆盖**。
+       * 低保真优先——选了线框图还上强调色，等于把刚拿掉的那层信息又加回去。
+       */
+      style={{
+        width: size.w, height: size.h, borderRadius: device.radius,
+        ...(wireframe ? wireframeStyle(theme) : accentStyle(accent, theme)),
+      }}
+      data-accent={wireframe || accent === "neutral" ? undefined : accent}
+      data-fidelity={wireframe ? "wireframe" : undefined}
       data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
@@ -477,13 +756,18 @@ export function PrototypeCanvas({
       {root === null ? (
         <div
           className="flex flex-1 flex-col gap-2 p-3"
-          data-testid={ungenerated ? "design-detail-phone-ungenerated" : "design-detail-phone-placeholder"}
+          data-testid={drawing ? "design-detail-phone-drawing" : ungenerated ? "design-detail-phone-ungenerated" : "design-detail-phone-placeholder"}
         >
           <div className="h-8 rounded-control bg-panel" aria-hidden />
           <div className="h-20 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-3/4 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-1/2 rounded-control bg-panel" aria-hidden />
-          {ungenerated ? (
+          {drawing ? (
+            <div className="mt-auto flex flex-col items-center gap-1.5" role="status">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-center text-11 text-muted-foreground">正在画这一页…</p>
+            </div>
+          ) : ungenerated ? (
             <div className="mt-auto flex flex-col items-center gap-1.5">
               {/* 说的是事实：这一页规划过、这一轮没画出来，别的页不受影响。 */}
               <p className="text-center text-11 text-muted-foreground">这一页没画出来。其余页不受影响。</p>
@@ -499,7 +783,15 @@ export function PrototypeCanvas({
               )}
             </div>
           ) : (
-            <p className="mt-auto text-center text-11 text-muted-foreground">还没有原型。在左边描述你要的界面，我会直接画出来。</p>
+            /*
+             * 迭代 25：这块是**空项目的主视野**——一台全黑的手机，而唯一的一句话此前是
+             * `mt-auto text-11` 顶在机身最底下的一行小灰字。实测截图上它几乎不可见。
+             * 改成居中、正常字号；并去掉「在左边」——md 以下对话面板在**上方**，
+             * 方位词在响应式布局里天然会说谎。
+             */
+            <p className="m-auto max-w-[80%] text-center text-12 text-muted-foreground">
+              还没有原型。<br />在对话里说一句你要做什么，我就画出来。
+            </p>
           )}
         </div>
       ) : (
@@ -509,6 +801,13 @@ export function PrototypeCanvas({
             // 选中态：静态 arbitrary variant（Tailwind 扫得到），选中节点描边 + 可点节点显示手型。
             mode === "edit" && onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
             "[&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1",
+            /*
+             * 迭代 16（#3773 R5）：这一轮改动过的节点给一圈虚线。
+             * 用 `success` 而不是 `primary`——primary 已经是"选中"的意思，
+             * 两件事共用一个颜色，用户分不清"我选了它"和"它刚被改了"。
+             * 虚线也是为此：选中是实线。
+             */
+            "[&_[data-changed=true]]:outline-dashed [&_[data-changed=true]]:outline-2 [&_[data-changed=true]]:outline-success [&_[data-changed=true]]:outline-offset-1",
             // 迭代 11 预览态：只有带跳转的可点位显示手型 + 悬停描边；其余节点没有任何可点暗示。
             mode === "preview" && "[&_[data-linked=true]]:cursor-pointer [&_[data-linked=true]:hover]:outline [&_[data-linked=true]:hover]:outline-2 [&_[data-linked=true]:hover]:outline-primary [&_[data-linked=true]:hover]:outline-offset-1",
           )}

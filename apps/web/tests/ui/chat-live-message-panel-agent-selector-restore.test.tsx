@@ -8,7 +8,7 @@
  * `tests/lib/pick-default-agent-id.test.ts` 的 `lastUsedAgentId` 那组。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
 const { listMessages, createMessage, getAgentRun, openAgentRunStream, openAsrDraftStream } = vi.hoisted(() => ({
   listMessages: vi.fn(),
@@ -65,7 +65,16 @@ describe("ChatLiveMessagePanel — 重开线程后「运行 Agent」选择器恢
     render(<ChatLiveMessagePanel threadId="t-deep" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
 
     const trigger = await screen.findByTestId("chat-agent-select");
-    expect(trigger.title).toBe("运行 Agent：Deep Research");
+    /*
+     * 2026-09-22 CI 实测（run 35779128371 `verify-affected`）：这里读到的是
+     * 「运行 Agent：通用助手」。不是接线坏了——`findByTestId` 只等**元素出现**，
+     * 而这个选择器一开始就渲染出来（默认通用助手），线程消息加载完之后才换成
+     * 线程实际用过的那个。断言紧跟着 `findByTestId` 同步执行，于是在 CI 的负载下
+     * 正好落在两次渲染之间；本机跑一百次都是绿的。
+     *
+     * 改成等**那个值**出现。意图没变：恢复这件事如果压根没发生，`waitFor` 会超时判红。
+     */
+    await waitFor(() => expect(trigger.title).toBe("运行 Agent：Deep Research"));
     expect(trigger.textContent).toContain("Deep Research");
   });
 

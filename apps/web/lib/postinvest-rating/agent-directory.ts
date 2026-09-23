@@ -7,7 +7,7 @@
  * 造一个**——每个部署环境（本机开发库 / devapp / 生产）各自有自己的库，id 天然不跨
  * 环境通用。正常路径下这里保持 `null`：Agent 由部署期幂等补种脚本
  * （`apps/api/scripts/backfill-team2-agent.ts`，`deploy.sh` 4d3）落库，落地页运行时按
- * `name` 在本组织的能力目录里查真实 id（同 team3 的既有做法），**不需要任何人手工
+ * `name` 在本组织的能力目录里查真实 id（同 team1/team4 的既有做法），**不需要任何人手工
  * 回填 id，也不需要为此重新构建前端**。
  *
  * `NEXT_PUBLIC_TEAM2_AGENT_ID` 仅作为本机开发的逃生口：设了就直接用，跳过查目录。

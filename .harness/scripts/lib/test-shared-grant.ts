@@ -28,7 +28,7 @@
  *      `chat_wave2_fixture` schema、`rls-force-nonowner.test.ts` 限定到自己 `CREATE TABLE`
  *      出来的探针表。别的文件看不见这些对象，也就不可能被影响。
  *   ② 语句只是**被断言的迁移文本**，从不执行 —— `tests/capability/model/*.test.ts`、
- *      `research-workflow/phase-enum-parity.test.ts` 读迁移文件断言里面有某条 GRANT。
+ *      读迁移文件断言里面有某条 GRANT 的那类用例。
  *   ③ 本文件**独占一个一次性实例** —— `tests/deploy/*.live.ts` 开头就是
  *      `WORKSPACEX_DATA_TEST!=="1"` 抛错，它根本不在并行池里。
  *
@@ -142,7 +142,7 @@ const INSTANCE_OPT_IN = /WORKSPACEX_DATA_TEST/;
  * 把注释与正则字面量抹成等长空白（保留换行，行号与偏移量都不变）。
  *
  * 为什么要认字符串：`'http://x'` 里的 `//` 不是注释；为什么要认正则字面量：
- * `/GRANT ([A-Z,]+) ON research_gate_audit TO app_rw/` 是**模式**不是语句，
+ * `/GRANT ([A-Z,]+) ON some_table TO app_rw/` 是**模式**不是语句，
  * 而 `/it's/` 这种带单引号的正则如果被当成代码，后面整段字符串状态都会错位。
  */
 export function blankNonCode(source: string): string {

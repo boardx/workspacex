@@ -15,6 +15,7 @@ import type {
 } from "../../src/application/design-workbench/project-ports";
 // 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
 import { mergeScreens, prototypeOf } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
+import type { ShareSnapshot } from "../../src/application/design-workbench/share-snapshot";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
@@ -238,6 +239,40 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     };
     this.rows.set(projectId, next);
     return next;
+  }
+
+  /*
+   * 迭代 22：发布/取消发布。两处细节刻意与真实仓储逐字对齐，否则单测会在一个
+   * 生产里不存在的行为上变绿：
+   *   ① 令牌 `COALESCE`——已发布的行**沿用旧令牌**，不因为重新发布就换一条链接；
+   *   ② 两条都**不动 `updatedAt`**（发布没有改动设计本身，列表排序不该被它顶起来）。
+   */
+  async publishShare(
+    projectId: string,
+    ownerId: string,
+    share: { readonly token: string; readonly scope: "prototype" | "full"; readonly snapshot: ShareSnapshot },
+  ): Promise<DesignProjectRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return null;
+    const next: DesignProjectRow = {
+      ...row,
+      share: {
+        token: row.share?.token ?? share.token,
+        scope: share.scope,
+        publishedAt: this.stamp(),
+        snapshot: share.snapshot,
+      },
+    };
+    this.rows.set(projectId, next);
+    return next;
+  }
+
+  async unpublishShare(projectId: string, ownerId: string): Promise<DesignProjectRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return null;
+    const { share: _dropped, ...rest } = row;
+    this.rows.set(projectId, rest);
+    return rest;
   }
 }
 

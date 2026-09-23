@@ -9,7 +9,7 @@
  * 里给模型的公式文字由 `@repo/contracts` 的 `renderDerivedFormulas()` 渲染——三者同源。
  * 没有它，"公式改了"这件事在仓库里没有任何东西会红。
  *
- * ⚠ 阈值与公式文字的单一事实源是 `packages/contracts/src/post-investment-rules.ts`，
+ * ⚠ 阈值与公式文字的单一事实源是 `@repo/maau-postinvest-report`，
  * 本文件 import 它，不在这里重新声明数字（ADR-020；本仓已因"同一事实声明在两处"
  * 漂移过五次）。
  */
@@ -21,7 +21,7 @@ import {
   SUBSIDY_PROFIT_SHARE,
   TOP1_CUSTOMER_SHARE,
   TOP5_CUSTOMER_SHARE,
-} from "@repo/contracts/post-investment-rules";
+} from "@repo/maau-postinvest-report";
 
 /**
  * 从材料原文里常见的数字写法（"4,680万元" / "-860万元" / "29.5%"）里抽出一个可比较的

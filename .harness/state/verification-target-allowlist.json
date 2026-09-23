@@ -1,0 +1,40 @@
+{
+  "_readme": [
+    "#965 棘轮名单：「passing feature 的 verification 声称要跑的测试文件必须真的存在」这道门",
+    "在 2026-09-21 之前根本不存在——verify.ts 只看退出码，doctor 只看 evidence 的形态/指纹/是否入 main，",
+    "没有任何东西回头问一句「这条 passing 当初声称跑过的那些测试文件，今天还在不在仓库里」。",
+    "",
+    "条目形如 `<phaseId>/<featureId>`，例如 `01/F11`。规则同 #1136 的 feature-evidence-allowlist.json",
+    "与 #539 的 rewrite-coverage-allowlist.json：这个数组只能变短。对应 feature 的指向物一旦补齐",
+    "（测试真的写出来并提交 / verification 改指向已提交的真实路径）或状态不再是 passing，",
+    "该条目即为陈旧，doctor 会判红要求删掉——留着等于给未来的同类回归留一扇没人看守的门。",
+    "",
+    "为什么不是上线即全判红：coord-main 在 #1136 已有同形裁决——存量不经盘点直接升级会不可控地",
+    "炸红，『上线即全红』等于没有门。所以今天的存量快照进来，今天之后新增的一律 FAIL。",
+    "",
+    "── 2026-09-21 全量盘点（5 个 phase，live + archive 一起扫）：存量 3 条，全部已逐条取证 ──",
+    "",
+    "01/F11   apps/api/tests/auth/team-crud-occupancy-check.test.ts",
+    "01/F122  apps/api/tests/project/list-projects-two-segments.test.ts",
+    "01/F166  apps/api/tests/recording/fun-asr-protocol-state-machine.test.ts",
+    "         apps/api/tests/recording/fun-asr-final-persist-before-push.test.ts",
+    "         apps/api/tests/recording/fun-asr-usage-idempotency.test.ts",
+    "",
+    "五个路径 `git log --all -- <path>` 全部零命中：它们**从来没有进过这个仓库的任何 ref**。",
+    "而 F166 的证据日志（sprints/sprint-04/evidence/F166.verify.log:50-62）显示这三条命令当时",
+    "确实 [exit 0] 跑绿过——跑在",
+    "  /Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-unify-rec-chat-asr/apps/api",
+    "这个 agent worktree 里。测试在那台机器上真的存在、真的通过，然后**没有被提交**。",
+    "⇒ 证据是真的，指向物是假的。这正是 AGENTS.md「静态痕迹 ≠ 动态事实」里那条",
+    "  「分支上有文件 ≠ main 上有」，也正是 #965 要求机械化堵住的那一类。",
+    "",
+    "这三条不在本 PR 的修复边界内：补齐它们要么得把那些测试真写出来，要么得改权威 verification",
+    "再跑一次 `harness verify --sprint`，而后者需要 DB/容器，且 passing 不可逆、状态不许手改。",
+    "本 PR 只负责把门装上并把存量如实记在这里，不负责伪造它们的绿。"
+  ],
+  "entries": [
+    "01/F11",
+    "01/F122",
+    "01/F166"
+  ]
+}
