@@ -1578,7 +1578,12 @@ export function DesignDetailScreen({
             ? "还没有页面"
             : `${project.frames.length} 页 · 已画出 ${project.prototype.filter((r) => r !== null).length} 页`}
         </span>
-        <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
+        {/*
+          * 2026-09-23 本地真栈实测（`scripts/local-session/design-loop-session.mjs` S04）发现：
+          * 这里还写着「2026/9/23」——各屏的时间早就统一成了「刚刚 / N 分钟前 / 今天 HH:mm」，
+          * 只有这一格漏了。而它恰好是人改完东西后看一眼「存上了没有」的地方：只有日期，答不了。
+          */}
+        <span className="ml-auto" data-testid="design-detail-statusbar-updated">{project.ownerName ?? "—"} · 更新于 {humanTime(project.updatedAt)}</span>
       </footer>
 
       {importing && (
