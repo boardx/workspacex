@@ -14,12 +14,24 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkWebBuild, localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack,
+  checkWebBuild, localSessionUrl, resolveLocalConfig, restoreIntoDataDir, runDoctor,
+  signInLocal, up, verifyBackup, type RunningStack,
 } from "@repo/local-runtime";
 import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
+/**
+ * 模块级的日志：`boot()` 里那个 `log` 闭在它自己的作用域里，而备份/恢复这类菜单动作
+ * 发生在 `boot()` 之外。写的是同一个文件——**一件事只有一份日志**，不要为了省事
+ * 在别处另起一个。
+ */
+function appendLog(line: string): void {
+  try {
+    appendFileSync(join(app.getPath("userData"), "local", "desktop.log"), `${new Date().toISOString()} ${line}\n`);
+  } catch { /* best effort：日志写不了也不能挡住恢复本身 */ }
+}
+
 /** 同一个服务一次会话只打断用户一次——重复弹框会让人直接忽略所有弹框。 */
 const reportedFailures = new Set<string>();
 let win: BrowserWindow | null = null;
@@ -326,6 +338,75 @@ async function runBackup(): Promise<void> {
   if (ans.response === 1) void shell.openPath(r.dir);
 }
 
+/**
+ * 「从备份恢复…」。
+ *
+ * 顺序是刻意的：**先验、再说清代价、最后才动数据。**
+ * 1. 先校验那份备份（这一步不动任何东西），把收据读给用户听——他要知道自己要读回什么。
+ * 2. 说清代价：现在的数据会被**挪走**（不是删掉），而且恢复后要重启应用。
+ * 3. 停栈。PGlite 是单会话所有权，在活着的实例脚下换目录是本仓记过的那一类事故。
+ * 4. 恢复并逐张表核对行数，对不上就如实说，并告诉用户原数据在哪。
+ * 5. 重启应用——不能在一个已经把数据库停掉的进程里继续跑。
+ */
+async function runRestore(): Promise<void> {
+  const picked = await dialog.showOpenDialog({
+    title: "选择要恢复的备份目录",
+    properties: ["openDirectory"],
+    buttonLabel: "读这一份",
+  });
+  if (picked.canceled || picked.filePaths[0] === undefined) return;
+  const backupDir = picked.filePaths[0];
+
+  const v = await verifyBackup(backupDir);
+  if (!v.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "这份备份读不了",
+      message: v.reason,
+      detail: "你现在的数据没有被改动。请确认选的是备份目录本身（里面应该有一个 manifest.json）。",
+    });
+    return;
+  }
+  const counts = Object.entries(v.manifest.rowCounts)
+    .map(([t, n]) => `${TABLE_LABELS[t] ?? t} ${n}`).join("　");
+  const ok = await dialog.showMessageBox({
+    type: "warning", title: "确认要用这份备份覆盖现在的数据吗",
+    message: `这份备份里有：${counts}`,
+    detail: `备份时间：${v.manifest.createdAt}\n\n`
+      + `你现在的数据不会被删除，会被挪到同一目录下带时间戳的文件夹里。\n`
+      + `恢复完成后应用会重启。`,
+    buttons: ["取消", "恢复"],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (ok.response !== 1) return;
+
+  // 停栈：PGlite 单会话，不能在活着的实例脚下换目录。
+  const running = stack;
+  stack = null;
+  if (running !== null) await running.stop();
+
+  const r = await restoreIntoDataDir({
+    backupDir,
+    dataDir: join(app.getPath("userData"), "local"),
+    postgresPort: 55432,
+    log: (l) => appendLog(l),
+  });
+  if (!r.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "恢复没有完成", message: r.reason,
+      detail: "应用会重启。如果重启后数据不对，被挪走的那份原始数据仍在数据目录里。",
+    });
+  } else {
+    await dialog.showMessageBox({
+      type: "info", title: "恢复完成，行数与清单一致",
+      message: `已读回：${Object.entries(r.verified).map(([t, x]) => `${TABLE_LABELS[t] ?? t} ${x.actual}`).join("　")}`,
+      detail: r.movedAsideTo === null ? "应用即将重启。" : `原来的数据已挪到 ${r.movedAsideTo}（没有删除）。\n应用即将重启。`,
+    });
+  }
+  app.relaunch();
+  app.quit();
+}
+
 /** 备份收据上的表名要说人话，用户不认得 `chat_threads`。 */
 const TABLE_LABELS: Readonly<Record<string, string>> = {
   organizations: "工作区", projects: "项目", chat_threads: "对话",
@@ -346,6 +427,10 @@ function installMenu(): void {
       {
         label: "备份我的数据…",
         click: () => { void runBackup(); },
+      },
+      {
+        label: "从备份恢复…",
+        click: () => { void runRestore(); },
       },
       {
         label: "打开数据目录",

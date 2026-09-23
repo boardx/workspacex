@@ -23,3 +23,7 @@ export { superviseManaged, type ServiceHealth } from "./supervisor";
 export {
   decideUnload, explainBudget, idleMsFromExpiry, memoryBudgetBytes, parsePs, RECENTLY_USED_MS,
 } from "./model-memory-budget";
+
+export {
+  replacedDirName, restoreBackup, restoreIntoDataDir, type RestoreResult,
+} from "./restore";
