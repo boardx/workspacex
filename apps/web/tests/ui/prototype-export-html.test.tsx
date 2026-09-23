@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import * as React from "react";
-import { EXPORT_SHELL_PALETTE, buildPrototypeExportHtml, classTokensOf, exportScreenId, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
+import { EXPORT_SHELL_PALETTE, buildPrototypeExportHtml, classTokensOf, exportScreenId, localDateStamp, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-canvas";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -24,6 +24,8 @@ const PROJECT: DesignProject = {
   chat: [], ownerId: "u1", ownerName: "我", createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z",
 };
 const NOW = new Date("2026-09-07T12:00:00.000Z");
+/** 第一页那棵树，给"只画了一半"的场景复用。 */
+const PROTOTYPE_FIRST = PROJECT.prototype[0]!;
 
 /** 迭代 23：主题化的构建——模块级，两个 describe 共用（原来只在 V69 那个块里）。 */
 const buildWithTheme = async (theme: "light" | "dark") => {
@@ -225,5 +227,66 @@ describe("跳转清单写人话标签，不是裸节点 id", () => {
       screens, css: "", now: NOW,
     });
     expect(html).toContain("已经不在了");
+  });
+});
+
+describe("迭代 37：交付物是别人打开的那个文件", () => {
+  it("没画出来的页说「这一页没画出来」，不是叫收件人去对话框里说一句", async () => {
+    /*
+     * ⭐ 反证锚点：把 `ungenerated` 那个 prop 去掉 ⇒ 这条红。
+     *
+     * 这是自包含文件，里面**根本没有对话框**。此前未画出的页导出的是画布空项目态那句
+     * 「在对话里说一句你要做什么，我就画出来」——收件人对着一句做不到的指示，
+     * 既不知道这页是漏了还是坏了。分享页（访客那一侧）早就按 `ungenerated` 如实说，
+     * 导出这一侧一直没跟上。
+     */
+    const p: DesignProject = { ...PROJECT, frames: ["对话", "还没画的那页"], prototype: [PROTOTYPE_FIRST, null], frameLinks: [[], []] };
+    const screens = await renderScreensToMarkup(p);
+    const html = buildPrototypeExportHtml({ project: p, screens, css: "", now: NOW });
+    expect(html).toContain("这一页没画出来");
+    expect(html).not.toContain("在对话里说一句你要做什么");
+  });
+
+  it("导出日期按本地日历，不是 UTC 的那一天", () => {
+    /*
+     * ⭐ 反证锚点：改回 `toISOString().slice(0,10)` ⇒ 这条红。
+     * 东八区凌晨 0–8 点导出时，UTC 还停在昨天——一份交付物把自己的生成日期说错一天，
+     * 而这正是收件人用来判断"是不是最新那版"的那个数。
+     */
+    /*
+     * ⚠ 这条**必须显式设时区**才有判别力：CI 跑在 UTC 上，而 UTC 下「本地日历」与
+     *   `toISOString()` 永远一致——第一版没设 TZ，把实现改回 UTC 它照样绿，
+     *   是一条没有判别力的断言（实测发现）。Node 会在运行时重读 `process.env.TZ`。
+     */
+    const tz = process.env.TZ;
+    process.env.TZ = "Asia/Shanghai";
+    try {
+      // 东八区的 9 月 8 日 01:00 —— UTC 那一刻还停在 9 月 7 日 17:00。
+      const localEarlyMorning = new Date(Date.UTC(2026, 8, 7, 17, 0, 0));
+      expect(localEarlyMorning.toISOString().slice(0, 10)).toBe("2026-09-07"); // 先证明这个场景真的分得开
+      expect(localDateStamp(localEarlyMorning)).toBe("2026-09-08");
+      expect(prototypeExportHtmlFileName("订阅管理", localEarlyMorning)).toContain("2026-09-08");
+    } finally {
+      if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+    }
+  });
+
+  it("可跳转元素能用键盘走：有 role/tabindex 与回车处理", async () => {
+    // ⭐ 反证锚点：去掉脚本里那三行（role/tabindex/keydown）⇒ 这条红。
+    const html = await build();
+    expect(html).toContain("setAttribute('role', 'link')");
+    expect(html).toContain("setAttribute('tabindex', '0')");
+    expect(html).toContain("addEventListener('keydown'");
+    expect(html).toContain("[data-proto][data-linked]:focus-visible");
+  });
+
+  it("一条跳转都没有时，不说「点带虚线框的元素可以跳转」——那是一件不存在的事", async () => {
+    // ⭐ 反证锚点：把提示改回无条件输出 ⇒ 这条红。
+    const p: DesignProject = { ...PROJECT, frameLinks: [[], []] };
+    const screens = await renderScreensToMarkup(p);
+    const html = buildPrototypeExportHtml({ project: p, screens, css: "", now: NOW });
+    expect(html).not.toContain("点带虚线框的元素可以跳转");
+    const withLinks = await build();
+    expect(withLinks).toContain("点带虚线框的元素可以跳转");
   });
 });
