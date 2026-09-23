@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil, Redo2, MessageSquarePlus } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil, Redo2, MessageSquarePlus, Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { PrototypeLayers } from "./prototype-layers";
 import { dropBeforeOps, duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { composeCommentsMessage, useDesignComments } from "@/lib/design-comments";
 import { CommentComposer, CommentList } from "./comments-panel";
+import { VariantsPanel, type VariantsState } from "./variants-panel";
 import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
@@ -25,6 +26,7 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  proposeVariants,
   listPrototypeVersions,
   restorePrototypeVersion,
   type PrototypePatchOp,
@@ -393,15 +395,46 @@ export function DesignDetailScreen({
    * 三处不各写一遍"复制是什么意思"（op 怎么算见 `lib/prototype-node-actions`）。
    * 走的是与模型写回同一条 `patchPrototype`（I-11）。
    */
-  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string) => {
-    if (project === null || ops === null || ops.length === 0) return;
+  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string): Promise<boolean> => {
+    if (project === null || ops === null || ops.length === 0) return false;
     try {
       const out = await patchPrototype(project.id, [...ops], summary);
       setLoad({ kind: "ready", project: out.project });
+      return true;
     } catch (err) {
       setChatError(`没能${summary}（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
+      return false;
     }
+  };
+
+  /**
+   * 对标 R9（#3954）：同一页的几个方案。挑中 ⇒ 一条 `replace` 把这一页的根换掉（I-11），
+   * 所以它是版本历史里普通的一条，撤销能回到原来那页。换页 ⇒ 候选作废（它们是那一页的方案）。
+   */
+  const [variants, setVariants] = React.useState<VariantsState | null>(null);
+  const [pickingVariant, setPickingVariant] = React.useState(false);
+  React.useEffect(() => { setVariants(null); }, [frame]);
+  const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
+  const askVariants = async () => {
+    if (project === null) return;
+    setVariants({ kind: "loading" });
+    try {
+      const out = await proposeVariants(project.id, variantScreen);
+      setVariants({ kind: "ready", items: out.variants });
+    } catch (err) {
+      setVariants({ kind: "error", message: `没能出方案（${describeFailure(err)}）` });
+    }
+  };
+  const pickVariant = async (i: number) => {
+    const item = variants?.kind === "ready" ? variants.items[i] : undefined;
+    const rootId = project?.prototype[variantScreen]?.id;
+    if (item === undefined || rootId === undefined) return;
+    setPickingVariant(true);
+    // 去 id：模型给的树可能带着与别的页重复的 id，服务端会补新的。
+    const ok = await runNodeOps([{ op: "replace", id: rootId, node: stripIds(item.root) }], `换成方案：${item.summary}`.slice(0, 120));
+    setPickingVariant(false);
+    if (ok) { setVariants(null); setSelectedId(null); }
   };
 
   /** 对标 R8：当前页上还没交给 AI 的批注，编号与右栏列表一致。 */
@@ -1378,6 +1411,16 @@ export function DesignDetailScreen({
                 >
                   <Redo2 aria-hidden className="h-3 w-3" /> 重做
                 </button>
+                {/* 对标 R9：同一页出几个方案并排比。 */}
+                <button
+                  type="button" onClick={() => void askVariants()}
+                  disabled={preview !== null || sending || variants?.kind === "loading" || (project.prototype[variantScreen] ?? null) === null}
+                  aria-pressed={variants !== null}
+                  data-testid="design-detail-variants" title="让 AI 给这一页出几个不同的方案，并排比较、挑一个"
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+                >
+                  <Columns3 aria-hidden className="h-3 w-3" /> 方案
+                </button>
                 <button
                   type="button"
                   // 迭代 24：点「历史」就是要看历史——窄屏下顺手把收起的那一栏打开，
@@ -1475,6 +1518,20 @@ export function DesignDetailScreen({
                         </div>
                       </div>
                     </div>
+                  ) : variants !== null && preview === null ? (
+                    <VariantsPanel
+                      state={variants}
+                      frameLabel={project.frames[variantScreen] ?? ""}
+                      device={lens}
+                      landscape={landscape}
+                      accent={project.accent}
+                      tokens={project.tokens}
+                      theme={project.theme}
+                      picking={pickingVariant}
+                      onPick={(i) => void pickVariant(i)}
+                      onClose={() => setVariants(null)}
+                      onRetry={() => void askVariants()}
+                    />
                   ) : viewMode === "board" ? (
                     <PrototypeBoard
                       frames={(preview ?? project).frames}
@@ -1624,7 +1681,7 @@ export function DesignDetailScreen({
                       <PrototypeInspector
                         projectId={project.id}
                         prototype={project.prototype}
-                        onNodeOps={runNodeOps}
+                        onNodeOps={async (ops, summary) => { await runNodeOps(ops, summary); }}
                         node={focus.path[focus.path.length - 1]!}
                         path={focus.path}
                         onSaved={(p) => setLoad({ kind: "ready", project: p })}

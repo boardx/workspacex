@@ -799,6 +799,16 @@ export type PrototypeVersionSummary = z.infer<typeof PrototypeVersionSummary>;
 export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode.nullable()) }).strict();
 export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
 
+/**
+ * 对标 R9（#3954）：同一页的**候选方案**。`root` 是一整棵页树（过 `PrototypeNode` 契约）；
+ * 候选**不落库**——人挑中一个之后，前端用既有 `replace` patch 把它换进去，于是版本历史与
+ * 撤销走的是同一条路，不另开一套「方案」存储。
+ */
+export const PROTOTYPE_VARIANTS_MIN = 2;
+export const PROTOTYPE_VARIANTS_MAX = 4;
+export const PrototypeVariant = z.object({ summary: z.string().min(1).max(120), root: PrototypeNode }).strict();
+export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
+
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
 export const operations = {
@@ -1093,6 +1103,26 @@ export const operations = {
     path: "/pm-designs/:projectId/prototype/patch",
     in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
     out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 对标 R9（#3954）：让模型对第 `screen` 页出 `count` 个**结构不同**的方案。仅 owner；**不写库**。
+   * 模型给的每棵树都过契约，不合法的丢掉；合法的不足 `PROTOTYPE_VARIANTS_MIN` 个 ⇒ 503
+   * `DEPENDENCY_UNAVAILABLE`——不拿当前页改几个字冒充「方案」。这一页没画出来 ⇒ `PROTOTYPE_PATCH_REJECTED`。
+   */
+  proposeVariants: {
+    method: "POST",
+    path: "/pm-designs/:projectId/variants",
+    in: z
+      .object({
+        projectId: z.string(),
+        screen: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+        count: z.number().int().min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX).optional(),
+        instruction: z.string().max(500).optional(),
+      })
+      .strict(),
+    out: z.object({ variants: z.array(PrototypeVariant).min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX) }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
