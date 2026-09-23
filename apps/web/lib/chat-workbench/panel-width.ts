@@ -11,6 +11,28 @@
 
 /** 展开态的默认宽度，与被它取代的 `w-72` 逐字相等——不改默认观感，只是让它可动。 */
 export const PANEL_WIDTH_DEFAULT = 288;
+
+/**
+ * 各条侧栏的默认宽度。
+ *
+ * ⚠ 这些数不是我挑的，是**它们各自原先写死的那个值**（`tailwind.config.ts` 的
+ * `width: { panel: "272px", "panel-alt": "316px" }`）。让一条栏变得可拖拽时，默认观感
+ * 必须逐字不变——否则「加了个拖拽把手」会连带把所有人的布局挪一下，那是另一回事。
+ *
+ * 不在这里重抄 tailwind 的数值就无法逐字相等，所以由
+ * `tests/lib/panel-width-defaults.test.ts` 机械核对两边一致（本仓头号病是同一事实
+ * 声明在两处；这里没法消除副本，那就让副本分叉时会红）。
+ */
+export const PANEL_DEFAULT_WIDTH: Readonly<Record<string, number>> = {
+  "chat-inspector": PANEL_WIDTH_DEFAULT,
+  "shell-left": 272,
+  "shell-right": 316,
+};
+
+/** 某条侧栏的默认宽度；没登记过的退回通用默认值。 */
+export function defaultPanelWidth(panel: string): number {
+  return PANEL_DEFAULT_WIDTH[panel] ?? PANEL_WIDTH_DEFAULT;
+}
 /**
  * 下限。低于这个宽度五个页签的标签就开始互相挤（288px 下已经很紧），
  * 再窄不如让用户折叠成 40px 图标条——那是另一档形态，不是更窄的同一档。
@@ -50,12 +72,13 @@ export function readPanelWidth(
   storage: Pick<Storage, "getItem"> | null,
   viewportWidth?: number,
 ): number {
-  if (storage === null) return PANEL_WIDTH_DEFAULT;
+  const fallback = defaultPanelWidth(panel);
+  if (storage === null) return fallback;
   let raw: string | null;
-  try { raw = storage.getItem(panelWidthStorageKey(panel)); } catch { return PANEL_WIDTH_DEFAULT; }
-  if (raw === null) return PANEL_WIDTH_DEFAULT;
+  try { raw = storage.getItem(panelWidthStorageKey(panel)); } catch { return fallback; }
+  if (raw === null) return fallback;
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) ? clampPanelWidth(parsed, viewportWidth) : PANEL_WIDTH_DEFAULT;
+  return Number.isFinite(parsed) ? clampPanelWidth(parsed, viewportWidth) : fallback;
 }
 
 /** 写持久值。隐私模式 / 配额满时 `setItem` 会抛——宽度不是必须持久的东西，吞掉。 */

@@ -30,6 +30,9 @@ vi.mock("@/lib/api-client", async (orig) => ({
 import { AppShell } from "@/components/shell/app-shell";
 import { MOCK_ORGS, type Identity } from "@/lib/identity";
 import { SIDE_PANEL_BREAKPOINT } from "@/lib/shell/side-panel-visibility";
+import {
+  PANEL_WIDTH_KEY_STEP, defaultPanelWidth, panelWidthStorageKey,
+} from "@/lib/chat-workbench/panel-width";
 
 const identity: Identity = {
   displayName: "测试", avatarUrl: null, orgRole: "consultant",
@@ -73,5 +76,39 @@ describe("右栏可见断点", () => {
 
   it("断点不是 xl——1280 以下必须仍然有右栏", () => {
     expect(SIDE_PANEL_BREAKPOINT).not.toBe("xl");
+  });
+});
+
+/**
+ * R9 —— 全局左右栏也可拖了（R1 只覆盖了 chat 右栏）。
+ *
+ * 默认观感必须逐字不变：272 / 316 就是它们原先写死的 `w-panel` / `w-panel-alt`。
+ * 「加了个把手」不该顺带把所有人的布局挪一下。
+ */
+describe("全局左右栏可调宽", () => {
+  it("默认宽度与原先写死的那个值逐字相等", () => {
+    shell();
+    expect((screen.getByTestId("shell-left-panel") as HTMLElement).style.width)
+      .toBe(`${String(defaultPanelWidth("shell-left"))}px`);
+    expect((screen.getByTestId("shell-right-panel") as HTMLElement).style.width)
+      .toBe(`${String(defaultPanelWidth("shell-right"))}px`);
+  });
+
+  it("两条栏各有自己的把手与自己的持久化 key，不互相覆盖", () => {
+    shell();
+    fireEvent.keyDown(screen.getByTestId("shell-left-resize"), { key: "ArrowRight" });
+    const left = defaultPanelWidth("shell-left") + PANEL_WIDTH_KEY_STEP;
+    expect((screen.getByTestId("shell-left-panel") as HTMLElement).style.width).toBe(`${String(left)}px`);
+    // 右栏纹丝不动——两把 key 分开才是这条断言的意义。
+    expect((screen.getByTestId("shell-right-panel") as HTMLElement).style.width)
+      .toBe(`${String(defaultPanelWidth("shell-right"))}px`);
+    expect(window.localStorage.getItem(panelWidthStorageKey("shell-left"))).toBe(String(left));
+    expect(window.localStorage.getItem(panelWidthStorageKey("shell-right"))).toBeNull();
+  });
+
+  it("存过的宽度会被读回来（挂载时读一次，且是纯读）", () => {
+    window.localStorage.setItem(panelWidthStorageKey("shell-right"), "400");
+    shell();
+    expect((screen.getByTestId("shell-right-panel") as HTMLElement).style.width).toBe("400px");
   });
 });
