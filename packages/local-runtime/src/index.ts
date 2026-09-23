@@ -28,6 +28,8 @@ export {
   replacedDirName, restoreBackup, restoreIntoDataDir, type RestoreResult,
 } from "./restore";
 
+export { etaSeconds, humanBytes as humanImportBytes, humanEta, digestFromBlobPath, copyBlobVerified, sha256File, type ImportProgress } from "./model-import";
+export { planImport, importModels, type ImportPlan } from "./model-bundle";
 export { diagnoseStartupFailure, type StartupDiagnosis, type StartupRemedy } from "./startup-failure";
 export { stopListenerOnPort } from "./processes";
 export { dataDirAdvice, dataDirAdviceBody, type DataDirAdvice } from "./data-dir-advice";
