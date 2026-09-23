@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
-import { ApiError } from "@/lib/api-client";
 import { getThreadArtifactSource } from "@/lib/live-chat";
+import { describeArtifactFailure } from "@/lib/chat-workbench/artifact-failure";
 
 /**
  * 产物的只读视图 —— **取源 + 三态 + 渲染**，与「摆在哪」无关。
@@ -64,12 +64,14 @@ export function ChatArtifactView({
         notify.current?.({ markdown: out.markdown, version: out.version, savedAt: out.savedAt });
       } catch (e) {
         if (cancelled) return;
-        // 契约错码原样回显（NOT_VISIBLE / STORAGE_UNAVAILABLE 用户的处置完全不同），
-        // 不糊成一句「加载失败」——这条纪律全仓反复出现。
-        setState({
-          status: "error",
-          message: e instanceof ApiError ? (e.reasonCode ?? `HTTP ${String(e.status)}`) : "产物加载失败",
-        });
+        /*
+         * 2026-09-23 更正：这里原来是 `e.reasonCode ?? \`HTTP ${e.status}\``，
+         * 而且我在 R2 的注释里替它辩护过——「错码原样回显，不糊成一句加载失败」。
+         * 那句只对了一半：**要区分不同失败**是对的（NOT_VISIBLE 与 STORAGE_UNAVAILABLE
+         * 的处置完全不同），但「区分」不等于「把内部码端给用户」。码→人话的穷举表
+         * 两件事都做到，也才过得了 lint-user-facing-error-text 这道门。
+         */
+        setState({ status: "error", message: describeArtifactFailure(e) });
       }
     })();
     return () => { cancelled = true; };

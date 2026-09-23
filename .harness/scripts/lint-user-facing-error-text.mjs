@@ -71,7 +71,11 @@ const LEGACY = new Map([
   ["apps/web/components/canvas/template-editor-panel.tsx", 1],
   ["apps/web/components/canvas/template-prompt-drawer.tsx", 1],
   ["apps/web/components/canvas/template-trial-dialog.tsx", 1],
-  ["apps/web/components/chat/chat-artifact-preview-dialog.tsx", 1],
+  // 2026-09-23 销账：取源与三态抽进 `chat-artifact-view.tsx`（R2），那一行
+  // `reasonCode ?? \`HTTP ${status}\`` 换成了码→人话的穷举表
+  // （`lib/chat-workbench/artifact-failure.ts`）。⚠ 一开始它只是**搬了家**，
+  // 新文件照样命中规则 1——本门报完基线就退出，没来得及报那处新违规，
+  // 差一点就以「修好了」把基线改成 0 收场。销账前先确认违规是消失了、不是换了位置。
   ["apps/web/components/chat/chat-read-screen.tsx", 1],
   ["apps/web/components/chat/chat-recording-panel.tsx", 2],
   ["apps/web/components/chat/message-rating.tsx", 1],
