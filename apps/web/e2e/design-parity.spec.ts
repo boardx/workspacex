@@ -168,3 +168,46 @@ test.describe("R4 下拉、单选、叠层（#3933）", () => {
     expect(scrim!.width * scrim!.height).toBeGreaterThan(0.95 * screenBox!.width * screenBox!.height);
   });
 });
+
+const R5_PROJECT = {
+  ...R3_PROJECT, id: "eval-R5", name: "轻账官网", template: "ui", frames: ["首页"], frameNotes: [""],
+  prototype: [{ id: "r5-root", type: "stack", props: { direction: "column", padding: "none", gap: "none" }, children: [
+    { id: "r5-hero", type: "section", props: { tone: "primary", align: "center" }, children: [{ id: "r5-h", type: "hero", props: { title: "五分钟搞定一个月的账", cta: "免费试用" } }] },
+    { id: "r5-feat", type: "section", props: { tone: "default" }, children: [{ id: "r5-t", type: "text", props: { content: "为什么选轻账", variant: "title" } }] },
+    { id: "r5-price", type: "section", props: { tone: "muted" }, children: [{ id: "r5-p", type: "button", props: { label: "开始使用" } }] },
+    { id: "r5-foot", type: "footer", props: { brand: "轻账", links: ["产品", "隐私政策"], note: "© 2026 轻账科技" } },
+  ] }],
+};
+
+test.describe("R5 落地页与幻灯片（#3933）", () => {
+  test("桌面尺寸下三个通栏分区 + 页脚；主色区里的按钮是反色；切到幻灯片是 16:9 且内容放大", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R5_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R5");
+    await page.getByTestId("design-detail").waitFor();
+    await appearance(page);
+    await page.getByTestId("design-detail-device").selectOption("desktop");
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+    await expect(phone.locator('[data-proto="section"]')).toHaveCount(3);
+    await expect(phone.locator('[data-proto="footer"]')).toContainText("隐私政策");
+    // 分区通栏：与内容区等宽。
+    const band = await phone.locator('[data-proto="section"]').first().boundingBox();
+    const tree = await page.getByTestId("design-detail-phone-tree").boundingBox();
+    expect(band!.width).toBeGreaterThan(tree!.width - 20);
+    // 主色区里的头图按钮与区底色不同（没有融成一片）。
+    const [cta, bg] = await Promise.all([
+      phone.locator("[data-hero-cta]").evaluate((e) => getComputedStyle(e).backgroundColor),
+      phone.locator('[data-tone="primary"]').evaluate((e) => getComputedStyle(e).backgroundColor),
+    ]);
+    expect(cta).not.toBe(bg);
+
+    await appearance(page);
+    await page.getByTestId("design-detail-device").selectOption("slide");
+    const box = await page.getByTestId("design-detail-phone").boundingBox();
+    expect(box!.width / box!.height).toBeGreaterThan(1.7);
+    expect(box!.width / box!.height).toBeLessThan(1.85);
+    await expect(page.getByTestId("design-detail-phone-tree")).toHaveAttribute("data-slide-scale", "2");
+  });
+});

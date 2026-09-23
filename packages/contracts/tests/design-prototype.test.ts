@@ -191,8 +191,8 @@ describe("迭代 6 原语扩充", () => {
       ],
     };
     expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
-    // 对标 R3：+ table / chart；R4：+ select / radio / overlay。
-    expect(dp.PrototypeNodeType.options).toHaveLength(26);
+    // 对标 R3：+ table / chart；R4：+ select / radio / overlay；R5：+ section / footer。
+    expect(dp.PrototypeNodeType.options).toHaveLength(28);
     expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
     expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
     expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
@@ -700,5 +700,35 @@ describe("对标 R4：select / radio / overlay", () => {
     expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(`只有 ${dp.PROTOTYPE_CONTAINER_TYPES.join("/")} 有 children`);
     expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/overlay\{kind:modal\|sheet\|toast/);
     expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/单独做一页/);
+  });
+});
+
+/* ─────────────── 对标 R5（#3933）：落地页的分区与页脚 ─────────────── */
+describe("对标 R5：section / footer", () => {
+  it("正例：分区是容器（可以装 hero / grid），页脚是叶子", () => {
+    const page: dp.PrototypeNode = { type: "stack", props: { padding: "none", gap: "none" }, children: [
+      { type: "section", props: { tone: "primary", align: "center" }, children: [{ type: "hero", props: { title: "五分钟搞定一个月的账" } }] },
+      { type: "section", props: { tone: "muted" }, children: [{ type: "grid", props: { columns: 3 }, children: [] }] },
+      { type: "footer", props: { brand: "轻账", links: ["产品", "价格"], note: "© 2026" } },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "section", children: [] })).toBe(true);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { brand: "轻账" }, children: [] }).success).toBe(false);
+  });
+
+  it("反例：分区底色不在闭集、页脚没有品牌名", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "section", props: { tone: "gradient" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { links: ["a"] } }).success).toBe(false);
+  });
+
+  it("分区底色的中文档位按「section.tone」登记，不串到徽标的语义色上", () => {
+    expect(dp.prototypeOptionLabel("section", "tone", "muted")).toBe("浅灰底");
+    expect(dp.prototypeOptionLabel("badge", "tone", "success")).toBe("成功绿");
+  });
+
+  it("给模型的说明教了落地页怎么搭（不教，官网首页会被画成一张很长的 App 屏）", () => {
+    // ⭐ 反证锚点：删掉 section / footer 那一段 ⇒ 这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/section\{tone:default\|muted\|primary\|inverse/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/footer\{brand/);
   });
 });

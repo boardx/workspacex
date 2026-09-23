@@ -478,7 +478,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             BTN_SIZE[p.size ?? "md"], sc.r(p.radius ?? "md"),
             BUTTON_VARIANT[p.variant ?? "primary"], p.full === true && "w-full",
           )}
-          data-proto="button" {...tap}
+          data-proto="button" data-variant={p.variant ?? "primary"} {...tap}
         >
           {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
           {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
@@ -650,8 +650,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <div className={cn("flex w-full flex-col gap-1.5 bg-primary/10 p-3", sc.r("lg"))} data-proto="hero" {...tap}>
           <span className="text-16 font-semibold leading-tight">{node.props.title}</span>
-          {node.props.subtitle !== undefined && <span className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
-          {node.props.cta !== undefined && <span className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
+          {node.props.subtitle !== undefined && <span data-hero-sub className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
+          {node.props.cta !== undefined && <span data-hero-cta className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
         </div>
       );
     /* ── 对标 R3（#3933）：带数据的表格与图表 ── */
@@ -678,6 +678,44 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     }
     case "chart":
       return <Chart node={node} tap={tap} />;
+    /* ── 对标 R5（#3933）：落地页的分区与页脚 ── */
+    case "section": {
+      const p = node.props ?? {};
+      const tone = p.tone ?? "default";
+      return (
+        <section
+          className={cn(
+            "flex w-full flex-col", sc.gap("md"), sc.pad(p.padding ?? "lg"),
+            p.align === "center" ? "items-center text-center" : "items-stretch",
+            // 相邻两区换底色做节奏；主色 / 反色区里的字跟着换前景色，不是在深底上印深字。
+            tone === "muted" && "bg-panel", tone === "primary" && "bg-primary text-primary-foreground", tone === "inverse" && "bg-inverse text-inverse-foreground",
+            /*
+             * 主色 / 反色底上，里面的「主色块」（头图底、头图按钮、主按钮）会和底色融成一片——
+             * 主色上的主按钮等于隐形。在这类区里把它们反过来：按钮用前景色做底、主色做字。
+             */
+            tone === "primary" && "[&_[data-proto=hero]]:bg-transparent [&_[data-hero-cta]]:bg-primary-foreground [&_[data-hero-cta]]:text-primary [&_[data-variant=primary]]:bg-primary-foreground [&_[data-variant=primary]]:text-primary [&_[data-hero-sub]]:text-primary-foreground/80",
+            tone === "inverse" && "[&_[data-proto=hero]]:bg-transparent [&_[data-hero-sub]]:text-inverse-foreground/80",
+          )}
+          data-proto="section" data-tone={tone} {...tap}
+        >
+          {node.children.map((c, i) => <Node key={i} node={c} />)}
+        </section>
+      );
+    }
+    case "footer": {
+      const p = node.props;
+      return (
+        <footer className="mt-auto flex w-full flex-col gap-2 border-t border-border px-4 py-4 text-11 text-muted-foreground" data-proto="footer" {...tap}>
+          <span className="text-13 font-semibold text-card-foreground">{p.brand}</span>
+          {p.links !== undefined && p.links.length > 0 && (
+            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label="页脚链接">
+              {p.links.map((l, i) => <span key={i}>{l}</span>)}
+            </nav>
+          )}
+          {p.note !== undefined && <span className="text-10">{p.note}</span>}
+        </footer>
+      );
+    }
     /* ── 对标 R4（#3933）：下拉、单选、叠层 ── */
     case "select": {
       const p = node.props;
@@ -968,7 +1006,7 @@ export function PrototypeCanvas({
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >
       {/* 迭代 14：按机身形态画壳。手机/平板是状态栏 + home 条，浏览器是工具栏。 */}
-      {device.chrome === "browser" ? <BrowserBar label={label} /> : <StatusBar label={label} />}
+      {device.chrome === "browser" ? <BrowserBar label={label} /> : device.chrome === "slide" ? null : <StatusBar label={label} />}
       {device.chrome === "phone" && <PhoneNotch island={device.island === true} />}
       {root === null ? (
         <div
@@ -1029,13 +1067,20 @@ export function PrototypeCanvas({
             // 迭代 11 预览态：只有带跳转的可点位显示手型 + 悬停描边；其余节点没有任何可点暗示。
             mode === "preview" && "[&_[data-linked=true]]:cursor-pointer [&_[data-linked=true]:hover]:outline [&_[data-linked=true]:hover]:outline-2 [&_[data-linked=true]:hover]:outline-primary [&_[data-linked=true]:hover]:outline-offset-1",
           )}
+          /*
+           * 对标 R5（#3933）：幻灯片按一半的逻辑尺寸排版、再整体放大 2 倍——
+           * 原语的字号是给手机屏定的，直接铺在 1280×720 上，标题只有投影仪上的一行小字。
+           * 用 transform 而不是改字号：同一棵树在手机与幻灯片之间切换，不需要两套字号档位。
+           */
+          style={device.chrome === "slide" ? { width: "50%", height: "50%", flex: "none", transform: "scale(2)", transformOrigin: "top left" } : undefined}
+          data-slide-scale={device.chrome === "slide" ? "2" : undefined}
           data-testid="design-detail-phone-tree"
           onClick={() => { if (mode === "edit") onSelect?.(null); }}
         >
           <Node node={root} />
         </div>
       )}
-      {device.chrome !== "browser" && <HomeIndicator />}
+      {(device.chrome === "phone" || device.chrome === "tablet") && <HomeIndicator />}
     </div>
     </ScaleCtx.Provider>
     </SelectionCtx.Provider>
