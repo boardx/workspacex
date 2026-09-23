@@ -231,12 +231,32 @@ describe("F06 andon 状态 + 投影游标", () => {
 
   it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
     const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
-    for (const k of keys.filter((_, i) => i % 2 === 0)) {
+    const recorded = keys.filter((_, i) => i % 2 === 0);
+    // 本条断言的是 **outboxDelivered 的分块查回**（键数 > OUTBOX_QUERY_CHUNK），
+    // 那 125 条登记只是前置数据。早先逐条走 HTTP 登记 = 125 次 worker 请求派发，
+    // 本地 ~0.9s，CI 上超过 vitest 默认 5s testTimeout 而红（#3826 实测 8 次）。
+    // 现在只用公开接口登记首尾两条（证明公开写入与下面直插同一张表、能被同一条查询查回），
+    // 其余直插存储——与本文件「保留窗口」那条用例同样的 runInDurableObject + SQL 写法。
+    // outboxRecord 自身的行为（幂等 / 422 / 保留窗口）由本 describe 的另外两条用例覆盖。
+    const viaApi = [recorded[0]!, recorded.at(-1)!];
+    for (const k of viaApi) {
       expect((await post("/projector/outbox/record", { key: k })).status).toBe(200);
     }
+    const bulk = recorded.filter((k) => !viaApi.includes(k));
+    await runInDurableObject(
+      env.REPOHUB.get(env.REPOHUB.idFromName("boardx/workspacex")),
+      async (_i: unknown, state: DurableObjectState) => {
+        for (const k of bulk) {
+          state.storage.sql.exec(
+            `INSERT INTO projection_outbox (idem_key, delivered_at) VALUES (?,?)`,
+            k, new Date().toISOString(),
+          );
+        }
+      },
+    );
     const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
       .json<{ delivered: string[] }>();
-    expect(delivered.sort()).toEqual(keys.filter((_, i) => i % 2 === 0).sort());
+    expect(delivered.sort()).toEqual(recorded.slice().sort());
   });
 
   it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
