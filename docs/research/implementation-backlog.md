@@ -56,7 +56,7 @@ flowchart LR
     classDef dec fill:#26323A,stroke:#26323A,color:#FFFFFF
     NOW(["现在"])
     A["A 命名统一<br/>4 / 4 已完成"]:::done
-    C["C 门控建设<br/>8 项可开工 · 1 项等 C1"]:::ready
+    C["C 门控建设<br/>2 项已完成 · 5 项可开工 · C1 C2 等 D1"]:::ready
     D["D 运营平面<br/>8 项可开工 · 4 项在关键路径上"]:::ready
     E["E 产品 0→1<br/>6 项可开工 · 1 项等 E1+E2"]:::ready
     B["B 开源就绪<br/>4 项可开工 · 3 项等 D1"]:::ready
@@ -67,7 +67,7 @@ flowchart LR
     NOW ==> D
     NOW ==> E
     NOW ==> B
-    G -. "D1 挡 B6 B7 B8" .-> B
+    G -. "D1 挡 B6 B7 B8 与 C1" .-> B
     G -. "D13 挡 F1" .-> F
     G -. "D16 挡 D9 · D17 挡 D12" .-> D
 ```
@@ -117,7 +117,7 @@ flowchart LR
         B8["B8 商标政策"]:::block
     end
     subgraph sC["C 门控建设"]
-        C1["C1 补齐 18 处清单缺口"]:::ready
+        C1["C1 给 8 个技能包补许可"]:::block
         C2["C2 清单门控转 strict"]:::wait
         C3["C3 OSS 不依赖 EE"]:::ready
         C4["C4 契约包边界"]:::ready
@@ -159,6 +159,7 @@ flowchart LR
     K1 --> B6
     K1 --> B7
     K1 --> B8
+    K1 --> C1
     C1 --> C2
     E1 --> E3
     E2 --> E3
@@ -172,7 +173,7 @@ flowchart LR
     K17 ==> D12
     D12 ==> D11
     class D8,D9,D10,D11,D12 crit
-    linkStyle 9,10,11,12,14,15 stroke:#B3261E,stroke-width:3px
+    linkStyle 10,11,12,13,15,16 stroke:#B3261E,stroke-width:3px
 ```
 
 ⚠ **B6 曾被错列为无悔动作。** 写上 `"license": "Apache-2.0"` 就是在执行 D1，
@@ -210,7 +211,7 @@ flowchart LR
 
 | # | 项 | 状态 | 依赖 |
 |---|---|---|---|
-| C1 | 补齐 18 处技能包清单缺口 | □ | 门控已报出明细 |
+| C1 | 给 8 个技能包补许可 | □ | **等 D1**。R4 更正：此前写 18 处，其中 10 处是门控误报（5 个官方技能包身份嵌在 `metadata:` 下）；门控已改用唯一解析器 |
 | C2 | 清单门控转 `--strict` 接 CI | □ | **C1** |
 | C3 | `lint-ee-boundary`（OSS 不依赖 EE） | □ | |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
@@ -333,7 +334,7 @@ gantt
     GTM 与漏斗            :d2, 4, 4w
     CRM 分层              :d3, 6, 4w
     section C 门控
-    补齐清单 18 处          :c1, 0, 2w
+    补 8 个技能包许可（等 D1）:c1, 0, 2w
     转 strict 接 CI       :c2, after c1, 1w
     边界与依赖方向四道       :c3, 1, 4w
     零出网 e2e            :c8, 3, 2w

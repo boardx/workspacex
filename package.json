@@ -15,6 +15,7 @@
     "lint:vocabulary": "node .harness/scripts/lint-vocabulary.mjs --strict",
     "lint:contracts-no-workspace-deps": "node .harness/scripts/lint-contracts-no-workspace-deps.mjs",
     "lint:production-not-on-ops": "node .harness/scripts/lint-production-not-on-ops.mjs",
+    "lint:maau-manifest": "pnpm exec tsx .harness/scripts/lint-maau-manifest.mjs",
     "lint:spec-gate-coverage": "node .harness/scripts/lint-spec-gate-coverage.mjs",
     "lint:e2e-testid-gate": "node .harness/scripts/lint-e2e-testid-gate.mjs",
     "lint:user-facing-error-text": "node .harness/scripts/lint-user-facing-error-text.mjs",
