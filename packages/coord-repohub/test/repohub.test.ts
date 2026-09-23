@@ -229,6 +229,16 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
   });
 
+  // 这条在 CI 上 5017ms 超时红过（2026-09-23，同一份文件那次跑了 37s，本机 6.7s
+  // ⇒ runner 慢约 5.5 倍）。两道独立的措施都留着，因为它们防的不是同一件事：
+  //
+  //   1. 前置数据不再逐条走 HTTP（见下方注释）——去掉了 125 次请求派发，
+  //      这一条本机从 ~0.9s 降到 ~26ms，是把超时的**成因**拿掉。
+  //   2. 显式超时 30s（默认 5s）——原本是在 1 的前面单独落的（当时这条还要
+  //      顺序打 125 次 DO 往返、整文件内 ~1.4s，没有任何余量）。1 之后余量已经
+  //      很大，但这道兜底不摘：慢机器上判失败的应该是机器，不是这段代码。
+  //
+  // 断言一条没动。
   it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
     const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
     const recorded = keys.filter((_, i) => i % 2 === 0);
@@ -257,7 +267,7 @@ describe("F06 andon 状态 + 投影游标", () => {
     const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
       .json<{ delivered: string[] }>();
     expect(delivered.sort()).toEqual(recorded.slice().sort());
-  });
+  }, 30_000);
 
   it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
     expect((await post("/projector/outbox/delivered", { keys: "nope" })).status).toBe(422);
