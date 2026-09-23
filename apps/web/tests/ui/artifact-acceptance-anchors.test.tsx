@@ -108,7 +108,10 @@ describe("TW-P1-4 锚点", () => {
   it("详情态会把列表换掉：列表态与详情态的锚点不可能同时在场", async () => {
     render(<ChatTaskInspector {...props()} />);
     openArtifactsTab();
-    // 列表态：没有预览、也没有来源（来源现在是逐产物的事实，属于详情态）。
+    // 列表态：列表在（正面钉住判据看得见它——否则下面那条「列表没了」可能是
+    // testid 写错造成的空断言，而空断言长得跟一个干净的否定答案一模一样）。
+    expect(screen.getByTestId("chat-artifacts-list")).toBeVisible();
+    // 没有预览、也没有来源（来源现在是逐产物的事实，属于详情态）。
     expect(screen.queryByTestId("chat-task-workbench-artifact-sources")).toBeNull();
     fireEvent.click(screen.getByText("调研报告"));
     await screen.findByTestId("chat-task-workbench-artifact-preview");

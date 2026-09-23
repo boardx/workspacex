@@ -95,6 +95,9 @@ describe("② 接收端：右栏", () => {
     act(() => { requestOpenInRightPanel({ id: "c1", title: "结果一", text: LONG, url: null }); });
     expect(screen.queryByTestId("chat-inspector-artifact-tabs")).not.toBeInTheDocument();
     act(() => { requestOpenInRightPanel({ id: "c2", title: "结果二", text: LONG, url: null }); });
+    // 正面钉住页签条本身：上面那条「只开着一份时它不在」若因 testid 写错而恒真，
+    // 会长成一个干净的否定答案，看不出来。
+    expect(screen.getByTestId("chat-inspector-artifact-tabs")).toBeVisible();
     expect(screen.getAllByTestId("chat-inspector-artifact-tab")).toHaveLength(2);
   });
 
