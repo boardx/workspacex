@@ -409,7 +409,7 @@ test.describe("D7 批注", () => {
     const phone = await single(page);
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
-    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
   });
 
   test("[D7.c2] 批注列表：两条批注都在，写明是哪个元素", async ({ page }) => {
@@ -418,7 +418,7 @@ test.describe("D7 批注", () => {
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
-    const items = page.getByTestId("design-comment-item"); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    const items = page.getByTestId("design-comment-item");
     await expect(items).toHaveCount(2);
     await expect(items.nth(1)).toContainText("评价放第一个");
   });
@@ -430,12 +430,12 @@ test.describe("D7 批注", () => {
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
-    await page.getByTestId("design-comments-send").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-comments-send").click();
     await expect.poll(() => chats.length).toBe(1);
     const body = JSON.stringify(chats[0]);
     expect(body).toContain("按钮再醒目一点");
     expect(body).toContain("评价放第一个");
-    await expect(phone.locator('[data-testid="design-comment-pin"]:not([data-resolved="true"])')).toHaveCount(0, { timeout: 10_000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await expect(phone.locator('[data-testid="design-comment-pin"]:not([data-resolved="true"])')).toHaveCount(0, { timeout: 10_000 });
   });
 });
 

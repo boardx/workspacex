@@ -9,6 +9,7 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
+import { CommentPins, type CommentPin } from "./comment-pins";
 import {
   Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
   // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
@@ -1071,11 +1072,13 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, onInlineEdit = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
   onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
+  /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
+  pins?: readonly CommentPin[];
   /**
    * issue #3340：这一页**规划了但没画出来**（分页生成里那一轮失败），不同于「整个项目还没有原型」。
    * 两种空长得一样、说同一句话，等于把「有 2 页没画出来」这个事实藏起来——用户看到的是
@@ -1139,6 +1142,7 @@ export function PrototypeCanvas({
 }) {
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
+  const treeRef = React.useRef<HTMLDivElement>(null);
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
@@ -1217,6 +1221,7 @@ export function PrototypeCanvas({
         </div>
       ) : (
         <div
+          ref={treeRef}
           className={cn(
             // `relative`：对标 R4 的叠层（overlay）以这一块为定位基准盖满整屏，不盖到机身的状态栏上。
             "relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
@@ -1244,6 +1249,7 @@ export function PrototypeCanvas({
           onClick={() => { if (mode === "edit") onSelect?.(null); }}
         >
           <Node node={root} />
+          {pins !== undefined && pins.length > 0 && <CommentPins pins={pins} container={treeRef} revision={root} />}
         </div>
       )}
       {(device.chrome === "phone" || device.chrome === "tablet") && <HomeIndicator />}

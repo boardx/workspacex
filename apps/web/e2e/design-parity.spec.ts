@@ -277,3 +277,31 @@ test.describe("R7 直接编辑（#3933）", () => {
     }).toBe(true);
   });
 });
+
+test.describe("R8 批注（#3933）", () => {
+  test("批注模式：两个元素各钉一句 ⇒ 画布上两个钉、列表两条；一次交给 AI ⇒ 一次对话请求带两条，钉消失", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    await page.getByTestId("design-detail-mode-comment").click();
+    const phone = page.getByTestId("design-detail-phone");
+    const chats: unknown[] = [];
+    page.on("request", (r) => { if (/\/pm-designs\/eval-R7\/chat$/.test(new URL(r.url()).pathname)) chats.push(r.postDataJSON()); });
+    for (const [id, t] of [["r7-title", "标题换成更口语的说法"], ["r7-agree", "协议勾选默认不勾"]] as const) {
+      await phone.locator(`[data-node-id="${id}"]`).click();
+      await page.getByTestId("design-comment-input").fill(t);
+      await page.getByTestId("design-comment-save").click();
+    }
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(2);
+    await expect(page.getByTestId("design-comment-item")).toHaveCount(2);
+    await page.getByTestId("design-comments-send").click();
+    await expect.poll(() => chats.length).toBe(1);
+    const body = JSON.stringify(chats[0]);
+    expect(body).toContain("标题换成更口语的说法");
+    expect(body).toContain("r7-agree");
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
+  });
+});
