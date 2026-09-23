@@ -618,7 +618,7 @@ for (const [lang, path] of LANGS) {
     ['every script', '**/assets/js/*.js'],
     ['the stylesheet', '**/site.css'],
     ['the fonts', '**/*.woff2'],
-    ['the hero image', '**/aurora.jpg'],
+    ['the hero image', '**/aurora.webp'],
   ];
   for (const [what, pattern] of BLOCKED) {
     r.step(`blocked: ${what}`);

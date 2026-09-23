@@ -33,7 +33,7 @@ const ASSETS = {
   'og-zh.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs', '../web/public/workspacex-logo.png'],
   'favicon.png': ['../web/public/apple-icon.png', 'scripts/build-logo.mjs'],
   'apple-touch-icon.png': ['../web/public/apple-icon.png', 'assets/css/base.css', 'scripts/build-logo.mjs'],
-  'aurora.jpg': ['assets/css/base.css', 'scripts/build-aurora.mjs'],
+  'aurora.webp': ['assets/css/base.css', 'scripts/build-aurora.mjs'],
   /* The product's logo, from the web app. If it changes there, this fails
      until the header copy is re-cut. */
   'logo.webp': ['../web/public/workspacex-logo.png', 'scripts/build-logo.mjs'],

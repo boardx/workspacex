@@ -261,7 +261,7 @@ node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html, sitemap.xm
 node scripts/build-brand.mjs    # page titles + base.css -> manifests
 node scripts/build-og.mjs       # og-card.html + logo.webp -> assets/img/og*.jpg (needs playwright)
 node scripts/check-assets.mjs --update   # after either builder above, record the new sources
-node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
+node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.webp (needs playwright)
 node scripts/build-fonts.mjs    # scripts/fonts-src/inter-*.woff2 -> assets/fonts/, weight axis cut to 400–700 (needs fonttools)
 node scripts/build-logo.mjs     # apps/web/public/{workspacex-logo,apple-icon}.png -> logo.webp, favicon.png, apple-touch-icon.png (needs playwright)
 ```

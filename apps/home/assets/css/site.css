@@ -634,6 +634,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 
   text-wrap: balance;
 }
+
+@media (max-width: 30.0rem) { .chip { font-size: var(--t-micro); } }
 .chip__dot {
   width: 6px; height: 6px; border-radius: var(--r-round);
   background: var(--grad);
@@ -1599,7 +1601,7 @@ html:not(.js) [data-stagger] > * {
 
 .hero__aurora {
   position: absolute; inset: -12%; z-index: -2; pointer-events: none;
-  background: url("../img/aurora.jpg") center / cover no-repeat;
+  background: url("../img/aurora.webp") center / cover no-repeat;
   opacity: 0.85;
   animation: drift 26s var(--ease-io) infinite alternate;
   will-change: transform;

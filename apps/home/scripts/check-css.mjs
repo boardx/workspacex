@@ -31,7 +31,7 @@ const classes = new Map();
 let css = '';
 for (const file of cssFiles) {
   /* Strip comments and url() payloads before looking for class names:
-     `url("../img/aurora.jpg")` otherwise reads as a class called `.jpg`. */
+     `url("../img/aurora.webp")` otherwise reads as a class called `.jpg`. */
   const body = read(file)
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/url\([^)]*\)/g, 'url()');

@@ -86,6 +86,12 @@ const CASES = [
     async (c) => +(await c.phone.evaluate(inView(), 'h1'))],
   ['fold.cta.phone', '首屏', 'Primary call to action visible without scrolling on an iPhone 13',
     async (c) => +(await c.phone.evaluate(inView(), '.hero__actions .btn--primary'))],
+  ['fold.chip.phone', '首屏', 'The hero badge is one line on an iPhone 13 (a badge, not a paragraph)',
+    async (c) => c.phone.evaluate(() => {
+      const t = document.querySelector('.hero .chip [data-i18n]'); if (!t) return 0;
+      const lines = new Set([...t.getClientRects()].map((r) => Math.round(r.top))).size;
+      return { score: +(lines === 1), note: `${lines} lines` };
+    })],
   ['fold.value.phone', '首屏', 'The one-sentence value proposition visible without scrolling on an iPhone 13',
     async (c) => +(await c.phone.evaluate(inView(), '.hero__sub'))],
 
@@ -239,6 +245,12 @@ const CASES = [
     })],
   ['mob.linelen', '移动端', 'Body text lines are comfortable on a phone (not wider than the screen minus margins)',
     async (c) => c.phone.evaluate(() => { const ps = [...document.querySelectorAll('main p')].filter((p) => p.offsetWidth && !p.closest('.visually-hidden')); const bad = ps.filter((p) => p.getBoundingClientRect().left < 12 || p.getBoundingClientRect().right > innerWidth - 12); return { score: 1 - bad.length / ps.length, note: bad.length ? `${bad.length} paragraphs touch the edge` : '' }; })],
+  ['mob.centered', '移动端', 'On a phone, no centred block of text runs past four lines (a ragged left edge on every line is hard to read)',
+    async (c) => c.phone.evaluate(() => {
+      const els = [...document.querySelectorAll('main p, main li')].filter((e) => e.offsetWidth && !e.closest('.visually-hidden') && getComputedStyle(e).textAlign === 'center');
+      const bad = els.filter((e) => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)) > 4);
+      return { score: els.length ? 1 - bad.length / els.length : 1, note: bad.map((e) => e.textContent.trim().slice(0, 30)).join(' | ') };
+    })],
   ['mob.menu', '移动端', 'The menu opens with a tap and closes when a link is tapped',
     async (c) => {
       await c.phone.tap('.nav__burger'); await c.phone.waitForTimeout(400);
