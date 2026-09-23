@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TYPES = { '.html': 'text/html', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 
 const server = createServer(async (req, res) => {
   const path = join(root, decodeURIComponent(req.url.split('?')[0]));
@@ -46,18 +46,5 @@ for (const [lang, file] of [['en', 'og.jpg'], ['zh', 'og-zh.jpg']]) {
   await page.close();
   console.log(`✓ wrote assets/img/${file} (1200x630, ${lang})`);
 }
-/* iOS has no SVG icon support for the home screen: without this it saves a
-   screenshot of the page instead of the mark. Rendered from favicon.svg so
-   the raster and the vector cannot disagree. */
-{
-  const page = await browser.newPage({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1 });
-  await page.setContent(
-    `<body style="margin:0"><img src="http://127.0.0.1:${port}/assets/img/favicon.svg" width="180" height="180"></body>`);
-  await page.waitForTimeout(200);
-  await page.screenshot({ path: join(root, 'assets/img/apple-touch-icon.png') });
-  await page.close();
-  console.log('✓ wrote assets/img/apple-touch-icon.png (180x180)');
-}
-
 await browser.close();
 server.close();

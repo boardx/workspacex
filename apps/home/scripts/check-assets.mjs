@@ -25,13 +25,14 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RECORD = join(root, 'assets/img/.sources.json');
 
-/* What each generated binary is a function of. The brand mark reaches these
-   through base.css and brand.mjs, which is why both are listed for every one
-   of them: a palette change invalidates all three. */
+/* What each generated binary is a function of. Every image of the brand is
+   cut from the product's own files in apps/web/public, so a new product logo
+   or icon fails this until the site is re-cut. */
 const ASSETS = {
-  'og.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs'],
-  'og-zh.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs'],
-  'apple-touch-icon.png': ['assets/img/favicon.svg', 'scripts/build-og.mjs'],
+  'og.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs', '../web/public/workspacex-logo.png'],
+  'og-zh.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs', '../web/public/workspacex-logo.png'],
+  'favicon.png': ['../web/public/apple-icon.png', 'scripts/build-logo.mjs'],
+  'apple-touch-icon.png': ['../web/public/apple-icon.png', 'assets/css/base.css', 'scripts/build-logo.mjs'],
   'aurora.jpg': ['assets/css/base.css', 'scripts/build-aurora.mjs'],
   /* The product's logo, from the web app. If it changes there, this fails
      until the header copy is re-cut. */

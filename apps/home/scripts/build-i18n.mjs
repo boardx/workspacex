@@ -14,10 +14,17 @@
  * rather than silently shipping a stale translation.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/* The dictionary is read by importing it — the same way the browser and
+   check-i18n read it. It used to be scraped with a line-anchored regex that
+   saw only the first key on each line, so every key written second on a line
+   was defined, passed every gate, and shipped in English on /zh/. One file,
+   one reader. A query string defeats the module cache in --watch-style runs. */
+const ZH = (await import(`${pathToFileURL(join(root, 'assets/js/zh.js')).href}?t=${Date.now()}`)).default;
 const CHECK = process.argv.includes('--check');
 
 /* PLACEHOLDER. The public domain was not resolvable from this repository.
@@ -66,15 +73,8 @@ const escapeHtml = (s) => s
 
 function build(page) {
   const html = readFileSync(join(root, page.source), 'utf8');
-  const zhSource = readFileSync(join(root, 'assets/js/zh.js'), 'utf8');
   const META = { zh: page.zh };
-
-  // Read the dictionary without importing it, so this stays a pure text
-  // transform with no module cache to invalidate.
-  const dict = {};
-  for (const m of zhSource.matchAll(/^\s*'([\w.]+)':\s*'((?:[^'\\]|\\.)*)'/gm)) {
-    dict[m[1]] = m[2].replace(/\\'/g, "'");
-  }
+  const dict = ZH;
 
   let out = html;
 

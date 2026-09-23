@@ -36,7 +36,7 @@
 <meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
 <meta name="twitter:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
 
-<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/img/favicon.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="manifest" href="assets/site.webmanifest">
 <!-- The hero's backdrop. Preloaded because it is the first thing above the
@@ -92,20 +92,27 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "WorkspaceX",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web, Windows, macOS",
-  "description": "The operating layer that connects context, agents, action, evidence and memory, so humans and AI do the work together.",
-  "url": "https://workspacex.boardx.us/",
-  "inLanguage": ["en", "zh-Hans"],
-  "image": "https://workspacex.boardx.us/assets/img/og.jpg",
-  "publisher": {
-    "@type": "Organization",
-    "name": "BoardX",
-    "url": "https://boardx.us",
-    "logo": "https://workspacex.boardx.us/assets/img/apple-touch-icon.png"
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://boardx.us/#org",
+      "name": "BoardX",
+      "url": "https://boardx.us",
+      "logo": "https://workspacex.boardx.us/assets/img/logo.webp",
+      "email": "hello@boardx.us"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "WorkspaceX",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, Windows, macOS",
+      "description": "The operating layer that connects context, agents, action, evidence and memory, so humans and AI do the work together.",
+      "url": "https://workspacex.boardx.us/",
+      "inLanguage": ["en", "zh-Hans"],
+      "image": "https://workspacex.boardx.us/assets/img/og.jpg",
+      "publisher": { "@id": "https://boardx.us/#org" }
+    }
+  ]
 }
 </script>
 </head>

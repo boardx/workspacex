@@ -71,6 +71,24 @@ const dUntranslated = Object.entries(strings)
                   && !/^[\s\p{P}A-Za-z0-9/&·+—-]+$/u.test(v.zh))
   .map(([k]) => k);
 
+/* ---- the built page actually carries the translation ---------------------
+   Every check above reads the dictionary by importing it. The builder read it
+   with its own line-anchored regex, which saw only the FIRST key on each
+   line: twenty-one keys that sat second on a line were defined, passed every
+   check here, and shipped in English on /zh/ ("a business result, not a
+   transcript" under the heading 结果). Two readers of one file disagreed and
+   the gate asked the one that was right. This asks the output. */
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const BUILT = [['index.html', 'zh/index.html'], ['privacy.html', 'zh/privacy.html'], ['404.html', 'zh/404.html']];
+const notApplied = [];
+for (const [, out] of BUILT) {
+  let built; try { built = readFileSync(join(root, out), 'utf8'); } catch { continue; }
+  for (const m of built.matchAll(/<([a-z0-9]+)\b[^>]*\sdata-i18n="([\w.]+)"[^>]*>([\s\S]*?)<\/\1>/g)) {
+    const [, , key, body] = m;
+    if (key in zh && body !== esc(zh[key])) notApplied.push(`${out}: ${key} → "${body.slice(0, 40)}"`);
+  }
+}
+
 let failed = false;
 const report = (label, list) => {
   if (!list.length) return;
@@ -84,6 +102,7 @@ report('keys defined in zh.js but unused in index.html', orphan);
 report('keys with an empty translation', blank);
 report('Chinese values containing Cyrillic characters', cyrillic);
 report('keys that look untranslated (no Han characters)', untranslated);
+report('keys defined but not applied in the built Chinese page', notApplied);
 report('diagram keys missing a language', dBlank);
 report('diagram keys no drawing code can reach', dOrphan);
 report('diagram keys that look untranslated', dUntranslated);

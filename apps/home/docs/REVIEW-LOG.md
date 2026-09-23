@@ -1377,3 +1377,35 @@ at the logo to use: the product's own, which `apps/web` already ships as
 | 2 | The logo is **cut from the app's own file, not redrawn**. `build-logo.mjs` finds the painted pixels in the 2051×874 source, crops away the transparent padding and scales to 2× the displayed 30px. `check-assets` fingerprints the source, so if the app's logo changes the site fails until it is re-cut. |
 | 3 | An image retires three workarounds the gradient text wordmark needed: invisible text where `background-clip: text` is unsupported, no name at all in forced colours, and nothing on paper. |
 | 4 | **The performance gate rejected the first cut.** A 3× PNG was 28 KB: page weight went to 185 KB against a 180 KB budget, and the Chinese page's slow-3G first paint to 3236 ms against 3200. Re-cut as 2× WebP: **7 KB**, both budgets met. The Chinese slow-3G figure is now 3092 ms — inside the budget, but close enough that the next addition to that page should be weighed against it. |
+
+---
+
+## Rounds 56–65 — an acceptance set, and a number to meet
+
+The owner asked for ten more rounds, five problems each, until the site scores
+**9 out of 10 in English and in Chinese**, judged by an evaluation set rather
+than by the person who made the changes.
+
+**The set** is `tests/eval/eval.mjs`: fifty cases in ten dimensions (first
+screen, navigation, accessibility, performance, mobile, bilingual, brand,
+search and sharing, conversion, readability), one point per dimension, every
+case run against both `/` and `/zh/`. **The score is the lower language.**
+Each round's card is appended to `docs/eval/history.json`. Once the score
+passed 9 the set became a gate: `check-all` runs it with `--min 9`.
+
+The baseline on main was **8.22** (en 8.60, zh 8.22).
+
+### Round 56 — 8.22 → 9.74
+
+| # | Problem the set found | Fix |
+|---|-----|-----|
+| 1 | **Twenty-one strings shipped in English on `/zh/`**: the unit-of-work steps ("a business result, not a transcript" under the heading 结果), its four properties, the workspace mock's notes and evidence. The translations existed. `build-i18n` scraped `zh.js` with a line-anchored regex that saw only the *first* key on each line; every gate read the dictionary by importing it, so every gate said the keys were there. Two readers of one file, and the gate asked the right one. | The builder imports the dictionary. `check-i18n` now also reads the **built** page and fails on any key whose element does not carry its translation — proved red on the old builder with exactly these 21. |
+| 2 | **Three of four nav links never lit up.** The scrollspy picked the section with the highest `intersectionRatio`; a 3000 px section never owns much of its own area, and ratios are only re-reported at threshold crossings. | Current section = the last one whose top has passed a line a third of the way down the screen, recomputed per animation frame on scroll. |
+| 3 | **Switching language dropped your place**: halfway down Architecture, 中文 took you to the top of a 15 000 px page. | The same current-section answer is written into the other language's link as a fragment. Both pages share every section id, so it lands on the same section. |
+| 4 | **No Organization in the structured data** that a search engine would pick up as the publisher: it was nested inside the application, pointing at the old icon. | An `@graph` with a top-level Organization (name, url, logo, email) referenced by the application. |
+| 5 | **The tab, the home-screen icon and the social card still showed the site's own four-petal mark** — a second icon for the product, next to the product logo the owner chose in round 55. | All three are now cut from the web app's own files: the favicon and touch icon from `apps/web/public/apple-icon.png` (the touch icon on the page colour, because iOS fills transparency with black), the card carries `logo.webp`. `brand.mjs` and `favicon.svg` are gone. `check-assets` fingerprints the app's files, so a new product icon fails the build until the site is re-cut. The first favicon was 64 px and cost 5 KB of first load; it is 32 px, as the app ships it. |
+
+The set's own bug, found the same round: the two scroll cases waited a fixed
+300–450 ms, and a smooth scroll across the page takes longer. They read the
+page mid-flight and scored the working scrollspy at 1/4. They now wait until
+the scroll position stops changing.

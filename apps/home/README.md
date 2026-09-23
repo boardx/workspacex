@@ -46,7 +46,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 
 | script | what it fails on |
 |---|---|
-| `check-i18n.mjs` | a key used but untranslated, translated but unused, translated to whitespace, containing Cyrillic, or left in English |
+| `check-i18n.mjs` | a key used but untranslated, translated but unused, translated to whitespace, containing Cyrillic, left in English, or defined but not applied in the built Chinese page |
 | `check-html.mjs` | flow content inside a button, nested anchors, duplicate ids, skipped heading levels, `aria-labelledby` pointing at nothing, images without alt |
 | `check-links.mjs` | a local `href`/`src`/card image that resolves to no file, a fragment with no matching id, a `_redirects` target that is not there, a sitemap `<loc>` that is not there or a page missing from the sitemap, a self-referential URL that disagrees with `SITE`, a social card with no alt text, an `og:locale` that is not `language_TERRITORY`, or an `hreflang` written with an underscore |
 | `check-css.mjs` | a `:hover` rule outside `@media (hover: hover)`, a letter-spacing that does not scale with the page language, a class or custom property defined and never used, a `var()` reading a property nothing declares, a brand colour written literally outside the token block, a value off the radius or type scale, a `--bp-*` token no media query uses, or a font stack with no CJK face for one of the four platforms |
@@ -56,12 +56,13 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `check-deploy.mjs` | `_headers` malformed, missing a site-wide header or a CSP directive, `script-src` gaining `'unsafe-inline'`, a rule matching no file, or `security.txt` expired, expiring within 30 days, or dated more than a year out |
 | `build-css.mjs --check` | `site.css` out of date with its sources |
 | `build-i18n.mjs --check` | a generated page, `sitemap.xml` or `robots.txt` out of date with its sources |
-| `build-brand.mjs --check` | the mark or a manifest out of date with `brand.mjs` and the token block |
-| `check-assets.mjs` | a generated binary — either social card, the touch icon, the aurora — older than the sources it came from |
+| `build-brand.mjs --check` | a manifest out of date with its page's title and description or the token block |
+| `check-assets.mjs` | a generated binary — either social card, the logo, the favicon, the touch icon, the aurora — older than the sources it came from, including the product's own logo and icon in `apps/web/public` |
 | `check-docs.mjs` | this README's tables disagreeing with the scripts on disk or the suites that run |
 | `check-all.mjs` | **a `check-*.mjs` that exists and nothing runs** |
 | `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path, a selected state invisible in forced colors, a handler or observer accumulating across re-wires, a missing or unenforced security header |
 | `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget, in **both** languages |
+| `tests/eval/eval.mjs` | the acceptance score below **9 / 10** in either language — see *Acceptance eval* below |
 
 `tests/browser.test.mjs` is one row in that table and twenty-three suites in
 practice. Most run once per language, because four of them ran against English
@@ -86,6 +87,27 @@ only for twenty rounds and the Chinese page is a separately generated document:
 | forced colors | a selected state indistinguishable from an unselected one in Windows high contrast |
 | compatibility ×2 | a `MediaQueryList` without `addEventListener` |
 
+### Acceptance eval
+
+```bash
+node tests/eval/eval.mjs                          # the score card
+node tests/eval/eval.mjs --record --label "…"     # also append to docs/eval/history.json
+node tests/eval/eval.mjs --min 9                  # exit 1 below 9 (what check-all runs)
+```
+
+Fifty cases in ten dimensions — first screen, navigation, accessibility,
+performance, mobile, bilingual, brand, search and sharing, conversion,
+readability — one point per dimension. **Every case runs against `/` and
+`/zh/`, and the score is the lower of the two**: a site that is excellent in
+English and mediocre in Chinese is mediocre for half its readers. Graded cases
+(LCP, weight, sentence length…) score linearly between a full-marks and a
+zero threshold written next to them. `docs/eval/history.json` is the score of
+every round, so a change that makes the site worse shows up as a number.
+
+It measures what its cases measure. It cannot tell whether the argument
+persuades or whether the page looks right in Safari; it is the floor a change
+must not go below.
+
 **Expectations in the browser suite are derived from the source, not typed in.**
 The version of it that lived outside this repository went stale four separate
 times by asserting against counts that had since changed — and the first run of
@@ -96,7 +118,7 @@ Two generators are run by hand, not by the checks, because they need
 Playwright. Both are still *checked*, by fingerprinting their sources:
 
 ```bash
-node scripts/build-og.mjs        # social cards + touch icon, from og-card.html
+node scripts/build-og.mjs        # social cards, from og-card.html
 node scripts/build-aurora.mjs    # the hero backdrop, from the gradient tokens
 ```
 
@@ -161,14 +183,13 @@ assets/js/motion.js        IntersectionObserver reveals, nav, scroll scenes
 assets/js/diagrams.js      the seven concept illustrations
 assets/img/og.jpg          social card (generated)
 assets/img/og-zh.jpg       Chinese social card (generated)
-assets/img/apple-touch-icon.png  iOS home screen (generated)
+assets/img/apple-touch-icon.png  home screen (GENERATED from apps/web/public/apple-icon.png)
 assets/site.webmanifest    name, icons, theme (generated)
 zh/index.html              Chinese page (GENERATED — do not edit)
-assets/img/favicon.svg     the mark (GENERATED from brand.mjs)
+assets/img/favicon.png     browser tab (GENERATED from apps/web/public/apple-icon.png)
 assets/site.zh.webmanifest Chinese name, icons, theme (generated)
 404.html  robots.txt  sitemap.xml  _headers  _redirects
 .well-known/security.txt   the security contact, with an expiry that is checked
-scripts/brand.mjs          the mark's geometry — the single source for every copy of it
 scripts/                   the checks above, plus the generators
 tests/                     the browser and performance suites, and their harness
 scripts/og-card.html       source for the social cards
@@ -234,11 +255,11 @@ committed — but all three are checked, so a stale one cannot ship.
 ```bash
 node scripts/build-css.mjs      # assets/css/*.css  -> assets/css/site.css
 node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html, sitemap.xml, robots.txt
-node scripts/build-brand.mjs    # brand.mjs + base.css  -> favicon.svg, social-card mark, manifests
-node scripts/build-og.mjs       # og-card.html      -> assets/img/og*.jpg + apple-touch-icon.png (needs playwright)
+node scripts/build-brand.mjs    # page titles + base.css -> manifests
+node scripts/build-og.mjs       # og-card.html + logo.webp -> assets/img/og*.jpg (needs playwright)
 node scripts/check-assets.mjs --update   # after either builder above, record the new sources
 node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
-node scripts/build-logo.mjs     # apps/web/public/workspacex-logo.png -> assets/img/logo.webp, cropped (needs playwright)
+node scripts/build-logo.mjs     # apps/web/public/{workspacex-logo,apple-icon}.png -> logo.webp, favicon.png, apple-touch-icon.png (needs playwright)
 ```
 
 The stylesheets are authored split by concern and shipped as one file: seven

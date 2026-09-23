@@ -1,0 +1,121 @@
+[
+  {
+    "at": "2026-09-23T17:50:33.496Z",
+    "label": "baseline (main 77e57a94)",
+    "score": 8.22,
+    "en": 8.6,
+    "zh": 8.22,
+    "dims": {
+      "en": {
+        "首屏": 1,
+        "导航": 0.5833333333333334,
+        "可访问性": 1,
+        "性能": 0.9171112351190477,
+        "移动端": 0.9857449823983906,
+        "双语": 1,
+        "品牌": 0.4,
+        "搜索与分享": 0.8,
+        "转化": 1,
+        "可读性": 0.9123744292237443,
+        "total": 8.598563980074516
+      },
+      "zh": {
+        "首屏": 1,
+        "导航": 0.5833333333333334,
+        "可访问性": 0.8,
+        "性能": 0.908403087797619,
+        "移动端": 0.9971014492753623,
+        "双语": 0.8,
+        "品牌": 0.4,
+        "搜索与分享": 0.8,
+        "转化": 1,
+        "可读性": 0.9345205479452054,
+        "total": 8.22335841835152
+      }
+    },
+    "misses": [
+      "en:nav.langswitch.keeps.place:0.00",
+      "en:brand.favicon:0.00",
+      "en:brand.touchicon:0.00",
+      "en:brand.card:0.00",
+      "en:seo.jsonld:0.00",
+      "zh:nav.langswitch.keeps.place:0.00",
+      "zh:a11y.lang.runs:0.00",
+      "zh:bi.nomixed:0.00",
+      "zh:brand.favicon:0.00",
+      "zh:brand.touchicon:0.00",
+      "zh:brand.card:0.00",
+      "zh:seo.jsonld:0.00",
+      "en:nav.current:0.25",
+      "zh:nav.current:0.25",
+      "en:nav.coverage:0.67",
+      "zh:nav.coverage:0.67",
+      "zh:perf.weight:0.68",
+      "en:perf.weight:0.72",
+      "en:read.lead:0.75",
+      "zh:read.lead:0.83",
+      "en:perf.requests:0.87",
+      "en:read.scan:0.87",
+      "zh:perf.requests:0.87",
+      "zh:read.scan:0.87",
+      "en:mob.textfloor:0.94",
+      "en:read.para:0.95",
+      "zh:read.para:0.97",
+      "en:mob.linelen:0.99",
+      "zh:mob.linelen:0.99"
+    ]
+  },
+  {
+    "at": "2026-09-23T18:02:09.802Z",
+    "label": "round 56",
+    "score": 9.74,
+    "en": 9.74,
+    "zh": 9.76,
+    "dims": {
+      "en": {
+        "首屏": 1,
+        "导航": 0.9333333333333333,
+        "可访问性": 1,
+        "性能": 0.9121893601190475,
+        "移动端": 0.9857449823983906,
+        "双语": 1,
+        "品牌": 1,
+        "搜索与分享": 1,
+        "转化": 1,
+        "可读性": 0.9123744292237443,
+        "total": 9.743642105074516
+      },
+      "zh": {
+        "首屏": 1,
+        "导航": 0.9333333333333333,
+        "可访问性": 1,
+        "性能": 0.8930684523809524,
+        "移动端": 0.9971014492753623,
+        "双语": 1,
+        "品牌": 1,
+        "搜索与分享": 1,
+        "转化": 1,
+        "可读性": 0.9345205479452054,
+        "total": 9.758023782934853
+      }
+    },
+    "misses": [
+      "zh:perf.weight:0.65",
+      "en:nav.coverage:0.67",
+      "zh:nav.coverage:0.67",
+      "en:perf.weight:0.69",
+      "en:read.lead:0.75",
+      "zh:read.lead:0.83",
+      "en:perf.requests:0.87",
+      "en:read.scan:0.87",
+      "zh:perf.requests:0.87",
+      "zh:read.scan:0.87",
+      "en:mob.textfloor:0.94",
+      "en:read.para:0.95",
+      "zh:perf.lcp:0.95",
+      "zh:read.para:0.97",
+      "en:mob.linelen:0.99",
+      "zh:mob.linelen:0.99"
+    ]
+  }
+]

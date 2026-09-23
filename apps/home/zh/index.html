@@ -37,7 +37,7 @@
 <meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og-zh.jpg">
 <meta name="twitter:image:alt" content="WorkspaceX——面向人与 AI 协作的开放运行空间。">
 
-<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/img/favicon.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link rel="manifest" href="../assets/site.zh.webmanifest">
 <!-- The hero's backdrop. Preloaded because it is the first thing above the
@@ -93,20 +93,27 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "WorkspaceX",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web, Windows, macOS",
-  "description": "WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。",
-  "url": "https://workspacex.boardx.us/zh/",
-  "inLanguage": ["zh-Hans", "en"],
-  "image": "https://workspacex.boardx.us/assets/img/og-zh.jpg",
-  "publisher": {
-    "@type": "Organization",
-    "name": "BoardX",
-    "url": "https://boardx.us",
-    "logo": "https://workspacex.boardx.us/assets/img/apple-touch-icon.png"
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://boardx.us/#org",
+      "name": "BoardX",
+      "url": "https://boardx.us",
+      "logo": "https://workspacex.boardx.us/assets/img/logo.webp",
+      "email": "hello@boardx.us"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "WorkspaceX",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, Windows, macOS",
+      "description": "WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。",
+      "url": "https://workspacex.boardx.us/zh/",
+      "inLanguage": ["zh-Hans", "en"],
+      "image": "https://workspacex.boardx.us/assets/img/og-zh.jpg",
+      "publisher": { "@id": "https://boardx.us/#org" }
+    }
+  ]
 }
 </script>
 </head>
@@ -398,26 +405,26 @@
       <div class="surface__body">
         <aside class="surface__roster" aria-hidden="true">
           <div class="roster__head" data-i18n="surface.roster">智能体团队</div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">研究员</b><i data-i18n="surface.r1s">reading 24 sources</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">分析师</b><i data-i18n="surface.r2s">building the model</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">撰写</b><i data-i18n="surface.r3s">drafting section 2</i></span></div>
-          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">你</b><i data-i18n="surface.r4s">reviewing</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-ai)">RS</span><span class="roster__meta"><b data-i18n="surface.r1">研究员</b><i data-i18n="surface.r1s">正在读 24 份资料</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-3)">AN</span><span class="roster__meta"><b data-i18n="surface.r2">分析师</b><i data-i18n="surface.r2s">正在搭模型</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-1)">WR</span><span class="roster__meta"><b data-i18n="surface.r3">撰写</b><i data-i18n="surface.r3s">正在写第 2 节</i></span></div>
+          <div class="roster__row"><span class="roster__av" style="--c:var(--c-human)">YS</span><span class="roster__meta"><b data-i18n="surface.r4">你</b><i data-i18n="surface.r4s">审阅中</i></span></div>
         </aside>
 
         <div class="surface__canvas" aria-hidden="true">
-          <div class="note note--a" data-note="a"><span class="note__tag" data-i18n="surface.n1t">判断</span><span data-i18n="surface.n1">Enter through partners, not direct sales</span></div>
-          <div class="note note--b" data-note="b"><span class="note__tag" data-i18n="surface.n2t">待解问题</span><span data-i18n="surface.n2">Which three partners actually reach the buyer?</span></div>
-          <div class="note note--c" data-note="c"><span class="note__tag" data-i18n="surface.n3t">草稿</span><span data-i18n="surface.n3">Market entry brief · v4</span></div>
+          <div class="note note--a" data-note="a"><span class="note__tag" data-i18n="surface.n1t">判断</span><span data-i18n="surface.n1">走伙伴渠道进入，不做直销</span></div>
+          <div class="note note--b" data-note="b"><span class="note__tag" data-i18n="surface.n2t">待解问题</span><span data-i18n="surface.n2">哪三家伙伴真的够得着决策人？</span></div>
+          <div class="note note--c" data-note="c"><span class="note__tag" data-i18n="surface.n3t">草稿</span><span data-i18n="surface.n3">市场进入简报 · v4</span></div>
           <svg class="surface__links" aria-hidden="true"></svg>
         </div>
 
         <aside class="surface__evidence" aria-hidden="true">
           <div class="roster__head" data-i18n="surface.trail">证据链</div>
           <ol class="trail" role="list">
-            <li class="trail__item trail__item--ok"><b data-i18n="surface.e1">来源已核</b><i data-i18n="surface.e1s">24 read · 3 rejected as stale</i></li>
-            <li class="trail__item trail__item--ok"><b data-i18n="surface.e2">模型已复算</b><i data-i18n="surface.e2s">recomputed against Q2 actuals</i></li>
-            <li class="trail__item trail__item--warn"><b data-i18n="surface.e3">需要人来定</b><i data-i18n="surface.e3s">pricing assumption unproven</i></li>
-            <li class="trail__item"><b data-i18n="surface.e4">判断已记录</b><i data-i18n="surface.e4s">linked to 6 pieces of evidence</i></li>
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e1">来源已核</b><i data-i18n="surface.e1s">读了 24 份 · 3 份因过期剔除</i></li>
+            <li class="trail__item trail__item--ok"><b data-i18n="surface.e2">模型已复算</b><i data-i18n="surface.e2s">对照二季度实际数重算</i></li>
+            <li class="trail__item trail__item--warn"><b data-i18n="surface.e3">需要人来定</b><i data-i18n="surface.e3s">定价假设尚无证据</i></li>
+            <li class="trail__item"><b data-i18n="surface.e4">判断已记录</b><i data-i18n="surface.e4s">关联 6 条证据</i></li>
           </ol>
         </aside>
       </div>
@@ -682,19 +689,19 @@
     </header>
 
     <ol class="unit__steps" role="list" data-stagger>
-      <li class="unit__step"><span class="unit__n">1</span><b data-i18n="unit.s1">意图</b><i data-i18n="unit.s1s">the goal and its boundary</i></li>
-      <li class="unit__step"><span class="unit__n">2</span><b data-i18n="unit.s2">上下文</b><i data-i18n="unit.s2s">data, knowledge, rules</i></li>
-      <li class="unit__step"><span class="unit__n">3</span><b data-i18n="unit.s3">智能体团队</b><i data-i18n="unit.s3s">planner, expert, executor</i></li>
-      <li class="unit__step"><span class="unit__n">4</span><b data-i18n="unit.s4">工作流</b><i data-i18n="unit.s4s">tools, hand-offs, state</i></li>
-      <li class="unit__step"><span class="unit__n">5</span><b data-i18n="unit.s5">验证</b><i data-i18n="unit.s5s">evidence, evals, guardrails</i></li>
-      <li class="unit__step"><span class="unit__n">6</span><b data-i18n="unit.s6">结果</b><i data-i18n="unit.s6s">a business result, not a transcript</i></li>
+      <li class="unit__step"><span class="unit__n">1</span><b data-i18n="unit.s1">意图</b><i data-i18n="unit.s1s">目标及其边界</i></li>
+      <li class="unit__step"><span class="unit__n">2</span><b data-i18n="unit.s2">上下文</b><i data-i18n="unit.s2s">数据、知识、规则</i></li>
+      <li class="unit__step"><span class="unit__n">3</span><b data-i18n="unit.s3">智能体团队</b><i data-i18n="unit.s3s">规划者、专家、执行者</i></li>
+      <li class="unit__step"><span class="unit__n">4</span><b data-i18n="unit.s4">工作流</b><i data-i18n="unit.s4s">工具、交接、状态</i></li>
+      <li class="unit__step"><span class="unit__n">5</span><b data-i18n="unit.s5">验证</b><i data-i18n="unit.s5s">证据、评测、护栏</i></li>
+      <li class="unit__step"><span class="unit__n">6</span><b data-i18n="unit.s6">结果</b><i data-i18n="unit.s6s">一个业务结果，不是一段记录</i></li>
     </ol>
 
     <div class="grid grid--4 unit__props" data-stagger>
-      <div class="prop"><b data-i18n="unit.p1">可交付</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
-      <div class="prop"><b data-i18n="unit.p2">可验证</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
-      <div class="prop"><b data-i18n="unit.p3">可复用</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">Per task or per unit of work, because the boundary is real. Seats are a way in, not the meter — and outcome pricing only ever works where we run it.</span></div>
+      <div class="prop"><b data-i18n="unit.p1">可交付</b><span data-i18n="unit.p1s">输入、输出与责任边界都写下来了。</span></div>
+      <div class="prop"><b data-i18n="unit.p2">可验证</b><span data-i18n="unit.p2s">不是作者本人也能复核结果。</span></div>
+      <div class="prop"><b data-i18n="unit.p3">可复用</b><span data-i18n="unit.p3s">下一个同形态的场景复用它，而不是重做一遍。</span></div>
+      <div class="prop"><b data-i18n="unit.p4">可计价</b><span data-i18n="unit.p4s">按任务、按工作单元计费，因为边界是真实的。席位是入口，不是计量表——而按结果计费，只在我们替你运行的时候才成立。</span></div>
     </div>
   </div>
 </section>
