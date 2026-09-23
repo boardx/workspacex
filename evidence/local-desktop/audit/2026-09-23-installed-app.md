@@ -320,3 +320,48 @@ R5 的真库往返只有 2 张表 37 行。这一条跑的是**真实 schema**�
 2. **发送键不在可聚焦集合里**（返回 -1）：大概率是输入框为空时它 disabled，
    而 disabled 元素本来就不可聚焦，不是缺陷。没深究，因为那条链已有
    `chat-stop-generation-sidebar-status.spec.ts` 在守。
+
+
+## 十一、这个产物能不能发布（R9）
+
+人类的原话是「作为一个**可以在前端独立发布**的应用」。那就得先回答：它现在发得出去吗。
+
+### 答案是发不出去，而且是三条独立的原因
+
+在装好的 0.2.0 上实测：
+
+```
+codesign -dv   → Signature=adhoc（linker-signed），Identifier=Electron，Info.plist=not bound
+spctl -a -vvv  → code has no resources but signature indicates they must be present
+```
+
+**Gatekeeper 拒绝这个产物。** 用户从网上下载这个 9 GB 的 DMG、双击，
+得到的多半是「已损坏，无法打开」——**那句话是错的**（应用没坏，只是没签名），
+而且它是全新用户见到的第一屏。
+
+`electron-builder.yml` 里写着 `identity: null`，注释是「Night 0: unsigned mac DMG」。
+在内部试用阶段这是个合理的选择，**但一旦要对外发布它就是拦路石**，
+而在这之前没有任何东西会在构建时说这句话。
+
+⚠ 有一条我查过之后**没有**报成问题：`codesign` 输出里的 `Identifier=Electron` 看着像
+配置写错了，但 `Info.plist` 里是正确的 `com.workspacex.local`——那个 `Electron`
+是 linker-signed 二进制自带的签名标识符，是「没正经签名」的症状，不是另一个配置 bug。
+
+### 签名与「模型塞进包里」是耦合的
+
+调研里那条「全行业不把模型塞进主安装包，因为 macOS 大体积公证要 3.5–4.5 小时」，
+对我们**今天还不成立**——因为我们根本不公证。但它会在签名之后立刻成立：
+这个 DMG 有 **9 GB**，模型就在里面。
+
+**今天的阻塞是没签名；签了之后，下一个阻塞就是包体。** 这两件事要一起规划，
+不要先解决一个再发现另一个。
+
+### 已固化
+
+`scripts/local-bundle/check-releasable.mjs`，构建后跑一次就回答「能不能发」，
+不能发时逐条说原因**和照着能做的事**，退出码非零。
+判据在 `packages/local-runtime/src/releasable.ts`（9 条单测、6 条反证），
+脚本只负责收集事实，不复述第二份判据。
+
+踩到两个坑记下来：`codesign -dv` 把信息写到 **stderr**，只收 stdout 会拿到空串、
+判不出 ad-hoc；以及 `cmd | head` 之后读到的 `$?` 是 `head` 的退出码，不是脚本的。

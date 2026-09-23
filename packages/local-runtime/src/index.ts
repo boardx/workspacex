@@ -29,3 +29,5 @@ export {
 } from "./restore";
 
 export { dataDirAdvice, dataDirAdviceBody, type DataDirAdvice } from "./data-dir-advice";
+
+export { gatekeeperAccepted, isAdhoc, releaseVerdict, type ReleaseVerdict, type SigningFacts } from "./releasable";
