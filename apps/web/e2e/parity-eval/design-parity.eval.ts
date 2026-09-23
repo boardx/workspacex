@@ -136,7 +136,7 @@ test.describe("D1 视觉定制", () => {
     const phone = await single(page);
     const patches = listen(page, /^\/pm-designs\/eval-E08$/);
     await appearance(page);
-    const input = page.getByTestId("design-detail-brand-color");
+    const input = page.getByTestId("design-detail-brand-color"); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await input.fill("#1F7AFF", { timeout: 3000 });
     await input.press("Enter");
     await expect.poll(async () => (await effectiveBg(node(phone, "e08-book"))).join()).toBe("31,122,255");
@@ -160,9 +160,9 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     const phone = await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect.poll(() => radiusPx(node(phone, "e08-book"))).toBeLessThanOrEqual(2);
-    await page.getByTestId("design-detail-radius-round").click();
+    await page.getByTestId("design-detail-radius-round").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect.poll(() => radiusPx(node(phone, "e08-book"))).toBeGreaterThanOrEqual(14);
   });
 
@@ -171,10 +171,10 @@ test.describe("D2 设计系统", () => {
     const phone = await single(page);
     const gapOf = () => phone.locator('[data-proto="stack"]').first().evaluate((el) => parseFloat(getComputedStyle(el).rowGap) || 0);
     await appearance(page);
-    await page.getByTestId("design-detail-density-compact").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-density-compact").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await page.waitForTimeout(200);
     const compact = await gapOf();
-    await page.getByTestId("design-detail-density-comfortable").click();
+    await page.getByTestId("design-detail-density-comfortable").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect.poll(gapOf).toBeGreaterThan(compact + 3);
   });
 
@@ -182,7 +182,7 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     const phone = await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-font-mono").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-font-mono").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     const title = phone.locator('[data-proto="text"]', { hasText: "今晚还有 6 个座位" }).first();
     await expect.poll(() => firstFont(title)).toMatch(/mono|courier|menlo|consolas/i);
   });
@@ -191,7 +191,7 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await page.waitForTimeout(500);
     await page.reload();
     await page.getByTestId("design-detail-canvas").waitFor();
@@ -363,7 +363,7 @@ test.describe("D6 直接编辑", () => {
     await editBuyLabel(page, phone);
     await page.getByTestId("design-detail-undo").click();
     await expect(node(phone, "e02-buy")).toContainText("立即购买");
-    await page.getByTestId("design-detail-redo").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-redo").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect(node(phone, "e02-buy")).toContainText("马上购买");
   });
 
@@ -409,7 +409,7 @@ test.describe("D7 批注", () => {
     const phone = await single(page);
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
-    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
   });
 
   test("[D7.c2] 批注列表：两条批注都在，写明是哪个元素", async ({ page }) => {
@@ -418,7 +418,7 @@ test.describe("D7 批注", () => {
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
-    const items = page.getByTestId("design-comment-item");
+    const items = page.getByTestId("design-comment-item"); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect(items).toHaveCount(2);
     await expect(items.nth(1)).toContainText("评价放第一个");
   });
@@ -430,12 +430,12 @@ test.describe("D7 批注", () => {
     await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
-    await page.getByTestId("design-comments-send").click();
+    await page.getByTestId("design-comments-send").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect.poll(() => chats.length).toBe(1);
     const body = JSON.stringify(chats[0]);
     expect(body).toContain("按钮再醒目一点");
     expect(body).toContain("评价放第一个");
-    await expect(phone.locator('[data-testid="design-comment-pin"]:not([data-resolved="true"])')).toHaveCount(0, { timeout: 10_000 });
+    await expect(phone.locator('[data-testid="design-comment-pin"]:not([data-resolved="true"])')).toHaveCount(0, { timeout: 10_000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
   });
 });
 
@@ -469,9 +469,9 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     for (const [i, tag] of ["方案 A", "方案 B", "方案 C"].entries()) {
-      await expect(page.getByTestId(`design-variant-${i}`)).toContainText(tag);
+      await expect(page.getByTestId(`design-variant-${i}`)).toContainText(tag); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     }
   });
 
@@ -479,18 +479,18 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
-    await page.getByTestId("design-variant-pick-1").click();
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-variant-pick-1").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect(phone).toContainText("年度会员 · 方案 B");
-    await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
+    await expect(page.getByTestId("design-variant-0")).toHaveCount(0); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
   });
 
   test("[D8.c3] 选了能撤销：回到原来的页", async ({ page }) => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
-    await page.getByTestId("design-variant-pick-1").click();
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-variant-pick-1").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     await expect(phone).toContainText("年度会员 · 方案 B");
     await page.getByTestId("design-detail-undo").click();
     await expect(phone).toContainText("年度会员 · 专业版");
@@ -584,7 +584,7 @@ test.describe("D10 交付交接", () => {
   test("[D10.c5] 代码交接：导出一份能直接用的前端代码", async ({ page }) => {
     await openCase(page, "E01");
     await exportMenu(page);
-    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 }));
+    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 })); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
     expect(code.name).toMatch(/\.(tsx|jsx|zip)$/);
     expect(code.text).toMatch(/export default function/);
     expect(code.text).toContain("发送");
