@@ -130,3 +130,41 @@ test.describe("R3 表格与图表（#3933）", () => {
     await expect.poll(async () => { const h = await heights(); return h[0]! > h[1]!; }).toBe(true);
   });
 });
+
+const R4_PROJECT = {
+  ...R3_PROJECT, id: "eval-R4", name: "账号设置", frames: ["设置", "注销确认"], frameNotes: ["", ""],
+  prototype: [
+    { id: "r4-root", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+      { id: "r4-city", type: "select", props: { label: "所在城市", options: ["北京", "上海"], value: "上海" } },
+      { id: "r4-gender", type: "radio", props: { label: "性别", options: ["男", "女", "不透露"], selected: 2 } },
+      { id: "r4-delete", type: "button", props: { label: "注销账号", variant: "danger", full: true } },
+    ] },
+    { id: "r4-root2", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+      { id: "r4-list", type: "list", props: { items: ["个人资料", "账号安全"] } },
+      { id: "r4-modal", type: "overlay", props: { kind: "modal", title: "确定注销账号？" }, children: [
+        { id: "r4-cancel", type: "button", props: { label: "再想想", variant: "secondary" } },
+      ] },
+    ] },
+  ],
+};
+
+test.describe("R4 下拉、单选、叠层（#3933）", () => {
+  test("下拉显示当前值、单选第三项选中；第二页的弹窗盖满整屏并带遮罩", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R4_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R4");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+    await expect(phone.locator('[data-proto="select"]')).toContainText("上海");
+    await expect(phone.getByRole("radio").nth(2)).toHaveAttribute("aria-checked", "true");
+
+    await page.getByTestId("design-detail-frame-1").click();
+    const dialog = page.getByTestId("design-detail-phone").getByRole("dialog");
+    await expect(dialog).toContainText("确定注销账号？");
+    const scrim = await page.getByTestId("design-detail-phone").locator("[data-overlay-scrim]").boundingBox();
+    const screenBox = await page.getByTestId("design-detail-phone-tree").boundingBox();
+    expect(scrim!.width * scrim!.height).toBeGreaterThan(0.95 * screenBox!.width * screenBox!.height);
+  });
+});

@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import {
-  Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
+  Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
   // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
   Menu, MoreHorizontal, SlidersHorizontal, LayoutGrid, List as ListIcon, ArrowLeft, ArrowRight,
   Users, MessageCircle, Send, Share2, Heart, Star, Camera, File, Folder, Bookmark, Tag, Link2,
@@ -678,6 +678,60 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     }
     case "chart":
       return <Chart node={node} tap={tap} />;
+    /* ── 对标 R4（#3933）：下拉、单选、叠层 ── */
+    case "select": {
+      const p = node.props;
+      const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
+      return (
+        <div className="flex w-full flex-col gap-1" data-proto="select" {...tap}>
+          {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+          <div className={cn("flex h-8 w-full items-center justify-between border border-input bg-background px-2 text-12", sc.r("md"))}>
+            <span className={cn("truncate", p.value === undefined && "text-muted-foreground")}>{shown}</span>
+            <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          </div>
+        </div>
+      );
+    }
+    case "radio": {
+      const p = node.props;
+      return (
+        <div className="flex w-full flex-col gap-1" data-proto="radio" {...tap}>
+          {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+          <div role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-x-3 gap-y-1">
+            {p.options.map((o, i) => (
+              <span key={i} role="radio" aria-checked={p.selected === i} className="inline-flex items-center gap-1.5 text-12">
+                <span aria-hidden className={cn("flex h-3.5 w-3.5 items-center justify-center rounded-full border", p.selected === i ? "border-primary" : "border-muted-foreground")}>
+                  {p.selected === i && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                </span>
+                {o}
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    case "overlay": {
+      /*
+       * 盖满整屏（以画布内容区为定位基准）。modal 居中、sheet 贴底、toast 贴底且**不带遮罩**——
+       * 轻提示不打断操作，给它一层遮罩就成了弹窗。
+       */
+      const kind = node.props?.kind ?? "modal";
+      return (
+        <div className={cn("absolute inset-0 z-20 flex p-3", kind === "modal" ? "items-center justify-center" : "items-end justify-center", kind === "toast" && "pointer-events-none")} data-proto="overlay" data-overlay-kind={kind} {...tap}>
+          {kind !== "toast" && <span aria-hidden data-overlay-scrim className="absolute inset-0 bg-inverse/40" />}
+          <div
+            role={kind === "toast" ? "status" : "dialog"} aria-label={node.props?.title}
+            className={cn(
+              "relative flex flex-col gap-2 border border-border bg-card p-3 text-card-foreground shadow-lg",
+              kind === "modal" ? cn("w-[85%]", sc.r("lg")) : kind === "sheet" ? "-mx-3 -mb-3 w-[calc(100%+1.5rem)] rounded-t-container" : cn("pointer-events-auto w-auto max-w-[90%] px-3 py-2", sc.r("md")),
+            )}
+          >
+            {node.props?.title !== undefined && <span className="text-14 font-semibold">{node.props.title}</span>}
+            {node.children.map((c, i) => <Node key={i} node={c} />)}
+          </div>
+        </div>
+      );
+    }
   }
 }
 
@@ -960,7 +1014,8 @@ export function PrototypeCanvas({
       ) : (
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
+            // `relative`：对标 R4 的叠层（overlay）以这一块为定位基准盖满整屏，不盖到机身的状态栏上。
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
             // 选中态：静态 arbitrary variant（Tailwind 扫得到），选中节点描边 + 可点节点显示手型。
             mode === "edit" && onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
             "[&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1",

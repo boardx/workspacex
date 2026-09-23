@@ -191,8 +191,8 @@ describe("迭代 6 原语扩充", () => {
       ],
     };
     expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
-    // 对标 R3：+ table / chart。
-    expect(dp.PrototypeNodeType.options).toHaveLength(23);
+    // 对标 R3：+ table / chart；R4：+ select / radio / overlay。
+    expect(dp.PrototypeNodeType.options).toHaveLength(26);
     expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
     expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
     expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
@@ -667,5 +667,38 @@ describe("对标 R3：table / chart", () => {
   it("节点短标签说清是什么、多大", () => {
     expect(dp.prototypeNodeLabel({ type: "table", props: { columns: ["a", "b"], rows: [["1", "2"]] } })).toBe("表格（2 列 × 1 行）");
     expect(dp.prototypeNodeLabel({ type: "chart", props: { title: "趋势", labels: ["a"], values: [1] } })).toBe("图表「趋势」");
+  });
+});
+
+/* ─────────────── 对标 R4（#3933）：下拉、单选、叠层 ─────────────── */
+describe("对标 R4：select / radio / overlay", () => {
+  it("正例：下拉、单选、带内容的弹窗；overlay 是容器", () => {
+    const page: dp.PrototypeNode = { type: "stack", children: [
+      { type: "select", props: { label: "城市", options: ["北京", "上海"], value: "上海" } },
+      { type: "radio", props: { label: "性别", options: ["男", "女", "不透露"], selected: 2 } },
+      { type: "overlay", props: { kind: "modal", title: "确定注销？" }, children: [{ type: "button", props: { label: "确认" } }] },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "overlay", children: [] })).toBe(true);
+    expect(dp.PROTOTYPE_CONTAINER_TYPES).toContain("overlay");
+  });
+
+  it("反例：单选只有一项、选中越界、叠层样式不在闭集、下拉没有选项", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["只有一项"] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["a", "b"], selected: 2 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "overlay", props: { kind: "popover" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "select", props: { options: [] } }).success).toBe(false);
+  });
+
+  it("模型写成字符串的 selected 会被纠偏成数字（同 tabs.active）", () => {
+    const raw = dp.coercePrototypeRaw({ type: "radio", props: { options: ["a", "b"], selected: "1" } });
+    expect(dp.PrototypeNode.safeParse(raw).success).toBe(true);
+  });
+
+  it("给模型的说明：容器清单由 PROTOTYPE_CONTAINER_TYPES 派生（不手抄），并教它弹窗单独一页", () => {
+    // ⭐ 反证锚点：说明里仍写死「只有 stack/card/grid 有 children」⇒ 模型不知道 overlay 能装东西，这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(`只有 ${dp.PROTOTYPE_CONTAINER_TYPES.join("/")} 有 children`);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/overlay\{kind:modal\|sheet\|toast/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/单独做一页/);
   });
 });
