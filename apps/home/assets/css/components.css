@@ -9,7 +9,7 @@
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
   padding: 0.8rem 1.35rem;
   border-radius: var(--r-sm);
-  font-size: var(--t-small); font-weight: 600; letter-spacing: 0.005em;
+  font-size: var(--t-small); font-weight: 600; letter-spacing: calc(0.005em * var(--track-open));
   /* NOT nowrap. A nowrap label's min-content is the whole label, and in a
      grid that becomes the track's minimum — at a 200% text setting the hero's
      column was forced to 426 px inside a 390 px phone, taking the headline and
@@ -69,7 +69,7 @@
 .tag {
   display: inline-block;
   padding: 0.22rem 0.55rem; border-radius: var(--r-xs);
-  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: 0.06em;
+  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: calc(0.06em * var(--track-open));
   color: var(--fg-dim);
   border: 1px solid var(--hairline);
   background: var(--surface);
@@ -99,7 +99,7 @@
 
 .card__index {
   font-family: var(--font-mono); font-size: var(--t-micro);
-  color: var(--fg-faint); letter-spacing: 0.1em;
+  color: var(--fg-faint); letter-spacing: calc(0.1em * var(--track-open));
   margin-bottom: 0.9rem;
 }
 .card__title { font-size: var(--t-lg); margin-bottom: 0.55rem; }
@@ -162,7 +162,7 @@
 .keyline {
   font-family: var(--font-display);
   font-size: clamp(1.35rem, 2.6vw, 2.1rem);
-  font-weight: 500; line-height: 1.28; letter-spacing: -0.02em;
+  font-weight: 500; line-height: 1.28; letter-spacing: calc(-0.02em * var(--track-tight));
   max-width: 34rem;
 }
 

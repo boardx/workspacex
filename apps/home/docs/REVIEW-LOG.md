@@ -1311,3 +1311,27 @@ is **public self-serve signup**, which is what made the rest decidable.
 | 8 | Four parallel options are not a sequence: the first draft used `<ol>`. | `<ul role="list">` — the role restores list semantics that `list-style: none` removes in Safari, which is why every other list on this page carries it. |
 | 9 | **The claims table from round 51 earned itself.** The second route asserts a third thing about the repository, and adding the row was the promised two lines rather than another copy of the logic: a root `compose.yml` appearing now fails the page in both languages until the sentence changes. | Proved red. |
 | 10 | The shape of it: **the entry experience was the one part of this page nobody had designed** — it had accumulated. Three calls to action pointing three different ways, written in three different rounds, and a contradiction that survived because verifying it needed a person, not a script. |
+
+---
+
+## Round 53 — "the Chinese looks a bit strange"
+
+Reported by the owner, looking at the page on their own machine. This
+environment has exactly one CJK face (WenQuanYi Zen Hei), so the rendering
+they saw cannot be reproduced here, and nothing was changed on the strength of
+a screenshot. Everything below was found by auditing **computed style** on
+`/zh/`: which elements containing Han characters are being set by rules that
+were written for Latin.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every monospace label on the Chinese page had no Chinese face in its stack.** Section eyebrows ×14, the use-case field labels ×18, the four doors, the status lines, the roadmap tags — 87 elements. `--font-mono` named `ui-monospace, SF Mono, Menlo, monospace` and nothing else, so the browser chose a Han face for *generic monospace* on its own. On a Mac that is frequently not the face the body text uses, and sometimes one with Japanese glyph shapes: labels and the prose beside them visibly in two different Chinese typefaces. | The same CJK tail as the display and body stacks. Every one of the 980 elements on `/zh/` now names a Chinese face; 893 did before. |
+| 2 | **It is round 39's defect in the one stack round 39 did not touch** — and round 39's gate only looked at `--font-display` and `--font-body`, so it had nothing to say. | The gate now covers `--font-mono`. Proved red by removing the tail: four platforms named as missing. |
+| 3 | **Latin tracking on Han, in both directions.** Labels carried +0.06 to +0.18em — the convention for small uppercase Latin, which on Han reads as loose and gappy. Headings carried −0.01 to −0.02em — the convention for Latin display type, which on dense Han makes glyphs touch. 232 elements. | — |
+| 4 | **Three places had noticed.** `.eyebrow`, `.case__grid dt` and the `h1–h4` element selectors each had their own `:lang(zh)` override. Twenty-five rules had none — including every block this batch added in rounds 44–52, whose class-level −0.015em silently outranked the element-level Chinese override. Fixed in one place, drifting in the others: the pattern this log has recorded more than any other. | The three local overrides removed. |
+| 5 | **One mechanism instead of a list.** Every `letter-spacing` now multiplies by `--track-open` or `--track-tight`; the Chinese page sets them to 0.3 and 0 once. Labels keep a trace of their spacing, display type loses its tightening entirely. | 36 declarations rewritten mechanically, not by hand. |
+| 6 | **The claim that English is unchanged was measured, not asserted.** Computed `letter-spacing` for all 983 elements before and after: **exactly one differs** — the `中文` language switch, which carries `lang="zh-Hans"` and correctly inherits the Chinese setting. The other 982 are identical. | — |
+| 7 | **My own probe was wrong on its first read.** It reported "0 → 0" elements with a Chinese face, before and after — because JavaScript wrote `true` and I counted `True`. Recounted: 893 → 980. | Recorded, because a probe that reports no change is the most dangerous kind: it looks like a finding. |
+| 8 | Nothing stopped a literal tracking value coming back tomorrow and quietly re-spacing sixty Chinese labels while the English page looked fine. | `check-css` now rejects any `letter-spacing` in em that does not scale with the language. Proved red. |
+| 9 | **Not changed, deliberately.** Latin words inside Chinese headings — "AI", "WorkspaceX" — are still set in Outfit while the Han around them is in the system face. That is a design choice with a real case on both sides, it cannot be judged without seeing the real render, and the owner may have meant it. | Left alone and named, so it can be decided rather than assumed. |
+| 10 | The honest limit of this round: **both fixes are measured and standard-correct, but neither was seen.** If what looked strange was something else, a screenshot from the machine that showed it is worth more than another audit from one that cannot. |

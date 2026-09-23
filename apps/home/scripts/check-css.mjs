@@ -136,7 +136,7 @@ const CJK_PLATFORMS = [
   ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
 ];
 const cjkGaps = [];
-for (const m of css.matchAll(/^\s*(--font-(?:display|body)):\s*([^;]+);/gm)) {
+for (const m of css.matchAll(/^\s*(--font-(?:display|body|mono)):\s*([^;]+);/gm)) {
   for (const [platform, families] of CJK_PLATFORMS) {
     if (!families.some((f) => m[2].includes(`"${f}"`))) {
       cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
@@ -144,6 +144,24 @@ for (const m of css.matchAll(/^\s*(--font-(?:display|body)):\s*([^;]+);/gm)) {
   }
 }
 report('font stacks with no CJK face for a platform', cjkGaps);
+/* --- tracking that does not know which script it is tracking -------------
+   Every letter-spacing on this site is a Latin convention — wide on small
+   uppercase labels, tight on display type — and both are wrong for Han. They
+   now multiply by --track-open / --track-tight, which the Chinese page
+   redefines once. A literal em value written tomorrow would quietly bring
+   Latin tracking back onto sixty-odd Chinese labels, and nothing on the
+   English page would look any different. */
+const trackLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    const m = /letter-spacing:\s*([^;]+)/.exec(line);
+    if (!m) return;
+    const v = m[1].trim();
+    if (/^(0|normal)$/.test(v) || /var\(--track-(open|tight)\)/.test(v)) return;
+    trackLeaks.push(`${basename(file)}:${i + 1}: letter-spacing: ${v}`);
+  });
+}
+report('tracking that ignores the page language — multiply by var(--track-open) or var(--track-tight)', trackLeaks);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);

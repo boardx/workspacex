@@ -11,7 +11,7 @@
   font-family: var(--font-body);
   font-size: calc(13px * var(--dscale, 1));
   fill: var(--fg-soft);
-  letter-spacing: 0.01em;
+  letter-spacing: calc(0.01em * var(--track-open));
 }
 .d-label--lg    { font-size: calc(15px * var(--dscale, 1)); font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
 .d-label--xs    { font-size: calc(11.5px * var(--dscale, 1)); }
@@ -86,7 +86,7 @@
 }
 .d-loop__title {
   font-family: var(--font-display); font-size: calc(30px * var(--dscale, 1));
-  font-weight: 600; letter-spacing: -0.02em;
+  font-weight: 600; letter-spacing: calc(-0.02em * var(--track-tight));
 }
 
 /* ---- architecture -------------------------------------------------------- */

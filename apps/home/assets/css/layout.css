@@ -31,7 +31,7 @@
   display: inline-flex; align-items: center; gap: var(--s-2);
   font-family: var(--font-mono);
   font-size: var(--t-micro);
-  letter-spacing: 0.16em;
+  letter-spacing: calc(0.16em * var(--track-open));
   text-transform: uppercase;
   color: var(--fg-dim);
   margin-bottom: 1.125rem;
@@ -40,7 +40,6 @@
   content: ""; width: 1.5rem; height: 1px;
   background: var(--grad);
 }
-:lang(zh) .eyebrow { letter-spacing: 0.1em; }
 
 .lead {
   font-size: var(--t-lead);
@@ -98,7 +97,7 @@
 .brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
 .brand__name {
   font-family: var(--font-display);
-  font-weight: 700; font-size: var(--t-base); letter-spacing: -0.02em;
+  font-weight: 700; font-size: var(--t-base); letter-spacing: calc(-0.02em * var(--track-tight));
   color: var(--fg);
   /* At a doubled text size the wordmark alone is 370 px, and with the bar's
      items unable to shrink the whole row ran past the viewport. Truncating is
@@ -119,7 +118,7 @@
 }
 .brand__tag {
   font-family: var(--font-mono);
-  font-size: var(--t-nano); letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
   white-space: nowrap;   /* "Early access" was wrapping to two lines and
                             stretching the whole brand block */
   padding: 0.2rem 0.45rem; border-radius: var(--r-pill);
@@ -169,7 +168,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .langswitch__btn:hover { color: var(--fg); }
 .langswitch__btn {
   padding: 0.3rem 0.7rem; border-radius: var(--r-pill);
-  font-size: var(--t-micro); font-weight: 600; letter-spacing: 0.02em;
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: calc(0.02em * var(--track-open));
   color: var(--fg-dim);
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
@@ -293,7 +292,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 }
 .footer__h {
   font-size: var(--t-micro); font-family: var(--font-mono);
-  letter-spacing: 0.14em; text-transform: uppercase;
+  letter-spacing: calc(0.14em * var(--track-open)); text-transform: uppercase;
   color: var(--fg-faint); margin-bottom: var(--s-4); font-weight: 500;
 }
 .footer__col { min-width: 0; overflow-wrap: break-word; }
