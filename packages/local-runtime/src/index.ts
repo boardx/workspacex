@@ -8,3 +8,8 @@ export { startPgliteServer, ensureDatabaseExists, assertPostgresPortFree, type P
 export { up, type UpOptions, type RunningStack } from "./up";
 export { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 export { signInLocal, localSessionUrl } from "./local-session";
+
+export {
+  BACKUP_FORMAT_VERSION, backupDirName, createBackup, humanBytes, verifyBackup,
+  type BackupManifest, type CreateBackupResult,
+} from "./backup";

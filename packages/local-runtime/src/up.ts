@@ -29,6 +29,7 @@ import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
 import { pullModelWithProgress } from "./pull-progress";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
+import { createBackup, type CreateBackupResult } from "./backup";
 
 export interface UpOptions {
   readonly config: LocalConfig;
@@ -56,6 +57,11 @@ export interface RunningStack {
   readonly urls: { web: string; api: string; ollama: string | null; deepAgent: string | null; asr: string | null };
   readonly login: { email: string; password: string };
   readonly warnings: readonly string[];
+  /**
+   * 把用户的不可再生数据备份到 `destRoot` 下的一个带时间戳的目录里，并**立刻重读校验**。
+   * 不包含模型（可重新获取，约 10 GB）和日志。见 `backup.ts` 的头注。
+   */
+  backup(destRoot: string, appVersion: string): Promise<CreateBackupResult>;
   stop(): Promise<void>;
 }
 
@@ -348,6 +354,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       login: { email: LOCAL_ADMIN_EMAIL, password: c.secrets.adminPassword },
       // 本次启动里真出了问题的事（拉模型失败之类）＋ 缺件/缺能力的统一清单。
       warnings: [...warnings, ...capabilityNotices(capabilities)],
+      async backup(destRoot: string, appVersion: string) {
+        if (pg === null) return { ok: false as const, reason: "数据库还没起来，稍后再试" };
+        return createBackup({
+          destRoot,
+          appVersion,
+          dumpDatabase: () => pg!.dumpDatabase(),
+          countRows: (t) => pg!.countRows(t),
+          objectsDir: paths.objects(c),
+          log,
+        });
+      },
       stop: stopAll,
     };
   } catch (e) {
