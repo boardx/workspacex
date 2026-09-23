@@ -215,8 +215,8 @@ flowchart LR
 | C2 | 清单门控转 `--strict` 接 CI | □ | **C1** |
 | C3 | `lint-ee-boundary`（OSS 不依赖 EE） | □ | |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
-| C5 | 运营平面 schema 白名单门控 | □ | |
-| C6 | 运营平面个人信息字段级门控 | □ | |
+| C5 | 运营平面 schema 白名单门控 | ✅ | R8：`lint-telemetry-schema.mjs` 遍历 zod schema 本身：对象必须 strict、数组必须有上限、无开放键集合 |
+| C6 | 运营平面个人信息字段级门控 | ✅ | R8：同一道门——字符串必须受约束（自由文本即红），字段名像个人信息即红 |
 | C7 | 生产不依赖运营平面的依赖方向检查 | ✅ | R3：`lint-production-not-on-ops.mjs`，查依赖、import 与 `COORD_*` 环境变量；名单只列运营平面，新应用默认受检 |
 | C8 | 本地零出网拔网 e2e | □ | |
 | C9 | 体验承诺登记表 + 字段完整性门控 | □ | |

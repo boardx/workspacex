@@ -32,7 +32,8 @@ afterEach(() => {
   while (made.length) rmSync(made.pop()!, { recursive: true, force: true });
 });
 
-describe("lint-maau-manifest", () => {
+// 每条用例都起 tsx 子进程，默认 5 秒超时在慢机器上会假红
+describe("lint-maau-manifest", { timeout: 30_000 }, () => {
   it("package.json 里有这条脚本，且经 tsx 跑（要 import 唯一解析器）", () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts["lint:maau-manifest"]).toMatch(/tsx .*lint-maau-manifest\.mjs/);
