@@ -48,7 +48,7 @@ env/secret 变更必须与部署原子（同 PR 或先加后删）。
 | 用这个 | 指什么 | 不要混的 |
 |---|---|---|
 | **技能包** | 商业与分发单元。仓库既有词汇：`ensure-standard-skill-packs.ts`、`skills/`、`SKILL.md`、`capability_id`、`skill-sandbox` | **MAAU 画布**（`maau-canvas`，WX-S021）是设计方法，不是分发单元，保留原名 |
-| **团队记忆** | 我们自己的知识库：ADR、sprint 历史、方法论、经验、GTM 与案例知识 | **组织大脑**是产品概念（`brain-promotion`、`batchConfirmAndWriteBackToBrain`），指客户把产出物沉淀进本组织知识库 |
+| **平台大脑** | 平台层面的记忆：跨所有客户实例的运行事实，加上工作、创新与学习的全部积累（ADR、sprint 历史、方法论、经验、GTM 与案例知识）。不卖、不交付。此前叫团队记忆（范围说小了） | **组织大脑**是产品概念（`brain-promotion`、`batchConfirmAndWriteBackToBrain`），指客户把产出物沉淀进本组织知识库 |
 
 代码标识符（`@repo/maau-postinvest-report`、`capability_id`、目录名）**允许滞后**——
 标识符不是叫法，改它波及 40 个代码文件，要改另开 issue。

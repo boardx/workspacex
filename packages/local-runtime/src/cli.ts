@@ -21,6 +21,11 @@ import { apiEnv, resolveLocalConfig, type LocalPorts } from "./config";
 import { runDoctor } from "./doctor";
 import { up } from "./up";
 import { exportModels } from "./model-bundle";
+import { createBackup, RECEIPT_TABLES } from "./backup";
+import { restoreIntoDataDir } from "./restore";
+import { verifyBackup } from "./backup";
+import { startPgliteServer, ensureDatabaseExists } from "./pglite-server";
+import { DB_OWNER_ROLE } from "./config";
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -71,6 +76,43 @@ if (cmd === "doctor") {
   process.on("SIGTERM", () => void shutdown());
   process.on("uncaughtException", (e) => { console.error(e); void shutdown(); });
   process.on("unhandledRejection", (e) => { console.error(e); void shutdown(); });
+} else if (cmd === "backup" || cmd === "restore") {
+  /*
+    备份/恢复原本**只有桌面菜单一条路**，于是它永远没法被自动化端到端覆盖，
+    而且出了事没有一个能脚本化的出口（#3872 R14）。
+
+    这两条命令要求栈是**停着的**：PGlite 是单会话所有权，在活着的实例脚下
+    换目录是本仓记过的那一类事故；而备份也不能去拷活目录（R6 实测：硬杀可恢复、
+    活拷贝不可）。所以这里自己独占地打开一次数据目录，用完就关。
+  */
+  const c = resolveLocalConfig({ repoRoot, dataDir, ports });
+  if (cmd === "restore") {
+    const from = flag("from");
+    if (from === undefined) { console.error("restore 需要 --from <备份目录>"); process.exit(2); }
+    const v = await verifyBackup(resolve(from));
+    if (!v.ok) { console.error(`这份备份读不了：${v.reason}`); process.exit(1); }
+    console.log(`备份时间 ${v.manifest.createdAt}，内含：${Object.entries(v.manifest.rowCounts).map(([t, n]) => `${t} ${n}`).join("  ")}`);
+    const r = await restoreIntoDataDir({ backupDir: resolve(from), dataDir, postgresPort: c.ports.postgres, log: (l) => console.log(l) });
+    if (!r.ok) { console.error(`恢复没有完成：${r.reason}`); process.exit(1); }
+    console.log(`✅ 已读回：${Object.entries(r.verified).map(([t, x]) => `${t} ${x.actual}`).join("  ")}`);
+    if (r.movedAsideTo !== null) console.log(`原来的数据挪到了 ${r.movedAsideTo}（没有删除）`);
+  } else {
+    const to = flag("to");
+    if (to === undefined) { console.error("backup 需要 --to <目标目录>"); process.exit(2); }
+    await ensureDatabaseExists(join(dataDir, "pgdata"));
+    const pg = await startPgliteServer({ dataDir: join(dataDir, "pgdata"), port: c.ports.postgres, username: DB_OWNER_ROLE });
+    try {
+      const r = await createBackup({
+        destRoot: resolve(to), appVersion: flag("app-version") ?? "cli",
+        dumpDatabase: () => pg.dumpDatabase(), countRows: (t) => pg.countRows(t),
+        objectsDir: join(dataDir, "objects"), log: (l) => console.log(l),
+      });
+      if (!r.ok) { console.error(`备份没有完成：${r.reason}`); process.exit(1); }
+      console.log(`✅ 备份在 ${r.dir}（${(r.totalBytes / 1024 / 1024).toFixed(0)} MB）`);
+      console.log(`   收据：${Object.entries(r.manifest.rowCounts).map(([t, n]) => `${t} ${n}`).join("  ")}`);
+    } finally { await pg.stop(); }
+  }
+  void RECEIPT_TABLES;
 } else if (cmd === "export-models") {
   // Build-machine step (scripts/local-bundle/fetch-models.sh): copy the configured models out
   // of an Ollama store into the bundle dir that electron-builder ships as resources/models.
@@ -80,6 +122,6 @@ if (cmd === "doctor") {
   const models = (flag("models") ?? `${c.chatModel},${c.embeddingModel}`).split(",").filter(Boolean);
   for (const r of exportModels(source, dest, models)) console.log(`exported ${r.model}: ${r.blobs} blob(s), ${(r.bytes / 1024 / 1024).toFixed(0)} MB -> ${dest}`);
 } else {
-  console.log("usage: local-runtime up|doctor|env|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b]");
+  console.log("usage: local-runtime up|doctor|env|backup|restore|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b] [--to <dir>] [--from <dir>]");
   process.exit(cmd === "help" ? 0 : 2);
 }
