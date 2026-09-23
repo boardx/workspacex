@@ -5,6 +5,7 @@ import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { CapabilityListing } from "@/lib/live-capabilities";
+import { CapabilityEditionNote } from "@/components/chat/capability-edition-note";
 
 /**
  * issue #2130（TW-P0-2，回指 #2068）—— 「选择能力」的六项披露卡片列表 + 承载它的浮层。
@@ -97,6 +98,8 @@ export function CapabilityCardList({ listings, selectedAgentId, onSelect, acting
       {listings.length === 0 ? (
         <p className="px-2 py-2 text-11 text-muted-foreground">这个组织还没有可用的能力。</p>
       ) : null}
+      {/* 「这个版次做不到什么」说在选择的地方，不是等点了才报错。见该组件头注。 */}
+      <CapabilityEditionNote />
       {listings.map((listing) => {
         const isSelected = listing.id === selectedAgentId;
         const cardStatus: CapabilityCardStatus = !identity.isCapabilityReady(listing)
