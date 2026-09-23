@@ -136,7 +136,7 @@ test.describe("D1 视觉定制", () => {
     const phone = await single(page);
     const patches = listen(page, /^\/pm-designs\/eval-E08$/);
     await appearance(page);
-    const input = page.getByTestId("design-detail-brand-color"); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    const input = page.getByTestId("design-detail-brand-color");
     await input.fill("#1F7AFF", { timeout: 3000 });
     await input.press("Enter");
     await expect.poll(async () => (await effectiveBg(node(phone, "e08-book"))).join()).toBe("31,122,255");
@@ -182,7 +182,7 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     const phone = await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-font-mono").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-font-mono").click({ timeout: 3000 });
     const title = phone.locator('[data-proto="text"]', { hasText: "今晚还有 6 个座位" }).first();
     await expect.poll(() => firstFont(title)).toMatch(/mono|courier|menlo|consolas/i);
   });

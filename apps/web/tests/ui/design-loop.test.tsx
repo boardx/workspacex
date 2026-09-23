@@ -998,6 +998,7 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
   accent: "neutral",
+    tokens: { brand: null, font: "sans" },
     tags: [],
     refImages: [],
     share: null,

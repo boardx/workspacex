@@ -283,6 +283,21 @@ export function wireframeStyle(theme: "light" | "dark"): React.CSSProperties {
   } as React.CSSProperties;
 }
 
+/**
+ * 对标 R1（#3933）：**品牌色**的 token 覆盖——与 `accentStyle` 同形（写 `--primary` 系列），
+ * 取值由契约 `brandAccentTokens` 算（底色逐字是品牌色，字色按对比度挑）。
+ */
+export function brandStyle(brand: string): React.CSSProperties {
+  const tokens = designWorkbench.brandAccentTokens(brand);
+  return { "--primary": tokens.primary, "--primary-foreground": tokens.foreground, "--ring": tokens.primary } as React.CSSProperties;
+}
+
+/** 对标 R1：项目级字体。`sans` 跟随产品字体（不写 style，老项目逐像素不变）。 */
+export function fontStyle(font: designWorkbench.PrototypeFont | undefined): React.CSSProperties | undefined {
+  if (font === undefined || font === "sans") return undefined;
+  return { fontFamily: designWorkbench.PROTOTYPE_FONT_STACKS[font] };
+}
+
 export function accentStyle(
   accent: designWorkbench.PrototypeAccent | undefined,
   theme: "light" | "dark",
@@ -663,7 +678,7 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /**
@@ -694,6 +709,11 @@ export function PrototypeCanvas({
    * 不同填空。档位在画布根上覆盖 `--primary` 系列 token，整棵树跟着变。
    */
   accent?: designWorkbench.PrototypeAccent;
+  /**
+   * 对标 R1（#3933）：项目级设计 token。`brand` 给了 ⇒ **覆盖** `accent`（品牌方说了自己的色，
+   * 档位就不该再插嘴）；低保真时同样不生效。`font` 与低保真无关——线框图也可以是衬线体。
+   */
+  tokens?: designWorkbench.DesignTokens;
   /**
    * 迭代 19：**低保真**（项目 template 是 `wireframe` 时）。语义色全部压成灰阶，
    * 结构原样保留——线框图不是"把东西画丑"，是"把颜色这一层信息拿掉"。
@@ -742,9 +762,12 @@ export function PrototypeCanvas({
        */
       style={{
         width: size.w, height: size.h, borderRadius: device.radius,
-        ...(wireframe ? wireframeStyle(theme) : accentStyle(accent, theme)),
+        ...(wireframe ? wireframeStyle(theme) : tokens?.brand != null ? brandStyle(tokens.brand) : accentStyle(accent, theme)),
+        ...fontStyle(tokens?.font),
       }}
-      data-accent={wireframe || accent === "neutral" ? undefined : accent}
+      data-accent={wireframe || accent === "neutral" || tokens?.brand != null ? undefined : accent}
+      data-brand={!wireframe && tokens?.brand != null ? tokens.brand : undefined}
+      data-font={tokens?.font !== undefined && tokens.font !== "sans" ? tokens.font : undefined}
       data-fidelity={wireframe ? "wireframe" : undefined}
       data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}

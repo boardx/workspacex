@@ -23,6 +23,8 @@ export interface UpdateProjectInput {
   readonly theme?: "light" | "dark";
   /** 迭代 17：强调色档位。不给 ⇒ 不动（同 theme 的取向）。 */
   readonly accent?: designWorkbench.PrototypeAccent;
+  /** 对标 R1：设计 token，按键合并（仓储 `mergeTokens`）。 */
+  readonly tokens?: Partial<designWorkbench.DesignTokens>;
   /** 迭代 13（delta §4）：**整份替换**标签。 */
   readonly tags?: readonly string[];
 }
@@ -43,6 +45,7 @@ export async function updateProject(
     ...(input.problem !== undefined ? { problem: input.problem } : {}),
     ...(input.theme !== undefined ? { theme: input.theme } : {}),
     ...(input.accent !== undefined ? { accent: input.accent } : {}),
+    ...(input.tokens !== undefined ? { tokens: input.tokens } : {}),
     // 规范化在写入前做一次：去空白、丢空串、去重（大小写敏感——「API」与「api」是两个标签，
     // 合并它们要有一套折叠规则，而那套规则会成为第二处需要维护的事实）。
     ...(input.tags !== undefined ? { tags: [...new Set(input.tags.map((t) => t.trim()).filter((t) => t !== ""))] } : {}),

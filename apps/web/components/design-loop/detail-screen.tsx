@@ -41,6 +41,7 @@ import {
   type PrototypeLink,
   type PrototypeVersion,
   type PrototypeAccent,
+  type DesignTokens,
   PROJECT_TEMPLATE_LABEL,
   type ProjectTemplate,
   type DesignShareScope,
@@ -475,15 +476,35 @@ export function DesignDetailScreen({
    * 它是项目的属性（导出的 HTML 也跟着它），不是看的人的偏好，所以落库而不是存在本地。
    */
   const changeAccent = async (accent: PrototypeAccent) => {
-    if (project === null || project.accent === accent) return;
+    // 对标 R1：用着品牌色时点档位 = 换回档位（清掉品牌色），否则品牌色压着、点了看不出任何变化。
+    const clearBrand = project !== null && project.tokens.brand !== null;
+    if (project === null || (project.accent === accent && !clearBrand)) return;
     const before = project;
-    setLoad({ kind: "ready", project: { ...project, accent } });
+    setLoad({ kind: "ready", project: { ...project, accent, ...(clearBrand ? { tokens: { ...project.tokens, brand: null } } : {}) } });
     try {
-      const out = await updateProject(project.id, { accent });
+      const out = await updateProject(project.id, { accent, ...(clearBrand ? { tokens: { brand: null } } : {}) });
       setLoad({ kind: "ready", project: out.project });
     } catch {
       setLoad({ kind: "ready", project: before });
       setChatError("没能切换强调色，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
+   * 对标 R1（#3933）：改**设计 token**（品牌色、字体）。同一条 `updateProject` 路径、同一套乐观更新；
+   * 契约按键合并，这里只发变了的那几个键。
+   */
+  const changeTokens = async (patch: Partial<DesignTokens>) => {
+    if (project === null) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, tokens: { ...project.tokens, ...patch } } });
+    try {
+      const out = await updateProject(project.id, { tokens: patch });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能改外观，稍后再试。");
       window.setTimeout(() => setChatError(null), 3000);
     }
   };
@@ -1249,6 +1270,10 @@ export function DesignDetailScreen({
                   accentLabel={ACCENT_LABEL}
                   accentSwatch={ACCENT_SWATCH}
                   onAccent={(a) => void changeAccent(a)}
+                  brand={project.tokens.brand}
+                  onBrand={(brand) => void changeTokens({ brand })}
+                  font={project.tokens.font}
+                  onFont={(font) => void changeTokens({ font })}
                   devices={DEVICE_PRESETS}
                   deviceId={lens.id}
                   onDevice={setDeviceId}
@@ -1394,6 +1419,7 @@ export function DesignDetailScreen({
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      tokens={project.tokens}
                       wireframe={project.template === "wireframe"}
                       onNavigate={navigateTo}
                     />
@@ -1444,6 +1470,7 @@ export function DesignDetailScreen({
                       }
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      tokens={project.tokens}
                       wireframe={project.template === "wireframe"}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。

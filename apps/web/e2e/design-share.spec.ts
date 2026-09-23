@@ -17,6 +17,7 @@ const SHARED = {
   template: "mobile",
   theme: "dark",
   accent: "blue",
+  tokens: { brand: null, font: "sans" },
   frames: ["聊天", "历史会话"],
   frameNotes: ["首屏即可发消息。", ""],
   frameLinks: [[{ from: "go-history", to: 1 }], []],

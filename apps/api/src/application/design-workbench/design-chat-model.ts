@@ -121,6 +121,11 @@ export interface DesignChatReplyResult {
    */
   readonly accent?: designWorkbench.PrototypeAccent;
   /**
+   * 对标 R1（#3933）：骨架轮顺带定下的设计 token（品牌色、字体）。与 `accent` 同一个理由不走
+   * `writeback`。只带模型**合法给出**的那几个键；一个都没有 ⇒ 不给这个字段。
+   */
+  readonly tokens?: Partial<designWorkbench.DesignTokens>;
+  /**
    * 2026-09-07：走退路的**为什么**。`source: "fallback"` 时必给（契约 `DesignChatReply`
    * 用 superRefine 机械绑定），让屏上那句话能说清楚是"没配模型"还是"调用失败"——
    * 用户实测时只看到一句"稍后会更新画布"，无从判断该等还是该找运维。
@@ -436,6 +441,10 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   // 迭代 17：**强调色也在这里定一次**。不定的话每个项目都是同一个中性灰，
   // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
   `"accent":"这套界面的强调色，从这几档里挑一个：${designWorkbench.PrototypeAccent.options.join("/")}（neutral = 不用强调色）",` +
+  // 对标 R1（#3933）：用户**明确给了**品牌色（#RRGGBB）就原样照用——给他一个最接近的档位就是没听他说话。
+  // 没给色值不要编一个：编出来的「品牌色」比挑一档强调色更像乱来。
+  '"brand":"只有用户明确给了品牌色色值（形如 #FF5A1F）才填这个字段，原样照抄；没给就不要输出这个字段",' +
+  `"font":"整套界面的字体气质，从这几档里挑一个：${designWorkbench.PrototypeFont.options.join("/")}（sans 现代、serif 有质感、rounded 亲和、mono 极客；拿不准给 sans）",` +
   '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
   // 迭代 20：上限由服务端截断执行（见 `generatePaged`），这句话只是让模型一开始就别多规划，
@@ -598,6 +607,14 @@ export class ModelDesignChatReplier implements DesignChatModel {
      */
     const accentParsed = designWorkbench.PrototypeAccent.safeParse(obj.accent);
     const accent = accentParsed.success ? accentParsed.data : undefined;
+    // 对标 R1：品牌色与字体同一条纪律——过契约，不合法就当没给，不近似。色值统一大写，
+    // 否则 #ff5a1f 与 #FF5A1F 会被当成「变了」而白写一次库。
+    const brandParsed = designWorkbench.BrandColor.safeParse(obj.brand);
+    const fontParsed = designWorkbench.PrototypeFont.safeParse(obj.font);
+    const tokens: Partial<designWorkbench.DesignTokens> = {
+      ...(brandParsed.success ? { brand: brandParsed.data.toUpperCase() } : {}),
+      ...(fontParsed.success ? { font: fontParsed.data } : {}),
+    };
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
       return this.fallback("MODEL_EMPTY_OUTPUT");
@@ -704,6 +721,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       pagedScreens,
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
       ...(accent === undefined ? {} : { accent }),
+      ...(Object.keys(tokens).length === 0 ? {} : { tokens }),
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
   }

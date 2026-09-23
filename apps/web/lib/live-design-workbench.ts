@@ -27,6 +27,7 @@ export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type PrototypeAccent = z.infer<typeof designWorkbench.PrototypeAccent>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type DesignProject = z.infer<typeof designWorkbench.DesignProject>;
+export type DesignTokens = z.infer<typeof designWorkbench.DesignTokens>;
 export type CreateProjectOut = z.infer<typeof designWorkbench.operations.createProject.out>;
 export type ListMyProjectsOut = z.infer<typeof designWorkbench.operations.listMyProjects.out>;
 export type UpdateProjectOut = z.infer<typeof designWorkbench.operations.updateProject.out>;
@@ -120,6 +121,8 @@ export async function updateProject(
     readonly theme?: "light" | "dark";
     /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
     readonly accent?: PrototypeAccent;
+    /** 对标 R1：设计 token，按键合并（`brand: null` = 清掉品牌色）。 */
+    readonly tokens?: Partial<DesignTokens>;
     /** 迭代 13（delta §4）：**整份替换**标签。 */
     readonly tags?: readonly string[];
   },

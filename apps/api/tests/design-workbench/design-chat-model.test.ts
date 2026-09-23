@@ -962,3 +962,31 @@ describe("迭代 20：页数上限由服务端**截断执行**，不是给模型
     expect(out.pagedScreens?.length).toBe(5);
   });
 });
+
+/* ───────────────── 对标 R1（#3933）：骨架轮定品牌色与字体 ───────────────── */
+
+describe("对标 R1：品牌色与字体在骨架轮定一次，过契约", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "品牌色 #FF5A1F，衬线体", at: "2026-09-23T00:00:00.000Z" }] };
+  const run = async (outline: string) => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    return r.reply(fresh);
+  };
+
+  it("用户给了色值 ⇒ 原样带出去（统一大写，免得大小写不同被当成「变了」）；字体档位一起带", async () => {
+    // ⭐ 反证锚点：骨架轮不读 brand/font ⇒ 这条红——用户说了「我们的橙是 #FF5A1F」，产出还是某一档近似色。
+    const out = await run('{"reply":"两页。","brand":"#ff5a1f","font":"serif","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toEqual({ brand: "#FF5A1F", font: "serif" });
+  });
+
+  it("色值不合法、字体不在档位里 ⇒ 都不带（不猜「橙色」是哪个色）", async () => {
+    const out = await run('{"reply":"两页。","brand":"橙色","font":"comic","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toBeUndefined();
+  });
+
+  it("提示词把字体档位逐个列出来，并说清楚没给色值就不要编", () => {
+    for (const f of C.PrototypeFont.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(f);
+    expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toMatch(/没给就不要输出这个字段/);
+  });
+});

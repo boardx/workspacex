@@ -13,7 +13,8 @@
  * 代价是快照会过期——而这个代价**必须说出来**，否则界面上留下的"已分享"就是本仓点名过的
  * 那种「静态痕迹」：写下来就不再变，而事实早就变了。`isShareStale` 就是把它变回动态信号。
  */
-import type { designPrototype, designWorkbench } from "@repo/contracts";
+import type { designPrototype } from "@repo/contracts";
+import { designWorkbench } from "@repo/contracts";
 import type { DesignProjectRow } from "./project-ports";
 
 /**
@@ -29,12 +30,22 @@ export interface ShareSnapshot {
   readonly template: designWorkbench.ProjectTemplate;
   readonly theme: "light" | "dark";
   readonly accent: designWorkbench.PrototypeAccent;
+  /**
+   * 对标 R1（#3933）：设计 token。**只有不是缺省值时才写进快照**：这个字段之前发布的快照里没有它，
+   * `isShareStale` 逐字比 JSON——无条件加上的话，所有老分享会在这次上线后一齐亮「已过期」，
+   * 而访客看到的东西一个像素都没变。读侧缺它 ⇒ 缺省值。
+   */
+  readonly tokens?: designWorkbench.DesignTokens;
   readonly frames: readonly string[];
   readonly prototype: readonly (designPrototype.PrototypeNode | null)[];
   readonly frameNotes: readonly string[];
   readonly frameLinks: readonly (readonly designPrototype.PrototypeLink[])[];
   readonly problem: string;
   readonly criteria: readonly string[];
+}
+
+function isDefaultTokens(t: designWorkbench.DesignTokens | undefined): boolean {
+  return t === undefined || JSON.stringify(t) === JSON.stringify(designWorkbench.DEFAULT_DESIGN_TOKENS);
 }
 
 /** 一行的当前样子 → 可发布的快照。读侧与写侧走**同一个函数**，否则 `stale` 会因为两边字段不一样而恒真。 */
@@ -44,6 +55,7 @@ export function shareSnapshotOf(row: DesignProjectRow): ShareSnapshot {
     template: row.template,
     theme: row.theme ?? "dark",
     accent: row.accent ?? "neutral",
+    ...(isDefaultTokens(row.tokens) ? {} : { tokens: row.tokens! }),
     frames: [...row.frames],
     prototype: [...row.prototype],
     frameNotes: [...row.frameNotes],

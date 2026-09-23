@@ -23,11 +23,18 @@
 import * as React from "react";
 import { Moon, Palette, RotateCw, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { designWorkbench } from "@repo/contracts";
 import type { PrototypeAccent } from "@/lib/live-design-workbench";
 import type { PrototypeDevicePreset } from "./prototype-canvas";
 
+/** 对标 R1：字体档位的人话名（只有这个面板说它们）。 */
+const FONT_LABEL: Readonly<Record<designWorkbench.PrototypeFont, string>> = {
+  sans: "现代", serif: "衬线", rounded: "圆润", mono: "等宽",
+};
+
 export function CanvasAppearance({
   theme, onTheme, accent, accentOptions, accentLabel, accentSwatch, onAccent,
+  brand, onBrand, font, onFont,
   devices, deviceId, onDevice, landscape, onLandscape, rotatable,
 }: {
   readonly theme: "light" | "dark";
@@ -37,6 +44,11 @@ export function CanvasAppearance({
   readonly accentLabel: Readonly<Record<PrototypeAccent, string>>;
   readonly accentSwatch: Readonly<Record<string, string>>;
   readonly onAccent: (a: PrototypeAccent) => void;
+  /** 对标 R1（#3933）：任意品牌色（`#RRGGBB`）；`null` = 用上面的强调色档位。 */
+  readonly brand: string | null;
+  readonly onBrand: (hex: string | null) => void;
+  readonly font: designWorkbench.PrototypeFont;
+  readonly onFont: (f: designWorkbench.PrototypeFont) => void;
   readonly devices: readonly PrototypeDevicePreset[];
   readonly deviceId: string;
   readonly onDevice: (id: string) => void;
@@ -45,6 +57,15 @@ export function CanvasAppearance({
   readonly rotatable: boolean;
 }): React.ReactElement {
   const [open, setOpen] = React.useState(false);
+  // 品牌色输入框自己的草稿：边打边校验，合法且回车/失焦才提交——打到一半（#FF5）不该把画布刷成别的色。
+  const [brandDraft, setBrandDraft] = React.useState(brand ?? "");
+  React.useEffect(() => setBrandDraft(brand ?? ""), [brand]);
+  const draftValid = designWorkbench.BrandColor.safeParse(brandDraft.trim()).success;
+  const commitBrand = () => {
+    const v = brandDraft.trim().toUpperCase();
+    if (v === "") { if (brand !== null) onBrand(null); return; }
+    if (designWorkbench.BrandColor.safeParse(v).success && v !== brand) onBrand(v);
+  };
   const boxRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -108,15 +129,66 @@ export function CanvasAppearance({
               {accentOptions.map((a) => (
                 <button
                   key={a} type="button" data-testid={`design-detail-accent-${a}`}
-                  aria-pressed={accent === a} aria-label={accentLabel[a]} title={accentLabel[a]}
+                  aria-pressed={brand === null && accent === a} aria-label={accentLabel[a]} title={accentLabel[a]}
                   onClick={() => onAccent(a)}
                   className={cn(
                     "h-5 w-5 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
+                    brand === null && accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
                     a === "neutral" && "bg-muted",
                   )}
                   style={a === "neutral" ? undefined : { backgroundColor: `hsl(${accentSwatch[a] ?? ""})` }}
                 />
+              ))}
+            </div>
+          </Section>
+
+          <Section title="品牌色" hint={brand === null ? "用自己的品牌色，替代上面的档位" : "正在使用品牌色；点上面任一档位可换回"}>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="color" aria-label="选一个品牌色" data-testid="design-detail-brand-picker"
+                value={draftValid ? brandDraft.trim() : (brand ?? "#888888")}
+                onChange={(e) => { const v = e.target.value.toUpperCase(); setBrandDraft(v); onBrand(v); }}
+                className="h-6 w-7 shrink-0 cursor-pointer rounded-control border border-border bg-transparent p-0"
+              />
+              <input
+                type="text" inputMode="text" spellCheck={false} maxLength={7} placeholder="#FF5A1F"
+                aria-label="品牌色色值" aria-invalid={brandDraft.trim() !== "" && !draftValid}
+                data-testid="design-detail-brand-color"
+                value={brandDraft}
+                onChange={(e) => setBrandDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitBrand(); } }}
+                onBlur={commitBrand}
+                className={cn(
+                  "min-w-0 flex-1 rounded-control border bg-background px-1.5 py-0.5 font-mono text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  brandDraft.trim() !== "" && !draftValid ? "border-destructive" : "border-border",
+                )}
+              />
+              {brand !== null && (
+                <button type="button" onClick={() => onBrand(null)} data-testid="design-detail-brand-clear"
+                  className="shrink-0 rounded-control px-1 text-10 text-muted-foreground transition-colors duration-fast hover:text-card-foreground">
+                  清除
+                </button>
+              )}
+            </div>
+            {brandDraft.trim() !== "" && !draftValid && (
+              <p className="text-10 text-destructive" data-testid="design-detail-brand-invalid">色值写成 #RRGGBB，比如 #FF5A1F</p>
+            )}
+          </Section>
+
+          <Section title="字体" hint={FONT_LABEL[font]}>
+            <div className="grid grid-cols-4 gap-1" role="radiogroup" aria-label="字体">
+              {designWorkbench.PrototypeFont.options.map((f) => (
+                <button
+                  key={f} type="button" role="radio" aria-checked={font === f} data-testid={`design-detail-font-${f}`}
+                  onClick={() => onFont(f)}
+                  className={cn(
+                    "flex flex-col items-center rounded-control border px-1 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    font === f ? "border-primary bg-panel text-card-foreground" : "border-border text-muted-foreground hover:bg-panel/60",
+                  )}
+                >
+                  <span className="text-13" style={f === "sans" ? undefined : { fontFamily: designWorkbench.PROTOTYPE_FONT_STACKS[f] }}>字Aa</span>
+                  {FONT_LABEL[f]}
+                </button>
               ))}
             </div>
           </Section>

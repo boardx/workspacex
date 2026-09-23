@@ -316,6 +316,7 @@ export class DesignWorkbenchController {
         problem: body.problem,
         theme: body.theme,
         accent: body.accent,
+        tokens: body.tokens,
         tags: body.tags,
       });
     } catch (e) {
