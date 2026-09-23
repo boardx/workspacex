@@ -34,7 +34,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const WEB = join(ROOT, "apps", "web");
 
 /** 存量基线：`类名 → 处数`。只准变小；变大或**变小了没改这里**都判失败。 */
-const LEGACY = new Map([["text-foreground", 52]]);
+/*
+ * 2026-09-23（#3892）清零：`text-foreground` 全仓 62 处（跨行口径）一次性换成
+ * `text-background-foreground`。基线机制留着——下一次再有人要登记存量，照这个形状写。
+ */
+const LEGACY = new Map();
 
 /** 从 tailwind.config.ts 的 colors 块解析全部合法颜色名（单源）。 */
 export function colorNames(cfgText) {
@@ -71,7 +75,60 @@ const BUILTIN = new Set([
  * 当成颜色名误报——实测 probe 证实这两条都生成了 CSS。
  */
 const RE = /\b(border-t|border-b|border-l|border-r|border-x|border-y|ring-offset|text|bg|border|ring|fill|stroke|placeholder|caret|decoration|divide|accent)-([a-z][a-z-]*[a-z])(?:\/\d+)?\b/g;
-const CLASS_RE = /className=(?:"([^"]*)"|\{`([^`]*)`\}|\{cn\(([\s\S]{0,2000}?)\)\})/g;
+/**
+ * 类名所在的「区域」：`className="…"`、`className={…}`（整个花括号表达式）、`cn(…)`/`clsx(…)`/`cva(…)`。
+ *
+ * ⚠ 2026-09-23（#3892）收紧：原来只按**单行**匹配 `className="…"` 和同一行里的 `cn(…)`，
+ * 于是多行 `cn(\n  active ? "text-foreground" : …\n)` 和三元分支里的字符串全都看不见——
+ * 全仓 59 处 `text-foreground` 这道门只数到 52 处。看不见的那 7 处恰好多是 active/hover 态。
+ * 现在对整份文件做括号配对，把区域里的**每一个字符串字面量**都拿出来扫。
+ */
+const REGION_START_RE = /className=\{|className="|\b(?:cn|clsx|cva)\(/g;
+
+/** 从 `open` 处（指向 `{` 或 `(` 之后）起找配对的闭合符，跳过字符串内部。返回区域文本的结束下标。 */
+function balancedEnd(text, from, openCh, closeCh) {
+  let depth = 1;
+  let quote = null;
+  for (let i = from; i < text.length; i++) {
+    const c = text[i];
+    if (quote !== null) {
+      if (c === "\\") { i++; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { quote = c; continue; }
+    if (c === openCh) depth++;
+    else if (c === closeCh && --depth === 0) return i;
+  }
+  return text.length;
+}
+
+/** 区域里的字符串字面量（含模板字符串的静态部分），带在全文中的起始下标。 */
+function* literalsIn(text, start, end) {
+  const re = /"([^"\\\n]*)"|'([^'\\\n]*)'|`([^`]*)`/g;
+  re.lastIndex = start;
+  for (let m = re.exec(text); m !== null && m.index < end; m = re.exec(text)) {
+    yield { at: m.index, body: m[1] ?? m[2] ?? m[3] ?? "" };
+  }
+}
+
+/** 一份文件里所有落在类名区域内的字符串（按下标去重——`className={cn(…)}` 会被两个区域各数一次）。 */
+export function classStrings(text) {
+  const seen = new Map();
+  for (const m of text.matchAll(REGION_START_RE)) {
+    const tok = m[0];
+    const bodyStart = m.index + tok.length;
+    if (tok === 'className="') {
+      const end = text.indexOf('"', bodyStart);
+      if (end !== -1) seen.set(bodyStart - 1, text.slice(bodyStart, end));
+      continue;
+    }
+    const [openCh, closeCh] = tok.endsWith("{") ? ["{", "}"] : ["(", ")"];
+    const end = balancedEnd(text, bodyStart, openCh, closeCh);
+    for (const lit of literalsIn(text, bodyStart, end)) seen.set(lit.at, lit.body);
+  }
+  return [...seen.entries()].map(([at, body]) => ({ at, body }));
+}
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir)) {
@@ -87,15 +144,14 @@ export function scan(root = WEB) {
   const allowed = colorNames(readFileSync(join(root, "tailwind.config.ts"), "utf8"));
   const hits = [];
   for (const file of walk(root)) {
-    readFileSync(file, "utf8").split("\n").forEach((line, i) => {
-      for (const cm of line.matchAll(CLASS_RE)) {
-        const s = cm[1] ?? cm[2] ?? cm[3] ?? "";
-        for (const m of s.matchAll(RE)) {
-          if (allowed.has(m[2]) || BUILTIN.has(m[2])) continue;
-          hits.push({ file: relative(root, file), line: i + 1, cls: `${m[1]}-${m[2]}` });
-        }
+    const text = readFileSync(file, "utf8");
+    for (const { at, body } of classStrings(text)) {
+      for (const m of body.matchAll(RE)) {
+        if (allowed.has(m[2]) || BUILTIN.has(m[2])) continue;
+        const line = text.slice(0, at).split("\n").length;
+        hits.push({ file: relative(root, file), line, cls: `${m[1]}-${m[2]}` });
       }
-    });
+    }
   }
   return hits;
 }

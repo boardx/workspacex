@@ -490,7 +490,7 @@ export function FollowUpSuggestions({
             type="button"
             data-testid={chip.id}
             disabled={disabled || chip.disabled}
-            className="px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            className="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
             onClick={chip.onSelect}
           >
             {chip.label}
@@ -501,7 +501,7 @@ export function FollowUpSuggestions({
               data-testid={`${chip.id}-dismiss`}
               aria-label="关闭这条建议"
               disabled={disabled}
-              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
               onClick={chip.onDismiss}
             >
               <X aria-hidden className="h-3 w-3" />
@@ -515,7 +515,7 @@ export function FollowUpSuggestions({
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
           disabled={disabled || s.isLoading}
-          className="rounded-full border border-border px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-full border border-border px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           onClick={() => onSelect(s.message)}
         >
           {s.title || s.message}

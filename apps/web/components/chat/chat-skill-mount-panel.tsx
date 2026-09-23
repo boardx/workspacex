@@ -374,7 +374,7 @@ export function ChatSkillMountPanel({
         data-testid={`chat-skill-mounted-${entry.skillId}`}
         title={`skill id：${entry.skillId}`}
       >
-        <span className="text-11 text-foreground">{named}</span>
+        <span className="text-11 text-background-foreground">{named}</span>
         {/*
           FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
           有意见的前提是用过它，而选择器里的那些还没被用过。

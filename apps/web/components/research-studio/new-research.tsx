@@ -140,7 +140,7 @@ export function NewResearchPanel({
           </p>
         </div>
         <button type="button" onClick={onCancel} data-testid="rs-new-close" aria-label="关闭"
-          className="text-muted-foreground transition-colors hover:text-foreground">×</button>
+          className="text-muted-foreground transition-colors hover:text-background-foreground">×</button>
       </div>
 
       <div className="flex flex-col gap-4 px-4 py-4">
