@@ -14,12 +14,26 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkWebBuild, localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack,
+  checkWebBuild, dataDirAdvice, dataDirAdviceBody, localSessionUrl, resolveLocalConfig, restoreIntoDataDir,
+  runDoctor, signInLocal, up, verifyBackup, type RunningStack,
 } from "@repo/local-runtime";
 import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
+/**
+ * 模块级的日志：`boot()` 里那个 `log` 闭在它自己的作用域里，而备份/恢复这类菜单动作
+ * 发生在 `boot()` 之外。写的是同一个文件——**一件事只有一份日志**，不要为了省事
+ * 在别处另起一个。
+ */
+function appendLog(line: string): void {
+  try {
+    appendFileSync(join(app.getPath("userData"), "local", "desktop.log"), `${new Date().toISOString()} ${line}\n`);
+  } catch { /* best effort：日志写不了也不能挡住恢复本身 */ }
+}
+
+/** 同一个服务一次会话只打断用户一次——重复弹框会让人直接忽略所有弹框。 */
+const reportedFailures = new Set<string>();
 let win: BrowserWindow | null = null;
 /** 首启那一屏的内容；「帮助 → 显示本地账号」再打开它时读的是同一份。 */
 let welcomeUrl: string | null = null;
@@ -208,14 +222,25 @@ async function boot(): Promise<void> {
       config, log, webMode: webCheck.usable ? "start" : "dev",
       bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir(),
       bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir(),
-      // 起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」——
-      // 原因在日志里，而没人会去翻。说出来，并指向那一份日志。
-      onServiceExit: ({ name, code }) => {
+      /*
+        起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」。
+
+        改之前这里说的是「deep-agent 已退出（code 1）」——内部名字加一个退出码，
+        对用户不构成信息，只会让人觉得自己没资格用这个软件；而且当时还没有自动重启，
+        唯一的出路是「重启应用」。现在文案由 `supervisor-policy.ts` 给出（说人话、三段式），
+        服务也会被按策略拉起。
+
+        只在**停手了**的时候打断用户：还在重试的那几秒弹个框，比不说更烦。
+      */
+      onServiceHealth: (h) => {
+        if (h.state !== "failed" || h.message === null) return;
+        if (reportedFailures.has(h.name)) return;    // 同一个服务一次会话只说一遍
+        reportedFailures.add(h.name);
         void dialog.showMessageBox({
           type: "warning",
-          title: "一个后台服务已停止",
-          message: `${name} 已退出（code ${String(code)}），依赖它的能力现在不可用。`,
-          detail: `日志：${join(dataDir, "logs", `${name}.log`)}\n重启应用可以重新拉起它。`,
+          title: h.message.title,
+          message: h.message.body,
+          detail: `技术细节在日志里：${join(dataDir, "logs", `${h.name}.log`)}`,
         });
       },
     });
@@ -264,6 +289,153 @@ async function boot(): Promise<void> {
  * 菜单只加一条：把首启那一屏重新调出来。密码是随机的，人第一次多半没记住，
  * 而唯一的另一条路是去数据目录读一个 0600 的 JSON——那不是一条可以要求用户走的路。
  */
+/**
+ * 「备份我的数据…」。
+ *
+ * 为什么放在菜单而不是设置页：本地版把用户的全部数据放在他自己的机器上，
+ * 「换一台电脑怎么办 / 硬盘坏了怎么办」是这类应用最高严重度的问题之一
+ * （Apple Notes 没有真正的导出，用户被锁死；Bear 的笔记是不透明 SQLite 里的行，
+ * 备份工具碰不到）。这条路必须在用户第一次想到它的时候就能找到，而不是藏在某个页里。
+ *
+ * 三段式回话：发生了什么、对你意味着什么、你现在能做什么。成功时给出收据
+ * （备份里有多少条对话、多少个项目），因为一个只说「完成」的备份不会有人信。
+ */
+async function runBackup(): Promise<void> {
+  if (stack === null) {
+    await dialog.showMessageBox({
+      type: "info", title: "还不能备份",
+      message: "本地服务还没启动完。",
+      detail: "等启动完成后再试一次即可；这期间你的数据没有任何改动。",
+    });
+    return;
+  }
+  const picked = await dialog.showOpenDialog({
+    title: "选择备份保存到哪里",
+    properties: ["openDirectory", "createDirectory"],
+    buttonLabel: "备份到这里",
+  });
+  if (picked.canceled || picked.filePaths[0] === undefined) return;
+  const r = await stack.backup(picked.filePaths[0], app.getVersion());
+  if (!r.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "备份没有完成",
+      message: r.reason,
+      detail: "你的数据没有被改动。可以换一个磁盘空间更充裕的位置再试一次。",
+    });
+    return;
+  }
+  const counts = Object.entries(r.manifest.rowCounts)
+    .map(([t, n]) => `${TABLE_LABELS[t] ?? t} ${n}`).join("　");
+  const ans = await dialog.showMessageBox({
+    type: "info", title: "备份完成，并已逐个文件校验",
+    message: `备份里有：${counts}`,
+    detail: `位置：${r.dir}\n大小：约 ${Math.round(r.totalBytes / 1024 / 1024)} MB\n\n`
+      + `没有包含本机下载的模型（可重新获取）和运行日志。\n`
+      + `换一台电脑时，装好应用后用同一个菜单里的恢复功能读这个目录。`,
+    buttons: ["好", "打开所在位置"],
+    defaultId: 0,
+  });
+  if (ans.response === 1) void shell.openPath(r.dir);
+}
+
+/**
+ * 「从备份恢复…」。
+ *
+ * 顺序是刻意的：**先验、再说清代价、最后才动数据。**
+ * 1. 先校验那份备份（这一步不动任何东西），把收据读给用户听——他要知道自己要读回什么。
+ * 2. 说清代价：现在的数据会被**挪走**（不是删掉），而且恢复后要重启应用。
+ * 3. 停栈。PGlite 是单会话所有权，在活着的实例脚下换目录是本仓记过的那一类事故。
+ * 4. 恢复并逐张表核对行数，对不上就如实说，并告诉用户原数据在哪。
+ * 5. 重启应用——不能在一个已经把数据库停掉的进程里继续跑。
+ */
+async function runRestore(): Promise<void> {
+  const picked = await dialog.showOpenDialog({
+    title: "选择要恢复的备份目录",
+    properties: ["openDirectory"],
+    buttonLabel: "读这一份",
+  });
+  if (picked.canceled || picked.filePaths[0] === undefined) return;
+  const backupDir = picked.filePaths[0];
+
+  const v = await verifyBackup(backupDir);
+  if (!v.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "这份备份读不了",
+      message: v.reason,
+      detail: "你现在的数据没有被改动。请确认选的是备份目录本身（里面应该有一个 manifest.json）。",
+    });
+    return;
+  }
+  const counts = Object.entries(v.manifest.rowCounts)
+    .map(([t, n]) => `${TABLE_LABELS[t] ?? t} ${n}`).join("　");
+  const ok = await dialog.showMessageBox({
+    type: "warning", title: "确认要用这份备份覆盖现在的数据吗",
+    message: `这份备份里有：${counts}`,
+    detail: `备份时间：${v.manifest.createdAt}\n\n`
+      + `你现在的数据不会被删除，会被挪到同一目录下带时间戳的文件夹里。\n`
+      + `恢复完成后应用会重启。`,
+    buttons: ["取消", "恢复"],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (ok.response !== 1) return;
+
+  // 停栈：PGlite 单会话，不能在活着的实例脚下换目录。
+  const running = stack;
+  stack = null;
+  if (running !== null) await running.stop();
+
+  const r = await restoreIntoDataDir({
+    backupDir,
+    dataDir: join(app.getPath("userData"), "local"),
+    postgresPort: 55432,
+    log: (l) => appendLog(l),
+  });
+  if (!r.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "恢复没有完成", message: r.reason,
+      detail: "应用会重启。如果重启后数据不对，被挪走的那份原始数据仍在数据目录里。",
+    });
+  } else {
+    await dialog.showMessageBox({
+      type: "info", title: "恢复完成，行数与清单一致",
+      message: `已读回：${Object.entries(r.verified).map(([t, x]) => `${TABLE_LABELS[t] ?? t} ${x.actual}`).join("　")}`,
+      detail: r.movedAsideTo === null ? "应用即将重启。" : `原来的数据已挪到 ${r.movedAsideTo}（没有删除）。\n应用即将重启。`,
+    });
+  }
+  app.relaunch();
+  app.quit();
+}
+
+/**
+ * 打开数据目录——**先说一句再开**。
+ *
+ * 这个菜单项等于在邀请用户「把这个文件夹拷走当备份」，而实测证明那样拷出来的副本
+ * 打不开（见 `data-dir-advice.ts` 的头注：硬杀可恢复，活拷贝不可）。
+ * 一次会话只说一遍：重复弹框会让人直接忽略所有弹框。
+ */
+let dataDirAdviceShown = false;
+async function openDataDir(): Promise<void> {
+  const dir = join(app.getPath("userData"), "local");
+  if (!dataDirAdviceShown) {
+    dataDirAdviceShown = true;
+    const a = dataDirAdvice();
+    const r = await dialog.showMessageBox({
+      type: "info", title: a.title, message: dataDirAdviceBody(a),
+      buttons: [...a.actions], defaultId: 0, cancelId: 1,
+    });
+    if (r.response === 0) { void runBackup(); return; }
+  }
+  void shell.openPath(dir);
+}
+
+/** 备份收据上的表名要说人话，用户不认得 `chat_threads`。 */
+const TABLE_LABELS: Readonly<Record<string, string>> = {
+  organizations: "工作区", projects: "项目", chat_threads: "对话",
+  chat_messages: "消息", artifacts: "产物", agents: "智能体",
+  skills: "技能", canvas_templates: "画布模板", agent_runs: "运行记录",
+};
+
 function installMenu(): void {
   const template = Menu.getApplicationMenu()?.items.map((item) => item) ?? [];
   const help = {
@@ -275,8 +447,16 @@ function installMenu(): void {
       },
       { type: "separator" as const },
       {
+        label: "备份我的数据…",
+        click: () => { void runBackup(); },
+      },
+      {
+        label: "从备份恢复…",
+        click: () => { void runRestore(); },
+      },
+      {
         label: "打开数据目录",
-        click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
+        click: () => { void openDataDir(); },
       },
     ],
   };
