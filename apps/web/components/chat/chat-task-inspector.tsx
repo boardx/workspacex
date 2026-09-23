@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 import { ListChecks, FolderOpen, Package, Settings2, Users, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
+import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import { cn } from "@/lib/utils";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
@@ -19,8 +21,21 @@ import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/liv
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
+import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
+import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
+import {
+  // `activeTab` 这个名字在本文件里已经是「右栏四个页签里选中的那一个」（InspectorTab）。
+  // 同名会静默遮蔽——tsc 正是在这里报的 TS2349，重命名而不是让两个概念共用一个词。
+  EMPTY_ARTIFACT_TABS, activateTab, activeTab as activeArtifactTab, closeTab, openTab,
+  type ArtifactItem, type ArtifactTab, type ArtifactTabState,
+} from "@/lib/chat-workbench/artifact-tabs";
+import { onOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
+import { ArrowLeft, Check, Copy, CornerUpLeft, Download, Maximize2, X } from "lucide-react";
+import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 
 const mobileQuery = "(max-width: 767px)";
+/** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
+const INSPECTOR_PANEL_ID = "chat-inspector";
 function subscribeViewport(notify: () => void): () => void {
   const query = window.matchMedia?.(mobileQuery);
   query?.addEventListener("change", notify);
@@ -90,6 +105,8 @@ export interface ChatTaskInspectorProps {
   /** issue #2099 —— 产物条目点击回调；不传时「产物」页签的条目诚实退回不可点
    *  （见 `ChatArtifactsPanel` 自己的 `onOpen` 可选约定），不是这里另造一条规则。 */
   readonly onOpenArtifact?: (item: ListThreadArtifactsOut["items"][number]) => void;
+  /** 取产物源用的会话令牌。不传时 `ChatArtifactView` 退回同源 cookie 那条路径。 */
+  readonly bearer?: string;
   /** 已上传但还没随消息发出的材料条数（composer 附件区），与已落库材料一起算「材料」。 */
   readonly pendingMaterialsCount: number;
   /**
@@ -177,6 +194,44 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
 
   const [activeTab, setActiveTab] = React.useState<InspectorTab>("progress");
   /**
+   * 2026-09-23 人类交办「对标 Claude Code / Codex，应该在右边可以打开结果」——
+   * 右栏里被打开的那一个产物。非 null = 产物页签进入**详情态**（列表 ↔ 详情，
+   * 带返回），此前唯一的打开方式是模态对话框，模态挡住对话就没法边看边追问。
+   *
+   * ⚠ 按 threadId 清空：换线程后旧线程的产物 id 在新线程上取不到源，会渲染成
+   * 一条 NOT_VISIBLE，看起来像「这个产物坏了」而不是「你换线程了」。
+   */
+  const [artifactTabs, setArtifactTabs] = React.useState<ArtifactTabState>(EMPTY_ARTIFACT_TABS);
+  React.useEffect(() => { setArtifactTabs(EMPTY_ARTIFACT_TABS); setArtifactListMode(true); }, [threadId]);
+  /**
+   * 「回到列表」与「开着哪几份」是**两件事**，不能用一个状态表示。
+   *
+   * 第一版让「返回」直接把开着的几份全清掉——于是「看完 A，回列表点开 B」之后
+   * A 就没了，页签条永远只有一份，这个功能等于不存在（两条测试当场红）。
+   * 返回只是把列表铺回来，开着的那几份仍然开着，随时能切回去。
+   */
+  const [artifactListMode, setArtifactListMode] = React.useState(true);
+  /*
+   * ⚠ 这里**故意没有**「关掉最后一份 ⇒ 回到列表」那条 effect。
+   *
+   * 我先写了它，然后发现它守的状态从界面上到不了：页签条只在开着 ≥2 份时才画，
+   * 只剩一份时没有关闭按钮，所以「把份数关到 0」在 UI 上不存在（写它的那条测试
+   * 当场红在「找不到关闭按钮」上）。份数为 0 只在换线程时出现，而换线程那条
+   * effect 已经把列表态一起设回去了。
+   *
+   * 留着它就是一段永远不执行的分支加一条永远绿的测试——[[red-does-not-mean-it-ran]]
+   * 的同一形状。要么让它可达，要么不写；这里选不写。
+   */
+  const openInPanel = artifactListMode ? null : activeArtifactTab(artifactTabs);
+  const openInPanelTab = React.useCallback((tab: ArtifactTab) => {
+    setArtifactTabs((prev) => openTab(prev, tab));
+    setArtifactListMode(false);
+  }, []);
+  const openArtifactInPanel = React.useCallback((item: ArtifactItem) => {
+    openInPanelTab({ kind: "artifact", id: item.artifactId, title: item.title, item });
+  }, [openInPanelTab]);
+
+  /**
    * 人类实测反馈（2026-08-30）—— 右栏展开后（有任务在跑/有产物材料），点头部
    * 「收起」按钮没有反应，要等任务结束、信号清空才会真的收起，看起来像"延迟"。
    *
@@ -219,6 +274,19 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 驱动展开态。
    */
   const collapsed = override !== "expanded";
+  /*
+   * R11 —— 执行过程里的工具结果也能被送进右栏（人类原话里的「浏览网页」）。
+   * 走 window 事件而不是 Context，理由同 `lib/shell-panel-events.ts` 文件头注：
+   * 执行过程画在消息流里、右栏是另一棵子树，两边在多份单测里各自被 mock。
+   * 收到就**切到「产物」页签并展开右栏**——否则事件生效了用户也看不见，
+   * 那等于没生效（这一晚已经因为「做了但看不见」返工过一次）。
+   */
+  React.useEffect(() => onOpenInRightPanel((doc) => {
+    openInPanelTab({ kind: "result", ...doc });
+    setActiveTab("artifacts");
+    setOverride("expanded");
+  }), [openInPanelTab]);
+
 
   // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
   const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
@@ -267,12 +335,32 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   /** 拖拽高亮只在真的能接的时候亮——只读态亮一个"松开即上传"是骗人。 */
   const dropActive = dragActive && canUpload;
 
+  /*
+   * 2026-09-23 人类要求：「可以拖拽边界」。此前整个壳里一处拖拽都没有——右栏只有
+   * `w-72`（288px）/ `w-10` 两档写死。现在展开态的宽度由状态给，并持久化到 localStorage：
+   * 用户调过的宽度是他的工作习惯，不是服务端事实，同 `shell.leftCollapsed` 的既有先例。
+   *
+   * ⚠ 初值**不在 useState 里读 localStorage**：SSR 没有 storage，首帧两端必须一致，
+   *   否则 hydration 警告（同 `app-shell.tsx` 折叠态的做法，把读取放进 effect）。
+   *   折叠态与移动态照旧用类名，宽度只作用于「桌面 + 展开」这一档。
+   */
+  const [width, setWidth] = React.useState(PANEL_WIDTH_DEFAULT);
+  React.useEffect(() => {
+    setWidth(readPanelWidth(INSPECTOR_PANEL_ID, typeof window === "undefined" ? null : window.localStorage, window.innerWidth));
+  }, []);
+  const applyWidth = React.useCallback((next: number) => {
+    setWidth(next);
+    writePanelWidth(INSPECTOR_PANEL_ID, next, typeof window === "undefined" ? null : window.localStorage);
+  }, []);
+  const sizable = !mobile && !collapsed;
+
   const inspector = (
     <aside
       {...dragHandlers}
+      style={sizable ? { width: `${String(width)}px` } : undefined}
       className={cn(
         "relative flex shrink-0 flex-col border-l border-border bg-card",
-        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : "w-72",
+        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : undefined,
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
@@ -283,6 +371,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       {/* 遮罩是 `pointer-events-none` 的纯视觉层，drag 事件继续落在挂了 handlers 的
           这个 `aside` 上（同 `ChatFullSurfaceDropOverlay` 的做法）。`relative` 在
           className 里，遮罩才有定位参照。 */}
+      {/* 把手贴在右栏的**左**边界上：往左拖变宽。折叠态（40px 图标条）与移动态不给把手——
+          那两档不是「更窄的同一档」，是另一种形态。 */}
+      {sizable && (
+        <PanelResizeHandle
+          edge="left"
+          width={width}
+          onWidthChange={applyWidth}
+          label="调整任务检查器宽度"
+          testId="chat-task-workbench-inspector-resize"
+        />
+      )}
       <ChatMaterialsDropOverlay active={dropActive} />
       <div
         role="tablist"
@@ -391,6 +490,22 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             />
           ) : activeTab === "artifacts" ? (
             <>
+            {openInPanel && threadId ? (
+              <ArtifactDetail
+                tabs={artifactTabs}
+                onActivate={(id) => { setArtifactTabs((prev) => activateTab(prev, id)); }}
+                onClose={(id) => { setArtifactTabs((prev) => closeTab(prev, id)); }}
+                threadId={threadId}
+                projectId={props.projectId ?? null}
+                bearer={props.bearer}
+                tab={openInPanel}
+                onBack={() => { setArtifactListMode(true); }}
+                onEnlarge={onOpenArtifact !== undefined && openInPanel.kind === "artifact"
+                  ? () => { onOpenArtifact(openInPanel.item); }
+                  : undefined}
+              />
+            ) : (
+            <>
             {threadId && <AgentArtifactVersionsPanel
               key={threadId}
               threadId={threadId}
@@ -405,8 +520,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               loading={loading}
               error={artifactsError}
               onRetry={onRetry}
-              onOpen={onOpenArtifact}
+              onOpen={threadId ? openArtifactInPanel : onOpenArtifact}
             />
+            </>
+            )}
             </>
           ) : activeTab === "roster" && roster !== undefined ? (
             <RosterPanel {...roster} />
@@ -538,5 +655,248 @@ function RunDetailsTab({
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * 右栏里的产物详情态。
+ *
+ * 这一档与模态的分工（2026-09-23）：**默认在右栏**（不挡对话，可以边看结果边追问，
+ * 边界可拖），需要更大幅面时点「放大」才升到模态。两处渲染同一个 `ChatArtifactView`，
+ * 不是两套展示逻辑——同一事实不得声明在两处。
+ *
+ * `onEnlarge` 可选：宿主没给模态入口时（如 `onOpenArtifact` 未传）不画这颗按钮，
+ * 而不是画一颗点了没反应的——同 `ChatArtifactsPanel` 的 `onOpen` 可选约定（#2099）。
+ */
+function ArtifactDetail({
+  threadId, projectId, bearer, tab, onBack, onEnlarge, tabs, onActivate, onClose,
+}: {
+  readonly threadId: string;
+  readonly projectId: string | null;
+  readonly bearer: string | undefined;
+  readonly tab: ArtifactTab;
+  readonly onBack: () => void;
+  readonly onEnlarge?: () => void;
+  readonly tabs: ArtifactTabState;
+  readonly onActivate: (artifactId: string) => void;
+  readonly onClose: (id: string) => void;
+}): React.JSX.Element {
+  /**
+   * 载入到的那一份。动作条按它开关：**没载到就不给按**——一颗点了没反应的
+   * 「复制」比没有这颗按钮更糟（#2099 同一条纪律）。
+   */
+  /** 工具结果的正文一送进来就在手上；产物要等取源回来（`onLoaded`）。 */
+  const [loaded, setLoaded] = React.useState<LoadedArtifact | null>(null);
+  const doc: LoadedArtifact | null = tab.kind === "result"
+    ? { markdown: tab.text, version: null, savedAt: "" }
+    : loaded;
+  /*
+   * ⚠ 这里**不能**写一条 `useEffect(() => setLoaded(null), [tab.id])` 来「切换时清空」。
+   * 子组件的 effect 先于父组件跑：`ChatArtifactView` 挂载时先回调 `onLoaded(内容)`，
+   * 父的重置 effect 随后把它清成 null，动作条就永远是禁用态（两条测试当场红）。
+   * 切换本身已经由 `key={tab.id}` 重新挂载 + 取源开始时的 `onLoaded(null)` 覆盖到了。
+   */
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => { setCopied(false); }, 1600);
+    return () => { clearTimeout(timer); };
+  }, [copied]);
+
+  const copy = (): void => {
+    if (doc === null) return;
+    void navigator.clipboard?.writeText(doc.markdown).then(() => { setCopied(true); });
+  };
+  const download = (): void => {
+    if (doc === null) return;
+    // 下载的是**已经载到的这一份**，不重新取源：否则会出现「看到的是 v3、
+    // 存下来的是 v4」这种同一动作里两处不一致。
+    const url = URL.createObjectURL(new Blob([doc.markdown], { type: "text/markdown;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = artifactFileName(tab.title);
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const actionClass =
+    "rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-inspector-artifact-detail">
+      <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+        <button
+          type="button"
+          onClick={onBack}
+          data-testid="chat-inspector-artifact-back"
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden />
+          产物
+        </button>
+        <span className="min-w-0 flex-1 truncate text-12 font-medium text-card-foreground" title={tab.title}>
+          {tab.title}
+        </span>
+        <button
+          type="button" onClick={copy} disabled={doc === null}
+          data-testid="chat-inspector-artifact-copy"
+          aria-label={copied ? "已复制" : "复制全文"} title={copied ? "已复制" : "复制全文"}
+          className={actionClass}
+        >
+          {copied
+            ? <Check className="size-3.5 text-success" aria-hidden />
+            : <Copy className="size-3.5" aria-hidden />}
+        </button>
+        <button
+          type="button" onClick={download} disabled={doc === null}
+          data-testid="chat-inspector-artifact-download"
+          aria-label="下载" title="下载" className={actionClass}
+        >
+          <Download className="size-3.5" aria-hidden />
+        </button>
+        {onEnlarge ? (
+          <button
+            type="button"
+            onClick={onEnlarge}
+            data-testid="chat-inspector-artifact-enlarge"
+            aria-label="放大查看"
+            title="放大查看"
+            className={actionClass}
+          >
+            <Maximize2 className="size-3.5" aria-hidden />
+          </button>
+        ) : null}
+      </div>
+      {/* 同时开着好几份时才画页签条：只开着一份时它是一条重复了上面标题的空行。
+          R2 之后「看完 A 再看 B」要返回列表、在列表里重新找 B——来回切两三次就是
+          六到八次点击。开着的几份之间切换应该是一次点击。判据（满了淘汰谁、关掉
+          当前这份落到哪）在 lib/chat-workbench/artifact-tabs.ts，不写成内联三元。 */}
+      {tabs.tabs.length > 1 ? (
+        <div
+          role="tablist" aria-label="已打开的结果"
+          data-testid="chat-inspector-artifact-tabs"
+          className="flex min-w-0 gap-0.5 overflow-x-auto border-b border-border px-1.5 py-1"
+        >
+          {tabs.tabs.map((t) => {
+            const current = t.id === tab.id;
+            return (
+              <span
+                key={t.id}
+                className={cn(
+                  "group inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-11",
+                  current ? "bg-muted text-card-foreground" : "text-muted-foreground transition-colors duration-fast hover:bg-muted",
+                )}
+              >
+                <button
+                  type="button" role="tab" aria-selected={current}
+                  data-testid="chat-inspector-artifact-tab"
+                  onClick={() => { onActivate(t.id); }}
+                  className="min-w-0 truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  title={t.title}
+                >{t.title}</button>
+                <button
+                  type="button"
+                  data-testid="chat-inspector-artifact-tab-close"
+                  aria-label={`关闭 ${t.title}`}
+                  onClick={() => { onClose(t.id); }}
+                  className="shrink-0 rounded text-muted-foreground transition-colors duration-fast hover:text-card-foreground"
+                ><X className="size-3" aria-hidden /></button>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+      {tab.kind === "artifact" ? <ArtifactSourceLine item={tab.item} /> : <ResultSourceLine url={tab.url} />}
+      {tab.kind === "result" ? (
+        /*
+         * 工具结果直接就是正文，没有取源这一步。用 `<pre>` 而不是 markdown 渲染：
+         * 抓回来的网页正文 / 脚本输出是**别人的字节**，按 markdown 解释会把里面的
+         * `#`、`*`、`|` 当语法吃掉，显示出来的就不是它实际收到的东西了。
+         * 产物是我们自己落地的 markdown，那条路径才该渲染。
+         */
+        <pre
+          data-testid="chat-inspector-result-text"
+          className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-12"
+        >{tab.text}</pre>
+      ) : (
+      <ChatArtifactView
+        /*
+         * 窄栏守卫：右栏可以被拖到 240px，代码块与表格在那个宽度下会横向溢出，
+         * 把整条右栏撑出横向滚动条（连标题栏一起歪掉）。给它们各自的横向滚动，
+         * 正文本身仍然在栏宽内重排。
+         */
+        className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13 [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
+        key={tab.id}
+        threadId={threadId}
+        projectId={projectId}
+        artifactId={tab.item.artifactId}
+        bearer={bearer}
+        onLoaded={setLoaded}
+      />
+      )}
+    </div>
+  );
+}
+
+/** 工具结果的「出处」就是它访问的那个地址（`externalHttpUrl` 已经判过协议）。 */
+function ResultSourceLine({ url }: { readonly url: string | null }): React.JSX.Element | null {
+  if (url === null) return null;
+  return (
+    <p className="border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground">
+      <a
+        data-testid="chat-inspector-result-source-url"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-primary underline underline-offset-2"
+      >{url}</a>
+    </p>
+  );
+}
+
+/**
+ * 这一份产物**自己的出处** —— TW-P1-4 的「来源」锚点。
+ *
+ * ## 它替换了什么（2026-09-23，R7 留下的那条缺口）
+ *
+ * `-sources` 原先挂在产物**列表的包裹 div** 上：列表在就算「来源齐」，哪怕每一条都
+ * 写着「未挂出处」。R7 修掉了同类的「预览」「版本」两颗，这颗当时没修——搬到逐条
+ * 出处行上会让同名锚点出现 N 次，而 Playwright 的 `getByTestId` 是 strict 的。
+ *
+ * 详情态一次只显示一份产物，所以锚点在这里天然唯一，而且它陈述的是**这一份**的出处：
+ *   · `hasSource` 逐产物不同（列表标题那种静态文字做不到这一点，所以它不可证伪）；
+ *   · `messageId` 是 `listThreadArtifacts` 契约里就有的回链（与 `provenanceBacklink
+ *     .messageId` 同一事实的两个读投影），可以真的跳回那条消息。
+ *
+ * ⚠ 仍然**没有**逐条引用清单（citations 在服务端 `findCitationsForMessage` 里，
+ * 但没有按产物读回的接口）。所以这条线说的是「有没有挂出处 + 出处在哪条消息」，
+ * 不是「出处有哪些」。不在文案上暗示后者。
+ */
+function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JSX.Element {
+  const [missing, setMissing] = React.useState(false);
+  const messageId: unknown = (item as { messageId?: unknown }).messageId;
+  const canJump = typeof messageId === "string" && messageId !== "";
+
+  return (
+    <p
+      data-testid="chat-task-workbench-artifact-sources"
+      className="flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"
+    >
+      <span>{item.hasSource ? "已挂出处" : "未挂出处"}</span>
+      {canJump ? (
+        <button
+          type="button"
+          data-testid="chat-inspector-artifact-source-jump"
+          onClick={() => { setMissing(!scrollToAnchor("data-message-id", messageId)); }}
+          className="inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"
+        >
+          <CornerUpLeft className="size-3" aria-hidden />
+          跳到原消息
+        </button>
+      ) : null}
+      {/* 找不到就说出来。静默失败会让用户以为这颗按钮坏了——原消息可能只是还没加载
+          进当前这一页（对话列表是分页的），那是两件不同的事。 */}
+      {missing ? <span data-testid="chat-inspector-artifact-source-missing">原消息不在当前视图里</span> : null}
+    </p>
   );
 }
