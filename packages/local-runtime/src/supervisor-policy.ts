@@ -103,6 +103,7 @@ export const SERVICE_LABELS: Readonly<Record<string, string>> = {
   "skill-sandbox": "技能沙箱",
   "asr-gateway": "语音转写",
   ollama: "本地模型",
+  model: "本地模型的装载",
   web: "界面服务",
 };
 
@@ -111,6 +112,7 @@ export const SERVICE_IMPACT: Readonly<Record<string, string>> = {
   api: "在这期间，打开的页面会读不到数据。",
   "deep-agent": "在这期间，发给 AI 的消息不会有回复。",
   "skill-sandbox": "在这期间，需要跑脚本的技能（生成文档、表格等）用不了。",
+  model: "在这期间，发给 AI 的消息会等在那里——模型没能装进内存。其余功能不受影响。",
   "asr-gateway": "在这期间，录音转写用不了。已经录好的内容不受影响。",
   ollama: "在这期间，AI 不会回复。你的对话记录都还在。",
   web: "在这期间，界面可能打不开。",

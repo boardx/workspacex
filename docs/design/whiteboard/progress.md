@@ -25,3 +25,9 @@
 - 缺注册身份与协调凭据；tick仍不能接入。正式UI/用例/API契约签核尚不存在，未代签。后续九轮未开始，完整需求未完成。
 - 首轮 PR CI 的 verify-control-plane 指出两条新增路由未登记。已用 lint-ui-wiring 的生成器补齐原型分类；现有 mock 上限仍为36，不将登录壳的API冒充白板数据接线。应用代码首轮 CI 全绿，清单修正须以新提交CI为准。
 - 第二轮 CI 发现 Board 浏览器 spec 尚未接入远端任务；已纳入现有 prototype-audit 配置，spec-gate 检查通过，使用 CI 同款配置本地执行 13 条用例。未增加测试豁免。
+
+### 持续迭代：全屏修正（#3923）
+
+- 用户要求继续至十轮完成并明确全屏。Board 使用保留身份校验的 fullscreen 壳模式，移除全局导航/版次条/移动导航占位，返回工作区入口指向 /projects。
+- 375/768/1280 浏览器边界断言与原有编辑回归 13/13 通过；组件/导航 19/19、TypeScript 与 lint 通过。证据见 ui-preview/fullscreen-verification.md。
+- 前序 PR #3915 已合入；本次只处理全屏，不据此提前宣称持久化或协作完成。协调 tick 仍因 COORD_GATEWAY_URL 未配置而失败；未冒用注册身份。
