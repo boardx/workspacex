@@ -67,8 +67,20 @@ describe("V46 导出 HTML 是自包含的，链接真的能点", () => {
     expect(markup).toContain('data-node-id="send"');
   });
 
-  it("文件名带项目名与日期", () => {
-    expect(prototypeExportHtmlFileName(PROJECT.name, NOW)).toBe("订阅管理-可点击原型-2026-09-07.html");
+  /**
+   * UIUX 第 17 轮：这条断言原来钉着的正是那个 bug。2026-09-23 用本机 Chromium 实测
+   * `<a download>` + blob URL：名字里只要有非 ASCII，Chromium 就把**整个名字连扩展名**
+   * 丢成 `download`——也就是说「订阅管理-可点击原型-….html」这个名字从来没有落到过
+   * 任何人的硬盘上，用户拿到的一直是一个叫 `download` 的无扩展名文件。
+   * 项目名里的中文留不住（退兜底 `design`），但「可点击原型」这四个字是我们自己塞进去的，
+   * 改成 ASCII 之后至少扩展名和日期是活的。规则单源见 `lib/export-file-name.ts`。
+   */
+  it("文件名是浏览器真的会留下的那种（纯 ASCII，带日期与扩展名）", () => {
+    const name = prototypeExportHtmlFileName(PROJECT.name, NOW);
+    expect(name).toBe("design-prototype-2026-09-07.html");
+    expect(name).toMatch(/^[\x20-\x7e]+$/);
+    // 项目名本身是 ASCII 时要留住它——兜底不是把所有名字都抹平。
+    expect(prototypeExportHtmlFileName("member-flow", NOW)).toBe("member-flow-prototype-2026-09-07.html");
   });
 });
 
