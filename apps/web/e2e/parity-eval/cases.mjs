@@ -8,7 +8,7 @@
  * 喂给**真的**设计详情页（`page.route` 夹具，同 `design-loop-fixtures.mjs` 的范式），然后在真浏览器里
  * 检查：这份产出我们**画不画得出来、能不能改、能不能交出去**。
  *
- * ## 为什么金标准里有契约还没有的原语（table / chart / select / radio / overlay / section / footer）
+ * ## 为什么金标准用到了 `PrototypeNodeType` 闭集之外的原语（table / chart / select / radio / overlay / section / footer）
  *
  * 这是刻意的。评测量的是**差距**，金标准写的是「目标长什么样」，不是「我们现在能表达什么」。
  * 如果按现有契约去写金标准，评测永远满分，那就什么都没量。基线时这些用例会渲染失败——
