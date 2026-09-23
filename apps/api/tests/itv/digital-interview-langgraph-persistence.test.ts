@@ -712,6 +712,59 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await recreated.checkpointer.end();
   });
 
+  it("completes a formal report when the model returns usable prose without the strict template", async () => {
+    const proseOnlyModel: ModelCallPort = {
+      complete: async (input) => {
+        const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
+          return model.complete(input);
+        }
+        return { text: JSON.stringify({ answers: (context.questions ?? []).map((question) => ({
+          questionId: question.questionId, answer: "基层训练、赛事衔接和长期资金需要同步设计，否则人才链路会断。",
+        })) }) };
+      },
+      completeStream: async (input, onDelta) => {
+        const context = JSON.parse(input.user) as { operation?: string };
+        if (context.operation !== "generate_interview_report") return proseOnlyModel.complete(input);
+        const events = [
+          { type: "meta", title: "江西足球协同发展决策研究", executiveSummary: "已有回答显示青训、赛事和资金机制需要一体化验证。" },
+          { type: "section", markdown: "专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束，必须用试点继续验证。" },
+        ];
+        const text = events.map((event) => JSON.stringify(event)).join("\n");
+        await onDelta(text);
+        return { text };
+      },
+    };
+    const setup = createRuntime(proseOnlyModel);
+    const created = await setup.runtime.createDraft({ orgId: ORG, actorId: USER, name: "正式报告兜底", tags: ["报告"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-report-prose" });
+    const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "江西足球协同发展路径", expectedVersion: 1, requestId: "topic-report-prose" });
+    const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version,
+      requestId: "experts-report-prose" });
+    await setup.runtime.confirmQuestions({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: experts.questionCandidates, expectedVersion: experts.version, requestId: "questions-report-prose" });
+    let ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    for (let attempt = 0; attempt < 30 && ready.expertRuns.some((run) => run.status === "running"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    }
+
+    const completed = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "generate-report-prose" });
+
+    expect(completed).toMatchObject({ status: "completed", reportGeneration: null,
+      report: { title: "江西足球协同发展决策研究", findings: expect.arrayContaining([
+        expect.objectContaining({ exploratory: true, sourceAnswerId: expect.stringContaining(":") }),
+      ]) } });
+    expect(completed.report!.markdown).toMatch(/^专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束/);
+    expect(completed.report!.markdown).toContain("当前只有一位专家的有效回答，不能判断跨角色共识或分歧");
+    for (const heading of DIGITAL_REPORT_REQUIRED_HEADINGS) expect(completed.report!.markdown).toContain(heading);
+    expect(completed.report!.findings).toHaveLength(3);
+    await setup.checkpointer.end();
+  });
+
   it("reuses the failed report row when report generation is retried", async () => {
     let reportAttempts = 0;
     let failRegeneration: "provider" | "validation" | null = null;
