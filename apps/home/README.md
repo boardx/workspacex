@@ -228,16 +228,17 @@ are served from outside China, this does not apply.
 
 ## Build steps
 
-Five generators. None is needed to *serve* the site — every output is
+Six generators. None is needed to *serve* the site — every output is
 committed — but all three are checked, so a stale one cannot ship.
 
 ```bash
 node scripts/build-css.mjs      # assets/css/*.css  -> assets/css/site.css
 node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html, sitemap.xml, robots.txt
-node scripts/build-brand.mjs    # brand.mjs + base.css  -> sprites, favicon.svg, site.webmanifest
+node scripts/build-brand.mjs    # brand.mjs + base.css  -> favicon.svg, social-card mark, manifests
 node scripts/build-og.mjs       # og-card.html      -> assets/img/og*.jpg + apple-touch-icon.png (needs playwright)
 node scripts/check-assets.mjs --update   # after either builder above, record the new sources
 node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
+node scripts/build-logo.mjs     # apps/web/public/workspacex-logo.png -> assets/img/logo.webp, cropped (needs playwright)
 ```
 
 The stylesheets are authored split by concern and shipped as one file: seven

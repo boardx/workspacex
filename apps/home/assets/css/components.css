@@ -262,9 +262,6 @@
    invisible text on nothing. Borders are the one thing forced-colors keeps, so
    the controls are given real ones. */
 @media (forced-colors: active) {
-  /* Same trap as print: the gradient behind the wordmark is a background
-     image, which this mode drops, and the transparent text fill survives. */
-  .brand__name { -webkit-text-fill-color: CanvasText; color: CanvasText; background: none; }
   .btn, .langswitch__btn, .chip, .nav__ghost {
     border: 1px solid ButtonBorder;
     forced-color-adjust: none;

@@ -111,23 +111,6 @@
 </head>
 <body>
 
-<!-- Shared brand mark. Defined once; both the header and footer logos <use> it,
-     so the gradient cannot be orphaned by editing one of them. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
-      <stop offset="0" style="stop-color:var(--c-1)"/>
-      <stop offset="0.52" style="stop-color:var(--c-2)"/>
-      <stop offset="1" style="stop-color:var(--c-3)"/>
-    </linearGradient>
-    <symbol id="mark" viewBox="0 0 32 32">
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
-    </symbol>
-  </defs>
-</svg>
 
 <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
 
@@ -138,8 +121,7 @@
   <div class="nav__inner">
     <div class="brand">
       <a class="brand__home" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
-        <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
-        <span class="brand__name">WorkspaceX</span>
+        <img class="brand__logo" src="assets/img/logo.webp" width="113" height="30" alt="">
       </a>
       <a class="brand__tag" href="#questions" data-i18n="nav.stage">Early access</a>
     </div>
@@ -995,8 +977,7 @@
     <div class="footer__grid">
       <div class="footer__col footer__col--brand">
         <a class="brand" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
-          <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
-          <span class="brand__name">WorkspaceX</span>
+          <img class="brand__logo" src="assets/img/logo.webp" width="113" height="30" alt="">
         </a>
         <p class="footer__blurb" data-i18n="footer.blurb">The open operating workspace for human + AI collaboration. A BoardX product.</p>
       </div>

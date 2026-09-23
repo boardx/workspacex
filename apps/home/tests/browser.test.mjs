@@ -670,7 +670,7 @@ for (const [lang, path] of LANGS) {
       /* Transparent text is the specific way this page can fail here: the
          wordmark is painted through background-clip, and a mode that drops
          background images while keeping the transparent fill erases it. */
-      invisibleText: [...document.querySelectorAll('h1, h2, h3, .brand__name, .btn, .nav__link')]
+      invisibleText: [...document.querySelectorAll('h1, h2, h3, .btn, .nav__link')]
         .filter((e) => {
           const cs = getComputedStyle(e);
           return cs.webkitTextFillColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none';
