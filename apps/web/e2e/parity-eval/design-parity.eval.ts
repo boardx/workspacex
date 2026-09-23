@@ -363,7 +363,7 @@ test.describe("D6 直接编辑", () => {
     await editBuyLabel(page, phone);
     await page.getByTestId("design-detail-undo").click();
     await expect(node(phone, "e02-buy")).toContainText("立即购买");
-    await page.getByTestId("design-detail-redo").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-redo").click({ timeout: 3000 });
     await expect(node(phone, "e02-buy")).toContainText("马上购买");
   });
 

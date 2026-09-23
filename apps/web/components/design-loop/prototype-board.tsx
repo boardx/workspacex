@@ -30,13 +30,15 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, onInlineEdit = null, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
+  /** 对标 R7：画板上同样可以双击改字。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   device: PrototypeDevicePreset;
   /** 迭代 14：横过来看，与画布同一个开关。 */
   landscape?: boolean;
@@ -277,6 +279,7 @@ export function PrototypeBoard({
                 root={prototype[i] ?? null}
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
+                onInlineEdit={onInlineEdit}
                 device={device}
                 landscape={landscape}
                 frameIndex={i}

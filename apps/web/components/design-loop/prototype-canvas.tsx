@@ -47,7 +47,66 @@ const SelectionCtx = React.createContext<{
   onNavigate: ((to: number) => void) | null;
   /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——屏上给一圈高亮，说清"它改了这里"。 */
   changed: ReadonlySet<string>;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set() });
+  /** 对标 R7（#3933）：画布上双击直接改字，改完回调 `(节点 id, 属性键, 新文字)`；`null` = 这块画布不给改。 */
+  onInlineEdit: ((id: string, key: string, value: string) => void) | null;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set(), onInlineEdit: null });
+
+/**
+ * 对标 R7（#3933）—— 画布上直接改字：编辑态双击一段文字（或按钮上的字）⇒ 就地可编辑，
+ * 回车 / 失焦提交、Esc 放弃、Shift+回车换行（只对多行文本）。
+ *
+ * 在这之前改一个字要：点选 → 看属性面板 → 找到「文案」框 → 改 → 点应用。Claude Design、Figma
+ * 都是双击就改；这是「直接编辑」里最常用的一下。提交走的是同一条 setProps（I-11），撤销照样能撤。
+ */
+function InlineText({ id, field, value, multiline = false, className, children }: {
+  id: string | undefined; field: string; value: string; multiline?: boolean; className?: string; children?: React.ReactNode;
+}): React.ReactElement {
+  const { mode, onInlineEdit, onSelect } = React.useContext(SelectionCtx);
+  const [editing, setEditing] = React.useState(false);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const can = mode === "edit" && onInlineEdit !== null && id !== undefined;
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!editing || el === null) return;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [editing]);
+  const commit = () => {
+    const next = (ref.current?.innerText ?? "").replace(/\n+$/, "");
+    setEditing(false);
+    if (can && next.trim() !== "" && next !== value) onInlineEdit(id, field, multiline ? next : next.replace(/\s*\n\s*/g, " "));
+  };
+  if (editing) {
+    return (
+      <span
+        ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-label="直接改这段文字（回车保存，Esc 放弃）"
+        data-testid="design-canvas-inline-edit"
+        className={cn(className, "cursor-text outline outline-2 outline-primary")}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape") { e.preventDefault(); setEditing(false); }
+          if (e.key === "Enter" && !(multiline && e.shiftKey)) { e.preventDefault(); commit(); }
+        }}
+      >
+        {value}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={className}
+      onDoubleClick={can ? (e) => { e.stopPropagation(); onSelect?.(id); setEditing(true); } : undefined}
+    >
+      {children ?? value}
+    </span>
+  );
+}
 
 /** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
 function useLinkTap(id: string | undefined, item?: number) {
@@ -631,7 +690,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             p.align === "center" && "text-center", p.align === "end" && "text-right")}
           data-proto="text" {...tap}
         >
-          {p.content}
+          {/* 整行都能双击（行内 span 只有文字那么宽，双击在字后面的空白上会落空）。 */}
+          <InlineText id={node.id} field="content" value={p.content} multiline className="block" />
         </p>
       );
     }
@@ -648,7 +708,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         >
           {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
           {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
-          {p.label}
+          <InlineText id={node.id} field="label" value={p.label} />
         </span>
       );
     }
@@ -1011,9 +1071,11 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   /**
    * issue #3340：这一页**规划了但没画出来**（分页生成里那一轮失败），不同于「整个项目还没有原型」。
    * 两种空长得一样、说同一句话，等于把「有 2 页没画出来」这个事实藏起来——用户看到的是
@@ -1080,7 +1142,7 @@ export function PrototypeCanvas({
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit }}>
     <ScaleCtx.Provider value={scale}>
     <div
       className={cn(

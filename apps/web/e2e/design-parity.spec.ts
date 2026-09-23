@@ -7,6 +7,8 @@
 import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
+// 撤销 / 重做要真的版本日志：用评测那份按真实契约应用 patch、带恢复的替身（只接管 eval-* 项目）。
+import { routeEvalEditing } from "./parity-eval/eval-api";
 
 test.use({ launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {}, acceptDownloads: true });
 
@@ -231,5 +233,47 @@ test.describe("R6 预览里控件是活的（#3933）", () => {
     await expect(phone.getByRole("tab")).toHaveCount(0);
     await phone.getByText("已收藏", { exact: true }).click();
     await expect(page.getByTestId("design-inspector")).toBeVisible();
+  });
+});
+
+const R7_PROJECT = {
+  ...R3_PROJECT, id: "eval-R7", name: "会员下单", frames: ["商品详情"], frameNotes: [""],
+  prototype: [{ id: "r7-root", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+    { id: "r7-title", type: "text", props: { content: "年度会员 · 专业版", variant: "title" } },
+    { id: "r7-tabs", type: "tabs", props: { items: ["详情", "规格"] } },
+    { id: "r7-agree", type: "checkbox", props: { label: "我已阅读并同意会员协议" } },
+  ] }],
+};
+
+test.describe("R7 直接编辑（#3933）", () => {
+  test("画布上双击改字 → 撤销 → 重做；图层里把勾选拖到 tabs 上方", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    const projects = await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await routeEvalEditing(page, projects);
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+
+    await phone.getByText("年度会员 · 专业版").dblclick();
+    await phone.getByTestId("design-canvas-inline-edit").waitFor();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("年度会员 · 旗舰版");
+    await page.keyboard.press("Enter");
+    await expect(phone).toContainText("年度会员 · 旗舰版");
+
+    await expect(page.getByTestId("design-detail-redo")).toBeDisabled();
+    await page.getByTestId("design-detail-undo").click();
+    await expect(phone).toContainText("年度会员 · 专业版");
+    await page.getByTestId("design-detail-redo").click();
+    await expect(phone).toContainText("年度会员 · 旗舰版");
+
+    await page.getByTestId("design-layer-r7-agree").dragTo(page.getByTestId("design-layer-r7-tabs"));
+    await expect.poll(async () => {
+      const a = await phone.locator('[data-node-id="r7-agree"]').boundingBox();
+      const t = await phone.locator('[data-node-id="r7-tabs"]').boundingBox();
+      return a !== null && t !== null && a.y < t.y;
+    }).toBe(true);
   });
 });

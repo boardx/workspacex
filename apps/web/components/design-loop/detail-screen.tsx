@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
-import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
+import { dropBeforeOps, duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
@@ -400,6 +400,9 @@ export function DesignDetailScreen({
     }
   };
 
+  /** 对标 R7：画布上双击改字——同一条 setProps（I-11），撤销照样能撤。 */
+  const inlineEdit = (id: string, key: string, value: string) => void runNodeOps([{ op: "setProps", id, props: { [key]: value } }], "改这段文字");
+
   /**
    * 迭代 16：页级动作。契约的 `addScreen`/`removeScreen` 从迭代 12 起就在，
    * 但**从来没有 UI 够得着**——模型能加删页，用户不能。这里接上。
@@ -434,17 +437,50 @@ export function DesignDetailScreen({
    * 复用既有的 `restorePrototypeVersion`，不另造一条回滚路径。
    */
   const [undoing, setUndoing] = React.useState(false);
+  /**
+   * 对标 R7（#3933）：重做 = 撤掉刚才那次撤销。栈里放的是**撤销之前那一版**的 id；恢复它就是重做。
+   * 撤销/重做之外的任何改动（对话、属性面板、画布上改字、拖拽）都会让栈失效——在那之后「重做」
+   * 会把别人的新改动一起盖掉。判据是 `updatedAt`：撤销/重做自己写回时记下它，别的写回一来就对不上。
+   */
+  const [redoStack, setRedoStack] = React.useState<readonly string[]>([]);
+  const ownStamp = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (project !== null && project.updatedAt !== ownStamp.current) setRedoStack([]);
+  }, [project?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const restoreAs = async (versionId: string) => {
+    if (project === null) return null;
+    const out = await restorePrototypeVersion(project.id, versionId);
+    ownStamp.current = out.project.updatedAt;
+    setLoad({ kind: "ready", project: out.project });
+    setSelectedId(null);
+    return out;
+  };
+  const redo = async () => {
+    const id = redoStack.at(-1);
+    if (id === undefined || project === null) return;
+    setUndoing(true);
+    try {
+      await restoreAs(id);
+      setRedoStack((st) => st.slice(0, -1));
+    } catch (err) {
+      setChatError(`没能重做（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    } finally {
+      setUndoing(false);
+    }
+  };
   const undoLast = async () => {
     if (project === null) return;
     setUndoing(true);
     try {
       const { items: versions } = await listPrototypeVersions(project.id);
       // 版本按 seq 升序；"上一版"是倒数第二个——最后一个就是现在这份。
-      const target = [...versions].sort((a, b) => a.seq - b.seq).at(-2);
+      const sorted = [...versions].sort((a, b) => a.seq - b.seq);
+      const target = sorted.at(-2);
       if (target === undefined) { setChatError("没有可回退的版本了。"); window.setTimeout(() => setChatError(null), 3000); return; }
-      const out = await restorePrototypeVersion(project.id, target.id);
-      setLoad({ kind: "ready", project: out.project });
-      setSelectedId(null);
+      const current = sorted.at(-1)!;
+      await restoreAs(target.id);
+      setRedoStack((st) => [...st, current.id]);
     } catch (err) {
       setChatError(`没能撤销（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
@@ -553,6 +589,12 @@ export function DesignDetailScreen({
         return;
       }
       if (canvasMode !== "edit") return;
+      // 对标 R7：⌘Z 撤销、⌘⇧Z 重做（与 Figma 一致）。不需要选中节点。
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        void (e.shiftKey ? redo() : undoLast());
+        return;
+      }
       if (e.key === "Escape") { setSelectedId(null); return; }
       if (selectedId === null || project === null) return;
       const tree = project.prototype;
@@ -1310,6 +1352,14 @@ export function DesignDetailScreen({
                 >
                   {undoing ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Undo2 aria-hidden className="h-3 w-3" />} 撤销
                 </button>
+                {/* 对标 R7：重做——只有刚撤销过、且之后没有别的改动时才可用。 */}
+                <button
+                  type="button" onClick={() => void redo()} disabled={undoing || preview !== null || redoStack.length === 0}
+                  data-testid="design-detail-redo" title={redoStack.length === 0 ? "没有可以重做的撤销" : "重做（⌘⇧Z）"}
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+                >
+                  <Redo2 aria-hidden className="h-3 w-3" /> 重做
+                </button>
                 <button
                   type="button"
                   // 迭代 24：点「历史」就是要看历史——窄屏下顺手把收起的那一栏打开，
@@ -1415,6 +1465,7 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      onInlineEdit={preview === null ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       links={frameLinks}
@@ -1451,6 +1502,7 @@ export function DesignDetailScreen({
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      onInlineEdit={preview === null ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       /**
@@ -1524,6 +1576,7 @@ export function DesignDetailScreen({
                         root={project.prototype[Math.min(frame, project.frames.length - 1)] ?? null}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
+                        onMove={(dragged, target) => void runNodeOps(dropBeforeOps(project.prototype, dragged, target), "移动这个节点")}
                       />
                     )}
                     {focus !== null && preview === null && (
