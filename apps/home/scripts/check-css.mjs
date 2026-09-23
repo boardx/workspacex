@@ -121,6 +121,29 @@ for (const m of css.matchAll(/^\s*(--bp-[\w-]+):\s*([^;]+);/gm)) {
     bpLeaks.push(`${m[1]}: ${value} — no media query uses it`);
   }
 }
+/* --- the CJK tail of the font stacks ------------------------------------
+   Both real faces are latin-only, so every Han character on the Chinese page
+   is resolved by the fallback list. A platform missing from it does not
+   degrade to a different sans — it degrades to the browser default, which on
+   a Chinese Windows is SimSun, a serif. Nothing on the English page changes
+   when this list is wrong, which is exactly why it went unnoticed: these
+   stacks named no Windows face at all, and named Noto by its WEB font name
+   rather than the one Linux and Android install. */
+const CJK_PLATFORMS = [
+  ['macOS / iOS', ['PingFang SC', 'Heiti SC']],
+  ['older macOS', ['Hiragino Sans GB']],
+  ['Windows', ['Microsoft YaHei', 'SimHei']],
+  ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
+];
+const cjkGaps = [];
+for (const m of css.matchAll(/^\s*(--font-(?:display|body)):\s*([^;]+);/gm)) {
+  for (const [platform, families] of CJK_PLATFORMS) {
+    if (!families.some((f) => m[2].includes(`"${f}"`))) {
+      cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
+    }
+  }
+}
+report('font stacks with no CJK face for a platform', cjkGaps);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);

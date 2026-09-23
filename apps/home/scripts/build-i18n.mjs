@@ -104,8 +104,14 @@ function build(page) {
   out = out.replace(/(<meta name="description" content=")[^"]*(")/, `$1${escapeHtml(META.zh.description)}$2`);
   out = out.replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${escapeHtml(META.zh.ogTitle)}$2`);
   out = out.replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${escapeHtml(META.zh.ogDescription)}$2`);
-  out = out.replace('<meta property="og:locale" content="en">', '<meta property="og:locale" content="zh_Hans">');
-  out = out.replace('<meta property="og:locale:alternate" content="zh_Hans">', '<meta property="og:locale:alternate" content="en">');
+  /* og:locale is language_TERRITORY — Open Graph's own grammar, and the set
+     the social crawlers accept is a list of territories (zh_CN, zh_TW,
+     zh_HK), not of scripts. `zh_Hans` is the right answer to a different
+     question: it is what hreflang wants, and it was pasted into this slot.
+     The two standards disagree and the page now says each one in its own
+     place — hreflang stays zh-Hans above, og:locale is zh_CN here. */
+  out = out.replace('<meta property="og:locale" content="en_US">', '<meta property="og:locale" content="zh_CN">');
+  out = out.replace('<meta property="og:locale:alternate" content="zh_CN">', '<meta property="og:locale:alternate" content="en_US">');
   out = out.replace(`<link rel="canonical" href="${SITE}${page.enPath}">`, `<link rel="canonical" href="${SITE}${page.path}">`);
   out = out.replace(`<meta property="og:url" content="${SITE}${page.enPath}">`, `<meta property="og:url" content="${SITE}${page.path}">`);
 

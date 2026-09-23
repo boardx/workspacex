@@ -109,6 +109,26 @@ for (const page of ['index.html', 'privacy.html', '404.html', 'zh/index.html', '
   }
 }
 
+/* og:locale is language_TERRITORY. hreflang is language-Script. They are two
+   grammars for the same idea, and the page had the hreflang answer sitting in
+   the og slot: `zh_Hans`, which no social crawler's locale list contains —
+   they take zh_CN, zh_TW, zh_HK. `en` was the same mistake in the other
+   direction. Nothing renders differently, which is why it survived: the card
+   is built on somebody else's machine. */
+for (const page of ['index.html', 'privacy.html', 'zh/index.html', 'zh/privacy.html']) {
+  const html = readFileSync(join(root, page), 'utf8');
+  for (const m of html.matchAll(/<meta property="(og:locale(?::alternate)?)" content="([^"]*)"/g)) {
+    refs += 1;
+    if (!/^[a-z]{2}_[A-Z]{2}$/.test(m[2])) {
+      problems.push(`${page}: ${m[1]} is "${m[2]}" — og:locale is language_TERRITORY (en_US, zh_CN), not a hreflang tag`);
+    }
+  }
+  /* And the two grammars must not be confused the other way either. */
+  for (const m of html.matchAll(/hreflang="([^"]*)"/g)) {
+    if (/_/.test(m[1])) problems.push(`${page}: hreflang="${m[1]}" uses an underscore — hreflang is language-Script`);
+  }
+}
+
 /* The sitemap is what a crawler is told exists. A <loc> pointing at a page
    that does not, or a page that exists and is absent from the sitemap, are
    both silent: nothing on the site looks any different either way. */

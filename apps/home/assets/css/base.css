@@ -49,10 +49,24 @@
   /* The `… Fallback` faces are metric-matched stand-ins declared in fonts.css;
      they hold the exact line boxes the real faces will occupy, so the swap
      changes letterforms without moving anything. */
+  /* The CJK tail is not decoration. Both real faces are latin-only, so every
+     Han character on the Chinese page is resolved by this list — and it named
+     PingFang (macOS/iOS), Hiragino Sans GB (older macOS) and "Noto Sans SC",
+     which is the WEB font's name. It named nothing that ships on Windows and
+     nothing under the name Linux and Android actually install. A Chinese
+     reader on Windows therefore fell through to `sans-serif`, which on a
+     Chinese Windows is SimSun — a SERIF face, in a design that has none.
+     Microsoft YaHei and Noto Sans CJK SC also carry a real Bold, which is the
+     other half of round 35: synthesis was switched off to stop Han glyphs
+     blotting, and the way to get weight back is to name a font that has it. */
   --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  sans-serif;
   --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  sans-serif;
   --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   /* ---- radius scale ------------------------------------------------------
