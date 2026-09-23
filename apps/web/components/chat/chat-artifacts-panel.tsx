@@ -68,14 +68,8 @@ export function ChatArtifactsPanel({
           </Button>
         </div>
       ) : null}
-      {/* TW-P1-4 的「来源」锚点。⚠ 它**仍然挂在列表包裹 div 上**，也就是说列表在
-            就算「来源齐」，哪怕每一条都写着「未挂出处」——与被我这轮修掉的「预览」
-            「版本」两颗是同一个毛病。这轮没修它，因为把它搬到逐条的出处行上会让同名
-            锚点出现 N 次，Playwright 的 `getByTestId` 是 strict 的，当场撞 violation
-            （并行会话今天刚因为「组织名出现两次」红过同一类）。要把它做实，得先让
-            详情态显示这一份产物自己的出处，那是下一轮的活，不是改个 testid 的事。 */}
       {artifacts ? (
-        <div className="flex flex-col gap-2 p-3" data-testid="chat-task-workbench-artifact-sources">
+        <div className="flex flex-col gap-2 p-3" data-testid="chat-artifacts-list">
           {artifacts.items.length === 0 ? (
             <p className="text-12 text-muted-foreground" data-testid="chat-artifacts-empty">
               这条线程还没有落地的产物。

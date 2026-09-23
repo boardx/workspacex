@@ -78,9 +78,10 @@ describe("产物列表点击查看（issue #2099）", () => {
      * 点开之前不该有预览，点开之后才该有。
      */
     expect(screen.queryByTestId("chat-task-workbench-artifact-preview")).toBeNull();
-    // ⚠「来源」这颗锚点仍然挂在列表包裹 div 上（结构性，不证明任何出处存在）。
-    // 这轮没修，理由与下一步见 chat-artifacts-panel.tsx 那段注释——不在这里假装它已经实了。
-    expect(screen.getByTestId("chat-task-workbench-artifact-sources")).toBeVisible();
+    // 「来源」锚点 2026-09-23（R8）搬进了**右栏详情态**——它陈述的是某一份产物挂没挂
+    // 出处，而这个 Harness 只渲染列表 + 模态，没有详情态，所以这里本来就不该有它。
+    // 它的判据在 tests/ui/artifact-acceptance-anchors.test.tsx。
+    expect(screen.queryByTestId("chat-task-workbench-artifact-sources")).toBeNull();
 
     fireEvent.click(screen.getByTestId("chat-artifact-art-1"));
     expect(getThreadArtifactSource).toHaveBeenCalledWith("thr-1", "art-1", null, "b");

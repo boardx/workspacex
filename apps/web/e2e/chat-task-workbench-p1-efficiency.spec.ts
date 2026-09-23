@@ -182,8 +182,10 @@ test("TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持
  * 两者都要**先点开一份产物**才存在，所以这里多了一次点击。这不是把门放松：
  * 旧写法在预览坏掉时仍然全绿，新写法会红。
  *
- * ⚠「来源」那颗仍然是结构性的（挂在列表包裹 div 上），见
- * `components/chat/chat-artifacts-panel.tsx` 那段注释——这里不假装它已经实了。
+ * 2026-09-23 R8 补上「来源」：它也搬进详情态，陈述的是**这一份**产物挂没挂出处
+ * （`hasSource` 逐产物不同，静态容器做不到这一点），并可跳回落地它的那条消息。
+ * ⚠ 仍然没有逐条引用清单——citations 在服务端有，但没有按产物读回的接口。
+ * 这一条验的是「有没有挂出处」，不是「出处有哪些」。
  */
 test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async ({ page }) => {
   await openFreshThread(page);
@@ -196,9 +198,8 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
    * 不是在这里猜的——真栈跑一次十四分钟，猜错的代价是一轮。
    * 所以按两态分别验：列表态三件，详情态一件。
    */
-  // ① 列表态：来源 / 版本 / 导出
+  // ① 列表态：版本 / 导出
   for (const [suffix, what] of [
-    ["sources", "来源"],
     ["versions", "版本"],
     ["export", "导出"],
   ] as const) {
@@ -211,7 +212,8 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
     );
   }
 
-  // ② 详情态：预览。锚点现在挂在**真渲染出来的产物正文**上，
+  // ② 详情态：预览 + 来源。两颗锚点现在都挂在**这一份产物自己的事实**上
+  //    （正文渲染出来了 / 这一份挂没挂出处），
   //    所以必须先打开一份；`^=chat-artifact-` 不会撞上 `chat-artifacts-panel`
   //    （那里 artifact 后面是 s 不是 -）。
   const firstArtifact = page.locator('[data-testid^="chat-artifact-"]').first();
@@ -225,6 +227,13 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
     "chat-task-workbench-artifact-preview",
     "TW-P1-4",
     "点开产物后没有渲染出正文（预览能力不在，而不是标题不在）",
+    30_000,
+  );
+  await expectAnchor(
+    page,
+    "chat-task-workbench-artifact-sources",
+    "TW-P1-4",
+    "点开的这一份产物没有陈述出处（此前这颗锚点挂在列表包裹 div 上，列表在就算齐）",
     30_000,
   );
 });

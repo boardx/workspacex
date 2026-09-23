@@ -29,7 +29,8 @@ import {
   EMPTY_ARTIFACT_TABS, activateTab, activeTab as activeArtifactTab, closeTab, openTab,
   type ArtifactTab, type ArtifactTabState,
 } from "@/lib/chat-workbench/artifact-tabs";
-import { ArrowLeft, Check, Copy, Download, Maximize2, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, CornerUpLeft, Download, Maximize2, X } from "lucide-react";
+import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 
 const mobileQuery = "(max-width: 767px)";
 /** 持久化用的面板 id。每条侧栏一把 key，右栏与将来的左栏不共用一个宽度。 */
@@ -778,6 +779,7 @@ function ArtifactDetail({
           })}
         </div>
       ) : null}
+      <ArtifactSourceLine item={item} />
       <ChatArtifactView
         /*
          * 窄栏守卫：右栏可以被拖到 240px，代码块与表格在那个宽度下会横向溢出，
@@ -793,5 +795,52 @@ function ArtifactDetail({
         onLoaded={setDoc}
       />
     </div>
+  );
+}
+
+/**
+ * 这一份产物**自己的出处** —— TW-P1-4 的「来源」锚点。
+ *
+ * ## 它替换了什么（2026-09-23，R7 留下的那条缺口）
+ *
+ * `-sources` 原先挂在产物**列表的包裹 div** 上：列表在就算「来源齐」，哪怕每一条都
+ * 写着「未挂出处」。R7 修掉了同类的「预览」「版本」两颗，这颗当时没修——搬到逐条
+ * 出处行上会让同名锚点出现 N 次，而 Playwright 的 `getByTestId` 是 strict 的。
+ *
+ * 详情态一次只显示一份产物，所以锚点在这里天然唯一，而且它陈述的是**这一份**的出处：
+ *   · `hasSource` 逐产物不同（列表标题那种静态文字做不到这一点，所以它不可证伪）；
+ *   · `messageId` 是 `listThreadArtifacts` 契约里就有的回链（与 `provenanceBacklink
+ *     .messageId` 同一事实的两个读投影），可以真的跳回那条消息。
+ *
+ * ⚠ 仍然**没有**逐条引用清单（citations 在服务端 `findCitationsForMessage` 里，
+ * 但没有按产物读回的接口）。所以这条线说的是「有没有挂出处 + 出处在哪条消息」，
+ * 不是「出处有哪些」。不在文案上暗示后者。
+ */
+function ArtifactSourceLine({ item }: { readonly item: ArtifactTab }): React.JSX.Element {
+  const [missing, setMissing] = React.useState(false);
+  const messageId: unknown = (item as { messageId?: unknown }).messageId;
+  const canJump = typeof messageId === "string" && messageId !== "";
+
+  return (
+    <p
+      data-testid="chat-task-workbench-artifact-sources"
+      className="flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground"
+    >
+      <span>{item.hasSource ? "已挂出处" : "未挂出处"}</span>
+      {canJump ? (
+        <button
+          type="button"
+          data-testid="chat-inspector-artifact-source-jump"
+          onClick={() => { setMissing(!scrollToAnchor("data-message-id", messageId)); }}
+          className="inline-flex items-center gap-0.5 rounded px-1 text-primary hover:bg-accent"
+        >
+          <CornerUpLeft className="size-3" aria-hidden />
+          跳到原消息
+        </button>
+      ) : null}
+      {/* 找不到就说出来。静默失败会让用户以为这颗按钮坏了——原消息可能只是还没加载
+          进当前这一页（对话列表是分页的），那是两件不同的事。 */}
+      {missing ? <span data-testid="chat-inspector-artifact-source-missing">原消息不在当前视图里</span> : null}
+    </p>
   );
 }
