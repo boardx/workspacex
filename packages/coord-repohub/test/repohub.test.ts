@@ -229,19 +229,38 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
   });
 
-  // 显式超时 30s（默认 5s）：这条要顺序打 125 次 DO 往返，是本文件最慢的一条，
-  // 本机独跑 ~0.8s、整文件内 ~1.4s，**没有任何余量**。2026-09-23 在 CI 上
-  // 5017ms 超时红过一次（同一份文件那次跑了 37s，本机 6.7s ⇒ runner 慢约 5.5 倍）。
-  // 本机加 1.5 倍 CPU 竞争即量到 0.8s → 1.6s，纯粹是机器负载，不是被测行为变慢。
-  // 断言一条没动：慢机器上判失败的是机器，不是这段代码。
+  // 显式超时 30s（默认 5s）来自 #3907，这里保留不动——它当余量用。
+  // #3907 写它时，这条还是顺序打 125 次 DO 往返、本机独跑 ~0.9s 且毫无余量，
+  // 在 CI 上 5017ms 超时红过。本 PR 换掉了前置数据的打法（本机 ~26ms），
+  // 30s 实际不会再被用到；但慢机器上留一道余量没有坏处，所以不撤 #3907 的决定。
   it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
     const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
-    for (const k of keys.filter((_, i) => i % 2 === 0)) {
+    const recorded = keys.filter((_, i) => i % 2 === 0);
+    // 本条断言的是 **outboxDelivered 的分块查回**（键数 > OUTBOX_QUERY_CHUNK），
+    // 那 125 条登记只是前置数据。早先逐条走 HTTP 登记 = 125 次 worker 请求派发，
+    // 本地 ~0.9s，CI 上超过 vitest 默认 5s testTimeout 而红（#3826 实测 8 次）。
+    // 现在只用公开接口登记首尾两条（证明公开写入与下面直插同一张表、能被同一条查询查回），
+    // 其余直插存储——与本文件「保留窗口」那条用例同样的 runInDurableObject + SQL 写法。
+    // outboxRecord 自身的行为（幂等 / 422 / 保留窗口）由本 describe 的另外两条用例覆盖。
+    const viaApi = [recorded[0]!, recorded.at(-1)!];
+    for (const k of viaApi) {
       expect((await post("/projector/outbox/record", { key: k })).status).toBe(200);
     }
+    const bulk = recorded.filter((k) => !viaApi.includes(k));
+    await runInDurableObject(
+      env.REPOHUB.get(env.REPOHUB.idFromName("boardx/workspacex")),
+      async (_i: unknown, state: DurableObjectState) => {
+        for (const k of bulk) {
+          state.storage.sql.exec(
+            `INSERT INTO projection_outbox (idem_key, delivered_at) VALUES (?,?)`,
+            k, new Date().toISOString(),
+          );
+        }
+      },
+    );
     const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
       .json<{ delivered: string[] }>();
-    expect(delivered.sort()).toEqual(keys.filter((_, i) => i % 2 === 0).sort());
+    expect(delivered.sort()).toEqual(recorded.slice().sort());
   }, 30_000);
 
   it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
