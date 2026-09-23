@@ -160,9 +160,9 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     const phone = await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 });
     await expect.poll(() => radiusPx(node(phone, "e08-book"))).toBeLessThanOrEqual(2);
-    await page.getByTestId("design-detail-radius-round").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-radius-round").click();
     await expect.poll(() => radiusPx(node(phone, "e08-book"))).toBeGreaterThanOrEqual(14);
   });
 
@@ -171,10 +171,10 @@ test.describe("D2 设计系统", () => {
     const phone = await single(page);
     const gapOf = () => phone.locator('[data-proto="stack"]').first().evaluate((el) => parseFloat(getComputedStyle(el).rowGap) || 0);
     await appearance(page);
-    await page.getByTestId("design-detail-density-compact").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-density-compact").click({ timeout: 3000 });
     await page.waitForTimeout(200);
     const compact = await gapOf();
-    await page.getByTestId("design-detail-density-comfortable").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-density-comfortable").click();
     await expect.poll(gapOf).toBeGreaterThan(compact + 3);
   });
 
@@ -191,7 +191,7 @@ test.describe("D2 设计系统", () => {
     await openCase(page, "E08");
     await single(page);
     await appearance(page);
-    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-radius-sharp").click({ timeout: 3000 });
     await page.waitForTimeout(500);
     await page.reload();
     await page.getByTestId("design-detail-canvas").waitFor();

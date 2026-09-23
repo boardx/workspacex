@@ -28,7 +28,7 @@ const project: dw.DesignProject = {
   template: "wireframe",
   theme: "dark",
   accent: "neutral",
-  tokens: { brand: null, font: "sans" },
+  tokens: { brand: null, font: "sans", radius: "default", density: "default" },
   tags: [],
   share: null,
   refImages: [],
@@ -447,8 +447,8 @@ describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
 /* ─────────────── 对标 R1（#3933）：设计 token——任意品牌色与字体 ─────────────── */
 describe("DesignTokens：品牌色与字体", () => {
   it("缺省值 = 这个字段之前的行为（不覆盖强调色、跟随产品字体）；老数据没有这个字段也能读", () => {
-    expect(dw.DesignTokens.parse({})).toEqual({ brand: null, font: "sans" });
-    expect(dw.DEFAULT_DESIGN_TOKENS).toEqual({ brand: null, font: "sans" });
+    expect(dw.DesignTokens.parse({})).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
+    expect(dw.DEFAULT_DESIGN_TOKENS).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
     const legacy = dw.DesignProject.innerType().shape.tokens.parse(undefined);
     expect(legacy).toEqual(dw.DEFAULT_DESIGN_TOKENS);
   });

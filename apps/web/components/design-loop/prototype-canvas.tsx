@@ -147,6 +147,47 @@ const TEXT_VARIANT: Record<"title" | "subtitle" | "body" | "caption" | "label", 
 const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
   none: "rounded-none", sm: "rounded-sm", md: "rounded-control", lg: "rounded-card", full: "rounded-full",
 };
+/**
+ * 对标 R2（#3933）：项目级圆角 × 节点圆角层级 ⇒ 类名。只落在既有的几档命名圆角上（lint-design U11），
+ * `full`（胶囊/圆形）不随项目气质变——头像和开关本来就是圆的，「直角风」不该把它们也削成方块。
+ */
+const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
+  sharp: { none: "rounded-none", sm: "rounded-none", md: "rounded-none", lg: "rounded-none", full: "rounded-full" },
+  default: RADIUS,
+  round: { none: "rounded-none", sm: "rounded-control", md: "rounded-container", lg: "rounded-container", full: "rounded-full" },
+};
+/**
+ * 对标 R2：项目级密度 × 节点间距层级 ⇒ Tailwind 间距档位。`default` 行与上面的 GAP/PAD 逐字相同。
+ * 紧凑与宽松各挪一档，`none` 始终是 0（「这里不要间距」是结构，不是气质）。
+ */
+const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+  compact: { none: "gap-0", sm: "gap-0.5", md: "gap-1", lg: "gap-2" },
+  default: GAP,
+  comfortable: { none: "gap-0", sm: "gap-2", md: "gap-3", lg: "gap-6" },
+};
+const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+  compact: { none: "p-0", sm: "p-0.5", md: "p-1", lg: "p-2" },
+  default: PAD,
+  comfortable: { none: "p-0", sm: "p-2", md: "p-3", lg: "p-6" },
+};
+const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+  compact: { none: "h-0", sm: "h-0.5", md: "h-2", lg: "h-4" },
+  default: SPACE,
+  comfortable: { none: "h-0", sm: "h-2", md: "h-4", lg: "h-8" },
+};
+
+/** 项目级圆角 / 密度，由画布根下发给每个节点（与选中态同一种传法：context，不逐层透传 props）。 */
+const ScaleCtx = React.createContext<{ readonly radius: designWorkbench.PrototypeRadiusScale; readonly density: designWorkbench.PrototypeDensity }>({ radius: "default", density: "default" });
+function useScale() {
+  const { radius, density } = React.useContext(ScaleCtx);
+  return {
+    r: (level: "none" | "sm" | "md" | "lg" | "full") => RADIUS_BY_SCALE[radius][level],
+    gap: (level: "none" | "sm" | "md" | "lg") => GAP_BY_DENSITY[density][level],
+    pad: (level: "none" | "sm" | "md" | "lg") => PAD_BY_DENSITY[density][level],
+    space: (level: "none" | "sm" | "md" | "lg") => SPACE_BY_DENSITY[density][level],
+  };
+}
+
 const BTN_SIZE: Record<"sm" | "md" | "lg", string> = {
   sm: "h-6 px-2 text-11", md: "h-8 px-3 text-12", lg: "h-10 px-5 text-13",
 };
@@ -324,9 +365,10 @@ const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square
  * 仍然是占位（没有真图），但一眼能看出是什么。
  */
 function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: "image" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const sc = useScale();
   const p = node.props;
   const kind = p.kind ?? "photo";
-  const box = cn("relative flex w-full items-center justify-center overflow-hidden rounded-control bg-panel text-muted-foreground", RATIO[p.ratio ?? "video"]);
+  const box = cn("relative flex w-full items-center justify-center overflow-hidden bg-panel text-muted-foreground", sc.r("md"), RATIO[p.ratio ?? "video"]);
   if (kind === "avatar") {
     return (
       <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap} aria-label={p.alt}>
@@ -359,7 +401,7 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
       {kind === "video" && (
         <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-inverse/40"><Play className="h-4 w-4 text-background-foreground" /></span>
       )}
-      {kind === "logo" && <span aria-hidden className="h-8 w-8 rounded-control bg-primary/30" />}
+      {kind === "logo" && <span aria-hidden className={cn("h-8 w-8 bg-primary/30", sc.r("md"))} />}
       {kind === "illustration" && (
         <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
           <circle cx="42" cy="26" r="14" className="fill-primary/25" />
@@ -374,6 +416,7 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
 
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
   const tap = useTap(node);
+  const sc = useScale();
   switch (node.type) {
     case "stack": {
       const p = node.props ?? {};
@@ -381,7 +424,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         <div
           className={cn(
             "flex min-h-0", p.direction === "row" ? "flex-row" : "flex-col",
-            GAP[p.gap ?? "sm"], PAD[p.padding ?? "none"],
+            sc.gap(p.gap ?? "sm"), sc.pad(p.padding ?? "none"),
             // 未指定 align：纵向拉伸子项占满宽度（手机屏里的行天然通栏），横向居中对齐。
             p.align !== undefined ? ALIGN[p.align] : p.direction === "row" ? "items-center" : "items-stretch",
             p.fill === true && "flex-1 overflow-y-auto",
@@ -398,7 +441,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       const p = node.props;
       return (
         <div
-          className={cn("flex flex-col gap-1.5 border border-border bg-panel", RADIUS[p?.radius ?? "lg"], PAD[p?.padding ?? "md"])}
+          className={cn("flex flex-col gap-1.5 border border-border bg-panel", sc.r(p?.radius ?? "lg"), sc.pad(p?.padding ?? "md"))}
           data-proto="card" {...tap}
         >
           {node.props?.title !== undefined && <p className="text-12 font-medium">{node.props.title}</p>}
@@ -432,7 +475,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         <span
           className={cn(
             "inline-flex shrink-0 items-center justify-center font-medium",
-            BTN_SIZE[p.size ?? "md"], RADIUS[p.radius ?? "md"],
+            BTN_SIZE[p.size ?? "md"], sc.r(p.radius ?? "md"),
             BUTTON_VARIANT[p.variant ?? "primary"], p.full === true && "w-full",
           )}
           data-proto="button" {...tap}
@@ -448,7 +491,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <div className="flex w-full flex-col gap-1" data-proto="input" {...tap}>
           {p.label !== undefined && <span className="text-10 text-muted-foreground">{p.label}</span>}
-          <div className={cn("w-full rounded-control border border-input bg-background px-2 text-12", p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center")}>
+          <div className={cn("w-full border border-input bg-background px-2 text-12", sc.r("md"), p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center")}>
             {p.value !== undefined && p.value !== "" ? <span className="truncate">{p.value}</span> : <span className="truncate text-muted-foreground">{p.placeholder ?? ""}</span>}
           </div>
         </div>
@@ -495,7 +538,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     case "divider":
       return <hr className="w-full border-border" data-proto="divider" {...tap} />;
     case "spacer":
-      return <div aria-hidden className={cn("w-full shrink-0", SPACE[node.props?.size ?? "md"])} data-proto="spacer" {...tap} />;
+      return <div aria-hidden className={cn("w-full shrink-0", sc.space(node.props?.size ?? "md"))} data-proto="spacer" {...tap} />;
     case "tabs": {
       const active = node.props.active ?? 0;
       return (
@@ -532,7 +575,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     case "grid": {
       const p = node.props ?? {};
       return (
-        <div className={cn("grid w-full", p.columns === 3 ? "grid-cols-3" : "grid-cols-2", GAP[p.gap ?? "sm"])} data-proto="grid" {...tap}>
+        <div className={cn("grid w-full", p.columns === 3 ? "grid-cols-3" : "grid-cols-2", sc.gap(p.gap ?? "sm"))} data-proto="grid" {...tap}>
           {node.children.map((c, i) => <Node key={i} node={c} />)}
         </div>
       );
@@ -595,7 +638,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       );
     case "stat":
       return (
-        <div className="flex min-w-0 flex-col gap-0.5 rounded-card border border-border bg-panel p-2" data-proto="stat" {...tap}>
+        <div className={cn("flex min-w-0 flex-col gap-0.5 border border-border bg-panel p-2", sc.r("lg"))} data-proto="stat" {...tap}>
           <span className="truncate text-10 text-muted-foreground">{node.props.label}</span>
           <span className="truncate text-16 font-semibold">{node.props.value}</span>
           {node.props.delta !== undefined && (
@@ -605,10 +648,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       );
     case "hero":
       return (
-        <div className="flex w-full flex-col gap-1.5 rounded-card bg-primary/10 p-3" data-proto="hero" {...tap}>
+        <div className={cn("flex w-full flex-col gap-1.5 bg-primary/10 p-3", sc.r("lg"))} data-proto="hero" {...tap}>
           <span className="text-16 font-semibold leading-tight">{node.props.title}</span>
           {node.props.subtitle !== undefined && <span className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
-          {node.props.cta !== undefined && <span className="mt-1 inline-flex h-8 w-fit items-center rounded-control bg-primary px-3 text-12 font-medium text-primary-foreground">{node.props.cta}</span>}
+          {node.props.cta !== undefined && <span className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
         </div>
       );
   }
@@ -744,8 +787,11 @@ export function PrototypeCanvas({
 }) {
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
+  // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
+  const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
+    <ScaleCtx.Provider value={scale}>
     <div
       className={cn(
         // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
@@ -842,6 +888,7 @@ export function PrototypeCanvas({
       )}
       {device.chrome !== "browser" && <HomeIndicator />}
     </div>
+    </ScaleCtx.Provider>
     </SelectionCtx.Provider>
   );
 }

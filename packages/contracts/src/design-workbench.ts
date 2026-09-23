@@ -298,6 +298,23 @@ export const PROTOTYPE_FONT_STACKS: Readonly<Record<PrototypeFont, string>> = {
 };
 
 /**
+ * 对标 R2（#3933）：**项目级**圆角档位——一处改、整套原型的按钮/卡片/输入框一起变。
+ *
+ * 与节点自己的 `radius`（none/sm/md/lg/full）是两层：节点说「我是小圆角还是大圆角」（层级），
+ * 项目说「这套产品整体是直角、常规还是圆润」（气质）。画布按两者组合取类名，
+ * 仍然只落在 `rounded-control / rounded-card / rounded-container` 这几档上（lint-design U11）。
+ */
+export const PrototypeRadiusScale = z.enum(["sharp", "default", "round"]);
+export type PrototypeRadiusScale = z.infer<typeof PrototypeRadiusScale>;
+
+/**
+ * 对标 R2：项目级信息密度——整套原型的间距与内边距整体收紧或放宽一档。
+ * 同上，节点的 `gap`/`padding` 是层级，这里是气质；画布把两者组合成 Tailwind 的间距档位。
+ */
+export const PrototypeDensity = z.enum(["compact", "default", "comfortable"]);
+export type PrototypeDensity = z.infer<typeof PrototypeDensity>;
+
+/**
  * 项目级设计 token。**一个对象、一列**（`design_projects.tokens jsonb`）：以后加圆角、密度
  * 是往这里加键，不是每加一项开一列、在十个地方各接一次线。
  * 缺省值 = 这个字段出现之前的行为（`brand: null` 不覆盖强调色，`font: sans` 跟随产品字体）。
@@ -307,10 +324,14 @@ export const DesignTokens = z
     /** `null` = 不用品牌色，沿用 `accent` 档位。给了 ⇒ 覆盖 `accent`。 */
     brand: BrandColor.nullable().default(null),
     font: PrototypeFont.default("sans"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的圆角，逐像素不变。 */
+    radius: PrototypeRadiusScale.default("default"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的间距，逐像素不变。 */
+    density: PrototypeDensity.default("default"),
   })
   .strict();
 export type DesignTokens = z.infer<typeof DesignTokens>;
-export const DEFAULT_DESIGN_TOKENS: DesignTokens = { brand: null, font: "sans" };
+export const DEFAULT_DESIGN_TOKENS: DesignTokens = { brand: null, font: "sans", radius: "default", density: "default" };
 
 function hexToRgb(hex: string): readonly [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16);

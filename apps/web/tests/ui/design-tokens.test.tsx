@@ -38,7 +38,7 @@ const page = {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     id: "p1", name: "订座", template: "mobile", theme: "light", accent: "blue",
-    tokens: { brand: null, font: "sans" }, tags: [], refImages: [], share: null,
+    tokens: { brand: null, font: "sans", radius: "default", density: "default" }, tags: [], refImages: [], share: null,
     problem: "", criteria: [], frames: ["首页"], prototype: [page] as never, frameNotes: [],
     pushed: false, pushedAt: null, linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
     chat: [], ownerId: "u1", ownerName: "我", createdAt: "2026-09-23T00:00:00.000Z", updatedAt: "2026-09-23T00:00:00.000Z",
@@ -49,7 +49,7 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
 describe("画布根：品牌色与字体", () => {
   it("品牌色覆盖强调色档位：--primary 就是品牌色，data-brand 标出来，data-accent 不再说是 blue", () => {
     // ⭐ 反证锚点：画布根不读 `tokens.brand` ⇒ 这条红——用户说了自己的橙，画布还是某一档蓝。
-    render(<PrototypeCanvas label="首页" root={page} accent="blue" theme="light" tokens={{ brand: "#FF5A1F", font: "sans" }} />);
+    render(<PrototypeCanvas label="首页" root={page} accent="blue" theme="light" tokens={{ brand: "#FF5A1F", font: "sans", radius: "default", density: "default" }} />);
     const phone = screen.getByTestId("design-detail-phone");
     expect(phone.style.getPropertyValue("--primary")).toBe(designWorkbench.brandAccentTokens("#FF5A1F").primary);
     expect(phone.style.getPropertyValue("--ring")).toBe(designWorkbench.brandAccentTokens("#FF5A1F").primary);
@@ -58,17 +58,17 @@ describe("画布根：品牌色与字体", () => {
   });
 
   it("低保真（线框图）时品牌色同样让位——线框图的意义就是别谈颜色；字体不受影响", () => {
-    render(<PrototypeCanvas label="首页" root={page} wireframe theme="light" tokens={{ brand: "#FF5A1F", font: "serif" }} />);
+    render(<PrototypeCanvas label="首页" root={page} wireframe theme="light" tokens={{ brand: "#FF5A1F", font: "serif", radius: "default", density: "default" }} />);
     const phone = screen.getByTestId("design-detail-phone");
     expect(phone.getAttribute("data-brand")).toBeNull();
     expect(phone.style.fontFamily).toContain("serif");
   });
 
   it("字体：serif 写字体栈；sans 不写任何 style（老项目逐像素不变）", () => {
-    const { rerender } = render(<PrototypeCanvas label="首页" root={page} tokens={{ brand: null, font: "serif" }} />);
+    const { rerender } = render(<PrototypeCanvas label="首页" root={page} tokens={{ brand: null, font: "serif", radius: "default", density: "default" }} />);
     expect(screen.getByTestId("design-detail-phone").style.fontFamily).toContain("Noto Serif SC");
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-font")).toBe("serif");
-    rerender(<PrototypeCanvas label="首页" root={page} tokens={{ brand: null, font: "sans" }} />);
+    rerender(<PrototypeCanvas label="首页" root={page} tokens={{ brand: null, font: "sans", radius: "default", density: "default" }} />);
     expect(screen.getByTestId("design-detail-phone").style.fontFamily).toBe("");
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-font")).toBeNull();
   });
@@ -117,7 +117,7 @@ describe("外观面板：品牌色输入与字体", () => {
 
   it("用着品牌色时点强调色档位 = 换回档位：同一次请求里清掉品牌色", async () => {
     // ⭐ 反证锚点：点档位不清品牌色 ⇒ 品牌色压着，点了屏上什么都不变，这条红。
-    const patches = mockServer({ tokens: { brand: "#FF5A1F", font: "sans" } });
+    const patches = mockServer({ tokens: { brand: "#FF5A1F", font: "sans", radius: "default", density: "default" } });
     await openPanel();
     expect(screen.getByTestId("design-detail-accent-blue").getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
@@ -132,5 +132,62 @@ describe("外观面板：品牌色输入与字体", () => {
     await waitFor(() => expect(patches).toEqual([{ tokens: { font: "serif" } }]));
     expect(screen.getByTestId("design-detail-font-serif").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("design-detail-phone").style.fontFamily).toContain("serif");
+  });
+});
+
+/* ─────────────── 对标 R2（#3933）：圆角与密度一处改、处处变 ─────────────── */
+describe("画布：项目级圆角与密度", () => {
+  const T = (over: Partial<DesignTokens>): DesignTokens => ({ brand: null, font: "sans", radius: "default", density: "default", ...over });
+  const card = {
+    type: "stack" as const, id: "root", props: { gap: "md" as const, padding: "md" as const },
+    children: [
+      { type: "card" as const, id: "c", children: [{ type: "text" as const, id: "t", props: { content: "卡片" } }] },
+      { type: "button" as const, id: "b", props: { label: "按钮" } },
+      { type: "avatar" as const, id: "a", props: { name: "苏木" } },
+      { type: "input" as const, id: "i", props: { placeholder: "输入" } },
+    ],
+  };
+  const cls = (id: string) => document.querySelector(`[data-node-id="${id}"]`)!.className;
+
+  it("缺省（default）与这两个键出现之前的类名逐字相同——老项目一个像素都不变", () => {
+    render(<PrototypeCanvas label="x" root={card} tokens={T({})} />);
+    expect(cls("root")).toMatch(/\bgap-2\b/);
+    expect(cls("root")).toMatch(/\bp-2\b/);
+    expect(cls("b")).toMatch(/\brounded-control\b/);
+    expect(cls("c")).toMatch(/\brounded-card\b/);
+  });
+
+  it("直角：按钮、卡片、输入框都没有圆角；头像仍是圆的（「直角风」不削头像）", () => {
+    // ⭐ 反证锚点：节点不读项目圆角 ⇒ 这条红——设了「直角」，按钮还是 6px 圆角。
+    render(<PrototypeCanvas label="x" root={card} tokens={T({ radius: "sharp" })} />);
+    expect(cls("b")).toMatch(/\brounded-none\b/);
+    expect(cls("c")).toMatch(/\brounded-none\b/);
+    expect(document.querySelector('[data-node-id="i"] > div')!.className).toMatch(/\brounded-none\b/);
+    expect(document.querySelector('[data-node-id="a"]')!.className).toMatch(/\brounded-full\b/);
+  });
+
+  it("圆润：按钮与卡片落到 rounded-container（仍是命名档位，不是任意 px）", () => {
+    render(<PrototypeCanvas label="x" root={card} tokens={T({ radius: "round" })} />);
+    expect(cls("b")).toMatch(/\brounded-container\b/);
+    expect(cls("c")).toMatch(/\brounded-container\b/);
+  });
+
+  it("密度：紧凑收一档、宽松放一档（md 间距 gap-1 / gap-3，内边距 p-1 / p-3）", () => {
+    const { rerender } = render(<PrototypeCanvas label="x" root={card} tokens={T({ density: "compact" })} />);
+    expect(cls("root")).toMatch(/\bgap-1\b/);
+    expect(cls("root")).toMatch(/\bp-1\b/);
+    rerender(<PrototypeCanvas label="x" root={card} tokens={T({ density: "comfortable" })} />);
+    expect(cls("root")).toMatch(/\bgap-3\b/);
+    expect(cls("root")).toMatch(/\bp-3\b/);
+  });
+
+  it("外观面板：点「圆润」「宽松」各发一次只含那个键的 tokens", async () => {
+    const patches = mockServer();
+    await openPanel();
+    fireEvent.click(screen.getByTestId("design-detail-radius-round"));
+    await waitFor(() => expect(patches).toEqual([{ tokens: { radius: "round" } }]));
+    fireEvent.click(screen.getByTestId("design-detail-density-comfortable"));
+    await waitFor(() => expect(patches).toEqual([{ tokens: { radius: "round" } }, { tokens: { density: "comfortable" } }]));
+    expect(screen.getByTestId("design-detail-radius-round").getAttribute("aria-checked")).toBe("true");
   });
 });

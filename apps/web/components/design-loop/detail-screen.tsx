@@ -1274,6 +1274,10 @@ export function DesignDetailScreen({
                   onBrand={(brand) => void changeTokens({ brand })}
                   font={project.tokens.font}
                   onFont={(font) => void changeTokens({ font })}
+                  radius={project.tokens.radius}
+                  onRadius={(radius) => void changeTokens({ radius })}
+                  density={project.tokens.density}
+                  onDensity={(density) => void changeTokens({ density })}
                   devices={DEVICE_PRESETS}
                   deviceId={lens.id}
                   onDevice={setDeviceId}

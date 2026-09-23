@@ -63,3 +63,31 @@ test.describe("R1 品牌色与字体（#3933）", () => {
     expect(html).toContain(`--primary:${(await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="design-detail-phone"]')!).getPropertyValue("--primary").trim()))}`);
   });
 });
+
+test.describe("R2 圆角与密度（#3933）", () => {
+  test("直角 ⇒ 按钮 0 圆角；圆润 ⇒ ≥14px；宽松比紧凑间距大；刷新后还在", async ({ page }) => {
+    await openSample(page);
+    await page.getByTestId("design-detail-view-single").click();
+    await page.getByTestId("design-detail-frame-1").click();
+    const btn = page.getByTestId("design-detail-phone").locator('[data-node-id="history-new"]');
+    const radius = () => btn.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+    const rootGap = () => page.getByTestId("design-detail-phone").locator('[data-proto="stack"]').first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).rowGap) || 0);
+    await appearance(page);
+    await page.getByTestId("design-detail-radius-sharp").click();
+    await expect.poll(radius).toBe(0);
+    await page.getByTestId("design-detail-radius-round").click();
+    await expect.poll(radius).toBeGreaterThanOrEqual(14);
+    await page.getByTestId("design-detail-density-compact").click();
+    await expect.poll(rootGap).toBeLessThanOrEqual(2);
+    await page.getByTestId("design-detail-density-comfortable").click();
+    await expect.poll(rootGap).toBeGreaterThanOrEqual(8);
+
+    await page.reload();
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    await page.getByTestId("design-detail-frame-1").click();
+    await expect.poll(radius).toBeGreaterThanOrEqual(14);
+    await expect.poll(rootGap).toBeGreaterThanOrEqual(8);
+  });
+});

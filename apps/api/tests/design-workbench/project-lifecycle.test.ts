@@ -279,11 +279,11 @@ describe("对标 R1（#3933）：设计 token 按键合并", () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
     const a = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { brand: "#FF5A1F" } });
-    expect(a.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans" });
+    expect(a.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans", radius: "default", density: "default" });
     const b = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { font: "serif" } });
-    expect(b.project.tokens).toEqual({ brand: "#FF5A1F", font: "serif" });
+    expect(b.project.tokens).toEqual({ brand: "#FF5A1F", font: "serif", radius: "default", density: "default" });
     const c = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { brand: null } });
-    expect(c.project.tokens).toEqual({ brand: null, font: "serif" });
+    expect(c.project.tokens).toEqual({ brand: null, font: "serif", radius: "default", density: "default" });
   });
 
   it("老项目（行里没有 tokens）读出来是缺省值——渲染与这一列出现之前逐像素相同", async () => {
@@ -299,7 +299,7 @@ describe("对标 R1（#3933）：设计 token 按键合并", () => {
     const ai = new FakeDesignChat();
     ai.answer = { text: "好。", source: "model", writeback: {}, suggestions: [], tokens: { brand: "#FF5A1F", font: "sans" } };
     const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "品牌色 #FF5A1F" });
-    expect(out.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans" });
+    expect(out.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans", radius: "default", density: "default" });
   });
 });
 

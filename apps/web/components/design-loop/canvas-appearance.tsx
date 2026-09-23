@@ -31,10 +31,37 @@ import type { PrototypeDevicePreset } from "./prototype-canvas";
 const FONT_LABEL: Readonly<Record<designWorkbench.PrototypeFont, string>> = {
   sans: "现代", serif: "衬线", rounded: "圆润", mono: "等宽",
 };
+/** 对标 R2：圆角气质与信息密度的人话名。 */
+const RADIUS_LABEL: Readonly<Record<designWorkbench.PrototypeRadiusScale, string>> = { sharp: "直角", default: "常规", round: "圆润" };
+const DENSITY_LABEL: Readonly<Record<designWorkbench.PrototypeDensity, string>> = { compact: "紧凑", default: "常规", comfortable: "宽松" };
+
+/** 三选一的小分段（圆角 / 密度共用一种长相）。 */
+function Segmented<T extends string>({ options, value, label, onPick, kind, preview }: {
+  readonly options: readonly T[]; readonly value: T; readonly label: Readonly<Record<T, string>>;
+  readonly onPick: (v: T) => void; readonly kind: "radius" | "density"; readonly preview: (v: T) => React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid grid-cols-3 gap-1" role="radiogroup">
+      {options.map((o) => (
+        <button
+          key={o} type="button" role="radio" aria-checked={value === o} data-testid={kind === "radius" ? `design-detail-radius-${o}` : `design-detail-density-${o}`}
+          onClick={() => onPick(o)}
+          className={cn(
+            "flex flex-col items-center gap-1 rounded-control border px-1 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === o ? "border-primary bg-panel text-card-foreground" : "border-border text-muted-foreground hover:bg-panel/60",
+          )}
+        >
+          {preview(o)}
+          {label[o]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function CanvasAppearance({
   theme, onTheme, accent, accentOptions, accentLabel, accentSwatch, onAccent,
-  brand, onBrand, font, onFont,
+  brand, onBrand, font, onFont, radius, onRadius, density, onDensity,
   devices, deviceId, onDevice, landscape, onLandscape, rotatable,
 }: {
   readonly theme: "light" | "dark";
@@ -49,6 +76,11 @@ export function CanvasAppearance({
   readonly onBrand: (hex: string | null) => void;
   readonly font: designWorkbench.PrototypeFont;
   readonly onFont: (f: designWorkbench.PrototypeFont) => void;
+  /** 对标 R2（#3933）：整套原型的圆角气质与信息密度。 */
+  readonly radius: designWorkbench.PrototypeRadiusScale;
+  readonly onRadius: (r: designWorkbench.PrototypeRadiusScale) => void;
+  readonly density: designWorkbench.PrototypeDensity;
+  readonly onDensity: (d: designWorkbench.PrototypeDensity) => void;
   readonly devices: readonly PrototypeDevicePreset[];
   readonly deviceId: string;
   readonly onDevice: (id: string) => void;
@@ -106,7 +138,7 @@ export function CanvasAppearance({
           role="group"
           aria-label="外观"
           data-testid="design-detail-appearance-panel"
-          className="absolute right-0 top-full z-20 mt-1 flex w-60 flex-col gap-3 rounded-card border border-border bg-card p-3 text-card-foreground shadow-lg"
+          className="absolute right-0 top-full z-20 mt-1 flex max-h-[70dvh] w-60 flex-col gap-3 overflow-y-auto rounded-card border border-border bg-card p-3 text-card-foreground shadow-lg"
         >
           <Section title="明暗" hint="只改原型，后台不跟着变">
             <div className="inline-flex rounded-control border border-border p-0.5">
@@ -191,6 +223,26 @@ export function CanvasAppearance({
                 </button>
               ))}
             </div>
+          </Section>
+
+          <Section title="圆角" hint="按钮、卡片、输入框一起变">
+            <Segmented
+              options={designWorkbench.PrototypeRadiusScale.options} value={radius} label={RADIUS_LABEL}
+              onPick={onRadius} kind="radius"
+              preview={(o) => <span aria-hidden className={cn("h-3 w-5 border border-current", o === "sharp" ? "rounded-none" : o === "round" ? "rounded-container" : "rounded-sm")} />}
+            />
+          </Section>
+
+          <Section title="密度" hint="整体留白的多少">
+            <Segmented
+              options={designWorkbench.PrototypeDensity.options} value={density} label={DENSITY_LABEL}
+              onPick={onDensity} kind="density"
+              preview={(o) => (
+                <span aria-hidden className={cn("flex flex-col", o === "compact" ? "gap-px" : o === "comfortable" ? "gap-1" : "gap-0.5")}>
+                  <span className="h-0.5 w-5 bg-current" /><span className="h-0.5 w-5 bg-current" /><span className="h-0.5 w-5 bg-current" />
+                </span>
+              )}
+            />
           </Section>
 
           <Section title="设备" hint="只改画板尺寸；原型没有断点，内容按 flex 自适应">
