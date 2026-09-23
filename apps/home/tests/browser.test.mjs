@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as H from './harness.mjs';
-import { serve, launcher, launchOptions, reporter, pageFacts, evaluateWithin, ROOT } from './harness.mjs';
+import { serve, launcher, launchOptions, reporter, pageFacts, evaluateWithin, ROOT, headerRules } from './harness.mjs';
 
 const chromium = await launcher();
 if (!chromium) {
@@ -66,9 +66,16 @@ const LANGS = [['en', '/'], ['zh', '/zh/']];
     for (const [lang, path] of [['en', '/'], ['zh', '/zh/'], ['en', '/privacy.html'], ['zh', '/zh/privacy.html'], ['en', '/404.html']]) {
       const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       const page = await ctx.newPage();
+      await page.route('**/__axe.js', (route) => route.fulfill({
+        status: 200, contentType: 'text/javascript', body: axe,
+      }));
       await page.goto(base + path, { waitUntil: 'networkidle' });
       await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-      await page.addScriptTag({ content: axe });
+      /* Served from this origin rather than injected inline. The test server
+         now sends the real `_headers`, and `script-src 'self'` refuses an
+         inline <script> — correctly: that is the whole point of the policy.
+         The tool has to obey it like everything else. */
+      await page.addScriptTag({ url: '/__axe.js' });
       const res = await page.evaluate(async () => window.axe.run(document, {
         resultTypes: ['violations'],
         runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
@@ -677,6 +684,61 @@ for (const [lang, path] of LANGS) {
     r.equal(state.past, 0, `content past the right edge with ${what}`);
     await ctx.close();
   }
+  ok = r.finish() && ok;
+}
+
+/* ------------------------------------------------------------- headers --- */
+/* The test server now sends what `_headers` says the real host sends, so
+   every suite above this line runs under the real Content-Security-Policy.
+   That was not true for thirty-nine rounds: the policy was a string in a file
+   nothing read, and the page it governs was only ever tested without it.
+   The first run under it failed immediately — axe-core injects an inline
+   <script>, which `script-src 'self'` refuses, exactly as designed. The tool
+   was changed to load from this origin; the policy was not.
+   This suite asserts the two halves separately: that the headers arrive, and
+   that the policy is ENFORCED rather than merely present. A policy that is
+   sent and ignored looks identical from the response. */
+{
+  const r = reporter('headers — the policy is sent, and it bites');
+  const expected = headerRules().find((rule) => rule.pattern === '/*').headers;
+
+  for (const path of ['/', '/zh/', '/privacy.html', '/404.html']) {
+    r.step(path);
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const res = await page.goto(base + path, { waitUntil: 'load' });
+    const got = res.headers();
+    for (const [name, value] of Object.entries(expected)) {
+      r.equal(got[name], value, `${path} ${name}`);
+    }
+    await ctx.close();
+  }
+
+  r.step('enforcement');
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const blocked = [];
+  page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) blocked.push(m.text().slice(0, 40)); });
+  await page.goto(base + '/', { waitUntil: 'load' });
+  const ran = await evaluateWithin(page, 15_000, 'inline script', () => {
+    const el = document.createElement('script');
+    el.textContent = 'window.__inlineRan = true;';
+    document.head.append(el);
+    return window.__inlineRan === true;
+  });
+  r.check(!ran, 'an inline script executed — the CSP is being sent and not enforced');
+  r.check(blocked.length > 0, 'the browser reported no CSP violation for a blocked inline script');
+  await ctx.close();
+
+  /* And the manifest, which is ignored outright when it is not JSON. */
+  r.step('manifest media type');
+  const mctx = await browser.newContext();
+  const mpage = await mctx.newPage();
+  for (const m of ['/assets/site.webmanifest', '/assets/site.zh.webmanifest']) {
+    const res = await mpage.goto(base + m);
+    r.equal(res.headers()['content-type'], 'application/manifest+json', `${m} media type`);
+  }
+  await mctx.close();
   ok = r.finish() && ok;
 }
 
