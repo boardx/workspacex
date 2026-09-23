@@ -31,6 +31,7 @@ import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
 import { createBackup, type CreateBackupResult } from "./backup";
 import { superviseManaged, type ServiceHealth, type Supervised } from "./supervisor";
+import { describeServiceFailure, SERVICE_IMPACT } from "./supervisor-policy";
 import {
   decideUnload, explainBudget, idleMsFromExpiry, memoryBudgetBytes, parsePs, RECENTLY_USED_MS,
 } from "./model-memory-budget";
@@ -72,6 +73,11 @@ export interface RunningStack {
   backup(destRoot: string, appVersion: string): Promise<CreateBackupResult>;
   /** 本地各服务此刻的健康状态——外壳据此决定要不要把「有东西坏了」说出来。 */
   health(): readonly ServiceHealth[];
+  /**
+   * 等那几个「不挡首屏」的服务也就绪。界面不需要它，**但测量与自动化需要**：
+   * 否则一条 e2e 会在沙箱还没起来的时候就去跑技能。
+   */
+  whenFullyReady(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -83,6 +89,18 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   /** 每个子进程的启动规格——重启时要用同一份，不能现编。 */
   const specs: SpawnSpec[] = [];
   const supervised: Supervised[] = [];
+  /**
+   * 不挡首屏的就绪等待（#3872 R7）。
+   *
+   * 实测 15 次真实启动：到「加载界面」的中位耗时 6.8 s，其中**语音转写 1.8 s（27%）**、
+   * **技能沙箱 1.2 s（17%）**——两者加起来占 44%，而用户在开头几秒都用不到它们
+   * （录音要先导航过去，技能要先发一条会用到它的消息）。评分卡维度 1 的 9 分判据
+   * 写的就是「重资源懒加载在首屏之后」。
+   *
+   * ⚠ 延后不等于不管：失败要走健康通道说出来，而不是被吞掉。原先它们是 `await`，
+   *   失败会让整个 `up()` 抛错；现在失败变成一条具名的健康事件。
+   */
+  const deferredReady: Array<{ name: string; wait: Promise<void> }> = [];
   const healthById = new Map<string, ServiceHealth>();
   /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
   const spawn = (spec: SpawnSpec): Managed => {
@@ -280,7 +298,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       env: sandboxEnv(c),
       logDir: paths.logs(c),
     });
-    await waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
+    deferredReady.push({
+      name: "skill-sandbox",
+      wait: waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!),
+    });
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
@@ -295,7 +316,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: asrGatewayEnv(c, asrModelDir),
         logDir: paths.logs(c),
       });
-      await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
+      deferredReady.push({
+        name: "asr-gateway",
+        wait: waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!),
+      });
     }
 
     // ── API ───────────────────────────────────────────────────────────────────
@@ -447,6 +471,27 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       memoryWatchTimer = timer;
     }
 
+    /*
+      延后就绪的那几个：不挡首屏，但**必须有人盯着**。
+      失败走的是和崩溃同一条健康通道，说人话、带影响，而不是在日志里躺着。
+    */
+    for (const d of deferredReady) {
+      void d.wait.then(
+        () => log(`[${d.name}] 已就绪（没有挡住界面）`),
+        (e: unknown) => {
+          // 我们自己在关应用时，这些等待必然会失败（进程被停了）。那不是故障，
+          // 报出去只会在每次退出时弹一个假警报——与监督那边「我们自己停的不当崩溃」同一条纪律。
+          if (stopping) return;
+          const why = e instanceof Error ? e.message : String(e);
+          log(`[${d.name}] 起不来：${why}`);
+          const msg = describeServiceFailure(d.name, { action: "give-up", reason: why }, SERVICE_IMPACT[d.name] ?? "");
+          const h: ServiceHealth = { name: d.name, state: "failed", message: { title: msg.title, body: msg.body }, exits: 0 };
+          healthById.set(d.name, h);
+          opts.onServiceHealth?.(h);
+        },
+      );
+    }
+
     return {
       capabilities,
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
@@ -465,6 +510,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         });
       },
       health: () => supervised.map((s) => s.health()),
+      whenFullyReady: async () => { await Promise.allSettled(deferredReady.map((d) => d.wait)); },
       stop: stopAll,
     };
   } catch (e) {
