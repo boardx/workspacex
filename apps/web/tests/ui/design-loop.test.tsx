@@ -56,6 +56,7 @@ import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { designWorkbench, feedbackLoop } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
+import { ImportThreadDialog } from "@/components/design-loop/import-thread-dialog";
 import { describeFailure } from "@/lib/design-failure";
 import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
 import { PROJECT_TEMPLATE_LABEL } from "@/lib/live-design-workbench";
@@ -4698,5 +4699,224 @@ describe("迭代 36：收件箱列表——键盘走不到的按钮、同一列�
     expect(box.textContent).toContain("这一档里没有条目");
     fireEvent.click(screen.getByTestId("inbox-list-empty-clear"));
     expect(await screen.findByTestId("inbox-row-B-1")).toBeTruthy();
+  });
+});
+
+/* ────── UIUX 第 16 轮：「从对话导入」——等待要说出来，改过的字不许静默丢 ────── */
+
+/**
+ * 这一组断的都是**这个弹窗自己**的行为，所以直接渲染它，不经过详情页：
+ * 上面 V58 那一组已经断过「不确认不写」，这里断的是他在这三步里会不会被弄丢。
+ *
+ *   ① 列表读失败 ≠ 你一条对话都没有
+ *   ② 点下去到摘要回来的那几秒，要在他点的那一行上说话
+ *   ③ 改过的那段背景，关窗/换一条之前先问一声
+ *   ④ 换一条对话不该是「整个关掉重开」
+ *   ⑤ 行上的时间是人话，不是 `2026-09-08`
+ */
+describe("UIUX 16：从对话导入的三步里，别把人弄丢", () => {
+  const card = (over: Partial<{ id: string; title: string; lastActivityAt: string }> = {}) => ({
+    id: over.id ?? "th-1",
+    title: over.title ?? "会员下单那条线",
+    subtitle: "",
+    badges: [],
+    status: "done" as const,
+    artifactCount: 0,
+    lastActivityAt: over.lastActivityAt ?? new Date(Date.now() - 5 * 60_000).toISOString(),
+    visibilityScope: "plenary" as const,
+    pinned: false,
+  });
+
+  const imported = {
+    threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z",
+  };
+
+  const renderDialog = (onClose = vi.fn()) => {
+    const onImported = vi.fn();
+    render(<ImportThreadDialog projectId="p1" onClose={onClose} onImported={onImported} />);
+    return { onClose, onImported };
+  };
+
+  it("列表读失败 ⇒ 说的是「没读到」而不是「你没有对话」，重试真的再读一次", async () => {
+    let attempt = 0;
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") {
+        attempt += 1;
+        if (attempt === 1) throw new ApiError(500, "boom", {});
+        return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+
+    // ⭐ 反证锚点：把 catch 里改回只 `setThreads([])`（失败与空合流）⇒ 这两条红。
+    await screen.findByTestId("import-thread-load-failed");
+    expect(screen.queryByTestId("import-thread-empty")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("import-thread-retry"));
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(attempt).toBe(2);
+    expect(screen.queryByTestId("import-thread-load-failed")).toBeNull();
+  });
+
+  it("行上的时间是人话（5 分钟前的对话说「5 分钟前」，不是一串日期）", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+    const row = await screen.findByTestId("import-thread-item-th-1");
+    // ⭐ 反证锚点：改回 `t.lastActivityAt.slice(0, 10)` ⇒ 这两条红。
+    expect(row.textContent).toContain("5 分钟前");
+    expect(row.textContent).not.toContain(new Date().toISOString().slice(0, 10));
+  });
+
+  it("点下去到摘要回来的那几秒，在他点的那一行上说「正在读」", async () => {
+    let release: ((v: unknown) => void) | null = null;
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      if (path === "/pm-designs/p1/import-thread") {
+        return new Promise((res) => {
+          release = res;
+        });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+
+    // ⭐ 反证锚点：去掉 `pendingId` 那两个分支（只剩整列变灰）⇒ 这两条红。
+    const note = await screen.findByTestId("import-thread-picking");
+    expect(note.textContent).toContain("正在读这条对话");
+    expect(screen.getByTestId("import-thread-item-th-1").getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      release?.({ project: { id: "p1" }, imported, summary: "服务端摘出来的背景", criteria: [], truncated: false });
+    });
+    await screen.findByTestId("import-thread-preview");
+    expect(screen.queryByTestId("import-thread-picking")).toBeNull();
+  });
+
+  const stubPreview = (criteria: readonly string[] = []) => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      if (path === "/pm-designs/p1/import-thread" && opts?.method === "POST") {
+        const problem = opts.body?.problem;
+        return {
+          project: { id: "p1" },
+          imported,
+          summary: problem === undefined ? "服务端摘出来的背景" : String(problem),
+          criteria,
+          truncated: false,
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+  };
+
+  const intoPreview = async () => {
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    return (await screen.findByTestId("import-thread-preview")) as HTMLTextAreaElement;
+  };
+
+  it("改过之后点取消 ⇒ 不直接关，先问；「继续编辑」之后改的字还在", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "我自己敲的那一整段背景" } });
+
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    // ⭐ 反证锚点：把「取消」接回裸 `onClose` ⇒ 这两条红（弹窗当场关掉，那段字没了）。
+    expect(onClose).not.toHaveBeenCalled();
+    await screen.findByTestId("import-thread-discard-confirm");
+
+    fireEvent.click(screen.getByTestId("import-thread-discard-keep"));
+    expect((screen.getByTestId("import-thread-preview") as HTMLTextAreaElement).value).toBe("我自己敲的那一整段背景");
+
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    fireEvent.click(await screen.findByTestId("import-thread-discard-confirm-yes"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("没改过点取消 ⇒ 直接关，不多问一句", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    await intoPreview();
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    // ⭐ 反证锚点：把拦截写成「预览阶段一律问」⇒ 这两条红。
+    expect(screen.queryByTestId("import-thread-discard-confirm")).toBeNull();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("选错一条 ⇒ 「重新选一条」回到列表，不用整个关掉重开（列表也不重读）", async () => {
+    stubPreview();
+    renderDialog();
+    await intoPreview();
+    fireEvent.click(screen.getByTestId("import-thread-back"));
+
+    // ⭐ 反证锚点：去掉「重新选一条」这个出口 ⇒ 这条红。
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(screen.queryByTestId("import-thread-preview")).toBeNull();
+    // 回上一步不是重开：列表只读过一次。
+    expect(apiRequest.mock.calls.filter((c) => c[0] === "/chat/threads")).toHaveLength(1);
+  });
+
+  it("改过之后点「重新选一条」 ⇒ 也先问；确认后回到列表而不是关掉弹窗", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "改过的背景" } });
+    fireEvent.click(screen.getByTestId("import-thread-back"));
+
+    const box = await screen.findByTestId("import-thread-discard-confirm");
+    // ⭐ 反证锚点：把确认框的出口写死成 `onClose` ⇒ 后两条红（点完弹窗没了，回不到列表）。
+    expect(box.textContent).toContain("换一条对话");
+    fireEvent.click(screen.getByTestId("import-thread-discard-confirm-yes"));
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("把预览清空 ⇒ 说清为什么「导入为背景」点不动", async () => {
+    stubPreview();
+    renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "   " } });
+
+    // ⭐ 反证锚点：去掉这句提示（只留一个灰按钮）⇒ 这条红。
+    expect((await screen.findByTestId("import-thread-blank-hint")).textContent).toContain("这段是空的");
+    expect((screen.getByTestId("import-thread-confirm") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("翻页失败之后再翻成功 ⇒ 上一次那句报错不再压在结果上面", async () => {
+    let page = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, unknown> }) => {
+      if (path !== "/chat/threads") throw new Error(`unexpected ${path}`);
+      if (opts?.query?.cursor === undefined) {
+        return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: "c1" };
+      }
+      page += 1;
+      if (page === 1) throw new ApiError(500, "boom", {});
+      return { groups: [{ label: "更早", cards: [card({ id: "th-2", title: "第二页那条" })] }], capabilities: [], nextCursor: null };
+    });
+    renderDialog();
+    fireEvent.click(await screen.findByTestId("import-thread-load-more"));
+    await screen.findByTestId("import-thread-error");
+
+    fireEvent.click(screen.getByTestId("import-thread-load-more"));
+    expect(await screen.findByTestId("import-thread-item-th-2")).toBeTruthy();
+    // ⭐ 反证锚点：去掉 `loadMore` 开头那句 `setError(null)` ⇒ 这条红。
+    expect(screen.queryByTestId("import-thread-error")).toBeNull();
+  });
+
+  it("走到「确认」这一步 ⇒ 读屏念的也是「确认要导入的背景」", async () => {
+    stubPreview();
+    renderDialog();
+    // 第一步：屏上写什么，读屏就念什么。
+    expect(screen.getByRole("dialog").getAttribute("aria-label")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "从对话导入" })).toBeTruthy());
+
+    await intoPreview();
+    // ⭐ 反证锚点：把 `aria-labelledby` 改回写死的 `aria-label="从对话导入"` ⇒ 这条红。
+    expect(screen.getByRole("dialog", { name: "确认要导入的背景" })).toBeTruthy();
   });
 });
