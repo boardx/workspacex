@@ -1211,3 +1211,18 @@ and a false claim, and it is this repository's own rule in another costume.
 | 8 | That is the same class of defect as round 44's edition-versus-location: two true-sounding sentences, written at different times, that a reader passing through the page in order will merge. | — |
 | 9 | **Checked and clean.** The new block reuses `.prop`, the component the unit section already uses for a claim-plus-reason triple, so it inherits the gradient rule and the responsive behaviour rather than introducing a fourth way to draw a list. 221 classes, all referenced. |
 | 10 | **Checked and clean.** 343 keys in sync across both languages; the Chinese block keeps the register of the English — plain, second person, no marketing adjectives — which is the thing 133 translation pairs were swept for back in round 32. |
+
+### Round 47 — which layer this is a bet on
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The site never named the market it is in.** "Copilot" appeared in `index.html` exactly once — inside an HTML comment I had written in round 44. Not one visible sentence placed the product against anything. | The layer, named. |
+| 2 | The plan is explicit and the site was silent: WorkspaceX sits in the **AI workspace layer**, alongside Copilot, Glean, Lark and DingTalk — *not* the agent-infrastructure layer beneath it, which already has plenty of open projects. | — |
+| 3 | And the punchline that makes the whole section mean something: **这一层没有一个开源的** — there is no open option in this layer — so **开源是楔子不是入场券**. Thirteen rounds argued *what* is open without once saying why being first to do it matters. | The paragraph sits **above** the three columns: the why belongs before the what. |
+| 4 | **The sentence had to stop short of the obvious claim.** Until a licence exists (round 42), WorkspaceX is not the open one either. So it says that opening this *is a wedge* and points at the licence question further down the page, rather than awarding itself a crown it has not earned. | The two rounds now hold each other honest in the reader's own path down the page. |
+| 5 | Reused `.lead` rather than inventing a class, which rounds 32–41 deliberately made expensive. | — |
+| 6 | **Round 32's bug class, again, and found by hand again.** The nav called this section "Open"; the footer called it "Open ecosystem"; the section itself had been renamed to "What is open, what is sold" in round 43. One destination, three names, none of them checked. | Footer label fixed in both languages. |
+| 7 | Nothing had ever compared the names given to a destination — round 32 caught its version by listing labels by hand, and then the list was thrown away. | A rule in `check-links.mjs`: an in-page anchor given more than one name is reported. |
+| 8 | **The rule was wrong twice on its first run, and reported eight.** "Trust" and "Trust & evidence" are not two names — one contains the other. And "See how it works" is a **call to action**, not a label: the hero is prose, while the nav and the footer are the two places that *name* a destination. | Narrowed to nav and footer, and tolerant of one label containing another. Buttons excluded, with the reason written down. |
+| 9 | **It then found two genuine ones that had been there since the site was built.** `#loop` was called "The Loop" in the nav and "How it works" in the footer; `#capabilities` was "Inside" and "What is in it". In both languages. | Aligned to the section's own name. |
+| 10 | The shape of this round: one strategic sentence the site had never said, and two label pairs nobody had put side by side. Both are the same failure — **a fact that lives in more than one place drifts**, whether it is a number, a licence, or the name of a section. |
