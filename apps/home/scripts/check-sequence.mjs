@@ -121,15 +121,38 @@ else {
     problems.push(`the site names the ${named[1]} licence, and the repository has no LICENSE file`);
   }
 
-  /* And each language states the absence as a fact, in its own file. */
+  /* Each language states the absence as a fact, in its own file.
+     Rounds 42–50 put five such statements on the page, and by round 50 the
+     licence rule had been copied once already. Written as a table instead:
+     a sentence the page asserts about the repository, and the file whose
+     presence makes it false. Every row fires in the useful direction — when
+     somebody does the work, the page has to stop saying it is undone. */
+  const ABSENCE_CLAIMS = [
+    {
+      what: 'a LICENSE',
+      present: () => hasLicense,
+      says: /no LICENSE file|还没有 LICENSE 文件/,
+      where: 'faq.a5 and the exit-freedom block',
+    },
+    {
+      what: 'a contributor guide',
+      present: () => ['CONTRIBUTING.md', '.github/CONTRIBUTING.md', 'CONTRIBUTING.markdown']
+        .some((f) => existsSync(join(repoRoot, f))),
+      says: /no contributor guide|没有贡献指南/,
+      where: 'proof.note',
+    },
+  ];
+
   for (const [file, lang] of LANGS) {
     const text = readFileSync(join(root, file), 'utf8');
-    const statesAbsence = /no LICENSE file|还没有 LICENSE 文件/.test(text);
-    const claimsOpenCore = /open core|开放内核/i.test(text);
-    if (hasLicense && statesAbsence) {
-      problems.push(`${file}: the repository now has a LICENSE, but the ${lang} copy still tells the reader there is none — update faq.a5`);
+    for (const claim of ABSENCE_CLAIMS) {
+      if (claim.present() && claim.says.test(text)) {
+        problems.push(`${file}: the repository now has ${claim.what}, but the ${lang} copy still tells the reader it does not — update ${claim.where}`);
+      }
     }
-    if (!hasLicense && claimsOpenCore && !statesAbsence) {
+    /* The one claim that runs the other way: open core is only sayable while
+       the page also says the licence is missing. */
+    if (!hasLicense && /open core|开放内核/i.test(text) && !ABSENCE_CLAIMS[0].says.test(text)) {
       problems.push(`${file}: the ${lang} copy claims open core while the repository has no LICENSE, and does not say so`);
     }
   }
