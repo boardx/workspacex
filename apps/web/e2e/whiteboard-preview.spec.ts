@@ -8,8 +8,12 @@ for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/preview/whiteboard');
     await expect(page.getByTestId('whiteboard-screen')).toBeVisible();
-    await expect(page.getByTestId('shell-rail')).toHaveCount(0); // testid-gate: absent fullscreen canvas hides global navigation
-    await expect(page.getByTestId('shell-mobile-tabs')).toHaveCount(0); // testid-gate: absent fullscreen canvas hides mobile navigation
+    // 这两颗 testid **仍然存在于源码里**（全局导航在非全屏壳里照常渲染），这里断言的是
+    // 它们在全屏画布下**不被渲染**。所以这里不挂 lint-e2e-testid-gate 的 absent 豁免标注：
+    // 那个标注的语义是「该 testid 已从代码库删除」，而该门控自己写明它不检查条件渲染。
+    // 挂上去会被判成「豁免已无意义」而红，且等于给未来真的删掉这两颗开一张永久通行证。
+    await expect(page.getByTestId('shell-rail')).toHaveCount(0); // 全屏画布隐藏全局导航
+    await expect(page.getByTestId('shell-mobile-tabs')).toHaveCount(0); // 全屏画布隐藏移动端导航
     await expect(page.getByTestId('whiteboard-exit')).toHaveAttribute('href', '/projects');
     const main = await page.getByTestId('shell-main').boundingBox();
     expect(main?.x).toBe(0);
