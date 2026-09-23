@@ -56,13 +56,13 @@ function PreviewBody() {
   return (
     <FeedbackProvider>
       <div data-testid="feedback-design-loop-preview" className="min-h-dvh bg-card">
-        <Scene scene={scene} state={shownState} />
+        <Scene scene={scene} state={shownState} evalCase={sp?.get("case") ?? null} />
       </div>
     </FeedbackProvider>
   );
 }
 
-function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resolvePreviewState> }) {
+function Scene({ scene, state, evalCase }: { scene: string; state: ReturnType<typeof resolvePreviewState>; evalCase: string | null }) {
   const [detailId, setDetailId] = React.useState<string | null>(null);
 
   if (scene === "dialog") {
@@ -99,6 +99,8 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
     // `/pm-designs` 来产生这两态。
     // B5.3：`detail-prototype` 用已生成原型的样本项目（夹具 `proj-chat-ui`）拍组件树画布。
     // 迭代 9：`detail-prototype-empty` 用没有任何对话与原型的项目拍起手模板。
+    // 对标评测（`e2e/parity-eval/`）：`scene=detail-eval&case=E03` 打开评测用例 E03 的金标准项目。
+    if (scene === "detail-eval") return <DetailByFirstProject projectId={`eval-${evalCase ?? "E01"}`} />;
     const id = scene === "detail-missing" ? "proj-does-not-exist" : scene === "detail-prototype" ? "proj-chat-ui" : scene === "detail-prototype-empty" ? "proj-mobile-invite" : "proj-empty-states";
     return <DetailByFirstProject projectId={id} />;
   }
