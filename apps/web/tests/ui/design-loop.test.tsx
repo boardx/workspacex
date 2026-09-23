@@ -5243,6 +5243,11 @@ describe("UIUX 19：属性面板", () => {
     frameLinks: frames.map(() => []),
   });
 
+  /** 给「写回还在路上」那条用例：设了它，patch 就等它 resolve 才回。 */
+  let pending: { promise: Promise<void>; release: () => void } | null = null;
+  const hold = () => { let release = () => {}; const promise = new Promise<void>((r) => { release = r; }); pending = { promise, release }; };
+  afterEach(() => { pending?.release(); pending = null; });
+
   const mount = async (p = twoTexts(), patchFails = false) => {
     const posted: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
@@ -5250,7 +5255,22 @@ describe("UIUX 19：属性面板", () => {
       if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
         if (patchFails) throw new ApiError(500, "boom", {});
         posted.push(opts.body);
-        return { project: p };
+        /*
+         * 像真服务端那样回一份**新的**项目对象，并且把 setProps 真的应用上去。
+         * 2026-09-23 之前这里回的是同一个 `p`——节点身份从不变化，于是
+         * 「服务端刷新会把『已经帮你应用了』当场清掉」这个 bug 在单测里永远看不见
+         * （本地真栈实测才抓到，见 `scripts/local-session/design-loop-session.mjs` S08）。
+         */
+        const next = structuredClone(p);
+        const ops = (opts.body as { ops: { op: string; id: string; props: Record<string, unknown> }[] }).ops;
+        const visit = (n: { id?: string; props?: Record<string, unknown>; children?: unknown[] } | null): void => {
+          if (n === null) return;
+          for (const o of ops) if (o.op === "setProps" && o.id === n.id) n.props = { ...n.props, ...o.props };
+          for (const c of n.children ?? []) visit(c as never);
+        };
+        for (const root of next.prototype) visit(root as never);
+        await pending?.promise;
+        return { project: next };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -5349,5 +5369,50 @@ describe("UIUX 19：属性面板", () => {
     // ⭐ 反证锚点：把 title / aria-label 改回写死的「上移一格」⇒ 这两条红。
     expect(up.getAttribute("title")).toContain("已经是同一层里的第一个");
     expect(up.getAttribute("aria-label")).toContain("已经是同一层里的第一个");
+  });
+
+  it("服务端写回的是新对象 ⇒「已经帮你应用了」不能被当场清掉（本地真栈 S08 抓到的）", async () => {
+    await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "我改过的文案" } });
+    await select("t2");
+    // ⭐ 反证锚点：把 effect 改回「依赖 node 对象、一律清提示」⇒ 这条红——服务端回的新项目
+    //   让当前节点换了对象，effect 再跑一遍，刚设上的提示随即消失，自动应用又成了静默的。
+    const note = await screen.findByTestId("design-inspector-auto-applied");
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(note.isConnected).toBe(true);
+    expect(screen.getByTestId("design-inspector-auto-applied").textContent).toContain("已经帮你应用了");
+  });
+
+  it("上一个节点的写回还在路上时，在这个节点上打的字不会被它覆盖", async () => {
+    hold();
+    const posted = await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "第一处改动" } });
+    await select("t2");
+    await waitFor(() => expect(posted).toHaveLength(1));
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "第二处，写回回来之前打的" } });
+    await act(async () => { pending?.release(); await new Promise((r) => setTimeout(r, 20)); });
+    // ⭐ 反证锚点：同一节点对象换新时无条件 `setDraft(toDraft(node))` ⇒ 这条红——
+    //   用户刚打的这句被服务端那份（还是「另一个」）覆盖掉，一声不响。
+    expect((screen.getByTestId("design-inspector-content") as HTMLTextAreaElement).value).toBe("第二处，写回回来之前打的");
+  });
+});
+
+/* ────── 本地真栈实测（2026-09-23）抓到的：详情页底栏还是机器日期 ────── */
+
+describe("详情页底栏的「更新于」", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it("说人话（「3 分钟前」），不是「2026/9/23」——改完看一眼就知道存上了没有", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ updatedAt: new Date(Date.now() - 3 * 60_000).toISOString() })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    const bar = await screen.findByTestId("design-detail-statusbar-updated");
+    // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这两条红。
+    expect(bar.textContent).toContain("更新于 3 分钟前");
+    expect(bar.textContent).not.toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
   });
 });

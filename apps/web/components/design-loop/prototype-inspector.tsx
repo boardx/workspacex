@@ -148,10 +148,27 @@ export function PrototypeInspector({
 
   React.useEffect(() => {
     const prev = snapRef.current;
+    /*
+     * ⚠ 2026-09-23 本地真栈实测（`scripts/local-session/design-loop-session.mjs` S08）抓到：
+     * 这个 effect 依赖的是 `node` **对象**，而服务端每次写回都返回一整份新项目——
+     * 当前选中的节点 id 没变，对象却是新的，于是 effect 又跑一遍，把刚设上的
+     * 「已经帮你应用了」当场清掉。自动应用因此变回了静默的——正是 R19 说不许的那件事。
+     * 单测没抓到，是因为 mock 回的是**同一个**项目对象，节点身份从来不变。
+     *
+     * 所以分两种：
+     *   · 换了节点（id 变了）⇒ 重置草稿、清提示、自动应用上一个节点；
+     *   · 同一个节点、对象换新（服务端刷新）⇒ **不清提示**；草稿只在用户没改过时跟着刷新
+     *     ——否则上一个节点的写回一回来，他在这个节点上刚打的字就被覆盖掉了。
+     */
+    const switched = prev === null || prev.node.id !== node.id;
+    if (!switched) {
+      if (Object.keys(diff(prev.node, prev.draft)).length === 0) setDraft(toDraft(node));
+      return;
+    }
     setDraft(toDraft(node));
     setError(null);
     setAutoApplied(null);
-    if (prev === null || prev.node.id === node.id) return;
+    if (prev === null) return;
     const pid = prev.node.id;
     const changed = diff(prev.node, prev.draft);
     if (pid === undefined || Object.keys(changed).length === 0) return;
