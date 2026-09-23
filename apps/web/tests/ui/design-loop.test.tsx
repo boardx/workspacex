@@ -54,7 +54,7 @@ import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-scree
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
-import { designWorkbench } from "@repo/contracts";
+import { designWorkbench, feedbackLoop } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { describeFailure } from "@/lib/design-failure";
 import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
@@ -4625,6 +4625,31 @@ describe("迭代 33：同一件事，在这几屏上不许说四种话", () => {
     expect(Object.keys(PROJECT_TEMPLATE_LABEL).sort()).toEqual([...designWorkbench.ProjectTemplate.options].sort());
     for (const t of designWorkbench.ProjectTemplate.options) {
       expect(PROJECT_TEMPLATE_LABEL[t], `模板 ${t} 没有中文名`).toBeTruthy();
+    }
+  });
+});
+
+describe("迭代 35：反馈束的错误码也有人话（闭集穷举）", () => {
+  it("每一个 FeedbackError 都说得出一句话，且那句话不是码本身", () => {
+    /*
+     * ⭐ 反证锚点：契约新增一个 FeedbackError 而这张表没跟上 ⇒ TS 当场编译不过
+     * （Record 穷举）；真绕过去让它落到运行期，这条也会红。
+     *
+     * 为什么要单独穷举一张：把提反馈那个框并进单源时才发现，并进来只挡住了「码上屏」，
+     * 反馈自己的那些码一律落到泛泛的兜底（「出了点问题」）——而提反馈的人最需要知道的
+     * 恰恰是具体那件事（草稿还在不在、该重试还是该找人）。
+     */
+    /*
+     * ⚠ 判据是「**不等于同一个 HTTP 状态的兜底句**」——不是"非空"也不是"不含码"。
+     *   第一版这条断言写成了 `not.toBe("出了点问题…")`，而 `ApiError(400, …)` 的兜底
+     *   其实是 httpText(400) 的那句，于是把表整张删掉它照样绿：**一条没有判别力的断言**。
+     *   实测发现后改成下面这样（把表删掉当场红）。
+     */
+    const fallback400 = describeFailure(new ApiError(400, "一个根本不存在的码", {}));
+    for (const code of feedbackLoop.FeedbackError.options) {
+      const text = describeFailure(new ApiError(400, code, {}));
+      expect(text, `${code} 的"人话"就是那个码本身`).not.toContain(code);
+      expect(text, `${code} 落回了 400 的泛泛兜底，等于没有自己的话`).not.toBe(fallback400);
     }
   });
 });

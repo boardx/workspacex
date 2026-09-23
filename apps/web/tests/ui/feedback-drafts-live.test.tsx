@@ -431,7 +431,13 @@ describe("迭代 34：草稿是他唯一的那一份", () => {
      */
     const patches: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
-      if (opts?.method === "PATCH") { patches.push(opts.body); return draft({ detail: "改完的正文" }); }
+      /*
+       * ⚠ 真实形状是 `{ draft }`（`updateFeedbackDraft` 取的是 `out.draft`）。
+       *   第一版这里直接回了 draft 本身，于是 `onSaved(undefined)` 在 `setList` 的更新函数里
+       *   抛 `Cannot read properties of undefined (reading 'id')`——**而这条用例照样绿**，
+       *   因为崩溃发生在断言之后。vitest 的 "Unhandled Errors" 正是在提醒这种假绿。
+       */
+      if (opts?.method === "PATCH") { patches.push(opts.body); return { draft: draft({ detail: "改完的正文" }) }; }
       return { items: [draft()] };
     });
     render(<DesignLoopDraftsScreen />);
