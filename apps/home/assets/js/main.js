@@ -59,9 +59,18 @@ const boot = () => {
    The loop scene: scroll drives the ring, and the ring drives the rail
    ------------------------------------------------------------------------- */
 let detachScene = null;
+let sceneOff = [];
 
 function wireLoopScene() {
   detachScene?.();
+  /* The rail is static markup — unlike the diagrams, it is not rebuilt — so
+     every re-wire added a second click handler to the same six items and
+     never removed the first. Measured: six handlers at boot, forty-two after
+     three breakpoint crossings, and one click on a step firing seven smooth
+     scrolls to the same place. detachScene released the scene's own window
+     listeners and knew nothing about these. */
+  sceneOff.forEach((off) => off());
+  sceneOff = [];
 
   const rail = document.getElementById('loop-rail');
   const items = rail ? [...rail.querySelectorAll('.rail__item')] : [];
@@ -77,7 +86,11 @@ function wireLoopScene() {
   const scene = document.querySelector('[data-scene="loop"]');
   const track = scene?.querySelector('.scene__track');
   items.forEach((li, i) => {
-    li.addEventListener('click', () => {
+    /* Kept as explicit removers rather than an AbortSignal: `signal` in
+       addEventListener options is Safari 15, and check-compat.mjs shows this
+       page still carries fallbacks for Safari 14. One new baseline assumption
+       is not worth four lines. */
+    const onClick = () => {
       if (!track || reducedMotion() || window.matchMedia(bp('scene')).matches) {
         select(i);
         return;
@@ -86,7 +99,9 @@ function wireLoopScene() {
       const scrollable = rect.height - window.innerHeight;
       const target = window.scrollY + rect.top + scrollable * ((i + 0.5) / items.length);
       window.scrollTo({ top: target, behavior: 'smooth' });
-    });
+    };
+    li.addEventListener('click', onClick);
+    sceneOff.push(() => li.removeEventListener('click', onClick));
   });
 
   detachScene = initScene('[data-scene="loop"]', (p, stacked) => {

@@ -7,7 +7,7 @@
 报告渠道（任选其一）：
 
 - GitHub Security Advisory：仓库 Security 页 → Report a vulnerability
-- 邮件：`<安全联系邮箱，待填>`
+- 邮件：`security@boardx.us`（与站点 `/.well-known/security.txt` 公布的地址一致，由 `check-deploy.mjs` 机械核对）
 
 报告里请尽量包含：受影响的版本或 commit、复现步骤、影响范围，以及你认为的严重程度。
 能附一个最小复现用例最好。

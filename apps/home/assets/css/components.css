@@ -9,7 +9,7 @@
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
   padding: 0.8rem 1.35rem;
   border-radius: var(--r-sm);
-  font-size: var(--t-small); font-weight: 600; letter-spacing: 0.005em;
+  font-size: var(--t-small); font-weight: 600; letter-spacing: calc(0.005em * var(--track-open));
   /* NOT nowrap. A nowrap label's min-content is the whole label, and in a
      grid that becomes the track's minimum — at a 200% text setting the hero's
      column was forced to 426 px inside a 390 px phone, taking the headline and
@@ -21,7 +21,7 @@
               background var(--dur-fast) var(--ease-out),
               border-color var(--dur-fast) var(--ease-out);
 }
-.btn:hover { transform: translateY(-1px); }
+@media (hover: hover) { .btn:hover { transform: translateY(-1px); } }
 .btn:active { transform: translateY(0); }
 
 .btn--primary {
@@ -29,19 +29,19 @@
   background: var(--grad);
   box-shadow: 0 6px 24px -10px rgb(var(--c-2-rgb) / 0.85);
 }
-.btn--primary:hover { box-shadow: 0 10px 32px -10px rgb(var(--c-2-rgb) / 0.95); }
+@media (hover: hover) { .btn--primary:hover { box-shadow: 0 10px 32px -10px rgb(var(--c-2-rgb) / 0.95); } }
 
 .btn--ghost {
   color: var(--fg);
   border: 1px solid var(--hairline-2);
   background: var(--surface);
 }
-.btn--ghost:hover { background: var(--surface-2); border-color: var(--fg-faint); }
+@media (hover: hover) { .btn--ghost:hover { background: var(--surface-2); border-color: var(--fg-faint); } }
 
 .btn--lg { padding: 0.95rem 1.7rem; font-size: var(--t-md); }
 
 .btn__arrow { transition: transform var(--dur-fast) var(--ease-out); }
-.btn:hover .btn__arrow { transform: translateX(3px); }
+@media (hover: hover) { .btn:hover .btn__arrow { transform: translateX(3px); } }
 
 /* ---- chips / badges ------------------------------------------------------ */
 .chip {
@@ -69,7 +69,7 @@
 .tag {
   display: inline-block;
   padding: 0.22rem 0.55rem; border-radius: var(--r-xs);
-  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: 0.06em;
+  font-family: var(--font-mono); font-size: var(--t-tiny); letter-spacing: calc(0.06em * var(--track-open));
   color: var(--fg-dim);
   border: 1px solid var(--hairline);
   background: var(--surface);
@@ -87,7 +87,7 @@
   transition: border-color var(--dur) var(--ease-out),
               transform var(--dur) var(--ease-out);
 }
-.card:hover { border-color: var(--hairline-2); }
+@media (hover: hover) { .card:hover { border-color: var(--hairline-2); } }
 
 /* the thin gradient hairline that lights the top edge of a card */
 .card--lit::before {
@@ -95,11 +95,11 @@
   background: linear-gradient(90deg, transparent, rgb(var(--c-2-rgb) / .55), transparent);
   opacity: 0; transition: opacity var(--dur) var(--ease-out);
 }
-.card--lit:hover::before { opacity: 1; }
+@media (hover: hover) { .card--lit:hover::before { opacity: 1; } }
 
 .card__index {
   font-family: var(--font-mono); font-size: var(--t-micro);
-  color: var(--fg-faint); letter-spacing: 0.1em;
+  color: var(--fg-faint); letter-spacing: calc(0.1em * var(--track-open));
   margin-bottom: 0.9rem;
 }
 .card__title { font-size: var(--t-lg); margin-bottom: 0.55rem; }
@@ -162,7 +162,7 @@
 .keyline {
   font-family: var(--font-display);
   font-size: clamp(1.35rem, 2.6vw, 2.1rem);
-  font-weight: 500; line-height: 1.28; letter-spacing: -0.02em;
+  font-weight: 500; line-height: 1.28; letter-spacing: calc(-0.02em * var(--track-tight));
   max-width: 34rem;
 }
 
@@ -179,7 +179,7 @@
   transition: background var(--dur-fast) var(--ease-out);
   cursor: pointer;
 }
-.rail__item:hover { background: var(--surface); }
+@media (hover: hover) { .rail__item:hover { background: var(--surface); } }
 .rail__item[aria-current="true"] { background: var(--surface-2); }
 .rail__num {
   font-family: var(--font-mono); font-size: var(--t-micro);
@@ -239,14 +239,14 @@
   text-decoration: underline; text-underline-offset: 3px;
   text-decoration-color: rgb(var(--c-2-rgb) / 0.4);
 }
-.langhint__go:hover { text-decoration-color: currentColor; }
+@media (hover: hover) { .langhint__go:hover { text-decoration-color: currentColor; } }
 .langhint__close {
   display: grid; place-items: center;
   width: 30px; height: 30px; border-radius: var(--r-round);
   color: var(--fg-dim); font-size: var(--t-base); line-height: 1;
   flex-shrink: 0;
 }
-.langhint__close:hover { color: var(--fg); background: var(--surface-2); }
+@media (hover: hover) { .langhint__close:hover { color: var(--fg); background: var(--surface-2); } }
 
 @media (max-width: 32.5rem) {
   .langhint { left: 1rem; right: 1rem; transform: translateY(calc(100% + 2rem)); max-width: none; }
@@ -281,6 +281,36 @@
   }
   .nav[data-stuck="true"] { background: Canvas; border-bottom-color: CanvasText; }
   .rail__item[aria-current="true"] { outline: 2px solid Highlight; }
+
+  /* Every remaining "which one is chosen" on the page. The four controls
+     above were given a forced-colors answer; three more, styled the same way
+     in the same stylesheets, were not — and a dropped gradient does not
+     degrade a selected state, it deletes it. Measured with forcedColors:
+     active: the segmented switch's on and off halves came back byte-identical
+     — same colour, same transparent background, same border — and so did a
+     selected discipline tab beside an unselected one, and the nav link for
+     the section you are reading beside every other. */
+  .switch, .cases__tabs { border-color: CanvasText; }
+  .switch__btn { forced-color-adjust: none; color: ButtonText; background: ButtonFace; }
+  .switch__btn[aria-pressed="true"] {
+    color: HighlightText; background: Highlight;
+  }
+  /* The attribute twice, on purpose. sections.css is bundled AFTER this file,
+     so its `.cases__tab[aria-selected="true"]` rules win at equal specificity
+     and the first version of this fix silently did nothing — caught by
+     measuring the result rather than by reading it. */
+  .cases__tab[aria-selected="true"][aria-selected] {
+    forced-color-adjust: none;
+    color: HighlightText; background: Highlight;
+  }
+  /* The nub and the nav underline are both a 2px gradient — dropped here, so
+     both carry their own colour instead of borrowing the brand's. */
+  .cases__tab[aria-selected="true"][aria-selected]::before,
+  .nav__link[aria-current="true"]::after { background: Highlight; }
+  .nav__link[aria-current="true"] { color: LinkText; text-decoration: underline; }
+  /* The reading progress bar is the same dropped gradient, and it is the only
+     readout of how far down the page you are. */
+  .nav__progress i { background: Highlight; }
 }
 
 /* ---- segmented switch ----------------------------------------------------- */
@@ -298,9 +328,27 @@
   min-height: 34px;
   transition: color var(--dur-fast) var(--ease-out), background var(--dur) var(--ease-out);
 }
-.switch__btn:hover { color: var(--fg-soft); }
+@media (hover: hover) { .switch__btn:hover { color: var(--fg-soft); } }
 .switch__btn[aria-pressed="true"] { color: var(--on-grad); background: var(--grad); }
 @media (pointer: coarse) { .switch__btn { min-height: 44px; } }
+
+/* ---- touch targets ---------------------------------------------------------
+   Measured on emulated phones, both languages, after reveals had settled: the
+   menu button was 40×40 — the most-tapped control on a phone — the language
+   switch 40 tall, the home link 26, eleven footer links 34, and on /zh/ only,
+   the "Switch to English" hint's link was 25 tall and its close button 30×30:
+   a toast covering the bottom of the screen whose dismiss control was the
+   hardest thing on the page to hit. 44 is Apple's minimum and WCAG 2.5.5's;
+   applied only to coarse pointers so the desktop layout does not move. */
+@media (pointer: coarse) {
+  .nav__burger { min-width: 44px; min-height: 44px; }
+  .langswitch__btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .brand__home { min-height: 44px; display: inline-flex; align-items: center; }
+  /* Height alone left a one-word link like 架构 28px wide. */
+  .footer__col a { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; }
+  .langhint__go { min-height: 44px; display: inline-flex; align-items: center; }
+  .langhint__close { min-width: 44px; min-height: 44px; }
+}
 
 /* ---- compare panes -------------------------------------------------------- */
 /* Both states occupy the same grid cell so the frame does not resize when the

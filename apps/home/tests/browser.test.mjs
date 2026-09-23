@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as H from './harness.mjs';
-import { serve, launcher, launchOptions, reporter, pageFacts, evaluateWithin, ROOT } from './harness.mjs';
+import { serve, launcher, launchOptions, reporter, pageFacts, evaluateWithin, ROOT, headerRules } from './harness.mjs';
 
 const chromium = await launcher();
 if (!chromium) {
@@ -66,9 +66,16 @@ const LANGS = [['en', '/'], ['zh', '/zh/']];
     for (const [lang, path] of [['en', '/'], ['zh', '/zh/'], ['en', '/privacy.html'], ['zh', '/zh/privacy.html'], ['en', '/404.html']]) {
       const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       const page = await ctx.newPage();
+      await page.route('**/__axe.js', (route) => route.fulfill({
+        status: 200, contentType: 'text/javascript', body: axe,
+      }));
       await page.goto(base + path, { waitUntil: 'networkidle' });
       await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-      await page.addScriptTag({ content: axe });
+      /* Served from this origin rather than injected inline. The test server
+         now sends the real `_headers`, and `script-src 'self'` refuses an
+         inline <script> — correctly: that is the whole point of the policy.
+         The tool has to obey it like everything else. */
+      await page.addScriptTag({ url: '/__axe.js' });
       const res = await page.evaluate(async () => window.axe.run(document, {
         resultTypes: ['violations'],
         runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
@@ -229,6 +236,23 @@ for (const [lang, path] of LANGS) {
               past.push(`${(el.className || el.tagName).toString().trim().slice(0, 16)}@${Math.round(b.right)}`);
             }
           });
+        /* Position, not just size. The rule below measures how BIG a label is
+           and never where it ended up, so a longer translation or a renamed
+           gate could run past the edge of its own viewBox and be clipped with
+           nothing to say so. */
+        const outside = [];
+        document.querySelectorAll('[data-diagram] svg').forEach((sv) => {
+          const vb = sv.viewBox.baseVal;
+          if (!vb?.width) return;
+          const kind = sv.closest('[data-diagram]')?.dataset.diagram ?? '?';
+          sv.querySelectorAll('text').forEach((tx) => {
+            const b = tx.getBBox();
+            if (b.x < -1 || b.y < -1 || b.x + b.width > vb.width + 1 || b.y + b.height > vb.height + 1) {
+              outside.push(`${kind}:"${tx.textContent.trim().slice(0, 12)}"`);
+            }
+          });
+        });
+
         const tiny = [];
         document.querySelectorAll('svg text').forEach((t) => {
           const vb = t.ownerSVGElement?.viewBox.baseVal;
@@ -260,11 +284,13 @@ for (const [lang, path] of LANGS) {
           }
         }
         return { past: [...new Set(past)].slice(0, 4), tiny: [...new Set(tiny)],
+                 outside: [...new Set(outside)].slice(0, 3),
                  navRight: Math.round(nav.right),
                  vw: window.innerWidth, overlaps: [...new Set(overlaps)] };
       });
       r.check(res.past.length === 0, `${path} @${width}: past the right edge — ${res.past.join(', ')}`);
       r.check(res.tiny.length === 0, `${path} @${width}: svg text under 9px — ${res.tiny.slice(0, 3).join(', ')}`);
+      r.check(res.outside.length === 0, `${path} @${width}: svg text outside its viewBox — ${res.outside.slice(0, 2).join(', ')}`);
       r.check(res.navRight <= res.vw, `${path} @${width}: nav actions clipped at x=${res.navRight}`);
       r.check(res.overlaps.length === 0, `${path} @${width}: nav items overlap — ${res.overlaps.slice(0, 3).join(', ')}`);
       await ctx.close();
@@ -345,6 +371,43 @@ for (const [lang, path] of LANGS) {
   r.equal(arrowed.panel, 'finance', 'ArrowRight moves the panel');
   r.equal(arrowed.focused, 'finance', 'ArrowRight moves focus');
 
+  await ctx.close();
+  ok = r.finish() && ok;
+}
+
+/* ---------------------------------------------------- addressability --- */
+/* The six discipline panels are the only place the argument is made in a
+   named profession, and for thirty-two rounds there was no way to send
+   anybody to one: the fragment was ignored on load and never written when a
+   tab was chosen, so the panel a reader was looking at had no address. */
+for (const [lang, path] of LANGS) {
+  const r = reporter(`addressable [${lang}] — a discipline can be linked to`);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(20_000);
+
+  /* Arriving on a deep link selects that panel, not the first one. */
+  await page.goto(`${base}${path}#panel-edu`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(700);
+  const arrived = await evaluateWithin(page, 15_000, 'deep link', () => ({
+    shown: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).map((c) => c.id),
+    selected: document.querySelectorAll('.cases__tab[aria-selected="true"]').length,
+  }));
+  r.equal(arrived.shown.join(','), 'panel-edu', 'the deep-linked panel is the visible one');
+  r.equal(arrived.selected, 1, 'exactly one tab is selected after a deep link');
+
+  /* Choosing one gives it an address, without piling up history entries. */
+  await page.goto(base + path, { waitUntil: 'networkidle' });
+  const depth = await evaluateWithin(page, 15_000, 'history depth', () => history.length);
+  await page.locator('.cases__tab').nth(2).click();
+  await page.waitForTimeout(400);
+  const after = await evaluateWithin(page, 15_000, 'after choosing', () => ({
+    hash: location.hash, depth: history.length,
+    shown: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).map((c) => c.id)[0],
+  }));
+  r.check(after.hash.length > 1, 'choosing a discipline leaves no address in the URL');
+  r.equal(after.hash.slice(1), after.shown, 'the URL names the panel actually shown');
+  r.equal(after.depth, depth, 'choosing a discipline pushed a history entry');
   await ctx.close();
   ok = r.finish() && ok;
 }
@@ -467,6 +530,37 @@ for (const [lang, path] of LANGS) {
        diagram-strings.js claimed a check that had never been written. */
     rawKeys: [...document.querySelectorAll('[data-diagram] svg text')]
       .map((n) => n.textContent.trim()).filter((v) => /^d\.[a-z]/.test(v)),
+    /* Text drawn ON the brand gradient. axe does not evaluate SVG text over a
+       gradient fill, so white-on-gradient — 2.19:1 over the orange stop —
+       passed every accessibility run for thirty-three rounds. The page solved
+       this once for buttons and called the answer --on-grad.
+
+       "On" means the boxes actually overlap. The first version of this asked
+       only whether the same <g> held a gradient-filled shape, and reported the
+       axis diagram, whose labels sit above the line and whose only gradient is
+       a 4px dot at the far end. A group is not a position. */
+    onGradient: (() => {
+      const ink = getComputedStyle(document.documentElement)
+        .getPropertyValue('--on-grad').trim();
+      const light = (c) => /^rgba?\((2[0-9]\d|1[89]\d), *(2[0-9]\d|1[89]\d), *(2[0-9]\d|1[89]\d)/.test(c);
+      const bad = [];
+      document.querySelectorAll('[data-diagram] svg').forEach((svgEl) => {
+        const painted = [...svgEl.querySelectorAll('circle, rect, path, ellipse')]
+          .filter((sh) => /^url\(/.test(sh.getAttribute('fill') ?? ''))
+          .map((sh) => sh.getBoundingClientRect());
+        if (!painted.length) return;
+        svgEl.querySelectorAll('text').forEach((text) => {
+          const fill = getComputedStyle(text).fill;
+          if (fill === ink || !light(fill)) return;
+          const t = text.getBoundingClientRect();
+          const over = painted.some((p) =>
+            Math.min(t.right, p.right) - Math.max(t.left, p.left) > t.width * 0.4 &&
+            Math.min(t.bottom, p.bottom) - Math.max(t.top, p.top) > t.height * 0.4);
+          if (over) bad.push(`${text.textContent.trim().slice(0, 12)}=${fill}`);
+        });
+      });
+      return [...new Set(bad)];
+    })(),
   }));
   r.check(state.read > 0, `reading progress stayed at ${state.read} after scrolling half the page`);
   r.check(state.current === 1, `the loop rail marks ${state.current} current steps, expected 1`);
@@ -475,9 +569,37 @@ for (const [lang, path] of LANGS) {
      failure it was supposed to catch. */
   r.equal(state.diagrams, facts.diagrams, 'diagrams that actually rendered');
   r.equal(state.scaled, facts.diagrams, 'diagrams with --dscale resolved');
+  r.check(state.onGradient.length === 0,
+    `light text drawn on the brand gradient — ${state.onGradient.slice(0, 3).join(', ')}`);
   r.check(state.rawKeys.length === 0,
     `untranslated diagram keys drawn as labels — ${state.rawKeys.slice(0, 3).join(', ')}`);
   await ctx.close();
+  ok = r.finish() && ok;
+}
+
+/* ------------------------------------------------------------ console --- */
+/* All five pages log nothing today, and nothing kept it that way. A module
+   throwing after boot, an asset 404ing, a deprecation warning from an engine
+   — none of it is visible to any other suite here, because the degradation
+   suite only ever watches failures it caused on purpose. */
+{
+  const r = reporter('console — five pages, nothing logged');
+  for (const path of ['/', '/zh/', '/privacy.html', '/zh/privacy.html', '/404.html']) {
+    r.step(path);
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    const noise = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error' || m.type() === 'warning') noise.push(`${m.type()}: ${m.text().slice(0, 70)}`);
+    });
+    page.on('pageerror', (e) => noise.push(`threw: ${e.message.slice(0, 70)}`));
+    page.on('requestfailed', (q) => noise.push(`failed: ${q.url().split('/').pop()}`));
+    await page.goto(base + path, { waitUntil: 'networkidle' });
+    await evaluateWithin(page, 15_000, `scroll ${path}`, () => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(900);
+    r.equal(noise.length, 0, `${path} logged ${noise.length}: ${noise.slice(0, 2).join(' | ')}`);
+    await ctx.close();
+  }
   ok = r.finish() && ok;
 }
 
@@ -565,6 +687,346 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* -------------------------------------------------------------- mobile --- */
+/* The responsive suite narrows a desktop window. That is not a phone: it has
+   no touch, no coarse pointer, no hover:none, no device pixel ratio — and
+   every one of those changes what this stylesheet does. Measured on emulated
+   phones before this suite existed: the menu button was 40×40, the footer
+   links 34 tall, the Chinese language hint's close button 30×30, ten label
+   styles at 10–11px, and every tapped control kept its hover styling because
+   none of the 21 :hover rules asked whether the device could hover.
+
+   Sizes are read from offsetWidth/offsetHeight — the layout box, which a
+   transform does not change. The first probe measured getBoundingClientRect
+   and reported a 44px button as 42, because a reveal animation had the stage
+   at scale(0.965): a test that depends on when it looks is a test that lies.
+
+   Chromium with each phone's real viewport, pixel ratio, touch and user
+   agent. It is not WebKit, which this machine does not have; iOS Safari
+   itself is not covered here. */
+{
+  const { devices } = await import('playwright');
+  const PHONES = ['iPhone SE', 'iPhone 13', 'Pixel 7'];
+  for (const [lang, path] of LANGS) {
+    const r = reporter(`mobile [${lang}] — three phones, touch, and the menu`);
+    const minType = lang === 'zh' ? 12 : 11;
+    for (const phone of PHONES) {
+      r.step(phone);
+      const { defaultBrowserType, ...device } = devices[phone];
+      const ctx = await browser.newContext({ ...device });
+      const page = await ctx.newPage();
+      await page.goto(base + path, { waitUntil: 'load' });
+      await evaluateWithin(page, 30_000, 'settle', async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += 500) {
+          window.scrollTo(0, y); await new Promise((res) => setTimeout(res, 20));
+        }
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(600);
+
+      const measure = (menuOpen) => evaluateWithin(page, 15_000, 'measure', (args) => {
+        const { menuOpen, minType } = args;
+        const vw = window.innerWidth;
+        const shown = (e) => {
+          const cs = getComputedStyle(e);
+          return e.offsetWidth > 0 && e.offsetHeight > 0 && cs.visibility !== 'hidden'
+            && !e.closest('[hidden]') && parseFloat(cs.opacity) > 0.05;
+        };
+        const small = [];
+        for (const e of document.querySelectorAll('a[href], button, summary, [role="tab"], [role="button"]')) {
+          if (e.classList.contains('skip-link')) continue;      // exists only on focus
+          const inMenu = !!e.closest('.nav__links, .nav__actions');
+          if (inMenu !== menuOpen || !shown(e)) continue;
+          if (e.closest('svg')) continue;                       // diagram rows: sized by --dscale
+          if (e.offsetWidth < 44 || e.offsetHeight < 44) {
+            small.push(`“${(e.textContent || e.getAttribute('aria-label') || e.tagName).trim().replace(/\s+/g, ' ').slice(0, 14)}” ${e.offsetWidth}×${e.offsetHeight}`);
+          }
+        }
+        const tiny = new Set();
+        if (!menuOpen) {
+          for (const e of document.querySelectorAll('body *')) {
+            if (e.closest('svg, .visually-hidden')) continue;
+            if (![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1)) continue;
+            if (!e.offsetWidth) continue;
+            const fs = parseFloat(getComputedStyle(e).fontSize);
+            if (fs < minType) tiny.add(`${e.tagName.toLowerCase()}.${String(e.className).split(' ')[0]} ${fs}px`);
+          }
+        }
+        return { overflow: document.documentElement.scrollWidth - vw, small, tiny: [...tiny] };
+      }, { menuOpen, minType });
+
+      const closed = await measure(false);
+      r.check(closed.overflow <= 0, `${phone}: the page scrolls sideways by ${closed.overflow}px — on a phone that zooms the whole page out`);
+      r.equal(closed.small.length, 0, `${phone}: touch targets under 44×44 — ${closed.small.slice(0, 4).join(', ')}`);
+      r.equal(closed.tiny.length, 0, `${phone}: text under ${minType}px — ${closed.tiny.slice(0, 4).join(', ')}`);
+
+      /* The menu is the one piece of navigation a phone has. */
+      const before = await page.evaluate(() => document.querySelector('.nav__burger')?.getAttribute('aria-expanded'));
+      r.equal(before, 'false', `${phone}: the menu starts open`);
+      await page.tap('.nav__burger');
+      await page.waitForTimeout(450);
+      const opened = await evaluateWithin(page, 10_000, 'menu', () => {
+        const y = window.scrollY; window.scrollBy(0, 300);
+        const moved = window.scrollY !== y; window.scrollTo(0, y);
+        return {
+          expanded: document.querySelector('.nav__burger').getAttribute('aria-expanded'),
+          links: [...document.querySelectorAll('.nav__links a')].filter((a) => a.offsetHeight > 0).length,
+          scrollsBehind: moved,
+        };
+      });
+      r.equal(opened.expanded, 'true', `${phone}: tapping the menu button does not open it`);
+      r.check(opened.links >= 6, `${phone}: only ${opened.links} links visible in the open menu`);
+      r.check(!opened.scrollsBehind, `${phone}: the page scrolls behind the open menu`);
+      const inMenu = await measure(true);
+      r.equal(inMenu.small.length, 0, `${phone}: touch targets under 44×44 in the open menu — ${inMenu.small.slice(0, 4).join(', ')}`);
+
+      const href = await page.evaluate(() => document.querySelector('.nav__links a[href^="#"]')?.getAttribute('href'));
+      await page.tap(`.nav__links a[href="${href}"]`);
+      await page.waitForTimeout(700);
+      const after = await page.evaluate(() => ({
+        expanded: document.querySelector('.nav__burger').getAttribute('aria-expanded'), hash: location.hash,
+      }));
+      r.equal(after.expanded, 'false', `${phone}: tapping a menu link leaves the menu open`);
+      r.equal(after.hash, href, `${phone}: tapping a menu link does not go there`);
+      await ctx.close();
+    }
+    ok = r.finish() && ok;
+  }
+}
+
+/* ------------------------------------------------------------- headers --- */
+/* The test server now sends what `_headers` says the real host sends, so
+   every suite above this line runs under the real Content-Security-Policy.
+   That was not true for thirty-nine rounds: the policy was a string in a file
+   nothing read, and the page it governs was only ever tested without it.
+   The first run under it failed immediately — axe-core injects an inline
+   <script>, which `script-src 'self'` refuses, exactly as designed. The tool
+   was changed to load from this origin; the policy was not.
+   This suite asserts the two halves separately: that the headers arrive, and
+   that the policy is ENFORCED rather than merely present. A policy that is
+   sent and ignored looks identical from the response. */
+{
+  const r = reporter('headers — the policy is sent, and it bites');
+  const expected = headerRules().find((rule) => rule.pattern === '/*').headers;
+
+  for (const path of ['/', '/zh/', '/privacy.html', '/404.html']) {
+    r.step(path);
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const res = await page.goto(base + path, { waitUntil: 'load' });
+    const got = res.headers();
+    for (const [name, value] of Object.entries(expected)) {
+      r.equal(got[name], value, `${path} ${name}`);
+    }
+    await ctx.close();
+  }
+
+  r.step('enforcement');
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const blocked = [];
+  page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) blocked.push(m.text().slice(0, 40)); });
+  await page.goto(base + '/', { waitUntil: 'load' });
+  const ran = await evaluateWithin(page, 15_000, 'inline script', () => {
+    const el = document.createElement('script');
+    el.textContent = 'window.__inlineRan = true;';
+    document.head.append(el);
+    return window.__inlineRan === true;
+  });
+  r.check(!ran, 'an inline script executed — the CSP is being sent and not enforced');
+  r.check(blocked.length > 0, 'the browser reported no CSP violation for a blocked inline script');
+  await ctx.close();
+
+  /* And the manifest, which is ignored outright when it is not JSON. */
+  r.step('manifest media type');
+  const mctx = await browser.newContext();
+  const mpage = await mctx.newPage();
+  for (const m of ['/assets/site.webmanifest', '/assets/site.zh.webmanifest']) {
+    const res = await mpage.goto(base + m);
+    r.equal(res.headers()['content-type'], 'application/manifest+json', `${m} media type`);
+  }
+  await mctx.close();
+  ok = r.finish() && ok;
+}
+
+/* -------------------------------------------------------- accumulation --- */
+/* Nothing here had ever been run twice. Every suite loads the page, exercises
+   it once and closes the context, so anything that grows per re-wire grew
+   unobserved: crossing the narrow breakpoint rebuilds the diagrams and
+   re-wires the loop scene, and a reader who rotates a tablet, drags a window
+   or opens devtools crosses it repeatedly.
+   Measured before the fix, at three crossings: rail click handlers 6 -> 42,
+   one click on a step firing seven smooth scrolls to the same place; and
+   twelve IntersectionObservers created, none disconnected. */
+{
+  const r = reporter('accumulation — the page re-wired, five times over');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    window.__io = { made: 0, gone: 0 };
+    const IO = window.IntersectionObserver;
+    window.IntersectionObserver = class extends IO {
+      constructor(...a) { super(...a); window.__io.made += 1; }
+      disconnect() { window.__io.gone += 1; return super.disconnect(); }
+    };
+    /* Counting scrollTo calls is the only honest way to count LIVE handlers.
+       A tally of addEventListener grows when a rebuilt element gets a handler
+       its detached predecessor also had — which is not a leak, and reading it
+       as one accuses working code. The arch diagram's rows look exactly like
+       that: 5 -> 35 on the tally, and zero of them still attached to
+       anything in the document. */
+    window.__scrolls = 0;
+    const real = window.scrollTo.bind(window);
+    window.scrollTo = (...a) => { window.__scrolls += 1; return real(...a); };
+  });
+  await page.goto(base + '/', { waitUntil: 'load' });
+  await page.waitForTimeout(1200);
+
+  const state = async () => evaluateWithin(page, 15_000, 'accumulation state', () => ({
+    live: window.__io.made - window.__io.gone,
+    nodes: document.getElementsByTagName('*').length,
+    svgs: document.querySelectorAll('svg').length,
+    history: history.length,
+  }));
+  const clickRail = async () => evaluateWithin(page, 15_000, 'rail click', () => {
+    window.__scrolls = 0;
+    document.querySelector('.rail__item')?.click();
+    return window.__scrolls;
+  });
+
+  const boot = await state();
+  r.equal(await clickRail(), 1, 'a rail click at boot does not scroll exactly once');
+
+  for (let i = 0; i < 5; i += 1) {
+    r.step(`crossing ${i + 1}`);
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.waitForTimeout(350);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(350);
+  }
+  const after = await state();
+
+  r.equal(await clickRail(), 1, 'after five crossings, one rail click scrolls more than once');
+  r.equal(after.live, boot.live, 'live IntersectionObservers after five crossings');
+  r.equal(after.nodes, boot.nodes, 'DOM nodes after five crossings');
+  r.equal(after.svgs, boot.svgs, 'svg elements after five crossings');
+
+  /* And the same question of the controls that do not rebuild: a hundred and
+     twenty clicks must leave the document exactly the size it was. */
+  r.step('120 clicks');
+  await evaluateWithin(page, 20_000, 'clicks', () => {
+    const tabs = [...document.querySelectorAll('.cases__tab')];
+    const sw = [...document.querySelectorAll('.switch__btn')];
+    const layers = [...document.querySelectorAll('[data-layer]')];
+    for (let i = 0; i < 40; i += 1) {
+      tabs[i % tabs.length].click();
+      sw[i % sw.length].click();
+      layers[i % layers.length].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(600);
+  const clicked = await state();
+  r.equal(clicked.nodes, boot.nodes, 'DOM nodes after 120 clicks');
+  r.equal(clicked.live, boot.live, 'live IntersectionObservers after 120 clicks');
+  r.equal(clicked.history, boot.history, 'history entries after 120 clicks');
+  await ctx.close();
+  ok = r.finish() && ok;
+}
+
+/* ------------------------------------------------------- forced colors --- */
+/* The resilience suite has run in forced colors since it was written, and it
+   asked the wrong question: does anything render, is any text transparent, is
+   anything past the edge. All three passed while three of the page's selected
+   states were, by measurement, indistinguishable from their unselected
+   neighbours — because the state was carried by a gradient, and this mode
+   drops background images.
+   So this suite asks the only question that matters about an indicator: does
+   the chosen one look different from the others? Each pair is compared as a
+   computed signature, in forced colors and out of it. */
+{
+  const r = reporter('forced colors — you can still tell what is selected');
+
+  const signature = (el) => {
+    const c = getComputedStyle(el);
+    const before = getComputedStyle(el, '::before');
+    const after = getComputedStyle(el, '::after');
+    return [c.color, c.backgroundColor, c.backgroundImage, c.borderColor, c.outlineColor,
+      c.fontWeight, c.textDecorationLine,
+      before.backgroundColor, before.backgroundImage,
+      after.backgroundColor, after.backgroundImage].join(' | ');
+  };
+
+  for (const [lang, path] of LANGS) {
+    for (const forced of ['active', 'none']) {
+      r.step(`${lang} · forcedColors:${forced}`);
+      const ctx = await browser.newContext({
+        viewport: { width: 1280, height: 900 }, colorScheme: 'dark', forcedColors: forced,
+      });
+      const page = await ctx.newPage();
+      await page.goto(base + path, { waitUntil: 'load' });
+      await page.waitForTimeout(900);
+      /* Into a section, so a nav link is actually current. Measuring at the
+         top of the page found none and quietly fell back to the first link —
+         which is not current, so the comparison was of one unselected link
+         against another and could only ever pass. */
+      await evaluateWithin(page, 15_000, 'to loop', () => document.getElementById('loop')?.scrollIntoView());
+      await page.waitForTimeout(900);
+
+      const pairs = await evaluateWithin(page, 15_000, 'indicator pairs', (src) => {
+        const signature = eval(`(${src})`);
+        const pair = (name, on, off) => (on && off
+          ? { name, same: signature(on) === signature(off) }
+          : { name, missing: true });
+        const tabs = [...document.querySelectorAll('.cases__tab')];
+        const sw = [...document.querySelectorAll('.switch__btn')];
+        const ls = [...document.querySelectorAll('.langswitch__btn')];
+        const rail = [...document.querySelectorAll('.rail__item')];
+        const nav = [...document.querySelectorAll('.nav__link')];
+        const navOn = nav.find((a) => a.getAttribute('aria-current') === 'true');
+        return [
+          pair('discipline tab', tabs.find((t) => t.getAttribute('aria-selected') === 'true'),
+            tabs.find((t) => t.getAttribute('aria-selected') !== 'true')),
+          pair('segmented switch', sw.find((b) => b.getAttribute('aria-pressed') === 'true'),
+            sw.find((b) => b.getAttribute('aria-pressed') !== 'true')),
+          pair('language switch', ls.find((b) => b.getAttribute('aria-current') === 'true'),
+            ls.find((b) => b.getAttribute('aria-current') !== 'true')),
+          pair('loop rail', rail.find((li) => li.getAttribute('aria-current') === 'true'),
+            rail.find((li) => li.getAttribute('aria-current') !== 'true')),
+          pair('nav link', navOn, nav.find((a) => a !== navOn)),
+        ];
+      }, signature.toString());
+
+      for (const p of pairs) {
+        r.check(!p.missing, `${p.name}: no pair to compare — the markup moved`);
+        if (!p.missing) r.check(!p.same, `${p.name}: selected and unselected are identical`);
+      }
+
+      /* The pair comparison is necessary and not sufficient: the discipline
+         tab differed pre-fix by font-weight and a 6%-black wash over a black
+         canvas, so "not identical" passed while the only thing a reader could
+         actually see — the 2px marker — was painting nothing at all. These
+         two markers are the page's smallest indicators; they either paint or
+         they do not. */
+      const markers = await evaluateWithin(page, 15_000, 'markers', () => {
+        const paints = (el, pseudo) => {
+          if (!el) return null;
+          const c = getComputedStyle(el, pseudo);
+          if (c.content === 'none') return false;
+          const alpha = /rgba\([^)]*,\s*0\)/.test(c.backgroundColor);
+          return c.backgroundImage !== 'none' || !alpha;
+        };
+        const tab = document.querySelector('.cases__tab[aria-selected="true"]');
+        const nav = document.querySelector('.nav__link[aria-current="true"]');
+        return { tab: paints(tab, '::before'), nav: paints(nav, '::after') };
+      });
+      r.check(markers.tab !== false, 'the selected discipline tab paints no marker');
+      r.check(markers.nav !== false, 'the current nav link paints no underline');
+      await ctx.close();
+    }
+  }
+  ok = r.finish() && ok;
+}
+
 /* ---------------------------------------------------------- bilingual --- */
 {
   const r = reporter('bilingual — the Chinese page stands on its own');
@@ -575,8 +1037,15 @@ for (const [lang, path] of LANGS) {
     lang: document.documentElement.lang,
     han: (document.body.innerText.match(/[一-鿿]/g) ?? []).length,
     sections: document.querySelectorAll('section').length,
+    switchLangs: [...document.querySelectorAll('.langswitch__btn')]
+      .map((a) => a.getAttribute('lang') ?? a.getAttribute('hreflang') ?? '?').join('|'),
   }));
   r.check(/^zh/.test(stat.lang), `lang is "${stat.lang}"`);
+  /* Both switch buttons name their own language, in both directions. The
+     zh->en half was added in round 25 and never gated; mutation testing put
+     it back and nothing noticed. A fix with no script is this repository's
+     own named failure mode. */
+  r.equal(stat.switchLangs, 'en|zh-Hans', 'the language switch labels its own languages');
   r.check(stat.han > 800, `only ${stat.han} Han characters without JS`);
   r.equal(stat.sections, facts.sections, 'sections present without JS');
   await noJs.close();
