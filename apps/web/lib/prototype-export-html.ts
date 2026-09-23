@@ -251,6 +251,12 @@ export function localDateStamp(now: Date): string {
   return `${String(now.getFullYear())}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
 
+/** 「2026-09-08 01:23」——给人读的时间戳，同样按本地日历与本地钟。 */
+export function localTimeStamp(now: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${localDateStamp(now)} ${p(now.getHours())}:${p(now.getMinutes())}`;
+}
+
 export function prototypeExportHtmlFileName(name: string, now: Date = new Date()): string {
   return `${name}-可点击原型-${localDateStamp(now)}.html`;
 }
