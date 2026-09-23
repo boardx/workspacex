@@ -856,6 +856,18 @@
         <p data-i18n="faq.a5">The repository is public and readable today — that part is simply true, and you can check it. The licence is not: there is no LICENSE file in it yet, so nothing there grants you the right to run or modify it. We are not going to describe that as open source until it is. The intent is open core — the workspace object model, the agent and skill format and the connector interfaces open; governance, reliability and scale commercial — and the licence decision is the next step, not a detail.</p>
       </details>
       <details class="faq__item">
+        <summary data-i18n="faq.q9">Do you train on our data?</summary>
+        <p data-i18n="faq.a9">No, and not as a setting you have to go and find. Your material is not training data by default, and using any of it would require asking you specifically and getting a specific yes — not a clause in terms you accepted once. This is a commitment rather than a feature, which means the honest way to hold us to it is a contract, and we would rather you asked for that than took a sentence on a marketing page as sufficient.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q10">What does the free tier actually get?</summary>
+        <p data-i18n="faq.a10">The whole product, with limited capacity — not a demonstration with the useful parts removed. The commitment we are designing to is that the free tier stays functionally complete and that running out of quota degrades you to a smaller model rather than cutting you off mid-task: a task that stops halfway is worse than a task that finishes less well. What the paid tiers add is capacity, hosting we run, the governance layer, and the methodology content — the three columns above, in other words.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q11">What happens to the junior people who do this work today?</summary>
+        <p data-i18n="faq.a11">The honest answer is that this depends on how you deploy it, and we have taken a side in the design. Human review is an explicit step in the loop — a named person, a recorded decision, and accountability that sits with them — which makes the junior analyst the reviewer rather than the replaced. That is a real job and a better one, and it is also the only arrangement in which the evidence trail means anything: a chain nobody is answerable for is a chain nobody will defend. We will not pretend the question does not exist, and we will not tell you it has no downside.</p>
+      </details>
+      <details class="faq__item">
         <summary data-i18n="faq.q7">What actually leaves the machine when we work locally?</summary>
         <p data-i18n="faq.a7">Nothing, and it is enforced below the application rather than by our own good behaviour. Local-only work runs inside a guard that patches the single call that every outbound network connection in the process has to pass through — so a vendor SDK’s telemetry, or an analytics beacon inside a transitive dependency, is refused exactly as our own code would be. A machine on your own network counts as another machine and is refused too. The claim is deliberately narrow, because the narrow one is the true one: while work belongs to a local-only workspace, nothing leaves it. Outside that boundary a normal deployment’s traffic is normal traffic, and we are not going to pretend otherwise.</p>
       </details>
