@@ -37,6 +37,10 @@ const ASSETS = {
   /* The product's logo, from the web app. If it changes there, this fails
      until the header copy is re-cut. */
   'logo.webp': ['../web/public/workspacex-logo.png', 'scripts/build-logo.mjs'],
+  /* The body face, cut to the weights the page uses (paths are relative to
+     assets/img, like every key here). */
+  '../fonts/inter-latin.woff2': ['scripts/fonts-src/inter-latin.woff2', 'scripts/build-fonts.mjs'],
+  '../fonts/inter-latin-ext.woff2': ['scripts/fonts-src/inter-latin-ext.woff2', 'scripts/build-fonts.mjs'],
 };
 
 const fingerprint = (sources) => createHash('sha256')

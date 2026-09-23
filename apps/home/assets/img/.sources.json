@@ -1,8 +1,10 @@
 {
-  "og.jpg": "d95a48e8457b3e81",
-  "og-zh.jpg": "d95a48e8457b3e81",
+  "og.jpg": "677f281d3ad9b13a",
+  "og-zh.jpg": "677f281d3ad9b13a",
   "favicon.png": "4be6d035b72883a6",
   "apple-touch-icon.png": "1aa76599d1daddaf",
   "aurora.jpg": "0b09d9c7e59857c9",
-  "logo.webp": "835fc3b2ed04e745"
+  "logo.webp": "835fc3b2ed04e745",
+  "../fonts/inter-latin.woff2": "f0f4499925709c8a",
+  "../fonts/inter-latin-ext.woff2": "47b2e71c32d3a9be"
 }

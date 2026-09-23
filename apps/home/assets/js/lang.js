@@ -33,10 +33,15 @@ export function initLangHint() {
   bar.lang = prefers === 'zh' ? 'zh-Hans' : 'en';
   bar.innerHTML = `
     <span class="langhint__text"></span>
-    <a class="langhint__go" href="${copy.href}"></a>
+    <a class="langhint__go"></a>
     <button class="langhint__close" type="button"></button>`;
   bar.querySelector('.langhint__text').textContent = copy.text;
-  bar.querySelector('.langhint__go').textContent = copy.action;
+  const go = bar.querySelector('.langhint__go');
+  go.textContent = copy.action;
+  /* Same section, other language: the switch in the nav already carries the
+     fragment (motion.js keeps it current), so borrow it. */
+  go.dataset.base = copy.href;
+  go.href = document.querySelector('.langswitch__btn:not([aria-current="true"])')?.getAttribute('href') || copy.href;
 
   const close = bar.querySelector('.langhint__close');
   close.setAttribute('aria-label', prefers === 'zh' ? '关闭' : 'Dismiss');

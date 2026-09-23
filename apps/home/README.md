@@ -164,6 +164,7 @@ index.html                 all page copy (English) + structure
 privacy.html               the privacy note (English; zh/ version generated)
 assets/css/site.css        the shipped bundle (GENERATED from the seven below)
 assets/css/fonts.css       self-hosted variable Outfit + Inter (latin only)
+assets/fonts/inter-*.woff2 Inter cut to weight 400–700 (GENERATED from scripts/fonts-src/)
 assets/css/base.css        tokens, reset, type scale
 assets/css/layout.css      shell, nav, section rhythm, footer
 assets/css/components.css  buttons, cards, stages, rails
@@ -193,6 +194,8 @@ assets/site.zh.webmanifest Chinese name, icons, theme (generated)
 scripts/                   the checks above, plus the generators
 tests/                     the browser and performance suites, and their harness
 scripts/og-card.html       source for the social cards
+scripts/fonts-src/         Inter as it came from upstream, full 100–900 axis
+docs/eval/history.json     the acceptance score of every round
 docs/REVIEW-LOG.md         what each iteration round found and changed
 ```
 
@@ -259,6 +262,7 @@ node scripts/build-brand.mjs    # page titles + base.css -> manifests
 node scripts/build-og.mjs       # og-card.html + logo.webp -> assets/img/og*.jpg (needs playwright)
 node scripts/check-assets.mjs --update   # after either builder above, record the new sources
 node scripts/build-aurora.mjs   # inline gradients  -> assets/img/aurora.jpg (needs playwright)
+node scripts/build-fonts.mjs    # scripts/fonts-src/inter-*.woff2 -> assets/fonts/, weight axis cut to 400–700 (needs fonttools)
 node scripts/build-logo.mjs     # apps/web/public/{workspacex-logo,apple-icon}.png -> logo.webp, favicon.png, apple-touch-icon.png (needs playwright)
 ```
 

@@ -162,6 +162,13 @@ export function initNav() {
       else a.removeAttribute('aria-current');
     });
     swaps.forEach(([a, base]) => a.setAttribute('href', cur ? `${base}#${cur}` : base));
+    /* The "also in 中文" offer (lang.js) is the other way across, and the one
+       a visitor who did not know the switch existed actually taps. */
+    const hint = document.querySelector('.langhint__go');
+    if (hint) {
+      if (!hint.dataset.base) hint.dataset.base = hint.getAttribute('href').split('#')[0];
+      hint.setAttribute('href', cur ? `${hint.dataset.base}#${cur}` : hint.dataset.base);
+    }
   };
   let queued = false;
   const onScroll = () => {

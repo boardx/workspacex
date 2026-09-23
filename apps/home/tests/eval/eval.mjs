@@ -98,6 +98,19 @@ const CASES = [
       await c.desk.evaluate(() => { history.replaceState(null, '', location.pathname); window.scrollTo({ top: 0, behavior: 'instant' }); }); await settle(c.desk);
       return { score: +href.endsWith('#architecture'), note: href.replace(/^https?:\/\/[^/]+/, '') };
     }],
+  ['nav.hint.keeps.place', '导航', 'The "also in the other language" offer lands on the same section too',
+    async (c) => {
+      /* The offer appears when the browser prefers the other language, so it
+         is opened with that preference. */
+      const ctx = await c.browser.newContext({ viewport: { width: 1280, height: 800 }, locale: c.lang === 'zh' ? 'en-US' : 'zh-CN' });
+      const p = await ctx.newPage();
+      await p.goto(`${c.base}${c.path}#architecture`, { waitUntil: 'load' });
+      await p.waitForTimeout(400); await settle(p);
+      await p.evaluate(() => window.scrollBy(0, 1)); await p.waitForTimeout(200);
+      const href = await p.evaluate(() => document.querySelector('.langhint__go')?.getAttribute('href') || 'no offer');
+      await ctx.close();
+      return { score: +href.endsWith('#architecture'), note: href };
+    }],
   ['nav.skip', '导航', 'The skip link is the first focusable element and targets <main>',
     async (c) => c.desk.evaluate(() => {
       const first = [...document.querySelectorAll('a[href], button, [tabindex="0"]')][0];
@@ -319,7 +332,7 @@ for (const [lang, path] of LANGS) {
   const { defaultBrowserType: _a, ...iphone } = devices['iPhone 13'];
   const { defaultBrowserType: _b, ...se } = devices['iPhone SE'];
   const c = {
-    lang, path,
+    lang, path, browser, base,
     desk: await open(path, { viewport: { width: 1280, height: 800 } }),
     phone: await open(path, iphone),
     se: await open(path, se),
