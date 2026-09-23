@@ -42,6 +42,30 @@ extraResources:
       - "!apps/web/.next-*/**"
       # The dev venv hard-codes build-machine paths; the DMG ships resources/python instead (bundle-python.sh).
       - "!apps/deep-agent-service/.venv/**"
+
+      # ── 只在开发/打包时用到、运行时一行都不加载的大件（#3872 R16）────────────
+      #
+      # 实测 2026-09-23：bundle/node_modules 3.5 GB，里面躺着 1.57 GB 这样的东西。
+      # 判据不是「看着像开发依赖」，而是逐条核过运行时到底加不加载：
+      #
+      #   electron 708 MB          应用本身就是 Electron（Contents/Frameworks 里那份）；
+      #                            bundle 里的运行时代码没有任何一处 import electron。
+      #   app-builder-bin 207 MB   electron-builder 自己的二进制。打完包就没用了。
+      #   workerd ×3 版本 303 MB   wrangler 的运行时，给 apps/coord-gateway 用。
+      #   @cloudflare/workerd-* 289 MB  同上（平台专用二进制，三个版本各一份）。
+      #                            `up()` 启动的是 api / web / skill-sandbox /
+      #                            asr-gateway / deep-agent / ollama —— 没有 coord-gateway，
+      #                            而 packages/local-runtime 里对 wrangler/workerd 零引用。
+      #   typescript 64 MB         运行时用 tsx（esbuild），不做类型检查。
+      #
+      # ⚠ 剪包是**危险操作**：少了一个运行时真的要的包，症状是应用起不来或某个功能
+      #   静默失效。所以这一组每加一条都要重新打包并**真的把应用跑起来**验证，
+      #   而不是「看着不像运行时依赖」就删。验证方式见 evidence 里 R16 那一节。
+      - "!node_modules/.pnpm/electron@*/**"
+      - "!node_modules/.pnpm/app-builder-bin@*/**"
+      - "!node_modules/.pnpm/workerd@*/**"
+      - "!node_modules/.pnpm/@cloudflare+workerd-*/**"
+      - "!node_modules/.pnpm/typescript@*/**"
   - from: build/logo.png
     to: logo.png
   # commit short SHA + build time, shown on the startup page next to the version (#3749)

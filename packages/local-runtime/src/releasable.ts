@@ -28,6 +28,20 @@ export interface SigningFacts {
   readonly codesignOutput: string | null;
   /** `spctl -a -vvv -t exec` 的输出；拿不到就是 null。 */
   readonly spctlOutput: string | null;
+  /**
+   * 产物里**应该有、但由准备脚本生成且不入库**的目录，缺哪些。
+   *
+   * ⚠ 这一条是 2026-09-23 实测踩出来的（#3872 R16）：我在一个干净 worktree 里打包，
+   *   `apps/skill-sandbox/preinstalled` 不在包里——它由
+   *   `scripts/local-bundle/prepare-sandbox-modules.sh` 生成、不入库，而 `dist:mac`
+   *   **不跑那个脚本**。于是打出来的包，pptx / docx / xlsx / pdf 那一类 skill
+   *   会以 MODULE_NOT_FOUND 失败，而**唯一的症状要等用户真去生成一个文档才出现**。
+   *
+   *   同一个家族：R15 的 web 产物（`dist:mac` 不跑 `next build`，于是静默发布 dev 模式界面）。
+   *   发布脚本依赖「开发者手工跑过某些脚本」，就一定会有人漏跑——那不该是发布失败的
+   *   发现方式。运行时的告警已经把它说清了（那个设计是对的），但告警拦不住发布。
+   */
+  readonly missingPreparedDirs?: readonly string[];
 }
 
 export interface ReleaseVerdict {
@@ -51,6 +65,15 @@ export function gatekeeperAccepted(spctlOutput: string | null): boolean {
 export function releaseVerdict(f: SigningFacts): ReleaseVerdict {
   const blockers: string[] = [];
   const notes: string[] = [];
+
+  for (const d of f.missingPreparedDirs ?? []) {
+    blockers.push(
+      `产物里没有 ${d} —— 它由 scripts/local-bundle/ 下的准备脚本生成、不入仓库，`
+      + "而打包脚本不会替你跑。缺了它，依赖这部分的能力会在用户手上静默失效："
+      + "用户点下去、等一会儿、然后拿到一个内部错误，而不是一句「这个功能这一版没有」。"
+      + "发布前先跑对应的准备脚本，或者把它接进 dist 脚本里。",
+    );
+  }
 
   if (f.identityIsNull) {
     blockers.push(
