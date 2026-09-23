@@ -1466,6 +1466,12 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .reader__title { font-size: var(--t-h3); letter-spacing: -0.015em; margin-bottom: var(--s-3); }
 .reader__lead { color: var(--fg-dim); max-width: 46rem; margin-bottom: var(--s-6); }
 
+.proof__note {
+  margin-top: var(--s-4);
+  font-size: var(--t-small); color: var(--fg-dim);
+  max-width: 38rem;
+}
+
 /* motion.css */
 [data-reveal] {
   opacity: 0;
