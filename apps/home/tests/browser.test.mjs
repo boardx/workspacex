@@ -349,6 +349,43 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* ---------------------------------------------------- addressability --- */
+/* The six discipline panels are the only place the argument is made in a
+   named profession, and for thirty-two rounds there was no way to send
+   anybody to one: the fragment was ignored on load and never written when a
+   tab was chosen, so the panel a reader was looking at had no address. */
+for (const [lang, path] of LANGS) {
+  const r = reporter(`addressable [${lang}] — a discipline can be linked to`);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(20_000);
+
+  /* Arriving on a deep link selects that panel, not the first one. */
+  await page.goto(`${base}${path}#panel-edu`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(700);
+  const arrived = await evaluateWithin(page, 15_000, 'deep link', () => ({
+    shown: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).map((c) => c.id),
+    selected: document.querySelectorAll('.cases__tab[aria-selected="true"]').length,
+  }));
+  r.equal(arrived.shown.join(','), 'panel-edu', 'the deep-linked panel is the visible one');
+  r.equal(arrived.selected, 1, 'exactly one tab is selected after a deep link');
+
+  /* Choosing one gives it an address, without piling up history entries. */
+  await page.goto(base + path, { waitUntil: 'networkidle' });
+  const depth = await evaluateWithin(page, 15_000, 'history depth', () => history.length);
+  await page.locator('.cases__tab').nth(2).click();
+  await page.waitForTimeout(400);
+  const after = await evaluateWithin(page, 15_000, 'after choosing', () => ({
+    hash: location.hash, depth: history.length,
+    shown: [...document.querySelectorAll('.case')].filter((c) => !c.hasAttribute('hidden')).map((c) => c.id)[0],
+  }));
+  r.check(after.hash.length > 1, 'choosing a discipline leaves no address in the URL');
+  r.equal(after.hash.slice(1), after.shown, 'the URL names the panel actually shown');
+  r.equal(after.depth, depth, 'choosing a discipline pushed a history entry');
+  await ctx.close();
+  ok = r.finish() && ok;
+}
+
 /* ------------------------------------------------------------- no-JS ----- */
 for (const [lang, path] of LANGS) {
   const r = reporter(`degradation [${lang}] — no JavaScript, and a failed module`);

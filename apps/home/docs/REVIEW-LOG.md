@@ -954,3 +954,18 @@ slow-3G — where the budget is 0.02.
 | 8 | No `Cross-Origin-Opener-Policy` or `Cross-Origin-Resource-Policy`. | Both, free on a site that loads only its own origin. |
 | 9 | **Checked and dismissed.** The eyebrow casing looked badly inconsistent — "The Shift" beside "The workspace" beside "One Workspace", no system at all. `.eyebrow` is `text-transform: uppercase`: none of it reaches a reader. A pointless change, nearly shipped as a fix. |
 | 10 | **Checked and clean.** Every number in the prose against the real element counts — "five steps" against the chain's five nodes, "six gates", "five layers", "three scales", all correct. And a length-ratio sweep over 133 translation pairs looking for omitted or invented content: median 0.34, and every outlier turned out to be a short label or a latin brand name. |
+
+### Round 33 — the printed page, and an address for the use cases
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The print stylesheet had been edited three times across these rounds and never once rendered and looked at.** | Rendered. |
+| 2 | `.hero::after` paints the dark scrim that holds the headline on screen, and print never removed it. Most browsers drop background graphics — but a reader who ticks "Background graphics", which is a normal thing to do for a page that looks like this, got **black text on a black field across the whole first sheet**. | Hidden in print. |
+| 3 | The same reasoning nobody had applied to the glows: a `box-shadow` is a background graphic. | Cleared on buttons, cards and stages. |
+| 4 | **Checked and dismissed.** The first print probe reported the evidence-trail items invisible. They sit inside `.surface`, which print hides deliberately — the probe read each element's own `display` and not its ancestors'. Re-measured with `getClientRects()`: nothing is invisible in print, in either language. |
+| 5 | **A discipline could not be linked to.** `/#panel-edu` loaded the page with Legal still selected and the education panel `hidden` — so the browser could not even scroll to it. Those six panels are the only place the argument is made in a named profession, and they had no address. | The fragment is read on load and on `hashchange`, accepting either the tab's id or the panel's, because both are in the markup and a reader copying an anchor cannot know which is which. |
+| 6 | And choosing one **did not change the URL**, so there was nothing to copy even after finding it. | `replaceState` on selection: the address bar becomes copyable without a history entry per click. |
+| 7 | Nothing checked either. | An `addressable` suite per language, including an assertion that choosing a tab does **not** grow `history.length`. |
+| 8 | **Checked and clean.** Back and forward across nav anchors restores the right hash. |
+| 9 | **Checked and clean.** A chosen discipline survives hash navigation elsewhere on the page. |
+| 10 | **Checked and clean.** Resizing into the stacked breakpoint mid-scene keeps the ring and correctly clears the rail's `aria-current`. |
