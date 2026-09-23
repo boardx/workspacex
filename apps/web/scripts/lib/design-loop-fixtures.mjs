@@ -581,7 +581,10 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const project = projects.find((p) => p.id === id);
     if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
     for (const op of route.request().postDataJSON()?.ops ?? []) {
-      const node = op.nodeId ? findFixtureNode(project.prototype, op.nodeId) : null;
+      // 契约 `PrototypePatchOp` 的节点寻址键是 `id`。这里原来读的是 `nodeId`（一个不存在的键）⇒
+      // setProps 在夹具里**从来没生效过**；既有 e2e 只断言了请求体，所以一直没人发现。
+      const nodeId = op.id ?? op.nodeId;
+      const node = nodeId ? findFixtureNode(project.prototype, nodeId) : null;
       if (node && op.op === "setProps") {
         node.props = { ...node.props, ...op.props };
         for (const [k, v] of Object.entries(op.props ?? {})) if (v === null) delete node.props[k];

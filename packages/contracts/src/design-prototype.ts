@@ -43,6 +43,8 @@ export const PrototypeNodeType = z.enum([
   "stack", "card", "navbar", "text", "button", "input", "image", "list", "divider", "spacer", "tabs", "badge", "avatar",
   // 迭代 6 扩充：底部导航 / 开关 / 复选 / 筛选 chip / 进度 / 指标 / hero 头图 / 网格容器
   "bottomnav", "switch", "checkbox", "chip", "progress", "stat", "hero", "grid",
+  // 对标 R3（#3933）：带数据的表格与图表——看板、报表类需求的另一半
+  "table", "chart",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -203,6 +205,36 @@ const StatProps = z.object({ label: Label, value: Label, delta: Label.optional()
 const HeroProps = z.object({ title: Label, subtitle: z.string().max(400).optional(), cta: Label.optional() }).strict();
 const GridProps = z.object({ columns: z.union([z.literal(2), z.literal(3)]).optional(), gap: Scale.optional() }).strict();
 
+/*
+ * 对标 R3（#3933）—— 表格与图表。
+ *
+ * 在这之前「销售看板」「订单管理」「健身周报」这类需求**一半画不出来**：`image` 的 `kind: chart`
+ * 只是一个画着折线的灰块，而表格根本没有。一个看板的全部信息都在那两块里。
+ *
+ * 形状照 `list` 的纪律：**不要求等长**。表格某行比表头短 ⇒ 缺的格子空着；图表 labels 与
+ * values 不等长 ⇒ 画较短的那一组。等长约束会让模型为了补一个空格而把整条写回作废。
+ * 上限（8 列 × 50 行、24 个数据点）是「原型里画得下」的量，不是真实数据量。
+ */
+export const PROTOTYPE_TABLE_MAX_COLUMNS = 8;
+export const PROTOTYPE_TABLE_MAX_ROWS = 50;
+export const PROTOTYPE_CHART_MAX_POINTS = 24;
+const TableProps = z.object({
+  columns: z.array(Label).min(1).max(PROTOTYPE_TABLE_MAX_COLUMNS),
+  /** 每行一组单元格，与 `columns` 逐位对应。 */
+  rows: z.array(z.array(z.string().max(120)).max(PROTOTYPE_TABLE_MAX_COLUMNS)).max(PROTOTYPE_TABLE_MAX_ROWS),
+  /** 斑马纹（隔行底色），行多时好读。 */
+  striped: z.boolean().optional(),
+}).strict();
+const ChartProps = z.object({
+  kind: z.enum(["bar", "line"]).optional(),
+  title: Label.optional(),
+  labels: z.array(z.string().min(1).max(40)).min(1).max(PROTOTYPE_CHART_MAX_POINTS),
+  /** 与 `labels` 逐位对应的数值（可以是 0 或负数；画布按区间归一化）。 */
+  values: z.array(z.number().finite()).min(1).max(PROTOTYPE_CHART_MAX_POINTS),
+  /** 数值的单位（「万元」「分钟」），标在图上。 */
+  unit: z.string().max(12).optional(),
+}).strict();
+
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("navbar"), props: NavbarProps }).strict(),
@@ -223,6 +255,8 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("progress"), props: ProgressProps }).strict(),
   z.object({ id: Id, type: z.literal("stat"), props: StatProps }).strict(),
   z.object({ id: Id, type: z.literal("hero"), props: HeroProps }).strict(),
+  z.object({ id: Id, type: z.literal("table"), props: TableProps }).strict(),
+  z.object({ id: Id, type: z.literal("chart"), props: ChartProps }).strict(),
 ]);
 
 export type PrototypeNode =
@@ -334,10 +368,14 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
   stack: StackProps, card: CardProps, navbar: NavbarProps, text: TextProps, button: ButtonProps, input: InputProps,
   image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsPropsBase, badge: BadgeProps, avatar: AvatarProps,
   bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
-  stat: StatProps, hero: HeroProps, grid: GridProps,
+  stat: StatProps, hero: HeroProps, grid: GridProps, table: TableProps, chart: ChartProps,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
-export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
+/**
+ * 对标 R3：`rows`（表格数据：一行一行，格子之间用 `|` 隔开）与 `numbers`（一串数，一行一个或逗号隔开）
+ * 是给表格/图表的两种编辑形态——二维数组与数字数组塞不进既有的几种。
+ */
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers";
 
 /**
  * 迭代 13（delta §6）—— 字段分两组：**内容**（写什么）与**视觉**（长什么样）。
@@ -365,10 +403,19 @@ const VISUAL_FIELD_KEYS: ReadonlySet<string> = new Set([
   //   不是一个可以整体拨的档位——放进视觉组会让属性面板把它和圆角摆在一起，
   //   而用户改它的时候想的是"第三行是什么图标"。
   "icon", "kind",
+  // 对标 R3：斑马纹是长相，不是内容。
+  "striped",
 ]);
 
-export const prototypeFieldGroup = (key: string): PrototypeFieldGroup =>
-  VISUAL_FIELD_KEYS.has(key) ? "visual" : "content";
+/**
+ * 对标 R3：**同名不同义**的例外，按「类型.键」登记（同 `PROTOTYPE_OPTION_LABELS` 的 `stack.align`）。
+ * `grid.columns` 是列数档位（视觉），`table.columns` 是表头文字（内容）——按键名一刀切会把表头
+ * 塞进折叠的视觉区里，和圆角摆在一起。
+ */
+const FIELD_GROUP_OVERRIDES: Readonly<Record<string, PrototypeFieldGroup>> = { "table.columns": "content" };
+
+export const prototypeFieldGroup = (key: string, type?: string): PrototypeFieldGroup =>
+  (type !== undefined ? FIELD_GROUP_OVERRIDES[`${type}.${key}`] : undefined) ?? (VISUAL_FIELD_KEYS.has(key) ? "visual" : "content");
 
 export interface PrototypeField {
   readonly key: string;
@@ -448,6 +495,16 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   stat: [F("label", "指标名", "text"), F("value", "数值", "text"), F("delta", "变化", "text"), F("tone", "色调", "enum", StatProps.shape.tone.unwrap().options)],
   hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
   grid: [FNum("columns", "列数", ["2", "3"]), F("gap", "间距", "enum", SCALE_OPTIONS)],
+  table: [
+    { ...F("columns", "表头（一行一列）", "lines"), group: prototypeFieldGroup("columns", "table") },
+    F("rows", "数据（一行一条，格子用 | 隔开）", "rows"),
+    F("striped", "斑马纹", "bool"),
+  ],
+  chart: [
+    F("title", "标题", "text"), F("kind", "图表类型", "enum", ChartProps.shape.kind.unwrap().options),
+    F("labels", "横轴（一行一项）", "lines"), F("values", "数值（一行一个，与横轴对应）", "numbers"),
+    F("unit", "单位", "text"),
+  ],
 };
 
 /**
@@ -478,6 +535,8 @@ export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<st
     primary: "主按钮", secondary: "次按钮", ghost: "透明按钮", danger: "危险操作",
   },
   kind: { photo: "照片", illustration: "插画", avatar: "头像", map: "地图", chart: "图表", logo: "标志", video: "视频" },
+  // 对标 R3：同名不同义——图表的 `kind` 是柱状/折线，不是图片那几种。
+  "chart.kind": { bar: "柱状图", line: "折线图" },
   ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
   leading: { none: "不加", dot: "圆点", check: "勾选框", avatar: "头像", icon: "图标" },
   tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
@@ -880,6 +939,8 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "stat": return `指标「${n.props.label}」`;
     case "hero": return `头图「${n.props.title}」`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
+    case "table": return `表格（${n.props.columns.length} 列 × ${n.props.rows.length} 行）`;
+    case "chart": return n.props.title !== undefined ? `图表「${n.props.title}」` : `${n.props.kind === "line" ? "折线图" : "柱状图"}（${n.props.values.length} 个点）`;
   }
 }
 
@@ -894,7 +955,7 @@ export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, strin
   stack: "布局", card: "卡片", navbar: "导航栏", text: "文本", button: "按钮", input: "输入框",
   image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
   avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
-  progress: "进度", stat: "指标", hero: "头图", grid: "网格",
+  progress: "进度", stat: "指标", hero: "头图", grid: "网格", table: "表格", chart: "图表",
 };
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
@@ -976,7 +1037,10 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
   "bottomnav{items:[2–6 项], icons?:[与 items 逐位对应], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
-  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）。" +
+  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）；" +
+  // 对标 R3（#3933）：看板/报表的另一半。不教模型用它们，它只会退回 image(kind:chart) 那个灰块。
+  `table{columns:[表头], rows:[[一行的格子,..],..], striped?}（订单、成员这类明细，≤ ${PROTOTYPE_TABLE_MAX_COLUMNS} 列 × ${PROTOTYPE_TABLE_MAX_ROWS} 行，写真实的样例数据）；` +
+  `chart{kind:bar|line, title?, labels:[横轴], values:[与 labels 逐位对应的数], unit?}（趋势用 line、对比用 bar，≤ ${PROTOTYPE_CHART_MAX_POINTS} 个点；数值要像真的，不要全是整十）。` +
   // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
   // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
   PROTOTYPE_ICON_ROSTER +

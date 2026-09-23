@@ -81,6 +81,9 @@ export function describeNode(n: PrototypeNode): string {
     case "progress": return `进度 ${n.props.value}%${n.props.label !== undefined ? `：${n.props.label}` : ""}`;
     case "stat": return `指标「${n.props.label}」= ${n.props.value}${n.props.delta !== undefined ? `（${n.props.delta}）` : ""}`;
     case "hero": return `头图「${n.props.title}」${n.props.subtitle !== undefined ? `：${n.props.subtitle}` : ""}${n.props.cta !== undefined ? `，按钮「${n.props.cta}」` : ""}`;
+    // 对标 R3：表格与图表把**数据**写进文档，工程拿到的是样例数据而不是「这里有张表」。
+    case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
+    case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }

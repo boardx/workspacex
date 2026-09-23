@@ -654,7 +654,101 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
           {node.props.cta !== undefined && <span className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
         </div>
       );
+    /* ── 对标 R3（#3933）：带数据的表格与图表 ── */
+    case "table": {
+      const p = node.props;
+      const cols = p.columns.length;
+      return (
+        <div className={cn("w-full overflow-hidden border border-border", sc.r("md"))} data-proto="table" {...tap}>
+          <table className="w-full table-fixed border-collapse text-11">
+            <thead className="bg-panel text-muted-foreground">
+              <tr>{p.columns.map((c, i) => <th key={i} scope="col" className="truncate px-2 py-1 text-left font-medium">{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {p.rows.map((row, ri) => (
+                // 行比表头短 ⇒ 缺的格子空着；长 ⇒ 多出的忽略（契约不要求等长，见 `TableProps` 头注）。
+                <tr key={ri} className={cn("border-t border-border", p.striped === true && ri % 2 === 1 && "bg-panel/60")}>
+                  {Array.from({ length: cols }, (_, ci) => <td key={ci} className="truncate px-2 py-1">{row[ci] ?? ""}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    case "chart":
+      return <Chart node={node} tap={tap} />;
   }
+}
+
+/**
+ * 对标 R3（#3933）—— 图表按**数据**画：柱高 / 折线点位由 `values` 归一化得出，不是一张画着折线的图。
+ *
+ * 归一化区间：**柱状图**是 `[min(0, 最小值), max(0, 最大值)]`——柱子从 0 起，才不会把「30 和 45」画成
+ * 一高一矮的夸张对比；**折线图**看的是走势，区间取数据自己的上下界再各留 12%——从 0 起的话，
+ * 「82 → 128 万」会被压成一条几乎平的线（第一次截图就是这样）。
+ * labels 与 values 不等长 ⇒ 画较短的那一组（契约不要求等长）。
+ * 读屏器读的是 `aria-label` 里逐点的「标签 数值单位」，不是一串 div。
+ */
+function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const n = Math.min(p.labels.length, p.values.length);
+  const labels = p.labels.slice(0, n);
+  const values = p.values.slice(0, n);
+  const line = p.kind === "line";
+  const dataLo = Math.min(...values);
+  const dataHi = Math.max(...values);
+  const pad = line ? Math.max((dataHi - dataLo) * 0.12, Math.abs(dataHi) * 0.02, 1e-9) : 0;
+  const lo = line ? dataLo - pad : Math.min(0, dataLo);
+  const hi = line ? dataHi + pad : Math.max(0, dataHi);
+  const span = hi - lo;
+  const xAt = (i: number) => (n === 1 ? 50 : (i / (n - 1)) * 100);
+  const pct = (v: number) => (span === 0 ? 0 : ((v - lo) / span) * 100);
+  const unit = p.unit ?? "";
+  const summary = `${p.title ?? (p.kind === "line" ? "折线图" : "柱状图")}：${labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，")}`;
+  return (
+    <div className="flex w-full flex-col gap-1.5" data-proto="chart" data-chart-kind={p.kind ?? "bar"} {...tap}>
+      {(p.title !== undefined || unit !== "") && (
+        <div className="flex items-baseline justify-between gap-2 text-11">
+          {p.title !== undefined && <span className="truncate font-medium">{p.title}</span>}
+          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">单位：{unit}</span>}
+        </div>
+      )}
+      <div role="img" aria-label={summary} className="relative h-28 w-full border-b border-border">
+        {line ? (
+          <>
+            {/* 线用 SVG（拉伸不影响线宽），点用 HTML 圆点——SVG 里的圆在非等比拉伸下会变成扁椭圆。 */}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible text-primary" aria-hidden>
+              <polyline fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" points={values.map((v, i) => `${xAt(i)},${100 - pct(v)}`).join(" ")} />
+            </svg>
+            {values.map((v, i) => (
+              <span key={i} data-point={i} data-value={v} aria-hidden className="absolute h-1.5 w-1.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-primary" style={{ left: `${xAt(i)}%`, bottom: `${pct(v)}%` }} />
+            ))}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-end gap-1" aria-hidden>
+            {values.map((v, i) => (
+              <span key={i} className="flex h-full flex-1 flex-col justify-end">
+                <span data-bar={i} data-value={v} className="w-full rounded-t-sm bg-primary" style={{ height: `${pct(v)}%` }} />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      {line ? (
+        // 折线的点在 0%…100% 上，横轴字要对着点：首尾贴边、中间按同样的比例排。
+        <div className="relative h-3 w-full text-9 text-muted-foreground" aria-hidden>
+          {labels.map((l, i) => (
+            <span key={i} className={cn("absolute top-0 max-w-12 truncate", i === 0 ? "left-0" : i === n - 1 ? "right-0" : "-translate-x-1/2")} style={i === 0 || i === n - 1 ? undefined : { left: `${xAt(i)}%` }}>{l}</span>
+          ))}
+        </div>
+      ) : (
+        <div className="flex w-full gap-1 text-9 text-muted-foreground" aria-hidden>
+          {labels.map((l, i) => <span key={i} className="min-w-0 flex-1 truncate text-center">{l}</span>)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */

@@ -91,3 +91,42 @@ test.describe("R2 圆角与密度（#3933）", () => {
     await expect.poll(rootGap).toBeGreaterThanOrEqual(8);
   });
 });
+
+/** 对标 R3：一个带表格与柱状图的看板项目（走取材页的 `detail-eval` 场景，id 前缀 `eval-`）。 */
+const R3_PROJECT = {
+  id: "eval-R3", name: "周报看板", template: "mobile", problem: "", criteria: [], frames: ["周报"], frameNotes: [""],
+  prototype: [{
+    id: "r3-root", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+      { id: "r3-chart", type: "chart", props: { kind: "bar", title: "每日运动", labels: ["一", "二", "三"], values: [30, 90, 45], unit: "分钟" } },
+      { id: "r3-table", type: "table", props: { columns: ["日期", "时长"], rows: [["周一", "30"], ["周二", "90"]] } },
+    ],
+  }],
+  pushed: false, pushedAt: null, linkedFeedbackId: null, chat: [], theme: "light", accent: "neutral", tags: [], refImages: [], share: null,
+  githubIssueUrl: null, githubIssueNumber: null, ownerId: "u-pm-1", ownerName: "PM", createdAt: "2026-09-23T00:00:00.000Z", updatedAt: "2026-09-23T00:00:00.000Z",
+};
+
+test.describe("R3 表格与图表（#3933）", () => {
+  test("柱高按数据画；属性面板改数值 ⇒ 柱子重画；表格表头与行都在", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R3_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R3");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+    const heights = () => phone.locator("[data-bar]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+    await expect(phone.locator("[data-bar]")).toHaveCount(3);
+    const [a, b, c] = await heights();
+    expect(b).toBeGreaterThan(c!);
+    expect(c).toBeGreaterThan(a!);
+    await expect(phone.locator('[data-proto="table"] th')).toHaveText(["日期", "时长"]);
+    await expect(phone.locator('[data-proto="table"] tbody tr')).toHaveCount(2);
+
+    // 改数据：第一天变成最高。
+    await phone.locator('[data-node-id="r3-chart"]').click();
+    await page.getByTestId("design-inspector").waitFor();
+    await page.getByTestId("design-inspector-values").fill("120\n90\n45");
+    await page.getByTestId("design-inspector-apply").click();
+    await expect.poll(async () => { const h = await heights(); return h[0]! > h[1]!; }).toBe(true);
+  });
+});
