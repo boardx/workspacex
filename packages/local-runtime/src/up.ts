@@ -19,6 +19,7 @@ import {
 import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
+import { humanBytes, humanEta } from "./model-import";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import {
@@ -183,7 +184,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       } else if (opts.bundleModelsDir) {
         const store = already ? (process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models")) : paths.models(c);
         try {
-          const r = importModels(opts.bundleModelsDir, store);
+          /*
+            首次启动要搬 7.5 GB。原来这里是一句同步拷贝，期间一个字都不说——
+            评分卡「首次运行」9 分的第一条判据就是「全程确定性百分比 + 剩余时间」。
+            现在按字节报进度，桌面壳把它显示在启动页上（#3872 维度 2）。
+          */
+          const r = await importModels(opts.bundleModelsDir, store, {
+            onProgress: (p) => {
+              const pct = p.bytesTotal === 0 ? 100 : Math.floor((p.bytesDone / p.bytesTotal) * 100);
+              log(`[ollama] 导入随包模型 ${p.model} ${pct}% （${humanBytes(p.bytesDone)} / ${humanBytes(p.bytesTotal)}，${humanEta(p.etaSeconds)}）`);
+            },
+          });
           if (r.imported.length) log(`[ollama] imported bundled model(s) into ${store}: ${r.imported.join(", ")}`);
           else log(`[ollama] bundled model(s) already in ${store}: ${r.skipped.join(", ")}`);
         } catch (e) {
