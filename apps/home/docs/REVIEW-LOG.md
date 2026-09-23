@@ -1430,7 +1430,7 @@ request count from 17 to 16 and move its bytes onto the render-blocking path.
 A `media="print"` sheet never blocks rendering, so that trades a real cost for
 a better number.
 
-### Round 58 — 9.90 → 9.94, and the set grows to 55 cases
+### Round 58 — 9.90 → 9.94, and the set grows to 54 cases
 
 The set was near its ceiling, so an **independent reviewer** (a separate agent,
 no access to this round's reasoning) went through every section in both
@@ -1446,7 +1446,7 @@ on the code before the fix.
 | 4 | **With reduced motion the trust diagram contradicted its caption**: the still frame was the success path ("passed", token on Evidence) directly above "the run above shows a failing check being caught and reversed". | The still frame is the caught failure — token on Verify, gate marked failed, rollback lit. New case `a11y.reduced.story`. |
 | 5 | **The loop's inactive labels were 2.8:1** — `--fg-dim` faded to 62% — on 13 px text. axe does not look inside SVG, so no gate said so. | The fade is gone; emphasis is carried by the fill and the dot. New case `a11y.svgcontrast` computes the effective colour of every diagram label through its opacity chain: **0.76 → 1.00**. |
 
-### Round 59 — line breaking, both languages (57 cases)
+### Round 59 — line breaking, both languages (56 cases)
 
 | # | Problem | Fix |
 |---|-----|-----|
@@ -1456,7 +1456,7 @@ on the code before the fix.
 | 4 | **The Chinese dash —— rendered as two separate short dashes**, and “ ” as narrow latin quotes: Outfit, Inter and their Arial fallbacks all contain those code points, so they won over the Chinese font. | A `local()`-only face, *Han Punctuation*, covering exactly U+2014, U+2018–201D and U+2026 from the reader's Chinese system font, first in every `/zh/` stack via `--han-punct` (empty on English). No download. Confirmed with DevTools' platform-font report (WenQuanYi on this machine). |
 | 5 | English: a heading line opened with a dash ("…the proof / — in the same place"), and a card title split "Unit of / work". | Non-breaking spaces. `read.wordsplit` also fails any heading line that starts with a dash. |
 
-### Round 60 — one name per thing (59 cases)
+### Round 60 — one name per thing (58 cases)
 
 | # | Problem | Fix |
 |---|-----|-----|
@@ -1473,7 +1473,7 @@ and was already measured and rejected in an earlier round for breaking the no-JS
 (the reason is in `layout.css`); page-wide `text-wrap: pretty` was bisected and
 is not the cause. It sits at ~3000–3150 ms against 3200.
 
-### Round 61 — the Chinese page says it in Chinese (62 cases)
+### Round 61 — the Chinese page says it in Chinese (61 cases)
 
 | # | Problem | Fix |
 |---|-----|-----|
@@ -1487,7 +1487,7 @@ Not changed, deliberately: the section eyebrows keep "01 — 转变". That dash 
 separator in a numbered mono label, the same design element as in English, and
 `check-sequence` parses it; it is not prose punctuation.
 
-### Round 62 — the pictures say what the words say (66 cases)
+### Round 62 — the pictures say what the words say (65 cases)
 
 | # | Problem | Fix |
 |---|-----|-----|
@@ -1497,7 +1497,7 @@ separator in a numbered mono label, the same design element as in English, and
 | 4 | **The architecture diagram dropped its key on a phone.** "Moves fast / must stay stable" brackets were skipped below the narrow breakpoint, leaving the heading's claim with nothing in the picture to point at. | A tag in the corner of each group's first layer. New case `read.archkey`: 0 → 1. The reviewer also suggested extending the stable bracket to L1; not done — the heading says the *middle* must not move, and infrastructure is the replaceable bottom. |
 | 5 | **The closing section's glow ended in a hard horizontal line** where the four doors' opaque cells began, and the doors were 96 px narrower than every other section's column. | Full column width; cells at 86% opacity via `color-mix`, with an opaque fallback declared first for engines without it. Checked by eye at 1280 — no case, because "a gradient ends softly" is not something this set can measure honestly. |
 
-### Round 63 — 9.94 → 9.96, and a regression of my own (69 cases)
+### Round 63 — 9.94 → 9.96, and a regression of my own (68 cases)
 
 | # | Problem | Fix |
 |---|-----|-----|
@@ -1507,7 +1507,7 @@ separator in a numbered mono label, the same design element as in English, and
 | 4 | **Two roadmap items were garbled — by round 60 and 61's own edits.** The scripted replace stopped at the first `</b>` inside the list item, so it swapped the bold lead and left the old sentence behind it: a stray `</b>`, then the old text repeated after the new. The browser repaired the markup silently. A second independent reviewer found it. | Restored. `check-html` now fails a line whose inline tags do not balance (proved red: 2), and a new case `read.norepeat` fails any element that says the same sentence twice (0 on the broken copy). |
 | 5 | That reviewer returned fifteen more problems — keyboard access to the phone menu, deep links to a use case landing past the heading, tab selection and the URL disagreeing, the language hint covering focused elements, the GitHub link unreachable on tablets, and more. | Rounds 64–65. |
 
-### Round 64 — what a keyboard, a link and a tablet run into (74 cases)
+### Round 64 — what a keyboard, a link and a tablet run into (73 cases)
 
 All five from the second independent review; each is now a case, and each case
 was run against the code before the fix: **0, 0.50, 0, 0 and 0.83–0.86**.
@@ -1519,3 +1519,41 @@ was run against the code before the fix: **0, 0.50, 0, 0 and 0.83–0.86**.
 | 3 | **The selected use case and the address disagreed.** Clicking a tab rewrote the fragment; arrow keys did not — so a reload or a copied link brought back the previous discipline. And the language switch dropped the case entirely. | Selection writes the fragment on click and on keys; the language switch and the language offer carry `#panel-…` when you are in that section. Case `nav.tabsurl`. |
 | 4 | **The language offer covered what you were on.** On a phone it sat over the focused element at 12–15 of 87 Tab stops and hid the footer's last line for good; dismissing it dropped focus on `<body>`. | While shown, the page reserves its height (`scroll-padding-bottom` and body padding, from `--hint-h`); dismissing moves focus to the language switch it stood in for. Case `a11y.hintcover`: 0 of 87 covered. |
 | 5 | **GitHub was unreachable from the navigation on tablets.** Between 761 and 1160 px the bar hides its GitHub link and the burger appears, but the actions only move into the panel below 760 px — the menu had no GitHub entry. | A GitHub item in the panel for exactly that range. Case `nav.tablet.github`. |
+
+### Round 65 — the rest of the second review (75 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The pinned loop scene did not fit a laptop.** The rail of six steps with their explanations needs ~680 px; the pin on a 1280×720 or 1024×768 screen has 656–704, so the scene's top sat under the nav and its legend below the screen — unreachable while pinned. At 900×600 the top was 72 px above the viewport. | Below 52rem of height the rail shows the explanation of the *current* step only (keyed on `aria-current="false"`, which only the running scene writes — without JavaScript, with reduced motion, or stacked, every explanation shows). New case `read.pinfit` at both laptop sizes: 0 → 1. Unpinning on short screens was the other option; it would have taken the page's set piece away from the most common laptop screens. |
+| 2 | **Printing kept one use case out of six** and one architecture detail out of five — the rest are `hidden` behind controls — and printed the Today / With WorkspaceX switch beside the empty band its diagram left. The 404 page had no print sheet at all (near-white text on paper) and no font preload, so its headline rendered in the fallback. | Every panel, detail and caption prints, each detail labelled with its layer; the controls do not. The 404 page gets both. New case `a11y.print`: 0 → 1. |
+| 3 | **The Chinese privacy page's two email addresses were plain text**, links on the English one: `data-i18n` writes text, and the English elements contained an `<a>`. | `data-i18n-html` for those three paragraphs. `check-i18n` now fails any text key placed on an element containing markup (found exactly these three). `check-copy` stopped counting `href="…"` inside Chinese markup as a straight quote. |
+| 4 | **The nav listed Use cases before Trust**; the page has them the other way round. | Swapped. |
+| 5 | **Five places where the page disagreed with itself**: "Marketplace & settlement" under *Sold* while the roadmap says it has not started; the free-tier answer pointing at "the three columns above" when one of them is "never yours to buy"; the open-core intent listing a different set from the *Open* column; the Harness layer labelled "Tools" beside prose saying tools are what gets replaced; the workspace mock saying "4 agents working" over three agents and you, and the Chinese note pointing to a column "on the right" that sits below the canvas on a phone. | Marketplace marked *(later)*; the answer points at the *Sold* column; the FAQ refers to the *Open* column instead of keeping a second list; "Tool use"; "3 agents"; 证据那一列. The first label rewrite ("Tool calls") overflowed the 320 px diagram and the responsive suite caught it. |
+
+Not done, and why: the second review also noted that crossing the 700 px
+breakpoint rebuilds the architecture explorer and resets the chosen layer, and
+suspected a redirect loop between `_redirects` (`/privacy` → `/privacy.html`)
+and the host's own `.html` stripping. The first is minor and needs a state
+carry-over across rebuilds; the second could not be checked from here (the
+live site is not reachable through this machine's proxy) — `curl -I
+https://workspacex.boardx.us/privacy` will settle it.
+
+## Rounds 56–65 in one table
+
+| | en | zh | score |
+|---|---|---|---|
+| baseline (main) | 8.60 | 8.22 | **8.22** |
+| 56 | 9.74 | 9.76 | 9.74 |
+| 57 | 9.91 | 9.90 | 9.90 |
+| 58 | 9.95 | 9.94 | 9.94 |
+| 59–62 | 9.95 | 9.94 | 9.94 |
+| 63–64 | 9.97 | 9.96 | 9.96 |
+| 65 | 9.96 | 9.95 | **9.95** |
+
+The number stopped moving at round 58 for a reason worth stating: from there
+on, each round's problems came from two independent reviews, not from the
+set, and each became a new case that the site *failed* before the fix and
+passed after. The set went from 50 cases to 75 while the score held — which is
+what a score that is measuring something looks like. What it still does not
+measure: whether the argument persuades, and iOS Safari (this machine has no
+WebKit).

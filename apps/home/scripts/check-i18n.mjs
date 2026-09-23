@@ -89,6 +89,20 @@ for (const [, out] of BUILT) {
   }
 }
 
+/* ---- a text key over markup ----------------------------------------------
+   `data-i18n` replaces an element's content with TEXT. Put it on an element
+   whose English contains a link, and the Chinese page gets the words and
+   loses the link: the privacy page's security and contact addresses were
+   plain text on /zh/ and mailto links on /. Markup inside a translated
+   element must use data-i18n-html. */
+const textOverMarkup = [];
+for (const src of SOURCES) {
+  const body = readFileSync(join(root, src), 'utf8');
+  for (const m of body.matchAll(/<([a-z0-9]+)\b[^>]*\sdata-i18n="([\w.]+)"[^>]*>([\s\S]*?)<\/\1>/g)) {
+    if (/<(a|b|em|strong|code|br)\b/.test(m[3])) textOverMarkup.push(`${src}: ${m[2]}`);
+  }
+}
+
 let failed = false;
 const report = (label, list) => {
   if (!list.length) return;
@@ -103,6 +117,7 @@ report('keys with an empty translation', blank);
 report('Chinese values containing Cyrillic characters', cyrillic);
 report('keys that look untranslated (no Han characters)', untranslated);
 report('keys defined but not applied in the built Chinese page', notApplied);
+report('data-i18n (text) on an element containing markup — the translation drops it; use data-i18n-html', textOverMarkup);
 report('diagram keys missing a language', dBlank);
 report('diagram keys no drawing code can reach', dOrphan);
 report('diagram keys that look untranslated', dUntranslated);

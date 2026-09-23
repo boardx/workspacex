@@ -48,7 +48,7 @@ export default {
   'd.arch.l4':   { en: 'Agents & Workflow', zh: '智能体与工作流' },
   'd.arch.l4d':  { en: 'Agents · Skills · Planner · Eval', zh: '智能体 · 技能 · 规划 · 评估' },
   'd.arch.l3':   { en: 'Harness',           zh: '执行护栏' },
-  'd.arch.l3d':  { en: 'Execution · Tools · Evidence · Governance', zh: '执行 · 工具 · 证据 · 治理' },
+  'd.arch.l3d':  { en: 'Execution · Tool use · Evidence · Policy', zh: '执行 · 工具调用 · 证据 · 治理' },
   'd.arch.l2':   { en: 'Ontology & Knowledge', zh: '本体与知识' },
   'd.arch.l2d':  { en: 'Entity · Relation · Event · Memory', zh: '实体 · 关系 · 事件 · 记忆' },
   'd.arch.l1':   { en: 'Infrastructure',    zh: '基础设施' },

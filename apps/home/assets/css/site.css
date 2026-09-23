@@ -929,6 +929,10 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 .loop__visual { min-width: 0; }
 .loop__panel { min-width: 0; }
 .loop__legend { margin-top: 1.25rem; padding-left: 0.75rem; }
+
+@media (min-width: 53.76rem) and (max-height: 52rem) {
+  .rail__item[aria-current="false"] .rail__body { display: none; }
+}
 .loop__keyline { margin-top: clamp(2.5rem, 5vw, 4rem); color: var(--fg-soft); }
 
 @media (max-width: 53.75rem) {

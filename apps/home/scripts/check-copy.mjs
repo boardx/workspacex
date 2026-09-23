@@ -63,7 +63,7 @@ for (const file of sources) {
 }
 
 for (const value of zhValues) {
-  if (/"/.test(value) && !/class=/.test(value)) add('straight quote in Chinese copy — use “ ”', value);
+  if (/"/.test(value.replace(/<[^>]+>/g, ''))) add('straight quote in Chinese copy — use “ ”', value);   // attributes inside markup are not copy
   /* One quotation style. The page had 10 “ ” and 22 「 」 — both correct
      somewhere, but mainland copy (GB/T 15834) uses “ ”, and mixing them on
      one page reads as two translators. */

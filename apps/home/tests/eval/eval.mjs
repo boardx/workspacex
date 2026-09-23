@@ -262,6 +262,20 @@ const CASES = [
       await ctx.close();
       return { score: 1 - covered / Math.max(1, n), note: `${covered}/${n} covered` };
     }],
+  ['a11y.print', '可访问性', 'Printed, the page keeps every use case, every architecture detail and both comparison captions',
+    async (c) => {
+      await c.desk.emulateMedia({ media: 'print' });
+      const r = await c.desk.evaluate(() => {
+        const vis = (e) => { const cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && e.getClientRects().length > 0; };
+        return { cases: [...document.querySelectorAll('.case')].filter(vis).length, all: document.querySelectorAll('.case').length,
+          layers: [...document.querySelectorAll('[data-layer-detail]')].filter(vis).length, lall: document.querySelectorAll('[data-layer-detail]').length,
+          caps: [...document.querySelectorAll('.stage__caption')].filter(vis).length, call: document.querySelectorAll('.stage__caption').length,
+          controls: [...document.querySelectorAll('.switch, .cases__tabs')].filter(vis).length };
+      });
+      await c.desk.emulateMedia({ media: 'screen' });
+      const parts = [r.cases === r.all, r.layers === r.lall, r.caps === r.call, r.controls === 0];
+      return { score: parts.filter(Boolean).length / 4, note: `cases ${r.cases}/${r.all}, layers ${r.layers}/${r.lall}, captions ${r.caps}/${r.call}, controls ${r.controls}` };
+    }],
   ['a11y.headings', '可访问性', 'One h1, and no heading level is skipped',
     async (c) => c.desk.evaluate(() => {
       const hs = [...document.querySelectorAll('h1,h2,h3,h4')].map((h) => +h.tagName[1]);
@@ -551,6 +565,19 @@ const CASES = [
       }
       return { score: +(bad.length === 0), note: bad.slice(0, 2).join(' | ') };
     }, c.lang)],
+  ['read.pinfit', '可读性', 'The pinned loop scene fits a laptop screen (1280×720, 1024×768): nothing under the nav or below the fold while pinned',
+    async (c) => {
+      const out = [];
+      for (const [w, h] of [[1280, 720], [1024, 768]]) {
+        const ctx = await c.browser.newContext({ viewport: { width: w, height: h } });
+        const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}`, { waitUntil: 'load' }); await p.waitForTimeout(400);
+        await p.evaluate(() => { const t = document.querySelector('#loop .scene__track'); window.scrollTo({ top: t.getBoundingClientRect().top + scrollY + t.offsetHeight / 2 - innerHeight / 2, behavior: 'instant' }); });
+        await p.waitForTimeout(700);
+        out.push(await p.evaluate(() => { const n = document.querySelector('.nav').getBoundingClientRect().bottom; const b = document.querySelector('.loop__layout').getBoundingClientRect(); return b.top >= n - 1 && b.bottom <= innerHeight + 1; }));
+        await ctx.close();
+      }
+      return { score: out.filter(Boolean).length / out.length, note: out.join(',') };
+    }],
   ['read.scan', '可读性', 'Each section can be skimmed: a heading plus a list, cards, a diagram or sub-headings',
     async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details') || s.querySelectorAll('h3').length >= 2); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
 ];

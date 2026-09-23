@@ -28,6 +28,17 @@
 .loop__visual { min-width: 0; }
 .loop__panel { min-width: 0; }
 .loop__legend { margin-top: 1.25rem; padding-left: 0.75rem; }
+/* Short screens. The pinned rail needs ~680 px (six steps with their
+   explanations, plus the legend) and the pin on a 1280×720 or 1024×768
+   laptop has 656–704: the top of the scene sat under the nav and the legend
+   below the screen, both unreachable while pinned — at 900×600 the top was
+   72 px above the viewport. On a short screen the rail shows the explanation
+   of the CURRENT step only; the others keep their titles. Keyed on
+   aria-current="false", which only the running scene writes, so without
+   JavaScript, with reduced motion, or stacked, every explanation shows. */
+@media (min-width: 53.76rem) and (max-height: 52rem) {
+  .rail__item[aria-current="false"] .rail__body { display: none; }
+}
 .loop__keyline { margin-top: clamp(2.5rem, 5vw, 4rem); color: var(--fg-soft); }
 
 @media (max-width: 53.75rem) {
