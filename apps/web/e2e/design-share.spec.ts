@@ -71,7 +71,10 @@ test.describe("设计者这一侧：发布 → 拿到链接 → 取消发布", (
     await expect(page.getByTestId("design-share-url")).toHaveValue(/\/d\/.+/);
     await expect(page.getByTestId("design-share-publish")).toContainText("更新发布");
 
+    // 收回是不可逆的（拿到链接的人立刻打不开，而且不会收到通知）——所以要先确认一次。
     await page.getByTestId("design-share-unpublish").click();
+    await expect(page.getByTestId("design-share-url")).toHaveCount(1); // 还没确认，链接还在
+    await page.getByTestId("design-share-unpublish-yes").click();
     await expect(page.getByTestId("design-share-url")).toHaveCount(0);
     await expect(page.getByTestId("design-share-publish")).toContainText("发布并生成链接");
   });

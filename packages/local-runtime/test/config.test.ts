@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { apiEnv, deepAgentEnv, loadOrCreateSecrets, resolveLocalConfig, sandboxEnv, webEnv } from "../src/config";
+import { apiEnv, deepAgentEnv, loadOrCreateSecrets, ollamaEnv, resolveLocalConfig, sandboxEnv, webEnv } from "../src/config";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const dirs: string[] = [];
@@ -81,5 +81,22 @@ describe("resolveAsrModelDir", () => {
     mkdirSync(paths.asrModelDir(c), { recursive: true });
     writeFileSync(join(paths.asrModelDir(c), "tokens.txt"), "x");
     expect(resolveAsrModelDir(c, bundle)).toBe(paths.asrModelDir(c));
+  });
+});
+
+/** 与本文件其它用例同一套构造方式：真实 repo root + 临时数据目录。 */
+const cfg = () => resolveLocalConfig({ repoRoot: REPO_ROOT, dataDir: join(tmp(), "ka") });
+
+describe("模型保活策略（#3872 R1）", () => {
+  it("不是 24 小时——那会让每请求涨 70 MB 的占用一整天不释放", () => {
+    const env = ollamaEnv(cfg());
+    expect(env.OLLAMA_KEEP_ALIVE).not.toBe("24h");
+    expect(env.OLLAMA_KEEP_ALIVE).toBe("30m");
+  });
+  it("也不是 Ollama 的 5 分钟默认——一次工作会话里不该反复付冷加载", () => {
+    expect(ollamaEnv(cfg()).OLLAMA_KEEP_ALIVE).not.toBe("5m");
+  });
+  it("上下文仍然显式给足，不吃 Ollama 4096 的静默截断", () => {
+    expect(Number(ollamaEnv(cfg()).OLLAMA_CONTEXT_LENGTH)).toBeGreaterThanOrEqual(8192);
   });
 });

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { PrototypeCanvas, deviceOf, fitScale, rotated } from "./prototype-canvas";
 import { fetchSharedDesign, type SharedDesign } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
+import { humanTime } from "@/lib/human-time";
 
 /** 打不开的三种原因在服务端是同一个码（不给试令牌的人进度条），所以屏上也只有一句话。 */
 const NOT_FOUND_TEXT = "这条分享链接打不开：可能已经被取消分享，也可能链接不完整。找发给你的人要一条新的。";
@@ -37,6 +38,8 @@ export function SharedDesignView({
   const [frame, setFrame] = React.useState(0);
   /** 点跳转进来的来路——有它才能"返回上一页"，否则访客在深层页里出不来。 */
   const [backStack, setBackStack] = React.useState<number[]>([]);
+  /** 「再试一次」靠它重跑加载 effect（换一个值即可，不必把 load 拆出来）。 */
+  const [reloadAt, setReloadAt] = React.useState(0);
   const stageRef = React.useRef<HTMLDivElement>(null);
   const [stage, setStage] = React.useState({ w: 0, h: 0 });
 
@@ -55,7 +58,7 @@ export function SharedDesignView({
     return () => {
       alive = false;
     };
-  }, [token, load]);
+  }, [token, load, reloadAt]);
 
   React.useEffect(() => {
     const el = stageRef.current;
@@ -70,8 +73,18 @@ export function SharedDesignView({
 
   if (error !== null) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6" data-testid="shared-design-error">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3 p-6" data-testid="shared-design-error">
         <p className="max-w-sm text-center text-13 text-muted-foreground">{error}</p>
+        {/*
+          * 迭代 29：断网/5xx 时原来只有一句话，连个重试都没有——而访客多半在手机上、
+          * 地铁里，刷新一下就好。「取消分享」那种情况重试也没用，所以只在**可能是临时的**
+          * 那一类下面给按钮。
+          */}
+        {error !== NOT_FOUND_TEXT && (
+          <Button variant="outline" size="sm" onClick={() => { setError(null); setReloadAt(Date.now()); }} data-testid="shared-design-retry">
+            再试一次
+          </Button>
+        )}
       </main>
     );
   }
@@ -104,14 +117,14 @@ export function SharedDesignView({
           */}
         <p className="text-11 text-muted-foreground" data-testid="shared-design-meta">
           {design.ownerName === null ? "" : `${design.ownerName} · `}
-          发布于 {new Date(design.publishedAt).toLocaleString("zh-CN")}
+          发布于 {humanTime(design.publishedAt)}
           {" · 只读"}
         </p>
       </header>
 
       {design.problem !== null && (
         <section className="border-b border-border px-4 py-3" data-testid="shared-design-brief">
-          <h2 className="text-11 uppercase tracking-wide text-muted-foreground">问题与目标</h2>
+          <h2 className="text-11 font-medium text-muted-foreground">问题与目标</h2>
           <p className="mt-1 whitespace-pre-wrap text-12">{design.problem}</p>
           {design.criteria !== null && design.criteria.length > 0 && (
             <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-12 text-muted-foreground">
@@ -140,7 +153,7 @@ export function SharedDesignView({
                 )}
               >
                 {f || `第 ${String(i + 1)} 页`}
-                {design.prototype[i] === null && <span className="ml-1 opacity-60">（未出图）</span>}
+                {design.prototype[i] === null && <span className="ml-1 opacity-60">（还没画）</span>}
               </button>
             ))}
           </nav>
@@ -186,7 +199,7 @@ export function SharedDesignView({
       <footer className="border-t border-border px-4 py-2 text-10 text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <ExternalLink aria-hidden className="h-3 w-3" />
-          这是一份只读的设计原型快照
+          这是{humanTime(design.publishedAt)}那一刻的快照，只读；设计者之后改的东西不会出现在这条链接里，要看最新的找发给你的人再发一条。
         </span>
       </footer>
     </main>

@@ -29,7 +29,19 @@ develop.boardx.us 的协作平面：面向工程师/agent 的项目页、个人�
   [[mod-coord-platform]] 状态的转发/聚合层，不应该绕过 coord-platform 的
   DO/协议直接写协调状态——发现门户需要"改状态"而不只是"看状态"时，说明
   这个能力该加在 coord-platform 那边，不该加在门户 BFF 里。
-- <公开面/未登录可达的门户页面清单——待核实，任何改动过一遍未授权视角>
+- **三层结构与可见性**（2026-09-23 实测填入，此前为待核实占位符）：
+
+  | 层 | 路由 | 身份 | 数据 |
+  |---|---|---|---|
+  | 公开层 | `/explore`、`/projects/:slug`、`/u/:handle`、`/a/:handle/:agent` | **零身份**，由 `tests/public-layer-static.test.ts` 递归 import 链机械强制 | mock，未接后端 |
+  | 协作层 | `/`、`/p/:slug/{pulse,work,talk,people,coord,settings}`、`/me`、`/onboard` | Cloudflare Access（`lib/access.ts` 验签） | 真实 coord 数据 |
+  | 平台层 | `/platform/coord-brain`、`/platform/dispatcher` | Access + 管理员 | coord 管理 |
+
+  ⚠ **公开层代码零身份 ≠ 公开层对外可见**。`develop.boardx.us` **整域** Access 门禁，
+  CI 冒烟断言根域 302。所以今天公众到不了公开层——「默认公开」只存在于页面注释里，
+  没有任何断言支撑。改公开层之前先确认这件事是否已在 Cloudflare 控制台改变
+  （仓库里没有 Access 策略声明，控制台才是事实源）。定位分析见
+  `docs/research/devportal-positioning.md`。
 
 ## 架构知识
 开发者门户类产品的常见架构（外部参照：Backstage）是"软件目录 + 插件化门户"，

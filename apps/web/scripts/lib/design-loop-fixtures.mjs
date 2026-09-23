@@ -82,6 +82,10 @@ export const INBOX_ITEMS = [
     createdAt: "2026-09-03T01:40:00.000Z",
     github: { kind: "issue", number: 142, url: "https://github.com/boardx/workspacex/issues/142", state: "open" },
     linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    // 迭代 24：这三个都是契约 `InboxItem` 的必给位，夹具一直没跟上。
+    // `tags`（2026-09-08 从 `exception` 上提到条目本身）漏掉 ⇒ 每张卡片的 `TagEditor` 在
+    // `tags.length` 上炸、整屏白；另两个由本轮新加的「夹具过契约」用例一并揪出来。
+    tags: [], attachments: [], boardOrder: 0,
   },
   {
     id: "in-b2", kind: "feedback", code: "B-2", title: "批准卡不记得上次的 token 预算",
@@ -91,6 +95,10 @@ export const INBOX_ITEMS = [
     createdAt: "2026-09-02T02:14:00.000Z",
     github: { kind: "pr", number: 145, url: "https://github.com/boardx/workspacex/pull/145", state: "draft" },
     linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    // 迭代 24：这三个都是契约 `InboxItem` 的必给位，夹具一直没跟上。
+    // `tags`（2026-09-08 从 `exception` 上提到条目本身）漏掉 ⇒ 每张卡片的 `TagEditor` 在
+    // `tags.length` 上炸、整屏白；另两个由本轮新加的「夹具过契约」用例一并揪出来。
+    tags: [], attachments: [], boardOrder: 0,
   },
   {
     id: "in-b4", kind: "feedback", code: "B-4", title: "导出 PDF 偶尔缺最后一页",
@@ -100,6 +108,10 @@ export const INBOX_ITEMS = [
     createdAt: "2026-08-20T03:00:00.000Z",
     github: { kind: "pr", number: 130, url: "https://github.com/boardx/workspacex/pull/130", state: "merged" },
     linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    // 迭代 24：这三个都是契约 `InboxItem` 的必给位，夹具一直没跟上。
+    // `tags`（2026-09-08 从 `exception` 上提到条目本身）漏掉 ⇒ 每张卡片的 `TagEditor` 在
+    // `tags.length` 上炸、整屏白；另两个由本轮新加的「夹具过契约」用例一并揪出来。
+    tags: [], attachments: [], boardOrder: 0,
   },
   {
     id: "in-r3", kind: "feedback", code: "R-3", title: "批量邀请支持粘贴邮箱列表",
@@ -108,6 +120,10 @@ export const INBOX_ITEMS = [
     statusReason: "与即将上线的 SCIM 目录同步重叠，暂不单独做手工批量邀请。", severe: false, votes: 4,
     reporter: "叶蓁 · HR", createdAt: "2026-08-10T08:30:00.000Z",
     github: null, linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    // 迭代 24：这三个都是契约 `InboxItem` 的必给位，夹具一直没跟上。
+    // `tags`（2026-09-08 从 `exception` 上提到条目本身）漏掉 ⇒ 每张卡片的 `TagEditor` 在
+    // `tags.length` 上炸、整屏白；另两个由本轮新加的「夹具过契约」用例一并揪出来。
+    tags: [], attachments: [], boardOrder: 0,
   },
   {
     id: "in-e1", kind: "exception", code: "E-1", title: "ASR 转写服务连接超时",
@@ -115,11 +131,23 @@ export const INBOX_ITEMS = [
     structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
     statusReason: null, severe: true, votes: 0, reporter: null, createdAt: "2026-09-03T05:00:00.000Z",
     github: null, linkedFeedbackId: null, resolvedByDesignId: null,
-    // `devNote`/`tags` 是契约 `InboxExceptionMeta` 的必填位（2026-09-05 补投影）。
-    // ⚠ 这份夹具是 `.mjs`，不过 tsc——漏掉这两个键不会有类型报错，而是让 drawer 里
-    //   `tags.map` 在 undefined 上炸。加字段时这里要跟着改。
-    exception: { location: "asr-gateway / ws", count: 47, affectedUsers: 12, devNote: null, tags: ["asr", "P1"] },
+    /*
+     * ⚠ 这份夹具是 `.mjs`，不过 tsc。原注释已经预言过这件事——「漏掉这两个键不会有类型
+     * 报错，而是让 drawer 里 `tags.map` 在 undefined 上炸。加字段时这里要跟着改」——
+     * 然后 2026-09-08 `tags` 上提到条目本身、`lastSeenAt`/`occurrences` 新增，这里**没有**
+     * 跟着改，于是整屏白了半个月没人知道。预言写下来不算门；本轮加的
+     * `tests/ui/design-loop-fixtures-contract.test.ts` 才是。
+     */
+    exception: {
+      location: "asr-gateway / ws", count: 47, affectedUsers: 12, devNote: null,
+      lastSeenAt: "2026-09-03T05:00:00.000Z",
+      occurrences: ["2026-09-03T05:00:00.000Z"],
+    },
     submittedByMe: false, votedByMe: false,
+    // 迭代 24：这三个都是契约 `InboxItem` 的必给位，夹具一直没跟上。
+    // `tags`（2026-09-08 从 `exception` 上提到条目本身）漏掉 ⇒ 每张卡片的 `TagEditor` 在
+    // `tags.length` 上炸、整屏白；另两个由本轮新加的「夹具过契约」用例一并揪出来。
+    tags: [], attachments: [], boardOrder: 0,
   },
 ];
 
@@ -155,8 +183,15 @@ export async function routeInbox(page, { empty }) {
   await page.route((url) => new URL(url).pathname === "/inbox/counts", (route) => {
     const byStage = { backlog: 0, doing: 0, done: 0, archived: 0 };
     const byKind = { feedback: 0, exception: 0, design: 0 };
-    for (const i of items) { byStage[i.stage]++; byKind[i.kind]++; }
-    return json(route, { byStage, byKind, total: items.length, sources: { exception: "included" } });
+    // 迭代 24：`byTag` 是契约 `getInboxCounts.out` 的必给位（2026-09-08 随标签一起加的）。
+    // 漏掉它的表现不是"标签筛选栏空着"，而是 `counts.byTag.length` 在 undefined 上炸、**整屏白**。
+    const tagCount = new Map();
+    for (const i of items) {
+      byStage[i.stage]++; byKind[i.kind]++;
+      for (const t of i.tags ?? []) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+    }
+    const byTag = [...tagCount.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    return json(route, { byStage, byKind, byTag, total: items.length, sources: { exception: "included" } });
   });
 
   await page.route((url) => /^\/feedback\/[^/]+\/status$/.test(new URL(url).pathname), (route) => {
@@ -219,6 +254,8 @@ export const DESIGN_PROJECTS = [
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
     theme: "dark", tags: [], refImages: [], share: null,
+    // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
+    githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-03T02:00:00.000Z", updatedAt: "2026-09-03T02:05:00.000Z",
   },
@@ -230,6 +267,8 @@ export const DESIGN_PROJECTS = [
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
     theme: "dark", tags: [], refImages: [], share: null,
+    // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
+    githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
   },
@@ -354,6 +393,8 @@ export const DESIGN_PROJECTS = [
     // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
     theme: "dark", tags: [], refImages: [], share: null,
+    // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
+    githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
   },
@@ -425,6 +466,8 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
         // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
     theme: "dark", tags: [], refImages: [], share: null,
+    // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
+    githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
         createdAt: NOW, updatedAt: NOW,
       };

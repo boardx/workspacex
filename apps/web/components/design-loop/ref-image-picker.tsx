@@ -48,11 +48,39 @@ export function RefImagePicker({
     return () => { for (const u of made) URL.revokeObjectURL(u); };
   }, [files]);
 
-  const add = (incoming: readonly File[]) => {
+  /**
+   * 迭代 31：这里原来有三条**静默**的路——满了 `return`、超出名额的 `slice` 掉、
+   * 非图片文件在调用点就被 `filter` 掉。三种情况下用户都是"拖了一下，什么也没发生"，
+   * 而他手里那张图恰恰是他这次最想让 AI 看的东西。每一条都说出来。
+   */
+  const [note, setNote] = React.useState<string | null>(null);
+  const add = (incoming: readonly File[], dropped = 0) => {
     if (disabled) return;
     const room = PROTOTYPE_MAX_REF_IMAGES - files.length;
-    if (room <= 0) return;
+    if (dropped > 0 && incoming.length === 0) {
+      setNote("这里只收图片（PNG / JPEG / WebP）。");
+      return;
+    }
+    if (incoming.length === 0) return;
+    if (room <= 0) {
+      setNote(`已经 ${PROTOTYPE_MAX_REF_IMAGES} 张了，去掉一张才能再加。`);
+      return;
+    }
+    const extra = incoming.length - room;
+    setNote(
+      extra > 0
+        ? `只收下了 ${room} 张——最多 ${PROTOTYPE_MAX_REF_IMAGES} 张，另外 ${extra} 张没加进来。`
+        : dropped > 0
+          ? `加了 ${incoming.length} 张；另外 ${dropped} 个不是图片，没收。`
+          : null,
+    );
     onChange([...files, ...incoming.slice(0, room)]);
+  };
+
+  /** 拖进来 / 粘贴时把"有几个不是图片"一并带上，好让上面那段能说全。 */
+  const addFromTransfer = (all: readonly File[]) => {
+    const imgs = all.filter((f) => f.type.startsWith("image/"));
+    add(imgs, all.length - imgs.length);
   };
 
   /*
@@ -60,8 +88,8 @@ export function RefImagePicker({
    * 挂在 window 上会把用户粘进文本框的图也吞掉。
    */
   const onPaste = (e: React.ClipboardEvent) => {
-    const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
-    if (imgs.length > 0) { e.preventDefault(); add(imgs); }
+    const all = Array.from(e.clipboardData.files);
+    if (all.length > 0) { e.preventDefault(); addFromTransfer(all); }
   };
 
   return (
@@ -75,8 +103,9 @@ export function RefImagePicker({
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          add(Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/")));
+          addFromTransfer(Array.from(e.dataTransfer.files));
         }}
+        data-testid="ref-image-dropzone"
         className={cn(
           "flex flex-wrap items-center gap-2 rounded-control border border-dashed p-2 transition-colors duration-fast",
           dragging ? "border-primary" : "border-border",
@@ -91,7 +120,7 @@ export function RefImagePicker({
               aria-label={`移除 ${f.name}`}
               data-testid={`ref-image-remove-${String(i)}`}
               disabled={disabled}
-              onClick={() => onChange(files.filter((_, k) => k !== i))}
+              onClick={() => { setNote(null); onChange(files.filter((_, k) => k !== i)); }}
               className="absolute -right-1 -top-1 rounded-full bg-card p-0.5 text-muted-foreground shadow transition-colors duration-fast hover:text-background-foreground"
             >
               <X aria-hidden className="h-3 w-3" />
@@ -111,10 +140,11 @@ export function RefImagePicker({
           onChange={(e) => { add(Array.from(e.target.files ?? [])); e.target.value = ""; }}
         />
       </div>
-      <p className="text-10 text-muted-foreground">
-        {full
-          ? `已经 ${PROTOTYPE_MAX_REF_IMAGES} 张了，去掉一张才能再加。`
-          : "拖进来、粘贴截图，或点上面的按钮。生成时 AI 会照着它画。"}
+      <p className="text-10 text-muted-foreground" data-testid="ref-image-picker-note">
+        {note ??
+          (full
+            ? `已经 ${PROTOTYPE_MAX_REF_IMAGES} 张了，去掉一张才能再加。`
+            : "拖进来、粘贴截图，或点上面的按钮。生成时 AI 会照着它画。")}
       </p>
     </div>
   );

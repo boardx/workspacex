@@ -57,9 +57,17 @@ const SCENES: { name: string; scene: string; ready: string; prepare?: (page: Pag
     prepare: (p) => clickUntil(p, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'),
   },
   // 迭代 10：原型画布——画板视图（自身可平移，标 data-allow-x-scroll）与单页 + 属性面板 + 历史
-  { name: "detail 原型画板", scene: "detail-prototype", ready: '[data-testid="design-detail-board"]' },
+  /*
+   * 迭代 26：`ready` 从「画板出现」改成「画布那一栏出现」，画板视图改由 `prepare` 点出来。
+   * 原因：窄屏的默认视图已经是**单页**（375 上三页并排会被适应到 20% 上下，一个字都读不出来），
+   * 于是 375 档这两条会卡在等一个默认不再出现的元素上——那不是溢出，是断言的前提过时了。
+   */
   {
-    name: "detail 原型单页 + 属性面板 + 历史", scene: "detail-prototype", ready: '[data-testid="design-detail-board"]',
+    name: "detail 原型画板", scene: "detail-prototype", ready: '[data-testid="design-detail-canvas"]',
+    prepare: (p) => clickUntil(p, '[data-testid="design-detail-view-board"]', '[data-testid="design-detail-board"]'),
+  },
+  {
+    name: "detail 原型单页 + 属性面板 + 历史", scene: "detail-prototype", ready: '[data-testid="design-detail-canvas"]',
     prepare: async (p) => {
       await clickUntil(p, '[data-testid="design-detail-view-single"]', '[data-testid="design-detail-phone-tree"]');
       await clickUntil(p, '[data-proto="button"]', '[data-testid="design-inspector"]');

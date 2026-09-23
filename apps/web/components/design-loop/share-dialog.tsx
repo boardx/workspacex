@@ -16,6 +16,8 @@ import { Check, Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { designShareUrl, type DesignProject, type DesignShareScope } from "@/lib/live-design-workbench";
+import { useDialogFocus } from "./use-dialog-focus";
+import { humanTime } from "@/lib/human-time";
 
 /** 两档的人话。闭集来自契约——漏一档编译不过。 */
 export const SHARE_SCOPE_LABEL: Record<DesignShareScope, string> = {
@@ -46,6 +48,26 @@ export function ShareDialog({
   const share = project.share ?? null;
   const [scope, setScope] = React.useState<DesignShareScope>(share?.scope ?? "prototype");
   const [copied, setCopied] = React.useState(false);
+  /**
+   * 迭代 29：复制失败原来只是 `setCopied(false)` —— 也就是**什么都不说**。
+   * 非安全上下文（http 的内网地址）与没给剪贴板权限都会走到这里，而这恰恰是
+   * "我要把链接发给别人"那一步；一声不吭等于让人以为复制成功了，然后粘出去一片空白。
+   */
+  const [copyFailed, setCopyFailed] = React.useState(false);
+  /**
+   * 迭代 39（UIUX 第 20 轮）：「取消发布」原来**一点就收回**。这一屏自己在最后一行写着
+   * 「旧的不会恢复」——那正是必须先问一句的理由：链接可能已经发给客户了，收回之后
+   * 对方再点开就是一句「打不开」，而设计者不会知道这件事发生过。
+   */
+  const [confirmUnpublish, setConfirmUnpublish] = React.useState(false);
+  /** 复制成功那 1.6 秒的定时器：卸载/重复点要清，否则弹窗关了还往没了的组件里写。 */
+  const copyTimer = React.useRef<number | null>(null);
+  React.useEffect(() => () => {
+    if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
+  }, []);
+  /** B6.5：焦点进弹窗 / Esc 关闭 / 关掉之后焦点回到「分享」那个按钮——这一屏此前一条都没有。 */
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useDialogFocus(panelRef, onClose);
   /** 一页都没画出来时服务端会拒（`NOTHING_TO_PUBLISH`）；屏上先说清楚，别让用户点了才知道。 */
   const nothingToPublish = !project.prototype.some((r) => r !== null);
   const url = share?.token === null || share?.token === undefined ? null : designShareUrl(origin, share.token);
@@ -56,17 +78,20 @@ export function ShareDialog({
     try {
       await write(url);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      setCopyFailed(false);
+      if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1600);
     } catch {
       // 剪贴板被浏览器拒了（非安全上下文、权限没给）——链接本身就在输入框里，选中复制即可。
       setCopied(false);
+      setCopyFailed(true);
     }
   };
 
   return (
     <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-share-dialog">
       <div className="absolute inset-0 bg-inverse/50" onClick={onClose} aria-hidden />
-      <div role="dialog" aria-modal="true" aria-label="发布与分享" className="relative flex w-full max-w-lg flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="发布与分享" className="relative flex w-full max-w-lg flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <h3 className="text-16 font-semibold">分享「{project.name}」</h3>
 
         {share === null ? (
@@ -76,7 +101,7 @@ export function ShareDialog({
           </p>
         ) : (
           <p className="text-12 text-muted-foreground" data-testid="design-share-published-at">
-            已发布于 {new Date(share.publishedAt).toLocaleString("zh-CN")} · {SHARE_SCOPE_LABEL[share.scope]}
+            发布于 {humanTime(share.publishedAt)} · 带出去的是「{SHARE_SCOPE_LABEL[share.scope]}」
           </p>
         )}
 
@@ -118,6 +143,11 @@ export function ShareDialog({
             </Button>
           </div>
         )}
+        {copyFailed && (
+          <p className="text-11 text-muted-foreground" role="alert" data-testid="design-share-copy-failed">
+            这个浏览器不让网页写剪贴板。链接就在上面那一栏里——点一下会自动选中，按 Ctrl/⌘ + C 复制。
+          </p>
+        )}
 
         {/*
           * 快照过期——这句话是本仓那条「静态痕迹 ≠ 动态事实」在界面上的落点：
@@ -129,12 +159,22 @@ export function ShareDialog({
           </p>
         )}
 
+        {/*
+          * 档位是发布时定的，改了下拉不等于改了那条链接。不说这句，用户切到「原型 + 问题与
+          * 验收标准」就关掉弹窗，以为对方已经看得到——而对方看到的还是只有原型的那一份。
+          */}
+        {share !== null && scope !== share.scope && (
+          <p className="rounded-control border border-warning/40 bg-warning/10 px-2 py-1.5 text-11" data-testid="design-share-scope-pending">
+            档位改成了「{SHARE_SCOPE_LABEL[scope]}」，但要按「更新发布」才对已经发出去的链接生效。
+          </p>
+        )}
+
         {nothingToPublish && (
           <p className="text-11 text-muted-foreground" data-testid="design-share-nothing">
             还没有画出来的页。发一条打开是白屏的链接，对方只会以为链接坏了——先生成原型再分享。
           </p>
         )}
-        {error !== null && <p className="text-11 text-danger" data-testid="design-share-error">{error}</p>}
+        {error !== null && <p className="text-11 text-destructive" role="alert" data-testid="design-share-error">{error}</p>}
 
         <div className="mt-1 flex items-center gap-2">
           <Button
@@ -148,13 +188,27 @@ export function ShareDialog({
             {share === null ? "发布并生成链接" : "更新发布"}
           </Button>
           {share !== null && (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={onUnpublish} data-testid="design-share-unpublish">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirmUnpublish(true)} data-testid="design-share-unpublish">
               <Trash2 aria-hidden className="h-3.5 w-3.5" /> 取消发布
             </Button>
           )}
           <Button variant="ghost" size="sm" className="ml-auto" onClick={onClose} disabled={busy} data-testid="design-share-close">关闭</Button>
         </div>
-        {share !== null && (
+        {confirmUnpublish && (
+          <div className="flex flex-col gap-2 rounded-control border border-destructive/40 bg-destructive/10 p-2" data-testid="design-share-unpublish-confirm" role="alertdialog" aria-label="确认取消发布">
+            <p className="text-11">
+              收回这条链接？已经拿到它的人马上就打不开了，而且他们不会收到任何通知；再发布会是一条新链接，旧的不会恢复。
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" data-testid="design-share-unpublish-cancel" onClick={() => setConfirmUnpublish(false)}>算了</Button>
+              <Button variant="destructive" size="sm" data-testid="design-share-unpublish-yes" disabled={busy}
+                onClick={() => { setConfirmUnpublish(false); onUnpublish(); }}>
+                收回这条链接
+              </Button>
+            </div>
+          </div>
+        )}
+        {share !== null && !confirmUnpublish && (
           <p className="text-10 text-muted-foreground">
             取消发布后这条链接立刻失效；再发布会是一条新的链接，旧的不会恢复。
           </p>

@@ -3,6 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { isLocalOrg, LOCAL_ORG_GUARANTEES, type Identity } from "@/lib/identity";
+import { useIsLocalEdition } from "@/lib/edition";
 import { HardDrive } from "lucide-react";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
@@ -130,9 +131,18 @@ export function OrgMenu({
 }) {
   const session = useOptionalSession();
 
-  // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——隐私模式若不可见，
-  // 等于不存在。顶栏已经这么判（`top-bar.tsx`），组织菜单这里是同一判据的同一读点。
-  const local = isLocalOrg(identity.org);
+  /**
+   * 「这个工作区在不在本机」——**两种成立方式，缺一不可**（#3872 R1 实测修正）。
+   *
+   * UC-0.5 R8 的原判据是 `isLocalOrg(identity.org)`，它只认 kind 为 `personal-local`
+   * 的组织，那是**云端产品里的隐私模式**概念。本地版实测下来有两个组织：
+   * 默认工作的那个「我的本地工作区」kind 是 `organization`，另一个才是 `personal-local`
+   * ——于是「本机工作区」的标记**恰恰不显示在用户真正用的那个组织上**。
+   *
+   * 在本地版里每个组织都在本机，这是版次事实不是组织属性。所以判据补上版次这一半。
+   */
+  const localEdition = useIsLocalEdition();
+  const local = localEdition || isLocalOrg(identity.org);
   const currentLabel = organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "";
 
   // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；

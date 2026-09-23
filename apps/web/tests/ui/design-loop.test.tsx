@@ -25,7 +25,7 @@
  *      到目标条目、目标卡片/行短暂 `data-highlighted`、生产落点把 `?open=<id>` 写进 URL；
  *      目标不在已加载列表里时老实提示而不是静默。
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
@@ -54,8 +54,15 @@ import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-scree
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
-import { designWorkbench } from "@repo/contracts";
+import { designWorkbench, feedbackLoop } from "@repo/contracts";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
+import { ImportThreadDialog } from "@/components/design-loop/import-thread-dialog";
+import { describeFailure } from "@/lib/design-failure";
+import { refImageRejectText } from "@/components/design-loop/ref-image-strip";
+import { PROJECT_TEMPLATE_LABEL } from "@/lib/live-design-workbench";
+import { PrototypeBoard } from "@/components/design-loop/prototype-board";
+import { DEVICE_PRESETS } from "@/components/design-loop/prototype-canvas";
+import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -951,6 +958,17 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
   });
 });
 
+
+/**
+ * 迭代 24：明暗 / 强调色 / 设备收进了「外观」面板（`canvas-appearance.tsx`），
+ * 所以要先把它点开才够得着——这几条用例断的是那些控件的**行为**，不是它们摆在哪。
+ */
+const openAppearance = () => {
+  if (screen.queryByTestId("design-detail-appearance-panel") === null) {
+    fireEvent.click(screen.getByTestId("design-detail-appearance"));
+  }
+};
+
 /* ─────────────────────────── B4.5：PM 设计工作台真栈 ─────────────────────────── */
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
@@ -1093,6 +1111,40 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       vi.stubGlobal("fetch", fetchMock);
       return fetchMock;
     };
+
+    it("一次拖进来三张 ⇒ 只收得下一张，就明说收了哪一张、剩几张要再来", async () => {
+      /*
+       * ⭐ 反证锚点：把 drop 改回 `take(e.dataTransfer.files[0])` ⇒ 这条红。
+       * 服务端一次只收一张，而原来多余的那两张**静默消失**：条上多了一张，
+       * 用户以为三张都在，下一句「照这三张画」就全错了。
+       */
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      stubUpload();
+      render(<DesignDetailScreen projectId="p1" />);
+      const strip = await screen.findByTestId("design-ref-images");
+      const three = [png(), png(), png()];
+      fireEvent.drop(strip, { dataTransfer: { files: three, items: [], types: ["Files"] } });
+      const note = await screen.findByTestId("design-ref-image-error");
+      expect(note.textContent).toContain("一次只能传一张");
+      expect(note.textContent).toContain("另外 2 张");
+    });
+
+    it("拖进来的根本不是图片 ⇒ 说一句，而不是没反应", async () => {
+      // ⭐ 反证锚点：去掉 takeMany 里那条判断 ⇒ 这条红（旧代码会把 files[0] 直接发上去或静默丢掉）。
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      stubUpload();
+      render(<DesignDetailScreen projectId="p1" />);
+      const strip = await screen.findByTestId("design-ref-images");
+      const doc = new File([new Uint8Array([1])], "需求.pdf", { type: "application/pdf" });
+      fireEvent.drop(strip, { dataTransfer: { files: [doc], items: [], types: ["Files"] } });
+      expect((await screen.findByTestId("design-ref-image-error")).textContent).toContain("只收图片");
+    });
 
     it("选文件后 POST 到本项目的 ref-images，条上出现这张图", async () => {
       apiRequest.mockImplementation(async (path: string) => {
@@ -1516,6 +1568,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().getAttribute("data-chrome")).toBe("phone");
       expect(frame().style.width).toBe("393px");
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().getAttribute("data-device")).toBe("laptop");
       expect(frame().getAttribute("data-chrome")).toBe("browser");
@@ -1525,7 +1578,9 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
 
     it("换镜头**不写库**——一次 PATCH 都不发", async () => {
       const bodies = await mount("mobile");
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "ipad" } });
+      openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("ipad"));
       // ⭐ 反证：把镜头做成 DesignProject 的字段（像 theme 那样 PATCH）⇒ 这条红。
@@ -1537,11 +1592,14 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       await mount("mobile");
       const frame = () => screen.getByTestId("design-detail-phone");
       expect(frame().style.width).toBe("393px");
+      openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       expect(frame().style.width).toBe("852px");
       expect(frame().getAttribute("data-landscape")).toBe("true");
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "desktop" } });
+      openAppearance();
       expect((screen.getByTestId("design-detail-rotate") as HTMLButtonElement).disabled).toBe(true);
       // 不可旋转的镜头即便 landscape 状态还留着，也不该被转过来
       expect(frame().getAttribute("data-landscape")).toBe("false");
@@ -1557,10 +1615,12 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().querySelector('[data-chrome="browser"]')).toBeNull();
 
       // iPhone SE 是上下额头，不是灵动岛——两者靠形状区分，不是同一个东西
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "iphone-se" } });
       expect(frame().querySelector('[data-chrome="notch"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="island"]')).toBeNull();
 
+      openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().querySelector('[data-chrome="browser"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="home"]')).toBeNull();
@@ -1839,6 +1899,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     const phone = await screen.findByTestId("design-detail-phone");
     expect(phone.className).toContain("dark");
 
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-theme-light"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-theme")).toBe("light"));
     // 画布拿到浅色作用域
@@ -1979,6 +2040,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
     fireEvent.click(screen.getByTestId("project-delete-p1"));
+    // 迭代 39 起删除要先确认（见 UIUX 18 那一组）——这一条断的是确认之后真的走 DELETE。
+    fireEvent.click(await screen.findByTestId("workbench-delete-yes"));
     await waitFor(() => expect(screen.queryByTestId("project-card-p1")).toBeNull());
     expect(apiRequest).toHaveBeenCalledWith("/pm-designs/p1", expect.objectContaining({ method: "DELETE" }));
   });
@@ -2420,7 +2483,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     }
   });
 
-  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
+  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、不报错但**说一句**；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let mode: "hang" | "fail" | "ok" = "hang";
     const posted: unknown[] = [];
@@ -2452,12 +2515,18 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       fireEvent.click(screen.getByTestId("design-detail-cancel"));
       await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
       expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();
+      /*
+       * 迭代 27：取消**不是错误**（上面那条断言），但也不能什么都不说——
+       * 已经画好的页留着了、服务端那一次可能还在跑完，这两件事只有系统知道。
+       * ⭐ 反证锚点：把这句通知去掉 ⇒ 这条红；把它塞回红色的 chatError ⇒ 上面那条红。
+       */
+      expect((await screen.findByTestId("design-detail-notice")).textContent).toContain("取消之前画好的页留着了");
       expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("画");
       // 失败 ⇒ 重试
       mode = "fail";
       fireEvent.click(screen.getByTestId("design-detail-send"));
       await screen.findByTestId("design-detail-chat-error");
-      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("无法连接服务器");
+      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("连不上服务器");
       mode = "ok";
       fireEvent.click(screen.getByTestId("design-detail-retry"));
       await waitFor(() => expect(posted).toHaveLength(3));
@@ -3043,7 +3112,14 @@ describe("对话输入区：回车发送 / Shift+Enter 换行 / 输入法组字�
     return waitFor(() => {
       const bar = screen.getByTestId("design-detail-statusbar");
       expect(bar.textContent).not.toMatch(/claude|opus|gpt/i);
-      expect(bar.textContent).toContain("设计系统 WorkspaceX UI");
+      /*
+       * 迭代 25：原来这里断的是「状态条上写着**设计系统 WorkspaceX UI**」——那句话对第一次
+       * 来做原型的人零信息：它既不是这份原型的属性，也不是他能改的东西。换成他正在做的
+       * 那份东西的真实事实（几页 / 画出来几页）。
+       * 「不显示模型名」那条原意仍然由上一行守着，没有被这次替换削弱。
+       */
+      expect(bar.textContent).not.toContain("设计系统");
+      expect(screen.getByTestId("design-detail-statusbar-pages").textContent).toBe("1 页 · 已画出 1 页");
     });
   });
 });
@@ -3268,12 +3344,14 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     );
 
     // 切一档：乐观更新（不等往返），并真的发出 PATCH。
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
     await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
 
     // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
     failNext = true;
+    openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-green"));
     await screen.findByTestId("design-detail-chat-error");
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
@@ -3884,6 +3962,1390 @@ describe("新建时就能带参考图（照这个画）", () => {
     await screen.findByTestId("ref-image-picked-2");
     expect(screen.queryByTestId("ref-image-picked-3")).toBeNull();
     expect((screen.getByTestId("ref-image-pick") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId("ref-image-picker").textContent).toContain("去掉一张才能再加");
+    /*
+     * 迭代 31 起，一次选超量时说的是**更具体**的那一句（收下了几张、剩几张没进来）；
+     * 「去掉一张才能再加」留给"已经满了还想再加"的那一刻。两句都在说为什么，
+     * 这条断言跟着改成前者——意图不变：满了之后按钮禁用，并且屏上说得出原因。
+     */
+    expect(screen.getByTestId("ref-image-picker-note").textContent).toContain("只收下了 3 张");
+    expect(screen.getByTestId("ref-image-picker-note").textContent).toContain("1 张没加进来");
+  });
+});
+
+/* ═══════ 迭代 25：第一次来的人，从零到第一张原型 ═══════ */
+
+describe("界面不再把人指向一个空的地方", () => {
+  /** 这一组自己的样本树——上面那些 `tree` 都是各自 describe 的局部常量。 */
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+
+  const withEmptyCanvas = () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: [], prototype: [] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+  };
+
+  it("空画布的话里没有方位词——md 以下对话面板在**上方**，「在左边」是错的", async () => {
+    /*
+     * ⭐ 反证锚点：把文案改回「在左边描述你要做的产品」⇒ 这条红。
+     *
+     * 布局是 `flex-col md:flex-row`：手机上对话在上、画布在下。一句带方位的引导
+     * 在响应式布局里天然会说谎，而说谎的那一半恰好是新手最需要的那一半。
+     */
+    withEmptyCanvas();
+    render(<DesignDetailScreen projectId="p1" />);
+    const empty = await screen.findByTestId("design-detail-canvas-empty");
+    expect(empty.textContent).not.toContain("左边");
+    expect(empty.textContent).not.toContain("左侧");
+    expect(empty.textContent).toContain("在对话里描述");
+  });
+
+  it("空画布中央给可点的下一步，点一下真的把那句话发出去", async () => {
+    /*
+     * ⭐ 反证锚点：把这组起手按钮删掉 ⇒ 这条红。
+     *
+     * 起手的三条 brief 此前只在左栏作为一排小 chip 存在，而第一次进来的人眼睛在**画布**上
+     * ——那是整屏最大的一块，此前只有两行灰字。用的是同一份契约常量，不是第二份清单。
+     */
+    const sent: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: [], prototype: [] })] };
+      if (path.endsWith("/chat") && opts?.method === "POST") {
+        sent.push(opts.body);
+        return { project: project({ frames: [], prototype: [] }), reply: { source: "model", applied: [], suggestions: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-canvas-empty");
+    const first = DESIGN_WORKBENCH_STARTERS[0]!;
+    fireEvent.click(screen.getByTestId(`design-detail-canvas-starter-${first.label}`));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect((sent[0] as { text: string }).text).toBe(first.prompt);
+  });
+
+  it("改名不再只有「双击页签」一条路——手机上没有双击这回事", async () => {
+    /*
+     * ⭐ 反证锚点：去掉这颗按钮 ⇒ 这条红。改名此前的唯一入口是页签上的 `onDoubleClick`，
+     * 而这排按钮（加页 / 复制 / 删页）本来就在那儿，改名与它们同级。
+     */
+    // 改名走的是 `patchPrototype`（`renameScreen` op），不是 PATCH 项目——同页的加/删页一条路。
+    const ops: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["旧名"], prototype: [sample] })] };
+      if (path.endsWith("/prototype/patch")) { ops.push(opts?.body); return { project: project({ frames: ["新名"], prototype: [sample] }) }; }
+      throw new Error(`unexpected ${path}`);
+    });
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("新名");
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-page-rename");
+    fireEvent.click(screen.getByTestId("design-detail-page-rename"));
+    await waitFor(() => expect(ops).toHaveLength(1));
+    expect((ops[0] as { ops: { op: string; frame: string }[] }).ops[0]).toMatchObject({ op: "renameScreen", frame: "新名" });
+    expect(prompt).toHaveBeenCalledWith("页面名字", "旧名");
+    prompt.mockRestore();
+  });
+});
+
+/* ═══════ 迭代 26：手机上第一眼看到的那一屏 ═══════ */
+
+describe("窄屏的默认值按手机来，不是按桌面来", () => {
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+  const mount = async (width: number) => {
+    const prev = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["A", "B", "C"], prototype: [sample, sample, sample] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-view-single");
+    return () => Object.defineProperty(window, "innerWidth", { value: prev, configurable: true, writable: true });
+  };
+
+  it("手机宽度进来默认**单页**——三页并排会被适应到 20% 上下，一个字都读不出来", async () => {
+    /*
+     * ⭐ 反证锚点：把默认改回恒 `board` ⇒ 这条红。
+     * 「我的原型长什么样」这个问题的第一眼答案，不该是三台指甲盖大小的手机。
+     */
+    const restore = await mount(390);
+    expect(screen.getByTestId("design-detail-view-single").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("design-detail-view-board").getAttribute("aria-pressed")).toBe("false");
+    restore();
+  });
+
+  it("桌面宽度仍然默认画板——三页并排正是它的价值", async () => {
+    const restore = await mount(1440);
+    expect(screen.getByTestId("design-detail-view-board").getAttribute("aria-pressed")).toBe("true");
+    restore();
+  });
+
+  it("顶栏那颗实心按钮指的是「分享」，不是内部流程「推送到收件箱」", async () => {
+    /*
+     * ⭐ 反证锚点：把 primary 换回 push ⇒ 这条红。
+     * 实心按钮是一屏上最强的指路牌；它此前指着一条与第一次做原型的人无关的路
+     * （推送进运营收件箱排期）。
+     */
+    const restore = await mount(1440);
+    const share = screen.getByTestId("design-detail-share");
+    const push = screen.getByTestId("design-detail-push");
+    expect(share.className).toContain("bg-primary");
+    expect(push.className).not.toContain("bg-primary");
+    restore();
+  });
+});
+
+/* ═══════ 迭代 27：出错的时候，屏上说的是人话 ═══════ */
+
+describe("错误提示不再把内部错误码端给用户", () => {
+  const sample = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+
+  it("已知错误码翻成一句能照着做的话，屏上看不到那个码", async () => {
+    /*
+     * ⭐ 反证锚点：把 `describeFailure` 改回 `err.reasonCode ?? http_N` ⇒ 这条红。
+     *
+     * 此前屏上出现的是「没能发送（PROJECT_NOT_FOUND），已保留草稿」——对一个不看代码的人，
+     * 这既不说明发生了什么，更不说明下一步做什么，而那正是他最需要一句人话的时刻。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project({ frames: ["A"], prototype: [sample] })] };
+      throw new ApiError(403, "NOT_PROJECT_OWNER", {});
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail-input");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "改一下" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    const err = await screen.findByTestId("design-detail-chat-error");
+    expect(err.textContent).toContain("只有建它的人能改");
+    expect(err.textContent).not.toContain("NOT_PROJECT_OWNER");
+  });
+
+  it("不认识的失败也给能照着做的下一步，而不是 http_500 或一段栈", () => {
+    /*
+     * ⭐ 反证锚点：让兜底分支回 `String(err)` ⇒ 这条红。
+     * 兜底恰恰是最容易漏的地方：已知码有人翻，未知的那些才是用户真正看到的。
+     */
+    expect(describeFailure(new ApiError(500, null, {}))).toBe("服务器出错了，稍后再试一次");
+    expect(describeFailure(new ApiError(401, null, {}))).toContain("重新登录");
+    expect(describeFailure(new TypeError("Failed to fetch"))).toContain("网络");
+    const weird = describeFailure(new Error("boom at Object.<anonymous> (/app/x.js:1:1)"));
+    expect(weird).not.toContain("boom");
+    expect(weird).toContain("稍后再试");
+  });
+
+  it("每一个契约错误码都有人话——闭集穷举，不会出现说不出话的那一种", () => {
+    // ⭐ 反证锚点：契约新增一个错误码而这里没跟上 ⇒ TS 当场编译不过（Record 穷举）；
+    //    真要绕过去让它落到运行期，这条也会红。
+    for (const code of designWorkbench.DesignWorkbenchError.options) {
+      const text = describeFailure(new ApiError(400, code, {}));
+      expect(text.length, `错误码 ${code} 没有人话`).toBeGreaterThan(0);
+      expect(text, `错误码 ${code} 的"人话"就是那个码本身`).not.toContain(code);
+    }
+  });
+});
+
+describe("迭代 28：改一张已经画出来的页——普通人看得懂的那一版", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+
+  const openInspector = async () => {
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    return screen.findByTestId("design-inspector");
+  };
+
+  it("属性面板的下拉给的是中文档位，不是 schema 里的英文字面量", async () => {
+    /*
+     * ⭐ 反证锚点：把 <option> 的文字改回 `{o}` ⇒ 这条红。
+     * 一个不写代码的人在「样式」里看到 primary / secondary / ghost / danger，
+     * 只能靠猜；而取值本身必须仍然是英文——改的是标签不是值，下面一并钉住。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
+    const variant = screen.getByTestId("design-inspector-variant") as HTMLSelectElement;
+    const texts = [...variant.options].map((o) => o.textContent);
+    expect(texts).toContain("主按钮");
+    expect(texts).not.toContain("primary");
+    // 值不变：真发出去的还是契约里的英文字面量
+    expect([...variant.options].map((o) => o.value)).toContain("primary");
+    // 图标 50 个英文单词同样是一张看不懂的表
+    const icon = screen.getByTestId("design-inspector-icon") as HTMLSelectElement;
+    expect([...icon.options].map((o) => o.textContent)).toContain("购物车");
+  });
+
+  it("属性面板：改完不按「应用」不生效——界面明说这件事", async () => {
+    // ⭐ 反证锚点：删掉 design-inspector-dirty 那段 ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    expect(screen.queryByTestId("design-inspector-dirty")).toBeNull();
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    expect(screen.getByTestId("design-inspector-dirty").textContent).toContain("按「应用」");
+  });
+
+  it("属性面板：不是 patchReason 的失败也说人话，不端 http_403", async () => {
+    // ⭐ 反证锚点：把 reason() 改回 `err.reasonCode ?? http_N` ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        throw new ApiError(403, "NOT_PROJECT_OWNER", { reasonCode: "NOT_PROJECT_OWNER" });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    const err = await screen.findByTestId("design-inspector-error");
+    expect(err.textContent).toContain("只有建它的人能改");
+    expect(err.textContent).not.toContain("NOT_PROJECT_OWNER");
+    expect(err.textContent).not.toContain("http_403");
+  });
+
+  it("属性面板不再把节点 id 摆在标题栏上", async () => {
+    // ⭐ 反证锚点：把 {node.type} 改回 {id} ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    await openInspector();
+    const badge = screen.getByTestId("design-inspector-node-id");
+    expect(badge.textContent).not.toContain("n2");
+    expect(badge.getAttribute("title")).toBe("n2"); // 排查时仍然拿得到
+  });
+
+  it("版本历史：来源按「谁做的」说，退回按钮说清旧版不会丢", async () => {
+    /*
+     * ⭐ 反证锚点：把 SOURCE_LABEL 改回「模型 / 手改」、或删掉那句「随时能再回来」⇒ 这条红。
+     * 「恢复」看上去像一次不可逆覆盖，普通人不敢按——而历史其实只追加。
+     */
+    const versions = [
+      { id: "v2", seq: 2, source: "user", createdAt: new Date().toISOString(), summary: "改了按钮", frames: ["页"], notes: [] },
+      { id: "v1", seq: 1, source: "model", createdAt: new Date().toISOString(), summary: "画了首页", frames: ["页"], notes: [] },
+    ];
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/versions") return { items: versions };
+      if (path === "/pm-designs/p1/versions/v1") {
+        return { version: { ...versions[1], frames: ["页"], prototype: [tree] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-history-toggle"));
+    const panel = await screen.findByTestId("design-history");
+    expect(panel.textContent).toContain("AI 画的");
+    expect(panel.textContent).toContain("你改的");
+    expect(panel.textContent).not.toContain("手改");
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    expect((await screen.findByTestId("design-history-restore-safe-1")).textContent).toContain("随时能再回来");
+  });
+
+  it("版本历史的时间：刚才的说「刚刚」，几天前的才落到日期", () => {
+    // ⭐ 反证锚点：把 when() 改回固定的 `M/D HH:mm` ⇒ 这条红。
+    const now = new Date("2026-09-22T14:00:00").getTime();
+    expect(when(new Date(now - 10_000).toISOString(), now)).toBe("刚刚");
+    expect(when(new Date(now - 12 * 60_000).toISOString(), now)).toBe("12 分钟前");
+    expect(when(new Date("2026-09-22T09:05:00").toISOString(), now)).toBe("今天 09:05");
+    expect(when(new Date("2026-09-21T09:05:00").toISOString(), now)).toBe("昨天 09:05");
+    expect(when(new Date("2026-09-10T09:05:00").toISOString(), now)).toBe("9/10 09:05");
+  });
+});
+
+describe("迭代 29：导出失败不再是静默的", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+  const openExport = async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    return screen.findByTestId("design-detail-export-menu");
+  };
+
+  it("打印窗口被浏览器拦下 ⇒ 说清怎么办，绝不闪一下「完成」", async () => {
+    /*
+     * ⭐ 反证锚点：把 pdf() 改回「window.open 返回 null 也照样 flash("pdf")」⇒ 这条红。
+     * 一个字都没打印出来却报成功，是本仓最不能留的那种假绿：用户合上电脑，
+     * 以为 PDF 已经在手里了。
+     */
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    try {
+      await openExport();
+      fireEvent.click(screen.getByTestId("design-detail-export-pdf"));
+      const err = await screen.findByTestId("design-detail-export-error");
+      expect(err.textContent).toContain("允许本站弹出窗口");
+      // 菜单没关：话说完就跑等于没说
+      expect(screen.getByTestId("design-detail-export-menu")).toBeTruthy();
+      expect(open).toHaveBeenCalled();
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("剪贴板被拒 ⇒ 指一条走得通的路（下载成文件），不是无事发生", async () => {
+    // ⭐ 反证锚点：把 copy() 的 catch 去掉 ⇒ 这条红（未处理的 rejection，屏上什么都没有）。
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async () => { throw new Error("NotAllowedError"); }) },
+      configurable: true,
+    });
+    await openExport();
+    fireEvent.click(screen.getByTestId("design-detail-export-copy"));
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能复制到剪贴板");
+    expect(err.textContent).toContain("原型规格");
+  });
+
+  it("html2canvas 抛了 ⇒ 说一句人话，而不是转圈停下什么都没有", async () => {
+    // ⭐ 反证锚点：把 png() 的 catch 去掉 ⇒ 这条红。
+    html2canvasMock.mockImplementation(async () => { throw new Error("tainted canvas"); });
+    await openExport();
+    fireEvent.click(screen.getByTestId("design-detail-export-png"));
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能截这一页的图");
+    expect(err.textContent).not.toContain("tainted canvas"); // 内部异常不端给用户
+  });
+});
+
+describe("迭代 30：对话那一侧——普通人说得出、看得懂、再说一遍", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it("用户打的换行在气泡里留着——placeholder 教了 Shift+Enter，就不能把结果吞掉", async () => {
+    // ⭐ 反证锚点：去掉气泡上的 whitespace-pre-wrap ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ chat: [{ role: "user", text: "第一行\n第二行", at: new Date().toISOString() }] })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const bubble = screen.getAllByTestId("design-detail-turn-user")[0]!;
+    expect(bubble.className).toContain("whitespace-pre-wrap");
+    expect(bubble.textContent).toContain("第一行");
+    expect(bubble.textContent).toContain("第二行");
+  });
+
+  it("说过一句话之后，只要还没画出东西，起手模板就还在", async () => {
+    /*
+     * ⭐ 反证锚点：把起手模板挪回 `chat.length === 0` 里 ⇒ 这条红。
+     * 第一次来的人最可能先随便说一句；按旧写法，那一句就把三条示例永久关掉了。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ prototype: [], frames: [], chat: [
+          { role: "user", text: "你好", at: new Date().toISOString() },
+          { role: "ai", text: "你想做个什么？", at: new Date().toISOString() },
+        ] })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-starters")).toBeTruthy();
+    expect(screen.getByTestId("design-detail-starters-again").textContent).toContain("还没画出东西");
+  });
+
+  it("每条气泡说一句「什么时候」，并且用户那句可以「再发一次」", async () => {
+    /*
+     * ⭐ 反证锚点：去掉时间或去掉「再发一次」⇒ 这条红。
+     * 「这轮画得不对，用同一句话再要一次」是普通人最常想做的事，而此前唯一的重试
+     * 只挂在模型退路那一类上——其余时候只能把那句话手打一遍。
+     */
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ chat: [{ role: "user", text: "画一个记账 App", at: new Date().toISOString() }] })] };
+      }
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        return { project: project({ chat: [] }), reply: { text: "好", applied: [], suggestions: [], source: "model" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-turn-at-0").textContent).toContain("刚刚");
+    fireEvent.click(screen.getByTestId("design-detail-resend-0"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { text: string }).text).toBe("画一个记账 App");
+  });
+
+  it("超过字数上限在**发送之前**就说，并且按钮发不出去", async () => {
+    /*
+     * ⭐ 反证锚点：去掉计数那段、或不禁用发送 ⇒ 这条红。
+     * 上限在契约里（`DESIGN_TEXT_MAX_CHARS`），此前界面上一次都没出现过：
+     * 粘一段长需求进来，按下发送才被服务端拒掉，而那时已经等了一次往返。
+     */
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const max = designWorkbench.DESIGN_TEXT_MAX_CHARS;
+    expect(screen.queryByTestId("design-detail-input-count")).toBeNull(); // 平时不占地方
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "字".repeat(max + 5) } });
+    const count = screen.getByTestId("design-detail-input-count");
+    expect(count.textContent).toContain("超了 5 个字");
+    expect((screen.getByTestId("design-detail-send") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("画布还空着时，输入框问的是「你想做个什么」而不是「你要改什么」", async () => {
+    // ⭐ 反证锚点：把 placeholder 改回单一文案 ⇒ 这条红。
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ prototype: [], frames: [] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-input").getAttribute("placeholder")).toContain("你想做个什么");
+  });
+});
+
+describe("迭代 31：拖进来的图，收没收下要说清楚", () => {
+  beforeEach(() => {
+    apiRequest.mockReset();
+    // jsdom 没有 object URL；缩略图只要一个占位字符串就够，这条测的不是图本身。
+    Object.defineProperty(URL, "createObjectURL", { value: () => "blob:x", configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: () => undefined, configurable: true });
+  });
+
+  const img = (name: string) => new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });
+  const pdf = () => new File([new Uint8Array([1])], "需求.pdf", { type: "application/pdf" });
+
+  const openNewDialog = async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    return screen.findByTestId("ref-image-dropzone");
+  };
+
+  const drop = (el: HTMLElement, files: File[]) => {
+    fireEvent.drop(el, { dataTransfer: { files, items: [], types: ["Files"] } });
+  };
+
+  it("一次拖进来超过上限 ⇒ 说清只收下了几张，而不是悄悄丢掉", async () => {
+    /*
+     * ⭐ 反证锚点：把 add() 改回 `incoming.slice(0, room)` 且不提示 ⇒ 这条红。
+     * 用户手里那张图正是他这次最想让 AI 看的东西，丢了却不说，他不会发现。
+     */
+    const picker = await openNewDialog();
+    drop(picker, [img("a.png"), img("b.png"), img("c.png"), img("d.png"), img("e.png")]);
+    const note = await screen.findByTestId("ref-image-picker-note");
+    expect(note.textContent).toContain("只收下了");
+    expect(note.textContent).toContain("没加进来");
+  });
+
+  it("拖进来的不是图片 ⇒ 说一句，而不是「拖了一下什么也没发生」", async () => {
+    // ⭐ 反证锚点：把非图片过滤放回调用点静默 filter ⇒ 这条红。
+    const picker = await openNewDialog();
+    drop(picker, [pdf()]);
+    expect((await screen.findByTestId("ref-image-picker-note")).textContent).toContain("只收图片");
+  });
+
+  it("去掉一张之后，上一条提示跟着消失——不留一句已经不成立的话在屏上", async () => {
+    /*
+     * ⭐ 反证锚点：删掉移除按钮里的 `setNote(null)` ⇒ 这条红。
+     * 「只收下了 3 张，另外 2 张没加进来」在用户删掉一张之后就不再成立；
+     * 留着它，下一次他会以为刚才那两张又被收进来了。静态痕迹不能当现状用。
+     */
+    const picker = await openNewDialog();
+    drop(picker, [img("a.png"), img("b.png"), img("c.png"), img("d.png"), img("e.png")]);
+    expect((await screen.findByTestId("ref-image-picker-note")).textContent).toContain("只收下了");
+    fireEvent.click(screen.getByTestId("ref-image-remove-0"));
+    await waitFor(() =>
+      expect(screen.getByTestId("ref-image-picker-note").textContent).not.toContain("只收下了"),
+    );
+  });
+
+  it("上传失败时，不是图的问题就别怪图——断网说断网，不说「换一张试试」", () => {
+    /*
+     * ⭐ 反证锚点：把兜底改回「这张图没能上传，换一张试试。」⇒ 这条红。
+     * 用户会照着那句话换十张图，而每一张都会以同样的方式失败。
+     */
+    expect(refImageRejectText(new ApiError(400, "REF_IMAGE_REJECTED", { rejectReason: "SIZE" }))).toContain("太大");
+    const offline = refImageRejectText(new TypeError("Failed to fetch"));
+    expect(offline).toContain("网络");
+    expect(offline).not.toContain("换一张");
+  });
+
+  it("单张大小上限是契约常量算出来的，不是手打在文案里的 4MB", () => {
+    // ⭐ 反证锚点：把文案改回写死的 "4MB" 而常量改成别的值 ⇒ 这条红。
+    const mb = Math.round(designWorkbench.PROTOTYPE_REF_IMAGE_MAX_BYTES / (1024 * 1024));
+    expect(refImageRejectText(new ApiError(400, "REF_IMAGE_REJECTED", { rejectReason: "SIZE" }))).toContain(`${mb}MB`);
+  });
+});
+
+describe("迭代 32：画板上的手感——别把用户调好的视图冲掉，别让图标自己猜", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = (t: string) => ({ type: "text" as const, id: `n-${t}`, props: { content: t } });
+
+  const openBoard = async (frames: readonly string[]) => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: [...frames], prototype: frames.map(tree) })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    const view = render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-board"));
+    await screen.findByTestId("design-detail-board");
+    return view;
+  };
+
+  it("用户手动缩放过之后，AI 又画出一页 ⇒ 视图不被冲回「适应」", () => {
+    /*
+     * ⭐ 反证锚点：把 `if (!touched.current)` 从页数那条 effect 上去掉 ⇒ 这条红。
+     * 迭代 26 已经给窗口尺寸变化立过这条规矩（他自己挑的比例不能被冲掉），
+     * 而页数变化这条路一直没跟上：放大盯着改，第 3 页画出来的那一刻比例全没了。
+     * 这条直接测 `PrototypeBoard`——页数变化要在**同一个实例**上发生，
+     * 套在详情页上重渲染会连组件一起换掉，`touched` 跟着归零，就测不到这件事了。
+     */
+    // `links` / `prototype` 必须是稳定引用：组件里 `measure` 依赖它们，
+    // 每次渲染新建一个数组会让布局 effect 每帧重跑（真实调用点传的都是稳定值）。
+    const noLinks: readonly (readonly never[])[] = [];
+    const trees = [tree("一"), tree("二"), tree("三")];
+    const board = (n: number) => (
+      <PrototypeBoard
+        links={noLinks}
+        frames={["一", "二", "三"].slice(0, n)}
+        prototype={trees.slice(0, n)}
+        activeFrame={0}
+        onFocusFrame={() => undefined}
+        selectedId={null}
+        onSelect={() => undefined}
+        device={DEVICE_PRESETS[0]!}
+      />
+    );
+    const { rerender } = render(board(2));
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    const after = screen.getByTestId("design-detail-zoom-level").textContent;
+    rerender(board(3));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe(after);
+  });
+
+  it("缩放到头就把按钮禁用，而不是让人一直点一个不动的东西", async () => {
+    // ⭐ 反证锚点：去掉 disabled ⇒ 这条红。
+    await openBoard(["一"]);
+    const zin = () => screen.getByTestId("design-detail-zoom-in") as HTMLButtonElement;
+    for (let i = 0; i < 30 && !zin().disabled; i += 1) fireEvent.click(zin());
+    expect(zin().disabled).toBe(true);
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe("250%"); // 上限 MAX
+    const zout = () => screen.getByTestId("design-detail-zoom-out") as HTMLButtonElement;
+    for (let i = 0; i < 30 && !zout().disabled; i += 1) fireEvent.click(zout());
+    expect(zout().disabled).toBe(true);
+  });
+
+  it("工具条每颗按钮都说得出自己是什么、快捷键是哪个", async () => {
+    // ⭐ 反证锚点：去掉 title ⇒ 这条红。图标按钮只有 aria-label，用鼠标的人一个字都看不到。
+    await openBoard(["一"]);
+    expect(screen.getByTestId("design-detail-zoom-in").getAttribute("title")).toContain("＝");
+    expect(screen.getByTestId("design-detail-zoom-out").getAttribute("title")).toContain("−");
+    expect(screen.getByTestId("design-detail-zoom-fit").getAttribute("title")).toContain("方向键");
+  });
+
+  it("点百分比回到 100%——所有人都会先去点那个数字", async () => {
+    // ⭐ 反证锚点：把百分比改回 <span> ⇒ 这条红。
+    await openBoard(["一"]);
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).not.toBe("100%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-level"));
+    expect(screen.getByTestId("design-detail-zoom-level").textContent).toBe("100%");
+  });
+
+  it("方向键能平移画板——聚焦之后不必回去摸鼠标", async () => {
+    // ⭐ 反证锚点：去掉方向键分支 ⇒ 这条红。
+    await openBoard(["一", "二"]);
+    const board = screen.getByTestId("design-detail-board");
+    const before = screen.getByTestId("design-detail-board-stage").getAttribute("style");
+    fireEvent.keyDown(board, { key: "ArrowRight" });
+    expect(screen.getByTestId("design-detail-board-stage").getAttribute("style")).not.toBe(before);
+  });
+
+  it("图层那一栏说的是「页面结构」和有几块，不是行话", async () => {
+    // ⭐ 反证锚点：改回「图层」⇒ 这条红。
+    await openBoard(["一"]);
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const title = await screen.findByTestId("design-layers-title");
+    expect(title.textContent).toContain("页面结构");
+    expect(title.textContent).toMatch(/\d+ 块/);
+  });
+});
+
+describe("迭代 33：同一件事，在这几屏上不许说四种话", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  it("工作台首页加载失败 ⇒ 说人话，不端 reasonCode，也不把异常对象倒到屏上", async () => {
+    /*
+     * ⭐ 反证锚点：把 `workbench-screen.tsx` 里那份本地 describeFailure 放回去 ⇒ 这条红。
+     * 迭代 27 只把**详情页**那一份换成了人话表，而首页、草稿、收件箱各抄着一份旧的——
+     * 偏偏这三屏才是第一眼看到的地方。
+     */
+    apiRequest.mockImplementation(async () => { throw new ApiError(500, "PROJECT_NOT_FOUND", {}); });
+    render(<DesignWorkbenchHome state="default" />);
+    const box = await screen.findByTestId("dep-failed");
+    expect(box.textContent).not.toContain("PROJECT_NOT_FOUND");
+    expect(box.textContent).not.toContain("http_500");
+    expect(box.textContent).toContain("这个设计项目找不到了"); // 走的是单源那张「码 → 人话」表
+  });
+
+  it("首页遇到不认识的异常也不把 String(err) 倒上屏", async () => {
+    // ⭐ 反证锚点：把兜底改回 `return String(err)` ⇒ 这条红（屏上会出现一段英文栈）。
+    apiRequest.mockImplementation(async () => { throw new Error("boom at Object.<anonymous> (/app/x.js:1:1)"); });
+    render(<DesignWorkbenchHome state="default" />);
+    const box = await screen.findByTestId("dep-failed");
+    expect(box.textContent).not.toContain("boom");
+    expect(box.textContent).toContain("稍后再试");
+  });
+
+  it("三种模板的中文名只有一份——首页下拉与详情页状态栏读的是同一张表", () => {
+    /*
+     * ⭐ 反证锚点：在任一屏里另写一份 `{ mobile: …, ui: …, wireframe: … }` ⇒
+     * 这条测不到，但 `lint-user-facing-error-text` 之外还有这条断言钉住"两边一致"：
+     * 改其中一处而不改另一处，下面的相等就不成立。
+     */
+    // 键集合恰好是契约闭集：多一个少一个都说明有人在别处又攒了一份。
+    expect(Object.keys(PROJECT_TEMPLATE_LABEL).sort()).toEqual([...designWorkbench.ProjectTemplate.options].sort());
+    for (const t of designWorkbench.ProjectTemplate.options) {
+      expect(PROJECT_TEMPLATE_LABEL[t], `模板 ${t} 没有中文名`).toBeTruthy();
+    }
+  });
+});
+
+describe("迭代 35：反馈束的错误码也有人话（闭集穷举）", () => {
+  it("每一个 FeedbackError 都说得出一句话，且那句话不是码本身", () => {
+    /*
+     * ⭐ 反证锚点：契约新增一个 FeedbackError 而这张表没跟上 ⇒ TS 当场编译不过
+     * （Record 穷举）；真绕过去让它落到运行期，这条也会红。
+     *
+     * 为什么要单独穷举一张：把提反馈那个框并进单源时才发现，并进来只挡住了「码上屏」，
+     * 反馈自己的那些码一律落到泛泛的兜底（「出了点问题」）——而提反馈的人最需要知道的
+     * 恰恰是具体那件事（草稿还在不在、该重试还是该找人）。
+     */
+    /*
+     * ⚠ 判据是「**不等于同一个 HTTP 状态的兜底句**」——不是"非空"也不是"不含码"。
+     *   第一版这条断言写成了 `not.toBe("出了点问题…")`，而 `ApiError(400, …)` 的兜底
+     *   其实是 httpText(400) 的那句，于是把表整张删掉它照样绿：**一条没有判别力的断言**。
+     *   实测发现后改成下面这样（把表删掉当场红）。
+     */
+    const fallback400 = describeFailure(new ApiError(400, "一个根本不存在的码", {}));
+    for (const code of feedbackLoop.FeedbackError.options) {
+      const text = describeFailure(new ApiError(400, code, {}));
+      expect(text, `${code} 的"人话"就是那个码本身`).not.toContain(code);
+      expect(text, `${code} 落回了 400 的泛泛兜底，等于没有自己的话`).not.toBe(fallback400);
+    }
+  });
+});
+
+describe("迭代 36：收件箱列表——键盘走不到的按钮、同一列两种时间", () => {
+  it("快捷动作那一格不再是键盘的死结：行被聚焦时它就显示出来", async () => {
+    /*
+     * ⭐ 反证锚点：去掉 `group-focus:visible` ⇒ 这条红。
+     *
+     * 容器是 `invisible`（`visibility: hidden`），而 CSS 规定 visibility:hidden 的子树
+     * **不可聚焦**——于是 `group-focus-within:visible` 是个死结：要先聚焦进去才显示，
+     * 不显示又聚焦不进去。结果是转入开发 / 不做 / 归档这几个分诊台的主要动作，
+     * 对只用键盘的人完全不存在。行自己是 tabIndex=0，所以用 `group-focus`。
+     */
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    const menuBox = (await screen.findByTestId("inbox-row-menu-B-1")).parentElement!;
+    expect(menuBox.className).toContain("group-focus:visible");
+    expect(menuBox.className).toContain("invisible"); // 鼠标用户那一侧的行为没变
+  });
+
+  it("同一列里不再是两种时间——普通反馈也说「多久以前」", async () => {
+    /*
+     * ⭐ 反证锚点：把普通条目改回 `toLocaleDateString("zh-CN")` ⇒ 这条红。
+     * 异常条目走 formatRelative（「3 分钟前」），普通反馈却是「2026/9/4」，并排放着，
+     * 后者既读不出新旧、也和前者对不上。
+     */
+    mockInbox([feedbackItem({ createdAt: new Date().toISOString() })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    const row = await screen.findByTestId("inbox-row-B-1");
+    expect(row.textContent).toContain("刚刚");
+  });
+
+  it("状态档筛空 ⇒ 说清是哪一档筛的，并给一个能点的「看全部」", async () => {
+    // ⭐ 反证锚点：把空态改回「没有符合当前筛选的条目。」⇒ 这条红。
+    mockInbox([feedbackItem({ stage: "backlog" })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    fireEvent.click(screen.getByTestId("inbox-status-done"));
+    const box = await screen.findByTestId("inbox-list-empty-box");
+    expect(box.textContent).toContain("这一档里没有条目");
+    fireEvent.click(screen.getByTestId("inbox-list-empty-clear"));
+    expect(await screen.findByTestId("inbox-row-B-1")).toBeTruthy();
+  });
+});
+
+/* ────── UIUX 第 16 轮：「从对话导入」——等待要说出来，改过的字不许静默丢 ────── */
+
+/**
+ * 这一组断的都是**这个弹窗自己**的行为，所以直接渲染它，不经过详情页：
+ * 上面 V58 那一组已经断过「不确认不写」，这里断的是他在这三步里会不会被弄丢。
+ *
+ *   ① 列表读失败 ≠ 你一条对话都没有
+ *   ② 点下去到摘要回来的那几秒，要在他点的那一行上说话
+ *   ③ 改过的那段背景，关窗/换一条之前先问一声
+ *   ④ 换一条对话不该是「整个关掉重开」
+ *   ⑤ 行上的时间是人话，不是 `2026-09-08`
+ */
+describe("UIUX 16：从对话导入的三步里，别把人弄丢", () => {
+  const card = (over: Partial<{ id: string; title: string; lastActivityAt: string }> = {}) => ({
+    id: over.id ?? "th-1",
+    title: over.title ?? "会员下单那条线",
+    subtitle: "",
+    badges: [],
+    status: "done" as const,
+    artifactCount: 0,
+    lastActivityAt: over.lastActivityAt ?? new Date(Date.now() - 5 * 60_000).toISOString(),
+    visibilityScope: "plenary" as const,
+    pinned: false,
+  });
+
+  const imported = {
+    threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z",
+  };
+
+  const renderDialog = (onClose = vi.fn()) => {
+    const onImported = vi.fn();
+    render(<ImportThreadDialog projectId="p1" onClose={onClose} onImported={onImported} />);
+    return { onClose, onImported };
+  };
+
+  it("列表读失败 ⇒ 说的是「没读到」而不是「你没有对话」，重试真的再读一次", async () => {
+    let attempt = 0;
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") {
+        attempt += 1;
+        if (attempt === 1) throw new ApiError(500, "boom", {});
+        return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+
+    // ⭐ 反证锚点：把 catch 里改回只 `setThreads([])`（失败与空合流）⇒ 这两条红。
+    await screen.findByTestId("import-thread-load-failed");
+    expect(screen.queryByTestId("import-thread-empty")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("import-thread-retry"));
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(attempt).toBe(2);
+    expect(screen.queryByTestId("import-thread-load-failed")).toBeNull();
+  });
+
+  it("行上的时间是人话（5 分钟前的对话说「5 分钟前」，不是一串日期）", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+    const row = await screen.findByTestId("import-thread-item-th-1");
+    // ⭐ 反证锚点：改回 `t.lastActivityAt.slice(0, 10)` ⇒ 这两条红。
+    expect(row.textContent).toContain("5 分钟前");
+    expect(row.textContent).not.toContain(new Date().toISOString().slice(0, 10));
+  });
+
+  it("点下去到摘要回来的那几秒，在他点的那一行上说「正在读」", async () => {
+    let release: ((v: unknown) => void) | null = null;
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      if (path === "/pm-designs/p1/import-thread") {
+        return new Promise((res) => {
+          release = res;
+        });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    renderDialog();
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+
+    // ⭐ 反证锚点：去掉 `pendingId` 那两个分支（只剩整列变灰）⇒ 这两条红。
+    const note = await screen.findByTestId("import-thread-picking");
+    expect(note.textContent).toContain("正在读这条对话");
+    expect(screen.getByTestId("import-thread-item-th-1").getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      release?.({ project: { id: "p1" }, imported, summary: "服务端摘出来的背景", criteria: [], truncated: false });
+    });
+    await screen.findByTestId("import-thread-preview");
+    expect(screen.queryByTestId("import-thread-picking")).toBeNull();
+  });
+
+  const stubPreview = (criteria: readonly string[] = []) => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: null };
+      if (path === "/pm-designs/p1/import-thread" && opts?.method === "POST") {
+        const problem = opts.body?.problem;
+        return {
+          project: { id: "p1" },
+          imported,
+          summary: problem === undefined ? "服务端摘出来的背景" : String(problem),
+          criteria,
+          truncated: false,
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+  };
+
+  const intoPreview = async () => {
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    return (await screen.findByTestId("import-thread-preview")) as HTMLTextAreaElement;
+  };
+
+  it("改过之后点取消 ⇒ 不直接关，先问；「继续编辑」之后改的字还在", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "我自己敲的那一整段背景" } });
+
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    // ⭐ 反证锚点：把「取消」接回裸 `onClose` ⇒ 这两条红（弹窗当场关掉，那段字没了）。
+    expect(onClose).not.toHaveBeenCalled();
+    await screen.findByTestId("import-thread-discard-confirm");
+
+    fireEvent.click(screen.getByTestId("import-thread-discard-keep"));
+    expect((screen.getByTestId("import-thread-preview") as HTMLTextAreaElement).value).toBe("我自己敲的那一整段背景");
+
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    fireEvent.click(await screen.findByTestId("import-thread-discard-confirm-yes"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("没改过点取消 ⇒ 直接关，不多问一句", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    await intoPreview();
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    // ⭐ 反证锚点：把拦截写成「预览阶段一律问」⇒ 这两条红。
+    expect(screen.queryByTestId("import-thread-discard-confirm")).toBeNull();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("选错一条 ⇒ 「重新选一条」回到列表，不用整个关掉重开（列表也不重读）", async () => {
+    stubPreview();
+    renderDialog();
+    await intoPreview();
+    fireEvent.click(screen.getByTestId("import-thread-back"));
+
+    // ⭐ 反证锚点：去掉「重新选一条」这个出口 ⇒ 这条红。
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(screen.queryByTestId("import-thread-preview")).toBeNull();
+    // 回上一步不是重开：列表只读过一次。
+    expect(apiRequest.mock.calls.filter((c) => c[0] === "/chat/threads")).toHaveLength(1);
+  });
+
+  it("改过之后点「重新选一条」 ⇒ 也先问；确认后回到列表而不是关掉弹窗", async () => {
+    stubPreview();
+    const { onClose } = renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "改过的背景" } });
+    fireEvent.click(screen.getByTestId("import-thread-back"));
+
+    const box = await screen.findByTestId("import-thread-discard-confirm");
+    // ⭐ 反证锚点：把确认框的出口写死成 `onClose` ⇒ 后两条红（点完弹窗没了，回不到列表）。
+    expect(box.textContent).toContain("换一条对话");
+    fireEvent.click(screen.getByTestId("import-thread-discard-confirm-yes"));
+    expect(await screen.findByTestId("import-thread-item-th-1")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("把预览清空 ⇒ 说清为什么「导入为背景」点不动", async () => {
+    stubPreview();
+    renderDialog();
+    const preview = await intoPreview();
+    fireEvent.change(preview, { target: { value: "   " } });
+
+    // ⭐ 反证锚点：去掉这句提示（只留一个灰按钮）⇒ 这条红。
+    expect((await screen.findByTestId("import-thread-blank-hint")).textContent).toContain("这段是空的");
+    expect((screen.getByTestId("import-thread-confirm") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("翻页失败之后再翻成功 ⇒ 上一次那句报错不再压在结果上面", async () => {
+    let page = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, unknown> }) => {
+      if (path !== "/chat/threads") throw new Error(`unexpected ${path}`);
+      if (opts?.query?.cursor === undefined) {
+        return { groups: [{ label: "今天", cards: [card()] }], capabilities: [], nextCursor: "c1" };
+      }
+      page += 1;
+      if (page === 1) throw new ApiError(500, "boom", {});
+      return { groups: [{ label: "更早", cards: [card({ id: "th-2", title: "第二页那条" })] }], capabilities: [], nextCursor: null };
+    });
+    renderDialog();
+    fireEvent.click(await screen.findByTestId("import-thread-load-more"));
+    await screen.findByTestId("import-thread-error");
+
+    fireEvent.click(screen.getByTestId("import-thread-load-more"));
+    expect(await screen.findByTestId("import-thread-item-th-2")).toBeTruthy();
+    // ⭐ 反证锚点：去掉 `loadMore` 开头那句 `setError(null)` ⇒ 这条红。
+    expect(screen.queryByTestId("import-thread-error")).toBeNull();
+  });
+
+  it("走到「确认」这一步 ⇒ 读屏念的也是「确认要导入的背景」", async () => {
+    stubPreview();
+    renderDialog();
+    // 第一步：屏上写什么，读屏就念什么。
+    expect(screen.getByRole("dialog").getAttribute("aria-label")).toBeNull();
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "从对话导入" })).toBeTruthy());
+
+    await intoPreview();
+    // ⭐ 反证锚点：把 `aria-labelledby` 改回写死的 `aria-label="从对话导入"` ⇒ 这条红。
+    expect(screen.getByRole("dialog", { name: "确认要导入的背景" })).toBeTruthy();
+  });
+});
+
+/* ────── UIUX 第 17 轮：导出菜单——两条静默的路、一句没人解释的灰、一个走不了的键盘 ────── */
+
+describe("UIUX 17：导出菜单剩下的那几处", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+  const openMenu = async (over: Partial<{ frames: string[]; prototype: unknown[] }> = {}) => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return { items: [project({ frames: over.frames ?? ["聊天"], prototype: (over.prototype ?? [tree]) as never })] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    return screen.findByTestId("design-detail-export-menu");
+  };
+
+  it("下载设计文档时抛了 ⇒ 说一句人话，菜单不关（迭代 29 只补了四条路，这两条留在原地）", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      value: () => { throw new Error("createObjectURL is not available"); },
+      configurable: true,
+    });
+    await openMenu();
+    fireEvent.click(screen.getByTestId("design-detail-export-doc"));
+    // ⭐ 反证锚点：去掉 doc() 的 try/catch ⇒ 这条红（异常直接抛出，屏上什么都没有）。
+    const err = await screen.findByTestId("design-detail-export-error");
+    expect(err.textContent).toContain("没能导出设计文档");
+    expect(err.textContent).not.toContain("createObjectURL is not available");
+    expect(screen.getByTestId("design-detail-export-menu")).toBeTruthy();
+  });
+
+  it("下载原型规格时抛了 ⇒ 同样说话", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      value: () => { throw new Error("boom"); },
+      configurable: true,
+    });
+    await openMenu();
+    fireEvent.click(screen.getByTestId("design-detail-export-json"));
+    // ⭐ 反证锚点：去掉 json() 的 try/catch ⇒ 这条红。
+    expect((await screen.findByTestId("design-detail-export-error")).textContent).toContain("没能导出原型规格");
+  });
+
+  it("还没画出来时，三项一起灰掉要说明为什么", async () => {
+    await openMenu({ prototype: [] });
+    // ⭐ 反证锚点：去掉那句说明 ⇒ 这条红（三个灰按钮，没有一个字解释）。
+    const why = await screen.findByTestId("design-detail-export-nothing");
+    expect(why.textContent).toContain("还没有画出来的页");
+    expect((screen.getByTestId("design-detail-export-png") as HTMLButtonElement).disabled).toBe(true);
+    // 画出来之后这句话不该还在
+    cleanup();
+    await openMenu();
+    expect(screen.queryByTestId("design-detail-export-nothing")).toBeNull();
+  });
+
+  it("role=menu 就得能用上下键走——原来只有 Esc，Tab 会走出这个浮层", async () => {
+    await openMenu();
+    const items = () => Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])'));
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    // ⭐ 反证锚点：把 onKey 改回只认 Escape ⇒ 下面四条红。
+    expect(document.activeElement).toBe(items()[0]);
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items()[1]);
+    fireEvent.keyDown(document, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[0]);
+    // 上边界回环到最后一项，不是卡住
+    fireEvent.keyDown(document, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[items().length - 1]);
+    fireEvent.keyDown(document, { key: "Home" });
+    expect(document.activeElement).toBe(items()[0]);
+  });
+
+  it("禁用项被跳过——停在一个点不动的项上等于卡住", async () => {
+    // 还没画出来时菜单里是：文档、规格、[截图]、[原型]、[打印]、复制——中间三项是灰的。
+    await openMenu({ prototype: [] });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    const at = document.activeElement as HTMLButtonElement;
+    // ⭐ 反证锚点：把选择器里的 `:not([disabled])` 去掉 ⇒ 这两条红（焦点停在灰掉的「截图」上，
+    // 再按一下还在灰的里面打转——键盘走到这里等于卡住）。
+    expect(at.disabled).toBe(false);
+    expect(at.getAttribute("data-testid")).toBe("design-detail-export-copy");
+  });
+
+  it("导出的 PNG 文件名浏览器留得住（页名是中文时它以前退成 `download`）", async () => {
+    const create = vi.fn(() => "blob:png");
+    Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
+    const names: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    html2canvasMock.mockImplementation(async () => ({ toBlob: (cb) => cb(new Blob(["png"], { type: "image/png" })) }));
+    try {
+      await openMenu({ frames: ["首页"] });
+      fireEvent.click(screen.getByTestId("design-detail-export-png"));
+      await waitFor(() => expect(names).toHaveLength(1));
+      // ⭐ 反证锚点：把文件名改回 `${project.name}-${frames[frame]}.png` ⇒ 这条红。
+      expect(names[0]).toMatch(/^[\x20-\x7e]+$/);
+      expect(names[0]).toBe("B-3-p1.png"); // 项目名「深化 B-3」→ `B-3`；页名「首页」留不住 ⇒ 退成 `p1`
+    } finally {
+      click.mockRestore();
+    }
+  });
+});
+
+/* ────── UIUX 第 18 轮：工作台首页——删之前问一句，填过的字别丢 ────── */
+
+describe("UIUX 18：工作台首页与新建弹窗", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const listOnly = (items: unknown[] = [project()]) => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items };
+      throw new Error(`unexpected ${path} ${String(opts?.method)}`);
+    });
+  };
+
+  it("删除项目先问一句：不点确认，一个 DELETE 都不发", async () => {
+    listOnly();
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.click(screen.getByTestId("project-delete-p1"));
+
+    // ⭐ 反证锚点：把卡片的 onDelete 接回裸 handleDelete ⇒ 这三条红（一次误点，项目就没了）。
+    const box = await screen.findByTestId("workbench-delete-confirm");
+    expect(box.textContent).toContain("删了找不回来");
+    expect(apiRequest.mock.calls.filter((c) => (c[1] as { method?: string } | undefined)?.method === "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("workbench-delete-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("workbench-delete-confirm")).toBeNull());
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+  });
+
+  it("卡片上的时间是人话，不是 2026/9/23", async () => {
+    listOnly([project({ updatedAt: new Date(Date.now() - 3 * 60_000).toISOString() })]);
+    render(<DesignWorkbenchHome state="default" />);
+    const card = await screen.findByTestId("project-card-p1");
+    // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这两条红。
+    expect(card.textContent).toContain("3 分钟前");
+    expect(card.textContent).not.toContain(new Date().toLocaleDateString("zh-CN"));
+  });
+
+  it("删除失败的提示不再 3 秒自己消失，由用户点掉", async () => {
+    vi.useFakeTimers();
+    try {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project()] };
+        if (opts?.method === "DELETE") throw new ApiError(500, "boom", {});
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignWorkbenchHome state="default" />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      fireEvent.click(screen.getByTestId("project-delete-p1"));
+      fireEvent.click(screen.getByTestId("workbench-delete-yes"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      expect(screen.getByTestId("workbench-action-error").textContent).toContain("没能删除这个项目");
+
+      // ⭐ 反证锚点：把三处 `setTimeout(() => setActionError(null), 3000)` 加回来 ⇒ 这条红。
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(screen.getByTestId("workbench-action-error")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("workbench-action-error-dismiss"));
+      expect(screen.queryByTestId("workbench-action-error")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("搜索时列表不整屏换成骨架——已有结果留在屏上，只说一句「正在筛」", async () => {
+    let release: (() => void) | null = null;
+    let calls = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; query?: Record<string, unknown> }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") {
+        calls += 1;
+        if (calls === 1) return { items: [project()] };
+        await new Promise<void>((res) => { release = res; });
+        return { items: [] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "会员" } });
+    await waitFor(() => expect(calls).toBe(2));
+
+    // ⭐ 反证锚点：把 reload 开头改回无条件 `setLoad({ kind: "loading" })` ⇒ 这三条红
+    //   （打字的人看到自己的项目一闪没了又回来）。
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+    expect(screen.queryByTestId("loading")).toBeNull();
+    expect(screen.getByTestId("workbench-refreshing")).toBeTruthy();
+    await act(async () => { release?.(); });
+  });
+
+  it("搜索框有一个清空的入口", async () => {
+    listOnly();
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    expect(screen.queryByTestId("workbench-search-clear")).toBeNull(); // 空的时候不占地方
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "会员" } });
+    // ⭐ 反证锚点：去掉那个清空按钮 ⇒ 这两条红。
+    fireEvent.click(await screen.findByTestId("workbench-search-clear"));
+    expect((screen.getByTestId("workbench-search") as HTMLInputElement).value).toBe("");
+  });
+
+  it("删除/编辑按钮的读屏名字带上是哪个项目", async () => {
+    listOnly([project({ name: "会员下单" })]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    // ⭐ 反证锚点：改回写死的「删除项目」/「编辑项目」⇒ 这两条红（读屏听到的每一张卡都一样）。
+    expect(screen.getByTestId("project-delete-p1").getAttribute("aria-label")).toBe("删除「会员下单」");
+    expect(screen.getByTestId("project-edit-p1").getAttribute("aria-label")).toBe("编辑「会员下单」");
+  });
+
+  it("AI 出题失败 ⇒ 说一句话并指一条走得通的路，而不是转圈停下什么都没有", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") throw new ApiError(503, "model down", {});
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(await screen.findByTestId("project-dialog-name"), { target: { value: "会员下单" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+
+    // ⭐ 反证锚点：去掉 ask() 的 catch（只留 finally）⇒ 这两条红。
+    const err = await screen.findByTestId("project-dialog-ask-error");
+    expect(err.textContent).toContain("没能让 AI 出题");
+    expect(err.textContent).toContain("跳过，直接创建");
+    expect(screen.getByTestId("project-dialog")).toBeTruthy();
+  });
+
+  it("填到一半点遮罩/取消 ⇒ 先问一句，不把填过的字丢掉", async () => {
+    listOnly([]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    const name = await screen.findByTestId("project-dialog-name");
+    fireEvent.change(name, { target: { value: "会员下单" } });
+    fireEvent.change(screen.getByTestId("project-dialog-problem"), { target: { value: "首屏就能下单" } });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    // ⭐ 反证锚点：把 useDialogFocus / 遮罩接回裸 onClose ⇒ 这三条红。
+    expect(await screen.findByTestId("project-dialog-discard")).toBeTruthy();
+    expect(screen.getByTestId("project-dialog")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("project-dialog-discard-keep"));
+    expect((screen.getByTestId("project-dialog-name") as HTMLInputElement).value).toBe("会员下单");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(await screen.findByTestId("project-dialog-discard-yes"));
+    await waitFor(() => expect(screen.queryByTestId("project-dialog")).toBeNull());
+  });
+
+  it("没填任何东西就关 ⇒ 不多问一句", async () => {
+    listOnly([]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    await screen.findByTestId("project-dialog");
+    fireEvent.keyDown(document, { key: "Escape" });
+    // ⭐ 反证锚点：把 dirty 写成「只要开着就算改过」⇒ 这两条红。
+    expect(screen.queryByTestId("project-dialog-discard")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("project-dialog")).toBeNull());
+  });
+
+  it("问答这一步回得去，而且来回走两趟指导原则不会被拼两遍", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") {
+        return { questions: [{ text: "谁会用这个？", dimension: "who", hint: null }], fallback: false };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(await screen.findByTestId("project-dialog-name"), { target: { value: "会员下单" } });
+    fireEvent.change(screen.getByTestId("project-dialog-problem"), { target: { value: "首屏就能下单" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+
+    fireEvent.change(await screen.findByTestId("intake-answer-who"), { target: { value: "老会员" } });
+    fireEvent.click(screen.getByTestId("intake-next"));
+    const once = (await screen.findByTestId("intake-guideline") as HTMLTextAreaElement).value;
+    expect(once).toContain("首屏就能下单");
+    expect(once).toContain("谁会用这个？：老会员");
+
+    // ⭐ 反证锚点：去掉「上一步」⇒ 这条红（名字打错一个字只能取消重来）。
+    fireEvent.click(screen.getByTestId("intake-back"));
+    expect(await screen.findByTestId("intake-answer-who")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("intake-next"));
+    // ⭐ 反证锚点：把 toReview 改回在 `problem` 上追加 ⇒ 这条红（走一个来回就拼两遍）。
+    expect((await screen.findByTestId("intake-guideline") as HTMLTextAreaElement).value).toBe(once);
+  });
+});
+
+/* ────── UIUX 第 19 轮：属性面板——改完顺手点下一个，那段字不许消失 ────── */
+
+describe("UIUX 19：属性面板", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  /** 两个文本节点：改第一个、点第二个——这就是本轮最主要的那条路。 */
+  const twoTexts = (frames: string[] = ["首页", "详情"]) => project({
+    id: "p1",
+    frames,
+    prototype: [{
+      id: "root", type: "stack",
+      children: [
+        { id: "t1", type: "text", props: { content: "原来的文案" } },
+        { id: "t2", type: "text", props: { content: "另一个" } },
+      ],
+    }, ...(frames.length > 1 ? [{ id: "root2", type: "stack" as const, children: [] }] : [])],
+    frameLinks: frames.map(() => []),
+  });
+
+  const mount = async (p = twoTexts(), patchFails = false) => {
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [p] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        if (patchFails) throw new ApiError(500, "boom", {});
+        posted.push(opts.body);
+        return { project: p };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    // 画板视图下每一页各有一棵树——先切到单页视图，再按 id 选节点。
+    await screen.findAllByTestId("design-detail-phone-tree");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    return posted;
+  };
+
+  const select = async (nodeId: string) => {
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement);
+    return screen.findByTestId("design-inspector");
+  };
+
+  it("改了没按「应用」就去点另一个节点 ⇒ 那几处自动应用，并且说出来", async () => {
+    const posted = await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "我改过的文案" } });
+    await select("t2");
+
+    // ⭐ 反证锚点：去掉切节点时的自动应用（只剩 setDraft 重置）⇒ 这两条红——
+    //   用户改完一段文案、顺手点下一个要改的，那段字在两次点击之间消失。
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { ops: { id: string; props: unknown }[] }).ops[0]).toMatchObject({ id: "t1", props: { content: "我改过的文案" } });
+    expect((await screen.findByTestId("design-inspector-auto-applied")).textContent).toContain("已经帮你应用了");
+  });
+
+  it("没改过就切节点 ⇒ 一个请求都不发，也不说「帮你应用了」", async () => {
+    const posted = await mount();
+    await select("t1");
+    await select("t2");
+    // ⭐ 反证锚点：把自动应用写成「切走就发一次」⇒ 这两条红。
+    expect(posted).toHaveLength(0);
+    expect(screen.queryByTestId("design-inspector-auto-applied")).toBeNull();
+  });
+
+  it("自动应用失败 ⇒ 老实说没保住，而不是当作已经保存", async () => {
+    await mount(twoTexts(), true);
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "我改过的文案" } });
+    await select("t2");
+    // ⭐ 反证锚点：把 catch 里改成照样 setAutoApplied ⇒ 这两条红（没保住却说保住了）。
+    const err = await screen.findByTestId("design-inspector-error");
+    expect(err.textContent).toContain("没能保存");
+    expect(screen.queryByTestId("design-inspector-auto-applied")).toBeNull();
+  });
+
+  it("单行输入框里按回车就是「应用」（多行的「文案」不算——那里回车是换行）", async () => {
+    const withButton = project({
+      id: "p1", frames: ["首页"],
+      prototype: [{ id: "root", type: "stack", children: [{ id: "b1", type: "button", props: { label: "下单" } }] }],
+      frameLinks: [[]],
+    });
+    const posted = await mount(withButton);
+    await select("b1");
+    const box = screen.getByTestId("design-inspector-label");
+    fireEvent.change(box, { target: { value: "立即下单" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    // ⭐ 反证锚点：去掉 onKeyDown ⇒ 这条红（回车什么也不发生，人只能去找那个按钮）。
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { ops: { props: { label?: string } }[] }).ops[0]!.props.label).toBe("立即下单");
+  });
+
+  it("改错了能一键还原，不用一个字段一个字段改回去", async () => {
+    const posted = await mount();
+    await select("t1");
+    fireEvent.change(screen.getByTestId("design-inspector-content"), { target: { value: "改错了" } });
+    expect(screen.getByTestId("design-inspector-dirty")).toBeTruthy();
+    // ⭐ 反证锚点：去掉「还原这几处」⇒ 这两条红。
+    fireEvent.click(screen.getByTestId("design-inspector-revert"));
+    expect((screen.getByTestId("design-inspector-content") as HTMLInputElement).value).toBe("原来的文案");
+    expect(screen.queryByTestId("design-inspector-dirty")).toBeNull();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("标题栏右边那格是中文类型名，不是 `text` / `bottomnav`", async () => {
+    await mount();
+    await select("t1");
+    // ⭐ 反证锚点：改回 `{node.type}` ⇒ 这条红。
+    expect(screen.getByTestId("design-inspector-node-id").textContent).toBe("文本");
+  });
+
+  it("只有一页时说清为什么跳不了，而不是给一个只有「无」的下拉", async () => {
+    await mount(twoTexts(["首页"]));
+    await select("t1");
+    // ⭐ 反证锚点：去掉那句提示 ⇒ 这条红（下拉里只有「无」，人会以为是坏的）。
+    expect((await screen.findByTestId("design-inspector-link-need-pages")).textContent).toContain("只有一页");
+  });
+
+  it("灰掉的上移/下移按钮说得出为什么按不动", async () => {
+    await mount();
+    await select("t1");
+    const up = screen.getByTestId("design-inspector-move-up") as HTMLButtonElement;
+    expect(up.disabled).toBe(true);
+    // ⭐ 反证锚点：把 title / aria-label 改回写死的「上移一格」⇒ 这两条红。
+    expect(up.getAttribute("title")).toContain("已经是同一层里的第一个");
+    expect(up.getAttribute("aria-label")).toContain("已经是同一层里的第一个");
   });
 });

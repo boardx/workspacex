@@ -90,6 +90,9 @@ export function ProjectsScreen() {
     return [...new Set(projects.flatMap((p) => p.tags))].sort();
   }, [projects]);
 
+  /** 当前是不是处在「被筛选」的状态——决定空列表该说哪句话。 */
+  const filtering = query.trim() !== "" || activeTags.length > 0;
+
   const visible = React.useMemo(() => {
     if (projects === null) return [];
     const q = query.trim();
@@ -210,11 +213,44 @@ export function ProjectsScreen() {
           {listBusy ? "加载中…" : "当前组织还没有项目。"}
         </div>
       ) : visible.length === 0 ? (
+        /*
+          两种「什么都没有」必须分开说（#3872 R1）。
+
+          改之前这里只有两个字：「空列表」。它同时被用在「你还没有建过项目」和
+          「搜索/标签筛掉了全部」两种处境上——而这两种处境下用户该做的事完全相反：
+          前者要建一个，后者要把筛选条件去掉。把它们合并成同一句话，等于什么都没说。
+          而且「空列表」是开发者的词，不是产品的词；新用户装完应用第一眼看到的就是它。
+        */
         <div
           data-testid="projects-list-empty"
-          className="rounded-lg border border-dashed border-border py-6 text-center text-12 text-muted-foreground"
+          className="rounded-lg border border-dashed border-border px-6 py-10 text-center"
         >
-          空列表
+          {filtering ? (
+            <>
+              <p className="text-13 text-card-foreground">没有符合当前筛选条件的项目。</p>
+              <p className="mt-1 text-12 text-muted-foreground">
+                你一共有 {projects.length} 个项目，当前条件把它们都筛掉了。
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                data-testid="projects-empty-clear-filters"
+                onClick={() => { setQuery(""); setActiveTags([]); }}
+              >
+                清除筛选条件
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-13 text-card-foreground">这里还没有项目。</p>
+              <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
+                一个项目把一场协作的议程、分组、画布、录音、产出与决策收在一起。
+                <br />
+                也可以先不建项目，直接去「对话」里交一件事给 AI。
+              </p>
+            </>
+          )}
         </div>
       ) : viewMode === "card" ? (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="projects-list">

@@ -72,9 +72,10 @@ export function TagChip({
 }
 
 export function TagEditor({
-  tags, onChange, onFilter, busy, testidPrefix, compact = false, onEditingChange,
+  tags: tagsIn, onChange, onFilter, busy, testidPrefix, compact = false, onEditingChange,
 }: {
-  tags: readonly string[];
+  /** 契约里必给（未打为 `[]`），但真实响应/夹具可能漏——见下方 `tagsIn ?? []`。 */
+  tags: readonly string[] | undefined;
   /** 增删后的**最终集合**——调用方直接拿去保存。 */
   onChange: (next: readonly string[]) => void;
   /** 点一枚标签 ⇒ 按它筛选。不给则标签只读。 */
@@ -86,6 +87,18 @@ export function TagEditor({
   compact?: boolean;
   onEditingChange?: (editing: boolean) => void;
 }) {
+  /*
+   * 迭代 24：`tags` 缺省成空数组。
+   *
+   * 它在契约里是必给的（`InboxItem.tags`，未打为 `[]`），但 `apiRequest` **不过 zod**——
+   * 少一个字段就是 `undefined.length`，而它发生在每张卡片的渲染里，结果是**整屏白**。
+   * 白屏与"少显示几个标签"的代价完全不对等，所以这里兜一手；真正的缺字段仍然由
+   * 契约与夹具那两处负责（本轮同时补了夹具）。
+   *
+   * 这不是假想：`/preview/feedback-design-loop?scene=inbox-board` 在 main 上就是白的，
+   * 而三条本该抓到它的 e2e 从来没在 CI 上跑过（见本轮的门控修复）。
+   */
+  const tags = tagsIn ?? [];
   const [editing, setEditingState] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);

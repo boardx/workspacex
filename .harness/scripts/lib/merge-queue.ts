@@ -200,6 +200,10 @@ export const ALWAYS_EXECUTED_LANES: readonly string[] = [
   "merge-gate",
   "gates-fast",
   "prototype-audit",
+  // 2026-09-22：设计工作台三条 spec 的轻车道。与 `prototype-audit` 同理排在"总是执行"：
+  // 它不起 docker（数据由 page.route 夹具提供，~2 分钟），而它正是前端 PR 最该跑的那道门——
+  // 放进可推迟那一档，等于让前端改动绕过覆盖前端屏的门。
+  "design-loop-e2e",
 ];
 
 /**
