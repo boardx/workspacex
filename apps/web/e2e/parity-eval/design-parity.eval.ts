@@ -587,7 +587,7 @@ test.describe("D10 交付交接", () => {
   test("[D10.c5] 代码交接：导出一份能直接用的前端代码", async ({ page }) => {
     await openCase(page, "E01");
     await exportMenu(page);
-    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 })); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 }));
     expect(code.name).toMatch(/\.(tsx|jsx|zip)$/);
     expect(code.text).toMatch(/export default function/);
     expect(code.text).toContain("发送");
