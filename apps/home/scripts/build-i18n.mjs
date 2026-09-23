@@ -48,7 +48,7 @@ const PAGES = [
       description: 'WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。',
       ogTitle: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
       ogDescription: '不是另一个协作工具，而是人与 AI 真正一起把工作完成的运行层：共享上下文、可验证的行动、属于组织的记忆。',
-      ogImageAlt: 'WorkspaceX——面向人与 AI 协作的开放运行空间。',
+      ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',
     },
   },
   {
@@ -63,7 +63,7 @@ const PAGES = [
       description: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
       ogTitle: '隐私与数据 — WorkspaceX',
       ogDescription: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
-      ogImageAlt: 'WorkspaceX——面向人与 AI 协作的开放运行空间。',
+      ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',
     },
   },
 ];

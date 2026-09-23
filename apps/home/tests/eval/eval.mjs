@@ -260,6 +260,30 @@ const CASES = [
       const bad = lang === 'zh' ? text.filter((t) => /\b[A-Za-z]+(\s+[A-Za-z,’']+){5,}/.test(t)) : text.filter((t) => /[一-鿿]/.test(t));
       return { score: +(bad.length === 0), note: bad.slice(0, 2).map((t) => t.trim().slice(0, 30)).join(' | ') };
     }, c.lang)],
+  ['bi.jargon', '双语', 'The Chinese page says it in Chinese: no English common nouns left in the copy (brands, acronyms and issue/PR/CI excepted)',
+    async (c) => c.desk.evaluate((lang) => {
+      if (lang !== 'zh') return { score: 1, note: 'n/a' };
+      const BRANDS = new Set(['WorkspaceX', 'BoardX', 'GitHub', 'Copilot', 'Glean', 'Microsoft', 'Google', 'Workspace', 'Slack', 'Acme', 'issue', 'issues']);
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const found = new Map();
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const e = n.parentElement; if (!e || e.closest('script, style, [lang]:not([lang^="zh"]), a[href^="mailto:"]')) continue;
+        for (const m of n.textContent.matchAll(/[A-Za-z][A-Za-z-]{2,}/g)) {
+          const w = m[0]; if (BRANDS.has(w) || /^[A-Z0-9-]+$/.test(w)) continue;
+          if (n.textContent[m.index - 1] === '（') continue;   // a gloss: 执行护栏（harness）
+          found.set(w, (found.get(w) || 0) + 1);
+        }
+      }
+      const n = [...found.values()].reduce((a, b) => a + b, 0);
+      return { n, note: [...found].map(([w, k]) => `${w}×${k}`).join(' ') };
+    }, c.lang).then((r) => ({ score: r.n === undefined ? r.score : clamp(1 - r.n / 10), note: r.note }))],
+  ['bi.quotes', '双语', 'The Chinese page uses one quotation style',
+    async (c) => c.desk.evaluate((lang) => {
+      if (lang !== 'zh') return { score: 1, note: 'n/a' };
+      const t = document.querySelector('main').textContent;
+      const styles = [/[“”]/.test(t), /[「」]/.test(t)].filter(Boolean).length;
+      return { score: +(styles <= 1), note: `“” ${(t.match(/[“”]/g) || []).length}, 「」 ${(t.match(/[「」]/g) || []).length}` };
+    }, c.lang)],
   ['bi.meta', '双语', 'Title, description and social card text are in this language',
     async (c) => c.desk.evaluate((lang) => {
       const han = (s) => /[一-鿿]/.test(s || '');
@@ -279,6 +303,13 @@ const CASES = [
       const bad = en.map((e, i) => [e, zh[i], i]).filter(([e, z]) => !(z / e >= 0.8 && z / e <= 1.02));
       return { score: 1 - bad.length / en.length, note: bad.slice(0, 3).map(([e, z, i]) => `#${i} ${e}→${z}px`).join(' | ') };
     }],
+  ['bi.tagline', '双语', 'The tagline is worded one way wherever it appears (hero, footer, title, social card)',
+    async (c) => c.desk.evaluate((lang) => {
+      const norm = (t) => (t || '').replace(/^WorkspaceX\s*[—–-]+\s*/, '').replace(/[。.]?\s*(BoardX 出品。|A BoardX product\.)?$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const seen = [document.title, document.querySelector('meta[property="og:image:alt"]')?.content, document.querySelector('.footer__blurb')?.textContent];
+      const forms = new Set(seen.map(norm).filter(Boolean));
+      return { score: +(forms.size === 1), note: [...forms].join(' | ') };
+    }, c.lang)],
   ['bi.cardimage', '双语', 'The social card image is the one made for this language',
     async (c) => c.desk.evaluate((lang) => { const u = document.querySelector('meta[property="og:image"]')?.content || ''; return +(lang === 'zh' ? /og-zh\./.test(u) : /\/og\./.test(u)); }, c.lang)],
 

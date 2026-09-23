@@ -64,6 +64,10 @@ for (const file of sources) {
 
 for (const value of zhValues) {
   if (/"/.test(value) && !/class=/.test(value)) add('straight quote in Chinese copy — use “ ”', value);
+  /* One quotation style. The page had 10 “ ” and 22 「 」 — both correct
+     somewhere, but mainland copy (GB/T 15834) uses “ ”, and mixing them on
+     one page reads as two translators. */
+  if (/[「」『』]/.test(value)) add('corner brackets in Chinese copy — this site quotes with “ ”', value);
   /* Between Han characters, and also where a clause ENDS on one: the first
      version of this rule needed Han on both sides, so a trailing half-width
      comma after Chinese went straight through — found by writing a probe

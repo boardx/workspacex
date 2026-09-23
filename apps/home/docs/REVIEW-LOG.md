@@ -1469,6 +1469,20 @@ on the code before the fix.
 Investigated and not fixed: the Chinese page paints ~650 ms after the English
 one on the slow-3G profile, with its stylesheet arriving at the same moment —
 main-thread layout of Han text at 4× CPU. `content-visibility` would recover it
-and was already measured and rejected in round 3x for breaking the no-JS path
+and was already measured and rejected in an earlier round for breaking the no-JS path
 (the reason is in `layout.css`); page-wide `text-wrap: pretty` was bisected and
 is not the cause. It sits at ~3000–3150 ms against 3200.
+
+### Round 61 — the Chinese page says it in Chinese (62 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Twenty-four English words left in the Chinese copy**: harness ×9, playbook ×3, feature/passing ×4, release ×2, prompt, deck, commit, "Agent Harness", "Context Engine", "agent 车队状态". The page said 智能体 in one sentence and agent in the next. | 执行护栏 (glossed once as 执行护栏（harness）for readers who know the term), 审查手册, 功能项 / 通过, 正式发布版本, 提示词, 演示文稿, 提交记录, 上下文引擎, 智能体集群状态 — including the architecture diagram's layer label. New case `bi.jargon` counts English common nouns in the visible Chinese text (brands, acronyms, issue/PR/CI and a parenthetical gloss excepted): **0.00 → 1.00.** |
+| 2 | **Two quotation styles on one page**: 10 “ ” and 22 「 」. | “ ” throughout (mainland usage, GB/T 15834), which since round 59 render in the Chinese face. `check-copy` rejects corner brackets; new case `bi.quotes`: 0 → 1. |
+| 3 | **Translationese.** 我工作 / 我们一起工作 / 组织在工作 as three card titles; 开放是一个楔子 (楔子 reads as a novel's prologue); 四个人加四个智能体的一场协作，仍然是一场; 这是在哪一层上下的注; the scroll cue 向下. | 个人 / 团队 / 组织; 开放是突破口，而不是入场券; the others rewritten as a Chinese writer would put them. |
+| 4 | **The tagline was worded three ways in English and two in Chinese** — hero and title, footer, social-card alt text (…for human and AI collaboration / …for human + AI collaboration / …for Human + AI). | One wording per language. New case `bi.tagline`: 0 → 1 in both. |
+| 5 | The trust diagram's failure label in Chinese used a spaced single dash (未通过 — 已撤回), which is latin punctuation. | 未通过，已撤回. |
+
+Not changed, deliberately: the section eyebrows keep "01 — 转变". That dash is a
+separator in a numbered mono label, the same design element as in English, and
+`check-sequence` parses it; it is not prose punctuation.
