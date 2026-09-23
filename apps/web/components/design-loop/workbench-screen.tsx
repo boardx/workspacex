@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { TagInput, commitDraft } from "@/components/ui/tag-input";
-import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
 import { describeFailure } from "@/lib/design-failure";
+import { humanTime } from "@/lib/human-time";
 import { LinkBadge } from "./badges";
 import { useDialogFocus } from "./use-dialog-focus";
 import { RefImagePicker } from "./ref-image-picker";
@@ -82,6 +83,8 @@ export function DesignWorkbenchHome({
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
+  /** 手上已经有结果、但正在按新的筛选条件重取——这时保留旧结果，别把屏清空。 */
+  const [refreshing, setRefreshing] = React.useState(false);
   const [dialog, setDialog] = React.useState<
     | null
     | { mode: "create"; template: ProjectTemplate; brief?: { readonly name: string; readonly problem: string } }
@@ -92,6 +95,13 @@ export function DesignWorkbenchHome({
   /** 迭代 23：项目建好了但有参考图没传上去——见 `handleCreate` 头注，这不能静默。 */
   const [partial, setPartial] = React.useState<null | { projectId: string; name: string; failed: number }>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  /**
+   * 迭代 39（UIUX 第 18 轮）：删除项目**没有二次确认，也没有撤销**——卡片右下角那个
+   * 垃圾桶图标挨着「编辑」，点错一下，一个做了两周的设计项目（对话、原型、验收标准、
+   * 参考图）当场消失，屏上连一句话都不出。草稿列表在第 11 轮已经补过同一道门，
+   * 这一屏是漏网的那个。记的是「要删哪一个」，不是一个布尔——一次只确认一件事。
+   */
+  const [confirmDelete, setConfirmDelete] = React.useState<DesignProject | null>(null);
   /**
    * 迭代 13（delta §4）：选中的过滤标签（交集）。
    *
@@ -108,7 +118,13 @@ export function DesignWorkbenchHome({
   }, [queryInput]);
 
   const reload = React.useCallback(async () => {
-    setLoad({ kind: "loading" });
+    /*
+     * 迭代 39：原来每次 reload 都先把列表整屏换成六块骨架——搜索是 300ms 防抖后自动
+     * 触发的，于是打字的人看到的是「我的项目一闪没了、又回来」。**已经有结果时保留结果**，
+     * 只在上面挂一条「正在筛…」；真正空手的那一次（首屏、重试）才给骨架。
+     */
+    setLoad((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
+    setRefreshing(true);
     try {
       const out = await listMyProjects(query === "" ? undefined : query, selectedTags);
       setLoad({ kind: "ready", items: [...out.items] });
@@ -117,6 +133,8 @@ export function DesignWorkbenchHome({
       }
     } catch (err) {
       setLoad({ kind: "failed", reason: describeFailure(err) });
+    } finally {
+      setRefreshing(false);
     }
   }, [query, selectedTags]);
 
@@ -225,7 +243,6 @@ export function DesignWorkbenchHome({
     } catch (err) {
       setGenerating(null);
       setActionError(`没能创建设计项目（${describeFailure(err)}）`);
-      window.setTimeout(() => setActionError(null), 3000);
     }
   };
 
@@ -241,20 +258,19 @@ export function DesignWorkbenchHome({
       setDialog(null);
     } catch (err) {
       setActionError(`没能保存修改（${describeFailure(err)}）`);
-      window.setTimeout(() => setActionError(null), 3000);
     } finally {
       setBusyId(null);
     }
   };
 
   const handleDelete = async (projectId: string) => {
+    setConfirmDelete(null);
     setBusyId(projectId);
     try {
       await apiDeleteProject(projectId);
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: prev.items.filter((p) => p.id !== projectId) } : prev));
     } catch (err) {
       setActionError(`没能删除这个项目（${describeFailure(err)}）`);
-      window.setTimeout(() => setActionError(null), 3000);
     } finally {
       setBusyId(null);
     }
@@ -286,9 +302,46 @@ export function DesignWorkbenchHome({
         <p className="mt-0.5 text-12 text-muted-foreground">说清要做什么，AI 问你几句再把它画出来；也可以把收件箱里的反馈深化成方案，再推回排期。</p>
       </div>
 
+      {/*
+        * 迭代 39：这条提示原来 3 秒后自己消失（三处各挂一个 `setTimeout`，且卸载时都不清）。
+        * 3 秒读不完一句话，更读不完「没能删除这个项目（…）」之后该怎么办；而且失败的那一刻
+        * 用户的眼睛多半还在他点的那个按钮上。改成留在屏上，由他自己关掉。
+        */}
       {actionError !== null && (
-        <div className="mx-6 mt-3 rounded-card bg-destructive px-3 py-1.5 text-12 text-destructive-foreground" data-testid="workbench-action-error" role="alert">
-          {actionError}
+        <div className="mx-6 mt-3 flex items-start gap-2 rounded-card bg-destructive px-3 py-1.5 text-12 text-destructive-foreground" data-testid="workbench-action-error" role="alert">
+          <span className="min-w-0 flex-1">{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            data-testid="workbench-action-error-dismiss"
+            className="shrink-0 underline underline-offset-2"
+          >
+            知道了
+          </button>
+        </div>
+      )}
+
+      {confirmDelete !== null && (
+        <div
+          className="mx-6 mt-3 flex flex-wrap items-center gap-2 rounded-card border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-12"
+          data-testid="workbench-delete-confirm"
+          role="alertdialog"
+          aria-label="确认删除设计项目"
+        >
+          <span className="min-w-0 flex-1">
+            删掉「{confirmDelete.name}」？里面的对话、原型和验收标准会一起没有，删了找不回来。
+          </span>
+          <Button variant="outline" size="sm" data-testid="workbench-delete-cancel" onClick={() => setConfirmDelete(null)}>
+            算了
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            data-testid="workbench-delete-yes"
+            onClick={() => { void handleDelete(confirmDelete.id); }}
+          >
+            删掉
+          </Button>
         </div>
       )}
 
@@ -314,11 +367,37 @@ export function DesignWorkbenchHome({
 
       {/* 我的设计项目 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-2">
-        <h2 className="text-14 font-semibold">我的设计项目</h2>
+        <h2 className="text-14 font-semibold">
+          我的设计项目
+          {refreshing && load.kind === "ready" && (
+            <span className="ml-2 text-11 font-normal text-muted-foreground" data-testid="workbench-refreshing" role="status">
+              正在按新条件筛…
+            </span>
+          )}
+        </h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={queryInput} onChange={(e) => setQueryInput(e.target.value)} placeholder="按名称搜索" data-testid="workbench-search" className="h-8 w-48 pl-7 text-12" />
+            <Input
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              placeholder="按名称搜索"
+              aria-label="按名称搜索设计项目"
+              data-testid="workbench-search"
+              className="h-8 w-48 pl-7 pr-7 text-12"
+            />
+            {/* 清空搜索原来只有「全选再删」一条路，而清空是这里最常用的下一步。 */}
+            {queryInput !== "" && (
+              <button
+                type="button"
+                onClick={() => setQueryInput("")}
+                aria-label="清空搜索"
+                data-testid="workbench-search-clear"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-control p-0.5 text-muted-foreground transition-colors duration-fast hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X aria-hidden className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <Button variant="primary" size="sm" onClick={() => startCreate("mobile")} data-testid="workbench-new">
             <Plus aria-hidden className="h-3.5 w-3.5" /> 新建设计
@@ -413,7 +492,7 @@ export function DesignWorkbenchHome({
               busy={busyId === p.id}
               onOpen={() => onOpenProject?.(p.id)}
               onEdit={() => setDialog({ mode: "edit", project: p })}
-              onDelete={() => void handleDelete(p.id)}
+              onDelete={() => { setActionError(null); setConfirmDelete(p); }}
             />
           ))}
         </div>
@@ -454,7 +533,8 @@ function ProjectCard({
         <span aria-hidden className="grid h-10 w-10 place-items-center rounded-card bg-panel text-20">{TEMPLATE_EMOJI[project.template]}</span>
         <span className="text-13 font-medium">{project.name}</span>
         <span className="text-11 text-muted-foreground">
-          {TEMPLATE_LABEL[project.template]} · {new Date(project.updatedAt).toLocaleDateString("zh-CN")}
+          {/* 「2026/9/23」是机器时间：他要判断的是「这是不是我刚才那个」。同 `human-time.ts` 单源。 */}
+          {TEMPLATE_LABEL[project.template]} · 改于 {humanTime(project.updatedAt)}
         </span>
         {project.tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1" data-testid={`project-tags-${project.id}`}>
@@ -475,10 +555,10 @@ function ProjectCard({
         </div>
       </button>
       <div className="flex justify-end gap-1 border-t border-border-subtle px-3 py-1.5">
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} disabled={busy} aria-label="编辑项目" data-testid={`project-edit-${project.id}`}>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} disabled={busy} aria-label={`编辑「${project.name}」`} data-testid={`project-edit-${project.id}`}>
           <Pencil aria-hidden className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onDelete} disabled={busy} aria-label="删除项目" data-testid={`project-delete-${project.id}`}>
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onDelete} disabled={busy} aria-label={`删除「${project.name}」`} data-testid={`project-delete-${project.id}`}>
           {busy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Trash2 aria-hidden className="h-3.5 w-3.5" />}
         </Button>
       </div>
@@ -546,32 +626,80 @@ function ProjectDialog({
       // 跳过的题**不进数组**，不是给一个空串——"没答"和"答了空"是两件事。
       .filter((a) => a.answer !== "");
 
+  /**
+   * 迭代 39：这里原来**只有 `finally`，没有 `catch`**——`intakeQuestions` 失败时转圈停下、
+   * 停在原地，一个字都不出。用户会再点一次，再什么也没有。而这一步是新建流程的正门。
+   * 失败要说，并且指出那条不靠它也能走完的路（「跳过，直接创建」就在旁边）。
+   */
+  const [askError, setAskError] = React.useState<string | null>(null);
   const ask = async () => {
     setAsking(true);
+    setAskError(null);
+    briefRef.current = problem;
     try {
       const out = await intakeQuestions(problem.trim() === "" ? name.trim() : problem.trim());
       setQuestions(out.questions);
       setFallbackQs(out.fallback);
       setStep("questions");
+    } catch (err) {
+      setAskError(`没能让 AI 出题（${describeFailure(err)}）。可以再试一次，或者点「跳过，直接创建」——进去以后照样能在对话里说。`);
     } finally {
       setAsking(false);
     }
   };
 
+  /**
+   * 「想做什么」那一段的原文——把答案拼进去之前的样子。
+   *
+   * ⚠ 有了「上一步」之后这个记忆是必须的：`toReview` 是**在 `problem` 上追加**答案，
+   * 而回到问答再点一次「下一步」就会在已经拼过的文本上再拼一遍，越走越长。
+   * 每次都从这段原文重拼，走多少个来回结果都一样。
+   */
+  const briefRef = React.useRef<string>(initial.problem ?? "");
+  /** 上一次由本函数拼出来的那版——用来分辨「用户在确认页改过」和「还是我拼的那版」。 */
+  const generatedRef = React.useRef<string | null>(null);
+
   const toReview = () => {
     const a = answered();
-    const lines = [problem.trim(), ...(a.length > 0 ? ["", ...a.map((x) => `- ${x.question}：${x.answer}`)] : [])];
-    setProblem(lines.join("\n").trim());
+    const lines = [briefRef.current.trim(), ...(a.length > 0 ? ["", ...a.map((x) => `- ${x.question}：${x.answer}`)] : [])];
+    const next = lines.join("\n").trim();
+    // 用户在确认页自己改过的那版不覆盖——他改的是最终要落库的那段字。
+    const edited = generatedRef.current !== null && problem.trim() !== generatedRef.current.trim();
+    if (!edited) {
+      generatedRef.current = next;
+      setProblem(next);
+    }
     setStep("review");
+  };
+
+  /**
+   * 迭代 39：填到一半点到遮罩 / 按了 Esc ⇒ **一个字不剩**。新建这张表里有名字、一整段
+   * 「想做什么」、标签、参考图，还可能已经答过一轮问题——这是这一屏上最贵的一次输入。
+   * 改过就先问一句（同第 16 轮「从对话导入」那道门的理由）。
+   */
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+  const dirty =
+    name.trim() !== (initial.name ?? "").trim()
+    || problem.trim() !== (initial.problem ?? "").trim()
+    || tags.length !== (initial.tags ?? []).length
+    || tagDraft.trim() !== ""
+    || refFiles.length > 0
+    || Object.values(answers).some((a) => a.trim() !== "");
+  const requestClose = () => {
+    if (dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onClose();
   };
 
   /** B6.5：焦点进弹窗 / Esc 关闭 / 关闭后焦点回到「新建设计」或模板卡（见 `use-dialog-focus.ts`）。 */
   const panelRef = React.useRef<HTMLDivElement>(null);
-  useDialogFocus(panelRef, onClose);
+  useDialogFocus(panelRef, requestClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="project-dialog">
-      <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-inverse/40" onClick={requestClose} aria-hidden />
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editing ? "编辑设计" : "新建设计"} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <h3 className="text-16 font-semibold">
           {editing ? "编辑设计" : step === "brief" ? "新建设计" : step === "questions" ? "再问你几个问题" : "确认设计指导原则"}
@@ -657,8 +785,32 @@ function ProjectDialog({
           </div>
         )}
 
+        {askError !== null && (
+          <p className="text-11 text-destructive" role="alert" data-testid="project-dialog-ask-error">{askError}</p>
+        )}
+
+        {confirmDiscard && (
+          <div className="flex flex-col gap-2 rounded-control border border-border bg-panel p-2" data-testid="project-dialog-discard" role="alertdialog" aria-label="放弃这次填写">
+            <p className="text-11">关掉就把刚填的这些丢了。</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" data-testid="project-dialog-discard-keep" onClick={() => setConfirmDiscard(false)}>继续填</Button>
+              <Button variant="destructive" size="sm" data-testid="project-dialog-discard-yes" onClick={onClose}>丢掉并关闭</Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
+          {/*
+            * 问答与确认这两步原来都**回不去**：名字打错一个字，只能取消重来（连带丢掉
+            * 已经答过的几道题）。回上一步不该收费成重开一次。
+            */}
+          {!editing && step !== "brief" && (
+            <Button variant="ghost" size="sm" data-testid="intake-back"
+              onClick={() => setStep(step === "review" ? "questions" : "brief")}>
+              上一步
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={requestClose}>取消</Button>
           {!editing && step === "brief" && (
             <>
               {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}

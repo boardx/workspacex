@@ -31,7 +31,6 @@ components/admin/agent-definition-create-panel.tsx	"text-card-foreground transit
 components/admin/agent-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
 components/admin/blueprint-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
 components/admin/canvas-template-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
-components/admin/capability-edit-page.tsx	className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-200 hover:text-foreground"
 components/admin/capability-mutate.tsx	"text-card-foreground transition-all duration-200 " +
 components/admin/disable-dialog.tsx	"flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 components/admin/mcp-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"

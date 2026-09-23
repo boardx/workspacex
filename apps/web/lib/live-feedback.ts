@@ -208,6 +208,8 @@ export type UploadFeedbackAttachmentOut = z.infer<typeof feedbackLoop.operations
 export const FEEDBACK_ATTACHMENT_MIMES = feedbackLoop.FeedbackAttachmentMime.options;
 export const FEEDBACK_ATTACHMENT_ACCEPT = FEEDBACK_ATTACHMENT_MIMES.join(",");
 export const FEEDBACK_ATTACHMENT_LIMIT = feedbackLoop.FEEDBACK_ATTACHMENT_MAX;
+/** 迭代 34：附件类型 → 人话（契约单源，键集合即契约闭集）。 */
+export const FEEDBACK_ATTACHMENT_LABEL = feedbackLoop.FEEDBACK_ATTACHMENT_LABEL;
 
 /**
  * 浏览器对 `.md`（有些平台连 `.txt`）给出的 `File.type` 是空串——不是「类型不对」，是

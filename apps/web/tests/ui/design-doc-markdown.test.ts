@@ -1,5 +1,6 @@
 /** B5.3 `buildDesignDocMarkdown` / `outlinePrototype` 纯函数正例。 */
 import { describe, expect, it } from "vitest";
+import { PROJECT_TEMPLATE_LABEL } from "@/lib/live-design-workbench";
 import { buildDesignDocMarkdown, buildPrototypeSpecJson, describeNode, designDocFileName, outlinePrototype, prototypeSpecFileName } from "@/lib/design-doc-markdown";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -24,13 +25,15 @@ describe("buildDesignDocMarkdown", () => {
     expect(md).toContain("- 来源反馈：fb-1");
     expect(md).toContain("## 问题与目标\n\n对话入口太深");
     expect(md).toContain("1. 首屏可发消息");
-    expect(md).toContain("### 页 1：聊天\n\n> 首屏即可发消息；生成中可停止。\n\n- 布局（纵向）\n  - 导航栏「ChatGPT」\n  - 按钮「发送」（primary）");
+    // 迭代 38 起枚举取值走契约单源 `prototypeOptionLabel`（`primary` → 「主按钮」）——
+    // 这份文档自己的注释写着「文档的读者是人」，断言跟着单源走，意图不变。
+    expect(md).toContain("### 页 1：聊天\n\n> 首屏即可发消息；生成中可停止。\n\n- 布局（纵向）\n  - 导航栏「ChatGPT」\n  - 按钮「发送」（主按钮）");
     expect(md).toContain("### 页 2：设置\n\n- 列表"); // 空说明不出引用块
     const spec = JSON.parse(buildPrototypeSpecJson(base)) as { screens: { frame: string; notes: string }[] };
     expect(spec.screens.map((s) => s.notes)).toEqual(["首屏即可发消息；生成中可停止。", ""]);
     expect(prototypeSpecFileName(base, NOW)).toBe("UI-2026-09-06.prototype.json");
     expect(md).toContain("### 页 2：设置\n\n- 列表：账号 / 外观");
-    expect(md).toContain("- PM：画个 聊天");
+    expect(md).toContain("- 提需求的人：画个 聊天" /* 迭代 38：提需求的未必是 PM */);
   });
   it("没有原型时说明页面划分而不是输出空节", () => {
     expect(buildDesignDocMarkdown({ ...base, prototype: [] }, NOW)).toContain("还没有生成原型。页面划分：聊天、设置");
@@ -102,10 +105,17 @@ describe("交付文档带上列表三段式、图标、图片语义与视觉设�
     expect(line.match(/\[cart\]/g)).toHaveLength(1);
   });
 
-  it("按钮图标与图片语义也在", () => {
-    expect(describeNode({ type: "button", props: { label: "再来一单", icon: "refresh", variant: "primary" } } as never))
-      .toContain("图标 refresh");
-    expect(describeNode({ type: "image", props: { alt: "取餐地点", kind: "map" } } as never)).toContain("map");
+  it("按钮图标与图片语义也在——而且说的是人话，不是 schema 字面量", () => {
+    /*
+     * ⭐ 反证锚点：把 `opt(...)` 去掉、改回直接印 `n.props.icon` / `n.props.kind` ⇒ 这条红。
+     * 第 5 轮已经为此建好了契约单源（带覆盖率门控），这份文档却一直印着 refresh / map。
+     */
+    const btn = describeNode({ type: "button", props: { label: "再来一单", icon: "refresh", variant: "primary" } } as never);
+    expect(btn).toContain("图标：刷新");
+    expect(btn).not.toContain("refresh");
+    const img = describeNode({ type: "image", props: { alt: "取餐地点", kind: "map" } } as never);
+    expect(img).toContain("地图");
+    expect(img).not.toContain("map");
   });
 
   it("文档头部写清视觉设定：主题 + 强调色 + 保真度", () => {
@@ -116,5 +126,43 @@ describe("交付文档带上列表三段式、图标、图片语义与视觉设�
     expect(md).toContain("低保真线框图");
     expect(md).toContain("浅色");
     expect(md).toContain("玫红");
+  });
+});
+
+describe("迭代 38：交付文档里不许再说机器话", () => {
+  it("导出时间不是一串 UTC ISO，文件名也不按 UTC 的那一天", () => {
+    /*
+     * ⭐ 反证锚点：把时间改回 `now.toISOString()`、文件名改回 `toISOString().slice(0,10)` ⇒ 这条红。
+     * ⚠ 必须显式设时区：CI 跑在 UTC 上，那里「本地日历」与 UTC 永远一致（第 14 轮实测过这个坑）。
+     */
+    const tz = process.env.TZ;
+    process.env.TZ = "Asia/Shanghai";
+    try {
+      const localEarlyMorning = new Date(Date.UTC(2026, 8, 7, 17, 30, 0)); // 东八区 9/8 01:30
+      expect(localEarlyMorning.toISOString().slice(0, 10)).toBe("2026-09-07"); // 场景真的分得开
+      const md = buildDesignDocMarkdown(base, localEarlyMorning);
+      expect(md).toContain("- 导出时间：2026-09-08 01:30");
+      expect(md).not.toContain("T17:30");
+      expect(designDocFileName(base, localEarlyMorning)).toContain("2026-09-08");
+    } finally {
+      if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+    }
+  });
+
+  it("模板名只有一份——文档读的是和两块屏同一张表", () => {
+    /*
+     * ⭐ 反证锚点：在本文件里另写一份 `{ mobile: …, ui: …, wireframe: … }` 并改其中一个字 ⇒ 这条红。
+     * 第 10 轮把首页与详情页那两份收敛了，却漏了交付文档这一处——收敛做了一半。
+     */
+    /*
+     * ⚠ 必须比**整行**：第一版用的是 `toContain`，而「UI 原型稿」里含着「UI 原型」——
+     *   在本文件里另写一份把 `ui` 改成「UI 原型稿」，它照样绿（实测）。
+     */
+    for (const t of ["mobile", "ui", "wireframe"] as const) {
+      const md = buildDesignDocMarkdown({ ...base, template: t }, new Date());
+      const line = md.split("\n").find((l) => l.startsWith("- 模板："));
+      const suffix = t === "wireframe" ? "（低保真线框图：不靠颜色传达信息）" : "";
+      expect(line).toBe(`- 模板：${PROJECT_TEMPLATE_LABEL[t]}${suffix}`);
+    }
   });
 });

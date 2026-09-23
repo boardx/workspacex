@@ -19,6 +19,8 @@ import {
 import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
+import { humanBytes, humanEta } from "./model-import";
+import { PortsInUseError } from "./startup-failure";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import {
@@ -31,6 +33,7 @@ import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
 import { createBackup, type CreateBackupResult } from "./backup";
 import { superviseManaged, type ServiceHealth, type Supervised } from "./supervisor";
+import { describeServiceFailure, SERVICE_IMPACT } from "./supervisor-policy";
 import {
   decideUnload, explainBudget, idleMsFromExpiry, memoryBudgetBytes, parsePs, RECENTLY_USED_MS,
 } from "./model-memory-budget";
@@ -72,6 +75,11 @@ export interface RunningStack {
   backup(destRoot: string, appVersion: string): Promise<CreateBackupResult>;
   /** 本地各服务此刻的健康状态——外壳据此决定要不要把「有东西坏了」说出来。 */
   health(): readonly ServiceHealth[];
+  /**
+   * 等那几个「不挡首屏」的服务也就绪。界面不需要它，**但测量与自动化需要**：
+   * 否则一条 e2e 会在沙箱还没起来的时候就去跑技能。
+   */
+  whenFullyReady(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -83,6 +91,18 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   /** 每个子进程的启动规格——重启时要用同一份，不能现编。 */
   const specs: SpawnSpec[] = [];
   const supervised: Supervised[] = [];
+  /**
+   * 不挡首屏的就绪等待（#3872 R7）。
+   *
+   * 实测 15 次真实启动：到「加载界面」的中位耗时 6.8 s，其中**语音转写 1.8 s（27%）**、
+   * **技能沙箱 1.2 s（17%）**——两者加起来占 44%，而用户在开头几秒都用不到它们
+   * （录音要先导航过去，技能要先发一条会用到它的消息）。评分卡维度 1 的 9 分判据
+   * 写的就是「重资源懒加载在首屏之后」。
+   *
+   * ⚠ 延后不等于不管：失败要走健康通道说出来，而不是被吞掉。原先它们是 `await`，
+   *   失败会让整个 `up()` 抛错；现在失败变成一条具名的健康事件。
+   */
+  const deferredReady: Array<{ name: string; wait: Promise<void> }> = [];
   const healthById = new Map<string, ServiceHealth>();
   /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
   const spawn = (spec: SpawnSpec): Managed => {
@@ -165,7 +185,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       } else if (opts.bundleModelsDir) {
         const store = already ? (process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models")) : paths.models(c);
         try {
-          const r = importModels(opts.bundleModelsDir, store);
+          /*
+            首次启动要搬 7.5 GB。原来这里是一句同步拷贝，期间一个字都不说——
+            评分卡「首次运行」9 分的第一条判据就是「全程确定性百分比 + 剩余时间」。
+            现在按字节报进度，桌面壳把它显示在启动页上（#3872 维度 2）。
+          */
+          const r = await importModels(opts.bundleModelsDir, store, {
+            onProgress: (p) => {
+              const pct = p.bytesTotal === 0 ? 100 : Math.floor((p.bytesDone / p.bytesTotal) * 100);
+              log(`[ollama] 导入随包模型 ${p.model} ${pct}% （${humanBytes(p.bytesDone)} / ${humanBytes(p.bytesTotal)}，${humanEta(p.etaSeconds)}）`);
+            },
+          });
           if (r.imported.length) log(`[ollama] imported bundled model(s) into ${store}: ${r.imported.join(", ")}`);
           else log(`[ollama] bundled model(s) already in ${store}: ${r.skipped.join(", ")}`);
         } catch (e) {
@@ -280,7 +310,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       env: sandboxEnv(c),
       logDir: paths.logs(c),
     });
-    await waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
+    deferredReady.push({
+      name: "skill-sandbox",
+      wait: waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!),
+    });
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
     let asrUrl: string | null = null;
@@ -295,7 +328,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         env: asrGatewayEnv(c, asrModelDir),
         logDir: paths.logs(c),
       });
-      await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
+      deferredReady.push({
+        name: "asr-gateway",
+        wait: waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!),
+      });
     }
 
     // ── API ───────────────────────────────────────────────────────────────────
@@ -447,6 +483,27 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       memoryWatchTimer = timer;
     }
 
+    /*
+      延后就绪的那几个：不挡首屏，但**必须有人盯着**。
+      失败走的是和崩溃同一条健康通道，说人话、带影响，而不是在日志里躺着。
+    */
+    for (const d of deferredReady) {
+      void d.wait.then(
+        () => log(`[${d.name}] 已就绪（没有挡住界面）`),
+        (e: unknown) => {
+          // 我们自己在关应用时，这些等待必然会失败（进程被停了）。那不是故障，
+          // 报出去只会在每次退出时弹一个假警报——与监督那边「我们自己停的不当崩溃」同一条纪律。
+          if (stopping) return;
+          const why = e instanceof Error ? e.message : String(e);
+          log(`[${d.name}] 起不来：${why}`);
+          const msg = describeServiceFailure(d.name, { action: "give-up", reason: why }, SERVICE_IMPACT[d.name] ?? "");
+          const h: ServiceHealth = { name: d.name, state: "failed", message: { title: msg.title, body: msg.body }, exits: 0 };
+          healthById.set(d.name, h);
+          opts.onServiceHealth?.(h);
+        },
+      );
+    }
+
     return {
       capabilities,
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
@@ -465,6 +522,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         });
       },
       health: () => supervised.map((s) => s.health()),
+      whenFullyReady: async () => { await Promise.allSettled(deferredReady.map((d) => d.wait)); },
       stop: stopAll,
     };
   } catch (e) {
@@ -488,14 +546,42 @@ async function assertPortsFree(c: LocalConfig, webMode: "dev" | "start" | "none"
     { name: "Skill 沙箱", port: c.ports.sandbox },
   ];
   if (webMode !== "none") wanted.push({ name: "Web", port: c.ports.web });
-  const taken = (await Promise.all(wanted.map(async (w) => ({ ...w, busy: await portInUse(w.port) }))))
+  const probe = (globalThis as { __wsxPortInUse?: (p: number) => boolean }).__wsxPortInUse
+    ?? ((p: number) => portInUse(p));
+  const taken = (await Promise.all(wanted.map(async (w) => ({ ...w, busy: await probe(w.port) }))))
     .filter((w) => w.busy);
   if (taken.length === 0) return;
-  throw new Error(
+  // 结构化地抛：桌面壳要据此给出「收回并重试」，而**文案随时会改**（见
+  // startup-failure.ts 的 PortsInUseError：R10 正是因为解析文案而整条路成了死代码）。
+  throw new PortsInUseError(
     `以下端口已被占用，无法启动：\n${taken.map((t) => `  ${t.port}  ${t.name}`).join("\n")}\n` +
       "多半是上一个 WorkspaceX Local 还在跑（在它的终端里 Ctrl-C），" +
       `或者别的程序占了这些端口（可用 --ports ${taken.map((t) => `${portFlagName(t.name)}=<新端口>`).join(",")} 换开）。`,
+    taken.map((t) => ({ port: t.port, name: t.name })),
   );
+}
+
+/**
+ * 测试入口：用假的端口探测跑一遍**真正的** `assertPortsFree`，把它抛的东西还回去。
+ *
+ * 存在的理由见 `test/startup-failure.test.ts` 末节：手抄的错误消息会过期，
+ * 而过期的夹具会让一条死代码全程绿灯。这里让产线代码自己抛，分诊去认它。
+ */
+export async function assertPortsFreeForTest(
+  ports: { postgres: number; api: number; sandbox: number; web: number },
+  busy: (port: number) => boolean,
+): Promise<unknown> {
+  const real = portInUse;
+  try {
+    (globalThis as { __wsxPortInUse?: (p: number) => boolean }).__wsxPortInUse = busy;
+    await assertPortsFree({ ports } as unknown as LocalConfig, "start");
+    return null;
+  } catch (e) {
+    return e;
+  } finally {
+    delete (globalThis as { __wsxPortInUse?: unknown }).__wsxPortInUse;
+    void real;
+  }
 }
 
 function portFlagName(serviceName: string): string {

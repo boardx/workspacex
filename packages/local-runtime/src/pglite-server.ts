@@ -19,7 +19,7 @@ import net from "node:net";
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
-import { DB_NAME } from "./config";
+import { DB_NAME, DB_OWNER_ROLE } from "./config";
 import { SessionAwareQueryQueue } from "./pglite-queue";
 import { assertPortFree } from "./processes";
 
@@ -101,6 +101,24 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
  * cannot tell us who owns the directory; the port can. Anything already listening on our
  * PostgreSQL port is another WorkspaceX Local, and we say so instead of letting PGlite abort.
  */
+/**
+ * 把一份 `dumpDataDir()` 产出的快照**物化**成一个可用的数据目录。
+ *
+ * PGlite 的 `loadDataDir` 是**创建时**选项，所以恢复必须在数据库还没被打开的时候做——
+ * 这也是为什么桌面壳的恢复流程要先停栈：在一个活着的实例上换掉它脚下的目录，
+ * 是 PGlite 单会话所有权那一类事故的标准做法。
+ */
+export async function restoreDatabaseDump(pgDataDir: string, dump: Uint8Array): Promise<void> {
+  const db = await PGlite.create({
+    dataDir: pgDataDir,
+    extensions: { vector },
+    username: DB_OWNER_ROLE,
+    database: DB_NAME,
+    loadDataDir: new Blob([dump]),
+  });
+  await db.close();
+}
+
 export async function assertPostgresPortFree(port: number): Promise<void> {
   await assertPortFree(port, "PostgreSQL");
 }

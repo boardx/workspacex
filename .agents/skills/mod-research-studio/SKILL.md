@@ -1,9 +1,8 @@
 ---
 name: mod-research-studio
 description: >
-  Research/Studio 模块的活知识库：研究流程、访谈（interview）、录制（recording）、
-  检索（retrieval）、模板（templates），对应 apps/web 的 studio/research/tasks/rec/itv
-  各子路由。动手改研究工作流、访谈录制、检索排序或模板系统之前必读。
+  Research/Studio 总路由与共享约束；具体修改请优先使用 mod-user-research、
+  mod-user-interview、mod-realtime-transcription 或 mod-survey。
 ---
 
 # Research/Studio（mod-research-studio） — 模块知识库
@@ -20,9 +19,8 @@ description: >
 - 页面：`apps/web/app/research`、`apps/web/app/studio`
   （子路由：`research`/`prototype`/`interview`/`survey`）、
   `apps/web/app/tasks`、`apps/web/app/rec`、`apps/web/app/itv`（`itv/live`）
-- API 领域（实测各层实际存在的目录，不是统一三层）：
-  - `research`：只有 `apps/api/src/domain/research`（没有独立的 application/
-    infrastructure 层，逻辑薄或挂在别的领域下，改动前先确认调用方在哪）
+- API 领域（具体能力以专用 Skill 为准）：
+  - `research`：`apps/api/src/{application,domain,infrastructure}/research`
   - `interview`/`recording`/`retrieval`：三层齐全，
     `apps/api/src/{application,infrastructure,domain}/{interview,recording,retrieval}`
   - `templates`：只有 application + domain 两层，
@@ -50,6 +48,15 @@ description: >
 2. 开发中：独立 worktree（ADR-005）；UI 改动跑 `lint-design.sh`；敏感 area（录制/隐私）
    主动挂安全 review。
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
+
+## 专用模块路由
+
+- 用户访谈：`mod-user-interview`
+- 用户研究：`mod-user-research`
+- 实时转录：`mod-realtime-transcription`
+- 问卷：`mod-survey`
+
+本文件保留跨模块历史经验；修改单一能力时，以对应专用 Skill 的代码地图和不变量为准。
 
 ## 踩坑与经验（append-only，最新在上）
 - 2026-09-21：问卷题型能力、发布校验、答题校验和统计资格以 `packages/contracts/src/survey-question-types.ts` 为单源；新增题型必须贯通公开 UI、冻结快照、结构化答案和报告。附件认领必须与答卷同事务，删除问卷将已认领附件转入清理；随机选项使用答题会话种子，不能在翻页挂载时重新洗牌（出处：issue #3760）。

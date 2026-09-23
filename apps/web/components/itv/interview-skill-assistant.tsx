@@ -30,9 +30,9 @@ export function InterviewSkillAssistant({ draft, onSend, onApply, onUndo }: {
       <div className="sticky top-0 flex max-h-[calc(100vh-7rem)] flex-col p-5">
         <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" aria-hidden /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">通过对话优化当前步骤。建议只有点击应用后才会修改内容。</p>
-        <div className="mt-4 flex flex-wrap gap-2">{QUICK_PROMPTS.map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">{prompt}</button>)}</div>
+        <div className="mt-4 flex flex-wrap gap-2">{QUICK_PROMPTS.map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-background-foreground">{prompt}</button>)}</div>
         <div className="mt-5 min-h-40 flex-1 space-y-3 overflow-y-auto">
-          {draft.skillMessages.map((message) => <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.text}</div>)}
+          {draft.skillMessages.map((message) => <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-background-foreground"}>{message.text}</div>)}
           {draft.pendingSuggestion && <div data-testid="itv-skill-suggestion" className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-5"><strong>Skill 建议</strong><p className="mt-1">{draft.pendingSuggestion.text}</p><Button data-testid="itv-skill-apply" type="button" variant="primary" size="sm" className="mt-3" onClick={onApply} disabled={draft.pendingSuggestion.applied}>应用建议</Button></div>}
         </div>
         {draft.undoSnapshot && <Button data-testid="itv-skill-undo" type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={onUndo}><Undo2 className="size-3" aria-hidden />撤销上次应用</Button>}
@@ -84,7 +84,7 @@ export function PersistentInterviewSkillAssistant({
       <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" aria-hidden /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">消息与建议即时保存；应用建议仍需在当前步骤明确确认。</p>
       <div className="mt-5 min-h-40 flex-1 space-y-3 overflow-y-auto">
-        {view.skillMessages.map((message) => <div key={message.messageId} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.role === "assistant" && parseSkillPatch(message.text)
+        {view.skillMessages.map((message) => <div key={message.messageId} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-background-foreground"}>{message.role === "assistant" && parseSkillPatch(message.text)
           ? <InterviewSkillContent patch={view.skillProposals.find((proposal) => proposal.sourceMessageId === message.messageId)?.patch ?? parseSkillPatch(message.text)!} view={view} />
           : message.text}</div>)}
         {view.skillProposals.map((proposal) => <div data-testid={`itv-skill-proposal-${proposal.proposalId}`} key={proposal.proposalId} className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-5">

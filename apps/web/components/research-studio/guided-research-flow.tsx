@@ -285,7 +285,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
                 onClick={() => onNavigate(item.id)}
                 className={cn(
                   "flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
-                  index === current ? "font-medium text-foreground" : "text-muted-foreground",
+                  index === current ? "font-medium text-background-foreground" : "text-muted-foreground",
                 )}
               >
                 <span className={cn(
@@ -527,7 +527,7 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-1.5 text-12 font-medium text-foreground">{label}{hint && <span className="font-normal text-muted-foreground">{hint}</span>}{children}</label>;
+  return <label className="flex flex-col gap-1.5 text-12 font-medium text-background-foreground">{label}{hint && <span className="font-normal text-muted-foreground">{hint}</span>}{children}</label>;
 }
 
 function DirectionsScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate }: {
@@ -750,7 +750,7 @@ function OutlineScreen({ sessionId, session, workflow, onSession, onWorkflow, on
           {sections.map((section, index) => <Card key={section.id} data-testid={`research-outline-${section.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 text-muted-foreground" aria-hidden /><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-10 font-semibold">{index + 1}</span><div className="min-w-0 flex-1 space-y-2"><Input value={section.title} onChange={(event) => patchTitle(section.id, event.target.value)} data-testid={`research-outline-title-${section.id}`} aria-label={`大纲章节 ${index + 1}`} /><div className="flex flex-wrap gap-1.5">{section.questions.map((question) => <Badge key={question} tone="outline">{question}</Badge>)}</div></div><Pencil className="mt-2 h-4 w-4 text-muted-foreground" aria-hidden /></CardContent></Card>)}
           <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-outline"><Plus className="h-4 w-4" aria-hidden />添加章节</Button>
         </div>
-        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><ListTree className="h-4 w-4" aria-hidden />研究计划摘要</CardTitle></CardHeader><CardContent className="space-y-3 text-11 text-muted-foreground"><div className="flex justify-between"><span>报告章节</span><strong className="text-foreground">{sections.length}</strong></div><div className="flex justify-between"><span>研究问题</span><strong className="text-foreground">{sections.reduce((sum, item) => sum + item.questions.length, 0)}</strong></div><div className="flex justify-between"><span>预计检索</span><strong className="text-foreground">20–30 个来源</strong></div><p className="rounded-md bg-muted p-3 text-10 leading-relaxed">开始后系统会按章节并行搜索，过程中可离开页面，稍后从研究首页继续。</p></CardContent></Card>
+        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><ListTree className="h-4 w-4" aria-hidden />研究计划摘要</CardTitle></CardHeader><CardContent className="space-y-3 text-11 text-muted-foreground"><div className="flex justify-between"><span>报告章节</span><strong className="text-background-foreground">{sections.length}</strong></div><div className="flex justify-between"><span>研究问题</span><strong className="text-background-foreground">{sections.reduce((sum, item) => sum + item.questions.length, 0)}</strong></div><div className="flex justify-between"><span>预计检索</span><strong className="text-background-foreground">20–30 个来源</strong></div><p className="rounded-md bg-muted p-3 text-10 leading-relaxed">开始后系统会按章节并行搜索，过程中可离开页面，稍后从研究首页继续。</p></CardContent></Card>
       </div>
       {saveFailed && <p className="text-12 text-destructive" role="alert">报告大纲保存失败，请重试。</p>}
       <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !sections.some((item) => item.enabled && item.title.trim())} onClick={() => void confirm()} data-testid="research-start-search"><Search className="h-4 w-4" aria-hidden />按此大纲开始研究</Button></div>
@@ -936,7 +936,7 @@ function ReportScreen({
       <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
         <Card className="h-fit">
           <CardHeader className="pb-2"><CardTitle className="text-13">目录</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="rounded-md border border-border px-3 py-2 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">{index + 1}. {item.title}</a>)}</CardContent>
+          <CardContent className="flex flex-wrap gap-2">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="rounded-md border border-border px-3 py-2 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground">{index + 1}. {item.title}</a>)}</CardContent>
         </Card>
         <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
           <article className="min-w-0 space-y-6 rounded-lg border border-border bg-card p-6">

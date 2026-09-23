@@ -49,11 +49,45 @@
   /* The `… Fallback` faces are metric-matched stand-ins declared in fonts.css;
      they hold the exact line boxes the real faces will occupy, so the swap
      changes letterforms without moving anything. */
+  /* The CJK tail is not decoration. Both real faces are latin-only, so every
+     Han character on the Chinese page is resolved by this list — and it named
+     PingFang (macOS/iOS), Hiragino Sans GB (older macOS) and "Noto Sans SC",
+     which is the WEB font's name. It named nothing that ships on Windows and
+     nothing under the name Linux and Android actually install. A Chinese
+     reader on Windows therefore fell through to `sans-serif`, which on a
+     Chinese Windows is SimSun — a SERIF face, in a design that has none.
+     Microsoft YaHei and Noto Sans CJK SC also carry a real Bold, which is the
+     other half of round 35: synthesis was switched off to stop Han glyphs
+     blotting, and the way to get weight back is to name a font that has it. */
+  /* ---- tracking ----------------------------------------------------------
+     Every letter-spacing on this site is a Latin convention: wide tracking on
+     small uppercase labels, tight tracking on display type. Neither is right
+     for Han — spaced labels read as loose and gappy, tightened headings make
+     dense glyphs touch. Rather than a :lang(zh) override per selector (there
+     were three, covering three of twenty-five rules), every rule multiplies
+     by one of these, and the Chinese page redefines them once. English
+     computes to exactly the values it had. */
+  --track-open:  1;
+  --track-tight: 1;
+
   --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  sans-serif;
   --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
-  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  sans-serif;
+  /* The mono stack needs the same CJK tail. Every eyebrow, label and status
+     line on /zh/ is set in it — sixty-odd elements — and with no Han face
+     named, the browser picked one for "generic monospace", which on a Mac is
+     often not the face the body text uses and sometimes has Japanese glyph
+     shapes. Round 39 fixed this for display and body and missed this stack;
+     its gate only looked at those two. */
+  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  monospace;
 
   /* ---- radius scale ------------------------------------------------------
      Twelve different radii had accumulated — 22, 12, 11, 10, 9, 8, 6, 3, 2,
@@ -187,18 +221,17 @@ h1, h2, h3, h4 {
   font-family: var(--font-display);
   font-weight: 600;
   line-height: 1.06;
-  letter-spacing: -0.028em;
+  letter-spacing: calc(-0.028em * var(--track-tight));
   text-wrap: balance;
 }
 /* A single long word at a doubled font size overflows rather than wrapping,
    and `overflow-x: clip` then makes it unreachable rather than merely ugly. */
 h1, h2, h3 { overflow-wrap: break-word; }
-h1 { font-size: var(--t-hero); letter-spacing: -0.04em; }
+h1 { font-size: var(--t-hero); letter-spacing: calc(-0.04em * var(--track-tight)); }
 h2 { font-size: var(--t-h2); }
-h3 { font-size: var(--t-h3); letter-spacing: -0.02em; line-height: 1.2; }
+h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight)); line-height: 1.2; }
 
 /* CJK does not want negative tracking — it collides. */
-:lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4 { letter-spacing: -0.01em; }
 :lang(zh) body, :lang(zh) p { line-height: 1.75; }
 
 /* Han glyphs fill their em box; latin letters do not. At an identical pixel
@@ -271,7 +304,7 @@ p { text-wrap: pretty; }
   border-radius: var(--r-pill);
   border: 3px solid var(--bg);
 }
-::-webkit-scrollbar-thumb:hover { background: #453e54; }
+@media (hover: hover) { ::-webkit-scrollbar-thumb:hover { background: #453e54; } }
 
 /* ---- selection ----------------------------------------------------------- */
 ::selection { background: rgb(var(--c-2-rgb) / 0.3); color: #fff; }
@@ -292,6 +325,19 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+/* No faked bold on Han. The display face is latin-only, so Chinese falls
+   through to whatever CJK font the machine has — and when that font ships only
+   a Regular weight, the engine manufactures 600 by stroking the glyphs. On
+   latin that is merely ugly; on a dense Han glyph at 30px it fills the
+   counters and the character turns into a blot with a dark halo, which is
+   exactly how the loop diagram's centre title rendered here.
+   Not every reader sees it: macOS, Windows and Android all ship a bold CJK
+   face. Linux frequently does not — and this product's pitch is "read the
+   repository", so that is not an audience to round off.
+   This is strictly safe: it disables SYNTHESIS, never the use of a real bold
+   face, so nothing changes for anyone who has one. */
+:lang(zh) { font-synthesis: none; }
+
 /* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
    in a narrow column and will otherwise push the whole layout sideways. */
 p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
@@ -306,3 +352,22 @@ p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
    the engine supports it, which is what stops a typeset paragraph looking
    indented by accident. Safari only today; harmless elsewhere. */
 p, .lead, .keyline { hanging-punctuation: first last; }
+
+/* Han: labels keep a trace of their spacing, display type loses its
+   tightening entirely. Inherited, so an element marked lang="zh-Hans" on the
+   English page — the language switch — gets it too, which is correct. */
+:lang(zh) { --track-open: 0.3; --track-tight: 0; }
+
+
+/* ---- the smallest type on a phone ------------------------------------------
+   Ten mono label styles sat at 10–11px. At arm's length on a phone that is
+   below what Apple and Material both treat as the floor for readable text,
+   and for Han it is worse: a dense glyph at 10px loses strokes and turns into
+   a smudge. Raised on coarse pointers for everyone, and on /zh/ everywhere,
+   because the problem there is the script, not the device. The /zh/ page had
+   exactly one such fix already — for the use-case field labels — and the
+   other nine styles had none. */
+@media (pointer: coarse) {
+  :root { --t-nano: 0.6875rem; --t-tiny: 0.75rem; }
+}
+:lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/shell/app-shell";
+import { PrototypeDataBanner } from "@/components/shell/prototype-data-banner";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
@@ -27,6 +28,7 @@ export default function BrainPage({
         <div className="border-b border-border-subtle px-5 py-2">
           <StatePreviewSwitcher current={state} />
         </div>
+        <PrototypeDataBanner className="mx-5 mt-2" />
         <BrainWorkbench state={state} />
       </div>
     </AppShell>

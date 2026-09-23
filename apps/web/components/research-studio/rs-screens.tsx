@@ -245,7 +245,7 @@ export function RsPlanScreen({ state, view, sub }: { state: UiState; view: RsVie
   return (
     <StateShell state={state} {...shellProps("plan")}>
       <div className="flex flex-col gap-4" data-testid="rs-plan-screen">
-        <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-foreground" data-testid="rs-plan-back">
+        <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground" data-testid="rs-plan-back">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />‹ 全部研究
         </button>
         <Head testid="rs-plan-head" title={`${p.title} · 研究计划`} uc="UC-24.3" sub={`${p.status} · Scout 并行 ${p.parallelRoutes} 路`} />
@@ -294,7 +294,7 @@ export function RsPlanScreen({ state, view, sub }: { state: UiState; view: RsVie
 function Field({ n, label, hint, children }: { n: number; label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5" data-testid={`rs-field-${n}`}>
-      <label className="text-12 font-medium text-foreground">{n}. {label}{hint && <span className="ml-1 font-normal text-muted-foreground">· {hint}</span>}</label>
+      <label className="text-12 font-medium text-background-foreground">{n}. {label}{hint && <span className="ml-1 font-normal text-muted-foreground">· {hint}</span>}</label>
       {children}
     </div>
   );
@@ -321,7 +321,7 @@ export function RsNewScreen({ state, view, sub }: { state: UiState; view: RsView
                 先说清要查什么场景下的什么问题，研究模块据此决定检索路数与来源。
               </p>
             </div>
-            <button className="text-muted-foreground transition-colors hover:text-foreground" data-testid="rs-new-close" aria-label="关闭">×</button>
+            <button className="text-muted-foreground transition-colors hover:text-background-foreground" data-testid="rs-new-close" aria-label="关闭">×</button>
           </div>
           <div className="flex flex-col gap-4 px-4 py-4">
             <Field n={1} label="研究场景" hint="在什么处境下要这个答案">
@@ -415,7 +415,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
   return (
     <StateShell state={state} {...shellProps("detail")}>
       <div className="flex flex-col gap-4" data-testid="rs-detail-screen">
-        <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-foreground" data-testid="rs-detail-back">
+        <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground" data-testid="rs-detail-back">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />‹ 全部研究主题
         </button>
         <Head testid="rs-detail-head" title="德国工商储的并网审批实际要多久？" uc="UC-24.2" sub="已出结论 · 来源 14" />

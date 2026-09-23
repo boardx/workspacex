@@ -11,6 +11,7 @@ import { TopBar } from "./top-bar";
 import { MobileTabs } from "./mobile-tabs";
 import { isLocalOrg, MOCK_ORGS, type Identity, type ProjectRole } from "@/lib/identity";
 import { EditionBanner } from "./edition-banner";
+import { MAIN_CONTENT_ID, SkipToContent } from "./skip-to-content";
 import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
@@ -341,7 +342,13 @@ export function ShellChrome({
 
   return (
     <FeedbackProvider>
-    <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
+    <div data-testid="app-shell" className="relative flex h-dvh w-full overflow-hidden bg-background">
+      {/*
+        键盘用户的第一条快捷路，必须是壳层里第一个可聚焦的东西。
+        实测真实安装版：可聚焦元素 124 个，消息输入框排在第 113 位——
+        键盘用户要按 113 次 Tab 才能开始打字。见该组件头注。
+      */}
+      <SkipToContent />
       <div className="hidden md:flex">
         <IconRail
           identity={identity}
@@ -391,7 +398,7 @@ export function ShellChrome({
                 aria-label="收起左栏"
                 data-testid="shell-left-collapse"
                 onClick={() => togglePanel("left")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
               >
                 ‹
               </button>
@@ -404,12 +411,13 @@ export function ShellChrome({
               aria-label="展开左栏"
               data-testid="shell-left-expand"
               onClick={() => togglePanel("left")}
-              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
             >
               ›
             </button>
           )}
-          <main data-testid="shell-main" className="min-w-0 flex-1 overflow-y-auto bg-card">
+          {/* id 来自 `skip-to-content.tsx`，是跳转链接的落点。那份 id 只声明在那一处。 */}
+          <main id={MAIN_CONTENT_ID} data-testid="shell-main" className="min-w-0 flex-1 overflow-y-auto bg-card">
             {children}
           </main>
           {right && !rightCollapsed && (
@@ -441,7 +449,7 @@ export function ShellChrome({
                 aria-label="收起右栏"
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
-                className={cn("absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground", SIDE_PANEL_VISIBLE_FLEX)}
+                className={cn("absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}
               >
                 <X aria-hidden className="h-3.5 w-3.5" />
               </button>
@@ -454,7 +462,7 @@ export function ShellChrome({
               aria-label="展开右栏"
               data-testid="shell-right-expand"
               onClick={() => togglePanel("right")}
-              className={cn("hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", SIDE_PANEL_VISIBLE_FLEX)}
+              className={cn("hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}
             >
               ‹
             </button>

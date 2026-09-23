@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Paperclip, FileText, PencilRuler, Maximize2, Minimize2, AlertTriangle, Pause } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { describeFailure as describeGenericFailure } from "@/lib/design-failure";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { ComposerVoiceControl, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
+import { ComposerStatusBar, voiceErrorStatus, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import {
   FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_ATTACHMENT_LIMIT,
@@ -46,14 +47,15 @@ const MAX_ATTACHMENTS = FEEDBACK_ATTACHMENT_LIMIT;
  * ⚠ `TypeError: Failed to fetch` 是浏览器对「请求根本没拿到响应」的统一措辞——服务端正在
  *   重启、网络断了、反代把连接切了，浏览器一律只给这一句英文。原样显示给用户等于什么都
  *   没说。2026-09-02 devapp 实测：一次部署重启窗口里点提交/传图，屏上就是这行英文，
- *   看起来像功能坏了，实际是那一分钟里服务端不在。这里把它翻成「无法连接服务器」并
- *   建议稍后重试；带 `reasonCode` 的契约错误照旧原样给出（那些才是功能层面的失败）。
+ *   看起来像功能坏了，实际是那一分钟里服务端不在。
+ *
+ * ⚠ 迭代 35 更正本文件自己那条老注释：它原来写着「带 `reasonCode` 的契约错误**照旧原样
+ *   给出**（那些才是功能层面的失败）」——于是在**普通人提反馈的这个框**上，
+ *   屏上出现的是 `FEEDBACK_NOT_FOUND`、`http_500`。功能层面的失败恰恰最需要一句人话：
+ *   他要知道自己刚写的那段还在不在、该重试还是该找人。
+ *   收敛到 `lib/design-failure.ts` 这一份（这是并进来的第五处副本）。
  */
-function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器（可能正在部署或网络中断），请稍后重试";
-  return String(err);
-}
+const describeFailure = describeGenericFailure;
 
 /**
  * FB-2 —— 提交反馈的弹层。**两个标签页：提交 / 我提过的。**
@@ -364,22 +366,11 @@ export function FeedbackDialog({
       );
     }
     if (voice.phase === "error") {
-      const denied = speech.status === "denied";
-      const unsupported = speech.status === "unsupported";
-      const actions: ComposerStatusAction[] = [];
-      if (denied) {
-        actions.push({
-          label: "查看如何开启",
-          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
-          testId: "feedback-voice-permission-help",
-        });
-      }
-      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "feedback-voice-retry" });
+      // 说什么、给不给「重试」：与另一处 composer 共用 `voiceErrorStatus`（chat-composer-status-bar.tsx）。
+      const bar = voiceErrorStatus(speech, { onRetry: voice.start, retryTestId: "feedback-voice-retry", helpTestId: "feedback-voice-permission-help" });
       return (
         <ComposerStatusBar tone="warning" testId="feedback-voice-error" icon={<AlertTriangle className="h-4 w-4" />}
-          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
-          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
-          actions={actions} />
+          title={bar.title} description={bar.description} actions={bar.actions} />
       );
     }
     return null;
@@ -411,10 +402,18 @@ export function FeedbackDialog({
 
   /** 被拒收的文件名（类型不在契约白名单）；再选一次或改正文就清掉。 */
   const [rejectedFiles, setRejectedFiles] = React.useState<readonly string[]>([]);
+  /** 迭代 35：超量/已满这一类——与"类型不对"同样要说出来，不能只有一半会说话。 */
+  const [quotaNotice, setQuotaNotice] = React.useState<string | null>(null);
 
   const addAttachments = React.useCallback((files: FileList | null) => {
     if (files === null || files.length === 0) return;
     const room = MAX_ATTACHMENTS - attachments.length;
+    /*
+     * 迭代 35：超出剩余名额的那几个原来被 `slice` **静默丢掉**，而"类型不对"那一类明明是
+     * 逐个点名说明的。同一个动作里，一部分被拒会说、另一部分被丢不说，用户只会以为
+     * 那几个也传上去了。（"已经满 5 个"那种情况不在这里说：上传入口到上限就整个隐藏，
+     * 旁边那句静态的「已到 5 个上限」已经把话说完了——再加一条是重复，不是修复。）
+     */
     if (room <= 0) return;
     // UC-17.8 D3：客户端预检——类型不在契约白名单的文件**不上传**，并逐个点名说明。
     //   不是静默丢掉：用户拖了一个 zip 进来没反应，会以为是功能坏了。
@@ -426,6 +425,11 @@ export function FeedbackDialog({
       else accepted.push({ file, mime });
     }
     setRejectedFiles(rejected);
+    setQuotaNotice(
+      accepted.length > room
+        ? `只收下了 ${String(room)} 个——最多 ${String(MAX_ATTACHMENTS)} 个，另外 ${String(accepted.length - room)} 个没加进来。`
+        : null,
+    );
     for (const { file, mime } of accepted.slice(0, room)) {
       const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const previewUrl = isImageAttachmentMime(mime) ? URL.createObjectURL(file) : null;
@@ -435,6 +439,8 @@ export function FeedbackDialog({
   }, [attachments.length, runUpload]);
 
   const removeAttachment = React.useCallback((localId: string) => {
+    // 去掉一个之后「已经有 5 个了」就不再成立——留着比不说更糟（静态痕迹不能当现状用）。
+    setQuotaNotice(null);
     setAttachments((prev) => {
       const target = prev.find((a) => a.localId === localId);
       if (target && target.previewUrl !== null) URL.revokeObjectURL(target.previewUrl);
@@ -864,6 +870,9 @@ export function FeedbackDialog({
                 </div>
               ) : (
                 <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">已到 {MAX_ATTACHMENTS} 个上限，删掉一个再加。</p>
+              )}
+              {quotaNotice !== null && (
+                <p className="text-10 text-destructive" data-testid="feedback-attachment-quota">{quotaNotice}</p>
               )}
               {rejectedFiles.length > 0 && (
                 <p className="text-10 text-destructive" data-testid="feedback-attachment-rejected">

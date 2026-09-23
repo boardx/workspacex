@@ -14,12 +14,26 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  checkWebBuild, localSessionUrl, resolveLocalConfig, runDoctor, signInLocal, up, type RunningStack,
+  checkWebBuild, dataDirAdvice, dataDirAdviceBody, diagnoseStartupFailure, localSessionUrl,
+  resolveLocalConfig, restoreIntoDataDir, runDoctor, signInLocal, stopListenerOnPort, up,
+  verifyBackup, type RunningStack,
 } from "@repo/local-runtime";
+import { SHUTDOWN_TIMEOUT_MS, shutdownNoticeDataUrl } from "./shutdown-notice";
 import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
+/**
+ * 模块级的日志：`boot()` 里那个 `log` 闭在它自己的作用域里，而备份/恢复这类菜单动作
+ * 发生在 `boot()` 之外。写的是同一个文件——**一件事只有一份日志**，不要为了省事
+ * 在别处另起一个。
+ */
+function appendLog(line: string): void {
+  try {
+    appendFileSync(join(app.getPath("userData"), "local", "desktop.log"), `${new Date().toISOString()} ${line}\n`);
+  } catch { /* best effort：日志写不了也不能挡住恢复本身 */ }
+}
+
 /** 同一个服务一次会话只打断用户一次——重复弹框会让人直接忽略所有弹框。 */
 const reportedFailures = new Set<string>();
 let win: BrowserWindow | null = null;
@@ -234,10 +248,51 @@ async function boot(): Promise<void> {
     });
   } catch (e) {
     progress.failed = true;
-    log(`启动失败: ${e instanceof Error ? e.message : String(e)}`);
+    const raw = e instanceof Error ? e.message : String(e);
+    log(`启动失败: ${raw}`);
     if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
     render();
-    await dialog.showMessageBox({ type: "error", title: "启动失败", message: e instanceof Error ? e.message : String(e), detail: lines.slice(-30).join("\n") });
+    /*
+      启动失败不再是死路。
+
+      这台机器上安装版自己的 desktop.log 里累计 14 次启动失败，出路分别是
+      「去敲 lsof | xargs kill」和「把数据目录挪走，它会由迁移+种子重建」——
+      对独立发布的应用这两句都不成立（见 `startup-failure.ts` 的表）。
+      分诊判据在 local-runtime 里（可测），这里只负责把按钮接到动作上。
+    */
+    const d = diagnoseStartupFailure(e, { hasBackup: lastBackupDir() !== null });
+    const r = await dialog.showMessageBox({
+      type: "error",
+      title: d.title,
+      message: d.body,
+      detail: d.unknown ? `${raw}\n\n${lines.slice(-30).join("\n")}` : `原始信息：${raw}`,
+      buttons: [...d.remedies.map((x) => x.label), "退出"],
+      defaultId: 0,
+      cancelId: d.remedies.length,
+    });
+    const chosen = d.remedies[r.response];
+    if (chosen === undefined) { app.quit(); return; }
+    if (chosen.kind === "reclaim-port") {
+      // 只收回我们自己独占的 loopback 端口；占用者一定是上一次没退干净的我们自己。
+      for (const port of chosen.ports) {
+        const freed = await stopListenerOnPort(port);
+        log(`[recover] 收回端口 ${port}: ${freed ? "已释放" : "没找到占用者"}`);
+      }
+      app.relaunch();
+    } else if (chosen.kind === "restore-backup") {
+      const dir = lastBackupDir();
+      if (dir !== null) { await runRestore(dir); return; }   // runRestore 自己会重启
+      app.relaunch();
+    } else {
+      // move-aside：**挪走，不删**。挪走之后重启，下一次启动会重新建一个空库。
+      const pg = join(dataDir, "pgdata");
+      if (existsSync(pg)) {
+        const aside = `${pg}.broken-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+        renameSync(pg, aside);
+        log(`[recover] 旧数据目录挪到 ${aside}（没有删除）`);
+      }
+      app.relaunch();
+    }
     app.quit();
     return;
   }
@@ -323,7 +378,126 @@ async function runBackup(): Promise<void> {
     buttons: ["好", "打开所在位置"],
     defaultId: 0,
   });
+  rememberBackup(r.dir);
   if (ans.response === 1) void shell.openPath(r.dir);
+}
+
+/**
+ * 记住最后一次备份放在哪。
+ *
+ * 备份的位置是用户选的，所以「有没有备份」这件事**没法从磁盘上推**——不记下来的话，
+ * 启动失败时就只能假设没有备份，于是那条本来存在的出路对用户不存在。这是本仓
+ * 「静态痕迹 ≠ 动态事实」的反面：这里要的恰恰是一条会随状况变化的记录。
+ * 目录可能已经被用户挪走或删掉，所以读的时候要重新确认它还在。
+ */
+function backupPointerPath(): string { return join(app.getPath("userData"), "local", "last-backup.json"); }
+
+function rememberBackup(dir: string): void {
+  try { writeFileSync(backupPointerPath(), JSON.stringify({ dir, at: new Date().toISOString() })); }
+  catch { /* 记不住不该让备份本身失败 */ }
+}
+
+function lastBackupDir(): string | null {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(backupPointerPath(), "utf8"));
+    const dir = typeof raw === "object" && raw !== null ? (raw as { dir?: unknown }).dir : undefined;
+    if (typeof dir !== "string") return null;
+    return existsSync(join(dir, "manifest.json")) ? dir : null;   // 挪走/删掉了就当没有
+  } catch { return null; }
+}
+
+/**
+ * 「从备份恢复…」。
+ *
+ * 顺序是刻意的：**先验、再说清代价、最后才动数据。**
+ * 1. 先校验那份备份（这一步不动任何东西），把收据读给用户听——他要知道自己要读回什么。
+ * 2. 说清代价：现在的数据会被**挪走**（不是删掉），而且恢复后要重启应用。
+ * 3. 停栈。PGlite 是单会话所有权，在活着的实例脚下换目录是本仓记过的那一类事故。
+ * 4. 恢复并逐张表核对行数，对不上就如实说，并告诉用户原数据在哪。
+ * 5. 重启应用——不能在一个已经把数据库停掉的进程里继续跑。
+ */
+async function runRestore(preset?: string): Promise<void> {
+  let backupDir = preset ?? "";
+  if (preset === undefined) {
+    const picked = await dialog.showOpenDialog({
+      title: "选择要恢复的备份目录",
+      properties: ["openDirectory"],
+      buttonLabel: "读这一份",
+    });
+    if (picked.canceled || picked.filePaths[0] === undefined) return;
+    backupDir = picked.filePaths[0];
+  }
+
+  const v = await verifyBackup(backupDir);
+  if (!v.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "这份备份读不了",
+      message: v.reason,
+      detail: "你现在的数据没有被改动。请确认选的是备份目录本身（里面应该有一个 manifest.json）。",
+    });
+    return;
+  }
+  const counts = Object.entries(v.manifest.rowCounts)
+    .map(([t, n]) => `${TABLE_LABELS[t] ?? t} ${n}`).join("　");
+  const ok = await dialog.showMessageBox({
+    type: "warning", title: "确认要用这份备份覆盖现在的数据吗",
+    message: `这份备份里有：${counts}`,
+    detail: `备份时间：${v.manifest.createdAt}\n\n`
+      + `你现在的数据不会被删除，会被挪到同一目录下带时间戳的文件夹里。\n`
+      + `恢复完成后应用会重启。`,
+    buttons: ["取消", "恢复"],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (ok.response !== 1) return;
+
+  // 停栈：PGlite 单会话，不能在活着的实例脚下换目录。
+  const running = stack;
+  stack = null;
+  if (running !== null) await running.stop();
+
+  const r = await restoreIntoDataDir({
+    backupDir,
+    dataDir: join(app.getPath("userData"), "local"),
+    postgresPort: 55432,
+    log: (l) => appendLog(l),
+  });
+  if (!r.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "恢复没有完成", message: r.reason,
+      detail: "应用会重启。如果重启后数据不对，被挪走的那份原始数据仍在数据目录里。",
+    });
+  } else {
+    await dialog.showMessageBox({
+      type: "info", title: "恢复完成，行数与清单一致",
+      message: `已读回：${Object.entries(r.verified).map(([t, x]) => `${TABLE_LABELS[t] ?? t} ${x.actual}`).join("　")}`,
+      detail: r.movedAsideTo === null ? "应用即将重启。" : `原来的数据已挪到 ${r.movedAsideTo}（没有删除）。\n应用即将重启。`,
+    });
+  }
+  app.relaunch();
+  app.quit();
+}
+
+/**
+ * 打开数据目录——**先说一句再开**。
+ *
+ * 这个菜单项等于在邀请用户「把这个文件夹拷走当备份」，而实测证明那样拷出来的副本
+ * 打不开（见 `data-dir-advice.ts` 的头注：硬杀可恢复，活拷贝不可）。
+ * 一次会话只说一遍：重复弹框会让人直接忽略所有弹框。
+ */
+let dataDirAdviceShown = false;
+async function openDataDir(): Promise<void> {
+  const dir = join(app.getPath("userData"), "local");
+  if (!dataDirAdviceShown) {
+    dataDirAdviceShown = true;
+    const a = dataDirAdvice();
+    const r = await dialog.showMessageBox({
+      type: "info", title: a.title, message: dataDirAdviceBody(a),
+      buttons: [...a.actions], defaultId: 0, cancelId: 1,
+    });
+    if (r.response === 0) { void runBackup(); return; }
+  }
+  void shell.openPath(dir);
 }
 
 /** 备份收据上的表名要说人话，用户不认得 `chat_threads`。 */
@@ -348,8 +522,12 @@ function installMenu(): void {
         click: () => { void runBackup(); },
       },
       {
+        label: "从备份恢复…",
+        click: () => { void runRestore(); },
+      },
+      {
         label: "打开数据目录",
-        click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
+        click: () => { void openDataDir(); },
       },
     ],
   };
@@ -363,5 +541,27 @@ app.on("before-quit", (e) => {
   e.preventDefault();
   const s = stack;
   stack = null;
-  void s.stop().finally(() => app.quit());
+  // 见 shutdown-notice.ts：这几秒是 PGlite 在收尾，看不见它的用户会去强制退出
+  // （这台机器上已因此损坏 6 次）。所以先把一页「正在安全关闭」摆出来，再停栈。
+  let notice: BrowserWindow | null = null;
+  try {
+    notice = new BrowserWindow({
+      width: 380, height: 210, show: true, frame: false, resizable: false,
+      alwaysOnTop: true, title: "正在安全关闭",
+      webPreferences: { contextIsolation: true },
+    });
+    void notice.loadURL(shutdownNoticeDataUrl());
+  } catch { notice = null; }   // 窗口起不来不该拦住关机
+  const done = (why: string): void => {
+    appendLog(`[shutdown] ${why}`);
+    if (notice !== null && !notice.isDestroyed()) notice.destroy();
+    app.exit(0);   // 已经 preventDefault 过一次；再 quit() 会再走一遍这个钩子
+  };
+  // 上限之内等它收尾，超时如实说并放行——挂住不退会教会用户下次直接硬杀。
+  const cap = setTimeout(() => done(`收尾超过 ${SHUTDOWN_TIMEOUT_MS}ms，放行退出`), SHUTDOWN_TIMEOUT_MS);
+  const startedAt = Date.now();
+  void s.stop().then(
+    () => { clearTimeout(cap); done(`收尾完成，用了 ${Date.now() - startedAt}ms`); },
+    (err: unknown) => { clearTimeout(cap); done(`收尾报错：${String(err)}`); },
+  );
 });

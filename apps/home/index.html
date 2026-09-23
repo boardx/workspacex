@@ -23,8 +23,8 @@
 <meta property="og:description" content="Not another collaboration tool. The operating layer where humans and AI do the work together — with shared context, verifiable action and organizational memory.">
 <meta property="og:site_name" content="WorkspaceX">
 <meta property="og:url" content="https://workspacex.boardx.us/">
-<meta property="og:locale" content="en">
-<meta property="og:locale:alternate" content="zh_Hans">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
 <meta property="og:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -111,23 +111,6 @@
 </head>
 <body>
 
-<!-- Shared brand mark. Defined once; both the header and footer logos <use> it,
-     so the gradient cannot be orphaned by editing one of them. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
-      <stop offset="0" style="stop-color:var(--c-1)"/>
-      <stop offset="0.52" style="stop-color:var(--c-2)"/>
-      <stop offset="1" style="stop-color:var(--c-3)"/>
-    </linearGradient>
-    <symbol id="mark" viewBox="0 0 32 32">
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
-      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
-    </symbol>
-  </defs>
-</svg>
 
 <a class="skip-link" href="#main" data-i18n="a11y.skip">Skip to content</a>
 
@@ -138,8 +121,7 @@
   <div class="nav__inner">
     <div class="brand">
       <a class="brand__home" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
-        <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
-        <span class="brand__name">WorkspaceX</span>
+        <img class="brand__logo" src="assets/img/logo.webp" width="113" height="30" alt="">
       </a>
       <a class="brand__tag" href="#questions" data-i18n="nav.stage">Early access</a>
     </div>
@@ -166,7 +148,7 @@
         <span data-i18n="nav.github">GitHub</span>
       </a>
       <a class="btn btn--primary" data-mobile-move href="https://devapp.boardx.us" rel="noopener">
-        <span class="btn__label" data-i18n="nav.launch">Launch App</span>
+        <span class="btn__label" data-i18n="nav.launch">Launch</span>
         <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
       <button class="nav__burger" id="burger" aria-expanded="false" aria-controls="navlinks" aria-label="Menu" data-i18n-aria="aria.menu"><span></span></button>
@@ -201,7 +183,10 @@
         <span data-i18n="hero.cta1">Launch Workspace</span>
         <svg class="btn__arrow" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-      <a class="btn btn--ghost btn--lg" href="#shift" data-i18n="hero.cta2">See how it works</a>
+      <!-- #loop, not #shift. "See how it works" spent thirty-one rounds pointing at
+     the market-thesis section; the section that answers it is the loop, which
+     is what the footer has always called "How it works". -->
+      <a class="btn btn--ghost btn--lg" href="#loop" data-i18n="hero.cta2">See how it works</a>
     </div>
 
     <div class="hero__chain" data-animates data-diagram="chain" role="img" aria-labelledby="chain-desc"></div>
@@ -579,6 +564,20 @@
       <div class="trust__graph" data-diagram="graph" data-reveal="right" role="img" aria-labelledby="graph-desc"></div>
       <p class="visually-hidden" id="graph-desc" data-i18n="trust.graphDesc">A knowledge graph linking people, projects, decisions, evidence, actions, artifacts and memory.</p>
     </div>
+
+    <!-- The person the whole chain is for, who never signs in. The plan calls
+         this role the one earlier versions missed entirely, and notes that
+         lineage exists in the engine while nothing presents it in the
+         artifact — a capability is not an experience. -->
+    <div class="reader" data-reveal>
+      <h3 class="reader__title" data-i18n="reader.title">And the person who never signs in</h3>
+      <p class="reader__lead" data-i18n="reader.lead">Most of the people a result has to convince will never open this product. They are handed a document, in a meeting, by someone they trust, and they have to decide. Everything above is worth nothing to them unless it survives the trip into the artifact — so these are requirements on what comes out, not on the runtime. We are designing to them now; a result that cannot meet them is not finished.</p>
+      <div class="grid grid--3 reader__props" data-stagger>
+        <div class="prop"><b data-i18n="reader.p1">You can tell what was generated</b><span data-i18n="reader.p1s">Which passages a model wrote, and which a person did, marked in the document itself — not in a settings page nobody opens.</span></div>
+        <div class="prop"><b data-i18n="reader.p2">Every claim opens to its source</b><span data-i18n="reader.p2s">Doubt a sentence, click it, and the original is there. If a conclusion cannot be opened, that is itself the finding.</span></div>
+        <div class="prop"><b data-i18n="reader.p3">Uncertainty is shown, not smoothed</b><span data-i18n="reader.p3s">Confidence and what is still unknown are part of the result. A document with no visible doubt is not more trustworthy; it is less.</span></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -694,7 +693,7 @@
       <div class="prop"><b data-i18n="unit.p1">Deliverable</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
       <div class="prop"><b data-i18n="unit.p2">Verifiable</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
       <div class="prop"><b data-i18n="unit.p3">Reusable</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task, per seat or per outcome — because the boundary is real.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Per task or per unit of work, because the boundary is real. Seats are a way in, not the meter — and outcome pricing only ever works where we run it.</span></div>
     </div>
   </div>
 </section>
@@ -705,48 +704,79 @@
 <section class="section" id="open">
   <div class="wrap">
     <header class="section__head" data-reveal>
-      <span class="eyebrow" data-i18n="open.eyebrow">11 — Open by design</span>
-      <h2 data-i18n="open.title">Own the semantics. Not every implementation.</h2>
-      <p class="lead" data-i18n="open.lead">Writing software keeps getting cheaper. What is worth owning is the core abstraction, the collaboration runtime and the human–agent experience. Everything else should be adopted or kept replaceable.</p>
+      <span class="eyebrow" data-i18n="open.eyebrow">11 — What is open, what is sold</span>
+      <h2 data-i18n="open.title">Three kinds of thing. Only one of them is a product you buy.</h2>
+      <p class="lead" data-i18n="open.lead">The dividing line is not a feature list. Whatever makes this a neutral work layer should be open. Whatever accumulates with you is what we sell. And there is a third pile most vendors never name: the machinery we run to keep this going, which you neither receive nor pay for.</p>
+      <p class="lead" data-i18n="open.layer">And it is worth saying which layer this is a bet on. WorkspaceX sits in the AI workspace layer — the same one as Copilot, Glean, Lark and DingTalk — not the agent-infrastructure layer beneath it, which already has plenty of open projects. In this layer there is not one open option. That is what makes opening this a wedge rather than a ticket of entry, and it is why the licence question further down this page is not a detail.</p>
     </header>
 
     <div class="open__cols" data-stagger>
       <section class="open__col" style="--i:0">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">Build</span><span class="open__sub" data-i18n="open.c1.s">What we must own</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c1.t">Open</span><span class="open__sub" data-i18n="open.c1.s">The neutral work layer</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c1.i1">Workspace object model</li>
-          <li data-i18n="open.c1.i2">Ontology &amp; context</li>
-          <li data-i18n="open.c1.i3">Human–agent experience</li>
-          <li data-i18n="open.c1.i4">Harness &amp; evidence</li>
-          <li data-i18n="open.c1.i5">Canvas semantic model</li>
-          <li data-i18n="open.c1.i6">Memory &amp; lineage</li>
+          <li data-i18n="open.c1.i1">The work-unit runtime</li>
+          <li data-i18n="open.c1.i2">Agent harness &amp; evidence</li>
+          <li data-i18n="open.c1.i3">Context engine</li>
+          <li data-i18n="open.c1.i4">Model routing &amp; adapters</li>
+          <li data-i18n="open.c1.i5">Sandbox &amp; local desktop</li>
+          <li data-i18n="open.c1.i6">The work-unit format spec</li>
         </ul>
       </section>
       <section class="open__col" style="--i:1">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">Adopt</span><span class="open__sub" data-i18n="open.c2.s">Proven infrastructure</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c2.t">Sold</span><span class="open__sub" data-i18n="open.c2.s">What accumulates with you</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c2.i1">Yjs / CRDT</li>
-          <li data-i18n="open.c2.i2">Postgres / pgvector</li>
-          <li data-i18n="open.c2.i3">Object storage</li>
-          <li data-i18n="open.c2.i4">WebRTC / LiveKit</li>
-          <li data-i18n="open.c2.i5">OpenUSD / WebXR</li>
-          <li data-i18n="open.c2.i6">Queue &amp; workflow infra</li>
+          <li data-i18n="open.c2.i1">Methodology &amp; thresholds</li>
+          <li data-i18n="open.c2.i2">Evaluation sets &amp; guardrails</li>
+          <li data-i18n="open.c2.i3">Hosted execution &amp; quota</li>
+          <li data-i18n="open.c2.i4">SSO, audit, multi-tenancy</li>
+          <li data-i18n="open.c2.i5">Compliance export</li>
+          <li data-i18n="open.c2.i6">Marketplace &amp; settlement</li>
         </ul>
       </section>
       <section class="open__col" style="--i:2">
-        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">Integrate</span><span class="open__sub" data-i18n="open.c3.s">Kept replaceable</span></h3>
+        <h3 class="open__h"><span class="open__label" data-i18n="open.c3.t">Not delivered</span><span class="open__sub" data-i18n="open.c3.s">Ours to run, never yours to buy</span></h3>
         <ul class="open__list" role="list">
-          <li data-i18n="open.c3.i1">LLM providers</li>
-          <li data-i18n="open.c3.i2">M365 / Google / Lark / DingTalk</li>
-          <li data-i18n="open.c3.i3">Identity &amp; SSO</li>
-          <li data-i18n="open.c3.i4">CRM / ERP / GitHub</li>
-          <li data-i18n="open.c3.i5">Cloud &amp; on-premise</li>
-          <li data-i18n="open.c3.i6">MCP &amp; connectors</li>
+          <li data-i18n="open.c3.i1">Coordination plane</li>
+          <li data-i18n="open.c3.i2">Release &amp; deploy console</li>
+          <li data-i18n="open.c3.i3">Incident board</li>
+          <li data-i18n="open.c3.i4">Agent fleet state</li>
+          <li data-i18n="open.c3.i5">CI metrics</li>
+          <li data-i18n="open.c3.i6">Key-rotation ledger</li>
         </ul>
       </section>
     </div>
 
-    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">Open core, open standards, open ecosystem — with governance, reliability and scale as the enterprise edge.</p>
+    <!-- The plan calls this the core difference from Copilot and Lark, and
+         says it has only ever been implied. Written out, with what backs each
+         line today: a promise whose status is hidden is not a promise. -->
+    <div class="exit" data-reveal>
+      <h3 class="exit__title" data-i18n="exit.title">What happens when you stop paying</h3>
+      <p class="exit__lead" data-i18n="exit.lead">This is the question open source is actually for, and the one most vendors answer only in a contract you read once. Here is the commitment, and beside each line, honestly, how much of it is real today.</p>
+      <ul class="exit__list" role="list">
+        <li class="exit__item">
+          <b data-i18n="exit.i1.t">The open part keeps working.</b>
+          <span data-i18n="exit.i1.b">Not a trial that expires. The work layer is yours to keep running, on your own machines, for as long as you want it.</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i1.s">Blocked on the licence. There isn’t one yet, so today this is an intention, not a right.</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i2.t">Your data comes out whole.</b>
+          <span data-i18n="exit.i2.b">Everything you put in and everything the system produced, in open formats, without asking us.</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i2.s">Partly built. Individual artifacts export today; one command for the whole workspace does not exist yet.</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i3.t">There is a written way down.</b>
+          <span data-i18n="exit.i3.b">A stated path from hosted to self-hosted, with a checklist on both sides — not a support ticket and a shrug.</span>
+          <span class="exit__state" data-state="planned" data-i18n="exit.i3.s">Not built. Named in the plan, not yet designed.</span>
+        </li>
+        <li class="exit__item">
+          <b data-i18n="exit.i4.t">We do not switch anything off.</b>
+          <span data-i18n="exit.i4.b">No dark launch of a kill switch, no feature moved behind a paywall after you built on it. What is open stays open.</span>
+          <span class="exit__state" data-state="live" data-i18n="exit.i4.s">In force. It is a rule about our own conduct, and the one line here that needs no engineering.</span>
+        </li>
+      </ul>
+    </div>
+
+    <p class="keyline open__keyline" data-reveal data-i18n="open.keyline">Whatever makes us a neutral work layer is open; whatever accumulates with you is sold. Naming the third pile is the honest part — it is how we run this, not something you are buying, and not something you should have to trust blindly.</p>
   </div>
 </section>
 
@@ -764,6 +794,11 @@
           <span data-i18n="proof.cta">Read the repository</span>
           <svg class="btn__arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
+          <!-- Deliberately not a "Contribute" button. The machinery a first
+               contribution needs does not exist yet, and the plan's most likely
+               failure is maintainers burning out, not users failing to arrive.
+               Inviting the work before we can receive it is how that happens. -->
+          <p class="proof__note" data-i18n="proof.note">Reading is the invitation. Contributing is not open yet — there is no contributor guide, no fast local setup and nothing labelled for newcomers, and opening the door before those exist would waste your afternoon and bury the few people answering. When it opens it will be because those are ready, not because it sounded welcoming.</p>
       </div>
 
       <ul class="proof__rules" data-reveal="right" role="list">
@@ -789,7 +824,7 @@
     <div class="faq" data-stagger>
       <details class="faq__item">
         <summary data-i18n="faq.q1">Where does our data live?</summary>
-        <p data-i18n="faq.a1">Wherever you decide. Cloud, your own infrastructure, a hybrid, or local-first on the machine itself. Deployment is a configuration choice, not a different edition with features removed.</p>
+        <p data-i18n="faq.a1">Wherever you decide. Cloud, your own infrastructure, a hybrid, or local-first on the machine itself — the same code runs in all of them, and deployment is a configuration choice rather than a cut-down build. Edition is a separate question from location: what the commercial edition adds is the governance layer above the work layer — single sign-on, audit, multi-tenancy, compliance export — and you can run that on your own infrastructure too.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q2">What happens when we want to change models?</summary>
@@ -805,11 +840,31 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q5">Is this open source?</summary>
-        <p data-i18n="faq.a5">Open core. The workspace object model, the agent and skill format and the connector interfaces are open and readable — the source is on GitHub. Governance, reliability and scale are the commercial edge. You should be able to read how your work is executed.</p>
+        <p data-i18n="faq.a5">The repository is public and readable today — that part is simply true, and you can check it. The licence is not: there is no LICENSE file in it yet, so nothing there grants you the right to run or modify it. We are not going to describe that as open source until it is. The intent is open core — the workspace object model, the agent and skill format and the connector interfaces open; governance, reliability and scale commercial — and the licence decision is the next step, not a detail.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q9">Do you train on our data?</summary>
+        <p data-i18n="faq.a9">No, and not as a setting you have to go and find. Your material is not training data by default, and using any of it would require asking you specifically and getting a specific yes — not a clause in terms you accepted once. This is a commitment rather than a feature, which means the honest way to hold us to it is a contract, and we would rather you asked for that than took a sentence on a marketing page as sufficient.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q10">What does the free tier actually get?</summary>
+        <p data-i18n="faq.a10">The whole product, with limited capacity — not a demonstration with the useful parts removed. The commitment we are designing to is that the free tier stays functionally complete and that running out of quota degrades you to a smaller model rather than cutting you off mid-task: a task that stops halfway is worse than a task that finishes less well. What the paid tiers add is capacity, hosting we run, the governance layer, and the methodology content — the three columns above, in other words.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q11">What happens to the junior people who do this work today?</summary>
+        <p data-i18n="faq.a11">The honest answer is that this depends on how you deploy it, and we have taken a side in the design. Human review is an explicit step in the loop — a named person, a recorded decision, and accountability that sits with them — which makes the junior analyst the reviewer rather than the replaced. That is a real job and a better one, and it is also the only arrangement in which the evidence trail means anything: a chain nobody is answerable for is a chain nobody will defend. We will not pretend the question does not exist, and we will not tell you it has no downside.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q7">What actually leaves the machine when we work locally?</summary>
+        <p data-i18n="faq.a7">Nothing, and it is enforced below the application rather than by our own good behaviour. Local-only work runs inside a guard that patches the single call that every outbound network connection in the process has to pass through — so a vendor SDK’s telemetry, or an analytics beacon inside a transitive dependency, is refused exactly as our own code would be. A machine on your own network counts as another machine and is refused too. The claim is deliberately narrow, because the narrow one is the true one: while work belongs to a local-only workspace, nothing leaves it. Outside that boundary a normal deployment’s traffic is normal traffic, and we are not going to pretend otherwise.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q8">We have to run a security review. What can we ask for?</summary>
+        <p data-i18n="faq.a8">Today: the source, which is public and readable, and two audits you can run yourself rather than take our word for — a dependency licence inventory and a scan of the history for committed credentials, both scripts in the repository. Not today: there are no releases yet, so there is no signed release with a bill of materials attached, and no offline patch bundle for an air-gapped install. Both are commitments we have written down and neither exists, which is a more useful answer than a questionnaire response that implies they do.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q6">What stage is it at?</summary>
-        <p data-i18n="faq.a6">Early, and honest about it. We are building with a small number of design partners who have real, verifiable, high-value work — not running a waitlist. If that is you, the next step is a conversation, not a signup form.</p>
+        <p data-i18n="faq.a6">Early, and honest about it. You can sign up and start on your own today — that door is open to anyone, and nobody is on a waitlist. Separately from that, we work closely with a small number of design partners who have real, verifiable, high-value work, and that one is a conversation rather than a form. Which of the two you want depends on whether you are trying the thing or betting a workstream on it.</p>
       </details>
     </div>
   </div>
@@ -842,6 +897,22 @@
         <p data-i18n="hz.h3b">Work units — not seats — as the thing that gets measured and paid for, on a runtime anyone can build on.</p>
       </li>
     </ol>
+
+      <!-- The plan commits H1 to five and a half of twelve roles and writes
+           「暂不承诺」 against the rest, on the grounds that saying so is more
+           credible than pretending to cover them. A roadmap without this list
+           is a wish list. -->
+      <div class="notyet" data-reveal>
+        <h3 class="notyet__title" data-i18n="hz.not.t">What “Now” does not include</h3>
+        <p class="notyet__lead" data-i18n="hz.not.b">A roadmap that only lists what is coming is a wish list. These are the things people reasonably expect at this point and will not get from us yet, said here rather than discovered in a call.</p>
+        <ul class="notyet__list" role="list">
+          <li data-i18n-html="hz.not.i1"><b>A marketplace for skills.</b> It does not exist. The developer portal is an internal operations window, not a storefront, and building the market is work that has not started.</li>
+          <li data-i18n-html="hz.not.i2"><b>Selling this under your own brand.</b> The name is hard-coded throughout the source. Making it a single constant is the prerequisite, and it has not been done.</li>
+          <li data-i18n-html="hz.not.i3"><b>A partner or reseller programme.</b> No tiers, no certification, no deal registration, no partner sandbox.</li>
+          <li data-i18n-html="hz.not.i4"><b>A community programme beyond two narrow things.</b> A first contribution and a security disclosure channel. No forum, no office hours, no governance model.</li>
+          <li data-i18n-html="hz.not.i5"><b>Anything to the organizations being assessed, beyond the baseline.</b> Disclosure, a correction and appeal route, and no training on their data are commitments from day one. A designed experience for them is not.</li>
+        </ul>
+      </div>
   </div>
 </section>
 
@@ -849,14 +920,50 @@
      CTA
      ====================================================================== -->
 <section class="cta" id="contact">
-  <div class="wrap wrap--text">
-    <h2 data-reveal data-i18n="cta.title">Bring us work that can be checked.</h2>
-    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">We are looking for design partners with real, verifiable, high-value work — and for ecosystem partners building agents, skills and connectors on top.</p>
+  <div class="wrap">
+    <!-- Prose keeps the reading measure; the four routes are a table and take
+         the section's full width. One wrapper for both made the routes 44rem
+         wide and cramped, which the render showed before anything else. -->
+    <div class="cta__head">
+    <h2 data-reveal data-i18n="cta.title">Start where you actually are.</h2>
+    <p class="lead cta__lead" data-reveal data-i18n="cta.lead">People arrive here from four different places, and the first step is not the same one. Find yours below — and where a route is not open yet, it says so rather than letting you discover it.</p>
+    </div>
+
+      <!-- Four doors, because four different people arrive here and the first
+           step is not the same one. Built from the role journeys in
+           docs/research/open-source-business-model.md §4: entry point, first
+           real moment, and — where the route is not open — the reason. -->
+      <ul class="doors" role="list" data-stagger>
+        <li class="door" style="--i:0">
+          <span class="door__who" data-i18n="doors.d1.w">You want to try it</span>
+          <b class="door__step" data-i18n="doors.d1.s">Sign up and open a workspace.</b>
+          <span class="door__then" data-i18n-html="doors.d1.t">No sales call, no waitlist. The moment that should convince you is not the tour — it is putting one real document in and getting back a conclusion with its source attached, so you can check it instead of believing it.</span>
+        </li>
+        <li class="door" style="--i:1">
+          <span class="door__who" data-i18n="doors.d2.w">You have to read it before you trust it</span>
+          <b class="door__step" data-i18n="doors.d2.s">Read the source. It is public.</b>
+          <span class="door__then" data-i18n-html="doors.d2.t">Go and find the egress guard rather than taking the claim from us: local-only work is refused at the network layer, under the application, not promised in a document. What is <em>not</em> open yet is running it yourself — there is no release, no one-command setup, and no licence. That is the same list as further up this page.</span>
+        </li>
+        <li class="door" style="--i:2">
+          <span class="door__who" data-i18n="doors.d3.w">Someone on your team already uses it</span>
+          <b class="door__step" data-i18n="doors.d3.s">Ask them to share the evidence trail, not a demo.</b>
+          <span class="door__then" data-i18n-html="doors.d3.t">The thing worth seeing is a conclusion you did not watch being made, which you can then check yourself. If you cannot, that is the answer — and it is the answer you want before a team depends on this rather than after.</span>
+        </li>
+        <li class="door" style="--i:3">
+          <span class="door__who" data-i18n="doors.d4.w">Someone sent you a result</span>
+          <b class="door__step" data-i18n="doors.d4.s">Nothing to install, nothing to sign into.</b>
+          <span class="door__then" data-i18n-html="doors.d4.t">You are the person most of this is for and the one least likely to ever open the product. Doubt one line and open it to its source. Everything above is worth nothing to you if it did not survive the trip into the document in your hands.</span>
+        </li>
+      </ul>
+
     <div class="cta__actions" data-reveal>
-      <a class="btn btn--primary btn--lg" href="mailto:hello@boardx.us">
-        <span data-i18n="cta.primary">Become a design partner</span>
+      <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
+        <span data-i18n="cta.primary">Sign up and start</span>
       </a>
-      <a class="btn btn--ghost btn--lg" href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="cta.secondary">Read the source</a>
+      <!-- The old primary. It is the right action for one of the four doors,
+           not for all of them, so it keeps the line that was this section's
+           title before the doors were listed above it. -->
+      <a class="btn btn--ghost btn--lg" href="mailto:hello@boardx.us" data-i18n="cta.secondary">Bring us work that can be checked</a>
     </div>
   </div>
 </section>
@@ -870,19 +977,18 @@
     <div class="footer__grid">
       <div class="footer__col footer__col--brand">
         <a class="brand" href="#top" aria-label="WorkspaceX home" data-i18n-aria="aria.home">
-          <svg class="brand__mark" aria-hidden="true"><use href="#mark"/></svg>
-          <span class="brand__name">WorkspaceX</span>
+          <img class="brand__logo" src="assets/img/logo.webp" width="113" height="30" alt="">
         </a>
         <p class="footer__blurb" data-i18n="footer.blurb">The open operating workspace for human + AI collaboration. A BoardX product.</p>
       </div>
       <div class="footer__col">
         <h3 class="footer__h" data-i18n="footer.h1">Product</h3>
         <ul>
-          <li><a href="#loop" data-i18n="footer.l1">How it works</a></li>
-          <li><a href="#capabilities" data-i18n="footer.l9">What is in it</a></li>
+          <li><a href="#loop" data-i18n="footer.l1">The Loop</a></li>
+          <li><a href="#capabilities" data-i18n="footer.l9">Inside</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
           <li><a href="#trust" data-i18n="footer.l3">Trust &amp; evidence</a></li>
-          <li><a href="#open" data-i18n="footer.l4">Open ecosystem</a></li>
+          <li><a href="#open" data-i18n="footer.l4">What is open</a></li>
         </ul>
       </div>
       <div class="footer__col">

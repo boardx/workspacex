@@ -36,6 +36,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { FeedbackTarget } from "@/lib/live-feedback";
+import { ApiError } from "@/lib/api-client";
 import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
@@ -260,7 +261,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
  * 之后提交请求体里带上它的 id。
  */
 describe("FB-5 网络层失败的可读性与重试", () => {
-  it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文", async () => {
+  it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是一句人话，不是那行英文", async () => {
     // ⚠ 不用 `mockRejectedValueOnce`——打字提交会先打一次 `/feedback/structure-draft`
     //   起 AI 标题（被静默吞掉，不影响这条用例），真正要断言的失败发生在随后的
     //   `/feedback` 提交请求上，两次调用都该拒绝成同一种网络层失败。
@@ -268,7 +269,11 @@ describe("FB-5 网络层失败的可读性与重试", () => {
     openDialogFor({ kind: "product" });
     await fillAndSubmit("点了没反应。批准卡点了不动");
     const err = await screen.findByTestId("feedback-submit-error");
-    expect(err.textContent).toContain("无法连接服务器");
+    /*
+     * 迭代 35 起这句话来自单源 `lib/design-failure.ts`（本文件那份本地 describeFailure 已并进去）。
+     * 断言要的一直是「屏上不是那行英文、而是一句能照着做的话」，措辞跟着单源走，意图不变。
+     */
+    expect(err.textContent).toContain("连不上服务器");
     expect(err.textContent).not.toContain("Failed to fetch");
     expect(err.textContent).toContain("没有被保存");
   });
@@ -294,7 +299,8 @@ describe("FB-5 网络层失败的可读性与重试", () => {
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [file] } });
 
       const errEl = await screen.findByTestId(/^feedback-attachment-error-/);
-      expect(errEl.textContent).toContain("无法连接服务器");
+      expect(errEl.textContent).toContain("连不上服务器"); // 同上：单源措辞
+      expect(errEl.textContent).not.toContain("Failed to fetch");
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
       fireEvent.click(screen.getByTestId(/^feedback-attachment-retry-/));
@@ -647,5 +653,42 @@ describe("feedback tags", () => {
       button === "feedback-submit" ? "/feedback" : "/feedback/drafts",
       expect.objectContaining({ body: expect.objectContaining({ tags: ["Mobile", "最终标签"] }) }),
     ));
+  });
+});
+
+describe("迭代 35：提反馈这个框——内部码不上屏，丢掉的东西要说", () => {
+  it("契约错误不再把 reasonCode 端给用户", async () => {
+    /*
+     * ⭐ 反证锚点：把本文件那份本地 describeFailure 放回去（`err.reasonCode ?? http_N`）⇒ 这条红。
+     * 那份代码的注释原来逐字写着「带 reasonCode 的契约错误**照旧原样给出**」——
+     * 而这是普通人提反馈的入口，功能层面的失败恰恰最需要一句人话：
+     * 他要知道自己刚写的那段还在不在、该重试还是该找人。
+     */
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/feedback" && opts?.method === "POST") throw new ApiError(404, "FEEDBACK_NOT_FOUND", {});
+      return { items: [] };
+    });
+    openDialogFor({ kind: "product" });
+    await fillAndSubmit("这里有个问题");
+    const err = await screen.findByTestId("feedback-submit-error");
+    expect(err.textContent).not.toContain("FEEDBACK_NOT_FOUND");
+    expect(err.textContent).not.toContain("http_404");
+    expect(err.textContent).toContain("找不到了");
+  });
+
+  it("一次选超过剩余名额 ⇒ 说清只收下了几个，而不是悄悄丢掉", async () => {
+    /*
+     * ⭐ 反证锚点：去掉 quotaNotice ⇒ 这条红。
+     * 同一个动作里「类型不对」是逐个点名说明的，而超量的那几个被 slice 掉却不说一声——
+     * 用户只会以为它们也传上去了。
+     */
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    openDialogFor({ kind: "product" });
+    const png = (n: string) => new File([new Uint8Array([1])], n, { type: "image/png" });
+    const six = [png("1.png"), png("2.png"), png("3.png"), png("4.png"), png("5.png"), png("6.png")];
+    fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: six } });
+    const note = await screen.findByTestId("feedback-attachment-quota");
+    expect(note.textContent).toContain("只收下了 5 个");
+    expect(note.textContent).toContain("1 个没加进来");
   });
 });

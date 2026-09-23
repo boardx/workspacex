@@ -123,7 +123,73 @@ export function PrototypeInspector({
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(node));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { setDraft(toDraft(node)); setError(null); }, [node]);
+  /** 刚刚自动应用了上一个节点的改动——说一句，别让它是一件悄悄发生的事。 */
+  const [autoApplied, setAutoApplied] = React.useState<string | null>(null);
+
+  /**
+   * 迭代 39（UIUX 第 19 轮）——**改了不按「应用」，一点别的东西就全没了**。
+   *
+   * 这一屏写着「按『应用』才画到画布上」，但它没说的是：在按之前点画布上另一个元素，
+   * 这个 effect 会把草稿整个重置。用户改完一段文案、顺手去点下一个要改的东西——
+   * 那段文案在两次点击之间消失，屏上不出一个字。这是本屏最高频的一次丢失。
+   *
+   * 取舍：**切走之前自动应用**，而不是弹一个框拦住他。理由是这一步有撤销（画布上方那个），
+   * 而「拦住」会把最常见的一条路（改一个、再改下一个）变成每次多按一下。
+   * 自动应用完在新节点上说一句「已自动应用」，不做静默的事。
+   */
+  /** `onSaved` 每次渲染都是新函数，用 ref 承接，免得下面那个 effect 跟着重挂。 */
+  const onSavedRef = React.useRef(onSaved);
+  onSavedRef.current = onSaved;
+  /**
+   * 上一次渲染时「选中的是谁、草稿是什么」。**不能**在 effect 的清理函数里读当前 ref
+   * ——清理跑在新一轮 commit 里，那时 ref 已经指向新节点了；这里记的是上一轮的快照。
+   */
+  const snapRef = React.useRef<{ node: PrototypeNode; draft: Draft } | null>(null);
+
+  React.useEffect(() => {
+    const prev = snapRef.current;
+    /*
+     * ⚠ 2026-09-23 本地真栈实测（`scripts/local-session/design-loop-session.mjs` S08）抓到：
+     * 这个 effect 依赖的是 `node` **对象**，而服务端每次写回都返回一整份新项目——
+     * 当前选中的节点 id 没变，对象却是新的，于是 effect 又跑一遍，把刚设上的
+     * 「已经帮你应用了」当场清掉。自动应用因此变回了静默的——正是 R19 说不许的那件事。
+     * 单测没抓到，是因为 mock 回的是**同一个**项目对象，节点身份从来不变。
+     *
+     * 所以分两种：
+     *   · 换了节点（id 变了）⇒ 重置草稿、清提示、自动应用上一个节点；
+     *   · 同一个节点、对象换新（服务端刷新）⇒ **不清提示**；草稿只在用户没改过时跟着刷新
+     *     ——否则上一个节点的写回一回来，他在这个节点上刚打的字就被覆盖掉了。
+     */
+    const switched = prev === null || prev.node.id !== node.id;
+    if (!switched) {
+      if (Object.keys(diff(prev.node, prev.draft)).length === 0) setDraft(toDraft(node));
+      return;
+    }
+    setDraft(toDraft(node));
+    setError(null);
+    setAutoApplied(null);
+    if (prev === null) return;
+    const pid = prev.node.id;
+    const changed = diff(prev.node, prev.draft);
+    if (pid === undefined || Object.keys(changed).length === 0) return;
+    void (async () => {
+      try {
+        const out = await patchPrototype(projectId, [{ op: "setProps", id: pid, props: changed }], summaryOf("改了", prev.node));
+        onSavedRef.current(out.project);
+        setAutoApplied(prototypeNodeLabel(prev.node));
+      } catch {
+        // 自动应用失败不抢屏：用户此刻在另一个节点上，只说一句「没保住」。
+        setError(`上一个节点（${prototypeNodeLabel(prev.node)}）的改动没能保存，回去再改一次。`);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node]);
+
+  /** 每次渲染之后刷新快照——上面那个 effect 靠它认出「切走之前是什么样」。 */
+  React.useEffect(() => {
+    snapRef.current = { node, draft };
+  });
+
 
   const changes = diff(node, draft);
   const dirty = Object.keys(changes).length > 0;
@@ -191,8 +257,10 @@ export function PrototypeInspector({
   const renderField = (f: (typeof fields)[number]) => (
         <div key={f.key} className={cn("flex gap-1", f.kind === "bool" ? "flex-row items-center justify-between" : "flex-col")}>
           <label htmlFor={fieldId(f.key)} className="text-10 font-medium text-muted-foreground">{f.label}</label>
-          {f.kind === "text" && <Input id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
-          {(f.kind === "multiline" || f.kind === "lines") && <Textarea id={fieldId(f.key)} rows={f.kind === "lines" ? 4 : 3} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {/* 单行框里按回车就是「改好了」——原来回车什么也不发生，人只能去找那个按钮。 */}
+          {f.kind === "text" && <Input id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void apply(); } }} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {/* `lines` 是「一行一项」——这件事此前只写在代码注释里，框里一个字都没说。 */}
+          {(f.kind === "multiline" || f.kind === "lines") && <Textarea id={fieldId(f.key)} rows={f.kind === "lines" ? 4 : 3} placeholder={f.kind === "lines" ? "一行一项" : undefined} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "enum" && (
@@ -220,9 +288,12 @@ export function PrototypeInspector({
   return (
     <section className="flex flex-col gap-2 border-b border-border p-3" data-testid="design-inspector">
       <div className="flex items-center gap-1.5 text-12 font-medium">
-        <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" /> {prototypeNodeLabel(node)}
+        <SlidersHorizontal aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        {/* 文本节点的标签可以有二十多个字：不截就把右边那格类型挤出面板。 */}
+        <span className="min-w-0 truncate" data-testid="design-inspector-title">{prototypeNodeLabel(node)}</span>
         {/* 迭代 28：节点 id 是内部标识，原来直接占着标题栏右半边。留在 title 里供排查用，不再摆在脸上。 */}
-        <span className="ml-auto text-10 text-muted-foreground" title={id} data-testid="design-inspector-node-id">{node.type}</span>
+        {/* 迭代 39：这一格原来印的是 `bottomnav` / `chip` 这种内部类型名——对着屏幕的人不是写代码的人。 */}
+        <span className="ml-auto text-10 text-muted-foreground" title={id} data-testid="design-inspector-node-id">{designPrototype.PROTOTYPE_NODE_TYPE_LABEL[node.type]}</span>
       </div>
       <p className="truncate text-10 text-muted-foreground" data-testid="design-inspector-path">{path.map(prototypeNodeLabel).join(" › ")}</p>
       {fields.length === 0 && <p className="text-11 text-muted-foreground">这种节点没有可改的属性。</p>}
@@ -250,6 +321,12 @@ export function PrototypeInspector({
       {onSetLinks !== undefined && id !== undefined && slots > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-border pt-2" data-testid="design-inspector-links">
           <p className="text-10 font-medium text-muted-foreground">点了之后跳到哪一页</p>
+          {/* 只有一页时那个下拉里只有「无」，原来不解释——人会以为是坏了。 */}
+          {frames.length < 2 && (
+            <p className="text-10 text-muted-foreground" data-testid="design-inspector-link-need-pages">
+              这个设计只有一页，还没有别的页可以跳。让 AI 再画一页，这里就能选了。
+            </p>
+          )}
           {Array.from({ length: slots }, (_, slot) => (
             <label key={slot} className="flex items-center gap-1.5 text-11">
               <span className="min-w-0 flex-1 truncate text-muted-foreground">{slotLabel(slot)}</span>
@@ -266,9 +343,24 @@ export function PrototypeInspector({
         迭代 28：改完输入框什么都不会发生——要按「应用」。原来界面上没有任何一处说这件事，
         普通人改完文案就走了，回头发现画布没变。有未保存改动时明说。
       */}
+      {autoApplied !== null && (
+        <p className="text-10 text-muted-foreground" role="status" data-testid="design-inspector-auto-applied">
+          上一个节点（{autoApplied}）的改动已经帮你应用了；不想要的话用画布上方的「撤销」。
+        </p>
+      )}
       {dirty && (
-        <p className="text-10 text-muted-foreground" data-testid="design-inspector-dirty">
-          改了 {Object.keys(changes).length} 处，按「应用」才画到画布上。
+        <p className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground" data-testid="design-inspector-dirty">
+          <span>改了 {Object.keys(changes).length} 处，按「应用」才画到画布上。</span>
+          {/* 改错了想全部回到原样，原来只能一个字段一个字段自己改回去。 */}
+          <button
+            type="button"
+            onClick={() => { setDraft(toDraft(node)); setError(null); }}
+            disabled={busy}
+            data-testid="design-inspector-revert"
+            className="underline underline-offset-2 transition-colors duration-fast hover:text-background-foreground"
+          >
+            还原这几处
+          </button>
         </p>
       )}
       <div className="flex items-center gap-2 pt-1">
@@ -278,17 +370,24 @@ export function PrototypeInspector({
         {/* 迭代 15：复制 / 上移 / 下移。到头了按钮禁用，而不是发一个什么都不做的请求。 */}
         {id !== undefined && path.length > 1 && onNodeOps !== undefined && (
           <>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="复制这个节点（⌘D）"
+            {/* 灰掉的图标按钮最难猜：三个都把「为什么不能按」写进 title 和读屏名字。 */}
+            <Button variant="ghost" size="icon" className="h-6 w-6"
+              title={duplicateOps(prototype, id) === null ? "这个节点复制不了（它上面没有可以放副本的容器）" : "复制这个节点（⌘D）"}
+              aria-label={duplicateOps(prototype, id) === null ? "这个节点复制不了（它上面没有可以放副本的容器）" : "复制这个节点"}
               onClick={() => void onNodeOps(duplicateOps(prototype, id), "复制这个节点")}
               disabled={busy || duplicateOps(prototype, id) === null} data-testid="design-inspector-duplicate">
               <Copy aria-hidden className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="上移一格"
+            <Button variant="ghost" size="icon" className="h-6 w-6"
+              title={moveOps(prototype, id, -1) === null ? "已经是同一层里的第一个了" : "上移一格"}
+              aria-label={moveOps(prototype, id, -1) === null ? "已经是同一层里的第一个了" : "上移一格"}
               onClick={() => void onNodeOps(moveOps(prototype, id, -1), "上移这个节点")}
               disabled={busy || moveOps(prototype, id, -1) === null} data-testid="design-inspector-move-up">
               <ArrowUp aria-hidden className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" title="下移一格"
+            <Button variant="ghost" size="icon" className="h-6 w-6"
+              title={moveOps(prototype, id, 1) === null ? "已经是同一层里的最后一个了" : "下移一格"}
+              aria-label={moveOps(prototype, id, 1) === null ? "已经是同一层里的最后一个了" : "下移一格"}
               onClick={() => void onNodeOps(moveOps(prototype, id, 1), "下移这个节点")}
               disabled={busy || moveOps(prototype, id, 1) === null} data-testid="design-inspector-move-down">
               <ArrowDown aria-hidden className="h-3 w-3" />

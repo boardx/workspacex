@@ -217,12 +217,14 @@ export function initScene(selector, onProgress) {
   // The loop only runs while the scene is anywhere near the viewport; off
   // screen there is nothing to animate and no reason to burn frames.
   let near = true;
+  let io = null;
   if ('IntersectionObserver' in window) {
     near = false;
-    new IntersectionObserver(
+    io = new IntersectionObserver(
       ([e]) => { near = e.isIntersecting; if (near) onScroll(); },
       { rootMargin: '200px 0px' },
-    ).observe(track);
+    );
+    io.observe(track);
   }
 
   const onScrollGuarded = () => { if (near) onScroll(); };
@@ -238,6 +240,12 @@ export function initScene(selector, onProgress) {
     running = false;
     window.removeEventListener('scroll', onScrollGuarded);
     window.removeEventListener('resize', onScrollGuarded);
+    /* The observer was the one thing detach did not release. `track` is a
+       persistent element — it is not rebuilt with the diagrams — so every
+       re-wire left another live observer holding this closure, and the count
+       climbed with the window: six observers at boot, twelve after three
+       breakpoint crossings, none ever disconnected. */
+    io?.disconnect();
   };
 }
 

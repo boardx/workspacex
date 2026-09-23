@@ -123,5 +123,5 @@ export function ExpertPickerDialog({
 }
 
 function CategoryButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-pressed={active} onClick={onClick} className={active ? "shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" : "shrink-0 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"}>{children}</button>;
+  return <button type="button" aria-pressed={active} onClick={onClick} className={active ? "shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" : "shrink-0 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-background-foreground"}>{children}</button>;
 }
