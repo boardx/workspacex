@@ -121,6 +121,62 @@ for (const m of css.matchAll(/^\s*(--bp-[\w-]+):\s*([^;]+);/gm)) {
     bpLeaks.push(`${m[1]}: ${value} — no media query uses it`);
   }
 }
+/* --- the CJK tail of the font stacks ------------------------------------
+   Both real faces are latin-only, so every Han character on the Chinese page
+   is resolved by the fallback list. A platform missing from it does not
+   degrade to a different sans — it degrades to the browser default, which on
+   a Chinese Windows is SimSun, a serif. Nothing on the English page changes
+   when this list is wrong, which is exactly why it went unnoticed: these
+   stacks named no Windows face at all, and named Noto by its WEB font name
+   rather than the one Linux and Android install. */
+const CJK_PLATFORMS = [
+  ['macOS / iOS', ['PingFang SC', 'Heiti SC']],
+  ['older macOS', ['Hiragino Sans GB']],
+  ['Windows', ['Microsoft YaHei', 'SimHei']],
+  ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
+];
+const cjkGaps = [];
+for (const m of css.matchAll(/^\s*(--font-(?:display|body|mono)):\s*([^;]+);/gm)) {
+  for (const [platform, families] of CJK_PLATFORMS) {
+    if (!families.some((f) => m[2].includes(`"${f}"`))) {
+      cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
+    }
+  }
+}
+report('font stacks with no CJK face for a platform', cjkGaps);
+/* --- tracking that does not know which script it is tracking -------------
+   Every letter-spacing on this site is a Latin convention — wide on small
+   uppercase labels, tight on display type — and both are wrong for Han. They
+   now multiply by --track-open / --track-tight, which the Chinese page
+   redefines once. A literal em value written tomorrow would quietly bring
+   Latin tracking back onto sixty-odd Chinese labels, and nothing on the
+   English page would look any different. */
+const trackLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    const m = /letter-spacing:\s*([^;]+)/.exec(line);
+    if (!m) return;
+    const v = m[1].trim();
+    if (/^(0|normal)$/.test(v) || /var\(--track-(open|tight)\)/.test(v)) return;
+    trackLeaks.push(`${basename(file)}:${i + 1}: letter-spacing: ${v}`);
+  });
+}
+report('tracking that ignores the page language — multiply by var(--track-open) or var(--track-tight)', trackLeaks);
+/* --- hover on devices that cannot hover ----------------------------------
+   On a touch screen, :hover is applied by a tap and stays until the next tap
+   somewhere else. None of this site's 21 hover rules asked whether the device
+   could hover, so on a phone every tapped control kept its hover styling —
+   and on the loop rail, the step you had tapped stayed lit while the scroll
+   moved the real current step on: two steps that both looked current. */
+const hoverLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    if (!line.includes(':hover')) return;
+    if (/@media\s*\(hover:\s*hover\)/.test(line)) return;
+    hoverLeaks.push(`${basename(file)}:${i + 1}: ${line.trim().slice(0, 70)}`);
+  });
+}
+report(':hover outside @media (hover: hover) — it sticks after a tap on a phone', hoverLeaks);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);

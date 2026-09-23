@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -167,6 +168,8 @@ export function TodayBoardLive() {
   const [projectId, setProjectId] = React.useState<string | null>(null);
   const [data, setData] = React.useState<GetMyTodayOut | null>(null);
   const [loading, setLoading] = React.useState(false);
+  /** 「这个组织还没有项目」与「有项目但没有任务」是两回事，界面上要分开说。 */
+  const [noProject, setNoProject] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const refresh = React.useCallback(async () => {
@@ -181,9 +184,16 @@ export function TodayBoardLive() {
         setProjectId(pid);
       }
       if (pid === null) {
+        // 这个组织一个项目都没有。**这不是错误，但也不能什么都不说**——
+        // 改之前这里 `setData(null); return;`，于是界面上只剩标题和一个按钮，
+        // 既不是加载中也不是报错，就是一片空白，看起来像加载失败了。
+        // 而本地版的新用户**必然**是零项目（装完就没有项目），所以这一屏
+        // 是每个新用户都会撞上的第一印象。
         setData(null);
+        setNoProject(true);
         return;
       }
+      setNoProject(false);
       const out = await getMyToday(pid);
       setData(out);
     } catch (e) {
@@ -246,6 +256,27 @@ export function TodayBoardLive() {
       </header>
 
       {error && <p className="text-12 text-destructive" data-testid="tasks-live-error">{error}</p>}
+      {noProject && !loading && (
+        <div
+          data-testid="tasks-live-no-project"
+          className="rounded-lg border border-dashed border-border px-6 py-10 text-center"
+        >
+          <p className="text-13 text-card-foreground">这里还没有任务，因为你还没有项目。</p>
+          <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
+            「我的今天」汇总的是各个项目里轮到你的事。先建一个项目，它就有内容了。
+            <br />
+            也可以先不建项目，直接去「对话」里交一件事给 AI。
+          </p>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <Button size="sm" variant="primary" asChild data-testid="tasks-live-no-project-projects">
+              <Link href="/projects">去建一个项目</Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild data-testid="tasks-live-no-project-chat">
+              <Link href="/chat">先去对话</Link>
+            </Button>
+          </div>
+        </div>
+      )}
       {loading && !data && <p className="text-12 text-muted-foreground" data-testid="tasks-live-loading-data">加载中…</p>}
 
       {data && (

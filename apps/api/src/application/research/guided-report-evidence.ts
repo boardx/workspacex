@@ -26,8 +26,10 @@ export function reportQuestions(sections: ReportSection[]): EvidenceQuestion[] {
 }
 export function canonicalEvidenceSources(state: ResearchRuntime) {
   const unique = new Map<string, ResearchRuntime["sources"][number]>();
+  const fetchedMode = state.sources.some((source) => source.document);
   for (const source of state.sources) {
     if (source.decision !== "accepted") continue;
+    if (fetchedMode && !source.document) continue;
     const url = new URL(source.url); url.hash = "";
     const previous = unique.get(url.href);
     if (!previous || previous.content.length < source.content.length) unique.set(url.href, source);
@@ -41,8 +43,9 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
   if (!sources.length) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
   const chunks = sources.flatMap((source) => {
     const result = [];
-    for (let start = 0, index = 0; start < source.content.length; start += 6000, index++) {
-      result.push({ sourceId: source.id, alias: aliases.find((item) => item.sourceId === source.id)?.alias, chunkId: `source:${source.id}/chunk:${index}`, title: source.title.slice(0, 300), content: source.content.slice(start, start + 6000), contentKind: "search_excerpt" as const });
+    const evidenceText = source.document?.text ?? source.content;
+    for (let start = 0, index = 0; start < evidenceText.length; start += 6000, index++) {
+      result.push({ sourceId: source.id, alias: aliases.find((item) => item.sourceId === source.id)?.alias, chunkId: `source:${source.id}/chunk:${index}`, title: source.title.slice(0, 300), content: evidenceText.slice(start, start + 6000), contentKind: source.document ? "fetched_document" as const : "search_excerpt" as const });
     }
     return result;
   });

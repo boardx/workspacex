@@ -20,8 +20,22 @@
 <meta property="og:description" content="What this website collects, what it does not, and why it has no analytics, no cookies and no third-party requests.">
 <meta property="og:site_name" content="WorkspaceX">
 <meta property="og:url" content="https://workspacex.boardx.us/privacy.html">
-<meta property="og:locale" content="en">
-<meta property="og:locale:alternate" content="zh_Hans">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+<!-- The card. This page had og:title, description and url and no image at
+     all, so a shared privacy link previewed as text with a blank thumbnail —
+     and `check-links`'s og:image rule, which names this file among its three
+     pages, was validating a tag that was not here. It is linked from the
+     footer of every page and named as the policy in .well-known/security.txt,
+     so it does get shared. -->
+<meta property="og:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://workspacex.boardx.us/assets/img/og.jpg">
+<meta name="twitter:image:alt" content="WorkspaceX — the open operating workspace for human and AI collaboration.">
 
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
@@ -80,7 +94,7 @@
     <p data-i18n="doc.p2">None. The site sets one key in your browser’s local storage, <code>wsx.langhint.dismissed</code>, and only if you dismiss the banner offering the other language. It exists so the banner does not come back. It never leaves your browser, and clearing site data removes it.</p>
 
     <h2 data-i18n="doc.h3">Third parties</h2>
-    <p data-i18n="doc.p3">There are none on this site. The fonts are served from this domain rather than a font CDN, specifically so that loading a page does not disclose your address to a third party. Nothing here calls out to another origin — a Content-Security-Policy on every response enforces that, rather than leaving it to good intentions.</p>
+    <p data-i18n="doc.p3">There are none on this site. The fonts are served from this domain rather than from a font service run by somebody else, specifically so that loading a page does not disclose your address to a third party. Nothing here calls out to another origin — a Content-Security-Policy on every response enforces that, rather than leaving it to good intentions.</p>
 
     <h2 data-i18n="doc.h4">Logs</h2>
     <p data-i18n="doc.p4">The host that serves these files keeps ordinary web server logs, which include IP addresses, for a limited period and for operational purposes. We do not build profiles from them.</p>
@@ -97,7 +111,7 @@
     <h2 data-i18n="doc.h8">Changes</h2>
     <p data-i18n="doc.p8">This page is in the same public repository as the site itself, so its history is the change log.</p>
 
-    <p class="doc__meta"><span data-i18n="doc.updated">Last updated</span> · 2026-09-22 · <a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="doc.source">source</a></p>
+    <p class="doc__meta"><span data-i18n="doc.updated">Last updated</span> · 2026-09-23 · <a href="https://github.com/boardx/workspacex" rel="noopener" data-i18n="doc.source">source</a></p>
   </div>
 </main>
 

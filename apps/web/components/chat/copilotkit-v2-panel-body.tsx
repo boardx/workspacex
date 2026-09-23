@@ -2014,7 +2014,7 @@ export function CopilotKitV2PanelBody({
               title="回到最新消息（Ctrl/Cmd+End）"
               aria-label="回到最新消息"
               onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
-              className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-background-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowDown className="h-4 w-4" aria-hidden />
             </button>

@@ -30,6 +30,16 @@
 
 /*
   Cache-Control: public, max-age=0, must-revalidate
+  # Served over HTTPS, so say so for the next visit too. Without
+  # includeSubDomains on purpose: this domain does not control what every
+  # sibling subdomain serves, and a promise made on their behalf is one this
+  # site cannot keep.
+  Strict-Transport-Security: max-age=31536000
+  # Nothing here is meant to be embedded in, or to share a browsing context
+  # group with, anybody else. Both are free on a static site that loads only
+  # its own origin.
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN

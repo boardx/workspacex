@@ -19,19 +19,7 @@
 # 按 (path, content) **子串匹配**豁免——不是按行号：文件里增删无关行不会让豁免失效，
 # 但只要这一行文本本身变了（包括迁移完成后改成正确 token），豁免立刻失效，逼着改动者
 # 重新过一遍 U12 规则，不会被静默放行。
-
-components/chat/active-file-panel.tsx	? "bg-muted text-foreground"
-components/chat/active-file-panel.tsx	<pre className="whitespace-pre-wrap break-words font-mono text-11 text-foreground" data-testid="active-file-plaintext">
-components/chat/chat-skill-mount-panel.tsx	<span className="text-11 text-foreground">{named}</span>
-components/chat/preset-dispatch.tsx	<p className="mb-2 flex items-center gap-1.5 text-11 font-medium text-foreground">
-components/chat/preset-dispatch.tsx	<p className="text-11 font-medium text-foreground">{a.q}</p>
-components/chat/preset-dispatch.tsx	<p className="mt-1 text-11 text-foreground">{a.answer}</p>
-components/chat/preset-dispatch.tsx	<div className="font-medium text-foreground">{preset.name}</div>
-components/chat/preset-dispatch.tsx	className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-10 text-foreground"
-components/chat/preset-dispatch.tsx	<div className="text-11 font-medium text-foreground">{p.name}</div>
-components/chat/preset-dispatch.tsx	<span className="block text-11 font-medium text-foreground">{s.name}</span>
-components/chat/preset-dispatch.tsx	className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
-components/chat/preset-dispatch.tsx	<span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-foreground">
-components/chat/agent-approval-panel.tsx	className="h-32 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-10 text-foreground"
-components/chat/copilotkit-v2-approval-dialog.tsx	className="h-40 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-11 text-foreground"
-components/chat/copilotkit-v2-panel-body.tsx	className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+#
+# 2026-09-23（#3892）：清单里的 15 条已全部迁移成 `text-background-foreground`，清空。
+# U12 逐行判据有盲区（同一行一个合法 `-foreground` 会把裸的一起滤掉），全仓
+# 按 token、跨行的判定见 `.harness/scripts/lint-tailwind-color-tokens.mjs`。

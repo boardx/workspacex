@@ -366,7 +366,7 @@ export function ShellChrome({
                 aria-label="收起左栏"
                 data-testid="shell-left-collapse"
                 onClick={() => togglePanel("left")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
               >
                 ‹
               </button>
@@ -379,7 +379,7 @@ export function ShellChrome({
               aria-label="展开左栏"
               data-testid="shell-left-expand"
               onClick={() => togglePanel("left")}
-              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
             >
               ›
             </button>
@@ -406,7 +406,7 @@ export function ShellChrome({
                 aria-label="收起右栏"
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:flex"
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-background-foreground xl:flex"
               >
                 <X aria-hidden className="h-3.5 w-3.5" />
               </button>
@@ -419,7 +419,7 @@ export function ShellChrome({
               aria-label="展开右栏"
               data-testid="shell-right-expand"
               onClick={() => togglePanel("right")}
-              className="hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+              className="hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground xl:flex"
             >
               ‹
             </button>

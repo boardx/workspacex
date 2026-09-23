@@ -65,6 +65,23 @@ pnpm --filter @repo/local-runtime run doctor            # 硬件 / 工具链自�
 ./scripts/local-bundle/fetch-models.sh            # 打 DMG 才需要：把聊天/嵌入模型（3.8 GB）导出到 apps/desktop/models 随包，首次启动不联网
 ```
 
+## 已实测（2026-09-23，Linux 容器，无 Ollama）：设计工作台真栈会话
+
+一条命令把「新建 → AI 画两页 → 改属性 → 导出 → 分享 → 收回 → 删除确认」在真栈上走一遍，
+截图并出报告（报告与截图见 `evidence/local-desktop/design-loop-2026-09-23/`）：
+
+```bash
+pnpm --filter @repo/local-runtime run up -- --data-dir <dir> --no-pull
+node scripts/local-session/design-loop-session.mjs --data-dir <dir>
+```
+
+- 本机没有模型时，脚本自己起 `scripts/local-session/standin-model.mjs` 占住 11434，回一套写死的
+  两页原型——证明的是「模型之后的链路」，**不是**模型质量。
+- ⚠ 远程执行容器里 `127.0.0.1:2024` 被沙箱自己的 init 进程（PID 1）占着，deep-agent 起不来；
+  加 `--ports deepAgent=2124`。**不要**去杀 2024 上的进程。
+- 首次跑就抓到两处单测没抓到的问题（#3899）：属性面板「已经帮你应用了」被服务端写回
+  当场清掉；详情页底栏还是机器日期。
+
 ## 打包（macOS，Night 0 目标）
 
 ```bash

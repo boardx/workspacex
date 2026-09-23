@@ -92,6 +92,85 @@ for (const page of ['index.html', 'privacy.html', '404.html']) {
   }
 }
 
+/* A card without alt text. Mutation testing found this: breaking og:image:alt
+   changed nothing anybody could detect. The rule that looked like it covered
+   it — check-html's "images without alt" — guards a population of zero,
+   because this site has no <img> elements at all; the hero backdrop is a CSS
+   background and everything else is inline SVG. The alt a social card carries
+   is the only alt text on the site, and nothing read it. */
+for (const page of ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html']) {
+  const html = readFileSync(join(root, page), 'utf8');
+  if (!/<meta property="og:image"/.test(html)) continue;
+  for (const [attr, name] of [['property', 'og:image:alt'], ['name', 'twitter:image:alt']]) {
+    refs += 1;
+    const m = new RegExp(`<meta ${attr}="${name}" content="([^"]*)"`).exec(html);
+    if (!m) problems.push(`${page}: declares og:image and no ${name}`);
+    else if (m[1].trim().length < 10) problems.push(`${page}: ${name} is empty or too short`);
+  }
+}
+
+/* og:locale is language_TERRITORY. hreflang is language-Script. They are two
+   grammars for the same idea, and the page had the hreflang answer sitting in
+   the og slot: `zh_Hans`, which no social crawler's locale list contains —
+   they take zh_CN, zh_TW, zh_HK. `en` was the same mistake in the other
+   direction. Nothing renders differently, which is why it survived: the card
+   is built on somebody else's machine. */
+for (const page of ['index.html', 'privacy.html', 'zh/index.html', 'zh/privacy.html']) {
+  const html = readFileSync(join(root, page), 'utf8');
+  for (const m of html.matchAll(/<meta property="(og:locale(?::alternate)?)" content="([^"]*)"/g)) {
+    refs += 1;
+    if (!/^[a-z]{2}_[A-Z]{2}$/.test(m[2])) {
+      problems.push(`${page}: ${m[1]} is "${m[2]}" — og:locale is language_TERRITORY (en_US, zh_CN), not a hreflang tag`);
+    }
+  }
+  /* And the two grammars must not be confused the other way either. */
+  for (const m of html.matchAll(/hreflang="([^"]*)"/g)) {
+    if (/_/.test(m[1])) problems.push(`${page}: hreflang="${m[1]}" uses an underscore — hreflang is language-Script`);
+  }
+}
+
+/* An anchor with two names. Round 32 found the hero's second button
+   pointing at the market-thesis section while the footer had always called
+   the loop "How it works" — two labels for one destination, and the reader
+   cannot tell they are the same place. Round 47 found the next one by hand:
+   the nav said "Open", the footer said "Open ecosystem", and the section had
+   been renamed to "What is open, what is sold" in between.
+
+   Rather than guess whether two labels mean the same thing, this reports
+   every in-page anchor that is given more than one name. Agreeing is then a
+   decision someone makes, which is the point — the allow-list is for the
+   cases where two names really are right. */
+/* Two refinements, both from the first run, which reported four anchors and
+   was wrong about two of them:
+
+   — A call to action is not a label. "See how it works" is a sentence in the
+     hero; the nav and the footer are the two places that NAME a destination,
+     and those two are what must agree. Buttons are excluded.
+   — "Trust" and "Trust & evidence" are not two names, they are one name and
+     a longer form of it. Only labels where neither contains the other are
+     reported. */
+const ANCHOR_ALIASES_ALLOWED = new Set([]);
+const norm = (t) => t.replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&')
+  .replace(/\s+/g, ' ').trim().toLowerCase();
+for (const page of ['index.html', 'zh/index.html']) {
+  const html = readFileSync(join(root, page), 'utf8');
+  const names = new Map();
+  for (const m of html.matchAll(/<a([^>]*)href="(#[\w-]+)"([^>]*)>([\s\S]*?)<\/a>/g)) {
+    if (/class="[^"]*btn/.test(m[1] + m[3])) continue;
+    const label = norm(m[4]);
+    if (!label) continue;
+    if (!names.has(m[2])) names.set(m[2], new Set());
+    names.get(m[2]).add(label);
+  }
+  for (const [href, set] of names) {
+    const labels = [...set];
+    const related = labels.every((a) => labels.some((b) => a !== b && (b.includes(a) || a.includes(b))));
+    if (labels.length > 1 && !related && !ANCHOR_ALIASES_ALLOWED.has(href)) {
+      problems.push(`${page}: ${href} is called ${labels.map((n) => `"${n}"`).join(' and ')} — one destination, two names`);
+    }
+  }
+}
+
 /* The sitemap is what a crawler is told exists. A <loc> pointing at a page
    that does not, or a page that exists and is absent from the sitemap, are
    both silent: nothing on the site looks any different either way. */

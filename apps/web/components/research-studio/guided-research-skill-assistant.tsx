@@ -155,7 +155,7 @@ export function GuidedResearchSkillAssistant({
       <p className="mt-2 text-12 leading-5 text-muted-foreground">通过对话优化当前步骤；建议只有点击应用后才会修改内容。</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {QUICK_PROMPTS[step].map((prompt) => (
-          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-foreground disabled:bg-disabled disabled:text-disabled-foreground">
+          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground disabled:bg-disabled disabled:text-disabled-foreground">
             {prompt}
           </button>
         ))}
@@ -163,7 +163,7 @@ export function GuidedResearchSkillAssistant({
       {sendError && <p className="mt-2 text-11 text-destructive" role="alert">模型暂时不可用，内容没有被 Mock 替代。请重试。</p>}
       <div data-testid="research-skill-messages" className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto pr-1">
         {skillState.messages.map((message) => (
-          <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-foreground"}>
+          <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-background-foreground"}>
             {message.text}
           </div>
         ))}
