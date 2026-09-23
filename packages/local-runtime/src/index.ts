@@ -28,6 +28,8 @@ export {
   replacedDirName, restoreBackup, restoreIntoDataDir, type RestoreResult,
 } from "./restore";
 
+export { diagnoseStartupFailure, type StartupDiagnosis, type StartupRemedy } from "./startup-failure";
+export { stopListenerOnPort } from "./processes";
 export { dataDirAdvice, dataDirAdviceBody, type DataDirAdvice } from "./data-dir-advice";
 
 export { gatekeeperAccepted, isAdhoc, releaseVerdict, type ReleaseVerdict, type SigningFacts } from "./releasable";
