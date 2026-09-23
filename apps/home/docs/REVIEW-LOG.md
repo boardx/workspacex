@@ -1044,3 +1044,24 @@ against its unselected neighbour as a computed signature.
 | 8 | **My own probe, wrong first.** The first nav measurement ran at the top of the page, where no link is `aria-current`, and fell back to the first link — comparing one unselected link against another, a test that could only pass. | The suite scrolls into a section before measuring, and says why. |
 | 9 | **Checked and clean.** SVG is exempt from forced colors: the diagrams keep their real gradients, and `.d-label--on` still measures `rgb(18, 8, 13)` — round 34's `--on-grad` fix survives in this mode, which is exactly where losing it would have hurt most. |
 | 10 | **Checked and clean.** `.grad-text` paints through `background-clip` like the wordmark does, but declares `color: transparent` rather than `-webkit-text-fill-color`, and `color` *is* forced — measured `rgb(255, 255, 255)`. The trap that the wordmark needed a rule for does not repeat here. |
+
+### Round 38 — what accumulates
+
+Thirty-seven rounds, and the page had never been run **twice**. Every suite
+loads it, exercises it once and closes the context, so anything that grows per
+re-wire grew unobserved. Crossing the narrow breakpoint rebuilds the diagrams
+and re-wires the loop scene — which is what rotating a tablet, dragging a
+window across a monitor edge or opening devtools does, repeatedly.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every re-wire added another click handler to the same six rail items.** Measured: 6 at boot, **42 after three crossings**, and one click on a step firing **seven** smooth scrolls to the same place. At five crossings, eleven. | The handlers are kept as explicit removers and released at the top of the next wire. |
+| 2 | `detachScene` existed and worked — it released the scene's own scroll and resize listeners. It **knew nothing about the rail's**, because those are added by the caller. A teardown that covers what one function allocated, called by a function that allocates more. | — |
+| 3 | **`initScene`'s IntersectionObserver was never disconnected.** Twelve created across three crossings, **zero disconnected**. `track` is persistent markup — not rebuilt with the diagrams — so every observer stayed live, holding a closure over a diagram that had already been replaced. | `io.disconnect()` in the detach that was already releasing everything else. |
+| 4 | Nothing could have caught any of it: the page was never re-wired under test. | An `accumulation` suite — five breakpoint crossings and 120 clicks — asserting live observers, DOM nodes, svg count, history entries, and that one rail click still scrolls exactly once. Red on the previous code at 11 scrolls and 16 observers. |
+| 5 | **My first measurement was wrong, and it accused working code.** A global `addEventListener` tally showed the architecture diagram's rows going 5 → 35 and I read it as a third leak. Those rows are rebuilt on every render: their handlers die with the nodes. A tally of registrations is not a count of live handlers. | The suite counts **behaviour** — how many scrolls one click produces — and says in a comment why the tally was rejected. |
+| 6 | The same reasoning saved the observer finding from being over-claimed: observers are counted as `made − disconnected`, which is a live count, not a tally. | — |
+| 7 | An `AbortController` would have been four lines shorter. `signal` in `addEventListener` options is Safari 15, and `check-compat.mjs` shows this page still carrying fallbacks for **Safari 14**. One new baseline assumption is not worth four lines — and the reason is written beside the code so the next person does not have to re-derive it. | — |
+| 8 | **Checked and clean.** DOM nodes: **937 at boot, 937 after five crossings, 937 after 120 clicks.** The diagram rebuild leaves nothing detached behind it, and the svg count holds at 16. |
+| 9 | **Checked and clean.** `history.length` is 2 at boot and 2 after 120 clicks across the tabs, the switch and the architecture layers — round 33's `replaceState` holds under repetition, which is the only condition that could have broken it. |
+| 10 | **Checked and did not over-claim.** The obvious story for a leaked observer is that it resurrects a stale animation loop. Measured: rAF callbacks during one scroll nudge were **87 before the crossings and 82 after** — no multiplication. The leak was real; its worst-case story was not, and the log says so rather than telling it. |

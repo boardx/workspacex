@@ -680,6 +680,90 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* -------------------------------------------------------- accumulation --- */
+/* Nothing here had ever been run twice. Every suite loads the page, exercises
+   it once and closes the context, so anything that grows per re-wire grew
+   unobserved: crossing the narrow breakpoint rebuilds the diagrams and
+   re-wires the loop scene, and a reader who rotates a tablet, drags a window
+   or opens devtools crosses it repeatedly.
+   Measured before the fix, at three crossings: rail click handlers 6 -> 42,
+   one click on a step firing seven smooth scrolls to the same place; and
+   twelve IntersectionObservers created, none disconnected. */
+{
+  const r = reporter('accumulation — the page re-wired, five times over');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    window.__io = { made: 0, gone: 0 };
+    const IO = window.IntersectionObserver;
+    window.IntersectionObserver = class extends IO {
+      constructor(...a) { super(...a); window.__io.made += 1; }
+      disconnect() { window.__io.gone += 1; return super.disconnect(); }
+    };
+    /* Counting scrollTo calls is the only honest way to count LIVE handlers.
+       A tally of addEventListener grows when a rebuilt element gets a handler
+       its detached predecessor also had — which is not a leak, and reading it
+       as one accuses working code. The arch diagram's rows look exactly like
+       that: 5 -> 35 on the tally, and zero of them still attached to
+       anything in the document. */
+    window.__scrolls = 0;
+    const real = window.scrollTo.bind(window);
+    window.scrollTo = (...a) => { window.__scrolls += 1; return real(...a); };
+  });
+  await page.goto(base + '/', { waitUntil: 'load' });
+  await page.waitForTimeout(1200);
+
+  const state = async () => evaluateWithin(page, 15_000, 'accumulation state', () => ({
+    live: window.__io.made - window.__io.gone,
+    nodes: document.getElementsByTagName('*').length,
+    svgs: document.querySelectorAll('svg').length,
+    history: history.length,
+  }));
+  const clickRail = async () => evaluateWithin(page, 15_000, 'rail click', () => {
+    window.__scrolls = 0;
+    document.querySelector('.rail__item')?.click();
+    return window.__scrolls;
+  });
+
+  const boot = await state();
+  r.equal(await clickRail(), 1, 'a rail click at boot does not scroll exactly once');
+
+  for (let i = 0; i < 5; i += 1) {
+    r.step(`crossing ${i + 1}`);
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.waitForTimeout(350);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(350);
+  }
+  const after = await state();
+
+  r.equal(await clickRail(), 1, 'after five crossings, one rail click scrolls more than once');
+  r.equal(after.live, boot.live, 'live IntersectionObservers after five crossings');
+  r.equal(after.nodes, boot.nodes, 'DOM nodes after five crossings');
+  r.equal(after.svgs, boot.svgs, 'svg elements after five crossings');
+
+  /* And the same question of the controls that do not rebuild: a hundred and
+     twenty clicks must leave the document exactly the size it was. */
+  r.step('120 clicks');
+  await evaluateWithin(page, 20_000, 'clicks', () => {
+    const tabs = [...document.querySelectorAll('.cases__tab')];
+    const sw = [...document.querySelectorAll('.switch__btn')];
+    const layers = [...document.querySelectorAll('[data-layer]')];
+    for (let i = 0; i < 40; i += 1) {
+      tabs[i % tabs.length].click();
+      sw[i % sw.length].click();
+      layers[i % layers.length].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(600);
+  const clicked = await state();
+  r.equal(clicked.nodes, boot.nodes, 'DOM nodes after 120 clicks');
+  r.equal(clicked.live, boot.live, 'live IntersectionObservers after 120 clicks');
+  r.equal(clicked.history, boot.history, 'history entries after 120 clicks');
+  await ctx.close();
+  ok = r.finish() && ok;
+}
+
 /* ------------------------------------------------------- forced colors --- */
 /* The resilience suite has run in forced colors since it was written, and it
    asked the wrong question: does anything render, is any text transparent, is
