@@ -690,8 +690,15 @@ for (const [lang, path] of LANGS) {
     lang: document.documentElement.lang,
     han: (document.body.innerText.match(/[一-鿿]/g) ?? []).length,
     sections: document.querySelectorAll('section').length,
+    switchLangs: [...document.querySelectorAll('.langswitch__btn')]
+      .map((a) => a.getAttribute('lang') ?? a.getAttribute('hreflang') ?? '?').join('|'),
   }));
   r.check(/^zh/.test(stat.lang), `lang is "${stat.lang}"`);
+  /* Both switch buttons name their own language, in both directions. The
+     zh->en half was added in round 25 and never gated; mutation testing put
+     it back and nothing noticed. A fix with no script is this repository's
+     own named failure mode. */
+  r.equal(stat.switchLangs, 'en|zh-Hans', 'the language switch labels its own languages');
   r.check(stat.han > 800, `only ${stat.han} Han characters without JS`);
   r.equal(stat.sections, facts.sections, 'sections present without JS');
   await noJs.close();

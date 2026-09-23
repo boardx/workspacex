@@ -1004,3 +1004,24 @@ saying so is more useful than padding the table.
 | 8 | **Checked and dismissed.** The workspace illustration drops 22 elements at 390 px. What it drops is the agent roster, and the stylesheet says why: *"Three columns at phone width would be three unreadable slivers. Keep the canvas and the evidence trail — they are the argument."* Verified the evidence trail is 4 of 4 visible at both widths. |
 | 9 | **Checked and clean.** Every diagram label sits inside its `viewBox` at 390, 768 and 1280, in both languages. |
 | 10 | **Checked and clean.** The English loop diagram shows no synthesis artefact — which is what isolated the problem to Han glyphs rather than to the style. |
+
+### Round 36 — who tests the tests
+
+Thirteen gates and nineteen browser suites, and none of them had ever been
+asked the only question that matters about a test: *does it fail when the
+thing it watches breaks?* So ten deliberate defects were injected one at a
+time, each one a plausible regression, and the whole suite run against each.
+**Eight caught, two missed.** Both misses were real.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **An image can lose its alt text and nothing notices.** | The rule that looked like it covered this — `check-html`'s "images without alt" — guards a population of **zero**: this site has no `<img>` elements at all. The hero backdrop is a CSS background, every diagram is inline SVG. |
+| 2 | The only alt text on the site is the **social card's**, and nothing read it. | A card-alt rule in `check-links.mjs`: any page declaring `og:image` must carry `og:image:alt` and `twitter:image:alt`, non-trivially. Proved red on an emptied alt. |
+| 3 | Writing it exposed the reason it had never fired: **`privacy.html` had no `og:image` at all.** It declared `og:title`, `description` and `url`, so a shared privacy link previewed as text with a **blank thumbnail** — and `check-links`'s existing og:image rule, which names this file among its three pages, was happily validating a tag that was not there. | The full card added, both languages. It is linked from the footer of every page and named as the policy in `.well-known/security.txt`; it does get shared. |
+| 4 | **The language switch can lose its `lang` attribute and nothing notices.** The zh→en half was added in round 25 — a real fix, correctly reasoned, shipped without a gate. | `r.equal(stat.switchLangs, 'en|zh-Hans', …)` in the bilingual suite. A fix with no script is **this repository's own named failure mode**, written into AGENTS.md, and eleven rounds of my own work walked into it. |
+| 5 | Eight of ten mutants were caught — a stale generated asset, a broken anchor, a drifted brand path, a wrong section number, a contrast regression, a missing manifest field, a CSP relaxation, a moved breakpoint. The gates that were built defensively, after a real bug, all held. | The two that missed were both rules written **speculatively**, guarding something that was not there. |
+| 6 | **My own error, recorded.** I grepped `og:image\|twitter:image` in `privacy.html`, saw nothing, concluded the page had no Open Graph tags at all, and added a complete duplicate block. Caught on re-read; `git checkout` and start again with only the missing tags. The grep answered exactly what I asked it, which was not what I wanted to know. |
+| 7 | **The same class of error twice in one round.** Counting og tags with a loose pattern counted an HTML **comment** that mentions `og:title` as a tag — so the file appeared to have a duplicate that did not exist. Twice. Resolved by matching `<meta property="og:title"` precisely. |
+| 8 | **The round's own change tripped a gate — correctly in shape, wrongly in scope.** Round 32's privacy-date fingerprint hashed *the whole file* minus the date line, so adding a social-card `<meta>` to the `<head>` demanded a new **"Last updated"** date for a policy whose text had not changed by one word. A gate that forces a false date, in the file whose entire job is keeping stated facts true. | Scoped to `<main>`. Proved both ways: a sentence added to the policy still fails it; a `<meta>` added to the head does not. |
+| 9 | **Checked and clean.** The gate on the gates still holds: `check-all.mjs` fails if any `check-*.mjs` exists that its own list does not call. It is the reason a new script cannot be written and then quietly not run. |
+| 10 | The generalisation, thirty-six rounds in: **the longest-surviving defects in this work were not in the page. They were in the things watching the page.** A gate written after a real bug is anchored to something that happened. A gate written from imagination guards whatever the imagination assumed — and when the assumption is wrong, it reports green forever. |

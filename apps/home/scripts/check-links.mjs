@@ -92,6 +92,23 @@ for (const page of ['index.html', 'privacy.html', '404.html']) {
   }
 }
 
+/* A card without alt text. Mutation testing found this: breaking og:image:alt
+   changed nothing anybody could detect. The rule that looked like it covered
+   it — check-html's "images without alt" — guards a population of zero,
+   because this site has no <img> elements at all; the hero backdrop is a CSS
+   background and everything else is inline SVG. The alt a social card carries
+   is the only alt text on the site, and nothing read it. */
+for (const page of ['index.html', 'privacy.html', '404.html', 'zh/index.html', 'zh/privacy.html']) {
+  const html = readFileSync(join(root, page), 'utf8');
+  if (!/<meta property="og:image"/.test(html)) continue;
+  for (const [attr, name] of [['property', 'og:image:alt'], ['name', 'twitter:image:alt']]) {
+    refs += 1;
+    const m = new RegExp(`<meta ${attr}="${name}" content="([^"]*)"`).exec(html);
+    if (!m) problems.push(`${page}: declares og:image and no ${name}`);
+    else if (m[1].trim().length < 10) problems.push(`${page}: ${name} is empty or too short`);
+  }
+}
+
 /* The sitemap is what a crawler is told exists. A <loc> pointing at a page
    that does not, or a page that exists and is absent from the sitemap, are
    both silent: nothing on the site looks any different either way. */

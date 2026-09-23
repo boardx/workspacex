@@ -56,10 +56,17 @@ const dateMatch = /<p class="doc__meta">[\s\S]*?·\s*(\d{4}-\d{2}-\d{2})\s*·/.e
 if (!dateMatch) problems.push('privacy.html: no "Last updated · YYYY-MM-DD ·" line to check');
 else {
   const date = dateMatch[1];
-  /* Everything except the date line itself, so re-dating alone is not a change
-     and a change is not masked by re-dating. */
+  /* The POLICY, not the file. This hashed the whole document minus the date
+     line, so adding a social-card <meta> to the <head> — which changes nothing
+     a reader of the policy can see — demanded a new "Last updated" date. A
+     gate that forces a false date is worse than no gate: this file's whole
+     purpose is to keep stated facts true. Scoped to <main>, minus the date
+     line, so re-dating alone is not a change and a change is not masked by
+     re-dating. */
+  const main = /<main[^>]*>([\s\S]*?)<\/main>/.exec(privacy);
+  if (!main) problems.push('privacy.html: no <main> to fingerprint');
   const prose = createHash('sha256')
-    .update(privacy.replace(/<p class="doc__meta">[\s\S]*?<\/p>/, ''))
+    .update((main?.[1] ?? '').replace(/<p class="doc__meta">[\s\S]*?<\/p>/, ''))
     .digest('hex').slice(0, 16);
 
   if (process.argv.includes('--update')) {
