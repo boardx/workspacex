@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@langchain/langgraph-checkpoint-postgres>@langchain/langgraph-checkpoint': 0.1.1
-
 patchedDependencies:
   '@cloudflare/next-on-pages@1.13.12':
     hash: vxkajos7bv46okupovvfunoezq
