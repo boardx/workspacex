@@ -122,6 +122,32 @@ for (const [name, path] of [['Policy', field('Policy')]]) {
   if (!existsSync(join(root, local))) problems.push(`security.txt: ${name} → /${local} does not exist`);
 }
 
+/* ---- the repository's own SECURITY.md ------------------------------------
+   The site publishes a security contact; the repository it points people at
+   publishes its own. They were different: security.txt named an address and
+   `SECURITY.md` still read `<安全联系邮箱，待填>` — a placeholder, on the
+   page a researcher actually lands on after being told to report responsibly.
+   One address, two files, and nothing held them together. */
+const repoRoot = (() => {
+  let dir = root;
+  for (let i = 0; i < 6; i += 1) {
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
+    dir = join(dir, '..');
+  }
+  return null;
+})();
+const contact = /^Contact:\s*mailto:(\S+)$/mi.exec(sec)?.[1];
+if (!repoRoot) problems.push('cannot find the repository root — SECURITY.md is unchecked');
+else if (!existsSync(join(repoRoot, 'SECURITY.md'))) problems.push('the repository has no SECURITY.md, and security.txt tells researchers to report there');
+else if (contact) {
+  const policy = readFileSync(join(repoRoot, 'SECURITY.md'), 'utf8');
+  if (/待填|TODO|TBD|<[^>]*邮箱[^>]*>|your-email/i.test(policy)) {
+    problems.push('SECURITY.md still carries a placeholder where the contact address goes');
+  } else if (!policy.includes(contact)) {
+    problems.push(`SECURITY.md does not name ${contact}, which security.txt publishes as the contact`);
+  }
+}
+
 if (problems.length) {
   console.error(`\n✗ deploy files that will not do what they say (${problems.length}):`);
   problems.forEach((p) => console.error(`    ${p}`));

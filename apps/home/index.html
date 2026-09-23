@@ -841,6 +841,14 @@
         <p data-i18n="faq.a5">The repository is public and readable today — that part is simply true, and you can check it. The licence is not: there is no LICENSE file in it yet, so nothing there grants you the right to run or modify it. We are not going to describe that as open source until it is. The intent is open core — the workspace object model, the agent and skill format and the connector interfaces open; governance, reliability and scale commercial — and the licence decision is the next step, not a detail.</p>
       </details>
       <details class="faq__item">
+        <summary data-i18n="faq.q7">What actually leaves the machine when we work locally?</summary>
+        <p data-i18n="faq.a7">Nothing, and it is enforced below the application rather than by our own good behaviour. Local-only work runs inside a guard that patches the single call that every outbound network connection in the process has to pass through — so a vendor SDK’s telemetry, or an analytics beacon inside a transitive dependency, is refused exactly as our own code would be. A machine on your own network counts as another machine and is refused too. The claim is deliberately narrow, because the narrow one is the true one: while work belongs to a local-only workspace, nothing leaves it. Outside that boundary a normal deployment’s traffic is normal traffic, and we are not going to pretend otherwise.</p>
+      </details>
+      <details class="faq__item">
+        <summary data-i18n="faq.q8">We have to run a security review. What can we ask for?</summary>
+        <p data-i18n="faq.a8">Today: the source, which is public and readable, and two audits you can run yourself rather than take our word for — a dependency licence inventory and a scan of the history for committed credentials, both scripts in the repository. Not today: there are no releases yet, so there is no signed release with a bill of materials attached, and no offline patch bundle for an air-gapped install. Both are commitments we have written down and neither exists, which is a more useful answer than a questionnaire response that implies they do.</p>
+      </details>
+      <details class="faq__item">
         <summary data-i18n="faq.q6">What stage is it at?</summary>
         <p data-i18n="faq.a6">Early, and honest about it. We are building with a small number of design partners who have real, verifiable, high-value work — not running a waitlist. If that is you, the next step is a conversation, not a signup form.</p>
       </details>
