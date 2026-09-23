@@ -1109,8 +1109,13 @@ export function DesignDetailScreen({
           </div>
         </div>
 
-        {/* 右：画布 / 说明 两 Tab */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/*
+          * 右：画布 / 说明 两 Tab。
+          * `min-h-0` 不能少：窄屏上外层是竖排，少了它这一栏的高度跟着内容走——
+          * 画布量到的「可用高度」就是画布自己撑出来的高度，缩放一变高度跟着变，永远停不下来
+          * （2026-09-23 CI 实测：375 下舞台高度 571→651→775→501… 来回跳，点不中任何元素）。
+          */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="design-detail-right">
           <div className="flex gap-1 border-b border-border px-4 pt-2">
             <DetailTab active={tab === "canvas"} onClick={() => setTab("canvas")} testid="design-detail-tab-canvas">原型画布</DetailTab>
             <DetailTab active={tab === "spec"} onClick={() => setTab("spec")} testid="design-detail-tab-spec">说明与验收标准</DetailTab>
