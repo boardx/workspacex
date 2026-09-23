@@ -482,6 +482,15 @@ const CASES = [
       const ks = [...document.querySelectorAll('.d-arch .d-arch__bracket text')].filter((t) => t.getBBox().width > 0 && t.textContent.trim());
       return { score: +(ks.length >= 2), note: `${ks.length} key labels` };
     })],
+  ['read.norepeat', '可读性', 'No element says the same sentence twice',
+    async (c) => c.desk.evaluate((lang) => {
+      const bad = [];
+      for (const e of document.querySelectorAll('main p, main li, main dd, main summary')) {
+        const ss = e.textContent.split(lang === 'zh' ? /[。！？]/ : /(?<=[.!?])\s+/).map((x) => x.trim().toLowerCase()).filter((x) => x.length > 12);
+        if (new Set(ss).size < ss.length) bad.push(e.textContent.trim().slice(0, 40));
+      }
+      return { score: +(bad.length === 0), note: bad.slice(0, 2).join(' | ') };
+    }, c.lang)],
   ['read.scan', '可读性', 'Each section can be skimmed: a heading plus a list, cards, a diagram or sub-headings',
     async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details') || s.querySelectorAll('h3').length >= 2); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
 ];

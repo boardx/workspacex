@@ -79,6 +79,21 @@ for (const m of html.matchAll(/\saria-([a-z]+)=/g)) {
   if (!ARIA.has(m[1])) problems.push(`${where(m.index)}: aria-${m[1]} is not an ARIA attribute — it is ignored`);
 }
 
+/* --- 5c. inline tags that do not balance ------------------------------------
+   A scripted copy edit that stopped at the first </b> inside a list item
+   replaced only the bold lead and left the old tail behind it — two roadmap
+   items shipped with a stray </b> and their old sentence repeated after the
+   new one. The browser repairs the markup silently, so nothing looked broken
+   in the source view anyone would glance at. Per line, every inline tag that
+   opens must close. */
+html.split('\n').forEach((line, i) => {
+  for (const tag of ['b', 'em', 'strong', 'i', 'a', 'span', 'code']) {
+    const open = (line.match(new RegExp(`<${tag}[\\s>]`, 'g')) || []).length;
+    const shut = (line.match(new RegExp(`</${tag}>`, 'g')) || []).length;
+    if (open !== shut && /<\/(li|p|dd|h[1-6])>\s*$/.test(line)) problems.push(`line ${i + 1}: <${tag}> opens ${open}× and closes ${shut}× in one element`);
+  }
+});
+
 /* --- 6. aria-labelledby that points at nothing ---------------------------- */
 for (const m of html.matchAll(/aria-labelledby="([^"]+)"/g)) {
   m[1].split(/\s+/).forEach((id) => {
