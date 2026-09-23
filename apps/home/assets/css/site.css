@@ -1159,9 +1159,12 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   .surface__body { grid-template-columns: minmax(0, 1fr); }
   .surface__roster { display: none; }
   .surface__evidence { border-left: 0; border-top: 1px solid var(--hairline); }
-  .surface__canvas { min-height: 270px; }
+
+  .surface__canvas { min-height: 330px; }
   .note { width: 148px; font-size: var(--t-nano); }
-  .note--b { left: 46%; }
+  .note--a { left: 4%; top: 5%; }
+  .note--b { left: auto; right: 4%; top: 37%; }
+  .note--c { left: 4%; top: 69%; }
 }
 
 .unit__steps {
@@ -1520,7 +1523,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 .doors {
   list-style: none; padding: 0;
 
-  width: min(60rem, 100%);
+
+  width: 100%;
   margin: clamp(2rem, 4vw, 3rem) auto clamp(2rem, 4vw, 3rem);
   display: grid; gap: 1px; background: var(--hairline);
   border-radius: var(--r-sm); overflow: hidden;
@@ -1531,7 +1535,9 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 
   align-content: start;
   padding: 1.35rem clamp(1.1rem, 2vw, 1.6rem);
+
   background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
 }
 .door__who {
   font-family: var(--font-mono); font-size: var(--t-micro);

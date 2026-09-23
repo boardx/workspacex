@@ -422,6 +422,54 @@ const CASES = [
         return { n: bad.length, note: `${bad.length}/${els.length}: ${bad.slice(0, 3).join(' | ')}` };
       }, c.lang).then((r) => ({ score: clamp(1 - r.n / 10), note: r.note }));
     }],
+  ['read.connectors', '可读性', 'Connector lines in the workspace illustration do not run behind the cards they join',
+    async (c) => {
+      const hits = [];
+      for (const page of [c.desk, c.phone]) {
+        hits.push(...await page.evaluate(() => {
+          const canvas = document.querySelector('.surface__canvas'); if (!canvas) return [];
+          const box = canvas.getBoundingClientRect();
+          const rects = [...canvas.querySelectorAll('[data-note]')].map((n) => { const r = n.getBoundingClientRect(); return [r.left - box.left + 3, r.top - box.top + 3, r.right - box.left - 3, r.bottom - box.top - 3]; });
+          const out = [];
+          canvas.querySelectorAll('.surface__links path').forEach((p, i) => {
+            const L = p.getTotalLength(); let inside = 0;
+            for (let k = 2; k < 48; k += 1) { const pt = p.getPointAtLength((L * k) / 50); if (rects.some(([l, t, r, b]) => pt.x > l && pt.x < r && pt.y > t && pt.y < b)) inside += 1; }
+            if (inside) out.push(`link ${i}: ${inside}/46 samples under a card at ${innerWidth}px`);
+          });
+          return out;
+        }));
+      }
+      return { score: +(hits.length === 0), note: hits.join(' | ') };
+    }],
+  ['read.legend', '可读性', 'Every colour in the loop diagram is named in its legend',
+    async (c) => c.desk.evaluate(() => {
+      const probe = document.createElement('i'); document.body.append(probe);
+      const resolve = (v) => { probe.style.color = v; return getComputedStyle(probe).color; };
+      const swatches = new Set([...document.querySelectorAll('.loop__legend .legend__swatch')].map((s) => resolve(s.style.background)));
+      const dots = [...document.querySelectorAll('.d-loop__dot')].map((d) => resolve(d.getAttribute('fill')));
+      probe.remove();
+      const missing = [...new Set(dots.filter((d) => !swatches.has(d)))];
+      return { score: dots.length ? +(missing.length === 0) : 0, note: missing.join(' ') };
+    })],
+  ['read.labels', '可读性', 'On a phone, diagram labels sit next to what they describe (the break, the outcome), not over an unrelated box',
+    async (c) => c.phone.evaluate(() => {
+      const box = (e) => e.getBoundingClientRect();
+      const parts = [];
+      const lost = document.querySelector('.d-break__lost');
+      const rects = [...document.querySelectorAll('.d-break .d-break__box rect')].map(box);
+      if (lost && rects.length > 1) { const y = box(lost).top + box(lost).height / 2; parts.push(y > rects[0].bottom && y < rects[1].top); } else parts.push(false);
+      /* In SVG units: between animation states the status text is empty and
+         has no box to measure. */
+      const st = document.querySelector('.d-harness__status');
+      const plates = [...document.querySelectorAll('.d-harness .d-harness__plate')].map((r) => +r.getAttribute('y') + +r.getAttribute('height'));
+      parts.push(!!st && plates.length > 0 && +st.getAttribute('y') > Math.max(...plates));
+      return { score: parts.filter(Boolean).length / 2, note: `break label ${parts[0]}, outcome ${parts[1]}` };
+    })],
+  ['read.archkey', '可读性', 'The architecture diagram keeps its "moves fast / must stay stable" key on a phone',
+    async (c) => c.phone.evaluate(() => {
+      const ks = [...document.querySelectorAll('.d-arch .d-arch__bracket text')].filter((t) => t.getBBox().width > 0 && t.textContent.trim());
+      return { score: +(ks.length >= 2), note: `${ks.length} key labels` };
+    })],
   ['read.scan', '可读性', 'Each section can be skimmed: a heading plus a list, cards, a diagram or sub-headings',
     async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details') || s.querySelectorAll('h3').length >= 2); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
 ];

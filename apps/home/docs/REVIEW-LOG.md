@@ -1486,3 +1486,13 @@ is not the cause. It sits at ~3000–3150 ms against 3200.
 Not changed, deliberately: the section eyebrows keep "01 — 转变". That dash is a
 separator in a numbered mono label, the same design element as in English, and
 `check-sequence` parses it; it is not prose punctuation.
+
+### Round 62 — the pictures say what the words say (66 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The workspace mock's connector ran behind both cards it joined**: every link left sideways, so Decision → Draft (a card directly below) went out of Decision's left edge, back under both cards, into Draft's right edge. On a phone it was worse — the desktop percentages stacked the three notes *on top of each other*. And a third bug under both: the lines were measured at load with the cards still offset by their reveal animation, so they were drawn to where each card was about to leave. | A target below its source is joined bottom edge to top edge; on a phone the question pins right and the three stack with air between them; lines are measured from layout boxes (`offset*`), which transforms do not move. New case `read.connectors` samples each path at 1280 and 390: 0 → 1. |
+| 2 | **The loop used a colour its legend did not name**: Create and Learn are drawn in the shared pink, and the legend listed Human, Agent team and Evidence only. | A fourth legend entry, *Together* / 共同. New case `read.legend` resolves every node's fill and every swatch: 0 → 1. |
+| 3 | **Two diagram labels floated on a phone**: "context lost" sat above the first box, reading as its caption; the trust diagram's outcome ("passed" / "failed — reversed") sat above Authorize. | "context lost" sits beside the first break mark; the outcome reads after the last gate, as the flow's result. New case `read.labels`: 0 → 1. |
+| 4 | **The architecture diagram dropped its key on a phone.** "Moves fast / must stay stable" brackets were skipped below the narrow breakpoint, leaving the heading's claim with nothing in the picture to point at. | A tag in the corner of each group's first layer. New case `read.archkey`: 0 → 1. The reviewer also suggested extending the stable bracket to L1; not done — the heading says the *middle* must not move, and infrastructure is the replaceable bottom. |
+| 5 | **The closing section's glow ended in a hard horizontal line** where the four doors' opaque cells began, and the doors were 96 px narrower than every other section's column. | Full column width; cells at 86% opacity via `color-mix`, with an opaque fallback declared first for engines without it. Checked by eye at 1280 — no case, because "a gradient ends softly" is not something this set can measure honestly. |

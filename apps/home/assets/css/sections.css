@@ -283,9 +283,15 @@
   .surface__body { grid-template-columns: minmax(0, 1fr); }
   .surface__roster { display: none; }
   .surface__evidence { border-left: 0; border-top: 1px solid var(--hairline); }
-  .surface__canvas { min-height: 270px; }
+  /* The desktop percentages put the three notes ON each other at phone
+     width (the question overlapped the decision by 8 px across and 26 down),
+     so no line between them could avoid running under a card. The question
+     pins to the right edge; the three stack with clear air between them. */
+  .surface__canvas { min-height: 330px; }
   .note { width: 148px; font-size: var(--t-nano); }
-  .note--b { left: 46%; }
+  .note--a { left: 4%; top: 5%; }
+  .note--b { left: auto; right: 4%; top: 37%; }
+  .note--c { left: 4%; top: 69%; }
 }
 
 /* ---- 09 the unit of work ------------------------------------------------- */
@@ -695,7 +701,9 @@
   /* The closing section is centred prose in a narrow measure, which is right
      for one sentence and wrong for four routes side by side. This is the one
      thing in it that is a table, so it takes the section's own width. */
-  width: min(60rem, 100%);
+  /* The section's own width — the same column as every other section. It
+     was min(60rem), 96 px narrower than the text above and below it. */
+  width: 100%;
   margin: clamp(2rem, 4vw, 3rem) auto clamp(2rem, 4vw, 3rem);
   display: grid; gap: 1px; background: var(--hairline);
   border-radius: var(--r-sm); overflow: hidden;
@@ -708,7 +716,10 @@
      hole in it because door 2's label wrapped to two lines. */
   align-content: start;
   padding: 1.35rem clamp(1.1rem, 2vw, 1.6rem);
-  background: var(--bg);
+  /* Not quite opaque. The section's glow runs down behind the doors, and an
+     opaque fill cut it off in a hard horizontal line at the doors' top edge. */
+  background: var(--bg);                                        /* no color-mix: opaque, as before */
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
 }
 .door__who {
   font-family: var(--font-mono); font-size: var(--t-micro);

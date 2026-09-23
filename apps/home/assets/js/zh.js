@@ -80,6 +80,7 @@ export default {
   'loop.legendHuman': '人',
   'loop.legendAi': '智能体团队',
   'loop.legendEv': '证据',
+  'loop.legendBoth': '共同',
   'loop.desc': '一个六段式环形闭环——意图、探索、创造、行动、验证、学习——每一段上标注了人与智能体各自的责任。',
   'loop.keyline': '这个闭环产出的不是一次回答，而是会复利增长的组织能力。',
 
