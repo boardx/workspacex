@@ -114,3 +114,6 @@ export * as skillEntryPoints from "./skill-entry-points";
 
 /** backlog D3：CRM 联系人个人信息只在境内源站（边缘只存不透明 leadId）。 */
 export * as crmContacts from "./crm-contacts";
+
+/** Board 资源生命周期、成员角色与租户边界契约（#3926）。 */
+export * as whiteboard from "./whiteboard";
