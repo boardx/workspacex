@@ -229,6 +229,23 @@ for (const [lang, path] of LANGS) {
               past.push(`${(el.className || el.tagName).toString().trim().slice(0, 16)}@${Math.round(b.right)}`);
             }
           });
+        /* Position, not just size. The rule below measures how BIG a label is
+           and never where it ended up, so a longer translation or a renamed
+           gate could run past the edge of its own viewBox and be clipped with
+           nothing to say so. */
+        const outside = [];
+        document.querySelectorAll('[data-diagram] svg').forEach((sv) => {
+          const vb = sv.viewBox.baseVal;
+          if (!vb?.width) return;
+          const kind = sv.closest('[data-diagram]')?.dataset.diagram ?? '?';
+          sv.querySelectorAll('text').forEach((tx) => {
+            const b = tx.getBBox();
+            if (b.x < -1 || b.y < -1 || b.x + b.width > vb.width + 1 || b.y + b.height > vb.height + 1) {
+              outside.push(`${kind}:"${tx.textContent.trim().slice(0, 12)}"`);
+            }
+          });
+        });
+
         const tiny = [];
         document.querySelectorAll('svg text').forEach((t) => {
           const vb = t.ownerSVGElement?.viewBox.baseVal;
@@ -260,11 +277,13 @@ for (const [lang, path] of LANGS) {
           }
         }
         return { past: [...new Set(past)].slice(0, 4), tiny: [...new Set(tiny)],
+                 outside: [...new Set(outside)].slice(0, 3),
                  navRight: Math.round(nav.right),
                  vw: window.innerWidth, overlaps: [...new Set(overlaps)] };
       });
       r.check(res.past.length === 0, `${path} @${width}: past the right edge — ${res.past.join(', ')}`);
       r.check(res.tiny.length === 0, `${path} @${width}: svg text under 9px — ${res.tiny.slice(0, 3).join(', ')}`);
+      r.check(res.outside.length === 0, `${path} @${width}: svg text outside its viewBox — ${res.outside.slice(0, 2).join(', ')}`);
       r.check(res.navRight <= res.vw, `${path} @${width}: nav actions clipped at x=${res.navRight}`);
       r.check(res.overlaps.length === 0, `${path} @${width}: nav items overlap — ${res.overlaps.slice(0, 3).join(', ')}`);
       await ctx.close();

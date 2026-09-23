@@ -292,6 +292,19 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+/* No faked bold on Han. The display face is latin-only, so Chinese falls
+   through to whatever CJK font the machine has — and when that font ships only
+   a Regular weight, the engine manufactures 600 by stroking the glyphs. On
+   latin that is merely ugly; on a dense Han glyph at 30px it fills the
+   counters and the character turns into a blot with a dark halo, which is
+   exactly how the loop diagram's centre title rendered here.
+   Not every reader sees it: macOS, Windows and Android all ship a bold CJK
+   face. Linux frequently does not — and this product's pitch is "read the
+   repository", so that is not an audience to round off.
+   This is strictly safe: it disables SYNTHESIS, never the use of a real bold
+   face, so nothing changes for anyone who has one. */
+:lang(zh) { font-synthesis: none; }
+
 /* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
    in a narrow column and will otherwise push the whole layout sideways. */
 p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }

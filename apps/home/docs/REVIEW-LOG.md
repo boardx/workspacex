@@ -986,3 +986,21 @@ Eight SVGs, captured in both languages and at 390 px, and looked at.
 | 8 | **Considered and left alone.** The narrow architecture diagram drops the "moves fast" and "must stay stable" brackets, which is the claim its own `h2` makes verbatim. The code says `if (narrow) return; // no room beside the stack; the copy carries this` — a documented decision with a stated reason, and the copy does carry it. Overriding that on my own judgment would not have been a fix. |
 | 9 | **Checked and clean.** The architecture explorer's state is exactly `ARCH_IMPACT` at both widths — L3 selected, L4 and L5 impacted, L2 and L1 untouched — and the detail panel follows the selection. |
 | 10 | **Checked and clean.** The lit left edge on L2–L3 is the deliberate stable-core marker, not a stuck selection, and the code says so. |
+
+### Round 35 — Han glyphs, and a round that was mostly verification
+
+Two fixes and one gate out of ten items. The defect density is dropping, and
+saying so is more useful than padding the table.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | The Chinese loop diagram's centre title rendered with a **dark halo around every stroke** — the counters filled in and the character turned into a blot. | Diagnosed, not guessed at. |
+| 2 | Root cause: the display face is latin-only, so Han falls through to the machine's CJK font — and this machine's only one is **WenQuanYi Zen Hei, Regular-only**. The engine manufactures `font-weight: 600` by stroking the glyphs. | — |
+| 3 | Not every reader sees it: macOS, Windows and Android all ship a bold CJK face. Linux frequently does not, and *"read the repository"* is this product's pitch, so that is not an audience to round off. | `font-synthesis: none` under `:lang(zh)`. |
+| 4 | The rule is **strictly safe**: it disables synthesis, never the use of a real bold face. Nobody who has one is affected. | — |
+| 5 | **Nothing checked where a diagram label lands.** The existing rule measures how *big* a label is and never its position, so a longer translation or a renamed gate could run past the edge of its own `viewBox` and be clipped with nothing to say so. | Asserted against the `viewBox` at every width. Clean across six language × width combinations. |
+| 6 | A fourth blank screenshot out of my own capture tool, which does not pump frames. Recognised in one step this time rather than investigated — which is the only value a recorded mistake has. |
+| 7 | **Checked and dismissed.** The break diagram's scattered dots are mid-flight animation particles, not artefacts. |
+| 8 | **Checked and dismissed.** The workspace illustration drops 22 elements at 390 px. What it drops is the agent roster, and the stylesheet says why: *"Three columns at phone width would be three unreadable slivers. Keep the canvas and the evidence trail — they are the argument."* Verified the evidence trail is 4 of 4 visible at both widths. |
+| 9 | **Checked and clean.** Every diagram label sits inside its `viewBox` at 390, 768 and 1280, in both languages. |
+| 10 | **Checked and clean.** The English loop diagram shows no synthesis artefact — which is what isolated the problem to Han glyphs rather than to the style. |

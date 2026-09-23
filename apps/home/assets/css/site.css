@@ -279,6 +279,8 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+:lang(zh) { font-synthesis: none; }
+
 p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
 
 .card__index, .rail__num, .unit__n, .eyebrow, .tag, .surface__path {
