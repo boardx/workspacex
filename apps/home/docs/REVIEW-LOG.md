@@ -1119,3 +1119,35 @@ describes it.
 | 8 | **My own gate was wrong twice on its first run.** It read the *script* table's header cell as a suite called "script", and it counted `responsive` as per-language because its label is a template literal — it interpolates its own width count and runs once. | Narrowed to the suite table, and to `[${lang}]` rather than to backticks. Written down because the pattern is now four rounds old: the probe accuses working code first. |
 | 9 | **The same numbers again in a third place.** `home-gates.yml`'s header comment says "10 道静态门和 15 个浏览器套件… 24 个 check". One round later it is 15 and 21. | The numbers removed rather than updated, and the comment now names the two authorities instead. This repository's own rule: a fact declared twice drifts, so declare it once. |
 | 10 | Across these ten rounds the static gates went **10 → 15** and the browser suites **15 → 21**, every one of them proved red before being trusted. This round is the only one whose defects were entirely in prose — and one of them had already been paid for in code. |
+
+---
+
+## Rounds 42–51 — the open-source story, read against the plan
+
+Source: `docs/research/open-source-business-model.md` (v32.2) and its three
+iteration logs — thirty rounds of research in a sibling session. These ten
+rounds ask one question of the site: **does it say what that plan actually
+concluded, and is every word of it true today?**
+
+One rule governs all ten, because the plan's own front matter demands it:
+it is marked **研究稿，待人类决策** — a research draft pending human sign-off,
+whose decision table D0–D13 lists *recommendations*, not decisions. A
+marketing page may state what is **verifiable today** and may state an
+intention **as an intention**. It may not turn a recommendation into a
+promise. That distinction is the difference between a positioning document
+and a false claim, and it is this repository's own rule in another costume.
+
+### Round 42 — "open" is a legal statement, not a tone of voice
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **The repository has no LICENSE file.** None at the root, and GitHub's API reports no licence for it. Under default copyright that is *all rights reserved*: a reader may look, and may do nothing else. | Verified against the API rather than assumed: `"visibility": "public"` and no licence field. Public and open source are two different facts, and only the first one was true. |
+| 2 | **The site says "Open core. … the source is on GitHub."** That sentence reads as a grant. The repository grants nothing. The site was making a legal claim the repository does not back — the single most consequential untrue sentence on the page, and thirteen rounds of gates had no opinion about it. | The answer now states what is checkable: the repository is public and readable, there is no LICENSE yet, so nothing grants you the right to run or modify it, and we will not call it open source until it is. |
+| 3 | **The fix is not mine to make.** Adding a licence is decision **D1** in the plan, recommended as Apache-2.0 and explicitly marked **不可逆**. An agent choosing a licence for a company is exactly the class of action that requires a human. | So the page says what is true and names the missing step, rather than quietly picking one. |
+| 4 | The site could not name Apache-2.0 either, for the same reason — a licence name on a marketing page is a promise with a legal meaning. | The gate below refuses any named licence until the file exists. |
+| 5 | Nothing connected the page to the repository it describes. The page lives four directories below a repository whose state it asserts, and every gate so far checked the page against itself. | `check-sequence.mjs` — "stated facts that disagree with reality", which is the right file — now walks up to the repository root and checks the licence claims. |
+| 6 | **The gate's second direction is the one that will actually fire.** The day someone adds a LICENSE, the page must *stop* saying there is none — a sentence that was true when it was written is precisely the static trace this repository has a named rule about. | Both directions gated, and proved red both ways. |
+| 7 | **The first version of the gate was wrong in the way this site has twice been bitten.** It concatenated `index.html` and `zh.js` and asked whether the disclosure appeared anywhere in the result — so deleting it from the English page passed, as long as the Chinese page still carried it. | Per language, in its own file. Proved red by deleting the English sentence alone. |
+| 8 | A third direction: claiming **open core** while no licence exists and *without* saying so is now itself a failure, in either language. Silence is how the original sentence got written. | — |
+| 9 | **`has_discussions: false`.** The plan's answer to maintainer burnout — 问答去讨论区不占 issue — rests on a forum the repository does not have switched on, with 173 open issues already. Not a site defect; recorded because the site is about to invite people to that repository. |
+| 10 | The governing rule of these ten rounds, stated once and applied throughout: **the page may assert what is verifiable, and may state an intention as an intention.** Everything in the plan's D-table is a recommendation awaiting a human. None of it ships as a promise. |
