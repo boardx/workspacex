@@ -129,7 +129,7 @@
 }
 /* It is a link now: it answers the question it raises, rather than asserting
    a stage and leaving the visitor to guess what it means. */
-a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); }
+@media (hover: hover) { a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); } }
 
 /* Wrapping never happens at a normal text size — the row has room. At 200%
    it does, and a second line of links with a taller bar loses nothing, where
@@ -149,7 +149,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   transition: color var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
-.nav__link:hover { color: var(--fg); }
+@media (hover: hover) { .nav__link:hover { color: var(--fg); } }
 .nav__link[aria-current="true"] { color: var(--fg); }
 .nav__link[aria-current="true"]::after {
   content: ""; position: absolute; left: 0.75rem; right: 0.75rem; bottom: 0.15rem;
@@ -165,7 +165,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   padding: 2px; border-radius: var(--r-pill);
   border: 1px solid var(--hairline); background: var(--surface);
 }
-.langswitch__btn:hover { color: var(--fg); }
+@media (hover: hover) { .langswitch__btn:hover { color: var(--fg); } }
 .langswitch__btn {
   padding: 0.3rem 0.7rem; border-radius: var(--r-pill);
   font-size: var(--t-micro); font-weight: 600; letter-spacing: calc(0.02em * var(--track-open));
@@ -185,7 +185,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
   transition: color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
 }
-.nav__ghost:hover { color: var(--fg); background: var(--surface); }
+@media (hover: hover) { .nav__ghost:hover { color: var(--fg); background: var(--surface); } }
 
 /* mobile menu button */
 .nav__burger {
@@ -298,7 +298,7 @@ a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(v
 .footer__col { min-width: 0; overflow-wrap: break-word; }
 .footer__col ul { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
 .footer__col a { font-size: var(--t-small); color: var(--fg-soft); }
-.footer__col a:hover { color: var(--fg); }
+@media (hover: hover) { .footer__col a:hover { color: var(--fg); } }
 .footer__blurb { font-size: var(--t-small); color: var(--fg-dim); max-width: 22rem; margin-top: 0.875rem; }
 .footer__bottom {
   margin-top: clamp(2.5rem, 5vw, 4rem); padding-top: var(--s-5);

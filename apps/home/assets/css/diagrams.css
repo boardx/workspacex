@@ -203,4 +203,4 @@
   stroke: rgb(var(--c-1-rgb) / 0.3);
   stroke-dasharray: 4 3;
 }
-.d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); }
+@media (hover: hover) { .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); } }

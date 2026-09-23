@@ -304,7 +304,7 @@ p { text-wrap: pretty; }
   border-radius: var(--r-pill);
   border: 3px solid var(--bg);
 }
-::-webkit-scrollbar-thumb:hover { background: #453e54; }
+@media (hover: hover) { ::-webkit-scrollbar-thumb:hover { background: #453e54; } }
 
 /* ---- selection ----------------------------------------------------------- */
 ::selection { background: rgb(var(--c-2-rgb) / 0.3); color: #fff; }
@@ -357,3 +357,17 @@ p, .lead, .keyline { hanging-punctuation: first last; }
    tightening entirely. Inherited, so an element marked lang="zh-Hans" on the
    English page — the language switch — gets it too, which is correct. */
 :lang(zh) { --track-open: 0.3; --track-tight: 0; }
+
+
+/* ---- the smallest type on a phone ------------------------------------------
+   Ten mono label styles sat at 10–11px. At arm's length on a phone that is
+   below what Apple and Material both treat as the floor for readable text,
+   and for Han it is worse: a dense glyph at 10px loses strokes and turns into
+   a smudge. Raised on coarse pointers for everyone, and on /zh/ everywhere,
+   because the problem there is the script, not the device. The /zh/ page had
+   exactly one such fix already — for the use-case field labels — and the
+   other nine styles had none. */
+@media (pointer: coarse) {
+  :root { --t-nano: 0.6875rem; --t-tiny: 0.75rem; }
+}
+:lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

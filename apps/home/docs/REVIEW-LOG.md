@@ -1335,3 +1335,30 @@ were written for Latin.
 | 8 | Nothing stopped a literal tracking value coming back tomorrow and quietly re-spacing sixty Chinese labels while the English page looked fine. | `check-css` now rejects any `letter-spacing` in em that does not scale with the language. Proved red. |
 | 9 | **Not changed, deliberately.** Latin words inside Chinese headings — "AI", "WorkspaceX" — are still set in Outfit while the Han around them is in the system face. That is a design choice with a real case on both sides, it cannot be judged without seeing the real render, and the owner may have meant it. | Left alone and named, so it can be decided rather than assumed. |
 | 10 | The honest limit of this round: **both fixes are measured and standard-correct, but neither was seen.** If what looked strange was something else, a screenshot from the machine that showed it is worth more than another audit from one that cannot. |
+
+---
+
+## Round 54 — a phone is not a narrow window
+
+Asked for by the owner. The responsive suite has always narrowed a desktop
+window to eleven widths, and it passed. A phone differs in the things that
+suite never set: touch, a coarse pointer, `hover: none`, a device pixel ratio
+— and every one of those changes what this stylesheet does.
+
+Emulated in Chromium with each phone's real viewport, pixel ratio, touch and
+user agent: iPhone SE (320), iPhone 13 (390), Pixel 7 (412), Galaxy S9+ (320).
+**Not WebKit** — this machine has only Chromium, so iOS Safari itself is not
+covered, and nothing below should be read as saying it is.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | **Every tapped control kept its hover styling.** 21 `:hover` rules, zero `@media (hover: hover)` guards. On a touch screen a tap applies `:hover` and it stays until the next tap elsewhere — confirmed on all five control types tested. The visible consequence is worst on the loop rail: the step you tapped stays lit while scrolling moves the real current step on, so **two steps look current at once**. | All 21 wrapped. `check-css` now rejects an unguarded `:hover`. Proved red. |
+| 2 | **The menu button was 40×40** — the most-tapped control a phone has, below Apple's 44pt and WCAG 2.5.5. The language switch inside the open menu was 40 tall. | 44×44 on coarse pointers only, so the desktop layout does not move. |
+| 3 | **Eleven footer links were 34px tall**, and a one-word link like 架构 was 28px wide. Height alone was not enough: the first fix left short words narrow. | 44 in both directions. |
+| 4 | The home link in the nav was **26px** tall. | 44. |
+| 5 | **On `/zh/` only**: the "Switch to English" hint's link was **25px** tall and its close button **30×30**. A toast covering the bottom of the screen, whose dismiss control was the hardest thing on the page to hit. | 44, both. Only visible on the Chinese page, for a visitor whose browser prefers English — so no English-page test would ever have seen it. |
+| 6 | **Ten label styles at 10–11px.** At arm's length that is under the floor both Apple and Material set for readable text; for Han it is worse — a dense glyph at 10px loses strokes. `/zh/` had exactly one fix for this, on the use-case field labels. The other nine had none. | Raised on the tokens, not per selector: 11px on coarse pointers, 12px for Han everywhere. The one local override removed. |
+| 7 | **The menu itself was already right**, and saying so is part of the measurement: closed, all twelve links hidden; tapped, all visible at 53–55px; the page does not scroll behind it; tapping a link closes it and goes there. | Asserted permanently rather than left to the next person to re-check. |
+| 8 | **No horizontal overflow on any phone in either language — before or after**, even with the larger type. Checked because a page that scrolls sideways on a phone makes the browser zoom the whole thing out. |
+| 9 | **My probe was wrong twice before it was right.** It counted the closed menu's hidden links as undersized; and it reported the compare switch at 42px when CSS computed 44 — because the stage's reveal animation had it at `scale(0.965)`. Measuring with `getBoundingClientRect` asked *when* as well as *what*. | The permanent suite reads `offsetWidth`/`offsetHeight` — the layout box, which a transform cannot change — so it cannot be fooled by animation timing. |
+| 10 | **Permanent coverage.** A `mobile` suite per language, three phones each: no sideways scroll, no touch target under 44×44 with the menu closed or open, no text under 11px (12 for Han), and the menu opening, locking the page, closing and navigating. **Red on the previous stylesheet on every phone, in both languages**, naming the exact defects above. And `check-docs` caught that the README's suite table was stale before I did. |

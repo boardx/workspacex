@@ -71,7 +71,7 @@
   background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
   transition: border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
 }
-.scales__card:hover { border-color: var(--hairline-2); }
+@media (hover: hover) { .scales__card:hover { border-color: var(--hairline-2); } }
 .scales__num {
   display: grid; place-items: center;
   width: 2rem; height: 2rem; border-radius: var(--r-round);
@@ -355,7 +355,7 @@
   transform: rotate(-135deg) translate(-2px, -2px);
   border-color: var(--c-2);
 }
-.faq__item summary:hover { color: var(--c-2); }
+@media (hover: hover) { .faq__item summary:hover { color: var(--c-2); } }
 .faq__item p {
   padding: 0 2.25rem 1.5rem 0.25rem;
   color: var(--fg-dim); font-size: var(--t-small);
@@ -409,7 +409,7 @@
   background: var(--bg);
   transition: background var(--dur) var(--ease-out);
 }
-.cap:hover { background: #0d0b12; }
+@media (hover: hover) { .cap:hover { background: #0d0b12; } }
 .cap h3 {
   font-size: var(--t-md); margin-bottom: var(--s-2);
   display: flex; align-items: baseline; gap: var(--s-2);
@@ -526,7 +526,7 @@
   min-height: 42px;
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
-.cases__tab:hover { color: var(--fg-soft); background: var(--surface); }
+@media (hover: hover) { .cases__tab:hover { color: var(--fg-soft); background: var(--surface); } }
 .cases__tab[aria-selected="true"] {
   color: var(--fg); background: var(--surface-2); font-weight: 600;
   position: relative;
@@ -555,9 +555,9 @@
   letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
   color: var(--c-2);
 }
-/* 10px is a readable caption in latin and an unreadable one in Hanzi: Han
-   glyphs carry far more strokes in the same box. */
-:lang(zh) .case__grid dt { font-size: var(--t-micro); }
+/* The reasoning that used to live here — 10px is readable Latin and
+   unreadable Hanzi — was right, and applied to one label style out of ten.
+   It now lives once, on the tokens, in base.css. */
 .case__grid dd { margin: 0; font-size: var(--t-small); color: var(--fg-dim); max-width: 44rem; }
 
 .cases__note {

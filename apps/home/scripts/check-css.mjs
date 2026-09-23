@@ -162,6 +162,21 @@ for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith
   });
 }
 report('tracking that ignores the page language — multiply by var(--track-open) or var(--track-tight)', trackLeaks);
+/* --- hover on devices that cannot hover ----------------------------------
+   On a touch screen, :hover is applied by a tap and stays until the next tap
+   somewhere else. None of this site's 21 hover rules asked whether the device
+   could hover, so on a phone every tapped control kept its hover styling —
+   and on the loop rail, the step you had tapped stayed lit while the scroll
+   moved the real current step on: two steps that both looked current. */
+const hoverLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('print.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    if (!line.includes(':hover')) return;
+    if (/@media\s*\(hover:\s*hover\)/.test(line)) return;
+    hoverLeaks.push(`${basename(file)}:${i + 1}: ${line.trim().slice(0, 70)}`);
+  });
+}
+report(':hover outside @media (hover: hover) — it sticks after a tap on a phone', hoverLeaks);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);

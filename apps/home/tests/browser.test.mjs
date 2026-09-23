@@ -687,6 +687,113 @@ for (const [lang, path] of LANGS) {
   ok = r.finish() && ok;
 }
 
+/* -------------------------------------------------------------- mobile --- */
+/* The responsive suite narrows a desktop window. That is not a phone: it has
+   no touch, no coarse pointer, no hover:none, no device pixel ratio — and
+   every one of those changes what this stylesheet does. Measured on emulated
+   phones before this suite existed: the menu button was 40×40, the footer
+   links 34 tall, the Chinese language hint's close button 30×30, ten label
+   styles at 10–11px, and every tapped control kept its hover styling because
+   none of the 21 :hover rules asked whether the device could hover.
+
+   Sizes are read from offsetWidth/offsetHeight — the layout box, which a
+   transform does not change. The first probe measured getBoundingClientRect
+   and reported a 44px button as 42, because a reveal animation had the stage
+   at scale(0.965): a test that depends on when it looks is a test that lies.
+
+   Chromium with each phone's real viewport, pixel ratio, touch and user
+   agent. It is not WebKit, which this machine does not have; iOS Safari
+   itself is not covered here. */
+{
+  const { devices } = await import('playwright');
+  const PHONES = ['iPhone SE', 'iPhone 13', 'Pixel 7'];
+  for (const [lang, path] of LANGS) {
+    const r = reporter(`mobile [${lang}] — three phones, touch, and the menu`);
+    const minType = lang === 'zh' ? 12 : 11;
+    for (const phone of PHONES) {
+      r.step(phone);
+      const { defaultBrowserType, ...device } = devices[phone];
+      const ctx = await browser.newContext({ ...device });
+      const page = await ctx.newPage();
+      await page.goto(base + path, { waitUntil: 'load' });
+      await evaluateWithin(page, 30_000, 'settle', async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += 500) {
+          window.scrollTo(0, y); await new Promise((res) => setTimeout(res, 20));
+        }
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(600);
+
+      const measure = (menuOpen) => evaluateWithin(page, 15_000, 'measure', (args) => {
+        const { menuOpen, minType } = args;
+        const vw = window.innerWidth;
+        const shown = (e) => {
+          const cs = getComputedStyle(e);
+          return e.offsetWidth > 0 && e.offsetHeight > 0 && cs.visibility !== 'hidden'
+            && !e.closest('[hidden]') && parseFloat(cs.opacity) > 0.05;
+        };
+        const small = [];
+        for (const e of document.querySelectorAll('a[href], button, summary, [role="tab"], [role="button"]')) {
+          if (e.classList.contains('skip-link')) continue;      // exists only on focus
+          const inMenu = !!e.closest('.nav__links, .nav__actions');
+          if (inMenu !== menuOpen || !shown(e)) continue;
+          if (e.closest('svg')) continue;                       // diagram rows: sized by --dscale
+          if (e.offsetWidth < 44 || e.offsetHeight < 44) {
+            small.push(`“${(e.textContent || e.getAttribute('aria-label') || e.tagName).trim().replace(/\s+/g, ' ').slice(0, 14)}” ${e.offsetWidth}×${e.offsetHeight}`);
+          }
+        }
+        const tiny = new Set();
+        if (!menuOpen) {
+          for (const e of document.querySelectorAll('body *')) {
+            if (e.closest('svg, .visually-hidden')) continue;
+            if (![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1)) continue;
+            if (!e.offsetWidth) continue;
+            const fs = parseFloat(getComputedStyle(e).fontSize);
+            if (fs < minType) tiny.add(`${e.tagName.toLowerCase()}.${String(e.className).split(' ')[0]} ${fs}px`);
+          }
+        }
+        return { overflow: document.documentElement.scrollWidth - vw, small, tiny: [...tiny] };
+      }, { menuOpen, minType });
+
+      const closed = await measure(false);
+      r.check(closed.overflow <= 0, `${phone}: the page scrolls sideways by ${closed.overflow}px — on a phone that zooms the whole page out`);
+      r.equal(closed.small.length, 0, `${phone}: touch targets under 44×44 — ${closed.small.slice(0, 4).join(', ')}`);
+      r.equal(closed.tiny.length, 0, `${phone}: text under ${minType}px — ${closed.tiny.slice(0, 4).join(', ')}`);
+
+      /* The menu is the one piece of navigation a phone has. */
+      const before = await page.evaluate(() => document.querySelector('.nav__burger')?.getAttribute('aria-expanded'));
+      r.equal(before, 'false', `${phone}: the menu starts open`);
+      await page.tap('.nav__burger');
+      await page.waitForTimeout(450);
+      const opened = await evaluateWithin(page, 10_000, 'menu', () => {
+        const y = window.scrollY; window.scrollBy(0, 300);
+        const moved = window.scrollY !== y; window.scrollTo(0, y);
+        return {
+          expanded: document.querySelector('.nav__burger').getAttribute('aria-expanded'),
+          links: [...document.querySelectorAll('.nav__links a')].filter((a) => a.offsetHeight > 0).length,
+          scrollsBehind: moved,
+        };
+      });
+      r.equal(opened.expanded, 'true', `${phone}: tapping the menu button does not open it`);
+      r.check(opened.links >= 6, `${phone}: only ${opened.links} links visible in the open menu`);
+      r.check(!opened.scrollsBehind, `${phone}: the page scrolls behind the open menu`);
+      const inMenu = await measure(true);
+      r.equal(inMenu.small.length, 0, `${phone}: touch targets under 44×44 in the open menu — ${inMenu.small.slice(0, 4).join(', ')}`);
+
+      const href = await page.evaluate(() => document.querySelector('.nav__links a[href^="#"]')?.getAttribute('href'));
+      await page.tap(`.nav__links a[href="${href}"]`);
+      await page.waitForTimeout(700);
+      const after = await page.evaluate(() => ({
+        expanded: document.querySelector('.nav__burger').getAttribute('aria-expanded'), hash: location.hash,
+      }));
+      r.equal(after.expanded, 'false', `${phone}: tapping a menu link leaves the menu open`);
+      r.equal(after.hash, href, `${phone}: tapping a menu link does not go there`);
+      await ctx.close();
+    }
+    ok = r.finish() && ok;
+  }
+}
+
 /* ------------------------------------------------------------- headers --- */
 /* The test server now sends what `_headers` says the real host sends, so
    every suite above this line runs under the real Content-Security-Policy.
