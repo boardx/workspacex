@@ -27,3 +27,5 @@ export {
 export {
   replacedDirName, restoreBackup, restoreIntoDataDir, type RestoreResult,
 } from "./restore";
+
+export { dataDirAdvice, dataDirAdviceBody, type DataDirAdvice } from "./data-dir-advice";
