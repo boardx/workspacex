@@ -76,6 +76,23 @@ if (cmd === "doctor") {
   process.on("SIGTERM", () => void shutdown());
   process.on("uncaughtException", (e) => { console.error(e); void shutdown(); });
   process.on("unhandledRejection", (e) => { console.error(e); void shutdown(); });
+} else if (cmd === "web-build-env") {
+  /*
+    打包前构建 web 产物时要带的环境变量。
+
+    ⚠ `NEXT_PUBLIC_*` 是**构建期内联**的：按另一个端口烘焙出来的产物，页面能正常打开、
+      每个 API 请求打向旧地址、一个报错也没有。所以 `checkWebBuild` 不只看 BUILD_ID，
+      还要在 `static/` 里找到那个字面量才判可用——实测 2026-09-23：我用裸 `next build`
+      打的包 BUILD_ID 有、字面量没有，于是应用**静默退回 next dev**，每个页面等用户
+      点开才编译。
+
+      这条命令存在的唯一理由是**不让端口这个事实出现在第二处**：打包脚本从这里取，
+      运行时从同一个 config 取，两边不可能漂移。
+  */
+  const c = resolveLocalConfig({ repoRoot, dataDir, ports });
+  const api = `http://127.0.0.1:${c.ports.api}`;
+  console.log(`NEXT_PUBLIC_API_URL=${api}`);
+  console.log(`NEXT_PUBLIC_API_WS_URL=${api}`);
 } else if (cmd === "backup" || cmd === "restore") {
   /*
     备份/恢复原本**只有桌面菜单一条路**，于是它永远没法被自动化端到端覆盖，
@@ -122,6 +139,6 @@ if (cmd === "doctor") {
   const models = (flag("models") ?? `${c.chatModel},${c.embeddingModel}`).split(",").filter(Boolean);
   for (const r of exportModels(source, dest, models)) console.log(`exported ${r.model}: ${r.blobs} blob(s), ${(r.bytes / 1024 / 1024).toFixed(0)} MB -> ${dest}`);
 } else {
-  console.log("usage: local-runtime up|doctor|env|backup|restore|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b] [--to <dir>] [--from <dir>]");
+  console.log("usage: local-runtime up|doctor|env|web-build-env|backup|restore|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b] [--to <dir>] [--from <dir>]");
   process.exit(cmd === "help" ? 0 : 2);
 }

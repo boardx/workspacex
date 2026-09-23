@@ -231,20 +231,36 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     //   在 up() 结束时统一产出——否则同一件事会在 doctor 与这里各写一遍，
     //   且两份的措辞迟早不一样。
 
-    // 「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
-    // 却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
-    // 跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
-    let chatModelAnswers = ollamaBin !== null;
+    /*
+      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
+      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
+
+      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
+        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
+        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
+        独独漏了这一项，而它比那两个加起来还贵。
+
+        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
+        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
+        健康通道（说人话、带影响），不是在日志里躺着。
+
+      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
+    */
+    const chatModelAnswers = ollamaBin !== null;
     if (ollamaUrl !== null && opts.probeModels !== false) {
       const modelBase = `${ollamaUrl}/v1`;
-      log(`[model] 正在验证 ${c.chatModel} 能否回话（首次加载权重可能要一分钟）`);
-      const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
-      chatModelAnswers = chat.ok;
-      if (chat.ok) log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
-      else warnings.push(`${chat.detail ?? ""}——聊天暂时不可用，其余功能不受影响`);
-
-      const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
-      if (!embed.ok) warnings.push(`${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
+      deferredReady.push({
+        name: "model",
+        wait: (async () => {
+          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
+          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
+          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
+          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
+          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
+          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+        })(),
+      });
     }
 
     // Every service we spawn must own its port: a stale process there would answer our
@@ -391,8 +407,16 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     // 起来之后再崩的服务由监督接管（见本函数末尾接上监督的那一段）。
     // ⚠ 这里**不要**再单独挂一份 `m.exited` 监听：那会和监督各说各话，
     //   而同一件事实声明在两处是本仓的头号病。
-    // ⚠ 传的是「模型真的回了话」，不是「找到了 Ollama 二进制」。后者是 doctor 在没起栈时
-    //   能拿到的最好证据；到了这里我们有更强的证据，就该用更强的那个。
+    /*
+      ⚠ 这里传的是「找到了 Ollama 二进制」这条**较弱**的证据。
+
+        R15 之前传的是「模型真的回了话」——那条更强，但代价是在关键路径上等 18 秒
+        把权重装进内存。现在装载延后了，`up()` 返回的时刻还没有那条更强的证据，
+        于是如实用弱的那条。真正的结果随后由延后项经健康通道报出来
+        （失败时 SERVICE_IMPACT.model 会说清影响）。
+
+        **不要**在这里等延后项来凑那条强证据——那等于把 18 秒又加回来。
+    */
     const capabilities = localCapabilities(c, {
       chatModel: chatModelAnswers,
       // 随包 python / 随包转写模型的部署里，「有没有」不等于 `.venv` 或数据目录里有没有——
