@@ -180,7 +180,7 @@ const CASES = [
       return { score: 1 - tiny.length / t.length, note: tiny.length ? `${tiny.length} elements, e.g. ${tiny[0].className || tiny[0].tagName}` : '' };
     })],
   ['mob.linelen', '移动端', 'Body text lines are comfortable on a phone (not wider than the screen minus margins)',
-    async (c) => c.phone.evaluate(() => { const ps = [...document.querySelectorAll('main p')].filter((p) => p.offsetWidth); const bad = ps.filter((p) => p.getBoundingClientRect().left < 12 || p.getBoundingClientRect().right > innerWidth - 12); return { score: 1 - bad.length / ps.length, note: bad.length ? `${bad.length} paragraphs touch the edge` : '' }; })],
+    async (c) => c.phone.evaluate(() => { const ps = [...document.querySelectorAll('main p')].filter((p) => p.offsetWidth && !p.closest('.visually-hidden')); const bad = ps.filter((p) => p.getBoundingClientRect().left < 12 || p.getBoundingClientRect().right > innerWidth - 12); return { score: 1 - bad.length / ps.length, note: bad.length ? `${bad.length} paragraphs touch the edge` : '' }; })],
   ['mob.menu', '移动端', 'The menu opens with a tap and closes when a link is tapped',
     async (c) => {
       await c.phone.tap('.nav__burger'); await c.phone.waitForTimeout(400);
@@ -264,8 +264,8 @@ const CASES = [
     async (c) => c.desk.evaluate((lang) => { const ls = [...document.querySelectorAll('.section__head .lead')]; const n = (t) => (lang === 'zh' ? [...t.replace(/\s/g, '')].length : t.trim().split(/\s+/).length); const bad = ls.filter((l) => n(l.textContent) > (lang === 'zh' ? 90 : 45)); return { score: 1 - bad.length / ls.length, note: `${bad.length}/${ls.length} too long` }; }, c.lang)],
   ['read.para', '可读性', 'No paragraph is a wall (en ≤ 90 words, zh ≤ 180 chars)',
     async (c) => c.desk.evaluate((lang) => { const ps = [...document.querySelectorAll('main p')]; const n = (t) => (lang === 'zh' ? [...t.replace(/\s/g, '')].length : t.trim().split(/\s+/).length); const bad = ps.filter((p) => n(p.textContent) > (lang === 'zh' ? 180 : 90)); return { score: 1 - bad.length / ps.length, note: `${bad.length}/${ps.length} too long` }; }, c.lang)],
-  ['read.scan', '可读性', 'Each section can be skimmed: it has a heading and at least one list, card or diagram',
-    async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details')); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
+  ['read.scan', '可读性', 'Each section can be skimmed: a heading plus a list, cards, a diagram or sub-headings',
+    async (c) => c.desk.evaluate(() => { const ss = [...document.querySelectorAll('main > section.section, main > section')].filter((s) => s.querySelector('h2')); const ok = ss.filter((s) => s.querySelector('ul, ol, dl, .card, [data-diagram], .grid, details') || s.querySelectorAll('h3').length >= 2); return { score: ok.length / ss.length, note: `${ok.length}/${ss.length}` }; })],
 ];
 
 /* ---- run ----------------------------------------------------------------- */

@@ -47,6 +47,13 @@
   margin-top: 1.25rem;
   max-width: 40rem;
 }
+/* A section head gets one lead. A second paragraph of argument set at lead
+   size was 81 words of large type — read as a wall, not a glance. */
+.section__more {
+  color: var(--fg-dim);
+  margin-top: 1rem;
+  max-width: 40rem;
+}
 
 /* ==========================================================================
    Navigation
@@ -268,12 +275,12 @@
 .footer__grid {
   display: grid;
   /* The rem MINIMUMS are what break under a text-size preference: 14rem and
-     three 8rem columns are 38rem of floor — 608 px normally, 1216 px at 200%,
+     four 8rem columns are 46rem of floor — 608 px normally, 1216 px at 200%,
      wider than the page. minmax(0, …) removes the floor entirely; capping it
      with min() is not enough, because a track is never smaller than its
      content's min-content unless the floor is zero. The proportions are
      carried by the fr units, which is where they belonged. */
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
   gap: clamp(1.75rem, 4vw, 3rem);
 }
 .footer__h {

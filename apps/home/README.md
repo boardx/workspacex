@@ -73,7 +73,7 @@ only for twenty rounds and the Chinese page is a separately generated document:
 | accessibility | axe-core over five pages in two languages |
 | keyboard ×2 | a control that cannot be reached, has no focus indicator, or can be clicked but not operated |
 | responsive | sideways overflow, svg text under 9px, or nav items overlapping each other, at 11 widths |
-| mobile ×2 | on three emulated phones with touch and a coarse pointer: sideways scroll, a touch target under 44×44, text under 11px (12px for Han), or a menu that does not open, lock the page, close and navigate. Chromium only — not WebKit |
+| mobile ×2 | on three emulated phones with touch and a coarse pointer: sideways scroll, a touch target under 44×44, text under 12px, or a menu that does not open, lock the page, close and navigate. Chromium only — not WebKit |
 | text resize ×2 | content pushed off screen at a 200% text setting (WCAG 1.4.4) |
 | interaction ×2 | the compare switch, the architecture explorer or the discipline tabs failing to change state |
 | degradation ×2 | the page going blank without JavaScript, or when one module fails |

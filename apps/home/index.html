@@ -684,7 +684,7 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="unit.eyebrow">10 — The unit of work</span>
       <h2 data-i18n="unit.title">“Use AI” is not a deliverable. A unit of work is.</h2>
-      <p class="lead" data-i18n="unit.lead">A unit of work has a defined input, a defined output, a boundary someone is responsible for, and a way to be checked. That is what makes it something you can buy, verify, reuse and price — instead of something you can only be impressed by.</p>
+      <p class="lead" data-i18n="unit.lead">A unit of work has a defined input, a defined output, a boundary someone answers for, and a way to be checked. That makes it something you can buy, verify, reuse and price — not just admire.</p>
     </header>
 
     <ol class="unit__steps" role="list" data-stagger>
@@ -713,8 +713,8 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="open.eyebrow">11 — What is open, what is sold</span>
       <h2 data-i18n="open.title">Three kinds of thing. Only one of them is a product you buy.</h2>
-      <p class="lead" data-i18n="open.lead">The dividing line is not a feature list. Whatever makes this a neutral work layer should be open. Whatever accumulates with you is what we sell. And there is a third pile most vendors never name: the machinery we run to keep this going, which you neither receive nor pay for.</p>
-      <p class="lead" data-i18n="open.layer">And it is worth saying which layer this is a bet on. WorkspaceX sits in the AI workspace layer — the same one as Copilot, Glean, Lark and DingTalk — not the agent-infrastructure layer beneath it, which already has plenty of open projects. In this layer there is not one open option. That is what makes opening this a wedge rather than a ticket of entry, and it is why the licence question further down this page is not a detail.</p>
+      <p class="lead" data-i18n="open.lead">Not a feature list. What makes this a neutral work layer is open; what accumulates with you is what we sell. And a third pile most vendors never name: the machinery we run to keep it going, which you neither receive nor pay for.</p>
+      <p class="section__more" data-i18n="open.layer">And it is worth saying which layer this is a bet on. WorkspaceX sits in the AI workspace layer — the same one as Copilot, Glean, Lark and DingTalk — not the agent-infrastructure layer beneath it, which already has plenty of open projects. In this layer there is not one open option. That is what makes opening this a wedge rather than a ticket of entry, and it is why the licence question further down this page is not a detail.</p>
     </header>
 
     <div class="open__cols" data-stagger>
@@ -847,7 +847,8 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q5">Is this open source?</summary>
-        <p data-i18n="faq.a5">The repository is public and readable today — that part is simply true, and you can check it. The licence is not: there is no LICENSE file in it yet, so nothing there grants you the right to run or modify it. We are not going to describe that as open source until it is. The intent is open core — the workspace object model, the agent and skill format and the connector interfaces open; governance, reliability and scale commercial — and the licence decision is the next step, not a detail.</p>
+        <p data-i18n="faq.a5">The repository is public and readable today — that part is simply true, and you can check it.</p>
+        <p data-i18n="faq.a5b">The licence is not: there is no LICENSE file in it yet, so nothing there grants you the right to run or modify it. We are not going to describe that as open source until it is. The intent is open core — the workspace object model, the agent and skill format and the connector interfaces open; governance, reliability and scale commercial — and the licence decision is the next step, not a detail.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q9">Do you train on our data?</summary>
@@ -859,15 +860,18 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q11">What happens to the junior people who do this work today?</summary>
-        <p data-i18n="faq.a11">The honest answer is that this depends on how you deploy it, and we have taken a side in the design. Human review is an explicit step in the loop — a named person, a recorded decision, and accountability that sits with them — which makes the junior analyst the reviewer rather than the replaced. That is a real job and a better one, and it is also the only arrangement in which the evidence trail means anything: a chain nobody is answerable for is a chain nobody will defend. We will not pretend the question does not exist, and we will not tell you it has no downside.</p>
+        <p data-i18n="faq.a11">The honest answer is that this depends on how you deploy it, and we have taken a side in the design. Human review is an explicit step in the loop — a named person, a recorded decision, and accountability that sits with them — which makes the junior analyst the reviewer rather than the replaced.</p>
+        <p data-i18n="faq.a11b">That is a real job and a better one, and it is also the only arrangement in which the evidence trail means anything: a chain nobody is answerable for is a chain nobody will defend. We will not pretend the question does not exist, and we will not tell you it has no downside.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q7">What actually leaves the machine when we work locally?</summary>
-        <p data-i18n="faq.a7">Nothing, and it is enforced below the application rather than by our own good behaviour. Local-only work runs inside a guard that patches the single call that every outbound network connection in the process has to pass through — so a vendor SDK’s telemetry, or an analytics beacon inside a transitive dependency, is refused exactly as our own code would be. A machine on your own network counts as another machine and is refused too. The claim is deliberately narrow, because the narrow one is the true one: while work belongs to a local-only workspace, nothing leaves it. Outside that boundary a normal deployment’s traffic is normal traffic, and we are not going to pretend otherwise.</p>
+        <p data-i18n="faq.a7">Nothing, and it is enforced below the application rather than by our own good behaviour. Local-only work runs inside a guard that patches the single call that every outbound network connection in the process has to pass through — so a vendor SDK’s telemetry, or an analytics beacon inside a transitive dependency, is refused exactly as our own code would be.</p>
+        <p data-i18n="faq.a7b">A machine on your own network counts as another machine and is refused too. The claim is deliberately narrow, because the narrow one is the true one: while work belongs to a local-only workspace, nothing leaves it. Outside that boundary a normal deployment’s traffic is normal traffic, and we are not going to pretend otherwise.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q8">We have to run a security review. What can we ask for?</summary>
-        <p data-i18n="faq.a8">Today: the source, which is public and readable, and two audits you can run yourself rather than take our word for — a dependency licence inventory and a scan of the history for committed credentials, both scripts in the repository. Not today: there are no releases yet, so there is no signed release with a bill of materials attached, and no offline patch bundle for an air-gapped install. Both are commitments we have written down and neither exists, which is a more useful answer than a questionnaire response that implies they do.</p>
+        <p data-i18n="faq.a8">Today: the source, which is public and readable, and two audits you can run yourself rather than take our word for — a dependency licence inventory and a scan of the history for committed credentials, both scripts in the repository.</p>
+        <p data-i18n="faq.a8b">Not today: there are no releases yet, so there is no signed release with a bill of materials attached, and no offline patch bundle for an air-gapped install. Both are commitments we have written down and neither exists, which is a more useful answer than a questionnaire response that implies they do.</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q6">What stage is it at?</summary>
@@ -993,9 +997,18 @@
         <ul>
           <li><a href="#loop" data-i18n="footer.l1">The Loop</a></li>
           <li><a href="#capabilities" data-i18n="footer.l9">Inside</a></li>
+          <li><a href="#scales" data-i18n="footer.l12">Three scales</a></li>
           <li><a href="#architecture" data-i18n="footer.l2">Architecture</a></li>
           <li><a href="#trust" data-i18n="footer.l3">Trust &amp; evidence</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h3 class="footer__h" data-i18n="footer.h4">The argument</h3>
+        <ul>
+          <li><a href="#problem" data-i18n="footer.l13">What breaks today</a></li>
+          <li><a href="#unit" data-i18n="footer.l14">The unit of work</a></li>
           <li><a href="#open" data-i18n="footer.l4">What is open</a></li>
+          <li><a href="#horizons" data-i18n="footer.l16">Where this goes</a></li>
         </ul>
       </div>
       <div class="footer__col">
@@ -1009,6 +1022,7 @@
       <div class="footer__col">
         <h3 class="footer__h" data-i18n="footer.h3">Company</h3>
         <ul>
+          <li><a href="#contact" data-i18n="footer.l17">Get started</a></li>
           <li><a href="mailto:hello@boardx.us" data-i18n="footer.l7">Contact</a></li>
           <li><a href="https://boardx.us" rel="noopener" data-i18n="footer.l8">BoardX</a></li>
           <li><a href="/privacy.html" data-i18n="footer.l11">Privacy &amp; security</a></li>

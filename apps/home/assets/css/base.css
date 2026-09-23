@@ -366,8 +366,10 @@ p, .lead, .keyline { hanging-punctuation: first last; }
    a smudge. Raised on coarse pointers for everyone, and on /zh/ everywhere,
    because the problem there is the script, not the device. The /zh/ page had
    exactly one such fix already — for the use-case field labels — and the
-   other nine styles had none. */
+   other nine styles had none. Round 57 closed the last gap: latin labels
+   were raised only to 11px on a phone, and a 10px-designed label at 11 is
+   still the smallest thing a thumb-distance reader meets. 12 for both. */
 @media (pointer: coarse) {
-  :root { --t-nano: 0.6875rem; --t-tiny: 0.75rem; }
+  :root { --t-nano: 0.75rem; --t-tiny: 0.75rem; }
 }
 :lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

@@ -326,7 +326,10 @@
   .unit__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .unit__step:not(:last-child)::after { display: none; }
 }
-@media (max-width: 30.0rem) { .unit__steps { grid-template-columns: minmax(0, 1fr); } }
+/* Below 30rem the steps used to go to one column: six full-width cards,
+   ~700 px of scrolling for twelve words. Two columns hold at 320 px (a
+   subline wraps to two lines at worst); the card just gets tighter. */
+@media (max-width: 30.0rem) { .unit__step { padding: 0.75rem 0.7rem; } }
 
 /* ---- 11 straight answers ------------------------------------------------- */
 /* 54rem left the chevron marooned at the far end of the row, visually
@@ -360,6 +363,9 @@
   padding: 0 2.25rem 1.5rem 0.25rem;
   color: var(--fg-dim); font-size: var(--t-small);
 }
+/* A long answer is two paragraphs, not one wall: the second picks up where a
+   reader who stopped after the first would want to. */
+.faq__item p:not(:last-child) { padding-bottom: 0.75rem; }
 
 /* ---- 12 horizons --------------------------------------------------------- */
 .hz {

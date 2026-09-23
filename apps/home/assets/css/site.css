@@ -304,7 +304,7 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 :lang(zh) { --track-open: 0.3; --track-tight: 0; }
 
 @media (pointer: coarse) {
-  :root { --t-nano: 0.6875rem; --t-tiny: 0.75rem; }
+  :root { --t-nano: 0.75rem; --t-tiny: 0.75rem; }
 }
 :lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }
 
@@ -348,6 +348,12 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   font-size: var(--t-lead);
   color: var(--fg-soft);
   margin-top: 1.25rem;
+  max-width: 40rem;
+}
+
+.section__more {
+  color: var(--fg-dim);
+  margin-top: 1rem;
   max-width: 40rem;
 }
 
@@ -514,7 +520,7 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 .footer__grid {
   display: grid;
 
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
   gap: clamp(1.75rem, 4vw, 3rem);
 }
 .footer__h {
@@ -1183,7 +1189,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   .unit__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .unit__step:not(:last-child)::after { display: none; }
 }
-@media (max-width: 30.0rem) { .unit__steps { grid-template-columns: minmax(0, 1fr); } }
+
+@media (max-width: 30.0rem) { .unit__step { padding: 0.75rem 0.7rem; } }
 
 .faq { display: grid; gap: 0; max-width: 46rem; }
 .faq__item { border-bottom: 1px solid var(--hairline); }
@@ -1214,6 +1221,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   padding: 0 2.25rem 1.5rem 0.25rem;
   color: var(--fg-dim); font-size: var(--t-small);
 }
+
+.faq__item p:not(:last-child) { padding-bottom: 0.75rem; }
 
 .hz {
   list-style: none; padding: 0;

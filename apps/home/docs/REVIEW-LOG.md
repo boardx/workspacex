@@ -1409,3 +1409,23 @@ The set's own bug, found the same round: the two scroll cases waited a fixed
 300–450 ms, and a smooth scroll across the page takes longer. They read the
 page mid-flight and scored the working scrollspy at 1/4. They now wait until
 the scroll position stops changing.
+
+### Round 57 — 9.74 → 9.90
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Five titled sections were reachable from nowhere** — not the nav, not the footer: the problem, the three scales, the unit of work, the horizons and the closing call to action. On a 15 000 px page, a section with no link to it is found by scrolling or not at all. | A fourth footer column, *The argument* / 论点, plus *Three scales* under Product and *Get started* under Company. `#questions` stays reached from the nav's "Early access" tag only: `check-links` refused a second name for it, correctly. |
+| 2 | **Four FAQ answers were walls** of 92–116 words (two on `/zh/` at 184 and 225 characters), in a small grey face. | Each split at its turn — what is true today, then what is not — into two paragraphs. |
+| 3 | **Section leads that were not leads.** *Open* had two lead-size paragraphs, the second 81 words; *Unit* and *Open* led with 46 and 51. A lead is read in a glance or not at all. | Both leads cut under 45 words / 90 characters; the second *Open* paragraph is body copy now (`.section__more`). |
+| 4 | **Eighteen labels were still 11px on an English phone** — the mock's notes and evidence, the horizon labels, the scroll cue. Round 54 raised Han to 12 and latin only to 11. | 12px for both on coarse pointers. The mobile suite's floor is now 12 in both languages (was 11 for latin), so it would have been red. |
+| 5 | **The unit-of-work steps went to one column below 480 px**: six full-width cards, ~700 px of scrolling for twelve words. | Two columns down to 320 px, with tighter padding. Checked at 320 in English, where the sublines are longest. |
+
+Two corrections to the set itself: `mob.linelen` counted a screen-reader-only
+paragraph (positioned off-screen on purpose) as touching the edge, and
+`read.scan` did not count a grid of `<article>` cards with sub-headings as
+skimmable. Neither changed the site.
+
+Considered and not done: folding `print.css` into the bundle would take the
+request count from 17 to 16 and move its bytes onto the render-blocking path.
+A `media="print"` sheet never blocks rendering, so that trades a real cost for
+a better number.
