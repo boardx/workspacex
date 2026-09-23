@@ -3,9 +3,7 @@
  * 做成纯函数才验得了，也才不用为了测它去 mock ResizeObserver。
  */
 import { describe, expect, it } from "vitest";
-import {
-  DEVICE_PRESETS, DEFAULT_PRESET_ID, presetById, defaultPresetFor, rotated, fitScale,
-} from "@/lib/prototype-devices";
+import { DEVICE_PRESETS, DEFAULT_PRESET_ID, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable, LEGIBLE_MIN_SCALE } from "@/lib/prototype-devices";
 
 describe("设备预设表", () => {
   it("id 唯一、尺寸是真实逻辑分辨率（不是拍脑袋的画板尺寸）", () => {
@@ -71,5 +69,31 @@ describe("fitScale：只缩不放", () => {
     }
     // 设备尺寸为 0 是不该发生的，但除数为 0 会得到 Infinity——一并挡掉。
     expect(fitScale({ w: 100, h: 100 }, { w: 0, h: 0 })).toBe(1);
+  });
+});
+
+/* ── 2026-09-23 本地真栈实测：375 宽手机上设计详情的画布缩成 0.29（字约 4px） ── */
+describe("fitScaleScrollable：能滚动的舞台宁可竖着滚，也不缩成读不了字的缩略图", () => {
+  const phone = { w: 393, h: 852 + 40 };
+
+  it("手机上实测那组尺寸：不再是 0.29，而是按宽度装下（约 0.87）", () => {
+    const stage = { w: 375 - 32, h: 291 - 32 };
+    // ⭐ 反证锚点：detail-screen 改回 `fitScale` ⇒ 这里对应的真栈 S13 与本条都会退回 0.29。
+    expect(fitScale(stage, phone)).toBeLessThan(0.3);
+    expect(fitScaleScrollable(stage, phone)).toBeCloseTo(343 / 393, 3);
+    expect(fitScaleScrollable(stage, phone)).toBeGreaterThanOrEqual(LEGIBLE_MIN_SCALE);
+  });
+
+  it("两头都装得下、字也读得了 ⇒ 与 fitScale 完全一样（桌面上不改变任何东西）", () => {
+    const desk = { w: 900, h: 760 };
+    expect(fitScaleScrollable(desk, phone)).toBe(fitScale(desk, phone));
+  });
+
+  it("仍然只缩不放：宽度富余时上限还是 1", () => {
+    expect(fitScaleScrollable({ w: 2000, h: 100 }, phone)).toBe(1);
+  });
+
+  it("还没量到尺寸（首帧 / jsdom）⇒ 与 fitScale 一样返回 1，不除以 0", () => {
+    expect(fitScaleScrollable({ w: 0, h: 0 }, phone)).toBe(1);
   });
 });

@@ -35,7 +35,6 @@ import type {
  */
 
 const CANVAS_DIR = join(__dirname, "../../components/canvas");
-const LINT_DESIGN_SH = join(__dirname, "../../scripts/lint-design.sh");
 
 // ui 原语自身的实现文件不在扫描范围内——它们就是"裸控件"合法存在的唯一位置。
 const RAW_CONTROL_PATTERN = /<input\b|<textarea\b|type=["']checkbox["']/;
@@ -52,17 +51,17 @@ function codeLines(src: string): string[] {
 }
 
 /**
- * U12 的工具前缀清单从 `lint-design.sh` **读出来**，不在这里手抄第二份——
- * 抄一份的下场是门控加了 `shadow-foreground` 而测试不知道。读不出来即失败
- * （同 lint-design.sh 读 `lib/font-scale.ts` 的先例）。
+ * 裸 `-foreground` 这一半，2026-09-23 起读**唯一**的那道门：
+ * `.harness/scripts/lint-tailwind-color-tokens.mjs` 的 `scan()`（按 token、跨行、合法名解析自
+ * `tailwind.config.ts`）。原来这里从 `lint-design.sh` 里解析 U12 的前缀清单——U12 已并入那道门，
+ * 同一事实只留一处。这里只把全仓结果收窄到 `components/canvas/`，不另写判据。
  */
-function bareForegroundPattern(): RegExp {
-  const sh = readFileSync(LINT_DESIGN_SH, "utf8");
-  const m = /FOREGROUND_RAW=\$\(scan '\\b\(([a-z|]+)\)-foreground/.exec(sh);
-  if (!m) throw new Error("无法从 scripts/lint-design.sh 解析出 U12 的工具前缀清单（单一事实源读取失败）");
-  // `(?<![\w-])` 保证前缀是整段类名的开头：`text-muted-foreground` 里的 `muted` 不在
-  // 前缀表内，本来就匹配不上，无需再抄一份"合法 family"排除清单。
-  return new RegExp(String.raw`(?<![\w-])(${m[1]})-foreground\b`);
+// @ts-expect-error —— .mjs 无类型声明，这里只用它导出的 `scan`。
+import { scan as scanColorTokens } from "../../../../.harness/scripts/lint-tailwind-color-tokens.mjs";
+
+function canvasColorTokenHits(): { file: string; line: number; cls: string }[] {
+  return (scanColorTokens(join(__dirname, "../..")) as { file: string; line: number; cls: string }[])
+    .filter((h) => h.file.startsWith("components/canvas/"));
 }
 
 function tsxFiles(dir: string): string[] {
@@ -76,9 +75,6 @@ describe("F22：canvas 目录不再有手写裸控件 / 裸 -foreground", () => 
     expect(files.length).toBeGreaterThan(0);
   });
 
-  it("U12 前缀清单能从 lint-design.sh 读出来", () => {
-    expect(bareForegroundPattern().source).toContain("-foreground");
-  });
 
   it.each(files)("%s 不含裸 <input>/<textarea>/checkbox", (file) => {
     const hits = codeLines(readFileSync(join(CANVAS_DIR, file), "utf8"))
@@ -86,11 +82,9 @@ describe("F22：canvas 目录不再有手写裸控件 / 裸 -foreground", () => 
     expect(hits, `${file} 仍有手写裸控件，应改用 components/ui/{input,textarea,checkbox}.tsx`).toEqual([]);
   });
 
-  it.each(files)("%s 不含裸 -foreground", (file) => {
-    const pattern = bareForegroundPattern();
-    const hits = codeLines(readFileSync(join(CANVAS_DIR, file), "utf8"))
-      .filter((line) => pattern.test(line));
-    expect(hits, `${file} 仍有裸 -foreground（不生成任何 CSS），应改用所在容器的 <family>-foreground`).toEqual([]);
+  it("canvas 目录没有对不上 token 的颜色类名（含裸 -foreground）", () => {
+    // ⭐ 反证锚点：在 components/canvas/ 任一文件里写一个 `hover:text-foreground` ⇒ 这条红。
+    expect(canvasColorTokenHits(), "canvas 里有颜色类名对不上 token（Tailwind 不生成任何 CSS）").toEqual([]);
   });
 });
 
