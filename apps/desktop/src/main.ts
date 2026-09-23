@@ -264,6 +264,62 @@ async function boot(): Promise<void> {
  * 菜单只加一条：把首启那一屏重新调出来。密码是随机的，人第一次多半没记住，
  * 而唯一的另一条路是去数据目录读一个 0600 的 JSON——那不是一条可以要求用户走的路。
  */
+/**
+ * 「备份我的数据…」。
+ *
+ * 为什么放在菜单而不是设置页：本地版把用户的全部数据放在他自己的机器上，
+ * 「换一台电脑怎么办 / 硬盘坏了怎么办」是这类应用最高严重度的问题之一
+ * （Apple Notes 没有真正的导出，用户被锁死；Bear 的笔记是不透明 SQLite 里的行，
+ * 备份工具碰不到）。这条路必须在用户第一次想到它的时候就能找到，而不是藏在某个页里。
+ *
+ * 三段式回话：发生了什么、对你意味着什么、你现在能做什么。成功时给出收据
+ * （备份里有多少条对话、多少个项目），因为一个只说「完成」的备份不会有人信。
+ */
+async function runBackup(): Promise<void> {
+  if (stack === null) {
+    await dialog.showMessageBox({
+      type: "info", title: "还不能备份",
+      message: "本地服务还没启动完。",
+      detail: "等启动完成后再试一次即可；这期间你的数据没有任何改动。",
+    });
+    return;
+  }
+  const picked = await dialog.showOpenDialog({
+    title: "选择备份保存到哪里",
+    properties: ["openDirectory", "createDirectory"],
+    buttonLabel: "备份到这里",
+  });
+  if (picked.canceled || picked.filePaths[0] === undefined) return;
+  const r = await stack.backup(picked.filePaths[0], app.getVersion());
+  if (!r.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "备份没有完成",
+      message: r.reason,
+      detail: "你的数据没有被改动。可以换一个磁盘空间更充裕的位置再试一次。",
+    });
+    return;
+  }
+  const counts = Object.entries(r.manifest.rowCounts)
+    .map(([t, n]) => `${TABLE_LABELS[t] ?? t} ${n}`).join("　");
+  const ans = await dialog.showMessageBox({
+    type: "info", title: "备份完成，并已逐个文件校验",
+    message: `备份里有：${counts}`,
+    detail: `位置：${r.dir}\n大小：约 ${Math.round(r.totalBytes / 1024 / 1024)} MB\n\n`
+      + `没有包含本机下载的模型（可重新获取）和运行日志。\n`
+      + `换一台电脑时，装好应用后用同一个菜单里的恢复功能读这个目录。`,
+    buttons: ["好", "打开所在位置"],
+    defaultId: 0,
+  });
+  if (ans.response === 1) void shell.openPath(r.dir);
+}
+
+/** 备份收据上的表名要说人话，用户不认得 `chat_threads`。 */
+const TABLE_LABELS: Readonly<Record<string, string>> = {
+  organizations: "工作区", projects: "项目", chat_threads: "对话",
+  chat_messages: "消息", artifacts: "产物", agents: "智能体",
+  skills: "技能", canvas_templates: "画布模板", agent_runs: "运行记录",
+};
+
 function installMenu(): void {
   const template = Menu.getApplicationMenu()?.items.map((item) => item) ?? [];
   const help = {
@@ -274,6 +330,10 @@ function installMenu(): void {
         click: () => { if (welcomeUrl !== null) void win?.loadURL(welcomeUrl); },
       },
       { type: "separator" as const },
+      {
+        label: "备份我的数据…",
+        click: () => { void runBackup(); },
+      },
       {
         label: "打开数据目录",
         click: () => { void shell.openPath(join(app.getPath("userData"), "local")); },
