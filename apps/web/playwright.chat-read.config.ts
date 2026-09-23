@@ -385,7 +385,7 @@ export default defineConfig({
        * 里各跑一遍、白付一份自建 runner 的钱。
        */
       name: "chat-task-workbench",
-      testMatch: /chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)\.spec\.ts$/,
+      testMatch: /(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\.spec\.ts$/,
     },
   ],
   fullyParallel: false,

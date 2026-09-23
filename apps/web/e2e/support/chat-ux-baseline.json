@@ -1,0 +1,6 @@
+{
+  "note": "chat 体验评分的棘轮基线。只准涨不准跌——跌了就是回归，e2e 当场红。每轮提升后把这个数改大，并在 evidence/local-desktop/chat-quality/ux-scorecard.md 留下当轮记分卡。",
+  "measuredOn": "2026-09-24",
+  "total": 7,
+  "perDimension": { "1": 0.5, "2": 0.5, "3": 1, "4": 1, "5": 0, "6": 0.6, "7": 1, "8": 1, "9": 0.5, "10": 1 }
+}

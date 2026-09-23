@@ -42,6 +42,8 @@
     "verify:chat-read:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read",
     "verify:chat-path-coverage": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:chat-path-coverage:raw",
     "verify:chat-path-coverage:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-path-coverage",
+    "eval:chat-ux": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run eval:chat-ux:raw",
+    "eval:chat-ux:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-task-workbench --grep \"chat 体验评测集\"",
     "verify:chat-task-workbench": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:chat-task-workbench:raw",
     "verify:chat-task-workbench:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-task-workbench",
     "verify:self-service-profile": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:self-service-profile:raw",
