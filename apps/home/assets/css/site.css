@@ -1565,7 +1565,8 @@ html:not(.js) [data-stagger] > * {
 .d-label--dim   { fill: var(--fg-dim); }
 .d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: calc(11px * var(--dscale, 1)); }
 .d-label--fail  { fill: var(--c-fail); }
-.d-label--on    { fill: #fff; font-weight: 600; }
+
+.d-label--on    { fill: var(--on-grad); font-weight: 600; }
 
 .d-chain { width: 100%; height: auto; overflow: visible; }
 .d-chain__node {

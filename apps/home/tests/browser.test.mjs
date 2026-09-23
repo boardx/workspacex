@@ -504,6 +504,37 @@ for (const [lang, path] of LANGS) {
        diagram-strings.js claimed a check that had never been written. */
     rawKeys: [...document.querySelectorAll('[data-diagram] svg text')]
       .map((n) => n.textContent.trim()).filter((v) => /^d\.[a-z]/.test(v)),
+    /* Text drawn ON the brand gradient. axe does not evaluate SVG text over a
+       gradient fill, so white-on-gradient — 2.19:1 over the orange stop —
+       passed every accessibility run for thirty-three rounds. The page solved
+       this once for buttons and called the answer --on-grad.
+
+       "On" means the boxes actually overlap. The first version of this asked
+       only whether the same <g> held a gradient-filled shape, and reported the
+       axis diagram, whose labels sit above the line and whose only gradient is
+       a 4px dot at the far end. A group is not a position. */
+    onGradient: (() => {
+      const ink = getComputedStyle(document.documentElement)
+        .getPropertyValue('--on-grad').trim();
+      const light = (c) => /^rgba?\((2[0-9]\d|1[89]\d), *(2[0-9]\d|1[89]\d), *(2[0-9]\d|1[89]\d)/.test(c);
+      const bad = [];
+      document.querySelectorAll('[data-diagram] svg').forEach((svgEl) => {
+        const painted = [...svgEl.querySelectorAll('circle, rect, path, ellipse')]
+          .filter((sh) => /^url\(/.test(sh.getAttribute('fill') ?? ''))
+          .map((sh) => sh.getBoundingClientRect());
+        if (!painted.length) return;
+        svgEl.querySelectorAll('text').forEach((text) => {
+          const fill = getComputedStyle(text).fill;
+          if (fill === ink || !light(fill)) return;
+          const t = text.getBoundingClientRect();
+          const over = painted.some((p) =>
+            Math.min(t.right, p.right) - Math.max(t.left, p.left) > t.width * 0.4 &&
+            Math.min(t.bottom, p.bottom) - Math.max(t.top, p.top) > t.height * 0.4);
+          if (over) bad.push(`${text.textContent.trim().slice(0, 12)}=${fill}`);
+        });
+      });
+      return [...new Set(bad)];
+    })(),
   }));
   r.check(state.read > 0, `reading progress stayed at ${state.read} after scrolling half the page`);
   r.check(state.current === 1, `the loop rail marks ${state.current} current steps, expected 1`);
@@ -512,6 +543,8 @@ for (const [lang, path] of LANGS) {
      failure it was supposed to catch. */
   r.equal(state.diagrams, facts.diagrams, 'diagrams that actually rendered');
   r.equal(state.scaled, facts.diagrams, 'diagrams with --dscale resolved');
+  r.check(state.onGradient.length === 0,
+    `light text drawn on the brand gradient — ${state.onGradient.slice(0, 3).join(', ')}`);
   r.check(state.rawKeys.length === 0,
     `untranslated diagram keys drawn as labels — ${state.rawKeys.slice(0, 3).join(', ')}`);
   await ctx.close();

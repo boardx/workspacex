@@ -969,3 +969,20 @@ slow-3G — where the budget is 0.02.
 | 8 | **Checked and clean.** Back and forward across nav anchors restores the right hash. |
 | 9 | **Checked and clean.** A chosen discipline survives hash navigation elsewhere on the page. |
 | 10 | **Checked and clean.** Resizing into the stacked breakpoint mid-scene keeps the ring and correctly clears the rail's `aria-current`. |
+
+### Round 34 — looking at the diagrams
+
+Eight SVGs, captured in both languages and at 390 px, and looked at.
+
+| # | Gap | Fix |
+|---|-----|-----|
+| 1 | In the harness diagram the travelling token ran along `y + boxH / 2` — **the line the label sits on**. "Execute" rendered as "ecute", in both languages, on the flagship picture of the argument. | One rail above the gates. |
+| 2 | The collision was **already known**. The reduced-motion branch parks the token at `y - 16` with a comment saying to keep it "clear of the last gate's label rather than on top of it". It was fixed only in the branch almost nobody reaches, while the animated path every reader sees kept running through the text. | The two paths share one constant. The comment was never the problem; two positions for one rail was. |
+| 3 | The **narrow** variant has always had this right — it runs the token up the gutter. Two implementations of one idea, and nobody ever put them side by side. | — |
+| 4 | `.d-label--on { fill: #fff }` paints label text **on the brand gradient**: 2.19:1 over the orange stop, 3.35 and 3.75 over the others. This page solved that exact problem once, for buttons, and named the answer `--on-grad`. The diagram painting on the same gradient never got it. | `var(--on-grad)`: 8.98 / 5.88 / 5.25. |
+| 5 | **axe cannot see this.** It does not evaluate SVG text over a gradient fill, so white-on-gradient passed every accessibility run for thirty-three rounds. | — |
+| 6 | Nothing else could see it either. | A check in the motion suite: any diagram text overlapping a gradient-filled shape must use the ink token. Proved red — it names "Memory". |
+| 7 | Its **first version asked whether the same `<g>` contained a gradient-filled shape**, and reported the axis diagram — whose labels sit above the line and whose only gradient is a 4 px dot at the far end. A group is not a position. | Rewritten as a geometric overlap test, with a 40% threshold. |
+| 8 | **Considered and left alone.** The narrow architecture diagram drops the "moves fast" and "must stay stable" brackets, which is the claim its own `h2` makes verbatim. The code says `if (narrow) return; // no room beside the stack; the copy carries this` — a documented decision with a stated reason, and the copy does carry it. Overriding that on my own judgment would not have been a fix. |
+| 9 | **Checked and clean.** The architecture explorer's state is exactly `ARCH_IMPACT` at both widths — L3 selected, L4 and L5 impacted, L2 and L1 untouched — and the detail panel follows the selection. |
+| 10 | **Checked and clean.** The lit left edge on L2–L3 is the deliberate stable-core marker, not a stuck selection, and the code says so. |

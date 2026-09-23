@@ -644,9 +644,19 @@ function harnessWide(host) {
   host.replaceChildren(s);
   registerScale(s);
 
+  /* ONE rail for the token, used by both the animated and the parked paths.
+     They used to differ: the reduced-motion branch parked it at `y - 16` with
+     a comment saying to keep it "clear of the last gate's label rather than on
+     top of it", while the animated branch — the one every reader actually sees
+     — ran it through `y + boxH / 2`, which is the line the label sits on. So
+     "Execute" rendered as "ecute" for thirty-three rounds, and the person who
+     knew about the collision had fixed it only in the branch almost nobody
+     reaches. A single constant is the fix; the comment was never the problem.
+     (The narrow variant has always had this right: it runs up the gutter.) */
+  const railY = y - 16;
+
   if (reducedMotion()) {
-    // Park it clear of the last gate's label rather than on top of it.
-    token.setAttribute('transform', `translate(${centres[4]} ${y - 16})`);
+    token.setAttribute('transform', `translate(${centres[4]} ${railY})`);
     status.textContent = t('d.harness.pass');
     status.setAttribute('fill', 'var(--c-evidence)');
     return () => {};
@@ -654,8 +664,8 @@ function harnessWide(host) {
 
   return runHarness({
     token, status, s,
-    at: (i) => `translate(${centres[i]} ${y + boxH / 2})`,
-    lerp: (a, b, e) => `translate(${centres[a] + (centres[b] - centres[a]) * e} ${y + boxH / 2})`,
+    at: (i) => `translate(${centres[i]} ${railY})`,
+    lerp: (a, b, e) => `translate(${centres[a] + (centres[b] - centres[a]) * e} ${railY})`,
   });
 }
 

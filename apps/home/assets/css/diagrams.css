@@ -18,7 +18,12 @@
 .d-label--dim   { fill: var(--fg-dim); }
 .d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: calc(11px * var(--dscale, 1)); }
 .d-label--fail  { fill: var(--c-fail); }
-.d-label--on    { fill: #fff; font-weight: 600; }
+/* NOT #fff. This class exists for labels sitting ON the brand gradient, and
+   white measures 2.19:1 over the orange stop — the very reason --on-grad was
+   computed in the first place, for buttons. The diagram that paints text on
+   the same gradient never got it, and axe cannot see it: it does not evaluate
+   SVG text over a gradient fill, so this passed every accessibility run. */
+.d-label--on    { fill: var(--on-grad); font-weight: 600; }
 
 /* ---- hero chain ---------------------------------------------------------- */
 .d-chain { width: 100%; height: auto; overflow: visible; }
