@@ -720,7 +720,7 @@ function ArtifactDetail({
   };
 
   const actionClass =
-    "rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+    "rounded p-1 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-inspector-artifact-detail">
@@ -729,12 +729,12 @@ function ArtifactDetail({
           type="button"
           onClick={onBack}
           data-testid="chat-inspector-artifact-back"
-          className="flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground"
         >
           <ArrowLeft className="size-3.5" aria-hidden />
           产物
         </button>
-        <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground" title={tab.title}>
+        <span className="min-w-0 flex-1 truncate text-12 font-medium text-card-foreground" title={tab.title}>
           {tab.title}
         </span>
         <button
@@ -784,14 +784,14 @@ function ArtifactDetail({
                 key={t.id}
                 className={cn(
                   "group inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-11",
-                  current ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60",
+                  current ? "bg-muted text-card-foreground" : "text-muted-foreground transition-colors duration-fast hover:bg-muted",
                 )}
               >
                 <button
                   type="button" role="tab" aria-selected={current}
                   data-testid="chat-inspector-artifact-tab"
                   onClick={() => { onActivate(t.id); }}
-                  className="min-w-0 truncate focus-visible:outline-none"
+                  className="min-w-0 truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   title={t.title}
                 >{t.title}</button>
                 <button
@@ -799,7 +799,7 @@ function ArtifactDetail({
                   data-testid="chat-inspector-artifact-tab-close"
                   aria-label={`关闭 ${t.title}`}
                   onClick={() => { onClose(t.id); }}
-                  className="shrink-0 rounded text-muted-foreground hover:text-foreground"
+                  className="shrink-0 rounded text-muted-foreground transition-colors duration-fast hover:text-card-foreground"
                 ><X className="size-3" aria-hidden /></button>
               </span>
             );
@@ -888,7 +888,7 @@ function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JS
           type="button"
           data-testid="chat-inspector-artifact-source-jump"
           onClick={() => { setMissing(!scrollToAnchor("data-message-id", messageId)); }}
-          className="inline-flex items-center gap-0.5 rounded px-1 text-primary hover:bg-accent"
+          className="inline-flex items-center gap-0.5 rounded px-1 text-primary transition-colors duration-fast hover:bg-muted"
         >
           <CornerUpLeft className="size-3" aria-hidden />
           跳到原消息

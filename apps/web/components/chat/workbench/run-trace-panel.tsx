@@ -85,7 +85,7 @@ function toolGroupLabel(tool: string, count: number): string {
 /**
  * 「原始地址」——这次调用打开的那一页，可点。
  *
- * 地址来自**模型写的工具参数**，正文那层 `rehype-sanitize` 管不到这条新路径，
+ * 地址来自「模型写的工具参数」，正文那层 `rehype-sanitize` 管不到这条新路径，
  * 由 `externalHttpUrl` 只放行 http/https；判不过就**整行不画**，而不是画一条
  * 点了没用（或更糟：点了会执行 javascript:）的链接。
  */
@@ -243,7 +243,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                     抓回来的只剩正文文本：折叠行上只有域名（`toolObject` 刻意截到 host），
                     完整地址埋在「技术细节」里那段 JSON 的第二层折叠下，而且不可点——
                     用户想核对「这段结论是从哪一页来的」，得展开两层再用眼睛在 JSON 里找。
-                    ⚠ 地址来自**模型写的工具参数**，正文那层 rehype-sanitize 管不到这条路径，
+                    ⚠ 地址来自「模型写的工具参数」，正文那层 rehype-sanitize 管不到这条路径，
                     由 `externalHttpUrl` 只放行 http/https；判不过就不画链接（见该文件头注）。 */}
                 <SourceUrlLine args={entry.args} />
                 {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
@@ -267,12 +267,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                       {/* 2026-09-23（R11）—— 人类原话「在右边可以打开结果，浏览网页」。
                           抓回来的网页正文在这个 max-h-64 的格子里是没法读的，更别说
                           边读边追问。给一条出口：送进右栏，跟产物共用同一条页签。
-                          只对**够长**的结果给：一行输出搬进右栏纯属多绕一步。 */}
+                          只对「够长」的结果给：一行输出搬进右栏纯属多绕一步。 */}
                       {entry.result.length >= RESULT_PANEL_MIN_CHARS ? (
                         <button
                           type="button"
                           data-testid="run-trace-entry-open-in-panel"
-                          className="ml-2 rounded px-1 text-11 text-primary underline underline-offset-2 hover:bg-accent"
+                          className="ml-2 rounded px-1 text-11 text-primary underline underline-offset-2 transition-colors duration-fast hover:bg-muted"
                           onClick={() => {
                             requestOpenInRightPanel({
                               id: entry.id,
