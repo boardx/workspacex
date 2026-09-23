@@ -111,3 +111,4 @@ export * as postinvestRating from "./postinvest-rating";
  * R7-1 的最终归宿是 F01 的 skill 包，包建起来后本文件搬家、不再抄第二份。 */
 export * as postinvestRatingRules from "./postinvest-rating-rules";
 
+export * as whiteboard from './whiteboard';
