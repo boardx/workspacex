@@ -33,6 +33,9 @@ const ASSETS = {
   'og-zh.jpg': ['scripts/og-card.html', 'assets/css/base.css', 'assets/css/fonts.css', 'scripts/build-og.mjs'],
   'apple-touch-icon.png': ['assets/img/favicon.svg', 'scripts/build-og.mjs'],
   'aurora.jpg': ['assets/css/base.css', 'scripts/build-aurora.mjs'],
+  /* The product's logo, from the web app. If it changes there, this fails
+     until the header copy is re-cut. */
+  'logo.webp': ['../web/public/workspacex-logo.png', 'scripts/build-logo.mjs'],
 };
 
 const fingerprint = (sources) => createHash('sha256')

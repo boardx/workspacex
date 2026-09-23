@@ -185,6 +185,8 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "STUDIO",
     items: [
+      // #3902: 独立白板入口，不替代后台画布模板管理。
+      { key: "whiteboard", label: "Board", href: "/studio/board", icon: Shapes, ucRefs: [], isPrototype: true },
       // 束: research（研究 Studio · M24）—— 重指到本束现行屏 /research（顶层）。
       //   旧值 /studio/research 渲染的是 UC-0.2 Context Pack（语义不同），二者共用一条路由
       //   是 requirements/24-research/OPEN-QUESTIONS.md 的 Q-2（阻塞级·未裁）。此处只做**最小可逆**

@@ -94,28 +94,14 @@
    1280px — shipped that way, because "does the nav overflow" and "is the
    lockup intact" are different questions and only the first was being asked. */
 .brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
-.brand__name {
-  font-family: var(--font-display);
-  font-weight: 700; font-size: var(--t-base); letter-spacing: calc(-0.02em * var(--track-tight));
-  color: var(--fg);
-  /* At a doubled text size the wordmark alone is 370 px, and with the bar's
-     items unable to shrink the whole row ran past the viewport. Truncating is
-     an ugly last resort, but a clipped wordmark beats a Launch button that
-     has left the screen. */
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* The wordmark takes the brand gradient, but only where the clip is actually
-   supported. Setting -webkit-text-fill-color: transparent unconditionally is
-   how a wordmark goes invisible: a browser that honours the fill colour but
-   not the clip paints nothing at all. Guarded, the fallback is solid ink. */
-@supports (-webkit-background-clip: text) or (background-clip: text) {
-  .brand__name {
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
+/* The product's own logo, cut from apps/web/public/workspacex-logo.png by
+   scripts/build-logo.mjs — not redrawn, so it cannot drift from the one the
+   app ships. An image also retires three workarounds the old gradient
+   wordmark needed: invisible text where background-clip is unsupported, no
+   name at all in forced colours, and nothing on paper. A picture of the name
+   survives all three. The link around it carries the accessible name, so the
+   image itself is decorative (alt=""). */
+.brand__logo { display: block; height: 30px; width: auto; flex-shrink: 0; }
 .brand__tag {
   font-family: var(--font-mono);
   font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;

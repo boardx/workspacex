@@ -73,7 +73,7 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
     finally{if(currentThread.current===submittedThread)setSubmitting(false);}
   }
   return <section className="min-w-0 space-y-3" aria-label="成果与版本" data-testid="agent-artifact-versions-panel">
-    <div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium" data-testid="chat-task-workbench-artifact-versions">成果与版本</h3>
+    <div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">成果与版本</h3>
       <Button variant="ghost" size="sm" aria-label="刷新成果与修改进度" onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>
     {loading&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>正在读取成果…</p>}
     {error&&<div role="alert" data-testid="err-artifacts" className="rounded-container border border-border p-3 text-13">{error}<Button variant="ghost" size="sm" onClick={()=>setReload(v=>v+1)}>刷新</Button></div>}
@@ -82,8 +82,11 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
       <Select data-testid="artifact-picker" options={artifacts.map(item=>({value:item.artifactId,label:item.name}))} value={artifact.artifactId}
         onValueChange={id=>{setArtifactId(id);setVersion(null);}}/>
       <div className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-muted-foreground"/>
-        <Select data-testid="artifact-version-picker" className="min-w-0 flex-1" options={[...artifact.versions].reverse().map(item=>({value:String(item.version),label:`版本 ${item.version}${item.basedOnVersion?` · 基于版本 ${item.basedOnVersion}`:""}`}))}
-          value={String(selected.version)} onValueChange={value=>setVersion(Number(value))}/></div>
+        {/* TW-P1-4 的「版本」锚点。此前挂在上面那行 `<h3>成果与版本</h3>` 上——标题在
+            就算「版本能力齐」。套在真正能切版本的这个选择器外层：没有版本可切时它整个
+            不存在，锚点也就不该在。内层保留 `artifact-version-picker` 给既有两条测试。 */}
+        <span className="flex min-w-0 flex-1" data-testid="chat-task-workbench-artifact-versions"><Select data-testid="artifact-version-picker" className="min-w-0 flex-1" options={[...artifact.versions].reverse().map(item=>({value:String(item.version),label:`版本 ${item.version}${item.basedOnVersion?` · 基于版本 ${item.basedOnVersion}`:""}`}))}
+          value={String(selected.version)} onValueChange={value=>setVersion(Number(value))}/></span></div>
       <ArtifactPreview key={`${artifact.artifactId}:${selected.version}`} artifact={artifact} version={selected.version} sessionToken={sessionToken}/>
       <p className="line-clamp-3 text-11 text-muted-foreground" title={selected.changeNote}>{selected.changeNote}</p>
       {canEdit&&<div className="space-y-2"><Label htmlFor={inputId}>基于版本 {selected.version} 继续修改</Label>

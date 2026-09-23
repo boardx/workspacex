@@ -71,7 +71,18 @@ const LEGACY = new Map([
   ["apps/web/components/canvas/template-editor-panel.tsx", 1],
   ["apps/web/components/canvas/template-prompt-drawer.tsx", 1],
   ["apps/web/components/canvas/template-trial-dialog.tsx", 1],
-  ["apps/web/components/chat/chat-artifact-preview-dialog.tsx", 1],
+// 2026-09-23 **销账**（不是改门牌）。两条会话前后脚碰到同一处：
+  // 取源与三态从 `chat-artifact-preview-dialog.tsx` 抽进 `chat-artifact-view.tsx`（R2）时，
+  // 那行 `reasonCode ?? \`HTTP ${status}\`` 是**跟着搬过去的**——违规换了文件没换性质，
+  // 所以并行会话先把基线改了门牌（登记成 chat-artifact-view.tsx: 1），并写明「要销这笔债
+  // 得先给这两个码各写一句人话并改那条断言」。
+  // 这一轮就是那件事：`lib/chat-workbench/artifact-failure.ts` 给 NOT_VISIBLE /
+  // STORAGE_UNAVAILABLE 各写了一句人话（闭集，漏配编译不过），HTTP 兜底与 design-failure
+  // 共用 `lib/http-failure-text.ts`，测试判据同步改成「两种码给不同的人话且不含内部码」。
+  // 债真没了，所以这里整条删除，而不是留一个 0。
+  //
+  // ⚠ 留给后来人的一条：本门**报完基线漂移就 exit**，来不及报「搬过去的新文件」那处违规。
+  //   看到「0 处（基线 1）——修好了」时，先确认违规是消失了、还是换了位置。
   ["apps/web/components/chat/chat-read-screen.tsx", 1],
   ["apps/web/components/chat/chat-recording-panel.tsx", 2],
   ["apps/web/components/chat/message-rating.tsx", 1],

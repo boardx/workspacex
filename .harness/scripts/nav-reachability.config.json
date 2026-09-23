@@ -20,7 +20,7 @@
       "personal-realtime-transcription": "/rec",
       "canvas": "/canvas",
       "skills": "/skill",
-  "curated-capability-packs": "/skill",
+      "curated-capability-packs": "/skill",
       "agent-runtime": "/preview/agent-runtime",
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",
@@ -38,7 +38,8 @@
       "/platform-admin",
       "/preview/agent-kernel",
       "/studio/design-workbench",
-      "/studio/feedback-drafts"
+      "/studio/feedback-drafts",
+      "/studio/board"
     ],
     "linkExemptRoutes": {
       "//": "这五条都是**故意**开成「只能敲 URL 进」的独立路由，各自的 page.tsx 头注写了原委，不是漏接入口。它们该不该长出正式入口是产品/IA 的裁决，不在门控里替人类做——但登记在这里，至少它们是**被点过名的**，不再是无人知晓的孤儿。",
@@ -79,7 +80,8 @@
       "/skill",
       "/studio/survey",
       "/tasks",
-      "/tpl"
+      "/tpl",
+      "/studio/board"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -113,7 +115,8 @@
       "/studio/feedback-drafts",
       "/studio/survey",
       "/tasks",
-      "/tpl"
+      "/tpl",
+      "/studio/board"
     ]
   }
 }
