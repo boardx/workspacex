@@ -32,6 +32,10 @@
     {
       "prefix": "/chat/copilotkit-preview",
       "reason": "#654 阶段 1a 的独立预览路由，刻意不挂在 /chat 生产入口下。"
+    },
+    {
+      "prefix": "/studio/board",
+      "reason": "#3902 UI-first Board interaction preview: visible unsaved notice, no board backend. Remove this classification when the signed whiteboard API is wired; do not classify session APIs as board persistence."
     }
   ],
   "nonApiAdapters": [
@@ -1443,6 +1447,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/plan-control-live/page.tsx"
     },
+    "/preview/whiteboard": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/whiteboard/page.tsx"
+    },
     "/profile": {
       "kind": "wired",
       "screen": "apps/web/app/profile/page.tsx",
@@ -1641,6 +1649,10 @@
         "apps/web/lib/mock/canvas.ts",
         "apps/web/lib/mock/skill.ts"
       ]
+    },
+    "/studio/board": {
+      "kind": "preview",
+      "screen": "apps/web/app/studio/board/page.tsx"
     },
     "/studio/design-workbench": {
       "kind": "wired",

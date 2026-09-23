@@ -25,7 +25,7 @@
 # 固化成"已知例外"——那比没有门控更糟。
 #
 # 所以这里先只做**探测器**：它不接进 CI，退出码恒 0，只负责把清单打出来给分辨的人。
-# 分辨完之后再按 U12/U10 的既有先例（(path, content) 子串豁免表）接进 lint-design.sh。
+# 分辨完之后再按 U10 的既有先例（(path, content) 子串豁免表）接进 lint-design.sh。
 #
 # 用法：apps/web/scripts/detect-solid-foreground-without-fill.sh
 set -uo pipefail
@@ -41,4 +41,4 @@ for FAMILY in primary destructive success warning ai inverse; do
   TOTAL=$((TOTAL + COUNT))
 done
 echo "合计 ${TOTAL} 处待分辨（真白字白底 vs 父级提供底色的合法用法）。"
-echo "这是探测器，不是门控：退出 0。分辨完请按 U12 的豁免表先例接进 lint-design.sh。"
+echo "这是探测器，不是门控：退出 0。分辨完请按 U10 的豁免表先例接进 lint-design.sh。"

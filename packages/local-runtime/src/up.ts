@@ -19,6 +19,8 @@ import {
 import { capabilityNotices, localCapabilities, type CapabilityStatus } from "./capabilities";
 import { findOllama } from "./doctor";
 import { importModels } from "./model-bundle";
+import { humanBytes, humanEta } from "./model-import";
+import { PortsInUseError } from "./startup-failure";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import {
@@ -183,7 +185,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       } else if (opts.bundleModelsDir) {
         const store = already ? (process.env.OLLAMA_MODELS ?? join(homedir(), ".ollama", "models")) : paths.models(c);
         try {
-          const r = importModels(opts.bundleModelsDir, store);
+          /*
+            首次启动要搬 7.5 GB。原来这里是一句同步拷贝，期间一个字都不说——
+            评分卡「首次运行」9 分的第一条判据就是「全程确定性百分比 + 剩余时间」。
+            现在按字节报进度，桌面壳把它显示在启动页上（#3872 维度 2）。
+          */
+          const r = await importModels(opts.bundleModelsDir, store, {
+            onProgress: (p) => {
+              const pct = p.bytesTotal === 0 ? 100 : Math.floor((p.bytesDone / p.bytesTotal) * 100);
+              log(`[ollama] 导入随包模型 ${p.model} ${pct}% （${humanBytes(p.bytesDone)} / ${humanBytes(p.bytesTotal)}，${humanEta(p.etaSeconds)}）`);
+            },
+          });
           if (r.imported.length) log(`[ollama] imported bundled model(s) into ${store}: ${r.imported.join(", ")}`);
           else log(`[ollama] bundled model(s) already in ${store}: ${r.skipped.join(", ")}`);
         } catch (e) {
@@ -534,14 +546,42 @@ async function assertPortsFree(c: LocalConfig, webMode: "dev" | "start" | "none"
     { name: "Skill 沙箱", port: c.ports.sandbox },
   ];
   if (webMode !== "none") wanted.push({ name: "Web", port: c.ports.web });
-  const taken = (await Promise.all(wanted.map(async (w) => ({ ...w, busy: await portInUse(w.port) }))))
+  const probe = (globalThis as { __wsxPortInUse?: (p: number) => boolean }).__wsxPortInUse
+    ?? ((p: number) => portInUse(p));
+  const taken = (await Promise.all(wanted.map(async (w) => ({ ...w, busy: await probe(w.port) }))))
     .filter((w) => w.busy);
   if (taken.length === 0) return;
-  throw new Error(
+  // 结构化地抛：桌面壳要据此给出「收回并重试」，而**文案随时会改**（见
+  // startup-failure.ts 的 PortsInUseError：R10 正是因为解析文案而整条路成了死代码）。
+  throw new PortsInUseError(
     `以下端口已被占用，无法启动：\n${taken.map((t) => `  ${t.port}  ${t.name}`).join("\n")}\n` +
       "多半是上一个 WorkspaceX Local 还在跑（在它的终端里 Ctrl-C），" +
       `或者别的程序占了这些端口（可用 --ports ${taken.map((t) => `${portFlagName(t.name)}=<新端口>`).join(",")} 换开）。`,
+    taken.map((t) => ({ port: t.port, name: t.name })),
   );
+}
+
+/**
+ * 测试入口：用假的端口探测跑一遍**真正的** `assertPortsFree`，把它抛的东西还回去。
+ *
+ * 存在的理由见 `test/startup-failure.test.ts` 末节：手抄的错误消息会过期，
+ * 而过期的夹具会让一条死代码全程绿灯。这里让产线代码自己抛，分诊去认它。
+ */
+export async function assertPortsFreeForTest(
+  ports: { postgres: number; api: number; sandbox: number; web: number },
+  busy: (port: number) => boolean,
+): Promise<unknown> {
+  const real = portInUse;
+  try {
+    (globalThis as { __wsxPortInUse?: (p: number) => boolean }).__wsxPortInUse = busy;
+    await assertPortsFree({ ports } as unknown as LocalConfig, "start");
+    return null;
+  } catch (e) {
+    return e;
+  } finally {
+    delete (globalThis as { __wsxPortInUse?: unknown }).__wsxPortInUse;
+    void real;
+  }
 }
 
 function portFlagName(serviceName: string): string {

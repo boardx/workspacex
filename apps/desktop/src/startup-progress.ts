@@ -36,10 +36,21 @@ export function progressState(lines: string[], state: { startedAt: number; faile
    * 这里把最近一条顶到台前——否则这几分钟里屏幕上只有「检查本地模型…」一动不动，
    * 用户看到的就是一个卡死的程序（2026-09-22 用户原话：「这个正常吗？」）。
    */
+  /*
+    ⚠ 两种「模型还没好」长得不一样，**都要顶到台前**：
+    - 联网拉取 `[ollama] 拉取 …`（pull-progress.ts）
+    - 随包导入 `[ollama] 导入随包模型 …`（model-import.ts，#3872 维度 2）
+
+    这一条是写完导入进度之后才发现的：运行时那边按字节报得好好的，而这里只认
+    「拉取 」开头的行，于是那 7.5 GB 的百分比一个字也到不了用户眼前。
+    「写了进度」和「用户看得见进度」之间隔着这一行匹配。
+  */
+  const busyPrefixes = ["[ollama] 拉取 ", "[ollama] 导入随包模型 "];
   const pulling = state.failed
     ? null
-    : [...lines].reverse().find((l) => l.startsWith("[ollama] 拉取 ")) ?? null;
-  const pullDone = lines.some((l) => /^\[ollama\] 拉取 .* 完成$/.test(l));
+    : [...lines].reverse().find((l) => busyPrefixes.some((p) => l.startsWith(p))) ?? null;
+  const importing = pulling !== null && pulling.startsWith("[ollama] 导入随包模型 ");
+  const pullDone = lines.some((l) => /^\[ollama\] (拉取 .* 完成|imported bundled model|bundled model\(s\) already)/.test(l));
   const current = state.failed
     ? "启动失败"
     : pulling !== null && !pullDone
@@ -49,7 +60,9 @@ export function progressState(lines: string[], state: { startedAt: number; faile
   const hint = state.failed
     ? "下面是启动日志，把它发给开发者即可定位。"
     : pulling !== null && !pullDone
-      ? "首次启动要下载本地模型，取决于网速，通常几分钟。之后不再下载。"
+      ? importing
+        ? "首次启动要把随包的本地模型搬进模型库，只读写本机磁盘、不联网。之后不再搬。"
+        : "首次启动要下载本地模型，取决于网速，通常几分钟。之后不再下载."
       : firstRun ? "首次启动要初始化数据库，通常 1–2 分钟。" : "通常 15–30 秒。";
   return { step, pct, elapsed, current, hint, failed: state.failed, log: lines.slice(-200).join("\n") };
 }

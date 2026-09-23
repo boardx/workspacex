@@ -26,7 +26,7 @@
 
 /** 用户按下去之后桌面壳该做的事。 */
 export type StartupRemedy =
-  | { readonly kind: "reclaim-port"; readonly port: number; readonly label: string }
+  | { readonly kind: "reclaim-port"; readonly ports: readonly number[]; readonly label: string }
   | { readonly kind: "restore-backup"; readonly label: string }
   | { readonly kind: "move-aside"; readonly label: string };
 
@@ -46,20 +46,57 @@ const PORT_OWNERS: Record<number, string> = {
   55432: "数据库", 3200: "后端", 3100: "界面", 3310: "技能沙箱", 3320: "语音转写", 11435: "本地模型",
 };
 
+/**
+ * 端口冲突的**结构化事实**。
+ *
+ * ⚠ 这个字段存在的理由，是一次实测打脸：R10 的分诊靠正则去认
+ *   `127.0.0.1:55432 (PostgreSQL) is already in use`——那是我从**历史日志**里
+ *   抄来的形状。而 `up.ts` 早已改成中文多端口消息（「以下端口已被占用，无法启动：」），
+ *   于是「收回并重试」这个按钮，在它真正要处理的那条路上**从来没出现过**。
+ *   单测之所以全绿，是因为我喂给它的夹具正是那份过期的现实。
+ *
+ *   教训不是「把正则改对」——是**不要解析自己的错误消息**。抛错的那一方知道
+ *   到底是哪些端口，就把它带过来；文案随时可以改，事实不会。
+ *   正则只作为读不到结构化事实时的兜底（旧版本写下的日志、别处抛的错）。
+ */
+export class PortsInUseError extends Error {
+  readonly ports: readonly { readonly port: number; readonly name: string }[];
+  constructor(message: string, ports: readonly { readonly port: number; readonly name: string }[]) {
+    super(message);
+    this.name = "PortsInUseError";
+    this.ports = ports;
+  }
+}
+
+/** 从错误对象里取被占端口：优先结构化事实，其次两种已知的文案形状。 */
+export function takenPortsOf(e: unknown): number[] {
+  if (e instanceof PortsInUseError) return e.ports.map((p) => p.port);
+  const msg = e instanceof Error ? e.message : String(e);
+  const one = /127\.0\.0\.1:(\d+)\D+is already in use/.exec(msg);
+  if (one !== null) return [Number(one[1])];
+  if (/端口已被占用/.test(msg)) {
+    return [...msg.matchAll(/^\s{2}(\d{2,5})\s/gm)].map((m) => Number(m[1]));
+  }
+  return [];
+}
+
 export function diagnoseStartupFailure(
-  message: string,
+  e: unknown,
   ctx: { readonly hasBackup: boolean },
 ): StartupDiagnosis {
-  const port = /127\.0\.0\.1:(\d+)\D+is already in use/.exec(message);
-  if (port !== null) {
-    const p = Number(port[1]);
-    const who = PORT_OWNERS[p] ?? "其中一个组件";
+  const message = e instanceof Error ? e.message : String(e);
+  const taken = takenPortsOf(e);
+  if (taken.length > 0) {
+    const p = taken[0]!;
+    const who = taken.length > 1
+      ? `${taken.length} 个组件`
+      : (PORT_OWNERS[p] ?? "其中一个组件");
     return {
       title: "上一次没有完全退出",
       body:
-        `${who}用的端口还被上一次运行的 WorkspaceX 占着，所以这一次起不来。\n`
+        `${who}用的端口（${taken.join("、")}）还被上一次运行的 WorkspaceX 占着，所以这一次起不来。\n`
         + "这不影响你的数据。点「收回并重试」，应用会让那个残留的进程退出，然后重新启动。",
-      remedies: [{ kind: "reclaim-port", port: p, label: "收回并重试" }],
+      remedies: [{ kind: "reclaim-port", ports: taken, label: "收回并重试" }],
       unknown: false,
     };
   }
