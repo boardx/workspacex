@@ -221,9 +221,9 @@ h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight));
 
 :lang(zh) body, :lang(zh) p { line-height: 1.75; }
 
-:lang(zh) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
-:lang(zh) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
-:lang(zh) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+:where(:lang(zh)) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
 
 p { text-wrap: pretty; }
 
@@ -1759,10 +1759,8 @@ html:not(.js) [data-stagger] > * {
 .d-loop__ring {
   stroke: rgba(255, 255, 255, calc(0.16 + 0.26 * var(--e, 0)));
 }
-.d-loop__node .d-label {
-  fill: var(--fg-dim);
-  opacity: calc(0.62 + 0.38 * var(--e, 0));
-}
+
+.d-loop__node .d-label { fill: var(--fg-dim); }
 .d-loop__node[data-active="true"] .d-label { fill: var(--fg); }
 .d-loop__centre { animation: d-centre 420ms var(--ease-out); }
 @keyframes d-centre {

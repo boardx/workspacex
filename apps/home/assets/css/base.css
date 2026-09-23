@@ -237,10 +237,15 @@ h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight));
 /* Han glyphs fill their em box; latin letters do not. At an identical pixel
    size a Chinese headline therefore reads noticeably heavier and larger than
    the English one it replaces, and the two languages stop looking like the
-   same design. Scaling the display sizes back restores the match. */
-:lang(zh) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
-:lang(zh) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
-:lang(zh) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+   same design. Scaling the display sizes back restores the match.
+   Wrapped in :where() so they weigh no more than the plain `h2 {}` they
+   replace. At (0,1,1) they outranked every component's own heading class, so
+   on /zh/ card titles, footer labels and case headings set at 12–16px in
+   English all rendered at the 25px section size — a quarter of the page's
+   headings, found by the eval comparing the two languages. */
+:where(:lang(zh)) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
 
 p { text-wrap: pretty; }
 

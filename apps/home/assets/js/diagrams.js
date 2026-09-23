@@ -582,12 +582,7 @@ function harnessNarrow(host) {
   host.replaceChildren(s);
   registerScale(s);
 
-  const park = () => {
-    token.setAttribute('transform', `translate(${x - 18} ${centres[4]})`);
-    status.textContent = t('d.harness.pass');
-    status.setAttribute('fill', 'var(--c-evidence)');
-  };
-  if (reducedMotion()) { park(); return () => {}; }
+  if (reducedMotion()) { parkCaught({ token, status, s, at: `translate(${x - 18} ${centres[3]})` }); return () => {}; }
   return runHarness({ token, status, s, at: (i) => `translate(${x - 18} ${centres[i]})` });
 }
 
@@ -656,9 +651,7 @@ function harnessWide(host) {
   const railY = y - 16;
 
   if (reducedMotion()) {
-    token.setAttribute('transform', `translate(${centres[4]} ${railY})`);
-    status.textContent = t('d.harness.pass');
-    status.setAttribute('fill', 'var(--c-evidence)');
+    parkCaught({ token, status, s, at: `translate(${centres[3]} ${railY})` });
     return () => {};
   }
 
@@ -670,6 +663,21 @@ function harnessWide(host) {
 }
 
 const harness = (host) => (isNarrow() ? harnessNarrow(host) : harnessWide(host));
+
+/* The still frame a reduced-motion reader gets. It used to be the success
+   path — "passed", token on Evidence — directly above a caption saying "the
+   run above shows a failing check being caught and reversed". The one frame
+   that has to carry the whole animation showed the half the caption says is
+   not the point. It is the caught failure now: token on Verify, the gate
+   marked failed, the rollback path lit — the same state the animation holds
+   at 2.7 s. */
+function parkCaught({ token, status, s, at }) {
+  token.setAttribute('transform', at);
+  status.textContent = t('d.harness.fail');
+  status.setAttribute('fill', 'var(--c-fail)');
+  s.querySelectorAll('.d-harness__gate').forEach((g, gi) => g.setAttribute('data-state', gi === 3 ? 'fail' : ''));
+  s.querySelector('.d-harness__rollback')?.setAttribute('data-on', 'true');
+}
 
 /* The run: walk to verify, fail, roll back to execute, walk again, pass.
    A slow loop on purpose — the failing path is the whole message, so it has to

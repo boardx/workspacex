@@ -1429,3 +1429,19 @@ Considered and not done: folding `print.css` into the bundle would take the
 request count from 17 to 16 and move its bytes onto the render-blocking path.
 A `media="print"` sheet never blocks rendering, so that trades a real cost for
 a better number.
+
+### Round 58 — 9.90 → 9.94, and the set grows to 55 cases
+
+The set was near its ceiling, so an **independent reviewer** (a separate agent,
+no access to this round's reasoning) went through every section in both
+languages at 1280, 390 and 320 px and returned 25 ranked problems. Rounds
+58–63 work through them; each one a script can see became a case, proved red
+on the code before the fix.
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Inter shipped its whole 100–900 weight axis**; the page uses 400–700. Two-thirds of a 48 KB font downloaded by every visitor and never drawn. | `build-fonts.mjs` pins the axis to 400–700 (still variable): **48 → 34 KB**, first load 166 → 153 KB. Upstream files kept in `scripts/fonts-src/`, fingerprinted. `check-css` now fails a `font-weight` outside the kept range — proved red with a 300. Outfit left alone: the same cut makes it *larger*. |
+| 2 | The "also in 中文" offer — the switch a visitor who missed the real one actually taps — **still dropped your place**. | It carries the current section too. New case `nav.hint.keeps.place`: 0 on the old code, 1 now. |
+| 3 | **A quarter of the Chinese page's headings were the wrong size.** `:lang(zh) h3` (specificity 0,1,1) outranked every component's own heading class, so card titles, case headings and the footer labels set at 12–16 px in English rendered at 25 px on `/zh/` — the footer read as four giant grey titles. | The per-language heading sizes are wrapped in `:where()`. New case `bi.samedesign` compares every heading's size across the two pages: **0.76 before, 1.00 after.** |
+| 4 | **With reduced motion the trust diagram contradicted its caption**: the still frame was the success path ("passed", token on Evidence) directly above "the run above shows a failing check being caught and reversed". | The still frame is the caught failure — token on Verify, gate marked failed, rollback lit. New case `a11y.reduced.story`. |
+| 5 | **The loop's inactive labels were 2.8:1** — `--fg-dim` faded to 62% — on 13 px text. axe does not look inside SVG, so no gate said so. | The fade is gone; emphasis is carried by the fill and the dot. New case `a11y.svgcontrast` computes the effective colour of every diagram label through its opacity chain: **0.76 → 1.00**. |

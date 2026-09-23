@@ -151,6 +151,29 @@ const CASES = [
       const n = await c.reduced.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity).length);
       return { score: +(n === 0), note: n ? `${n} infinite animations` : '' };
     }],
+  ['a11y.reduced.story', '可访问性', 'With reduced motion, the trust diagram still shows what its caption describes: a failing check caught and rolled back',
+    async (c) => c.reduced.evaluate(() => {
+      const d = document.querySelector('.d-harness'); if (!d) return { score: 0, note: 'no diagram' };
+      const parts = [d.querySelector('.d-harness__rollback')?.getAttribute('data-on') === 'true', !!d.querySelector('.d-harness__gate[data-state="fail"]')];
+      return { score: parts.filter(Boolean).length / 2, note: parts.join(',') };
+    })],
+  ['a11y.svgcontrast', '可访问性', 'Diagram labels reach 4.5:1 against the page (axe does not look inside SVG)',
+    async (c) => c.desk.evaluate(() => {
+      const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+      const bg = [8, 7, 11];
+      const bad = [];
+      const texts = [...document.querySelectorAll('main svg text')].filter((t) => t.getBBox().width > 0 && t.textContent.trim() && !t.closest('[aria-hidden="true"] [aria-hidden="true"]'));
+      for (const t of texts) {
+        const cs = getComputedStyle(t); const m = cs.fill.match(/[\d.]+/g); if (!m) continue;
+        let a = parseFloat(cs.fillOpacity ?? 1) * (m[3] !== undefined ? +m[3] : 1);
+        for (let e = t; e && e.tagName !== 'svg'; e = e.parentElement) a *= parseFloat(getComputedStyle(e).opacity);
+        if (a < 0.05) continue;   // not shown yet (a reveal still pending), not low-contrast
+        const col = [0, 1, 2].map((i) => +m[i] * a + bg[i] * (1 - a));
+        const ratio = (lum(col) + 0.05) / (lum(bg) + 0.05);
+        if (ratio < 4.5) bad.push(`${t.textContent.trim().slice(0, 12)} ${ratio.toFixed(1)}`);
+      }
+      return { score: 1 - bad.length / Math.max(1, texts.length), note: `${bad.length}/${texts.length}: ${bad.slice(0, 3).join(' | ')}` };
+    })],
   ['a11y.headings', '可访问性', 'One h1, and no heading level is skipped',
     async (c) => c.desk.evaluate(() => {
       const hs = [...document.querySelectorAll('h1,h2,h3,h4')].map((h) => +h.tagName[1]);
@@ -222,6 +245,18 @@ const CASES = [
       const ok = vals.filter((v) => (lang === 'zh' ? han(v) : !han(v)));
       return { score: ok.length / vals.length, note: `${ok.length}/${vals.length}` };
     }, c.lang)],
+  ['bi.samedesign', '双语', 'Every heading is the same size in both languages (Han may be up to 20% smaller, never larger)',
+    async (c) => {
+      const sizes = (page) => page.evaluate(() => [...document.querySelectorAll('h1, h2, h3, h4')].map((h) => parseFloat(getComputedStyle(h).fontSize)));
+      const ctx = await c.browser.newContext({ viewport: { width: 1280, height: 800 } });
+      const other = await ctx.newPage();
+      await other.goto(`${c.base}${c.lang === 'zh' ? '/' : '/zh/'}`, { waitUntil: 'load' });
+      const [mine, theirs] = [await sizes(c.desk), await sizes(other)];
+      await ctx.close();
+      const [en, zh] = c.lang === 'zh' ? [theirs, mine] : [mine, theirs];
+      const bad = en.map((e, i) => [e, zh[i], i]).filter(([e, z]) => !(z / e >= 0.8 && z / e <= 1.02));
+      return { score: 1 - bad.length / en.length, note: bad.slice(0, 3).map(([e, z, i]) => `#${i} ${e}→${z}px`).join(' | ') };
+    }],
   ['bi.cardimage', '双语', 'The social card image is the one made for this language',
     async (c) => c.desk.evaluate((lang) => { const u = document.querySelector('meta[property="og:image"]')?.content || ''; return +(lang === 'zh' ? /og-zh\./.test(u) : /\/og\./.test(u)); }, c.lang)],
 
