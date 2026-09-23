@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure } from "@/lib/design-failure";
 import { LinkBadge } from "./badges";
 import { useDialogFocus } from "./use-dialog-focus";
 import { RefImagePicker } from "./ref-image-picker";
@@ -23,6 +24,7 @@ import {
   DESIGN_PROJECT_TAG_MAX_CHARS,
   updateProject as apiUpdateProject,
   PROJECT_TEMPLATE_OPTIONS,
+  PROJECT_TEMPLATE_LABEL,
   type DesignProject,
   type IntakeAnswer,
   type ProjectTemplate,
@@ -47,11 +49,7 @@ type IntakeQuestion = designWorkbench.IntakeQuestion;
  *     用服务端返回的 `project` 覆盖列表里那一条（而不是本地拼 patch），删除成功后才从
  *     列表移除；失败都保留原列表 + 提示，不假装已经生效。
  */
-const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
-  mobile: "移动端设计",
-  ui: "UI 原型",
-  wireframe: "线框图",
-};
+const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
 const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
   mobile: "📱",
   ui: "🎨",
@@ -59,11 +57,12 @@ const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
 };
 const TEMPLATE_OPTIONS = PROJECT_TEMPLATE_OPTIONS.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
 
-function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return String(err);
-}
+/**
+ * 迭代 33：这三处（工作台首页 / 草稿列表 / 收件箱）原来各抄了一份
+ * 「reasonCode 取不到就拼 HTTP 状态、再不行 String(err)」。迭代 27 只把详情页那一份
+ * 换成了人话表，而这三屏恰恰是用户**第一眼**看到的地方。同一事实不得声明在两处：
+ * 统一走 `lib/design-failure.ts`，并由 `lint-user-facing-error-text` 机械挡住回潮。
+ */
 
 type Load =
   | { kind: "loading" }

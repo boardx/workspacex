@@ -4,6 +4,7 @@
  * Dependency-free; run it from apps/home.
  */
 import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -17,8 +18,12 @@ const checks = [
   ['html structure', 'check-html.mjs'],
   ['css dead code', 'check-css.mjs'],
   ['copy typography', 'check-copy.mjs'],
+  ['link integrity', 'check-links.mjs'],
+  ['engine compatibility', 'check-compat.mjs'],
   ['css bundle up to date', 'build-css.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],
+  ['brand mark up to date', 'build-brand.mjs', '--check'],
+  ['generated assets up to date', 'check-assets.mjs'],
 ];
 
 /* The browser suites need Playwright, which is a dev tool rather than a
@@ -28,6 +33,21 @@ const browserChecks = [
   ['browser behaviour', '../tests/browser.test.mjs'],
   ['performance budget', '../tests/perf.test.mjs'],
 ];
+
+/* ---- a gate on the gates -------------------------------------------------
+   check-compat.mjs existed, was documented in the README's table, and was
+   never in the list above — so it had never run as part of the standard
+   verification. Writing a check and forgetting to call it is the same failure
+   as writing a rule and never scripting it, one level up. */
+const wired = new Set(checks.map(([, script]) => script));
+const orphans = readdirSync(here)
+  .filter((f) => f.startsWith('check-') && f.endsWith('.mjs') && f !== 'check-all.mjs')
+  .filter((f) => !wired.has(f));
+if (orphans.length) {
+  console.error(`\n✗ checks that exist but nothing runs (${orphans.length}):`);
+  orphans.forEach((f) => console.error(`    scripts/${f}`));
+  process.exit(1);
+}
 
 let failed = 0;
 for (const [label, script, ...args] of checks) {

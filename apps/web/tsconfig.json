@@ -45,7 +45,8 @@
     ".next-lc/types/**/*.ts",
     ".next-real-model-e2e/types/**/*.ts",
     ".next-audit/types/**/*.ts",
-    ".next-loop/types/**/*.ts"
+    ".next-loop/types/**/*.ts",
+    ".next-design-loop/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

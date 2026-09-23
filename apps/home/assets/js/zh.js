@@ -18,6 +18,7 @@ export default {
   'nav.shift': '转变',
   'nav.loop': '工作闭环',
   'nav.architecture': '架构',
+  'nav.start': '场景',
   'nav.trust': '可信',
   'nav.open': '开放',
   'nav.github': 'GitHub',

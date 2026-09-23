@@ -111,8 +111,18 @@ async function openDetail(page: Page, c: AuditCase): Promise<void> {
     await page.waitForTimeout(500);
   }
   if (c.device !== undefined) {
+    /*
+     * 迭代 25：设备下拉在迭代 24 之后住在「外观」面板里（明暗 / 强调色 / 设备三组一起收起来了，
+     * 见 `components/design-loop/canvas-appearance.tsx` 的头注）。审计仍然点**真控件**——
+     * 所以这里多一步"把面板打开"，而不是绕过 UI 去设内部状态。
+     */
+    await page.click("[data-testid='design-detail-appearance']");
+    await page.waitForSelector("[data-testid='design-detail-appearance-panel']");
     await page.selectOption("[data-testid='design-detail-device']", c.device);
     await page.waitForTimeout(500);
+    // 面板收起来再截图：它是设置入口，不是被审的原型本身。
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
   }
 }
 

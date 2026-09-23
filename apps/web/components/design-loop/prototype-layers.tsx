@@ -43,7 +43,14 @@ export function PrototypeLayers({
   if (rows.length === 0) return null;
   return (
     <div className="flex min-h-0 flex-col border-b border-border" data-testid="design-layers">
-      <p className="px-3 pb-1 pt-2 text-10 font-medium uppercase tracking-wide text-muted-foreground">图层</p>
+      {/*
+        * 迭代 32：「图层」是做设计的人的词。这一栏对普通人的作用是"这一页由哪些块组成"，
+        * 顺带说一句共几块——原来连有多少都得自己数。中文小标题上的 uppercase 同样去掉
+        * （中文没有大小写，留下的只有被拉开的字距）。
+        */}
+      <p className="px-3 pb-1 pt-2 text-10 font-medium text-muted-foreground" data-testid="design-layers-title">
+        页面结构（{rows.length} 块）
+      </p>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {rows.map(({ node, depth }) => {
           const id = node.id;

@@ -17,11 +17,13 @@ import { LinkBadge, StatusBadge } from "./badges";
 /** B3.7——关联跳转回调：`targetId` 是契约 `InboxItem.id`，`label` 只用于提示文案。 */
 export type NavigateLink = (targetId: string, label: string) => void;
 
-export function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return String(err);
-}
+/**
+ * 迭代 33：这三处（工作台首页 / 草稿列表 / 收件箱）原来各抄了一份
+ * 「reasonCode 取不到就拼 HTTP 状态、再不行 String(err)」。迭代 27 只把详情页那一份
+ * 换成了人话表，而这三屏恰恰是用户**第一眼**看到的地方。同一事实不得声明在两处：
+ * 统一走 `lib/design-failure.ts`，并由 `lint-user-facing-error-text` 机械挡住回潮。
+ */
+export { describeFailure } from "@/lib/design-failure";
 
 /** B3.7 高亮态：卡片/行共用，用 `ring-primary` token，不硬编码颜色。 */
 export const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";

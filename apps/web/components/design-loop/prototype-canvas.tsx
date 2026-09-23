@@ -783,7 +783,15 @@ export function PrototypeCanvas({
               )}
             </div>
           ) : (
-            <p className="mt-auto text-center text-11 text-muted-foreground">还没有原型。在左边描述你要的界面，我会直接画出来。</p>
+            /*
+             * 迭代 25：这块是**空项目的主视野**——一台全黑的手机，而唯一的一句话此前是
+             * `mt-auto text-11` 顶在机身最底下的一行小灰字。实测截图上它几乎不可见。
+             * 改成居中、正常字号；并去掉「在左边」——md 以下对话面板在**上方**，
+             * 方位词在响应式布局里天然会说谎。
+             */
+            <p className="m-auto max-w-[80%] text-center text-12 text-muted-foreground">
+              还没有原型。<br />在对话里说一句你要做什么，我就画出来。
+            </p>
           )}
         </div>
       ) : (

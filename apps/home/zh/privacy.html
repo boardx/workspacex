@@ -7,6 +7,9 @@
 <title>隐私与数据 — WorkspaceX</title>
 <meta name="description" content="这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。">
 <meta name="theme-color" content="#08070b">
+<!-- iOS ignores the manifest's short_name; without this the home-screen
+     label is the <title>, truncated to something like "WorkspaceX — Th". -->
+<meta name="apple-mobile-web-app-title" content="WorkspaceX">
 
 <link rel="canonical" href="https://workspacex.boardx.us/zh/privacy.html">
 <link rel="alternate" hreflang="en"      href="https://workspacex.boardx.us/privacy.html">
@@ -22,6 +25,8 @@
 <meta property="og:locale:alternate" content="en">
 
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+<link rel="manifest" href="../assets/site.zh.webmanifest">
 <link rel="preload" href="../assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/css/site.css">
@@ -33,11 +38,16 @@
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="bm" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" style="stop-color:var(--c-1)"/><stop offset=".55" style="stop-color:var(--c-2)"/><stop offset="1" style="stop-color:var(--c-3)"/>
+    <linearGradient id="bm" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
+      <stop offset="0" style="stop-color:var(--c-1)"/>
+      <stop offset="0.52" style="stop-color:var(--c-2)"/>
+      <stop offset="1" style="stop-color:var(--c-3)"/>
     </linearGradient>
     <symbol id="mark" viewBox="0 0 32 32">
-      <path d="M6 6 L14 16 L6 26 M26 6 L18 16 L26 26" fill="none" stroke="url(#bm)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(90 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(180 16 16)"/>
+      <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#bm)" transform="rotate(270 16 16)"/>
     </symbol>
   </defs>
 </svg>

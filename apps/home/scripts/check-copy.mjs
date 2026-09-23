@@ -8,7 +8,7 @@
  * or a missing space where Chinese meets latin. None of them are visible to a
  * spell checker and all of them survive every functional test.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -32,14 +32,39 @@ for (const m of html.matchAll(/data-i18n(?:-html)?="[^"]+"[^>]*>([^<]+)</g)) {
   if (/\s{2,}\S/.test(text)) add('doubled space in English copy', text);
 }
 
-/* ---- Chinese: values in the two dictionaries ----------------------------- */
+/* ---- Chinese: every source that contains any, not two named files -------
+   Naming the inputs is how a gate goes quietly out of date. This one read
+   zh.js and diagram-strings.js; 496 Han characters lived elsewhere and had
+   never been checked — the 404 page, the social card, lang.js, and the META
+   block in build-i18n.mjs that holds every Chinese <title> and description,
+   which is the first Chinese a searcher ever sees. Generated files are
+   excluded: they are projections of these. */
+const HAN = /[\u4e00-\u9fff]/;
+const sources = [
+  'index.html', 'privacy.html', '404.html', 'scripts/og-card.html',
+  ...readdirSync(join(root, 'scripts')).filter((f) => f.endsWith('.mjs')).map((f) => `scripts/${f}`),
+  ...readdirSync(join(root, 'assets/js')).filter((f) => f.endsWith('.js')).map((f) => `assets/js/${f}`),
+];
+
 const zhValues = [];
-for (const m of zhSource.matchAll(/^\s*'[\w.]+':\s*'((?:[^'\\]|\\.)*)'/gm)) zhValues.push(m[1]);
-for (const m of diagramSource.matchAll(/zh:\s*'((?:[^'\\]|\\.)*)'/g)) zhValues.push(m[1]);
+for (const file of sources) {
+  const body = read(file);
+  if (!HAN.test(body)) continue;
+  /* Quoted strings and HTML text nodes — anything that reaches a reader. */
+  for (const m of body.matchAll(/'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|>([^<>\n]+)</g)) {
+    const value = m[1] ?? m[2] ?? m[3];
+    if (value && HAN.test(value)) zhValues.push(value);
+  }
+}
 
 for (const value of zhValues) {
   if (/"/.test(value) && !/class=/.test(value)) add('straight quote in Chinese copy — use “ ”', value);
+  /* Between Han characters, and also where a clause ENDS on one: the first
+     version of this rule needed Han on both sides, so a trailing half-width
+     comma after Chinese went straight through — found by writing a probe
+     that failed to fail. */
   if (/[一-鿿][,;:!?][一-鿿]/.test(value)) add('half-width punctuation between Han characters', value);
+  if (/[一-鿿][,;:!?](?:\s|$)/.test(value)) add('half-width punctuation closing a Chinese clause', value);
   if (/[一-鿿][A-Za-z0-9]|[A-Za-z0-9][一-鿿]/.test(value)) {
     add('missing space where Chinese meets latin or a digit', value);
   }

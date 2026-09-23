@@ -506,6 +506,9 @@ export function webOrigins(c: LocalConfig): string[] {
 /** Context window handed to the Ollama server we start ourselves (#3749 B1.1). */
 export const OLLAMA_CONTEXT_LENGTH = 8192;
 
+/** 见 `ollamaEnv` 里同名字段的长注：这是一次有实测支撑的权衡，不是随手填的默认值。 */
+export const OLLAMA_KEEP_ALIVE = "30m";
+
 export function ollamaEnv(c: LocalConfig): Env {
   return {
     OLLAMA_HOST: `127.0.0.1:${c.ports.ollama}`,
@@ -513,9 +516,25 @@ export function ollamaEnv(c: LocalConfig): Env {
     // Ollama's default slot is 4096 tokens and it truncates SILENTLY: a persona canvas measured
     // 2050 prompt + 1837 output = 3887 (Mac实测 2026-09-18). 8k costs ~0.5 GB more KV cache on a 4B.
     OLLAMA_CONTEXT_LENGTH: String(OLLAMA_CONTEXT_LENGTH),
-    // keep the chat model resident between turns; the first request after an unload paid a
-    // 20-30 s reload in the eval lane.
-    OLLAMA_KEEP_ALIVE: "24h",
+    /**
+     * 空闲多久卸载模型。**24h 换成 30m，是一次有实测支撑的重新权衡（#3872 R1）。**
+     *
+     * 24h 当初是为了压首 token 延迟。代价直到 2026-09-23 才被量出来：模型运行器
+     * **每次请求涨约 70 MB 且不回落**（同机同模型连发 6 次，phys_footprint 从
+     * 3.95 GB 单调涨到 4.36 GB），而 24 小时保活意味着这份占用一整天不释放。
+     * 在一台已连续使用的 16 GB 机器上实测到该进程 **9,729 MB——整机的 61%**。
+     *
+     * 缩短的代价同日实测：模型已卸时首个响应 **2.1–2.4 s**，在内存时 **0.6 s**。
+     * 也就是说离开一会儿再回来多等约 1.8 秒，换回好几个 GB。
+     * 这个代价远低于同类应用的常态（Ollama 默认 5 分钟卸载，回来第一句卡 3–11 s），
+     * 因为我们用的是 MLX 构建 + 本地 SSD。
+     *
+     * 为什么是 30 分钟而不是 5 分钟：一次工作会话里连续用不该反复付冷加载；
+     * 去吃个饭回来付一次 2 秒是划算的。
+     *
+     * ⚠ 保活不解决「涨」本身，只是给它一个上界。会话内的增长要另外处置。
+     */
+    OLLAMA_KEEP_ALIVE: OLLAMA_KEEP_ALIVE,
     OLLAMA_NUM_PARALLEL: "1",
   };
 }
