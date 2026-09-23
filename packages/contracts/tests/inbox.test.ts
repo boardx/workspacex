@@ -286,9 +286,12 @@ describe("操作形状", () => {
     const tooMany = Array.from({ length: 501 }, (_, i) => ({ kind: "feedback" as const, id: `id-${i}` }));
     expect(schema.safeParse({ stage: "backlog", orderedIds: tooMany }).success).toBe(false);
   });
-  it("listInbox.out：sources.exception 只有 included|withheld", () => {
+  it("listInbox.out：sources.exception 只有 included|withheld|unavailable", () => {
     const out = inbox.operations.listInbox.out;
     expect(out.safeParse({ items: [], nextCursor: null, sources: { exception: "withheld" } }).success).toBe(true);
+    // #3921：查了但这一路读失败——第三种，与 withheld（不让看）互不重叠。
+    expect(out.safeParse({ items: [], nextCursor: null, sources: { exception: "unavailable" } }).success).toBe(true);
+    expect(out.safeParse({ items: [], nextCursor: null, sources: { exception: "failed" } }).success).toBe(false);
     expect(out.safeParse({ items: [], nextCursor: null, sources: { exception: "hidden" } }).success).toBe(false);
   });
   it("getInboxCounts.out 覆盖四个 stage 与三个 kind", () => {

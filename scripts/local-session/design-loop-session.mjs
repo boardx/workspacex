@@ -292,6 +292,28 @@ await step("S14", "提反馈弹窗点「语音」：本机没开通转写时不�
   return { detail: `「${text.slice(0, 40)}…」；「重试」按钮 ${String(retries)} 个`, shot: s };
 });
 
+await step("S15", "运营收件箱打得开：系统异常一路读不到时只丢那一路（#3921）", async () => {
+  // 本地版的 PGlite 不区分数据库角色，系统异常那一路必然读不到；原来整个收件箱跟着 500。
+  await page.goto(`${BASE}/platform-admin/inbox`);
+  const dead = page.getByTestId("dep-failed");
+  const alive = page.locator('[data-testid="inbox-kind-exception"]');
+  await Promise.race([dead.waitFor({ timeout: 120_000 }), alive.waitFor({ timeout: 120_000 })]).catch(() => {});
+  const s = await shot("s15-inbox.png");
+  if ((await dead.count()) > 0 && (await alive.count()) === 0) throw new Error("整个收件箱读不到（一路失败拖垮了全部）");
+  const unavailable = (await page.getByTestId("inbox-exception-unavailable-hint").count()) > 0;
+  const withheld = (await page.getByTestId("inbox-exception-withheld-hint").count()) > 0;
+  // 按不下去的那一格不许挂数字：服务端这时给的 0 是「没有算」，挂着就读成「系统零异常」
+  // （第一次实测截图抓到的）。
+  const chipText = (await alive.innerText()).trim();
+  if ((unavailable || withheld) && /\d/.test(chipText)) throw new Error(`「系统异常」那一格读不到却挂着数字：「${chipText}」`);
+  return {
+    detail: unavailable ? "收件箱正常打开；系统异常那一格如实说「这次没读到」（本地版预期）"
+      : withheld ? "收件箱正常打开；系统异常仅平台运维可见"
+      : "收件箱正常打开；系统异常一路也读到了",
+    shot: s,
+  };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

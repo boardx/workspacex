@@ -174,6 +174,20 @@ describe("getInboxCounts 非超管 withheld", () => {
     expect(out.sources.exception).toBe("included");
     expect(out.byKind.exception).toBe(1);
   });
+
+  it("系统异常这一路读失败 ⇒ sources.exception=unavailable、byKind.exception=0，反馈照常计数（#3921）", async () => {
+    const broken: ErrorLogPort = {
+      record: async () => undefined,
+      list: async () => { throw new Error("permission denied for function kernel_read_error_logs_with_lifecycle"); },
+      getLifecycle: async () => null,
+      updateLifecycle: async () => null,
+    };
+    // ⭐ 反证锚点：去掉 aggregate-inbox-sources 里那层 try/catch ⇒ 这里 reject（整个计数 500）。
+    const out = await getInboxCounts({ ...deps([feedbackRow()], undefined), errorLog: broken }, admin);
+    expect(out.sources.exception).toBe("unavailable");
+    expect(out.byKind.exception).toBe(0);
+    expect(out.byKind.feedback).toBe(1);
+  });
 });
 
 /* ── UC-17.8 B6.4 可观测性：与 listInbox 同一份聚合日志，只多 total ── */
