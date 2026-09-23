@@ -5,7 +5,10 @@ import { ResearchRuntimeError } from "./guided-runtime-ports";
 import { canonicalEvidenceSources } from "./guided-report-evidence";
 export function reportBasis(state: ResearchRuntime, config: { provider: string; id: string }, instruction?: string): string {
   const value = { protocol: "formal-report-v2", sessionId: state.sessionId, brief: state.brief, directions: state.directions, outline: state.outline,
-    sources: state.sources.filter((source) => source.decision === "accepted").map(({ id, url, title, content, taskId }) => ({ id, url, title, content, taskId })).sort((a, b) => a.id.localeCompare(b.id)),
+    sources: state.sources.filter((source) => source.decision === "accepted").map(({ id, url, title, content, taskId, taskIds, document, documentError }) => ({
+      id, url, title, content, taskId, taskIds: taskIds ?? [], documentError: documentError ?? null,
+      document: document ? { url: document.url, contentHash: document.contentHash, contentKind: document.contentKind, truncated: document.truncated } : null,
+    })).sort((a, b) => a.id.localeCompare(b.id)),
     tasks: [...state.tasks].sort((a, b) => a.id.localeCompare(b.id)), partial: Boolean(state.reportPartial), instruction: instruction ?? null, model: config };
   return createHash("sha256").update(JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
