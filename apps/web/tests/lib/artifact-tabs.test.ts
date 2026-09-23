@@ -4,8 +4,9 @@ import {
   type ArtifactTab, type ArtifactTabState,
 } from "@/lib/chat-workbench/artifact-tabs";
 
-const item = (id: string): ArtifactTab => ({ artifactId: id, title: `产物 ${id}` } as ArtifactTab);
-const ids = (state: ArtifactTabState): string[] => state.tabs.map((t) => t.artifactId);
+const item = (id: string): ArtifactTab =>
+  ({ kind: "artifact", id, title: `产物 ${id}`, item: { artifactId: id } } as ArtifactTab);
+const ids = (state: ArtifactTabState): string[] => state.tabs.map((t) => t.id);
 const open = (...list: string[]): ArtifactTabState =>
   list.reduce((state, id) => openTab(state, item(id)), EMPTY_ARTIFACT_TABS);
 
@@ -13,13 +14,13 @@ describe("openTab", () => {
   it("打开就成为当前那一份", () => {
     const state = open("a", "b");
     expect(ids(state)).toEqual(["a", "b"]);
-    expect(activeTab(state)?.artifactId).toBe("b");
+    expect(activeTab(state)?.id).toBe("b");
   });
 
   it("已经开着的那一份：切过去，不开第二个", () => {
     const state = openTab(open("a", "b"), item("a"));
     expect(ids(state)).toEqual(["a", "b"]);
-    expect(activeTab(state)?.artifactId).toBe("a");
+    expect(activeTab(state)?.id).toBe("a");
   });
 
   it("满了淘汰最早打开的那一份", () => {
@@ -27,7 +28,7 @@ describe("openTab", () => {
     expect(full.tabs).toHaveLength(ARTIFACT_TAB_LIMIT);
     const state = openTab(full, item("e"));
     expect(ids(state)).toEqual(["b", "c", "d", "e"]);
-    expect(activeTab(state)?.artifactId).toBe("e");
+    expect(activeTab(state)?.id).toBe("e");
   });
 });
 
@@ -37,19 +38,19 @@ describe("closeTab", () => {
   it("关掉的不是当前这份时，当前这份仍然是当前这份", () => {
     const state = closeTab(activateTab(open("a", "b", "c"), "c"), "a");
     expect(ids(state)).toEqual(["b", "c"]);
-    expect(activeTab(state)?.artifactId).toBe("c");
+    expect(activeTab(state)?.id).toBe("c");
   });
 
   it("关掉当前这份，落到它右边那一份", () => {
     const state = closeTab(activateTab(open("a", "b", "c"), "b"), "b");
     expect(ids(state)).toEqual(["a", "c"]);
-    expect(activeTab(state)?.artifactId).toBe("c");
+    expect(activeTab(state)?.id).toBe("c");
   });
 
   it("关掉的是最后一份，落到它左边那一份", () => {
     const state = closeTab(open("a", "b", "c"), "c");
     expect(ids(state)).toEqual(["a", "b"]);
-    expect(activeTab(state)?.artifactId).toBe("b");
+    expect(activeTab(state)?.id).toBe("b");
   });
 
   it("关掉最后一个，回到空态（activeIndex 是 -1，不是 0）", () => {
@@ -66,7 +67,7 @@ describe("closeTab", () => {
 
 describe("activateTab", () => {
   it("切到某一份", () => {
-    expect(activeTab(activateTab(open("a", "b"), "a"))?.artifactId).toBe("a");
+    expect(activeTab(activateTab(open("a", "b"), "a"))?.id).toBe("a");
   });
   it("不在里面的 id 原样返回，不静默把它打开", () => {
     const before = open("a");

@@ -6,6 +6,7 @@ import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
 import { toolUrl } from "@/lib/chat-workbench/external-url";
+import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
@@ -104,6 +105,12 @@ function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element 
     </p>
   );
 }
+
+/**
+ * 短于这个长度的结果不给「在右栏打开」——一行输出搬进右栏只是多绕一步，
+ * 而多一颗没用的按钮会让真正需要它的那几条淹掉。
+ */
+const RESULT_PANEL_MIN_CHARS = 200;
 
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
@@ -255,7 +262,29 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 {entry.result !== undefined && isEmptyToolResult(entry.result)
                   ? <p data-testid="run-trace-entry-empty-result">这一步没有返回内容。</p> : null}
                 {typeof entry.result === "string" && !isEmptyToolResult(entry.result)
-                  ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre></div> : null}
+                  ? <div>
+                      <span>结果</span>
+                      {/* 2026-09-23（R11）—— 人类原话「在右边可以打开结果，浏览网页」。
+                          抓回来的网页正文在这个 max-h-64 的格子里是没法读的，更别说
+                          边读边追问。给一条出口：送进右栏，跟产物共用同一条页签。
+                          只对**够长**的结果给：一行输出搬进右栏纯属多绕一步。 */}
+                      {entry.result.length >= RESULT_PANEL_MIN_CHARS ? (
+                        <button
+                          type="button"
+                          data-testid="run-trace-entry-open-in-panel"
+                          className="ml-2 rounded px-1 text-11 text-primary underline underline-offset-2 hover:bg-accent"
+                          onClick={() => {
+                            requestOpenInRightPanel({
+                              id: entry.id,
+                              title: eventLabel(entry),
+                              text: entry.result as string,
+                              url: toolUrl(entry.args),
+                            });
+                          }}
+                        >在右栏打开</button>
+                      ) : null}
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre>
+                    </div> : null}
                 {entry.args !== undefined || (entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result))
                   ? <details data-testid="run-trace-entry-raw">
                       <summary className="cursor-pointer text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">技术细节</summary>

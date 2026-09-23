@@ -27,8 +27,9 @@ import {
   // `activeTab` 这个名字在本文件里已经是「右栏四个页签里选中的那一个」（InspectorTab）。
   // 同名会静默遮蔽——tsc 正是在这里报的 TS2349，重命名而不是让两个概念共用一个词。
   EMPTY_ARTIFACT_TABS, activateTab, activeTab as activeArtifactTab, closeTab, openTab,
-  type ArtifactTab, type ArtifactTabState,
+  type ArtifactItem, type ArtifactTab, type ArtifactTabState,
 } from "@/lib/chat-workbench/artifact-tabs";
+import { onOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { ArrowLeft, Check, Copy, CornerUpLeft, Download, Maximize2, X } from "lucide-react";
 import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 
@@ -222,13 +223,14 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 的同一形状。要么让它可达，要么不写；这里选不写。
    */
   const openInPanel = artifactListMode ? null : activeArtifactTab(artifactTabs);
-  const openArtifactInPanel = React.useCallback(
-    (item: ArtifactTab) => {
-      setArtifactTabs((prev) => openTab(prev, item));
-      setArtifactListMode(false);
-    },
-    [],
-  );
+  const openInPanelTab = React.useCallback((tab: ArtifactTab) => {
+    setArtifactTabs((prev) => openTab(prev, tab));
+    setArtifactListMode(false);
+  }, []);
+  const openArtifactInPanel = React.useCallback((item: ArtifactItem) => {
+    openInPanelTab({ kind: "artifact", id: item.artifactId, title: item.title, item });
+  }, [openInPanelTab]);
+
   /**
    * 人类实测反馈（2026-08-30）—— 右栏展开后（有任务在跑/有产物材料），点头部
    * 「收起」按钮没有反应，要等任务结束、信号清空才会真的收起，看起来像"延迟"。
@@ -272,6 +274,19 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 驱动展开态。
    */
   const collapsed = override !== "expanded";
+  /*
+   * R11 —— 执行过程里的工具结果也能被送进右栏（人类原话里的「浏览网页」）。
+   * 走 window 事件而不是 Context，理由同 `lib/shell-panel-events.ts` 文件头注：
+   * 执行过程画在消息流里、右栏是另一棵子树，两边在多份单测里各自被 mock。
+   * 收到就**切到「产物」页签并展开右栏**——否则事件生效了用户也看不见，
+   * 那等于没生效（这一晚已经因为「做了但看不见」返工过一次）。
+   */
+  React.useEffect(() => onOpenInRightPanel((doc) => {
+    openInPanelTab({ kind: "result", ...doc });
+    setActiveTab("artifacts");
+    setOverride("expanded");
+  }), [openInPanelTab]);
+
 
   // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
   const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
@@ -483,9 +498,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 threadId={threadId}
                 projectId={props.projectId ?? null}
                 bearer={props.bearer}
-                item={openInPanel}
+                tab={openInPanel}
                 onBack={() => { setArtifactListMode(true); }}
-                onEnlarge={onOpenArtifact ? () => onOpenArtifact(openInPanel) : undefined}
+                onEnlarge={onOpenArtifact !== undefined && openInPanel.kind === "artifact"
+                  ? () => { onOpenArtifact(openInPanel.item); }
+                  : undefined}
               />
             ) : (
             <>
@@ -652,23 +669,33 @@ function RunDetailsTab({
  * 而不是画一颗点了没反应的——同 `ChatArtifactsPanel` 的 `onOpen` 可选约定（#2099）。
  */
 function ArtifactDetail({
-  threadId, projectId, bearer, item, onBack, onEnlarge, tabs, onActivate, onClose,
+  threadId, projectId, bearer, tab, onBack, onEnlarge, tabs, onActivate, onClose,
 }: {
   readonly threadId: string;
   readonly projectId: string | null;
   readonly bearer: string | undefined;
-  readonly item: ListThreadArtifactsOut["items"][number];
+  readonly tab: ArtifactTab;
   readonly onBack: () => void;
   readonly onEnlarge?: () => void;
   readonly tabs: ArtifactTabState;
   readonly onActivate: (artifactId: string) => void;
-  readonly onClose: (artifactId: string) => void;
+  readonly onClose: (id: string) => void;
 }): React.JSX.Element {
   /**
    * 载入到的那一份。动作条按它开关：**没载到就不给按**——一颗点了没反应的
    * 「复制」比没有这颗按钮更糟（#2099 同一条纪律）。
    */
-  const [doc, setDoc] = React.useState<LoadedArtifact | null>(null);
+  /** 工具结果的正文一送进来就在手上；产物要等取源回来（`onLoaded`）。 */
+  const [loaded, setLoaded] = React.useState<LoadedArtifact | null>(null);
+  const doc: LoadedArtifact | null = tab.kind === "result"
+    ? { markdown: tab.text, version: null, savedAt: "" }
+    : loaded;
+  /*
+   * ⚠ 这里**不能**写一条 `useEffect(() => setLoaded(null), [tab.id])` 来「切换时清空」。
+   * 子组件的 effect 先于父组件跑：`ChatArtifactView` 挂载时先回调 `onLoaded(内容)`，
+   * 父的重置 effect 随后把它清成 null，动作条就永远是禁用态（两条测试当场红）。
+   * 切换本身已经由 `key={tab.id}` 重新挂载 + 取源开始时的 `onLoaded(null)` 覆盖到了。
+   */
   const [copied, setCopied] = React.useState(false);
   React.useEffect(() => {
     if (!copied) return undefined;
@@ -687,7 +714,7 @@ function ArtifactDetail({
     const url = URL.createObjectURL(new Blob([doc.markdown], { type: "text/markdown;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = artifactFileName(item.title);
+    a.download = artifactFileName(tab.title);
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -707,8 +734,8 @@ function ArtifactDetail({
           <ArrowLeft className="size-3.5" aria-hidden />
           产物
         </button>
-        <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground" title={item.title}>
-          {item.title}
+        <span className="min-w-0 flex-1 truncate text-12 font-medium text-foreground" title={tab.title}>
+          {tab.title}
         </span>
         <button
           type="button" onClick={copy} disabled={doc === null}
@@ -750,11 +777,11 @@ function ArtifactDetail({
           data-testid="chat-inspector-artifact-tabs"
           className="flex min-w-0 gap-0.5 overflow-x-auto border-b border-border px-1.5 py-1"
         >
-          {tabs.tabs.map((tab) => {
-            const current = tab.artifactId === item.artifactId;
+          {tabs.tabs.map((t) => {
+            const current = t.id === tab.id;
             return (
               <span
-                key={tab.artifactId}
+                key={t.id}
                 className={cn(
                   "group inline-flex max-w-[11rem] shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-11",
                   current ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60",
@@ -763,15 +790,15 @@ function ArtifactDetail({
                 <button
                   type="button" role="tab" aria-selected={current}
                   data-testid="chat-inspector-artifact-tab"
-                  onClick={() => { onActivate(tab.artifactId); }}
+                  onClick={() => { onActivate(t.id); }}
                   className="min-w-0 truncate focus-visible:outline-none"
-                  title={tab.title}
-                >{tab.title}</button>
+                  title={t.title}
+                >{t.title}</button>
                 <button
                   type="button"
                   data-testid="chat-inspector-artifact-tab-close"
-                  aria-label={`关闭 ${tab.title}`}
-                  onClick={() => { onClose(tab.artifactId); }}
+                  aria-label={`关闭 ${t.title}`}
+                  onClick={() => { onClose(t.id); }}
                   className="shrink-0 rounded text-muted-foreground hover:text-foreground"
                 ><X className="size-3" aria-hidden /></button>
               </span>
@@ -779,7 +806,19 @@ function ArtifactDetail({
           })}
         </div>
       ) : null}
-      <ArtifactSourceLine item={item} />
+      {tab.kind === "artifact" ? <ArtifactSourceLine item={tab.item} /> : <ResultSourceLine url={tab.url} />}
+      {tab.kind === "result" ? (
+        /*
+         * 工具结果直接就是正文，没有取源这一步。用 `<pre>` 而不是 markdown 渲染：
+         * 抓回来的网页正文 / 脚本输出是**别人的字节**，按 markdown 解释会把里面的
+         * `#`、`*`、`|` 当语法吃掉，显示出来的就不是它实际收到的东西了。
+         * 产物是我们自己落地的 markdown，那条路径才该渲染。
+         */
+        <pre
+          data-testid="chat-inspector-result-text"
+          className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-12"
+        >{tab.text}</pre>
+      ) : (
       <ChatArtifactView
         /*
          * 窄栏守卫：右栏可以被拖到 240px，代码块与表格在那个宽度下会横向溢出，
@@ -787,14 +826,31 @@ function ArtifactDetail({
          * 正文本身仍然在栏宽内重排。
          */
         className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-13 [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
-        key={item.artifactId}
+        key={tab.id}
         threadId={threadId}
         projectId={projectId}
-        artifactId={item.artifactId}
+        artifactId={tab.item.artifactId}
         bearer={bearer}
-        onLoaded={setDoc}
+        onLoaded={setLoaded}
       />
+      )}
     </div>
+  );
+}
+
+/** 工具结果的「出处」就是它访问的那个地址（`externalHttpUrl` 已经判过协议）。 */
+function ResultSourceLine({ url }: { readonly url: string | null }): React.JSX.Element | null {
+  if (url === null) return null;
+  return (
+    <p className="border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground">
+      <a
+        data-testid="chat-inspector-result-source-url"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-primary underline underline-offset-2"
+      >{url}</a>
+    </p>
   );
 }
 
@@ -816,7 +872,7 @@ function ArtifactDetail({
  * 但没有按产物读回的接口）。所以这条线说的是「有没有挂出处 + 出处在哪条消息」，
  * 不是「出处有哪些」。不在文案上暗示后者。
  */
-function ArtifactSourceLine({ item }: { readonly item: ArtifactTab }): React.JSX.Element {
+function ArtifactSourceLine({ item }: { readonly item: ArtifactItem }): React.JSX.Element {
   const [missing, setMissing] = React.useState(false);
   const messageId: unknown = (item as { messageId?: unknown }).messageId;
   const canJump = typeof messageId === "string" && messageId !== "";

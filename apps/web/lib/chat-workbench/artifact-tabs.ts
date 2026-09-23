@@ -13,8 +13,22 @@
  */
 
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
+import type { PanelResultDocument } from "@/lib/chat-workbench/panel-document";
 
-export type ArtifactTab = ListThreadArtifactsOut["items"][number];
+export type ArtifactItem = ListThreadArtifactsOut["items"][number];
+
+/**
+ * 右栏页签里的一格。
+ *
+ * R11 起不只有产物：工具结果（抓回来的网页正文、脚本输出）也能被送进右栏，
+ * 与产物**共用同一条页签、同一套打开/切换/关闭判据**——否则右栏会长出两套并列的
+ * 「开着哪几份」状态，用户看到两排页签，而我们要维护两份淘汰规则。
+ *
+ * 用 `id` 做键而不是 `artifactId`：两种来源的 id 空间不同，但页签只关心「这一格是谁」。
+ */
+export type ArtifactTab =
+  | { readonly kind: "artifact"; readonly id: string; readonly title: string; readonly item: ArtifactItem }
+  | ({ readonly kind: "result"; readonly title: string } & PanelResultDocument);
 
 /**
  * 同时最多开几份。
@@ -47,7 +61,7 @@ export function activeTab(state: ArtifactTabState): ArtifactTab | null {
  *   那需要另记一份访问时间，而用户对「最早开的」有直觉，对 LRU 没有。
  */
 export function openTab(state: ArtifactTabState, item: ArtifactTab): ArtifactTabState {
-  const existing = state.tabs.findIndex((tab) => tab.artifactId === item.artifactId);
+  const existing = state.tabs.findIndex((tab) => tab.id === item.id);
   if (existing !== -1) return { tabs: state.tabs, activeIndex: existing };
   const kept = state.tabs.length >= ARTIFACT_TAB_LIMIT ? state.tabs.slice(1) : state.tabs;
   const tabs = [...kept, item];
@@ -63,8 +77,8 @@ export function openTab(state: ArtifactTabState, item: ArtifactTab): ArtifactTab
  * 关掉的**是**当前这份时，落到它右边那一份；它已经是最后一份就落到左边。
  * 这与浏览器标签页一致，用户不用学新规则。
  */
-export function closeTab(state: ArtifactTabState, artifactId: string): ArtifactTabState {
-  const index = state.tabs.findIndex((tab) => tab.artifactId === artifactId);
+export function closeTab(state: ArtifactTabState, id: string): ArtifactTabState {
+  const index = state.tabs.findIndex((tab) => tab.id === id);
   if (index === -1) return state;
   const tabs = state.tabs.filter((_, i) => i !== index);
   if (tabs.length === 0) return EMPTY_ARTIFACT_TABS;
@@ -72,14 +86,14 @@ export function closeTab(state: ArtifactTabState, artifactId: string): ArtifactT
     const current = state.tabs[state.activeIndex];
     const moved = current === undefined
       ? -1
-      : tabs.findIndex((tab) => tab.artifactId === current.artifactId);
+      : tabs.findIndex((tab) => tab.id === current.id);
     return { tabs, activeIndex: moved === -1 ? 0 : moved };
   }
   return { tabs, activeIndex: Math.min(index, tabs.length - 1) };
 }
 
 /** 切到某一份；不在里面就原样返回（不静默打开它）。 */
-export function activateTab(state: ArtifactTabState, artifactId: string): ArtifactTabState {
-  const index = state.tabs.findIndex((tab) => tab.artifactId === artifactId);
+export function activateTab(state: ArtifactTabState, id: string): ArtifactTabState {
+  const index = state.tabs.findIndex((tab) => tab.id === id);
   return index === -1 ? state : { tabs: state.tabs, activeIndex: index };
 }
