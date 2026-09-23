@@ -2040,6 +2040,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     render(<DesignWorkbenchHome state="default" />);
     await screen.findByTestId("project-card-p1");
     fireEvent.click(screen.getByTestId("project-delete-p1"));
+    // 迭代 39 起删除要先确认（见 UIUX 18 那一组）——这一条断的是确认之后真的走 DELETE。
+    fireEvent.click(await screen.findByTestId("workbench-delete-yes"));
     await waitFor(() => expect(screen.queryByTestId("project-card-p1")).toBeNull());
     expect(apiRequest).toHaveBeenCalledWith("/pm-designs/p1", expect.objectContaining({ method: "DELETE" }));
   });
@@ -5026,5 +5028,196 @@ describe("UIUX 17：导出菜单剩下的那几处", () => {
     } finally {
       click.mockRestore();
     }
+  });
+});
+
+/* ────── UIUX 第 18 轮：工作台首页——删之前问一句，填过的字别丢 ────── */
+
+describe("UIUX 18：工作台首页与新建弹窗", () => {
+  beforeEach(() => { apiRequest.mockReset(); });
+
+  const listOnly = (items: unknown[] = [project()]) => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items };
+      throw new Error(`unexpected ${path} ${String(opts?.method)}`);
+    });
+  };
+
+  it("删除项目先问一句：不点确认，一个 DELETE 都不发", async () => {
+    listOnly();
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.click(screen.getByTestId("project-delete-p1"));
+
+    // ⭐ 反证锚点：把卡片的 onDelete 接回裸 handleDelete ⇒ 这三条红（一次误点，项目就没了）。
+    const box = await screen.findByTestId("workbench-delete-confirm");
+    expect(box.textContent).toContain("删了找不回来");
+    expect(apiRequest.mock.calls.filter((c) => (c[1] as { method?: string } | undefined)?.method === "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("workbench-delete-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("workbench-delete-confirm")).toBeNull());
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+  });
+
+  it("卡片上的时间是人话，不是 2026/9/23", async () => {
+    listOnly([project({ updatedAt: new Date(Date.now() - 3 * 60_000).toISOString() })]);
+    render(<DesignWorkbenchHome state="default" />);
+    const card = await screen.findByTestId("project-card-p1");
+    // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这两条红。
+    expect(card.textContent).toContain("3 分钟前");
+    expect(card.textContent).not.toContain(new Date().toLocaleDateString("zh-CN"));
+  });
+
+  it("删除失败的提示不再 3 秒自己消失，由用户点掉", async () => {
+    vi.useFakeTimers();
+    try {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project()] };
+        if (opts?.method === "DELETE") throw new ApiError(500, "boom", {});
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignWorkbenchHome state="default" />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      fireEvent.click(screen.getByTestId("project-delete-p1"));
+      fireEvent.click(screen.getByTestId("workbench-delete-yes"));
+      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      expect(screen.getByTestId("workbench-action-error").textContent).toContain("没能删除这个项目");
+
+      // ⭐ 反证锚点：把三处 `setTimeout(() => setActionError(null), 3000)` 加回来 ⇒ 这条红。
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(screen.getByTestId("workbench-action-error")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("workbench-action-error-dismiss"));
+      expect(screen.queryByTestId("workbench-action-error")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("搜索时列表不整屏换成骨架——已有结果留在屏上，只说一句「正在筛」", async () => {
+    let release: (() => void) | null = null;
+    let calls = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; query?: Record<string, unknown> }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") {
+        calls += 1;
+        if (calls === 1) return { items: [project()] };
+        await new Promise<void>((res) => { release = res; });
+        return { items: [] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "会员" } });
+    await waitFor(() => expect(calls).toBe(2));
+
+    // ⭐ 反证锚点：把 reload 开头改回无条件 `setLoad({ kind: "loading" })` ⇒ 这三条红
+    //   （打字的人看到自己的项目一闪没了又回来）。
+    expect(screen.getByTestId("project-card-p1")).toBeTruthy();
+    expect(screen.queryByTestId("loading")).toBeNull();
+    expect(screen.getByTestId("workbench-refreshing")).toBeTruthy();
+    await act(async () => { release?.(); });
+  });
+
+  it("搜索框有一个清空的入口", async () => {
+    listOnly();
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    expect(screen.queryByTestId("workbench-search-clear")).toBeNull(); // 空的时候不占地方
+    fireEvent.change(screen.getByTestId("workbench-search"), { target: { value: "会员" } });
+    // ⭐ 反证锚点：去掉那个清空按钮 ⇒ 这两条红。
+    fireEvent.click(await screen.findByTestId("workbench-search-clear"));
+    expect((screen.getByTestId("workbench-search") as HTMLInputElement).value).toBe("");
+  });
+
+  it("删除/编辑按钮的读屏名字带上是哪个项目", async () => {
+    listOnly([project({ name: "会员下单" })]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    // ⭐ 反证锚点：改回写死的「删除项目」/「编辑项目」⇒ 这两条红（读屏听到的每一张卡都一样）。
+    expect(screen.getByTestId("project-delete-p1").getAttribute("aria-label")).toBe("删除「会员下单」");
+    expect(screen.getByTestId("project-edit-p1").getAttribute("aria-label")).toBe("编辑「会员下单」");
+  });
+
+  it("AI 出题失败 ⇒ 说一句话并指一条走得通的路，而不是转圈停下什么都没有", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") throw new ApiError(503, "model down", {});
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(await screen.findByTestId("project-dialog-name"), { target: { value: "会员下单" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+
+    // ⭐ 反证锚点：去掉 ask() 的 catch（只留 finally）⇒ 这两条红。
+    const err = await screen.findByTestId("project-dialog-ask-error");
+    expect(err.textContent).toContain("没能让 AI 出题");
+    expect(err.textContent).toContain("跳过，直接创建");
+    expect(screen.getByTestId("project-dialog")).toBeTruthy();
+  });
+
+  it("填到一半点遮罩/取消 ⇒ 先问一句，不把填过的字丢掉", async () => {
+    listOnly([]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    const name = await screen.findByTestId("project-dialog-name");
+    fireEvent.change(name, { target: { value: "会员下单" } });
+    fireEvent.change(screen.getByTestId("project-dialog-problem"), { target: { value: "首屏就能下单" } });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    // ⭐ 反证锚点：把 useDialogFocus / 遮罩接回裸 onClose ⇒ 这三条红。
+    expect(await screen.findByTestId("project-dialog-discard")).toBeTruthy();
+    expect(screen.getByTestId("project-dialog")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("project-dialog-discard-keep"));
+    expect((screen.getByTestId("project-dialog-name") as HTMLInputElement).value).toBe("会员下单");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(await screen.findByTestId("project-dialog-discard-yes"));
+    await waitFor(() => expect(screen.queryByTestId("project-dialog")).toBeNull());
+  });
+
+  it("没填任何东西就关 ⇒ 不多问一句", async () => {
+    listOnly([]);
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    await screen.findByTestId("project-dialog");
+    fireEvent.keyDown(document, { key: "Escape" });
+    // ⭐ 反证锚点：把 dirty 写成「只要开着就算改过」⇒ 这两条红。
+    expect(screen.queryByTestId("project-dialog-discard")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("project-dialog")).toBeNull());
+  });
+
+  it("问答这一步回得去，而且来回走两趟指导原则不会被拼两遍", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") {
+        return { questions: [{ text: "谁会用这个？", dimension: "who", hint: null }], fallback: false };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(await screen.findByTestId("project-dialog-name"), { target: { value: "会员下单" } });
+    fireEvent.change(screen.getByTestId("project-dialog-problem"), { target: { value: "首屏就能下单" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+
+    fireEvent.change(await screen.findByTestId("intake-answer-who"), { target: { value: "老会员" } });
+    fireEvent.click(screen.getByTestId("intake-next"));
+    const once = (await screen.findByTestId("intake-guideline") as HTMLTextAreaElement).value;
+    expect(once).toContain("首屏就能下单");
+    expect(once).toContain("谁会用这个？：老会员");
+
+    // ⭐ 反证锚点：去掉「上一步」⇒ 这条红（名字打错一个字只能取消重来）。
+    fireEvent.click(screen.getByTestId("intake-back"));
+    expect(await screen.findByTestId("intake-answer-who")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("intake-next"));
+    // ⭐ 反证锚点：把 toReview 改回在 `problem` 上追加 ⇒ 这条红（走一个来回就拼两遍）。
+    expect((await screen.findByTestId("intake-guideline") as HTMLTextAreaElement).value).toBe(once);
   });
 });
