@@ -20,6 +20,8 @@ import { welcomeDataUrl } from "./welcome";
 import { progressState, STARTUP_STEPS } from "./startup-progress";
 
 let stack: RunningStack | null = null;
+/** 同一个服务一次会话只打断用户一次——重复弹框会让人直接忽略所有弹框。 */
+const reportedFailures = new Set<string>();
 let win: BrowserWindow | null = null;
 /** 首启那一屏的内容；「帮助 → 显示本地账号」再打开它时读的是同一份。 */
 let welcomeUrl: string | null = null;
@@ -208,14 +210,25 @@ async function boot(): Promise<void> {
       config, log, webMode: webCheck.usable ? "start" : "dev",
       bundleBinDir: bundleBinDir(), bundlePythonDir: bundlePythonDir(),
       bundleModelsDir: bundleModelsDir(), bundleAsrModelsDir: bundleAsrModelsDir(),
-      // 起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」——
-      // 原因在日志里，而没人会去翻。说出来，并指向那一份日志。
-      onServiceExit: ({ name, code }) => {
+      /*
+        起来之后再崩的服务，用户遇到它的形式是「聊天框卡住」「转写没反应」。
+
+        改之前这里说的是「deep-agent 已退出（code 1）」——内部名字加一个退出码，
+        对用户不构成信息，只会让人觉得自己没资格用这个软件；而且当时还没有自动重启，
+        唯一的出路是「重启应用」。现在文案由 `supervisor-policy.ts` 给出（说人话、三段式），
+        服务也会被按策略拉起。
+
+        只在**停手了**的时候打断用户：还在重试的那几秒弹个框，比不说更烦。
+      */
+      onServiceHealth: (h) => {
+        if (h.state !== "failed" || h.message === null) return;
+        if (reportedFailures.has(h.name)) return;    // 同一个服务一次会话只说一遍
+        reportedFailures.add(h.name);
         void dialog.showMessageBox({
           type: "warning",
-          title: "一个后台服务已停止",
-          message: `${name} 已退出（code ${String(code)}），依赖它的能力现在不可用。`,
-          detail: `日志：${join(dataDir, "logs", `${name}.log`)}\n重启应用可以重新拉起它。`,
+          title: h.message.title,
+          message: h.message.body,
+          detail: `技术细节在日志里：${join(dataDir, "logs", `${h.name}.log`)}`,
         });
       },
     });

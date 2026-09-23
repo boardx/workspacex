@@ -22,7 +22,7 @@ import { importModels } from "./model-bundle";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import {
-  assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse,
+  assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse, type SpawnSpec,
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
 } from "./processes";
 import { runMigrations, runOwnerSeeds, readSeedState } from "./seeds";
@@ -30,6 +30,11 @@ import { pullModelWithProgress } from "./pull-progress";
 import { probeChatModel, probeEmbeddingModel } from "./model-preflight";
 import { checkWebBuild } from "./web-build";
 import { createBackup, type CreateBackupResult } from "./backup";
+import { superviseManaged, type ServiceHealth, type Supervised } from "./supervisor";
+import {
+  decideUnload, explainBudget, idleMsFromExpiry, memoryBudgetBytes, parsePs, RECENTLY_USED_MS,
+} from "./model-memory-budget";
+import { totalmem as osTotalMem } from "node:os";
 
 export interface UpOptions {
   readonly config: LocalConfig;
@@ -47,8 +52,11 @@ export interface UpOptions {
   readonly pullModel?: boolean;
   /** Skip the real model round-trip (tests, offline). Default is to probe. */
   readonly probeModels?: boolean;
-  /** Called when a service dies AFTER the stack came up. See the note at the end of `up`. */
-  readonly onServiceExit?: (info: { name: string; code: number | null; recentOutput: string }) => void;
+  /**
+   * 栈起来之后某个服务的健康状态变了（挂了 / 正在拉起 / 拉不起来）。
+   * 带的是**说给用户听的那两句**，不是 exit code——外壳直接显示即可，不用自己拼。
+   */
+  readonly onServiceHealth?: (h: ServiceHealth) => void;
 }
 
 export interface RunningStack {
@@ -62,6 +70,8 @@ export interface RunningStack {
    * 不包含模型（可重新获取，约 10 GB）和日志。见 `backup.ts` 的头注。
    */
   backup(destRoot: string, appVersion: string): Promise<CreateBackupResult>;
+  /** 本地各服务此刻的健康状态——外壳据此决定要不要把「有东西坏了」说出来。 */
+  health(): readonly ServiceHealth[];
   stop(): Promise<void>;
 }
 
@@ -70,11 +80,26 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   const log = opts.log ?? ((l: string) => process.stdout.write(`${l}\n`));
   const warnings: string[] = [];
   const managed: Managed[] = [];
+  /** 每个子进程的启动规格——重启时要用同一份，不能现编。 */
+  const specs: SpawnSpec[] = [];
+  const supervised: Supervised[] = [];
+  const healthById = new Map<string, ServiceHealth>();
+  /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
+  const spawn = (spec: SpawnSpec): Managed => {
+    specs.push(spec);
+    const m = startManaged(spec, log);
+    managed.push(m);
+    return m;
+  };
   let pg: PgliteHandle | null = null;
   let stopping = false;
+  let memoryWatchTimer: ReturnType<typeof setInterval> | null = null;
   const stopAll = async (): Promise<void> => {
     stopping = true;
-    for (const m of [...managed].reverse()) await m.stop();
+    if (memoryWatchTimer !== null) { clearInterval(memoryWatchTimer); memoryWatchTimer = null; }
+    // 先停监督者：它一停就不再把退出当崩溃，否则我们自己关应用的时候它会挨个把子进程拉起来。
+    for (const s of [...supervised].reverse()) await s.stop();
+    for (const m of [...managed].reverse()) if (m.child.exitCode === null) await m.stop();
     await pg?.stop();
   };
   // If the supervisor itself dies (uncaught error, SIGKILL is the one thing we cannot catch),
@@ -148,7 +173,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         }
       }
       if (!already) {
-        managed.push(startManaged({ name: "ollama", command: ollamaBin, args: ["serve"], cwd: c.dataDir, env: ollamaEnv(c), logDir: paths.logs(c) }, log));
+        spawn({ name: "ollama", command: ollamaBin, args: ["serve"], cwd: c.dataDir, env: ollamaEnv(c), logDir: paths.logs(c) });
         await waitForHttpOrExit(`${ollamaUrl}/api/tags`, { timeoutMs: 30_000 }, managed[managed.length - 1]!);
       } else {
         log("[ollama] already running, reusing");
@@ -247,14 +272,14 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     if (!sandboxModulesDir(c)) {
       warnings.push("skill 沙箱没有预装模块目录：pptx / docx / xlsx / pdf 生成类 skill 会以 MODULE_NOT_FOUND 失败（运行 scripts/local-bundle/prepare-sandbox-modules.sh 后重启）");
     }
-    managed.push(startManaged({
+    spawn({
       name: "skill-sandbox",
       command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
       args: ["src/main.ts"],
       cwd: join(c.repoRoot, "apps", "skill-sandbox"),
       env: sandboxEnv(c),
       logDir: paths.logs(c),
-    }, log));
+    });
     await waitForHttpOrExit(`http://127.0.0.1:${c.ports.sandbox}/`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
 
     // ── local ASR gateway (sherpa-onnx streaming), only when the model is on disk ──
@@ -262,26 +287,26 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     const asrModelDir = resolveAsrModelDir(c, opts.bundleAsrModelsDir);
     if (asrModelDir) {
       asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
-      managed.push(startManaged({
+      spawn({
         name: "asr-gateway",
         command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
         args: ["src/main.ts"],
         cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
         env: asrGatewayEnv(c, asrModelDir),
         logDir: paths.logs(c),
-      }, log));
+      });
       await waitForHttpOrExit(`http://127.0.0.1:${c.ports.asr}/healthz`, { timeoutMs: 60_000 }, managed[managed.length - 1]!);
     }
 
     // ── API ───────────────────────────────────────────────────────────────────
-    managed.push(startManaged({
+    spawn({
       name: "api",
       command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
       args: ["src/main.ts"],
       cwd: join(c.repoRoot, "apps", "api"),
       env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}) },
       logDir: paths.logs(c),
-    }, log));
+    });
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
     await waitForHttpOrExit(`${apiUrl}/healthz`, { timeoutMs: 180_000 }, managed[managed.length - 1]!);
 
@@ -291,14 +316,14 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     if (launch) {
       deepAgentUrl = `http://127.0.0.1:${c.ports.deepAgent}`;
       log(`[deep-agent] python runtime: ${launch.source} (${launch.command})`);
-      managed.push(startManaged({
+      spawn({
         name: "deep-agent",
         command: launch.command,
         args: [...launch.args],
         cwd: join(c.repoRoot, "apps", "deep-agent-service"),
         env: launch.env,
         logDir: paths.logs(c),
-      }, log));
+      });
       await waitForHttpOrExit(`${deepAgentUrl}/healthz`, { timeoutMs: 120_000 }, managed[managed.length - 1]!);
     }
 
@@ -313,32 +338,23 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         if (!check.usable) throw new Error(`无法用已构建的 Web 产物启动：\n  ${check.reason ?? ""}`);
       }
       // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
-      managed.push(startManaged({
+      spawn({
         name: "web",
         command: join(c.repoRoot, "apps", "web", "node_modules", ".bin", "next"),
         args: [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"],
         cwd: join(c.repoRoot, "apps", "web"),
         env: webEnv(c),
         logDir: paths.logs(c),
-      }, log));
+      });
       await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);
     }
 
     const state = readSeedState(c);
     if (!state.provisioned) throw new Error("seed state has no provisioned user after seeding");
 
-    // Until now a crash was fatal (readiness fails). From now on the stack is "up", and a
-    // service that dies afterwards would simply stop answering -- the user would meet it as
-    // a hung chat box. Say it, loudly, on the one channel the shell and the CLI share.
-    for (const m of managed) {
-      void m.exited.then((code) => {
-        if (stopping) return;
-        const why = m.recentOutput().trim();
-        log(`[${m.name}] ⚠ 进程已退出（code ${String(code)}），依赖它的能力现在不可用` +
-          (why === "" ? "" : `\n--- ${m.name} 最后的输出 ---\n${why}`));
-        opts.onServiceExit?.({ name: m.name, code, recentOutput: why });
-      });
-    }
+    // 起来之后再崩的服务由监督接管（见本函数末尾接上监督的那一段）。
+    // ⚠ 这里**不要**再单独挂一份 `m.exited` 监听：那会和监督各说各话，
+    //   而同一件事实声明在两处是本仓的头号病。
     // ⚠ 传的是「模型真的回了话」，不是「找到了 Ollama 二进制」。后者是 doctor 在没起栈时
     //   能拿到的最好证据；到了这里我们有更强的证据，就该用更强的那个。
     const capabilities = localCapabilities(c, {
@@ -348,6 +364,89 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       toolsAndSkills: launch !== null,
       liveTranscription: asrModelDir !== null,
     });
+    /*
+      全部就绪之后才接上监督（#3872 R2）。
+
+      在这之前，任何一个本地服务挂掉都既不会被拉起、也不会告诉任何人——只往日志写一行，
+      用户看到的是界面永远停在「正在思考」。这是离线应用十大缺陷里的第 3 条。
+
+      为什么放在就绪之后而不是一开始：启动阶段的失败有它自己的诊断路径
+      （`waitForHttpOrExit` 会带着子进程最后的输出报错），那条路径一字未动；
+      监督管的是「起来之后又倒下」。
+    */
+    for (let i = 0; i < managed.length; i += 1) {
+      const m = managed[i]!;
+      const spec = specs[i]!;
+      if (m.child.exitCode !== null) continue;   // 启动阶段就已经死了的，不进监督
+      supervised.push(superviseManaged({
+        spec, log, initial: m,
+        onHealth: (h) => {
+          healthById.set(h.name, h);
+          if (h.state !== "running" && h.message !== null) {
+            log(`[${h.name}] ${h.message.title}：${h.message.body.replace(/\n/g, " ")}`);
+          }
+          opts.onServiceHealth?.(h);
+        },
+      }));
+    }
+
+    /*
+      给模型常驻内存上一个会话内的闸（#3872 R2）。
+
+      实测：运行器每次请求涨约 70 MB 且不回落，在一台连续使用的 16 GB 机器上量到 9.7 GB。
+      这是 Ollama 自己的行为，我们改不了；能做的是在它涨过头之前把模型卸掉，
+      下一次提问付一次冷加载（实测 2.1–2.4 s）就回到干净状态。
+
+      R1 的 30 分钟保活给的是**空闲**上界，这里给的是**会话内**上界，管的不是同一段时间。
+
+      「正在生成时绝不卸」靠 Ollama 自己报的到期时间倒推空闲多久——那是我们已经拿到的数据，
+      不用去探进程 CPU，也就不用去猜运行器的 pid。解析不出来时当成「可能正忙」。
+    */
+    if (ollamaUrl !== null) {
+      const keepAliveMs = 30 * 60_000;              // 与 config.ts 的 OLLAMA_KEEP_ALIVE 对应
+      let freshBytes: number | null = null;
+      let lastUnloadAt: number | null = null;
+      let budgetExplained = false;
+      const tick = async (): Promise<void> => {
+        if (stopping) return;
+        try {
+          const res = await fetch(`${ollamaUrl}/api/ps`, { signal: AbortSignal.timeout(4000) });
+          const loaded = parsePs(await res.json());
+          const model = loaded.find((x) => x.name === c.chatModel) ?? loaded[0];
+          if (model === undefined) { freshBytes = null; return; }
+          if (freshBytes === null || model.sizeBytes < freshBytes) freshBytes = model.sizeBytes;
+          const budget = memoryBudgetBytes({ totalBytes: osTotalMem(), freshBytes });
+          if (!budgetExplained) {
+            log(`[ollama] ${explainBudget({ totalBytes: osTotalMem(), freshBytes })}`);
+            budgetExplained = true;
+          }
+          const idle = idleMsFromExpiry(model.expiresAt, keepAliveMs, Date.now());
+          const d = decideUnload({
+            currentBytes: model.sizeBytes,
+            budgetBytes: budget,
+            busy: idle === null || idle < RECENTLY_USED_MS,
+            now: Date.now(),
+            lastUnloadAt,
+          });
+          if (d.action !== "unload") return;
+          log(`[ollama] ${d.reason}`);
+          await fetch(`${ollamaUrl}/api/generate`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ model: model.name, keep_alive: 0 }),
+            signal: AbortSignal.timeout(20_000),
+          }).catch(() => undefined);
+          lastUnloadAt = Date.now();
+          freshBytes = null;                         // 下次加载后重新观察「刚加载完是多少」
+        } catch {
+          // 探测失败不影响任何东西：下一轮再看。这条路径绝不能让应用崩。
+        }
+      };
+      const timer = setInterval(() => { void tick(); }, 60_000);
+      timer.unref?.();
+      memoryWatchTimer = timer;
+    }
+
     return {
       capabilities,
       urls: { web: webUrl, api: apiUrl, ollama: ollamaUrl, deepAgent: deepAgentUrl, asr: asrUrl },
@@ -365,6 +464,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
           log,
         });
       },
+      health: () => supervised.map((s) => s.health()),
       stop: stopAll,
     };
   } catch (e) {
