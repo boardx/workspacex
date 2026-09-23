@@ -35,23 +35,15 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { expandOpsDirs } from "./lib/ops-plane.mjs";
 
 const argRoot = process.argv.indexOf("--root");
 const ROOT = argRoot > -1
   ? resolve(process.argv[argRoot + 1])
   : join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** 运营平面。改这里要同步改开源方案的归属表「不交付 · 内部运营平面」那一行。 */
-const OPS_DIRS = ["apps/coord-gateway", "apps/devportal", "packages/coord-*"];
-
-function expand(pattern) {
-  if (!pattern.endsWith("*")) return existsSync(join(ROOT, pattern)) ? [pattern] : [];
-  const base = dirname(pattern);
-  const prefix = pattern.slice(base.length + 1, -1);
-  if (!existsSync(join(ROOT, base))) return [];
-  return readdirSync(join(ROOT, base)).filter((e) => e.startsWith(prefix)).map((e) => `${base}/${e}`);
-}
-const opsDirs = OPS_DIRS.flatMap(expand);
+// 运营平面名单的唯一事实源在 lib/ops-plane.mjs（依赖盘点也要用它）。
+const opsDirs = expandOpsDirs(ROOT, readdirSync, existsSync, join, dirname);
 const opsNames = new Set(
   opsDirs.map((d) => join(ROOT, d, "package.json")).filter(existsSync)
     .map((p) => JSON.parse(readFileSync(p, "utf8")).name).filter(Boolean),
