@@ -512,6 +512,10 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   .nav__inner { justify-content: space-between; }
   .nav__ghost--signin { display: none; }
 }
+.nav__link--gh { display: none; }
+@media (max-width: 72.5rem) and (min-width: 47.5001rem) {
+  .nav__links[data-open="true"] .nav__link--gh { display: flex; }
+}
 @media (max-width: 35.0rem) {
   .brand__tag { display: none; }
 }
@@ -771,6 +775,8 @@ p, .lead, .keyline { hanging-punctuation: first last; }
   margin-top: 2.25rem;
 }
 
+.has-langhint { scroll-padding-bottom: var(--hint-h); }
+.has-langhint body { padding-bottom: var(--hint-h); }
 .langhint {
   position: fixed; z-index: 90;
   left: 50%; bottom: 1.25rem;

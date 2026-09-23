@@ -220,6 +220,9 @@
    An offer, not a redirect: auto-redirecting breaks back navigation, hides the
    other language from crawlers, and overrides a choice the visitor may have
    made deliberately. */
+/* While the hint is shown (lang.js sets --hint-h to its height). */
+.has-langhint { scroll-padding-bottom: var(--hint-h); }
+.has-langhint body { padding-bottom: var(--hint-h); }
 .langhint {
   position: fixed; z-index: 90;
   left: 50%; bottom: 1.25rem;

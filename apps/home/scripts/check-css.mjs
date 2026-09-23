@@ -25,7 +25,7 @@ const cssFiles = list('assets/css', '.css');
 const consumers = html + js;
 
 /* Values a stylesheet legitimately reads but only JS ever writes. */
-const JS_WRITTEN = new Set(['--i', '--e', '--p', '--c', '--dscale', '--scene-track', '--read']);
+const JS_WRITTEN = new Set(['--hint-h', '--i', '--e', '--p', '--c', '--dscale', '--scene-track', '--read']);
 
 const classes = new Map();
 let css = '';

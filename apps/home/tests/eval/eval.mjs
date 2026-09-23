@@ -139,6 +139,46 @@ const CASES = [
       await ctx.close();
       return { score: +href.endsWith('#architecture'), note: href };
     }],
+  ['nav.menu.keyboard', '导航', 'On a phone the menu works from the keyboard: open lands in it, Tab stays in it, Escape returns to the button',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 390, height: 844 } });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}`, { waitUntil: 'load' }); await p.waitForTimeout(500);
+      await p.focus('#burger'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+      const a = await p.evaluate(() => !!document.activeElement?.closest('#navlinks'));
+      for (let i = 0; i < 20; i += 1) await p.keyboard.press('Tab');
+      const b = await p.evaluate(() => !!document.activeElement?.closest('#navlinks') || document.activeElement?.id === 'burger');
+      await p.keyboard.press('Escape'); await p.waitForTimeout(100);
+      const d = await p.evaluate(() => document.activeElement?.id === 'burger' && document.getElementById('burger').getAttribute('aria-expanded') === 'false');
+      await ctx.close();
+      return { score: [a, b, d].filter(Boolean).length / 3, note: `into ${a}, stays ${b}, escape ${d}` };
+    }],
+  ['nav.deeplink', '导航', 'A link to one use case (/#panel-edu) opens with that case selected and its section heading on screen',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 1280, height: 800 } });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}#panel-edu`, { waitUntil: 'load' }); await p.waitForTimeout(700); await settle(p);
+      const r = await p.evaluate(() => ({ top: document.querySelector('#start h2').getBoundingClientRect().top, sel: document.querySelector('[aria-controls="panel-edu"]')?.getAttribute('aria-selected') }));
+      await ctx.close();
+      return { score: (+(r.top >= 40 && r.top < 400) + +(r.sel === 'true')) / 2, note: `heading at ${Math.round(r.top)}px, selected ${r.sel}` };
+    }],
+  ['nav.tabsurl', '导航', 'Choosing a use case with the arrow keys updates the address, so a copied link or a reload shows the same one',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 1280, height: 800 } });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}`, { waitUntil: 'load' }); await p.waitForTimeout(400);
+      await p.focus('.cases__tabs [aria-selected="true"]'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight');
+      const r = await p.evaluate(() => [location.hash.slice(1), document.querySelector('.cases__tabs [aria-selected="true"]').getAttribute('aria-controls')]);
+      await ctx.close();
+      return { score: +(r[0] === r[1]), note: `url #${r[0]}, selected ${r[1]}` };
+    }],
+  ['nav.tablet.github', '导航', 'On a tablet (1024) the repository is reachable from the navigation',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 1024, height: 768 } });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}`, { waitUntil: 'load' }); await p.waitForTimeout(400);
+      const vis = () => p.evaluate(() => [...document.querySelectorAll('.nav a[href*="github.com"]')].some((a) => a.offsetParent !== null && a.getBoundingClientRect().width > 0));
+      let ok = await vis();
+      if (!ok && await p.isVisible('#burger')) { await p.click('#burger'); await p.waitForTimeout(200); ok = await vis(); }
+      await ctx.close();
+      return +ok;
+    }],
   ['nav.skip', '导航', 'The skip link is the first focusable element and targets <main>',
     async (c) => c.desk.evaluate(() => {
       const first = [...document.querySelectorAll('a[href], button, [tabindex="0"]')][0];
@@ -202,6 +242,26 @@ const CASES = [
       }
       return { score: 1 - bad.length / Math.max(1, texts.length), note: `${bad.length}/${texts.length}: ${bad.slice(0, 3).join(' | ')}` };
     })],
+  ['a11y.hintcover', '可访问性', 'With the language offer showing, no element reached with Tab is hidden under it (phone)',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 390, height: 844 }, locale: c.lang === 'zh' ? 'en-US' : 'zh-CN', hasTouch: true, isMobile: true });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}`, { waitUntil: 'load' }); await p.waitForTimeout(600);
+      if (!await p.$('.langhint')) { await ctx.close(); return { score: 0, note: 'no offer shown' }; }
+      await p.evaluate(() => document.documentElement.style.setProperty('scroll-behavior', 'auto'));
+      let covered = 0; let n = 0;
+      for (let i = 0; i < 90; i += 1) {
+        await p.keyboard.press('Tab');
+        const r = await p.evaluate(() => {
+          const e = document.activeElement; if (!e || e === document.body || e.closest('.langhint')) return null;
+          const b = e.getBoundingClientRect(); if (!b.width) return null;
+          const hit = document.elementFromPoint(b.left + b.width / 2, Math.min(innerHeight - 1, b.top + b.height / 2));
+          return !!hit?.closest('.langhint');
+        });
+        if (r === null) continue; n += 1; if (r) covered += 1;
+      }
+      await ctx.close();
+      return { score: 1 - covered / Math.max(1, n), note: `${covered}/${n} covered` };
+    }],
   ['a11y.headings', '可访问性', 'One h1, and no heading level is skipped',
     async (c) => c.desk.evaluate(() => {
       const hs = [...document.querySelectorAll('h1,h2,h3,h4')].map((h) => +h.tagName[1]);

@@ -46,11 +46,24 @@ export function initLangHint() {
   const close = bar.querySelector('.langhint__close');
   close.setAttribute('aria-label', prefers === 'zh' ? '关闭' : 'Dismiss');
   close.textContent = '×';
+  /* The bar floats over the bottom of the screen. It covered the focused
+     element at nine Tab stops on a phone and permanently hid the footer's last
+     line, so while it is shown the page reserves its height: body padding for
+     the end of the page, scroll-padding so a focused element scrolls clear. */
+  const root = document.documentElement;
+  const reserve = () => root.style.setProperty('--hint-h', `${bar.offsetHeight + 24}px`);
   close.addEventListener('click', () => {
     bar.remove();
+    root.classList.remove('has-langhint');
     try { localStorage.setItem(DISMISSED, '1'); } catch { /* private mode */ }
+    /* Dismissing dropped focus on <body>, back at the top of the tab order.
+       The language switch is the control this bar was standing in for. */
+    document.querySelector('.langswitch__btn:not([aria-current="true"])')?.focus({ preventScroll: true });
   });
 
   document.body.append(bar);
+  reserve();
+  root.classList.add('has-langhint');
+  window.addEventListener('resize', () => { if (bar.isConnected) reserve(); }, { passive: true });
   requestAnimationFrame(() => bar.classList.add('is-in'));
 }

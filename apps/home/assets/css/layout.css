@@ -239,6 +239,10 @@
   .nav__inner { justify-content: space-between; }
   .nav__ghost--signin { display: none; }
 }
+.nav__link--gh { display: none; }
+@media (max-width: 72.5rem) and (min-width: 47.5001rem) {
+  .nav__links[data-open="true"] .nav__link--gh { display: flex; }
+}
 @media (max-width: 35.0rem) {
   .brand__tag { display: none; }
 }

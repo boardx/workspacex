@@ -121,18 +121,36 @@ export function initNav() {
 
   // --- mobile menu ---
   if (burger && links) {
-    const close = () => {
+    /* Keyboard: the panel comes BEFORE the burger in the DOM, so after
+       opening it Tab went on to the hero and the links were reachable only
+       backwards. Opening now moves focus into the panel, Tab cycles between
+       the panel and the burger while it is open, and Escape closes it and
+       hands focus back to the burger rather than dropping it on <body>. */
+    const isOpen = () => burger.getAttribute('aria-expanded') === 'true';
+    const items = () => [...links.querySelectorAll('a[href], button')].filter((n) => n.offsetParent !== null);
+    const close = (refocus) => {
       burger.setAttribute('aria-expanded', 'false');
       links.removeAttribute('data-open');
+      if (refocus) burger.focus();
     };
     burger.addEventListener('click', () => {
-      const open = burger.getAttribute('aria-expanded') === 'true';
-      burger.setAttribute('aria-expanded', String(!open));
-      if (open) links.removeAttribute('data-open');
-      else links.setAttribute('data-open', 'true');
+      if (isOpen()) { close(false); return; }
+      burger.setAttribute('aria-expanded', 'true');
+      links.setAttribute('data-open', 'true');
+      requestAnimationFrame(() => items()[0]?.focus());
     });
-    links.addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    links.addEventListener('click', (e) => { if (e.target.closest('a')) close(false); });
+    document.addEventListener('keydown', (e) => {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') { close(true); return; }
+      if (e.key !== 'Tab') return;
+      const list = items(); if (!list.length) return;
+      const first = list[0]; const last = list[list.length - 1];
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); burger.focus(); }
+      else if (!e.shiftKey && document.activeElement === burger) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); burger.focus(); }
+      else if (e.shiftKey && document.activeElement === burger) { e.preventDefault(); last.focus(); }
+    });
   }
 
   // --- scrollspy + language switch that keeps your place ---
@@ -155,19 +173,22 @@ export function initNav() {
     let cur = null;
     for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
     if (window.scrollY < 8) cur = null;
-    if (cur === last) return;
-    last = cur;
+    /* Inside the use cases, the fragment names the selected discipline
+       (cases.js writes it); the other language should open on that one. */
+    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+    if (frag === last) return;
+    last = frag;
     anchors.forEach((a) => {
       if (cur && a.getAttribute('href') === `#${cur}`) a.setAttribute('aria-current', 'true');
       else a.removeAttribute('aria-current');
     });
-    swaps.forEach(([a, base]) => a.setAttribute('href', cur ? `${base}#${cur}` : base));
+    swaps.forEach(([a, base]) => a.setAttribute('href', frag ? `${base}#${frag}` : base));
     /* The "also in 中文" offer (lang.js) is the other way across, and the one
        a visitor who did not know the switch existed actually taps. */
     const hint = document.querySelector('.langhint__go');
     if (hint) {
       if (!hint.dataset.base) hint.dataset.base = hint.getAttribute('href').split('#')[0];
-      hint.setAttribute('href', cur ? `${hint.dataset.base}#${cur}` : hint.dataset.base);
+      hint.setAttribute('href', frag ? `${hint.dataset.base}#${frag}` : hint.dataset.base);
     }
   };
   let queued = false;
@@ -178,6 +199,7 @@ export function initNav() {
   };
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('hashchange', onScroll);
+  window.addEventListener('wsx:fragment', onScroll);
   window.addEventListener('resize', onScroll);
   update();
 }
