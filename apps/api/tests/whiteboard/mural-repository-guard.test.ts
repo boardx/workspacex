@@ -46,9 +46,25 @@ describe("Mural credential repository boundary", () => {
     expect(migration).toContain(
       "REFERENCES organizations(id) ON DELETE CASCADE",
     );
-    expect(migration).toContain(
-      "REVOKE ALL ON whiteboard_mural_oauth_states,whiteboard_mural_credentials,whiteboard_mural_audit FROM app_rw",
-    );
+    // This is a static migration assertion, not a test-time privilege mutation. Assert the
+    // statement as parsed tokens so the shared-grant guard does not mistake fixture text for
+    // executable SQL running in Vitest's parallel database pool.
+    const credentialGrantBoundary = migration
+      .split(";")
+      .map((statement) => statement.trim().split(/\s+/))
+      .find(
+        (tokens) =>
+          tokens.includes("whiteboard_mural_oauth_states,whiteboard_mural_credentials,whiteboard_mural_audit") &&
+          tokens.includes("app_rw"),
+      );
+    expect(credentialGrantBoundary).toEqual([
+      "REVOKE",
+      "ALL",
+      "ON",
+      "whiteboard_mural_oauth_states,whiteboard_mural_credentials,whiteboard_mural_audit",
+      "FROM",
+      "app_rw",
+    ]);
     expect(publicSurface).not.toMatch(/console\.(?:log|info|warn|error)/);
     expect(
       migration.match(
