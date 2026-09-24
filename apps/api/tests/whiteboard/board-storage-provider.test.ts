@@ -13,6 +13,18 @@ describe('board storage providers', () => {
     expect(boardBlobRoot({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).toBe('/srv/workspacex/board-content');
   });
 
+  it('requires an explicit absolute production root without echoing its value', () => {
+    expect(() => boardBlobRoot({ NODE_ENV: 'production' })).toThrow('WORKSPACEX_BOARD_BLOB_ROOT');
+    const configured = 'relative/private-board-path';
+    try { boardBlobRoot({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: configured }); }
+    catch (error) {
+      expect((error as Error).message).toContain('WORKSPACEX_BOARD_BLOB_ROOT');
+      expect((error as Error).message).not.toContain(configured);
+      return;
+    }
+    throw new Error('relative production Board root was accepted');
+  });
+
   it('does not evaluate the future storage config until the dormant provider is used', () => {
     const store = new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` });
     expect(() => store.head({ tenantId: 'org-a', key: `tenants/${'a'.repeat(32)}/manifest` })).toThrow(/durable storage/);
