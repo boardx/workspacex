@@ -73,8 +73,15 @@ const standin = modelMode === "standin" ? await startStandinModel({ port: 11434,
 
 const results = [];
 const findings = [];
-const browser = await chromium.launch(process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {});
-const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai" });
+/*
+ * 假麦克风：没有它，语音那一步在浏览器这一侧就失败了（「没有找到可用的麦克风设备」），
+ * 请求根本到不了服务端——2026-09-23 拿旧代码反证时正是这样，S14 测的其实是另一条路。
+ */
+const browser = await chromium.launch({
+  ...(process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {}),
+  args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+});
+const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai", permissions: ["microphone"] });
 const page = await ctx.newPage();
 page.setDefaultTimeout(60_000);
 const consoleErrors = [];
@@ -234,6 +241,77 @@ await step("S12", "悬停反馈：访谈页未选中的页签悬停变成正文�
   const hover = await color();
   if (idle === hover) throw new Error(`悬停前后都是 ${idle}`);
   return { detail: `idle ${idle} → hover ${hover}` };
+});
+
+await step("S13", "手机宽度（375）打开设计详情：画布读得了字，不是一张缩略图", async () => {
+  // 2026-09-23 第二次实测抓到：高度只剩 291px，两头都装下的缩放是 0.29（正文约 4px）。
+  const phoneCtx = await browser.newContext({ viewport: { width: 375, height: 812 }, locale: "zh-CN", timezoneId: "Asia/Shanghai" });
+  const phone = await phoneCtx.newPage();
+  phone.setDefaultTimeout(120_000);
+  await phone.goto(`${BASE}/login`);
+  await phone.getByTestId("login-email").fill("me@local.workspacex");
+  await phone.getByTestId("login-password").fill(password);
+  await phone.getByTestId("login-submit").click();
+  await phone.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await phone.goto(`${BASE}/studio/design-workbench`);
+  await phone.locator('[data-testid^="project-open-"]').first().click();
+  const stage = phone.getByTestId("design-detail-stage");
+  await stage.waitFor();
+  await phone.waitForTimeout(1500);
+  const scale = Number(await stage.getAttribute("data-scale"));
+  const s = await shot("s13-phone-detail.png", phone);
+  await phoneCtx.close();
+  if (!(scale >= 0.5)) throw new Error(`画布缩放 ${String(scale)}——手机上读不了字`);
+  return { detail: `画布缩放 ${scale.toFixed(2)}（读得了字；装不下的部分竖着滚）`, shot: s };
+});
+
+await step("S14", "提反馈弹窗点「语音」：本机没开通转写时不给死路「重试」、说明不被截断", async () => {
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.getByTestId("rail-feedback").first().click();
+  await page.locator("button", { hasText: "语音" }).first().click();
+  const bar = page.getByTestId("feedback-voice-error");
+  const listening = page.locator('[data-voice-phase="listening"]');
+  await Promise.race([bar.waitFor({ timeout: 20_000 }), listening.waitFor({ timeout: 20_000 })]).catch(() => {});
+  if ((await bar.count()) === 0) {
+    await page.keyboard.press("Escape");
+    return { detail: "本机语音转写可用（没有报错）——这一步测不到「没开通」那条路，跳过" };
+  }
+  // 只依赖新旧两版都有的东西（状态栏本身、按钮文字、渲染出来的版面），这样拿旧代码跑也能按
+  // **真正的原因**转红，而不是因为某个新加的 testid 不存在而超时。
+  const text = (await bar.innerText()).trim();
+  const retries = await page.locator("button", { hasText: "重试" }).count();
+  // CSS 截断不改 DOM 文字——innerText 照样是全文。要看的是「渲染出来有没有被省略号吃掉」。
+  const clipped = await bar.evaluate((root) => [...root.querySelectorAll("*")].some((e) => getComputedStyle(e).textOverflow === "ellipsis" && e.scrollWidth > e.clientWidth + 1));
+  const s = await shot("s14-voice-not-configured.png");
+  await page.keyboard.press("Escape");
+  // 按服务端那句话判（「尚未配置」），不按标题——旧代码的标题是「暂时不可用」，按标题判就测不出旧 bug。
+  // 报的不是「没开通」⇒ 这一步没走到它要测的那条路，如实失败，不当作通过。
+  if (!/尚未配置|没开通/.test(text)) throw new Error(`没走到「没开通」这条路，报的是：「${text.replace(/\s+/g, " ").slice(0, 60)}」`);
+  if (retries > 0) throw new Error(`没开通却还有 ${String(retries)} 个「重试」`);
+  if (clipped) throw new Error("说明被省略号截断了");
+  return { detail: `「${text.slice(0, 40)}…」；「重试」按钮 ${String(retries)} 个`, shot: s };
+});
+
+await step("S15", "运营收件箱打得开：系统异常一路读不到时只丢那一路（#3921）", async () => {
+  // 本地版的 PGlite 不区分数据库角色，系统异常那一路必然读不到；原来整个收件箱跟着 500。
+  await page.goto(`${BASE}/platform-admin/inbox`);
+  const dead = page.getByTestId("dep-failed");
+  const alive = page.locator('[data-testid="inbox-kind-exception"]');
+  await Promise.race([dead.waitFor({ timeout: 120_000 }), alive.waitFor({ timeout: 120_000 })]).catch(() => {});
+  const s = await shot("s15-inbox.png");
+  if ((await dead.count()) > 0 && (await alive.count()) === 0) throw new Error("整个收件箱读不到（一路失败拖垮了全部）");
+  const unavailable = (await page.getByTestId("inbox-exception-unavailable-hint").count()) > 0;
+  const withheld = (await page.getByTestId("inbox-exception-withheld-hint").count()) > 0;
+  // 按不下去的那一格不许挂数字：服务端这时给的 0 是「没有算」，挂着就读成「系统零异常」
+  // （第一次实测截图抓到的）。
+  const chipText = (await alive.innerText()).trim();
+  if ((unavailable || withheld) && /\d/.test(chipText)) throw new Error(`「系统异常」那一格读不到却挂着数字：「${chipText}」`);
+  return {
+    detail: unavailable ? "收件箱正常打开；系统异常那一格如实说「这次没读到」（本地版预期）"
+      : withheld ? "收件箱正常打开；系统异常仅平台运维可见"
+      : "收件箱正常打开；系统异常一路也读到了",
+    shot: s,
+  };
 });
 
 await browser.close();

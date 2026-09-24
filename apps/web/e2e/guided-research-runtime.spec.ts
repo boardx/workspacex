@@ -138,11 +138,20 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("research-report-chapters-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.getByText("导出报告", { exact: true }).click();
+  const reportActions = page.getByTestId("research-report-actions");
+  await expect(reportActions.getByRole("button", { name: "完成研究", exact: true })).toBeVisible();
+  await expect(reportActions.getByRole("button", { name: "更多操作", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出报告", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "重新生成报告", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("research-report-action-menu.png"), fullPage: true });
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "下载 Word", exact: true }).click();
+  await page.getByRole("menuitem", { name: "下载 Word", exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toMatch(/\.docx$/);
-  await expect(page.getByRole("button", { name: "导出 PDF", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "导出 PDF", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "导出 PDF", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("research-report-timeline")).toHaveCount(0);
   await expect(page.getByTestId("research-report-document")).toBeVisible();
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
@@ -150,7 +159,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
   // A conversational regeneration must use the real report generation pipeline.
   const regenerated = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.action === "message");
-  await page.getByRole("button", { name: "修改报告", exact: true }).click();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "修改报告", exact: true }).click();
   await page.getByRole("textbox", { name: "研究对话" }).fill("重新生成报告");
   await page.getByRole("button", { name: "发送研究消息" }).click();
   expect((await regenerated).headers()["content-type"]).toContain("text/event-stream");
@@ -184,9 +194,10 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-report-preview-text")).not.toContainText("草稿");
   await expect(page.getByTestId("research-quality-draft").getByTestId("research-report-chapter")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
-  await page.getByText("导出报告", { exact: true }).click();
-  await expect(page.getByRole("button", { name: "下载 Word", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "下载 Word", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
+  await page.keyboard.press("Escape");
   const openedSessionUrl = page.url();
   await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page.getByTestId("research-home-page")).toBeVisible();

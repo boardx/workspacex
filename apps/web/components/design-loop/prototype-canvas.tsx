@@ -217,8 +217,8 @@ export function guessNavIcon(label: string): designPrototype.PrototypeIcon | nul
  * 迭代 14：设备尺寸与外观**都从 `lib/prototype-devices` 那张预设表来**，这里不再自己声明。
  * 原来的 `PrototypeDevice`（phone|tablet|desktop）与 `DEVICE_SIZE` 已删除——那是第二份尺寸。
  */
-import { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, type PrototypeDevicePreset, type PrototypeChrome } from "@/lib/prototype-devices";
-export { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale };
+import { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable, type PrototypeDevicePreset, type PrototypeChrome } from "@/lib/prototype-devices";
+export { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable };
 export type { PrototypeDevicePreset, PrototypeChrome };
 
 /** 兼容旧调用点：按项目模板取默认镜头。 */

@@ -10,11 +10,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ShareDialog, SHARE_SCOPE_LABEL } from "@/components/design-loop/share-dialog";
 import { SharedDesignView } from "@/components/design-loop/shared-design-view";
+import { humanTime } from "@/lib/human-time";
+
+/** 两处夹具共用的发布时刻——断言从它推期望值，不再手抄字面量。 */
+const PUBLISHED_AT = "2026-09-22T10:00:00.000Z";
 import { designShareUrl, type DesignProject, type SharedDesign } from "@/lib/live-design-workbench";
 import { ApiError } from "@/lib/api-client";
 import { designPrototype } from "@repo/contracts";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // 假时钟只在个别用例里开，收尾一律还原——漏还原会让后面的用例在一个停住的
+  // 时钟上跑，症状是「换个执行顺序就红」，最难查的那一类。
+  vi.useRealTimers();
+});
 
 const screenTree = (label: string): designPrototype.PrototypeNode => ({
   type: "stack",
@@ -40,7 +49,7 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
 }
 
 const published = (over: Partial<NonNullable<DesignProject["share"]>> = {}) => ({
-  token: "bG9j.secret", scope: "prototype" as const, publishedAt: "2026-09-22T10:00:00.000Z", stale: false, ...over,
+  token: "bG9j.secret", scope: "prototype" as const, publishedAt: PUBLISHED_AT, stale: false, ...over,
 });
 
 const dialogProps = {
@@ -125,7 +134,7 @@ function shared(over: Partial<SharedDesign> = {}): SharedDesign {
     frames: ["首页", "下单"], prototype: [screenTree("首页"), screenTree("下单")],
     frameNotes: ["首屏即可下单", ""],
     frameLinks: [[{ from: "btn-首页", to: 1 }], []],
-    publishedAt: "2026-09-22T10:00:00.000Z", ownerName: "小王",
+    publishedAt: PUBLISHED_AT, ownerName: "小王",
     problem: null, criteria: null,
     ...over,
   };
@@ -133,6 +142,12 @@ function shared(over: Partial<SharedDesign> = {}): SharedDesign {
 
 describe("分享页", () => {
   it("说清是谁发的、哪一版、只读——访客要知道自己看的是不是最新的", async () => {
+    // 把「现在」钉在发布之后两小时：相对日期恒为「今天」，不随真实日期漂移。
+    // `shouldAdvanceTime` 不是可选项：RTL 的 `findBy*` 靠定时器轮询，
+    // 停住的时钟会让它等到超时（第一版就这么红了 15 秒）。这里只要钉住「现在」，
+    // 不需要冻结时间流逝。
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-09-22T12:00:00.000Z"));
     /*
      * ⭐ 反证锚点：把发布时间从页头拿掉 ⇒ 这条红。
      * 这条链接是一份冻结的快照，设计者这会儿很可能已经改过三轮；不写发布时间，
@@ -145,7 +160,19 @@ describe("分享页", () => {
     expect(meta).toContain("小王");
     expect(meta).toContain("只读");
     expect(meta).toContain("发布于");
-    expect(meta).toContain("10:00"); // 迭代 29 起是人话时间（今天/昨天/M月D日 + 时分），不再是带秒的 toLocaleString
+    /*
+     * ⚠ 这里**不能**写死 "10:00"（2026-09-23 修）。原断言有两处环境依赖，叠在一起：
+     *   ① `humanTime` 渲染的是**相对**日期（今天 / 昨天 / M月D日），随"现在"漂移——
+     *      夹具发布于 09-22，到了 09-23 就变成「昨天」；
+     *   ② 时分按运行机器的时区算——同一个 10:00Z 在 UTC 是 10:00、在 +08 是 18:00。
+     *      测试跑在哪个时区没有被钉住（vitest 没有设 TZ）。
+     * 写死字面量等于把这两件环境事实抄了一份进断言，隔一天或换台机器就红。
+     *
+     * 改法：时刻钉死（`vi.setSystemTime`），期望值**从同一个 `humanTime` 取**——
+     * 它就是页面用的那一个，不是我在测试里复刻的第二份格式化逻辑。
+     * 强度没有下降：把发布时间从页头拿掉，这条仍然红（见本用例头部的反证锚点）。
+     */
+    expect(meta).toContain(humanTime(PUBLISHED_AT));
   });
 
   it("prototype 档不渲染「问题与目标」那一节；full 档才有", async () => {

@@ -9,7 +9,7 @@ import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { ComposerVoiceControl, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
+import { ComposerStatusBar, voiceErrorStatus, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import {
   FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_ATTACHMENT_LIMIT,
@@ -366,22 +366,11 @@ export function FeedbackDialog({
       );
     }
     if (voice.phase === "error") {
-      const denied = speech.status === "denied";
-      const unsupported = speech.status === "unsupported";
-      const actions: ComposerStatusAction[] = [];
-      if (denied) {
-        actions.push({
-          label: "查看如何开启",
-          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
-          testId: "feedback-voice-permission-help",
-        });
-      }
-      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "feedback-voice-retry" });
+      // 说什么、给不给「重试」：与另一处 composer 共用 `voiceErrorStatus`（chat-composer-status-bar.tsx）。
+      const bar = voiceErrorStatus(speech, { onRetry: voice.start, retryTestId: "feedback-voice-retry", helpTestId: "feedback-voice-permission-help" });
       return (
         <ComposerStatusBar tone="warning" testId="feedback-voice-error" icon={<AlertTriangle className="h-4 w-4" />}
-          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
-          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
-          actions={actions} />
+          title={bar.title} description={bar.description} actions={bar.actions} />
       );
     }
     return null;

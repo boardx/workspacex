@@ -4,18 +4,23 @@ export function GuidedResearchStepLayout({
   assistant,
   wideMain = false,
   reading = false,
+  assistantOpen,
+  onAssistantOpenChange,
   children,
 }: {
   assistant: React.ReactNode;
   wideMain?: boolean;
   reading?: boolean;
+  assistantOpen?: boolean;
+  onAssistantOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
-  const [assistantOpen, setAssistantOpen] = React.useState(false);
+  const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
+  const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
+  const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
   if (reading) return <div className="min-w-0 space-y-4" data-layout="report-reading">
-    <div className="mx-auto flex max-w-5xl justify-end"><button type="button" aria-expanded={assistantOpen} aria-controls="report-assistant" className="rounded-md border border-border px-4 py-2 text-13 font-medium transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => setAssistantOpen(!assistantOpen)}>{assistantOpen ? "收起助手" : "修改报告"}</button></div>
-    <div className={assistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
-      <aside id="report-assistant" hidden={!assistantOpen} className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)]">{assistant}</aside>
+    <div className={reportAssistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
+      <aside id="report-assistant" hidden={!reportAssistantOpen} className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)]">{assistant}</aside>
       <main className="mx-auto w-full min-w-0 max-w-5xl" data-testid="research-step-main">{children}</main>
     </div>
   </div>;

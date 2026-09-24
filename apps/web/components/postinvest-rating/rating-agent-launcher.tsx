@@ -41,8 +41,7 @@ export function RatingAgentLauncher({ agent }: { agent: RatingAgentEntry }) {
 
   // agentId 每个部署环境各不相同，前端不能硬编码，也不该要人手工回填：Agent 由部署期
   // 补种脚本（`apps/api/scripts/backfill-team2-agent.ts`，`deploy.sh` 4d3）幂等落库，
-  // 这里按名字在本组织的能力目录里查真实 id（team3 曾用同一做法，该 feature 已于
-  // 2026-09-22 整体下线，指针不再指向已删除的文件）。
+  // 这里按名字在本组织的能力目录里查真实 id——本仓 ad-hoc Agent 的既有做法。
   // `NEXT_PUBLIC_TEAM2_AGENT_ID`（若设）仍然优先，作为本机开发的逃生口。
   const [resolved, setResolved] = React.useState<{ id: string | null; done: boolean }>(
     agent.agentId ? { id: agent.agentId, done: true } : { id: null, done: false },

@@ -171,13 +171,35 @@ test("TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持
   ).toBeVisible({ timeout: 60_000 });
 });
 
+/**
+ * 2026-09-23 —— **判据没变，读法变强了。**
+ *
+ * 「预览」与「版本」两颗锚点此前挂在标题文字上（`<h2>产物预览</h2>` /
+ * `<h3>成果与版本</h3>`）：那行标题在，这一条就绿——哪怕点产物条目根本没反应
+ * （#2099 之前就是如此）。锚点在、能力不在。
+ *
+ * 现在「预览」挂在真渲染出来的产物正文上、「版本」挂在真能切版本的选择器上，
+ * 两者都要**先点开一份产物**才存在，所以这里多了一次点击。这不是把门放松：
+ * 旧写法在预览坏掉时仍然全绿，新写法会红。
+ *
+ * 2026-09-23 R8 补上「来源」：它也搬进详情态，陈述的是**这一份**产物挂没挂出处
+ * （`hasSource` 逐产物不同，静态容器做不到这一点），并可跳回落地它的那条消息。
+ * ⚠ 仍然没有逐条引用清单——citations 在服务端有，但没有按产物读回的接口。
+ * 这一条验的是「有没有挂出处」，不是「出处有哪些」。
+ */
 test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async ({ page }) => {
   await openFreshThread(page);
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
+  /*
+   * ⚠ 四颗锚点**不可能同时在场**：右栏里打开一份产物会把列表整段换成详情态
+   * （R2 起「结果在右栏里打开」），列表、版本面板、导出按钮随之卸载。
+   * 这一点是先在 jsdom 里钉前提时发现的（tests/ui/artifact-acceptance-anchors.test.tsx），
+   * 不是在这里猜的——真栈跑一次十四分钟，猜错的代价是一轮。
+   * 所以按两态分别验：列表态三件，详情态一件。
+   */
+  // ① 列表态：版本 / 导出
   for (const [suffix, what] of [
-    ["preview", "预览"],
-    ["sources", "来源"],
     ["versions", "版本"],
     ["export", "导出"],
   ] as const) {
@@ -185,10 +207,35 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
       page,
       `chat-task-workbench-artifact-${suffix}`,
       "TW-P1-4",
-      `产物缺少${what}（当前 chat-artifacts-panel 只是一个平铺列表）`,
+      `产物缺少${what}`,
       30_000,
     );
   }
+
+  // ② 详情态：预览 + 来源。两颗锚点现在都挂在**这一份产物自己的事实**上
+  //    （正文渲染出来了 / 这一份挂没挂出处），
+  //    所以必须先打开一份；`^=chat-artifact-` 不会撞上 `chat-artifacts-panel`
+  //    （那里 artifact 后面是 s 不是 -）。
+  const firstArtifact = page.locator('[data-testid^="chat-artifact-"]').first();
+  await expect(
+    firstArtifact,
+    gapMessage("TW-P1-4", "chat-artifact-<id>", "这条线程没有产生任何产物，四件齐无从谈起"),
+  ).toBeVisible({ timeout: 60_000 });
+  await firstArtifact.click();
+  await expectAnchor(
+    page,
+    "chat-task-workbench-artifact-preview",
+    "TW-P1-4",
+    "点开产物后没有渲染出正文（预览能力不在，而不是标题不在）",
+    30_000,
+  );
+  await expectAnchor(
+    page,
+    "chat-task-workbench-artifact-sources",
+    "TW-P1-4",
+    "点开的这一份产物没有陈述出处（此前这颗锚点挂在列表包裹 div 上，列表在就算齐）",
+    30_000,
+  );
 });
 
 // issue #3099 / coordinator 裁决（#3081 ①）：第四个锚点
