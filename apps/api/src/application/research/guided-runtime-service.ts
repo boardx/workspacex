@@ -54,13 +54,16 @@ export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCo
   }
   if (state.activity?.some((event) => event.id === command.idempotencyKey)) return;
   if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
-  if (command.action === "refine_source_policy" && command.sourcePolicy?.internalSourceIds.length) {
+  if (command.sourcePolicy?.internalSourceIds.length) {
     throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
   }
   if (command.action === "pause") state.controlStatus = "paused";
   if (command.action === "resume") state.controlStatus = "running";
   if (command.action === "refine_source_policy" && command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
-  if (command.action === "refine_scope" && command.intent) state.intent = command.intent;
+  if (command.action === "refine_scope" && command.intent) {
+    state.intent = command.intent;
+    if (command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
+  }
   state.planRevision = (state.planRevision ?? 0) + 1;
   const activity = state.activity ?? (state.activity = []);
   activity.push({ id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
