@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "id": "sticky-1",
+      "type": "sticky_note",
+      "data": { "content": "First page" },
+      "style": { "fillColor": "#fff59d" },
+      "position": { "x": 100, "y": 120, "origin": "center", "relativeTo": "canvas_center" },
+      "geometry": { "width": 200, "height": 120 }
+    }
+  ],
+  "size": 1,
+  "total": 2,
+  "cursor": "cursor-2"
+}

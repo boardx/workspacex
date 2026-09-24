@@ -1,0 +1,14 @@
+{
+  "data": [
+    {
+      "id": "shape-2",
+      "type": "shape",
+      "data": { "content": "Second page", "shape": "rectangle" },
+      "style": { "fillColor": "#dbeafe" },
+      "position": { "x": 420, "y": 120, "origin": "center", "relativeTo": "canvas_center" },
+      "geometry": { "width": 220, "height": 120 }
+    }
+  ],
+  "size": 1,
+  "total": 2
+}

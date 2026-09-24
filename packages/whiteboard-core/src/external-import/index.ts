@@ -20,7 +20,7 @@ type SourceObject = {
 };
 
 const knownKinds: Record<string, BoardObject['kind']> = {
-  sticky_note: 'sticky', 'sticky-note': 'sticky', sticky: 'sticky', card: 'sticky',
+  sticky_note: 'sticky', 'sticky-note': 'sticky', 'sticky note': 'sticky', sticky: 'sticky', card: 'sticky',
   text: 'text', textbox: 'text', title: 'text', frame: 'frame', area: 'frame',
   shape: 'rectangle', rectangle: 'rectangle', ellipse: 'ellipse',
 };

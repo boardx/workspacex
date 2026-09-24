@@ -1,0 +1,10 @@
+{
+  "value": {
+    "id": "mural-1",
+    "title": "Mural discovery",
+    "workspaceId": "workspace-1",
+    "roomId": 42,
+    "createdOn": 1789999200000,
+    "updatedOn": 1790002800000
+  }
+}
