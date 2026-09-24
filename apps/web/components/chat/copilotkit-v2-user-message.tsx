@@ -4,6 +4,8 @@ import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
 import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
+import { useCopilotKitV2MessageActions } from "@/components/chat/copilotkit-v2-message-actions";
+import { MESSAGE_ANCHOR_ATTR } from "@/lib/chat-message-focus";
 
 /**
  * issue #2787（review #2787 结论，回指 issue #728 同类根因）—— `userMessage` slot
@@ -82,12 +84,19 @@ export const UserMessageAttachmentsCtx =
 const CurrentUserMessageAttachmentsCtx =
   React.createContext<{ threadId: string; items: readonly ChatAttachment[] } | null>(null);
 
+/**
+ * phase-18 F15 —— 这一条消息落库后的真实 id（还没落库 ⇒ 视图 id）。正文上挂成 `data-kg-message-id`，
+ * 记忆来源抽屉的「跳到原消息」据此找到它、滚到眼前并高亮（`lib/chat-message-focus.ts`）。
+ */
+const CurrentUserMessageIdCtx = React.createContext<string | null>(null);
+
 function V2UserMessageRenderer({
   content,
 }: React.ComponentProps<typeof CopilotChatUserMessage.MessageRenderer>): JSX.Element {
   const attachments = React.useContext(CurrentUserMessageAttachmentsCtx);
+  const messageId = React.useContext(CurrentUserMessageIdCtx);
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" {...(messageId === null ? {} : { [MESSAGE_ANCHOR_ATTR]: messageId })}>
       <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
         {content}
       </div>
@@ -103,6 +112,7 @@ function V2UserMessageImpl(
 ): JSX.Element {
   const ctx = React.useContext(UserMessageAttachmentsCtx);
   const items = ctx?.byMessageId.get(props.message.id);
+  const persistedId = useCopilotKitV2MessageActions()?.identity.resolvePersisted(props.message.id) ?? props.message.id;
   // provider 不产生任何 DOM 节点——气泡外壳仍然只有框架渲染的那一个
   // （`copilotkit-v2.css` 锚定的 `data-testid="copilot-user-message"`），
   // 不会因为这次接线多出一层包装盒子。
@@ -113,9 +123,11 @@ function V2UserMessageImpl(
     [items, ctx],
   );
   return (
-    <CurrentUserMessageAttachmentsCtx.Provider value={current}>
-      <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />
-    </CurrentUserMessageAttachmentsCtx.Provider>
+    <CurrentUserMessageIdCtx.Provider value={persistedId}>
+      <CurrentUserMessageAttachmentsCtx.Provider value={current}>
+        <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />
+      </CurrentUserMessageAttachmentsCtx.Provider>
+    </CurrentUserMessageIdCtx.Provider>
   );
 }
 

@@ -1,7 +1,8 @@
 /**
  * Phase 18 F08 —— `KnowledgeRecallPort` 的 Postgres 实现。
  *
- * 候选集 = 这一轮所在会话（L0）的活结论与实体 ∪ 发起人本人个人空间（L1，F12）的活结论与实体。
+ * 候选集 = 这一轮所在会话（L0）的活结论与实体 ∪ 发起人本人个人空间（L1，F12）的活结论与实体
+ * ∪（F15，只在本人个人对话里）本人其他个人对话里记下的活结论与实体。
  * 执行器已经是以发起人身份在这个会话里跑；L1 用 scope_id = 发起人本人限定，读的时候再设
  * app.current_user_id，RLS 也只把个人空间的行放给本人（I-14）——会话里其他成员提问，只得 L0 和他自己的 L1。
  * 图路只拿 id（kg_graph_neighbors），回到候选集求交，图里别的会话 / 别人的 id 不会漏出来。
@@ -49,6 +50,25 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
                  AND src.revoked_at IS NULL AND src.status <> 'superseded')`,
         [orgId, threadId, userId],
       );
+      // F15（06-UX R2 M1 / R3-1「零负担获益」、E1）：本人**其他个人对话**里记下的也算个人空间（S0-2=A：个人空间 = 同一用户
+      // 全部个人线程），不必先点「记到我的长期记忆」才跨会话被记起。只在本人的个人对话里用（同上面 L1 的条件）；
+      // 长期记忆里有过这件事（由这一条晋升出去的，或说法相同的一条——不论现在还在不在），由长期记忆那边说了算：
+      // 还在 ⇒ 用长期记忆那条（上面已取）；被忘掉了 ⇒ 这条也不再跨会话出现（否则在别的会话里说「忘掉」，它会从原会话绕回来）。
+      const ownOther = !inPersonalThread ? { rows: [] as (Row & { thread_id: string })[] } : await s.query<Row & { thread_id: string }>(
+        `SELECT ${CLAIM_COLUMNS}, c.scope_id AS thread_id FROM claims c
+           JOIN chat_threads t ON t.org_id = c.org_id AND t.id = c.scope_id
+          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id <> $2 AND ${LIVE}
+            AND t.project_id IS NULL AND t.created_by = $3 AND NOT t.archived
+            AND NOT EXISTS (
+              SELECT 1 FROM ontology_edges d JOIN claims l1 ON l1.id = d.src_id AND l1.org_id = d.org_id
+               WHERE d.org_id = c.org_id AND d.dst_kind = 'claim' AND d.dst_id = c.id AND d.relation = 'derived_from'
+                 AND l1.scope_kind = 'personal' AND l1.scope_id = $3)
+            AND NOT EXISTS (
+              SELECT 1 FROM claims p
+               WHERE p.org_id = c.org_id AND p.scope_kind = 'personal' AND p.scope_id = $3
+                 AND kg_claim_basis(p.statement) = kg_claim_basis(c.statement))`,
+        [orgId, threadId, userId],
+      );
       const objects = await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND merged_into IS NULL`,
@@ -59,13 +79,25 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, userId],
       );
-      const toClaim = (scope: RecallClaim["scope"]) => (c: Row): RecallClaim[] => {
+      const ownOtherObjects = !inPersonalThread ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
+        `SELECT o.id, o.name, o.aliases FROM ontology_objects o
+           JOIN chat_threads t ON t.org_id = o.org_id AND t.id = o.scope_id
+          WHERE o.org_id = $1 AND o.scope_kind = 'chat_session' AND o.scope_id <> $2 AND o.merged_into IS NULL
+            AND t.project_id IS NULL AND t.created_by = $3 AND NOT t.archived`,
+        [orgId, threadId, userId],
+      );
+      const toClaim = (scope: RecallClaim["scope"]) => (c: Row & { thread_id?: string }): RecallClaim[] => {
         const tri = KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
-        return tri === null ? [] : [{ id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope }];
+        return tri === null ? [] : [{
+          id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope,
+          ...(c.thread_id === undefined ? {} : { originThreadId: c.thread_id }),
+        }];
       };
       const out: { claims: RecallClaim[]; objects: RecallObject[] } = {
-        claims: [...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal"))],
-        objects: [...objects.rows, ...personalObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
+        claims: [
+          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal")), ...ownOther.rows.flatMap(toClaim("personal")),
+        ],
+        objects: [...objects.rows, ...personalObjects.rows, ...ownOtherObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
       };
       return out;
     });

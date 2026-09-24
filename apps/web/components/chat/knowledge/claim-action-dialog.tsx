@@ -163,6 +163,12 @@ function ReviseBody({ claim, busy, onSubmit, onCancel }: BodyProps) {
         rows={4}
         aria-label="新的说法"
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          // 回车就是「保存」（06-UX R3-4：改一条 ≤ 2 次点击——不对、改写，然后打字回车）；Shift+回车换行，输入法组字中不算。
+          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          if (next !== "" && next !== claim.statement && !busy) void onSubmit({ type: "reviseClaim", claimId: claim.id, statement: next });
+        }}
         data-testid={`kg-revise-input-${claim.id}`}
       />
       <Footer

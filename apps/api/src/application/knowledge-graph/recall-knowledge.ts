@@ -124,7 +124,9 @@ export async function memoryCardFor(
       return null;
     }
     const { claims } = await knowledge.candidates(input.orgId, input.userId, input.threadId);
-    const matches = forgetMatches(intent.target, claims);
+    // 忘掉卡只列本会话与长期记忆里的（卡的执行在数据库里只认这两处）；本人其他个人对话里记下的（F15 跨会话召回），
+    // 要到那个对话里去忘——已知缺口，见 evidence/kg-experience-eval/README.md。
+    const matches = forgetMatches(intent.target, claims.filter((c) => c.originThreadId === undefined));
     // 0 条也交给数据库：不是所有者 ⇒ not_owner（什么都不说），是所有者 ⇒ no_items（照实说没找到）。
     const r = await cards.open(input.orgId, { ...base, kind: "forget", target: intent.target, claimIds: matches.map((c) => c.id) });
     if (r.outcome === "opened") {

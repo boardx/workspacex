@@ -17,7 +17,9 @@ import {
 } from "@/lib/knowledge-graph-api";
 import { KG_RELOAD_ON_FAILURE } from "@/lib/knowledge-graph-failure";
 import { onKnowledgeReload, publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
-import type { KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
+import type { KgClaim, KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
+import { useRouter } from "next/navigation";
+import { focusMessageHref, highlightChatMessage } from "@/lib/chat-message-focus";
 
 export interface ThreadKnowledgeState {
   readonly threadId: string | null;
@@ -172,9 +174,45 @@ export function usePromotionNominations(threadId: string | null, enabled: boolea
   return enabled && state !== null && state.threadId === threadId ? state.data : null;
 }
 
+/**
+ * F15（06-UX R3-6 / E4）：来源抽屉「跳到原消息」——这条原话在哪个对话：会话里记下的就是那个会话；
+ * 长期记忆里的，沿「记到长期记忆」时连回的那一条（`derivedFromClaimId`）找到原会话。
+ * 就在当前对话、而且界面上已经有它 ⇒ 就地滚动并高亮；否则打开那个对话、加载完再高亮（`?focusMessage=`）。
+ */
+export async function threadOfClaimSource(claim: KgClaim): Promise<string | null> {
+  if (claim.scope.kind === "chat_session") return claim.scope.id;
+  if (claim.derivedFromClaimId === null) return null;
+  try {
+    const origin = (await fetchClaimSources(claim.derivedFromClaimId)).claim;
+    return origin.scope.kind === "chat_session" ? origin.scope.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function useJumpToSource(currentThreadId: string | null) {
+  const router = useRouter();
+  return React.useCallback((input: { claim: KgClaim; sourceKind: string; sourceRef: string }) => {
+    if (input.sourceKind !== "chat_message") return;
+    void threadOfClaimSource(input.claim).then((threadId) => {
+      const target = threadId ?? currentThreadId;
+      if (target === null) return;
+      if (target === currentThreadId) {
+        if (highlightChatMessage(input.sourceRef)) return;
+        // 同一个对话、但界面上这条还是发送时的临时 id（刚说的话）：整页重开，历史按真实 id 加载后再高亮。
+        const projectId = new URLSearchParams(window.location.search).get("projectId");
+        window.location.assign(focusMessageHref({ threadId: target, messageId: input.sourceRef, projectId }));
+        return;
+      }
+      router.push(focusMessageHref({ threadId: target, messageId: input.sourceRef }));
+    });
+  }, [router, currentThreadId]);
+}
+
 /** 右栏「记忆」页签的内容：真实数据接进 `KnowledgePanel`，所有者带编辑动作。 */
 export function ThreadKnowledgeTab({ state }: { state: ThreadKnowledgeState }) {
   const writeActions = useKnowledgeWriteActions(state);
+  const jumpToSource = useJumpToSource(state.threadId);
   const nominations = usePromotionNominations(state.threadId, writeActions?.onPromote !== undefined);
   return (
     <KnowledgePanel
@@ -187,6 +225,7 @@ export function ThreadKnowledgeTab({ state }: { state: ThreadKnowledgeState }) {
       loadSources={loadSources}
       writeActions={writeActions}
       nominations={nominations}
+      onJumpToSource={jumpToSource}
     />
   );
 }

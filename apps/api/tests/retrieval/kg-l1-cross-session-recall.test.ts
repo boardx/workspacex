@@ -34,8 +34,9 @@ describe("F12: 新会话召回个人空间里的知识", () => {
   it("会话 B（新会话，本身什么都没记）问「客户 A 有什么要求」⇒ 召回会话 A 晋升的那条，作用域是个人空间", async () => {
     const r = await recall(fx.B, "客户 A 有什么要求？");
     expect(r.items[0]).toMatchObject({ claim: { id: fx.personalClaimId, statement: DEMAND, scope: "personal", triState: "confirmed" } });
-    // 问题里的「客户 A」经个人空间的实体解析成图种子，图路也命中
-    expect(r.graphSeeds).toHaveLength(1);
+    // 问题里的「客户 A」经个人空间的实体解析成图种子，图路也命中（F15 起会话 A 里的「客户 A」也是本人个人空间的实体，
+    // 同名的两个都会成为种子；晋升过的那条结论本身只以长期记忆的副本出现，见下面「只出现一次」）
+    expect(r.graphSeeds.length).toBeGreaterThanOrEqual(1);
     expect(r.items[0]!.channels).toEqual(["fts", "graph"]);
   });
 

@@ -62,7 +62,8 @@ export function threadKnowledgeErrorText(code: string | null | undefined): strin
 function claimSourcesErrorText(e: unknown): string {
   const code = knowledgeGraphErrorCode(e);
   if (code === "KG_NOT_VISIBLE") return "你没有权限查看这一条的来源。";
-  if (code === "KG_CLAIM_NOT_FOUND") return "这一条已经不在了。";
+  // 看不见与不存在对外同一个出口（I-3：不泄露别人的记忆是否存在），所以两种可能都照实说。
+  if (code === "KG_CLAIM_NOT_FOUND") return "这一条已经不在了，或你无权查看。";
   return "没能读到这一条的来源，请稍后重试。";
 }
 
@@ -83,6 +84,7 @@ export function KnowledgePanel({
   writeActions,
   nominations = null,
   initialPromotionResult = null,
+  onJumpToSource,
 }: {
   status: PanelStatus;
   data: ThreadKnowledge | null;
@@ -94,6 +96,8 @@ export function KnowledgePanel({
   /** F11：AI 提名（`listPromotionNominations`）。只在能记到长期记忆时画，且只提名不执行。 */
   nominations?: PromotionNominations | null;
   initialPromotionResult?: PromotionResults | null;
+  /** 来源抽屉的「跳到原消息」（F15 / E4）：真实 `/chat` 传，把那条消息滚到眼前并高亮；不传 = 签核预览，只回调不导航。 */
+  onJumpToSource?: (input: { claim: KgClaim; sourceKind: string; sourceRef: string }) => void;
 }) {
   const [view, setView] = React.useState<PanelView>(initialView);
   const [selectMode, setSelectMode] = React.useState(false);
@@ -101,6 +105,13 @@ export function KnowledgePanel({
   const [nominationsDismissed, setNominationsDismissed] = React.useState(false);
 
   const drawer = useClaimSourcesDrawer(loadSources);
+  const drawerClaim = drawer.data?.claim ?? null;
+  const jumpTo = React.useMemo(
+    () => (onJumpToSource === undefined || drawerClaim === null
+      ? undefined
+      : (sourceKind: string, sourceRef: string) => onJumpToSource({ claim: drawerClaim, sourceKind, sourceRef })),
+    [onJumpToSource, drawerClaim],
+  );
   const [actionError, setActionError] = React.useState<string | null>(null);
 
   /** 执行一个编辑动作；成功返回 true（对话框据此关闭），失败把人话挂在面板顶部并返回 false。 */
@@ -370,6 +381,7 @@ export function KnowledgePanel({
         error={drawer.error}
         onRetry={drawer.retry}
         onClose={drawer.close}
+        onJumpTo={jumpTo}
       />
     </div>
   );
