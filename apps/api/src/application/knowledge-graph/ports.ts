@@ -129,6 +129,20 @@ export interface KnowledgeReadPort {
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
 
+// ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
+
+export interface KnowledgeRecallPort {
+  /** 本会话的活结论与实体（候选集）。读身份 = 发起这轮对话的人。 */
+  candidates(orgId: OrgId, userId: string, threadId: string): Promise<{
+    readonly claims: readonly RecallClaim[];
+    readonly objects: readonly RecallObject[];
+  }>;
+  /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
+  graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+}
+
+export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
+
 // ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
 
 export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
