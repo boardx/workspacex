@@ -129,12 +129,31 @@ it('completes spatial selection, multi-select, movement and connection from the 
   expect(readObjects(doc).find(item=>item.id==='right')?.geometry.y).toBe(30);
   expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已移动 2 个对象');
 
-  fireEvent.click(screen.getByText('连接',{exact:true}));
-  fireEvent.keyDown(canvas,{key:'ArrowLeft'}); fireEvent.keyDown(canvas,{key:' '});
-  fireEvent.keyDown(canvas,{key:'ArrowRight'}); fireEvent.keyDown(canvas,{key:' '});
+  const connect=screen.getByText('连接',{exact:true});connect.focus();fireEvent.click(connect);
+  expect(canvas).toHaveFocus();
+  const press=(key:string)=>fireEvent.keyDown(document.activeElement!,{key});
+  press('ArrowLeft');press(' ');press('ArrowRight');press(' ');
   expect(readObjects(doc).find(item=>item.kind==='connector')?.connector).toEqual({from:'left',to:'right'});
   expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('左侧想法');
   expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('右侧想法');
+  doc.destroy();
+});
+
+it('restores a keyboard deletion and its connector as one local undo transaction', () => {
+  const doc=createWhiteboardDocument(), geometry={x:0,y:0,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'a',schemaVersion:1,kind:'sticky',geometry,text:'A',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'b',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:200},text:'B',style:{},parentId:null,orderKey:'b'}},
+    {type:'create',object:{id:'edge',schemaVersion:1,kind:'connector',geometry,text:'',style:{},parentId:null,orderKey:'c',connector:{from:'a',to:'b'}}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const canvas=screen.getByTestId('board-live-surface');canvas.focus();fireEvent.focus(canvas);
+  fireEvent.keyDown(canvas,{key:'Enter'});fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(readObjects(doc).map(item=>item.id)).toEqual(['b']);expect(canvas).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!,{key:'z',ctrlKey:true});
+  expect(readObjects(doc).map(item=>item.id)).toEqual(['a','b','edge']);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已撤销本地修改');
+  expect(canvas).toHaveFocus();
   doc.destroy();
 });
 

@@ -31,7 +31,7 @@ test('live Board core editing is keyboard operable and restores focus',async({br
     token=await login(owner,'OWNER');await login(viewer,'VIEWER');
     const created=await api(request,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Keyboard Board ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;
     await api(request,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});
-    await owner.goto(`/studio/board/${boardId}`);await synced(owner);
+    await owner.goto(`/studio/board/${boardId}`);await synced(owner);await viewer.goto(`/studio/board/${boardId}`);await synced(viewer);
 
     // Core scenario: focus targets directly, then perform every product action with page.keyboard.
     await owner.getByTestId('board-add-sticky').focus();await owner.keyboard.press('Enter');
@@ -39,19 +39,24 @@ test('live Board core editing is keyboard operable and restores focus',async({br
     await owner.keyboard.press(`${mod}+Shift+ArrowLeft`);await owner.keyboard.press('Enter');
     await expect(owner.getByLabel('对象文字',{exact:true})).toBeFocused();await owner.keyboard.press(`${mod}+A`);await owner.keyboard.insertText('键盘想法一');
     await owner.getByTestId('board-add-sticky').focus();await owner.keyboard.press('Enter');await owner.keyboard.press('Enter');
-    await owner.keyboard.press(`${mod}+A`);await owner.keyboard.insertText('键盘想法二');await synced(owner);
-    await owner.reload();await synced(owner);await canvas.focus();await expect(canvas).toBeFocused();
+    await owner.keyboard.press(`${mod}+A`);await owner.keyboard.insertText('键盘想法二');
+    await expect(owner.getByRole('button',{name:'图形：键盘想法一',exact:true})).toBeVisible();await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();
+    await expect(viewer.getByRole('button',{name:'图形：键盘想法一',exact:true})).toBeVisible();await expect(viewer.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();await synced(owner);
+    await owner.reload();await synced(owner);await expect(owner.getByRole('button',{name:'图形：键盘想法一',exact:true})).toBeVisible();await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();await canvas.focus();await expect(canvas).toBeFocused();
     const focusStyle=await canvas.evaluate(element=>getComputedStyle(element).boxShadow);expect(focusStyle).not.toBe('none');
     await owner.keyboard.press('Enter');await owner.keyboard.press('ArrowRight');await owner.keyboard.press('Shift+Space');
     await expect(owner.getByTestId('board-live-announcer')).toContainText('2 个已选对象');
     const first=owner.getByRole('button',{name:'图形：键盘想法一',exact:true});const before=await first.boundingBox();
     await owner.keyboard.press(`${mod}+Shift+ArrowDown`);await expect.poll(async()=>await first.boundingBox()).toMatchObject({y:(before?.y??0)+10});
-    await owner.getByRole('button',{name:'连接',exact:true}).focus();await owner.keyboard.press('Enter');await owner.keyboard.press('ArrowLeft');await owner.keyboard.press('Space');await owner.keyboard.press('ArrowRight');await owner.keyboard.press('Space');
+    await owner.getByRole('button',{name:'连接',exact:true}).focus();await owner.keyboard.press('Enter');await expect(canvas).toBeFocused();await expect(owner.getByTestId('board-live-announcer')).toContainText('连接工具');
+    await owner.keyboard.press('ArrowLeft');await expect(owner.getByTestId('board-live-announcer')).toContainText('键盘想法一');await owner.keyboard.press('Space');await expect(owner.getByTestId('board-live-announcer')).toContainText('连接起点');
+    await owner.keyboard.press('ArrowRight');await expect(owner.getByTestId('board-live-announcer')).toContainText('键盘想法二');await owner.keyboard.press('Space');
     await expect(owner.getByRole('img',{name:'连接线：键盘想法一 到 键盘想法二'})).toBeVisible();
+    await expect(viewer.getByRole('img',{name:'连接线：键盘想法一 到 键盘想法二'})).toBeVisible();
     await expect(owner.getByTestId('board-live-announcer')).toContainText('已建立连接');await expect(owner.getByTestId('board-live-announcer')).toContainText('键盘想法一');await expect(owner.getByTestId('board-live-announcer')).toContainText('键盘想法二');
     await owner.getByRole('button',{name:'放大',exact:true}).focus();await owner.keyboard.press('Enter');await expect(owner.getByTestId('board-live-announcer')).toContainText('缩放 110%');
-    await canvas.focus();await owner.keyboard.press('Space');await owner.keyboard.press('Delete');await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toHaveCount(0);await expect(canvas).toBeFocused();
-    await owner.keyboard.press(`${mod}+z`);await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();await expect(canvas).toBeFocused();
+    await canvas.focus();await owner.keyboard.press('Space');await owner.keyboard.press('Delete');await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toHaveCount(0);await expect(viewer.getByRole('button',{name:'图形：键盘想法二',exact:true})).toHaveCount(0);await expect(canvas).toBeFocused();
+    await owner.keyboard.press(`${mod}+z`);await expect(owner.getByTestId('board-live-announcer')).toContainText('已撤销本地修改');await expect(owner.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();await expect(viewer.getByRole('button',{name:'图形：键盘想法二',exact:true})).toBeVisible();await expect(canvas).toBeFocused();
 
     await owner.getByTestId('board-discussion-toggle').focus();await owner.keyboard.press('Enter');await expect(owner.getByRole('heading',{name:'评论与任务'})).toBeFocused();
     const panelAxe=await new AxeBuilder({page:owner}).withTags(['cat.keyboard']).analyze();expect(panelAxe.violations,JSON.stringify(panelAxe.violations,null,2)).toEqual([]);
@@ -64,7 +69,7 @@ test('live Board core editing is keyboard operable and restores focus',async({br
     await owner.keyboard.press('Escape');await expect(importTrigger).toBeFocused();await expect(owner.getByTestId('board-import-file')).not.toBeFocused();
     const axe=await new AxeBuilder({page:owner}).withTags(['cat.keyboard']).analyze();expect(axe.violations,JSON.stringify(axe.violations,null,2)).toEqual([]);
 
-    await viewer.goto(`/studio/board/${boardId}`);await synced(viewer);const viewerCanvas=viewer.getByTestId('board-live-surface');await viewerCanvas.focus();await viewer.keyboard.press('Enter');
+    const viewerCanvas=viewer.getByTestId('board-live-surface');await viewerCanvas.focus();await viewer.keyboard.press('Enter');
     const viewerBefore=await viewer.getByRole('button',{name:'图形：键盘想法一',exact:true}).boundingBox();await viewer.keyboard.press(`${mod}+ArrowRight`);expect(await viewer.getByRole('button',{name:'图形：键盘想法一',exact:true}).boundingBox()).toEqual(viewerBefore);await expect(viewer.getByTestId('board-live-announcer')).toContainText('只读');
     await api(request,token,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_VIEWER_USER_ID'))}`);
     const denied=viewer.getByRole('alert');await expect(denied).toBeVisible({timeout:30_000});await expect(denied).toBeFocused();await expect(viewerCanvas).toHaveCount(0);

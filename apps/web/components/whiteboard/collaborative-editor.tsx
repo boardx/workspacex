@@ -57,7 +57,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   }, []);
   const object = model.objects.find(o => selected.length === 1 && o.id === selected[0]);
   function execute(commands: WhiteboardCommand[]) { if (readOnly) { setNotice('当前白板为只读，未应用修改。'); return false; } try { model.execute(commands); setNotice(''); return true; } catch { setNotice('操作未应用：请检查对象是否仍存在或内容是否超出限制。'); return false; } }
-  const focusCanvas = () => requestAnimationFrame(() => surface.current?.focus({ preventScroll: true }));
+  const focusCanvas = () => surface.current?.focus({ preventScroll: true });
   const named = (id: string | null) => boardObjectLabel(model.objects.find(item => item.id === id));
   function choose(id: string, additive = false) {
     setActiveId(id);

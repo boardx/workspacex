@@ -70,12 +70,18 @@ describe('whiteboard content kernel', () => {
     executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '同事' }], {});
     sync(a, b); expect(undo.undo()).toBe('creation-requires-explicit-delete'); expect(readObjects(a)[0].text).toContain('同事');
   });
-  it('undoes local text without undoing remote text or deletion tombstones', () => {
+  it('undoes local text and local deletion tombstones without undoing remote text', () => {
     const a = createWhiteboardDocument(); create(a); const b = cloneDocument(a), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '甲' }]);
     executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '乙' }], {}); sync(a, b);
     expect(undo.undo()).toBe('undone'); expect(readObjects(a)[0].text).toBe('你好乙');
     expect(undo.redo()).toBe(true); expect(readObjects(a)[0].text).toContain('甲');
-    undo.execute([{ type: 'delete', id: 'note' }]); undo.undo(); expect(readObjects(a)).toEqual([]);
+    undo.execute([{ type: 'delete', id: 'note' }]); expect(readObjects(a)).toEqual([]);
+    expect(undo.undo()).toBe('undone'); expect(readObjects(a).map(item => item.id)).toEqual(['note']);
+  });
+  it('does not enter a remote deletion tombstone into local undo history', () => {
+    const doc = createWhiteboardDocument(); create(doc); const undo = new WhiteboardUndo(doc);
+    executeCommands(doc, [{ type: 'delete', id: 'note' }], { actor: 'remote' });
+    expect(readObjects(doc)).toEqual([]); expect(undo.undo()).toBe('empty'); expect(readObjects(doc)).toEqual([]);
   });
 });
