@@ -27,17 +27,24 @@ CREATE OR REPLACE FUNCTION kg_scope_enabled(p_scope_kind text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$ SELECT p_scope_kind IN ('chat_session', 'personal') $$;
 
 -- ─────────────────────────────── 绕过执行器的直写：拒绝 ───────────────────────────────
-CREATE OR REPLACE FUNCTION kg_scoped_write_guard() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION kg_scoped_write_guard() RETURNS trigger
+SET search_path = pg_catalog, public, pg_temp
+AS $$
 DECLARE
-  v_scoped boolean;
+  v_protected boolean;
 BEGIN
+  -- 「本体行」= 带作用域的行，或由模型 / 人（经执行器）产生的行（created_by ∈ model/human）。
+  -- 只看 NEW 不够：UPDATE 可以把作用域清空、把 created_by 改掉来「洗白」一行，所以 OLD 也算。
+  -- I-8「结论的作用域终生不变」也由此得到保证（app_rw 碰不到本体行）。
   IF TG_TABLE_NAME = 'claim_segments' THEN
-    SELECT c.scope_kind IS NOT NULL INTO v_scoped FROM claims c WHERE c.id = NEW.claim_id;
+    SELECT c.scope_kind IS NOT NULL OR c.created_by IN ('model', 'human') INTO v_protected
+      FROM public.claims c WHERE c.id = NEW.claim_id;
   ELSE
-    v_scoped := NEW.scope_kind IS NOT NULL;
+    v_protected := NEW.scope_kind IS NOT NULL OR NEW.created_by IN ('model', 'human')
+      OR (TG_OP = 'UPDATE' AND (OLD.scope_kind IS NOT NULL OR OLD.created_by IN ('model', 'human')));
   END IF;
-  IF coalesce(v_scoped, false) AND current_user = 'app_rw' THEN
-    RAISE EXCEPTION 'KG_WRITE_OUTSIDE_EXECUTOR: % rows with a knowledge scope are written only through kg_apply_batch', TG_TABLE_NAME
+  IF coalesce(v_protected, false) AND current_user = 'app_rw' THEN
+    RAISE EXCEPTION 'KG_WRITE_OUTSIDE_EXECUTOR: % rows written by the model or a person, or carrying a knowledge scope, are written only through kg_apply_batch', TG_TABLE_NAME
       USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
@@ -68,6 +75,10 @@ BEGIN
   IF v_org IS NULL OR v_org = '' THEN
     RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501';
   END IF;
+  -- 冻结的 org 什么都不写（F22）。属主身份下 RLS 的 _org_frozen_* 策略可能不生效（超级用户），所以显式判。
+  IF NOT public.kernel_org_is_writable(v_org) THEN
+    RAISE EXCEPTION 'KG_ORG_FROZEN: organization % is read-only', v_org USING ERRCODE = '42501';
+  END IF;
   -- 想写别人个人空间被拒（KG_NOT_OWNER）：这条留痕不能记进那个人的个人空间——
   -- 既写不进（RLS），也不该让被写的人的审计里出现别人的内容。记在 org 级，目标作用域放进 payload。
   IF v_scope_kind = 'personal' AND v_scope_id IS DISTINCT FROM v_user THEN
@@ -85,6 +96,34 @@ BEGIN
 END
 $$;
 
+-- ─────────────────────────────── 证据写入（F06 会替换它以接收消息证据） ───────────────────────────────
+CREATE OR REPLACE FUNCTION kg_insert_claim_evidence(p_org text, p_scope_kind text, p_scope_id text, p_claim_id text, ev jsonb)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM segments s WHERE s.id = ev->>'segment_id' AND s.org_id = p_org) THEN
+    RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: segment %', ev->>'segment_id' USING ERRCODE = '23503';
+  END IF;
+  INSERT INTO claim_segments (claim_id, org_id, segment_id, stance)
+  VALUES (p_claim_id, p_org, ev->>'segment_id', ev->>'stance')
+  ON CONFLICT DO NOTHING;
+END
+$$;
+
+-- 边的端点必须存在于本 org（实体 / 结论可以是本批刚写的）。不校验会在 canonical 里堆积悬空边。
+CREATE OR REPLACE FUNCTION kg_endpoint_exists(p_org text, p_kind text, p_id text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT CASE p_kind
+    WHEN 'object'       THEN EXISTS (SELECT 1 FROM ontology_objects o WHERE o.id = p_id AND o.org_id = p_org)
+    WHEN 'claim'        THEN EXISTS (SELECT 1 FROM claims c WHERE c.id = p_id AND c.org_id = p_org)
+    WHEN 'segment'      THEN EXISTS (SELECT 1 FROM segments s WHERE s.id = p_id AND s.org_id = p_org)
+    WHEN 'chat_message' THEN EXISTS (SELECT 1 FROM chat_messages m WHERE m.id = p_id AND m.org_id = p_org)
+    ELSE false
+  END
+$$;
+
 -- ─────────────────────────────── 唯一写入口 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_apply_batch(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
@@ -97,11 +136,16 @@ DECLARE
   v_actor      text := p->>'actor_kind';
   v_created_by text;
   v_existing   text;
+  v_n          int;
   o jsonb; c jsonb; e jsonb; ev jsonb;
   v_objects int := 0; v_claims int := 0; v_edges int := 0;
 BEGIN
   IF v_org IS NULL OR v_org = '' THEN
     RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501';
+  END IF;
+  -- F22：冻结的 org 只读。函数属主在本地 / CI 是超级用户，_org_frozen_* 策略对它不生效，必须显式判。
+  IF NOT public.kernel_org_is_writable(v_org) THEN
+    RAISE EXCEPTION 'KG_ORG_FROZEN: organization % is read-only', v_org USING ERRCODE = '42501';
   END IF;
   IF NOT kg_scope_enabled(v_scope_kind) THEN
     RAISE EXCEPTION 'KG_SCOPE_NOT_ENABLED: %', v_scope_kind USING ERRCODE = '42501';
@@ -110,13 +154,19 @@ BEGIN
   IF v_scope_kind = 'personal' AND v_scope_id IS DISTINCT FROM v_user THEN
     RAISE EXCEPTION 'KG_NOT_OWNER: personal scope % is not the current user', v_scope_id USING ERRCODE = '42501';
   END IF;
+  -- 人工动作的执行身份就是登录用户本人（I-15）：reviewed_by 不能由调用方随便填。
+  IF v_actor = 'human' AND p->>'actor_id' IS DISTINCT FROM v_user THEN
+    RAISE EXCEPTION 'KG_NOT_OWNER: human actor % is not the current user', p->>'actor_id' USING ERRCODE = '42501';
+  END IF;
   v_created_by := CASE v_actor WHEN 'human' THEN 'human' WHEN 'model' THEN 'model' ELSE 'import' END;
 
   -- I-7 幂等：同一源、同一 pipeline 版本已经成功处理过 ⇒ 原样返回，不重复写。
+  -- 先拿事务级 advisory lock：两个并发的重复任务否则都会「先查没有、再各写一份」。
   IF p->>'source_ref' IS NOT NULL AND p->>'pipeline_version' IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(hashtext('kg_apply:' || v_org || '|' || (p->>'source_ref') || '|' || (p->>'pipeline_version')));
     SELECT a.id INTO v_existing FROM ontology_actions a
      WHERE a.org_id = v_org AND a.source_ref = p->>'source_ref' AND a.pipeline_version = p->>'pipeline_version'
-       AND a.outcome = 'accepted' AND a.action_type = p->>'action_type'
+       AND a.outcome = 'accepted'
      LIMIT 1;
     IF v_existing IS NOT NULL THEN
       RETURN jsonb_build_object('action_id', v_existing, 'deduplicated', true, 'objects', 0, 'claims', 0, 'edges', 0);
@@ -128,7 +178,9 @@ BEGIN
     VALUES (o->>'id', v_org, v_scope_kind, v_scope_id, o->>'object_kind', o->>'name',
             coalesce(ARRAY(SELECT jsonb_array_elements_text(o->'aliases')), '{}'), v_created_by)
     ON CONFLICT (id) DO NOTHING;
-    v_objects := v_objects + 1;
+    -- 只数真正写进去的：同 id 已存在（实体解析复用了旧实体）不算新写入。
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_objects := v_objects + v_n;
   END LOOP;
 
   FOR c IN SELECT * FROM jsonb_array_elements(coalesce(p->'claims', '[]'::jsonb)) LOOP
@@ -142,28 +194,26 @@ BEGIN
     END IF;
     INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
                         scope_kind, scope_id, valid_from)
-    VALUES (c->>'id', v_org, c->>'statement', c->>'status', to_tsvector('simple', c->>'statement'), c->>'claim_kind', (c->>'confidence')::real,
-            v_created_by, CASE WHEN v_actor = 'human' THEN p->>'actor_id' END,
+    VALUES (c->>'id', v_org, c->>'statement', c->>'status', to_tsvector('simple', c->>'statement'),
+            c->>'claim_kind', (c->>'confidence')::real,
+            v_created_by, CASE WHEN v_actor = 'human' THEN v_user END,
             v_scope_kind, v_scope_id, now());
     FOR ev IN SELECT * FROM jsonb_array_elements(c->'evidence') LOOP
-      -- 证据段必须属于本 org。函数属主是超级用户，SECURITY DEFINER 下 RLS 不生效——所以这里（和本函数里
-      -- 每一处读写一样）显式按 v_org 过滤；search_path 末尾的 pg_temp 挡住同名临时表冒充。
-      IF NOT EXISTS (SELECT 1 FROM segments s WHERE s.id = ev->>'segment_id' AND s.org_id = v_org) THEN
-        RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: segment %', ev->>'segment_id' USING ERRCODE = '23503';
-      END IF;
-      INSERT INTO claim_segments (claim_id, org_id, segment_id, stance)
-      VALUES (c->>'id', v_org, ev->>'segment_id', ev->>'stance')
-      ON CONFLICT DO NOTHING;
+      PERFORM kg_insert_claim_evidence(v_org, v_scope_kind, v_scope_id, c->>'id', ev);
     END LOOP;
     v_claims := v_claims + 1;
   END LOOP;
 
   FOR e IN SELECT * FROM jsonb_array_elements(coalesce(p->'edges', '[]'::jsonb)) LOOP
+    IF NOT kg_endpoint_exists(v_org, e->>'src_kind', e->>'src_id') OR NOT kg_endpoint_exists(v_org, e->>'dst_kind', e->>'dst_id') THEN
+      RAISE EXCEPTION 'KG_EDGE_ENDPOINT_NOT_FOUND: edge %', e->>'id' USING ERRCODE = '23503';
+    END IF;
     INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
     VALUES (e->>'id', v_org, e->>'src_kind', e->>'src_id', e->>'dst_kind', e->>'dst_id', e->>'relation',
             v_created_by, v_scope_kind, v_scope_id)
     ON CONFLICT (id) DO NOTHING;
-    v_edges := v_edges + 1;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_edges := v_edges + v_n;
   END LOOP;
 
   INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload,
@@ -176,7 +226,8 @@ BEGIN
 END
 $$;
 
-REVOKE ALL ON FUNCTION kg_apply_batch(jsonb), kg_record_rejected(jsonb), kg_scope_enabled(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION kg_apply_batch(jsonb), kg_record_rejected(jsonb), kg_scope_enabled(text),
+  kg_insert_claim_evidence(text, text, text, text, jsonb), kg_endpoint_exists(text, text, text) FROM PUBLIC;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN

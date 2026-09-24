@@ -16,7 +16,7 @@ import { toOrgId } from "../../src/domain/org-id";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgOntologyStore, toBatchPayload } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
-import { asApp } from "../support/db";
+import { asApp, asOwner } from "../support/db";
 import { modelBatch, seedKgOrg } from "./kg-fixtures";
 
 const ORG = "org-kg-f03-inv";
@@ -62,6 +62,21 @@ describe("F03 I-3：绕过执行器的直写被拒", () => {
     ))).rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
     const row = await asApp(ORG, (c) => c.query("SELECT status FROM claims WHERE id = $1", [id]));
     expect(row.rows[0]).toEqual({ status: "proposed" });
+  });
+
+  it("没有作用域、但标成模型产出的结论：app_rw 直写同样被拒（I-3 按 created_by 判，不只按作用域）", async () => {
+    await expect(asApp(ORG, (c) => c.query(
+      `INSERT INTO claims (id, org_id, statement, status, tsv, created_by, reviewed_by)
+       VALUES ('c-direct-unscoped', $1, '模型直写', 'accepted', ''::tsvector, 'model', 'fake')`, [ORG],
+    ))).rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
+  });
+
+  it("把执行器写的结论「洗白」（清空作用域再改状态）⇒ 拒（I-8 作用域不变）", async () => {
+    const b = modelBatch(ORG, seg);
+    await rawApply(b);
+    await expect(asApp(ORG, (c) => c.query(
+      "UPDATE claims SET scope_kind = NULL, scope_id = NULL, status = 'accepted' WHERE id = $1", [b.claims[0]!.id],
+    ))).rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
   });
 
   it("不带作用域的旧结论（检索夹具、phase-01 的写入路径）不受影响", async () => {
@@ -144,3 +159,59 @@ describe("F03 I-1 / I-14：作用域", () => {
     expect(audit.rows[0]).toEqual({ scope_kind: "org", scope_id: ORG, attempted: { kind: "personal", id: "u-1" } });
   });
 });
+
+describe("F03 评审补强", () => {
+  it("冻结的 org：执行器与拒绝留痕都不写（F22），属主身份也一样", async () => {
+    const FROZEN = "org-kg-f03-frozen";
+    const { segments: [fseg] } = await seedKgOrg(FROZEN);
+    await asOwner((c) => c.query("UPDATE organizations SET status = 'disabled', disabled_at = now(), retention_until = now() + interval '30 days' WHERE id = $1", [FROZEN]));
+    try {
+      const b = modelBatch(FROZEN, fseg);
+      await expect(asApp(FROZEN, (c) => c.query("SELECT kg_apply_batch($1::jsonb)", [JSON.stringify(toBatchPayload(b))])))
+        .rejects.toThrow(/KG_ORG_FROZEN/);
+      await expect(asApp(FROZEN, (c) => c.query("SELECT kg_record_rejected($1::jsonb)", [JSON.stringify({
+        action_id: "a-frozen", scope_kind: "chat_session", scope_id: "t", actor_kind: "model", actor_id: "m",
+        action_type: "extract", reject_code: "KG_INVALID_BATCH", reject_reason: "x",
+      })]))).rejects.toThrow(/KG_ORG_FROZEN/);
+      const n = await asOwner((c) => c.query("SELECT 1 FROM ontology_objects WHERE org_id = $1", [FROZEN]));
+      expect(n.rows).toHaveLength(0);
+    } finally {
+      await asOwner((c) => c.query("UPDATE organizations SET status = 'active', disabled_at = NULL, retention_until = NULL WHERE id = $1", [FROZEN]));
+    }
+  });
+
+  it("I-7 并发：两个同源同版本的任务同时执行，只有一个真正写入", async () => {
+    const a = modelBatch(ORG, seg);
+    const b = { ...modelBatch(ORG, seg), sourceRef: a.sourceRef, pipelineVersion: a.pipelineVersion };
+    const [ra, rb] = await Promise.all([rawApply(a), rawApply(b)]);
+    const outs = [ra.rows[0].r, rb.rows[0].r] as { deduplicated: boolean }[];
+    expect(outs.filter((o) => !o.deduplicated)).toHaveLength(1);
+    const objs = await asApp(ORG, (c) => c.query("SELECT 1 FROM ontology_objects WHERE id = ANY($1)", [[a.objects[0]!.id, b.objects[0]!.id]]));
+    expect(objs.rows).toHaveLength(1);
+  });
+
+  it("人工动作的执行身份必须是登录用户本人（应用层与数据库都拒）", async () => {
+    const b = modelBatch(ORG, seg, { actor: { kind: "human", id: "u-someone-else" }, sourceRef: null, pipelineVersion: null });
+    expect(validateOntologyBatch(b, "u-me")).toMatchObject({ ok: false, code: "KG_NOT_OWNER" });
+    await expect(rawApply(b, "u-me")).rejects.toThrow(/KG_NOT_OWNER/);
+  });
+
+  it("边的端点不存在 ⇒ 拒，整批不落", async () => {
+    const b = modelBatch(ORG, seg);
+    const bad = { ...b, edges: [{ ...b.edges[0]!, dstId: "obj-does-not-exist" }] };
+    await expect(rawApply(bad)).rejects.toThrow(/KG_EDGE_ENDPOINT_NOT_FOUND/);
+    const out = await applyOntologyBatch(new PgOntologyStore(db), toOrgId(ORG), null, bad);
+    expect(out).toMatchObject({ outcome: "rejected", rejected: { code: "KG_INVALID_BATCH" } });
+    const n = await asApp(ORG, (c) => c.query("SELECT 1 FROM claims WHERE id = $1", [b.claims[0]!.id]));
+    expect(n.rows).toHaveLength(0);
+  });
+
+  it("复用已有实体（同 id）：计数只算真正新写入的", async () => {
+    const first = modelBatch(ORG, seg);
+    await rawApply(first);
+    const again = { ...modelBatch(ORG, seg), objects: first.objects };
+    const r = await rawApply({ ...again, edges: [{ ...again.edges[0]!, dstId: first.objects[0]!.id }] });
+    expect(r.rows[0].r).toMatchObject({ objects: 0, claims: 1, edges: 1 });
+  });
+});
+

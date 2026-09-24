@@ -89,6 +89,10 @@ export function validateOntologyBatch(batch: OntologyBatch, currentUserId: strin
   if (batch.scope.kind === "personal" && batch.scope.id !== currentUserId) {
     return reject("KG_NOT_OWNER", "personal scope can only be written by its owner");
   }
+  // I-15：人工动作的执行身份就是登录用户本人，不能代别人「确认」。
+  if (batch.actor.kind === "human" && batch.actor.id !== currentUserId) {
+    return reject("KG_NOT_OWNER", "a human action must be performed by the signed-in user");
+  }
   for (const o of batch.objects) {
     if (!KG.KgObjectKind.safeParse(o.objectKind).success || o.name.trim() === "") {
       return reject("KG_INVALID_BATCH", `object ${o.id} has an invalid kind or empty name`);
