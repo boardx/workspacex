@@ -1,8 +1,9 @@
 /**
  * Phase 18 F08 —— `KnowledgeRecallPort` 的 Postgres 实现。
  *
- * 候选集只读**这一轮所在会话**的活结论与实体（执行器已经是以发起人身份在这个会话里跑），
- * 读的时候设置 app.current_user_id：将来 F12 加进本人个人空间的行，也只放给本人（I-14）。
+ * 候选集 = 这一轮所在会话（L0）的活结论与实体 ∪ 发起人本人个人空间（L1，F12）的活结论与实体。
+ * 执行器已经是以发起人身份在这个会话里跑；L1 用 scope_id = 发起人本人限定，读的时候再设
+ * app.current_user_id，RLS 也只把个人空间的行放给本人（I-14）——会话里其他成员提问，只得 L0 和他自己的 L1。
  * 图路只拿 id（kg_graph_neighbors），回到候选集求交，图里别的会话 / 别人的 id 不会漏出来。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -12,6 +13,11 @@ import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain
 import type { OrgId } from "../../domain/org-id";
 
 const stripKind = (key: string) => key.slice(key.indexOf(":") + 1);
+const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
+/** 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。 */
+const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind,
+  (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
+    WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at`;
 
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
   constructor(private readonly db: DatabasePort) {}
@@ -19,26 +25,47 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
       await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
-      const claims = await s.query<{ id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null }>(
-        `SELECT c.id, c.statement, c.status, c.claim_kind,
-                (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
-                  WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
-           FROM claims c
-          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2
-            AND c.revoked_at IS NULL AND c.status <> 'superseded'`,
+      type Row = { id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null };
+      const session = await s.query<Row>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE}`,
         [orgId, threadId],
+      );
+      // L1 只进发起人**自己的个人线程**（无项目、本人创建；uc-18-4 R5）：在项目会话里用了，
+      // 回答贴在会话里，别的成员就读到了、还会被抽取进本会话的 L0。
+      const own = await s.query(
+        `SELECT 1 FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2 AND t.project_id IS NULL AND t.created_by = $3`,
+        [orgId, threadId, userId],
+      );
+      const inPersonalThread = own.rows.length === 1;
+      // L1：已从本会话晋升出去、而本会话的原结论还在的，不再重复一份（原结论已经在上面了）。
+      const personal = !inPersonalThread ? { rows: [] as Row[] } : await s.query<Row>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $3 AND ${LIVE}
+            AND NOT EXISTS (
+              SELECT 1 FROM ontology_edges d JOIN claims src ON src.id = d.dst_id AND src.org_id = d.org_id
+               WHERE d.org_id = c.org_id AND d.src_kind = 'claim' AND d.src_id = c.id AND d.relation = 'derived_from'
+                 AND d.status = 'active' AND src.scope_kind = 'chat_session' AND src.scope_id = $2
+                 AND src.revoked_at IS NULL AND src.status <> 'superseded')`,
+        [orgId, threadId, userId],
       );
       const objects = await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, threadId],
       );
+      const personalObjects = !inPersonalThread ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
+        `SELECT id, name, aliases FROM ontology_objects
+          WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND merged_into IS NULL`,
+        [orgId, userId],
+      );
+      const toClaim = (scope: RecallClaim["scope"]) => (c: Row): RecallClaim[] => {
+        const tri = KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
+        return tri === null ? [] : [{ id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope }];
+      };
       const out: { claims: RecallClaim[]; objects: RecallObject[] } = {
-        claims: claims.rows.flatMap((c) => {
-          const tri = KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
-          return tri === null ? [] : [{ id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact" as const, triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope: "chat_session" as const }];
-        }),
-        objects: objects.rows.map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
+        claims: [...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal"))],
+        objects: [...objects.rows, ...personalObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
       };
       return out;
     });

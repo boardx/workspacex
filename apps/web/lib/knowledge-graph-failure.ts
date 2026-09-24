@@ -6,6 +6,7 @@
  * 网关、服务端 `KG_INVALID_REQUEST` 这类契约外的码）一律给通用说法，不猜。
  * 用词守 `requirements/06-user-experience.md` R5：说「记忆 / 这一条 / 人和事」，不说内部术语。
  */
+import { KG_PROMOTE_MAX_BATCH, type KgPromotionRejectCode } from "@repo/contracts/chat-knowledge-graph";
 import type { KnowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
 import { knowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
 
@@ -38,4 +39,31 @@ export const KG_RELOAD_ON_FAILURE: ReadonlySet<KnowledgeGraphErrorCode> = new Se
 export function describeHumanActionFailure(e: unknown): string {
   const code = knowledgeGraphErrorCode(e);
   return code === null ? "没能保存这次修改，请稍后重试。" : HUMAN_ACTION_FAILURE_ZH[code];
+}
+
+/**
+ * F11 —— 「记到我的长期记忆」逐条被拒的原因（契约 `KgPromotionRejectCode` 闭集，漏配编译不过）。
+ * 逐条结果里只说这一条为什么没记下，不说「已为你刷新」这类整批动作的话。
+ */
+const PROMOTION_REJECT_ZH: Record<KgPromotionRejectCode, string> = {
+  KG_CONTESTED_NEEDS_RESOLUTION: "有矛盾，先解决再记下",
+  KG_EVIDENCE_REVOKED: "原话已经不在了",
+  KG_CLAIM_NOT_FOUND: "这条已经不在了",
+};
+
+export function describePromotionReject(code: KgPromotionRejectCode): string {
+  return PROMOTION_REJECT_ZH[code];
+}
+
+/** 整批被拒（403 / 400 / 404）时的人话：说「长期记忆」，不沿用编辑动作那句「修改」。 */
+const PROMOTION_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> = {
+  KG_NOT_OWNER: "只有对话的创建者可以把这里的记忆记到长期记忆。",
+  KG_SCOPE_NOT_PERSONAL: "只有你自己的个人对话，才能把记忆记到长期记忆。",
+  KG_PROMOTE_BATCH_TOO_LARGE: `一次最多记 ${String(KG_PROMOTE_MAX_BATCH)} 条，请分几次操作。`,
+};
+
+export function describePromotionFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === null) return "没能记到长期记忆，请稍后重试。";
+  return PROMOTION_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
 }

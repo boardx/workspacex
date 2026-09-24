@@ -219,12 +219,16 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
   // 一条也没召回到：图路正常 ⇒ 不塞空壳；图路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
   if (recall.items.length === 0) return graphDown ? `【记忆】（${RECALL_DEGRADED_NOTICE}）` : null;
   const lines = recall.items.map((i) => {
-    const when = i.claim.saidAt === null ? "" : `（${i.claim.scope === "personal" ? "来自你" : "本会话"} ${i.claim.saidAt.slice(5, 10).replace("-", "/")} 的对话）`;
+    const day = i.claim.saidAt === null ? null : i.claim.saidAt.slice(5, 10).replace("-", "/");
+    // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
+    const when = i.claim.scope === "personal"
+      ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
+      : day === null ? "" : `（本会话 ${day} 的对话）`;
     // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
     return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
   });
   return [
-    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到。",
+    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
     ...lines,
     ...(graphDown ? [`（${RECALL_DEGRADED_NOTICE}）`] : []),
   ].join("\n");

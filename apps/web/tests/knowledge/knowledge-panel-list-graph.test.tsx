@@ -281,13 +281,13 @@ describe("记忆面板（真实数据）", () => {
     expect(screen.getByTestId("kg-claim-edit-trigger-c-fact")).toBeInTheDocument();
   });
 
-  it("真实 /chat：所有者有编辑入口（F10），但「记到长期记忆」「整理」还没有通路就不画", async () => {
+  it("真实 /chat：所有者有编辑入口（F10）与「记到长期记忆」（F11），「整理」还没有通路就不画", async () => {
     stubNetwork(() => json(knowledge({ canPromote: true, ingestion: { queued: 0, running: 0, failed: 1, failures: [] } })));
     render(<Harness threadId={THREAD} />);
     await screen.findByTestId("kg-list");
     expect(screen.queryByTestId("kg-readonly-badge")).not.toBeInTheDocument();
     expect(screen.getByTestId("kg-row-yes-c-fact")).toBeInTheDocument();
-    expect(screen.queryByTestId("kg-promote-enter")).not.toBeInTheDocument();
+    expect(screen.getByTestId("kg-promote-enter")).toBeInTheDocument();
     expect(screen.queryByTestId("kg-ingestion-retry")).not.toBeInTheDocument();
   });
 

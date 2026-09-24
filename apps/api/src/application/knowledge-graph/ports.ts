@@ -123,7 +123,13 @@ export interface KnowledgeThreadRef {
 export interface KnowledgeReadPort {
   threadKnowledge(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<ThreadKnowledgeData>>;
   claimRoute(orgId: OrgId, userId: string, claimId: string): Promise<{ readonly scopeKind: KG.KgScopeKind; readonly scopeId: string } | null>;
-  claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef): Promise<Guarded<ClaimSourcesData> | null>;
+  /**
+   * `onlyThreads`（F12，个人空间结论）：消息证据只取这些会话里的（调用方逐个判过可见性的）；
+   * 附件证据此时不返回（附件有自己的可见性判定，L1 抽屉暂不展示）。
+   */
+  claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef, onlyThreads?: readonly string[]): Promise<Guarded<ClaimSourcesData> | null>;
+  /** F12：一条结论的消息证据分布在哪些会话（只回会话 id，路由事实，不回内容）。 */
+  claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]>;
   turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
 }
 
@@ -150,7 +156,8 @@ export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
 /** 执行器拒绝人工动作时的码（契约 applyHumanAction.err 的子集）。 */
 export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
-  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND";
+  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -169,3 +176,27 @@ export class KgHumanActionError extends Error {
 }
 
 export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
+
+// ─────────────────────────────── F11 晋升到个人空间 ───────────────────────────────
+
+export type PromotionItemResult = z.infer<typeof KG.KgPromotionItemResult>;
+
+export interface PromotionPort {
+  /**
+   * 读方法都返回 `Guarded`：调用方交出会话可见性判定（同读接口的 guard ref）才拿得到内容。
+   * 本人个人空间里的活结论（去重用）、会话里这些结论的原文、AI 提名候选。
+   */
+  personalClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** `sourceGone`：这条因为原话被删而失效了（F07），晋升时逐条报 KG_EVIDENCE_REVOKED。 */
+  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string; readonly sourceGone: boolean }[]>>;
+  nominationCandidates(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly {
+    readonly id: string; readonly kind: string; readonly status: string; readonly statement: string;
+  }[]>>;
+  /** 执行一条晋升；被拒时抛 KgHumanActionError（码见 kg_promote_claim）。返回 L1 结论 id。 */
+  promote(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+}
+
+export const PROMOTION_PORT = Symbol("PromotionPort");

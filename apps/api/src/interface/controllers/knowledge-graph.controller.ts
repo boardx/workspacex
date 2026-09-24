@@ -15,8 +15,10 @@ import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import {
-  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, type HumanActionPort, type KnowledgeReadPort,
+  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, PROMOTION_PORT,
+  type HumanActionPort, type KnowledgeReadPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import {
@@ -35,6 +37,7 @@ export class KnowledgeGraphController {
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(KNOWLEDGE_READ_PORT) private readonly knowledge: KnowledgeReadPort,
     @Inject(HUMAN_ACTION_PORT) private readonly actions: HumanActionPort,
+    @Inject(PROMOTION_PORT) private readonly promotion: PromotionPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -49,7 +52,8 @@ export class KnowledgeGraphController {
       if (e instanceof KgReadError) throw new NotFoundException({ reasonCode: e.code });
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);
+        if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE") throw new BadRequestException(body);
         if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION") throw new ConflictException(body);
         throw new NotFoundException(body);
       }
@@ -90,5 +94,27 @@ export class KnowledgeGraphController {
       { ...this.deps, actions: this.actions, newId: newKgId },
       { ...v, threadId, basedOnRevision: parsed.data.basedOnRevision, action: parsed.data.action },
     ));
+  }
+
+  /** UC-KG-5 promoteToPersonal —— 「记到我的长期记忆」（逐条部分成功） */
+  @Post("/knowledge-graph/threads/:threadId/promote")
+  @HttpCode(200)
+  promote(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToPersonal.in.safeParse({ ...(body as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToPersonal(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** UC-KG-6 listPromotionNominations —— AI 只提名，不执行 */
+  @Get("/knowledge-graph/threads/:threadId/nominations")
+  nominations(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
+    return this.run(principal, (v) => listPromotionNominations({ ...this.deps, promotion: this.promotion, newId: newKgId }, { ...v, threadId }));
   }
 }
