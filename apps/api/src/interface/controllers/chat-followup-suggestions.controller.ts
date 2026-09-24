@@ -25,7 +25,7 @@ import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/por
 import { PUBLISHED_AGENT_READER, type PublishedAgentReader } from "../../application/chat/message-command-ports";
 import { ThreadNotVisibleError } from "../../application/chat/get-thread";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import {
   FOLLOWUP_MODEL_CONFIG,
   FollowUpSuggestionsDependencyFailedError,
@@ -53,7 +53,7 @@ export class ChatFollowUpSuggestionsController {
 
   /** Server-side only, same adapter shape as `AgentTrialRunController`'s (never reaches a response). */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   @HttpCode(HttpStatus.OK)

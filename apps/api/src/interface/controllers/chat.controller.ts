@@ -178,7 +178,7 @@ import {
 import {
   AGENT_RUN_EXECUTOR, MODEL_CALL_PORT, type AgentRunExecutorPort, type ModelCallPort,
 } from "../../application/agent-run/ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import {
   THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
 } from "../../application/chat/generate-thread-title";
@@ -310,7 +310,7 @@ export class ChatController {
 
   /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   private get messageDeps() {

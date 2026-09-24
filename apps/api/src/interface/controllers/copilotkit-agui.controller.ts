@@ -107,7 +107,7 @@ import {
   type ChatMessageCommandRepository, type DefaultAgentResolver, type EnabledSkillVersionReader,
   type PublishedAgentReader, type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import {
   AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, MODEL_CALL_PORT,
   type AgentRunStore, type AgentRunExecutorPort, type ModelCallPort,
@@ -632,7 +632,7 @@ export class CopilotkitAguiController {
 
   /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   private get deps() {

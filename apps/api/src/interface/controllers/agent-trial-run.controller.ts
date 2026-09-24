@@ -18,7 +18,7 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { PUBLISHED_AGENT_READER, type PublishedAgentReader } from "../../application/chat/message-command-ports";
 import { AGENT_RUN_STORE, MODEL_CALL_PORT, type AgentRunStore, type ModelCallPort } from "../../application/agent-run/ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import {
   TrialRunAgentDependencyFailedError, TrialRunAgentRoleInsufficientError, trialRunAgent,
 } from "../../application/agent-run/trial-run-agent";
@@ -37,7 +37,7 @@ export class AgentTrialRunController {
 
   /** Server-side only, same adapter shape as `AgentRunExecutor`'s (never reaches a response). */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   @Post(C.operations.trialRunAgent.path)

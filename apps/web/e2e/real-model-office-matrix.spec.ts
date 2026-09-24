@@ -31,6 +31,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { REAL_MODEL_SKIP_REASON, REAL_MODEL_SMOKE } from "./real-model-smoke-fixture";
+/*
+ * ⚠ 浏览器侧打后端**不自己写**：路径前缀与会话令牌两件事我在三轮真机跑里各错过一次
+ * （404 → 401 → …），单一事实源在 `support/real-model-api.ts`，那里有完整的三次教训。
+ */
+import { authedBytes, authedJson } from "./support/real-model-api";
 
 test.skip(REAL_MODEL_SKIP_REASON !== null, REAL_MODEL_SKIP_REASON ?? "");
 
@@ -69,17 +74,6 @@ const TASKS: readonly Task[] = [
 ];
 
 const MAGIC: Record<Task["ext"], string> = { pdf: "%PDF-", docx: "PK", xlsx: "PK", pptx: "PK" };
-
-/*
- * ⚠ 浏览器侧的 API 路径**不能写死 `/api`**（2026-09-24 已经在 pdf-smoke 上栽过一次，
- * 这里又栽了第二次，所以这段注释写在这儿）：
- *   · devapp lane 打公网入口，反代把 `/api/*` 转给后端 ⇒ `/api/chat/...`
- *   · 本地 lane 走 Next 的同源改写 ⇒ `/__fullstack_api/chat/...`
- * 前缀的唯一事实源是 `NEXT_PUBLIC_API_PATH_PREFIX`（config 里算一次、赋回 process.env，
- * 两边共用）。写死哪一边都会让另一边拿回 404 的 HTML。
- */
-const API_PREFIX = (process.env.NEXT_PUBLIC_API_PATH_PREFIX ?? "").replace(/\/$/, "");
-const apiPath = (path: string): string => (API_PREFIX === "" ? `/api${path}` : `${API_PREFIX}${path}`);
 
 interface Row {
   readonly name: string; readonly ext: string; readonly ok: boolean;
@@ -129,16 +123,15 @@ async function verifyProduced(page: Page, mark: string, ext: Task["ext"]): Promi
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId, "落定后 URL 上没有 threadId，拿不到权威产物列表").toBeTruthy();
 
-  const listed = await page.request.get(apiPath(`/chat/threads/${threadId!}/attachments`));
-  expect(listed.ok(), `列产物失败 HTTP ${String(listed.status())}`).toBe(true);
-  const items = ((await listed.json()) as { items?: Attachment[] }).items ?? [];
+  const listed = await authedJson(page, `/chat/threads/${threadId!}/attachments`);
+  expect(listed.ok, `列产物失败 HTTP ${String(listed.status)}`).toBe(true);
+  const items = ((listed.json as { items?: Attachment[] }).items) ?? [];
   const wanted = `${mark}.${ext}`;
   const produced = items.find((i) => i.filename === wanted)
     ?? items.find((i) => i.filename.endsWith(`.${ext}`));
   expect(produced, `没有产出 .${ext}（现有：${items.map((i) => i.filename).join(",") || "空"}）`).toBeDefined();
 
-  const bytes = await page.request.get(apiPath(`/chat/threads/${threadId!}/attachments/${produced!.id}/content`));
-  const body = await bytes.body();
+  const body = await authedBytes(page, `/chat/threads/${threadId!}/attachments/${produced!.id}/content`);
   expect(body.length, "下载到的字节数与登记的不一致").toBe(produced!.bytes);
   const head = body.subarray(0, 8).toString("latin1");
   expect(head.startsWith(MAGIC[ext]), `字节头不是 ${ext}：「${head.replace(/[^\x20-\x7e]/g, ".")}」`).toBe(true);
@@ -146,10 +139,17 @@ async function verifyProduced(page: Page, mark: string, ext: Task["ext"]): Promi
 }
 
 test("真实模型：十种计划任务全部产出可打开的 Office 文件", async ({ page }) => {
-  test.setTimeout(TASK_BUDGET_MS * TASKS.length + 600_000);
+  /*
+   * 诊断期可以只跑前 N 个（`REAL_MODEL_TASK_LIMIT=4`，四种格式各一条）。
+   * 整轮十件要 40+ 分钟，定位阶段每改一次判据就等 40 分钟是纯浪费。
+   * ⚠ **验收必须跑满十件**——限量只用于定位，报告里会如实写明这一轮跑了几件。
+   */
+  const limit = Number(process.env.REAL_MODEL_TASK_LIMIT ?? String(TASKS.length));
+  const running = TASKS.slice(0, Math.max(1, Math.min(limit, TASKS.length)));
+  test.setTimeout(TASK_BUDGET_MS * running.length + 600_000);
   await login(page);
 
-  for (const task of TASKS) {
+  for (const task of running) {
     const started = Date.now();
     const mark = `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
     try {
@@ -163,9 +163,38 @@ test("真实模型：十种计划任务全部产出可打开的 Office 文件", 
       const detail = await verifyProduced(page, mark, task.ext);
       rows.push({ name: task.name, ext: task.ext, ok: true, ms: Date.now() - started, detail });
     } catch (error) {
+      /*
+       * ⚠ 失败时必须把**屏幕上的真实报错**收进来。
+       *
+       * 第一轮只记了断言消息（「没有产出 .pptx」），于是十行长得一模一样，
+       * 一条都不能拿来定位。真实 stderr 在界面上（失败文案里那段折叠的代码块），
+       * 而脱敏后的服务端日志把 detail 洗成了 msg 本身，拿不到。
+       * 取不到就取不到，如实留空——不编。
+       */
+      /*
+       * ⚠ 真实 stderr 在**折叠的代码块**里，必须先点开。
+       * 上一版直接读 `main` 的 innerText，抓到的是折叠块的外壳
+       * （「code · 25 行 复制 显示代码」）加后面的界面文字——十行报错长得一模一样，
+       * 一条都不能拿来定位。判据抓错层，比没抓更浪费时间。
+       */
+      for (const toggle of await page.getByText("显示代码", { exact: true }).all()) {
+        await toggle.click().catch(() => {});
+      }
+      /*
+       * ⚠ 页面上的 `<pre>` 有**两类**：模型生成的脚本，和沙箱返回的 stderr。
+       * 上一版取「最长的几段」，抓到的全是脚本（`require('pptxgenjs')` …）——
+       * 那说明模型其实写对了，但对定位执行失败毫无用处。
+       * 这里只取**看起来像报错**的那几段：带 Error / 栈帧 / 退出码的。
+       */
+      const blocks = await page.locator("main pre").allTextContents().catch(() => []);
+      const stderr = blocks
+        .map((b) => b.trim())
+        .filter((b) => /Error|error:|Cannot find|MODULE_NOT_FOUND|at Object|at Module|Traceback|exit code/i.test(b))
+        .join(" ⏎ ");
       rows.push({
         name: task.name, ext: task.ext, ok: false, ms: Date.now() - started,
-        detail: (error instanceof Error ? error.message : String(error)).split("\n")[0]?.slice(0, 180) ?? "",
+        detail: `${(error instanceof Error ? error.message : String(error)).split("\n")[0]?.slice(0, 120) ?? ""}`
+          + (stderr === "" ? "" : `；沙箱报错：${stderr.replace(/\s+/g, " ").slice(0, 260)}`),
       });
     }
   }
@@ -174,7 +203,8 @@ test("真实模型：十种计划任务全部产出可打开的 Office 文件", 
   const lines = [
     "# 真实模型 × 十种计划任务 × Office 产出",
     "",
-    `**${String(ok)} / ${String(rows.length)}（${String(Math.round((ok / rows.length) * 100))}%）**`,
+    `**${String(ok)} / ${String(rows.length)}（${String(Math.round((ok / rows.length) * 100))}%）**`
+      + (rows.length < TASKS.length ? `　⚠ 本轮只跑了前 ${String(rows.length)} 件（诊断模式），验收要跑满 ${String(TASKS.length)} 件` : ""),
     "",
     "判据：产物真的落库 + 真的下载到字节 + 字节头是那个格式。模型说做好了不算。",
     "",

@@ -255,9 +255,19 @@ export async function runScriptWithRetries(
    * 现在按**有没有真实 stderr**分流：有 ⇒ 报那一条真实的；一条都没有
    * （全程只有空产出）⇒ 成因就是空产出本身。
    */
-  const realFailures = history.filter(
-    (record) => record.exitCode !== null && record.stderr !== NO_FILES_STDERR,
-  );
+  const executed = history.filter((record) => record.exitCode !== null);
+  const realFailures = executed.filter((record) => record.stderr !== NO_FILES_STDERR);
+
+  /*
+   * 三种情形，成因各不相同，不能合并（既有测试 ③ 抓到过我把前两种合并的回归）：
+   *   · 一个脚本都没执行过 ⇒ 「模型没给脚本块」**本身**就是真因，照旧报它。
+   *   · 执行过，但每一次都空产出 ⇒ 成因是空产出。
+   *   · 执行过且真的报过错 ⇒ 报**最后一次真实**的 stderr（内部哨兵永远不外露）。
+   */
+  if (executed.length === 0) {
+    const last = history[history.length - 1]!;
+    throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
+  }
   if (realFailures.length === 0) {
     throw new ScriptProducedNoFilesError(maxAttempts);
   }

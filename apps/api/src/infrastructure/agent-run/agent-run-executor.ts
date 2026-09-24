@@ -1,3 +1,4 @@
+import { structuredErrorLog } from "../../application/ports/logger.port";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import type { InterjectionStore } from "../../application/agent-run/interjection-store";
@@ -175,9 +176,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
    * minted per line so an operator can correlate it with the run's terminal code.
    */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, {
-      traceId: randomUUID(), err: detail.detail ?? message, ...detail,
-    });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   /**
