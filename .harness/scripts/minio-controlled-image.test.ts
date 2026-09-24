@@ -30,18 +30,18 @@ const fixture = () => {
 };
 
 describe("controlled MinIO image lock", () => {
-  const digestA = `sha256:${"a".repeat(64)}`;
+  const configuredDigest = "sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1";
   const digestB = `sha256:${"b".repeat(64)}`;
   const workflowRepository = "boardx/workspacex";
   const sourceCommit = "c".repeat(40);
-  const receiptFor = (root: string, digest = digestA) => createMinioMirrorReceipt(root, {
+  const receiptFor = (root: string, digest = configuredDigest) => createMinioMirrorReceipt(root, {
     digest,
     runId: "4102",
     runAttempt: "1",
     repository: workflowRepository,
     sourceCommit,
   });
-  const evidenceFor = (upstreamDigest = digestA, anonymousTargetDigest = digestA) => ({
+  const evidenceFor = (upstreamDigest = configuredDigest, anonymousTargetDigest = configuredDigest) => ({
     upstreamDigest,
     anonymousTargetDigest,
     runId: "4102",
@@ -61,7 +61,7 @@ describe("controlled MinIO image lock", () => {
 
   it("renders only a verified lowercase sha256 digest into the controlled target", () => {
     const root = fixture();
-    const digest = digestA;
+    const digest = configuredDigest;
     lockMinioImage(root, digest);
     const result = validateMinioImageConfig(root, { requireLocked: true });
     expect(result.image).toBe(`ghcr.io/boardx/workspacex-minio@${digest}`);
@@ -69,31 +69,32 @@ describe("controlled MinIO image lock", () => {
     expect(result.metadata.target_digest).toBe(digest);
   });
 
-  it("accepts only evidence bound to the configured tag, attested run, and equal digests", () => {
+  it("accepts only evidence bound to the configured source, attested run, and equal digests", () => {
     const root = fixture();
     const receipt = receiptFor(root);
     expect(validateMinioMirrorEvidence(root, receipt, evidenceFor())).toMatchObject({
-      digest: digestA,
-      releaseTag: "RELEASE.2024-09-13T20-26-02Z",
+      digest: configuredDigest,
+      sourceDigest: configuredDigest,
     });
   });
 
   it("rejects a valid-but-wrong digest and anonymous target drift", () => {
     const root = fixture();
-    const wrongReceipt = receiptFor(root, digestB);
-    expect(() => validateMinioMirrorEvidence(root, wrongReceipt, evidenceFor())).toThrow(/upstream tag/);
-    expect(() => validateMinioMirrorEvidence(root, receiptFor(root), evidenceFor(digestA, digestB))).toThrow(/anonymous controlled target/);
+    expect(() => receiptFor(root, digestB)).toThrow(/differs from repository configuration/);
+    const wrongReceipt = { ...receiptFor(root), sourceDigest: digestB, authenticatedTargetDigest: digestB };
+    expect(() => validateMinioMirrorEvidence(root, wrongReceipt, evidenceFor())).toThrow(/sourceDigest/);
+    expect(() => validateMinioMirrorEvidence(root, receiptFor(root), evidenceFor(configuredDigest, digestB))).toThrow(/anonymous controlled target/);
   });
 
-  it("rejects a receipt when the repository's configured upstream tag has changed", () => {
+  it("rejects a receipt when the repository's configured upstream digest has changed", () => {
     const root = fixture();
     const receipt = receiptFor(root);
     const config = resolve(root, IMAGE_CONFIG);
     writeFileSync(config, readFileSync(config, "utf8").replaceAll(
-      "RELEASE.2024-09-13T20-26-02Z",
-      "RELEASE.2024-09-20T00-00-00Z",
+      configuredDigest,
+      digestB,
     ));
-    expect(() => validateMinioMirrorEvidence(root, receipt, evidenceFor())).toThrow(/releaseTag/);
+    expect(() => validateMinioMirrorEvidence(root, receipt, evidenceFor())).toThrow(/sourceDigest/);
   });
 
   it("rejects direct verification without a mirror receipt or its exact run binding", () => {

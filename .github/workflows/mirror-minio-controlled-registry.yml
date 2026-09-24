@@ -56,24 +56,24 @@ jobs:
             '.harness/scripts/minio-controlled-image.mjs', 'coordinates',
           ], { encoding: 'utf8' }));
           appendFileSync(process.env.GITHUB_OUTPUT,
-            `source=${image.sourceRepository}\ntag=${image.releaseTag}\ntarget=${image.targetRepository}\n`);
+            `source=${image.sourceRepository}\ndigest=${image.sourceDigest}\ntarget=${image.targetRepository}\n`);
           NODE
 
       - name: Install registry transport
         shell: bash
         run: sudo apt-get update && sudo apt-get install --yes skopeo
 
-      - name: Resolve the configured upstream tag
+      - name: Verify the configured immutable upstream digest
         id: upstream
         shell: bash
         env:
           SOURCE: ${{ steps.image.outputs.source }}
-          TAG: ${{ steps.image.outputs.tag }}
+          DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
-          skopeo inspect --raw "docker://${SOURCE}:${TAG}" > /tmp/minio-source-manifest.json
-          digest="sha256:$(sha256sum /tmp/minio-source-manifest.json | cut -d' ' -f1)"
-          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          skopeo inspect --raw "docker://${SOURCE}@${DIGEST}" > /tmp/minio-source-manifest.json
+          test "sha256:$(sha256sum /tmp/minio-source-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
 
       - name: Authenticate to the BoardX-controlled registry
         shell: bash
@@ -84,7 +84,6 @@ jobs:
         env:
           SOURCE: ${{ steps.image.outputs.source }}
           TARGET: ${{ steps.image.outputs.target }}
-          TAG: ${{ steps.image.outputs.tag }}
           DIGEST: ${{ steps.upstream.outputs.digest }}
         run: |
           set -euo pipefail
@@ -197,11 +196,11 @@ jobs:
           set -euo pipefail
           image="$(node .harness/scripts/minio-controlled-image.mjs coordinates)"
           source="$(jq -r .sourceRepository <<<"${image}")"
-          tag="$(jq -r .releaseTag <<<"${image}")"
+          source_digest="$(jq -r .sourceDigest <<<"${image}")"
           target="$(jq -r .targetRepository <<<"${image}")"
           receipt_digest="$(jq -r .sourceDigest mirror-receipt/minio-mirror-receipt.json)"
 
-          skopeo inspect --raw "docker://${source}:${tag}" > /tmp/minio-current-upstream-manifest.json
+          skopeo inspect --raw "docker://${source}@${source_digest}" > /tmp/minio-current-upstream-manifest.json
           upstream_digest="sha256:$(sha256sum /tmp/minio-current-upstream-manifest.json | cut -d' ' -f1)"
           skopeo inspect --raw "docker://${target}@${receipt_digest}" > /tmp/minio-public-manifest.json
           anonymous_target_digest="sha256:$(sha256sum /tmp/minio-public-manifest.json | cut -d' ' -f1)"

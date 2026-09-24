@@ -20,15 +20,15 @@ export function validateMinioImageConfig(root = REPO_ROOT, { requireLocked = fal
   const metadata = document?.["x-workspacex-minio-image"];
   const image = document?.services?.["minio-image"]?.image;
   if (!metadata || typeof metadata !== "object") fail("missing x-workspacex-minio-image metadata");
-  if (metadata.source_repository !== "quay.io/minio/minio") fail("unexpected upstream repository");
-  if (!/^RELEASE\.[0-9TZ-]+$/.test(metadata.release_tag ?? "")) fail("release_tag must be an explicit MinIO release");
+  if (metadata.source_repository !== "cgr.dev/chainguard/minio") fail("unexpected upstream repository");
+  const sourceDigest = requireDigest(metadata.source_digest, "configured source digest");
   if (metadata.target_repository !== "ghcr.io/boardx/workspacex-minio") fail("target must remain in the BoardX-controlled GHCR namespace");
 
   if (metadata.status === "awaiting-controlled-mirror") {
     if (requireLocked) fail("controlled mirror is not published and anonymously verified yet");
-    if (metadata.source_digest !== undefined || metadata.target_digest !== undefined) fail("awaiting state must not claim unverified digests");
-    const expected = `${metadata.source_repository}:${metadata.release_tag}`;
-    if (image !== expected) fail(`awaiting state must retain the explicit upstream release ${expected}`);
+    if (metadata.target_digest !== undefined) fail("awaiting state must not claim an unverified target digest");
+    const expected = `${metadata.source_repository}@${sourceDigest}`;
+    if (image !== expected) fail(`awaiting state must retain the immutable upstream image ${expected}`);
   } else if (metadata.status === "locked") {
     if (!DIGEST.test(metadata.source_digest ?? "") || !DIGEST.test(metadata.target_digest ?? "")) fail("locked state requires exact sha256 source and target digests");
     if (metadata.source_digest !== metadata.target_digest) fail("mirror workflow must preserve the upstream manifest digest");
@@ -55,12 +55,13 @@ export function lockMinioImage(root = REPO_ROOT, digest) {
   const { metadata } = validateMinioImageConfig(root);
   if (metadata.status !== "awaiting-controlled-mirror") fail("lock generation only accepts the awaiting-controlled-mirror state");
   const configPath = resolve(root, IMAGE_CONFIG);
-  const currentImage = `${metadata.source_repository}:${metadata.release_tag}`;
+  if (digest !== metadata.source_digest) fail("controlled target digest must equal the configured source digest");
+  const currentImage = `${metadata.source_repository}@${metadata.source_digest}`;
   const lockedImage = `${metadata.target_repository}@${digest}`;
   let text = readFileSync(configPath, "utf8");
   text = text.replace(
     "  status: awaiting-controlled-mirror\n",
-    `  status: locked\n  source_digest: ${digest}\n  target_digest: ${digest}\n`,
+    `  status: locked\n  target_digest: ${digest}\n`,
   );
   text = text.replace(`    image: ${currentImage}\n`, `    image: ${lockedImage}\n`);
   writeFileSync(configPath, text);
@@ -85,7 +86,7 @@ export function minioImageCoordinates(root = REPO_ROOT) {
   }
   return {
     sourceRepository: metadata.source_repository,
-    releaseTag: metadata.release_tag,
+    sourceDigest: metadata.source_digest,
     targetRepository: metadata.target_repository,
   };
 }
@@ -93,6 +94,7 @@ export function minioImageCoordinates(root = REPO_ROOT) {
 export function createMinioMirrorReceipt(root = REPO_ROOT, values) {
   const coordinates = minioImageCoordinates(root);
   const digest = requireDigest(values?.digest, "resolved upstream digest");
+  if (digest !== coordinates.sourceDigest) fail("resolved upstream digest differs from repository configuration");
   const repository = values?.repository;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? "")) {
     fail("workflow repository must be owner/name");
@@ -134,7 +136,7 @@ export function validateMinioMirrorEvidence(root = REPO_ROOT, receipt, evidence)
   const upstream = requireDigest(evidence?.upstreamDigest, "currently resolved upstream digest");
   const anonymousTarget = requireDigest(evidence?.anonymousTargetDigest, "anonymous target digest");
   if (receiptSource !== receiptTarget) fail("mirror receipt source and authenticated target digests differ");
-  if (receiptSource !== upstream) fail("configured upstream tag no longer resolves to the attested digest");
+  if (receiptSource !== upstream) fail("configured upstream digest differs from the attested digest");
   if (receiptSource !== anonymousTarget) fail("anonymous controlled target digest differs from the attested upstream digest");
   return { digest: receiptSource, ...coordinates };
 }

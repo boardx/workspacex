@@ -7,16 +7,17 @@ incident, not evidence that those branches changed MinIO.
 
 `apps/api/docker-compose.minio-image.yml` is the only image declaration used by both the
 development and deployment compose files. Its current `awaiting-controlled-mirror` state is
-intentional: no already-published `boardx` image could be anonymously inspected, so this
-change does not invent a digest and does not claim the CI outage is resolved.
+intentional: the immutable Chainguard digest restored the runtime, but no already-published
+`boardx` image could be anonymously inspected. The source fallback stays active until the
+controlled target passes the signed promotion and anonymous verification below.
 
 ## Promotion procedure
 
-1. Review the explicit MinIO `release_tag` in `docker-compose.minio-image.yml`, then dispatch
+1. Review the exact MinIO `source_digest` in `docker-compose.minio-image.yml`, then dispatch
    `mirror-minio-controlled-registry` from the repository default branch with operation
-   `mirror`. The workflow itself resolves that configured tag from the upstream registry;
+   `mirror`. The workflow reads and verifies that repository-reviewed immutable source;
    there is no operator-supplied digest to trust.
-2. The mirror job copies the resolved manifest and all platforms to
+2. The mirror job copies the verified manifest and all platforms to
    `ghcr.io/boardx/workspacex-minio` with `--preserve-digests`, verifies the target through an
    authenticated read, and emits a durable GitHub-signed receipt. Record the successful
    workflow run ID. The receipt binds the source repository, configured release tag, target,
@@ -27,10 +28,10 @@ change does not invent a digest and does not claim the CI outage is resolved.
 4. Dispatch the workflow again from the default branch with
    `verify-public-and-render-lock` and the recorded `mirror_run_id`. The read-only verification
    job downloads that run's receipt and verifies its GitHub artifact attestation, signer
-   workflow, default-branch ref, and source commit. It then re-resolves the repository's
-   current upstream tag and anonymously reads the target. The attested source, authenticated
-   target, current upstream, and anonymous target digests must all be identical. A missing
-   attestation, direct verify without a mirror run, configuration drift, tag movement, private
+   workflow, default-branch ref, and source commit. It then re-reads the repository's
+   immutable upstream digest and anonymously reads the target. The configured source, attested
+   source, authenticated target, current upstream, and anonymous target digests must all be
+   identical. A missing attestation, direct verify without a mirror run, configuration drift, private
    target, or digest mismatch fails closed. Success produces a `minio-image-lock.patch`
    artifact.
 5. Review and apply the artifact in issue #4100's PR. The patch changes the compose image to
@@ -45,5 +46,5 @@ not an HTTPS URL; `gh attestation verify --signer-workflow` accepts
 The workflow never starts Docker. The mirror job alone has `packages: write`; the verification
 job has read-only Actions, attestation, and repository permissions and never authenticates to
 GHCR. Local static validation also needs no Docker daemon. A successful mirror operation alone
-is insufficient: CI remains blocked until the anonymous verification succeeds, the digest lock
-patch lands, and the affected lanes pass with that exact image.
+is insufficient: the BoardX-controlled target is not adopted until anonymous verification
+succeeds, the digest lock patch lands, and the affected lanes pass with that exact image.
