@@ -35,6 +35,11 @@ class Blobs implements BoardBlobStore {
   async putImmutable(input: Parameters<BoardBlobStore['putImmutable']>[0]) { this.values.set(input.key, new Uint8Array(input.ciphertext)); return 'created' as const; }
   async getVerified(input: Parameters<BoardBlobStore['getVerified']>[0]) { const value = this.values.get(input.key); if (!value || sha256(value) !== input.expectedCipherDigest || value.byteLength !== input.expectedSizeBytes) throw new Error('INTEGRITY_FAILED'); return new Uint8Array(value); }
   async head(input: Parameters<BoardBlobStore['head']>[0]) { const value = this.values.get(input.key); return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength } : null; }
+  async deleteIfMatch(input: Parameters<BoardBlobStore['deleteIfMatch']>[0]) {
+    const value = this.values.get(input.key);
+    if (!value || sha256(value) !== input.expectedCipherDigest || value.byteLength !== input.expectedSizeBytes) return 'not-found' as const;
+    this.values.delete(input.key); return 'deleted' as const;
+  }
 }
 const codec: BoardBlobCodec = {
   async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> { const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext); return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, tenantKeyVersion }; },

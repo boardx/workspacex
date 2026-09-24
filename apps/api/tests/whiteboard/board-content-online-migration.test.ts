@@ -48,6 +48,11 @@ class MemoryBlobs implements BoardBlobStore {
     const value = this.values.get(input.key);
     return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength } : null;
   }
+  async deleteIfMatch(input: Parameters<BoardBlobStore['deleteIfMatch']>[0]) {
+    const value = this.values.get(input.key);
+    if (!value || sha256(value) !== input.expectedCipherDigest || value.byteLength !== input.expectedSizeBytes) return 'not-found' as const;
+    this.values.delete(input.key); return 'deleted' as const;
+  }
 }
 
 class DeferredBlobs extends MemoryBlobs {
