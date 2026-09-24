@@ -19,6 +19,11 @@ export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boar
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 const sessionFingerprint = (token:string) => createHash('sha256').update(token).digest('hex');
+async function helloPhase<T>(logger:LoggerPort|undefined,traceId:string,phase:'load'|'diff'|'receipt',work:()=>T|Promise<T>):Promise<T>{
+  const started=performance.now();
+  try{const result=await work();logger?.info('whiteboard_hello_phase',{traceId,phase,outcome:'accepted',elapsedMs:performance.now()-started});return result;}
+  catch(error){logger?.info('whiteboard_hello_phase',{traceId,phase,outcome:'error',elapsedMs:performance.now()-started});throw error;}
+}
 function canonicalJson(value:unknown):unknown{if(value===null||typeof value==='boolean'||typeof value==='string')return value;if(typeof value==='number'){if(!Number.isFinite(value))throw new Error('non-finite whiteboard number');return Object.is(value,-0)?0:value;}if(Array.isArray(value))return value.map(canonicalJson);if(typeof value==='object')return Object.fromEntries(Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>[key,canonicalJson(item)]));throw new Error('unsupported whiteboard value');}
 function canonicalDocument(doc:Y.Doc):Record<string,unknown>[]{return readObjects(doc).map(item=>canonicalJson(item) as Record<string,unknown>).sort((a,b)=>String(a.id).localeCompare(String(b.id)));}
 function hasCompleteSoakLifetimes(run:SoakRun,finishedAtMs:number):boolean{
@@ -82,13 +87,16 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if (message.type==='hello') {
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
               peer.clientNonce=message.clientNonce ?? peer.clientNonce;
-              if(decoded(message.stateVector).byteLength>1) metrics.reconnect();
-              // Keep a server-only full mirror for cross-process catch-up, never trust client content.
-              const full=await deps.store.load(principal,boardId);
-              Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq;
-              const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
-              Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.role=diff.role; peer.archived=diff.archived;
-              const accessReceiptId=await deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),diff.epoch);
+              const clientStateVector=decoded(message.stateVector);
+              if(clientStateVector.byteLength>WHITEBOARD_SCALE_POLICY.update.stateVectorBytes)throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+              if(clientStateVector.byteLength>1) metrics.reconnect();
+              // Load once under the revocation fence. The trusted full snapshot builds the
+              // server mirror; deriving the client diff locally avoids a second DB checkout.
+              const full=await helloPhase(deps.logger,traceId,'load',()=>deps.store.load(principal,boardId));
+              Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq; peer.role=full.role; peer.archived=full.archived;
+              const diffUpdate=await helloPhase(deps.logger,traceId,'diff',()=>Y.encodeStateAsUpdate(peer.mirror,clientStateVector));
+              const accessReceiptId=await helloPhase(deps.logger,traceId,'receipt',()=>deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),full.epoch));
+              const diff={...full,update:diffUpdate};
               let soakBinding: {runId:string;challenge:string}|undefined;
               if(message.soakRun) {
                 if(!deps.soakLedgerPrivateKey) throw new WhiteboardCollaborationError('VALIDATION_FAILED');

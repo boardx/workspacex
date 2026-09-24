@@ -8,6 +8,7 @@ const expectedMethods = [
   'list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember',
   'cleanupQuarantineAccessReceipts', 'issueQuarantineAccessReceipt', 'requestQuarantineRecovery',
 ];
+const helperMethods=['ensureReceiptMaintenance'];
 function audit(code: string): string[] {
   const file = ts.createSourceFile('repository.ts', code, ts.ScriptTarget.Latest, true);
   const methods = new Map<string, string>(), sql: string[] = [];
@@ -29,9 +30,10 @@ function audit(code: string): string[] {
     .map(match => match[1]!).filter(table => !['SET', 'OF'].includes(table.toUpperCase()))));
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
-  if (methods.size !== expectedMethods.length || expectedMethods.some(name => !methods.has(name))) errors.push('method coverage');
+  if (methods.size !== expectedMethods.length+helperMethods.length || [...expectedMethods,...helperMethods].some(name => !methods.has(name))) errors.push('method coverage');
   for (const [name, body] of methods) {
-    if (!/return this\.db\.withTenant\(p\.orgId,/.test(body)) errors.push(`${name}: tenant context`);
+    if (name==='ensureReceiptMaintenance') { if(!/this\.db\.withTenant\(orgId,/.test(body))errors.push(`${name}: tenant context`); }
+    else if (!/return this\.db\.withTenant\(p\.orgId,/.test(body)) errors.push(`${name}: tenant context`);
   }
   if (!/const visible\s*=\s*`\(b\.owner_id=\$2 OR m\.user_id IS NOT NULL\)`/.test(code)) errors.push('visibility definition');
   if (!/LEFT JOIN whiteboard_members m ON m\.org_id=b\.org_id AND m\.board_id=b\.id AND m\.user_id=\$2/.test(code)) errors.push('membership scope');
@@ -55,7 +57,7 @@ function audit(code: string): string[] {
   const cleanup = methods.get('cleanupQuarantineAccessReceipts') ?? '';
   if (!cleanup.includes('cleanupAccessReceipts(s,p.orgId)')) errors.push('receipt cleanup: tenant binding');
   const issue = methods.get('issueQuarantineAccessReceipt') ?? '';
-  if (!/FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR UPDATE/.test(issue)) errors.push('receipt issue: authorization lock');
+  if (!/FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR SHARE/.test(issue)) errors.push('receipt issue: authorization lock');
   if (!issue.includes("b.owner_id=$2 OR m.role IN ('editor','viewer')") || !/\[p\.orgId,p\.userId,id,receiptId,sessionFingerprint,epoch,expiresAt\]/.test(issue)) {
     errors.push('receipt issue: actor proof');
   }
@@ -93,7 +95,7 @@ describe('whiteboard metadata repository permission exemption', () => {
     expect(mutated).not.toBe(source); expect(audit(mutated)).toContain('list: visibility predicate');
   });
   it('detects receipt issuance without the shared authorization lock', () => {
-    const mutated = source.replace('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE', 'FROM whiteboards WHERE org_id=$1 AND id=$2');
+    const mutated = source.replace('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR SHARE', 'FROM whiteboards WHERE org_id=$1 AND id=$2');
     expect(mutated).not.toBe(source); expect(audit(mutated)).toContain('receipt issue: authorization lock');
   });
   it('detects recovery proofs that stop binding the actor', () => {

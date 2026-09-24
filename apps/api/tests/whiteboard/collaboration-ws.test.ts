@@ -24,7 +24,7 @@ const outsider: Principal = { orgId: otherOrg, userId: owner.userId };
 // Resolver is the sole test seam: DB ACL, Yjs, workers, persistence and sockets are real.
 // Session token verification is tested by the existing HTTP/session integration lane.
 const identities = new Map([['owner-token', owner], ['editor-token', editor], ['viewer-token', viewer], ['outsider-token', outsider]]);
-let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string;
+let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string,maintenanceCalls=0;
 const sockets = new Set<WebSocket>();
 const soakKeys=generateKeyPairSync('ed25519'),soakPrivateKey=soakKeys.privateKey.export({type:'pkcs8',format:'pem'}).toString();
 const b64 = (value: Uint8Array) => Buffer.from(value).toString('base64');
@@ -114,7 +114,7 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await resetOrgs(orgId, otherOrg);
   await seedOrg({ orgId, projectId: 'wb-ws-project-a' }); await seedOrg({ orgId: otherOrg, projectId: 'wb-ws-project-b' });
   for (const principal of [owner, editor, viewer, outsider]) await addOrgMember(principal.orgId, principal.userId, 'consultant', null);
-  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db,{ensureScheduled:async()=>{}}); store = new PgWhiteboardCollaborationStore(db);
+  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db,{ensureScheduled:async()=>{maintenanceCalls++;}}); store = new PgWhiteboardCollaborationStore(db);
   server = createServer((_request, response) => { response.statusCode = 404; response.end(); });
   attachWhiteboardGateway(server, { boards: repo, store, soakLedgerPrivateKey:soakPrivateKey,principals: { resolve: async headers => identities.get(String(headers.authorization ?? '').replace(/^Bearer /, '')) ?? null } });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -126,6 +126,12 @@ afterAll(async () => {
   await db?.close(); await resetOrgs(orgId, otherOrg);
 });
 describe('real WebSocket whiteboard collaboration', () => {
+  it('admits 50 concurrent hellos with the production five-connection pool',async()=>{
+    const boardId=await seedBoard();
+    const peers=await Promise.all(Array.from({length:50},()=>connect(boardId,'owner-token')));
+    try{expect(peers).toHaveLength(50);expect(peers.every(peer=>peer.initialSync?.type==='sync')).toBe(true);expect(maintenanceCalls).toBe(1);}
+    finally{await Promise.all(peers.map(peer=>peer.close()));}
+  },20000);
   it('signs a server-owned soak ledger from real connection and committed operation evidence',async()=>{
     const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'owner-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial',requiredDurationMs:1,requiredOfflineMs:1,expectedClients:1,expectedWriters:1,expectedReconnects:0});
     try{
