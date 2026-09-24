@@ -16,6 +16,14 @@ export interface MemoryCardActOptions {
   readonly editedStatement?: string;
 }
 
+/** 撤销的结果（以服务端重读为准）：撤掉了 / 撤了但长期记忆里这条还有别的来源所以还在 / 服务端已经不让撤。 */
+export type UndoOutcome = "undone" | "kept" | "not_undoable";
+const UNDO_NOTE: Record<UndoOutcome, string> = {
+  undone: "已撤销，这条没有记到长期记忆",
+  kept: "已撤销这次的记住；长期记忆里这条还有别的来源，所以还在",
+  not_undoable: "已记住。长期记忆里这条还有别的来源，没法只撤这一次",
+};
+
 /** 契约 `KgMemoryCard.items[].statement` 的上限。 */
 const STATEMENT_MAX = 2000;
 
@@ -40,11 +48,11 @@ export function MemoryCard({
   card: KgMemoryCard;
   canAct: boolean;
   onAct: (decision: MemoryCardDecision, opts: MemoryCardActOptions) => Promise<KgMemoryCard>;
-  onUndo?: (claimId: string) => Promise<void>;
+  onUndo?: (claimId: string) => Promise<UndoOutcome>;
 }) {
   const isRemember = card.kind === "remember";
   const [current, setCurrent] = React.useState<KgMemoryCard>(card);
-  const [undone, setUndone] = React.useState(false);
+  const [undone, setUndone] = React.useState<UndoOutcome | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const original = card.items[0]?.statement ?? "";
@@ -90,13 +98,13 @@ export function MemoryCard({
 
   if (current.state === "done") {
     const rememberedId = isRemember ? current.items[0]?.claimId ?? null : null;
-    const canUndo = canAct && onUndo !== undefined && rememberedId !== null && !undone;
+    const canUndo = canAct && onUndo !== undefined && rememberedId !== null && undone === null;
     return (
       <div className="mt-2 flex flex-col gap-1" data-testid="kg-card-done">
         <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
           <Check aria-hidden className="h-3 w-3 text-success" />
           {isRemember
-            ? (undone ? "已撤销，这条没有记到长期记忆" : "已记住")
+            ? (undone !== null ? UNDO_NOTE[undone] : "已记住")
             : `已忘掉 ${String(current.items.length)} 条，之后的对话不再用到`}
           {canUndo ? (
             <>
@@ -107,8 +115,7 @@ export function MemoryCard({
                 className="underline-offset-2 transition-colors duration-base hover:underline disabled:opacity-50"
                 data-testid="kg-card-undo"
                 onClick={() => void run(async () => {
-                  await onUndo(rememberedId);
-                  setUndone(true);
+                  setUndone(await onUndo(rememberedId));
                 })}
               >
                 撤销

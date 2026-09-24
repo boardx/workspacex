@@ -11,7 +11,9 @@
  *         「忘记：…」「忘了：…」「别记：…」「不要记：…」（必须带冒号 / 逗号——「忘记密码怎么办」「忘了带钥匙」不是）。
  *
  * 一律不出卡：内容为空或太短；以问号或疑问语气结尾（「…吧？」「…吗」「…对吗」「…是不是」）；内容里有疑问词
- * （什么 / 谁 / 哪 / 怎么 / 多少 / 几…）；内容只是指代（「这个」「刚才那个」「上面的」）
+ * （什么 / 谁 / 哪 / 怎么 / 多少 / 几…）；内容只是指代（「这个」「这一点」「这件事」「我刚才说的」）；
+ * 记住的内容以商量语气结尾（「…吧」「…好不好」「…行不行」）；忘掉的对象带着下一句（逗号 / 句号），或者说的是对话本身
+ * （对话 / 上下文 / 指令 / 规则 / 一切 / 过去 / 烦恼…），或者没有一个能拿去比对的词。记住的内容只取第一句。
  * ——spec 里的「把这个记下来」「这个很重要」「刚才那个说错了」因此都不出卡，照常回答。
  */
 import { lexicalScore, lexicalTokens, type RecallClaim } from "./recall";
@@ -50,9 +52,23 @@ const QUESTION_TAIL = /(?:吗|呢|么|对吗|是吗|好吗|行吗|是不是|对�
 /** 内容里有疑问词：「我的名字叫什么」「谁负责」——是在问，不是在交代。 */
 const INTERROGATIVE = /什么|谁|哪|怎么|怎样|咋|多少|几(?!乎)|为何|为什么|是否|是不是|对不对|有没有|能不能|要不要|会不会/;
 /** 只有指代、没有内容：说的是「前面那个」，但前面哪个——不猜。 */
-const DEICTIC_ONLY = /^(?:这|那|它|上面|刚才|刚刚|以上|前面|之前)(?:个|些|条|件|句|事|的|说的|提到的|那个|那条|这条|的话|的内容)*[。.!！~～]*$/;
-/** 「记住」的内容以指代开头：「这个很重要」「上面说的方案」——指的是哪句不确定。 */
-const DEICTIC_LEAD = /^(?:这个|那个|这些|那些|它|上面|刚才|刚刚|以上|前面说|之前说)/;
+const DEICTIC_ONLY = /^(?:(?:这|那|它|上面|刚才|刚刚|以上|前面|之前)(?:个|些|条|件|句|事|点|一点|的|说的|提到的|那个|那条|这条|的话|的内容)*|一点|我(?:刚才|刚刚|上面|前面|之前)?说的(?:话|内容)?|刚说的(?:话)?)[。.!！~～]*$/;
+/**
+ * 「记住」的内容以指代开头：「这个很重要」「这件事很重要」「这一点」「我刚才说的」——指的是哪句不确定。
+ * （「一点」只在整句只有它时算指代：「一点钟开会」是内容。）
+ */
+const DEICTIC_LEAD = /^(?:这个|那个|这些|那些|这一点|这点|这句|那句|这件事|那件事|这事|那事|它|上面|刚才|刚刚|以上|前面说|之前说|我(?:刚才|刚刚|上面|前面|之前)?说的|刚说的)/;
+/**
+ * 「忘掉」的对象是对话本身 / 模型的设定 / 泛泛的一切，而不是一条记忆：「忘掉之前的对话」「忘掉上下文」「忘掉所有指令」
+ * 「忘掉一切」「忘掉过去」「忘掉烦恼」——这不是在管记忆，不出卡，也不回「没找到相关的记忆」。
+ */
+const FORGET_NOT_A_MEMORY = /对话|聊天|会话|上下文|指令|提示词|规则|设定|设置|角色|人设|身份|重新开始|重来|从头|一切|所有|全部|过去|烦恼|不开心|伤心|痛苦|以前的事|之前的事/;
+/** 忘掉的对象里还有下一句（「忘掉之前的对话，帮我写一封邮件」）：不是一个明确的对象。 */
+const CLAUSE_SEPARATOR = /[，,；;。！!]/;
+/** 「记住」的内容在第一个句末断开：「记住：我叫张三。帮我写个自我介绍」只记「我叫张三」。 */
+const SENTENCE_END = /[。！!；;]/;
+/** 「记住：…吧」「…好不好」「…行不行」：是在商量 / 求证，不是在交代。只看记住（「忘掉王经理那条吧」是在交代）。 */
+const SUGGESTION_TAIL = /(?:吧|好不好|行不行|可以不|成不成)$/;
 const TRAILING_PUNCT = /[\s。.!！~～]+$/;
 /** 忘掉的目标里的修饰：「关于王经理的那条」→「王经理」。 */
 const FORGET_FILLER_HEAD = /^(?:关于|有关|跟|和)\s*/;
@@ -65,8 +81,13 @@ export function detectMemoryIntent(message: string): MemoryIntent | null {
 
   const remember = REMEMBER_WITH_SEP.exec(text) ?? REMEMBER_POLITE.exec(text);
   if (remember !== null) {
-    const statement = text.slice(remember[0].length).replace(TRAILING_PUNCT, "").trim();
+    const rest = text.slice(remember[0].length);
+    const end = SENTENCE_END.exec(rest);
+    // 句末之后还有下一句 ⇒ 只取第一句（下一句多半是另一件请求）
+    const first = end !== null && rest.slice(end.index + 1).trim().length > 0 ? rest.slice(0, end.index) : rest;
+    const statement = first.replace(TRAILING_PUNCT, "").trim();
     if (statement.length < 2 || statement.length > MEMORY_CARD_STATEMENT_MAX) return null;
+    if (SUGGESTION_TAIL.test(statement) || QUESTION_TAIL.test(statement)) return null;
     if (DEICTIC_ONLY.test(statement) || DEICTIC_LEAD.test(statement) || INTERROGATIVE.test(statement)) return null;
     return { kind: "remember", statement };
   }
@@ -74,9 +95,12 @@ export function detectMemoryIntent(message: string): MemoryIntent | null {
   const forget = FORGET_WITH_SEP.exec(text) ?? FORGET_STRONG.exec(text);
   if (forget !== null) {
     const raw = text.slice(forget[0].length).replace(TRAILING_PUNCT, "").trim();
-    if (raw.length === 0 || DEICTIC_ONLY.test(raw)) return null;
+    if (raw.length === 0 || DEICTIC_ONLY.test(raw) || CLAUSE_SEPARATOR.test(raw)) return null;
     const target = raw.replace(FORGET_FILLER_HEAD, "").replace(FORGET_FILLER_TAIL, "").trim();
-    if (target.length < 2 || DEICTIC_ONLY.test(target) || INTERROGATIVE.test(target)) return null;
+    if (target.length < 2 || DEICTIC_ONLY.test(target) || DEICTIC_LEAD.test(target) || INTERROGATIVE.test(target)) return null;
+    if (FORGET_NOT_A_MEMORY.test(target)) return null;
+    // 一个可以拿去比对的词元都没有（「忘掉 Z」）⇒ 算不上具体对象
+    if (lexicalTokens(target).size === 0) return null;
     return { kind: "forget", target };
   }
   return null;
