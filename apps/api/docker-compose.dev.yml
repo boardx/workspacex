@@ -73,7 +73,9 @@ services:
     # issue #4105 —— MinIO 又撤掉了此前公开的 Quay manifest，CI 匿名拉取稳定返回
     # unauthorized。Chainguard 镜像保留同一 minio 命令与 MINIO_ROOT_* 契约；固定多架构
     # index digest，避免 latest 漂移时在无人改仓库的情况下再次打红所有对象存储 E2E。
-    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
+    extends:
+      file: docker-compose.minio-image.yml
+      service: minio-image
     command: server /data --console-address ":59001"
     environment:
       MINIO_ROOT_USER: minio_dev
