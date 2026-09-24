@@ -25,6 +25,7 @@ const BOARD_ENV = [
   "WORKSPACEX_BOARD_BLOB_PROVIDER",
   "WORKSPACEX_BOARD_SINGLE_REPLICA",
   "WORKSPACEX_BOARD_BLOB_ROOT",
+  "WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS",
   "WORKSPACEX_BOARD_HOSTED_PROVIDER",
   "WORKSPACEX_BOARD_KEY_PROVIDER",
   "WORKSPACEX_BOARD_KEY_DIRECTORY",
@@ -74,6 +75,7 @@ function restoreEnv(): void {
 function configureProductionBoardStorage(): void {
   process.env.WORKSPACEX_BOARD_SINGLE_REPLICA = "true";
   process.env.WORKSPACEX_BOARD_BLOB_ROOT = "/var/lib/workspacex-required-env-test";
+  process.env.WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS = "604800000";
   process.env.WORKSPACEX_BOARD_KEY_PROVIDER = "versioned-kms";
   process.env.WORKSPACEX_BOARD_KEY_DIRECTORY = "/var/lib/workspacex-required-env-test/keys";
   delete process.env.WORKSPACEX_BOARD_KMS_ENDPOINT;
@@ -243,6 +245,50 @@ describe("verify-required-env: fail-closed before the restart, missing var named
       message: "WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms",
     });
     expect(process.env.WORKSPACEX_BOARD_KEY_PROVIDER).toBe("not-a-key-provider");
+  });
+
+  it("Board rollback window 缺失时点名变量，且探测后完整恢复缺失状态", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
+    delete process.env.WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toContain("WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS");
+    expect(result.invalidVars).not.toContainEqual(expect.objectContaining({ name: "WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS" }));
+    expect(process.env.WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS).toBeUndefined();
+  });
+
+  it("Board rollback window 非法时归为 invalid 并恢复原值", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
+    process.env.WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS = "0";
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.invalidVars).toContainEqual({
+      name: "WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS",
+      message: "WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS must be a positive safe integer",
+    });
+    expect(process.env.WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS).toBe("0");
+  });
+
+  it("Board rollback window 合法时 production kernel 能正常启动", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
+
+    await expect(probeRequiredEnv()).resolves.toMatchObject({ ok: true, missingVars: [], invalidVars: [] });
   });
 
   it("Hosted provider 缺失时沿真实 production DI 汇总完整 AWS S3 配置并恢复环境", async () => {

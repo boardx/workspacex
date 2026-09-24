@@ -182,6 +182,9 @@ const child = spawn(process.execPath, [TSX_BIN, "src/main.ts"], {
     WORKSPACEX_BOARD_BLOB_PROVIDER: "filesystem",
     WORKSPACEX_BOARD_SINGLE_REPLICA: "true",
     WORKSPACEX_BOARD_BLOB_ROOT: "/var/lib/workspacex-runtime-gate/board-content",
+    // Online migration cutover remains rollback-capable until this explicit production
+    // window elapses. G7 must exercise the same fail-closed startup contract as deployment.
+    WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS: "604800000",
     WORKSPACEX_BOARD_CONTENT_KEYS:
       process.env.WORKSPACEX_BOARD_CONTENT_KEYS ??
       '{"1":"HR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0="}',

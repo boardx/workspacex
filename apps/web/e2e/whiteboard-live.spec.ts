@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
+import { expect, test, type Page, type Locator, type APIRequestContext } from '@playwright/test';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
@@ -33,6 +33,19 @@ async function request(api: APIRequestContext, token: string, method: string, pa
   expect(response.ok(),`${method} ${path} returned ${response.status()}`).toBe(true);return response;
 }
 async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
+async function dragBy(page: Page, object: Locator, dx: number, dy: number) {
+  const box = await object.boundingBox();
+  expect(box, 'Board object has a draggable box').toBeTruthy();
+  const x = box!.x + box!.width / 2, y = box!.y + box!.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 4 }); await page.mouse.up();
+}
+async function keyboardSelect(page: Page, object: Locator, additive = false) {
+  await object.focus();
+  if (additive) await page.keyboard.down('Shift');
+  await page.keyboard.press('Enter');
+  if (additive) await page.keyboard.up('Shift');
+}
+async function objectTop(object: Locator) { return object.evaluate(node => Number.parseFloat((node as HTMLElement).style.top)); }
 
 test('independent users collaborate, persist, enforce viewer permissions and clear revoked view',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
@@ -53,6 +66,19 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
     }
     await owner.getByTestId('board-add-sticky').click();
     await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
+    const first=owner.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await dragBy(owner,first,40,30);
+    await owner.getByTestId('board-add-sticky').click();await owner.getByLabel('对象文字',{exact:true}).fill('批量排列二');await dragBy(owner,owner.getByRole('button',{name:'图形：批量排列二',exact:true}),180,120);
+    await owner.getByTestId('board-add-sticky').click();await owner.getByLabel('对象文字',{exact:true}).fill('批量排列三');await dragBy(owner,owner.getByRole('button',{name:'图形：批量排列三',exact:true}),340,210);await synced(owner);
+    const second=owner.getByRole('button',{name:'图形：批量排列二',exact:true}),third=owner.getByRole('button',{name:'图形：批量排列三',exact:true});
+    const before=await Promise.all([objectTop(first),objectTop(second),objectTop(third)]);
+    await keyboardSelect(owner,first);await keyboardSelect(owner,second,true);await keyboardSelect(owner,third,true);
+    await test.info().attach('board-bulk-before',{body:await owner.screenshot(),contentType:'image/png'});
+    await owner.getByTestId('board-align-top').focus();await owner.keyboard.press('Enter');
+    await expect(owner.getByText(/一次撤销可恢复整批/)).toBeVisible();
+    await expect.poll(async()=>Promise.all([objectTop(first),objectTop(second),objectTop(third)])).toEqual([Math.min(...before),Math.min(...before),Math.min(...before)]);
+    await test.info().attach('board-bulk-after',{body:await owner.screenshot(),contentType:'image/png'});
+    await owner.getByText('撤销',{exact:true}).focus();await owner.keyboard.press('Enter');
+    await expect.poll(async()=>Promise.all([objectTop(first),objectTop(second),objectTop(third)])).toEqual(before);
     const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
     await editorNote.click();await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
     await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});

@@ -85,6 +85,7 @@ const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: st
   { pattern: /^filesystem Board blob storage requires (\w+)=true in production$/, placeholder: "true" },
   { pattern: /^(\w+) must be an explicit absolute durable path in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
   { pattern: /^(\w+) must point to durable storage in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
+  { pattern: /^(\w+) must be a positive safe integer$/, placeholder: "1" },
 ];
 
 function extractEnvFailure(message: string): { name: string; placeholder: string; hostedReadinessBoundary: boolean } | null {
