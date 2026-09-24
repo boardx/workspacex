@@ -13,6 +13,7 @@ import {
   confirmDigitalInterviewQuestions,
   confirmDigitalInterviewBrief,
   decideDigitalInterviewReadiness,
+  reviewDigitalInterviewReport,
   generateDigitalInterviewReportStream,
   loadDigitalInterviewWorkflow,
   observeDigitalInterviewReportStream,
@@ -302,6 +303,17 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     } catch (cause) { showError(cause); }
   }
 
+  async function reviewReport(status: "approved" | "changes_requested", note: string | null) {
+    if (!view.report) return;
+    const payload = { reportId: view.report.reportId, status, note, expectedVersion: view.version };
+    const operation = "review-report";
+    try {
+      const next = await reviewDigitalInterviewReport({ interviewId: view.interviewId, ...payload,
+        requestId: requestIdFor(operation, payload) });
+      retainView(next, operation);
+    } catch (cause) { showError(cause); }
+  }
+
   async function generateReport() {
     const payload = { expectedVersion: view.version };
     const operation = "generate-report";
@@ -375,7 +387,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "report" && (view.report ? <><LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
-        }} /><DigitalInterviewEvidenceReview view={view} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
+        }} /><DigitalInterviewEvidenceReview view={view} pending={confirming} onReview={(status, note) => void reviewReport(status, note)} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
       </fieldset>
     </div></main>
