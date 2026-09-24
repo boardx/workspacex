@@ -80,7 +80,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/whiteboard/pg-board-content-migration.ts",
-    "#4048: this is an internal metadata/content relocation worker with no HTTP disclosure surface. It reads one explicitly tenant-scoped Board under FOR UPDATE, publishes only digests/watermarks, and clears legacy bytea only after verified CAS cutover; it never returns Board content to a requester and never deletes idempotency rows. tests/whiteboard/content-migration-repository-guard.test.ts mechanically pins tenant SQL, withTenant-only access, board locking, CAS watermarks, bounded NULL-only cleanup and table scope with mutation counterexamples. PGlite runtime coverage lives in board-content-migration-pglite-runtime.test.ts. Remove this entry if either proof disappears or a request-facing surface is added.",
+    "#4048: this is an internal CLI-triggered metadata/content relocation worker with no HTTP disclosure surface. It captures one tenant-scoped Board watermark under a short FOR UPDATE, reads content in a separate unlocked single-statement MVCC snapshot, publishes only digests/watermarks, and clears legacy bytea only after revalidation plus CAS cutover; it never returns Board content to a requester and never deletes idempotency rows. tests/whiteboard/content-migration-repository-guard.test.ts mechanically pins tenant SQL, short locking, unlocked inventory, CAS watermarks, bounded NULL-only cleanup and table scope with mutation counterexamples. PGlite runtime coverage lives in board-content-migration-pglite-runtime.test.ts. Remove this entry if either proof disappears or a request-facing surface is added.",
   ],
   [
     "src/infrastructure/whiteboard/pg-whiteboard-transfer-store.ts",

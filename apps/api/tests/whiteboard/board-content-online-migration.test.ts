@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
-import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory } from '../../src/application/whiteboard/content-migration-ports';
+import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
 import { MigrateBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
 import { yjsSemanticallyEqual } from '../../src/domain/whiteboard/yjs-semantic-equivalence';
@@ -84,12 +84,15 @@ class MemoryRepository implements BoardContentMigrationRepository {
     this.record = { ...this.record, attempts: this.record.attempts + 1, lastErrorCode: null };
     return structuredClone(this.record);
   }
-  async captureInventory() { return structuredClone({ ...this.source, storageKind: this.storageKind, snapshot: this.legacyBytesPresent ? this.source.snapshot : null, updates: this.source.updates.map(update => ({ ...update, update: new Uint8Array(update.update) })) }); }
+  async captureWatermark(): Promise<LegacyBoardWatermark> { return structuredClone({ epoch: this.source.epoch, headSeq: this.source.headSeq, fencingToken: this.source.fencingToken, storageKind: this.storageKind }); }
+  async readInventory(_tenant: string, _board: string, watermark: LegacyBoardWatermark) {
+    return structuredClone({ ...watermark, snapshot: this.legacyBytesPresent ? this.source.snapshot : null, updates: this.source.updates.filter(update => update.seq <= watermark.headSeq).map(update => ({ ...update, update: new Uint8Array(update.update) })) });
+  }
   async saveCandidate(_tenant: string, _board: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate) { this.assertWatermark(current); return this.set({ state: 'candidate_ready', candidate }); }
   async markVerified(_tenant: string, _board: string, current: BoardContentMigrationRecord) { this.assertWatermark(current); return this.set({ state: 'verified' }); }
   async cutover(_tenant: string, _board: string, current: BoardContentMigrationRecord) { this.assertWatermark(current); this.storageKind = 'blob_primary'; return this.set({ state: 'cutover' }); }
   async cleanupBatch() { this.legacyBytesPresent = false; return this.set({ state: 'completed', cleanupThroughSeq: this.source.headSeq }); }
-  async resetForChangedSource(_tenant: string, _board: string, _record: BoardContentMigrationRecord, source: LegacyBoardInventory) { return this.set({ state: 'enrolled', sourceEpoch: source.epoch, sourceHeadSeq: source.headSeq, sourceFencingToken: source.fencingToken, candidate: null, cleanupThroughSeq: 0, lastErrorCode: 'WATERMARK_CHANGED' }); }
+  async resetForChangedSource(_tenant: string, _board: string, _record: BoardContentMigrationRecord, source: LegacyBoardWatermark) { return this.set({ state: 'enrolled', sourceEpoch: source.epoch, sourceHeadSeq: source.headSeq, sourceFencingToken: source.fencingToken, candidate: null, cleanupThroughSeq: 0, lastErrorCode: 'WATERMARK_CHANGED' }); }
   async recordFailure(_tenant: string, _board: string, requestedJob: string, code: string) {
     if (this.record?.jobId === requestedJob && !['cutover', 'cleaning', 'completed'].includes(this.record.state)) this.record = { ...this.record, attempts: this.record.attempts + 1, lastErrorCode: code };
   }
@@ -101,6 +104,19 @@ class MemoryRepository implements BoardContentMigrationRepository {
   private assertWatermark(current: BoardContentMigrationRecord) {
     if (this.storageKind !== 'legacy_pg' || current.sourceEpoch !== this.source.epoch || current.sourceHeadSeq !== this.source.headSeq || current.sourceFencingToken !== this.source.fencingToken) throw new Error('WHITEBOARD_MIGRATION_CAS_LOST');
   }
+}
+
+class DeferredReadRepository extends MemoryRepository {
+  private announce!: () => void;
+  readonly readStarted = new Promise<void>(resolve => { this.announce = resolve; });
+  private continueRead!: () => void;
+  private readonly readGate = new Promise<void>(resolve => { this.continueRead = resolve; });
+  override async readInventory(tenant: string, board: string, watermark: LegacyBoardWatermark) {
+    this.announce();
+    await this.readGate;
+    return super.readInventory(tenant, board, watermark);
+  }
+  release() { this.continueRead(); }
 }
 
 describe('online legacy PG to Board blob migration', () => {
@@ -147,6 +163,19 @@ describe('online legacy PG to Board blob migration', () => {
     }
   });
 
+  it('revalidates a verified candidate immediately before cutover', async () => {
+    for (const failure of ['missing', 'corrupt'] as const) {
+      const repository = new MemoryRepository(fixture().inventory), blobs = new MemoryBlobs(), service = new MigrateBoardContent(repository, blobs, codec, 1);
+      await service.step({ tenantId, boardId, jobId });
+      expect((await service.step({ tenantId, boardId, jobId })).state).toBe('verified');
+      if (failure === 'missing') blobs.values.delete(repository.record!.candidate!.manifestKey);
+      else blobs.corruptReads = true;
+      await expect(service.step({ tenantId, boardId, jobId })).rejects.toMatchObject({ code: failure === 'missing' ? 'NOT_FOUND' : 'INTEGRITY_FAILED' });
+      expect(repository.record?.state).toBe('verified');
+      expect(repository.storageKind).toBe('legacy_pg');
+    }
+  });
+
   it('loses the candidate watermark CAS on a concurrent write, then retries without losing seq', async () => {
     const { inventory } = fixture(), repository = new MemoryRepository(inventory), blobs = new MemoryBlobs(), service = new MigrateBoardContent(repository, blobs, codec, 1);
     await service.step({ tenantId, boardId, jobId });
@@ -169,6 +198,17 @@ describe('online legacy PG to Board blob migration', () => {
     blobs.release();
     expect((await migration).state).toBe('enrolled');
     expect(repository.record?.state).toBe('enrolled');
+    expect(repository.storageKind).toBe('legacy_pg');
+  });
+
+  it('does not hold the Board row lock while the MVCC content scan is pending', async () => {
+    const repository = new DeferredReadRepository(fixture().inventory), service = new MigrateBoardContent(repository, new MemoryBlobs(), codec, 1);
+    const migration = service.step({ tenantId, boardId, jobId });
+    await repository.readStarted;
+    repository.source = { ...repository.source, headSeq: 2, updates: [...repository.source.updates, { seq: 2, update: repository.source.updates[0]!.update }] };
+    repository.release();
+    expect((await migration).state).toBe('enrolled');
+    expect(repository.record).toMatchObject({ sourceHeadSeq: 2, lastErrorCode: 'WATERMARK_CHANGED' });
     expect(repository.storageKind).toBe('legacy_pg');
   });
 

@@ -5,11 +5,14 @@ export interface LegacyBoardUpdate {
   update: Uint8Array;
 }
 
-export interface LegacyBoardInventory {
+export interface LegacyBoardWatermark {
   epoch: number;
   headSeq: number;
   fencingToken: number;
   storageKind: 'legacy_pg' | 'blob_primary';
+}
+
+export interface LegacyBoardInventory extends LegacyBoardWatermark {
   snapshot: Uint8Array | null;
   updates: LegacyBoardUpdate[];
 }
@@ -36,12 +39,13 @@ export interface BoardContentMigrationRecord {
 
 export interface BoardContentMigrationRepository {
   loadOrEnroll(tenantId: string, boardId: string, jobId: string): Promise<BoardContentMigrationRecord>;
-  captureInventory(tenantId: string, boardId: string): Promise<LegacyBoardInventory>;
+  captureWatermark(tenantId: string, boardId: string): Promise<LegacyBoardWatermark>;
+  readInventory(tenantId: string, boardId: string, watermark: LegacyBoardWatermark): Promise<LegacyBoardInventory>;
   saveCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<BoardContentMigrationRecord>;
   markVerified(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<BoardContentMigrationRecord>;
   cutover(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<BoardContentMigrationRecord>;
   cleanupBatch(tenantId: string, boardId: string, record: BoardContentMigrationRecord, batchSize: number): Promise<BoardContentMigrationRecord>;
-  resetForChangedSource(tenantId: string, boardId: string, record: BoardContentMigrationRecord, inventory: LegacyBoardInventory): Promise<BoardContentMigrationRecord>;
+  resetForChangedSource(tenantId: string, boardId: string, record: BoardContentMigrationRecord, watermark: LegacyBoardWatermark): Promise<BoardContentMigrationRecord>;
   recordFailure(tenantId: string, boardId: string, jobId: string, errorCode: string): Promise<void>;
 }
 

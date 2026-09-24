@@ -1,5 +1,5 @@
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
-import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory } from '../../application/whiteboard/content-migration-ports';
+import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory, LegacyBoardWatermark } from '../../application/whiteboard/content-migration-ports';
 import { toOrgId } from '../../domain/org-id';
 
 type MigrationRow = {
@@ -45,22 +45,35 @@ class PgBoardContentMigrationTransaction {
     return record(loaded.rows[0]);
   }
 
-  async captureInventory(): Promise<LegacyBoardInventory> {
-    const source = await this.session.query<{ epoch: number; seq: string; snapshot: Buffer | null; storage_kind: 'legacy_pg' | 'dual_write' | 'blob_primary'; fencing_token: string }>(
-      `SELECT d.epoch,d.seq,d.snapshot,h.storage_kind,h.fencing_token FROM whiteboard_documents d JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2 FOR UPDATE OF d,h`,
+  async captureWatermark(): Promise<LegacyBoardWatermark> {
+    const source = await this.session.query<{ epoch: number; seq: string; storage_kind: 'legacy_pg' | 'dual_write' | 'blob_primary'; fencing_token: string }>(
+      `SELECT d.epoch,d.seq,h.storage_kind,h.fencing_token FROM whiteboard_documents d JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2 FOR UPDATE OF d,h`,
       [this.tenantId, this.boardId]);
     const row = source.rows[0];
     if (!row) throw new Error('WHITEBOARD_DOCUMENT_NOT_FOUND');
     if (row.storage_kind === 'dual_write') throw new Error('WHITEBOARD_MIGRATION_DUAL_WRITE_UNSUPPORTED');
-    const foreignEpoch = await this.session.query<{ count: string }>(`SELECT count(*)::text count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch<>$3`, [this.tenantId, this.boardId, row.epoch]);
-    if (safe(foreignEpoch.rows[0]?.count ?? '0') !== 0) throw new Error('LEGACY_CROSS_EPOCH_UPDATE');
-    const updates = await this.session.query<{ seq: string; update: Buffer | null }>(`SELECT seq,update FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 ORDER BY seq`, [this.tenantId, this.boardId, row.epoch]);
-    return { epoch: safe(row.epoch), headSeq: safe(row.seq), fencingToken: safe(row.fencing_token), storageKind: row.storage_kind,
-      snapshot: row.snapshot === null ? null : new Uint8Array(row.snapshot),
-      updates: updates.rows.map(update => {
-        if (update.update === null) throw new Error('LEGACY_UPDATE_MISSING');
-        return { seq: safe(update.seq), update: new Uint8Array(update.update) };
-      }) };
+    return { epoch: safe(row.epoch), headSeq: safe(row.seq), fencingToken: safe(row.fencing_token), storageKind: row.storage_kind };
+  }
+
+  async readInventory(watermark: LegacyBoardWatermark): Promise<LegacyBoardInventory> {
+    const rows = await this.session.query<{ kind: number; epoch: number; seq: string; bytes: Buffer | null; foreign_count: string }>(`WITH source AS (
+      SELECT epoch,seq,snapshot FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND seq=$4
+    ), current_updates AS (
+      SELECT epoch,seq,update FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND seq BETWEEN 1 AND $4
+    ), foreign_updates AS (
+      SELECT count(*)::text count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch<>$3
+    )
+    SELECT 0 kind,s.epoch,s.seq,s.snapshot bytes,f.count foreign_count FROM source s CROSS JOIN foreign_updates f
+    UNION ALL
+    SELECT 1 kind,u.epoch,u.seq,u.update bytes,f.count foreign_count FROM current_updates u CROSS JOIN foreign_updates f
+    ORDER BY kind,seq`, [this.tenantId, this.boardId, watermark.epoch, watermark.headSeq]);
+    const source = rows.rows[0];
+    if (!source || source.kind !== 0 || safe(source.epoch) !== watermark.epoch || safe(source.seq) !== watermark.headSeq) throw new Error('WHITEBOARD_MIGRATION_WATERMARK_CHANGED');
+    if (safe(source.foreign_count) !== 0) throw new Error('LEGACY_CROSS_EPOCH_UPDATE');
+    return { ...watermark, snapshot: source.bytes === null ? null : new Uint8Array(source.bytes), updates: rows.rows.slice(1).map(row => {
+      if (row.kind !== 1 || safe(row.epoch) !== watermark.epoch || row.bytes === null) throw new Error('LEGACY_UPDATE_MISSING');
+      return { seq: safe(row.seq), update: new Uint8Array(row.bytes) };
+    }) };
   }
 
   async saveCandidate(current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<BoardContentMigrationRecord> {
@@ -99,7 +112,7 @@ class PgBoardContentMigrationTransaction {
     return record(next.rows[0]);
   }
 
-  async resetForChangedSource(current: BoardContentMigrationRecord, inventory: LegacyBoardInventory): Promise<BoardContentMigrationRecord> {
+  async resetForChangedSource(current: BoardContentMigrationRecord, inventory: LegacyBoardWatermark): Promise<BoardContentMigrationRecord> {
     if (inventory.storageKind !== 'legacy_pg') throw new Error('WHITEBOARD_MIGRATION_SOURCE_CHANGED');
     const locked = await this.session.query<{ epoch: number; head_seq: string; fencing_token: string; storage_kind: string }>(`SELECT epoch,head_seq,fencing_token,storage_kind FROM whiteboard_content_heads WHERE org_id=$1 AND board_id=$2 FOR UPDATE`, [this.tenantId, this.boardId]);
     const head = locked.rows[0];
@@ -130,12 +143,13 @@ export class PgBoardContentMigrationRepository implements BoardContentMigrationR
     return this.db.withTenant(toOrgId(tenantId), session => operation(new PgBoardContentMigrationTransaction(session, tenantId, boardId)));
   }
   loadOrEnroll(tenantId: string, boardId: string, jobId: string) { return this.run(tenantId, boardId, tx => tx.loadOrEnroll(jobId)); }
-  captureInventory(tenantId: string, boardId: string) { return this.run(tenantId, boardId, tx => tx.captureInventory()); }
+  captureWatermark(tenantId: string, boardId: string) { return this.run(tenantId, boardId, tx => tx.captureWatermark()); }
+  readInventory(tenantId: string, boardId: string, watermark: LegacyBoardWatermark) { return this.run(tenantId, boardId, tx => tx.readInventory(watermark)); }
   saveCandidate(tenantId: string, boardId: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate) { return this.run(tenantId, boardId, tx => tx.saveCandidate(current, candidate)); }
   markVerified(tenantId: string, boardId: string, current: BoardContentMigrationRecord) { return this.run(tenantId, boardId, tx => tx.markVerified(current)); }
   cutover(tenantId: string, boardId: string, current: BoardContentMigrationRecord) { return this.run(tenantId, boardId, tx => tx.cutover(current)); }
   cleanupBatch(tenantId: string, boardId: string, current: BoardContentMigrationRecord, batchSize: number) { return this.run(tenantId, boardId, tx => tx.cleanupBatch(current, batchSize)); }
-  resetForChangedSource(tenantId: string, boardId: string, current: BoardContentMigrationRecord, inventory: LegacyBoardInventory) { return this.run(tenantId, boardId, tx => tx.resetForChangedSource(current, inventory)); }
+  resetForChangedSource(tenantId: string, boardId: string, current: BoardContentMigrationRecord, inventory: LegacyBoardWatermark) { return this.run(tenantId, boardId, tx => tx.resetForChangedSource(current, inventory)); }
   async recordFailure(tenantId: string, boardId: string, jobId: string, errorCode: string): Promise<void> {
     await this.db.withTenant(toOrgId(tenantId), session => session.query(`UPDATE whiteboard_content_migrations SET attempts=attempts+1,last_error_code=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2 AND job_id=$3 AND state NOT IN ('cutover','cleaning','completed')`, [tenantId, boardId, jobId, errorCode]));
   }

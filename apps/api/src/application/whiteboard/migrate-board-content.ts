@@ -1,5 +1,5 @@
 import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from './blob-ports';
-import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory } from './content-migration-ports';
+import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory, LegacyBoardWatermark } from './content-migration-ports';
 import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
 import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
 import { mergeLegacyYjsContent, yjsSemanticallyEqual } from '../../domain/whiteboard/yjs-semantic-equivalence';
@@ -52,25 +52,27 @@ export class MigrateBoardContent {
       if (record.jobId !== input.jobId) throw new Error('JOB_CONFLICT');
       if (record.state === 'completed') return report(record);
       if (record.state === 'enrolled') {
-        const inventory = await this.repository.captureInventory(input.tenantId, input.boardId);
+        const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
+        const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
         if (inventory.storageKind === 'blob_primary') throw new Error('ALREADY_BLOB_PRIMARY');
         this.assertInventory(inventory);
         if (!this.sameWatermark(record, inventory)) {
           record = await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory);
           return report(record);
         }
-        // Object I/O intentionally happens after captureInventory's short row-lock
+        // Object I/O intentionally happens after captureWatermark's short row-lock
         // transaction. saveCandidate re-locks and rejects a changed watermark.
         const candidate = await this.buildCandidate(input.tenantId, input.boardId, inventory);
         try { return report(await this.repository.saveCandidate(input.tenantId, input.boardId, record, candidate)); }
         catch (error) {
           if (!isCasLost(error)) throw error;
-          const current = await this.repository.captureInventory(input.tenantId, input.boardId);
+          const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
           return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
         }
       }
       if (record.state === 'candidate_ready') {
-        const inventory = await this.repository.captureInventory(input.tenantId, input.boardId);
+        const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
+        const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
         this.assertInventory(inventory);
         if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory));
         const source = this.sourceDocument(inventory);
@@ -79,15 +81,22 @@ export class MigrateBoardContent {
         try { return report(await this.repository.markVerified(input.tenantId, input.boardId, record)); }
         catch (error) {
           if (!isCasLost(error)) throw error;
-          const current = await this.repository.captureInventory(input.tenantId, input.boardId);
+          const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
           return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
         }
       }
       if (record.state === 'verified') {
+        const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
+        const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
+        this.assertInventory(inventory);
+        if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory));
+        const source = this.sourceDocument(inventory);
+        const candidate = await this.readCandidate(input.tenantId, input.boardId, record);
+        if (!yjsSemanticallyEqual(source, candidate)) throw new Error('SEMANTIC_MISMATCH');
         try { return report(await this.repository.cutover(input.tenantId, input.boardId, record)); }
         catch (error) {
           if (!isCasLost(error)) throw error;
-          const current = await this.repository.captureInventory(input.tenantId, input.boardId);
+          const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
           return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
         }
       }
@@ -99,7 +108,7 @@ export class MigrateBoardContent {
     }
   }
 
-  private sameWatermark(record: BoardContentMigrationRecord, inventory: LegacyBoardInventory): boolean {
+  private sameWatermark(record: BoardContentMigrationRecord, inventory: LegacyBoardWatermark): boolean {
     return inventory.storageKind === 'legacy_pg' && inventory.epoch === record.sourceEpoch
       && inventory.headSeq === record.sourceHeadSeq && inventory.fencingToken === record.sourceFencingToken;
   }
