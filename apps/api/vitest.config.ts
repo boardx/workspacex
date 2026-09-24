@@ -46,6 +46,13 @@ export default defineConfig({
        */
       MODEL_CREDENTIAL_KEY: "vitest-key-548-not-a-production-secret",
       /**
+       * Blob-primary Board collaboration is wired through the real kernel in HTTP
+       * tests. Give that kernel an explicit versioned TEST master key; the runtime
+       * resolver itself stays fail-closed when deployment configuration omits it.
+       * `board-blob-codec.test.ts` owns the missing-key counterexample.
+       */
+      WORKSPACEX_BOARD_CONTENT_KEYS: '{"1":"HR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0="}',
+      /**
        * 2026-09-09（agui-bridge 系列反复 30s 超时的根因之一）：中继（`agui-bridge.ts` /
        * `stream-run.ts`）的默认预算是 900s——为真实 devapp 的慢 run 定的，成立。但测试
        * 进程里每条用例自己的上限是 30s（真实耗时 0.5–1.1s）。两者相差 30 倍，后果不是
