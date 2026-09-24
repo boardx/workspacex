@@ -38,13 +38,30 @@ describe("preferredChatModel: MLX runner (#3749 R9)", () => {
 
 describe("startup pulls (#3749)", () => {
   it("the meta model is never in the pull list: it is an optimisation, not a requirement", () => {
+    /*
+      ⚠ 2026-09-24：这条原本还断言那一行**必须含 `c.chatModel`**。那句被**删掉**了，
+        不是削弱门控——它钉住的正是当天发现的缺陷本身：
+
+        拉取清单直接用 `c.chatModel` 时，一旦 GGUF 从 mac-arm64 包里去掉（体积优先的
+        人类决策），包里只有 `qwen3.5:4b-mlx`，这里就判「没有 qwen3.5:4b」并**从网上
+        下载 3.2 GB**，把「模型随包、零网络首次运行」的目的整个抹掉
+        （实测日志：`[ollama] 拉取 qwen3.5:4b 10%（0.3/3.2 GB）`）。
+
+        修法是让清单从 `preferredChatModel` 派生，而那条断言会把修法判成违规。
+        「清单必须从选型派生」现在由 `pull-list-derives-from-selection.test.ts` 钉住，
+        本条只保留它原本的意图：**元模型永不进清单**。
+
+      并且判据从「那一行」放宽到**整个拉取段**——原来只看一行，把 `c.metaModel`
+      挪到下一行就能绕过。
+    */
     const up = readFileSync(new URL("../src/up.ts", import.meta.url), "utf8");
-    const line = up.split("\n").find((l) => l.includes("for (const model of ["));
-    expect(line, "the pull loop must exist").toBeTruthy();
-    expect(line).toContain("c.chatModel");
-    expect(line).toContain("c.embeddingModel");
+    const i = up.indexOf("if (opts.pullModel !== false)");
+    expect(i, "the pull step must exist").toBeGreaterThan(-1);
+    const block = up.slice(i, i + 2600);
+    expect(block).toContain("for (const model of [");
+    expect(block).toContain("c.embeddingModel");
     // it was here once, and every first start then pulled 2.6 GB for a model the machine
     // would decline to use (user-visible: 7 minutes stuck on 「检查本地模型」)
-    expect(line).not.toContain("c.metaModel");
+    expect(block, "元模型又进了拉取清单").not.toContain("c.metaModel");
   });
 });
