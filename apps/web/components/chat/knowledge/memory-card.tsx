@@ -17,11 +17,13 @@ export interface MemoryCardActOptions {
 }
 
 /** 撤销的结果（以服务端重读为准）：撤掉了 / 撤了但长期记忆里这条还有别的来源所以还在 / 服务端已经不让撤。 */
-export type UndoOutcome = "undone" | "kept" | "not_undoable";
+export type UndoOutcome = "undone" | "kept" | "not_undoable" | "unknown";
 const UNDO_NOTE: Record<UndoOutcome, string> = {
   undone: "已撤销，这条没有记到长期记忆",
   kept: "已撤销这次的记住；长期记忆里这条还有别的来源，所以还在",
   not_undoable: "已记住。长期记忆里这条还有别的来源，没法只撤这一次",
+  /** 撤了，但读不到这张卡（这一轮现在出的是矛盾卡）：说不准长期记忆里还在不在，不多说。 */
+  unknown: "已撤销这次的记住",
 };
 
 /** 契约 `KgMemoryCard.items[].statement` 的上限。 */
@@ -112,7 +114,7 @@ export function MemoryCard({
               <button
                 type="button"
                 disabled={busy}
-                className="underline-offset-2 transition-colors duration-base hover:underline disabled:opacity-50"
+                className="underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"
                 data-testid="kg-card-undo"
                 onClick={() => void run(async () => {
                   setUndone(await onUndo(rememberedId));
