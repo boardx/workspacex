@@ -20,7 +20,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-knowledge-read";
 import { KnowledgeGraphController } from "../../src/interface/controllers/knowledge-graph.controller";
 import { addChatMessage, addChatThread } from "../support/chat-db";
-import { addOrgMember, addProjectMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, addProjectMember, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { ZHANG_DECIDES, enableExtraction, extractionDeps, loopbackModel } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f09-read";
@@ -93,7 +93,11 @@ describe("F09: getThreadKnowledge", () => {
     let out = await getThreadKnowledge(deps, { ...owner, threadId: PERSONAL });
     expect(out.ingestion).toMatchObject({ queued: 1, failed: 0 });
     const failing = extractionDeps(db, loopbackModel([["还有一件事", new Error("down")]]).model, ORG);
-    for (let i = 0; i < 3; i += 1) await runExtractionTick(failing);
+    // 失败后有退避（F06：next_attempt_at）；测试里把退避时间拨到现在，三轮即三次尝试。
+    for (let i = 0; i < 3; i += 1) {
+      await asOwner((c) => c.query("UPDATE kg_extraction_queue SET next_attempt_at = now() WHERE message_id = 'm-f09-queued'"));
+      await runExtractionTick(failing);
+    }
     out = await getThreadKnowledge(deps, { ...owner, threadId: PERSONAL });
     expect(out.ingestion).toEqual({ queued: 0, running: 0, failed: 1, failures: [{ sourceKind: "chat_message", sourceRef: "m-f09-queued", reason: "retries_exhausted" }] });
   });
