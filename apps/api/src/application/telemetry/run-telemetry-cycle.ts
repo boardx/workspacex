@@ -15,7 +15,8 @@
  *   整节仍缺席——不为了带上漏斗而给其余字段造数。
  * - `diagnostics`：`error_logs` 没有机器可读错误码列（只有自由文本 `msg`），造不出 `errorCode` ⇒ 暂缺席。
  * - `benchmark`：E3 起 `firstValueMedianMinutes` 由契约 `firstValueMedianMinutes()` 算出；同节必填的
- *   `runsPerSeatPerWeek` 无来源、或无组织到达价值时刻时整节缺席。
+ *   `runsPerSeatPerWeek` 来自 `kernel_benchmark_counts_for_report()`（周期内 agent 运行数 ÷ 席位数 ÷ 周数）；
+ *   无席位（无分母）、或无组织到达价值时刻时整节缺席。
  * - `health`：来自 `TelemetryFactsSource.health`；周期内一条探活记录都没有时也缺席。
  */
 import { createHash } from "node:crypto";
