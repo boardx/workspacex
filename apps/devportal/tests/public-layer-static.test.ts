@@ -24,7 +24,32 @@ const FORBIDDEN: Array<{ pattern: RegExp; why: string }> = [
   { pattern: /\bcookies\s*\(/, why: "公开层禁止读 cookie" },
   { pattern: /\bheaders\s*\(\s*\)/, why: "公开层禁止读请求头" },
   { pattern: /cf-access/i, why: "公开层禁止任何 Cf-Access-* header 依赖" },
+  // D13 / backlog F1：公开层拆到独立域名后，公开页也不许读协作层数据（协调面 / 目录 /
+  // 派工 / 仓库文件 / 工作区授权 / 带重认证的 portal API 客户端 / 接入向导）。
+  ...[
+    "access",
+    "session",
+    "coord-gateway",
+    "coord-stream",
+    "agents-gateway",
+    "agent-runtimes",
+    "directory",
+    "dispatch",
+    "repo-files",
+    "workspace-authz",
+    "portal-fetch",
+    "onboard",
+    "onboarding-issue",
+    "oauth",
+    "p30-me-types",
+    "pr-nudge-guard",
+  ].map((mod) => ({
+    pattern: new RegExp(`from\\s+["'](?:@/lib|(?:\\.\\./)+lib)/${mod}["']`),
+    why: `公开层禁止 import 协作层数据模块 lib/${mod}.ts（D13）`,
+  })),
+  { pattern: /["'`]\/api\//, why: "公开层禁止调用任何 /api/* 接口（公开主机上它们一律 404，D13）" },
 ];
+
 
 function tryResolve(spec: string, fromFile: string): string | null {
   let base: string;
@@ -79,13 +104,17 @@ describe("公开层静态断言（D3 阶段 2）", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 
-  it("middleware matcher 不覆盖公开层路由（公开层零鉴权）", () => {
+  it("middleware 在读会话之前先做主机名路由（公开层零鉴权，D13）", () => {
     const src = readFileSync(join(APP_ROOT, "middleware.ts"), "utf8");
-    const matcherBlock = /matcher:\s*\[([^\]]*)\]/.exec(src)?.[1] ?? "";
-    expect(matcherBlock).toContain("/me");
-    expect(matcherBlock).toContain("/p/:path*");
-    for (const publicPrefix of ["/explore", "/projects", "/u", "/a"]) {
-      expect(matcherBlock, `matcher 不得包含公开层 ${publicPrefix}`).not.toContain(`"${publicPrefix}`);
-    }
+    const decideAt = src.indexOf("decideRoute(");
+    const sessionAt = src.indexOf("resolveSession(request");
+    expect(decideAt, "middleware 必须调用 decideRoute").toBeGreaterThan(-1);
+    expect(sessionAt).toBeGreaterThan(decideAt);
+  });
+
+  it("门控会真的变红：注入一个 import 协作层数据的文件即命中（防空跑）", () => {
+    const bad = 'import { fetchCoordination } from "@/lib/coord-gateway";\nfetch("/api/portal/prs");';
+    const hits = FORBIDDEN.filter(({ pattern }) => pattern.test(bad));
+    expect(hits.length).toBeGreaterThanOrEqual(2);
   });
 });

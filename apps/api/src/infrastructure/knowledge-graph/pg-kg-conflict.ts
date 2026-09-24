@@ -7,7 +7,7 @@
  * 系统替这个会话做派生，不跨容器搬运。用户看到的提醒卡走 getTurnMemory 的守卫读路径（pg-knowledge-read.ts）。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { KgConflictPort } from "../../application/knowledge-graph/ports";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
 import type { OrgId } from "../../domain/org-id";
@@ -20,13 +20,22 @@ const kind = (v: unknown): FreshClaim["kind"] | null => {
   return k.success ? k.data : null;
 };
 
+/**
+ * 以会话所有者身份声明 `app.current_user_id`：数据库函数只在声明了、且声明的就是所有者时才拿所有者的个人空间来比
+ * （I-14 默认关——忘了声明就只比本会话，不会读到任何人的个人空间）。所有者 id 由 `kg_thread_owner` 给，本文件不读表。
+ */
+async function asThreadOwner(s: TenantSession, threadId: string): Promise<void> {
+  await s.query("SELECT set_config('app.current_user_id', coalesce(kg_thread_owner($1), ''), true)", [threadId]);
+}
+
 export class PgKgConflict implements KgConflictPort {
   constructor(private readonly db: DatabasePort) {}
 
   async candidates(orgId: OrgId, threadId: string, messageId: string) {
-    const r = await this.db.withTenant(orgId, (s) => s.query<{ c: { fresh?: Row[]; confirmed?: Row[] } }>(
-      "SELECT kg_conflict_candidates($1, $2) AS c", [threadId, messageId],
-    ));
+    const r = await this.db.withTenant(orgId, async (s) => {
+      await asThreadOwner(s, threadId);
+      return s.query<{ c: { fresh?: Row[]; confirmed?: Row[] } }>("SELECT kg_conflict_candidates($1, $2) AS c", [threadId, messageId]);
+    });
     const out = r.rows[0]?.c ?? {};
     const fresh: FreshClaim[] = [];
     for (const x of out.fresh ?? []) {
@@ -46,10 +55,13 @@ export class PgKgConflict implements KgConflictPort {
   async open(orgId: OrgId, input: {
     readonly actionId: string; readonly threadId: string; readonly messageId: string; readonly pairs: readonly ConflictPair[];
   }): Promise<number> {
-    const r = await this.db.withTenant(orgId, (s) => s.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({
-      action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId,
-      pairs: input.pairs.map((p) => ({ newer: p.newerClaimId, older: p.olderClaimId })),
-    })]));
+    const r = await this.db.withTenant(orgId, async (s) => {
+      await asThreadOwner(s, input.threadId);
+      return s.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({
+        action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId,
+        pairs: input.pairs.map((p) => ({ newer: p.newerClaimId, older: p.olderClaimId })),
+      })]);
+    });
     return Number(r.rows[0]?.n ?? 0);
   }
 }

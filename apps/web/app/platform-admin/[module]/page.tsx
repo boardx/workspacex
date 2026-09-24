@@ -6,6 +6,7 @@ import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
 import { OpsStatusScreen } from "@/components/admin/ops-status-screen";
 import { FeedbackDraftsScreen, DesignLoopInboxAdminScreen, DesignWorkbenchAdminScreen } from "@/components/admin/design-loop-screens";
+import { TelemetrySettingsScreen } from "@/components/admin/telemetry-settings-screen";
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
@@ -38,6 +39,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   mcp: McpScreen,
   platform: PlatformMembersScreen,
   "ops-status": OpsStatusScreen,
+  telemetry: TelemetrySettingsScreen,
   "feedback-drafts": FeedbackDraftsScreen,
   inbox: DesignLoopInboxAdminScreen,
   "design-workbench": DesignWorkbenchAdminScreen,

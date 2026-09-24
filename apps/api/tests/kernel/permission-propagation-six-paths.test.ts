@@ -1256,6 +1256,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // expired/closed publication, claim rollback and claimed-file cleanup safety.
     // No ACL ObjectRef exists for a survey response. Remove this increment with
     // the exception if its capability/owner gates or those tests disappear.
+    // #4068 (D9) adds the instance telemetry health counter: two aggregate-only
+    // count(*) reads, no ObjectRef/actor. tests/telemetry/telemetry-no-content-tables.test.ts
+    // pins the whitelist, count-only SQL and personal-local join. Remove with that test.
+    // E3 adds pg-first-value-facts.ts (first-write-wins fact insert + SECURITY DEFINER
+    // report function that drops personal-local and never returns org ids), pinned by
+    // tests/first-value/first-value-repo-guard.test.ts. Remove with that test.
     // Phase 18 F06 adds the knowledge-extraction pipeline read (pg-kg-extraction.ts):
     // a system worker that feeds a chat message to the extraction model and writes the
     // result back into the SAME thread's scope -- nothing is disclosed to a requester.
@@ -1264,7 +1270,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // Phase 18 F08 adds the per-turn knowledge recall read (pg-knowledge-recall.ts): same
     // shape as the L3 pg-file-retrieval.ts entry -- the executor reads the run's OWN thread
     // knowledge into the model context only. Pinned by tests/knowledge-graph/recall-repo-guard.test.ts.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(94);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(96);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

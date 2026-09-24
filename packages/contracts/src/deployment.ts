@@ -119,6 +119,72 @@ export const LOCAL_EGRESS_FACTS = [
   },
 ] as const;
 
+/* ─────────────────── 出网账本：上面三类的**实测**计数（E4） ─────────────────── */
+
+/**
+ * 出网账本 —— 这次启动以来，API 进程**实际**打开过的非回环连接，按 `LOCAL_EGRESS_FACTS`
+ * 的口径分类计数。
+ *
+ * ## 为什么要有它（backlog E4）
+ *
+ * 上面那三类是**声明**；声明写下来就不再变，读起来却像权威（AGENTS.md「静态痕迹 ≠ 动态事实」）。
+ * 界面上的「出网 0 次」必须是**会随状况改变的信号**：它来自 `net.Socket.prototype.connect`
+ * 这一个咽喉（`apps/api/src/infrastructure/egress/local-egress-guard.ts`），不是一句写死的标签。
+ *
+ * ## 四个桶（与三类事实一一对得上，外加一个「不该发生」）
+ *   · `onRequest`  你让它读网页 / 搜索时发生的出网（对应 `on-request`）
+ *   · `refused`    在个人本地组织的承诺内试图出网、被挡住的次数（对应 `blocked`：数据没出去）
+ *   · `export`     经人确认、逐项放行的导出（F17 的唯一开口）
+ *   · `unexpected` 以上都不是的非回环连接——本地版里它**必须是 0**；不是 0 就是事故，界面照实红
+ *
+ * ⚠ 口径是「本次启动以来、这一个 API 进程」。桌面版的其它进程（web、deep-agent、ASR）
+ *   由 `lint-local-zero-egress` 静态门控与 `zero-egress-unplugged` 拔网 e2e 兜，这里不冒充覆盖它们。
+ */
+export const EgressLedgerEntry = z.object({
+  kind: z.enum(["onRequest", "refused", "export", "unexpected"]),
+  /** `host:port`——只有目的地，没有路径、没有查询串、没有内容 */
+  target: z.string().max(300),
+  at: z.string(),
+}).strict();
+
+export const EgressLedger = z.object({
+  edition: DeploymentEdition,
+  /** 账本从这一刻开始记（= 守卫装上的时刻，约等于进程启动） */
+  since: z.string(),
+  counts: z.object({
+    onRequest: z.number().int().nonnegative(),
+    refused: z.number().int().nonnegative(),
+    export: z.number().int().nonnegative(),
+    unexpected: z.number().int().nonnegative(),
+  }).strict(),
+  /** 最近若干条，最新在后；有上限，供「点开看」 */
+  recent: z.array(EgressLedgerEntry).max(50),
+}).strict();
+export type EgressLedgerValue = z.infer<typeof EgressLedger>;
+
+/**
+ * 账本 → 界面状态。**唯一**判定处：前端不自己比较计数。
+ *   · `zero`         一次非回环连接都没有（卖点成立的那一格）
+ *   · `on-request`   只有你要求的读网页 / 搜索（以及人确认过的导出）
+ *   · `blocked`      有东西试图出网、被挡住了——数据没出去，但值得你知道
+ *   · `unexpected`   有不属于以上任何一类的出网——承诺被破坏，照实报
+ * 优先级从坏到好：一次意外出网压过任何数量的正常出网。
+ */
+export type EgressLedgerState = "zero" | "on-request" | "blocked" | "unexpected";
+export function egressLedgerState(counts: EgressLedgerValue["counts"]): EgressLedgerState {
+  if (counts.unexpected > 0) return "unexpected";
+  if (counts.refused > 0) return "blocked";
+  if (counts.onRequest > 0 || counts.export > 0) return "on-request";
+  return "zero";
+}
+
+export const EGRESS_LEDGER_STATE_LABEL: Record<EgressLedgerState, string> = {
+  zero: "本次启动出网 0 次",
+  "on-request": "只有你要求的读网页/搜索出过网",
+  blocked: "有出网尝试已被挡住",
+  unexpected: "发现意外出网",
+};
+
 /* ──────────────────────── 失败之后该做什么（按版次） ──────────────────────── */
 
 /**

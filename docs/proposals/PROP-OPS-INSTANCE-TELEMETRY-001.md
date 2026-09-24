@@ -1,7 +1,7 @@
 # PROP-OPS-INSTANCE-TELEMETRY-001：客户实例运行信号上报契约（超级实例 S2）
 
-> 状态：**PROPOSED，待人类签核。** 2026-09-24，十轮迭代第 7 轮起草。
-> 契约：`packages/contracts/src/instance-telemetry.ts`（**刻意不从 `index.ts` 导出**，签核前任何控制器不得消费）
+> 状态：**ACCEPTED。** 2026-09-24 十轮迭代第 7 轮起草；同日人类签核（D27，照现稿），上报周期定为每天一次（D28）。
+> 契约：`packages/contracts/src/instance-telemetry.ts`（已从 `index.ts` 以 `instanceTelemetry` 导出）
 > 行为测试：`packages/contracts/tests/instance-telemetry.test.ts`
 > 设计依据：`docs/research/super-instance-design.md` §3；人类决策 D14「既是也不是」
 
@@ -56,5 +56,5 @@
 - ~~**D16：联邦运营的是运行事实还是客户内容。**~~ **2026-09-24 已定：只传运行事实**，本契约方向确认；下一步是签核三件。原文： 本契约按「运行事实」设计。若答案是后者，
   这份契约不是要改几个字段，而是整份作废——那是商业模式换道，见 `open-source-business-model.md` 决策表。
 - ~~四项的默认值~~ **已定（D22，2026-09-24）：只有 health 默认开，其余三项默认关**，写进契约 `TELEMETRY_CONSENT_DEFAULTS`。
-- 上报周期（建议每小时一次，health 可更频繁）仍待定。
+- ~~上报周期~~ **已定（D28，2026-09-24）：每天一次**，写进契约 `TELEMETRY_REPORT_INTERVAL_SECONDS`。
   默认值是产品与合规的选择，不是技术问题。

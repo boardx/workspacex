@@ -3,7 +3,9 @@
 import * as React from "react";
 import { AnswerMemoryLine } from "./answer-memory-line";
 import { AnswerKnowledgeFooter } from "./answer-knowledge-footer";
-import { ConflictPromptCard, type ConflictConditions, type ConflictResolution } from "./conflict-prompt-card";
+import {
+  ConflictPromptCard, ConflictPromptGoneError, type ConflictConditions, type ConflictResolution,
+} from "./conflict-prompt-card";
 import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision } from "./memory-card";
 import {
   actOnMemoryCard,
@@ -91,6 +93,8 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       });
     } catch (e) {
       requestKnowledgeReload(threadId);
+      // 卡已经不在了（别处处理过 / 一条被改掉）：让卡片收起，而不是留着再点也没用的按钮
+      if (knowledgeGraphErrorCode(e) === "KG_PROMPT_NOT_FOUND") throw new ConflictPromptGoneError(describeHumanActionFailure(e));
       throw new Error(describeHumanActionFailure(e));
     }
     requestKnowledgeReload(threadId);

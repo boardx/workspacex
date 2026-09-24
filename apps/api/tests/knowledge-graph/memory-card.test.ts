@@ -544,6 +544,17 @@ describe("F17: 与矛盾提醒的先后（I-18）", () => {
     await expect(act(card.cardId)).rejects.toMatchObject({ code: "KG_CONTESTED_NEEDS_RESOLUTION" });
     expect(await cardRow(card.cardId)).toMatchObject({ status: "open" });
     expect(await personalLive("项目A 上线改到 10/1")).toEqual([]);
+
+    // 忘掉矛盾的一方（F16：任一方经任何路径失效 ⇒ 提醒关闭、另一方不再「有矛盾」）
+    const newer = first.prompt.conflict.newerClaim.id;
+    const f = await turn(T.c, "忘掉项目A 上线改到 10/1");
+    const fc = await cardOf(T.c, f.answerId);
+    expect(fc.items.map((i) => i.claimId)).toEqual([newer]);
+    await act(fc.cardId);
+    expect(await claim(newer)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
+    expect(await claim(older.id)).toMatchObject({ status: "accepted", revoked: false });
+    const [p] = await sql<{ status: string }>("SELECT status FROM kg_conflict_prompts WHERE id = $1", [first.prompt.conflict.promptId]);
+    expect(p!.status).toBe("closed_by_change");
   });
 });
 

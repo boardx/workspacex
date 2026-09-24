@@ -62,8 +62,23 @@ function withoutNames(statement: string, entityNames: readonly string[]): string
   return text;
 }
 
+/**
+ * 数值归一：每段去掉前导零，「10/01」=「10/1」、「09.29」=「9.29」、「09:05」=「9:5」。
+ * 例外：小数点后的那段不动——「1.05」和「1.5」是两个数。用点写的日期（「09.29」）只去整数部分的零，
+ * 「09.29」=「9.29」；小数点后的尾零不去（「9.29」对「9.290」仍算两个数：按日期读它们不等，这种写法也少见）。
+ */
+export function normalizeNumber(token: string): string {
+  // 按分隔符切开（保留分隔符）：[段, 分隔符, 段, …]
+  const parts = token.split(/([/.:-])/);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) return part;               // 分隔符原样
+    if (i > 0 && parts[i - 1] === ".") return part;  // 小数部分不去零
+    return part.replace(/^0+(?=\d)/, "");
+  }).join("");
+}
+
 export function numberTokens(statement: string, entityNames: readonly string[] = []): Set<string> {
-  return new Set(withoutNames(statement, entityNames).match(NUMBER_RE) ?? []);
+  return new Set((withoutNames(statement, entityNames).match(NUMBER_RE) ?? []).map(normalizeNumber));
 }
 
 /**
