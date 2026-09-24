@@ -24,6 +24,7 @@ it("keeps Starter secrets stable and excludes owner/signing keys from unrelated 
   const first = await runtimeEnvironment(config, root, { WORKSPACEX_MODEL_KEY: "model-key" });
   expect(await runtimeEnvironment(config, root, { WORKSPACEX_MODEL_KEY: "model-key" })).toEqual(first);
   expect(first.api.WORKSPACEX_OBJECT_STORE).toBe("oss");
+  expect(first.api.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE).toBe("1");
   expect(first.api.MIGRATION_DB_PASSWORD).toBeUndefined();
   expect(first.agent.NATIVE_SESSION_BINDING_KEY).toBeUndefined();
   expect(first.agent.MODEL_CREDENTIAL_KEY).toBeUndefined();

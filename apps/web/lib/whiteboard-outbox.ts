@@ -32,7 +32,7 @@ export interface WhiteboardOutboxPort {
   quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
   listQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, boardId?: string): Promise<WhiteboardQuarantineReceipt[]>;
   discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean>;
-  purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>): Promise<void>;
+  purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'> & {attemptId?:string}): Promise<void>;
 }
 
 export class WhiteboardOutboxLimitError extends Error {
@@ -42,18 +42,23 @@ export class WhiteboardOutboxLimitError extends Error {
 type Ciphertext = { updateId: string; iv: ArrayBuffer; value: ArrayBuffer; plainBytes: number };
 type StoredOutbox = WhiteboardOutboxScope & { id: string; key: CryptoKey; entries: Ciphertext[] };
 type StoredQuarantine = WhiteboardQuarantineReceipt & { ciphertext: Ciphertext[] };
+type StoredAudit = WhiteboardOutboxContext & {
+  id: string; epoch: number; accessReceiptId?: string; ciphertext: Ciphertext[];
+};
 
 const DB_NAME = 'workspacex-whiteboard-outbox';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ACTIVE = 'active';
 const QUARANTINE = 'quarantine';
+const AUDIT = 'audit';
 const LOCK_NAME = 'workspacex-whiteboard-outbox';
-const REVOKED_STORAGE_KEY='workspacex-whiteboard-revoked-sessions';
+const LEGACY_REVOKED_STORAGE_KEY='workspacex-whiteboard-revoked-sessions';
+const REVOKED_STORAGE_KEY_PREFIX='workspacex-whiteboard-revocation:';
 let localLock: Promise<void> = Promise.resolve();
 const memoryRevocations=new Map<string,RevokedSession>();
 let revocationAttemptSequence=0;
 
-export const WHITEBOARD_OUTBOX_STORAGE = { database: DB_NAME, version: DB_VERSION, activeStore: ACTIVE, quarantineStore: QUARANTINE } as const;
+export const WHITEBOARD_OUTBOX_STORAGE = { database: DB_NAME, version: DB_VERSION, activeStore: ACTIVE, quarantineStore: QUARANTINE, auditStore:AUDIT } as const;
 
 async function withOutboxLock<T>(work: () => Promise<T>): Promise<T> {
   if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request(LOCK_NAME, work);
@@ -83,24 +88,36 @@ function complete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-type RevokedSession = { principalId: string; sessionId: string; attemptId?: never }
+type RevokedSession = { principalId: string; sessionId: string; attemptId: string }
   | { principalId: string; sessionId: null; attemptId: string };
-const revokedId = (identity: RevokedSession) => identity.sessionId===null
-  ? JSON.stringify([identity.principalId,null,identity.attemptId])
-  : JSON.stringify([identity.principalId,identity.sessionId]);
+const revokedId = (identity: RevokedSession) => identity.attemptId;
+const revocationStorageKey=(identity:RevokedSession)=>REVOKED_STORAGE_KEY_PREFIX+encodeURIComponent(identity.attemptId);
+function parseRevocation(value:string|null,attemptId?:string):RevokedSession|null{
+  if(!value)return null;
+  try{
+    const candidate=JSON.parse(value) as Partial<RevokedSession>;
+    if(typeof candidate.principalId!=='string'||(typeof candidate.sessionId!=='string'&&candidate.sessionId!==null))return null;
+    const id=attemptId??(typeof candidate.attemptId==='string'?candidate.attemptId:`legacy:${JSON.stringify([candidate.principalId,candidate.sessionId])}`);
+    return {principalId:candidate.principalId,sessionId:candidate.sessionId,attemptId:id};
+  }catch{return null;}
+}
 function revokedSessions(): RevokedSession[] {
   const entries = new Map<string, RevokedSession>();
   for (const [encoded,identity] of memoryRevocations) entries.set(encoded,identity);
   if (typeof localStorage !== 'undefined') try {
-    const stored = JSON.parse(localStorage.getItem(REVOKED_STORAGE_KEY) ?? '[]') as unknown;
-    for (const item of Array.isArray(stored) ? stored : []) if (item && typeof item === 'object') {
-      const candidate=item as Partial<RevokedSession>;
-      if(typeof candidate.principalId!=='string')continue;
-      const identity:RevokedSession|null=typeof candidate.sessionId==='string'
-        ? {principalId:candidate.principalId,sessionId:candidate.sessionId}
-        : candidate.sessionId===null
-          ? {principalId:candidate.principalId,sessionId:null,attemptId:typeof candidate.attemptId==='string'?candidate.attemptId:'legacy'}
-          : null;
+    // Walk backwards so another realm removing its own earlier-indexed key cannot shift a
+    // still-active attempt past this scan.
+    for(let index=localStorage.length-1;index>=0;index-=1){
+      const key=localStorage.key(index);
+      if(!key?.startsWith(REVOKED_STORAGE_KEY_PREFIX))continue;
+      let attemptId:string;
+      try{attemptId=decodeURIComponent(key.slice(REVOKED_STORAGE_KEY_PREFIX.length));}catch{continue;}
+      const identity=parseRevocation(localStorage.getItem(key),attemptId);
+      if(identity)entries.set(revokedId(identity),identity);
+    }
+    const legacy=JSON.parse(localStorage.getItem(LEGACY_REVOKED_STORAGE_KEY)??'[]') as unknown;
+    for(const item of Array.isArray(legacy)?legacy:[]){
+      const identity=parseRevocation(JSON.stringify(item));
       if(identity)entries.set(revokedId(identity),identity);
     }
   } catch { /* malformed storage remains fail closed through memory revocations */ }
@@ -109,16 +126,21 @@ function revokedSessions(): RevokedSession[] {
 function markRevoked(identity: RevokedSession): void {
   memoryRevocations.set(revokedId(identity),identity);
   if (typeof localStorage !== 'undefined') try {
-    const current = revokedSessions();
-    if (!current.some(item => revokedId(item) === revokedId(identity))) current.push(identity);
-    localStorage.setItem(REVOKED_STORAGE_KEY, JSON.stringify(current));
+    // One attempt owns one key. Broad -> exact is one atomic setItem and concurrent realms
+    // cannot overwrite or remove another logout attempt.
+    localStorage.setItem(revocationStorageKey(identity),JSON.stringify(identity));
   } catch { /* memory tombstone remains authoritative for this page */ }
 }
 function clearRevoked(identities: RevokedSession[]): void {
   for (const identity of identities) memoryRevocations.delete(revokedId(identity));
   if (typeof localStorage !== 'undefined') try {
-    const removed = new Set(identities.map(revokedId));
-    localStorage.setItem(REVOKED_STORAGE_KEY, JSON.stringify(revokedSessions().filter(identity => !removed.has(revokedId(identity)))));
+    for(const identity of identities)localStorage.removeItem(revocationStorageKey(identity));
+    // Old aggregate records are migration-only. New attempts never share this key.
+    const removed=new Set(identities.map(revokedId));
+    const legacy=JSON.parse(localStorage.getItem(LEGACY_REVOKED_STORAGE_KEY)??'[]') as unknown;
+    if(Array.isArray(legacy))localStorage.setItem(LEGACY_REVOKED_STORAGE_KEY,JSON.stringify(legacy.filter(item=>{
+      const identity=parseRevocation(JSON.stringify(item));return !identity||!removed.has(revokedId(identity));
+    })));
   } catch { /* already purged; a stale disk tombstone is safe and retries later */ }
 }
 function isRevoked(scope: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, revoked: RevokedSession[]): boolean {
@@ -132,33 +154,78 @@ function assertPrincipalNotBroadRevoked(principalId:string):void{
   if(revokedSessions().some(identity=>identity.principalId===principalId&&identity.sessionId===null))throw new Error('WHITEBOARD_SESSION_REVOKED');
 }
 
+function auditReceipt(row:StoredAudit,reason:string):StoredQuarantine{
+  const quarantinedAt=new Date().toISOString();
+  return {
+    boardId:row.boardId,principalId:row.principalId,sessionId:row.sessionId,epoch:row.epoch,
+    ...(row.accessReceiptId?{accessReceiptId:row.accessReceiptId}:{}),
+    receiptId:crypto.randomUUID(),reason,quarantinedAt,
+    pendingCount:row.ciphertext.length,
+    pendingBytes:row.ciphertext.reduce((sum,entry)=>sum+entry.plainBytes,0),
+    ciphertext:row.ciphertext,
+  };
+}
+
+function legacyAuditFromKey(key:IDBValidKey):StoredAudit|null{
+  if(typeof key!=='string')return null;
+  try{
+    const value=JSON.parse(key) as unknown;
+    if(!Array.isArray(value)||value.length!==4)return null;
+    const [boardId,principalId,sessionId,epoch]=value;
+    if(typeof boardId!=='string'||typeof principalId!=='string'||typeof sessionId!=='string'||!Number.isSafeInteger(epoch))return null;
+    return {id:key,boardId,principalId,sessionId,epoch:epoch as number,ciphertext:[]};
+  }catch{return null;}
+}
+
+async function quarantineRevokedAudit(database:IDBDatabase,revoked:RevokedSession[]):Promise<void>{
+  if(!revoked.length)return;
+  const transaction=database.transaction([ACTIVE,AUDIT,QUARANTINE],'readwrite');
+  const activeStore=transaction.objectStore(ACTIVE),auditStore=transaction.objectStore(AUDIT),quarantineStore=transaction.objectStore(QUARANTINE);
+  // Audit sidecars deliberately contain no CryptoKey. getAllKeys covers v1 records without
+  // materializing their values, so logout cleanup never obtains or decrypts a revoked key.
+  const [audits,activeKeys]=await Promise.all([
+    request(auditStore.getAll()) as Promise<StoredAudit[]>,
+    request(activeStore.getAllKeys()) as Promise<IDBValidKey[]>,
+  ]);
+  const auditedIds=new Set(audits.map(row=>row.id));
+  for(const row of audits)if(isRevoked(row,revoked)){
+    quarantineStore.put(auditReceipt(row,'SESSION_CHANGED'));
+    activeStore.delete(row.id);auditStore.delete(row.id);
+  }
+  for(const key of activeKeys){
+    if(typeof key==='string'&&auditedIds.has(key))continue;
+    const legacy=legacyAuditFromKey(key);
+    if(!legacy||!isRevoked(legacy,revoked))continue;
+    quarantineStore.put(auditReceipt(legacy,'SESSION_CHANGED'));
+    activeStore.delete(key);
+  }
+  await complete(transaction);
+}
+
 async function cleanupRevokedSessions(database: IDBDatabase): Promise<void> {
   // Broad markers belong to an individual logout attempt. Only that attempt may narrow and
   // clear its marker; database cleanup must never erase another in-flight logout's protection.
   const revoked = revokedSessions().filter((identity):identity is Extract<RevokedSession,{sessionId:string}>=>identity.sessionId!==null);
   if (!revoked.length) return;
-  const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
-  const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
-  const [active, quarantined] = await Promise.all([
-    request(activeStore.getAll()) as Promise<StoredOutbox[]>,
-    request(quarantineStore.getAll()) as Promise<StoredQuarantine[]>,
-  ]);
-  for (const row of active) if (isRevoked(row, revoked)) activeStore.delete(row.id);
-  for (const row of quarantined) if (isRevoked(row, revoked)) quarantineStore.delete(row.receiptId);
-  await complete(transaction);
+  await quarantineRevokedAudit(database,revoked);
   clearRevoked(revoked);
+}
+
+async function openStorageDatabase():Promise<IDBDatabase>{
+  const opened = indexedDB.open(DB_NAME, DB_VERSION);
+  opened.onupgradeneeded = () => {
+    const database = opened.result;
+    if(!database.objectStoreNames.contains(ACTIVE))database.createObjectStore(ACTIVE, { keyPath: 'id' });
+    if(!database.objectStoreNames.contains(QUARANTINE))database.createObjectStore(QUARANTINE, { keyPath: 'receiptId' });
+    if(!database.objectStoreNames.contains(AUDIT))database.createObjectStore(AUDIT,{keyPath:'id'});
+  };
+  return request(opened);
 }
 
 async function openDatabase(principalId: string): Promise<IDBDatabase> {
   const hasBroadRevocation=()=>revokedSessions().some(identity=>identity.principalId===principalId&&identity.sessionId===null);
   if(hasBroadRevocation())throw new Error('WHITEBOARD_SESSION_REVOKED');
-  const opened = indexedDB.open(DB_NAME, DB_VERSION);
-  opened.onupgradeneeded = () => {
-    const database = opened.result;
-    database.createObjectStore(ACTIVE, { keyPath: 'id' });
-    database.createObjectStore(QUARANTINE, { keyPath: 'receiptId' });
-  };
-  const database=await request(opened);
+  const database=await openStorageDatabase();
   // A principal-wide logout marker is written before asynchronous fingerprinting. Do not read
   // any persisted CryptoKey until it has been narrowed to the revoked session and cleaned.
   if (hasBroadRevocation()) {
@@ -250,9 +317,11 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         assertNotRevoked(scope);
         const value = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: additionalData(scope, update.updateId) }, key, clear);
         assertNotRevoked(scope);
-        const transaction = database.transaction(ACTIVE, 'readwrite');
+        const transaction = database.transaction([ACTIVE,AUDIT], 'readwrite');
         assertNotRevoked(scope);
-        transaction.objectStore(ACTIVE).put({ ...scope, id, key, entries: [...entries, { updateId: update.updateId, iv, value, plainBytes: update.update.length }] } satisfies StoredOutbox);
+        const nextEntries=[...entries,{updateId:update.updateId,iv,value,plainBytes:update.update.length}];
+        transaction.objectStore(ACTIVE).put({ ...scope, id, key, entries:nextEntries } satisfies StoredOutbox);
+        transaction.objectStore(AUDIT).put({ ...scope,id,ciphertext:nextEntries } satisfies StoredAudit);
         await complete(transaction);
         assertNotRevoked(scope);
       } finally { database.close(); }
@@ -267,10 +336,15 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         const existing = await readActive(database, scope);
         if (!existing) return;
         const entries = existing.entries.filter(item => item.updateId !== updateId);
-        const transaction = database.transaction(ACTIVE, 'readwrite');
+        const transaction = database.transaction([ACTIVE,AUDIT], 'readwrite');
         assertNotRevoked(scope);
-        if (entries.length) transaction.objectStore(ACTIVE).put({ ...existing, entries });
-        else transaction.objectStore(ACTIVE).delete(id);
+        if (entries.length){
+          transaction.objectStore(ACTIVE).put({ ...existing, entries });
+          transaction.objectStore(AUDIT).put({...scope,id,ciphertext:entries} satisfies StoredAudit);
+        }else{
+          transaction.objectStore(ACTIVE).delete(id);
+          transaction.objectStore(AUDIT).delete(id);
+        }
         await complete(transaction);
         assertNotRevoked(scope);
       } finally { database.close(); }
@@ -310,19 +384,14 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
     });
   }
 
-  async purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>): Promise<void> {
+  async purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'> & {attemptId?:string}): Promise<void> {
     return withOutboxLock(async () => {
-      const database = await openDatabase(identity.principalId);
+      // This maintenance handle reads only the keyless audit store and active keyPath values.
+      // It may therefore run while another attempt keeps a principal-wide tombstone active.
+      const database = await openStorageDatabase();
       try {
-        const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
-        const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
-        const [active, quarantine] = await Promise.all([
-          request(activeStore.getAll()) as Promise<StoredOutbox[]>,
-          request(quarantineStore.getAll()) as Promise<StoredQuarantine[]>,
-        ]);
-        for (const row of active) if (row.principalId === identity.principalId && row.sessionId === identity.sessionId) activeStore.delete(row.id);
-        for (const row of quarantine) if (row.principalId === identity.principalId && row.sessionId === identity.sessionId) quarantineStore.delete(row.receiptId);
-        await complete(transaction);
+        await quarantineRevokedAudit(database,[{...identity,attemptId:`purge:${identity.principalId}:${identity.sessionId}`}]);
+        if(identity.attemptId)clearRevoked([{principalId:identity.principalId,sessionId:identity.sessionId,attemptId:identity.attemptId}]);
       } finally { database.close(); }
     });
   }
@@ -347,11 +416,12 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
           pendingCount: row.entries.length,
           pendingBytes: row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
         } satisfies WhiteboardQuarantineReceipt));
-        const write = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
+        const write = database.transaction([ACTIVE,AUDIT,QUARANTINE], 'readwrite');
         for(const row of selected)assertNotRevoked(row);
         selected.forEach((row, index) => {
           write.objectStore(QUARANTINE).put({ ...receipts[index]!, ciphertext: row.entries } satisfies StoredQuarantine);
           write.objectStore(ACTIVE).delete(row.id);
+          write.objectStore(AUDIT).delete(row.id);
         });
         await complete(write);
         for(const row of selected)assertNotRevoked(row);
@@ -382,9 +452,9 @@ export function markWhiteboardSessionRevoked(principalId: string, token: string)
   ]);
   void sessionId.then(value=>{
     if(!value)return;
-    const exact={principalId,sessionId:value};
+    const exact={principalId,sessionId:value,attemptId} satisfies RevokedSession;
+    // Same per-attempt key: one atomic transition from principal-wide to exact session.
     markRevoked(exact);
-    clearRevoked([broad]);
     const cleanup=new IndexedDbWhiteboardOutbox().purgeSession(exact);
     void Promise.race([
       cleanup.catch(()=>undefined),
@@ -393,4 +463,5 @@ export function markWhiteboardSessionRevoked(principalId: string, token: string)
   });
 }
 
-export const WHITEBOARD_REVOKED_SESSION_STORAGE_KEY=REVOKED_STORAGE_KEY;
+export const WHITEBOARD_REVOKED_SESSION_STORAGE_KEY=LEGACY_REVOKED_STORAGE_KEY;
+export const WHITEBOARD_REVOKED_SESSION_STORAGE_KEY_PREFIX=REVOKED_STORAGE_KEY_PREFIX;

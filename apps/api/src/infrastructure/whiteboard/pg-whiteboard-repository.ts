@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import type { Principal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
-import { WhiteboardRecoveryError, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
+import { WhiteboardRecoveryError, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member, type WhiteboardReceiptMaintenance } from '../../application/whiteboard/ports';
 import { WHITEBOARD_RECOVERY_POLICY } from '../../domain/whiteboard-recovery-policy';
 
 type Row = { id: string; name: string; owner_id: string; role: string; archived: boolean; created_at: Date; updated_at: Date };
@@ -27,7 +27,7 @@ function recoveryHash(boardId: string, input: C.RequestQuarantineRecovery): stri
     reason: input.reason,
   })).digest('hex');
 }
-async function cleanupAccessReceipts(s:TenantSession,orgId:string):Promise<number>{
+export async function cleanupAccessReceipts(s:TenantSession,orgId:string):Promise<number>{
   // Expiry is the logical inactive instant even when maintenance runs later. Consumed proofs use
   // their actual consumption clock, so retention never silently includes the preceding TTL.
   await s.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false,inactive_at=COALESCE(inactive_at,expires_at)
@@ -42,7 +42,8 @@ async function cleanupAccessReceipts(s:TenantSession,orgId:string):Promise<numbe
 }
 /** All SQL is tenant-scoped and actor-filtered. A resource ID never grants access. */
 export class PgWhiteboardRepository implements WhiteboardRepository {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(private readonly db: DatabasePort,
+    private readonly receiptMaintenance?:Pick<WhiteboardReceiptMaintenance,'ensureScheduled'>) {}
   async list(p: Principal): Promise<C.Board[]> {
     return this.db.withTenant(p.orgId, async s => {
       const r = await s.query<Row>(`SELECT ${columns} FROM whiteboards b ${membership}
@@ -125,6 +126,11 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         RETURNING receipt_id`, [p.orgId,p.userId,id,receiptId,sessionFingerprint,epoch,expiresAt]);
       const row=issued.rows[0];
       if(!row) throw new Error('WHITEBOARD_ACCESS_CHANGED');
+      // Register the persistent singleton cron in the same transaction as the first receipt.
+      // A deployment without the maintenance worker fails this issuance instead of silently
+      // accumulating metadata forever.
+      if(!this.receiptMaintenance)throw new Error('WHITEBOARD_RECEIPT_MAINTENANCE_UNAVAILABLE');
+      await this.receiptMaintenance.ensureScheduled(s,p.orgId);
       return row.receipt_id;
     });
   }

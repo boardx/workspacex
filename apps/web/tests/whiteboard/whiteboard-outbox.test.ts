@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
-import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, markWhiteboardSessionRevoked, WHITEBOARD_OUTBOX_STORAGE, WHITEBOARD_REVOKED_SESSION_STORAGE_KEY, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
+import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, markWhiteboardSessionRevoked, WHITEBOARD_OUTBOX_STORAGE, WHITEBOARD_REVOKED_SESSION_STORAGE_KEY_PREFIX, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
 
 function update(epoch: number, value = 'AQID'): PendingWhiteboardUpdate {
   return { type: 'update', epoch, updateId: crypto.randomUUID(), update: value };
@@ -11,6 +11,20 @@ const scope = (overrides: Partial<WhiteboardOutboxScope> = {}): WhiteboardOutbox
   boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1,
   accessReceiptId:'11111111-1111-4111-8111-111111111111', ...overrides,
 });
+
+function memoryStorage(){
+  const values=new Map<string,string>();
+  const storage={
+    get length(){return values.size;},
+    key:(index:number)=>[...values.keys()][index]??null,
+    getItem:(key:string)=>values.get(key)??null,
+    setItem:(key:string,value:string)=>{values.set(key,value);},
+    removeItem:(key:string)=>{values.delete(key);},
+    clear:()=>values.clear(),
+  } as Storage;
+  const revocations=()=>[...values.entries()].filter(([key])=>key.startsWith(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY_PREFIX)).map(([,value])=>JSON.parse(value) as {principalId:string;sessionId:string|null;attemptId:string});
+  return{storage,values,revocations};
+}
 
 async function rows(storeName: string): Promise<Record<string, unknown>[]> {
   const opened = indexedDB.open(WHITEBOARD_OUTBOX_STORAGE.database, WHITEBOARD_OUTBOX_STORAGE.version);
@@ -127,16 +141,19 @@ it('keeps legacy quarantine data discard-only when it has no authenticated acces
   await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);
 });
 
-it('keeps a logout tombstone when IndexedDB fails, then purges only that session before any later load',async()=>{
-  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+it('keeps a logout tombstone when IndexedDB fails, then quarantines only that session before any later load',async()=>{
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);
   const factory=new IDBFactory();vi.stubGlobal('indexedDB',factory);const adapter=new IndexedDbWhiteboardOutbox();const token='revoked-token',sessionId=await fingerprintWhiteboardSession(token);const revoked=scope({sessionId}),other=scope({sessionId:'other-session'});
   await adapter.put(revoked,update(1));await adapter.put(other,update(1));
   vi.stubGlobal('indexedDB',{open:()=>{throw new Error('simulated indexeddb outage');}});
-  markWhiteboardSessionRevoked('user-1',token);await vi.waitFor(()=>expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId));
+  markWhiteboardSessionRevoked('user-1',token);await vi.waitFor(()=>expect(local.revocations()).toContainEqual(expect.objectContaining({sessionId})));
   await expect(new IndexedDbWhiteboardOutbox().load(revoked)).rejects.toThrow('simulated indexeddb outage');
   await expect(new IndexedDbWhiteboardOutbox().put(revoked,update(1))).rejects.toThrow('simulated indexeddb outage');
   vi.stubGlobal('indexedDB',factory);await expect(new IndexedDbWhiteboardOutbox().load(revoked)).resolves.toEqual([]);await expect(new IndexedDbWhiteboardOutbox().load(other)).resolves.toHaveLength(1);
-  expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toBe('[]');
+  const receipts=await adapter.listQuarantine({principalId:'user-1'},revoked.boardId);
+  expect(receipts).toEqual([expect.objectContaining({sessionId,pendingCount:1,reason:'SESSION_CHANGED'})]);
+  expect((await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore))[0]).not.toHaveProperty('key');
+  expect(local.revocations()).toEqual([]);
 });
 
 it('enforces both count and byte bounds before writing another ciphertext', async () => {
@@ -153,7 +170,7 @@ it('enforces both count and byte bounds before writing another ciphertext', asyn
 });
 
 it('fails closed when logout lands after an IndexedDB get starts but before its key row returns',async()=>{
-  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);
   const raceScope=scope({principalId:'idb-race-user',sessionId:'idb-race-session'}),pending=update(1);
   let releaseGet!:()=>void;let signalGet!:()=>void;const getStarted=new Promise<void>(resolve=>{signalGet=resolve;});
   const immediateRequest=(result:unknown)=>{const value:{result:unknown;error:null;onsuccess:null|(()=>void);onerror:null|(()=>void)}={result,error:null,onsuccess:null,onerror:null};queueMicrotask(()=>value.onsuccess?.());return value;};
@@ -170,16 +187,16 @@ it('fails closed when logout lands after an IndexedDB get starts but before its 
 });
 
 it('writes a broad tombstone synchronously and blocks key reads when Web Crypto digest never settles',async()=>{
-  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);
   const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({principalId:'hung-crypto-user'}),update(1));
   vi.spyOn(crypto.subtle,'digest').mockImplementation(()=>new Promise<ArrayBuffer>(()=>{}));
   markWhiteboardSessionRevoked('hung-crypto-user','hung-crypto-token');
-  expect(JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]')).toContainEqual(expect.objectContaining({principalId:'hung-crypto-user',sessionId:null,attemptId:expect.any(String)}));
+  expect(local.revocations()).toContainEqual(expect.objectContaining({principalId:'hung-crypto-user',sessionId:null,attemptId:expect.any(String)}));
   await expect(adapter.load(scope({principalId:'hung-crypto-user'}))).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
 });
 
 it('keeps another logout attempt broad when one token fingerprint completes first',async()=>{
-  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);
   const originalDigest=crypto.subtle.digest.bind(crypto.subtle);
   vi.spyOn(crypto.subtle,'digest').mockImplementation((algorithm,data)=>new TextDecoder().decode(data as ArrayBuffer)==='hung-token'
     ? new Promise<ArrayBuffer>(()=>{})
@@ -187,19 +204,36 @@ it('keeps another logout attempt broad when one token fingerprint completes firs
   markWhiteboardSessionRevoked('dual-logout-user','fast-token');
   markWhiteboardSessionRevoked('dual-logout-user','hung-token');
   await vi.waitFor(()=>{
-    const values=JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]') as Array<{principalId:string;sessionId:string|null;attemptId?:string}>;
+    const values=local.revocations();
     expect(values.filter(value=>value.principalId==='dual-logout-user'&&value.sessionId===null)).toHaveLength(1);
-    expect(values.filter(value=>value.principalId==='dual-logout-user'&&typeof value.sessionId==='string')).toHaveLength(1);
+    expect(values.filter(value=>value.principalId==='dual-logout-user'&&typeof value.sessionId==='string')).toHaveLength(0);
   });
   await expect(new IndexedDbWhiteboardOutbox().load(scope({principalId:'dual-logout-user'}))).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
+});
+
+it('keeps independent attempt keys across realms when a fast cleanup interleaves with a hung digest',async()=>{
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);vi.stubGlobal('indexedDB',new IDBFactory());
+  const originalDigest=crypto.subtle.digest.bind(crypto.subtle);
+  vi.spyOn(crypto.subtle,'digest').mockImplementation((algorithm,data)=>new TextDecoder().decode(data as ArrayBuffer)==='realm-hung-token'
+    ? new Promise<ArrayBuffer>(()=>{})
+    : originalDigest(algorithm,data));
+  vi.resetModules();const realmFast=await import('@/lib/whiteboard-outbox');
+  vi.resetModules();const realmHung=await import('@/lib/whiteboard-outbox');
+  realmFast.markWhiteboardSessionRevoked('cross-realm-user','realm-fast-token');
+  realmHung.markWhiteboardSessionRevoked('cross-realm-user','realm-hung-token');
+  expect(local.revocations().filter(value=>value.principalId==='cross-realm-user')).toHaveLength(2);
+  await vi.waitFor(()=>{
+    const remaining=local.revocations().filter(value=>value.principalId==='cross-realm-user');
+    expect(remaining).toEqual([expect.objectContaining({sessionId:null,attemptId:expect.any(String)})]);
+  });
 });
 
 // Keep last: the intentionally never-settling cleanup must remain fail-closed and therefore
 // also keeps the in-realm fallback lock closed for the rest of this process.
 it('returns from logout after writing the tombstone even when IndexedDB open never settles',async()=>{
-  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const local=memoryStorage();vi.stubGlobal('localStorage',local.storage);
   vi.stubGlobal('indexedDB',{open:()=>({})});
   const token='hung-indexeddb-token',sessionId=await fingerprintWhiteboardSession(token);
   markWhiteboardSessionRevoked('user-1',token);
-  await vi.waitFor(()=>expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId));
+  await vi.waitFor(()=>expect(local.revocations()).toContainEqual(expect.objectContaining({sessionId})));
 });

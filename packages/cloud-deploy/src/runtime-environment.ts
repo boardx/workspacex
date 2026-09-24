@@ -105,6 +105,7 @@ export async function runtimeEnvironment(config: DeploymentConfig, secretDirecto
     APP_PUBLIC_URL: config.environment.publicUrl, MODEL_CREDENTIAL_KEY: secret["model-cipher"],
     EMAIL_VERIFICATION_SECRET: secret["email-verification"],
     NATIVE_SESSION_BINDING_KEY: secret["native-binding"], KERNEL_NATIVE_RUNTIME: "1",
+    KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE: "1",
     KERNEL_SKILL_SANDBOX_SOCKET: "/run/sandbox/skill-sandbox.sock",
     KERNEL_DEEP_AGENT_BASE_URL: "http://agent:8000", KERNEL_SUBTASK_CALLBACK_BASE_URL: "http://api:3200" };
   const agent: Record<string, string> = { ...model, ...sharedNative,

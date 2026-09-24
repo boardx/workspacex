@@ -170,6 +170,7 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
     },
     migrate: async context => {
       await job("src/infrastructure/db/migrate-cli.ts", env().migration, context);
+      await job("scripts/setup-standard-scheduler.ts", env().migration, context);
       await job("prepare", env().memoryMigration, context, "agent");
     },
     bootstrap: async context => {

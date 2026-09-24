@@ -32,18 +32,22 @@ class PGliteTenantDatabase implements DatabasePort {
 
   private enqueue<T>(org: string | null, run: (session: TenantSession) => Promise<T>): Promise<T> {
     const task = this.tail.then(async () => {
-      await this.database.exec('SET ROLE app_rw');
+      await this.database.exec('BEGIN');
       try {
-        if (org !== null) await this.database.query("SELECT set_config('app.current_org',$1,false)", [org]);
+        await this.database.exec('SET LOCAL ROLE app_rw');
+        if (org !== null) await this.database.query("SELECT set_config('app.current_org',$1,true)", [org]);
         const session: TenantSession = {
           query: async <R>(sql: string, params: readonly unknown[] = []) => {
             const result = await this.database.query<R>(sql, [...params]);
             return { rows: result.rows } as QueryResult<R>;
           },
         };
-        return await run(session);
-      } finally {
-        await this.database.exec('RESET ROLE');
+        const result=await run(session);
+        await this.database.exec('COMMIT');
+        return result;
+      } catch(error) {
+        await this.database.exec('ROLLBACK');
+        throw error;
       }
     });
     this.tail = task.catch(() => undefined);
@@ -62,6 +66,8 @@ class PGliteTenantDatabase implements DatabasePort {
 let database: PGlite;
 let port: PGliteTenantDatabase;
 let repository: PgWhiteboardRepository;
+const scheduledOrgs:string[]=[];
+const maintenance={ensureScheduled:async(_session:TenantSession,org:string)=>{scheduledOrgs.push(org);}};
 
 beforeAll(async () => {
   database = await PGlite.create();
@@ -102,7 +108,7 @@ beforeAll(async () => {
   await database.exec(legacyMigration);
   await database.exec(proofMigration);
   port = new PGliteTenantDatabase(database);
-  repository = new PgWhiteboardRepository(port);
+  repository = new PgWhiteboardRepository(port,maintenance);
 });
 
 afterAll(async () => { await port?.close(); });
@@ -124,6 +130,8 @@ describe('whiteboard quarantine recovery on an executable PostgreSQL engine', ()
     );
     expect(new Set(receipts).size).toBe(1);
     expect(await repository.issueQuarantineAccessReceipt(editor, boardId, fingerprint, 1)).toBe(receipts[0]);
+    expect(scheduledOrgs.length).toBeGreaterThan(0);
+    expect(scheduledOrgs.every(value=>value===orgId)).toBe(true);
     const own = await port.withTenant(orgId, session => session.query<{ count: string }>(
       `SELECT count(*)::text count FROM whiteboard_quarantine_access_receipts
        WHERE board_id=$1 AND actor_id=$2 AND session_fingerprint=$3 AND epoch=1`,
@@ -134,6 +142,19 @@ describe('whiteboard quarantine recovery on an executable PostgreSQL engine', ()
       'SELECT receipt_id FROM whiteboard_quarantine_access_receipts',
     ));
     expect(hidden.rows).toEqual([]);
+  });
+
+  it('rolls receipt issuance back when persistent maintenance registration fails',async()=>{
+    const failedFingerprint='9'.repeat(64);
+    const unavailable=new PgWhiteboardRepository(port,{
+      ensureScheduled:async()=>{throw new Error('maintenance unavailable');},
+    });
+    await expect(unavailable.issueQuarantineAccessReceipt(editor,boardId,failedFingerprint,1))
+      .rejects.toThrow('maintenance unavailable');
+    const rows=await port.withTenant(orgId,session=>session.query(
+      'SELECT receipt_id FROM whiteboard_quarantine_access_receipts WHERE session_fingerprint=$1',[failedFingerprint],
+    ));
+    expect(rows.rows).toEqual([]);
   });
 
   it('accepts a genuine historical proof once, exactly replays it, and rejects changed or forged inputs', async () => {

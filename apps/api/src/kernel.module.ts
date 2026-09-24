@@ -8,8 +8,9 @@ import { WHITEBOARD_OBSERVABILITY, type WhiteboardObservability } from './applic
 import { ProcessWhiteboardObservability } from './infrastructure/whiteboard/observability';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WhiteboardOperationsController } from './interface/controllers/whiteboard-operations.controller';
-import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { WHITEBOARD_RECEIPT_MAINTENANCE, WHITEBOARD_REPOSITORY, type WhiteboardReceiptMaintenance } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { PgWhiteboardReceiptMaintenance } from './infrastructure/whiteboard/pg-whiteboard-receipt-maintenance';
 import { WHITEBOARD_DISCUSSION } from './application/whiteboard/discussion-ports';
 import { PgWhiteboardDiscussion } from './infrastructure/whiteboard/pg-whiteboard-discussion';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
@@ -2902,9 +2903,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, WHITEBOARD_OBSERVABILITY],
     },
     {
+      provide: WHITEBOARD_RECEIPT_MAINTENANCE,
+      useFactory: (db:DatabasePort,logger:LoggerPort) => process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE==='1'
+        ? new PgWhiteboardReceiptMaintenance(db,logger) : null,
+      inject: [DATABASE_PORT,LOGGER_PORT],
+    },
+    {
       provide: WHITEBOARD_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort,maintenance:WhiteboardReceiptMaintenance|null) =>
+        new PgWhiteboardRepository(db,maintenance??undefined),
+      inject: [DATABASE_PORT,WHITEBOARD_RECEIPT_MAINTENANCE],
     },
     {
       provide: WHITEBOARD_DISCUSSION,

@@ -106,7 +106,7 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await resetOrgs(orgId, otherOrg);
   await seedOrg({ orgId, projectId: 'wb-ws-project-a' }); await seedOrg({ orgId: otherOrg, projectId: 'wb-ws-project-b' });
   for (const principal of [owner, editor, viewer, outsider]) await addOrgMember(principal.orgId, principal.userId, 'consultant', null);
-  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db); store = new PgWhiteboardCollaborationStore(db);
+  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db,{ensureScheduled:async()=>{}}); store = new PgWhiteboardCollaborationStore(db);
   server = createServer((_request, response) => { response.statusCode = 404; response.end(); });
   attachWhiteboardGateway(server, { boards: repo, store, principals: { resolve: async headers => identities.get(String(headers.authorization ?? '').replace(/^Bearer /, '')) ?? null } });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));

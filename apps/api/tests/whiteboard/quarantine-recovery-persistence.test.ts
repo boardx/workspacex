@@ -16,6 +16,7 @@ const colleague:Principal={orgId,userId:'wb-recovery-colleague'};
 const outsider:Principal={orgId:otherOrg,userId:'wb-recovery-editor'};
 const fingerprint='a'.repeat(64);
 let db:PgDatabase,repo:PgWhiteboardRepository,boardId:string,accessReceiptId:string,expiredAccessReceiptId:string;
+const maintenance={ensureScheduled:async()=>{}};
 function deferred(){let resolve!:()=>void;const promise=new Promise<void>(done=>{resolve=done;});return{promise,resolve};}
 
 const input=(overrides:Partial<Parameters<PgWhiteboardRepository['requestQuarantineRecovery']>[2]>={})=>({
@@ -27,7 +28,7 @@ beforeAll(async()=>{
   ensureDatabase();await migrateOnce();await resetOrgs(orgId,otherOrg);
   await seedOrg({orgId,projectId:'wb-recovery-project-a'});await seedOrg({orgId:otherOrg,projectId:'wb-recovery-project-b'});
   for(const principal of [owner,editor,colleague,outsider])await addOrgMember(principal.orgId,principal.userId,'consultant',null);
-  db=new PgDatabase(appConfig());repo=new PgWhiteboardRepository(db);
+  db=new PgDatabase(appConfig());repo=new PgWhiteboardRepository(db,maintenance);
   const board=await repo.create(owner,{requestId:randomUUID(),name:'隔离恢复'});boardId=board.id;
   await repo.putMember(owner,boardId,{userId:editor.userId,role:'editor'});
   const concurrentlyIssued=await Promise.all(Array.from({length:8},()=>repo.issueQuarantineAccessReceipt(editor,boardId,fingerprint,1)));
@@ -89,8 +90,8 @@ describe('whiteboard quarantine recovery on real PostgreSQL',()=>{
       withTenant:<T>(org:typeof orgId,run:(s:TenantSession)=>Promise<T>)=>db.withTenant(org,s=>run({query:async<R>(sql:string,params:readonly unknown[]=[])=>await intercept(sql,s.query<R>(sql,params)) as QueryResult<R>} as TenantSession)),
       withoutTenant:db.withoutTenant.bind(db),close:async()=>undefined,
     });
-    const revoking=new PgWhiteboardRepository(wrap(async(sql,result)=>{const value=await result;if(sql.startsWith('DELETE FROM whiteboard_members')){removed.resolve();await allowCommit.promise;}return value;}));
-    const issuing=new PgWhiteboardRepository(wrap(async(sql,result)=>{if(sql.includes('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE'))issueAttempted.resolve();return result;}));
+    const revoking=new PgWhiteboardRepository(wrap(async(sql,result)=>{const value=await result;if(sql.startsWith('DELETE FROM whiteboard_members')){removed.resolve();await allowCommit.promise;}return value;}),maintenance);
+    const issuing=new PgWhiteboardRepository(wrap(async(sql,result)=>{if(sql.includes('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE'))issueAttempted.resolve();return result;}),maintenance);
     const revocation=revoking.removeMember(owner,boardId,editor.userId);await removed.promise;
     const issue=issuing.issueQuarantineAccessReceipt(editor,boardId,'e'.repeat(64),1);await issueAttempted.promise;
     allowCommit.resolve();await expect(revocation).resolves.toBe(true);
