@@ -755,6 +755,12 @@ export const DesignWorkbenchError = z.enum([
   "DESIGN_ISSUE_IN_PROGRESS",
   /** 2026-09-05——GitHub 那一侧建失败（超时/鉴权/限流）。fail closed：库里不会留下半个 issue。 */
   "DESIGN_ISSUE_CREATION_FAILED",
+  /** 深度 S2：批注不存在，或不属于这个项目。 */
+  "COMMENT_NOT_FOUND",
+  /** 深度 S2：删批注的人既不是作者也不是项目 owner。改状态（解决 / 重新打开）不受此限——那是讨论本身。 */
+  "NOT_COMMENT_AUTHOR",
+  /** 深度 S2：这个项目的批注已经到上限（`DESIGN_COMMENT_MAX_PER_PROJECT`），先删掉一些已解决的；S3 起一条批注的回复到上限（`DESIGN_COMMENT_MAX_REPLIES`）也用它。 */
+  "COMMENT_LIMIT_REACHED",
   /**
    * 迭代 22：分享链接打不开——令牌不对、项目已取消发布、或项目被删了。
    *
@@ -806,8 +812,53 @@ export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
  */
 export const PROTOTYPE_VARIANTS_MIN = 2;
 export const PROTOTYPE_VARIANTS_MAX = 4;
+/** 深度 S9（#3988）：不说要几个时出几个——服务端的缺省与界面上「要几个」的初值同一个数。 */
+export const PROTOTYPE_VARIANTS_DEFAULT = 3;
 export const PrototypeVariant = z.object({ summary: z.string().min(1).max(120), root: PrototypeNode }).strict();
 export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
+
+/* ─────────── 深度 S2（#3988）：批注存在服务端 ─────────── */
+
+/**
+ * 钉在原型某个节点上的一句批注。R8 时它只存在浏览器里（`lib/design-comments.ts` 头注写了为什么）；
+ * 换台电脑、清一次缓存、同事打开同一个项目，批注都看不见——而批注本来就是给别人（AI 或同事）看的。
+ *
+ * 可见性**跟随项目**（全组织可读），写权限也向全组织开放：批注的意义就是让不是 owner 的人也能说话。
+ * 删除只允许作者本人或项目 owner（用例层判）。
+ */
+export const DESIGN_COMMENT_MAX_CHARS = 300;
+export const DESIGN_COMMENT_MAX_PER_PROJECT = 200;
+/** 深度 S3：一条批注下最多几条回复——讨论长到这个数，该当面聊或开一条新批注了。 */
+export const DESIGN_COMMENT_MAX_REPLIES = 50;
+export const DesignCommentReply = z
+  .object({
+    id: z.string(),
+    text: z.string().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+    authorId: z.string(),
+    authorName: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .strict();
+export type DesignCommentReply = z.infer<typeof DesignCommentReply>;
+export const DesignComment = z
+  .object({
+    id: z.string(),
+    /** 钉在哪个节点上（项目内唯一的节点 id）。节点后来被删了，批注照旧在，只是画布上没有钉。 */
+    nodeId: PrototypeNodeId,
+    frameIndex: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+    /** 写批注那一刻这个节点叫什么——节点被删了，列表里仍认得出说的是谁。 */
+    label: z.string().max(200),
+    text: z.string().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+    /** 已解决（交给 AI 改了，或有人手动标记）。可以重新打开。 */
+    resolved: z.boolean(),
+    authorId: z.string(),
+    authorName: z.string().nullable(),
+    createdAt: z.string(),
+    /** 深度 S3：这条批注下的讨论，按先后排。 */
+    replies: z.array(DesignCommentReply).max(DESIGN_COMMENT_MAX_REPLIES),
+  })
+  .strict();
+export type DesignComment = z.infer<typeof DesignComment>;
 
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
@@ -1124,6 +1175,56 @@ export const operations = {
       .strict(),
     out: z.object({ variants: z.array(PrototypeVariant).min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX) }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 深度 S2（#3988）：批注。**全组织可读可写**（同项目可见性）——批注就是让不是 owner 的人也能说话；
+   * 删除只允许作者或项目 owner。列表按写下的先后排。
+   */
+  listDesignComments: {
+    method: "GET",
+    path: "/pm-designs/:projectId/comments",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ items: z.array(DesignComment) }).strict(),
+    err: ["PROJECT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  createDesignComment: {
+    method: "POST",
+    path: "/pm-designs/:projectId/comments",
+    in: z
+      .object({
+        projectId: z.string(),
+        nodeId: PrototypeNodeId,
+        frameIndex: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+        label: z.string().max(200),
+        text: z.string().trim().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+      })
+      .strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_LIMIT_REACHED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  /** 解决 / 重新打开。交给 AI 改完的那几条也走这里（前端在发送成功后逐条标记）。 */
+  updateDesignComment: {
+    method: "PATCH",
+    path: "/pm-designs/:projectId/comments/:commentId",
+    in: z.object({ projectId: z.string(), commentId: z.string(), resolved: z.boolean() }).strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  /** 深度 S3：给一条批注回一句。全组织可写（同批注）；回复只追加，不改不删。回整条批注（含全部回复）。 */
+  createDesignCommentReply: {
+    method: "POST",
+    path: "/pm-designs/:projectId/comments/:commentId/replies",
+    in: z.object({ projectId: z.string(), commentId: z.string(), text: z.string().trim().min(1).max(DESIGN_COMMENT_MAX_CHARS) }).strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "COMMENT_LIMIT_REACHED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  deleteDesignComment: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/comments/:commentId",
+    in: z.object({ projectId: z.string(), commentId: z.string() }).strict(),
+    out: z.object({}).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "NOT_COMMENT_AUTHOR", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */

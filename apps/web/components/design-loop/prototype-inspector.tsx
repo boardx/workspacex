@@ -19,6 +19,7 @@ import { describeFailure } from "@/lib/design-failure";
 import { patchPrototype, prototypeNodeLabel, linkSlotsOf, type DesignProject, type PrototypeLink, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
 
 import { designPrototype } from "@repo/contracts";
+import { InspectorImageField } from "./inspector-image-field";
 
 /** 字段表来自契约（单源，契约测试锁定「每类型 key 集合 == props shape 键集合」）；这里只负责渲染。 */
 const FIELDS = designPrototype.PROTOTYPE_FIELDS;
@@ -66,6 +67,9 @@ function toDraft(node: PrototypeNode): Draft {
   const p = propsOf(node);
   const d: Draft = {};
   for (const f of FIELDS[node.type]) {
+    // 深度 S10：图不走草稿——选了就生效（`setImage`）。放进草稿的话，同一节点刷新时草稿里那份旧 src
+    // 会被 diff 成「删掉它」，下一次「应用」就把刚上传的图静悄悄删了。
+    if (f.kind === "image") continue;
     const v = p[f.key];
     if (f.kind === "lines") d[f.key] = Array.isArray(v) ? (v as string[]).join("\n") : "";
     else if (f.kind === "rows") d[f.key] = rowsToText(v);
@@ -86,6 +90,7 @@ function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
   const before = toDraft(node);
   const out: Record<string, unknown> = {};
   for (const f of FIELDS[node.type]) {
+    if (f.kind === "image") continue; // 见 `toDraft`
     const a = before[f.key];
     const b = draft[f.key];
     if (a === b) continue;
@@ -243,6 +248,20 @@ export function PrototypeInspector({
       setBusy(false);
     }
   };
+  /** 深度 S10：换图 / 移除图——选了就生效，不进草稿（见 `InspectorImageField`）。`null` = 删这个键。 */
+  const setImage = async (src: string | null) => {
+    if (id === undefined) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await patchPrototype(projectId, [{ op: "setProps", id, props: { src } }], summaryOf(src === null ? "移除了图片" : "换上了图片", node));
+      onSaved(out.project);
+    } catch (err) {
+      setError(reason(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   const remove = async () => {
     if (id === undefined) return;
     setBusy(true);
@@ -286,6 +305,7 @@ export function PrototypeInspector({
           {/* `lines` 是「一行一项」——这件事此前只写在代码注释里，框里一个字都没说。 */}
           {(f.kind === "multiline" || f.kind === "lines" || f.kind === "rows" || f.kind === "numbers") && <Textarea id={fieldId(f.key)} rows={f.kind === "multiline" ? 3 : f.kind === "rows" ? 6 : 4} placeholder={f.kind === "lines" ? "一行一项" : f.kind === "rows" ? "一行一条，格子用 | 隔开" : f.kind === "numbers" ? "一行一个数" : undefined} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {f.kind === "image" && <InspectorImageField id={fieldId(f.key)} src={typeof propsOf(node)[f.key] === "string" ? String(propsOf(node)[f.key]) : undefined} busy={busy} onChange={setImage} />}
           {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "enum" && (
             <select

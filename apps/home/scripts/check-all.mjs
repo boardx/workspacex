@@ -35,6 +35,7 @@ const checks = [
    command stays runnable on a bare checkout. */
 const browserChecks = [
   ['browser behaviour', '../tests/browser.test.mjs'],
+  ['scripted demo', '../tests/demo.test.mjs'],
   ['performance budget', '../tests/perf.test.mjs'],
   /* Safari's engine. Skips itself where WebKit is not installed; CI has it. */
   ['webkit (Safari)', '../tests/webkit.test.mjs'],

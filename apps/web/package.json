@@ -49,6 +49,7 @@
     "next": "14.2.15",
     "pinyin-pro": "3.29.4",
     "pptx-preview": "1.0.7",
+    "pptxgenjs": "^4.0.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-markdown": "^9",

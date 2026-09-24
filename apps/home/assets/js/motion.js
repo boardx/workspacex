@@ -63,6 +63,28 @@ export function initReveals() {
     io.observe(el);
   });
 
+  /* The net under the observer. A fast scroll can carry an element from below
+     the viewport to above it without a frame in which it intersects, and the
+     observer then never fires for it: the heading stays at opacity 0 above a
+     reader who has already passed it. Reproduced on this page with no other
+     change (a reading-pace scroll at 60 ms steps left #unit's heading blank),
+     and made likelier when content above grows mid-scroll — the scripted demo
+     mounting did it on CI. So when scrolling settles, anything still waiting
+     that is on screen or already passed is revealed. Once per settle, not per
+     frame: it reads a rect for each waiting element. */
+  let settle = 0;
+  const sweep = () => {
+    let waiting = 0;
+    targets.forEach((el) => {
+      if (el.classList.contains('is-in')) return;
+      if (el.getBoundingClientRect().top < window.innerHeight) { el.classList.add('is-in'); io.unobserve(el); }
+      else waiting += 1;
+    });
+    if (!waiting) window.removeEventListener('scroll', onScroll);
+  };
+  const onScroll = () => { clearTimeout(settle); settle = setTimeout(sweep, 150); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),
@@ -174,8 +196,10 @@ export function initNav() {
     for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
     if (window.scrollY < 8) cur = null;
     /* Inside the use cases, the fragment names the selected discipline
-       (cases.js writes it); the other language should open on that one. */
-    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+       (cases.js writes it); inside the demo, the selected scenario
+       (demo.js). The other language should open on that one. */
+    const frag = (cur === 'start' && /^#(panel|tab)-/.test(location.hash))
+      || (cur === 'demo' && /^#demo-/.test(location.hash)) ? location.hash.slice(1) : cur;
     if (frag === last) return;
     last = frag;
     anchors.forEach((a) => {

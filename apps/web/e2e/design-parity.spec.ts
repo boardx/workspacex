@@ -9,6 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 // 撤销 / 重做要真的版本日志：用评测那份按真实契约应用 patch、带恢复的替身（只接管 eval-* 项目）。
 import { routeEvalEditing } from "./parity-eval/eval-api";
+import { newCommentStore, routeEvalComments } from "./parity-eval/depth-api";
 
 test.use({ launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {}, acceptDownloads: true });
 
@@ -367,5 +368,264 @@ test.describe("R10 代码交接（#3955）", () => {
     expect([...tsx.matchAll(/^import\b[^"]*"([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
     expect(tsx).toContain(`{"年度会员 · 专业版"}`);
     expect(tsx).toContain(`{ name: "商品详情", Component: Screen1 }`);
+  });
+});
+
+test.describe("深度 S2 批注存在服务端（#3988）", () => {
+  test("A 浏览器钉一条 ⇒ 服务端收到；B 浏览器（空存储）打开同一个项目看得到它和它的钉；A 标记交给 AI ⇒ B 刷新后是已解决", async ({ page, browser }) => {
+    const store = newCommentStore();
+    const open = async (p: Page) => {
+      await routeDrafts(p, { empty: false });
+      await routeInbox(p, { empty: false });
+      await routeDesignWorkbench(p, { extraProjects: [R7_PROJECT] });
+      await routeEvalComments(p, store);
+      await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+      await p.getByTestId("design-detail").waitFor();
+      await p.getByTestId("design-detail-view-single").click();
+      await p.getByTestId("design-detail-mode-comment").click();
+      return p.getByTestId("design-detail-phone");
+    };
+    const phoneA = await open(page);
+    await phoneA.locator('[data-node-id="r7-title"]').click();
+    await page.getByTestId("design-comment-input").fill("标题换成更口语的说法");
+    await page.getByTestId("design-comment-save").click();
+    await expect(page.getByTestId("design-comment-item")).toHaveCount(1);
+    expect(store.get("eval-R7")?.map((c) => [c.nodeId, c.text])).toEqual([["r7-title", "标题换成更口语的说法"]]);
+
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const other = await ctx.newPage();
+    const phoneB = await open(other);
+    await expect(other.getByTestId("design-comment-item")).toContainText("标题换成更口语的说法");
+    await expect(phoneB.getByTestId("design-comment-pin")).toHaveCount(1);
+
+    store.get("eval-R7")![0]!.resolved = true;
+    await other.reload();
+    await other.getByTestId("design-detail").waitFor();
+    await other.getByTestId("design-detail-view-single").click();
+    await other.getByTestId("design-detail-mode-comment").click();
+    await expect(other.getByTestId("design-comment-item")).toHaveAttribute("data-resolved", "true");
+    await ctx.close();
+  });
+});
+
+test.describe("深度 S3 批注讨论（#3988）", () => {
+  test("回一句 ⇒ 挂在批注下、服务端存上；标记解决 ⇒ 钉消失；重新打开 ⇒ 钉回来；换个浏览器看得到这段讨论", async ({ page, browser }) => {
+    const store = newCommentStore();
+    const open = async (p: Page) => {
+      await routeDrafts(p, { empty: false });
+      await routeInbox(p, { empty: false });
+      await routeDesignWorkbench(p, { extraProjects: [R7_PROJECT] });
+      await routeEvalComments(p, store);
+      await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+      await p.getByTestId("design-detail").waitFor();
+      await p.getByTestId("design-detail-view-single").click();
+      await p.getByTestId("design-detail-mode-comment").click();
+      return p.getByTestId("design-detail-phone");
+    };
+    const phone = await open(page);
+    await phone.locator('[data-node-id="r7-agree"]').click();
+    await page.getByTestId("design-comment-input").fill("默认不要勾上");
+    await page.getByTestId("design-comment-save").click();
+    const item = page.getByTestId("design-comment-item").first();
+    await item.getByTestId("design-comment-reply").click();
+    await item.getByTestId("design-comment-reply-input").fill("同意，合规要求");
+    await item.getByTestId("design-comment-reply-save").click();
+    await expect(item).toContainText("同意，合规要求");
+    expect(store.get("eval-R7")?.[0]?.replies.map((r) => r.text)).toEqual(["同意，合规要求"]);
+
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
+    await item.getByTestId("design-comment-resolve").click();
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
+    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-reopen").click();
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
+
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const other = await ctx.newPage();
+    await open(other);
+    await expect(other.getByTestId("design-comment-item").first()).toContainText("同意，合规要求");
+    await ctx.close();
+  });
+});
+
+test.describe("深度 S4 导出的代码能交互（#3988）", () => {
+  test("导出的 .tsx 里 tabs 是真状态：useState 登记、点下去 setter 切到那一项、选中态读状态", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    const tsx = readFileSync(await d.path(), "utf8");
+    // R7 的 tabs「详情 / 规格」active=0：登记成 useState(0)，第二项点下去 setS1(1)，选中态是 s1 === 1。
+    expect(tsx).toMatch(/const \[s1, setS1\] = useState\(0\);/);
+    expect(tsx).toContain("onClick={() => { setS1(1); }}");
+    expect(tsx).toContain("aria-selected={s1 === 1}");
+  });
+});
+
+const S5_PROJECT = {
+  ...R3_PROJECT, id: "eval-S5", name: "周报", frames: ["首页"], frameNotes: [""],
+  prototype: [{ id: "s5-root", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+    { id: "s5-share", type: "button", props: { label: "分享周报", icon: "share" } },
+    { id: "s5-list", type: "list", props: { items: ["个人资料", "账号安全"], leading: "icon", icons: ["user", "lock"] } },
+    { id: "s5-nav", type: "bottomnav", props: { items: ["首页", "我的"] } },
+  ] }],
+};
+
+test.describe("深度 S5 导出的代码带图标（#3988）", () => {
+  test("导出的 .tsx 里每个用到的图标是一个内联 SVG 组件，按钮 / 列表 / 底部导航都引用它；仍只 import react", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    const tsx = readFileSync(await d.path(), "utf8");
+    // 按钮的 share、列表的 user / lock、底部导航按标签猜出的首页 → home、我的 → user（与画布同一个 guessNavIcon）。
+    for (const name of ["IconShare", "IconUser", "IconLock", "IconHome"]) {
+      expect(tsx).toContain(`function ${name}() {`);
+      expect(tsx).toContain(`<${name} />`);
+    }
+    expect(tsx).toMatch(/function IconShare\(\) \{\n  return \(<svg [^]*?<\/svg>\);/);
+    expect([...tsx.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
+  });
+});
+
+test.describe("深度 S6 编辑器里看代码（#3988）", () => {
+  test("点「代码」：右栏是导出的那一份 React 代码（与下载的 .tsx 逐字相同）；再点一次收起", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-code").click();
+    await expect(page.getByTestId("design-detail-code")).toHaveAttribute("aria-pressed", "true");
+    const panel = page.getByTestId("design-code-panel");
+    await expect(panel).toContainText("function IconShare()");
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    expect(await panel.textContent()).toBe(readFileSync(await d.path(), "utf8"));
+    await page.getByTestId("design-detail-code").click();
+    await expect(panel).toHaveCount(0);
+  });
+});
+
+const S7_PROJECT = {
+  ...R3_PROJECT, id: "eval-S7", name: "路演", frames: ["封面", "团队"], frameNotes: ["", ""],
+  prototype: [
+    { id: "s7-a", type: "stack", children: [{ id: "s7-a-t", type: "text", props: { content: "轻账路演封面", variant: "title" } }] },
+    { id: "s7-b", type: "stack", children: [{ id: "s7-b-t", type: "text", props: { content: "创始团队三人", variant: "title" } }] },
+  ],
+};
+
+test.describe("深度 S7 演示模式（#3988）", () => {
+  test("点「演示」：编辑器离屏、整屏放第一页；→ 翻到第二页、页码 2 / 2；Esc 回到编辑器", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-present").click();
+    const stage = page.getByTestId("design-present");
+    await expect(stage).toContainText("轻账路演封面");
+    await expect(page.getByTestId("design-detail")).toHaveCount(0);
+    await expect(page.getByTestId("design-present-counter")).toHaveText("1 / 2");
+    await page.keyboard.press("ArrowRight");
+    await expect(stage).toContainText("创始团队三人");
+    await expect(page.getByTestId("design-present-counter")).toHaveText("2 / 2");
+    await page.keyboard.press("Escape");
+    await expect(stage).toHaveCount(0);
+    await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
+  });
+});
+
+test.describe("深度 S8 导出 PPTX（#3988）", () => {
+  test("导出菜单「幻灯片（.pptx）」：真 Next 打包下能导出，ASCII 文件名，两页进两页出", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-pptx").click()]);
+    expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.pptx$/);
+    const buf = readFileSync(await d.path());
+    expect(buf.subarray(0, 2).toString("latin1")).toBe("PK");
+    // .pptx 里文件名以明文存在 zip 目录里；幻灯片正文是压缩过的，逐页的字交给单测拆包核对。
+    const names = buf.toString("latin1");
+    expect(names).toContain("ppt/slides/slide1.xml");
+    expect(names).toContain("ppt/slides/slide2.xml");
+    expect(names).not.toContain("ppt/slides/slide3.xml");
+  });
+});
+
+test.describe("深度 S9 变体：对照、提要求、要几个（#3988）", () => {
+  test("方案旁摆着当前页；写一句要求、选 2 个再出一组 ⇒ 请求带着它们，只出 2 个", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    const asked: { count?: number; instruction?: string }[] = [];
+    const variant = (tag: string) => ({ type: "stack", children: [{ type: "text", props: { content: `会员 · ${tag}`, variant: "title" } }] });
+    await page.route((url) => /^\/pm-designs\/eval-R7\/variants$/.test(url.pathname), async (route) => {
+      const body = route.request().postDataJSON() as { count?: number; instruction?: string };
+      asked.push(body);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        variants: ["甲", "乙", "丙", "丁"].slice(0, body.count ?? 3).map((t) => ({ summary: `方案${t}`, root: variant(`方案${t}`) })),
+      }) });
+    });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-variants").click();
+    await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版");
+    await expect(page.getByTestId("design-variant-2")).toBeVisible();
+    expect(asked[0]).toEqual({ screen: 0 });
+    await page.getByTestId("design-variants-instruction").fill("突出价格");
+    await page.getByTestId("design-variants-count").selectOption("2");
+    await page.getByTestId("design-variants-regenerate").click();
+    await expect.poll(() => asked.length).toBe(2);
+    expect(asked[1]).toEqual({ screen: 0, count: 2, instruction: "突出价格" });
+    await expect(page.getByTestId("design-variant-1")).toBeVisible();
+    await expect(page.getByTestId("design-variant-2")).toHaveCount(0);
+  });
+});
+
+const S10_PROJECT = {
+  ...R3_PROJECT, id: "eval-S10", name: "商品页", frames: ["商品"], frameNotes: [""],
+  prototype: [{ id: "s10-root", type: "stack", children: [
+    { id: "s10-img", type: "image", props: { alt: "商品主图", ratio: "square" } },
+    { id: "s10-title", type: "text", props: { content: "手冲咖啡壶", variant: "title" } },
+  ] }],
+};
+
+test.describe("深度 S10 真实图片（#3988）", () => {
+  test("上传一张 2400×1800 的大照片：浏览器里缩到契约上限以内再存（JPEG），画布上是这张图", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    const projects = await routeDesignWorkbench(page, { extraProjects: [S10_PROJECT] });
+    await routeEvalEditing(page, projects);
+    const sent: string[] = [];
+    page.on("request", (r) => { if (/\/pm-designs\/eval-S10\/prototype\/patch$/.test(new URL(r.url()).pathname)) sent.push(r.postData() ?? ""); });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S10");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+    await phone.locator('[data-proto="image"]').first().click();
+    // 一张噪点大图：不缩不压，data URL 有几 MB，一次 patch 请求装不下。
+    const big = await page.evaluate(() => {
+      const c = document.createElement("canvas"); c.width = 2400; c.height = 1800;
+      const g = c.getContext("2d")!; const d = g.createImageData(2400, 1800);
+      for (let i = 0; i < d.data.length; i++) d.data[i] = (i * 2654435761) % 251;
+      g.putImageData(d, 0, 0);
+      return c.toDataURL("image/png").split(",")[1]!;
+    });
+    await page.getByTestId("design-inspector-image-file").setInputFiles({ name: "big.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+    await expect(phone.locator('[data-proto="image"] img')).toBeVisible({ timeout: 10_000 });
+    await expect.poll(() => sent.length).toBe(1);
+    const src = (JSON.parse(sent[0]!) as { ops: { props: { src: string } }[] }).ops[0]!.props.src;
+    expect(src.startsWith("data:image/jpeg;base64,")).toBe(true);
+    expect(src.length).toBeLessThanOrEqual(80_000);
+    expect(big.length).toBeGreaterThan(80_000 * 10);
   });
 });

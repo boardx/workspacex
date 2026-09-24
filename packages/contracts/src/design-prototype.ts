@@ -153,11 +153,24 @@ const InputProps = z.object({
   value: z.string().max(500).optional(),
   multiline: z.boolean().optional(),
 }).strict();
+/**
+ * 深度 S10（#3988）：image 节点可以带一张**用户上传的真图**（`src`）。
+ *
+ * 只收 data URL（png / jpeg / webp / gif）：原型就是一份自包含的 JSON——导出的 .tsx、单文件 HTML、
+ * 分享快照都直接带着它走，不依赖某个要登录才读得到的图片地址。上限卡在一次 patch 请求装得下
+ * （API 默认请求体 100 KiB）：客户端先缩图、压质量，压不到这么小就说出来，不硬塞。
+ *
+ * `src` **只由用户上传写入**：发给模型之前摘掉（`withoutImageSources`，一张图就能吃掉整个上下文），
+ * 模型写回之后按节点 id 补回（`restoreImageSources`）——模型没碰过的图不会因为一轮对话消失。
+ */
+export const PROTOTYPE_IMAGE_SRC_MAX_CHARS = 80_000;
+export const PROTOTYPE_IMAGE_SRC_PATTERN = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
 const ImageProps = z.object({
   alt: Label,
   ratio: z.enum(["square", "video", "wide", "portrait"]).optional(),
   /** 迭代 16（#3773 R4）：这块图画的是什么（语义占位）。缺省 = `photo`。 */
   kind: PrototypeImageKind.optional(),
+  src: z.string().max(PROTOTYPE_IMAGE_SRC_MAX_CHARS).regex(PROTOTYPE_IMAGE_SRC_PATTERN).optional(),
 }).strict();
 /**
  * 迭代 16（#3773 R4）—— 列表行升级成**真实的列表行**。
@@ -433,7 +446,8 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
  * 对标 R3：`rows`（表格数据：一行一行，格子之间用 `|` 隔开）与 `numbers`（一串数，一行一个或逗号隔开）
  * 是给表格/图表的两种编辑形态——二维数组与数字数组塞不进既有的几种。
  */
-export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers";
+/** `image`：深度 S10——上传一张图（属性面板里是文件选择，不是输入框）。 */
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers" | "image";
 
 /**
  * 迭代 13（delta §6）—— 字段分两组：**内容**（写什么）与**视觉**（长什么样）。
@@ -529,6 +543,7 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   image: [
     F("alt", "说明", "text"), F("kind", "画的是什么", "enum", PrototypeImageKind.options),
     F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options),
+    F("src", "图片", "image"),
   ],
   list: [
     F("items", "条目（一行一项）", "lines"),
@@ -1108,7 +1123,7 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
   "card{title?, radius:none|sm|md|lg|full, padding:none|sm|md|lg}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align:start|center|end}；" +
   "button{label, icon?, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
-  "image{alt, kind:photo|illustration|avatar|map|chart|logo|video, ratio:square|video|wide|portrait}；" +
+  "image{alt, kind:photo|illustration|avatar|map|chart|logo|video, ratio:square|video|wide|portrait, src?（只由用户上传，你不要写；给你看的树里已经摘掉）}；" +
   "list{items:[..], detail?:[..副标题，与 items 逐位对应], trailing?:[..右侧值，与 items 逐位对应], leading:none|dot|check|avatar|icon, icons?:[..每行图标]}；divider{}；" +
   "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
   "bottomnav{items:[2–6 项], icons?:[与 items 逐位对应], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
@@ -1140,3 +1155,43 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "to 是**页序号**（0 起，按你给出的页顺序），不是页标签。" +
   "想连线就**自己给那个节点写 id**——id 允许你写，不写的由服务端补，那样你就指不到它。" +
   "指向不存在的页、自己指自己、指向本页没有的节点：那一条会被丢掉，其余照常生效，不影响这一页。";
+
+/* ───────────── 深度 S10（#3988）：上传的图不进模型、模型写回不丢图 ───────────── */
+
+function mapImages(n: PrototypeNode, f: (img: Extract<PrototypeNode, { type: "image" }>) => PrototypeNode): PrototypeNode {
+  if (n.type === "image") return f(n);
+  if (isPrototypeContainer(n)) return { ...n, children: n.children.map((c) => mapImages(c, f)) } as PrototypeNode;
+  return n;
+}
+
+/** 摘掉每个 image 的 `src`（发给模型之前）。没有图的树原样返回同一个对象。 */
+export function withoutImageSources<T extends PrototypeNode | null>(root: T): T {
+  if (root === null || !JSON.stringify(root).includes('"src"')) return root;
+  return mapImages(root, (img) => {
+    if (img.props.src === undefined) return img;
+    const { src: _src, ...props } = img.props;
+    return { ...img, props };
+  }) as T;
+}
+
+/**
+ * 模型写回之后按**节点 id** 补回图：新树里同 id 的 image 没带 `src`、旧树里它有 ⇒ 补上。
+ * 模型删掉了那个节点 / 换了 id ⇒ 图跟着节点走了，不硬塞回别处。
+ */
+export function restoreImageSources<T extends PrototypeNode | null | undefined>(
+  previous: readonly (PrototypeNode | null)[],
+  next: T,
+): T {
+  if (next === null || next === undefined) return next;
+  const srcById = new Map<string, string>();
+  const collect = (n: PrototypeNode): void => {
+    if (n.type === "image" && n.id !== undefined && n.props.src !== undefined) srcById.set(n.id, n.props.src);
+    if (isPrototypeContainer(n)) n.children.forEach(collect);
+  };
+  for (const r of previous) if (r !== null) collect(r);
+  if (srcById.size === 0) return next;
+  return mapImages(next, (img) => {
+    const src = img.id === undefined ? undefined : srcById.get(img.id);
+    return src === undefined || img.props.src !== undefined ? img : { ...img, props: { ...img.props, src } };
+  }) as T;
+}

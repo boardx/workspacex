@@ -111,6 +111,19 @@ function initReveals() {
     io.observe(el);
   });
 
+  let settle = 0;
+  const sweep = () => {
+    let waiting = 0;
+    targets.forEach((el) => {
+      if (el.classList.contains('is-in')) return;
+      if (el.getBoundingClientRect().top < window.innerHeight) { el.classList.add('is-in'); io.unobserve(el); }
+      else waiting += 1;
+    });
+    if (!waiting) window.removeEventListener('scroll', onScroll);
+  };
+  const onScroll = () => { clearTimeout(settle); settle = setTimeout(sweep, 150); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),
@@ -192,7 +205,8 @@ function initNav() {
     let cur = null;
     for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
     if (window.scrollY < 8) cur = null;
-    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+    const frag = (cur === 'start' && /^#(panel|tab)-/.test(location.hash))
+      || (cur === 'demo' && /^#demo-/.test(location.hash)) ? location.hash.slice(1) : cur;
     if (frag === last) return;
     last = frag;
     anchors.forEach((a) => {
@@ -1345,7 +1359,47 @@ const boot = () => {
   }, { passive: true });
   step('loop scene', wireLoopScene);
   step('language hint', initLangHint);
+  step('demo', armDemo);
 };
+
+function armDemo() {
+  const host = document.querySelector('[data-demo]');
+  if (!host) return;
+  const EVENTS = ['scroll', 'pointerdown', 'keydown', 'touchstart'];
+  let mod = null; let fetching = false; let done = false; let idle = 0;
+
+  const onScreen = () => {
+    const r = host.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  };
+  const tryMount = () => {
+    if (done || !mod || !onScreen()) return;
+    done = true;
+    window.removeEventListener('scroll', onScroll);
+    mod.initDemo(host);
+  };
+  const onScroll = () => { clearTimeout(idle); idle = setTimeout(tryMount, 160); };
+  const fetchIt = () => {
+    if (fetching) return;
+    fetching = true;
+    import('./demo.js')
+      .then((m) => { mod = m; onScroll(); })
+      .catch((error) => console.error('[home] demo failed:', error));
+  };
+  const arm = () => {
+    EVENTS.forEach((e) => window.removeEventListener(e, arm));
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!('IntersectionObserver' in window)) { fetchIt(); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      fetchIt();
+    }, { rootMargin: '0px 0px 100% 0px' });
+    io.observe(host);
+  };
+  EVENTS.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+  if (/^#demo-/.test(location.hash)) document.getElementById('demo')?.scrollIntoView({ block: 'start' });
+}
 
 let detachScene = null;
 let sceneOff = [];
