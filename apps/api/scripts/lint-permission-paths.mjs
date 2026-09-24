@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { SKILL_FILE_EDIT_PATH, checkSkillFileEditBoundary } from "./lib/skill-file-edit-boundary.mjs";
+import { BOARD_BLOB_GC_BOUNDARIES, checkBoardBlobGcBoundary } from './lib/board-blob-gc-boundary.mjs';
 import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
  * lint-permission-paths.mjs -- the structural half of R7 "permission travels along the
@@ -77,14 +78,6 @@ const ALLOWLIST = new Map([
   [
     "src/infrastructure/whiteboard/pg-collaboration-store.ts",
     "#3967: Yjs document state belongs to a private whiteboard whose owner/member roles cannot be represented by the generic acl_bindings ObjectRef; its org-wide fallback would weaken privacy. Every operation uses withTenant, locks the board FOR SHARE or FOR UPDATE, binds membership and idempotency to the acting user, and authorizes before reading or mutating snapshots/updates. Scope is exactly whiteboards, whiteboard_members, whiteboard_documents, whiteboard_updates and the authoritative whiteboard_content_heads pointer. tests/whiteboard/collaboration-repository-guard.test.ts mechanically enforces that SQL, transaction, lock, tenant, ACL and ordering premise and contains mutation counterexamples. Real PostgreSQL and websocket coverage lives in collaboration-persistence.test.ts, collaboration-transaction.test.ts and collaboration-ws.test.ts. Remove this entry if the guard or those integration proofs disappear.",
-  ],
-  [
-    "src/infrastructure/whiteboard/pg-board-blob-reference-guard.ts",
-    "#4093 Board blob GC is a system retention path with no requester or disclosure surface. It returns only encrypted manifest pointers (key/digests/size/key version), never Board bytes, titles, membership, or user content. It uses withTenant, locks the same whiteboards row FOR UPDATE as collaboration writers, and reads only whiteboards/whiteboard_content_heads/whiteboard_content_migrations/whiteboard_blob_retention_roots so reference discovery, backup/legal-hold roots and purge remain one transaction. tests/whiteboard/pg-board-blob-reference-guard.test.ts mechanically pins that table set, tenant transaction, lock, metadata-only projection, and absence of withoutTenant/content columns. Remove this entry if that test or any of those constraints changes.",
-  ],
-  [
-    "src/infrastructure/whiteboard/pg-board-blob-sweep-coordinator.ts",
-    "#4131 Board blob GC coordination is a system maintenance path with no requester or disclosure surface. It uses withTenant, a per-tenant/per-Board transaction advisory lease and only whiteboard_blob_gc_runs counters/cadence metadata; it never reads Board content. tests/whiteboard/board-blob-sweep-runtime.test.ts pins the lease, frequency and metrics SQL and absence of withoutTenant/content columns. Remove this entry if that proof or scope changes.",
   ],
   [
     "src/infrastructure/whiteboard/pg-whiteboard-transfer-store.ts",
@@ -525,6 +518,12 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (BOARD_BLOB_GC_BOUNDARIES.has(rel)) {
+      const errors = checkBoardBlobGcBoundary(rel, body);
+      if (!existsSync(join(API, 'scripts/tests/board-blob-gc-boundary.test.mjs'))) errors.push('Board blob GC mutation counterexamples missing');
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }
     if (MCP_CREDENTIAL_BOUNDARIES.has(rel)) {
