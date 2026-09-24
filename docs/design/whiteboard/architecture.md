@@ -110,7 +110,11 @@ Group/Frame 的父关系使用一个权威字段，不同时维护另一份可�
 
 ### 4.2 服务端权威数据
 
-关系库保存白板资源归属/ACL、actor、文档 epoch、schema 版本、更新序号与内容 hash、命令幂等结果、检查点、导入任务、审计和事务 outbox。
+Board 内容字节与关系元数据的权威边界、manifest、checkpoint/epoch、旧 `bytea` 迁移、备份及
+legal hold 统一由 [ADR-114](../../adr/ADR-114-board-content-bytes-live-in-file-storage.md) 定义。
+本文不复制可调阈值。关系库保存白板资源归属/ACL、actor、文档 epoch、schema 版本、更新序号、
+内容 manifest 指针与 digest/size、命令幂等结果、导入任务、审计和只含引用的事务 outbox；Yjs
+checkpoint 和 update 内容字节写入该 ADR 定义的 BlobStore。
 
 私密草稿采用独立按用户授权的存储/文档，投票计数与资格采用服务端事务表，评论走独立受控 API。它们不能写进所有参与者可下载的共享 Y.Doc。发布草稿通过幂等命令将选定内容复制到共享板；草稿与共享写入的跨存储步骤有操作状态，重试不得重复发布。
 
@@ -142,9 +146,13 @@ Group/Frame 的父关系使用一个权威字段，不同时维护另一份可�
 
 一个房间同一时刻只有一个带 fencing token 的写入领导者，按 boardId 路由；数据库提交核验 token，旧领导者失联恢复不能继续写。首版可单实例，仍需设计 failover token，后续按房间分片。Redis 可用于路由/通知，不作为唯一可靠存储。
 
-更新日志 append-only，序号按 epoch 单调递增。服务端崩溃后从快照水位加剩余日志恢复；ACK 丢失时重放幂等，不生成重复对象或重复外部事件。已提交但未广播的更新通过重连同步补齐。
+更新日志在 BlobStore 中 append-only，PG 发布 manifest 指针，序号按 epoch 单调递增。服务端崩溃后
+从 checkpoint 水位加 manifest 中的剩余 tail 恢复；ACK 丢失时重放幂等，不生成重复对象或重复外部
+事件。已提交但未广播的更新通过重连同步补齐。详细发布顺序与失败恢复见 ADR-114。
 
-快照是保存到某 seq 的完整 Y.Doc 状态及校验信息，写入和校验成功后才推进压缩水位；并发新增日志不被误删。Yjs 合并二进制 updates 不等于垃圾回收；压缩需要加载文档并结合保留/恢复策略。
+checkpoint 是保存到某 seq 的完整 Y.Doc 状态及校验信息，写入 BlobStore、read-after-write 校验并由
+PG 原子发布 manifest 后才推进压缩水位；并发新增 tail 不被误删。Yjs 合并二进制 updates 不等于
+垃圾回收；压缩需要加载文档并结合保留/恢复策略。触发阈值只从运行时配置单一事实源读取。
 
 搜索和 Webhook 消费 outbox，以 eventId 去重。跨白板不保证事务；一次 API 原子批次限定一个 board。大导入、资产复制、任务关联使用可恢复作业，不伪装为一次跨系统 ACID 提交。
 
