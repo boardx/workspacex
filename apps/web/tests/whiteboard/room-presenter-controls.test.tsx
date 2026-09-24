@@ -56,6 +56,21 @@ it('ignores principal-A create completion after switching to principal B',async(
   expect(createRoomPairing).toHaveBeenCalledTimes(1);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();expect(readPairingStatus).not.toHaveBeenCalled();
 });
 
+it('disables begin while pending and lets only the latest same-scope create operation win',async()=>{
+  const boardId='22222222-2222-4222-8222-222222222222',firstId='33333333-3333-4333-8333-333333333333',secondId='44444444-4444-4444-8444-444444444444';
+  let resolveFirst:(value:unknown)=>void=()=>undefined,resolveSecond:(value:unknown)=>void=()=>undefined;
+  const first=new Promise(resolve=>{resolveFirst=resolve;}),second=new Promise(resolve=>{resolveSecond=resolve;});
+  createRoomPairing.mockReturnValueOnce(first).mockReturnValueOnce(second);readPairingStatus.mockReturnValue(new Promise(()=>undefined));
+  render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);
+  const button=screen.getByTestId('room-present-open');
+  // Counterproof for two browser events already queued before React commits the pending state.
+  act(()=>{button.click();button.click();});expect(button).toBeDisabled();expect(createRoomPairing).toHaveBeenCalledTimes(2);
+  await act(async()=>{resolveSecond({id:secondId,boardId,code:'SECOND22',payload:'second-payload',expiresAt:'2030-01-01T00:00:00.000Z'});await second;});
+  expect(screen.getByTestId('room-pairing-payload')).toHaveValue('second-payload');await waitFor(()=>expect(readPairingStatus).toHaveBeenCalledWith(boardId,secondId,expect.any(AbortSignal)));
+  await act(async()=>{resolveFirst({id:firstId,boardId,code:'FIRST111',payload:'first-payload',expiresAt:'2030-01-01T00:00:00.000Z'});await first;});
+  expect(screen.getByTestId('room-pairing-payload')).toHaveValue('second-payload');expect(readPairingStatus).not.toHaveBeenCalledWith(boardId,firstId,expect.anything());
+});
+
 it('clears the exact owned presenter record on logout',async()=>{
   const boardId='22222222-2222-4222-8222-222222222222',sessionId='11111111-1111-4111-8111-111111111111',onSession=vi.fn();stored(boardId,sessionId);
   const view=render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={onSession}/>);await waitFor(()=>expect(onSession).toHaveBeenCalledWith(sessionId));
@@ -68,9 +83,35 @@ it('does not let a late principal-A revoke delete principal-B storage',async()=>
   stored(boardId,sessionB,'user-2');view.rerender(<RoomPresenterControls boardId={boardId} orgId={orgId} userId="user-2" disabled={false} onSession={vi.fn()}/>);await act(async()=>{resolveRevoke({ok:true});await pending;});expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionB);
 });
 
+it('does not let an unmounted stop completion clear a replacement with the same session id',async()=>{
+  const boardId='22222222-2222-4222-8222-222222222222',sessionId='11111111-1111-4111-8111-111111111111';let resolveRevoke:(value:unknown)=>void=()=>undefined;const pending=new Promise(resolve=>{resolveRevoke=resolve;});stored(boardId,sessionId);revokeRoom.mockReturnValue(pending);
+  const first=render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);await waitFor(()=>expect(screen.getByTestId('room-present-open')).not.toBeDisabled());fireEvent.click(screen.getByTestId('room-present-open'));fireEvent.click(screen.getByRole('button',{name:'断开会议室'}));
+  first.unmount();stored(boardId,sessionId);render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);await waitFor(()=>expect(screen.getByTestId('room-present-open')).not.toBeDisabled());
+  await act(async()=>{resolveRevoke({ok:true});await pending;});expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionId);
+});
+
+it('lets only the latest same-session stop operation mutate presenter state',async()=>{
+  const boardId='22222222-2222-4222-8222-222222222222',sessionId='11111111-1111-4111-8111-111111111111';let resolveFirst:(value:unknown)=>void=()=>undefined,rejectSecond:(reason:unknown)=>void=()=>undefined;
+  const first=new Promise(resolve=>{resolveFirst=resolve;}),second=new Promise((_resolve,reject)=>{rejectSecond=reject;});stored(boardId,sessionId);revokeRoom.mockReturnValueOnce(first).mockReturnValueOnce(second);
+  render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);await waitFor(()=>expect(screen.getByTestId('room-present-open')).not.toBeDisabled());fireEvent.click(screen.getByTestId('room-present-open'));
+  const stop=screen.getByRole('button',{name:'断开会议室'});act(()=>{stop.click();stop.click();});expect(revokeRoom).toHaveBeenCalledTimes(2);
+  rejectSecond(new TypeError('offline'));await act(async()=>{await second.catch(()=>undefined);});expect(screen.getByRole('alert')).toHaveTextContent('暂时无法断开会议室');
+  await act(async()=>{resolveFirst({ok:true});await first;});expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionId);expect(screen.getByTestId('room-connected')).toBeVisible();
+});
+
 it('expires and clears a pairing locally even while status stays offline',async()=>{
   const boardId='22222222-2222-4222-8222-222222222222';createRoomPairing.mockResolvedValue({id:'33333333-3333-4333-8333-333333333333',boardId,code:'ABCDEFGH',payload:'{}',expiresAt:new Date(Date.now()+100).toISOString()});readPairingStatus.mockRejectedValue(new TypeError('offline'));
   render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);fireEvent.click(screen.getByTestId('room-present-open'));await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'),{timeout:1_000});expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();const calls=readPairingStatus.mock.calls.length;await new Promise(resolve=>setTimeout(resolve,200));expect(readPairingStatus).toHaveBeenCalledTimes(calls);
+});
+
+it('aborts a hung pairing read at the local TTL and never revives the payload',async()=>{
+  const boardId='22222222-2222-4222-8222-222222222222';let signal:AbortSignal|undefined;
+  createRoomPairing.mockResolvedValue({id:'33333333-3333-4333-8333-333333333333',boardId,code:'ABCDEFGH',payload:'secret-payload',expiresAt:new Date(Date.now()+100).toISOString()});
+  readPairingStatus.mockImplementation((_board:string,_pairing:string,nextSignal:AbortSignal)=>{signal=nextSignal;return new Promise((_resolve,reject)=>nextSignal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));});
+  render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);fireEvent.click(screen.getByTestId('room-present-open'));
+  await waitFor(()=>expect(readPairingStatus).toHaveBeenCalled());expect(screen.getByTestId('room-pairing-payload')).toHaveValue('secret-payload');
+  await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'),{timeout:1_000});expect(signal?.aborted).toBe(true);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();
+  await new Promise(resolve=>setTimeout(resolve,150));expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();expect(readPairingStatus).toHaveBeenCalledTimes(1);
 });
 
 it.each([400,401,403,404,410,422])('treats authoritative pairing status %i as terminal',async status=>{
