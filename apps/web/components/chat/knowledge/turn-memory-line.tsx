@@ -6,7 +6,8 @@ import { AnswerKnowledgeFooter } from "./answer-knowledge-footer";
 import {
   ConflictPromptCard, ConflictPromptGoneError, type ConflictConditions, type ConflictResolution,
 } from "./conflict-prompt-card";
-import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision } from "./memory-card";
+import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision, type UndoOutcome } from "./memory-card";
+import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
 import {
   actOnMemoryCard,
   applyHumanAction,
@@ -114,16 +115,31 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       throw new Error(describeMemoryCardFailure(e));
     }
   }, [threadId, cardId]);
-  const undoRemember = React.useCallback(async (claimId: string): Promise<void> => {
+  /**
+   * 「已记住 · 撤销」。能不能撤、撤完是什么结果，都以服务端为准（getTurnMemory 按现在的事实读这张卡，见
+   * pg-knowledge-read.ts rememberedCard）：
+   *   · 撤之前重读：卡上已经不给 claimId（长期记忆里这条后来又有了别的来源）⇒ 不撤，说清楚为什么；
+   *   · 撤之后再读：长期记忆里那条没了 ⇒「已撤销，这条没有记到长期记忆」；还在（撤的同时别处又记了一次）⇒ 照实说还在。
+   * 这样界面上的那句话永远是服务端的事实，不是按点击前的样子猜的。
+   */
+  const undoRemember = React.useCallback(async (claimId: string): Promise<UndoOutcome> => {
+    const cardNow = async (): Promise<KgMemoryCard | null> => {
+      const t = await fetchTurnMemory(threadId, messageId);
+      return t.prompt?.type === "memory_card" && t.prompt.card.cardId === cardId ? t.prompt.card : null;
+    };
     try {
+      const before = await cardNow();
+      if (before === null || before.state !== "done" || before.items[0]?.claimId !== claimId) return "not_undoable";
       const revision = (await fetchThreadKnowledge(threadId)).revision;
       await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId, reason: "user_undo_remember" });
+      const after = await cardNow();
+      return after?.state === "dismissed" ? "undone" : "kept";
     } catch (e) {
-      requestKnowledgeReload(threadId);
       throw new Error(describeHumanActionFailure(e));
+    } finally {
+      requestKnowledgeReload(threadId);
     }
-    requestKnowledgeReload(threadId);
-  }, [threadId]);
+  }, [threadId, messageId, cardId]);
 
   React.useEffect(() => {
     let cancelled = false;

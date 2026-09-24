@@ -18,5 +18,5 @@ export function MemoryCardScene({ card, canAct = true }: { card: MemoryCardData;
     const keep = opts.claimIds === undefined ? card.items : card.items.filter((i) => i.claimId !== null && opts.claimIds!.includes(i.claimId));
     return { ...card, state: "done", items: keep };
   }, [card]);
-  return <MemoryCard card={card} canAct={canAct} onAct={act} onUndo={async () => {}} />;
+  return <MemoryCard card={card} canAct={canAct} onAct={act} onUndo={async () => "undone" as const} />;
 }

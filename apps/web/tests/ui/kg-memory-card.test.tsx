@@ -36,7 +36,7 @@ const FORGET: KgMemoryCard = {
 describe("MemoryCard：记住卡", () => {
   it("不改字点「记住」⇒ 交出 accept、不带 editedStatement；成功后变「已记住 · 撤销」", async () => {
     const onAct = vi.fn(async () => ({ ...REMEMBER, state: "done" as const, items: [{ claimId: "c-new", statement: REMEMBER.items[0]!.statement }] }));
-    render(<MemoryCard card={REMEMBER} canAct onAct={onAct} onUndo={vi.fn(async () => {})} />);
+    render(<MemoryCard card={REMEMBER} canAct onAct={onAct} onUndo={vi.fn(async () => "undone" as const)} />);
     expect(screen.getByTestId("kg-card-remember")).toHaveTextContent("要记到你的长期记忆吗？");
     expect(screen.getByTestId("kg-card-remember-text")).toHaveValue("客户A的对接人是王经理");
     fireEvent.click(screen.getByTestId("kg-card-accept"));
@@ -66,7 +66,7 @@ describe("MemoryCard：记住卡", () => {
   });
 
   it("撤销：交出刚记下的那条 id，成功后说「已撤销」、不再给撤销；失败给人话", async () => {
-    const onUndo = vi.fn().mockRejectedValueOnce(new Error("内容已变化，已为你刷新到最新，请再操作一次。")).mockResolvedValueOnce(undefined);
+    const onUndo = vi.fn().mockRejectedValueOnce(new Error("内容已变化，已为你刷新到最新，请再操作一次。")).mockResolvedValueOnce("undone");
     render(<MemoryCard card={{ ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "x" }] }} canAct onAct={vi.fn()} onUndo={onUndo} />);
     fireEvent.click(screen.getByTestId("kg-card-undo"));
     expect(await screen.findByTestId("kg-card-error")).toHaveTextContent("内容已变化");
@@ -74,6 +74,17 @@ describe("MemoryCard：记住卡", () => {
     await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销"));
     expect(screen.queryByTestId("kg-card-undo")).not.toBeInTheDocument();
     expect(onUndo).toHaveBeenCalledWith("c-new");
+  });
+
+  it.each([
+    ["kept", "长期记忆里这条还有别的来源，所以还在"],
+    ["not_undoable", "没法只撤这一次"],
+  ] as const)("撤销的结果以服务端为准：%s ⇒ 照实说，不说「没有记到长期记忆」", async (outcome, text) => {
+    render(<MemoryCard card={{ ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "x" }] }} canAct onAct={vi.fn()} onUndo={vi.fn(async () => outcome)} />);
+    fireEvent.click(screen.getByTestId("kg-card-undo"));
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent(text));
+    expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("没有记到长期记忆");
+    expect(screen.queryByTestId("kg-card-undo")).not.toBeInTheDocument();
   });
 
   it("已记住、但服务端没给 claimId（用的是原来就有的那条 / 并进了长期记忆里原来就有的那条）⇒ 只说「已记住」、不给撤销", () => {
@@ -171,6 +182,8 @@ interface Server {
   actions: { basedOnRevision: number; action: KgHumanAction }[];
   onCard: (body: Record<string, unknown>) => Response | undefined;
   turnReads: number;
+  /** 撤销之后服务端读回的卡（缺省：长期记忆里那条没了 ⇒ dismissed） */
+  afterUndo?: KgMemoryCard;
 }
 let server: Server;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -220,6 +233,9 @@ beforeEach(() => {
       const body = JSON.parse(String(init.body)) as Server["actions"][number];
       server.actions.push(body);
       server.revision += 1;
+      if (server.card !== null && body.action.type === "revokeClaim" && server.card.items[0]?.claimId === body.action.claimId) {
+        server.card = server.afterUndo ?? { ...server.card, state: "dismissed", items: [{ claimId: null, statement: server.card.items[0]!.statement }] };
+      }
       return json({ revision: server.revision, actionId: `act-${String(server.actions.length)}` });
     }
     throw new Error(`unexpected fetch: ${init?.method ?? "GET"} ${path}`);
@@ -252,8 +268,29 @@ describe("TurnMemoryLine：本轮的「记住 / 忘掉」卡", () => {
     server.card = { ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "客户A的对接人是王经理" }] };
     render(<TurnMemoryLine threadId={THREAD} messageId="msg-5" />);
     fireEvent.click(await screen.findByTestId("kg-card-undo"));
-    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销"));
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销，这条没有记到长期记忆"));
     expect(server.actions).toEqual([{ basedOnRevision: 7, action: { type: "revokeClaim", claimId: "c-new", reason: "user_undo_remember" } }]);
+  });
+
+  it("撤销前服务端已经不给撤（长期记忆里这条后来有了别的来源）⇒ 不发 revokeClaim，照实说撤不掉", async () => {
+    owner();
+    server.card = { ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "客户A的对接人是王经理" }] };
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-5" />);
+    const undo = await screen.findByTestId("kg-card-undo");
+    server.card = { ...REMEMBER, state: "done", items: [{ claimId: null, statement: "客户A的对接人是王经理" }] };
+    fireEvent.click(undo);
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("没法只撤这一次"));
+    expect(server.actions).toEqual([]);
+  });
+
+  it("撤的同时别处又记了一次（撤完服务端读回仍是已记住）⇒ 说「还在」，不说「没有记到长期记忆」", async () => {
+    owner();
+    server.card = { ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "客户A的对接人是王经理" }] };
+    server.afterUndo = { ...REMEMBER, state: "done", items: [{ claimId: null, statement: "客户A的对接人是王经理" }] };
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-5" />);
+    fireEvent.click(await screen.findByTestId("kg-card-undo"));
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("所以还在"));
+    expect(server.actions).toHaveLength(1);
   });
 
   it("忘掉（取消勾选一条）：请求体只带还勾着的", async () => {
