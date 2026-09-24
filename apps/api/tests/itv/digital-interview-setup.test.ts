@@ -403,7 +403,11 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(expertView.expertCandidates).toEqual(expect.arrayContaining([expect.objectContaining(staticExpert)]));
     expect(expertView.questionCandidates).toHaveLength(6);
 
-    const generatedQuestions = expertView.questionCandidates;
+    const generatedQuestions = expertView.questionCandidates.map((question, index, questions) => ({
+      ...question,
+      section: index === questions.length - 1 ? "counterexample" as const : "core" as const,
+      goalIds: ["legacy-goal"],
+    }));
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ questions: generatedQuestions, expectedVersion: 3, requestId: "questions-complete-f04" }),

@@ -11,11 +11,11 @@ import {
   skillRefineNode,
 } from "./digital-interview-nodes";
 
-type Route = "confirm_brief" | "confirm_experts" | "confirm_questions" | "skill_refine" | "done";
+type Route = "confirm_topic" | "confirm_experts" | "confirm_questions" | "skill_refine" | "done";
 
 function route(state: DigitalInterviewGraphState): Route {
   if (state.command?.kind === "skill_refine") return "skill_refine";
-  if (state.currentStep === "topic") return "confirm_brief";
+  if (state.currentStep === "topic") return "confirm_topic";
   if (state.currentStep === "experts") return "confirm_experts";
   if (state.currentStep === "questions") return "confirm_questions";
   return "done";
@@ -27,7 +27,7 @@ export function createDigitalInterviewGraph(input: {
 }) {
   return new StateGraph(DigitalInterviewStateAnnotation)
     .addNode("route", async () => ({}))
-    .addNode("confirm_brief", createConfirmationNode("confirm_brief", input.effects))
+    .addNode("confirm_topic", createConfirmationNode("confirm_topic", input.effects))
     .addNode("generate_expert_candidates", async (state) => generateExpertCandidatesNode(state, input.effects))
     .addNode("confirm_experts", createConfirmationNode("confirm_experts", input.effects))
     .addNode("generate_questions", async (state) => generateQuestionsNode(state, input.effects))
@@ -35,13 +35,13 @@ export function createDigitalInterviewGraph(input: {
     .addNode("skill_refine", async (state) => skillRefineNode(state))
     .addEdge(START, "route")
     .addConditionalEdges("route", route, {
-      confirm_brief: "confirm_brief",
+      confirm_topic: "confirm_topic",
       confirm_experts: "confirm_experts",
       confirm_questions: "confirm_questions",
       skill_refine: "skill_refine",
       done: END,
     })
-    .addEdge("confirm_brief", "generate_expert_candidates")
+    .addEdge("confirm_topic", "generate_expert_candidates")
     .addEdge("generate_expert_candidates", "confirm_experts")
     .addEdge("confirm_experts", "generate_questions")
     .addEdge("generate_questions", "confirm_questions")

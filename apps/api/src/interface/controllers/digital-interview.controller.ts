@@ -109,8 +109,14 @@ export class DigitalInterviewController {
     @Body() body: unknown,
   ) {
     assertPrincipal(principal);
-    this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
-    return this.translate(new DigitalInterviewWorkflowError("INTERVIEW_CONTRACT_UPGRADE_REQUIRED"));
+    const input = this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
+    try {
+      return C.operations.confirmDigitalInterviewTopic.out.parse(await this.workflow.confirmTopic({
+        orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+      }));
+    } catch (error) {
+      return this.translate(error);
+    }
   }
 
   @Post("/:interviewId/brief/confirm")
@@ -158,10 +164,30 @@ export class DigitalInterviewController {
     @Body() body: unknown,
   ) {
     assertPrincipal(principal);
-    const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(body, { interviewId }));
+    const legacyRequest = typeof body === "object" && body !== null && !("moderatorPolicy" in body);
+    const compatibleBody = legacyRequest
+      ? { ...body,
+          questions: Array.isArray((body as { questions?: unknown }).questions)
+            ? ((body as { questions: Record<string, unknown>[] }).questions).map((question, index, questions) => ({
+                ...question,
+                section: question.section ?? (index === questions.length - 1 ? "counterexample" : "core"),
+                goalIds: Array.isArray(question.goalIds) && question.goalIds.length > 0
+                  ? question.goalIds
+                  : ["legacy-goal"],
+              }))
+            : (body as { questions?: unknown }).questions,
+          moderatorPolicy: { probingDepth: "balanced", clarifyAmbiguity: true,
+          seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true,
+          maxFollowUpsPerQuestion: 2 } }
+      : body;
+    const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(compatibleBody, { interviewId }));
     try {
+      const workflowInput = legacyRequest
+        ? { interviewId: input.interviewId, questions: input.questions,
+            expectedVersion: input.expectedVersion, requestId: input.requestId }
+        : input;
       return C.operations.confirmDigitalInterviewQuestions.out.parse(
-        await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+        await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...workflowInput }),
       );
     } catch (error) {
       return this.translate(error);

@@ -16,7 +16,9 @@ export interface DigitalInterviewRuntime {
   confirmBrief(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewBrief.in>): Promise<DigitalInterviewWorkflowView>;
   previewQuality(input: ActorInput & z.infer<typeof interview.operations.previewDigitalInterviewQuality.in>): Promise<z.infer<typeof interview.DigitalInterviewQualityProjection>>;
   confirmExperts(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewExperts.in>): Promise<DigitalInterviewWorkflowView>;
-  confirmQuestions(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewQuestions.in>): Promise<DigitalInterviewWorkflowView>;
+  confirmQuestions(input: ActorInput
+    & Omit<z.infer<typeof interview.operations.confirmDigitalInterviewQuestions.in>, "moderatorPolicy">
+    & { readonly moderatorPolicy?: z.infer<typeof interview.DigitalInterviewModeratorPolicy> }): Promise<DigitalInterviewWorkflowView>;
   decideReadiness(input: ActorInput & z.infer<typeof interview.operations.decideDigitalInterviewReadiness.in>): Promise<DigitalInterviewWorkflowView>;
   reviewReport(input: ActorInput & z.infer<typeof interview.operations.reviewDigitalInterviewReport.in>): Promise<DigitalInterviewWorkflowView>;
   generateReport(

@@ -283,16 +283,14 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly topic: string;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_brief", topic: input.topic,
-      researchBrief: { decision: input.topic, learningGoals: [{ goalId: "legacy-goal", statement: input.topic }],
-        targetRoles: ["legacy"], outOfScope: [], successCriteria: ["legacy compatibility"] },
+    return this.resumeConfirmation(input, { kind: "confirm_topic", topic: input.topic,
       expectedVersion: input.expectedVersion, requestId: input.requestId });
   }
 
   async confirmBrief(input: z.infer<typeof interview.operations.confirmDigitalInterviewBrief.in> & {
     readonly orgId: OrgId; readonly actorId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_brief", topic: input.topic,
+    return this.resumeConfirmation(input, { kind: "confirm_topic", topic: input.topic,
       researchBrief: input.researchBrief, expectedVersion: input.expectedVersion, requestId: input.requestId });
   }
 
@@ -335,10 +333,16 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly moderatorPolicy?: z.infer<typeof interview.DigitalInterviewModeratorPolicy>;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
-      moderatorPolicy: input.moderatorPolicy ?? { probingDepth: "balanced", clarifyAmbiguity: true,
-        seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true, maxFollowUpsPerQuestion: 2 },
+    const confirmed = await this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
+      ...(input.moderatorPolicy ? { moderatorPolicy: input.moderatorPolicy } : {}),
       expectedVersion: input.expectedVersion, requestId: input.requestId });
+    if (!input.moderatorPolicy) {
+      await this.deps.effects.executeInterviewRuns({ orgId: input.orgId, actorId: input.actorId,
+        interviewId: input.interviewId, revisionId: confirmed.revisionId, bypassReadiness: true });
+      await this.graph.updateState(checkpointConfig(input.interviewId), { currentStep: "runs" });
+      return (await this.authorize(input.orgId, input.actorId, input.interviewId)).workflow;
+    }
+    return confirmed;
   }
 
   async decideReadiness(input: z.infer<typeof interview.operations.decideDigitalInterviewReadiness.in> & {
@@ -543,10 +547,18 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
     }
     if (generationOperation !== null) {
-      const guardedGenerated = await this.deps.effects.findReceipt({
+      const generatedReceiptInput = {
         orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
         requestId: command.requestId, payload: { expectedVersion: command.expectedVersion + 1 },
-      });
+      } as const;
+      let guardedGenerated = await this.deps.effects.findReceipt(generatedReceiptInput);
+      if (!guardedGenerated) {
+        const snapshot = await this.graph.getState(config);
+        if (snapshot.next.includes(generationOperation)) {
+          await this.graph.invoke(new Command({ update: { actorId: input.actorId } }), config);
+          guardedGenerated = await this.deps.effects.findReceipt(generatedReceiptInput);
+        }
+      }
       if (!guardedGenerated) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
       this.discloseWorkflow(guardedGenerated, current.decision);
     }

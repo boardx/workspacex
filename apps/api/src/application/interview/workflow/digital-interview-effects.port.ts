@@ -70,7 +70,7 @@ export interface DigitalInterviewEffects {
   generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void>;
   executeInterviewRuns(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
-    readonly revisionId: string;
+    readonly revisionId: string; readonly bypassReadiness?: boolean;
   }): Promise<void>;
   decideReadiness?(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;

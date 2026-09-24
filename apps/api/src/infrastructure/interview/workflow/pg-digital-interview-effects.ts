@@ -427,13 +427,14 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
           [input.orgId, activeRevisionId],
         );
-        if (input.command.kind === "confirm_brief") {
+        const researchBrief = input.command.researchBrief;
+        if (researchBrief) {
           await session.query(
             `INSERT INTO digital_interview_research_briefs
                (org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by)
              VALUES ($1,$2,$3,$4,$5::jsonb,'quality-v1',$6,$7)`,
             [input.orgId, this.ids.next("itv-brief"), input.interviewId, activeRevisionId,
-              JSON.stringify(input.command.researchBrief), input.command.requestId, input.actorId],
+              JSON.stringify(researchBrief), input.command.requestId, input.actorId],
           );
         }
         await session.query(
@@ -688,6 +689,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         operationName: "generate_expert_candidates", requestId: input.requestId, payload, workflow,
       });
       await this.refreshReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "confirm_topic", input.requestId, workflow,
+      );
+      await this.refreshReceipt(
         session, toOrgId(input.orgId), input.interviewId, "confirm_brief", input.requestId, workflow,
       );
     });
@@ -695,7 +699,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
 
   async executeInterviewRuns(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
-    readonly revisionId: string;
+    readonly revisionId: string; readonly bypassReadiness?: boolean;
   }): Promise<void> {
     if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     const snapshot = await this.db.withTenant(input.orgId, async (session) => {
@@ -706,8 +710,16 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         && decision.assessmentRuleVersion === assessment?.ruleVersion
         && ((assessment?.status === "ready" && decision.status === "ready")
           || (assessment?.status === "warning" && decision.status === "warning_accepted"));
-      if (workflow.revisionId !== input.revisionId || assessment?.status === "blocking" || !validDecision) {
+      if (workflow.revisionId !== input.revisionId
+        || (!input.bypassReadiness && (assessment?.status === "blocking" || !validDecision))) {
         throw new DigitalInterviewWorkflowError("INTERVIEW_NOT_READY");
+      }
+      if (input.bypassReadiness && workflow.status === "questions_pending") {
+        await session.query(
+          `UPDATE interview_sessions SET digital_status='running',updated_at=now()
+            WHERE org_id=$1 AND id=$2`,
+          [input.orgId, input.interviewId],
+        );
       }
       const allowed = await session.query<{ allowed: boolean; topic: string }>(
         `SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed,
@@ -1506,8 +1518,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     );
     const previousQuestions = await session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+      section: string; goal_ids: string[];
     }>(
-      `SELECT q.question_id,q.expert_id,q.ordinal,q.body,q.purpose
+      `SELECT q.question_id,q.expert_id,q.ordinal,q.body,q.purpose,q.section,q.goal_ids
          FROM digital_interview_questions q
          JOIN digital_interview_question_versions v
            ON v.org_id=q.org_id AND v.id=q.version_id
@@ -1577,10 +1590,10 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         ordinal += 1;
         await session.query(
           `INSERT INTO digital_interview_question_candidates
-             (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+             (org_id,revision_id,question_id,expert_id,ordinal,body,purpose,section,goal_ids)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [input.orgId, revisionId, question.question_id, question.expert_id,
-            ordinal, question.body, question.purpose],
+            ordinal, question.body, question.purpose, question.section, question.goal_ids],
         );
       }
     }
