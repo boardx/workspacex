@@ -5,14 +5,20 @@
  * 分开了就能探测别人的会话 / 结论是否存在。
  */
 import {
-  Controller, Get, Inject, NotFoundException, Param, ServiceUnavailableException,
+  BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, Inject,
+  NotFoundException, Param, Post, ServiceUnavailableException,
 } from "@nestjs/common";
+import { knowledgeGraph as KG } from "@repo/contracts";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
 import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
-import { KNOWLEDGE_READ_PORT, type KnowledgeReadPort } from "../../application/knowledge-graph/ports";
+import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import {
+  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, type HumanActionPort, type KnowledgeReadPort,
+} from "../../application/knowledge-graph/ports";
+import { newKgId } from "../../application/knowledge-graph/ids";
 import {
   KgReadError, getClaimSources, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
 } from "../../application/knowledge-graph/read-thread-knowledge";
@@ -28,6 +34,7 @@ export class KnowledgeGraphController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(KNOWLEDGE_READ_PORT) private readonly knowledge: KnowledgeReadPort,
+    @Inject(HUMAN_ACTION_PORT) private readonly actions: HumanActionPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -40,6 +47,12 @@ export class KnowledgeGraphController {
       return await fn({ userId: principal.userId, orgId: toOrgId(principal.orgId) });
     } catch (e) {
       if (e instanceof KgReadError) throw new NotFoundException({ reasonCode: e.code });
+      if (e instanceof KgHumanActionError) {
+        const body = { reasonCode: e.code };
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN") throw new ForbiddenException(body);
+        if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION") throw new ConflictException(body);
+        throw new NotFoundException(body);
+      }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }
@@ -65,5 +78,17 @@ export class KnowledgeGraphController {
     @Param("messageId") messageId: string,
   ) {
     return this.run(principal, (v) => getTurnMemory(this.deps, { ...v, threadId, messageId }));
+  }
+
+  /** UC-KG-3 applyHumanAction —— 人的动作（确认 / 改写 / 忘掉 / 标冲突 / 合并 / 拆分 / 改名） */
+  @Post("/knowledge-graph/threads/:threadId/actions")
+  @HttpCode(200)
+  humanAction(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.applyHumanAction.in.safeParse({ ...(body as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => applyHumanAction(
+      { ...this.deps, actions: this.actions, newId: newKgId },
+      { ...v, threadId, basedOnRevision: parsed.data.basedOnRevision, action: parsed.data.action },
+    ));
   }
 }

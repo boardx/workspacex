@@ -39,7 +39,7 @@ interface VisibleThread {
   readonly base: PermissionDecision;
 }
 
-async function visibleThread(deps: KnowledgeReadDeps, viewer: Viewer, threadId: string): Promise<VisibleThread> {
+export async function visibleThread(deps: KnowledgeReadDeps, viewer: Viewer, threadId: string): Promise<VisibleThread> {
   const facts = await deps.chat.findThreadFacts(viewer.orgId, threadId);
   if (facts === null) throw new KgReadError("KG_THREAD_NOT_FOUND");
   const outcome = await resolveVisibility(deps, { ...viewer, projectId: facts.projectId, threadId });

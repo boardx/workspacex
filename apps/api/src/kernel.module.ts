@@ -590,7 +590,8 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
-import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
@@ -2946,6 +2947,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
     { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
+    // F10：人工编辑动作（只经 kg_apply_human_action 落表）。
+    { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

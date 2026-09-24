@@ -82,7 +82,7 @@ describe("F09: getThreadKnowledge", () => {
       .rejects.toMatchObject({ code: "KG_THREAD_NOT_FOUND" });
     await expect(getThreadKnowledge(deps, { ...owner, threadId: "thr-does-not-exist" }))
       .rejects.toBeInstanceOf(KgReadError);
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, { apply: async () => { throw new Error("unused"); } });
     const principal = { userId: "u-member", orgId: ORG } as never;
     await expect(ctl.threadKnowledge(principal, PERSONAL)).rejects.toBeInstanceOf(NotFoundException);
   });

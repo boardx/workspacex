@@ -4,8 +4,8 @@
  * 骨架同 kg-projection-worker（`setInterval(...).unref()` + `running` 防重入）。抽取没开（没配置模型，
  * 或没设 KG_EXTRACTION_ENABLED=1）时不启动——队列照样排，打开后补抽。
  */
-import { randomUUID } from "node:crypto";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { newKgId } from "../../application/knowledge-graph/ids";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
 import {
   KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
@@ -15,8 +15,6 @@ import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.por
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
 
 export const KG_EXTRACTION_POLL_INTERVAL_MS = 2_000;
-
-export const newKgId = (prefix: string): string => `${prefix}_${randomUUID().replace(/-/g, "")}`;
 
 @Injectable()
 export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {

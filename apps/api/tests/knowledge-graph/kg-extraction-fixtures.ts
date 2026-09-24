@@ -5,7 +5,7 @@
 import type { ModelCallInput, ModelCallPort } from "../../src/application/agent-run/ports";
 import type { ExtractionDeps } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import type { DatabasePort } from "../../src/application/ports/database.port";
-import { newKgId } from "../../src/infrastructure/knowledge-graph/kg-extraction-worker";
+import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { ModelKnowledgeExtractor } from "../../src/infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "../../src/infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";

@@ -125,3 +125,30 @@ export interface KnowledgeReadPort {
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
+
+// ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
+
+export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
+
+/** 执行器拒绝人工动作时的码（契约 applyHumanAction.err 的子集）。 */
+export type KgHumanActionErrorCode =
+  | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
+  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND";
+
+export interface HumanActionPort {
+  /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
+  apply(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly basedOnRevision: number;
+    readonly action: KgHumanAction;
+  }): Promise<{ readonly revision: number; readonly actionId: string }>;
+}
+
+export class KgHumanActionError extends Error {
+  constructor(readonly code: KgHumanActionErrorCode, message?: string) {
+    super(message ?? code);
+  }
+}
+
+export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
