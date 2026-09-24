@@ -119,3 +119,4 @@ export * as whiteboardTransfer from './whiteboard-transfer';
 export * as whiteboardMigration from './whiteboard-migration';
 export * as whiteboardContentManifest from './whiteboard-content-manifest';
 export * as whiteboardProposal from './whiteboard-proposal';
+export * as whiteboardRetirement from './whiteboard-retirement';

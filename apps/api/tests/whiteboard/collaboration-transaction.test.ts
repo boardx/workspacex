@@ -13,12 +13,13 @@ const validator: WhiteboardUpdateValidator = {
   commands: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
   validate: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
 };
-function session(head: { epoch: number; seq: string } = { epoch: 1, seq: '0' }): { value: TenantSession; queries: string[] } {
-  const queries: string[] = [];
-  return { queries, value: { async query<R>(sql: string) {
+function session(head: { epoch: number; seq: string } = { epoch: 1, seq: '0' }, contentState: 'legacy' | 'rollback' = 'legacy'): { value: TenantSession; queries: string[]; params: ReadonlyArray<readonly unknown[]> } {
+  const queries: string[] = [], params: (readonly unknown[])[] = [];
+  return { queries, params, value: { async query<R>(sql: string, values: readonly unknown[] = []) {
     queries.push(sql);
+    params.push(values);
     const rows = sql.startsWith('SELECT owner_id') ? [{ owner_id: p.userId, archived: false }]
-      : sql.startsWith('SELECT d.epoch') ? [{ epoch: 1, seq: '0', snapshot: Buffer.from([0, 0]), head_epoch: head.epoch, head_seq: head.seq, storage_kind: 'legacy_pg', manifest_key: null, manifest_digest: null, manifest_size_bytes: null, tenant_key_version: null, fencing_token: '0' }]
+      : sql.startsWith('SELECT d.epoch') ? [{ epoch: 1, seq: '0', snapshot: Buffer.from([0, 0]), head_epoch: head.epoch, head_seq: head.seq, storage_kind: 'legacy_pg', manifest_key: null, manifest_digest: null, manifest_size_bytes: null, tenant_key_version: null, fencing_token: '0', content_state: contentState }]
       : sql.startsWith('SELECT count') ? [{ count: '0' }] : [];
     return { rows: rows as R[] };
   } } };
@@ -88,4 +89,17 @@ it('rolls back the receipt and sequence when head CAS or outer commit fails afte
     expect(committedSeq).toBe(0);
     expect(staged.queries.some(sql => sql.startsWith('INSERT INTO whiteboard_updates'))).toBe(true);
   }
+});
+
+it('keeps the PG rollback mirror for collaboration writes until explicit retirement starts', async () => {
+  const staged = session(undefined, 'rollback');
+  const original = staged.value.query.bind(staged.value);
+  staged.value.query = async <R>(sql: string, params?: readonly unknown[]) => sql.startsWith('UPDATE whiteboard_content_heads SET')
+    ? { rows: [{ fencing_token: '1' }] as R[] } : original<R>(sql, params);
+  const db: DatabasePort = { withTenant: async (_org, fn) => fn(staged.value), withoutTenant: async () => { throw new Error('No tenant'); }, close: async () => {} };
+  await new PgWhiteboardCollaborationStore(db, validator, 120, memoryBlobs(), identityCodec, 1).writeCommands(p, boardId, input());
+  const updateIndex = staged.queries.findIndex(sql => sql.startsWith('INSERT INTO whiteboard_updates'));
+  const documentIndex = staged.queries.findIndex(sql => sql.startsWith('UPDATE whiteboard_documents'));
+  expect(staged.params[updateIndex]?.[7]).toBeInstanceOf(Buffer);
+  expect(staged.params[documentIndex]?.[3]).toBeInstanceOf(Buffer);
 });

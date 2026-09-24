@@ -19,9 +19,7 @@ try {
     let update: Uint8Array;
     if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
     else {
-      const vector = Y.encodeStateVector(doc);
-      executeCommands(doc, input.commands, 'authorized-host-command');
-      update = Y.encodeStateAsUpdate(doc, vector);
+      update = executeCommands(doc, input.commands, 'authorized-host-command');
     }
     const snapshot = Y.encodeStateAsUpdate(doc);
     if (snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || [...doc.store.clients.values()].reduce((n, values) => n + values.length, 0) > WHITEBOARD_UPDATE_LIMITS.documentStructs) throw new Error('LIMIT');
