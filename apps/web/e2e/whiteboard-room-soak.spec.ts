@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {expect,test,type APIRequestContext,type Page} from '@playwright/test';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
+import {parseRoomTransform} from './support/room-transform';
 
 const enabled=process.env.BOARD_ROOM_SOAK==='1';
 const minutes=Number(process.env.BOARD_ROOM_SOAK_MINUTES??'30');
@@ -30,12 +31,12 @@ test.describe('meeting-room convergence soak',()=>{
         await call(api,ownerToken,'PUT',`/whiteboards/${boardId}/room-sessions/${sessionId}/viewport`,{x,y,zoom});
         if(iterations%120===0){const cdp=await roomContext.newCDPSession(room);await cdp.send('Page.setWebLifecycleState',{state:'frozen'});await new Promise(resolve=>setTimeout(resolve,2_000));await cdp.send('Page.setWebLifecycleState',{state:'active'});await cdp.detach();}
         if(iterations%60===0){await new Promise(resolve=>setTimeout(resolve,2_000));await roomContext.setOffline(false);}
-        const canvas=room.getByTestId('board-live-surface').locator(':scope > div').first();const timeout=iterations%60===0?5_000:3_000;await expect(canvas).toHaveAttribute('style',new RegExp(`translate\\(${x}px,${y}px\\) scale\\(${zoom}\\)`),{timeout});latencies.push(Date.now()-started);
+        const canvas=room.getByTestId('board-live-surface').locator(':scope > div').first();const timeout=iterations%60===0?5_000:3_000;await expect.poll(async()=>{const transform=parseRoomTransform(await canvas.evaluate(element=>getComputedStyle(element).transform));if(!transform)return Infinity;return Math.max(Math.abs(transform.x-x),Math.abs(transform.y-y),Math.abs(transform.scaleX-zoom),Math.abs(transform.scaleY-zoom),Math.abs(transform.crossX),Math.abs(transform.crossY));},{timeout,message:`room viewport must converge to (${x}, ${y}) at ${zoom}x`}).toBeLessThanOrEqual(.001);latencies.push(Date.now()-started);
         if(await room.getByTestId('room-join-payload').count())blankRegressions+=1;
         const revision=Number(await room.getByTestId('room-display-active').getAttribute('data-room-viewport-revision'));expect(revision).toBeGreaterThan(lastRevision);lastRevision=revision;
         const remaining=5_000-(Date.now()-started);if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
       }
-      const finalStyle=await room.getByTestId('board-live-surface').locator(':scope > div').first().getAttribute('style')??'';const match=/translate\(([-\d.]+)px,([-\d.]+)px\) scale\(([-\d.]+)\)/.exec(finalStyle);const finalError={x:Math.abs(Number(match?.[1])-lastExpected.x),y:Math.abs(Number(match?.[2])-lastExpected.y),zoom:Math.abs(Number(match?.[3])-lastExpected.zoom)};
+      const finalTransform=parseRoomTransform(await room.getByTestId('board-live-surface').locator(':scope > div').first().evaluate(element=>getComputedStyle(element).transform));const finalError={x:Math.abs((finalTransform?.x??Infinity)-lastExpected.x),y:Math.abs((finalTransform?.y??Infinity)-lastExpected.y),zoom:Math.max(Math.abs((finalTransform?.scaleX??Infinity)-lastExpected.zoom),Math.abs((finalTransform?.scaleY??Infinity)-lastExpected.zoom),Math.abs(finalTransform?.crossX??Infinity),Math.abs(finalTransform?.crossY??Infinity))};
       const sorted=[...latencies].sort((a,b)=>a-b),p95=sorted[Math.max(0,Math.ceil(sorted.length*.95)-1)]??Infinity;const report={requestedMinutes:minutes,elapsedMs:Date.now()-soakStarted,elapsedIterations:iterations,p95Ms:p95,finalRevision:lastRevision,blankRegressions,finalError};
       await testInfo.attach('meeting-room-soak-report.json',{body:Buffer.from(JSON.stringify(report,null,2)),contentType:'application/json'});
       expect(Date.now()-soakStarted).toBeGreaterThanOrEqual(minutes*60_000);expect(iterations).toBeGreaterThanOrEqual(Math.floor(minutes*60/5)*.95);expect(p95).toBeLessThanOrEqual(3_000);expect(finalError.x).toBeLessThanOrEqual(1);expect(finalError.y).toBeLessThanOrEqual(1);expect(finalError.zoom).toBeLessThanOrEqual(.01);expect(blankRegressions).toBe(0);
