@@ -48,6 +48,8 @@ PG 逻辑 schema 如下；实现可以在兼容迁移中调整物理表名，但
 | `whiteboard_content_receipts` | `(org_id, board_id, epoch, actor_id, update_id)` | `request_digest`、`accepted_seq`、`manifest_digest`、终态/错误码、时间戳；不保存 update body |
 | `whiteboard_content_migrations` | `(org_id, board_id)` | 迁移状态、source/candidate epoch 和 seq 水位、candidate manifest 指针/digest/size、job id、错误码、时间戳 |
 | `whiteboard_content_outbox` | `(org_id, event_id)` | board、epoch/seq、manifest pointer/digest、事件类型、投递状态与 attempt；不保存 Yjs body |
+| `whiteboard_blob_retention_roots` | `(org_id, board_id, root_kind, reference_id)` | backup/legal-hold 的 manifest pointer/digest/size/key version、保留与释放时间；不保存内容字节 |
+| `whiteboard_blob_gc_runs` | `(org_id, board_id)` | 最近 sweep 的开始/完成时间、耗时、计数器与有界分页游标；不保存内容字节 |
 
 以上关系全部受 tenant RLS/tenant-scoped repository 约束；Board 资源和成员 ACL 继续由既有
 `whiteboards` / `whiteboard_members` 关系管理，不在这里复制一份授权模型。
@@ -72,19 +74,28 @@ interface BoardBlobStore {
     ciphertext: Uint8Array;
     cipherDigest: string;
     sizeBytes: number;
+    contentType: "application/octet-stream";
   }): Promise<"created" | "already-present-same-content">;
   getVerified(input: {
     tenantId: string;
     key: string;
     expectedCipherDigest: string;
     expectedSizeBytes: number;
+    expectedContentType: "application/octet-stream";
   }): Promise<Uint8Array>;
   head(input: { tenantId: string; key: string }): Promise<{
     cipherDigest: string;
     sizeBytes: number;
+    contentType: "application/octet-stream";
   } | null>;
 }
 ```
+
+物理回收走单独的 `BoardBlobPurgeStore`：按 `tenantId + boardId + createdBefore` 有界分页列举候选，
+并用 key、digest、size、MIME、创建时间组成不可变水位执行条件删除。普通写路径只注入
+`BoardBlobStore`。GC 在持有与写路径相同的 Board 行锁期间遍历当前 head、迁移 candidate 与完整
+`parentManifest` 历史，再次比对候选后才调用 purge；旧 manifest 若只有 parent digest 而没有完整
+指针则失败关闭，不猜测历史可达性。
 
 普通 Board 写路径没有 delete 权限。删除只能由单独的 retention/physical-purge capability 执行，且
 执行前再次读取 legal hold。key 是租户命名空间内不可变的内容地址；同 key 不同内容必须硬失败，
@@ -97,7 +108,8 @@ interface BoardBlobStore {
 manifestVersion, boardId, epoch, headSeq, schemaVersion
 checkpoint: { key, plainDigest, cipherDigest, sizeBytes, throughSeq }
 tail[]:     { key, plainDigest, cipherDigest, sizeBytes, fromSeq, throughSeq }
-parentManifestDigest, tenantKeyVersion, createdAt
+parentManifestDigest, parentManifest: { key, plainDigest, cipherDigest, sizeBytes, tenantKeyVersion },
+tenantKeyVersion, createdAt
 ```
 
 PG head 只指向一个已 read-after-write 校验成功的 manifest。manifest 中的 seq 范围必须连续、不重叠，
@@ -204,6 +216,14 @@ stateDiagram-v2
 - orphan GC 只删除“未被任一有效 PG head、保留 epoch、未完成迁移/job、备份集合或 legal hold
   引用”的 blob。采用 mark-and-sweep：先生成带水位的候选清单，经过配置的安全窗后再次标记确认，
   再由专用 purge capability 删除。PG 不可用、引用扫描不完整或租户不确定时一律不删。
+
+生产运行入口是受限的 `pnpm --filter api board:gc-content -- --tenant-id … --board-id …`。它只接受一个
+租户和一个 Board，不接受调用方覆盖删除水位或 batch；安全窗、最小执行间隔和 batch 分别由
+`WORKSPACEX_BOARD_BLOB_GC_GRACE_MS`、`WORKSPACEX_BOARD_BLOB_GC_MIN_INTERVAL_MS`、
+`WORKSPACEX_BOARD_BLOB_GC_BATCH_SIZE` 的同一运行时策略解析。每个 Board 由 PG transaction advisory
+lease 串行执行，重启从 `whiteboard_blob_gc_runs.next_cursor` 继续，并把 examined/deleted/retained/
+changed 与耗时写回该表和结构化 CLI 输出。filesystem 适配器在发布 blob 前持久化固定长度候选索引，
+分页按字节游标最多扫描配置 batch 的固定倍数，不递归收集或排序整个 Board 目录。
 
 ## 后果
 

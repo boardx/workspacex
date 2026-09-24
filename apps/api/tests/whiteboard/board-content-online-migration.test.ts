@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
-import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
 import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, BoardRetirementHead, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
 import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
@@ -46,7 +46,7 @@ class MemoryBlobs implements BoardBlobStore {
   }
   async head(input: Parameters<BoardBlobStore['head']>[0]) {
     const value = this.values.get(input.key);
-    return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength } : null;
+    return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE } : null;
   }
 }
 
@@ -66,7 +66,7 @@ class DeferredBlobs extends MemoryBlobs {
 const codec: BoardBlobCodec = {
   async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> {
     const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext);
-    return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, tenantKeyVersion };
+    return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream', tenantKeyVersion };
   },
   async decrypt(input) {
     if (sha256(input.ciphertext) !== input.cipherDigest || sha256(input.ciphertext) !== input.expectedPlainDigest) throw Object.assign(new Error('corrupt'), { code: 'INTEGRITY_FAILED' });
@@ -89,7 +89,9 @@ class MemoryRepository implements BoardContentMigrationRepository {
   async readInventory(_tenant: string, _board: string, watermark: LegacyBoardWatermark) {
     return structuredClone({ ...watermark, snapshot: this.legacyBytesPresent ? this.source.snapshot : null, updates: this.source.updates.filter(update => update.seq <= watermark.headSeq).map(update => ({ ...update, update: new Uint8Array(update.update) })) });
   }
-  async saveCandidate(_tenant: string, _board: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate) { this.assertWatermark(current); return this.set({ state: 'candidate_ready', candidate }); }
+  async saveCandidate(_tenant: string, _board: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate, verifyCandidate: () => Promise<void>) {
+    this.assertWatermark(current); await verifyCandidate(); return this.set({ state: 'candidate_ready', candidate });
+  }
   async markVerified(_tenant: string, _board: string, current: BoardContentMigrationRecord) { this.assertWatermark(current); return this.set({ state: 'verified' }); }
   async cutover(_tenant: string, _board: string, current: BoardContentMigrationRecord, retirementNotBefore: Date) { this.assertWatermark(current); this.storageKind = 'blob_primary'; return this.set({ state: 'cutover', cutoverAt: new Date(0).toISOString(), retirementNotBefore: retirementNotBefore.toISOString() }); }
   async captureRetirementHead(): Promise<BoardRetirementHead> { const candidate = this.record?.candidate; if (!candidate) throw new Error('missing'); return { epoch: this.source.epoch, headSeq: this.source.headSeq, fencingToken: this.source.fencingToken + 1, storageKind: 'blob_primary', ...candidate }; }
@@ -120,6 +122,22 @@ class DeferredReadRepository extends MemoryRepository {
     return super.readInventory(tenant, board, watermark);
   }
   release() { this.continueRead(); }
+}
+
+class DeletedBeforeRegistrationRepository extends MemoryRepository {
+  constructor(source: LegacyBoardInventory, private readonly blobs: MemoryBlobs) { super(source); }
+  override async saveCandidate(_tenant: string, _board: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate,
+    verifyCandidate: () => Promise<void>): Promise<BoardContentMigrationRecord> {
+    this.assertCurrent(current);
+    // Deterministic publisher/sweeper interleaving: publication has finished, then an
+    // old-enough unregistered object disappears before the Board-locked registration.
+    this.blobs.values.delete(candidate.manifestKey);
+    await verifyCandidate();
+    throw new Error('unreachable');
+  }
+  private assertCurrent(current: BoardContentMigrationRecord) {
+    if (current.sourceEpoch !== this.source.epoch || current.sourceHeadSeq !== this.source.headSeq) throw new Error('WHITEBOARD_MIGRATION_CAS_LOST');
+  }
 }
 
 describe('online legacy PG to Board blob migration', () => {
@@ -201,6 +219,14 @@ describe('online legacy PG to Board blob migration', () => {
     blobs.release();
     expect((await migration).state).toBe('enrolled');
     expect(repository.record?.state).toBe('enrolled');
+    expect(repository.storageKind).toBe('legacy_pg');
+  });
+
+  it('never commits a migration pointer deleted after publication but before locked registration', async () => {
+    const blobs = new MemoryBlobs(), repository = new DeletedBeforeRegistrationRepository(fixture().inventory, blobs);
+    const service = new MigrateBoardContent(repository, blobs, codec, 1);
+    await expect(service.step({ tenantId, boardId, jobId })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(repository.record).toMatchObject({ state: 'enrolled', candidate: null });
     expect(repository.storageKind).toBe('legacy_pg');
   });
 

@@ -23,6 +23,7 @@
     "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts",
     "files:purge": "node --import tsx scripts/run-physical-deletion.ts",
     "board:migrate-content": "tsx scripts/migrate-board-content.ts",
+    "board:gc-content": "tsx scripts/sweep-board-blobs.ts",
     "test:file-cloud": "vitest run --config vitest.file-cloud.config.ts",
     "test:storage": "vitest run --config vitest.storage.config.ts",
     "test:local-desktop-unit": "vitest run --config vitest.local-desktop-unit.config.ts",
@@ -52,6 +53,7 @@
   "dependencies": {
     "@ag-ui/core": "0.0.57",
     "@alicloud/credentials": "2.4.7",
+    "@aws-sdk/client-s3": "^3.900.0",
     "@firecrawl/anydoc": "0.1.8",
     "@langchain/core": "0.3.80",
     "@langchain/langgraph": "0.4.9",
@@ -67,6 +69,7 @@
     "@repo/contracts": "workspace:*",
     "@repo/maau-postinvest-report": "workspace:*",
     "@repo/whiteboard-core": "workspace:*",
+    "@smithy/node-http-handler": "^4.12.1",
     "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",

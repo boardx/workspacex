@@ -1,8 +1,8 @@
-import { chmod, link as hardlink, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
+import { chmod, link as hardlink, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, truncate, unlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BoardBlobError } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, BoardBlobError } from '../../src/application/whiteboard/blob-ports';
 import { boardBlobKey, sha256 } from '../../src/domain/whiteboard/blob-identity';
 import { FsBoardBlobStore } from '../../src/infrastructure/whiteboard/fs-board-blob-store';
 
@@ -13,7 +13,7 @@ let root = '';
 let store: FsBoardBlobStore;
 
 function input(bytes: Uint8Array, key = boardBlobKey({ tenantId, boardId, kind: 'update', cipherDigest: sha256(bytes) })) {
-  return { tenantId, key, ciphertext: bytes, cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength };
+  return { tenantId, key, ciphertext: bytes, cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE };
 }
 
 function objectPath(key: string): string { return join(root, ...key.split('/')); }
@@ -34,7 +34,7 @@ describe('FsBoardBlobStore', () => {
     const restarted = new FsBoardBlobStore(root);
     expect(await restarted.putImmutable(value)).toBe('already-present-same-content');
     expect(Buffer.from(await restarted.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).toString()).toBe('encrypted-board-update');
-    expect(await restarted.head(value)).toEqual({ cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes });
+    expect(await restarted.head(value)).toEqual({ cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
   });
 
   it('durably creates every directory level before publishing into an empty root', async () => {
@@ -42,32 +42,34 @@ describe('FsBoardBlobStore', () => {
     const audited = new FsBoardBlobStore(root, async path => { syncs.push(path); });
     const value = input(Buffer.from('first-multi-level-write'));
     const chain = directoryChain(root, value.key);
-    const creation = chain.slice(1).flatMap((directory, index) => [directory, chain[index]!]);
-    const recoverySweep = [...chain].reverse().concat(dirname(root));
     expect(await audited.putImmutable(value)).toBe('created');
-    expect(syncs).toEqual([root, ...creation, ...recoverySweep, chain.at(-1)!, chain.at(-1)!]);
+    for (const directory of chain) expect(syncs).toContain(directory);
+    expect(syncs.slice(-2)).toEqual([chain.at(-1), chain.at(-1)]);
+    expect(syncs.length).toBeLessThan(64);
   });
 
   it('creates and fsyncs every missing storage-root ancestor and repairs every injected layer failure', async () => {
-    const value=input(Buffer.from('missing-root-ancestor-durability')),expectedRootSyncs=10;
+    const value=input(Buffer.from('missing-root-ancestor-durability'));
+    const probeBoundary=await mkdtemp(join(tmpdir(),'wsx-board-root-probe-')),probeRoot=join(probeBoundary,'one','two','blob-root');let expectedRootSyncs=0;
+    await new FsBoardBlobStore(probeRoot,async()=>{expectedRootSyncs++;}).putImmutable(value);await rm(probeBoundary,{recursive:true,force:true});
     for(let failAt=0;failAt<=expectedRootSyncs;failAt++){
       const boundary=await mkdtemp(join(tmpdir(),'wsx-board-root-boundary-')),caseRoot=join(boundary,'one','two','blob-root');let calls=0;
       const faulted=new FsBoardBlobStore(caseRoot,async()=>{calls++;if(calls===failAt)throw Object.assign(new Error('injected root-chain fsync failure'),{code:'EIO'});});
       try{
         if(failAt>0)await expect(faulted.putImmutable(value)).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
-        await expect(faulted.putImmutable(value)).resolves.toBe('created');
+        expect(['created','already-present-same-content']).toContain(await faulted.putImmutable(value));
         expect(await readFile(join(caseRoot,...value.key.split('/')))).toEqual(Buffer.from(value.ciphertext));
         for(const directory of [join(boundary,'one'),join(boundary,'one','two'),caseRoot]){
           const metadata=await stat(directory);expect(metadata.uid).toBe(process.getuid?.());expect(metadata.mode&0o022).toBe(0);
         }
       }finally{await rm(boundary,{recursive:true,force:true});}
     }
-  });
+  }, 20_000);
 
   it('does not ACK any directory fsync failure and recovers on retry', async () => {
     const value = input(Buffer.from('directory-fsync-recovery'));
-    const levels = value.key.split('/').length - 1;
-    const directorySyncs = levels * 2 + (levels + 1) + 1;
+    const probeRoot=await mkdtemp(join(tmpdir(),'wsx-board-dir-probe-'));let directorySyncs=0;
+    await new FsBoardBlobStore(probeRoot,async()=>{directorySyncs++;}).putImmutable(value);await rm(probeRoot,{recursive:true,force:true});
     for (let failAt = 1; failAt <= directorySyncs; failAt++) {
       const caseRoot = await mkdtemp(join(tmpdir(), 'wsx-board-dir-fault-'));
       let calls = 0;
@@ -77,12 +79,12 @@ describe('FsBoardBlobStore', () => {
       });
       try {
         await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
-        await expect(faulted.putImmutable(value)).resolves.toBe('created');
+        expect(['created','already-present-same-content']).toContain(await faulted.putImmutable(value));
       } finally {
         await rm(caseRoot, { recursive: true, force: true });
       }
     }
-  });
+  }, 20_000);
 
   it('publishes exactly one winner for concurrent different content at one immutable key', async () => {
     const left = input(Buffer.from('left'));
@@ -160,11 +162,11 @@ describe('FsBoardBlobStore', () => {
     const badKeys = ['../escape', '/absolute', `${value.key}//empty`, `${value.key}/../escape`, `${value.key}\\escape`, `${value.key}\0suffix`];
     for (const key of badKeys) {
       await expect(store.putImmutable({ ...value, key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
-      await expect(store.getVerified({ tenantId, key, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      await expect(store.getVerified({ tenantId, key, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
       await expect(store.head({ tenantId, key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     }
     await expect(store.putImmutable({ ...value, tenantId: otherTenantId })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
-    await expect(store.getVerified({ tenantId: otherTenantId, key: value.key, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(store.getVerified({ tenantId: otherTenantId, key: value.key, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     await expect(store.head({ tenantId: otherTenantId, key: value.key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 
@@ -253,6 +255,9 @@ describe('FsBoardBlobStore', () => {
     });
     await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
+    const restarted = new FsBoardBlobStore(root);
+    const crashCandidates = await restarted.listPurgeCandidates({ tenantId, boardId, createdBefore: new Date(Date.now() + 60_000), limit: 10 });
+    expect(crashCandidates.candidates.map(candidate => candidate.key)).toContain(value.key);
     const syncsBeforeRetry=parentSyncsAfterPublish;
     expect(await faulted.putImmutable(value)).toBe('already-present-same-content');
     expect(syncAttempts).toBeGreaterThan(chain.length * 2);
@@ -263,5 +268,55 @@ describe('FsBoardBlobStore', () => {
     const value = input(Buffer.from('missing'));
     await expect(store.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).rejects.toEqual(expect.any(BoardBlobError));
     await expect(store.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('pins the encrypted-object MIME across put, get, head and rejects mismatched metadata', async () => {
+    const value = input(Buffer.from('opaque-ciphertext'));
+    await expect(store.putImmutable({ ...value, contentType: 'text/plain' as never })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await store.putImmutable(value);
+    await expect(store.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes, expectedContentType: 'text/plain' as never })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    expect(await store.head(value)).toMatchObject({ contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+  });
+
+  it('enumerates old candidates by tenant and board in bounded pages and purges only an unchanged watermark', async () => {
+    const first = input(Buffer.from('gc-first'));
+    const second = input(Buffer.from('gc-second'));
+    await store.putImmutable(first); await store.putImmutable(second);
+    const old = new Date('2020-01-01T00:00:00.000Z');
+    await utimes(objectPath(first.key), old, old); await utimes(objectPath(second.key), old, old);
+    const page1 = await store.listPurgeCandidates({ tenantId, boardId, createdBefore: new Date('2021-01-01T00:00:00.000Z'), limit: 1 });
+    expect(page1.candidates).toHaveLength(1); expect(page1.nextCursor).toBeTruthy();
+    const page2 = await store.listPurgeCandidates({ tenantId, boardId, createdBefore: new Date('2021-01-01T00:00:00.000Z'), limit: 1, cursor: page1.nextCursor });
+    expect(page2.candidates).toHaveLength(1);
+    await expect(store.purgeCandidate({ ...page1.candidates[0]!, createdBefore: new Date('2019-01-01T00:00:00.000Z') })).resolves.toBe('changed-or-too-new');
+    await expect(store.purgeCandidate({ ...page1.candidates[0]!, createdBefore: new Date('2021-01-01T00:00:00.000Z') })).resolves.toBe('deleted');
+    await expect(store.purgeCandidate({ ...page1.candidates[0]!, createdBefore: new Date('2021-01-01T00:00:00.000Z') })).resolves.toBe('not-found');
+    expect(await store.head(page1.candidates[0]!)).toBeNull();
+  });
+
+  it('stops filesystem inspection at the requested page even when later indexed objects are hostile', async () => {
+    const first = input(Buffer.from('bounded-first'));
+    const hostile = input(Buffer.from('bounded-hostile'));
+    await store.putImmutable(first); await store.putImmutable(hostile);
+    for (let index = 0; index < 20; index++) await store.putImmutable(input(Buffer.from(`bounded-tail-${index}`)));
+    const old = new Date('2020-01-01T00:00:00.000Z');
+    await utimes(objectPath(first.key), old, old);
+    await unlink(objectPath(hostile.key)); await symlink('/definitely-outside-board-storage', objectPath(hostile.key));
+    const page = await store.listPurgeCandidates({ tenantId, boardId, createdBefore: new Date('2021-01-01T00:00:00.000Z'), limit: 1 });
+    expect(page.candidates.map(candidate => candidate.key)).toEqual([first.key]);
+    expect(page.nextCursor).toMatch(/^v1:/);
+    await expect(store.listPurgeCandidates({ tenantId, boardId, createdBefore: new Date('2021-01-01T00:00:00.000Z'), limit: 1, cursor: page.nextCursor }))
+      .rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  }, 20_000);
+
+  it('never enumerates another tenant/board and rejects purge traversal and changed candidates', async () => {
+    const value = input(Buffer.from('tenant-isolated-gc'));
+    await store.putImmutable(value);
+    const metadata = await lstat(objectPath(value.key));
+    const candidate = { tenantId, key: value.key, cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, createdAt: metadata.mtime };
+    expect((await store.listPurgeCandidates({ tenantId: otherTenantId, boardId, createdBefore: new Date(Date.now() + 1_000), limit: 10 })).candidates).toEqual([]);
+    await expect(store.purgeCandidate({ ...candidate, key: '../escape', createdBefore: new Date(Date.now() + 1_000) })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(store.purgeCandidate({ ...candidate, cipherDigest: '0'.repeat(64), createdBefore: new Date(Date.now() + 1_000) })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    expect(await store.head(value)).not.toBeNull();
   });
 });

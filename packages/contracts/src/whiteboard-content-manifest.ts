@@ -24,6 +24,8 @@ export const BoardContentManifestSchema = z.object({
     throughSeq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   })).max(100_000),
   parentManifestDigest: Digest.nullable(),
+  /** Full pointer permits retention traversal. Older v1 manifests omit it and GC fails closed. */
+  parentManifest: Common.extend({ tenantKeyVersion: z.number().int().positive().max(2_147_483_647) }).nullable().optional(),
   tenantKeyVersion: z.number().int().positive().max(2_147_483_647),
   createdAt: z.string().datetime({ offset: true }),
 }).strict();

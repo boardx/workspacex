@@ -56,7 +56,9 @@ export interface BoardContentMigrationRepository {
   loadOrEnroll(tenantId: string, boardId: string, jobId: string): Promise<BoardContentMigrationRecord>;
   captureWatermark(tenantId: string, boardId: string): Promise<LegacyBoardWatermark>;
   readInventory(tenantId: string, boardId: string, watermark: LegacyBoardWatermark): Promise<LegacyBoardInventory>;
-  saveCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<BoardContentMigrationRecord>;
+  /** The verifier runs after the Board row is locked and before the candidate pointer commits. */
+  saveCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord, candidate: BoardMigrationCandidate,
+    verifyCandidate: () => Promise<void>): Promise<BoardContentMigrationRecord>;
   markVerified(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<BoardContentMigrationRecord>;
   cutover(tenantId: string, boardId: string, record: BoardContentMigrationRecord, retirementNotBefore: Date): Promise<BoardContentMigrationRecord>;
   captureRetirementHead(tenantId: string, boardId: string): Promise<BoardRetirementHead>;

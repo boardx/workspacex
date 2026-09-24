@@ -30,7 +30,7 @@ const outsider: Principal = { orgId: otherOrg, userId: owner.userId };
 // Session token verification is tested by the existing HTTP/session integration lane.
 const identities = new Map([['owner-token', owner], ['editor-token', editor], ['viewer-token', viewer], ['outsider-token', outsider]]);
 let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string, blobRoot: string, blobs: FsBoardBlobStore;
-const codec = new AesGcmBoardBlobCodec({ resolve: async () => new Uint8Array(32).fill(23) });
+const codec = new AesGcmBoardBlobCodec({ currentKeyId: 'test-board-key', resolve: async () => new Uint8Array(32).fill(23) });
 const collaboration = (database: PgDatabase) => new PgWhiteboardCollaborationStore(database, undefined, 120, blobs, codec, 1);
 const sockets = new Set<WebSocket>();
 const b64 = (value: Uint8Array) => Buffer.from(value).toString('base64');

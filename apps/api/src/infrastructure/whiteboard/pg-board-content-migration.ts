@@ -83,8 +83,11 @@ class PgBoardContentMigrationTransaction {
     }) };
   }
 
-  async saveCandidate(current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<BoardContentMigrationRecord> {
+  async saveCandidate(current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate, verifyCandidate: () => Promise<void>): Promise<BoardContentMigrationRecord> {
     await this.lockWatermark(current);
+    // Blob publication happens outside PG. Re-read the complete candidate while the same
+    // Board lock excludes the sweeper; never commit a pointer deleted during a long pause.
+    await verifyCandidate();
     const result = await this.session.query<MigrationRow>(`UPDATE whiteboard_content_migrations SET state='candidate_ready',candidate_manifest_key=$4,candidate_manifest_digest=$5,candidate_manifest_plain_digest=$6,candidate_manifest_size_bytes=$7,candidate_tenant_key_version=$8,candidate_schema_version=1,candidate_protocol_version=1,candidate_head_seq=source_head_seq,last_error_code=NULL,updated_at=now() WHERE org_id=$1 AND board_id=$2 AND job_id=$3 AND state='enrolled' AND source_epoch=$9 AND source_head_seq=$10 AND source_fencing_token=$11 RETURNING ${RETURNING}`,
       [this.tenantId, this.boardId, current.jobId, candidate.manifestKey, candidate.manifestDigest, candidate.manifestPlainDigest, candidate.manifestSizeBytes, candidate.tenantKeyVersion, current.sourceEpoch, current.sourceHeadSeq, current.sourceFencingToken]);
     if (!result.rows[0]) throw new Error('WHITEBOARD_MIGRATION_CAS_LOST');
@@ -170,7 +173,9 @@ export class PgBoardContentMigrationRepository implements BoardContentMigrationR
   loadOrEnroll(tenantId: string, boardId: string, jobId: string) { return this.run(tenantId, boardId, tx => tx.loadOrEnroll(jobId)); }
   captureWatermark(tenantId: string, boardId: string) { return this.run(tenantId, boardId, tx => tx.captureWatermark()); }
   readInventory(tenantId: string, boardId: string, watermark: LegacyBoardWatermark) { return this.run(tenantId, boardId, tx => tx.readInventory(watermark)); }
-  saveCandidate(tenantId: string, boardId: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate) { return this.run(tenantId, boardId, tx => tx.saveCandidate(current, candidate)); }
+  saveCandidate(tenantId: string, boardId: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate, verifyCandidate: () => Promise<void>) {
+    return this.run(tenantId, boardId, tx => tx.saveCandidate(current, candidate, verifyCandidate));
+  }
   markVerified(tenantId: string, boardId: string, current: BoardContentMigrationRecord) { return this.run(tenantId, boardId, tx => tx.markVerified(current)); }
   cutover(tenantId: string, boardId: string, current: BoardContentMigrationRecord, retirementNotBefore: Date) { return this.run(tenantId, boardId, tx => tx.cutover(current, retirementNotBefore)); }
   captureRetirementHead(tenantId: string, boardId: string) { return this.run(tenantId, boardId, tx => tx.captureRetirementHead()); }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { SKILL_FILE_EDIT_PATH, checkSkillFileEditBoundary } from "./lib/skill-file-edit-boundary.mjs";
+import { BOARD_BLOB_GC_BOUNDARIES, checkBoardBlobGcBoundary } from './lib/board-blob-gc-boundary.mjs';
 import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
  * lint-permission-paths.mjs -- the structural half of R7 "permission travels along the
@@ -517,6 +518,12 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (BOARD_BLOB_GC_BOUNDARIES.has(rel)) {
+      const errors = checkBoardBlobGcBoundary(rel, body);
+      if (!existsSync(join(API, 'scripts/tests/board-blob-gc-boundary.test.mjs'))) errors.push('Board blob GC mutation counterexamples missing');
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }
     if (MCP_CREDENTIAL_BOUNDARIES.has(rel)) {
