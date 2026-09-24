@@ -130,23 +130,25 @@ function capWave(r) {
 
 // ---------- 主流程 ----------
 const main = loadDir("scores");
-const cal = loadDir("calibration");
+const cal = loadDir("calibration");   // 随机分层抽样的盲评：用于一致性检验，也参与共识分
+const cons = loadDir("consensus");    // 边界带补评：只用于共识定层，不混进随机样本的一致性统计
 const v1 = validate(main.rows, "scores");
 const v2 = validate(cal.rows, "calibration");
-const errors = [...main.errors, ...cal.errors, ...v1.errors, ...v2.errors];
-const warnings = [...v1.warnings, ...v2.warnings];
+const v3 = validate(cons.rows, "consensus");
+const errors = [...main.errors, ...cal.errors, ...cons.errors, ...v1.errors, ...v2.errors, ...v3.errors];
+const warnings = [...v1.warnings, ...v2.warnings, ...v3.warnings];
 
 if (CHECK_ONLY) {
   for (const e of errors) console.error("✗ " + e);
   for (const w of warnings) console.warn("⚠ " + w);
-  console.log(`scores ${main.rows.length} 行，calibration ${cal.rows.length} 行；错误 ${errors.length}，警告 ${warnings.length}`);
+  console.log(`scores ${main.rows.length} 行，calibration ${cal.rows.length} 行，consensus ${cons.rows.length} 行；错误 ${errors.length}，警告 ${warnings.length}`);
   process.exit(errors.length ? 1 : 0);
 }
 
 const valid0 = main.rows.filter((r) => RATED_DIMS.every((d) => Number.isInteger(r.scores?.[d])));
 // 共识分：calibration/ 里有第二评审的 skill，逐维取两人平均；门取更严者。
 // 一致性检验用的是原始的独立打分（见 pairs），不受这里影响。
-const second = new Map(cal.rows.filter((c) => RATED_DIMS.every((d) => Number.isInteger(c.scores?.[d]))).map((c) => [c.id, c]));
+const second = new Map([...cal.rows, ...cons.rows].filter((c) => RATED_DIMS.every((d) => Number.isInteger(c.scores?.[d]))).map((c) => [c.id, c]));
 const GATE_RANK = { pass: 0, fixable: 1, fail: 2 };
 const valid = valid0.map((r) => {
   const b = second.get(r.id);
@@ -182,6 +184,9 @@ const outside = pairs.filter((p) => !nearBoundary(scoreOf(p.a).V) && !nearBounda
 const tierAgreeOut = outside.length ? outside.filter((p) => tierOf(p.a, scoreOf(p.a).V) === tierOf(p.b, scoreOf(p.b).V)).length / outside.length : NaN;
 const adjAgree = pairs.length ? pairs.filter((p) => Math.abs(TIER_ORDER.indexOf(tierOf(p.a, scoreOf(p.a).V)) - TIER_ORDER.indexOf(tierOf(p.b, scoreOf(p.b).V))) <= 1).length / pairs.length : NaN;
 const disagreements = pairs.filter((p) => tierOf(p.a, scoreOf(p.a).V) !== tierOf(p.b, scoreOf(p.b).V));
+const consPairs = cons.rows.filter((c) => byId.has(c.id) && RATED_DIMS.every((d) => Number.isInteger(c.scores?.[d]))).map((c) => ({ a: byId.get(c.id), b: c }));
+const consDiff = consPairs.length ? RATED_DIMS.reduce((s, d) => s + consPairs.reduce((t, p) => t + Math.abs(p.a.scores[d] - p.b.scores[d]), 0) / consPairs.length, 0) / RATED_DIMS.length : NaN;
+const consVDiff = consPairs.length ? consPairs.reduce((s, p) => s + Math.abs(scoreOf(p.a).V - scoreOf(p.b).V), 0) / consPairs.length : NaN;
 const recAgree = pairs.length ? pairs.filter((p) => p.a.recommendation === p.b.recommendation).length / pairs.length : NaN;
 const vDiff = pairs.length ? pairs.reduce((s, p) => s + Math.abs(scoreOf(p.a).V - scoreOf(p.b).V), 0) / pairs.length : NaN;
 const overallDiff = pairs.length ? RATED_DIMS.reduce((s, d) => s + dimDiff[d], 0) / RATED_DIMS.length : NaN;
@@ -260,6 +265,10 @@ else {
   L.push("| 维度 | 平均绝对差 |", "|---|---|");
   for (const d of RATED_DIMS.slice().sort((a, b) => dimDiff[b] - dimDiff[a])) L.push(`| ${d} | ${dimDiff[d].toFixed(2)}${dimDiff[d] > rubric.calibration.max_mean_abs_diff ? " ⚠" : ""} |`);
   L.push("");
+}
+if (consPairs.length) {
+  L.push("### 3.1b 边界带补评（不计入上面的随机样本统计）", "");
+  L.push(`补评 ${consPairs.length} 个（第一评审 V 在 A 阈值 ±${rubric.boundary_band} 内）。每维平均绝对差 ${consDiff.toFixed(2)}；V 平均差 ${f1(consVDiff)} 分。这些 skill 的层级以两人逐维平均的共识分为准。`, "");
 }
 L.push("### 3.2 权重敏感性（各组权重 ±20%）", "");
 L.push("| 组 | 扰动 | 层级改变的 skill | 比例 |", "|---|---|---|---|");
