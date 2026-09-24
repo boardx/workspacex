@@ -1,6 +1,5 @@
 import type { KnowledgeRecallPort } from "../knowledge-graph/ports";
-import { recallThreadKnowledge } from "../knowledge-graph/recall-knowledge";
-import { buildKnowledgeContextMessage } from "../../domain/knowledge-graph/recall";
+import { knowledgeMemoryFor } from "../knowledge-graph/recall-knowledge";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -913,28 +912,12 @@ async function executeClaimed(
     }
   }
 
-  /*
-   * Phase 18 F08 —— 会话记忆（uc-18-2）：以本轮输入为问题，召回本会话记下的相关结论，作为一条来源标记
-   * 清楚的参考材料前置进 history（放在文件材料之前、离当前轮最远——同 L3 的取舍：参考材料不压过对话本身）。
-   * 与 L3 同一条降级纪律：读不到 ⇒ 这轮不带记忆，绝不 fail run；图路读不到 ⇒ 只用字面召回，
-   * 材料里带一句「可能不完整」让模型如实告诉用户（R4-E1）。
-   */
-  if (deps.knowledge) {
-    try {
-      const recall = await recallThreadKnowledge(
-        deps.knowledge,
-        { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText },
-        deps.log,
-      );
-      const memory = buildKnowledgeContextMessage(recall);
-      if (memory !== null) history = [{ role: "assistant", content: memory }, ...history];
-    } catch (e) {
-      deps.log("agent run knowledge recall failed, continuing without memory", {
-        runId: run.runId,
-        detail: e instanceof Error ? e.message : "unexpected knowledge recall failure",
-      });
-    }
-  }
+  // Phase 18 F08 —— 会话记忆（uc-18-2）：召回的相关结论作为一条参考材料放在 history 最前（离当前轮最远）；
+  // 读不到就这轮不带记忆，绝不 fail run（降级纪律见 knowledgeMemoryFor）。
+  const memory = deps.knowledge
+    ? await knowledgeMemoryFor(deps.knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, deps.log)
+    : null;
+  if (memory !== null) history = [{ role: "assistant", content: memory }, ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
