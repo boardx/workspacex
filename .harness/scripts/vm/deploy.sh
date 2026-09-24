@@ -420,8 +420,12 @@ sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
 # 即可，不动任何共享代码。已种进库里的 agent 记录不会被部署删除——它只是不再被补种；
 # 要清干净跑 `apps/api/scripts/purge-ad-hoc-agent.ts`。
 
-# 4d3（team2 ad-hoc agent 补种）已于 2026-09-24 随投后评级 Agent 下线删除（#4012）。
-# 已种进库里的 agent 行由 `apps/api/scripts/purge-postinvest-agents.ts` 清除。
+step "4d3. 清除已下线的投后 agent 与内置 skill（#4012，2026-09-24 人类决定部署时自动跑）"
+# 投后管理报告（team4）与投后财务评级（team2）已下线，代码已删；库里当初种下的 agent 行、
+# 内置 skill 及其版本仍在——删代码不删数据。这一步幂等：没有命中时报告 0 行并退出 0。
+# 刻意**不带** --purge-threads：用户用它们聊过的线程与消息是用户自己的数据，只摘入编行。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/purge-postinvest-agents.ts --apply
 
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条

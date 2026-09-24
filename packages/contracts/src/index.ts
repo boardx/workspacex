@@ -99,3 +99,5 @@ export * as standardBrowserTools from "./standard-browser-tools";
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
 
+/** 客户实例运行信号上报契约（超级实例 S2；2026-09-24 人类签核 D27，周期每天一次 D28）。 */
+export * as instanceTelemetry from "./instance-telemetry";

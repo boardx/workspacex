@@ -1,9 +1,9 @@
 /**
- * PROPOSED —— 客户实例运行信号上报契约（超级实例 S2）。**待人类签核，尚未生效。**
+ * ACCEPTED —— 客户实例运行信号上报契约（超级实例 S2）。
  *
- * 本文件刻意**不从 `index.ts` 导出**，也不修改任何既有操作，照 `capability-runtime-policy.ts`
- * 的先例办理：契约先起草、公开，人类签核（UI / 用例 / API 三件）之后才允许任何控制器消费它。
- * 设计依据：`docs/research/super-instance-design.md` §3；人类决策 D14（既是也不是）；待决 D16。
+ * 2026-09-24 人类签核（D27，照现稿）；上报周期每天一次（D28）；只传运行事实（D16）；
+ * 出厂只开健康信号（D22）。签核记录见 `docs/proposals/PROP-OPS-INSTANCE-TELEMETRY-001.md`。
+ * 设计依据：`docs/research/super-instance-design.md` §3；人类决策 D14（既是也不是）。
  *
  * ## 这份契约要守住的一句话
  *
@@ -32,6 +32,12 @@
  */
 import { z } from "zod";
 import { DeploymentEdition } from "./deployment";
+
+/**
+ * 上报周期（秒）——唯一事实源（D28，2026-09-24 人类决策：每天一次）。
+ * 上报器、边缘收集的「超期未报」判定都从这里取，不各写一份。
+ */
+export const TELEMETRY_REPORT_INTERVAL_SECONDS = 86_400;
 
 /** 四项上报同意——本契约内的唯一事实源。 */
 export const TelemetryConsentItem = z.enum(["health", "usage", "diagnostics", "benchmark"]);
