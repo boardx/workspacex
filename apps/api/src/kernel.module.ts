@@ -1,3 +1,6 @@
+import { WhiteboardController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1046,6 +1049,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
+    WhiteboardController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2858,6 +2862,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
+    {
+      provide: WHITEBOARD_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: DESIGN_PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),

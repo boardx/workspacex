@@ -71,6 +71,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/whiteboard/pg-whiteboard-repository.ts",
+    "#3926: private-by-default whiteboards have explicit owner/member roles, not an acl_bindings ObjectRef. Each read is actor-filtered inside withTenant; mutations require owner_id, grants additionally require org_memberships. Forcing an unbound generic ACL ref would default to org-wide and weaken this rule. Scope is only whiteboards/whiteboard_members/org_memberships metadata. Real PostgreSQL negative tests in tests/whiteboard/resource-lifecycle.test.ts cover same-org nonmember, cross-org identity, viewer/editor administration and revocation; resource-http.test.ts covers the global PrincipalGuard and public response boundary. tests/whiteboard/resource-repository-guard.test.ts mechanically restricts the three-table scope, withTenant on every method, read visibility and owner predicates, with mutation counterexamples. The 11 real PostgreSQL/HTTP tests passed for #3926. Remove this entry if these tests or actor predicates are removed. Content/sync require separately reviewed authorization.",
+  ],
+  [
     "src/infrastructure/survey/pg-survey-attachment-repository.ts",
     "#3760 personal survey attachments have no ACL object. Every public read first locks and validates the frozen publication secret/status/expiry, then the upload capability scoped to that publication, question and unclaimed session; owner reads require survey_workspaces.owner_id equality and claimed response_id. claimSurveyAttachments executes within the answer aggregate transaction after publication and answer validation, locks the capability and binds all question/attachment IDs atomically. All SQL uses withTenant/RLS; cleanup has no disclosure and only deletes expired unclaimed objects. tests/survey/survey-attachments.test.ts proves actual HTTP/PG/object-store owner denial, cross-session/question denial, expiry, closed publications, transactional rollback, replay and safe cleanup. Remove this exception if those tests or guards are removed or project sharing is introduced.",
   ],
