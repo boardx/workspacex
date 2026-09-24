@@ -33,6 +33,7 @@ const MINE = "thr-kg-f11-mine";
 const MINE2 = "thr-kg-f11-mine2";
 const SHARED = "thr-kg-f11-shared";
 const THEIRS = "thr-kg-f11-theirs";
+const MINE3 = "thr-kg-f11-mine3";
 let db: PgDatabase;
 let deps: PromotionDeps;
 let ctl: KnowledgeGraphController;
@@ -49,6 +50,15 @@ const FIRST = JSON.stringify({
     claim("老张负责测试", "fact", ["老张"]),
     claim("测试环境不稳定", "risk", ["v2"]),
     claim("预算已经批了", "fact", []),
+  ],
+});
+const THIRD = JSON.stringify({
+  entities: [{ name: "发布会", kind: "event", aliases: [] }],
+  claims: [
+    claim("发布会定在周五", "decision", ["发布会"]),
+    claim("客户要求中文界面", "fact", []),
+    claim("市场部负责宣传", "fact", []),
+    claim("法务已经审核", "fact", []),
   ],
 });
 const SECOND = JSON.stringify({
@@ -73,6 +83,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: MINE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: MINE2, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: SHARED, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: "u-owner" });
+  await addChatThread({ orgId: ORG, id: MINE3, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: THEIRS, projectId: null, visibilityScope: "private", createdBy: "u-member" });
   db = new PgDatabase(appConfig());
   deps = {
@@ -80,10 +91,11 @@ beforeAll(async () => {
     knowledge: new PgKnowledgeRead(db), promotion: new PgPromotion(db), newId: newKgId,
   };
   ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), deps.promotion);
-  const { model } = loopbackModel([["上线", FIRST], ["很不稳定", SECOND]]);
+  const { model } = loopbackModel([["上线", FIRST], ["很不稳定", SECOND], ["发布会", THIRD]]);
   const body = "v2 下周一上线；也有人说 v2 下周三上线。老张负责测试，测试环境不稳定，预算已经批了。";
   for (const t of [MINE, SHARED, THEIRS]) await addChatMessage({ orgId: ORG, id: `m-${t}`, threadId: t, body, authorId: t === THEIRS ? "u-member" : "u-owner" });
   await addChatMessage({ orgId: ORG, id: `m-${MINE2}`, threadId: MINE2, body: "老张负责测试。测试环境很不稳定，测试环境也不稳定。", authorId: "u-owner" });
+  await addChatMessage({ orgId: ORG, id: `m-${MINE3}`, threadId: MINE3, body: "发布会定在周五。客户要求中文界面，市场部负责宣传，法务已经审核。", authorId: "u-owner" });
   await runExtractionTick(extractionDeps(db, model, ORG));
 });
 afterAll(async () => { await db.close(); });
@@ -197,5 +209,92 @@ describe("F11: 记到我的长期记忆", () => {
     await expect(promote(MINE, ids)).rejects.toMatchObject({ code: "KG_PROMOTE_BATCH_TOO_LARGE" });
     // 入参校验在进入应用层之前同步抛出
     expect(() => ctl.promote({ userId: "u-owner", orgId: ORG } as never, MINE, { claimIds: ids })).toThrow(BadRequestException);
+  });
+});
+
+describe("F11 评审补强：数据库这一道自己也要拦得住（绕过应用层直接调执行器）", () => {
+  const exec = (threadId: string, claimId: string, extra: { userId?: string; mode?: "new" | "merge"; targetClaimId?: string } = {}) =>
+    deps.promotion.promote(ORG_ID, extra.userId ?? "u-owner", {
+      actionId: newKgId("act"), threadId, claimId, mode: extra.mode ?? "new",
+      ...(extra.targetClaimId !== undefined ? { targetClaimId: extra.targetClaimId } : {}),
+    });
+  const derivedFrom = (claimId: string) => sql("SELECT 1 FROM ontology_edges WHERE dst_id = $1 AND relation = 'derived_from'", [claimId]);
+
+  it("共享（项目）线程 ⇒ KG_SCOPE_NOT_PERSONAL，什么都不写", async () => {
+    const c = await claimId("v2 下周一上线", SHARED);
+    await expect(exec(SHARED, c)).rejects.toMatchObject({ code: "KG_SCOPE_NOT_PERSONAL" });
+    expect(await derivedFrom(c)).toHaveLength(0);
+  });
+
+  it("冻结的 org ⇒ KG_ORG_FROZEN，什么都不写", async () => {
+    const c = await claimId("法务已经审核", MINE3);
+    await asOwner((q) => q.query("UPDATE organizations SET status = 'disabled', disabled_at = now(), retention_until = now() + interval '30 days' WHERE id = $1", [ORG]));
+    try {
+      await expect(exec(MINE3, c)).rejects.toThrow(/KG_ORG_FROZEN/);
+    } finally {
+      await asOwner((q) => q.query("UPDATE organizations SET status = 'active', disabled_at = NULL, retention_until = NULL WHERE id = $1", [ORG]));
+    }
+    expect(await derivedFrom(c)).toHaveLength(0);
+  });
+
+  it("别的会话里的结论 id（同一个所有者）⇒ KG_CLAIM_NOT_FOUND", async () => {
+    const c = await claimId("法务已经审核", MINE3);
+    await expect(exec(MINE, c)).rejects.toMatchObject({ code: "KG_CLAIM_NOT_FOUND" });
+    expect(await derivedFrom(c)).toHaveLength(0);
+  });
+
+  it("合并目标是别人的个人结论 ⇒ KG_CLAIM_NOT_FOUND，别人的那条不被追加证据", async () => {
+    const [src] = await sql<{ id: string }>("SELECT id FROM claims WHERE scope_kind = 'chat_session' AND scope_id = $1 AND statement = '预算已经批了'", [THEIRS]);
+    const theirs = await exec(THEIRS, src!.id, { userId: "u-member" });
+    const before = await sql("SELECT message_id FROM claim_message_evidence WHERE claim_id = $1", [theirs]);
+    const c = await claimId("法务已经审核", MINE3);
+    await expect(exec(MINE3, c, { mode: "merge", targetClaimId: theirs })).rejects.toMatchObject({ code: "KG_CLAIM_NOT_FOUND" });
+    expect(await sql("SELECT message_id FROM claim_message_evidence WHERE claim_id = $1", [theirs])).toEqual(before);
+  });
+
+  it("结论还活着但只剩反对证据 ⇒ KG_EVIDENCE_REVOKED（应用层照样逐条报出来）", async () => {
+    const c = await claimId("客户要求中文界面", MINE3);
+    await sql("UPDATE claim_message_evidence SET stance = 'contradicting' WHERE claim_id = $1", [c]);
+    await sql("UPDATE claim_segments SET stance = 'contradicting' WHERE claim_id = $1", [c]);
+    await expect(exec(MINE3, c)).rejects.toMatchObject({ code: "KG_EVIDENCE_REVOKED" });
+    expect((await promote(MINE3, [c])).results).toEqual([{ claimId: c, outcome: "rejected", code: "KG_EVIDENCE_REVOKED" }]);
+    expect(await derivedFrom(c)).toHaveLength(0);
+  });
+
+  it("人忘掉的结论 ⇒ KG_CLAIM_NOT_FOUND（不是「原话已经不在了」）", async () => {
+    const c = await claimId("市场部负责宣传", MINE3);
+    const k = await read(MINE3);
+    await applyHumanAction({ ...deps, actions: new PgHumanAction(db) }, { ...owner, threadId: MINE3, basedOnRevision: k.revision, action: { type: "revokeClaim", claimId: c } });
+    expect((await promote(MINE3, [c])).results).toEqual([{ claimId: c, outcome: "rejected", code: "KG_CLAIM_NOT_FOUND" }]);
+  });
+
+  it("并发：晋升在读与写之间遇到别人「标矛盾」⇒ 等对方提交后按最新状态拒绝，矛盾标记不被覆盖", async () => {
+    const c = await claimId("发布会定在周五", MINE3);
+    let pending: Promise<unknown> | undefined;
+    await asOwner(async (q) => {
+      await q.query("BEGIN");
+      await q.query("UPDATE claims SET status = 'contested' WHERE id = $1", [c]);
+      pending = exec(MINE3, c).then(() => "promoted", (e: { code?: string }) => e.code ?? String(e));
+      await new Promise((r) => setTimeout(r, 400));
+      await q.query("COMMIT");
+    });
+    expect(await pending).toBe("KG_CONTESTED_NEEDS_RESOLUTION");
+    expect(await sql("SELECT status FROM claims WHERE id = $1", [c])).toEqual([{ status: "contested" }]);
+    expect(await derivedFrom(c)).toHaveLength(0);
+  });
+
+  it("晋升顺带的确认在会话作用域留痕：会话 revision 前进（F10 的乐观并发看得到）", async () => {
+    const [src] = await sql<{ id: string }>("SELECT id FROM claims WHERE scope_kind = 'chat_session' AND scope_id = $1 AND statement = '老张负责测试'", [THEIRS]);
+    const before = (await sql<{ n: string }>("SELECT count(*) AS n FROM ontology_actions WHERE scope_kind = 'chat_session' AND scope_id = $1 AND outcome = 'accepted'", [THEIRS]))[0]!.n;
+    await exec(THEIRS, src!.id, { userId: "u-member" });
+    const after = (await sql<{ n: string }>("SELECT count(*) AS n FROM ontology_actions WHERE scope_kind = 'chat_session' AND scope_id = $1 AND outcome = 'accepted'", [THEIRS]))[0]!.n;
+    expect(Number(after)).toBe(Number(before) + 1);
+  });
+
+  it("恰好 50 条不算超批量：逐条给结果", async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `c50-${i}`);
+    const { results } = await promote(MINE, ids);
+    expect(results).toHaveLength(50);
+    expect(new Set(results.map((r) => r.outcome))).toEqual(new Set(["rejected"]));
   });
 });
