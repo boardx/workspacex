@@ -69,11 +69,14 @@ export type KgCreatedBy = z.infer<typeof KgCreatedBy>;
 export const KgTriState = z.enum(["pending", "confirmed", "conflict"]);
 export type KgTriState = z.infer<typeof KgTriState>;
 
-/** 三态中文文案，单一事实源（前端不得另建映射表）。 */
+/**
+ * 三态中文文案，单一事实源（前端不得另建映射表）。
+ * 用词来自 `requirements/06-user-experience.md` 第五节「说人话」：界面不出现「待确认 / 三态」这类内部词。
+ */
 export const KG_TRI_STATE_LABEL_ZH: Record<KgTriState, string> = {
-  pending: "待确认",
-  confirmed: "已确认",
-  conflict: "冲突",
+  pending: "AI 记下的",
+  confirmed: "你确认过",
+  conflict: "有矛盾",
 };
 
 /** `ClaimStatus` → 三态。`superseded` 返回 null（不渲染）。唯一实现，前后端共用。 */
@@ -188,9 +191,23 @@ export type KgIngestionSummary = z.infer<typeof KgIngestionSummary>;
 /** 编辑动作（uc-18-3 R3），**人的动作**：执行器只接受人类会话调用，Agent 身份一律拒绝。 */
 export const KgHumanAction = z.discriminatedUnion("type", [
   z.object({ type: z.literal("confirmClaim"), claimId: z.string() }).strict(),
+  /** U-2「全部确认」：批量，逐条语义与 confirmClaim 相同；有一条是冲突态则整批拒绝 */
+  z.object({ type: z.literal("confirmClaims"), claimIds: z.array(z.string()).min(1).max(50) }).strict(),
   z.object({ type: z.literal("reviseClaim"), claimId: z.string(), statement: z.string().min(1).max(2000) }).strict(),
   z.object({ type: z.literal("revokeClaim"), claimId: z.string(), reason: z.string().max(500).optional() }).strict(),
   z.object({ type: z.literal("markContested"), claimIds: z.tuple([z.string(), z.string()]) }).strict(),
+  /**
+   * U-5 矛盾提醒卡的三个出口（uc-18-6 D）：
+   * - keep_new：旧条目被新条目取代（supersedes）
+   * - keep_both：两条都留，各写一句适用条件，结束冲突态
+   * - ignore：保持冲突态，但同一对不再提醒
+   */
+  z.object({
+    type: z.literal("resolveConflict"),
+    promptId: z.string(),
+    resolution: z.enum(["keep_new", "keep_both", "ignore"]),
+    conditions: z.object({ newer: z.string().max(200), older: z.string().max(200) }).strict().optional(),
+  }).strict(),
   z.object({ type: z.literal("mergeObjects"), keepObjectId: z.string(), mergeObjectId: z.string() }).strict(),
   z.object({ type: z.literal("splitObject"), objectId: z.string(), newName: z.string().min(1), moveClaimIds: z.array(z.string()).min(1) }).strict(),
   z.object({ type: z.literal("renameObject"), objectId: z.string(), name: z.string().min(1).max(200) }).strict(),
@@ -207,6 +224,51 @@ export const KgPromotionItemResult = z.discriminatedUnion("outcome", [
 ]);
 export type KgPromotionItemResult = z.infer<typeof KgPromotionItemResult>;
 
+/** U-6 可见范围（界面文案见 KG_VISIBILITY_LABEL_ZH） */
+export const KgVisibility = z.enum(["owner_only", "thread_members"]);
+export type KgVisibility = z.infer<typeof KgVisibility>;
+export const KG_VISIBILITY_LABEL_ZH: Record<KgVisibility, string> = {
+  owner_only: "仅你可见",
+  thread_members: "会话成员可见",
+};
+
+/** U-5 矛盾提醒（uc-18-6 D）。一轮最多一张（R7-3）；被 ignore 的同一对不再出现 */
+export const KgConflictPrompt = z.object({
+  promptId: z.string(),
+  newerClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
+  olderClaim: z.object({ id: z.string(), statement: z.string(), saidAt: z.string() }).strict(),
+}).strict();
+export type KgConflictPrompt = z.infer<typeof KgConflictPrompt>;
+
+/**
+ * U-4 对话里的「记住 / 忘掉」确认卡（uc-18-6 A/B）。
+ * **Agent 只生成卡片，不执行**：执行只经 `actOnMemoryCard`，身份是点击的人（I-15）。
+ */
+export const KgMemoryCard = z.object({
+  cardId: z.string(),
+  kind: z.enum(["remember", "forget"]),
+  items: z.array(z.object({
+    /** remember 且内容尚未入图时为 null（执行时按 statement 新建一条 human 结论） */
+    claimId: z.string().nullable(),
+    statement: z.string().min(1).max(2000),
+  }).strict()).min(1).max(20),
+  state: z.enum(["open", "done", "dismissed", "stale"]),
+}).strict();
+export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
+
+/** U-1 回答下方的单行「已记下 N 条 · 查看 · 撤销」，加上本轮的主动卡片（最多一张，E8） */
+export const KgTurnMemory = z.object({
+  messageId: z.string(),
+  captured: z.array(z.object({ claimId: z.string(), statement: z.string() }).strict()),
+  /** 仍在整理中 —— 界面显示「正在记…」，不阻塞正文 */
+  pending: z.boolean(),
+  prompt: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("conflict"), conflict: KgConflictPrompt }).strict(),
+    z.object({ type: z.literal("memory_card"), card: KgMemoryCard }).strict(),
+  ]).nullable(),
+}).strict();
+export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
+
 /* ────────────────────────────────────────────────────────────────────── *
  * 三、封闭错误码（usecases.md 各 UC 的 err 行）
  * ────────────────────────────────────────────────────────────────────── */
@@ -222,16 +284,17 @@ export const KgErrorCode = z.enum([
   "KG_ACTOR_NOT_HUMAN",
   "KG_SCOPE_NOT_PERSONAL",
   "KG_SCOPE_NOT_ENABLED",
-  "KG_PROMOTE_REQUIRES_ACCEPTED",
   "KG_EVIDENCE_REVOKED",
   "KG_PROMOTE_BATCH_TOO_LARGE",
   "KG_REINDEX_ALREADY_RUNNING",
+  "KG_CARD_NOT_FOUND",
+  "KG_CARD_STALE",
+  "KG_PROMPT_NOT_FOUND",
 ]);
 export type KgErrorCode = z.infer<typeof KgErrorCode>;
 
 /** 晋升逐条拒绝码 —— `KgErrorCode` 的子集（同一失败同一个码，不另起名）。 */
 export const KgPromotionRejectCode = KgErrorCode.extract([
-  "KG_PROMOTE_REQUIRES_ACCEPTED",
   "KG_EVIDENCE_REVOKED",
   "KG_CONTESTED_NEEDS_RESOLUTION",
   "KG_CLAIM_NOT_FOUND",
@@ -266,6 +329,8 @@ export const knowledgeGraph = {
       canEdit: z.boolean(),
       /** 会话是否个人线程 —— 前端据此渲染「存入个人空间」（uc-18-4 E2） */
       canPromote: z.boolean(),
+      /** U-6：面板头部常驻的可见范围说明 —— 仅你可见 / 会话成员可见 */
+      visibility: KgVisibility,
     }).strict(),
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
   },
@@ -303,6 +368,7 @@ export const knowledgeGraph = {
     err: [
       "KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN",
       "KG_REVISION_CHANGED", "KG_CLAIM_NOT_FOUND", "KG_OBJECT_NOT_FOUND", "KG_CONTESTED_NEEDS_RESOLUTION",
+      "KG_PROMPT_NOT_FOUND",
     ] as const,
   },
 
@@ -318,7 +384,11 @@ export const knowledgeGraph = {
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_REINDEX_ALREADY_RUNNING"] as const,
   },
 
-  /** UC-KG-5：晋升到个人空间（L0 → L1，复制 + derived_from 连边） */
+  /**
+   * UC-KG-5：晋升到个人空间（L0 → L1，复制 + derived_from 连边）。
+   * U-3：「AI 记下的」（proposed / reviewed）也可以晋升——人点这个按钮本身就算确认，
+   * 同一个人的同一个动作里先 confirm 再 promote。仍然拒绝：冲突态、来源已删。
+   */
   promoteToPersonal: {
     method: "POST", path: "/knowledge-graph/threads/:threadId/promote",
     in: z.object({
@@ -348,6 +418,29 @@ export const knowledgeGraph = {
       }).strict()),
     }).strict(),
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_SCOPE_NOT_PERSONAL"] as const,
+  },
+
+  /** UC-KG-11：一轮回答的记忆摘要（U-1 已记下 N 条 + U-4/U-5 主动卡片） */
+  getTurnMemory: {
+    method: "GET", path: "/knowledge-graph/threads/:threadId/messages/:messageId/memory",
+    in: z.object({ threadId: z.string(), messageId: z.string() }).strict(),
+    out: KgTurnMemory,
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
+  },
+
+  /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
+  actOnMemoryCard: {
+    method: "POST", path: "/knowledge-graph/cards/:cardId",
+    in: z.object({
+      cardId: z.string(),
+      decision: z.enum(["accept", "dismiss"]),
+      /** forget 卡：用户取消勾选后剩下的条目；省略 = 卡上全部 */
+      claimIds: z.array(z.string()).optional(),
+      /** remember 卡：用户改过的文字；省略 = 卡上原文 */
+      editedStatement: z.string().min(1).max(2000).optional(),
+    }).strict(),
+    out: z.object({ card: KgMemoryCard, actionIds: z.array(z.string()) }).strict(),
+    err: ["KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION"] as const,
   },
 
   /** UC-KG-7：读本人个人空间（L1）的知识 —— 只有本人 */

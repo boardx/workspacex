@@ -3,11 +3,14 @@ import Link from "next/link";
 import { KnowledgePanel, type PanelStatus, type PanelView } from "@/components/chat/knowledge/knowledge-panel";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
 import { AnswerKnowledgeFooter } from "@/components/chat/knowledge/answer-knowledge-footer";
+import { AnswerMemoryLine } from "@/components/chat/knowledge/answer-memory-line";
+import { MemoryCard } from "@/components/chat/knowledge/memory-card";
+import { ConflictPromptCard } from "@/components/chat/knowledge/conflict-prompt-card";
+import { MemoryRecallAnswer } from "@/components/chat/knowledge/memory-recall-answer";
 import { NominationCard } from "@/components/chat/knowledge/nomination-card";
 import { PromotionResultList } from "@/components/chat/knowledge/promotion-result-list";
 import {
   threadKnowledgeNormal,
-  threadKnowledgeIngesting,
   threadKnowledgePartialFailure,
   threadKnowledgeReadOnly,
   threadKnowledgeEmpty,
@@ -22,6 +25,15 @@ import {
   channelHealthVectorDown,
   promotionResultsMixed,
   nominationsNormal,
+  turnMemoryCapturedOnly,
+  turnMemoryPending,
+  turnMemoryWithRememberCard,
+  turnMemoryWithConflict,
+  memoryCardRememberOpen,
+  memoryCardRememberDone,
+  memoryCardForgetOpen,
+  conflictPromptNormal,
+  recallAnswerGroups,
   type ThreadKnowledge,
 } from "@/lib/mock/knowledge-graph";
 
@@ -30,6 +42,8 @@ import {
  *
  * ⚠ 纯前端 mock，**不接后端**（硬规则 ③）。真实的抽取 / 召回 / 权限 / 级联失效都在服务端。
  *   这里做的是签核材料：人类要能点、能逐态核对（硬规则 ②⑤）。
+ *
+ * 用户与体验以 requirements/06-user-experience.md 为准：说人话、价值出现在对话里、打扰克制。
  *
  * query（预览手段，非权限实现——真实权限在服务端，视角切换只是投影）：
  *   ?scene=<场景>&role=owner|member
@@ -42,28 +56,40 @@ type SceneDef = {
 };
 
 const SCENES: SceneDef[] = [
-  { id: "list-normal", label: "列表·正常", group: "列表(uc-18-3)" },
-  { id: "list-loading", label: "列表·加载", group: "列表(uc-18-3)" },
-  { id: "list-empty", label: "列表·空", group: "列表(uc-18-3)" },
-  { id: "list-partial", label: "列表·部分失败", group: "列表(uc-18-3)" },
-  { id: "list-error", label: "列表·错误", group: "列表(uc-18-3)" },
-  { id: "list-readonly", label: "列表·只读(非所有者)", group: "列表(uc-18-3)" },
-  { id: "graph-normal", label: "图·正常", group: "图(uc-18-3)" },
-  { id: "graph-oversize", label: "图·超限(>200)", group: "图(uc-18-3)" },
-  { id: "graph-loading", label: "图·加载", group: "图(uc-18-3)" },
-  { id: "graph-error", label: "图·错误", group: "图(uc-18-3)" },
-  { id: "drawer-normal", label: "来源抽屉·正常", group: "来源(uc-18-2)" },
-  { id: "drawer-revoked", label: "来源抽屉·已删除", group: "来源(uc-18-5)" },
-  { id: "answer-normal", label: "回答·引用+为什么召回", group: "召回(uc-18-2)" },
-  { id: "answer-graph-down", label: "回答·图检索不可用", group: "召回(uc-18-2)" },
-  { id: "answer-vector-down", label: "回答·向量检索不可用", group: "召回(uc-18-2)" },
-  { id: "answer-personal", label: "回答·来自个人空间", group: "召回(uc-18-4)" },
-  { id: "promote-results", label: "存入个人空间·逐条结果", group: "晋升(uc-18-4)" },
-  { id: "nomination", label: "AI 提名·值得记住", group: "晋升(uc-18-4)" },
+  // 价值出现在对话里（uc-18-1 U-1 / uc-18-6 U-4/U-5）
+  { id: "turn-captured", label: "回答下·已记下 N 条", group: "对话里(uc-18-1/6)" },
+  { id: "turn-pending", label: "回答下·正在记…", group: "对话里(uc-18-1/6)" },
+  { id: "onetap", label: "一键 对/不对 + 全部确认", group: "对话里(uc-18-1/6)" },
+  { id: "card-remember", label: "记住卡·可改字", group: "对话里(uc-18-1/6)" },
+  { id: "card-remember-done", label: "记住卡·已记住", group: "对话里(uc-18-1/6)" },
+  { id: "card-forget", label: "忘掉卡·默认全选", group: "对话里(uc-18-1/6)" },
+  { id: "card-conflict", label: "矛盾卡·三选一", group: "对话里(uc-18-1/6)" },
+  { id: "recall-answer", label: "你记得什么·分组回答", group: "对话里(uc-18-1/6)" },
+  // 面板（uc-18-3）
+  { id: "list-normal", label: "记忆·列表", group: "记忆面板(uc-18-3)" },
+  { id: "list-loading", label: "记忆·加载", group: "记忆面板(uc-18-3)" },
+  { id: "list-empty", label: "记忆·空", group: "记忆面板(uc-18-3)" },
+  { id: "list-partial", label: "记忆·部分失败", group: "记忆面板(uc-18-3)" },
+  { id: "list-error", label: "记忆·错误", group: "记忆面板(uc-18-3)" },
+  { id: "list-readonly", label: "记忆·只读(会话成员)", group: "记忆面板(uc-18-3)" },
+  { id: "graph-normal", label: "关系图·正常", group: "记忆面板(uc-18-3)" },
+  { id: "graph-oversize", label: "关系图·超限(>200)", group: "记忆面板(uc-18-3)" },
+  { id: "graph-loading", label: "关系图·加载", group: "记忆面板(uc-18-3)" },
+  { id: "graph-error", label: "关系图·错误", group: "记忆面板(uc-18-3)" },
+  // 来源与召回（uc-18-2）
+  { id: "drawer-normal", label: "来源·正常", group: "来源与召回(uc-18-2)" },
+  { id: "drawer-revoked", label: "来源·已删除", group: "来源与召回(uc-18-2/5)" },
+  { id: "answer-normal", label: "回答·引用+为什么用到", group: "来源与召回(uc-18-2)" },
+  { id: "answer-graph-down", label: "回答·关联查询不可用", group: "来源与召回(uc-18-2)" },
+  { id: "answer-vector-down", label: "回答·相似查询不可用", group: "来源与召回(uc-18-2)" },
+  { id: "answer-personal", label: "回答·来自你之前的对话", group: "来源与召回(uc-18-4)" },
+  // 记入长期记忆（uc-18-4）
+  { id: "promote-results", label: "记入长期记忆·逐条结果", group: "长期记忆(uc-18-4)" },
+  { id: "nomination", label: "AI 提名·值得记住", group: "长期记忆(uc-18-4)" },
 ];
 
 function resolveScene(raw?: string): string {
-  return SCENES.some((s) => s.id === raw) ? (raw as string) : "list-normal";
+  return SCENES.some((s) => s.id === raw) ? (raw as string) : "turn-captured";
 }
 
 /** 简化的三栏骨架 + 左侧五段语义导航（硬规则 ⑥：与既有设计语言一致）。 */
@@ -94,17 +120,17 @@ function ThreadShell({
       <div className="flex flex-1 flex-col border-r border-border-subtle">
         <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
           <span className="text-12 font-medium">v2 上线排期</span>
-          <span className="text-10 text-muted-foreground">· 个人对话 · 视角：{role === "owner" ? "所有者" : "其他成员(只读)"}</span>
+          <span className="text-10 text-muted-foreground">· 个人对话 · 视角：{role === "owner" ? "所有者" : "会话成员(只读)"}</span>
         </div>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
           <UserBubble>上次说的 v2 上线是谁定的、为什么？</UserBubble>
           <AiBubble>
-            v2 版本由<strong>张三</strong>决定在下周一（9/29）上线，主要依据是<strong>客户 A</strong> 要求本季度内交付。李四负责上线前的迁移演练（该结论尚未确认）。
+            v2 版本由<strong>张三</strong>决定在下周一（9/29）上线，主要依据是<strong>客户 A</strong> 要求本季度内交付。李四负责上线前的迁移演练。
             {answer}
           </AiBubble>
         </div>
       </div>
-      {/* 右侧：知识面板 */}
+      {/* 右侧：记忆面板 */}
       <div className="relative flex w-96 flex-col bg-card">{children}</div>
     </div>
   );
@@ -134,6 +160,7 @@ export default function ChatKnowledgeGraphPreviewPage({
   // 面板态映射
   const panelConfigs: Record<string, { status: PanelStatus; data: ThreadKnowledge | null; view: PanelView; errorCode?: string }> = {
     "list-normal": { status: "ready", data: role === "member" ? threadKnowledgeReadOnly : threadKnowledgeNormal, view: "list" },
+    "onetap": { status: "ready", data: threadKnowledgeNormal, view: "list" },
     "list-loading": { status: "loading", data: null, view: "list" },
     "list-empty": { status: "ready", data: threadKnowledgeEmpty, view: "list" },
     "list-partial": { status: "ready", data: threadKnowledgePartialFailure, view: "list" },
@@ -149,7 +176,7 @@ export default function ChatKnowledgeGraphPreviewPage({
     threadKnowledgeNormal.claims.find((c) => c.id === id)?.statement ?? id;
 
   let body: React.ReactNode;
-  let answerFooter: React.ReactNode = null;
+  let answerSlot: React.ReactNode = null;
 
   if (panelConfigs[scene]) {
     const cfg = panelConfigs[scene];
@@ -175,7 +202,7 @@ export default function ChatKnowledgeGraphPreviewPage({
   } else if (scene === "promote-results") {
     body = (
       <div className="flex h-full flex-col p-3" data-testid="kg-panel">
-        <h2 className="mb-2 text-12 font-medium">存入个人空间 · 逐条结果</h2>
+        <h2 className="mb-2 text-12 font-medium">记到长期记忆 · 逐条结果</h2>
         <p className="mb-2 text-10 text-muted-foreground">部分成功，不整批回滚（uc-18-4 E4）</p>
         <PromotionResultList data={promotionResultsMixed} claimLabel={claimLabel} />
       </div>
@@ -187,7 +214,7 @@ export default function ChatKnowledgeGraphPreviewPage({
         <NominationCard data={nominationsNormal} claimLabel={claimLabel} />
       </div>
     );
-  } else {
+  } else if (scene.startsWith("answer-")) {
     // answer-* 场景：把 footer 放进 AI 气泡
     const map: Record<string, { citations: typeof answerCitationsNormal; health: typeof channelHealthAllOk }> = {
       "answer-normal": { citations: answerCitationsNormal, health: channelHealthAllOk },
@@ -197,7 +224,44 @@ export default function ChatKnowledgeGraphPreviewPage({
     };
     const fallback = { citations: answerCitationsNormal, health: channelHealthAllOk };
     const a = map[scene] ?? fallback;
-    answerFooter = <AnswerKnowledgeFooter citations={a.citations} channelHealth={a.health} />;
+    answerSlot = <AnswerKnowledgeFooter citations={a.citations} channelHealth={a.health} />;
+    body = <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
+  } else {
+    // 对话里的记忆场景：价值出现在回答原位（U-1 / U-4 / U-5 / uc-18-6 C）
+    switch (scene) {
+      case "turn-pending":
+        answerSlot = <AnswerMemoryLine turn={turnMemoryPending} />;
+        break;
+      case "card-remember":
+        answerSlot = (
+          <>
+            <AnswerMemoryLine turn={turnMemoryWithRememberCard} />
+            <MemoryCard card={memoryCardRememberOpen} />
+          </>
+        );
+        break;
+      case "card-remember-done":
+        answerSlot = <MemoryCard card={memoryCardRememberDone} />;
+        break;
+      case "card-forget":
+        answerSlot = <MemoryCard card={memoryCardForgetOpen} />;
+        break;
+      case "card-conflict":
+        answerSlot = (
+          <>
+            <AnswerMemoryLine turn={turnMemoryWithConflict} />
+            <ConflictPromptCard prompt={conflictPromptNormal} />
+          </>
+        );
+        break;
+      case "recall-answer":
+        answerSlot = <MemoryRecallAnswer groups={recallAnswerGroups} />;
+        break;
+      case "turn-captured":
+      default:
+        answerSlot = <AnswerMemoryLine turn={turnMemoryCapturedOnly} />;
+        break;
+    }
     body = <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   }
 
@@ -233,7 +297,7 @@ export default function ChatKnowledgeGraphPreviewPage({
               role === r ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted"
             }`}
           >
-            {r === "owner" ? "所有者" : "其他成员"}
+            {r === "owner" ? "所有者" : "会话成员"}
           </Link>
         ))}
       </nav>
@@ -242,7 +306,7 @@ export default function ChatKnowledgeGraphPreviewPage({
         <p className="mb-3 text-11 text-muted-foreground">
           chat-knowledge-graph 原型 · 纯前端 mock（不接后端）· ADR-023 签核第 ① 件材料 · 类型全部来自 <code>@repo/contracts</code>
         </p>
-        <ThreadShell role={role} answer={answerFooter}>
+        <ThreadShell role={role} answer={answerSlot}>
           {body}
         </ThreadShell>
       </div>

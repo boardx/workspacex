@@ -7,9 +7,11 @@
  * 形状类型全部从契约 zod schema `z.infer` 出来，值全部标注为契约类型——契约错了这里当场崩。
  *   - 领域形状 / 操作输出：`@repo/contracts/chat-knowledge-graph`
  *   - 三态文案 / 映射：`KG_TRI_STATE_LABEL_ZH` / `claimTriState`（不另建映射表）
+ *   - 可见范围文案：`KG_VISIBILITY_LABEL_ZH`（不另建映射表）
  *   - 召回通道 / 引用锚点 / 丢弃：`@repo/contracts/context-pack` + `omission-reason` + `filter-action`
  *
- * 数据密度照真实会话（约 10 条结论 / 8 个实体 / 多条边），不是三行占位 —— 信息密度问题
+ * 用词：界面上说的是「记忆」，说人话（requirements/06-user-experience.md 第五节用词表）。
+ * 数据密度照真实会话（约 10 条 / 8 个人和事 / 多条关系），不是三行占位 —— 信息密度问题
  * 正是 sign-off 要看的（硬规则 ③）。场景：一次关于「v2 上线」的产品对话。
  */
 import { z } from "zod";
@@ -17,13 +19,19 @@ import {
   knowledgeGraph,
   claimTriState,
   KG_TRI_STATE_LABEL_ZH,
+  KG_VISIBILITY_LABEL_ZH,
   KG_GRAPH_VIEW_MAX_NODES,
   type KgObject,
+  type KgObjectKind,
   type KgClaim,
   type KgEdge,
   type KgClaimKind,
   type KgTriState,
   type KgScope,
+  type KgVisibility,
+  type KgTurnMemory,
+  type KgMemoryCard,
+  type KgConflictPrompt,
 } from "@repo/contracts/chat-knowledge-graph";
 import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
 
@@ -35,22 +43,42 @@ export type ClaimSources = z.infer<typeof knowledgeGraph.getClaimSources.out>;
 export type PromotionResults = z.infer<typeof knowledgeGraph.promoteToPersonal.out>;
 export type PromotionNominations = z.infer<typeof knowledgeGraph.listPromotionNominations.out>;
 export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
+export type TurnMemory = KgTurnMemory;
+export type MemoryCard = KgMemoryCard;
+export type ConflictPrompt = KgConflictPrompt;
 
-export { KG_TRI_STATE_LABEL_ZH, claimTriState, KG_GRAPH_VIEW_MAX_NODES };
+export {
+  KG_TRI_STATE_LABEL_ZH,
+  KG_VISIBILITY_LABEL_ZH,
+  claimTriState,
+  KG_GRAPH_VIEW_MAX_NODES,
+};
 
-/* ── 结论类型中文名（展示层辅助；枚举本身是契约的封闭集） ───────────────── */
+/* ── 「记下的一条」按类型显示（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险） ──── */
 export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
   fact: "事实",
-  hypothesis: "假设",
+  hypothesis: "猜测",
   decision: "决定",
   todo: "待办",
   risk: "风险",
 };
 
+/* ── 「人和事」按类型显示（用词表：实体 → 人物 / 公司 / 项目 / …），界面不出现「实体」字样 ── */
+export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {
+  person: "人物",
+  organization: "公司",
+  project: "项目",
+  product: "产品",
+  concept: "概念",
+  term: "术语",
+  metric: "指标",
+  event: "事件",
+};
+
 const L0_SCOPE: KgScope = { kind: "chat_session", id: "thread-v2-launch" };
 const L1_SCOPE: KgScope = { kind: "personal", id: "user-me" };
 
-/* ── 实体 ───────────────────────────────────────────────────────────── */
+/* ── 人和事 ─────────────────────────────────────────────────────────── */
 const objects: KgObject[] = [
   { id: "obj-zhangsan", scope: L0_SCOPE, kind: "person", name: "张三", aliases: ["三哥", "Z"], createdBy: "model", claimCount: 3 },
   { id: "obj-lisi", scope: L0_SCOPE, kind: "person", name: "李四", aliases: [], createdBy: "model", claimCount: 2 },
@@ -62,7 +90,7 @@ const objects: KgObject[] = [
   { id: "obj-rollback", scope: L0_SCOPE, kind: "concept", name: "回滚方案", aliases: [], createdBy: "model", claimCount: 1 },
 ];
 
-/* ── 结论（覆盖三态 + 五种 kind + supersede + 冲突对） ─────────────────── */
+/* ── 记下的每一条（覆盖三态 + 五种 kind + supersede + 矛盾对） ──────────── */
 function claim(
   id: string,
   kind: KgClaimKind,
@@ -109,7 +137,7 @@ const claims: KgClaim[] = [
   claim("clm-hyp-rollback", "hypothesis", "若迁移失败，30 分钟内可回滚到 v1。", "reviewed", {
     confidence: 0.55, aboutObjectIds: ["obj-rollback", "obj-migrate"], supportingCount: 1,
   }),
-  // 冲突对（A3）：两条对上线日期各执一词，成对并存
+  // 矛盾对（M3）：两条对上线日期各执一词，成对并存
   claim("clm-conflict-date-a", "fact", "上线日期定在下周一（9/29）。", "contested", {
     confidence: 0.7, aboutObjectIds: ["obj-launch", "obj-v2"], supportingCount: 2, contradictingCount: 1,
   }),
@@ -128,7 +156,7 @@ const claims: KgClaim[] = [
   }),
 ];
 
-/* ── 边（实体↔实体、结论↔实体 about、结论↔结论 五类语义） ───────────────── */
+/* ── 关系（人事↔人事、记下的↔人事 about、记下的↔记下的 五类语义） ───────── */
 const edges: KgEdge[] = [
   { id: "e1", src: { kind: "claim", id: "clm-decision-launch" }, dst: { kind: "object", id: "obj-v2" }, relation: "about", createdBy: "model" },
   { id: "e2", src: { kind: "claim", id: "clm-decision-launch" }, dst: { kind: "object", id: "obj-zhangsan" }, relation: "decided_by", createdBy: "model" },
@@ -140,9 +168,9 @@ const edges: KgEdge[] = [
   { id: "e8", src: { kind: "claim", id: "clm-risk-slo" }, dst: { kind: "object", id: "obj-slo" }, relation: "about", createdBy: "model" },
 ];
 
-/* ── 会话读模型：各态 ─────────────────────────────────────────────────── */
+/* ── 会话读模型：各态（visibility 常驻，U-6） ─────────────────────────── */
 
-/** 正常态（所有者，可编辑、可晋升，入图健康） */
+/** 正常态（所有者，可编辑、可记入长期记忆，整理健康，仅你可见） */
 export const threadKnowledgeNormal: ThreadKnowledge = {
   scope: L0_SCOPE,
   revision: 42,
@@ -152,6 +180,7 @@ export const threadKnowledgeNormal: ThreadKnowledge = {
   ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
   canEdit: true,
   canPromote: true,
+  visibility: "owner_only",
 };
 
 /** 整理中（后台异步抽取尚未完成，R4 A2 / uc-18-1 R8） */
@@ -174,14 +203,15 @@ export const threadKnowledgePartialFailure: ThreadKnowledge = {
   },
 };
 
-/** 只读（非所有者：canEdit=false，canPromote=false，uc-18-3 R5） */
+/** 只读（非所有者：canEdit=false，canPromote=false；且是共享会话 → 会话成员可见，uc-18-3 R5） */
 export const threadKnowledgeReadOnly: ThreadKnowledge = {
   ...threadKnowledgeNormal,
   canEdit: false,
   canPromote: false,
+  visibility: "thread_members",
 };
 
-/** 空态（本会话还没抽出任何知识，uc-18-3 A1） */
+/** 空态（本会话还没记下任何东西，uc-18-3 A1） */
 export const threadKnowledgeEmpty: ThreadKnowledge = {
   scope: L0_SCOPE,
   revision: 0,
@@ -191,6 +221,7 @@ export const threadKnowledgeEmpty: ThreadKnowledge = {
   ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
   canEdit: true,
   canPromote: true,
+  visibility: "owner_only",
 };
 
 const BULK_KINDS = ["person", "concept", "term", "metric"] as const satisfies readonly KgObject["kind"][];
@@ -203,7 +234,7 @@ export const threadKnowledgeOversize: ThreadKnowledge = (() => {
       id: `obj-bulk-${i}`,
       scope: L0_SCOPE,
       kind: BULK_KINDS[i % BULK_KINDS.length]!,
-      name: `实体 ${i + 1}`,
+      name: `节点 ${i + 1}`,
       aliases: [],
       createdBy: "model",
       claimCount: 1,
@@ -239,8 +270,8 @@ export const claimSourcesNormal: ClaimSources = {
     },
   ],
   provenance: [
-    { at: "2026-09-23T09:12:00Z", actor: { kind: "system", id: "extractor" }, action: "抽取候选（decision）", pipelineVersion: "kg-extract@1.4.0" },
-    { at: "2026-09-23T10:03:00Z", actor: { kind: "human", id: "user-me" }, action: "确认（proposed → accepted）", pipelineVersion: null },
+    { at: "2026-09-23T09:12:00Z", actor: { kind: "system", id: "extractor" }, action: "AI 从对话里记下（decision）", pipelineVersion: "kg-extract@1.4.0" },
+    { at: "2026-09-23T10:03:00Z", actor: { kind: "human", id: "user-me" }, action: "你确认过", pipelineVersion: null },
   ],
 };
 
@@ -259,19 +290,22 @@ export const claimSourcesRevoked: ClaimSources = {
     },
   ],
   provenance: [
-    { at: "2026-09-23T09:20:00Z", actor: { kind: "system", id: "extractor" }, action: "抽取候选（todo）", pipelineVersion: "kg-extract@1.4.0" },
-    { at: "2026-09-24T08:00:00Z", actor: { kind: "system", id: "cascade" }, action: "来源删除，证据失效（source_deleted）", pipelineVersion: null },
+    { at: "2026-09-23T09:20:00Z", actor: { kind: "system", id: "extractor" }, action: "AI 从对话里记下（todo）", pipelineVersion: "kg-extract@1.4.0" },
+    { at: "2026-09-24T08:00:00Z", actor: { kind: "system", id: "cascade" }, action: "来源删除，这条不再被用到（source_deleted）", pipelineVersion: null },
   ],
 };
 
-/* ── 晋升到个人空间（UC-KG-5）逐条结果，覆盖五种 outcome ─────────────────── */
+/* ── 记到个人长期记忆（UC-KG-5）逐条结果 ─────────────────────────────────
+ * U-3：「AI 记下的」也能记入长期记忆（人点按钮本身就算确认）。只有「有矛盾」和
+ * 「来源已删」仍然拒绝——所以这里的拒绝码只剩这两种，不再有「需先确认」。 */
 export const promotionResultsMixed: PromotionResults = {
   results: [
     { claimId: "clm-decision-launch", outcome: "promoted", personalClaimId: "p-clm-1" },
+    // clm-todo-migrate 是「AI 记下的」（proposed）——U-3 下也能记入，点按钮即确认
+    { claimId: "clm-todo-migrate", outcome: "promoted", personalClaimId: "p-clm-5" },
     { claimId: "clm-fact-custa", outcome: "merged_into_existing", personalClaimId: "p-clm-2" },
     { claimId: "clm-fact-owner", outcome: "needs_choice", existingPersonalClaimId: "p-clm-3" },
     { claimId: "clm-conflict-date-a", outcome: "rejected", code: "KG_CONTESTED_NEEDS_RESOLUTION" },
-    { claimId: "clm-todo-migrate", outcome: "rejected", code: "KG_PROMOTE_REQUIRES_ACCEPTED" },
   ],
 };
 
@@ -293,7 +327,119 @@ export const nominationsNormal: PromotionNominations = {
   ],
 };
 
-/* ── 回答下方：引用 + 「为什么召回」（UC-KG-2 / context-pack 通道） ──────────── */
+/* ── 一轮回答的记忆摘要（U-1 已记下 N 条 + U-4/U-5 主动卡片，最多一张 E8） ──── */
+
+/** U-4 记住卡（open）：AI 识别到「记住 …」，出一张确认卡，内容可改字 */
+export const memoryCardRememberOpen: MemoryCard = {
+  cardId: "card-remember-1",
+  kind: "remember",
+  items: [{ claimId: null, statement: "客户 A 的对接人是王经理，电话找他。" }],
+  state: "open",
+};
+
+/** U-4 记住卡（done）：点过「记住」→「已记住 · 撤销」 */
+export const memoryCardRememberDone: MemoryCard = {
+  ...memoryCardRememberOpen,
+  state: "done",
+};
+
+/** U-4 记住卡（stale）：期间该条已被改，点击返回 KG_REVISION_CHANGED */
+export const memoryCardRememberStale: MemoryCard = {
+  ...memoryCardRememberOpen,
+  state: "stale",
+};
+
+/** U-4 忘掉卡（open）：匹配到多条，逐条列出，默认全选 */
+export const memoryCardForgetOpen: MemoryCard = {
+  cardId: "card-forget-1",
+  kind: "forget",
+  items: [
+    { claimId: "clm-fact-owner", statement: "客户 A 的对接人是王经理。" },
+    { claimId: "clm-todo-notify", statement: "上线后需要给客户 A 发一封确认邮件。" },
+  ],
+  state: "open",
+};
+
+/** U-5 矛盾提醒（uc-18-6 D）：新说法与「你确认过」的一条冲突 */
+export const conflictPromptNormal: ConflictPrompt = {
+  promptId: "prompt-conflict-1",
+  newerClaim: { id: "clm-conflict-date-b", statement: "上线改到下周三（10/1）。" },
+  olderClaim: { id: "clm-conflict-date-a", statement: "9/29 上线", saidAt: "2026-09-20T00:00:00Z" },
+};
+
+/** U-1：本轮记下了 2 条，带一张矛盾卡（一轮最多一张主动卡片） */
+export const turnMemoryWithConflict: TurnMemory = {
+  messageId: "msg-turn-1",
+  captured: [
+    { claimId: "clm-conflict-date-b", statement: "上线改到下周三（10/1）。" },
+    { claimId: "clm-todo-migrate", statement: "李四负责上线前的迁移演练。" },
+  ],
+  pending: false,
+  prompt: { type: "conflict", conflict: conflictPromptNormal },
+};
+
+/** U-1：本轮记下 3 条，带一张「记住」确认卡 */
+export const turnMemoryWithRememberCard: TurnMemory = {
+  messageId: "msg-turn-2",
+  captured: [
+    { claimId: "clm-fact-custa", statement: "客户 A 要求本季度交付。" },
+    { claimId: "clm-fact-owner", statement: "客户 A 的对接人是王经理。" },
+    { claimId: "clm-todo-notify", statement: "上线后给客户 A 发确认邮件。" },
+  ],
+  pending: false,
+  prompt: { type: "memory_card", card: memoryCardRememberOpen },
+};
+
+/** U-1：只记下、没有主动卡片（最安静的一轮） */
+export const turnMemoryCapturedOnly: TurnMemory = {
+  messageId: "msg-turn-3",
+  captured: [
+    { claimId: "clm-decision-launch", statement: "张三决定 v2 下周一上线。" },
+    { claimId: "clm-fact-custa", statement: "客户 A 要求本季度交付。" },
+  ],
+  pending: false,
+  prompt: null,
+};
+
+/** U-1：仍在整理中 —— 界面显示「正在记…」，不阻塞正文 */
+export const turnMemoryPending: TurnMemory = {
+  messageId: "msg-turn-4",
+  captured: [],
+  pending: true,
+  prompt: null,
+};
+
+/* ── 「你记得关于 X 的什么」回答（uc-18-6 C）：按「你确认过 / AI 记下的」分两组 ── */
+export interface RecallItem {
+  readonly claimId: string;
+  readonly statement: string;
+  readonly sourceRef: string;
+  readonly sourceKind: "chat_message" | "attachment";
+  /** 记下的日期（界面显示「来自你 {日期} 的对话」用） */
+  readonly capturedDate: string;
+}
+export interface RecallGroup {
+  readonly triState: KgTriState;
+  readonly items: RecallItem[];
+}
+
+export const recallAnswerGroups: RecallGroup[] = [
+  {
+    triState: "confirmed",
+    items: [
+      { claimId: "clm-fact-custa", statement: "客户 A 要求 v2 本季度内交付。", sourceRef: "msg-8801", sourceKind: "chat_message", capturedDate: "9/20" },
+      { claimId: "clm-fact-owner", statement: "客户 A 的对接人是王经理。", sourceRef: "msg-8809", sourceKind: "chat_message", capturedDate: "9/20" },
+    ],
+  },
+  {
+    triState: "pending",
+    items: [
+      { claimId: "clm-todo-notify", statement: "上线后要给客户 A 发一封确认邮件。", sourceRef: "msg-8842", sourceKind: "chat_message", capturedDate: "9/23" },
+    ],
+  },
+];
+
+/* ── 回答下方：引用 + 「为什么用到它」（UC-KG-2 / context-pack 通道） ──────────── */
 
 /** 展示层：一条召回项。channels 用契约枚举；graphPath 是从 KgEdge/KgObject/KgClaim 组合出的
  *  可读路径字符串（图路径字段是签核待裁项 D-KG-2，见 contracts/chat-knowledge-graph/ui.md 缺口 G-1）。 */
@@ -308,10 +454,10 @@ export interface RecalledCitation {
   readonly reasonLabels: string[];
   /** 图路径的可读渲染（由边组合，不是新契约字段） */
   readonly graphPath: string | null;
-  /** 命中的是未确认结论时标注（uc-18-2 A2） */
+  /** 命中的是「AI 记下的」（未确认）时标注（uc-18-2 A2） */
   readonly unconfirmed: boolean;
-  /** L1 命中：来自个人空间知识（uc-18-4 R3-6） */
-  readonly fromPersonal: boolean;
+  /** 命中的是你长期记忆里的一条（uc-18-4 R3-6）；有值时界面显示「来自你 {日期} 的对话」 */
+  readonly fromPersonalDate: string | null;
 }
 
 export const answerCitationsNormal: RecalledCitation[] = [
@@ -323,9 +469,9 @@ export const answerCitationsNormal: RecalledCitation[] = [
     channels: ["graph", "vector", "fts"],
     score: 0.91,
     reasonLabels: ["线索", "召回"],
-    graphPath: "张三 —decided_by→ v2 上线（决定）",
+    graphPath: "张三 → 决定 → v2 上线",
     unconfirmed: false,
-    fromPersonal: false,
+    fromPersonalDate: null,
   },
   {
     citationId: "cite-2",
@@ -335,13 +481,13 @@ export const answerCitationsNormal: RecalledCitation[] = [
     channels: ["vector", "claim"],
     score: 0.82,
     reasonLabels: ["召回", "成对"],
-    graphPath: "客户 A —hard_constraint→ v2 上线决定",
+    graphPath: "客户 A → 硬性要求 → v2 上线",
     unconfirmed: false,
-    fromPersonal: false,
+    fromPersonalDate: null,
   },
   {
     citationId: "cite-3",
-    label: "李四负责迁移演练（未确认）",
+    label: "李四负责迁移演练（AI 记下的）",
     sourceRef: "msg-8842",
     sourceKind: "chat_message",
     channels: ["fts"],
@@ -349,11 +495,11 @@ export const answerCitationsNormal: RecalledCitation[] = [
     reasonLabels: ["召回"],
     graphPath: null,
     unconfirmed: true,
-    fromPersonal: false,
+    fromPersonalDate: null,
   },
 ];
 
-/** L1 召回：新会话里带「来自个人空间知识」标签（uc-18-4 V1） */
+/** 跨会话召回：新会话里带「来自你 9/20 的对话」标签（uc-18-4 V1） */
 export const answerCitationsPersonal: RecalledCitation[] = [
   {
     citationId: "cite-p1",
@@ -363,15 +509,14 @@ export const answerCitationsPersonal: RecalledCitation[] = [
     channels: ["vector", "graph"],
     score: 0.88,
     reasonLabels: ["召回", "线索"],
-    graphPath: "客户 A —hard_constraint→ v2（个人空间）",
+    graphPath: "客户 A → 硬性要求 → v2",
     unconfirmed: false,
-    fromPersonal: true,
+    fromPersonalDate: "9/20",
   },
 ];
 
-/** 通道健康：哪几路降级不可用（uc-18-2 E1/E2 的「图/向量检索不可用」提示来源）。
- *  ⚠ context-pack 当前没有 per-channel「不可用」枚举或健康字段，这是 UI 侧的占位表达，
- *    见 README 缺口清单。 */
+/** 通道健康：哪几路降级不可用（uc-18-2 E1/E2 的可见提示来源）。
+ *  ⚠ 这是 UI 侧的占位表达，见 README 缺口清单。 */
 export interface ChannelHealth {
   readonly channel: RetrievalChannel;
   readonly available: boolean;
@@ -393,17 +538,26 @@ export const channelHealthVectorDown: ChannelHealth[] = channelHealthAllOk.map((
   c.channel === "vector" ? { ...c, available: false } : c,
 );
 
+/** 关联查询是否可用（图 / 向量任一路降级都算「查不全」）。文案是用词表第五节的固定说法。 */
+export function relatedQueryDegraded(health: ChannelHealth[]): boolean {
+  return health.some((c) => (c.channel === "graph" || c.channel === "vector") && !c.available);
+}
+
+/** 「查不全」的固定文案（用词表：图检索 / 向量检索不可用 → 这句人话）。前端不另写第二份。 */
+export const KG_RELATED_QUERY_DEGRADED_ZH =
+  "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
+
 export const RETRIEVAL_CHANNEL_LABEL_ZH: Record<RetrievalChannel, string> = {
   fts: "全文",
-  vector: "向量",
-  graph: "图",
+  vector: "相似",
+  graph: "关联",
   metadata: "元数据",
-  claim: "结论",
+  claim: "记下的",
 };
 
 /* ── 分组辅助（纯函数，供列表视图与单测） ─────────────────────────────────── */
 
-/** 结论按 kind 分组，`superseded`（triState 为 null）不渲染（uc-18-3 R7）。 */
+/** 记下的按 kind 分组，`superseded`（triState 为 null）不渲染（uc-18-3 R7）。 */
 export function groupClaimsByKind(input: KgClaim[]): { kind: KgClaimKind; label: string; claims: KgClaim[] }[] {
   const order: KgClaimKind[] = ["decision", "fact", "todo", "risk", "hypothesis"];
   return order
@@ -424,3 +578,6 @@ export function countByTriState(input: KgClaim[]): Record<KgTriState, number> {
   }
   return acc;
 }
+
+/** 全部禁用词（用词表内部术语）——单测用它扫 mock/labels 的用户可见文案，确保界面说人话。 */
+export const KG_BANNED_USER_FACING_WORDS = ["实体", "结论", "三态", "晋升", "本体", "L0", "L1"] as const;

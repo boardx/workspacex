@@ -29,7 +29,7 @@ export function NominationCard({
       <div className="mb-2 flex items-center gap-1.5">
         <Sparkles aria-hidden className="h-4 w-4 text-ai-tint-foreground" />
         <span className="text-12 font-medium text-ai-tint-foreground">这些值得记住</span>
-        <span className="text-10 text-muted-foreground">由 AI 提名 · 需你确认后才存入</span>
+        <span className="text-10 text-muted-foreground">由 AI 提名 · 你点了才会记</span>
       </div>
       <ul className="flex flex-col gap-1.5">
         {data.nominations.map((n) => (
@@ -55,7 +55,7 @@ export function NominationCard({
           data-testid="kg-nomination-promote"
           onClick={() => onPromote?.(selected)}
         >
-          存入个人空间（{selected.length}）
+          记到我的长期记忆（{selected.length}）
         </Button>
       </div>
     </div>

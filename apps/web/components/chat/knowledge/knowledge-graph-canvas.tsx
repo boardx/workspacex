@@ -21,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { KG_TRI_STATE_LABEL_ZH, claimTriState } from "@repo/contracts/chat-knowledge-graph";
-import type { ThreadKnowledge } from "@/lib/mock/knowledge-graph";
+import { KG_OBJECT_KIND_LABEL_ZH, KG_CLAIM_KIND_LABEL_ZH, type ThreadKnowledge } from "@/lib/mock/knowledge-graph";
 
 type NodeVariant = "object" | "claim";
 
@@ -71,7 +71,7 @@ export default function KnowledgeGraphCanvas({ data }: { data: ThreadKnowledge }
         position: { x: 0, y: i * 90 },
         data: {
           label: o.name,
-          sublabel: `实体 · ${o.kind}`,
+          sublabel: KG_OBJECT_KIND_LABEL_ZH[o.kind],
           variant: "object",
           tone: "object",
           testId: `kg-graph-node-object-${o.id}`,
@@ -89,7 +89,7 @@ export default function KnowledgeGraphCanvas({ data }: { data: ThreadKnowledge }
         position: { x: 420, y: i * 90 },
         data: {
           label: c.statement.length > 24 ? `${c.statement.slice(0, 24)}…` : c.statement,
-          sublabel: `结论 · ${KG_TRI_STATE_LABEL_ZH[tri]}`,
+          sublabel: `${KG_CLAIM_KIND_LABEL_ZH[c.kind]} · ${KG_TRI_STATE_LABEL_ZH[tri]}`,
           variant: "claim",
           tone: tri,
           testId: `kg-graph-node-claim-${c.id}`,

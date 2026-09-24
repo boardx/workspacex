@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brain, List, Share2, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
+import { Brain, List, Share2, RefreshCw, Loader2, AlertTriangle, Eye, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KnowledgeList, KnowledgeEmpty } from "./knowledge-list";
@@ -11,6 +11,7 @@ import { PromotionResultList } from "./promotion-result-list";
 import {
   countByTriState,
   KG_TRI_STATE_LABEL_ZH,
+  KG_VISIBILITY_LABEL_ZH,
   claimSourcesNormal,
   claimSourcesRevoked,
   promotionResultsMixed,
@@ -24,7 +25,7 @@ export type PanelStatus = "loading" | "error" | "ready";
 export type PanelView = "list" | "graph";
 
 /**
- * 会话右侧栏「知识」tab（uc-18-3 R8）—— 列表/图切换 + 头部入图状态 + 七态。
+ * 会话右侧栏「记忆」tab（uc-18-3 R8）—— 列表/图切换 + 头部整理状态 + 可见范围 + 七态。
  * ⚠ 纯前端 mock；动作只在本地演示，不接后端（硬规则 ③）。
  * 七态：正常 / 加载 / 空 / 部分失败 / 错误 / 只读 / 超限——由 status + data + view 组合。
  */
@@ -55,6 +56,7 @@ export function KnowledgePanel({
   const counts = data ? countByTriState(data.claims) : { pending: 0, confirmed: 0, conflict: 0 };
   const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
   const claimLabel = (id: string) => data?.claims.find((c) => c.id === id)?.statement ?? id;
+  const pendingCount = counts.pending;
 
   const openSource = (claim: KgClaim) => {
     setDrawer(claim.status === "proposed" && claim.id === "clm-todo-migrate" ? claimSourcesRevoked : { ...claimSourcesNormal, claim });
@@ -63,12 +65,12 @@ export function KnowledgePanel({
 
   return (
     <div className="relative flex h-full flex-col" data-testid="kg-panel">
-      {/* 头部：标题 + 入图状态 + 列表/图切换 */}
+      {/* 头部：标题 + 可见范围 + 整理状态 + 列表/图切换 */}
       <div className="flex flex-col gap-2 border-b border-border-subtle p-3">
         <div className="flex items-center gap-2">
           <Brain aria-hidden className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-12 font-medium" data-testid="kg-panel-title">
-            知识{data ? `（${data.claims.length}）` : ""}
+            记忆{data ? `（${data.claims.length}）` : ""}
           </h2>
           {data && !canEdit ? (
             <Badge tone="outline" data-testid="kg-readonly-badge">只读</Badge>
@@ -87,7 +89,7 @@ export function KnowledgePanel({
             <Button
               variant={view === "graph" ? "secondary" : "ghost"}
               size="xs"
-              aria-label="图视图"
+              aria-label="关系图"
               data-active={view === "graph"}
               data-testid="kg-view-graph"
               onClick={() => setView("graph")}
@@ -97,7 +99,23 @@ export function KnowledgePanel({
           </div>
         </div>
 
-        {/* 入图状态行（uc-18-1 R8） */}
+        {/* U-6：可见范围常驻（带文字 + 图标，不只靠颜色） */}
+        {data ? (
+          <span
+            className="flex w-fit items-center gap-1 rounded-control bg-muted px-1.5 py-0.5 text-10 text-muted-foreground"
+            data-testid="kg-visibility"
+            data-visibility={data.visibility}
+          >
+            {data.visibility === "owner_only" ? (
+              <Lock aria-hidden className="h-3 w-3" />
+            ) : (
+              <Eye aria-hidden className="h-3 w-3" />
+            )}
+            {KG_VISIBILITY_LABEL_ZH[data.visibility]}
+          </span>
+        ) : null}
+
+        {/* 整理状态行（uc-18-1 R8） */}
         {data ? <IngestionStatus data={data} /> : null}
 
         {/* 三态计数 */}
@@ -109,7 +127,7 @@ export function KnowledgePanel({
           </div>
         ) : null}
 
-        {/* 存入个人空间入口（仅个人线程 canPromote） */}
+        {/* 记到长期记忆入口（仅个人线程 canPromote） */}
         {data && canPromote && data.claims.length > 0 ? (
           <div className="flex items-center gap-1.5">
             {selectMode ? (
@@ -123,7 +141,7 @@ export function KnowledgePanel({
                     setSelectMode(false);
                   }}
                 >
-                  存入个人空间（{selectedIds.length}）
+                  记到我的长期记忆（{selectedIds.length}）
                 </Button>
                 <Button size="xs" variant="ghost" data-testid="kg-promote-cancel" onClick={() => { setSelectMode(false); setSelected({}); }}>
                   取消
@@ -131,7 +149,7 @@ export function KnowledgePanel({
               </>
             ) : (
               <Button size="xs" variant="outline" data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
-                存入个人空间…
+                记到我的长期记忆…
               </Button>
             )}
           </div>
@@ -153,7 +171,7 @@ export function KnowledgePanel({
           <div className="flex flex-col items-start gap-2" data-testid="err-panel" role="alert">
             <div className="flex items-center gap-1.5 text-12 text-destructive">
               <AlertTriangle aria-hidden className="h-4 w-4" />
-              没能读到这条对话的知识
+              没能读到这条对话的记忆
             </div>
             <p className="text-11 text-muted-foreground">
               {errorCode === "KG_NOT_VISIBLE"
@@ -174,8 +192,17 @@ export function KnowledgePanel({
             <div className="flex flex-col gap-3">
               {promoResult ? (
                 <div className="rounded-lg border border-border-subtle bg-muted/40 p-2">
-                  <p className="mb-1.5 text-11 font-medium text-muted-foreground">上次「存入个人空间」结果</p>
+                  <p className="mb-1.5 text-11 font-medium text-muted-foreground">上次记入长期记忆的结果</p>
                   <PromotionResultList data={promoResult} claimLabel={claimLabel} />
+                </div>
+              ) : null}
+              {/* U-2：列表头部「全部确认」批量 —— 只在有「AI 记下的」且可编辑时出现 */}
+              {canEdit && pendingCount > 0 && !selectMode ? (
+                <div className="flex items-center justify-between rounded-md border border-border-subtle bg-muted/40 px-2 py-1.5">
+                  <span className="text-11 text-muted-foreground">有 {pendingCount} 条是 AI 记下的，还没经你确认</span>
+                  <Button size="xs" variant="secondary" data-testid="kg-confirm-all">
+                    全部确认
+                  </Button>
                 </div>
               ) : null}
               <KnowledgeList

@@ -37,7 +37,7 @@ export function ClaimSourceDrawer({
       />
       <aside
         role="dialog"
-        aria-label="结论来源"
+        aria-label="记忆来源"
         className="flex w-80 flex-col border-l border-border bg-card shadow-lg"
       >
         <header className="flex items-start justify-between gap-2 border-b border-border-subtle p-3">
