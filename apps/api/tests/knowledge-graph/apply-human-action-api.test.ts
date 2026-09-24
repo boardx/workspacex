@@ -93,7 +93,7 @@ describe("F10: 结论动作", () => {
     const c = await claimBy("测试环境不稳定");
     await expect(applyHumanAction(deps, { ...owner, threadId: MINE, basedOnRevision: k.revision - 1, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toMatchObject({ code: "KG_REVISION_CHANGED" });
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never);
     await expect(ctl.humanAction({ userId: "u-owner", orgId: ORG } as never, MINE, { basedOnRevision: k.revision - 1, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toBeInstanceOf(ConflictException);
   });
@@ -174,7 +174,7 @@ describe("F10: 权限与作用域", () => {
         action_id: "act-direct", thread_id: SHARED, based_on_revision: k.revision, action: { type: "confirmClaim", claimId: c.id },
       })]);
     })).rejects.toThrow(/KG_NOT_OWNER/);
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never);
     await expect(ctl.humanAction({ userId: "u-member", orgId: ORG } as never, SHARED, { basedOnRevision: k.revision, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toBeInstanceOf(ForbiddenException);
   });

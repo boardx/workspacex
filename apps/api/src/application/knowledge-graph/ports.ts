@@ -134,7 +134,8 @@ export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
 /** 执行器拒绝人工动作时的码（契约 applyHumanAction.err 的子集）。 */
 export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
-  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND";
+  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -166,3 +167,26 @@ export interface KnowledgeRecallPort {
 }
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
+
+// ─────────────────────────────── F11 晋升到个人空间 ───────────────────────────────
+
+export type PromotionItemResult = z.infer<typeof KG.KgPromotionItemResult>;
+
+export interface PromotionPort {
+  /**
+   * 读方法都返回 `Guarded`：调用方交出会话可见性判定（同读接口的 guard ref）才拿得到内容。
+   * 本人个人空间里的活结论（去重用）、会话里这些结论的原文、AI 提名候选。
+   */
+  personalClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  nominationCandidates(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly {
+    readonly id: string; readonly kind: string; readonly status: string; readonly statement: string;
+  }[]>>;
+  /** 执行一条晋升；被拒时抛 KgHumanActionError（码见 kg_promote_claim）。返回 L1 结论 id。 */
+  promote(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+}
+
+export const PROMOTION_PORT = Symbol("PromotionPort");
