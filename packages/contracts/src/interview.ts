@@ -291,6 +291,46 @@ export const DigitalInterviewPrimaryAction = z.enum([
 /** 当前步骤与主操作同源，领域投影不得另抄一份字符串联合。 */
 export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "runs", "report"]);
 
+export const DigitalInterviewLearningGoal = z.object({
+  goalId: z.string().trim().min(1),
+  statement: z.string().trim().min(1),
+}).strict();
+
+const validateUniqueLearningGoals = (
+  goals: readonly z.infer<typeof DigitalInterviewLearningGoal>[],
+  context: z.RefinementCtx,
+) => {
+  const seen = new Set<string>();
+  goals.forEach((goal, index) => {
+    if (seen.has(goal.goalId)) context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [index, "goalId"],
+      message: "goalId must be unique",
+    });
+    seen.add(goal.goalId);
+  });
+};
+
+export const DigitalInterviewResearchBrief = z.object({
+  decision: z.string().trim().min(1),
+  learningGoals: z.array(DigitalInterviewLearningGoal).min(1).max(5)
+    .superRefine(validateUniqueLearningGoals),
+  targetRoles: z.array(z.string().trim().min(1)).min(1),
+  outOfScope: z.array(z.string().trim().min(1)),
+  successCriteria: z.array(z.string().trim().min(1)).min(1),
+}).strict();
+
+export const DigitalInterviewQuestionSection = z.enum(["warmup", "core", "counterexample", "closing"]);
+
+export const DigitalInterviewModeratorPolicy = z.object({
+  probingDepth: z.enum(["light", "balanced", "deep"]),
+  clarifyAmbiguity: z.boolean(),
+  seekCounterexamples: z.boolean(),
+  redirectOffTopic: z.boolean(),
+  stopWhenGoalSatisfied: z.boolean(),
+  maxFollowUpsPerQuestion: z.number().int().min(0).max(10),
+}).strict();
+
 /** 已确认的问题属于本场当前已确认的专家快照。 */
 export const DigitalInterviewQuestion = z.object({
   questionId: z.string().min(1),
@@ -298,6 +338,91 @@ export const DigitalInterviewQuestion = z.object({
   order: z.number().int().positive(),
   text: z.string().trim().min(1),
   purpose: z.string().trim().min(1),
+  section: DigitalInterviewQuestionSection,
+  goalIds: z.array(z.string().trim().min(1)).min(1).refine(
+    (goalIds) => new Set(goalIds).size === goalIds.length,
+    "goalIds must be unique",
+  ),
+}).strict();
+
+export const DigitalInterviewQuestionQualityCode = z.enum([
+  "LEADING_WORDING", "DOUBLE_BARRELLED", "YES_NO_ONLY", "MISSING_EXPERIENCE_ANCHOR",
+  "MISSING_COUNTEREXAMPLE", "DUPLICATE_INTENT", "GOAL_NOT_COVERED", "EXPERT_MISMATCH",
+]);
+
+export const DigitalInterviewQuestionQualityFinding = z.object({
+  code: DigitalInterviewQuestionQualityCode,
+  severity: z.enum(["warning", "blocking"]),
+  questionId: z.string().min(1).nullable(),
+  goalIds: z.array(z.string().min(1)),
+  message: z.string().trim().min(1),
+  suggestedRewrite: z.string().trim().min(1).nullable(),
+}).strict();
+
+export const DigitalInterviewCoverageCell = z.object({
+  goalId: z.string().min(1),
+  expertId: z.string().min(1),
+  answerCount: z.number().int().nonnegative(),
+  findingCount: z.number().int().nonnegative(),
+  counterexampleCount: z.number().int().nonnegative(),
+  runStatus: z.enum(["not_started", "running", "completed", "failed"]),
+  status: z.enum(["supported", "single_perspective", "contradicted", "missing"]),
+}).strict();
+
+const DigitalInterviewQualityIssue = z.object({
+  code: z.string().trim().min(1),
+  severity: z.enum(["warning", "blocking"]),
+  message: z.string().trim().min(1),
+  objectId: z.string().min(1).nullable(),
+}).strict();
+
+export const DigitalInterviewReadinessAssessment = z.object({
+  status: z.enum(["ready", "warning", "blocking"]),
+  ruleVersion: z.string().min(1),
+  evaluatedAt: z.string().datetime(),
+  issues: z.array(DigitalInterviewQualityIssue),
+  estimatedMinutes: z.object({ min: z.number().nonnegative(), max: z.number().nonnegative() }).strict(),
+}).strict();
+
+export const DigitalInterviewReadinessDecision = z.object({
+  decisionId: z.string().min(1),
+  revisionId: z.string().min(1),
+  assessmentRuleVersion: z.string().min(1),
+  status: z.enum(["ready", "warning_accepted"]),
+  rationale: z.string().trim().min(10).max(300).nullable(),
+  decidedBy: z.string().min(1),
+  decidedAt: z.string().datetime(),
+}).strict().superRefine((value, context) => {
+  if (value.status === "warning_accepted" && value.rationale === null) context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["rationale"],
+    message: "warning acceptance requires rationale",
+  });
+  if (value.status === "ready" && value.rationale !== null) context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["rationale"],
+    message: "ready decision must not carry warning rationale",
+  });
+});
+
+export const DigitalInterviewReportReview = z.object({
+  reviewId: z.string().min(1),
+  revisionId: z.string().min(1),
+  reportId: z.string().min(1),
+  status: z.enum(["pending", "approved", "changes_requested"]),
+  note: z.string().trim().max(1000).nullable(),
+  reviewedBy: z.string().min(1).nullable(),
+  reviewedAt: z.string().datetime().nullable(),
+}).strict();
+
+export const DigitalInterviewQualityProjection = z.object({
+  previewStatus: z.enum(["available", "unavailable"]),
+  briefIssues: z.array(DigitalInterviewQualityIssue),
+  expertCoverage: z.array(DigitalInterviewCoverageCell),
+  questionFindings: z.array(DigitalInterviewQuestionQualityFinding),
+  readiness: DigitalInterviewReadinessAssessment.nullable(),
+  readinessDecision: DigitalInterviewReadinessDecision.nullable(),
+  evidenceCoverage: z.array(DigitalInterviewCoverageCell),
 }).strict();
 
 export const DigitalInterviewRunAnswer = z.object({
@@ -325,6 +450,10 @@ export const DigitalInterviewReportFinding = z.object({
   expertId: z.string().min(1),
   questionId: z.string().min(1),
   sourceAnswerId: z.string().min(1),
+  goalIds: z.array(z.string().min(1)).min(1).refine(
+    (goalIds) => new Set(goalIds).size === goalIds.length,
+    "goalIds must be unique",
+  ),
   exploratory: z.literal(true),
 }).strict();
 
@@ -590,6 +719,10 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),
+  researchBrief: DigitalInterviewResearchBrief.nullable(),
+  moderatorPolicy: DigitalInterviewModeratorPolicy.nullable(),
+  quality: DigitalInterviewQualityProjection,
+  reportReview: DigitalInterviewReportReview.nullable(),
 }).strict();
 
 /*
@@ -853,6 +986,44 @@ export const operations = {
     err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
+  /** 原子确认主题与结构化研究简报；新 Web 只使用此入口。 */
+  confirmDigitalInterviewBrief: {
+    method: "POST", path: "/interviews/digital/:interviewId/brief/confirm",
+    in: z.object({
+      interviewId: z.string().min(1),
+      topic: z.string().trim().min(1),
+      researchBrief: DigitalInterviewResearchBrief,
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "RESEARCH_BRIEF_REQUIRED", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 对当前草稿执行无副作用质量预览。 */
+  previewDigitalInterviewQuality: {
+    method: "POST", path: "/interviews/digital/:interviewId/quality/preview",
+    in: z.object({
+      interviewId: z.string().min(1),
+      researchBrief: DigitalInterviewResearchBrief,
+      expertIds: z.array(z.string().min(1)),
+      questions: z.array(DigitalInterviewQuestion),
+      moderatorPolicy: DigitalInterviewModeratorPolicy,
+      expectedVersion: z.number().int().positive(),
+    }).strict().superRefine((value, context) => {
+      const validGoalIds = new Set(value.researchBrief.learningGoals.map((goal) => goal.goalId));
+      value.questions.forEach((question, index) => question.goalIds.forEach((goalId) => {
+        if (!validGoalIds.has(goalId)) context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["questions", index, "goalIds"],
+          message: "goalId must belong to the current research brief",
+        });
+      }));
+    }),
+    out: DigitalInterviewQualityProjection,
+    err: ["NO_INTERVIEW_ACCESS", "CONCURRENT_MODIFICATION", "QUALITY_PREVIEW_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
   /** 确认至少一名专家后，才允许生成并编辑该场的问题集合。 */
   confirmDigitalInterviewExperts: {
     method: "POST", path: "/interviews/digital/:interviewId/experts/confirm",
@@ -873,11 +1044,34 @@ export const operations = {
     in: z.object({
       interviewId: z.string().min(1),
       questions: DigitalInterviewQuestionConfirmation,
+      moderatorPolicy: DigitalInterviewModeratorPolicy,
       expectedVersion: z.number().int().positive(),
       requestId: z.string().min(1),
     }).strict(),
     out: DigitalInterviewWorkflowView,
     err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 保存当前评估版本对应的人工就绪决定。 */
+  decideDigitalInterviewReadiness: {
+    method: "POST", path: "/interviews/digital/:interviewId/readiness/decide",
+    in: z.object({
+      interviewId: z.string().min(1),
+      assessmentRuleVersion: z.string().min(1),
+      status: z.enum(["ready", "warning_accepted"]),
+      rationale: z.string().trim().min(10).max(300).nullable(),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict().superRefine((value, context) => {
+      if (value.status === "warning_accepted" && value.rationale === null) context.addIssue({
+        code: z.ZodIssueCode.custom, path: ["rationale"], message: "warning acceptance requires rationale",
+      });
+      if (value.status === "ready" && value.rationale !== null) context.addIssue({
+        code: z.ZodIssueCode.custom, path: ["rationale"], message: "ready decision must not carry rationale",
+      });
+    }),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "INTERVIEW_NOT_READY", "READINESS_RATIONALE_REQUIRED", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 所有专家运行终止后，由用户显式确认回答并生成可追溯报告。 */
@@ -890,6 +1084,21 @@ export const operations = {
     }).strict(),
     out: DigitalInterviewWorkflowView,
     err: ["NO_INTERVIEW_ACCESS", "DIGITAL_REPORT_NOT_READY", "DIGITAL_REPORT_SOURCE_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 人工复核当前版本报告；批准动作仍受证据缺口门控。 */
+  reviewDigitalInterviewReport: {
+    method: "POST", path: "/interviews/digital/:interviewId/report/review",
+    in: z.object({
+      interviewId: z.string().min(1),
+      reportId: z.string().min(1),
+      status: z.enum(["approved", "changes_requested"]),
+      note: z.string().trim().max(1000).nullable(),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "REPORT_REVIEW_BLOCKED", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 用户消息和由它生成的 proposal 立即持久化，并推进同一访谈 aggregate version。 */
