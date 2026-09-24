@@ -8,7 +8,7 @@ import type { DatabasePort } from "../../src/application/ports/database.port";
 import { PgGraphProjection } from "../../src/infrastructure/knowledge-graph/pg-graph-projection";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
-import { extractionDeps, loopbackModel, silentLogger } from "./kg-extraction-fixtures";
+import { enableExtraction, extractionDeps, loopbackModel, silentLogger } from "./kg-extraction-fixtures";
 
 export const LAUNCH = JSON.stringify({
   entities: [
@@ -28,6 +28,7 @@ export async function seedRecallOrg(db: DatabasePort, org: string, threads: read
   await migrateOnce();
   await resetOrgs(org);
   await seedOrg({ orgId: org, projectId: `${org}-p` });
+  await enableExtraction();
   for (const t of threads) {
     await addChatThread({ orgId: org, id: t, projectId: null, visibilityScope: "private", createdBy: owner });
     await addChatMessage({ orgId: org, id: `m-${t}-seed`, threadId: t, body: "张三决定下周一上线 v2。测试环境不稳定。季度预算已经批下来了。", authorId: owner });
