@@ -98,7 +98,25 @@ function sample(q: ReturnType<typeof createSurveyQuestion>): SurveyAnswerValue {
       return "有效回答";
   }
 }
-const template = { id: "t", title: "报告", sections: [] };
+const reportTemplate = (...questionIds: string[]) => ({
+  id: "t",
+  title: "报告",
+  sections: [
+    {
+      id: "results",
+      title: "结果",
+      blocks: [
+        {
+          id: "answers",
+          title: "回答",
+          type: "text" as const,
+          questionIds,
+          statistic: "responses" as const,
+        },
+      ],
+    },
+  ],
+});
 describe("real survey question type lifecycle", () => {
   for (const entry of SURVEY_QUESTION_TYPES.filter(
     (e) => !["description", "page_break"].includes(e.type),
@@ -119,7 +137,7 @@ describe("real survey question type lifecycle", () => {
       let model = await s.create(org, "owner", {
         title: "完整题型",
         questions: [q],
-        template,
+        template: reportTemplate(q.id),
       } as SurveyDraftInput);
       model = await s.publish(org, "owner", model.id, model.version);
       const token = model.publication!.token;
@@ -165,7 +183,7 @@ describe("real survey question type lifecycle", () => {
     let m = await s.create(org, "owner", {
       title: "附件",
       questions: [q],
-      template,
+      template: reportTemplate(q.id),
     });
     m = await s.publish(org, "owner", m.id, m.version);
     await expect(
@@ -193,7 +211,7 @@ describe("real survey question type lifecycle", () => {
     let m = await s.create(org, "owner", {
       title: "条件",
       questions: [q, child],
-      template,
+      template: reportTemplate(q.id, child.id),
     });
     m = await s.publish(org, "owner", m.id, m.version);
     const input = {
