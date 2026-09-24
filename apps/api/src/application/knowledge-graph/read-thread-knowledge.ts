@@ -39,7 +39,7 @@ interface VisibleThread {
   readonly base: PermissionDecision;
 }
 
-async function visibleThread(deps: KnowledgeReadDeps, viewer: Viewer, threadId: string): Promise<VisibleThread> {
+export async function visibleThread(deps: KnowledgeReadDeps, viewer: Viewer, threadId: string): Promise<VisibleThread> {
   let facts: ThreadFacts | null;
   try {
     facts = await deps.chat.findThreadFacts(viewer.orgId, threadId);
