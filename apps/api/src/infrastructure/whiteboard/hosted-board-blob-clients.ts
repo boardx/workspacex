@@ -26,10 +26,24 @@ function descriptor(metadata: Record<string, string | undefined>, length: number
   return { cipherDigest, sizeBytes: parsed };
 }
 
+function policyGrantsPublic(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid bucket policy');
+  const statement = (value as { Statement?: unknown }).Statement;
+  const statements = Array.isArray(statement) ? statement : statement && typeof statement === 'object' ? [statement] : [];
+  return statements.some(item => {
+    if (!item || typeof item !== 'object') throw new Error('invalid bucket policy');
+    const record = item as { Effect?: unknown; Principal?: unknown };
+    if (record.Effect !== 'Allow') return false;
+    return record.Principal === '*' || !!record.Principal && typeof record.Principal === 'object'
+      && Object.values(record.Principal as Record<string, unknown>).some(principal => principal === '*' || Array.isArray(principal) && principal.includes('*'));
+  });
+}
+
 export interface AliyunOssBoardProtocol {
   getBucketVersioning(bucket: string): Promise<{ versionStatus?: string }>;
   getBucketACL(bucket: string): Promise<{ acl?: string }>;
   getBucketObjectLock(bucket: string): Promise<{ status?: string }>;
+  getBucketPolicy(bucket: string): Promise<{ policy: unknown | null }>;
   put(key: string, bytes: Buffer, options: { headers: Record<string, string>; mime: string }): Promise<void>;
   get(key: string): Promise<{ content: Buffer; headers: Record<string, string | undefined> }>;
   head(key: string): Promise<{ headers: Record<string, string | undefined> }>;
@@ -40,13 +54,15 @@ export class AliyunOssBoardBlobClient implements HostedBoardBlobClient {
   constructor(private readonly client: AliyunOssBoardProtocol, private readonly bucket: string, private readonly prefix: string) {}
 
   async inspectBucket(): Promise<HostedBoardBucketPolicy> {
-    const [version, acl, lock] = await Promise.all([
+    const [version, acl, lock, policy] = await Promise.all([
       this.client.getBucketVersioning(this.bucket),
       this.client.getBucketACL(this.bucket),
       this.client.getBucketObjectLock(this.bucket),
+      this.client.getBucketPolicy(this.bucket),
     ]);
+    const publicPolicy = policy.policy !== null && policyGrantsPublic(policy.policy);
     return {
-      access: acl.acl === 'private' ? 'private' : acl.acl ? 'public' : 'unknown',
+      access: acl.acl === 'private' && !publicPolicy ? 'private' : acl.acl && policy.policy !== undefined ? 'public' : 'unknown',
       versioning: version.versionStatus?.toLowerCase() === 'enabled' ? 'enabled' : version.versionStatus ? 'disabled' : 'unknown',
       objectLock: lock.status?.toLowerCase() === 'enabled' ? 'enabled' : lock.status ? 'disabled' : 'unknown',
     };
@@ -102,7 +118,7 @@ export interface S3CompatibleBoardProtocol {
 
 export class S3CompatibleBoardBlobClient implements HostedBoardBlobClient {
   readonly provider = 's3-compatible' as const;
-  constructor(private readonly client: S3CompatibleBoardProtocol, private readonly bucket: string, private readonly prefix: string) {}
+  constructor(private readonly client: S3CompatibleBoardProtocol, private readonly bucket: string, private readonly prefix: string, readonly profile?: 'aws-s3' | 'minio' | 'r2') {}
 
   async inspectBucket(): Promise<HostedBoardBucketPolicy> {
     const [version, access, lock] = await Promise.all([
@@ -112,8 +128,8 @@ export class S3CompatibleBoardBlobClient implements HostedBoardBlobClient {
     ]);
     return {
       access: access.private ? 'private' : 'public',
-      versioning: version.status?.toLowerCase() === 'enabled' ? 'enabled' : version.status ? 'disabled' : 'unknown',
-      objectLock: lock.enabled ? 'enabled' : 'disabled',
+      versioning: version.status?.toLowerCase() === 'enabled' ? 'enabled' : version.status?.toLowerCase() === 'unsupported' ? 'unsupported' : version.status ? 'disabled' : 'unknown',
+      objectLock: lock.enabled ? 'enabled' : this.profile === 'r2' ? 'unsupported' : 'disabled',
     };
   }
 

@@ -1,5 +1,15 @@
-import { createHash, createHmac } from 'node:crypto';
 import OSS from 'ali-oss';
+import {
+  GetBucketAclCommand,
+  GetBucketPolicyStatusCommand,
+  GetBucketVersioningCommand,
+  GetObjectCommand,
+  GetObjectLockConfigurationCommand,
+  GetPublicAccessBlockCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { BoardBlobError } from '../../application/whiteboard/blob-ports';
 import { ossCredentialSource } from '../storage/oss-sdk-client';
 import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
@@ -40,12 +50,21 @@ function headersOf(headers: object): Record<string, string> {
 type AliSdk = OSS & {
   getBucketVersioning(bucket: string): Promise<{ versionStatus?: string }>;
   getBucketWorm(bucket: string): Promise<{ wormState?: string }>;
+  getBucketPolicy(bucket: string): Promise<{ policy?: unknown }>;
 };
 
 class AliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
   constructor(private readonly sdk: AliSdk) {}
   getBucketVersioning(bucket: string): Promise<{ versionStatus?: string }> { return this.sdk.getBucketVersioning(bucket); }
   async getBucketACL(bucket: string): Promise<{ acl?: string }> { return { acl: (await this.sdk.getBucketACL(bucket)).acl }; }
+  async getBucketPolicy(bucket: string): Promise<{ policy: unknown | null }> {
+    try { return { policy: (await this.sdk.getBucketPolicy(bucket)).policy ?? null }; }
+    catch (error) {
+      const code = (error as { code?: unknown; status?: unknown }).code;
+      if (code === 'NoSuchBucketPolicy' || (error as { status?: unknown }).status === 404) return { policy: null };
+      throw error;
+    }
+  }
   async getBucketObjectLock(bucket: string): Promise<{ status?: string }> {
     try {
       const result = await this.sdk.getBucketWorm(bucket);
@@ -65,95 +84,116 @@ class AliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
   async head(key: string): Promise<{ headers: Record<string, string> }> { return { headers: headersOf((await this.sdk.head(key)).res.headers) }; }
 }
 
-type S3Credentials = { accessKeyId: string; secretAccessKey: string; sessionToken?: string };
+type S3Profile = 'aws-s3' | 'minio' | 'r2';
+type Inspection = { private: boolean; versioning: 'Enabled' | 'Disabled' | 'Unsupported'; objectLock: boolean };
 
-const sha256Hex = (value: Uint8Array | string): string => createHash('sha256').update(value).digest('hex');
-const hmac = (key: Uint8Array | string, value: string): Buffer => createHmac('sha256', key).update(value).digest();
-const xmlValue = (xml: string, name: string): string | undefined => {
-  const match = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([^<]*)</${name}>`, 'i'));
-  return match?.[1]?.trim();
+const publicAclUri = /\/groups\/global\/(?:AllUsers|AuthenticatedUsers)$/;
+const isMissingObjectLock = (error: unknown): boolean => {
+  const value = error as { name?: unknown; Code?: unknown; $metadata?: { httpStatusCode?: unknown } };
+  return value.name === 'ObjectLockConfigurationNotFoundError' || value.Code === 'ObjectLockConfigurationNotFoundError' || value.$metadata?.httpStatusCode === 404;
 };
-const encodePath = (path: string): string => path.split('/').map(part => encodeURIComponent(part).replace(/%7E/g, '~')).join('/');
 
-class S3SigV4BoardProtocol implements S3CompatibleBoardProtocol {
+class OfficialS3BoardProtocol implements S3CompatibleBoardProtocol {
+  private inspection?: Promise<Inspection>;
+
   constructor(
-    private readonly base: URL,
-    private readonly region: string,
-    private readonly credentials: S3Credentials,
-    private readonly privateAccessConfirmed: boolean,
+    private readonly sdk: S3Client,
+    private readonly bucket: string,
+    private readonly profile: S3Profile,
+    private readonly env: NodeJS.ProcessEnv,
   ) {}
 
-  async getBucketVersioning(bucket: string): Promise<{ status?: string }> {
-    return { status: xmlValue(await this.request('GET', bucket, '', 'versioning'), 'Status') };
+  async getBucketVersioning(): Promise<{ status?: string }> { return { status: (await this.inspect()).versioning }; }
+  async getBucketAccess(): Promise<{ private: boolean }> { return { private: (await this.inspect()).private }; }
+  async getObjectLockConfiguration(): Promise<{ enabled: boolean }> { return { enabled: (await this.inspect()).objectLock }; }
+
+  async putObject(input: { bucket: string; key: string; body: Uint8Array; contentType: string; ifNoneMatch: '*'; metadata: Record<string, string> }): Promise<void> {
+    await this.sdk.send(new PutObjectCommand({ Bucket: input.bucket, Key: input.key, Body: input.body, ContentType: input.contentType, IfNoneMatch: input.ifNoneMatch, Metadata: input.metadata }));
   }
-  async getBucketAccess(bucket: string): Promise<{ private: boolean }> {
-    const acl = await this.request('GET', bucket, '', 'acl');
-    const globallyGranted = /<URI>\s*http:\/\/acs\.amazonaws\.com\/groups\/global\/(?:AllUsers|AuthenticatedUsers)\s*<\/URI>/i.test(acl);
-    return { private: this.privateAccessConfirmed && !globallyGranted };
-  }
-  async getObjectLockConfiguration(bucket: string): Promise<{ enabled: boolean }> {
-    try { return { enabled: xmlValue(await this.request('GET', bucket, '', 'object-lock'), 'ObjectLockEnabled')?.toLowerCase() === 'enabled' }; }
-    catch (error) {
-      const value = error as { status?: unknown; code?: unknown; name?: unknown };
-      if (value.status === 404 || value.status === 501 || value.code === 'NotImplemented' || value.name === 'NotImplemented') return { enabled: false };
+
+  async getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number } | null> {
+    try {
+      const result = await this.sdk.send(new GetObjectCommand({ Bucket: input.bucket, Key: input.key }));
+      if (!result.Body) throw new Error('invalid S3 response');
+      return { body: await result.Body.transformToByteArray(), metadata: result.Metadata, contentLength: result.ContentLength };
+    } catch (error) {
+      if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
       throw error;
     }
   }
-  async putObject(input: { bucket: string; key: string; body: Uint8Array; contentType: string; ifNoneMatch: '*'; metadata: Record<string, string> }): Promise<void> {
-    const metadata = Object.fromEntries(Object.entries(input.metadata).map(([key, value]) => [`x-amz-meta-${key}`, value]));
-    await this.request('PUT', input.bucket, input.key, '', Buffer.from(input.body), { 'content-type': input.contentType, 'if-none-match': input.ifNoneMatch, ...metadata });
-  }
-  async getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number } | null> {
-    const result = await this.requestBytes('GET', input.bucket, input.key);
-    if (!result) return null;
-    return { body: result.body, metadata: this.metadata(result.headers), contentLength: Number(result.headers.get('content-length') ?? result.body.byteLength) };
-  }
+
   async headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number } | null> {
-    const result = await this.requestBytes('HEAD', input.bucket, input.key);
-    if (!result) return null;
-    return { metadata: this.metadata(result.headers), contentLength: Number(result.headers.get('content-length') ?? 0) };
-  }
-
-  private metadata(headers: Headers): Record<string, string> {
-    const values: Record<string, string> = {};
-    headers.forEach((value, name) => { if (name.startsWith('x-amz-meta-')) values[name.slice(11)] = value; });
-    return values;
-  }
-
-  private async request(method: string, bucket: string, key: string, query = '', body = new Uint8Array(), extra: Record<string, string> = {}): Promise<string> {
-    const result = await this.requestBytes(method, bucket, key, query, body, extra);
-    if (!result) throw Object.assign(new Error('not found'), { status: 404, name: 'NotFound' });
-    return Buffer.from(result.body).toString('utf8');
-  }
-
-  private async requestBytes(method: string, bucket: string, key: string, query = '', body = new Uint8Array(), extra: Record<string, string> = {}): Promise<{ body: Uint8Array; headers: Headers } | null> {
-    const now = new Date(), amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ''), date = amzDate.slice(0, 8);
-    const root = this.base.pathname.replace(/\/$/, '');
-    const canonicalUri = `${root}/${encodePath(bucket)}${key ? `/${encodePath(key)}` : ''}` || '/';
-    const host = this.base.host;
-    const payloadHash = sha256Hex(body);
-    const signedHeaders: Record<string, string> = { host, 'x-amz-content-sha256': payloadHash, 'x-amz-date': amzDate, ...extra };
-    if (this.credentials.sessionToken) signedHeaders['x-amz-security-token'] = this.credentials.sessionToken;
-    const names = Object.keys(signedHeaders).map(name => name.toLowerCase()).sort();
-    const canonicalHeaders = names.map(name => `${name}:${signedHeaders[name]!.trim().replace(/\s+/g, ' ')}`).join('\n') + '\n';
-    const canonicalQuery = query ? `${encodeURIComponent(query)}=` : '';
-    const canonicalRequest = [method, canonicalUri, canonicalQuery, canonicalHeaders, names.join(';'), payloadHash].join('\n');
-    const scope = `${date}/${this.region}/s3/aws4_request`;
-    const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${scope}\n${sha256Hex(canonicalRequest)}`;
-    const signingKey = hmac(hmac(hmac(hmac(`AWS4${this.credentials.secretAccessKey}`, date), this.region), 's3'), 'aws4_request');
-    signedHeaders.authorization = `AWS4-HMAC-SHA256 Credential=${this.credentials.accessKeyId}/${scope}, SignedHeaders=${names.join(';')}, Signature=${hmac(signingKey, stringToSign).toString('hex')}`;
-    const url = new URL(canonicalUri, this.base); if (query) url.searchParams.set(query, '');
-    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await fetch(url, { method, headers: signedHeaders, body: method === 'PUT' ? body : undefined, signal: controller.signal });
-      if (response.status === 404) return null;
-      const responseBody = new Uint8Array(await response.arrayBuffer());
-      if (!response.ok) {
-        const code = xmlValue(Buffer.from(responseBody).toString('utf8'), 'Code') ?? String(response.status);
-        throw Object.assign(new Error('S3 request failed'), { status: response.status, name: code, code });
-      }
-      return { body: responseBody, headers: response.headers };
-    } finally { clearTimeout(timeout); }
+      const result = await this.sdk.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }));
+      return { metadata: result.Metadata, contentLength: result.ContentLength };
+    } catch (error) {
+      if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
+      throw error;
+    }
+  }
+
+  private inspect(): Promise<Inspection> {
+    this.inspection ??= this.profile === 'aws-s3' ? this.inspectAws() : this.profile === 'r2' ? this.inspectR2() : this.inspectMinio();
+    return this.inspection;
+  }
+
+  private async inspectAws(): Promise<Inspection> {
+    const [versioning, block, policy, acl, objectLock] = await Promise.all([
+      this.sdk.send(new GetBucketVersioningCommand({ Bucket: this.bucket })),
+      this.sdk.send(new GetPublicAccessBlockCommand({ Bucket: this.bucket })),
+      this.sdk.send(new GetBucketPolicyStatusCommand({ Bucket: this.bucket })),
+      this.sdk.send(new GetBucketAclCommand({ Bucket: this.bucket })),
+      this.sdk.send(new GetObjectLockConfigurationCommand({ Bucket: this.bucket })).catch(error => {
+        if (isMissingObjectLock(error)) return false as const;
+        throw error;
+      }),
+    ]);
+    const pab = block.PublicAccessBlockConfiguration;
+    if (!pab || pab.BlockPublicAcls !== true || pab.IgnorePublicAcls !== true || pab.BlockPublicPolicy !== true || pab.RestrictPublicBuckets !== true) {
+      throw new Error('S3 public access block is incomplete');
+    }
+    if (policy.PolicyStatus?.IsPublic !== false || !Array.isArray(acl.Grants)) throw new Error('S3 bucket privacy is unknown');
+    const publicGrant = acl.Grants.some(grant => grant.Grantee?.URI ? publicAclUri.test(grant.Grantee.URI) : false);
+    return {
+      private: !publicGrant,
+      versioning: versioning.Status === 'Enabled' ? 'Enabled' : 'Disabled',
+      objectLock: objectLock !== false && objectLock.ObjectLockConfiguration?.ObjectLockEnabled === 'Enabled',
+    };
+  }
+
+  private async managementJson(url: URL, token: string): Promise<unknown> {
+    const timeoutMs = this.env.NODE_ENV === 'test' ? 250 : 5_000;
+    const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(timeoutMs) });
+    if (!response.ok) throw new Error('storage policy service unavailable');
+    return response.json();
+  }
+
+  private async inspectR2(): Promise<Inspection> {
+    const base = endpoint(this.env, 'WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT');
+    const account = encodeURIComponent(required(this.env, 'WORKSPACEX_BOARD_R2_ACCOUNT_ID'));
+    const token = required(this.env, 'WORKSPACEX_BOARD_R2_MANAGEMENT_TOKEN');
+    const bucket = encodeURIComponent(this.bucket);
+    const managedUrl = new URL(`accounts/${account}/r2/buckets/${bucket}/domains/managed`, `${base.toString().replace(/\/?$/, '/')}`);
+    const customUrl = new URL(`accounts/${account}/r2/buckets/${bucket}/domains/custom`, `${base.toString().replace(/\/?$/, '/')}`);
+    const [managedValue, customValue] = await Promise.all([this.managementJson(managedUrl, token), this.managementJson(customUrl, token)]);
+    const managed = managedValue as { success?: unknown; result?: { enabled?: unknown } };
+    const custom = customValue as { success?: unknown; result?: { domains?: Array<{ enabled?: unknown }> } };
+    if (managed.success !== true || managed.result?.enabled !== false || custom.success !== true || !Array.isArray(custom.result?.domains)) {
+      throw new Error('R2 public access state is unknown');
+    }
+    if (custom.result.domains.some(domain => typeof domain.enabled !== 'boolean' || domain.enabled)) throw new Error('R2 custom domain is public or unknown');
+    return { private: true, versioning: 'Unsupported', objectLock: false };
+  }
+
+  private async inspectMinio(): Promise<Inspection> {
+    const base = endpoint(this.env, 'WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT');
+    const token = required(this.env, 'WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_TOKEN');
+    const url = new URL(`buckets/${encodeURIComponent(this.bucket)}/policy`, `${base.toString().replace(/\/?$/, '/')}`);
+    const value = await this.managementJson(url, token) as { private?: unknown; versioning?: unknown; objectLock?: unknown };
+    if (value.private !== true || !['enabled', 'disabled'].includes(String(value.versioning)) || typeof value.objectLock !== 'boolean') {
+      throw new Error('MinIO policy state is unknown');
+    }
+    return { private: true, versioning: value.versioning === 'enabled' ? 'Enabled' : 'Disabled', objectLock: value.objectLock };
   }
 }
 
@@ -177,13 +217,18 @@ export class EnvHostedBoardClientFactory implements HostedBoardClientFactory {
       const sdk = new OSS({ ...credentials, bucket: input.bucket, region: `oss-${region}`, endpoint: url.toString(), secure: url.protocol === 'https:', authorizationV4: true, timeout: 10_000, refreshSTSToken: source, refreshSTSTokenInterval: 0 }) as AliSdk;
       return new AliyunOssBoardBlobClient(new AliyunOssSdkBoardProtocol(sdk), input.bucket, input.prefix);
     }
+
     const url = endpoint(this.env, 'WORKSPACEX_BOARD_S3_ENDPOINT');
-    const region = required(this.env, 'WORKSPACEX_BOARD_S3_REGION');
-    const accessKeyId = required(this.env, 'WORKSPACEX_BOARD_S3_ACCESS_KEY_ID');
-    const secretAccessKey = required(this.env, 'WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY');
-    if (this.env.WORKSPACEX_BOARD_S3_PRIVATE_ACCESS_CONFIRMED !== 'true') throw new BoardBlobError('STORAGE_UNAVAILABLE', 'private bucket policy confirmation is required');
-    const protocol = new S3SigV4BoardProtocol(url, region, { accessKeyId, secretAccessKey, sessionToken: this.env.WORKSPACEX_BOARD_S3_SESSION_TOKEN }, true);
-    return new S3CompatibleBoardBlobClient(protocol, input.bucket, input.prefix);
+    const profile = required(this.env, 'WORKSPACEX_BOARD_S3_PROFILE') as S3Profile;
+    if (!['aws-s3', 'minio', 'r2'].includes(profile)) throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage profile is invalid');
+    const credentials = {
+      accessKeyId: required(this.env, 'WORKSPACEX_BOARD_S3_ACCESS_KEY_ID'),
+      secretAccessKey: required(this.env, 'WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY'),
+      sessionToken: this.env.WORKSPACEX_BOARD_S3_SESSION_TOKEN?.trim() || undefined,
+    };
+    const sdk = new S3Client({ endpoint: url.toString(), region: required(this.env, 'WORKSPACEX_BOARD_S3_REGION'), forcePathStyle: true, credentials });
+    const protocol = new OfficialS3BoardProtocol(sdk, input.bucket, profile, this.env);
+    return new S3CompatibleBoardBlobClient(protocol, input.bucket, input.prefix, profile);
   }
 }
 

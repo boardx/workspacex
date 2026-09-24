@@ -7,6 +7,7 @@ describe('AliyunOssBoardBlobClient', () => {
     const protocol: AliyunOssBoardProtocol = {
       async getBucketVersioning() { return { versionStatus: 'Enabled' }; },
       async getBucketACL() { return { acl: 'private' }; },
+      async getBucketPolicy() { return { policy: null }; },
       async getBucketObjectLock() { return { status: 'Enabled' }; },
       put,
       async get() { return { content: Buffer.from('abc'), headers: { 'x-oss-meta-cipher-digest': 'd'.repeat(64), 'x-oss-meta-size-bytes': '3' } }; },
@@ -22,7 +23,7 @@ describe('AliyunOssBoardBlobClient', () => {
 
   it('normalizes conflicts and missing objects without exposing a delete operation', async () => {
     const protocol = {
-      async getBucketVersioning() { return { versionStatus: 'Enabled' }; }, async getBucketACL() { return { acl: 'private' }; },
+      async getBucketVersioning() { return { versionStatus: 'Enabled' }; }, async getBucketACL() { return { acl: 'private' }; }, async getBucketPolicy() { return { policy: null }; },
       async getBucketObjectLock() { return { status: 'Enabled' }; }, async put() { throw Object.assign(new Error('secret'), { code: 'FileAlreadyExists' }); },
       async get() { throw Object.assign(new Error('secret'), { code: 'NoSuchKey' }); }, async head() { throw Object.assign(new Error('secret'), { code: 'NoSuchKey' }); },
     } satisfies AliyunOssBoardProtocol;

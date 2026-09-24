@@ -3,8 +3,8 @@ import { assertSha256Digest, assertTenantBlobKey, sha256 } from '../../domain/wh
 
 export interface HostedBoardBucketPolicy {
   access: 'private' | 'public' | 'unknown';
-  versioning: 'enabled' | 'disabled' | 'unknown';
-  objectLock: 'enabled' | 'disabled' | 'unknown';
+  versioning: 'enabled' | 'disabled' | 'unsupported' | 'unknown';
+  objectLock: 'enabled' | 'disabled' | 'unsupported' | 'unknown';
 }
 
 export interface HostedBoardBlobObject {
@@ -21,6 +21,7 @@ export type HostedBoardPutResult = 'created' | 'already-exists';
  */
 export interface HostedBoardBlobClient {
   readonly provider: 'aliyun-oss' | 's3-compatible';
+  readonly profile?: 'aws-s3' | 'minio' | 'r2';
   inspectBucket(): Promise<HostedBoardBucketPolicy>;
   putIfAbsent(input: {
     key: string;
@@ -54,7 +55,9 @@ export class HostedBoardBlobStore implements BoardBlobStore {
     let policy: HostedBoardBucketPolicy;
     try { policy = await this.client.inspectBucket(); }
     catch { throw unavailable(); }
-    if (policy.access !== 'private' || policy.versioning !== 'enabled'
+    const versioningCompatible = policy.versioning === 'enabled'
+      || this.client.profile === 'r2' && policy.versioning === 'unsupported';
+    if (policy.access !== 'private' || !versioningCompatible
       || (this.requirement.requireObjectLock && policy.objectLock !== 'enabled')) {
       throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board bucket policy is incompatible');
     }
