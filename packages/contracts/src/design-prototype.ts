@@ -47,6 +47,8 @@ export const PrototypeNodeType = z.enum([
   "table", "chart",
   // 对标 R4（#3933）：下拉、单选、叠层（弹窗 / 底部弹层 / 轻提示）——表单与确认流程画得出来
   "select", "radio", "overlay",
+  // 对标 R5（#3933）：官网落地页的分区与页脚
+  "section", "footer",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -255,6 +257,24 @@ const OverlayProps = z.object({
   title: Label.optional(),
 }).strict();
 
+/*
+ * 对标 R5（#3933）—— 落地页。
+ *
+ * 「给我们的产品做个官网首页」画出来一直像一个很长的 App 屏：没有「分区」这个概念（每一屏的
+ * 底色带与留白），也没有页脚。`section` 是通栏的**容器**，`tone` 给出区与区之间的底色节奏；
+ * `footer` 是叶子——页脚的结构（品牌、几列链接、版权）足够固定，不值得让模型每次都拼一遍。
+ */
+const SectionProps = z.object({
+  tone: z.enum(["default", "muted", "primary", "inverse"]).optional(),
+  padding: Scale.optional(),
+  align: z.enum(["start", "center"]).optional(),
+}).strict();
+const FooterProps = z.object({
+  brand: Label,
+  links: z.array(Label).max(12).optional(),
+  note: z.string().max(200).optional(),
+}).strict();
+
 const ChartProps = z.object({
   kind: z.enum(["bar", "line"]).optional(),
   title: Label.optional(),
@@ -289,6 +309,7 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("chart"), props: ChartProps }).strict(),
   z.object({ id: Id, type: z.literal("select"), props: SelectProps }).strict(),
   z.object({ id: Id, type: z.literal("radio"), props: RadioProps }).strict(),
+  z.object({ id: Id, type: z.literal("footer"), props: FooterProps }).strict(),
 ]);
 
 export type PrototypeNode =
@@ -296,10 +317,11 @@ export type PrototypeNode =
   | { readonly id?: PrototypeNodeId; readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
   | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] }
   | { readonly id?: PrototypeNodeId; readonly type: "grid"; readonly props?: z.infer<typeof GridProps>; readonly children: readonly PrototypeNode[] }
-  | { readonly id?: PrototypeNodeId; readonly type: "overlay"; readonly props?: z.infer<typeof OverlayProps>; readonly children: readonly PrototypeNode[] };
+  | { readonly id?: PrototypeNodeId; readonly type: "overlay"; readonly props?: z.infer<typeof OverlayProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "section"; readonly props?: z.infer<typeof SectionProps>; readonly children: readonly PrototypeNode[] };
 
 /** 容器类型闭集（有 `children`）。所有遍历只认它，加容器只改这里 + `PrototypeNode` 的 union。 */
-export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid", "overlay"] as const;
+export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid", "overlay", "section"] as const;
 export type PrototypeContainer = Extract<PrototypeNode, { children: readonly PrototypeNode[] }>;
 export function isPrototypeContainer(n: PrototypeNode): n is PrototypeContainer {
   return (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(n.type);
@@ -316,6 +338,7 @@ export const PrototypeNode: z.ZodType<PrototypeNode> = z.lazy(() =>
     z.object({ id: Id, type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("grid"), props: GridProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("overlay"), props: OverlayProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("section"), props: SectionProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
   ]),
 );
 
@@ -403,7 +426,7 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
   image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsPropsBase, badge: BadgeProps, avatar: AvatarProps,
   bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
   stat: StatProps, hero: HeroProps, grid: GridProps, table: TableProps, chart: ChartProps,
-  select: SelectProps, radio: RadioPropsBase, overlay: OverlayProps,
+  select: SelectProps, radio: RadioPropsBase, overlay: OverlayProps, section: SectionProps, footer: FooterProps,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
 /**
@@ -543,6 +566,11 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   select: [F("label", "标题", "text"), F("options", "选项（一行一项）", "lines"), F("value", "当前值", "text"), F("placeholder", "占位提示", "text")],
   radio: [F("label", "标题", "text"), F("options", "选项（一行一项，2–8）", "lines"), F("selected", "选中第几项（从 0 起）", "number")],
   overlay: [F("kind", "叠层样式", "enum", OverlayProps.shape.kind.unwrap().options), F("title", "标题", "text")],
+  section: [
+    F("tone", "底色", "enum", SectionProps.shape.tone.unwrap().options), F("padding", "内边距", "enum", SCALE_OPTIONS),
+    F("align", "对齐", "enum", SectionProps.shape.align.unwrap().options),
+  ],
+  footer: [F("brand", "品牌名", "text"), F("links", "链接（一行一项）", "lines"), F("note", "底部小字", "text")],
 };
 
 /**
@@ -577,6 +605,8 @@ export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<st
   "chart.kind": { bar: "柱状图", line: "折线图" },
   // 对标 R4
   "overlay.kind": { modal: "居中弹窗", sheet: "底部弹层", toast: "轻提示" },
+  // 对标 R5：分区底色是同名不同义的 `tone`（徽标的 tone 是语义色）。
+  "section.tone": { default: "无底色", muted: "浅灰底", primary: "主色底", inverse: "反色底" },
   ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
   leading: { none: "不加", dot: "圆点", check: "勾选框", avatar: "头像", icon: "图标" },
   tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
@@ -980,6 +1010,8 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "hero": return `头图「${n.props.title}」`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
     case "table": return `表格（${n.props.columns.length} 列 × ${n.props.rows.length} 行）`;
+    case "section": return `分区（${n.children.length} 块）`;
+    case "footer": return `页脚「${n.props.brand}」`;
     case "select": return `下拉「${n.props.label ?? n.props.value ?? n.props.placeholder ?? n.props.options[0] ?? ""}」`;
     case "radio": return `单选（${n.props.options.join("/")}）`;
     case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
@@ -999,7 +1031,7 @@ export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, strin
   image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
   avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
   progress: "进度", stat: "指标", hero: "头图", grid: "网格", table: "表格", chart: "图表",
-  select: "下拉", radio: "单选", overlay: "叠层",
+  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚",
 };
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
@@ -1088,7 +1120,10 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   // 对标 R4（#3933）：表单与确认流程的最后几块。
   "select{label?, options:[..], value?, placeholder?}（从几项里选一个：城市、类别）；radio{label?, options:[2–8 项], selected?}（互斥的少数几项：性别、配送方式）；" +
   "overlay{kind:modal|sheet|toast, title?}（有 children 的叠层，盖在整屏上带遮罩：二次确认用 modal、从底部选东西用 sheet、操作结果提示用 toast；" +
-  "放在页根的最后一个孩子；「弹窗打开时的样子」单独做一页，别和正常态挤在一页）。" +
+  "放在页根的最后一个孩子；「弹窗打开时的样子」单独做一页，别和正常态挤在一页）；" +
+  // 对标 R5（#3933）：官网 / 落地页。不教的话「官网首页」会被画成一张很长的 App 屏。
+  "section{tone:default|muted|primary|inverse, padding:none|sm|md|lg, align:start|center}（通栏分区容器，落地页由若干 section 上下叠成，相邻两区换底色做节奏；此时页根 stack 的 padding 设 none）；" +
+  "footer{brand, links?:[..], note?}（官网页脚，放页根最后）。" +
   // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
   // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
   PROTOTYPE_ICON_ROSTER +
