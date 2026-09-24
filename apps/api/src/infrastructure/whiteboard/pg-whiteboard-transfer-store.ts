@@ -34,9 +34,8 @@ export class PgWhiteboardTransferStore implements WhiteboardTransferStore {
       await session.query(`INSERT INTO whiteboard_transfer_audit(org_id,board_id,actor_id,action,object_count) VALUES($1,$2,$3,'export',$4)`, [p.orgId, boardId, p.userId, objects.length]);
       return result.rows[0];
     });
-    return C.PortableBoardPackage.parse({ format: C.PORTABLE_BOARD.format, schemaVersion: C.PORTABLE_BOARD.schemaVersion,
-      exportedAt: new Date().toISOString(), source: { application: 'WorkspaceX', boardId, name: board.name }, objects,
-      provenance: { objectCount: objects.length, contentModel: 'whiteboard-object.v1' } });
+    return C.createPortableBoardPackage({ format: C.PORTABLE_BOARD.format, schemaVersion: C.PORTABLE_BOARD.schemaVersion,
+      source: { application: 'WorkspaceX', boardId, name: board.name }, objects });
   }
 
   async previewImport(_p: Principal, raw: C.ImportBoardInput): Promise<C.ImportBoardPreview> {

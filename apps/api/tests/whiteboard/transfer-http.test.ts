@@ -25,7 +25,10 @@ afterAll(async()=>{await app?.close();await resetOrgs(ORG,OTHER);});
 describe('portable board HTTP transfer',()=>{
   it('roundtrips frame, connector and extension data while remapping every identity',async()=>{
     const source=await createBoard();await store.writeCommands({orgId:toOrgId(ORG),userId:OWNER},source.id,{epoch:1,requestId:randomUUID(),commands:sourceObjects.map(object=>({type:'create' as const,object}))});
-    const exported=await call('GET',`/${source.id}/export`);expect(exported.status).toBe(200);const bundle=T.PortableBoardPackage.parse(await exported.json());expect(bundle.objects).toEqual(sourceObjects);
+    const exported=await call('GET',`/${source.id}/export`);expect(exported.status).toBe(200);const firstBytes=await exported.text();
+    const secondBytes=await (await call('GET',`/${source.id}/export`)).text();expect(secondBytes).toBe(firstBytes);
+    const bundle=T.PortableBoardPackage.parse(JSON.parse(firstBytes));expect(bundle.objects).toEqual([...sourceObjects].sort((a,b)=>a.id.localeCompare(b.id)));
+    expect(firstBytes).toBe(T.serializePortableBoardPackage(bundle));expect(firstBytes).not.toContain('exportedAt');
     const request={requestId:randomUUID(),package:bundle};const preview=await call('POST','/imports/preview',request);expect(preview.status).toBe(201);expect(T.ImportBoardPreview.parse(await preview.json())).toMatchObject({objectCount:3,identitiesRemapped:3,contentLosses:[]});
     const imported=await call('POST','/imports',request);expect(imported.status).toBe(201);const result=T.ImportBoardResult.parse(await imported.json());expect(result.board.id).not.toBe(source.id);expect(result.replayed).toBe(false);
     const state=await store.load({orgId:toOrgId(ORG),userId:OWNER},result.board.id);const exportedCopy=T.PortableBoardPackage.parse(await (await call('GET',`/${result.board.id}/export`)).json());
@@ -37,7 +40,7 @@ describe('portable board HTTP transfer',()=>{
   it('validates the complete package before writing and rejects requestId payload conflicts',async()=>{
     const source=await createBoard(),bundle=T.PortableBoardPackage.parse(await (await call('GET',`/${source.id}/export`)).json()),requestId=randomUUID();
     const before=await asApp(ORG,c=>c.query<{count:string}>(`SELECT count(*)::text count FROM whiteboards WHERE org_id=$1`,[ORG]));
-    const invalid={requestId,package:{...bundle,objects:[{...sourceObjects[1],parentId:'missing'}],provenance:{...bundle.provenance,objectCount:1}}};const response=await call('POST','/imports',invalid);expect(response.status).toBe(400);expect(JSON.stringify(await response.json())).not.toContain('missing');
+    const invalid={requestId,package:{...bundle,objects:[{...sourceObjects[1],parentId:'missing'}],manifest:{...bundle.manifest,objectCount:1}}};const response=await call('POST','/imports',invalid);expect(response.status).toBe(400);expect(JSON.stringify(await response.json())).not.toContain('missing');
     const after=await asApp(ORG,c=>c.query<{count:string}>(`SELECT count(*)::text count FROM whiteboards WHERE org_id=$1`,[ORG]));expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
     const valid={requestId,package:bundle};expect((await call('POST','/imports',valid)).status).toBe(201);expect((await call('POST','/imports',{...valid,name:'different'})).status).toBe(409);
   });

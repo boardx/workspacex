@@ -1,6 +1,7 @@
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WhiteboardPublicController } from './interface/controllers/whiteboard-public.controller';
 import { WHITEBOARD_WORKSHOP } from './application/whiteboard/workshop-ports';
 import { PgWorkshopRepository } from './infrastructure/whiteboard/pg-workshop-repository';
 import { WhiteboardWorkshopController } from './interface/controllers/whiteboard-workshop.controller';
@@ -1068,6 +1069,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardPublicController,
     WhiteboardRoomController,
     WhiteboardWorkshopController,
     WhiteboardOperationsController,

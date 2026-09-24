@@ -5,7 +5,7 @@ import {
   ExternalImportOptions,
   type ExternalImportLoss,
 } from '@repo/contracts/whiteboard-migration';
-import { PortableBoardPackage } from '@repo/contracts/whiteboard-transfer';
+import { createPortableBoardPackage, type ImportQualitySummary } from '@repo/contracts/whiteboard-transfer';
 import { WhiteboardObject, type WhiteboardObject as BoardObject } from '@repo/contracts/whiteboard-document';
 
 export type ExternalImportResult =
@@ -17,7 +17,42 @@ type SourceObject = {
   id: string; pageId: string; type: string; text?: string; geometry?: SourceGeometry;
   parentId?: string; relativeToParent?: boolean; shape?: 'rectangle' | 'ellipse';
   fillColor?: string; textColor?: string; from?: string; to?: string; positionRelativeTo?: string;
+  vendorData?: Record<string, unknown>;
 };
+
+type Quality = keyof ImportQualitySummary;
+const qualityRank: Record<Quality, number> = { complete: 0, approximate: 1, degraded: 2, skipped: 3 };
+const lossQuality: Partial<Record<ExternalImportLoss['code'], Quality>> = {
+  FORMATTING_REMOVED: 'approximate', POSITION_APPROXIMATED: 'approximate', DANGLING_PARENT: 'approximate',
+  TEXT_TRUNCATED: 'degraded', VENDOR_DATA_OMITTED: 'degraded',
+  UNKNOWN_OBJECT: 'skipped', DRAWING_UNSUPPORTED: 'skipped', INVALID_OBJECT: 'skipped', DANGLING_CONNECTOR: 'skipped',
+};
+
+const MIRO_KEYS = new Set(['id','type','content','position','geometry','data','style','parentId','parent','shape','fillColor','textColor','startItemId','endItemId','startConnection','endConnection']);
+const MURAL_KEYS = new Set(['id','type','text','position','x','y','width','height','rotation','parentId','relativeToParent','shape','fillColor','textColor','htmlText','title','style','startWidgetId','endWidgetId','startRefId','endRefId']);
+function unknownRecord(value: Record<string, unknown>, known: ReadonlySet<string>): Record<string, unknown> | undefined {
+  const entries = Object.entries(value).filter(([key]) => !known.has(key));
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+function vendorData(value: Record<string, unknown>, provider: 'miro' | 'mural'): Record<string, unknown> | undefined {
+  const result: Record<string, unknown> = {};
+  const topLevel = unknownRecord(value, provider === 'miro' ? MIRO_KEYS : MURAL_KEYS);
+  if (topLevel) result.topLevel = topLevel;
+  const style = value.style;
+  if (style && typeof style === 'object' && !Array.isArray(style)) {
+    const representedStyle = provider === 'miro' ? new Set(['fillColor','textColor']) : new Set(['fillColor','textColor','backgroundColor']);
+    const unknownStyle = unknownRecord(style as Record<string, unknown>, representedStyle);
+    if (unknownStyle) result.style = unknownStyle;
+  }
+  if (provider === 'miro') {
+    const data = value.data;
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const unknownData = unknownRecord(data as Record<string, unknown>, new Set(['content','title','shape']));
+      if (unknownData) result.data = unknownData;
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
+}
 
 const knownKinds: Record<string, BoardObject['kind']> = {
   sticky_note: 'sticky', 'sticky-note': 'sticky', sticky: 'sticky', card: 'sticky',
@@ -55,6 +90,7 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
         fillColor: item.style?.fillColor ?? item.fillColor, textColor: item.style?.textColor ?? item.textColor,
         from: item.startConnection?.item ?? item.startItemId, to: item.endConnection?.item ?? item.endItemId,
         positionRelativeTo: item.position && !('width' in item.position) ? item.position.relativeTo : undefined,
+        vendorData: vendorData(item as Record<string, unknown>, 'miro'),
       });
     }
   } else {
@@ -68,6 +104,7 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
         parentId: widget.parentId, relativeToParent: widget.relativeToParent ?? Boolean(widget.parentId), shape: widget.shape,
         fillColor: widget.style?.fillColor ?? widget.style?.backgroundColor ?? widget.fillColor, textColor: widget.style?.textColor ?? widget.textColor,
         from: widget.startRefId ?? widget.startWidgetId, to: widget.endRefId ?? widget.endWidgetId,
+        vendorData: vendorData(widget as Record<string, unknown>, 'mural'),
       });
     }
   }
@@ -99,9 +136,22 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
   const nextId = (): string => `external_${String(sequence++).padStart(6, '0')}`;
   const objects: BoardObject[] = [];
   const pendingParents: Array<{ object: BoardObject; source: SourceObject }> = [];
+  const quality = new Map(sources.map(source => [source.id, 'complete' as Quality]));
   let skipped = 0;
   const loss = (code: ExternalImportLoss['code'], source: SourceObject, message: string): void => {
     losses.push({ code, sourceObjectId: source.id, sourceType: source.type, message });
+    const next = lossQuality[code];
+    if (next && qualityRank[next] > qualityRank[quality.get(source.id) ?? 'complete']) quality.set(source.id, next);
+  };
+
+  const extensionData = (source: SourceObject, coordinateSemantics: string): Record<string, unknown> => {
+    const base = { externalImport: { provider, sourceBoardId, sourcePageId: source.pageId, sourceObjectId: source.id, sourceType: source.type, coordinateSemantics } };
+    if (!source.vendorData) return base;
+    const withVendorData = { ...base, vendorData: source.vendorData };
+    const probe = WhiteboardObject.safeParse({ id:'probe',schemaVersion:1,kind:'extension',geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'',style:{},parentId:null,orderKey:'',extensionData:withVendorData });
+    if (probe.success) return withVendorData;
+    loss('VENDOR_DATA_OMITTED', source, 'Unknown vendor fields exceeded bounded provenance limits and were not embedded.');
+    return base;
   };
 
   for (const source of sources) {
@@ -127,7 +177,7 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
     const object = WhiteboardObject.parse({
       id, schemaVersion: 1, kind, geometry: boardGeometry, text: cleaned.text.slice(0, 20_000), style,
       parentId: null, orderKey: String(objects.length).padStart(6, '0'),
-      extensionData: { externalImport: { provider, sourceBoardId, sourcePageId: source.pageId, sourceObjectId: source.id, sourceType: source.type, coordinateSemantics } },
+      extensionData: extensionData(source, coordinateSemantics),
     });
     objects.push(object); pendingParents.push({ object, source });
   }
@@ -154,17 +204,21 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
       id, schemaVersion: 1, kind: 'connector', geometry: { x: 0, y: 0, width: 1, height: 1, rotation: 0 },
       text: '', style: {}, parentId: null, orderKey: `connector_${String(objects.length).padStart(6, '0')}`,
       connector: { from, to },
-      extensionData: { externalImport: { provider, sourceBoardId, sourcePageId: source.pageId, sourceObjectId: source.id, sourceType: source.type, coordinateSemantics: 'endpoint-reference' } },
+      extensionData: extensionData(source, 'endpoint-reference'),
     }));
   }
 
-  const bundle = PortableBoardPackage.parse({
-    format: 'workspacex.board', schemaVersion: 1, exportedAt: snapshot.exportedAt,
+  const bundle = createPortableBoardPackage({
+    format: 'workspacex.board', schemaVersion: 1,
     source: { application: 'WorkspaceX', boardId: options.data.packageBoardId, name: sourceName },
-    objects, provenance: { objectCount: objects.length, contentModel: 'whiteboard-object.v1' },
+    objects,
   });
+  const qualitySummary = Object.fromEntries((['complete','approximate','degraded','skipped'] as const).map(status => {
+    const ids = sources.filter(source => quality.get(source.id) === status).map(source => source.id).sort();
+    return [status, { count: ids.length, sampleSourceIds: ids.slice(0, 5) }];
+  })) as ImportQualitySummary;
   const conversion = ExternalImportConversion.parse({ package: bundle, preview: {
-    provider, sourceBoardId, sourceName, importedObjectCount: objects.length, skippedObjectCount: skipped, losses,
+    provider, sourceBoardId, sourceName, importedObjectCount: objects.length, skippedObjectCount: skipped, losses, quality: qualitySummary,
   } });
   return { ok: true, ...conversion };
 }
