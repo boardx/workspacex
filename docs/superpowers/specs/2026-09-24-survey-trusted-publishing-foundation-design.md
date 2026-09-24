@@ -212,7 +212,8 @@ F04 所需最小持久化字段：
 4. 实现 contract、domain、application、repository、controller。
 5. 接入前端发布步骤并移除生产路径 mock。
 6. 运行 F04 verification、基础回归和真实浏览器发布失败/成功链路。
-7. 落盘 evidence，创建只关闭该 issue 的 PR，并负责到 CI 全绿和合入 main。
+7. 浏览器链路验证通过前不得创建 PR；验证失败时继续修复并重跑。
+8. 落盘 evidence，创建只关闭该 issue、以 `main` 为 base 的 PR，并负责到 CI 全绿和合入 main。
 
 ## 14. 后续演进
 
