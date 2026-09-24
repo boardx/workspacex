@@ -111,12 +111,30 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
     try {
-      return C.operations.confirmDigitalInterviewTopic.out.parse(
-        await this.workflow.confirmTopic({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
-      );
+      return C.operations.confirmDigitalInterviewTopic.out.parse(await this.workflow.confirmTopic({
+        orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+      }));
     } catch (error) {
       return this.translate(error);
     }
+  }
+
+  @Post("/:interviewId/brief/confirm")
+  async confirmBrief(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.confirmDigitalInterviewBrief.in, this.withPath(body, { interviewId }));
+    try { return C.operations.confirmDigitalInterviewBrief.out.parse(await this.workflow.confirmBrief({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/quality/preview")
+  async previewQuality(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.previewDigitalInterviewQuality.in, this.withPath(body, { interviewId }));
+    try { return C.operations.previewDigitalInterviewQuality.out.parse(await this.workflow.previewQuality({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
   }
 
   @Post("/:interviewId/experts/confirm")
@@ -146,14 +164,52 @@ export class DigitalInterviewController {
     @Body() body: unknown,
   ) {
     assertPrincipal(principal);
-    const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(body, { interviewId }));
+    const legacyRequest = typeof body === "object" && body !== null && !("moderatorPolicy" in body);
+    const compatibleBody = legacyRequest
+      ? { ...body,
+          questions: Array.isArray((body as { questions?: unknown }).questions)
+            ? ((body as { questions: Record<string, unknown>[] }).questions).map((question, index, questions) => ({
+                ...question,
+                section: question.section ?? (index === questions.length - 1 ? "counterexample" : "core"),
+                goalIds: Array.isArray(question.goalIds) && question.goalIds.length > 0
+                  ? question.goalIds
+                  : ["legacy-goal"],
+              }))
+            : (body as { questions?: unknown }).questions,
+          moderatorPolicy: { probingDepth: "balanced", clarifyAmbiguity: true,
+          seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true,
+          maxFollowUpsPerQuestion: 2 } }
+      : body;
+    const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(compatibleBody, { interviewId }));
     try {
+      const workflowInput = legacyRequest
+        ? { interviewId: input.interviewId, questions: input.questions,
+            expectedVersion: input.expectedVersion, requestId: input.requestId }
+        : input;
       return C.operations.confirmDigitalInterviewQuestions.out.parse(
-        await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+        await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...workflowInput }),
       );
     } catch (error) {
       return this.translate(error);
     }
+  }
+
+  @Post("/:interviewId/readiness/decide")
+  async decideReadiness(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.decideDigitalInterviewReadiness.in, this.withPath(body, { interviewId }));
+    try { return C.operations.decideDigitalInterviewReadiness.out.parse(await this.workflow.decideReadiness({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/report/review")
+  async reviewReport(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.reviewDigitalInterviewReport.in, this.withPath(body, { interviewId }));
+    try { return C.operations.reviewDigitalInterviewReport.out.parse(await this.workflow.reviewReport({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
   }
 
   @Post("/:interviewId/report/generate")
