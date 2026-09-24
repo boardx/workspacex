@@ -1,6 +1,8 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, StreamableFile } from '@nestjs/common';
 import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
+import { whiteboardDiscussion as D } from '@repo/contracts';
 import { WHITEBOARD_REPOSITORY, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
+import { WHITEBOARD_DISCUSSION, type WhiteboardDiscussion } from '../../application/whiteboard/discussion-ports';
 import { WHITEBOARD_COLLABORATION_STORE, WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
 import { importChatDiagram, ImportChatDiagramError } from '../../application/whiteboard/import-chat-diagram';
 import { CHAT_REPOSITORY, type ChatRepository } from '../../application/chat/ports';
@@ -23,6 +25,7 @@ function transferFailure(error: unknown): never {
 export class WhiteboardController {
   constructor(
     @Inject(WHITEBOARD_REPOSITORY) private readonly repo: WhiteboardRepository,
+    @Inject(WHITEBOARD_DISCUSSION) private readonly discussion: WhiteboardDiscussion,
     @Inject(WHITEBOARD_COLLABORATION_STORE) private readonly collaboration: WhiteboardCollaborationStore,
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
@@ -81,6 +84,16 @@ export class WhiteboardController {
   async removeMember(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string, @Param('userId') userId: string) {
     assertPrincipal(p); if (!await this.repo.removeMember(p,id,userId)) throw new NotFoundException(); return {ok:true};
   }
+  private found<T>(value:T|null):T { if(!value)throw new NotFoundException(); return value; }
+  private async discussionWrite<T>(value:Promise<T|null>):Promise<T>{try{return this.found(await value);}catch(error){if(error instanceof WhiteboardCollaborationError&&error.code==='IDEMPOTENCY_CONFLICT')throw new ConflictException('IDEMPOTENCY_CONFLICT');throw error;}}
+  @Get(':boardId/threads') async threads(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Query('cursor') cursor?:string){assertPrincipal(p);return this.found(await this.discussion.list(p,boardId,D.ListThreads.parse(cursor?{cursor}:{}).cursor));}
+  @Post(':boardId/threads') async createThread(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Body(new ZodBodyPipe(D.CreateThread)) input:unknown){assertPrincipal(p);return this.discussionWrite(this.discussion.create(p,boardId,D.CreateThread.parse(input)));}
+  @Post(':boardId/threads/:threadId/comments') async reply(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('threadId',new ParseUUIDPipe()) threadId:string,@Body(new ZodBodyPipe(D.Reply)) input:unknown){assertPrincipal(p);return this.discussionWrite(this.discussion.reply(p,boardId,threadId,D.Reply.parse(input)));}
+  @Patch(':boardId/comments/:commentId') async editComment(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('commentId',new ParseUUIDPipe()) commentId:string,@Body(new ZodBodyPipe(D.EditComment)) input:unknown){assertPrincipal(p);return this.found(await this.discussion.edit(p,boardId,commentId,D.EditComment.parse(input)));}
+  @Delete(':boardId/comments/:commentId') async deleteComment(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('commentId',new ParseUUIDPipe()) commentId:string){assertPrincipal(p);return this.found(await this.discussion.delete(p,boardId,commentId));}
+  @Patch(':boardId/threads/:threadId') async resolveThread(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('threadId',new ParseUUIDPipe()) threadId:string,@Body(new ZodBodyPipe(D.ResolveThread)) input:unknown){assertPrincipal(p);return this.found(await this.discussion.resolve(p,boardId,threadId,D.ResolveThread.parse(input)));}
+  @Post(':boardId/threads/:threadId/task') async createTask(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('threadId',new ParseUUIDPipe()) threadId:string,@Body(new ZodBodyPipe(D.UpsertTask)) input:unknown){assertPrincipal(p);return this.discussionWrite(this.discussion.createTask(p,boardId,threadId,D.UpsertTask.parse(input)));}
+  @Patch(':boardId/tasks/:taskId') async updateTask(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('taskId',new ParseUUIDPipe()) taskId:string,@Body(new ZodBodyPipe(D.UpdateTask)) input:unknown){assertPrincipal(p);return this.found(await this.discussion.updateTask(p,boardId,taskId,D.UpdateTask.parse(input)));}
   @Get(':boardId/export')
   async exportBoard(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string) {
     assertPrincipal(p); try {

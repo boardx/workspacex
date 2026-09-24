@@ -574,7 +574,9 @@
       ]
     },
     "WhiteboardController": {
-      "useCases": [],
+      "useCases": [
+        "whiteboard/import-chat-diagram"
+      ],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
     },
     "WhiteboardRoomController": {
@@ -582,6 +584,10 @@
         "whiteboard/room-access"
       ],
       "note": "Meeting-room pairing is a thin credential boundary over the typed WhiteboardRoomRepository port. Authorization, one-time consumption, rate limiting, revocation and tenant predicates must remain in one database transaction; real HTTP/PostgreSQL and browser tests cover the boundary (#3979)."
+    },
+    "WhiteboardWorkshopController": {
+      "useCases": [],
+      "note": "Thin read/write boundary over the typed WhiteboardWorkshop port (comments/drafts/votes); there is no separate application use-case layer to wire because authorization, conflict detection and persistence all live behind that port and its guard tests."
     }
   },
   "routes": {
@@ -693,7 +699,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -710,7 +717,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-discussion",
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -754,7 +765,8 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController"
       ]
     },
     "/chat/[threadId]": {
@@ -774,7 +786,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -791,7 +804,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-discussion",
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -835,7 +852,8 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController"
       ]
     },
     "/chat/copilotkit-preview": {
@@ -856,7 +874,8 @@
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -868,7 +887,11 @@
         "files",
         "identity",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-discussion",
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "ArtifactFileVersionsController",
@@ -898,7 +921,8 @@
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController"
       ]
     },
     "/chat/copilotkit-v2/[threadId]": {
@@ -915,7 +939,8 @@
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -927,7 +952,11 @@
         "files",
         "identity",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-discussion",
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "ArtifactFileVersionsController",
@@ -957,7 +986,8 @@
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController"
       ]
     },
     "/chat/landing": {
@@ -984,7 +1014,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -1001,7 +1032,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-discussion",
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -1045,7 +1080,8 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController"
       ]
     },
     "/chat/live": {
@@ -1682,6 +1718,7 @@
         "platform-members",
         "project",
         "whiteboard",
+        "whiteboard-discussion",
         "whiteboard-import",
         "whiteboard-transfer"
       ],
@@ -1727,6 +1764,7 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-whiteboard-room.ts",
+        "apps/web/lib/live-whiteboard-workshop.ts",
         "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
@@ -1742,9 +1780,11 @@
         "platform-members",
         "project",
         "whiteboard",
+        "whiteboard-discussion",
         "whiteboard-import",
         "whiteboard-room",
-        "whiteboard-transfer"
+        "whiteboard-transfer",
+        "whiteboard-workshop"
       ],
       "controllers": [
         "AgentRunController",
@@ -1774,7 +1814,8 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardRoomController"
+        "WhiteboardRoomController",
+        "WhiteboardWorkshopController"
       ]
     },
     "/studio/board/room": {
