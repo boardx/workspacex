@@ -38,6 +38,7 @@ async function turn(threadId: string, runId: string, userId = "u-owner", p: Know
   await asOwner((c) => c.query("UPDATE chat_messages SET agent_run_id = $1 WHERE id = $2", [runId, answerId]));
   return { memory, answerId };
 }
+const sqlRows = <T>(q: string, params: unknown[] = []) => asOwner(async (c) => (await c.query(q, params)).rows as T[]);
 const read = (threadId: string, messageId: string, userId = "u-owner") =>
   getTurnMemory(fx.readDeps, { userId, orgId: ORG_ID, threadId, messageId });
 
@@ -80,6 +81,66 @@ describe("F13: 回答下方的记忆引用", () => {
     expect(owner2.recalled.map((r) => r.statement)).toContain(DEMAND);
   });
 
+  it("记录里混进别的会话的结论 / 图路经过别的会话的实体（图里是全 org 的 id）⇒ 读的时候丢掉，正文与名字一个字都不出", async () => {
+    const [other] = await sqlRows<{ id: string; statement: string }>(
+      "SELECT id, statement FROM claims WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND revoked_at IS NULL LIMIT 1", [ORG, fx.A]);
+    const [otherObj] = await sqlRows<{ id: string; name: string }>(
+      "SELECT id, name FROM ontology_objects WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 LIMIT 1", [ORG, fx.A]);
+    await asOwner((c) => c.query("UPDATE claims SET statement = 'SECRET-OTHER-THREAD' WHERE id = $1", [other!.id]));
+    await asOwner((c) => c.query("UPDATE ontology_objects SET name = 'SECRET-OBJ' WHERE id = $1", [otherObj!.id]));
+    const [{ items }] = await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-s'");
+    const own = items[0]!;
+    const forged = [
+      { ...own, graphPath: [{ src: `object:${otherObj!.id}`, relation: "about", dst: `claim:${own.claimId}` }] },
+      { claimId: other!.id, channels: ["fts"], retrievalReasons: ["fts"], score: 0.02, graphPath: [{ src: `object:${otherObj!.id}`, relation: "about", dst: `claim:${other!.id}` }] },
+    ];
+    await asOwner((c) => c.query("UPDATE kg_turn_recalls SET items = $2::jsonb WHERE run_id = $1", ["run-f13-s", JSON.stringify(forged)]));
+    try {
+      for (const viewer of ["u-member", "u-owner"]) {
+        const out = await read(fx.S, "ans-run-f13-s", viewer);
+        expect(out.recalled.map((r) => r.claimId)).toEqual([own.claimId]);
+        expect(out.recalled[0]!.graphPath).toBeNull();
+        expect(JSON.stringify(out.recalled)).not.toMatch(/SECRET/);
+      }
+    } finally {
+      await asOwner((c) => c.query("UPDATE kg_turn_recalls SET items = $2::jsonb WHERE run_id = $1", ["run-f13-s", JSON.stringify(items)]));
+      await asOwner((c) => c.query("UPDATE claims SET statement = $2 WHERE id = $1", [other!.id, other!.statement]));
+      await asOwner((c) => c.query("UPDATE ontology_objects SET name = $2 WHERE id = $1", [otherObj!.id, otherObj!.name]));
+    }
+  });
+
+  it("同一个 run 重试：记录被覆盖成最后一次（不是保留第一次）", async () => {
+    await turn(fx.B, "run-f13-retry");
+    expect((await read(fx.B, "ans-run-f13-retry")).recallDegraded).toBe(false);
+    const graphDown: KnowledgeRecallPort = {
+      candidates: (...a) => port.candidates(...a),
+      graphNeighbors: async () => { throw new Error("KG_GRAPH_UNAVAILABLE"); },
+      recordTurn: (...a) => port.recordTurn(...a),
+    };
+    await knowledgeMemoryFor(graphDown, { orgId: ORG_ID, userId: "u-owner", threadId: fx.B, query: Q, runId: "run-f13-retry" }, log);
+    expect((await read(fx.B, "ans-run-f13-retry")).recallDegraded).toBe(true);
+  });
+
+  it("按记录里的名次返回（不重排）", async () => {
+    const [{ items }] = await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-b'");
+    const [second] = await sqlRows<{ id: string }>(
+      "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND revoked_at IS NULL AND id <> $2 LIMIT 1", [ORG, items[0]!.claimId]);
+    if (second === undefined) {
+      // 夹具里个人空间只有一条时，用同一条的两份记录验证顺序不被打乱是无意义的——改为造一条本人个人结论
+      await asOwner((c) => c.query(
+        `INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by, scope_kind, scope_id, valid_from)
+         VALUES ('clm-f13-order', $1, '第二条个人记忆', 'accepted', to_tsvector('simple', '第二条个人记忆'), 'fact', 1, 'human', 'u-owner', 'personal', 'u-owner', now())`, [ORG]));
+    }
+    const secondId = second?.id ?? "clm-f13-order";
+    const reordered = [{ ...items[0]!, claimId: secondId, graphPath: null }, items[0]!];
+    await asOwner((c) => c.query("UPDATE kg_turn_recalls SET items = $2::jsonb WHERE run_id = $1", ["run-f13-b", JSON.stringify(reordered)]));
+    try {
+      expect((await read(fx.B, "ans-run-f13-b")).recalled.map((r) => r.claimId)).toEqual([secondId, items[0]!.claimId]);
+    } finally {
+      await asOwner((c) => c.query("UPDATE kg_turn_recalls SET items = $2::jsonb WHERE run_id = $1", ["run-f13-b", JSON.stringify(items)]));
+    }
+  });
+
   it("没有召回记录的回答（没用到记忆）：recalled 为空、不降级", async () => {
     await addChatMessage({ orgId: ORG, id: "ans-plain", threadId: fx.B, body: "（普通回答）", authorId: "agent-1", authorKind: "agent", agentId: "agent-1" });
     expect(await read(fx.B, "ans-plain")).toMatchObject({ recalled: [], recallDegraded: false });
@@ -107,6 +168,15 @@ describe("F13: 回答下方的记忆引用", () => {
     const memory = await knowledgeMemoryFor(failing, { orgId: ORG_ID, userId: "u-owner", threadId: fx.B, query: Q, runId: "run-f13-fail" }, log);
     expect(memory).toContain(DEMAND);
     expect(logs).toContain("knowledge recall could not be recorded for this turn");
+  });
+
+  it("失效只看 revoked_at 也要生效：revoked_at 有值、状态没改的结论同样不再引用", async () => {
+    await asOwner((c) => c.query("UPDATE claims SET revoked_at = now() WHERE id = $1", [fx.personalClaimId]));
+    try {
+      expect((await read(fx.B, "ans-run-f13-b")).recalled.map((r) => r.claimId)).not.toContain(fx.personalClaimId);
+    } finally {
+      await asOwner((c) => c.query("UPDATE claims SET revoked_at = NULL WHERE id = $1", [fx.personalClaimId]));
+    }
   });
 
   it("那条记忆后来被忘掉 ⇒ 之前那条回答下方也不再引用它", async () => {
