@@ -7,13 +7,14 @@
  */
 import { readFileSync } from "node:fs";
 import { ForbiddenException } from "@nestjs/common";
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyHumanAction, type HumanActionDeps } from "../../src/application/knowledge-graph/apply-human-action";
 import { runExtractionTick, type ExtractionDeps } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { promoteToPersonal } from "../../src/application/knowledge-graph/promote-to-personal";
 import { getThreadKnowledge, getTurnMemory } from "../../src/application/knowledge-graph/read-thread-knowledge";
-import { findConflicts, isConflict, type ConfirmedClaim, type FreshClaim } from "../../src/domain/knowledge-graph/conflict";
+import { findConflicts, isConflict, normalizeNumber, type ConfirmedClaim, type FreshClaim } from "../../src/domain/knowledge-graph/conflict";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgChatRepository } from "../../src/infrastructure/chat/pg-chat-repository";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -34,6 +35,8 @@ const T = {
   keepNew: "thr-f16-keepnew", keepBoth: "thr-f16-keepboth", ignore: "thr-f16-ignore", neg: "thr-f16-neg",
   multi: "thr-f16-multi", guard: "thr-f16-guard", guard2: "thr-f16-guard2", race: "thr-f16-race",
   shared: "thr-f16-shared", p1: "thr-f16-p1", p2: "thr-f16-p2", sharedP: "thr-f16-shared-p",
+  fNewer: "thr-f16-forget-newer", fOlder: "thr-f16-forget-older", rNewer: "thr-f16-revise-newer", rOlder: "thr-f16-revise-older",
+  del: "thr-f16-delete", chain: "thr-f16-chain", held: "thr-f16-held", stale: "thr-f16-stale", mc: "thr-f16-marked",
 };
 
 const reply = (entity: string, ...claims: (readonly [string, "decision" | "fact"])[]) => JSON.stringify({
@@ -66,7 +69,8 @@ beforeAll(async () => {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
   }
-  for (const id of [T.keepNew, T.keepBoth, T.ignore, T.neg, T.multi, T.guard, T.guard2, T.race, T.p1, T.p2]) {
+  for (const id of [T.keepNew, T.keepBoth, T.ignore, T.neg, T.multi, T.guard, T.guard2, T.race, T.p1, T.p2,
+    T.fNewer, T.fOlder, T.rNewer, T.rOlder, T.del, T.chain, T.held, T.stale, T.mc]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   }
   for (const id of [T.shared, T.sharedP]) {
@@ -155,6 +159,19 @@ describe("F16: 判定规则（同一件事、同一指标、说了不同的数�
     expect(isConflict(fresh("项目A 9/29 上线"), o)).toBe(false);                                    // 同一句
   });
 
+  it("数值按值比：前导零不算不同（10/01 = 10/1、09.29 = 9.29），小数点后的零照算（1.05 ≠ 1.5）", () => {
+    const o = old("项目A 10/1 上线");
+    expect(isConflict(fresh("项目A 上线改到 10/01"), o)).toBe(false);
+    expect(isConflict(fresh("项目A 上线定在 09.29"), old("项目A 9.29 上线"))).toBe(false);
+    expect(isConflict(fresh("项目A 上线改到 10/02"), o)).toBe(true);
+    expect(normalizeNumber("10/01")).toBe("10/1");
+    expect(normalizeNumber("09.29")).toBe("9.29");
+    expect(normalizeNumber("1.05")).toBe("1.05");
+    expect(normalizeNumber("007")).toBe("7");
+    expect(normalizeNumber("0")).toBe("0");
+    expect(isConflict(fresh("项目A 系数改为 1.5"), old("项目A 系数 1.05"))).toBe(true);
+  });
+
   it("实体名里的数字不算数值（v2 的 2）", () => {
     const f = fresh("v2 上线时间确认", { about: ["v2"] });
     expect(isConflict(f, old("v3 上线时间确认", { about: ["v2"] }))).toBe(false);
@@ -237,6 +254,9 @@ describe("F16: 当轮出卡（V3）", () => {
     expect(await row(older.id)).toMatchObject({ status: "accepted", revoked: false, reviewed_by: "u-owner" });
     expect(await row(newer.id)).toMatchObject({ status: "accepted", reviewed_by: "u-owner", supersedes_claim_id: null });
     expect((await promptsOf(T.keepBoth))[0]).toMatchObject({ status: "kept_both", newer_condition: "迁移演练通过后", older_condition: "演练没过就按原计划" });
+    // 处理过（两条都留）的卡不能再处理一次
+    await expect(resolve(T.keepBoth, prompt.promptId, "keep_new")).rejects.toMatchObject({ code: "KG_PROMPT_NOT_FOUND" });
+    expect(await row(older.id)).toMatchObject({ status: "accepted", revoked: false });
 
     await say(T.keepBoth, "项目A 上线改到 10/1");
     const ans = await answer(T.keepBoth);
@@ -253,6 +273,9 @@ describe("F16: 当轮出卡（V3）", () => {
     expect(await row(older.id)).toMatchObject({ status: "contested" });
     expect(await row(newer.id)).toMatchObject({ status: "contested" });
     expect((await promptsOf(T.ignore))[0]!.status).toBe("ignored");
+    // 被忽略的卡不能再处理一次（它不再出现在回答下面，旧 id 也不行）
+    await expect(resolve(T.ignore, prompt.promptId, "keep_new")).rejects.toMatchObject({ code: "KG_PROMPT_NOT_FOUND" });
+    expect(await row(older.id)).toMatchObject({ status: "contested", revoked: false });
 
     await say(T.ignore, "项目A 上线改到 10/1");
     const again = await answer(T.ignore);
@@ -336,7 +359,10 @@ describe("F16: 长期记忆里的旧说法", () => {
     expect(await seen("u-member")).toBe(0);
     expect(await seen("u-owner")).toBe(1);
 
-    await resolve(T.p2, t.prompt.conflict.promptId, "keep_new");
+    const res = await resolve(T.p2, t.prompt.conflict.promptId, "keep_new");
+    const [resolveAudit] = await sql<{ payload: unknown }>("SELECT payload FROM ontology_actions WHERE id = $1 AND scope_kind = 'chat_session'", [res.actionId]);
+    expect(JSON.stringify(resolveAudit!.payload)).not.toContain(olderId);
+    expect(await sql("SELECT 1 FROM ontology_actions WHERE id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner'", [`${res.actionId}-l1`])).toHaveLength(1);
     expect(await row(olderId)).toMatchObject({ status: "superseded", revoked: true, revocation_reason: "conflict_keep_new" });
     const newer = t.prompt.conflict.newerClaim.id;
     expect(await row(newer)).toMatchObject({ status: "accepted", supersedes_claim_id: null });
@@ -344,6 +370,80 @@ describe("F16: 长期记忆里的旧说法", () => {
       `SELECT c.id, c.status, c.supersedes_claim_id FROM claims c JOIN ontology_edges d ON d.src_id = c.id AND d.relation = 'derived_from' AND d.dst_id = $1
         WHERE c.scope_kind = 'personal' AND c.scope_id = 'u-owner'`, [newer]);
     expect(l1).toMatchObject({ status: "accepted", supersedes_claim_id: olderId });
+  });
+});
+
+/* ── B1：一对里有一条在别处变了 ⇒ 冲突结束（R7-2「直到其中一条被改」） ─────────────── */
+
+describe("F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可以重新确认", () => {
+  const confirmable = async (threadId: string, claimId: string) => {
+    await act(threadId, { type: "confirmClaim", claimId });
+    expect((await read(threadId)).claims.find((c) => c.id === claimId)).toMatchObject({ status: "accepted", triState: "confirmed" });
+    expect((await read(threadId)).claims.filter((c) => c.triState === "conflict")).toEqual([]);
+  };
+  const closedByChange = async (threadId: string, promptId: string) => {
+    expect((await promptsOf(threadId)).find((p) => p.id === promptId)!.status).toBe("closed_by_change");
+    expect(await sql("SELECT actor_kind, action_type, scope_kind FROM ontology_actions WHERE id = $1", [`kgclose-${promptId}`]))
+      .toEqual([{ actor_kind: "system", action_type: "closeConflict", scope_kind: "chat_session" }]);
+    await expect(resolve(threadId, promptId, "keep_both")).rejects.toMatchObject({ code: "KG_PROMPT_NOT_FOUND" });
+  };
+
+  it("忘掉新的那条 ⇒ 卡结束、旧条回到「你确认过」；返回的版本号把连带的结束动作算进去", async () => {
+    const { older, newer, ans, prompt } = await conflictIn(T.fNewer);
+    const out = await act(T.fNewer, { type: "revokeClaim", claimId: newer.id });
+    expect(out.revision).toBe((await read(T.fNewer)).revision);
+    await closedByChange(T.fNewer, prompt.promptId);
+    expect((await turn(T.fNewer, ans)).prompt).toBeNull();
+    expect(await row(older.id)).toMatchObject({ status: "accepted" });
+    await confirmable(T.fNewer, older.id);
+  });
+
+  it("忘掉旧的那条 ⇒ 新条回到「AI 记下的」，可以确认", async () => {
+    const { older, newer, prompt } = await conflictIn(T.fOlder);
+    await act(T.fOlder, { type: "revokeClaim", claimId: older.id });
+    await closedByChange(T.fOlder, prompt.promptId);
+    expect((await read(T.fOlder)).claims.find((c) => c.id === newer.id)).toMatchObject({ status: "proposed", triState: "pending" });
+    await confirmable(T.fOlder, newer.id);
+  });
+
+  it("改写新的那条 ⇒ 旧条回到「你确认过」；改写旧的那条 ⇒ 新条可以确认", async () => {
+    const a = await conflictIn(T.rNewer);
+    await act(T.rNewer, { type: "reviseClaim", claimId: a.newer.id, statement: "项目A 上线也许改到 10/1" });
+    await closedByChange(T.rNewer, a.prompt.promptId);
+    expect(await row(a.older.id)).toMatchObject({ status: "accepted" });
+    await confirmable(T.rNewer, a.older.id);
+
+    const b = await conflictIn(T.rOlder);
+    await act(T.rOlder, { type: "reviseClaim", claimId: b.older.id, statement: "项目A 9/29 上线（旧计划）" });
+    await closedByChange(T.rOlder, b.prompt.promptId);
+    await confirmable(T.rOlder, b.newer.id);
+  });
+
+  it("原话被删（F07）⇒ 新条失效、卡结束（行留着，message_id 置空），旧条回到「你确认过」", async () => {
+    const { older, newer, prompt } = await conflictIn(T.del);
+    const [said] = await sql<{ message_id: string }>("SELECT message_id FROM kg_conflict_prompts WHERE id = $1", [prompt.promptId]);
+    await asApp(ORG, (c) => c.query("DELETE FROM chat_messages WHERE id = $1", [said!.message_id]));
+    expect(await row(newer.id)).toMatchObject({ revoked: true });
+    expect(await sql("SELECT status, message_id FROM kg_conflict_prompts WHERE id = $1", [prompt.promptId]))
+      .toEqual([{ status: "closed_by_change", message_id: null }]);
+    await closedByChange(T.del, prompt.promptId);
+    expect(await row(older.id)).toMatchObject({ status: "accepted" });
+    await confirmable(T.del, older.id);
+  });
+
+  it("共用旧条：先忽略「10/1」，再对「10/5」以新的为准 ⇒ 忽略的那张也结束，「10/1」回到「AI 记下的」、可以确认", async () => {
+    const first = await conflictIn(T.chain);
+    await resolve(T.chain, first.prompt.promptId, "ignore");
+    await say(T.chain, "项目A 上线改到 10/5");
+    const ans = await answer(T.chain);
+    const t = await turn(T.chain, ans);
+    if (t.prompt?.type !== "conflict") throw new Error("expected a second card");
+    expect(t.prompt.conflict.olderClaim.id).toBe(first.older.id);
+    const out = await resolve(T.chain, t.prompt.conflict.promptId, "keep_new");
+    expect(out.revision).toBe((await read(T.chain)).revision);
+    await closedByChange(T.chain, first.prompt.promptId);
+    expect((await read(T.chain)).claims.find((c) => c.id === first.newer.id)).toMatchObject({ status: "proposed", triState: "pending" });
+    await confirmable(T.chain, first.newer.id);
   });
 });
 
@@ -383,6 +483,9 @@ describe("F16: 守卫", () => {
         await c.query("SELECT set_config('app.current_user_id', 'u-owner', true)");
         return c.query("SELECT kg_resolve_conflict($1::jsonb)", [JSON.stringify({ action_id: newKgId("act"), thread_id: T.guard, based_on_revision: k.revision, action })]);
       })).rejects.toThrow(/KG_ORG_FROZEN/);
+      await expect(asApp(ORG, (c) => c.query("SELECT kg_open_conflicts($1::jsonb)", [JSON.stringify({
+        action_id: newKgId("act"), thread_id: T.guard, message_id: p!.id, pairs: [],
+      })]))).rejects.toThrow(/KG_ORG_FROZEN/);
     } finally {
       await asOwner((q) => q.query("UPDATE organizations SET status = 'active', disabled_at = NULL, retention_until = NULL WHERE id = $1", [ORG]));
     }
@@ -390,13 +493,14 @@ describe("F16: 守卫", () => {
     expect(await row(p!.older_claim_id)).toMatchObject({ status: "contested" });
   });
 
-  it("一对里有一条已经被忘掉 ⇒ 卡不再出现，点它 ⇒ KG_PROMPT_NOT_FOUND", async () => {
+  it("一对里有一条已经被忘掉 ⇒ 卡不再出现、点它 ⇒ KG_PROMPT_NOT_FOUND；冲突随之结束，另一条回到「你确认过」", async () => {
     const [p] = await promptsOf(T.guard);
     await act(T.guard, { type: "revokeClaim", claimId: p!.newer_claim_id });
     const ans = (await sql<{ id: string }>("SELECT id FROM chat_messages WHERE thread_id = $1 AND author_kind = 'agent' ORDER BY created_at DESC LIMIT 1", [T.guard]))[0]!.id;
     expect((await turn(T.guard, ans)).prompt).toBeNull();
     await expect(resolve(T.guard, p!.id, "keep_both")).rejects.toMatchObject({ code: "KG_PROMPT_NOT_FOUND" });
-    expect(await row(p!.older_claim_id)).toMatchObject({ status: "contested" });
+    expect(await row(p!.older_claim_id)).toMatchObject({ status: "accepted" });
+    expect((await promptsOf(T.guard))[0]!.status).toBe("closed_by_change");
   });
 
   it("并发：两个标签页同时处理同一张卡 ⇒ 恰好一个成功，另一个 KG_REVISION_CHANGED；卡的结局与成功的那个一致", async () => {
@@ -425,11 +529,19 @@ describe("F16: 守卫", () => {
     const [kb] = await promptsOf(T.keepBoth);
     const foreignOlder = kb!.older_claim_id;   // 别的会话里确认过的
     const foreignNewer = kb!.newer_claim_id;   // 别的会话、别的消息抽出的
-    const open = (pairs: { newer: string; older: string }[], messageId: string, threadId: string) => asApp(ORG, async (c) =>
-      (await c.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({ action_id: newKgId("act"), thread_id: threadId, message_id: messageId, pairs })])).rows[0]!.n);
-    const candidates = (messageId: string, threadId = T.guard2) =>
-      asApp(ORG, async (c) => (await c.query<{ c: unknown }>("SELECT kg_conflict_candidates($1, $2) AS c", [threadId, messageId])).rows[0]!.c as
-        { fresh: { id: string }[]; confirmed: { id: string; scope: string }[] });
+    // 同生产路径（PgKgConflict）：先以会话所有者身份声明 app.current_user_id；declare = false ⇒ 不声明
+    const asOwnerOf = async (c: pg.Client, threadId: string, declare: boolean) => {
+      if (declare) await c.query("SELECT set_config('app.current_user_id', coalesce(kg_thread_owner($1), ''), true)", [threadId]);
+    };
+    const open = (pairs: { newer: string; older: string }[], messageId: string, threadId: string, declare = true) => asApp(ORG, async (c) => {
+      await asOwnerOf(c, threadId, declare);
+      return (await c.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({ action_id: newKgId("act"), thread_id: threadId, message_id: messageId, pairs })])).rows[0]!.n;
+    });
+    const candidates = (messageId: string, threadId = T.guard2, declare = true) => asApp(ORG, async (c) => {
+      await asOwnerOf(c, threadId, declare);
+      return (await c.query<{ c: unknown }>("SELECT kg_conflict_candidates($1, $2) AS c", [threadId, messageId])).rows[0]!.c as
+        { fresh: { id: string }[]; confirmed: { id: string; scope: string }[] };
+    });
 
     // 旧条没人确认过 / 在别的会话；新条等于旧条
     expect(await open([
@@ -473,6 +585,94 @@ describe("F16: 守卫", () => {
     expect(await open([{ newer: otherMessageFresh.id, older: older.id }], m3, T.keepBoth)).toBe(0);
     expect(await candidates(ans)).toEqual({ fresh: [], confirmed: [] });
     expect(await candidates(m3, T.keepBoth)).toEqual({ fresh: [], confirmed: [] });
+
+    // I-14 默认关：没以所有者身份声明 ⇒ 候选里没有任何个人空间的结论，开卡函数也不拿个人空间来比
+    expect((await candidates(m3, T.guard2, false)).confirmed.map((c) => c.scope)).not.toContain("personal");
+    expect((await candidates(m3, T.guard2, false)).confirmed.map((c) => c.id)).toContain(older.id);
+    expect(await open([{ newer: otherMessageFresh.id, older: mine!.id }], m3, T.guard2, false)).toBe(0);
+    expect((await row(mine!.id)).status).toBe("accepted");
+    // 对照：声明了所有者、同一对（范围合法，规则由应用层判）⇒ 开得出来
+    expect(await open([{ newer: otherMessageFresh.id, older: mine!.id }], m3, T.guard2)).toBe(1);
+  });
+
+  it("「标冲突」手工标过、但没人确认过的结论不算「你确认过」：不进候选、开卡函数也不收", async () => {
+    await say(T.mc, "项目A 定在 9/29 上线");
+    await say(T.mc, "项目A 上线改到 10/1");
+    const nine = await claimBy(T.mc, "项目A 9/29 上线");
+    await act(T.mc, { type: "markContested", claimIds: [nine.id, (await claimBy(T.mc, "项目A 上线改到 10/1")).id] });
+    const m = await say(T.mc, "项目A 上线改到 10/5");
+    const fresh = await claimBy(T.mc, "项目A 上线改到 10/5");
+    expect(await promptsOf(T.mc)).toEqual([]);
+    expect(fresh.status).toBe("proposed");
+    const n = await asApp(ORG, async (c) => (await c.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n",
+      [JSON.stringify({ action_id: newKgId("act"), thread_id: T.mc, message_id: m, pairs: [{ newer: fresh.id, older: nine.id }] })])).rows[0]!.n);
+    expect(n).toBe(0);
+    expect((await row(fresh.id)).status).toBe("proposed");
+  });
+
+  it("并发（真的同时）：第一个处理还没提交，第二个在会话锁上等；提交后第二个看到版本号变了 ⇒ KG_REVISION_CHANGED", async () => {
+    const { prompt } = await conflictIn(T.held);
+    const k = await read(T.held);
+    const payload = (resolution: string) => JSON.stringify({
+      action_id: newKgId("act"), thread_id: T.held, based_on_revision: k.revision,
+      action: { type: "resolveConflict", promptId: prompt.promptId, resolution },
+    });
+    const a = new pg.Client(appConfig());
+    const b = new pg.Client(appConfig());
+    await a.connect();
+    await b.connect();
+    try {
+      for (const c of [a, b]) {
+        await c.query("BEGIN");
+        await c.query("SELECT set_config('app.current_org', $1, true), set_config('app.current_user_id', 'u-owner', true)", [ORG]);
+      }
+      await a.query("SELECT kg_resolve_conflict($1::jsonb)", [payload("ignore")]);
+      let settled = false;
+      const second = b.query("SELECT kg_resolve_conflict($1::jsonb)", [payload("keep_new")]).finally(() => { settled = true; });
+      second.catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(settled).toBe(false);
+      await a.query("COMMIT");
+      await expect(second).rejects.toThrow(/KG_REVISION_CHANGED/);
+      await b.query("ROLLBACK");
+    } finally {
+      await a.end();
+      await b.end();
+    }
+    expect((await promptsOf(T.held))[0]!.status).toBe("ignored");
+  });
+
+  it("开卡与处理都先拿会话锁，再锁行、再读判（静态守卫：锁不能被挪到判定之后或删掉）", () => {
+    const sqlText = readFileSync(new URL("../../migrations/20260924290000_kg_f16_conflict_prompts.sql", import.meta.url), "utf8");
+    const body = (fn: string) => {
+      const start = sqlText.indexOf(`CREATE OR REPLACE FUNCTION ${fn}(`);
+      return sqlText.slice(start, sqlText.indexOf("\n$$;", start));
+    };
+    const lock = "pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|chat_session|' || v_thread))";
+    for (const fn of ["kg_open_conflicts", "kg_resolve_conflict"]) {
+      const b = body(fn);
+      expect(b.indexOf(lock), fn).toBeGreaterThan(0);
+      expect(b.indexOf(lock), fn).toBeLessThan(b.indexOf("FOR UPDATE"));
+    }
+    const r = body("kg_resolve_conflict");
+    expect(r.indexOf(lock)).toBeLessThan(r.indexOf("SELECT count(*) INTO v_rev"));
+    expect(r.indexOf(lock)).toBeLessThan(r.indexOf("|personal|"));
+  });
+
+  it("读卡时两条都得还活着（不只靠触发器）：绕过触发器把一条失效 ⇒ 这一轮不出卡", async () => {
+    const { older, newer, ans } = await conflictIn(T.stale);
+    const bypass = (id: string, dead: boolean) => asOwner(async (c) => {
+      await c.query("SET session_replication_role = replica");
+      await c.query(dead
+        ? "UPDATE claims SET status = 'superseded', revoked_at = now() WHERE id = $1"
+        : "UPDATE claims SET status = 'contested', revoked_at = NULL WHERE id = $1", [id]);
+    });
+    await bypass(older.id, true);
+    expect((await turn(T.stale, ans)).prompt).toBeNull();
+    await bypass(older.id, false);
+    expect((await turn(T.stale, ans)).prompt?.type).toBe("conflict");
+    await bypass(newer.id, true);
+    expect((await turn(T.stale, ans)).prompt).toBeNull();
   });
 });
 
@@ -481,6 +681,7 @@ describe("F16: 判定用的读写口只调两个数据库函数", () => {
     const code = readFileSync(new URL("../../src/infrastructure/knowledge-graph/pg-kg-conflict.ts", import.meta.url), "utf8")
       .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
     expect([...code.matchAll(/"(SELECT [^"]*)"/g)].map((m) => m[1])).toEqual([
+      "SELECT set_config('app.current_user_id', coalesce(kg_thread_owner($1), ''), true)",
       "SELECT kg_conflict_candidates($1, $2) AS c", "SELECT kg_open_conflicts($1::jsonb) AS n",
     ]);
     expect(code).not.toMatch(/\b(?:FROM|JOIN|UPDATE|INTO)\s+[a-z_]+/i);

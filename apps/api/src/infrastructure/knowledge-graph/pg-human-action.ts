@@ -27,7 +27,9 @@ export class PgHumanAction implements HumanActionPort {
           input.action.type === "resolveConflict" ? "SELECT kg_resolve_conflict($1::jsonb) AS r" : "SELECT kg_apply_human_action($1::jsonb) AS r",
           [JSON.stringify({ action_id: input.actionId, thread_id: input.threadId, based_on_revision: input.basedOnRevision, action: input.action })],
         );
-        return { revision: Number(r.rows[0]!.r.revision), actionId: r.rows[0]!.r.action_id };
+        // F16：一个动作可能连带结束冲突（kg_conflict_close_on_change 各记一条动作），版本号按落表后重数。
+        const rev = await s.query<{ n: string }>("SELECT kg_thread_revision($1) AS n", [input.threadId]);
+        return { revision: Number(rev.rows[0]!.n), actionId: r.rows[0]!.r.action_id };
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
