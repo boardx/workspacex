@@ -1,5 +1,5 @@
-import type { KnowledgeRecallPort } from "../knowledge-graph/ports";
-import { knowledgeMemoryFor } from "../knowledge-graph/recall-knowledge";
+import type { KnowledgeRecallPort, MemoryCardPort } from "../knowledge-graph/ports";
+import { turnKnowledgeContext } from "../knowledge-graph/recall-knowledge";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -299,6 +299,8 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
    */
   readonly knowledge?: KnowledgeRecallPort;
+  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。可选，同 `knowledge`；两者都注入才生效。 */
+  readonly memoryCards?: MemoryCardPort;
   /**
    * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
    * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
@@ -912,12 +914,10 @@ async function executeClaimed(
     }
   }
 
-  // Phase 18 F08 —— 会话记忆（uc-18-2）：召回的相关结论作为一条参考材料放在 history 最前（离当前轮最远）；
-  // 读不到就这轮不带记忆，绝不 fail run（降级纪律见 knowledgeMemoryFor）。
-  const memory = deps.knowledge
-    ? await knowledgeMemoryFor(deps.knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, deps.log)
-    : null;
-  if (memory !== null) history = [{ role: "assistant", content: memory }, ...history];
+  // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
+  // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
+  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log) : [];
+  history = [...notes.map((content) => ({ role: "assistant" as const, content })), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，

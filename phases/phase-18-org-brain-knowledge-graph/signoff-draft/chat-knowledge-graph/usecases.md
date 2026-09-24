@@ -102,6 +102,12 @@ KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
   - remember 卡 accept：对 `claimId` 为空的条目，以调用者身份新建一条 human 结论（accepted）；再晋升到个人空间，等同 UC-KG-5。
   - forget 卡 accept：对选中条目逐条 `revokeClaim`。
   - dismiss：卡片关闭，不写本体。
+- **待签核确认（F17 实现提出，人类签核时决定）**：
+  - 已点「记住」的卡在 `getTurnMemory` 里按现在的事实读回：长期记忆里那一条后来不在了（撤销过 / 之后被忘掉），
+    卡读作 `state = dismissed`，界面显示「好的，这条没有记在长期记忆里」。契约里 `dismissed` 的本意是「不用了」（用户点了不记），
+    这里借它表达「现在没有记着」。备选：给 `KgMemoryCard.state` 加一个值（例如 `undone`），或维持 `done` 另加字段——都要改契约。
+  - 「已记住 · 撤销」只在这次记住**新建**了会话里那一条和长期记忆里那一条、且长期记忆那条没有别的来源时出现
+    （done 卡的 `claimId` 非空即可撤销）；用的是早就有的那条、或并进了长期记忆里早就有的那条时 `claimId` 为 null、不给撤销。
 
 ## UC-KG-7 读个人空间 `getPersonalKnowledge`
 - **in**：`{}`

@@ -1,4 +1,4 @@
-import type { KnowledgeRecallPort } from "../../application/knowledge-graph/ports";
+import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import type { InterjectionStore } from "../../application/agent-run/interjection-store";
@@ -173,6 +173,11 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 生产合成（`kernel.module.ts`）必定注入。不注入 ⇒ history 与 F08 之前逐字节相同。
      */
     private readonly knowledge?: KnowledgeRecallPort,
+    /**
+     * Phase 18 F17 —— 对话里「记住 / 忘掉」的确认卡（只开卡、不执行）。可选，同上一条理由；
+     * 不注入 ⇒ 与 F17 之前逐字节相同。
+     */
+    private readonly memoryCards?: MemoryCardPort,
   ) {}
 
   /**
@@ -208,7 +213,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     }
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-      files: this.files, knowledge: this.knowledge, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+      files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
@@ -246,7 +251,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       if (carried > 0) {
         await executeQueuedRuns({
           runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-          files: this.files, knowledge: this.knowledge, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+          files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,
           events: this.events, toolPermissionGrants: this.toolPermissionGrants,

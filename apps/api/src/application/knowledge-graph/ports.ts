@@ -211,7 +211,9 @@ export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
 export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
-  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE";
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
+  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -283,3 +285,45 @@ export interface KgConflictPort {
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
+
+// ─────────────────────────────── F17 对话里「记住 / 忘掉」确认卡 ───────────────────────────────
+
+export type MemoryCardData = z.infer<typeof KG.KgMemoryCard>;
+
+/** 开卡的结果：只有 opened 出卡；其余对话照常，只是不出卡（E1 / 文字不出自这句话 / 长期记忆只在个人线程 / A2）。 */
+export type MemoryCardOpenOutcome = "opened" | "not_owner" | "not_from_message" | "not_personal" | "no_items";
+
+/**
+ * 确认卡的读写口（迁移 20260924300000）。实现只调数据库函数，不写表名 SQL：
+ * 开卡的复核（所有者本人说的、记住卡只在个人线程、忘掉卡的条目在召回范围里）在 `kg_open_memory_card`，
+ * 人的决定在 `kg_act_on_memory_card`（actor_kind 必须是 human、所有者、会话锁 → 个人空间锁、卡片与结论行上锁）。
+ * 卡片内容给用户看走 getTurnMemory 的守卫读路径（pg-knowledge-read.ts）。
+ */
+export interface MemoryCardPort {
+  /** 执行器（系统身份）开一张 open 的卡（I-17：Agent 只能创建 open 状态的卡片）。 */
+  open(orgId: OrgId, input: {
+    readonly cardId: string;
+    readonly threadId: string;
+    readonly runId: string;
+    readonly messageId: string;
+    readonly requesterUserId: string;
+    readonly kind: "remember" | "forget";
+    readonly statement?: string;
+    /** 忘掉卡：用户说要忘掉的那段话（数据库核对它出自这条消息） */
+    readonly target?: string;
+    readonly claimIds?: readonly string[];
+  }): Promise<{ readonly outcome: MemoryCardOpenOutcome; readonly cardId: string | null }>;
+  /** 路由事实：卡属于哪个会话（不回内容）；查不到 ⇒ null。 */
+  cardThread(orgId: OrgId, userId: string, cardId: string): Promise<string | null>;
+  /** 人的决定；被拒时抛 `KgHumanActionError`。 */
+  act(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly cardId: string;
+    readonly decision: "accept" | "dismiss";
+    readonly actorKind: "human" | "agent";
+    readonly claimIds?: readonly string[];
+    readonly editedStatement?: string;
+  }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+}
+
+export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");

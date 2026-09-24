@@ -26,7 +26,10 @@ it("hashes the selected audio and sends it as a real multipart binary field", as
   const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3]);
   const audio = new Blob([bytes], { type: "audio/webm" });
   // jsdom Blob lacks the browser's arrayBuffer method; retain its real form-data bytes.
-  Object.defineProperty(audio, "arrayBuffer", { value: async () => bytes.buffer });
+  // Node 22 WebCrypto rejects jsdom-realm ArrayBuffers even though browsers
+  // accept the same bytes. Return a Node Buffer so this test exercises the
+  // hashing behavior instead of failing on the test environment's realm.
+  Object.defineProperty(audio, "arrayBuffer", { value: async () => Buffer.from(bytes) });
   const request = vi.fn(async () => new Response(JSON.stringify({ artifacts: [] }), { status: 200 })); vi.stubGlobal("fetch", request);
   await materializeRecordingFiles({ sessionId: "s", idempotencyKey: "a", audio });
   const [, init] = request.mock.calls[0] as unknown as [string, RequestInit];

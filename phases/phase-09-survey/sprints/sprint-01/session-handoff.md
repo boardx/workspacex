@@ -1,22 +1,21 @@
 # 会话交接 — Sprint 09/01
 
-## 当前已验证
-- 无 passing feature。已验证仓库快速初始化通过，Sprint 09/01 可由 harness 重建。
+## 当前状态
+- F04 代码完成于 `codex/survey-f04-runtime`，issue #4037 保持打开，等待 PR 人工合并。
+- 不使用协调网关；worktree 为 `/Users/shenyangjun/.codex/worktrees/survey-f04-runtime/workspacex`。
+- 权威 feature 状态未手改；按仓库 DoD，只有 PR 绿且合入 `main` 后才可转 passing。
 
-## 本轮改动
-- 新增 F04 问卷可信发布设计文档与实施计划。
-- 将 Phase 09 F04 领入 Sprint 09/01，生成派生工作集。
+## 已验证
+- `state-machine-four`、`anonymity-immutable`、`publish-gate-server-enforced`：10/10。
+- `survey-question-types`：31/31。
+- 真实 Playwright + API + PostgreSQL：发布阻断、修复、准备、开始回收、刷新持久化及匿名性冲突通过。
+- 浏览器截图：`evidence/F04-blockers.png`、`evidence/F04-browser.png`。
+- 独立 review 的两项 Important 意见均已回归覆盖：准备后编辑会撤回准备状态；空映射/无效映射章节不能通过发布门禁；API 定向回归 40/40，类型检查通过。
+- PR #4125 首轮 CI 全绿后出现 3 条自动 review；已补充页面元素、装饰报告块与无效题目语义反证并修复，需以最新提交触发的 CI 结果为准。
+- 全量发布门禁的本范围检查、类型检查、静态检查、Harness 1891 项均通过；全仓并发执行仍有两个非本范围脆弱用例，二者独立复跑通过，最终以 PR CI 为准。
 
-## 仍损坏或未验证
-- F04 产品代码尚未实现，API/UI/Playwright 验证均未跑。
-- F03 依赖尚未 passing；束级三项人工签核仍待完成。
-- `coord-survey` 网关请求目前 `fetch failed`，无法完成权威租约握手。
-
-## 下一步最佳动作
-- 先解除上述门禁，再按 `docs/superpowers/plans/2026-09-24-survey-trusted-publishing-foundation.md` 以 TDD 顺序实施。
-- 不要手改 `active-features.json`，不要在产品实现和真实浏览器验证之前将 F04 标记为 passing。
-
-## 命令
-- 启动:`pnpm -w run dev`
-- 验证:`pnpm harness verify --sprint 09/01`
-- 调试:`pnpm harness readiness`
+## 后续动作
+1. 查看 PR required checks；红项必须修复或以可复现证据确认后复跑。
+2. 逐条回应 review conversation。
+3. 保持人工合并，不启用 auto-merge。
+4. 合入后再由 harness 完成 F04 状态与证据闭环。

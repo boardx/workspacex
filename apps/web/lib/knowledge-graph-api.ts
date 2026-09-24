@@ -17,7 +17,8 @@
  * F10 加了第一个写口 `applyHumanAction`（POST /knowledge-graph/threads/:threadId/actions）：
  * 确认 / 批量确认 / 改写 / 忘掉 / 标矛盾 / 合并 / 拆分 / 改名。
  * F11 加「记到我的长期记忆」：`promoteToPersonal`（POST .../promote，逐条结果）与
- * `listPromotionNominations`（GET .../nominations，AI 只提名不执行）。「整理本会话」仍不在
+ * `listPromotionNominations`（GET .../nominations，AI 只提名不执行）。F17 加 `actOnMemoryCard`
+ * （POST /knowledge-graph/cards/:cardId，回答下的「记住 / 忘掉」确认卡）。「整理本会话」仍不在
  * 本文件（F13），不为了让按钮"看起来能点"先造一个调不通的调用。
  */
 import type { z } from "zod";
@@ -150,6 +151,35 @@ export function listPromotionNominations(threadId: string, signal?: AbortSignal)
     knowledgeGraph.listPromotionNominations.out,
     signal,
   );
+}
+
+export type MemoryCardResult = z.infer<typeof knowledgeGraph.actOnMemoryCard.out>;
+export type MemoryCardDecision = z.infer<typeof knowledgeGraph.actOnMemoryCard.in>["decision"];
+
+/**
+ * UC-KG-12（F17）：对回答下的「记住 / 忘掉」确认卡做决定。执行身份是点击的人（服务端只接受人类会话）。
+ * `claimIds`：忘掉卡上还勾着的条目（省略 = 卡上全部）；`editedStatement`：记住卡改过的字（省略 = 卡上原文）。
+ * 请求体先过契约 `in` schema——形状错了在本地就抛，不发出去。
+ */
+export function actOnMemoryCard(
+  cardId: string,
+  decision: MemoryCardDecision,
+  opts: { readonly claimIds?: readonly string[]; readonly editedStatement?: string } = {},
+): Promise<MemoryCardResult> {
+  const input = knowledgeGraph.actOnMemoryCard.in.parse({
+    cardId,
+    decision,
+    ...(opts.claimIds !== undefined ? { claimIds: [...opts.claimIds] } : {}),
+    ...(opts.editedStatement !== undefined ? { editedStatement: opts.editedStatement } : {}),
+  });
+  return getParsed(`/knowledge-graph/cards/${seg(cardId)}`, knowledgeGraph.actOnMemoryCard.out, undefined, {
+    method: "POST",
+    body: {
+      decision: input.decision,
+      ...(input.claimIds !== undefined ? { claimIds: input.claimIds } : {}),
+      ...(input.editedStatement !== undefined ? { editedStatement: input.editedStatement } : {}),
+    },
+  });
 }
 
 /* ── 大脑页（/brain）：本人的长期记忆 + 各对话的记忆概况 ───────────────────────── */

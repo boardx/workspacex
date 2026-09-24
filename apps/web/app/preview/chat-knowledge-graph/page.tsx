@@ -6,7 +6,7 @@ import { DrawerScene } from "./drawer-scene";
 import { PanelExtrasScene } from "./panel-extras-scene";
 import { AnswerKnowledgeFooter } from "@/components/chat/knowledge/answer-knowledge-footer";
 import { AnswerMemoryLine } from "@/components/chat/knowledge/answer-memory-line";
-import { MemoryCard } from "@/components/chat/knowledge/memory-card";
+import { MemoryCardScene } from "./memory-card-scene";
 import { ConflictPromptCard } from "@/components/chat/knowledge/conflict-prompt-card";
 import { MemoryRecallAnswer } from "@/components/chat/knowledge/memory-recall-answer";
 import {
@@ -206,15 +206,15 @@ export default function ChatKnowledgeGraphPreviewPage({
         answerSlot = (
           <>
             <AnswerMemoryLine undo="local" turn={turnMemoryWithRememberCard} />
-            <MemoryCard card={memoryCardRememberOpen} />
+            <MemoryCardScene card={memoryCardRememberOpen} canAct={role === "owner"} />
           </>
         );
         break;
       case "card-remember-done":
-        answerSlot = <MemoryCard card={memoryCardRememberDone} />;
+        answerSlot = <MemoryCardScene card={memoryCardRememberDone} />;
         break;
       case "card-forget":
-        answerSlot = <MemoryCard card={memoryCardForgetOpen} />;
+        answerSlot = <MemoryCardScene card={memoryCardForgetOpen} canAct={role === "owner"} />;
         break;
       case "card-conflict":
         answerSlot = (

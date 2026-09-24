@@ -14,11 +14,12 @@ import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/por
 import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
+import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import {
-  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, PROMOTION_PORT,
-  type HumanActionPort, type KnowledgeReadPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
@@ -39,6 +40,8 @@ export class KnowledgeGraphController {
     @Inject(KNOWLEDGE_READ_PORT) private readonly knowledge: KnowledgeReadPort,
     @Inject(HUMAN_ACTION_PORT) private readonly actions: HumanActionPort,
     @Inject(PROMOTION_PORT) private readonly promotion: PromotionPort,
+    /** F17 确认卡。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503，不假装成功）。 */
+    @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -59,8 +62,10 @@ export class KnowledgeGraphController {
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
         if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);
-        if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE") throw new BadRequestException(body);
-        if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION") throw new ConflictException(body);
+        if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
+        if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
+          throw new ConflictException(body);
+        }
         throw new NotFoundException(body);
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
@@ -134,5 +139,20 @@ export class KnowledgeGraphController {
   @Get("/knowledge-graph/threads/:threadId/nominations")
   nominations(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
     return this.run(principal, (v) => listPromotionNominations({ ...this.deps, promotion: this.promotion, newId: newKgId }, { ...v, threadId }));
+  }
+
+  /** UC-KG-12 actOnMemoryCard —— 对「记住 / 忘掉」确认卡做决定（人的动作：接口只接受人类会话，I-15 / I-17） */
+  @Post("/knowledge-graph/cards/:cardId")
+  @HttpCode(200)
+  memoryCard(@CurrentPrincipal() principal: Principal, @Param("cardId") cardId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.actOnMemoryCard.in.safeParse({ ...(body as object), cardId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const cards = this.cards;
+    if (cards === undefined) throw new ServiceUnavailableException("memory_cards_unavailable");
+    const { decision, claimIds, editedStatement } = parsed.data;
+    return this.run(principal, (v) => actOnMemoryCard(
+      { ...this.deps, cards, newId: newKgId },
+      { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
+    ));
   }
 }

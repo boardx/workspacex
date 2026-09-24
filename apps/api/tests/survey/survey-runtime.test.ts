@@ -14,7 +14,7 @@ function setup(){
   let now=new Date('2026-09-20T00:00:00Z');return {rows,service:new SurveyService(repo,()=>now),advance:()=>{now=new Date('2027-01-01T00:00:00Z');}};
 }
 const org=toOrgId('org-a');
-const draft={title:'真实问卷',questions:[{id:'q1',order:1,chapterId:'s',title:'选择',type:'single',required:true,options:['甲','乙']}],template:{id:'template',title:'报告',sections:[]}} as SurveyDraftInput;
+const draft={title:'真实问卷',questions:[{id:'q1',order:1,chapterId:'s',title:'选择',type:'single',required:true,options:['甲','乙']}],template:{id:'template',title:'报告',sections:[{id:'s',title:'结果',blocks:[{id:'b',title:'分布',type:'bar',questionIds:['q1'],statistic:'distribution'}]}]}} as SurveyDraftInput;
 const answer:SurveySubmissionInput={submissionId:'request-00001',answers:[{questionId:'q1',value:'甲'}],durationSeconds:1,role:'未填写',companySize:'未填写'};
 describe('persistent survey lifecycle',()=>{
   it('isolates owner and tenant, enforces optimistic version',async()=>{const {service:s}=setup();const m=await s.create(org,'owner',draft);expect(await s.list(org,'other')).toEqual([]);await expect(s.get(org,'other',m.id)).rejects.toThrow('not_found');await expect(s.get(toOrgId('org-b'),'owner',m.id)).rejects.toThrow('not_found');await expect(s.save(org,'owner',m.id,9,draft)).rejects.toThrow('version_conflict');expect((await s.save(org,'owner',m.id,1,{...draft,title:'更新'})).version).toBe(2);});
