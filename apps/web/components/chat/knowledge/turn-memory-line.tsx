@@ -2,8 +2,18 @@
 
 import * as React from "react";
 import { AnswerMemoryLine } from "./answer-memory-line";
-import { fetchTurnMemory, type TurnMemory } from "@/lib/knowledge-graph-api";
-import { requestOpenKnowledgePanel } from "@/lib/knowledge-graph-events";
+import {
+  applyHumanAction,
+  fetchTurnMemory,
+  knowledgeGraphErrorCode,
+  type TurnMemory,
+} from "@/lib/knowledge-graph-api";
+import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
+import {
+  requestKnowledgeReload,
+  requestOpenKnowledgePanel,
+  useKnowledgeSnapshot,
+} from "@/lib/knowledge-graph-events";
 
 /**
  * 回答落库后，服务端仍在整理（`pending = true`）时的补读间隔。抽取是异步的：回答刚结束那一刻
@@ -19,10 +29,35 @@ export const TURN_MEMORY_REPOLL_DELAYS_MS: readonly number[] = [3_000, 8_000];
  * - `captured` 为空且不在整理中 ⇒ 不渲染任何东西（打扰要克制，E8）。
  * - 读失败 ⇒ 同样不渲染：这一行是回答的附注，不能因为记忆服务不可用就在每条回答下挂一条报错；
  *   记忆面板本身（右栏「记忆」页签）会如实显示错误态。这不是回退到假数据——什么都不显示。
- * - 「查看」打开右栏记忆面板；「撤销」的真实通路 F10 才接，此处为禁用态（见 `AnswerMemoryLine`）。
+ * - 「查看」打开右栏记忆面板。
+ * - 「撤销」（F10）：只有所有者看得到（读模型快照 `canEdit`，见 `lib/knowledge-graph-events.ts`）。
+ *   把本轮记下的逐条 `revokeClaim`，每条带上一条返回的最新 `revision`；已经不在的那条
+ *   （`KG_CLAIM_NOT_FOUND`，比如先在面板里忘掉了）视为已撤销。结束后让右栏记忆重读。
  */
 export function TurnMemoryLine({ threadId, messageId }: { threadId: string; messageId: string }) {
   const [turn, setTurn] = React.useState<TurnMemory | null>(null);
+  const snapshot = useKnowledgeSnapshot(threadId);
+  const canUndo = snapshot?.canEdit === true;
+  const baseRevision = snapshot?.revision ?? null;
+  const captured = turn?.captured;
+
+  const undo = React.useCallback(async (): Promise<void> => {
+    if (baseRevision === null || !captured) return;
+    let revision = baseRevision;
+    try {
+      for (const c of captured) {
+        try {
+          revision = (await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId: c.claimId })).revision;
+        } catch (e) {
+          if (knowledgeGraphErrorCode(e) !== "KG_CLAIM_NOT_FOUND") throw e;
+        }
+      }
+    } catch (e) {
+      requestKnowledgeReload(threadId);
+      throw new Error(describeHumanActionFailure(e));
+    }
+    requestKnowledgeReload(threadId);
+  }, [threadId, baseRevision, captured]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -60,5 +95,5 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
 
   if (turn === null) return null;
   if (!turn.pending && turn.captured.length === 0) return null;
-  return <AnswerMemoryLine turn={turn} onView={requestOpenKnowledgePanel} />;
+  return <AnswerMemoryLine turn={turn} onView={requestOpenKnowledgePanel} onUndo={canUndo ? undo : undefined} />;
 }

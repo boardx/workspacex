@@ -9,6 +9,7 @@ import { KnowledgeGraphView } from "./knowledge-graph-view";
 import { ClaimSourceDrawer } from "./claim-source-drawer";
 import { PromotionResultList } from "./promotion-result-list";
 import { countByTriState } from "@/lib/knowledge-graph-view";
+import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import {
   knowledgeGraphErrorCode,
   type ClaimSources,
@@ -16,25 +17,31 @@ import {
   type ThreadKnowledge,
 } from "@/lib/knowledge-graph-api";
 import {
+  claimTriState,
   KG_TRI_STATE_LABEL_ZH,
   KG_VISIBILITY_LABEL_ZH,
   type KgClaim,
+  type KgHumanAction,
 } from "@repo/contracts/chat-knowledge-graph";
 
 export type PanelStatus = "loading" | "error" | "ready";
 export type PanelView = "list" | "graph";
 
+/** 契约 `confirmClaims` 单批上限（`z.array(...).max(50)`）。 */
+const CONFIRM_BATCH_MAX = 50;
+
 /**
- * 写动作（确认 / 改写 / 忘掉 / 记到长期记忆 / 整理本会话）。
+ * 写动作。
  *
- * ⚠ F09 只接「读」：真实 `/chat` 不传这一组，编辑入口一律不渲染——不是只读态（只读态由
- *   服务端 `canEdit=false` 决定，会显示「只读」徽标），只是这些动作的真实通路 F10 起才接，
- *   不画一排点了没反应的按钮。签核预览（`/preview/chat-knowledge-graph`）传演示实现。
+ * - `apply`：人的编辑动作（F10，`applyHumanAction`）。失败时 reject，面板把错误翻成人话显示。
+ *   真实 `/chat` 只在服务端 `canEdit=true` 时传（`useKnowledgeWriteActions`）；不传 = 一个编辑入口都不画。
+ * - `onPromote` / `onReindex`：记到长期记忆（F11）/ 整理本会话（F13）。真实 `/chat` 还不传，
+ *   对应入口不渲染——不画一排点了没反应的按钮。签核预览传演示实现。
  */
 export interface KnowledgePanelWriteActions {
-  readonly onAction: (action: string, claimId: string) => void;
-  readonly onPromote: (claimIds: string[]) => Promise<PromotionResults>;
-  readonly onReindex: () => void;
+  readonly apply: (action: KgHumanAction) => Promise<void>;
+  readonly onPromote?: (claimIds: string[]) => Promise<PromotionResults>;
+  readonly onReindex?: () => void;
 }
 
 /** 面板读取失败的人话（按契约 `getThreadKnowledge.err`）；不是本束可识别的码时给通用说法。 */
@@ -81,11 +88,28 @@ export function KnowledgePanel({
   const [promoResult, setPromoResult] = React.useState<PromotionResults | null>(initialPromotionResult);
 
   const drawer = useClaimSourcesDrawer(loadSources);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+
+  /** 执行一个编辑动作；成功返回 true（对话框据此关闭），失败把人话挂在面板顶部并返回 false。 */
+  const runAction = React.useCallback(async (action: KgHumanAction): Promise<boolean> => {
+    if (!writeActions) return false;
+    setActionError(null);
+    try {
+      await writeActions.apply(action);
+      return true;
+    } catch (e) {
+      setActionError(describeHumanActionFailure(e));
+      return false;
+    }
+  }, [writeActions]);
 
   const canEdit = data?.canEdit ?? false;
   /** 编辑入口只在「服务端说可编辑」且「这些动作真的有通路」时渲染。 */
   const editable = canEdit && writeActions !== undefined;
-  const canPromote = (data?.canPromote ?? false) && writeActions !== undefined;
+  const onPromote = writeActions?.onPromote;
+  const canPromote = (data?.canPromote ?? false) && canEdit && onPromote !== undefined;
+  /** 「全部确认」的对象：三态为「AI 记下的」的条目（有矛盾的不在内，服务端也会整批拒绝）。 */
+  const pendingIds = (data?.claims ?? []).filter((c) => claimTriState(c.status) === "pending").map((c) => c.id);
   const counts = data ? countByTriState(data.claims) : { pending: 0, confirmed: 0, conflict: 0 };
   const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
   const claimLabel = (id: string) => data?.claims.find((c) => c.id === id)?.statement ?? id;
@@ -162,7 +186,7 @@ export function KnowledgePanel({
         ) : null}
 
         {/* 记到长期记忆入口（仅个人线程 canPromote） */}
-        {data && writeActions && canPromote && data.claims.length > 0 ? (
+        {data && onPromote && canPromote && data.claims.length > 0 ? (
           <div className="flex items-center gap-1.5">
             {selectMode ? (
               <>
@@ -171,7 +195,7 @@ export function KnowledgePanel({
                   disabled={selectedIds.length === 0}
                   data-testid="kg-promote-submit"
                   onClick={() => {
-                    void writeActions.onPromote(selectedIds).then(setPromoResult);
+                    void onPromote(selectedIds).then(setPromoResult);
                     setSelectMode(false);
                   }}
                 >
@@ -192,6 +216,24 @@ export function KnowledgePanel({
 
       {/* 主体 */}
       <div className="flex-1 overflow-y-auto p-3">
+        {actionError !== null ? (
+          <div
+            role="alert"
+            className="mb-3 flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-11 text-destructive"
+            data-testid="kg-action-error"
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">{actionError}</span>
+            <button
+              type="button"
+              className="text-10 text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline"
+              onClick={() => setActionError(null)}
+              data-testid="kg-action-error-dismiss"
+            >
+              知道了
+            </button>
+          </div>
+        ) : null}
         {status === "loading" ? (
           <div data-testid="loading" className="flex flex-col gap-3" aria-busy="true">
             <div className="h-4 w-24 animate-pulse rounded bg-muted" />
@@ -231,14 +273,16 @@ export function KnowledgePanel({
                 </div>
               ) : null}
               {/* U-2：列表头部「全部确认」批量 —— 只在有「AI 记下的」且可编辑时出现 */}
-              {editable && writeActions && pendingCount > 0 && !selectMode ? (
+              {editable && pendingCount > 0 && !selectMode ? (
                 <div className="flex items-center justify-between rounded-md border border-border-subtle bg-muted/40 px-2 py-1.5">
                   <span className="text-11 text-muted-foreground">有 {pendingCount} 条是 AI 记下的，还没经你确认</span>
                   <Button
                     size="xs"
                     variant="secondary"
                     data-testid="kg-confirm-all"
-                    onClick={() => writeActions.onAction("confirmClaims", "")}
+                    onClick={() => {
+                      void runAction({ type: "confirmClaims", claimIds: pendingIds.slice(0, CONFIRM_BATCH_MAX) });
+                    }}
                   >
                     全部确认
                   </Button>
@@ -246,12 +290,13 @@ export function KnowledgePanel({
               ) : null}
               <KnowledgeList
                 claims={data.claims}
+                objects={data.objects}
                 canEdit={editable}
                 selectable={selectMode}
                 selected={selected}
                 onToggleSelect={(id, next) => setSelected((s) => ({ ...s, [id]: next }))}
                 onOpenSource={drawer.open}
-                onAction={writeActions?.onAction}
+                onApply={editable ? runAction : undefined}
               />
             </div>
           ) : (

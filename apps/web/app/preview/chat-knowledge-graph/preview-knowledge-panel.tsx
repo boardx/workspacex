@@ -24,7 +24,7 @@ import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
  * Client Component，所以演示用的回调收在这个 client 组件里）。纯预览，不接后端。
  */
 const demoWriteActions: KnowledgePanelWriteActions = {
-  onAction: () => {},
+  apply: () => Promise.resolve(),
   onPromote: () => Promise.resolve(promotionResultsMixed),
   onReindex: () => {},
 };
