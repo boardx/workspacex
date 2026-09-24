@@ -82,7 +82,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     }
   });
 
-  it("(d) 调用链：kernel.module 实例化 → 执行器 → knowledgeMemoryFor（recall-knowledge.ts）← execute-run.ts（run.threadId / run.requesterUserId）", () => {
+  it("(d) 调用链：kernel.module 实例化 → 执行器 → execute-run.ts turnKnowledgeContext（run）→ knowledgeMemoryFor / memoryCardFor（run.threadId / run.requesterUserId）", () => {
     // 拿到这个端口实例的路只有一条：kernel.module 实例化后交给执行器；端口类型 / 注入令牌不许出现在别处
     //（方法名 candidates 太常见，按名字找调用方挡不住 `port.candidates.call(...)` 这类写法，所以钉「谁拿得到端口」）。
     expect(callersOf(/\bPgKnowledgeRecall\b/)).toEqual(["src/kernel.module.ts"]);
@@ -93,9 +93,18 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(callersOf(/\bKNOWLEDGE_RECALL_PORT\b/)).toEqual(["src/application/knowledge-graph/ports.ts"]);
     expect(callersOf(/\.graphNeighbors\b/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     expect(callersOf(/(?<!function )recallThreadKnowledge\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
-    expect(callersOf(/(?<!function )knowledgeMemoryFor\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
+    // F17：执行器只调 turnKnowledgeContext（把 run 整个交进去），召回与开卡都在 recall-knowledge.ts 里按 run 的发起人 / 会话取参
+    expect(callersOf(/(?<!function )knowledgeMemoryFor\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
+    expect(callersOf(/(?<!function )memoryCardFor\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
+    expect(callersOf(/(?<!function )turnKnowledgeContext\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
-    expect(exec).toMatch(/knowledgeMemoryFor\(deps\.knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}/);
+    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log\)/);
+    const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
+    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}, log\)/);
+    expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log\)/);
+    // memoryCardFor 读候选集只拿 id 去开卡：卡上的内容由 kg_open_memory_card 在数据库里按会话 / 本人个人空间复核后才写
+    expect(rk).toMatch(/const \{ claims \} = await knowledge\.candidates\(input\.orgId, input\.userId, input\.threadId\);/);
+    expect(rk).toMatch(/claimIds: matches\.map\(\(c\) => c\.id\)/);
   });
 
   it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {

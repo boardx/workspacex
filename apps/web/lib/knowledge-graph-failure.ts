@@ -67,3 +67,23 @@ export function describePromotionFailure(e: unknown): string {
   if (code === null) return "没能记到长期记忆，请稍后重试。";
   return PROMOTION_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
 }
+
+/**
+ * F17 —— 回答下「记住 / 忘掉」确认卡被拒时的人话（uc-18-6 E1 / E2）。卡上的话说「记忆」，不说「修改」。
+ */
+const MEMORY_CARD_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> = {
+  KG_NOT_OWNER: "只有对话创建者能管理记忆。",
+  KG_CARD_STALE: "内容已经变了，已为你刷新，请看最新的再决定。",
+  KG_CARD_NOT_FOUND: "这张卡片已经不在了。",
+  KG_CONTESTED_NEEDS_RESOLUTION: "这条和你之前说的有矛盾，先选好保留哪条，再记到长期记忆。",
+  KG_ACTOR_NOT_HUMAN: "这个操作只能由你本人在界面上完成。",
+};
+
+/** 失败后应当重读这一轮记忆的码：卡片在服务端已经不是界面上的样子了。 */
+export const MEMORY_CARD_RELOAD_ON_FAILURE: ReadonlySet<KnowledgeGraphErrorCode> = new Set(["KG_CARD_STALE", "KG_CARD_NOT_FOUND"]);
+
+export function describeMemoryCardFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === null) return "没能完成这次操作，请稍后重试。";
+  return MEMORY_CARD_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
+}

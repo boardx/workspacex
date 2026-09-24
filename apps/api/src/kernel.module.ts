@@ -608,7 +608,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -618,6 +618,7 @@ import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtract
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
@@ -2064,6 +2065,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
           new PgKnowledgeRecall(db),
+          // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
+          new PgMemoryCard(db),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
@@ -3000,6 +3003,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。
     { provide: PROMOTION_PORT, useFactory: (db: DatabasePort) => new PgPromotion(db), inject: [DATABASE_PORT] },
+    // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
+    { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
