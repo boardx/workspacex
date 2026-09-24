@@ -618,5 +618,40 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     return json(route, { project, inboxCode: "D-3" });
   });
   // 对标评测要在同一份活数据上挂自己的路由（用真实契约函数应用 patch），所以把它交出去。
+  /*
+   * 深度 S2（#3988）：批注存在服务端。这里是一份按项目分的内存表，语义同真实接口（全组织可读可写、
+   * 列表按先后排）。评测的 `depth-api.ts` 在它之后注册、会覆盖它（Playwright 后注册的先匹配）。
+   */
+  const comments = new Map();
+  const commentsOf = (id) => { if (!comments.has(id)) comments.set(id, []); return comments.get(id); };
+  let commentSeq = 0;
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments$/.test(new URL(url).pathname), (route) => {
+    const list = commentsOf(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]));
+    if (route.request().method() === "GET") return json(route, { items: list });
+    const b = route.request().postDataJSON() ?? {};
+    const c = { id: `cm-${++commentSeq}`, nodeId: b.nodeId, frameIndex: b.frameIndex, label: b.label ?? "", text: b.text, resolved: false, authorId: "u-pm-1", authorName: "产品 · 周宁", createdAt: NOW, replies: [] };
+    list.push(c);
+    return json(route, { comment: c }, 201);
+  });
+  // 深度 S3：回复（只追加），回整条批注。
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+\/replies$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const list = commentsOf(decodeURIComponent(parts[2]));
+    const i = list.findIndex((c) => c.id === decodeURIComponent(parts[4]));
+    if (i < 0) return json(route, { reasonCode: "COMMENT_NOT_FOUND" }, 404);
+    const text = String((route.request().postDataJSON() ?? {}).text ?? "").trim();
+    list[i] = { ...list[i], replies: [...list[i].replies, { id: `rp-${++commentSeq}`, text, authorId: "u-pm-1", authorName: "产品 · 周宁", createdAt: NOW }] };
+    return json(route, { comment: list[i] }, 201);
+  });
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const list = commentsOf(decodeURIComponent(parts[2]));
+    const i = list.findIndex((c) => c.id === decodeURIComponent(parts[4]));
+    if (i < 0) return json(route, { reasonCode: "COMMENT_NOT_FOUND" }, 404);
+    if (route.request().method() === "DELETE") { list.splice(i, 1); return json(route, {}); }
+    list[i] = { ...list[i], resolved: Boolean((route.request().postDataJSON() ?? {}).resolved) };
+    return json(route, { comment: list[i] });
+  });
+
   return projects;
 }

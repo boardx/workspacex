@@ -127,12 +127,12 @@ export async function proposeVariants(
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
   const root = current.prototype[input.screen];
   if (root === undefined || root === null) throw new PrototypePatchRejectedError("NO_PROTOTYPE", `screen ${input.screen} has no tree`);
-  const count = input.count ?? 3;
+  const count = input.count ?? designWorkbench.PROTOTYPE_VARIANTS_DEFAULT;
   const variants = await deps.ai.propose({
     title: current.name,
     problem: current.problem,
     frame: current.frames[input.screen] ?? "",
-    root,
+    root: designPrototype.withoutImageSources(root), // 深度 S10：上传的图不进模型
     count,
     ...(input.instruction !== undefined ? { instruction: input.instruction } : {}),
   });

@@ -288,10 +288,35 @@ export async function patchPrototype(projectId: string, ops: readonly PrototypeP
 
 /* ── 对标 R9：同一页的几个方案（不写库；挑中后走 patchPrototype 的 replace） ── */
 export type ProposeVariantsOut = z.infer<typeof designWorkbench.operations.proposeVariants.out>;
-export async function proposeVariants(projectId: string, screen: number, count?: number): Promise<ProposeVariantsOut> {
+/** 深度 S9：`ask` 带上要几个、对方案的一句要求（都可省：服务端有缺省）。 */
+export async function proposeVariants(projectId: string, screen: number, ask: { readonly count?: number; readonly instruction?: string } = {}): Promise<ProposeVariantsOut> {
   return apiRequest<ProposeVariantsOut>(versionPath(designWorkbench.operations.proposeVariants.path, projectId), {
-    method: "POST", body: { screen, ...(count !== undefined ? { count } : {}) },
+    method: "POST",
+    body: { screen, ...(ask.count !== undefined ? { count: ask.count } : {}), ...(ask.instruction !== undefined && ask.instruction !== "" ? { instruction: ask.instruction } : {}) },
   });
+}
+
+/* ── 深度 S2：批注存在服务端（全组织可读可写，删除限作者或 owner） ── */
+export type DesignComment = z.infer<typeof designWorkbench.DesignComment>;
+const commentPath = (projectId: string, commentId?: string): string =>
+  `/pm-designs/${encodeURIComponent(projectId)}/comments${commentId === undefined ? "" : `/${encodeURIComponent(commentId)}`}`;
+export async function listDesignComments(projectId: string): Promise<{ items: DesignComment[] }> {
+  return apiRequest<{ items: DesignComment[] }>(commentPath(projectId));
+}
+export async function createDesignComment(
+  projectId: string,
+  c: { nodeId: string; frameIndex: number; label: string; text: string },
+): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId), { method: "POST", body: c });
+}
+export async function setDesignCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId, commentId), { method: "PATCH", body: { resolved } });
+}
+export async function replyToDesignComment(projectId: string, commentId: string, text: string): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(`${commentPath(projectId, commentId)}/replies`, { method: "POST", body: { text } });
+}
+export async function deleteDesignComment(projectId: string, commentId: string): Promise<void> {
+  await apiRequest<Record<string, never>>(commentPath(projectId, commentId), { method: "DELETE" });
 }
 
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */

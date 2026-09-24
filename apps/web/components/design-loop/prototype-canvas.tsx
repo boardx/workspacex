@@ -440,7 +440,7 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
  * `Record<PrototypeIcon, …>` **穷举**：契约加了新图标这里编译不过，不会静默渲染成空
  * ——同这个文件头注对渲染表的既有纪律。
  */
-const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+export const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
   home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
   filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
   user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,
@@ -487,6 +487,8 @@ export function guessNavIcon(label: string): designPrototype.PrototypeIcon | nul
 import { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable, type PrototypeDevicePreset, type PrototypeChrome } from "@/lib/prototype-devices";
 export { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable };
 export type { PrototypeDevicePreset, PrototypeChrome };
+/** 画布头顶那一行页名占的高度：编辑器舞台与演示模式算缩放时都要把它算进去（深度 S7 起单源）。 */
+export const CANVAS_LABEL_H = 40;
 
 /** 兼容旧调用点：按项目模板取默认镜头。 */
 export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevicePreset {
@@ -595,6 +597,23 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
   const p = node.props;
   const kind = p.kind ?? "photo";
   const box = cn("relative flex w-full items-center justify-center overflow-hidden bg-panel text-muted-foreground", sc.r("md"), RATIO[p.ratio ?? "video"]);
+  /*
+   * 深度 S10（#3988）：用户上传了真图 ⇒ 画这张图，比例 / 圆角照旧（头像照旧是圆的）。
+   * `alt` 就是这张图的说明——此前它是写在灰块上的字，现在给读屏器。
+   */
+  if (p.src !== undefined) {
+    return kind === "avatar" ? (
+      <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL（用户上传的图），不是可优化的远程图 */}
+        <img src={p.src} alt={p.alt} className="h-12 w-12 rounded-full object-cover" />
+      </div>
+    ) : (
+      <div className={box} data-proto="image" data-image-kind={kind} {...tap}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL（用户上传的图），不是可优化的远程图 */}
+        <img src={p.src} alt={p.alt} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
   if (kind === "avatar") {
     return (
       <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap} aria-label={p.alt}>

@@ -83,13 +83,17 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
     expect(source).not.toContain("withoutTenant");
   });
 
-  it("names no tenant table other than design_projects / chat / versions / ref_images / product_feedback", () => {
+  it("names no tenant table other than design_projects / chat / versions / ref_images / comments / product_feedback", () => {
     const tables = new Set<string>();
     for (const sql of statements) {
       for (const m of sql.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)) tables.add(m[1]!.toLowerCase());
     }
     expect([...tables].sort()).toEqual([
       "design_project_chat_messages",
+      // 深度 S2（#3988）：批注——并进本类的理由同参考图（见文件头注）；收窄由下面「批注」几条断言钉住。
+      "design_project_comments",
+      // 深度 S3：批注下的回复（只追加）。
+      "design_project_comment_replies",
       // 迭代 13：`SELECT_COLUMNS` 里聚参考图元信息的子查询——它按 `org_id = design_projects.org_id`
       // 收窄（下一条断言钉住），可见性跟随所属项目。
       "design_project_ref_images",
@@ -152,5 +156,31 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
     const fbUpdate = statements.find((sql) => /\bUPDATE\s+product_feedback\b/i.test(sql));
     expect(fbUpdate).toBeDefined();
     expect(fbUpdate).toMatch(/org_id\s*=\s*\$/i);
+  });
+
+  /* ── 深度 S2（#3988）：批注的六条语句（并进本类，理由同参考图）── */
+
+  it("批注的语句都在：列表 / 计数 / 单条 / 插入 / 改状态 / 删除", () => {
+    const cm = statements.filter((sql) => /\bdesign_project_comments\b/i.test(sql));
+    expect(cm.length).toBeGreaterThanOrEqual(6);
+    for (const verb of ["SELECT", "INSERT", "UPDATE", "DELETE"]) expect(cm.some((sql) => new RegExp(`^\\s*${verb}`, "i").test(sql)), verb).toBe(true);
+  });
+
+  it("每条批注语句都按 org + project 收窄；**刻意不带** owner / author 谓词（谁能删在用例层判）", () => {
+    const cm = statements.filter((sql) => /\bdesign_project_comment(s|_replies)\b/i.test(sql));
+    for (const sql of cm) {
+      expect(sql, sql).toMatch(/org_id/i);
+      expect(sql, sql).toMatch(/project_id/i);
+      // ⚠ 出现 owner_id 才是错的：批注全组织可写，owner 谓词会让同事的批注写不进去。
+      expect(sql, sql).not.toMatch(/owner_id\s*=/i);
+    }
+    // UPDATE / DELETE 还要按 id 收窄，不许按项目整批改。
+    for (const sql of cm.filter((x) => /^\s*(UPDATE|DELETE)/i.test(x))) expect(sql, sql).toMatch(/\bid\s*=\s*\$/i);
+  });
+
+  it("深度 S3：回复只有 SELECT 与 INSERT（只追加，不改不删——删批注靠外键级联带走）", () => {
+    const rp = statements.filter((sql) => /\bdesign_project_comment_replies\b/i.test(sql));
+    expect(rp.length).toBeGreaterThanOrEqual(2);
+    expect(rp.every((sql) => /^\s*(SELECT|INSERT)/i.test(sql))).toBe(true);
   });
 });

@@ -515,3 +515,31 @@ describe("对标 R9 proposeVariants（#3954）", () => {
     expect([...dw.operations.proposeVariants.err]).toContain("DEPENDENCY_UNAVAILABLE");
   });
 });
+
+describe("深度 S2 批注（#3988）", () => {
+  const comment = { id: "c1", nodeId: "n1", frameIndex: 0, label: "按钮", text: "再醒目一点", resolved: false, authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z", replies: [] };
+  it("DesignComment 过契约；字数、页号越界、空文本都拒", () => {
+    expect(dw.DesignComment.safeParse(comment).success).toBe(true);
+    expect(dw.DesignComment.safeParse({ ...comment, text: "x".repeat(dw.DESIGN_COMMENT_MAX_CHARS + 1) }).success).toBe(false);
+    expect(dw.operations.createDesignComment.in.safeParse({ projectId: "p", nodeId: "n1", frameIndex: 0, label: "", text: "   " }).success).toBe(false);
+    expect(dw.operations.createDesignComment.in.safeParse({ projectId: "p", nodeId: "n1", frameIndex: -1, label: "", text: "x" }).success).toBe(false);
+  });
+  it("四个操作的路径与错误码；新码都进了闭集", () => {
+    expect(dw.operations.listDesignComments.path).toBe("/pm-designs/:projectId/comments");
+    expect(dw.operations.updateDesignComment.in.parse({ projectId: "p", commentId: "c", resolved: true }).resolved).toBe(true);
+    expect([...dw.operations.deleteDesignComment.err]).toContain("NOT_COMMENT_AUTHOR");
+    for (const code of ["COMMENT_NOT_FOUND", "NOT_COMMENT_AUTHOR", "COMMENT_LIMIT_REACHED"]) expect(dw.DesignWorkbenchError.options).toContain(code);
+  });
+});
+
+describe("深度 S3 批注回复（#3988）", () => {
+  it("回复：路径、空文本拒、上限；批注的 replies 有上限", () => {
+    expect(dw.operations.createDesignCommentReply.path).toBe("/pm-designs/:projectId/comments/:commentId/replies");
+    expect(dw.operations.createDesignCommentReply.in.safeParse({ projectId: "p", commentId: "c", text: "  " }).success).toBe(false);
+    expect([...dw.operations.createDesignCommentReply.err]).toContain("COMMENT_LIMIT_REACHED");
+    const reply = { id: "r", text: "好", authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z" };
+    const comment = { id: "c1", nodeId: "n1", frameIndex: 0, label: "", text: "x", resolved: false, authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z" };
+    expect(dw.DesignComment.safeParse({ ...comment, replies: Array.from({ length: dw.DESIGN_COMMENT_MAX_REPLIES }, () => reply) }).success).toBe(true);
+    expect(dw.DesignComment.safeParse({ ...comment, replies: Array.from({ length: dw.DESIGN_COMMENT_MAX_REPLIES + 1 }, () => reply) }).success).toBe(false);
+  });
+});

@@ -16,6 +16,7 @@ import type {
 // 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
 import { mergeScreens, mergeTokens, prototypeOf, toTokens } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
 import type { ShareSnapshot } from "../../src/application/design-workbench/share-snapshot";
+import type { DesignCommentReplyRow, DesignCommentRepository, DesignCommentRow } from "../../src/application/design-workbench/design-comments";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
@@ -303,4 +304,41 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     updatedAt: "2026-09-04T00:00:00.000Z",
     ...over,
   };
+}
+
+/** 深度 S2（#3988）：批注的内存 fake。只按 project 收窄，同真实仓储（谁能删在用例层判）。 */
+export class FakeDesignCommentRepo implements DesignCommentRepository {
+  readonly rows: DesignCommentRow[] = [];
+  private seq = 0;
+  async listComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId); }
+  async countComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId).length; }
+  async getComment(projectId: string, id: string) { return this.rows.find((r) => r.projectId === projectId && r.id === id) ?? null; }
+  async insertComment(row: Omit<DesignCommentRow, "createdAt" | "resolved">) {
+    const full: DesignCommentRow = { ...row, resolved: false, createdAt: new Date(Date.UTC(2026, 8, 24, 0, 0, ++this.seq)).toISOString() };
+    this.rows.push(full);
+    return full;
+  }
+  async setCommentResolved(projectId: string, id: string, resolved: boolean) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return null;
+    this.rows[i] = { ...this.rows[i]!, resolved };
+    return this.rows[i]!;
+  }
+  async deleteComment(projectId: string, id: string) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return false;
+    this.rows.splice(i, 1);
+    // 同真实库的 ON DELETE CASCADE：批注删了，回复一起走。
+    for (let k = this.replies.length - 1; k >= 0; k--) if (this.replies[k]!.commentId === id) this.replies.splice(k, 1);
+    return true;
+  }
+  readonly replies: (DesignCommentReplyRow & { projectId: string })[] = [];
+  async listReplies(projectId: string, commentId?: string) {
+    return this.replies.filter((r) => r.projectId === projectId && (commentId === undefined || r.commentId === commentId));
+  }
+  async insertReply(row: { id: string; projectId: string; commentId: string; authorId: string; text: string }) {
+    const full = { id: row.id, projectId: row.projectId, commentId: row.commentId, authorId: row.authorId, text: row.text, createdAt: new Date(Date.UTC(2026, 8, 24, 1, 0, ++this.seq)).toISOString() };
+    this.replies.push(full);
+    return full;
+  }
 }
