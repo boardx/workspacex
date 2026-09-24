@@ -202,6 +202,16 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
   await expect(page).toHaveURL(/\/research$/);
+  const activeSummary = page.getByRole("button", { name: /进行中 \d+ 项研究/ });
+  await activeSummary.click();
+  await expect(activeSummary).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "研究全链路验证", exact: true })).toBeVisible();
+  await page.getByTestId("research-history-search").fill("不存在的研究");
+  await expect(page.getByTestId("research-history-empty")).toContainText("当前状态筛选与搜索条件下没有研究");
+  await page.getByRole("button", { name: "清除状态筛选", exact: true }).click();
+  await expect(page.getByRole("button", { name: "清除状态筛选", exact: true })).toHaveCount(0);
+  await page.getByTestId("research-history-search").fill("");
+  await page.screenshot({ path: testInfo.outputPath("research-home-status-filter.png"), fullPage: true });
   await page.reload();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
   await page.goto(openedSessionUrl);
