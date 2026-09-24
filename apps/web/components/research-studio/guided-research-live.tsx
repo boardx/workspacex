@@ -21,6 +21,7 @@ import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guid
 import { GuidedResearchSources } from "./guided-research-sources";
 import { GuidedResearchIntentPlan } from "./guided-research-intent-plan";
 import { GuidedResearchTrustConsole } from "./guided-research-trust-console";
+import { GuidedResearchReadiness } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function trustCommandId(prefix: string): string {
@@ -332,7 +333,10 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           <GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
           <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details>
         </>}
-        {node === "report" && displayReport && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><GuidedResearchReportDocument document={researchReportDocument(displayReport, state.sources, state.outline)} title={`研究报告${state.completed ? " · 已完成" : ""}`} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} /></div>}
+        {node === "report" && displayReport && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
+          {state.qualityScore && state.publicationReadiness && <GuidedResearchReadiness quality={state.qualityScore} readiness={state.publicationReadiness} />}
+          <GuidedResearchReportDocument document={researchReportDocument(displayReport, state.sources, state.outline)} title={`研究报告${state.completed ? state.publicationReadiness?.status === "limited" ? " · 带限制完成" : " · 已完成" : ""}`} limitations={state.publicationReadiness?.status === "limited" ? [...state.publicationReadiness.blockers, ...state.publicationReadiness.warnings].join("；") : undefined} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} />
+        </div>}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
         {node !== "report" && <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked} onClick={() => void run(node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
         </>}
