@@ -98,18 +98,27 @@ function scoreOf(r, w = BASE_W) {
   return { V, R };
 }
 function gateFail(r) { return rubric.gates.some((g) => r.gates?.[g] === "fail"); }
+const TIER_ORDER = ["A", "B", "C", "D"];
 function tierOf(r, V) {
   if (gateFail(r)) return "D";
-  if (V >= rubric.tiers.A) return "A";
-  if (V >= rubric.tiers.B) return "B";
-  if (V >= rubric.tiers.C) return "C";
-  return "D";
+  let t = V >= rubric.tiers.A ? "A" : V >= rubric.tiers.B ? "B" : V >= rubric.tiers.C ? "C" : "D";
+  for (const cap of rubric.tier_caps ?? []) {
+    if ((r.scores?.[cap.dim] ?? 99) <= cap.max_score && TIER_ORDER.indexOf(t) < TIER_ORDER.indexOf(cap.max_tier)) t = cap.max_tier;
+  }
+  return t;
+}
+function nearBoundary(V) {
+  return [rubric.tiers.A, rubric.tiers.B, rubric.tiers.C].some((t) => Math.abs(V - t) <= (rubric.boundary_band ?? 0));
+}
+function capped(r, V) {
+  return !gateFail(r) && tierOf(r, V) !== (V >= rubric.tiers.A ? "A" : V >= rubric.tiers.B ? "B" : V >= rubric.tiers.C ? "C" : "D");
 }
 function waveOf(r, tier, R) {
   if (tier !== "A" && tier !== "B") return "—";
   const r1 = r.scores.R1;
-  if (r1 >= 5) return R >= rubric.waves.W1_min_R ? "W1" : "W2";
-  if (r1 >= 3) return "W2";
+  const w = rubric.waves;
+  if (r1 >= w.W1_min_R1) return R >= w.W1_min_R ? "W1" : "W2";
+  if (r1 >= w.W2_min_R1) return "W2";
   return "W3";
 }
 function capWave(r) {
@@ -134,7 +143,19 @@ if (CHECK_ONLY) {
   process.exit(errors.length ? 1 : 0);
 }
 
-const valid = main.rows.filter((r) => RATED_DIMS.every((d) => Number.isInteger(r.scores?.[d])));
+const valid0 = main.rows.filter((r) => RATED_DIMS.every((d) => Number.isInteger(r.scores?.[d])));
+// 共识分：calibration/ 里有第二评审的 skill，逐维取两人平均；门取更严者。
+// 一致性检验用的是原始的独立打分（见 pairs），不受这里影响。
+const second = new Map(cal.rows.filter((c) => RATED_DIMS.every((d) => Number.isInteger(c.scores?.[d]))).map((c) => [c.id, c]));
+const GATE_RANK = { pass: 0, fixable: 1, fail: 2 };
+const valid = valid0.map((r) => {
+  const b = second.get(r.id);
+  if (!b) return { ...r, _raters: 1 };
+  const scores = Object.fromEntries(RATED_DIMS.map((d) => [d, (r.scores[d] + b.scores[d]) / 2]));
+  const gates = { ...r.gates };
+  for (const g of rubric.gates) if ((GATE_RANK[b.gates?.[g]] ?? 0) > (GATE_RANK[r.gates?.[g]] ?? 0)) gates[g] = b.gates[g];
+  return { ...r, scores, gates, _raters: 2, _first: r };
+});
 const ranked = valid.map((r) => {
   const { V, R } = scoreOf(r);
   const tier = tierOf(r, V);
@@ -152,11 +173,15 @@ for (const g of groups) for (const sign of [1, -1]) {
 const maxSens = Math.max(0, ...sens.map((s) => s.ratio));
 
 // 一致性：第二评审员 vs 主评审员
-const byId = new Map(valid.map((r) => [r.id, r]));
+const byId = new Map(valid0.map((r) => [r.id, r]));
 const pairs = cal.rows.filter((c) => byId.has(c.id) && RATED_DIMS.every((d) => Number.isInteger(c.scores?.[d])))
   .map((c) => ({ a: byId.get(c.id), b: c }));
 const dimDiff = Object.fromEntries(RATED_DIMS.map((d) => [d, pairs.length ? pairs.reduce((s, p) => s + Math.abs(p.a.scores[d] - p.b.scores[d]), 0) / pairs.length : NaN]));
 const tierAgree = pairs.length ? pairs.filter((p) => tierOf(p.a, scoreOf(p.a).V) === tierOf(p.b, scoreOf(p.b).V)).length / pairs.length : NaN;
+const outside = pairs.filter((p) => !nearBoundary(scoreOf(p.a).V) && !nearBoundary(scoreOf(p.b).V));
+const tierAgreeOut = outside.length ? outside.filter((p) => tierOf(p.a, scoreOf(p.a).V) === tierOf(p.b, scoreOf(p.b).V)).length / outside.length : NaN;
+const adjAgree = pairs.length ? pairs.filter((p) => Math.abs(TIER_ORDER.indexOf(tierOf(p.a, scoreOf(p.a).V)) - TIER_ORDER.indexOf(tierOf(p.b, scoreOf(p.b).V))) <= 1).length / pairs.length : NaN;
+const disagreements = pairs.filter((p) => tierOf(p.a, scoreOf(p.a).V) !== tierOf(p.b, scoreOf(p.b).V));
 const recAgree = pairs.length ? pairs.filter((p) => p.a.recommendation === p.b.recommendation).length / pairs.length : NaN;
 const vDiff = pairs.length ? pairs.reduce((s, p) => s + Math.abs(scoreOf(p.a).V - scoreOf(p.b).V), 0) / pairs.length : NaN;
 const overallDiff = pairs.length ? RATED_DIMS.reduce((s, d) => s + dimDiff[d], 0) / RATED_DIMS.length : NaN;
@@ -195,11 +220,15 @@ L.push("## 1. 权重与阈值（来自 rubric.json）", "");
 L.push("| 组 | 维度 | 权重 |", "|---|---|---|");
 for (const d of VALUE_DIMS) L.push(`| ${rubric.value_dims[d].group} | ${d} ${rubric.value_dims[d].name} | ${rubric.value_dims[d].weight} |`);
 L.push("", `就绪分 R：${READY_DIMS.map((d) => `${d} ${rubric.readiness_dims[d].name} ${rubric.readiness_dims[d].weight}`).join("，")}。`);
-L.push(`层级阈值：A ≥ ${rubric.tiers.A}，B ≥ ${rubric.tiers.B}，C ≥ ${rubric.tiers.C}；W1 要求 R1 = 5 且 R ≥ ${rubric.waves.W1_min_R}。`, "");
+L.push(`层级阈值：A ≥ ${rubric.tiers.A}，B ≥ ${rubric.tiers.B}，C ≥ ${rubric.tiers.C}；边界带 ±${rubric.boundary_band}；客群上限：${(rubric.tier_caps ?? []).map((c) => `${c.dim} ≤ ${c.max_score} 时最高 ${c.max_tier} 层`).join("；")}。`, `波次：R1 ≥ ${rubric.waves.W1_min_R1} 且 R ≥ ${rubric.waves.W1_min_R} → W1；R1 ≥ ${rubric.waves.W2_min_R1} → W2；其余 W3。`, "");
 
 L.push("## 2. 总览", "");
 const tiers = count(ranked, (x) => x.tier);
 L.push(`层级：A ${tiers.A ?? 0} · B ${tiers.B ?? 0} · C ${tiers.C ?? 0} · D ${tiers.D ?? 0}`, "");
+const bandAB = ranked.filter((x) => !gateFail(x.r) && x.r._raters < 2 && Math.abs(x.V - rubric.tiers.A) <= rubric.boundary_band);
+const consensusN = ranked.filter((x) => x.r._raters === 2).length;
+const cappedN = ranked.filter((x) => capped(x.r, x.V)).length;
+L.push(`双人共识定层 ${consensusN} 个；仍待定（单人评分且 V 在 A 阈值 ±${rubric.boundary_band} 分内，需第二评审或实测评测）${bandAB.length} 个；客群上限压层 ${cappedN} 个。`, "");
 const waves = count(ranked.filter((x) => x.tier === "A"), (x) => x.wave);
 L.push(`A 层波次：W1 ${waves.W1 ?? 0} · W2 ${waves.W2 ?? 0} · W3 ${waves.W3 ?? 0}`, "");
 L.push("| 来源包 | 评审数 | A | B | C | D | V 中位数 |", "|---|---|---|---|---|---|---|");
@@ -216,9 +245,18 @@ L.push("## 3. 标准自检", "");
 L.push("### 3.1 评审员一致性（独立盲评）", "");
 if (!pairs.length) L.push("尚无第二评审员数据。", "");
 else {
-  const okDiff = overallDiff <= rubric.calibration.max_mean_abs_diff;
-  const okTier = tierAgree >= rubric.calibration.min_tier_agreement;
-  L.push(`配对样本 ${pairs.length} 个。每维平均绝对差（均值）${overallDiff.toFixed(2)}（合格线 ≤ ${rubric.calibration.max_mean_abs_diff}）${okDiff ? "✅" : "❌"}；层级一致率 ${pct(tierAgree)}（合格线 ≥ ${pct(rubric.calibration.min_tier_agreement)}）${okTier ? "✅" : "❌"}；V 平均差 ${f1(vDiff)} 分；建议（直接 / 改写 / 参考 / 拒绝）一致率 ${pct(recAgree)}。`, "");
+  const c = rubric.calibration;
+  const ok = (b) => (b ? "✅" : "❌");
+  L.push(`配对样本 ${pairs.length} 个。`, "");
+  L.push(`- 每维平均绝对差（均值）${overallDiff.toFixed(2)}（合格线 ≤ ${c.max_mean_abs_diff}）${ok(overallDiff <= c.max_mean_abs_diff)}`);
+  L.push(`- 边界带（阈值 ±${rubric.boundary_band}）外的层级一致率 ${pct(tierAgreeOut)}，样本 ${outside.length} 个（合格线 ≥ ${pct(c.min_tier_agreement_outside_band)}）${ok(tierAgreeOut >= c.min_tier_agreement_outside_band)}`);
+  L.push(`- 相邻层级一致率（相差不超过一层）${pct(adjAgree)}（合格线 ≥ ${pct(c.min_adjacent_tier_agreement)}）${ok(adjAgree >= c.min_adjacent_tier_agreement)}`);
+  L.push(`- 参考：全体层级一致率 ${pct(tierAgree)}；V 平均差 ${f1(vDiff)} 分；建议一致率 ${pct(recAgree)}`, "");
+  if (disagreements.length) {
+    L.push("层级不一致的配对（第一评审 / 第二评审）：", "", "| id | 第一评审 | 第二评审 | 在边界带内 |", "|---|---|---|---|");
+    for (const p of disagreements) { const va = scoreOf(p.a).V, vb = scoreOf(p.b).V; L.push(`| ${esc(p.a.id)} | ${tierOf(p.a, va)} ${f1(va)} | ${tierOf(p.b, vb)} ${f1(vb)} | ${nearBoundary(va) || nearBoundary(vb) ? "是" : "否"} |`); }
+    L.push("");
+  }
   L.push("| 维度 | 平均绝对差 |", "|---|---|");
   for (const d of RATED_DIMS.slice().sort((a, b) => dimDiff[b] - dimDiff[a])) L.push(`| ${d} | ${dimDiff[d].toFixed(2)}${dimDiff[d] > rubric.calibration.max_mean_abs_diff ? " ⚠" : ""} |`);
   L.push("");
@@ -233,8 +271,9 @@ L.push("| 能力 | 计划波次 | 依赖它的 A/B 层 skill 数（其中 A 层�
 for (const [c, p] of Object.entries(pull).sort((a, b) => b[1].V - a[1].V)) L.push(`| ${c} ${CAPS[c].name} | ${CAPS[c].wave} | ${p.n}（${p.A}） | ${p.V.toFixed(0)} |`);
 L.push("");
 
-const row = (x) => `| ${esc(x.r.id)} | ${f1(x.V)} | ${f1(x.R)} | ${x.wave} | ${esc(x.r.job_family)} | ${esc(x.r.recommendation)} | ${esc(x.r.one_liner)} |`;
+const row = (x) => `| ${esc(x.r.id)}${x.r._raters === 2 ? " ●" : Math.abs(x.V - rubric.tiers.A) <= rubric.boundary_band ? " ◐" : ""} | ${f1(x.V)} | ${f1(x.R)} | ${x.wave} | ${esc(x.r.job_family)} | ${esc(x.r.recommendation)} | ${esc(x.r.one_liner)} |`;
 const head = ["| id | V | R | 波次 | 职能族 | 建议 | 一句话 |", "|---|---|---|---|---|---|---|"];
+L.push(`● = 双人共识分；◐ = 单人评分且 V 在 A 阈值 ±${rubric.boundary_band} 分的边界带内，层级待第二评审或评测确认。`, "");
 L.push("## 5. A 层：核心入选", "", ...head, ...ranked.filter((x) => x.tier === "A").map(row), "");
 L.push("## 6. B 层：候选（以实验身份进社区，评测证明后升级）", "", ...head, ...ranked.filter((x) => x.tier === "B").map(row), "");
 
@@ -273,11 +312,11 @@ for (const e of errors.slice(0, 50)) L.push(`  - ✗ ${esc(e)}`);
 
 writeFileSync(join(DIR, "REPORT.md"), L.join("\n") + "\n");
 const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-const cols = ["id", "package", "domain", "job_family", "tier", "V", "R", "wave", "recommendation", ...RATED_DIMS, "H1", "H2", "G1", "G2", "G3", "G4", "capabilities", "experts", "evidence_level", "confidence", "one_liner"];
+const cols = ["id", "package", "domain", "job_family", "tier", "V", "R", "wave", "raters", "recommendation", ...RATED_DIMS, "H1", "H2", "G1", "G2", "G3", "G4", "capabilities", "experts", "evidence_level", "confidence", "one_liner"];
 const csv = [cols.join(",")];
 for (const x of ranked) {
   const p = packages[x.r.package] ?? {};
-  csv.push([x.r.id, x.r.package, x.r.domain, x.r.job_family, x.tier, x.V.toFixed(1), x.R.toFixed(1), x.wave, x.r.recommendation,
+  csv.push([x.r.id, x.r.package, x.r.domain, x.r.job_family, x.tier, x.V.toFixed(1), x.R.toFixed(1), x.wave, x.r._raters, x.r.recommendation,
     ...RATED_DIMS.map((d) => x.r.scores[d]), p.H1, p.H2, ...rubric.gates.map((g) => x.r.gates[g]),
     (x.r.capabilities ?? []).join(" "), (x.r.experts ?? []).join(" "), x.r.evidence_level, x.r.confidence, x.r.one_liner].map(csvCell).join(","));
 }
