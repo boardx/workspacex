@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
+import { ChatDiagramBoardInsert } from "./chat-diagram-board-insert";
 
 /**
  * 单个 ```canvas / ```persona 围栏在 AI 气泡内的 **fabric 渲染**。
@@ -266,6 +267,7 @@ export function ChatCanvasFabric({
         openMaximized={openMaximized}
         openingReadback={openingReadback}
       />
+      <ChatDiagramBoardInsert code={previewCode} kind={lang} closed={savedSource !== null ? true : closed} threadId={threadId} messageId={messageId} bearer={bearer} />
 
       {maximized && (
         <ChatCanvasModal

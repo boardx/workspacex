@@ -1,5 +1,4 @@
-import { whiteboard as C } from '@repo/contracts';
-import { whiteboardTransfer as T } from '@repo/contracts';
+import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
 import type { z } from 'zod';
 import { apiRequest } from './api-client';
 export type Board = C.Board;
@@ -8,7 +7,7 @@ export type CreateBoardInput = z.infer<typeof C.CreateBoard>;
 export type UpdateBoardInput = z.infer<typeof C.UpdateBoard>;
 const ops = C.operations;
 const boardPath = (path: string, id: string) => path.replace(':boardId', encodeURIComponent(id));
-export async function listBoards() { return ops.listBoards.out.parse(await apiRequest(ops.listBoards.path, { method: ops.listBoards.method })).items; }
+export async function listBoards(sessionToken?: string) { return ops.listBoards.out.parse(await apiRequest(ops.listBoards.path, { method: ops.listBoards.method, sessionToken })).items; }
 export async function createBoard(input: CreateBoardInput) { return C.Board.parse(await apiRequest(ops.createBoard.path, { method: ops.createBoard.method, body: C.CreateBoard.parse(input) })); }
 export async function getBoard(id: string) { return C.Board.parse(await apiRequest(boardPath(ops.getBoard.path, id), { method: ops.getBoard.method })); }
 export async function updateBoard(id: string, input: UpdateBoardInput) { return C.Board.parse(await apiRequest(boardPath(ops.updateBoard.path, id), { method: ops.updateBoard.method, body: C.UpdateBoard.parse(input) })); }
@@ -26,4 +25,10 @@ export async function previewBoardImport(input: T.ImportBoardInput) {
 export async function importBoardPackage(input: T.ImportBoardInput) {
   const operation = T.operations.importBoard;
   return T.ImportBoardResult.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
+}
+export async function importDiagram(id: string, input: I.ImportDiagramInput, sessionToken?: string) {
+  const op = I.operations.importDiagram;
+  return I.ImportDiagramResult.parse(await apiRequest(boardPath(op.path, id), {
+    method: op.method, body: I.ImportDiagramInput.parse(input), sessionToken,
+  }));
 }

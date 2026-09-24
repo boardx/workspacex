@@ -14,6 +14,7 @@ import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
 import { ChatGraphVersionHistory } from "./chat-graph-version-history";
+import { ChatDiagramBoardInsert } from "./chat-diagram-board-insert";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
@@ -340,6 +341,7 @@ export function ChatDiagramFabric({
         canShowHistory={canQuickSave}
         onOpenHistory={() => setHistoryOpen(true)}
       />
+      <ChatDiagramBoardInsert code={previewCode} kind="mermaid" closed={savedSource !== null ? true : closed} threadId={threadId} messageId={messageId} bearer={bearer} />
 
       {historyOpen && threadId !== undefined && (
         <ChatGraphVersionHistory

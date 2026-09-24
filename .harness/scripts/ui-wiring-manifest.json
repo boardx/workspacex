@@ -1676,6 +1676,7 @@
         "platform-members",
         "project",
         "whiteboard",
+        "whiteboard-import",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -1734,6 +1735,7 @@
         "platform-members",
         "project",
         "whiteboard",
+        "whiteboard-import",
         "whiteboard-transfer"
       ],
       "controllers": [

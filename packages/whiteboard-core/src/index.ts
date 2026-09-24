@@ -6,3 +6,5 @@ export { prepareDiagramImport } from './diagram-import';
 export type { DiagramImportBundle, DiagramImportLoss, DiagramImportResult } from './diagram-import';
 export { convertExternalBoardSnapshot } from './external-import';
 export type { ExternalImportResult } from './external-import';
+export { selectVisibleObjects } from './viewport';
+export type { WhiteboardViewport } from './viewport';

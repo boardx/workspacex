@@ -1,7 +1,10 @@
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WHITEBOARD_OBSERVABILITY, type WhiteboardObservability } from './application/whiteboard/observability';
+import { ProcessWhiteboardObservability } from './infrastructure/whiteboard/observability';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
+import { WhiteboardOperationsController } from './interface/controllers/whiteboard-operations.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
@@ -1055,6 +1058,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardOperationsController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2868,13 +2872,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_OBSERVABILITY,
+      useFactory: () => new ProcessWhiteboardObservability(),
+    },
+    {
       provide: WHITEBOARD_UPDATE_VALIDATOR,
-      useFactory: () => new WorkerWhiteboardUpdateValidator(),
+      useFactory: (metrics: WhiteboardObservability) => new WorkerWhiteboardUpdateValidator(undefined, metrics),
+      inject: [WHITEBOARD_OBSERVABILITY],
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, validator: WorkerWhiteboardUpdateValidator, metrics: WhiteboardObservability) => new PgWhiteboardCollaborationStore(db, validator, 120, metrics),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, WHITEBOARD_OBSERVABILITY],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
