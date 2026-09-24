@@ -1,6 +1,9 @@
-import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WHITEBOARD_PROPOSALS } from './application/whiteboard/proposal-ports';
+import { PgProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
+import { WhiteboardProposalController } from './interface/controllers/whiteboard-proposal.controller';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
@@ -1057,6 +1060,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardProposalController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2877,6 +2881,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_COLLABORATION_STORE,
       useFactory: (db: DatabasePort, validator: WorkerWhiteboardUpdateValidator, blobs: BoardBlobStore, codec: BoardBlobCodec) => new PgWhiteboardCollaborationStore(db, validator, 120, blobs, codec, Number(process.env.WORKSPACEX_BOARD_CONTENT_KEY_VERSION ?? 1)),
       inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, BOARD_BLOB_STORE, BOARD_BLOB_CODEC],
+    },
+    {
+      provide: WHITEBOARD_PROPOSALS,
+      useFactory: (db: DatabasePort, collaboration: WhiteboardCollaborationStore) => new PgProposalRepository(db, collaboration),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
