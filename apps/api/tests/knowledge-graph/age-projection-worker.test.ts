@@ -7,6 +7,7 @@
  * - 顶点「死掉」（结论撤销）⇒ 顶点和它的边一起离开图
  * - 一个 org 投影失败（AGE 不可用）不影响别的 org；失败 org 的待投影行原样保留，恢复后补齐
  */
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyOntologyBatch } from "../../src/application/knowledge-graph/apply-ontology-batch";
 import type { GraphProjectionPort } from "../../src/application/knowledge-graph/ports";
@@ -19,7 +20,7 @@ import { graphParity } from "../../src/infrastructure/knowledge-graph/kg-graph-r
 import { KgProjectionWorker } from "../../src/infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "../../src/infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
-import { asApp, asOwner } from "../support/db";
+import { asApp, asOwner, resetOrgs } from "../support/db";
 import { modelBatch, seedKgOrg } from "./kg-fixtures";
 
 const ORG_A = "org-kg-f04-proj-a";
@@ -162,3 +163,80 @@ describe("F04: 投影 worker", () => {
     ))).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("F04 评审补强", () => {
+  const openApp = async (org: string) => {
+    const c = new pg.Client(appConfig());
+    await c.connect();
+    await c.query("BEGIN");
+    await c.query("SELECT set_config('app.current_org', $1, true)", [org]);
+    return c;
+  };
+
+  it("投影进行中到达的新变动不会被这一轮删掉（outbox 不丢更新）", async () => {
+    const b = modelBatch(ORG_A, segA);
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, b);
+    const worker = await openApp(ORG_A);
+    try {
+      await worker.query("SELECT kg_project_pending(500)");   // 锁住、投影、删到本轮最大 id
+      // 并发写入：没有唯一约束可撞，不会被 worker 的行锁挡住，也不会被 DO NOTHING 吞掉
+      await asOwner((c) => c.query("UPDATE claims SET revoked_at = now(), revocation_reason = 'source_deleted' WHERE id = $1", [b.claims[0]!.id]));
+      await worker.query("COMMIT");
+    } finally {
+      await worker.end();
+    }
+    expect((await outbox(ORG_A)).some((r) => r.target_id === b.claims[0]!.id)).toBe(true);
+    await projectPendingGraph(projection, logger);
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("数据库层的 AGE 故障（图表被锁、超时）：canonical 照常，待投影行保留，恢复后补齐", async () => {
+    const b = modelBatch(ORG_A, segA);
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, b);
+    const graph = (await asOwner((c) => c.query<{ g: string }>("SELECT kg_org_graph_name($1) AS g", [ORG_A]))).rows[0]!.g;
+    const locker = new pg.Client((await import("../../src/infrastructure/db/pg-config")).migrationConfig());
+    await locker.connect();
+    await locker.query("BEGIN");
+    await locker.query(`LOCK TABLE "${graph}"."N" IN ACCESS EXCLUSIVE MODE`);
+    try {
+      const w = await openApp(ORG_A);
+      try {
+        await w.query("SET LOCAL lock_timeout = '300ms'");
+        await w.query("SELECT kg_project_pending(500)").catch(() => undefined);
+        await w.query("COMMIT").catch(() => undefined);
+      } finally {
+        await w.end();
+      }
+      expect((await outbox(ORG_A)).some((r) => r.target_id === b.claims[0]!.id)).toBe(true);
+      const canonical = await asApp(ORG_A, (c) => c.query("SELECT 1 FROM claims WHERE id = $1", [b.claims[0]!.id]));
+      expect(canonical.rows).toHaveLength(1);
+    } finally {
+      await locker.query("ROLLBACK");
+      await locker.end();
+    }
+    await projectPendingGraph(projection, logger);
+    expect(await outbox(ORG_A)).toEqual([]);
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("指向片段的边被删 ⇒ 孤立的片段顶点一起清掉（对拍连源顶点一起比）", async () => {
+    const b = modelBatch(ORG_A, segA);
+    const edge = { id: `${b.edges[0]!.id}-seg`, srcKind: "claim" as const, srcId: b.claims[0]!.id, dstKind: "segment" as const, dstId: segA, relation: "derived_from" as const };
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, { ...b, edges: [...b.edges, edge] });
+    await projectPendingGraph(projection, logger);
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+    // 删掉所有指向该片段的边
+    await asOwner((c) => c.query("DELETE FROM ontology_edges WHERE org_id = $1 AND dst_kind = 'segment'", [ORG_A]));
+    await projectPendingGraph(projection, logger);
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("org 删除 ⇒ 它的图一起删", async () => {
+    const graph = (await asOwner((c) => c.query<{ g: string }>("SELECT kg_org_graph_name($1) AS g", [ORG_B]))).rows[0]!.g;
+    expect(await graphExists(ORG_B)).toBe(true);
+    await resetOrgs(ORG_B);
+    const left = await asOwner((c) => c.query("SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1", [graph]));
+    expect(left.rows).toHaveLength(0);
+  });
+});
+

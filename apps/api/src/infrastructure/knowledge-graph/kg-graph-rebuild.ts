@@ -32,12 +32,12 @@ export interface RebuildResult {
 }
 
 export async function rebuildOrgGraph(c: pg.ClientBase, orgId: string): Promise<RebuildResult> {
-  await c.query("BEGIN");
+  // 重建与对拍在同一个 REPEATABLE READ 事务里：两边读的是同一个 canonical 快照，
+  // 并发写入不会让对拍报出假的不一致。
+  await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
   try {
     await c.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
     const r = await c.query<{ r: { vertices: number; edges: number } }>("SELECT kg_rebuild_current_org_graph() AS r");
-    await c.query("COMMIT");
-    await c.query("BEGIN");
     const parity = await graphParity(c, orgId);
     await c.query("COMMIT");
     return { orgId, vertices: r.rows[0]!.r.vertices, edges: r.rows[0]!.r.edges, parity };

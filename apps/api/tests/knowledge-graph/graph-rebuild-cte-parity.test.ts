@@ -67,8 +67,9 @@ describe("F04: graph:rebuild 与 CTE 对拍", () => {
       await c.query("SELECT set_config('app.current_org', $1, true)", [ORG]);
       return (await c.query<{ x: string }>("SELECT x FROM kg_canonical_snapshot() x")).rows.map((r) => r.x);
     });
-    // 3 批会话 + 2 批个人 = 每批 1 实体 1 结论 ⇒ 8 个顶点；边 4 + 1 条到片段 = 5
-    expect(canonical.filter((x) => x.startsWith("V|"))).toHaveLength(8);
+    // 3 批会话 + 2 批个人 = 每批 1 实体 1 结论 ⇒ 8 个实体 / 结论顶点，外加 1 个片段源顶点；边 4 + 1 条到片段 = 5
+    expect(canonical.filter((x) => /^V\|(object|claim):/.test(x))).toHaveLength(8);
+    expect(canonical.filter((x) => x.startsWith("V|segment:"))).toHaveLength(1);
     expect(canonical.filter((x) => x.startsWith("E|"))).toHaveLength(5);
     expect(canonical.some((x) => x.includes(OTHER))).toBe(false);
   });

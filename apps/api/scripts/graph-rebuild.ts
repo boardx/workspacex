@@ -12,6 +12,10 @@ import { rebuildOrgGraph } from "../src/infrastructure/knowledge-graph/kg-graph-
 async function main(): Promise<number> {
   const i = process.argv.indexOf("--org");
   const only = i >= 0 ? process.argv[i + 1] : undefined;
+  if (i >= 0 && (only === undefined || only.startsWith("--"))) {
+    console.error("graph:rebuild: --org needs an organization id (omit --org to rebuild every org)");
+    return 2;
+  }
   const c = new pg.Client(migrationConfig());
   await c.connect();
   try {
