@@ -45,6 +45,8 @@ export interface GraphProjectionPort {
   pendingOrgs(): Promise<readonly OrgId[]>;
   /** 投影本 org 的待处理行，返回处理条数。AGE 不可用时抛错，待处理行原样保留。 */
   projectPending(orgId: OrgId, limit: number): Promise<number>;
+  /** 超过重试上限、不再自动投影的目标数（全局，只有数字）。 */
+  deadCount(): Promise<number>;
 }
 
 export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");

@@ -32,8 +32,21 @@ export interface RebuildResult {
 }
 
 export async function rebuildOrgGraph(c: pg.ClientBase, orgId: string): Promise<RebuildResult> {
-  // 重建与对拍在同一个 REPEATABLE READ 事务里：两边读的是同一个 canonical 快照，
-  // 并发写入不会让对拍报出假的不一致。
+  // 重建与对拍在同一个 REPEATABLE READ 事务里：两边读的是同一个 canonical 快照，并发写入不会让对拍报出假的不一致。
+  // ⚠ 快照必须在拿到图锁**之后**才建：否则「快照之后提交的变动」可能被 worker 在我们拿锁之前投影并删掉 outbox 行，
+  //   随后我们 drop 图、按旧快照重建——那次变动就永久丢了，而对拍在同一快照里还报一致。
+  //   所以先在事务外拿会话级 advisory lock（与 worker 的事务级锁同一个键，互斥），再开事务。
+  const lockKey = "SELECT hashtext('kg_graph:' || kg_org_graph_name($1)) AS k";
+  const key = (await c.query<{ k: number }>(lockKey, [orgId])).rows[0]!.k;
+  await c.query("SELECT pg_advisory_lock($1)", [key]);
+  try {
+    return await rebuildLocked(c, orgId);
+  } finally {
+    await c.query("SELECT pg_advisory_unlock($1)", [key]);
+  }
+}
+
+async function rebuildLocked(c: pg.ClientBase, orgId: string): Promise<RebuildResult> {
   await c.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
   try {
     await c.query("SELECT set_config('app.current_org', $1, true)", [orgId]);

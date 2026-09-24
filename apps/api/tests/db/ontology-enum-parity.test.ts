@@ -34,9 +34,9 @@ async function checkedValues(table: string, column: string): Promise<string[]> {
 const sorted = (xs: readonly string[]) => [...xs].sort();
 
 /*
- * 不在对账范围内的 CHECK（契约里没有对应枚举，它们是存储内部的状态位，不出现在任何 API 形状里）：
- * ontology_actions.actor_kind / outcome、object_embeddings.target_kind、ontology_edges.status。
- * 哪天契约暴露了其中之一，就要把它加进下面的表。
+ * 对账范围 = 契约里有同名枚举的列。`ontology_actions.actor_kind` / `outcome`、
+ * `object_embeddings.target_kind`、`ontology_edges.status` 是存储内部的状态位，只存在于迁移里；
+ * 哪天契约暴露了其中之一，就把它加进下面的表。
  */
 describe("F02：CHECK 枚举 ≡ 契约枚举", () => {
   it.each([

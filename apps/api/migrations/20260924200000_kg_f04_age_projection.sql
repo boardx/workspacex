@@ -54,10 +54,14 @@ CREATE POLICY kg_projection_outbox_tenant ON kg_projection_outbox
 REVOKE ALL ON kg_projection_outbox FROM app_rw;
 GRANT SELECT ON kg_projection_outbox TO app_rw;
 
--- 超过重试上限的目标（与 kg_project_pending 里的 5 是同一个数；改一处要改两处，本视图就是给人看的出口）。
+-- 单个目标的重试上限：唯一的一处定义，视图、worker 入口、待处理 org 列表都读它。
+CREATE OR REPLACE FUNCTION kg_projection_max_attempts() RETURNS integer
+LANGUAGE sql IMMUTABLE AS $$ SELECT 5 $$;
+
+-- 超过上限、不再自动重试的目标：给人看的出口（graph:rebuild 会把它们一并重建掉）。
 CREATE OR REPLACE VIEW kg_projection_dead WITH (security_invoker = true) AS
   SELECT org_id, target_kind, target_id, max(attempts) AS attempts, max(last_error) AS last_error
-    FROM kg_projection_outbox WHERE attempts >= 5
+    FROM kg_projection_outbox WHERE attempts >= kg_projection_max_attempts()
    GROUP BY org_id, target_kind, target_id;
 GRANT SELECT ON kg_projection_dead TO app_rw;
 
@@ -73,6 +77,9 @@ BEGIN
   IF r.scope_kind IS NULL AND NOT (TG_OP = 'UPDATE' AND OLD.scope_kind IS NOT NULL) THEN RETURN NULL; END IF;
   -- org 整体删除的级联：org 已经不在了，没有图可投，也插不进（外键）。
   IF NOT EXISTS (SELECT 1 FROM public.organizations o WHERE o.id = r.org_id) THEN RETURN NULL; END IF;
+  -- 库里没有 AGE（桌面版 PGlite）：永远不会被消费的行不排，否则 outbox 无限增长。
+  -- 以后装上 AGE：跑一次 graph:rebuild 从 canonical 全量建图，不需要这些行。
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = 'age') THEN RETURN NULL; END IF;
   INSERT INTO public.kg_projection_outbox (org_id, target_kind, target_id) VALUES (r.org_id, v_kind, r.id);
   RETURN NULL;
 END
@@ -203,7 +210,7 @@ END
 $$;
 
 -- ─────────────────────────────── worker 入口 ───────────────────────────────
-CREATE OR REPLACE FUNCTION kg_project_pending(p_limit integer DEFAULT 500) RETURNS integer
+CREATE OR REPLACE FUNCTION kg_project_pending(p_limit integer DEFAULT 50) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
@@ -216,7 +223,7 @@ BEGIN
   IF v_org IS NULL OR v_org = '' THEN
     RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM kg_projection_outbox WHERE org_id = v_org AND attempts < 5) THEN
+  IF NOT EXISTS (SELECT 1 FROM kg_projection_outbox WHERE org_id = v_org AND attempts < kg_projection_max_attempts()) THEN
     RETURN 0;
   END IF;
   v_graph := kg_ensure_current_org_graph();  -- AGE 不可用 ⇒ KG_GRAPH_UNAVAILABLE，整笔回滚，outbox 保留
@@ -227,7 +234,7 @@ BEGIN
   FOR t IN
     WITH picked AS (
       SELECT id, target_kind, target_id FROM kg_projection_outbox
-       WHERE org_id = v_org AND attempts < 5
+       WHERE org_id = v_org AND attempts < kg_projection_max_attempts()
        ORDER BY id LIMIT p_limit
        FOR UPDATE SKIP LOCKED
     )
@@ -238,11 +245,16 @@ BEGIN
       DELETE FROM kg_projection_outbox
        WHERE org_id = v_org AND target_kind = t.target_kind AND target_id = t.target_id AND id <= t.max_id;
       n := n + 1;
-      IF t.target_kind = 'edge' THEN v_swept := true; END IF;
-    EXCEPTION WHEN OTHERS THEN
-      -- 单个目标失败：子事务回滚它自己的图改动，记一次失败，继续下一个（不让一条坏数据卡住整个 org）。
-      UPDATE kg_projection_outbox SET attempts = attempts + 1, last_error = left(SQLERRM, 500)
-       WHERE org_id = v_org AND target_kind = t.target_kind AND target_id = t.target_id AND id <= t.max_id;
+      -- 边被删、或顶点死掉（DETACH DELETE 顺带删了它的边）都可能留下孤立的源顶点。
+      v_swept := true;
+    EXCEPTION
+      -- 瞬时冲突（锁等不到、死锁、序列化失败）不算这条目标的错：不计次数，留给下一轮。
+      WHEN lock_not_available OR deadlock_detected OR serialization_failure THEN
+        NULL;
+      WHEN OTHERS THEN
+        -- 单个目标失败：子事务回滚它自己的图改动，记一次失败，继续下一个（不让一条坏数据卡住整个 org）。
+        UPDATE kg_projection_outbox SET attempts = attempts + 1, last_error = left(SQLERRM, 500)
+         WHERE org_id = v_org AND target_kind = t.target_kind AND target_id = t.target_id AND id <= t.max_id;
     END;
   END LOOP;
   IF v_swept THEN PERFORM kg_age_sweep_sources(v_graph); END IF;
@@ -253,7 +265,12 @@ $$;
 -- 有待投影的 org 列表：只给 id，不给内容；worker 据此逐个 org 进 withTenant。
 CREATE OR REPLACE FUNCTION kg_projection_pending_orgs() RETURNS SETOF text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
-AS $$ SELECT DISTINCT org_id FROM kg_projection_outbox WHERE attempts < 5 $$;
+AS $$ SELECT DISTINCT org_id FROM kg_projection_outbox WHERE attempts < kg_projection_max_attempts() $$;
+
+-- 全局死信数（只有数字）：worker 发现它变大就报错，死信不会无声无息地堆着。
+CREATE OR REPLACE FUNCTION kg_projection_dead_count() RETURNS bigint
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$ SELECT count(DISTINCT (org_id, target_kind, target_id)) FROM kg_projection_outbox WHERE attempts >= kg_projection_max_attempts() $$;
 
 -- ─────────────────────────────── 全量重建（graph:rebuild） ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_rebuild_current_org_graph() RETURNS jsonb
@@ -349,13 +366,13 @@ CREATE TRIGGER kg_drop_org_graph_trg AFTER DELETE ON organizations
 REVOKE ALL ON FUNCTION kg_enqueue_projection(), kg_live_vertices(text), kg_live_edges(text),
   kg_age_exec(text, text, jsonb), kg_age_put_edge(text, record, boolean), kg_age_project_one(text, text, text, text),
   kg_age_ensure_schema(text), kg_age_sweep_sources(text), kg_drop_org_graph(),
-  kg_project_pending(integer), kg_projection_pending_orgs(), kg_rebuild_current_org_graph(),
+  kg_project_pending(integer), kg_projection_pending_orgs(), kg_projection_dead_count(), kg_rebuild_current_org_graph(),
   kg_canonical_snapshot(), kg_graph_snapshot() FROM PUBLIC;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
     -- worker 只需要这两个；重建与对拍走迁移角色（scripts/graph-rebuild.ts）。
-    GRANT EXECUTE ON FUNCTION kg_project_pending(integer), kg_projection_pending_orgs() TO app_rw;
+    GRANT EXECUTE ON FUNCTION kg_project_pending(integer), kg_projection_pending_orgs(), kg_projection_dead_count() TO app_rw;
   END IF;
 END
 $$;
