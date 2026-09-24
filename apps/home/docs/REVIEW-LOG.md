@@ -1557,3 +1557,27 @@ passed after. The set went from 50 cases to 75 while the score held — which is
 what a score that is measuring something looks like. What it still does not
 measure: whether the argument persuades, and iOS Safari (this machine has no
 WebKit).
+
+### Round 66 — what the host does, and what the fonts cost (76 cases)
+
+Run on a new, slower container: the committed round-65 code measured the
+Chinese page's slow-3G first paint at **3416–4048 ms** here, against a
+3200 ms budget it had met by ~100 ms on the previous machine. The thin
+margin this log kept noting turned out to be a real problem, not a figure.
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **`/privacy` redirected forever** (both languages). Cloudflare Pages already serves `/privacy` from `privacy.html` and 308-redirects `/privacy.html` back to `/privacy`; `_redirects` sent `/privacy` to `/privacy.html`. The live host is not reachable from this machine (the egress policy refuses it), so this rests on the host's documented behavior, not on a request. | Both rules removed. `check-links` fails any `_redirects` rule of the shape `/x → /x.html` (proved red: 2). |
+| 2 | **Every reference to the privacy page pointed at a redirect**: its canonical, hreflang, `og:url`, sitemap entries, the footer link and the language switch all named `…/privacy.html`, which Pages answers with a 308. A canonical that redirects is the one URL a search engine should never have to follow. | The URLs Pages serves: `/privacy`, `/zh/privacy`. `check-links` resolves extensionless paths the way the host does and fails a link to a `.html` form other than `index`/`404` (proved red: 16); the test server serves pretty URLs too. |
+| 3 | **The architecture explorer forgot your choice on rotate.** Crossing the 700 px breakpoint rebuilds the diagram, which reset it to L3 and dropped focus on `<body>`. | The chosen layer is kept across rebuilds and focus returns to the same row. New case `nav.arch.keeps`: 0 → 1. |
+| 4 | **Why `/zh/` paints late — found, and mostly fixed.** Traced: the first layout of the Chinese page took ~1.2–1.5 s at 4× CPU against ~0.6 s for English. Bisecting the stylesheet: every run of Han text walks the font stack until a family has the glyph, and the Chinese group sat *after* the latin face, its fallback and four system-UI names; each family passed costs a lookup. Moving the Chinese group directly after the latin face and its metric fallback: layout ~1.1 s → ~0.76 s here (where only WenQuanYi, last in the group, exists), and ~0.49 s when the present face is first in the group, as PingFang is on a Mac. Slow-3G first paint here: 3416–4048 → **3028–3212 ms**. Latin text is unaffected wherever the metric fallback resolves. | Stacks reordered in `base.css` (one declaration, both languages); WenQuanYi added for Linux desktops without Noto. **And a bug the reorder exposed**: `ui-monospace`, SF Mono and Menlo exist only on Apple systems, so on Windows and Linux every mono label fell through to the first CJK face with latin glyphs — Microsoft YaHei on Windows, before this round too. Real monospaced faces (Cascadia Mono, Consolas, DejaVu Sans Mono, Liberation Mono) now come first. |
+| 5 | **The social card's headline had never been set in the brand face.** Every card this generator produced — main included — showed the headline in Arial: the faces are `font-display: optional`, the card page loaded them cold, and they missed the block period. | `build-og` loads once to fetch the faces and renders on a second load, and refuses to write a card if they did not load. The Chinese card sets its headline in one weight: rendered here, the Han face has one weight and `/zh/` forbids faked bold, so "AI" in Outfit 700 sat beside regular Han. |
+
+The set itself: its performance cases now take the median of three cold loads.
+One load measured the same page's desktop LCP anywhere between 400 and 1056 ms
+on this machine — 0.05 of score from noise alone.
+
+Score on this machine: **9.93** (en 9.96, zh 9.93). Round 65 recorded 9.95 on
+the previous one; the difference is the Chinese desktop LCP case (692 ms median
+here), i.e. the machine, and it would be dishonest to present the two numbers
+as a trend.

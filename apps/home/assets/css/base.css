@@ -73,23 +73,45 @@
      draws Chinese punctuation (fonts.css). The comma is part of the value. */
   --han-punct: ;
 
-  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+  /* ORDER MATTERS, for speed. Every run of Han text walks this list until a
+     family has the glyph, and every family it passes costs a lookup. With the
+     Chinese faces at the end, each run tried the latin face, its fallback,
+     and four system-UI names first — on the slow-3G profile /zh/'s first
+     layout took ~1 s against ~0.6 s for English, and the page sat 50 ms from
+     its budget. The Chinese group now follows the latin face and its metric
+     fallback directly. Latin text is unaffected wherever the fallback resolves
+     (Arial, Helvetica or Liberation Sans — every desktop): it stops at one of
+     those two. Where none does (Android), latin reaches the Chinese group,
+     whose names Android does not expose, and lands on system-ui as before. Measured on a Chinese font that is present and first in the
+     group (as PingFang is on a Mac): that layout halves. WenQuanYi closes the
+     group for Linux desktops without Noto. */
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback",
+                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
-  --font-body:    var(--han-punct) "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback",
+                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   /* The mono stack needs the same CJK tail. Every eyebrow, label and status
      line on /zh/ is set in it — sixty-odd elements — and with no Han face
      named, the browser picked one for "generic monospace", which on a Mac is
      often not the face the body text uses and sometimes has Japanese glyph
      shapes. Round 39 fixed this for display and body and missed this stack;
      its gate only looked at those two. */
+  /* The monospaced faces for Windows and Linux come BEFORE the Chinese group:
+     ui-monospace, SF Mono and Menlo exist only on Apple systems, so elsewhere
+     latin labels fell through to the first Chinese face with latin glyphs —
+     Microsoft YaHei on Windows, WenQuanYi or Noto CJK on Linux — and every
+     eyebrow and status line on the English page was set in a CJK font's
+     proportional latin. */
   --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono",
                   "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
                   monospace;
 
   /* ---- radius scale ------------------------------------------------------

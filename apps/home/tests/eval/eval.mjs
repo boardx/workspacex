@@ -179,6 +179,16 @@ const CASES = [
       await ctx.close();
       return +ok;
     }],
+  ['nav.arch.keeps', '导航', 'Resizing across the breakpoint (a tablet rotated) keeps the architecture layer you chose, and your focus on it',
+    async (c) => {
+      const ctx = await c.browser.newContext({ viewport: { width: 1024, height: 768 } });
+      const p = await ctx.newPage(); await p.goto(`${c.base}${c.path}#architecture`, { waitUntil: 'load' }); await p.waitForTimeout(500);
+      await p.focus('.d-arch [data-layer="l5"]'); await p.keyboard.press('Enter');
+      await p.setViewportSize({ width: 600, height: 1024 }); await p.waitForTimeout(600);
+      const r = await p.evaluate(() => [document.querySelector('.d-arch [aria-pressed="true"]')?.dataset.layer, document.activeElement?.closest?.('[data-layer]')?.dataset.layer]);
+      await ctx.close();
+      return { score: (+(r[0] === 'l5') + +(r[1] === 'l5')) / 2, note: `selected ${r[0]}, focus ${r[1]}` };
+    }],
   ['nav.skip', '导航', 'The skip link is the first focusable element and targets <main>',
     async (c) => c.desk.evaluate(() => {
       const first = [...document.querySelectorAll('a[href], button, [tabindex="0"]')][0];
@@ -638,7 +648,14 @@ for (const [lang, path] of LANGS) {
     phone: await open(path, iphone),
     se: await open(path, se),
     reduced: await open(path, { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }),
-    metrics: await measure(path),
+    /* The median of three cold loads. One load measured the same page's
+       desktop LCP anywhere from 400 to 1056 ms on a busy machine, which moved
+       the score by 0.05 with no change to the site. */
+    metrics: await (async () => {
+      const runs = [await measure(path), await measure(path), await measure(path)];
+      const med = (k) => runs.map((r) => r[k]).sort((a, b) => a - b)[1];
+      return { lcp: med('lcp'), cls: med('cls'), kb: med('kb'), requests: med('requests') };
+    })(),
   };
   c.text = await text(c.desk, lang);
   results[lang] = [];

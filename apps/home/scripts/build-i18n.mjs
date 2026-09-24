@@ -54,8 +54,11 @@ const PAGES = [
   {
     source: 'privacy.html',
     target: 'zh/privacy.html',
-    path: '/zh/privacy.html',
-    enPath: '/privacy.html',
+    /* The URLs Cloudflare Pages actually serves: it answers /privacy from
+       privacy.html and 308-redirects /privacy.html to /privacy, so a canonical,
+       hreflang or sitemap entry naming the .html form points at a redirect. */
+    path: '/zh/privacy',
+    enPath: '/privacy',
     depth: 1,
     weight: { changefreq: 'yearly', priority: '0.3' },
     zh: {

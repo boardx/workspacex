@@ -74,6 +74,8 @@ export function serve() {
   const server = createServer(async (req, res) => {
     let path = decodeURIComponent(req.url.split('?')[0]);
     if (path.endsWith('/')) path += 'index.html';
+    // Cloudflare Pages' pretty URLs: /privacy is served from privacy.html.
+    else if (!extname(path)) path += '.html';
     try {
       const body = await readFile(join(ROOT, path));
       const ext = extname(path);

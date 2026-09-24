@@ -105,18 +105,24 @@
 
   --han-punct: ;
 
-  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
-  --font-body:    var(--han-punct) "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
 
-  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback",
                   "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback",
+                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+
+  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono",
+                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
                   monospace;
 
 

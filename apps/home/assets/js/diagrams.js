@@ -513,12 +513,21 @@ const ARCH_IMPACT = {
   l1: ['l1'],
 };
 
+/* The explorer is rebuilt when the width crosses the narrow breakpoint (a
+   tablet rotated, a window resized). It used to come back on L3 with focus
+   dropped on <body>: the reader's choice and place both lost. The choice is
+   kept here, and renderDiagrams notes which layer had focus before the old
+   drawing was thrown away. */
+let archSelected = 'l3';
+let archFocus = null;
+
 function wireArchSelection(root) {
   const rows = [...root.querySelectorAll('[data-layer]')];
   const detail = document.getElementById('arch-detail');
   if (!rows.length) return () => {};
 
   const select = (id) => {
+    archSelected = id;
     const impact = ARCH_IMPACT[id] ?? [id];
     rows.forEach((row) => {
       const rid = row.dataset.layer;
@@ -540,7 +549,11 @@ function wireArchSelection(root) {
     });
   });
 
-  select('l3');
+  select(archSelected);
+  if (archFocus) {
+    rows.find((r) => r.dataset.layer === archFocus)?.focus({ preventScroll: true });
+    archFocus = null;
+  }
   return () => {};
 }
 
@@ -818,6 +831,7 @@ let loopApi = null;
 
 export function renderDiagrams(lang = pageLang()) {
   LANG = lang;
+  archFocus = document.activeElement?.closest?.('.d-arch [data-layer]')?.dataset.layer ?? null;
   teardowns.forEach((fn) => fn?.());
   teardowns = [];
 

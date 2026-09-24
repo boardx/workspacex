@@ -39,7 +39,11 @@
   /* `ch` is the width of a "0", so 17ch of Han is far narrower than 17 Han
      characters — the Chinese card was using the left 45% of the frame and
      leaving the rest empty. */
-  html[lang^="zh"] h1 { max-width: 13em; line-height: 1.18; }
+  /* The card is rendered here, where the Chinese face comes in one weight;
+     /zh/ forbids faked bold, so the Han in the headline is regular while
+     "AI" beside it was Outfit 700 — two weights in four characters on the
+     image people share. One weight for both. */
+  html[lang^="zh"] h1 { max-width: 13em; line-height: 1.18; font-weight: 400; }
   html[lang^="zh"] p  { max-width: 20em; line-height: 1.7; }
   .chain { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
   .chain span { font-family: var(--font-mono); font-size: 16px; letter-spacing: .12em;
