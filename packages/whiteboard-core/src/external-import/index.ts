@@ -16,11 +16,12 @@ type SourceGeometry = { x: number; y: number; width: number; height: number; rot
 type SourceObject = {
   id: string; pageId: string; type: string; text?: string; geometry?: SourceGeometry;
   parentId?: string; relativeToParent?: boolean; shape?: 'rectangle' | 'ellipse';
-  fillColor?: string; textColor?: string; from?: string; to?: string;
+  fillColor?: string; textColor?: string; from?: string; to?: string; positionRelativeTo?: string;
 };
 
 const knownKinds: Record<string, BoardObject['kind']> = {
-  sticky_note: 'sticky', sticky: 'sticky', text: 'text', frame: 'frame', area: 'frame',
+  sticky_note: 'sticky', 'sticky-note': 'sticky', sticky: 'sticky', card: 'sticky',
+  text: 'text', textbox: 'text', title: 'text', frame: 'frame', area: 'frame',
   shape: 'rectangle', rectangle: 'rectangle', ellipse: 'ellipse',
 };
 
@@ -53,6 +54,7 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
         parentId: item.parent?.id ?? item.parentId, shape: item.data?.shape === 'ellipse' ? 'ellipse' : item.shape,
         fillColor: item.style?.fillColor ?? item.fillColor, textColor: item.style?.textColor ?? item.textColor,
         from: item.startConnection?.item ?? item.startItemId, to: item.endConnection?.item ?? item.endItemId,
+        positionRelativeTo: item.position && !('width' in item.position) ? item.position.relativeTo : undefined,
       });
     }
   } else {
@@ -63,7 +65,7 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
         ? { x: widget.x, y: widget.y, width: widget.width, height: widget.height, ...(widget.rotation !== undefined ? { rotation: widget.rotation } : {}) } : undefined;
       sources.push({
         id: widget.id, pageId: page.id, type: widget.type, text: widget.htmlText ?? widget.text ?? widget.title, geometry: widget.position ?? directGeometry,
-        parentId: widget.parentId, relativeToParent: widget.relativeToParent, shape: widget.shape,
+        parentId: widget.parentId, relativeToParent: widget.relativeToParent ?? Boolean(widget.parentId), shape: widget.shape,
         fillColor: widget.style?.fillColor ?? widget.style?.backgroundColor ?? widget.fillColor, textColor: widget.style?.textColor ?? widget.textColor,
         from: widget.startRefId ?? widget.startWidgetId, to: widget.endRefId ?? widget.endWidgetId,
       });
@@ -112,6 +114,10 @@ export function convertExternalBoardSnapshot(input: unknown, rawOptions: unknown
     if (!geometry) { skipped++; loss('INVALID_OBJECT', source, 'Object has no geometry and was skipped.'); continue; }
     const cleaned = sanitizeText(source.text ?? '');
     if (cleaned.changed) loss('FORMATTING_REMOVED', source, 'HTML formatting and active content were removed from editable text.');
+    if (cleaned.text.length > 20_000) loss('TEXT_TRUNCATED', source, 'Text exceeded the Board object limit and was truncated to 20,000 characters.');
+    if (provider === 'miro' && source.positionRelativeTo && source.positionRelativeTo !== 'canvas_center') {
+      loss('POSITION_APPROXIMATED', source, `Miro position relativeTo “${source.positionRelativeTo}” was approximated in Board world coordinates.`);
+    }
     const id = nextId(); ids.set(source.id, id);
     const coordinateSemantics = provider === 'miro' ? 'source-center-to-board-top-left' : source.relativeToParent ? 'source-parent-relative-to-board-absolute' : 'source-top-left-preserved';
     const boardGeometry = provider === 'miro'

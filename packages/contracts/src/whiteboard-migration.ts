@@ -10,7 +10,7 @@ export const EXTERNAL_BOARD_IMPORT = {
 
 const ExternalId = z.string().trim().min(1).max(256);
 const ExternalName = z.string().trim().min(1).max(200);
-const Color = z.string().max(32).regex(/^(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/);
+const Color = z.string().max(64).regex(/^(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+|(?:rgb|hsl)a?\([0-9.,%\s+-]+\))$/);
 const Geometry = z.object({
   x: z.number().finite().min(-1_000_000).max(1_000_000),
   y: z.number().finite().min(-1_000_000).max(1_000_000),
@@ -77,7 +77,7 @@ export const MuralBoardSnapshotV1 = z.object({
   format: z.literal('mural.public-api.mural-snapshot'),
   schemaVersion: z.literal(1),
   exportedAt: z.string().datetime(),
-  drawingsIncluded: z.boolean(),
+  drawingsIncluded: z.literal(false).optional().default(false),
   mural: z.object({ id: ExternalId, name: ExternalName }).strict(),
   pages: z.array(z.object({ id: ExternalId, name: z.string().max(200).optional(), widgets: z.array(MuralWidget).max(EXTERNAL_BOARD_IMPORT.maxObjects) }).strict()).min(1).max(100),
 }).strict();
@@ -88,7 +88,7 @@ export type ExternalBoardSnapshot = z.infer<typeof ExternalBoardSnapshot>;
 
 export const ExternalImportLossCode = z.enum([
   'UNKNOWN_OBJECT', 'DANGLING_PARENT', 'DANGLING_CONNECTOR', 'DRAWING_UNSUPPORTED',
-  'DRAWINGS_NOT_INCLUDED', 'FORMATTING_REMOVED', 'INVALID_OBJECT',
+  'DRAWINGS_NOT_INCLUDED', 'FORMATTING_REMOVED', 'TEXT_TRUNCATED', 'POSITION_APPROXIMATED', 'INVALID_OBJECT',
 ]);
 export const ExternalImportLoss = z.object({
   code: ExternalImportLossCode,

@@ -66,4 +66,21 @@ describe('Miro and Mural external board import', () => {
     forged.pages[0]!.items[0]!.createdBy = () => 'not JSON';
     expect(convertExternalBoardSnapshot(forged, { packageBoardId })).toMatchObject({ ok:false, code:'INVALID_SNAPSHOT' });
   });
+
+  it('reports text truncation and non-canvas Miro coordinates instead of silently losing fidelity', () => {
+    const snapshot = read('miro-board-v1.json') as {
+      pages: Array<{ items: Array<{ data?: { content?: string }; position?: Record<string, unknown> }> }>;
+    };
+    const sticky = snapshot.pages[0]!.items[1]!;
+    sticky.data = { content: 'x'.repeat(20_001) };
+    sticky.position = { ...sticky.position, relativeTo: 'parent_top_left' };
+    const result = convertExternalBoardSnapshot(snapshot, { packageBoardId });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.package.objects.find(object => object.kind === 'sticky')?.text).toHaveLength(20_000);
+    expect(result.preview.losses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'TEXT_TRUNCATED', sourceObjectId: 'sticky-1' }),
+      expect.objectContaining({ code: 'POSITION_APPROXIMATED', sourceObjectId: 'sticky-1' }),
+    ]));
+  });
 });
