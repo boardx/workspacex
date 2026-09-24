@@ -317,6 +317,36 @@ export const DigitalInterviewExpertRun = z.object({
   updatedAt: z.string().datetime(),
 }).strict();
 
+/** Study-level evidence boundary. It is the single truth for report language and approval. */
+export const StudyEvidenceMode = z.enum(["simulated", "mixed", "participant"]);
+export const DigitalInterviewEvidenceStatus = z.enum(["exploratory", "triangulated", "verified"]);
+export const DigitalInterviewEvidenceRef = z.object({
+  sourceKind: z.enum(["digital_expert", "participant"]),
+  sourceAnswerId: z.string().min(1),
+  expertId: z.string().min(1).nullable(),
+  participantId: z.string().min(1).nullable(),
+  questionId: z.string().min(1),
+  revisionId: z.string().min(1),
+}).strict();
+
+export const DigitalInterviewReportReview = z.object({
+  eligibility: z.enum([
+    "eligible",
+    "blocked_missing_participant_evidence",
+    "blocked_missing_counterexample",
+    "blocked_unreviewed_quality_flag",
+    "blocked_outdated_report",
+  ]),
+  message: z.string().min(1),
+  action: z.string().min(1).nullable(),
+}).strict();
+
+const defaultDigitalInterviewReportReview = {
+  eligibility: "blocked_missing_participant_evidence" as const,
+  message: "需要真实受访者证据后才能批准。",
+  action: "添加并复核真实受访者回答",
+};
+
 /** 报告中的每条发现都必须能回到一位专家的一道问题及其原始回答。 */
 export const DigitalInterviewReportFinding = z.object({
   findingId: z.string().min(1),
@@ -326,6 +356,9 @@ export const DigitalInterviewReportFinding = z.object({
   questionId: z.string().min(1),
   sourceAnswerId: z.string().min(1),
   exploratory: z.literal(true),
+  evidenceStatus: DigitalInterviewEvidenceStatus.default("exploratory"),
+  evidenceRefs: z.array(DigitalInterviewEvidenceRef).default([]),
+  counterEvidenceCount: z.number().int().nonnegative().default(0),
 }).strict();
 
 export const DigitalInterviewReport = z.object({
@@ -587,6 +620,8 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   expertRuns: z.array(DigitalInterviewExpertRun),
   report: DigitalInterviewReport.nullable().optional(),
   reportGeneration: DigitalInterviewReportGeneration.nullable().optional(),
+  studyEvidenceMode: StudyEvidenceMode.default("simulated"),
+  reportReview: DigitalInterviewReportReview.default(defaultDigitalInterviewReportReview),
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),

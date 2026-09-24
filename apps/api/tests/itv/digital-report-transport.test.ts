@@ -44,6 +44,8 @@ describe("数字访谈报告浏览器增量流", () => {
     const finding = {
       findingId: "finding-1", title: "开发者掌控", summary: "需要可解释上下文。",
       expertId: "expert-1", questionId: "question-1", sourceAnswerId: "expert-1:question-1", exploratory: true as const,
+      evidenceStatus: "exploratory" as const, counterEvidenceCount: 0,
+      evidenceRefs: [{ sourceKind: "digital_expert" as const, sourceAnswerId: "expert-1:question-1", expertId: "expert-1", participantId: null, questionId: "question-1", revisionId: "revision-1" }],
     };
     const projector = new DigitalReportTransportProjector();
     projector.project(running(""));

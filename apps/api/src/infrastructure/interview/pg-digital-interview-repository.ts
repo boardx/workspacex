@@ -39,6 +39,26 @@ interface DigitalInterviewRow {
 const COLUMNS = `id, org_id, title, tags, topic, digital_status,
   source_quick_interview_id, selected_expert_ids, report_id, version, created_by, updated_at`;
 
+type StoredReportFinding = {
+  findingId: string; title: string; summary: string; expertId: string; questionId: string;
+  sourceAnswerId: string; exploratory: true;
+  evidenceStatus?: "exploratory" | "triangulated" | "verified";
+  evidenceRefs?: Array<{ sourceKind: "digital_expert" | "participant"; sourceAnswerId: string; expertId: string | null; participantId: string | null; questionId: string; revisionId: string }>;
+  counterEvidenceCount?: number;
+};
+
+function toWorkflowFinding(finding: StoredReportFinding, revisionId: string): NonNullable<DigitalInterviewWorkflowView["report"]>["findings"][number] {
+  return {
+    ...finding,
+    evidenceStatus: finding.evidenceStatus ?? "exploratory",
+    evidenceRefs: finding.evidenceRefs ?? [{
+      sourceKind: "digital_expert", sourceAnswerId: finding.sourceAnswerId,
+      expertId: finding.expertId, participantId: null, questionId: finding.questionId, revisionId,
+    }],
+    counterEvidenceCount: finding.counterEvidenceCount ?? 0,
+  };
+}
+
 function toStored(row: DigitalInterviewRow): StoredDigitalInterview {
   return {
     interviewId: row.id,
@@ -356,6 +376,7 @@ interface WorkflowBaseRow extends DigitalInterviewRow {
   expert_snapshot_version_id: string | null;
   question_version_id: string | null;
   skill_thread_id: string;
+  study_evidence_mode: "simulated" | "mixed" | "participant";
 }
 
 export async function readDigitalInterviewWorkflow(
@@ -366,7 +387,7 @@ export async function readDigitalInterviewWorkflow(
   const base = await session.query<WorkflowBaseRow>(
     `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
             s.source_quick_interview_id, s.selected_expert_ids, s.report_id, s.version,
-            s.created_by, s.updated_at, s.project_id, s.research_project_id,
+            s.created_by, s.updated_at, s.project_id, s.research_project_id, s.study_evidence_mode,
             false AS is_collaborator, r.id AS revision_id, r.revision_number,
             tv.id AS topic_version_id, ev.id AS expert_snapshot_version_id,
             qv.id AS question_version_id, st.id AS skill_thread_id
@@ -458,14 +479,12 @@ export async function readDigitalInterviewWorkflow(
     ),
     session.query<{
       report_id: string; title: string | null; executive_summary: string | null; markdown: string | null;
-      findings: Array<{
-        findingId: string; title: string; summary: string; expertId: string; questionId: string;
-        sourceAnswerId: string; exploratory: true;
-      }>;
+      findings: StoredReportFinding[];
+      review_state: { eligibility: "eligible" | "blocked_missing_participant_evidence" | "blocked_missing_counterexample" | "blocked_unreviewed_quality_flag" | "blocked_outdated_report"; message: string; action: string | null } | null;
       generated_at: Date | string; generation_status: "running" | "completed" | "failed";
       request_id: string | null; error_code: string | null; updated_at: Date | string;
     }>(
-      `SELECT report_id,title,executive_summary,markdown,findings,generated_at,
+      `SELECT report_id,title,executive_summary,markdown,findings,review_state,generated_at,
               generation_status,request_id,error_code,updated_at
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [orgId, interviewId, row.revision_id],
@@ -488,12 +507,18 @@ export async function readDigitalInterviewWorkflow(
     sourceQuickInterviewId: row.source_quick_interview_id,
     selectedExpertIds: row.selected_expert_ids,
     reportId: row.report_id,
+    studyEvidenceMode: row.study_evidence_mode,
+    reportReview: reports.rows[0]?.review_state ?? {
+      eligibility: "blocked_missing_participant_evidence",
+      message: "需要真实受访者证据后才能批准。",
+      action: "添加并复核真实受访者回答",
+    },
     report: reports.rows[0]?.generation_status === "completed" ? {
       reportId: reports.rows[0].report_id,
       title: reports.rows[0].title!,
       executiveSummary: reports.rows[0].executive_summary!,
       markdown: reports.rows[0].markdown!,
-      findings: reports.rows[0].findings,
+      findings: reports.rows[0].findings.map((finding) => toWorkflowFinding(finding, row.revision_id)),
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
     } : null,
     reportGeneration: reports.rows[0] && reports.rows[0].generation_status !== "completed" ? {
@@ -503,7 +528,7 @@ export async function readDigitalInterviewWorkflow(
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",
-      findings: reports.rows[0].findings,
+      findings: reports.rows[0].findings.map((finding) => toWorkflowFinding(finding, row.revision_id)),
       errorCode: reports.rows[0].error_code,
       updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
