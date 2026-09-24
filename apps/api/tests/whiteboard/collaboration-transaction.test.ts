@@ -13,12 +13,12 @@ const validator: WhiteboardUpdateValidator = {
   commands: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
   validate: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
 };
-function session(): { value: TenantSession; queries: string[] } {
+function session(head: { epoch: number; seq: string } = { epoch: 1, seq: '0' }): { value: TenantSession; queries: string[] } {
   const queries: string[] = [];
   return { queries, value: { async query<R>(sql: string) {
     queries.push(sql);
     const rows = sql.startsWith('SELECT owner_id') ? [{ owner_id: p.userId, archived: false }]
-      : sql.startsWith('SELECT d.epoch') ? [{ epoch: 1, seq: '0', snapshot: Buffer.from([0, 0]), head_epoch: 1, head_seq: '0', storage_kind: 'legacy_pg', manifest_key: null, manifest_digest: null, manifest_size_bytes: null, tenant_key_version: null, fencing_token: '0' }]
+      : sql.startsWith('SELECT d.epoch') ? [{ epoch: 1, seq: '0', snapshot: Buffer.from([0, 0]), head_epoch: head.epoch, head_seq: head.seq, storage_kind: 'legacy_pg', manifest_key: null, manifest_digest: null, manifest_size_bytes: null, tenant_key_version: null, fencing_token: '0' }]
       : sql.startsWith('SELECT count') ? [{ count: '0' }] : [];
     return { rows: rows as R[] };
   } } };
@@ -39,6 +39,17 @@ it('public commands return ACK only after the outer transaction succeeds', async
   expect(committed).toBe(true); expect(ack).not.toHaveProperty('durability');
   db.withTenant = async (_org, fn) => { await fn(s.value); throw new Error('COMMIT failed'); };
   await expect(new PgWhiteboardCollaborationStore(db, validator).writeCommands(p, boardId, input())).rejects.toThrow('COMMIT failed');
+});
+it('rejects divergent authoritative head metadata before load or append can write', async () => {
+  for (const head of [{ epoch: 2, seq: '0' }, { epoch: 1, seq: '1' }]) {
+    const s = session(head);
+    const db: DatabasePort = { withTenant: async (_org, fn) => fn(s.value), withoutTenant: async () => { throw new Error('No tenant'); }, close: async () => {} };
+    const store = new PgWhiteboardCollaborationStore(db, validator);
+    await expect(store.load(p, boardId)).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+    await expect(store.append(p, boardId, { epoch: 1, updateId: randomUUID(), update: new Uint8Array([1]) })).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+    expect(s.queries.some(sql => sql.startsWith('INSERT INTO whiteboard_updates'))).toBe(false);
+    expect(s.queries.some(sql => sql.startsWith('UPDATE whiteboard_documents'))).toBe(false);
+  }
 });
 
 const memoryBlobs = (): BoardBlobStore => {

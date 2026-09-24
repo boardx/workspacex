@@ -60,7 +60,7 @@ function audit(code: string): string[] {
   if (!(methods.get('writeCommandsInTransaction') ?? '').includes('this.commitInTransaction(session, p, boardId')) errors.push('commands: guarded transaction path');
 
   const head = methods.get('head') ?? '';
-  if (head.indexOf('this.access(session, p, boardId, false)') < 0 || head.indexOf('this.access(session, p, boardId, false)') > head.indexOf('SELECT epoch,seq FROM whiteboard_documents')) errors.push('head: authorize before read');
+  if (head.indexOf('this.access(session, p, boardId, false)') < 0 || head.indexOf('this.access(session, p, boardId, false)') > head.indexOf('FROM whiteboard_documents')) errors.push('head: authorize before read');
   const load = methods.get('load') ?? '';
   if (load.indexOf('this.access(session, p, boardId, false)') < 0 || load.indexOf('this.access(session, p, boardId, false)') > load.indexOf('this.document(session, p, boardId)')) errors.push('load: authorize before read');
   const commit = methods.get('commitInTransaction') ?? '';

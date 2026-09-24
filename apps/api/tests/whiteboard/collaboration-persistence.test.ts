@@ -141,4 +141,20 @@ describe('whiteboard collaboration durable transactions', () => {
       expect((await store.load(owner, board.id)).seq).toBe(0);
     }
   });
+  it('fails closed when the authoritative head epoch or sequence diverges from document metadata', async () => {
+    for (const field of ['epoch', 'head_seq'] as const) {
+      const board = await createBoard();
+      expect((await store.load(owner, board.id)).seq).toBe(0);
+      await db.withTenant(orgId, session => session.query(`UPDATE whiteboard_content_heads SET ${field}=${field}+1 WHERE org_id=$1 AND board_id=$2`, [orgId, board.id]));
+
+      await expect(store.load(owner, board.id)).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+      const offline = createWhiteboardDocument();
+      executeCommands(offline, [command(`tampered-${field}`)], {});
+      const update = Y.encodeStateAsUpdate(offline); offline.destroy();
+      await expect(store.append(owner, board.id, { epoch: 1, updateId: randomUUID(), update })).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+
+      const state = await db.withTenant(orgId, session => session.query<{ seq: string; updates: string }>(`SELECT d.seq::text,(SELECT count(*)::text FROM whiteboard_updates u WHERE u.org_id=d.org_id AND u.board_id=d.board_id) AS updates FROM whiteboard_documents d WHERE d.org_id=$1 AND d.board_id=$2`, [orgId, board.id]));
+      expect(state.rows[0]).toEqual({ seq: '0', updates: '0' });
+    }
+  });
 });

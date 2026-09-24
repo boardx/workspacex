@@ -7,7 +7,7 @@ import type { DatabasePort, TenantSession } from '../../application/ports/databa
 import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
-import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
+import { BoardBlobError, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
 import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
 import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
 
@@ -20,6 +20,11 @@ type ContentHead = {
 type Access = { role: C.Board['role']; archived: boolean };
 const CONTENT_SCHEMA_VERSION = 1, CONTENT_PROTOCOL_VERSION = 1;
 const HASH = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
+function assertHeadMatchesDocument(document: { epoch: number; seq: string }, head: { epoch: number; head_seq: string }): void {
+  if (head.epoch !== document.epoch || Number(head.head_seq) !== Number(document.seq)) {
+    throw new BoardBlobError('INTEGRITY_FAILED', 'Board content head does not match document metadata');
+  }
+}
 function validIds(principal: Principal, boardId: string, requestId?: string, epoch?: number): void {
   assertPrincipal(principal);
   if (!C.BoardId.safeParse(boardId).success || (requestId !== undefined && !C.CreateBoard.shape.requestId.safeParse(requestId).success)
@@ -65,14 +70,20 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     await session.query(`INSERT INTO whiteboard_content_heads(org_id,board_id,epoch,head_seq,checkpoint_seq) SELECT org_id,board_id,epoch,seq,seq FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2 ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
     const result = await session.query<{ epoch: number; seq: string; snapshot: Buffer | null; head_epoch: number; head_seq: string; storage_kind: ContentHead['storage_kind']; manifest_key: string | null; manifest_digest: string | null; manifest_plain_digest: string | null; manifest_size_bytes: string | null; tenant_key_version: number | null; schema_version: number | null; protocol_version: number | null; fencing_token: string }>(`SELECT d.epoch,d.seq,d.snapshot,h.epoch AS head_epoch,h.head_seq,h.storage_kind,h.manifest_key,h.manifest_digest,h.manifest_plain_digest,h.manifest_size_bytes,h.tenant_key_version,h.schema_version,h.protocol_version,h.fencing_token FROM whiteboard_documents d JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2`, [p.orgId, boardId]);
     const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND');
-    return { epoch: row.epoch, seq: row.seq, snapshot: row.snapshot, fresh: inserted.rows.length === 1, head: { epoch: row.head_epoch, head_seq: row.head_seq, storage_kind: row.storage_kind, manifest_key: row.manifest_key, manifest_digest: row.manifest_digest, manifest_plain_digest: row.manifest_plain_digest, manifest_size_bytes: row.manifest_size_bytes, tenant_key_version: row.tenant_key_version, schema_version: row.schema_version, protocol_version: row.protocol_version, fencing_token: row.fencing_token } };
+    const head = { epoch: row.head_epoch, head_seq: row.head_seq, storage_kind: row.storage_kind, manifest_key: row.manifest_key, manifest_digest: row.manifest_digest, manifest_plain_digest: row.manifest_plain_digest, manifest_size_bytes: row.manifest_size_bytes, tenant_key_version: row.tenant_key_version, schema_version: row.schema_version, protocol_version: row.protocol_version, fencing_token: row.fencing_token };
+    assertHeadMatchesDocument(row, head);
+    return { epoch: row.epoch, seq: row.seq, snapshot: row.snapshot, fresh: inserted.rows.length === 1, head };
   }
   async head(p: Principal, boardId: string): Promise<WhiteboardSyncHead> {
     validIds(p, boardId);
     return this.db.withTenant(p.orgId, async session => {
       const access = await this.access(session, p, boardId, false);
-      const result = await session.query<{ epoch: number; seq: string }>(`SELECT epoch,seq FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+      const result = await session.query<{ epoch: number; seq: string; head_epoch: number | null; head_seq: string | null }>(`SELECT d.epoch,d.seq,h.epoch AS head_epoch,h.head_seq FROM whiteboard_documents d LEFT JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2`, [p.orgId, boardId]);
       const row = result.rows[0];
+      if (row) {
+        if (row.head_epoch === null || row.head_seq === null) throw new BoardBlobError('INTEGRITY_FAILED', 'Board content head is missing');
+        assertHeadMatchesDocument(row, { epoch: row.head_epoch, head_seq: row.head_seq });
+      }
       return { ...access, epoch: row?.epoch ?? 1, seq: Number(row?.seq ?? 0) };
     });
   }

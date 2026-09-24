@@ -8,6 +8,8 @@ export default defineConfig({
       'tests/whiteboard/board-blob-codec.test.ts',
       'tests/whiteboard/board-content-heads-pglite.test.ts',
       'tests/whiteboard/board-storage-provider.test.ts',
+      'tests/whiteboard/collaboration-transaction.test.ts',
+      'tests/whiteboard/collaboration-repository-guard.test.ts',
     ],
     environment: 'node',
     maxWorkers: 1,
