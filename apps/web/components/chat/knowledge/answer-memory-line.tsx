@@ -11,20 +11,36 @@ import type { TurnMemory } from "@/lib/knowledge-graph-api";
  *   打扰要克制（E8）：这只有一行，不遮正文；本轮的主动卡片另算，最多一张。
  *
  * - `onView`：给了就「查看」= 打开右栏「记忆」面板（真实 `/chat`）；没给就在原位展开逐条（签核预览）。
- * - `undo`：撤销这一轮的真实通路（`revokeClaim` 批量）F10 才接。`"unavailable"`（默认）时「撤销」
- *   是禁用态并说明原因——不是一个点了只改本地状态、刷新就回来的假按钮；`"local"` 只给签核预览演示用。
+ * - `onUndo`（F10）：撤销这一轮 = 把本轮记下的逐条忘掉（`revokeClaim`）。只有所有者才传；
+ *   不传时「撤销」**不渲染**（非所有者看不到一个点了必被拒的按钮）。失败返回的人话显示在这一行下。
+ * - `undo="local"`：只给签核预览演示用（只切本地状态，不落后端）。
  */
 export function AnswerMemoryLine({
   turn,
   onView,
-  undo = "unavailable",
+  onUndo,
+  undo,
 }: {
   turn: TurnMemory;
   onView?: () => void;
-  undo?: "local" | "unavailable";
+  /** 成功 resolve；失败 reject 一个已经是人话的 `Error.message`。 */
+  onUndo?: () => Promise<void>;
+  undo?: "local";
 }) {
   const [open, setOpen] = React.useState(false);
   const [undone, setUndone] = React.useState(false);
+  const [undoing, setUndoing] = React.useState(false);
+  const [undoError, setUndoError] = React.useState<string | null>(null);
+  const canUndo = onUndo !== undefined || undo === "local";
+  const runUndo = () => {
+    if (!onUndo) { setUndone(true); return; }
+    setUndoing(true);
+    setUndoError(null);
+    onUndo().then(
+      () => { setUndoing(false); setUndone(true); },
+      (e: unknown) => { setUndoing(false); setUndoError(e instanceof Error ? e.message : "没能撤销，请稍后重试。"); },
+    );
+  };
 
   if (turn.pending) {
     return (
@@ -60,18 +76,24 @@ export function AnswerMemoryLine({
         >
           查看
         </button>
-        <span aria-hidden>·</span>
-        <button
-          type="button"
-          className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
-          data-testid="kg-turn-captured-undo"
-          disabled={undo === "unavailable"}
-          title={undo === "unavailable" ? "撤销这一轮的记录暂未开放，可以在记忆面板里逐条查看" : undefined}
-          onClick={() => setUndone(true)}
-        >
-          撤销
-        </button>
+        {canUndo ? (
+          <>
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
+              data-testid="kg-turn-captured-undo"
+              disabled={undoing}
+              onClick={runUndo}
+            >
+              {undoing ? "撤销中…" : "撤销"}
+            </button>
+          </>
+        ) : null}
       </p>
+      {undoError !== null ? (
+        <p role="alert" className="text-10 text-destructive" data-testid="kg-turn-undo-error">{undoError}</p>
+      ) : null}
       {open ? (
         <ul className="ml-4 flex list-disc flex-col gap-0.5 text-10 text-muted-foreground" data-testid="kg-turn-captured-list">
           {turn.captured.map((c) => (

@@ -14,11 +14,12 @@
  * 时为 `null`——调用方显示通用失败提示，不猜一个码（404 不等于「对话不存在」：路由
  * 没挂也是 404）。
  *
- * ⚠ 写动作（确认 / 改写 / 忘掉 / 记到长期记忆 / 撤销一轮）不在本文件：F10 起才有，
- *   不为了让按钮"看起来能点"先造一个调不通的调用。
+ * F10 加了第一个写口 `applyHumanAction`（POST /knowledge-graph/threads/:threadId/actions）：
+ * 确认 / 批量确认 / 改写 / 忘掉 / 标矛盾 / 合并 / 拆分 / 改名。「记到长期记忆」「整理本会话」
+ * 仍不在本文件（F11 / F13），不为了让按钮"看起来能点"先造一个调不通的调用。
  */
 import type { z } from "zod";
-import { knowledgeGraph, KgErrorCode } from "@repo/contracts/chat-knowledge-graph";
+import { knowledgeGraph, KgErrorCode, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
 import { ApiError, apiRequest } from "@/lib/api-client";
 
 export type ThreadKnowledge = z.infer<typeof knowledgeGraph.getThreadKnowledge.out>;
@@ -58,10 +59,15 @@ export function knowledgeGraphErrorCode(e: unknown): KnowledgeGraphErrorCode | n
   return e instanceof KnowledgeGraphError ? e.code : toKnowledgeGraphError(e).code;
 }
 
-async function getParsed<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
+async function getParsed<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  signal?: AbortSignal,
+  init?: { method: "POST"; body: unknown },
+): Promise<T> {
   let raw: unknown;
   try {
-    raw = await apiRequest<unknown>(path, { signal });
+    raw = await apiRequest<unknown>(path, { signal, method: init?.method, body: init?.body });
   } catch (e) {
     throw toKnowledgeGraphError(e);
   }
@@ -85,5 +91,26 @@ export function fetchTurnMemory(threadId: string, messageId: string, signal?: Ab
     `/knowledge-graph/threads/${seg(threadId)}/messages/${seg(messageId)}/memory`,
     knowledgeGraph.getTurnMemory.out,
     signal,
+  );
+}
+
+export type HumanActionResult = z.infer<typeof knowledgeGraph.applyHumanAction.out>;
+
+/**
+ * UC-KG-3：人的编辑动作。`basedOnRevision` 必须是调用方手里最新一次 `getThreadKnowledge`
+ * 的 `revision`（乐观并发）；服务端已被别人改过时回 `KG_REVISION_CHANGED`，调用方应重读再决定。
+ * 请求体先过契约 `in` schema（去掉 `threadId`，它在路径里）——形状错了在本地就抛，不发出去。
+ */
+export function applyHumanAction(
+  threadId: string,
+  basedOnRevision: number,
+  action: KgHumanAction,
+): Promise<HumanActionResult> {
+  const input = knowledgeGraph.applyHumanAction.in.parse({ threadId, basedOnRevision, action });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/actions`,
+    knowledgeGraph.applyHumanAction.out,
+    undefined,
+    { method: "POST", body: { basedOnRevision: input.basedOnRevision, action: input.action } },
   );
 }
