@@ -4,6 +4,7 @@ import { ChevronRight, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { openCitation } from "@/lib/live-chat";
 import { MarkdownMessage } from "./markdown-message";
 import { MessageEntrance } from "./message-entrance";
 import { SubtaskRunLivePanel } from "./subtask-run-live-panel";
@@ -139,7 +140,10 @@ function CitationList({ citations }: { citations: CitationView[] }) {
         <li key={c.index}>
           <button
             type="button"
-            onClick={() => setOpenIdx((v) => (v === c.index ? null : c.index))}
+            onClick={() => {
+              if (openIdx !== c.index && c.citationId) openCitation(c.citationId);
+              setOpenIdx((v) => (v === c.index ? null : c.index));
+            }}
             aria-expanded={openIdx === c.index}
             data-testid="chat-citation-row"
             className="flex w-full items-baseline gap-2 rounded-sm px-1 py-0.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
