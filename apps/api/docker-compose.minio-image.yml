@@ -1,0 +1,15 @@
+# Single source of truth for the MinIO image used by every repository-owned compose stack.
+#
+# Status is deliberately still awaiting-controlled-mirror: the immutable Chainguard source
+# remains the working fallback until a BoardX-owned mirror has been attested and anonymously
+# verified. Run the mirror-minio-controlled-registry workflow, make the resulting GHCR package
+# public, then apply the generated lock patch.
+x-workspacex-minio-image:
+  source_repository: cgr.dev/chainguard/minio
+  source_digest: sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
+  target_repository: ghcr.io/boardx/workspacex-minio
+  status: awaiting-controlled-mirror
+
+services:
+  minio-image:
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1

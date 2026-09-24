@@ -119,7 +119,8 @@ NO agent_runs context_pack_id wiring
 ## 三个关键技术决策（已与人类确认，写入本提案作为约束）
 
 1. **对象存储：本地 MinIO**，不是云端 S3。`apps/api/docker-compose.dev.yml` 里
-   `minio` 服务**已经配置好**（`minio/minio:RELEASE.2024-09-13T20-26-02Z`，
+   `minio` 服务**已经配置好**（镜像由 `apps/api/docker-compose.minio-image.yml`
+   单点声明；其发布与不可变 digest 状态见该文件及 issue #4100，
    `MINIO_ROOT_USER=minio_dev`，端口 `${MINIO_PORT:-59000}`/`${MINIO_CONSOLE_PORT:-59001}`），
    只是没有客户端代码接它——`ObjectStore` port（`apps/api/src/application/artifact/ports.ts`）
    已经是干净的六边形架构，`FsObjectStore` 是唯一实现，MinIO 客户端是"同一个 port 的

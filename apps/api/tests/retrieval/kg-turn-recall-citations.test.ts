@@ -4,7 +4,8 @@
  * 执行器召回后记下这一轮用到了哪些记忆；getTurnMemory 按查看者重新读出来：
  *   - 个人空间的那条标 scope=personal、带最早说出来的日期（界面：「来自你 {日期} 的对话」）；
  *   - 经图路找到的带可读的关系路径（「客户 A —关于→ …」）；
- *   - 共享会话里，别的成员看同一条回答只看到会话本身的记忆，看不到提问人的个人记忆；
+ *   - 共享（项目）会话里不召回个人记忆（F12 R5），所以引用里也只有会话记忆；读接口另按查看者复核：
+ *     即便记录里混进了个人空间的 id，别的成员也看不到；
  *   - 记忆之后被忘掉 ⇒ 不再出现在引用里；图路不可用 ⇒ recallDegraded；
  *   - 记录写失败 ⇒ 回答照常带记忆（不拖累对话）。
  */
@@ -61,15 +62,22 @@ describe("F13: 回答下方的记忆引用", () => {
     expect(m!.graphPath).toEqual([{ from: "客户 A", relation: "about", to: DEMAND }]);
   });
 
-  it("共享会话：提问人看到会话记忆 + 自己的个人记忆；别的成员看同一条回答只看到会话记忆", async () => {
+  it("共享会话：不召回个人记忆，提问人和成员都只看到会话记忆；记录里即便混进个人 id，成员也看不到", async () => {
     const { answerId } = await turn(fx.S, "run-f13-s");
     const owner = await read(fx.S, answerId, "u-owner");
-    expect(new Set(owner.recalled.map((r) => r.scope))).toEqual(new Set(["chat_session", "personal"]));
+    expect(owner.recalled.map((r) => r.scope)).toEqual(["chat_session"]);
     const member = await read(fx.S, answerId, "u-member");
-    expect(member.recalled.map((r) => r.scope)).toEqual(["chat_session"]);
     expect(member.recalled.map((r) => r.statement)).toEqual(["客户 A 的合同在法务那里"]);
-    // 关系路径的端点里也不能出现提问人的个人实体名（成员那边只剩会话的）
-    expect(JSON.stringify(member.recalled)).not.toContain(DEMAND);
+    // 读侧的第二道：往这条记录里硬塞提问人的个人结论，成员读到的仍只有会话记忆
+    await asOwner((c) => c.query(
+      `UPDATE kg_turn_recalls SET items = items || jsonb_build_array(jsonb_build_object(
+         'claimId', $2::text, 'channels', '["fts"]'::jsonb, 'retrievalReasons', '["fts"]'::jsonb, 'score', 0.01, 'graphPath', NULL))
+        WHERE run_id = $1`, ["run-f13-s", fx.personalClaimId]));
+    const member2 = await read(fx.S, answerId, "u-member");
+    expect(member2.recalled.map((r) => r.scope)).toEqual(["chat_session"]);
+    expect(JSON.stringify(member2.recalled)).not.toContain(DEMAND);
+    const owner2 = await read(fx.S, answerId, "u-owner");
+    expect(owner2.recalled.map((r) => r.statement)).toContain(DEMAND);
   });
 
   it("没有召回记录的回答（没用到记忆）：recalled 为空、不降级", async () => {
