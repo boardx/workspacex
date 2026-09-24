@@ -25,6 +25,7 @@ import { InstanceId } from "./instance-telemetry";
 import type { TelemetryConsentItemValue } from "./instance-telemetry";
 
 /** 价值时刻的时间预算（分钟），从组织第一次登录算起。 */
+/** 2026-09-24 人类决策 D30：15 分钟（从组织首次登录起）。 */
 export const FIRST_VALUE_BUDGET_MINUTES = 15;
 
 /**
