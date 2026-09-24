@@ -157,5 +157,23 @@ describe("server-enforced survey publish gate", () => {
     expect(await staleEdit.json()).toMatchObject({
       reasonCode: "SURVEY_VERSION_CONFLICT",
     });
+
+    const currentEdit = await request(`/surveys/${created.id}`, "PUT", {
+      ...repaired,
+      questions: [],
+      expectedVersion: 3,
+    });
+    expect(currentEdit.status).toBe(200);
+    expect(await currentEdit.json()).toMatchObject({
+      status: "draft",
+      version: 4,
+    });
+
+    const bypassAttempt = await request(
+      `/surveys/${created.id}/start-collection`,
+      "POST",
+      { expectedVersion: 4 },
+    );
+    expect(bypassAttempt.status).toBe(409);
   });
 });

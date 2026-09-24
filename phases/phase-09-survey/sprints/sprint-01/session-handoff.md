@@ -10,6 +10,7 @@
 - `survey-question-types`：31/31。
 - 真实 Playwright + API + PostgreSQL：发布阻断、修复、准备、开始回收、刷新持久化及匿名性冲突通过。
 - 浏览器截图：`evidence/F04-blockers.png`、`evidence/F04-browser.png`。
+- 独立 review 的两项 Important 意见均已回归覆盖：准备后编辑会撤回准备状态；空映射/无效映射章节不能通过发布门禁；API 定向回归 40/40，类型检查通过。
 - 全量发布门禁的本范围检查、类型检查、静态检查、Harness 1891 项均通过；全仓并发执行仍有两个非本范围脆弱用例，二者独立复跑通过，最终以 PR CI 为准。
 
 ## 后续动作

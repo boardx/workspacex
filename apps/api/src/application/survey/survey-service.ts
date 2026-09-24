@@ -195,6 +195,13 @@ export class SurveyService {
         throw new SurveyError("status_command_required");
       if (m.publication && !isDeepStrictEqual(m.questions, input.questions))
         throw new SurveyError("closed");
+      const contentChanged =
+        m.title !== input.title ||
+        !isDeepStrictEqual(m.questions, input.questions) ||
+        !isDeepStrictEqual(m.template, input.template);
+      if (m.status === "ready" && contentChanged) {
+        m.status = transitionSurveyStatus(m.status, "withdraw");
+      }
       m.title = input.title;
       m.questions = input.questions;
       m.template = input.template;
@@ -257,7 +264,15 @@ export class SurveyService {
   ) {
     return this.change(orgId, actor, id, version, (model) => {
       try {
-        model.status = transitionSurveyStatus(model.status, "startCollection");
+        const collectingStatus = transitionSurveyStatus(
+          model.status,
+          "startCollection",
+        );
+        const blockers = evaluateSurveyForPublish(model);
+        if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+        if (validateSurveyQuestions(model.questions).length)
+          throw new SurveyError("invalid_survey");
+        model.status = collectingStatus;
       } catch (error) {
         if (error instanceof InvalidSurveyTransitionError)
           throw new SurveyError("invalid_transition");

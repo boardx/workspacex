@@ -39,6 +39,7 @@ export function evaluateSurveyForPublish(
   input: SurveyPublishGateInput,
 ): SurveyPublishBlocker[] {
   const blockers: SurveyPublishBlocker[] = [];
+  const questionIds = new Set(input.questions.map((question) => question.id));
   if (!input.questions.length) {
     blockers.push({
       code: "QUESTIONS_EMPTY",
@@ -82,7 +83,10 @@ export function evaluateSurveyForPublish(
   }
 
   for (const section of input.template.sections) {
-    if (!section.blocks.length)
+    const hasQuestionSupply = section.blocks.some((block) =>
+      block.questionIds.some((questionId) => questionIds.has(questionId)),
+    );
+    if (!hasQuestionSupply)
       blockers.push({
         code: "MAPPING_INCOMPLETE",
         side: "section",

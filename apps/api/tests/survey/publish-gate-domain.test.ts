@@ -102,4 +102,48 @@ describe("survey publish gate", () => {
       },
     ]);
   });
+
+  it("rejects a report section whose blocks do not consume any survey question", () => {
+    const blockers = evaluateSurveyForPublish({
+      questions: [
+        question({ id: "q-1", title: "请说明原因", type: "open" }),
+      ],
+      template: {
+        id: "report-1",
+        title: "报告",
+        sections: [
+          {
+            id: "section-decorative-only",
+            title: "无有效供料",
+            blocks: [
+              {
+                id: "block-text",
+                title: "说明",
+                type: "text",
+                questionIds: [],
+                statistic: "responses",
+                samplePolicy: "valid",
+                minGroupSize: 5,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(blockers).toEqual([
+      {
+        code: "MAPPING_INCOMPLETE",
+        side: "question",
+        subjectId: "q-1",
+        missingFields: ["reportBlock"],
+      },
+      {
+        code: "MAPPING_INCOMPLETE",
+        side: "section",
+        subjectId: "section-decorative-only",
+        missingFields: ["blocks"],
+      },
+    ]);
+  });
 });
