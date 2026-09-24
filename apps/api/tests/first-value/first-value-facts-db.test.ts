@@ -3,13 +3,14 @@
  *   · 先写者胜：同组织同步第二次写入不改 occurred_at；
  *   · RLS：另一租户读不到；
  *   · 上报函数排除 personal-local、只回序号不回 org_id（先证明有行，空集不算绿）。
+ *   · benchmark 计数函数：personal-local 的席位不计入、只回一行两个计数。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DatabasePort, TenantSession } from "../../src/application/ports/database.port";
 import { PgFirstValueFacts } from "../../src/infrastructure/first-value/pg-first-value-facts";
 import { PgTelemetryFacts } from "../../src/infrastructure/telemetry/pg-telemetry-facts";
 import type { OrgId } from "../../src/domain/org-id";
-import { asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const STD = "org-fv-std";
 const LOCAL = "org-fv-local";
@@ -53,5 +54,20 @@ describe("first_value_facts", () => {
     expect(facts.length).toBeGreaterThan(0);
     expect(facts.every((f) => f.orgKind === "standard")).toBe(true);
     expect(facts.some((f) => f.orgId === STD || f.orgId === LOCAL)).toBe(false);
+  });
+});
+
+describe("kernel_benchmark_counts_for_report", () => {
+  const seats = async () => (await asApp(null, async (c) =>
+    (await c.query("SELECT run_count, seat_count FROM kernel_benchmark_counts_for_report($1, $2)", [new Date(0), new Date()])).rows));
+
+  it("app_rw 可调用；只回一行两列；personal-local 的席位不计入，普通组织的计入", async () => {
+    const before = await seats();
+    expect(before).toHaveLength(1);
+    expect(Object.keys(before[0]).sort()).toEqual(["run_count", "seat_count"]);
+    await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ('u-bench-local', $1, 'admin')", [LOCAL]));
+    expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count));
+    await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ('u-bench-std', $1, 'admin')", [STD]));
+    expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count) + 1);
   });
 });
