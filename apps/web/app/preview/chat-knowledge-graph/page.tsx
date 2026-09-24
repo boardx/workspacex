@@ -220,7 +220,8 @@ export default function ChatKnowledgeGraphPreviewPage({
         answerSlot = (
           <>
             <AnswerMemoryLine undo="local" turn={turnMemoryWithConflict} />
-            <ConflictPromptCard prompt={conflictPromptNormal} />
+            {/* 预览：选择只切本地状态（产品路径经 TurnMemoryLine 调 applyHumanAction{resolveConflict}） */}
+            <ConflictPromptCard prompt={conflictPromptNormal} canResolve onResolve={async () => {}} />
           </>
         );
         break;
