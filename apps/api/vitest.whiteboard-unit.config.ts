@@ -12,6 +12,8 @@ export default defineConfig({
       'tests/whiteboard/observability.test.ts',
       'tests/whiteboard/operations-controller.test.ts',
       'tests/whiteboard/validator-queue.test.ts',
+      'tests/whiteboard/portable-board.test.ts',
+      'tests/whiteboard/transfer-repository-guard.test.ts',
     ],
     environment: 'node',
     maxWorkers: 1,
