@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AnswerMemoryLine } from "./answer-memory-line";
 import { AnswerKnowledgeFooter } from "./answer-knowledge-footer";
+import { ConflictPromptCard, type ConflictConditions, type ConflictResolution } from "./conflict-prompt-card";
 import {
   applyHumanAction,
   fetchThreadKnowledge,
@@ -37,12 +38,14 @@ export const TURN_MEMORY_REPOLL_DELAYS_MS: readonly number[] = [3_000, 8_000];
  *   （`KG_CLAIM_NOT_FOUND`，比如先在面板里忘掉了）视为已撤销。结束后让右栏记忆重读。
  * - F13：本轮用到的记忆（`recalled`）与「查不全」（`recallDegraded`）画在最前面——引用 chip +
  *   「为什么用到它」，点 chip 打开那一条的来源抽屉；其后才是「已记下 N 条」。两样都没有 ⇒ 整块不渲染。
- *   主动卡片仍然最多一张（这里不画任何主动卡片）。
+ * - F16 / U-5：本轮的矛盾提醒卡（`prompt.type = conflict`，服务端保证一轮至多一张）画在引用之后、
+ *   「已记下」之前。按钮只给所有者（同「撤销」，读模型快照 `canEdit`）；点了经 `applyHumanAction{resolveConflict}`
+ *   执行（版本号点击时现取），失败把人话交给卡片显示，结束后让右栏记忆重读。
  */
 export function TurnMemoryLine({ threadId, messageId }: { threadId: string; messageId: string }) {
   const [turn, setTurn] = React.useState<TurnMemory | null>(null);
   const snapshot = useKnowledgeSnapshot(threadId);
-  const canUndo = snapshot?.canEdit === true;
+  const canEdit = snapshot?.canEdit === true;
   const captured = turn?.captured;
 
   const undo = React.useCallback(async (): Promise<void> => {
@@ -64,6 +67,22 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     }
     requestKnowledgeReload(threadId);
   }, [threadId, captured]);
+
+  const conflict = turn?.prompt?.type === "conflict" ? turn.prompt.conflict : null;
+  const promptId = conflict?.promptId;
+  const resolveConflict = React.useCallback(async (resolution: ConflictResolution, conditions?: ConflictConditions): Promise<void> => {
+    if (promptId === undefined) return;
+    try {
+      const revision = (await fetchThreadKnowledge(threadId)).revision;
+      await applyHumanAction(threadId, revision, {
+        type: "resolveConflict", promptId, resolution, ...(conditions !== undefined ? { conditions } : {}),
+      });
+    } catch (e) {
+      requestKnowledgeReload(threadId);
+      throw new Error(describeHumanActionFailure(e));
+    }
+    requestKnowledgeReload(threadId);
+  }, [threadId, promptId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -102,12 +121,15 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   if (turn === null) return null;
   const showFooter = turn.recalled.length > 0 || turn.recallDegraded;
   const showCaptured = turn.pending || turn.captured.length > 0;
-  if (!showFooter && !showCaptured) return null;
+  if (!showFooter && !showCaptured && conflict === null) return null;
   return (
     <>
       {showFooter ? <AnswerKnowledgeFooter recalled={turn.recalled} recallDegraded={turn.recallDegraded} /> : null}
+      {conflict !== null ? (
+        <ConflictPromptCard key={conflict.promptId} prompt={conflict} canResolve={canEdit} onResolve={resolveConflict} />
+      ) : null}
       {showCaptured ? (
-        <AnswerMemoryLine turn={turn} onView={requestOpenKnowledgePanel} onUndo={canUndo ? undo : undefined} />
+        <AnswerMemoryLine turn={turn} onView={requestOpenKnowledgePanel} onUndo={canEdit ? undo : undefined} />
       ) : null}
     </>
   );
