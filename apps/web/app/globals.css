@@ -490,14 +490,20 @@
     overscroll-behavior-x: none;
   }
   /*
-    禁用整页缩放（触屏路径）：`touch-action: pan-x pan-y` 只放行平移，不放行捏合
+    普通页面禁用整页缩放（触屏路径）：`touch-action: pan-x pan-y` 只放行平移，不放行捏合
     缩放/双击缩放手势，浏览器直接不派发对应手势、无需 JS 拦截。桌面 trackpad 捏合
     走的是另一条事件路径（`wheel` + ctrlKey / Safari 的 gesture* 事件），这里管不到，
     由 `components/system/disable-page-zoom.tsx` 挡（同一件事分两处实现，不是重复）。
+    真实 Board 文档在下面恢复 `auto`，让浏览器/平台缩放继续工作。
   */
   html,
   body {
     touch-action: pan-x pan-y;
+  }
+  /* The live Board route must retain browser/platform pinch zoom for WCAG reflow. */
+  html:has([data-live-board-page]),
+  html:has([data-live-board-page]) body {
+    touch-action: auto;
   }
   /* 焦点环全局兜底：严禁裸 outline-none 消除焦点可见性（uiux-standards §5）*/
   :focus-visible {
@@ -600,6 +606,18 @@
   }
   .chat-markdown hr {
     @apply my-3 border-border-subtle;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Includes Board portals (for example import dialogs) while the route marker is mounted. */
+  html:has([data-live-board-page]) *,
+  html:has([data-live-board-page]) *::before,
+  html:has([data-live-board-page]) *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
   }
 }
 

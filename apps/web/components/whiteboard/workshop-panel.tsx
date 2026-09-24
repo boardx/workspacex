@@ -33,7 +33,7 @@ export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:Work
     finally{lock.current=false;setBusy(false);}
   };
   const owner=role==='owner';const write=role!=='viewer';const remaining=timer.deadline?Math.max(0,Math.ceil((Date.parse(timer.deadline)-now)/1000)):0;
-  return <aside className="w-80 max-w-full rounded-xl border bg-background p-3 text-foreground shadow-sm" aria-label="工作坊">
+  return <aside data-testid="board-workshop-panel" className="max-h-full w-80 max-w-full overflow-y-auto rounded-xl border bg-background p-3 text-foreground shadow-sm" aria-label="工作坊">
     <Button variant="outline" className="w-full" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>工作坊 {open?'收起':'展开'}</Button>
     {open&&<div className="mt-3 max-h-[70vh] space-y-4 overflow-y-auto">
       {loading&&<p role="status">正在加载工作坊…</p>}{error&&<p role="alert" className="text-destructive">{error}</p>}{notice&&<p role="status">{notice}</p>}
