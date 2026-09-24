@@ -40,3 +40,36 @@ it('rejects oversized updates and unresolved causal dependencies', () => {
   expect(() => prepareWhiteboardUpdate(server, new Uint8Array(65537))).toThrow('UPDATE_LIMIT_EXCEEDED');
   expect(readObjects(server)).toEqual([]);
 });
+it.each([[100, 200], [200, 100]])('accepts concurrent monotonic deletions with client IDs %s and %s', (firstId, secondId) => {
+  const base = seeded(), first = cloneDocument(base), second = cloneDocument(base), vector = Y.encodeStateVector(base);
+  first.clientID = firstId; second.clientID = secondId;
+  executeCommands(first, [{ type: 'delete', id: 'a' }], {}); executeCommands(second, [{ type: 'delete', id: 'a' }], {});
+  const incoming = Y.encodeStateAsUpdate(second, vector), accepted = prepareWhiteboardUpdate(first, incoming);
+  Y.applyUpdate(first, accepted); expect(readObjects(first)).toEqual([]);
+  expect(() => prepareWhiteboardUpdate(first, incoming)).not.toThrow();
+  Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
+  expect(readObjects(second)).toEqual([]);
+});
+it('accepts a concurrent winning tombstone even after the peer has merged the losing one', () => {
+  const base = seeded(), first = cloneDocument(base), second = cloneDocument(base);
+  first.clientID = 100; second.clientID = 200;
+  executeCommands(first, [{ type: 'delete', id: 'a' }], {}); executeCommands(second, [{ type: 'delete', id: 'a' }], {});
+  Y.applyUpdate(second, Y.encodeStateAsUpdate(first));
+  expect(() => prepareWhiteboardUpdate(first, Y.encodeStateAsUpdate(second))).not.toThrow();
+});
+it('still rejects a false tombstone and an attempted resurrection', () => {
+  const server = seeded(); executeCommands(server, [{ type: 'delete', id: 'a' }], {});
+  const peer = cloneDocument(server); peer.getMap('deletedObjects').set('a', false);
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
+  const restored = cloneDocument(server); restored.getMap('deletedObjects').delete('a');
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(restored))).toThrow('TOMBSTONE_CHANGED');
+  expect(readObjects(server)).toEqual([]);
+});
+it('rejects a concurrent false tombstone even when it loses to an existing true value', () => {
+  const base = seeded(), server = cloneDocument(base), peer = cloneDocument(base);
+  server.clientID = 200; peer.clientID = 100;
+  executeCommands(server, [{ type: 'delete', id: 'a' }], {});
+  peer.getMap('deletedObjects').set('a', false);
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
+  expect(readObjects(server)).toEqual([]);
+});
