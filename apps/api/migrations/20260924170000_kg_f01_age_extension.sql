@@ -11,8 +11,11 @@
  *
  * 2. `kg_ensure_current_org_graph()` —— 为**当前会话所属 org**幂等地建它专属的 AGE 图。
  *    - 图名由 org id 派生（`kg_org_graph_name`），不接受调用方传入 org：
- *      租户从 `app.current_org`（`pg-database.ts` 的 withTenant 设置）读，
- *      调用方没有办法替别的 org 建图，也就没有办法拿到别的 org 的图名去查（ADR-114 决策 3，I-13）。
+ *      租户从 `app.current_org`（`pg-database.ts` 的 withTenant 设置）读，并且必须是一个存在的 org
+ *      （防止 app_rw 随手设一个假 org id 造出任意多的 schema）。
+ *    - ⚠ 图名**不是秘密**：它就是 org id 的 md5，任何人都算得出来。隔离靠的是权限——
+ *      app_rw 对 ag_catalog 与各图 schema 都没有 USAGE，cypher / create_graph / drop_graph /
+ *      直接读图表都会 permission denied（测试逐条断言）。后续 feature 不许依赖「图名猜不到」。
  *    - SECURITY DEFINER：`create_graph` 要建 schema，运行时角色 `app_rw` 没有 DDL 权限（0001），
  *      只授它执行这一个函数，而不是放宽它的权限。
  *    - 并发两次首用同一 org：advisory lock 串行化，第二个看到图已存在直接返回。
@@ -43,7 +46,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 -- 固定 search_path：SECURITY DEFINER 函数若按调用方的 search_path 解析名字，调用方可以用
 -- 同名对象劫持它（同 0010 的说明）。
-SET search_path = pg_catalog, public
+-- pg_temp 放最后：不列出来时 Postgres 会**最先**在 pg_temp 里找表，调用方可以建同名临时表冒充。
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_org   text := current_setting('app.current_org', true);
@@ -52,7 +56,10 @@ BEGIN
   IF v_org IS NULL OR v_org = '' THEN
     RAISE EXCEPTION 'KG_NO_TENANT: app.current_org is not set' USING ERRCODE = '42501';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'age') THEN
+  IF NOT EXISTS (SELECT 1 FROM public.organizations o WHERE o.id = v_org) THEN
+    RAISE EXCEPTION 'KG_NO_TENANT: organization % does not exist', v_org USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = 'age') THEN
     RAISE EXCEPTION 'KG_GRAPH_UNAVAILABLE: Apache AGE is not installed in this database'
       USING ERRCODE = '55000';
   END IF;

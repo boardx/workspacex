@@ -3,8 +3,8 @@
  *
  * 不只查 `pg_extension` 里有这一行：扩展行存在但 `.so` 没加载（没进 shared_preload_libraries），
  * 第一条 cypher 查询才会炸——所以两条都真的执行一次：一次向量距离，一次 openCypher 读写。
- * 而且 cypher 这条是以**运行时角色 app_rw**、不是 owner 执行的：生产里跑图查询的是 app_rw，
- * owner 能跑不代表 app_rw 能跑（`LOAD 'age'` 对非超级用户受限，正是镜像要预加载 AGE 的原因）。
+ * 分工：app_rw 只调 SECURITY DEFINER 函数拿到本 org 的图（它自己对 AGE 没有任何直接权限，
+ * 见 age-per-org-graph.test.ts）；openCypher 读写由函数属主执行，这里用 owner 连接代表它。
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -36,7 +36,7 @@ describe("F01: Postgres 同时带 pgvector 与 Apache AGE", () => {
     expect(d).toBeCloseTo(Math.SQRT2, 5);
   });
 
-  it("运行时角色 app_rw 经 kg_ensure_current_org_graph 拿到本 org 的图，并能在上面跑 openCypher", async () => {
+  it("app_rw 经 kg_ensure_current_org_graph 拿到本 org 的图；函数属主能在上面跑 openCypher", async () => {
     const graph = await asApp(ORG, async (c) => (await c.query<{ g: string }>("SELECT kg_ensure_current_org_graph() AS g")).rows[0]!.g);
     // 读写由后续 feature 的 SECURITY DEFINER 函数承担；这里只证明「图在、AGE 在这个库里能执行」。
     const n = await asOwner(async (c) => {

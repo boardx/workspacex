@@ -1,6 +1,6 @@
 /**
  * Phase 18 F01（#4074，ADR-114 决策 3 / 不变量 I-13）—— 每个 org 一张 AGE 图，幂等创建，
- * 且调用方无法替别的 org 建图或拿到别的 org 的图名。
+ * 且调用方无法替不存在的 org 建图；app_rw 对 AGE 没有任何直接权限（图名可以算出来，隔离靠权限）。
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -50,10 +50,30 @@ describe("F01: 按 org 建图", () => {
     await expect(ensure(null)).rejects.toThrow(/KG_NO_TENANT/);
   });
 
-  it("app_rw 对图 schema 没有直接权限：图的读写只能走 SECURITY DEFINER 函数", async () => {
-    const g = await ensure(ORG_A);
-    await expect(
-      asApp(ORG_A, (c) => c.query(`SELECT * FROM ag_catalog.cypher('${g}', $$ MATCH (n) RETURN n $$) AS (n ag_catalog.agtype)`)),
-    ).rejects.toThrow(/permission denied/);
+  it("不存在的 org 不能建图（防止随手设一个假 org id 造 schema）", async () => {
+    await expect(ensure("org-kg-f01-does-not-exist")).rejects.toThrow(/KG_NO_TENANT/);
+  });
+
+  describe("app_rw 对 AGE 没有任何直接权限：图的读写只能走 SECURITY DEFINER 函数", () => {
+    it.each([
+      ["cypher 读", (g: string) => `SELECT * FROM ag_catalog.cypher('${g}', $$ MATCH (n) RETURN n $$) AS (n ag_catalog.agtype)`],
+      ["drop_graph", (g: string) => `SELECT ag_catalog.drop_graph('${g}', true)`],
+      ["create_graph", () => "SELECT ag_catalog.create_graph('wsx_org_forged')"],
+    ])("%s ⇒ permission denied", async (_label, sql) => {
+      const g = await ensure(ORG_A);
+      await expect(asApp(ORG_A, (c) => c.query(sql(g)))).rejects.toThrow(/permission denied/);
+    });
+
+    it("直接读图 schema 的表 ⇒ permission denied（绕开 ag_catalog 也不行）", async () => {
+      const g = await ensure(ORG_A);
+      await expect(asApp(ORG_A, (c) => c.query(`SELECT * FROM "${g}"._ag_label_vertex`))).rejects.toThrow(/permission denied/);
+    });
+
+    it("SECURITY DEFINER 函数不受 pg_temp 同名表冒充", async () => {
+      await expect(asApp(ORG_A, async (c) => {
+        await c.query("CREATE TEMP TABLE pg_extension (extname name)");
+        return (await c.query<{ g: string }>("SELECT kg_ensure_current_org_graph() AS g")).rows[0]!.g;
+      })).resolves.toMatch(/^wsx_org_/);
+    });
   });
 });

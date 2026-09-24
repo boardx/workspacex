@@ -34,7 +34,11 @@ services:
     # Same image as docker-compose.dev.yml (ADR-114: pgvector + Apache AGE). Same PG major
     # as the previous `pgvector/pgvector:pg16`, so the existing named volume is reused
     # as-is; AGE only adds an extension, created by migration.
-    image: workspacex/postgres-age:pg16-age1.6.0
+    # `localhost/` + `pull_policy: build`: this image is only ever built from the Dockerfile
+    # next to it, never pulled. A bare `workspacex/...` name made compose try Docker Hub
+    # first, and that namespace is not ours -- whoever registered it would supply our DB.
+    image: localhost/workspacex-postgres-age:pg16-age1.6.0
+    pull_policy: build
     build: ./docker/postgres-age
     environment:
       POSTGRES_USER: postgres
