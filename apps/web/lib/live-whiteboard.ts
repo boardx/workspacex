@@ -1,6 +1,6 @@
-import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
+import { whiteboard as C, whiteboardFileExport as F, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
 import type { z } from 'zod';
-import { apiRequest } from './api-client';
+import { apiRequest, apiUrl, getStoredSessionToken } from './api-client';
 export type Board = C.Board;
 export type BoardMember = z.infer<typeof C.Member>;
 export type CreateBoardInput = z.infer<typeof C.CreateBoard>;
@@ -25,6 +25,14 @@ export async function previewBoardImport(input: T.ImportBoardInput) {
 export async function importBoardPackage(input: T.ImportBoardInput) {
   const operation = T.operations.importBoard;
   return T.ImportBoardResult.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
+}
+export async function createBoardFileExport(id:string,input:F.BoardFileExportInput){const operation=F.operations.create;return F.BoardFileExportStatus.parse(await apiRequest(boardPath(operation.path,id),{method:operation.method,body:F.BoardFileExportInput.parse(input)}));}
+export async function getBoardFileExport(jobId:string){return F.BoardFileExportStatus.parse(await apiRequest(F.operations.status.path.replace(':jobId',encodeURIComponent(jobId)),{method:'GET'}));}
+export async function cancelBoardFileExport(jobId:string){return F.BoardFileExportStatus.parse(await apiRequest(F.operations.cancel.path.replace(':jobId',encodeURIComponent(jobId)),{method:'DELETE'}));}
+export async function downloadBoardFileExport(jobId:string,filename:string):Promise<void>{
+  const token=getStoredSessionToken(),response=await fetch(apiUrl(F.operations.content.path.replace(':jobId',encodeURIComponent(jobId))),{headers:token?{Authorization:`Bearer ${token}`}:{},credentials:'include'});
+  if(!response.ok)throw new Error(`HTTP ${response.status}`);const blob=await response.blob(),url=URL.createObjectURL(blob);
+  try{const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}
 }
 export async function importDiagram(id: string, input: I.ImportDiagramInput, sessionToken?: string) {
   const op = I.operations.importDiagram;

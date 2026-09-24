@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { convertExternalBoardSnapshot } from '@repo/whiteboard-core';
-import { whiteboardMigration as M, whiteboardTransfer as T } from '@repo/contracts';
-import { exportBoardPackage, importBoardPackage, previewBoardImport } from '@/lib/live-whiteboard';
+import { useRef, useState } from 'react';
+import { convertExternalBoardSnapshot, parseStickyCsv } from '@repo/whiteboard-core';
+import { whiteboardFileExport as F, whiteboardMigration as M, whiteboardTransfer as T } from '@repo/contracts';
+import { cancelBoardFileExport, createBoardFileExport, downloadBoardFileExport, exportBoardPackage, getBoardFileExport, importBoardPackage, previewBoardImport } from '@/lib/live-whiteboard';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
@@ -55,8 +55,13 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [exportFormat,setExportFormat]=useState<F.BoardFileExportFormat>('png');
+  const [exportBackground,setExportBackground]=useState<'transparent'|'#ffffff'>('#ffffff');
+  const [exportJob,setExportJob]=useState<F.BoardFileExportStatus|null>(null);
+  const [exportError,setExportError]=useState('');
+  const exportCancelled=useRef(false);
 
-  const download = async () => {
+  const downloadPortable = async () => {
     try {
       const bundle = await exportBoardPackage(boardId);
       const blob = new Blob([T.serializePortableBoardPackage(bundle)], { type: 'application/json' });
@@ -72,6 +77,19 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
     }
   };
 
+  const downloadFile=async()=>{
+    setExportError('');exportCancelled.current=false;
+    try{
+      let job=await createBoardFileExport(boardId,{format:exportFormat,background:exportBackground});setExportJob(job);
+      while(job.status==='queued'||job.status==='running'){
+        await new Promise(resolve=>setTimeout(resolve,150));if(exportCancelled.current)return;job=await getBoardFileExport(job.jobId);setExportJob(job);
+      }
+      if(job.status==='done'){await downloadBoardFileExport(job.jobId,job.filename);return;}
+      if(job.status!=='cancelled')throw new Error('export failed');
+    }catch{setExportError('文件导出失败。请缩小白板内容或稍后重试。');}
+  };
+  const cancelExport=async()=>{const job=exportJob;if(!job||!['queued','running'].includes(job.status))return;exportCancelled.current=true;try{setExportJob(await cancelBoardFileExport(job.jobId));}catch{setExportError('无法取消导出，请稍后重试。');}};
+
   const chooseImport = async (file: File | undefined) => {
     setError('');
     setPreview(null);
@@ -83,7 +101,13 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
       return;
     }
     try {
-      const decoded: unknown = JSON.parse(await file.text());
+      const content=await file.text();
+      if(file.name?.toLowerCase().endsWith('.csv')||file.type==='text/csv'){
+        const converted=parseStickyCsv(content);
+        const packageValue=T.createPortableBoardPackage({format:T.PORTABLE_BOARD.format,schemaVersion:T.PORTABLE_BOARD.schemaVersion,source:{application:'WorkspaceX',boardId:crypto.randomUUID(),name:file.name?.replace(/\.csv$/i,'')||'Sticky CSV'},objects:converted.objects});
+        const nextInput=T.ImportBoardInput.parse({requestId:crypto.randomUUID(),package:packageValue});const server=await previewBoardImport(nextInput);setInput(nextInput);setPreview({server});setOpen(true);return;
+      }
+      const decoded: unknown = JSON.parse(content);
       const portable = T.PortableBoardPackage.safeParse(decoded);
       let packageValue: T.PortableBoardPackage;
       let external: M.ExternalImportConversion['preview'] | undefined;
@@ -134,10 +158,26 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const external = preview?.external;
   const losses = external ? lossCategories(external.losses) : [];
   return <>
-    <Button data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => void download()}>导出</Button>
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+      <label className="text-12 text-muted-foreground" htmlFor="board-export-format">导出格式</label>
+      <select id="board-export-format" data-testid="board-export-format" className="rounded-control border border-border bg-background px-2 py-1 text-13" value={exportFormat} onChange={event=>setExportFormat(F.BoardFileExportFormat.parse(event.target.value))}>
+        <option value="png">PNG</option><option value="svg">SVG</option><option value="pdf">PDF</option><option value="sticky-csv">便利贴 CSV</option>
+      </select>
+      <select aria-label="导出背景" data-testid="board-export-background" className="rounded-control border border-border bg-background px-2 py-1 text-13" value={exportBackground} onChange={event=>setExportBackground(event.target.value==='transparent'?'transparent':'#ffffff')}>
+        <option value="#ffffff">白色背景</option><option value="transparent">透明背景</option>
+      </select>
+      <Button data-testid="board-export-file" size="sm" variant="outline" disabled={exportJob?.status==='queued'||exportJob?.status==='running'} onClick={()=>void downloadFile()}>导出文件</Button>
+      {exportJob&&['queued','running'].includes(exportJob.status)?<><span data-testid="board-export-progress" role="status" className="text-12">{exportJob.progress}%</span><Button data-testid="board-export-cancel" size="sm" variant="ghost" onClick={()=>void cancelExport()}>取消</Button></>:null}
+      <Button data-testid="board-export" size="sm" variant="ghost" onClick={() => void downloadPortable()}>Board JSON</Button>
+      {exportError?<span role="alert" className="text-12 text-destructive">{exportError}</span>:null}
+      {exportJob?.status==='done'&&exportJob.losses.length?<div data-testid="board-export-losses" role="status" className="basis-full rounded-control border border-warning bg-warning-tint px-3 py-2 text-12 text-warning-tint-foreground">
+        <p className="font-medium">文件已导出，包含 {exportJob.losses.reduce((sum,loss)=>sum+loss.count,0)} 项转换说明</p>
+        <ul className="list-disc pl-5">{exportJob.losses.map(loss=><li key={loss.code}>{loss.code}（{loss.count}）：{loss.message}{loss.sampleObjectIds.length?` 示例：${loss.sampleObjectIds.join('、')}`:''}</li>)}</ul>
+      </div>:null}
+    </div>
     <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
       <span>导入副本</span>
-      <input data-testid="board-import-file" className="sr-only" type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
+      <input data-testid="board-import-file" className="sr-only" type="file" accept="application/json,text/csv,.json,.csv" onChange={event => void chooseImport(event.target.files?.[0])}/>
     </label>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>

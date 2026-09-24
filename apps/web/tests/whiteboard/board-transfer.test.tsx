@@ -10,7 +10,7 @@ const push=vi.fn();
 vi.mock('next/navigation',()=>({useRouter:()=>({push})}));
 vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'owner'}})}));
 vi.mock('@/lib/whiteboard-provider',()=>({WhiteboardProvider:class{constructor(_doc:unknown,_id:string,onState:(value:unknown)=>void){onState({phase:'synced',pending:0,role:'owner',archived:false,peers:[],reason:null});}awareness(){}close(){}}}));
-vi.mock('@/lib/live-whiteboard',()=>({getBoard:vi.fn(),exportBoardPackage:vi.fn(),previewBoardImport:vi.fn(),importBoardPackage:vi.fn()}));
+vi.mock('@/lib/live-whiteboard',()=>({getBoard:vi.fn(),exportBoardPackage:vi.fn(),previewBoardImport:vi.fn(),importBoardPackage:vi.fn(),createBoardFileExport:vi.fn(),getBoardFileExport:vi.fn(),cancelBoardFileExport:vi.fn(),downloadBoardFileExport:vi.fn()}));
 vi.mock('@repo/whiteboard-core', async importOriginal => ({
   ...(await importOriginal<typeof import('@repo/whiteboard-core')>()),
   convertExternalBoardSnapshot: vi.fn(),
@@ -24,6 +24,22 @@ beforeEach(()=>{vi.resetAllMocks();vi.mocked(api.getBoard).mockResolvedValue(boa
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 describe('Board portable transfer UI',()=>{
+  it('shows file format and progress, then downloads the completed real artifact',async()=>{
+    const job={jobId:randomUUID(),boardId:board.id,format:'pdf' as const,status:'queued' as const,progress:0,filename:'Source.pdf',mimeType:'application/pdf',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null};
+    vi.mocked(api.createBoardFileExport).mockResolvedValue(job);vi.mocked(api.getBoardFileExport).mockResolvedValue({...job,status:'done',progress:100,sizeBytes:42,losses:[{code:'FONT_FALLBACK',count:1,sampleObjectIds:['note-1'],message:'Emoji was substituted.'}]});vi.mocked(api.downloadBoardFileExport).mockResolvedValue();
+    render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-export-file');fireEvent.change(screen.getByTestId('board-export-format'),{target:{value:'pdf'}});fireEvent.click(screen.getByTestId('board-export-file'));
+    expect(await screen.findByTestId('board-export-progress')).toBeTruthy();await waitFor(()=>expect(api.downloadBoardFileExport).toHaveBeenCalledWith(job.jobId,'Source.pdf'),{timeout:2000});expect(api.createBoardFileExport).toHaveBeenCalledWith(board.id,{format:'pdf',background:'#ffffff'});expect(screen.getByTestId('board-export-losses').textContent).toContain('FONT_FALLBACK（1）');expect(screen.getByTestId('board-export-losses').textContent).toContain('note-1');
+  });
+  it('cancels a running export from the toolbar',async()=>{
+    const job={jobId:randomUUID(),boardId:board.id,format:'png' as const,status:'running' as const,progress:30,filename:'Source.png',mimeType:'image/png',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null};
+    vi.mocked(api.createBoardFileExport).mockResolvedValue(job);vi.mocked(api.getBoardFileExport).mockImplementation(()=>new Promise(()=>undefined));vi.mocked(api.cancelBoardFileExport).mockResolvedValue({...job,status:'cancelled'});
+    render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-export-file');fireEvent.click(screen.getByTestId('board-export-file'));fireEvent.click(await screen.findByTestId('board-export-cancel'));await waitFor(()=>expect(api.cancelBoardFileExport).toHaveBeenCalledWith(job.jobId));expect(api.downloadBoardFileExport).not.toHaveBeenCalled();
+  });
+  it('shows a safe export failure without exposing server details',async()=>{
+    vi.mocked(api.createBoardFileExport).mockRejectedValue(new Error('private renderer stack'));
+    render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-export-file');fireEvent.click(screen.getByTestId('board-export-file'));
+    const alert=await screen.findByRole('alert');expect(alert.textContent).toContain('文件导出失败');expect(alert.textContent).not.toContain('private renderer stack');
+  });
   it('previews loss and explicitly creates a new board instead of replacing the open board',async()=>{
     vi.mocked(api.importBoardPackage).mockResolvedValue({board:{...board,id:'8f177ac1-a652-4a6d-9078-fe239ad672bd',name:'Source（导入）'},importedObjects:0,remappedObjects:0,replayed:false});
     render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-import-file');
@@ -95,5 +111,11 @@ describe('Board portable transfer UI',()=>{
     expect(text).not.toHaveBeenCalled();
     expect(convertExternalBoardSnapshot).not.toHaveBeenCalled();
     expect(api.previewBoardImport).not.toHaveBeenCalled();
+  });
+  it('accepts sticky CSV as an editable new-board import',async()=>{
+    render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-import-file');
+    const csv='\ufeffsource_object_id,text,color,x,y,width,height,rotation,frame_source_id\r\nframe-note,"中文,便利贴",#fff59d,10,20,200,120,0,frame-a\r\n';
+    fireEvent.change(screen.getByTestId('board-import-file'),{target:{files:[{size:csv.length,name:'ideas.csv',type:'text/csv',text:async()=>csv}]}});
+    await screen.findByText(/不会替换当前白板/);const sent=vi.mocked(api.previewBoardImport).mock.calls[0]![0];expect(sent.package.objects.find(object=>object.id==='frame-note')).toMatchObject({kind:'sticky',text:'中文,便利贴',parentId:'frame-a',style:{fill:'#fff59d'}});expect(sent.package.objects.find(object=>object.id==='frame-a')?.kind).toBe('frame');
   });
 });
