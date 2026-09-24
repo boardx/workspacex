@@ -141,6 +141,19 @@ describe("personal realtime ASR gateway", () => {
     await expect.poll(() => aborted).toBe(true);
   });
 
+  it("rejects more than one second of audio while the provider is still opening", async () => {
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: () => new Promise(() => undefined),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    for (let frame = 0; frame < 13; frame += 1) client.ws.send(Buffer.alloc(2_560));
+
+    expect(await client.next()).toMatchObject({ type: "error", reason: "AUDIO_BACKPRESSURE" });
+    client.ws.close();
+  });
+
   it("closes and aborts immediately when final persistence and cleanup both fail", async () => {
     let handlers: AsrSessionHandlers | undefined;
     let aborted = false;

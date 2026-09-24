@@ -129,7 +129,7 @@ export class PgLegalHoldGate implements LegalHoldGate {
 export class PgCascadeInvalidationRepository implements CascadeInvalidationRepository {
   constructor(private readonly db: DatabasePort) {}
 
-  /** The deployed graph recall channel stores segment edges in this database. */
+  /** The deployed graph recall channel stores segment edges in this database (soft-invalidated, uc-18-5 R3-3). */
   async invalidateOntologyEdges(orgId: OrgId, raw: unknown) {
     const input = C.OUTBOUND_PORTS.invalidateOntologyEdges.in.parse(raw);
     const versionIds = [...new Set(input.versionIds)];
@@ -140,12 +140,11 @@ export class PgCascadeInvalidationRepository implements CascadeInvalidationRepos
         "SELECT id FROM artifact_versions WHERE org_id=$1 AND artifact_id=$2 AND id=ANY($3::text[])",
         [orgId, input.artifactId, versionIds]);
       if (versions.rows.length !== versionIds.length) throw new Error("ontology_version_scope_mismatch");
-      const deleted = await session.query<{ id: string }>(
-        `DELETE FROM ontology_edges e USING segments s
-         WHERE e.org_id=$1 AND s.org_id=e.org_id AND s.artifact_version_id=ANY($2::text[])
-           AND ((e.src_kind='segment' AND e.src_id=s.id) OR (e.dst_kind='segment' AND e.dst_id=s.id))
-         RETURNING e.id`, [orgId, versionIds]);
-      return C.OUTBOUND_PORTS.invalidateOntologyEdges.out.parse({ invalidatedEdgeIds: deleted.rows.map(row => row.id) });
+      // Phase 18 F07：软失效（status=invalidated，行保留），并去掉这些片段作为结论证据的行——
+      // 只剩这条证据的结论随之失效（迁移 20260924250000）。带作用域的边只能经 kg_* 函数改。
+      const r = await session.query<{ ids: string[] }>(
+        "SELECT kg_invalidate_segment_evidence($1::text[]) AS ids", [versionIds]);
+      return C.OUTBOUND_PORTS.invalidateOntologyEdges.out.parse({ invalidatedEdgeIds: r.rows[0]?.ids ?? [] });
     });
   }
 

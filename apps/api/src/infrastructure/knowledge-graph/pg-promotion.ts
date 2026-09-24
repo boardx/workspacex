@@ -38,12 +38,15 @@ export class PgPromotion implements PromotionPort {
   }
 
   async threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]) {
-    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string }>(
-      `SELECT c.id, c.statement FROM claims c
-        WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND c.id = ANY($3::text[]) AND ${LIVE}`,
+    // 原话被删而失效的（F07：source_deleted）也读出来并标上，好逐条报「原话已经不在了」（E3），
+    // 而不是和「这条不存在」混在一起。
+    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string; source_gone: boolean }>(
+      `SELECT c.id, c.statement, c.revoked_at IS NOT NULL AS source_gone FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND c.id = ANY($3::text[])
+          AND (${LIVE} OR c.revocation_reason = 'source_deleted')`,
       [orgId, thread.threadId, claimIds],
     ));
-    return guard(threadRef(thread), rows.rows);
+    return guard(threadRef(thread), rows.rows.map((r) => ({ id: r.id, statement: r.statement, sourceGone: r.source_gone })));
   }
 
   async nominationCandidates(orgId: OrgId, userId: string, thread: KnowledgeThreadRef) {

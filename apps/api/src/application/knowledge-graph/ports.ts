@@ -135,33 +135,6 @@ export interface KnowledgeReadPort {
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
 
-// ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
-
-export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
-
-/** 执行器拒绝人工动作时的码（契约 applyHumanAction.err 的子集）。 */
-export type KgHumanActionErrorCode =
-  | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
-  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
-  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE";
-
-export interface HumanActionPort {
-  /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
-  apply(orgId: OrgId, userId: string, input: {
-    readonly actionId: string;
-    readonly threadId: string;
-    readonly basedOnRevision: number;
-    readonly action: KgHumanAction;
-  }): Promise<{ readonly revision: number; readonly actionId: string }>;
-}
-
-export class KgHumanActionError extends Error {
-  constructor(readonly code: KgHumanActionErrorCode, message?: string) {
-    super(message ?? code);
-  }
-}
-
-export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
 // ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
 
 export interface KnowledgeRecallPort {
@@ -192,6 +165,34 @@ export interface TurnRecallRecord {
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
 
+// ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
+
+export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
+
+/** 执行器拒绝人工动作时的码（契约 applyHumanAction.err 的子集）。 */
+export type KgHumanActionErrorCode =
+  | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
+  | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE";
+
+export interface HumanActionPort {
+  /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
+  apply(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly basedOnRevision: number;
+    readonly action: KgHumanAction;
+  }): Promise<{ readonly revision: number; readonly actionId: string }>;
+}
+
+export class KgHumanActionError extends Error {
+  constructor(readonly code: KgHumanActionErrorCode, message?: string) {
+    super(message ?? code);
+  }
+}
+
+export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
+
 // ─────────────────────────────── F11 晋升到个人空间 ───────────────────────────────
 
 export type PromotionItemResult = z.infer<typeof KG.KgPromotionItemResult>;
@@ -202,7 +203,8 @@ export interface PromotionPort {
    * 本人个人空间里的活结论（去重用）、会话里这些结论的原文、AI 提名候选。
    */
   personalClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
-  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** `sourceGone`：这条因为原话被删而失效了（F07），晋升时逐条报 KG_EVIDENCE_REVOKED。 */
+  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string; readonly sourceGone: boolean }[]>>;
   nominationCandidates(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly {
     readonly id: string; readonly kind: string; readonly status: string; readonly statement: string;
   }[]>>;

@@ -141,6 +141,17 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         continue;
       }
       const evidenceByQuestion = selectQuestionEvidence(extracted, section);
+      state.questionEvidence = [
+        ...(state.questionEvidence ?? []).filter((item) => item.sectionId !== section.id),
+        ...evidenceByQuestion.flatMap((question) => question.evidence.map((evidence) => ({
+          questionId: question.questionId,
+          sectionId: question.sectionId,
+          sourceId: evidence.sourceId,
+          quote: evidence.quote,
+          relevance: evidence.relevance,
+        }))),
+      ];
+      await persist();
       const ids = new Set(evidenceByQuestion.flatMap((question) => question.evidence.map((item) => item.sourceId)));
       const sources = extracted.sources.filter((source) => ids.has(source.id)).map((source) => ({ id: source.id, alias: aliases.find((item) => item.sourceId === source.id)!.alias, title: source.title.slice(0, 300),
         content: [...new Set(evidenceByQuestion.flatMap((question) => question.evidence.filter((item) => item.sourceId === source.id).map((item) => item.quote)))].join("\n"), contentKind: "verified_search_excerpt" }));
