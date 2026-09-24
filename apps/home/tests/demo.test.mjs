@@ -158,6 +158,13 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     const page = await ctx.newPage();
     await page.goto(base + path, { waitUntil: 'load' });
     await mount(page);
+    /* On a phone the button once sat below all five sources, a thousand
+       pixels after the task it answers. */
+    const order = await page.evaluate(() => ({
+      run: document.querySelector('.demo__run').getBoundingClientRect().top,
+      source: document.querySelector('.demo__src').getBoundingClientRect().top,
+    }));
+    r.check(order.run < order.source, `the run button is ${Math.round(order.run - order.source)}px below the first source`);
     await page.tap('.demo__run');
     await page.waitForTimeout(300);
     const mid = await page.evaluate(() => ({

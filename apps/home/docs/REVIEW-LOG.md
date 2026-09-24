@@ -1637,3 +1637,50 @@ a phone with motion, axe on the mounted demo), and the eval case `conv.demo`
 (the demo is labeled, runs, shows a withdrawal, and ends at sign-up). Score
 **9.99** (en 10.00, zh 9.99); the one miss is the Chinese desktop-LCP case,
 the same machine noise as rounds 66–67.
+
+### Round 69 — nineteen passes over the scenarios, read by five outside readers (10.00)
+
+The owner asked for the scenarios to be worked over nineteen times from a
+senior strategy consultant's seat — to move the reader, not only inform — and
+for three more: the most representative, most urgent transformations of the
+AI era. Chosen: **workforce & skills** (every employee's question), **sales
+win rate** (every CEO's question), **customer operations** (where the volume
+of AI-changeable work is largest). The owner's four stay: design thinking,
+innovation, AI transformation strategy, AI-native path.
+
+Five readers were briefed as people, not as reviewers, and read the copy
+cold, in two rounds: a Chinese mid-market founder, a strategy partner, a
+people leader and a frontline claims processor (one reader holding both),
+then a skeptical US CFO and two Chinese executives (HR, sales). None edited
+anything; every change below is a response to something one of them said,
+or to a measurement.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Three scenarios | workforce, sales win rate, customer operations — each 5 sources, 4 agents, 4 claims, one withdrawn |
+| 2 | Who you are | Each scenario opens on a situation card — a role and what is at stake this week — before the task |
+| 3 | Answer first | A one-line answer above the claims that support it |
+| 4 | The temptation | The withdrawn claim is the one a real executive would reach for, and the reviewer step names it that way |
+| 5 | So what | A closing line on what you can now do, per scenario |
+| 6 | One verdict | "Withdrawn" was said twice per withdrawn claim |
+| 7 | Numbers have sources | `check-i18n`: every number in an answer must appear in that scenario's sources or in arithmetic written out beside it; a withdrawn claim's own number is exempt — that is why it was withdrawn. Found four gaps on first run; proved red with an invented figure |
+| 8 | Linkable | `/#demo-workforce` opens that scenario; choosing one rewrites the fragment without history; the language switch carries it |
+| 9 | Review, round 1 | Chinese founder, strategy partner, people leader + employee |
+| 10 | Rigor | 46% × 71% ≈ 33% (a ceiling) instead of "nearly half"; "240 hours today", not "saved"; unsourced "volume is still rising" removed; "demand is proven" narrowed to "customers asked for it" |
+| 11 | Honesty | The fear sized as the sources size it (a third of hours, not half); "move people" → "open a path"; the pilot is "evidence, not a promise"; no villain CEO |
+| 12 | Better traps | "Buy an AI license for everyone" and "give every function a small budget" replace two strawmen |
+| 13 | Chinese, localized | 元 not 美元; 老板, 运营副总; 商机, 进线; tabs and agents named the way a Chinese office names them |
+| 14 | The intro | The title said "real work" above a note saying the material is sample — a skeptic noticed in five seconds. Now: *Every answer shows its source. Watch one get withdrawn.* |
+| 15 | Order | Workforce opens: the one moment where the machine protects a person from a spreadsheet ("34% of hours is not 34% of people") |
+| 16 | After the answer | "Run this on your own …" per scenario, and where documents can live (from the FAQ, not new promises); the withdrawal reason set in ink, not red |
+| 17 | Phone | Seven tabs wrapped to five rows (277 px): one sideways row now. The run button sat a thousand pixels below its task: the situation, task and button now head the panel. Both asserted by the demo suite |
+| 18 | Review, round 2 | A CFO's audit found a dozen claims saying more than their sources — correlation as cause, a reason citing a source the claim did not, "nobody asked" inferred from silence — all narrowed; ~45 Chinese phrases rewritten; the reviewer is now said to be an agent whose withdrawals go to a person (the site's own "needs a person to decide") |
+| 19 | Verify | All 19 checks; eval 10.00 in both languages; first load unchanged (9 requests, ~139 KB) |
+
+Left for the owner, not done: the CFO asked for a finance or healthcare
+scenario and for one claim that ends "not enough evidence" rather than a
+verdict (every scenario ending three-kept, one-withdrawn can look staged);
+the strategy partner proposed AI governance / shadow AI as the missing urgent
+scenario; two Chinese readers asked where data is hosted before they would
+press the button — the page can say what deployment allows, but not what the
+free tier's hosting is.
