@@ -574,14 +574,24 @@
       ]
     },
     "WhiteboardController": {
-      "useCases": [],
+      "useCases": [
+        "whiteboard/import-chat-diagram"
+      ],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
+    },
+    "WhiteboardMiroController": {
+      "useCases": [],
+      "note": "MiroDirectImport is the application use case; its filename ends in -import and is conservatively classified as a port by the wiring scanner. The controller injects that use case and enforces the global principal boundary (#4115)."
     },
     "WhiteboardRoomController": {
       "useCases": [
         "whiteboard/room-access"
       ],
       "note": "Meeting-room pairing is a thin credential boundary over the typed WhiteboardRoomRepository port. Authorization, one-time consumption, rate limiting, revocation and tenant predicates must remain in one database transaction; real HTTP/PostgreSQL and browser tests cover the boundary (#3979)."
+    },
+    "WhiteboardWorkshopController": {
+      "useCases": [],
+      "note": "Workshop commands are exposed through the typed WhiteboardWorkshop application port; authorization and atomic state transitions are enforced by its implementation and controller principal boundary."
     }
   },
   "routes": {
@@ -693,7 +703,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -710,7 +721,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -754,7 +769,9 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/chat/[threadId]": {
@@ -774,7 +791,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -791,7 +809,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -835,7 +857,9 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/chat/copilotkit-preview": {
@@ -856,7 +880,8 @@
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -868,7 +893,11 @@
         "files",
         "identity",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "ArtifactFileVersionsController",
@@ -898,7 +927,9 @@
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/chat/copilotkit-v2/[threadId]": {
@@ -915,7 +946,8 @@
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -927,7 +959,11 @@
         "files",
         "identity",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "ArtifactFileVersionsController",
@@ -957,7 +993,9 @@
         "SkillController",
         "SkillMountController",
         "SkillReviewController",
-        "SkillTrialRunController"
+        "SkillTrialRunController",
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/chat/landing": {
@@ -984,7 +1022,8 @@
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
         "apps/web/lib/live-skill-mount.ts",
-        "apps/web/lib/live-skill.ts"
+        "apps/web/lib/live-skill.ts",
+        "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
         "agent-defaults",
@@ -1001,7 +1040,11 @@
         "platform-members",
         "project",
         "recording",
-        "skills"
+        "skills",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -1045,7 +1088,9 @@
         "SkillMountController",
         "SkillReviewController",
         "SkillTrialRunController",
-        "ToolPermissionGrantController"
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/chat/live": {
@@ -1683,67 +1728,7 @@
         "project",
         "whiteboard",
         "whiteboard-import",
-        "whiteboard-transfer"
-      ],
-      "controllers": [
-        "AgentRunController",
-        "ArtifactBindingController",
-        "ArtifactReferenceController",
-        "CapabilityController",
-        "ChatAttachmentController",
-        "ChatController",
-        "ChatFollowUpSuggestionsController",
-        "CheckinBoardController",
-        "CopilotkitAguiController",
-        "DesignWorkbenchController",
-        "DeviceSessionController",
-        "DocumentGenerationAutoApproveController",
-        "EvidenceWithdrawalController",
-        "FeedbackController",
-        "IdentityController",
-        "KernelProbeController",
-        "LocalExportController",
-        "LocalOrgController",
-        "OrgAdminManagementController",
-        "OrgAdminScopeController",
-        "OrgInviteController",
-        "OrgInviteLinkController",
-        "PlatformAccessController",
-        "ProjectController",
-        "PublicDesignShareController",
-        "ToolPermissionGrantController",
-        "WhiteboardController"
-      ]
-    },
-    "/studio/board/[boardId]": {
-      "kind": "wired",
-      "screen": "apps/web/app/studio/board/[boardId]/page.tsx",
-      "adapters": [
-        "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-chat.ts",
-        "apps/web/lib/live-feedback.ts",
-        "apps/web/lib/live-org-admin.ts",
-        "apps/web/lib/live-platform-access.ts",
-        "apps/web/lib/live-projects.ts",
-        "apps/web/lib/live-recording.ts",
-        "apps/web/lib/live-whiteboard-room.ts",
-        "apps/web/lib/live-whiteboard.ts"
-      ],
-      "contracts": [
-        "agent-defaults",
-        "artifact",
-        "chat",
-        "chat-file-upload",
-        "design-workbench",
-        "feedback-loop",
-        "identity",
-        "org-admin",
-        "plan-permissions",
-        "platform-members",
-        "project",
-        "whiteboard",
-        "whiteboard-import",
-        "whiteboard-room",
+        "whiteboard-miro",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -1774,7 +1759,91 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardRoomController"
+        "WhiteboardMiroController"
+      ]
+    },
+    "/studio/board/[boardId]": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/board/[boardId]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-whiteboard-room.ts",
+        "apps/web/lib/live-whiteboard-workshop.ts",
+        "apps/web/lib/live-whiteboard.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-room",
+        "whiteboard-transfer",
+        "whiteboard-workshop"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController",
+        "WhiteboardController",
+        "WhiteboardMiroController",
+        "WhiteboardRoomController",
+        "WhiteboardWorkshopController"
+      ]
+    },
+    "/studio/board/miro/callback": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/board/miro/callback/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-whiteboard.ts"
+      ],
+      "contracts": [
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-transfer"
+      ],
+      "controllers": [
+        "WhiteboardController",
+        "WhiteboardMiroController"
       ]
     },
     "/studio/board/room": {

@@ -12,6 +12,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/miro-api-client.test.ts',
     'tests/whiteboard/miro-direct-import.test.ts',
     'tests/whiteboard/miro-repository-guard.test.ts',
+    'tests/whiteboard/miro-controller.test.ts',
   ],
   environment: 'node',
   maxWorkers: 1,

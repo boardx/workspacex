@@ -39,6 +39,7 @@ describe('Miro direct import service',()=>{
     const service=new MiroDirectImport(repo,cipher,api,transfer,()=>new Date('2026-09-24T00:00:00Z'));
     const started=await service.start(principal,{returnTo:'/studio/board'}),state=new URL(started.authorizationUrl).searchParams.get('state')!;
     await expect(service.callback({...principal,orgId:toOrgId('org-b')},state,'code')).rejects.toMatchObject({code:'OAUTH_STATE_INVALID'});
+    await expect(service.callback({...principal,userId:'user-b'},state,'code')).rejects.toMatchObject({code:'OAUTH_STATE_INVALID'});
     await expect(service.callback(principal,state,'code')).resolves.toEqual({returnTo:'/studio/board'});
     await expect(service.callback(principal,state,'code')).rejects.toMatchObject({code:'OAUTH_STATE_INVALID'});
     const stored=repo.credentials.get(key(principal))!;

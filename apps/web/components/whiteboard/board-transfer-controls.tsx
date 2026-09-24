@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertExternalBoardSnapshot } from '@repo/whiteboard-core';
-import { whiteboardMigration as M, whiteboardTransfer as T } from '@repo/contracts';
-import { exportBoardPackage, importBoardPackage, previewBoardImport } from '@/lib/live-whiteboard';
+import { whiteboardMigration as M, whiteboardMiro as MR, whiteboardTransfer as T } from '@repo/contracts';
+import {
+  disconnectMiro, exportBoardPackage, getMiroConnection, importBoardPackage,
+  listMiroBoards, previewBoardImport, previewMiroBoard, startMiroOAuth,
+} from '@/lib/live-whiteboard';
+import { ApiError } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
@@ -16,6 +20,16 @@ function safeImportError(code?: string) {
   if (code && /(?:CAPACITY|LIMIT|TOO_LARGE|MAX_)/i.test(code)) return '文件内容超过白板导入上限，请减少对象数量后重试。';
   if (code && /(?:UNSUPPORTED|FORMAT|PROVIDER)/i.test(code)) return '暂不支持该文件格式。请选择 WorkspaceX、Miro 或 Mural 的 Board JSON 文件。';
   return '文件不是有效的 WorkspaceX、Miro 或 Mural Board JSON，无法导入。';
+}
+
+function safeMiroError(error: unknown) {
+  const code = error instanceof ApiError ? error.reasonCode : null;
+  if (code === 'NOT_CONNECTED' || code === 'REMOTE_UNAUTHORIZED') return 'Miro 连接已失效，请重新连接后再试。';
+  if (code === 'REMOTE_RATE_LIMITED') return 'Miro 正在限流，请稍后重试。';
+  if (code === 'REMOTE_TIMEOUT' || code === 'REMOTE_UNAVAILABLE') return '暂时无法连接 Miro，请检查网络后重试。';
+  if (code === 'ITEM_LIMIT_EXCEEDED' || code === 'PAYLOAD_TOO_LARGE') return '这块 Miro Board 超过直接导入上限，请先减少对象数量。';
+  if (code === 'REPEATED_CURSOR' || code === 'REMOTE_SCHEMA_CHANGED') return 'Miro 返回了无法继续分页的数据，请稍后重试或联系管理员。';
+  return 'Miro 导入失败，请重试。';
 }
 
 function providerName(provider: 'miro' | 'mural') {
@@ -49,12 +63,21 @@ function ImportQuality({ value }: { value: T.ImportQualitySummary }) {
   </div>;
 }
 
-export function BoardTransferControls({ boardId, onImported }: { boardId: string; onImported: (boardId: string) => void }) {
+export function BoardTransferControls({ boardId, onImported, oauthNavigate = url => window.location.assign(url) }: {
+  boardId: string;
+  onImported: (boardId: string) => void;
+  oauthNavigate?: (url: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState<T.ImportBoardInput | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const [source, setSource] = useState<'file' | 'miro'>('file');
+  const [miroConnection, setMiroConnection] = useState<MR.MiroConnection | null>(null);
+  const [miroPage, setMiroPage] = useState<MR.ListMiroBoardsResult | null>(null);
+  const [miroLoading, setMiroLoading] = useState(false);
+  const consumedOAuthReturn = useRef(false);
 
   const download = async () => {
     try {
@@ -73,6 +96,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   };
 
   const chooseImport = async (file: File | undefined) => {
+    setSource('file');
     setError('');
     setPreview(null);
     setInput(null);
@@ -116,6 +140,78 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
     }
   };
 
+  const loadMiro = useCallback(async (offset = 0) => {
+    setSource('miro');
+    setOpen(true);
+    setError('');
+    setPreview(null);
+    setInput(null);
+    setMiroLoading(true);
+    try {
+      const connection = await getMiroConnection();
+      setMiroConnection(connection);
+      setMiroPage(connection.connected
+        ? await listMiroBoards({ offset, limit: MR.MIRO_DIRECT_IMPORT.boardPageLimit })
+        : null);
+    } catch (loadError) {
+      setError(safeMiroError(loadError));
+    } finally {
+      setMiroLoading(false);
+    }
+  }, []);
+
+  const connectMiro = async () => {
+    setMiroLoading(true);
+    setError('');
+    try {
+      const result = await startMiroOAuth({ returnTo: window.location.pathname });
+      oauthNavigate(result.authorizationUrl);
+    } catch (connectError) {
+      setError(safeMiroError(connectError));
+      setMiroLoading(false);
+    }
+  };
+
+  const chooseMiroBoard = async (sourceBoardId: string) => {
+    setMiroLoading(true);
+    setError('');
+    try {
+      const result = await previewMiroBoard({ boardId: sourceBoardId, packageBoardId: crypto.randomUUID() });
+      setInput(result.input);
+      setPreview({ server: result.preview, external: result.external });
+    } catch (previewError) {
+      setError(safeMiroError(previewError));
+    } finally {
+      setMiroLoading(false);
+    }
+  };
+
+  const revokeMiro = async () => {
+    setMiroLoading(true);
+    setError('');
+    try {
+      await disconnectMiro();
+      setMiroConnection({ connected: false, scopes: [], connectedAt: null });
+      setMiroPage(null);
+      setPreview(null);
+      setInput(null);
+    } catch (revokeError) {
+      setError(safeMiroError(revokeError));
+    } finally {
+      setMiroLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (consumedOAuthReturn.current) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('miro') !== 'connected') return;
+    consumedOAuthReturn.current = true;
+    url.searchParams.delete('miro');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    void loadMiro();
+  }, [loadMiro]);
+
   const confirmImport = async () => {
     if (!input) return;
     setTransferring(true);
@@ -133,16 +229,34 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
 
   const external = preview?.external;
   const losses = external ? lossCategories(external.losses) : [];
-  return <>
-    <Button data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => void download()}>导出</Button>
-    <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
-      <span>导入副本</span>
-      <input data-testid="board-import-file" className="sr-only" type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
-    </label>
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
-        <DialogTitle>导入为新的白板副本</DialogTitle>
-        {error ? <DialogDescription role="alert">{error}</DialogDescription> : preview ? <>
+  return (
+    <>
+      <Button data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => void download()}>
+        导出
+      </Button>
+      <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
+        <span>导入副本</span>
+        <input
+          data-testid="board-import-file"
+          className="sr-only"
+          type="file"
+          accept="application/json,.json"
+          onChange={event => void chooseImport(event.target.files?.[0])}
+        />
+      </label>
+      <Button data-testid="board-import-miro" size="sm" variant="outline" onClick={() => void loadMiro()}>
+        从 Miro 导入
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogTitle>导入为新的白板副本</DialogTitle>
+          {error ? (
+            <>
+              <DialogDescription role="alert">{error}</DialogDescription>
+              {source === 'miro' ? <Button variant="outline" onClick={() => void loadMiro()}>重试</Button> : null}
+            </>
+          ) : preview ? (
+            <>
           {external ? <section data-testid="vendor-import-preview" className="space-y-2">
             <DialogDescription>
               来自 {providerName(external.provider)} 的“{external.sourceName}”。将导入 {external.importedObjectCount} 个可编辑对象，跳过 {external.skippedObjectCount} 个对象，并始终创建新的 WorkspaceX 白板。
@@ -159,9 +273,64 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
             <ImportQuality value={preview.server.quality}/>
             <p className="text-13">内容损失：{preview.server.contentLosses.length ? preview.server.contentLosses.map(loss => loss.message).join('；') : '无'}</p>
           </>}
-          <Button data-testid="board-import-confirm" disabled={transferring} onClick={() => void confirmImport()}>{transferring ? '正在导入…' : '确认创建副本'}</Button>
-        </> : <DialogDescription>请选择受支持的 Board JSON 包。</DialogDescription>}
-      </DialogContent>
-    </Dialog>
-  </>;
+              <Button data-testid="board-import-confirm" disabled={transferring} onClick={() => void confirmImport()}>
+                {transferring ? '正在导入…' : '确认创建副本'}
+              </Button>
+            </>
+          ) : source === 'miro' ? (
+            <section data-testid="miro-import-picker" className="space-y-3">
+              {miroLoading ? (
+                <DialogDescription role="status">正在读取 Miro…</DialogDescription>
+              ) : miroConnection?.connected ? (
+                <>
+                  <DialogDescription>
+                    已以只读权限连接 Miro。选择一块 Board 生成迁移预览，确认后只会创建新的 WorkspaceX 白板。
+                  </DialogDescription>
+                  <div className="max-h-72 space-y-2 overflow-auto">
+                    {miroPage?.items.length ? miroPage.items.map(board => (
+                      <button
+                        key={board.id}
+                        data-testid={`miro-board-${board.id}`}
+                        className="flex w-full items-center justify-between rounded-control border border-border p-3 text-left"
+                        onClick={() => void chooseMiroBoard(board.id)}
+                      >
+                        <span>{board.name}</span>
+                        <span className="text-muted-foreground">预览</span>
+                      </button>
+                    )) : <p className="text-13 text-muted-foreground">当前页没有可访问的 Board。</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={!miroPage || miroPage.offset === 0}
+                      onClick={() => void loadMiro(Math.max(0, (miroPage?.offset ?? 0) - MR.MIRO_DIRECT_IMPORT.boardPageLimit))}
+                    >
+                      上一页
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={!miroPage?.hasMore}
+                      onClick={() => void loadMiro((miroPage?.offset ?? 0) + MR.MIRO_DIRECT_IMPORT.boardPageLimit)}
+                    >
+                      下一页
+                    </Button>
+                    <Button data-testid="miro-disconnect" variant="outline" className="ml-auto" onClick={() => void revokeMiro()}>
+                      断开 Miro
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <DialogDescription>连接 Miro 后，可用只读的 boards:read 权限选择并导入你能访问的 Board。</DialogDescription>
+                  <Button data-testid="miro-connect" onClick={() => void connectMiro()}>连接 Miro</Button>
+                </>
+              )}
+            </section>
+          ) : (
+            <DialogDescription>请选择受支持的 Board JSON 包。</DialogDescription>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

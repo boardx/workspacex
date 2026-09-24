@@ -42,10 +42,27 @@ export class MiroApiClient implements MiroRemoteClient {
     private readonly config: MiroClientConfig,
     private readonly http: typeof fetch = fetch,
     private readonly sleep: (ms:number)=>Promise<unknown> = ms => wait(ms),
-    private readonly timeoutMs = 10_000,
+  private readonly timeoutMs = 10_000,
     private readonly now:()=>number = Date.now,
   ) {
-    if (!config.clientId || !config.clientSecret || !/^https:\/\//.test(config.redirectUri)) throw new Error('MIRO_OAUTH_CONFIG_INVALID');
+    let callback: URL;
+    try {
+      callback = new URL(config.redirectUri);
+    } catch {
+      throw new Error('MIRO_OAUTH_CONFIG_INVALID');
+    }
+    if (
+      !config.clientId
+      || !config.clientSecret
+      || callback.protocol !== 'https:'
+      || callback.pathname !== '/studio/board/miro/callback'
+      || callback.search
+      || callback.hash
+      || callback.username
+      || callback.password
+    ) {
+      throw new Error('MIRO_OAUTH_CONFIG_INVALID');
+    }
   }
 
   authorizationUrl(state: string): string {
@@ -81,7 +98,11 @@ export class MiroApiClient implements MiroRemoteClient {
 
   private async token(values: Record<string,string>): Promise<MiroTokenResult> {
     const body=new URLSearchParams({...values,client_id:this.config.clientId,client_secret:this.config.clientSecret});
-    const parsed=TokenResponse.safeParse(await this.send(new URL('/v1/oauth/token',API_ORIGIN),{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body},false));
+    const parsed=TokenResponse.safeParse(await this.send(new URL('/v1/oauth/token',API_ORIGIN),{
+      method:'POST',
+      headers:{'content-type':'application/x-www-form-urlencoded'},
+      body,
+    }));
     if (!parsed.success) throw new Fault('REMOTE_SCHEMA_CHANGED');
     const scopes=(parsed.data.scope??'').split(/[ ,]+/).filter(Boolean);
     if (!scopes.includes(C.MIRO_DIRECT_IMPORT.scope)) throw new Fault('OAUTH_SCOPE_INSUFFICIENT');

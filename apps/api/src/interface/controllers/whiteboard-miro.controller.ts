@@ -1,5 +1,4 @@
-import { BadRequestException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, Post, Query, Res, Body } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Delete, ForbiddenException, Get, HttpException, Inject, Post, Query, Body } from '@nestjs/common';
 import { whiteboardMiro as C } from '@repo/contracts';
 import { WHITEBOARD_MIRO_IMPORT, MiroImportError } from '../../application/whiteboard/miro-ports';
 import { MiroDirectImport } from '../../application/whiteboard/miro-direct-import';
@@ -15,18 +14,13 @@ function failure(error:unknown):never {
     error.code==='ITEM_LIMIT_EXCEEDED'||error.code==='PAYLOAD_TOO_LARGE'?413:400;
   throw new HttpException({reasonCode:error.code},status);
 }
-function callbackTarget(returnTo:string):string {
-  const origin=process.env.MIRO_WEB_ORIGIN;
-  if (!origin || !/^https:\/\/[^/]+$/.test(origin)) throw new BadRequestException('Miro redirect is unavailable');
-  const target=new URL(returnTo,`${origin}/`); target.searchParams.set('miro','connected'); return target.toString();
-}
 
 @Controller('whiteboards/miro')
 export class WhiteboardMiroController {
   constructor(@Inject(WHITEBOARD_MIRO_IMPORT) private readonly miro:MiroDirectImport) {}
   @Get('connection') async connection(@CurrentPrincipal() p:Principal){assertPrincipal(p);return this.miro.connection(p);}
   @Post('oauth/start') async start(@CurrentPrincipal() p:Principal,@Body(new ZodBodyPipe(C.StartMiroOAuthInput)) input:C.StartMiroOAuthInput){assertPrincipal(p);try{return await this.miro.start(p,input);}catch(error){failure(error);}}
-  @Get('oauth/callback') async callback(@CurrentPrincipal() p:Principal,@Query('state') state:string,@Query('code') code:string,@Res() response:Response){assertPrincipal(p);try{const result=await this.miro.callback(p,state,code);return response.redirect(303,callbackTarget(result.returnTo));}catch(error){failure(error);}}
+  @Post('oauth/callback') async callback(@CurrentPrincipal() p:Principal,@Body(new ZodBodyPipe(C.CompleteMiroOAuthInput)) input:C.CompleteMiroOAuthInput){assertPrincipal(p);try{return C.CompleteMiroOAuthResult.parse(await this.miro.callback(p,input.state,input.code));}catch(error){failure(error);}}
   @Get('boards') async boards(@CurrentPrincipal() p:Principal,@Query() query:unknown){assertPrincipal(p);try{return await this.miro.listBoards(p,query);}catch(error){failure(error);}}
   @Post('imports/preview') async preview(@CurrentPrincipal() p:Principal,@Body(new ZodBodyPipe(C.PreviewMiroBoardInput)) input:C.PreviewMiroBoardInput){assertPrincipal(p);try{return await this.miro.preview(p,input);}catch(error){failure(error);}}
   @Delete('connection') async disconnect(@CurrentPrincipal() p:Principal){assertPrincipal(p);try{return await this.miro.disconnect(p);}catch(error){if(error instanceof MiroImportError&&error.code==='NOT_CONNECTED')throw new ForbiddenException();failure(error);}}

@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 const repo=readFileSync('src/infrastructure/whiteboard/pg-miro-credential-repository.ts','utf8');
 const migration=readFileSync('migrations/20260924000800_whiteboard_miro_direct_import.sql','utf8');
+const controller=readFileSync('src/interface/controllers/whiteboard-miro.controller.ts','utf8');
+const kernel=readFileSync('src/kernel.module.ts','utf8');
+const publicSurface=[controller,'src/application/whiteboard/miro-direct-import.ts'].map(value=>value.endsWith('.ts')?readFileSync(value,'utf8'):value).join('\n');
 
 describe('Miro credential repository boundary',()=>{
   it('keeps every method tenant-scoped and every credential/state query actor-scoped',()=>{
@@ -23,5 +26,13 @@ describe('Miro credential repository boundary',()=>{
     }
     expect(migration).toContain('REFERENCES organizations(id) ON DELETE CASCADE');
     expect(migration).toContain('REVOKE ALL ON whiteboard_miro_oauth_states,whiteboard_miro_credentials,whiteboard_miro_audit FROM app_rw');
+    expect(publicSurface).not.toMatch(/console\.(?:log|info|warn|error)/);
+    expect(migration.match(/CREATE TABLE IF NOT EXISTS whiteboard_miro_audit[\s\S]*?\);/)?.[0]).not.toMatch(/sealed|token|secret|credential/i);
+  });
+  it('wires principal-guarded Board list and migration preview routes into the API module',()=>{
+    expect(controller).toMatch(/@Get\('boards'\)[\s\S]*?assertPrincipal\(p\)[\s\S]*?this\.miro\.listBoards/);
+    expect(controller).toMatch(/@Post\('imports\/preview'\)[\s\S]*?assertPrincipal\(p\)[\s\S]*?this\.miro\.preview/);
+    expect(kernel).toContain('WhiteboardMiroController');
+    expect(kernel).toContain('provide: WHITEBOARD_MIRO_IMPORT');
   });
 });

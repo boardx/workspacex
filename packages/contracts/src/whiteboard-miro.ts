@@ -24,6 +24,12 @@ export type MiroConnection = z.infer<typeof MiroConnection>;
 export const StartMiroOAuthInput = z.object({ returnTo: SafeReturnTo }).strict();
 export type StartMiroOAuthInput = z.infer<typeof StartMiroOAuthInput>;
 export const StartMiroOAuthResult = z.object({ authorizationUrl: z.string().url() }).strict();
+export const CompleteMiroOAuthInput = z.object({
+  state: z.string().min(1).max(500),
+  code: z.string().min(1).max(8_192),
+}).strict();
+export type CompleteMiroOAuthInput = z.infer<typeof CompleteMiroOAuthInput>;
+export const CompleteMiroOAuthResult = z.object({ returnTo: SafeReturnTo }).strict();
 
 export const MiroBoard = z.object({
   id: MiroId,
@@ -59,6 +65,7 @@ export type PreviewMiroBoardResult = z.infer<typeof PreviewMiroBoardResult>;
 export const operations = {
   connection: { method: 'GET', path: '/whiteboards/miro/connection', out: MiroConnection },
   startOAuth: { method: 'POST', path: '/whiteboards/miro/oauth/start', in: StartMiroOAuthInput, out: StartMiroOAuthResult },
+  completeOAuth: { method: 'POST', path: '/whiteboards/miro/oauth/callback', in: CompleteMiroOAuthInput, out: CompleteMiroOAuthResult },
   listBoards: { method: 'GET', path: '/whiteboards/miro/boards', query: ListMiroBoardsQuery, out: ListMiroBoardsResult },
   previewBoard: { method: 'POST', path: '/whiteboards/miro/imports/preview', in: PreviewMiroBoardInput, out: PreviewMiroBoardResult },
   disconnect: { method: 'DELETE', path: '/whiteboards/miro/connection', out: z.object({ disconnected: z.literal(true) }).strict() },
