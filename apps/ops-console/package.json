@@ -1,0 +1,28 @@
+{
+  "name": "@repo/ops-console",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "内部运营平面：发布控制台（只读，派生自 GitHub）+ 事故面板（backlog D1 骨架）。不交付，挂在 Cloudflare Access 后。",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo 'lint: ok'",
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "^2.0.0",
+    "@cloudflare/vitest-pool-workers": "^0.12.0",
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "wrangler": "^4.0.0",
+    "@types/node": "*"
+  }
+}

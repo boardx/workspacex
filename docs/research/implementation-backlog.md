@@ -225,7 +225,7 @@ flowchart LR
 
 | # | 项 | 状态 | 说明 |
 |---|---|---|---|
-| D1 | 运营面骨架：发布控制台 + 事故面板 | □ | 复用既有 Workers 部署流水线 |
+| D1 | 运营面骨架：发布控制台 + 事故面板 | ◐ | `apps/ops-console` 骨架（Access JWT 校验、发布只读现取 GitHub、事故 schema 门控 `lint:ops-incident-schema`）；待设计签核、Access 应用与部署 workflow |
 | D2 | GTM 活动与漏斗（只放聚合与 ID） | □ | |
 | D3 | CRM：边缘存 ID、源站存个人信息 | □ | 详情页回源 |
 | D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | □ | **无依赖**——D14 已定（v32.6：既是也不是，三层分开）。见 `super-instance-design.md` |

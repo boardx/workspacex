@@ -370,6 +370,31 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
 
+  apps/ops-console:
+    dependencies:
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.12.0
+        version: 0.12.21(@cloudflare/workers-types@4.20260702.1)(@vitest/runner@2.1.9)(@vitest/snapshot@2.1.9)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0))
+      '@cloudflare/workers-types':
+        specifier: ^4.20241127.0
+        version: 4.20260702.1
+      '@types/node':
+        specifier: '*'
+        version: 22.20.1
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.118.0(@cloudflare/workers-types@4.20260702.1)
+
   apps/skill-sandbox:
     dependencies:
       '@firecrawl/anydoc':
@@ -11797,7 +11822,7 @@ snapshots:
 
   '@img/sharp-wasm32@0.34.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.3
     optional: true
 
   '@img/sharp-wasm32@0.35.2':
@@ -13617,14 +13642,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 5.4.21(@types/node@22.20.1)(terser@5.50.0)
-
-  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))':
-    dependencies:
-      '@vitest/spy': 2.1.9
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 5.4.21(@types/node@25.9.5)(terser@5.50.0)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -20685,7 +20702,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@26.1.0(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -20722,7 +20739,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
