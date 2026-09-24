@@ -590,7 +590,9 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
-import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
@@ -970,6 +972,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    KnowledgeGraphController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -2941,6 +2944,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
     KgExtractionWorker,
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
+    { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
