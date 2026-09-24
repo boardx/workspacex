@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, truncate, writeFile } from 'node:fs/promises';
+import { chmod, link as hardlink, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -45,7 +45,7 @@ describe('FsBoardBlobStore', () => {
     const creation = chain.slice(1).flatMap((directory, index) => [directory, chain[index]!]);
     const recoverySweep = [...chain].reverse().concat(dirname(root));
     expect(await audited.putImmutable(value)).toBe('created');
-    expect(syncs).toEqual([root, ...creation, ...recoverySweep, chain.at(-1)!]);
+    expect(syncs).toEqual([root, ...creation, ...recoverySweep, chain.at(-1)!, chain.at(-1)!]);
   });
 
   it('creates and fsyncs every missing storage-root ancestor and repairs every injected layer failure', async () => {
@@ -57,6 +57,9 @@ describe('FsBoardBlobStore', () => {
         if(failAt>0)await expect(faulted.putImmutable(value)).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
         await expect(faulted.putImmutable(value)).resolves.toBe('created');
         expect(await readFile(join(caseRoot,...value.key.split('/')))).toEqual(Buffer.from(value.ciphertext));
+        for(const directory of [join(boundary,'one'),join(boundary,'one','two'),caseRoot]){
+          const metadata=await stat(directory);expect(metadata.uid).toBe(process.getuid?.());expect(metadata.mode&0o022).toBe(0);
+        }
       }finally{await rm(boundary,{recursive:true,force:true});}
     }
   });
@@ -147,6 +150,28 @@ describe('FsBoardBlobStore', () => {
     }finally{await rm(outsideDir,{recursive:true,force:true});}
   });
 
+  it('rejects a same-content external hardlink and never treats externally mutable bytes as acknowledged',async()=>{
+    const value=input(Buffer.from('hardlinked-outside-content')),parent=dirname(objectPath(value.key)),outsideDir=await mkdtemp(join(tmpdir(),'wsx-board-target-hardlink-')),outside=join(outsideDir,'external');
+    try{
+      await mkdir(parent,{recursive:true});await writeFile(outside,value.ciphertext,{mode:0o600});await hardlink(outside,objectPath(value.key));
+      await expect(store.putImmutable(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.getVerified({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.head(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await writeFile(outside,Buffer.alloc(value.sizeBytes,42));
+      await expect(store.getVerified({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+    }finally{await rm(outsideDir,{recursive:true,force:true});}
+  });
+
+  it('fails fast when an existing storage root is group writable',async()=>{
+    const value=input(Buffer.from('unsafe-root'));
+    await chmod(root,0o770);
+    try{
+      await expect(store.putImmutable(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.getVerified({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.head(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+    }finally{await chmod(root,0o700);}
+  });
+
   it('rejects forged digest and size before creating a visible object', async () => {
     const value = input(Buffer.from('actual'));
     await expect(store.putImmutable({ ...value, cipherDigest: '0'.repeat(64) })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
@@ -162,6 +187,14 @@ describe('FsBoardBlobStore', () => {
     const restarted = new FsBoardBlobStore(root);
     expect(await restarted.head(value)).toBeNull();
     expect(await restarted.putImmutable(value)).toBe('created');
+  });
+
+  it('removes a crashed publisher temporary hardlink before accepting an immutable replay',async()=>{
+    const value=input(Buffer.from('crashed-publisher-hardlink')),target=objectPath(value.key),parent=dirname(target);
+    await mkdir(parent,{recursive:true});await writeFile(target,value.ciphertext,{mode:0o600});await hardlink(target,join(parent,'.board-tmp-crashed-publisher'));
+    expect((await stat(target)).nlink).toBe(2);
+    expect(await store.putImmutable(value)).toBe('already-present-same-content');
+    expect((await stat(target)).nlink).toBe(1);
   });
 
   it('retries parent directory fsync before an EEXIST replay can report success', async () => {

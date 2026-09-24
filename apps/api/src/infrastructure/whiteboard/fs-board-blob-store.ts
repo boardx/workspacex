@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { open, mkdir, link, unlink, lstat } from 'node:fs/promises';
+import { open, mkdir, link, unlink, lstat, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BoardBlobError, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
@@ -15,6 +15,14 @@ async function fsyncDirectory(path: string): Promise<void> {
   try { await handle.sync(); } finally { await handle.close(); }
 }
 
+/**
+ * Local single-process adapter for a POSIX root exclusively owned by the service account.
+ *
+ * The root and every directory created below it must be owned by the current uid and must
+ * not be group/world writable. A hostile process running as the same uid is outside this
+ * adapter's threat model: it could also read this process's keys and memory. Multi-instance
+ * and mutually untrusted deployments must use the object-storage adapter instead.
+ */
 export class FsBoardBlobStore implements BoardBlobStore {
   private rootDurabilityBoundary?: string;
   constructor(private readonly root: string, private readonly syncDirectory: (path: string) => Promise<void> = fsyncDirectory) {
@@ -37,6 +45,8 @@ export class FsBoardBlobStore implements BoardBlobStore {
       try {
         await link(temporary, target);
         await this.syncDirectory(parent);
+        await unlink(temporary);
+        await this.syncDirectory(parent);
         const published = await this.readRegularNoFollow(target);
         if (published.byteLength !== input.sizeBytes || sha256(published) !== input.cipherDigest) {
           throw new BoardBlobError('INTEGRITY_FAILED', 'published board blob failed read-back verification');
@@ -48,6 +58,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
         // directory fsync. Replaying identical content is durable only after this attempt
         // repeats the parent sync; EEXIST alone is not a durable-ACK proof.
         await this.syncDirectory(parent);
+        await this.removeStaleTemporaryLinks(parent, target);
         const existing = await this.readRegularNoFollow(target);
         if (existing.byteLength !== input.sizeBytes || sha256(existing) !== input.cipherDigest) {
           throw new BoardBlobError('CONTENT_CONFLICT', 'immutable board blob key already contains different bytes');
@@ -108,6 +119,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
   }
 
   private async ensureDurableDirectory(target: string): Promise<void> {
+    this.assertSupportedHost();
     const root = resolve(this.root), relativeTarget = relative(root, target);
     if (relativeTarget === '..' || relativeTarget.startsWith(`..${sep}`) || resolve(target) !== target) {
       throw new BoardBlobError('INVALID_INPUT', 'board blob directory escapes storage root');
@@ -119,7 +131,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
       const directory = join(parent, segment);
       let createdOrRaced = false;
       try {
-        await this.assertRealDirectory(directory);
+        await this.assertExclusiveDirectory(directory);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         try { await mkdir(directory, { mode: 0o700 }); createdOrRaced = true; }
@@ -134,6 +146,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
         await this.syncDirectory(directory);
         await this.syncDirectory(parent);
       }
+      await this.assertExclusiveDirectory(directory);
       chain.push(directory);
       parent = directory;
     }
@@ -167,7 +180,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
           if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
           createdOrRaced = true;
         }
-        await this.assertRealDirectory(directory);
+        await this.assertExclusiveDirectory(directory);
         if (createdOrRaced) {
           await this.syncDirectory(directory);
           await this.syncDirectory(parent);
@@ -176,21 +189,23 @@ export class FsBoardBlobStore implements BoardBlobStore {
       }
     }
     await this.assertRealDirectory(boundary);
+    if (boundary === root) await this.assertExclusiveDirectory(boundary);
     const relativeRoot = relative(boundary, root);
     if (relativeRoot === '..' || relativeRoot.startsWith(`..${sep}`)) throw new BoardBlobError('INVALID_INPUT', 'board blob root escapes its durability boundary');
     const chain = [boundary];
     let parent = boundary;
     for (const segment of relativeRoot.split(sep).filter(Boolean)) {
       const directory = join(parent, segment);
-      try { await this.assertRealDirectory(directory); }
+      try { await this.assertExclusiveDirectory(directory); }
       catch (error) {
         if (error instanceof BoardBlobError || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         try { await mkdir(directory, { mode: 0o700 }); }
         catch (mkdirError) { if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError; }
-        await this.assertRealDirectory(directory);
+        await this.assertExclusiveDirectory(directory);
         await this.syncDirectory(directory);
         await this.syncDirectory(parent);
       }
+      await this.assertExclusiveDirectory(directory);
       chain.push(directory);
       parent = directory;
     }
@@ -207,20 +222,40 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
   }
 
+  private assertSupportedHost(): void {
+    void this.currentUid();
+  }
+
+  private currentUid(): number {
+    const getuid=process.getuid;
+    if (process.platform === 'win32' || typeof getuid !== 'function') throw new BoardBlobError('INVALID_INPUT', 'filesystem board blobs require an exclusive POSIX storage root');
+    return getuid();
+  }
+
+  private async assertExclusiveDirectory(path: string): Promise<void> {
+    this.assertSupportedHost();
+    const stat = await lstat(path);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new BoardBlobError('INVALID_INPUT', 'board blob storage path is not a real directory');
+    if (stat.uid !== this.currentUid() || (stat.mode & 0o022) !== 0) {
+      throw new BoardBlobError('INVALID_INPUT', 'board blob storage directory is not exclusively owned');
+    }
+  }
+
   private async assertConfinedParent(target: string): Promise<void> {
     const root = resolve(this.root), parent = dirname(target), relativeParent = relative(root, parent);
     if (relativeParent === '..' || relativeParent.startsWith(`..${sep}`)) throw new BoardBlobError('INVALID_INPUT', 'board blob path escapes storage root');
-    await this.assertRealDirectory(root);
+    this.assertSupportedHost();
+    await this.assertExclusiveDirectory(root);
     let directory = root;
     for (const segment of relativeParent.split(sep).filter(Boolean)) {
       directory = join(directory, segment);
-      await this.assertRealDirectory(directory);
+      await this.assertExclusiveDirectory(directory);
     }
   }
 
   private async readRegularNoFollow(path: string): Promise<Uint8Array> {
     const before = await lstat(path);
-    if (before.isSymbolicLink() || !before.isFile()) throw new BoardBlobError('INVALID_INPUT', 'board blob target is not a regular file');
+    if (before.isSymbolicLink() || !before.isFile() || before.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'board blob target is not a private regular file');
     let handle;
     try { handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW); }
     catch (error) {
@@ -229,9 +264,28 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
     try {
       const opened = await handle.stat();
-      if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) throw new BoardBlobError('INVALID_INPUT', 'board blob target changed during validation');
+      if (!opened.isFile() || opened.nlink !== 1 || opened.dev !== before.dev || opened.ino !== before.ino) throw new BoardBlobError('INVALID_INPUT', 'board blob target changed during validation');
       return new Uint8Array(await handle.readFile());
     } finally { await handle.close(); }
+  }
+
+  private async removeStaleTemporaryLinks(parent: string, target: string): Promise<void> {
+    const published = await lstat(target);
+    if (published.isSymbolicLink() || !published.isFile()) return;
+    let removed = false;
+    for (const name of await readdir(parent)) {
+      if (!name.startsWith('.board-tmp-')) continue;
+      const candidate = join(parent, name);
+      const stat = await lstat(candidate).catch(error => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      });
+      if (stat?.isFile() && !stat.isSymbolicLink() && stat.dev === published.dev && stat.ino === published.ino) {
+        await unlink(candidate);
+        removed = true;
+      }
+    }
+    if (removed) await this.syncDirectory(parent);
   }
 
 }
