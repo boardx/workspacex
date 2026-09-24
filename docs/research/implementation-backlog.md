@@ -112,8 +112,8 @@ flowchart LR
         B3["B3 完整 clone 凭据扫描"]:::part
         B4["B4 扫描报告落盘"]:::done
         B5["B5 SECURITY.md 邮箱"]:::part
-        B6["B6 license 字段"]:::ready
-        B7["B7 CLA / DCO"]:::ready
+        B6["B6 license 字段"]:::part
+        B7["B7 DCO"]:::done
         B8["B8 商标政策"]:::ready
     end
     subgraph sC["C 门控建设"]
@@ -204,7 +204,7 @@ flowchart LR
 | B4 | 凭据扫描报告落盘 | ✅ | R6：`oss-secret-scan-2026-09-24.md`，只记计数不记位置 |
 | B5 | 填 `SECURITY.md` 安全联系邮箱 | ◐ | 文件已建 |
 | B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11：按 `lib/ownership.mjs` 标了 13 个（开源 5 个附 Apache-2.0 官方正文，售卖 1、运营面 7 标 UNLICENSED）；5 个归属未定（api、web 等 C3；`fabric-markdown` 上游许可未记录）。NOTICE 的版权方名称待组织确定 |
-| B7 | CLA 或 DCO 落地 | □ | D1 已定，**可开工**（CLA 与 DCO 二选一是小决策，建议 DCO：零签署负担） |
+| B7 | CLA 或 DCO 落地 | ✅ | R13：按 D20 用 DCO。`CONTRIBUTING.md`（DCO 1.1 原文）、`check-dco.mjs`、`dco.yml` 只查 fork PR |
 | B8 | 商标政策 | □ | D1 已定，**可开工** |
 
 ### 轨道 C · 门控建设（九项彼此独立）
