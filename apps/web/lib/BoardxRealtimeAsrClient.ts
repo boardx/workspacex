@@ -96,6 +96,7 @@ export async function openBoardxRealtimeAsr(
   const releaseResources = () => {
     if (cleaningUp) return;
     cleaningUp = true;
+    deps.handlers.onLevel?.(0);
     // Closing the transport must not depend on AudioContext.close succeeding.
     void stopCapture().catch(() => undefined);
     socket.close();

@@ -131,6 +131,30 @@ describe("BoardxRealtimeAsrClient", () => {
     await stopping;
   });
 
+  it("clears the live level after capture flushes a nonzero tail frame during stop", async () => {
+    const onLevel = vi.fn();
+    let frameListener: ((frame: ArrayBuffer) => void) | undefined;
+    const tail = new Int16Array([0x4000, -0x4000]).buffer;
+    const selectedCapture = {
+      sourceSampleRate: 48_000,
+      onFrame: vi.fn((listener: (frame: ArrayBuffer) => void) => { frameListener = listener; }),
+      stop: vi.fn(async () => { frameListener?.(tail); }),
+    };
+    const handle = await openBoardxRealtimeAsr("session-1", {
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
+      capture: async () => selectedCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onLevel, onState: vi.fn(), onError: vi.fn() },
+    });
+
+    const stopping = handle.stop();
+    await vi.waitFor(() => expect(onLevel).toHaveBeenCalledWith(1));
+    socket.message({ type: "completed", captureId: "capture-1" });
+    await stopping;
+
+    expect(onLevel).toHaveBeenLastCalledWith(0);
+  });
+
   it("releases the microphone and socket when the server reports an error", async () => {
     const onError = vi.fn();
     const handlePromise = openBoardxRealtimeAsr("session-1", {
