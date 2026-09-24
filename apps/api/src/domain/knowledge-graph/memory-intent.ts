@@ -62,7 +62,12 @@ const DEICTIC_LEAD = /^(?:这个|那个|这些|那些|这一点|这点|这句|�
  * 「忘掉」的对象是对话本身 / 模型的设定 / 泛泛的一切，而不是一条记忆：「忘掉之前的对话」「忘掉上下文」「忘掉所有指令」
  * 「忘掉一切」「忘掉过去」「忘掉烦恼」——这不是在管记忆，不出卡，也不回「没找到相关的记忆」。
  */
-const FORGET_NOT_A_MEMORY = /对话|聊天|会话|上下文|指令|提示词|规则|设定|设置|角色|人设|身份|重新开始|重来|从头|一切|所有|全部|过去|烦恼|不开心|伤心|痛苦|以前的事|之前的事/;
+const FORGET_NOT_A_MEMORY = /对话|聊天|会话|上下文|指令|提示词|规则|设定|人设|身份(?!证)|重新开始|重来|从头|一切|过去|烦恼|不开心|伤心|痛苦|以前的事|之前的事/;
+/**
+ * 这几个词只在「整个对象就是它」时才算说的是对话本身：「忘掉所有」「忘掉你的角色」不是记忆，
+ * 「忘掉客户A的所有合同」「忘掉项目A的全部预算」「忘掉默认语言设置」是。
+ */
+const FORGET_WHOLE_NOT_A_MEMORY = /^(?:你的|我的)?(?:所有|全部|角色|设置|身份)(?:的)?(?:东西|内容|事|事情)?$/;
 /** 忘掉的对象里还有下一句（「忘掉之前的对话，帮我写一封邮件」）：不是一个明确的对象。 */
 const CLAUSE_SEPARATOR = /[，,；;。！!]/;
 /** 「记住」的内容在第一个句末断开：「记住：我叫张三。帮我写个自我介绍」只记「我叫张三」。 */
@@ -98,7 +103,7 @@ export function detectMemoryIntent(message: string): MemoryIntent | null {
     if (raw.length === 0 || DEICTIC_ONLY.test(raw) || CLAUSE_SEPARATOR.test(raw)) return null;
     const target = raw.replace(FORGET_FILLER_HEAD, "").replace(FORGET_FILLER_TAIL, "").trim();
     if (target.length < 2 || DEICTIC_ONLY.test(target) || DEICTIC_LEAD.test(target) || INTERROGATIVE.test(target)) return null;
-    if (FORGET_NOT_A_MEMORY.test(target)) return null;
+    if (FORGET_NOT_A_MEMORY.test(target) || FORGET_WHOLE_NOT_A_MEMORY.test(target)) return null;
     // 一个可以拿去比对的词元都没有（「忘掉 Z」）⇒ 算不上具体对象
     if (lexicalTokens(target).size === 0) return null;
     return { kind: "forget", target };

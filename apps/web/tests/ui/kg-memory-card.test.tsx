@@ -182,6 +182,8 @@ interface Server {
   actions: { basedOnRevision: number; action: KgHumanAction }[];
   onCard: (body: Record<string, unknown>) => Response | undefined;
   turnReads: number;
+  /** true ⇒ getTurnMemory 这一轮回的是矛盾卡（I-18 冲突卡优先），读不到记忆卡 */
+  conflictInstead?: boolean;
   /** 撤销之后服务端读回的卡（缺省：长期记忆里那条没了 ⇒ dismissed） */
   afterUndo?: KgMemoryCard;
 }
@@ -203,7 +205,9 @@ beforeEach(() => {
       server.turnReads += 1;
       return json(knowledgeGraph.getTurnMemory.out.parse({
         messageId: "msg-5", captured: [], pending: false, recalled: [], recallDegraded: false,
-        prompt: server.card === null ? null : { type: "memory_card", card: server.card },
+        prompt: server.conflictInstead === true
+          ? { type: "conflict", conflict: { promptId: "kgp-x", newerClaim: { id: "c-n", statement: "新" }, olderClaim: { id: "c-o", statement: "旧", saidAt: "2026-09-20T00:00:00Z" } } }
+          : server.card === null ? null : { type: "memory_card", card: server.card },
       }));
     }
     if (path === `/knowledge-graph/threads/${THREAD}` && (init?.method ?? "GET") === "GET") {
@@ -281,6 +285,30 @@ describe("TurnMemoryLine：本轮的「记住 / 忘掉」卡", () => {
     fireEvent.click(undo);
     await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("没法只撤这一次"));
     expect(server.actions).toEqual([]);
+  });
+
+  it("撤之前卡已经读作 dismissed（别的标签页撤过了）⇒ 不再发 revokeClaim，显示「已撤销」", async () => {
+    owner();
+    server.card = { ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "客户A的对接人是王经理" }] };
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-5" />);
+    const undo = await screen.findByTestId("kg-card-undo");
+    server.card = { ...REMEMBER, state: "dismissed", items: [{ claimId: null, statement: "客户A的对接人是王经理" }] };
+    fireEvent.click(undo);
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销，这条没有记到长期记忆"));
+    expect(server.actions).toEqual([]);
+  });
+
+  it("这一轮现在出的是矛盾卡（I-18），读不到这张记忆卡 ⇒ 照撤，但只说中性的「已撤销这次的记住」", async () => {
+    owner();
+    server.card = { ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "客户A的对接人是王经理" }] };
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-5" />);
+    const undo = await screen.findByTestId("kg-card-undo");
+    server.conflictInstead = true;
+    fireEvent.click(undo);
+    await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销这次的记住"));
+    expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("没有记到长期记忆");
+    expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("没法只撤");
+    expect(server.actions.map((a) => a.action)).toEqual([{ type: "revokeClaim", claimId: "c-new", reason: "user_undo_remember" }]);
   });
 
   it("撤的同时别处又记了一次（撤完服务端读回仍是已记住）⇒ 说「还在」，不说「没有记到长期记忆」", async () => {

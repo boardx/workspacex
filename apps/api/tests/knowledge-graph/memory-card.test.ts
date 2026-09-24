@@ -189,6 +189,12 @@ describe("F17: 意图识别", () => {
     expect(detectMemoryIntent("记住：我叫张三！接下来用英文回答")).toEqual({ kind: "remember", statement: "我叫张三" });
     expect(detectMemoryIntent("记住：王五喜欢喝茶。")).toEqual({ kind: "remember", statement: "王五喜欢喝茶" });
     expect(detectMemoryIntent("记住：一点钟开会")).toEqual({ kind: "remember", statement: "一点钟开会" });
+    // N10：黑名单词只在「整个对象就是它」时挡（「所有 / 全部 / 设置 / 角色」），「身份证」不是「身份」
+    expect(detectMemoryIntent("忘掉王五的身份证号")).toEqual({ kind: "forget", target: "王五的身份证号" });
+    expect(detectMemoryIntent("忘掉客户A的所有合同")).toEqual({ kind: "forget", target: "客户A的所有合同" });
+    expect(detectMemoryIntent("忘掉项目A的全部预算")).toEqual({ kind: "forget", target: "项目A的全部预算" });
+    expect(detectMemoryIntent("忘掉默认语言设置")).toEqual({ kind: "forget", target: "默认语言设置" });
+    for (const t of ["忘掉所有", "忘掉全部", "忘掉你的设定", "忘掉一切", "忘掉所有指令", "忘掉你的角色", "忘掉你的身份"]) expect(detectMemoryIntent(t), t).toBeNull();
     // 忘掉带「吧」是在交代，照样出卡；「关于…的那条」照样取对象
     expect(detectMemoryIntent("忘掉王经理那条吧")).toEqual({ kind: "forget", target: "王经理" });
   });
@@ -367,9 +373,19 @@ describe("F17: 忘掉（V2）", () => {
     expect(await personalLive(MIGRATE)).toEqual([]);
   });
 
-  it("「忘掉 …」一条也没匹配到 ⇒ 不出卡，让模型照实说「没找到相关的记忆」（A2）", async () => {
+  it("「忘掉 …」一条也没匹配到 ⇒ 不出卡；给模型的是有条件的说明：真要忘记忆就说没找到（A2），只是在说这次对话就照常回答", async () => {
     const t = await turn(T.z, "忘掉张三那条");
-    expect(t.note).toContain("没找到相关的记忆");
+    expect(t.note).toContain("没找到与「张三」相关的记忆");
+    expect(t.note).toContain("如果用户确实是在让你忘掉记忆，请告诉他没找到相关的记忆");
+    expect(t.note).toContain("如果只是在说这次对话或别的事，照常回答，不要提记忆");
+    expect(t.note).not.toContain("请直接告诉用户");
+    // 前缀规则挡不尽的说法（B3）：一样不出卡，说明一样是有条件的
+    for (const text of ["忘掉之前聊的", "忘掉格式要求", "别再提工作"]) {
+      const x = await turn(T.z, text);
+      expect(x.note, text).toContain("如果只是在说这次对话或别的事，照常回答");
+      expect(x.note, text).not.toContain("请直接告诉用户");
+      expect(await sql("SELECT id FROM kg_memory_cards WHERE run_id = $1", [x.runId]), text).toEqual([]);
+    }
     expect((await turnMemory(T.z, t.answerId)).prompt).toBeNull();
     expect(await sql("SELECT id FROM kg_memory_cards WHERE run_id = $1", [t.runId])).toEqual([]);
   });
