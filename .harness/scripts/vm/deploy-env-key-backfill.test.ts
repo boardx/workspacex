@@ -64,15 +64,18 @@ describe("deploy.env 的新增必需键要能补进存量文件", () => {
     expect(status).toBe(0);
     expect(env).toMatch(/^DIAG_DB_PASSWORD=.+$/m);
     expect(env).toMatch(/^DIAG_DB_USER=app_diag_ro$/m);
+    expect(env).toMatch(/^WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS=604800000$/m);
   });
 
   it("① 反证（最重要的一条）：已有的值一个字符都不许被改写", () => {
-    const before = "APP_DB_PASSWORD=live-password-do-not-touch\nDIAG_DB_PASSWORD=live-diag-password\n";
+    const before = "APP_DB_PASSWORD=live-password-do-not-touch\nDIAG_DB_PASSWORD=live-diag-password\nWORKSPACEX_BOARD_ROLLBACK_WINDOW_MS=86400000\n";
     const { env } = runBackfill(before);
     expect(env).toContain("APP_DB_PASSWORD=live-password-do-not-touch");
     expect(env).toContain("DIAG_DB_PASSWORD=live-diag-password");
+    expect(env).toContain("WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS=86400000");
     // 也不许追加第二行同名键——`grep '^KEY='` 之后 source 谁生效是不确定的。
     expect(env.match(/^DIAG_DB_PASSWORD=/gm)).toHaveLength(1);
+    expect(env.match(/^WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS=/gm)).toHaveLength(1);
   });
 
   it("① 幂等：连跑两次结果一致", () => {
