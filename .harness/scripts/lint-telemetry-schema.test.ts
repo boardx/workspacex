@@ -38,6 +38,12 @@ describe("lint-telemetry-schema", { timeout: 30_000 }, () => {
     expect(out).not.toMatch(/叶子字段 0 个/);
   });
 
+  it("默认目标覆盖第一个价值时刻的两层 schema（backlog E1）", () => {
+    const out = execFileSync("pnpm", ["exec", "tsx", SCRIPT], { cwd: ROOT, encoding: "utf8" });
+    expect(out).toMatch(/FirstValueLocalFact，叶子字段 [1-9]\d* 个，违规 0 处/);
+    expect(out).toMatch(/FirstValueFunnelReport，叶子字段 [1-9]\d* 个，违规 0 处/);
+  });
+
   it("对照组：全是受约束字段的 strict 对象判绿", () => {
     expect(check(`z.object({ count: z.number().int(), code: z.string().regex(/^[A-Z]+$/), kind: z.enum(["a","b"]) }).strict()`).status).toBe(0);
   });

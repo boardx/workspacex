@@ -1,0 +1,97 @@
+/**
+ * 第一个价值时刻事件目录（PROPOSED，backlog E1）的行为测试。
+ * 测的是「违反约束的事实 / 上报会被拒」，以及本地聚合只把计数带出实例。
+ */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  FIRST_VALUE_BUDGET_MINUTES,
+  FIRST_VALUE_STEP,
+  FirstValueFunnelReport,
+  FirstValueLocalFact,
+  FirstValueStep,
+  aggregateFirstValueFunnel,
+  mayLeaveInstance,
+  type FirstValueLocalFactValue,
+} from "../src/first-value-events";
+import { TELEMETRY_CONSENT_DEFAULTS } from "../src/instance-telemetry";
+
+const META = { instanceId: "a".repeat(64), periodEnd: "2026-09-24T23:59:59Z" };
+const at = (min: number) => new Date(Date.parse("2026-09-24T10:00:00Z") + min * 60_000).toISOString();
+const fact = (
+  orgId: string,
+  step: FirstValueLocalFactValue["step"],
+  min: number,
+  orgKind: FirstValueLocalFactValue["orgKind"] = "standard",
+): FirstValueLocalFactValue => ({ orgId, orgKind, step, occurredAt: at(min) });
+
+describe("第一个价值时刻事件目录（PROPOSED）", () => {
+  it("价值时刻是漏斗里的一步，且在「上传自己的材料」与示例回答之后", () => {
+    const steps = FirstValueStep.options;
+    expect(steps).toContain(FIRST_VALUE_STEP);
+    expect(steps.indexOf(FIRST_VALUE_STEP)).toBeGreaterThan(steps.indexOf("own_material_uploaded"));
+    expect(steps.indexOf(FIRST_VALUE_STEP)).toBeGreaterThan(steps.indexOf("cited_answer_sample"));
+    expect(steps[0]).toBe("first_sign_in");
+  });
+
+  it("本地事实：多一个字段就拒（不许夹带文件名、问题原文），组织 id 不许是可读名字", () => {
+    expect(FirstValueLocalFact.safeParse(fact("org-a", "own_material_uploaded", 1)).success).toBe(true);
+    expect(FirstValueLocalFact.safeParse({ ...fact("org-a", "own_material_uploaded", 1), fileName: "合同.pdf" }).success).toBe(false);
+    expect(FirstValueLocalFact.safeParse({ ...fact("org-a", "own_material_uploaded", 1), orgId: "某某资本" }).success).toBe(false);
+  });
+
+  it("离开实例只看 usage 同意，出厂默认不离开（D22）", () => {
+    expect(mayLeaveInstance(TELEMETRY_CONSENT_DEFAULTS)).toBe(false);
+    expect(mayLeaveInstance({ ...TELEMETRY_CONSENT_DEFAULTS, usage: true })).toBe(true);
+    expect(mayLeaveInstance({ health: true, usage: false, diagnostics: true, benchmark: true })).toBe(false);
+  });
+
+  it("本地聚合：只出计数与中位数，排除 personal-local，同步取最早", () => {
+    const r = aggregateFirstValueFunnel(
+      [
+        fact("org-a", "first_sign_in", 0),
+        fact("org-a", "own_material_uploaded", 3),
+        fact("org-a", "cited_answer_own_material", 8),
+        fact("org-a", "cited_answer_own_material", 30), // 重复，取最早
+        fact("org-b", "first_sign_in", 0),
+        fact("org-b", "cited_answer_own_material", 40), // 超预算
+        fact("org-c", "first_sign_in", 0),
+        fact("org-p", "first_sign_in", 0, "personal-local"),
+        fact("org-p", "cited_answer_own_material", 1, "personal-local"),
+      ],
+      META,
+    );
+    expect(r.orgsReachedStep.first_sign_in).toBe(3);
+    expect(r.orgsReachedStep.cited_answer_own_material).toBe(2);
+    expect(r.medianMinutesToFirstValue).toBe(24);
+    expect(r.orgsWithinBudget).toBe(1);
+    expect(FIRST_VALUE_BUDGET_MINUTES).toBeGreaterThanOrEqual(8);
+    expect(JSON.stringify(r)).not.toMatch(/org-/);
+  });
+
+  it("无人到达价值时刻：中位数缺席；周期末之后的事实不计", () => {
+    const late = { ...fact("org-a", FIRST_VALUE_STEP, 0), occurredAt: "2026-09-25T01:00:00Z" };
+    const r = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), late], META);
+    expect(r.orgsReachedStep[FIRST_VALUE_STEP]).toBe(0);
+    expect(r).not.toHaveProperty("medianMinutesToFirstValue");
+  });
+
+  it("计数上报：键集合固定、自相矛盾的计数与错误的同意项被拒", () => {
+    const ok = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), fact("org-a", FIRST_VALUE_STEP, 5)], META);
+    expect(FirstValueFunnelReport.safeParse(ok).success).toBe(true);
+    expect(FirstValueFunnelReport.safeParse({ ...ok, orgsReachedStep: { ...ok.orgsReachedStep, pageViewed: 1 } }).success).toBe(false);
+    expect(FirstValueFunnelReport.safeParse({ ...ok, orgsWithinBudget: 2 }).success).toBe(false);
+    expect(FirstValueFunnelReport.safeParse({ ...ok, consentItem: "health" }).success).toBe(false);
+    expect(FirstValueFunnelReport.safeParse({ ...ok, excludesPersonalLocalOrgs: false }).success).toBe(false);
+    const { medianMinutesToFirstValue: _m, ...none } = ok;
+    const zero = { ...none, orgsWithinBudget: 0, orgsReachedStep: { ...ok.orgsReachedStep, [FIRST_VALUE_STEP]: 0 } };
+    expect(FirstValueFunnelReport.safeParse(zero).success).toBe(true);
+    expect(FirstValueFunnelReport.safeParse({ ...zero, medianMinutesToFirstValue: 3 }).success).toBe(false);
+  });
+
+  it("仍是 PROPOSED：没有从 index.ts 导出", () => {
+    const index = readFileSync(join(import.meta.dirname, "../src/index.ts"), "utf8");
+    expect(index).not.toMatch(/first-value-events/);
+  });
+});
