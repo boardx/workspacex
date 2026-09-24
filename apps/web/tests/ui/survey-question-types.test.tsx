@@ -74,6 +74,11 @@ describe("question registry renders and configures every supported form", () => 
         "aria-pressed",
         "true",
       );
+      fireEvent.click(screen.getByRole("button", { name: "平板预览" }));
+      expect(screen.getByRole("button", { name: "平板预览" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
     },
   );
   it("cancels destructive type switches, preserves choice IDs while editing, and can undo deletion", () => {
