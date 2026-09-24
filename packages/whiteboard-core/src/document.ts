@@ -27,6 +27,9 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
+export function isWhiteboardObjectLocked(object: WhiteboardObject): boolean {
+  return object.extensionData?.locked === true;
+}
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
   for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');
@@ -62,6 +65,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
+    if (isWhiteboardObjectLocked(decode(command.id, item))) throw new Error('OBJECT_LOCKED');
     if (command.type === 'delete') deleted.set(command.id, true);
     if (command.type === 'geometry') item.set('geometry', structuredClone(command.geometry));
     if (command.type === 'style') {

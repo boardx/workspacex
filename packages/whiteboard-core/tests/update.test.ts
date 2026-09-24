@@ -73,3 +73,12 @@ it('rejects a concurrent false tombstone even when it loses to an existing true 
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
   expect(readObjects(server)).toEqual([]);
 });
+it('rejects a raw peer update that bypasses commands to mutate a locked object', () => {
+  const server = seeded();
+  server.getMap<Y.Map<unknown>>('objects').get('a')!.set('extensionData', { locked: true });
+  const peer = cloneDocument(server), vector = Y.encodeStateVector(server);
+  peer.getMap<Y.Map<unknown>>('objects').get('a')!.set('geometry', { x: 90, y: 0, width: 100, height: 100, rotation: 0 });
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer, vector))).toThrow('OBJECT_LOCKED');
+  expect(readObjects(server)[0]!.geometry.x).toBe(0);
+  server.destroy(); peer.destroy();
+});

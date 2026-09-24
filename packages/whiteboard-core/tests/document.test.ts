@@ -56,11 +56,32 @@ describe('whiteboard content kernel', () => {
   });
   it('rejects oversized batches and rich text outside the plain-text contract', () => {
     const doc = createWhiteboardDocument();
-    expect(() => executeCommands(doc, Array.from({ length: 201 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
+    expect(() => executeCommands(doc, Array.from({ length: 501 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
     expect(readObjects(doc)).toEqual([]); create(doc);
     const item = doc.getMap<Y.Map<unknown>>('objects').get('note')!;
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });
     expect(() => validateDocument(doc)).toThrow('UNSUPPORTED_TEXT_FORMAT');
+  });
+  it('rejects every direct mutation of locked objects and rolls back the whole batch', () => {
+    const doc = createWhiteboardDocument();
+    const locked = { ...note('locked'), extensionData: { locked: true } };
+    executeCommands(doc, [{ type: 'create', object: note('free') }, { type: 'create', object: locked }, { type: 'create', object: { ...note('frame'), kind: 'frame' } }], {});
+    const mutations = [
+      { type: 'geometry' as const, id: 'locked', geometry: { ...geometry, x: 10 } },
+      { type: 'style' as const, id: 'locked', style: { fill: 'locked' } },
+      { type: 'text' as const, id: 'locked', index: 0, deleteCount: 0, insert: 'x' },
+      { type: 'parent' as const, id: 'locked', parentId: 'frame', orderKey: '' },
+      { type: 'delete' as const, id: 'locked' },
+    ];
+    for (const mutation of mutations) expect(() => executeCommands(doc, [mutation], {})).toThrow('OBJECT_LOCKED');
+    const before = readObjects(doc);
+    expect(() => executeCommands(doc, [
+      { type: 'geometry', id: 'free', geometry: { ...geometry, x: 99 } },
+      { type: 'geometry', id: 'locked', geometry: { ...geometry, x: 99 } },
+    ], {})).toThrow('OBJECT_LOCKED');
+    expect(readObjects(doc)).toEqual(before);
+    expect(() => executeCommands(doc, Array.from({ length: 501 }, () => ({ type: 'geometry' as const, id: 'free', geometry })), {})).toThrow();
+    doc.destroy();
   });
   it('protects collaborator content from creation undo, including edits still in flight', () => {
     const a = createWhiteboardDocument(), undo = new WhiteboardUndo(a);
