@@ -94,6 +94,18 @@ function configureProductionHostedS3(profile: "aws-s3" | "r2" | "minio" = "aws-s
   process.env.WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY = "required-env-secret";
 }
 
+function configureProductionHostedOss(authMode: "environment" | "ecs-role"): void {
+  configureProductionBoardStorage();
+  process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "hosted";
+  process.env.WORKSPACEX_BOARD_HOSTED_PROVIDER = "aliyun-oss";
+  process.env.WORKSPACEX_BOARD_BLOB_BUCKET = "required-env-private-board";
+  process.env.WORKSPACEX_BOARD_BLOB_PREFIX = "board-content";
+  process.env.WORKSPACEX_BOARD_BLOB_OBJECT_LOCK = "disabled";
+  process.env.WORKSPACEX_BOARD_OSS_ENDPOINT = "https://127.0.0.1:9";
+  process.env.WORKSPACEX_BOARD_OSS_REGION = "cn-test";
+  process.env.WORKSPACEX_BOARD_OSS_AUTH_MODE = authMode;
+}
+
 describe("verify-required-env: fail-closed before the restart, missing var named", () => {
   afterEach(restoreEnv);
 
@@ -301,6 +313,30 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     for (const name of conditional) expect(process.env[name]).toBeUndefined();
   });
 
+  it.each([
+    ["r2", new Map<string, string>([
+      ["WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT", "not-a-url"],
+      ["WORKSPACEX_BOARD_R2_ACCOUNT_ID", "   "],
+      ["WORKSPACEX_BOARD_R2_MANAGEMENT_TOKEN", "   "],
+    ])],
+    ["minio", new Map<string, string>([
+      ["WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT", "not-a-url"],
+      ["WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_TOKEN", "   "],
+    ])],
+  ] as const)("所选 %s profile 的非法治理变量逐项归因并恢复", async (profile, invalid) => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3(profile);
+    for (const [name, value] of invalid) process.env[name] = value;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.invalidVars.map(value => value.name)).toEqual(expect.arrayContaining([...invalid.keys()]));
+    for (const [name, value] of invalid) expect(process.env[name]).toBe(value);
+  });
+
   it("所选 Aliyun OSS provider 的 endpoint/auth/credential 配置由完整 createApp 汇总", async () => {
     process.env.NODE_ENV = "production";
     process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
@@ -321,6 +357,36 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     expect(result.ok).toBe(false);
     expect(result.missingVars).toEqual(expect.arrayContaining([...conditional]));
     for (const name of conditional) expect(process.env[name]).toBeUndefined();
+  });
+
+  it.each([
+    [undefined, true],
+    ["   ", false],
+  ] as const)("OSS ecs-role 的 ROLE_NAME %s 时被归因并精确恢复", async (roleName, missing) => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedOss("ecs-role");
+    if (roleName === undefined) delete process.env.WORKSPACEX_BOARD_OSS_ROLE_NAME;
+    else process.env.WORKSPACEX_BOARD_OSS_ROLE_NAME = roleName;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    if (missing) expect(result.missingVars).toContain("WORKSPACEX_BOARD_OSS_ROLE_NAME");
+    else expect(result.invalidVars.map(value => value.name)).toContain("WORKSPACEX_BOARD_OSS_ROLE_NAME");
+    expect(process.env.WORKSPACEX_BOARD_OSS_ROLE_NAME).toBe(roleName);
+  });
+
+  it("OSS ecs-role 原始配置完整但凭据/readiness 失败时保持 fail closed", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedOss("ecs-role");
+    process.env.WORKSPACEX_BOARD_OSS_ROLE_NAME = "production-board-role";
+
+    await expect(probeRequiredEnv()).rejects.toThrow(/cannot attribute.*hosted board storage is unavailable/);
+    expect(process.env.WORKSPACEX_BOARD_OSS_ROLE_NAME).toBe("production-board-role");
   });
 
   it("Hosted 原始配置完整但 readiness 不可达时仍 fail closed，不把运行时故障伪装成 env 通过", async () => {

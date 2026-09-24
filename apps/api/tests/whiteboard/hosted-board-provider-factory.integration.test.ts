@@ -127,6 +127,14 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
     await expect(client.inspectBucket()).resolves.toMatchObject({ access: 'public' });
   });
 
+  it('defers OSS ecs-role credential lookup until the real readiness operation', async () => {
+    const client = await new EnvHostedBoardClientFactory({
+      NODE_ENV: 'test', WORKSPACEX_BOARD_OSS_ENDPOINT: 'http://127.0.0.1:1', WORKSPACEX_BOARD_OSS_REGION: 'cn-test',
+      WORKSPACEX_BOARD_OSS_AUTH_MODE: 'ecs-role', WORKSPACEX_BOARD_OSS_ROLE_NAME: 'board-role',
+    }).create({ provider: 'aliyun-oss', bucket: 'private-board', prefix: 'content' });
+    expect(client.provider).toBe('aliyun-oss');
+  });
+
   it('uses official S3 commands and independently verifies path-prefix and special-key SigV4', async () => {
     const fixture = await awsFixture(), bytes = Buffer.from('immutable-s3');
     const client = await new EnvHostedBoardClientFactory(s3Env(`${fixture.endpoint}/gateway%20root`, 'aws-s3'))

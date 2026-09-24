@@ -84,6 +84,27 @@ class AliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
   async head(key: string): Promise<{ headers: Record<string, string> }> { return { headers: headersOf((await this.sdk.head(key)).res.headers) }; }
 }
 
+/**
+ * Credential acquisition belongs to readiness, not configuration parsing. In particular,
+ * an ecs-role deployment must let the required-env probe enumerate/restore ROLE_NAME before
+ * any metadata request occurs. The first real policy/object operation resolves credentials;
+ * one rejected resolution is cached so concurrent readiness calls cannot fan out to IMDS.
+ */
+class LazyAliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
+  private protocol?: Promise<AliyunOssSdkBoardProtocol>;
+  constructor(private readonly createSdk: () => Promise<AliSdk>) {}
+  private configured(): Promise<AliyunOssSdkBoardProtocol> {
+    return this.protocol ??= this.createSdk().then(sdk => new AliyunOssSdkBoardProtocol(sdk));
+  }
+  async getBucketVersioning(bucket: string) { return (await this.configured()).getBucketVersioning(bucket); }
+  async getBucketACL(bucket: string) { return (await this.configured()).getBucketACL(bucket); }
+  async getBucketObjectLock(bucket: string) { return (await this.configured()).getBucketObjectLock(bucket); }
+  async getBucketPolicy(bucket: string) { return (await this.configured()).getBucketPolicy(bucket); }
+  async put(key: string, bytes: Buffer, options: { headers: Record<string, string>; mime: string }) { return (await this.configured()).put(key, bytes, options); }
+  async get(key: string) { return (await this.configured()).get(key); }
+  async head(key: string) { return (await this.configured()).head(key); }
+}
+
 type S3Profile = 'aws-s3' | 'minio' | 'r2';
 type Inspection = { private: boolean; versioning: 'Enabled' | 'Disabled' | 'Unsupported'; objectLock: boolean };
 
@@ -220,10 +241,13 @@ export class EnvHostedBoardClientFactory implements HostedBoardClientFactory {
         OSS_ACCESS_KEY_SECRET: this.env.WORKSPACEX_BOARD_OSS_ACCESS_KEY_SECRET,
         OSS_SECURITY_TOKEN: this.env.WORKSPACEX_BOARD_OSS_SECURITY_TOKEN,
       });
-      let credentials;
-      try { credentials = await source(); } catch { throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage credentials are unavailable'); }
-      const sdk = new OSS({ ...credentials, bucket: input.bucket, region: `oss-${region}`, endpoint: url.toString(), secure: url.protocol === 'https:', authorizationV4: true, timeout: 10_000, refreshSTSToken: source, refreshSTSTokenInterval: 0 }) as AliSdk;
-      return new AliyunOssBoardBlobClient(new AliyunOssSdkBoardProtocol(sdk), input.bucket, input.prefix);
+      const protocol = new LazyAliyunOssSdkBoardProtocol(async () => {
+        let credentials;
+        try { credentials = await source(); }
+        catch { throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage credentials are unavailable'); }
+        return new OSS({ ...credentials, bucket: input.bucket, region: `oss-${region}`, endpoint: url.toString(), secure: url.protocol === 'https:', authorizationV4: true, timeout: 10_000, refreshSTSToken: source, refreshSTSTokenInterval: 0 }) as AliSdk;
+      });
+      return new AliyunOssBoardBlobClient(protocol, input.bucket, input.prefix);
     }
 
     const url = endpoint(this.env, 'WORKSPACEX_BOARD_S3_ENDPOINT');
