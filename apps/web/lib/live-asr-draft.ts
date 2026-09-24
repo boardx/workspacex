@@ -16,6 +16,9 @@ import { chat } from "@repo/contracts";
 import type { z } from "zod";
 import { apiWebSocketUrl, getStoredSessionToken, waitForSocketOpen } from "./api-client";
 import { startCapture, type CaptureHandle } from "./live-recording";
+import { pcm16Level } from "./pcm-audio-level";
+
+export { pcm16Level } from "./pcm-audio-level";
 
 export type AsrDraftErrorReason = z.infer<typeof chat.ChatAsrDraftErrorReason>;
 
@@ -33,21 +36,6 @@ export interface AsrDraftStreamHandlers {
    * 可选：不传（既有调用方 `use-asr-draft.ts` 之外的任何调用方）行为逐字节不变。
    */
   readonly onLevel?: (level: number) => void;
-}
-
-/**
- * 从一帧真实 PCM16 采样算一个 0..1 的电平值（RMS，乘 4 放大到可视范围并夹顶）。
- * 纯函数，供 `openAsrDraftStream` 与其单测共用——不是在渲染层现算一个假动画。
- */
-export function pcm16Level(frame: Int16Array): number {
-  if (frame.length === 0) return 0;
-  let sumSquares = 0;
-  for (let i = 0; i < frame.length; i += 1) {
-    const normalized = frame[i]! / 0x8000;
-    sumSquares += normalized * normalized;
-  }
-  const rms = Math.sqrt(sumSquares / frame.length);
-  return Math.max(0, Math.min(1, rms * 4));
 }
 
 export interface AsrDraftStreamHandle {

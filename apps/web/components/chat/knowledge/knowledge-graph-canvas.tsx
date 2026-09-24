@@ -21,7 +21,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { KG_TRI_STATE_LABEL_ZH, claimTriState } from "@repo/contracts/chat-knowledge-graph";
-import { KG_OBJECT_KIND_LABEL_ZH, KG_CLAIM_KIND_LABEL_ZH, type ThreadKnowledge } from "@/lib/mock/knowledge-graph";
+import { KG_OBJECT_KIND_LABEL_ZH, KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import type { ThreadKnowledge } from "@/lib/knowledge-graph-api";
 
 type NodeVariant = "object" | "claim";
 
@@ -60,11 +61,19 @@ function KgNode({ data }: NodeProps) {
 
 const NODE_TYPES = { kg: KgNode };
 
-export default function KnowledgeGraphCanvas({ data }: { data: ThreadKnowledge }) {
+export default function KnowledgeGraphCanvas({
+  data,
+  onOpenClaim,
+}: {
+  data: ThreadKnowledge;
+  /** 点一条「记下的」节点 → 打开来源抽屉（与列表视图同一个入口）。 */
+  onOpenClaim?: (claimId: string) => void;
+}) {
   const { nodes, edges } = React.useMemo(() => {
     const built: Node[] = [];
     // 实体按左列纵向排布，结论按右列纵向排布——两列布局便于看清 about/decided_by 连边。
-    data.objects.forEach((o, i) => {
+    // claimCount = 0 的孤立人和事不渲染（契约 KgObject.claimCount 注释，uc-18-5 A1）。
+    data.objects.filter((o) => o.claimCount > 0).forEach((o, i) => {
       built.push({
         id: `object:${o.id}`,
         type: "kg",
@@ -123,6 +132,9 @@ export default function KnowledgeGraphCanvas({ data }: { data: ThreadKnowledge }
         panOnScroll
         fitView
         proOptions={{ hideAttribution: true }}
+        onNodeClick={(_event, node) => {
+          if (node.id.startsWith("claim:")) onOpenClaim?.(node.id.slice("claim:".length));
+        }}
       >
         <Background />
         <Controls showInteractive={false} />

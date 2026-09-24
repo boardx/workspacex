@@ -22,7 +22,6 @@ import {
   KG_VISIBILITY_LABEL_ZH,
   KG_GRAPH_VIEW_MAX_NODES,
   type KgObject,
-  type KgObjectKind,
   type KgClaim,
   type KgEdge,
   type KgClaimKind,
@@ -34,13 +33,12 @@ import {
   type KgConflictPrompt,
 } from "@repo/contracts/chat-knowledge-graph";
 import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
+import type { ThreadKnowledge, ClaimSources, PromotionResults } from "@/lib/knowledge-graph-api";
 
 type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
 
 /* 契约输出形状（从操作 schema 派生，不手写第二份） */
-export type ThreadKnowledge = z.infer<typeof knowledgeGraph.getThreadKnowledge.out>;
-export type ClaimSources = z.infer<typeof knowledgeGraph.getClaimSources.out>;
-export type PromotionResults = z.infer<typeof knowledgeGraph.promoteToPersonal.out>;
+export type { ThreadKnowledge, ClaimSources, PromotionResults };
 export type PromotionNominations = z.infer<typeof knowledgeGraph.listPromotionNominations.out>;
 export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
 export type TurnMemory = KgTurnMemory;
@@ -54,26 +52,15 @@ export {
   KG_GRAPH_VIEW_MAX_NODES,
 };
 
-/* ── 「记下的一条」按类型显示（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险） ──── */
-export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
-  fact: "事实",
-  hypothesis: "猜测",
-  decision: "决定",
-  todo: "待办",
-  risk: "风险",
-};
-
-/* ── 「人和事」按类型显示（用词表：实体 → 人物 / 公司 / 项目 / …），界面不出现「实体」字样 ── */
-export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {
-  person: "人物",
-  organization: "公司",
-  project: "项目",
-  product: "产品",
-  concept: "概念",
-  term: "术语",
-  metric: "指标",
-  event: "事件",
-};
+/* 类型显示用词、分组 / 三态计数 / 禁用词：定义在非 mock 模块（产品路由也要用，不能够到 lib/mock），
+ * 这里只 re-export，保持预览与既有单测的 import 不变。 */
+export {
+  KG_CLAIM_KIND_LABEL_ZH,
+  KG_OBJECT_KIND_LABEL_ZH,
+  KG_BANNED_USER_FACING_WORDS,
+  groupClaimsByKind,
+  countByTriState,
+} from "@/lib/knowledge-graph-view";
 
 const L0_SCOPE: KgScope = { kind: "chat_session", id: "thread-v2-launch" };
 const L1_SCOPE: KgScope = { kind: "personal", id: "user-me" };
@@ -554,30 +541,3 @@ export const RETRIEVAL_CHANNEL_LABEL_ZH: Record<RetrievalChannel, string> = {
   metadata: "元数据",
   claim: "记下的",
 };
-
-/* ── 分组辅助（纯函数，供列表视图与单测） ─────────────────────────────────── */
-
-/** 记下的按 kind 分组，`superseded`（triState 为 null）不渲染（uc-18-3 R7）。 */
-export function groupClaimsByKind(input: KgClaim[]): { kind: KgClaimKind; label: string; claims: KgClaim[] }[] {
-  const order: KgClaimKind[] = ["decision", "fact", "todo", "risk", "hypothesis"];
-  return order
-    .map((kind) => ({
-      kind,
-      label: KG_CLAIM_KIND_LABEL_ZH[kind],
-      claims: input.filter((c) => c.kind === kind && claimTriState(c.status) !== null),
-    }))
-    .filter((g) => g.claims.length > 0);
-}
-
-/** 三态统计（头部计数徽标） */
-export function countByTriState(input: KgClaim[]): Record<KgTriState, number> {
-  const acc: Record<KgTriState, number> = { pending: 0, confirmed: 0, conflict: 0 };
-  for (const c of input) {
-    const tri = claimTriState(c.status);
-    if (tri) acc[tri] += 1;
-  }
-  return acc;
-}
-
-/** 全部禁用词（用词表内部术语）——单测用它扫 mock/labels 的用户可见文案，确保界面说人话。 */
-export const KG_BANNED_USER_FACING_WORDS = ["实体", "结论", "三态", "晋升", "本体", "L0", "L1"] as const;
