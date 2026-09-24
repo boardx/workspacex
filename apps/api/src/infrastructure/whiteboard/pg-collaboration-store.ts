@@ -7,7 +7,7 @@ import type { DatabasePort, TenantSession } from '../../application/ports/databa
 import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
-import { BoardBlobError, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, BoardBlobError, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
 import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
 import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
 
@@ -137,7 +137,9 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const snapshot = await this.snapshot(p, boardId, doc);
     const accepted = await validate(snapshot), seq = Number(doc.seq) + 1;
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > 1048576) throw new Fault('VALIDATION_FAILED');
-    const published = this.blobs && this.codec ? await this.publish(p, boardId, epoch, seq, accepted.snapshot, doc.head.manifest_digest) : null;
+    const published = this.blobs && this.codec ? await this.publish(p, boardId, epoch, seq, accepted.snapshot, doc.head.manifest_key && doc.head.manifest_digest && doc.head.manifest_plain_digest && doc.head.manifest_size_bytes ? {
+      key: doc.head.manifest_key, cipherDigest: doc.head.manifest_digest, plainDigest: doc.head.manifest_plain_digest, sizeBytes: Number(doc.head.manifest_size_bytes), tenantKeyVersion: doc.head.tenant_key_version!,
+    } : null) : null;
     const retainRollbackMirror = published && doc.head.content_state === 'rollback';
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, published && !retainRollbackMirror ? null : Buffer.from(accepted.update)]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, published && !retainRollbackMirror ? null : Buffer.from(accepted.snapshot)]);
@@ -160,12 +162,12 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
       throw new Error('Board blob runtime is unavailable');
     }
     if (doc.head.schema_version !== CONTENT_SCHEMA_VERSION || doc.head.protocol_version !== CONTENT_PROTOCOL_VERSION) throw new Error('Unsupported Board content head version');
-    const encryptedManifest = await this.blobs.getVerified({ tenantId: p.orgId, key: doc.head.manifest_key, expectedCipherDigest: doc.head.manifest_digest, expectedSizeBytes: Number(doc.head.manifest_size_bytes) });
-    const manifestBytes = await this.codec.decrypt({ ciphertext: encryptedManifest, cipherDigest: doc.head.manifest_digest, plainDigest: doc.head.manifest_plain_digest, expectedPlainDigest: doc.head.manifest_plain_digest, sizeBytes: Number(doc.head.manifest_size_bytes), tenantId: p.orgId, tenantKeyVersion: doc.head.tenant_key_version });
+    const encryptedManifest = await this.blobs.getVerified({ tenantId: p.orgId, key: doc.head.manifest_key, expectedCipherDigest: doc.head.manifest_digest, expectedSizeBytes: Number(doc.head.manifest_size_bytes), expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+    const manifestBytes = await this.codec.decrypt({ ciphertext: encryptedManifest, cipherDigest: doc.head.manifest_digest, plainDigest: doc.head.manifest_plain_digest, expectedPlainDigest: doc.head.manifest_plain_digest, sizeBytes: Number(doc.head.manifest_size_bytes), contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, tenantId: p.orgId, tenantKeyVersion: doc.head.tenant_key_version });
     const manifest = decodeBoardContentManifest(manifestBytes);
     if (manifest.boardId !== boardId || manifest.epoch !== doc.epoch || manifest.headSeq !== Number(doc.seq) || manifest.tenantKeyVersion !== doc.head.tenant_key_version || manifest.schemaVersion !== doc.head.schema_version) throw new Error('Board manifest head mismatch');
-    const encrypted = await this.blobs.getVerified({ tenantId: p.orgId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes });
-    return this.codec.decrypt({ ...manifest.checkpoint, ciphertext: encrypted, tenantId: p.orgId, tenantKeyVersion: manifest.tenantKeyVersion, expectedPlainDigest: manifest.checkpoint.plainDigest });
+    const encrypted = await this.blobs.getVerified({ tenantId: p.orgId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+    return this.codec.decrypt({ ...manifest.checkpoint, ciphertext: encrypted, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, tenantId: p.orgId, tenantKeyVersion: manifest.tenantKeyVersion, expectedPlainDigest: manifest.checkpoint.plainDigest });
   }
 
   private async activateNewBoard(session: TenantSession, p: Principal, boardId: string, doc: DocumentRow): Promise<void> {
@@ -178,20 +180,20 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     doc.head = { ...doc.head, storage_kind: 'blob_primary', manifest_key: published.key, manifest_digest: published.cipherDigest, manifest_plain_digest: published.plainDigest, manifest_size_bytes: String(published.sizeBytes), tenant_key_version: this.tenantKeyVersion, schema_version: CONTENT_SCHEMA_VERSION, protocol_version: CONTENT_PROTOCOL_VERSION, content_state: 'active', fencing_token: changed.rows[0].fencing_token };
   }
 
-  private async publish(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifestDigest: string | null): Promise<{ key: string; cipherDigest: string; plainDigest: string; sizeBytes: number }> {
+  private async publish(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifest: { key: string; cipherDigest: string; plainDigest: string; sizeBytes: number; tenantKeyVersion: number } | null): Promise<{ key: string; cipherDigest: string; plainDigest: string; sizeBytes: number }> {
     const checkpoint = await this.codec!.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: snapshot });
     const checkpointKey = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'checkpoint', cipherDigest: checkpoint.cipherDigest });
     await this.putAndVerify(p.orgId, checkpointKey, checkpoint);
     const manifest: BoardContentManifest = {
       manifestVersion: 1, boardId, epoch, headSeq: seq, schemaVersion: CONTENT_SCHEMA_VERSION,
       checkpoint: { key: checkpointKey, plainDigest: checkpoint.plainDigest, cipherDigest: checkpoint.cipherDigest, sizeBytes: checkpoint.sizeBytes, throughSeq: seq },
-      tail: [], parentManifestDigest, tenantKeyVersion: this.tenantKeyVersion, createdAt: new Date().toISOString(),
+      tail: [], parentManifestDigest: parentManifest?.cipherDigest ?? null, parentManifest, tenantKeyVersion: this.tenantKeyVersion, createdAt: new Date().toISOString(),
     };
     const bytes = encodeBoardContentManifest(manifest);
     const encrypted = await this.codec!.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: bytes });
     const key = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'manifest', cipherDigest: encrypted.cipherDigest });
     await this.putAndVerify(p.orgId, key, encrypted);
-    const readback = await this.blobs!.getVerified({ tenantId: p.orgId, key, expectedCipherDigest: encrypted.cipherDigest, expectedSizeBytes: encrypted.sizeBytes });
+    const readback = await this.blobs!.getVerified({ tenantId: p.orgId, key, expectedCipherDigest: encrypted.cipherDigest, expectedSizeBytes: encrypted.sizeBytes, expectedContentType: encrypted.contentType });
     const decodedBytes = await this.codec!.decrypt({ ...encrypted, ciphertext: readback, tenantId: p.orgId, expectedPlainDigest: encrypted.plainDigest });
     const decoded = decodeBoardContentManifest(decodedBytes);
     if (decoded.boardId !== boardId || decoded.epoch !== epoch || decoded.headSeq !== seq || sha256(decodedBytes) !== encrypted.plainDigest) throw new Error('Board manifest read-back mismatch');
@@ -199,8 +201,8 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
   }
 
   private async putAndVerify(tenantId: string, key: string, blob: EncodedBoardBlob): Promise<void> {
-    await this.blobs!.putImmutable({ tenantId, key, ciphertext: blob.ciphertext, cipherDigest: blob.cipherDigest, sizeBytes: blob.sizeBytes });
-    const readback = await this.blobs!.getVerified({ tenantId, key, expectedCipherDigest: blob.cipherDigest, expectedSizeBytes: blob.sizeBytes });
+    await this.blobs!.putImmutable({ tenantId, key, ciphertext: blob.ciphertext, cipherDigest: blob.cipherDigest, sizeBytes: blob.sizeBytes, contentType: blob.contentType });
+    const readback = await this.blobs!.getVerified({ tenantId, key, expectedCipherDigest: blob.cipherDigest, expectedSizeBytes: blob.sizeBytes, expectedContentType: blob.contentType });
     await this.codec!.decrypt({ ...blob, ciphertext: readback, tenantId, expectedPlainDigest: blob.plainDigest });
   }
 }

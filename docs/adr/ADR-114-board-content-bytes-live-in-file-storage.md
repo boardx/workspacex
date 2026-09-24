@@ -72,19 +72,28 @@ interface BoardBlobStore {
     ciphertext: Uint8Array;
     cipherDigest: string;
     sizeBytes: number;
+    contentType: "application/octet-stream";
   }): Promise<"created" | "already-present-same-content">;
   getVerified(input: {
     tenantId: string;
     key: string;
     expectedCipherDigest: string;
     expectedSizeBytes: number;
+    expectedContentType: "application/octet-stream";
   }): Promise<Uint8Array>;
   head(input: { tenantId: string; key: string }): Promise<{
     cipherDigest: string;
     sizeBytes: number;
+    contentType: "application/octet-stream";
   } | null>;
 }
 ```
+
+物理回收走单独的 `BoardBlobPurgeStore`：按 `tenantId + boardId + createdBefore` 有界分页列举候选，
+并用 key、digest、size、MIME、创建时间组成不可变水位执行条件删除。普通写路径只注入
+`BoardBlobStore`。GC 在持有与写路径相同的 Board 行锁期间遍历当前 head、迁移 candidate 与完整
+`parentManifest` 历史，再次比对候选后才调用 purge；旧 manifest 若只有 parent digest 而没有完整
+指针则失败关闭，不猜测历史可达性。
 
 普通 Board 写路径没有 delete 权限。删除只能由单独的 retention/physical-purge capability 执行，且
 执行前再次读取 legal hold。key 是租户命名空间内不可变的内容地址；同 key 不同内容必须硬失败，
@@ -97,7 +106,8 @@ interface BoardBlobStore {
 manifestVersion, boardId, epoch, headSeq, schemaVersion
 checkpoint: { key, plainDigest, cipherDigest, sizeBytes, throughSeq }
 tail[]:     { key, plainDigest, cipherDigest, sizeBytes, fromSeq, throughSeq }
-parentManifestDigest, tenantKeyVersion, createdAt
+parentManifestDigest, parentManifest: { key, plainDigest, cipherDigest, sizeBytes, tenantKeyVersion },
+tenantKeyVersion, createdAt
 ```
 
 PG head 只指向一个已 read-after-write 校验成功的 manifest。manifest 中的 seq 范围必须连续、不重叠，

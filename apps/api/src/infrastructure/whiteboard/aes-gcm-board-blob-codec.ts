@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { BoardBlobError, type BoardBlobCodec, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, BoardBlobError, type BoardBlobCodec, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
 import { assertSha256Digest, sha256 } from '../../domain/whiteboard/blob-identity';
 
 export interface BoardTenantKeyResolver { resolve(tenantId: string, version: number): Promise<Uint8Array>; }
@@ -37,11 +37,12 @@ export class AesGcmBoardBlobCodec implements BoardBlobCodec {
     cipher.setAAD(this.aad(input.tenantId, input.tenantKeyVersion));
     const body = Buffer.concat([cipher.update(input.plaintext), cipher.final()]);
     const ciphertext = Buffer.concat([Buffer.from([FORMAT_VERSION]), nonce, cipher.getAuthTag(), body]);
-    return { ciphertext: new Uint8Array(ciphertext), plainDigest: sha256(input.plaintext), cipherDigest: sha256(ciphertext), sizeBytes: ciphertext.byteLength, tenantKeyVersion: input.tenantKeyVersion };
+    return { ciphertext: new Uint8Array(ciphertext), plainDigest: sha256(input.plaintext), cipherDigest: sha256(ciphertext), sizeBytes: ciphertext.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, tenantKeyVersion: input.tenantKeyVersion };
   }
 
   async decrypt(input: EncodedBoardBlob & { tenantId: string; expectedPlainDigest: string }): Promise<Uint8Array> {
     assertSha256Digest(input.expectedPlainDigest); assertSha256Digest(input.cipherDigest);
+    if (input.contentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE) throw new BoardBlobError('INTEGRITY_FAILED', 'encrypted Board blob MIME mismatch');
     if (!(input.ciphertext instanceof Uint8Array) || input.ciphertext.byteLength !== input.sizeBytes || sha256(input.ciphertext) !== input.cipherDigest) {
       throw new BoardBlobError('INTEGRITY_FAILED', 'ciphertext descriptor mismatch');
     }

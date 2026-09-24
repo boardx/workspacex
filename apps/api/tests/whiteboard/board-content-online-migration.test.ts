@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
-import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
 import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, BoardRetirementHead, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
 import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
@@ -46,7 +46,7 @@ class MemoryBlobs implements BoardBlobStore {
   }
   async head(input: Parameters<BoardBlobStore['head']>[0]) {
     const value = this.values.get(input.key);
-    return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength } : null;
+    return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE } : null;
   }
 }
 
@@ -66,7 +66,7 @@ class DeferredBlobs extends MemoryBlobs {
 const codec: BoardBlobCodec = {
   async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> {
     const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext);
-    return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, tenantKeyVersion };
+    return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream', tenantKeyVersion };
   },
   async decrypt(input) {
     if (sha256(input.ciphertext) !== input.cipherDigest || sha256(input.ciphertext) !== input.expectedPlainDigest) throw Object.assign(new Error('corrupt'), { code: 'INTEGRITY_FAILED' });
