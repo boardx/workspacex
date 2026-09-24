@@ -78,4 +78,14 @@ describe('whiteboard content kernel', () => {
     expect(undo.redo()).toBe(true); expect(readObjects(a)[0].text).toContain('甲');
     undo.execute([{ type: 'delete', id: 'note' }]); undo.undo(); expect(readObjects(a)).toEqual([]);
   });
+  it('discards only redo while preserving earlier undo history', () => {
+    const doc = createWhiteboardDocument(); create(doc); const undo = new WhiteboardUndo(doc);
+    undo.execute([{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '甲' }]);
+    undo.execute([{ type: 'geometry', id: 'note', geometry: { ...geometry, x: 40 } }]);
+    expect(undo.undo()).toBe('undone');
+    undo.discardRedo();
+    expect(undo.redo()).toBe(false);
+    expect(undo.undo()).toBe('undone');
+    expect(readObjects(doc)[0]).toMatchObject({ text: '你好', geometry });
+  });
 });

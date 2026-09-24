@@ -79,5 +79,7 @@ export class WhiteboardUndo {
     if (!item || !this.canApply(item, 'redo')) return false;
     this.applyOne('redo'); return true;
   }
+  /** A new out-of-band local transaction invalidates redo without erasing valid undo history. */
+  discardRedo(): void { this.manager.clear(false, true); }
   destroy(): void { this.manager.destroy(); }
 }
