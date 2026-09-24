@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   InstanceTelemetryReport,
   TELEMETRY_CONSENT_COPY,
+  TELEMETRY_CONSENT_DEFAULTS,
   TelemetryConsentItem,
 } from "../src/instance-telemetry";
 
@@ -76,6 +77,17 @@ describe("InstanceTelemetryReport（PROPOSED）", () => {
   it("每一项同意都有「关了会失去什么」的文案，且只有这四项", () => {
     expect(Object.keys(TELEMETRY_CONSENT_COPY).sort()).toEqual([...TelemetryConsentItem.options].sort());
     for (const copy of Object.values(TELEMETRY_CONSENT_COPY)) expect(copy.ifOff.length).toBeGreaterThan(4);
+  });
+
+  it("出厂默认值：只有健康信号开（D22），且四项都有默认值", () => {
+    expect(Object.keys(TELEMETRY_CONSENT_DEFAULTS).sort()).toEqual([...TelemetryConsentItem.options].sort());
+    expect(TELEMETRY_CONSENT_DEFAULTS).toEqual({ health: true, usage: false, diagnostics: false, benchmark: false });
+  });
+
+  it("按出厂默认值上报：只带健康分节就合规", () => {
+    const { usage: _u, diagnostics: _d, benchmark: _b, ...r } = valid();
+    expect(InstanceTelemetryReport.safeParse({ ...r, consent: { ...TELEMETRY_CONSENT_DEFAULTS } }).success).toBe(true);
+    expect(InstanceTelemetryReport.safeParse({ ...valid(), consent: { ...TELEMETRY_CONSENT_DEFAULTS } }).success).toBe(false);
   });
 
   it("仍是 PROPOSED：没有从 index.ts 导出（签核前不许被消费）", () => {

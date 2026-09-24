@@ -492,7 +492,6 @@ import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-ste
 import { THREAD_MESSAGE_QUEUE, ThreadMessageQueue } from "./infrastructure/chat-queue/thread-message-queue";
 import { ThreadMessageQueueController } from "./interface/controllers/thread-message-queue.controller";
 import { NotificationsController } from "./interface/controllers/notifications.controller";
-import { PostinvestRatingController } from "./interface/controllers/postinvest-rating.controller";
 import { NOTIFICATION_CENTER, type NotificationPublisher } from "./application/notifications/notification-center";
 import { PgNotificationCenter } from "./infrastructure/notifications/pg-notification-center";
 import { NotifyingRunEventBus } from "./infrastructure/notifications/notifying-run-event-bus";
@@ -1027,7 +1026,6 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ThreadMessageQueueController,
     NotificationsController,
     // issue #3676 -- 投后财务项目评级 Agent ad-hoc MVP 的唯一 HTTP 入口（纯计算，无 DI 端口）。
-    PostinvestRatingController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,

@@ -2,6 +2,7 @@
   "name": "@repo/local-asr-gateway",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "本机实时语音转写网关（issue #3716 / PROP-LOCAL-WORKSPACE-001 R2）：对 apps/api 说与 DashScope 实时接口一字不差的 OpenAI-Realtime 风格 WebSocket 协议，内部驱动本地流式引擎（sherpa-onnx 流式 Zipformer，纯 onnxruntime，无 Python）。API 侧零改动：KERNEL_ASR_BASE_URL 指到 ws://127.0.0.1 即可。",
   "type": "module",
   "main": "src/index.ts",

@@ -88,9 +88,6 @@ importers:
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@repo/maau-postinvest-report':
-        specifier: workspace:*
-        version: link:../../packages/maau-postinvest-report
       ali-oss:
         specifier: 6.23.0
         version: 6.23.0
@@ -466,9 +463,6 @@ importers:
       '@repo/fabric-markdown':
         specifier: workspace:*
         version: link:../../packages/fabric-markdown
-      '@repo/maau-postinvest-report':
-        specifier: workspace:*
-        version: link:../../packages/maau-postinvest-report
       '@tanstack/react-query':
         specifier: ^5
         version: 5.102.8(react@18.3.1)
@@ -800,18 +794,6 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.0.0
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
-
-  packages/maau-postinvest-report:
-    devDependencies:
-      '@types/node':
-        specifier: '*'
-        version: 22.20.1
-      typescript:
-        specifier: '*'
-        version: 5.9.3
-      vitest:
-        specifier: '*'
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
 
 packages:
@@ -2644,7 +2626,7 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/core': '>=0.2.31 <0.4.0 || ^1.0.0-alpha'
-      '@langchain/langgraph-checkpoint': 0.1.1
+      '@langchain/langgraph-checkpoint': ^0.1.0
 
   '@langchain/langgraph-checkpoint@0.1.1':
     resolution: {integrity: sha512-h2bP0RUikQZu0Um1ZUPErQLXyhzroJqKRbRcxYRTAh49oNlsfeq4A3K4YEDRbGGuyPZI/Jiqwhks1wZwY73AZw==}

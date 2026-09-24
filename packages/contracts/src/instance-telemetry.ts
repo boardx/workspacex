@@ -45,6 +45,18 @@ export const TELEMETRY_CONSENT_COPY: Record<TelemetryConsentItemValue, { label: 
   benchmark: { label: "同行对标", ifOff: "不进入跨客户对标基线，也收不到「你比同行慢在哪」的回馈" },
 };
 
+/**
+ * 四项同意的**出厂默认值**（D22，2026-09-24 人类决策）：只有健康信号默认开，其余三项默认关，
+ * 由客户主动打开。健康信号用于主动发现故障，价值最直接；用量、错误指纹、对标默认不传，
+ * 最能体现「你的数据在你那」。客户随时可改——这里只定出厂状态。
+ */
+export const TELEMETRY_CONSENT_DEFAULTS: Record<TelemetryConsentItemValue, boolean> = {
+  health: true,
+  usage: false,
+  diagnostics: false,
+  benchmark: false,
+};
+
 /** 实例的不可逆标识：安装时生成的随机密钥的 SHA-256。不含组织名、域名或任何可读信息。 */
 export const InstanceId = z.string().regex(/^[0-9a-f]{64}$/, "实例标识必须是 64 位小写十六进制（不可逆哈希）");
 

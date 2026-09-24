@@ -2,6 +2,7 @@
   "name": "@repo/coord-directory",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "PlatformDirectory Durable Object：平台级目录单例——Project/Engineer/Membership/Agent/Enrollment 领域模型 + 只增审计事件（p30/F01，与按仓分片的 RepoHub 互补）",
   "type": "module",
   "main": "src/index.ts",

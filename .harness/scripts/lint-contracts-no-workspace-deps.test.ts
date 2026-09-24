@@ -51,14 +51,14 @@ describe("lint-contracts-no-workspace-deps", () => {
   });
 
   it("① package.json 依赖工作区包 ⇒ 红", () => {
-    const r = run(fixture({ dependencies: { "@repo/maau-postinvest-report": "workspace:*" } }, { "a.ts": "export {};\n" }));
+    const r = run(fixture({ dependencies: { "@repo/maau-demo-skill": "workspace:*" } }, { "a.ts": "export {};\n" }));
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain("@repo/maau-postinvest-report");
+    expect(r.stderr).toContain("@repo/maau-demo-skill");
   });
 
   it("② 源码 import 工作区包 ⇒ 红（含 import type 与动态 import）", () => {
     for (const line of [
-      'import { THRESHOLDS } from "@repo/maau-postinvest-report";',
+      'import { THRESHOLDS } from "@repo/maau-demo-skill";',
       'import type { X } from "@repo/coord-protocol";',
       'const m = await import("@repo/anything");',
     ]) {
@@ -68,7 +68,7 @@ describe("lint-contracts-no-workspace-deps", () => {
   });
 
   it("③ 相对路径跳出契约包 ⇒ 红", () => {
-    const r = run(fixture({}, { "a.ts": 'import { t } from "../../maau-postinvest-report/src/index";\n' }));
+    const r = run(fixture({}, { "a.ts": 'import { t } from "../../maau-demo-skill/src/index";\n' }));
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("跳出了契约包目录");
   });

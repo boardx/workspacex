@@ -420,12 +420,8 @@ sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
 # 即可，不动任何共享代码。已种进库里的 agent 记录不会被部署删除——它只是不再被补种；
 # 要清干净跑 `apps/api/scripts/purge-ad-hoc-agent.ts`。
 
-step "4d3. team2 ad-hoc agent 补种（临时 Agent，docs/agents/team2-postinvest-rating-mvp.md）"
-# 同 4c/4d 的理由，另一个 stable_name，同样只种到名字是「Workspace」的组织。
-# 这一步存在的意义是消掉「人类去某台机器上手工跑 publish-team2-agent.ts 再回填 id」
-# 这个人工步骤：前端按名字在组织能力目录里查真实 agentId，部署跑完即可用。
-sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
-  pnpm --filter api exec tsx scripts/backfill-team2-agent.ts
+# 4d3（team2 ad-hoc agent 补种）已于 2026-09-24 随投后评级 Agent 下线删除（#4012）。
+# 已种进库里的 agent 行由 `apps/api/scripts/purge-postinvest-agents.ts` 清除。
 
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
