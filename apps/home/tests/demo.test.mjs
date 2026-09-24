@@ -126,9 +126,21 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     await page.click(`.demo__claim:nth-child(${outAt + 1}) .demo__decidebtn:nth-child(2)`);
     const overruled = await page.evaluate((n) => {
       const li = document.querySelectorAll('.demo__claim')[n];
-      return { cls: li.classList.contains('is-overruled'), lifted: !!li.querySelector('s.is-lifted'), said: li.querySelector('.demo__decided')?.textContent };
+      return {
+        cls: li.classList.contains('is-overruled'), lifted: !!li.querySelector('s.is-lifted'),
+        said: li.querySelector('.demo__decided')?.textContent,
+        label: li.querySelector('.demo__verdict strong')?.textContent,
+        status: document.querySelector('.demo__status')?.textContent,
+      };
     }, outAt);
     r.check(overruled.cls && overruled.lifted && overruled.said === UI[lang].putBackDone, `putting a withdrawn claim back: ${JSON.stringify(overruled)}`);
+    /* Nothing on screen may still call it withdrawn once the reader put it
+       back — the first version did, twice. */
+    r.check(overruled.label?.includes(UI[lang].overruledLabel) && overruled.status === UI[lang].doneBack,
+      `after putting it back, the label says "${overruled.label}" and the status "${overruled.status}"`);
+    await page.click(`.demo__claim:nth-child(${outAt + 1}) .demo__doubt`);
+    const stillSaid = await page.evaluate((n) => (document.querySelectorAll('.demo__claim')[n].querySelector('.demo__decided')?.offsetHeight ?? 0) > 0, outAt);
+    r.check(stillSaid, 'the reader’s decision disappears when the check is folded away');
     await page.click('.demo__copy');
     await page.waitForTimeout(200);
     const noteText = await page.evaluate(async () => {

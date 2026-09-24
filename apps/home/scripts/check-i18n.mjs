@@ -140,12 +140,16 @@ for (const s of demo.SCENARIOS) {
        ("six hours × forty contracts = 240 hours"). A demo whose point is
        that every claim is traceable cannot itself carry a number that is
        not. Plan periods ("months 4–9") are ranges, not data. */
-    const given = [v.role, v.stakes, v.task, ...v.sources.flatMap((x) => [x.who, x.text])].join(' ');
+    /* The role and the task set the scene ("a 600-person firm"). The stakes
+       line used to count as given too, which is how "slid from 31% to 22%"
+       and "contacts are up a third" reached the page with no source under
+       them — a reader briefed as a CFO found both. It is checked now. */
+    const given = [v.role, v.task, ...v.sources.flatMap((x) => [x.who, x.text])].join(' ');
     const nums = (t) => (String(t).replace(/\d+–\d+/g, '').match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, ''));
     const known = new Set(nums(given));
     /* A withdrawn claim's own number is unsourced by definition — that is
        why it was withdrawn. The reason given for withdrawing it is not. */
-    const lines = [[v.headline, ''], [v.so, ''], [v.yours, ''], ...v.claims.flatMap((c) => [[c.ok ? c.text : '', c.why], [c.why, c.why]])];
+    const lines = [[v.stakes, ''], [v.headline, ''], [v.so, ''], [v.yours, ''], ...v.claims.flatMap((c) => [[c.ok ? c.text : '', c.why], [c.why, c.why]])];
     for (const [line, why] of lines) {
       const computed = new Set(/×/.test(why) ? nums(why.split(/[=≈]/).pop()) : []);
       nums(line).filter((n) => !known.has(n) && !computed.has(n))

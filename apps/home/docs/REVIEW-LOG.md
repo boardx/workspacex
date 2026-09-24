@@ -1709,3 +1709,36 @@ smoothly, so the loop's last `scrollTo` was still travelling when the 900 ms
 wait began, and the longer page (the demo) made the last leg longer. A test
 timing fault, not hidden content. The degradation and WebKit suites now wait
 for the scroll to stop before timing the fade.
+
+### Round 71 — five passes from the consultancies' research, read by the people it describes (10.00)
+
+The owner asked for the demo to be reworked from what the large consultancies
+report about AI adoption pain, in five passes, designed around the target
+readers.
+
+**The research, and its limit.** Three researchers covered McKinsey, BCG,
+Bain; Deloitte, Accenture, PwC, KPMG, EY; and Gartner, Forrester, MIT, HBR,
+Microsoft and the Chinese institutes. The session's network policy blocked
+every consultancy's own site — only microsoft.com opened, and even that
+reached us through a summarizing model — so **no figure from any report was
+verified, and none is on the page.** The findings shaped the design only.
+They are recorded in `docs/demo-personas.md`, each with the page it must be
+checked against before it could ever be cited, beside seven personas drawn
+from them.
+
+What the research agreed on, across firms: money spent with nothing on the
+P&L and ROI that cannot be computed; pilots that never reach production;
+people using AI in secret, output nobody checks, and mistakes that ship;
+tools adding little without redesigned work; headcount savings that did not
+happen and managers more anxious than the frontline; work turning into
+supervising AI.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Research → pains | "AI transformation strategy" now takes the most-cited pain the set lacked: pilots that never leave the lab (23 started, 2 live). The cards name a reader and their 2 a.m. question instead of a topic — ten cards, 5×2 on desktop, one sliding row on a phone. |
+| 2 | Four persona walkthroughs | A Chinese owner and CFO; a COO and CFO; a head of people, a frontline technician and a middle manager; a general counsel, a service head and a sales head. About forty edits: "Verified" became "Matches its sources" (a citation is not truth); headlines that contradicted their sources fixed ("nothing was measured" — four were); the pilot trap became the tempting one ("scale the pilot that worked"); the technicians are asked to teach, not mined; the middle manager became the owner of the process change; the owner's card moved to third. |
+| 3 | The moment | At the end of a run the withdrawn claim's check opens by itself — it was behind a second click — and if the reader has not scrolled, the answer is brought to them (on a phone it landed a screen and a half below the button). |
+| 4 | Act on it | The page said "the call is yours" and offered no call. The withdrawn claim now asks for one: keep it out, or put it back over the reviewer's objection (the strike lifts, the claim turns amber, the objection stays). "Copy as a note" gives the reader the answer, the sources, their decision and the sample-material label to take into the room. |
+| 5 | Cold read and close | Two fresh readers found a dozen remaining overreaches (the sales and service stakes carried numbers no source held; "pause the rest" would have paused the two live pilots; "1,140 people" were 1,140 accounts) and one bug: after "Put it back", the label and the status line still said withdrawn. All fixed; the screen now follows the decision. The number gate now checks the stakes line too — the gap those two numbers came through (proved red by removing them from their source). |
+
+Score **10.00** in both languages; first load unchanged (9 requests, ~140 KB).
