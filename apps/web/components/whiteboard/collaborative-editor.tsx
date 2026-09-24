@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import type { WhiteboardConnectionState } from '@/lib/whiteboard-provider';
-import { copyObjects, readObjects, type WhiteboardObject, type WhiteboardCommand } from '@repo/whiteboard-core';
+import { copyObjects, expandSelection, readObjects, selectionRoots, type WhiteboardObject, type WhiteboardCommand } from '@repo/whiteboard-core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,11 +10,11 @@ import { useWhiteboardDocument, textSplice } from './use-whiteboard-document';
 import { WhiteboardRenderer } from './whiteboard-renderer';
 type Point = { x: number; y: number };
 type Gesture = { mode: 'move' | 'box' | 'draw' | 'pan'; start: Point; current: Point; ids: string[]; points: Point[]; offset: Point };
-export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; workshop?: ReactNode }
+export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; followViewport?: {x:number;y:number;zoom:number;revision:number}|null; onViewportChange?: (viewport:{x:number;y:number;zoom:number})=>void; workshop?: ReactNode }
 function make(kind: WhiteboardObject['kind'], x: number, y: number): WhiteboardObject {
   return { id: crypto.randomUUID(), schemaVersion: 1, kind, geometry: { x, y, width: kind === 'frame' ? 600 : 180, height: kind === 'frame' ? 400 : 140, rotation: 0 }, text: kind === 'frame' ? '讨论区' : kind === 'drawing' ? '' : '写下一个想法', style: {}, parentId: null, orderKey: '' };
 }
-export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, workshop }: CollaborativeEditorProps) {
+export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, followViewport, onViewportChange, workshop }: CollaborativeEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
   const [selected, setSelected] = useState<string[]>([]), [tool, setTool] = useState<'select'|'connect'|'draw'|'pan'>('select');
   const [zoom, setZoom] = useState(1), [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
@@ -25,6 +25,8 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const composition = useRef<{ id: string; before: string } | null>(null), [draft, setDraft] = useState<string | null>(null);
   const cursor = useRef<Point | null>(null);
+  useEffect(()=>{if(followViewport){setOffset({x:followViewport.x,y:followViewport.y});setZoom(followViewport.zoom);}},[followViewport]);
+  useEffect(()=>{onViewportChange?.({x:offset.x,y:offset.y,zoom});},[offset.x,offset.y,zoom,onViewportChange]);
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(cursor.current, selected); }, [selected, onSelectionChange, onAwareness]);
   useEffect(() => {
     const element = surface.current; if (!element) return;
@@ -35,6 +37,17 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const object = model.objects.find(o => selected.length === 1 && o.id === selected[0]);
   function execute(commands: WhiteboardCommand[]) { if (readOnly) return; try { model.execute(commands); setNotice(''); } catch { setNotice('操作未应用：请检查对象是否仍存在或内容是否超出限制。'); } }
   function point(e: PointerEvent): Point { const rect = surface.current!.getBoundingClientRect(); return { x: (e.clientX - rect.left - offset.x) / zoom, y: (e.clientY - rect.top - offset.y) / zoom }; }
+  function wrapSelection(kind: 'group' | 'frame') {
+    if (readOnly) return;
+    const roots = selectionRoots(doc, selected), members = expandSelection(doc, roots).map(id => model.objects.find(item => item.id === id)).filter((item): item is WhiteboardObject => Boolean(item && item.kind !== 'connector'));
+    const container = make(kind, (100-offset.x)/zoom, (100-offset.y)/zoom);
+    if (members.length) {
+      const padding = kind === 'frame' ? 40 : 24, left = Math.min(...members.map(item => item.geometry.x)), top = Math.min(...members.map(item => item.geometry.y));
+      const right = Math.max(...members.map(item => item.geometry.x + item.geometry.width)), bottom = Math.max(...members.map(item => item.geometry.y + item.geometry.height));
+      container.geometry = { x: left-padding, y: top-padding, width: right-left+padding*2, height: bottom-top+padding*2, rotation: 0 };
+    }
+    execute([{ type: kind, object: container, memberIds: roots }]); setSelected([container.id]);
+  }
   function down(e: PointerEvent, id?: string) {
     if (e.button !== 0) return; e.stopPropagation();
     const p = point(e);
@@ -53,7 +66,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     if (g.mode === 'pan') { setOffset({ x: g.offset.x + dx * zoom, y: g.offset.y + dy * zoom }); return; }
     if (g.mode === 'box') { setSelected(model.objects.filter(o => o.kind !== 'connector' && o.geometry.x >= Math.min(g.start.x,g.current.x) && o.geometry.y >= Math.min(g.start.y,g.current.y) && o.geometry.x + o.geometry.width <= Math.max(g.start.x,g.current.x) && o.geometry.y + o.geometry.height <= Math.max(g.start.y,g.current.y)).map(o => o.id)); return; }
     if (readOnly) return;
-    if (g.mode === 'move' && (dx || dy)) execute(readObjects(doc).filter(o => g.ids.includes(o.id)).map(o => ({ type: 'geometry', id: o.id, geometry: { ...o.geometry, x: o.geometry.x + dx, y: o.geometry.y + dy } })));
+    if (g.mode === 'move' && (dx || dy)) execute(selectionRoots(doc, g.ids).map(id => ({ type: 'translate', id, delta: { x: dx, y: dy } })));
     if (g.mode === 'draw' && g.points.length > 1) {
       const x = Math.min(...g.points.map(p => p.x)), y = Math.min(...g.points.map(p => p.y)); const o = make('drawing', x, y);
       o.geometry.width = Math.max(1, Math.max(...g.points.map(p => p.x)) - x); o.geometry.height = Math.max(1, Math.max(...g.points.map(p => p.y)) - y);
@@ -67,13 +80,17 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     if (composition.current) { setDraft(next); return; }
     const current = readObjects(doc).find(o => o.id === object.id); if (current) execute([{ type: 'text', id: current.id, ...textSplice(current.text, next) }]);
   }
-  const displayed = model.objects.map(o => gesture?.mode === 'move' && gesture.ids.includes(o.id) ? { ...o, geometry: { ...o.geometry, x: o.geometry.x + gesture.current.x - gesture.start.x, y: o.geometry.y + gesture.current.y - gesture.start.y } } : o);
+  const movingIds = new Set(gesture?.mode === 'move' ? expandSelection(doc, gesture.ids) : []);
+  const displayed = model.objects.map(o => gesture?.mode === 'move' && movingIds.has(o.id) ? { ...o, geometry: { ...o.geometry, x: o.geometry.x + gesture.current.x - gesture.start.x, y: o.geometry.y + gesture.current.y - gesture.start.y } } : o);
   const viewport = { x: -offset.x / zoom, y: -offset.y / zoom, width: viewportSize.width / zoom, height: viewportSize.height / zoom };
   return <section data-testid="collaborative-editor" className="flex h-full min-h-0 flex-col bg-background text-background-foreground">
     <header className="flex flex-wrap items-center gap-2 border-b border-border p-3">{onBack && <Button onClick={onBack}>返回白板</Button>}<Input aria-label="白板名称" className="max-w-64" value={title} disabled={readOnly || !onTitleChange} onChange={e => { if (!readOnly) onTitleChange?.(e.target.value); }} /><span role="status" className="text-12">{status}{readOnly ? ' · 只读' : ''}</span></header>
     <div className="flex flex-wrap gap-1 border-b border-border p-2">
       <Button onClick={() => setTool('select')} aria-pressed={tool==='select'}>选择</Button><Button onClick={() => setTool('pan')} aria-pressed={tool==='pan'}>平移</Button>
-      {(['sticky','text','rectangle','ellipse','frame'] as const).map((kind,i) => <Button key={kind} data-testid={`board-add-${kind}`} disabled={readOnly} onClick={() => { const o=make(kind,(100-offset.x)/zoom,(100-offset.y)/zoom); execute([{type:'create',object:o}]); setSelected([o.id]); }}>{['便利贴','文字','矩形','椭圆','Frame'][i]}</Button>)}
+      {(['sticky','text','rectangle','ellipse'] as const).map((kind,i) => <Button key={kind} data-testid={`board-add-${kind}`} disabled={readOnly} onClick={() => { const o=make(kind,(100-offset.x)/zoom,(100-offset.y)/zoom); execute([{type:'create',object:o}]); setSelected([o.id]); }}>{['便利贴','文字','矩形','椭圆'][i]}</Button>)}
+      <Button data-testid="board-group" disabled={readOnly || selectionRoots(doc, selected).length < 2} onClick={() => wrapSelection('group')}>Group</Button>
+      <Button data-testid="board-ungroup" disabled={readOnly || !selected.some(id => model.objects.some(item => item.id === id && ['frame','group'].includes(item.kind)))} onClick={() => { execute(selected.flatMap(id => model.objects.some(item => item.id === id && ['frame','group'].includes(item.kind)) ? [{ type: 'ungroup' as const, id }] : [])); setSelected([]); }}>Ungroup</Button>
+      <Button data-testid="board-add-frame" disabled={readOnly} onClick={() => wrapSelection('frame')}>创建 Frame</Button>
       <Button disabled={readOnly} onClick={() => { setTool('connect'); setSelected([]); setNotice('依次选择两个对象建立连接'); }}>连接</Button><Button disabled={readOnly} onClick={() => setTool('draw')}>画笔</Button>
       <Button disabled={readOnly} onClick={() => { const result=model.undo(); setNotice(result==='creation-requires-explicit-delete'?'创建对象请使用删除；为保护其他人的修改，不撤销对象创建。':result==='empty'?'没有可撤销的本地修改。':'已撤销本地修改'); }}>撤销</Button><Button disabled={readOnly} onClick={() => { model.redo(); }}>重做</Button>
       <Button disabled={!selected.length} onClick={() => { clipboard.current=copyObjects(doc,selected,()=>crypto.randomUUID()); setNotice('已复制到当前白板剪贴板'); }}>复制</Button><Button disabled={readOnly} onClick={() => { const ids=new Map(clipboard.current.map(o=>[o.id,crypto.randomUUID()])); const copied=clipboard.current.map(o=>({...o,id:ids.get(o.id)!,parentId:o.parentId?ids.get(o.parentId)??null:null,connector:o.connector?{from:ids.get(o.connector.from)!,to:ids.get(o.connector.to)!}:undefined,geometry:{...o.geometry,x:o.geometry.x+30,y:o.geometry.y+30}})); execute(copied.map(object=>({type:'create',object}))); setSelected(copied.map(o=>o.id)); }}>粘贴</Button>
@@ -93,7 +110,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
         </div>
       </div>
     {workshop && <div className="absolute right-3 top-3 max-w-[calc(100%-1.5rem)]">{workshop}</div>}
-    {object && <aside className="absolute bottom-3 right-3 w-56 rounded-container border border-border bg-card p-3"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composition.current={id:object.id,before:object.text};setDraft(object.text);}} onCompositionEnd={e=>{const pending=composition.current;composition.current=null;suppressCompositionChange.current=e.currentTarget.value;const current=readObjects(doc).find(o=>o.id===pending?.id);if(current && current.text===pending?.before){execute([{type:'text',id:current.id,...textSplice(current.text,e.currentTarget.value)}]);setDraft(null);}else {setConflictedDraft(e.currentTarget.value);setDraft(null);setNotice('输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。');}}}/></label>{conflictedDraft !== null && <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft}/><Button onClick={()=>setConflictedDraft(null)}>关闭草稿</Button></label>}<p className="mt-2 text-11 text-muted-foreground">Shift 点击多选；空白处拖动框选。Frame 当前为视觉分区。</p></aside>}
+    {object && <aside className="absolute bottom-3 right-3 w-56 rounded-container border border-border bg-card p-3"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composition.current={id:object.id,before:object.text};setDraft(object.text);}} onCompositionEnd={e=>{const pending=composition.current;composition.current=null;suppressCompositionChange.current=e.currentTarget.value;const current=readObjects(doc).find(o=>o.id===pending?.id);if(current && current.text===pending?.before){execute([{type:'text',id:current.id,...textSplice(current.text,e.currentTarget.value)}]);setDraft(null);}else {setConflictedDraft(e.currentTarget.value);setDraft(null);setNotice('输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。');}}}/></label>{conflictedDraft !== null && <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft}/><Button onClick={()=>setConflictedDraft(null)}>关闭草稿</Button></label>}<p className="mt-2 text-11 text-muted-foreground">Shift 点击多选；Group 与 Frame 会带动全部嵌套内容。</p></aside>}
     </div><p role="status" className="min-h-6 border-t border-border px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
   </section>;
 }

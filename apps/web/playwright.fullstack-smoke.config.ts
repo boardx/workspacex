@@ -76,6 +76,10 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
+  // Meeting-room grants are HMAC-bound. The full-stack lane uses a dedicated,
+  // deterministic non-production key so its real pairing journey can exercise
+  // the same fail-closed repository path as a configured deployment.
+  WHITEBOARD_ROOM_SECRET: "fullstack-room-display-secret-not-for-production",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
   FULLSTACK_E2E_PASSWORD: FULLSTACK_E2E.password,
   FULLSTACK_E2E_ORG_ID: FULLSTACK_E2E.orgId,

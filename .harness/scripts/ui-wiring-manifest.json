@@ -576,6 +576,12 @@
     "WhiteboardController": {
       "useCases": [],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
+    },
+    "WhiteboardRoomController": {
+      "useCases": [
+        "whiteboard/room-access"
+      ],
+      "note": "Meeting-room pairing is a thin credential boundary over the typed WhiteboardRoomRepository port. Authorization, one-time consumption, rate limiting, revocation and tenant predicates must remain in one database transaction; real HTTP/PostgreSQL and browser tests cover the boundary (#3979)."
     }
   },
   "routes": {
@@ -1719,6 +1725,7 @@
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-whiteboard-room.ts",
         "apps/web/lib/live-whiteboard.ts"
       ],
       "contracts": [
@@ -1734,7 +1741,8 @@
         "platform-members",
         "project",
         "whiteboard",
-        "whiteboard-import"
+        "whiteboard-import",
+        "whiteboard-room"
       ],
       "controllers": [
         "AgentRunController",
@@ -1763,7 +1771,21 @@
         "ProjectController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
-        "WhiteboardController"
+        "WhiteboardController",
+        "WhiteboardRoomController"
+      ]
+    },
+    "/studio/board/room": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/board/room/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-whiteboard-room.ts"
+      ],
+      "contracts": [
+        "whiteboard-room"
+      ],
+      "controllers": [
+        "WhiteboardRoomController"
       ]
     },
     "/studio/design-workbench": {
