@@ -1,9 +1,10 @@
+import type { z } from 'zod';
 import type { whiteboard as C } from '@repo/contracts';
 import type { Principal } from '../../domain/principal';
 export const WHITEBOARD_REPOSITORY = Symbol('WhiteboardRepository');
-export type CreateBoard = ReturnType<typeof C.CreateBoard.parse>;
-export type UpdateBoard = ReturnType<typeof C.UpdateBoard.parse>;
-export type Member = ReturnType<typeof C.Member.parse>;
+export type CreateBoard = z.infer<typeof C.CreateBoard>;
+export type UpdateBoard = z.infer<typeof C.UpdateBoard>;
+export type Member = z.infer<typeof C.Member>;
 export interface WhiteboardRepository {
   list(principal: Principal): Promise<C.Board[]>;
   create(principal: Principal, input: CreateBoard): Promise<C.Board>;
