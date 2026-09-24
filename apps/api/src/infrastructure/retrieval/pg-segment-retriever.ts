@@ -194,7 +194,7 @@ export class PgSegmentRetriever implements SegmentRetriever {
              SELECT e.dst_kind, e.dst_id, reached.depth + 1
                FROM ontology_edges e
                JOIN reached ON e.src_kind = reached.kind AND e.src_id = reached.id
-              WHERE e.org_id = $1 AND reached.depth < 2
+              WHERE e.org_id = $1 AND e.status = 'active' AND reached.depth < 2
          )
          SELECT ${COLUMNS}, 1.0 AS channel_score
            FROM segment_text st
