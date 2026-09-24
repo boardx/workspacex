@@ -77,6 +77,9 @@ export async function say(page: Page, text: string): Promise<TurnResult> {
   const before = await answers.count();
   const input = page.getByTestId("copilotkit-v2-input");
   await input.fill(text);
+  // R1 修订：新对话刚建好时输入框已可见、发送还没就绪，这时按回车什么都不会发生（R1 里 E5 旅程因此卡在第一句）。
+  // 等「发送」可用再按——这是人也会等的那一下，不放宽任何检查。
+  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
   const run = page.waitForResponse(
     (r) => r.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(r.url()),
     { timeout: 120_000 },

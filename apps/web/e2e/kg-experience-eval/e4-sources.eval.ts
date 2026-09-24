@@ -8,10 +8,16 @@
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { KG_EVAL } from "./fixture";
-import { claimIdOf, newThread, openMemoryPanel, say, sayText, tell } from "./eval-helpers";
+import { CASES, claimIdOf, newThread, openMemoryPanel, say, sayText, tell } from "./eval-helpers";
 import { attach, runJourney, seen, type Journal } from "./journey";
 
 let j: Journal;
+/**
+ * 「原话」= 用户在对话里真说过的某一句（语料里的全部 `say`）。
+ * R1 修订：R0 只认本旅程里说的那一句（M2）；跨会话记起之后，回答下方也会引用用户在别的对话里说过的话（同一个人、真说过），
+ * 它们点开同样是原话——只认 M2 会把「引用了另一段对话里的原话」误判成「不是原话」。判据不变：摘录必须逐字出自用户说过的话。
+ */
+const SAID = Object.values(CASES.says).map((s) => s.say);
 
 const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
 const CHIP = "[data-testid^='kg-citation-']:not([data-testid='kg-citation-chips']):not([data-testid^='kg-citation-pending-']):not([data-testid^='kg-citation-conflict-'])";
@@ -71,7 +77,7 @@ test.beforeAll(async ({ browser }) => {
     const turn = await say(page, "恒通物流的合同金额是多少？");
     const block = turn.answer.locator("xpath=..");
     ctx.step("逐个点回答下方的引用");
-    const chips = await openEachChip(page, block, [original]);
+    const chips = await openEachChip(page, block, SAID);
     ctx.see("chips", chips);
     await ctx.shot("chips", block);
     ctx.step("点开一条，跳到原消息");
@@ -95,7 +101,7 @@ test.beforeAll(async ({ browser }) => {
     const threadB = await newThread(page);
     const turnB = await say(page, "恒通物流那边的对接人是谁？");
     const blockB = turnB.answer.locator("xpath=..");
-    const chipsB = await openEachChip(page, blockB, [original]);
+    const chipsB = await openEachChip(page, blockB, SAID);
     ctx.see("chipsB", chipsB);
     const personal = blockB.locator("[data-testid^='kg-from-personal-']");
     ctx.see("personalChip", (await personal.count()) > 0);

@@ -52,10 +52,14 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       );
       // F15（06-UX R2 M1 / R3-1「零负担获益」、E1）：本人**其他个人对话**里记下的也算个人空间（S0-2=A：个人空间 = 同一用户
       // 全部个人线程），不必先点「记到我的长期记忆」才跨会话被记起。只在本人的个人对话里用（同上面 L1 的条件）；
-      // 长期记忆里有过这件事（由这一条晋升出去的，或说法相同的一条——不论现在还在不在），由长期记忆那边说了算：
-      // 还在 ⇒ 用长期记忆那条（上面已取）；被忘掉了 ⇒ 这条也不再跨会话出现（否则在别的会话里说「忘掉」，它会从原会话绕回来）。
-      const ownOther = !inPersonalThread ? { rows: [] as (Row & { thread_id: string })[] } : await s.query<Row & { thread_id: string }>(
-        `SELECT ${CLAIM_COLUMNS}, c.scope_id AS thread_id FROM claims c
+      // 同一件事（说法归一后相同，kg_claim_basis）只出现一次，而且**改过的说了算**：
+      //   - 长期记忆里有过它（由这一条晋升出去的，或说法相同的一条——不论现在还在不在）⇒ 由长期记忆那边决定（上面已取 / 已忘掉）；
+      //   - 本会话里有它（在 ⇒ 用本会话那条；被忘掉 / 被取代 ⇒ 本会话已经改过口）⇒ 不从别的会话再拿一份；
+      //   - 本人哪个个人对话里把它忘掉了、或用新说法取代了 ⇒ 别的对话里同样的旧说法也不再跨会话出现
+      //     （否则在一个会话里改了错，它会从另一个会话绕回来——评测 E3.c3 / E5 量出来的）。
+      //   - 剩下的在多个会话里说过同一件事 ⇒ 只留一条（下面按说法去重）。
+      const ownOther = !inPersonalThread ? { rows: [] as (Row & { thread_id: string; basis: string })[] } : await s.query<Row & { thread_id: string; basis: string }>(
+        `SELECT ${CLAIM_COLUMNS}, c.scope_id AS thread_id, kg_claim_basis(c.statement) AS basis FROM claims c
            JOIN chat_threads t ON t.org_id = c.org_id AND t.id = c.scope_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id <> $2 AND ${LIVE}
             AND t.project_id IS NULL AND t.created_by = $3 AND NOT t.archived
@@ -66,7 +70,16 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
             AND NOT EXISTS (
               SELECT 1 FROM claims p
                WHERE p.org_id = c.org_id AND p.scope_kind = 'personal' AND p.scope_id = $3
-                 AND kg_claim_basis(p.statement) = kg_claim_basis(c.statement))`,
+                 AND kg_claim_basis(p.statement) = kg_claim_basis(c.statement))
+            AND NOT EXISTS (
+              SELECT 1 FROM claims x
+               WHERE x.org_id = c.org_id AND x.scope_kind = 'chat_session' AND x.scope_id = $2
+                 AND kg_claim_basis(x.statement) = kg_claim_basis(c.statement))
+            AND NOT EXISTS (
+              SELECT 1 FROM claims x JOIN chat_threads tx ON tx.org_id = x.org_id AND tx.id = x.scope_id
+               WHERE x.org_id = c.org_id AND x.scope_kind = 'chat_session' AND kg_claim_basis(x.statement) = kg_claim_basis(c.statement)
+                 AND tx.project_id IS NULL AND tx.created_by = $3 AND NOT (x.revoked_at IS NULL AND x.status <> 'superseded'))
+          ORDER BY c.id`,
         [orgId, threadId, userId],
       );
       const objects = await s.query<{ id: string; name: string; aliases: string[] }>(
@@ -95,7 +108,8 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       };
       const out: { claims: RecallClaim[]; objects: RecallObject[] } = {
         claims: [
-          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal")), ...ownOther.rows.flatMap(toClaim("personal")),
+          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal")),
+          ...ownOther.rows.filter((c, i, all) => all.findIndex((o) => o.basis === c.basis) === i).flatMap(toClaim("personal")),
         ],
         objects: [...objects.rows, ...personalObjects.rows, ...ownOtherObjects.rows].map((o) => ({ id: o.id, name: o.name, aliases: o.aliases })),
       };

@@ -14,10 +14,13 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgKnowledgeRecall } from "../../src/infrastructure/knowledge-graph/pg-knowledge-recall";
 import { seedRecallOrg } from "../knowledge-graph/kg-recall-fixtures";
+import { addChatThread } from "../support/chat-db";
+import { asOwner } from "../support/db";
 
 const ORG = "org-kg-f15-own-threads";
 const A = "thr-kg-f15-a";
 const B = "thr-kg-f15-b";
+const C = "thr-kg-f15-c";
 const P = "thr-kg-f15-p";
 let db: PgDatabase;
 let port: PgKnowledgeRecall;
@@ -27,22 +30,34 @@ const recall = (threadId: string, userId = "u-owner") =>
 
 beforeAll(async () => {
   db = new PgDatabase(appConfig());
-  // A、B 是 u-owner 的两个个人对话，P 挂在项目下；三处都记下了同样三条（同一句话抽出来的）。
-  await seedRecallOrg(db, ORG, [A, B, P], "u-owner", { projectThreads: [P] });
+  // A、C 是 u-owner 的两个个人对话，P 挂在项目下；三处都记下了同样三条（同一句话抽出来的）。B 是刚开的新对话，什么都没说。
+  await seedRecallOrg(db, ORG, [A, C, P], "u-owner", { projectThreads: [P] });
+  await addChatThread({ orgId: ORG, id: B, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   port = new PgKnowledgeRecall(db);
 });
 afterAll(async () => { await db.close(); });
 
 describe("F15: 本人其他个人对话里记下的，也在召回范围里", () => {
-  it("在个人对话 B 里问：B 自己的 + A 里记下的（按个人空间报、带原会话），项目对话 P 的一条都没有", async () => {
+  it("在新的个人对话 B 里问：A、C 里记下的（同一件事只出现一次，按个人空间报、带原会话），项目对话 P 的一条都没有", async () => {
     const { claims } = await port.candidates(toOrgId(ORG), "u-owner", B);
-    const fromA = claims.filter((c) => c.originThreadId === A);
-    expect(fromA.map((c) => c.statement).sort()).toEqual(["季度预算已经批下来了", "张三决定下周一上线 v2", "测试环境不稳定会拖慢 v2"]);
-    expect(fromA.every((c) => c.scope === "personal")).toBe(true);
-    expect(claims.some((c) => c.originThreadId === P)).toBe(false);
-    expect(claims.filter((c) => c.scope === "chat_session")).toHaveLength(3);
+    expect(claims.map((c) => c.statement).sort()).toEqual(["季度预算已经批下来了", "张三决定下周一上线 v2", "测试环境不稳定会拖慢 v2"]);
+    expect(claims.every((c) => c.scope === "personal" && (c.originThreadId === A || c.originThreadId === C))).toBe(true);
     const r = await recall(B);
-    expect(r.items.some((i) => i.claim.originThreadId === A && i.claim.statement === "张三决定下周一上线 v2")).toBe(true);
+    expect(r.items[0]).toMatchObject({ claim: { statement: "张三决定下周一上线 v2", scope: "personal" } });
+  });
+
+  it("在 A 里问：本会话里有的，不再从 C 拿一份", async () => {
+    const { claims } = await port.candidates(toOrgId(ORG), "u-owner", A);
+    expect(claims).toHaveLength(3);
+    expect(claims.every((c) => c.scope === "chat_session")).toBe(true);
+  });
+
+  it("改过的说了算：在 A 里忘掉一条，C 里同样的说法也不再出现在 B 的召回里", async () => {
+    await asOwner((c) => c.query(
+      "UPDATE claims SET revoked_at = now(), revocation_reason = 'user_forgot' WHERE org_id = $1 AND scope_id = $2 AND statement = '季度预算已经批下来了'", [ORG, A]));
+    const { claims } = await port.candidates(toOrgId(ORG), "u-owner", B);
+    expect(claims.map((c) => c.statement)).not.toContain("季度预算已经批下来了");
+    expect(claims).toHaveLength(2);
   });
 
   it("在项目对话 P 里问：只有 P 自己的，不带任何个人对话里的", async () => {

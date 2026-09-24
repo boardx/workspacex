@@ -49,13 +49,16 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     // F15（06-UX R2 M1 / E1「开新会话不用重新交代背景」，S0-2=A「个人空间 = 同一用户全部个人线程」）：
     // 第三种来源只能是**本人创建的、不挂项目的**对话里记下的——这些对话只有本人看得见（与读会话消息同一个判定），
     // 所以召回它们不会把任何别人看不到的东西交给这一轮的模型。条件逐字钉住：
-    expect(code).toMatch(/FROM claims c\s+JOIN chat_threads t ON t\.org_id = c\.org_id AND t\.id = c\.scope_id\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id <> \$2 AND \$\{LIVE\}\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived/);
+    expect(code).toMatch(/SELECT \$\{CLAIM_COLUMNS\}, c\.scope_id AS thread_id, kg_claim_basis\(c\.statement\) AS basis FROM claims c\s+JOIN chat_threads t ON t\.org_id = c\.org_id AND t\.id = c\.scope_id\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id <> \$2 AND \$\{LIVE\}\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived/);
     expect(code).toMatch(/FROM ontology_objects o\s+JOIN chat_threads t ON t\.org_id = o\.org_id AND t\.id = o\.scope_id\s+WHERE o\.org_id = \$1 AND o\.scope_kind = 'chat_session' AND o\.scope_id <> \$2 AND o\.merged_into IS NULL\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived`,\s*\[orgId, threadId, userId\]/);
     expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
     expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
     // 另外只允许三个去重子查询里的 `JOIN claims src` / `JOIN claims l1` / `FROM claims p`（判断「长期记忆里有没有它」，不取任何列）
-    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p"]);
-    expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims p\s+WHERE p\.org_id = c\.org_id AND p\.scope_kind = 'personal' AND p\.scope_id = \$3\s+AND kg_claim_basis\(p\.statement\) = kg_claim_basis\(c\.statement\)\)`/);
+    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p", "claims x", "claims x"]);
+    // 改过的说了算：本会话里有同一件事、或本人哪个个人对话里把它忘掉 / 取代了 ⇒ 不从别的对话再拿（只判存在，不取列）
+    expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND x\.scope_id = \$2\s+AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\)/);
+    expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x JOIN chat_threads tx ON tx\.org_id = x\.org_id AND tx\.id = x\.scope_id\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\s+AND tx\.project_id IS NULL AND tx\.created_by = \$3 AND NOT \(x\.revoked_at IS NULL AND x\.status <> 'superseded'\)\)/);
+    expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims p\s+WHERE p\.org_id = c\.org_id AND p\.scope_kind = 'personal' AND p\.scope_id = \$3\s+AND kg_claim_basis\(p\.statement\) = kg_claim_basis\(c\.statement\)\)/);
     expect(code.match(/\bontology_edges\b/g)).toHaveLength(2);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims src/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims l1 ON l1\.id = d\.src_id AND l1\.org_id = d\.org_id\s+WHERE d\.org_id = c\.org_id AND d\.dst_kind = 'claim' AND d\.dst_id = c\.id AND d\.relation = 'derived_from'\s+AND l1\.scope_kind = 'personal' AND l1\.scope_id = \$3\)/);
@@ -63,13 +66,13 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
   });
 
   it("(c4) L1 与本人其他个人对话只进发起人自己的个人线程：先判这一次（只取 1、无项目且本人创建），四路个人查询都挂在它后面", () => {
-    // 判定 1 次 + 其他个人对话的结论 / 实体各 JOIN 一次
-    expect(code.match(/\bchat_threads\b/g)).toHaveLength(3);
+    // 判定 1 次 + 其他个人对话的结论 / 实体各 JOIN 一次 + 「改过的说了算」子查询 JOIN 一次
+    expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
     expect(code).toMatch(/`SELECT 1 FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2 AND t\.project_id IS NULL AND t\.created_by = \$3`,\s*\[orgId, threadId, userId\]/);
     expect(code).toMatch(/const inPersonalThread = own\.rows\.length === 1;/);
     expect(code).toMatch(/const personal = !inPersonalThread \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
     expect(code).toMatch(/const personalObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
-    expect(code).toMatch(/const ownOther = !inPersonalThread \? \{ rows: \[\] as \(Row & \{ thread_id: string \}\)\[\] \} : await s\.query/);
+    expect(code).toMatch(/const ownOther = !inPersonalThread \? \{ rows: \[\] as \(Row & \{ thread_id: string; basis: string \}\)\[\] \} : await s\.query/);
     expect(code).toMatch(/const ownOtherObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
   });
 
