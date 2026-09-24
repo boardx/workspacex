@@ -27,6 +27,46 @@ export interface PanelResultDocument {
   readonly url: string | null;
 }
 
+/**
+ * 右栏能显示的一份**文件**（上传的材料 / 生成的产出物）。
+ *
+ * 2026-09-24（E4）：人类问「现在可以在 chat 右边预览文件吗」——当时答案是「文本可以、
+ * 文件不行，点了弹模态」。模态挡住对话，正是对标 Claude Code 要消灭的那件事。
+ * 渲染本身早就齐了（image/pdf/pptx/text/不支持），只是焊死在模态里。
+ */
+export interface PanelFileDocument {
+  readonly id: string;
+  readonly title: string;
+  /** 取字节要用：`GET /chat/threads/:threadId/attachments/:attachmentId/content`。 */
+  readonly threadId: string;
+  readonly attachmentId: string;
+  readonly mime: string;
+}
+
+export const OPEN_FILE_IN_RIGHT_PANEL_EVENT = "chat:open-file-in-right-panel";
+
+export function requestOpenFileInRightPanel(doc: PanelFileDocument): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<PanelFileDocument>(OPEN_FILE_IN_RIGHT_PANEL_EVENT, { detail: doc }));
+}
+
+/** 订阅。`detail` 来自另一棵子树，同样当作数据校验：缺一个字段就整条丢弃。 */
+export function onOpenFileInRightPanel(handler: (doc: PanelFileDocument) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const listener = (event: Event): void => {
+    const detail: unknown = (event as CustomEvent<unknown>).detail;
+    if (detail === null || typeof detail !== "object") return;
+    const { id, title, threadId, attachmentId, mime } = detail as Record<string, unknown>;
+    if ([id, title, threadId, attachmentId, mime].some((v) => typeof v !== "string" || v === "")) return;
+    handler({
+      id: id as string, title: title as string, threadId: threadId as string,
+      attachmentId: attachmentId as string, mime: mime as string,
+    });
+  };
+  window.addEventListener(OPEN_FILE_IN_RIGHT_PANEL_EVENT, listener);
+  return () => { window.removeEventListener(OPEN_FILE_IN_RIGHT_PANEL_EVENT, listener); };
+}
+
 export const OPEN_IN_RIGHT_PANEL_EVENT = "chat:open-in-right-panel";
 
 export function requestOpenInRightPanel(doc: PanelResultDocument): void {

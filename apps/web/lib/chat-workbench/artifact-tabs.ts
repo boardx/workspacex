@@ -13,14 +13,15 @@
  */
 
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
-import type { PanelResultDocument } from "@/lib/chat-workbench/panel-document";
+import type { PanelFileDocument, PanelResultDocument } from "@/lib/chat-workbench/panel-document";
 
 export type ArtifactItem = ListThreadArtifactsOut["items"][number];
 
 /**
  * 右栏页签里的一格。
  *
- * R11 起不只有产物：工具结果（抓回来的网页正文、脚本输出）也能被送进右栏，
+ * R11 起不只有产物：工具结果（抓回来的网页正文、脚本输出）、E4 起还有文件
+ * （上传的材料 / 生成的 pptx 等）也能被送进右栏，
  * 与产物**共用同一条页签、同一套打开/切换/关闭判据**——否则右栏会长出两套并列的
  * 「开着哪几份」状态，用户看到两排页签，而我们要维护两份淘汰规则。
  *
@@ -28,7 +29,8 @@ export type ArtifactItem = ListThreadArtifactsOut["items"][number];
  */
 export type ArtifactTab =
   | { readonly kind: "artifact"; readonly id: string; readonly title: string; readonly item: ArtifactItem }
-  | ({ readonly kind: "result"; readonly title: string } & PanelResultDocument);
+  | ({ readonly kind: "result"; readonly title: string } & PanelResultDocument)
+  | ({ readonly kind: "file"; readonly title: string } & PanelFileDocument);
 
 /**
  * 同时最多开几份。
