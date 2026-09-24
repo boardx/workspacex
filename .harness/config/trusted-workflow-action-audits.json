@@ -1,0 +1,61 @@
+{
+  "schema": "workspacex.trusted-workflow-action-audits.v1",
+  "audits": [
+    {
+      "kind": "composite",
+      "action": "actions/attest-build-provenance",
+      "workflowRef": "977bb373ede98d70efdf65b84cb5f73e068dcc2a",
+      "release": "v3.0.0",
+      "source": {
+        "repository": "actions/attest-build-provenance",
+        "commit": "977bb373ede98d70efdf65b84cb5f73e068dcc2a",
+        "actionPath": "action.yml",
+        "sourceUrl": "https://raw.githubusercontent.com/actions/attest-build-provenance/977bb373ede98d70efdf65b84cb5f73e068dcc2a/action.yml",
+        "snapshotPath": ".harness/fixtures/github-actions/actions-attest-build-provenance-977bb373/action.yml",
+        "sha256": "70468c90d247618b7ffad979b5b9db08caabb8f0566e6443b29c502c96af15bf",
+        "runsUsing": "composite"
+      },
+      "nested": [
+        {
+          "use": "actions/attest-build-provenance/predicate@864457a58d4733d7f1574bd8821fa24e02cf7538",
+          "source": {
+            "repository": "actions/attest-build-provenance",
+            "commit": "864457a58d4733d7f1574bd8821fa24e02cf7538",
+            "actionPath": "predicate/action.yml",
+            "sourceUrl": "https://raw.githubusercontent.com/actions/attest-build-provenance/864457a58d4733d7f1574bd8821fa24e02cf7538/predicate/action.yml",
+            "snapshotPath": ".harness/fixtures/github-actions/actions-attest-build-provenance-predicate-864457a5/action.yml",
+            "sha256": "7c768aff7de1e4404e658d89d4541bbece24709a7ba46c9b2bea01441670b7d9",
+            "runsUsing": "node24"
+          }
+        },
+        {
+          "use": "actions/attest@daf44fb950173508f38bd2406030372c1d1162b1",
+          "source": {
+            "repository": "actions/attest",
+            "commit": "daf44fb950173508f38bd2406030372c1d1162b1",
+            "actionPath": "action.yml",
+            "sourceUrl": "https://raw.githubusercontent.com/actions/attest/daf44fb950173508f38bd2406030372c1d1162b1/action.yml",
+            "snapshotPath": ".harness/fixtures/github-actions/actions-attest-daf44fb9/action.yml",
+            "sha256": "f83833dbde4404cb0c2589219a683be4913ad2251ccf17132f706689da9b6190",
+            "runsUsing": "node24"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "javascript",
+      "action": "actions/download-artifact",
+      "workflowRef": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+      "release": "v8.0.1",
+      "source": {
+        "repository": "actions/download-artifact",
+        "commit": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        "actionPath": "action.yml",
+        "sourceUrl": "https://raw.githubusercontent.com/actions/download-artifact/3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c/action.yml",
+        "snapshotPath": ".harness/fixtures/github-actions/actions-download-artifact-3e5f45b2/action.yml",
+        "sha256": "e98559b7a31ba31be4709f20d22102dc2737fa630f69a339eb89981151e505fe",
+        "runsUsing": "node24"
+      }
+    }
+  ]
+}
