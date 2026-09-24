@@ -9,7 +9,7 @@ import { toOrgId } from '../../src/domain/org-id';
 const p = { orgId: toOrgId('transaction-whiteboard-test'), userId: 'owner' }, boardId = randomUUID();
 const input = () => ({ epoch: 1, requestId: randomUUID(), commands: [{ type: 'delete' as const, id: 'note' }] });
 const validator: WhiteboardUpdateValidator = {
-  objects: async () => [], historyObjects:async()=>[], objectIds: async () => [], diff: async snapshot => snapshot,
+  objects: async () => [], historyObjects:async()=>[],rebuild:async()=>new Uint8Array([0,0]), objectIds: async () => [], diff: async snapshot => snapshot,
   commands: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
   validate: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
 };

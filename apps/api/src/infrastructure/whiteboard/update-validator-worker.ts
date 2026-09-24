@@ -1,9 +1,9 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObjects, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, rebuildWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObjects, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 
-type Input = { mode: 'objects'; snapshot: Uint8Array } | {mode:'history-objects';snapshot:Uint8Array} | { mode: 'object-ids'; snapshot: Uint8Array } | { mode: 'update'; snapshot: Uint8Array; update: Uint8Array } | { mode: 'commands'; snapshot: Uint8Array; commands: WhiteboardCommand[] } | { mode: 'diff'; snapshot: Uint8Array; vector?: Uint8Array };
+type Input = { mode: 'objects'; snapshot: Uint8Array } | {mode:'history-objects';snapshot:Uint8Array} | {mode:'rebuild';snapshot:Uint8Array;objects:unknown[]} | { mode: 'object-ids'; snapshot: Uint8Array } | { mode: 'update'; snapshot: Uint8Array; update: Uint8Array } | { mode: 'commands'; snapshot: Uint8Array; commands: WhiteboardCommand[] } | { mode: 'diff'; snapshot: Uint8Array; vector?: Uint8Array };
 const input = workerData as Input;
 const doc = createWhiteboardDocument();
 try {
@@ -17,6 +17,14 @@ try {
     parentPort?.postMessage({ result: readObjects(doc).map(object => object.id) });
   } else if (input.mode === 'diff') {
     parentPort?.postMessage({ result: Y.encodeStateAsUpdate(doc, input.vector) });
+  } else if (input.mode === 'rebuild') {
+    const rebuilt = rebuildWhiteboardDocument(input.objects);
+    try {
+      const snapshot = Y.encodeStateAsUpdate(rebuilt);
+      const structs = [...rebuilt.store.clients.values()].reduce((total, values) => total + values.length, 0);
+      if (snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || structs > WHITEBOARD_UPDATE_LIMITS.documentStructs) throw new Error('LIMIT');
+      parentPort?.postMessage({ result: snapshot });
+    } finally { rebuilt.destroy(); }
   } else {
     let update: Uint8Array;
     if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }

@@ -81,6 +81,20 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
   }
 }
+/** Builds an isolated persisted snapshot; it deliberately bypasses online single-update limits. */
+export function rebuildWhiteboardDocument(input: unknown[]): Y.Doc {
+  if (!Array.isArray(input) || input.length > WHITEBOARD_LIMITS.objects) throw new Error('LIMIT_EXCEEDED');
+  const objects = input.map(value => WhiteboardObject.parse(value));
+  const doc = createWhiteboardDocument();
+  try {
+    doc.transact(() => apply(doc, objects.map(object => ({ type: 'create' as const, object }))), 'history-restore-rebuild');
+    validateDocument(doc);
+    return doc;
+  } catch (error) {
+    doc.destroy();
+    throw error;
+  }
+}
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */
 export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): void {
   const commands = WhiteboardCommandBatch.parse(input);

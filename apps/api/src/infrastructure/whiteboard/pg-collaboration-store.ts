@@ -38,10 +38,14 @@ export type PublishedBoardContent = {
 };
 const CONTENT_SCHEMA_VERSION = 1, CONTENT_PROTOCOL_VERSION = 1;
 const HASH = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
-function restoredBoardIdForRequest(orgId:string,actorId:string,sourceBoardId:string,checkpointId:string,requestId:string):string{
-  const bytes=createHash('sha256').update(`whiteboard-history-restore\0${orgId}\0${actorId}\0${sourceBoardId}\0${checkpointId}\0${requestId}`).digest().subarray(0,16);
-  bytes[6]=(bytes[6]!&0x0f)|0x50;bytes[8]=(bytes[8]!&0x3f)|0x80;
-  const hex=bytes.toString('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+function restoredBoardIdForRequest(orgId: string, actorId: string, sourceBoardId: string, checkpointId: string, requestId: string): string {
+  const bytes = createHash('sha256')
+    .update(`whiteboard-history-restore\0${orgId}\0${actorId}\0${sourceBoardId}\0${checkpointId}\0${requestId}`)
+    .digest().subarray(0, 16);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 function assertHeadMatchesDocument(document: { epoch: number; seq: string }, head: { epoch: number; head_seq: string }): void {
   if (head.epoch !== document.epoch || Number(head.head_seq) !== Number(document.seq)) {
@@ -247,14 +251,28 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
   }
   async copyHistoryCheckpoint(p:Principal,boardId:string,checkpointId:string,input:RestoreCheckpointInput):Promise<H.RestoreReceipt>{return this.restoreHistoryCheckpoint(p,boardId,checkpointId,input);}
 
-  private async copyHistorySnapshot(snapshot:Uint8Array):Promise<Uint8Array>{
-    const records=await this.validator.historyObjects(snapshot),live=records.filter(value=>!value.deleted),visibleIds=new Set(live.map(value=>value.object.id));
-    const ids=new Map(live.map(value=>[value.object.id,randomUUID()]));
-    const depth=(value:HistoryRecord):number=>{let result=0,parent=value.object.parentId,seen=new Set<string>();while(parent&&visibleIds.has(parent)&&!seen.has(parent)){seen.add(parent);result++;parent=live.find(item=>item.object.id===parent)?.object.parentId??null;}return result;};
-    const copied=live.filter(value=>!value.object.connector||visibleIds.has(value.object.connector.from)&&visibleIds.has(value.object.connector.to)).sort((a,b)=>Number(Boolean(a.object.connector))-Number(Boolean(b.object.connector))||depth(a)-depth(b)).map(({object})=>({...structuredClone(object),id:ids.get(object.id)!,restoredFrom:object.id,parentId:object.parentId&&visibleIds.has(object.parentId)?ids.get(object.parentId)!:null,...(object.connector?{connector:{from:ids.get(object.connector.from)!,to:ids.get(object.connector.to)!}}:{})}));
-    let target:Uint8Array=new Uint8Array([0,0]);
-    for(let offset=0;offset<copied.length;offset+=200)target=(await this.validator.commands(target,copied.slice(offset,offset+200).map(object=>({type:'create' as const,object})))).snapshot;
-    return target;
+  private async copyHistorySnapshot(snapshot: Uint8Array): Promise<Uint8Array> {
+    const records = await this.validator.historyObjects(snapshot);
+    const live = records.filter(value => !value.deleted);
+    const visibleIds = new Set(live.map(value => value.object.id));
+    const liveById = new Map(live.map(value => [value.object.id, value]));
+    const ids = new Map(live.map(value => [value.object.id, randomUUID()]));
+    const depth = (value: HistoryRecord): number => {
+      let result = 0, parent = value.object.parentId;
+      const seen = new Set<string>();
+      while (parent && visibleIds.has(parent) && !seen.has(parent)) {
+        seen.add(parent); result++;
+        parent = liveById.get(parent)?.object.parentId ?? null;
+      }
+      return result;
+    };
+    const copied = live
+      .filter(value => !value.object.connector || visibleIds.has(value.object.connector.from) && visibleIds.has(value.object.connector.to))
+      .sort((a, b) => Number(Boolean(a.object.connector)) - Number(Boolean(b.object.connector)) || depth(a) - depth(b))
+      .map(({ object }) => ({ ...structuredClone(object), id: ids.get(object.id)!, restoredFrom: object.id,
+        parentId: object.parentId && visibleIds.has(object.parentId) ? ids.get(object.parentId)! : null,
+        ...(object.connector ? { connector: { from: ids.get(object.connector.from)!, to: ids.get(object.connector.to)! } } : {}) }));
+    return this.validator.rebuild(copied);
   }
   /** Uses the caller's tenant transaction; its result is provisional until that transaction commits. */
   async writeCommandsInTransaction(session: TenantSession, p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardPendingUpdate> {
