@@ -67,8 +67,80 @@ export function lockMinioImage(root = REPO_ROOT, digest) {
   validateMinioImageConfig(root, { requireLocked: true });
 }
 
+const requireDigest = (value, label) => {
+  if (!DIGEST.test(value ?? "")) fail(`${label} must be an exact lowercase sha256 digest`);
+  return value;
+};
+
+const requireRunId = (value) => {
+  const text = String(value ?? "");
+  if (!/^[1-9][0-9]*$/.test(text)) fail("mirror run id must be a positive integer");
+  return text;
+};
+
+export function minioImageCoordinates(root = REPO_ROOT) {
+  const { metadata } = validateMinioImageConfig(root);
+  if (metadata.status !== "awaiting-controlled-mirror") {
+    fail("mirror promotion only accepts the awaiting-controlled-mirror state");
+  }
+  return {
+    sourceRepository: metadata.source_repository,
+    releaseTag: metadata.release_tag,
+    targetRepository: metadata.target_repository,
+  };
+}
+
+export function createMinioMirrorReceipt(root = REPO_ROOT, values) {
+  const coordinates = minioImageCoordinates(root);
+  const digest = requireDigest(values?.digest, "resolved upstream digest");
+  const repository = values?.repository;
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? "")) {
+    fail("workflow repository must be owner/name");
+  }
+  if (!/^[a-f0-9]{40}$/.test(values?.sourceCommit ?? "")) {
+    fail("source commit must be a full lowercase Git commit SHA");
+  }
+  const runAttempt = String(values?.runAttempt ?? "");
+  if (!/^[1-9][0-9]*$/.test(runAttempt)) fail("run attempt must be a positive integer");
+  return {
+    schema: "workspacex.minio-mirror-receipt.v1",
+    operation: "mirror",
+    ...coordinates,
+    sourceDigest: digest,
+    authenticatedTargetDigest: digest,
+    repository,
+    sourceCommit: values.sourceCommit,
+    runId: requireRunId(values?.runId),
+    runAttempt,
+  };
+}
+
+export function validateMinioMirrorEvidence(root = REPO_ROOT, receipt, evidence) {
+  const coordinates = minioImageCoordinates(root);
+  if (!receipt || typeof receipt !== "object") fail("mirror receipt must be a JSON object");
+  if (receipt.schema !== "workspacex.minio-mirror-receipt.v1" || receipt.operation !== "mirror") {
+    fail("mirror receipt has an unsupported schema or operation");
+  }
+  for (const [key, expected] of Object.entries(coordinates)) {
+    if (receipt[key] !== expected) fail(`mirror receipt ${key} does not match repository configuration`);
+  }
+  if (receipt.repository !== evidence?.repository) fail("mirror receipt repository does not match this workflow repository");
+  if (receipt.sourceCommit !== evidence?.sourceCommit) fail("mirror receipt commit does not match the attested workflow run");
+  if (receipt.runId !== requireRunId(evidence?.runId)) fail("mirror receipt run id does not match the attested workflow run");
+  if (receipt.runAttempt !== requireRunId(evidence?.runAttempt)) fail("mirror receipt run attempt does not match the attested workflow run");
+
+  const receiptSource = requireDigest(receipt.sourceDigest, "receipt source digest");
+  const receiptTarget = requireDigest(receipt.authenticatedTargetDigest, "receipt authenticated target digest");
+  const upstream = requireDigest(evidence?.upstreamDigest, "currently resolved upstream digest");
+  const anonymousTarget = requireDigest(evidence?.anonymousTargetDigest, "anonymous target digest");
+  if (receiptSource !== receiptTarget) fail("mirror receipt source and authenticated target digests differ");
+  if (receiptSource !== upstream) fail("configured upstream tag no longer resolves to the attested digest");
+  if (receiptSource !== anonymousTarget) fail("anonymous controlled target digest differs from the attested upstream digest");
+  return { digest: receiptSource, ...coordinates };
+}
+
 function usage() {
-  console.error("usage: node .harness/scripts/minio-controlled-image.mjs validate [--require-locked] | lock <sha256:digest>");
+  console.error("usage: node .harness/scripts/minio-controlled-image.mjs validate [--require-locked] | lock <sha256:digest> | coordinates | write-receipt <path> <digest> <run-id> <run-attempt> <repository> <commit> | verify-receipt <path> <upstream-digest> <anonymous-target-digest> <run-id> <run-attempt> <repository> <commit>");
 }
 
 if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
@@ -80,6 +152,29 @@ if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
     } else if (command === "lock" && process.argv.length === 4) {
       lockMinioImage(REPO_ROOT, process.argv[3]);
       console.log(`✓ wrote immutable controlled-registry lock for ${process.argv[3]}`);
+    } else if (command === "coordinates" && process.argv.length === 3) {
+      console.log(JSON.stringify(minioImageCoordinates(REPO_ROOT)));
+    } else if (command === "write-receipt" && process.argv.length === 9) {
+      const receipt = createMinioMirrorReceipt(REPO_ROOT, {
+        digest: process.argv[4],
+        runId: process.argv[5],
+        runAttempt: process.argv[6],
+        repository: process.argv[7],
+        sourceCommit: process.argv[8],
+      });
+      writeFileSync(process.argv[3], `${JSON.stringify(receipt, null, 2)}\n`);
+      console.log(`✓ wrote mirror receipt for ${receipt.sourceDigest}`);
+    } else if (command === "verify-receipt" && process.argv.length === 10) {
+      const receipt = JSON.parse(readFileSync(process.argv[3], "utf8"));
+      const result = validateMinioMirrorEvidence(REPO_ROOT, receipt, {
+        upstreamDigest: process.argv[4],
+        anonymousTargetDigest: process.argv[5],
+        runId: process.argv[6],
+        runAttempt: process.argv[7],
+        repository: process.argv[8],
+        sourceCommit: process.argv[9],
+      });
+      console.log(result.digest);
     } else {
       usage();
       process.exitCode = 2;

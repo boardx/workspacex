@@ -4,30 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "Mirror first; after an org owner makes the package public, verify and generate the lock patch"
+        description: "Mirror first; after an org owner makes the package public, verify the attested run and render the lock"
         required: true
         type: choice
         options:
           - mirror
           - verify-public-and-render-lock
-      source_digest:
-        description: "Separately verified upstream manifest digest (sha256:64 lowercase hex)"
-        required: true
+      mirror_run_id:
+        description: "Required only for verify: successful mirror workflow run containing the GitHub-signed receipt"
+        required: false
         type: string
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: workspacex-minio-registry-promotion
   cancel-in-progress: false
 
 jobs:
-  promote:
+  mirror:
+    if: inputs.operation == 'mirror' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     environment: minio-registry-promotion
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v5
 
@@ -38,73 +43,179 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Validate repository image contract and input digest
+      - name: Validate and read the repository image contract
         id: image
         shell: bash
-        env:
-          SOURCE_DIGEST: ${{ inputs.source_digest }}
         run: |
           set -euo pipefail
-          [[ "${SOURCE_DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]] || {
-            echo "::error::source_digest must be exact lowercase sha256"; exit 1;
-          }
           node .harness/scripts/minio-controlled-image.mjs validate
           node --input-type=module <<'NODE'
-          import { appendFileSync, readFileSync } from 'node:fs';
-          import { parse } from 'yaml';
-          const doc = parse(readFileSync('apps/api/docker-compose.minio-image.yml', 'utf8'));
-          const m = doc['x-workspacex-minio-image'];
+          import { appendFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const image = JSON.parse(execFileSync('node', [
+            '.harness/scripts/minio-controlled-image.mjs', 'coordinates',
+          ], { encoding: 'utf8' }));
           appendFileSync(process.env.GITHUB_OUTPUT,
-            `source=${m.source_repository}\ntag=${m.release_tag}\ntarget=${m.target_repository}\n`);
+            `source=${image.sourceRepository}\ntag=${image.releaseTag}\ntarget=${image.targetRepository}\n`);
           NODE
 
       - name: Install registry transport
         shell: bash
         run: sudo apt-get update && sudo apt-get install --yes skopeo
 
+      - name: Resolve the configured upstream tag
+        id: upstream
+        shell: bash
+        env:
+          SOURCE: ${{ steps.image.outputs.source }}
+          TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+          skopeo inspect --raw "docker://${SOURCE}:${TAG}" > /tmp/minio-source-manifest.json
+          digest="sha256:$(sha256sum /tmp/minio-source-manifest.json | cut -d' ' -f1)"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
       - name: Authenticate to the BoardX-controlled registry
-        if: inputs.operation == 'mirror'
         shell: bash
         run: printf '%s' "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
 
-      - name: Copy the exact upstream manifest and all platforms without changing digests
-        if: inputs.operation == 'mirror'
+      - name: Copy the resolved upstream manifest and all platforms without changing digests
         shell: bash
         env:
           SOURCE: ${{ steps.image.outputs.source }}
           TARGET: ${{ steps.image.outputs.target }}
           TAG: ${{ steps.image.outputs.tag }}
-          DIGEST: ${{ inputs.source_digest }}
+          DIGEST: ${{ steps.upstream.outputs.digest }}
         run: |
           set -euo pipefail
-          skopeo inspect --raw "docker://${SOURCE}@${DIGEST}" > /tmp/minio-source-manifest.json
-          test "sha256:$(sha256sum /tmp/minio-source-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
           skopeo copy --all --preserve-digests \
             "docker://${SOURCE}@${DIGEST}" "docker://${TARGET}:${TAG}"
           skopeo inspect --raw --creds "${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}" \
             "docker://${TARGET}@${DIGEST}" > /tmp/minio-target-manifest.json
           test "sha256:$(sha256sum /tmp/minio-target-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
-          echo "Mirror copied and authenticated digest verified. An organization package owner must now make ${TARGET} public."
-          echo "Then rerun this workflow with verify-public-and-render-lock and the same digest."
 
-      - name: Prove anonymous pull and generate the immutable lock patch
-        if: inputs.operation == 'verify-public-and-render-lock'
+      - name: Write the mirror receipt from workflow-derived facts
         shell: bash
         env:
-          TARGET: ${{ steps.image.outputs.target }}
-          DIGEST: ${{ inputs.source_digest }}
+          DIGEST: ${{ steps.upstream.outputs.digest }}
         run: |
           set -euo pipefail
-          skopeo inspect --raw "docker://${TARGET}@${DIGEST}" > /tmp/minio-public-manifest.json
-          test "sha256:$(sha256sum /tmp/minio-public-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
-          node .harness/scripts/minio-controlled-image.mjs lock "${DIGEST}"
+          node .harness/scripts/minio-controlled-image.mjs write-receipt \
+            minio-mirror-receipt.json "${DIGEST}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}" \
+            "${GITHUB_REPOSITORY}" "${GITHUB_SHA}"
+
+      - name: Sign the durable mirror receipt with GitHub artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: minio-mirror-receipt.json
+
+      - name: Upload the attested mirror receipt
+        uses: actions/upload-artifact@v6
+        with:
+          name: minio-mirror-receipt
+          path: minio-mirror-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
+  verify-public-and-render-lock:
+    if: inputs.operation == 'verify-public-and-render-lock' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Require a successful mirror run on the default branch
+        id: mirror-run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MIRROR_RUN_ID: ${{ inputs.mirror_run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [[ "${MIRROR_RUN_ID}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::verify requires mirror_run_id from a successful mirror operation"; exit 1;
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${MIRROR_RUN_ID}" > /tmp/minio-mirror-run.json
+          jq -e --arg repository "${GITHUB_REPOSITORY}" --arg branch "${DEFAULT_BRANCH}" '
+            .name == "mirror-minio-controlled-registry" and
+            .path == ".github/workflows/mirror-minio-controlled-registry.yml" and
+            .event == "workflow_dispatch" and
+            .conclusion == "success" and
+            .head_branch == $branch and
+            .repository.full_name == $repository
+          ' /tmp/minio-mirror-run.json > /dev/null
+          echo "head_sha=$(jq -r .head_sha /tmp/minio-mirror-run.json)" >> "${GITHUB_OUTPUT}"
+          echo "run_attempt=$(jq -r .run_attempt /tmp/minio-mirror-run.json)" >> "${GITHUB_OUTPUT}"
+
+      - name: Download the prior run's mirror receipt
+        uses: actions/download-artifact@v5
+        with:
+          name: minio-mirror-receipt
+          path: mirror-receipt
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.mirror_run_id }}
+
+      - name: Verify the receipt's GitHub-signed provenance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MIRROR_HEAD_SHA: ${{ steps.mirror-run.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          gh attestation verify mirror-receipt/minio-mirror-receipt.json \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/mirror-minio-controlled-registry.yml" \
+            --source-ref "refs/heads/${DEFAULT_BRANCH}" \
+            --source-digest "${MIRROR_HEAD_SHA}" \
+            --deny-self-hosted-runners
+
+      - name: Install registry transport
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install --yes skopeo
+
+      - name: Re-resolve configured upstream, prove anonymous target, and render lock
+        shell: bash
+        env:
+          MIRROR_RUN_ID: ${{ inputs.mirror_run_id }}
+          MIRROR_RUN_ATTEMPT: ${{ steps.mirror-run.outputs.run_attempt }}
+          MIRROR_HEAD_SHA: ${{ steps.mirror-run.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          image="$(node .harness/scripts/minio-controlled-image.mjs coordinates)"
+          source="$(jq -r .sourceRepository <<<"${image}")"
+          tag="$(jq -r .releaseTag <<<"${image}")"
+          target="$(jq -r .targetRepository <<<"${image}")"
+          receipt_digest="$(jq -r .sourceDigest mirror-receipt/minio-mirror-receipt.json)"
+
+          skopeo inspect --raw "docker://${source}:${tag}" > /tmp/minio-current-upstream-manifest.json
+          upstream_digest="sha256:$(sha256sum /tmp/minio-current-upstream-manifest.json | cut -d' ' -f1)"
+          skopeo inspect --raw "docker://${target}@${receipt_digest}" > /tmp/minio-public-manifest.json
+          anonymous_target_digest="sha256:$(sha256sum /tmp/minio-public-manifest.json | cut -d' ' -f1)"
+
+          digest="$(node .harness/scripts/minio-controlled-image.mjs verify-receipt \
+            mirror-receipt/minio-mirror-receipt.json "${upstream_digest}" "${anonymous_target_digest}" \
+            "${MIRROR_RUN_ID}" "${MIRROR_RUN_ATTEMPT}" "${GITHUB_REPOSITORY}" "${MIRROR_HEAD_SHA}")"
+          node .harness/scripts/minio-controlled-image.mjs lock "${digest}"
           node .harness/scripts/minio-controlled-image.mjs validate --require-locked
           git diff --check
           git diff --binary -- apps/api/docker-compose.minio-image.yml > minio-image-lock.patch
           test -s minio-image-lock.patch
 
       - name: Upload reviewable lock patch
-        if: inputs.operation == 'verify-public-and-render-lock'
         uses: actions/upload-artifact@v6
         with:
           name: minio-image-lock-${{ github.run_id }}-${{ github.run_attempt }}
