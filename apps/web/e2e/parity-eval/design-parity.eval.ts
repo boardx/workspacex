@@ -469,9 +469,9 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
     for (const [i, tag] of ["方案 A", "方案 B", "方案 C"].entries()) {
-      await expect(page.getByTestId(`design-variant-${i}`)).toContainText(tag); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+      await expect(page.getByTestId(`design-variant-${i}`)).toContainText(tag);
     }
   });
 
@@ -479,18 +479,18 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
-    await page.getByTestId("design-variant-pick-1").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await page.getByTestId("design-variant-pick-1").click();
     await expect(phone).toContainText("年度会员 · 方案 B");
-    await expect(page.getByTestId("design-variant-0")).toHaveCount(0); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
   });
 
   test("[D8.c3] 选了能撤销：回到原来的页", async ({ page }) => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 }); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
-    await page.getByTestId("design-variant-pick-1").click(); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await page.getByTestId("design-variant-pick-1").click();
     await expect(phone).toContainText("年度会员 · 方案 B");
     await page.getByTestId("design-detail-undo").click();
     await expect(phone).toContainText("年度会员 · 专业版");
@@ -587,7 +587,7 @@ test.describe("D10 交付交接", () => {
   test("[D10.c5] 代码交接：导出一份能直接用的前端代码", async ({ page }) => {
     await openCase(page, "E01");
     await exportMenu(page);
-    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 })); // testid-gate: absent 对标评测的目标接口，实现它的那一轮删掉本标注（#3933）
+    const code = await downloadText(page, () => page.getByTestId("design-detail-export-code").click({ timeout: 3000 }));
     expect(code.name).toMatch(/\.(tsx|jsx|zip)$/);
     expect(code.text).toMatch(/export default function/);
     expect(code.text).toContain("发送");

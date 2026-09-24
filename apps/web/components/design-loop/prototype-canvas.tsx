@@ -377,7 +377,7 @@ const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
  * 对标 R2（#3933）：项目级圆角 × 节点圆角层级 ⇒ 类名。只落在既有的几档命名圆角上（lint-design U11），
  * `full`（胶囊/圆形）不随项目气质变——头像和开关本来就是圆的，「直角风」不该把它们也削成方块。
  */
-const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
+export const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
   sharp: { none: "rounded-none", sm: "rounded-none", md: "rounded-none", lg: "rounded-none", full: "rounded-full" },
   default: RADIUS,
   round: { none: "rounded-none", sm: "rounded-control", md: "rounded-container", lg: "rounded-container", full: "rounded-full" },
@@ -386,17 +386,17 @@ const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none
  * 对标 R2：项目级密度 × 节点间距层级 ⇒ Tailwind 间距档位。`default` 行与上面的 GAP/PAD 逐字相同。
  * 紧凑与宽松各挪一档，`none` 始终是 0（「这里不要间距」是结构，不是气质）。
  */
-const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "gap-0", sm: "gap-0.5", md: "gap-1", lg: "gap-2" },
   default: GAP,
   comfortable: { none: "gap-0", sm: "gap-2", md: "gap-3", lg: "gap-6" },
 };
-const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "p-0", sm: "p-0.5", md: "p-1", lg: "p-2" },
   default: PAD,
   comfortable: { none: "p-0", sm: "p-2", md: "p-3", lg: "p-6" },
 };
-const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "h-0", sm: "h-0.5", md: "h-2", lg: "h-4" },
   default: SPACE,
   comfortable: { none: "h-0", sm: "h-2", md: "h-4", lg: "h-8" },
@@ -1072,9 +1072,14 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /**
+   * 对标 R9（#3954）：这块画布只是一张**候选缩略图**（变体面板）。它不是「当前页」，所以不挂
+   * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
+   */
+  thumbnail?: boolean;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
   onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
@@ -1171,7 +1176,7 @@ export function PrototypeCanvas({
       data-brand={!wireframe && tokens?.brand != null ? tokens.brand : undefined}
       data-font={tokens?.font !== undefined && tokens.font !== "sans" ? tokens.font : undefined}
       data-fidelity={wireframe ? "wireframe" : undefined}
-      data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
+      data-testid={thumbnail ? "design-variant-canvas" : "design-detail-phone"} data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >

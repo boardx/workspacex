@@ -305,3 +305,67 @@ test.describe("R8 批注（#3933）", () => {
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
   });
 });
+
+test.describe("R9 变体（#3954）", () => {
+  test("出三个方案并排 ⇒ 请求带着当前页序号；挑第二个 ⇒ 这一页换成它、候选收起；撤销 ⇒ 回到原来那页", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    const projects = await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await routeEvalEditing(page, projects);
+    const asked: unknown[] = [];
+    const variant = (tag: string) => ({ type: "stack", children: [{ type: "text", props: { content: `会员 · ${tag}`, variant: "title" } }] });
+    await page.route((url) => /^\/pm-designs\/eval-R7\/variants$/.test(url.pathname), async (route) => {
+      asked.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        variants: ["甲", "乙", "丙"].map((t) => ({ summary: `方案${t}`, root: variant(`方案${t}`) })),
+      }) });
+    });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+
+    await page.getByTestId("design-detail-variants").click();
+    for (const [i, t] of ["甲", "乙", "丙"].entries()) await expect(page.getByTestId(`design-variant-${i}`)).toContainText(`会员 · 方案${t}`);
+    expect(asked).toEqual([{ screen: 0 }]);
+
+    await page.getByTestId("design-variant-pick-1").click();
+    await expect(phone).toContainText("会员 · 方案乙");
+    await expect(page.getByTestId("design-variants")).toHaveCount(0);
+
+    await page.getByTestId("design-detail-undo").click();
+    await expect(phone).toContainText("年度会员 · 专业版");
+  });
+
+  test("接口 503 ⇒ 说没能出方案、可以再试，页面不变", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.route((url) => /^\/pm-designs\/eval-R7\/variants$/.test(url.pathname), (route) =>
+      route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ reasonCode: "DEPENDENCY_UNAVAILABLE" }) }));
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    await page.getByTestId("design-detail-variants").click();
+    await expect(page.getByTestId("design-variants").getByRole("alert")).toContainText("没能出方案");
+    await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
+  });
+});
+
+test.describe("R10 代码交接（#3955）", () => {
+  test("导出 React 组件：一个 .tsx、只 import react、默认导出；文案与页面切换都在", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.tsx$/);
+    const tsx = readFileSync(await d.path(), "utf8");
+    expect(tsx).toMatch(/export default function Prototype\(\)/);
+    expect([...tsx.matchAll(/^import\b[^"]*"([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
+    expect(tsx).toContain(`{"年度会员 · 专业版"}`);
+    expect(tsx).toContain(`{ name: "商品详情", Component: Screen1 }`);
+  });
+});
