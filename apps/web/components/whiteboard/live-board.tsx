@@ -15,6 +15,11 @@ import { RoomPresenterControls } from './room-presenter-controls';
 import { publishRoomViewport } from '@/lib/live-whiteboard-room';
 import { whiteboard as WhiteboardContract } from '@repo/contracts';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
+const liveBoardRoots=new WeakMap<HTMLElement,number>();
+export function retainLiveBoardZoomScope(root:HTMLElement):()=>void{
+  liveBoardRoots.set(root,(liveBoardRoots.get(root)??0)+1);root.dataset.liveBoardMounted='true';let retained=true;
+  return()=>{if(!retained)return;retained=false;const remaining=(liveBoardRoots.get(root)??1)-1;if(remaining>0){liveBoardRoots.set(root,remaining);return;}liveBoardRoots.delete(root);delete root.dataset.liveBoardMounted;};
+}
 export function LiveBoard({ boardId }: { boardId: string }) {
   const router = useRouter();
   const session = useOptionalSession();
@@ -29,9 +34,7 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const roomSessionRef=useRef<string|null>(null), viewportTimer=useRef<number|null>(null);
   const setActiveRoom=useCallback((value:string|null)=>{roomSessionRef.current=value;setRoomSession(value);},[]);
   useEffect(() => {
-    const root=document.documentElement;
-    root.dataset.liveBoardMounted='true';
-    return()=>{delete root.dataset.liveBoardMounted;};
+    return retainLiveBoardZoomScope(document.documentElement);
   },[]);
   const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{void publishRoomViewport(boardId,active,value).catch(()=>setActiveRoom(null));},120);},[boardId,setActiveRoom]);
   useEffect(() => {
@@ -62,5 +65,5 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const status = state.phase === 'connecting' ? '正在连接' : state.phase === 'offline' ? `连接中断 · ${state.pending} 项修改待保存` : state.pending ? `${state.pending} 项修改待保存` : '已同步';
   const selectedObject=selection.length===1?(()=>{const value=(doc.getMap('objects').get(selection[0]!) as {get?:(key:string)=>unknown}|undefined);return value?{id:selection[0]!,label:String(value.get?.('text')||'未命名对象').slice(0,200)}:null;})():null;
   const readOnly=state.phase === 'connecting' || state.role === 'viewer' || state.archived;
-  return <div data-testid="live-board-layout" className="relative flex min-h-full min-w-0 flex-col overflow-hidden sm:h-full sm:min-h-0"><div data-testid="board-transfer-bar" className="flex max-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground sm:max-h-28 sm:flex-wrap sm:overflow-y-auto"><div className="min-w-48 flex-1 shrink-0 sm:min-w-0"><p>未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p>{state.quarantined>0&&quarantineActions}</div><RoomPresenterControls boardId={boardId} disabled={readOnly} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 min-w-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={readOnly} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} auxiliaryPanelOpen={openPanel!==null} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId} expanded={openPanel==='workshop'} onExpandedChange={expanded=>setOpenPanel(expanded?'workshop':null)}/>}/></div><DiscussionPanel boardId={boardId} selectedObject={selectedObject} readOnly={readOnly} expanded={openPanel==='discussion'} onExpandedChange={expanded=>setOpenPanel(expanded?'discussion':null)}/></div>;
+  return <div data-testid="live-board-layout" className="relative flex min-h-full min-w-0 flex-col overflow-hidden sm:h-full sm:min-h-0"><div data-testid="board-primary-controls" inert={openPanel==='discussion'?true:undefined} aria-hidden={openPanel==='discussion'} className="flex min-h-0 min-w-0 flex-1 flex-col"><div data-testid="board-transfer-bar" className="flex max-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground sm:max-h-28 sm:flex-wrap sm:overflow-y-auto"><div className="min-w-48 flex-1 shrink-0 sm:min-w-0"><p>未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p>{state.quarantined>0&&quarantineActions}</div><RoomPresenterControls boardId={boardId} disabled={readOnly} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 min-w-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={readOnly} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} auxiliaryPanelOpen={openPanel!==null} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId} expanded={openPanel==='workshop'} onExpandedChange={expanded=>setOpenPanel(expanded?'workshop':null)}/>}/></div></div><DiscussionPanel boardId={boardId} selectedObject={selectedObject} readOnly={readOnly} expanded={openPanel==='discussion'} onExpandedChange={expanded=>setOpenPanel(expanded?'discussion':null)}/></div>;
 }

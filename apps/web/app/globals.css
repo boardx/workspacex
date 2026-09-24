@@ -502,10 +502,14 @@
   }
   /* The live Board route must retain browser/platform pinch zoom for WCAG reflow. */
   html[data-live-board-mounted="true"],
-  html[data-live-board-mounted="true"] body,
-  html:has([data-live-board-page]),
-  html:has([data-live-board-page]) body {
+  html[data-live-board-mounted="true"] body {
     touch-action: auto;
+  }
+  @supports selector(:has(*)) {
+    html:has([data-live-board-page]),
+    html:has([data-live-board-page]) body {
+      touch-action: auto;
+    }
   }
   /* 焦点环全局兜底：严禁裸 outline-none 消除焦点可见性（uiux-standards §5）*/
   :focus-visible {
@@ -615,14 +619,21 @@
   /* Includes Board portals (for example import dialogs) while the route marker is mounted. */
   html[data-live-board-mounted="true"] *,
   html[data-live-board-mounted="true"] *::before,
-  html[data-live-board-mounted="true"] *::after,
-  html:has([data-live-board-page]) *,
-  html:has([data-live-board-page]) *::before,
-  html:has([data-live-board-page]) *::after {
+  html[data-live-board-mounted="true"] *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
+  }
+  @supports selector(:has(*)) {
+    html:has([data-live-board-page]) *,
+    html:has([data-live-board-page]) *::before,
+    html:has([data-live-board-page]) *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }
 

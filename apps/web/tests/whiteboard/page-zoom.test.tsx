@@ -1,12 +1,23 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import { DisablePageZoom, allowsPageZoom } from '@/components/system/disable-page-zoom';
+import { retainLiveBoardZoomScope } from '@/components/whiteboard/live-board';
 
 afterEach(() => {
   cleanup();
   document.body.removeAttribute('data-live-board-page');
   delete document.documentElement.dataset.liveBoardMounted;
   window.history.replaceState({}, '', '/');
+});
+
+it('reference-counts concurrent and StrictMode-style Board scope lifetimes',()=>{
+  const root=document.createElement('div');
+  const releaseFirst=retainLiveBoardZoomScope(root),releaseSecond=retainLiveBoardZoomScope(root);
+  expect(root.dataset.liveBoardMounted).toBe('true');
+  releaseFirst();releaseFirst();expect(root.dataset.liveBoardMounted).toBe('true');
+  releaseSecond();expect(root.dataset.liveBoardMounted).toBeUndefined();
+  const releaseRemount=retainLiveBoardZoomScope(root);expect(root.dataset.liveBoardMounted).toBe('true');
+  releaseRemount();expect(root.dataset.liveBoardMounted).toBeUndefined();
 });
 
 it('keeps the global zoom guard off the live Board route only', () => {

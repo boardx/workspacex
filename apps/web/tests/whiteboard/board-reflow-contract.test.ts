@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import postcss from 'postcss';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const read=(path:string)=>readFileSync(`${root}${path}`,'utf8');
@@ -14,6 +15,14 @@ describe('live Board reflow and motion contracts',()=>{
     expect(css).toContain('html:has([data-live-board-page]) body');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('transition-duration: 0.001ms !important');
+    const parsed=postcss.parse(css);
+    parsed.walkRules(rule=>expect(rule.selector.includes('data-live-board-mounted')&&rule.selector.includes(':has(')).toBe(false));
+    const withoutHas=parsed.clone();
+    withoutHas.walkAtRules('supports',rule=>{if(rule.params.includes('selector(:has('))rule.remove();});
+    const unsupportedCss=withoutHas.toString();
+    expect(unsupportedCss).not.toContain(':has(');
+    expect(unsupportedCss).toMatch(/html\[data-live-board-mounted="true"\][^{]*\{\s*touch-action:\s*auto/);
+    expect(unsupportedCss).toMatch(/html\[data-live-board-mounted="true"\] \*[^{]*\{[^}]*transition-duration:\s*0\.001ms/s);
   });
 
   it('bounds every live Board overlay and keeps dense controls inside local scrolling regions',()=>{
