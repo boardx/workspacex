@@ -590,6 +590,17 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
+import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
+import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
+import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
+import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
+import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
+import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
+import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
+import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
+import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -962,6 +973,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    KnowledgeGraphController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -2919,6 +2931,24 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [SERVICE_UPTIME_CONFIG],
     },
     ServiceUptimePollWorker,
+    // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
+    { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
+    { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
+    KgProjectionWorker,
+    // F06：会话消息 → 知识抽取（模型只提出，经执行器落表）。
+    { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
+    { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
+    {
+      provide: KNOWLEDGE_EXTRACTOR_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    KgExtractionWorker,
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
+    { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
+    // F10：人工编辑动作（只经 kg_apply_human_action 落表）。
+    { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
