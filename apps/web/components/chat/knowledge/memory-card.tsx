@@ -114,7 +114,7 @@ export function MemoryCard({
               <button
                 type="button"
                 disabled={busy}
-                className="underline-offset-2 transition-colors duration-base hover:underline disabled:opacity-50"
+                className="underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground"
                 data-testid="kg-card-undo"
                 onClick={() => void run(async () => {
                   setUndone(await onUndo(rememberedId));
