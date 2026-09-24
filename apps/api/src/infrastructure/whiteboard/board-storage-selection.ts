@@ -19,7 +19,7 @@ export interface BoardStorageSelectionConfig {
 }
 
 export interface HostedBoardClientFactory {
-  create(input: { provider: Exclude<BoardBlobProviderKind, 'filesystem'>; bucket: string; prefix: string }): HostedBoardBlobClient;
+  create(input: { provider: Exclude<BoardBlobProviderKind, 'filesystem'>; bucket: string; prefix: string }): Promise<HostedBoardBlobClient>;
 }
 
 export interface BoardStorageSelectionDependencies {
@@ -97,7 +97,7 @@ export async function createBoardStorageSelection(
     throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage client is not configured');
   }
   let client: HostedBoardBlobClient;
-  try { client = dependencies.hostedClients.create({ provider: config.blobProvider, bucket: config.bucket, prefix: config.prefix }); }
+  try { client = await dependencies.hostedClients.create({ provider: config.blobProvider, bucket: config.bucket, prefix: config.prefix }); }
   catch { throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage client is not configured'); }
   const requirement = { requireObjectLock: config.requireObjectLock };
   const store = config.blobProvider === 'aliyun-oss'

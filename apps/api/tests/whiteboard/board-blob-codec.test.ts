@@ -31,15 +31,35 @@ describe('AesGcmBoardBlobCodec', () => {
       .rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE', message: 'environment board keys are development-only' });
   });
 
-  it('resolves an exact version from KMS without caching credentials or accepting fallback versions', async () => {
+  it('resolves an exact immutable version from KMS without accepting fallback versions', async () => {
     let calls = 0;
     const resolver = new KmsBoardTenantKeyResolver({
-      async resolveVersion(input) { calls += 1; return { version: input.version, keyMaterial: new Uint8Array(32).fill(calls) }; },
+      async resolveVersion(input) { calls += 1; return { version: input.version, keyMaterial: new Uint8Array(32).fill(7) }; },
     });
     const first = await resolver.resolve('org-a', 7), rotatedCredentials = await resolver.resolve('org-a', 7);
-    expect(calls).toBe(2); expect(first).not.toEqual(rotatedCredentials);
+    expect(calls).toBe(2); expect(first).toEqual(rotatedCredentials);
+    let material = 1;
+    const mutable = new KmsBoardTenantKeyResolver({ async resolveVersion(input) { return { version: input.version, keyMaterial: new Uint8Array(32).fill(material) }; } });
+    await mutable.resolve('org-a', 7); material = 2;
+    await expect(mutable.resolve('org-a', 7)).rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
     await expect(new KmsBoardTenantKeyResolver({ async resolveVersion() { return { version: 6, keyMaterial: new Uint8Array(32) }; } }).resolve('org-a', 7))
       .rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
+  });
+
+  it('decrypts historical content after adding a new key version', async () => {
+    const versions = new Map([[1, new Uint8Array(32).fill(1)]]);
+    const codec = new AesGcmBoardBlobCodec(new KmsBoardTenantKeyResolver({
+      async resolveVersion(input) {
+        const keyMaterial = versions.get(input.version);
+        if (!keyMaterial) throw new Error('missing');
+        return { version: input.version, keyMaterial };
+      },
+    }));
+    const old = await codec.encrypt({ tenantId: 'org-a', tenantKeyVersion: 1, plaintext: Buffer.from('historical board') });
+    versions.set(2, new Uint8Array(32).fill(2));
+    await codec.encrypt({ tenantId: 'org-a', tenantKeyVersion: 2, plaintext: Buffer.from('new board') });
+    await expect(codec.decrypt({ ...old, tenantId: 'org-a', expectedPlainDigest: old.plainDigest }))
+      .resolves.toEqual(new Uint8Array(Buffer.from('historical board')));
   });
 
   it('sanitizes KMS failures', async () => {

@@ -43,7 +43,7 @@ describe('Board storage provider selection', () => {
       NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted', WORKSPACEX_BOARD_HOSTED_PROVIDER: blobProvider, WORKSPACEX_BOARD_KEY_PROVIDER: 'versioned-kms',
       WORKSPACEX_BOARD_BLOB_BUCKET: 'private-board', WORKSPACEX_BOARD_BLOB_PREFIX: 'board-content', WORKSPACEX_BOARD_BLOB_OBJECT_LOCK: 'required',
     }, {
-      hostedClients: { create: () => client },
+      hostedClients: { create: async () => client },
       versionedKeys: { async resolveVersion(input) { return { version: input.version, keyMaterial: new Uint8Array(32).fill(1) }; } },
     });
     expect(selected.config.blobProvider).toBe(blobProvider); expect(inspected).toBe(1);
@@ -54,7 +54,7 @@ describe('Board storage provider selection', () => {
     await expect(createBoardStorageSelection(env, {})).rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
     const keys = { async resolveVersion(input: { version: number }) { return { version: input.version, keyMaterial: new Uint8Array(32) }; } };
     await expect(createBoardStorageSelection(env, { versionedKeys: keys })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
-    await expect(createBoardStorageSelection(env, { versionedKeys: keys, hostedClients: { create: () => hostedClient('s3-compatible', { access: 'public', versioning: 'enabled', objectLock: 'disabled' }) } }))
+    await expect(createBoardStorageSelection(env, { versionedKeys: keys, hostedClients: { create: async () => hostedClient('s3-compatible', { access: 'public', versioning: 'enabled', objectLock: 'disabled' }) } }))
       .rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
   });
 
@@ -66,7 +66,7 @@ describe('Board storage provider selection', () => {
       NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted', WORKSPACEX_BOARD_HOSTED_PROVIDER: 's3-compatible',
       WORKSPACEX_BOARD_KEY_PROVIDER: 'versioned-kms', WORKSPACEX_BOARD_KEY_DIRECTORY: directory,
       WORKSPACEX_BOARD_BLOB_BUCKET: 'private-board', WORKSPACEX_BOARD_BLOB_PREFIX: 'board-content',
-    }, { hostedClients: { create: () => hostedClient('s3-compatible') } });
+    }, { hostedClients: { create: async () => hostedClient('s3-compatible') } });
     expect(selected.config.keyProvider).toBe('versioned-kms');
   });
 });

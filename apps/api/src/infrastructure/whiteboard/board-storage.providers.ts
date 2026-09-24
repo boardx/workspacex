@@ -7,6 +7,7 @@ import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
 import { assertFilesystemBoardBlobRuntime } from './board-blob-runtime';
 import { createBoardStorageSelection, type BoardStorageSelection, type HostedBoardClientFactory } from './board-storage-selection';
 import { FsBoardBlobStore } from './fs-board-blob-store';
+import { EnvHostedBoardClientFactory, versionedBoardKeySourceFromEnv } from './hosted-board-provider-factory';
 
 export const BOARD_HOSTED_CLIENT_FACTORY = Symbol('BoardHostedClientFactory');
 export const BOARD_VERSIONED_KEY_SOURCE = Symbol('BoardVersionedKeySource');
@@ -43,12 +44,14 @@ export class ConfiguredFsBoardBlobStore implements BoardBlobStore {
 }
 
 export const boardStorageProviders: Provider[] = [
+  { provide: BOARD_HOSTED_CLIENT_FACTORY, useFactory: () => new EnvHostedBoardClientFactory(process.env) },
+  { provide: BOARD_VERSIONED_KEY_SOURCE, useFactory: () => versionedBoardKeySourceFromEnv(process.env) },
   {
     provide: BOARD_STORAGE_SELECTION,
     useFactory: (hostedClients?: HostedBoardClientFactory, versionedKeys?: VersionedBoardMasterKeySource) =>
       createBoardStorageSelection(process.env, { hostedClients, versionedKeys }),
     inject: [
-      { token: BOARD_HOSTED_CLIENT_FACTORY, optional: true },
+      BOARD_HOSTED_CLIENT_FACTORY,
       { token: BOARD_VERSIONED_KEY_SOURCE, optional: true },
     ],
   },

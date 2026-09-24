@@ -13,6 +13,7 @@ export default defineConfig({
       'tests/whiteboard/board-storage-selection.test.ts',
       'tests/whiteboard/hosted-board-blob-clients.test.ts',
       'tests/whiteboard/hosted-board-blob-store.test.ts',
+      'tests/whiteboard/hosted-board-provider-factory.integration.test.ts',
       'tests/whiteboard/file-board-master-key-source.test.ts',
     ],
     environment: 'node',

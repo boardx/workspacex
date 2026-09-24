@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from 'node:crypto';
 import { BoardBlobError, type BoardBlobCodec, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
 import { assertSha256Digest, sha256 } from '../../domain/whiteboard/blob-identity';
 
@@ -16,6 +16,7 @@ function deriveTenantKey(master: Uint8Array, tenantId: string, version: number):
 
 /** Production boundary for versioned KMS / secret-manager values. No unversioned fallback exists. */
 export class KmsBoardTenantKeyResolver implements BoardTenantKeyResolver {
+  private readonly seenMaterial = new Map<string, string>();
   constructor(private readonly source: VersionedBoardMasterKeySource) {}
 
   async resolve(tenantId: string, version: number): Promise<Uint8Array> {
@@ -26,7 +27,16 @@ export class KmsBoardTenantKeyResolver implements BoardTenantKeyResolver {
         throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'requested board key version is unavailable');
       }
       const master = new Uint8Array(resolved.keyMaterial);
-      try { return deriveTenantKey(master, tenantId, version); }
+      try {
+        const identity = `${tenantId}\0${version}`;
+        const fingerprint = createHash('sha256').update(master).digest('hex');
+        const previous = this.seenMaterial.get(identity);
+        if (previous !== undefined && previous !== fingerprint) {
+          throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'board key material changed for an existing version');
+        }
+        this.seenMaterial.set(identity, fingerprint);
+        return deriveTenantKey(master, tenantId, version);
+      }
       finally { master.fill(0); }
     } catch (error) {
       if (error instanceof BoardBlobError) throw error;
