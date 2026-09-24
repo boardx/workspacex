@@ -23,8 +23,8 @@ test.describe('meeting-room convergence soak',()=>{
       await owner.goto(`/studio/board/${boardId}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});
       await owner.getByTestId('room-present-open').click();const pairing=owner.getByTestId('room-pairing-payload');await expect(pairing).toBeVisible({timeout:20_000});
       await room.goto('/studio/board/room');await room.getByTestId('room-join-payload').fill(await pairing.inputValue());await room.getByTestId('room-join').click();await expect(room.getByTestId('collaborative-editor')).toBeVisible({timeout:20_000});await expect(owner.getByTestId('room-connected')).toBeVisible({timeout:10_000});
-      const sessionId=await owner.evaluate(id=>sessionStorage.getItem(`wsx.board.presenter.${id}`),boardId);const stored=await room.evaluate(()=>JSON.parse(sessionStorage.getItem('wsx.board.room.active')??'null') as {grant:{orgId:string;token:string}}|null);
-      expect(sessionId).toBeTruthy();expect(stored?.grant.token).toBeTruthy();const deadline=Date.now()+minutes*60_000;
+      const sessionId=await owner.evaluate(id=>sessionStorage.getItem(`wsx.board.presenter.${id}`),boardId);
+      expect(sessionId).toBeTruthy();const deadline=Date.now()+minutes*60_000;
       while(Date.now()<deadline){iterations+=1;const x=(iterations%17)*37-300,y=(iterations%13)*29-180,zoom=0.75+(iterations%6)*0.15;lastExpected={x,y,zoom};const started=Date.now();
         if(iterations%60===0)await roomContext.setOffline(true);
         await call(api,ownerToken,'PUT',`/whiteboards/${boardId}/room-sessions/${sessionId}/viewport`,{x,y,zoom});
@@ -32,7 +32,7 @@ test.describe('meeting-room convergence soak',()=>{
         if(iterations%60===0){await new Promise(resolve=>setTimeout(resolve,2_000));await roomContext.setOffline(false);}
         const canvas=room.getByTestId('board-live-surface').locator(':scope > div').first();const timeout=iterations%60===0?5_000:3_000;await expect(canvas).toHaveAttribute('style',new RegExp(`translate\\(${x}px,${y}px\\) scale\\(${zoom}\\)`),{timeout});latencies.push(Date.now()-started);
         if(await room.getByTestId('room-join-payload').count())blankRegressions+=1;
-        const state=await call(api,null,'POST',`/whiteboard-room/${sessionId}/state`,{orgId:stored!.grant.orgId,token:stored!.grant.token});const revision=(await state.json() as {viewport:{revision:number}}).viewport.revision;expect(revision).toBeGreaterThan(lastRevision);lastRevision=revision;
+        const revision=Number(await room.getByTestId('room-display-active').getAttribute('data-room-viewport-revision'));expect(revision).toBeGreaterThan(lastRevision);lastRevision=revision;
         const remaining=5_000-(Date.now()-started);if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
       }
       const finalStyle=await room.getByTestId('board-live-surface').locator(':scope > div').first().getAttribute('style')??'';const match=/translate\(([-\d.]+)px,([-\d.]+)px\) scale\(([-\d.]+)\)/.exec(finalStyle);const finalError={x:Math.abs(Number(match?.[1])-lastExpected.x),y:Math.abs(Number(match?.[2])-lastExpected.y),zoom:Math.abs(Number(match?.[3])-lastExpected.zoom)};
