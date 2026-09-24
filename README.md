@@ -79,6 +79,11 @@ pgvector + Apache AGE 图投影，graph-first 检索）见 `docs/architecture/kn
   CLI 工具的语法，`pnpm harness tick`/`claim`/`verify` 等命令两边通用（都是纯 shell +
   Node 脚本，不依赖某个工具的专有能力）。
 
+## 许可证与商标
+
+代码以 Apache-2.0 开源（[`LICENSE`](LICENSE)）；名称与 logo 的使用规则见
+[`TRADEMARKS.md`](TRADEMARKS.md)——修改后再分发的 fork 须改名。
+
 ## 与上游的关系
 
 方法论层持续从 BoardX 上游单向同步（ADR 编号 <100 为上游方法论，你的项目从

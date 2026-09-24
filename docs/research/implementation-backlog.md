@@ -205,7 +205,7 @@ flowchart LR
 | B5 | 填 `SECURITY.md` 安全联系邮箱 | ◐ | 文件已建 |
 | B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11 标 13 个；R14 `cloud-deploy`（D23）；R16 `apps/api`、`apps/web`、`dev-mode-accounts`（D25、D26）。现 17 个：开源 9、运营面 7，**只剩 `fabric-markdown` 未定**（售卖类的 `maau-postinvest-report` 已随投后功能下线删除，#4012）（上游许可未记录）。NOTICE 的版权方名称待组织确定 |
 | B7 | CLA 或 DCO 落地 | ✅ | R13：按 D20 用 DCO。`CONTRIBUTING.md`（DCO 1.1 原文）、`check-dco.mjs`、`dco.yml` 只查 fork PR |
-| B8 | 商标政策 | □ | D1 已定，**可开工** |
+| B8 | 商标政策 | ■ | 已写 `TRADEMARKS.md`；权利人名称与联系邮箱是 `〔待定` 占位，待组织决策 |
 
 ### 轨道 C · 门控建设（九项彼此独立）
 

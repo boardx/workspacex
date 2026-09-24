@@ -9,6 +9,7 @@
 开源部分以 **Apache-2.0** 发布（决策 D1，2026-09-24）。开源包各自目录里的 `LICENSE`
 是许可证正文。并非仓库里的每个目录都开源——归属表见 `.harness/scripts/lib/ownership.mjs`，
 `pnpm run lint:package-license` 会逐个核对。
+许可证不含商标权（Apache-2.0 第 6 条）：名称与 logo 的使用见 [`TRADEMARKS.md`](TRADEMARKS.md)。
 
 ## 签署：Developer Certificate of Origin（DCO）
 
