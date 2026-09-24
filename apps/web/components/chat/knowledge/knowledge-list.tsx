@@ -18,7 +18,8 @@ import {
 /**
  * 列表视图（uc-18-3 R3-1）：记下的按类型分组，三态徽标、来源、证据数。
  * - U-2：每条一键「对 / 不对」；「不对」就地展开「改写 / 忘掉这条」；批量「全部确认」在面板头部。
- * - 多选（`selectable` + selected）供「记到长期记忆」（uc-18-4，只有 canPromote 时开）。
+ * - 多选（`selectable` + selected）供「记到长期记忆」（uc-18-4，只有 canPromote 时开）；
+ *   单条的「记到我的长期记忆」在 `…` 菜单里，经 `onPromote`（不传 = 不画）。
  * - 完整编辑菜单（合并/拆分/改名等）仍在 `…` 菜单里，只对 canEdit 渲染。
  * - 点内容打开来源抽屉。
  * - 编辑动作经 `onApply`（契约 `KgHumanAction`）交给面板；需要输入的动作先开 `ClaimActionDialog`。
@@ -33,6 +34,7 @@ export function KnowledgeList({
   onToggleSelect,
   onOpenSource,
   onApply,
+  onPromote,
 }: {
   claims: KgClaim[];
   objects?: readonly KgObject[];
@@ -42,6 +44,7 @@ export function KnowledgeList({
   onToggleSelect?: (claimId: string, next: boolean) => void;
   onOpenSource?: (claim: KgClaim) => void;
   onApply?: (action: KgHumanAction) => Promise<boolean>;
+  onPromote?: (claimIds: string[]) => void;
 }) {
   const groups = groupClaimsByKind(claims);
   const [openWrong, setOpenWrong] = React.useState<Record<string, boolean>>({});
@@ -101,6 +104,7 @@ export function KnowledgeList({
                       hasObjects={c.aboutObjectIds.some((id) => objectIds.has(id))}
                       onConfirm={() => confirm(c.id)}
                       onOpenDialog={(kind) => setDialog({ kind, claim: c })}
+                      onPromote={onPromote ? () => onPromote([c.id]) : undefined}
                     />
                   </div>
 

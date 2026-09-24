@@ -15,8 +15,10 @@
  * 没挂也是 404）。
  *
  * F10 加了第一个写口 `applyHumanAction`（POST /knowledge-graph/threads/:threadId/actions）：
- * 确认 / 批量确认 / 改写 / 忘掉 / 标矛盾 / 合并 / 拆分 / 改名。「记到长期记忆」「整理本会话」
- * 仍不在本文件（F11 / F13），不为了让按钮"看起来能点"先造一个调不通的调用。
+ * 确认 / 批量确认 / 改写 / 忘掉 / 标矛盾 / 合并 / 拆分 / 改名。
+ * F11 加「记到我的长期记忆」：`promoteToPersonal`（POST .../promote，逐条结果）与
+ * `listPromotionNominations`（GET .../nominations，AI 只提名不执行）。「整理本会话」仍不在
+ * 本文件（F13），不为了让按钮"看起来能点"先造一个调不通的调用。
  */
 import type { z } from "zod";
 import { knowledgeGraph, KgErrorCode, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
@@ -26,6 +28,9 @@ export type ThreadKnowledge = z.infer<typeof knowledgeGraph.getThreadKnowledge.o
 export type ClaimSources = z.infer<typeof knowledgeGraph.getClaimSources.out>;
 export type TurnMemory = z.infer<typeof knowledgeGraph.getTurnMemory.out>;
 export type PromotionResults = z.infer<typeof knowledgeGraph.promoteToPersonal.out>;
+export type PromotionNominations = z.infer<typeof knowledgeGraph.listPromotionNominations.out>;
+/** `needs_choice` 条目的人的选择：「合并到已有的那条」/「两条都保留」。 */
+export type PromotionChoice = NonNullable<z.infer<typeof knowledgeGraph.promoteToPersonal.in>["choices"]>[number];
 export type KnowledgeGraphErrorCode = z.infer<typeof KgErrorCode>;
 
 /** 面板错误态要区分的两个码（`getThreadKnowledge.err`）。 */
@@ -112,5 +117,37 @@ export function applyHumanAction(
     knowledgeGraph.applyHumanAction.out,
     undefined,
     { method: "POST", body: { basedOnRevision: input.basedOnRevision, action: input.action } },
+  );
+}
+
+/**
+ * UC-KG-5：记到我的长期记忆。逐条返回结果（部分成功，不整批回滚，uc-18-4 E4）；
+ * 未确认的条目由服务端在同一动作里先以本人确认（U-3）。`choices` 只在回答 `needs_choice` 时带。
+ * 请求体先过契约 `in` schema（1..50 条）——超批在本地就抛，不发出去。
+ */
+export function promoteToPersonal(
+  threadId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToPersonal.in.parse({
+    threadId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/promote`,
+    knowledgeGraph.promoteToPersonal.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+/** UC-KG-6：AI 提名「值得记住」的条目。只读——提名本身不改任何东西，记不记由人点。 */
+export function listPromotionNominations(threadId: string, signal?: AbortSignal): Promise<PromotionNominations> {
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/nominations`,
+    knowledgeGraph.listPromotionNominations.out,
+    signal,
   );
 }
