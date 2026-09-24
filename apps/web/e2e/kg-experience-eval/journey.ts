@@ -75,7 +75,11 @@ export async function runJourney(
   try {
     await body(ctx);
   } catch (e) {
-    error = e instanceof Error ? e.message.split("\n")[0]!.slice(0, 300) : String(e);
+    error = e instanceof Error ? e.message.replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 3).join(" ").slice(0, 400) : String(e);
+    // 停下来那一刻用户看到的样子，留作证据（也是排查的第一手材料）。
+    for (const [i, c] of contexts.entries()) {
+      for (const [k, p] of c.pages().entries()) await ctx.shot(`aborted-${i}-${k}`, p);
+    }
   } finally {
     for (const c of contexts) await c.close().catch(() => undefined);
   }
