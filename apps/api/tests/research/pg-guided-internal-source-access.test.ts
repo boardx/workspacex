@@ -40,6 +40,7 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, "u-energy-researcher", "facilitator", null);
   await addOrgMember(ORG, "u-platform-researcher", "consultant", fixture.teams.platform!);
   await addProjectMember(ORG, PROJECT, "u-platform-researcher", "facilitator", null);
+  await addOrgMember(ORG, "u-energy-outsider", "consultant", fixture.teams.energy!);
   await addArtifact({ orgId: ORG, id: ARTIFACT, projectId: PROJECT });
   await addBinding({
     orgId: ORG,
@@ -62,6 +63,12 @@ describe("PgGuidedInternalSourceAccess", () => {
       orgId: toOrgId(ORG),
       userId: "u-platform-researcher",
       sessionId: "session-platform",
+    }, [ARTIFACT])).resolves.toEqual([]);
+
+    await expect(sourceAccess.authorizedSourceIds({
+      orgId: toOrgId(ORG),
+      userId: "u-energy-outsider",
+      sessionId: "session-energy-outsider",
     }, [ARTIFACT])).resolves.toEqual([]);
   });
 });

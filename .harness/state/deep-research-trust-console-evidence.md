@@ -29,7 +29,8 @@ regression tests and closed:
 
 1. Internal research sources now pass through the repository's authoritative
    `guard`/`disclose` ACL path. A real PostgreSQL test proves that two researchers in the
-   same project but different teams cannot cross a `team-only` artifact boundary.
+   same project but different teams cannot cross a `team-only` artifact boundary, and a
+   same-team organization member without project membership cannot bypass the project layer.
 2. A `restrict` source policy with no domain is rejected by both the contract and the UI,
    rather than silently behaving like open-web search.
 3. Time boundaries accept calendar dates only and reject a start date later than the end

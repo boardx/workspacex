@@ -10,18 +10,25 @@ export class PgGuidedInternalSourceAccess implements GuidedInternalSourceAccessP
   async authorizedSourceIds(actor: RuntimeActor, requestedSourceIds: readonly string[]): Promise<readonly string[]> {
     if (!requestedSourceIds.length) return [];
     return this.db.withTenant(actor.orgId, async (session) => {
-      const result = await session.query<{ id: string }>(
-        `SELECT a.id FROM artifacts a WHERE a.org_id = $1 AND a.id = ANY($2::text[])`,
+      const result = await session.query<{ id: string; project_id: string | null }>(
+        `SELECT a.id, a.project_id FROM artifacts a WHERE a.org_id = $1 AND a.id = ANY($2::text[])`,
         [actor.orgId, requestedSourceIds],
       );
-      const disclosure = await disclose({ repo: this.identities, ids: this.decisions }, {
-        userId: actor.userId,
-        orgId: actor.orgId,
-        action: "read",
-        path: "retrieval",
-        items: result.rows.map((row) => guard({ kind: "artifact", id: row.id }, row.id)),
-      });
-      return disclosure.visible.map((item) => item.payload);
+      const rowsByProject = new Map<string | null, Array<{ id: string; project_id: string | null }>>();
+      for (const row of result.rows) rowsByProject.set(row.project_id, [...(rowsByProject.get(row.project_id) ?? []), row]);
+      const allowed = new Set<string>();
+      for (const [projectId, rows] of rowsByProject) {
+        const disclosure = await disclose({ repo: this.identities, ids: this.decisions }, {
+          userId: actor.userId,
+          orgId: actor.orgId,
+          ...(projectId ? { projectId } : {}),
+          action: "read.published",
+          path: "retrieval",
+          items: rows.map((row) => guard({ kind: "artifact", id: row.id }, row.id)),
+        });
+        for (const item of disclosure.visible) allowed.add(item.payload);
+      }
+      return requestedSourceIds.filter((id, index) => allowed.has(id) && requestedSourceIds.indexOf(id) === index);
     });
   }
 }
