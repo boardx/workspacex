@@ -19,7 +19,7 @@
  * ⚠ 安全（SECURITY DEFINER，属主是迁移角色）：函数体内**不建任何对象**（没有临时表、没有动态 DDL），
  * 中间结果只放在 plpgsql 变量里（jsonb / text[]）。临时表不行：调用方可以先在自己的 pg_temp 里建一张同名表、
  * 挂一个 TRUNCATE / INSERT 触发器，定义者身份执行时就会以属主身份跑调用方的代码（评审复现过提权）。
- * `definer-no-temp-objects.test.ts` 以 app_rw 身份重放这个攻击，断言提不了权。
+ * `graph-neighbors-anchored.test.ts` 以 app_rw 身份重放这个攻击，断言提不了权。
  */
 CREATE OR REPLACE FUNCTION kg_graph_neighbors(p_seed_keys text[])
 RETURNS TABLE (seed_key text, rel1 text, mid1_key text, rel2 text, mid2_key text, rel3 text, claim_key text)
