@@ -49,3 +49,28 @@ describe("上报方不读客户内容表", () => {
     expect(new Set(tables)).toEqual(new Set(["instance_telemetry_state"]));
   });
 });
+
+/** 权限门豁免（lint-permission-paths 条目 (b)）的依据：读租户表的每条 SQL 只做聚合计数。 */
+export function nonAggregateTenantSql(src: string): string[] {
+  const bad: string[] = [];
+  for (const m of src.matchAll(/`(SELECT[\s\S]*?)`/g)) {
+    const sql = m[1]!;
+    if (!/\b(ingestion_outbox|organizations)\b/i.test(sql)) continue;
+    const select = /SELECT\s+([\s\S]*?)\s+FROM/i.exec(sql)?.[1] ?? "";
+    if (!/^count\(\*\)(::int)?\s+AS\s+\w+$/i.test(select.trim())) bad.push(sql.split("\n")[0]!);
+  }
+  return bad;
+}
+
+describe("读租户表只做聚合计数", () => {
+  it("pg-telemetry-facts.ts 里读 ingestion_outbox/organizations 的 SQL 全是 count(*)", () => {
+    const src = readFileSync(SRC, "utf8");
+    expect(src).toMatch(/ingestion_outbox/);
+    expect(nonAggregateTenantSql(src)).toEqual([]);
+  });
+
+  it("自检：取行或取列的 SQL 会被抓到", () => {
+    expect(nonAggregateTenantSql("`SELECT o.name FROM organizations o`")).toHaveLength(1);
+    expect(nonAggregateTenantSql("`SELECT count(*)::int AS n FROM ingestion_outbox`")).toEqual([]);
+  });
+});

@@ -438,6 +438,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/inbox/pg-inbox-tag-repository.ts",
     "2026-09-08 收件箱反馈 / 设计方案标签：`inbox_item_tags` 背后没有 `ObjectRef` 能表达的 ACL 对象——同 `pg-inbox-order-repository.ts`，一行只有「这个组织的这个 (kind,id) 打了哪几个自由文本标签」，不携带反馈正文、标题；#3628 起也保存提交人的自由文本标签。标签披露复用正文的 D3 决策：#3633 的共享 applyTags 在 body === null 时清空反馈标签，再执行筛选/计数。真正的权限决策仍只发生在 `list-inbox.ts`/`inbox-projection.ts` 那条已经 `guard()` 过的路径上，这张表只在那条路径**之后**把 `tags` 合并进已经决定好能不能看的 `InboxItem.tags` 字段（`applyTags`）。谁能写标签由 `set-inbox-item-tags.ts` 的 `viewerOrgRole !== null`（本组织成员）把守,与 `listInbox` 同一条门。⚠ 豁免仅在（a）本文件只出现 `inbox_item_tags` 这一张租户表,（b）从不调用 `withoutTenant`,（c）`getTags`/`setTags` 两个方法都不选出/写入除 `kind`/`item_id`/`tags`/`updated_at` 之外的任何列，（d）读取调用方限定为 listInbox/getInboxCounts 且原始结果只经共享 applyTags 投影后用于筛选/计数时有效:tests/inbox/inbox-tag-repo-guard.test.ts 逐条断言并含绕行反例。该测试若被删除,本条目必须一并删除。",
   ],
+  [
+    "src/infrastructure/telemetry/pg-telemetry-facts.ts",
+    "D9 客户实例运行信号（S2 契约 D27 签核，#4068）：这里读 `ingestion_outbox` / `organizations` 只为得到**一个实例级计数**（待处理队列深度，`SELECT count(*)`），从不返回任何行、任何列值或任何组织可识别的信息；`JOIN organizations ... kind = 'organization'` 是排除 personal-local 组织（契约要求）的判定本身，不是披露。没有 actor、没有 ObjectRef 可推——这是实例对运营面的健康信号，不是任何成员对内容的读取，`guard()` 表达不了、也不该表达。⚠ 豁免仅在以下同时成立时有效：(a) 本文件只出现 `TELEMETRY_FACT_TABLES` 列出的四张表；(b) 每条租户表 SQL 只做聚合计数；(c) 按组织的 SQL 必带 `kind='organization'` 连接。`tests/telemetry/telemetry-no-content-tables.test.ts` 逐条解析本文件断言这些，并用反例（读 `chat_messages`）证明会红。那个测试若被删除，本条目必须一并删除。",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */
