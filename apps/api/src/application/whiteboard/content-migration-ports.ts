@@ -33,8 +33,23 @@ export interface BoardContentMigrationRecord {
   sourceFencingToken: number;
   candidate: BoardMigrationCandidate | null;
   cleanupThroughSeq: number;
+  cutoverAt: string | null;
+  retirementNotBefore: string | null;
+  retirementProofDigest: string | null;
+  retirementEpoch: number | null;
+  retirementHeadSeq: number | null;
+  retirementManifestDigest: string | null;
+  retirementCheckpointDigest: string | null;
   attempts: number;
   lastErrorCode: string | null;
+}
+
+export interface BoardRetirementHead extends LegacyBoardWatermark {
+  manifestKey: string;
+  manifestDigest: string;
+  manifestPlainDigest: string;
+  manifestSizeBytes: number;
+  tenantKeyVersion: number;
 }
 
 export interface BoardContentMigrationRepository {
@@ -43,7 +58,9 @@ export interface BoardContentMigrationRepository {
   readInventory(tenantId: string, boardId: string, watermark: LegacyBoardWatermark): Promise<LegacyBoardInventory>;
   saveCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<BoardContentMigrationRecord>;
   markVerified(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<BoardContentMigrationRecord>;
-  cutover(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<BoardContentMigrationRecord>;
+  cutover(tenantId: string, boardId: string, record: BoardContentMigrationRecord, retirementNotBefore: Date): Promise<BoardContentMigrationRecord>;
+  captureRetirementHead(tenantId: string, boardId: string): Promise<BoardRetirementHead>;
+  beginRetirement(tenantId: string, boardId: string, record: BoardContentMigrationRecord, head: BoardRetirementHead, checkpointDigest: string, proofDigest: string, now: Date): Promise<BoardContentMigrationRecord>;
   cleanupBatch(tenantId: string, boardId: string, record: BoardContentMigrationRecord, batchSize: number): Promise<BoardContentMigrationRecord>;
   resetForChangedSource(tenantId: string, boardId: string, record: BoardContentMigrationRecord, watermark: LegacyBoardWatermark): Promise<BoardContentMigrationRecord>;
   recordFailure(tenantId: string, boardId: string, jobId: string, errorCode: string): Promise<void>;

@@ -10,9 +10,9 @@ beforeEach(async () => {
   db = await PGlite.create();
   await db.exec(`
     CREATE ROLE app_rw;
-    CREATE TABLE whiteboard_content_heads(org_id text NOT NULL,board_id uuid NOT NULL,PRIMARY KEY(org_id,board_id));
+    CREATE TABLE whiteboard_content_heads(org_id text NOT NULL,board_id uuid NOT NULL,content_state text NOT NULL DEFAULT 'legacy',CONSTRAINT whiteboard_content_heads_content_state_check CHECK(content_state IN ('legacy','active')),PRIMARY KEY(org_id,board_id));
     CREATE TABLE whiteboard_updates(update bytea);
-    INSERT INTO whiteboard_content_heads VALUES('org-a','${board}'),('org-b','${board}');
+    INSERT INTO whiteboard_content_heads(org_id,board_id) VALUES('org-a','${board}'),('org-b','${board}');
   `);
   await db.exec(await readFile(migration, 'utf8'));
 });

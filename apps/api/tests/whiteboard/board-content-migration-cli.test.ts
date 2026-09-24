@@ -5,7 +5,7 @@ import { runBoardContentMigrationCli } from '../../scripts/migrate-board-content
 
 const ids = ['org-cli', '0199aabb-ccdd-7eef-8abc-0123456789ab', '0199aabb-ccdd-7eef-8abc-012345678901'];
 const argv = ['--tenant-id', ids[0]!, '--board-id', ids[1]!, '--job-id', ids[2]!];
-const report = (state: BoardContentMigrationReport['state']): BoardContentMigrationReport => ({ jobId: ids[2]!, state, sourceEpoch: 2, sourceHeadSeq: 9, candidateManifestDigest: 'a'.repeat(64), cleanupThroughSeq: state === 'completed' ? 9 : 0, attempts: 1, errorCode: null });
+const report = (state: BoardContentMigrationReport['state']): BoardContentMigrationReport => ({ jobId: ids[2]!, state, sourceEpoch: 2, sourceHeadSeq: 9, candidateManifestDigest: 'a'.repeat(64), cleanupThroughSeq: state === 'completed' ? 9 : 0, attempts: 1, errorCode: null, cutoverAt: state === 'cutover' ? new Date(0).toISOString() : null, retirementNotBefore: null, retirementProofDigest: null });
 
 describe('Board content migration operator CLI', () => {
   it('requires explicit identities and exits non-zero with structured metadata', async () => {
@@ -20,7 +20,7 @@ describe('Board content migration operator CLI', () => {
     const output: string[] = [];
     const code = await runBoardContentMigrationCli(argv, { step: async () => report(states.shift()!) }, { out: value => output.push(value), err: () => {} });
     expect(code).toBe(0);
-    expect(output.map(line => JSON.parse(line).state)).toEqual(['candidate_ready', 'verified', 'cutover', 'cleaning', 'completed']);
+    expect(output.map(line => JSON.parse(line).state)).toEqual(['candidate_ready', 'verified', 'cutover']);
     expect(output.join('\n')).not.toMatch(/snapshot|update|manifestKey|plaintext|ciphertext|secret/i);
   });
 

@@ -5,8 +5,9 @@ import * as Y from 'yjs';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { DatabasePort, TenantSession } from '../../src/application/ports/database.port';
 import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
-import { MigrateBoardContent } from '../../src/application/whiteboard/migrate-board-content';
+import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
+import { createBoardRetirementCredential } from '../../src/domain/whiteboard/retirement-credential';
 import { toOrgId } from '../../src/domain/org-id';
 import { PgBoardContentMigrationRepository } from '../../src/infrastructure/whiteboard/pg-board-content-migration';
 
@@ -61,14 +62,32 @@ beforeEach(async () => {
 afterEach(async () => pg.close());
 
 it('runs the resumable migration against PGlite and retains metadata-only request receipts', async () => {
-  const blobs = new Blobs(), service = new MigrateBoardContent(new PgBoardContentMigrationRepository(database()), blobs, codec, 3, 1);
+  const blobs = new Blobs(), repository = new PgBoardContentMigrationRepository(database());
+  let now = new Date('2026-01-01T00:00:00Z');
+  const service = new MigrateBoardContent(repository, blobs, codec, 3, 1, 1_000, () => now);
   const states: string[] = [];
-  for (let i = 0; i < 8; i++) { const result = await service.step({ tenantId, boardId, jobId }); states.push(result.state); if (result.state === 'completed') break; }
-  expect(states).toEqual(['candidate_ready', 'verified', 'cutover', 'cleaning', 'cleaning', 'completed']);
-  expect((await pg.query(`SELECT storage_kind FROM whiteboard_content_heads WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ storage_kind: 'blob_primary' }]);
+  for (let i = 0; i < 4; i++) { const result = await service.step({ tenantId, boardId, jobId }); states.push(result.state); if (result.state === 'cutover') break; }
+  expect(states).toEqual(['candidate_ready', 'verified', 'cutover']);
+  expect((await pg.query(`SELECT storage_kind,content_state FROM whiteboard_content_heads WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ storage_kind: 'blob_primary', content_state: 'rollback' }]);
+  expect((await pg.query(`SELECT snapshot IS NULL snapshot_cleared FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ snapshot_cleared: false }]);
+  expect((await pg.query<{ cleared: boolean; count: string }>(`SELECT bool_and(update IS NULL) cleared,count(*)::text count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ cleared: false, count: '3' }]);
+
+  const candidate = (await repository.loadOrEnroll(tenantId, boardId, jobId)).candidate!;
+  const manifest = JSON.parse(Buffer.from(blobs.values.get(candidate.manifestKey)!).toString('utf8')) as { checkpoint: { cipherDigest: string } };
+  const key = new Uint8Array(32).fill(9);
+  now = new Date('2026-01-01T00:00:02Z');
+  const credential = createBoardRetirementCredential({ version: 1, tenantId, boardId, jobId, manifestDigest: candidate.manifestDigest,
+    checkpointDigest: manifest.checkpoint.cipherDigest, pgBackupId: 'pg-restored', blobBackupId: 'blob-restored', restoreDrillId: 'drill',
+    verifiedAt: '2026-01-01T00:00:01Z', expiresAt: '2026-01-02T00:00:00Z' }, key);
+  const retirement = new RetireBoardContent(repository, service, key, 1, () => now);
+  const retirementStates: string[] = [];
+  for (let i = 0; i < 4; i++) { const result = await retirement.step({ tenantId, boardId, jobId, credential }); retirementStates.push(result.state); if (result.state === 'completed') break; }
+  expect(retirementStates).toEqual(['cleaning', 'cleaning', 'completed']);
   expect((await pg.query(`SELECT snapshot IS NULL snapshot_cleared FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ snapshot_cleared: true }]);
   expect((await pg.query<{ cleared: boolean; count: string }>(`SELECT bool_and(update IS NULL) cleared,count(*)::text count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ cleared: true, count: '3' }]);
   expect((await pg.query(`SELECT actor_id,update_id,request_hash FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 ORDER BY seq`, [tenantId, boardId])).rows).toHaveLength(3);
+  expect((await pg.query(`SELECT state,retirement_proof_digest IS NOT NULL proof,retirement_manifest_digest=$3 manifest_bound FROM whiteboard_content_migrations WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId, candidate.manifestDigest])).rows).toEqual([{ state: 'completed', proof: true, manifest_bound: true }]);
+  expect((await pg.query(`SELECT content_state FROM whiteboard_content_heads WHERE org_id=$1 AND board_id=$2`, [tenantId, boardId])).rows).toEqual([{ content_state: 'active' }]);
 });
 
 it('rejects cross-epoch and duplicate legacy sequence rows before publishing a candidate', async () => {

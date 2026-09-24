@@ -1,8 +1,10 @@
 import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from './blob-ports';
-import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory, LegacyBoardWatermark } from './content-migration-ports';
+import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, BoardRetirementHead, LegacyBoardInventory, LegacyBoardWatermark } from './content-migration-ports';
+import { boardContentRetirementPolicy } from './content-retirement-policy';
 import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
 import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
 import { mergeLegacyYjsContent, yjsSemanticallyEqual } from '../../domain/whiteboard/yjs-semantic-equivalence';
+import { verifyBoardRetirementCredential, type BoardRetirementCredential } from '../../domain/whiteboard/retirement-credential';
 
 const SCHEMA_VERSION = 1, PROTOCOL_VERSION = 1;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -10,12 +12,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export type BoardContentMigrationReport = {
   jobId: string; state: BoardContentMigrationRecord['state']; sourceEpoch: number; sourceHeadSeq: number;
   candidateManifestDigest: string | null; cleanupThroughSeq: number; attempts: number; errorCode: string | null;
+  cutoverAt: string | null; retirementNotBefore: string | null; retirementProofDigest: string | null;
 };
 
 function report(record: BoardContentMigrationRecord): BoardContentMigrationReport {
   return { jobId: record.jobId, state: record.state, sourceEpoch: record.sourceEpoch, sourceHeadSeq: record.sourceHeadSeq,
     candidateManifestDigest: record.candidate?.manifestDigest ?? null, cleanupThroughSeq: record.cleanupThroughSeq,
-    attempts: record.attempts, errorCode: record.lastErrorCode };
+    attempts: record.attempts, errorCode: record.lastErrorCode, cutoverAt: record.cutoverAt,
+    retirementNotBefore: record.retirementNotBefore, retirementProofDigest: record.retirementProofDigest };
 }
 
 function errorCode(error: unknown): string {
@@ -39,9 +43,12 @@ export class MigrateBoardContent {
     private readonly codec: BoardBlobCodec,
     private readonly tenantKeyVersion: number,
     private readonly cleanupBatchSize = 100,
+    private readonly rollbackWindowMs = boardContentRetirementPolicy().rollbackWindowMs,
+    private readonly now: () => Date = () => new Date(),
   ) {
     if (!Number.isSafeInteger(tenantKeyVersion) || tenantKeyVersion < 1) throw new Error('Invalid tenant key version');
     if (!Number.isSafeInteger(cleanupBatchSize) || cleanupBatchSize < 1 || cleanupBatchSize > 1000) throw new Error('Invalid cleanup batch size');
+    if (!Number.isSafeInteger(rollbackWindowMs) || rollbackWindowMs < 1) throw new Error('Invalid rollback window');
   }
 
   /** Advances exactly one durable phase, making process interruption a normal retry boundary. */
@@ -93,14 +100,15 @@ export class MigrateBoardContent {
         const source = this.sourceDocument(inventory);
         const candidate = await this.readCandidate(input.tenantId, input.boardId, record);
         if (!yjsSemanticallyEqual(source, candidate)) throw new Error('SEMANTIC_MISMATCH');
-        try { return report(await this.repository.cutover(input.tenantId, input.boardId, record)); }
+        const retirementNotBefore = new Date(this.now().getTime() + this.rollbackWindowMs);
+        try { return report(await this.repository.cutover(input.tenantId, input.boardId, record, retirementNotBefore)); }
         catch (error) {
           if (!isCasLost(error)) throw error;
           const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
           return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
         }
       }
-      return report(await this.repository.cleanupBatch(input.tenantId, input.boardId, record, this.cleanupBatchSize));
+      return report(record);
     } catch (error) {
       const code = errorCode(error);
       await this.repository.recordFailure(input.tenantId, input.boardId, input.jobId, code).catch(() => undefined);
@@ -157,5 +165,48 @@ export class MigrateBoardContent {
     const encryptedCheckpoint = await this.blobs.getVerified({ tenantId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes });
     return this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: encryptedCheckpoint, cipherDigest: manifest.checkpoint.cipherDigest,
       plainDigest: manifest.checkpoint.plainDigest, expectedPlainDigest: manifest.checkpoint.plainDigest, sizeBytes: manifest.checkpoint.sizeBytes });
+  }
+
+  async verifyRetirementHead(tenantId: string, boardId: string, head: BoardRetirementHead): Promise<{ checkpointDigest: string }> {
+    const encryptedManifest = await this.blobs.getVerified({ tenantId, key: head.manifestKey, expectedCipherDigest: head.manifestDigest, expectedSizeBytes: head.manifestSizeBytes });
+    const manifestBytes = await this.codec.decrypt({ tenantId, tenantKeyVersion: head.tenantKeyVersion, ciphertext: encryptedManifest, cipherDigest: head.manifestDigest,
+      plainDigest: head.manifestPlainDigest, expectedPlainDigest: head.manifestPlainDigest, sizeBytes: head.manifestSizeBytes });
+    const manifest = decodeBoardContentManifest(manifestBytes);
+    if (manifest.boardId !== boardId || manifest.epoch !== head.epoch || manifest.headSeq !== head.headSeq || manifest.tenantKeyVersion !== head.tenantKeyVersion) throw new Error('RETIREMENT_MANIFEST_MISMATCH');
+    const checkpoint = await this.blobs.getVerified({ tenantId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes });
+    await this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: checkpoint, cipherDigest: manifest.checkpoint.cipherDigest,
+      plainDigest: manifest.checkpoint.plainDigest, expectedPlainDigest: manifest.checkpoint.plainDigest, sizeBytes: manifest.checkpoint.sizeBytes });
+    return { checkpointDigest: manifest.checkpoint.cipherDigest };
+  }
+}
+
+export class RetireBoardContent {
+  constructor(private readonly repository: BoardContentMigrationRepository, private readonly migration: MigrateBoardContent,
+    private readonly proofKey: Uint8Array, private readonly cleanupBatchSize = 100, private readonly now: () => Date = () => new Date()) {}
+
+  async step(input: { tenantId: string; boardId: string; jobId: string; credential: BoardRetirementCredential }): Promise<BoardContentMigrationReport> {
+    try {
+      let record = await this.repository.loadOrEnroll(input.tenantId, input.boardId, input.jobId);
+      if (record.jobId !== input.jobId || !['cutover', 'cleaning', 'completed'].includes(record.state)) throw Object.assign(new Error('RETIREMENT_NOT_READY'), { code: 'RETIREMENT_NOT_READY' });
+      if (record.state === 'completed') return report(record);
+      const now = this.now();
+      if (!record.retirementNotBefore || now.getTime() < Date.parse(record.retirementNotBefore)) throw Object.assign(new Error('ROLLBACK_WINDOW_ACTIVE'), { code: 'ROLLBACK_WINDOW_ACTIVE' });
+      if (record.state === 'cutover') {
+        const head = await this.repository.captureRetirementHead(input.tenantId, input.boardId);
+        const verified = await this.migration.verifyRetirementHead(input.tenantId, input.boardId, head);
+        const proof = verifyBoardRetirementCredential(input.credential, { tenantId: input.tenantId, boardId: input.boardId, jobId: input.jobId, manifestDigest: head.manifestDigest, checkpointDigest: verified.checkpointDigest }, this.proofKey, now);
+        record = await this.repository.beginRetirement(input.tenantId, input.boardId, record, head, verified.checkpointDigest, proof.digest, now);
+      } else {
+        if (!record.retirementManifestDigest || !record.retirementCheckpointDigest || !record.retirementProofDigest) throw Object.assign(new Error('RETIREMENT_RECEIPT_MISSING'), { code: 'RETIREMENT_RECEIPT_MISSING' });
+        const proof = verifyBoardRetirementCredential(input.credential, { tenantId: input.tenantId, boardId: input.boardId, jobId: input.jobId,
+          manifestDigest: record.retirementManifestDigest, checkpointDigest: record.retirementCheckpointDigest }, this.proofKey, now);
+        if (record.retirementProofDigest !== proof.digest) throw Object.assign(new Error('RETIREMENT_PROOF_CHANGED'), { code: 'RETIREMENT_PROOF_CHANGED' });
+      }
+      return report(await this.repository.cleanupBatch(input.tenantId, input.boardId, record, this.cleanupBatchSize));
+    } catch (error) {
+      const code = errorCode(error);
+      await this.repository.recordFailure(input.tenantId, input.boardId, input.jobId, code).catch(() => undefined);
+      throw Object.assign(new Error(code), { code });
+    }
   }
 }

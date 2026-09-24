@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
-import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
-import { MigrateBoardContent } from '../../src/application/whiteboard/migrate-board-content';
+import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, BoardRetirementHead, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
+import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
+import { createBoardRetirementCredential } from '../../src/domain/whiteboard/retirement-credential';
 import { yjsSemanticallyEqual } from '../../src/domain/whiteboard/yjs-semantic-equivalence';
 
 const tenantId = 'migration-org', boardId = randomUUID(), jobId = randomUUID();
@@ -80,7 +81,7 @@ class MemoryRepository implements BoardContentMigrationRepository {
   legacyBytesPresent = true;
   constructor(public source: LegacyBoardInventory) {}
   async loadOrEnroll(_tenant: string, _board: string, requestedJob: string) {
-    this.record ??= { jobId: requestedJob, state: 'enrolled', sourceEpoch: this.source.epoch, sourceHeadSeq: this.source.headSeq, sourceFencingToken: this.source.fencingToken, candidate: null, cleanupThroughSeq: 0, attempts: 0, lastErrorCode: null };
+    this.record ??= { jobId: requestedJob, state: 'enrolled', sourceEpoch: this.source.epoch, sourceHeadSeq: this.source.headSeq, sourceFencingToken: this.source.fencingToken, candidate: null, cleanupThroughSeq: 0, cutoverAt: null, retirementNotBefore: null, retirementProofDigest: null, retirementEpoch: null, retirementHeadSeq: null, retirementManifestDigest: null, retirementCheckpointDigest: null, attempts: 0, lastErrorCode: null };
     this.record = { ...this.record, attempts: this.record.attempts + 1, lastErrorCode: null };
     return structuredClone(this.record);
   }
@@ -90,11 +91,13 @@ class MemoryRepository implements BoardContentMigrationRepository {
   }
   async saveCandidate(_tenant: string, _board: string, current: BoardContentMigrationRecord, candidate: BoardMigrationCandidate) { this.assertWatermark(current); return this.set({ state: 'candidate_ready', candidate }); }
   async markVerified(_tenant: string, _board: string, current: BoardContentMigrationRecord) { this.assertWatermark(current); return this.set({ state: 'verified' }); }
-  async cutover(_tenant: string, _board: string, current: BoardContentMigrationRecord) { this.assertWatermark(current); this.storageKind = 'blob_primary'; return this.set({ state: 'cutover' }); }
-  async cleanupBatch() { this.legacyBytesPresent = false; return this.set({ state: 'completed', cleanupThroughSeq: this.source.headSeq }); }
+  async cutover(_tenant: string, _board: string, current: BoardContentMigrationRecord, retirementNotBefore: Date) { this.assertWatermark(current); this.storageKind = 'blob_primary'; return this.set({ state: 'cutover', cutoverAt: new Date(0).toISOString(), retirementNotBefore: retirementNotBefore.toISOString() }); }
+  async captureRetirementHead(): Promise<BoardRetirementHead> { const candidate = this.record?.candidate; if (!candidate) throw new Error('missing'); return { epoch: this.source.epoch, headSeq: this.source.headSeq, fencingToken: this.source.fencingToken + 1, storageKind: 'blob_primary', ...candidate }; }
+  async beginRetirement(_tenant: string, _board: string, _record: BoardContentMigrationRecord, head: BoardRetirementHead, checkpointDigest: string, proofDigest: string, _now: Date) { return this.set({ state: 'cleaning', retirementProofDigest: proofDigest, retirementEpoch: head.epoch, retirementHeadSeq: head.headSeq, retirementManifestDigest: head.manifestDigest, retirementCheckpointDigest: checkpointDigest, cutoverAt: this.record!.cutoverAt, retirementNotBefore: this.record!.retirementNotBefore }); }
+  async cleanupBatch() { if (this.record?.state !== 'cleaning') return structuredClone(this.record!); this.legacyBytesPresent = false; return this.set({ state: 'completed', cleanupThroughSeq: this.source.headSeq }); }
   async resetForChangedSource(_tenant: string, _board: string, _record: BoardContentMigrationRecord, source: LegacyBoardWatermark) { return this.set({ state: 'enrolled', sourceEpoch: source.epoch, sourceHeadSeq: source.headSeq, sourceFencingToken: source.fencingToken, candidate: null, cleanupThroughSeq: 0, lastErrorCode: 'WATERMARK_CHANGED' }); }
   async recordFailure(_tenant: string, _board: string, requestedJob: string, code: string) {
-    if (this.record?.jobId === requestedJob && !['cutover', 'cleaning', 'completed'].includes(this.record.state)) this.record = { ...this.record, attempts: this.record.attempts + 1, lastErrorCode: code };
+    if (this.record?.jobId === requestedJob && this.record.state !== 'completed') this.record = { ...this.record, attempts: this.record.attempts + 1, lastErrorCode: code };
   }
   private set(patch: Partial<BoardContentMigrationRecord>): BoardContentMigrationRecord {
     if (!this.record) throw new Error('not enrolled');
@@ -134,15 +137,15 @@ describe('online legacy PG to Board blob migration', () => {
   it('resumes after every phase and preserves Chinese content plus Yjs deletion sets', async () => {
     const { inventory, expected } = fixture(), repository = new MemoryRepository(inventory), blobs = new MemoryBlobs();
     const states: string[] = [];
-    for (let process = 0; process < 5; process++) {
-      const restarted = new MigrateBoardContent(repository, blobs, codec, 1, 1);
+    for (let process = 0; process < 4; process++) {
+      const restarted = new MigrateBoardContent(repository, blobs, codec, 1, 1, 1_000, () => new Date('2026-01-01T00:00:00Z'));
       const result = await restarted.step({ tenantId, boardId, jobId });
       states.push(result.state);
-      if (result.state === 'completed') break;
+      if (result.state === 'cutover') break;
     }
-    expect(states).toEqual(['candidate_ready', 'verified', 'cutover', 'completed']);
+    expect(states).toEqual(['candidate_ready', 'verified', 'cutover']);
     expect(repository.storageKind).toBe('blob_primary');
-    expect(repository.legacyBytesPresent).toBe(false);
+    expect(repository.legacyBytesPresent).toBe(true);
     expect(repository.receipts.has('original-request-id')).toBe(true);
     const candidate = repository.record?.candidate;
     expect(candidate).not.toBeNull();
@@ -184,8 +187,8 @@ describe('online legacy PG to Board blob migration', () => {
     repository.source = { ...repository.source, headSeq: 2, updates: [...repository.source.updates, { seq: 2, update }] };
     expect((await service.step({ tenantId, boardId, jobId })).state).toBe('enrolled');
     expect(repository.record?.sourceHeadSeq).toBe(2);
-    for (let i = 0; i < 4 && repository.record?.state !== 'completed'; i++) await service.step({ tenantId, boardId, jobId });
-    expect(repository.record).toMatchObject({ state: 'completed', sourceHeadSeq: 2, cleanupThroughSeq: 2 });
+    for (let i = 0; i < 4 && repository.record?.state !== 'cutover'; i++) await service.step({ tenantId, boardId, jobId });
+    expect(repository.record).toMatchObject({ state: 'cutover', sourceHeadSeq: 2, cleanupThroughSeq: 0 });
   });
 
   it('does not hold the Board database lock while blob upload is pending', async () => {
@@ -219,5 +222,40 @@ describe('online legacy PG to Board blob migration', () => {
     await expect(service.step({ tenantId, boardId, jobId })).rejects.toMatchObject({ code: 'MIGRATION_FAILED' });
     expect(repository.storageKind).toBe('legacy_pg');
     await expect(service.step({ tenantId, boardId, jobId: randomUUID() })).rejects.toMatchObject({ code: 'JOB_CONFLICT' });
+  });
+
+  it('retires legacy bytes only with a current bound restore proof after the rollback window', async () => {
+    const repository = new MemoryRepository(fixture().inventory), blobs = new MemoryBlobs(), proofKey = new Uint8Array(32).fill(7);
+    let now = new Date('2026-01-01T00:00:00Z');
+    const migration = new MigrateBoardContent(repository, blobs, codec, 1, 1, 60_000, () => now);
+    for (let i = 0; i < 3; i++) await migration.step({ tenantId, boardId, jobId });
+    const manifest = JSON.parse(Buffer.from(blobs.values.get(repository.record!.candidate!.manifestKey)!).toString('utf8')) as { checkpoint: { cipherDigest: string } };
+    const body = { version: 1 as const, tenantId, boardId, jobId, manifestDigest: repository.record!.candidate!.manifestDigest,
+      checkpointDigest: manifest.checkpoint.cipherDigest, pgBackupId: 'pg-backup-restored', blobBackupId: 'blob-backup-restored', restoreDrillId: 'restore-drill-42',
+      verifiedAt: '2026-01-01T00:00:01.000Z', expiresAt: '2026-01-02T00:00:00.000Z' };
+    const retirement = new RetireBoardContent(repository, migration, proofKey, 1, () => now);
+
+    const valid = createBoardRetirementCredential(body, proofKey);
+    await expect(retirement.step({ tenantId, boardId, jobId, credential: valid })).rejects.toMatchObject({ code: 'ROLLBACK_WINDOW_ACTIVE' });
+    expect(repository.legacyBytesPresent).toBe(true);
+    now = new Date('2026-01-01T00:02:00Z');
+    const invalid = [
+      {} as typeof valid,
+      { ...valid, signature: '0'.repeat(64) },
+      createBoardRetirementCredential({ ...body, boardId: randomUUID() }, proofKey),
+      createBoardRetirementCredential({ ...body, manifestDigest: 'b'.repeat(64) }, proofKey),
+      createBoardRetirementCredential({ ...body, expiresAt: '2026-01-01T00:01:00.000Z' }, proofKey),
+    ];
+    for (const credential of invalid) {
+      await expect(retirement.step({ tenantId, boardId, jobId, credential })).rejects.toHaveProperty('code');
+      expect(repository.legacyBytesPresent).toBe(true);
+      expect(repository.record?.state).toBe('cutover');
+    }
+    const result = await retirement.step({ tenantId, boardId, jobId, credential: valid });
+    expect(result.state).toBe('completed');
+    expect(repository.legacyBytesPresent).toBe(false);
+    expect(repository.record).toMatchObject({ retirementManifestDigest: body.manifestDigest, retirementCheckpointDigest: body.checkpointDigest, cleanupThroughSeq: 1 });
+    expect(repository.record?.retirementProofDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(repository.receipts.has('original-request-id')).toBe(true);
   });
 });
