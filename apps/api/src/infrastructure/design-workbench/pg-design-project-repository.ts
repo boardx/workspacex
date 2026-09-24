@@ -49,6 +49,7 @@ interface ProjectDbRow {
   readonly theme: string | null;
   /** 迭代 17：原型的强调色档位；老行由迁移的 DEFAULT 填成 'neutral'（= 不覆盖任何 token）。 */
   readonly accent: string | null;
+  readonly tokens: unknown;
   /** 迭代 13（delta §4）：项目标签的 jsonb 数组；老行由迁移的 DEFAULT 填成 `[]`。 */
   readonly tags: unknown;
   /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
@@ -263,6 +264,34 @@ function shareOf(row: ProjectDbRow): Pick<DesignProjectRow, "share"> {
   };
 }
 
+/**
+ * 对标 R1（#3933）：库里的 token 读成契约形状。按键读：某个键读不出来（手工改库、或以后删了某一档）
+ * 只让**那个键**退回缺省值，别的键照样生效——整份 `safeParse` 失败就全部清空的话，
+ * 一个坏掉的字体名会顺带把品牌色也弄丢。
+ */
+export function toTokens(raw: unknown): designWorkbench.DesignTokens {
+  const obj = raw !== null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = { ...designWorkbench.DEFAULT_DESIGN_TOKENS };
+  const shape = designWorkbench.DesignTokens.shape;
+  for (const key of Object.keys(shape) as (keyof typeof shape)[]) {
+    if (!(key in obj)) continue;
+    const parsed = shape[key].safeParse(obj[key]);
+    if (parsed.success) out[key] = parsed.data;
+  }
+  return out as designWorkbench.DesignTokens;
+}
+
+/**
+ * token 的**按键合并**——pg 仓储与测试替身共用这一份（同 `mergeScreens` 的理由：合并规则写两份，
+ * 测试绿的是替身那一份）。`undefined` 的键不动，`brand: null` 是显式清掉品牌色。
+ */
+export function mergeTokens(current: designWorkbench.DesignTokens, patch: Partial<designWorkbench.DesignTokens> | undefined): designWorkbench.DesignTokens {
+  if (patch === undefined) return current;
+  const next: Record<string, unknown> = { ...current };
+  for (const [k, v] of Object.entries(patch)) if (v !== undefined) next[k] = v;
+  return designWorkbench.DesignTokens.parse(next);
+}
+
 function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow {
   return {
     id: row.id,
@@ -295,6 +324,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     accent: designWorkbench.PrototypeAccent.safeParse(row.accent).success
       ? (row.accent as designWorkbench.PrototypeAccent)
       : "neutral",
+    tokens: toTokens(row.tokens),
     tags: toStringArray(row.tags),
     refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
@@ -321,7 +351,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
  */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
-  theme, accent, tags,
+  theme, accent, tokens, tags,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at,
   share_token, share_scope, share_published_at, share_snapshot,
@@ -529,8 +559,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
        * 表达式——本机没有 Postgres 验证不了，而这条路径上一次出错就丢了用户整份原型（#2900）。
        * 先锁行读出当前 screens，合并后一次写回：可读、可单测，行锁还顺带把同项目的版本 seq 串行化。
        */
-      const { rows: locked } = await s.query<{ readonly screens: unknown }>(
-        `SELECT screens FROM design_projects
+      const { rows: locked } = await s.query<{ readonly screens: unknown; readonly tokens: unknown }>(
+        `SELECT screens, tokens FROM design_projects
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           FOR UPDATE`,
         [this.orgId, ownerId, projectId],
@@ -552,6 +582,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
                 theme      = COALESCE($12, theme),
                 tags       = COALESCE($13::jsonb, tags),
                 accent     = COALESCE($14, accent),
+                tokens     = $15::jsonb,
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -565,6 +596,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
           patch.theme ?? null,
           patch.tags === undefined ? null : JSON.stringify(patch.tags),
           patch.accent ?? null,
+          // 在行锁里读出现值、TS 里按键合并后整份写回（同 screens 的做法：合并规则只有 `mergeTokens` 一份）。
+          JSON.stringify(mergeTokens(toTokens(locked[0].tokens), patch.tokens)),
         ],
       );
       const row = rows[0];

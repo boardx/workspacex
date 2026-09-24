@@ -19,7 +19,7 @@
  *      一个进度条。
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { designWorkbench } from "@repo/contracts";
+import { designWorkbench } from "@repo/contracts";
 import type { DesignProjectRepositoryFactory } from "./project-ports";
 import {
   DesignProjectNotFoundError,
@@ -147,6 +147,7 @@ export async function getSharedDesign(
       template: snap.template,
       theme: snap.theme,
       accent: snap.accent,
+      tokens: snap.tokens ?? designWorkbench.DEFAULT_DESIGN_TOKENS,
       frames: [...snap.frames],
       prototype: [...snap.prototype],
       frameNotes: [...snap.frameNotes],

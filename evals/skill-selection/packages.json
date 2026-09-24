@@ -1,0 +1,17 @@
+{
+  "$comment": "来源包的健康度事实（2026-09-24 读数），H1/H2 按标准 §4 H 组锚点给分。数字来源：GitHub 搜索 API + 本地 git 统计，见主方案附录 A。",
+  "anthropics/knowledge-work-plugins": { "license": "Apache-2.0", "maintainer": "Anthropic 官方", "stars": 25509, "first_commit": "2026-01-29", "last_commit": "2026-09-23", "commits": 1061, "H1": 5, "H2": 5, "H_note": "官方、近 30 天 328 次提交；Small Business 官方称装机 90 万+" },
+  "anthropics/knowledge-work-plugins#partner-built": { "license": "Apache-2.0", "maintainer": "合作方编写，收录于官方仓库", "stars": 25509, "first_commit": "2026-02-23", "last_commit": "2026-04-09", "commits": 3, "H1": 2, "H2": 3, "H_note": "各目录 1–3 次提交，基本停更" },
+  "anthropics/claude-for-legal": { "license": "Apache-2.0", "maintainer": "Anthropic 官方", "stars": 9512, "first_commit": "2026-05-11", "last_commit": "2026-07-22", "commits": 38, "H1": 3, "H2": 5, "H_note": "两个月无提交；发布引发法律信息公司股价单日跌 13–18%，ABA Journal 等报道" },
+  "anthropics/financial-services": { "license": "Apache-2.0", "maintainer": "Anthropic 官方", "stars": 37030, "first_commit": "2026-02-23", "last_commit": "2026-09-21", "commits": 73, "H1": 4, "H2": 4, "H_note": "版本 0.x；HEAD 的 .mcp.json 非法 JSON" },
+  "anthropics/skills": { "license": "Apache-2.0", "maintainer": "Anthropic 官方", "stars": 177846, "first_commit": "2025-10-15", "last_commit": "2026-09-10", "commits": 55, "H1": 4, "H2": 5, "H_note": "docx/pdf/pptx/xlsx 为专有许可，单独按 G1 fail 处理" },
+  "coreyhaines31/marketingskills": { "license": "MIT", "maintainer": "个人主导，24 名贡献者", "stars": 51348, "first_commit": "2026-01-15", "last_commit": "2026-09-04", "commits": 473, "H1": 4, "H2": 4, "H_note": "有 CI 与 evals；多篇第三方教程" },
+  "AgriciDaniel/claude-seo": { "license": "MIT", "maintainer": "个人主导，37 名作者", "stars": 17600, "first_commit": "2026-02-07", "last_commit": "2026-09-24", "commits": 352, "H1": 4, "H2": 3, "H_note": "近 30 天 149 次提交，67 个测试文件" },
+  "alirezarezvani/claude-skills": { "license": "MIT", "maintainer": "个人主导，60 名作者", "stars": 26400, "first_commit": "2025-10-19", "last_commit": "2026-08-26", "commits": 1499, "H1": 4, "H2": 3, "H_note": "覆盖广、深度参差；部分脚本只跑内置样例" },
+  "wshobson/agents": { "license": "MIT", "maintainer": "个人主导，88 名作者", "stars": 39900, "first_commit": "2025-07-24", "last_commit": "2026-09-13", "commits": 576, "H1": 4, "H2": 3, "H_note": "以开发为主，业务插件偏薄" },
+  "JoelLewis/finance_skills": { "license": "MIT", "maintainer": "个人", "stars": 194, "first_commit": "2026-02-15", "last_commit": "2026-07-18", "commits": 18, "H1": 1, "H2": 1, "H_note": "评测方法论最好，但社区小、两个月无提交" },
+  "tuanductran/hr-skills": { "license": "MIT", "maintainer": "个人，13 名作者", "stars": 63, "first_commit": "2026-02-28", "last_commit": "2026-09-10", "commits": 489, "H1": 3, "H2": 1, "H_note": "分类有灌水（hr-blockchain 等）" },
+  "RefoundAI/lenny-skills": { "license": "MIT", "maintainer": "公司（Refound）", "stars": 1300, "first_commit": "2026-01-29", "last_commit": "2026-07-15", "commits": 4, "H1": 1, "H2": 3, "H_note": "提炼自 Lenny's Podcast" },
+  "deanpeters/Product-Manager-Skills": { "license": "CC-BY-NC-SA-4.0", "maintainer": "个人", "stars": 7100, "first_commit": "2026-02-04", "last_commit": "2026-09-01", "commits": 143, "H1": 3, "H2": 3, "H_note": "禁止商用，G1 fail" },
+  "evolsb/claude-legal-skill": { "license": "MIT", "maintainer": "个人", "stars": 453, "first_commit": "2026-01-26", "last_commit": "2026-07-23", "commits": 15, "H1": 1, "H2": 1, "H_note": "单个 skill" }
+}

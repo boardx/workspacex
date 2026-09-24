@@ -191,7 +191,8 @@ describe("迭代 6 原语扩充", () => {
       ],
     };
     expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
-    expect(dp.PrototypeNodeType.options).toHaveLength(21);
+    // 对标 R3：+ table / chart；R4：+ select / radio / overlay；R5：+ section / footer。
+    expect(dp.PrototypeNodeType.options).toHaveLength(28);
     expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
     expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
     expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
@@ -489,9 +490,14 @@ describe("迭代 12：addScreen / removeScreen 与跳转索引平移", () => {
 describe("V70 视觉组：全是 enum，且分组从 key 派生", () => {
   const allFields = Object.values(dp.PROTOTYPE_FIELDS).flat();
 
-  it("每个字段都带 group，且 group == prototypeFieldGroup(key)", () => {
+  it("每个字段都带 group，且 group == prototypeFieldGroup(key, type)（类型级例外只有登记过的那几条）", () => {
     expect(allFields.length).toBeGreaterThan(20);
-    for (const f of allFields) expect(f.group).toBe(dp.prototypeFieldGroup(f.key));
+    for (const [type, fields] of Object.entries(dp.PROTOTYPE_FIELDS)) {
+      for (const f of fields) expect(f.group, `${type}.${f.key}`).toBe(dp.prototypeFieldGroup(f.key, type));
+    }
+    // 对标 R3：表头是内容、列数是视觉——同名不同义的那一对。
+    expect(dp.prototypeFieldGroup("columns", "table")).toBe("content");
+    expect(dp.prototypeFieldGroup("columns", "grid")).toBe("visual");
   });
 
   it("视觉组的字段 kind **全部**是 enum 或 bool——没有一个是 number/text", () => {
@@ -622,5 +628,107 @@ describe("PROTOTYPE_PATCH_GUIDE 覆盖每一个 patch op", () => {
   it("说明里明确告诉模型「加一页用 addScreen，不要重画所有页」", () => {
     // 光列出 op 名不够——原来那句「新页面 ⇒ 用 prototype 整页给出」会把模型推回老路。
     expect(dp.PROTOTYPE_PATCH_GUIDE).toContain("不要为此重画所有页");
+  });
+});
+
+/* ─────────────── 对标 R3（#3933）：表格与图表 ─────────────── */
+describe("对标 R3：table / chart", () => {
+  it("正例：表格与柱状/折线图过契约；不要求等长（缺的格子空着、多出的数据点不画）", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "table", props: { columns: ["订单号", "金额"], rows: [["#1", "¥1"], ["#2"]], striped: true } }).success).toBe(true);
+    expect(dp.PrototypeNode.safeParse({ type: "chart", props: { kind: "bar", labels: ["一", "二"], values: [30, 45, 0] } }).success).toBe(true);
+    expect(dp.PrototypeNode.safeParse({ type: "chart", props: { kind: "line", title: "趋势", labels: ["4月"], values: [-3.5], unit: "万元" } }).success).toBe(true);
+  });
+
+  it("反例：超出能画下的量、非有限数、空表头都拒", () => {
+    const cols = Array.from({ length: dp.PROTOTYPE_TABLE_MAX_COLUMNS + 1 }, (_, i) => `列${i}`);
+    expect(dp.PrototypeNode.safeParse({ type: "table", props: { columns: cols, rows: [] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "table", props: { columns: [], rows: [] } }).success).toBe(false);
+    const pts = Array.from({ length: dp.PROTOTYPE_CHART_MAX_POINTS + 1 }, (_, i) => i);
+    expect(dp.PrototypeNode.safeParse({ type: "chart", props: { labels: pts.map(String), values: pts } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "chart", props: { labels: ["a"], values: [Number.NaN] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "chart", props: { kind: "pie", labels: ["a"], values: [1] } }).success).toBe(false);
+  });
+
+  it("属性面板：表格数据是 rows、数值是 numbers，表头归内容组（与 grid.columns 同名不同义）", () => {
+    const byKey = (t: "table" | "chart", k: string) => dp.PROTOTYPE_FIELDS[t].find((f) => f.key === k)!;
+    expect(byKey("table", "rows").kind).toBe("rows");
+    expect(byKey("chart", "values").kind).toBe("numbers");
+    expect(byKey("table", "columns").group).toBe("content");
+    expect(dp.prototypeOptionLabel("chart", "kind", "line")).toBe("折线图");
+  });
+
+  it("给模型的说明里有这两种原语与它们的上限（不教，模型只会退回 image(kind:chart) 那个灰块）", () => {
+    // ⭐ 反证锚点：SCHEMA_GUIDE 里删掉 table/chart 那一段 ⇒ 这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/table\{columns/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/chart\{kind:bar\|line/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(String(dp.PROTOTYPE_CHART_MAX_POINTS));
+  });
+
+  it("节点短标签说清是什么、多大", () => {
+    expect(dp.prototypeNodeLabel({ type: "table", props: { columns: ["a", "b"], rows: [["1", "2"]] } })).toBe("表格（2 列 × 1 行）");
+    expect(dp.prototypeNodeLabel({ type: "chart", props: { title: "趋势", labels: ["a"], values: [1] } })).toBe("图表「趋势」");
+  });
+});
+
+/* ─────────────── 对标 R4（#3933）：下拉、单选、叠层 ─────────────── */
+describe("对标 R4：select / radio / overlay", () => {
+  it("正例：下拉、单选、带内容的弹窗；overlay 是容器", () => {
+    const page: dp.PrototypeNode = { type: "stack", children: [
+      { type: "select", props: { label: "城市", options: ["北京", "上海"], value: "上海" } },
+      { type: "radio", props: { label: "性别", options: ["男", "女", "不透露"], selected: 2 } },
+      { type: "overlay", props: { kind: "modal", title: "确定注销？" }, children: [{ type: "button", props: { label: "确认" } }] },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "overlay", children: [] })).toBe(true);
+    expect(dp.PROTOTYPE_CONTAINER_TYPES).toContain("overlay");
+  });
+
+  it("反例：单选只有一项、选中越界、叠层样式不在闭集、下拉没有选项", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["只有一项"] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["a", "b"], selected: 2 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "overlay", props: { kind: "popover" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "select", props: { options: [] } }).success).toBe(false);
+  });
+
+  it("模型写成字符串的 selected 会被纠偏成数字（同 tabs.active）", () => {
+    const raw = dp.coercePrototypeRaw({ type: "radio", props: { options: ["a", "b"], selected: "1" } });
+    expect(dp.PrototypeNode.safeParse(raw).success).toBe(true);
+  });
+
+  it("给模型的说明：容器清单由 PROTOTYPE_CONTAINER_TYPES 派生（不手抄），并教它弹窗单独一页", () => {
+    // ⭐ 反证锚点：说明里仍写死「只有 stack/card/grid 有 children」⇒ 模型不知道 overlay 能装东西，这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(`只有 ${dp.PROTOTYPE_CONTAINER_TYPES.join("/")} 有 children`);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/overlay\{kind:modal\|sheet\|toast/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/单独做一页/);
+  });
+});
+
+/* ─────────────── 对标 R5（#3933）：落地页的分区与页脚 ─────────────── */
+describe("对标 R5：section / footer", () => {
+  it("正例：分区是容器（可以装 hero / grid），页脚是叶子", () => {
+    const page: dp.PrototypeNode = { type: "stack", props: { padding: "none", gap: "none" }, children: [
+      { type: "section", props: { tone: "primary", align: "center" }, children: [{ type: "hero", props: { title: "五分钟搞定一个月的账" } }] },
+      { type: "section", props: { tone: "muted" }, children: [{ type: "grid", props: { columns: 3 }, children: [] }] },
+      { type: "footer", props: { brand: "轻账", links: ["产品", "价格"], note: "© 2026" } },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "section", children: [] })).toBe(true);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { brand: "轻账" }, children: [] }).success).toBe(false);
+  });
+
+  it("反例：分区底色不在闭集、页脚没有品牌名", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "section", props: { tone: "gradient" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { links: ["a"] } }).success).toBe(false);
+  });
+
+  it("分区底色的中文档位按「section.tone」登记，不串到徽标的语义色上", () => {
+    expect(dp.prototypeOptionLabel("section", "tone", "muted")).toBe("浅灰底");
+    expect(dp.prototypeOptionLabel("badge", "tone", "success")).toBe("成功绿");
+  });
+
+  it("给模型的说明教了落地页怎么搭（不教，官网首页会被画成一张很长的 App 屏）", () => {
+    // ⭐ 反证锚点：删掉 section / footer 那一段 ⇒ 这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/section\{tone:default\|muted\|primary\|inverse/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/footer\{brand/);
   });
 });

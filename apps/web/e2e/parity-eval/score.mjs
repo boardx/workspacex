@@ -55,8 +55,11 @@ const byDim = Object.keys(DIMENSIONS).map((d) => {
   return { dim: d, ...DIMENSIONS[d], passed, total: cs.length, score: cs.length === 0 ? 0 : passed / cs.length, checks: cs };
 });
 const total = byDim.reduce((s, d) => s + d.score, 0);
-const sha = (() => { try { return execSync("git rev-parse --short HEAD", { cwd: ROOT }).toString().trim(); } catch { return "?"; } })();
-const dirty = (() => { try { return execSync("git status --porcelain -- apps packages", { cwd: ROOT }).toString().trim() !== ""; } catch { return false; } })();
+// 记**最后一次改动产品代码**的提交（评测工具本目录不算），不是 HEAD：报告本身随一个只动 evidence 的提交入库，
+// 那个提交的 sha 在报告写出来的时候还不存在，记 HEAD 就永远指向「上一个」提交。
+const sha = (() => { try { return execSync("git log -1 --format=%h -- apps packages ':!apps/web/e2e/parity-eval'", { cwd: ROOT }).toString().trim(); } catch { return "?"; } })();
+// 评测工具自身（本目录）不算「被测代码」：改打分脚本不该让报告说被测的产品有未提交改动。
+const dirty = (() => { try { return execSync("git status --porcelain -- apps packages ':!apps/web/e2e/parity-eval'", { cwd: ROOT }).toString().trim() !== ""; } catch { return false; } })();
 
 const lines = [
   `# 对标评测 ${round}：${total.toFixed(1)} / 10`,

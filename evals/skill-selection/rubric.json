@@ -1,0 +1,226 @@
+{
+  "$comment": "技能入选标准的唯一数值来源（权重与客群上限经 2026-09-24 人类决策 D-EC7、D-EC8 确认）。维度含义与锚点见 docs/proposals/PROP-EXPERT-COMMUNITY-001-skill-selection-standard.md；本文件只放 id、权重、阈值与枚举。改权重必须经人类确认，并重跑 score.mjs 看敏感性。",
+  "version": "1.1.0",
+  "value_dims": {
+    "S1": {
+      "group": "S",
+      "name": "协作闭环",
+      "weight": 14
+    },
+    "S2": {
+      "group": "S",
+      "name": "组织大脑复利",
+      "weight": 10
+    },
+    "S3": {
+      "group": "S",
+      "name": "可组合性",
+      "weight": 9
+    },
+    "U1": {
+      "group": "U",
+      "name": "使用频率",
+      "weight": 9
+    },
+    "U2": {
+      "group": "U",
+      "name": "单次价值",
+      "weight": 11
+    },
+    "U3": {
+      "group": "U",
+      "name": "目标客群覆盖",
+      "weight": 9
+    },
+    "Q1": {
+      "group": "Q",
+      "name": "专业深度",
+      "weight": 9
+    },
+    "Q2": {
+      "group": "Q",
+      "name": "可操作性与输出契约",
+      "weight": 7
+    },
+    "Q3": {
+      "group": "Q",
+      "name": "护栏",
+      "weight": 7
+    },
+    "Q4": {
+      "group": "Q",
+      "name": "可测试性",
+      "weight": 5
+    },
+    "H1": {
+      "group": "H",
+      "name": "上游维护",
+      "weight": 5,
+      "source": "packages.json"
+    },
+    "H2": {
+      "group": "H",
+      "name": "采用证据",
+      "weight": 5,
+      "source": "packages.json"
+    }
+  },
+  "readiness_dims": {
+    "R1": {
+      "name": "依赖就绪",
+      "weight": 50
+    },
+    "R2": {
+      "name": "适配成本",
+      "weight": 30
+    },
+    "R3": {
+      "name": "本地化成本",
+      "weight": 20
+    }
+  },
+  "tiers": {
+    "A": 68,
+    "B": 55,
+    "C": 40
+  },
+  "waves": {
+    "W1_min_R1": 4,
+    "W1_min_R": 60,
+    "W2_min_R1": 3
+  },
+  "gates": [
+    "G1",
+    "G2",
+    "G3",
+    "G4"
+  ],
+  "gate_values": [
+    "pass",
+    "fixable",
+    "fail"
+  ],
+  "license_allowlist": [
+    "Apache-2.0",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC-BY-4.0"
+  ],
+  "capabilities": {
+    "upload": {
+      "name": "读取用户上传文件",
+      "wave": "W1"
+    },
+    "artifact": {
+      "name": "渲染与保存产出物",
+      "wave": "W1"
+    },
+    "web": {
+      "name": "网页检索与抓取",
+      "wave": "W1"
+    },
+    "office_gen": {
+      "name": "生成 docx/pptx/xlsx（不含公式重算）",
+      "wave": "W1"
+    },
+    "subagent": {
+      "name": "子 agent 编排",
+      "wave": "W1"
+    },
+    "profile": {
+      "name": "组织/领域档案与访谈式 onboarding",
+      "wave": "W2"
+    },
+    "connector:crm": {
+      "name": "CRM 连接器",
+      "wave": "W2"
+    },
+    "connector:email": {
+      "name": "邮件连接器",
+      "wave": "W2"
+    },
+    "connector:calendar": {
+      "name": "日历连接器",
+      "wave": "W2"
+    },
+    "connector:chat": {
+      "name": "团队聊天连接器（外部）",
+      "wave": "W2"
+    },
+    "connector:docs": {
+      "name": "外部文档/知识库连接器",
+      "wave": "W2"
+    },
+    "connector:pm": {
+      "name": "项目跟踪连接器",
+      "wave": "W2"
+    },
+    "connector:transcript": {
+      "name": "会议转录（平台自有或外部）",
+      "wave": "W2"
+    },
+    "connector:warehouse": {
+      "name": "数据仓库连接器",
+      "wave": "W3"
+    },
+    "connector:other": {
+      "name": "其他专用连接器（CLM、ATS、ERP、金融终端等）",
+      "wave": "W3"
+    },
+    "python": {
+      "name": "Python 沙箱（含 openpyxl / LibreOffice 公式重算）",
+      "wave": "W3"
+    },
+    "sql": {
+      "name": "SQL 只读执行",
+      "wave": "W3"
+    },
+    "scheduler": {
+      "name": "调度与后台 agent",
+      "wave": "W3"
+    },
+    "browser": {
+      "name": "无头浏览器渲染与爬取",
+      "wave": "W3"
+    }
+  },
+  "recommendations": [
+    "direct",
+    "rewrite",
+    "reference",
+    "reject"
+  ],
+  "evidence_levels": [
+    "E1",
+    "E2",
+    "E3",
+    "E4"
+  ],
+  "confidence": [
+    "high",
+    "med",
+    "low"
+  ],
+  "calibration": {
+    "max_mean_abs_diff": 0.8,
+    "min_tier_agreement_outside_band": 0.75,
+    "min_adjacent_tier_agreement": 0.95
+  },
+  "sensitivity": {
+    "perturb": 0.2,
+    "max_tier_change_ratio": 0.15
+  },
+  "eval": {
+    "min_uplift_pp": 10
+  },
+  "tier_caps": [
+    {
+      "dim": "U3",
+      "max_score": 1,
+      "max_tier": "C",
+      "why": "美国特有、在中国几乎无用的 skill 不因其他维度的高分进入 A/B（v1.1，评审员反馈：leave-tracker V=55.6 却与 ICP 无关）"
+    }
+  ],
+  "boundary_band": 5
+}

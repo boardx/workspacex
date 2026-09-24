@@ -5,7 +5,7 @@
  * 复用既有的 `FeedbackSubmitterDirectory`——同一个"userId → 显示名"端口没有理由为设计项目
  * 再造一份（本仓「同一事实不得声明在两处」纪律不只管字段，也管"怎么查一个人的名字"这件事）。
  */
-import type { designWorkbench } from "@repo/contracts";
+import { designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
 import type { TransactionalMailTransport } from "../notifications/transactional-mail-ports";
 import type { LoggerPort } from "../ports/logger.port";
@@ -74,6 +74,8 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     // 迭代 17：强调色档位。行里没有（这个字段之前建的项目）⇒ `neutral` = 不覆盖任何 token，
     // 与它出现之前的行为逐字相同：老项目打开来一个像素都不会变。
     accent: row.accent ?? "neutral",
+    // 对标 R1：设计 token。行里没有（这一列之前建的项目）⇒ 全缺省值，渲染与之前逐像素相同。
+    tokens: row.tokens ?? designWorkbench.DEFAULT_DESIGN_TOKENS,
     // 迭代 13（delta §4）：老行没有这一列 ⇒ 空数组。
     tags: [...(row.tags ?? [])],
     // 迭代 13：参考图的元信息（不含字节）；老行没有这一列 ⇒ 空数组。

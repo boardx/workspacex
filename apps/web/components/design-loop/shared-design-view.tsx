@@ -183,6 +183,7 @@ export function SharedDesignView({
                 ungenerated={design.prototype.length > 0 && (design.prototype[at] ?? null) === null}
                 device={device}
                 accent={design.accent}
+                tokens={design.tokens}
                 wireframe={design.template === "wireframe"}
                 theme={design.theme}
                 frameIndex={at}
