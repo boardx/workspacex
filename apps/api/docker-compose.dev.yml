@@ -28,9 +28,11 @@
 
 services:
   postgres:
-    # pgvector is needed from the start: F10's hybrid retrieval depends on it, and adding
-    # the extension later means a second base image and a second set of migrations.
-    image: pgvector/pgvector:pg16
+    # pgvector (F10 hybrid retrieval) + Apache AGE (ADR-114, the org-brain graph
+    # projection), built from ./docker/postgres-age. The image tag carries both versions
+    # so a stale local image is visible in `docker images`, not a silent mismatch.
+    image: workspacex/postgres-age:pg16-age1.6.0
+    build: ./docker/postgres-age
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev
