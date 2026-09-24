@@ -111,3 +111,10 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
+  - id: "18"
+    slug: org-brain-knowledge-graph
+    name: org-brain-knowledge-graph
+    goal: "组织大脑 × 知识图谱：Apache AGE 图投影 + pgvector 混合检索，从 chat session 最小闭环起步（会话 → 个人项目），再外扩到项目、组织、平台（PROP-ORG-BRAIN-KG-001 / ADR-114）"
+    status: not_started
+    depends_on: []
+    has_ui: true

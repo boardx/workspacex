@@ -37,6 +37,7 @@
 | ADR-110 | frontend-data-fetching-layer | 引入 TanStack Query 收敛 32 个 `lib/live-*.ts` 域各自手写的 `useEffect` 取数/竞态保护（实测 31/32 无防护）；不改 API 封装层与 `SessionProvider`，逐组件文件渐进迁移。**Proposed** |
 | ADR-111 | separate-cn-release-preparation-from-traffic-activation | CN 发布先生成绑定真实基线的不可变准备凭据，再在五分钟预算内 drain、CAS、切换、验收和失败回滚。**Proposed** |
 | ADR-113 | personal-device-pairing-and-runner-protocol | `personal-local` 边界从「本机」扩为「本人已配对的设备」；桌面只主动连出到端到端加密中继（中继只见密文），本地服务仍绑回环；离线派任务用密文信箱；抽 Runner 协议，桌面是第一个 Runner、云 VPC 是第二个。触碰已签核的 identity 束，**Proposed，需人类签核**（issue #3910） |
+| ADR-114 | apache-age-ontology-graph-projection | 组织大脑本体图投影启用 Apache AGE（与 pgvector 同库、自建锁版本镜像）；canonical 仍是关系表 + RLS，AGE 可重建、每 org 一张图、只返回 id；不可用显式报错不降级；检索仍为 hybrid。**Accepted（2026-09-24 人类裁决）** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线

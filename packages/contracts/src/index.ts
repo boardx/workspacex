@@ -59,6 +59,7 @@ export * as aguiRunError from "./agui-run-error";
 
 /* ── TW-P0-3 计划编辑与执行控制（F972）─────────────────────────────── */
 export * as planControl from "./plan-control";
+export * as knowledgeGraph from "./chat-knowledge-graph";
 
 /* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
 export * as board from "./board";
