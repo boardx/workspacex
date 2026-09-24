@@ -10,11 +10,11 @@ import { useWhiteboardDocument, textSplice } from './use-whiteboard-document';
 import { WhiteboardRenderer } from './whiteboard-renderer';
 type Point = { x: number; y: number };
 type Gesture = { mode: 'move' | 'box' | 'draw' | 'pan'; start: Point; current: Point; ids: string[]; points: Point[]; offset: Point };
-export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; workshop?: ReactNode }
+export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; followViewport?: {x:number;y:number;zoom:number;revision:number}|null; onViewportChange?: (viewport:{x:number;y:number;zoom:number})=>void; workshop?: ReactNode }
 function make(kind: WhiteboardObject['kind'], x: number, y: number): WhiteboardObject {
   return { id: crypto.randomUUID(), schemaVersion: 1, kind, geometry: { x, y, width: kind === 'frame' ? 600 : 180, height: kind === 'frame' ? 400 : 140, rotation: 0 }, text: kind === 'frame' ? '讨论区' : kind === 'drawing' ? '' : '写下一个想法', style: {}, parentId: null, orderKey: '' };
 }
-export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, workshop }: CollaborativeEditorProps) {
+export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, followViewport, onViewportChange, workshop }: CollaborativeEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
   const [selected, setSelected] = useState<string[]>([]), [tool, setTool] = useState<'select'|'connect'|'draw'|'pan'>('select');
   const [zoom, setZoom] = useState(1), [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
@@ -25,6 +25,8 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const composition = useRef<{ id: string; before: string } | null>(null), [draft, setDraft] = useState<string | null>(null);
   const cursor = useRef<Point | null>(null);
+  useEffect(()=>{if(followViewport){setOffset({x:followViewport.x,y:followViewport.y});setZoom(followViewport.zoom);}},[followViewport]);
+  useEffect(()=>{onViewportChange?.({x:offset.x,y:offset.y,zoom});},[offset.x,offset.y,zoom,onViewportChange]);
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(cursor.current, selected); }, [selected, onSelectionChange, onAwareness]);
   useEffect(() => {
     const element = surface.current; if (!element) return;

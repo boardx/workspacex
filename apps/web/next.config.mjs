@@ -174,6 +174,11 @@ export default {
       // resource routes are needed; :path* does not cover the bare collection.
       { source: `${prefix}/whiteboards`, destination: `${apiOrigin}/whiteboards` },
       { source: `${prefix}/whiteboards/:path*`, destination: `${apiOrigin}/whiteboards/:path*` },
+      // #3979: public meeting-room devices join and poll through a credential-scoped
+      // API namespace. This path cannot share `/whiteboards/:path*` because it is
+      // deliberately unauthenticated and singular; without the explicit rewrite
+      // Next returns its HTML 404 before the request reaches the API.
+      { source: `${prefix}/whiteboard-room/:path*`, destination: `${apiOrigin}/whiteboard-room/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
       // provenance.controller.ts 唯一读端）。裸路径、无 `:path*`——同上面 `/capabilities`
       // `/blueprints` `/skills` 那个坑：这条路径此前**从未有过前端真实调用方**

@@ -10,6 +10,10 @@ import { WhiteboardController } from './interface/controllers/whiteboard.control
 import { WhiteboardOperationsController } from './interface/controllers/whiteboard-operations.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
+import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
+import { whiteboardRoomSecret } from './infrastructure/whiteboard/room-secret';
+import { WhiteboardRoomController } from './interface/controllers/whiteboard-room.controller';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1059,6 +1063,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardRoomController,
     WhiteboardWorkshopController,
     WhiteboardOperationsController,
     PublicDesignShareController,
@@ -2895,6 +2900,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_ROOM_REPOSITORY,
+      // Resolve the production-only secret on first room operation. A deployment
+      // that does not enable meeting-room pairing must still pass the standard
+      // production boot gate; the first attempted use remains fail-closed.
+      useFactory: (db: DatabasePort) => new PgWhiteboardRoomRepository(db, () => whiteboardRoomSecret()),
       inject: [DATABASE_PORT],
     },
     {
