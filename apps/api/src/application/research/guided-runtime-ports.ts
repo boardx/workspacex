@@ -11,11 +11,18 @@ export class ResearchRuntimeError extends Error {
 export interface GuidedRuntimeStore {
   read(actor: RuntimeActor, initial: ResearchRuntime): Promise<ResearchRuntime>;
   claim(actor: RuntimeActor, command: RuntimeCommand, hash: string): Promise<{ state: ResearchRuntime; replay: boolean }>;
-  write(actor: RuntimeActor, requestId: string, state: ResearchRuntime, done: boolean): Promise<void>;
+  steer?(actor: RuntimeActor, command: RuntimeCommand, hash: string): Promise<ResearchRuntime>;
+  write(actor: RuntimeActor, requestId: string, state: ResearchRuntime, done: boolean): Promise<ResearchRuntime | void>;
 }
 export interface GuidedSearchPort {
   search(query: string): Promise<readonly { title: string; url: string; content: string }[]>;
   read?(url: string): Promise<{ text: string; contentKind: "html" | "pdf" | "text"; truncated: boolean }>;
+}
+export interface GuidedInternalSourceAccessPort {
+  authorizedSourceIds(actor: RuntimeActor, requestedSourceIds: readonly string[]): Promise<readonly string[]>;
+  loadAuthorizedSources(actor: RuntimeActor, requestedSourceIds: readonly string[]): Promise<readonly {
+    id: string; title: string; content: string; retrievedAt: string; contentHash: string;
+  }[]>;
 }
 export const GUIDED_RUNTIME_STORE = Symbol("GuidedRuntimeStore");
 export const GUIDED_SEARCH_PORT = Symbol("GuidedSearchPort");
