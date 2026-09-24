@@ -1,24 +1,21 @@
 import * as Y from 'yjs';
 import { assertLockedObjectsUnchanged, cloneDocument, objectMap, tombstones, validateDocument } from './document';
+import { assertWhiteboardUpdateLimits, WHITEBOARD_UPDATE_LIMITS } from './update-limits';
 
-export const WHITEBOARD_UPDATE_LIMITS = {
-  bytes: 65536, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
-  documentStructs: 200000, documentBytes: 32 * 1024 * 1024,
-} as const;
+export { WHITEBOARD_UPDATE_LIMITS } from './update-limits';
 function sameItem(a: { id: { client: number; clock: number } } | null | undefined, b: { id: { client: number; clock: number } } | null | undefined): boolean {
   return Boolean(a && b && a.id.client === b.id.client && a.id.clock === b.id.clock);
 }
 /**
  * Pinned Yjs 13.6.32 adapter. Must run inside a resource-limited worker/process
  * for untrusted network input; size limits do not bound decoder CPU/memory.
- * Returns a vetted update, never mutates authority. Host persists this result
- * before applying/broadcasting it, serialized against the exact same base doc.
+ * Returns the exact vetted input bytes, never mutates authority. Host persists
+ * this result before applying/broadcasting it against the exact same base doc.
  * Missing causal dependencies are rejected: caller requests a complete diff.
  */
 export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): Uint8Array {
-  if (!(update instanceof Uint8Array) || update.byteLength === 0 || update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Error('UPDATE_LIMIT_EXCEEDED');
+  assertWhiteboardUpdateLimits(update);
   const decoded = Y.decodeUpdate(update);
-  if (decoded.structs.length > WHITEBOARD_UPDATE_LIMITS.structsPerUpdate || decoded.structs.reduce((sum, item) => sum + item.length, 0) > WHITEBOARD_UPDATE_LIMITS.logicalUnitsPerUpdate) throw new Error('UPDATE_LIMIT_EXCEEDED');
   const candidate = cloneDocument(authority);
   try {
     Y.applyUpdate(candidate, update);
@@ -54,6 +51,9 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
     validateDocument(candidate);
     assertLockedObjectsUnchanged(authority, candidate);
     if (Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
-    return Y.encodeStateAsUpdate(candidate, Y.encodeStateVector(authority));
+    // Re-encoding candidate against authority would attach candidate's complete
+    // historical delete set. That can turn a tiny valid transaction into an
+    // oversized update and permanently lock editing of a healthy long-lived doc.
+    return new Uint8Array(update);
   } finally { candidate.destroy(); }
 }
