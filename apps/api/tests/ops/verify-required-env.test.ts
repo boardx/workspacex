@@ -21,6 +21,7 @@ process.env.KERNEL_QUIET = "1";
 const ORIGINAL_MODEL_KEY = process.env[MODEL_CREDENTIAL_KEY_ENV];
 const ORIGINAL_EMAIL_SECRET = process.env.EMAIL_VERIFICATION_SECRET;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const ORIGINAL_RECEIPT_MAINTENANCE = process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
 
 function restoreEnv(): void {
   if (ORIGINAL_MODEL_KEY === undefined) delete process.env[MODEL_CREDENTIAL_KEY_ENV];
@@ -31,6 +32,9 @@ function restoreEnv(): void {
 
   if (ORIGINAL_NODE_ENV === undefined) delete process.env.NODE_ENV;
   else process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+
+  if (ORIGINAL_RECEIPT_MAINTENANCE === undefined) delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+  else process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE = ORIGINAL_RECEIPT_MAINTENANCE;
 }
 
 describe("verify-required-env: fail-closed before the restart, missing var named", () => {
@@ -79,6 +83,7 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     // Only in production does EMAIL_VERIFICATION_SECRET become required -- reproduces the
     // actual deploy-time condition, not just the unit-level function.
     process.env.NODE_ENV = "production";
+    process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE = "1";
 
     const result = await probeRequiredEnv();
 
@@ -94,12 +99,39 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
     process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
     process.env.NODE_ENV = "production";
+    process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE = "1";
 
     const result = await probeRequiredEnv();
 
     expect(result.ok).toBe(true);
     expect(result.missingVars).toEqual([]);
     expect(result.invalidVars).toEqual([]);
+  });
+
+  it("生产环境缺 receipt maintenance 开关时点名变量并以合法值继续探测", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toContain("KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE");
+    expect(process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE).toBeUndefined();
+  });
+
+  it("生产环境 receipt maintenance 开关值无效时归为 invalid", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE = "0";
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).not.toContain("KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE");
+    expect(result.invalidVars).toContainEqual({
+      name: "KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE",
+      message: "KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE must equal 1 in production",
+    });
+    expect(process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE).toBe("0");
   });
 
   it("探测不到归因的失败会响亮地抛，而不是悄悄放行（机械门控，不猜）", async () => {

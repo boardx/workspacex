@@ -2912,7 +2912,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         // select the worker explicitly: otherwise Board sync appears healthy until the first
         // hello needs an access receipt, then fails as a misleading authorization denial.
         if(process.env.NODE_ENV==='test'&&process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE!=='1')return null;
-        throw new Error('whiteboard_receipt_maintenance_configuration_missing');
+        throw new Error('KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE must equal 1 in production');
       },
       inject: [DATABASE_PORT,LOGGER_PORT],
     },

@@ -79,7 +79,7 @@ describe('whiteboard access-receipt maintenance scheduler',()=>{
       delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
       const state=fixture();
       expect(()=>maintenance.useFactory!(state.db as never,state.logger as never))
-        .toThrow('whiteboard_receipt_maintenance_configuration_missing');
+        .toThrow('KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE must equal 1 in production');
       process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE='1';
       expect(maintenance.useFactory!(state.db as never,state.logger as never))
         .toBeInstanceOf(PgWhiteboardReceiptMaintenance);
