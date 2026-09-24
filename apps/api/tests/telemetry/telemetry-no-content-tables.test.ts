@@ -74,3 +74,32 @@ describe("读租户表只做聚合计数", () => {
     expect(nonAggregateTenantSql("`SELECT count(*)::int AS n FROM ingestion_outbox`")).toEqual([]);
   });
 });
+
+/** E3：first_value_facts 只经 SECURITY DEFINER 函数读；函数排除 personal-local、不回 org_id。 */
+describe("第一个价值时刻事实：只经报告函数、已排除 personal-local、不回组织标识", () => {
+  const MIGRATION = join(import.meta.dirname, "../../migrations/20260924210000_first_value_facts.sql");
+  const fnBody = (sql: string): string =>
+    /FUNCTION kernel_first_value_facts_for_report\(\)[\s\S]*?AS \$\$([\s\S]*?)\$\$/.exec(sql)?.[1] ?? "";
+  const selectList = (body: string): string => (/SELECT\s+([\s\S]*?)\s+FROM/i.exec(body)?.[1] ?? "").replace(/OVER\s*\([^)]*\)/gi, "");
+
+  it("上报方不直接读 first_value_facts 表，只调用报告函数", () => {
+    const tables = referencedTables(readFileSync(SRC, "utf8"));
+    expect(tables).toContain("kernel_first_value_facts_for_report");
+    expect(tables).not.toContain("first_value_facts");
+  });
+
+  it("报告函数体：只读 first_value_facts、限定 org_kind = 'organization'、SELECT 列表里没有 org_id", () => {
+    const body = fnBody(readFileSync(MIGRATION, "utf8"));
+    expect(body.length).toBeGreaterThan(0);
+    expect(referencedTables(body)).toEqual(["first_value_facts"]);
+    expect(body).toMatch(/WHERE f\.org_kind = 'organization'/);
+    expect(selectList(body)).toMatch(/dense_rank\(\)/);
+    expect(selectList(body)).not.toMatch(/org_id/);
+  });
+
+  it("自检：函数体若回 org_id 或漏掉 personal-local 排除，门会红", () => {
+    const body = fnBody("CREATE FUNCTION kernel_first_value_facts_for_report() AS $$ SELECT f.org_id, f.step FROM first_value_facts f $$");
+    expect(body).not.toMatch(/WHERE f\.org_kind = 'organization'/);
+    expect(selectList(body)).toMatch(/org_id/);
+  });
+});

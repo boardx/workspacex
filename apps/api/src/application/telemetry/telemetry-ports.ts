@@ -5,10 +5,13 @@
  *
  * 方向只有一个：实例 → 上报地址。这里没有任何「对端来读实例」的端口。
  */
-import type { instanceTelemetry as T } from "@repo/contracts";
+import type { firstValueEvents as FV, instanceTelemetry as T } from "@repo/contracts";
 
 export type TelemetryConsent = T.TelemetryConsentValue;
 export type TelemetryHealthFacts = import("zod").infer<typeof T.TelemetryHealth>;
+/** `usage` 分节里除漏斗外的必填字段组（契约里整组必填，不能只填一半）。 */
+export type TelemetryUsageBase = Omit<import("zod").infer<typeof T.TelemetryUsage>, "firstValueFunnel">;
+export type FirstValueLocalFact = FV.FirstValueLocalFactValue;
 
 /** 实例级状态（单行）：安装密钥 + 四项同意 + 最近一次尝试的原样报告。 */
 export interface TelemetryStateRow {
@@ -40,6 +43,15 @@ export interface TelemetryStateRepository {
  */
 export interface TelemetryFactsSource {
   health(periodStart: Date, periodEnd: Date): Promise<{ facts: TelemetryHealthFacts; personalLocalExcluded: true } | null>;
+  /**
+   * E3：第一个价值时刻本地事实，**已在 SQL 层排除 personal-local**，且组织标识已换成本次调用内的
+   * 不透明序号（真实 org id 不出数据库）。只用于在内存里聚合成计数，不原样上报。
+   */
+  firstValueFacts(): Promise<{ facts: readonly FirstValueLocalFact[]; personalLocalExcluded: true }>;
+  /** `usage` 分节的其余必填字段；本实例尚无真实来源时返回 `null`（整节缺席，不造数）。 */
+  usageBase(periodStart: Date, periodEnd: Date): Promise<TelemetryUsageBase | null>;
+  /** `benchmark.runsPerSeatPerWeek`；无真实来源返回 `null`。 */
+  runsPerSeatPerWeek(periodStart: Date, periodEnd: Date): Promise<number | null>;
 }
 
 export interface TelemetryTransport {

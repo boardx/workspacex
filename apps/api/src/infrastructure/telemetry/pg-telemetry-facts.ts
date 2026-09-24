@@ -11,13 +11,25 @@
  * - `diskUsedRatio`：本进程工作目录所在文件系统的 `statfs`。
  * - `migrationVersion`：`_kernel_migrations` 已应用的迁移条数，补零到 4 位（迁移文件名是时间戳，
  *   契约要 4 位数字，条数是能如实给出的单调版本号）。
+ * - `firstValueFacts`（E3）：`kernel_first_value_facts_for_report()`——SECURITY DEFINER 函数，函数体内
+ *   就排除 personal-local，且只回 `org_ref`（本次调用内的 dense_rank 序号）而不是 org_id；这里再把序号
+ *   拼成契约要求形状的不透明本地标识，只在内存里交给契约 `aggregateFirstValueFunnel` /
+ *   `firstValueMedianMinutes` 聚合成计数。
+ * - `usageBase` / `runsPerSeatPerWeek`：本实例尚无真实来源（skillPackRuns 能力编号映射不存在）⇒ `null`。
  */
 import { statfs } from "node:fs/promises";
+import { firstValueEvents as FV } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { TelemetryFactsSource, TelemetryHealthFacts } from "../../application/telemetry/telemetry-ports";
+import type {
+  FirstValueLocalFact, TelemetryFactsSource, TelemetryHealthFacts, TelemetryUsageBase,
+} from "../../application/telemetry/telemetry-ports";
 
 /** 白名单：上报方允许读取的全部表。加表 = 改这里 + 过静态门评审。 */
-export const TELEMETRY_FACT_TABLES = ["service_uptime_checks", "ingestion_outbox", "organizations", "_kernel_migrations"] as const;
+export const TELEMETRY_FACT_TABLES = [
+  "service_uptime_checks", "ingestion_outbox", "organizations", "_kernel_migrations",
+  // E3：只经这个函数读 first_value_facts（已排除 personal-local、不回 org_id）。
+  "kernel_first_value_facts_for_report",
+] as const;
 
 const UPTIME_SQL = `SELECT count(*)::int AS total,
        count(*) FILTER (WHERE is_up)::int AS up,
@@ -32,6 +44,8 @@ const QUEUE_SQL = `SELECT count(*)::int AS n
  WHERE q.status = 'pending'`;
 
 const MIGRATIONS_SQL = `SELECT count(*)::int AS n FROM _kernel_migrations`;
+
+const FIRST_VALUE_SQL = `SELECT org_ref, step, occurred_at FROM kernel_first_value_facts_for_report()`;
 
 export class PgTelemetryFacts implements TelemetryFactsSource {
   constructor(
@@ -60,5 +74,29 @@ export class PgTelemetryFacts implements TelemetryFactsSource {
         personalLocalExcluded: true,
       };
     });
+  }
+
+  async firstValueFacts(): Promise<{ facts: readonly FirstValueLocalFact[]; personalLocalExcluded: true }> {
+    const rows = await this.db.withoutTenant(async (s) =>
+      (await s.query<{ org_ref: string | number; step: string; occurred_at: Date }>(FIRST_VALUE_SQL)).rows);
+    const facts: FirstValueLocalFact[] = [];
+    for (const r of rows) {
+      const parsed = FV.FirstValueLocalFact.safeParse({
+        orgId: `org-r${String(r.org_ref)}`,
+        orgKind: "standard",
+        step: r.step,
+        occurredAt: new Date(r.occurred_at).toISOString(),
+      });
+      if (parsed.success) facts.push(parsed.data);
+    }
+    return { facts, personalLocalExcluded: true };
+  }
+
+  async usageBase(): Promise<TelemetryUsageBase | null> {
+    return null;
+  }
+
+  async runsPerSeatPerWeek(): Promise<number | null> {
+    return null;
   }
 }

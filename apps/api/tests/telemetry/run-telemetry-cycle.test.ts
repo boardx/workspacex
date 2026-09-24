@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { instanceTelemetry as T } from "@repo/contracts";
 import { instanceIdFromSecret, runTelemetryCycle, type TelemetryCycleConfig } from "../../src/application/telemetry/run-telemetry-cycle";
-import type { TelemetryConsent, TelemetryFactsSource, TelemetryStateRepository, TelemetryStateRow, TelemetryTransport } from "../../src/application/telemetry/telemetry-ports";
+import type { FirstValueLocalFact, TelemetryUsageBase, TelemetryConsent, TelemetryFactsSource, TelemetryStateRepository, TelemetryStateRow, TelemetryTransport } from "../../src/application/telemetry/telemetry-ports";
 import type { LoggerPort } from "../../src/application/ports/logger.port";
 import { HttpTelemetryTransport } from "../../src/infrastructure/telemetry/http-telemetry-transport";
 import { readTelemetryConfig } from "../../src/infrastructure/telemetry/telemetry-config";
@@ -22,8 +22,15 @@ function fakeState(consent: TelemetryConsent = { ...T.TELEMETRY_CONSENT_DEFAULTS
   };
   return { repo, attempts };
 }
-const facts = (h: typeof HEALTH | null = HEALTH): TelemetryFactsSource => ({
+type FvFact = FirstValueLocalFact;
+const facts = (
+  h: typeof HEALTH | null = HEALTH,
+  more: { fv?: FvFact[]; base?: TelemetryUsageBase | null; rps?: number | null } = {},
+): TelemetryFactsSource => ({
   health: vi.fn(async () => (h ? { facts: h, personalLocalExcluded: true as const } : null)),
+  firstValueFacts: vi.fn(async () => ({ facts: more.fv ?? [], personalLocalExcluded: true as const })),
+  usageBase: vi.fn(async () => more.base ?? null),
+  runsPerSeatPerWeek: vi.fn(async () => more.rps ?? null),
 });
 const okTransport = (): TelemetryTransport & { bodies: string[] } => {
   const bodies: string[] = [];
@@ -97,7 +104,7 @@ describe("runTelemetryCycle", () => {
     expect(post).toHaveBeenCalledTimes(1);
     expect(attempts.at(-1)!.outcome).toBe("failed");
 
-    const boom: TelemetryFactsSource = { health: vi.fn(async () => { throw new Error("db down"); }) };
+    const boom: TelemetryFactsSource = { ...facts(), health: vi.fn(async () => { throw new Error("db down"); }) };
     await expect(runTelemetryCycle({ state: repo, facts: boom, transport: okTransport(), logger: logger(), now }, cfg())).resolves.toEqual({ kind: "failed" });
   });
 
@@ -119,5 +126,68 @@ describe("runTelemetryCycle", () => {
     expect(readTelemetryConfig({ WSX_TELEMETRY_ENDPOINT: "not a url" }).endpoint).toBeNull();
     expect(readTelemetryConfig({ WSX_TELEMETRY_DISABLED: "true" }).killSwitch).toBe(true);
     expect(readTelemetryConfig({}).productVersion).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  describe("E3 第一个价值时刻", () => {
+    const at = (min: number) => new Date(Date.parse("2026-09-23T00:00:00.000Z") + min * 60_000).toISOString();
+    const FV: FvFact[] = [
+      { orgId: "org-a", orgKind: "standard", step: "first_sign_in", occurredAt: at(0) },
+      { orgId: "org-a", orgKind: "standard", step: "cited_answer_own_material", occurredAt: at(10) },
+      { orgId: "org-b", orgKind: "standard", step: "first_sign_in", occurredAt: at(0) },
+      // personal-local：本地照记，但不得进入上报计数（契约 helper 排除）。
+      { orgId: "org-p", orgKind: "personal-local", step: "first_sign_in", occurredAt: at(0) },
+      { orgId: "org-p", orgKind: "personal-local", step: "cited_answer_own_material", occurredAt: at(1) },
+    ];
+    const BASE: TelemetryUsageBase = { runCount: 5, tokenCount: 100, seatCount: 2, organizationCount: 2, skillPackRuns: [] };
+
+    it("usage 同意 + 有来源 ⇒ usage.firstValueFunnel 来自 aggregateFirstValueFunnel，personal-local 不计入", async () => {
+      const { repo } = fakeState({ health: false, usage: true, diagnostics: false, benchmark: false });
+      const t = okTransport();
+      await runTelemetryCycle({ state: repo, facts: facts(HEALTH, { fv: FV, base: BASE }), transport: t, logger: logger(), now }, cfg());
+      const sent = JSON.parse(t.bodies[0]!);
+      expect(T.InstanceTelemetryReport.safeParse(sent).success).toBe(true);
+      expect(sent.usage.firstValueFunnel.orgsReachedStep.first_sign_in).toBe(2);
+      expect(sent.usage.firstValueFunnel.orgsReachedStep.cited_answer_own_material).toBe(1);
+      expect(sent.usage.firstValueFunnel.orgsWithinBudget).toBe(1);
+      expect(sent).not.toHaveProperty("benchmark");
+    });
+
+    it("benchmark 同意 + 有数据 ⇒ firstValueMedianMinutes 由契约 helper 算出（personal-local 的 1 分钟不参与）", async () => {
+      const { repo } = fakeState({ health: false, usage: false, diagnostics: false, benchmark: true });
+      const t = okTransport();
+      await runTelemetryCycle({ state: repo, facts: facts(HEALTH, { fv: FV, rps: 1.5 }), transport: t, logger: logger(), now }, cfg());
+      const sent = JSON.parse(t.bodies[0]!);
+      expect(sent.benchmark).toEqual({ runsPerSeatPerWeek: 1.5, firstValueMedianMinutes: 10 });
+    });
+
+    it("同意关 ⇒ 分节缺席，且根本不读价值时刻事实", async () => {
+      const { repo } = fakeState({ health: true, usage: false, diagnostics: false, benchmark: false });
+      const t = okTransport();
+      const f = facts(HEALTH, { fv: FV, base: BASE, rps: 1 });
+      await runTelemetryCycle({ state: repo, facts: f, transport: t, logger: logger(), now }, cfg());
+      const sent = JSON.parse(t.bodies[0]!);
+      expect(sent).not.toHaveProperty("usage");
+      expect(sent).not.toHaveProperty("benchmark");
+      expect(f.firstValueFacts).not.toHaveBeenCalled();
+    });
+
+    it("usage 同意但其余必填字段无来源 ⇒ 整节缺席并如实列入 omitted（不为带漏斗而造数）", async () => {
+      const { repo, attempts } = fakeState({ health: false, usage: true, diagnostics: false, benchmark: true });
+      const t = okTransport();
+      await runTelemetryCycle({ state: repo, facts: facts(HEALTH, { fv: FV, base: null, rps: null }), transport: t, logger: logger(), now }, cfg());
+      const sent = JSON.parse(t.bodies[0]!);
+      expect(sent).not.toHaveProperty("usage");
+      expect(sent).not.toHaveProperty("benchmark");
+      expect(attempts.at(-1)!.omittedForLackOfData).toEqual(["usage", "benchmark"]);
+    });
+
+    it("usage 有来源但尚无任何价值时刻事实 ⇒ usage 在、firstValueFunnel 缺席；benchmark 无中位数 ⇒ 缺席", async () => {
+      const { repo, attempts } = fakeState({ health: false, usage: true, diagnostics: false, benchmark: true });
+      const t = okTransport();
+      await runTelemetryCycle({ state: repo, facts: facts(HEALTH, { fv: [], base: BASE, rps: 2 }), transport: t, logger: logger(), now }, cfg());
+      const sent = JSON.parse(t.bodies[0]!);
+      expect(sent.usage).toEqual(BASE);
+      expect(attempts.at(-1)!.omittedForLackOfData).toEqual(["benchmark"]);
+    });
   });
 });

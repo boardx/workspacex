@@ -8,15 +8,18 @@
  * - 同意变更下一周期生效：每次周期开头重新读同意，本周期内不再读。
  * - 上报失败绝不影响实例任何功能：本函数**永不抛**（最外层 try/catch 只记日志）。
  *
- * 分节缺口（2026-09-24，如实记录而不造数；见契约 `omittedForLackOfData`）：
- * - `usage`：`skillPackRuns[].capabilityId` 需要把运行归到技能包能力编号，本实例还没有这条映射；
- *   整节为必填字段组，不能只填一半 ⇒ 暂缺席。
+ * 分节缺口（如实记录而不造数；见契约 `omittedForLackOfData`）：
+ * - `usage`：E3 起 `firstValueFunnel` 有真实来源（`facts.firstValueFacts` → 契约
+ *   `aggregateFirstValueFunnel`）；但契约把 runCount / tokenCount / seatCount / organizationCount /
+ *   skillPackRuns 定为同节必填，`facts.usageBase` 给不出（skillPackRuns 的能力编号映射尚不存在）时
+ *   整节仍缺席——不为了带上漏斗而给其余字段造数。
  * - `diagnostics`：`error_logs` 没有机器可读错误码列（只有自由文本 `msg`），造不出 `errorCode` ⇒ 暂缺席。
- * - `benchmark`：首次价值时间没有埋点 ⇒ 暂缺席。
+ * - `benchmark`：E3 起 `firstValueMedianMinutes` 由契约 `firstValueMedianMinutes()` 算出；同节必填的
+ *   `runsPerSeatPerWeek` 无来源、或无组织到达价值时刻时整节缺席。
  * - `health`：来自 `TelemetryFactsSource.health`；周期内一条探活记录都没有时也缺席。
  */
 import { createHash } from "node:crypto";
-import { instanceTelemetry as T } from "@repo/contracts";
+import { firstValueEvents as FV, instanceTelemetry as T } from "@repo/contracts";
 import type { DeploymentEditionValue } from "@repo/contracts/deployment";
 import type { LoggerPort } from "../ports/logger.port";
 import type { TelemetryFactsSource, TelemetryStateRepository, TelemetryTransport } from "./telemetry-ports";
@@ -70,8 +73,26 @@ export async function runTelemetryCycle(deps: TelemetryCycleDeps, config: Teleme
       if (h === null) omitted.push("health");
       else health = h.facts;
     }
-    // usage / diagnostics / benchmark：见文件头「分节缺口」——已同意也缺席，如实列出。
-    for (const item of ["usage", "diagnostics", "benchmark"] as const) if (consent[item]) omitted.push(item);
+    let usage: T.InstanceTelemetryReportValue["usage"];
+    let benchmark: T.InstanceTelemetryReportValue["benchmark"];
+    if (consent.usage || consent.benchmark) {
+      // 事实已在 SQL 层排除 personal-local；契约 helper 再排除一次（纵深），并只产出计数。
+      const fv = (await deps.facts.firstValueFacts()).facts;
+      const end = periodEnd.toISOString();
+      if (consent.usage) {
+        const base = await deps.facts.usageBase(periodStart, periodEnd);
+        if (base === null) omitted.push("usage");
+        else usage = { ...base, ...(fv.length > 0 ? { firstValueFunnel: FV.aggregateFirstValueFunnel(fv, end) } : {}) };
+      }
+      if (consent.benchmark) {
+        const median = FV.firstValueMedianMinutes(fv, end);
+        const rps = median === undefined ? null : await deps.facts.runsPerSeatPerWeek(periodStart, periodEnd);
+        if (median === undefined || rps === null) omitted.push("benchmark");
+        else benchmark = { runsPerSeatPerWeek: rps, firstValueMedianMinutes: median };
+      }
+    }
+    // diagnostics：见文件头「分节缺口」——已同意也缺席，如实列出。
+    if (consent.diagnostics) omitted.push("diagnostics");
 
     const report = {
       schemaVersion: 1 as const,
@@ -79,12 +100,14 @@ export async function runTelemetryCycle(deps: TelemetryCycleDeps, config: Teleme
       edition: config.edition,
       productVersion: config.productVersion,
       periodEnd: periodEnd.toISOString(),
-      // 只有两类来源能进报告：不按组织计的实例级事实，和 `facts.health` 在 SQL 层已排除
-      // personal-local 的计数（它的返回类型把 `personalLocalExcluded: true` 做成了必带字面量）。
+      // 只有两类来源能进报告：不按组织计的实例级事实，和 `facts.health` / `facts.firstValueFacts`
+      // 在 SQL 层已排除 personal-local 的事实（返回类型把 `personalLocalExcluded: true` 做成了必带字面量）。
       // 没有第三条路径往报告里放按组织的计数——新增分节时必须同样经 `TelemetryFactsSource`。
       excludesPersonalLocalOrgs: true as const,
       consent,
       ...(health ? { health } : {}),
+      ...(usage ? { usage } : {}),
+      ...(benchmark ? { benchmark } : {}),
     };
 
     const parsed = T.InstanceTelemetryReport.safeParse(report);

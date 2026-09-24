@@ -160,3 +160,51 @@ export function aggregateFirstValueFunnel(
     orgsWithinBudget: minutesToFirstValue(firstAt).filter((m) => m <= FIRST_VALUE_BUDGET_MINUTES).length,
   });
 }
+
+/* ───────────────────────── 本地查看（E3）：组织管理员看自己组织的漏斗 ───────────────────────── */
+
+/** 本组织在漏斗各步的首次时刻；未到达为 `null`。键集合固定为 {@link FirstValueStep}。只在实例内读。 */
+export const OrgFirstValueFunnelOut = z
+  .object({
+    steps: z
+      .array(z.object({ step: FirstValueStep, occurredAt: z.string().datetime().nullable() }).strict())
+      .length(FirstValueStep.options.length),
+    /** 首次登录 → 价值时刻的分钟数；尚未到达价值时刻为 `null`。 */
+    minutesToFirstValue: z.number().min(0).nullable(),
+    budgetMinutes: z.literal(FIRST_VALUE_BUDGET_MINUTES),
+  })
+  .strict();
+export type OrgFirstValueFunnelOutValue = z.infer<typeof OrgFirstValueFunnelOut>;
+
+export const operations = {
+  /** 组织管理员读**当前组织**的漏斗（本地事实，不离开实例）。非管理员 403。 */
+  getOrgFirstValueFunnel: {
+    method: "GET",
+    path: "/org/first-value-funnel",
+    in: z.object({}).strict(),
+    out: OrgFirstValueFunnelOut,
+    err: ["NOT_ORG_ADMIN"] as const,
+  },
+} as const;
+
+/** 由本组织事实组装本地查看结果（同一组织同一步取最早）。纯函数。 */
+export function orgFirstValueFunnel(
+  facts: readonly { step: FirstValueStepValue; occurredAt: string }[],
+): OrgFirstValueFunnelOutValue {
+  const first = new Map<FirstValueStepValue, string>();
+  for (const f of facts) {
+    const prev = first.get(f.step);
+    if (prev === undefined || Date.parse(f.occurredAt) < Date.parse(prev)) first.set(f.step, f.occurredAt);
+  }
+  const start = first.get("first_sign_in");
+  const value = first.get(FIRST_VALUE_STEP);
+  const minutes =
+    start !== undefined && value !== undefined && Date.parse(value) >= Date.parse(start)
+      ? (Date.parse(value) - Date.parse(start)) / 60_000
+      : null;
+  return OrgFirstValueFunnelOut.parse({
+    steps: FirstValueStep.options.map((step) => ({ step, occurredAt: first.get(step) ?? null })),
+    minutesToFirstValue: minutes,
+    budgetMinutes: FIRST_VALUE_BUDGET_MINUTES,
+  });
+}

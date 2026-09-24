@@ -602,6 +602,11 @@ import { PgTelemetryStateRepository } from "./infrastructure/telemetry/pg-teleme
 import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts";
 import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
 import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
+import {
+  FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
+} from "./application/first-value/first-value-recorder";
+import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
+import { FirstValueController } from "./interface/controllers/first-value.controller";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -1061,6 +1066,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemMailController,
     SystemUptimeController,
     SystemTelemetryController,
+    FirstValueController,
     CrmContactController,
     SkillReviewController,
     SkillMountController,
@@ -2947,6 +2953,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: CRM_CONTACT_REPOSITORY, useFactory: (db: DatabasePort) => new PgCrmContactRepository(db), inject: [DATABASE_PORT] },
     { provide: TELEMETRY_FACTS_SOURCE, useFactory: (db: DatabasePort) => new PgTelemetryFacts(db), inject: [DATABASE_PORT] },
     { provide: TELEMETRY_TRANSPORT, useFactory: () => new HttpTelemetryTransport() },
+    // E3：第一个价值时刻本地事实（先写者胜；记录 fire-and-forget，失败只记日志）。
+    { provide: FIRST_VALUE_FACT_STORE, useFactory: (db: DatabasePort) => new PgFirstValueFacts(db), inject: [DATABASE_PORT] },
+    {
+      provide: FIRST_VALUE_RECORDER,
+      useFactory: (store: FirstValueFactStore, logger: LoggerPort) => new FirstValueRecorder(store, logger),
+      inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
+    },
     TelemetryReportWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
