@@ -10,11 +10,17 @@ import { ModelKnowledgeExtractor } from "../../src/infrastructure/knowledge-grap
 import { PgKgExtraction } from "../../src/infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
 import { addChatThread } from "../support/chat-db";
-import { ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+
+/** 抽取默认关（关着时触发器不排队）；测试库里打开它。数据库级的单行开关，重复调用无害。 */
+export async function enableExtraction(): Promise<void> {
+  await asOwner((c) => c.query("SELECT kg_extraction_enable()"));
+}
 
 export async function seedThread(orgId: string, threadIds: readonly string[]): Promise<void> {
   ensureDatabase();
   await migrateOnce();
+  await enableExtraction();
   await resetOrgs(orgId);
   await seedOrg({ orgId, projectId: `${orgId}-p` });
   for (const id of threadIds) {
@@ -46,6 +52,7 @@ export const silentLogger = { info: () => undefined, error: () => undefined };
 export function extractionDeps(db: DatabasePort, model: ModelCallPort, onlyOrg: string): ExtractionDeps {
   const pg = new PgKgExtraction(db);
   const queue: ExtractionDeps["queue"] = {
+    enable: () => pg.enable(),
     pendingOrgs: async () => (await pg.pendingOrgs()).filter((o) => o === onlyOrg),
     claim: (o, n) => pg.claim(o, n),
     complete: (o, m) => pg.complete(o, m),

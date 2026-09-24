@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS kg_extraction_queue (
   attempts    integer NOT NULL DEFAULT 0,
   last_error  text,
   locked_at   timestamptz,
+  -- 失败后的退避：模型短暂不可用时，三次重试不会挤在连续三个 2 秒的轮询里全部用光。
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
   enqueued_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS kg_extraction_queue_org_idx ON kg_extraction_queue (org_id, enqueued_at);
@@ -64,12 +66,32 @@ REVOKE ALL ON kg_extraction_queue FROM app_rw;
 -- 排队只经触发器；worker 以 app_rw 身份认领（UPDATE locked_at）、完成（DELETE）、记失败（UPDATE）。
 GRANT SELECT, UPDATE, DELETE ON kg_extraction_queue TO app_rw;
 
+-- 抽取是否在这个库上开着（单行表）。抽取默认关（KG_EXTRACTION_ENABLED=1 才开）；关着的时候不排队——
+-- 否则每个部署（包括桌面版）都会一条消息攒一行、永远没人消费（同 F04 在没有 AGE 时不排 outbox 的理由）。
+-- worker 启动且确实开着时调用 kg_extraction_enable() 把它置真；从那之后的新消息才排队，不会回头给
+-- 全部历史消息补抽（要补抽走「整理本会话」，uc-18-3 A1）。
+CREATE TABLE IF NOT EXISTS kg_extraction_state (
+  singleton  boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  enabled    boolean NOT NULL DEFAULT false,
+  enabled_at timestamptz
+);
+INSERT INTO kg_extraction_state (singleton, enabled) VALUES (true, false) ON CONFLICT DO NOTHING;
+REVOKE ALL ON kg_extraction_state FROM app_rw;
+
+CREATE OR REPLACE FUNCTION kg_extraction_enable() RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$ UPDATE public.kg_extraction_state SET enabled = true, enabled_at = coalesce(enabled_at, now()) WHERE singleton $$;
+REVOKE ALL ON FUNCTION kg_extraction_enable() FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION kg_enqueue_extraction() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
-  -- 原始转录流（raw_transcript）另有管线；空消息没有可抽的东西。
-  IF NEW.raw_transcript OR length(btrim(NEW.body)) = 0 THEN RETURN NULL; END IF;
+  -- 原始转录流（raw_transcript）另有管线；只有空白的消息没有可抽的东西。
+  IF NEW.raw_transcript OR NEW.body ~ '^\s*$' THEN RETURN NULL; END IF;
+  -- 单条消息比会话更窄的可见范围（member-private 等）：从它抽出的知识会按整个会话可见，所以不抽。
+  IF NEW.visibility_scope IS NOT NULL THEN RETURN NULL; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.kg_extraction_state WHERE enabled) THEN RETURN NULL; END IF;
   INSERT INTO public.kg_extraction_queue (message_id, org_id, thread_id)
   VALUES (NEW.id, NEW.org_id, NEW.thread_id)
   ON CONFLICT (message_id) DO NOTHING;
@@ -82,7 +104,7 @@ CREATE TRIGGER kg_enqueue_extraction_trg AFTER INSERT ON chat_messages
 
 CREATE OR REPLACE FUNCTION kg_extraction_pending_orgs() RETURNS SETOF text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
-AS $$ SELECT DISTINCT org_id FROM public.kg_extraction_queue WHERE attempts < 3 $$;
+AS $$ SELECT DISTINCT org_id FROM public.kg_extraction_queue WHERE attempts < 3 AND next_attempt_at <= now() $$;
 REVOKE ALL ON FUNCTION kg_extraction_pending_orgs() FROM PUBLIC;
 
 -- ─────────────────────────────── 执行器：接收消息证据 ───────────────────────────────
@@ -93,17 +115,25 @@ CREATE OR REPLACE FUNCTION kg_insert_claim_evidence(p_org text, p_scope_kind tex
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
+DECLARE
+  v_body    text;
+  v_excerpt text;
 BEGIN
   IF ev ? 'message_id' THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM chat_messages m
-       WHERE m.id = ev->>'message_id' AND m.org_id = p_org
-         AND (p_scope_kind <> 'chat_session' OR m.thread_id = p_scope_id)
-    ) THEN
+    -- 会话作用域：消息必须来自这个会话。个人空间：消息必须来自**本人创建**的会话——否则可以把别人
+    -- 私聊里的消息挂成自己的证据，还能借接受 / 拒绝探测别人会话里的消息 id（I-14）。
+    SELECT m.body INTO v_body FROM chat_messages m JOIN chat_threads t ON t.id = m.thread_id AND t.org_id = m.org_id
+     WHERE m.id = ev->>'message_id' AND m.org_id = p_org AND m.visibility_scope IS NULL
+       AND ((p_scope_kind = 'chat_session' AND m.thread_id = p_scope_id)
+         OR (p_scope_kind = 'personal' AND t.created_by = p_scope_id));
+    IF NOT FOUND THEN
       RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: message %', ev->>'message_id' USING ERRCODE = '23503';
     END IF;
+    -- 摘录由服务端核对：必须是原话的一段；不是就用消息开头。面板上标着「原话」的，一定是原话。
+    v_excerpt := coalesce(ev->>'excerpt', '');
+    IF v_excerpt = '' OR strpos(v_body, v_excerpt) = 0 THEN v_excerpt := left(v_body, 280); END IF;
     INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance, excerpt)
-    VALUES (p_claim_id, p_org, ev->>'message_id', ev->>'stance', left(coalesce(ev->>'excerpt', ''), 280))
+    VALUES (p_claim_id, p_org, ev->>'message_id', ev->>'stance', left(v_excerpt, 280))
     ON CONFLICT DO NOTHING;
     RETURN;
   END IF;
@@ -120,7 +150,7 @@ REVOKE ALL ON FUNCTION kg_insert_claim_evidence(text, text, text, text, jsonb) F
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
-    GRANT EXECUTE ON FUNCTION kg_extraction_pending_orgs() TO app_rw;
+    GRANT EXECUTE ON FUNCTION kg_extraction_pending_orgs(), kg_extraction_enable() TO app_rw;
   END IF;
 END
 $$;

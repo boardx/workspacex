@@ -11,9 +11,11 @@ import { parseExtraction } from "../../src/domain/knowledge-graph/extraction";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { readKgExtractionModelConfig } from "../../src/infrastructure/knowledge-graph/kg-extraction-model-config";
+import { PgKgExtraction } from "../../src/infrastructure/knowledge-graph/pg-kg-extraction";
 import { toBatchPayload } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
-import { addChatMessage } from "../support/chat-db";
-import { asApp } from "../support/db";
+import { toOrgId } from "../../src/domain/org-id";
+import { addChatMessage, addChatThread } from "../support/chat-db";
+import { asApp, asOwner } from "../support/db";
 import { ZHANG_DECIDES, extractionDeps, loopbackModel, seedThread } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f06-extract";
@@ -87,11 +89,17 @@ describe("F06: 抽取 Agent", () => {
     await addChatMessage({ orgId: ORG, id: "m-fail", threadId: T2, body: "模型会挂的消息", authorId: "u-owner" });
     const deps = extractionDeps(db, loopbackModel([["模型会挂", new Error("provider down")]]).model, ORG);
     expect(await runExtractionTick(deps)).toMatchObject({ failed: 1 });
-    const [row] = await q<{ attempts: number; last_error: string; locked_at: Date | null }>(
-      "SELECT attempts, last_error, locked_at FROM kg_extraction_queue WHERE message_id = 'm-fail'");
-    expect(row).toMatchObject({ attempts: 1, last_error: "provider down", locked_at: null });
+    const [row] = await q<{ attempts: number; last_error: string; locked_at: Date | null; backoff: boolean }>(
+      "SELECT attempts, last_error, locked_at, next_attempt_at > now() + interval '20 seconds' AS backoff FROM kg_extraction_queue WHERE message_id = 'm-fail'");
+    expect(row).toMatchObject({ attempts: 1, last_error: "provider down", locked_at: null, backoff: true });
+    // 退避期内不会被再次认领（三次机会不会挤在连续的轮询里用光）
+    expect(await runExtractionTick(deps)).toMatchObject({ processed: 0 });
+    const due = () => asOwner((c) => c.query("UPDATE kg_extraction_queue SET next_attempt_at = now() WHERE message_id = 'm-fail'"));
+    await due();
     await runExtractionTick(deps);
+    await due();
     await runExtractionTick(deps);
+    await due();
     expect(await runExtractionTick(deps)).toMatchObject({ processed: 0 });
     expect((await q<{ attempts: number }>("SELECT attempts FROM kg_extraction_queue WHERE message_id = 'm-fail'"))[0]!.attempts).toBe(3);
   });
@@ -136,6 +144,65 @@ describe("F06: 开关", () => {
     expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope" }).enabled).toBe(false);
     expect(readKgExtractionModelConfig({ KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(false);
     expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KG_EXTRACTION_ENABLED: "1", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen-plus" }).modelId).toBe("qwen-plus");
+  });
+});
+
+describe("F06 评审补强", () => {
+  it("认领严格不超过 limit（统计信息过期 / 队列刚被清空后也一样）", async () => {
+    await runExtractionTick(extractionDeps(db, loopbackModel([]).model, ORG));  // 清空本 org 队列
+    await asOwner((c) => c.query("VACUUM ANALYZE kg_extraction_queue"));
+    for (let i = 0; i < 40; i += 1) {
+      await addChatMessage({ orgId: ORG, id: `m-bulk-${i}`, threadId: T2, body: `批量消息 ${i}`, authorId: "u-owner" });
+    }
+    const pg = new PgKgExtraction(db);
+    expect((await pg.claim(toOrgId(ORG), 5)).length).toBe(5);
+    await runExtractionTick(extractionDeps(db, loopbackModel([]).model, ORG));
+    await asOwner((c) => c.query("UPDATE kg_extraction_queue SET locked_at = NULL WHERE org_id = $1", [ORG]));
+    while ((await runExtractionTick(extractionDeps(db, loopbackModel([]).model, ORG))).processed > 0) { /* 排空 */ }
+  });
+
+  it("原话截断按字符：emoji 正好在第 280 个字符处，也能正常入图", async () => {
+    const body = `${"x".repeat(279)}😀张三决定上线`;
+    await addChatMessage({ orgId: ORG, id: "m-emoji", threadId: T2, body, authorId: "u-owner" });
+    const reply = JSON.stringify({ entities: [], claims: [{ statement: "张三决定上线", kind: "decision", confidence: 0.5, about: [], decidedBy: null, quote: "不在原文里的摘录" }] });
+    const r = await runExtractionTick(extractionDeps(db, loopbackModel([["张三决定上线", reply]]).model, ORG));
+    expect(r).toMatchObject({ written: 1, failed: 0 });
+    const [ev] = await q<{ excerpt: string }>("SELECT excerpt FROM claim_message_evidence WHERE message_id = 'm-emoji'");
+    expect(Array.from(ev!.excerpt)).toHaveLength(280);
+    expect(ev!.excerpt.endsWith("😀")).toBe(true);
+  });
+
+  it("抽取关着时不排队；消息自带更窄的可见范围时不排队", async () => {
+    await asOwner((c) => c.query("UPDATE kg_extraction_state SET enabled = false"));
+    try {
+      await addChatMessage({ orgId: ORG, id: "m-off", threadId: T2, body: "关着时说的话", authorId: "u-owner" });
+    } finally {
+      await asOwner((c) => c.query("UPDATE kg_extraction_state SET enabled = true"));
+    }
+    await addChatMessage({ orgId: ORG, id: "m-narrow", threadId: T2, body: "只给组内看的话", authorId: "u-owner", visibilityScope: "member-private" });
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id IN ('m-off', 'm-narrow')")).toHaveLength(0);
+  });
+
+  it("个人空间的消息证据只能来自本人的会话；摘录不是原话时由数据库换成原话", async () => {
+    await addChatThread({ orgId: ORG, id: "thr-kg-f06-other", projectId: null, visibilityScope: "private", createdBy: "u-other" });
+    await addChatMessage({ orgId: ORG, id: "m-others", threadId: "thr-kg-f06-other", body: "别人的私话", authorId: "u-other" });
+    const batch = (messageId: string, excerpt: string, id: string) => ({
+      actionId: `act-${id}`, scope: { kind: "personal" as const, id: "u-owner" }, actor: { kind: "human" as const, id: "u-owner" },
+      actionType: "remember", sourceRef: null, pipelineVersion: null, objects: [], edges: [],
+      claims: [{ id: `clm-${id}`, claimKind: "fact" as const, statement: "x", status: "accepted" as const, confidence: 1,
+        evidence: [{ messageId, stance: "supporting" as const, excerpt }] }],
+    });
+    const asOwnerUser = (b: ReturnType<typeof batch>) => asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-owner', true)");
+      return c.query("SELECT kg_apply_batch($1::jsonb)", [JSON.stringify(toBatchPayload(b))]);
+    });
+    await expect(asOwnerUser(batch("m-others", "别人的私话", "p1"))).rejects.toThrow(/KG_EVIDENCE_NOT_FOUND/);
+    await asOwnerUser(batch("m-zhang", "我编的原话", "p2"));
+    const ev = await asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-owner', true)");
+      return c.query<{ excerpt: string }>("SELECT excerpt FROM claim_message_evidence WHERE claim_id = 'clm-p2'");
+    });
+    expect(ev.rows[0]!.excerpt).toBe("那就这样，张三决定下周一上线 v2。");
   });
 });
 

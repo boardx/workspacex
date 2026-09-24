@@ -63,6 +63,8 @@ export interface KgExtractionJob {
 
 /** 抽取队列（消息落库时由触发器排队，见迁移 20260924210000）。 */
 export interface KgExtractionQueuePort {
+  /** 抽取在这个库上开着：从此新消息才排队（关着时不排，免得永远没人消费的行无限增长）。 */
+  enable(): Promise<void>;
   pendingOrgs(): Promise<readonly OrgId[]>;
   /** 认领本 org 的一批任务（带租约：worker 崩了，租约过期后别的 worker 可以重新认领）。 */
   claim(orgId: OrgId, limit: number): Promise<readonly KgExtractionJob[]>;

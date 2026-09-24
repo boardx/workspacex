@@ -20,18 +20,22 @@ function walk(dir: string): string[] {
 }
 
 describe("F06 抽取流水线读取的豁免前提", () => {
-  it("(a) 只出现三张租户表", () => {
+  it("(a) 只出现三张租户表；不用逗号连接（逗号连接会让下面的逐表扫描漏掉第二张表）", () => {
+    expect(code).not.toMatch(/\b(?:FROM|JOIN)\s+[a-z_]+(?:\s+(?:AS\s+)?[a-z]\w*)?\s*,/i);
     const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
     tables.delete("kg_extraction_queue");
     tables.delete("chat_messages");
     tables.delete("ontology_objects");
+    tables.delete("picked");  // 认领用的物化 CTE，不是表
     expect([...tables]).toEqual([]);
   });
 
-  it("(b) withoutTenant 只用于 kg_extraction_pending_orgs()", () => {
+  it("(b) withoutTenant 只用于两个只回 id / 开关的函数：kg_extraction_pending_orgs()、kg_extraction_enable()", () => {
     const uses = [...code.matchAll(/withoutTenant\(([\s\S]*?)\)\);/g)].map((m) => m[1]!);
-    expect(uses).toHaveLength(1);
-    expect(uses[0]).toMatch(/kg_extraction_pending_orgs\(\)/);
+    expect(uses).toHaveLength(2);
+    expect(uses.some((u) => /kg_extraction_pending_orgs\(\)/.test(u))).toBe(true);
+    expect(uses.some((u) => /kg_extraction_enable\(\)/.test(u))).toBe(true);
+    for (const u of uses) expect(u).not.toMatch(/\b(?:FROM|JOIN)\s+(?!kg_extraction)/i);
   });
 
   it("(c) 上文限定同一会话；已知实体限定本会话作用域", () => {
@@ -45,4 +49,22 @@ describe("F06 抽取流水线读取的豁免前提", () => {
       .map((f) => relative(API, f));
     expect(callers).toEqual(["src/application/knowledge-graph/extract-message-knowledge.ts"]);
   });
+
+  it("(e) 对外只有端口要求的方法——不能悄悄多出一个「读全部正文」的方法", () => {
+    const methods = [...code.matchAll(/^\s{2}async (\w+)\(/gm)].map((m) => m[1]).sort();
+    expect(methods).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs"]);
+  });
+
+  it("(f) 每一条碰 chat_messages 的 SQL 都限定到一条消息（id = $2）或一个会话（thread_id = $2）", () => {
+    const sqls = [...code.matchAll(/`([^`]*)`|"([^"]*)"/g)].map((m) => m[1] ?? m[2] ?? "").filter((q) => /chat_messages/.test(q));
+    expect(sqls.length).toBeGreaterThan(0);
+    for (const q of sqls) expect(q, q).toMatch(/\b(?:id|thread_id) = \$2\b/);
+  });
+
+  it("(g) 已知实体的读取不带 OR（作用域条件不能被放宽）", () => {
+    const q = /FROM ontology_objects[\s\S]*?ORDER BY/.exec(code)?.[0] ?? "";
+    expect(q).toMatch(/scope_kind = 'chat_session' AND scope_id = \$2/);
+    expect(q).not.toMatch(/\bOR\b/i);
+  });
 });
+
