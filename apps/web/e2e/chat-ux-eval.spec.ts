@@ -106,11 +106,20 @@ test.describe("chat 体验评测集", () => {
       .catch(() => 0);
     const progressCount = await page.getByTestId("run-trace-progress-markdown").count()
       .catch(() => 0);
+    /*
+     * 「有没有计划」与「用户看不看得见」是两件事，分开量。
+     * 右栏默认折叠（#2695），计划面板挂在里面——信息存在但默认不可见，
+     * 与信息根本不存在，是完全不同的缺陷，修法也不同。
+     */
+    const expand = page.getByTestId("chat-task-workbench-inspector-expand");
+    if (await expand.count() > 0) await expand.first().click();
+    const planAfterExpand = await page.locator('[data-testid^="agent-plan-item-"]').count().catch(() => 0);
+
     record(2, {
       measured: true,
-      score: planCount > 0 ? 1 : progressCount > 0 ? 0.5 : 0,
-      evidence: `计划条目 ${String(planCount)} 条、进展摘要 ${String(progressCount)} 段`
-        + `（有计划条目 1 分；只有进展摘要 0.5；都没有 0）`,
+      score: planCount > 0 ? 1 : planAfterExpand > 0 ? 0.6 : progressCount > 0 ? 0.3 : 0,
+      evidence: `默认可见的计划条目 ${String(planCount)} 条、展开右栏后 ${String(planAfterExpand)} 条、`
+        + `进展摘要 ${String(progressCount)} 段（默认就看得见 1 分；要展开才看得见 0.6；只有进展摘要 0.3）`,
     });
 
     // ③ 工具调用可见：展开执行过程，看行上是否有中文名 + 调用对象 + 终态图标。
@@ -205,30 +214,49 @@ test.describe("chat 体验评测集", () => {
     await page.getByTestId("copilotkit-v2-running-indicator").first().waitFor({ timeout: 10_000 });
 
     /*
-     * ⚠ 这里**必须轮询**，不能一出现运行指示器就取一次。
-     * `RunTraceLiveStrip` 在 `!active` 时返回 null，而它所在的 trace 面板要等
-     * journal 有事件才挂载——「运行中」与「状态条已挂载」之间有一个窗口。
-     * 第一版取早了且不再重试，量出 0 分；那是探针的竞态，不是产品的结论。
+     * ⚠ 量的是**整段过程**，不是某一瞬间。前两版都栽在采样点上：
+     *   · 第一版一出现运行指示器就取一次，那时状态条还没挂载（`!active` 返回 null）；
+     *   · 第二版轮询到它出现，但只在最开头取两次 —— 那个窗口里一条工具都还没收尾，
+     *     `settledLabel` 自然还没东西可说，于是读到两次一模一样的「正在推进任务」，
+     *     被我记成「文案一字不变」。那是我的采样窗口，不是产品的表现。
+     * 现在整轮每 500ms 采一次，收集**不同文案的个数**：用户看的是一段过程，
+     * 判据也该打在一段过程上。
      */
     const strip = page.getByTestId("run-trace-live-strip");
-    let hasStrip = false;
-    const appearBy = Date.now() + 20_000;
-    while (Date.now() < appearBy) {
-      if (await strip.count() > 0) { hasStrip = true; break; }
+    const seen: string[] = [];
+    const rowSamples: number[] = [];
+    const runDeadline = Date.now() + 90_000;
+    while (Date.now() < runDeadline) {
+      if (await strip.count() > 0) {
+        const t = ((await strip.first().textContent({ timeout: 1_000 }).catch(() => "")) ?? "").trim();
+        if (t !== "" && t !== seen.at(-1)) seen.push(t);
+      }
+      // 同时记录「此刻执行过程有几行」——用来分清两件完全不同的事：
+      //   · 状态条文案不变，但行数在涨 ⇒ 事件到了，是**文案逻辑**的问题；
+      //   · 行数也一直是 0 ⇒ 运行期间事件**根本没到前端**，那是链路问题，改文案没用。
+      rowSamples.push(await page.getByTestId("chat-task-workbench-event-row").count());
       if (await page.getByTestId("copilotkit-v2-running-indicator").count() === 0) break;
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(500);
     }
-    const first = hasStrip ? (await strip.first().textContent({ timeout: 2_000 }).catch(() => "")) ?? "" : "";
-    await page.waitForTimeout(2_500);
-    const second = hasStrip && await strip.count() > 0
-      ? (await strip.first().textContent({ timeout: 2_000 }).catch(() => "")) ?? "" : first;
+    const rowsAfterSettle = await page.getByTestId("chat-task-workbench-event-row").count();
     await settle(page);
 
+    const appeared = seen.length > 0;
+    const distinct = new Set(seen).size;
+    const waited = seen.map((t) => /已等待 (\d+) 秒/.exec(t)?.[1]).filter((n): n is string => n !== undefined);
+    const elapsedShown = waited.length >= 2 && Number(waited.at(-1)) > Number(waited[0]);
+    const namedAction = seen.some((t) => /刚完成|刚失败|正在(?!推进任务)|已完成 \d+ 个动作/.test(t));
     record(9, {
       measured: true,
-      score: (hasStrip ? 0.5 : 0) + (hasStrip && first !== second ? 0.5 : 0),
-      evidence: `实时状态条存在=${String(hasStrip)}、2.5 秒内文案有变化=${String(first !== second)}`
-        + `（「${first.trim().slice(0, 30)}」→「${second.trim().slice(0, 30)}」）`,
+      /*
+       * ⚠ 判据不能只数「文案变了几种」——那样一个光会跳秒数的时钟就能买满分。
+       * 三件分开给分：条在（0.3）、有随时间增长的**等待时长**（0.3，「没卡死」的真信号）、
+       * 以及至少出现过一次**指名具体动作**的文案（0.4，这才是「现在在做什么」）。
+       */
+      score: (appeared ? 0.3 : 0) + (elapsedShown ? 0.3 : 0) + (namedAction ? 0.4 : 0),
+      evidence: `整轮采样：状态条出现=${String(appeared)}、不同文案 ${String(distinct)} 种`
+        + `、等待时长在增长=${String(elapsedShown)}、出现过指名动作的文案=${String(namedAction)}：${[...new Set(seen)].slice(0, 4).map((t) => `「${t.slice(0, 24)}」`).join("→")}`
+        + `；运行期间执行过程行数 ${rowSamples.join("/")} → 落定时 ${String(rowsAfterSettle)}`,
     });
   });
 

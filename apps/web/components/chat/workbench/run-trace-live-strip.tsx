@@ -55,6 +55,31 @@ export function RunTraceLiveStrip({ entries, active }: {
   /** 这条 run 此刻是否仍在途（由 journal 的 status 事实定，见 `RunTracePanel`）。 */
   readonly active: boolean;
 }): JSX.Element | null {
+  /*
+   * 2026-09-24（评测集 E2）—— **静默窗口里也要有随时间变化的事实**。
+   *
+   * 实测：慢剧本（模拟模型思考 12 秒）期间，执行过程一行都没有，于是下面的
+   * `runningEntry` 与 `lastSettled` 双双为空，这一行退化成一句恒定的「正在推进任务」。
+   * 整轮 90 秒采样只读到**一种**文案——用户看到的就是一个会转的圈加一句不变的话，
+   * 与「卡死了」在屏幕上长得一模一样。人类最早那张「深度研究 5:20 一屏白」的截图
+   * 就是这个场景。
+   *
+   * 「已等待 N 秒」是**真事实**（我们确实知道等了多久），不是伪造的进度百分比——
+   * 后者才是这个文件头注一直在拒绝的那种「界面从未验证过的谎言」。
+   */
+  const [elapsedSec, setElapsedSec] = React.useState(0);
+  const startedAt = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!active) { startedAt.current = null; setElapsedSec(0); return undefined; }
+    startedAt.current ??= Date.now();
+    const tick = (): void => {
+      setElapsedSec(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000));
+    };
+    tick();
+    const timer = setInterval(tick, 1_000);
+    return () => { clearInterval(timer); };
+  }, [active]);
+
   if (!active) return null;
   const runningEntry = entries.find((entry) => entry.status === "running");
   const completed = entries.filter((entry) => entry.status === "succeeded" || entry.status === "failed").length;
@@ -80,6 +105,7 @@ export function RunTraceLiveStrip({ entries, active }: {
         ? liveLabel(runningEntry)
         : lastSettled === undefined ? "正在推进任务" : settledLabel(lastSettled)}
       {completed > 0 ? ` · 已完成 ${String(completed)} 个动作` : ""}
+      {elapsedSec >= 3 ? ` · 已等待 ${String(elapsedSec)} 秒` : ""}
     </span>
   </span>;
 }
