@@ -595,7 +595,9 @@ export async function readDigitalInterviewWorkflow(
   const researchBrief = briefs.rows[0]?.brief ?? null;
   const moderatorPolicy = policies.rows[0]?.policy ?? null;
   const briefIssues = researchBrief ? assessBrief(researchBrief) : [];
-  const expertIssues = researchBrief ? assessExpertCoverage({ brief: researchBrief, experts: mappedExperts }) : [];
+  const selectedExpertIds = new Set(row.selected_expert_ids);
+  const expertIssues = researchBrief ? assessExpertCoverage({ brief: researchBrief,
+    experts: mappedExperts.filter((expert) => selectedExpertIds.has(expert.expertId)) }) : [];
   const questionFindings = researchBrief
     ? assessQuestionQuality({ brief: researchBrief, questions: mappedQuestions, selectedExpertIds: row.selected_expert_ids })
     : [];

@@ -21,6 +21,7 @@ import {
 import type { DatabasePort, TenantSession } from "../../../application/ports/database.port";
 import { guard, type Guarded } from "../../../application/security/permission-filter";
 import { scopeIsCoherent } from "../../../domain/interview/scope";
+import { canApproveReport } from "../../../domain/interview/research-quality";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
 
@@ -752,6 +753,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         [input.orgId, input.interviewId, input.revisionId],
       );
       return { topic: allowed.rows[0].topic, experts: experts.rows, questions: questions.rows,
+        moderatorPolicy: workflow.moderatorPolicy,
         existing: new Set(existing.rows.map((row) => row.expert_id)) };
     });
 
@@ -770,7 +772,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       try {
         answers = await completeInterviewRunAnswers({
           model: this.model, modelProvider: this.modelProvider!, modelId: this.modelId!,
-          topic: snapshot.topic, expert, questions,
+          topic: snapshot.topic, expert, questions, moderatorPolicy: snapshot.moderatorPolicy,
         });
       } catch (error) {
         const code = error instanceof InvalidInterviewAnswersError ? "MODEL_OUTPUT_INVALID" : "MODEL_CALL_FAILED";
@@ -833,7 +835,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
       if (workflow.report?.reportId !== input.reportId) throw new DigitalInterviewWorkflowError("REPORT_REVIEW_BLOCKED");
-      if (input.status === "approved" && workflow.quality.evidenceCoverage.some((cell) => cell.status === "missing")) {
+      const sourceReferencesValid = workflow.report.findings.every((finding) => workflow.expertRuns.some((run) =>
+        run.expertId === finding.expertId && run.answers.some((answer) => answer.questionId === finding.questionId)));
+      const approval = canApproveReport({ legacy: workflow.researchBrief === null,
+        evidenceCoverage: workflow.quality.evidenceCoverage, sourceReferencesValid });
+      if (input.status === "approved" && !approval.allowed) {
         throw new DigitalInterviewWorkflowError("REPORT_REVIEW_BLOCKED");
       }
       await session.query(
@@ -1266,7 +1272,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
                (org_id,revision_id,question_id,expert_id,ordinal,body,purpose,section,goal_ids)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [input.orgId, input.revisionId, this.ids.next("itv-question-draft"), expert.expertId,
-              ordinal, question.text, question.purpose, questionIndex === 2 ? "counterexample" : "core", goalIds],
+              ordinal, question.text, question.purpose, questionIndex === 2 ? "counterexample" : "core",
+              goalIds.length ? [goalIds[questionIndex % goalIds.length]!] : []],
           );
         }
       }
@@ -1580,6 +1587,14 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
            (org_id,id,interview_id,revision_id,version_number,topic,is_current,created_by)
          VALUES ($1,$2,$3,$4,1,$5,true,$6)`,
         [input.orgId, this.ids.next("itv-topic"), input.interviewId, revisionId, topic, input.actorId],
+      );
+      await session.query(
+        `INSERT INTO digital_interview_research_briefs
+           (org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by)
+         SELECT org_id,$4,interview_id,$3,brief,rule_version,$5,$6
+           FROM digital_interview_research_briefs WHERE org_id=$1 AND revision_id=$2`,
+        [input.orgId, current.revision_id, revisionId, this.ids.next("itv-brief"),
+          `${input.command.requestId}:branch-brief`, input.actorId],
       );
     }
     if (input.nodeName === "confirm_experts" && input.command.kind === "confirm_experts") {
