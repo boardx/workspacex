@@ -12,6 +12,12 @@ import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
+import { WHITEBOARD_FILE_EXPORT_REPOSITORY, WHITEBOARD_FILE_EXPORT_SERVICE, WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_RENDERER, type WhiteboardFileExportRepository, type WhiteboardFileExportSource, type WhiteboardFileRenderer } from './application/whiteboard/file-export-ports';
+import { DefaultWhiteboardFileExportService } from './application/whiteboard/file-export-service';
+import { PgWhiteboardFileExportSource } from './infrastructure/whiteboard/pg-whiteboard-file-export-source';
+import { PgWhiteboardFileExportRepository } from './infrastructure/whiteboard/pg-whiteboard-file-export-repository';
+import { NodeBoardFileRenderer } from './infrastructure/whiteboard/board-file-renderer';
+import { WhiteboardFileExportController } from './interface/controllers/whiteboard-file-export.controller';
 import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
 import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
 import { whiteboardRoomSecret } from './infrastructure/whiteboard/room-secret';
@@ -1065,6 +1071,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardFileExportController,
     WhiteboardRoomController,
     WhiteboardWorkshopController,
     WhiteboardOperationsController,
@@ -2909,6 +2916,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardTransferStore(db, collaboration, validator),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
     },
+    {
+      provide: WHITEBOARD_FILE_EXPORT_SOURCE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardFileExportSource(db, collaboration, validator),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: WHITEBOARD_FILE_EXPORT_SERVICE,
+      useFactory: (source: WhiteboardFileExportSource, repository: WhiteboardFileExportRepository, objects: ObjectStore, renderer: WhiteboardFileRenderer) => new DefaultWhiteboardFileExportService(source, repository, objects, renderer),
+      inject: [WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_EXPORT_REPOSITORY, OBJECT_STORE, WHITEBOARD_FILE_RENDERER],
+    },
+    { provide: WHITEBOARD_FILE_EXPORT_REPOSITORY, useFactory: (db: DatabasePort) => new PgWhiteboardFileExportRepository(db), inject: [DATABASE_PORT] },
+    { provide: WHITEBOARD_FILE_RENDERER, useFactory: () => new NodeBoardFileRenderer() },
     {
       provide: WHITEBOARD_ROOM_REPOSITORY,
       // Resolve the production-only secret on first room operation. A deployment
