@@ -48,24 +48,33 @@ function fixture(options:{cleanupError?:Error}={}){
 }
 
 describe('whiteboard access-receipt maintenance scheduler',()=>{
-  it('is wired into repository composition and is enabled by the production runtime flag',()=>{
+  it('requires the real worker in supported runtimes and only permits dependency-free unit modules',()=>{
     const providers=Reflect.getMetadata('providers',KernelModule) as Array<{
       provide?:symbol;useFactory?:(...args:never[])=>unknown;inject?:unknown[];
     }>;
     const maintenance=providers.find(provider=>provider.provide===WHITEBOARD_RECEIPT_MAINTENANCE)!;
     const repository=providers.find(provider=>provider.provide===WHITEBOARD_REPOSITORY)!;
     expect(repository.inject).toContain(WHITEBOARD_RECEIPT_MAINTENANCE);
-    const prior=process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+    const priorFlag=process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+    const priorNodeEnv=process.env.NODE_ENV;
     try{
+      process.env.NODE_ENV='production';
       delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
-      expect(maintenance.useFactory!()).toBeNull();
-      process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE='1';
       const state=fixture();
+      expect(()=>maintenance.useFactory!(state.db as never,state.logger as never))
+        .toThrow('whiteboard_receipt_maintenance_configuration_missing');
+      process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE='1';
       expect(maintenance.useFactory!(state.db as never,state.logger as never))
         .toBeInstanceOf(PgWhiteboardReceiptMaintenance);
+
+      process.env.NODE_ENV='test';
+      delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+      expect(maintenance.useFactory!(state.db as never,state.logger as never)).toBeNull();
     }finally{
-      if(prior===undefined)delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
-      else process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=prior;
+      if(priorFlag===undefined)delete process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE;
+      else process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=priorFlag;
+      if(priorNodeEnv===undefined)delete process.env.NODE_ENV;
+      else process.env.NODE_ENV=priorNodeEnv;
     }
   });
 

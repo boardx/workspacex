@@ -2904,8 +2904,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_RECEIPT_MAINTENANCE,
-      useFactory: (db:DatabasePort,logger:LoggerPort) => process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE==='1'
-        ? new PgWhiteboardReceiptMaintenance(db,logger) : null,
+      useFactory: (db:DatabasePort,logger:LoggerPort) => {
+        if(process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE==='1'){
+          return new PgWhiteboardReceiptMaintenance(db,logger);
+        }
+        // Unit modules do not own an external pg-boss lifecycle. Every real API runtime must
+        // select the worker explicitly: otherwise Board sync appears healthy until the first
+        // hello needs an access receipt, then fails as a misleading authorization denial.
+        if(process.env.NODE_ENV==='test'&&process.env.KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE!=='1')return null;
+        throw new Error('whiteboard_receipt_maintenance_configuration_missing');
+      },
       inject: [DATABASE_PORT,LOGGER_PORT],
     },
     {

@@ -64,6 +64,7 @@ describe("deploy.env 的新增必需键要能补进存量文件", () => {
     expect(status).toBe(0);
     expect(env).toMatch(/^DIAG_DB_PASSWORD=.+$/m);
     expect(env).toMatch(/^DIAG_DB_USER=app_diag_ro$/m);
+    expect(env).toMatch(/^KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=1$/m);
   });
 
   it("① 反证（最重要的一条）：已有的值一个字符都不许被改写", () => {
@@ -83,6 +84,7 @@ describe("deploy.env 的新增必需键要能补进存量文件", () => {
 
   it("② deploy.sh 在用之前先点名，且报错里给出可照做的修法", () => {
     expect(DEPLOY).toMatch(/for required_key in .*DIAG_DB_PASSWORD/);
+    expect(DEPLOY).toMatch(/for required_key in .*KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE/);
     const block = DEPLOY.slice(DEPLOY.indexOf("for required_key in"));
     expect(block).toContain("provision.sh");
     expect(block).toContain("exit 1");
@@ -92,5 +94,11 @@ describe("deploy.env 的新增必需键要能补进存量文件", () => {
     expect(DEPLOY.indexOf("for required_key in")).toBeLessThan(
       DEPLOY.indexOf("ALTER ROLE app_diag_ro PASSWORD"),
     );
+  });
+
+  it("③ Board receipt worker queue is installed before the API restarts", () => {
+    const setup = "pnpm --filter api exec tsx scripts/setup-standard-scheduler.ts";
+    expect(DEPLOY).toContain(setup);
+    expect(DEPLOY.indexOf(setup)).toBeLessThan(DEPLOY.indexOf("systemctl restart workspacex-api"));
   });
 });

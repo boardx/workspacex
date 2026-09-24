@@ -163,6 +163,15 @@ describe("#387 trusted full-stack gate contract", () => {
     }
   });
 
+  it("starts Board receipt maintenance as one validated API topology", () => {
+    const config = read("apps/web/playwright.fullstack-smoke.config.ts");
+    const setup = "pnpm --filter @repo/api exec tsx scripts/setup-standard-scheduler.ts";
+    const start = "pnpm --filter @repo/api start";
+    expect(config).toContain(setup);
+    expect(config).toContain('KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE: "1"');
+    expect(config.indexOf(setup)).toBeLessThan(config.indexOf(start));
+  });
+
   it("walks the real Files entry and asserts every required 2xx response", () => {
     const spec = read("apps/web/e2e/fullstack-smoke.spec.ts");
     expect(spec).toContain("javaScriptEnabled: false");
