@@ -213,4 +213,15 @@ describe('Board collaboration soak evidence', () => {
     expect(manifest.scripts['verify:whiteboard-collaboration-soak']).toContain('with-test-isolation.ts');
     expect(manifest.scripts['verify:whiteboard-collaboration-soak:raw']).toContain('run-whiteboard-soak.ts');
   });
+
+  it('clones the complete committed browser session and keeps soak state context-local', () => {
+    const source = readFileSync(new URL('../../e2e/whiteboard-collaboration-soak.spec.ts', import.meta.url), 'utf8');
+    expect(source).toContain('storageState: await context.storageState()');
+    expect(source).toContain('browser.newContext({ baseURL, storageState: session.storageState })');
+    expect(source).toContain("sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1')");
+    expect(source).toContain("await expect(page).toHaveURL(/\\/login(?:\\?|$)/)");
+    expect(source).toContain("getByTestId('role-bar-org')");
+    expect(source).toContain("sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK_CLONE_PROOF__')");
+    expect(source).not.toContain('localStorage.setItem(key, value); sessionStorage.setItem');
+  });
 });

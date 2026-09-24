@@ -42,9 +42,14 @@ async function login(page: Page, actor: 'OWNER' | 'EDITOR' | 'VIEWER'): Promise<
   return token;
 }
 
-async function loginToken(browser: Browser, baseURL: string | undefined, actor: 'OWNER' | 'EDITOR' | 'VIEWER'): Promise<string> {
+type AuthenticatedSession = { token: string; storageState: Awaited<ReturnType<BrowserContext['storageState']>> };
+
+async function loginSession(browser: Browser, baseURL: string | undefined, actor: 'OWNER' | 'EDITOR' | 'VIEWER'): Promise<AuthenticatedSession> {
   const context = await browser.newContext({ baseURL });
-  try { return await login(await context.newPage(), actor); }
+  try {
+    const token = await login(await context.newPage(), actor);
+    return { token, storageState: await context.storageState() };
+  }
   finally { await context.close(); }
 }
 
@@ -57,10 +62,32 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
 }
 
 type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;requiredOfflineMs:number;expectedClients:number;expectedWriters:number;expectedReconnects:number};
-async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string, soakRun: SoakRunRequest): Promise<BrowserContext> {
-  const context = await browser.newContext({ baseURL });
-  await context.addInitScript(({ key, value, run }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__', JSON.stringify(run)); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token, run: soakRun });
+async function authenticatedContext(browser: Browser, baseURL: string | undefined, session: AuthenticatedSession, soakRun: SoakRunRequest): Promise<BrowserContext> {
+  const context = await browser.newContext({ baseURL, storageState: session.storageState });
+  await context.addInitScript(run => { sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__', JSON.stringify(run)); }, soakRun);
   return context;
+}
+
+async function proveSessionCloneBoundary(browser: Browser, baseURL: string | undefined, session: AuthenticatedSession, expectedRole: string, soakRun: SoakRunRequest): Promise<void> {
+  const tokenOnly = await browser.newContext({ baseURL });
+  try {
+    await tokenOnly.addInitScript(({ key, token }) => localStorage.setItem(key, token), { key: SESSION_TOKEN_STORAGE_KEY, token: session.token });
+    const page = await tokenOnly.newPage();
+    await page.goto('/projects');
+    await expect(page).toHaveURL(/\/login(?:\?|$)/);
+  } finally { await tokenOnly.close(); }
+
+  const clones = await Promise.all([0, 1].map(() => authenticatedContext(browser, baseURL, session, soakRun)));
+  try {
+    const pages = await Promise.all(clones.map(context => context.newPage()));
+    await Promise.all(pages.map(page => page.goto('/projects')));
+    await Promise.all(pages.map(async page => {
+      await expect(page).toHaveURL(/\/projects$/);
+      await expect(page.getByTestId('role-bar-org')).toContainText(expectedRole);
+    }));
+    await pages[0]!.evaluate(() => sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_CLONE_PROOF__', 'first'));
+    await expect.poll(() => pages[1]!.evaluate(() => sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK_CLONE_PROOF__'))).toBeNull();
+  } finally { await Promise.all(clones.map(context => context.close())); }
 }
 
 async function waitSynced(page: Page, timeout = 30_000): Promise<void> {
@@ -156,15 +183,18 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     browserVersion = browser.version();
     const environment={ os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' };
     const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:config.durationMs,requiredOfflineMs:config.offlineMs,expectedClients:config.clients,expectedWriters:config.writers,expectedReconnects:Math.min(5,config.writers)};
-    ownerToken = await loginToken(browser, baseURL, 'OWNER');
-    const editorToken = await loginToken(browser, baseURL, 'EDITOR');
-    viewerToken = await loginToken(browser, baseURL, 'VIEWER');
+    const ownerSession = await loginSession(browser, baseURL, 'OWNER');
+    const editorSession = await loginSession(browser, baseURL, 'EDITOR');
+    const viewerSession = await loginSession(browser, baseURL, 'VIEWER');
+    ownerToken = ownerSession.token;
+    viewerToken = viewerSession.token;
+    await proveSessionCloneBoundary(browser, baseURL, editorSession, '项目负责人', {...runBase,purpose:'initial'});
     const created = await apiRequest(request, ownerToken, 'POST', '/whiteboards', { requestId: randomUUID(), name: `50 browser soak ${exactSha.slice(0, 8)}` });
     boardId = (await created.json() as { id: string }).id;
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_EDITOR_USER_ID'), role: 'editor' });
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_VIEWER_USER_ID'), role: 'viewer' });
     for (let index = 0; index < config.clients; index++) {
-      const context = await authenticatedContext(browser, baseURL, index < config.writers ? editorToken : viewerToken,{...runBase,purpose:'initial'});
+      const context = await authenticatedContext(browser, baseURL, index < config.writers ? editorSession : viewerSession,{...runBase,purpose:'initial'});
       contexts.push(context); pages.push(await context.newPage());
     }
 
@@ -229,7 +259,7 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     clientResults.push(...await Promise.all(pages.map(page => clientResult(page, operations.length))));
     const replaced = config.clients - 1; await contexts[replaced]!.close(); contexts.splice(replaced, 1); pages.splice(replaced, 1);
     if (!viewerToken) throw new Error('viewer token missing before fresh-client verification');
-    const freshContext = await authenticatedContext(browser, baseURL, viewerToken,{...runBase,purpose:'fresh'});
+    const freshContext = await authenticatedContext(browser, baseURL, viewerSession,{...runBase,purpose:'fresh'});
     contexts.push(freshContext); const freshPage = await freshContext.newPage(); pages.push(freshPage);
     await freshPage.goto(`/studio/board/${boardId}`); await waitSynced(freshPage); freshClient = await clientResult(freshPage, operations.length);
     await Promise.all(contexts.map(context => context.close())); contexts.length = 0; pages.length = 0;
