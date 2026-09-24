@@ -74,6 +74,8 @@ const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: st
   { pattern: /^(\w+) is required in production$/ },
   { pattern: /^(\w+) must contain at least \d+ bytes$/ },
   { pattern: /^(\w+) must be filesystem or hosted$/, placeholder: "filesystem" },
+  { pattern: /^(\w+) must be development-env or versioned-kms$/, placeholder: "versioned-kms" },
+  { pattern: /^(\w+) must be aliyun-oss or s3-compatible$/, placeholder: "s3-compatible" },
   { pattern: /^filesystem Board blob storage requires (\w+)=true in production$/, placeholder: "true" },
   { pattern: /^(\w+) must be an explicit absolute durable path in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
   { pattern: /^(\w+) must point to durable storage in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },

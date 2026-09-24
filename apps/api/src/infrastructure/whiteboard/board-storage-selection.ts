@@ -45,14 +45,14 @@ export function readBoardStorageSelection(env: NodeJS.ProcessEnv = process.env):
   const hostedValue = env.WORKSPACEX_BOARD_HOSTED_PROVIDER?.trim();
   const blobProvider: BoardBlobProviderKind = topology === 'filesystem' ? 'filesystem'
     : hostedValue === 'aliyun-oss' || hostedValue === 's3-compatible' ? hostedValue
-    : (() => { throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_HOSTED_PROVIDER is missing or unsupported'); })();
+    : (() => { throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_HOSTED_PROVIDER must be aliyun-oss or s3-compatible'); })();
 
   const keyValue = env.WORKSPACEX_BOARD_KEY_PROVIDER?.trim();
   const keyProvider = keyValue === undefined || keyValue === ''
     ? production ? undefined : 'development-env'
     : keyValue;
   if (keyProvider !== 'development-env' && keyProvider !== 'versioned-kms') {
-    throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'WORKSPACEX_BOARD_KEY_PROVIDER is missing or unsupported');
+    throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms');
   }
   if (production && keyProvider === 'development-env') {
     throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'development board keys cannot be used in production');

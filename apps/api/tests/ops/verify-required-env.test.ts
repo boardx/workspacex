@@ -21,7 +21,16 @@ process.env.KERNEL_QUIET = "1";
 const ORIGINAL_MODEL_KEY = process.env[MODEL_CREDENTIAL_KEY_ENV];
 const ORIGINAL_EMAIL_SECRET = process.env.EMAIL_VERIFICATION_SECRET;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
-const BOARD_ENV = ["WORKSPACEX_BOARD_BLOB_PROVIDER", "WORKSPACEX_BOARD_SINGLE_REPLICA", "WORKSPACEX_BOARD_BLOB_ROOT"] as const;
+const BOARD_ENV = [
+  "WORKSPACEX_BOARD_BLOB_PROVIDER",
+  "WORKSPACEX_BOARD_SINGLE_REPLICA",
+  "WORKSPACEX_BOARD_BLOB_ROOT",
+  "WORKSPACEX_BOARD_HOSTED_PROVIDER",
+  "WORKSPACEX_BOARD_KEY_PROVIDER",
+  "WORKSPACEX_BOARD_KEY_DIRECTORY",
+  "WORKSPACEX_BOARD_KMS_ENDPOINT",
+  "WORKSPACEX_BOARD_KMS_TOKEN",
+] as const;
 const ORIGINAL_BOARD_ENV = new Map(BOARD_ENV.map(name => [name, process.env[name]]));
 
 function restoreEnv(): void {
@@ -44,6 +53,10 @@ function restoreEnv(): void {
 function configureProductionBoardStorage(): void {
   process.env.WORKSPACEX_BOARD_SINGLE_REPLICA = "true";
   process.env.WORKSPACEX_BOARD_BLOB_ROOT = "/var/lib/workspacex-required-env-test";
+  process.env.WORKSPACEX_BOARD_KEY_PROVIDER = "versioned-kms";
+  process.env.WORKSPACEX_BOARD_KEY_DIRECTORY = "/var/lib/workspacex-required-env-test/keys";
+  delete process.env.WORKSPACEX_BOARD_KMS_ENDPOINT;
+  delete process.env.WORKSPACEX_BOARD_KMS_TOKEN;
 }
 
 describe("verify-required-env: fail-closed before the restart, missing var named", () => {
@@ -92,6 +105,8 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     // Only in production does EMAIL_VERIFICATION_SECRET become required -- reproduces the
     // actual deploy-time condition, not just the unit-level function.
     process.env.NODE_ENV = "production";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
 
     const result = await probeRequiredEnv();
 
@@ -146,6 +161,41 @@ describe("verify-required-env: fail-closed before the restart, missing var named
       name: "WORKSPACEX_BOARD_BLOB_PROVIDER",
       message: "WORKSPACEX_BOARD_BLOB_PROVIDER must be filesystem or hosted",
     });
+  });
+
+  it("Board key provider 缺失时点名变量，用 versioned-kms sentinel 后继续完成探测", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
+    delete process.env.WORKSPACEX_BOARD_KEY_PROVIDER;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toContain("WORKSPACEX_BOARD_KEY_PROVIDER");
+    expect(result.invalidVars).not.toContainEqual(expect.objectContaining({ name: "WORKSPACEX_BOARD_KEY_PROVIDER" }));
+    expect(process.env.WORKSPACEX_BOARD_KEY_PROVIDER).toBeUndefined();
+  });
+
+  it("Board key provider 非法时归为 invalid，且保留合法值集合的原因", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "filesystem";
+    configureProductionBoardStorage();
+    process.env.WORKSPACEX_BOARD_KEY_PROVIDER = "not-a-key-provider";
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).not.toContain("WORKSPACEX_BOARD_KEY_PROVIDER");
+    expect(result.invalidVars).toContainEqual({
+      name: "WORKSPACEX_BOARD_KEY_PROVIDER",
+      message: "WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms",
+    });
+    expect(process.env.WORKSPACEX_BOARD_KEY_PROVIDER).toBe("not-a-key-provider");
   });
 
   it("探测不到归因的失败会响亮地抛，而不是悄悄放行（机械门控，不猜）", async () => {

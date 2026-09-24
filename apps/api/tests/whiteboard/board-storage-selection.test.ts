@@ -21,6 +21,17 @@ describe('Board storage provider selection', () => {
     expect(() => readBoardStorageSelection({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/board', WORKSPACEX_BOARD_KEY_PROVIDER: 'development-env' })).toThrow(/development board keys/);
   });
 
+  it('reports provider-specific legal values for missing and invalid hosted/key selections', () => {
+    const filesystem = { NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/board' };
+    expect(() => readBoardStorageSelection(filesystem)).toThrow('WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms');
+    expect(() => readBoardStorageSelection({ ...filesystem, WORKSPACEX_BOARD_KEY_PROVIDER: 'invalid' }))
+      .toThrow('WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms');
+    const hosted = { NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted', WORKSPACEX_BOARD_KEY_PROVIDER: 'versioned-kms' };
+    expect(() => readBoardStorageSelection(hosted)).toThrow('WORKSPACEX_BOARD_HOSTED_PROVIDER must be aliyun-oss or s3-compatible');
+    expect(() => readBoardStorageSelection({ ...hosted, WORKSPACEX_BOARD_HOSTED_PROVIDER: 'invalid' }))
+      .toThrow('WORKSPACEX_BOARD_HOSTED_PROVIDER must be aliyun-oss or s3-compatible');
+  });
+
   it('requires complete Hosted bucket and prefix configuration without echoing values', () => {
     expect(() => readBoardStorageSelection({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted', WORKSPACEX_BOARD_HOSTED_PROVIDER: 'aliyun-oss', WORKSPACEX_BOARD_KEY_PROVIDER: 'versioned-kms' })).toThrow(/BLOB_BUCKET/);
     const secretPath = 'private/../escape';
