@@ -24,7 +24,7 @@
     "lint:user-facing-error-text": "node .harness/scripts/lint-user-facing-error-text.mjs",
     "lint:tailwind-color-tokens": "node .harness/scripts/lint-tailwind-color-tokens.mjs",
     "lint:chat-path-coverage": "node .harness/scripts/lint-chat-path-coverage.mjs",
-    "lint:vitest-config-reachability": "node .harness/scripts/lint-vitest-config-reachability.mjs",
+    "lint:vitest-config-reachability": "pnpm exec tsx .harness/scripts/lint-vitest-config-reachability.mjs",
     "lint:graph": "pnpm harness graph validate --no-cache",
     "lint:feature-transition": "pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition",
     "lint:body-path-param-leak": "pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs",
