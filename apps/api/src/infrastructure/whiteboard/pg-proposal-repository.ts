@@ -14,7 +14,12 @@ function canonical(v:unknown):unknown{if(Array.isArray(v))return v.map(canonical
 export class PgProposalRepository implements WhiteboardProposals {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore){}
   private async access(s:TenantSession,p:Principal,boardId:string,write:boolean):Promise<boolean>{
-    const board=await s.query<{owner_id:string;archived:boolean}>('SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE',[p.orgId,boardId]);
+    // Five-second proposal polling is read-only and must not contend with board
+    // mutations. Writes take the board row lock because create's quota check and
+    // every decision must remain serialized for the whole tenant transaction.
+    const board=write
+      ? await s.query<{owner_id:string;archived:boolean}>('SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE',[p.orgId,boardId])
+      : await s.query<{owner_id:string;archived:boolean}>('SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2',[p.orgId,boardId]);
     const b=board.rows[0];if(!b||(write&&b.archived))return false;
     const role=await s.query<{role:string}>(`SELECT CASE WHEN $3=$4 THEN 'owner' ELSE m.role END AS role FROM org_memberships o
       LEFT JOIN whiteboard_members m ON m.org_id=o.org_id AND m.user_id=o.user_id AND m.board_id=$2

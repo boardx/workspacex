@@ -51,7 +51,9 @@ function audit(code: string): string[] {
     if (auth < 0 || content < 0 || auth > content) errors.push(`${name}: authorize before content`);
   }
   const access = methods.get('access') ?? '';
-  if (!/FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR UPDATE/.test(access)) errors.push('board tenant lock');
+  const writeBoardSql="'SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE'";
+  const readBoardSql="'SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2'";
+  if (!access.includes('const board=write') || !access.includes(writeBoardSql) || !access.includes(readBoardSql) || access.indexOf(writeBoardSql)>access.indexOf(readBoardSql)) errors.push('write-only board lock');
   if (!/FROM org_memberships o/.test(access) || !/m\.org_id=o\.org_id AND m\.user_id=o\.user_id AND m\.board_id=\$2/.test(access)) errors.push('membership join scope');
   if (!/WHERE o\.org_id=\$1 AND o\.user_id=\$3/.test(access) || !/\[p\.orgId,boardId,p\.userId,b\.owner_id\]/.test(access)) errors.push('membership actor scope');
   if (!/write&&b\.archived/.test(access) || !/!write\|\|role\.rows\[0\]\.role!==\s*'viewer'/.test(access)) errors.push('write role/archive gate');
@@ -99,5 +101,9 @@ describe('whiteboard proposal repository permission exemption', () => {
     const unlockedBoard = source.replace('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE', 'FROM whiteboards WHERE org_id=$1 AND id=$2');
     expect(unlockedBoard).not.toBe(source);
     expect(audit(unlockedBoard)).toContain('create: serialized quota');
+    expect(audit(unlockedBoard)).toContain('write-only board lock');
+    const lockedRead = source.replace("'SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2',[p.orgId,boardId]);", "'SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE',[p.orgId,boardId]);");
+    expect(lockedRead).not.toBe(source);
+    expect(audit(lockedRead)).toContain('write-only board lock');
   });
 });
