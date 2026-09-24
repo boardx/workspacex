@@ -19,4 +19,3 @@ it('retains connectors whose segment crosses the viewport using indexed endpoint
     orderKey: '', connector: { from: 'a', to: 'b' } };
   expect(selectVisibleObjects([a, b, connector], { x: 0, y: 0, width: 500, height: 500 }, new Set(), 0)).toEqual([connector]);
 });
-

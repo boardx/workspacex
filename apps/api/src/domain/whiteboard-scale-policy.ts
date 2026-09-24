@@ -37,4 +37,3 @@ export const WHITEBOARD_SCALE_POLICY = {
     workerHeapMb: 128,
   },
 } as const;
-

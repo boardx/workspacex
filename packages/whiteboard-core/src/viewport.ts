@@ -28,4 +28,3 @@ export function selectVisibleObjects(objects: readonly WhiteboardObject[], viewp
     return selected.has(object.id) || intersects(bounds, viewport, margin);
   });
 }
-

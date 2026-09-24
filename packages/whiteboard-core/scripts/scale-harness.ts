@@ -44,4 +44,3 @@ const passed = measurements.objectCount === guardrails.objectCount && measuremen
 process.stdout.write(`${JSON.stringify({ kind: 'whiteboard-pure-scale-harness', environment: { node: process.version, platform: process.platform, arch: process.arch }, guardrails, measurements, passed }, null, 2)}\n`);
 authority.destroy(); replica.destroy();
 if (!passed) process.exitCode = 1;
-
