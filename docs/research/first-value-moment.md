@@ -41,7 +41,7 @@
 
 - **本地先行**：每步只记「某组织第一次发生的时刻」（`FirstValueLocalFact`），永不离开实例；
   实例内的管理员可以直接看自己组织的漏斗。
-- **离开实例**：只有本地聚合后的计数（`FirstValueFunnelReport`：各步到达的组织数、
+- **离开实例**：只有本地聚合后的计数（`FirstValueFunnelCounts`，作为 S2 上报 `usage` 分节的 `firstValueFunnel`（D33）：各步到达的组织数、
   预算内到达数），且仅当 `usage` 同意开启（出厂默认关）。
 - 无自由文本、无文件名、无问题 / 回答原文、无组织名；`personal-local` 组织不计入上报。
   由 `pnpm run lint:telemetry-schema` 对两层 schema 机械检查。
@@ -51,4 +51,4 @@
 
 1. ~~时间预算取值~~ **已定（D30，2026-09-24）：15 分钟，从组织首次登录起**。
 2. ~~中位数两处声明~~ 已收敛：只留 S2 的 `firstValueMedianMinutes`，本契约只算不存。
-3. 漏斗计数是否并入 `InstanceTelemetryReport.usage` 分节（同一同意项），还是保持独立报文。
+3. ~~并入还是独立报文~~ **已定（D33，2026-09-24 签核照现稿）：并入 S2 `usage` 分节**。

@@ -102,6 +102,9 @@ export * as skillFileEdit from "./skill-file-edit";
 /** 客户实例运行信号上报契约（超级实例 S2；2026-09-24 人类签核 D27，周期每天一次 D28）。 */
 export * as instanceTelemetry from "./instance-telemetry";
 
+/** 第一个价值时刻事件目录（E1；2026-09-24 签核 D33，漏斗计数并入 S2 usage 分节）。 */
+export * as firstValueEvents from "./first-value-events";
+
 /** D12 组织大脑图节点 kind / 开发过程投影边（super-instance-design §2）。 */
 export * as ontologyProjection from "./ontology-projection";
 

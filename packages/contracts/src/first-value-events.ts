@@ -1,8 +1,8 @@
 /**
- * PROPOSED —— 第一个价值时刻的事件目录（backlog E1，E3 埋点的前置）。**待人类签核，尚未生效。**
+ * ACCEPTED —— 第一个价值时刻的事件目录（backlog E1，E3 埋点的前置）。
  *
- * 与 `instance-telemetry.ts`（S2，同为 PROPOSED）同一处境，照它的先例办理：**不从 `index.ts` 导出**，
- * 不改任何既有操作；签核之后才允许控制器消费。定义与理由见 `docs/research/first-value-moment.md`。
+ * 2026-09-24 人类签核（D33，照现稿）：漏斗计数并入 S2 上报的 `usage` 分节
+ * （`TelemetryUsage.firstValueFunnel`），不另立报文。定义与理由见 `docs/research/first-value-moment.md`。
  *
  * ## 第一个价值时刻（一句话）
  *
@@ -14,14 +14,13 @@
  * | 层 | 形状 | 离不离开实例 |
  * |---|---|---|
  * | 本地事实 | {@link FirstValueLocalFact}：某组织某一步第一次发生的时刻 | **永不离开**，只在实例内聚合 |
- * | 计数上报 | {@link FirstValueFunnelReport}：本周期各步到达的组织数 + 耗时中位数 | **仅在 `usage` 同意开启时**（D16/D22：默认关） |
+ * | 计数上报 | {@link FirstValueFunnelCounts}：各步到达的组织数 + 预算内到达数，放进 S2 `usage` 分节 | **仅在 `usage` 同意开启时**（D16/D22：默认关） |
  *
  * 每个事件都是「计数的事实」：到没到、何时到。没有任何自由文本、文件名、问题原文或回答原文——
  * 由 `.harness/scripts/lint-telemetry-schema.mjs` 对两层 schema 都做机械检查。
  * `personal-local` 组织的事实在本地照样记（给本机用户自己看），但**不进入**计数上报。
  */
 import { z } from "zod";
-import { InstanceId } from "./instance-telemetry";
 import type { TelemetryConsentItemValue } from "./instance-telemetry";
 
 /** 价值时刻的时间预算（分钟），从组织第一次登录算起。 */
@@ -74,15 +73,12 @@ const StepCounts = z
   .object(Object.fromEntries(FirstValueStep.options.map((s) => [s, Count])) as Record<FirstValueStepValue, typeof Count>)
   .strict();
 
-/** 计数上报：只在 `usage` 同意开启时离开实例。 */
-export const FirstValueFunnelReport = z
+/**
+ * 漏斗计数：只在 `usage` 同意开启时离开实例，作为 S2 `TelemetryUsage.firstValueFunnel`（D33）。
+ * 实例、周期、同意与 personal-local 排除由 S2 信封承载，这里不重复声明。
+ */
+export const FirstValueFunnelCounts = z
   .object({
-    schemaVersion: z.literal(1),
-    instanceId: InstanceId,
-    periodEnd: z.string().datetime(),
-    /** 离开实例所依据的同意项——字面量，只能是 `usage`。 */
-    consentItem: z.literal("usage"),
-    excludesPersonalLocalOrgs: z.literal(true),
     /** 截至本周期末，累计到达各步的组织数（不含 personal-local）。 */
     orgsReachedStep: StepCounts,
     // 耗时中位数**不在这里**：它已是 S2 签核契约 `TelemetryBenchmark.firstValueMedianMinutes`
@@ -97,7 +93,7 @@ export const FirstValueFunnelReport = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["orgsWithinBudget"], message: "预算内到达数不能超过到达价值时刻的组织数" });
     }
   });
-export type FirstValueFunnelReportValue = z.infer<typeof FirstValueFunnelReport>;
+export type FirstValueFunnelCountsValue = z.infer<typeof FirstValueFunnelCounts>;
 
 /** 漏斗计数能不能离开实例：只看 `usage` 一项同意（出厂默认关，D22）。 */
 export function mayLeaveInstance(consent: Record<TelemetryConsentItemValue, boolean>): boolean {
@@ -154,17 +150,12 @@ export function firstValueMedianMinutes(
  */
 export function aggregateFirstValueFunnel(
   facts: readonly FirstValueLocalFactValue[],
-  meta: { instanceId: string; periodEnd: string },
-): FirstValueFunnelReportValue {
-  const firstAt = earliestByOrg(facts, meta.periodEnd);
+  periodEnd: string,
+): FirstValueFunnelCountsValue {
+  const firstAt = earliestByOrg(facts, periodEnd);
   const counts = Object.fromEntries(FirstValueStep.options.map((s) => [s, 0])) as Record<FirstValueStepValue, number>;
   for (const byStep of firstAt.values()) for (const s of byStep.keys()) counts[s]++;
-  return FirstValueFunnelReport.parse({
-    schemaVersion: 1,
-    instanceId: meta.instanceId,
-    periodEnd: meta.periodEnd,
-    consentItem: "usage",
-    excludesPersonalLocalOrgs: true,
+  return FirstValueFunnelCounts.parse({
     orgsReachedStep: counts,
     orgsWithinBudget: minutesToFirstValue(firstAt).filter((m) => m <= FIRST_VALUE_BUDGET_MINUTES).length,
   });

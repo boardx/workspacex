@@ -226,17 +226,17 @@ flowchart LR
 | # | 项 | 状态 | 说明 |
 |---|---|---|---|
 | D1 | 运营面骨架：发布控制台 + 事故面板 | ◐ | `apps/ops-console` 骨架（Access JWT 校验、发布只读现取 GitHub、事故 schema 门控 `lint:ops-incident-schema`）；待设计签核、Access 应用与部署 workflow |
-| D2 | GTM 活动与漏斗（只放聚合与 ID） | ◐ | `apps/ops-console` 的 `gtm-schema.ts` + `GtmLog`：活动只有不透明 id/渠道/日期，漏斗只有逐日每步人数，转化率读时派生；`lint:ops-gtm-schema` 门控。**待人**：Access 应用、上游计数来源（谁往摄入口推）、部署 |
-| D3 | CRM：边缘存 ID、源站存个人信息 | ◐ | 边缘 `crm-schema.ts` 只存 leadId + 阶段/渠道（`lint:ops-crm-schema`）；个人信息在境内源站 `crm_contacts`（RLS FORCE + PlatformOperatorGuard，契约 `crmContacts`）；详情页由**浏览器**直接回源，Worker 零请求零落盘（测试证明）。跨境传输待法务确认，未实现。**待人**：源站 CORS / 跨站 cookie、ORIGIN_CRM_BASE、真库 RLS 测试在 CI 跑一次 |
-| D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | □ | **无依赖**——D14 已定（v32.6：既是也不是，三层分开）。见 `super-instance-design.md` |
+| D2 | GTM 活动与漏斗（只放聚合与 ID） | ◐ | R17：`apps/ops-console` 活动与漏斗——只存聚合与不透明 ID，schema 由上报 schema 门控检查。待部署 |
+| D3 | CRM：边缘存 ID、源站存个人信息 | ◐ | R17：边缘只存不透明 leadId 与非个人信息状态；个人信息在境内源站（apps/api，RLS、仅平台运营者），详情页回源不落边缘。跨境传输仍待法务确认，未实现 |
+| D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | ◐ | R17：可复现部分——幂等建平台组织、把 ADR / 方法论 / 经验按投影导入本体、与 D12 同步合成一条 runbook 命令。**真实实例的部署仍待人** |
 | D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | ✅ | D27 签核、D28 每天一次；契约转 ACCEPTED 并从 `index.ts` 导出 |
-| D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | ◐ | R17：`run-telemetry-cycle` 每天一次、只出站、端点未配或总开关关时零网络；同意分项存储、「看见最近一次上报」接口；只读白名单表的静态门控。**目前只有 health 分节有数据源**，usage/diagnostics/benchmark 如实列入 `omittedForLackOfData`；设置页 UI 未做 |
+| D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | ◐ | R17：上报器 + 「上报设置」页（四项独立同意、原样展示关掉会失去什么、看见最近一次上报）。目前只有 health 分节有数据源 |
 | D10 | S4 边缘收集与投影：Workers 收、DO 聚合、Pages 呈现车队 | ◐ | R17：`apps/ops-telemetry`（运营平面）：Worker 按契约校验收报、每实例 DO 存最近报告、车队 DO 聚合、超期=2×周期、Access 后的只读车队页、可从报告重建。**待人**：部署、路由与 Access、实例安装密钥分发 |
 | D12 | 建出六跳路径所需的图节点与边：客户实例、版本、缺陷、PR（v32.8 补：此前误以为已存在） | ◐ | R17：迁移加 6 种节点 kind + 只读投影行；`ontologyProjection` 契约；`sync-dev-process-projection` 从仓库同步。仓库还没有 git tag，所以暂无 release 节点；同步未接进调度 |
-| D11 | S5 客户实例进组织大脑成一等实体，接六跳路径检索 | □ | D4 D10 **D12** |
+| D11 | S5 客户实例进组织大脑成一等实体，接六跳路径检索 | ◐ | R17：从车队投影同步 `customer_instance` 节点与 `running` 边，六跳路径检索函数。等 D10 部署后才有真实数据 |
 | D5 | 中国可达性实测 | □ | **必须实测，不可假设** |
-| D6 | Cloudflare Access 策略核对 | □ | 仓库无声明，控制台才是事实源 |
-| D7 | 启用 `CF_ACCESS_AUD` | □ | 安全待办，独立于定位 |
+| D6 | Cloudflare Access 策略核对 | ◐ | R17：仓库侧 Access 清单（哪些主机/路径应在 Access 后）+ 门禁；控制台仍是事实源，核对待人 |
+| D7 | 启用 `CF_ACCESS_AUD` | ✅ | R17：所有 Access 保护的应用强制校验 JWT（签名、aud、iss、exp），未配置即 503 失败关闭；收敛为共享的 `@repo/coord-access` 一份实现。**控制台的 AUD 值待人填** |
 
 ### 轨道 E · 产品 0→1 体验
 
@@ -244,7 +244,7 @@ flowchart LR
 |---|---|---|---|
 | E1 | 定义第一个价值时刻 + 事件定义 | ✅ | R17：`first-value-moment.md` + `first-value-events.ts`（PROPOSED）；预算 15 分钟（D30）；耗时中位数只在 S2 benchmark 声明一处 |
 | E2 | 内置脱敏示例项目 | ✅ | R17：虚构「青禾茶饮」三份示例文档 + 个人信息形态门控；新组织注册时幂等播种、`backfill-sample-projects` 给存量组织补种（deploy 4e），归档即删 |
-| E3 | 埋点并测量 | □ | **E1 + E2** |
+| E3 | 埋点并测量 | □ | D33 已签核 E1 契约，**可开工** |
 | E4 | 零出网做成用户可见状态 | ✅ | 本地版标识条上「本次启动出网 N 次」读 `GET /identity/local-org/egress-ledger`（出网守卫在连接咽喉上的实测账本，四桶：你要求的 / 已挡住 / 导出 / 意外），可点开看目的地；读不到显示「读不到」不兜成 0 |
 | E5 | 退出自由承诺 + 导出命令 | ✅ | R17：`export-org-data` 按 `org_id` 自动发现租户表，RLS 保证只出本组织；manifest 列出跳过的表与原因。真库测试走 CI |
 | E6 | 18 个技能包收敛成 3 个入口 | ✅ | R17：按 D31 方案 B 收成三个场景入口（查资料·读材料 / 用户与业务洞察 / 写给别人看），6 个底层能力默认隐藏；`skillEntryPoints` 契约是唯一事实源，门控保证每个 skill 恰好归一处 |

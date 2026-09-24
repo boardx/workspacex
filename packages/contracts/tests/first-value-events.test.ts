@@ -1,5 +1,5 @@
 /**
- * 第一个价值时刻事件目录（PROPOSED，backlog E1）的行为测试。
+ * 第一个价值时刻事件目录（ACCEPTED D33，backlog E1）的行为测试。
  * 测的是「违反约束的事实 / 上报会被拒」，以及本地聚合只把计数带出实例。
  */
 import { readFileSync } from "node:fs";
@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   FIRST_VALUE_BUDGET_MINUTES,
   FIRST_VALUE_STEP,
-  FirstValueFunnelReport,
+  FirstValueFunnelCounts,
   FirstValueLocalFact,
   FirstValueStep,
   aggregateFirstValueFunnel,
@@ -16,6 +16,7 @@ import {
   mayLeaveInstance,
   type FirstValueLocalFactValue,
 } from "../src/first-value-events";
+import { TelemetryUsage } from "../src/instance-telemetry";
 import { TELEMETRY_CONSENT_DEFAULTS } from "../src/instance-telemetry";
 
 const META = { instanceId: "a".repeat(64), periodEnd: "2026-09-24T23:59:59Z" };
@@ -27,7 +28,7 @@ const fact = (
   orgKind: FirstValueLocalFactValue["orgKind"] = "standard",
 ): FirstValueLocalFactValue => ({ orgId, orgKind, step, occurredAt: at(min) });
 
-describe("第一个价值时刻事件目录（PROPOSED）", () => {
+describe("第一个价值时刻事件目录（ACCEPTED）", () => {
   it("价值时刻是漏斗里的一步，且在「上传自己的材料」与示例回答之后", () => {
     const steps = FirstValueStep.options;
     expect(steps).toContain(FIRST_VALUE_STEP);
@@ -61,7 +62,7 @@ describe("第一个价值时刻事件目录（PROPOSED）", () => {
         fact("org-p", "first_sign_in", 0, "personal-local"),
         fact("org-p", "cited_answer_own_material", 1, "personal-local"),
       ],
-      META,
+      META.periodEnd,
     );
     expect(r.orgsReachedStep.first_sign_in).toBe(3);
     expect(r.orgsReachedStep.cited_answer_own_material).toBe(2);
@@ -73,24 +74,28 @@ describe("第一个价值时刻事件目录（PROPOSED）", () => {
 
   it("无人到达价值时刻：中位数缺席；周期末之后的事实不计", () => {
     const late = { ...fact("org-a", FIRST_VALUE_STEP, 0), occurredAt: "2026-09-25T01:00:00Z" };
-    const r = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), late], META);
+    const r = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), late], META.periodEnd);
     expect(r.orgsReachedStep[FIRST_VALUE_STEP]).toBe(0);
     expect(firstValueMedianMinutes([fact("org-a", "first_sign_in", 0), late], META.periodEnd)).toBeUndefined();
   });
 
   it("计数上报：键集合固定、自相矛盾的计数与错误的同意项被拒", () => {
-    const ok = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), fact("org-a", FIRST_VALUE_STEP, 5)], META);
-    expect(FirstValueFunnelReport.safeParse(ok).success).toBe(true);
-    expect(FirstValueFunnelReport.safeParse({ ...ok, orgsReachedStep: { ...ok.orgsReachedStep, pageViewed: 1 } }).success).toBe(false);
-    expect(FirstValueFunnelReport.safeParse({ ...ok, orgsWithinBudget: 2 }).success).toBe(false);
-    expect(FirstValueFunnelReport.safeParse({ ...ok, consentItem: "health" }).success).toBe(false);
-    expect(FirstValueFunnelReport.safeParse({ ...ok, excludesPersonalLocalOrgs: false }).success).toBe(false);
+    const ok = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), fact("org-a", FIRST_VALUE_STEP, 5)], META.periodEnd);
+    expect(FirstValueFunnelCounts.safeParse(ok).success).toBe(true);
+    expect(FirstValueFunnelCounts.safeParse({ ...ok, orgsReachedStep: { ...ok.orgsReachedStep, pageViewed: 1 } }).success).toBe(false);
+    expect(FirstValueFunnelCounts.safeParse({ ...ok, orgsWithinBudget: 2 }).success).toBe(false);
+    // 实例 / 同意 / personal-local 由 S2 信封承载，这里多带即拒
+    expect(FirstValueFunnelCounts.safeParse({ ...ok, consentItem: "usage" }).success).toBe(false);
     // 中位数只在 S2 benchmark 里声明一处；这里多带一个就拒（strict）
-    expect(FirstValueFunnelReport.safeParse({ ...ok, medianMinutesToFirstValue: 3 }).success).toBe(false);
+    expect(FirstValueFunnelCounts.safeParse({ ...ok, medianMinutesToFirstValue: 3 }).success).toBe(false);
   });
 
-  it("仍是 PROPOSED：没有从 index.ts 导出", () => {
+  it("已签核（D33）：从 index.ts 导出，且漏斗计数挂在 S2 usage 分节上", () => {
     const index = readFileSync(join(import.meta.dirname, "../src/index.ts"), "utf8");
-    expect(index).not.toMatch(/first-value-events/);
+    expect(index).toMatch(/export \* as firstValueEvents from "\.\/first-value-events"/);
+    const counts = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), fact("org-a", FIRST_VALUE_STEP, 5)], META.periodEnd);
+    const usage = { runCount: 1, tokenCount: 1, seatCount: 1, organizationCount: 1, skillPackRuns: [], firstValueFunnel: counts };
+    expect(TelemetryUsage.safeParse(usage).success).toBe(true);
+    expect(TelemetryUsage.safeParse({ ...usage, firstValueFunnel: { ...counts, orgsWithinBudget: 9 } }).success).toBe(false);
   });
 });

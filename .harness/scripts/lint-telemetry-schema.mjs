@@ -43,7 +43,7 @@ const TARGETS = [
   { module: "packages/contracts/src/instance-telemetry.ts", exportName: "InstanceTelemetryReport" },
   // backlog E1：第一个价值时刻的本地事实与计数上报（后者经 usage 同意离开实例）
   { module: "packages/contracts/src/first-value-events.ts", exportName: "FirstValueLocalFact" },
-  { module: "packages/contracts/src/first-value-events.ts", exportName: "FirstValueFunnelReport" },
+  { module: "packages/contracts/src/first-value-events.ts", exportName: "FirstValueFunnelCounts" },
 ];
 const targets = process.argv.includes("--module")
   ? arg("--export", "InstanceTelemetryReport").split(",").map((exportName) => ({ module: arg("--module"), exportName }))

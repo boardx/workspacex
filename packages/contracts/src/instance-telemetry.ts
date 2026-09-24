@@ -32,6 +32,7 @@
  */
 import { z } from "zod";
 import { DeploymentEdition } from "./deployment";
+import { FirstValueFunnelCounts } from "./first-value-events";
 
 /**
  * 上报周期（秒）——唯一事实源（D28，2026-09-24 人类决策：每天一次）。
@@ -102,6 +103,8 @@ export const TelemetryUsage = z
           .strict(),
       )
       .max(500),
+    /** 第一个价值时刻漏斗计数（E1，D33 签核并入本分节）；本周期无数据则缺席。 */
+    firstValueFunnel: FirstValueFunnelCounts.optional(),
   })
   .strict();
 

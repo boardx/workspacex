@@ -41,7 +41,7 @@ describe("lint-telemetry-schema", { timeout: 30_000 }, () => {
   it("默认目标覆盖第一个价值时刻的两层 schema（backlog E1）", () => {
     const out = execFileSync("pnpm", ["exec", "tsx", SCRIPT], { cwd: ROOT, encoding: "utf8" });
     expect(out).toMatch(/FirstValueLocalFact，叶子字段 [1-9]\d* 个，违规 0 处/);
-    expect(out).toMatch(/FirstValueFunnelReport，叶子字段 [1-9]\d* 个，违规 0 处/);
+    expect(out).toMatch(/FirstValueFunnelCounts，叶子字段 [1-9]\d* 个，违规 0 处/);
   });
 
   it("对照组：全是受约束字段的 strict 对象判绿", () => {
