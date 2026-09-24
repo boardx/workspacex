@@ -27,6 +27,7 @@ const css = files('assets/css', '.css')
   .filter((f) => !f.endsWith('site.css'))   // generated bundle; its sources are checked
   .map((f) => [basename(f), strip(read(f))]);
 const js = files('assets/js', '.js')
+  .filter((f) => !f.endsWith('site.js'))    // generated bundle; its sources are checked
   .map((f) => [basename(f), strip(read(f))])
   .concat([['index.html', strip(read('index.html'))]]);
 

@@ -86,10 +86,18 @@ jobs:
           mkdir -p /tmp/pw && cd /tmp/pw
           echo '{"name":"pw-host","private":true}' > package.json
           npm i --no-save playwright axe-core
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
           cd "$GITHUB_WORKSPACE/apps/home"
           mkdir -p node_modules
           for p in playwright playwright-core axe-core; do ln -sfn /tmp/pw/node_modules/$p node_modules/$p; done
       - name: browser suites and performance budget
         working-directory: apps/home
         run: node scripts/check-all.mjs
+      # The page as Safari draws it, for anyone reviewing without an iPhone.
+      - name: upload WebKit screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: home-webkit-screenshots
+          path: apps/home/test-results/webkit/
+          if-no-files-found: ignore
