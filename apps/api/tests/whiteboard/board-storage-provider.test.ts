@@ -5,8 +5,10 @@ import { boardBlobRoot, boardStorageProviders, ConfiguredFsBoardBlobStore } from
 import { boardBlobProviderKind } from '../../src/infrastructure/whiteboard/board-blob-runtime';
 
 describe('board storage providers', () => {
-  it('registers the store and encryption boundary without switching collaboration persistence', () => {
-    expect(boardStorageProviders.map(provider => 'provide' in provider ? provider.provide : null)).toEqual([BOARD_BLOB_STORE, BOARD_BLOB_CODEC]);
+  it('registers one validated selection feeding both storage and encryption boundaries', () => {
+    const tokens = boardStorageProviders.map(provider => 'provide' in provider ? provider.provide : null);
+    expect(tokens).toHaveLength(3);
+    expect(tokens).toEqual(expect.arrayContaining([BOARD_BLOB_STORE, BOARD_BLOB_CODEC]));
   });
 
   it('refuses a temporary filesystem root in production', () => {

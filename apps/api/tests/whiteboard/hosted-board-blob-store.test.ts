@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest';
+import { boardBlobKey, sha256 } from '../../src/domain/whiteboard/blob-identity';
+import {
+  HostedBoardBlobStore,
+  OssBoardBlobStore,
+  S3CompatibleBoardBlobStore,
+  type HostedBoardBlobClient,
+  type HostedBoardBlobObject,
+  type HostedBoardBucketPolicy,
+} from '../../src/infrastructure/whiteboard/hosted-board-blob-store';
+
+class MemoryHostedClient implements HostedBoardBlobClient {
+  provider: 'aliyun-oss' | 's3-compatible' = 's3-compatible';
+  policy: HostedBoardBucketPolicy = { access: 'private', versioning: 'enabled', objectLock: 'enabled' };
+  readonly objects = new Map<string, HostedBoardBlobObject>();
+  putFailure: Error | null = null;
+  failBeforePut = 0;
+  putCalls = 0;
+  mutateAfterPut?: (object: HostedBoardBlobObject) => void;
+  async inspectBucket() { return this.policy; }
+  async putIfAbsent(input: { key: string; bytes: Uint8Array; metadata: { cipherDigest: string; sizeBytes: number } }) {
+    this.putCalls += 1;
+    if (this.failBeforePut > 0) { this.failBeforePut -= 1; throw new Error('expired credential'); }
+    if (this.objects.has(input.key)) return 'already-exists' as const;
+    const object = { bytes: new Uint8Array(input.bytes), ...input.metadata };
+    this.objects.set(input.key, object); this.mutateAfterPut?.(object);
+    if (this.putFailure) throw this.putFailure;
+    return 'created' as const;
+  }
+  async get(key: string) { return this.objects.get(key) ?? null; }
+  async head(key: string) {
+    const value = this.objects.get(key);
+    return value ? { cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes } : null;
+  }
+}
+
+const value = (tenantId = 'org-a', content = 'hosted board bytes') => {
+  const ciphertext = Buffer.from(content), cipherDigest = sha256(ciphertext);
+  return {
+    tenantId,
+    key: boardBlobKey({ tenantId, boardId: '11111111-1111-4111-8111-111111111111', kind: 'update', cipherDigest }),
+    ciphertext: new Uint8Array(ciphertext), cipherDigest, sizeBytes: ciphertext.byteLength,
+  };
+};
+
+describe.each(['aliyun-oss', 's3-compatible'] as const)('%s BoardBlobStore contract', provider => {
+  const create = () => {
+    const client = new MemoryHostedClient(); client.provider = provider;
+    const store = provider === 'aliyun-oss'
+      ? new OssBoardBlobStore(client, { requireObjectLock: true })
+      : new S3CompatibleBoardBlobStore(client, { requireObjectLock: true });
+    return { client, store };
+  };
+
+  it('creates, immediately verifies, survives recreation, and treats identical replay as idempotent', async () => {
+    const { client, store } = create(); const input = value();
+    expect(await store.putImmutable(input)).toBe('created');
+    const restarted = provider === 'aliyun-oss'
+      ? new OssBoardBlobStore(client, { requireObjectLock: true })
+      : new S3CompatibleBoardBlobStore(client, { requireObjectLock: true });
+    expect(await restarted.putImmutable(input)).toBe('already-present-same-content');
+    expect(await restarted.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes })).toEqual(input.ciphertext);
+    expect(await restarted.head(input)).toEqual({ cipherDigest: input.cipherDigest, sizeBytes: input.sizeBytes });
+  });
+
+  it('rejects conflicting bytes, tampering, missing objects, and cross-tenant keys', async () => {
+    const { client, store } = create(); const input = value();
+    await store.putImmutable(input);
+    const conflicting = value('org-a', 'different');
+    conflicting.key = input.key;
+    await expect(store.putImmutable(conflicting)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    const existing = client.objects.get(input.key)!; existing.bytes[0]! ^= 1;
+    await expect(store.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes })).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+    const missing = value('org-a', 'missing');
+    await expect(store.getVerified({ ...missing, expectedCipherDigest: missing.cipherDigest, expectedSizeBytes: missing.sizeBytes })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(store.head({ tenantId: 'org-b', key: input.key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+
+  it('detects conflicting content at an occupied content-addressed key', async () => {
+    const { client, store } = create(); const input = value();
+    client.objects.set(input.key, { bytes: Buffer.from('wrong'), cipherDigest: sha256(Buffer.from('wrong')), sizeBytes: 5 });
+    await expect(store.putImmutable(input)).rejects.toMatchObject({ code: 'CONTENT_CONFLICT' });
+  });
+
+  it('resolves a timeout after a committed conditional put by verified readback', async () => {
+    const { client, store } = create(); const input = value(); client.putFailure = new Error('secret credential timeout');
+    await expect(store.putImmutable(input)).resolves.toBe('already-present-same-content');
+  });
+
+  it('makes one safe conditional retry after a pre-commit timeout', async () => {
+    const { client, store } = create(); const input = value(); client.failBeforePut = 1;
+    await expect(store.putImmutable(input)).resolves.toBe('created');
+    expect(client.putCalls).toBe(2);
+  });
+
+  it('fails closed and sanitizes provider failures', async () => {
+    const { client, store } = create(); const input = value();
+    client.inspectBucket = async () => { throw new Error('AKIA-SECRET https://internal.example'); };
+    await expect(store.putImmutable(input)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE', message: 'hosted board storage is unavailable' });
+  });
+});
+
+describe('Hosted Board bucket policy', () => {
+  it.each([
+    { access: 'public', versioning: 'enabled', objectLock: 'enabled' },
+    { access: 'private', versioning: 'disabled', objectLock: 'enabled' },
+    { access: 'private', versioning: 'enabled', objectLock: 'disabled' },
+  ] as HostedBoardBucketPolicy[])('rejects incompatible policy %#', async policy => {
+    const client = new MemoryHostedClient(); client.policy = policy;
+    const store = new HostedBoardBlobStore(client, { requireObjectLock: true });
+    await expect(store.assertReady()).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+  });
+
+  it('permits an explicitly optional object-lock policy while still requiring private versioned storage', async () => {
+    const client = new MemoryHostedClient(); client.policy.objectLock = 'disabled';
+    await expect(new HostedBoardBlobStore(client, { requireObjectLock: false }).assertReady()).resolves.toBeUndefined();
+  });
+
+  it('has no ordinary delete capability', () => {
+    const client = new MemoryHostedClient();
+    expect('delete' in new HostedBoardBlobStore(client, { requireObjectLock: false })).toBe(false);
+    expect('delete' in client).toBe(false);
+  });
+});

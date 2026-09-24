@@ -4,11 +4,45 @@ import { assertSha256Digest, sha256 } from '../../domain/whiteboard/blob-identit
 
 export interface BoardTenantKeyResolver { resolve(tenantId: string, version: number): Promise<Uint8Array>; }
 
+export interface VersionedBoardMasterKeySource {
+  /** Resolves an exact immutable version. Implementations may refresh provider credentials per call. */
+  resolveVersion(input: { tenantId: string; version: number }): Promise<{ version: number; keyMaterial: Uint8Array }>;
+}
+
+function deriveTenantKey(master: Uint8Array, tenantId: string, version: number): Uint8Array {
+  if (master.byteLength !== 32) throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'board content key material is invalid');
+  return new Uint8Array(hkdfSync('sha256', master, Buffer.from(tenantId), Buffer.from(`workspacex-board-content:v${version}`), 32));
+}
+
+/** Production boundary for versioned KMS / secret-manager values. No unversioned fallback exists. */
+export class KmsBoardTenantKeyResolver implements BoardTenantKeyResolver {
+  constructor(private readonly source: VersionedBoardMasterKeySource) {}
+
+  async resolve(tenantId: string, version: number): Promise<Uint8Array> {
+    if (!Number.isSafeInteger(version) || version < 1 || !tenantId) throw new BoardBlobError('INVALID_INPUT');
+    try {
+      const resolved = await this.source.resolveVersion({ tenantId, version });
+      if (resolved.version !== version || !(resolved.keyMaterial instanceof Uint8Array)) {
+        throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'requested board key version is unavailable');
+      }
+      const master = new Uint8Array(resolved.keyMaterial);
+      try { return deriveTenantKey(master, tenantId, version); }
+      finally { master.fill(0); }
+    } catch (error) {
+      if (error instanceof BoardBlobError) throw error;
+      throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'versioned board key service is unavailable');
+    }
+  }
+}
+
 export class EnvBoardTenantKeyResolver implements BoardTenantKeyResolver {
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
   async resolve(tenantId: string, version: number): Promise<Uint8Array> {
     if (!Number.isSafeInteger(version) || version < 1 || !tenantId) throw new BoardBlobError('INVALID_INPUT');
+    if (this.env.NODE_ENV === 'production') {
+      throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'environment board keys are development-only');
+    }
     let values: unknown;
     try { values = JSON.parse(this.env.WORKSPACEX_BOARD_CONTENT_KEYS ?? ''); }
     catch { throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'WORKSPACEX_BOARD_CONTENT_KEYS is missing or invalid'); }
@@ -19,7 +53,7 @@ export class EnvBoardTenantKeyResolver implements BoardTenantKeyResolver {
     if (master.byteLength !== 32 || master.toString('base64').replace(/=+$/, '') !== encoded.replace(/=+$/, '')) {
       throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'board content key must be 32 bytes of base64');
     }
-    return new Uint8Array(hkdfSync('sha256', master, Buffer.from(tenantId), Buffer.from(`workspacex-board-content:v${version}`), 32));
+    return deriveTenantKey(master, tenantId, version);
   }
 }
 
