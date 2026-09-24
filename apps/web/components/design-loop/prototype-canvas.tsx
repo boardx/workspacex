@@ -9,8 +9,9 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
+import { CommentPins, type CommentPin } from "./comment-pins";
 import {
-  Check, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
+  Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
   // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
   Menu, MoreHorizontal, SlidersHorizontal, LayoutGrid, List as ListIcon, ArrowLeft, ArrowRight,
   Users, MessageCircle, Send, Share2, Heart, Star, Camera, File, Folder, Bookmark, Tag, Link2,
@@ -47,7 +48,66 @@ const SelectionCtx = React.createContext<{
   onNavigate: ((to: number) => void) | null;
   /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——屏上给一圈高亮，说清"它改了这里"。 */
   changed: ReadonlySet<string>;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set() });
+  /** 对标 R7（#3933）：画布上双击直接改字，改完回调 `(节点 id, 属性键, 新文字)`；`null` = 这块画布不给改。 */
+  onInlineEdit: ((id: string, key: string, value: string) => void) | null;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set(), onInlineEdit: null });
+
+/**
+ * 对标 R7（#3933）—— 画布上直接改字：编辑态双击一段文字（或按钮上的字）⇒ 就地可编辑，
+ * 回车 / 失焦提交、Esc 放弃、Shift+回车换行（只对多行文本）。
+ *
+ * 在这之前改一个字要：点选 → 看属性面板 → 找到「文案」框 → 改 → 点应用。Claude Design、Figma
+ * 都是双击就改；这是「直接编辑」里最常用的一下。提交走的是同一条 setProps（I-11），撤销照样能撤。
+ */
+function InlineText({ id, field, value, multiline = false, className, children }: {
+  id: string | undefined; field: string; value: string; multiline?: boolean; className?: string; children?: React.ReactNode;
+}): React.ReactElement {
+  const { mode, onInlineEdit, onSelect } = React.useContext(SelectionCtx);
+  const [editing, setEditing] = React.useState(false);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const can = mode === "edit" && onInlineEdit !== null && id !== undefined;
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!editing || el === null) return;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [editing]);
+  const commit = () => {
+    const next = (ref.current?.innerText ?? "").replace(/\n+$/, "");
+    setEditing(false);
+    if (can && next.trim() !== "" && next !== value) onInlineEdit(id, field, multiline ? next : next.replace(/\s*\n\s*/g, " "));
+  };
+  if (editing) {
+    return (
+      <span
+        ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-label="直接改这段文字（回车保存，Esc 放弃）"
+        data-testid="design-canvas-inline-edit"
+        className={cn(className, "cursor-text outline outline-2 outline-primary")}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape") { e.preventDefault(); setEditing(false); }
+          if (e.key === "Enter" && !(multiline && e.shiftKey)) { e.preventDefault(); commit(); }
+        }}
+      >
+        {value}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={className}
+      onDoubleClick={can ? (e) => { e.stopPropagation(); onSelect?.(id); setEditing(true); } : undefined}
+    >
+      {children ?? value}
+    </span>
+  );
+}
 
 /** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
 function useLinkTap(id: string | undefined, item?: number) {
@@ -101,14 +161,180 @@ function useTap(node: PrototypeNode) {
 }
 
 /** 多项原语 / navbar 的第 `item` 项要挂的属性（预览模式下有跳转才是控件）。 */
-function ItemTap({ id, item, children, className, as: Tag = "span" }: {
+function ItemTap({ id, item, children, className, as: Tag = "span", role, selected, onActivate }: {
   id: string | undefined; item: number; children: React.ReactNode; className?: string; as?: "span" | "li";
+  /** 对标 R6（#3933）：预览里这一项自己的角色（tab 等）与「没有跳转时点它做什么」。有跳转时跳转优先。 */
+  role?: "tab"; selected?: boolean; onActivate?: (() => void) | null;
 }) {
   const link = useLinkTap(id, item);
+  const own = !link.linked && onActivate != null
+    ? { role, tabIndex: 0, onClick: (e: React.MouseEvent) => { e.stopPropagation(); onActivate(); }, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onActivate(); } } }
+    : role !== undefined ? { role } : {};
   return (
-    <Tag className={className} data-link-item={id !== undefined ? linkKey(id, item) : undefined} data-linked={link.linked ? "true" : undefined} {...link.props}>
+    <Tag className={className} data-link-item={id !== undefined ? linkKey(id, item) : undefined} data-linked={link.linked ? "true" : undefined} {...own} {...(role === "tab" ? { "aria-selected": selected === true } : {})} {...link.props}>
       {children}
     </Tag>
+  );
+}
+
+/* ─────────────── 对标 R6（#3933）：预览里控件是活的 ─────────────── */
+
+/**
+ * 预览态下各控件自己的状态（选中哪个 tab、开关开没开、勾没勾、打了什么字）。
+ *
+ * 在这之前预览只有「点有跳转的东西会换页」这一种反应，其余全是画上去的——点「规格」tab 不动、
+ * 拨开关不动、输入框点不进去。演示给别人看时，这是最先露馅的地方：一看就是张图。
+ *
+ * 状态只在预览里、只在这一次浏览里：不写回项目（原型里的「默认值」是设计，演示时拨一下不是改设计）。
+ * 设计里的初值变了（属性面板改了 on/checked/active）⇒ 跟着重置。
+ */
+function useLive(): boolean {
+  return React.useContext(SelectionCtx).mode === "preview";
+}
+function usePreviewValue<T>(initial: T): readonly [T, (v: T) => void] {
+  const [v, set] = React.useState(initial);
+  React.useEffect(() => set(initial), [initial]);
+  return [v, set] as const;
+}
+/** 键盘与鼠标同一个动作：Enter / 空格触发，事件不冒泡到节点（预览里节点本身不响应）。 */
+function activate(fn: () => void) {
+  return {
+    tabIndex: 0,
+    onClick: (e: React.MouseEvent) => { e.stopPropagation(); fn(); },
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); fn(); } },
+  } as const;
+}
+
+function TabsNode({ node, tap }: { node: Extract<PrototypeNode, { type: "tabs" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [active, setActive] = usePreviewValue(node.props.active ?? 0);
+  return (
+    <div className="flex w-full gap-1 border-b border-border text-11" data-proto="tabs" role={live ? "tablist" : undefined} {...tap}>
+      {node.props.items.map((t, i) => (
+        <ItemTap
+          key={i} id={node.id} item={i}
+          className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground", live && "cursor-pointer")}
+          {...(live ? { role: "tab" as const, selected: i === active, onActivate: () => setActive(i) } : {})}
+        >{t}</ItemTap>
+      ))}
+    </div>
+  );
+}
+
+function SwitchNode({ node, tap }: { node: Extract<PrototypeNode, { type: "switch" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [on, setOn] = usePreviewValue(node.props.on === true);
+  return (
+    <div className="flex w-full items-center justify-between py-1 text-12" data-proto="switch" {...tap}>
+      <span className="truncate">{node.props.label}</span>
+      <span
+        className={cn("relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-panel", live && "cursor-pointer")}
+        {...(live ? { role: "switch", "aria-checked": on, "aria-label": node.props.label, ...activate(() => setOn(!on)) } : { "aria-hidden": true })}
+      >
+        <span className={cn("absolute h-4 w-4 rounded-full bg-background shadow", on ? "right-0.5" : "left-0.5")} />
+      </span>
+    </div>
+  );
+}
+
+function CheckboxNode({ node, tap }: { node: Extract<PrototypeNode, { type: "checkbox" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [checked, setChecked] = usePreviewValue(node.props.checked === true);
+  return (
+    <div className="flex w-full items-center gap-2 py-1 text-12" data-proto="checkbox" {...tap}>
+      <span
+        className={cn("inline-flex shrink-0", live && "cursor-pointer")}
+        {...(live ? { role: "checkbox", "aria-checked": checked, "aria-label": node.props.label, ...activate(() => setChecked(!checked)) } : {})}
+      >
+        {checked ? <CheckSquare aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <Square aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </span>
+      <span className="truncate">{node.props.label}</span>
+    </div>
+  );
+}
+
+function ChipNode({ node, tap }: { node: Extract<PrototypeNode, { type: "chip" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const [selected, setSelected] = usePreviewValue(node.props.selected === true);
+  // 有跳转的 chip：跳转优先（`tap` 里已经挂好），这里不再抢它的点击。
+  const linked = (tap as { "data-linked"?: string })["data-linked"] === "true";
+  return (
+    <span
+      className={cn("inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-11", selected ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground", live && !linked && "cursor-pointer")}
+      data-proto="chip" {...tap}
+      {...(live && !linked ? { role: "button", "aria-pressed": selected, ...activate(() => setSelected(!selected)) } : {})}
+    >
+      {node.props.label}
+    </span>
+  );
+}
+
+function InputNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "input" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const box = cn("w-full border border-input bg-background px-2 text-12", radius, p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center");
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="input" {...tap}>
+      {p.label !== undefined && <span className="text-10 text-muted-foreground">{p.label}</span>}
+      {live ? (
+        // 预览里是真的输入框：演示时能真的打字，而不是一张画着占位字的图。
+        p.multiline === true
+          ? <textarea className={cn(box, "resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring")} defaultValue={p.value ?? ""} placeholder={p.placeholder} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()} />
+          : <input className={cn(box, "outline-none focus-visible:ring-2 focus-visible:ring-ring")} defaultValue={p.value ?? ""} placeholder={p.placeholder} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()} />
+      ) : (
+        <div className={box}>
+          {p.value !== undefined && p.value !== "" ? <span className="truncate">{p.value}</span> : <span className="truncate text-muted-foreground">{p.placeholder ?? ""}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RadioNode({ node, tap }: { node: Extract<PrototypeNode, { type: "radio" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const [selected, setSelected] = usePreviewValue<number | undefined>(p.selected);
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="radio" {...tap}>
+      {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+      <div role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-x-3 gap-y-1">
+        {p.options.map((o, i) => (
+          <span key={i} role="radio" aria-checked={selected === i} className={cn("inline-flex items-center gap-1.5 text-12", live && "cursor-pointer")} {...(live ? activate(() => setSelected(i)) : {})}>
+            <span aria-hidden className={cn("flex h-3.5 w-3.5 items-center justify-center rounded-full border", selected === i ? "border-primary" : "border-muted-foreground")}>
+              {selected === i && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+            </span>
+            {o}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SelectNode({ node, tap, radius }: { node: Extract<PrototypeNode, { type: "select" }>; tap: Record<string, unknown>; radius: string }): React.ReactElement {
+  const live = useLive();
+  const p = node.props;
+  const shown = p.value ?? p.placeholder ?? p.options[0] ?? "";
+  return (
+    <div className="flex w-full flex-col gap-1" data-proto="select" {...tap}>
+      {p.label !== undefined && <span className="text-11 text-muted-foreground">{p.label}</span>}
+      {live ? (
+        // 预览里用原生 <select>：演示时真的能展开选一项，手机上还是系统自己的选择器。
+        <select
+          className={cn("h-8 w-full border border-input bg-background px-2 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring", radius)}
+          defaultValue={p.value ?? ""} aria-label={p.label ?? p.placeholder} onClick={(e) => e.stopPropagation()}
+        >
+          {p.value === undefined && <option value="" disabled>{p.placeholder ?? "请选择"}</option>}
+          {p.value !== undefined && !p.options.includes(p.value) && <option value={p.value}>{p.value}</option>}
+          {p.options.map((o, i) => <option key={i} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <div className={cn("flex h-8 w-full items-center justify-between border border-input bg-background px-2 text-12", radius)}>
+          <span className={cn("truncate", p.value === undefined && "text-muted-foreground")}>{shown}</span>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -151,7 +377,7 @@ const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
  * 对标 R2（#3933）：项目级圆角 × 节点圆角层级 ⇒ 类名。只落在既有的几档命名圆角上（lint-design U11），
  * `full`（胶囊/圆形）不随项目气质变——头像和开关本来就是圆的，「直角风」不该把它们也削成方块。
  */
-const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
+export const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
   sharp: { none: "rounded-none", sm: "rounded-none", md: "rounded-none", lg: "rounded-none", full: "rounded-full" },
   default: RADIUS,
   round: { none: "rounded-none", sm: "rounded-control", md: "rounded-container", lg: "rounded-container", full: "rounded-full" },
@@ -160,17 +386,17 @@ const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none
  * 对标 R2：项目级密度 × 节点间距层级 ⇒ Tailwind 间距档位。`default` 行与上面的 GAP/PAD 逐字相同。
  * 紧凑与宽松各挪一档，`none` 始终是 0（「这里不要间距」是结构，不是气质）。
  */
-const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "gap-0", sm: "gap-0.5", md: "gap-1", lg: "gap-2" },
   default: GAP,
   comfortable: { none: "gap-0", sm: "gap-2", md: "gap-3", lg: "gap-6" },
 };
-const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "p-0", sm: "p-0.5", md: "p-1", lg: "p-2" },
   default: PAD,
   comfortable: { none: "p-0", sm: "p-2", md: "p-3", lg: "p-6" },
 };
-const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "h-0", sm: "h-0.5", md: "h-2", lg: "h-4" },
   default: SPACE,
   comfortable: { none: "h-0", sm: "h-2", md: "h-4", lg: "h-8" },
@@ -465,7 +691,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             p.align === "center" && "text-center", p.align === "end" && "text-right")}
           data-proto="text" {...tap}
         >
-          {p.content}
+          {/* 整行都能双击（行内 span 只有文字那么宽，双击在字后面的空白上会落空）。 */}
+          <InlineText id={node.id} field="content" value={p.content} multiline className="block" />
         </p>
       );
     }
@@ -478,25 +705,16 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             BTN_SIZE[p.size ?? "md"], sc.r(p.radius ?? "md"),
             BUTTON_VARIANT[p.variant ?? "primary"], p.full === true && "w-full",
           )}
-          data-proto="button" {...tap}
+          data-proto="button" data-variant={p.variant ?? "primary"} {...tap}
         >
           {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
           {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
-          {p.label}
+          <InlineText id={node.id} field="label" value={p.label} />
         </span>
       );
     }
-    case "input": {
-      const p = node.props;
-      return (
-        <div className="flex w-full flex-col gap-1" data-proto="input" {...tap}>
-          {p.label !== undefined && <span className="text-10 text-muted-foreground">{p.label}</span>}
-          <div className={cn("w-full border border-input bg-background px-2 text-12", sc.r("md"), p.multiline === true ? "min-h-14 py-1.5" : "flex h-8 items-center")}>
-            {p.value !== undefined && p.value !== "" ? <span className="truncate">{p.value}</span> : <span className="truncate text-muted-foreground">{p.placeholder ?? ""}</span>}
-          </div>
-        </div>
-      );
-    }
+    case "input":
+      return <InputNode node={node} tap={tap} radius={sc.r("md")} />;
     case "image":
       return <ImagePlaceholder node={node} tap={tap} />;
     case "list": {
@@ -539,16 +757,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <hr className="w-full border-border" data-proto="divider" {...tap} />;
     case "spacer":
       return <div aria-hidden className={cn("w-full shrink-0", sc.space(node.props?.size ?? "md"))} data-proto="spacer" {...tap} />;
-    case "tabs": {
-      const active = node.props.active ?? 0;
-      return (
-        <div className="flex w-full gap-1 border-b border-border text-11" data-proto="tabs" {...tap}>
-          {node.props.items.map((t, i) => (
-            <ItemTap key={i} id={node.id} item={i} className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground")}>{t}</ItemTap>
-          ))}
-        </div>
-      );
-    }
+    case "tabs":
+      return <TabsNode node={node} tap={tap} />;
     case "badge":
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
@@ -601,30 +811,12 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         </nav>
       );
     }
-    case "switch": {
-      const on = node.props.on === true;
-      return (
-        <div className="flex w-full items-center justify-between py-1 text-12" data-proto="switch" {...tap}>
-          <span className="truncate">{node.props.label}</span>
-          <span className={cn("relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-panel")} aria-hidden>
-            <span className={cn("absolute h-4 w-4 rounded-full bg-background shadow", on ? "right-0.5" : "left-0.5")} />
-          </span>
-        </div>
-      );
-    }
+    case "switch":
+      return <SwitchNode node={node} tap={tap} />;
     case "checkbox":
-      return (
-        <div className="flex w-full items-center gap-2 py-1 text-12" data-proto="checkbox" {...tap}>
-          {node.props.checked === true ? <CheckSquare aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <Square aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
-          <span className="truncate">{node.props.label}</span>
-        </div>
-      );
+      return <CheckboxNode node={node} tap={tap} />;
     case "chip":
-      return (
-        <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-11", node.props.selected === true ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground")} data-proto="chip" {...tap}>
-          {node.props.label}
-        </span>
-      );
+      return <ChipNode node={node} tap={tap} />;
     case "progress":
       return (
         <div className="flex w-full flex-col gap-1" data-proto="progress" {...tap}>
@@ -650,11 +842,170 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <div className={cn("flex w-full flex-col gap-1.5 bg-primary/10 p-3", sc.r("lg"))} data-proto="hero" {...tap}>
           <span className="text-16 font-semibold leading-tight">{node.props.title}</span>
-          {node.props.subtitle !== undefined && <span className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
-          {node.props.cta !== undefined && <span className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
+          {node.props.subtitle !== undefined && <span data-hero-sub className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
+          {node.props.cta !== undefined && <span data-hero-cta className={cn("mt-1 inline-flex h-8 w-fit items-center bg-primary px-3 text-12 font-medium text-primary-foreground", sc.r("md"))}>{node.props.cta}</span>}
         </div>
       );
+    /* ── 对标 R3（#3933）：带数据的表格与图表 ── */
+    case "table": {
+      const p = node.props;
+      const cols = p.columns.length;
+      return (
+        <div className={cn("w-full overflow-hidden border border-border", sc.r("md"))} data-proto="table" {...tap}>
+          <table className="w-full table-fixed border-collapse text-11">
+            <thead className="bg-panel text-muted-foreground">
+              <tr>{p.columns.map((c, i) => <th key={i} scope="col" className="truncate px-2 py-1 text-left font-medium">{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {p.rows.map((row, ri) => (
+                // 行比表头短 ⇒ 缺的格子空着；长 ⇒ 多出的忽略（契约不要求等长，见 `TableProps` 头注）。
+                <tr key={ri} className={cn("border-t border-border", p.striped === true && ri % 2 === 1 && "bg-panel/60")}>
+                  {Array.from({ length: cols }, (_, ci) => <td key={ci} className="truncate px-2 py-1">{row[ci] ?? ""}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    case "chart":
+      return <Chart node={node} tap={tap} />;
+    /* ── 对标 R5（#3933）：落地页的分区与页脚 ── */
+    case "section": {
+      const p = node.props ?? {};
+      const tone = p.tone ?? "default";
+      return (
+        <section
+          className={cn(
+            "flex w-full flex-col", sc.gap("md"), sc.pad(p.padding ?? "lg"),
+            p.align === "center" ? "items-center text-center" : "items-stretch",
+            // 相邻两区换底色做节奏；主色 / 反色区里的字跟着换前景色，不是在深底上印深字。
+            tone === "muted" && "bg-panel", tone === "primary" && "bg-primary text-primary-foreground", tone === "inverse" && "bg-inverse text-inverse-foreground",
+            /*
+             * 主色 / 反色底上，里面的「主色块」（头图底、头图按钮、主按钮）会和底色融成一片——
+             * 主色上的主按钮等于隐形。在这类区里把它们反过来：按钮用前景色做底、主色做字。
+             */
+            tone === "primary" && "[&_[data-proto=hero]]:bg-transparent [&_[data-hero-cta]]:bg-primary-foreground [&_[data-hero-cta]]:text-primary [&_[data-variant=primary]]:bg-primary-foreground [&_[data-variant=primary]]:text-primary [&_[data-hero-sub]]:text-primary-foreground/80",
+            tone === "inverse" && "[&_[data-proto=hero]]:bg-transparent [&_[data-hero-sub]]:text-inverse-foreground/80",
+          )}
+          data-proto="section" data-tone={tone} {...tap}
+        >
+          {node.children.map((c, i) => <Node key={i} node={c} />)}
+        </section>
+      );
+    }
+    case "footer": {
+      const p = node.props;
+      return (
+        <footer className="mt-auto flex w-full flex-col gap-2 border-t border-border px-4 py-4 text-11 text-muted-foreground" data-proto="footer" {...tap}>
+          <span className="text-13 font-semibold text-card-foreground">{p.brand}</span>
+          {p.links !== undefined && p.links.length > 0 && (
+            <nav className="flex flex-wrap gap-x-4 gap-y-1" aria-label="页脚链接">
+              {p.links.map((l, i) => <span key={i}>{l}</span>)}
+            </nav>
+          )}
+          {p.note !== undefined && <span className="text-10">{p.note}</span>}
+        </footer>
+      );
+    }
+    /* ── 对标 R4（#3933）：下拉、单选、叠层 ── */
+    case "select":
+      return <SelectNode node={node} tap={tap} radius={sc.r("md")} />;
+    case "radio":
+      return <RadioNode node={node} tap={tap} />;
+    case "overlay": {
+      /*
+       * 盖满整屏（以画布内容区为定位基准）。modal 居中、sheet 贴底、toast 贴底且**不带遮罩**——
+       * 轻提示不打断操作，给它一层遮罩就成了弹窗。
+       */
+      const kind = node.props?.kind ?? "modal";
+      return (
+        <div className={cn("absolute inset-0 z-20 flex p-3", kind === "modal" ? "items-center justify-center" : "items-end justify-center", kind === "toast" && "pointer-events-none")} data-proto="overlay" data-overlay-kind={kind} {...tap}>
+          {kind !== "toast" && <span aria-hidden data-overlay-scrim className="absolute inset-0 bg-inverse/40" />}
+          <div
+            role={kind === "toast" ? "status" : "dialog"} aria-label={node.props?.title}
+            className={cn(
+              "relative flex flex-col gap-2 border border-border bg-card p-3 text-card-foreground shadow-lg",
+              kind === "modal" ? cn("w-[85%]", sc.r("lg")) : kind === "sheet" ? "-mx-3 -mb-3 w-[calc(100%+1.5rem)] rounded-t-container" : cn("pointer-events-auto w-auto max-w-[90%] px-3 py-2", sc.r("md")),
+            )}
+          >
+            {node.props?.title !== undefined && <span className="text-14 font-semibold">{node.props.title}</span>}
+            {node.children.map((c, i) => <Node key={i} node={c} />)}
+          </div>
+        </div>
+      );
+    }
   }
+}
+
+/**
+ * 对标 R3（#3933）—— 图表按**数据**画：柱高 / 折线点位由 `values` 归一化得出，不是一张画着折线的图。
+ *
+ * 归一化区间：**柱状图**是 `[min(0, 最小值), max(0, 最大值)]`——柱子从 0 起，才不会把「30 和 45」画成
+ * 一高一矮的夸张对比；**折线图**看的是走势，区间取数据自己的上下界再各留 12%——从 0 起的话，
+ * 「82 → 128 万」会被压成一条几乎平的线（第一次截图就是这样）。
+ * labels 与 values 不等长 ⇒ 画较短的那一组（契约不要求等长）。
+ * 读屏器读的是 `aria-label` 里逐点的「标签 数值单位」，不是一串 div。
+ */
+function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const n = Math.min(p.labels.length, p.values.length);
+  const labels = p.labels.slice(0, n);
+  const values = p.values.slice(0, n);
+  const line = p.kind === "line";
+  const dataLo = Math.min(...values);
+  const dataHi = Math.max(...values);
+  const pad = line ? Math.max((dataHi - dataLo) * 0.12, Math.abs(dataHi) * 0.02, 1e-9) : 0;
+  const lo = line ? dataLo - pad : Math.min(0, dataLo);
+  const hi = line ? dataHi + pad : Math.max(0, dataHi);
+  const span = hi - lo;
+  const xAt = (i: number) => (n === 1 ? 50 : (i / (n - 1)) * 100);
+  const pct = (v: number) => (span === 0 ? 0 : ((v - lo) / span) * 100);
+  const unit = p.unit ?? "";
+  const summary = `${p.title ?? (p.kind === "line" ? "折线图" : "柱状图")}：${labels.map((l, i) => `${l} ${String(values[i])}${unit}`).join("，")}`;
+  return (
+    <div className="flex w-full flex-col gap-1.5" data-proto="chart" data-chart-kind={p.kind ?? "bar"} {...tap}>
+      {(p.title !== undefined || unit !== "") && (
+        <div className="flex items-baseline justify-between gap-2 text-11">
+          {p.title !== undefined && <span className="truncate font-medium">{p.title}</span>}
+          {unit !== "" && <span className="shrink-0 text-10 text-muted-foreground">单位：{unit}</span>}
+        </div>
+      )}
+      <div role="img" aria-label={summary} className="relative h-28 w-full border-b border-border">
+        {line ? (
+          <>
+            {/* 线用 SVG（拉伸不影响线宽），点用 HTML 圆点——SVG 里的圆在非等比拉伸下会变成扁椭圆。 */}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible text-primary" aria-hidden>
+              <polyline fill="none" stroke="currentColor" strokeWidth={2} vectorEffect="non-scaling-stroke" points={values.map((v, i) => `${xAt(i)},${100 - pct(v)}`).join(" ")} />
+            </svg>
+            {values.map((v, i) => (
+              <span key={i} data-point={i} data-value={v} aria-hidden className="absolute h-1.5 w-1.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-primary" style={{ left: `${xAt(i)}%`, bottom: `${pct(v)}%` }} />
+            ))}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-end gap-1" aria-hidden>
+            {values.map((v, i) => (
+              <span key={i} className="flex h-full flex-1 flex-col justify-end">
+                <span data-bar={i} data-value={v} className="w-full rounded-t-sm bg-primary" style={{ height: `${pct(v)}%` }} />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      {line ? (
+        // 折线的点在 0%…100% 上，横轴字要对着点：首尾贴边、中间按同样的比例排。
+        <div className="relative h-3 w-full text-9 text-muted-foreground" aria-hidden>
+          {labels.map((l, i) => (
+            <span key={i} className={cn("absolute top-0 max-w-12 truncate", i === 0 ? "left-0" : i === n - 1 ? "right-0" : "-translate-x-1/2")} style={i === 0 || i === n - 1 ? undefined : { left: `${xAt(i)}%` }}>{l}</span>
+          ))}
+        </div>
+      ) : (
+        <div className="flex w-full gap-1 text-9 text-muted-foreground" aria-hidden>
+          {labels.map((l, i) => <span key={i} className="min-w-0 flex-1 truncate text-center">{l}</span>)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
@@ -721,9 +1072,18 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /**
+   * 对标 R9（#3954）：这块画布只是一张**候选缩略图**（变体面板）。它不是「当前页」，所以不挂
+   * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
+   */
+  thumbnail?: boolean;
+  /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
+  /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
+  pins?: readonly CommentPin[];
   /**
    * issue #3340：这一页**规划了但没画出来**（分页生成里那一轮失败），不同于「整个项目还没有原型」。
    * 两种空长得一样、说同一句话，等于把「有 2 页没画出来」这个事实藏起来——用户看到的是
@@ -787,10 +1147,11 @@ export function PrototypeCanvas({
 }) {
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
+  const treeRef = React.useRef<HTMLDivElement>(null);
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit }}>
     <ScaleCtx.Provider value={scale}>
     <div
       className={cn(
@@ -815,12 +1176,12 @@ export function PrototypeCanvas({
       data-brand={!wireframe && tokens?.brand != null ? tokens.brand : undefined}
       data-font={tokens?.font !== undefined && tokens.font !== "sans" ? tokens.font : undefined}
       data-fidelity={wireframe ? "wireframe" : undefined}
-      data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
+      data-testid={thumbnail ? "design-variant-canvas" : "design-detail-phone"} data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >
       {/* 迭代 14：按机身形态画壳。手机/平板是状态栏 + home 条，浏览器是工具栏。 */}
-      {device.chrome === "browser" ? <BrowserBar label={label} /> : <StatusBar label={label} />}
+      {device.chrome === "browser" ? <BrowserBar label={label} /> : device.chrome === "slide" ? null : <StatusBar label={label} />}
       {device.chrome === "phone" && <PhoneNotch island={device.island === true} />}
       {root === null ? (
         <div
@@ -865,8 +1226,10 @@ export function PrototypeCanvas({
         </div>
       ) : (
         <div
+          ref={treeRef}
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
+            // `relative`：对标 R4 的叠层（overlay）以这一块为定位基准盖满整屏，不盖到机身的状态栏上。
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
             // 选中态：静态 arbitrary variant（Tailwind 扫得到），选中节点描边 + 可点节点显示手型。
             mode === "edit" && onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
             "[&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1",
@@ -880,13 +1243,21 @@ export function PrototypeCanvas({
             // 迭代 11 预览态：只有带跳转的可点位显示手型 + 悬停描边；其余节点没有任何可点暗示。
             mode === "preview" && "[&_[data-linked=true]]:cursor-pointer [&_[data-linked=true]:hover]:outline [&_[data-linked=true]:hover]:outline-2 [&_[data-linked=true]:hover]:outline-primary [&_[data-linked=true]:hover]:outline-offset-1",
           )}
+          /*
+           * 对标 R5（#3933）：幻灯片按一半的逻辑尺寸排版、再整体放大 2 倍——
+           * 原语的字号是给手机屏定的，直接铺在 1280×720 上，标题只有投影仪上的一行小字。
+           * 用 transform 而不是改字号：同一棵树在手机与幻灯片之间切换，不需要两套字号档位。
+           */
+          style={device.chrome === "slide" ? { width: "50%", height: "50%", flex: "none", transform: "scale(2)", transformOrigin: "top left" } : undefined}
+          data-slide-scale={device.chrome === "slide" ? "2" : undefined}
           data-testid="design-detail-phone-tree"
           onClick={() => { if (mode === "edit") onSelect?.(null); }}
         >
           <Node node={root} />
+          {pins !== undefined && pins.length > 0 && <CommentPins pins={pins} container={treeRef} revision={root} />}
         </div>
       )}
-      {device.chrome !== "browser" && <HomeIndicator />}
+      {(device.chrome === "phone" || device.chrome === "tablet") && <HomeIndicator />}
     </div>
     </ScaleCtx.Provider>
     </SelectionCtx.Provider>

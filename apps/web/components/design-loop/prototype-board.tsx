@@ -16,6 +16,7 @@ function clampTo(v: number, lo: number, hi: number): number {
  * U5b 拦的是间距字面量，动态变换本来就不该写成 class）。没有惯性、没有橡皮筋，够用且可预测。
  */
 import * as React from "react";
+import type { CommentPin } from "./comment-pins";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PrototypeCanvas, rotated, linkKey, type PrototypeCanvasMode, type PrototypeDevicePreset } from "./prototype-canvas";
@@ -30,13 +31,17 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, onInlineEdit = null, pins, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
+  /** 对标 R7：画板上同样可以双击改字。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
+  /** 对标 R8：批注钉。每块屏只画自己树里找得到的那几个（节点 id 项目内唯一）。 */
+  pins?: readonly CommentPin[];
   device: PrototypeDevicePreset;
   /** 迭代 14：横过来看，与画布同一个开关。 */
   landscape?: boolean;
@@ -277,6 +282,8 @@ export function PrototypeBoard({
                 root={prototype[i] ?? null}
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
+                onInlineEdit={onInlineEdit}
+                pins={pins}
                 device={device}
                 landscape={landscape}
                 frameIndex={i}

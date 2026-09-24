@@ -8,12 +8,13 @@
  * 都由测试 mock。
  */
 import * as React from "react";
-import { Download, FileDown, FileJson, Image as ImageIcon, Copy, Check, Loader2, MousePointerClick, Printer } from "lucide-react";
+import { Download, FileDown, FileJson, Image as ImageIcon, Copy, Check, Loader2, MousePointerClick, Printer, FileCode2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { buildDesignDocMarkdown, designDocFileName, buildPrototypeSpecJson, prototypeSpecFileName } from "@/lib/design-doc-markdown";
 import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
+import { buildPrototypeReactTsx, prototypeReactFileName } from "@/lib/prototype-react-export";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { describeFailure } from "@/lib/design-failure";
 import { exportFileStem, loadRomanize } from "@/lib/export-file-name";
@@ -186,6 +187,25 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
     }
   };
 
+  /**
+   * 对标 R10（#3955）：交给工程的**代码**——一个只依赖 react 的 .tsx（见 `lib/prototype-react-export`）。
+   * 中性档的主色取页面当下的 `--primary`，不在导出器里另抄一份全局 token。
+   */
+  const code = async () => {
+    try {
+      const root = getComputedStyle(document.documentElement);
+      const primary = root.getPropertyValue("--primary").trim();
+      const foreground = root.getPropertyValue("--primary-foreground").trim();
+      const now = new Date();
+      const text = buildPrototypeReactTsx(project, { now, ...(primary !== "" && foreground !== "" ? { neutral: { primary, foreground } } : {}) });
+      const romanize = await loadRomanize();
+      download(new Blob([text], { type: "text/plain;charset=utf-8" }), prototypeReactFileName(project.name, now, romanize));
+      setOpen(false);
+    } catch (err) {
+      fail("导出 React 组件", err);
+    }
+  };
+
   const png = async () => {
     const el = frameElementFor(frame);
     if (el === null) {
@@ -234,7 +254,7 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
           {/* 灰掉的东西要自己解释：三项一起灰是同一个原因，说一次，别让他一项一项去猜。 */}
           {project.prototype.length === 0 && (
             <p className="mb-1 px-2 py-1 text-10 text-muted-foreground" data-testid="design-detail-export-nothing">
-              还没有画出来的页，所以截图、可点击原型、打印这三项现在导不了。先在对话里说一句你要做什么。
+              还没有画出来的页，所以截图、可点击原型、打印、React 组件这四项现在导不了。先在对话里说一句你要做什么。
             </p>
           )}
           <button type="button" role="menuitem" onClick={() => void png()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-png">
@@ -248,6 +268,9 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
           <button type="button" role="menuitem" onClick={() => void pdf()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-pdf">
             {busy === "pdf" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Printer aria-hidden className="h-3.5 w-3.5" />}
             <Label name="打印成 PDF" hint="浏览器打印视图，一页一屏" />
+          </button>
+          <button type="button" role="menuitem" onClick={() => void code()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-code">
+            <FileCode2 aria-hidden className="h-3.5 w-3.5" /> <Label name="React 组件（.tsx）" hint="给工程：一个文件、只依赖 react，Tailwind 样式" />
           </button>
           <button type="button" role="menuitem" onClick={() => void copy()} disabled={busy !== null} className={cn(item, done === "copy" && "text-success")} data-testid="design-detail-export-copy">
             {done === "copy" ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Copy aria-hidden className="h-3.5 w-3.5" />}
