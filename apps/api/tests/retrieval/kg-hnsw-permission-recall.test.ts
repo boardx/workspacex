@@ -27,7 +27,8 @@
  *
  * 确定性（mulberry32 种子）：32 维，40 个簇中心，每行 = 某个中心 + 高斯噪声。**作用域与簇无关**——
  * 有权行和越权行在同一邻域里交错，过滤才有东西可以做错。object 侧 2 个 org × 4 个作用域 × 300 行
- * （+ 一个 12 行的小会话），segment 侧 2 个 org × 1200 行（+ 一个 12 行的小 org），有权集合约占 1/4。
+ * （+ 一个 12 行的小会话），segment 侧 2 个 org × 1200 行（+ 一个 72 行的小 org：12 行有权，其余是同 org 的
+ * 别项目行与私人笔记——精确补全那一路也得把它们挡在外面），有权集合约占 1/4。
  *
  * object_embeddings 的查询是本文件自己写的：生产侧还没有 object 向量召回路（F08 的 vector 通道
  * `available:false`，要等向量 worker 写 embedding）。它的作用域谓词逐字照 `pg-knowledge-recall.ts`
@@ -39,7 +40,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { thresholds as TH } from "@repo/contracts";
 import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { registerEmbeddingModel } from "../support/retrieval-fixtures";
-import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { RETRIEVAL_EMBEDDING_LIMITS } from "@repo/contracts/retrieval-embedding";
+import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-config";
+import { registerEmbeddingModel as registerModelAsOperator } from "../../src/infrastructure/retrieval/register-embedding-model";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgSegmentRetriever } from "../../src/infrastructure/retrieval/pg-segment-retriever";
 import {
@@ -66,11 +69,12 @@ const MODEL = { model: "f05-hnsw-fixture", modelVersion: "1" };
 
 const ORG_A = "org-f05-hnsw-a";
 const ORG_B = "org-f05-hnsw-b";
-const ORG_C = "org-f05-hnsw-c"; // segment side: a 12-row org, for the under-fill case
+const ORG_C = "org-f05-hnsw-c"; // segment side: a small org (12 eligible rows among its 72), for the under-fill case
 const PROJ_A = "proj-f05-hnsw-a";
 const PROJ_A2 = "proj-f05-hnsw-a2";
 const PROJ_B = "proj-f05-hnsw-b";
 const PROJ_C = "proj-f05-hnsw-c";
+const PROJ_C2 = "proj-f05-hnsw-c2";
 
 const ME = "u-f05-me";
 const OTHER_USER = "u-f05-other";
@@ -173,7 +177,11 @@ addSegs(ORG_A, 300, PROJ_A2, "project", false); // other project
 addSegs(ORG_A, 300, null, "personal", true); // private personal notes (I-8)
 addSegs(ORG_B, 600, PROJ_B, "project", false);
 addSegs(ORG_B, 600, null, "org", false);
-addSegs(ORG_C, TINY, PROJ_C, "project", false);
+addSegs(ORG_C, TINY, PROJ_C, "project", false); // eligible
+// Out-of-scope neighbours INSIDE the small org: when the index comes back short and the exact
+// query fills k, that exact query must keep the candidate-set predicate (review N1 / mutation M1).
+addSegs(ORG_C, 30, PROJ_C2, "project", false); // other project
+addSegs(ORG_C, 30, null, "personal", true); // private personal notes (I-8)
 
 /** Mirror of `CANDIDATE_SET` in pg-segment-retriever.ts, for (org, project). */
 const segEligible = (org: string, projectId: string) => (r: SegRow) =>
@@ -271,12 +279,14 @@ async function armSettings(c: pg.Client, arm: Arm): Promise<void> {
 
 interface ObjSearch { ids: string[]; path: VectorSearchPath; annRows: number }
 
-async function objectSearch(opts: { org: string; user: string; thread: string; personal: boolean; q: readonly number[]; k: number; arm: Arm }): Promise<ObjSearch> {
+async function objectSearch(opts: { org: string; user: string; thread: string; personal: boolean; q: readonly number[]; k: number; arm: Arm; iterativeOff?: boolean }): Promise<ObjSearch> {
   return asApp(opts.org, async (c) => {
     await c.query("SELECT set_config('app.current_user_id', $1, true)", [opts.user]);
     await armSettings(c, opts.arm);
     const ann = await prepareAnn(session(c), MODEL, opts.q, opts.k);
     if (!ann) throw new Error("fixture model not registered");
+    // Take the index's ability to keep scanning away AFTER production turned it on (review N2).
+    if (opts.iterativeOff && ann.iterativeScan) await c.query("SELECT set_config('hnsw.iterative_scan', 'off', true)");
     // `personal` false = not the requester's own personal thread: L1 stays out (F08 (c4)).
     const params = [opts.org, MODEL.model, MODEL.modelVersion, opts.thread, opts.personal ? opts.user : NO_PERSONAL, lit(opts.q), opts.k];
     const run = async (order: string) => (await c.query<{ id: string }>(objectSql(order), params)).rows.map((r) => r.id);
@@ -303,6 +313,25 @@ function indexArmDb(inner: PgDatabase): DatabasePort {
       await s.query("SELECT set_config('enable_sort', 'off', true)");
       return fn(s);
     }),
+    withoutTenant: (fn) => inner.withoutTenant(fn),
+    close: () => inner.close(),
+  };
+}
+
+/**
+ * A DatabasePort whose sessions switch `hnsw.iterative_scan` back off right after production code
+ * switched it on (`prepareAnn`, pgvector ≥ 0.8) -- so the exact-fill path runs on every version.
+ * On < 0.8 production never issues that statement and this wrapper is a no-op.
+ */
+function iterativeOffDb(inner: DatabasePort): DatabasePort {
+  return {
+    withTenant: (orgId, fn) => inner.withTenant(orgId, (s) => fn({
+      query: async <R,>(sql: string, params?: readonly unknown[]) => {
+        const r = await s.query<R>(sql, params);
+        if (sql.includes("'hnsw.iterative_scan'")) await s.query("SELECT set_config('hnsw.iterative_scan', 'off', true)");
+        return r;
+      },
+    })),
     withoutTenant: (fn) => inner.withoutTenant(fn),
     close: () => inner.close(),
   };
@@ -348,7 +377,7 @@ beforeAll(async () => {
   await seedOrg({ orgId: ORG_C, projectId: PROJ_C });
   await seedSegments(ORG_A, PROJ_A2);
   await seedSegments(ORG_B, null);
-  await seedSegments(ORG_C, null);
+  await seedSegments(ORG_C, PROJ_C2);
   await seedObjects();
   await asOwner((c) => c.query("ANALYZE segment_embeddings; ANALYZE object_embeddings; ANALYZE segment_text; ANALYZE ontology_objects"));
   const v = await asOwner((c) => c.query<{ v: string }>("SELECT extversion AS v FROM pg_extension WHERE extname = 'vector'"));
@@ -638,7 +667,7 @@ describe("F05 ④: HNSW-then-filter under-fill -- reproduced, then shown mitigat
     });
   }
 
-  it("index arm, PgSegmentRetriever.vector: a 12-row org is a sliver of the shared index, and still gets exactly k in-scope rows (exact when completed, ≥ baseline recall when index-served)", async () => {
+  it("index arm, PgSegmentRetriever.vector: a small org (12 eligible rows) is a sliver of the shared index, and still gets exactly k in-scope rows (exact when completed, ≥ baseline recall when index-served)", async () => {
     const events: VectorSearchEvent[] = [];
     const runs = [];
     const inner = new PgDatabase(appConfig());
@@ -657,6 +686,50 @@ describe("F05 ④: HNSW-then-filter under-fill -- reproduced, then shown mitigat
     expect(events).toHaveLength(20);
     judgeTinyScope(`tiny org (segments, index arm, iterative=${iterative}); under-filled index reads ${events.filter((e) => e.annRows < K).length}/20`, runs);
     if (!iterative) expect(events.every((e) => e.path === "exact-completion" && e.annRows < K)).toBe(true);
+  });
+
+  /*
+   * The exact-fill path, forced on EVERY pgvector version (review N2). On ≥ 0.8 iterative scan
+   * normally fills k from the index, so without this the fill query -- and its scope predicate --
+   * would go untested wherever CI runs. Iterative scan is switched off AFTER `prepareAnn` turned
+   * it on, i.e. the production code runs unchanged and only the index's ability to keep going is
+   * taken away. Then: the fill path MUST run, and its answer MUST be the exact one.
+   */
+  it("exact-fill path, forced (iterative scan off after prepareAnn), objects: completion runs on every query and returns exactly the exact answer", async () => {
+    let completions = 0;
+    for (const q of QUERIES.slice(0, 20)) {
+      const r = await objectSearch({ org: ORG_A, user: ME, thread: TINY_THREAD, personal: false, q, k: K, arm: "index", iterativeOff: true });
+      if (r.path === "exact-completion") completions++;
+      expect(r.ids).toEqual(exactTopK(q, tinyEligible, K));
+    }
+    expect(completions).toBe(20);
+  });
+
+  it("exact-fill path, forced, PgSegmentRetriever.vector: completion runs, returns the exact answer, and keeps the candidate-set predicate (other-project / private rows in the same org never return)", async () => {
+    const orgRows = SEGMENTS.filter((r) => r.org === ORG_C);
+    const eligible = orgRows.filter(segEligible(ORG_C, PROJ_C));
+    const eligibleIds = new Set(eligible.map((r) => r.id));
+    // Non-vacuity: without the predicate, out-of-scope rows of this org WOULD be among the nearest.
+    const wouldLeak = QUERIES.slice(0, 20).reduce((n, q) => n + exactTopK(q, orgRows, K).filter((id) => !eligibleIds.has(id)).length, 0);
+    expect(wouldLeak).toBeGreaterThan(0);
+
+    const events: VectorSearchEvent[] = [];
+    const inner = new PgDatabase(appConfig());
+    const foreign: string[] = [];
+    try {
+      const retriever = new PgSegmentRetriever(iterativeOffDb(indexArmDb(inner)), (e) => events.push(e));
+      for (const q of QUERIES.slice(0, 20)) {
+        const rows = await retriever.vector({ orgId: toOrgId(ORG_C), projectId: PROJ_C, query: "", timeRange: null, limit: K }, q, MODEL);
+        const ids = rows.map((r) => r.ref.id);
+        foreign.push(...ids.filter((id) => !eligibleIds.has(id)));
+        expect(ids).toEqual(exactTopK(q, eligible, K));
+      }
+    } finally {
+      await inner.close();
+    }
+    console.log(`[F05] forced exact-fill (segments): completions ${events.filter((e) => e.path === "exact-completion").length}/20; out-of-scope rows that would rank in an unfiltered top-${K}: ${wouldLeak}; returned: ${foreign.length}`);
+    expect(foreign).toEqual([]);
+    expect(events.map((e) => e.path)).toEqual(Array(20).fill("exact-completion"));
   });
 
   it("fewer than k eligible ⇒ all of them, and nothing else (completion does not widen the scope)", async () => {
@@ -725,14 +798,33 @@ describe("F05: the index follows the model registry (trigger on embedding_models
       expect(await defs()).toEqual([]);
 
       // Fail closed: a model the index cannot serve is not registered at all, rather than
-      // registered and silently served by a full exact scan.
-      const err = await asOwner((c) => c.query("INSERT INTO embedding_models (model, model_version, dims) VALUES ($1,$2,3072)", [LIFE.model, LIFE.modelVersion]))
+      // registered and silently served by a full exact scan. The database's cap is pinned to the
+      // ONE stated limit, the contract constant (review N4): exactly the limit registers, one more
+      // is refused.
+      const MAX = RETRIEVAL_EMBEDDING_LIMITS.maxDimensions;
+      await asOwner((c) => c.query("INSERT INTO embedding_models (model, model_version, dims) VALUES ($1,$2,$3)", [LIFE.model, LIFE.modelVersion, MAX]));
+      expect((await defs()).every((r) => r.indexdef.includes(`::vector(${MAX})`))).toBe(true);
+      await asOwner((c) => c.query("DELETE FROM embedding_models WHERE model = $1 AND model_version = $2", [LIFE.model, LIFE.modelVersion]));
+      const err = await asOwner((c) => c.query("INSERT INTO embedding_models (model, model_version, dims) VALUES ($1,$2,$3)", [LIFE.model, LIFE.modelVersion, MAX + 1]))
         .catch((e: unknown) => e as { code?: string; message?: string });
       expect((err as { code?: string }).code).toBe("22023");
-      expect((err as { message?: string }).message).toMatch(/at most 2000/);
+      expect((err as { message?: string }).message).toMatch(new RegExp(`at most ${MAX}\\b`));
       const left = await asOwner((c) => c.query("SELECT 1 FROM embedding_models WHERE model = $1", [LIFE.model]));
       expect(left.rows).toEqual([]);
       expect(await defs()).toEqual([]);
+    } finally {
+      await asOwner((c) => c.query("DELETE FROM embedding_models WHERE model = $1", [LIFE.model]));
+    }
+  });
+
+  it("the operator registration path names the reason: over the limit ⇒ `embedding_model_dimensions_exceed_index_limit`, at the limit ⇒ registered", async () => {
+    const MAX = RETRIEVAL_EMBEDDING_LIMITS.maxDimensions;
+    try {
+      await expect(registerModelAsOperator(migrationConfig(), LIFE.model, LIFE.modelVersion, MAX + 1))
+        .rejects.toThrow(/^embedding_model_dimensions_exceed_index_limit$/);
+      expect((await asOwner((c) => c.query("SELECT 1 FROM embedding_models WHERE model = $1", [LIFE.model]))).rows).toEqual([]);
+      await registerModelAsOperator(migrationConfig(), LIFE.model, LIFE.modelVersion, MAX);
+      expect(await defs()).toHaveLength(2);
     } finally {
       await asOwner((c) => c.query("DELETE FROM embedding_models WHERE model = $1", [LIFE.model]));
     }
