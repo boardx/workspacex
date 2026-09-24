@@ -4,6 +4,8 @@ import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/upd
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
+import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -2878,6 +2880,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_TRANSFER_STORE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardTransferStore(db, collaboration, validator),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

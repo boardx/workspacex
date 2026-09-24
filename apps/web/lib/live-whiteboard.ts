@@ -1,4 +1,5 @@
 import { whiteboard as C } from '@repo/contracts';
+import { whiteboardTransfer as T } from '@repo/contracts';
 import type { z } from 'zod';
 import { apiRequest } from './api-client';
 export type Board = C.Board;
@@ -14,3 +15,15 @@ export async function updateBoard(id: string, input: UpdateBoardInput) { return 
 export async function listBoardMembers(id: string) { return ops.listMembers.out.parse(await apiRequest(boardPath(ops.listMembers.path, id), { method: ops.listMembers.method })).items; }
 export async function putBoardMember(id: string, member: BoardMember) { return ops.putMember.out.parse(await apiRequest(boardPath(ops.putMember.path, id), { method: ops.putMember.method, body: C.Member.parse(member) })); }
 export async function removeBoardMember(id: string, userId: string) { return ops.removeMember.out.parse(await apiRequest(boardPath(ops.removeMember.path, id).replace(':userId', encodeURIComponent(userId)), { method: ops.removeMember.method })); }
+export async function exportBoardPackage(id: string) {
+  const operation = T.operations.exportBoard;
+  return T.PortableBoardPackage.parse(await apiRequest(boardPath(operation.path,id), { method: operation.method }));
+}
+export async function previewBoardImport(input: T.ImportBoardInput) {
+  const operation = T.operations.previewImport;
+  return T.ImportBoardPreview.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
+}
+export async function importBoardPackage(input: T.ImportBoardInput) {
+  const operation = T.operations.importBoard;
+  return T.ImportBoardResult.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
+}
