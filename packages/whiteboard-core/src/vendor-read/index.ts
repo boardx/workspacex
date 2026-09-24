@@ -80,7 +80,7 @@ export async function readMiroBoardSnapshot(
   const seen = new Set<string>();
   let cursor: string | undefined;
   for (let page = 0; page < context.value.options.maxPages; page += 1) {
-    const url = new URL(`https://api.miro.com/v2-experimental/boards/${encodedId}/items`);
+    const url = new URL(`https://api.miro.com/v2/boards/${encodedId}/items`);
     url.searchParams.set('limit', '50');
     if (cursor) url.searchParams.set('cursor', cursor);
     const response = await requestJson(context.value, url.toString());
@@ -114,7 +114,7 @@ export async function readMuralBoardSnapshot(
   const encodedId = encodeURIComponent(input.muralId);
   const metadata = await requestJson(context.value, `https://app.mural.co/api/public/v1/murals/${encodedId}`);
   if (!metadata.ok) return metadata;
-  const mural = record(metadata.value);
+  const mural = record(record(metadata.value)?.value);
   const name = mural && (validName(mural.title) ? mural.title : validName(mural.name) ? mural.name : undefined);
   if (!mural || mural.id !== input.muralId || !name) return failure('mural', 'INVALID_RESPONSE');
 
@@ -181,31 +181,35 @@ async function requestJson(context: ReadContext, url: string): Promise<RequestRe
     const cancel = (): void => controller.abort();
     context.options.signal?.addEventListener('abort', cancel, { once: true });
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, context.options.timeoutMs);
-    let response: Response;
+    let headersReceived = false;
+    let shouldRetry = false;
+    let retryAfterMs: number | undefined;
     try {
-      response = await context.dependencies.fetch(url, {
+      const response = await context.dependencies.fetch(url, {
         method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${context.token}` }, signal: controller.signal,
       });
+      headersReceived = true;
+      if (response.status === 429) {
+        retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now(context));
+        if (attempt >= context.options.maxRetries) return { ...failure(context.provider, 'RATE_LIMITED', 429), retryAfterMs };
+        shouldRetry = true;
+      } else {
+        if (!response.ok) return classifyStatus(context.provider, response.status);
+        return { ok: true, value: await response.json() as unknown };
+      }
     } catch {
       if (context.options.signal?.aborted) return failure(context.provider, 'CANCELLED');
       if (timedOut) return failure(context.provider, 'TIMEOUT');
-      return failure(context.provider, 'NETWORK_ERROR');
+      return failure(context.provider, headersReceived ? 'INVALID_RESPONSE' : 'NETWORK_ERROR');
     } finally {
       clearTimeout(timer);
       context.options.signal?.removeEventListener('abort', cancel);
     }
-
-    if (response.status === 429) {
-      const retryAfterMs = parseRetryAfter(response.headers.get('retry-after'), now(context));
-      if (attempt >= context.options.maxRetries) return { ...failure(context.provider, 'RATE_LIMITED', 429), retryAfterMs };
+    if (shouldRetry) {
       const delay = Math.min(retryAfterMs ?? 1_000 * (2 ** attempt), context.options.maxRetryDelayMs);
       const slept = await sleep(context, delay);
       if (!slept) return failure(context.provider, 'CANCELLED');
-      continue;
     }
-    if (!response.ok) return classifyStatus(context.provider, response.status);
-    try { return { ok: true, value: await response.json() as unknown }; }
-    catch { return failure(context.provider, 'INVALID_RESPONSE'); }
   }
   return failure(context.provider, 'RATE_LIMITED');
 }

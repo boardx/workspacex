@@ -2,7 +2,7 @@
   "value": [
     {
       "id": "sticky-2",
-      "type": "sticky-note",
+      "type": "sticky note",
       "htmlText": "<p>Second page</p>",
       "parentId": "area-1",
       "x": 20,
