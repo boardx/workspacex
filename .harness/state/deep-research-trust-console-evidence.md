@@ -47,8 +47,9 @@ The seeded full-stack lane now verifies the trust console through the real UI, A
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded guided-research-runtime.spec.ts
 ```
 
-Result after the final ACL/source/time-boundary fixes: Chromium 1/1 passed; the browser test
-itself completed in 1.7 minutes (4.6 minutes including isolated stack startup). It confirms
+Result after the final ACL/source/time-boundary fixes and merging the latest `origin/main`:
+Chromium 1/1 passed; the browser test itself completed in 1.7 minutes (5.0 minutes including
+isolated stack startup). It confirms
 persisted intent/time range, enforced restricted-domain policy, pause/resume across reload,
 question-level verbatim evidence, coverage, quality/readiness, and
 planning/searching/reading/writing/validation activity.
