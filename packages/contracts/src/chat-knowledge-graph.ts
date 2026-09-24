@@ -58,6 +58,16 @@ export type KgStructuralRelation = z.infer<typeof KgStructuralRelation>;
 export const KgRelation = z.union([KgClaimRelation, KgStructuralRelation]);
 export type KgRelation = z.infer<typeof KgRelation>;
 
+/**
+ * 决策七态（O-25，PROP-ORG-BRAIN-KG-001 §3.5）：决策类结论在决策流程里的位置。
+ * 不是第二个生命周期字段（生命周期只有 `claims.status`）。本阶段不写入，
+ * 枚举与数据库列先就位（迁移 20260924180000 的 claims_decision_state_chk 与本枚举逐项对账）。
+ */
+export const KgDecisionState = z.enum([
+  "leading", "discussing", "to_verify", "awaiting_decision", "conflict", "vetoed", "suggested",
+]);
+export type KgDecisionState = z.infer<typeof KgDecisionState>;
+
 /** 谁产生的：沿用 context-engine `claims.created_by` 三值。 */
 export const KgCreatedBy = z.enum(["human", "model", "import"]);
 export type KgCreatedBy = z.infer<typeof KgCreatedBy>;
