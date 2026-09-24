@@ -14,7 +14,7 @@ import type {
   PushToInboxResult,
 } from "../../src/application/design-workbench/project-ports";
 // 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
-import { mergeScreens, prototypeOf } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
+import { mergeScreens, mergeTokens, prototypeOf, toTokens } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
 import type { ShareSnapshot } from "../../src/application/design-workbench/share-snapshot";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
@@ -142,6 +142,9 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       // 迭代 13：主题与标签都是整份替换（同 pg 仓储的 COALESCE 语义：不给 ⇒ 保持原值）。
       ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
       ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
+      ...(patch.accent !== undefined ? { accent: patch.accent } : {}),
+      // 对标 R1：同 pg 仓储，按键合并走同一个 `mergeTokens`。
+      ...(patch.tokens !== undefined ? { tokens: mergeTokens(toTokens(r.tokens), patch.tokens) } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);

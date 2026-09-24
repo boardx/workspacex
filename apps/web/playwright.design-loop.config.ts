@@ -30,7 +30,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /design-(loop-responsive|prototype-loop|share)\.spec\.ts/,
+  testMatch: /design-(loop-responsive|prototype-loop|share|parity)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   reporter: "list",
@@ -45,6 +45,8 @@ export default defineConfig({
     { name: "design-loop-responsive", testMatch: ["design-loop-responsive.spec.ts"] },
     { name: "design-prototype-loop", testMatch: ["design-prototype-loop.spec.ts"] },
     { name: "design-share", testMatch: ["design-share.spec.ts"] },
+    // 对标评测（#3933）每轮修掉的差距的回归门；出分的尺子在 `playwright.parity-eval.config.ts`，不进这里。
+    { name: "design-parity", testMatch: ["design-parity.spec.ts"] },
   ],
   webServer: {
     command: "NEXT_DIST_DIR=.next-design-loop next dev -p 3199",

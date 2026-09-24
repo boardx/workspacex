@@ -28,7 +28,7 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import { designAiCollab, designPrototype, type designWorkbench } from "@repo/contracts";
+import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
 
 const designAiCollabFields = designAiCollab.DesignWritebackField.options;
 import type { DesignChatModel } from "./design-chat-model";
@@ -283,6 +283,13 @@ export async function appendProjectChat(
      * 强调色的变化用户在画布上一眼就看见了，屏上再写一行「已更新：强调色」是噪音。
      */
     ...(ai.accent !== undefined && ai.accent !== current.accent ? { accent: ai.accent } : {}),
+    // 对标 R1：骨架轮给的品牌色 / 字体，只写**真的变了**的键（同 accent 的理由）。
+    ...(() => {
+      if (ai.tokens === undefined) return {};
+      const now = current.tokens ?? designWorkbench.DEFAULT_DESIGN_TOKENS;
+      const changed = Object.fromEntries(Object.entries(ai.tokens).filter(([k, v]) => v !== undefined && now[k as keyof typeof now] !== v));
+      return Object.keys(changed).length === 0 ? {} : { tokens: changed as Partial<designWorkbench.DesignTokens> };
+    })(),
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined

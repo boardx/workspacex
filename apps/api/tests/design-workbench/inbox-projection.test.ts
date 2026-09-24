@@ -13,6 +13,7 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
     template: "wireframe",
     theme: "dark",
     accent: "neutral",
+    tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     tags: [],
     refImages: [],
     share: null,
