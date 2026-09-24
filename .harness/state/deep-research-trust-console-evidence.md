@@ -36,7 +36,7 @@ Command:
 pnpm --dir apps/web exec playwright test e2e/guided-research-trust-console.spec.ts
 ```
 
-Result after review fixes: Chromium 1/1 passed in 23.8s.
+Result after review fixes and merging the latest `origin/main`: Chromium 1/1 passed in 20.7s.
 
 The real browser verified:
 
