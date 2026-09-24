@@ -219,8 +219,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     const data = await this.inTenant(orgId, userId, async (s): Promise<TurnMemoryData> => {
       // 一轮 = 这条回答 + 它前面紧邻的那条用户消息（记下的东西大多来自用户说的话）。
       const turn = await s.query<{ id: string }>(
+        // 只从本会话里取这条消息：别的会话的 messageId 查不到任何东西（不泄露存在性，I-3）。
         `WITH me AS (SELECT created_at, id FROM chat_messages WHERE org_id = $1 AND thread_id = $2 AND id = $3)
-         SELECT $3::text AS id
+         SELECT me.id FROM me
          UNION
          SELECT p.id FROM (
            SELECT m.id FROM chat_messages m, me
@@ -238,8 +239,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         [orgId, thread.threadId, ids],
       );
       const pending = await s.query<{ n: string }>(
-        "SELECT count(*) AS n FROM kg_extraction_queue WHERE org_id = $1 AND message_id = ANY($2::text[]) AND attempts < $3",
-        [orgId, ids, KG_EXTRACTION_MAX_ATTEMPTS],
+        "SELECT count(*) AS n FROM kg_extraction_queue WHERE org_id = $1 AND thread_id = $2 AND message_id = ANY($3::text[]) AND attempts < $4",
+        [orgId, thread.threadId, ids, KG_EXTRACTION_MAX_ATTEMPTS],
       );
       return {
         messageId,

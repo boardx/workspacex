@@ -106,16 +106,19 @@ export function lexicalScore(query: Set<string>, statement: string): number {
   return hit / query.size;
 }
 
-const TRI_STATE_BONUS: Record<KG.KgTriState, number> = { confirmed: 0.004, pending: 0, conflict: -0.002 };
+/**
+ * 三态与查询意图只作**并列时的次序**（tie-breaker）：量级远小于任何两个相邻 RRF 名次之差
+ * （候选集内最小的名次差约 1e-5），所以不会改变字面 / 图路给出的名次，只在分数相同时决定先后。
+ */
+const TRI_STATE_BONUS: Record<KG.KgTriState, number> = { confirmed: 2e-7, pending: 0, conflict: -1e-7 };
 
 /**
  * 查询意图（query-planned，同 domain/retrieval/channel-plan.ts 的思路）：问「谁定的 / 谁拍板」时，
- * 决定类结论比同样字面命中的事实、风险更可能是答案。加分量级大于三态加分、小于一个 RRF 名次差，
- * 只在字面 / 图路打平时起作用，不会把不相关的决定顶上来。
+ * 并列的结论里决定类优先（事实、风险在后）。同样只是并列时的次序。
  */
 const WHO_DECIDED = /谁|哪位|拍板|决定|who|decid/i;
 function intentBonus(query: string, kind: KG.KgClaimKind): number {
-  return WHO_DECIDED.test(query) && kind === "decision" ? 0.006 : 0;
+  return WHO_DECIDED.test(query) && kind === "decision" ? 3e-7 : 0;
 }
 
 export interface FuseInput {
@@ -127,6 +130,13 @@ export interface FuseInput {
   readonly limit: number;
   /** 字面分数低于它的不算字面命中。 */
   readonly minLexical?: number;
+}
+
+/** 排好序的列表里第 i 项的竞争名次：与前面同分的项共用最前那一项的名次。 */
+function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): number {
+  let r = i;
+  while (r > 0 && key(sorted[r - 1]!) === key(sorted[i]!)) r -= 1;
+  return r;
 }
 
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
@@ -155,9 +165,11 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
     score.set(id, (score.get(id) ?? 0) + weight / (RRF_K + rank + 1));
     (channels.get(id) ?? channels.set(id, new Set()).get(id)!).add(ch);
   };
-  lexical.forEach((x, i) => add(x.c.id, "fts", i, 1));
+  // 同分同名次（竞争排名）：分数相同的两条拿到同一个 RRF 名次，谁先谁后留给三态 / 意图去定，
+  // 不由 id 的字典序偷偷决定。
+  lexical.forEach((x, i) => add(x.c.id, "fts", sharedRank(lexical, i, (y) => y.s), 1));
   // 图路权重 0.5：同一名次上永远比字面命中少一半——只加分，不压过字面。
-  graphRanked.forEach((h, i) => add(h.claimId, "graph", i, 0.5));
+  graphRanked.forEach((h, i) => add(h.claimId, "graph", sharedRank(graphRanked, i, (y) => y.path.length), 0.5));
 
   const items: RecallItem[] = [...score.entries()]
     .map(([id, s]) => {
@@ -173,7 +185,9 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
         graphPath: viaGraph ? graphBest.get(id)!.path : null,
       };
     })
-    .sort((a, b) => b.score - a.score || a.claim.id.localeCompare(b.claim.id))
+    // 图路只加分（R7-2）：有字面命中的一律排在只有图路命中的前面，图路只在各自组内抬名次。
+    .sort((a, b) => Number(b.channels.includes("fts")) - Number(a.channels.includes("fts"))
+      || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
   const hits = (ch: RecallChannel) => items.filter((i) => i.channels.includes(ch)).length;
@@ -191,6 +205,8 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
 /** 06-UX R5 的原话：图或向量不可用时对用户说的那一句。 */
 export const RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
 
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+
 const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", confirmed: "你确认过", conflict: "有矛盾" };
 
 /**
@@ -198,15 +214,18 @@ const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", conf
  * 图路不可用时带上降级说明，让模型在回答里如实告诉用户「可能不完整」（R4-E1）。
  */
 export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | null {
+  // 图路只在「问题里有已知实体」时才会执行；它执行失败 ⇒ plan 里 graph.available = false。
   const graphDown = recall.plan.some((p) => p.channel === "graph" && !p.available);
-  if (recall.items.length === 0) return null;
+  // 一条也没召回到：图路正常 ⇒ 不塞空壳；图路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
+  if (recall.items.length === 0) return graphDown ? `【记忆】（${RECALL_DEGRADED_NOTICE}）` : null;
   const lines = recall.items.map((i) => {
     const day = i.claim.saidAt === null ? null : i.claim.saidAt.slice(5, 10).replace("-", "/");
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
     const when = i.claim.scope === "personal"
       ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
       : day === null ? "" : `（本会话 ${day} 的对话）`;
-    return `- [${TRI_LABEL[i.claim.triState]}] ${i.claim.statement}${when}`;
+    // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
+    return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
   });
   return [
     "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
