@@ -135,7 +135,7 @@ test('meeting-room display pairs once, stays read-only, follows the presenter an
 
     await owner.getByTestId('room-present-open').click();
     await owner.getByRole('button',{name:'断开会议室',exact:true}).click();
-    await expect(room.getByRole('alert').filter({hasText:'会议室连接已过期或被主持人断开'})).toBeVisible({timeout:10_000});
+    await expect(room.getByRole('alert').filter({hasText:'会议室连接已过期或被主持人断开'})).toBeVisible({timeout:3_000});
     await expect(room.getByTestId('collaborative-editor')).toHaveCount(0);
     await expect(room.getByRole('button',{name:'图形：会议室只读便签',exact:true})).toHaveCount(0);
     expect(await room.evaluate(()=>sessionStorage.getItem('wsx.board.room.active'))).toBeNull();

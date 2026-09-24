@@ -25,7 +25,7 @@ it('does not disclose whether an expired payload identified a board',async()=>{
 });
 it('restores the active room after reload without consuming another pairing',async()=>{
   const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
-  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),follow:false}));
+  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),boardId:board,follow:false}));
   readRoom.mockResolvedValue(roomState(board,'恢复会议',snapshot('restored','重载后仍可见')));
   render(<RoomDisplay/>);
   await waitFor(()=>expect(screen.getByRole('button',{name:'图形：重载后仍可见'})).toBeVisible());
@@ -33,7 +33,7 @@ it('restores the active room after reload without consuming another pairing',asy
 });
 it('keeps the last safe frame on a transient transport failure',async()=>{
   const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
-  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),follow:true}));
+  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),boardId:board,follow:true}));
   readRoom.mockResolvedValueOnce(roomState(board,'恢复会议',snapshot('safe','安全画面'))).mockRejectedValue(new TypeError('offline'));
   render(<RoomDisplay/>);await waitFor(()=>expect(screen.getByRole('button',{name:'图形：安全画面'})).toBeVisible());
   await waitFor(()=>expect(screen.getAllByText('连接暂时中断，正在恢复…').some(node=>node instanceof HTMLElement&&!node.classList.contains('sr-only'))).toBe(true),{timeout:3_000});
@@ -41,11 +41,17 @@ it('keeps the last safe frame on a transient transport failure',async()=>{
 });
 it('ignores a viewport response older than the last applied revision',async()=>{
   const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
-  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),follow:true}));
+  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),boardId:board,follow:true}));
   readRoom.mockResolvedValueOnce({...roomState(board,'恢复会议',''),viewport:{x:0,y:0,zoom:1.5,revision:3}}).mockResolvedValue({...roomState(board,'恢复会议',''),viewport:{x:0,y:0,zoom:1.1,revision:2}});
   render(<RoomDisplay/>);const canvas=await screen.findByTestId('board-live-surface');
   await waitFor(()=>expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.5)')));
   await new Promise(resolve=>setTimeout(resolve,1_700));expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.5)'));
+});
+it('rejects and clears a malformed stored room grant instead of retrying it',async()=>{
+  const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
+  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:{...grant(session,board,'损坏凭据'),token:'x'},boardId:board,follow:true}));
+  render(<RoomDisplay/>);await waitFor(()=>expect(screen.getByTestId('room-join-payload')).toBeVisible());
+  expect(sessionStorage.getItem('wsx.board.room.active')).toBeNull();expect(readRoom).not.toHaveBeenCalled();
 });
 it('destroys authoritatively revoked Board state before the display pairs with another Board',async()=>{
   const sessionA='11111111-1111-4111-8111-111111111111',sessionB='33333333-3333-4333-8333-333333333333';

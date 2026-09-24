@@ -23,7 +23,7 @@ test.describe('meeting-room convergence soak',()=>{
       await owner.goto(`/studio/board/${boardId}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});
       await owner.getByTestId('room-present-open').click();const pairing=owner.getByTestId('room-pairing-payload');await expect(pairing).toBeVisible({timeout:20_000});
       await room.goto('/studio/board/room');await room.getByTestId('room-join-payload').fill(await pairing.inputValue());await room.getByTestId('room-join').click();await expect(room.getByTestId('collaborative-editor')).toBeVisible({timeout:20_000});await expect(owner.getByTestId('room-connected')).toBeVisible({timeout:10_000});
-      const sessionId=await owner.evaluate(id=>sessionStorage.getItem(`wsx.board.presenter.${id}`),boardId);
+      const sessionId=await owner.evaluate(()=>{const raw=sessionStorage.getItem('wsx.board.presenter.active');return raw?(JSON.parse(raw) as {sessionId:string}).sessionId:null;});
       expect(sessionId).toBeTruthy();const deadline=Date.now()+minutes*60_000;
       while(Date.now()<deadline){iterations+=1;const x=(iterations%17)*37-300,y=(iterations%13)*29-180,zoom=0.75+(iterations%6)*0.15;lastExpected={x,y,zoom};const started=Date.now();
         if(iterations%60===0)await roomContext.setOffline(true);
