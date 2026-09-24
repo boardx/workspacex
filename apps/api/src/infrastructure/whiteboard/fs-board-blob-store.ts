@@ -9,8 +9,13 @@ function storageFault(action: string, error: unknown): BoardBlobError {
   return new BoardBlobError('STORAGE_UNAVAILABLE', `${action}: ${code}`);
 }
 
+async function fsyncDirectory(path: string): Promise<void> {
+  const handle = await open(path, 'r');
+  try { await handle.sync(); } finally { await handle.close(); }
+}
+
 export class FsBoardBlobStore implements BoardBlobStore {
-  constructor(private readonly root: string) {
+  constructor(private readonly root: string, private readonly syncParent: (path: string) => Promise<void> = fsyncDirectory) {
     if (!root || !resolve(root)) throw new BoardBlobError('INVALID_INPUT', 'board blob root is required');
   }
 
@@ -28,7 +33,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
       finally { await handle.close(); }
       try {
         await link(temporary, target);
-        await this.syncDirectory(parent);
+        await this.syncParent(parent);
         const published = await readFile(target);
         if (published.byteLength !== input.sizeBytes || sha256(published) !== input.cipherDigest) {
           throw new BoardBlobError('INTEGRITY_FAILED', 'published board blob failed read-back verification');
@@ -36,6 +41,10 @@ export class FsBoardBlobStore implements BoardBlobStore {
         return 'created';
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        // The prior publisher may have linked the directory entry and then failed its
+        // directory fsync. Replaying identical content is durable only after this attempt
+        // repeats the parent sync; EEXIST alone is not a durable-ACK proof.
+        await this.syncParent(parent);
         const existing = await readFile(target);
         if (existing.byteLength !== input.sizeBytes || sha256(existing) !== input.cipherDigest) {
           throw new BoardBlobError('CONTENT_CONFLICT', 'immutable board blob key already contains different bytes');
@@ -90,8 +99,4 @@ export class FsBoardBlobStore implements BoardBlobStore {
     return path;
   }
 
-  private async syncDirectory(path: string): Promise<void> {
-    const handle = await open(path, 'r');
-    try { await handle.sync(); } finally { await handle.close(); }
-  }
 }

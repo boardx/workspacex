@@ -82,6 +82,19 @@ describe('FsBoardBlobStore', () => {
     expect(await restarted.putImmutable(value)).toBe('created');
   });
 
+  it('retries parent directory fsync before an EEXIST replay can report success', async () => {
+    let syncAttempts = 0;
+    const faulted = new FsBoardBlobStore(root, async () => {
+      syncAttempts++;
+      if (syncAttempts === 1) throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });
+    });
+    const value = input(Buffer.from('linked-before-directory-sync'));
+    await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+    expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
+    expect(await faulted.putImmutable(value)).toBe('already-present-same-content');
+    expect(syncAttempts).toBe(2);
+  });
+
   it('uses typed missing and validation errors', async () => {
     const value = input(Buffer.from('missing'));
     await expect(store.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).rejects.toEqual(expect.any(BoardBlobError));
