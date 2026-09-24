@@ -187,7 +187,7 @@ export class GuidedRuntimeService {
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-    if (["pause", "resume"].includes(command.action) && this.store.steer) {
+    if (["pause", "resume", "resolve_conflict"].includes(command.action) && this.store.steer) {
       const steered = await this.store.steer(actor, command, fingerprint(command));
       observer?.({ type: "result", state: structuredClone(steered) });
       return steered;

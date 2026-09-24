@@ -64,10 +64,11 @@ describe("guided research trust console", () => {
       planRevision: 1, controlStatus: "running", activity: [], coverage: [], claimEvidence: [],
       conflicts: [{ id: "x1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }],
     }} pending={false} onSteer={vi.fn()} onResolveConflict={onResolveConflict} />);
-    expect(screen.getByRole("button", { name: "保留为不确定" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "保留为不确定" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("冲突 x1 的裁决理由"), { target: { value: "两份资料口径不同，先保留不确定。" } });
     expect(screen.getByRole("button", { name: "采用 src1" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "采用 src1" }));
-    expect(onResolveConflict).toHaveBeenCalledWith({ conflictId: "x1", action: "prefer_source", sourceId: "src1" });
+    expect(onResolveConflict).toHaveBeenCalledWith({ conflictId: "x1", action: "prefer_source", sourceId: "src1", rationale: "两份资料口径不同，先保留不确定。" });
   });
 
   it("renders replayed activity once in server sequence order", () => {

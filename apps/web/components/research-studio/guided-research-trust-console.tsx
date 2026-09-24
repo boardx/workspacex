@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Activity = NonNullable<GuidedResearchRuntime["activity"]>[number];
@@ -9,8 +10,9 @@ export function mergeActivityEvents(current: Activity[], incoming: Activity[]): 
   return [...new Map([...current, ...incoming].map((event) => [event.id, event])).values()].sort((left, right) => left.sequence - right.sequence);
 }
 type TrustRuntime = Pick<GuidedResearchRuntime, "planRevision" | "controlStatus" | "activity" | "coverage" | "claimEvidence" | "conflicts">;
-export function GuidedResearchTrustConsole({ runtime, pending, onSteer, onResolveConflict }: { runtime: TrustRuntime; pending: boolean; onSteer: (action: "pause" | "resume") => void; onResolveConflict: (decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string }) => void }) {
+export function GuidedResearchTrustConsole({ runtime, pending, onSteer, onResolveConflict }: { runtime: TrustRuntime; pending: boolean; onSteer: (action: "pause" | "resume") => void; onResolveConflict: (decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string; rationale: string }) => void }) {
   const [panel, setPanel] = useState<"coverage" | "activity" | "evidence">("coverage");
+  const [rationales, setRationales] = useState<Record<string, string>>({});
   const activityRef = useRef<Activity[]>([]);
   const activity = mergeActivityEvents(activityRef.current, runtime.activity ?? []);
   activityRef.current = activity;
@@ -26,7 +28,7 @@ export function GuidedResearchTrustConsole({ runtime, pending, onSteer, onResolv
     </CardContent></Card>
     <Card className={panel === "evidence" ? "block" : "hidden md:block"}><CardHeader><CardTitle className="text-base">证据与冲突</CardTitle></CardHeader><CardContent className="space-y-4">
       <div data-testid="research-claim-evidence" className="space-y-2">{runtime.claimEvidence?.length ? runtime.claimEvidence.map((item) => <blockquote key={`${item.claimId}-${item.evidenceId}`} tabIndex={0} className="rounded-md border p-3 text-sm"><p>{item.quote}</p><footer className="mt-1 text-xs text-muted-foreground">{item.sourceId} · {item.confidence ?? "置信度未知"}</footer></blockquote>) : <p className="text-sm text-muted-foreground">暂无可定位原文</p>}</div>
-      <div data-testid="research-conflict-view" className="space-y-2">{runtime.conflicts?.length ? runtime.conflicts.map((item) => <div key={item.id} className="rounded-md border border-destructive/40 bg-muted p-3 text-sm text-background-foreground"><p>{item.status === "open" ? "待解决冲突" : "已解决冲突"} · {item.sourceIds.join(" ↔ ")}</p>{item.status === "open" ? <div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={pending} onClick={() => onResolveConflict({ conflictId: item.id, action: "retain_uncertainty" })}>保留为不确定</Button>{item.sourceIds.map((sourceId) => <Button key={sourceId} size="sm" variant="outline" disabled={pending} onClick={() => onResolveConflict({ conflictId: item.id, action: "prefer_source", sourceId })}>采用 {sourceId}</Button>)}</div> : <p className="mt-1 text-xs text-muted-foreground">{item.resolution}</p>}</div>) : <p className="text-sm text-muted-foreground">没有检测到证据冲突</p>}</div>
+      <div data-testid="research-conflict-view" className="space-y-2">{runtime.conflicts?.length ? runtime.conflicts.map((item) => { const rationale = rationales[item.id] ?? ""; const disabled = pending || !rationale.trim(); return <div key={item.id} className="rounded-md border border-destructive/40 bg-muted p-3 text-sm text-background-foreground"><p>{item.status === "open" ? "待解决冲突" : "已解决冲突"} · {item.sourceIds.join(" ↔ ")}</p>{item.status === "open" ? <><Textarea className="mt-2" aria-label={`冲突 ${item.id} 的裁决理由`} value={rationale} onChange={(event) => setRationales((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="说明为何采用该来源，或为何保留不确定" /><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={disabled} onClick={() => onResolveConflict({ conflictId: item.id, action: "retain_uncertainty", rationale: rationale.trim() })}>保留为不确定</Button>{item.sourceIds.map((sourceId) => <Button key={sourceId} size="sm" variant="outline" disabled={disabled} onClick={() => onResolveConflict({ conflictId: item.id, action: "prefer_source", sourceId, rationale: rationale.trim() })}>采用 {sourceId}</Button>)}</div></> : <p className="mt-1 text-xs text-muted-foreground">{item.resolution}</p>}</div>; }) : <p className="text-sm text-muted-foreground">没有检测到证据冲突</p>}</div>
     </CardContent></Card></div>
   </section>;
 }

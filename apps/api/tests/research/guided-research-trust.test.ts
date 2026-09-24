@@ -76,6 +76,18 @@ describe("research trust projection", () => {
     expect(projectResearchTrust(state).publicationReadiness.blockers).not.toContain("存在未解决的严重冲突");
   });
 
+  it("gives a detected conflict a stable identity for the same evidence despite evidence ordering", () => {
+    const state = fixture();
+    state.sources.push({ ...state.sources[0]!, id: "src2", document: { ...state.sources[0]!.document!, contentHash: "b".repeat(64) } });
+    state.questionEvidence = [
+      { questionId: "chapter:0/question:0", sectionId: "s1", sourceId: "src1", quote: "10%", relevance: "direct" },
+      { questionId: "chapter:0/question:0", sectionId: "s1", sourceId: "src2", quote: "20%", relevance: "direct" },
+    ];
+    const first = projectResearchTrust(state).conflicts[0]!.id;
+    state.questionEvidence.reverse();
+    expect(projectResearchTrust(state).conflicts[0]!.id).toBe(first);
+  });
+
   it("uses null rather than zero when quality has no denominator", () => {
     const result = projectResearchTrust(initialRuntime(session));
     expect(result.qualityScore.overall).toBeNull();

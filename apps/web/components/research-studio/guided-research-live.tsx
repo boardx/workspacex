@@ -186,7 +186,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       setSteeringPending(false);
     }
   }
-  async function resolveConflict(decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string }) {
+  async function resolveConflict(decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string; rationale: string }) {
     if (!state || steeringPending) return;
     setSteeringPending(true); setError(null);
     try {
@@ -194,7 +194,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         sessionId, node: "research", action: "resolve_conflict", requestId: crypto.randomUUID(), expectedVersion: state.version,
         expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId("resolve-conflict"), conflictId: decision.conflictId,
         conflictResolutionAction: decision.action, sourceId: decision.sourceId,
-        conflictResolution: decision.action === "prefer_source" ? `人工选择采用来源 ${decision.sourceId}` : "人工决定保留争议为不确定",
+        conflictResolution: decision.rationale,
       });
       snapshotRef.current = next; setState(next);
     } catch (cause) { setError(requestError(cause)); }
