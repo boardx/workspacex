@@ -17,7 +17,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer, type WebSocket as WsWebSocket } from "ws";
-import { ConfiguredRealtimeAsrProvider, resolveRecordingTurnSilenceMs } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
+import { ConfiguredRealtimeAsrProvider, realtimeAudioBacklogExceeded, resolveRecordingTurnSilenceMs } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
 import type { AsrAudioFormat, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
 
 const AUDIO: AsrAudioFormat = { sampleRate: 16_000, channels: 1, encoding: "pcm16le" };
@@ -84,6 +84,11 @@ afterEach(async () => {
 });
 
 describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shape", () => {
+  it("caps encoded upstream audio at approximately one second", () => {
+    expect(realtimeAudioBacklogExceeded(45_000, 2_000)).toBe(false);
+    expect(realtimeAudioBacklogExceeded(47_000, 2_000)).toBe(true);
+  });
+
   it.each([undefined, "", "abc", "0", "199", "2001", "600.5", Infinity])("bounds invalid recording endpointing override %s", raw => {
     expect(resolveRecordingTurnSilenceMs(raw)).toBe(800);
   });
