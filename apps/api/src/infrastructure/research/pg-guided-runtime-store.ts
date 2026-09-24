@@ -14,6 +14,17 @@ async function authorize(tx: TenantSession, actor: RuntimeActor) {
   void guard({ kind: "research", id: actor.sessionId }, { kind: "guided-runtime" });
 }
 interface Row { state: unknown; active_request_id: string | null; requests: Record<string, { hash: string; done: boolean }> }
+export function decideRuntimeClaim(state: ResearchRuntime, requests: Row["requests"], command: RuntimeCommand, hash: string): { replay: boolean } {
+  const prior = Object.hasOwn(requests, command.requestId) ? requests[command.requestId] : undefined;
+  if (prior) {
+    if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
+    if (prior.done || (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now())) return { replay: true };
+  }
+  if (command.expectedRevision !== undefined && (state.planRevision ?? 0) !== command.expectedRevision) {
+    throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+  }
+  return { replay: false };
+}
 export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
   constructor(private readonly db: DatabasePort) {}
   async read(actor: RuntimeActor, initial: ResearchRuntime): Promise<ResearchRuntime> {
@@ -31,11 +42,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       const row = result.rows[0];
       if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
       const state = C.GuidedResearchRuntime.parse(row.state);
-      const prior = Object.hasOwn(row.requests, command.requestId) ? row.requests[command.requestId] : undefined;
-      if (prior) {
-        if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
-        if (prior.done || (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now())) return { state, replay: true };
-      }
+      if (decideRuntimeClaim(state, row.requests, command, hash).replay) return { state, replay: true };
       if (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now()) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_BUSY");
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
       if (!state.availableNodes.includes(command.node)) throw new ResearchRuntimeError("RESEARCH_NODE_LOCKED");
@@ -57,18 +64,53 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       return { state, replay: false };
     });
   }
+  async steer(actor: RuntimeActor, command: RuntimeCommand, hash: string): Promise<ResearchRuntime> {
+    if (!["pause", "resume"].includes(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
+      throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    }
+    const idempotencyKey = command.idempotencyKey;
+    return this.db.withTenant(actor.orgId, async (tx) => {
+      await authorize(tx, actor);
+      const result = await tx.query<Row>(`SELECT state,active_request_id,requests FROM guided_research_runtime WHERE org_id=$1 AND session_id=$2 FOR UPDATE`, [actor.orgId, actor.sessionId]);
+      const row = result.rows[0];
+      if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
+      const state = C.GuidedResearchRuntime.parse(row.state);
+      const prior = Object.hasOwn(row.requests, command.requestId) ? row.requests[command.requestId] : undefined;
+      if (prior) {
+        if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
+        return state;
+      }
+      if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
+      if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+      state.controlStatus = command.action === "pause" ? "paused" : "running";
+      state.planRevision = (state.planRevision ?? 0) + 1;
+      const activity = state.activity ?? (state.activity = []);
+      activity.push({ id: idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
+        stage: "planning", taskId: null, summary: command.action === "pause" ? "研究已暂停" : "研究已继续",
+        occurredAt: new Date().toISOString(), status: command.action === "pause" ? "paused" : "succeeded" });
+      await tx.query(`UPDATE guided_research_runtime SET state=$3::jsonb,
+        requests=requests || jsonb_build_object($4::text,$5::jsonb) WHERE org_id=$1 AND session_id=$2`,
+      [actor.orgId, actor.sessionId, JSON.stringify(state), command.requestId, JSON.stringify({ hash, done: true })]);
+      return state;
+    });
+  }
   async write(actor: RuntimeActor, requestId: string, state: ResearchRuntime, done: boolean) {
-    await this.db.withTenant(actor.orgId, async (tx) => {
+    return this.db.withTenant(actor.orgId, async (tx) => {
       await authorize(tx, actor);
       const parsed = C.GuidedResearchRuntime.parse(state);
-      const result = await tx.query<{ session_id: string }>(`UPDATE guided_research_runtime
-        SET state=$3::jsonb, requests=CASE WHEN $6 THEN jsonb_set(requests,ARRAY[$4::text,'done'],'true'::jsonb) ELSE requests END
-        WHERE org_id=$1 AND session_id=$2 AND active_request_id=$4 AND (state->>'version')::int=$5 RETURNING session_id`,
+      const result = await tx.query<{ session_id: string; state: unknown }>(`UPDATE guided_research_runtime
+        SET state=CASE WHEN coalesce((state->>'planRevision')::int,0) > coalesce(($3::jsonb->>'planRevision')::int,0)
+                       THEN $3::jsonb || jsonb_build_object('controlStatus',state->'controlStatus','planRevision',state->'planRevision','activity',state->'activity')
+                       ELSE $3::jsonb END,
+            requests=CASE WHEN $6 THEN jsonb_set(requests,ARRAY[$4::text,'done'],'true'::jsonb) ELSE requests END
+        WHERE org_id=$1 AND session_id=$2 AND active_request_id=$4 AND (state->>'version')::int=$5 RETURNING session_id,state`,
       [actor.orgId, actor.sessionId, JSON.stringify(parsed), requestId, state.version, done]);
       if (!result.rows[0]) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
+      const written = C.GuidedResearchRuntime.parse(result.rows[0].state);
       const stage = state.currentNode === "research" ? "researching" : state.currentNode;
       await tx.query(`UPDATE guided_research_sessions SET stage=$3,resume_stage=$3,progress=$4,source_count=$5,brief=$6::jsonb,status=$7,report_id=$8,updated_at=now()
         WHERE org_id=$1 AND id=$2`, [actor.orgId,actor.sessionId,stage,state.completed ? 100 : ["brief","directions","outline","research","report"].indexOf(state.currentNode)*20,state.sources.filter((source)=>source.decision==="accepted").length,JSON.stringify(state.brief),state.completed ? "completed" : "active",state.report ? `guided-${actor.sessionId}-${state.revision}` : null]);
+      return written;
     });
   }
 }

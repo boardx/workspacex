@@ -263,6 +263,9 @@ export default defineConfig({
       testMatch: [
         "fullstack-smoke.spec.ts",
         "guided-research-runtime.spec.ts",
+        // Trust-console preview is deterministic, but keeping it in a CI-reachable project
+        // prevents the browser acceptance contract from silently becoming local-only.
+        "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
         "survey-complete-flow.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
@@ -687,6 +690,10 @@ export default defineConfig({
         NEXT_PUBLIC_API_WS_URL: `http://127.0.0.1:${apiPort}`,
         FULLSTACK_E2E_API_ORIGIN: apiOrigin,
         FULLSTACK_E2E_BREAK_CONTROLLER: breakController,
+        // Preview fixtures stay closed in ordinary production builds. This explicit lane-only
+        // switch makes the trust-console browser contract reachable in the production-mode
+        // build exercised by fullstack smoke.
+        FULLSTACK_E2E_PREVIEWS: "1",
         NEXT_DIST_DIR: ".next-fullstack-e2e",
         /**
          * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。

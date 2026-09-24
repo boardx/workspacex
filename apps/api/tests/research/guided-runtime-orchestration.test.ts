@@ -16,6 +16,29 @@ function fixture() {
 }
 
 describe("durable research orchestration", () => {
+  it("loads authorized internal artifacts into the evidence pipeline", async () => {
+    const f = fixture();
+    f.state.sourcePolicy = { mode: "open", domains: [], internalSourceIds: ["artifact-1"], revision: 1 };
+    f.state.tasks = [{ id: "task-1", sectionId: "o", query: "internal policy", status: "pending", attempts: 0, errorCode: null }];
+    const search = vi.fn(async () => []);
+    const model = { complete: vi.fn(async (input: { user: string }) => {
+      const context = JSON.parse(input.user);
+      return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({
+        sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false,
+        matches: [{ questionId: context.questions[0].id, quote: chunk.content, insight: "Internal policy evidence", relevance: "direct" }],
+      })) }) };
+    }) };
+    const access = {
+      authorizedSourceIds: vi.fn(async () => ["artifact-1"]),
+      loadAuthorizedSources: vi.fn(async () => [{ id: "artifact-1", title: "Internal policy", content: "Approved internal evidence", retrievedAt: "2026-09-24T00:00:00Z", contentHash: "a".repeat(64) }]),
+    };
+    const service = new GuidedRuntimeService(f.store, model, { search }, { provider: "test", id: "test" }, model, access);
+    const result = await service.execute(f.actor, f.session, { sessionId: "session", node: "research", action: "start", requestId: "start-internal", expectedVersion: 0 });
+    expect(search).not.toHaveBeenCalled();
+    expect(result.tasks[0]).toMatchObject({ status: "succeeded", errorCode: null });
+    expect(result.sources[0]).toMatchObject({ id: "internal:artifact-1", decision: "accepted", document: { text: "Approved internal evidence" } });
+  });
+
   it("bounds searches, preserves completed results and excluded sources, and retries only failures", async () => {
     const f = fixture();
     f.state.tasks = Array.from({ length: 7 }, (_, i) => ({ id: `t${i}`, sectionId: "o", query: `q${i}`, status: "pending" as const, attempts: 0, errorCode: null }));

@@ -88,7 +88,7 @@ describe("guided research session routing and lifecycle", () => {
     expect(await screen.findByText("有来源支持的结论")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Official policy" })).toHaveAttribute("href", "https://example.org/policy");
     fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
-    expect(await screen.findByText("研究报告 · 已完成")).toBeInTheDocument();
+    expect(await screen.findByText("研究报告 · 质量待评估")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "complete", node: "report" }));
   });
   it("does not fabricate a report or citations when generation failed", async () => {
