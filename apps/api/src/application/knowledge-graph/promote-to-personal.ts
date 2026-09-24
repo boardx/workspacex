@@ -54,6 +54,10 @@ export async function promoteToPersonal(
       results.push({ claimId, outcome: "rejected", code: "KG_CLAIM_NOT_FOUND" });
       continue;
     }
+    if (src.sourceGone) {
+      results.push({ claimId, outcome: "rejected", code: "KG_EVIDENCE_REVOKED" });
+      continue;
+    }
     // 每条都重新读一次个人空间：同一批里前一条刚晋升的，后一条要能看见（不然同一句话会被复制两份）。
     const verdict = dedupAgainstPersonal(src.statement, t.reveal(await deps.promotion.personalClaims(input.orgId, input.userId, t.ref)));
     const choice = choices.get(claimId);

@@ -170,19 +170,6 @@ export class KgHumanActionError extends Error {
 }
 
 export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
-// ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
-
-export interface KnowledgeRecallPort {
-  /** 本会话的活结论与实体（候选集）。读身份 = 发起这轮对话的人。 */
-  candidates(orgId: OrgId, userId: string, threadId: string): Promise<{
-    readonly claims: readonly RecallClaim[];
-    readonly objects: readonly RecallObject[];
-  }>;
-  /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
-  graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
-}
-
-export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
 
 // ─────────────────────────────── F11 晋升到个人空间 ───────────────────────────────
 
@@ -194,7 +181,8 @@ export interface PromotionPort {
    * 本人个人空间里的活结论（去重用）、会话里这些结论的原文、AI 提名候选。
    */
   personalClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
-  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** `sourceGone`：这条因为原话被删而失效了（F07），晋升时逐条报 KG_EVIDENCE_REVOKED。 */
+  threadClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string; readonly sourceGone: boolean }[]>>;
   nominationCandidates(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly {
     readonly id: string; readonly kind: string; readonly status: string; readonly statement: string;
   }[]>>;

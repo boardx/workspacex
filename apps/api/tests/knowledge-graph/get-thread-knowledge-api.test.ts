@@ -153,7 +153,7 @@ describe("F09: 拒绝与不存在对外无法区分（I-3）", () => {
   };
 
   it("组织成员但不在项目里：三个读接口都与「不存在」同一个出口（码与 404 响应体一致）", async () => {
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, unusedActions);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, unusedActions, {} as never);
     const outsider = { userId: "u-outsider", orgId: ORG } as never;
     const [sharedClaim] = (await getThreadKnowledge(deps, { ...owner, threadId: SHARED })).claims;
 
@@ -179,11 +179,11 @@ describe("F09: 拒绝与不存在对外无法区分（I-3）", () => {
   it("判定依赖读不到（成员关系查询失败）⇒ 503，不是 404 / 500，也不放行", async () => {
     const failingRepo = Object.create(deps.repo) as typeof deps.repo;
     failingRepo.findProjectMembership = async () => { throw new Error("db down"); };
-    const ctl = new KnowledgeGraphController(failingRepo, deps.ids, deps.chat, deps.knowledge, unusedActions);
+    const ctl = new KnowledgeGraphController(failingRepo, deps.ids, deps.chat, deps.knowledge, unusedActions, {} as never);
     await expect(ctl.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
     const failingChat = Object.create(deps.chat) as typeof deps.chat;
     failingChat.findThreadFacts = async () => { throw new Error("db down"); };
-    const ctl2 = new KnowledgeGraphController(deps.repo, deps.ids, failingChat, deps.knowledge, unusedActions);
+    const ctl2 = new KnowledgeGraphController(deps.repo, deps.ids, failingChat, deps.knowledge, unusedActions, {} as never);
     await expect(ctl2.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
