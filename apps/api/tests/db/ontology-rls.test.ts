@@ -6,7 +6,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import type pg from "pg";
-import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addSegment, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const ORG_A = "org-kg-f02-rls-a";
 const ORG_B = "org-kg-f02-rls-b";
@@ -19,6 +19,7 @@ beforeAll(async () => {
   await resetOrgs(ORG_A, ORG_B);
   await seedOrg({ orgId: ORG_A, projectId: `${ORG_A}-p` });
   await seedOrg({ orgId: ORG_B, projectId: `${ORG_B}-p` });
+  await addSegment({ orgId: ORG_A, segmentId: "seg-f02-rls-1", artifactId: "art-f02-rls-1" });
   await asOwner(async (c) => {
     const obj = (id: string, org: string, scopeKind: string, scopeId: string) =>
       c.query(
@@ -43,6 +44,7 @@ beforeAll(async () => {
          VALUES ($1, $2, $3, 'kg-f02-probe', '1', '[1,0,0]')`, [ORG_A, kind, id],
       );
     }
+    await c.query("INSERT INTO claim_segments (claim_id, org_id, segment_id, stance) VALUES ('c-a-personal-1', $1, 'seg-f02-rls-1', 'contradicting')", [ORG_A]);
     await c.query(
       `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
        VALUES ('e-a-personal-1', $1, 'claim', 'c-a-personal-1', 'object', 'o-a-personal-1', 'about', 'model', 'personal', $2)`, [ORG_A, USER_1],
@@ -115,6 +117,12 @@ describe("F02: RLS", () => {
     expect(await asUser(ORG_B, USER_1, (c) => c.query("SELECT 1 FROM object_embeddings").then((r) => r.rows.length))).toBe(0);
   });
 
+  it("个人空间结论的证据（claim_segments）同样只有本人看得见", async () => {
+    const q = (user: string) => asUser(ORG_A, user, (c) => c.query("SELECT 1 FROM claim_segments WHERE claim_id = 'c-a-personal-1'").then((r) => r.rows.length));
+    expect(await q(USER_1)).toBe(1);
+    expect(await q(USER_2)).toBe(0);
+  });
+
   it("个人空间的边与审计动作同样只有本人看得见", async () => {
     const q = (user: string, sql: string) => asUser(ORG_A, user, (c) => c.query(sql).then((r) => r.rows.length));
     expect(await q(USER_1, "SELECT 1 FROM ontology_edges WHERE id = 'e-a-personal-1'")).toBe(1);
@@ -178,12 +186,15 @@ describe("F02: ontology_actions 只追加", () => {
  */
 describe("F02: 属主角色不绕过 RLS 时（云上的 owner）", () => {
   const PROBE = "kg_f02_probe_owner";
-  const asProbe = <T>(fn: (c: import("pg").Client) => Promise<T>) => asOwner(async (c) => {
+  const asProbeSetup = async (c: import("pg").Client) => {
     await c.query(`DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PROBE}') THEN
         CREATE ROLE ${PROBE} NOLOGIN NOSUPERUSER NOBYPASSRLS INHERIT;
       END IF; END $$`);
     await c.query(`GRANT ${(await c.query<{ o: string }>("SELECT pg_get_userbyid(relowner) AS o FROM pg_class WHERE oid = 'ontology_objects'::regclass")).rows[0]!.o} TO ${PROBE}`);
+  };
+  const asProbe = <T>(fn: (c: import("pg").Client) => Promise<T>) => asOwner(async (c) => {
+    await asProbeSetup(c);
     await c.query("BEGIN");
     try {
       await c.query(`SET LOCAL ROLE ${PROBE}`);
@@ -203,10 +214,22 @@ describe("F02: 属主角色不绕过 RLS 时（云上的 owner）", () => {
     expect(r.objects).toEqual(["o-a-personal-1", "o-a-personal-2", "o-a-session"]);
   });
 
-  it("删除结论时向量清理在 RLS 下仍然生效（BEFORE DELETE，目标仍可见）", async () => {
-    const left = await asProbe(async (c) => {
-      await c.query("DELETE FROM claims WHERE id = 'c-a-personal-1'");
-      return (await c.query("SELECT 1 FROM object_embeddings WHERE target_id = 'c-a-personal-1'")).rows.length;
+  it("删除结论时向量清理在 RLS 下仍然生效（清理函数本身以不绕过 RLS 的属主身份运行）", async () => {
+    const left = await asOwner(async (c) => {
+      await c.query("BEGIN");
+      try {
+        // 先把清理触发器函数的属主换成探针角色：否则它仍以 postgres（超级用户）运行，测不到 RLS 的影响。
+        await asProbeSetup(c);
+        await c.query(`ALTER FUNCTION object_embeddings_follow_target() OWNER TO ${PROBE}`);
+        await c.query(`SET LOCAL ROLE ${PROBE}`);
+        await c.query("SELECT set_config('app.current_org', $1, true)", [ORG_A]);
+        await c.query("DELETE FROM claims WHERE id = 'c-a-personal-1'");
+        await c.query("RESET ROLE");
+        // 以超级用户数残留：object_embeddings 的 target_visible 策略会把孤儿行藏起来，用它数等于没数。
+        return (await c.query("SELECT 1 FROM object_embeddings WHERE target_id = 'c-a-personal-1'")).rows.length;
+      } finally {
+        await c.query("ROLLBACK");
+      }
     });
     expect(left).toBe(0);
   });
