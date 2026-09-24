@@ -133,8 +133,24 @@ for (const s of demo.SCENARIOS) {
     const refs = [...v.claims.flatMap((c) => c.cites), ...v.steps.flatMap((st) => st.uses)];
     refs.filter((r) => !v.sources[r]).forEach((r) => demoProblems.push(`${s.id} [${lang}]: cites S${r + 1}, which does not exist`));
     if (!v.claims.some((c) => !c.ok)) demoProblems.push(`${s.id} [${lang}]: no withdrawn claim — the demo has nothing to show`);
-    const strings = [v.tab, v.task, ...v.sources.flatMap((x) => [x.who, x.text]), ...v.steps.flatMap((x) => [x.agent, x.did]), ...v.claims.flatMap((x) => [x.text, x.why])];
+    const strings = [v.tab, v.role, v.stakes, v.task, v.headline, v.so, v.yours, ...v.sources.flatMap((x) => [x.who, x.text]), ...v.steps.flatMap((x) => [x.agent, x.did]), ...v.claims.flatMap((x) => [x.text, x.why])];
     strings.filter((x) => !String(x ?? '').trim()).forEach(() => demoProblems.push(`${s.id} [${lang}]: an empty string`));
+    /* Every number the answer states must come from somewhere on the page:
+       a source, the brief, or arithmetic written out in the same line
+       ("six hours × forty contracts = 240 hours"). A demo whose point is
+       that every claim is traceable cannot itself carry a number that is
+       not. Plan periods ("months 4–9") are ranges, not data. */
+    const given = [v.role, v.stakes, v.task, ...v.sources.flatMap((x) => [x.who, x.text])].join(' ');
+    const nums = (t) => (String(t).replace(/\d+–\d+/g, '').match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, ''));
+    const known = new Set(nums(given));
+    /* A withdrawn claim's own number is unsourced by definition — that is
+       why it was withdrawn. The reason given for withdrawing it is not. */
+    const lines = [[v.headline, ''], [v.so, ''], [v.yours, ''], ...v.claims.flatMap((c) => [[c.ok ? c.text : '', c.why], [c.why, c.why]])];
+    for (const [line, why] of lines) {
+      const computed = new Set(/×/.test(why) ? nums(why.split(/[=≈]/).pop()) : []);
+      nums(line).filter((n) => !known.has(n) && !computed.has(n))
+        .forEach((n) => demoProblems.push(`${s.id} [${lang}]: "${n}" appears in the answer but in no source — "${line.slice(0, 50)}"`));
+    }
     if (lang === 'zh') strings.filter((x) => !/[\u4e00-\u9fff]/.test(x)).forEach((x) => demoProblems.push(`${s.id} [zh]: untranslated — "${x}"`));
     if (lang === 'en') strings.filter((x) => /"|[A-Za-z]'[A-Za-z]/.test(x)).forEach((x) => demoProblems.push(`${s.id} [en]: straight quote — "${x.slice(0, 50)}"`));
   }

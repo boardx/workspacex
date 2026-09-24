@@ -205,7 +205,8 @@ function initNav() {
     let cur = null;
     for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
     if (window.scrollY < 8) cur = null;
-    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+    const frag = (cur === 'start' && /^#(panel|tab)-/.test(location.hash))
+      || (cur === 'demo' && /^#demo-/.test(location.hash)) ? location.hash.slice(1) : cur;
     if (frag === last) return;
     last = frag;
     anchors.forEach((a) => {
@@ -1397,6 +1398,7 @@ function armDemo() {
     io.observe(host);
   };
   EVENTS.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+  if (/^#demo-/.test(location.hash)) document.getElementById('demo')?.scrollIntoView({ block: 'start' });
 }
 
 let detachScene = null;

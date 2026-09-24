@@ -779,6 +779,7 @@
 .js .demo__noscript { display: none; }
 
 .demo__tabs {
+  position: relative;   /* the offsetParent demo.js measures tabs against */
   display: flex; flex-wrap: wrap; gap: var(--s-2);
   padding: var(--s-3);
   border-bottom: 1px solid var(--hairline);
@@ -793,6 +794,19 @@
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
 @media (hover: hover) { .demo__tab:hover { color: var(--fg-soft); background: var(--surface); } }
+/* Seven scenarios wrapped to five rows on a phone — 277 px of buttons before
+   the first word of the scenario, reading like a menu of services. One row
+   that scrolls sideways instead; the tab cut off at the edge says there is
+   more, and demo.js keeps the selected one in view. */
+@media (max-width: 48rem) {
+  .demo__tabs {
+    flex-wrap: nowrap; overflow-x: auto;
+    scroll-snap-type: x proximity; scroll-padding-inline: var(--s-3);
+    scrollbar-width: none;
+  }
+  .demo__tabs::-webkit-scrollbar { display: none; }
+  .demo__tab { flex: none; white-space: nowrap; scroll-snap-align: start; }
+}
 .demo__tab[aria-selected="true"] { color: var(--fg); background: var(--surface-2); font-weight: 600; box-shadow: inset 0 -2px 0 var(--c-2); }
 
 .demo__panel {
@@ -811,6 +825,15 @@
   color: var(--fg-faint);
   margin-bottom: var(--s-2);
 }
+.demo__situation {
+  margin-bottom: var(--s-5);
+  padding: var(--s-3) var(--s-4);
+  border-left: 2px solid var(--c-human);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: rgba(255, 178, 61, 0.06);
+  color: var(--fg-soft); font-size: var(--t-md); line-height: 1.55;
+}
+.demo__situation strong { color: var(--fg); font-weight: 600; }
 .demo__task { font-size: var(--t-lg); line-height: 1.45; color: var(--fg); margin-bottom: var(--s-5); }
 
 .demo__sources { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }
@@ -881,8 +904,13 @@
 @media (hover: hover) { .demo__doubt:hover { color: var(--fg); border-color: var(--fg-faint); } }
 .demo__doubt[aria-expanded="true"] { color: var(--fg); background: var(--surface-2); }
 .demo__check { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--hairline-2); display: grid; gap: var(--s-2); }
-.demo__verdict { font-size: var(--t-small); color: var(--c-evidence); }
-.demo__claim.is-withdrawn .demo__verdict { color: var(--c-fail); }
+/* The status in colour, the reason in ink. The reason was the whole line in
+   red — and the withdrawn claim's reason is the best sentence in the demo,
+   set in the hardest colour to read. */
+.demo__verdict { display: grid; gap: 0.2rem; font-size: var(--t-small); color: var(--fg-soft); }
+.demo__verdict strong { font-weight: 600; color: var(--c-evidence); }
+.demo__claim.is-withdrawn .demo__verdict strong { color: var(--c-fail); }
+.demo__claim.is-withdrawn .demo__verdict span { color: var(--fg); }
 .demo__cited { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }
 .demo__cited li { display: flex; gap: var(--s-2); align-items: flex-start; font-size: var(--t-small); color: var(--fg-soft); }
 
@@ -892,5 +920,12 @@
   background: linear-gradient(100deg, rgb(var(--c-1-rgb) / 0.1), rgb(var(--c-3-rgb) / 0.1));
   border: 1px solid rgb(var(--c-2-rgb) / 0.35);
 }
-.demo__nextline { color: var(--fg); font-size: var(--t-md); margin-bottom: var(--s-3); }
+.demo__headline {
+  font-family: var(--font-display); font-size: var(--t-xl); font-weight: 600; line-height: 1.35;
+  color: var(--fg);
+  margin-bottom: var(--s-5);
+}
+.demo__so { color: var(--fg); font-size: var(--t-lg); line-height: 1.45; margin-bottom: var(--s-3); }
+.demo__yours { color: var(--fg); font-weight: 600; font-size: var(--t-md); margin-bottom: var(--s-1); }
+.demo__nextline { color: var(--fg-dim); font-size: var(--t-small); margin-bottom: var(--s-3); }
 .demo__nextactions { display: flex; flex-wrap: wrap; gap: var(--s-3); }

@@ -132,6 +132,25 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     ok = r.finish() && ok;
   }
 
+  /* ---- a scenario can be linked to ------------------------------------- */
+  {
+    const r = reporter(`demo [${lang}] — a scenario can be linked to`);
+    const pick = SCENARIOS[SCENARIOS.length - 1];
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    const before = await page.goto(`${base}${path}#demo-${pick.id}`, { waitUntil: 'load' }).then(() => page.evaluate(() => history.length));
+    await page.waitForSelector('.demo.is-live', { timeout: 6000 }).catch(() => {});
+    const opened = await page.evaluate(() => document.querySelector('.demo__tab[aria-selected="true"]')?.dataset.scenario ?? 'never mounted');
+    r.equal(opened, pick.id, `/#demo-${pick.id} opened on`);
+    await page.click(`.demo__tab[data-scenario="${SCENARIOS[0].id}"]`);
+    await page.click(`.demo__tab[data-scenario="${SCENARIOS[1].id}"]`);
+    const after = await page.evaluate(() => ({ hash: location.hash, len: history.length }));
+    r.equal(after.hash, `#demo-${SCENARIOS[1].id}`, 'the address after choosing a scenario');
+    r.equal(after.len, before, 'history entries added by choosing scenarios');
+    await ctx.close();
+    ok = r.finish() && ok;
+  }
+
   /* ---- with motion: the run plays out, and can't be started twice ------ */
   {
     const r = reporter(`demo [${lang}] — the animated run, on a phone`);

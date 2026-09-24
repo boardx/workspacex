@@ -113,6 +113,10 @@ function armDemo() {
     io.observe(host);
   };
   EVENTS.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+  /* /#demo-workforce names a scenario, not an element, so the browser has
+     nothing to scroll to. Go to the section; the scroll arms the loader, and
+     demo.js reads the fragment when it mounts. */
+  if (/^#demo-/.test(location.hash)) document.getElementById('demo')?.scrollIntoView({ block: 'start' });
 }
 
 /* -------------------------------------------------------------------------

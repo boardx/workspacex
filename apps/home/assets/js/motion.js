@@ -196,8 +196,10 @@ export function initNav() {
     for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
     if (window.scrollY < 8) cur = null;
     /* Inside the use cases, the fragment names the selected discipline
-       (cases.js writes it); the other language should open on that one. */
-    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+       (cases.js writes it); inside the demo, the selected scenario
+       (demo.js). The other language should open on that one. */
+    const frag = (cur === 'start' && /^#(panel|tab)-/.test(location.hash))
+      || (cur === 'demo' && /^#demo-/.test(location.hash)) ? location.hash.slice(1) : cur;
     if (frag === last) return;
     last = frag;
     anchors.forEach((a) => {
