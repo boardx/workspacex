@@ -15,7 +15,8 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@repo/contracts": "workspace:*"
+    "@repo/contracts": "workspace:*",
+    "@repo/coord-access": "workspace:*"
   },
   "devDependencies": {
     "typescript": "*",

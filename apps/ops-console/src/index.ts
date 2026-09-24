@@ -22,7 +22,7 @@
  *   4. 最小 UI（目前只有 JSON API）；事故时间线的操作人（Access 身份）要不要记，需另议——
  *      那是员工 PII，当前刻意不存。
  */
-import { certsResolver, verifyAccessJwt, type KeyResolver } from "./access";
+import { checkAccess, resolveAccessConfig, type KeyResolver } from "@repo/coord-access";
 import { githubClient, listReleases } from "./releases";
 import { leadDetailPage } from "./crm";
 import type { LeadRef } from "./crm-schema";
@@ -55,14 +55,11 @@ export async function handle(request: Request, env: Env, deps: Deps = {}): Promi
   const route = url.pathname.slice("/api/ops".length);
 
   if (route === "/healthz") {
-    return json(200, { ok: true, access_configured: Boolean(env.ACCESS_TEAM_DOMAIN && env.ACCESS_AUD), github_configured: Boolean(env.GITHUB_READ_TOKEN) });
+    return json(200, { ok: true, access_configured: resolveAccessConfig({ teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD }) !== null, github_configured: Boolean(env.GITHUB_READ_TOKEN) });
   }
 
-  if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return json(503, { error: "ACCESS_NOT_CONFIGURED" });
-  const jwt = request.headers.get("cf-access-jwt-assertion");
-  if (!jwt) return json(401, { error: "ACCESS_JWT_REQUIRED" });
-  const cfg = { teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD };
-  if (!(await verifyAccessJwt(jwt, cfg, deps.resolveKey ?? certsResolver(cfg.teamDomain)))) return json(403, { error: "ACCESS_JWT_INVALID" });
+  const access = await checkAccess(request.headers, { teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD }, { resolveKey: deps.resolveKey });
+  if (!access.ok) return json(access.status, { error: access.error });
 
   if (route === "/releases" && request.method === "GET") {
     const gh = deps.gh ?? (env.GITHUB_READ_TOKEN ? githubClient(env.GITHUB_READ_TOKEN) : null);

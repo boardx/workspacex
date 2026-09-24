@@ -70,7 +70,8 @@ GITHUB_OAUTH_CLIENT_ID = "Iv23li04uGG7S4NH5Y8E"
 # 「Setup URL」需在 GitHub App 设置里登记为
 #   https://develop.boardx.us/api/coord/onboard/callback
 GITHUB_APP_SLUG = "workspacex-coordinator"
-# CF_ACCESS_AUD：Access 应用的 audience tag（拿到后填上即启用 aud 严格校验，
-# 见 lib/access.ts——当前 API token 无 Access 读权限，从 dashboard 的
-# Zero Trust → Access → Applications → develop.boardx.us 应用详情可查）
-# CF_ACCESS_AUD = "<aud tag>"
+# CF_ACCESS_AUD：Access 应用的 audience tag（D7：必填，由 @repo/coord-access 强校验）。
+# 空 / 占位值 = fail-closed：Access 通道拒绝所有 JWT（OAuth 通道不受影响）。人类从
+# Zero Trust → Access → Applications → develop.boardx.us 应用详情取值后替换占位值。
+# 清单与核对方法见 docs/deployment/cloudflare-access-inventory.json。
+CF_ACCESS_AUD = "__SET_CF_ACCESS_AUD__"

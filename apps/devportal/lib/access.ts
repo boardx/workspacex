@@ -1,54 +1,37 @@
 // Cloudflare Access 身份层 — 替代产品面的 @/lib/session（#523 Track A 门禁解耦）。
 // develop.boardx.us 整域由 Cloudflare Access（GitHub 登录）保护；请求到达本应用时
 // Access 已注入两个头：
-//   Cf-Access-Authenticated-User-Email — 登录者邮箱
+//   Cf-Access-Authenticated-User-Email — 登录者邮箱（不可信，不读）
 //   Cf-Access-Jwt-Assertion            — 签名 JWT（RS256，团队证书端点可验签）
 // 必须验签而不能只信 email 头：*.pages.dev 直连不经过 Access，攻击者可手工伪造头。
-// 验签失败/缺头 → null（调用方按未登录处理）。
-import { createRemoteJWKSet, jwtVerify } from "jose";
-
-const TEAM_DOMAIN = process.env["CF_ACCESS_TEAM_DOMAIN"] ?? "https://boardx.cloudflareaccess.com";
+//
+// 校验实现只在 @repo/coord-access（单一事实源，D7）：签名 + aud + iss + exp。
+// CF_ACCESS_AUD / CF_ACCESS_TEAM_DOMAIN 任一未配置 → fail-closed：Access 通道一律不认
+// （返回 null，调用方按未登录处理；OAuth 通道不受影响）。#769 的「未配 aud 只警告」降级档已删除。
+import { certsResolver, resolveAccessConfig, verifyAccessJwt, type KeyResolver } from "@repo/coord-access";
 
 export interface AccessUser {
   email: string;
 }
 
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+let warnedUnconfigured = false;
 
-function getJwks(): ReturnType<typeof createRemoteJWKSet> {
-  jwks ??= createRemoteJWKSet(new URL(`${TEAM_DOMAIN}/cdn-cgi/access/certs`));
-  return jwks;
-}
-
-let warnedMissingAud = false;
-
-/** 从请求头解析并验证 Access 身份；无 Access 上下文（如 pages.dev 直连）→ null。 */
-export async function accessUser(headers: Headers): Promise<AccessUser | null> {
+/** 从请求头解析并验证 Access 身份；无 Access 上下文 / 未配置 / 验签失败 → null。 */
+export async function accessUser(headers: Headers, resolveKey?: KeyResolver): Promise<AccessUser | null> {
   const assertion = headers.get("cf-access-jwt-assertion");
   if (!assertion) return null;
-  try {
-    // aud 校验（#543 起，#769 强校验跟进）：CF_ACCESS_AUD 配置后启用严格 audience
-    // 匹配——防团队域下新增第二个 Access 应用时 JWT 互通。未配置时仅 issuer+签名，
-    // 且每进程只警告一次（不阻断现有部署——向后兼容策略，#769）；aud tag 入
-    // wrangler.toml 即生效，无需改代码。
-    const aud = process.env["CF_ACCESS_AUD"];
-    if (!aud && !warnedMissingAud) {
-      warnedMissingAud = true;
-      console.warn(
-        "[access] CF_ACCESS_AUD 未配置：Access JWT 回退验签跳过 audience 校验（仅验 issuer+签名）。" +
-          "团队域下如有多个 Access 应用共享证书端点，请配置该变量启用强校验，防跨应用 JWT 互通。",
-      );
+  const cfg = { teamDomain: process.env["CF_ACCESS_TEAM_DOMAIN"], aud: process.env["CF_ACCESS_AUD"] };
+  const resolved = resolveAccessConfig(cfg);
+  if (!resolved) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.error("[access] CF_ACCESS_AUD / CF_ACCESS_TEAM_DOMAIN 未配置：Access 通道 fail-closed，所有 Access JWT 被拒。");
     }
-    const { payload } = await jwtVerify(assertion, getJwks(), {
-      issuer: TEAM_DOMAIN,
-      ...(aud ? { audience: aud } : {}),
-    });
-    const email = typeof payload["email"] === "string" ? payload["email"] : null;
-    if (!email) return null;
-    return { email };
-  } catch {
     return null;
   }
+  const claims = await verifyAccessJwt(assertion, cfg, resolveKey ?? certsResolver(resolved.team));
+  const email = typeof claims?.["email"] === "string" ? claims["email"] : null;
+  return email ? { email } : null;
 }
 
 /** owner 匹配辅助：registry 的 owner 字段现值为 GitHub login（usamshen），Access 给的是
