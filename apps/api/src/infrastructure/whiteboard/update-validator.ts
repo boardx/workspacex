@@ -3,7 +3,7 @@ import { WhiteboardCommandBatch, type WhiteboardCommand, type WhiteboardObject }
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardCollaborationError, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 
-export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: 8192, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 4000 } as const;
+export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: 8192, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
 /** FIFO admission is bounded by count, retained input bytes and waiting time. */
 export class WhiteboardValidationQueue {
   private active = 0;
