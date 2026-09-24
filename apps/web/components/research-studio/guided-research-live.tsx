@@ -15,6 +15,7 @@ import { GuidedResearchReportDocument } from "./guided-research-report-document"
 import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./guided-research-report-history";
 import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
+import { researchReportPreview } from "@/lib/research-report-preview";
 import { ResearchDirectionsEditor, ResearchOutlineEditor, ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guided-research-runtime-progress";
 import { GuidedResearchSources } from "./guided-research-sources";
@@ -267,7 +268,8 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const waiting = Boolean(loadingNode || (!pending && state.busy && !expired && !recovery));
   const readingReport = reportVisible && !waiting && Boolean(displayReport || state.reportDraft);
   const resumeReport = Boolean(state.errorCode || expired || state.reportDraft);
-  const hasReportPreview = Boolean(state.reportStream?.text || state.reportCheckpoint?.chapters.length);
+  const streamPreview = researchReportPreview(state.reportStream?.text ?? "");
+  const hasRenderableReportPreview = Boolean(streamPreview.summary || streamPreview.introduction || streamPreview.conclusion || streamPreview.sections.some((section) => section.body) || state.reportCheckpoint?.chapters.some((chapter) => chapter.body));
   const reportPrimaryAction = !waiting && (resumeReport
     ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("retry")}>生成完整报告</Button>
     : state.report && !state.completed
@@ -275,7 +277,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       : !state.report
         ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("generate")}>生成报告</Button>
         : null);
-  const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{!waiting && !readingReport && resumeReport && !hasReportPreview && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
+  const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{!waiting && !readingReport && resumeReport && !hasRenderableReportPreview && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
   return <div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <ResearchProgress node={loadingNode ?? node} availableNodes={state.availableNodes} busy={busy} completed={state.completed} onNavigate={navigate} onBack={onBack} />
     <GuidedResearchStepLayout reading={reportVisible} assistant={<GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}

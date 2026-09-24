@@ -86,6 +86,18 @@ describe("reference research workflow", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "重新生成报告" }));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
   });
+  it("keeps a regeneration action when a failed stream has no renderable report content", async () => {
+    const initial = runtimeFixture("report");
+    const state = { ...initial, report: null, reportDraft: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE", reportStream: { requestId: "r", sequence: 4, status: "failed" as const, text: '{"sections":[' } };
+    vi.mocked(getResearchRuntime).mockResolvedValue(state);
+    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+    render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+
+    expect(await screen.findByRole("button", { name: "生成完整报告" })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "重新生成报告" }));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
+  });
   it("groups completed report actions under one menu beside the primary completion action", async () => {
     const initial = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
