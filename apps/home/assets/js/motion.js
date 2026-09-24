@@ -63,6 +63,28 @@ export function initReveals() {
     io.observe(el);
   });
 
+  /* The net under the observer. A fast scroll can carry an element from below
+     the viewport to above it without a frame in which it intersects, and the
+     observer then never fires for it: the heading stays at opacity 0 above a
+     reader who has already passed it. Reproduced on this page with no other
+     change (a reading-pace scroll at 60 ms steps left #unit's heading blank),
+     and made likelier when content above grows mid-scroll — the scripted demo
+     mounting did it on CI. So when scrolling settles, anything still waiting
+     that is on screen or already passed is revealed. Once per settle, not per
+     frame: it reads a rect for each waiting element. */
+  let settle = 0;
+  const sweep = () => {
+    let waiting = 0;
+    targets.forEach((el) => {
+      if (el.classList.contains('is-in')) return;
+      if (el.getBoundingClientRect().top < window.innerHeight) { el.classList.add('is-in'); io.unobserve(el); }
+      else waiting += 1;
+    });
+    if (!waiting) window.removeEventListener('scroll', onScroll);
+  };
+  const onScroll = () => { clearTimeout(settle); settle = setTimeout(sweep, 150); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),

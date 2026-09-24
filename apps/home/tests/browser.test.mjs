@@ -599,6 +599,18 @@ for (const [lang, path] of LANGS) {
     `light text drawn on the brand gradient — ${state.onGradient.slice(0, 3).join(', ')}`);
   r.check(state.rawKeys.length === 0,
     `untranslated diagram keys drawn as labels — ${state.rawKeys.slice(0, 3).join(', ')}`);
+
+  /* A jump the observer cannot see. One instant scroll from the top to the
+     bottom carries every section past the viewport without a frame in which
+     it intersects — the extreme of what a fast reader, a restored scroll
+     position, or content growing above the reader (the demo mounting) does
+     by degrees. Everything passed must still end up visible once the scroll
+     settles. Before the settle sweep in motion.js: 30+ left at opacity 0. */
+  await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
+  await frame(); await page.waitForTimeout(250); await frame(); await page.waitForTimeout(900); await frame();
+  const skipped = await page.evaluate(() => [...document.querySelectorAll('[data-reveal], [data-stagger]')]
+    .filter((e) => e.getBoundingClientRect().top < innerHeight && parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+  r.equal(skipped, 0, 'elements passed in one jump and left invisible');
   await ctx.close();
   ok = r.finish() && ok;
 }
@@ -909,6 +921,14 @@ for (const [lang, path] of LANGS) {
   });
   await page.goto(base + '/', { waitUntil: 'load' });
   await page.waitForTimeout(1200);
+  /* The scripted demo mounts once, on the reader's first move, whenever the
+     scroll comes to rest on it — which this suite's own scrolling can make
+     happen at any point, and did on CI: 42 "leaked" nodes that were the demo
+     arriving. Mount it before the baseline, so what is measured is re-wiring. */
+  await page.evaluate(() => { window.scrollBy(0, 1); document.querySelector('[data-demo]')?.scrollIntoView({ block: 'center', behavior: 'instant' }); });
+  await page.waitForSelector('.demo.is-live', { timeout: 5000 });
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForTimeout(300);
 
   const state = async () => evaluateWithin(page, 15_000, 'accumulation state', () => ({
     live: window.__io.made - window.__io.gone,

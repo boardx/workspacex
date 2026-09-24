@@ -111,6 +111,19 @@ function initReveals() {
     io.observe(el);
   });
 
+  let settle = 0;
+  const sweep = () => {
+    let waiting = 0;
+    targets.forEach((el) => {
+      if (el.classList.contains('is-in')) return;
+      if (el.getBoundingClientRect().top < window.innerHeight) { el.classList.add('is-in'); io.unobserve(el); }
+      else waiting += 1;
+    });
+    if (!waiting) window.removeEventListener('scroll', onScroll);
+  };
+  const onScroll = () => { clearTimeout(settle); settle = setTimeout(sweep, 150); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   if (scales) {
     const io2 = new IntersectionObserver(
       (e) => e.forEach((x) => { if (x.isIntersecting) { x.target.classList.add('is-in'); io2.unobserve(x.target); } }),
