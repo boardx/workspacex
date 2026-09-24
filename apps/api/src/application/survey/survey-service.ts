@@ -16,7 +16,16 @@ import type {
   SurveyRuntime,
   SurveySubmissionInput,
 } from "@repo/contracts/survey-runtime";
+import type {
+  SurveyAnonymity,
+  SurveyPublishBlocker,
+} from "@repo/contracts/survey";
 import type { OrgId } from "../../domain/org-id";
+import { evaluateSurveyForPublish } from "../../domain/survey/publish-gate";
+import {
+  InvalidSurveyTransitionError,
+  transitionSurveyStatus,
+} from "../../domain/survey/state-machine";
 
 export interface SurveyRecord {
   ownerId: string;
@@ -63,9 +72,16 @@ export class SurveyError extends Error {
       | "invalid_answers"
       | "submission_conflict"
       | "invalid_report"
-      | "capacity_reached",
+      | "capacity_reached"
+      | "invalid_transition"
+      | "publish_blocked",
   ) {
     super(code);
+  }
+}
+export class SurveyPublishBlockedError extends SurveyError {
+  constructor(readonly blockers: SurveyPublishBlocker[]) {
+    super("publish_blocked");
   }
 }
 const hash = (value: string) => createHash("sha256").update(value).digest();
@@ -79,6 +95,13 @@ export class SurveyService {
     // provenance stays null so an old snapshot is conservatively shown as stale.
     model.answerRevision ??= 0;
     model.reportBasisAnswerRevision ??= null;
+    model.status ??=
+      model.publication?.status === "closed"
+        ? "closed"
+        : model.publication
+          ? "collecting"
+          : "draft";
+    model.anonymity ??= "anonymous";
     return model;
   }
   private transact<T>(
@@ -99,11 +122,18 @@ export class SurveyService {
       this.revisions(model),
     );
   }
-  async create(orgId: OrgId, actor: string, input: SurveyDraftInput) {
+  async create(
+    orgId: OrgId,
+    actor: string,
+    input: SurveyDraftInput,
+    anonymity: SurveyAnonymity = "anonymous",
+  ) {
     const model: SurveyRuntime = {
       ...input,
       id: randomUUID(),
       version: 1,
+      status: "draft",
+      anonymity,
       answerRevision: 0,
       updatedAt: this.now().toISOString(),
       responses: [],
@@ -160,6 +190,24 @@ export class SurveyService {
       m.template = input.template;
     });
   }
+  prepare(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+  ) {
+    return this.change(orgId, actor, id, version, (model) => {
+      const blockers = evaluateSurveyForPublish(model);
+      if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      try {
+        model.status = transitionSurveyStatus(model.status, "prepare");
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
+    });
+  }
   publish(
     orgId: OrgId,
     actor: string,
@@ -190,12 +238,14 @@ export class SurveyService {
         version: m.version,
         expiresAt: end.toISOString(),
       };
+      m.status = "collecting";
     });
   }
   close(orgId: OrgId, actor: string, id: string, version: number) {
     return this.change(orgId, actor, id, version, (m) => {
       if (!m.publication) throw new SurveyError("closed");
       m.publication.status = "closed";
+      m.status = "closed";
     });
   }
   review(
