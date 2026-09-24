@@ -175,5 +175,13 @@ describe("server-enforced survey publish gate", () => {
       { expectedVersion: 4 },
     );
     expect(bypassAttempt.status).toBe(409);
+    expect(await bypassAttempt.json()).toMatchObject({
+      reasonCode: "INVALID_TRANSITION",
+    });
+    expect(await (await request(`/surveys/${created.id}`)).json()).toMatchObject({
+      status: "draft",
+      version: 4,
+      questions: [],
+    });
   });
 });
