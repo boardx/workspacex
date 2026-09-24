@@ -35,8 +35,6 @@
  * （F45 删除级联与检索夹具依赖它们），模型身份写入的拦截由 F03 以触发器补上。
  */
 
--- ─────────────────────────────── 作用域枚举（五级，本阶段只写前两级） ───────────────────────────────
-
 -- ─────────────────────────────── ontology_objects ───────────────────────────────
 CREATE TABLE IF NOT EXISTS ontology_objects (
   id                  text PRIMARY KEY,
@@ -68,7 +66,7 @@ CREATE TABLE IF NOT EXISTS ontology_actions (
   id               text PRIMARY KEY,
   org_id           text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   scope_kind       text NOT NULL CHECK (scope_kind IN ('chat_session', 'personal', 'project', 'org', 'platform')),
-  scope_id         text NOT NULL,
+  scope_id         text NOT NULL CHECK (length(scope_id) > 0),
   actor_kind       text NOT NULL CHECK (actor_kind IN ('human', 'model', 'system')),
   actor_id         text NOT NULL,
   action_type      text NOT NULL CHECK (length(action_type) > 0),
@@ -88,11 +86,15 @@ CREATE INDEX IF NOT EXISTS ontology_actions_scope_idx
 CREATE INDEX IF NOT EXISTS ontology_actions_source_idx
   ON ontology_actions (org_id, source_ref, pipeline_version) WHERE source_ref IS NOT NULL;
 
-CREATE OR REPLACE FUNCTION ontology_actions_append_only() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION ontology_actions_append_only() RETURNS trigger
+-- 固定 search_path + 全限定名：否则调用方建一张同名临时表 `organizations` 就能让下面的
+-- 「org 已不在」判断成立，从而删掉日志（F03 的执行器以属主身份运行，这条路必须堵死）。
+SET search_path = pg_catalog, public, pg_temp
+AS $$
 BEGIN
   -- org 被删除时的级联（ON DELETE CASCADE）要放行：那是整个租户离开，不是篡改一条日志。
-  -- 同 0013 的理由，用 session_user 而不是 current_user 判断：级联时 current_user 会被改写。
-  IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = OLD.org_id) THEN
+  -- 判据是「这条日志所属的 org 已经不存在」，不看当前角色。
+  IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM public.organizations o WHERE o.id = OLD.org_id) THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'ontology_actions is append-only (% refused)', TG_OP USING ERRCODE = '42501';
@@ -103,6 +105,11 @@ DROP TRIGGER IF EXISTS ontology_actions_append_only_trg ON ontology_actions;
 CREATE TRIGGER ontology_actions_append_only_trg
   BEFORE UPDATE OR DELETE ON ontology_actions
   FOR EACH ROW EXECUTE FUNCTION ontology_actions_append_only();
+-- 行级触发器拦不住 TRUNCATE；单独一条语句级的。
+DROP TRIGGER IF EXISTS ontology_actions_no_truncate_trg ON ontology_actions;
+CREATE TRIGGER ontology_actions_no_truncate_trg
+  BEFORE TRUNCATE ON ontology_actions
+  FOR EACH STATEMENT EXECUTE FUNCTION ontology_actions_append_only();
 
 -- ─────────────────────────────── object_embeddings ───────────────────────────────
 CREATE TABLE IF NOT EXISTS object_embeddings (
@@ -259,8 +266,33 @@ BEGIN
 END
 $$;
 
--- object_embeddings 没有作用域列：它的可见性跟随目标行。召回时总是 JOIN 回 objects / claims
--- 再按上面的策略过滤（ADR-114 决策 3 的同一原则：内容与权限只在 canonical 表判定）。
+-- object_embeddings 没有作用域列：它的可见性**在数据库里**跟随目标行——RESTRICTIVE 策略要求目标
+-- 在 objects / claims 里对当前会话可见（子查询本身受那两张表的 RLS 约束，包括个人空间策略）。
+-- 不能只靠「召回时总会 JOIN 回去」：那是应用层纪律，漏一次就把别人个人空间的向量带出去。
+DROP POLICY IF EXISTS object_embeddings_target_visible ON object_embeddings;
+CREATE POLICY object_embeddings_target_visible ON object_embeddings AS RESTRICTIVE
+  USING (CASE target_kind
+           WHEN 'object' THEN EXISTS (SELECT 1 FROM ontology_objects o WHERE o.id = target_id AND o.org_id = object_embeddings.org_id)
+           ELSE EXISTS (SELECT 1 FROM claims c WHERE c.id = target_id AND c.org_id = object_embeddings.org_id)
+         END);
+
+-- 目标行删除 ⇒ 它的向量一起删（没有外键可挂：target_id 指向两张表之一）。
+CREATE OR REPLACE FUNCTION object_embeddings_follow_target() RETURNS trigger
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.object_embeddings
+   WHERE target_kind = CASE TG_TABLE_NAME WHEN 'ontology_objects' THEN 'object' ELSE 'claim' END
+     AND target_id = OLD.id;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP TRIGGER IF EXISTS object_embeddings_follow_target_trg ON ontology_objects;
+CREATE TRIGGER object_embeddings_follow_target_trg AFTER DELETE ON ontology_objects
+  FOR EACH ROW EXECUTE FUNCTION object_embeddings_follow_target();
+DROP TRIGGER IF EXISTS object_embeddings_follow_target_trg ON claims;
+CREATE TRIGGER object_embeddings_follow_target_trg AFTER DELETE ON claims
+  FOR EACH ROW EXECUTE FUNCTION object_embeddings_follow_target();
 
 REVOKE ALL ON ontology_objects, ontology_actions, object_embeddings FROM app_rw;
 GRANT SELECT ON ontology_objects, ontology_actions, object_embeddings TO app_rw;
