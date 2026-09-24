@@ -1,14 +1,14 @@
 'use client';
-import { useEffect, useRef, useReducer } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { readObjects, WhiteboardUndo, type WhiteboardCommand } from '@repo/whiteboard-core';
 /** Only local commands enter this origin's undo history; the host owns doc and transport. */
 export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
-  const [, render] = useReducer(n => n + 1, 0);
+  const [objects, setObjects] = useState(() => readObjects(doc));
   const undo = useRef<WhiteboardUndo | null>(null);
-  useEffect(() => { const update = () => render(); doc.on('update', update); return () => { doc.off('update', update); }; }, [doc]);
+  useEffect(() => { const update = () => setObjects(readObjects(doc)); update(); doc.on('update', update); return () => { doc.off('update', update); }; }, [doc]);
   useEffect(() => { const local = new WhiteboardUndo(doc); undo.current = local; return () => { local.destroy(); if (undo.current === local) undo.current = null; }; }, [doc]);
-  return { objects: readObjects(doc), execute(commands: WhiteboardCommand[]) { if (!readOnly && commands.length) undo.current?.execute(commands); },
+  return { objects, execute(commands: WhiteboardCommand[]) { if (!readOnly && commands.length) undo.current?.execute(commands); },
     undo: () => readOnly ? 'empty' : undo.current?.undo() ?? 'empty', redo: () => !readOnly && (undo.current?.redo() ?? false) };
 }
 export function textSplice(before: string, after: string) {

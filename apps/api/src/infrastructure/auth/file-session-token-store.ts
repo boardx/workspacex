@@ -79,6 +79,7 @@ export interface FileSessionTokenStoreOptions {
 }
 
 export class FileSessionTokenStore implements SessionTokenStore {
+  async health(): Promise<boolean> { return true; }
   private readonly sessions = new Map<string, StoredSession>();
   private readonly path: string | undefined;
   private readonly now: () => number;
