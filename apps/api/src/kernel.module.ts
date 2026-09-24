@@ -590,7 +590,11 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
-import { GRAPH_PROJECTION_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
+import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
+import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
+import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
@@ -2927,6 +2931,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
     KgProjectionWorker,
+    // F06：会话消息 → 知识抽取（模型只提出，经执行器落表）。
+    { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
+    { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
+    {
+      provide: KNOWLEDGE_EXTRACTOR_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    KgExtractionWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

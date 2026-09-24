@@ -1,0 +1,130 @@
+/**
+ * Phase 18 F06 —— 抽取 Agent：消息 → 实体 / 结论 / 关系 / 证据，经执行器入图。
+ *
+ * uc-18-1 V1：「张三决定下周一上线 v2」⇒ 本会话出现实体「张三」「v2」与一条 decision 结论，
+ * 结论挂着回指该消息的证据；纯寒暄不产生候选也不报错。模型用回环实现（按消息内容回固定 JSON），
+ * 队列 / 数据源 / 执行器全是真实实现、真实数据库。
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
+import { parseExtraction } from "../../src/domain/knowledge-graph/extraction";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { toBatchPayload } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
+import { addChatMessage } from "../support/chat-db";
+import { asApp } from "../support/db";
+import { ZHANG_DECIDES, extractionDeps, loopbackModel, seedThread } from "./kg-extraction-fixtures";
+
+const ORG = "org-kg-f06-extract";
+const T1 = "thr-kg-f06-1";
+const T2 = "thr-kg-f06-2";
+let db: PgDatabase;
+
+beforeAll(async () => {
+  await seedThread(ORG, [T1, T2]);
+  db = new PgDatabase(appConfig());
+});
+afterAll(async () => { await db.close(); });
+
+const q = <R extends Record<string, unknown>>(sql: string, params: unknown[] = []) =>
+  asApp(ORG, (c) => c.query<R>(sql, params)).then((r) => r.rows);
+
+describe("F06: 抽取 Agent", () => {
+  it("消息落库即排队（触发器，同一事务）；原始转录不排队", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-queue-1", threadId: T1, body: "随便说点什么", authorId: "u-owner" });
+    await addChatMessage({ orgId: ORG, id: "m-queue-raw", threadId: T1, body: "转录片段", authorId: "u-owner", rawTranscript: true });
+    const rows = await q<{ message_id: string }>("SELECT message_id FROM kg_extraction_queue WHERE message_id LIKE 'm-queue-%' ORDER BY 1");
+    expect(rows.map((r) => r.message_id)).toEqual(["m-queue-1"]);
+    await runExtractionTick(extractionDeps(db, loopbackModel([]).model, ORG));  // 清掉
+  });
+
+  it("「张三决定下周一上线 v2」⇒ 张三（人物）、v2（产品）、一条 decision 结论，证据回指这条消息", async () => {
+    const { model, calls } = loopbackModel([["张三决定", ZHANG_DECIDES]]);
+    await addChatMessage({ orgId: ORG, id: "m-zhang", threadId: T1, body: "那就这样，张三决定下周一上线 v2。", authorId: "u-owner" });
+    const r = await runExtractionTick(extractionDeps(db, model, ORG));
+    expect(r).toMatchObject({ written: 1, failed: 0 });
+    expect(calls.at(-1)!.system).toContain("知识抽取器");
+    expect(calls.at(-1)!.threadId).toBeUndefined();  // 独立调用，不写进会话历史
+
+    const objects = await q<{ name: string; object_kind: string; created_by: string }>(
+      "SELECT name, object_kind, created_by FROM ontology_objects WHERE scope_id = $1 ORDER BY name", [T1]);
+    expect(objects).toEqual([
+      { name: "v2", object_kind: "product", created_by: "model" },
+      { name: "张三", object_kind: "person", created_by: "model" },
+    ]);
+    const [claim] = await q<{ id: string; claim_kind: string; status: string; statement: string }>(
+      "SELECT id, claim_kind, status, statement FROM claims WHERE scope_id = $1", [T1]);
+    expect(claim).toMatchObject({ claim_kind: "decision", status: "proposed", statement: "张三决定下周一上线 v2" });
+    const ev = await q("SELECT message_id, stance, excerpt FROM claim_message_evidence WHERE claim_id = $1", [claim!.id]);
+    expect(ev).toEqual([{ message_id: "m-zhang", stance: "supporting", excerpt: "张三决定下周一上线 v2" }]);
+    const edges = await q<{ relation: string; name: string }>(
+      `SELECT e.relation, o.name FROM ontology_edges e JOIN ontology_objects o ON o.id = e.dst_id
+        WHERE e.src_id = $1 ORDER BY e.relation`, [claim!.id]);
+    expect(edges).toEqual([{ relation: "about", name: "v2" }, { relation: "decided_by", name: "张三" }]);
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-zhang'")).toHaveLength(0);
+    const audit = await q("SELECT outcome, actor_kind, source_ref FROM ontology_actions WHERE source_ref = 'm-zhang'");
+    expect(audit).toEqual([{ outcome: "accepted", actor_kind: "model", source_ref: "m-zhang" }]);
+  });
+
+  it("纯寒暄：不产生候选、不报错、出队", async () => {
+    const before = await q("SELECT 1 FROM ontology_objects WHERE scope_id = $1", [T2]);
+    await addChatMessage({ orgId: ORG, id: "m-hello", threadId: T2, body: "你好呀，辛苦了！", authorId: "u-owner" });
+    const r = await runExtractionTick(extractionDeps(db, loopbackModel([]).model, ORG));
+    expect(r).toMatchObject({ written: 0, failed: 0 });
+    expect(await q("SELECT 1 FROM ontology_objects WHERE scope_id = $1", [T2])).toHaveLength(before.length);
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-hello'")).toHaveLength(0);
+  });
+
+  it("模型回了解析不出的东西：当作没有可记的，不重试", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-garbage", threadId: T2, body: "乱码测试 xyz", authorId: "u-owner" });
+    const r = await runExtractionTick(extractionDeps(db, loopbackModel([["乱码测试", "抱歉我不太明白"]]).model, ORG));
+    expect(r).toMatchObject({ written: 0, failed: 0 });
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-garbage'")).toHaveLength(0);
+  });
+
+  it("模型调用失败：任务保留、记原因、稍后重试；三次后不再认领", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-fail", threadId: T2, body: "模型会挂的消息", authorId: "u-owner" });
+    const deps = extractionDeps(db, loopbackModel([["模型会挂", new Error("provider down")]]).model, ORG);
+    expect(await runExtractionTick(deps)).toMatchObject({ failed: 1 });
+    const [row] = await q<{ attempts: number; last_error: string; locked_at: Date | null }>(
+      "SELECT attempts, last_error, locked_at FROM kg_extraction_queue WHERE message_id = 'm-fail'");
+    expect(row).toMatchObject({ attempts: 1, last_error: "provider down", locked_at: null });
+    await runExtractionTick(deps);
+    await runExtractionTick(deps);
+    expect(await runExtractionTick(deps)).toMatchObject({ processed: 0 });
+    expect((await q<{ attempts: number }>("SELECT attempts FROM kg_extraction_queue WHERE message_id = 'm-fail'"))[0]!.attempts).toBe(3);
+  });
+
+  it("消息证据只能来自同一个会话（跨会话的「证据」被执行器拒绝）", async () => {
+    const payload = {
+      actionId: "act-f06-cross", scope: { kind: "chat_session" as const, id: T2 }, actor: { kind: "model" as const, id: "kg" },
+      actionType: "extract", sourceRef: null, pipelineVersion: null, objects: [], edges: [],
+      claims: [{ id: "clm-f06-cross", claimKind: "fact" as const, statement: "x", status: "proposed" as const, confidence: 0.5,
+        evidence: [{ messageId: "m-zhang", stance: "supporting" as const, excerpt: "x" }] }],
+    };
+    await expect(asApp(ORG, (c) => c.query("SELECT kg_apply_batch($1::jsonb)", [JSON.stringify(toBatchPayload(payload))])))
+      .rejects.toThrow(/KG_EVIDENCE_NOT_FOUND/);
+  });
+
+  it("app_rw 不能直接写消息证据（只经执行器）", async () => {
+    await expect(asApp(ORG, (c) => c.query(
+      "INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance) VALUES ('x', $1, 'm-zhang', 'supporting')", [ORG],
+    ))).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("F06: 解析容错", () => {
+  it("枚举外的类型、空名字、空结论逐项丢弃，其余保留；置信度夹到 [0,1]", () => {
+    const r = parseExtraction({
+      entities: [{ name: "张三", kind: "person" }, { name: "", kind: "person" }, { name: "火星", kind: "planet" }],
+      claims: [
+        { statement: "张三负责 v2", kind: "fact", confidence: 7, about: ["张三"] },
+        { statement: "", kind: "fact" },
+        { statement: "奇怪的", kind: "rumor" },
+      ],
+    });
+    expect(r.entities.map((e) => e.name)).toEqual(["张三"]);
+    expect(r.claims).toEqual([{ statement: "张三负责 v2", kind: "fact", confidence: 1, about: ["张三"], decidedBy: null, quote: "" }]);
+    expect(parseExtraction("not an object")).toEqual({ entities: [], claims: [] });
+  });
+});
