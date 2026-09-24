@@ -150,6 +150,8 @@ export class SessionStoreUnavailableError extends Error {
 }
 
 export interface SessionTokenStore {
+  /** Dependency readiness only; implementations must not expose keys, users or endpoints. */
+  health?(): Promise<boolean>;
   /** @returns the opaque bearer token. The token is NOT derivable from the record. */
   issue(record: SessionRecord): Promise<string>;
   findByToken(token: string): Promise<SessionRecord | null>;
