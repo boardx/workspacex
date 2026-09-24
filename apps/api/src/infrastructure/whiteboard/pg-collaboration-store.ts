@@ -39,6 +39,15 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const parsed = C.BoardRole.safeParse(role); if (!parsed.success) throw new Fault('FORBIDDEN');
     if (write && parsed.data === 'viewer') throw new Fault('FORBIDDEN');
     if (write && row.archived) throw new Fault('ARCHIVED');
+    if (write) {
+      const control = await session.query<{ frozen: boolean }>(`SELECT frozen FROM whiteboard_workshop_controls WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+      if (control.rows[0]?.frozen && parsed.data !== 'owner') {
+        // Keep the admin decision valid until this write commits. Role changes lock this
+        // same row before UPDATE, so downgrade and Board mutation have one serial order.
+        const membership = await session.query<{ org_role: string }>(`SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR UPDATE`, [p.orgId, p.userId]);
+        if (membership.rows[0]?.org_role !== 'admin') throw new Fault('WORKSHOP_FROZEN');
+      }
+    }
     return { role: parsed.data, archived: row.archived };
   }
   private async document(session: TenantSession, p: Principal, boardId: string): Promise<DocumentRow> {
