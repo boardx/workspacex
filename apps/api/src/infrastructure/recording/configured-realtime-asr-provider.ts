@@ -55,6 +55,11 @@ import {
 
 const DEFAULT_ASR_TURN_SILENCE_MS = 400;
 const DEFAULT_RECORDING_TURN_SILENCE_MS = 800;
+const MAX_UPSTREAM_AUDIO_BACKLOG_BYTES = 48_000;
+
+export function realtimeAudioBacklogExceeded(bufferedBytes: number, nextPayloadBytes: number): boolean {
+  return bufferedBytes + nextPayloadBytes > MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+}
 
 interface ProviderConfig {
   readonly provider: string;
@@ -114,6 +119,7 @@ function readConfig(): ProviderConfig | null {
  */
 const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
 const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
+const AUDIO_BACKPRESSURE = "AUDIO_BACKPRESSURE";
 
 /**
  * issue #2637 ③ —— 上游对「commit 一个已经空了/太短的缓冲区」的标准应答，只在
@@ -275,7 +281,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // that always follows it.
     let finishRequested = false;
     let errorReported = false;
-    const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED, detail: string): void => {
+    const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED | typeof AUDIO_BACKPRESSURE, detail: string): void => {
       errorReported = true;
       handlers.onError(reason, detail);
     };
@@ -364,11 +370,18 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(JSON.stringify({
+        const payload = JSON.stringify({
           type: "input_audio_buffer.append",
           ...(manual ? {event_id: randomUUID()} : {}),
           audio: Buffer.from(frame).toString("base64"),
-        }));
+        });
+        if (realtimeAudioBacklogExceeded(socket.bufferedAmount, Buffer.byteLength(payload))) {
+          reportError(AUDIO_BACKPRESSURE, "upstream audio send buffer exceeded one second");
+          closed = true;
+          socket.terminate();
+          return;
+        }
+        socket.send(payload);
       },
       commit() {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
