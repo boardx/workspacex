@@ -4,6 +4,7 @@ import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
 import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
+import { GuidedResearchTrustConsolePreview } from "@/components/research-studio/guided-research-trust-console-preview";
 
 /**
  * 研究 Studio（phase-01 契约束 `research` / M24）—— UI 先行原型。
@@ -32,6 +33,9 @@ export default function ResearchPage({
 
   if (process.env.NODE_ENV !== "production" && searchParams.preview === "effort-budget") {
     return <GuidedResearchEffortBudgetPreview state={uiState} />;
+  }
+  if (process.env.NODE_ENV !== "production" && searchParams.preview === "trust-console") {
+    return <GuidedResearchTrustConsolePreview />;
   }
 
   return (
