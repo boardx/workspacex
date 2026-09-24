@@ -21,5 +21,5 @@
 - 预览入口：开发环境 `/research?preview=effort-budget`
 - 状态入口：追加 `&state=default|loading|empty|invalid|dep-failed|denied|success`
 - 稳定锚点：`research-effort-budget`、`research-effort-fast|std|deep`、`research-budget-save`、`research-budget-summary`
-- 待截图：`08-effort-budget-selection.png`、`09-effort-budget-resumed.png`、`10-effort-budget-states.png`
+- 待补充截图材料：投入档位选择、预算锁定后恢复、七态总览（当前仅完成真实浏览器验收，尚未纳入截图签核集）
 - 核对重点：档位差异是否足够可判断；锁定与恢复语义是否清楚；硬上限是否明确表示为“调用前停止并保留结果”；旧会话未知用量不得伪装成 0。
