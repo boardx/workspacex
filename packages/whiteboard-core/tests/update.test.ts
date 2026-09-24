@@ -82,3 +82,15 @@ it('rejects a raw peer update that bypasses commands to mutate a locked object',
   expect(readObjects(server)[0]!.geometry.x).toBe(0);
   server.destroy(); peer.destroy();
 });
+it('rejects one raw update that creates and then hides a locked connector', () => {
+  const server = createWhiteboardDocument(), peer = createWhiteboardDocument();
+  executeCommands(peer, [
+    { type: 'create', object: { id: 'from', kind: 'sticky', schemaVersion: 1, text: '', style: {}, geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 } } },
+    { type: 'create', object: { id: 'to', kind: 'sticky', schemaVersion: 1, text: '', style: {}, geometry: { x: 200, y: 0, width: 100, height: 100, rotation: 0 } } },
+    { type: 'create', object: { id: 'edge', kind: 'connector', schemaVersion: 1, text: '', style: {}, geometry: { x: 0, y: 0, width: 1, height: 1, rotation: 0 }, connector: { from: 'from', to: 'to' }, extensionData: { locked: true } } },
+  ], {});
+  peer.getMap<boolean>('deletedObjects').set('from', true);
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('OBJECT_LOCKED');
+  expect(readObjects(server)).toEqual([]);
+  server.destroy(); peer.destroy();
+});

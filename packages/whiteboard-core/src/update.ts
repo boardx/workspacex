@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { cloneDocument, isWhiteboardObjectLocked, objectMap, readObjects, tombstones, validateDocument } from './document';
+import { assertLockedObjectsUnchanged, cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
 export const WHITEBOARD_UPDATE_LIMITS = {
   bytes: 65536, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
@@ -19,7 +19,6 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
   if (!(update instanceof Uint8Array) || update.byteLength === 0 || update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Error('UPDATE_LIMIT_EXCEEDED');
   const decoded = Y.decodeUpdate(update);
   if (decoded.structs.length > WHITEBOARD_UPDATE_LIMITS.structsPerUpdate || decoded.structs.reduce((sum, item) => sum + item.length, 0) > WHITEBOARD_UPDATE_LIMITS.logicalUnitsPerUpdate) throw new Error('UPDATE_LIMIT_EXCEEDED');
-  const lockedBefore = new Map(readObjects(authority).filter(isWhiteboardObjectLocked).map(object => [object.id, JSON.stringify(object)]));
   const candidate = cloneDocument(authority);
   try {
     Y.applyUpdate(candidate, update);
@@ -53,10 +52,7 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
       if (tombstones(candidate).get(id) !== true || (!sameItem(before, after) && !concurrentTrue)) throw new Error('TOMBSTONE_CHANGED');
     }
     validateDocument(candidate);
-    if (lockedBefore.size) {
-      const after = new Map(readObjects(candidate).map(object => [object.id, JSON.stringify(object)]));
-      for (const [id, snapshot] of lockedBefore) if (after.get(id) !== snapshot) throw new Error('OBJECT_LOCKED');
-    }
+    assertLockedObjectsUnchanged(authority, candidate);
     if (Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
     return Y.encodeStateAsUpdate(candidate, Y.encodeStateVector(authority));
   } finally { candidate.destroy(); }

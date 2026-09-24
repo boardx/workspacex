@@ -83,6 +83,29 @@ describe('whiteboard content kernel', () => {
     expect(() => executeCommands(doc, Array.from({ length: 501 }, () => ({ type: 'geometry' as const, id: 'free', geometry })), {})).toThrow();
     doc.destroy();
   });
+  it('rejects an indirect command that would hide a locked connector', () => {
+    const doc = createWhiteboardDocument();
+    executeCommands(doc, [
+      { type: 'create', object: note('from') },
+      { type: 'create', object: note('to') },
+      { type: 'create', object: { ...note('edge'), kind: 'connector', connector: { from: 'from', to: 'to' }, extensionData: { locked: true } } },
+    ], {});
+    const before = readObjects(doc);
+    expect(() => executeCommands(doc, [{ type: 'delete', id: 'from' }], {})).toThrow('OBJECT_LOCKED');
+    expect(readObjects(doc)).toEqual(before);
+    doc.destroy();
+  });
+  it('rejects hiding a newly-created locked connector in the same command batch', () => {
+    const doc = createWhiteboardDocument();
+    expect(() => executeCommands(doc, [
+      { type: 'create', object: note('from') },
+      { type: 'create', object: note('to') },
+      { type: 'create', object: { ...note('edge'), kind: 'connector', connector: { from: 'from', to: 'to' }, extensionData: { locked: true } } },
+      { type: 'delete', id: 'from' },
+    ], {})).toThrow('OBJECT_LOCKED');
+    expect(readObjects(doc)).toEqual([]);
+    doc.destroy();
+  });
   it('protects collaborator content from creation undo, including edits still in flight', () => {
     const a = createWhiteboardDocument(), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'create', object: note('note') }]);
