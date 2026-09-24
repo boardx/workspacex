@@ -118,5 +118,6 @@ export * as whiteboardSync from './whiteboard-sync';
 export * as whiteboardTransfer from './whiteboard-transfer';
 export * as whiteboardMigration from './whiteboard-migration';
 export * as whiteboardMiro from './whiteboard-miro';
+export * as whiteboardMural from './whiteboard-mural';
 export * as whiteboardRoom from './whiteboard-room';
 export * as whiteboardWorkshop from './whiteboard-workshop';

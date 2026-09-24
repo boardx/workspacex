@@ -45,6 +45,7 @@ import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EV
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 import { MIRO_CREDENTIAL_PATH, checkMiroCredentialBoundary } from "./lib/miro-credential-boundary.mjs";
+import { MURAL_CREDENTIAL_PATH, checkMuralCredentialBoundary } from "./lib/mural-credential-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -525,6 +526,15 @@ for (const root of ROOTS) {
         body,
         readFileSync(join(API, migrationPath), "utf8"),
         readFileSync(join(API, evidencePath), "utf8"),
+      );
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === MURAL_CREDENTIAL_PATH) {
+      const errors = checkMuralCredentialBoundary(
+        body,
+        readFileSync(join(API, "migrations/20260924000900_whiteboard_mural_direct_import.sql"), "utf8"),
+        readFileSync(join(API, "tests/whiteboard/mural-repository-guard.test.ts"), "utf8"),
       );
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
