@@ -36,13 +36,13 @@ function composeUpLine(text: string): string {
 }
 
 describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
-  it("MinIO dev/deploy 使用同一个可用的 Quay 发布镜像", () => {
+  it("MinIO dev/deploy 使用同一个可用的、按 digest 锁定的镜像", () => {
     const image = (path: string) => {
       const compose = readFileSync(path, "utf8");
       const block = compose.slice(compose.indexOf("  minio:"), compose.indexOf("\n  redis:", compose.indexOf("  minio:")));
       return block.match(/^    image: (\S+)$/m)?.[1];
     };
-    const expected = "quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z";
+    const expected = "cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1";
     expect(image(COMPOSE)).toBe(expected);
     expect(image(DEV_COMPOSE)).toBe(expected);
   });
