@@ -26,6 +26,7 @@ export class WhiteboardProvider {
   private ready = false;
   private retry = 0;
   private epoch: number | null = null;
+  private accessReceiptId: string | null = null;
   private pending: PendingWhiteboardUpdate[] = [];
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
   private readonly token = getStoredSessionToken();
@@ -84,7 +85,7 @@ export class WhiteboardProvider {
         if (message.type === 'sync') {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if ((message.role === 'viewer' || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
-          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch;
+          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.accessReceiptId=message.accessReceiptId;
           const scope = this.scope();
           if (!scope || !this.context) { this.block('PROTOCOL_ERROR'); return; }
           this.operation = this.operation.then(async () => {
@@ -124,7 +125,7 @@ export class WhiteboardProvider {
     };
     socket.onerror = () => socket.close();
   }
-  private scope(): WhiteboardOutboxScope | null { return this.context && this.epoch ? { ...this.context, epoch: this.epoch } : null; }
+  private scope(): WhiteboardOutboxScope | null { return this.context && this.epoch && this.accessReceiptId ? { ...this.context, epoch: this.epoch, accessReceiptId:this.accessReceiptId } : null; }
   awareness(cursor: { x: number; y: number } | null, selected: string[]) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
     this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200) };

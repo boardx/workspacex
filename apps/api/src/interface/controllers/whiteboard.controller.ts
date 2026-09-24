@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, StreamableFile } from '@nestjs/common';
 import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
-import { WHITEBOARD_REPOSITORY, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
+import { WHITEBOARD_REPOSITORY, WhiteboardRecoveryError, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
 import { WHITEBOARD_COLLABORATION_STORE, WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
 import { importChatDiagram, ImportChatDiagramError } from '../../application/whiteboard/import-chat-diagram';
 import { CHAT_REPOSITORY, type ChatRepository } from '../../application/chat/ports';
@@ -100,7 +100,9 @@ export class WhiteboardController {
   async requestQuarantineRecovery(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string,
     @Body(new ZodBodyPipe(C.RequestQuarantineRecovery)) input: C.RequestQuarantineRecovery) {
     assertPrincipal(p);
-    const result=await this.repo.requestQuarantineRecovery(p,id,input);
+    let result:C.QuarantineRecoveryRequest|null;
+    try{result=await this.repo.requestQuarantineRecovery(p,id,input);}
+    catch(error){if(error instanceof WhiteboardRecoveryError)throw new ConflictException({reasonCode:error.code});throw error;}
     if(!result) throw new ForbiddenException({reasonCode:'QUARANTINE_RECOVERY_NOT_ALLOWED'});
     return result;
   }

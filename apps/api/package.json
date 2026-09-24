@@ -84,6 +84,7 @@
     "zod-to-json-schema": "3.24.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@repo/dev-mode-accounts": "workspace:*",
     "@repo/fabric-markdown": "workspace:*",
     "@repo/local-asr-gateway": "workspace:*",

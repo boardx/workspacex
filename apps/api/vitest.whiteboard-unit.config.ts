@@ -11,6 +11,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/transfer-repository-guard.test.ts',
     'tests/whiteboard/quarantine-recovery-controller.test.ts',
     'tests/whiteboard/quarantine-recovery-migration.test.ts',
+    'tests/whiteboard/quarantine-recovery-pglite.test.ts',
   ],
   environment: 'node',
   maxWorkers: 1,

@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionReplacementSupersededError, withSessionStorageLock } from "@/lib/session-storage-lock";
 import { ApiError, storeSessionToken, clearStoredSessionToken, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
-const { resolveIdentity, switchCurrentOrganization, revokeWhiteboardSession } = vi.hoisted(() => ({
+const { resolveIdentity, switchCurrentOrganization, markWhiteboardSessionRevoked } = vi.hoisted(() => ({
   resolveIdentity: vi.fn(),
   switchCurrentOrganization: vi.fn(),
-  revokeWhiteboardSession: vi.fn(),
+  markWhiteboardSessionRevoked: vi.fn(),
 }));
 
 vi.mock("@/lib/session-api", () => ({ resolveIdentity, switchCurrentOrganization }));
-vi.mock("@/lib/whiteboard-outbox", () => ({ revokeWhiteboardSession }));
+vi.mock("@/lib/whiteboard-outbox", () => ({ markWhiteboardSessionRevoked }));
 
 import {
   SESSION_COMMIT_STORAGE_KEY,
@@ -92,8 +92,8 @@ beforeEach(() => {
   window.localStorage.clear();
   resolveIdentity.mockReset();
   switchCurrentOrganization.mockReset();
-  revokeWhiteboardSession.mockReset();
-  revokeWhiteboardSession.mockResolvedValue([]);
+  markWhiteboardSessionRevoked.mockReset();
+  markWhiteboardSessionRevoked.mockReturnValue(undefined);
 });
 
 describe("SessionProvider", () => {
@@ -127,7 +127,7 @@ describe("SessionProvider", () => {
 
     fireEvent.click(screen.getByTestId("logout"));
     await waitFor(()=>expect(screen.getByTestId("status")).toHaveTextContent("anonymous"));
-    expect(revokeWhiteboardSession).toHaveBeenCalledWith("user-one","token-one");
+    expect(markWhiteboardSessionRevoked).toHaveBeenCalledWith("user-one","token-one");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
   });
 
@@ -153,7 +153,7 @@ describe("SessionProvider", () => {
   });
 
   it("still becomes anonymous when durable Board cleanup reports an IndexedDB failure",async()=>{
-    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);revokeWhiteboardSession.mockRejectedValueOnce(new Error('indexeddb unavailable'));render(<SessionProvider><Probe/></SessionProvider>);
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);markWhiteboardSessionRevoked.mockImplementationOnce(()=>{throw new Error('indexeddb unavailable');});render(<SessionProvider><Probe/></SessionProvider>);
     fireEvent.click(await screen.findByTestId('sign-in'));await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));fireEvent.click(screen.getByTestId('logout'));
     await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
   });
@@ -166,7 +166,7 @@ describe("SessionProvider", () => {
     render(<SessionProvider><Probe /></SessionProvider>);
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous"));
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(revokeWhiteboardSession).toHaveBeenCalledWith(LOGIN.userId,LOGIN.sessionToken);
+    expect(markWhiteboardSessionRevoked).toHaveBeenCalledWith(LOGIN.userId,LOGIN.sessionToken);
   });
 
   it("preserves the bearer session on dependency failure so retry can recover", async () => {

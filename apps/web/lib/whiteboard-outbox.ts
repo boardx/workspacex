@@ -8,9 +8,12 @@ export type WhiteboardOutboxContext = {
   sessionId: string;
 };
 
-export type WhiteboardOutboxScope = WhiteboardOutboxContext & { epoch: number };
+export type WhiteboardOutboxScope = WhiteboardOutboxContext & { epoch: number; accessReceiptId: string };
 
-export type WhiteboardQuarantineReceipt = WhiteboardOutboxScope & {
+export type WhiteboardQuarantineReceipt = WhiteboardOutboxContext & {
+  epoch: number;
+  /** Missing on records written before authenticated recovery proofs existed. */
+  accessReceiptId?: string;
   receiptId: string;
   reason: string;
   quarantinedAt: string;
@@ -79,18 +82,19 @@ function complete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-type RevokedSession = { principalId: string; sessionId: string };
+type RevokedSession = { principalId: string; sessionId: string | null };
 const revokedId = (identity: RevokedSession) => JSON.stringify([identity.principalId, identity.sessionId]);
 function revokedSessions(): RevokedSession[] {
   const entries = new Map<string, RevokedSession>();
   for (const encoded of memoryRevocations) {
-    const [principalId, sessionId] = JSON.parse(encoded) as [string, string];
+    const [principalId, sessionId] = JSON.parse(encoded) as [string, string | null];
     entries.set(encoded, { principalId, sessionId });
   }
   if (typeof localStorage !== 'undefined') try {
     const stored = JSON.parse(localStorage.getItem(REVOKED_STORAGE_KEY) ?? '[]') as unknown;
     for (const item of Array.isArray(stored) ? stored : []) if (item && typeof item === 'object'
-      && typeof (item as RevokedSession).principalId === 'string' && typeof (item as RevokedSession).sessionId === 'string') {
+      && typeof (item as RevokedSession).principalId === 'string'
+      && (typeof (item as RevokedSession).sessionId === 'string' || (item as RevokedSession).sessionId === null)) {
       entries.set(revokedId(item as RevokedSession), item as RevokedSession);
     }
   } catch { /* malformed storage remains fail closed through memory revocations */ }
@@ -112,7 +116,8 @@ function clearRevoked(identities: RevokedSession[]): void {
   } catch { /* already purged; a stale disk tombstone is safe and retries later */ }
 }
 function isRevoked(scope: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, revoked: RevokedSession[]): boolean {
-  return revoked.some(identity => identity.principalId === scope.principalId && identity.sessionId === scope.sessionId);
+  return revoked.some(identity => identity.principalId === scope.principalId
+    && (identity.sessionId === null || identity.sessionId === scope.sessionId));
 }
 
 async function cleanupRevokedSessions(database: IDBDatabase): Promise<void> {
@@ -130,7 +135,9 @@ async function cleanupRevokedSessions(database: IDBDatabase): Promise<void> {
   clearRevoked(revoked);
 }
 
-async function openDatabase(): Promise<IDBDatabase> {
+async function openDatabase(principalId: string): Promise<IDBDatabase> {
+  const hasBroadRevocation=()=>revokedSessions().some(identity=>identity.principalId===principalId&&identity.sessionId===null);
+  if(hasBroadRevocation())throw new Error('WHITEBOARD_SESSION_REVOKED');
   const opened = indexedDB.open(DB_NAME, DB_VERSION);
   opened.onupgradeneeded = () => {
     const database = opened.result;
@@ -138,6 +145,12 @@ async function openDatabase(): Promise<IDBDatabase> {
     database.createObjectStore(QUARANTINE, { keyPath: 'receiptId' });
   };
   const database=await request(opened);
+  // A principal-wide logout marker is written before asynchronous fingerprinting. Do not read
+  // any persisted CryptoKey until it has been narrowed to the revoked session and cleaned.
+  if (hasBroadRevocation()) {
+    database.close();
+    throw new Error('WHITEBOARD_SESSION_REVOKED');
+  }
   try{await cleanupRevokedSessions(database);return database;}catch(error){database.close();throw error;}
 }
 
@@ -165,7 +178,7 @@ function additionalData(scope: WhiteboardOutboxScope, updateId: string): ArrayBu
 export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
   async load(scope: WhiteboardOutboxScope): Promise<PendingWhiteboardUpdate[]> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(scope.principalId);
       try {
         const row = await readActive(database, scopeId(scope));
         if (!row) return [];
@@ -183,7 +196,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
 
   async summarize(context: WhiteboardOutboxContext): Promise<WhiteboardOutboxSummary> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(context.principalId);
       try {
         const transaction = database.transaction(ACTIVE, 'readonly');
         const rows = await request(transaction.objectStore(ACTIVE).getAll()) as StoredOutbox[];
@@ -198,7 +211,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
 
   async put(scope: WhiteboardOutboxScope, update: PendingWhiteboardUpdate): Promise<void> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(scope.principalId);
       try {
         const id = scopeId(scope);
         const existing = await readActive(database, id);
@@ -219,7 +232,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
 
   async ack(scope: WhiteboardOutboxScope, updateId: string): Promise<void> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(scope.principalId);
       try {
         const id = scopeId(scope);
         const existing = await readActive(database, id);
@@ -234,20 +247,20 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
   }
 
   async quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
-    return this.quarantineWhere(row => sameContext(row, context) && row.epoch !== keepEpoch, reason);
+    return this.quarantineWhere(row => sameContext(row, context) && row.epoch !== keepEpoch, reason,context.principalId);
   }
 
   async quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
-    return this.quarantineWhere(row => row.principalId === identity.principalId && row.sessionId === identity.sessionId, reason);
+    return this.quarantineWhere(row => row.principalId === identity.principalId && row.sessionId === identity.sessionId, reason,identity.principalId);
   }
 
   async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string):Promise<WhiteboardQuarantineReceipt[]>{
-    return withOutboxLock(async()=>{const database=await openDatabase();try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];await complete(transaction);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
+    return withOutboxLock(async()=>{const database=await openDatabase(identity.principalId);try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];await complete(transaction);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
   }
 
   async discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(identity.principalId);
       try {
         const transaction = database.transaction(QUARANTINE, 'readwrite');
         const store = transaction.objectStore(QUARANTINE);
@@ -265,7 +278,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
 
   async purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>): Promise<void> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(identity.principalId);
       try {
         const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
         const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
@@ -280,9 +293,9 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
     });
   }
 
-  private async quarantineWhere(matches: (row: StoredOutbox) => boolean, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
+  private async quarantineWhere(matches: (row: StoredOutbox) => boolean, reason: string,principalId:string): Promise<WhiteboardQuarantineReceipt[]> {
     return withOutboxLock(async () => {
-      const database = await openDatabase();
+      const database = await openDatabase(principalId);
       try {
         const read = database.transaction(ACTIVE, 'readonly');
         const rows = await request(read.objectStore(ACTIVE).getAll()) as StoredOutbox[];
@@ -292,6 +305,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         const now = new Date().toISOString();
         const receipts = selected.map(row => ({
           boardId: row.boardId, principalId: row.principalId, sessionId: row.sessionId, epoch: row.epoch,
+          ...(row.accessReceiptId ? {accessReceiptId:row.accessReceiptId} : {}),
           receiptId: crypto.randomUUID(), reason, quarantinedAt: now,
           pendingCount: row.entries.length,
           pendingBytes: row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
@@ -313,14 +327,28 @@ export async function fingerprintWhiteboardSession(token: string): Promise<strin
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-/** Global logout boundary: leaves a synchronous tombstone, then best-effort purges this session. */
-export async function revokeWhiteboardSession(principalId: string, token: string): Promise<WhiteboardQuarantineReceipt[]> {
-  if (typeof indexedDB === 'undefined' || typeof crypto === 'undefined') return [];
-  const sessionId=await fingerprintWhiteboardSession(token);
-  markRevoked({principalId,sessionId});
-  const outbox=new IndexedDbWhiteboardOutbox();
-  try{await outbox.purgeSession({principalId,sessionId});}catch{/* tombstone makes every later open/load/put fail closed until cleanup succeeds */}
-  return [];
+/** Writes the logout boundary synchronously; fingerprinting and physical cleanup are detached. */
+export function markWhiteboardSessionRevoked(principalId: string, token: string): void {
+  const broad={principalId,sessionId:null} satisfies RevokedSession;
+  markRevoked(broad);
+  if (typeof indexedDB === 'undefined' || typeof crypto === 'undefined') return;
+  // The principal marker above blocks every CryptoKey path before Web Crypto, Web Locks or
+  // IndexedDB can stall. Only a completed digest narrows that marker to this bearer session.
+  const sessionId=Promise.race([
+    fingerprintWhiteboardSession(token).catch(()=>null),
+    new Promise<null>(resolve=>setTimeout(()=>resolve(null),2_000)),
+  ]);
+  void sessionId.then(value=>{
+    if(!value)return;
+    const exact={principalId,sessionId:value};
+    markRevoked(exact);
+    clearRevoked([broad]);
+    const cleanup=new IndexedDbWhiteboardOutbox().purgeSession(exact);
+    void Promise.race([
+      cleanup.catch(()=>undefined),
+      new Promise<void>(resolve=>setTimeout(resolve,2_000)),
+    ]);
+  });
 }
 
 export const WHITEBOARD_REVOKED_SESSION_STORAGE_KEY=REVOKED_STORAGE_KEY;

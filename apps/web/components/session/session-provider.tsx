@@ -11,7 +11,7 @@ import {
 import type { Identity } from "@/lib/identity";
 import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
 import type { OrganizationSummary } from "@/lib/org-display";
-import { revokeWhiteboardSession } from "@/lib/whiteboard-outbox";
+import { markWhiteboardSessionRevoked } from "@/lib/whiteboard-outbox";
 import {
   resolveIdentity,
   switchCurrentOrganization,
@@ -199,11 +199,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const expectedUserId = session?.userId;
     await withSessionStorageLock(() => {
       if (getStoredSessionToken() !== expectedToken) return;
-      if (expectedToken && expectedUserId) return revokeWhiteboardSession(expectedUserId, expectedToken).catch(() => undefined).then(() => {
+      if (expectedToken && expectedUserId) {
+        try { markWhiteboardSessionRevoked(expectedUserId, expectedToken); } catch { /* never retain a rejected bearer */ }
         if (getStoredSessionToken() !== expectedToken) return;
         clearSessionWhileLocked();
         becomeAnonymous();
-      });
+        return;
+      }
       clearSessionWhileLocked();
       becomeAnonymous();
     });
@@ -215,11 +217,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (normalized instanceof ApiError && normalized.status === 401) {
       void withSessionStorageLock(() => {
         if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
-        return revokeWhiteboardSession(expectedUserId, expectedToken).catch(() => undefined).then(() => {
+        try { markWhiteboardSessionRevoked(expectedUserId, expectedToken); } catch { /* never retain a rejected bearer */ }
           if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
           clearSessionWhileLocked();
           becomeAnonymous();
-        });
+          return;
       });
       return;
     }

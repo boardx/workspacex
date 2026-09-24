@@ -5,6 +5,10 @@ export const WHITEBOARD_REPOSITORY = Symbol('WhiteboardRepository');
 export type CreateBoard = z.infer<typeof C.CreateBoard>;
 export type UpdateBoard = z.infer<typeof C.UpdateBoard>;
 export type Member = z.infer<typeof C.Member>;
+export type WhiteboardRecoveryErrorCode = 'IDEMPOTENCY_CONFLICT';
+export class WhiteboardRecoveryError extends Error {
+  constructor(readonly code: WhiteboardRecoveryErrorCode) { super(code); this.name = 'WhiteboardRecoveryError'; }
+}
 export interface WhiteboardRepository {
   list(principal: Principal): Promise<C.Board[]>;
   create(principal: Principal, input: CreateBoard): Promise<C.Board>;
@@ -13,5 +17,6 @@ export interface WhiteboardRepository {
   members(principal: Principal, boardId: string): Promise<Member[] | null>;
   putMember(principal: Principal, boardId: string, member: Member): Promise<boolean>;
   removeMember(principal: Principal, boardId: string, userId: string): Promise<boolean>;
+  issueQuarantineAccessReceipt(principal: Principal, boardId: string, sessionFingerprint: string, epoch: number): Promise<string>;
   requestQuarantineRecovery(principal: Principal, boardId: string, input: C.RequestQuarantineRecovery): Promise<C.QuarantineRecoveryRequest | null>;
 }

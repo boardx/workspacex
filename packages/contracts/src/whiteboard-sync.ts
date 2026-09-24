@@ -16,7 +16,7 @@ export const WhiteboardClientMessage = z.discriminatedUnion('type', [
 export type WhiteboardClientMessage = z.infer<typeof WhiteboardClientMessage>;
 export const WhiteboardPresence = z.object({ actorId: z.string().min(1).max(200), cursor, selected }).strict();
 export const WhiteboardServerMessage = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('sync'), epoch, seq, update: base64, role: BoardRole, archived: z.boolean() }).strict(),
+  z.object({ type: z.literal('sync'), epoch, seq, update: base64, role: BoardRole, archived: z.boolean(), accessReceiptId: z.string().uuid() }).strict(),
   z.object({ type: z.literal('ack'), updateId: z.string().uuid(), seq }).strict(),
   z.object({ type: z.literal('update'), epoch, seq, update: base64 }).strict(),
   z.object({ type: z.literal('presence'), peers: z.array(WhiteboardPresence).max(500) }).strict(),

@@ -149,6 +149,9 @@ importers:
         specifier: 3.24.6
         version: 3.24.6(zod@3.25.76)
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.8
+        version: 0.5.8
       '@repo/dev-mode-accounts':
         specifier: workspace:*
         version: link:../../packages/dev-mode-accounts

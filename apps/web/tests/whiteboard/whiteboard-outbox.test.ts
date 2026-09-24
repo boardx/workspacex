@@ -1,14 +1,15 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
-import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, revokeWhiteboardSession, WHITEBOARD_OUTBOX_STORAGE, WHITEBOARD_REVOKED_SESSION_STORAGE_KEY, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
+import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, markWhiteboardSessionRevoked, WHITEBOARD_OUTBOX_STORAGE, WHITEBOARD_REVOKED_SESSION_STORAGE_KEY, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
 
 function update(epoch: number, value = 'AQID'): PendingWhiteboardUpdate {
   return { type: 'update', epoch, updateId: crypto.randomUUID(), update: value };
 }
 
 const scope = (overrides: Partial<WhiteboardOutboxScope> = {}): WhiteboardOutboxScope => ({
-  boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, ...overrides,
+  boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1,
+  accessReceiptId:'11111111-1111-4111-8111-111111111111', ...overrides,
 });
 
 async function rows(storeName: string): Promise<Record<string, unknown>[]> {
@@ -42,7 +43,7 @@ async function replaceActive(row: Record<string, unknown>): Promise<void> {
   } finally { database.close(); }
 }
 
-beforeEach(() => { vi.stubGlobal('indexedDB', new IDBFactory()); });
+beforeEach(() => { vi.restoreAllMocks();vi.stubGlobal('indexedDB', new IDBFactory()); });
 
 it('persists an actual non-extractable CryptoKey and decrypts after reopening the database', async () => {
   const first = new IndexedDbWhiteboardOutbox(), pending = update(1);
@@ -116,12 +117,22 @@ it('lists old-session receipts by authenticated principal without exposing ciphe
   await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toEqual([]);
 });
 
+it('keeps legacy quarantine data discard-only when it has no authenticated access receipt',async()=>{
+  const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope(),update(1));
+  const stored=(await rows(WHITEBOARD_OUTBOX_STORAGE.activeStore))[0]!;
+  const {accessReceiptId:_,...legacy}=stored;
+  await replaceActive(legacy);
+  const receipts=await adapter.quarantineExcept(scope(),null,'ACCESS_DENIED');
+  expect(receipts).toHaveLength(1);expect(receipts[0]).not.toHaveProperty('accessReceiptId');
+  await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);
+});
+
 it('keeps a logout tombstone when IndexedDB fails, then purges only that session before any later load',async()=>{
   const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
   const factory=new IDBFactory();vi.stubGlobal('indexedDB',factory);const adapter=new IndexedDbWhiteboardOutbox();const token='revoked-token',sessionId=await fingerprintWhiteboardSession(token);const revoked=scope({sessionId}),other=scope({sessionId:'other-session'});
   await adapter.put(revoked,update(1));await adapter.put(other,update(1));
   vi.stubGlobal('indexedDB',{open:()=>{throw new Error('simulated indexeddb outage');}});
-  await expect(revokeWhiteboardSession('user-1',token)).resolves.toEqual([]);expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId);
+  markWhiteboardSessionRevoked('user-1',token);await vi.waitFor(()=>expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId));
   await expect(new IndexedDbWhiteboardOutbox().load(revoked)).rejects.toThrow('simulated indexeddb outage');
   await expect(new IndexedDbWhiteboardOutbox().put(revoked,update(1))).rejects.toThrow('simulated indexeddb outage');
   vi.stubGlobal('indexedDB',factory);await expect(new IndexedDbWhiteboardOutbox().load(revoked)).resolves.toEqual([]);await expect(new IndexedDbWhiteboardOutbox().load(other)).resolves.toHaveLength(1);
@@ -139,4 +150,23 @@ it('enforces both count and byte bounds before writing another ciphertext', asyn
   const byteScope = scope({ boardId: 'board-bytes' });
   await expect(adapter.put(byteScope, update(1, 'A'.repeat(WHITEBOARD_SYNC.pendingBytes + 1)))).rejects.toBeInstanceOf(WhiteboardOutboxLimitError);
   expect((await rows(WHITEBOARD_OUTBOX_STORAGE.activeStore)).some(row => row.boardId === 'board-bytes')).toBe(false);
+});
+
+it('writes a broad tombstone synchronously and blocks key reads when Web Crypto digest never settles',async()=>{
+  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({principalId:'hung-crypto-user'}),update(1));
+  vi.spyOn(crypto.subtle,'digest').mockImplementation(()=>new Promise<ArrayBuffer>(()=>{}));
+  markWhiteboardSessionRevoked('hung-crypto-user','hung-crypto-token');
+  expect(JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]')).toContainEqual({principalId:'hung-crypto-user',sessionId:null});
+  await expect(adapter.load(scope({principalId:'hung-crypto-user'}))).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
+});
+
+// Keep last: the intentionally never-settling cleanup must remain fail-closed and therefore
+// also keeps the in-realm fallback lock closed for the rest of this process.
+it('returns from logout after writing the tombstone even when IndexedDB open never settles',async()=>{
+  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  vi.stubGlobal('indexedDB',{open:()=>({})});
+  const token='hung-indexeddb-token',sessionId=await fingerprintWhiteboardSession(token);
+  markWhiteboardSessionRevoked('user-1',token);
+  await vi.waitFor(()=>expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId));
 });

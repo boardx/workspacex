@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardServerMessage, WhiteboardPresence } from '@repo/contracts/whiteboard-sync';
@@ -15,6 +15,7 @@ type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: strin
 export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; metrics?: WhiteboardObservability; logger?: LoggerPort; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
+const sessionFingerprint = (token:string) => createHash('sha256').update(token).digest('hex');
 /** Bounded WS transport. Database serializes writers; only committed updates are broadcast. */
 export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayDeps): WebSocketServer {
   const metrics = deps.metrics ?? NOOP_WHITEBOARD_OBSERVABILITY;
@@ -69,8 +70,10 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               const full=await deps.store.load(principal,boardId);
               Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq;
               const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
-              Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.ready=true; peer.role=diff.role; peer.archived=diff.archived; clearTimeout(deadline);
-              send(ws,{type:'sync',...diff,update:encoded(diff.update)}); presence(peer); return;
+              Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.role=diff.role; peer.archived=diff.archived;
+              const accessReceiptId=await deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),diff.epoch);
+              peer.ready=true; clearTimeout(deadline);
+              send(ws,{type:'sync',...diff,update:encoded(diff.update),accessReceiptId}); presence(peer); return;
             }
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED',traceId); return; }
             if(message.type==='awareness') {

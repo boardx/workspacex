@@ -14,7 +14,7 @@ export const UpdateBoard = z.object({ name: Board.shape.name.optional(), archive
 export const Member = z.object({ userId: z.string().min(1).max(200), role: z.enum(['editor', 'viewer']) }).strict();
 export const QuarantineRecoveryReason = z.enum(['ACCESS_DENIED','FORBIDDEN','PERMISSION_CHANGED','STALE_EPOCH','WRITE_DENIED','ARCHIVED','NOT_FOUND']);
 export const RequestQuarantineRecovery = z.object({
-  requestId: z.string().uuid(), receiptId: z.string().uuid(),
+  requestId: z.string().uuid(), receiptId: z.string().uuid(), accessReceiptId: z.string().uuid(),
   sessionFingerprint: z.string().regex(/^[a-f0-9]{64}$/), epoch: z.number().int().positive(),
   pendingCount: z.number().int().min(1).max(200), pendingBytes: z.number().int().min(1).max(8 * 1024 * 1024),
   reason: QuarantineRecoveryReason,
