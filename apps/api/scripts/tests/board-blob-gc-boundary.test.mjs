@@ -38,6 +38,12 @@ const mutations = [
       "`SELECT snapshot FROM whiteboards ` + `WHERE org_id=$1 AND id=$2 FOR UPDATE`");
     return changed;
   }],
+  ['aliasing the real toOrgId import and shadowing it with another-tenant routing', referencePath, source => {
+    let changed = replace(source, "import { toOrgId } from '../../domain/org-id';",
+      "import { toOrgId as realToOrgId } from '../../domain/org-id';");
+    changed = replace(changed, 'type RootRow = {', "function toOrgId(_tenantId: string) { return realToOrgId('other-tenant'); }\n\ntype RootRow = {");
+    return changed;
+  }],
   ['rewriting the coordinator tenant before withTenant', coordinatorPath, source => replace(source,
     'return this.db.withTenant(toOrgId(input.tenantId)', "input.tenantId = 'other-tenant';\n    return this.db.withTenant(toOrgId(input.tenantId)")],
   ['keeping the lease condition but removing its return', coordinatorPath, source =>
@@ -49,6 +55,9 @@ const mutations = [
       'void (input.cursor ?? prior.rows[0]?.next_cursor ?? undefined); const cursor = undefined;')],
   ['increasing the batch policy immediately before sweep', coordinatorPath, source =>
     replace(source, 'const result = await this.sweep.run', 'this.policy.batchSize = 100000;\n      const result = await this.sweep.run')],
+  ['increasing the batch policy in the constructor before the audited method', coordinatorPath, source =>
+    replace(source, 'private readonly now: () => Date = () => new Date()) {}',
+      'private readonly now: () => Date = () => new Date()) { this.policy.batchSize = 100000; }')],
   ['spreading caller data into the bounded sweep request', coordinatorPath, source =>
     replace(source, 'this.sweep.run({ tenantId:', 'this.sweep.run({ ...input, tenantId:')],
   ['overwriting deleted metrics before persistence', coordinatorPath, source =>
