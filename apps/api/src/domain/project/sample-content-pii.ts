@@ -7,7 +7,7 @@
  */
 export type PiiKind = "cn-mobile" | "cn-landline" | "email" | "cn-id-card" | "bank-card";
 
-export interface PiiFinding {
+export interface SamplePiiHit {
   readonly kind: PiiKind;
   readonly match: string;
 }
@@ -22,8 +22,8 @@ const PATTERNS: readonly (readonly [PiiKind, RegExp])[] = [
   ["cn-landline", /(?<!\d)0\d{2,3}[\s-]?\d{7,8}(?!\d)/g],
 ];
 
-export function scanForPii(text: string): readonly PiiFinding[] {
-  const findings: PiiFinding[] = [];
+export function scanForPii(text: string): readonly SamplePiiHit[] {
+  const findings: SamplePiiHit[] = [];
   for (const [kind, re] of PATTERNS) {
     for (const m of text.matchAll(re)) findings.push({ kind, match: m[0] });
   }

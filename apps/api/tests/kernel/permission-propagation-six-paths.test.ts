@@ -1256,7 +1256,10 @@ describe("lint-permission-paths: counter-proof", () => {
     // expired/closed publication, claim rollback and claimed-file cleanup safety.
     // No ACL ObjectRef exists for a survey response. Remove this increment with
     // the exception if its capability/owner gates or those tests disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(92);
+    // #4068 (D9) adds the instance telemetry health counter: two aggregate-only
+    // count(*) reads, no ObjectRef/actor. tests/telemetry/telemetry-no-content-tables.test.ts
+    // pins the whitelist, count-only SQL and personal-local join. Remove with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(93);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
