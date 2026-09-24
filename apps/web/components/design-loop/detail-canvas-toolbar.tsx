@@ -1,11 +1,11 @@
 "use client";
 /**
  * 深度评测 S1（#3988）——从 `detail-screen.tsx` 拆出来的**画布工具条**：页签与页管理、画板 / 单页、
- * 编辑 / 预览 / 批注、外观（由详情页作为 `appearance` 传进来）、图层开关、撤销、重做、方案、历史、代码（深度 S6）。
+ * 编辑 / 预览 / 批注、外观（由详情页作为 `appearance` 传进来）、图层开关、撤销、重做、方案、历史、代码（深度 S6）、演示（深度 S7）。
  * 只搬家、不改行为：props 与详情页里的变量**同名**，搬过来的 JSX 一个字没改；状态全都留在详情页。
  */
 import * as React from "react";
-import { Code2, Columns3, Copy, Crosshair, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, Pencil, Play, Plus, Redo2, Smartphone, Trash2, Undo2 } from "lucide-react";
+import { Code2, Columns3, Copy, Crosshair, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, Pencil, Play, Plus, Presentation, Redo2, Smartphone, Trash2, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DesignProject, PrototypeVersion } from "@/lib/live-design-workbench";
 import type { useDesignComments } from "@/lib/design-comments";
@@ -17,7 +17,7 @@ export type CanvasMode = "edit" | "preview" | "comment";
 export function CanvasToolbar({
   project, preview, frame, setFrame, canvasMode, setCanvasMode, viewMode, setViewMode, setBackStack, setSelectedId,
   sideOpen, setSideOpen, renamePage, addPage, duplicatePage, removePage, pageCount, comments, undoLast, undoing, redo,
-  redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen,
+  redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen, onPresent,
 }: {
   readonly project: DesignProject;
   readonly preview: PrototypeVersion | null;
@@ -52,6 +52,8 @@ export function CanvasToolbar({
   readonly appearance: React.ReactNode;
   readonly codeOpen: boolean;
   readonly setCodeOpen: Setter<boolean>;
+  /** 深度 S7：进演示模式（状态在详情页：演示时整个编辑器离屏）。 */
+  readonly onPresent: () => void;
 }) {
   return (
     <>
@@ -252,6 +254,19 @@ export function CanvasToolbar({
           )}
         >
           <Code2 aria-hidden className="h-3 w-3" /> 代码
+        </button>
+        {/*
+          * 深度 S7：演示——从当前这一页开始整屏放。放在工具条而不是页头：页头在 375 宽下已经满了
+          * （响应式车道实测溢出），工具条会换行。
+          */}
+        <button
+          type="button" onClick={onPresent}
+          disabled={project.prototype.every((r) => r === null)}
+          title="整屏一页一页放给别人看：方向键翻页，Esc 退出"
+          data-testid="design-detail-present"
+          className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+        >
+          <Presentation aria-hidden className="h-3 w-3" /> 演示
         </button>
       </div>
     </>

@@ -487,6 +487,8 @@ export function guessNavIcon(label: string): designPrototype.PrototypeIcon | nul
 import { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable, type PrototypeDevicePreset, type PrototypeChrome } from "@/lib/prototype-devices";
 export { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, fitScaleScrollable };
 export type { PrototypeDevicePreset, PrototypeChrome };
+/** 画布头顶那一行页名占的高度：编辑器舞台与演示模式算缩放时都要把它算进去（深度 S7 起单源）。 */
+export const CANVAS_LABEL_H = 40;
 
 /** 兼容旧调用点：按项目模板取默认镜头。 */
 export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevicePreset {

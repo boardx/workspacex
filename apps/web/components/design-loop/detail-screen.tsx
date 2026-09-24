@@ -10,7 +10,8 @@ import { DetailSpec, DetailTab, PushConfirm, PushSuccess } from "./detail-parts"
 import { DetailChatLog } from "./detail-chat-log";
 import { CanvasToolbar } from "./detail-canvas-toolbar";
 import { DetailSidePanel } from "./detail-side-panel";
-import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable, CANVAS_LABEL_H } from "./prototype-canvas";
+import { PresentMode } from "./present-mode";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { useDesignComments } from "@/lib/design-comments";
 import { VariantsPanel, type VariantsState } from "./variants-panel";
@@ -183,6 +184,8 @@ export function DesignDetailScreen({
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** 深度 S6：右栏的「代码」面板。 */
   const [codeOpen, setCodeOpen] = React.useState(false);
+  /** 深度 S7：演示模式。 */
+  const [presenting, setPresenting] = React.useState(false);
   /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
   const [viewMode, setViewMode] = React.useState<"board" | "single">(
     () => (typeof window !== "undefined" && window.innerWidth < 768 ? "single" : "board"),
@@ -334,7 +337,7 @@ export function DesignDetailScreen({
    * 单页舞台是 `overflow-auto` 的——所以高度不够时按宽度缩、让人竖着滚，
    * 而不是缩成一张读不了字的缩略图（手机上实测 0.29，见 `fitScaleScrollable` 头注）。
    */
-  const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
+  const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + CANVAS_LABEL_H });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
     () => (project !== null && selectedId !== null && canvasMode !== "preview" ? findPrototypeNodePath(project.prototype, selectedId) : null),
@@ -829,6 +832,19 @@ export function DesignDetailScreen({
     }
   };
 
+  // 深度 S7：演示时整屏只有这一页——编辑器不是盖住，是**不在屏上**（盖住的东西读屏器照样读得到）。
+  // 状态都在这个组件里，退出演示回来一切照旧，停在演示最后翻到的那一页。
+  if (presenting) {
+    return (
+      <div className="dark">
+        <PresentMode
+          project={project} startFrame={frame} device={lens} landscape={landscape} links={project.frameLinks ?? []}
+          onExit={(f) => { setPresenting(false); setFrame(f); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="dark flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
       {/* 顶部条 */}
@@ -1059,6 +1075,7 @@ export function DesignDetailScreen({
                 comments={comments} undoLast={undoLast} undoing={undoing} redo={redo} redoStack={redoStack}
                 askVariants={askVariants} sending={sending} variants={variants} variantScreen={variantScreen}
                 historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} setPreview={setPreview} codeOpen={codeOpen} setCodeOpen={setCodeOpen}
+                onPresent={() => { setPreview(null); setPresenting(true); }}
                 appearance={
                   <CanvasAppearance
                     theme={project.theme}

@@ -362,8 +362,8 @@ test.describe("V6 真实图片", () => {
 test.describe("V7 演示模式", () => {
   test("[V7.c1] 点「演示」：全屏只放第一页，不带编辑器的界面", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    const stage = page.getByTestId("design-present"); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
+    const stage = page.getByTestId("design-present");
     await expect(stage).toContainText("轻账：小微企业的自动财务");
     const box = await stage.boundingBox();
     expect(box !== null && box.width >= 1400 && box.height >= 880).toBe(true);
@@ -372,20 +372,20 @@ test.describe("V7 演示模式", () => {
 
   test("[V7.c2] 方向键翻页，页码跟着走", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("design-present")).toContainText("¥3,200 亿"); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    await expect(page.getByTestId("design-present-counter")).toContainText(/2\s*\/\s*3/); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await expect(page.getByTestId("design-present")).toContainText("¥3,200 亿");
+    await expect(page.getByTestId("design-present-counter")).toContainText(/2\s*\/\s*3/);
     await page.keyboard.press("ArrowLeft");
-    await expect(page.getByTestId("design-present-counter")).toContainText(/1\s*\/\s*3/); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await expect(page.getByTestId("design-present-counter")).toContainText(/1\s*\/\s*3/);
   });
 
   test("[V7.c3] Esc 退出，回到编辑器", async ({ page }) => {
     await openCase(page, "E07");
-    await page.getByTestId("design-detail-present").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    await page.getByTestId("design-present").waitFor(); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-present").click({ timeout: 3000 });
+    await page.getByTestId("design-present").waitFor();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("design-present")).toHaveCount(0); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await expect(page.getByTestId("design-present")).toHaveCount(0);
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
   });
 });

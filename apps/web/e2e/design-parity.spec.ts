@@ -511,3 +511,32 @@ test.describe("深度 S6 编辑器里看代码（#3988）", () => {
     await expect(panel).toHaveCount(0);
   });
 });
+
+const S7_PROJECT = {
+  ...R3_PROJECT, id: "eval-S7", name: "路演", frames: ["封面", "团队"], frameNotes: ["", ""],
+  prototype: [
+    { id: "s7-a", type: "stack", children: [{ id: "s7-a-t", type: "text", props: { content: "轻账路演封面", variant: "title" } }] },
+    { id: "s7-b", type: "stack", children: [{ id: "s7-b-t", type: "text", props: { content: "创始团队三人", variant: "title" } }] },
+  ],
+};
+
+test.describe("深度 S7 演示模式（#3988）", () => {
+  test("点「演示」：编辑器离屏、整屏放第一页；→ 翻到第二页、页码 2 / 2；Esc 回到编辑器", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-present").click();
+    const stage = page.getByTestId("design-present");
+    await expect(stage).toContainText("轻账路演封面");
+    await expect(page.getByTestId("design-detail")).toHaveCount(0);
+    await expect(page.getByTestId("design-present-counter")).toHaveText("1 / 2");
+    await page.keyboard.press("ArrowRight");
+    await expect(stage).toContainText("创始团队三人");
+    await expect(page.getByTestId("design-present-counter")).toHaveText("2 / 2");
+    await page.keyboard.press("Escape");
+    await expect(stage).toHaveCount(0);
+    await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
+  });
+});
