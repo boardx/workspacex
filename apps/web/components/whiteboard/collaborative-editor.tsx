@@ -46,17 +46,22 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     batchUndo.current = null; setSelected([sticky.id]); setNotice('');
     if (edit) setFocusEditorId(sticky.id);
   }, [model, readOnly]);
+  const nextCapturePosition = useCallback((anchor?: WhiteboardObject): Point => {
+    if (!anchor) return { x: (100 - offset.x) / zoom, y: (100 - offset.y) / zoom };
+    if (captureSequence.current > 0 && captureSequence.current % 5 === 0) return { x: anchor.geometry.x - 204 * 4, y: anchor.geometry.y + 164 };
+    return { x: anchor.geometry.x + 204, y: anchor.geometry.y };
+  }, [offset.x, offset.y, zoom]);
   useEffect(() => { if (focusEditorId && object?.id === focusEditorId) textEditor.current?.focus(); }, [focusEditorId, object?.id]);
   useEffect(() => {
     const keydown = (event: globalThis.KeyboardEvent) => {
       if (readOnly || event.isComposing || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, button, a, [contenteditable="true"], [role="dialog"]')) return;
-      if (event.key.toLowerCase() === 'n') { event.preventDefault(); const selectedObject = selected.length === 1 ? model.objects.find(item => item.id === selected[0]) : undefined; createSticky(selectedObject ? selectedObject.geometry.x + 204 : 100, selectedObject?.geometry.y ?? 100); }
+      if (event.key.toLowerCase() === 'n') { event.preventDefault(); const selectedObject = selected.length === 1 ? model.objects.find(item => item.id === selected[0]) : undefined; const position = nextCapturePosition(selectedObject); createSticky(position.x, position.y); }
       if (event.key === 'Enter' && object && !['connector', 'drawing'].includes(object.kind)) { event.preventDefault(); setFocusEditorId(object.id); }
     };
     document.addEventListener('keydown', keydown); return () => document.removeEventListener('keydown', keydown);
-  }, [createSticky, model.objects, object, readOnly, selected]);
+  }, [createSticky, model.objects, nextCapturePosition, object, readOnly, selected]);
   function point(e: PointerEvent): Point { const rect = surface.current!.getBoundingClientRect(); return { x: (e.clientX - rect.left - offset.x) / zoom, y: (e.clientY - rect.top - offset.y) / zoom }; }
   function down(e: PointerEvent, id?: string) {
     if (e.button !== 0) return; e.stopPropagation();
@@ -94,7 +99,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   function editorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (event.nativeEvent.isComposing || composition.current) return;
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); }
-    if (event.key === 'Tab' && object) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); createSticky(object.geometry.x + 204, object.geometry.y, true); }
+    if (event.key === 'Tab' && object) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); const position = nextCapturePosition(object); createSticky(position.x, position.y, true); }
   }
   function pasteText(event: React.ClipboardEvent<HTMLDivElement>) {
     if (readOnly) return;
@@ -113,8 +118,9 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     if (!pastedLines) return;
     if (readOnly) { setPastedLines(null); setNotice('当前白板已变为只读，未创建便利贴。'); return; }
     const stamp = `${Date.now()}`;
+    const base = nextCapturePosition();
     const objects = pastedLines.map((text, index) => {
-      const sticky = make('sticky', 100 + (index % 5) * 204, 100 + Math.floor(index / 5) * 164);
+      const sticky = make('sticky', base.x + (index % 5) * 204, base.y + Math.floor(index / 5) * 164);
       sticky.text = text; sticky.orderKey = `paste-${stamp}-${String(index).padStart(3, '0')}`; return sticky;
     });
     if (model.objects.length + objects.length > WHITEBOARD_LIMITS.objects) { setNotice(`白板最多容纳 ${WHITEBOARD_LIMITS.objects} 个对象，请减少后重试。`); return; }

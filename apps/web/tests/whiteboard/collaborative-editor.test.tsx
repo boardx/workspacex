@@ -104,7 +104,11 @@ it('captures twenty consecutive stickies with Tab and no pointer input', () => {
     fireEvent.change(editor, { target: { value: `想法 ${index}` } });
     if (index < 20) fireEvent.keyDown(editor, { key: 'Tab' });
   }
-  expect(readObjects(doc).map(object => object.text)).toEqual(Array.from({ length: 20 }, (_, index) => `想法 ${index + 1}`));
+  const notes = readObjects(doc);
+  expect(notes.map(object => object.text)).toEqual(Array.from({ length: 20 }, (_, index) => `想法 ${index + 1}`));
+  expect(notes.slice(0, 6).map(object => [object.geometry.x, object.geometry.y])).toEqual([
+    [100, 100], [304, 100], [508, 100], [712, 100], [916, 100], [100, 264],
+  ]);
   doc.destroy();
 });
 it('previews multiline paste, cancels without mutation, and rejects more than 500 lines', () => {
