@@ -395,6 +395,31 @@ importers:
         specifier: ^4.0.0
         version: 4.118.0(@cloudflare/workers-types@4.20260702.1)
 
+  apps/ops-telemetry:
+    dependencies:
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.12.0
+        version: 0.12.21(@cloudflare/workers-types@4.20260702.1)(@vitest/runner@2.1.9)(@vitest/snapshot@2.1.9)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0))
+      '@cloudflare/workers-types':
+        specifier: ^4.20241127.0
+        version: 4.20260702.1
+      '@types/node':
+        specifier: '*'
+        version: 22.20.1
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.118.0(@cloudflare/workers-types@4.20260702.1)
+
   apps/skill-sandbox:
     dependencies:
       '@firecrawl/anydoc':

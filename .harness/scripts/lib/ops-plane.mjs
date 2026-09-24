@@ -8,7 +8,7 @@
  *
  * 改这里要同步改开源方案的归属表。
  */
-export const OPS_DIRS = ["apps/coord-gateway", "apps/devportal", "apps/ops-console", "packages/coord-*"];
+export const OPS_DIRS = ["apps/coord-gateway", "apps/devportal", "apps/ops-console", "apps/ops-telemetry", "packages/coord-*"];
 
 /** 仓库根（`.`）是 harness 工具链，不随产品交付。 */
 export const NOT_SHIPPED_ROOT = ".";
