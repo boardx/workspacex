@@ -243,16 +243,25 @@ export async function runScriptWithRetries(
    * 就是用一句关于回复格式的内部抱怨盖掉沙箱返回的真实 stderr。只有从头到尾一个
    * 脚本都没被执行过时，"没有脚本块"才**是**真因本身。
    */
-  const executed = history.filter((record) => record.exitCode !== null);
-  const last = (executed.length > 0 ? executed[executed.length - 1] : history[history.length - 1])!;
   /*
-   * 全部尝试都是「跑通了但没写文件」时，成因就是**空产出**本身，不是脚本报错——
-   * 报成 SCRIPT_FAILED_AFTER_RETRIES 会让排查往「脚本哪里写错了」跑，而真相是
-   * 「脚本从来没往输出目录写东西」。失败必须说出真实成因（#660 / #1611 同一条纪律）。
+   * ⚠ `NO_FILES_STDERR` 是**内部哨兵，永远不能成为报给用户的 stderr**。
+   *
+   * 第一版只判「是不是每一次都空产出」，于是「先报错、后空产出」这种混合序列会落到
+   * 下面那条 throw，把哨兵当成「沙箱返回的真实错误输出」贴到用户屏幕上——
+   * 2026-09-24 真实模型复跑时当场看到了：屏幕上是
+   * `__script_exited_0_without_writing_any_file__`。我刚在上面写注释反对
+   * 「把内部状态原样倒给用户」，自己的修复就犯了同一条。
+   *
+   * 现在按**有没有真实 stderr**分流：有 ⇒ 报那一条真实的；一条都没有
+   * （全程只有空产出）⇒ 成因就是空产出本身。
    */
-  if (executed.length > 0 && executed.every((record) => record.stderr === NO_FILES_STDERR)) {
+  const realFailures = history.filter(
+    (record) => record.exitCode !== null && record.stderr !== NO_FILES_STDERR,
+  );
+  if (realFailures.length === 0) {
     throw new ScriptProducedNoFilesError(maxAttempts);
   }
+  const last = realFailures[realFailures.length - 1]!;
   throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
 }
 

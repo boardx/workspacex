@@ -74,6 +74,23 @@ describe("脚本跑通但没写文件", () => {
     ).rejects.toBeInstanceOf(ScriptProducedNoFilesError);
   });
 
+  /*
+   * 2026-09-24 真实模型复跑时**当场看到的缺陷**：混合序列（先报错、后空产出）落到
+   * 「报最后一次」那条路，于是内部哨兵 `__script_exited_0_without_writing_any_file__`
+   * 被当成「沙箱返回的真实错误输出」贴到了用户屏幕上。
+   * 内部哨兵永远不能成为报给用户的 stderr。
+   */
+  it("先报错、后空产出：报的是那次**真实**的 stderr，绝不外露内部哨兵", async () => {
+    const sandbox = scriptedSandbox([failing(), emptyOutput(), emptyOutput()]);
+    const error = await runScriptWithRetries({
+      sandbox, generateScript: generator([]), timeoutMs: 30_000, maxAttempts: 3,
+    }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ScriptFailedAfterRetriesError);
+    const stderr = (error as ScriptFailedAfterRetriesError).lastStderr;
+    expect(stderr).toContain("TypeError: boom");
+    expect(stderr).not.toContain("__script_exited_0_without_writing_any_file__");
+  });
+
   it("真的报错过的那条路径仍然抛 ScriptFailedAfterRetriesError（没被这次改动顶掉）", async () => {
     const sandbox = scriptedSandbox([failing()]);
     await expect(
