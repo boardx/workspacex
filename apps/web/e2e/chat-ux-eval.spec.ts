@@ -151,6 +151,58 @@ test.describe("chat 体验评测集", () => {
     });
   });
 
+  test("⑤ 语音输入：实时转写进输入框，且结果可编辑后发送", async ({ page }) => {
+    await openFreshThread(page);  // 内部已含焐热 + 登录（见夹具头注）
+
+    /*
+     * 判据按验收文档第 ⑤ 项拆三件，各占一份：
+     *   · 麦克风真的能进入 listening（不是一个点了没反应的按钮）；
+     *   · **转录过程中**输入框就在变（不是录完一段才整体填入）——这是这一项的核心，
+     *     也是唯一需要在录音**中途**采样才量得到的部分；
+     *   · 结果可编辑后能发出去（转写不是只读的）。
+     *
+     * ⚠ 本车道的 ASR 是确定性替身（`loopback-asr-provider.ts`），量的是**链路与交互**，
+     * 不是识别准确率——那要真实 ASR，归另一条车道。
+     */
+    const mic = page.getByTestId("chat-task-workbench-composer-mic");
+    const input = page.getByTestId("copilotkit-v2-input");
+    if (await mic.count() === 0) {
+      record(5, { measured: false, score: 0, evidence: "这一屏没有麦克风按钮，探针无从下手" });
+      return;
+    }
+
+    await mic.click();
+    let listening = true;
+    try {
+      await expect(page.getByTestId("chat-mic-listening")).toBeVisible({ timeout: 20_000 });
+    } catch { listening = false; }
+
+    // 录音中途连续采样：要的是「值在变」，不是「最后有值」。
+    const samples: string[] = [];
+    const deadline = Date.now() + 12_000;
+    while (Date.now() < deadline && new Set(samples).size < 3) {
+      const value = await input.inputValue().catch(() => "");
+      if (value !== samples.at(-1)) samples.push(value);
+      await page.waitForTimeout(400);
+    }
+    const live = new Set(samples.filter((v) => v !== "")).size >= 2;
+
+    await mic.click();
+    await expect(page.getByTestId("chat-mic-listening")).toHaveCount(0, { timeout: 20_000 }).catch(() => {});
+
+    // 可编辑：在转写结果后面追加几个字，输入框要接受。
+    const before = await input.inputValue().catch(() => "");
+    await input.fill(`${before}（补充一句）`);
+    const editable = (await input.inputValue().catch(() => "")).endsWith("（补充一句）");
+
+    record(5, {
+      measured: true,
+      score: (listening ? 0.3 : 0) + (live ? 0.4 : 0) + (editable ? 0.3 : 0),
+      evidence: `进入 listening=${String(listening)}、录音中途不同取值 ${String(new Set(samples.filter((v) => v !== "")).size)} 个`
+        + `（≥2 得 0.4）、结果可编辑=${String(editable)}`,
+    });
+  });
+
   test("⑥ 多轮上下文：追问不需要重复交代背景", async ({ page }) => {
     await openFreshThread(page);  // 内部已含焐热 + 登录（见夹具头注）
     await send(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
@@ -333,7 +385,6 @@ test.describe("chat 体验评测集", () => {
 
     // 十项里每一项要么量到、要么显式缺席——不允许静默漏项。
     for (const d of DIMENSIONS) {
-      if (d.id === 5) continue;
       expect(scorecard[d.id], `维度 ${String(d.id)} ${d.name} 没有探针结果`).toBeDefined();
     }
     /*

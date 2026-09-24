@@ -197,6 +197,32 @@ async function canvasScenario(page: import("@playwright/test").Page): Promise<st
   return `渲染出 ${String(count)} 个画布节点`;
 }
 
+/**
+ * 深度研究**形态**：长链多步 + 逐步推进 + 收尾有正文。
+ *
+ * ⚠ 名字里写「形态」不是修辞。真正的深度研究要联网检索，而本车道跑在确定性替身上，
+ * **没有网**。所以这一格量的是研究任务在我们这条链上的**结构**能不能稳定跑完：
+ * 十步逐个推进、执行过程真的逐条落、最后有总结正文。
+ * 「它研究得对不对」只有真实模型能答——那条已经跑过了
+ * （`pnpm run e2e:real-model-smoke`，证据在 real-model-evidence/），不在这里冒充。
+ */
+async function researchShapeScenario(page: import("@playwright/test").Page): Promise<string> {
+  await freshThreadOn(page, CHAT_READ_E2E.deepAgentId);
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
+  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 300_000 });
+
+  const toggle = page.getByTestId("chat-task-workbench-trace-toggle");
+  if (await toggle.count() > 0) await toggle.first().click();
+  const rows = await page.getByTestId("chat-task-workbench-event-row").count();
+  // 长链的意义就在「多」：少于 5 行说明它没真的走完十步，退化成了一次普通问答。
+  expect(rows, `长链只落了 ${String(rows)} 行执行过程，不足以称为多步研究`).toBeGreaterThanOrEqual(5);
+
+  const answer = (await page.getByTestId("copilot-assistant-message").allTextContents()).join("").trim();
+  expect(answer.length, "长链跑完却没有任何总结正文").toBeGreaterThan(0);
+  return `执行过程 ${String(rows)} 行、总结正文 ${String(answer.length)} 字`;
+}
+
 /** 混合：**同一条线程**里先画布、再 Office——人类点名的那件事。 */
 async function mixedScenario(page: import("@playwright/test").Page): Promise<string> {
   const mark = sentinel();
@@ -241,6 +267,7 @@ test("deep-agent 计划→执行：成功率矩阵", async ({ page }) => {
     await attempt("Office · xlsx", n, () => officeScenario(page, "xlsx"));
     await attempt("Office · pptx", n, () => officeScenario(page, "pptx"));
     await attempt("画布 · 多张", n, () => canvasScenario(page));
+    await attempt("深度研究形态 · 长链多步", n, () => researchShapeScenario(page));
     await attempt("混合 · 画布→Office 同线程", n, () => mixedScenario(page));
   }
 

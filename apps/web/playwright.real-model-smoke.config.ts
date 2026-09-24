@@ -87,6 +87,14 @@ export default defineConfig({
       name: "real-model-pdf",
       testMatch: ["real-model-pdf-smoke.spec.ts"],
     },
+    {
+      /*
+       * 2026-09-25 人类交办的十任务矩阵。与上面那条**共用同一套 webServer / use**
+       * （同一个真栈、同一份凭据），只换 testMatch——不新建 config、不复制编排。
+       */
+      name: "real-model-office-matrix",
+      testMatch: ["real-model-office-matrix.spec.ts"],
+    },
   ],
   ...(startLocalWeb
     ? {
