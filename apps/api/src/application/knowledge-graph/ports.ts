@@ -237,6 +237,12 @@ export interface KgConflictPort {
     readonly messageId: string;
     readonly pairs: readonly ConflictPair[];
   }): Promise<number>;
+  /**
+   * 结束冲突的待办（触发器拿不到锁时放进去的卡）：哪些 org 有活（只回 id），以及排空本 org 的一张
+   * （true = 处理了一张，false = 空了）。一张一个事务。
+   */
+  pendingCloseOrgs(): Promise<readonly OrgId[]>;
+  drainCloseOne(orgId: OrgId): Promise<boolean>;
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
