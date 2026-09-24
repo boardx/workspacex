@@ -390,15 +390,24 @@ END
 $$;
 
 -- ─────────────────────────────── 一对里有一条在别处变了 ⇒ 冲突结束 ───────────────────────────────
--- 触发器拿不到锁时的待办：只放卡 id。不设唯一约束——唯一约束下两个事务同时放同一张卡，后一个会**等**前一个提交，
--- 触发器就又会等了。重复的行无害：排空按卡去重，处理过的卡再处理是空操作。
+-- 触发器拿不到锁时的待办：只放卡 id。这张表上的任何东西都不能让触发器的 INSERT 等：
+--   - 不设唯一约束——唯一约束下两个事务同时放同一张卡，后一个会等前一个提交。重复的行无害：排空按卡处理，
+--     处理过的卡再处理是空操作。
+--   - **不设外键**——外键检查会对被引用行加 KEY SHARE：指向 kg_conflict_prompts 时，恰好在排空 / 处理那张卡的
+--     事务（持有那一行的 FOR UPDATE）面前等住，D2 就又回来了；指向 organizations 时，删 org 的事务持有 org 行、
+--     再去删本 org 的结论（等我们），也是一个环。卡没了 ⇒ 排空时锁 key 为 NULL，直接删掉队列行；org 没了 ⇒
+--     它的队列行排空时同样找不到卡、删掉。
+--   - attempts / not_before / last_error：排空失败（例如等锁超时）的那一行往后推，不挡住同一 org 后面的行（见排空）。
 CREATE TABLE IF NOT EXISTS kg_conflict_close_queue (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  org_id      text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
-  prompt_id   text NOT NULL REFERENCES kg_conflict_prompts (id) ON DELETE CASCADE,
+  org_id      text NOT NULL,
+  prompt_id   text NOT NULL,
+  attempts    integer NOT NULL DEFAULT 0,
+  not_before  timestamptz NOT NULL DEFAULT now(),
+  last_error  text,
   enqueued_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS kg_conflict_close_queue_org_idx ON kg_conflict_close_queue (org_id, id);
+CREATE INDEX IF NOT EXISTS kg_conflict_close_queue_org_idx ON kg_conflict_close_queue (org_id, not_before, id);
 ALTER TABLE kg_conflict_close_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kg_conflict_close_queue FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS kg_conflict_close_queue_tenant ON kg_conflict_close_queue;
@@ -530,38 +539,57 @@ DROP TRIGGER IF EXISTS kg_conflict_close_on_change_trg ON claims;
 CREATE TRIGGER kg_conflict_close_on_change_trg AFTER UPDATE OF status, revoked_at ON claims
   FOR EACH ROW EXECUTE FUNCTION kg_conflict_close_on_change();
 
--- 排空一张：本 org 队列里最早的那张卡。按正常顺序**等**锁（会话锁 → 个人空间锁 → 卡 → 两条结论），再判再结束。
--- 一次只处理一张、调用方一张一个事务：同一事务里连拿两个会话的锁，两个排空并发时就会互相等。
--- 返回 true = 处理了一张（不管它是否还需要结束），false = 队列空了。
+-- 排空一张：本 org 队列里到期（not_before 已过）的最早那一行。按正常顺序**等**锁（会话锁 → 个人空间锁 → 卡 →
+-- 两条结论），再判再结束。一次只处理一张、调用方一张一个事务：同一事务里连拿两个会话的锁，两个排空并发时就会互相等。
+-- 等锁有上限（lock_timeout 1 秒，只在这一步里）：别的事务长时间占着那张卡，这一行记一次失败、往后推
+-- （30 秒 × 4^(次数-1)，最长一天），接着处理后面的行——失败的一行不会把整个 org 的队列堵死。
+-- 不丢弃：失败满 5 次仍按一天一次重试，并 RAISE WARNING 留日志；丢掉就等于让另一条永远卡在冲突里。
+-- 返回 true = 处理了一行（成功或记了失败），false = 没有到期的行。
 CREATE OR REPLACE FUNCTION kg_conflict_close_drain() RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
-  v_org    text := current_setting('app.current_org', true);
-  v_prompt text;
-  v_keys   record;
-  v_p      record;
+  v_org  text := current_setting('app.current_org', true);
+  v_q    record;
+  v_keys record;
+  v_p    record;
+  v_err  text;
+  v_lt   text := current_setting('lock_timeout');
 BEGIN
   IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
-  SELECT q.prompt_id INTO v_prompt FROM public.kg_conflict_close_queue q WHERE q.org_id = v_org ORDER BY q.id LIMIT 1;
+  SELECT q.id, q.prompt_id, q.attempts INTO v_q FROM public.kg_conflict_close_queue q
+   WHERE q.org_id = v_org AND q.not_before <= now() ORDER BY q.id LIMIT 1;
   IF NOT FOUND THEN RETURN false; END IF;
-  SELECT * INTO v_keys FROM kg_conflict_prompt_lock_keys(v_prompt);
-  IF v_keys.thread_key IS NOT NULL THEN
-    PERFORM pg_advisory_xact_lock(v_keys.thread_key);
-    IF v_keys.personal_key IS NOT NULL THEN PERFORM pg_advisory_xact_lock(v_keys.personal_key); END IF;
-    SELECT p.newer_claim_id, p.older_claim_id INTO v_p FROM public.kg_conflict_prompts p WHERE p.id = v_prompt FOR UPDATE;
-    PERFORM 1 FROM public.claims c WHERE c.org_id = v_org AND c.id IN (v_p.newer_claim_id, v_p.older_claim_id) ORDER BY c.id FOR UPDATE;
-    PERFORM kg_conflict_close_locked(v_prompt);
-  END IF;
-  DELETE FROM public.kg_conflict_close_queue q WHERE q.org_id = v_org AND q.prompt_id = v_prompt;
+  BEGIN
+    PERFORM set_config('lock_timeout', '1s', true);
+    SELECT * INTO v_keys FROM kg_conflict_prompt_lock_keys(v_q.prompt_id);
+    IF v_keys.thread_key IS NOT NULL THEN
+      PERFORM pg_advisory_xact_lock(v_keys.thread_key);
+      IF v_keys.personal_key IS NOT NULL THEN PERFORM pg_advisory_xact_lock(v_keys.personal_key); END IF;
+      SELECT p.newer_claim_id, p.older_claim_id INTO v_p FROM public.kg_conflict_prompts p WHERE p.id = v_q.prompt_id FOR UPDATE;
+      PERFORM 1 FROM public.claims c WHERE c.org_id = v_org AND c.id IN (v_p.newer_claim_id, v_p.older_claim_id) ORDER BY c.id FOR UPDATE;
+      PERFORM kg_conflict_close_locked(v_q.prompt_id);
+    END IF;
+    DELETE FROM public.kg_conflict_close_queue q WHERE q.org_id = v_org AND q.prompt_id = v_q.prompt_id;
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_err = MESSAGE_TEXT;
+    UPDATE public.kg_conflict_close_queue
+       SET attempts = attempts + 1, last_error = left(v_err, 500),
+           not_before = now() + least(make_interval(secs => 30 * power(4, v_q.attempts)), interval '1 day')
+     WHERE id = v_q.id;
+    IF v_q.attempts + 1 >= 5 THEN
+      RAISE WARNING 'kg conflict close for prompt % keeps failing (% attempts): %', v_q.prompt_id, v_q.attempts + 1, v_err;
+    END IF;
+  END;
+  PERFORM set_config('lock_timeout', v_lt, true);
   RETURN true;
 END
 $$;
 
--- 队列里有活的 org（只回 id）：worker 按 org 进租户上下文排空。
+-- 队列里有到期活的 org（只回 id）：worker 按 org 进租户上下文排空。
 CREATE OR REPLACE FUNCTION kg_conflict_close_pending_orgs() RETURNS SETOF text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
-AS $$ SELECT DISTINCT org_id FROM public.kg_conflict_close_queue $$;
+AS $$ SELECT DISTINCT org_id FROM public.kg_conflict_close_queue WHERE not_before <= now() $$;
 
 REVOKE ALL ON FUNCTION kg_conflict_close_locked(text), kg_conflict_prompt_lock_keys(text), kg_conflict_close_drain(),
   kg_conflict_close_pending_orgs() FROM PUBLIC;
