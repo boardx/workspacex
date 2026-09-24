@@ -70,10 +70,9 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     // Scroll through in steps, as a reader does, then look for anything the
     // reveal system left behind.
     await page.evaluate(async () => {
-      const step = innerHeight * 0.8;
-      for (let y = 0; y < document.body.scrollHeight; y += step) {
+      for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.5) {
         window.scrollTo(0, y);
-        await new Promise((d) => setTimeout(d, 60));
+        await new Promise((d) => requestAnimationFrame(() => setTimeout(d, 100)));
       }
     });
     await page.waitForTimeout(900);
@@ -91,8 +90,17 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
       r.check(open === 'true' && shut === 'false', `menu: opened ${open}, closed ${shut}`);
     }
 
+    /* WebKit refuses an image over 32 767 px on a side, and the phone page is
+       taller than that at 3× — so the page is saved in 10 000 px slices. A
+       screenshot that fails is a failure of this suite, not a crash of it. */
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: join(OUT, `${lang}-${name}.png`), fullPage: true });
+    try {
+      const { height, width } = await page.evaluate(() => ({ height: document.documentElement.scrollHeight, width: innerWidth }));
+      const SLICE = 10000;
+      for (let y = 0, i = 1; y < height; y += SLICE, i += 1) {
+        await page.screenshot({ path: join(OUT, `${lang}-${name}-${i}.png`), fullPage: true, clip: { x: 0, y, width, height: Math.min(SLICE, height - y) } });
+      }
+    } catch (e) { r.check(false, `screenshot failed: ${e.message.split('\n')[0]}`); }
     r.equal(errors.length, 0, `script errors: ${errors.slice(0, 2).join(' | ')}`);
     await ctx.close();
     ok = r.finish() && ok;

@@ -456,9 +456,14 @@ for (const [lang, path] of LANGS) {
   await page2.waitForTimeout(1200);
   /* The script runs in this case, so below-the-fold content waits for the
      reveal observer, exactly as it does on a healthy page: scroll through it. */
+  /* At reading pace: half a screen per step, 100 ms apart. At 40 ms and 0.8
+     screens a fast CI runner jumped clean past a few elements between two
+     observer callbacks — they reveal when scrolled back to, as they would for
+     a reader, but the assertion is about a reader who scrolls down once. */
   await page2.evaluate(async () => {
-    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.8) {
-      window.scrollTo(0, y); await new Promise((d) => setTimeout(d, 40));
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.5) {
+      window.scrollTo(0, y);
+      await new Promise((d) => requestAnimationFrame(() => setTimeout(d, 100)));
     }
   });
   await page2.waitForTimeout(900);
