@@ -52,6 +52,11 @@ CREATE POLICY ontology_nodes_tenant ON ontology_nodes
   USING (org_id = current_setting('app.current_org', true))
   WITH CHECK (org_id = current_setting('app.current_org', true));
 
+-- 组织冻结策略（issue #342）：0014 的 kernel_apply_org_freeze_policies() 按「当时存在的、带 org_id 外键的表」
+-- 批量加三条 RESTRICTIVE 策略。本表晚于它创建，首次迁移拿不到；而 migrate:check 重放 0014 时本表已存在，
+-- 会多出这三条——schema 摘要前后不一致。照 0014 头注的做法重新调用那唯一一份规则，不在这里抄策略。
+SELECT kernel_apply_org_freeze_policies();
+
 REVOKE ALL ON ontology_nodes FROM app_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ontology_nodes TO app_rw;
 
