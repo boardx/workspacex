@@ -1256,16 +1256,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // expired/closed publication, claim rollback and claimed-file cleanup safety.
     // No ACL ObjectRef exists for a survey response. Remove this increment with
     // the exception if its capability/owner gates or those tests disappear.
-    // #3926 adds exactly one private whiteboard metadata repository (92 -> 93).
-    // Re-measured: lint reports allowlisted=101, minus 8 audited boundary rules = 93.
+    // #3926 adds one private whiteboard metadata repository (92 -> 93).
+    // #3967 adds exactly one collaborative Yjs repository (93 -> 94), and
+    // #3968 adds exactly one workshop repository (94 -> 95). Re-measured: lint
+    // reports allowlisted=103, minus 8 audited boundary rules = 95.
     // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
-    // fallback would expose private boards. The exception is bounded to three
-    // tables and actor/owner SQL predicates by resource-repository-guard.test.ts,
-    // including mutation counterexamples. Real PostgreSQL + HTTP evidence is the
-    // 11 passing tests in whiteboard/resource-{lifecycle,http}.test.ts: nonmember,
-    // cross-tenant identity, viewer/editor administration, revocation and auth guard.
-    // Remove this increment and its allowlist entry if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(93);
+    // fallback would expose private boards. The exceptions are bounded to named
+    // tables and actor/owner SQL predicates by the resource, collaboration and
+    // workshop repository guards, including mutation counterexamples. Real PostgreSQL,
+    // HTTP and WebSocket evidence covers nonmembers, cross-tenant identity,
+    // viewer/editor writes, revocation, restart recovery and authentication.
+    // Remove an increment and its allowlist entry if those protections disappear.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(95);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

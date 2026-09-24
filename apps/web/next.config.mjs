@@ -169,6 +169,11 @@ export default {
       { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
+      // #3967: Board HTTP follows the same-origin full-stack proxy while its authenticated
+      // WebSocket uses NEXT_PUBLIC_API_WS_URL directly. Both the collection and nested
+      // resource routes are needed; :path* does not cover the bare collection.
+      { source: `${prefix}/whiteboards`, destination: `${apiOrigin}/whiteboards` },
+      { source: `${prefix}/whiteboards/:path*`, destination: `${apiOrigin}/whiteboards/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
       // provenance.controller.ts 唯一读端）。裸路径、无 `:path*`——同上面 `/capabilities`
       // `/blueprints` `/skills` 那个坑：这条路径此前**从未有过前端真实调用方**

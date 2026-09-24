@@ -1,3 +1,8 @@
+import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
+import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { attachWhiteboardGateway } from './interface/ws/whiteboard.gateway';
+import { WHITEBOARD_OBSERVABILITY } from './application/whiteboard/observability';
+import { LOGGER_PORT } from './application/ports/logger.port';
 /**
  * Process entry point (the other half of the composition root). See the note at the top of
  * `kernel.module.ts` about why the composition root belongs to no layer.
@@ -157,6 +162,13 @@ function loadLocalEnvFileForDev(): void {
  *   a listener nobody closes.
  */
 export function attachStreamingSurfaces(app: NestExpressApplication): void {
+  attachWhiteboardGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    boards: app.get(WHITEBOARD_REPOSITORY),
+    store: app.get(WHITEBOARD_COLLABORATION_STORE),
+    metrics: app.get(WHITEBOARD_OBSERVABILITY),
+    logger: app.get(LOGGER_PORT),
+  });
   attachAsrGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     identities: app.get(IDENTITY_REPOSITORY),

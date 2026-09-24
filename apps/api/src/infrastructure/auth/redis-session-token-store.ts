@@ -244,6 +244,11 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     await this.connecting;
   }
 
+  async health(): Promise<boolean> {
+    try { await this.ready(); return (await this.redis.ping()) === 'PONG'; }
+    catch { return false; }
+  }
+
   /**
    * ⚠ The whole body is one try/catch, not just the network calls: a `SessionStoreUnavailableError`
    *   is only correct for a failure that genuinely came from talking to Redis. Scoping the

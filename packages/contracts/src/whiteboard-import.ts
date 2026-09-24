@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { BoardId } from './whiteboard';
 const record = z.record(z.unknown());
 const id = z.string().min(1).max(500);
-export const DiagramSourceRef = z.object({ threadId: id, messageId: id, blockId: id, kind: z.enum(['mermaid','canvas','persona']) }).strict();
+const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
+export const DiagramSourceRef = z.object({
+  threadId: id, messageId: id, blockId: sha256,
+  kind: z.enum(['mermaid','canvas','persona']),
+  sourceHash: sha256,
+  sourceVersion: z.string().min(1).max(200),
+}).strict();
 export type DiagramSourceRef = z.infer<typeof DiagramSourceRef>;
 export const DiagramImportBundle = z.object({
   schemaVersion: z.literal(1), converterVersion: z.literal('diagram-copy/1'), groupId: id,
@@ -19,7 +25,10 @@ export type DiagramImportBundleData = z.infer<typeof DiagramImportBundle>;
 export type DiagramImportBundle = DiagramImportBundleData;
 export const DiagramImportLossCode = z.enum(['SOURCE_DIAGNOSTIC','SHAPE_APPROXIMATION','SPECIALIZED_EDITING_UNAVAILABLE','ZERO_SIZE_EXPANDED','CONNECTOR_SEMANTICS_APPROXIMATED','PLUGIN_STYLE_NOT_RENDERED']);
 export type DiagramImportLossCode = z.infer<typeof DiagramImportLossCode>;
+export const DiagramImportLoss = z.object({ code: DiagramImportLossCode, objectId: id.optional(), detail: z.string().max(2000) }).strict();
+export type DiagramImportLoss = z.infer<typeof DiagramImportLoss>;
 export const ImportDiagramInput = z.object({ requestId: z.string().uuid(), acceptedLosses: z.array(DiagramImportLossCode).max(6), sourceRef: DiagramSourceRef, bundle: DiagramImportBundle }).strict();
 export type ImportDiagramInput = z.infer<typeof ImportDiagramInput>;
-export const ImportDiagramResult = z.object({ boardId: BoardId, groupId: z.string().min(1), epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).strict();
+export const ImportDiagramResult = z.object({ boardId: BoardId, groupId: z.string().min(1), epoch: z.number().int().positive(), seq: z.number().int().nonnegative(), losses: z.array(DiagramImportLoss) }).strict();
+export type ImportDiagramResult = z.infer<typeof ImportDiagramResult>;
 export const operations = { importDiagram: { method: 'POST', path: '/whiteboards/:boardId/import-diagram', in: ImportDiagramInput, out: ImportDiagramResult } } as const;
