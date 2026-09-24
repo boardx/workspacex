@@ -6,10 +6,11 @@
  */
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { newKgId } from "../../application/knowledge-graph/ids";
+import { drainConflictCloses } from "../../application/knowledge-graph/detect-conflicts";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
 import {
-  KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
-  type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
+  KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
+  type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
@@ -27,6 +28,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KG_EXTRACTION_SOURCE_PORT) private readonly source: KgExtractionSourcePort,
     @Inject(KNOWLEDGE_EXTRACTOR_PORT) private readonly extractor: KnowledgeExtractorPort,
     @Inject(ONTOLOGY_STORE_PORT) private readonly store: OntologyStorePort,
+    @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
@@ -46,10 +48,13 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     if (this.running) return null;
     this.running = true;
     try {
-      return await runExtractionTick({
+      const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
-        logger: this.logger, newId: newKgId,
+        conflicts: this.conflicts, logger: this.logger, newId: newKgId,
       });
+      // F16：每一轮都排空「结束冲突」的待办（与有没有新消息无关）
+      await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });
+      return tick;
     } finally {
       this.running = false;
     }

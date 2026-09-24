@@ -8,6 +8,7 @@ import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -253,3 +254,32 @@ export interface PromotionPort {
 }
 
 export const PROMOTION_PORT = Symbol("PromotionPort");
+
+// ─────────────────────────────── F16 矛盾提醒 ───────────────────────────────
+
+/**
+ * 矛盾判定的读写口（迁移 20260924290000）。实现只调数据库函数：候选范围（本会话 + 个人线程里所有者本人的
+ * 个人空间）与复核都在 `kg_conflict_candidates` / `kg_open_conflicts` 里，判定规则在 domain/knowledge-graph/conflict.ts。
+ */
+export interface KgConflictPort {
+  /** 这条消息刚抽出的结论 + 「你确认过」的结论。消息不是人说的、不在本会话 ⇒ 两边都空。 */
+  candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly fresh: readonly FreshClaim[];
+    readonly confirmed: readonly ConfirmedClaim[];
+  }>;
+  /** 复核后开卡（两条转 contested），返回开了几张；复核不过的一对跳过。 */
+  open(orgId: OrgId, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly messageId: string;
+    readonly pairs: readonly ConflictPair[];
+  }): Promise<number>;
+  /**
+   * 结束冲突的待办（触发器拿不到锁时放进去的卡）：哪些 org 有活（只回 id），以及排空本 org 的一张
+   * （true = 处理了一张，false = 空了）。一张一个事务。
+   */
+  pendingCloseOrgs(): Promise<readonly OrgId[]>;
+  drainCloseOne(orgId: OrgId): Promise<boolean>;
+}
+
+export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
