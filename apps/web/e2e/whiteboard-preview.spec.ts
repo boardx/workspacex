@@ -8,6 +8,13 @@ for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/preview/whiteboard');
     await expect(page.getByTestId('whiteboard-screen')).toBeVisible();
+    await expect(page.getByTestId('shell-rail')).toHaveCount(0);
+    await expect(page.getByTestId('shell-mobile-tabs')).toHaveCount(0);
+    await expect(page.getByTestId('whiteboard-exit')).toHaveAttribute('href', '/projects');
+    const main = await page.getByTestId('shell-main').boundingBox();
+    expect(main?.x).toBe(0);
+    expect(main?.width).toBe(width);
+    expect(main?.height).toBe(900);
     await expect(page.getByTestId('whiteboard-preview-notice')).toContainText('未保存');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (width < 1024) {
