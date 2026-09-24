@@ -314,7 +314,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     return guard(personalSpaceRef(userId), data);
   }
 
-  async threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number) {
+  async threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number, offset: number) {
     return this.inTenant(orgId, userId, async (s) => {
       // 候选：本人创建的、有活结论的会话。**不在 SQL 里判可见性**——调用方逐个走 resolveVisibility
       // （同 chat 线程列表 listProjectThreads 的纪律：可见性只有一份实现）。
@@ -322,8 +322,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         `SELECT t.id, t.project_id FROM chat_threads t
           WHERE t.org_id = $1 AND t.created_by = $2
             AND EXISTS (SELECT 1 FROM claims c WHERE c.org_id = t.org_id AND c.scope_kind = 'chat_session' AND c.scope_id = t.id AND ${LIVE_CLAIM})
-          ORDER BY t.last_activity_at DESC, t.id LIMIT $3`,
-        [orgId, userId, limit],
+          ORDER BY t.last_activity_at DESC, t.id LIMIT $3 OFFSET $4`,
+        [orgId, userId, limit, offset],
       );
       const ids = threads.rows.map((t) => t.id);
       if (ids.length === 0) return [];

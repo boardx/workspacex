@@ -11,7 +11,7 @@ import {
 /**
  * 大脑页的两份真实数据，并行取。任一份失败整页进错误态（不拿半份数据拼一个看似完整的页）。
  *
- * `denied`：服务端说「找不到」（`KG_THREAD_NOT_FOUND`，个人空间只有本组织成员本人读得到）——
+ * `denied`：服务端说「看不到」（`KG_NOT_VISIBLE`，契约 getPersonalKnowledge.err：个人空间只有本组织成员本人读得到）——
  * 多半是刚被移出当前组织；与网络 / 服务不可用（`failed`）分开，给的出路不一样。
  */
 export type BrainData =
@@ -31,7 +31,7 @@ export function useBrainData(orgId: string): { state: BrainData; reload: () => v
       ([personal, overview]) => { if (!ctl.signal.aborted) setState({ status: "ready", personal, overview }); },
       (e: unknown) => {
         if (ctl.signal.aborted) return;
-        setState({ status: knowledgeGraphErrorCode(e) === "KG_THREAD_NOT_FOUND" ? "denied" : "failed" });
+        setState({ status: knowledgeGraphErrorCode(e) === "KG_NOT_VISIBLE" ? "denied" : "failed" });
       },
     );
     return () => ctl.abort();

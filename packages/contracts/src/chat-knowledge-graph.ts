@@ -524,13 +524,16 @@ export const knowledgeGraph = {
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
     }).strict(),
-    err: [] as const,
+    /** 调用者不是（或已不是）当前组织成员（HTTP 403）。空间里没有内容不是错误，返回空。 */
+    err: ["KG_NOT_VISIBLE"] as const,
   },
 
   /**
-   * 大脑页（/brain）概况：本人创建的、记下了知识的会话（每个会话一行计数），
+   * UC-KG-13 大脑页（/brain）概况：本人创建的、记下了知识的会话（每个会话一行计数），
    * 以及个人空间结论各自来自哪个会话。只读聚合；每个会话逐个经会话可见性判定，
    * 看不见的会话（被移出项目等）不出现。2026-09-24 人类指令「取消所有的 mockup 的数据」。
+   * `err` 为空：不是组织成员时每个会话都判为不可见 ⇒ 返回空的两个数组，不是错误
+   * （判定依赖不可用时同全束一样是 503，不在业务错误码里）。
    */
   getBrainOverview: {
     method: "GET", path: "/knowledge-graph/me/overview",

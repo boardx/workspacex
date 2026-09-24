@@ -128,7 +128,7 @@ function OriginLinks({ origins }: { origins: readonly PersonalClaimOrigin[] }) {
   if (origins.length === 0) {
     return (
       <p className="text-11 text-muted-foreground" data-testid="brain-origin-gone">
-        出自的对话已经看不到了（可能已被删除，或你已不在那个项目里）。
+        出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。
       </p>
     );
   }

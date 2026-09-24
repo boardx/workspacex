@@ -24,18 +24,28 @@ interface Viewer {
   readonly orgId: OrgId;
 }
 
-/** 本人个人空间的判定：组织层通过 且 查看者 = 空间主人。 */
-export async function decidePersonalSpace(deps: KnowledgeReadDeps, viewer: Viewer, ownerId: string): Promise<PermissionDecision> {
+/** 个人空间 guard ref 的合成 id 前缀（同 resolve-visibility 个人线程判定、pg-knowledge-read 的 `personalSpaceRef`）。 */
+const PERSONAL_REF_PREFIX = "personal:";
+
+/**
+ * 本人个人空间的判定：组织层通过 且 查看者 = 这份读模型所属空间的主人。
+ *
+ * 主人取自读口交回的 guard ref（`personal:<userId>`），不是调用方自己再传一遍查看者 id——
+ * 否则比较恒真。读口若因为缺陷交回了别人的空间，这里拒绝，内容一个字也不出去。
+ */
+export async function decidePersonalSpace(deps: KnowledgeReadDeps, viewer: Viewer, space: Guarded<unknown>): Promise<PermissionDecision> {
   let base: PermissionDecision;
   try {
     base = await authorize(
       { repo: deps.repo, ids: deps.ids },
-      { userId: viewer.userId, orgId: viewer.orgId, object: { kind: "project", id: `personal:${viewer.userId}` }, action: "read.published" },
+      { userId: viewer.userId, orgId: viewer.orgId, object: { kind: "project", id: `${PERSONAL_REF_PREFIX}${viewer.userId}` }, action: "read.published" },
     );
   } catch {
     // 判定依赖读不到 ⇒ 拒绝并报 503，不降级为放行（同 resolveVisibility）。
     throw new AuthzUnavailableError();
   }
+  const ownerId = space.ref.kind === "project" && space.ref.id.startsWith(PERSONAL_REF_PREFIX)
+    ? space.ref.id.slice(PERSONAL_REF_PREFIX.length) : null;
   const allowed = base.orgLayer.passed && ownerId === viewer.userId;
   return { ...base, allowed, reasonCode: allowed ? null : base.reasonCode ?? "ORG_SCOPE_DENIED" };
 }
@@ -45,9 +55,9 @@ export async function getPersonalKnowledge(
   input: Viewer,
 ): Promise<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>> {
   const guarded = await deps.knowledge.personalKnowledge(input.orgId, input.userId);
-  const d = discloseDecided(guarded, await decidePersonalSpace(deps, input, input.userId));
-  // 不是组织成员（或已被移出）：与「空间里什么都没有」不同，照 404 同一个出口报「找不到」。
-  if (!isDisclosed(d)) throw new KgReadError("KG_THREAD_NOT_FOUND");
+  const d = discloseDecided(guarded, await decidePersonalSpace(deps, input, guarded));
+  // 不是（或已不是）本组织成员：契约 getPersonalKnowledge.err 的 KG_NOT_VISIBLE（HTTP 403）。
+  if (!isDisclosed(d)) throw new KgReadError("KG_NOT_VISIBLE");
   return { scope: { kind: "personal", id: input.userId }, ...d.payload };
 }
 
@@ -81,26 +91,31 @@ export async function getBrainOverview(deps: KnowledgeReadDeps, input: Viewer): 
     return isDisclosed(d) ? { row: d.payload, title: v.title, lastActivityAt: v.lastActivityAt } : null;
   };
 
+  // 候选按最近活动倒序分批取，逐个判可见性，凑够上限为止：上限作用在「看得见的」会话上，
+  // 看不见的（被移出项目等）不会把看得见的挤出这一页。
   const threads: Overview["threads"] = [];
-  for (const cand of await deps.knowledge.threadKnowledgeSummaries(input.orgId, input.userId, KG.KG_BRAIN_THREADS_LIMIT)) {
-    const r = await reveal(cand.counts, cand.threadId);
-    if (r === null) continue;
-    const c = r.row;
-    threads.push({
-      threadId: c.threadId, projectId: c.projectId, title: r.title, lastActivityAt: r.lastActivityAt,
-      claims: c.pending + c.confirmed + c.conflict, pending: c.pending, confirmed: c.confirmed, conflict: c.conflict, objects: c.objects,
-    });
+  for (let offset = 0; threads.length < KG.KG_BRAIN_THREADS_LIMIT; offset += KG.KG_BRAIN_THREADS_LIMIT) {
+    const batch = await deps.knowledge.threadKnowledgeSummaries(input.orgId, input.userId, KG.KG_BRAIN_THREADS_LIMIT, offset);
+    for (const cand of batch) {
+      if (threads.length >= KG.KG_BRAIN_THREADS_LIMIT) break;
+      const r = await reveal(cand.counts, cand.threadId);
+      if (r === null) continue;
+      const c = r.row;
+      threads.push({
+        threadId: c.threadId, projectId: c.projectId, title: r.title, lastActivityAt: r.lastActivityAt,
+        claims: c.pending + c.confirmed + c.conflict, pending: c.pending, confirmed: c.confirmed, conflict: c.conflict, objects: c.objects,
+      });
+    }
+    if (batch.length < KG.KG_BRAIN_THREADS_LIMIT) break;
   }
 
-  // 个人空间结论的来源会话：这些行从个人结论出发，先确认查看者是个人空间的主人，再逐个会话判可见性。
-  const personal = await decidePersonalSpace(deps, input, input.userId);
+  // 个人空间结论的来源会话：读口只按本人 id 取（scope_id = 查看者），每行再按原结论所在会话判可见性
+  // （与打开会话同一个判定；个人线程只放给创建者本人、且要求仍是组织成员）。
   const personalOrigins: Overview["personalOrigins"] = [];
-  if (personal.allowed) {
-    for (const cand of await deps.knowledge.personalClaimOrigins(input.orgId, input.userId)) {
-      const r = await reveal(cand.origin, cand.threadId);
-      if (r === null) continue;
-      personalOrigins.push({ ...r.row, threadTitle: r.title });
-    }
+  for (const cand of await deps.knowledge.personalClaimOrigins(input.orgId, input.userId)) {
+    const r = await reveal(cand.origin, cand.threadId);
+    if (r === null) continue;
+    personalOrigins.push({ ...r.row, threadTitle: r.title });
   }
   return { threads, personalOrigins };
 }

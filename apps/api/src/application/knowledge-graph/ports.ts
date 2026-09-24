@@ -138,10 +138,11 @@ export interface KnowledgeReadPort {
    */
   personalKnowledge(orgId: OrgId, userId: string): Promise<Guarded<PersonalKnowledgeData>>;
   /**
-   * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，最多 `limit` 个）。
+   * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
+   * 分页是为了让调用方在可见性过滤**之后**凑够上限。
    * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
    */
-  threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number): Promise<readonly {
+  threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number, offset: number): Promise<readonly {
     readonly threadId: string; readonly counts: Guarded<ThreadKnowledgeCounts>;
   }[]>;
   /** 大脑页：本人个人空间结论 → 会话原结论（derived_from）。每行按原结论所在会话的 guard ref 包好。 */

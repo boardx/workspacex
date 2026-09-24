@@ -50,7 +50,12 @@ export class KnowledgeGraphController {
     try {
       return await fn({ userId: principal.userId, orgId: toOrgId(principal.orgId) });
     } catch (e) {
-      if (e instanceof KgReadError) throw new NotFoundException({ reasonCode: e.code });
+      // KG_NOT_VISIBLE 只来自个人空间（不是 / 已不是组织成员，契约 getPersonalKnowledge.err）：本人的空间
+      // 没有「存在性」可探测，报 403 说清是看不到；会话 / 结论的看不见仍与不存在同一个 404 出口。
+      if (e instanceof KgReadError) {
+        if (e.code === "KG_NOT_VISIBLE") throw new ForbiddenException({ reasonCode: e.code });
+        throw new NotFoundException({ reasonCode: e.code });
+      }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
         if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);

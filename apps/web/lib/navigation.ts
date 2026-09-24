@@ -233,7 +233,9 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "能力",
     items: [
-      { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["14-brain/uc-14-6"] },
+      // 2026-09-24 起 /brain 只读真实记忆（个人空间 + 各对话的记忆计数），不再承载 uc-14-6 的 Context Pack 审查；
+      // phase-18 的 UC 直接放在 requirements/ 下（没有 NN-模块 子目录），故以阶段目录名作前缀。
+      { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["phase-18-org-brain-knowledge-graph/uc-18-4", "phase-18-org-brain-knowledge-graph/uc-18-3"] },
       { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo, ucRefs: ["11-board/uc-11-1"] },
     ],
   },

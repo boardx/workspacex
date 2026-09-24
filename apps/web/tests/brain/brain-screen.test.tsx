@@ -111,7 +111,7 @@ describe("大脑页：真实数据", () => {
     expect(readChatMemoryRequest("?projectId=prj-1&memory=c-2")).toEqual({ claimId: "c-2" });
     expect(readChatMemoryRequest("?memory=1")).toEqual({ claimId: null });
     expect(readChatMemoryRequest("")).toBeNull();
-    // p-3 没有来源会话（例如会话被删、或已被移出项目）
+    // p-3 没有来源会话（例如原话被删、或那一条在对话里被忘掉）
     expect(screen.getAllByTestId("brain-origin-gone")).toHaveLength(1);
   });
 
@@ -184,8 +184,8 @@ describe("大脑页：真实数据", () => {
     expect(await screen.findByTestId("brain-personal")).toBeTruthy();
   });
 
-  it("已不在当前组织（找不到个人空间）⇒ 无权限态，说清是组织层、不出现内部码", async () => {
-    stubNetwork(() => json({ error: "not found", traceId: "t", reasonCode: "KG_THREAD_NOT_FOUND" }, 404));
+  it("已不在当前组织（KG_NOT_VISIBLE）⇒ 无权限态，说清是组织层、不出现内部码", async () => {
+    stubNetwork(() => json({ error: "forbidden", traceId: "t", reasonCode: "KG_NOT_VISIBLE" }, 403));
     render(<BrainScreen />);
     const denied = await screen.findByTestId("denied");
     expect(denied.textContent).toContain("组织层限制");
