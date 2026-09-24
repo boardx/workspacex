@@ -120,6 +120,18 @@ else {
   if (named && !hasLicense) {
     problems.push(`the site names the ${named[1]} licence, and the repository has no LICENSE file`);
   }
+  /* And the licence it names must be the one in the file. Existence alone
+     would let the page keep saying Apache-2.0 after the file became MIT. */
+  if (named && hasLicense) {
+    const file = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'COPYING'].map((f) => join(repoRoot, f)).find(existsSync);
+    const text = readFileSync(file, 'utf8');
+    const FILE_SAYS = [[/Apache License\s+Version 2\.0/i, /Apache[- ]?2\.0/i], [/^MIT License/m, /MIT/i],
+      [/GNU AFFERO GENERAL PUBLIC LICENSE/, /AGPL/i], [/Mozilla Public License Version 2\.0/, /MPL/i]];
+    const actual = FILE_SAYS.find(([inFile]) => inFile.test(text));
+    for (const m of copy.matchAll(new RegExp(named[0].replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'))) {
+      if (!actual || !actual[1].test(m[0])) { problems.push(`the site names ${m[0]}, and LICENSE is something else`); break; }
+    }
+  }
 
   /* Each language states the absence as a fact, in its own file.
      Rounds 42–50 put five such statements on the page, and by round 50 the

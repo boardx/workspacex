@@ -23,11 +23,45 @@
 import * as React from "react";
 import { Moon, Palette, RotateCw, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { designWorkbench } from "@repo/contracts";
 import type { PrototypeAccent } from "@/lib/live-design-workbench";
 import type { PrototypeDevicePreset } from "./prototype-canvas";
 
+/** 对标 R1：字体档位的人话名（只有这个面板说它们）。 */
+const FONT_LABEL: Readonly<Record<designWorkbench.PrototypeFont, string>> = {
+  sans: "现代", serif: "衬线", rounded: "圆润", mono: "等宽",
+};
+/** 对标 R2：圆角气质与信息密度的人话名。 */
+const RADIUS_LABEL: Readonly<Record<designWorkbench.PrototypeRadiusScale, string>> = { sharp: "直角", default: "常规", round: "圆润" };
+const DENSITY_LABEL: Readonly<Record<designWorkbench.PrototypeDensity, string>> = { compact: "紧凑", default: "常规", comfortable: "宽松" };
+
+/** 三选一的小分段（圆角 / 密度共用一种长相）。 */
+function Segmented<T extends string>({ options, value, label, onPick, kind, preview }: {
+  readonly options: readonly T[]; readonly value: T; readonly label: Readonly<Record<T, string>>;
+  readonly onPick: (v: T) => void; readonly kind: "radius" | "density"; readonly preview: (v: T) => React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid grid-cols-3 gap-1" role="radiogroup">
+      {options.map((o) => (
+        <button
+          key={o} type="button" role="radio" aria-checked={value === o} data-testid={kind === "radius" ? `design-detail-radius-${o}` : `design-detail-density-${o}`}
+          onClick={() => onPick(o)}
+          className={cn(
+            "flex flex-col items-center gap-1 rounded-control border px-1 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === o ? "border-primary bg-panel text-card-foreground" : "border-border text-muted-foreground hover:bg-panel/60",
+          )}
+        >
+          {preview(o)}
+          {label[o]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CanvasAppearance({
   theme, onTheme, accent, accentOptions, accentLabel, accentSwatch, onAccent,
+  brand, onBrand, font, onFont, radius, onRadius, density, onDensity,
   devices, deviceId, onDevice, landscape, onLandscape, rotatable,
 }: {
   readonly theme: "light" | "dark";
@@ -37,6 +71,16 @@ export function CanvasAppearance({
   readonly accentLabel: Readonly<Record<PrototypeAccent, string>>;
   readonly accentSwatch: Readonly<Record<string, string>>;
   readonly onAccent: (a: PrototypeAccent) => void;
+  /** 对标 R1（#3933）：任意品牌色（`#RRGGBB`）；`null` = 用上面的强调色档位。 */
+  readonly brand: string | null;
+  readonly onBrand: (hex: string | null) => void;
+  readonly font: designWorkbench.PrototypeFont;
+  readonly onFont: (f: designWorkbench.PrototypeFont) => void;
+  /** 对标 R2（#3933）：整套原型的圆角气质与信息密度。 */
+  readonly radius: designWorkbench.PrototypeRadiusScale;
+  readonly onRadius: (r: designWorkbench.PrototypeRadiusScale) => void;
+  readonly density: designWorkbench.PrototypeDensity;
+  readonly onDensity: (d: designWorkbench.PrototypeDensity) => void;
   readonly devices: readonly PrototypeDevicePreset[];
   readonly deviceId: string;
   readonly onDevice: (id: string) => void;
@@ -45,6 +89,15 @@ export function CanvasAppearance({
   readonly rotatable: boolean;
 }): React.ReactElement {
   const [open, setOpen] = React.useState(false);
+  // 品牌色输入框自己的草稿：边打边校验，合法且回车/失焦才提交——打到一半（#FF5）不该把画布刷成别的色。
+  const [brandDraft, setBrandDraft] = React.useState(brand ?? "");
+  React.useEffect(() => setBrandDraft(brand ?? ""), [brand]);
+  const draftValid = designWorkbench.BrandColor.safeParse(brandDraft.trim()).success;
+  const commitBrand = () => {
+    const v = brandDraft.trim().toUpperCase();
+    if (v === "") { if (brand !== null) onBrand(null); return; }
+    if (designWorkbench.BrandColor.safeParse(v).success && v !== brand) onBrand(v);
+  };
   const boxRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -85,7 +138,7 @@ export function CanvasAppearance({
           role="group"
           aria-label="外观"
           data-testid="design-detail-appearance-panel"
-          className="absolute right-0 top-full z-20 mt-1 flex w-60 flex-col gap-3 rounded-card border border-border bg-card p-3 text-card-foreground shadow-lg"
+          className="absolute right-0 top-full z-20 mt-1 flex max-h-[70dvh] w-60 flex-col gap-3 overflow-y-auto rounded-card border border-border bg-card p-3 text-card-foreground shadow-lg"
         >
           <Section title="明暗" hint="只改原型，后台不跟着变">
             <div className="inline-flex rounded-control border border-border p-0.5">
@@ -108,17 +161,88 @@ export function CanvasAppearance({
               {accentOptions.map((a) => (
                 <button
                   key={a} type="button" data-testid={`design-detail-accent-${a}`}
-                  aria-pressed={accent === a} aria-label={accentLabel[a]} title={accentLabel[a]}
+                  aria-pressed={brand === null && accent === a} aria-label={accentLabel[a]} title={accentLabel[a]}
                   onClick={() => onAccent(a)}
                   className={cn(
                     "h-5 w-5 rounded-full border transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
+                    brand === null && accent === a ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/60",
                     a === "neutral" && "bg-muted",
                   )}
                   style={a === "neutral" ? undefined : { backgroundColor: `hsl(${accentSwatch[a] ?? ""})` }}
                 />
               ))}
             </div>
+          </Section>
+
+          <Section title="品牌色" hint={brand === null ? "用自己的品牌色，替代上面的档位" : "正在使用品牌色；点上面任一档位可换回"}>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="color" aria-label="选一个品牌色" data-testid="design-detail-brand-picker"
+                value={draftValid ? brandDraft.trim() : (brand ?? "#888888")}
+                onChange={(e) => { const v = e.target.value.toUpperCase(); setBrandDraft(v); onBrand(v); }}
+                className="h-6 w-7 shrink-0 cursor-pointer rounded-control border border-border bg-transparent p-0"
+              />
+              <input
+                type="text" inputMode="text" spellCheck={false} maxLength={7} placeholder="#FF5A1F"
+                aria-label="品牌色色值" aria-invalid={brandDraft.trim() !== "" && !draftValid}
+                data-testid="design-detail-brand-color"
+                value={brandDraft}
+                onChange={(e) => setBrandDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitBrand(); } }}
+                onBlur={commitBrand}
+                className={cn(
+                  "min-w-0 flex-1 rounded-control border bg-background px-1.5 py-0.5 font-mono text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  brandDraft.trim() !== "" && !draftValid ? "border-destructive" : "border-border",
+                )}
+              />
+              {brand !== null && (
+                <button type="button" onClick={() => onBrand(null)} data-testid="design-detail-brand-clear"
+                  className="shrink-0 rounded-control px-1 text-10 text-muted-foreground transition-colors duration-fast hover:text-card-foreground">
+                  清除
+                </button>
+              )}
+            </div>
+            {brandDraft.trim() !== "" && !draftValid && (
+              <p className="text-10 text-destructive" data-testid="design-detail-brand-invalid">色值写成 #RRGGBB，比如 #FF5A1F</p>
+            )}
+          </Section>
+
+          <Section title="字体" hint={FONT_LABEL[font]}>
+            <div className="grid grid-cols-4 gap-1" role="radiogroup" aria-label="字体">
+              {designWorkbench.PrototypeFont.options.map((f) => (
+                <button
+                  key={f} type="button" role="radio" aria-checked={font === f} data-testid={`design-detail-font-${f}`}
+                  onClick={() => onFont(f)}
+                  className={cn(
+                    "flex flex-col items-center rounded-control border px-1 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    font === f ? "border-primary bg-panel text-card-foreground" : "border-border text-muted-foreground hover:bg-panel/60",
+                  )}
+                >
+                  <span className="text-13" style={f === "sans" ? undefined : { fontFamily: designWorkbench.PROTOTYPE_FONT_STACKS[f] }}>字Aa</span>
+                  {FONT_LABEL[f]}
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          <Section title="圆角" hint="按钮、卡片、输入框一起变">
+            <Segmented
+              options={designWorkbench.PrototypeRadiusScale.options} value={radius} label={RADIUS_LABEL}
+              onPick={onRadius} kind="radius"
+              preview={(o) => <span aria-hidden className={cn("h-3 w-5 border border-current", o === "sharp" ? "rounded-none" : o === "round" ? "rounded-container" : "rounded-sm")} />}
+            />
+          </Section>
+
+          <Section title="密度" hint="整体留白的多少">
+            <Segmented
+              options={designWorkbench.PrototypeDensity.options} value={density} label={DENSITY_LABEL}
+              onPick={onDensity} kind="density"
+              preview={(o) => (
+                <span aria-hidden className={cn("flex flex-col", o === "compact" ? "gap-px" : o === "comfortable" ? "gap-1" : "gap-0.5")}>
+                  <span className="h-0.5 w-5 bg-current" /><span className="h-0.5 w-5 bg-current" /><span className="h-0.5 w-5 bg-current" />
+                </span>
+              )}
+            />
           </Section>
 
           <Section title="设备" hint="只改画板尺寸；原型没有断点，内容按 flex 自适应">

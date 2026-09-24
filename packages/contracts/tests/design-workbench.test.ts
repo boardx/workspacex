@@ -28,6 +28,7 @@ const project: dw.DesignProject = {
   template: "wireframe",
   theme: "dark",
   accent: "neutral",
+  tokens: { brand: null, font: "sans", radius: "default", density: "default" },
   tags: [],
   share: null,
   refImages: [],
@@ -408,7 +409,7 @@ describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
     expect(Object.keys(dw.SharedDesign.shape).sort()).toEqual(
       [
         "accent", "criteria", "frameLinks", "frameNotes", "frames", "name",
-        "ownerName", "problem", "prototype", "publishedAt", "template", "theme",
+        "ownerName", "problem", "prototype", "publishedAt", "template", "theme", "tokens",
       ].sort(),
     );
   });
@@ -440,5 +441,105 @@ describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
     expect(dw.operations.publishProject.path).toBe(dw.operations.unpublishProject.path);
     expect(dw.operations.publishProject.method).toBe("POST");
     expect(dw.operations.unpublishProject.method).toBe("DELETE");
+  });
+});
+
+/* ─────────────── 对标 R1（#3933）：设计 token——任意品牌色与字体 ─────────────── */
+describe("DesignTokens：品牌色与字体", () => {
+  it("缺省值 = 这个字段之前的行为（不覆盖强调色、跟随产品字体）；老数据没有这个字段也能读", () => {
+    expect(dw.DesignTokens.parse({})).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
+    expect(dw.DEFAULT_DESIGN_TOKENS).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
+    const legacy = dw.DesignProject.innerType().shape.tokens.parse(undefined);
+    expect(legacy).toEqual(dw.DEFAULT_DESIGN_TOKENS);
+  });
+
+  it("品牌色只收 #RRGGBB；字体只收四档；多余的键拒", () => {
+    expect(dw.BrandColor.safeParse("#FF5A1F").success).toBe(true);
+    for (const bad of ["FF5A1F", "#F5A", "#FF5A1FAA", "orange", "#GG5A1F"]) expect(dw.BrandColor.safeParse(bad).success, bad).toBe(false);
+    expect(dw.DesignTokens.safeParse({ font: "comic" }).success).toBe(false);
+    expect(dw.DesignTokens.safeParse({ brand: null, font: "sans", sparkle: true }).success).toBe(false);
+  });
+
+  it("updateProject 收 token 的部分键（按键合并由仓储做），给 brand: null 是清掉", () => {
+    const inSchema = dw.operations.updateProject.in;
+    expect(inSchema.safeParse({ projectId: "p", tokens: { font: "serif" } }).success).toBe(true);
+    expect(inSchema.safeParse({ projectId: "p", tokens: { brand: null } }).success).toBe(true);
+    expect(inSchema.safeParse({ projectId: "p", tokens: { brand: "red" } }).success).toBe(false);
+  });
+
+  it("品牌色的底色逐字就是品牌色本身：#FF5A1F 回转成 rgb(255,90,31)", () => {
+    const { primary } = dw.brandAccentTokens("#FF5A1F");
+    const [h, sPct, lPct] = primary.split(" ").map((x) => Number.parseFloat(x));
+    // 标准 HSL → RGB（与浏览器解析 `hsl()` 同一套公式）
+    const sat = sPct! / 100; const lig = lPct! / 100;
+    const k = (n: number) => (n + h! / 30) % 12;
+    const a = sat * Math.min(lig, 1 - lig);
+    const f = (n: number) => Math.round(255 * (lig - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+    expect([f(0), f(8), f(4)]).toEqual([255, 90, 31]);
+  });
+
+  it("⭐ 机械门：任意品牌色上的字对比度 ≥ 4.5（全色域每 17 级取样，4913 个色）", () => {
+    /*
+     * 反证锚点：把 `BRAND_FOREGROUND_DARK` 换回近黑 #111317 ⇒ 这条红（亮度 ≈ 0.18 的中间色上只有 ≈ 4.3）。
+     * 这正是「放开任意品牌色」的代价——前景色不收用户输入，就得在这里证明它永远读得清。
+     */
+    const hex = (n: number) => n.toString(16).padStart(2, "0").toUpperCase();
+    let worst = { color: "", ratio: Infinity };
+    for (let r = 0; r <= 255; r += 17) for (let g = 0; g <= 255; g += 17) for (let b = 0; b <= 255; b += 17) {
+      const color = `#${hex(r)}${hex(g)}${hex(b)}`;
+      const fg = dw.brandAccentTokens(color).foreground === "0 0% 100%" ? dw.BRAND_FOREGROUND_LIGHT : dw.BRAND_FOREGROUND_DARK;
+      const ratio = dw.contrastRatio(color, fg);
+      if (ratio < worst.ratio) worst = { color, ratio };
+    }
+    expect(worst.ratio, `最差的是 ${worst.color}`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("每档字体都有字体栈，sans 跟随产品字体（inherit）", () => {
+    for (const f of dw.PrototypeFont.options) expect(dw.PROTOTYPE_FONT_STACKS[f]).toBeTruthy();
+    expect(dw.PROTOTYPE_FONT_STACKS.sans).toBe("inherit");
+    expect(dw.PROTOTYPE_FONT_STACKS.serif).toMatch(/serif$/);
+  });
+});
+
+describe("对标 R9 proposeVariants（#3954）", () => {
+  const root = { type: "stack", children: [{ type: "text", props: { content: "甲" } }] };
+  it("in：screen 必填、count 在 2–4 之间；out：至少两个方案，每个过 PrototypeNode", () => {
+    expect(dw.operations.proposeVariants.in.parse({ projectId: "p", screen: 0 })).toEqual({ projectId: "p", screen: 0 });
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 1 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 5 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p" }).success).toBe(false);
+    const two = [{ summary: "A", root }, { summary: "B", root }];
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two }).success).toBe(true);
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two.slice(0, 1) }).success).toBe(false);
+    expect(dw.PrototypeVariant.safeParse({ summary: "坏", root: { type: "no-such-type" } }).success).toBe(false);
+    expect([...dw.operations.proposeVariants.err]).toContain("DEPENDENCY_UNAVAILABLE");
+  });
+});
+
+describe("深度 S2 批注（#3988）", () => {
+  const comment = { id: "c1", nodeId: "n1", frameIndex: 0, label: "按钮", text: "再醒目一点", resolved: false, authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z", replies: [] };
+  it("DesignComment 过契约；字数、页号越界、空文本都拒", () => {
+    expect(dw.DesignComment.safeParse(comment).success).toBe(true);
+    expect(dw.DesignComment.safeParse({ ...comment, text: "x".repeat(dw.DESIGN_COMMENT_MAX_CHARS + 1) }).success).toBe(false);
+    expect(dw.operations.createDesignComment.in.safeParse({ projectId: "p", nodeId: "n1", frameIndex: 0, label: "", text: "   " }).success).toBe(false);
+    expect(dw.operations.createDesignComment.in.safeParse({ projectId: "p", nodeId: "n1", frameIndex: -1, label: "", text: "x" }).success).toBe(false);
+  });
+  it("四个操作的路径与错误码；新码都进了闭集", () => {
+    expect(dw.operations.listDesignComments.path).toBe("/pm-designs/:projectId/comments");
+    expect(dw.operations.updateDesignComment.in.parse({ projectId: "p", commentId: "c", resolved: true }).resolved).toBe(true);
+    expect([...dw.operations.deleteDesignComment.err]).toContain("NOT_COMMENT_AUTHOR");
+    for (const code of ["COMMENT_NOT_FOUND", "NOT_COMMENT_AUTHOR", "COMMENT_LIMIT_REACHED"]) expect(dw.DesignWorkbenchError.options).toContain(code);
+  });
+});
+
+describe("深度 S3 批注回复（#3988）", () => {
+  it("回复：路径、空文本拒、上限；批注的 replies 有上限", () => {
+    expect(dw.operations.createDesignCommentReply.path).toBe("/pm-designs/:projectId/comments/:commentId/replies");
+    expect(dw.operations.createDesignCommentReply.in.safeParse({ projectId: "p", commentId: "c", text: "  " }).success).toBe(false);
+    expect([...dw.operations.createDesignCommentReply.err]).toContain("COMMENT_LIMIT_REACHED");
+    const reply = { id: "r", text: "好", authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z" };
+    const comment = { id: "c1", nodeId: "n1", frameIndex: 0, label: "", text: "x", resolved: false, authorId: "u", authorName: null, createdAt: "2026-09-24T00:00:00.000Z" };
+    expect(dw.DesignComment.safeParse({ ...comment, replies: Array.from({ length: dw.DESIGN_COMMENT_MAX_REPLIES }, () => reply) }).success).toBe(true);
+    expect(dw.DesignComment.safeParse({ ...comment, replies: Array.from({ length: dw.DESIGN_COMMENT_MAX_REPLIES + 1 }, () => reply) }).success).toBe(false);
   });
 });

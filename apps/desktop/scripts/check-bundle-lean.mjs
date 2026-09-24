@@ -18,7 +18,12 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /** 运行时一行都不加载的包前缀。每一条都在 electron-builder.yml 里有对应的排除规则和理由。 */
-const FORBIDDEN = ["electron@", "app-builder-bin@", "workerd@", "@cloudflare+workerd-", "typescript@"];
+const FORBIDDEN = [
+  // 运行时一行都不加载（R16）
+  "electron@", "app-builder-bin@", "workerd@", "@cloudflare+workerd-", "typescript@",
+  // 只在构建期用到；每条的实测判据见 electron-builder.yml 里对应的注释（R18）
+  "monaco-editor@", "@next+swc-", "mermaid@", "echarts@", "lucide-react@",
+];
 
 const app = process.argv[2] ?? "release/mac-arm64/WorkspaceX.app";
 const pnpmDir = join(app, "Contents/Resources/bundle/node_modules/.pnpm");

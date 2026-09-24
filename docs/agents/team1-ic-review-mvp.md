@@ -13,7 +13,7 @@
 
 - **第六版（当前）**：两件事。
   ① `/agent/team1` 改成**就地挂 chat 壳**并把 agentId 作为 `initialAgentId` 交给选择
-  provider——第五版的「中转页 + replace 进 /chat」与 team3(#3706)/team4 第一版同源地错：
+  provider——第五版的「中转页 + replace 进 /chat」与 team4 第一版同源地错：
   「挂进 roster」只决定「这条线程编制里有谁」，**不决定「这次请求用哪个 agent」**；
   不选中 ⇒ 请求不带 `COPILOTKIT_V2_SELECTED_AGENT_HEADER` ⇒ 服务端落到 org 动态默认
   （通用助手），挂载的「上会审阅」Skill 一行都没进 system prompt。
@@ -219,7 +219,7 @@ AgentRun 停在 `queued`），这部分要在配了真实模型的环境里跑�
 | B9 | 机械阻断的两轮人工确认（接 `deep-agent-hitl`） | ⬜ 下一档，不在本次 |
 | B11 | 每次输出同步产出 Excel 结果文件（六 sheet：结论/检查明细/材料提纲/交叉验证/竞对对比/风险清单） | ✅ Skill 正文任务八（issue #3707、#3713）；⬜ 真实 .xlsx 生成只能在 devapp 验 |
 | B13 | 公开信息查询 + 竞对对比 + 投资风险识别（R-15） | ✅ Skill 正文任务四/五/六（issue #3713）；⬜ 真实检索质量与防编造表现只能在联网的 devapp 验 |
-| B12 | 修 team1 与 team3/team4 同源的「agent 未被选中」缺陷 | ✅ 就地挂壳 + `initialAgentId`（第六版） |
+| B12 | 修 team1 与 team4 同源的「agent 未被选中」缺陷 | ✅ 就地挂壳 + `initialAgentId`（第六版） |
 | B10 | Agent 未初始化 / 非 admin 用户的可用性兜底：一键复制审阅任务书，手动粘进任意对话 | ✅ `ic-review-chat-entry.tsx` 的「复制审阅任务书」按钮 |
 
 ## 十轮评测（2026-09-15，`evals/ic-review/`）

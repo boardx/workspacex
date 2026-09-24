@@ -47,7 +47,11 @@ for (const [lang, file] of [['en', 'og.jpg'], ['zh', 'og-zh.jpg']]) {
   ]));
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
-  const faces = await page.evaluate(() => ['700 78px Outfit', '400 27px Inter'].map((f) => document.fonts.check(f)));
+  /* Only the faces this card sets: the Chinese card's headline is set in the
+     Chinese face (base.css sets Chinese headings that way), so it never asks
+     for Outfit. */
+  const need = lang === 'zh' ? ['400 27px Inter'] : ['700 78px Outfit', '400 27px Inter'];
+  const faces = await page.evaluate((list) => list.map((f) => document.fonts.check(f)), need);
   if (faces.includes(false)) throw new Error(`the card's faces did not load (${faces}) — refusing to render it in the fallback`);
   await page.waitForTimeout(300);
   /* JPEG, not PNG. The card is a photographic gradient: PNG stored it

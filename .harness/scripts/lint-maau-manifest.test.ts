@@ -34,9 +34,12 @@ afterEach(() => {
 
 // 每条用例都起 tsx 子进程，默认 5 秒超时在慢机器上会假红
 describe("lint-maau-manifest", { timeout: 30_000 }, () => {
-  it("package.json 里有这条脚本，且经 tsx 跑（要 import 唯一解析器）", () => {
+  it("package.json 里有这条脚本、经 tsx 跑（要 import 唯一解析器）、以 strict 接进验证链", () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts["lint:maau-manifest"]).toMatch(/tsx .*lint-maau-manifest\.mjs/);
+    // C2（2026-09-24）：8 个技能包补齐许可后存量清零，门控转阻断并接进验证链
+    expect(pkg.scripts["lint:maau-manifest"]).toContain("--strict");
+    expect(pkg.scripts["verify:harness:raw"]).toContain("lint:maau-manifest");
   });
 
   it("回归：身份嵌在 metadata: 下的技能包，身份判为齐全（初版把它误报成缺失）", () => {

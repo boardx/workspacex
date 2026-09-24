@@ -36,7 +36,7 @@ import {
 } from "./application/recording/session-lifecycle-ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
-import { ensureIcReviewSkillSeeded, ensurePlatformSkillCatalogSeeded, ensurePostInvestmentSkillSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { ensureIcReviewSkillSeeded, ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
@@ -269,17 +269,6 @@ if (isProcessEntry()) {
     if (icReviewSeed) {
       process.stdout.write(
         `ic-review skill: ${icReviewSeed.created ? "created" : "already existed"}\n`,
-      );
-    }
-
-    /** team4（投后管理报告）的内置 Skill——同上，同一段自愈逻辑的第二个 spec。 */
-    const postInvestmentSeed = await ensurePostInvestmentSkillSeeded().catch((error: unknown) => {
-      console.error("post-investment skill self-heal failed (will retry on next boot):", error);
-      return null;
-    });
-    if (postInvestmentSeed) {
-      process.stdout.write(
-        `post-investment skill: ${postInvestmentSeed.created ? "created" : "already existed"}\n`,
       );
     }
   }

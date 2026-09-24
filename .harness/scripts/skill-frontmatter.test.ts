@@ -9,7 +9,7 @@
  * 放在 `.harness/` 而不是 `apps/api/tests/`：它是纯函数、不碰 DB，而 `@repo/api` 的默认
  * vitest 套件带 `tests/support/db-global-setup.ts`，跑一条断言也要先起 Postgres 容器。
  * 这里和依赖同一个解析器的 `lint-skill-metadata-source` 门控同槽，跟着那条毫秒级、
- * 无 DB 的 harness 车道一起跑（`postinvest-rating-purity.test.ts` 等同样 import apps/api/src）。
+ * 无 DB 的 harness 车道一起跑（其他控制平面测试同样 import apps/api/src）。
  */
 import { describe, expect, it } from "vitest";
 import { parseSkillFrontmatter, SkillFrontmatterError } from "../../apps/api/src/domain/skill/skill-frontmatter";

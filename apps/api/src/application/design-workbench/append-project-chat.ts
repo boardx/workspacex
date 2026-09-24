@@ -28,7 +28,7 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import { designAiCollab, designPrototype, type designWorkbench } from "@repo/contracts";
+import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
 
 const designAiCollabFields = designAiCollab.DesignWritebackField.options;
 import type { DesignChatModel } from "./design-chat-model";
@@ -140,7 +140,8 @@ function focusFor(row: { readonly frames: readonly string[]; readonly prototype:
   if (id === undefined) return {};
   const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
   if (hit === null) return {};
-  const node = hit.path[hit.path.length - 1]!;
+  // 深度 S10：给模型看的焦点节点同样摘掉上传的图（见 `withoutImageSources`）。
+  const node = designPrototype.withoutImageSources(hit.path[hit.path.length - 1]!);
   return { focus: { id, frame: row.frames[hit.frameIndex] ?? "", path: hit.path.map(designPrototype.prototypeNodeLabel), node } };
 }
 
@@ -185,11 +186,17 @@ export async function appendProjectChat(
    * ③ **写的是同一份事实**——中途写和收尾写用同一个 `ensureIdsKeepingHoles`、同一个
    *    页序来源，不是两套拼法。收尾那次照写，中途写只是让它早点可见。
    */
+  /**
+   * 深度 S10（#3988）：模型看到的树是摘了图的；它写回的树按节点 id 把图补回来——
+   * 否则用户上传的图会在下一轮对话后悄悄消失。中途写与收尾写走同一个函数。
+   */
+  const keepImages = (roots: readonly (designPrototype.PrototypeNode | null)[]) =>
+    roots.map((r) => designPrototype.restoreImageSources(current.prototype, r));
   const persistProgress = async (screens: readonly { readonly frame: string; readonly root?: designPrototype.PrototypeNode; readonly notes?: string; readonly links?: readonly designPrototype.PrototypeLink[] }[]): Promise<void> => {
     const check = designPrototype.validateLinks(screens.map((x) => ({ root: x.root, links: x.links })));
     const written = await deps.projects.update(input.projectId, input.ownerId, {
       frames: screens.map((x) => x.frame),
-      prototype: ensureIdsKeepingHoles(screens),
+      prototype: keepImages(ensureIdsKeepingHoles(screens)),
       frameNotes: screens.map((x) => (x.notes ?? "").trim()),
       frameLinks: check.links.map((l) => [...l]),
     });
@@ -208,7 +215,8 @@ export async function appendProjectChat(
     problem: current.problem,
     criteria: current.criteria,
     frames: current.frames,
-    prototype: current.prototype,
+    // 深度 S10（#3988）：上传的图（data URL）不进模型——一张就能吃掉大半上下文，模型也不该改它。
+    prototype: current.prototype.map((r) => designPrototype.withoutImageSources(r)),
     ...focusFor(current, input.focusNodeId),
     ...(input.refImages !== undefined && input.refImages.length > 0 ? { refImages: input.refImages } : {}),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
@@ -273,7 +281,7 @@ export async function appendProjectChat(
       dropped: linkCheck.dropped.map((d) => `p${d.screen}:${d.link.from}->${d.link.to}:${d.reason}`).join(","),
     });
   }
-  const patch: DesignProjectPatch = {
+  const assembled: DesignProjectPatch = {
     /*
      * 迭代 17：骨架轮挑的强调色。只在**首次分页生成**那条路上会有，且只在它与项目现有
      * 档位不同的时候才写——否则每一轮对话都往 patch 里塞一个没变化的字段，
@@ -283,6 +291,13 @@ export async function appendProjectChat(
      * 强调色的变化用户在画布上一眼就看见了，屏上再写一行「已更新：强调色」是噪音。
      */
     ...(ai.accent !== undefined && ai.accent !== current.accent ? { accent: ai.accent } : {}),
+    // 对标 R1：骨架轮给的品牌色 / 字体，只写**真的变了**的键（同 accent 的理由）。
+    ...(() => {
+      if (ai.tokens === undefined) return {};
+      const now = current.tokens ?? designWorkbench.DEFAULT_DESIGN_TOKENS;
+      const changed = Object.fromEntries(Object.entries(ai.tokens).filter(([k, v]) => v !== undefined && now[k as keyof typeof now] !== v));
+      return Object.keys(changed).length === 0 ? {} : { tokens: changed as Partial<designWorkbench.DesignTokens> };
+    })(),
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
@@ -296,6 +311,7 @@ export async function appendProjectChat(
       : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
         ? { frames: ai.writeback.frames } : {}),
   };
+  const patch: DesignProjectPatch = assembled.prototype === undefined ? assembled : { ...assembled, prototype: keepImages(assembled.prototype) };
   if (ai.writeback.frames !== undefined && screens === undefined && !framesKeepPagesAligned(current.prototype, ai.writeback.frames)) {
     // 拒绝要留痕：静默丢字段会让「模型说加了页、页数没变」看起来像模型抽风，而不是一条门控。
     deps.logger?.info("design chat: frames writeback rejected, page count would desync prototype", {

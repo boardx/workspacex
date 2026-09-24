@@ -1,0 +1,282 @@
+{
+  "round": "S3",
+  "sha": "a8708214",
+  "dirty": false,
+  "total": 3.33,
+  "dims": [
+    {
+      "dim": "V1",
+      "name": "批注跨设备",
+      "what": "批注存在服务端：换浏览器看得到、清存储刷新不丢",
+      "passed": 3,
+      "total": 3,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "V1",
+          "id": "V1.c1",
+          "title": "写一条批注 ⇒ 交给服务端保存（请求带节点、页、原话）",
+          "passed": true
+        },
+        {
+          "dim": "V1",
+          "id": "V1.c2",
+          "title": "换一台电脑（新浏览器）打开同一个项目，看得到这条批注和它的图钉",
+          "passed": true
+        },
+        {
+          "dim": "V1",
+          "id": "V1.c3",
+          "title": "清掉浏览器存储再刷新，批注还在",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "V2",
+      "name": "批注讨论",
+      "what": "批注可回复、可标记解决、可重新打开",
+      "passed": 3,
+      "total": 3,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "V2",
+          "id": "V2.c1",
+          "title": "回复一条批注：回复显示在它下面，并交给服务端",
+          "passed": true
+        },
+        {
+          "dim": "V2",
+          "id": "V2.c2",
+          "title": "标记解决：图钉消失、这条归到已解决",
+          "passed": true
+        },
+        {
+          "dim": "V2",
+          "id": "V2.c3",
+          "title": "已解决的可以重新打开，图钉回来",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "V3",
+      "name": "导出代码能交互",
+      "what": "导出的 .tsx 在浏览器里跑：tabs、开关、勾选、底部导航都点得动",
+      "passed": 1,
+      "total": 3,
+      "score": 0.3333333333333333,
+      "checks": [
+        {
+          "dim": "V3",
+          "id": "V3.c1",
+          "title": "导出的组件里 tabs 点得动：点「规格」，它变成选中",
+          "passed": false
+        },
+        {
+          "dim": "V3",
+          "id": "V3.c2",
+          "title": "开关拨得动、勾选勾得上",
+          "passed": true
+        },
+        {
+          "dim": "V3",
+          "id": "V3.c3",
+          "title": "底部导航的项跳得到对应页，而且当前项跟着变",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V4",
+      "name": "导出代码带图标",
+      "what": "按钮、底部导航、图标列表的图标导出为 SVG",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V4",
+          "id": "V4.c1",
+          "title": "带图标的按钮，导出后按钮里有这个图标（SVG）",
+          "passed": false
+        },
+        {
+          "dim": "V4",
+          "id": "V4.c2",
+          "title": "底部导航每一项都有图标",
+          "passed": false
+        },
+        {
+          "dim": "V4",
+          "id": "V4.c3",
+          "title": "图标列表每一行前面有图标",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V5",
+      "name": "查看代码",
+      "what": "编辑器里直接看、复制这份代码，改了设计代码跟着变",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V5",
+          "id": "V5.c1",
+          "title": "点「代码」：面板里是这个原型的 React 代码，含当前页的文案",
+          "passed": false
+        },
+        {
+          "dim": "V5",
+          "id": "V5.c2",
+          "title": "一键复制：剪贴板里就是这份代码",
+          "passed": false
+        },
+        {
+          "dim": "V5",
+          "id": "V5.c3",
+          "title": "在画布上改了字，面板里的代码跟着变",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V6",
+      "name": "真实图片",
+      "what": "把占位图换成上传的真图：画布上显示、刷新还在、导出的代码带着它",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V6",
+          "id": "V6.c1",
+          "title": "选中占位图、上传一张图片：画布上这块变成这张图",
+          "passed": false
+        },
+        {
+          "dim": "V6",
+          "id": "V6.c2",
+          "title": "刷新之后图片还在（写进了设计本身，不是只在这个页面上）",
+          "passed": false
+        },
+        {
+          "dim": "V6",
+          "id": "V6.c3",
+          "title": "导出的 React 代码里也带着这张图",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V7",
+      "name": "演示模式",
+      "what": "全屏演示、方向键翻页与页码、Esc 退出",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V7",
+          "id": "V7.c1",
+          "title": "点「演示」：全屏只放第一页，不带编辑器的界面",
+          "passed": false
+        },
+        {
+          "dim": "V7",
+          "id": "V7.c2",
+          "title": "方向键翻页，页码跟着走",
+          "passed": false
+        },
+        {
+          "dim": "V7",
+          "id": "V7.c3",
+          "title": "Esc 退出，回到编辑器",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V8",
+      "name": "变体进阶",
+      "what": "方案旁摆着当前页、能提要求再出一组、能选出几个",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V8",
+          "id": "V8.c1",
+          "title": "方案旁边摆着「当前」这一页，方便对照",
+          "passed": false
+        },
+        {
+          "dim": "V8",
+          "id": "V8.c2",
+          "title": "写一句要求再出一组：请求带着这句话",
+          "passed": false
+        },
+        {
+          "dim": "V8",
+          "id": "V8.c3",
+          "title": "选要几个方案：选 2 个，就出 2 个",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "V9",
+      "name": "代码规模",
+      "what": "详情页与设计工作台组件都不超过 1500 行，后续功能有地方放",
+      "passed": 2,
+      "total": 2,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "V9",
+          "id": "V9.c1",
+          "title": "详情页 detail-screen.tsx 不超过 1500 行",
+          "passed": true
+        },
+        {
+          "dim": "V9",
+          "id": "V9.c2",
+          "title": "设计工作台没有任何一个组件文件超过 1500 行",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "V10",
+      "name": "导出 PPTX",
+      "what": "幻灯片导出为可编辑的 .pptx：页数对、文字在",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "V10",
+          "id": "V10.c1",
+          "title": "幻灯片项目能导出 .pptx（是个像样的 PowerPoint 包）",
+          "passed": false
+        },
+        {
+          "dim": "V10",
+          "id": "V10.c2",
+          "title": "几页幻灯片就是几页：三页进三页出",
+          "passed": false
+        },
+        {
+          "dim": "V10",
+          "id": "V10.c3",
+          "title": "每页的文字都在，能在 PowerPoint 里改（不是一张图）",
+          "passed": false
+        }
+      ]
+    }
+  ]
+}

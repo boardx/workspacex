@@ -19,6 +19,7 @@ import { describeFailure } from "@/lib/design-failure";
 import { patchPrototype, prototypeNodeLabel, linkSlotsOf, type DesignProject, type PrototypeLink, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
 
 import { designPrototype } from "@repo/contracts";
+import { InspectorImageField } from "./inspector-image-field";
 
 /** 字段表来自契约（单源，契约测试锁定「每类型 key 集合 == props shape 键集合」）；这里只负责渲染。 */
 const FIELDS = designPrototype.PROTOTYPE_FIELDS;
@@ -42,12 +43,37 @@ function propsOf(node: PrototypeNode): Record<string, unknown> {
   return ("props" in node && node.props !== undefined ? node.props : {}) as Record<string, unknown>;
 }
 
+/**
+ * 对标 R3（#3933）：表格数据与数字串的文本形态——一行一条，格子用 `|` 隔开；数字一行一个或逗号隔开。
+ * 选文本形态而不是一个小表格编辑器：原型阶段改的是「样例数据长什么样」，一个多行输入框够用，
+ * 也能直接从表格软件里粘过来（制表符同样当分隔）。
+ */
+const ROW_SEP = /\s*[|\t]\s*/;
+export function rowsToText(v: unknown): string {
+  return Array.isArray(v) ? (v as unknown[]).map((r) => (Array.isArray(r) ? r.map(String).join(" | ") : "")).join("\n") : "";
+}
+export function textToRows(t: string): string[][] {
+  return t.split("\n").map((l) => l.trim()).filter((l) => l !== "").map((l) => l.split(ROW_SEP).map((c) => c.trim()));
+}
+export function numbersToText(v: unknown): string {
+  return Array.isArray(v) ? (v as unknown[]).map(String).join("\n") : "";
+}
+/** 读不成数的片段丢掉（写错一个不该让整组数据作废——同契约「不要求等长」的取向）。 */
+export function textToNumbers(t: string): number[] {
+  return t.split(/[\s,，、]+/).filter((x) => x !== "").map(Number).filter((x) => Number.isFinite(x));
+}
+
 function toDraft(node: PrototypeNode): Draft {
   const p = propsOf(node);
   const d: Draft = {};
   for (const f of FIELDS[node.type]) {
+    // 深度 S10：图不走草稿——选了就生效（`setImage`）。放进草稿的话，同一节点刷新时草稿里那份旧 src
+    // 会被 diff 成「删掉它」，下一次「应用」就把刚上传的图静悄悄删了。
+    if (f.kind === "image") continue;
     const v = p[f.key];
     if (f.kind === "lines") d[f.key] = Array.isArray(v) ? (v as string[]).join("\n") : "";
+    else if (f.kind === "rows") d[f.key] = rowsToText(v);
+    else if (f.kind === "numbers") d[f.key] = numbersToText(v);
     else if (f.kind === "bool") d[f.key] = v === true;
     else if (f.kind === "number") d[f.key] = typeof v === "number" ? v : undefined;
     // 迭代 13：`numeric` 的档位字段存的是数字（`grid.columns`）——原样带上，
@@ -64,10 +90,13 @@ function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
   const before = toDraft(node);
   const out: Record<string, unknown> = {};
   for (const f of FIELDS[node.type]) {
+    if (f.kind === "image") continue; // 见 `toDraft`
     const a = before[f.key];
     const b = draft[f.key];
     if (a === b) continue;
     if (f.kind === "lines") out[f.key] = String(b ?? "").split("\n").map((s) => s.trim()).filter((s) => s !== "");
+    else if (f.kind === "rows") out[f.key] = textToRows(String(b ?? ""));
+    else if (f.kind === "numbers") out[f.key] = textToNumbers(String(b ?? ""));
     else if (f.kind === "bool") out[f.key] = b === true;
     else if (f.kind === "number") out[f.key] = b === undefined ? null : b;
     else out[f.key] = b === "" ? null : b;
@@ -219,6 +248,20 @@ export function PrototypeInspector({
       setBusy(false);
     }
   };
+  /** 深度 S10：换图 / 移除图——选了就生效，不进草稿（见 `InspectorImageField`）。`null` = 删这个键。 */
+  const setImage = async (src: string | null) => {
+    if (id === undefined) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await patchPrototype(projectId, [{ op: "setProps", id, props: { src } }], summaryOf(src === null ? "移除了图片" : "换上了图片", node));
+      onSaved(out.project);
+    } catch (err) {
+      setError(reason(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   const remove = async () => {
     if (id === undefined) return;
     setBusy(true);
@@ -260,8 +303,9 @@ export function PrototypeInspector({
           {/* 单行框里按回车就是「改好了」——原来回车什么也不发生，人只能去找那个按钮。 */}
           {f.kind === "text" && <Input id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void apply(); } }} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {/* `lines` 是「一行一项」——这件事此前只写在代码注释里，框里一个字都没说。 */}
-          {(f.kind === "multiline" || f.kind === "lines") && <Textarea id={fieldId(f.key)} rows={f.kind === "lines" ? 4 : 3} placeholder={f.kind === "lines" ? "一行一项" : undefined} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {(f.kind === "multiline" || f.kind === "lines" || f.kind === "rows" || f.kind === "numbers") && <Textarea id={fieldId(f.key)} rows={f.kind === "multiline" ? 3 : f.kind === "rows" ? 6 : 4} placeholder={f.kind === "lines" ? "一行一项" : f.kind === "rows" ? "一行一条，格子用 | 隔开" : f.kind === "numbers" ? "一行一个数" : undefined} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {f.kind === "image" && <InspectorImageField id={fieldId(f.key)} src={typeof propsOf(node)[f.key] === "string" ? String(propsOf(node)[f.key]) : undefined} busy={busy} onChange={setImage} />}
           {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "enum" && (
             <select

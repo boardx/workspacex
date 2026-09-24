@@ -111,13 +111,6 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
-  - id: "16"
-    slug: postinvest-rating-agent
-    name: postinvest-rating-agent
-    goal: "投后财务项目评级 Agent：/agent/team2 独立入口，人只做数据供给与结果复核，Agent 按规则生成 A–E 评级与依据"
-    status: not_started
-    depends_on: []
-    has_ui: true
   - id: "18"
     slug: org-brain-knowledge-graph
     name: org-brain-knowledge-graph

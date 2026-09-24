@@ -23,7 +23,8 @@
  */
 
 /** 外壳形态。决定画哪种 chrome，不决定尺寸。 */
-export type PrototypeChrome = "phone" | "tablet" | "browser";
+/** 对标 R5（#3933）：`slide` = 幻灯片，没有状态栏、没有浏览器地址栏，只有一张 16:9 的纸。 */
+export type PrototypeChrome = "phone" | "tablet" | "browser" | "slide";
 
 export interface PrototypeDevicePreset {
   readonly id: string;
@@ -50,6 +51,8 @@ export const DEVICE_PRESETS: readonly PrototypeDevicePreset[] = [
   { id: "ipad", label: "iPad", chrome: "tablet", w: 820, h: 1180, radius: 30, rotatable: true },
   { id: "laptop", label: "笔记本", chrome: "browser", w: 1280, h: 800, radius: 10, rotatable: false },
   { id: "desktop", label: "桌面", chrome: "browser", w: 1440, h: 900, radius: 10, rotatable: false },
+  // 对标 R5（#3933）：路演、汇报、方案讲解——「帮我做几页幻灯片」是普通人最常提的非 App 需求之一。
+  { id: "slide", label: "幻灯片 16:9", chrome: "slide", w: 1280, h: 720, radius: 4, rotatable: false },
 ];
 
 export const DEFAULT_PRESET_ID = "iphone";

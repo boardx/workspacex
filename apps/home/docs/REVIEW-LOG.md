@@ -1581,3 +1581,164 @@ Score on this machine: **9.93** (en 9.96, zh 9.93). Round 65 recorded 9.95 on
 the previous one; the difference is the Chinese desktop LCP case (692 ms median
 here), i.e. the machine, and it would be dishonest to present the two numbers
 as a trend.
+
+### Round 67 — the list of what was left (76 cases; 10.00 and 9.96 on two runs)
+
+After round 66 the owner asked what problems remained, got eight, and asked
+for all of them to be solved. Five are solved in code; two could not be
+tested from this machine and are now tested by CI instead; one is not an
+engineering decision. Two full runs of the set scored 10.00 and 9.96; the only
+difference is the Chinese desktop-LCP case (620 ms and 776 ms medians), which
+moves with this machine's load rather than with the site.
+
+| # | What was left | What was done |
+|---|-----|-----|
+| 1 | **Seventeen requests on first load; nine were JavaScript**, loaded as a module graph three round trips deep (main → diagrams → strings). | `build-js.mjs` joins the modules into one `site.js`, the way `build-css` already did for the stylesheets — zero-dependency, `--check`ed, and it refuses what it cannot join safely (a cycle, an unsupported import, one top-level name in two modules). **17 → 9 requests; 148.5 → 137 KB**; the Chinese slow-3G first paint on this (slower) machine 3028–3212 → **2836–2944 ms**. The degradation suite could no longer break a single module by blocking its file, so it now makes the diagrams section of the bundle throw at runtime and requires every other boot step to run — a stricter test than before, which only proved the CSS failsafe. |
+| 2 | **The Chinese margin against the 3200 ms budget** — round 66 fixed the font-stack cost, and #1 took the rest. | ~300 ms of headroom on a machine where the previous code missed the budget. |
+| 3 | **Chinese headings in two weights on Linux** — synthesis is off on `/zh/` on purpose (faked bold Han blots at 30 px), so where the Chinese face has one weight, Han was regular beside Outfit 700 "AI". | Chinese headings take the Chinese face for their latin too, as Chinese sites set them: the pair always match — PingFang Semibold on a Mac, one weight on Linux. The Chinese group is now one token, `--font-cjk`, used by every stack; `check-css` expands it. |
+| 4 | **Copy that persuades**, which no case can measure. | A third independent reviewer, briefed as a bilingual copy editor, returned 15 rewrites without changing a single claim: the hero line, the harness lead, the lead for people who receive results, the use-case checklist, and nine Chinese passages that read translated (被-passives, long 的-chains, calques like 和这件事分开的是). All applied; two English ones then trimmed again because the set flagged them (five centred lines on a phone; a 47-word lead). |
+| 5 | **iOS Safari never tested** — this machine has Chromium only. | `tests/webkit.test.mjs`: both languages, iPhone and Mac-sized, in WebKit — script errors, diagrams drawn, sideways scroll, nothing left invisible after scrolling, the menu by tap. Skips where WebKit is absent; `home-gates` now installs WebKit and uploads full-page screenshots as the `home-webkit-screenshots` artifact, so anyone can look at the page as Safari draws it. Its first real run is CI's. |
+| 6 | **The `/privacy` loop fix was inferred, not observed.** | `scripts/live-check.mjs` requests the deployed site, follows every redirect by hand (a loop is a named failure), checks every sitemap URL answers without a hop and that `_headers` is applied. `.github/workflows/home-live.yml` runs it daily and on demand. Verified locally against the test server. |
+| 7 | **Android never tested.** | Not solved, and saying so: CI has no Android, and Chromium's device emulation does not emulate Android's font set, which is exactly the part in question. |
+| 8 | **No LICENSE.** | The owner's decision, not an engineering one — asked, and the owner chose **Apache-2.0**. `LICENSE` at the repository root is the canonical apache.org text, copied byte-for-byte from an installed package rather than typed. The page stopped saying there is none (`check-sequence` required it, both languages): the FAQ answers "Yes", the exit commitment's first line is in force as a right, and what still is not true — no release, no one-command setup — still says so. `check-sequence` now also requires the licence the page names to be the one in the file (proved red by swapping in an MIT text). |
+
+### Round 68 — let the visitor do the work before signing up (77 cases; 9.99)
+
+The owner asked how the homepage could let someone *feel* WorkspaceX without
+signing up, so the value is visible before the first step is asked for, and
+named the scenarios it had to cover: design thinking, innovation, AI
+transformation strategy, and the path to an AI-native enterprise.
+
+What was built is a **scripted demo** directly below the hero (`#demo`,
+`assets/js/demo.js`). Pick a scenario; the task and five sources are on the
+left; "Start the agents" plays four agents working it, lighting the sources
+each step reads; the answer arrives as claims, each naming its sources; "Doubt
+this" opens the check — the verdict and the quoted sources — and the reviewer
+has already struck through the one claim nothing supports (a market size with
+no source, a refund automation the policy forbids, a management cut that is
+leadership's call). It ends at the same "Start free" as the hero. It is
+labeled, above the stage in both languages, as sample material replayed in
+the browser: no model runs and nothing is sent. A live guest mode in the app
+is the second phase, and is not this.
+
+| # | Decision or problem | What was done |
+|---|-----|-----|
+| 1 | **The first-load budget should not pay for a demo nobody opens.** It sits right below the hero, so "near the viewport" is true at load on most desktops. | Nothing is fetched until the reader does something (scroll, tap, key); the module then loads a screen early. Not in `site.js` — `import()` from the bundle. First load unchanged: 9 requests, ~139 KB. |
+| 2 | **Mounting mid-scroll moved the page.** The first version swapped the demo in the moment it came near — including while a smooth scroll from a nav link or `/#panel-edu` passed *through* it. It is several hundred pixels taller than its placeholder, so every such scroll landed short: the eval's deep-link, current-section and language-offer cases dropped to 0–0.75. | Fetching is not mounting: the demo is swapped in only when scrolling has stopped with the section on screen. All three back to 1.00. |
+| 3 | **Every claim's check rendered open.** `.demo__check { display: grid }` beat the `hidden` attribute. Found by looking at the rendered page. | `.demo [hidden] { display: none }`; the suite asserts every check starts closed — proved red by removing the rule (16 failures). |
+| 4 | **A `<noscript>` in `<body>` is text when scripting is on.** The eval's jargon count read its markup as words (`class`, `data-i`, `noscript`). | A paragraph hidden by the `.js` class boot sets. |
+| 5 | **A label under a lit source fell to 4.16:1** (axe, in the new suite). | Brighter ink on the lit state. |
+| 6 | **The two languages of a scenario could drift** — a claim verified in one and withdrawn in the other, a citation to a source that does not exist, a scenario with nothing withdrawn (which is the whole point). | `check-i18n` reads `demo.js` and fails on any of these, on untranslated Chinese, straight quotes in English, a sign-up label different from the hero's, and a static scenario list different from the one drawn. Proved red by flipping one Chinese claim (4 failures). |
+| 7 | **CI: headings left invisible after scrolling** (degradation [en] in Chromium; zh on an iPhone in WebKit), and 42 "leaked" nodes in the accumulation suite. The nodes were the demo mounting during that suite's own scrolling. The headings were older than the demo: sweeping a reading-pace scroll with one pause per position left a heading blank on the *base* commit too (`#unit`, 60 ms steps) — a fast scroll carries an element past the viewport without a frame in which it intersects, and the observer never fires. Content growing above the reader (the demo arriving) made it likelier. | `motion.js` sweeps once when scrolling settles: anything still waiting that is on screen or already passed is revealed. The motion suite now jumps top-to-bottom in one instant scroll and requires everything passed to end visible — proved red without the sweep (32 left at opacity 0). The accumulation suite mounts the demo before its baseline. |
+| 8 | **The jargon case counted a licence as a noun.** `/zh/` names "Apache-2.0" four times since round 67 and scored 0.60 on the base commit for it. | License and language names (`Apache`, `JavaScript`) listed as names, and the trailing hyphen the pattern captured is trimmed. |
+
+New: `tests/demo.test.mjs` (in `check-all`: both languages, reduced motion and
+a phone with motion, axe on the mounted demo), and the eval case `conv.demo`
+(the demo is labeled, runs, shows a withdrawal, and ends at sign-up). Score
+**9.99** (en 10.00, zh 9.99); the one miss is the Chinese desktop-LCP case,
+the same machine noise as rounds 66–67.
+
+### Round 69 — nineteen passes over the scenarios, read by five outside readers (10.00)
+
+The owner asked for the scenarios to be worked over nineteen times from a
+senior strategy consultant's seat — to move the reader, not only inform — and
+for three more: the most representative, most urgent transformations of the
+AI era. Chosen: **workforce & skills** (every employee's question), **sales
+win rate** (every CEO's question), **customer operations** (where the volume
+of AI-changeable work is largest). The owner's four stay: design thinking,
+innovation, AI transformation strategy, AI-native path.
+
+Five readers were briefed as people, not as reviewers, and read the copy
+cold, in two rounds: a Chinese mid-market founder, a strategy partner, a
+people leader and a frontline claims processor (one reader holding both),
+then a skeptical US CFO and two Chinese executives (HR, sales). None edited
+anything; every change below is a response to something one of them said,
+or to a measurement.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Three scenarios | workforce, sales win rate, customer operations — each 5 sources, 4 agents, 4 claims, one withdrawn |
+| 2 | Who you are | Each scenario opens on a situation card — a role and what is at stake this week — before the task |
+| 3 | Answer first | A one-line answer above the claims that support it |
+| 4 | The temptation | The withdrawn claim is the one a real executive would reach for, and the reviewer step names it that way |
+| 5 | So what | A closing line on what you can now do, per scenario |
+| 6 | One verdict | "Withdrawn" was said twice per withdrawn claim |
+| 7 | Numbers have sources | `check-i18n`: every number in an answer must appear in that scenario's sources or in arithmetic written out beside it; a withdrawn claim's own number is exempt — that is why it was withdrawn. Found four gaps on first run; proved red with an invented figure |
+| 8 | Linkable | `/#demo-workforce` opens that scenario; choosing one rewrites the fragment without history; the language switch carries it |
+| 9 | Review, round 1 | Chinese founder, strategy partner, people leader + employee |
+| 10 | Rigor | 46% × 71% ≈ 33% (a ceiling) instead of "nearly half"; "240 hours today", not "saved"; unsourced "volume is still rising" removed; "demand is proven" narrowed to "customers asked for it" |
+| 11 | Honesty | The fear sized as the sources size it (a third of hours, not half); "move people" → "open a path"; the pilot is "evidence, not a promise"; no villain CEO |
+| 12 | Better traps | "Buy an AI license for everyone" and "give every function a small budget" replace two strawmen |
+| 13 | Chinese, localized | 元 not 美元; 老板, 运营副总; 商机, 进线; tabs and agents named the way a Chinese office names them |
+| 14 | The intro | The title said "real work" above a note saying the material is sample — a skeptic noticed in five seconds. Now: *Every answer shows its source. Watch one get withdrawn.* |
+| 15 | Order | Workforce opens: the one moment where the machine protects a person from a spreadsheet ("34% of hours is not 34% of people") |
+| 16 | After the answer | "Run this on your own …" per scenario, and where documents can live (from the FAQ, not new promises); the withdrawal reason set in ink, not red |
+| 17 | Phone | Seven tabs wrapped to five rows (277 px): one sideways row now. The run button sat a thousand pixels below its task: the situation, task and button now head the panel. Both asserted by the demo suite |
+| 18 | Review, round 2 | A CFO's audit found a dozen claims saying more than their sources — correlation as cause, a reason citing a source the claim did not, "nobody asked" inferred from silence — all narrowed; ~45 Chinese phrases rewritten; the reviewer is now said to be an agent whose withdrawals go to a person (the site's own "needs a person to decide") |
+| 19 | Verify | All 19 checks; eval 10.00 in both languages; first load unchanged (9 requests, ~139 KB) |
+
+Left for the owner, not done: the CFO asked for a finance or healthcare
+scenario and for one claim that ends "not enough evidence" rather than a
+verdict (every scenario ending three-kept, one-withdrawn can look staged);
+the strategy partner proposed AI governance / shadow AI as the missing urgent
+scenario; two Chinese readers asked where data is hosted before they would
+press the button — the page can say what deployment allows, but not what the
+free tier's hosting is.
+
+### Round 70 — three more scenarios, chosen from what the readers said was missing (10.00)
+
+The owner asked for three more and left the choice open. Each fills a gap a
+round-69 reader named:
+
+| Scenario | Who asked for it | The withdrawn claim |
+|---|---|---|
+| **AI governance** — a client contract pasted into a public chatbot; 1,140 of 1,500 accounts already use public tools | the strategy partner ("the scenario that sells traceability best") | "Ban public AI tools" — a peer that did found use moved to personal phones, out of any record |
+| **AI return on investment** — $1.2M spent (900 万元 on the Chinese page), every vendor dashboard says "great" | the CFO ("nothing here is about me") | "AI saved us 14,000 hours" — prompts × an assumed six minutes: activity, not time returned |
+| **Frontline expertise** — eleven senior technicians retiring; the manuals hold 35% of the fixes | the Chinese founder ("no manufacturing, no services") | "Replace them with an AI trained on the manuals" — it would know the part that was never the problem |
+
+Ten scenarios in all. The order puts the three most personal first
+(workforce, sales, governance), then money (ROI, strategy), then operations.
+All three passed the number-provenance gate on first run. Desktop tabs stay
+at two rows; on a phone the row scrolls and follows the selected tab.
+
+**CI: the degradation failure, named.** Three red runs of "got 1" were
+explained by the diagnostic added in round 69: `.cta__actions` in
+`#contact` — `is-in true, opacity 0.42`, at scrollY 21 218 of 21 640. It
+had been revealed and was half way through its fade: the page scrolls
+smoothly, so the loop's last `scrollTo` was still travelling when the 900 ms
+wait began, and the longer page (the demo) made the last leg longer. A test
+timing fault, not hidden content. The degradation and WebKit suites now wait
+for the scroll to stop before timing the fade.
+
+### Round 71 — five passes from the consultancies' research, read by the people it describes (10.00)
+
+The owner asked for the demo to be reworked from what the large consultancies
+report about AI adoption pain, in five passes, designed around the target
+readers.
+
+**The research, and its limit.** Three researchers covered McKinsey, BCG,
+Bain; Deloitte, Accenture, PwC, KPMG, EY; and Gartner, Forrester, MIT, HBR,
+Microsoft and the Chinese institutes. The session's network policy blocked
+every consultancy's own site — only microsoft.com opened, and even that
+reached us through a summarizing model — so **no figure from any report was
+verified, and none is on the page.** The findings shaped the design only.
+They are recorded in `docs/demo-personas.md`, each with the page it must be
+checked against before it could ever be cited, beside seven personas drawn
+from them.
+
+What the research agreed on, across firms: money spent with nothing on the
+P&L and ROI that cannot be computed; pilots that never reach production;
+people using AI in secret, output nobody checks, and mistakes that ship;
+tools adding little without redesigned work; headcount savings that did not
+happen and managers more anxious than the frontline; work turning into
+supervising AI.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Research → pains | "AI transformation strategy" now takes the most-cited pain the set lacked: pilots that never leave the lab (23 started, 2 live). The cards name a reader and their 2 a.m. question instead of a topic — ten cards, 5×2 on desktop, one sliding row on a phone. |
+| 2 | Four persona walkthroughs | A Chinese owner and CFO; a COO and CFO; a head of people, a frontline technician and a middle manager; a general counsel, a service head and a sales head. About forty edits: "Verified" became "Matches its sources" (a citation is not truth); headlines that contradicted their sources fixed ("nothing was measured" — four were); the pilot trap became the tempting one ("scale the pilot that worked"); the technicians are asked to teach, not mined; the middle manager became the owner of the process change; the owner's card moved to third. |
+| 3 | The moment | At the end of a run the withdrawn claim's check opens by itself — it was behind a second click — and if the reader has not scrolled, the answer is brought to them (on a phone it landed a screen and a half below the button). |
+| 4 | Act on it | The page said "the call is yours" and offered no call. The withdrawn claim now asks for one: keep it out, or put it back over the reviewer's objection (the strike lifts, the claim turns amber, the objection stays). "Copy as a note" gives the reader the answer, the sources, their decision and the sample-material label to take into the room. |
+| 5 | Cold read and close | Two fresh readers found a dozen remaining overreaches (the sales and service stakes carried numbers no source held; "pause the rest" would have paused the two live pilots; "1,140 people" were 1,140 accounts) and one bug: after "Put it back", the label and the status line still said withdrawn. All fixed; the screen now follows the decision. The number gate now checks the stakes line too — the gap those two numbers came through (proved red by removing them from their source). |
+
+Score **10.00** in both languages; first load unchanged (9 requests, ~140 KB).

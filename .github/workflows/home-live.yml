@@ -1,0 +1,30 @@
+# home-live.yml —— 问线上站点，而不是问仓库。
+#
+# `home-gates.yml` 的每一道门都读文件；有些事只有托管方说了算：`/privacy` 是
+# 正常打开还是重定向死循环、`_headers` 里的头有没有真的发出去、站点地图里的
+# 每个 URL 能不能直接打开。第 66 轮按 Cloudflare Pages 的文档行为删掉了两条会
+# 死循环的 `_redirects` 规则——做出这个判断的机器访问不到线上站点，所以这里
+# 每天、以及手动触发时，真的去请求一遍。
+#
+# 不放进 PR 门控：它测的是已部署的版本，不是 PR 里的代码。
+name: home-live
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # apps/home is dependency-free; see home-gates.yml for why this is off.
+          package-manager-cache: false
+      - name: the deployed site answers as the repository says it should
+        working-directory: apps/home
+        run: node scripts/live-check.mjs
