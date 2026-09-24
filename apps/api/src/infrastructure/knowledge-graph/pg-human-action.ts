@@ -23,7 +23,8 @@ export class PgHumanAction implements HumanActionPort {
       return await this.db.withTenant(orgId, async (s) => {
         await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
         const r = await s.query<{ r: { revision: number; action_id: string } }>(
-          "SELECT kg_apply_human_action($1::jsonb) AS r",
+          // F16：矛盾提醒的出口单独一个函数（同样的所有者 / 会话锁 / revision 前置），见迁移 20260924290000。
+          input.action.type === "resolveConflict" ? "SELECT kg_resolve_conflict($1::jsonb) AS r" : "SELECT kg_apply_human_action($1::jsonb) AS r",
           [JSON.stringify({ action_id: input.actionId, thread_id: input.threadId, based_on_revision: input.basedOnRevision, action: input.action })],
         );
         return { revision: Number(r.rows[0]!.r.revision), actionId: r.rows[0]!.r.action_id };

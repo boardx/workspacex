@@ -7,6 +7,7 @@ import type { ExtractionDeps } from "../../src/application/knowledge-graph/extra
 import type { DatabasePort } from "../../src/application/ports/database.port";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { ModelKnowledgeExtractor } from "../../src/infrastructure/knowledge-graph/model-knowledge-extractor";
+import { PgKgConflict } from "../../src/infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgExtraction } from "../../src/infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
 import { addChatThread } from "../support/chat-db";
@@ -59,7 +60,7 @@ export function extractionDeps(db: DatabasePort, model: ModelCallPort, onlyOrg: 
     fail: (o, m, e) => pg.fail(o, m, e),
   };
   return {
-    queue, source: pg, store: new PgOntologyStore(db), logger: silentLogger, newId: newKgId,
+    queue, source: pg, store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), logger: silentLogger, newId: newKgId,
     extractor: new ModelKnowledgeExtractor(model, { enabled: true, provider: "loopback", modelId: "m" }, silentLogger),
   };
 }

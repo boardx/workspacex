@@ -243,16 +243,57 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         [orgId, thread.threadId, ids, KG_EXTRACTION_MAX_ATTEMPTS],
       );
       const recall = await readTurnRecall(s, orgId, userId, thread.threadId, messageId);
+      const conflict = await readTurnConflict(s, orgId, userId, thread.threadId, ids);
       return {
         messageId,
         captured: captured.rows.map((c) => ({ claimId: c.id, statement: c.statement })),
         pending: Number(pending.rows[0]!.n) > 0,
-        prompt: null,  // U-4 / U-5 的主动卡片在 uc-18-6 落地
+        // I-18：一轮至多一张主动卡，冲突卡优先（U-4 记住 / 忘掉卡尚未落地）
+        prompt: conflict === null ? null : { type: "conflict" as const, conflict },
         ...recall,
       };
     });
     return guard(threadRef(thread), data);
   }
+}
+
+type ConflictPrompt = Extract<NonNullable<TurnMemoryData["prompt"]>, { type: "conflict" }>["conflict"];
+
+/**
+ * F16：这一轮的矛盾提醒（U-5）。挂在这一轮的消息（回答 + 前面那条用户消息）上、还开着、两条都还活着的，
+ * 取最早开的那次判定里排第一的一张（I-18 一轮至多一张；其余的冲突两条已是「有矛盾」，在面板里看得到）。
+ * 按查看者读：旧条在个人空间时只有本人（scope_id = 查看者）读得到这张卡——RLS 也这么判（kg_conflict_prompts
+ * 的可见性跟随两条结论），这里再按作用域限定一次。「你 {日期} 说的」= 旧条最早的原话时间，没有原话时用它入图的时间。
+ */
+async function readTurnConflict(
+  s: TenantSession, orgId: OrgId, viewer: string, threadId: string, turnMessageIds: readonly string[],
+): Promise<ConflictPrompt | null> {
+  if (turnMessageIds.length === 0) return null;
+  const r = await s.query<{
+    id: string; newer_id: string; newer_statement: string; older_id: string; older_statement: string; said_at: Date;
+  }>(
+    `SELECT p.id, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement,
+            coalesce((SELECT min(m.created_at) FROM claim_message_evidence e
+                        JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
+                       WHERE e.claim_id = o.id AND e.org_id = o.org_id AND e.stance = 'supporting'), o.created_at) AS said_at
+       FROM kg_conflict_prompts p
+       JOIN claims n ON n.id = p.newer_claim_id AND n.org_id = p.org_id
+       JOIN claims o ON o.id = p.older_claim_id AND o.org_id = p.org_id
+      WHERE p.org_id = $1 AND p.thread_id = $2 AND p.message_id = ANY($3::text[]) AND p.status = 'open'
+        AND n.scope_kind = 'chat_session' AND n.scope_id = $2 AND n.revoked_at IS NULL AND n.status <> 'superseded'
+        AND o.revoked_at IS NULL AND o.status <> 'superseded'
+        AND ((o.scope_kind = 'chat_session' AND o.scope_id = $2) OR (o.scope_kind = 'personal' AND o.scope_id = $4))
+      ORDER BY p.created_at, p.rank, p.id
+      LIMIT 1`,
+    [orgId, threadId, [...turnMessageIds], viewer],
+  );
+  const row = r.rows[0];
+  if (row === undefined) return null;
+  return {
+    promptId: row.id,
+    newerClaim: { id: row.newer_id, statement: row.newer_statement },
+    olderClaim: { id: row.older_id, statement: row.older_statement, saidAt: row.said_at.toISOString() },
+  };
 }
 
 type RecalledMemory = TurnMemoryData["recalled"][number];
