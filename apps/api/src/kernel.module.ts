@@ -4,7 +4,10 @@ import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/upd
 import { WHITEBOARD_WORKSHOP } from './application/whiteboard/workshop-ports';
 import { PgWorkshopRepository } from './infrastructure/whiteboard/pg-workshop-repository';
 import { WhiteboardWorkshopController } from './interface/controllers/whiteboard-workshop.controller';
+import { WHITEBOARD_OBSERVABILITY, type WhiteboardObservability } from './application/whiteboard/observability';
+import { ProcessWhiteboardObservability } from './infrastructure/whiteboard/observability';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
+import { WhiteboardOperationsController } from './interface/controllers/whiteboard-operations.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
@@ -1057,6 +1060,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardWorkshopController,
+    WhiteboardOperationsController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2870,8 +2874,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_OBSERVABILITY,
+      useFactory: () => new ProcessWhiteboardObservability(),
+    },
+    {
       provide: WHITEBOARD_UPDATE_VALIDATOR,
-      useFactory: () => new WorkerWhiteboardUpdateValidator(),
+      useFactory: (metrics: WhiteboardObservability) => new WorkerWhiteboardUpdateValidator(undefined, metrics),
+      inject: [WHITEBOARD_OBSERVABILITY],
     },
     {
       provide: WHITEBOARD_WORKSHOP,
@@ -2880,8 +2889,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, validator: WorkerWhiteboardUpdateValidator, metrics: WhiteboardObservability) => new PgWhiteboardCollaborationStore(db, validator, 120, metrics),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, WHITEBOARD_OBSERVABILITY],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
