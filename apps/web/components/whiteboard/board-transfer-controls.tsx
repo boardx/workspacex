@@ -37,6 +37,18 @@ function lossCategories(losses: M.ExternalImportLoss[]) {
   return [...grouped].map(([code, value]) => ({ code, count: value.count, message: [...value.messages].join('；') }));
 }
 
+const qualityLabels: Array<[keyof T.ImportQualitySummary, string]> = [
+  ['complete', '完整'], ['approximate', '近似'], ['degraded', '降级'], ['skipped', '跳过'],
+];
+function ImportQuality({ value }: { value: T.ImportQualitySummary }) {
+  return <div data-testid="board-import-quality" className="grid grid-cols-2 gap-2 text-13">
+    {qualityLabels.map(([key, label]) => <div key={key} data-quality={key} className="rounded-control border border-border px-2 py-1">
+      <span className="font-medium">{label} {value[key].count}</span>
+      {value[key].sampleSourceIds.length ? <p className="break-all text-muted-foreground">示例来源：{value[key].sampleSourceIds.join('、')}</p> : null}
+    </div>)}
+  </div>;
+}
+
 export function BoardTransferControls({ boardId, onImported }: { boardId: string; onImported: (boardId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState<T.ImportBoardInput | null>(null);
@@ -47,7 +59,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const download = async () => {
     try {
       const bundle = await exportBoardPackage(boardId);
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const blob = new Blob([T.serializePortableBoardPackage(bundle)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -135,6 +147,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
             <DialogDescription>
               来自 {providerName(external.provider)} 的“{external.sourceName}”。将导入 {external.importedObjectCount} 个可编辑对象，跳过 {external.skippedObjectCount} 个对象，并始终创建新的 WorkspaceX 白板。
             </DialogDescription>
+            <ImportQuality value={external.quality}/>
             <div className="text-13">
               <p className="font-medium">转换损失</p>
               {losses.length ? <ul data-testid="vendor-import-losses" className="list-disc space-y-1 pl-5">
@@ -143,6 +156,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
             </div>
           </section> : <>
             <DialogDescription>将创建“{preview.server.destinationName}”，不会替换当前白板。全部 {preview.server.objectCount} 个对象会获得新身份，包括 {preview.server.frameCount} 个 Frame、{preview.server.groupCount} 个组和 {preview.server.connectorCount} 条连接。</DialogDescription>
+            <ImportQuality value={preview.server.quality}/>
             <p className="text-13">内容损失：{preview.server.contentLosses.length ? preview.server.contentLosses.map(loss => loss.message).join('；') : '无'}</p>
           </>}
           <Button data-testid="board-import-confirm" disabled={transferring} onClick={() => void confirmImport()}>{transferring ? '正在导入…' : '确认创建副本'}</Button>

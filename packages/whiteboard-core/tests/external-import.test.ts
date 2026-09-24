@@ -26,6 +26,10 @@ describe('Miro and Mural external board import', () => {
       expect.objectContaining({ code: 'DANGLING_CONNECTOR', sourceObjectId: 'bad-connector' }),
       expect.objectContaining({ code: 'UNKNOWN_OBJECT', sourceObjectId: 'mindmap-1' }),
     ]));
+    expect(result.preview.quality).toMatchObject({
+      complete: { count: 3 }, approximate: { count: 2, sampleSourceIds: ['sticky-1','text-1'] },
+      degraded: { count: 0 }, skipped: { count: 2, sampleSourceIds: ['bad-connector','mindmap-1'] },
+    });
   });
 
   it('preserves Mural top-left coordinates and resolves explicitly parent-relative widgets', () => {
@@ -44,6 +48,8 @@ describe('Miro and Mural external board import', () => {
       expect.objectContaining({ code: 'DRAWING_UNSUPPORTED', sourceObjectId: 'drawing-1' }),
       expect.objectContaining({ code: 'UNKNOWN_OBJECT', sourceObjectId: 'embed-1' }),
     ]));
+    expect(sticky.extensionData?.vendorData).toEqual({ topLevel: { createdOn: 1760000000000 }, style: { bold: true } });
+    expect(result.preview.quality).toMatchObject({ complete:{count:4}, approximate:{count:1,sampleSourceIds:['sticky-1']}, degraded:{count:0}, skipped:{count:2} });
   });
 
   it('reports dangling parents without silently discarding otherwise importable content', () => {
@@ -82,5 +88,29 @@ describe('Miro and Mural external board import', () => {
       expect.objectContaining({ code: 'TEXT_TRUNCATED', sourceObjectId: 'sticky-1' }),
       expect.objectContaining({ code: 'POSITION_APPROXIMATED', sourceObjectId: 'sticky-1' }),
     ]));
+    expect(result.preview.quality.degraded).toMatchObject({ count: 1, sampleSourceIds: ['sticky-1'] });
+  });
+
+  it('preserves unknown vendor style/data fields or reports bounded provenance omission with source ids', () => {
+    const preserved = read('miro-board-v1.json') as { pages: Array<{ items: Array<Record<string, unknown>> }> };
+    const sticky = preserved.pages[0]!.items[1]!;
+    sticky.data = { ...(sticky.data as object), vendorFlag: 'alpha' };
+    sticky.style = { ...(sticky.style as object), fontFamily: 'Inter', backgroundColor: '#ffeeaa' };
+    sticky.vendorRevision = 42;
+    const converted = convertExternalBoardSnapshot(preserved, { packageBoardId });
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) return;
+    const imported = converted.package.objects.find(object => object.kind === 'sticky')!;
+    expect(imported.extensionData?.vendorData).toEqual({
+      topLevel: { vendorRevision: 42 }, style: { fontFamily: 'Inter', backgroundColor: '#ffeeaa' }, data: { vendorFlag: 'alpha' },
+    });
+    expect(converted.preview.losses).not.toContainEqual(expect.objectContaining({ code: 'VENDOR_DATA_OMITTED', sourceObjectId: 'sticky-1' }));
+
+    sticky.vendorPayload = 'x'.repeat(20_000);
+    const bounded = convertExternalBoardSnapshot(preserved, { packageBoardId });
+    expect(bounded.ok).toBe(true);
+    if (!bounded.ok) return;
+    expect(bounded.preview.losses).toContainEqual(expect.objectContaining({ code: 'VENDOR_DATA_OMITTED', sourceObjectId: 'sticky-1' }));
+    expect(bounded.preview.quality.degraded).toMatchObject({ count: 1, sampleSourceIds: ['sticky-1'] });
   });
 });
