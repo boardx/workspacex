@@ -20,6 +20,9 @@ export interface BoardxRealtimeAsrHandle {
   stop(): Promise<void>;
 }
 
+/** One second of mono PCM16/16kHz; beyond this, "realtime" has already been lost. */
+const MAX_SOCKET_AUDIO_BACKLOG_BYTES = 32_000;
+
 export async function issuePersonalRealtimeAsrTicket(
   sessionId: string,
   sessionToken?: string | null,
@@ -69,15 +72,6 @@ export async function openBoardxRealtimeAsr(
     throw error;
   }
 
-  let capture: PcmAudioWorkletHandle;
-  try {
-    capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
-  } catch (error) {
-    socket.close();
-    await cleanupReservedCapture();
-    throw error;
-  }
-
   let completedResolve!: () => void;
   let completedReject!: (error: Error) => void;
   const completion = new Promise<void>((resolve, reject) => {
@@ -91,7 +85,8 @@ export async function openBoardxRealtimeAsr(
   let stopping = false;
   let stopPromise: Promise<void> | undefined;
   let captureStop: Promise<void> | undefined;
-  const stopCapture = () => captureStop ??= capture.stop();
+  let capture: PcmAudioWorkletHandle | undefined;
+  const stopCapture = () => captureStop ??= capture?.stop() ?? Promise.resolve();
   let cleaningUp = false;
   const releaseResources = () => {
     if (cleaningUp) return;
@@ -101,22 +96,34 @@ export async function openBoardxRealtimeAsr(
     void stopCapture().catch(() => undefined);
     socket.close();
   };
+  let readyResolve!: () => void;
+  let readyReject!: (error: Error) => void;
+  let readySettled = false;
+  const providerReady = new Promise<void>((resolve, reject) => {
+    readyResolve = () => { readySettled = true; resolve(); };
+    readyReject = (error) => { readySettled = true; reject(error); };
+  });
   socket.addEventListener("message", (event) => {
     const parsed = C.RealtimeAsrServerEvent.safeParse(safeJson(String(event.data)));
     if (!parsed.success) {
       deps.handlers.onError("CONNECTION_FAILED");
+      if (!readySettled) readyReject(new Error("invalid BoardX realtime ASR event"));
       completedReject?.(new Error("invalid BoardX realtime ASR event"));
       void releaseResources();
       return;
     }
     const frame = parsed.data;
-    if (frame.type === "ready") return deps.handlers.onState("recording");
+    if (frame.type === "ready") {
+      if (!readySettled) readyResolve();
+      return;
+    }
     if (frame.type === "interim") return deps.handlers.onInterim(frame.text);
     if (frame.type === "final") return deps.handlers.onFinal(frame);
     if (frame.type === "stopping") return deps.handlers.onState("stopping");
     if (frame.type === "error") {
       deps.handlers.onState("error");
       deps.handlers.onError(frame.reason);
+      if (!readySettled) readyReject(new Error(frame.reason));
       completedReject?.(new Error(frame.reason));
       void releaseResources();
       return;
@@ -133,19 +140,39 @@ export async function openBoardxRealtimeAsr(
       void releaseResources();
       return;
     }
-    completedReject(new Error("CONNECTION_FAILED"));
+    const error = new Error("CONNECTION_FAILED");
+    if (!readySettled) readyReject(error);
+    completedReject(error);
     deps.handlers.onState("error");
     deps.handlers.onError("CONNECTION_FAILED");
     void releaseResources();
   });
 
   socket.send(JSON.stringify({ type: "start" }));
+  try {
+    await providerReady;
+    capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
+  } catch (error) {
+    releaseResources();
+    await cleanupReservedCapture();
+    throw error;
+  }
+
   capture.onFrame((frame) => {
     if (!completed && !cleaningUp && socket.readyState === socket.OPEN) {
       deps.handlers.onLevel?.(pcm16Level(new Int16Array(frame)));
+      if (socket.bufferedAmount > MAX_SOCKET_AUDIO_BACKLOG_BYTES) {
+        const error = new Error("AUDIO_BACKPRESSURE");
+        deps.handlers.onState("error");
+        deps.handlers.onError("AUDIO_BACKPRESSURE");
+        completedReject(error);
+        releaseResources();
+        return;
+      }
       socket.send(frame);
     }
   });
+  deps.handlers.onState("recording");
 
   return {
     captureId: ticket.captureId,
