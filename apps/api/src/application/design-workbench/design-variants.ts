@@ -132,7 +132,7 @@ export async function proposeVariants(
     title: current.name,
     problem: current.problem,
     frame: current.frames[input.screen] ?? "",
-    root,
+    root: designPrototype.withoutImageSources(root), // 深度 S10：上传的图不进模型
     count,
     ...(input.instruction !== undefined ? { instruction: input.instruction } : {}),
   });

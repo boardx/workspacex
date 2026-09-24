@@ -597,6 +597,23 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
   const p = node.props;
   const kind = p.kind ?? "photo";
   const box = cn("relative flex w-full items-center justify-center overflow-hidden bg-panel text-muted-foreground", sc.r("md"), RATIO[p.ratio ?? "video"]);
+  /*
+   * 深度 S10（#3988）：用户上传了真图 ⇒ 画这张图，比例 / 圆角照旧（头像照旧是圆的）。
+   * `alt` 就是这张图的说明——此前它是写在灰块上的字，现在给读屏器。
+   */
+  if (p.src !== undefined) {
+    return kind === "avatar" ? (
+      <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL（用户上传的图），不是可优化的远程图 */}
+        <img src={p.src} alt={p.alt} className="h-12 w-12 rounded-full object-cover" />
+      </div>
+    ) : (
+      <div className={box} data-proto="image" data-image-kind={kind} {...tap}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- data URL（用户上传的图），不是可优化的远程图 */}
+        <img src={p.src} alt={p.alt} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
   if (kind === "avatar") {
     return (
       <div className="flex w-full items-center justify-center" data-proto="image" data-image-kind="avatar" {...tap} aria-label={p.alt}>

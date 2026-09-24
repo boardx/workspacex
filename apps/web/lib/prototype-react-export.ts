@@ -201,6 +201,10 @@ function node(n: Node, depth: number, ctx: Ctx): string {
     }
     case "image": {
       const p = n.props;
+      // 深度 S10：用户上传的真图原样带进代码（data URL，导出的文件仍然自包含、不依赖任何图片地址）。
+      if (p.src !== undefined) {
+        return el(depth, "img", `src=${str(p.src)} alt=${str(p.alt)} ${p.kind === "avatar" ? cls("h-12 w-12 rounded-full object-cover", clickable) : cls("w-full object-cover", RATIO[p.ratio ?? "video"], ctx.r("md"), clickable)}${link.replace(' role="link"', "")}`, []);
+      }
       return el(depth, "div", `role="img" aria-label=${str(p.alt)} ${cls("flex w-full items-center justify-center text-xs", RATIO[p.ratio ?? "video"], pal.subtle, pal.muted, ctx.r("md"), clickable)}${link.replace(' role="link"', "")}`, str(p.alt));
     }
     case "list": {

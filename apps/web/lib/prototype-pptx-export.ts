@@ -43,6 +43,8 @@ export type SlideShape =
   | { kind: "button"; x: number; y: number; w: number; h: number; text: string; pt: number; fill: string }
   | { kind: "box"; x: number; y: number; w: number; h: number; text: string; pt: number; fill: string; color: string }
   | { kind: "line"; x: number; y: number; w: number }
+  /** 深度 S10：用户上传的真图（data URL）——进 .pptx 是一张真图片，不是灰块。 */
+  | { kind: "picture"; x: number; y: number; w: number; h: number; src: string; alt: string }
   | { kind: "table"; x: number; y: number; w: number; h: number; rows: readonly (readonly string[])[]; pt: number }
   | { kind: "chart"; x: number; y: number; w: number; h: number; chart: "bar" | "line"; title: string | null; labels: readonly string[]; values: readonly number[] };
 
@@ -191,6 +193,11 @@ function lay(n: Node, x: number, y: number, w: number, c: Ctx): Laid {
     }
     case "image": {
       const h = Math.min(w * (IMAGE_RATIO[n.props.ratio ?? "video"] ?? 9 / 16), 2.4 * k);
+      if (n.props.src !== undefined) {
+        // 高度被封顶时按比例收窄宽度并居中，图不被拉变形。
+        const pw = Math.min(w, h / (IMAGE_RATIO[n.props.ratio ?? "video"] ?? 9 / 16));
+        return { h, shapes: [{ kind: "picture", x: x + (w - pw) / 2, y, w: pw, h, src: n.props.src, alt: n.props.alt }] };
+      }
       return { h, shapes: [{ kind: "box", x, y, w, h, text: n.props.alt, pt: 12 * k, fill: PANEL, color: MUTED }] };
     }
     case "footer":
@@ -274,6 +281,10 @@ export async function buildPrototypePptx(project: DesignProject): Promise<ArrayB
           break;
         case "box":
           slide.addText(s.text, { ...base, h: s.h, fontSize: s.pt, color: s.color, align: "center", valign: "middle", shape: pptx.ShapeType.rect, fill: { color: s.fill }, line: { color: LINE, width: 0.75 } });
+          break;
+        case "picture":
+          // pptxgenjs 要的是去掉 `data:` 前缀的那一段（`image/png;base64,…`）。
+          slide.addImage({ data: s.src.slice("data:".length), x: s.x, y: s.y, w: s.w, h: s.h, altText: s.alt, sizing: { type: "cover", w: s.w, h: s.h } });
           break;
         case "line":
           slide.addShape(pptx.ShapeType.line, { x: s.x, y: s.y, w: s.w, h: 0, line: { color: LINE, width: 0.75 } });

@@ -415,6 +415,36 @@ await step("S18", "批注讨论：回一句、标记解决再重新打开、删�
   return { detail: "回复刷新后还在、重新打开的状态落了库；删掉带回复的批注成功（真库外键级联，回复表不授 DELETE）", shot: s };
 });
 
+await step("S19", "真实图片：往占位图里上传一张 2400×1800 的照片，刷新后还在（深度 S10，#3988）", async () => {
+  // 真栈才测得到：缩压后的 data URL 要装进**真 API** 的请求体上限（100 KiB），并经 PGlite 的 jsonb 落库再读回。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  const phone = page.getByTestId("design-detail-phone");
+  const slot = phone.locator('[data-proto="image"]').first();
+  if ((await slot.count()) === 0) throw new Error("第一个项目的当前页上没有 image 节点（替身模型的首页应当有一张）");
+  await slot.click();
+  const big = await page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = 2400; c.height = 1800;
+    const g = c.getContext("2d"); const d = g.createImageData(2400, 1800);
+    for (let i = 0; i < d.data.length; i++) d.data[i] = (i * 2654435761) % 251;
+    g.putImageData(d, 0, 0);
+    return c.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByTestId("design-inspector-image-file").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+  await phone.locator('[data-proto="image"] img').first().waitFor({ timeout: 30_000 });
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  const img = page.getByTestId("design-detail-phone").locator('[data-proto="image"] img').first();
+  await img.waitFor({ timeout: 20_000 });
+  const info = await img.evaluate((el) => ({ w: el.naturalWidth, len: el.getAttribute("src")?.length ?? 0 }));
+  const s = await shot("s19-real-image.png");
+  if (info.w === 0) throw new Error("刷新后 <img> 在，但图没解码出来");
+  return { detail: `原图 PNG ${Math.round(big.length / 1024)} KB（base64）→ 存下的 JPEG data URL ${Math.round(info.len / 1024)} KB、宽 ${info.w}px；刷新后仍在（真 API 请求体 + PGlite）`, shot: s };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

@@ -590,3 +590,42 @@ test.describe("深度 S9 变体：对照、提要求、要几个（#3988）", ()
     await expect(page.getByTestId("design-variant-2")).toHaveCount(0);
   });
 });
+
+const S10_PROJECT = {
+  ...R3_PROJECT, id: "eval-S10", name: "商品页", frames: ["商品"], frameNotes: [""],
+  prototype: [{ id: "s10-root", type: "stack", children: [
+    { id: "s10-img", type: "image", props: { alt: "商品主图", ratio: "square" } },
+    { id: "s10-title", type: "text", props: { content: "手冲咖啡壶", variant: "title" } },
+  ] }],
+};
+
+test.describe("深度 S10 真实图片（#3988）", () => {
+  test("上传一张 2400×1800 的大照片：浏览器里缩到契约上限以内再存（JPEG），画布上是这张图", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    const projects = await routeDesignWorkbench(page, { extraProjects: [S10_PROJECT] });
+    await routeEvalEditing(page, projects);
+    const sent: string[] = [];
+    page.on("request", (r) => { if (/\/pm-designs\/eval-S10\/prototype\/patch$/.test(new URL(r.url()).pathname)) sent.push(r.postData() ?? ""); });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S10");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-view-single").click();
+    const phone = page.getByTestId("design-detail-phone");
+    await phone.locator('[data-proto="image"]').first().click();
+    // 一张噪点大图：不缩不压，data URL 有几 MB，一次 patch 请求装不下。
+    const big = await page.evaluate(() => {
+      const c = document.createElement("canvas"); c.width = 2400; c.height = 1800;
+      const g = c.getContext("2d")!; const d = g.createImageData(2400, 1800);
+      for (let i = 0; i < d.data.length; i++) d.data[i] = (i * 2654435761) % 251;
+      g.putImageData(d, 0, 0);
+      return c.toDataURL("image/png").split(",")[1]!;
+    });
+    await page.getByTestId("design-inspector-image-file").setInputFiles({ name: "big.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+    await expect(phone.locator('[data-proto="image"] img')).toBeVisible({ timeout: 10_000 });
+    await expect.poll(() => sent.length).toBe(1);
+    const src = (JSON.parse(sent[0]!) as { ops: { props: { src: string } }[] }).ops[0]!.props.src;
+    expect(src.startsWith("data:image/jpeg;base64,")).toBe(true);
+    expect(src.length).toBeLessThanOrEqual(80_000);
+    expect(big.length).toBeGreaterThan(80_000 * 10);
+  });
+});
