@@ -42,6 +42,8 @@
     "verify:chat-read:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read",
     "verify:chat-path-coverage": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:chat-path-coverage:raw",
     "verify:chat-path-coverage:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-path-coverage",
+    "eval:always-lands": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run eval:always-lands:raw",
+    "eval:always-lands:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-path-coverage --grep \"拿得到结果\"",
     "eval:plan-execute": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run eval:plan-execute:raw",
     "eval:plan-execute:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-path-coverage --grep \"成功率矩阵\"",
     "eval:chat-ux": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run eval:chat-ux:raw",

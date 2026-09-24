@@ -315,7 +315,7 @@ export default defineConfig({
        * 三条真实缺陷（#3186 / #3207 / #3244 ①）里有一条至今未修，首跑很可能红，
        * 那正是这条车道存在的意义（红是意外，但意外要能被看见）。
        */
-      testMatch: /(deepagent-plan-execute-reliability|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\.spec\.ts$/,
+      testMatch: /(deepagent-plan-execute-reliability|chat-run-always-lands|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\.spec\.ts$/,
     },
     {
       /**
