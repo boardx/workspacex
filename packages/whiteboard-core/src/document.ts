@@ -41,7 +41,7 @@ export function validateDocument(doc: Y.Doc): void {
       if (visited.has(parent)) throw new Error('PARENT_CYCLE');
       visited.add(parent);
       const container = all.get(parent);
-      if (!container || !['frame', 'group'].includes(container.kind)) throw new Error('INVALID_PARENT');
+      if (!container || tombstones(doc).has(parent) || !['frame', 'group'].includes(container.kind)) throw new Error('INVALID_PARENT');
       parent = container.parentId;
     }
     if (value.connector && (!all.has(value.connector.from) || !all.has(value.connector.to))) throw new Error('INVALID_CONNECTOR');
@@ -62,7 +62,12 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
-    if (command.type === 'delete') deleted.set(command.id, true);
+    if (command.type === 'delete') {
+      for (const [childId, child] of objects) {
+        if (childId !== command.id && !deleted.has(childId) && child.get('parentId') === command.id) throw new Error('LIVE_DESCENDANT');
+      }
+      deleted.set(command.id, true);
+    }
     if (command.type === 'geometry') item.set('geometry', structuredClone(command.geometry));
     if (command.type === 'style') {
       const style = item.get('style') as Y.Map<unknown>;

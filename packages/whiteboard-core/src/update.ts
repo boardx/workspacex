@@ -8,6 +8,11 @@ export const WHITEBOARD_UPDATE_LIMITS = {
 function sameItem(a: { id: { client: number; clock: number } } | null | undefined, b: { id: { client: number; clock: number } } | null | undefined): boolean {
   return Boolean(a && b && a.id.client === b.id.client && a.id.clock === b.id.clock);
 }
+function hasStructRange(doc: Y.Doc, id: { client: number; clock: number }, length: number): boolean {
+  const structs = doc.store.clients.get(id.client);
+  if (!structs) return false;
+  return structs.some(struct => struct.id.clock <= id.clock && struct.id.clock + struct.length >= id.clock + length);
+}
 /**
  * Pinned Yjs 13.6.32 adapter. Must run inside a resource-limited worker/process
  * for untrusted network input; size limits do not bound decoder CPU/memory.
@@ -26,6 +31,15 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
     if (candidate.store.pendingStructs || candidate.store.pendingDs) throw new Error('MISSING_CAUSAL_DEPENDENCY');
     const structures = [...candidate.store.clients.values()].reduce((sum, entries) => sum + entries.length, 0);
     if (structures > WHITEBOARD_UPDATE_LIMITS.documentStructs) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
+    for (const struct of decoded.structs) {
+      if (!(struct instanceof Y.Item) || hasStructRange(authority, struct.id, struct.length)) continue;
+      const integrated = Y.getItem(candidate.store, struct.id);
+      // Application object IDs are single-use. A concurrent Y.Map assignment can
+      // lose CRDT arbitration and disappear from the projection while its shared
+      // structs remain in history, so inspect every newly admitted root item.
+      if (integrated instanceof Y.Item && integrated.parent === objectMap(candidate)
+        && typeof integrated.parentSub === 'string' && objectMap(authority).has(integrated.parentSub)) throw new Error('ID_ALREADY_USED');
+    }
     for (const [id, item] of objectMap(authority)) {
       const next = objectMap(candidate).get(id);
       if (!next || !sameItem(item._item, next._item)) throw new Error('OBJECT_IDENTITY_REPLACED');

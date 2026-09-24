@@ -54,6 +54,33 @@ describe('whiteboard content kernel', () => {
     expect(() => executeCommands(doc, [{ type: 'create', object: { ...note('bad'), admin: true } }], {})).toThrow();
     doc.getMap('objects').set('bad', { text: 'plain object' }); expect(() => validateDocument(doc)).toThrow('INVALID_SHARED_TYPE');
   });
+  it('rejects deleting a live parent until its descendants are detached', () => {
+    const doc = createWhiteboardDocument();
+    executeCommands(doc, [
+      { type: 'create', object: { ...note('frame'), kind: 'frame' } },
+      { type: 'create', object: { ...note('child'), parentId: 'frame' } },
+    ], {});
+    expect(() => executeCommands(doc, [{ type: 'delete', id: 'frame' }], {})).toThrow('LIVE_DESCENDANT');
+    expect(readObjects(doc).map(object => object.id)).toEqual(['child', 'frame']);
+    executeCommands(doc, [{ type: 'parent', id: 'child', parentId: null, orderKey: '' }, { type: 'delete', id: 'frame' }], {});
+    expect(readObjects(doc).map(object => object.id)).toEqual(['child']);
+  });
+  it('rejects live children of tombstoned parents and makes conflicting undo fail closed', () => {
+    const base = createWhiteboardDocument();
+    executeCommands(base, [
+      { type: 'create', object: { ...note('frame'), kind: 'frame' } },
+      { type: 'create', object: note('child') },
+    ], {});
+    const local = cloneDocument(base), remote = cloneDocument(base), undo = new WhiteboardUndo(local);
+    undo.execute([{ type: 'parent', id: 'child', parentId: 'frame', orderKey: '' }]);
+    executeCommands(remote, [{ type: 'delete', id: 'frame' }], {});
+    Y.applyUpdate(local, Y.encodeStateAsUpdate(remote));
+    expect(() => validateDocument(local)).toThrow('INVALID_PARENT');
+    expect(undo.undo()).toBe('undone');
+    expect(() => validateDocument(local)).not.toThrow();
+    expect(undo.redo()).toBe(false);
+    expect(readObjects(local).find(object => object.id === 'child')?.parentId).toBeNull();
+  });
   it('rejects oversized batches and rich text outside the plain-text contract', () => {
     const doc = createWhiteboardDocument();
     expect(() => executeCommands(doc, Array.from({ length: 201 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();

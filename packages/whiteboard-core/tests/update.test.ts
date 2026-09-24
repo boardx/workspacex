@@ -73,3 +73,24 @@ it('rejects a concurrent false tombstone even when it loses to an existing true 
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
   expect(readObjects(server)).toEqual([]);
 });
+it('rejects a concurrent parent deletion that would strand a live child', () => {
+  const server = seeded();
+  server.getMap<Y.Map<unknown>>('objects').get('a')!.set('kind', 'frame');
+  executeCommands(server, [{ type: 'create', object: { ...readObjects(seeded())[0], id: 'child', parentId: null } }], {});
+  const peer = cloneDocument(server), peerWithChild = cloneDocument(server);
+  executeCommands(peerWithChild, [{ type: 'parent', id: 'child', parentId: 'a', orderKey: '' }], {});
+  executeCommands(peer, [{ type: 'delete', id: 'a' }], {});
+  Y.applyUpdate(peerWithChild, Y.encodeStateAsUpdate(peer));
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peerWithChild, Y.encodeStateVector(server)))).toThrow('INVALID_PARENT');
+  expect(readObjects(server).find(object => object.id === 'a')).toBeDefined();
+});
+it.each([[100, 200], [200, 100]])('rejects an incoming creation for a used ID with client IDs %s and %s', (serverId, peerId) => {
+  const server = createWhiteboardDocument(), peer = createWhiteboardDocument();
+  server.clientID = serverId; peer.clientID = peerId;
+  executeCommands(server, [{ type: 'create', object: readObjects(seeded())[0] }], {});
+  executeCommands(peer, [{ type: 'create', object: { ...readObjects(seeded())[0], text: 'duplicate' } }], {});
+  const before = Y.encodeStateAsUpdate(server);
+  expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('ID_ALREADY_USED');
+  expect(Y.encodeStateAsUpdate(server)).toEqual(before);
+  expect(readObjects(server)[0].text).toBe('你好');
+});
