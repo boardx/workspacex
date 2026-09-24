@@ -419,8 +419,9 @@ export async function readDigitalInterviewWorkflow(
   const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports, briefs, policies, readinessDecisions, reportReviews] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+      section: DigitalInterviewWorkflowView["questions"][number]["section"]; goal_ids: string[];
     }>(
-      `SELECT question_id, expert_id, ordinal, body, purpose
+      `SELECT question_id, expert_id, ordinal, body, purpose, section, goal_ids
          FROM digital_interview_questions
         WHERE org_id=$1 AND version_id=$2
         ORDER BY ordinal`,
@@ -445,8 +446,9 @@ export async function readDigitalInterviewWorkflow(
     ),
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+      section: DigitalInterviewWorkflowView["questions"][number]["section"]; goal_ids: string[];
     }>(
-      `SELECT question_id,expert_id,ordinal,body,purpose
+      `SELECT question_id,expert_id,ordinal,body,purpose,section,goal_ids
          FROM digital_interview_question_candidates
         WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
       [orgId, row.revision_id],
@@ -575,8 +577,8 @@ export async function readDigitalInterviewWorkflow(
     order: question.ordinal,
     text: question.body,
     purpose: question.purpose,
-    section: /反例|例外|不同/u.test(question.purpose) ? "counterexample" : "core",
-    goalIds: [],
+    section: question.section,
+    goalIds: question.goal_ids,
   }));
   const mappedQuestions = mapQuestions(questions.rows);
   const mappedQuestionCandidates = mapQuestions(questionCandidates.rows);

@@ -13,8 +13,12 @@ export interface DigitalInterviewRuntime {
   createDraft(input: ActorInput & z.infer<typeof interview.operations.createDigitalInterviewDraft.in>): Promise<DigitalInterviewWorkflowView>;
   get(input: ActorInput & { readonly interviewId: string }): Promise<DigitalInterviewWorkflowView>;
   confirmTopic(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewTopic.in>): Promise<DigitalInterviewWorkflowView>;
+  confirmBrief(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewBrief.in>): Promise<DigitalInterviewWorkflowView>;
+  previewQuality(input: ActorInput & z.infer<typeof interview.operations.previewDigitalInterviewQuality.in>): Promise<z.infer<typeof interview.DigitalInterviewQualityProjection>>;
   confirmExperts(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewExperts.in>): Promise<DigitalInterviewWorkflowView>;
   confirmQuestions(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewQuestions.in>): Promise<DigitalInterviewWorkflowView>;
+  decideReadiness(input: ActorInput & z.infer<typeof interview.operations.decideDigitalInterviewReadiness.in>): Promise<DigitalInterviewWorkflowView>;
+  reviewReport(input: ActorInput & z.infer<typeof interview.operations.reviewDigitalInterviewReport.in>): Promise<DigitalInterviewWorkflowView>;
   generateReport(
     input: ActorInput & z.infer<typeof interview.operations.generateDigitalInterviewReport.in>,
     onProgress?: (workflow: DigitalInterviewWorkflowView) => Promise<void>,
@@ -36,6 +40,12 @@ export class DigitalInterviewWorkflowError extends Error {
       | "AI_GENERATION_UNAVAILABLE"
       | "DIGITAL_REPORT_NOT_READY"
       | "DIGITAL_REPORT_SOURCE_INVALID"
+      | "INTERVIEW_CONTRACT_UPGRADE_REQUIRED"
+      | "RESEARCH_BRIEF_REQUIRED"
+      | "QUALITY_PREVIEW_UNAVAILABLE"
+      | "INTERVIEW_NOT_READY"
+      | "READINESS_RATIONALE_REQUIRED"
+      | "REPORT_REVIEW_BLOCKED"
       | "DEPENDENCY_UNAVAILABLE",
   ) {
     super(code);

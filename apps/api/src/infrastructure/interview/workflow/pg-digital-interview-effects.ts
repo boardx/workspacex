@@ -269,12 +269,14 @@ function initialsFor(displayName: string): string {
 }
 
 const EXPECTED_STATUS = {
+  confirm_brief: "topic_pending",
   confirm_topic: "topic_pending",
   confirm_experts: "experts_pending",
   confirm_questions: "questions_pending",
 } as const;
 
 const RECONFIRMABLE_STATUS = {
+  confirm_brief: new Set(["experts_pending", "questions_pending", "running", "report_pending", "completed"]),
   confirm_topic: new Set(["experts_pending", "questions_pending", "running", "report_pending", "completed"]),
   confirm_experts: new Set(["questions_pending", "running", "report_pending", "completed"]),
   confirm_questions: new Set(["running", "report_pending", "completed"]),
@@ -412,13 +414,23 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
 
       let committedVersionId: string;
       let nextStatus: "experts_pending" | "questions_pending" | "running";
-      if (input.nodeName === "confirm_topic" && input.command.kind === "confirm_topic") {
+      if ((input.nodeName === "confirm_brief" && input.command.kind === "confirm_brief")
+        || (input.nodeName === "confirm_topic" && input.command.kind === "confirm_topic")) {
         committedVersionId = this.ids.next("itv-topic");
         await session.query(
           `UPDATE digital_interview_topic_versions SET is_current=false
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
           [input.orgId, activeRevisionId],
         );
+        if (input.command.kind === "confirm_brief") {
+          await session.query(
+            `INSERT INTO digital_interview_research_briefs
+               (org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by)
+             VALUES ($1,$2,$3,$4,$5::jsonb,'quality-v1',$6,$7)`,
+            [input.orgId, this.ids.next("itv-brief"), input.interviewId, activeRevisionId,
+              JSON.stringify(input.command.researchBrief), input.command.requestId, input.actorId],
+          );
+        }
         await session.query(
           `INSERT INTO digital_interview_topic_versions
              (org_id,id,interview_id,revision_id,version_number,topic,is_current,created_by)
@@ -528,9 +540,10 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         for (const question of input.command.questions) {
           await session.query(
             `INSERT INTO digital_interview_questions
-               (org_id,version_id,question_id,expert_id,ordinal,body,purpose)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [input.orgId, committedVersionId, question.questionId, question.expertId, question.order, question.text, question.purpose],
+               (org_id,version_id,question_id,expert_id,ordinal,body,purpose,section,goal_ids)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [input.orgId, committedVersionId, question.questionId, question.expertId, question.order,
+              question.text, question.purpose, question.section, [...question.goalIds]],
           );
         }
         await session.query(
@@ -540,18 +553,27 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         for (const question of input.command.questions) {
           await session.query(
             `INSERT INTO digital_interview_question_candidates
-               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose,section,goal_ids)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [input.orgId, activeRevisionId, question.questionId, question.expertId,
-              question.order, question.text, question.purpose],
+              question.order, question.text, question.purpose, question.section, [...question.goalIds]],
           );
         }
         await session.query(
-          `UPDATE interview_sessions SET digital_status='running',report_id=NULL,version=version+1,updated_at=now()
+          `INSERT INTO digital_interview_moderator_policies
+             (org_id,id,interview_id,revision_id,question_version_id,policy,rule_version,request_id,created_by)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,'quality-v1',$7,$8)`,
+          [input.orgId, this.ids.next("itv-policy"), input.interviewId, activeRevisionId, committedVersionId,
+            JSON.stringify(input.command.moderatorPolicy ?? { probingDepth: "balanced", clarifyAmbiguity: true,
+              seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true,
+              maxFollowUpsPerQuestion: 2 }), input.command.requestId, input.actorId],
+        );
+        await session.query(
+          `UPDATE interview_sessions SET digital_status='questions_pending',report_id=NULL,version=version+1,updated_at=now()
             WHERE org_id=$1 AND id=$2`,
           [input.orgId, input.interviewId],
         );
-        nextStatus = "running";
+        nextStatus = "questions_pending";
       } else {
         throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       }
@@ -661,7 +683,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         operationName: "generate_expert_candidates", requestId: input.requestId, payload, workflow,
       });
       await this.refreshReceipt(
-        session, toOrgId(input.orgId), input.interviewId, "confirm_topic", input.requestId, workflow,
+        session, toOrgId(input.orgId), input.interviewId, "confirm_brief", input.requestId, workflow,
       );
     });
   }
@@ -672,6 +694,16 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   }): Promise<void> {
     if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     const snapshot = await this.db.withTenant(input.orgId, async (session) => {
+      const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+      const assessment = workflow.quality.readiness;
+      const decision = workflow.quality.readinessDecision;
+      const validDecision = decision?.revisionId === workflow.revisionId
+        && decision.assessmentRuleVersion === assessment?.ruleVersion
+        && ((assessment?.status === "ready" && decision.status === "ready")
+          || (assessment?.status === "warning" && decision.status === "warning_accepted"));
+      if (workflow.revisionId !== input.revisionId || assessment?.status === "blocking" || !validDecision) {
+        throw new DigitalInterviewWorkflowError("INTERVIEW_NOT_READY");
+      }
       const allowed = await session.query<{ allowed: boolean; topic: string }>(
         `SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed,
                 topic FROM interview_sessions WHERE org_id=$1 AND id=$3`,
@@ -730,6 +762,77 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       }
       await this.persistRun(input, expert, questions.length, "completed", answers, null);
     })).catch(() => undefined);
+  }
+
+  async decideReadiness(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly assessmentRuleVersion: string; readonly status: "ready" | "warning_accepted";
+    readonly rationale: string | null; readonly expectedVersion: number; readonly requestId: string;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
+    if (input.status === "warning_accepted" && (!input.rationale || input.rationale.trim().length < 10)) {
+      throw new DigitalInterviewWorkflowError("READINESS_RATIONALE_REQUIRED");
+    }
+    return this.db.withTenant(input.orgId, async (session) => {
+      await this.lockRequest(session, input.orgId, input.interviewId, "decide_readiness", input.requestId);
+      const replay = await this.readReceipt(session, input.orgId, input.interviewId, "decide_readiness", input.requestId);
+      if (replay) return guardWorkflow(replay.response_body);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+      const assessment = workflow.quality.readiness;
+      const allowed = assessment?.ruleVersion === input.assessmentRuleVersion
+        && ((assessment.status === "ready" && input.status === "ready")
+          || (assessment.status === "warning" && input.status === "warning_accepted"));
+      if (!allowed) throw new DigitalInterviewWorkflowError("INTERVIEW_NOT_READY");
+      await session.query(
+        `INSERT INTO digital_interview_readiness_decisions
+           (org_id,id,interview_id,revision_id,assessment_rule_version,status,rationale,request_id,decided_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [input.orgId, this.ids.next("itv-readiness"), input.interviewId, workflow.revisionId,
+          input.assessmentRuleVersion, input.status, input.rationale, input.requestId, input.actorId],
+      );
+      await session.query(
+        `UPDATE interview_sessions SET digital_status='running',version=version+1,updated_at=now()
+          WHERE org_id=$1 AND id=$2`, [input.orgId, input.interviewId],
+      );
+      const updated = await this.requireWorkflow(session, input.orgId, input.interviewId);
+      await this.writeReceipt(session, { orgId: input.orgId, interviewId: input.interviewId,
+        operationId: `${input.interviewId}:decide_readiness:${input.requestId}`,
+        operationName: "decide_readiness", requestId: input.requestId,
+        payload: { assessmentRuleVersion: input.assessmentRuleVersion, status: input.status,
+          rationale: input.rationale, expectedVersion: input.expectedVersion }, workflow: updated });
+      return guardWorkflow(updated);
+    });
+  }
+
+  async reviewReport(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly reportId: string; readonly status: "approved" | "changes_requested";
+    readonly note: string | null; readonly expectedVersion: number; readonly requestId: string;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      await this.lockRequest(session, input.orgId, input.interviewId, "review_report", input.requestId);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+      if (workflow.report?.reportId !== input.reportId) throw new DigitalInterviewWorkflowError("REPORT_REVIEW_BLOCKED");
+      if (input.status === "approved" && workflow.quality.evidenceCoverage.some((cell) => cell.status === "missing")) {
+        throw new DigitalInterviewWorkflowError("REPORT_REVIEW_BLOCKED");
+      }
+      await session.query(
+        `INSERT INTO digital_interview_report_reviews
+           (org_id,id,interview_id,revision_id,report_id,status,note,request_id,reviewed_by,reviewed_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+         ON CONFLICT (org_id,interview_id,revision_id,report_id) DO UPDATE
+           SET status=excluded.status,note=excluded.note,request_id=excluded.request_id,
+               reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at`,
+        [input.orgId, this.ids.next("itv-review"), input.interviewId, workflow.revisionId,
+          input.reportId, input.status, input.note, input.requestId, input.actorId],
+      );
+      await session.query("UPDATE interview_sessions SET version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2",
+        [input.orgId, input.interviewId]);
+      return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+    });
   }
 
   async generateReport(input: {
@@ -1440,7 +1543,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       [input.orgId, current.revision_id, revisionId],
     );
 
-    if (input.nodeName !== "confirm_topic") {
+    if (input.nodeName !== "confirm_brief" && input.nodeName !== "confirm_topic") {
       const topic = previousTopic.rows[0]?.topic;
       if (!topic) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       await session.query(
@@ -1504,7 +1607,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     command: CommitDigitalInterviewStepInput["command"],
     committedVersionId: string,
   ): Promise<void> {
-    const submittedPatch = command.kind === "confirm_topic"
+    const submittedPatch = command.kind === "confirm_brief" || command.kind === "confirm_topic"
       ? { topic: command.topic }
       : command.kind === "confirm_experts"
         ? { expertIds: command.expertIds }

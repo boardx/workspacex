@@ -4,7 +4,7 @@ import type { OrgId } from "../../../domain/org-id";
 import type { ScopeSelector } from "../../../domain/interview/scope";
 import type { Guarded } from "../../security/permission-filter";
 
-export type ConfirmationNodeName = "confirm_topic" | "confirm_experts" | "confirm_questions";
+export type ConfirmationNodeName = "confirm_brief" | "confirm_topic" | "confirm_experts" | "confirm_questions";
 
 export interface CommitDigitalInterviewStepInput {
   readonly orgId: string;
@@ -72,6 +72,16 @@ export interface DigitalInterviewEffects {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly revisionId: string;
   }): Promise<void>;
+  decideReadiness?(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly assessmentRuleVersion: string; readonly status: "ready" | "warning_accepted";
+    readonly rationale: string | null; readonly expectedVersion: number; readonly requestId: string;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>>;
+  reviewReport?(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly reportId: string; readonly status: "approved" | "changes_requested";
+    readonly note: string | null; readonly expectedVersion: number; readonly requestId: string;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>>;
   generateReport?(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly expectedVersion: number; readonly requestId: string; readonly operationId: string;

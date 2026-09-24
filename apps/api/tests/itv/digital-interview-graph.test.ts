@@ -21,12 +21,12 @@ function createEffects(): DigitalInterviewEffects {
       interviewId: input.interviewId,
       revisionId: "revision-f04-1",
       revisionNumber: 1,
-      currentStep: input.nodeName === "confirm_topic"
+      currentStep: input.nodeName === "confirm_brief"
         ? "experts"
         : input.nodeName === "confirm_experts"
           ? "questions"
-          : "runs",
-      topicVersionId: input.nodeName === "confirm_topic" ? "topic-v1" : "topic-v1",
+          : "questions",
+      topicVersionId: "topic-v1",
       expertSnapshotVersionId: input.nodeName === "confirm_experts" ? "experts-v1" : null,
       questionVersionId: input.nodeName === "confirm_questions" ? "questions-v1" : null,
       skillThreadId: "skill-thread-f04",
@@ -62,11 +62,13 @@ describe("F04 digital interview LangGraph", () => {
     });
 
     const topicInterrupt = await graph.invoke(initial, config);
-    expect(interrupts(topicInterrupt)).toMatchObject([{ value: { nodeName: "confirm_topic" } }]);
+    expect(interrupts(topicInterrupt)).toMatchObject([{ value: { nodeName: "confirm_brief" } }]);
 
     const expertInterrupt = await graph.invoke(new Command({ resume: {
-      kind: "confirm_topic",
+      kind: "confirm_brief",
       topic: "谁拥有最终否决权？",
+      researchBrief: { decision: "决定是否进入市场", learningGoals: [{ goalId: "g1", statement: "理解否决权" }],
+        targetRoles: ["决策者"], outOfScope: ["定价"], successCriteria: ["识别决策角色"] },
       expectedVersion: 1,
       requestId: "req-topic-graph-f04",
     } }), config);
@@ -96,11 +98,15 @@ describe("F04 digital interview LangGraph", () => {
         order: 1,
         text: "谁参与评审？",
         purpose: "识别决策角色",
+        section: "core",
+        goalIds: ["g1"],
       }],
+      moderatorPolicy: { probingDepth: "balanced", clarifyAmbiguity: true, seekCounterexamples: true,
+        redirectOffTopic: true, stopWhenGoalSatisfied: true, maxFollowUpsPerQuestion: 2 },
       expectedVersion: 3,
       requestId: "req-questions-graph-f04",
     } }), config);
-    expect(completed).toMatchObject({ currentStep: "runs", questionVersionId: "questions-v1" });
+    expect(completed).toMatchObject({ currentStep: "questions", questionVersionId: "questions-v1" });
     expect(interrupts(completed)).toBeUndefined();
 
     expect(effects.commitStep).toHaveBeenCalledTimes(3);
@@ -117,7 +123,7 @@ describe("F04 digital interview LangGraph", () => {
       operationId: "itv-graph-f04:generate_questions:1:req-experts-graph-f04",
     });
     expect(vi.mocked(effects.commitStep).mock.calls.map(([input]) => input.operationId)).toEqual([
-      "itv-graph-f04:confirm_topic:1:req-topic-graph-f04",
+      "itv-graph-f04:confirm_brief:1:req-topic-graph-f04",
       "itv-graph-f04:confirm_experts:1:req-experts-graph-f04",
       "itv-graph-f04:confirm_questions:1:req-questions-graph-f04",
     ]);
@@ -168,7 +174,7 @@ describe("F04 digital interview LangGraph", () => {
     });
     await graph.invoke(initial, config);
     await graph.invoke(new Command({ resume: {
-      kind: "confirm_topic", topic: "旧主题", expectedVersion: 1, requestId: "topic-first",
+      kind: "confirm_brief", topic: "旧主题", researchBrief: { decision: "旧决策", learningGoals: [{ goalId: "g1", statement: "旧目标" }], targetRoles: ["角色"], outOfScope: [], successCriteria: ["标准"] }, expectedVersion: 1, requestId: "topic-first",
     } }), config);
     await graph.invoke(new Command({ resume: {
       kind: "confirm_experts", expertIds: ["expert-f04"], expectedVersion: 2, requestId: "experts-first",
@@ -182,12 +188,12 @@ describe("F04 digital interview LangGraph", () => {
       currentStep: "topic", actorId: "current-actor",
     }, "route");
     const revised = await graph.invoke(new Command({ update: { actorId: "current-actor" }, resume: {
-      kind: "confirm_topic", topic: "新主题", expectedVersion: 4, requestId: "topic-reconfirm",
+      kind: "confirm_brief", topic: "新主题", researchBrief: { decision: "新决策", learningGoals: [{ goalId: "g1", statement: "新目标" }], targetRoles: ["角色"], outOfScope: [], successCriteria: ["标准"] }, expectedVersion: 4, requestId: "topic-reconfirm",
     } }), config);
 
     expect(revised).toMatchObject({ currentStep: "experts" });
     expect(effects.commitStep).toHaveBeenLastCalledWith(expect.objectContaining({
-      actorId: "current-actor", nodeName: "confirm_topic",
+      actorId: "current-actor", nodeName: "confirm_brief",
       command: expect.objectContaining({ requestId: "topic-reconfirm" }),
     }));
     expect(effects.generateExpertCandidates).toHaveBeenCalledTimes(2);

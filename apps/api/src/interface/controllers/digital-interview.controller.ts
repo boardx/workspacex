@@ -109,14 +109,26 @@ export class DigitalInterviewController {
     @Body() body: unknown,
   ) {
     assertPrincipal(principal);
-    const input = this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
-    try {
-      return C.operations.confirmDigitalInterviewTopic.out.parse(
-        await this.workflow.confirmTopic({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
-      );
-    } catch (error) {
-      return this.translate(error);
-    }
+    this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
+    return this.translate(new DigitalInterviewWorkflowError("INTERVIEW_CONTRACT_UPGRADE_REQUIRED"));
+  }
+
+  @Post("/:interviewId/brief/confirm")
+  async confirmBrief(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.confirmDigitalInterviewBrief.in, this.withPath(body, { interviewId }));
+    try { return C.operations.confirmDigitalInterviewBrief.out.parse(await this.workflow.confirmBrief({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/quality/preview")
+  async previewQuality(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.previewDigitalInterviewQuality.in, this.withPath(body, { interviewId }));
+    try { return C.operations.previewDigitalInterviewQuality.out.parse(await this.workflow.previewQuality({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
   }
 
   @Post("/:interviewId/experts/confirm")
@@ -154,6 +166,24 @@ export class DigitalInterviewController {
     } catch (error) {
       return this.translate(error);
     }
+  }
+
+  @Post("/:interviewId/readiness/decide")
+  async decideReadiness(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.decideDigitalInterviewReadiness.in, this.withPath(body, { interviewId }));
+    try { return C.operations.decideDigitalInterviewReadiness.out.parse(await this.workflow.decideReadiness({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/report/review")
+  async reviewReport(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.reviewDigitalInterviewReport.in, this.withPath(body, { interviewId }));
+    try { return C.operations.reviewDigitalInterviewReport.out.parse(await this.workflow.reviewReport({
+      orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+    })); } catch (error) { return this.translate(error); }
   }
 
   @Post("/:interviewId/report/generate")

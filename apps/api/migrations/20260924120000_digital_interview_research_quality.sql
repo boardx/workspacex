@@ -1,6 +1,13 @@
 -- Versioned, human-confirmed research quality facts for digital interviews.
 -- Derived findings and coverage cells are intentionally not persisted.
 
+ALTER TABLE digital_interview_questions
+  ADD COLUMN IF NOT EXISTS section text NOT NULL DEFAULT 'core',
+  ADD COLUMN IF NOT EXISTS goal_ids text[] NOT NULL DEFAULT '{}';
+ALTER TABLE digital_interview_question_candidates
+  ADD COLUMN IF NOT EXISTS section text NOT NULL DEFAULT 'core',
+  ADD COLUMN IF NOT EXISTS goal_ids text[] NOT NULL DEFAULT '{}';
+
 CREATE TABLE IF NOT EXISTS digital_interview_research_briefs (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   id text NOT NULL,

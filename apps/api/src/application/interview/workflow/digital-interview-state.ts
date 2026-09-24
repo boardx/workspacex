@@ -6,9 +6,10 @@ export type DigitalInterviewStep = z.infer<typeof interview.DigitalInterviewStep
 export type DigitalInterviewQuestion = z.infer<typeof interview.DigitalInterviewQuestion>;
 
 export type DigitalInterviewCommand =
+  | { readonly kind: "confirm_brief"; readonly topic: string; readonly researchBrief: z.infer<typeof interview.DigitalInterviewResearchBrief>; readonly expectedVersion: number; readonly requestId: string }
   | { readonly kind: "confirm_topic"; readonly topic: string; readonly expectedVersion: number; readonly requestId: string }
   | { readonly kind: "confirm_experts"; readonly expertIds: readonly string[]; readonly addedExperts: readonly z.infer<typeof interview.DigitalExpertCatalogRow>[]; readonly expectedVersion: number; readonly requestId: string }
-  | { readonly kind: "confirm_questions"; readonly questions: readonly DigitalInterviewQuestion[]; readonly expectedVersion: number; readonly requestId: string }
+  | { readonly kind: "confirm_questions"; readonly questions: readonly DigitalInterviewQuestion[]; readonly moderatorPolicy?: z.infer<typeof interview.DigitalInterviewModeratorPolicy>; readonly expectedVersion: number; readonly requestId: string }
   | { readonly kind: "skill_refine"; readonly originStep: DigitalInterviewStep; readonly expectedVersion: number; readonly requestId: string };
 
 export interface DigitalInterviewGraphState {

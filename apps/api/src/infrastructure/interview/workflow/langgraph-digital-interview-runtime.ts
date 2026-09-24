@@ -30,6 +30,13 @@ import type { InterviewScopeRepository } from "../../../application/interview/po
 import { authorizeDigitalInterview } from "../../../application/interview/get-digital-interview";
 import { NoInterviewAccessError } from "../../../application/interview/errors";
 import {
+  assessBrief,
+  assessExpertCoverage,
+  assessQuestionQuality,
+  assessReadiness,
+  estimateInterviewDuration,
+} from "../../../domain/interview/research-quality";
+import {
   discloseDecided,
   isDisclosed,
   type Guarded,
@@ -276,8 +283,41 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly topic: string;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_topic", topic: input.topic,
+    return this.resumeConfirmation(input, { kind: "confirm_brief", topic: input.topic,
+      researchBrief: { decision: input.topic, learningGoals: [{ goalId: "legacy-goal", statement: input.topic }],
+        targetRoles: ["legacy"], outOfScope: [], successCriteria: ["legacy compatibility"] },
       expectedVersion: input.expectedVersion, requestId: input.requestId });
+  }
+
+  async confirmBrief(input: z.infer<typeof interview.operations.confirmDigitalInterviewBrief.in> & {
+    readonly orgId: OrgId; readonly actorId: string;
+  }): Promise<DigitalInterviewWorkflowView> {
+    return this.resumeConfirmation(input, { kind: "confirm_brief", topic: input.topic,
+      researchBrief: input.researchBrief, expectedVersion: input.expectedVersion, requestId: input.requestId });
+  }
+
+  async previewQuality(input: z.infer<typeof interview.operations.previewDigitalInterviewQuality.in> & {
+    readonly orgId: OrgId; readonly actorId: string;
+  }): Promise<z.infer<typeof interview.DigitalInterviewQualityProjection>> {
+    const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    if (current.workflow.version !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+    const experts = current.workflow.expertCandidates.filter((expert) => input.expertIds.includes(expert.expertId));
+    const briefIssues = assessBrief(input.researchBrief);
+    const expertIssues = assessExpertCoverage({ brief: input.researchBrief, experts: experts.map((expert) => ({
+      expertId: expert.expertId, role: expert.role, domains: expert.domains, goals: expert.goals,
+      materialBoundary: expert.materialContextPackId ?? "generated persona",
+    })) });
+    const questionFindings = assessQuestionQuality({ brief: input.researchBrief, questions: input.questions,
+      selectedExpertIds: input.expertIds });
+    const duration = estimateInterviewDuration({ questions: input.questions, policy: input.moderatorPolicy });
+    const readiness = assessReadiness({ briefIssues, expertIssues, questionIssues: questionFindings,
+      durationIssues: duration.issues });
+    return interview.DigitalInterviewQualityProjection.parse({
+      previewStatus: "available", briefIssues, expertCoverage: [], questionFindings,
+      readiness: { ...readiness, ruleVersion: "quality-v1", evaluatedAt: new Date().toISOString(),
+        estimatedMinutes: { min: duration.min, max: duration.max } },
+      readinessDecision: null, evidenceCoverage: [],
+    });
   }
 
   async confirmExperts(input: {
@@ -292,15 +332,32 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
   async confirmQuestions(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly questions: readonly z.infer<typeof interview.DigitalInterviewQuestion>[];
+    readonly moderatorPolicy?: z.infer<typeof interview.DigitalInterviewModeratorPolicy>;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    const confirmed = await this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
+    return this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
+      moderatorPolicy: input.moderatorPolicy ?? { probingDepth: "balanced", clarifyAmbiguity: true,
+        seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true, maxFollowUpsPerQuestion: 2 },
       expectedVersion: input.expectedVersion, requestId: input.requestId });
-    await this.deps.effects.executeInterviewRuns({
-      orgId: input.orgId, actorId: input.actorId, interviewId: input.interviewId,
-      revisionId: confirmed.revisionId,
-    });
+  }
+
+  async decideReadiness(input: z.infer<typeof interview.operations.decideDigitalInterviewReadiness.in> & {
+    readonly orgId: OrgId; readonly actorId: string;
+  }): Promise<DigitalInterviewWorkflowView> {
+    const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    if (!this.deps.effects.decideReadiness) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    const decided = this.discloseWorkflow(await this.deps.effects.decideReadiness(input), current.decision);
+    await this.deps.effects.executeInterviewRuns({ orgId: input.orgId, actorId: input.actorId,
+      interviewId: input.interviewId, revisionId: decided.revisionId });
     return (await this.authorize(input.orgId, input.actorId, input.interviewId)).workflow;
+  }
+
+  async reviewReport(input: z.infer<typeof interview.operations.reviewDigitalInterviewReport.in> & {
+    readonly orgId: OrgId; readonly actorId: string;
+  }): Promise<DigitalInterviewWorkflowView> {
+    const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    if (!this.deps.effects.reviewReport) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    return this.discloseWorkflow(await this.deps.effects.reviewReport(input), current.decision);
   }
 
   async generateReport(input: {
