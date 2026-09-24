@@ -1,0 +1,19 @@
+{
+  "format": "mural.public-api.mural-snapshot",
+  "schemaVersion": 1,
+  "exportedAt": "2026-09-24T01:00:00.000Z",
+  "drawingsIncluded": false,
+  "mural": { "id": "mural-88", "name": "Mural planning" },
+  "pages": [{
+    "id": "room-1",
+    "widgets": [
+      { "id": "area-1", "type": "area", "title": "Now", "x": 100, "y": 200, "width": 500, "height": 300 },
+      { "id": "sticky-1", "type": "sticky-note", "htmlText": "<p>Relative note</p>", "parentId": "area-1", "x": 20, "y": 30, "width": 180, "height": 100, "style": { "backgroundColor": "#fff59d", "bold": true }, "createdOn": 1760000000000 },
+      { "id": "text-1", "type": "textbox", "text": "Absolute text", "x": 420, "y": 330, "width": 120, "height": 50 },
+      { "id": "rect-1", "type": "shape", "shape": "rectangle", "text": "Done", "x": 700, "y": 200, "width": 140, "height": 80 },
+      { "id": "arrow-1", "type": "arrow", "startRefId": "sticky-1", "endRefId": "rect-1" },
+      { "id": "drawing-1", "type": "drawing", "x": 1, "y": 2, "width": 30, "height": 40 },
+      { "id": "embed-1", "type": "embed", "x": 1, "y": 2, "width": 30, "height": 40 }
+    ]
+  }]
+}
