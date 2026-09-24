@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ResearchStudioApp } from "@/components/research-studio/research-studio-app";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { mockIdentity } from "@/lib/identity";
@@ -7,6 +7,7 @@ import ResearchPage from "@/app/research/page";
 import { runtimeFixture } from "../guided-runtime-fixture";
 import type { ReactElement } from "react";
 import { type GuidedResearchStep } from "@/lib/mock/guided-research";
+import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
 
 const api = vi.hoisted(() => ({
   getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(),
@@ -34,6 +35,20 @@ beforeEach(() => {
 });
 
 describe("F180 signed guided-research visual contract", () => {
+  it("derives restored budget progress from the selected tier limits", () => {
+    render(<GuidedResearchEffortBudgetPreview state="default" />);
+
+    fireEvent.click(screen.getByTestId("research-effort-deep"));
+    fireEvent.click(screen.getByTestId("research-budget-save"));
+
+    const bars = within(screen.getByTestId("research-budget-summary")).getAllByRole("progressbar");
+    expect(bars.map((bar) => Number(bar.getAttribute("aria-valuenow")))).toEqual([
+      (8 * 60 + 16) / (2 * 60 * 60) * 100,
+      7 / 180 * 100,
+      3 / 120 * 100,
+    ]);
+  });
+
   it("uses the real session shell for guided research while legacy Studio keeps preview identity", () => {
     const guided = ResearchPage({ searchParams: {} }) as ReactElement<{ identity?: unknown; flow?: string }>;
     expect(guided.props.flow).toBe("home");
