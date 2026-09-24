@@ -178,7 +178,7 @@ jobs:
           set -euo pipefail
           gh attestation verify mirror-receipt/minio-mirror-receipt.json \
             --repo "${GITHUB_REPOSITORY}" \
-            --signer-workflow "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/mirror-minio-controlled-registry.yml" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/mirror-minio-controlled-registry.yml" \
             --source-ref "refs/heads/${DEFAULT_BRANCH}" \
             --source-digest "${MIRROR_HEAD_SHA}" \
             --deny-self-hosted-runners

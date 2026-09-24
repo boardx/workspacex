@@ -1,4 +1,5 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,5 +137,51 @@ describe("controlled MinIO image lock", () => {
     expect(publicCheck).toBeGreaterThan(0);
     expect(renderLock).toBeGreaterThan(publicCheck);
     expect(workflow.slice(publicCheck, renderLock)).not.toContain("--creds");
+  });
+
+  it("invokes gh attestation verify with the exact signer identity and provenance flags", () => {
+    const workflow = parse(readFileSync(resolve(REPO_ROOT, ".github/workflows/mirror-minio-controlled-registry.yml"), "utf8"));
+    const verifyStep = workflow.jobs["verify-public-and-render-lock"].steps.find(
+      (step: { name?: string }) => step.name === "Verify the receipt's GitHub-signed provenance",
+    );
+    expect(verifyStep?.run).toBeTypeOf("string");
+
+    const root = mkdtempSync(join(tmpdir(), "wsx-minio-gh-argv-"));
+    const bin = resolve(root, "bin");
+    const argvFile = resolve(root, "gh-argv.txt");
+    mkdirSync(bin, { recursive: true });
+    const fakeGh = resolve(bin, "gh");
+    writeFileSync(fakeGh, "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$GH_ARGV_FILE\"\n");
+    chmodSync(fakeGh, 0o755);
+
+    const result = spawnSync("bash", ["-c", verifyStep.run], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        GH_ARGV_FILE: argvFile,
+        GH_TOKEN: "fixture-token",
+        GITHUB_REPOSITORY: "boardx/workspacex",
+        GITHUB_SERVER_URL: "https://github.com",
+        DEFAULT_BRANCH: "main",
+        MIRROR_HEAD_SHA: "c".repeat(40),
+      },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(argvFile, "utf8").trim().split("\n")).toEqual([
+      "attestation",
+      "verify",
+      "mirror-receipt/minio-mirror-receipt.json",
+      "--repo",
+      "boardx/workspacex",
+      "--signer-workflow",
+      "boardx/workspacex/.github/workflows/mirror-minio-controlled-registry.yml",
+      "--source-ref",
+      "refs/heads/main",
+      "--source-digest",
+      "c".repeat(40),
+      "--deny-self-hosted-runners",
+    ]);
   });
 });

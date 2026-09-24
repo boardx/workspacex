@@ -37,6 +37,11 @@ change does not invent a digest and does not claim the CI outage is resolved.
    `ghcr.io/boardx/workspacex-minio@sha256:…` and records identical source/target digests.
    Run `pnpm run lint:minio-image-lock` and the harness test before merge.
 
+The signer identity passed to GitHub CLI uses its workflow identity format,
+`boardx/workspacex/.github/workflows/mirror-minio-controlled-registry.yml`. It is deliberately
+not an HTTPS URL; `gh attestation verify --signer-workflow` accepts
+`[host/]owner/repo/path/to/workflow` and GitHub.com needs no host prefix.
+
 The workflow never starts Docker. The mirror job alone has `packages: write`; the verification
 job has read-only Actions, attestation, and repository permissions and never authenticates to
 GHCR. Local static validation also needs no Docker daemon. A successful mirror operation alone
