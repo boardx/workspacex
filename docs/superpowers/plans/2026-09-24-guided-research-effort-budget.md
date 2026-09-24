@@ -319,6 +319,18 @@ it("does not call a provider at its exact limit", async () => {
   expect(state.errorCode).toBe("RESEARCH_BUDGET_EXHAUSTED");
   expect(modelCalls).toBe(0);
 });
+it("stops report chapter generation at the model-call limit", async () => {
+  await configure("fast"); state.budget!.usage.modelCalls = state.budget!.snapshot.maxModelCalls - 1;
+  await execute(generateReport());
+  expect(modelCalls).toBe(1);
+  expect(state.errorCode).toBe("RESEARCH_BUDGET_EXHAUSTED");
+});
+it("rechecks active time before each external effect", async () => {
+  await configure("fast"); advanceActiveClockToJustBeforeLimit();
+  await execute(startCommand("crosses-active-limit"));
+  expect(modelCalls + searchCalls).toBe(1);
+  expect(state.errorCode).toBe("RESEARCH_BUDGET_EXHAUSTED");
+});
 it("rejects an oversized plan without persisting partial tasks", async () => {
   await configure("fast"); modelOutput = planWithTasks(state.budget!.snapshot.maxSearchTasks + 1);
   await execute(startCommand("oversized"));
@@ -339,7 +351,8 @@ Run `pnpm --filter api exec vitest run tests/research/guided-runtime-budget.test
 
 - [ ] **Step 3: Guard model, plan, search and sources**
 
-- At the start of `completeJson`: assert `modelCalls + 1`, then increment before calling the provider. Failed billable calls remain counted.
+- Centralize model accounting in one guarded model-port wrapper: immediately before every `complete` or `completeStream` dispatch, refresh active time, assert `modelCalls + 1`, persist the increment, then call the provider. Failed billable calls remain counted.
+- Pass that guarded model port into `generateReportChapters`; its evidence extraction, chapter generation, quality review, repair and synthesis calls must not call the raw model port. The report-path test above proves the final allowed call succeeds and the next attempted call hard-stops.
 - After plan validation and before assigning tasks: assert/increment the full task count; never truncate.
 - Immediately before each `search.search`: assert/increment one search attempt.
 - Before mutating sources: compute the whole newly accepted unique set, assert it fits, then add all and increment; never partially add a provider batch.
@@ -347,7 +360,7 @@ Run `pnpm --filter api exec vitest run tests/research/guided-runtime-budget.test
 
 - [ ] **Step 4: Count active time**
 
-After a non-replay claim, capture `performance.now()`. Before final persistence, add only the elapsed time spent executing that command. Before the first external effect assert `activeMs` with increment `0`; equality prevents another call. Idle time between commands is not counted.
+After a non-replay claim, capture `performance.now()` and keep a per-command checkpoint. Immediately before **every** model, search, read or report-generation external effect, add and persist elapsed active time since the previous checkpoint, move the checkpoint forward, then enforce `activeMs` with increment `0`; equality prevents that call. Charge and persist the final interval before command completion. Idle time between commands is not counted. Centralize this boundary operation so loops cannot bypass it, and cover a command that crosses the limit between two sequential effects.
 
 - [ ] **Step 5: Verify GREEN and regressions**
 

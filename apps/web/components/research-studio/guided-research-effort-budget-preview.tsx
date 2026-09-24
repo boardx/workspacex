@@ -19,16 +19,19 @@ interface EffortOption {
   readonly sources: string;
   readonly modelCalls: string;
   readonly durationLimit: string;
+  readonly activeSecondsLimit: number;
   readonly searchAttemptLimit: number;
   readonly modelCallLimit: number;
   readonly recommended?: boolean;
 }
 
 const EFFORT_OPTIONS: readonly EffortOption[] = [
-  { id: "fast", label: "快速", duration: "约 10 分钟", description: "先确认方向与关键事实", sources: "最多 24 个来源", modelCalls: "12 次模型调用", durationLimit: "10:00", searchAttemptLimit: 16, modelCallLimit: 12 },
-  { id: "std", label: "标准", duration: "约 30 分钟", description: "覆盖主要观点并交叉验证", sources: "最多 80 个来源", modelCalls: "40 次模型调用", durationLimit: "30:00", searchAttemptLimit: 60, modelCallLimit: 40, recommended: true },
-  { id: "deep", label: "深入", duration: "最长约 2 小时", description: "扩大检索范围与反证强度", sources: "最多 300 个来源", modelCalls: "120 次模型调用", durationLimit: "2:00:00", searchAttemptLimit: 180, modelCallLimit: 120 },
+  { id: "fast", label: "快速", duration: "约 10 分钟", description: "先确认方向与关键事实", sources: "最多 24 个来源", modelCalls: "12 次模型调用", durationLimit: "10:00", activeSecondsLimit: 10 * 60, searchAttemptLimit: 16, modelCallLimit: 12 },
+  { id: "std", label: "标准", duration: "约 30 分钟", description: "覆盖主要观点并交叉验证", sources: "最多 80 个来源", modelCalls: "40 次模型调用", durationLimit: "30:00", activeSecondsLimit: 30 * 60, searchAttemptLimit: 60, modelCallLimit: 40, recommended: true },
+  { id: "deep", label: "深入", duration: "最长约 2 小时", description: "扩大检索范围与反证强度", sources: "最多 300 个来源", modelCalls: "120 次模型调用", durationLimit: "2:00:00", activeSecondsLimit: 2 * 60 * 60, searchAttemptLimit: 180, modelCallLimit: 120 },
 ];
+
+const RESTORED_USAGE = { activeSeconds: 8 * 60 + 16, searchAttempts: 7, modelCalls: 3 } as const;
 
 function StatePreviewNav({ current }: { current: UiState }) {
   return (
@@ -106,17 +109,17 @@ export function GuidedResearchEffortBudgetPreview({ state }: { state: UiState })
           <div className="space-y-2">
             <span className="flex items-center gap-2 text-11 text-muted-foreground"><Clock3 className="h-4 w-4" aria-hidden />活跃执行时间</span>
             <p className="text-18 font-semibold tabular-nums">{configured ? `08:16 / ${selectedOption.durationLimit}` : `0 / ${selectedOption.durationLimit}`}</p>
-            <Progress value={configured ? 28 : 0} />
+            <Progress value={configured ? RESTORED_USAGE.activeSeconds / selectedOption.activeSecondsLimit * 100 : 0} />
           </div>
           <div className="space-y-2">
             <span className="flex items-center gap-2 text-11 text-muted-foreground"><Search className="h-4 w-4" aria-hidden />检索尝试</span>
             <p className="text-18 font-semibold tabular-nums">{configured ? `7 / ${selectedOption.searchAttemptLimit}` : `0 / ${selectedOption.searchAttemptLimit}`}</p>
-            <Progress value={configured ? 12 : 0} />
+            <Progress value={configured ? RESTORED_USAGE.searchAttempts / selectedOption.searchAttemptLimit * 100 : 0} />
           </div>
           <div className="space-y-2">
             <span className="flex items-center gap-2 text-11 text-muted-foreground"><Gauge className="h-4 w-4" aria-hidden />模型调用</span>
             <p className="text-18 font-semibold tabular-nums">{configured ? `3 / ${selectedOption.modelCallLimit}` : `0 / ${selectedOption.modelCallLimit}`}</p>
-            <Progress value={configured ? 8 : 0} />
+            <Progress value={configured ? RESTORED_USAGE.modelCalls / selectedOption.modelCallLimit * 100 : 0} />
           </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
