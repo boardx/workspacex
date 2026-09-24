@@ -124,11 +124,16 @@ const PLAINTEXT_READER_RE =
  */
 // MCP credential inverse is module-private in the bounded outbound Worker; its exact
 // export/transport/reflection boundary has dedicated AST and real protocol countertests.
+// Board content is a separate encrypted data class whose tenant-scoped codec must be
+// reversible for authorized board reads. Keep the exemption pinned to the exact port and
+// AES-GCM implementation; adding a plaintext reader anywhere else remains a failure.
 const PLAINTEXT_READER_PATH_EXEMPT = new Set([
   "infrastructure/mcp/http-mcp-execution-core.ts",
   "infrastructure/agent-run/transcript-content-cipher.ts",
   "infrastructure/agent-run/pg-agent-run-repository.ts",
+  "infrastructure/whiteboard/aes-gcm-board-blob-codec.ts",
   "application/agent-run/ports.ts",
+  "application/whiteboard/blob-ports.ts",
 ]);
 
 function plaintextReaders(root: string): string[] {
