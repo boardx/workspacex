@@ -1,10 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, cloneDocument, readObjects, executeCommands, copyObjects, validateDocument, WhiteboardUndo, type WhiteboardObject } from '../src';
+import { createWhiteboardDocument, cloneDocument, readObjects, executeCommands, copyObjects, validateDocument, WHITEBOARD_UPDATE_LIMITS, WhiteboardUndo, type WhiteboardObject } from '../src';
 const geometry = { x: 0, y: 0, width: 200, height: 150, rotation: 0 };
 const note = (id: string): WhiteboardObject => ({ id, schemaVersion: 1, kind: 'sticky', geometry, text: '你好', style: {}, parentId: null, orderKey: '' });
 const create = (doc: Y.Doc, id = 'note') => executeCommands(doc, [{ type: 'create', object: note(id) }], {});
 const sync = (a: Y.Doc, b: Y.Doc) => { const au = Y.encodeStateAsUpdate(a), bu = Y.encodeStateAsUpdate(b); Y.applyUpdate(a, bu); Y.applyUpdate(b, au); };
+
+function exactTransactionUpdate(candidate: Y.Doc, mutate: () => void): Uint8Array {
+  let update: Uint8Array | undefined;
+  candidate.on('update', bytes => { update = new Uint8Array(bytes); });
+  candidate.transact(mutate);
+  if (!update) throw new Error('Expected a Yjs transaction update');
+  return update;
+}
+
+function exactCreateUpdate(objects: WhiteboardObject[]): Uint8Array {
+  const candidate = createWhiteboardDocument();
+  const update = exactTransactionUpdate(candidate, () => {
+    const objectsMap = candidate.getMap<Y.Map<unknown>>('objects');
+    for (const object of objects) {
+      const { id, text, style, ...rest } = object;
+      const item = new Y.Map<unknown>();
+      for (const [key, value] of Object.entries(rest)) item.set(key, structuredClone(value));
+      item.set('text', new Y.Text(text));
+      item.set('style', new Y.Map<unknown>(Object.entries(style)));
+      objectsMap.set(id, item);
+    }
+  });
+  candidate.destroy();
+  return update;
+}
+
+function expectAtomicLimitRejection(doc: Y.Doc, commands: unknown[]): void {
+  const undo = new WhiteboardUndo(doc), before = Y.encodeStateAsUpdate(doc), visible = readObjects(doc);
+  let updates = 0;
+  doc.on('update', () => updates++);
+  expect(() => undo.execute(commands)).toThrow('UPDATE_LIMIT_EXCEEDED');
+  expect(updates).toBe(0);
+  expect(readObjects(doc)).toEqual(visible);
+  expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+  expect(undo.undo()).toBe('empty');
+  undo.destroy();
+}
 
 describe('whiteboard content kernel', () => {
   it('reads independent snapshots, clones documents and remaps copy references', () => {
@@ -62,19 +99,68 @@ describe('whiteboard content kernel', () => {
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });
     expect(() => validateDocument(doc)).toThrow('UNSUPPORTED_TEXT_FORMAT');
   });
-  it('rejects aggregate oversized deltas before mutation, update emission or undo capture', () => {
+  it('rejects exact oversized short and maximum-text create updates before mutation, update emission or undo capture', () => {
     for (const text of ['x', 'x'.repeat(20_000)]) {
-      const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);
-      const before = Y.encodeStateAsUpdate(doc); let updates = 0;
-      doc.on('update', () => updates++);
-      const commands = Array.from({ length: 500 }, (_, index) => ({ type: 'create' as const, object: { ...note(`bulk-${index}`), text } }));
-      expect(() => undo.execute(commands)).toThrow('UPDATE_LIMIT_EXCEEDED');
-      expect(updates).toBe(0);
-      expect(readObjects(doc)).toEqual([]);
-      expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
-      expect(undo.undo()).toBe('empty');
-      undo.destroy(); doc.destroy();
+      const objects = Array.from({ length: 500 }, (_, index) => ({ ...note(`bulk-${index}`), text }));
+      expect(exactCreateUpdate(objects).byteLength).toBeGreaterThan(WHITEBOARD_UPDATE_LIMITS.bytes);
+      const doc = createWhiteboardDocument();
+      expectAtomicLimitRejection(doc, objects.map(object => ({ type: 'create' as const, object })));
+      doc.destroy();
     }
+  });
+  it('rejects oversized connector and mixed command updates as whole batches', () => {
+    const connectorDoc = createWhiteboardDocument();
+    executeCommands(connectorDoc, [
+      { type: 'create', object: note('from') },
+      { type: 'create', object: note('to') },
+    ], 'seed');
+    const connectors = Array.from({ length: 500 }, (_, index) => ({
+      type: 'create' as const,
+      object: { ...note(`edge-${index}`), kind: 'connector' as const, connector: { from: 'from', to: 'to' } },
+    }));
+    expect(exactCreateUpdate(connectors.map(command => command.object)).byteLength).toBeGreaterThan(WHITEBOARD_UPDATE_LIMITS.bytes);
+    expectAtomicLimitRejection(connectorDoc, connectors);
+    connectorDoc.destroy();
+
+    const mixedDoc = createWhiteboardDocument();
+    const values = Array.from({ length: 250 }, (_, index) => note(`mixed-${index}`));
+    for (const value of values) executeCommands(mixedDoc, [{ type: 'create', object: value }], 'seed');
+    const mixed = values.flatMap(value => [
+      { type: 'geometry' as const, id: value.id, geometry: { ...value.geometry, x: 1 } },
+      { type: 'text' as const, id: value.id, index: value.text.length, deleteCount: 0, insert: 'x'.repeat(20_000 - value.text.length) },
+    ]);
+    expect(mixed).toHaveLength(500);
+    const mixedCandidate = cloneDocument(mixedDoc);
+    const mixedUpdate = exactTransactionUpdate(mixedCandidate, () => {
+      const objectsMap = mixedCandidate.getMap<Y.Map<unknown>>('objects');
+      for (const value of values) {
+        const item = objectsMap.get(value.id)!;
+        item.set('geometry', { ...value.geometry, x: 1 });
+        (item.get('text') as Y.Text).insert(value.text.length, 'x'.repeat(20_000 - value.text.length));
+      }
+    });
+    mixedCandidate.destroy();
+    expect(mixedUpdate.byteLength).toBeGreaterThan(WHITEBOARD_UPDATE_LIMITS.bytes);
+    expectAtomicLimitRejection(mixedDoc, mixed);
+    mixedDoc.destroy();
+  });
+  it('keeps the exact 500-command boundary while rejecting 501 commands before a transaction', () => {
+    const doc = createWhiteboardDocument(); create(doc);
+    const commands = Array.from({ length: 500 }, (_, index) => ({
+      type: 'geometry' as const,
+      id: 'note',
+      geometry: { ...geometry, x: index },
+    }));
+    const updates: Uint8Array[] = [];
+    doc.on('update', update => updates.push(new Uint8Array(update)));
+    expect(() => executeCommands(doc, commands, 'bulk')).not.toThrow();
+    expect(readObjects(doc)[0]!.geometry.x).toBe(499);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.byteLength).toBeLessThanOrEqual(WHITEBOARD_UPDATE_LIMITS.bytes);
+    const before = Y.encodeStateAsUpdate(doc);
+    expect(() => executeCommands(doc, [...commands, commands[0]!], 'bulk')).toThrow();
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+    doc.destroy();
   });
   it('reuses one shadow client instead of adding a Yjs client per accepted command', () => {
     const doc = createWhiteboardDocument();
