@@ -268,6 +268,7 @@ export default defineConfig({
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
         "survey-complete-flow.spec.ts",
+        "survey-trusted-publishing.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
