@@ -18,7 +18,6 @@ import {
 import { KG_RELOAD_ON_FAILURE } from "@/lib/knowledge-graph-failure";
 import { onKnowledgeReload, publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 import type { KgClaim, KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
-import { useRouter } from "next/navigation";
 import { focusMessageHref, highlightChatMessage } from "@/lib/chat-message-focus";
 
 export interface ThreadKnowledgeState {
@@ -191,7 +190,7 @@ export async function threadOfClaimSource(claim: KgClaim): Promise<string | null
 }
 
 function useJumpToSource(currentThreadId: string | null) {
-  const router = useRouter();
+  // 不用 next/navigation 的 router：这一栏也在没有 App Router 的场合渲染（组件测试、预览）；整页打开原会话，历史按真实 id 加载。
   return React.useCallback((input: { claim: KgClaim; sourceKind: string; sourceRef: string }) => {
     if (input.sourceKind !== "chat_message") return;
     void threadOfClaimSource(input.claim).then((threadId) => {
@@ -204,9 +203,9 @@ function useJumpToSource(currentThreadId: string | null) {
         window.location.assign(focusMessageHref({ threadId: target, messageId: input.sourceRef, projectId }));
         return;
       }
-      router.push(focusMessageHref({ threadId: target, messageId: input.sourceRef }));
+      window.location.assign(focusMessageHref({ threadId: target, messageId: input.sourceRef }));
     });
-  }, [router, currentThreadId]);
+  }, [currentThreadId]);
 }
 
 /** 右栏「记忆」页签的内容：真实数据接进 `KnowledgePanel`，所有者带编辑动作。 */
