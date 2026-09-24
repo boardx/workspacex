@@ -25,11 +25,45 @@ it('read-only disables mutation controls and does not alter the document', () =>
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+  expect(screen.getByTestId('board-group')).toBeDisabled();
+  expect(screen.getByTestId('board-ungroup')).toBeDisabled();
+  expect(screen.getByTestId('board-add-frame')).toBeDisabled();
   expect(screen.getByText('画笔', { exact: true })).toBeDisabled();
   expect(screen.getByText('粘贴', { exact: true })).toBeDisabled();
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
+});
+it('groups a multi-selection, wraps it in a frame and ungroups without losing objects', () => {
+  HTMLElement.prototype.setPointerCapture = () => {};
+  const doc = createWhiteboardDocument(), geometry = {x:10,y:20,width:100,height:80,rotation:0};
+  executeCommands(doc, [
+    { type: 'create', object: { id:'a',schemaVersion:1,kind:'sticky',geometry,text:'A',style:{},parentId:null,orderKey:'a' } },
+    { type: 'create', object: { id:'b',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:150},text:'B',style:{},parentId:null,orderKey:'b' } },
+  ], 'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.pointerDown(screen.getByTestId('board-object-a'), { button:0, pointerId:1, clientX:10, clientY:20 });
+  fireEvent.pointerDown(screen.getByTestId('board-object-b'), { button:0, pointerId:2, clientX:150, clientY:20, shiftKey:true });
+  fireEvent.click(screen.getByTestId('board-group'));
+  const group = readObjects(doc).find(item => item.kind === 'group')!;
+  expect(readObjects(doc).filter(item => ['a','b'].includes(item.id)).every(item => item.parentId === group.id)).toBe(true);
+  expect(screen.getByTestId('board-object-a')).toHaveAttribute('data-parent-id', group.id);
+  fireEvent.pointerDown(screen.getByTestId(`board-object-${group.id}`), { button:0, pointerId:5, clientX:0, clientY:0 });
+  fireEvent.pointerMove(screen.getByTestId('board-live-surface'), { pointerId:5, clientX:20, clientY:10 });
+  fireEvent.pointerUp(screen.getByTestId('board-live-surface'), { pointerId:5, clientX:20, clientY:10 });
+  expect(readObjects(doc).find(item => item.id === 'a')?.geometry).toMatchObject({ x:30, y:30 });
+  expect(readObjects(doc).find(item => item.id === 'b')?.geometry).toMatchObject({ x:170, y:30 });
+  fireEvent.click(screen.getByTestId('board-ungroup'));
+  expect(readObjects(doc).some(item => item.kind === 'group')).toBe(false);
+  expect(readObjects(doc).filter(item => ['a','b'].includes(item.id)).every(item => item.parentId === null)).toBe(true);
+
+  fireEvent.pointerDown(screen.getByTestId('board-object-a'), { button:0, pointerId:3, clientX:10, clientY:20 });
+  fireEvent.pointerDown(screen.getByTestId('board-object-b'), { button:0, pointerId:4, clientX:150, clientY:20, shiftKey:true });
+  fireEvent.click(screen.getByTestId('board-add-frame'));
+  const frame = readObjects(doc).find(item => item.kind === 'frame')!;
+  expect(frame.geometry).toMatchObject({ x:-10, y:-10, width:320, height:160 });
+  expect(readObjects(doc).filter(item => ['a','b'].includes(item.id)).every(item => item.parentId === frame.id)).toBe(true);
+  doc.destroy();
 });
 it('creation undo requires explicit deletion', () => {
   const doc = createWhiteboardDocument();

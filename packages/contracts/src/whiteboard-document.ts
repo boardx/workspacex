@@ -17,6 +17,8 @@ export const WhiteboardObject = z.object({
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
   geometry: WhiteboardGeometry, text: z.string().max(WHITEBOARD_LIMITS.text), style: WhiteboardStyle,
   parentId: WhiteboardObjectId.nullable().default(null), orderKey: z.string().max(128).default(''),
+  /** Containers stay addressable while ungrouped so the operation can be undone atomically. */
+  containerState: z.enum(['active', 'ungrouped']).optional(),
   connector: z.object({ from: WhiteboardObjectId, to: WhiteboardObjectId }).strict().optional(),
   restoredFrom: WhiteboardObjectId.optional(),
   extensionData: z.record(z.unknown()).optional().superRefine((value, ctx) => {
@@ -43,6 +45,7 @@ export const WhiteboardObject = z.object({
   }),
 }).strict().superRefine((object, ctx) => {
   if ((object.kind === 'connector') !== Boolean(object.connector)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector endpoints required only for connector objects' });
+  if (object.containerState === 'ungrouped' && !['frame', 'group'].includes(object.kind)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Only containers may be ungrouped' });
 });
 export type WhiteboardObject = z.infer<typeof WhiteboardObject>;
 export const WhiteboardCommand = z.discriminatedUnion('type', [
@@ -51,6 +54,10 @@ export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), id: WhiteboardObjectId, index: z.number().int().nonnegative(), deleteCount: z.number().int().nonnegative(), insert: z.string().max(WHITEBOARD_LIMITS.text) }).strict(),
   z.object({ type: z.literal('style'), id: WhiteboardObjectId, style: WhiteboardStyle }).strict(),
   z.object({ type: z.literal('parent'), id: WhiteboardObjectId, parentId: WhiteboardObjectId.nullable(), orderKey: z.string().max(128) }).strict(),
+  z.object({ type: z.literal('translate'), id: WhiteboardObjectId, delta: z.object({ x: z.number().finite(), y: z.number().finite() }).strict() }).strict(),
+  z.object({ type: z.literal('group'), object: WhiteboardObject, memberIds: z.array(WhiteboardObjectId).min(1).max(WHITEBOARD_LIMITS.batch) }).strict(),
+  z.object({ type: z.literal('frame'), object: WhiteboardObject, memberIds: z.array(WhiteboardObjectId).max(WHITEBOARD_LIMITS.batch) }).strict(),
+  z.object({ type: z.literal('ungroup'), id: WhiteboardObjectId }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;

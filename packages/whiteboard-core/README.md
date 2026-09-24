@@ -15,6 +15,23 @@ Text commands are character splices; a DOM/IME binding must wait for composition
 commit and submit the changed range, not replace the whole string each keystroke.
 Geometry is an atomic value. Style properties merge independently.
 
+## Semantic containers
+
+`frame` and `group` are real containers. A `group` or `frame` command creates the
+container and reparents its members in one Yjs transaction. `translate` applies
+the same world-coordinate delta to the container and every recursive descendant;
+call `selectionRoots` before translating a multi-selection so a selected child is
+not moved twice. `ungroup` promotes direct children to the former parent and marks
+the container inactive in the tracked object map, which makes undo/redo atomic.
+Deleting a container also promotes its direct children, while keeping nested
+containers intact, and tombstones connectors whose endpoint was deleted.
+
+Every parent must be a live, active frame or group. Self-parenting, cycles,
+missing/deleted parents and non-container parents fail the isolated batch
+preflight. Object geometry is stored in world coordinates, so reparenting never
+changes visual placement. Concurrent parent writes use Yjs deterministic conflict
+resolution; every replica therefore renders the same final hierarchy.
+
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer
 edit is currently visible: a collaborator's edit may still be in flight. The UI
