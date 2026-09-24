@@ -58,6 +58,11 @@ import {
   EMAIL_VERIFICATION_TOKEN_CODEC,
   type EmailVerificationTokenCodec,
 } from "../../application/auth/email-verification-ports";
+import {
+  SAMPLE_PROJECT_SEEDER,
+  type SampleProjectSeeder,
+} from "../../application/project/sample-project/ensure-sample-project";
+import { toOrgId } from "../../domain/org-id";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { pendingVerificationSetCookie } from "../pending-verification-cookie";
@@ -84,7 +89,22 @@ export class AuthRegistrationController {
     @Inject(ENSURE_DEFAULT_AGENT_REPOSITORY) private readonly defaultAgents: EnsureDefaultAgentRepository,
     @Inject(ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY) private readonly deepResearchAgents: EnsureDeepResearchAgentRepository,
     @Inject(ENSURE_IMAGE_GEN_AGENT_REPOSITORY) private readonly imageGenAgents: EnsureImageGenAgentRepository,
+    @Inject(SAMPLE_PROJECT_SEEDER) private readonly seedSampleProject: SampleProjectSeeder,
   ) {}
+
+  /**
+   * backlog E2：内置示例项目。与三个系统 agent 不同，这里**不让注册失败**：示例项目是
+   * 引导内容，不是可用性前提；对象存储一时不可用不该把一个已经落库的新组织的注册打回去。
+   * 失败会大声记日志（不是静默），`scripts/backfill-sample-projects.ts` 每次部署幂等补种。
+   */
+  private async seedSampleProjectLoudly(orgId: string, actorId: string): Promise<void> {
+    try {
+      await this.seedSampleProject({ orgId: toOrgId(orgId), actorId });
+    } catch (e) {
+      // eslint-disable-next-line no-console -- 运维可见的失败信号；补种脚本会自愈
+      console.error(`[sample-project] seeding failed for org=${orgId}; backfill will retry: ${e instanceof Error ? e.name : "unknown"}`);
+    }
+  }
 
   @Public()
   @Post("/auth/bootstrap")
@@ -106,6 +126,7 @@ export class AuthRegistrationController {
       // 同一条裁决第三次延伸（2026-08-07）：图片生成 agent，人类原话"这里要可以直接看到
       // 图片，不是只是文字"——新组织落地即有三个可直接用的系统 agent。
       await ensureImageGenAgent({ repo: this.imageGenAgents }, { orgId: result.orgId, actorId: result.userId });
+      await this.seedSampleProjectLoudly(result.orgId, result.userId);
       return result;
     } catch (e) {
       if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
@@ -158,6 +179,7 @@ export class AuthRegistrationController {
       await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
       await ensureDeepResearchAgent({ repo: this.deepResearchAgents }, { orgId: result.orgId, actorId: result.userId });
       await ensureImageGenAgent({ repo: this.imageGenAgents }, { orgId: result.orgId, actorId: result.userId });
+      await this.seedSampleProjectLoudly(result.orgId, result.userId);
       response.setHeader("Set-Cookie", pendingVerificationSetCookie(
         result.pendingIdentityProof,
         process.env.NODE_ENV === "production",

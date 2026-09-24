@@ -1,5 +1,5 @@
 /**
- * 实例运行信号上报契约（PROPOSED，待签核）的行为测试。
+ * 实例运行信号上报契约（ACCEPTED，2026-09-24 签核 D27）的行为测试。
  * 每条对应 super-instance-design.md §3 的一条约束，测的是「违反它的上报会被拒」。
  */
 import { readFileSync } from "node:fs";
@@ -9,6 +9,7 @@ import {
   InstanceTelemetryReport,
   TELEMETRY_CONSENT_COPY,
   TELEMETRY_CONSENT_DEFAULTS,
+  TELEMETRY_REPORT_INTERVAL_SECONDS,
   TelemetryConsentItem,
 } from "../src/instance-telemetry";
 
@@ -27,7 +28,7 @@ const valid = () => ({
   benchmark: { runsPerSeatPerWeek: 6.5, firstValueMedianMinutes: 11 },
 });
 
-describe("InstanceTelemetryReport（PROPOSED）", () => {
+describe("InstanceTelemetryReport（ACCEPTED）", () => {
   it("完整合规的上报通过", () => {
     expect(InstanceTelemetryReport.safeParse(valid()).success).toBe(true);
   });
@@ -90,8 +91,12 @@ describe("InstanceTelemetryReport（PROPOSED）", () => {
     expect(InstanceTelemetryReport.safeParse({ ...valid(), consent: { ...TELEMETRY_CONSENT_DEFAULTS } }).success).toBe(false);
   });
 
-  it("仍是 PROPOSED：没有从 index.ts 导出（签核前不许被消费）", () => {
+  it("已签核：从 index.ts 以 instanceTelemetry 导出", () => {
     const index = readFileSync(join(import.meta.dirname, "../src/index.ts"), "utf8");
-    expect(index).not.toMatch(/instance-telemetry/);
+    expect(index).toMatch(/export \* as instanceTelemetry from "\.\/instance-telemetry"/);
+  });
+
+  it("上报周期是每天一次（D28），且只在契约里声明这一处", () => {
+    expect(TELEMETRY_REPORT_INTERVAL_SECONDS).toBe(86_400);
   });
 });

@@ -181,7 +181,9 @@ test("旅程①邀请注册：真实跨标签页锁保留先提交的密码登�
       (window as Window & { releaseSessionTestLock?: () => void }).releaseSessionTestLock?.();
     });
     await expect(loginPage).toHaveURL(/\/projects$/);
-    await expect(loginPage.getByTestId("projects-list-empty")).toBeVisible();
+    // E2（#4071）起新组织落地即带一个内置示例项目，列表不再是空态：真实加载完成的锚点是
+    // 列表本身，且里面有那个示例项目（名字由 API 侧 SAMPLE_PROJECT_NAME 决定，这里只认「【示例】」前缀）。
+    await expect(loginPage.getByTestId("projects-list")).toContainText("【示例】");
     await expect(invitePage.getByTestId("link-activate-success")).toContainText("当前登录账号已保留");
     expect(new URL(invitePage.url()).pathname).toBe("/auth/activate");
     expect(inviteNavigations).not.toContain("/projects");
@@ -244,10 +246,10 @@ test("旅程①：开放注册出的新用户，验证邮箱、登录后能真�
   await expect(page).toHaveURL(/\/projects$/);
 
   // ── 真的能用：项目列表可达，是这个人自己的组织（不是别人的、不是硬编码空态骗过的） ──
-  // `projects-list-empty` 是「这个新组织里确实还没有项目」的真实空态锚点（数据已加载
-  // 完成、列表真的是空的）；`projects-list-empty-state` 是加载中/出错那个不同的态，
-  // 两者是不同分支（`projects-screen.tsx`），锚错会一直等不到。
-  await expect(page.getByTestId("projects-list-empty")).toBeVisible();
+  // E2（#4071）起新组织落地即带一个内置示例项目（第一个价值时刻漏斗的「示例项目上的带引用回答」一步
+  // 靠它）：数据真实加载完成的锚点因此是 `projects-list`，且其中恰好是那个示例项目——
+  // 不是别的组织的项目、也不是硬编码空态。`projects-list-empty-state` 是加载中/出错那个不同的态。
+  await expect(page.getByTestId("projects-list")).toContainText("【示例】");
 
   // ── 真的能用：个人 chat（无 projectId）真实可达，发一条消息、消息真的进了会话 ──
   // 这一步是本旅程与 core-loop.spec.ts 分工的关键差异点：那个文件从不带一个刚注册

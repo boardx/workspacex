@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
@@ -36,6 +36,8 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   members: Users,
   // 心跳/活跃度符号——「运营状态」是运维自查这个部署本身是否健康的工具。
   "ops-status": Activity,
+  // 向外发送的箭头：本实例向外上报运行信号。
+  telemetry: Send,
   // 锁形图标，与顶栏切到本地组织时的那把锁是同一个符号——同一件事在两处要看起来是同一件事
   local: Lock,
   // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。

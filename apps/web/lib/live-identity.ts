@@ -155,3 +155,15 @@ export async function getLocalRuntimeStatus(orgId: string): Promise<GetLocalRunt
     query: { orgId },
   });
 }
+
+/* ───────────────── 出网账本：getEgressLedger（backlog E4）───────────────── */
+
+export type GetEgressLedgerOut = z.infer<typeof identity.operations.getEgressLedger.out>;
+
+/**
+ * 本地版「本次启动出网 N 次」的实测来源。无参数：账本是进程级的，不属于某个组织。
+ * 在线版 404——调用方把失败渲染成「读不到」，**不许**兜成 0。
+ */
+export async function getEgressLedger(): Promise<GetEgressLedgerOut> {
+  return apiRequest<GetEgressLedgerOut>(identity.operations.getEgressLedger.path, { method: "GET" });
+}

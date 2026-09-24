@@ -22,6 +22,7 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   // 平台 / 运营
   members: "platform",
   "ops-status": "ops-status",
+  telemetry: "telemetry",
   // UC-17.8 研发闭环
   "feedback-drafts": "feedback-drafts",
   inbox: "inbox",

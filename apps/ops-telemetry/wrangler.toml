@@ -1,0 +1,36 @@
+# ops-telemetry —— 超级实例 S4：边缘收集 + 车队投影（backlog D10）。**内部运营平面，不随产品交付**
+# （.harness/scripts/lib/ops-plane.mjs 登记；lint-production-not-on-ops 禁止生产依赖本目录）。
+#
+# 路由（部署时由人类在 Cloudflare 配置）：
+#   POST /v1/report     客户实例出站上报——**不能**放在 Access 后（实例不是人）；
+#                       认证 = Bearer 安装密钥，边缘只核 sha256(密钥) == instanceId，密钥不落盘、不记日志。
+#   GET  /fleet, /api/* 运营视图与投影——**必须**放在 Cloudflare Access 应用后；Worker 自己再验一遍
+#                       Cf-Access-Jwt-Assertion（RS256 + aud + iss + exp），未配置即 fail-closed 503。
+#
+# 硬安全规则：本面绝不存客户内容、自然人信息、凭据值、计费账本、客户可审计的证据。
+# 存的只有契约 `@repo/contracts/instance-telemetry` 校验通过的字段 + 边缘接收时刻。
+name = "workspacex-ops-telemetry"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+[vars]
+# 非敏感：人类建好 Access 应用后填入团队域名（xxx.cloudflareaccess.com）与应用 AUD。
+# 留空 = 视图与投影 fail-closed 503，不是放行。
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[durable_objects.bindings]]
+name = "INSTANCE"
+class_name = "InstanceReports"
+
+[[durable_objects.bindings]]
+name = "FLEET"
+class_name = "FleetIndex"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["InstanceReports", "FleetIndex"]

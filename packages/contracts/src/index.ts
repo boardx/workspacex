@@ -100,3 +100,17 @@ export * as standardBrowserTools from "./standard-browser-tools";
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
 
+/** 客户实例运行信号上报契约（超级实例 S2；2026-09-24 人类签核 D27，周期每天一次 D28）。 */
+export * as instanceTelemetry from "./instance-telemetry";
+
+/** 第一个价值时刻事件目录（E1；2026-09-24 签核 D33，漏斗计数并入 S2 usage 分节）。 */
+export * as firstValueEvents from "./first-value-events";
+
+/** D12 组织大脑图节点 kind / 开发过程投影边（super-instance-design §2）。 */
+export * as ontologyProjection from "./ontology-projection";
+
+/** backlog E6: Skill 目录三入口（按场景）——唯一事实源。 */
+export * as skillEntryPoints from "./skill-entry-points";
+
+/** backlog D3：CRM 联系人个人信息只在境内源站（边缘只存不透明 leadId）。 */
+export * as crmContacts from "./crm-contacts";
