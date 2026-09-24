@@ -17,6 +17,7 @@
  *   node .harness/scripts/oss-secret-scan.mjs --strict     # 有命中则退出码 1
  */
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const RULES = [
   { id: "aws-access-key",   re: /\bAKIA[0-9A-Z]{16}\b/ },
@@ -44,24 +45,35 @@ try { shallow = git(["rev-parse", "--is-shallow-repository"]).trim() === "true";
 let commitCount = 0;
 try { commitCount = Number(git(["rev-list", "--all", "--count"]).trim()); } catch {}
 
-let text;
+// ⚠ 2026-09-24 更正：`--head-only` 初版有两个叠在一起的 bug，结果是**永远报 0 命中**：
+//   ① 用了 require("node:fs")，本文件是 ES 模块，require 未定义，ReferenceError 被 catch 吞掉，
+//      每个文件都读成空串；
+//   ② 就算读得到，也是把全部文件拼成一个字符串——仓库里有 PNG / PPTX 等大文件，
+//      会超出字符串长度上限直接崩。①把②盖住了，所以这条路径从来没有真正跑过。
+// 现在逐个文件扫，跳过二进制（含 NUL 字节）与超过 2 MB 的文件，并报告跳过了多少。
+const MAX_BYTES = 2 * 1024 * 1024;
+let skippedFiles = 0;
+const chunks = [];
 if (headOnly) {
-  const files = git(["ls-files", "-z"]).split("\0").filter(Boolean);
-  text = files.map((f) => {
-    try { return `\n--- ${f}\n` + require("node:fs").readFileSync(f, "utf8"); } catch { return ""; }
-  }).join("");
+  for (const f of git(["ls-files", "-z"]).split("\0").filter(Boolean)) {
+    let buf;
+    try { buf = readFileSync(f); } catch { skippedFiles++; continue; }
+    if (buf.length > MAX_BYTES || buf.includes(0)) { skippedFiles++; continue; }
+    chunks.push(`commit (工作树:${f})`);
+    for (const l of buf.toString("utf8").split("\n")) chunks.push(l);
+  }
 } else {
-  // -p 全历史 diff；二进制跳过
-  text = git(["log", "--all", "-p", "--no-color", "--no-textconv"]);
+  // 不用展开运算符：几百万行展开成参数会超出调用参数上限
+  for (const l of git(["log", "--all", "-p", "--no-color", "--no-textconv"]).split("\n")) chunks.push(l);
 }
 
 const hits = [];
-const lines = text.split("\n");
+const lines = chunks;
 let currentCommit = "(工作树)";
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
-  const cm = line.match(/^commit ([0-9a-f]{7,40})/);
-  if (cm) { currentCommit = cm[1].slice(0, 12); continue; }
+  const cm = line.match(/^commit ([0-9a-f]{7,40}|\(工作树:[^)]*\))/);
+  if (cm) { currentCommit = cm[1].startsWith("(") ? "(工作树)" : cm[1].slice(0, 12); continue; }
   for (const rule of RULES) {
     if (!rule.re.test(line)) continue;
     if (rule.ignore && rule.ignore.test(line)) continue;
@@ -71,7 +83,14 @@ for (let i = 0; i < lines.length; i++) {
 
 console.log(`可见 commit 数    ${commitCount}`);
 console.log(`扫描范围          ${headOnly ? "仅工作树" : "全部可见历史"}`);
+if (headOnly) console.log(`跳过的文件        ${skippedFiles}（二进制或超过 2 MB）`);
 console.log(`命中              ${hits.length}`);
+{
+  // 按规则的原始命中数：明细按「规则@commit」去重，工作树模式下全部落在同一个标签上，看不出分布
+  const byRule = new Map();
+  for (const h of hits) byRule.set(h.rule, (byRule.get(h.rule) ?? 0) + 1);
+  for (const [r, n] of [...byRule].sort((a, b) => b[1] - a[1])) console.log(`  ${r.padEnd(18)}${n}`);
+}
 
 if (shallow || commitCount < 200) {
   console.log("\n⚠ 这是**浅 clone 或历史被截断**的仓库副本。");
