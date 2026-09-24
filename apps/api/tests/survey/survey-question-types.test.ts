@@ -109,7 +109,7 @@ const reportTemplate = (...questionIds: string[]) => ({
         {
           id: "answers",
           title: "回答",
-          type: "text" as const,
+          type: "table" as const,
           questionIds,
           statistic: "responses" as const,
           samplePolicy: "valid" as const,

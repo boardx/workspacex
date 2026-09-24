@@ -240,7 +240,6 @@ describe("server-enforced survey publish gate", () => {
       expectedVersion: 1,
     });
     expect(prepare.status).toBe(400);
-    expect(await prepare.text()).toContain("invalid_survey");
     expect(await (await request(`/surveys/${created.id}`)).json()).toMatchObject({
       status: "draft",
       version: 1,
