@@ -2,6 +2,7 @@
   "name": "@repo/maau-postinvest-report",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "投后管理报告 MAAU 的内容包：风险判据阈值、派生公式、自检算例及其渲染。这是 MAAU 内容，不是 API 契约——契约描述系统之间怎么通信，本包描述这个工作单元怎么判断，属于随行业 know-how 积累的资产。参见本包 README 的边界说明。",
   "type": "module",
   "main": "src/index.ts",

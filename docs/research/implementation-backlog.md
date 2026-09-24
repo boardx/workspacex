@@ -203,7 +203,7 @@ flowchart LR
 | B3 | 完整 clone 上重跑凭据扫描，人工确认候选项 | ◐ | R6：已在完整历史（3076 commit）上跑完，156 处命中；先修了 `--head-only` 永远报 0 的 bug。**人工确认仍待人**，优先看只在历史里的 `aliyun-ak` 2 处 |
 | B4 | 凭据扫描报告落盘 | ✅ | R6：`oss-secret-scan-2026-09-24.md`，只记计数不记位置 |
 | B5 | 填 `SECURITY.md` 安全联系邮箱 | ◐ | 文件已建 |
-| B6 | 补 `package.json` 的 `license` 字段 | □ | D1 已定 Apache-2.0，**可开工** |
+| B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11：按 `lib/ownership.mjs` 标了 13 个（开源 5 个附 Apache-2.0 官方正文，售卖 1、运营面 7 标 UNLICENSED）；5 个归属未定（api、web 等 C3；`fabric-markdown` 上游许可未记录）。NOTICE 的版权方名称待组织确定 |
 | B7 | CLA 或 DCO 落地 | □ | D1 已定，**可开工**（CLA 与 DCO 二选一是小决策，建议 DCO：零签署负担） |
 | B8 | 商标政策 | □ | D1 已定，**可开工** |
 

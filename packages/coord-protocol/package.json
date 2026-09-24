@@ -2,6 +2,7 @@
   "name": "@repo/coord-protocol",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "coord 协议三原语（Lease / Evidence / Events+Andon）的类型与运行时校验——docs/coord-platform/protocol/ 规格的参考实现",
   "type": "module",
   "main": "src/index.ts",

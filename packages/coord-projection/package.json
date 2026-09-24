@@ -2,6 +2,7 @@
   "name": "@repo/coord-projection",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "反向投影引擎：RepoHub 事件流 → GitHub check/status（lease→coord/lease check，andon→coord/andon 阻断 status）（F06）",
   "type": "module",
   "main": "src/index.ts",
