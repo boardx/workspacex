@@ -44,6 +44,7 @@ import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/s
 import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
+import { MIRO_CREDENTIAL_PATH, checkMiroCredentialBoundary } from "./lib/miro-credential-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -81,10 +82,6 @@ const ALLOWLIST = new Map([
   [
     "src/infrastructure/whiteboard/pg-whiteboard-transfer-store.ts",
     "#3978: portable transfer is derived from the same private whiteboard owner/member policy as #3926/#3967, which cannot be represented by acl_bindings without weakening it to org-wide. Export first calls the collaboration store's fresh locked owner/member access check, then rechecks owner/member visibility before its audit write. Import is copy-only: it creates a new owner-scoped board for the actor and writes remapped commands in the same tenant transaction; replay rows are keyed by org_id+actor_id+request_id. Scope is exactly whiteboards, whiteboard_members, documents, import receipts and transfer audit. tests/whiteboard/transfer-repository-guard.test.ts mechanically pins withTenant, actor predicates, copy-only writes and table scope; transfer-http.test.ts provides real HTTP/PostgreSQL cross-tenant, viewer/revocation, rollback, idempotency and audit evidence. Remove this entry if those checks or tests are removed.",
-  ],
-  [
-    "src/infrastructure/whiteboard/pg-miro-credential-repository.ts",
-    "#4115: Miro OAuth state and encrypted credentials are actor-bound authentication material, not acl_bindings content. Every method runs withTenant and every read/update predicate binds org_id+actor_id; active reads also require revoked_at IS NULL, state consumption is one-time and expiring, and only ciphertext plus non-sensitive metadata can leave the repository. tests/whiteboard/miro-repository-guard.test.ts mechanically pins those predicates, table scope, RLS, grants and the absence of plaintext token columns. Remove this entry if that guard or any actor/revocation predicate is removed.",
   ],
   [
     "src/infrastructure/whiteboard/pg-room-repository.ts",
@@ -521,6 +518,17 @@ for (const root of ROOTS) {
     scanned++;
     const rel = relative(API, file);
     const body = readFileSync(file, "utf8");
+    if (rel === MIRO_CREDENTIAL_PATH) {
+      const migrationPath = "migrations/20260924000800_whiteboard_miro_direct_import.sql";
+      const evidencePath = "tests/whiteboard/miro-repository-guard.test.ts";
+      const errors = checkMiroCredentialBoundary(
+        body,
+        readFileSync(join(API, migrationPath), "utf8"),
+        readFileSync(join(API, evidencePath), "utf8"),
+      );
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
     if (SUBTASK_BOUNDARIES.has(rel)) {
       for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
         if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }

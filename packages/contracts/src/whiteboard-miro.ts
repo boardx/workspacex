@@ -11,6 +11,34 @@ export const MIRO_DIRECT_IMPORT = {
   maxResponseBytes: 16 * 1024 * 1024,
 } as const;
 
+/**
+ * Vendor wire responses live in the contracts package so infrastructure adapters do not
+ * create a second, drifting schema. They are deliberately passthrough: Miro may add fields,
+ * while the bounded fields below are the only ones the import application consumes.
+ */
+export const MiroTokenResponse = z.object({
+  access_token: z.string().min(1).max(16_384),
+  refresh_token: z.string().min(1).max(16_384).nullable().optional(),
+  expires_in: z.number().int().positive().max(31_536_000).optional(),
+  scope: z.string().max(2_000).optional(),
+}).passthrough();
+
+export const MiroRemoteBoard = z.object({
+  id: z.string().min(1).max(256),
+  name: z.string().min(1).max(200),
+  modifiedAt: z.string().datetime().optional(),
+}).passthrough();
+
+export const MiroRemoteBoardPage = z.object({
+  data: z.array(MiroRemoteBoard).max(MIRO_DIRECT_IMPORT.boardPageLimit),
+  total: z.number().int().nonnegative().optional(),
+}).passthrough();
+
+export const MiroRemoteItemPage = z.object({
+  data: z.array(z.record(z.unknown())).max(MIRO_DIRECT_IMPORT.itemPageLimit),
+  cursor: z.string().min(1).max(2_000).nullable().optional(),
+}).passthrough();
+
 const SafeReturnTo = z.string().min(1).max(500).regex(/^\/studio\/board(?:\/[^?#]*)?(?:\?[^#]*)?$/);
 const MiroId = z.string().trim().min(1).max(256);
 

@@ -1,19 +1,9 @@
 import { setTimeout as wait } from 'node:timers/promises';
-import { z } from 'zod';
 import { whiteboardMiro as C } from '@repo/contracts';
 import { MiroImportError as Fault, MiroRemoteUnauthorized, type MiroRemoteClient, type MiroTokenResult } from '../../application/whiteboard/miro-ports';
 
 const API_ORIGIN = 'https://api.miro.com';
 const AUTHORIZE_ORIGIN = 'https://miro.com';
-const TokenResponse = z.object({
-  access_token: z.string().min(1).max(16_384),
-  refresh_token: z.string().min(1).max(16_384).nullable().optional(),
-  expires_in: z.number().int().positive().max(31_536_000).optional(),
-  scope: z.string().max(2_000).optional(),
-}).passthrough();
-const Board = z.object({ id:z.string().min(1).max(256), name:z.string().min(1).max(200), modifiedAt:z.string().datetime().optional() }).passthrough();
-const BoardPage = z.object({ data:z.array(Board).max(C.MIRO_DIRECT_IMPORT.boardPageLimit), total:z.number().int().nonnegative().optional() }).passthrough();
-const ItemPage = z.object({ data:z.array(z.record(z.unknown())).max(C.MIRO_DIRECT_IMPORT.itemPageLimit), cursor:z.string().min(1).max(2_000).nullable().optional() }).passthrough();
 
 export interface MiroClientConfig {
   readonly clientId: string;
@@ -81,24 +71,24 @@ export class MiroApiClient implements MiroRemoteClient {
   }
   async boards(access: string, offset: number, limit: number) {
     const url=new URL('/v2/boards',API_ORIGIN); url.searchParams.set('offset',String(offset)); url.searchParams.set('limit',String(limit));
-    const parsed=BoardPage.safeParse(await this.send(url,{headers:{authorization:`Bearer ${access}`}}));
+    const parsed=C.MiroRemoteBoardPage.safeParse(await this.send(url,{headers:{authorization:`Bearer ${access}`}}));
     if (!parsed.success) throw new Fault('REMOTE_SCHEMA_CHANGED');
     return { items:parsed.data.data.map(value=>({id:value.id,name:value.name,modifiedAt:value.modifiedAt??null})), hasMore:parsed.data.total!==undefined ? offset+parsed.data.data.length<parsed.data.total : parsed.data.data.length===limit };
   }
   async board(access: string, boardId: string) {
-    const parsed=Board.safeParse(await this.send(new URL(`/v2/boards/${encodeURIComponent(boardId)}`,API_ORIGIN),{headers:{authorization:`Bearer ${access}`}}));
+    const parsed=C.MiroRemoteBoard.safeParse(await this.send(new URL(`/v2/boards/${encodeURIComponent(boardId)}`,API_ORIGIN),{headers:{authorization:`Bearer ${access}`}}));
     if (!parsed.success) throw new Fault('REMOTE_SCHEMA_CHANGED'); return parsed.data;
   }
   async items(access: string, boardId: string, cursor?: string) {
     const url=new URL(`/v2-experimental/boards/${encodeURIComponent(boardId)}/items`,API_ORIGIN);
     url.searchParams.set('limit',String(C.MIRO_DIRECT_IMPORT.itemPageLimit)); if (cursor) url.searchParams.set('cursor',cursor);
-    const parsed=ItemPage.safeParse(await this.send(url,{headers:{authorization:`Bearer ${access}`}}));
+    const parsed=C.MiroRemoteItemPage.safeParse(await this.send(url,{headers:{authorization:`Bearer ${access}`}}));
     if (!parsed.success) throw new Fault('REMOTE_SCHEMA_CHANGED'); return parsed.data;
   }
 
   private async token(values: Record<string,string>): Promise<MiroTokenResult> {
     const body=new URLSearchParams({...values,client_id:this.config.clientId,client_secret:this.config.clientSecret});
-    const parsed=TokenResponse.safeParse(await this.send(new URL('/v1/oauth/token',API_ORIGIN),{
+    const parsed=C.MiroTokenResponse.safeParse(await this.send(new URL('/v1/oauth/token',API_ORIGIN),{
       method:'POST',
       headers:{'content-type':'application/x-www-form-urlencoded'},
       body,
