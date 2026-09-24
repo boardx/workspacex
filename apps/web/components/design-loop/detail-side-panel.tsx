@@ -1,7 +1,7 @@
 "use client";
 /**
  * 深度评测 S1（#3988）——从 `detail-screen.tsx` 拆出来的**右栏**：图层面板、批注（写一句 + 列表）、属性面板、
- * 版本历史。只搬家、不改行为：props 与详情页里的变量同名，搬过来的 JSX 一个字没改；状态都留在详情页。
+ * 版本历史；深度 S6 起还有「代码」面板。只搬家、不改行为：props 与详情页里的变量同名，搬过来的 JSX 一个字没改；状态都留在详情页。
  */
 import * as React from "react";
 import { cn } from "@/lib/utils";
@@ -19,15 +19,17 @@ import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
 import { PrototypeInspector } from "./prototype-inspector";
 import { CommentComposer, CommentList } from "./comments-panel";
+import { PrototypeCodePanel } from "./prototype-code-panel";
 import type { CanvasMode } from "./detail-canvas-toolbar";
 
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export function DetailSidePanel({
-  historyOpen, preview, canvasMode, focus, sideOpen, project, frame, setFrame, selectedId, setSelectedId,
+  historyOpen, codeOpen, preview, canvasMode, focus, sideOpen, project, frame, setFrame, selectedId, setSelectedId,
   runNodeOps, comments, sending, send, setLoad, frameLinks, setPageLinks, setPreview,
 }: {
   readonly historyOpen: boolean;
+  readonly codeOpen: boolean;
   readonly preview: PrototypeVersion | null;
   readonly canvasMode: CanvasMode;
   readonly focus: ReturnType<typeof findPrototypeNodePath>;
@@ -51,7 +53,7 @@ export function DetailSidePanel({
       {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
       {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
       {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
-      {(historyOpen || (preview === null && canvasMode !== "preview") || (focus !== null && preview === null)) && (
+      {(historyOpen || codeOpen || (preview === null && canvasMode !== "preview") || (focus !== null && preview === null)) && (
         /*
          * 迭代 24：窄屏下这块**默认收起**。
          *
@@ -70,6 +72,8 @@ export function DetailSidePanel({
           )}
           data-testid="design-detail-side"
         >
+          {/* 深度 S6：代码面板放最上面——打开它就是要看它；它随 `project` 重算。 */}
+          {codeOpen && <PrototypeCodePanel project={project} />}
           {/*
             * 迭代 15：图层面板。一个 stack 套 stack 在画板上分不出层级，
             * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。

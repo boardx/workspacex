@@ -181,6 +181,8 @@ export function DesignDetailScreen({
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  /** 深度 S6：右栏的「代码」面板。 */
+  const [codeOpen, setCodeOpen] = React.useState(false);
   /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
   const [viewMode, setViewMode] = React.useState<"board" | "single">(
     () => (typeof window !== "undefined" && window.innerWidth < 768 ? "single" : "board"),
@@ -1056,7 +1058,7 @@ export function DesignDetailScreen({
                 renamePage={renamePage} addPage={addPage} duplicatePage={duplicatePage} removePage={removePage} pageCount={pageCount}
                 comments={comments} undoLast={undoLast} undoing={undoing} redo={redo} redoStack={redoStack}
                 askVariants={askVariants} sending={sending} variants={variants} variantScreen={variantScreen}
-                historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} setPreview={setPreview}
+                historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} setPreview={setPreview} codeOpen={codeOpen} setCodeOpen={setCodeOpen}
                 appearance={
                   <CanvasAppearance
                     theme={project.theme}
@@ -1266,7 +1268,7 @@ export function DesignDetailScreen({
                   )}
                 </div>
                 <DetailSidePanel
-                  historyOpen={historyOpen} preview={preview} canvasMode={canvasMode} focus={focus} sideOpen={sideOpen}
+                  historyOpen={historyOpen} codeOpen={codeOpen} preview={preview} canvasMode={canvasMode} focus={focus} sideOpen={sideOpen}
                   project={project} frame={frame} setFrame={setFrame} selectedId={selectedId} setSelectedId={setSelectedId}
                   runNodeOps={runNodeOps} comments={comments} sending={sending} send={send} setLoad={setLoad}
                   frameLinks={frameLinks} setPageLinks={setPageLinks} setPreview={setPreview}

@@ -9,6 +9,7 @@ import * as React from "react";
 import type { designPrototype } from "@repo/contracts";
 import { ICONS, guessNavIcon } from "@/components/design-loop/prototype-canvas";
 import type { DesignProject } from "@/lib/live-design-workbench";
+import { buildPrototypeReactTsx } from "@/lib/prototype-react-export";
 
 type Icon = designPrototype.PrototypeIcon;
 type Node = designPrototype.PrototypeNode;
@@ -32,4 +33,18 @@ export async function iconSvgs(prototype: DesignProject["prototype"]): Promise<R
   return Object.fromEntries(usedIcons(prototype).map((name) => [
     name, renderToStaticMarkup(React.createElement(ICONS[name], { "aria-hidden": true, width: 16, height: 16 })),
   ]));
+}
+
+/**
+ * 深度 S6：浏览器里生成导出代码的**唯一入口**——「导出 → React 组件」下载的、右栏「代码」面板显示的，
+ * 都是这一份。中性档的主色取页面当下的 `--primary`（不在导出器里另抄一份全局 token），图标用画布同一张表。
+ */
+export async function exportPrototypeReactTsx(project: DesignProject, now: Date): Promise<string> {
+  const root = getComputedStyle(document.documentElement);
+  const primary = root.getPropertyValue("--primary").trim();
+  const foreground = root.getPropertyValue("--primary-foreground").trim();
+  return buildPrototypeReactTsx(project, {
+    now, icons: await iconSvgs(project.prototype),
+    ...(primary !== "" && foreground !== "" ? { neutral: { primary, foreground } } : {}),
+  });
 }

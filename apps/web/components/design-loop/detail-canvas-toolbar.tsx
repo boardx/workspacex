@@ -1,11 +1,11 @@
 "use client";
 /**
  * 深度评测 S1（#3988）——从 `detail-screen.tsx` 拆出来的**画布工具条**：页签与页管理、画板 / 单页、
- * 编辑 / 预览 / 批注、外观（由详情页作为 `appearance` 传进来）、图层开关、撤销、重做、方案、历史。
+ * 编辑 / 预览 / 批注、外观（由详情页作为 `appearance` 传进来）、图层开关、撤销、重做、方案、历史、代码（深度 S6）。
  * 只搬家、不改行为：props 与详情页里的变量**同名**，搬过来的 JSX 一个字没改；状态全都留在详情页。
  */
 import * as React from "react";
-import { Columns3, Copy, Crosshair, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, Pencil, Play, Plus, Redo2, Smartphone, Trash2, Undo2 } from "lucide-react";
+import { Code2, Columns3, Copy, Crosshair, History, Layers, LayoutGrid, Loader2, MessageSquarePlus, Pencil, Play, Plus, Redo2, Smartphone, Trash2, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DesignProject, PrototypeVersion } from "@/lib/live-design-workbench";
 import type { useDesignComments } from "@/lib/design-comments";
@@ -17,7 +17,7 @@ export type CanvasMode = "edit" | "preview" | "comment";
 export function CanvasToolbar({
   project, preview, frame, setFrame, canvasMode, setCanvasMode, viewMode, setViewMode, setBackStack, setSelectedId,
   sideOpen, setSideOpen, renamePage, addPage, duplicatePage, removePage, pageCount, comments, undoLast, undoing, redo,
-  redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance,
+  redoStack, askVariants, sending, variants, variantScreen, historyOpen, setHistoryOpen, setPreview, appearance, codeOpen, setCodeOpen,
 }: {
   readonly project: DesignProject;
   readonly preview: PrototypeVersion | null;
@@ -50,6 +50,8 @@ export function CanvasToolbar({
   readonly setPreview: Setter<PrototypeVersion | null>;
   /** 外观面板（明暗、强调色、品牌色、字体、圆角、密度、设备）——它的十几个回调都在详情页，整块传进来。 */
   readonly appearance: React.ReactNode;
+  readonly codeOpen: boolean;
+  readonly setCodeOpen: Setter<boolean>;
 }) {
   return (
     <>
@@ -236,6 +238,20 @@ export function CanvasToolbar({
           )}
         >
           <History aria-hidden className="h-3 w-3" /> 历史
+        </button>
+        {/* 深度 S6：看这份原型的 React 代码——同「历史」，窄屏下顺手打开右栏。 */}
+        <button
+          type="button"
+          onClick={() => { setCodeOpen((o) => !o); if (!codeOpen) setSideOpen(true); }}
+          aria-pressed={codeOpen}
+          title="看这份原型导出的 React 代码，可以一键复制；改了设计，代码跟着变"
+          data-testid="design-detail-code"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            codeOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
+          )}
+        >
+          <Code2 aria-hidden className="h-3 w-3" /> 代码
         </button>
       </div>
     </>

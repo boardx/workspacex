@@ -268,8 +268,8 @@ test.describe("V5 查看代码", () => {
   test("[V5.c1] 点「代码」：面板里是这个原型的 React 代码，含当前页的文案", async ({ page }) => {
     await openCase(page, "E02");
     await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    const panel = page.getByTestId("design-code-panel"); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
+    const panel = page.getByTestId("design-code-panel");
     await expect(panel).toContainText("export default function");
     await expect(panel).toContainText("年度会员 · 专业版");
   });
@@ -278,8 +278,8 @@ test.describe("V5 查看代码", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openCase(page, "E02");
     await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    await page.getByTestId("design-code-copy").click(); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
+    await page.getByTestId("design-code-copy").click();
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toContain("export default function");
     expect(clip).toContain("立即购买");
@@ -288,13 +288,13 @@ test.describe("V5 查看代码", () => {
   test("[V5.c3] 在画布上改了字，面板里的代码跟着变", async ({ page }) => {
     await openCase(page, "E02");
     const phone = await single(page);
-    await page.getByTestId("design-detail-code").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-detail-code").click({ timeout: 3000 });
     await phone.getByText("年度会员 · 专业版").dblclick();
     await phone.getByTestId("design-canvas-inline-edit").waitFor();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("年度会员 · 旗舰版");
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("design-code-panel")).toContainText("年度会员 · 旗舰版"); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await expect(page.getByTestId("design-code-panel")).toContainText("年度会员 · 旗舰版");
   });
 });
 

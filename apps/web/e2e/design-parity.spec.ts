@@ -492,3 +492,22 @@ test.describe("深度 S5 导出的代码带图标（#3988）", () => {
     expect([...tsx.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
   });
 });
+
+test.describe("深度 S6 编辑器里看代码（#3988）", () => {
+  test("点「代码」：右栏是导出的那一份 React 代码（与下载的 .tsx 逐字相同）；再点一次收起", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-code").click();
+    await expect(page.getByTestId("design-detail-code")).toHaveAttribute("aria-pressed", "true");
+    const panel = page.getByTestId("design-code-panel");
+    await expect(panel).toContainText("function IconShare()");
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    expect(await panel.textContent()).toBe(readFileSync(await d.path(), "utf8"));
+    await page.getByTestId("design-detail-code").click();
+    await expect(panel).toHaveCount(0);
+  });
+});
