@@ -184,6 +184,44 @@ beforeEach(async () => {
 });
 
 describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
+  it("只投影当前 revision 的研究简报、主持策略和就绪决定", async () => {
+    const created = await createInterview("create-quality-projection");
+    const brief = {
+      decision: "决定是否优先优化采购审批链",
+      learningGoals: [{ goalId: "goal-1", statement: "识别审批阻塞" }],
+      targetRoles: ["采购负责人"], outOfScope: ["市场规模"], successCriteria: ["获得互补证据"],
+    };
+    await asApp(ORG, async (session) => {
+      await session.query(
+        `INSERT INTO digital_interview_research_briefs
+          (org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by)
+         VALUES ($1,'brief-quality-1',$2,$3,$4,'quality-v1','request-brief-quality-1',$5)`,
+        [ORG, created.interviewId, created.revisionId, brief, USER],
+      );
+      await session.query(
+        `INSERT INTO digital_interview_readiness_decisions
+          (org_id,id,interview_id,revision_id,assessment_rule_version,status,rationale,request_id,decided_by)
+         VALUES ($1,'decision-quality-1',$2,$3,'quality-v1','warning_accepted','已知只有单一专家视角，下一轮补充真人访谈。','request-ready-quality-1',$4)`,
+        [ORG, created.interviewId, created.revisionId, USER],
+      );
+    });
+
+    const response = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      researchBrief: brief,
+      moderatorPolicy: null,
+      quality: {
+        previewStatus: "available",
+        readinessDecision: {
+          revisionId: created.revisionId,
+          status: "warning_accepted",
+          assessmentRuleVersion: "quality-v1",
+        },
+      },
+    });
+  });
+
   it("创建只持久化名称和标签；create replay 幂等、变更 payload 被拒绝，并在重启后恢复 scope", async () => {
     const first = await postCreate({ requestId: "create-f04" });
     expect(first.status).toBe(201);
@@ -365,7 +403,11 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(expertView.expertCandidates).toEqual(expect.arrayContaining([expect.objectContaining(staticExpert)]));
     expect(expertView.questionCandidates).toHaveLength(6);
 
-    const generatedQuestions = expertView.questionCandidates;
+    const generatedQuestions = expertView.questionCandidates.map((question, index, questions) => ({
+      ...question,
+      section: index === questions.length - 1 ? "counterexample" as const : "core" as const,
+      goalIds: ["legacy-goal"],
+    }));
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ questions: generatedQuestions, expectedVersion: 3, requestId: "questions-complete-f04" }),

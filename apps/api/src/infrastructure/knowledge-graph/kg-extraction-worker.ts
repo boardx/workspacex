@@ -32,6 +32,8 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     if (!this.config.enabled) return;
+    // 先告诉数据库「抽取开着」，触发器才开始给新消息排队；失败只记日志，下一次启动再试。
+    void this.queue.enable().catch((err) => this.logger.error("kg extraction enable failed", { traceId: "kg-extraction", err }));
     this.timer = setInterval(() => void this.poll(), KG_EXTRACTION_POLL_INTERVAL_MS);
     this.timer.unref();
   }

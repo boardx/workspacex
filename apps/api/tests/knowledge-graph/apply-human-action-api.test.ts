@@ -24,7 +24,7 @@ import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-kno
 import { KnowledgeGraphController } from "../../src/interface/controllers/knowledge-graph.controller";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
-import { extractionDeps, loopbackModel, silentLogger } from "./kg-extraction-fixtures";
+import { enableExtraction, extractionDeps, loopbackModel, silentLogger } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f10-actions";
 const ORG_ID = toOrgId(ORG);
@@ -52,6 +52,7 @@ beforeAll(async () => {
   await migrateOnce();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
+  await enableExtraction();
   for (const u of ["u-owner", "u-member"]) {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
