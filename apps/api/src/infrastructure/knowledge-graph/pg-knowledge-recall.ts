@@ -31,8 +31,15 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE}`,
         [orgId, threadId],
       );
+      // L1 只进发起人**自己的个人线程**（无项目、本人创建；uc-18-4 R5）：在项目会话里用了，
+      // 回答贴在会话里，别的成员就读到了、还会被抽取进本会话的 L0。
+      const own = await s.query(
+        `SELECT 1 FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2 AND t.project_id IS NULL AND t.created_by = $3`,
+        [orgId, threadId, userId],
+      );
+      const inPersonalThread = own.rows.length === 1;
       // L1：已从本会话晋升出去、而本会话的原结论还在的，不再重复一份（原结论已经在上面了）。
-      const personal = await s.query<Row>(
+      const personal = !inPersonalThread ? { rows: [] as Row[] } : await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
           WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $3 AND ${LIVE}
             AND NOT EXISTS (
@@ -47,7 +54,7 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, threadId],
       );
-      const personalObjects = await s.query<{ id: string; name: string; aliases: string[] }>(
+      const personalObjects = !inPersonalThread ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, userId],

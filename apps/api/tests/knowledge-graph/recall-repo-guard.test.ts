@@ -16,7 +16,7 @@ const code = strip(readFileSync(join(API, REPO), "utf8"));
 /** 源码里的全部字符串字面量（反引号 / 双引号 / 单引号）。 */
 const strings = [...code.matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "");
 const sqls = strings.filter((q) => /\b(?:SELECT|FROM|JOIN)\b/i.test(q));
-const TENANT = ["claims", "claim_message_evidence", "chat_messages", "ontology_objects", "ontology_edges"];
+const TENANT = ["claims", "claim_message_evidence", "chat_messages", "chat_threads", "ontology_objects", "ontology_edges"];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -29,7 +29,7 @@ const callersOf = (re: RegExp) => walk(join(API, "src"))
   .map((f) => relative(API, f)).sort();
 
 describe("F08 会话记忆召回读取的豁免前提", () => {
-  it("(a) 只出现五张租户表（外加只回 id 的 kg_graph_neighbors）；不用逗号连接、不从子查询取行", () => {
+  it("(a) 只出现六张租户表（外加只回 id 的 kg_graph_neighbors）；不用逗号连接、不从子查询取行", () => {
     const tables = new Set([...code.matchAll(/(?<!FOR\s)(?<!DO\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
     for (const t of [...TENANT, "kg_graph_neighbors", "kg_turn_recalls"]) tables.delete(t);
     expect([...tables]).toEqual([]);
@@ -53,6 +53,14 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code.match(/\bontology_edges\b/g)).toHaveLength(1);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims src/);
     expect(code).toMatch(/async candidates\(orgId: OrgId, userId: string, threadId: string\) \{\s*return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
+  });
+
+  it("(c4) L1 只进发起人自己的个人线程：chat_threads 只读这一次、只取 1、条件是无项目且本人创建；两路个人查询都挂在它后面", () => {
+    expect(code.match(/\bchat_threads\b/g)).toHaveLength(1);
+    expect(code).toMatch(/`SELECT 1 FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2 AND t\.project_id IS NULL AND t\.created_by = \$3`,\s*\[orgId, threadId, userId\]/);
+    expect(code).toMatch(/const inPersonalThread = own\.rows\.length === 1;/);
+    expect(code).toMatch(/const personal = !inPersonalThread \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
+    expect(code).toMatch(/const personalObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
   });
 
   it("(c3) 活结论的口径钉死（F07 失效级联靠它）；chat_messages 只在「这条是哪天说的」那个证据子查询里", () => {
