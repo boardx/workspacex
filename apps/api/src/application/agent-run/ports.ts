@@ -1,3 +1,4 @@
+import type { NewAssistantCitation } from "../chat/persist-assistant-citations";
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { designWorkbench } from "@repo/contracts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -396,6 +397,11 @@ export interface PendingWriteback {
    * 与本次改动之前逐字节相同（既有测试替身不必都改，这是不回归的保证之一）。
    */
   readonly files?: readonly RunOutputFile[];
+  /**
+   * E3 —— 这条回答携带的结构化引用。**可选**：缺省/空 ⇒ 不写 `chat_citations`。
+   * ⚠ 目前模型输出还没有结构化引用的产出方，此字段是写入侧的接线点。
+   */
+  readonly citations?: readonly NewAssistantCitation[];
 }
 
 export interface AgentRunStore {

@@ -1,4 +1,5 @@
 import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
+import type { PersistAssistantCitationsDeps } from "../../application/chat/persist-assistant-citations";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import type { InterjectionStore } from "../../application/agent-run/interjection-store";
@@ -178,6 +179,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 不注入 ⇒ 与 F17 之前逐字节相同。
      */
     private readonly memoryCards?: MemoryCardPort,
+    /** E3 —— 回答引用写入 + 价值时刻。可选，同上面每一个既有理由。 */
+    private readonly citations?: PersistAssistantCitationsDeps,
   ) {}
 
   /**
@@ -227,7 +230,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
-      { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
+      { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations },
       { orgId },
     );
     /*
@@ -261,7 +264,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
           kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(
-          { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
+          { runs: this.runs, clock: this.clock, log: this.log, events: this.events, citations: this.citations },
           { orgId },
         );
       }

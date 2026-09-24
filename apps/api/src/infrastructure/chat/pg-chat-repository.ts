@@ -34,6 +34,7 @@ import type {
   ChatVisibilityScope,
   ThreadFacts,
 } from "../../domain/chat/thread-visibility";
+import type { ChatCitationWriter, NewAssistantCitation } from "../../application/chat/persist-assistant-citations";
 import type { AgentPresenceValue } from "../../domain/chat/agent-presence";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -84,7 +85,7 @@ interface ThreadDbRow {
   version: number;
 }
 
-export class PgChatRepository implements ChatRepository {
+export class PgChatRepository implements ChatRepository, ChatCitationWriter {
   constructor(private readonly db: DatabasePort) {}
 
   async findThreadFacts(orgId: OrgId, threadId: string): Promise<ThreadFacts | null> {
@@ -841,6 +842,36 @@ export class PgChatRepository implements ChatRepository {
         anchorMessageId: row.anchor_message_id,
         sourceArtifactId: row.source_artifact_id,
       }));
+    });
+  }
+
+  /**
+   * E3：assistant 回答的引用写入（`persist-assistant-citations.ts` 已做组织内校验）。
+   * 幂等：`(org_id, message_id, idx)` 唯一索引 + DO NOTHING；`citation_id` 由消息与编号
+   * 确定性派生，重放同一回答不会产生新行。返回实际插入行数。
+   */
+  async insertCitations(
+    orgId: OrgId,
+    messageId: string,
+    citations: readonly NewAssistantCitation[],
+  ): Promise<number> {
+    if (citations.length === 0) return 0;
+    return this.db.withTenant(orgId, async (s) => {
+      let inserted = 0;
+      for (const c of citations) {
+        const r = await s.query(
+          `INSERT INTO chat_citations
+             (citation_id, org_id, message_id, idx, source_full_name, anchor_kind,
+              anchor_page, anchor_range, anchor_message_id, source_artifact_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT DO NOTHING
+           RETURNING citation_id`,
+          [`cit-${messageId}-${c.index}`, orgId, messageId, c.index, c.sourceFullName, c.anchorKind,
+            c.anchorPage, c.anchorRange, c.anchorMessageId, c.sourceArtifactId],
+        );
+        inserted += r.rows.length;
+      }
+      return inserted;
     });
   }
 

@@ -9,6 +9,7 @@ export default defineConfig({
     include: [
       "tests/first-value/first-value-recorder.test.ts",
       "tests/first-value/first-value-repo-guard.test.ts",
+      "tests/first-value/persist-assistant-citations.test.ts",
       "tests/telemetry/run-telemetry-cycle.test.ts",
       "tests/telemetry/telemetry-no-content-tables.test.ts",
       "tests/telemetry/telemetry-benchmark-facts.test.ts",
