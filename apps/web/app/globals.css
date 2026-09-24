@@ -459,12 +459,18 @@
   }
 
   body[data-print-interview-report="true"] .print-interview-report-root {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    padding: 24mm 20mm;
+    position: static;
+    display: block;
+    width: auto;
+    min-height: auto;
+    overflow: visible;
+    padding: 0;
     color: #111827;
     background: white;
+  }
+
+  body[data-print-interview-report="true"] .print-interview-report-root .break-inside-avoid {
+    break-inside: avoid;
   }
 }
 

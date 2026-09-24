@@ -32,6 +32,30 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("keeps an empty evidence matrix out of the report reading path and explains the review block", async () => {
+    const reportView = {
+      ...completed,
+      status: "completed" as const,
+      currentStep: "report" as const,
+      reportId: "report-empty-evidence",
+      report: {
+        reportId: "report-empty-evidence",
+        title: "江西足球访谈报告",
+        executiveSummary: "基层体系需要教练与赛事协同。",
+        markdown: "# 江西足球访谈报告\n\n## 决策摘要\n\n先培养教练。",
+        findings: [],
+        generatedAt: "2026-09-01T02:01:00.000Z",
+      },
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(reportView), { status: 200, headers: { "content-type": "application/json" } })));
+
+    render(<PersistentDigitalInterviewWorkflow initialView={reportView} />);
+
+    expect(await screen.findByTestId("itv-report-decision-brief")).toHaveTextContent("决策摘要");
+    expect(screen.getByTestId("itv-evidence-review-empty")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
   it("lets the user retry a failed first report without leaving the report step", async () => {
     const failed: DigitalInterviewWorkflowView = { ...completed, status: "report_pending", currentStep: "report",
       reportGeneration: { reportId: "report-failed", requestId: "request-failed", status: "failed",
