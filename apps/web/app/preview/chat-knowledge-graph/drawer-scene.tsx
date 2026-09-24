@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { KnowledgePanel } from "@/components/chat/knowledge/knowledge-panel";
+import { PreviewKnowledgePanel } from "./preview-knowledge-panel";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
 import {
   threadKnowledgeNormal,
@@ -19,7 +19,7 @@ export function DrawerScene({ revoked }: { revoked: boolean }) {
   const data: ClaimSources = revoked ? claimSourcesRevoked : claimSourcesNormal;
   return (
     <>
-      <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />
+      <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />
       <ClaimSourceDrawer data={data} open={open} onClose={() => setOpen(false)} />
     </>
   );

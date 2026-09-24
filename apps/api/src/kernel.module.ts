@@ -107,6 +107,7 @@ import { ModelGuidedResearchCheckpointGenerator } from "./application/research/m
 import { GUIDED_RUNTIME_STORE, GUIDED_SEARCH_PORT, GUIDED_RUNTIME_SERVICE, type GuidedRuntimeStore, type GuidedSearchPort } from "./application/research/guided-runtime-ports";
 import { GuidedRuntimeService } from "./application/research/guided-runtime-service";
 import { PgGuidedRuntimeStore } from "./infrastructure/research/pg-guided-runtime-store";
+import { PgGuidedInternalSourceAccess } from "./infrastructure/research/pg-guided-internal-source-access";
 import { GoogleGuidedSearch } from "./infrastructure/research/google-guided-search";
 /**
  * Composition root -- deliberately NOT part of any layer.
@@ -607,7 +608,9 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
@@ -988,6 +991,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    KnowledgeGraphController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -2403,7 +2407,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
     { provide: GUIDED_SEARCH_PORT, useFactory: () => new GoogleGuidedSearch() },
     { provide: GUIDED_RUNTIME_SERVICE,
-      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => {
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory) => {
         const config = readModelProviderConfig();
         // Report streaming is a research capability, independent of chat's rollout flag.
         const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
@@ -2413,9 +2417,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
             ? configured.completeStream!(input, onDelta)
             : model.completeStream ? model.completeStream(input, onDelta) : model.complete(input),
         };
-        return new GuidedRuntimeService(store, model, search, undefined, reportModel);
+        return new GuidedRuntimeService(store, model, search, undefined, reportModel, new PgGuidedInternalSourceAccess(db, identities, decisions));
       },
-      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT] },
+      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT, DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
@@ -2986,6 +2990,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
     KgExtractionWorker,
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
+    { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

@@ -265,7 +265,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
         injected = true;
         throw new Error("transient progress persistence unavailable");
       }
-      await originalWrite(actorArg, requestId, next, done);
+      return originalWrite(actorArg, requestId, next, done);
     });
     const interrupted = new GuidedRuntimeService(store, model, search, { provider: "test", id: "test-model" });
     const previousSearchCalls = searchCalls;
@@ -387,6 +387,21 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
       expect(loading.availableNodes).toEqual(["brief", "directions"]);
     } finally { releaseModel!(); await pending; }
     expect(state.currentNode).toBe("directions"); expect(state.busy).toBe(false);
+  });
+  it("accepts a pause command while research work owns the active lease", async () => {
+    await reachResearch();
+    blockModel = true;
+    const pending = run("generate");
+    await expect.poll(() => Boolean(releaseModel)).toBe(true);
+    const loading = await service.get(actor, session);
+    const paused = await service.execute(actor, session, {
+      sessionId: actor.sessionId, node: "research", action: "pause", requestId: randomUUID(),
+      expectedVersion: loading.version, expectedRevision: loading.planRevision ?? 0, idempotencyKey: randomUUID(),
+    });
+    expect(paused).toMatchObject({ busy: true, controlStatus: "paused" });
+    releaseModel!();
+    state = await pending;
+    expect(state).toMatchObject({ busy: false, controlStatus: "paused", errorCode: null });
   });
   it("does not confirm research without completed searches and included sources", async () => {
     await reachResearch();

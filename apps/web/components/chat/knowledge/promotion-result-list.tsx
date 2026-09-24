@@ -3,7 +3,7 @@
 import * as React from "react";
 import { CheckCircle2, GitMerge, Copy, HelpCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { PromotionResults } from "@/lib/mock/knowledge-graph";
+import type { PromotionResults } from "@/lib/knowledge-graph-api";
 
 /**
  * 「记到长期记忆」逐条结果（uc-18-4 R3-5 / R4-E4：部分成功，不整批回滚）。

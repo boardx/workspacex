@@ -1,7 +1,10 @@
 /**
  * Phase 18 知识图谱的端口。应用层定义、基础设施实现（依赖倒置）。
  */
+import type { knowledgeGraph as KG } from "@repo/contracts";
+import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
+import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
 import type { GraphHit, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
@@ -95,6 +98,36 @@ export interface KnowledgeExtractorPort {
 export const KG_EXTRACTION_QUEUE_PORT = Symbol("KgExtractionQueuePort");
 export const KG_EXTRACTION_SOURCE_PORT = Symbol("KgExtractionSourcePort");
 export const KNOWLEDGE_EXTRACTOR_PORT = Symbol("KnowledgeExtractorPort");
+
+// ─────────────────────────────── F09 读取（知识面板 / 来源抽屉 / 每轮记忆行） ───────────────────────────────
+
+/** 读模型的形状直接取契约的 out（单一事实源），这里只起别名。 */
+export type ThreadKnowledgeData = Pick<
+  z.infer<typeof KG.knowledgeGraph.getThreadKnowledge.out>,
+  "revision" | "objects" | "claims" | "edges" | "ingestion"
+>;
+export type ClaimSourcesData = z.infer<typeof KG.knowledgeGraph.getClaimSources.out>;
+export type TurnMemoryData = z.infer<typeof KG.knowledgeGraph.getTurnMemory.out>;
+
+/** 读知识需要的线程事实（来自 chat 的可见性判定，不含正文）。 */
+export interface KnowledgeThreadRef {
+  readonly threadId: string;
+  readonly projectId: string | null;
+}
+
+/**
+ * 知识的读口。每个返回内容的方法都返回 `Guarded`——内容只有交出可见性判定后才拿得到
+ * （同 chat 的 findMessages，application/security/permission-filter 的守卫读路径）。
+ * `claimRoute` 只回路由事实（作用域），不回内容：判定要先知道这条结论属于哪个会话。
+ */
+export interface KnowledgeReadPort {
+  threadKnowledge(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<ThreadKnowledgeData>>;
+  claimRoute(orgId: OrgId, userId: string, claimId: string): Promise<{ readonly scopeKind: KG.KgScopeKind; readonly scopeId: string } | null>;
+  claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef): Promise<Guarded<ClaimSourcesData> | null>;
+  turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
+}
+
+export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
 
 // ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
 
