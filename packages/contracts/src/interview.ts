@@ -728,10 +728,18 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),
-  researchBrief: DigitalInterviewResearchBrief.nullable(),
-  moderatorPolicy: DigitalInterviewModeratorPolicy.nullable(),
-  quality: DigitalInterviewQualityProjection,
-  reportReview: DigitalInterviewReportReview.nullable(),
+  researchBrief: DigitalInterviewResearchBrief.nullable().default(null),
+  moderatorPolicy: DigitalInterviewModeratorPolicy.nullable().default(null),
+  quality: DigitalInterviewQualityProjection.default({
+    previewStatus: "unavailable",
+    briefIssues: [],
+    expertCoverage: [],
+    questionFindings: [],
+    readiness: null,
+    readinessDecision: null,
+    evidenceCoverage: [],
+  }),
+  reportReview: DigitalInterviewReportReview.nullable().default(null),
 }).strict();
 
 /*
