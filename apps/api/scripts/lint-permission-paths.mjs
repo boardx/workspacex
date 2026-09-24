@@ -44,6 +44,7 @@ import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/s
 import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
+import { MIRO_CREDENTIAL_PATH, checkMiroCredentialBoundary } from "./lib/miro-credential-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -517,6 +518,17 @@ for (const root of ROOTS) {
     scanned++;
     const rel = relative(API, file);
     const body = readFileSync(file, "utf8");
+    if (rel === MIRO_CREDENTIAL_PATH) {
+      const migrationPath = "migrations/20260924000800_whiteboard_miro_direct_import.sql";
+      const evidencePath = "tests/whiteboard/miro-repository-guard.test.ts";
+      const errors = checkMiroCredentialBoundary(
+        body,
+        readFileSync(join(API, migrationPath), "utf8"),
+        readFileSync(join(API, evidencePath), "utf8"),
+      );
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
     if (SUBTASK_BOUNDARIES.has(rel)) {
       for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
         if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }

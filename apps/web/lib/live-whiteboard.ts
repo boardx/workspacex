@@ -1,4 +1,4 @@
-import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
+import { whiteboard as C, whiteboardImport as I, whiteboardMiro as M, whiteboardTransfer as T } from '@repo/contracts';
 import type { z } from 'zod';
 import { apiRequest } from './api-client';
 export type Board = C.Board;
@@ -25,6 +25,43 @@ export async function previewBoardImport(input: T.ImportBoardInput) {
 export async function importBoardPackage(input: T.ImportBoardInput) {
   const operation = T.operations.importBoard;
   return T.ImportBoardResult.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
+}
+export async function getMiroConnection() {
+  const operation = M.operations.connection;
+  return M.MiroConnection.parse(await apiRequest(operation.path, { method: operation.method }));
+}
+export async function startMiroOAuth(input: M.StartMiroOAuthInput) {
+  const operation = M.operations.startOAuth;
+  return M.StartMiroOAuthResult.parse(await apiRequest(operation.path, {
+    method: operation.method,
+    body: M.StartMiroOAuthInput.parse(input),
+  }));
+}
+export async function completeMiroOAuth(input: M.CompleteMiroOAuthInput) {
+  const operation = M.operations.completeOAuth;
+  return M.CompleteMiroOAuthResult.parse(await apiRequest(operation.path, {
+    method: operation.method,
+    body: M.CompleteMiroOAuthInput.parse(input),
+  }));
+}
+export async function listMiroBoards(query: unknown) {
+  const operation = M.operations.listBoards;
+  const parsed = M.ListMiroBoardsQuery.parse(query);
+  return M.ListMiroBoardsResult.parse(await apiRequest(operation.path, {
+    method: operation.method,
+    query: { offset: String(parsed.offset), limit: String(parsed.limit) },
+  }));
+}
+export async function previewMiroBoard(input: M.PreviewMiroBoardInput) {
+  const operation = M.operations.previewBoard;
+  return M.PreviewMiroBoardResult.parse(await apiRequest(operation.path, {
+    method: operation.method,
+    body: M.PreviewMiroBoardInput.parse(input),
+  }));
+}
+export async function disconnectMiro() {
+  const operation = M.operations.disconnect;
+  return operation.out.parse(await apiRequest(operation.path, { method: operation.method }));
 }
 export async function importDiagram(id: string, input: I.ImportDiagramInput, sessionToken?: string) {
   const op = I.operations.importDiagram;

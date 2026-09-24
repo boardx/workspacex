@@ -1,0 +1,63 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { completeMiroOAuth } from '@/lib/live-whiteboard';
+
+function CallbackStatus({ error = false }: { error?: boolean }) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-background p-6">
+      <section className="max-w-md rounded-panel border border-border bg-card p-6 text-center shadow-sm">
+        <h1 className="text-20 font-semibold">连接 Miro</h1>
+        {error ? (
+          <p role="alert" className="mt-3 text-14 text-destructive">
+            授权无法完成。请返回白板并重新连接 Miro。
+          </p>
+        ) : (
+          <p role="status" className="mt-3 text-14 text-muted-foreground">
+            正在验证一次性授权并安全保存连接…
+          </p>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function MiroOAuthCallback() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const state = params.get('state');
+    const code = params.get('code');
+    if (!state || !code) {
+      setError(true);
+      return;
+    }
+
+    let active = true;
+    void completeMiroOAuth({ state, code })
+      .then((result) => {
+        if (!active) return;
+        const separator = result.returnTo.includes('?') ? '&' : '?';
+        router.replace(`${result.returnTo}${separator}miro=connected`);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [params, router]);
+
+  return <CallbackStatus error={error} />;
+}
+
+export default function MiroOAuthCallbackPage() {
+  return (
+    <Suspense fallback={<CallbackStatus />}>
+      <MiroOAuthCallback />
+    </Suspense>
+  );
+}
