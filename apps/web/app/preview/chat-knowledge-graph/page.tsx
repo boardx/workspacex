@@ -1,14 +1,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { KnowledgePanel, type PanelStatus, type PanelView } from "@/components/chat/knowledge/knowledge-panel";
-import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
+import { DrawerScene } from "./drawer-scene";
+import { PanelExtrasScene } from "./panel-extras-scene";
 import { AnswerKnowledgeFooter } from "@/components/chat/knowledge/answer-knowledge-footer";
 import { AnswerMemoryLine } from "@/components/chat/knowledge/answer-memory-line";
 import { MemoryCard } from "@/components/chat/knowledge/memory-card";
 import { ConflictPromptCard } from "@/components/chat/knowledge/conflict-prompt-card";
 import { MemoryRecallAnswer } from "@/components/chat/knowledge/memory-recall-answer";
-import { NominationCard } from "@/components/chat/knowledge/nomination-card";
-import { PromotionResultList } from "@/components/chat/knowledge/promotion-result-list";
 import {
   threadKnowledgeNormal,
   threadKnowledgePartialFailure,
@@ -16,15 +15,11 @@ import {
   threadKnowledgeEmpty,
   threadKnowledgeOversize,
   threadKnowledgeErrorCode,
-  claimSourcesNormal,
-  claimSourcesRevoked,
   answerCitationsNormal,
   answerCitationsPersonal,
   channelHealthAllOk,
   channelHealthGraphDown,
   channelHealthVectorDown,
-  promotionResultsMixed,
-  nominationsNormal,
   turnMemoryCapturedOnly,
   turnMemoryPending,
   turnMemoryWithRememberCard,
@@ -172,9 +167,6 @@ export default function ChatKnowledgeGraphPreviewPage({
     "graph-error": { status: "error", data: null, view: "graph", errorCode: threadKnowledgeErrorCode },
   };
 
-  const claimLabel = (id: string) =>
-    threadKnowledgeNormal.claims.find((c) => c.id === id)?.statement ?? id;
-
   let body: React.ReactNode;
   let answerSlot: React.ReactNode = null;
 
@@ -189,31 +181,9 @@ export default function ChatKnowledgeGraphPreviewPage({
       />
     );
   } else if (scene === "drawer-normal" || scene === "drawer-revoked") {
-    body = (
-      <>
-        <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />
-        <ClaimSourceDrawer
-          data={scene === "drawer-revoked" ? claimSourcesRevoked : claimSourcesNormal}
-          open
-          onClose={() => {}}
-        />
-      </>
-    );
-  } else if (scene === "promote-results") {
-    body = (
-      <div className="flex h-full flex-col p-3" data-testid="kg-panel">
-        <h2 className="mb-2 text-12 font-medium">记到长期记忆 · 逐条结果</h2>
-        <p className="mb-2 text-10 text-muted-foreground">部分成功，不整批回滚（uc-18-4 E4）</p>
-        <PromotionResultList data={promotionResultsMixed} claimLabel={claimLabel} />
-      </div>
-    );
-  } else if (scene === "nomination") {
-    body = (
-      <div className="flex h-full flex-col gap-3 p-3" data-testid="kg-panel">
-        <h2 className="text-12 font-medium">会话结束 · AI 提名</h2>
-        <NominationCard data={nominationsNormal} claimLabel={claimLabel} />
-      </div>
-    );
+    body = <DrawerScene revoked={scene === "drawer-revoked"} />;
+  } else if (scene === "promote-results" || scene === "nomination") {
+    body = <PanelExtrasScene kind={scene} />;
   } else if (scene.startsWith("answer-")) {
     // answer-* 场景：把 footer 放进 AI 气泡
     const map: Record<string, { citations: typeof answerCitationsNormal; health: typeof channelHealthAllOk }> = {
