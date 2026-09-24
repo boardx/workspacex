@@ -37,6 +37,7 @@
 | ADR-110 | frontend-data-fetching-layer | 引入 TanStack Query 收敛 32 个 `lib/live-*.ts` 域各自手写的 `useEffect` 取数/竞态保护（实测 31/32 无防护）；不改 API 封装层与 `SessionProvider`，逐组件文件渐进迁移。**Proposed** |
 | ADR-111 | separate-cn-release-preparation-from-traffic-activation | CN 发布先生成绑定真实基线的不可变准备凭据，再在五分钟预算内 drain、CAS、切换、验收和失败回滚。**Proposed** |
 | ADR-113 | personal-device-pairing-and-runner-protocol | `personal-local` 边界从「本机」扩为「本人已配对的设备」；桌面只主动连出到端到端加密中继（中继只见密文），本地服务仍绑回环；离线派任务用密文信箱；抽 Runner 协议，桌面是第一个 Runner、云 VPC 是第二个。触碰已签核的 identity 束，**Proposed，需人类签核**（issue #3910） |
+| ADR-114 | board-content-bytes-live-in-file-storage | Board/Yjs 内容字节以不可变 Blob 为唯一事实源；PG 只发布 manifest 指针并保存 ACL、epoch/seq、幂等和状态机。Hosted 用共享对象存储，自托管复用同一端口接 MinIO 或持久 filesystem。**Accepted（2026-09-24）** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
