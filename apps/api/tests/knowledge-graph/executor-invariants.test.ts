@@ -103,6 +103,18 @@ describe("F03 I-4 / I-5：数据库一侧自己挡", () => {
   });
 });
 
+describe("F03 SECURITY DEFINER 硬化", () => {
+  it("调用方建同名临时表冒充证据段 ⇒ 不生效，仍是 KG_EVIDENCE_NOT_FOUND", async () => {
+    const b = modelBatch(ORG, seg);
+    const forged = { ...b, claims: b.claims.map((c) => ({ ...c, evidence: [{ segmentId: "seg-forged", stance: "supporting" as const }] })) };
+    await expect(asApp(ORG, async (c) => {
+      await c.query("CREATE TEMP TABLE segments (id text, org_id text)");
+      await c.query("INSERT INTO segments VALUES ('seg-forged', $1)", [ORG]);
+      return c.query("SELECT kg_apply_batch($1::jsonb)", [JSON.stringify(toBatchPayload(forged))]);
+    })).rejects.toThrow(/KG_EVIDENCE_NOT_FOUND/);
+  });
+});
+
 describe("F03 I-1 / I-14：作用域", () => {
   it.each(["project", "org", "platform"] as const)("scope=%s ⇒ KG_SCOPE_NOT_ENABLED（数据库与应用层都拒）", async (kind) => {
     const b = modelBatch(ORG, seg, { scope: { kind, id: "x" } });

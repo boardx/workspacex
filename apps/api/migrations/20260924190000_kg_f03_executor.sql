@@ -56,7 +56,7 @@ CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE ON claim_segmen
 
 -- ─────────────────────────────── 被拒动作留痕 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_record_rejected(p jsonb) RETURNS text
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_org        text := current_setting('app.current_org', true);
@@ -87,7 +87,7 @@ $$;
 
 -- ─────────────────────────────── 唯一写入口 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_apply_batch(p jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_org        text := current_setting('app.current_org', true);
@@ -146,7 +146,8 @@ BEGIN
             v_created_by, CASE WHEN v_actor = 'human' THEN p->>'actor_id' END,
             v_scope_kind, v_scope_id, now());
     FOR ev IN SELECT * FROM jsonb_array_elements(c->'evidence') LOOP
-      -- 证据段必须属于本 org（RLS 之外再挡一次：SECURITY DEFINER 下 RLS 仍按属主身份生效与否取决于 FORCE）
+      -- 证据段必须属于本 org。函数属主是超级用户，SECURITY DEFINER 下 RLS 不生效——所以这里（和本函数里
+      -- 每一处读写一样）显式按 v_org 过滤；search_path 末尾的 pg_temp 挡住同名临时表冒充。
       IF NOT EXISTS (SELECT 1 FROM segments s WHERE s.id = ev->>'segment_id' AND s.org_id = v_org) THEN
         RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: segment %', ev->>'segment_id' USING ERRCODE = '23503';
       END IF;
