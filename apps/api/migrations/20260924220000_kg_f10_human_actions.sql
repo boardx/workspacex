@@ -94,7 +94,7 @@ BEGIN
     v_objects := ARRAY[v_action->>'objectId'];
     PERFORM kg_human_require_objects(v_org, v_thread, v_objects);
     UPDATE ontology_objects
-       SET aliases = (SELECT array_agg(DISTINCT a) FROM unnest(aliases || name) a WHERE a <> v_action->>'name'),
+       SET aliases = coalesce((SELECT array_agg(DISTINCT a) FROM unnest(aliases || name) a WHERE a <> v_action->>'name'), '{}'),
            name = v_action->>'name', updated_at = now()
      WHERE org_id = v_org AND id = v_objects[1];
 
@@ -103,10 +103,13 @@ BEGIN
     IF v_objects[1] = v_objects[2] THEN RAISE EXCEPTION 'KG_OBJECT_NOT_FOUND: cannot merge an entity into itself' USING ERRCODE = '23514'; END IF;
     PERFORM kg_human_require_objects(v_org, v_thread, v_objects);
     UPDATE ontology_objects k
-       SET aliases = (SELECT array_agg(DISTINCT a) FROM unnest(k.aliases || m.name || m.aliases) a WHERE a <> k.name), updated_at = now()
+       SET aliases = coalesce((SELECT array_agg(DISTINCT a) FROM unnest(k.aliases || m.name || m.aliases) a WHERE a <> k.name), '{}'), updated_at = now()
       FROM ontology_objects m WHERE k.org_id = v_org AND k.id = v_objects[1] AND m.id = v_objects[2];
-    UPDATE ontology_edges SET dst_id = v_objects[1] WHERE org_id = v_org AND dst_kind = 'object' AND dst_id = v_objects[2];
-    UPDATE ontology_edges SET src_id = v_objects[1] WHERE org_id = v_org AND src_kind = 'object' AND src_id = v_objects[2];
+    -- 只改本会话作用域里的边：两个实体都属于本会话（上面已核对），别的作用域的边不该被这次合并改写。
+    UPDATE ontology_edges SET dst_id = v_objects[1]
+     WHERE org_id = v_org AND scope_kind = 'chat_session' AND scope_id = v_thread AND dst_kind = 'object' AND dst_id = v_objects[2];
+    UPDATE ontology_edges SET src_id = v_objects[1]
+     WHERE org_id = v_org AND scope_kind = 'chat_session' AND scope_id = v_thread AND src_kind = 'object' AND src_id = v_objects[2];
     UPDATE ontology_objects SET merged_into = v_objects[1], updated_at = now() WHERE org_id = v_org AND id = v_objects[2];
 
   ELSIF v_type = 'splitObject' THEN

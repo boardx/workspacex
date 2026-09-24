@@ -4,7 +4,7 @@
  * 知识由 F06 抽取流水线真实产生；每个动作经 applyHumanAction → kg_apply_human_action 落表，
  * 读回用 F09 的读接口（用户在面板上看到的就是它），并核对 AGE 投影仍与 canonical 一致。
  */
-import { ConflictException, ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyHumanAction, type HumanActionDeps } from "../../src/application/knowledge-graph/apply-human-action";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
@@ -183,6 +183,36 @@ describe("F10: 权限与作用域", () => {
   it("别的会话里的结论 id ⇒ KG_CLAIM_NOT_FOUND（不跨会话改）", async () => {
     const other = await claimBy("老张负责测试", SHARED);
     await expect(act({ type: "confirmClaim", claimId: other.id })).rejects.toMatchObject({ code: "KG_CLAIM_NOT_FOUND" });
+  });
+
+  it("别的会话里的实体 id ⇒ KG_OBJECT_NOT_FOUND（改名 / 合并 / 拆分都不跨会话）", async () => {
+    const mine = await objectBy("张三");
+    const theirs = (await read(SHARED)).objects.find((o) => o.name === "v2")!;
+    await expect(act({ type: "renameObject", objectId: theirs.id, name: "v2.1" })).rejects.toMatchObject({ code: "KG_OBJECT_NOT_FOUND" });
+    await expect(act({ type: "mergeObjects", keepObjectId: mine.id, mergeObjectId: theirs.id })).rejects.toMatchObject({ code: "KG_OBJECT_NOT_FOUND" });
+    const c = await claimBy("老张负责测试");
+    await expect(act({ type: "splitObject", objectId: theirs.id, newName: "v3", moveClaimIds: [c.id] })).rejects.toMatchObject({ code: "KG_OBJECT_NOT_FOUND" });
+    expect((await read(SHARED)).objects.find((o) => o.id === theirs.id)).toMatchObject({ name: "v2" });
+  });
+
+  it("看不见的会话（别人的个人会话）⇒ 与「不存在」同一个出口：同一个码、同一个 404 响应体", async () => {
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions);
+    const body = { basedOnRevision: 1, action: { type: "confirmClaim" as const, claimId: "c-x" } };
+    const outcome = async (threadId: string) => {
+      try { await ctl.humanAction({ userId: "u-member", orgId: ORG } as never, threadId, body); return "allowed"; } catch (e) {
+        if (!(e instanceof NotFoundException)) throw e;
+        return JSON.stringify({ status: e.getStatus(), body: e.getResponse() });
+      }
+    };
+    expect(await outcome(MINE)).toBe(await outcome("thr-does-not-exist"));
+    expect(await outcome(MINE)).not.toBe("allowed");
+  });
+
+  it("改名成没有别名的实体原来的名字：不报 500（别名为空数组，不是 NULL）", async () => {
+    const env = await objectBy("测试环境");   // 拆分出来的新实体，没有别名
+    expect(env.aliases).toEqual([]);
+    await act({ type: "renameObject", objectId: env.id, name: "测试环境" });
+    expect(await objectBy("测试环境")).toMatchObject({ id: env.id, aliases: [] });
   });
 
   it("所有动作之后，AGE 投影与 canonical 仍逐行一致（R3-5）", async () => {
