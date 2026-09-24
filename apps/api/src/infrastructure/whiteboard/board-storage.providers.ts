@@ -23,7 +23,10 @@ export function boardBlobRoot(env: NodeJS.ProcessEnv = process.env): string {
 /** Local implementation selected only after the runtime topology gate succeeds. */
 export class ConfiguredFsBoardBlobStore implements BoardBlobStore {
   private store?: FsBoardBlobStore;
-  constructor(private readonly env: NodeJS.ProcessEnv = process.env) { assertFilesystemBoardBlobRuntime(env); }
+  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {
+    assertFilesystemBoardBlobRuntime(env);
+    boardBlobRoot(env);
+  }
   putImmutable(input: BoardBlobIdentity & BoardBlobDescriptor & { ciphertext: Uint8Array }): Promise<'created' | 'already-present-same-content'> {
     return this.configured().putImmutable(input);
   }

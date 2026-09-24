@@ -30,6 +30,8 @@ describe('board storage providers', () => {
     expect(() => boardBlobProviderKind({ NODE_ENV: 'production' })).toThrow('WORKSPACEX_BOARD_BLOB_PROVIDER');
     expect(() => boardBlobProviderKind({ WORKSPACEX_BOARD_BLOB_PROVIDER: 'unknown' })).toThrow('filesystem or hosted');
     expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).toThrow('WORKSPACEX_BOARD_SINGLE_REPLICA=true');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true' })).toThrow('WORKSPACEX_BOARD_BLOB_ROOT');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` })).toThrow('durable storage');
     expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted' })).toThrow('not registered');
     expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).not.toThrow();
   });
