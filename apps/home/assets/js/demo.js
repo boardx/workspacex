@@ -77,11 +77,11 @@ export const SCENARIOS = [
         { agent: '技能匹配员', did: '把员工已有的技能，对上一直招不满的岗位。', uses: [3, 4, 2] },
         { agent: '审核员', did: '逐条对照来源核验结论，撤回了那个人人都害怕的数字。', uses: [] },
       ],
-      headline: '先变的是任务，不是岗位。让员工转到你一直招不到人的岗位上——并且赶在小道消息之前把话说清楚。',
+      headline: '先变的是任务，不是岗位。为员工开一条路，通向你一直招不到人的岗位——并且赶在小道消息之前把话说清楚。',
       claims: [
         { text: '大约三分之一的工时最先改变：阅读、核对、重复录入。', cites: [0], ok: true,
           why: '42 个岗位合计 34% 的工时——变的是岗位里的任务，而不是整个岗位。' },
-        { text: '优先让员工转岗到风控和数据质量，那里有 90 个岗位空着。', cites: [3, 4], ok: true,
+        { text: '为员工开出第一条转岗路：风控和数据质量，那里有 90 个岗位空着。', cites: [3, 4], ok: true,
           why: '缺口是实打实的；40% 的处理人员今天就在做这类核对。这是第一批能走的路，不是人人都有位置——方案里要讲清楚。' },
         { text: '在工作时间内培训，并在上线之前公布计划。', cites: [2], ok: true,
           why: '74% 的人愿意在工作时间内培训；63% 的人已经在担心——你不说，传言就会替你说。' },
@@ -99,7 +99,7 @@ export const SCENARIOS = [
     en: {
       tab: 'Sales win rate',
       who: 'Head of sales',
-      ask: 'Why do we lose deals we should win?',
+      ask: 'CRM says we lose on price. True?',
       role: 'You lead sales for a B2B software company.',
       stakes: 'The win rate slid from 31% to 22% in a year. Everyone has a theory. Nobody has evidence.',
       task: 'Find out why the deals we should win are being lost.',
@@ -116,9 +116,9 @@ export const SCENARIOS = [
         { agent: 'Pattern finder', did: 'Compared the lost deals with the ones we won.', uses: [3, 4] },
         { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the fix everyone was about to reach for.', uses: [] },
       ],
-      headline: 'The CRM says we lose on price. The buyers say we were too slow on the security review.',
+      headline: 'The CRM says we lose on price. The lost deals say we were too slow on the security review.',
       claims: [
-        { text: 'The recorded loss reason, price, does not hold up.', cites: [0, 2], ok: true,
+        { text: 'The recorded loss reason, price, is contradicted by the buyers.', cites: [0, 2], ok: true,
           why: 'Price is logged in 58% of losses — but in the win–loss interviews, buyers describe something else.' },
         { text: 'A slow security review is the pattern in the lost deals.', cites: [1, 3], ok: true,
           why: '29 of 40 lost deals waited nine days or more; the queue’s median is 11.' },
@@ -133,7 +133,7 @@ export const SCENARIOS = [
     zh: {
       tab: '销售赢单率',
       who: '销售负责人',
-      ask: '本该赢的单，为什么输了？',
+      ask: 'CRM 说输在价格，真的吗？',
       role: '你是一家 B2B 软件公司的销售负责人。',
       stakes: '一年之内，赢单率从 31% 跌到 22%。人人都有一套说法，没有一个人拿得出证据。',
       task: '查清楚：本该赢的单，为什么输了。',
@@ -150,9 +150,9 @@ export const SCENARIOS = [
         { agent: '对比分析员', did: '把丢的单和赢的单放在一起比。', uses: [3, 4] },
         { agent: '审核员', did: '逐条对照来源核验结论，撤回了大家正准备动手的那个办法。', uses: [] },
       ],
-      headline: 'CRM 说我们输在价格；客户说，是我们的安全评审太慢。',
+      headline: 'CRM 说我们输在价格；丢单记录说，是我们的安全评审太慢。',
       claims: [
-        { text: 'CRM 里记的“价格”这个丢单原因，站不住。', cites: [0, 2], ok: true,
+        { text: 'CRM 里记的“价格”，被客户亲口否认了。', cites: [0, 2], ok: true,
           why: '58% 的丢单记的是价格——可是当面问客户，他们说的是另一回事。' },
         { text: '安全评审太慢，在丢单里反复出现。', cites: [1, 3], ok: true,
           why: '40 个丢单里有 29 个等了九天以上；排队的中位数是 11 天。' },
@@ -166,13 +166,232 @@ export const SCENARIOS = [
     },
   },
 
+  /* ---- AI-native enterprise path ----------------------------------------- */
+  {
+    id: 'native',
+    en: {
+      tab: 'AI-native enterprise path',
+      who: 'CEO',
+      ask: 'We spent on AI. Where’s the profit?',
+      role: 'You are the CEO of a 200-person company.',
+      stakes: 'You spent on AI last year and can’t find it in the profit. Your people already use AI on their own. What did it change? You have no answer.',
+      task: 'Lay out eighteen months: what comes first, what comes next, and how each step is measured.',
+      sources: [
+        { who: 'Org chart', text: '200 people in nine teams across three offices.' },
+        { who: 'Tool audit', text: '23 tools in use. No shared record of what was decided, or why.' },
+        { who: 'Staff survey', text: '71% use AI on their own. 12% use it in work they share with others.' },
+        { who: 'Legal pilot · 8 weeks', text: 'Contract review time fell 58%. Every finding traced to a clause.' },
+        { who: 'Board goal', text: 'Grow revenue 40% without headcount growing at the same rate.' },
+      ],
+      steps: [
+        { agent: 'Org analyst', did: 'Mapped where decisions are made and where the reasons get lost.', uses: [0, 1] },
+        { agent: 'Adoption analyst', did: 'Found the gap: most people already use AI, almost never together.', uses: [2] },
+        { agent: 'Path planner', did: 'Laid out three stages — individual, team, organization — each with a measure.', uses: [2, 3, 4] },
+        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the purchase that looks like progress.', uses: [] },
+      ],
+      headline: 'Bring the AI people already use into shared work, prove it team by team, and measure it against the board’s 40%.',
+      claims: [
+        { text: 'Months 1–3: bring the AI work people already do into the open, where the team can see it and build on it.', cites: [2, 1], ok: true,
+          why: 'The habit exists (71%); what is missing is shared work (12%) and a shared record, which none of the 23 tools keeps.' },
+        { text: 'Months 4–9: repeat the legal pilot’s pattern, one team at a time.', cites: [3], ok: true,
+          why: 'It is the one pattern here with a measured result (−58%) and a trail anyone can audit.' },
+        { text: 'Months 10–18: one shared record of decisions across all nine teams, measured against the 40% goal.', cites: [0, 4, 1], ok: true,
+          why: 'Nine teams in three offices lose reasons between them; the board has already named the measure.' },
+        { text: 'Buy an AI license for all 200 people in month one.', cites: [2], ok: false,
+          why: 'Licenses buy more private use. The gap is the 12% who share the work, and a license alone does not close it.' },
+      ],
+      so: 'You give the board a path with a measure at every stage — starting from the habit your people already have.',
+      yours: 'Run this on your own org chart, tool list and survey.',
+    },
+    zh: {
+      tab: 'AI 原生企业路径',
+      who: '老板',
+      ask: '钱花在 AI 上，利润里在哪？',
+      role: '你是一家 200 人公司的老板。',
+      stakes: '去年在 AI 上花了钱，利润里看不出来；员工却早就在私下用 AI。换回了什么，你答不上来。',
+      task: '排出十八个月里先做什么、后做什么，每一步怎么量效果。',
+      sources: [
+        { who: '组织架构', text: '200 人，九个团队，分布在三个办公地。' },
+        { who: '工具盘点', text: '在用工具 23 个；决定了什么、为什么这样决定，没有任何共享记录。' },
+        { who: '员工调研', text: '71% 的人私下在用 AI；在共享工作中使用的只有 12%。' },
+        { who: '法务试点 · 8 周', text: '合同审查时间下降 58%，每条审查意见都能追溯到具体条款。' },
+        { who: '董事会目标', text: '收入增长 40%，人不能跟着同比例加。' },
+      ],
+      steps: [
+        { agent: '组织分析员', did: '梳理决定在哪儿拍板、依据又在哪儿断了档。', uses: [0, 1] },
+        { agent: '使用情况分析员', did: '找到了缺口：大多数人已经在用 AI，却几乎从不一起用。', uses: [2] },
+        { agent: '路径规划员', did: '规划三个阶段——个人、团队、组织——每个阶段都有衡量指标。', uses: [2, 3, 4] },
+        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那笔看着像有动作、其实没用的采购。', uses: [] },
+      ],
+      headline: '先把各自私下用的 AI 摆上台面，一个团队一个团队地验证，再对着董事会 40% 的目标算账。',
+      claims: [
+        { text: '第 1–3 个月：把大家私下用 AI 做的事摆到明面上，让团队看得见、接得上。', cites: [2, 1], ok: true,
+          why: '习惯已经有了（71%）；缺的是一起用（12%），以及 23 个工具里没有一个留下的共享记录。' },
+        { text: '第 4–9 个月：把法务试点的做法，一个团队一个团队地复制过去。', cites: [3], ok: true,
+          why: '这是这里唯一有实测结果（−58%）、且过程谁都能审计的做法。' },
+        { text: '第 10–18 个月：九个团队共用一套决策记录，以 40% 的目标来衡量。', cites: [0, 4, 1], ok: true,
+          why: '三地九个团队之间，决策依据一直没留下来；董事会已经定好了衡量标准。' },
+        { text: '第一个月给全部 200 人买 AI 账号。', cites: [2], ok: false,
+          why: '账号买来的是更多私下使用。缺口在于只有 12% 的人一起用——光买账号补不上。' },
+      ],
+      so: '你交给董事会的，是一条每个阶段都有衡量指标的路径——起点是员工已经养成的习惯。',
+      yours: '用你自己的组织架构、工具清单和员工调研跑一遍。',
+    },
+  },
+
+  /* ---- AI return on investment ------------------------------------------- */
+  {
+    id: 'roi',
+    en: {
+      tab: 'AI return on investment',
+      who: 'CFO',
+      ask: 'Vendors say it works. Does my P&L?',
+      role: 'You are the CFO of an 800-person logistics company.',
+      stakes: 'The company spent $1.2M on AI tools last year. The board asks what it got back — and every vendor dashboard says “great.”',
+      task: 'Find out what the AI spending actually returned, and what to renew.',
+      sources: [
+        { who: 'Vendor dashboards', text: 'All three tools report “14,000 hours saved,” counted as prompts sent × an assumed 6 minutes each.' },
+        { who: 'Licenses · 12 months', text: '$1.2M across three tools: a writing assistant ($700K), a routing optimizer ($300K), an invoice reader ($200K).' },
+        { who: 'Operations data', text: 'Since the routing optimizer went live, fuel cost per delivery fell 7% on the routes that use it. Other routes are flat.' },
+        { who: 'Accounts payable', text: 'Invoice processing time fell from 4 days to 1. Late-payment fees dropped by $150K.' },
+        { who: 'Usage log · writing assistant', text: '38% of licensed seats were used in the last month.' },
+      ],
+      steps: [
+        { agent: 'Spend analyst', did: 'Matched every license to the budget line it came from.', uses: [1] },
+        { agent: 'Outcome analyst', did: 'Looked for results in the company’s own numbers, not the vendors’.', uses: [2, 3] },
+        { agent: 'Usage analyst', did: 'Checked who actually uses what the company pays for.', uses: [4, 0] },
+        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the number most likely to go straight into the board deck.', uses: [] },
+      ],
+      headline: 'Renew the invoice reader. Routing shows a measured result, not yet a dollar figure. Measure the $700K writing assistant before renewing it.',
+      claims: [
+        { text: 'The routing optimizer shows a result: fuel cost per delivery down 7% on its routes — not yet set against its cost.', cites: [2, 1], ok: true,
+          why: 'The comparison is built in — the routes without it stayed flat.' },
+        { text: 'The invoice reader has earned back most of its cost in late fees alone.', cites: [3, 1], ok: true,
+          why: '$150K in avoided late fees against a $200K license — and processing went from 4 days to 1.' },
+        { text: 'Before renewing the writing assistant, measure it — and cut the seats nobody uses.', cites: [4, 1], ok: true,
+          why: 'It is $700K of the $1.2M, and 38% of its seats were used last month. There is no outcome number for it yet.' },
+        { text: 'AI saved us 14,000 hours last year.', cites: [0], ok: false,
+          why: 'That is prompts × an assumed six minutes, from the vendors’ own dashboards. It measures activity, not time returned — and a board will ask about the second.' },
+      ],
+      so: 'You tell the board what paid off, what nobody has measured yet, and what to renew — with a source under every number.',
+      yours: 'Run this on your own licenses and operating numbers.',
+    },
+    zh: {
+      tab: 'AI 投入回报',
+      who: '财务总监',
+      ask: '供应商说有效，账上在哪？',
+      role: '你是一家 800 人物流公司的财务总监。',
+      stakes: '公司去年在 AI 工具上花了 900 万元。董事会问：换回来了什么？而每家供应商的后台都说“效果很好”。',
+      task: '弄清楚 AI 上花的钱到底换回了什么，以及哪些该续费。',
+      sources: [
+        { who: '供应商后台', text: '三款工具都报告“节省 14,000 小时”，算法是：提问次数 × 假定每次 6 分钟。' },
+        { who: '许可费 · 12 个月', text: '三款工具共 900 万元：写作助手 500 万元、路线优化 250 万元、发票识别 150 万元。' },
+        { who: '运营数据', text: '路线优化上线后，用它的线路每单油耗成本下降 7%；其他线路持平。' },
+        { who: '应付账款', text: '发票处理时间从 4 天降到 1 天；逾期付款罚金少了 110 万元。' },
+        { who: '使用日志 · 写作助手', text: '上个月，已购账号里只有 38% 被用过。' },
+      ],
+      steps: [
+        { agent: '支出分析员', did: '把每一笔许可费对到它所属的预算科目。', uses: [1] },
+        { agent: '成效分析员', did: '到公司自己的数字里找结果，而不是看供应商的数字。', uses: [2, 3] },
+        { agent: '使用情况分析员', did: '查公司付了钱的东西，到底谁在用。', uses: [4, 0] },
+        { agent: '审核员', did: '逐条对照来源核验结论，撤回了最容易被直接拿去汇报的那个数字。', uses: [] },
+      ],
+      headline: '发票识别续费。路线优化有了实测结果，但还没折成钱。500 万元的写作助手，续费前先把效果量出来。',
+      claims: [
+        { text: '路线优化见到了结果：用它的线路，每单油耗成本下降 7%——还没和它的许可费对过账。', cites: [2, 1], ok: true,
+          why: '对照组是现成的——没用它的线路一直持平。' },
+        { text: '发票识别单靠少交的罚金，就收回了大部分成本。', cites: [3, 1], ok: true,
+          why: '少交罚金 110 万元，对应 150 万元的许可费；处理时间还从 4 天降到了 1 天。' },
+        { text: '续费写作助手之前，先衡量效果，并砍掉没人用的账号。', cites: [4, 1], ok: true,
+          why: '它占了 900 万元里的 500 万元，上个月只有 38% 的账号被用过；到现在还没有任何成效数字。' },
+        { text: 'AI 去年替我们节省了 14,000 小时。', cites: [0], ok: false,
+          why: '这个数字是提问次数 × 假定的 6 分钟，出自供应商自己的后台。它衡量的是活跃度，不是省回的时间——董事会一定会追问后者。' },
+      ],
+      so: '你告诉董事会：哪些见效了、哪些还没人量过、哪些该续费——每个数字下面都有来源。',
+      yours: '用你自己的许可费清单和经营数据跑一遍。',
+    },
+  },
+
+  /* ---- AI transformation strategy: pilots that never leave the lab ------- */
+  {
+    id: 'strategy',
+    en: {
+      tab: 'AI transformation strategy',
+      who: 'COO',
+      ask: 'Dozens of pilots, few live. What now?',
+      role: 'You are the COO of a 600-person services firm.',
+      stakes: 'Eighteen months of AI pilots: 23 started, 2 in production. The board has stopped asking what you are testing and started asking what it changed.',
+      task: 'Decide which pilots to scale, which to stop — and why the rest never left the lab.',
+      sources: [
+        { who: 'Pilot register', text: '23 AI pilots started in 18 months. 2 are in production.' },
+        { who: 'Pilot reviews', text: '19 of the 23 were judged on how good the demo looked. 4 had a business measure agreed before they began.' },
+        { who: 'Legal · contract review pilot', text: 'Measured from day one: first-pass review of 40 contracts fell from six hours each to two, replacing the old first read. Every finding was checked against its clause.' },
+        { who: 'Finance · variance report pilot', text: 'It worked in the pilot and never reached the monthly close: nobody owned changing the process.' },
+        { who: 'Survey · 14 pilot teams', text: '11 of 14 say the pilot tool sat beside the old process instead of replacing a step in it.' },
+      ],
+      steps: [
+        { agent: 'Portfolio analyst', did: 'Sorted all 23 pilots by what they were judged on.', uses: [0, 1] },
+        { agent: 'Workflow analyst', did: 'Checked which pilots replaced a step of real work, and which ran beside it.', uses: [4, 3] },
+        { agent: 'Value analyst', did: 'Kept only results measured in the business’s own terms.', uses: [2, 1] },
+        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the next pilot everyone assumed was ready.', uses: [] },
+      ],
+      headline: 'The pilots did not fail on the technology. Only 4 of 23 had a business measure, and 11 of 14 teams ran beside the old process. Scale contract review; pause the rest until each has a measure and an owner.',
+      claims: [
+        { text: 'Most pilots were never set up to scale: 19 of 23 were judged on the demo.', cites: [1, 0], ok: true,
+          why: 'Only 4 had a business measure agreed before they began, and 2 of 23 reached production.' },
+        { text: 'Scale contract review: it has a business measure and replaced a real step.', cites: [2], ok: true,
+          why: 'It was measured from day one, it replaced the old first read, and review went from six hours to two.' },
+        { text: 'Make the manager who runs each process the owner of its change. No pilot starts or scales without that owner and a measure agreed up front.', cites: [3, 4, 1], ok: true,
+          why: 'The variance report worked and stalled with no owner; 11 of 14 teams ran the tool beside the old process; 4 of 23 had a measure.' },
+        { text: 'Scale the variance report next — it worked in the pilot.', cites: [3], ok: false,
+          why: 'It worked, and it stalled because nobody owned changing the process. Scaled the same way, it stalls the same way — only bigger.' },
+      ],
+      so: 'You tell the board what changed, what stops, and what has to be true before the next pilot starts.',
+      yours: 'Run this on your own pilot list and reviews.',
+    },
+    zh: {
+      tab: 'AI 转型战略',
+      who: '运营副总',
+      ask: '试点一大堆，哪几个该放大？',
+      role: '你是一家 600 人服务公司的运营副总。',
+      stakes: '十八个月里做了 23 个 AI 试点，真正上线的只有 2 个。董事会已经不问你在试什么，而是问：到底改变了什么？',
+      task: '决定哪些试点放大、哪些叫停——以及其余的为什么始终没走出实验室。',
+      sources: [
+        { who: '试点台账', text: '十八个月启动了 23 个 AI 试点；上线的有 2 个。' },
+        { who: '试点评审', text: '23 个里有 19 个按演示效果评审；只有 4 个在启动前定好了业务指标。' },
+        { who: '法务 · 合同初审试点', text: '从第一天就定了指标：40 份合同的初审时间，从每份六小时降到两小时，取代了原来的人工初读；每条审查意见都对着条款核对过。' },
+        { who: '财务 · 差异报告试点', text: '试点里跑通了，却一直没进入月结：没人负责改流程。' },
+        { who: '调研 · 14 个试点团队', text: '14 个团队里有 11 个说：试点工具摆在老流程旁边，没有替换掉其中任何一步。' },
+      ],
+      steps: [
+        { agent: '组合分析员', did: '把 23 个试点按“拿什么来评”分了类。', uses: [0, 1] },
+        { agent: '流程分析员', did: '核对哪些试点真的替换了实际工作里的一步，哪些只是摆在旁边。', uses: [4, 3] },
+        { agent: '价值分析员', did: '只保留用业务自己的指标量出来的结果。', uses: [2, 1] },
+        { agent: '审核员', did: '逐条对照来源核验结论，撤回了大家都以为可以放大的那一个。', uses: [] },
+      ],
+      headline: '试点不是输在技术上：23 个里只有 4 个定了业务指标，14 个团队里有 11 个把工具摆在老流程旁边。放大合同初审；其余的先停，等每个都有了指标和负责人再说。',
+      claims: [
+        { text: '大多数试点从一开始就不是为放大而设：23 个里有 19 个按演示效果评。', cites: [1, 0], ok: true,
+          why: '只有 4 个在启动前定好了业务指标；23 个里只有 2 个上线。' },
+        { text: '放大合同初审：它有业务指标，也真的替换了一步工作。', cites: [2], ok: true,
+          why: '它从第一天就有指标，取代了原来的人工初读，初审从六小时降到两小时。' },
+        { text: '让管这个流程的经理负责把它改过来。没有负责人、没有事先定好的指标，任何试点都不启动、不放大。', cites: [3, 4, 1], ok: true,
+          why: '差异报告跑通了，却因为没人负责而卡住；14 个团队里有 11 个把工具摆在老流程旁边；23 个里只有 4 个定了指标。' },
+        { text: '下一个放大差异报告——它在试点里跑通了。', cites: [3], ok: false,
+          why: '它跑通了，也因为没人负责改流程而卡住了。照同样的方式放大，只会在更大的规模上卡住。' },
+      ],
+      so: '你告诉董事会：改变了什么、停掉什么、下一个试点开始之前必须先满足什么。',
+      yours: '用你自己的试点台账和评审记录跑一遍。',
+    },
+  },
+
   /* ---- AI governance ----------------------------------------------------- */
   {
     id: 'governance',
     en: {
       tab: 'AI governance',
       who: 'General counsel',
-      ask: 'Staff paste client data into chatbots. Now what?',
+      ask: 'Banning chatbots fails. What do I show clients?',
       role: 'You are the general counsel of a 1,500-person professional-services firm.',
       stakes: 'Last month a consultant pasted a client’s draft contract into a public chatbot. The client found out. The managing partner wants it never to happen again.',
       task: 'Decide how the firm governs AI use — without pretending people will stop using it.',
@@ -194,8 +413,8 @@ export const SCENARIOS = [
         { text: 'Use is already widespread; the policy has to start from that.', cites: [0, 1], ok: true,
           why: 'Traffic from 1,140 of 1,500 accounts, and 64% use public tools every week.' },
         { text: 'Offer an approved tool where client data stays inside the firm.', cites: [1, 2, 3], ok: true,
-          why: '81% would switch to one that is as good; the incident happened because there was none; 31 of 40 contracts require it.' },
-        { text: 'Record which sources every AI answer used, so a client’s question can be answered from the record.', cites: [3], ok: true,
+          why: '81% would switch to one that is as good; the incident happened because there was none; 31 of 40 contracts forbid sending client data to third parties without consent.' },
+        { text: 'Record what client data each AI use touched, and where it went — so a client’s question is answered from the record.', cites: [3], ok: true,
           why: 'With 31 of 40 contracts restricting where client data goes, the firm has to be able to show where it went — not only promise.' },
         { text: 'Ban public AI tools across the firm.', cites: [4, 0], ok: false,
           why: 'The peer that banned them found use moved to personal phones — out of sight and out of any record. With 1,140 accounts already using them, a ban hides the risk instead of removing it.' },
@@ -228,8 +447,8 @@ export const SCENARIOS = [
         { text: '使用已经很普遍，制度得从这个事实出发。', cites: [0, 1], ok: true,
           why: '1,500 个账号里有 1,140 个在访问；64% 的人每周都用。' },
         { text: '提供一个客户数据不出公司的合规工具。', cites: [1, 2, 3], ok: true,
-          why: '81% 的人愿意换成一样好用的合规工具；这次事件，正是因为当时没有；40 份合同里有 31 份这样要求。' },
-        { text: '记下每个 AI 回答用了哪些来源，客户问起时，拿记录来回答。', cites: [3], ok: true,
+          why: '81% 的人愿意换成一样好用的合规工具；这次事件，正是因为当时没有；40 份合同里有 31 份禁止未经同意把客户数据交给第三方。' },
+        { text: '记下每次使用 AI 碰了哪些客户数据、数据去了哪里——客户问起时，拿记录来回答。', cites: [3], ok: true,
           why: '40 份合同里有 31 份限制客户数据的去向——公司要拿得出数据去了哪里的证明，而不只是一句承诺。' },
         { text: '全公司禁用公共 AI 工具。', cites: [4, 0], ok: false,
           why: '禁用过的同行发现，使用转到了个人手机上——看不见，也没有任何记录。1,140 个账号已经在用，一纸禁令藏住了风险，却没有消除它。' },
@@ -239,160 +458,14 @@ export const SCENARIOS = [
     },
   },
 
-  /* ---- AI return on investment ------------------------------------------- */
-  {
-    id: 'roi',
-    en: {
-      tab: 'AI return on investment',
-      who: 'CFO',
-      ask: 'Did our AI spending pay off?',
-      role: 'You are the CFO of an 800-person logistics company.',
-      stakes: 'The company spent $1.2M on AI tools last year. The board asks what it got back — and every vendor dashboard says “great.”',
-      task: 'Find out what the AI spending actually returned, and what to renew.',
-      sources: [
-        { who: 'Vendor dashboards', text: 'All three tools report “14,000 hours saved,” counted as prompts sent × an assumed 6 minutes each.' },
-        { who: 'Licenses · 12 months', text: '$1.2M across three tools: a writing assistant ($700K), a routing optimizer ($300K), an invoice reader ($200K).' },
-        { who: 'Operations data', text: 'Since the routing optimizer went live, fuel cost per delivery fell 7% on the routes that use it. Other routes are flat.' },
-        { who: 'Accounts payable', text: 'Invoice processing time fell from 4 days to 1. Late-payment fees dropped by $150K.' },
-        { who: 'Usage log · writing assistant', text: '38% of licensed seats were used in the last month.' },
-      ],
-      steps: [
-        { agent: 'Spend analyst', did: 'Matched every license to the budget line it came from.', uses: [1] },
-        { agent: 'Outcome analyst', did: 'Looked for results in the company’s own numbers, not the vendors’.', uses: [2, 3] },
-        { agent: 'Usage analyst', did: 'Checked who actually uses what the company pays for.', uses: [4, 0] },
-        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the number the board was about to hear.', uses: [] },
-      ],
-      headline: 'Two of the three tools show a return in the company’s own numbers. The most expensive one has no measured return yet.',
-      claims: [
-        { text: 'The routing optimizer shows a result: fuel per delivery down 7% on its routes.', cites: [2, 1], ok: true,
-          why: 'The comparison is built in — the routes without it stayed flat.' },
-        { text: 'The invoice reader has earned back most of its cost in late fees alone.', cites: [3, 1], ok: true,
-          why: '$150K in avoided late fees against a $200K license — and processing went from 4 days to 1.' },
-        { text: 'Before renewing the writing assistant, measure it — and cut the seats nobody uses.', cites: [4, 1], ok: true,
-          why: 'It is $700K of the $1.2M, and 38% of its seats were used last month. There is no outcome number for it yet.' },
-        { text: 'AI saved us 14,000 hours last year.', cites: [0], ok: false,
-          why: 'That is prompts × an assumed six minutes, from the vendors’ own dashboards. It measures activity, not time returned — and a board will ask about the second.' },
-      ],
-      so: 'You tell the board what paid off, what has not yet, and what you will measure before renewing — in the company’s numbers, not the vendors’.',
-      yours: 'Run this on your own licenses and operating numbers.',
-    },
-    zh: {
-      tab: 'AI 投入回报',
-      who: '财务总监',
-      ask: 'AI 上花的钱，换回了什么？',
-      role: '你是一家 800 人物流公司的财务总监。',
-      stakes: '公司去年在 AI 工具上花了 900 万元。董事会问：换回来了什么？而每家供应商的后台都说“效果很好”。',
-      task: '弄清楚 AI 上花的钱到底换回了什么，以及哪些该续费。',
-      sources: [
-        { who: '供应商后台', text: '三款工具都报告“节省 14,000 小时”，算法是：提问次数 × 假定每次 6 分钟。' },
-        { who: '许可费 · 12 个月', text: '三款工具共 900 万元：写作助手 500 万元、路线优化 250 万元、发票识别 150 万元。' },
-        { who: '运营数据', text: '路线优化上线后，用它的线路每单油耗成本下降 7%；其他线路持平。' },
-        { who: '应付账款', text: '发票处理时间从 4 天降到 1 天；逾期付款罚金少了 110 万元。' },
-        { who: '使用日志 · 写作助手', text: '上个月，已购账号里只有 38% 被用过。' },
-      ],
-      steps: [
-        { agent: '支出分析员', did: '把每一笔许可费对到它所属的预算科目。', uses: [1] },
-        { agent: '成效分析员', did: '到公司自己的数字里找结果，而不是看供应商的数字。', uses: [2, 3] },
-        { agent: '使用情况分析员', did: '查公司付了钱的东西，到底谁在用。', uses: [4, 0] },
-        { agent: '审核员', did: '逐条对照来源核验结论，撤回了董事会马上就要听到的那个数字。', uses: [] },
-      ],
-      headline: '三款工具里，两款在公司自己的数字里见到了回报；花钱最多的那款，还没有任何可衡量的回报。',
-      claims: [
-        { text: '路线优化见到了结果：用它的线路，每单油耗下降 7%。', cites: [2, 1], ok: true,
-          why: '对照组是现成的——没用它的线路一直持平。' },
-        { text: '发票识别单靠少交的罚金，就收回了大部分成本。', cites: [3, 1], ok: true,
-          why: '少交罚金 110 万元，对应 150 万元的许可费；处理时间还从 4 天降到了 1 天。' },
-        { text: '续费写作助手之前，先衡量效果，并砍掉没人用的账号。', cites: [4, 1], ok: true,
-          why: '它占了 900 万元里的 500 万元，上个月只有 38% 的账号被用过；到现在还没有任何成效数字。' },
-        { text: 'AI 去年替我们节省了 14,000 小时。', cites: [0], ok: false,
-          why: '这个数字是提问次数 × 假定的 6 分钟，出自供应商自己的后台。它衡量的是活跃度，不是省回的时间——董事会一定会追问后者。' },
-      ],
-      so: '你告诉董事会：哪些已经见效、哪些还没有、续费之前要量什么——用的是公司自己的数字，而不是供应商的。',
-      yours: '用你自己的许可费清单和经营数据跑一遍。',
-    },
-  },
-
-  /* ---- AI transformation strategy: pilots that never leave the lab ------- */
-  {
-    id: 'strategy',
-    en: {
-      tab: 'AI transformation strategy',
-      who: 'COO',
-      ask: 'Dozens of pilots. Which do we scale?',
-      role: 'You are the COO of a 600-person services firm.',
-      stakes: 'Eighteen months of AI pilots: 23 started, 2 in production. The board has stopped asking what you are testing and started asking what it changed.',
-      task: 'Decide which pilots to scale, which to stop — and why the rest never left the lab.',
-      sources: [
-        { who: 'Pilot register', text: '23 AI pilots started in 18 months. 2 are in production.' },
-        { who: 'Pilot reviews', text: '19 of the 23 were judged on how good the demo looked. 4 had a business measure agreed before they began.' },
-        { who: 'Legal · contract review pilot', text: 'First-pass review of 40 contracts fell from six hours each to two. Every finding was checked against its clause.' },
-        { who: 'Finance · variance report pilot', text: 'It worked in the pilot and never reached the monthly close: nobody owned changing the process.' },
-        { who: 'Survey · 14 pilot teams', text: '11 of 14 say the pilot tool sat beside the old process instead of replacing a step in it.' },
-      ],
-      steps: [
-        { agent: 'Portfolio analyst', did: 'Sorted all 23 pilots by what they were judged on.', uses: [0, 1] },
-        { agent: 'Workflow analyst', did: 'Checked which pilots replaced a step of real work, and which ran beside it.', uses: [4, 3] },
-        { agent: 'Value analyst', did: 'Kept only results measured in the business’s own terms.', uses: [2, 1] },
-        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the fix that feels like momentum.', uses: [] },
-      ],
-      headline: 'The pilots did not fail on the technology. Nothing was measured and no process changed. Scale the one that did both; pause the rest until they can.',
-      claims: [
-        { text: 'Most of the pilots could never have scaled: they were judged on the demo.', cites: [1, 0], ok: true,
-          why: '19 of 23 were judged on how the demo looked, and 2 of 23 reached production.' },
-        { text: 'Scale contract review: it has a business measure and replaced a real step.', cites: [2], ok: true,
-          why: 'Review went from six hours to two, and every finding was checked against its clause.' },
-        { text: 'Before scaling anything else, give each pilot an owner for the process change.', cites: [3, 4], ok: true,
-          why: 'The variance report worked and stalled with no owner; 11 of 14 teams ran the tool beside the old process.' },
-        { text: 'Launch ten new pilots to find the winners faster.', cites: [0, 1], ok: false,
-          why: '23 pilots produced 2 in production. More pilots judged the same way produce more demos, not more change.' },
-      ],
-      so: 'You tell the board what changed, what stops, and what has to be true before the next pilot starts.',
-      yours: 'Run this on your own pilot list and reviews.',
-    },
-    zh: {
-      tab: 'AI 转型战略',
-      who: '运营副总',
-      ask: '试点一大堆，哪几个该放大？',
-      role: '你是一家 600 人服务公司的运营副总。',
-      stakes: '十八个月里做了 23 个 AI 试点，真正上线的只有 2 个。董事会已经不问你在试什么，而是问：到底改变了什么？',
-      task: '决定哪些试点放大、哪些叫停——以及其余的为什么始终没走出实验室。',
-      sources: [
-        { who: '试点台账', text: '十八个月启动了 23 个 AI 试点；上线的有 2 个。' },
-        { who: '试点评审', text: '23 个里有 19 个按演示效果评审；只有 4 个在启动前定好了业务指标。' },
-        { who: '法务 · 合同初审试点', text: '40 份合同的初审时间，从每份六小时降到两小时；每条审查意见都对着条款核对过。' },
-        { who: '财务 · 差异报告试点', text: '试点里跑通了，却一直没进入月结：没人负责改流程。' },
-        { who: '调研 · 14 个试点团队', text: '14 个团队里有 11 个说：试点工具摆在老流程旁边，没有替换掉其中任何一步。' },
-      ],
-      steps: [
-        { agent: '组合分析员', did: '把 23 个试点按“拿什么来评”分了类。', uses: [0, 1] },
-        { agent: '流程分析员', did: '核对哪些试点真的替换了实际工作里的一步，哪些只是摆在旁边。', uses: [4, 3] },
-        { agent: '价值分析员', did: '只保留用业务自己的指标量出来的结果。', uses: [2, 1] },
-        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那个看起来很有干劲的办法。', uses: [] },
-      ],
-      headline: '试点不是输在技术上，而是没定指标、没改流程。放大那个两样都做到的，其余的先停下，等条件具备再说。',
-      claims: [
-        { text: '大多数试点本来就放大不了：它们是按演示效果评的。', cites: [1, 0], ok: true,
-          why: '23 个里有 19 个按演示效果评审；23 个里只有 2 个上线。' },
-        { text: '放大合同初审：它有业务指标，也真的替换了一步工作。', cites: [2], ok: true,
-          why: '初审从六小时降到两小时，每条意见都对着条款核对过。' },
-        { text: '放大其他试点之前，先给每个试点指定一位负责改流程的人。', cites: [3, 4], ok: true,
-          why: '差异报告跑通了，却因为没人负责而卡住；14 个团队里有 11 个把工具摆在老流程旁边。' },
-        { text: '再启动十个新试点，更快找到赢家。', cites: [0, 1], ok: false,
-          why: '23 个试点只上线了 2 个。按同样的方式再评十个，得到的是更多演示，而不是更多改变。' },
-      ],
-      so: '你告诉董事会：改变了什么、停掉什么、下一个试点开始之前必须先满足什么。',
-      yours: '用你自己的试点台账和评审记录跑一遍。',
-    },
-  },
-
   /* ---- customer operations ----------------------------------------------- */
   {
     id: 'service',
     en: {
       tab: 'Customer operations',
       who: 'Head of service',
-      ask: 'Where should AI answer customers — and where not?',
-      role: 'You run customer service for a mid-sized insurer.',
+      ask: 'Headcount frozen. What can AI answer?',
+      role: 'You run customer service for a large insurer.',
       stakes: 'Contacts are up a third this year, headcount is frozen, and you owe the CEO an AI plan by Friday.',
       task: 'Decide where AI should handle customer contacts — and where it must not.',
       sources: [
@@ -411,7 +484,7 @@ export const SCENARIOS = [
       headline: 'Let customers who want to serve themselves do it, give every agent an assistant, and keep a person on every denial.',
       claims: [
         { text: 'About a third of all contacts can move to self-service customers already want.', cites: [0, 4], ok: true,
-          why: '46% are status or known-document questions, and 71% of surveyed customers would use self-service for a status update: 46% × 71% ≈ 33%. A ceiling, not a forecast.' },
+          why: '46% are status or known-document questions, and 71% of surveyed customers would use self-service for a status update: 46% × 71% ≈ 33% — assuming document questions behave like status ones. A ceiling, not a forecast.' },
         { text: 'Give every agent an assistant that searches the four systems for them.', cites: [1, 2], ok: true,
           why: '38% of each call is spent searching — and the worst complaints come from being passed from person to person.' },
         { text: 'Every claim denial stays with a person.', cites: [3, 4], ok: true,
@@ -425,8 +498,8 @@ export const SCENARIOS = [
     zh: {
       tab: '客户运营重塑',
       who: '客服负责人',
-      ask: '哪些客户问题交给 AI，哪些不能？',
-      role: '你负责一家中型保险公司的客户服务。',
+      ask: '编制冻结，哪些进线能交给 AI？',
+      role: '你负责一家大型保险公司的客户服务。',
       stakes: '今年进线量涨了三分之一，编制冻结，老板要你周五前拿出 AI 方案。',
       task: '决定哪些客户来电与咨询交给 AI——以及哪些绝不能交。',
       sources: [
@@ -445,7 +518,7 @@ export const SCENARIOS = [
       headline: '愿意自助的客户让他们自助，给每位坐席配一个 AI 助手，拒赔始终由人来谈。',
       claims: [
         { text: '大约三分之一的进线，可以转给客户本来就愿意用的自助服务。', cites: [0, 4], ok: true,
-          why: '46% 是查进度或查已有文件；受访客户里 71% 愿意自助查进度：46% × 71% ≈ 33%。这是上限，不是预测。' },
+          why: '46% 是查进度或查已有文件；受访客户里 71% 愿意自助查进度：46% × 71% ≈ 33%（假定查文件与查进度的意愿相近）。这是上限，不是预测。' },
         { text: '给每位坐席配一个 AI 助手，替他们在四个系统里找答案。', cites: [1, 2], ok: true,
           why: '每通电话 38% 的时间花在找答案上——而最严重的投诉，来自被转来转去。' },
         { text: '每一次拒赔，都由人来谈。', cites: [3, 4], ok: true,
@@ -453,7 +526,7 @@ export const SCENARIOS = [
         { text: '一年内把客服中心砍掉一半。', cites: [], ok: false,
           why: '来源说明了哪些进线可以转走，却没说明需要多少人。省下的人手，先放到客户最需要人工的理赔争议和拒赔上。' },
       ],
-      so: '周五你带进会议室的，是一份每一行都经得起追问的方案——没有拍胸脯许下没依据的裁员数字。',
+      so: '周五你带进会议室的，是一份每一行都经得起追问的方案——里面没有一个没依据的裁员数字。',
       yours: '用你自己的进线记录和质检抽查跑一遍。',
     },
   },
@@ -467,7 +540,7 @@ export const SCENARIOS = [
       ask: 'My best technicians retire soon. What leaves with them?',
       role: 'You run a plant that makes precision parts — 450 people.',
       stakes: 'Eleven of your most senior technicians retire within three years. When a line stops at 2 a.m., they are the ones who get the call.',
-      task: 'Keep what the senior technicians know before it walks out the door.',
+      task: 'Ask the senior technicians to teach what they know, while they are still here to teach it.',
       sources: [
         { who: 'Maintenance log · 2 years', text: '1,260 line stoppages. 62% were fixed by one of 11 senior technicians.' },
         { who: 'Equipment manuals', text: 'The manuals describe 35% of the fixes recorded in the log. The rest are not written down anywhere.' },
@@ -479,7 +552,7 @@ export const SCENARIOS = [
         { agent: 'Log analyst', did: 'Found which stoppages only the senior technicians can fix.', uses: [0, 4] },
         { agent: 'Gap analyst', did: 'Compared the fixes in the log with what the manuals cover.', uses: [1, 0] },
         { agent: 'Knowledge designer', did: 'Looked at how know-how actually passed from one person to another in the pilot.', uses: [2, 3] },
-        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the shortcut that would have lost the most.', uses: [] },
+        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the shortcut that would replace the people who hold the knowledge.', uses: [] },
       ],
       headline: 'Most of the know-how is in no manual. Keep it by pairing people and writing down every fix in the fixer’s words — starting with the four who leave first.',
       claims: [
@@ -489,10 +562,10 @@ export const SCENARIOS = [
           why: 'In the pilot, paired juniors got 40% faster and left a written record; the technician says it has to be shown, not recalled.' },
         { text: 'Start with the four who retire within twelve months.', cites: [4], ok: true,
           why: '4 of the 11 leave in the next year; the other seven leave more time.' },
-        { text: 'Replace the senior technicians with an AI assistant trained on the manuals.', cites: [1], ok: false,
-          why: 'The manuals hold 35% of the fixes. An assistant trained on them would know the part that was never the problem — and the people who know the rest would be gone.' },
+        { text: 'Replace the senior technicians with an AI assistant trained on the manuals.', cites: [1, 2], ok: false,
+          why: 'The manuals hold 35% of the fixes. An assistant trained on them would know the part that was never the problem. The rest lives in the people who fix the line, and it passes on only when they show someone.' },
       ],
-      so: 'The knowledge stays in the plant, the veterans are asked to teach rather than being replaced, and the next 2 a.m. call has an answer.',
+      so: 'The knowledge stays in the plant, and the veterans are asked to teach rather than being replaced — in the pilot, paired juniors were fixing stoppages 40% faster within ten weeks.',
       yours: 'Run this on your own maintenance logs and manuals.',
     },
     zh: {
@@ -501,7 +574,7 @@ export const SCENARIOS = [
       ask: '老师傅要退休了，本事怎么留下？',
       role: '你负责一家精密零部件工厂，450 人。',
       stakes: '最资深的 11 位老师傅，三年内陆续退休。凌晨两点产线一停，被叫起来的总是他们。',
-      task: '趁老师傅还在，把他们脑子里的本事留下来。',
+      task: '趁老师傅还在，请他们把本事传下去。',
       sources: [
         { who: '维修记录 · 2 年', text: '共 1,260 次停线；62% 是 11 位老师傅中的一位修好的。' },
         { who: '设备手册', text: '手册只写到了记录里 35% 的修法；其余的，哪里都没写。' },
@@ -513,7 +586,7 @@ export const SCENARIOS = [
         { agent: '记录分析员', did: '找出哪些停线只有老师傅修得好。', uses: [0, 4] },
         { agent: '差距分析员', did: '把记录里的修法，和手册写到的内容对了一遍。', uses: [1, 0] },
         { agent: '传承设计员', did: '看试点里，本事到底是怎么从一个人传到另一个人手上的。', uses: [2, 3] },
-        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那条会丢掉最多东西的捷径。', uses: [] },
+        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那条要拿 AI 替代老师傅的捷径。', uses: [] },
       ],
       headline: '大部分本事不在任何手册里。靠师徒同班，把每次修法用修的人自己的话记下来——从最先退休的四位开始。',
       claims: [
@@ -523,84 +596,11 @@ export const SCENARIOS = [
           why: '试点里，跟班的徒弟快了 40%，还留下了文字记录；老师傅自己说，这得带着人看，凭记忆写不出来。' },
         { text: '先从十二个月内退休的四位开始。', cites: [4], ok: true,
           why: '11 位里有 4 位明年就走；其余七位，还有时间。' },
-        { text: '用一个读过设备手册的 AI 助手，替代老师傅。', cites: [1], ok: false,
-          why: '手册只装着 35% 的修法。用它训练出来的助手，只懂那部分本来就不成问题的——而懂其余部分的人，已经走了。' },
+        { text: '用一个读过设备手册的 AI 助手，替代老师傅。', cites: [1, 2], ok: false,
+          why: '手册只装着 35% 的修法。用它训练出来的助手，只懂那部分本来就不成问题的。其余的本事在修产线的人身上，只能由他们带着人学。' },
       ],
-      so: '本事留在了厂里，老师傅被请来当师傅而不是被替换，下一次凌晨两点的电话，也有人接得住。',
+      so: '本事留在了厂里，老师傅被请来当师傅而不是被替换——试点里跟班的徒弟，十周后排故快了 40%。',
       yours: '用你自己的维修记录和设备手册跑一遍。',
-    },
-  },
-
-  /* ---- AI-native enterprise path ----------------------------------------- */
-  {
-    id: 'native',
-    en: {
-      tab: 'AI-native enterprise path',
-      who: 'CEO',
-      ask: 'The board asks what AI has done for us.',
-      role: 'You are the CEO of a 200-person company.',
-      stakes: 'Your people already use AI on their own. The board asks what it has done for the company — and you have no answer.',
-      task: 'Draft an eighteen-month path to AI-native.',
-      sources: [
-        { who: 'Org chart', text: '200 people in nine teams across three offices.' },
-        { who: 'Tool audit', text: '23 tools in use. No shared record of what was decided, or why.' },
-        { who: 'Staff survey', text: '71% use AI on their own. 12% use it in work they share with others.' },
-        { who: 'Legal pilot · 8 weeks', text: 'Contract review time fell 58%. Every finding traced to a clause.' },
-        { who: 'Board goal', text: 'Grow revenue 40% without headcount growing at the same rate.' },
-      ],
-      steps: [
-        { agent: 'Org analyst', did: 'Mapped where decisions are made and where the reasons get lost.', uses: [0, 1] },
-        { agent: 'Adoption analyst', did: 'Found the gap: most people already use AI, almost never together.', uses: [2] },
-        { agent: 'Path planner', did: 'Laid out three stages — individual, team, organization — each with a measure.', uses: [2, 3, 4] },
-        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the purchase that looks like progress.', uses: [] },
-      ],
-      headline: 'Bring the AI people already use into shared work, prove it team by team, and measure it against the board’s 40%.',
-      claims: [
-        { text: 'Months 1–3: bring the AI work people already do into the open, where the team can see it and build on it.', cites: [2, 1], ok: true,
-          why: 'The habit exists (71%); what is missing is shared work (12%) and a shared record, which none of the 23 tools keeps.' },
-        { text: 'Months 4–9: repeat the legal pilot’s pattern, one team at a time.', cites: [3], ok: true,
-          why: 'It is the one pattern here with a measured result (−58%) and a trail anyone can audit.' },
-        { text: 'Months 10–18: one shared record of decisions across all nine teams, measured against the 40% goal.', cites: [0, 4, 1], ok: true,
-          why: 'Nine teams in three offices lose reasons between them; the board has already named the measure.' },
-        { text: 'Buy an AI license for all 200 people in month one.', cites: [2], ok: false,
-          why: 'Licenses buy more private use. The gap is the 12% who share the work, and a license alone does not close it.' },
-      ],
-      so: 'You give the board a path with a measure at every stage — starting from the habit your people already have.',
-      yours: 'Run this on your own org chart, tool list and survey.',
-    },
-    zh: {
-      tab: 'AI 原生企业路径',
-      who: '老板',
-      ask: '董事会问：AI 到底给公司带来了什么？',
-      role: '你是一家 200 人公司的老板。',
-      stakes: '员工早就在私下用 AI 了。董事会问：这给公司带来了什么？你答不上来。',
-      task: '起草一份十八个月的 AI 原生落地路线图。',
-      sources: [
-        { who: '组织架构', text: '200 人，九个团队，分布在三个办公地。' },
-        { who: '工具盘点', text: '在用工具 23 个；决定了什么、为什么这样决定，没有任何共享记录。' },
-        { who: '员工调研', text: '71% 的人私下在用 AI；在共享工作中使用的只有 12%。' },
-        { who: '法务试点 · 8 周', text: '合同审查时间下降 58%，每条审查意见都能追溯到具体条款。' },
-        { who: '董事会目标', text: '收入增长 40%，人不能跟着同比例加。' },
-      ],
-      steps: [
-        { agent: '组织分析员', did: '梳理决定在哪儿拍板、依据又在哪儿断了档。', uses: [0, 1] },
-        { agent: '使用情况分析员', did: '找到了缺口：大多数人已经在用 AI，却几乎从不一起用。', uses: [2] },
-        { agent: '路径规划员', did: '规划三个阶段——个人、团队、组织——每个阶段都有衡量指标。', uses: [2, 3, 4] },
-        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那笔看着像有动作、其实没用的采购。', uses: [] },
-      ],
-      headline: '先把各自私下用的 AI 摆上台面，一个团队一个团队地验证，再对着董事会 40% 的目标算账。',
-      claims: [
-        { text: '第 1–3 个月：把大家私下用 AI 做的事摆到明面上，让团队看得见、接得上。', cites: [2, 1], ok: true,
-          why: '习惯已经有了（71%）；缺的是一起用（12%），以及 23 个工具里没有一个留下的共享记录。' },
-        { text: '第 4–9 个月：把法务试点的做法，一个团队一个团队地复制过去。', cites: [3], ok: true,
-          why: '这是这里唯一有实测结果（−58%）、且过程谁都能审计的做法。' },
-        { text: '第 10–18 个月：九个团队共用一套决策记录，以 40% 的目标来衡量。', cites: [0, 4, 1], ok: true,
-          why: '三地九个团队之间，决策依据一直没留下来；董事会已经定好了衡量标准。' },
-        { text: '第一个月给全部 200 人买 AI 账号。', cites: [2], ok: false,
-          why: '账号买来的是更多私下使用。缺口在于只有 12% 的人一起用——光买账号补不上。' },
-      ],
-      so: '你交给董事会的，是一条每个阶段都有衡量指标的路径——起点是员工已经养成的习惯。',
-      yours: '用你自己的组织架构、工具清单和员工调研跑一遍。',
     },
   },
 
@@ -758,16 +758,26 @@ export const UI = {
     tabs: 'Scenarios', situation: 'Your situation', task: 'The task', sources: 'Sources', run: 'Start the agents', rerun: 'Run it again',
     idle: 'The agents’ work appears here, step by step — which source each one read, and what it concluded.',
     working: 'Working…', result: 'The answer', because: 'Why — every line traceable', doubt: 'Doubt this', hide: 'Hide the check',
-    verified: 'Verified', withdrawn: 'Withdrawn by the reviewer', noSource: 'no source',
-    step: (i, n) => `Step ${i} of ${n}`, done: 'Done. Every line below names its sources — press “Doubt this” on any of them. The reviewer is an agent too: what it withdraws is marked for a person to decide.',
+    verified: 'Matches its sources', withdrawn: 'Withdrawn — it looks right, and the sources don’t hold it up', noSource: 'no source',
+    step: (i, n) => `Step ${i} of ${n}`, done: 'Done. One line below looked right and wasn’t — the reviewer struck it before anyone relied on it. The reviewer is an agent too, so the call is yours. Press “Doubt this” on any other line to check it yourself.',
+    decideQ: 'The reviewer is an agent too. Your call:', keepOut: 'Keep it out', putBack: 'Put it back',
+    keptOut: 'Kept out. Your decision stands beside the reviewer’s reason.',
+    putBackDone: 'Put back — by you. The reviewer’s objection stays beside it, so anyone who relies on this line sees both.',
+    copy: 'Copy as a note', copied: 'Copied — paste it into your meeting notes.', copyHere: 'Your browser would not copy it. Select the text below:',
+    noteFoot: 'Sample material from the WorkspaceX scripted demo.', noteOut: 'Withdrawn', noteBack: 'Put back by me, over the reviewer’s objection',
     next: 'That was sample material, replayed. Your own documents live where you choose — in the cloud, on your own servers, or fully local.', cta: 'Start free', other: 'Try another scenario',
   },
   zh: {
     tabs: '场景', situation: '你的处境', task: '任务', sources: '来源', run: '开始运行智能体', rerun: '再运行一次',
     idle: '智能体的工作会在这里一步步出现——每一步读了哪份来源、得出了什么。',
     working: '运行中……', result: '结论', because: '依据——每一条都能追到来源', doubt: '质疑这条', hide: '收起核验',
-    verified: '已核验', withdrawn: '已被审核员撤回', noSource: '无来源',
-    step: (i, n) => `第 ${i} 步，共 ${n} 步`, done: '完成。下面每一条都标明了来源——点任意一条的“质疑这条”试试。审核员同样是智能体：它撤回的内容，会标成“需要人来定”，交给人拍板。',
+    verified: '与来源相符', withdrawn: '已撤回：看着对，来源撑不住', noSource: '无来源',
+    step: (i, n) => `第 ${i} 步，共 ${n} 步`, done: '完成。下面有一条看着没问题，其实站不住——审核员在任何人照着做之前把它划掉了。审核员同样是智能体，所以最后由你拍板。其余每一条，点“质疑这条”自己核一遍。',
+    decideQ: '审核员也是智能体。由你拍板：', keepOut: '同意撤回', putBack: '保留这条',
+    keptOut: '已撤回。你的决定和审核员的理由，并排留着。',
+    putBackDone: '由你保留。审核员的反对意见仍留在旁边，之后照着做的人两样都看得见。',
+    copy: '复制为一段纪要', copied: '已复制——直接粘贴到会议纪要里。', copyHere: '浏览器没能直接复制，请手动选中下面的文字：',
+    noteFoot: '以上为 WorkspaceX 脚本演示中的样例材料。', noteOut: '已撤回', noteBack: '由我保留，审核员有异议',
     next: '刚才是样例材料的回放。你的文件放在哪里由你决定：云端、自己的机房，或完全在本机。', cta: '免费开始', other: '换一个场景试试',
   },
 };
@@ -866,14 +876,64 @@ export function initDemo(host) {
       el('p', { class: 'demo__kicker', text: ui.result }),
       el('p', { class: 'demo__headline', text: s.headline }),
       el('p', { class: 'demo__kicker', text: ui.because }), claims);
+    /* "The call is yours" has to be a call the reader can make. Two buttons
+       under the withdrawn claim: agree, or put it back over the reviewer's
+       objection — which lifts the strike and keeps the objection in view.
+       Round-71 readers, briefed as a COO and a CFO, found the page promised
+       a person decides and gave them nothing to decide with. */
+    const decisions = new Map();
+    const decide = (c) => {
+      const said = el('p', { class: 'demo__decided', role: 'status' });
+      const choose = (back) => {
+        decisions.set(c, back);
+        const li = said.closest('.demo__claim');
+        li?.classList.toggle('is-overruled', back);
+        li?.querySelector('.demo__claimtext s')?.classList.toggle('is-lifted', back);
+        buttons.forEach((b, i) => b.setAttribute('aria-pressed', String((i === 1) === back)));
+        said.textContent = back ? ui.putBackDone : ui.keptOut;
+      };
+      const buttons = [
+        el('button', { class: 'demo__decidebtn', type: 'button', 'aria-pressed': 'false', text: ui.keepOut, onclick: () => choose(false) }),
+        el('button', { class: 'demo__decidebtn', type: 'button', 'aria-pressed': 'false', text: ui.putBack, onclick: () => choose(true) }),
+      ];
+      return el('div', { class: 'demo__decide' },
+        el('p', { class: 'demo__decideq', text: ui.decideQ }),
+        el('div', { class: 'demo__decidebtns' }, buttons), said);
+    };
+
+    /* What a reader takes into the room: the answer, what stands with its
+       sources, and what was struck and why — with their own call on it. */
+    const note = () => [
+      s.headline, '',
+      ...s.claims.filter((c) => c.ok).map((c) => `• ${c.text} [${c.cites.map(tag).join(', ')}]`),
+      ...s.claims.filter((c) => !c.ok).map((c) => `• ${decisions.get(c) ? ui.noteBack : ui.noteOut}: ${c.text} — ${c.why}`),
+      '', ...s.sources.map((x, i) => `${tag(i)} ${x.who}: ${x.text}`),
+      '', ui.noteFoot,
+    ].join('\n');
+    const copied = el('p', { class: 'demo__copied', role: 'status' });
+    const copyNote = async () => {
+      const text = note();
+      try {
+        await navigator.clipboard.writeText(text);
+        copied.replaceChildren(ui.copied);
+      } catch {
+        const area = el('textarea', { class: 'demo__notetext', readonly: true, rows: '8', 'aria-label': ui.copy });
+        area.value = text;
+        copied.replaceChildren(ui.copyHere, area);
+        area.focus(); area.select();
+      }
+    };
+
     const next = el('div', { class: 'demo__next', hidden: true },
       el('p', { class: 'demo__so', text: s.so }),
       el('p', { class: 'demo__yours', text: s.yours }),
       el('p', { class: 'demo__nextline', text: ui.next }),
       el('div', { class: 'demo__nextactions' },
         el('a', { class: 'btn btn--primary', href: APP, rel: 'noopener', text: ui.cta }),
+        el('button', { class: 'btn btn--ghost demo__copy', type: 'button', text: ui.copy, onclick: () => copyNote() }),
         el('button', { class: 'btn btn--ghost demo__other', type: 'button', text: ui.other,
-          onclick: () => select((index + 1) % SCENARIOS.length, true) })));
+          onclick: () => select((index + 1) % SCENARIOS.length, true) })),
+      copied);
     const run = el('button', { class: 'btn demo__run', type: 'button', text: ui.run, onclick: () => start() });
 
     const claimItem = (c) => {
@@ -884,7 +944,8 @@ export function initDemo(host) {
         c.cites.length
           ? el('ul', { class: 'demo__cited' }, c.cites.map((i) => el('li', {},
             el('span', { class: 'demo__srctag', text: tag(i) }), el('span', { text: s.sources[i].text }))))
-          : null);
+          : null,
+        c.ok ? null : decide(c));
       const toggle = el('button', {
         class: 'demo__doubt', type: 'button', 'aria-expanded': 'false', text: ui.doubt,
         onclick: () => {

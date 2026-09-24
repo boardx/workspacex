@@ -42,7 +42,7 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
   /* ---- a reader who prefers less motion: every run is instant ---------- */
   {
     const r = reporter(`demo [${lang}] — load, tabs, run, doubt`);
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] });
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -116,6 +116,26 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
       r.equal(doubted.quoted, d.claims[first].cites.length, `${s.id}: sources quoted in the check`);
       r.equal(doubted.lit.sort().join(','), d.claims[first].cites.map((n) => `S${n + 1}`).sort().join(','), `${s.id}: sources lit`);
     }
+
+    /* The reader's call, and what they take away. Put the withdrawn claim
+       back: the strike lifts and the objection stays in view. Then copy the
+       note: it carries the answer, the sources and the reader's decision. */
+    const last = SCENARIOS[SCENARIOS.length - 1];
+    const lastD = last[lang];
+    const outAt = lastD.claims.findIndex((c) => !c.ok);
+    await page.click(`.demo__claim:nth-child(${outAt + 1}) .demo__decidebtn:nth-child(2)`);
+    const overruled = await page.evaluate((n) => {
+      const li = document.querySelectorAll('.demo__claim')[n];
+      return { cls: li.classList.contains('is-overruled'), lifted: !!li.querySelector('s.is-lifted'), said: li.querySelector('.demo__decided')?.textContent };
+    }, outAt);
+    r.check(overruled.cls && overruled.lifted && overruled.said === UI[lang].putBackDone, `putting a withdrawn claim back: ${JSON.stringify(overruled)}`);
+    await page.click('.demo__copy');
+    await page.waitForTimeout(200);
+    const noteText = await page.evaluate(async () => {
+      try { return await navigator.clipboard.readText(); } catch { return document.querySelector('.demo__notetext')?.value ?? ''; }
+    });
+    r.check(noteText.includes(lastD.headline) && noteText.includes(UI[lang].noteBack) && noteText.includes(UI[lang].noteFoot),
+      `the copied note is missing the answer, the reader's decision or the sample label: "${noteText.slice(0, 80)}"`);
 
     const cta = await page.$eval('.demo__next .btn--primary', (a) => ({ href: a.href, text: a.textContent.trim() }));
     const hero = await page.$eval('.hero .btn--primary', (a) => ({ href: a.href, text: a.textContent.trim() }));
