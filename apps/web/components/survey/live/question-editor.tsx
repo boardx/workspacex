@@ -37,7 +37,7 @@ export function SurveyQuestionEditor({
   }>();
   const [preview, setPreview] = React.useState(false);
   const [editing, setEditing] = React.useState(!overviewFirst);
-  const [mobile, setMobile] = React.useState(false);
+  const [previewDevice, setPreviewDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
@@ -471,25 +471,18 @@ export function SurveyQuestionEditor({
         {preview && !overviewFirst && (
           <aside aria-label="实时预览" className="min-w-0 space-y-4">
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={!mobile ? "primary" : "outline"}
-                aria-pressed={!mobile}
-                onClick={() => setMobile(false)}
-              >
+              <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
               </Button>
-              <Button
-                type="button"
-                variant={mobile ? "primary" : "outline"}
-                aria-pressed={mobile}
-                onClick={() => setMobile(true)}
-              >
+              <Button type="button" variant={previewDevice === "tablet" ? "primary" : "outline"} aria-pressed={previewDevice === "tablet"} onClick={() => setPreviewDevice("tablet")}>
+                平板预览
+              </Button>
+              <Button type="button" variant={previewDevice === "mobile" ? "primary" : "outline"} aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}>
                 手机预览
               </Button>
             </div>
             <div
-              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${mobile ? "max-w-sm" : "w-full"}`}
+              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
               {visibleSurveyQuestions(questions, answers).map((q) => (
                 <SurveyQuestionRenderer

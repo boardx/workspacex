@@ -90,6 +90,32 @@ describe("live survey trusted publishing", () => {
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
   });
 
+  it("summarizes publish quality and routes each blocker to its repair step", async () => {
+    const blockers: SurveyPublishBlocker[] = [
+      { code: "QUESTION_OPTIONS_EMPTY", side: "question", subjectId: "q1", missingFields: ["options"] },
+      { code: "MAPPING_INCOMPLETE", side: "section", subjectId: "s1", missingFields: ["blocks"] },
+    ];
+    client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    expect(await screen.findByTestId("survey-publish-readiness")).toHaveTextContent("质量评分 55 / 100");
+    expect(screen.getByTestId("survey-publish-readiness")).toHaveTextContent("预计完成率 75%");
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：为选项题补充可选择的答案" }));
+    expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+  });
+
+  it("routes a question mapping blocker to the report-template editor", async () => {
+    const blockers: SurveyPublishBlocker[] = [
+      { code: "MAPPING_INCOMPLETE", side: "question", subjectId: "q1", missingFields: ["reportBlock"] },
+    ];
+    client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "定位并修复：将题目映射到报告章节" }));
+    expect(screen.getByRole("button", { name: /2\. 报告模板/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+    expect(screen.getByTestId("survey-mapping-repair-target")).toHaveTextContent("您愿意推荐我们吗？");
+  });
+
   it("shows ready only after the parsed server response and exposes explicit next actions", async () => {
     let resolve!: (value: SurveyRuntime) => void;
     client.request.mockResolvedValueOnce(runtime()).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
