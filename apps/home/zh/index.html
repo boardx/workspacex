@@ -721,7 +721,7 @@
       <span class="eyebrow" data-i18n="open.eyebrow">11 — 什么开放，什么售卖</span>
       <h2 data-phrase data-i18n="open.title">三类​东西。只有​其中​一类​是​你​买​的​产品。</h2>
       <p class="lead" data-i18n="open.lead">这不是功能清单。让它成为中立工作层的那部分开放；随你一起积累的那部分收费。多数厂商从来不提第三堆：我们自己用来维持运转的那套运营设施——既不交给你，也不向你收钱。</p>
-      <p class="section__more" data-i18n="open.layer">还要说清楚，我们押注的是哪一层。WorkspaceX 在 AI 工作空间这一层——和 Copilot、Glean、飞书、钉钉同层——而不是它下面那层智能体基础设施，那一层的开源项目已经不少。而在这一层，一个开源的都没有。所以在这一层，开放是突破口，而不是入场券；这也是为什么本页后面的许可证问题不是细节。</p>
+      <p class="section__more" data-i18n="open.layer">还要说清楚，我们押注的是哪一层。WorkspaceX 在 AI 工作空间这一层——和 Copilot、Glean、飞书、钉钉同层——而不是它下面那层智能体基础设施，那一层的开源项目已经不少。而在这一层，一个开源的都没有。所以在这一层，开放是突破口，而不是入场券；这也是为什么仓库采用 Apache-2.0 许可证。</p>
     </header>
 
     <div class="open__cols" data-stagger>
@@ -770,7 +770,7 @@
         <li class="exit__item">
           <b data-i18n="exit.i1.t">开放的那部分继续能用。</b>
           <span data-i18n="exit.i1.b">不是会到期的试用。工作层是你的，可以一直跑在你自己的机器上，想跑多久跑多久。</span>
-          <span class="exit__state" data-state="planned" data-i18n="exit.i1.s">卡在许可证上。目前还没有，所以今天这是一个意图，不是一项权利。</span>
+          <span class="exit__state" data-state="live" data-i18n="exit.i1.s">作为权利已经生效：仓库以 Apache-2.0 授权。实际要自己跑起来，还要等正式发布版本和一条命令的安装。</span>
         </li>
         <li class="exit__item">
           <b data-i18n="exit.i2.t">你的数据可以完整拿走。</b>
@@ -854,8 +854,8 @@
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q5">这是开源的吗？</summary>
-        <p data-i18n="faq.a5">仓库今天是公开可读的——这一条是事实，你可以自己核。</p>
-        <p data-i18n="faq.a5b">许可证不是：仓库里还没有 LICENSE 文件，所以它没有授予你运行或修改它的权利。在这件事落地之前，我们不会把它叫做开源。方向是开放内核：上面“开放”那一栏列出的开放，治理、可靠性与规模商业化——而许可证的决定是下一步，不是细节。</p>
+        <p data-i18n="faq.a5">是。仓库公开，以 Apache-2.0 授权：你可以运行、修改和再分发它。LICENSE 文件就在仓库根目录，你可以自己核，不必信我们一面之词。</p>
+        <p data-i18n="faq.a5b">我们卖的不是这份代码的授权，而是上面“售卖”那一栏列的东西——托管执行与容量、面向整个组织的治理、方法论内容：也就是随你一起积累的那部分。</p>
       </details>
       <details class="faq__item">
         <summary data-i18n="faq.q9">你们会拿我们的数据去训练吗？</summary>
@@ -961,7 +961,7 @@
         <li class="door" style="--i:1">
           <span class="door__who" data-i18n="doors.d2.w">你得先读过才谈得上信</span>
           <b class="door__step" data-i18n="doors.d2.s">去读源码。它是公开的。</b>
-          <span class="door__then" data-i18n-html="doors.d2.t">别听我们说，自己去找那道拦截对外网络连接的守卫：仅本地的工作是在网络层、在应用之下被拒绝的，不是写在某份文档里的承诺。今天<em>还没开</em>的是自己跑起来——没有正式发布版本，没有一条命令的安装，也没有许可证。这和本页上面那份清单是同一份。</span>
+          <span class="door__then" data-i18n-html="doors.d2.t">别听我们说，自己去找那道拦截对外网络连接的守卫：仅本地的工作是在网络层、在应用之下被拒绝的，不是写在某份文档里的承诺。代码以 Apache-2.0 授权。今天<em>还没就绪</em>的是自己跑起来——没有正式发布版本，也没有一条命令的安装。这和本页上面那份清单是同一份。</span>
         </li>
         <li class="door" style="--i:2">
           <span class="door__who" data-i18n="doors.d3.w">你团队里已经有人在用</span>
