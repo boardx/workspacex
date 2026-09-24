@@ -1257,9 +1257,13 @@ describe("lint-permission-paths: counter-proof", () => {
     // No ACL ObjectRef exists for a survey response. Remove this increment with
     // the exception if its capability/owner gates or those tests disappear.
     // #3926 adds one private whiteboard metadata repository (92 -> 93).
-    // #3967 adds exactly one collaborative Yjs repository (93 -> 94), and
-    // #3968 adds exactly one workshop repository (94 -> 95). Re-measured: lint
-    // reports allowlisted=103, minus 8 audited boundary rules = 95.
+    // #3967 adds exactly one collaborative Yjs repository (93 -> 94).
+    // #3979 adds one meeting-room repository (94 -> 95). Pair creation and
+    // revocation stay behind Board owner/editor authorization; one-time join,
+    // cross-tenant hiding, presenter membership rechecks and brute-force limits
+    // are pinned by real HTTP/PostgreSQL acceptance.
+    // #3968 adds exactly one workshop repository (95 -> 96).
+    // Re-measured: lint reports allowlisted=104, minus 8 audited boundary rules = 96.
     // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
     // fallback would expose private boards. The exceptions are bounded to named
     // tables and actor/owner SQL predicates by the resource, collaboration and
@@ -1267,7 +1271,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // HTTP and WebSocket evidence covers nonmembers, cross-tenant identity,
     // viewer/editor writes, revocation, restart recovery and authentication.
     // Remove an increment and its allowlist entry if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(95);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(96);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
