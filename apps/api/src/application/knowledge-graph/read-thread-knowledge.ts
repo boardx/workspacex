@@ -11,7 +11,7 @@ import type { knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { ThreadFacts } from "../../domain/chat/thread-visibility";
-import { resolveVisibility, type ResolveVisibilityDeps } from "../chat/resolve-visibility";
+import { AuthzUnavailableError, resolveVisibility, type ResolveVisibilityDeps } from "../chat/resolve-visibility";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import type { KnowledgeReadPort, KnowledgeThreadRef } from "./ports";
@@ -40,7 +40,13 @@ interface VisibleThread {
 }
 
 async function visibleThread(deps: KnowledgeReadDeps, viewer: Viewer, threadId: string): Promise<VisibleThread> {
-  const facts = await deps.chat.findThreadFacts(viewer.orgId, threadId);
+  let facts: ThreadFacts | null;
+  try {
+    facts = await deps.chat.findThreadFacts(viewer.orgId, threadId);
+  } catch {
+    // 与 resolveVisibility 同一条纪律：判定依赖读不到 ⇒ 拒绝并报 503，不是 500，也不是放行。
+    throw new AuthzUnavailableError();
+  }
   if (facts === null) throw new KgReadError("KG_THREAD_NOT_FOUND");
   const outcome = await resolveVisibility(deps, { ...viewer, projectId: facts.projectId, threadId });
   if (outcome.kind !== "allow") throw new KgReadError("KG_THREAD_NOT_FOUND");
