@@ -13,6 +13,28 @@ export const SurveyStatusSchema = z.enum([
   "collecting",
   "closed",
 ]);
+export const SurveyAnonymitySchema = z.enum(["anonymous", "identified"]);
+export const SurveyPublishBlockerCodeSchema = z.enum([
+  "QUESTIONS_EMPTY",
+  "QUESTION_OPTIONS_EMPTY",
+  "MAPPING_INCOMPLETE",
+  "LEADING_QUESTION",
+]);
+export const SurveyPublishBlockerSchema = z
+  .object({
+    code: SurveyPublishBlockerCodeSchema,
+    side: z.enum(["survey", "question", "section"]),
+    subjectId: z.string().min(1),
+    missingFields: z.array(z.string().min(1)),
+  })
+  .strict();
+export const SurveyCommandErrorCodeSchema = z.enum([
+  "ANONYMITY_IMMUTABLE",
+  "STATUS_COMMAND_REQUIRED",
+  "INVALID_TRANSITION",
+  "SURVEY_VERSION_CONFLICT",
+  "SURVEY_PUBLISH_BLOCKED",
+]);
 import {
   SurveyWorkflowQuestionSchema,
   SurveyAnswerValueSchema,
@@ -94,6 +116,11 @@ export const SurveyWorkflowSchema = z
 
 export type SurveyWorkflowStep = z.infer<typeof SurveyWorkflowStepSchema>;
 export type SurveyWorkflowModel = z.infer<typeof SurveyWorkflowSchema>;
+export type SurveyStatus = z.infer<typeof SurveyStatusSchema>;
+export type SurveyAnonymity = z.infer<typeof SurveyAnonymitySchema>;
+export type SurveyPublishBlocker = z.infer<
+  typeof SurveyPublishBlockerSchema
+>;
 
 export type SurveyChartType = z.infer<typeof SurveyChartTypeSchema>;
 export type SurveyResponse = z.infer<typeof SurveyResponseSchema>;
