@@ -11,6 +11,7 @@ import {
   KgHumanActionError, type KgHumanActionErrorCode, type MemoryCardOpenOutcome, type MemoryCardPort,
 } from "../../application/knowledge-graph/ports";
 import type { OrgId } from "../../domain/org-id";
+import { isDeadlock, retryOnceOnDeadlock } from "./kg-deadlock-retry";
 
 const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION",
@@ -45,7 +46,8 @@ export class PgMemoryCard implements MemoryCardPort {
 
   async act(orgId: OrgId, userId: string, input: Parameters<MemoryCardPort["act"]>[2]) {
     try {
-      return await this.db.withTenant(orgId, async (s) => {
+      // F16 同一条纵深防御：死锁（40P01）时整个事务重来一次。
+      return await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
         await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
         const r = await s.query<{ r: { card: unknown; action_ids: string[] } }>("SELECT kg_act_on_memory_card($1::jsonb) AS r", [JSON.stringify({
           action_id: input.actionId, card_id: input.cardId, decision: input.decision, actor_kind: input.actorKind,
@@ -55,8 +57,11 @@ export class PgMemoryCard implements MemoryCardPort {
         const row = r.rows[0]!.r;
         // 形状只有契约一份：数据库回来的卡片过一遍 KgMemoryCard，对不上就是实现错了，照样抛。
         return { card: KG.KgMemoryCard.parse(row.card), actionIds: row.action_ids };
-      });
+      }));
     } catch (e) {
+      // 重来一次仍死锁：翻成 KG_CARD_STALE（契约 actOnMemoryCard.err 里唯一「重读再点」的码）——界面据此重读这一轮、
+      // 显示「内容已经变了，已为你刷新，请看最新的再决定」，卡还开着就能再点；不把 500 甩给用户。
+      if (isDeadlock(e)) throw new KgHumanActionError("KG_CARD_STALE", "deadlock detected twice");
       const message = e instanceof Error ? e.message : "";
       const code = CODES.find((c) => message.startsWith(c));
       if (code !== undefined) throw new KgHumanActionError(code, message);

@@ -7,6 +7,7 @@
  */
 import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
@@ -30,6 +31,7 @@ import { PgHumanAction } from "../../src/infrastructure/knowledge-graph/pg-human
 import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgKnowledgeRecall } from "../../src/infrastructure/knowledge-graph/pg-knowledge-recall";
 import { PgMemoryCard } from "../../src/infrastructure/knowledge-graph/pg-memory-card";
+import type { DatabasePort } from "../../src/application/ports/database.port";
 import { PgPromotion } from "../../src/infrastructure/knowledge-graph/pg-promotion";
 import { KnowledgeGraphController } from "../../src/interface/controllers/knowledge-graph.controller";
 import { addChatMessage, addChatThread } from "../support/chat-db";
@@ -38,7 +40,7 @@ import { enableExtraction, extractionDeps, loopbackModel } from "./kg-extraction
 
 const ORG = "org-kg-f17-card";
 const ORG_ID = toOrgId(ORG);
-const PERSONAL = ["r1", "r2", "r3", "r4", "f", "z", "amb", "g1", "g2", "g3", "d", "e", "c", "fr", "priv", "run", "u1", "u2", "mv", "rv"] as const;
+const PERSONAL = ["r1", "r2", "r3", "r4", "f", "z", "amb", "g1", "g2", "g3", "d", "e", "c", "fr", "priv", "run", "u1", "u2", "mv", "rv", "dx", "db", "da"] as const;
 const T = Object.fromEntries([...PERSONAL, "s"].map((k) => [k, `thr-f17-${k}`])) as Record<(typeof PERSONAL)[number] | "s", string>;
 
 const reply = (entity: string, kind: "person" | "organization" | "project", statement: string, claimKind: "fact" | "decision" = "fact") => JSON.stringify({
@@ -57,6 +59,8 @@ const MODEL = loopbackModel([
   ["赵六的报销", reply("赵六", "person", "赵六负责报销")],
   ["项目A 定在 9/29 上线", reply("项目A", "project", "项目A 9/29 上线", "decision")],
   ["项目A 上线改到 10/1", reply("项目A", "project", "项目A 上线改到 10/1", "decision")],
+  ["项目Z 定在 9/29 发布", reply("项目Z", "project", "项目Z 9/29 发布", "decision")],
+  ["项目Z 发布改到 10/1", reply("项目Z", "project", "项目Z 发布改到 10/1", "decision")],
 ]);
 
 const MEMBER_THREAD = "thr-f17-member";
@@ -102,8 +106,17 @@ const logs: string[] = [];
 async function say(threadId: string, body: string, author = "u-owner"): Promise<string> {
   const id = `m-f17-${String(++seq)}`;
   await addChatMessage({ orgId: ORG, id, threadId, body, authorId: author });
-  await runExtractionTick(xdeps);
+  await extractUntilDone(id);
   return id;
+}
+
+/** 抽取一批有上限：一直跑到这条消息离开队列（前面几轮的回答也在排队）。 */
+async function extractUntilDone(messageId: string): Promise<void> {
+  for (let i = 0; i < 20; i += 1) {
+    await runExtractionTick(xdeps);
+    if ((await sql("SELECT 1 FROM kg_extraction_queue WHERE message_id = $1", [messageId])).length === 0) return;
+  }
+  throw new Error(`message ${messageId} still queued for extraction`);
 }
 
 /** 完整一轮：用户消息 → 执行器开卡（与 execute-run 同一个入口）→ 抽取 → 回答落库。 */
@@ -115,7 +128,7 @@ async function turn(threadId: string, text: string, user = "u-owner") {
   const note = await memoryCardFor(recall, cards, { orgId: ORG_ID, userId: user, threadId, runId, messageId: msg, text }, (m, d) => {
     logs.push(`${m}: ${String(d.detail)}`);
   });
-  await runExtractionTick(xdeps);
+  await extractUntilDone(msg);
   const answerId = `ans-f17-${n}`;
   await addChatMessage({ orgId: ORG, id: answerId, threadId, body: "（回答）", authorId: "agent-1", authorKind: "agent", agentId: "agent-1" });
   await asOwner((c) => c.query("UPDATE chat_messages SET agent_run_id = $1 WHERE id = $2", [runId, answerId]));
@@ -736,5 +749,85 @@ describe("F17: 执行器接线（executeQueuedRuns → 回答落库 → getTurnM
     const off = await runOnce("run-kg-f17-2", "记住：年度预算 900 万", false);
     expect((off.call.history ?? []).some((m) => m.content.startsWith("【记忆卡片】"))).toBe(false);
     expect((await turnMemory(T.run, off.answerId)).prompt).toBeNull();
+  });
+});
+
+/* ── 与 F16 结束冲突的触发器：忘掉不会被别的会话的锁卡住 ─────────── */
+
+describe("F17 × F16: 忘掉一条长期记忆（它是别的会话里矛盾卡的旧条）不等别的会话的锁", () => {
+  it("乙拿着会话 B 的锁；甲在会话 A 用忘掉卡忘掉长期记忆 P ⇒ 甲立刻返回、B 的卡进队列；排空后 B 的卡 closed_by_change、新条不再有矛盾", async () => {
+    // P：会话 X 里说「9/29」→ 记到长期记忆；会话 B 说「10/1」⇒ B 里开一张矛盾卡，旧条是 P
+    await say(T.dx, "项目Z 定在 9/29 发布");
+    const src = await threadClaimBy(T.dx, "项目Z 9/29 发布");
+    const pId = await asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-owner', true)");
+      return (await c.query<{ id: string }>("SELECT kg_promote_claim($1::jsonb) AS id", [JSON.stringify({ action_id: newKgId("act"), thread_id: T.dx, claim_id: src.id })])).rows[0]!.id;
+    });
+    await say(T.db, "项目Z 发布改到 10/1");
+    const [prompt] = await sql<{ id: string; older_claim_id: string; newer_claim_id: string; status: string }>(
+      "SELECT id, older_claim_id, newer_claim_id, status FROM kg_conflict_prompts WHERE thread_id = $1", [T.db]);
+    expect(prompt).toMatchObject({ older_claim_id: pId, status: "open" });
+    expect(await claim(prompt!.newer_claim_id)).toMatchObject({ status: "contested" });
+
+    // 会话 A（个人线程）里说「忘掉项目Z」⇒ 卡上有 P
+    const t = await turn(T.da, "忘掉项目Z");
+    const card = await cardOf(T.da, t.answerId);
+    expect(card.items.map((i) => i.claimId)).toContain(pId);
+
+    const b = new pg.Client(appConfig());
+    await b.connect();
+    try {
+      await b.query("BEGIN");
+      // 只拿会话 B 的会话锁（不碰卡那一行）
+      await b.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`kg_scope:${ORG}|chat_session|${T.db}`]);
+      const started = Date.now();
+      const out = await Promise.race([
+        act(card.cardId, { claimIds: [pId] }),
+        new Promise<never>((_r, reject) => setTimeout(() => reject(new Error("forget still waiting after 3000ms")), 3_000)),
+      ]);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      expect(out.card.state).toBe("done");
+      expect(await claim(pId)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
+      // 拿不到 B 的锁 ⇒ 卡进队列，还开着
+      expect(await sql("SELECT prompt_id FROM kg_conflict_close_queue WHERE prompt_id = $1", [prompt!.id])).toHaveLength(1);
+      expect((await sql<{ status: string }>("SELECT status FROM kg_conflict_prompts WHERE id = $1", [prompt!.id]))[0]!.status).toBe("open");
+    } finally {
+      await b.query("ROLLBACK");
+      await b.end();
+    }
+    while ((await asApp(ORG, (c) => c.query<{ done: boolean }>("SELECT kg_conflict_close_drain() AS done"))).rows[0]!.done) { /* 排空 */ }
+    expect((await sql<{ status: string }>("SELECT status FROM kg_conflict_prompts WHERE id = $1", [prompt!.id]))[0]!.status).toBe("closed_by_change");
+    expect(await sql("SELECT prompt_id FROM kg_conflict_close_queue WHERE prompt_id = $1", [prompt!.id])).toEqual([]);
+    expect((await claim(prompt!.newer_claim_id)).status).toBe("proposed");
+  });
+});
+
+describe("F17: 死锁（40P01）纵深防御", () => {
+  const deadlock = Object.assign(new Error("deadlock detected"), { code: "40P01" });
+  /** 前 n 次开事务就撞死锁，之后交给真库。 */
+  const flaky = (n: number) => {
+    let calls = 0;
+    const port = {
+      withTenant: (o: Parameters<DatabasePort["withTenant"]>[0], fn: Parameters<DatabasePort["withTenant"]>[1]) => {
+        calls += 1;
+        return calls <= n ? Promise.reject(deadlock) : db.withTenant(o, fn);
+      },
+    } as unknown as DatabasePort;
+    return { cards: new PgMemoryCard(port), calls: () => calls };
+  };
+  const actWith = (c: PgMemoryCard, cardId: string) => c.act(ORG_ID, "u-owner", { actionId: newKgId("act"), cardId, decision: "accept", actorKind: "human" });
+
+  it("撞一次 ⇒ 整个事务重来、照常生效；连撞两次 ⇒ KG_CARD_STALE（界面：内容已经变了，请刷新后再点），卡还开着", async () => {
+    const t1 = await turn(T.u2, "记住：王五住在杭州");
+    const once = flaky(1);
+    const out = await actWith(once.cards, (await cardOf(T.u2, t1.answerId)).cardId);
+    expect(out.card.state).toBe("done");
+    expect(once.calls()).toBeGreaterThanOrEqual(2);
+    expect(await personalLive("王五住在杭州")).toHaveLength(1);
+
+    const t2 = await turn(T.u2, "记住：王五养了一只猫");
+    const c2 = await cardOf(T.u2, t2.answerId);
+    await expect(actWith(flaky(10).cards, c2.cardId)).rejects.toMatchObject({ code: "KG_CARD_STALE" });
+    expect(await cardRow(c2.cardId)).toMatchObject({ status: "open" });
   });
 });
