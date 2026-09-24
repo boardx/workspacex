@@ -52,6 +52,7 @@ import { listMyProjects } from "../../application/design-workbench/list-my-proje
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
 import { PrototypePatchRejectedError, patchPrototype } from "../../application/design-workbench/patch-prototype";
+import { DesignVariantsUnavailableError, ModelDesignVariantProposer, proposeVariants } from "../../application/design-workbench/design-variants";
 import {
   PrototypeVersionNotFoundError,
   getPrototypeVersion,
@@ -134,6 +135,8 @@ export const IMPORT_THREAD_SCHEMA = C.operations.importThread.in.omit({ projectI
 type ImportThreadBody = ReturnType<typeof IMPORT_THREAD_SCHEMA.parse>;
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
+export const PROPOSE_VARIANTS_SCHEMA = C.operations.proposeVariants.in.omit({ projectId: true });
+type ProposeVariantsBody = ReturnType<typeof PROPOSE_VARIANTS_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
 export const PUBLISH_PROJECT_SCHEMA = C.operations.publishProject.in.omit({ projectId: true });
 type PublishProjectBody = ReturnType<typeof PUBLISH_PROJECT_SCHEMA.parse>;
@@ -166,6 +169,10 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof ThreadNotVisibleError) return new NotFoundException();
   if (e instanceof AuthzUnavailableError) return new ServiceUnavailableException("authz_unavailable");
   if (e instanceof DesignThreadSummaryUnavailableError) {
+    return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+  }
+  // 对标 R9：模型没给出够数的合法方案 ⇒ 同一个 503，不新增错误码。
+  if (e instanceof DesignVariantsUnavailableError) {
     return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
   }
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
@@ -407,6 +414,34 @@ export class DesignWorkbenchController {
     assertPrincipal(principal);
     try {
       return await patchPrototype(this.deps(principal), { projectId, ownerId: principal.userId, ops: body.ops, ...(body.summary !== undefined ? { summary: body.summary } : {}) });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 对标 R9：同一页的几个方案（不写库，挑中后前端走 patch） ── */
+
+  @Post("/pm-designs/:projectId/variants")
+  async proposeVariants(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(PROPOSE_VARIANTS_SCHEMA)) body: ProposeVariantsBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const ai = new ModelDesignVariantProposer({
+        model: this.modelCall,
+        chatModel: this.chatModel,
+        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "design-workbench-variants" }),
+      });
+      return await proposeVariants(
+        { ...this.deps(principal), ai },
+        {
+          projectId, ownerId: principal.userId, screen: body.screen,
+          ...(body.count !== undefined ? { count: body.count } : {}),
+          ...(body.instruction !== undefined ? { instruction: body.instruction } : {}),
+        },
+      );
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

@@ -9,6 +9,7 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
+import { CommentPins, type CommentPin } from "./comment-pins";
 import {
   Check, ChevronDown, Circle, ImageIcon, Loader2, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock,
   // 迭代 16（#3773 R4）：契约 `PrototypeIcon` 闭集的渲染表（下面 `ICONS` 穷举，漏一个编译不过）。
@@ -47,7 +48,66 @@ const SelectionCtx = React.createContext<{
   onNavigate: ((to: number) => void) | null;
   /** 迭代 16（#3773 R5）：这一轮新增/改动的节点 id——屏上给一圈高亮，说清"它改了这里"。 */
   changed: ReadonlySet<string>;
-}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set() });
+  /** 对标 R7（#3933）：画布上双击直接改字，改完回调 `(节点 id, 属性键, 新文字)`；`null` = 这块画布不给改。 */
+  onInlineEdit: ((id: string, key: string, value: string) => void) | null;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null, changed: new Set(), onInlineEdit: null });
+
+/**
+ * 对标 R7（#3933）—— 画布上直接改字：编辑态双击一段文字（或按钮上的字）⇒ 就地可编辑，
+ * 回车 / 失焦提交、Esc 放弃、Shift+回车换行（只对多行文本）。
+ *
+ * 在这之前改一个字要：点选 → 看属性面板 → 找到「文案」框 → 改 → 点应用。Claude Design、Figma
+ * 都是双击就改；这是「直接编辑」里最常用的一下。提交走的是同一条 setProps（I-11），撤销照样能撤。
+ */
+function InlineText({ id, field, value, multiline = false, className, children }: {
+  id: string | undefined; field: string; value: string; multiline?: boolean; className?: string; children?: React.ReactNode;
+}): React.ReactElement {
+  const { mode, onInlineEdit, onSelect } = React.useContext(SelectionCtx);
+  const [editing, setEditing] = React.useState(false);
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const can = mode === "edit" && onInlineEdit !== null && id !== undefined;
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!editing || el === null) return;
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [editing]);
+  const commit = () => {
+    const next = (ref.current?.innerText ?? "").replace(/\n+$/, "");
+    setEditing(false);
+    if (can && next.trim() !== "" && next !== value) onInlineEdit(id, field, multiline ? next : next.replace(/\s*\n\s*/g, " "));
+  };
+  if (editing) {
+    return (
+      <span
+        ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-label="直接改这段文字（回车保存，Esc 放弃）"
+        data-testid="design-canvas-inline-edit"
+        className={cn(className, "cursor-text outline outline-2 outline-primary")}
+        onClick={(e) => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Escape") { e.preventDefault(); setEditing(false); }
+          if (e.key === "Enter" && !(multiline && e.shiftKey)) { e.preventDefault(); commit(); }
+        }}
+      >
+        {value}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={className}
+      onDoubleClick={can ? (e) => { e.stopPropagation(); onSelect?.(id); setEditing(true); } : undefined}
+    >
+      {children ?? value}
+    </span>
+  );
+}
 
 /** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
 function useLinkTap(id: string | undefined, item?: number) {
@@ -317,7 +377,7 @@ const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
  * 对标 R2（#3933）：项目级圆角 × 节点圆角层级 ⇒ 类名。只落在既有的几档命名圆角上（lint-design U11），
  * `full`（胶囊/圆形）不随项目气质变——头像和开关本来就是圆的，「直角风」不该把它们也削成方块。
  */
-const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
+export const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
   sharp: { none: "rounded-none", sm: "rounded-none", md: "rounded-none", lg: "rounded-none", full: "rounded-full" },
   default: RADIUS,
   round: { none: "rounded-none", sm: "rounded-control", md: "rounded-container", lg: "rounded-container", full: "rounded-full" },
@@ -326,17 +386,17 @@ const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none
  * 对标 R2：项目级密度 × 节点间距层级 ⇒ Tailwind 间距档位。`default` 行与上面的 GAP/PAD 逐字相同。
  * 紧凑与宽松各挪一档，`none` 始终是 0（「这里不要间距」是结构，不是气质）。
  */
-const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "gap-0", sm: "gap-0.5", md: "gap-1", lg: "gap-2" },
   default: GAP,
   comfortable: { none: "gap-0", sm: "gap-2", md: "gap-3", lg: "gap-6" },
 };
-const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "p-0", sm: "p-0.5", md: "p-1", lg: "p-2" },
   default: PAD,
   comfortable: { none: "p-0", sm: "p-2", md: "p-3", lg: "p-6" },
 };
-const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "h-0", sm: "h-0.5", md: "h-2", lg: "h-4" },
   default: SPACE,
   comfortable: { none: "h-0", sm: "h-2", md: "h-4", lg: "h-8" },
@@ -631,7 +691,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             p.align === "center" && "text-center", p.align === "end" && "text-right")}
           data-proto="text" {...tap}
         >
-          {p.content}
+          {/* 整行都能双击（行内 span 只有文字那么宽，双击在字后面的空白上会落空）。 */}
+          <InlineText id={node.id} field="content" value={p.content} multiline className="block" />
         </p>
       );
     }
@@ -648,7 +709,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         >
           {/* 迭代 16（#3773 R4）：图标在文案左边，`gap` 跟着尺寸走——图标按钮不该比文字按钮更松。 */}
           {p.icon !== undefined && React.createElement(ICONS[p.icon], { "aria-hidden": true, className: "mr-1 h-3.5 w-3.5 shrink-0" })}
-          {p.label}
+          <InlineText id={node.id} field="label" value={p.label} />
         </span>
       );
     }
@@ -1011,9 +1072,18 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /**
+   * 对标 R9（#3954）：这块画布只是一张**候选缩略图**（变体面板）。它不是「当前页」，所以不挂
+   * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
+   */
+  thumbnail?: boolean;
+  /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
+  /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
+  pins?: readonly CommentPin[];
   /**
    * issue #3340：这一页**规划了但没画出来**（分页生成里那一轮失败），不同于「整个项目还没有原型」。
    * 两种空长得一样、说同一句话，等于把「有 2 页没画出来」这个事实藏起来——用户看到的是
@@ -1077,10 +1147,11 @@ export function PrototypeCanvas({
 }) {
   const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
+  const treeRef = React.useRef<HTMLDivElement>(null);
   // 对标 R2：项目级圆角 / 密度。`tokens` 缺失（老调用方）⇒ 都是 default，逐像素同以前。
   const scale = React.useMemo(() => ({ radius: tokens?.radius ?? "default", density: tokens?.density ?? "default" }) as const, [tokens?.radius, tokens?.density]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed }}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate, changed, onInlineEdit }}>
     <ScaleCtx.Provider value={scale}>
     <div
       className={cn(
@@ -1105,7 +1176,7 @@ export function PrototypeCanvas({
       data-brand={!wireframe && tokens?.brand != null ? tokens.brand : undefined}
       data-font={tokens?.font !== undefined && tokens.font !== "sans" ? tokens.font : undefined}
       data-fidelity={wireframe ? "wireframe" : undefined}
-      data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
+      data-testid={thumbnail ? "design-variant-canvas" : "design-detail-phone"} data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >
@@ -1155,6 +1226,7 @@ export function PrototypeCanvas({
         </div>
       ) : (
         <div
+          ref={treeRef}
           className={cn(
             // `relative`：对标 R4 的叠层（overlay）以这一块为定位基准盖满整屏，不盖到机身的状态栏上。
             "relative flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
@@ -1182,6 +1254,7 @@ export function PrototypeCanvas({
           onClick={() => { if (mode === "edit") onSelect?.(null); }}
         >
           <Node node={root} />
+          {pins !== undefined && pins.length > 0 && <CommentPins pins={pins} container={treeRef} revision={root} />}
         </div>
       )}
       {(device.chrome === "phone" || device.chrome === "tablet") && <HomeIndicator />}

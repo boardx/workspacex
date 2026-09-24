@@ -286,6 +286,14 @@ export async function patchPrototype(projectId: string, ops: readonly PrototypeP
   });
 }
 
+/* ── 对标 R9：同一页的几个方案（不写库；挑中后走 patchPrototype 的 replace） ── */
+export type ProposeVariantsOut = z.infer<typeof designWorkbench.operations.proposeVariants.out>;
+export async function proposeVariants(projectId: string, screen: number, count?: number): Promise<ProposeVariantsOut> {
+  return apiRequest<ProposeVariantsOut>(versionPath(designWorkbench.operations.proposeVariants.path, projectId), {
+    method: "POST", body: { screen, ...(count !== undefined ? { count } : {}) },
+  });
+}
+
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
 export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
 export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;
