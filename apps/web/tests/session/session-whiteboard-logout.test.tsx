@@ -33,7 +33,7 @@ it('clears auth synchronously and leaves a keyless quarantine receipt in real In
   await screen.findByText('anonymous');fireEvent.click(screen.getByTestId('login'));
   await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));
   const sessionId=await fingerprintWhiteboardSession(login.sessionToken);
-  const scope:WhiteboardOutboxScope={boardId:'11111111-1111-4111-8111-111111111111',principalId:login.userId,sessionId,epoch:1,accessReceiptId:'22222222-2222-4222-8222-222222222222'};
+  const scope:WhiteboardOutboxScope={boardId:'11111111-1111-4111-8111-111111111111',orgId:'org-one',principalId:login.userId,sessionId,epoch:1,accessReceiptId:'22222222-2222-4222-8222-222222222222'};
   const update:PendingWhiteboardUpdate={type:'update',epoch:1,updateId:'33333333-3333-4333-8333-333333333333',update:'AQID'};
   const outbox=new IndexedDbWhiteboardOutbox();await outbox.put(scope,update);
 

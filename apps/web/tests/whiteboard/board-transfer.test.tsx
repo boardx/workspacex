@@ -8,7 +8,7 @@ import { whiteboardTransfer as T } from '@repo/contracts';
 
 const push=vi.fn();
 vi.mock('next/navigation',()=>({useRouter:()=>({push})}));
-vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'owner'}})}));
+vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'owner',currentOrgId:'org-one'}})}));
 vi.mock('@/lib/whiteboard-provider',()=>({WhiteboardProvider:class{constructor(_doc:unknown,_id:string,onState:(value:unknown)=>void){onState({phase:'synced',pending:0,role:'owner',archived:false,peers:[],reason:null});}awareness(){}close(){}}}));
 vi.mock('@/lib/live-whiteboard',()=>({getBoard:vi.fn(),exportBoardPackage:vi.fn(),previewBoardImport:vi.fn(),importBoardPackage:vi.fn()}));
 vi.mock('@repo/whiteboard-core', async importOriginal => ({

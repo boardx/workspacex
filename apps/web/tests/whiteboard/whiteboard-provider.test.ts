@@ -17,7 +17,7 @@ class Socket {
   message(value: unknown) { this.onmessage?.({ data: JSON.stringify(value) }); }
 }
 
-const id = (scope: WhiteboardOutboxScope) => JSON.stringify([scope.boardId, scope.principalId, scope.sessionId, scope.epoch]);
+const id = (scope: WhiteboardOutboxScope) => JSON.stringify([scope.orgId, scope.boardId, scope.principalId, scope.sessionId, scope.epoch]);
 const ACCESS_RECEIPT='11111111-1111-4111-8111-111111111111';
 class FakeOutbox implements WhiteboardOutboxPort {
   active = new Map<string, PendingWhiteboardUpdate[]>();
@@ -25,7 +25,7 @@ class FakeOutbox implements WhiteboardOutboxPort {
   max = 200;
   async load(scope: WhiteboardOutboxScope) { return [...(this.active.get(id(scope)) ?? [])]; }
   async summarize(context: WhiteboardOutboxContext) {
-    const updates=[...this.active].filter(([key])=>{const [boardId,principalId,sessionId]=JSON.parse(key) as [string,string,string];return boardId===context.boardId&&principalId===context.principalId&&sessionId===context.sessionId;}).flatMap(([,items])=>items);
+    const updates=[...this.active].filter(([key])=>{const [orgId,boardId,principalId,sessionId]=JSON.parse(key) as [string,string,string,string];return orgId===context.orgId&&boardId===context.boardId&&principalId===context.principalId&&sessionId===context.sessionId;}).flatMap(([,items])=>items);
     return {pendingCount:updates.length,pendingBytes:updates.reduce((sum,item)=>sum+item.update.length,0)};
   }
   async put(scope: WhiteboardOutboxScope, update: PendingWhiteboardUpdate) {
@@ -40,9 +40,9 @@ class FakeOutbox implements WhiteboardOutboxPort {
   async quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string) {
     const receipts: WhiteboardQuarantineReceipt[] = [];
     for (const [key, updates] of this.active) {
-      const [boardId, principalId, sessionId, epoch] = JSON.parse(key) as [string, string, string, number];
-      if (boardId !== context.boardId || principalId !== context.principalId || sessionId !== context.sessionId || epoch === keepEpoch) continue;
-      const receipt = { boardId, principalId, sessionId, epoch, accessReceiptId:ACCESS_RECEIPT, receiptId: crypto.randomUUID(), reason, quarantinedAt: new Date().toISOString(), pendingCount: updates.length, pendingBytes: updates.reduce((sum, update) => sum + update.update.length, 0) };
+      const [orgId, boardId, principalId, sessionId, epoch] = JSON.parse(key) as [string, string, string, string, number];
+      if (orgId !== context.orgId || boardId !== context.boardId || principalId !== context.principalId || sessionId !== context.sessionId || epoch === keepEpoch) continue;
+      const receipt = { orgId, boardId, principalId, sessionId, epoch, accessReceiptId:ACCESS_RECEIPT, receiptId: crypto.randomUUID(), reason, quarantinedAt: new Date().toISOString(), pendingCount: updates.length, pendingBytes: updates.reduce((sum, update) => sum + update.update.length, 0) };
       receipts.push(receipt); this.receipts.push(receipt); this.active.delete(key);
     }
     return receipts;
@@ -50,21 +50,21 @@ class FakeOutbox implements WhiteboardOutboxPort {
   async quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string) {
     const receipts: WhiteboardQuarantineReceipt[] = [];
     for (const [key, updates] of this.active) {
-      const [boardId, principalId, sessionId, epoch] = JSON.parse(key) as [string, string, string, number];
+      const [orgId, boardId, principalId, sessionId, epoch] = JSON.parse(key) as [string, string, string, string, number];
       if (principalId !== identity.principalId || sessionId !== identity.sessionId) continue;
-      const receipt = { boardId, principalId, sessionId, epoch, accessReceiptId:ACCESS_RECEIPT, receiptId: crypto.randomUUID(), reason, quarantinedAt: new Date().toISOString(), pendingCount: updates.length, pendingBytes: updates.reduce((sum, update) => sum + update.update.length, 0) };
+      const receipt = { orgId, boardId, principalId, sessionId, epoch, accessReceiptId:ACCESS_RECEIPT, receiptId: crypto.randomUUID(), reason, quarantinedAt: new Date().toISOString(), pendingCount: updates.length, pendingBytes: updates.reduce((sum, update) => sum + update.update.length, 0) };
       receipts.push(receipt); this.receipts.push(receipt); this.active.delete(key);
     }
     return receipts;
   }
-  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string){return this.receipts.filter(receipt=>receipt.principalId===identity.principalId&&(!boardId||receipt.boardId===boardId));}
-  async discardQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,receiptId:string){const index=this.receipts.findIndex(receipt=>receipt.receiptId===receiptId&&receipt.principalId===identity.principalId);if(index<0)return false;this.receipts.splice(index,1);return true;}
-  async purgeSession(identity:Pick<WhiteboardOutboxContext,'principalId'|'sessionId'>){for(const key of [...this.active.keys()]){const [,principalId,sessionId]=JSON.parse(key) as [string,string,string];if(principalId===identity.principalId&&sessionId===identity.sessionId)this.active.delete(key);}}
+  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'orgId'|'principalId'>,boardId?:string){return this.receipts.filter(receipt=>receipt.orgId===identity.orgId&&receipt.principalId===identity.principalId&&(!boardId||receipt.boardId===boardId));}
+  async discardQuarantine(identity:Pick<WhiteboardOutboxContext,'orgId'|'principalId'>,receiptId:string){const index=this.receipts.findIndex(receipt=>receipt.receiptId===receiptId&&receipt.orgId===identity.orgId&&receipt.principalId===identity.principalId);if(index<0)return false;this.receipts.splice(index,1);return true;}
+  async purgeSession(identity:Pick<WhiteboardOutboxContext,'principalId'|'sessionId'>){for(const key of [...this.active.keys()]){const [,,principalId,sessionId]=JSON.parse(key) as [string,string,string,string];if(principalId===identity.principalId&&sessionId===identity.sessionId)this.active.delete(key);}}
 }
 
 const flush = async () => { for (let index = 0; index < 12; index += 1) await Promise.resolve(); };
 const sync = (socket: Socket, server: Y.Doc, overrides: Partial<{ epoch: number; role: 'owner' | 'editor' | 'viewer'; archived: boolean }> = {}) => socket.message({ type: 'sync', epoch: overrides.epoch ?? 1, seq: 0, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: overrides.role ?? 'owner', archived: overrides.archived ?? false, accessReceiptId:ACCESS_RECEIPT });
-const options = (outbox: WhiteboardOutboxPort, principalId = 'user-1', sessionId = 'session-1') => ({ outbox, principalId, sessionId });
+const options = (outbox: WhiteboardOutboxPort, principalId = 'user-1', sessionId = 'session-1', orgId = 'org-1') => ({ outbox, orgId, principalId, sessionId });
 
 beforeEach(() => { token = 'test-session'; vi.useFakeTimers(); Socket.sockets = []; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -77,7 +77,7 @@ it('persists before send, only ACK deletes, and reconnect replays the same updat
   sync(first, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'one', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'hello', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush();
-  const pending = JSON.parse(first.sent[1]!); expect(state?.pending).toBe(1); expect(outbox.active.get(id({ boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, accessReceiptId:ACCESS_RECEIPT }))).toHaveLength(1);
+  const pending = JSON.parse(first.sent[1]!); expect(state?.pending).toBe(1); expect(outbox.active.get(id({ boardId: 'board-1', orgId: 'org-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, accessReceiptId:ACCESS_RECEIPT }))).toHaveLength(1);
   first.onclose?.({ code: 1006 }); vi.advanceTimersByTime(500);
   const second = Socket.sockets[1]!; second.onopen?.(); expect(second.sent).toHaveLength(1);
   sync(second, server); await flush();
@@ -128,12 +128,55 @@ it('survives 60 seconds and 100 offline edits, reports restart pending, then con
   second.close();restarted.destroy();server.destroy();
 });
 
+it('caps repeated reconnect backoff at five seconds after a 30 second outage', async () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{},options(new FakeOutbox()));await flush();
+  sync(Socket.sockets[0]!,server);await flush();
+  for(const delay of [500,1000,2000,4000]){
+    Socket.sockets.at(-1)!.onclose?.({code:1006});
+    vi.advanceTimersByTime(delay-1);expect(Socket.sockets).toHaveLength([500,1000,2000,4000].indexOf(delay)+1);
+    vi.advanceTimersByTime(1);
+  }
+  expect(Socket.sockets).toHaveLength(5);
+  Socket.sockets.at(-1)!.onclose?.({code:1006});
+  vi.advanceTimersByTime(4_999);expect(Socket.sockets).toHaveLength(5);
+  vi.advanceTimersByTime(1);
+  expect(Socket.sockets).toHaveLength(6);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('converges duplicate and out-of-order remote updates without duplicating objects', async () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{},options(new FakeOutbox()));await flush();
+  sync(Socket.sockets[0]!,server);await flush();
+  const source=createWhiteboardDocument(),updates:Uint8Array[]=[];
+  source.on('update',value=>updates.push(value));
+  for(const objectId of ['first','second'])executeCommands(source,[{type:'create',object:{id:objectId,kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:180,height:140,rotation:0},text:objectId,style:{},parentId:null,orderKey:''}}],'local');
+  const socket=Socket.sockets[0]!;
+  for(const value of [updates[1]!,updates[0]!,updates[1]!])socket.message({type:'update',epoch:1,seq:1,update:bytesToBase64(value)});
+  expect([...doc.getMap('objects').keys()].sort()).toEqual(['first','second']);
+  provider.close();doc.destroy();server.destroy();source.destroy();
+});
+
+it('never replays a durable update after reconnect reports read-only permission', async () => {
+  const outbox=new FakeOutbox();
+  const pending:PendingWhiteboardUpdate={type:'update',epoch:1,updateId:crypto.randomUUID(),update:bytesToBase64(new Uint8Array([1,2,3]))};
+  await outbox.put({boardId:'board-1',orgId:'org-1',principalId:'user-1',sessionId:'session-1',epoch:1,accessReceiptId:ACCESS_RECEIPT},pending);
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},options(outbox));await flush();
+  const socket=Socket.sockets[0]!;sync(socket,server,{role:'viewer'});await flush();
+  expect(socket.sent).toHaveLength(0);
+  expect(state).toMatchObject({phase:'blocked',reason:'WRITE_DENIED',pending:0,quarantined:1});
+  expect(outbox.active.size).toBe(0);
+  provider.close();doc.destroy();server.destroy();
+});
+
 it('never crosses principal, session, or epoch boundaries and quarantines stale epochs', async () => {
   const outbox = new FakeOutbox();
   const update = { type: 'update', epoch: 1, updateId: crypto.randomUUID(), update: bytesToBase64(new Uint8Array([1, 2, 3])) } as const;
-  await outbox.put({ boardId: 'board-1', principalId: 'other-user', sessionId: 'session-1', epoch: 2, accessReceiptId:ACCESS_RECEIPT }, { ...update, epoch: 2 });
-  await outbox.put({ boardId: 'board-1', principalId: 'user-1', sessionId: 'other-session', epoch: 2, accessReceiptId:ACCESS_RECEIPT }, { ...update, epoch: 2, updateId: crypto.randomUUID() });
-  await outbox.put({ boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, accessReceiptId:ACCESS_RECEIPT }, update);
+  await outbox.put({ boardId: 'board-1', orgId: 'org-1', principalId: 'other-user', sessionId: 'session-1', epoch: 2, accessReceiptId:ACCESS_RECEIPT }, { ...update, epoch: 2 });
+  await outbox.put({ boardId: 'board-1', orgId: 'org-1', principalId: 'user-1', sessionId: 'other-session', epoch: 2, accessReceiptId:ACCESS_RECEIPT }, { ...update, epoch: 2, updateId: crypto.randomUUID() });
+  await outbox.put({ boardId: 'board-1', orgId: 'org-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, accessReceiptId:ACCESS_RECEIPT }, update);
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(); const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));await flush();
   sync(Socket.sockets[0]!, server, { epoch: 2 }); await flush();
   expect(outbox.receipts).toHaveLength(1); expect(outbox.receipts[0]).toMatchObject({ principalId: 'user-1', sessionId: 'session-1', epoch: 1 });
@@ -161,7 +204,7 @@ it('deletes the decrypt path when logout unmounts the provider before the sessio
   sync(Socket.sockets[0]!, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'logout', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'private', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush();
-  const otherBoardScope = { boardId: 'board-2', principalId: 'user-1', sessionId: 'session-1', epoch: 3, accessReceiptId:ACCESS_RECEIPT };
+  const otherBoardScope = { boardId: 'board-2', orgId: 'org-1', principalId: 'user-1', sessionId: 'session-1', epoch: 3, accessReceiptId:ACCESS_RECEIPT };
   await outbox.put(otherBoardScope, { type: 'update', epoch: 3, updateId: crypto.randomUUID(), update: 'AA==' });
   token = '';
   provider.close(); await flush();

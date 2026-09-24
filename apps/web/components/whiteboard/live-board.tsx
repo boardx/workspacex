@@ -34,12 +34,13 @@ export function LiveBoard({ boardId }: { boardId: string }) {
     void getBoard(boardId).then(resource => {
       if (!active) return; setBoard(resource); setDoc(document);
       const principalId = session?.session?.userId;
-      if (!principalId) { setFailed(true); return; }
-      provider = new WhiteboardProvider(document, boardId, value => { if (active) setState(value); }, { principalId });
+      const orgId = session?.session?.currentOrgId;
+      if (!principalId || !orgId) { setFailed(true); return; }
+      provider = new WhiteboardProvider(document, boardId, value => { if (active) setState(value); }, { orgId, principalId });
       providerRef.current = provider;
     }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; provider?.close(); if(providerRef.current===provider)providerRef.current=null; document.destroy(); };
-  }, [boardId, session?.session?.userId]);
+  }, [boardId, session?.session?.currentOrgId, session?.session?.userId]);
   useEffect(() => {
     if (!state.pending) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };

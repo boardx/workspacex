@@ -5,7 +5,7 @@ import type { WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 const mocks=vi.hoisted(()=>({push:vi.fn(),getBoard:vi.fn(),requestRecovery:vi.fn(),discard:vi.fn(),callback:null as null|((state:WhiteboardConnectionState)=>void)}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push:mocks.push})}));
 vi.mock('@/lib/live-whiteboard',()=>({getBoard:mocks.getBoard,requestQuarantineRecovery:mocks.requestRecovery}));
-vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'user-1'}})}));
+vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'user-1',currentOrgId:'org-one'}})}));
 vi.mock('@/components/whiteboard/collaborative-editor',()=>({CollaborativeEditor:({status}:{status:string})=><div data-testid="editor-status">{status}</div>}));
 vi.mock('@/components/whiteboard/workshop-panel',()=>({WorkshopPanel:()=>null}));
 vi.mock('@/components/whiteboard/room-presenter-controls',()=>({RoomPresenterControls:()=>null}));
@@ -15,7 +15,7 @@ vi.mock('@/lib/whiteboard-provider',()=>({WhiteboardProvider:class{constructor(_
 import { LiveBoard } from '@/components/whiteboard/live-board';
 
 const base:WhiteboardConnectionState={phase:'online',pending:0,quarantined:0,quarantineReceipts:[],role:'owner',archived:false,peers:[],reason:null};
-const receipt={boardId:'11111111-1111-4111-8111-111111111111',principalId:'user-1',sessionId:'a'.repeat(64),epoch:1,receiptId:'22222222-2222-4222-8222-222222222222',accessReceiptId:'44444444-4444-4444-8444-444444444444',reason:'ACCESS_DENIED',quarantinedAt:'2026-09-24T00:00:00.000Z',pendingCount:3,pendingBytes:12};
+const receipt={boardId:'11111111-1111-4111-8111-111111111111',orgId:'org-one',principalId:'user-1',sessionId:'a'.repeat(64),epoch:1,receiptId:'22222222-2222-4222-8222-222222222222',accessReceiptId:'44444444-4444-4444-8444-444444444444',reason:'ACCESS_DENIED',quarantinedAt:'2026-09-24T00:00:00.000Z',pendingCount:3,pendingBytes:12};
 
 beforeEach(()=>{mocks.push.mockReset();mocks.getBoard.mockReset().mockResolvedValue({id:receipt.boardId,name:'Board',ownerId:'user-1',role:'owner',archived:false,createdAt:receipt.quarantinedAt,updatedAt:receipt.quarantinedAt});mocks.requestRecovery.mockReset().mockResolvedValue({requestId:'33333333-3333-4333-8333-333333333333',status:'pending-review',createdAt:receipt.quarantinedAt});mocks.discard.mockReset().mockResolvedValue(true);mocks.callback=null;});
 

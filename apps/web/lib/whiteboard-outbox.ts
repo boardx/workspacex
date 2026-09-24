@@ -4,6 +4,7 @@ export type PendingWhiteboardUpdate = Extract<WhiteboardClientMessage, { type: '
 
 export type WhiteboardOutboxContext = {
   boardId: string;
+  orgId: string;
   principalId: string;
   sessionId: string;
 };
@@ -30,8 +31,8 @@ export interface WhiteboardOutboxPort {
   ack(scope: WhiteboardOutboxScope, updateId: string): Promise<void>;
   quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
   quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
-  listQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, boardId?: string): Promise<WhiteboardQuarantineReceipt[]>;
-  discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean>;
+  listQuarantine(identity: Pick<WhiteboardOutboxContext, 'orgId' | 'principalId'>, boardId?: string): Promise<WhiteboardQuarantineReceipt[]>;
+  discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'orgId' | 'principalId'>, receiptId: string): Promise<boolean>;
   purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'> & {attemptId?:string}): Promise<void>;
 }
 
@@ -47,7 +48,7 @@ type StoredAudit = WhiteboardOutboxContext & {
 };
 
 const DB_NAME = 'workspacex-whiteboard-outbox';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const ACTIVE = 'active';
 const QUARANTINE = 'quarantine';
 const AUDIT = 'audit';
@@ -70,7 +71,7 @@ async function withOutboxLock<T>(work: () => Promise<T>): Promise<T> {
 }
 
 function scopeId(scope: WhiteboardOutboxScope): string {
-  return JSON.stringify([scope.boardId, scope.principalId, scope.sessionId, scope.epoch]);
+  return JSON.stringify([scope.orgId, scope.boardId, scope.principalId, scope.sessionId, scope.epoch]);
 }
 
 function request<T>(value: IDBRequest<T>): Promise<T> {
@@ -157,7 +158,7 @@ function assertPrincipalNotBroadRevoked(principalId:string):void{
 function auditReceipt(row:StoredAudit,reason:string):StoredQuarantine{
   const quarantinedAt=new Date().toISOString();
   return {
-    boardId:row.boardId,principalId:row.principalId,sessionId:row.sessionId,epoch:row.epoch,
+    boardId:row.boardId,orgId:row.orgId,principalId:row.principalId,sessionId:row.sessionId,epoch:row.epoch,
     ...(row.accessReceiptId?{accessReceiptId:row.accessReceiptId}:{}),
     receiptId:crypto.randomUUID(),reason,quarantinedAt,
     pendingCount:row.ciphertext.length,
@@ -170,10 +171,10 @@ function legacyAuditFromKey(key:IDBValidKey):StoredAudit|null{
   if(typeof key!=='string')return null;
   try{
     const value=JSON.parse(key) as unknown;
-    if(!Array.isArray(value)||value.length!==4)return null;
-    const [boardId,principalId,sessionId,epoch]=value;
-    if(typeof boardId!=='string'||typeof principalId!=='string'||typeof sessionId!=='string'||!Number.isSafeInteger(epoch))return null;
-    return {id:key,boardId,principalId,sessionId,epoch:epoch as number,ciphertext:[]};
+    if(!Array.isArray(value)||value.length!==5)return null;
+    const [orgId,boardId,principalId,sessionId,epoch]=value;
+    if(typeof orgId!=='string'||typeof boardId!=='string'||typeof principalId!=='string'||typeof sessionId!=='string'||!Number.isSafeInteger(epoch))return null;
+    return {id:key,orgId,boardId,principalId,sessionId,epoch:epoch as number,ciphertext:[]};
   }catch{return null;}
 }
 
@@ -245,11 +246,14 @@ async function readActive(database: IDBDatabase, scope: WhiteboardOutboxScope): 
 }
 
 function sameContext(row: StoredOutbox, context: WhiteboardOutboxContext): boolean {
-  return row.boardId === context.boardId && row.principalId === context.principalId && row.sessionId === context.sessionId;
+  return row.orgId === context.orgId && row.boardId === context.boardId
+    && row.principalId === context.principalId && row.sessionId === context.sessionId;
 }
 
 function additionalData(scope: WhiteboardOutboxScope, updateId: string): ArrayBuffer {
-  const bytes = new TextEncoder().encode(JSON.stringify([scope.boardId, scope.principalId, scope.sessionId, scope.epoch, updateId]));
+  const bytes = new TextEncoder().encode(JSON.stringify([
+    scope.orgId, scope.principalId, scope.boardId, scope.sessionId, scope.epoch, updateId,
+  ]));
   return bytes.slice().buffer;
 }
 
@@ -359,11 +363,11 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
     return this.quarantineWhere(row => row.principalId === identity.principalId && row.sessionId === identity.sessionId, reason,identity.principalId);
   }
 
-  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string):Promise<WhiteboardQuarantineReceipt[]>{
-    return withOutboxLock(async()=>{const database=await openDatabase(identity.principalId);try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];assertPrincipalNotBroadRevoked(identity.principalId);await complete(transaction);assertPrincipalNotBroadRevoked(identity.principalId);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
+  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'orgId'|'principalId'>,boardId?:string):Promise<WhiteboardQuarantineReceipt[]>{
+    return withOutboxLock(async()=>{const database=await openDatabase(identity.principalId);try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];assertPrincipalNotBroadRevoked(identity.principalId);await complete(transaction);assertPrincipalNotBroadRevoked(identity.principalId);return rows.filter(row=>row.orgId===identity.orgId&&row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
   }
 
-  async discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean> {
+  async discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'orgId' | 'principalId'>, receiptId: string): Promise<boolean> {
     return withOutboxLock(async () => {
       const database = await openDatabase(identity.principalId);
       try {
@@ -371,7 +375,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         const store = transaction.objectStore(QUARANTINE);
         const row = await request(store.get(receiptId)) as StoredQuarantine | undefined;
         assertPrincipalNotBroadRevoked(identity.principalId);
-        if (!row || row.principalId !== identity.principalId) {
+        if (!row || row.orgId !== identity.orgId || row.principalId !== identity.principalId) {
           await complete(transaction);
           return false;
         }
@@ -410,7 +414,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         for(const row of selected)assertNotRevoked(row);
         const now = new Date().toISOString();
         const receipts = selected.map(row => ({
-          boardId: row.boardId, principalId: row.principalId, sessionId: row.sessionId, epoch: row.epoch,
+          boardId: row.boardId, orgId: row.orgId, principalId: row.principalId, sessionId: row.sessionId, epoch: row.epoch,
           ...(row.accessReceiptId ? {accessReceiptId:row.accessReceiptId} : {}),
           receiptId: crypto.randomUUID(), reason, quarantinedAt: now,
           pendingCount: row.entries.length,

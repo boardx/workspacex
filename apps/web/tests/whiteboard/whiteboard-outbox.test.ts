@@ -8,7 +8,7 @@ function update(epoch: number, value = 'AQID'): PendingWhiteboardUpdate {
 }
 
 const scope = (overrides: Partial<WhiteboardOutboxScope> = {}): WhiteboardOutboxScope => ({
-  boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1,
+  boardId: 'board-1', orgId: 'org-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1,
   accessReceiptId:'11111111-1111-4111-8111-111111111111', ...overrides,
 });
 
@@ -71,8 +71,28 @@ it('persists an actual non-extractable CryptoKey and decrypts after reopening th
   const reopened = new IndexedDbWhiteboardOutbox();
   await expect(reopened.load(scope())).resolves.toEqual([pending]);
   await expect(reopened.load(scope({ principalId: 'user-2' }))).resolves.toEqual([]);
+  await expect(reopened.load(scope({ orgId: 'org-2' }))).resolves.toEqual([]);
   await expect(reopened.load(scope({ sessionId: 'session-2' }))).resolves.toEqual([]);
   await expect(reopened.load(scope({ epoch: 2 }))).resolves.toEqual([]);
+});
+
+it('binds ciphertext to organization and user AAD and stores no plaintext update', async () => {
+  const adapter = new IndexedDbWhiteboardOutbox();
+  const pending = update(1, 'sensitive-clear-update');
+  await adapter.put(scope(), pending);
+  await adapter.put(scope(), pending);
+
+  const [stored] = await rows(WHITEBOARD_OUTBOX_STORAGE.activeStore);
+  expect((stored!.entries as unknown[])).toHaveLength(1);
+  expect(stored).not.toHaveProperty('update');
+  expect(JSON.stringify(stored)).not.toContain(pending.update);
+
+  await replaceActive({
+    ...stored,
+    orgId: 'org-2',
+    id: JSON.stringify(['org-2', scope().boardId, scope().principalId, scope().sessionId, scope().epoch]),
+  });
+  await expect(adapter.load(scope({ orgId: 'org-2' }))).rejects.toThrow();
 });
 
 it('deletes the active record only after ACK', async () => {
@@ -118,7 +138,7 @@ it('summarizes durable updates across epochs and atomically discards only the ma
   const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({epoch:1}),update(1));await adapter.put(scope({epoch:2}),update(2));
   await expect(adapter.summarize(scope())).resolves.toEqual({pendingCount:2,pendingBytes:8});
   const [receipt]=await adapter.quarantineExcept(scope(),null,'ACCESS_DENIED');expect(receipt).toBeDefined();
-  await expect(adapter.discardQuarantine({principalId:'other'},receipt!.receiptId)).resolves.toBe(false);
+  await expect(adapter.discardQuarantine({orgId:'org-1',principalId:'other'},receipt!.receiptId)).resolves.toBe(false);
   expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toHaveLength(2);
   await expect(adapter.discardQuarantine(scope(),receipt!.receiptId)).resolves.toBe(true);
   const remaining=await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore);expect(remaining).toHaveLength(1);expect(remaining[0]!.receiptId).not.toBe(receipt!.receiptId);
@@ -126,9 +146,10 @@ it('summarizes durable updates across epochs and atomically discards only the ma
 
 it('lists old-session receipts by authenticated principal without exposing ciphertext and permits principal-scoped discard',async()=>{
   const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({sessionId:'old-session'}),update(1));await adapter.quarantineSession({principalId:'user-1',sessionId:'old-session'},'ACCESS_DENIED');
-  const receipts=await adapter.listQuarantine({principalId:'user-1'},'board-1');expect(receipts).toHaveLength(1);expect(receipts[0]).not.toHaveProperty('ciphertext');
-  await expect(adapter.listQuarantine({principalId:'other'},'board-1')).resolves.toEqual([]);
-  await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toEqual([]);
+  const receipts=await adapter.listQuarantine({orgId:'org-1',principalId:'user-1'},'board-1');expect(receipts).toHaveLength(1);expect(receipts[0]).not.toHaveProperty('ciphertext');
+  await expect(adapter.listQuarantine({orgId:'org-2',principalId:'user-1'},'board-1')).resolves.toEqual([]);
+  await expect(adapter.listQuarantine({orgId:'org-1',principalId:'other'},'board-1')).resolves.toEqual([]);
+  await expect(adapter.discardQuarantine({orgId:'org-1',principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toEqual([]);
 });
 
 it('keeps legacy quarantine data discard-only when it has no authenticated access receipt',async()=>{
@@ -138,7 +159,7 @@ it('keeps legacy quarantine data discard-only when it has no authenticated acces
   await replaceActive(legacy);
   const receipts=await adapter.quarantineExcept(scope(),null,'ACCESS_DENIED');
   expect(receipts).toHaveLength(1);expect(receipts[0]).not.toHaveProperty('accessReceiptId');
-  await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);
+  await expect(adapter.discardQuarantine({orgId:'org-1',principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);
 });
 
 it('keeps a logout tombstone when IndexedDB fails, then quarantines only that session before any later load',async()=>{
@@ -150,7 +171,7 @@ it('keeps a logout tombstone when IndexedDB fails, then quarantines only that se
   await expect(new IndexedDbWhiteboardOutbox().load(revoked)).rejects.toThrow('simulated indexeddb outage');
   await expect(new IndexedDbWhiteboardOutbox().put(revoked,update(1))).rejects.toThrow('simulated indexeddb outage');
   vi.stubGlobal('indexedDB',factory);await expect(new IndexedDbWhiteboardOutbox().load(revoked)).resolves.toEqual([]);await expect(new IndexedDbWhiteboardOutbox().load(other)).resolves.toHaveLength(1);
-  const receipts=await adapter.listQuarantine({principalId:'user-1'},revoked.boardId);
+  const receipts=await adapter.listQuarantine({orgId:'org-1',principalId:'user-1'},revoked.boardId);
   expect(receipts).toEqual([expect.objectContaining({sessionId,pendingCount:1,reason:'SESSION_CHANGED'})]);
   expect((await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore))[0]).not.toHaveProperty('key');
   expect(local.revocations()).toEqual([]);
@@ -174,7 +195,7 @@ it('fails closed when logout lands after an IndexedDB get starts but before its 
   const raceScope=scope({principalId:'idb-race-user',sessionId:'idb-race-session'}),pending=update(1);
   let releaseGet!:()=>void;let signalGet!:()=>void;const getStarted=new Promise<void>(resolve=>{signalGet=resolve;});
   const immediateRequest=(result:unknown)=>{const value:{result:unknown;error:null;onsuccess:null|(()=>void);onerror:null|(()=>void)}={result,error:null,onsuccess:null,onerror:null};queueMicrotask(()=>value.onsuccess?.());return value;};
-  const delayedRequest={result:{...raceScope,id:JSON.stringify([raceScope.boardId,raceScope.principalId,raceScope.sessionId,raceScope.epoch]),key:{} as CryptoKey,entries:[{updateId:pending.updateId,iv:new ArrayBuffer(12),value:new ArrayBuffer(1),plainBytes:4}]},error:null,onsuccess:null as null|(()=>void),onerror:null as null|(()=>void)};
+  const delayedRequest={result:{...raceScope,id:JSON.stringify([raceScope.orgId,raceScope.boardId,raceScope.principalId,raceScope.sessionId,raceScope.epoch]),key:{} as CryptoKey,entries:[{updateId:pending.updateId,iv:new ArrayBuffer(12),value:new ArrayBuffer(1),plainBytes:4}]},error:null,onsuccess:null as null|(()=>void),onerror:null as null|(()=>void)};
   releaseGet=()=>queueMicrotask(()=>delayedRequest.onsuccess?.());
   const transaction=(stores:string|string[])=>{let completion:null|(()=>void)=null;const tx={error:null,objectStore:(_name:string)=>({getAll:()=>immediateRequest([]),delete:()=>undefined,get:()=>{signalGet();return delayedRequest;}})} as unknown as IDBTransaction;Object.defineProperty(tx,'oncomplete',{set(value){completion=value as ()=>void;queueMicrotask(()=>completion?.());}});return tx;};
   const database={transaction,close:()=>undefined,createObjectStore:()=>undefined};

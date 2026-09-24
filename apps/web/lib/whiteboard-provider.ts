@@ -12,7 +12,7 @@ export type WhiteboardConnectionState = {
 const REMOTE = Symbol('whiteboard-server');
 export function bytesToBase64(bytes: Uint8Array): string { let out = ''; for (let i = 0; i < bytes.length; i += 8192) out += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(out); }
 export function base64ToBytes(value: string): Uint8Array { return Uint8Array.from(atob(value), c => c.charCodeAt(0)); }
-export type WhiteboardProviderOptions = { principalId: string; sessionId?: string; outbox?: WhiteboardOutboxPort };
+export type WhiteboardProviderOptions = { orgId: string; principalId: string; sessionId?: string; outbox?: WhiteboardOutboxPort };
 
 /** Durable, encrypted local outbox. A server ACK is the only normal deletion path. */
 export class WhiteboardProvider {
@@ -44,9 +44,9 @@ export class WhiteboardProvider {
     if (!this.token) { this.block('SESSION_CHANGED'); return; }
     const sessionId = this.options.sessionId ?? await fingerprintWhiteboardSession(this.token);
     if (this.stopped) return;
-    this.context = { boardId: this.boardId, principalId: this.options.principalId, sessionId };
+    this.context = { boardId: this.boardId, orgId: this.options.orgId, principalId: this.options.principalId, sessionId };
     try {
-      const [summary,receipts]=await Promise.all([this.outbox.summarize(this.context),this.outbox.listQuarantine({principalId:this.context.principalId},this.boardId)]);
+      const [summary,receipts]=await Promise.all([this.outbox.summarize(this.context),this.outbox.listQuarantine({orgId:this.context.orgId,principalId:this.context.principalId},this.boardId)]);
       if(this.stopped)return;
       this.restoredPendingCount=summary.pendingCount;
       this.publish({phase:summary.pendingCount?'offline':'connecting',quarantineReceipts:receipts,quarantined:receipts.reduce((sum,receipt)=>sum+receipt.pendingCount,0)});
@@ -121,7 +121,7 @@ export class WhiteboardProvider {
       this.ready = false;
       if ([1008, 4001, 4003, 4401, 4403].includes(event.code)) { this.block('ACCESS_DENIED'); return; }
       this.publish({ phase: 'offline', peers: [] });
-      this.timer = setTimeout(() => this.connect(), Math.min(15000, 500 * 2 ** Math.min(this.retry++, 5)));
+      this.timer = setTimeout(() => this.connect(), Math.min(5000, 500 * 2 ** Math.min(this.retry++, 4)));
     };
     socket.onerror = () => socket.close();
   }
