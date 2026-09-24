@@ -95,7 +95,7 @@ export function RealtimeTranscriptionWorkspace({
               <p className="mt-2 text-12 text-muted-foreground">个人转录 · {session.tags.join(" / ") || "未添加标签"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 pl-11 md:pl-0">
+          <div className="flex flex-wrap items-center gap-3 pl-11 md:justify-end md:pl-0">
             <MicDevicePicker devices={devices} selectedDeviceId={selectedDeviceId}
               disabled={recording || busy} onSelect={onSelectDevice} testIdPrefix="rec" side="down" />
             <div className="flex items-end gap-0.5" role="meter" aria-label="麦克风输入音量"
