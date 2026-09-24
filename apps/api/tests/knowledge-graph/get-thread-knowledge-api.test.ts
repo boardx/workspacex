@@ -4,7 +4,7 @@
  * 数据由 F06 的抽取流水线（回环模型）真实产生，不手插本体行：读模型测的是「用户说了一句话之后，
  * 面板上看到的东西」。
  */
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { knowledgeGraph as KG } from "@repo/contracts";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
@@ -40,6 +40,8 @@ beforeAll(async () => {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
   }
+  // 组织成员，但不在项目里：项目会话对他的判定是「拒绝」（denied），不是「不存在」
+  await addOrgMember(ORG, "u-outsider", "consultant", fx.teams.energy!);
   await addChatThread({ orgId: ORG, id: PERSONAL, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: SHARED, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: "u-owner" });
   db = new PgDatabase(appConfig());
@@ -134,5 +136,53 @@ describe("F09: getTurnMemory（U-1 已记下 N 条）", () => {
     await addChatMessage({ orgId: ORG, id: "m-f09-new-a", threadId: SHARED, body: "收到", authorId: "agent-1", authorKind: "agent", agentId: "agent-1" });
     const out = await getTurnMemory(deps, { ...owner, threadId: SHARED, messageId: "m-f09-new-a" });
     expect(out).toMatchObject({ captured: [], pending: true });
+  });
+});
+
+describe("F09: 拒绝与不存在对外无法区分（I-3）", () => {
+  /** 以 HTTP 出口（controller）为准：状态码 + 响应体逐字节一致。 */
+  const httpOutcome = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+      return "allowed";
+    } catch (e) {
+      if (!(e instanceof NotFoundException)) throw e;
+      return JSON.stringify({ status: e.getStatus(), body: e.getResponse() });
+    }
+  };
+
+  it("组织成员但不在项目里：三个读接口都与「不存在」同一个出口（码与 404 响应体一致）", async () => {
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge);
+    const outsider = { userId: "u-outsider", orgId: ORG } as never;
+    const [sharedClaim] = (await getThreadKnowledge(deps, { ...owner, threadId: SHARED })).claims;
+
+    await expect(getThreadKnowledge(deps, { userId: "u-outsider", orgId: ORG_ID, threadId: SHARED })).rejects.toMatchObject({ code: "KG_THREAD_NOT_FOUND" });
+    await expect(getClaimSources(deps, { userId: "u-outsider", orgId: ORG_ID, claimId: sharedClaim!.id })).rejects.toMatchObject({ code: "KG_CLAIM_NOT_FOUND" });
+    await expect(getTurnMemory(deps, { userId: "u-outsider", orgId: ORG_ID, threadId: SHARED, messageId: `m-${SHARED}-a` })).rejects.toMatchObject({ code: "KG_THREAD_NOT_FOUND" });
+
+    expect(await httpOutcome(() => ctl.threadKnowledge(outsider, SHARED))).toBe(await httpOutcome(() => ctl.threadKnowledge(outsider, "thr-does-not-exist")));
+    expect(await httpOutcome(() => ctl.claimSources(outsider, sharedClaim!.id))).toBe(await httpOutcome(() => ctl.claimSources(outsider, "clm-does-not-exist")));
+    expect(await httpOutcome(() => ctl.turnMemory(outsider, SHARED, `m-${SHARED}-a`))).toBe(await httpOutcome(() => ctl.turnMemory(outsider, "thr-does-not-exist", "m-x")));
+    expect(await httpOutcome(() => ctl.threadKnowledge(outsider, SHARED))).not.toBe("allowed");
+  });
+
+  it("getTurnMemory 带别的会话的 messageId：什么都查不到，不泄露那条消息存在与否、是否在整理中", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-secret-q", threadId: PERSONAL, body: "只在我的个人对话里说的事", authorId: "u-owner" });
+    const probe = (messageId: string) => getTurnMemory(deps, { userId: "u-member", orgId: ORG_ID, threadId: SHARED, messageId });
+    const foreign = await probe("m-secret-q");
+    const missing = await probe("m-does-not-exist");
+    expect(foreign).toEqual({ ...missing, messageId: "m-secret-q" });
+    expect(foreign).toMatchObject({ captured: [], pending: false });
+  });
+
+  it("判定依赖读不到（成员关系查询失败）⇒ 503，不是 404 / 500，也不放行", async () => {
+    const failingRepo = Object.create(deps.repo) as typeof deps.repo;
+    failingRepo.findProjectMembership = async () => { throw new Error("db down"); };
+    const ctl = new KnowledgeGraphController(failingRepo, deps.ids, deps.chat, deps.knowledge);
+    await expect(ctl.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    const failingChat = Object.create(deps.chat) as typeof deps.chat;
+    failingChat.findThreadFacts = async () => { throw new Error("db down"); };
+    const ctl2 = new KnowledgeGraphController(deps.repo, deps.ids, failingChat, deps.knowledge);
+    await expect(ctl2.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
