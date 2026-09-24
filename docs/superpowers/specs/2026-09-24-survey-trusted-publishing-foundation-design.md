@@ -6,7 +6,7 @@
 
 ## 1. 背景与问题
 
-当前 `/studio/survey` 已有资源库和五步工作台，前端测试覆盖创建、模块复用、问题设计、报告模板、发布检查、答卷审阅和报告展示。现有运行模型仍由 `createSurveyWorkflowMock()` 在浏览器内构造，没有真实问卷 API、持久化状态机或服务端发布门禁。因此页面能够演示完整流程，但不能证明以下运行事实：
+当前 `/studio/survey` 已有持久化的 `survey_workspaces` JSON 聚合、`PgSurveyRepository`、`SurveyService`、`SurveyController`、`LiveSurveyWorkspace` 和 `survey-complete-flow.spec.ts`，已支持创建、保存、发布链接、答卷/附件、审阅、报告和模板。同仓仍保留 `createSurveyWorkflowMock()` 用于原型/单元测试，但生产路由 live stack 驱动。F04 的缺口不是“没有真实 API”，而是现有 `publication: null | {status: collecting | closed}` 模型没有显式 `draft | ready | collecting | closed` 状态、结构化全量发布门禁和创建后不可变的匿名性。因此现有链路还不能证明：
 
 - 问卷状态跨刷新、跨入口和跨客户端一致；
 - 非法状态回退会被服务端拒绝；
@@ -59,13 +59,12 @@ F04 交付一个最小但真实的问卷发布闭环：
 
 延续仓库现有洋葱结构，不创建第二套问卷系统：
 
-- `packages/contracts/src/survey.ts`：跨端 DTO、枚举、命令结果和错误结构的唯一契约来源。
+- `packages/contracts/src/survey-runtime.ts` + `packages/contracts/src/survey.ts`：在保留现有 runtime 字段的前提下扩展跨端 DTO、枚举、命令结果和错误结构。
 - `apps/api/src/domain/survey/`：纯状态转移、不可变属性和发布门禁规则；不得依赖 Nest、数据库或 HTTP。
-- `apps/api/src/application/survey/`：创建、读取、准备发布、开始回收和关闭问卷的用例；通过 repository 与 unit-of-work 端口访问外部系统。
-- `apps/api/src/infrastructure/survey/`：PostgreSQL repository 和事务实现。
-- `apps/api/src/interface/controllers/survey.controller.ts`：身份解析、Zod 校验、HTTP 状态映射；不复制业务规则。
-- `apps/web/lib/survey/`：类型安全的 API client 和查询状态适配。
-- `apps/web/components/survey/workflow/`：保留五步 UI；逐步移除对 `createSurveyWorkflowMock()` 的运行依赖。
+- `apps/api/src/application/survey/survey-service.ts`：扩展现有创建、读取、保存、发布、回收、报告用例，不新建平行 service。
+- `apps/api/src/infrastructure/survey/pg-survey-repository.ts`：沿用现有 `db.withTenant` + `FOR UPDATE` 事务边界，保留完整 `SurveyRecord`。
+- `apps/api/src/interface/controllers/survey.controller.ts`：扩展已注册 controller 的命令与错误映射，不重复注册。
+- `apps/web/lib/survey/runtime-client.ts` + `apps/web/components/survey/live/survey-workspace.tsx`：扩展现有真实 API 与五步 live UI，不改路由到 mock shell。
 
 问卷权限必须复用现有 principal / organization 边界，不新建身份或权限模型。组织 ID 从已认证 principal 获得，不接受客户端自行提交并信任。
 
@@ -153,13 +152,13 @@ F04 所需最小持久化字段：
 5. 只有服务端返回 `ready` 后才显示准备完成；只有 `collecting` 才显示正在回收。
 6. 网络或系统错误使用现有 error/retry 模式，不把失败误呈现为业务阻断。
 
-为避免大爆炸式迁移，测试 fixture 可以继续使用 `createSurveyWorkflowMock()`；生产路由不得再用它作为运行数据源。若需要 story/test 状态，通过显式 fixture adapter 注入。
+原型/单元测试 fixture 可以继续使用 `createSurveyWorkflowMock()`；生产路由继续由 `LiveSurveyWorkspace` 和 `surveyRequest` 驱动。F04 只在这条 live stack 上增量迁移，不建第二个 hook/client/workspace。
 
 ## 10. 数据迁移与兼容
 
-- 新增问卷持久化 migration，字段约束与 contract 枚举一致。
-- 数据库为 `(organization_id, id)` 建立读取边界，状态和版本更新使用条件更新。
-- 当前 mock 问卷不自动迁移为生产数据；开发环境通过显式 seed 创建示例问卷。
+- 保留现有 `survey_workspaces` 及 `(org_id, id)` 主键/RLS，不新建平行问卷表。
+- 对旧 JSON 聚合做兼容读取：`publication: null` 投影为 `draft`，已发布聚合投影为 `collecting/closed`；新写入再固化显式状态与匿名性。
+- 迁移前后必须保留 publication token/snapshot、responses/receipts、attachments、report provenance 和 templates。
 - 旧 URL `/studio/survey/:surveyId?step=...` 保持不变。
 - API 上线前前端可以在受控开发开关下使用 fixture adapter；合并完成标准要求默认路径已切到真实 API。
 
@@ -209,8 +208,8 @@ F04 所需最小持久化字段：
 1. 完成 Phase 09 Survey 束的 UI、用例、API 三项人工签核及阶段一致性复核。
 2. 将 F04 领入独立 sprint，`harness sync --apply` 建立 GitHub issue。
 3. 创建独立 worker 分支与 worktree，先提交失败 verification。
-4. 实现 contract、domain、application、repository、controller。
-5. 接入前端发布步骤并移除生产路径 mock。
+4. 先锁定现有 live stack 回归，再增量迁移 contract、domain、`SurveyService`、`PgSurveyRepository` 和已注册 controller。
+5. 扩展 `LiveSurveyWorkspace` 的发布步骤，保留答卷、附件、报告和模板回归。
 6. 运行 F04 verification、基础回归和真实浏览器发布失败/成功链路。
 7. 浏览器链路验证通过前不得创建 PR；验证失败时继续修复并重跑。
 8. 落盘 evidence，创建只关闭该 issue、以 `main` 为 base 的 PR，并负责到 CI 全绿和合入 main。
