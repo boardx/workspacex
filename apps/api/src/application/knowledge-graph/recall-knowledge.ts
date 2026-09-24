@@ -126,7 +126,7 @@ export async function memoryCardFor(
     const { claims } = await knowledge.candidates(input.orgId, input.userId, input.threadId);
     const matches = forgetMatches(intent.target, claims);
     // 0 条也交给数据库：不是所有者 ⇒ not_owner（什么都不说），是所有者 ⇒ no_items（照实说没找到）。
-    const r = await cards.open(input.orgId, { ...base, kind: "forget", claimIds: matches.map((c) => c.id) });
+    const r = await cards.open(input.orgId, { ...base, kind: "forget", target: intent.target, claimIds: matches.map((c) => c.id) });
     if (r.outcome === "opened") {
       return `【记忆卡片】用户想让你忘掉「${oneLine(intent.target)}」。系统已在这条回答下方列出相关的记忆（默认全选），用户点「忘掉」之后才会生效——现在还没有忘，不要说「已经忘掉了」。`;
     }
@@ -140,4 +140,29 @@ export async function memoryCardFor(
     });
     return null;
   }
+}
+
+/**
+ * 执行器的唯一入口（execute-run.ts 只调它）：这一轮交给模型的记忆材料，按放进 history 的先后排好——
+ * 先是 F17 的卡片说明（没接卡片端口 / 没有明确意图 ⇒ 没有），再是 F08 的【记忆】召回材料（没命中 ⇒ 没有）。
+ * 读身份恒为这一轮的发起人、会话恒为这一轮所在的会话（run.requesterUserId / run.threadId）。两样都降级不 fail run。
+ */
+export async function turnKnowledgeContext(
+  knowledge: KnowledgeRecallPort,
+  cards: MemoryCardPort | undefined,
+  input: {
+    readonly orgId: OrgId;
+    readonly run: {
+      readonly requesterUserId: string; readonly threadId: string; readonly inputText: string;
+      readonly runId: string; readonly inputMessageId: string;
+    };
+  },
+  log: (message: string, detail: Record<string, unknown>) => void,
+): Promise<readonly string[]> {
+  const { orgId, run } = input;
+  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, log);
+  const card = cards === undefined ? null : await memoryCardFor(knowledge, cards, {
+    orgId, userId: run.requesterUserId, threadId: run.threadId, runId: run.runId, messageId: run.inputMessageId, text: run.inputText,
+  }, log);
+  return [card, memory].filter((x): x is string => x !== null);
 }

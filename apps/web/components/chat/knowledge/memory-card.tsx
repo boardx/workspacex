@@ -23,7 +23,10 @@ const STATEMENT_MAX = 2000;
  * U-4：对话里的「记住 / 忘掉」行内确认卡（uc-18-6 A/B），数据是 `getTurnMemory.prompt.memory_card`。
  * - **AI 只生成卡片，人点一下才生效**（I-15 / I-17：执行身份是点击的人）。`onAct` 真正执行
  *   （`actOnMemoryCard`），返回服务端给的新卡片；失败时它抛出的 Error 带的是给人看的话，卡片原样显示、按钮恢复。
- * - 记住卡：内容可改字（Textarea），按「记住」→「已记住 · 撤销」（撤销 = 忘掉刚记下的那条，`onUndo`）。
+ * - 记住卡：内容可改字（Textarea），按「记住」→「已记住 · 撤销」。撤销（`onUndo`）只在服务端给了 claimId 时出现——
+ *   那表示这次记住新建了会话里那一条和长期记忆里那一条，撤掉会话那条就只撤掉这次新建的；用的是早就有的那条、
+ *   或并进了长期记忆里早就有的那条时 claimId 为 null，只显示「已记住」，不给撤销（撤了会删掉用户原来就有的东西）。
+ *   长期记忆里那条后来不在了（撤销过 / 被忘掉）⇒ 服务端读作 dismissed：「这条没有记在长期记忆里」。
  * - 忘掉卡：逐条列出、默认全选、可取消勾选，按「忘掉」执行选中的。危险动作用 destructive 按钮（硬规则 ⑦）。
  * - `canAct = false`（不是对话创建者，R5）：只显示卡上的内容，不给任何按钮。
  * - 状态：open / done（已生效）/ dismissed（不用了）/ stale（期间内容已变，E2：只提示，不再给按钮）。
@@ -93,7 +96,7 @@ export function MemoryCard({
         <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
           <Check aria-hidden className="h-3 w-3 text-success" />
           {isRemember
-            ? (undone || rememberedId === null ? "已撤销，这条没有记到长期记忆" : "已记住")
+            ? (undone ? "已撤销，这条没有记到长期记忆" : "已记住")
             : `已忘掉 ${String(current.items.length)} 条，之后的对话不再用到`}
           {canUndo ? (
             <>
@@ -125,7 +128,7 @@ export function MemoryCard({
   if (current.state === "dismissed") {
     return (
       <p className="mt-2 text-10 text-muted-foreground" data-testid="kg-card-dismissed">
-        {isRemember ? "好的，不记这条" : "好的，这些都留着"}
+        {isRemember ? "好的，这条没有记在长期记忆里" : "好的，这些都留着"}
       </p>
     );
   }

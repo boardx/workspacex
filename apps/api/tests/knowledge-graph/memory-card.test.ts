@@ -38,7 +38,7 @@ import { enableExtraction, extractionDeps, loopbackModel } from "./kg-extraction
 
 const ORG = "org-kg-f17-card";
 const ORG_ID = toOrgId(ORG);
-const PERSONAL = ["r1", "r2", "r3", "r4", "f", "z", "amb", "g1", "g2", "g3", "d", "e", "c", "fr", "priv", "run"] as const;
+const PERSONAL = ["r1", "r2", "r3", "r4", "f", "z", "amb", "g1", "g2", "g3", "d", "e", "c", "fr", "priv", "run", "u1", "u2", "mv", "rv"] as const;
 const T = Object.fromEntries([...PERSONAL, "s"].map((k) => [k, `thr-f17-${k}`])) as Record<(typeof PERSONAL)[number] | "s", string>;
 
 const reply = (entity: string, kind: "person" | "organization" | "project", statement: string, claimKind: "fact" | "decision" = "fact") => JSON.stringify({
@@ -59,6 +59,7 @@ const MODEL = loopbackModel([
   ["项目A 上线改到 10/1", reply("项目A", "project", "项目A 上线改到 10/1", "decision")],
 ]);
 
+const MEMBER_THREAD = "thr-f17-member";
 let db: PgDatabase;
 let deps: MemoryCardDeps;
 let recall: PgKnowledgeRecall;
@@ -79,6 +80,7 @@ beforeAll(async () => {
   }
   for (const k of PERSONAL) await addChatThread({ orgId: ORG, id: T[k], projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: T.s, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: "u-owner" });
+  await addChatThread({ orgId: ORG, id: MEMBER_THREAD, projectId: null, visibilityScope: "private", createdBy: "u-member" });
   db = new PgDatabase(appConfig());
   recall = new PgKnowledgeRecall(db);
   cards = new PgMemoryCard(db);
@@ -137,6 +139,8 @@ const cardRow = async (cardId: string) => (await sql<{ status: string; acted_by:
   "SELECT status, acted_by, action_ids FROM kg_memory_cards WHERE id = $1", [cardId]))[0]!;
 const claim = async (id: string) => (await sql<{ status: string; revoked: boolean; revocation_reason: string | null; reviewed_by: string | null; created_by: string; scope_kind: string; scope_id: string; statement: string }>(
   "SELECT status, revoked_at IS NOT NULL AS revoked, revocation_reason, reviewed_by, created_by, scope_kind, scope_id, statement FROM claims WHERE id = $1", [id]))[0]!;
+const rememberedRow = async (cardId: string) => (await sql<{ remembered_claim_id: string | null; remembered_personal_id: string | null; claim_created: boolean; personal_created: boolean }>(
+  "SELECT remembered_claim_id, remembered_personal_id, claim_created, personal_created FROM kg_memory_cards WHERE id = $1", [cardId]))[0]!;
 const personalLive = (statement: string) => sql<{ id: string }>(
   "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND statement = $2 AND revoked_at IS NULL", [ORG, statement]);
 const memoryFor = (threadId: string, query: string) =>
@@ -163,6 +167,10 @@ describe("F17: 意图识别", () => {
     expect(detectMemoryIntent("忘掉关于王经理的那条")).toEqual({ kind: "forget", target: "王经理" });
     expect(detectMemoryIntent("别再提李四的事了")).toEqual({ kind: "forget", target: "李四" });
     expect(detectMemoryIntent("忘记：赵六负责预算")).toEqual({ kind: "forget", target: "赵六负责预算" });
+    expect(detectMemoryIntent("不要再提张三")).toEqual({ kind: "forget", target: "张三" });
+    expect(detectMemoryIntent("别再记张三的电话")).toEqual({ kind: "forget", target: "张三的电话" });
+    expect(detectMemoryIntent("别再提：提醒的事")).toEqual({ kind: "forget", target: "提醒" });
+    expect(detectMemoryIntent("记住：几乎每天都下雨")).toEqual({ kind: "remember", statement: "几乎每天都下雨" });
   });
 
   it("不确定 ⇒ 不出卡（A1）：问句、指代、没有分隔的「忘记 / 忘了」、没有前缀", () => {
@@ -170,6 +178,14 @@ describe("F17: 意图识别", () => {
       "这个挺重要的吧？", "记住：这个挺重要的吧？", "记住了吗", "记住了", "我记住了", "把这个记下来", "这个很重要",
       "刚才那个说错了", "记住：客户A的对接人是王经理吗？", "记住：这个", "记住：上面说的方案", "忘掉那个", "忘掉刚才那条", "忘记密码怎么办", "忘了带钥匙",
       "你记得关于客户A的什么", "请记住", "忘掉", "记住：好", "别忘了明天开会", "",
+      // B1：「别再提 / 别再记」后面接的是别的词（提醒 / 提交 / 提示 / 记错 / 记得 / 记录…）
+      "别再提醒我明天的会议", "不要再记错客户A的对接人", "别再提醒我喝水了", "别再记录日志", "不要再提交了", "别再提示我",
+      "别再提起这事", "不要再提到预算", "别再提出新需求", "不要再记得他", "别再记性这么差", "别再提前下班", "不要再提供报价",
+      // 「别再提这件事」：说的是忘掉，但忘掉哪件——指代，不猜
+      "别再提这件事",
+      // N3：没有问号的问句
+      "记住：客户A的对接人是王经理吗", "记住：王五喜欢喝茶。对吗", "请记住我的名字叫什么", "记住：谁负责预算",
+      "记住：每周交几份报告", "记住：项目A 是不是 9/29 上线", "记住：王五喜欢喝茶，对不对", "忘掉谁负责预算那条",
     ]) expect(detectMemoryIntent(text), text).toBeNull();
   });
 
@@ -232,7 +248,10 @@ describe("F17: 记住（V1）", () => {
     const card = await cardOf(T.r3, t.answerId);
     expect(card.items).toEqual([{ claimId: said.id, statement: CONTACT }]);
     const out = await act(card.cardId);
-    expect(out.card.items[0]!.claimId).toBe(said.id);
+    // 用的是早就有的那条 ⇒ 不给撤销（撤了会删掉用户原来就有的那条）
+    expect(out.card.items).toEqual([{ claimId: null, statement: CONTACT }]);
+    expect((await cardOf(T.r3, t.answerId)).items).toEqual([{ claimId: null, statement: CONTACT }]);
+    expect((await rememberedRow(card.cardId)).remembered_claim_id).toBe(said.id);
     expect(await claim(said.id)).toMatchObject({ status: "accepted", reviewed_by: "u-owner", created_by: "model" });
     // 没有另建一条 human 结论（这句「记住：…」本身被抽出来的那条是模型提出的，照常留着）
     expect((await read(T.r3)).claims.filter((c) => c.statement === CONTACT && c.createdBy === "human")).toEqual([]);
@@ -240,13 +259,17 @@ describe("F17: 记住（V1）", () => {
 
     // 另一个会话里又说一次「记住：同一句」：长期记忆里只留一条（合并，derived_from 连到两个来源）
     const t2 = await turn(T.r4, `记住：${CONTACT}`);
-    const out2 = await act((await cardOf(T.r4, t2.answerId)).cardId);
+    const c2 = await cardOf(T.r4, t2.answerId);
+    const out2 = await act(c2.cardId);
+    expect(out2.card.items[0]!.claimId).toBeNull();
     // 这句「记住：…」本身被抽成了同一句话 ⇒ 用那一条，不另建
-    expect(await claim(out2.card.items[0]!.claimId!)).toMatchObject({ created_by: "model", status: "accepted" });
+    const r4 = await rememberedRow(c2.cardId);
+    expect(r4).toMatchObject({ claim_created: false, personal_created: false });
+    expect(await claim(r4.remembered_claim_id!)).toMatchObject({ created_by: "model", status: "accepted" });
     const l1 = await personalLive(CONTACT);
     expect(l1).toHaveLength(1);
     const sources = await sql<{ dst_id: string }>("SELECT dst_id FROM ontology_edges WHERE src_id = $1 AND relation = 'derived_from' AND status = 'active' ORDER BY dst_id", [l1[0]!.id]);
-    expect(sources.map((s) => s.dst_id).sort()).toEqual([said.id, out2.card.items[0]!.claimId].sort());
+    expect(sources.map((s) => s.dst_id).sort()).toEqual([said.id, r4.remembered_claim_id].sort());
   });
 
   it("不改字、这句话也还没被抽出来 ⇒ 以本人身份新建一条（human / accepted）", async () => {
@@ -501,11 +524,11 @@ describe("F17: 开卡函数自己复核（不信调用方给的 id）", () => {
     const [personal] = await personalLive(`${CONTACT}，电话找他`);
     const [gone] = await sql<{ id: string }>("SELECT id FROM claims WHERE org_id = $1 AND revoked_at IS NOT NULL LIMIT 1", [ORG]);
     const msg = await say(T.s, "忘掉：随便什么");
-    const out = await rawOpen({ thread_id: T.s, message_id: msg, requester: "u-owner", kind: "forget", claim_ids: [other.id, personal!.id, gone!.id] });
+    const out = await rawOpen({ thread_id: T.s, message_id: msg, requester: "u-owner", kind: "forget", target: "随便什么", claim_ids: [other.id, personal!.id, gone!.id] });
     expect(out).toEqual({ outcome: "no_items" });
     // 个人线程里，本人的个人记忆可以上卡；别的会话的仍然不行
     const pm = await say(T.z, "忘掉：随便什么");
-    const ok = await rawOpen({ thread_id: T.z, message_id: pm, requester: "u-owner", kind: "forget", claim_ids: [other.id, personal!.id] });
+    const ok = await rawOpen({ thread_id: T.z, message_id: pm, requester: "u-owner", kind: "forget", target: "随便什么", claim_ids: [other.id, personal!.id] });
     expect(ok.outcome).toBe("opened");
     const [row] = await sql<{ items: { claimId: string }[] }>("SELECT items FROM kg_memory_cards WHERE id = $1", [ok.card_id]);
     expect(row!.items.map((i) => i.claimId)).toEqual([personal!.id]);
@@ -513,11 +536,121 @@ describe("F17: 开卡函数自己复核（不信调用方给的 id）", () => {
 
   it("消息不是请求人说的 / 请求人不是会话所有者 / 记住卡在项目会话 ⇒ 不开卡", async () => {
     const byMember = await say(T.s, "记住：成员说的", "u-member");
-    expect(await rawOpen({ thread_id: T.s, message_id: byMember, requester: "u-member", kind: "forget", claim_ids: [] })).toEqual({ outcome: "not_owner" });
-    expect(await rawOpen({ thread_id: T.s, message_id: byMember, requester: "u-owner", kind: "forget", claim_ids: [] })).toEqual({ outcome: "not_owner" });
+    expect(await rawOpen({ thread_id: T.s, message_id: byMember, requester: "u-member", kind: "forget", target: "成员说的", claim_ids: [] })).toEqual({ outcome: "not_owner" });
+    expect(await rawOpen({ thread_id: T.s, message_id: byMember, requester: "u-owner", kind: "forget", target: "成员说的", claim_ids: [] })).toEqual({ outcome: "not_owner" });
     const byOwner = await say(T.s, "记住：所有者说的");
     expect(await rawOpen({ thread_id: T.s, message_id: byOwner, requester: "u-owner", kind: "remember", statement: "所有者说的" })).toEqual({ outcome: "not_personal" });
     expect(await rawOpen({ thread_id: T.r2, message_id: byOwner, requester: "u-owner", kind: "remember", statement: "所有者说的" })).toEqual({ outcome: "not_owner" });
+  });
+
+  it("N2：卡上的字必须出自这条消息——调用方给的记住内容 / 忘掉对象不在正文里 ⇒ not_from_message、不开卡", async () => {
+    const m = await say(T.u2, "记住：王五喜欢钓鱼");
+    expect(await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "remember", statement: "王五欠我一百万" })).toEqual({ outcome: "not_from_message" });
+    expect(await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "remember", statement: "  " })).toEqual({ outcome: "not_from_message" });
+    const [anyClaim] = await personalLive(`${CONTACT}，电话找他`);
+    expect(await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "forget", target: "王经理", claim_ids: [anyClaim!.id] })).toEqual({ outcome: "not_from_message" });
+    expect(await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "forget", claim_ids: [anyClaim!.id] })).toEqual({ outcome: "not_from_message" });
+    expect((await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "remember", statement: "王五喜欢钓鱼" })).outcome).toBe("opened");
+  });
+
+  it("N6：Agent 说的话（哪怕 author_id 填成所有者）、有更窄可见范围的消息 ⇒ 不开卡", async () => {
+    const byAgent = `m-f17-agent-${String(++seq)}`;
+    await addChatMessage({ orgId: ORG, id: byAgent, threadId: T.u2, body: "记住：Agent 说的", authorId: "u-owner", authorKind: "agent", agentId: "agent-1" });
+    expect(await rawOpen({ thread_id: T.u2, message_id: byAgent, requester: "u-owner", kind: "remember", statement: "Agent 说的" })).toEqual({ outcome: "not_owner" });
+    const narrow = `m-f17-narrow-${String(++seq)}`;
+    await addChatMessage({ orgId: ORG, id: narrow, threadId: T.u2, body: "记住：只给自己看的", authorId: "u-owner", visibilityScope: "private" });
+    expect(await rawOpen({ thread_id: T.u2, message_id: narrow, requester: "u-owner", kind: "remember", statement: "只给自己看的" })).toEqual({ outcome: "not_owner" });
+  });
+
+  it("N6：别人个人空间里的 id、已被取代（改写过）的 id ⇒ 不上卡", async () => {
+    await say(MEMBER_THREAD, APPROVE, "u-member");
+    const [memberClaim] = await sql<{ id: string }>("SELECT id FROM claims WHERE scope_kind = 'chat_session' AND scope_id = $1 AND statement = $2", [MEMBER_THREAD, APPROVE]);
+    const memberL1 = await asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-member', true)");
+      return (await c.query<{ id: string }>("SELECT kg_promote_claim($1::jsonb) AS id", [JSON.stringify({ action_id: newKgId("act"), thread_id: MEMBER_THREAD, claim_id: memberClaim!.id })])).rows[0]!.id;
+    });
+    await say(T.u2, APPROVE);
+    const own = await threadClaimBy(T.u2, APPROVE);
+    await applyHumanAction({ ...deps, actions: new PgHumanAction(db), newId: newKgId }, {
+      userId: "u-owner", orgId: ORG_ID, threadId: T.u2, basedOnRevision: (await read(T.u2)).revision,
+      action: { type: "reviseClaim", claimId: own.id, statement: "王经理只审批大合同" },
+    });
+    expect(await claim(own.id)).toMatchObject({ status: "superseded", revoked: false });
+    const m = await say(T.u2, "忘掉：王经理");
+    expect(await rawOpen({ thread_id: T.u2, message_id: m, requester: "u-owner", kind: "forget", target: "王经理", claim_ids: [memberL1, own.id] })).toEqual({ outcome: "no_items" });
+  });
+});
+
+/* ── N1：撤销只撤这次新建的东西 ─────────────────────────────────── */
+
+describe("F17: 撤销（N1）", () => {
+  it("会话结论与长期记忆那条都是这次新建的 ⇒ 给 claimId（可撤销）；撤销后长期记忆里没有了，卡读作「没有记在长期记忆里」", async () => {
+    const t = await turn(T.u1, "记住：王五的爱好是钓鱼");
+    const card = await cardOf(T.u1, t.answerId);
+    const out = await act(card.cardId);
+    const undoId = out.card.items[0]!.claimId;
+    expect(undoId).not.toBeNull();
+    expect(await rememberedRow(card.cardId)).toMatchObject({ remembered_claim_id: undoId, claim_created: true, personal_created: true });
+    expect((await cardOf(T.u1, t.answerId))).toMatchObject({ state: "done", items: [{ claimId: undoId }] });
+    expect(await personalLive("王五的爱好是钓鱼")).toHaveLength(1);
+    await applyHumanAction({ ...deps, actions: new PgHumanAction(db), newId: newKgId }, {
+      userId: "u-owner", orgId: ORG_ID, threadId: T.u1, basedOnRevision: (await read(T.u1)).revision,
+      action: { type: "revokeClaim", claimId: undoId!, reason: "user_undo_remember" },
+    });
+    expect(await personalLive("王五的爱好是钓鱼")).toEqual([]);
+    expect(await cardOf(T.u1, t.answerId)).toMatchObject({ state: "dismissed", items: [{ claimId: null }] });
+  });
+
+  it("长期记忆那条后来又有了别的来源 ⇒ 不再给撤销（撤会话那条已撤不掉长期记忆）；那条会话结论后来被撤销 ⇒ claimId 为 null、长期记忆仍在 ⇒ 仍是「已记住」", async () => {
+    const t = await turn(T.u1, "记住：王五的车牌是 A12345");
+    const out = await act((await cardOf(T.u1, t.answerId)).cardId);
+    const sessionId = out.card.items[0]!.claimId!;
+    expect(sessionId).not.toBeNull();
+    const t2 = await turn(T.u2, "记住：王五的车牌是 A12345");
+    await act((await cardOf(T.u2, t2.answerId)).cardId);
+    expect(await personalLive("王五的车牌是 A12345")).toHaveLength(1);
+    expect(await cardOf(T.u1, t.answerId)).toMatchObject({ state: "done", items: [{ claimId: null }] });
+    await applyHumanAction({ ...deps, actions: new PgHumanAction(db), newId: newKgId }, {
+      userId: "u-owner", orgId: ORG_ID, threadId: T.u1, basedOnRevision: (await read(T.u1)).revision,
+      action: { type: "revokeClaim", claimId: sessionId },
+    });
+    expect(await personalLive("王五的车牌是 A12345")).toHaveLength(1);
+    expect(await cardOf(T.u1, t.answerId)).toMatchObject({ state: "done", items: [{ claimId: null }] });
+  });
+});
+
+/* ── N6：点击时复核 ───────────────────────────────────────────────── */
+
+describe("F17: 点击时复核（N6）", () => {
+  it("记住卡指着的那条在出卡之后说法变了 ⇒ 读作过期、点击 KG_CARD_STALE", async () => {
+    await say(T.rv, BUDGET);
+    const b = await threadClaimBy(T.rv, BUDGET);
+    const t = await turn(T.rv, `记住：${BUDGET}`);
+    const card = await cardOf(T.rv, t.answerId);
+    expect(card.items).toEqual([{ claimId: b.id, statement: BUDGET }]);
+    await asOwner((c) => c.query("UPDATE claims SET statement = '赵六不再负责预算' WHERE id = $1", [b.id]));
+    expect((await cardOf(T.rv, t.answerId)).state).toBe("stale");
+    await expect(act(card.cardId)).rejects.toMatchObject({ code: "KG_CARD_STALE" });
+    expect(await personalLive(BUDGET)).toEqual([]);
+  });
+
+  it("出卡之后会话被挪进项目 ⇒ 记住卡、列着个人记忆的忘掉卡都 KG_CARD_STALE，一行不写", async () => {
+    await say(T.mv, MIGRATE);
+    const r = await turn(T.mv, "记住：搬家前要备份");
+    const rc = await cardOf(T.mv, r.answerId);
+    const f = await turn(T.mv, "忘掉客户A");
+    const fc = await cardOf(T.mv, f.answerId);
+    const [row] = await sql<{ has_personal: boolean }>("SELECT has_personal FROM kg_memory_cards WHERE id = $1", [fc.cardId]);
+    expect(row!.has_personal).toBe(true);
+    await asOwner((c) => c.query("UPDATE chat_threads SET project_id = $1 WHERE id = $2", [`${ORG}-p`, T.mv]));
+    try {
+      await expect(act(rc.cardId)).rejects.toMatchObject({ code: "KG_CARD_STALE" });
+      await expect(act(fc.cardId)).rejects.toMatchObject({ code: "KG_CARD_STALE" });
+      expect(await personalLive("搬家前要备份")).toEqual([]);
+      for (const i of fc.items) expect((await claim(i.claimId!)).revoked).toBe(false);
+    } finally {
+      await asOwner((c) => c.query("UPDATE chat_threads SET project_id = NULL WHERE id = $1", [T.mv]));
+    }
   });
 });
 

@@ -61,7 +61,7 @@ describe("MemoryCard：记住卡", () => {
     const onAct = vi.fn(async () => ({ ...REMEMBER, state: "dismissed" as const }));
     render(<MemoryCard card={REMEMBER} canAct onAct={onAct} />);
     fireEvent.click(screen.getByTestId("kg-card-dismiss"));
-    expect(await screen.findByTestId("kg-card-dismissed")).toHaveTextContent("好的，不记这条");
+    expect(await screen.findByTestId("kg-card-dismissed")).toHaveTextContent("好的，这条没有记在长期记忆里");
     expect(onAct).toHaveBeenCalledWith("dismiss", {});
   });
 
@@ -76,10 +76,23 @@ describe("MemoryCard：记住卡", () => {
     expect(onUndo).toHaveBeenCalledWith("c-new");
   });
 
-  it("已记住、但那条后来被撤销了（claimId 为空）⇒ 说「已撤销」、不给撤销按钮", () => {
+  it("已记住、但服务端没给 claimId（用的是原来就有的那条 / 并进了长期记忆里原来就有的那条）⇒ 只说「已记住」、不给撤销", () => {
     render(<MemoryCard card={{ ...REMEMBER, state: "done" }} canAct onAct={vi.fn()} onUndo={vi.fn()} />);
-    expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销");
+    expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已记住");
+    expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("撤销");
     expect(screen.queryByTestId("kg-card-undo")).not.toBeInTheDocument();
+  });
+
+  it("长期记忆里那条后来不在了（服务端读作 dismissed）⇒ 说「这条没有记在长期记忆里」", () => {
+    render(<MemoryCard card={{ ...REMEMBER, state: "dismissed" }} canAct onAct={vi.fn()} onUndo={vi.fn()} />);
+    expect(screen.getByTestId("kg-card-dismissed")).toHaveTextContent("这条没有记在长期记忆里");
+  });
+
+  it("不是对话创建者：已记住的卡上没有撤销", () => {
+    render(<MemoryCard card={{ ...REMEMBER, state: "done", items: [{ claimId: "c-new", statement: "x" }] }} canAct={false} onAct={vi.fn()} onUndo={vi.fn()} />);
+    expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已记住");
+    expect(screen.queryByTestId("kg-card-undo")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toEqual([]);
   });
 
   it("失败：卡片上给那句人话，按钮恢复可以再试；处理中不连发", async () => {

@@ -305,13 +305,17 @@ interface StoredCardItem { claimId: string | null; statement: string; scope: "ch
  * F17：这一轮的「记住 / 忘掉」确认卡（U-4）。经回答的 agent_run_id 找到执行器为这一轮开的那张。
  * 按查看者读：个人空间的条目只给卡的主人（RLS 也这么判——卡上有个人空间条目时只有主人读得到这张卡），
  * 过滤完一条不剩 ⇒ 不出卡。还开着的卡在这里判「过期」（E2）：条目在出卡之后被改过 / 忘掉了 ⇒ stale。
- * 已记住的卡：那一条后来被撤销了 ⇒ claimId 为 null（界面据此显示「已撤销」，不再给撤销按钮）。
+ * 已记住的卡按现在的事实读（rememberedCard）：能不能撤销、长期记忆里还有没有它。
  */
 async function readTurnMemoryCard(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
 ): Promise<MemoryCard | null> {
-  const r = await s.query<{ id: string; kind: MemoryCard["kind"]; items: StoredCardItem[]; status: "open" | "done" | "dismissed"; created_by: string }>(
-    `SELECT k.id, k.kind, k.items, k.status, k.created_by FROM kg_memory_cards k
+  const r = await s.query<{
+    id: string; kind: MemoryCard["kind"]; items: StoredCardItem[]; status: "open" | "done" | "dismissed"; created_by: string;
+    remembered_claim_id: string | null; remembered_personal_id: string | null; claim_created: boolean; personal_created: boolean;
+  }>(
+    `SELECT k.id, k.kind, k.items, k.status, k.created_by, k.remembered_claim_id, k.remembered_personal_id,
+            k.claim_created, k.personal_created FROM kg_memory_cards k
        JOIN chat_messages m ON m.org_id = k.org_id AND m.agent_run_id = k.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND k.thread_id = $2`,
     [orgId, threadId, messageId],
@@ -332,13 +336,35 @@ async function readTurnMemoryCard(
     const stale = items.some((i) => i.claimId !== null && basisOf.get(i.claimId) !== i.basis);
     return { cardId: row.id, kind: row.kind, items: items.map((i) => ({ claimId: i.claimId, statement: i.statement })), state: stale ? "stale" : "open" };
   }
-  return {
-    cardId: row.id, kind: row.kind, state: row.status,
-    items: items.map((i) => ({
-      claimId: row.kind === "remember" && row.status === "done" && i.claimId !== null && !basisOf.has(i.claimId) ? null : i.claimId,
-      statement: i.statement,
-    })),
-  };
+  if (row.kind === "remember" && row.status === "done") return rememberedCard(s, orgId, viewer, row, items[0]!.statement, basisOf);
+  return { cardId: row.id, kind: row.kind, state: row.status, items: items.map((i) => ({ claimId: i.claimId, statement: i.statement })) };
+}
+
+/**
+ * 点过「记住」的卡，按现在的事实说话：
+ *   - 长期记忆里的那一条已经不在了（撤销过 / 之后被忘掉）⇒ 读作 dismissed（界面：「这条没有记在长期记忆里」）；
+ *   - 还在 ⇒ done。claimId 只在「撤销」只会撤掉这次新建的东西时给出：会话结论与长期记忆那条都是这次新建的、
+ *     会话结论还活着、长期记忆那条的来源只剩它（撤会话那条，F07 级联把长期记忆那条一起收掉）；否则 null（不给撤销）。
+ */
+async function rememberedCard(
+  s: TenantSession, orgId: OrgId, viewer: string,
+  row: { id: string; remembered_claim_id: string | null; remembered_personal_id: string | null; claim_created: boolean; personal_created: boolean },
+  statement: string, liveSession: ReadonlyMap<string, string>,
+): Promise<MemoryCard> {
+  const l1 = await s.query<{ sole: boolean }>(
+    `SELECT NOT EXISTS (
+              SELECT 1 FROM ontology_edges d JOIN claims src ON src.id = d.dst_id AND src.org_id = d.org_id
+               WHERE d.org_id = c.org_id AND d.src_kind = 'claim' AND d.src_id = c.id AND d.relation = 'derived_from'
+                 AND d.dst_kind = 'claim' AND d.status = 'active' AND src.revoked_at IS NULL AND src.id IS DISTINCT FROM $3) AS sole
+       FROM claims c
+      WHERE c.org_id = $1 AND c.id = $2 AND ${LIVE_CLAIM} AND c.scope_kind = 'personal' AND c.scope_id = $4`,
+    [orgId, row.remembered_personal_id, row.remembered_claim_id, viewer],
+  );
+  const kept = l1.rows[0];
+  if (kept === undefined) return { cardId: row.id, kind: "remember", state: "dismissed", items: [{ claimId: null, statement }] };
+  const undoable = row.claim_created && row.personal_created && kept.sole
+    && row.remembered_claim_id !== null && liveSession.has(row.remembered_claim_id);
+  return { cardId: row.id, kind: "remember", state: "done", items: [{ claimId: undoable ? row.remembered_claim_id : null, statement }] };
 }
 
 type RecalledMemory = TurnMemoryData["recalled"][number];

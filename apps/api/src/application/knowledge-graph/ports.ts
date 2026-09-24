@@ -247,8 +247,8 @@ export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
 
 export type MemoryCardData = z.infer<typeof KG.KgMemoryCard>;
 
-/** 开卡的结果：只有 opened 出卡；其余三种对话照常，只是不出卡（E1 / 长期记忆只在个人线程 / A2）。 */
-export type MemoryCardOpenOutcome = "opened" | "not_owner" | "not_personal" | "no_items";
+/** 开卡的结果：只有 opened 出卡；其余对话照常，只是不出卡（E1 / 文字不出自这句话 / 长期记忆只在个人线程 / A2）。 */
+export type MemoryCardOpenOutcome = "opened" | "not_owner" | "not_from_message" | "not_personal" | "no_items";
 
 /**
  * 确认卡的读写口（迁移 20260924300000）。实现只调数据库函数，不写表名 SQL：
@@ -266,6 +266,8 @@ export interface MemoryCardPort {
     readonly requesterUserId: string;
     readonly kind: "remember" | "forget";
     readonly statement?: string;
+    /** 忘掉卡：用户说要忘掉的那段话（数据库核对它出自这条消息） */
+    readonly target?: string;
     readonly claimIds?: readonly string[];
   }): Promise<{ readonly outcome: MemoryCardOpenOutcome; readonly cardId: string | null }>;
   /** 路由事实：卡属于哪个会话（不回内容）；查不到 ⇒ null。 */

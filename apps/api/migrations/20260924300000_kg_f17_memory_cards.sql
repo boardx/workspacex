@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS kg_memory_cards (
   acted_by     text,
   acted_at     timestamptz,
   action_ids   jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(action_ids) = 'array'),
+  -- 记住卡点过之后：用到的会话结论、长期记忆里的那一条，以及这两条是不是这次新建的。
+  -- 「撤销」只撤这次新建的东西：两条都是这次新建的，撤会话那条（F07 级联把只由它而来的长期记忆副本一起收掉）；
+  -- 用的是早就有的会话结论、或并进了长期记忆里早就有的那条 ⇒ 不给撤销（撤了会连带删掉用户原来就有的东西）。
+  remembered_claim_id    text,
+  remembered_personal_id text,
+  claim_created          boolean NOT NULL DEFAULT false,
+  personal_created       boolean NOT NULL DEFAULT false,
   created_at   timestamptz NOT NULL DEFAULT now(),
   CHECK ((status = 'open') = (acted_at IS NULL)),
   CHECK ((status = 'open') = (acted_by IS NULL)),
@@ -74,8 +81,8 @@ AS $$
 $$;
 
 -- ─────────────────────────────── ① 开卡（系统） ───────────────────────────────
--- p = { card_id, thread_id, run_id, message_id, requester, kind, statement?（remember）, claim_ids?（forget，按相关度排好） }
--- 返回 { outcome: opened | not_owner | not_personal | no_items, card_id? }；不开卡的情况不报错（对话照常）。
+-- p = { card_id, thread_id, run_id, message_id, requester, kind, statement?（remember）, target + claim_ids?（forget，按相关度排好） }
+-- 返回 { outcome: opened | not_owner | not_from_message | not_personal | no_items, card_id? }；不开卡的情况不报错（对话照常）。
 CREATE OR REPLACE FUNCTION kg_open_memory_card(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
@@ -109,6 +116,12 @@ BEGIN
                        AND m.author_kind = 'human' AND m.author_id = v_user
                        AND m.visibility_scope IS NULL AND m.raw_transcript = false) THEN
     RETURN jsonb_build_object('outcome', 'not_owner');
+  END IF;
+  -- 卡上的字必须出自触发的这句话（不信调用方传进来的文本）：记住的内容 / 忘掉的对象是这条消息正文的一段。
+  IF position(coalesce(CASE WHEN v_kind = 'remember' THEN btrim(p->>'statement') ELSE btrim(p->>'target') END, '')
+              IN (SELECT normalize(m.body, NFKC) FROM chat_messages m WHERE m.org_id = v_org AND m.id = v_message)) = 0
+     OR length(coalesce(btrim(CASE WHEN v_kind = 'remember' THEN p->>'statement' ELSE p->>'target' END), '')) = 0 THEN
+    RETURN jsonb_build_object('outcome', 'not_from_message');
   END IF;
 
   -- 同一个 run 重试：沿用第一次开的那张。
@@ -179,6 +192,8 @@ DECLARE
   v_c       record;
   v_claim   text;
   v_target  text;
+  v_created boolean := false;
+  v_l1_id   text;
   v_sel     text[];
   v_keep    jsonb := '[]'::jsonb;
   v_l0      text[] := '{}';
@@ -249,6 +264,7 @@ BEGIN
         v_claim := v_c.id;
       ELSE
         v_claim := v_id || '-c';
+        v_created := true;
         INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
                             scope_kind, scope_id, valid_from)
         VALUES (v_claim, v_org, v_stmt, 'accepted', to_tsvector('simple', v_stmt), 'fact', 1, 'human', v_user,
@@ -275,11 +291,14 @@ BEGIN
        AND c.revoked_at IS NULL AND c.status NOT IN ('superseded', 'contested')
        AND kg_conflict_statement_key(c.statement) = kg_conflict_statement_key(v_stmt)
      ORDER BY c.created_at, c.id LIMIT 1;
-    PERFORM kg_promote_claim(jsonb_build_object('action_id', v_id || '-p', 'thread_id', v_thread, 'claim_id', v_claim,
+    v_l1_id := kg_promote_claim(jsonb_build_object('action_id', v_id || '-p', 'thread_id', v_thread, 'claim_id', v_claim,
                                                 'mode', CASE WHEN v_target IS NULL THEN 'new' ELSE 'merge' END,
                                                 'target_claim_id', v_target));
     v_actions := v_actions || (v_id || '-p');
     v_keep := jsonb_build_array(jsonb_build_object('claimId', v_claim, 'statement', v_stmt, 'scope', 'chat_session', 'basis', NULL));
+    UPDATE kg_memory_cards SET remembered_claim_id = v_claim, remembered_personal_id = v_l1_id,
+                               claim_created = v_created, personal_created = (v_target IS NULL)
+     WHERE id = v_card.id;
 
   ELSE
     -- forget：选中的（省略 = 卡上全部）；每一条都必须在卡上。
@@ -332,7 +351,11 @@ BEGIN
          has_personal = EXISTS (SELECT 1 FROM jsonb_array_elements(v_keep) i WHERE i->>'scope' = 'personal'),
          action_ids = to_jsonb(v_actions)
    WHERE id = v_card.id;
-  RETURN jsonb_build_object('card', kg_memory_card_json(v_card.id, 'done', v_card.kind, v_keep), 'action_ids', to_jsonb(v_actions));
+  -- 回给界面的卡：记住卡的 claimId 只在「撤销」只会撤掉这次新建的东西时给出（两条都是这次新建的），否则为 null（不给撤销）。
+  RETURN jsonb_build_object('card', kg_memory_card_json(v_card.id, 'done', v_card.kind,
+           CASE WHEN v_card.kind = 'remember' AND NOT (v_created AND v_target IS NULL)
+                THEN jsonb_set(v_keep, '{0,claimId}', 'null'::jsonb) ELSE v_keep END),
+         'action_ids', to_jsonb(v_actions));
 END
 $$;
 

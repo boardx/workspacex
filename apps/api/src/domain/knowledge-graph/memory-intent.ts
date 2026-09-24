@@ -6,10 +6,12 @@
  *
  *   记住：「记住：…」「记住，…」「记下来：…」「记一下：…」（冒号 / 逗号必需）；
  *         「请记住 …」「帮我记住 …」（礼貌前缀本身足够明确，分隔符可省）。
- *   忘掉：「忘掉 …」「别再提 …」「不要再提 …」「别再记 …」「不要再记 …」（分隔符可省）；
+ *   忘掉：「忘掉 …」（分隔符可省）；「别再提 …」「不要再提 …」「别再记 …」「不要再记 …」（分隔符可省，但紧跟的字
+ *         不能和「提 / 记」组成别的词——「别再提醒我」「不要再记错」不是忘掉，见 TI_COMPOUND / JI_COMPOUND）；
  *         「忘记：…」「忘了：…」「别记：…」「不要记：…」（必须带冒号 / 逗号——「忘记密码怎么办」「忘了带钥匙」不是）。
  *
- * 一律不出卡：内容为空或太短；以问号结尾（「记住：这个挺重要的吧？」）；内容只是指代（「这个」「刚才那个」「上面的」）
+ * 一律不出卡：内容为空或太短；以问号或疑问语气结尾（「…吧？」「…吗」「…对吗」「…是不是」）；内容里有疑问词
+ * （什么 / 谁 / 哪 / 怎么 / 多少 / 几…）；内容只是指代（「这个」「刚才那个」「上面的」）
  * ——spec 里的「把这个记下来」「这个很重要」「刚才那个说错了」因此都不出卡，照常回答。
  */
 import { lexicalScore, lexicalTokens, type RecallClaim } from "./recall";
@@ -29,10 +31,24 @@ const LEAD = "(?:请你?|麻烦你?)?(?:帮我)?";
 const SEP = "\\s*[：:，,]\\s*";
 const REMEMBER_WITH_SEP = new RegExp(`^${LEAD}(?:记住|记下来|记下|记一下)${SEP}`);
 const REMEMBER_POLITE = /^(?:请你?|麻烦你?)?帮我记住(?![了没吗呢])\s*|^请你?记住(?![了没吗呢])\s*/;
-const FORGET_STRONG = new RegExp(`^${LEAD}(?:忘掉|别再提|不要再提|别再记|不要再记)(?:${SEP}|\\s*)`);
+/**
+ * 「别再提 / 别再记」后面紧跟的字若能和「提 / 记」组成别的词，就不是「忘掉」：
+ * 提醒 / 提交 / 提示 / 提出 / 提供 / 提高 / 提升 / 提到 / 提起 / 提前 / 提问 / 提议 / 提名 / 提取 / 提速 / 提案 / 提要 / 提现 / 提价 / 提防 / 提成 / 提拔 / 提炼 / 提货 / 提纲 / 提款 / 提及 / 提包 / 提携 / 提神 / 提请 / 提供；
+ * 记错 / 记得 / 记性 / 记录 / 记住 / 记载 / 记忆 / 记者 / 记号 / 记账 / 记下 / 记着 / 记挂 / 记恨 / 记仇 / 记混 / 记不 / 记分 / 记名 / 记事 / 记叙 / 记述 / 记功 / 记过 / 记牢 / 记清 / 记起 / 记进 / 记入 / 记在 / 记上 / 记成 / 记到。
+ * 带冒号 / 逗号时不看这一条（「别再提：提醒的事」照样是忘掉）。
+ */
+const TI_COMPOUND = "醒交示出供高升到起前问议名取速案要现价防成拔炼货纲款及包携神请";
+const JI_COMPOUND = "错得性录住载忆者号账下着挂恨仇混不分名事叙述功过牢清起进入在上成到";
+const FORGET_STRONG = new RegExp(
+  `^${LEAD}(?:忘掉(?:${SEP}|\\s*)|(?:别再|不要再)(?:提(?:${SEP}|\\s*(?![${TI_COMPOUND}]))|记(?:${SEP}|\\s*(?![${JI_COMPOUND}]))))`,
+);
 const FORGET_WITH_SEP = new RegExp(`^${LEAD}(?:忘记|忘了|别记|不要记)${SEP}`);
 
 const QUESTION_END = /[?？]\s*$/;
+/** 句末的疑问语气：「…吗」「…对吗」「…是不是」——是在问，不是在交代。 */
+const QUESTION_TAIL = /(?:吗|呢|么|对吗|是吗|好吗|行吗|是不是|对不对|是否)$/;
+/** 内容里有疑问词：「我的名字叫什么」「谁负责」——是在问，不是在交代。 */
+const INTERROGATIVE = /什么|谁|哪|怎么|怎样|咋|多少|几(?!乎)|为何|为什么|是否|是不是|对不对|有没有|能不能|要不要|会不会/;
 /** 只有指代、没有内容：说的是「前面那个」，但前面哪个——不猜。 */
 const DEICTIC_ONLY = /^(?:这|那|它|上面|刚才|刚刚|以上|前面|之前)(?:个|些|条|件|句|事|的|说的|提到的|那个|那条|这条|的话|的内容)*[。.!！~～]*$/;
 /** 「记住」的内容以指代开头：「这个很重要」「上面说的方案」——指的是哪句不确定。 */
@@ -45,13 +61,13 @@ const FORGET_FILLER_TAIL = /\s*(?:的)?(?:那条|这条|那个|这个|那些|这
 /** 用户这句话是不是明确要「记住 / 忘掉」；不确定 ⇒ null（不出卡）。 */
 export function detectMemoryIntent(message: string): MemoryIntent | null {
   const text = message.normalize("NFKC").trim();
-  if (text.length === 0 || QUESTION_END.test(text)) return null;
+  if (text.length === 0 || QUESTION_END.test(text) || QUESTION_TAIL.test(text.replace(TRAILING_PUNCT, ""))) return null;
 
   const remember = REMEMBER_WITH_SEP.exec(text) ?? REMEMBER_POLITE.exec(text);
   if (remember !== null) {
     const statement = text.slice(remember[0].length).replace(TRAILING_PUNCT, "").trim();
     if (statement.length < 2 || statement.length > MEMORY_CARD_STATEMENT_MAX) return null;
-    if (DEICTIC_ONLY.test(statement) || DEICTIC_LEAD.test(statement)) return null;
+    if (DEICTIC_ONLY.test(statement) || DEICTIC_LEAD.test(statement) || INTERROGATIVE.test(statement)) return null;
     return { kind: "remember", statement };
   }
 
@@ -60,7 +76,7 @@ export function detectMemoryIntent(message: string): MemoryIntent | null {
     const raw = text.slice(forget[0].length).replace(TRAILING_PUNCT, "").trim();
     if (raw.length === 0 || DEICTIC_ONLY.test(raw)) return null;
     const target = raw.replace(FORGET_FILLER_HEAD, "").replace(FORGET_FILLER_TAIL, "").trim();
-    if (target.length < 2 || DEICTIC_ONLY.test(target)) return null;
+    if (target.length < 2 || DEICTIC_ONLY.test(target) || INTERROGATIVE.test(target)) return null;
     return { kind: "forget", target };
   }
   return null;

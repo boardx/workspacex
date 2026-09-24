@@ -16,7 +16,7 @@ const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION",
   "KG_INVALID_REQUEST",
 ];
-const OUTCOMES: readonly MemoryCardOpenOutcome[] = ["opened", "not_owner", "not_personal", "no_items"];
+const OUTCOMES: readonly MemoryCardOpenOutcome[] = ["opened", "not_owner", "not_from_message", "not_personal", "no_items"];
 
 export class PgMemoryCard implements MemoryCardPort {
   constructor(private readonly db: DatabasePort) {}
@@ -26,7 +26,7 @@ export class PgMemoryCard implements MemoryCardPort {
       "SELECT kg_open_memory_card($1::jsonb) AS r", [JSON.stringify({
         card_id: input.cardId, thread_id: input.threadId, run_id: input.runId, message_id: input.messageId,
         requester: input.requesterUserId, kind: input.kind,
-        statement: input.statement ?? null, claim_ids: input.claimIds ?? [],
+        statement: input.statement ?? null, target: input.target ?? null, claim_ids: input.claimIds ?? [],
       })],
     ));
     const out = r.rows[0]?.r ?? {};
