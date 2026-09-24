@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil, Redo2 } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil, Redo2, MessageSquarePlus, Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,9 @@ import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScal
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
 import { dropBeforeOps, duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
+import { composeCommentsMessage, useDesignComments } from "@/lib/design-comments";
+import { CommentComposer, CommentList } from "./comments-panel";
+import { VariantsPanel, type VariantsState } from "./variants-panel";
 import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
@@ -23,6 +26,7 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  proposeVariants,
   listPrototypeVersions,
   restorePrototypeVersion,
   type PrototypePatchOp,
@@ -223,7 +227,9 @@ export function DesignDetailScreen({
    * 迭代 11（design-delta `prototype-navigation`，待签核）：编辑 / 预览。预览下点有跳转的节点 = 换页，
    * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
    */
-  const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
+  /** 对标 R8：第三种模式「批注」——点节点 = 给它写一句，不是去改它（不出属性面板、不接快捷键）。 */
+  const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview" | "comment">("edit");
+  const comments = useDesignComments(projectId);
   /*
    * 迭代 26：**窄屏默认单页**。
    *
@@ -367,7 +373,7 @@ export function DesignDetailScreen({
   const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
-    () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
+    () => (project !== null && selectedId !== null && canvasMode !== "preview" ? findPrototypeNodePath(project.prototype, selectedId) : null),
     [project, selectedId, canvasMode],
   );
   /** 迭代 11：每页出发的跳转表（服务端接线前可能没有 ⇒ 空）。 */
@@ -389,16 +395,53 @@ export function DesignDetailScreen({
    * 三处不各写一遍"复制是什么意思"（op 怎么算见 `lib/prototype-node-actions`）。
    * 走的是与模型写回同一条 `patchPrototype`（I-11）。
    */
-  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string) => {
-    if (project === null || ops === null || ops.length === 0) return;
+  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string): Promise<boolean> => {
+    if (project === null || ops === null || ops.length === 0) return false;
     try {
       const out = await patchPrototype(project.id, [...ops], summary);
       setLoad({ kind: "ready", project: out.project });
+      return true;
     } catch (err) {
       setChatError(`没能${summary}（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
+      return false;
     }
   };
+
+  /**
+   * 对标 R9（#3954）：同一页的几个方案。挑中 ⇒ 一条 `replace` 把这一页的根换掉（I-11），
+   * 所以它是版本历史里普通的一条，撤销能回到原来那页。换页 ⇒ 候选作废（它们是那一页的方案）。
+   */
+  const [variants, setVariants] = React.useState<VariantsState | null>(null);
+  const [pickingVariant, setPickingVariant] = React.useState(false);
+  React.useEffect(() => { setVariants(null); }, [frame]);
+  const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
+  const askVariants = async () => {
+    if (project === null) return;
+    setVariants({ kind: "loading" });
+    try {
+      const out = await proposeVariants(project.id, variantScreen);
+      setVariants({ kind: "ready", items: out.variants });
+    } catch (err) {
+      setVariants({ kind: "error", message: `没能出方案（${describeFailure(err)}）` });
+    }
+  };
+  const pickVariant = async (i: number) => {
+    const item = variants?.kind === "ready" ? variants.items[i] : undefined;
+    const rootId = project?.prototype[variantScreen]?.id;
+    if (item === undefined || rootId === undefined) return;
+    setPickingVariant(true);
+    // 去 id：模型给的树可能带着与别的页重复的 id，服务端会补新的。
+    const ok = await runNodeOps([{ op: "replace", id: rootId, node: stripIds(item.root) }], `换成方案：${item.summary}`.slice(0, 120));
+    setPickingVariant(false);
+    if (ok) { setVariants(null); setSelectedId(null); }
+  };
+
+  /** 对标 R8：当前页上还没交给 AI 的批注，编号与右栏列表一致。 */
+  const commentPins = React.useMemo(() => {
+    const open = comments.comments.filter((c) => !c.resolved);
+    return open.flatMap((c, i) => (c.frameIndex === frame ? [{ nodeId: c.nodeId, n: i + 1, resolved: false }] : []));
+  }, [comments.comments, frame]);
 
   /** 对标 R7：画布上双击改字——同一条 setProps（I-11），撤销照样能撤。 */
   const inlineEdit = (id: string, key: string, value: string) => void runNodeOps([{ op: "setProps", id, props: { [key]: value } }], "改这段文字");
@@ -679,9 +722,10 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async (override?: string, maxScreens?: number) => {
+  /** 对标 R8：返回这一轮是否真的发成功了——批注据此才标「已交给 AI」。 */
+  const send = async (override?: string, maxScreens?: number): Promise<boolean> => {
     const value = (override ?? text).trim();
-    if (value === "") return;
+    if (value === "") return false;
     const controller = new AbortController();
     abortRef.current = controller;
     setSending(true);
@@ -711,7 +755,7 @@ export function DesignDetailScreen({
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
         value,
-        focus !== null ? selectedId ?? undefined : undefined,
+        focus !== null && canvasMode === "edit" ? selectedId ?? undefined : undefined,
         controller.signal,
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
@@ -737,6 +781,7 @@ export function DesignDetailScreen({
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
       if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
+      return true;
     } catch (err) {
       if (controller.signal.aborted) {
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
@@ -761,6 +806,7 @@ export function DesignDetailScreen({
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
       }
+      return false;
     } finally {
       stopPoll();
       window.clearInterval(tick);
@@ -1100,8 +1146,8 @@ export function DesignDetailScreen({
               setLoad({ kind: "ready", project: out.project });
             }}
           />
-          {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
-          {focus !== null && (
+          {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除。批注模式下选中是「给它写批注」，不是对话焦点。 */}
+          {focus !== null && canvasMode === "edit" && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
               <Crosshair aria-hidden className="h-3 w-3 text-primary" />
               <span className="truncate">
@@ -1293,6 +1339,11 @@ export function DesignDetailScreen({
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
                     <Play aria-hidden className="h-3 w-3" /> 预览
                   </button>
+                  {/* 对标 R8：批注——先把意见钉在元素上，攒几条再一次交给 AI。 */}
+                  <button type="button" onClick={() => { setCanvasMode("comment"); setSelectedId(null); setBackStack([]); setSideOpen(true); }} aria-pressed={canvasMode === "comment"} data-testid="design-detail-mode-comment" title="批注：点任何一块写一句意见，攒几条一次交给 AI"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "comment" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <MessageSquarePlus aria-hidden className="h-3 w-3" /> 批注{comments.comments.some((c) => !c.resolved) ? `（${comments.comments.filter((c) => !c.resolved).length}）` : ""}
+                  </button>
                 </div>
                 {/*
                   * 迭代 24：明暗 / 强调色 / 设备三组收进一个「外观」面板。
@@ -1359,6 +1410,16 @@ export function DesignDetailScreen({
                   className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
                 >
                   <Redo2 aria-hidden className="h-3 w-3" /> 重做
+                </button>
+                {/* 对标 R9：同一页出几个方案并排比。 */}
+                <button
+                  type="button" onClick={() => void askVariants()}
+                  disabled={preview !== null || sending || variants?.kind === "loading" || (project.prototype[variantScreen] ?? null) === null}
+                  aria-pressed={variants !== null}
+                  data-testid="design-detail-variants" title="让 AI 给这一页出几个不同的方案，并排比较、挑一个"
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+                >
+                  <Columns3 aria-hidden className="h-3 w-3" /> 方案
                 </button>
                 <button
                   type="button"
@@ -1457,6 +1518,20 @@ export function DesignDetailScreen({
                         </div>
                       </div>
                     </div>
+                  ) : variants !== null && preview === null ? (
+                    <VariantsPanel
+                      state={variants}
+                      frameLabel={project.frames[variantScreen] ?? ""}
+                      device={lens}
+                      landscape={landscape}
+                      accent={project.accent}
+                      tokens={project.tokens}
+                      theme={project.theme}
+                      picking={pickingVariant}
+                      onPick={(i) => void pickVariant(i)}
+                      onClose={() => setVariants(null)}
+                      onRetry={() => void askVariants()}
+                    />
                   ) : viewMode === "board" ? (
                     <PrototypeBoard
                       frames={(preview ?? project).frames}
@@ -1465,11 +1540,12 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      onInlineEdit={preview === null ? inlineEdit : null}
+                      onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       links={frameLinks}
-                      mode={canvasMode}
+                      mode={canvasMode === "preview" ? "preview" : "edit"}
+                      pins={canvasMode === "comment" ? commentPins : undefined}
                       theme={project.theme}
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
@@ -1502,7 +1578,7 @@ export function DesignDetailScreen({
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      onInlineEdit={preview === null ? inlineEdit : null}
+                      onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       /**
@@ -1535,7 +1611,8 @@ export function DesignDetailScreen({
                       }}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                       theme={project.theme}
-                      mode={canvasMode}
+                      mode={canvasMode === "preview" ? "preview" : "edit"}
+                      pins={canvasMode === "comment" ? commentPins : undefined}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={navigateTo}
                     />
@@ -1547,7 +1624,7 @@ export function DesignDetailScreen({
                 {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
                 {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
                 {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
-                {(historyOpen || (preview === null && canvasMode === "edit") || (focus !== null && preview === null)) && (
+                {(historyOpen || (preview === null && canvasMode !== "preview") || (focus !== null && preview === null)) && (
                   /*
                    * 迭代 24：窄屏下这块**默认收起**。
                    *
@@ -1579,11 +1656,32 @@ export function DesignDetailScreen({
                         onMove={(dragged, target) => void runNodeOps(dropBeforeOps(project.prototype, dragged, target), "移动这个节点")}
                       />
                     )}
-                    {focus !== null && preview === null && (
+                    {/* 对标 R8：批注模式下右栏是「写一句」+ 批注列表，不是属性面板。 */}
+                    {preview === null && canvasMode === "comment" && (
+                      <>
+                        {focus !== null && (
+                          <CommentComposer
+                            label={prototypeNodeLabel(focus.path[focus.path.length - 1]!)}
+                            onSave={(t) => { comments.add({ nodeId: selectedId!, frameIndex: focus.frameIndex, label: prototypeNodeLabel(focus.path[focus.path.length - 1]!), text: t }); setSelectedId(null); }}
+                            onCancel={() => setSelectedId(null)}
+                          />
+                        )}
+                        <CommentList
+                          comments={comments.comments} frame={frame} sending={sending}
+                          onRemove={comments.remove} onClearResolved={comments.clearResolved}
+                          onFocus={(c) => { setFrame(c.frameIndex); }}
+                          onSend={() => {
+                            const open = comments.comments.filter((c) => !c.resolved);
+                            void send(composeCommentsMessage(open, project.frames)).then((ok) => { if (ok) comments.resolve(open.map((c) => c.id)); });
+                          }}
+                        />
+                      </>
+                    )}
+                    {focus !== null && preview === null && canvasMode === "edit" && (
                       <PrototypeInspector
                         projectId={project.id}
                         prototype={project.prototype}
-                        onNodeOps={runNodeOps}
+                        onNodeOps={async (ops, summary) => { await runNodeOps(ops, summary); }}
                         node={focus.path[focus.path.length - 1]!}
                         path={focus.path}
                         onSaved={(p) => setLoad({ kind: "ready", project: p })}
