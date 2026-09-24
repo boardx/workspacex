@@ -1,5 +1,5 @@
 {
-  "$comment": "技能入选标准的唯一数值来源。维度含义与锚点见 docs/proposals/PROP-EXPERT-COMMUNITY-001-skill-selection-standard.md；本文件只放 id、权重、阈值与枚举。改权重必须经人类确认，并重跑 score.mjs 看敏感性。",
+  "$comment": "技能入选标准的唯一数值来源（权重与客群上限经 2026-09-24 人类决策 D-EC7、D-EC8 确认）。维度含义与锚点见 docs/proposals/PROP-EXPERT-COMMUNITY-001-skill-selection-standard.md；本文件只放 id、权重、阈值与枚举。改权重必须经人类确认，并重跑 score.mjs 看敏感性。",
   "version": "1.1.0",
   "value_dims": {
     "S1": {
