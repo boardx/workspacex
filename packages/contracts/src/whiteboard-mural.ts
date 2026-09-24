@@ -9,6 +9,34 @@ export const MURAL_DIRECT_IMPORT = {
   maxWidgets: 10_000,
   maxResponseBytes: 16 * 1024 * 1024,
 } as const;
+
+/** Mural Public API wire responses; infrastructure parses this single contract source. */
+export const MuralTokenResponse = z.object({
+  access_token: z.string().min(1).max(16_384),
+  refresh_token: z.string().min(1).max(16_384).nullable().optional(),
+  expires_in: z.number().int().positive().max(31_536_000).optional(),
+  scope: z.string().max(2_000).optional(),
+}).passthrough();
+
+export const MuralRemoteNamed = z.object({
+  id: z.string().min(1).max(256),
+  name: z.string().min(1).max(200).optional(),
+  title: z.string().min(1).max(200).optional(),
+  updatedOn: z.union([z.string().datetime(), z.number().int().nonnegative()]).optional(),
+  updatedAt: z.union([z.string().datetime(), z.number().int().nonnegative()]).optional(),
+}).passthrough().refine(value => Boolean(value.name || value.title));
+
+export const MuralRemotePage = z.object({
+  value: z.array(MuralRemoteNamed).max(MURAL_DIRECT_IMPORT.pageLimit),
+  next: z.string().min(1).max(2_000).nullable().optional(),
+}).passthrough();
+
+export const MuralRemoteWidgetPage = z.object({
+  value: z.array(z.record(z.unknown())).max(MURAL_DIRECT_IMPORT.widgetPageLimit),
+  next: z.string().min(1).max(2_000).nullable().optional(),
+}).passthrough();
+
+export const MuralRemoteDetailEnvelope = z.object({ value: MuralRemoteNamed }).passthrough();
 const SafeReturnTo = z
   .string()
   .min(1)

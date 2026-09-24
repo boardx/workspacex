@@ -1,5 +1,4 @@
 import { setTimeout as wait } from "node:timers/promises";
-import { z } from "zod";
 import { whiteboardMural as C } from "@repo/contracts";
 import {
   MuralImportError as Fault,
@@ -9,40 +8,7 @@ import {
 } from "../../application/whiteboard/mural-ports";
 const ORIGIN = "https://app.mural.co",
   BASE = "/api/public/v1";
-const Token = z
-  .object({
-    access_token: z.string().min(1).max(16384),
-    refresh_token: z.string().min(1).max(16384).nullable().optional(),
-    expires_in: z.number().int().positive().max(31536000).optional(),
-    scope: z.string().max(2000).optional(),
-  })
-  .passthrough();
-const Named = z
-  .object({
-    id: z.string().min(1).max(256),
-    name: z.string().min(1).max(200).optional(),
-    title: z.string().min(1).max(200).optional(),
-    updatedOn: z.union([z.string().datetime(), z.number().int().nonnegative()]).optional(),
-    updatedAt: z.union([z.string().datetime(), z.number().int().nonnegative()]).optional(),
-  })
-  .passthrough()
-  .refine((v) => Boolean(v.name || v.title));
-const Page = z
-  .object({
-    value: z.array(Named).max(C.MURAL_DIRECT_IMPORT.pageLimit),
-    next: z.string().min(1).max(2000).nullable().optional(),
-  })
-  .passthrough();
-const WidgetPage = z
-  .object({
-    value: z
-      .array(z.record(z.unknown()))
-      .max(C.MURAL_DIRECT_IMPORT.widgetPageLimit),
-    next: z.string().min(1).max(2000).nullable().optional(),
-  })
-  .passthrough();
 const timestamp = (value: string | number | undefined): string | null => value === undefined ? null : typeof value === 'number' ? new Date(value).toISOString() : value;
-const DetailEnvelope = z.object({ value: Named }).passthrough();
 export interface MuralClientConfig {
   readonly clientId: string;
   readonly clientSecret: string;
@@ -142,7 +108,7 @@ export class MuralApiClient implements MuralRemoteClient {
   }
   async workspaces(access: string, next: string | undefined, limit: number) {
     const url = this.url("/workspaces", { limit: String(limit), next });
-    const parsed = Page.safeParse(
+    const parsed = C.MuralRemotePage.safeParse(
       await this.send(url, { headers: { authorization: `Bearer ${access}` } }),
     );
     if (!parsed.success) throw new Fault("REMOTE_SCHEMA_CHANGED");
@@ -164,7 +130,7 @@ export class MuralApiClient implements MuralRemoteClient {
       `/workspaces/${encodeURIComponent(workspaceId)}/murals`,
       { status: "active", sortBy: "lastModified", limit: String(limit), next },
     );
-    const parsed = Page.safeParse(
+    const parsed = C.MuralRemotePage.safeParse(
       await this.send(url, { headers: { authorization: `Bearer ${access}` } }),
     );
     if (!parsed.success) throw new Fault("REMOTE_SCHEMA_CHANGED");
@@ -182,8 +148,8 @@ export class MuralApiClient implements MuralRemoteClient {
         this.url(`/murals/${encodeURIComponent(muralId)}`),
         { headers: { authorization: `Bearer ${access}` } },
       ),
-      envelope = DetailEnvelope.safeParse(raw),
-      parsed = Named.safeParse(envelope.success ? envelope.data.value : raw);
+      envelope = C.MuralRemoteDetailEnvelope.safeParse(raw),
+      parsed = C.MuralRemoteNamed.safeParse(envelope.success ? envelope.data.value : raw);
     if (!parsed.success) throw new Fault("REMOTE_SCHEMA_CHANGED");
     return {
       id: parsed.data.id,
@@ -191,7 +157,7 @@ export class MuralApiClient implements MuralRemoteClient {
     };
   }
   async widgets(access: string, muralId: string, next?: string) {
-    const parsed = WidgetPage.safeParse(
+    const parsed = C.MuralRemoteWidgetPage.safeParse(
       await this.send(
         this.url(`/murals/${encodeURIComponent(muralId)}/widgets`, {
           limit: String(C.MURAL_DIRECT_IMPORT.widgetPageLimit),
@@ -217,7 +183,7 @@ export class MuralApiClient implements MuralRemoteClient {
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
     });
-    const parsed = Token.safeParse(
+    const parsed = C.MuralTokenResponse.safeParse(
       await this.send(this.url("/authorization/oauth2/token"), {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },

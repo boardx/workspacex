@@ -45,6 +45,7 @@ import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EV
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 import { MIRO_CREDENTIAL_PATH, checkMiroCredentialBoundary } from "./lib/miro-credential-boundary.mjs";
+import { MURAL_CREDENTIAL_PATH, checkMuralCredentialBoundary } from "./lib/mural-credential-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -82,10 +83,6 @@ const ALLOWLIST = new Map([
   [
     "src/infrastructure/whiteboard/pg-whiteboard-transfer-store.ts",
     "#3978: portable transfer is derived from the same private whiteboard owner/member policy as #3926/#3967, which cannot be represented by acl_bindings without weakening it to org-wide. Export first calls the collaboration store's fresh locked owner/member access check, then rechecks owner/member visibility before its audit write. Import is copy-only: it creates a new owner-scoped board for the actor and writes remapped commands in the same tenant transaction; replay rows are keyed by org_id+actor_id+request_id. Scope is exactly whiteboards, whiteboard_members, documents, import receipts and transfer audit. tests/whiteboard/transfer-repository-guard.test.ts mechanically pins withTenant, actor predicates, copy-only writes and table scope; transfer-http.test.ts provides real HTTP/PostgreSQL cross-tenant, viewer/revocation, rollback, idempotency and audit evidence. Remove this entry if those checks or tests are removed.",
-  ],
-  [
-    "src/infrastructure/whiteboard/pg-mural-credential-repository.ts",
-    "#4118: Mural OAuth state and encrypted credentials are actor-bound authentication material. Every method runs withTenant and every query binds org_id+actor_id; active reads require revoked_at IS NULL and state consumption is one-time and expiring. tests/whiteboard/mural-repository-guard.test.ts pins these boundaries, RLS and ciphertext-only persistence.",
   ],
   [
     "src/infrastructure/whiteboard/pg-room-repository.ts",
@@ -529,6 +526,15 @@ for (const root of ROOTS) {
         body,
         readFileSync(join(API, migrationPath), "utf8"),
         readFileSync(join(API, evidencePath), "utf8"),
+      );
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === MURAL_CREDENTIAL_PATH) {
+      const errors = checkMuralCredentialBoundary(
+        body,
+        readFileSync(join(API, "migrations/20260924000900_whiteboard_mural_direct_import.sql"), "utf8"),
+        readFileSync(join(API, "tests/whiteboard/mural-repository-guard.test.ts"), "utf8"),
       );
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
