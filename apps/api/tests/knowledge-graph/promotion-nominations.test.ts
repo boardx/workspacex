@@ -19,7 +19,7 @@ import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-kno
 import { PgPromotion } from "../../src/infrastructure/knowledge-graph/pg-promotion";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addOrgMember, addProjectMember, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
-import { extractionDeps, loopbackModel } from "./kg-extraction-fixtures";
+import { enableExtraction, extractionDeps, loopbackModel } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f11-nominate";
 const ORG_ID = toOrgId(ORG);
@@ -44,6 +44,7 @@ beforeAll(async () => {
   await migrateOnce();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
+  await enableExtraction();
   await addOrgMember(ORG, "u-owner", "consultant", fx.teams.energy!);
   await addProjectMember(ORG, `${ORG}-p`, "u-owner", "facilitator", null);
   await addChatThread({ orgId: ORG, id: MINE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });

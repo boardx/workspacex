@@ -48,6 +48,12 @@ const MAX_STATEMENT = 500;
 const MAX_EXCERPT = 280;
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+/**
+ * 按**字符**截断（不是 UTF-16 码元）：`String.prototype.slice` 会把 emoji 这类代理对切成半个，
+ * JSON 里留下孤立的 `\ud83d`，数据库 ::jsonb 直接拒收——那条消息就永远抽不成。
+ */
+export const clip = (s: string, max: number): string => Array.from(s).slice(0, max).join("");
+const MAX_ALIASES = 10;
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter((x) => x.length > 0) : []);
 
 /** 解析模型输出（已是 JSON 值）。不认识的字段忽略，坏项丢弃，永不抛错。 */
@@ -60,7 +66,7 @@ export function parseExtraction(raw: unknown): ExtractionResult {
     const name = str(o.name);
     const kind = KG.KgObjectKind.safeParse(o.kind);
     if (name.length === 0 || name.length > MAX_NAME || !kind.success) continue;
-    entities.push({ name, kind: kind.data, aliases: strs(o.aliases).filter((a) => a.length <= MAX_NAME && a !== name) });
+    entities.push({ name, kind: kind.data, aliases: strs(o.aliases).filter((a) => a.length <= MAX_NAME && a !== name).slice(0, MAX_ALIASES) });
     if (entities.length >= MAX_ENTITIES) break;
   }
   const claims: ExtractedClaim[] = [];
@@ -136,10 +142,11 @@ export function buildExtractionBatch(input: BuildExtractionBatchInput): Ontology
 
   const claims: OntologyClaimInput[] = [];
   const edges: OntologyEdgeInput[] = [];
-  const fallbackExcerpt = input.messageBody.slice(0, MAX_EXCERPT);
+  // 模型给的原话不在消息里时，退回消息开头：它不一定就是支撑这条结论的那句，但一定是原话（执行器也会再核一遍）。
+  const fallbackExcerpt = clip(input.messageBody, MAX_EXCERPT);
   for (const c of result.claims) {
     const id = input.newId("clm");
-    const quote = c.quote.length > 0 && input.messageBody.includes(c.quote) ? c.quote.slice(0, MAX_EXCERPT) : fallbackExcerpt;
+    const quote = c.quote.length > 0 && input.messageBody.includes(c.quote) ? clip(c.quote, MAX_EXCERPT) : fallbackExcerpt;
     claims.push({
       id, claimKind: c.kind, statement: c.statement, status: "proposed", confidence: c.confidence,
       evidence: [{ messageId: input.messageId, stance: "supporting", excerpt: quote }],

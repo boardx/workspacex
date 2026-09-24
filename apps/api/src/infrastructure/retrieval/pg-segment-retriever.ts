@@ -265,6 +265,9 @@ export class PgSegmentRetriever implements SegmentRetriever {
            LEFT JOIN claim_segments cs ON cs.claim_id = c.id AND cs.org_id = c.org_id
           WHERE c.org_id = $1
             AND ($2::text IS NULL OR c.project_id = $2 OR c.project_id IS NULL)
+            -- Phase 18：带作用域的结论（从某个会话 / 某人个人空间抽出来的）只在它自己的作用域里召回
+            -- （F08 的会话记忆），不进这条按项目检索的通道——它们 project_id 为空，不挡就会匹配每个项目。
+            AND c.scope_kind IS NULL
             AND c.tsv @@ wsx_tsquery($3)
           GROUP BY c.id, c.statement, c.status
           ORDER BY c.id

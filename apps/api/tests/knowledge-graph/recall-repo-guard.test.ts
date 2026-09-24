@@ -45,10 +45,12 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).not.toMatch(/\b(?:OR|UNION)\b/);
   });
 
-  it("(d) 调用链：candidates/graphNeighbors ← recall-knowledge.ts ← execute-run.ts（run.threadId / run.requesterUserId）", () => {
+  it("(d) 调用链：candidates/graphNeighbors ← recall-knowledge.ts（knowledgeMemoryFor）← execute-run.ts（run.threadId / run.requesterUserId）", () => {
     expect(callersOf(/\.(candidates|graphNeighbors)\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
-    expect(callersOf(/(?<!function )recallThreadKnowledge\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
+    // recallThreadKnowledge 只在 recall-knowledge.ts 内部被 knowledgeMemoryFor 调用；后者的唯一调用方是 execute-run.ts
+    expect(callersOf(/(?<!function )recallThreadKnowledge\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
+    expect(callersOf(/(?<!function )knowledgeMemoryFor\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
-    expect(exec).toMatch(/recallThreadKnowledge\(\s*deps\.knowledge,\s*\{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText \}/);
+    expect(exec).toMatch(/knowledgeMemoryFor\(deps\.knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}/);
   });
 });

@@ -14,6 +14,14 @@ import { guard } from "../../application/security/permission-filter";
 import type { DigitalInterviewWorkflowView } from "../../application/interview/workflow/digital-interview-runtime.port";
 import { projectDigitalInterviewState } from "../../domain/interview/digital-interview";
 import {
+  assessBrief,
+  assessExpertCoverage,
+  assessQuestionQuality,
+  assessReadiness,
+  buildEvidenceCoverage,
+  estimateInterviewDuration,
+} from "../../domain/interview/research-quality";
+import {
   INTERVIEW_VISIBILITY_FACT_COLUMNS,
   VISIBILITY_PREDICATE,
 } from "./pg-interview-scope-repository";
@@ -408,11 +416,12 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports, briefs, policies, readinessDecisions, reportReviews] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+      section: DigitalInterviewWorkflowView["questions"][number]["section"]; goal_ids: string[];
     }>(
-      `SELECT question_id, expert_id, ordinal, body, purpose
+      `SELECT question_id, expert_id, ordinal, body, purpose, section, goal_ids
          FROM digital_interview_questions
         WHERE org_id=$1 AND version_id=$2
         ORDER BY ordinal`,
@@ -437,8 +446,9 @@ export async function readDigitalInterviewWorkflow(
     ),
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+      section: DigitalInterviewWorkflowView["questions"][number]["section"]; goal_ids: string[];
     }>(
-      `SELECT question_id,expert_id,ordinal,body,purpose
+      `SELECT question_id,expert_id,ordinal,body,purpose,section,goal_ids
          FROM digital_interview_question_candidates
         WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
       [orgId, row.revision_id],
@@ -481,7 +491,7 @@ export async function readDigitalInterviewWorkflow(
       report_id: string; title: string | null; executive_summary: string | null; markdown: string | null;
       findings: Array<{
         findingId: string; title: string; summary: string; expertId: string; questionId: string;
-        sourceAnswerId: string; exploratory: true;
+        sourceAnswerId: string; goalIds?: string[]; exploratory: true;
       }>;
       generated_at: Date | string; generation_status: "running" | "completed" | "failed";
       request_id: string | null; error_code: string | null; updated_at: Date | string;
@@ -493,6 +503,36 @@ export async function readDigitalInterviewWorkflow(
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [orgId, interviewId, row.revision_id],
     ),
+    session.query<{ brief: NonNullable<DigitalInterviewWorkflowView["researchBrief"]>; rule_version: string }>(
+      `SELECT brief,rule_version FROM digital_interview_research_briefs
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [orgId, interviewId, row.revision_id],
+    ),
+    session.query<{ policy: NonNullable<DigitalInterviewWorkflowView["moderatorPolicy"]>; rule_version: string }>(
+      `SELECT policy,rule_version FROM digital_interview_moderator_policies
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [orgId, interviewId, row.revision_id],
+    ),
+    session.query<{
+      id: string; revision_id: string; assessment_rule_version: string;
+      status: "ready" | "warning_accepted"; rationale: string | null;
+      decided_by: string; decided_at: Date | string;
+    }>(
+      `SELECT id,revision_id,assessment_rule_version,status,rationale,decided_by,decided_at
+         FROM digital_interview_readiness_decisions
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [orgId, interviewId, row.revision_id],
+    ),
+    session.query<{
+      id: string; revision_id: string; report_id: string;
+      status: "pending" | "approved" | "changes_requested"; note: string | null;
+      reviewed_by: string | null; reviewed_at: Date | string | null;
+    }>(
+      `SELECT id,revision_id,report_id,status,note,reviewed_by,reviewed_at
+         FROM digital_interview_report_reviews
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND report_id=$4`,
+      [orgId, interviewId, row.revision_id, row.report_id],
+    ),
   ]);
 
   const reportRow = reports.rows[0];
@@ -503,6 +543,89 @@ export async function readDigitalInterviewWorkflow(
     : row.research_project_id !== null
       ? { kind: "research" as const, projectId: null, researchProjectId: row.research_project_id }
       : { kind: "none" as const, projectId: null, researchProjectId: null };
+  const mappedExperts: DigitalInterviewWorkflowView["expertCandidates"] = expertCandidates.rows.map((candidate) => ({
+    expertId: candidate.expert_id,
+    agentDefinitionId: candidate.agent_definition_id,
+    agentVersion: candidate.agent_version,
+    initials: candidate.initials,
+    displayName: candidate.display_name,
+    role: candidate.role,
+    domains: candidate.domains,
+    materialContextPackId: candidate.material_context_pack_id,
+    materialVersion: candidate.material_version,
+    category: candidate.category,
+    bio: candidate.bio,
+    location: candidate.location,
+    typicalAdvice: candidate.typical_advice,
+    age: candidate.age,
+    occupation: candidate.occupation,
+    goals: candidate.goals,
+    interests: candidate.interests,
+    painPoints: candidate.pain_points,
+    motivations: candidate.motivations,
+    influences: candidate.influences,
+    personalityTraits: candidate.personality_traits,
+    serviceValue: candidate.service_value,
+    materialBoundary: candidate.material_context_pack_id === null
+      ? "未绑定 Context Pack 材料版本"
+      : `Context Pack ${candidate.material_context_pack_id} · ${candidate.material_version}`,
+    exploratory: true,
+  }));
+  const mapQuestions = (rows: typeof questions.rows): DigitalInterviewWorkflowView["questions"] => rows.map((question) => ({
+    questionId: question.question_id,
+    expertId: question.expert_id,
+    order: question.ordinal,
+    text: question.body,
+    purpose: question.purpose,
+    section: question.section,
+    goalIds: question.goal_ids,
+  }));
+  const mappedQuestions = mapQuestions(questions.rows);
+  const mappedQuestionCandidates = mapQuestions(questionCandidates.rows);
+  const mappedRuns: DigitalInterviewWorkflowView["expertRuns"] = expertRuns.rows.map((run) => ({
+    expertId: run.expert_id,
+    displayName: run.display_name,
+    status: run.status,
+    completedQuestions: run.answers.length,
+    totalQuestions: run.total_questions,
+    answers: run.answers,
+    errorCode: run.error_code,
+    updatedAt: new Date(run.updated_at).toISOString(),
+  }));
+  const researchBrief = briefs.rows[0]?.brief ?? null;
+  const moderatorPolicy = policies.rows[0]?.policy ?? null;
+  const briefIssues = researchBrief ? assessBrief(researchBrief) : [];
+  const selectedExpertIds = new Set(row.selected_expert_ids);
+  const expertIssues = researchBrief ? assessExpertCoverage({ brief: researchBrief,
+    experts: mappedExperts.filter((expert) => selectedExpertIds.has(expert.expertId)) }) : [];
+  const questionFindings = researchBrief
+    ? assessQuestionQuality({ brief: researchBrief, questions: mappedQuestions, selectedExpertIds: row.selected_expert_ids })
+    : [];
+  const duration = moderatorPolicy
+    ? estimateInterviewDuration({ questions: mappedQuestions, policy: moderatorPolicy })
+    : { min: 0, max: 0, issues: [] };
+  const readiness = researchBrief && moderatorPolicy
+    ? assessReadiness({ briefIssues, expertIssues, questionIssues: questionFindings, durationIssues: duration.issues })
+    : null;
+  const readinessRow = readinessDecisions.rows[0];
+  const readinessDecision: DigitalInterviewWorkflowView["quality"]["readinessDecision"] = readinessRow ? {
+    decisionId: readinessRow.id,
+    revisionId: readinessRow.revision_id,
+    assessmentRuleVersion: readinessRow.assessment_rule_version,
+    status: readinessRow.status,
+    rationale: readinessRow.rationale,
+    decidedBy: readinessRow.decided_by,
+    decidedAt: new Date(readinessRow.decided_at).toISOString(),
+  } : null;
+  const reportFindings = (reports.rows[0]?.findings ?? []).map((finding) => ({ ...finding, goalIds: finding.goalIds ?? [] }));
+  const evidenceCoverage = researchBrief ? buildEvidenceCoverage({
+    brief: researchBrief,
+    expertIds: row.selected_expert_ids,
+    questions: mappedQuestions,
+    runs: mappedRuns,
+    findings: reportFindings,
+  }) : [];
+  const reviewRow = reportReviews.rows[0];
   const workflow: DigitalInterviewWorkflowView = {
     interviewId: row.id,
     name: row.title,
@@ -518,7 +641,7 @@ export async function readDigitalInterviewWorkflow(
       title: reports.rows[0].title!,
       executiveSummary: reports.rows[0].executive_summary!,
       markdown: reports.rows[0].markdown!,
-      findings: reports.rows[0].findings,
+      findings: reportFindings,
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
     } : stale ? reportRow?.previous_report ?? null : null,
     // A failed replacement keeps the last completed report and the attempt error.
@@ -529,7 +652,7 @@ export async function readDigitalInterviewWorkflow(
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",
-      findings: reports.rows[0].findings,
+      findings: reportFindings,
       errorCode: stale ? "DEPENDENCY_UNAVAILABLE" : reports.rows[0].error_code,
       updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
@@ -539,58 +662,10 @@ export async function readDigitalInterviewWorkflow(
     topicVersionId: row.topic_version_id,
     expertSnapshotVersionId: row.expert_snapshot_version_id,
     questionVersionId: row.question_version_id,
-    expertCandidates: expertCandidates.rows.map((candidate) => ({
-      expertId: candidate.expert_id,
-      agentDefinitionId: candidate.agent_definition_id,
-      agentVersion: candidate.agent_version,
-      initials: candidate.initials,
-      displayName: candidate.display_name,
-      role: candidate.role,
-      domains: candidate.domains,
-      materialContextPackId: candidate.material_context_pack_id,
-      materialVersion: candidate.material_version,
-      category: candidate.category,
-      bio: candidate.bio,
-      location: candidate.location,
-      typicalAdvice: candidate.typical_advice,
-      age: candidate.age,
-      occupation: candidate.occupation,
-      goals: candidate.goals,
-      interests: candidate.interests,
-      painPoints: candidate.pain_points,
-      motivations: candidate.motivations,
-      influences: candidate.influences,
-      personalityTraits: candidate.personality_traits,
-      serviceValue: candidate.service_value,
-      materialBoundary: candidate.material_context_pack_id === null
-        ? "未绑定 Context Pack 材料版本"
-        : `Context Pack ${candidate.material_context_pack_id} · ${candidate.material_version}`,
-      exploratory: true,
-    })),
-    questions: questions.rows.map((question) => ({
-      questionId: question.question_id,
-      expertId: question.expert_id,
-      order: question.ordinal,
-      text: question.body,
-      purpose: question.purpose,
-    })),
-    questionCandidates: questionCandidates.rows.map((question) => ({
-      questionId: question.question_id,
-      expertId: question.expert_id,
-      order: question.ordinal,
-      text: question.body,
-      purpose: question.purpose,
-    })),
-    expertRuns: expertRuns.rows.map((run) => ({
-      expertId: run.expert_id,
-      displayName: run.display_name,
-      status: run.status,
-      completedQuestions: run.answers.length,
-      totalQuestions: run.total_questions,
-      answers: run.answers,
-      errorCode: run.error_code,
-      updatedAt: new Date(run.updated_at).toISOString(),
-    })),
+    expertCandidates: mappedExperts,
+    questions: mappedQuestions,
+    questionCandidates: mappedQuestionCandidates,
+    expertRuns: mappedRuns,
     skillThreadId: row.skill_thread_id,
     skillMessages: messages.rows.map((message) => ({
       messageId: message.id,
@@ -611,6 +686,32 @@ export async function readDigitalInterviewWorkflow(
       committedVersionId: proposal.committed_version_id,
       createdAt: new Date(proposal.created_at).toISOString(),
     })) as DigitalInterviewWorkflowView["skillProposals"],
+    researchBrief,
+    moderatorPolicy,
+    quality: {
+      previewStatus: researchBrief ? "available" : "unavailable",
+      briefIssues: [...briefIssues],
+      expertCoverage: [],
+      questionFindings: [...questionFindings],
+      readiness: readiness ? {
+        ...readiness,
+        issues: [...readiness.issues],
+        ruleVersion: policies.rows[0]?.rule_version ?? briefs.rows[0]?.rule_version ?? "quality-v1",
+        evaluatedAt: new Date(row.updated_at).toISOString(),
+        estimatedMinutes: { min: duration.min, max: duration.max },
+      } : null,
+      readinessDecision,
+      evidenceCoverage: [...evidenceCoverage],
+    },
+    reportReview: reviewRow ? {
+      reviewId: reviewRow.id,
+      revisionId: reviewRow.revision_id,
+      reportId: reviewRow.report_id,
+      status: reviewRow.status,
+      note: reviewRow.note,
+      reviewedBy: reviewRow.reviewed_by,
+      reviewedAt: reviewRow.reviewed_at === null ? null : new Date(reviewRow.reviewed_at).toISOString(),
+    } : null,
   };
   return workflow;
 }
