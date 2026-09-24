@@ -133,5 +133,10 @@ describe('vendor board readers', () => {
     const auth = await readMuralBoardSnapshot({ muralId: 'mural-1' }, dependencies(unauthorized));
     expect(auth).toMatchObject({ ok: false, code: 'AUTH_FAILED', provider: 'mural' });
     expect(JSON.stringify(auth)).not.toContain(token);
+
+    const getAccessToken = vi.fn(async () => token);
+    const invalid = await readMiroBoardSnapshot({ boardId: '' }, { ...dependencies(failed), getAccessToken });
+    expect(invalid).toMatchObject({ ok: false, code: 'INVALID_INPUT', provider: 'miro' });
+    expect(getAccessToken).not.toHaveBeenCalled();
   });
 });

@@ -66,9 +66,9 @@ export async function readMiroBoardSnapshot(
   dependencies: VendorReadDependencies,
   rawOptions: VendorReadOptions = {},
 ): Promise<VendorReadResult> {
+  if (!validId(input.boardId)) return failure('miro', 'INVALID_INPUT');
   const context = await createContext('miro', dependencies, rawOptions);
   if (!context.ok) return context.result;
-  if (!validId(input.boardId)) return failure('miro', 'INVALID_INPUT');
 
   const encodedId = encodeURIComponent(input.boardId);
   const metadata = await requestJson(context.value, `https://api.miro.com/v2/boards/${encodedId}`);
@@ -107,9 +107,9 @@ export async function readMuralBoardSnapshot(
   dependencies: VendorReadDependencies,
   rawOptions: VendorReadOptions = {},
 ): Promise<VendorReadResult> {
+  if (!validId(input.muralId)) return failure('mural', 'INVALID_INPUT');
   const context = await createContext('mural', dependencies, rawOptions);
   if (!context.ok) return context.result;
-  if (!validId(input.muralId)) return failure('mural', 'INVALID_INPUT');
 
   const encodedId = encodeURIComponent(input.muralId);
   const metadata = await requestJson(context.value, `https://app.mural.co/api/public/v1/murals/${encodedId}`);
