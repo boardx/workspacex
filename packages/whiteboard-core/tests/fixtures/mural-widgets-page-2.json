@@ -1,0 +1,16 @@
+{
+  "value": [
+    {
+      "id": "sticky-2",
+      "type": "sticky-note",
+      "htmlText": "<p>Second page</p>",
+      "parentId": "area-1",
+      "x": 20,
+      "y": 30,
+      "width": 180,
+      "height": 120,
+      "rotation": 0,
+      "style": { "backgroundColor": "#fff59d" }
+    }
+  ]
+}

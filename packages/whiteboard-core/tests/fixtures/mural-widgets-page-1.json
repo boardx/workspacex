@@ -1,0 +1,15 @@
+{
+  "value": [
+    {
+      "id": "area-1",
+      "type": "area",
+      "title": "Discovery",
+      "x": 40,
+      "y": 60,
+      "width": 800,
+      "height": 500,
+      "rotation": 0
+    }
+  ],
+  "next": "next-2"
+}
