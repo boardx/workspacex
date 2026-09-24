@@ -46,6 +46,27 @@ function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
 }
+const steeringActions = new Set<RuntimeCommand["action"]>(["pause", "resume", "refine_scope", "refine_source_policy"]);
+export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCommand, occurredAt = new Date().toISOString()): void {
+  if (!steeringActions.has(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
+    throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+  }
+  if (state.activity?.some((event) => event.id === command.idempotencyKey)) return;
+  if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+  if (command.action === "refine_source_policy" && command.sourcePolicy?.internalSourceIds.length) {
+    throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
+  }
+  if (command.action === "pause") state.controlStatus = "paused";
+  if (command.action === "resume") state.controlStatus = "running";
+  if (command.action === "refine_source_policy" && command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
+  if (command.action === "refine_scope" && command.intent) state.intent = command.intent;
+  state.planRevision = (state.planRevision ?? 0) + 1;
+  const activity = state.activity ?? (state.activity = []);
+  activity.push({ id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
+    stage: "planning", taskId: null,
+    summary: command.action === "pause" ? "研究已暂停" : command.action === "resume" ? "研究已继续" : command.action === "refine_scope" ? "研究范围已更新" : "来源策略已更新",
+    occurredAt, status: command.action === "pause" ? "paused" : "succeeded" });
+}
 export function initialRuntime(session: GuidedResearchSession): ResearchRuntime {
   const legacy = Boolean(session.directions.versions.length || session.outline.versions.length || session.sourceCount || session.status === "completed");
   const currentNode: Node = !legacy ? "brief" : ["researching", "report"].includes(session.resumeStage) ? "research" : session.resumeStage as Node;
@@ -418,6 +439,8 @@ export class GuidedRuntimeService {
   }
   private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: RuntimePersistence) {
     const { node, action } = command;
+    if (steeringActions.has(action)) { applyResearchSteering(state, command); return; }
+    if (state.controlStatus === "paused" && node === "research" && ["start", "retry", "generate"].includes(action)) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }

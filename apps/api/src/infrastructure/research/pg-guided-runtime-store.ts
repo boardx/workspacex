@@ -31,6 +31,9 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       const row = result.rows[0];
       if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
       const state = C.GuidedResearchRuntime.parse(row.state);
+      if (command.expectedRevision !== undefined && (state.planRevision ?? 0) !== command.expectedRevision) {
+        throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+      }
       const prior = Object.hasOwn(row.requests, command.requestId) ? row.requests[command.requestId] : undefined;
       if (prior) {
         if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");

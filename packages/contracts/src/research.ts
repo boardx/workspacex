@@ -1043,6 +1043,7 @@ export const GuidedResearchRuntime = z.object({
   reportEvidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
   intent: GuidedResearchIntent.optional(), planRevision: z.number().int().nonnegative().optional(),
   sourcePolicy: GuidedResearchSourcePolicy.optional(),
+  controlStatus: z.enum(["running", "paused"]).optional(),
   activity: z.array(GuidedResearchActivityEvent).max(1000).optional(),
   coverage: z.array(GuidedResearchCoverageItem).max(1000).optional(),
   claimEvidence: z.array(GuidedResearchClaimEvidenceView).max(2000).optional(),
@@ -1089,7 +1090,7 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
   busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true,
   reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
-  planRevision: true, sourcePolicy: true, activity: true, coverage: true, conflicts: true,
+  planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
   qualityScore: true, publicationReadiness: true,
 }).extend({
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
