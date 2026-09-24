@@ -1,10 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
+import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
 /** Real services only: no route interception, business mocks or injected test principals. */
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
-function required(name: string): string { const value=process.env[name]; if(!value)throw new Error(`Missing real whiteboard E2E fixture: ${name}; see e2e/whiteboard-live-fixture.md`);return value; }
+const fullstackFallbacks: Record<string, string | undefined> = {
+  WHITEBOARD_OWNER_EMAIL: FULLSTACK_E2E.adminEmail,
+  WHITEBOARD_OWNER_PASSWORD: FULLSTACK_E2E.adminPassword,
+  WHITEBOARD_OWNER_USER_ID: FULLSTACK_E2E.adminUserId,
+  WHITEBOARD_EDITOR_EMAIL: FULLSTACK_E2E.leadEmail,
+  WHITEBOARD_EDITOR_PASSWORD: FULLSTACK_E2E.leadPassword,
+  WHITEBOARD_EDITOR_USER_ID: FULLSTACK_E2E.leadUserId,
+  WHITEBOARD_VIEWER_EMAIL: FULLSTACK_E2E.email,
+  WHITEBOARD_VIEWER_PASSWORD: FULLSTACK_E2E.password,
+  WHITEBOARD_VIEWER_USER_ID: FULLSTACK_E2E.userId,
+  WHITEBOARD_API_URL: process.env.WORKSPACEX_API_PORT
+    ? `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`
+    : undefined,
+};
+function required(name: string): string { const value=process.env[name]??fullstackFallbacks[name]; if(!value)throw new Error(`Missing real whiteboard E2E fixture: ${name}; see e2e/whiteboard-live-fixture.md`);return value; }
 async function login(page: Page, actor: 'OWNER'|'EDITOR'|'VIEWER') {
   await page.goto('/login');
   await page.getByTestId('login-email').fill(required(`WHITEBOARD_${actor}_EMAIL`));

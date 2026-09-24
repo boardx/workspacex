@@ -351,6 +351,10 @@ export default defineConfig({
         "core-journey-01-registration.spec.ts",
         "core-journey-02-org-management.spec.ts",
         "core-journey-05-voice-skill-multichannel-context.spec.ts",
+        // #3967: real Board HTTP + authenticated WS with three independently logged-in
+        // users. Reuses the seeded admin/lead/consultant identities through the fixture
+        // fallback in the spec; it creates and archives its own private Board.
+        "whiteboard-live.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
