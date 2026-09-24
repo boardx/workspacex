@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm, truncate, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BoardBlobError } from '../../src/application/whiteboard/blob-ports';
 import { boardBlobKey, sha256 } from '../../src/domain/whiteboard/blob-identity';
@@ -18,6 +18,12 @@ function input(bytes: Uint8Array, key = boardBlobKey({ tenantId, boardId, kind: 
 
 function objectPath(key: string): string { return join(root, ...key.split('/')); }
 
+function directoryChain(storageRoot: string, key: string): string[] {
+  const chain = [storageRoot];
+  for (const segment of key.split('/').slice(0, -1)) chain.push(join(chain.at(-1)!, segment));
+  return chain;
+}
+
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'wsx-board-blob-')); store = new FsBoardBlobStore(root); });
 afterEach(async () => { await rm(root, { recursive: true, force: true }); });
 
@@ -31,6 +37,37 @@ describe('FsBoardBlobStore', () => {
     expect(await restarted.head(value)).toEqual({ cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes });
   });
 
+  it('durably creates every directory level before publishing into an empty root', async () => {
+    const syncs: string[] = [];
+    const audited = new FsBoardBlobStore(root, async path => { syncs.push(path); });
+    const value = input(Buffer.from('first-multi-level-write'));
+    const chain = directoryChain(root, value.key);
+    const creation = chain.slice(1).flatMap((directory, index) => [directory, chain[index]!]);
+    const recoverySweep = [...chain].reverse().concat(dirname(root));
+    expect(await audited.putImmutable(value)).toBe('created');
+    expect(syncs).toEqual([...creation, ...recoverySweep, chain.at(-1)!]);
+  });
+
+  it('does not ACK any directory fsync failure and recovers on retry', async () => {
+    const value = input(Buffer.from('directory-fsync-recovery'));
+    const levels = value.key.split('/').length - 1;
+    const directorySyncs = levels * 2 + (levels + 1) + 1;
+    for (let failAt = 1; failAt <= directorySyncs; failAt++) {
+      const caseRoot = await mkdtemp(join(tmpdir(), 'wsx-board-dir-fault-'));
+      let calls = 0;
+      const faulted = new FsBoardBlobStore(caseRoot, async () => {
+        calls++;
+        if (calls === failAt) throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });
+      });
+      try {
+        await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+        await expect(faulted.putImmutable(value)).resolves.toBe('created');
+      } finally {
+        await rm(caseRoot, { recursive: true, force: true });
+      }
+    }
+  });
+
   it('publishes exactly one winner for concurrent different content at one immutable key', async () => {
     const left = input(Buffer.from('left'));
     const rightBytes = Buffer.from('right');
@@ -40,6 +77,13 @@ describe('FsBoardBlobStore', () => {
     const rejected = result.find(entry => entry.status === 'rejected');
     expect(rejected).toMatchObject({ reason: { code: 'INVALID_INPUT' } });
     expect((await readFile(objectPath(left.key))).toString()).toBe('left');
+  });
+
+  it('handles concurrent directory EEXIST and identical immutable publication', async () => {
+    const value = input(Buffer.from('same-concurrent-content'));
+    const results = await Promise.all([store.putImmutable(value), store.putImmutable(value)]);
+    expect(results.sort()).toEqual(['already-present-same-content', 'created']);
+    expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
   });
 
   it('fails closed on truncation and tampering', async () => {
@@ -65,6 +109,17 @@ describe('FsBoardBlobStore', () => {
     await expect(store.head({ tenantId: otherTenantId, key: value.key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 
+  it('refuses a symlink inside the tenant directory chain', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'wsx-board-outside-'));
+    try {
+      await symlink(outside, join(root, 'tenants'));
+      await expect(store.putImmutable(input(Buffer.from('must-stay-inside-root')))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      expect(await readdir(outside)).toEqual([]);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
   it('rejects forged digest and size before creating a visible object', async () => {
     const value = input(Buffer.from('actual'));
     await expect(store.putImmutable({ ...value, cipherDigest: '0'.repeat(64) })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
@@ -83,16 +138,20 @@ describe('FsBoardBlobStore', () => {
   });
 
   it('retries parent directory fsync before an EEXIST replay can report success', async () => {
+    const value = input(Buffer.from('linked-before-directory-sync'));
+    const chain = directoryChain(root, value.key);
+    const parent = chain.at(-1)!;
+    await mkdir(parent, { recursive: true });
+    const prepareSyncs = chain.length + 1;
     let syncAttempts = 0;
     const faulted = new FsBoardBlobStore(root, async () => {
       syncAttempts++;
-      if (syncAttempts === 1) throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });
+      if (syncAttempts === prepareSyncs + 1) throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });
     });
-    const value = input(Buffer.from('linked-before-directory-sync'));
     await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
     expect(await faulted.putImmutable(value)).toBe('already-present-same-content');
-    expect(syncAttempts).toBe(2);
+    expect(syncAttempts).toBe(prepareSyncs * 2 + 2);
   });
 
   it('uses typed missing and validation errors', async () => {

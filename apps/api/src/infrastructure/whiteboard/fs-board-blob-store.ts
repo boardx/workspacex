@@ -1,5 +1,5 @@
-import { open, mkdir, link, readFile, unlink } from 'node:fs/promises';
-import { dirname, join, resolve, sep } from 'node:path';
+import { open, mkdir, link, readFile, unlink, lstat } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BoardBlobError, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { assertSha256Digest, assertTenantBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
@@ -15,7 +15,7 @@ async function fsyncDirectory(path: string): Promise<void> {
 }
 
 export class FsBoardBlobStore implements BoardBlobStore {
-  constructor(private readonly root: string, private readonly syncParent: (path: string) => Promise<void> = fsyncDirectory) {
+  constructor(private readonly root: string, private readonly syncDirectory: (path: string) => Promise<void> = fsyncDirectory) {
     if (!root || !resolve(root)) throw new BoardBlobError('INVALID_INPUT', 'board blob root is required');
   }
 
@@ -27,13 +27,13 @@ export class FsBoardBlobStore implements BoardBlobStore {
     const target = this.pathFor(input.tenantId, input.key), parent = dirname(target);
     const temporary = join(parent, `.board-tmp-${process.pid}-${randomUUID()}`);
     try {
-      await mkdir(parent, { recursive: true, mode: 0o700 });
+      await this.ensureDurableDirectory(parent);
       const handle = await open(temporary, 'wx', 0o600);
       try { await handle.writeFile(input.ciphertext); await handle.sync(); }
       finally { await handle.close(); }
       try {
         await link(temporary, target);
-        await this.syncParent(parent);
+        await this.syncDirectory(parent);
         const published = await readFile(target);
         if (published.byteLength !== input.sizeBytes || sha256(published) !== input.cipherDigest) {
           throw new BoardBlobError('INTEGRITY_FAILED', 'published board blob failed read-back verification');
@@ -44,7 +44,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
         // The prior publisher may have linked the directory entry and then failed its
         // directory fsync. Replaying identical content is durable only after this attempt
         // repeats the parent sync; EEXIST alone is not a durable-ACK proof.
-        await this.syncParent(parent);
+        await this.syncDirectory(parent);
         const existing = await readFile(target);
         if (existing.byteLength !== input.sizeBytes || sha256(existing) !== input.cipherDigest) {
           throw new BoardBlobError('CONTENT_CONFLICT', 'immutable board blob key already contains different bytes');
@@ -97,6 +97,60 @@ export class FsBoardBlobStore implements BoardBlobStore {
     const root = resolve(this.root), path = resolve(join(root, ...key.split('/')));
     if (!path.startsWith(root + sep)) throw new BoardBlobError('INVALID_INPUT', 'board blob key escapes storage root');
     return path;
+  }
+
+  private async ensureDurableDirectory(target: string): Promise<void> {
+    const root = resolve(this.root), relativeTarget = relative(root, target);
+    if (relativeTarget === '..' || relativeTarget.startsWith(`..${sep}`) || resolve(target) !== target) {
+      throw new BoardBlobError('INVALID_INPUT', 'board blob directory escapes storage root');
+    }
+    await this.ensureStorageRoot(root);
+    const chain = [root];
+    let parent = root;
+    for (const segment of relativeTarget.split(sep).filter(Boolean)) {
+      const directory = join(parent, segment);
+      let createdOrRaced = false;
+      try {
+        await this.assertRealDirectory(directory);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        try { await mkdir(directory, { mode: 0o700 }); createdOrRaced = true; }
+        catch (mkdirError) {
+          if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError;
+          createdOrRaced = true;
+        }
+        await this.assertRealDirectory(directory);
+      }
+      if (createdOrRaced) {
+        // The new inode must reach disk before the parent directory entry that names it.
+        await this.syncDirectory(directory);
+        await this.syncDirectory(parent);
+      }
+      chain.push(directory);
+      parent = directory;
+    }
+    // Repeat the whole chain on every write. This repairs a prior attempt that created a
+    // directory and crashed/failed during either fsync before it could return an ACK.
+    for (let index = chain.length - 1; index >= 0; index--) await this.syncDirectory(chain[index]!);
+    await this.syncDirectory(dirname(root));
+  }
+
+  private async ensureStorageRoot(root: string): Promise<void> {
+    try { await this.assertRealDirectory(root); return; }
+    catch (error) {
+      if (error instanceof BoardBlobError || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    await mkdir(root, { recursive: true, mode: 0o700 });
+    await this.assertRealDirectory(root);
+    await this.syncDirectory(root);
+    await this.syncDirectory(dirname(root));
+  }
+
+  private async assertRealDirectory(path: string): Promise<void> {
+    const stat = await lstat(path);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new BoardBlobError('INVALID_INPUT', 'board blob storage path is not a real directory');
+    }
   }
 
 }
