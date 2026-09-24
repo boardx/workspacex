@@ -1684,3 +1684,28 @@ the strategy partner proposed AI governance / shadow AI as the missing urgent
 scenario; two Chinese readers asked where data is hosted before they would
 press the button — the page can say what deployment allows, but not what the
 free tier's hosting is.
+
+### Round 70 — three more scenarios, chosen from what the readers said was missing (10.00)
+
+The owner asked for three more and left the choice open. Each fills a gap a
+round-69 reader named:
+
+| Scenario | Who asked for it | The withdrawn claim |
+|---|---|---|
+| **AI governance** — a client contract pasted into a public chatbot; 1,140 of 1,500 accounts already use public tools | the strategy partner ("the scenario that sells traceability best") | "Ban public AI tools" — a peer that did found use moved to personal phones, out of any record |
+| **AI return on investment** — $1.2M spent (900 万元 on the Chinese page), every vendor dashboard says "great" | the CFO ("nothing here is about me") | "AI saved us 14,000 hours" — prompts × an assumed six minutes: activity, not time returned |
+| **Frontline expertise** — eleven senior technicians retiring; the manuals hold 35% of the fixes | the Chinese founder ("no manufacturing, no services") | "Replace them with an AI trained on the manuals" — it would know the part that was never the problem |
+
+Ten scenarios in all. The order puts the three most personal first
+(workforce, sales, governance), then money (ROI, strategy), then operations.
+All three passed the number-provenance gate on first run. Desktop tabs stay
+at two rows; on a phone the row scrolls and follows the selected tab.
+
+**CI: the degradation failure, named.** Three red runs of "got 1" were
+explained by the diagnostic added in round 69: `.cta__actions` in
+`#contact` — `is-in true, opacity 0.42`, at scrollY 21 218 of 21 640. It
+had been revealed and was half way through its fade: the page scrolls
+smoothly, so the loop's last `scrollTo` was still travelling when the 900 ms
+wait began, and the longer page (the demo) made the last leg longer. A test
+timing fault, not hidden content. The degradation and WebKit suites now wait
+for the scroll to stop before timing the fade.

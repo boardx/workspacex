@@ -466,6 +466,16 @@ for (const [lang, path] of LANGS) {
       await new Promise((d) => requestAnimationFrame(() => setTimeout(d, 100)));
     }
   });
+  /* The page scrolls smoothly, so the last scrollTo is still travelling when
+     the loop ends — on CI, 420 px short of the bottom. The 900 ms wait began
+     there, and the last element revealed was measured at opacity 0.42, half
+     way through its fade: named at last by the diagnostic above, after three
+     red runs of "got 1". Wait for the scroll to stop, then for the fade. */
+  await page2.evaluate(() => new Promise((done) => {
+    let last = -1; let still = 0;
+    const tick = () => { still = Math.abs(scrollY - last) < 1 ? still + 1 : 0; last = scrollY; if (still >= 8) done(); else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }));
   await page2.waitForTimeout(900);
   /* Named, not counted: this failed on CI three runs running with "got 1"
      and never on the machine that had to fix it. A count says something is

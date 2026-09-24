@@ -74,6 +74,13 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
         window.scrollTo(0, y);
         await new Promise((d) => requestAnimationFrame(() => setTimeout(d, 100)));
       }
+      /* Smooth scrolling: the last step is still travelling when the loop
+         ends. Wait for it to stop before timing the fade (see browser.test). */
+      let last = -1; let still = 0;
+      await new Promise((done) => {
+        const tick = () => { still = Math.abs(scrollY - last) < 1 ? still + 1 : 0; last = scrollY; if (still >= 8) done(); else requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+      });
     });
     await page.waitForTimeout(900);
     const hidden = await page.evaluate(() => [...document.querySelectorAll('[data-reveal], [data-stagger]')]
