@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Content contract only. Actor identity, ACL and durable sequence belong to the host. */
-export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 200, extensionBytes: 16384 } as const;
+export const WHITEBOARD_LIMITS = { objects: 10000, tombstones: 10000, text: 20000, batch: 200, extensionBytes: 16384 } as const;
 export const WhiteboardObjectId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
 export const WhiteboardGeometry = z.object({
   x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000),
