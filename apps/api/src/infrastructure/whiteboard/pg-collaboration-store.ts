@@ -7,6 +7,9 @@ import type { DatabasePort, TenantSession } from '../../application/ports/databa
 import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import type { WhiteboardObservability } from '../../application/whiteboard/observability';
+import { WHITEBOARD_SCALE_POLICY } from '../../domain/whiteboard-scale-policy';
+import { ProcessWhiteboardObservability } from './observability';
 
 type DocumentRow = { epoch: number; seq: string; snapshot: Buffer };
 type Access = { role: C.Board['role']; archived: boolean };
@@ -28,7 +31,10 @@ function canonical(value: unknown): unknown {
  * the DatabasePort's outer transaction has committed, not merely a savepoint.
  */
 export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationStore {
-  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120) {}
+  constructor(private readonly db: DatabasePort,
+    private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(),
+    private readonly acceptedUpdatesPerMinute = 120,
+    private readonly metrics: WhiteboardObservability = new ProcessWhiteboardObservability()) {}
   private async access(session: TenantSession, p: Principal, boardId: string, write: boolean): Promise<Access> {
     const board = await session.query<{ owner_id: string; archived: boolean }>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR ${write ? 'UPDATE' : 'SHARE'}`, [p.orgId, boardId]);
     const row = board.rows[0]; if (!row) throw new Fault('NOT_FOUND');
@@ -72,8 +78,14 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
   }
   async writeCommands(p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.requestId, input.epoch);
-    const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.writeCommandsInTransaction(session, p, boardId, input));
-    return ack;
+    const started = performance.now();
+    try {
+      const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.writeCommandsInTransaction(session, p, boardId, input));
+      this.metrics.persisted('accepted', performance.now() - started); return ack;
+    } catch (error) {
+      this.metrics.persisted(error instanceof Fault ? 'rejected' : 'error', performance.now() - started);
+      throw error;
+    }
   }
   /** Uses the caller's tenant transaction; its result is provisional until that transaction commits. */
   async writeCommandsInTransaction(session: TenantSession, p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardPendingUpdate> {
@@ -84,8 +96,14 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands));
   }
   private async commit(p: Principal, boardId: string, epoch: number, updateId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>): Promise<WhiteboardUpdateAck> {
-    const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, hash, validate));
-    return ack;
+    const started = performance.now();
+    try {
+      const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, hash, validate));
+      this.metrics.persisted('accepted', performance.now() - started); return ack;
+    } catch (error) {
+      this.metrics.persisted(error instanceof Fault ? 'rejected' : 'error', performance.now() - started);
+      throw error;
+    }
   }
   private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>): Promise<WhiteboardPendingUpdate> {
     await this.access(session, p, boardId, true);
@@ -100,7 +118,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const count = await session.query<{ count: string }>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND created_at>clock_timestamp()-interval '1 minute'`, [p.orgId, boardId, p.userId]);
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
     const accepted = await validate(doc.snapshot), seq = Number(doc.seq) + 1;
-    if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > 1048576) throw new Fault('VALIDATION_FAILED');
+    if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > WHITEBOARD_SCALE_POLICY.update.acceptedBytes) throw new Fault('VALIDATION_FAILED');
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
