@@ -105,9 +105,21 @@ KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
 
 ## UC-KG-7 读个人空间 `getPersonalKnowledge`
 - **in**：`{}`
-- **out**：本人 L1 的 `{ scope, revision, objects, claims, edges }`
+- **out**：本人 L1 的 `{ scope, revision, objects, claims, edges }`（孤立实体不下发，同 UC-KG-1）
+- **pre**：已登录，且是当前组织成员。
+- **err**：`KG_NOT_VISIBLE`（不是 / 已不是当前组织成员，HTTP 403）。没有内容不是错误，返回空。
+- 消费方：`/brain`「我的长期记忆」（见 UC-KG-13）。
+
+## UC-KG-13 大脑页概况 `getBrainOverview`（`/brain`）
+- **in**：`{}`
+- **out**：`{ threads[], personalOrigins[] }`
+  - `threads`：调用者**本人创建**、且有活结论的会话，每个一行计数 `{ threadId, projectId, title, lastActivityAt, claims, pending, confirmed, conflict, objects }`，按最近活动倒序，至多 `KG_BRAIN_THREADS_LIMIT`（50）个；只有计数与标题，不带结论正文。
+  - `personalOrigins`：本人 L1 每条结论经 `derived_from` 指回的 L0 原结论与其所在会话 `{ personalClaimId, sourceClaimId, threadId, projectId, threadTitle }`；一条 L1 合并过多个会话时有多行。
 - **pre**：已登录。
-- **err**：无（没有内容时返回空）。
+- **err**：无。每个会话逐个经 `chat` 束 UC-0 可见性判定（与打开会话同一个判定），看不见的会话整行不出现、也不暴露标题；不是组织成员 ⇒ 两个数组都为空。上限作用在**判定之后**：看不见的会话不会把看得见的挤出这一页。
+- 语义：只读聚合，不写任何东西。项目 / 组织两级本阶段不开放（I-1），`/brain` 上显示「尚未开放」，不调用任何接口。
+- 来由：`/brain` 此前整屏是 `lib/mock/brain.ts` 的示例数字；2026-09-24 人类指令「取消所有的 mockup 的数据」，改为只读 UC-KG-7 + 本 UC 的真实数据。
+- ⚠ **待人类签核时一并确认**：`design-signoff.md` §二.3 问「`getPersonalKnowledge` 保留还是删掉」——`/brain`「我的长期记忆」现在就在用它（本 UC 与 UC-KG-7 一起），删掉则大脑页失去长期记忆这一栏。本文件不改 `design-signoff.md`，请签核人在那里裁决。
 
 ---
 

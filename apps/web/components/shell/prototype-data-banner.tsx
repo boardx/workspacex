@@ -12,6 +12,9 @@
  * | `/tpl`              | 「用过 12 次 · 满意度 4.6（9 场）」                      |
  * | `/asset-governance` | 「远洋咨询 · org_8f21 · 4,820 万 / 6,200 万 tokens」     |
  *
+ * ⚠ 2026-09-24：`/brain` 已移出名单——人类指令「取消所有的 mockup 的数据」，大脑页改为只读
+ *   真实接口（个人空间 + 各对话的记忆计数），项目 / 组织两层如实显示「尚未开放」，不再有示例数字。
+ *
  * 空白屏只是没用（R10 的另一条修的就是 `/tasks` 的空白）；**编造的数字比空白更糟**，
  * 因为用户没有办法知道它是假的——`/asset-governance` 连组织名和组织 ID 都是编的，
  * 而旁边 `/skill`、`/canvas` 这些屏显示的是同一个界面里的真实组织 ID。同一个外壳里
@@ -41,7 +44,7 @@ export const PROTOTYPE_DATA_NOTICE =
  * 实测（2026-09-23，真实安装版，全新本地库）默认就渲染编造数字、且自己没有声明的路由。
  * 取证与名单的局限见文件头。
  */
-export const PROTOTYPE_DATA_ROUTES = ["/brain", "/tpl", "/asset-governance"] as const;
+export const PROTOTYPE_DATA_ROUTES = ["/tpl", "/asset-governance"] as const;
 
 export function PrototypeDataBanner({ className }: { className?: string }): JSX.Element {
   return (

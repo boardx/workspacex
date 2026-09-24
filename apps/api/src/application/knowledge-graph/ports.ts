@@ -132,6 +132,43 @@ export interface KnowledgeReadPort {
   /** F12：一条结论的消息证据分布在哪些会话（只回会话 id，路由事实，不回内容）。 */
   claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]>;
   turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
+  /**
+   * UC-KG-7：本人个人空间（L1）的活结论 / 实体 / 边。guard ref 是本人的个人空间
+   * （`project:personal:<userId>`，同 resolve-visibility 个人线程的合成 id）；调用方交出
+   * 「查看者就是这个空间的主人」的判定才拿得到。
+   */
+  personalKnowledge(orgId: OrgId, userId: string): Promise<Guarded<PersonalKnowledgeData>>;
+  /**
+   * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
+   * 分页是为了让调用方在可见性过滤**之后**凑够上限。
+   * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
+   */
+  threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number, offset: number): Promise<readonly {
+    readonly threadId: string; readonly counts: Guarded<ThreadKnowledgeCounts>;
+  }[]>;
+  /** 大脑页：本人个人空间结论 → 会话原结论（derived_from）。每行按原结论所在会话的 guard ref 包好。 */
+  personalClaimOrigins(orgId: OrgId, userId: string): Promise<readonly {
+    readonly threadId: string; readonly origin: Guarded<PersonalClaimOriginRow>;
+  }[]>;
+}
+
+export type PersonalKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>, "scope">;
+
+/** 一个会话的知识计数（标题等展示字段在判定通过后另取）。 */
+export interface ThreadKnowledgeCounts {
+  readonly threadId: string;
+  readonly projectId: string | null;
+  readonly pending: number;
+  readonly confirmed: number;
+  readonly conflict: number;
+  readonly objects: number;
+}
+
+export interface PersonalClaimOriginRow {
+  readonly personalClaimId: string;
+  readonly sourceClaimId: string;
+  readonly threadId: string;
+  readonly projectId: string | null;
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");

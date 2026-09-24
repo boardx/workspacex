@@ -7,7 +7,7 @@
     "人类字段（note/reason/ratchet.maxMockRoutes/previewPrefixes/nonApiAdapters）才是手写的。"
   ],
   "ratchet": {
-    "maxMockRoutes": 36,
+    "maxMockRoutes": 35,
     "frozenAt": "2026-09-21",
     "issue": 397,
     "note": "冻结上限 = 落地当天实测的 mock 驱动产品路由条数。要抬高它，就得在 PR 里显式改这个数字——一次可 grep 的回退，而不是悄悄多一条。"
@@ -650,10 +650,57 @@
       "screen": "apps/web/app/(entry)/auth/verify-email/page.tsx"
     },
     "/brain": {
-      "kind": "mock",
+      "kind": "wired",
       "screen": "apps/web/app/brain/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/brain.ts"
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
       ]
     },
     "/canvas": {

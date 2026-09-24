@@ -459,6 +459,26 @@ describe("右栏「记忆」页签（web 侧页签，不改聊天契约的五标
     expect(screen.getByTestId("kg-visibility")).toHaveTextContent("仅你可见");
   });
 
+  it("从大脑页带 ?memory= 进来：直接切到记忆页签；带着某一条的 id 时打开它的来源抽屉", async () => {
+    stubNetwork((p) => {
+      if (p.endsWith("/sources")) return json(SOURCES);
+      return p.startsWith("/knowledge-graph/threads/") ? json(knowledge()) : undefined;
+    });
+    window.history.replaceState(null, "", "/chat/thr-kg-1?memory=1");
+    try {
+      const { unmount } = render(<ChatTaskInspector {...inspectorProps} showKnowledge />);
+      await waitFor(() => expect(screen.getByTestId("chat-task-workbench-inspector")).toHaveAttribute("data-active-tab", "memory"));
+      unmount();
+
+      window.history.replaceState(null, "", "/chat/thr-kg-1?memory=c-decide");
+      render(<ChatTaskInspector {...inspectorProps} showKnowledge />);
+      await waitFor(() => expect(screen.getByTestId("chat-task-workbench-inspector")).toHaveAttribute("data-active-tab", "memory"));
+      await waitFor(() => expect(calledPaths()).toContain("/knowledge-graph/claims/c-decide/sources"));
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
   it("没开（旧轨道 / 未选线程）：不渲染页签，也不发请求", () => {
     stubNetwork(() => undefined);
     render(<ChatTaskInspector {...inspectorProps} />);

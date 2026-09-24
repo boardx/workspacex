@@ -12,7 +12,8 @@ import {
 } from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
-import { onOpenClaimSources, onOpenKnowledgePanel } from "@/lib/knowledge-graph-events";
+import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
+import { readChatMemoryRequest } from "@/lib/chat-memory-link";
 import {
   INSPECTOR_TABS,
   nextInspectorTab,
@@ -330,6 +331,17 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     if (!showKnowledge) return undefined;
     return onOpenClaimSources(() => selectTab("memory"));
   }, [showKnowledge, selectTab]);
+  // 大脑页的「去对话里看」（`lib/chat-memory-link.ts`）：带 `?memory=` 打开对话 ⇒ 切到「记忆」页签，
+  // 带着某一条的 id 时再打开它的来源抽屉。每个对话只接一次，之后切页签不会被链接拽回来。
+  const memoryLinkHandled = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!showKnowledge || threadId === null || memoryLinkHandled.current === threadId) return;
+    memoryLinkHandled.current = threadId;
+    const request = readChatMemoryRequest(window.location.search);
+    if (request === null) return;
+    if (request.claimId !== null) requestOpenClaimSources(request.claimId);
+    else selectTab("memory");
+  }, [showKnowledge, threadId, selectTab]);
 
   /**
    * issue #3347 —— 整条右栏都是落区，不只是「材料」页签的那块内容区。
