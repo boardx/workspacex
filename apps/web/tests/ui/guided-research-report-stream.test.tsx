@@ -135,7 +135,8 @@ it("observes report conversation generation without classifying user intent in t
     return new Promise(() => undefined);
   });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "修改报告" }));
+  fireEvent.pointerDown(await screen.findByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
   const input = await screen.findByRole("textbox", { name: "研究对话" });
   expect(screen.getByTestId("research-report-document")).toHaveTextContent("旧报告");
   fireEvent.change(input, { target: { value: "重新生成报告" } });
