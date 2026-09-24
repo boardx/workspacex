@@ -18,7 +18,7 @@ import {
   type ClaimSources,
   type PromotionResults,
 } from "@/lib/mock/knowledge-graph";
-import type { KgClaim } from "@repo/contracts/knowledge-graph";
+import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 export type PanelStatus = "loading" | "error" | "ready";
 export type PanelView = "list" | "graph";

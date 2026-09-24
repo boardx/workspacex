@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KG_GRAPH_VIEW_MAX_NODES, type ThreadKnowledge } from "@/lib/mock/knowledge-graph";
-import { claimTriState } from "@repo/contracts/knowledge-graph";
+import { claimTriState } from "@repo/contracts/chat-knowledge-graph";
 
 const KnowledgeGraphCanvas = dynamic(() => import("./knowledge-graph-canvas"), {
   ssr: false,

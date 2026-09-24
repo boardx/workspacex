@@ -4,8 +4,8 @@ import {
   claimTriState,
   KG_TRI_STATE_LABEL_ZH,
   type KgTriState,
-} from "@repo/contracts/knowledge-graph";
-import type { KgClaim } from "@repo/contracts/knowledge-graph";
+} from "@repo/contracts/chat-knowledge-graph";
+import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /** 三态 → Badge tone。文案与映射均取自契约单源，不另建表。 */
 const TONE: Record<KgTriState, React.ComponentProps<typeof Badge>["tone"]> = {

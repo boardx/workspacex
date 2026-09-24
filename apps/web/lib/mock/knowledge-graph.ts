@@ -5,7 +5,7 @@
  *
  * 单一事实源纪律：本文件**不重定义任何契约类型**（lint-contract-source §2）。
  * 形状类型全部从契约 zod schema `z.infer` 出来，值全部标注为契约类型——契约错了这里当场崩。
- *   - 领域形状 / 操作输出：`@repo/contracts/knowledge-graph`
+ *   - 领域形状 / 操作输出：`@repo/contracts/chat-knowledge-graph`
  *   - 三态文案 / 映射：`KG_TRI_STATE_LABEL_ZH` / `claimTriState`（不另建映射表）
  *   - 召回通道 / 引用锚点 / 丢弃：`@repo/contracts/context-pack` + `omission-reason` + `filter-action`
  *
@@ -24,7 +24,7 @@ import {
   type KgClaimKind,
   type KgTriState,
   type KgScope,
-} from "@repo/contracts/knowledge-graph";
+} from "@repo/contracts/chat-knowledge-graph";
 import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
 
 type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
@@ -296,7 +296,7 @@ export const nominationsNormal: PromotionNominations = {
 /* ── 回答下方：引用 + 「为什么召回」（UC-KG-2 / context-pack 通道） ──────────── */
 
 /** 展示层：一条召回项。channels 用契约枚举；graphPath 是从 KgEdge/KgObject/KgClaim 组合出的
- *  可读路径字符串（**契约里没有专门的图路径字段**，见 README「设计决定 / 缺口」）。 */
+ *  可读路径字符串（图路径字段是签核待裁项 D-KG-2，见 contracts/chat-knowledge-graph/ui.md 缺口 G-1）。 */
 export interface RecalledCitation {
   readonly citationId: string;
   readonly label: string;

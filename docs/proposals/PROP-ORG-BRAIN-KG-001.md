@@ -165,7 +165,7 @@ O-25 已裁决「证据三态 ↔ 决策七态」映射（uc-9-2 R10）；uc-14-
 
 | 里程碑 | 内容 | 验收门（机器可验） |
 |---|---|---|
-| **KG-M0 设计与签核** | ① ADR-114（AGE）+ 修订 architecture.md / context-engine.md / CONCEPTS.md；`knowledge-ontology.md` 标明「仅限平台大脑 / harness 元本体」（D3，由我定：标注，不改名）；② 新需求 `requirements/…/uc-kg-0-chat-session-知识图谱.md` 交 requirement-author 生成 feature；③ 契约束 `contracts/knowledge-graph/`（ui / usecases / domain 含 3.5 对照表 / coverage / `packages/contracts/src/knowledge-graph.ts` / design-signoff） | 人类签 design-signoff 与 design-coherence |
+| **KG-M0 设计与签核** | ① ADR-114（AGE）+ 修订 architecture.md / context-engine.md / CONCEPTS.md；`knowledge-ontology.md` 标明「仅限平台大脑 / harness 元本体」（D3，由我定：标注，不改名）；② 新需求 `requirements/…/uc-kg-0-chat-session-知识图谱.md` 交 requirement-author 生成 feature；③ 契约束 `contracts/knowledge-graph/`（ui / usecases / domain 含 3.5 对照表 / coverage / `packages/contracts/src/chat-knowledge-graph.ts` / design-signoff） | 人类签 design-signoff 与 design-coherence |
 | **KG-M1 底座** | AGE 镜像 + 迁移；`ontology_objects` / `ontology_actions` / `object_embeddings` 新建；claims、ontology_edges 扩列；HNSW；`invalidateOntologyEdges` 真实现 | `migrate:check` 重放；RLS 审计；`graph:rebuild` 后 AGE 与 CTE 对拍一致；带权限过滤召回率测试 |
 | **KG-M2 chat 入图** | 对话消息与上传文件 → 实体/claim 抽取（模型提交 `ontology_actions`，执行器落表）→ AGE 投影 → 向量 | real-db：同一消息重复处理不产生重复对象；模型身份直写本体表被拒 |
 | **KG-M3 chat 检索闭环** | chat 回答走 hybrid 五路（含 AGE 路径 + 向量），Context Pack 带图路径与引用；会话侧栏「本会话知识图谱」只读视图（`@xyflow/react`） | e2e：会话里说过的事实，在后续提问中被召回且引用可点回原消息；跨会话/跨用户泄漏为零 |

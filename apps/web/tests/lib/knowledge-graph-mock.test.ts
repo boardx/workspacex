@@ -5,8 +5,8 @@ import {
   threadKnowledgeNormal,
   KG_CLAIM_KIND_LABEL_ZH,
 } from "@/lib/mock/knowledge-graph";
-import { claimTriState, KG_TRI_STATE_LABEL_ZH } from "@repo/contracts/knowledge-graph";
-import type { KgClaim } from "@repo/contracts/knowledge-graph";
+import { claimTriState, KG_TRI_STATE_LABEL_ZH } from "@repo/contracts/chat-knowledge-graph";
+import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /**
  * 守护知识面板的两个纯投影函数：分组 + 三态计数。

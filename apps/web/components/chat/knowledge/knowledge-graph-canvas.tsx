@@ -20,7 +20,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { KG_TRI_STATE_LABEL_ZH, claimTriState } from "@repo/contracts/knowledge-graph";
+import { KG_TRI_STATE_LABEL_ZH, claimTriState } from "@repo/contracts/chat-knowledge-graph";
 import type { ThreadKnowledge } from "@/lib/mock/knowledge-graph";
 
 type NodeVariant = "object" | "claim";

@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { claimTriState, type KgClaim } from "@repo/contracts/knowledge-graph";
+import { claimTriState, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /**
  * 结论所有者编辑菜单（uc-18-3 R3 / R4）。

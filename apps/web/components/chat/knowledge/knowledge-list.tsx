@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import { ClaimEditMenu } from "./claim-edit-menu";
 import { groupClaimsByKind } from "@/lib/mock/knowledge-graph";
-import type { KgClaim } from "@repo/contracts/knowledge-graph";
+import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /**
  * 列表视图（uc-18-3 R3-1 列表）：结论按 kind 分组，三态徽标、来源消息、证据数。

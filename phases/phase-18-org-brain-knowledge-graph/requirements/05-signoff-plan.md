@@ -42,13 +42,33 @@
    - `domain.md`，含 §3.5 对照表与不变量
    - `coverage.md`
    - `design-signoff.md`
-   - 第 ③ 件正文在 `packages/contracts/src/knowledge-graph.ts`
+   - 第 ③ 件正文在 `packages/contracts/src/chat-knowledge-graph.ts`
 
    **你在那一份 `design-signoff.md` 里一次签三节：① UI ② 用例 ③ API 契约。**
 4. **阶段一致性复核** `../design-coherence.md`：重点查本束与 phase-01 `chat` / `chat-context-engine` / `files` 三束、phase-00 `context-pack` 束之间是否有冲突（可见性、召回边界、删除级联、错误码）。**你签这一份。**
 5. 两份都签完，feature 才可以 `harness claim` 开工，从 KG-M1（AGE 镜像 + 表）开始。
 
-## 为什么现在不建 `contracts/`
+## 第 1 轮材料状态（2026-09-24）
 
-`contracts/<束>/` 一建出来，`design-signoff.ts` / `lint-ui-material.mjs` / `lint-contract-source.mjs` 等机械门控就立刻对它生效。
-而此刻 `feature_list.json` 和截图都还没有，建了只会产生一串「正确的红」。所以等 S0 通过、界面做完再建。
+全部备齐，等人类审阅：
+
+| 件 | 位置 |
+|---|---|
+| ① UI | `../signoff-draft/chat-knowledge-graph/ui.md` + `../ui-preview/chat-knowledge-graph/`（21 张） |
+| ② 用例 | `../signoff-draft/chat-knowledge-graph/usecases.md` |
+| ③ API 契约 | `packages/contracts/src/chat-knowledge-graph.ts` |
+| 领域 / 覆盖 | `../signoff-draft/chat-knowledge-graph/{domain,coverage}.md` |
+| 签核文件 | `../signoff-draft/chat-knowledge-graph/design-signoff.md`（含待拍板 D-KG-1 / D-KG-2） |
+| 一致性复核 | `../signoff-draft/design-coherence.md` |
+| 功能清单 | `../feature_list.json`（F01…F14，78 点，validate-fl 通过） |
+
+**怎么签**：人类在聊天里对 D-KG-1、D-KG-2 选项并说「签」即可。agent 按 `human-decision-packaging.md`
+把两份材料移入 `contracts/` 与阶段根目录，写入 `status: confirmed` 和逐字的 `confirmed_via`，然后开一个 `chore(signoff):` PR。
+人类在那个 PR 上 Approve → Merge，这就是签核动作本身。**agent 不自己合并这个 PR。**
+
+## 为什么材料先放在 `signoff-draft/`，而不是直接放进 `contracts/`
+
+`contracts/<束>/` 一建出来，签核链门控（`design-signoff.ts`，经 `doctor --strict` 在 CI 里跑）就立刻要求束与阶段一致性复核都是 `confirmed`。
+pending 状态放进去，整个 PR 会一直红到人类签字为止，而 agent 又不许代签。
+所以材料先放在门控不看的 `signoff-draft/`，签核 PR 里再原样移入 `contracts/`。
+在那之前，feature 不可能被 claim：`contracts/` 不存在 + `has_ui: true` ⇒ claim / new-sprint 判失败。

@@ -7,6 +7,7 @@
 >
 > 架构依据：`docs/architecture/context-engine.md`（Claim 网络、hybrid 检索、权限传播）+ ADR-114（AGE 图投影）。
 > 本文件夹是**输入**，权威是 `../feature_list.json`（由 requirement-author 生成）。
+> 元数据：估点 **5**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
 
 ## 阅读顺序
 

@@ -2,7 +2,7 @@
  * `chat-knowledge-graph` 契约束 —— zod 单一事实源（签核第 ③ 件）。
  *
  * 权威规格（不重抄正文，只落地形状）：
- *   phases/phase-18-org-brain-knowledge-graph/contracts/chat-knowledge-graph/{domain,usecases,coverage,design-signoff}.md
+ *   phases/phase-18-org-brain-knowledge-graph/signoff-draft/chat-knowledge-graph/{domain,usecases,coverage,design-signoff}.md（人类签核后移入 contracts/）
  * 需求：phases/phase-18-org-brain-knowledge-graph/requirements/uc-18-1…uc-18-5
  * 架构：docs/proposals/PROP-ORG-BRAIN-KG-001.md §3、ADR-114（AGE 图投影）
  *

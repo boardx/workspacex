@@ -9,7 +9,7 @@ ADR-023 签核**第 ① 件（UI）** 的材料。这些截图与组件落点最
   - 面板与子件：`apps/web/components/chat/knowledge/*`
   - mock 数据（纯前端，不接后端）：`apps/web/lib/mock/knowledge-graph.ts`
   - 预览页：`apps/web/app/preview/chat-knowledge-graph/page.tsx`
-- **类型单源**：所有形状来自 `@repo/contracts/knowledge-graph` 与 `@repo/contracts/context-pack`
+- **类型单源**：所有形状来自 `@repo/contracts/chat-knowledge-graph` 与 `@repo/contracts/context-pack`
   （`z.infer`，无手写第二份；三态文案/映射用 `KG_TRI_STATE_LABEL_ZH`/`claimTriState`）。
 - **视角切换器**（`?role=`）是**预览手段不是权限实现**——真实权限在服务端 RLS，这里只做界面投影
   （uc-18-3 R5 所有者可编辑 / 其他成员只读两视角）。
