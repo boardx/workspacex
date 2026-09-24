@@ -16,11 +16,9 @@ import {
   threadKnowledgeEmpty,
   threadKnowledgeOversize,
   threadKnowledgeErrorCode,
-  answerCitationsNormal,
-  answerCitationsPersonal,
-  channelHealthAllOk,
-  channelHealthGraphDown,
-  channelHealthVectorDown,
+  recalledMemoriesNormal,
+  recalledMemoriesPersonal,
+  recalledMemoriesGraphDown,
   turnMemoryCapturedOnly,
   turnMemoryPending,
   turnMemoryWithRememberCard,
@@ -77,7 +75,8 @@ const SCENES: SceneDef[] = [
   { id: "drawer-revoked", label: "来源·已删除", group: "来源与召回(uc-18-2/5)" },
   { id: "answer-normal", label: "回答·引用+为什么用到", group: "来源与召回(uc-18-2)" },
   { id: "answer-graph-down", label: "回答·关联查询不可用", group: "来源与召回(uc-18-2)" },
-  { id: "answer-vector-down", label: "回答·相似查询不可用", group: "来源与召回(uc-18-2)" },
+  // 相似查询（向量）MVP 未部署：那不是降级，不出「查不全」提示——这个场景就是用来核对「不提示」的
+  { id: "answer-vector-down", label: "回答·相似查询未部署(不提示)", group: "来源与召回(uc-18-2)" },
   { id: "answer-personal", label: "回答·来自你之前的对话", group: "来源与召回(uc-18-4)" },
   // 记入长期记忆（uc-18-4）
   { id: "promote-results", label: "记入长期记忆·逐条结果", group: "长期记忆(uc-18-4)" },
@@ -186,16 +185,16 @@ export default function ChatKnowledgeGraphPreviewPage({
   } else if (scene === "promote-results" || scene === "nomination") {
     body = <PanelExtrasScene kind={scene} />;
   } else if (scene.startsWith("answer-")) {
-    // answer-* 场景：把 footer 放进 AI 气泡
-    const map: Record<string, { citations: typeof answerCitationsNormal; health: typeof channelHealthAllOk }> = {
-      "answer-normal": { citations: answerCitationsNormal, health: channelHealthAllOk },
-      "answer-graph-down": { citations: answerCitationsNormal, health: channelHealthGraphDown },
-      "answer-vector-down": { citations: answerCitationsNormal, health: channelHealthVectorDown },
-      "answer-personal": { citations: answerCitationsPersonal, health: channelHealthAllOk },
+    // answer-* 场景：把 footer 放进 AI 气泡（数据形状即 `getTurnMemory` 的 recalled / recallDegraded）
+    const map: Record<string, { recalled: typeof recalledMemoriesNormal; degraded: boolean }> = {
+      "answer-normal": { recalled: recalledMemoriesNormal, degraded: false },
+      "answer-graph-down": { recalled: recalledMemoriesGraphDown, degraded: true },
+      "answer-vector-down": { recalled: recalledMemoriesGraphDown, degraded: false },
+      "answer-personal": { recalled: recalledMemoriesPersonal, degraded: false },
     };
-    const fallback = { citations: answerCitationsNormal, health: channelHealthAllOk };
+    const fallback = { recalled: recalledMemoriesNormal, degraded: false };
     const a = map[scene] ?? fallback;
-    answerSlot = <AnswerKnowledgeFooter citations={a.citations} channelHealth={a.health} />;
+    answerSlot = <AnswerKnowledgeFooter recalled={a.recalled} recallDegraded={a.degraded} />;
     body = <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   } else {
     // 对话里的记忆场景：价值出现在回答原位（U-1 / U-4 / U-5 / uc-18-6 C）

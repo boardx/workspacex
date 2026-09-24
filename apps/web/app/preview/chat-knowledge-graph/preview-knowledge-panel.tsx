@@ -11,10 +11,10 @@ import {
   claimSourcesNormal,
   claimSourcesRevoked,
   promotionResultsMixed,
+  threadKnowledgeNormal,
   type ClaimSources,
   type ThreadKnowledge,
 } from "@/lib/mock/knowledge-graph";
-import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /**
  * 签核预览专用的面板外壳 —— 把 mock 数据接进 `KnowledgePanel` 的取数 / 动作口。
@@ -29,10 +29,11 @@ const demoWriteActions: KnowledgePanelWriteActions = {
   onReindex: () => {},
 };
 
-function demoLoadSources(claim: KgClaim): Promise<ClaimSources> {
-  return Promise.resolve(
-    claim.status === "proposed" && claim.id === "clm-todo-migrate" ? claimSourcesRevoked : { ...claimSourcesNormal, claim },
-  );
+/** 按 claimId 取演示来源：本会话里有的那条带上它自己；长期记忆里的（不在本会话）沿用默认那份。 */
+function demoLoadSources(claimId: string): Promise<ClaimSources> {
+  if (claimId === "clm-todo-migrate") return Promise.resolve(claimSourcesRevoked);
+  const claim = threadKnowledgeNormal.claims.find((c) => c.id === claimId);
+  return Promise.resolve(claim ? { ...claimSourcesNormal, claim } : claimSourcesNormal);
 }
 
 export function PreviewKnowledgePanel({

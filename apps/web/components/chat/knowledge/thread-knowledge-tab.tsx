@@ -17,7 +17,7 @@ import {
 } from "@/lib/knowledge-graph-api";
 import { KG_RELOAD_ON_FAILURE } from "@/lib/knowledge-graph-failure";
 import { onKnowledgeReload, publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
-import type { KgClaim, KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
+import type { KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
 
 export interface ThreadKnowledgeState {
   readonly threadId: string | null;
@@ -103,8 +103,8 @@ export function useThreadKnowledge(threadId: string | null): ThreadKnowledgeStat
   return { ...current, reload };
 }
 
-function loadSources(claim: KgClaim) {
-  return fetchClaimSources(claim.id);
+function loadSources(claimId: string) {
+  return fetchClaimSources(claimId);
 }
 
 /**

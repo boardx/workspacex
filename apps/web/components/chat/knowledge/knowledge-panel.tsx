@@ -12,6 +12,7 @@ import { NominationCard } from "./nomination-card";
 import { usePromotionFlow, visibleNominations, type PromoteFn } from "./use-promotion-flow";
 import { countByTriState } from "@/lib/knowledge-graph-view";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
+import { onOpenClaimSources, takePendingClaimSources } from "@/lib/knowledge-graph-events";
 import {
   knowledgeGraphErrorCode,
   type ClaimSources,
@@ -68,7 +69,9 @@ function claimSourcesErrorText(e: unknown): string {
 /**
  * 会话右侧栏「记忆」页签（uc-18-3 R8）—— 列表/图切换 + 头部整理状态 + 可见范围 + 七态。
  * 七态：正常 / 加载 / 空 / 部分失败 / 错误 / 只读 / 超限——由 status + data + view 组合。
- * 数据来自 `getThreadKnowledge`（调用方取），来源抽屉经 `loadSources`（`getClaimSources`）。
+ * 数据来自 `getThreadKnowledge`（调用方取），来源抽屉经 `loadSources`（`getClaimSources`，按 claimId 取）。
+ * F13：回答下的引用 chip 经 `requestOpenClaimSources` 打开抽屉——那一条可能是长期记忆里的，
+ * 不在本会话的 `claims` 里，所以抽屉按 claimId 开，不要求先在列表里找到它。
  */
 export function KnowledgePanel({
   status,
@@ -86,7 +89,7 @@ export function KnowledgePanel({
   errorCode?: string | null;
   initialView?: PanelView;
   onRetry?: () => void;
-  loadSources?: (claim: KgClaim) => Promise<ClaimSources>;
+  loadSources?: (claimId: string) => Promise<ClaimSources>;
   writeActions?: KnowledgePanelWriteActions;
   /** F11：AI 提名（`listPromotionNominations`）。只在能记到长期记忆时画，且只提名不执行。 */
   nominations?: PromotionNominations | null;
@@ -134,10 +137,18 @@ export function KnowledgePanel({
   const selectedIds = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
   const claimLabel = (id: string) => data?.claims.find((c) => c.id === id)?.statement ?? id;
   const pendingCount = counts.pending;
-  const openClaimById = (claimId: string) => {
-    const claim = data?.claims.find((c) => c.id === claimId);
-    if (claim) drawer.open(claim);
-  };
+  const openClaimById = drawer.open;
+
+  // F13：回答下的引用 chip 请求打开某条来源。挂载时先接住「点击时面板还没挂载」的那一次，
+  // 之后已挂载时的请求直接取走打开。
+  React.useEffect(() => {
+    const pending = takePendingClaimSources();
+    if (pending !== null) openClaimById(pending);
+    return onOpenClaimSources(() => {
+      const id = takePendingClaimSources();
+      if (id !== null) openClaimById(id);
+    });
+  }, [openClaimById]);
 
   return (
     <div className="relative flex h-full flex-col" data-testid="kg-panel">
@@ -341,7 +352,7 @@ export function KnowledgePanel({
                 selectable={selectMode}
                 selected={selected}
                 onToggleSelect={(id, next) => setSelected((s) => ({ ...s, [id]: next }))}
-                onOpenSource={drawer.open}
+                onOpenSource={(c: KgClaim) => drawer.open(c.id)}
                 onApply={editable ? runAction : undefined}
                 onPromote={promoteClaims}
               />
@@ -378,14 +389,14 @@ function promotionSummaryText(result: PromotionResults): string {
 /**
  * 来源抽屉的取数状态。换一条时丢弃上一条的在途结果（按请求代次），不让慢响应覆盖新选中的那条。
  */
-function useClaimSourcesDrawer(loadSources: ((claim: KgClaim) => Promise<ClaimSources>) | undefined) {
-  const [claim, setClaim] = React.useState<KgClaim | null>(null);
+function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
+  const [claim, setClaim] = React.useState<string | null>(null);
   const [data, setData] = React.useState<ClaimSources | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const generation = React.useRef(0);
 
-  const load = React.useCallback((target: KgClaim) => {
+  const load = React.useCallback((target: string) => {
     const gen = ++generation.current;
     setClaim(target);
     setData(null);
