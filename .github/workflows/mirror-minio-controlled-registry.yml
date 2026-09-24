@@ -87,8 +87,10 @@ jobs:
           DIGEST: ${{ steps.upstream.outputs.digest }}
         run: |
           set -euo pipefail
+          target_tag="sha256-${DIGEST#sha256:}"
+          [[ "${target_tag}" =~ ^sha256-[a-f0-9]{64}$ ]]
           skopeo copy --all --preserve-digests \
-            "docker://${SOURCE}@${DIGEST}" "docker://${TARGET}:${TAG}"
+            "docker://${SOURCE}@${DIGEST}" "docker://${TARGET}:${target_tag}"
           skopeo inspect --raw --creds "${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}" \
             "docker://${TARGET}@${DIGEST}" > /tmp/minio-target-manifest.json
           test "sha256:$(sha256sum /tmp/minio-target-manifest.json | cut -d' ' -f1)" = "${DIGEST}"

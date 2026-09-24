@@ -185,4 +185,51 @@ describe("controlled MinIO image lock", () => {
       "--deny-self-hosted-runners",
     ]);
   });
+
+  it("executes the mirror copy step without an ambient tag and derives its target tag from the digest", () => {
+    const workflow = parse(readFileSync(resolve(REPO_ROOT, ".github/workflows/mirror-minio-controlled-registry.yml"), "utf8"));
+    const copyStep = workflow.jobs.mirror.steps.find(
+      (step: { name?: string }) => step.name === "Copy the resolved upstream manifest and all platforms without changing digests",
+    );
+    expect(copyStep?.run).toBeTypeOf("string");
+
+    const root = mkdtempSync(join(tmpdir(), "wsx-minio-copy-argv-"));
+    const bin = resolve(root, "bin");
+    const argvFile = resolve(root, "skopeo-argv.txt");
+    mkdirSync(bin, { recursive: true });
+    const fakeSkopeo = resolve(bin, "skopeo");
+    writeFileSync(fakeSkopeo, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$SKOPEO_ARGV_FILE\"\n[ \"$1\" != inspect ] || printf fixture-manifest\n");
+    chmodSync(fakeSkopeo, 0o755);
+    const fakeSha256sum = resolve(bin, "sha256sum");
+    writeFileSync(fakeSha256sum, "#!/bin/sh\nprintf '%s  %s\\n' \"$EXPECTED_DIGEST_HEX\" \"$1\"\n");
+    chmodSync(fakeSha256sum, 0o755);
+
+    const source = "cgr.dev/chainguard/minio";
+    const target = "ghcr.io/boardx/workspacex-minio";
+    const run = String(copyStep.run).replace("${{ secrets.GITHUB_TOKEN }}", "fixture-token");
+    const execute = (script: string) => spawnSync("bash", ["-c", script], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        SKOPEO_ARGV_FILE: argvFile,
+        EXPECTED_DIGEST_HEX: configuredDigest.slice("sha256:".length),
+        SOURCE: source,
+        TARGET: target,
+        DIGEST: configuredDigest,
+        GITHUB_ACTOR: "fixture-actor",
+      },
+    });
+    const result = execute(run);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(argvFile, "utf8").trim().split("\n")).toEqual([
+      `copy --all --preserve-digests docker://${source}@${configuredDigest} docker://${target}:sha256-${configuredDigest.slice("sha256:".length)}`,
+      `inspect --raw --creds fixture-actor:fixture-token docker://${target}@${configuredDigest}`,
+    ]);
+
+    const unbound = execute(run.replace("${target_tag}", "${TAG}"));
+    expect(unbound.status).not.toBe(0);
+    expect(unbound.stderr).toContain("TAG: unbound variable");
+  });
 });
