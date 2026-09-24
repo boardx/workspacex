@@ -28,6 +28,17 @@
 .loop__visual { min-width: 0; }
 .loop__panel { min-width: 0; }
 .loop__legend { margin-top: 1.25rem; padding-left: 0.75rem; }
+/* Short screens. The pinned rail needs ~680 px (six steps with their
+   explanations, plus the legend) and the pin on a 1280×720 or 1024×768
+   laptop has 656–704: the top of the scene sat under the nav and the legend
+   below the screen, both unreachable while pinned — at 900×600 the top was
+   72 px above the viewport. On a short screen the rail shows the explanation
+   of the CURRENT step only; the others keep their titles. Keyed on
+   aria-current="false", which only the running scene writes, so without
+   JavaScript, with reduced motion, or stacked, every explanation shows. */
+@media (min-width: 53.76rem) and (max-height: 52rem) {
+  .rail__item[aria-current="false"] .rail__body { display: none; }
+}
 .loop__keyline { margin-top: clamp(2.5rem, 5vw, 4rem); color: var(--fg-soft); }
 
 @media (max-width: 53.75rem) {
@@ -283,9 +294,15 @@
   .surface__body { grid-template-columns: minmax(0, 1fr); }
   .surface__roster { display: none; }
   .surface__evidence { border-left: 0; border-top: 1px solid var(--hairline); }
-  .surface__canvas { min-height: 270px; }
+  /* The desktop percentages put the three notes ON each other at phone
+     width (the question overlapped the decision by 8 px across and 26 down),
+     so no line between them could avoid running under a card. The question
+     pins to the right edge; the three stack with clear air between them. */
+  .surface__canvas { min-height: 330px; }
   .note { width: 148px; font-size: var(--t-nano); }
-  .note--b { left: 46%; }
+  .note--a { left: 4%; top: 5%; }
+  .note--b { left: auto; right: 4%; top: 37%; }
+  .note--c { left: 4%; top: 69%; }
 }
 
 /* ---- 09 the unit of work ------------------------------------------------- */
@@ -326,7 +343,10 @@
   .unit__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .unit__step:not(:last-child)::after { display: none; }
 }
-@media (max-width: 30.0rem) { .unit__steps { grid-template-columns: minmax(0, 1fr); } }
+/* Below 30rem the steps used to go to one column: six full-width cards,
+   ~700 px of scrolling for twelve words. Two columns hold at 320 px (a
+   subline wraps to two lines at worst); the card just gets tighter. */
+@media (max-width: 30.0rem) { .unit__step { padding: 0.75rem 0.7rem; } }
 
 /* ---- 11 straight answers ------------------------------------------------- */
 /* 54rem left the chevron marooned at the far end of the row, visually
@@ -360,6 +380,9 @@
   padding: 0 2.25rem 1.5rem 0.25rem;
   color: var(--fg-dim); font-size: var(--t-small);
 }
+/* A long answer is two paragraphs, not one wall: the second picks up where a
+   reader who stopped after the first would want to. */
+.faq__item p:not(:last-child) { padding-bottom: 0.75rem; }
 
 /* ---- 12 horizons --------------------------------------------------------- */
 .hz {
@@ -689,7 +712,9 @@
   /* The closing section is centred prose in a narrow measure, which is right
      for one sentence and wrong for four routes side by side. This is the one
      thing in it that is a table, so it takes the section's own width. */
-  width: min(60rem, 100%);
+  /* The section's own width — the same column as every other section. It
+     was min(60rem), 96 px narrower than the text above and below it. */
+  width: 100%;
   margin: clamp(2rem, 4vw, 3rem) auto clamp(2rem, 4vw, 3rem);
   display: grid; gap: 1px; background: var(--hairline);
   border-radius: var(--r-sm); overflow: hidden;
@@ -702,7 +727,10 @@
      hole in it because door 2's label wrapped to two lines. */
   align-content: start;
   padding: 1.35rem clamp(1.1rem, 2vw, 1.6rem);
-  background: var(--bg);
+  /* Not quite opaque. The section's glow runs down behind the doors, and an
+     opaque fill cut it off in a hard horizontal line at the doors' top edge. */
+  background: var(--bg);                                        /* no color-mix: opaque, as before */
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
 }
 .door__who {
   font-family: var(--font-mono); font-size: var(--t-micro);

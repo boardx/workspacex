@@ -37,7 +37,25 @@ const run = (cmd, args) => {
 const codesignOutput = appPath && existsSync(appPath) ? run("codesign", ["-dv", appPath]) : null;
 const spctlOutput = appPath && existsSync(appPath) ? run("spctl", ["-a", "-vvv", "-t", "exec", appPath]) : null;
 
-const v = releaseVerdict({ identityIsNull, codesignOutput, spctlOutput });
+/*
+  由准备脚本生成、**不入仓库**的目录：缺了它们，包看起来完整、装得上、能启动，
+  而依赖那部分的能力要等用户真去用才以内部错误的形式失效（#3872 R16 实测：
+  干净 worktree 打出来的包没有 preinstalled，pptx/docx/xlsx/pdf 类 skill 全废）。
+  这里只查目录在不在——生成它们的脚本名写在提示里，不在这里复述它们做什么。
+*/
+const PREPARED_DIRS = [
+  "Contents/Resources/bundle/apps/skill-sandbox/preinstalled",
+  "Contents/Resources/bundle/apps/web/.next",
+  "Contents/Resources/python",
+  "Contents/Resources/bin",
+  "Contents/Resources/models",
+];
+// 没给 .app 路径时不臆测「都缺」——那会把「还没构建」报成「不能发布」，是两件事。
+const missingPreparedDirs = appPath !== null && existsSync(appPath)
+  ? PREPARED_DIRS.filter((d) => !existsSync(join(appPath, d)))
+  : [];
+
+const v = releaseVerdict({ identityIsNull, codesignOutput, spctlOutput, missingPreparedDirs });
 if (v.releasable) {
   console.log("✅ 可以发布");
 } else {

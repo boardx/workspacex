@@ -618,7 +618,7 @@ for (const [lang, path] of LANGS) {
     ['every script', '**/assets/js/*.js'],
     ['the stylesheet', '**/site.css'],
     ['the fonts', '**/*.woff2'],
-    ['the hero image', '**/aurora.jpg'],
+    ['the hero image', '**/aurora.webp'],
   ];
   for (const [what, pattern] of BLOCKED) {
     r.step(`blocked: ${what}`);
@@ -709,7 +709,9 @@ for (const [lang, path] of LANGS) {
   const PHONES = ['iPhone SE', 'iPhone 13', 'Pixel 7'];
   for (const [lang, path] of LANGS) {
     const r = reporter(`mobile [${lang}] — three phones, touch, and the menu`);
-    const minType = lang === 'zh' ? 12 : 11;
+    /* 12px in both languages since round 57: 11px latin on a phone was the
+       one exception left, and the acceptance set's floor is 12. */
+    const minType = 12;
     for (const phone of PHONES) {
       r.step(phone);
       const { defaultBrowserType, ...device } = devices[phone];
