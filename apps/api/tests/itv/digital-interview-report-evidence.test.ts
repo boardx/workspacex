@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { interview } from "@repo/contracts";
+import { assertFindingSources, deriveApprovalEligibility } from "../../src/domain/interview/digital-report-evidence";
 
 const baseWorkflow = {
   interviewId: "itv-evidence", name: "访谈", tags: ["研究"], topic: "验证假设", status: "completed",
@@ -33,5 +34,20 @@ describe("digital interview report evidence contract", () => {
       studyEvidenceMode: "simulated",
       report: { findings: [{ evidenceStatus: "exploratory", counterEvidenceCount: 0, evidenceRefs: [{ sourceKind: "digital_expert", sourceAnswerId: "expert-a:question-a" }] }] },
     });
+  });
+
+  it("blocks simulated decision approval and rejects unresolvable report sources", () => {
+    expect(deriveApprovalEligibility({
+      mode: "simulated", findings: [{ counterEvidenceCount: 0 }], hasUnreviewedQualityFlag: false,
+    })).toEqual({
+      eligibility: "blocked_missing_participant_evidence",
+      message: "需要真实受访者证据后才能批准。",
+      action: "添加并复核真实受访者回答",
+    });
+
+    expect(() => assertFindingSources(
+      [{ expertId: "expert-a", answers: [{ questionId: "question-a" }] }],
+      [{ expertId: "gone", questionId: "question-a" }],
+    )).toThrow("DIGITAL_REPORT_SOURCE_INVALID");
   });
 });
