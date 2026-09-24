@@ -37,4 +37,13 @@ describe('Board content manifest contract', () => {
       checkpoint: { ...manifest.checkpoint, cipherDigest: 'short' },
     }).success).toBe(false);
   });
+
+  it('carries a complete parent pointer so retention can traverse committed history', () => {
+    const parent = {
+      key: `tenants/a/boards/b/manifest/sha256/${digest('c')}`,
+      plainDigest: digest('d'), cipherDigest: digest('c'), sizeBytes: 10, tenantKeyVersion: 1,
+    };
+    expect(C.BoardContentManifestSchema.parse({ ...manifest, parentManifestDigest: digest('c'), parentManifest: parent }).parentManifest).toEqual(parent);
+    expect(C.BoardContentManifestSchema.safeParse({ ...manifest, parentManifestDigest: digest('c'), parentManifest: { ...parent, tenantKeyVersion: 0 } }).success).toBe(false);
+  });
 });

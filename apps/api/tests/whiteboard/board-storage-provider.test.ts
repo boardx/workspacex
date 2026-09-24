@@ -1,12 +1,12 @@
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
-import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE } from '../../src/application/whiteboard/blob-ports';
 import { boardBlobRoot, boardStorageProviders, ConfiguredFsBoardBlobStore } from '../../src/infrastructure/whiteboard/board-storage.providers';
 import { boardBlobProviderKind } from '../../src/infrastructure/whiteboard/board-blob-runtime';
 
 describe('board storage providers', () => {
   it('registers the store and encryption boundary without switching collaboration persistence', () => {
-    expect(boardStorageProviders.map(provider => 'provide' in provider ? provider.provide : null)).toEqual([BOARD_BLOB_STORE, BOARD_BLOB_CODEC]);
+    expect(boardStorageProviders.map(provider => 'provide' in provider ? provider.provide : null)).toEqual([BOARD_BLOB_STORE, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_CODEC]);
   });
 
   it('refuses a temporary filesystem root in production', () => {

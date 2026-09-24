@@ -12,7 +12,7 @@ import { PgWhiteboardCollaborationStore } from '../../src/infrastructure/whitebo
 import { WorkerWhiteboardUpdateValidator } from '../../src/infrastructure/whiteboard/update-validator';
 import { FsBoardBlobStore } from '../../src/infrastructure/whiteboard/fs-board-blob-store';
 import { AesGcmBoardBlobCodec } from '../../src/infrastructure/whiteboard/aes-gcm-board-blob-codec';
-import type { BoardBlobStore } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, type BoardBlobStore } from '../../src/application/whiteboard/blob-ports';
 import { decodeBoardContentManifest } from '../../src/domain/whiteboard/content-manifest';
 import { toOrgId } from '../../src/domain/org-id';
 import type { Principal } from '../../src/domain/principal';
@@ -46,10 +46,10 @@ describe('whiteboard collaboration durable transactions', () => {
       expect(persisted.rows[0]).toMatchObject({ snapshot: null, update: null, storage_kind: 'blob_primary', head_seq: '1' });
       const pointers = await fresh.withTenant(orgId, session => session.query<{ manifest_key: string; manifest_digest: string; manifest_plain_digest: string; manifest_size_bytes: string; tenant_key_version: number }>(`SELECT manifest_key,manifest_digest,manifest_plain_digest,manifest_size_bytes::text,tenant_key_version FROM whiteboard_content_heads WHERE org_id=$1 AND board_id=$2`, [orgId, board.id]));
       const pointer = pointers.rows[0]!;
-      const encrypted = await blobs.getVerified({ tenantId: orgId, key: pointer.manifest_key, expectedCipherDigest: pointer.manifest_digest, expectedSizeBytes: Number(pointer.manifest_size_bytes) });
+      const encrypted = await blobs.getVerified({ tenantId: orgId, key: pointer.manifest_key, expectedCipherDigest: pointer.manifest_digest, expectedSizeBytes: Number(pointer.manifest_size_bytes), expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
       expect(() => JSON.parse(Buffer.from(encrypted).toString('utf8'))).toThrow();
       expect(pointer.manifest_digest).not.toBe(pointer.manifest_plain_digest);
-      const plaintext = await codec.decrypt({ ciphertext: encrypted, cipherDigest: pointer.manifest_digest, plainDigest: pointer.manifest_plain_digest, expectedPlainDigest: pointer.manifest_plain_digest, sizeBytes: encrypted.byteLength, tenantId: orgId, tenantKeyVersion: pointer.tenant_key_version });
+      const plaintext = await codec.decrypt({ ciphertext: encrypted, cipherDigest: pointer.manifest_digest, plainDigest: pointer.manifest_plain_digest, expectedPlainDigest: pointer.manifest_plain_digest, sizeBytes: encrypted.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, tenantId: orgId, tenantKeyVersion: pointer.tenant_key_version });
       expect(decodeBoardContentManifest(plaintext)).toMatchObject({ boardId: board.id, epoch: 1, headSeq: 1, tenantKeyVersion: 1 });
       await fresh.withTenant(orgId, session => session.query(`UPDATE whiteboard_content_heads SET manifest_plain_digest=$3 WHERE org_id=$1 AND board_id=$2`, [orgId, board.id, 'c'.repeat(64)]));
       await expect(collaboration(fresh).load(owner, board.id)).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
