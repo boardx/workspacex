@@ -15,9 +15,10 @@
 import { randomUUID } from "node:crypto";
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, GoneException, HttpCode,
-  HttpStatus, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
+  HttpStatus, Inject, NotFoundException, Optional, Param, Post, Query, ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { FIRST_VALUE_RECORDER, recordFirstValue, type FirstValueRecorder } from "../../application/first-value/first-value-recorder";
 import { chat as C } from "@repo/contracts";
 import {
   adminAuditRead,
@@ -298,6 +299,8 @@ export class ChatController {
     // `summarizePersonaFromThread` 读该组织已发布的 `persona` 模板行（字段/分区名单一
     // 事实源，见该用例文件头本次修复的说明），与 `CanvasTemplateController` 同一个仓储。
     @Inject(CANVAS_TEMPLATE_REPOSITORY) private readonly canvasTemplates: CanvasTemplateRepository,
+    // E3：第一个价值时刻埋点（fire-and-forget）。可选注入：手工构造的控制器没有它时即 no-op。
+    @Optional() @Inject(FIRST_VALUE_RECORDER) private readonly firstValue?: FirstValueRecorder,
   ) {}
 
   private get deps() {
@@ -376,12 +379,14 @@ export class ChatController {
     assertPrincipal(principal);
     const projectId = rawProjectId === undefined || rawProjectId === "" ? null : rawProjectId;
     try {
-      return await getThread(this.deps, {
+      const thread = await getThread(this.deps, {
         userId: principal.userId,
         orgId: toOrgId(principal.orgId),
         projectId,
         threadId,
       });
+      recordFirstValue(this.firstValue, principal.orgId, "workspace_opened");
+      return thread;
     } catch (e) {
       // 不可见与不存在同一个出口，且**不带任何 body**：带了 reasonCode 就分得出来了。
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
@@ -437,6 +442,10 @@ export class ChatController {
         agentId: parsed.data.agentId, attachmentIds: parsed.data.attachmentIds,
         onAccepted: () => this.agentRuns.kick(toOrgId(principal.orgId)),
       });
+      // 挂着自己上传的附件发问 ⇒「针对自有材料提问」。
+      if ((parsed.data.attachmentIds?.length ?? 0) > 0) {
+        recordFirstValue(this.firstValue, principal.orgId, "question_on_own_material");
+      }
       return {
         message: {
           id: accepted.id, authorKind: "human" as const, authorId: accepted.authorId,
@@ -919,10 +928,13 @@ export class ChatController {
   ) {
     assertPrincipal(principal);
     try {
-      return await locateCitation(
+      const located = await locateCitation(
         this.deps,
         { userId: principal.userId, orgId: toOrgId(principal.orgId), citationId },
       );
+      // 点开引用看原件（界面上点引用角标即调本路由）。只在定位成功时记。
+      recordFirstValue(this.firstValue, principal.orgId, "citation_opened");
+      return located;
     } catch (e) {
       if (e instanceof CitationNotFoundError) throw new NotFoundException();
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();

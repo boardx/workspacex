@@ -91,6 +91,7 @@ function toListItem(row: SkillContractRow) {
     currentVersionId: row.currentVersionId,
     satisfaction: SATISFACTION_SAMPLE_INSUFFICIENT,
     tags: row.tags,
+    platformStableName: row.platformStableName ?? null,
   };
 }
 

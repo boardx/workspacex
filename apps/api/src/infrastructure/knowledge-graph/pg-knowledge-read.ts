@@ -451,3 +451,77 @@ async function readTurnRecall(
   }
   return { recalled, recallDegraded: row.graph_degraded };
 }
+
+type RecalledMemory = TurnMemoryData["recalled"][number];
+interface StoredRecallItem {
+  claimId: string; channels: string[]; retrievalReasons: string[]; score: number;
+  graphPath: { src: string; relation: string; dst: string }[] | null;
+}
+
+/**
+ * F13：这条回答用到的记忆。按查看者重新读 canonical：只要本会话的、或查看者本人个人空间的活结论
+ * （别人的个人空间 RLS 本来就读不到，这里再按 scope_id 限定一次）；已失效的自然不在。
+ * 图路径的端点换成查看者看得到的名字；有一端看不到就整条不给。
+ */
+async function readTurnRecall(
+  s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
+): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded">> {
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean }>(
+    `SELECT r.items, r.graph_degraded FROM kg_turn_recalls r
+       JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
+      WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
+    [orgId, threadId, messageId],
+  );
+  const row = r.rows[0];
+  if (row === undefined) return { recalled: [], recallDegraded: false };
+  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4))`;
+  const claimKeys = new Set(row.items.map((i) => i.claimId));
+  const objectKeys = new Set<string>();
+  for (const i of row.items) for (const h of i.graphPath ?? []) for (const k of [h.src, h.dst]) {
+    const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
+    if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
+  }
+  const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
+    `SELECT c.id, c.statement, c.status, c.scope_kind,
+            (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
+              WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
+       FROM claims c
+      WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM} AND ${visible}`,
+    [orgId, [...claimKeys], threadId, viewer],
+  );
+  const objects = await s.query<{ id: string; name: string }>(
+    `SELECT c.id, c.name FROM ontology_objects c
+      WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND c.merged_into IS NULL AND ${visible}`,
+    [orgId, [...objectKeys], threadId, viewer],
+  );
+  const claimById = new Map(claims.rows.map((c) => [c.id, c]));
+  const label = new Map<string, string>([
+    ...claims.rows.map((c) => [`claim:${c.id}`, c.statement] as const),
+    ...objects.rows.map((o) => [`object:${o.id}`, o.name] as const),
+  ]);
+  const recalled: RecalledMemory[] = [];
+  for (const item of row.items) {
+    const c = claimById.get(item.claimId);
+    const tri = c === undefined ? null : KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
+    if (c === undefined || tri === null) continue;
+    let graphPath: RecalledMemory["graphPath"] = null;
+    if (item.graphPath !== null && item.graphPath.length > 0) {
+      const hops = item.graphPath.map((h) => {
+        const relation = KG.KgRelation.safeParse(h.relation);
+        const from = label.get(h.src);
+        const to = label.get(h.dst);
+        return relation.success && from !== undefined && to !== undefined ? { from, relation: relation.data, to } : null;
+      });
+      graphPath = hops.every((h) => h !== null) ? hops as NonNullable<(typeof hops)[number]>[] : null;
+    }
+    recalled.push({
+      claimId: c.id, statement: c.statement, triState: tri, scope: c.scope_kind,
+      saidAt: c.said_at?.toISOString() ?? null,
+      channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
+      retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),
+      score: item.score,
+      graphPath,
+    });
+  }
+  return { recalled, recallDegraded: row.graph_degraded };
+}

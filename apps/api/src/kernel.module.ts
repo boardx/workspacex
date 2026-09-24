@@ -198,8 +198,8 @@ import { IdentityController } from "./interface/controllers/identity.controller"
 // by a use case, because it patches `net.Socket.prototype.connect` for the whole process --
 // that is a deployment decision, and the composition root is where deployment decisions live.
 import { LocalOrgController } from "./interface/controllers/local-org.controller";
-import { EGRESS_GUARD, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
-import { ProcessEgressGuard } from "./infrastructure/egress/local-egress-guard";
+import { EGRESS_GUARD, EGRESS_LEDGER, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
+import { ProcessEgressGuard, ProcessEgressLedger } from "./infrastructure/egress/local-egress-guard";
 import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
 // F17: 隐私承诺的唯一豁口。
 import { LocalExportController } from "./interface/controllers/local-export.controller";
@@ -550,6 +550,8 @@ import { SET_AGENT_ROLE_LABEL_REPOSITORY } from "./application/agent/set-agent-r
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
+import { SAMPLE_PROJECT_SEEDER } from "./application/project/sample-project/ensure-sample-project";
+import { createSampleProjectSeeder } from "./infrastructure/project/sample-project-seeder";
 import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
 import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
@@ -591,6 +593,21 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
+import { SystemTelemetryController } from "./interface/controllers/system-telemetry.controller";
+import { CrmContactController } from "./interface/controllers/crm-contact.controller";
+import { CRM_CONTACT_REPOSITORY } from "./application/crm/crm-contact-ports";
+import { PgCrmContactRepository } from "./infrastructure/crm/pg-crm-contact-repository";
+import { TELEMETRY_FACTS_SOURCE, TELEMETRY_STATE_REPOSITORY, TELEMETRY_TRANSPORT } from "./application/telemetry/telemetry-ports";
+import { TELEMETRY_CONFIG, readTelemetryConfig } from "./infrastructure/telemetry/telemetry-config";
+import { PgTelemetryStateRepository } from "./infrastructure/telemetry/pg-telemetry-state-repository";
+import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts";
+import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
+import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
+import {
+  FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
+} from "./application/first-value/first-value-recorder";
+import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
+import { FirstValueController } from "./interface/controllers/first-value.controller";
 import { GRAPH_PROJECTION_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
@@ -1063,6 +1080,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
+    SystemTelemetryController,
+    FirstValueController,
+    CrmContactController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -1151,6 +1171,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // Constructing it installs the patch. Eager, not lazy: a guard that installs itself on
     // first use is a guard that is absent for everything that happened before first use.
     { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
+    // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
+    { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
     { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
     {
       provide: IDENTITY_REPOSITORY,
@@ -1455,6 +1477,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgImageGenAgentRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // backlog E2：内置脱敏示例项目（组织创建时种一次，存量组织由 backfill-sample-projects.ts 补）。
+    {
+      provide: SAMPLE_PROJECT_SEEDER,
+      useFactory: (db: DatabasePort, store: ObjectStore) => createSampleProjectSeeder(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: AGENT_SKILL_PINS_REPOSITORY,
@@ -2936,6 +2964,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [SERVICE_UPTIME_CONFIG],
     },
     ServiceUptimePollWorker,
+    // D9：客户实例侧运行信号上报（出站、可关、可查看最近一次原样报告）。
+    { provide: TELEMETRY_CONFIG, useFactory: () => readTelemetryConfig() },
+    { provide: TELEMETRY_STATE_REPOSITORY, useFactory: (db: DatabasePort) => new PgTelemetryStateRepository(db), inject: [DATABASE_PORT] },
+    { provide: CRM_CONTACT_REPOSITORY, useFactory: (db: DatabasePort) => new PgCrmContactRepository(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_FACTS_SOURCE, useFactory: (db: DatabasePort) => new PgTelemetryFacts(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_TRANSPORT, useFactory: () => new HttpTelemetryTransport() },
+    // E3：第一个价值时刻本地事实（先写者胜；记录 fire-and-forget，失败只记日志）。
+    { provide: FIRST_VALUE_FACT_STORE, useFactory: (db: DatabasePort) => new PgFirstValueFacts(db), inject: [DATABASE_PORT] },
+    {
+      provide: FIRST_VALUE_RECORDER,
+      useFactory: (store: FirstValueFactStore, logger: LoggerPort) => new FirstValueRecorder(store, logger),
+      inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
+    },
+    TelemetryReportWorker,
     // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },

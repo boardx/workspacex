@@ -259,6 +259,25 @@ export const invokeLocalModelMock: z.infer<typeof identity.operations.invokeLoca
 /** invokeLocalModel 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const invokeLocalModelErrors = ["NO_ORG_MEMBERSHIP","LOCAL_ORG_ONLY","CAPABILITY_NOT_FOUND","CLOUD_MODEL_FORBIDDEN","LOCAL_RUNTIME_UNAVAILABLE"] as const;
 
+/** getEgressLedger 的成功响应样例（由契约生成） */
+export const getEgressLedgerMock: z.infer<typeof identity.operations.getEgressLedger.out> = {
+  "edition": "cloud",
+  "since": "since-1",
+  "counts": {
+    "onRequest": 1,
+    "refused": 1,
+    "export": 1,
+    "unexpected": 1
+  },
+  "recent": [
+    {
+      "kind": "onRequest",
+      "target": "target-1",
+      "at": "at-1"
+    }
+  ]
+};
+
 /** previewExport 的成功响应样例（由契约生成） */
 export const previewExportMock: z.infer<typeof identity.operations.previewExport.out> = {
   "items": [

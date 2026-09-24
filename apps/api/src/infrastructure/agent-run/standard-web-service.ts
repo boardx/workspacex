@@ -7,6 +7,7 @@ import {GoogleGuidedSearch} from '../research/google-guided-search';
 import {createStandardWebFetch} from './standard-web-fetch';
 import {extractStandardWebHtml} from './standard-web-extractor';
 import {StandardWebFailure} from '../../domain/agent-run/standard-web-failure';
+import {declareOnRequestEgress} from '../egress/local-egress-guard';
 const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
 const normalized=(raw:string)=>{const url=assertMcpEndpointAllowed(raw,{localOnlyOrg:false});url.hash='';return url.href;};
 /** Adapt existing search, do not imply provider-side filters or full-page snippets. */
@@ -14,7 +15,7 @@ export class DefaultStandardWebService implements StandardWebService {
  constructor(private searcher:GuidedSearchPort,private fetcher:typeof fetch,
  private extract:typeof extractStandardWebHtml=extractStandardWebHtml){}
  async search(raw:Parameters<StandardWebService['search']>[0]){
-  const input=WebSearchInput.parse(raw),hits=await this.searcher.search(input.query),at=new Date().toISOString();
+  const input=WebSearchInput.parse(raw),hits=await declareOnRequestEgress('web_search',()=>this.searcher.search(input.query)),at=new Date().toISOString();
   /*
    * issue #3388 —— 一个**候选**不合出站策略，不构成"这次搜索失败"。
    *
@@ -44,7 +45,8 @@ export class DefaultStandardWebService implements StandardWebService {
   const {url:rawUrl}=FetchUrlInput.parse(raw);
   let url:string;
   try{url=normalized(rawUrl);}catch{throw new StandardWebFailure('blocked_by_policy');}
-  const response=await this.fetcher(url);
+  // E4: 用户要求的这一次出网，记进账本的 onRequest 桶（不是 unexpected）。
+  const response=await declareOnRequestEgress('fetch_url',()=>this.fetcher(url));
   const contentType=response.headers.get('content-type')?.toLowerCase()??'';
   const mime=contentType.split(';')[0]?.trim();
   if(!['text/html','text/plain','text/markdown'].includes(mime??'')||(/charset\s*=/.test(contentType)&&! /charset\s*=\s*["']?utf-8\b/.test(contentType)))throw new StandardWebFailure('unsupported_content');
