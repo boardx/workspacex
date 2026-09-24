@@ -6,6 +6,7 @@ import { createWhiteboardDocument } from '@repo/whiteboard-core';
 import { getBoard, type Board } from '@/lib/live-whiteboard';
 import { WhiteboardProvider, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import { CollaborativeEditor } from './collaborative-editor';
+import { ProposalPanel } from './proposal-panel';
 import { useOptionalSession } from '@/components/session/session-provider';
 import { Button } from '@/components/ui/button';
 import { BoardTransferControls } from './board-transfer-controls';
@@ -37,5 +38,5 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   if (!doc || !board) return <p data-testid="loading" role="status" className="p-6">正在读取白板…</p>;
   const status = state.phase === 'connecting' ? '正在连接' : state.phase === 'offline' ? `连接中断 · ${state.pending} 项修改待保存` : state.pending ? `${state.pending} 项修改待保存` : '已同步';
   const readOnlyReason = state.archived ? '白板已归档并冻结编辑。' : state.role === 'viewer' ? '查看者只能浏览白板。' : state.phase === 'connecting' ? '正在建立安全协作连接。' : undefined;
-  return <div className="flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><span>未确认保存的修改仅保存在当前页面，关闭或刷新后会丢失。在线成员 {state.peers.length}</span><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={Boolean(readOnlyReason)} readOnlyReason={readOnlyReason} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onAwareness={awareness}/></div></div>;
+  return <div className="flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><span>未确认保存的修改仅保存在当前页面，关闭或刷新后会丢失。在线成员 {state.peers.length}</span><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={Boolean(readOnlyReason)} readOnlyReason={readOnlyReason} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onAwareness={awareness} reviewPanel={<ProposalPanel key={boardId} boardId={boardId} role={state.archived?'viewer':state.role} online={state.phase==='online'} pendingChanges={state.pending>0}/>} /></div></div>;
 }
