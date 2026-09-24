@@ -63,3 +63,10 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   expect(positions.at(-1)?.x).toBeCloseTo(100); expect(positions.at(-1)?.y).toBeCloseTo(200);
   doc.destroy();
 });
+it('follows a presenter viewport while keeping room controls read-only', () => {
+  const doc=createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly title="会议室" status="只读" followViewport={{x:120,y:-40,zoom:1.5,revision:2}}/>);
+  expect(screen.getByTestId('board-live-surface').firstElementChild).toHaveStyle({transform:'translate(120px,-40px) scale(1.5)'});
+  expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+  doc.destroy();
+});

@@ -117,4 +117,5 @@ export * as whiteboardDocument from './whiteboard-document';
 export * as whiteboardSync from './whiteboard-sync';
 export * as whiteboardTransfer from './whiteboard-transfer';
 export * as whiteboardMigration from './whiteboard-migration';
+export * as whiteboardRoom from './whiteboard-room';
 export * as whiteboardWorkshop from './whiteboard-workshop';
