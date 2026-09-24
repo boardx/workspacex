@@ -96,8 +96,8 @@ export function PresentMode({
     >
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
         {/* 点左右半屏翻页（鼠标 / 触屏都行）；页面里连好的跳转在画布自己身上，先于这里接住点击。 */}
-        <button type="button" aria-hidden tabIndex={-1} onClick={() => go(-1)} className="absolute inset-y-0 left-0 w-1/2 cursor-w-resize focus-visible:outline-none" />
-        <button type="button" aria-hidden tabIndex={-1} onClick={() => go(1)} className="absolute inset-y-0 right-0 w-1/2 cursor-e-resize focus-visible:outline-none" />
+        <button type="button" aria-hidden tabIndex={-1} onClick={() => go(-1)} className="absolute inset-y-0 left-0 w-1/2 cursor-w-resize" />
+        <button type="button" aria-hidden tabIndex={-1} onClick={() => go(1)} className="absolute inset-y-0 right-0 w-1/2 cursor-e-resize" />
         <div className="relative" style={{ width: size.w * scale, height: (size.h + LABEL) * scale }}>
           <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: size.w, height: size.h + LABEL }}>
             {root === null ? (
@@ -116,13 +116,13 @@ export function PresentMode({
         </div>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2 px-4" style={{ height: BAR }}>
-        <button type="button" onClick={() => go(-1)} disabled={frame === 0} aria-label="上一页" className="rounded-control p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:opacity-30">
+        <button type="button" onClick={() => go(-1)} disabled={frame === 0} aria-label="上一页" className="rounded-control p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground">
           <ChevronLeft aria-hidden className="h-4 w-4" />
         </button>
         <span className="min-w-12 text-center text-12 tabular-nums text-card-foreground" data-testid="design-present-counter" aria-live="polite">
           {frame + 1} / {count}
         </span>
-        <button type="button" onClick={() => go(1)} disabled={frame === count - 1} aria-label="下一页" className="rounded-control p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:opacity-30">
+        <button type="button" onClick={() => go(1)} disabled={frame === count - 1} aria-label="下一页" className="rounded-control p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground">
           <ChevronRight aria-hidden className="h-4 w-4" />
         </button>
         <button type="button" onClick={exit} className="ml-2 inline-flex items-center gap-1 rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors duration-fast hover:bg-card/60" data-testid="design-present-exit">
