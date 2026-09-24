@@ -56,7 +56,15 @@ echo "ADMIN=$FULLSTACK_E2E_ADMIN_EMAIL"
 echo "ORG=$FULLSTACK_E2E_ORG_ID"
 echo "PROJECT=$FULLSTACK_E2E_PROJECT_ID"
 echo "AGENT=$FULLSTACK_E2E_AGENT_ID"
-pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts >/dev/null 2>&1
+# ⚠ 2026-09-24：这一行原来是 `>/dev/null 2>&1`。种子失败时 `set -e` 直接退出，
+# 而失败原因被丢掉了——起栈日志止于上面那句 `AGENT=`，读日志的人（我自己）
+# 只看到「起栈进程已退出」，查不出为什么。**静默掉的失败等于没有失败信息**。
+# 改成落到文件里，并在失败时把末尾打出来。
+if ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > /tmp/e2e-seed.log 2>&1; then
+  echo "✗ 种子失败（fullstack-smoke）——末尾 30 行："
+  tail -30 /tmp/e2e-seed.log
+  exit 1
+fi
 # KERNEL_DEEP_AGENT_BASE_URL 是**可选透传**：本机跑着 deep-agent-service 容器时
 # （devapp 上是 127.0.0.1:2025）这条链路才跟线上一致；没起它时不伪造一个地址——
 # `DeepAgentModelProvider` 会以 MODEL_PROVIDER_NOT_CONFIGURED 诚实失败，而不是
