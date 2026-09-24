@@ -1,0 +1,27 @@
+{
+  "tail": [
+    {
+      "throughSeq": 5,
+      "fromSeq": 3,
+      "sizeBytes": 5,
+      "cipherDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "plainDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "key": "tenants/a/boards/b/update/sha256/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "tenantKeyVersion": 2,
+  "schemaVersion": 1,
+  "parentManifestDigest": null,
+  "manifestVersion": 1,
+  "headSeq": 5,
+  "epoch": 1,
+  "createdAt": "2026-09-24T08:00:00.000Z",
+  "checkpoint": {
+    "throughSeq": 2,
+    "sizeBytes": 9,
+    "plainDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "key": "tenants/a/boards/b/checkpoint/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cipherDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "boardId": "0199aabb-ccdd-7eef-8abc-0123456789ab"
+}

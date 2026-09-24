@@ -29,7 +29,11 @@ export type BoardContentManifest = z.infer<typeof BoardContentManifestSchema>;
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => [key, canonical(entry)]));
+    // The v1 byte contract orders every object level by ECMAScript's ordinal
+    // UTF-16 code-unit comparison. Locale collation is forbidden because the
+    // same manifest must hash identically on every hosted/self-hosted runtime.
+    const entries = Object.entries(value).sort(([left], [right]) => left === right ? 0 : left < right ? -1 : 1);
+    return Object.fromEntries(entries.map(([key, entry]) => [key, canonical(entry)]));
   }
   return value;
 }
