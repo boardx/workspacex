@@ -84,8 +84,8 @@ export const FirstValueFunnelReport = z
     excludesPersonalLocalOrgs: z.literal(true),
     /** 截至本周期末，累计到达各步的组织数（不含 personal-local）。 */
     orgsReachedStep: StepCounts,
-    /** 到达价值时刻的组织里，首次登录 → 价值时刻的耗时中位数（分钟）；无人到达则缺席。 */
-    medianMinutesToFirstValue: z.number().min(0).optional(),
+    // 耗时中位数**不在这里**：它已是 S2 签核契约 `TelemetryBenchmark.firstValueMedianMinutes`
+    // （benchmark 同意）。同一事实不在两处声明——由下面的 `firstValueMedianMinutes()` 算出去填它。
     /** 在预算内到达价值时刻的组织数。 */
     orgsWithinBudget: Count,
   })
@@ -95,9 +95,6 @@ export const FirstValueFunnelReport = z
     if (r.orgsWithinBudget > reached) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["orgsWithinBudget"], message: "预算内到达数不能超过到达价值时刻的组织数" });
     }
-    if (reached === 0 && r.medianMinutesToFirstValue !== undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["medianMinutesToFirstValue"], message: "无组织到达价值时刻时中位数必须缺席" });
-    }
   });
 export type FirstValueFunnelReportValue = z.infer<typeof FirstValueFunnelReport>;
 
@@ -106,15 +103,12 @@ export function mayLeaveInstance(consent: Record<TelemetryConsentItemValue, bool
   return consent.usage === true;
 }
 
-/**
- * 本地聚合：把本地事实算成计数上报。纯函数，不做 I/O。
- * personal-local 组织被排除；同一组织同一步重复出现只取最早一条。
- */
-export function aggregateFirstValueFunnel(
+/** 每个组织每一步的最早时刻（排除 personal-local 与周期末之后的事实）。 */
+function earliestByOrg(
   facts: readonly FirstValueLocalFactValue[],
-  meta: { instanceId: string; periodEnd: string },
-): FirstValueFunnelReportValue {
-  const end = Date.parse(meta.periodEnd);
+  periodEnd: string,
+): Map<string, Map<FirstValueStepValue, number>> {
+  const end = Date.parse(periodEnd);
   const firstAt = new Map<string, Map<FirstValueStepValue, number>>();
   for (const f of facts) {
     if (f.orgKind === "personal-local") continue;
@@ -125,17 +119,45 @@ export function aggregateFirstValueFunnel(
     if (prev === undefined || t < prev) byStep.set(f.step, t);
     firstAt.set(f.orgId, byStep);
   }
-  const counts = Object.fromEntries(FirstValueStep.options.map((s) => [s, 0])) as Record<FirstValueStepValue, number>;
+  return firstAt;
+}
+
+/** 各组织首次登录 → 价值时刻的分钟数（升序）。 */
+function minutesToFirstValue(firstAt: Map<string, Map<FirstValueStepValue, number>>): number[] {
   const minutes: number[] = [];
   for (const byStep of firstAt.values()) {
-    for (const s of byStep.keys()) counts[s]++;
     const start = byStep.get("first_sign_in");
     const value = byStep.get(FIRST_VALUE_STEP);
     if (start !== undefined && value !== undefined && value >= start) minutes.push((value - start) / 60_000);
   }
-  minutes.sort((a, b) => a - b);
-  const mid = minutes.length >> 1;
-  const median = minutes.length === 0 ? undefined : minutes.length % 2 ? minutes[mid]! : (minutes[mid - 1]! + minutes[mid]!) / 2;
+  return minutes.sort((a, b) => a - b);
+}
+
+/**
+ * 首次登录 → 价值时刻的耗时中位数（分钟）；无人到达返回 undefined。
+ * 用来填 S2 契约的 `TelemetryBenchmark.firstValueMedianMinutes`（benchmark 同意），不另立字段。
+ */
+export function firstValueMedianMinutes(
+  facts: readonly FirstValueLocalFactValue[],
+  periodEnd: string,
+): number | undefined {
+  const m = minutesToFirstValue(earliestByOrg(facts, periodEnd));
+  if (m.length === 0) return undefined;
+  const mid = m.length >> 1;
+  return m.length % 2 ? m[mid]! : (m[mid - 1]! + m[mid]!) / 2;
+}
+
+/**
+ * 本地聚合：把本地事实算成计数上报。纯函数，不做 I/O。
+ * personal-local 组织被排除；同一组织同一步重复出现只取最早一条。
+ */
+export function aggregateFirstValueFunnel(
+  facts: readonly FirstValueLocalFactValue[],
+  meta: { instanceId: string; periodEnd: string },
+): FirstValueFunnelReportValue {
+  const firstAt = earliestByOrg(facts, meta.periodEnd);
+  const counts = Object.fromEntries(FirstValueStep.options.map((s) => [s, 0])) as Record<FirstValueStepValue, number>;
+  for (const byStep of firstAt.values()) for (const s of byStep.keys()) counts[s]++;
   return FirstValueFunnelReport.parse({
     schemaVersion: 1,
     instanceId: meta.instanceId,
@@ -143,7 +165,6 @@ export function aggregateFirstValueFunnel(
     consentItem: "usage",
     excludesPersonalLocalOrgs: true,
     orgsReachedStep: counts,
-    ...(median === undefined ? {} : { medianMinutesToFirstValue: median }),
-    orgsWithinBudget: minutes.filter((m) => m <= FIRST_VALUE_BUDGET_MINUTES).length,
+    orgsWithinBudget: minutesToFirstValue(firstAt).filter((m) => m <= FIRST_VALUE_BUDGET_MINUTES).length,
   });
 }

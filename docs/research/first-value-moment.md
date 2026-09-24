@@ -42,14 +42,13 @@
 - **本地先行**：每步只记「某组织第一次发生的时刻」（`FirstValueLocalFact`），永不离开实例；
   实例内的管理员可以直接看自己组织的漏斗。
 - **离开实例**：只有本地聚合后的计数（`FirstValueFunnelReport`：各步到达的组织数、
-  首次登录→价值时刻的中位分钟数、预算内到达数），且仅当 `usage` 同意开启（出厂默认关）。
+  预算内到达数），且仅当 `usage` 同意开启（出厂默认关）。
 - 无自由文本、无文件名、无问题 / 回答原文、无组织名；`personal-local` 组织不计入上报。
   由 `pnpm run lint:telemetry-schema` 对两层 schema 机械检查。
-- `benchmark` 分节里已有的 `firstValueMedianMinutes` 应由本漏斗算出（见待决问题 2）。
+- 首次登录→价值时刻的中位分钟数**只在一处声明**：S2 已签核契约的 `TelemetryBenchmark.firstValueMedianMinutes`（`benchmark` 同意）。本契约只提供算它的纯函数 `firstValueMedianMinutes()`，漏斗报文里不另设字段（多带即被 strict 拒绝）。
 
 ## 5. 待人类决定
 
 1. 时间预算取值（契约暂定 15 分钟，从首次登录起）。
-2. S2 的 `TelemetryBenchmark.firstValueMedianMinutes` 与本契约中位数是同一事实——签核时应让前者
-   引用后者的计算，避免两处声明。
+2. ~~中位数两处声明~~ 已收敛：只留 S2 的 `firstValueMedianMinutes`，本契约只算不存。
 3. 漏斗计数是否并入 `InstanceTelemetryReport.usage` 分节（同一同意项），还是保持独立报文。

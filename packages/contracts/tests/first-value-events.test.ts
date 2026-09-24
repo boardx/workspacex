@@ -12,6 +12,7 @@ import {
   FirstValueLocalFact,
   FirstValueStep,
   aggregateFirstValueFunnel,
+  firstValueMedianMinutes,
   mayLeaveInstance,
   type FirstValueLocalFactValue,
 } from "../src/first-value-events";
@@ -64,7 +65,7 @@ describe("第一个价值时刻事件目录（PROPOSED）", () => {
     );
     expect(r.orgsReachedStep.first_sign_in).toBe(3);
     expect(r.orgsReachedStep.cited_answer_own_material).toBe(2);
-    expect(r.medianMinutesToFirstValue).toBe(24);
+    expect(firstValueMedianMinutes([fact("org-a", "first_sign_in", 0), fact("org-a", "cited_answer_own_material", 8), fact("org-b", "first_sign_in", 0), fact("org-b", "cited_answer_own_material", 40)], META.periodEnd)).toBe(24);
     expect(r.orgsWithinBudget).toBe(1);
     expect(FIRST_VALUE_BUDGET_MINUTES).toBeGreaterThanOrEqual(8);
     expect(JSON.stringify(r)).not.toMatch(/org-/);
@@ -74,7 +75,7 @@ describe("第一个价值时刻事件目录（PROPOSED）", () => {
     const late = { ...fact("org-a", FIRST_VALUE_STEP, 0), occurredAt: "2026-09-25T01:00:00Z" };
     const r = aggregateFirstValueFunnel([fact("org-a", "first_sign_in", 0), late], META);
     expect(r.orgsReachedStep[FIRST_VALUE_STEP]).toBe(0);
-    expect(r).not.toHaveProperty("medianMinutesToFirstValue");
+    expect(firstValueMedianMinutes([fact("org-a", "first_sign_in", 0), late], META.periodEnd)).toBeUndefined();
   });
 
   it("计数上报：键集合固定、自相矛盾的计数与错误的同意项被拒", () => {
@@ -84,10 +85,8 @@ describe("第一个价值时刻事件目录（PROPOSED）", () => {
     expect(FirstValueFunnelReport.safeParse({ ...ok, orgsWithinBudget: 2 }).success).toBe(false);
     expect(FirstValueFunnelReport.safeParse({ ...ok, consentItem: "health" }).success).toBe(false);
     expect(FirstValueFunnelReport.safeParse({ ...ok, excludesPersonalLocalOrgs: false }).success).toBe(false);
-    const { medianMinutesToFirstValue: _m, ...none } = ok;
-    const zero = { ...none, orgsWithinBudget: 0, orgsReachedStep: { ...ok.orgsReachedStep, [FIRST_VALUE_STEP]: 0 } };
-    expect(FirstValueFunnelReport.safeParse(zero).success).toBe(true);
-    expect(FirstValueFunnelReport.safeParse({ ...zero, medianMinutesToFirstValue: 3 }).success).toBe(false);
+    // 中位数只在 S2 benchmark 里声明一处；这里多带一个就拒（strict）
+    expect(FirstValueFunnelReport.safeParse({ ...ok, medianMinutesToFirstValue: 3 }).success).toBe(false);
   });
 
   it("仍是 PROPOSED：没有从 index.ts 导出", () => {
