@@ -9,9 +9,14 @@ import {
   type SurveyRuntime,
   type SurveyDraftInput,
 } from "@repo/contracts/survey-runtime";
+import type { SurveyPublishBlocker } from "@repo/contracts/survey";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { surveyRequest } from "@/lib/survey/runtime-client";
+import {
+  surveyRequest,
+  SurveyPublishBlockedError,
+  SurveySystemError,
+} from "@/lib/survey/runtime-client";
 import { FlexibleReportEditor } from "../report/template-editor";
 import { SurveyReportDocument } from "../report/report-document";
 import {
@@ -28,6 +33,12 @@ const STEPS = [
   ["responses", "查看答卷"],
   ["report", "分析报告"],
 ] as const;
+const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
+  QUESTIONS_EMPTY: "问卷至少需要一道题",
+  QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
+  MAPPING_INCOMPLETE: "报告章节尚未覆盖对应题目",
+  LEADING_QUESTION: "题目措辞可能带有诱导性",
+};
 function emptyDraft(): SurveyDraftInput {
   return {
     title: "未命名问卷",
@@ -48,6 +59,8 @@ export function LiveSurveyWorkspace({
   const [busy, setBusy] = React.useState(false);
   const [generatingReport, setGeneratingReport] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [retryable, setRetryable] = React.useState(false);
+  const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
   const [expires, setExpires] = React.useState("");
@@ -73,9 +86,9 @@ export function LiveSurveyWorkspace({
       setDraft(emptyDraft());
       return;
     }
-    void surveyRequest<unknown>(`/surveys/${encodeURIComponent(surveyId)}`)
+    void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)
       .then((data) => {
-        if (active) accept(SurveyRuntimeSchema.parse(data));
+        if (active) accept(data);
       })
       .catch((e) => {
         if (active) setError((e as Error).message);
@@ -99,11 +112,16 @@ export function LiveSurveyWorkspace({
     lock.current = true;
     setBusy(true);
     setError("");
+    setRetryable(false);
     setNotice("");
     try {
       await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "操作失败，请重试");
+      if (e instanceof SurveyPublishBlockedError) setBlockers(e.blockers);
+      else {
+        setError(e instanceof Error ? e.message : "操作失败，请重试");
+        setRetryable(e instanceof SurveySystemError);
+      }
     } finally {
       lock.current = false;
       setBusy(false);
@@ -114,15 +132,13 @@ export function LiveSurveyWorkspace({
     const parsed = SurveyDraftInputSchema.safeParse(draft);
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
-    const next = SurveyRuntimeSchema.parse(
-      await surveyRequest(runtime ? `/surveys/${runtime.id}` : "/surveys", {
+    const next = await surveyRequest(runtime ? `/surveys/${runtime.id}` : "/surveys", {
         method: runtime ? "PUT" : "POST",
         body: {
           ...parsed.data,
           ...(runtime ? { expectedVersion: runtime.version } : {}),
         },
-      }),
-    );
+      }, SurveyRuntimeSchema);
     accept(next);
     setNotice("修改已保存");
     if (!runtime) router.replace(`/studio/survey/${next.id}?step=${step}`);
@@ -131,24 +147,19 @@ export function LiveSurveyWorkspace({
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
     const current = dirty ? await save() : runtime;
     if (!current) throw new Error("请先保存问卷");
-    const next = SurveyRuntimeSchema.parse(
-      await surveyRequest(`/surveys/${current.id}/${name}`, {
+    const next = await surveyRequest(`/surveys/${current.id}/${name}`, {
         method: "POST",
         body: { expectedVersion: current.version, ...extra },
-      }),
-    );
+      }, SurveyRuntimeSchema);
     accept(next);
+    setBlockers([]);
     setNotice("操作已完成");
   };
   const refresh = () =>
     execute(async () => {
       if (!runtime) return;
       if (dirty && !window.confirm("刷新将放弃未保存的修改，继续吗？")) return;
-      accept(
-        SurveyRuntimeSchema.parse(
-          await surveyRequest(`/surveys/${runtime.id}`),
-        ),
-      );
+      accept(await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema));
     });
   const link =
     runtime?.publication && typeof window !== "undefined"
@@ -231,12 +242,21 @@ export function LiveSurveyWorkspace({
         ))}
       </nav>
       {error && (
-        <p
+        <div
           role="alert"
           className="m-4 rounded-md border border-destructive/30 p-3 text-12 text-destructive"
         >
-          {error}
-        </p>
+          <p>{error}</p>
+          {retryable && step === "publish" && runtime?.status === "draft" && (
+            <Button
+              className="mt-3"
+              variant="outline"
+              onClick={() => void execute(() => command("prepare"))}
+            >
+              重试发布检查
+            </Button>
+          )}
+        </div>
       )}
       {notice && (
         <p role="status" className="px-5 pt-3 text-12 text-success">
@@ -267,10 +287,35 @@ export function LiveSurveyWorkspace({
             <section className="mx-auto max-w-3xl space-y-5 p-6">
               <h1 className="text-20 font-semibold">发布与回收</h1>
               <p className="text-12 text-muted-foreground">
-                发布后题目固定。受访者通过链接匿名答题，报告模板可继续编辑。
+                先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
               </p>
-              {!runtime?.publication ? (
+              {runtime?.status === "draft" ? (
                 <>
+                  <Button
+                    onClick={() => void execute(() => command("prepare"))}
+                  >
+                    检查发布条件
+                  </Button>
+                  {blockers.length > 0 && (
+                    <section aria-label="发布阻断项" className="rounded-md border border-warning/40 bg-warning/5 p-4">
+                      <h2 className="text-14 font-semibold">发现 {blockers.length} 项发布阻断</h2>
+                      <ul className="mt-3 space-y-2 text-12">
+                        {blockers.map((blocker) => (
+                          <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
+                            <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
+                            <span className="ml-2 text-muted-foreground">{blocker.side} · {blocker.subjectId}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                </>
+              ) : runtime?.status === "ready" ? (
+                <section className="space-y-4 rounded-md border border-success/40 bg-success/5 p-4">
+                  <div>
+                    <h2 className="text-16 font-semibold">发布准备已完成</h2>
+                    <p className="mt-1 text-12 text-muted-foreground">服务端已确认当前版本满足发布条件。你仍可返回编辑，或设置截止时间后开始回收。</p>
+                  </div>
                   <label className="block text-12">
                     截止时间（默认 30 天）
                     <Input
@@ -280,23 +325,18 @@ export function LiveSurveyWorkspace({
                       onChange={(e) => setExpires(e.target.value)}
                     />
                   </label>
-                  <Button
-                    disabled={!draft.questions.length}
-                    onClick={() =>
-                      void execute(() =>
-                        command(
-                          "publish",
-                          expires
-                            ? { expiresAt: new Date(expires).toISOString() }
-                            : {},
-                        ),
-                      )
-                    }
-                  >
-                    发布问卷
-                  </Button>
-                </>
-              ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => void execute(() => command("withdraw"))}>
+                      返回编辑
+                    </Button>
+                    <Button
+                      onClick={() => void execute(() => command("start-collection", expires ? { expiresAt: new Date(expires).toISOString() } : {}))}
+                    >
+                      开始回收
+                    </Button>
+                  </div>
+                </section>
+              ) : runtime?.publication ? (
                 <>
                   <p className="text-14">
                     {runtime.publication.status === "closed"
@@ -351,6 +391,8 @@ export function LiveSurveyWorkspace({
                     )}
                   </div>
                 </>
+              ) : (
+                <p className="text-12 text-muted-foreground">正在同步发布状态，请刷新后重试。</p>
               )}
             </section>
           )}
