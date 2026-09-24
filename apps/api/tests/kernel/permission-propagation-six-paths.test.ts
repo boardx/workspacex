@@ -366,7 +366,20 @@ describe("lint-permission-paths: counter-proof", () => {
     const draft = SurveyDraftInputSchema.parse({
       title: "Owner-only survey",
       questions: [{ id: "q", order: 1, chapterId: "s", type: "single", title: "Choice", required: true, options: ["yes", "no"] }],
-      template: { id: "private-template", title: SECRET, sections: [] },
+      template: {
+        id: "private-template",
+        title: SECRET,
+        sections: [{
+          id: "private-section",
+          title: "Private results",
+          blocks: [{
+            id: "private-block",
+            title: "Distribution",
+            type: "bar",
+            questionIds: ["q"],
+          }],
+        }],
+      },
     });
     let model = await service.create(orgId, "u-energy", draft);
     expect((await service.list(orgId, "u-energy")).map(row => row.id)).toContain(model.id);

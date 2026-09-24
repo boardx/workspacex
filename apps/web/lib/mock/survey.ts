@@ -46,22 +46,22 @@ export const SURVEY_TAGS: { id: SurveyTag; label: string }[] = [
 ];
 
 /* ── 问卷列表（左栏）── UC-12.1 R7.2：状态恰为四态，各态动作互斥 ──────── */
-export type SurveyStatus = "draft" | "pending_send" | "collecting" | "closed";
-export const SURVEY_STATUS_LABEL: Record<SurveyStatus, string> = {
+export type MockSurveyStatus = "draft" | "pending_send" | "collecting" | "closed";
+export const SURVEY_STATUS_LABEL: Record<MockSurveyStatus, string> = {
   draft: "草稿", pending_send: "待发出", collecting: "回收中", closed: "已截止",
 };
 /** 各态唯一允许的主动作（UC-12.1 R7.2 表；服务端裁决，前端只呈现）*/
-export const SURVEY_STATUS_ACTION: Record<SurveyStatus, string> = {
+export const SURVEY_STATUS_ACTION: Record<MockSurveyStatus, string> = {
   draft: "继续编辑", pending_send: "改触发时机", collecting: "催未交的 N 人", closed: "复制为新问卷",
 };
 
-export type SurveyAnonymity = "匿名" | "实名";
+export type MockSurveyAnonymity = "匿名" | "实名";
 
 export interface SurveyListItem {
   id: string;
   title: string;
-  status: SurveyStatus;
-  anonymity: SurveyAnonymity;
+  status: MockSurveyStatus;
+  anonymity: MockSurveyAnonymity;
   questionCount: number;
   scope: SurveyScope;
   tags: SurveyTag[];
@@ -106,8 +106,8 @@ export const SURVEY_LIST: SurveyListItem[] = [
   },
 ];
 
-export function surveyStatusCounts(): Record<SurveyStatus, number> {
-  const counts: Record<SurveyStatus, number> = { draft: 0, pending_send: 0, collecting: 0, closed: 0 };
+export function surveyStatusCounts(): Record<MockSurveyStatus, number> {
+  const counts: Record<MockSurveyStatus, number> = { draft: 0, pending_send: 0, collecting: 0, closed: 0 };
   for (const s of SURVEY_LIST) counts[s.status] += 1;
   return counts;
 }
