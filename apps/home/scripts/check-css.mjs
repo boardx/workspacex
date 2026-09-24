@@ -136,9 +136,13 @@ const CJK_PLATFORMS = [
   ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
 ];
 const cjkGaps = [];
+/* The stacks name the Chinese group through var(--font-cjk); expand it, so
+   the check reads what the browser resolves, not the indirection. */
+const cjkGroup = (css.match(/^\s*--font-cjk:\s*([^;]+);/m) || [])[1] || '';
 for (const m of css.matchAll(/^\s*(--font-(?:display|body|mono)):\s*([^;]+);/gm)) {
+  const stack = m[2].replace(/var\(--font-cjk\)/g, cjkGroup);
   for (const [platform, families] of CJK_PLATFORMS) {
-    if (!families.some((f) => m[2].includes(`"${f}"`))) {
+    if (!families.some((f) => stack.includes(`"${f}"`))) {
       cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
     }
   }

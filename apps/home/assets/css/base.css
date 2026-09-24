@@ -85,15 +85,14 @@
      whose names Android does not expose, and lands on system-ui as before. Measured on a Chinese font that is present and first in the
      group (as PingFang is on a Mac): that layout halves. WenQuanYi closes the
      group for Linux desktops without Noto. */
-  --font-display: var(--han-punct) "Outfit", "Outfit Fallback",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+  /* The Chinese faces, declared once and used by all three stacks below and
+     by the Chinese headings. */
+  --font-cjk:     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei";
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", var(--font-cjk),
                   ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body:    var(--han-punct) "Inter", "Inter Fallback",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", var(--font-cjk),
                   ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   /* The mono stack needs the same CJK tail. Every eyebrow, label and status
      line on /zh/ is set in it — sixty-odd elements — and with no Han face
@@ -108,10 +107,7 @@
      eyebrow and status line on the English page was set in a CJK font's
      proportional latin. */
   --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", var(--font-cjk),
                   monospace;
 
   /* ---- radius scale ------------------------------------------------------
@@ -375,6 +371,14 @@ body { text-wrap: pretty; }
    This is strictly safe: it disables SYNTHESIS, never the use of a real bold
    face, so nothing changes for anyone who has one. */
 :lang(zh) { font-synthesis: none; }
+
+/* ...and the other half of that trade. With synthesis off, where the Chinese
+   face has one weight (most Linux desktops), a Chinese heading rendered its
+   Han regular and its latin — "AI", "WorkspaceX" — in Outfit 700: two weights
+   inside four characters. Chinese headings take the Chinese face for their
+   latin too, the way Chinese sites set them, so the pair always match: both
+   PingFang Semibold on a Mac, both the one weight there is on Linux. */
+:lang(zh) :is(h1, h2, h3) { font-family: var(--han-punct) var(--font-cjk), var(--font-display); }
 
 /* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
    in a narrow column and will otherwise push the whole layout sideways. */

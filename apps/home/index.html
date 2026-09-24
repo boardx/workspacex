@@ -61,8 +61,9 @@
 <!-- No modulepreload. The page is complete and readable without JavaScript
      (see the noscript block below), so scripts have no business competing for
      bandwidth with the stylesheet that decides when anything appears. They are
-     discovered when main.js parses, one round trip later, which costs nothing
-     that matters on a fast link and saves seconds on a slow one. One of them,
+     discovered when the parser reaches them. They are one file now
+     (assets/js/site.js, built from the modules by scripts/build-js.mjs):
+     the module graph used to be nine requests, three round trips deep. One of them,
      zh.js, was not even used at runtime — 24 KB fetched on every English page
      load for a file only the build reads. -->
 
@@ -187,7 +188,7 @@
 
     <h1 class="hero__title" data-split data-i18n="hero.title">Where humans and AI actually get work done.</h1>
 
-    <p class="hero__sub" data-i18n="hero.sub">Not another collaboration tool: the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.</p>
+    <p class="hero__sub" data-i18n="hero.sub">Not another collaboration tool. WorkspaceX links context, agents, action, evidence and memory into one chain — so what you ask for gets done, and can be checked.</p>
 
     <div class="hero__actions">
       <a class="btn btn--primary btn--lg" href="https://devapp.boardx.us" rel="noopener">
@@ -452,7 +453,7 @@
     <div class="caps" data-stagger>
       <article class="cap">
         <h3 data-i18n="caps.c1">Chat with an agent team</h3>
-        <p data-i18n="caps.c1b">Not one assistant — a roster with roles, running in parallel, handing work between each other and back to you.</p>
+        <p data-i18n="caps.c1b">Not one assistant — a team with assigned roles that work in parallel, pass work to each other and hand it back to you.</p>
       </article>
       <article class="cap">
         <h3 data-i18n="caps.c2">Canvas and diagrams</h3>
@@ -559,7 +560,7 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="trust.eyebrow">08 — Trust</span>
       <h2 data-i18n="trust.title">An agent you cannot audit is an agent you cannot deploy.</h2>
-      <p class="lead" data-i18n="trust.lead">The harness is what turns a capable model into an action your organization is willing to be accountable for.</p>
+      <p class="lead" data-i18n="trust.lead">The harness sits between a capable model and your systems. It is what makes an agent’s action one your organization is willing to answer for.</p>
     </header>
 
     <div class="stage stage--grid" data-reveal="scale">
@@ -583,7 +584,7 @@
          artifact — a capability is not an experience. -->
     <div class="reader" data-reveal>
       <h3 class="reader__title" data-i18n="reader.title">And the person who never signs in</h3>
-      <p class="reader__lead" data-i18n="reader.lead">Most of the people a result has to convince will never open this product. They are handed a document, in a meeting, by someone they trust, and they have to decide. Everything above is worth nothing to them unless it survives the trip into the artifact — so these are requirements on what comes out, not on the runtime. We are designing to them now; a result that cannot meet them is not finished.</p>
+      <p class="reader__lead" data-i18n="reader.lead">Most people a result has to convince will never open this product. Someone they trust hands them a document in a meeting, and they have to decide. For them, everything above counts only if it survives into that document — so these three are requirements on what comes out, not on the runtime. We are designing to them now; a result that fails them is not finished.</p>
       <div class="grid grid--3 reader__props" data-stagger>
         <div class="prop"><b data-i18n="reader.p1">You can tell what was generated</b><span data-i18n="reader.p1s">Which passages a model wrote, and which a person did, marked in the document itself — not in a settings page nobody opens.</span></div>
         <div class="prop"><b data-i18n="reader.p2">Every claim opens to its source</b><span data-i18n="reader.p2s">Doubt a sentence, click it, and the original is there. If a conclusion cannot be opened, that is itself the finding.</span></div>
@@ -601,7 +602,7 @@
     <header class="section__head" data-reveal>
       <span class="eyebrow" data-i18n="start.eyebrow">09 — Where it starts</span>
       <h2 data-i18n="start.title">Start where the work is valuable and the result can be checked.</h2>
-      <p class="lead" data-i18n="start.lead">Digital inputs, a decomposable process, a verifiable result, a governable risk. Those four together are what makes agentic work real rather than impressive — and they show up in very different disciplines.</p>
+      <p class="lead" data-i18n="start.lead">Look for four things: digital inputs, a process you can break into steps, a result someone can check, a risk you can govern. Where all four hold, agentic work is real rather than impressive — in very different disciplines.</p>
     </header>
 
     <div class="cases">
@@ -705,7 +706,7 @@
       <div class="prop"><b data-i18n="unit.p1">Deliverable</b><span data-i18n="unit.p1s">Its inputs, outputs and responsibility boundary are written down.</span></div>
       <div class="prop"><b data-i18n="unit.p2">Verifiable</b><span data-i18n="unit.p2s">Someone other than its author can check the result.</span></div>
       <div class="prop"><b data-i18n="unit.p3">Reusable</b><span data-i18n="unit.p3s">The next case of the same shape reuses it instead of rebuilding it.</span></div>
-      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Priced per task or per unit of work, because the boundary is real. Seats get you in; they are not what you pay for. Pricing by outcome only works where we run the work ourselves.</span></div>
+      <div class="prop"><b data-i18n="unit.p4">Priceable</b><span data-i18n="unit.p4s">Priced per task or per unit of work, because the boundary is real. Seats are how you get in, not what the meter counts. Pricing by outcome only works where we run the work ourselves.</span></div>
     </div>
   </div>
 </section>
@@ -964,7 +965,7 @@
         <li class="door" style="--i:2">
           <span class="door__who" data-i18n="doors.d3.w">Someone on your team already uses it</span>
           <b class="door__step" data-i18n="doors.d3.s">Ask them to share the evidence trail, not a demo.</b>
-          <span class="door__then" data-i18n-html="doors.d3.t">The thing worth seeing is a conclusion you did not watch being made, which you can then check yourself. If you cannot, that is the answer — and it is the answer you want before a team depends on this rather than after.</span>
+          <span class="door__then" data-i18n-html="doors.d3.t">Ask for a conclusion you did not watch being made, then check it yourself. If you cannot, that is your answer — and better to get it before your team depends on this than after.</span>
         </li>
         <li class="door" style="--i:3">
           <span class="door__who" data-i18n="doors.d4.w">Someone sent you a result</span>
@@ -1042,6 +1043,6 @@
   </div>
 </footer>
 
-<script type="module" src="assets/js/main.js"></script>
+<script type="module" src="assets/js/site.js"></script>
 </body>
 </html>

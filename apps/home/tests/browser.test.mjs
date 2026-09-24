@@ -436,14 +436,35 @@ for (const [lang, path] of LANGS) {
   r.check(res.panels >= 1, 'no discipline panel is readable without JS');
   await noJs.close();
 
-  // a module that fails to load must not take the content with it
+  /* One part of the script failing must not take the content with it. The
+     modules ship as one file now (build-js), so a module can no longer fail
+     to load on its own — the whole-file case is "every script" in the
+     resilience suite. What can still fail alone is a module's code at
+     runtime: the diagrams section of the bundle is made to throw, and every
+     other boot step has to run anyway. */
   const broken = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page2 = await broken.newPage();
-  await page2.route('**/diagrams.js', (route) => route.abort());
+  await page2.route('**/assets/js/site.js', async (route) => {
+    const res = await route.fetch();
+    const body = (await res.text()).replace('function renderDiagrams(', 'function renderDiagrams() { throw new Error("test: the diagrams module fails"); }\nfunction renderDiagramsUnused(');
+    if (!body.includes('test: the diagrams module fails')) throw new Error('could not break the diagrams module — the bundle changed shape');
+    await route.fulfill({ response: res, body });
+  });
+  const logged = [];
+  page2.on('console', (m) => { if (m.type() === 'error') logged.push(m.text()); });
   await page2.goto(base + path, { waitUntil: 'load' });
-  await page2.waitForTimeout(2200);
+  await page2.waitForTimeout(1200);
+  /* The script runs in this case, so below-the-fold content waits for the
+     reveal observer, exactly as it does on a healthy page: scroll through it. */
+  await page2.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.8) {
+      window.scrollTo(0, y); await new Promise((d) => setTimeout(d, 40));
+    }
+  });
+  await page2.waitForTimeout(900);
   const stillHidden = await page2.evaluate(() =>
-    [...document.querySelectorAll('[data-reveal]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+    [...document.querySelectorAll('[data-reveal], [data-stagger]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+  r.check(logged.some((t) => t.includes('[home] diagrams failed')), 'the broken module did not fail the way the test intended');
   r.equal(stillHidden, 0, 'elements left invisible when a module fails');
   await broken.close();
   ok = r.finish() && ok;
