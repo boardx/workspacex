@@ -66,6 +66,9 @@ beforeAll(async () => {
   await say("m2", T, "测试环境不稳定");
   await say("m3", T, "测试环境确实不稳定");
   await say("m4", T2, "预算已经批了");
+  await say("m5", T, "发布说明由李四写");
+  await say("m6", T, "李四周三交发布说明");
+  await say("m7", T, "顺便提一下测试环境");
   db = new PgDatabase(appConfig());
   store = new PgOntologyStore(db);
   const apply = async (b: OntologyBatch, user: string | null = null) => {
@@ -82,6 +85,12 @@ beforeAll(async () => {
   await apply(batch("p1", personal, human, [{ ...claim("p1", "张三决定下周一上线 v2", [msg("m1", "张三决定下周一上线 v2")]), status: "accepted" }], [derived("d-p1", "p1", "c1")]), "u-owner");
   await apply(batch("p12", personal, human, [{ ...claim("p12", "v2 上线与测试环境", [msg("m1", "张三决定下周一上线 v2"), msg("m2", "测试环境不稳定")]), status: "accepted" }],
     [derived("d-p12-a", "p12", "c1"), derived("d-p12-b", "p12", "c2")]), "u-owner");
+  // p5：L1 副本自己的证据（m6）一直在，唯一的来源 c5（证据 m5）——只有 derived_from 那条规则能让它失效
+  await apply(batch("c5", session(T), model, [claim("c5", "发布说明由李四写", [msg("m5", "发布说明由李四写")])]));
+  await apply(batch("p5", personal, human, [{ ...claim("p5", "李四负责发布说明", [msg("m6", "李四周三交发布说明")]), status: "accepted" }],
+    [derived("d-p5", "p5", "c5")]), "u-owner");
+  // 以消息为端点的边：消息被删 ⇒ 这条边软失效（入口 ③），结论本身不受影响
+  await apply(batch("em", session(T), model, [], [{ id: "e-msg", srcKind: "chat_message", srcId: "m7", dstKind: "claim", dstId: "c2", relation: "mentions" }]));
   await project();
 });
 afterAll(async () => { await db.close(); });
@@ -104,7 +113,8 @@ describe("F07: 删除消息 / 会话的失效级联", () => {
   });
 
   it("V1 边：连着 c1 / p1 的边全部软失效（行还在），p12 → c2 的来源边仍有效", async () => {
-    const edges = await q<{ id: string; status: string }>("SELECT id, status FROM ontology_edges WHERE org_id = $1 ORDER BY id", [ORG]);
+    const edges = await q<{ id: string; status: string }>(
+      "SELECT id, status FROM ontology_edges WHERE org_id = $1 AND id IN ('d-p1', 'd-p12-a', 'd-p12-b') ORDER BY id", [ORG]);
     expect(edges).toEqual([
       { id: "d-p1", status: "invalidated" },
       { id: "d-p12-a", status: "invalidated" },
@@ -129,6 +139,23 @@ describe("F07: 删除消息 / 会话的失效级联", () => {
     const [row] = await q<{ version: number }>("SELECT version FROM chat_threads WHERE id = $1", [T2]);
     expect(await new PgChatRepository(db).deleteThread(ORG_ID, T2, row!.version)).toEqual({ messageCount: 1 });
     expect(await claimRow("c4")).toEqual({ status: "superseded", revocation_reason: "source_deleted", revoked: true });
+    await project();
+    expect(await parity()).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("V4（只靠 derived_from）：L1 副本自己的证据还在，但它唯一的来源失效了 ⇒ 副本同样失效", async () => {
+    await asApp(ORG, (c) => c.query("DELETE FROM chat_messages WHERE id = 'm5'"));
+    expect(await claimRow("c5")).toEqual({ status: "superseded", revocation_reason: "source_deleted", revoked: true });
+    expect(await q("SELECT message_id FROM claim_message_evidence WHERE claim_id = 'p5'")).toEqual([{ message_id: "m6" }]);
+    expect(await claimRow("p5")).toEqual({ status: "superseded", revocation_reason: "source_deleted", revoked: true });
+    expect(await q("SELECT status FROM ontology_edges WHERE id = 'd-p5'")).toEqual([{ status: "invalidated" }]);
+  });
+
+  it("入口 ③：以被删消息为端点的边软失效（行还在），它指向的结论不受影响", async () => {
+    expect(await q("SELECT status FROM ontology_edges WHERE id = 'e-msg'")).toEqual([{ status: "active" }]);
+    await asApp(ORG, (c) => c.query("DELETE FROM chat_messages WHERE id = 'm7'"));
+    expect(await q("SELECT status, invalidated_at IS NOT NULL AS stamped FROM ontology_edges WHERE id = 'e-msg'")).toEqual([{ status: "invalidated", stamped: true }]);
+    expect(await claimRow("c2")).toMatchObject({ revoked: false });
     await project();
     expect(await parity()).toEqual({ missingInGraph: [], extraInGraph: [] });
   });
