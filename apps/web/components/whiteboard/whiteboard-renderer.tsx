@@ -1,12 +1,14 @@
 'use client';
 import type { PointerEvent } from 'react';
-import type { WhiteboardObject } from '@repo/whiteboard-core';
+import { selectVisibleObjects, type WhiteboardObject, type WhiteboardViewport } from '@repo/whiteboard-core';
 import { cn } from '@/lib/utils';
-export function WhiteboardRenderer({ objects, selected, onPointerDown }: { objects: WhiteboardObject[]; selected: string[]; onPointerDown: (event: PointerEvent, id: string) => void }) {
-  return <>{[...objects].sort((a, b) => Number(['frame','group'].includes(b.kind)) - Number(['frame','group'].includes(a.kind))).map(o => {
+export function WhiteboardRenderer({ objects, selected, viewport, onPointerDown }: { objects: WhiteboardObject[]; selected: string[]; viewport: WhiteboardViewport; onPointerDown: (event: PointerEvent, id: string) => void }) {
+  const byId = new Map(objects.map(object => [object.id, object]));
+  const rendered = selectVisibleObjects(objects, viewport, new Set(selected));
+  return <>{[...rendered].sort((a, b) => Number(['frame','group'].includes(b.kind)) - Number(['frame','group'].includes(a.kind))).map(o => {
     const g = o.geometry;
     if (o.kind === 'connector') {
-      const a = objects.find(n => n.id === o.connector?.from), b = objects.find(n => n.id === o.connector?.to);
+      const a = o.connector ? byId.get(o.connector.from) : undefined, b = o.connector ? byId.get(o.connector.to) : undefined;
       if (!a || !b) return null;
       return <svg key={o.id} className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-label="连接线"><line x1={a.geometry.x + a.geometry.width / 2} y1={a.geometry.y + a.geometry.height / 2} x2={b.geometry.x + b.geometry.width / 2} y2={b.geometry.y + b.geometry.height / 2} stroke="currentColor" strokeWidth="2" /></svg>;
     }
