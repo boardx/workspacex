@@ -29,23 +29,6 @@
  * pgvector 的 `vector` 类型 HNSW 最多 2000 维。超过的模型**拒绝登记**（22023），而不是静默不建索引、
  * 让那个模型悄悄退回全表精确扫描——那是「看起来能用、上量后才慢到超时」的失败，不在今天暴露就会在最坏的
  * 时候暴露。要支持更高维度，得另起一个 feature（halfvec / 量化），不是在这里默默放宽。
- * 这个上限的**唯一出处**是契约 `RETRIEVAL_EMBEDDING_LIMITS.maxDimensions`（packages/contracts/src/
- * retrieval-embedding.ts）；下面函数里的 2000 只是 SQL 引不到 TS 常量时的复写，两者由
- * `tests/retrieval/kg-hnsw-permission-recall.test.ts` 钉在一起（等于上限可登记、上限 + 1 被拒）。
- * `registerEmbeddingModel` 在碰数据库之前就按契约常量拒绝，错误码 `embedding_model_dimensions_exceed_index_limit`。
- *
- * ## 运维须知（只写明，不在本迁移里改）
- *
- * - **登记新模型会短暂挡住写入。** 触发器里的 `CREATE INDEX` 不带 CONCURRENTLY（触发器跑在登记事务里，
- *   CONCURRENTLY 不能在事务块中执行），建索引期间对两张 embedding 表持 SHARE 锁：读照常，写入（向量 worker、
- *   附件索引）会排队到登记事务提交。新模型登记时还没有属于它的行，索引本身是空的，但部分索引也要把整张表
- *   扫一遍判断谓词，耗时随表大小增长；而且 SHARE 锁要等其它事务的 ROW EXCLUSIVE 放掉才拿得到。所以大表上
- *   **请在低峰登记**，并给登记会话设 `lock_timeout`。
- *   若将来要给已有大量行的模型补索引，应在事务外手工 `CREATE INDEX CONCURRENTLY` 同名同定义，再登记。
- * - **迭代扫描的延迟上界。** pgvector ≥ 0.8 的 `hnsw.iterative_scan` 在过滤很严时会一直扫到
- *   `hnsw.max_scan_tuples`（默认 20000）才停；那种查询的延迟由这个上限而不是 k 决定。扫到上限仍不足 k 条时，
- *   查询侧会再跑一次精确扫描补全（`hnsw-ann.ts`）——所以最坏情况是「一次扫满上限的索引读 + 一次精确扫描」。
- *   召回 P95 < 1.5 秒（S0-4）若在大租户上吃紧，先调 `max_scan_tuples`，不要关掉补全。
  *
  * ## 与权限过滤的关系（R9 的真正风险）
  *
