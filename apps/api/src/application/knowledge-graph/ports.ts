@@ -34,3 +34,16 @@ export interface OntologyStorePort {
 }
 
 export const ONTOLOGY_STORE_PORT = Symbol("OntologyStorePort");
+
+/**
+ * AGE 投影（F04）。实现只调数据库里的 `kg_project_pending` / `kg_projection_pending_orgs`，
+ * 投影规则（哪些行进图）只在迁移 20260924200000 的 `kg_live_vertices` / `kg_live_edges` 里。
+ */
+export interface GraphProjectionPort {
+  /** 有待投影行的 org。只有 id，不带任何内容。 */
+  pendingOrgs(): Promise<readonly OrgId[]>;
+  /** 投影本 org 的待处理行，返回处理条数。AGE 不可用时抛错，待处理行原样保留。 */
+  projectPending(orgId: OrgId, limit: number): Promise<number>;
+}
+
+export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");
