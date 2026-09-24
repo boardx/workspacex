@@ -308,6 +308,7 @@ describe("TurnMemoryLine：本轮的「记住 / 忘掉」卡", () => {
     await waitFor(() => expect(screen.getByTestId("kg-card-done")).toHaveTextContent("已撤销这次的记住"));
     expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("没有记到长期记忆");
     expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("没法只撤");
+    expect(screen.getByTestId("kg-card-done")).not.toHaveTextContent("还在");
     expect(server.actions.map((a) => a.action)).toEqual([{ type: "revokeClaim", claimId: "c-new", reason: "user_undo_remember" }]);
   });
 
