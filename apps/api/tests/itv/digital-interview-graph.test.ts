@@ -25,8 +25,8 @@ function createEffects(): DigitalInterviewEffects {
         ? "experts"
         : input.nodeName === "confirm_experts"
           ? "questions"
-          : "runs",
-      topicVersionId: input.nodeName === "confirm_topic" ? "topic-v1" : "topic-v1",
+          : "questions",
+      topicVersionId: "topic-v1",
       expertSnapshotVersionId: input.nodeName === "confirm_experts" ? "experts-v1" : null,
       questionVersionId: input.nodeName === "confirm_questions" ? "questions-v1" : null,
       skillThreadId: "skill-thread-f04",
@@ -67,6 +67,8 @@ describe("F04 digital interview LangGraph", () => {
     const expertInterrupt = await graph.invoke(new Command({ resume: {
       kind: "confirm_topic",
       topic: "谁拥有最终否决权？",
+      researchBrief: { decision: "决定是否进入市场", learningGoals: [{ goalId: "g1", statement: "理解否决权" }],
+        targetRoles: ["决策者"], outOfScope: ["定价"], successCriteria: ["识别决策角色"] },
       expectedVersion: 1,
       requestId: "req-topic-graph-f04",
     } }), config);
@@ -96,11 +98,15 @@ describe("F04 digital interview LangGraph", () => {
         order: 1,
         text: "谁参与评审？",
         purpose: "识别决策角色",
+        section: "core",
+        goalIds: ["g1"],
       }],
+      moderatorPolicy: { probingDepth: "balanced", clarifyAmbiguity: true, seekCounterexamples: true,
+        redirectOffTopic: true, stopWhenGoalSatisfied: true, maxFollowUpsPerQuestion: 2 },
       expectedVersion: 3,
       requestId: "req-questions-graph-f04",
     } }), config);
-    expect(completed).toMatchObject({ currentStep: "runs", questionVersionId: "questions-v1" });
+    expect(completed).toMatchObject({ currentStep: "questions", questionVersionId: "questions-v1" });
     expect(interrupts(completed)).toBeUndefined();
 
     expect(effects.commitStep).toHaveBeenCalledTimes(3);
@@ -168,7 +174,7 @@ describe("F04 digital interview LangGraph", () => {
     });
     await graph.invoke(initial, config);
     await graph.invoke(new Command({ resume: {
-      kind: "confirm_topic", topic: "旧主题", expectedVersion: 1, requestId: "topic-first",
+      kind: "confirm_topic", topic: "旧主题", researchBrief: { decision: "旧决策", learningGoals: [{ goalId: "g1", statement: "旧目标" }], targetRoles: ["角色"], outOfScope: [], successCriteria: ["标准"] }, expectedVersion: 1, requestId: "topic-first",
     } }), config);
     await graph.invoke(new Command({ resume: {
       kind: "confirm_experts", expertIds: ["expert-f04"], expectedVersion: 2, requestId: "experts-first",
@@ -182,7 +188,7 @@ describe("F04 digital interview LangGraph", () => {
       currentStep: "topic", actorId: "current-actor",
     }, "route");
     const revised = await graph.invoke(new Command({ update: { actorId: "current-actor" }, resume: {
-      kind: "confirm_topic", topic: "新主题", expectedVersion: 4, requestId: "topic-reconfirm",
+      kind: "confirm_topic", topic: "新主题", researchBrief: { decision: "新决策", learningGoals: [{ goalId: "g1", statement: "新目标" }], targetRoles: ["角色"], outOfScope: [], successCriteria: ["标准"] }, expectedVersion: 4, requestId: "topic-reconfirm",
     } }), config);
 
     expect(revised).toMatchObject({ currentStep: "experts" });
