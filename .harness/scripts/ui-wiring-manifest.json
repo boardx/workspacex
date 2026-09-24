@@ -1682,7 +1682,8 @@
         "platform-members",
         "project",
         "whiteboard",
-        "whiteboard-import"
+        "whiteboard-import",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",
@@ -1742,7 +1743,8 @@
         "project",
         "whiteboard",
         "whiteboard-import",
-        "whiteboard-room"
+        "whiteboard-room",
+        "whiteboard-transfer"
       ],
       "controllers": [
         "AgentRunController",

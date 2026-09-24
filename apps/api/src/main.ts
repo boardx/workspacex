@@ -11,6 +11,7 @@ import "reflect-metadata";
 import { json, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { PORTABLE_BOARD, operations as whiteboardTransferOperations } from "@repo/contracts/whiteboard-transfer";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
@@ -95,6 +96,16 @@ export async function createApp(): Promise<NestExpressApplication> {
       }
       next(error);
     }));
+  const portableBoardParser = json({ limit: PORTABLE_BOARD.maxBytes });
+  for (const path of [whiteboardTransferOperations.previewImport.path, whiteboardTransferOperations.importBoard.path]) {
+    app.getHttpAdapter().getInstance().post(path,
+      (req: Request, res: Response, next: NextFunction) => portableBoardParser(req, res, (error?: unknown) => {
+        if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+          next(new PayloadTooLargeException()); return;
+        }
+        next(error);
+      }));
+  }
 
   app.get<DebugRecorder>(DEBUG_TRACE_PORT).start();
   return app;

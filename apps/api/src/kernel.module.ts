@@ -10,6 +10,8 @@ import { WhiteboardController } from './interface/controllers/whiteboard.control
 import { WhiteboardOperationsController } from './interface/controllers/whiteboard-operations.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
+import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
 import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
 import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
 import { whiteboardRoomSecret } from './infrastructure/whiteboard/room-secret';
@@ -2901,6 +2903,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_TRANSFER_STORE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardTransferStore(db, collaboration, validator),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
     },
     {
       provide: WHITEBOARD_ROOM_REPOSITORY,

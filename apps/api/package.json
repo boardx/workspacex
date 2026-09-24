@@ -26,6 +26,7 @@
     "test:storage": "vitest run --config vitest.storage.config.ts",
     "test:local-desktop-unit": "vitest run --config vitest.local-desktop-unit.config.ts",
     "test:data": "vitest run --config vitest.data.config.ts",
+    "test:whiteboard-unit": "vitest run --config vitest.whiteboard-unit.config.ts",
     "test:document-skills-unit": "vitest run --config vitest.document-skills-unit.config.ts",
     "test:document-unit": "vitest run --config vitest.document-unit.config.ts",
     "test:feedback-unit": "vitest run --config vitest.feedback-unit.config.ts",
