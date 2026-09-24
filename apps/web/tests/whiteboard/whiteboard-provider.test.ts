@@ -108,6 +108,17 @@ it('permission rejection quarantines pending updates and keeps only an inaccessi
   vi.advanceTimersByTime(60000); expect(Socket.sockets).toHaveLength(1); doc.destroy(); server.destroy();
 });
 
+it('deletes the decrypt path when logout unmounts the provider before the session timer fires', async () => {
+  const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox();
+  const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));
+  sync(Socket.sockets[0]!, server); await flush();
+  executeCommands(doc, [{ type: 'create', object: { id: 'logout', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'private', style: {}, parentId: null, orderKey: '' } }], 'local');
+  await flush(); token = '';
+  provider.close(); await flush();
+  expect(outbox.active.size).toBe(0); expect(outbox.receipts[0]).toMatchObject({ reason: 'SESSION_CHANGED', pendingCount: 1 });
+  doc.destroy(); server.destroy();
+});
+
 it('enforces the durable queue limit without silently dropping an earlier update', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox(); outbox.max = 1; let state: WhiteboardConnectionState | undefined;
   new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox)); sync(Socket.sockets[0]!, server); await flush();

@@ -122,7 +122,7 @@ export class WhiteboardProvider {
   private block(reason: string) {
     if (this.stopped) return;
     const context = this.context;
-    this.close();
+    this.stop();
     // Hide and remove locally visible content after access loss; no clear update is sent.
     this.doc.transact(() => { this.doc.getMap('objects').clear(); this.doc.getMap('deletedObjects').clear(); }, REMOTE);
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
@@ -131,5 +131,9 @@ export class WhiteboardProvider {
       this.publish({ quarantined: receipts.reduce((sum, receipt) => sum + receipt.pendingCount, 0) });
     }).catch(() => { this.pending = []; this.publish({ quarantined: 0 }); });
   }
-  close() { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); }
+  close() {
+    if (!this.stopped && getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
+    this.stop();
+  }
+  private stop() { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); }
 }

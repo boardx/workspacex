@@ -1,4 +1,4 @@
-import { WHITEBOARD_SYNC, type WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
+import { WHITEBOARD_SYNC, WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
 
 export type PendingWhiteboardUpdate = Extract<WhiteboardClientMessage, { type: 'update' }>;
 
@@ -109,7 +109,9 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         const updates: PendingWhiteboardUpdate[] = [];
         for (const entry of row.entries) {
           const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: entry.iv, additionalData: additionalData(scope, entry.updateId) }, row.key, entry.value);
-          updates.push(JSON.parse(new TextDecoder().decode(clear)) as PendingWhiteboardUpdate);
+          const parsed = WhiteboardClientMessage.safeParse(JSON.parse(new TextDecoder().decode(clear)));
+          if (!parsed.success || parsed.data.type !== 'update' || parsed.data.epoch !== scope.epoch || parsed.data.updateId !== entry.updateId) throw new Error('WHITEBOARD_OUTBOX_CORRUPT');
+          updates.push(parsed.data);
         }
         return updates;
       } finally { database.close(); }
