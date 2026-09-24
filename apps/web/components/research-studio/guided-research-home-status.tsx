@@ -2,6 +2,9 @@ import { AlertTriangle, CheckCircle2, CircleDot, FileCheck2 } from "lucide-react
 import type { GuidedResearchSession } from "@/lib/guided-research-api";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+
+export type GuidedResearchHomeFilter = "active" | "attention" | "completed";
 
 const STAGE_PRESENTATION: Record<GuidedResearchSession["resumeStage"], {
   label: string;
@@ -37,20 +40,41 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   };
 }
 
-export function GuidedResearchHomeSummary({ sessions }: { sessions: readonly GuidedResearchSession[] }) {
+export function guidedResearchMatchesHomeFilter(session: GuidedResearchSession, filter: GuidedResearchHomeFilter | undefined) {
+  if (filter === "active") return session.status !== "completed";
+  if (filter === "attention") return guidedResearchHomePresentation(session).attention;
+  if (filter === "completed") return session.status === "completed";
+  return true;
+}
+
+export function GuidedResearchHomeSummary({ sessions, selectedFilter, onFilterChange }: {
+  sessions: readonly GuidedResearchSession[];
+  selectedFilter?: GuidedResearchHomeFilter;
+  onFilterChange: (filter: GuidedResearchHomeFilter | undefined) => void;
+}) {
   const active = sessions.filter((session) => session.status !== "completed").length;
   const attention = sessions.filter((session) => guidedResearchHomePresentation(session).attention).length;
   const completed = sessions.filter((session) => session.status === "completed").length;
   const items = [
-    { label: "进行中", value: active, icon: CircleDot },
-    { label: "需要处理", value: attention, icon: AlertTriangle },
-    { label: "已完成", value: completed, icon: CheckCircle2 },
+    { id: "active" as const, label: "进行中", value: active, icon: CircleDot },
+    { id: "attention" as const, label: "需要处理", value: attention, icon: AlertTriangle },
+    { id: "completed" as const, label: "已完成", value: completed, icon: CheckCircle2 },
   ];
   return <section data-testid="research-home-summary" aria-label="研究工作概览" className="grid gap-3 sm:grid-cols-3">
-    {items.map(({ label, value, icon: Icon }) => <div key={label} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+    {items.map(({ id, label, value, icon: Icon }) => <button
+      key={id}
+      type="button"
+      aria-label={`${label} ${value} 项研究`}
+      aria-pressed={selectedFilter === id}
+      onClick={() => onFilterChange(selectedFilter === id ? undefined : id)}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        selectedFilter === id ? "border-primary bg-accent" : "border-border",
+      )}
+    >
       <span className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"><Icon className="size-4" aria-hidden /></span>
       <div><p className="text-11 text-muted-foreground">{label}</p><p className="text-18 font-semibold">{value}</p></div>
-    </div>)}
+    </button>)}
   </section>;
 }
 
