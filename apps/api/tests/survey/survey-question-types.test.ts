@@ -112,6 +112,8 @@ const reportTemplate = (...questionIds: string[]) => ({
           type: "text" as const,
           questionIds,
           statistic: "responses" as const,
+          samplePolicy: "valid" as const,
+          minGroupSize: 5,
         },
       ],
     },
