@@ -6,8 +6,10 @@ const migration = readFileSync(new URL('../../migrations/20260924000500_whiteboa
 describe('whiteboard proposal migration replay guard', () => {
   it('keeps every named schema creation safe for force replay', () => {
     expect(migration).toContain('CREATE TABLE IF NOT EXISTS whiteboard_proposals');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS whiteboard_proposal_decisions');
     expect(migration).not.toMatch(/CREATE\s+(?:UNIQUE\s+)?INDEX(?!\s+IF\s+NOT\s+EXISTS)/i);
     expect(migration).toMatch(/DROP POLICY IF EXISTS tenant ON whiteboard_proposals;\s*CREATE POLICY tenant ON whiteboard_proposals/);
+    expect(migration).toMatch(/DROP POLICY IF EXISTS tenant ON whiteboard_proposal_decisions;\s*CREATE POLICY tenant ON whiteboard_proposal_decisions/);
   });
 
   it('rejects the prior non-replayable table and policy forms', () => {

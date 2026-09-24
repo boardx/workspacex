@@ -24,12 +24,12 @@ let db:PgDatabase,repo:PgProposalRepository,boards:PgWhiteboardRepository,store:
 const codec=new AesGcmBoardBlobCodec({resolve:async()=>new Uint8Array(32).fill(29)});
 const collaboration=(database:DatabasePort)=>new PgWhiteboardCollaborationStore(database,new WorkerWhiteboardUpdateValidator(),120,new FsBoardBlobStore(blobRoot),codec,1);
 async function board(){const b=await boards.create(owner,{requestId:randomUUID(),name:'AI proposals'});await boards.putMember(owner,b.id,{userId:editor.userId,role:'editor'});await boards.putMember(owner,b.id,{userId:viewer.userId,role:'viewer'});return b.id;}
-function input():C.CreateProposal{return{requestId:randomUUID(),title:'Propose sticky',baseEpoch:1,baseSeq:0,generatorLabel:'API supplied assistant name',commands:[{type:'create',object:{id:'suggested_note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:100,rotation:0},text:'suggestion',style:{},parentId:null,orderKey:''}}]};}
+function input():C.CreateProposal{return{requestId:randomUUID(),title:'Propose sticky',baseEpoch:1,baseSeq:0,commands:[{type:'create',object:{id:`suggested_${randomUUID()}`,schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:100,rotation:0},text:'suggestion',style:{},parentId:null,orderKey:''}}]};}
 beforeAll(async()=>{ensureDatabase();blobRoot=await mkdtemp(join(tmpdir(),'wsx-proposal-blob-'));await migrateOnce();await resetOrgs(org,other);await seedOrg({orgId:org,projectId:'wb-proposal-project-a'});await seedOrg({orgId:other,projectId:'wb-proposal-project-b'});for(const p of [owner,editor,viewer,outsider])await addOrgMember(p.orgId,p.userId,'consultant',null);db=new PgDatabase(appConfig());store=collaboration(db);repo=new PgProposalRepository(db,store);boards=new PgWhiteboardRepository(db);});
 afterAll(async()=>{await db?.close();await resetOrgs(org,other);if(blobRoot)await rm(blobRoot,{recursive:true,force:true});});
 describe('AI suggestion persistence and explicit decisions',()=>{
   it('stores an attributed proposal without changing the shared document, with strict retry semantics',async()=>{
-    const id=await board(),request=input(),p=await repo.create(editor,id,request);expect(p).toMatchObject({status:'pending',provenance:{submittedBy:editor.userId,generator:{label:request.generatorLabel,verified:false}}});
+    const id=await board(),request=input(),p=await repo.create(editor,id,request);expect(p).toMatchObject({status:'pending',provenance:{submittedBy:editor.userId,participant:{kind:'human-api',actorId:editor.userId,verified:true}}});
     expect((await store.load(owner,id)).seq).toBe(0);expect(await repo.create(editor,id,request)).toEqual(p);
     await expect(repo.create(editor,id,{...request,title:'changed'})).rejects.toThrow('REQUEST_ID_REUSED');expect(await repo.list(viewer,id)).toEqual([p]);
   });
@@ -84,5 +84,30 @@ describe('AI suggestion persistence and explicit decisions',()=>{
     const failingDb:DatabasePort={withTenant:(orgId,run)=>db.withTenant(orgId,s=>run({query:async(sql,params)=>{if(sql.startsWith('UPDATE whiteboard_proposals'))throw new Error('DECISION_WRITE_FAILED');return s.query(sql,params);}})),withoutTenant:db.withoutTenant.bind(db),close:async()=>{}};
     await expect(new PgProposalRepository(failingDb,collaboration(failingDb)).decide(owner,id,p!.id,'accept',{requestId:randomUUID()})).rejects.toThrow('DECISION_WRITE_FAILED');
     expect((await store.load(owner,id)).seq).toBe(0);expect((await repo.list(owner,id))![0]!.status).toBe('pending');
+  });
+  it('accepts selected commands across proposals in one mutation and rejects the remainder atomically',async()=>{
+    const id=await board();
+    const proposalInput=(prefix:string):C.CreateProposal=>({...input(),title:prefix,commands:[0,1].map(index=>({type:'create' as const,object:{id:`${prefix}_${index}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:index*120,y:0,width:100,height:100,rotation:0},text:`${prefix} ${index}`,style:{},parentId:null,orderKey:''}}))});
+    const a=await repo.create(editor,id,proposalInput('a')),b=await repo.create(editor,id,proposalInput('b')),acceptId=randomUUID();
+    const accepted=await repo.batchDecide(owner,id,{requestId:acceptId,action:'accept',selections:[{proposalId:a!.id,commandIndexes:[0]},{proposalId:b!.id,commandIndexes:[0]}]});
+    expect(accepted?.proposals).toHaveLength(2);expect(accepted?.proposals.every(item=>item.status==='pending')).toBe(true);
+    expect(accepted?.proposals.map(item=>item.commandDecisions.map(value=>value.status))).toEqual([['applied','pending'],['applied','pending']]);
+    expect((await store.load(owner,id)).seq).toBe(1);
+    expect(await repo.batchDecide(owner,id,{requestId:acceptId,action:'accept',selections:[{proposalId:a!.id,commandIndexes:[0]},{proposalId:b!.id,commandIndexes:[0]}]})).toEqual(accepted);
+    await expect(repo.batchDecide(owner,id,{requestId:acceptId,action:'reject',selections:[{proposalId:a!.id,commandIndexes:[1]}]})).rejects.toThrow('REQUEST_ID_REUSED');
+    await expect(repo.batchDecide(owner,id,{requestId:randomUUID(),action:'accept',selections:[{proposalId:a!.id,commandIndexes:[0]}]})).rejects.toThrow('PROPOSAL_ALREADY_DECIDED');
+    const rejected=await repo.batchDecide(editor,id,{requestId:randomUUID(),action:'reject',selections:[{proposalId:a!.id,commandIndexes:[1]},{proposalId:b!.id,commandIndexes:[1]}]});
+    expect(rejected?.proposals.every(item=>item.status==='applied')).toBe(true);
+    expect(rejected?.proposals.map(item=>item.commandDecisions.map(value=>value.status))).toEqual([['applied','rejected'],['applied','rejected']]);
+    const state=await store.load(owner,id),doc=createWhiteboardDocument();Y.applyUpdate(doc,state.update);expect(readObjects(doc).map(value=>value.id).sort()).toEqual(['a_0','b_0']);
+    await expect(repo.batchDecide(owner,id,{requestId:randomUUID(),action:'accept',selections:[{proposalId:a!.id,commandIndexes:[1]}]})).rejects.toThrow('PROPOSAL_ALREADY_DECIDED');
+  });
+  it('rejects a stale multi-proposal acceptance without applying or partially deciding anything',async()=>{
+    const id=await board(),a=await repo.create(editor,id,input()),b=await repo.create(editor,id,input());
+    const human=input().commands;await store.writeCommands(owner,id,{epoch:1,requestId:randomUUID(),commands:human});
+    await expect(repo.batchDecide(owner,id,{requestId:randomUUID(),action:'accept',selections:[{proposalId:a!.id,commandIndexes:[0]},{proposalId:b!.id,commandIndexes:[0]}]})).rejects.toThrow('PROPOSAL_CONFLICT');
+    expect((await store.load(owner,id)).seq).toBe(1);
+    expect((await repo.list(owner,id))!.filter(item=>[a!.id,b!.id].includes(item.id)).every(item=>item.status==='pending'&&item.commandDecisions[0]!.status==='pending')).toBe(true);
+    expect(await repo.batchDecide(viewer,id,{requestId:randomUUID(),action:'reject',selections:[{proposalId:a!.id,commandIndexes:[0]}]})).toBeNull();
   });
 });

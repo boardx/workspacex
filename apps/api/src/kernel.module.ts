@@ -3,7 +3,7 @@ import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-c
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WHITEBOARD_PROPOSALS } from './application/whiteboard/proposal-ports';
 import { PgProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
-import { WhiteboardProposalController } from './interface/controllers/whiteboard-proposal.controller';
+import { TrustedWhiteboardProposalController, WhiteboardProposalController } from './interface/controllers/whiteboard-proposal.controller';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
@@ -1064,6 +1064,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardProposalController,
+    TrustedWhiteboardProposalController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,

@@ -55,6 +55,11 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-25：白板 proposal 不能把公开 API 的 `generatorLabel` 升格成 AI 身份；可信
+  attribution 必须从内部密钥保护的 Agent Run 路径读取持久化 `agent_runs` +
+  人类输入消息，固定 agent/run/agent-version/provider/model 与操作者，再与 proposal
+  一起落库。公开入口缺少该运行上下文时只能显示为已认证的人类/API proposal；proposal
+  仍须等待人类逐项或批量裁决，模型运行本身不授权写白板（出处：PR #3984 审查修复）。
 - 2026-09-18：同一个 skill 在 devapp 两次超时（16 分钟）都不是脚本慢，是模型在跑脚本之前的动作：读 3 份
   references、`write_todos` 拆步骤、对截图 `ls`/`read_file`（PNG 已经是视觉输入，再读一次会撞 `tool_call_unresolved`）。
   产出文件类 skill 的 SKILL.md 要把"总共 3–4 次工具调用、不写 todo、图片不要再读文件"写成硬规则，速查表放正文里，
