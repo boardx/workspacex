@@ -868,7 +868,12 @@
 .demo__rquote { margin: 0; color: var(--fg); font-size: var(--t-md); line-height: 1.5; }
 .demo__rgloss { margin-top: var(--s-1); color: var(--fg-soft); font-size: var(--t-small); }
 .demo__rsource { margin-top: var(--s-2); color: var(--fg-dim); font-size: var(--t-micro); }
-.demo__rsource a { color: var(--fg-soft); text-decoration: underline; text-underline-offset: 2px; }
+/* A link a thumb can hit: 44 px tall, the text where it was. */
+.demo__rsource a {
+  display: inline-flex; align-items: center; min-height: 44px;
+  color: var(--fg-soft); text-decoration: underline; text-underline-offset: 2px;
+}
+.demo__rabout { display: block; margin-top: var(--s-1); color: var(--fg-dim); }
 .demo__task { font-size: var(--t-lg); line-height: 1.45; color: var(--fg); margin-bottom: var(--s-5); }
 
 .demo__sources { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }

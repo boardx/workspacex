@@ -43,8 +43,12 @@ export function validate(index, scenarios) {
     if (e.date && !/^\d{4}(-\d{2}(-\d{2})?)?$/.test(e.date)) problems.push(`${at}: date "${e.date}" is not YYYY[-MM[-DD]]`);
     if (e.sha256 && !/^[0-9a-f]{64}$/.test(e.sha256)) problems.push(`${at}: sha256 is not a hash`);
     if (!Array.isArray(e.quotes) || !e.quotes.length) problems.push(`${at}: no quotes`);
+    if (!['pdf', 'page'].includes(e.kind)) problems.push(`${at}: kind must be "pdf" or "page"`);
     for (const q of e.quotes ?? []) {
-      if (!q.text?.trim() || !Number.isInteger(q.page) || q.page < 1) problems.push(`${at}: a quote without text or page`);
+      if (!q.text?.trim()) problems.push(`${at}: a quote without text`);
+      /* A PDF quote carries its page; a web page has none, and shows none. */
+      if (e.kind === 'pdf' && !(Number.isInteger(q.page) && q.page >= 1)) problems.push(`${at}: a PDF quote without its page`);
+      if (e.kind === 'page' && q.page !== null) problems.push(`${at}: a page number on a web page`);
     }
   }
   const byId = new Map(index.map((e) => [e.id, e]));
@@ -61,26 +65,32 @@ export function validate(index, scenarios) {
       for (const k of ['firm', 'title', 'date', 'url']) {
         if (r[k] !== src[k]) problems.push(`${at} [${lang}]: ${k} shown as "${r[k]}", the register says "${src[k]}"`);
       }
-      if (q && r.page !== q.page) problems.push(`${at} [${lang}]: page shown as ${r.page}, the register says ${q.page}`);
+      if (q && (r.page ?? null) !== q.page) problems.push(`${at} [${lang}]: page shown as ${r.page}, the register says ${q.page}`);
     }
     if (en.quote !== zh.quote || en.src !== zh.src) problems.push(`${at}: the two languages quote differently — the quote stays in the report's own words`);
     if (!zh.gloss || !HAN.test(zh.gloss)) problems.push(`${at} [zh]: no Chinese translation beside the quote`);
     if (en.gloss) problems.push(`${at} [en]: a gloss on the English page — the quote is already in the reader's language`);
+    /* Who was asked travels with what they said: a survey of one tool's users
+       is not a survey of the workforce, and the line must say so. */
+    if (!en.about?.trim() || !zh.about?.trim() || !HAN.test(zh.about)) problems.push(`${at}: no note on whom the finding describes, in both languages`);
   }
   return problems;
 }
 
 function selfTest() {
-  const good = { id: 'x', firm: 'F', title: 'T', date: '2026-08', url: 'https://e.com/r', sha256: 'a'.repeat(64), quotes: [{ text: 'Only 37 percent report EBIT impact.', page: 3 }] };
-  const show = { src: 'x', quote: 'Only 37 percent report EBIT impact.', firm: 'F', title: 'T', date: '2026-08', url: 'https://e.com/r', page: 3 };
+  const good = { id: 'x', firm: 'F', title: 'T', date: '2026-08', url: 'https://e.com/r', sha256: 'a'.repeat(64), kind: 'pdf', quotes: [{ text: 'Only 37 percent report EBIT impact.', page: 3 }] };
+  const show = { src: 'x', quote: 'Only 37 percent report EBIT impact.', firm: 'F', title: 'T', date: '2026-08', url: 'https://e.com/r', page: 3, about: 'A survey of executives.' };
+  const zhShow = { ...show, gloss: '只有 37% 报告了息税前利润影响。', about: '对高管的调查。' };
   const scen = (en, zh) => [{ id: 's', en: { research: en }, zh: { research: zh } }];
   const cases = [
-    ['a clean citation passes', validate([good], scen(show, { ...show, gloss: '只有 37% 报告了息税前利润影响。' })), 0],
-    ['a changed number fails', validate([good], scen({ ...show, quote: 'Only 39 percent report EBIT impact.' }, { ...show, quote: 'Only 39 percent report EBIT impact.', gloss: '译' })), 2],
-    ['a wrong page fails', validate([good], scen({ ...show, page: 4 }, { ...show, page: 4, gloss: '译' })), 2],
-    ['a wrong date fails', validate([good], scen({ ...show, date: '2025' }, { ...show, gloss: '译' })), 1],
-    ['an unregistered source fails', validate([], scen(show, { ...show, gloss: '译' })), 2],
-    ['a missing translation fails', validate([good], scen(show, { ...show })), 1],
+    ['a clean citation passes', validate([good], scen(show, zhShow)), 0],
+    ['a changed number fails', validate([good], scen({ ...show, quote: 'Only 39 percent report EBIT impact.' }, { ...zhShow, quote: 'Only 39 percent report EBIT impact.' })), 2],
+    ['a wrong page fails', validate([good], scen({ ...show, page: 4 }, { ...zhShow, page: 4 })), 2],
+    ['a wrong date fails', validate([good], scen({ ...show, date: '2025' }, zhShow)), 1],
+    ['an unregistered source fails', validate([], scen(show, zhShow)), 2],
+    ['a missing translation fails', validate([good], scen(show, { ...zhShow, gloss: undefined })), 1],
+    ['a missing note on whom it describes fails', validate([good], scen({ ...show, about: '' }, zhShow)), 1],
+    ['a page number on a web page fails', validate([{ ...good, kind: 'page' }], []), 1],
     ['one language only fails', validate([good], [{ id: 's', en: { research: show }, zh: {} }]), 1],
     ['an http url fails', validate([{ ...good, url: 'http://e.com' }], []), 1],
     ['a missing hash fails', validate([{ ...good, sha256: '' }], []), 1],

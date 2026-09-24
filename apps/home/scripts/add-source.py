@@ -125,7 +125,7 @@ def main() -> int:
             print(f'✗ {a.file}: hash {sha[:12]}… is not the file registered ({entry["sha256"][:12]}…)')
         for q in entry['quotes']:
             page = find(q['text'], pages)
-            if page != q['page']:
+            if page is None or (q['page'] is not None and page != q['page']):
                 ok = False
                 print(f'✗ "{q["text"][:60]}…" — registered on p.{q["page"]}, found on {page}')
         print('✓ every registered quote is still in the file' if ok else '')
@@ -148,13 +148,14 @@ def main() -> int:
             failed = True
             print(f'✗ not in the file: "{quote}"\n    closest: {nearest(quote, pages)}')
         else:
-            found.append({'text': quote.strip(), 'page': page})
-            print(f'✓ p.{page}: "{quote[:70]}{"…" if len(quote) > 70 else ""}"')
+            # A web page has no pages: record none rather than a meaningless 1.
+            found.append({'text': quote.strip(), 'page': page if a.file.suffix.lower() == '.pdf' else None})
+            print(f'✓ {"p." + str(page) if a.file.suffix.lower() == ".pdf" else "found"}: "{quote[:70]}{"…" if len(quote) > 70 else ""}"')
     if failed:
         print('\nNothing written. Copy the sentence exactly as printed.'); return 1
 
     record = {'id': a.id, 'firm': a.firm, 'title': a.title, 'date': a.date, 'url': a.url,
-              'sha256': sha, 'pages': len(pages), 'quotes': found}
+              'sha256': sha, 'kind': 'pdf' if a.file.suffix.lower() == '.pdf' else 'page', 'quotes': found}
     if entry:
         known = {q['text'] for q in entry['quotes']}
         record['quotes'] = entry['quotes'] + [q for q in found if q['text'] not in known]

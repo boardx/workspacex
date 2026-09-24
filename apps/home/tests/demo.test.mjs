@@ -168,36 +168,48 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     ok = r.finish() && ok;
   }
 
-  /* ---- a real finding, when one has been read ------------------------- */
-  /* No report is registered yet (the session that built this could not reach
-     the consultancies' sites), so the rendering is proved on a fixture: the
-     demo module is rewritten in transit to give the first scenario a quote,
-     and the page must show it verbatim, translated on /zh/, linked, with its
-     page — and show nothing on a scenario that has none. */
+  /* ---- a report's own sentence, when one has been read ---------------- */
+  /* Each registered finding renders as the register holds it: the sentence
+     (with an ellipsis where it was cut from inside a longer one), the source
+     linked, whom it describes, and on /zh/ a translation marked as one. A
+     PDF source also shows its page; the registered ones are web pages, so
+     that is proved on a fixture injected in transit into a scenario that
+     has no finding — and a scenario with none shows nothing. */
   {
-    const r = reporter(`demo [${lang}] — a report's own sentence, when there is one`);
+    const r = reporter(`demo [${lang}] — a report's own sentence, as registered`);
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await ctx.newPage();
-    const fixture = { src: 'fixture', quote: 'Only 37 percent report EBIT impact.', firm: 'Fixture & Co', title: 'A report', date: '2026-08', url: 'https://example.com/report.pdf', page: 3 };
+    const bare = SCENARIOS.filter((x) => !x.en.research);
+    const fixture = { src: 'fixture', quote: 'Only 37 percent report EBIT impact.', firm: 'Fixture & Co', title: 'A report', date: '2026-08', url: 'https://example.com/report.pdf', page: 3, about: 'A survey of executives.' };
     await page.route('**/assets/js/demo.js', async (route) => {
       const res = await route.fetch();
-      const first = SCENARIOS[0].id;
+      const id = bare[0].id;
       const body = (await res.text())
-        .replace(`id: '${first}',\n    en: {\n`, `id: '${first}',\n    en: {\n      research: ${JSON.stringify(fixture)},\n`)
-        .replace(/(id: '[a-z]+',[\s\S]*?\n    zh: \{\n)/, `$1      research: ${JSON.stringify({ ...fixture, gloss: '只有 37% 报告了影响。' })},\n`);
+        .replace(`id: '${id}',\n    en: {\n`, `id: '${id}',\n    en: {\n      research: ${JSON.stringify(fixture)},\n`)
+        .replace(new RegExp(`(id: '${id}',[\\s\\S]*?\\n    zh: \\{\\n)`), `$1      research: ${JSON.stringify({ ...fixture, gloss: '只有 37% 报告了影响。', about: '对高管的调查。' })},\n`);
       await route.fulfill({ response: res, body });
     });
     await page.goto(base + path, { waitUntil: 'load' });
     await mount(page);
-    const shown = await page.evaluate(() => {
+    const read = () => page.evaluate(() => {
       const f = document.querySelector('.demo__research');
       return f && { quote: f.querySelector('.demo__rquote')?.textContent, gloss: f.querySelector('.demo__rgloss')?.textContent ?? null,
-        href: f.querySelector('a')?.getAttribute('href'), caption: f.querySelector('.demo__rsource')?.textContent };
+        href: f.querySelector('a')?.getAttribute('href'), caption: f.querySelector('.demo__rsource')?.textContent,
+        about: f.querySelector('.demo__rabout')?.textContent };
     });
-    r.check(shown?.quote === `“${fixture.quote}”`, `the quote shown: ${shown?.quote}`);
-    r.check(shown?.href === fixture.url && shown?.caption.includes(fixture.firm) && shown?.caption.includes(fixture.date) && shown?.caption.includes(UI[lang].page(fixture.page)), `the source line: ${JSON.stringify(shown)}`);
-    r.check(lang === 'zh' ? shown?.gloss?.includes('只有 37%') : shown?.gloss === null, `the translation line on /${lang}: ${shown?.gloss}`);
-    await page.click(`.demo__tab[data-scenario="${SCENARIOS[1].id}"]`);
+    for (const s of SCENARIOS.filter((x) => x.en.research)) {
+      const want = s[lang].research;
+      await page.click(`.demo__tab[data-scenario="${s.id}"]`);
+      const got = await read();
+      const q = `${/^[a-z]/.test(want.quote) ? '…' : ''}${want.quote}${/[.!?]$/.test(want.quote) ? '' : '…'}`;
+      r.check(got?.quote === `“${q}”`, `${s.id}: the quote shown — ${got?.quote?.slice(0, 60)}`);
+      r.check(got?.href === want.url && got.caption.includes(want.firm) && got.caption.includes(want.date) && got.about === want.about, `${s.id}: the source line — ${JSON.stringify(got)}`);
+      r.check(lang === 'zh' ? got?.gloss?.includes(want.gloss) : got?.gloss === null, `${s.id}: the translation line on /${lang}: ${got?.gloss}`);
+    }
+    await page.click(`.demo__tab[data-scenario="${bare[0].id}"]`);
+    const fx = await read();
+    r.check(fx?.caption.includes(UI[lang].page(3)), `a PDF source shows its page: ${fx?.caption}`);
+    await page.click(`.demo__tab[data-scenario="${bare[1].id}"]`);
     r.equal(await page.$$eval('.demo__research', (x) => x.length), 0, 'research blocks on a scenario with no registered finding');
     await ctx.close();
     ok = r.finish() && ok;

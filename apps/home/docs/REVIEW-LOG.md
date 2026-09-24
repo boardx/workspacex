@@ -1764,3 +1764,34 @@ same place, so this round built that place, and made it impossible to skip:
 
 `docs/sources/README.md` has the two-minute procedure and the eight reports
 to fetch first, each matched to the scenario it would sit beside.
+
+**Then: other channels.** The owner asked for the data through other
+channels. Mirrors, archives and third-party copies of the blocked pages stay
+out — they are the blocked content by another road. A *different* primary
+source, published by its own authors on a host the policy allows, is not.
+Tested: arXiv, NBER, SSRN, the OECD, the IMF, the BLS, the journals and the
+scholarly indexes are all blocked too. One primary source on AI and work was
+reachable, and reachable raw — no summarizing model in between:
+
+- **Anthropic Economic Index report: Cadences** (26 June 2026). Three
+  sentences registered through `add-source.py`, each found in the page's own
+  text, the file's hash recorded:
+  - *Workforce*: "More than a third of respondents said it was likely or very
+    likely that responsibilities would significantly change … 10% rated
+    losing their own jobs as likely or very likely." — tasks change before
+    jobs, as the scenario argues.
+  - *Frontline expertise*: people with 15+ years of experience put the share
+    of their tasks AI can do about 10 points lower than those in their first
+    year.
+  - *AI-native path (CEO)*: "large majorities of people report productivity
+    gains in speed, scope, and quality of their work (86%, 82%, and 69%,
+    respectively)" — the gains individuals report, which the CEO cannot find
+    in the company's results.
+
+Two things said plainly on the page and here. It is a survey of Claude
+users, and the report itself says its respondents skew toward knowledge
+workers — every quote carries that note, and the gate now requires a note on
+whom a finding describes. And Anthropic makes the model that did this work:
+the owner decides whether a finding from that source belongs on the page.
+The consultancies' reports remain the goal; the register takes them the day
+their files arrive.

@@ -46,6 +46,18 @@ citations.
 If you would rather not do step 3, commit the downloaded files to a branch
 (or send them) and name the sentences — the rest is mechanical.
 
+## Registered so far
+
+| Source | Quotes | Scenarios |
+|---|---|---|
+| Anthropic, *Anthropic Economic Index report: Cadences* (2026-06-26), web page | 3 | Workforce · Frontline expertise · AI-native path |
+
+A web page records no page numbers (`kind: "page"`); a PDF records one per
+quote. Every quote carries a note on whom it describes — this one is a survey
+of Claude users, skewed toward knowledge workers. Anthropic makes the model
+that did the work; whether its research belongs on the page is the owner's
+call.
+
 ## What to fetch first
 
 The leads in `../demo-personas.md`, in the order they would help most, with

@@ -25,6 +25,7 @@ export const SCENARIOS = [
     id: 'workforce',
     en: {
       tab: 'Workforce & skills',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'More than a third of respondents said it was likely or very likely that responsibilities would significantly change (for themselves, a peer, a junior colleague, and a senior colleague). 10% rated losing their own jobs as likely or very likely.', about: 'A survey of Claude users; the report notes its respondents skew toward knowledge workers in stable jobs.' },
       who: 'Head of people',
       ask: '“Is my job safe?” — what do I tell them?',
       role: 'You lead people for a bank’s operations division — 3,000 people.',
@@ -59,6 +60,7 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '人才与组织转型',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'More than a third of respondents said it was likely or very likely that responsibilities would significantly change (for themselves, a peer, a junior colleague, and a senior colleague). 10% rated losing their own jobs as likely or very likely.', gloss: '超过三分之一的受访者认为，自己、同事、下属或上级的职责很可能会大幅改变；认为自己很可能丢掉工作的占 10%。', about: '对 Claude 用户的调查；报告说明，受访者偏向工作稳定的知识工作者。' },
       who: '人力负责人',
       ask: '员工问“饭碗保得住吗”，我怎么答？',
       role: '你负责一家银行运营条线 3,000 人的人力资源。',
@@ -171,6 +173,7 @@ export const SCENARIOS = [
     id: 'native',
     en: {
       tab: 'AI-native enterprise path',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'large majorities of people report productivity gains in speed, scope, and quality of their work (86%, 82%, and 69%, respectively)', about: 'A survey of Claude users; the report notes its respondents skew toward knowledge workers in stable jobs.' },
       who: 'CEO',
       ask: 'We spent on AI. What did it change?',
       role: 'You are the CEO of a 200-person company.',
@@ -205,6 +208,7 @@ export const SCENARIOS = [
     },
     zh: {
       tab: 'AI 原生企业路径',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'large majorities of people report productivity gains in speed, scope, and quality of their work (86%, 82%, and 69%, respectively)', gloss: '……大多数人报告，工作在速度、范围和质量上都有提升（分别为 86%、82% 和 69%）……', about: '对 Claude 用户的调查；报告说明，受访者偏向工作稳定的知识工作者。' },
       who: '老板',
       ask: '钱花在 AI 上，到底改变了什么？',
       role: '你是一家 200 人公司的老板。',
@@ -536,6 +540,7 @@ export const SCENARIOS = [
     id: 'expertise',
     en: {
       tab: 'Frontline expertise',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'People with at least 15 years of experience put that share of tasks AI can do roughly 10 percentage points lower than those in their first year of work.', about: 'A survey of Claude users; the report notes its respondents skew toward knowledge workers in stable jobs.' },
       who: 'Plant manager',
       ask: 'My best technicians retire soon. What leaves with them?',
       role: 'You run a plant that makes precision parts — 450 people.',
@@ -570,6 +575,7 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '老师傅经验传承',
+      research: { src: 'anthropic-economic-index-2026-06', firm: 'Anthropic', title: 'Anthropic Economic Index report: Cadences', date: '2026-06-26', url: 'https://www.anthropic.com/research/economic-index-june-2026-report', page: null, quote: 'People with at least 15 years of experience put that share of tasks AI can do roughly 10 percentage points lower than those in their first year of work.', gloss: '工作 15 年以上的人估计 AI 能替他们完成的任务比例，比入职第一年的人低约 10 个百分点。', about: '对 Claude 用户的调查；报告说明，受访者偏向工作稳定的知识工作者。' },
       who: '厂长',
       ask: '老师傅要退休了，本事怎么留下？',
       role: '你负责一家精密零部件工厂，450 人。',
@@ -811,13 +817,17 @@ const tag = (i) => `S${i + 1}`;
    own file; check-citations.mjs holds these fields to that register. */
 function researchBlock(r, ui, lang) {
   if (!r) return null;
+  /* Cut from inside a sentence, a quote says so: an ellipsis where the
+     printed sentence goes on. */
+  const q = `${/^[a-z]/.test(r.quote) ? '…' : ''}${r.quote}${/[.!?]$/.test(r.quote) ? '' : '…'}`;
   return el('figure', { class: 'demo__research' },
     el('p', { class: 'demo__kicker', text: ui.research }),
-    el('blockquote', { class: 'demo__rquote', lang: /[\u4e00-\u9fff]/.test(r.quote) ? 'zh-CN' : 'en', text: `“${r.quote}”` }),
+    el('blockquote', { class: 'demo__rquote', lang: /[\u4e00-\u9fff]/.test(r.quote) ? 'zh-CN' : 'en', text: `“${q}”` }),
     r.gloss ? el('p', { class: 'demo__rgloss', text: `${ui.gloss}${r.gloss}` }) : null,
     el('figcaption', { class: 'demo__rsource' },
       el('a', { href: r.url, rel: 'noopener', text: `${r.firm} · ${r.title}` }),
-      ` · ${r.date} · ${ui.page(r.page)}`));
+      ` · ${r.date}${r.page ? ` · ${ui.page(r.page)}` : ''}`,
+      el('span', { class: 'demo__rabout', text: r.about })));
 }
 
 export function initDemo(host) {

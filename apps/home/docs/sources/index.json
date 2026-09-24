@@ -1,1 +1,25 @@
-[]
+[
+  {
+    "id": "anthropic-economic-index-2026-06",
+    "firm": "Anthropic",
+    "title": "Anthropic Economic Index report: Cadences",
+    "date": "2026-06-26",
+    "url": "https://www.anthropic.com/research/economic-index-june-2026-report",
+    "sha256": "edd56f33d42ab4b562b9b2bf3829eb1035ac9b846009e1d47904e8dd96f429d7",
+    "kind": "page",
+    "quotes": [
+      {
+        "text": "More than a third of respondents said it was likely or very likely that responsibilities would significantly change (for themselves, a peer, a junior colleague, and a senior colleague). 10% rated losing their own jobs as likely or very likely.",
+        "page": null
+      },
+      {
+        "text": "People with at least 15 years of experience put that share of tasks AI can do roughly 10 percentage points lower than those in their first year of work.",
+        "page": null
+      },
+      {
+        "text": "large majorities of people report productivity gains in speed, scope, and quality of their work (86%, 82%, and 69%, respectively)",
+        "page": null
+      }
+    ]
+  }
+]
