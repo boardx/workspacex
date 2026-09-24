@@ -65,10 +65,11 @@ export function importPreview(input: C.ImportBoardInput): C.ImportBoardPreview {
     connectorCount: objects.filter(o => o.kind === 'connector').length,
     identitiesRemapped: objects.length,
     contentLosses: [],
+    quality: C.completeImportQuality(objects.map(object => object.id)),
   });
 }
 export function canonicalImportHash(input: C.ImportBoardInput): string {
-  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+  return createHash('sha256').update(C.canonicalJson(input)).digest('hex');
 }
 export function batchRequestId(requestId: string, index: number): string {
   const hex = createHash('sha256').update(`${requestId}:${index}`).digest('hex').slice(0, 32);

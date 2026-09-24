@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { whiteboardTransfer as C } from '@repo/contracts';
 import { importPreview, parsePortableImport, remapPortableObjects } from '../../src/application/whiteboard/portable-board';
 import { WhiteboardTransferError } from '../../src/application/whiteboard/transfer-ports';
 
@@ -10,7 +11,10 @@ const objects = [
   { id:'note',schemaVersion:1 as const,kind:'sticky' as const,geometry,text:'Idea',style:{fill:'#fff'},parentId:'group',orderKey:'c' },
   { id:'line',schemaVersion:1 as const,kind:'connector' as const,geometry,text:'',style:{},parentId:null,orderKey:'d',connector:{from:'frame',to:'note'} },
 ];
-const input = (items: unknown = objects) => ({ requestId:randomUUID(),package:{format:'workspacex.board',schemaVersion:1,exportedAt:new Date().toISOString(),source:{application:'WorkspaceX',boardId:randomUUID(),name:'Portable'},objects:items,provenance:{objectCount:Array.isArray(items)?items.length:0,contentModel:'whiteboard-object.v1'}} });
+const input = (items: unknown = objects) => {
+  const payload={format:'workspacex.board' as const,schemaVersion:1 as const,source:{application:'WorkspaceX' as const,boardId:randomUUID(),name:'Portable'},objects:items};
+  return { requestId:randomUUID(),package:{...payload,manifest:{algorithm:'sha256' as const,payloadDigest:C.sha256Hex(C.canonicalJson(payload)),objectCount:Array.isArray(items)?items.length:0,contentModel:'whiteboard-object.v1' as const}} };
+};
 
 describe('portable board validate-first import', () => {
   it('remaps every identity and all parent/connector references without losing extension data', () => {
@@ -21,7 +25,7 @@ describe('portable board validate-first import', () => {
     expect(mapped.find(o=>o.id==='new-note')?.parentId).toBe('new-group');
     expect(mapped.find(o=>o.kind==='connector')?.connector).toEqual({from:'new-frame',to:'new-note'});
     expect(mapped[0]?.extensionData).toEqual(objects[0]!.extensionData);
-    expect(importPreview(parsed)).toMatchObject({objectCount:4,frameCount:1,groupCount:1,connectorCount:1,identitiesRemapped:4,contentLosses:[]});
+    expect(importPreview(parsed)).toMatchObject({objectCount:4,frameCount:1,groupCount:1,connectorCount:1,identitiesRemapped:4,contentLosses:[],quality:{complete:{count:4,sampleSourceIds:['frame','group','line','note']}}});
   });
   it('rejects dangling, cyclic and duplicate references before any write', () => {
     for (const invalid of [
