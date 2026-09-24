@@ -27,7 +27,10 @@ describe('whiteboard diagram import contract', () => {
     expect(ImportDiagramInput.parse({
       requestId: 'c6072f71-7f41-45f4-b228-f47f709e9819',
       acceptedLosses: [],
-      sourceRef: { threadId: 'thread', messageId: 'message', blockId: 'block', kind: 'mermaid' },
+      sourceRef: {
+        threadId: 'thread', messageId: 'message', kind: 'mermaid',
+        blockId: 'a'.repeat(64), sourceHash: 'b'.repeat(64), sourceVersion: `sha256:${'b'.repeat(64)}`,
+      },
       bundle,
     }).bundle).toEqual(bundle);
   });
