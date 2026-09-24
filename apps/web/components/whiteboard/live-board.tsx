@@ -13,7 +13,7 @@ import { DiscussionPanel } from './discussion-panel';
 import { BoardTransferControls } from './board-transfer-controls';
 import { RoomPresenterControls } from './room-presenter-controls';
 import { publishRoomViewport } from '@/lib/live-whiteboard-room';
-import {isAuthoritativeRoomEnd,persistPresenterSession} from '@/lib/whiteboard-room-session';
+import {clearPresenterSession,isAuthoritativeRoomEnd} from '@/lib/whiteboard-room-session';
 import { whiteboard as WhiteboardContract } from '@repo/contracts';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
 export function LiveBoard({ boardId }: { boardId: string }) {
@@ -30,7 +30,7 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const setActiveRoom=useCallback((value:string|null)=>{if(value===null&&viewportTimer.current){window.clearTimeout(viewportTimer.current);viewportTimer.current=null;}roomSessionRef.current=value;setRoomSession(value);},[]);
   const presenterScope=useMemo(()=>session?.session?.currentOrgId&&session.session.userId?{boardId,orgId:session.session.currentOrgId,userId:session.session.userId}:null,[boardId,session?.session?.currentOrgId,session?.session?.userId]);
   const presenterScopeRef=useRef(presenterScope);presenterScopeRef.current=presenterScope;
-  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active||!presenterScope)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{if(roomSessionRef.current!==active||presenterScopeRef.current!==presenterScope)return;void publishRoomViewport(boardId,active,value).catch(cause=>{if(isAuthoritativeRoomEnd(cause)){persistPresenterSession(presenterScope,null);setActiveRoom(null);}});},120);},[boardId,presenterScope,setActiveRoom]);
+  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active||!presenterScope)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{if(roomSessionRef.current!==active||presenterScopeRef.current!==presenterScope)return;void publishRoomViewport(boardId,active,value).catch(cause=>{if(roomSessionRef.current!==active||presenterScopeRef.current!==presenterScope)return;if(isAuthoritativeRoomEnd(cause)){clearPresenterSession(presenterScope,active);setActiveRoom(null);}});},120);},[boardId,presenterScope,setActiveRoom]);
   useEffect(() => {
     let active = true; const document = createWhiteboardDocument(); let provider: WhiteboardProvider | undefined;
     setSelection([]); setDoc(null); setBoard(null); setFailed(false); setState(initial);

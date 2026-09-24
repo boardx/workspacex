@@ -43,7 +43,15 @@ export function restorePresenterSession(scope:PresenterScope) {
 }
 
 export function persistPresenterSession(scope:PresenterScope,sessionId:string|null) {
-  if(sessionId)write(PRESENTER_KEY,JSON.stringify({...scope,sessionId}));else remove(PRESENTER_KEY);
+  if(sessionId)write(PRESENTER_KEY,JSON.stringify({...scope,sessionId}));else clearPresenterSession(scope);
+}
+
+export function clearPresenterSession(scope:PresenterScope,sessionId?:string) {
+  try{
+    const raw=storage()?.getItem(PRESENTER_KEY);if(!raw)return;
+    const value=JSON.parse(raw) as Partial<PresenterScope>&{sessionId?:unknown};
+    if(value.boardId===scope.boardId&&value.orgId===scope.orgId&&value.userId===scope.userId&&(!sessionId||value.sessionId===sessionId))remove(PRESENTER_KEY);
+  }catch{/* malformed storage is not owned by this scoped delete */}
 }
 
 export function isAuthoritativeRoomEnd(error:unknown) {

@@ -1,15 +1,17 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { WhiteboardConnectionState } from '@/lib/whiteboard-provider';
+import {ApiError} from '@/lib/api-client';
 
-const mocks=vi.hoisted(()=>({push:vi.fn(),getBoard:vi.fn(),requestRecovery:vi.fn(),discard:vi.fn(),callback:null as null|((state:WhiteboardConnectionState)=>void)}));
+const mocks=vi.hoisted(()=>({push:vi.fn(),getBoard:vi.fn(),requestRecovery:vi.fn(),discard:vi.fn(),publishViewport:vi.fn(),callback:null as null|((state:WhiteboardConnectionState)=>void),roomOnSession:null as null|((sessionId:string|null)=>void),viewport:null as null|((value:{x:number;y:number;zoom:number})=>void),session:{userId:'user-1',currentOrgId:'org-one'}}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push:mocks.push})}));
 vi.mock('@/lib/live-whiteboard',()=>({getBoard:mocks.getBoard,requestQuarantineRecovery:mocks.requestRecovery}));
-vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:{userId:'user-1',currentOrgId:'org-one'}})}));
-vi.mock('@/components/whiteboard/collaborative-editor',()=>({CollaborativeEditor:({status}:{status:string})=><div data-testid="editor-status">{status}</div>}));
+vi.mock('@/components/session/session-provider',()=>({useOptionalSession:()=>({session:mocks.session})}));
+vi.mock('@/components/whiteboard/collaborative-editor',()=>({CollaborativeEditor:({status,onViewportChange}:{status:string;onViewportChange?:(value:{x:number;y:number;zoom:number})=>void})=>{mocks.viewport=onViewportChange??null;return <div data-testid="editor-status">{status}</div>;}}));
 vi.mock('@/components/whiteboard/workshop-panel',()=>({WorkshopPanel:()=>null}));
-vi.mock('@/components/whiteboard/room-presenter-controls',()=>({RoomPresenterControls:()=>null}));
+vi.mock('@/components/whiteboard/room-presenter-controls',()=>({RoomPresenterControls:({onSession}:{onSession:(sessionId:string|null)=>void})=>{mocks.roomOnSession=onSession;return null;}}));
 vi.mock('@/components/whiteboard/board-transfer-controls',()=>({BoardTransferControls:()=>null}));
+vi.mock('@/lib/live-whiteboard-room',()=>({publishRoomViewport:mocks.publishViewport}));
 vi.mock('@/lib/whiteboard-provider',()=>({WhiteboardProvider:class{constructor(_doc:unknown,_board:string,callback:(state:WhiteboardConnectionState)=>void){mocks.callback=callback;}close(){}awareness(){}discardQuarantine=mocks.discard;}}));
 
 import { LiveBoard } from '@/components/whiteboard/live-board';
@@ -17,7 +19,7 @@ import { LiveBoard } from '@/components/whiteboard/live-board';
 const base:WhiteboardConnectionState={phase:'online',pending:0,quarantined:0,quarantineReceipts:[],role:'owner',archived:false,peers:[],reason:null};
 const receipt={boardId:'11111111-1111-4111-8111-111111111111',orgId:'org-one',principalId:'user-1',sessionId:'a'.repeat(64),epoch:1,receiptId:'22222222-2222-4222-8222-222222222222',accessReceiptId:'44444444-4444-4444-8444-444444444444',reason:'ACCESS_DENIED',quarantinedAt:'2026-09-24T00:00:00.000Z',pendingCount:3,pendingBytes:12};
 
-beforeEach(()=>{mocks.push.mockReset();mocks.getBoard.mockReset().mockResolvedValue({id:receipt.boardId,name:'Board',ownerId:'user-1',role:'owner',archived:false,createdAt:receipt.quarantinedAt,updatedAt:receipt.quarantinedAt});mocks.requestRecovery.mockReset().mockResolvedValue({requestId:'33333333-3333-4333-8333-333333333333',status:'pending-review',createdAt:receipt.quarantinedAt});mocks.discard.mockReset().mockResolvedValue(true);mocks.callback=null;});
+beforeEach(()=>{mocks.push.mockReset();mocks.getBoard.mockReset().mockResolvedValue({id:receipt.boardId,name:'Board',ownerId:'user-1',role:'owner',archived:false,createdAt:receipt.quarantinedAt,updatedAt:receipt.quarantinedAt});mocks.requestRecovery.mockReset().mockResolvedValue({requestId:'33333333-3333-4333-8333-333333333333',status:'pending-review',createdAt:receipt.quarantinedAt});mocks.discard.mockReset().mockResolvedValue(true);mocks.publishViewport.mockReset();mocks.callback=null;mocks.roomOnSession=null;mocks.viewport=null;mocks.session={userId:'user-1',currentOrgId:'org-one'};sessionStorage.clear();});
 
 it('arms beforeunload as soon as provider reports an in-memory pending edit',async()=>{
   render(<LiveBoard boardId={receipt.boardId}/>);await waitFor(()=>expect(mocks.callback).not.toBeNull());
@@ -46,4 +48,13 @@ it('keeps legacy quarantine data discard-only when no server access proof exists
   expect(await screen.findByText('此数据来自旧版离线存储，无法验证访问凭证，只能永久丢弃。')).toBeVisible();
   expect(screen.queryByRole('button',{name:'申请组织恢复'})).not.toBeInTheDocument();
   expect(screen.getByRole('button',{name:'永久丢弃'})).toBeVisible();
+});
+
+it('does not let a late principal-A publish failure clear principal-B room storage',async()=>{
+  let rejectPublish:(reason:unknown)=>void=()=>undefined;const pending=new Promise((_resolve,reject)=>{rejectPublish=reject;});mocks.publishViewport.mockReturnValueOnce(pending);
+  const view=render(<LiveBoard boardId={receipt.boardId}/>);await waitFor(()=>expect(mocks.roomOnSession).not.toBeNull());act(()=>mocks.callback?.(base));
+  const sessionA='11111111-1111-4111-8111-111111111111',sessionB='33333333-3333-4333-8333-333333333333';act(()=>mocks.roomOnSession?.(sessionA));await waitFor(()=>expect(mocks.viewport).not.toBeNull());act(()=>mocks.viewport?.({x:1,y:2,zoom:1.1}));await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledWith(receipt.boardId,sessionA,{x:1,y:2,zoom:1.1}));
+  mocks.session={userId:'user-2',currentOrgId:'org-one'};view.rerender(<LiveBoard boardId={receipt.boardId}/>);await waitFor(()=>expect(mocks.roomOnSession).not.toBeNull());act(()=>mocks.roomOnSession?.(sessionB));sessionStorage.setItem('wsx.board.presenter.active',JSON.stringify({boardId:receipt.boardId,orgId:'org-one',userId:'user-2',sessionId:sessionB}));
+  rejectPublish(new ApiError(404,null,null));await act(async()=>{await pending.catch(()=>undefined);});
+  expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionB);
 });
