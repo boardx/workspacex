@@ -28,6 +28,7 @@ const noLog = () => undefined;
 const recall = (query: string, p: KnowledgeRecallPort = port) =>
   recallThreadKnowledge(p, { orgId: toOrgId(ORG), userId: "u-owner", threadId: T1, query }, noLog);
 const graphDown: () => KnowledgeRecallPort = () => ({
+  recordTurn: async () => undefined,
   candidates: (...a) => port.candidates(...a),
   graphNeighbors: async () => { throw new Error("KG_GRAPH_UNAVAILABLE: simulated"); },
 });
@@ -105,7 +106,7 @@ describe("F08: 记忆真的进了模型的输入（executeQueuedRuns）", () => 
     const memory = (call.history ?? []).find((m) => m.content.startsWith("【记忆】"));
     expect(memory?.content).toContain("张三决定下周一上线 v2");
 
-    const broken: KnowledgeRecallPort = { candidates: async () => { throw new Error("db down"); }, graphNeighbors: async () => [] };
+    const broken: KnowledgeRecallPort = { recordTurn: async () => undefined, candidates: async () => { throw new Error("db down"); }, graphNeighbors: async () => [] };
     const call2 = await runOnce("run-kg-f08-2", broken);
     expect((call2.history ?? []).some((m) => m.content.startsWith("【记忆】"))).toBe(false);
   });

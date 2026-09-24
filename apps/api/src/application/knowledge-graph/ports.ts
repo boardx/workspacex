@@ -7,7 +7,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
-import type { GraphHit, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -172,6 +172,22 @@ export interface KnowledgeRecallPort {
   }>;
   /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
   graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+  /** F13：记下这一轮用到了哪些记忆（只存 id 与召回理由），回答下方的引用从这里读。 */
+  recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void>;
+}
+
+export interface TurnRecallRecord {
+  readonly runId: string;
+  readonly threadId: string;
+  readonly userId: string;
+  readonly items: readonly {
+    readonly claimId: string;
+    readonly channels: readonly string[];
+    readonly retrievalReasons: readonly string[];
+    readonly score: number;
+    readonly graphPath: readonly GraphHop[] | null;
+  }[];
+  readonly graphDegraded: boolean;
 }
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");

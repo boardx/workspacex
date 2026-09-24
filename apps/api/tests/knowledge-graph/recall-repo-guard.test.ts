@@ -22,9 +22,9 @@ const callersOf = (re: RegExp) => walk(join(API, "src"))
   .map((f) => relative(API, f)).sort();
 
 describe("F08 会话记忆召回读取的豁免前提", () => {
-  it("(a) 只出现五张租户表（外加只回 id 的 kg_graph_neighbors）", () => {
-    const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
-    for (const t of ["claims", "claim_message_evidence", "chat_messages", "ontology_objects", "ontology_edges", "kg_graph_neighbors"]) tables.delete(t);
+  it("(a) 只出现五张读的租户表 + 一张只写的 kg_turn_recalls（外加只回 id 的 kg_graph_neighbors）", () => {
+    const tables = new Set([...code.matchAll(/(?<!FOR\s)(?<!DO\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
+    for (const t of ["claims", "claim_message_evidence", "chat_messages", "ontology_objects", "ontology_edges", "kg_graph_neighbors", "kg_turn_recalls"]) tables.delete(t);
     expect([...tables]).toEqual([]);
   });
 
@@ -52,5 +52,12 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(callersOf(/(?<!function )knowledgeMemoryFor\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
     expect(exec).toMatch(/knowledgeMemoryFor\(deps\.knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}/);
+  });
+
+  it("(e) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {
+    const uses = [...code.matchAll(/kg_turn_recalls/g)];
+    expect(uses).toHaveLength(1);
+    expect(code).toMatch(/INSERT INTO kg_turn_recalls \(run_id, org_id, thread_id, requester_user_id, items, graph_degraded\)/);
+    expect(code).not.toMatch(/FROM kg_turn_recalls|JOIN kg_turn_recalls|UPDATE kg_turn_recalls/);
   });
 });

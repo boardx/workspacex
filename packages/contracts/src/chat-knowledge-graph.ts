@@ -19,7 +19,7 @@
  * - `ClaimStatus` 五值。直接复用 `context-pack.ts` 的 `ClaimStatus`，**不建第二份**。
  */
 import { z } from "zod";
-import { ClaimStatus } from "./context-pack";
+import { ClaimStatus, FilterAction, RetrievalChannel } from "./context-pack";
 
 type ClaimStatusValue = z.infer<typeof ClaimStatus>;
 
@@ -266,6 +266,25 @@ export const KgMemoryCard = z.object({
 }).strict();
 export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
 
+/**
+ * 本轮回答用到的一条记忆（uc-18-2 R8 引用 chip 与「为什么用到它」、uc-18-4 R3-6「来自你 {日期} 的对话」）。
+ * 读取时按查看者重新过滤：只返回现在仍然有效、且查看者本人看得到的条目。
+ * `graphPath` 是召回实际走过的边，端点已换成可读名字；任何一端对查看者不可见时整条为 null。
+ */
+export const KgRecalledMemory = z.object({
+  claimId: z.string(),
+  statement: z.string(),
+  triState: KgTriState,
+  scope: z.enum(["chat_session", "personal"]),
+  /** 这条最早被说出来的时间（ISO）；个人空间的条目界面显示为「来自你 {日期} 的对话」 */
+  saidAt: z.string().nullable(),
+  channels: z.array(RetrievalChannel),
+  retrievalReasons: z.array(FilterAction),
+  score: z.number(),
+  graphPath: z.array(z.object({ from: z.string(), relation: KgRelation, to: z.string() }).strict()).nullable(),
+}).strict();
+export type KgRecalledMemory = z.infer<typeof KgRecalledMemory>;
+
 /** U-1 回答下方的单行「已记下 N 条 · 查看 · 撤销」，加上本轮的主动卡片（最多一张，E8） */
 export const KgTurnMemory = z.object({
   messageId: z.string(),
@@ -276,6 +295,10 @@ export const KgTurnMemory = z.object({
     z.object({ type: z.literal("conflict"), conflict: KgConflictPrompt }).strict(),
     z.object({ type: z.literal("memory_card"), card: KgMemoryCard }).strict(),
   ]).nullable(),
+  /** 本轮回答用到的记忆（按召回名次）；没用到记忆时为空数组 */
+  recalled: z.array(KgRecalledMemory),
+  /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
+  recallDegraded: z.boolean(),
 }).strict();
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 

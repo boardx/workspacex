@@ -8,7 +8,7 @@
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { KnowledgeRecallPort } from "../../application/knowledge-graph/ports";
+import type { KnowledgeRecallPort, TurnRecallRecord } from "../../application/knowledge-graph/ports";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 import type { OrgId } from "../../domain/org-id";
 
@@ -74,5 +74,15 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       const path: GraphHop[] = rels.map((relation, i) => ({ src: nodes[i]!, relation, dst: nodes[i + 1]! }));
       return { claimId: stripKind(row.claim_key), path };
     });
+  }
+
+  /** F13：一个 run 一行，重试覆盖。只写本 run 自己的 id（调用方是执行器，run 已受理）。 */
+  async recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void> {
+    await this.db.withTenant(orgId, (s) => s.query(
+      `INSERT INTO kg_turn_recalls (run_id, org_id, thread_id, requester_user_id, items, graph_degraded)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+       ON CONFLICT (run_id) DO UPDATE SET items = EXCLUDED.items, graph_degraded = EXCLUDED.graph_degraded, created_at = now()`,
+      [record.runId, orgId, record.threadId, record.userId, JSON.stringify(record.items), record.graphDegraded],
+    ));
   }
 }

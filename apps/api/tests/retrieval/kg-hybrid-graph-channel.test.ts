@@ -57,7 +57,7 @@ describe("F08: 图路 + 字面混合", () => {
   });
 
   it("关掉图路，结果集仍然合理（字面照样找到那条决定），计划里图路标为不可用", async () => {
-    const noGraph: KnowledgeRecallPort = { candidates: (...a) => port.candidates(...a), graphNeighbors: async () => { throw new Error("KG_GRAPH_UNAVAILABLE"); } };
+    const noGraph: KnowledgeRecallPort = { recordTurn: async () => undefined, candidates: (...a) => port.candidates(...a), graphNeighbors: async () => { throw new Error("KG_GRAPH_UNAVAILABLE"); } };
     const r = await recall("v2 是谁定的？", noGraph);
     expect(r.items[0]?.claim.statement).toBe("张三决定下周一上线 v2");
     expect(r.items.every((i) => !i.channels.includes("graph"))).toBe(true);
@@ -67,6 +67,7 @@ describe("F08: 图路 + 字面混合", () => {
   it("图里是全 org 的 id：别的会话的结论即使出现在图邻域里，也不会被召回（回候选集求交）", async () => {
     const other = await port.candidates(toOrgId(ORG), "u-owner", T2);
     const leaky: KnowledgeRecallPort = {
+      recordTurn: async () => undefined,
       candidates: (...a) => port.candidates(...a),
       graphNeighbors: async (o, seeds) => [
         ...(await port.graphNeighbors(o, seeds)),
