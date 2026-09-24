@@ -22,6 +22,12 @@
  * 「以新的为准」取代了共用的旧条……）⇒ 触发器 `kg_conflict_close_on_change` 把这张卡（开着的或被忽略的）
  * 记为 closed_by_change，另一条若已没有别的未了结冲突，就从 contested 放回去（有人确认过 ⇒ accepted，否则 proposed），
  * 可以重新确认、晋升。放在数据库触发器里，是因为改动的来路不止一条，任何一条漏了都会把另一条永远卡在冲突里。
+ * **触发器从不等锁**：它跑在一条结论的 UPDATE 里（已持有那一行，通常还有本会话锁），这时再去**等**别的会话的锁 /
+ * 个人空间锁 / 另一行，就把「会话锁 → 个人空间锁 → 行」的顺序倒过来了，跨会话会死锁（同一条个人空间结论可以是
+ * 所有者好几个个人线程里的卡的旧条）。所以触发器里一律「试一下」：锁都能立刻拿到（本事务已持有的 advisory lock
+ * 可重入，照样立刻拿到）⇒ 当场结束；有一样拿不到 ⇒ 把卡 id 放进 `kg_conflict_close_queue` 就返回。
+ * 队列由抽取 worker 的每一轮 tick 排空（`kg_conflict_close_drain()`，一次一张卡、一张卡一个事务，按
+ * 会话锁 → 个人空间锁 → 行的正常顺序等锁，再判一遍、结束、放回），可重复执行。
  * ⚠ 放回去的判据只看这张表：同一条结论如果还被 F10 的「标冲突」手工标过（那一对不在这张表里），也会被放回——
  *   标冲突的另一条通常就是这里的另一条，接受这个近似。
  *
@@ -59,19 +65,25 @@ CREATE TABLE IF NOT EXISTS kg_conflict_prompts (
 );
 CREATE INDEX IF NOT EXISTS kg_conflict_prompts_message_idx ON kg_conflict_prompts (org_id, message_id, rank);
 CREATE INDEX IF NOT EXISTS kg_conflict_prompts_pair_idx ON kg_conflict_prompts (org_id, older_claim_id, newer_key);
+-- 触发器按「这条结论在哪些卡里」找卡：旧条走上面的索引，新条走这一条。
+CREATE INDEX IF NOT EXISTS kg_conflict_prompts_newer_idx ON kg_conflict_prompts (org_id, newer_claim_id);
 
 ALTER TABLE kg_conflict_prompts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kg_conflict_prompts FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS kg_conflict_prompts_tenant ON kg_conflict_prompts;
+-- 表属主例外（同 F02 kg_is_table_owner 的约定）：结束冲突的触发器 / 队列排空以属主身份运行，云上的属主角色
+-- 不是超级用户、没有 BYPASSRLS（FORCE RLS 对它生效）；没有租户上下文的级联（例如按 org 的清理）里它也要看得到卡。
+-- 这些 SECURITY DEFINER 函数自己按 org_id 限定每一条语句。app_rw 不是属主角色的成员，例外对它不成立。
 CREATE POLICY kg_conflict_prompts_tenant ON kg_conflict_prompts
-  USING (org_id = current_setting('app.current_org', true))
-  WITH CHECK (org_id = current_setting('app.current_org', true));
+  USING (org_id = current_setting('app.current_org', true) OR (SELECT public.kg_is_table_owner()))
+  WITH CHECK (org_id = current_setting('app.current_org', true) OR (SELECT public.kg_is_table_owner()));
 -- 可见性跟随两条结论（子查询受 claims 的个人空间策略约束）：旧条在所有者个人空间里时，
 -- 会话的其他成员连这张卡存在都看不到（I-14）。
 DROP POLICY IF EXISTS kg_conflict_prompts_claims_visible ON kg_conflict_prompts;
 CREATE POLICY kg_conflict_prompts_claims_visible ON kg_conflict_prompts AS RESTRICTIVE
-  USING (EXISTS (SELECT 1 FROM claims c WHERE c.id = newer_claim_id AND c.org_id = kg_conflict_prompts.org_id)
-     AND EXISTS (SELECT 1 FROM claims c WHERE c.id = older_claim_id AND c.org_id = kg_conflict_prompts.org_id));
+  USING ((SELECT public.kg_is_table_owner())
+      OR (EXISTS (SELECT 1 FROM claims c WHERE c.id = newer_claim_id AND c.org_id = kg_conflict_prompts.org_id)
+          AND EXISTS (SELECT 1 FROM claims c WHERE c.id = older_claim_id AND c.org_id = kg_conflict_prompts.org_id)));
 -- 只读：开卡与处理都经下面的 SECURITY DEFINER 函数。
 REVOKE ALL ON kg_conflict_prompts FROM app_rw;
 GRANT SELECT ON kg_conflict_prompts TO app_rw;
@@ -378,72 +390,136 @@ END
 $$;
 
 -- ─────────────────────────────── 一对里有一条在别处变了 ⇒ 冲突结束 ───────────────────────────────
--- 结论变成失效（revoked_at）或被取代（superseded）时：它所在的、还开着 / 被忽略的卡记为 closed_by_change；
--- 另一条若是 contested、且没有别的未了结的卡（另一端还活着）让它继续冲突，就放回 accepted（有人确认过）/ proposed。
--- 锁顺序同 F10 / F11：先会话、后个人空间（调用方多半已持有会话锁，advisory lock 可重入）。
--- 审计：会话作用域记一条 closeConflict（只带会话里的 id）；个人空间的结论在它自己的作用域另记一条。
--- 没有租户上下文（app.current_org 不是这个 org）时不写审计——不能因为记不了审计就让删除本身失败；卡上的状态照样改。
+-- 触发器拿不到锁时的待办：只放卡 id。不设唯一约束——唯一约束下两个事务同时放同一张卡，后一个会**等**前一个提交，
+-- 触发器就又会等了。重复的行无害：排空按卡去重，处理过的卡再处理是空操作。
+CREATE TABLE IF NOT EXISTS kg_conflict_close_queue (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  org_id      text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
+  prompt_id   text NOT NULL REFERENCES kg_conflict_prompts (id) ON DELETE CASCADE,
+  enqueued_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS kg_conflict_close_queue_org_idx ON kg_conflict_close_queue (org_id, id);
+ALTER TABLE kg_conflict_close_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kg_conflict_close_queue FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS kg_conflict_close_queue_tenant ON kg_conflict_close_queue;
+CREATE POLICY kg_conflict_close_queue_tenant ON kg_conflict_close_queue
+  USING (org_id = current_setting('app.current_org', true) OR (SELECT public.kg_is_table_owner()))
+  WITH CHECK (org_id = current_setting('app.current_org', true) OR (SELECT public.kg_is_table_owner()));
+-- 写入与删除只经下面的 SECURITY DEFINER 函数；app_rw 只能看（排障）。
+REVOKE ALL ON kg_conflict_close_queue FROM app_rw;
+GRANT SELECT ON kg_conflict_close_queue TO app_rw;
+
+-- 在调用方已经拿好锁（会话锁、需要时的个人空间锁、卡这一行、另一条这一行）之后结束一张卡：
+-- 记 closed_by_change；另一条若是 contested、且没有别的未了结的卡（另一端还活着）让它继续冲突，就放回
+-- accepted（有人确认过）/ proposed；记审计。本函数自己不拿任何锁（UPDATE 的都是调用方已锁住的行）。
+-- 审计：会话作用域一条 closeConflict（只带会话里的 id），个人空间的结论在它自己的作用域另记一条。
+-- 没有租户上下文（app.current_org 不是这个 org）时不写审计、revision 也就不动：那种调用来自系统级清理，
+-- 没有哪个客户端拿着这次的 revision；卡与结论的状态照样改（属主例外让这里看得到卡），面板下次读到的就是新状态。
+CREATE OR REPLACE FUNCTION kg_conflict_close_locked(p_prompt_id text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  v_p       record;
+  v_newer   record;
+  v_older   record;
+  v_dead    record;
+  v_partner record;
+  v_audit   boolean;
+BEGIN
+  SELECT * INTO v_p FROM public.kg_conflict_prompts p WHERE p.id = p_prompt_id AND p.status IN ('open', 'ignored');
+  IF NOT FOUND THEN RETURN false; END IF;
+  SELECT * INTO v_newer FROM public.claims c WHERE c.org_id = v_p.org_id AND c.id = v_p.newer_claim_id;
+  SELECT * INTO v_older FROM public.claims c WHERE c.org_id = v_p.org_id AND c.id = v_p.older_claim_id;
+  -- 哪一条变了：失效的那条；两条都还活着 ⇒ 这张卡没什么可结束的
+  IF v_newer.revoked_at IS NOT NULL OR v_newer.status = 'superseded' THEN
+    v_dead := v_newer; v_partner := v_older;
+  ELSIF v_older.revoked_at IS NOT NULL OR v_older.status = 'superseded' THEN
+    v_dead := v_older; v_partner := v_newer;
+  ELSE
+    RETURN false;
+  END IF;
+  v_audit := current_setting('app.current_org', true) IS NOT DISTINCT FROM v_p.org_id;
+
+  UPDATE public.kg_conflict_prompts SET status = 'closed_by_change', resolved_at = now(), resolved_by = NULL WHERE id = v_p.id;
+  UPDATE public.claims c
+     SET status = CASE WHEN c.reviewed_by IS NOT NULL THEN 'accepted' ELSE 'proposed' END, updated_at = now()
+   WHERE c.org_id = v_p.org_id AND c.id = v_partner.id AND c.status = 'contested' AND c.revoked_at IS NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM public.kg_conflict_prompts x
+         JOIN public.claims o ON o.org_id = x.org_id
+                             AND o.id = CASE WHEN x.newer_claim_id = v_partner.id THEN x.older_claim_id ELSE x.newer_claim_id END
+        WHERE x.org_id = v_p.org_id AND x.status IN ('open', 'ignored')
+          AND (x.newer_claim_id = v_partner.id OR x.older_claim_id = v_partner.id)
+          AND o.revoked_at IS NULL AND o.status <> 'superseded');
+
+  IF v_audit THEN
+    INSERT INTO public.ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
+    VALUES ('kgclose-' || v_p.id, v_p.org_id, 'chat_session', v_p.thread_id, 'system', 'kg-conflict-detector', 'closeConflict',
+            jsonb_build_object('prompt_id', v_p.id, 'reason', 'claim_changed',
+              'claims', (SELECT coalesce(jsonb_agg(jsonb_build_object('id', x.id)), '[]'::jsonb)
+                           FROM (VALUES (v_dead.id, v_dead.scope_kind), (v_partner.id, v_partner.scope_kind)) x (id, scope_kind)
+                          WHERE x.scope_kind = 'chat_session')), 'accepted')
+    ON CONFLICT (id) DO NOTHING;
+    IF v_dead.scope_kind = 'personal' OR v_partner.scope_kind = 'personal' THEN
+      INSERT INTO public.ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
+      VALUES ('kgclose-' || v_p.id || '-l1', v_p.org_id, 'personal',
+              CASE WHEN v_dead.scope_kind = 'personal' THEN v_dead.scope_id ELSE v_partner.scope_id END,
+              'system', 'kg-conflict-detector', 'closeConflict',
+              jsonb_build_object('thread_id', v_p.thread_id, 'reason', 'claim_changed',
+                'claims', (SELECT jsonb_agg(jsonb_build_object('id', x.id))
+                             FROM (VALUES (v_dead.id, v_dead.scope_kind), (v_partner.id, v_partner.scope_kind)) x (id, scope_kind)
+                            WHERE x.scope_kind = 'personal')), 'accepted')
+      ON CONFLICT (id) DO NOTHING;
+    END IF;
+  END IF;
+  RETURN true;
+END
+$$;
+
+-- 这张卡所在会话的锁 key、以及需要的个人空间 key（两条里在个人空间的那条的主人；没有就 NULL）。
+CREATE OR REPLACE FUNCTION kg_conflict_prompt_lock_keys(p_prompt_id text, OUT thread_key bigint, OUT personal_key bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT hashtext('kg_scope:' || p.org_id || '|chat_session|' || p.thread_id)::bigint,
+         (SELECT hashtext('kg_scope:' || p.org_id || '|personal|' || c.scope_id)::bigint FROM public.claims c
+           WHERE c.org_id = p.org_id AND c.id IN (p.newer_claim_id, p.older_claim_id) AND c.scope_kind = 'personal' LIMIT 1)
+    FROM public.kg_conflict_prompts p WHERE p.id = p_prompt_id
+$$;
+
+-- 结论变成失效（revoked_at）或被取代（superseded）时：它所在的、还开着 / 被忽略的卡逐张「试着」当场结束。
+-- **从不等**：会话锁、个人空间锁用 try；卡这一行、另一条这一行用 NOWAIT。有一样拿不到 ⇒ 放进队列，交给 worker。
 CREATE OR REPLACE FUNCTION kg_conflict_close_on_change() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
-  v_p        record;
-  v_partner  record;
-  v_audit    boolean := current_setting('app.current_org', true) IS NOT DISTINCT FROM NEW.org_id;
-  v_session  jsonb;
+  v_p    record;
+  v_keys record;
+  v_done boolean;
 BEGIN
   IF NOT (NEW.revoked_at IS NOT NULL OR NEW.status = 'superseded') OR OLD.revoked_at IS NOT NULL OR OLD.status = 'superseded' THEN
     RETURN NULL;
   END IF;
-  FOR v_p IN SELECT p.* FROM public.kg_conflict_prompts p
+  FOR v_p IN SELECT p.id, p.newer_claim_id, p.older_claim_id FROM public.kg_conflict_prompts p
               WHERE p.org_id = NEW.org_id AND p.status IN ('open', 'ignored')
                 AND (p.newer_claim_id = NEW.id OR p.older_claim_id = NEW.id)
               ORDER BY p.id
   LOOP
-    PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || NEW.org_id || '|chat_session|' || v_p.thread_id));
-    SELECT * INTO v_partner FROM public.claims c
-     WHERE c.org_id = NEW.org_id AND c.id = CASE WHEN v_p.newer_claim_id = NEW.id THEN v_p.older_claim_id ELSE v_p.newer_claim_id END;
-    IF NEW.scope_kind = 'personal' THEN
-      PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || NEW.org_id || '|personal|' || NEW.scope_id));
-    ELSIF v_partner.scope_kind = 'personal' THEN
-      PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || NEW.org_id || '|personal|' || v_partner.scope_id));
+    v_done := false;
+    SELECT * INTO v_keys FROM kg_conflict_prompt_lock_keys(v_p.id);
+    IF pg_try_advisory_xact_lock(v_keys.thread_key)
+       AND (v_keys.personal_key IS NULL OR pg_try_advisory_xact_lock(v_keys.personal_key)) THEN
+      BEGIN
+        PERFORM 1 FROM public.kg_conflict_prompts p WHERE p.id = v_p.id FOR UPDATE NOWAIT;
+        PERFORM 1 FROM public.claims c WHERE c.org_id = NEW.org_id AND c.id IN (v_p.newer_claim_id, v_p.older_claim_id)
+         ORDER BY c.id FOR UPDATE NOWAIT;
+        PERFORM kg_conflict_close_locked(v_p.id);
+        v_done := true;
+      EXCEPTION WHEN lock_not_available THEN
+        v_done := false;
+      END;
     END IF;
-    PERFORM 1 FROM public.claims c WHERE c.org_id = NEW.org_id AND c.id = v_partner.id FOR UPDATE;
-    -- 重读：拿锁之前别人可能已经处理了这张卡
-    CONTINUE WHEN NOT EXISTS (SELECT 1 FROM public.kg_conflict_prompts p WHERE p.id = v_p.id AND p.status IN ('open', 'ignored'));
-    UPDATE public.kg_conflict_prompts SET status = 'closed_by_change', resolved_at = now(), resolved_by = NULL WHERE id = v_p.id;
-
-    UPDATE public.claims c
-       SET status = CASE WHEN c.reviewed_by IS NOT NULL THEN 'accepted' ELSE 'proposed' END, updated_at = now()
-     WHERE c.org_id = NEW.org_id AND c.id = v_partner.id AND c.status = 'contested' AND c.revoked_at IS NULL
-       AND NOT EXISTS (
-         SELECT 1 FROM public.kg_conflict_prompts x
-           JOIN public.claims o ON o.org_id = x.org_id
-                               AND o.id = CASE WHEN x.newer_claim_id = v_partner.id THEN x.older_claim_id ELSE x.newer_claim_id END
-          WHERE x.org_id = NEW.org_id AND x.status IN ('open', 'ignored')
-            AND (x.newer_claim_id = v_partner.id OR x.older_claim_id = v_partner.id)
-            AND o.revoked_at IS NULL AND o.status <> 'superseded');
-
-    IF v_audit THEN
-      v_session := (SELECT coalesce(jsonb_agg(jsonb_build_object('id', x.id)), '[]'::jsonb)
-                      FROM (VALUES (NEW.id, NEW.scope_kind), (v_partner.id, v_partner.scope_kind)) x (id, scope_kind)
-                     WHERE x.scope_kind = 'chat_session');
-      INSERT INTO public.ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
-      VALUES ('kgclose-' || v_p.id, NEW.org_id, 'chat_session', v_p.thread_id, 'system', 'kg-conflict-detector', 'closeConflict',
-              jsonb_build_object('prompt_id', v_p.id, 'reason', 'claim_changed', 'claims', v_session), 'accepted')
-      ON CONFLICT (id) DO NOTHING;
-      IF NEW.scope_kind = 'personal' OR v_partner.scope_kind = 'personal' THEN
-        INSERT INTO public.ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
-        VALUES ('kgclose-' || v_p.id || '-l1', NEW.org_id, 'personal',
-                CASE WHEN NEW.scope_kind = 'personal' THEN NEW.scope_id ELSE v_partner.scope_id END,
-                'system', 'kg-conflict-detector', 'closeConflict',
-                jsonb_build_object('thread_id', v_p.thread_id, 'reason', 'claim_changed',
-                  'claims', (SELECT jsonb_agg(jsonb_build_object('id', x.id))
-                               FROM (VALUES (NEW.id, NEW.scope_kind), (v_partner.id, v_partner.scope_kind)) x (id, scope_kind)
-                              WHERE x.scope_kind = 'personal')),
-                'accepted')
-        ON CONFLICT (id) DO NOTHING;
-      END IF;
+    IF NOT v_done THEN
+      INSERT INTO public.kg_conflict_close_queue (org_id, prompt_id) VALUES (NEW.org_id, v_p.id);
     END IF;
   END LOOP;
   RETURN NULL;
@@ -454,6 +530,41 @@ DROP TRIGGER IF EXISTS kg_conflict_close_on_change_trg ON claims;
 CREATE TRIGGER kg_conflict_close_on_change_trg AFTER UPDATE OF status, revoked_at ON claims
   FOR EACH ROW EXECUTE FUNCTION kg_conflict_close_on_change();
 
+-- 排空一张：本 org 队列里最早的那张卡。按正常顺序**等**锁（会话锁 → 个人空间锁 → 卡 → 两条结论），再判再结束。
+-- 一次只处理一张、调用方一张一个事务：同一事务里连拿两个会话的锁，两个排空并发时就会互相等。
+-- 返回 true = 处理了一张（不管它是否还需要结束），false = 队列空了。
+CREATE OR REPLACE FUNCTION kg_conflict_close_drain() RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  v_org    text := current_setting('app.current_org', true);
+  v_prompt text;
+  v_keys   record;
+  v_p      record;
+BEGIN
+  IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
+  SELECT q.prompt_id INTO v_prompt FROM public.kg_conflict_close_queue q WHERE q.org_id = v_org ORDER BY q.id LIMIT 1;
+  IF NOT FOUND THEN RETURN false; END IF;
+  SELECT * INTO v_keys FROM kg_conflict_prompt_lock_keys(v_prompt);
+  IF v_keys.thread_key IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(v_keys.thread_key);
+    IF v_keys.personal_key IS NOT NULL THEN PERFORM pg_advisory_xact_lock(v_keys.personal_key); END IF;
+    SELECT p.newer_claim_id, p.older_claim_id INTO v_p FROM public.kg_conflict_prompts p WHERE p.id = v_prompt FOR UPDATE;
+    PERFORM 1 FROM public.claims c WHERE c.org_id = v_org AND c.id IN (v_p.newer_claim_id, v_p.older_claim_id) ORDER BY c.id FOR UPDATE;
+    PERFORM kg_conflict_close_locked(v_prompt);
+  END IF;
+  DELETE FROM public.kg_conflict_close_queue q WHERE q.org_id = v_org AND q.prompt_id = v_prompt;
+  RETURN true;
+END
+$$;
+
+-- 队列里有活的 org（只回 id）：worker 按 org 进租户上下文排空。
+CREATE OR REPLACE FUNCTION kg_conflict_close_pending_orgs() RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$ SELECT DISTINCT org_id FROM public.kg_conflict_close_queue $$;
+
+REVOKE ALL ON FUNCTION kg_conflict_close_locked(text), kg_conflict_prompt_lock_keys(text), kg_conflict_close_drain(),
+  kg_conflict_close_pending_orgs() FROM PUBLIC;
 REVOKE ALL ON FUNCTION kg_conflict_close_on_change(), kg_thread_owner(text), kg_thread_revision(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION kg_conflict_statement_key(text), kg_conflict_source(text, text, text),
   kg_conflict_older_ok(text, text, text, text), kg_conflict_newer_ok(text, text, text, text),
@@ -462,7 +573,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
     GRANT EXECUTE ON FUNCTION kg_conflict_candidates(text, text), kg_open_conflicts(jsonb), kg_resolve_conflict(jsonb),
-      kg_thread_owner(text), kg_thread_revision(text) TO app_rw;
+      kg_thread_owner(text), kg_thread_revision(text), kg_conflict_close_drain(), kg_conflict_close_pending_orgs() TO app_rw;
   END IF;
 END
 $$;

@@ -10,7 +10,8 @@ import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { KgConflictPort } from "../../application/knowledge-graph/ports";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
-import type { OrgId } from "../../domain/org-id";
+import { toOrgId, type OrgId } from "../../domain/org-id";
+import { retryOnceOnDeadlock } from "./kg-deadlock-retry";
 
 type Row = Record<string, unknown>;
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -32,10 +33,10 @@ export class PgKgConflict implements KgConflictPort {
   constructor(private readonly db: DatabasePort) {}
 
   async candidates(orgId: OrgId, threadId: string, messageId: string) {
-    const r = await this.db.withTenant(orgId, async (s) => {
+    const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
       await asThreadOwner(s, threadId);
       return s.query<{ c: { fresh?: Row[]; confirmed?: Row[] } }>("SELECT kg_conflict_candidates($1, $2) AS c", [threadId, messageId]);
-    });
+    }));
     const out = r.rows[0]?.c ?? {};
     const fresh: FreshClaim[] = [];
     for (const x of out.fresh ?? []) {
@@ -55,13 +56,25 @@ export class PgKgConflict implements KgConflictPort {
   async open(orgId: OrgId, input: {
     readonly actionId: string; readonly threadId: string; readonly messageId: string; readonly pairs: readonly ConflictPair[];
   }): Promise<number> {
-    const r = await this.db.withTenant(orgId, async (s) => {
+    const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
       await asThreadOwner(s, input.threadId);
       return s.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({
         action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId,
         pairs: input.pairs.map((p) => ({ newer: p.newerClaimId, older: p.olderClaimId })),
       })]);
-    });
+    }));
     return Number(r.rows[0]?.n ?? 0);
+  }
+
+  async pendingCloseOrgs(): Promise<readonly OrgId[]> {
+    // 只回 org id（队列表的 org_id 列），不回任何内容：同 F06 kg_extraction_pending_orgs。
+    const r = await this.db.withoutTenant((s) => s.query<{ org: string }>("SELECT kg_conflict_close_pending_orgs() AS org"));
+    return r.rows.map((x) => toOrgId(x.org));
+  }
+
+  async drainCloseOne(orgId: OrgId): Promise<boolean> {
+    // 一次一张卡、一张卡一个事务（见迁移里 kg_conflict_close_drain 的注释）
+    const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, (s) => s.query<{ done: boolean }>("SELECT kg_conflict_close_drain() AS done")));
+    return r.rows[0]?.done === true;
   }
 }

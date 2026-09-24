@@ -9,6 +9,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import { findConflicts } from "../../domain/knowledge-graph/conflict";
+import type { LoggerPort } from "../ports/logger.port";
 import type { KgConflictPort } from "./ports";
 
 export interface ConflictDetectionDeps {
@@ -28,4 +29,26 @@ export async function detectConflicts(
   return deps.conflicts.open(job.orgId, {
     actionId: deps.newId("act"), threadId: job.threadId, messageId: job.messageId, pairs,
   });
+}
+
+/** 每个 org 每轮最多排空的卡数：一张一个事务，量大时分几轮，别让一个 org 占住 worker。 */
+export const KG_CONFLICT_CLOSE_BATCH = 20;
+
+/**
+ * 排空「结束冲突」的待办（迁移 20260924290000 kg_conflict_close_queue）：结论在别处被改掉、而触发器当时拿不到锁
+ * （为了不死锁，它从不等锁）的卡，在这里按正常锁顺序结束，另一条放回可确认。可重复执行。
+ * 一个 org 失败不影响别的 org；返回本轮处理的卡数。
+ */
+export async function drainConflictCloses(
+  deps: { readonly conflicts: KgConflictPort; readonly logger: LoggerPort },
+): Promise<number> {
+  let processed = 0;
+  for (const orgId of await deps.conflicts.pendingCloseOrgs()) {
+    try {
+      for (let i = 0; i < KG_CONFLICT_CLOSE_BATCH && (await deps.conflicts.drainCloseOne(orgId)); i += 1) processed += 1;
+    } catch (err) {
+      deps.logger.error("kg conflict close drain failed", { traceId: "kg-conflict-close", orgId, err });
+    }
+  }
+  return processed;
 }
