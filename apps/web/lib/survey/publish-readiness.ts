@@ -38,7 +38,10 @@ export function assessPublishReadiness({
       qualityScore: null,
       estimatedSeconds: null,
       predictedCompletionRate: null,
-      recommendations: [],
+      recommendations: blockers.map((blocker) => ({
+        ...blocker,
+        label: LABEL[blocker.code],
+      })),
     };
   }
   const penalty = blockers.reduce((total, blocker) => total + PENALTY[blocker.code], 0);

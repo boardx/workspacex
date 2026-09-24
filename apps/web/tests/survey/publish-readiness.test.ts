@@ -24,11 +24,19 @@ describe("assessPublishReadiness", () => {
     ]);
   });
 
-  it("reports an honest unknown completion forecast without answerable questions", () => {
-    const assessment = assessPublishReadiness({ questions: [], blockers: [] });
+  it("keeps empty-survey repair guidance while reporting an honest unknown forecast", () => {
+    const assessment = assessPublishReadiness({
+      questions: [],
+      blockers: [{ code: "QUESTIONS_EMPTY", side: "survey", subjectId: "survey-1", missingFields: ["questions"] }],
+    });
     expect(assessment.qualityScore).toBeNull();
     expect(assessment.estimatedSeconds).toBeNull();
     expect(assessment.predictedCompletionRate).toBeNull();
-    expect(assessment.recommendations).toEqual([]);
+    expect(assessment.recommendations).toEqual([
+      expect.objectContaining({
+        code: "QUESTIONS_EMPTY",
+        label: "添加至少一道可回答的问题",
+      }),
+    ]);
   });
 });

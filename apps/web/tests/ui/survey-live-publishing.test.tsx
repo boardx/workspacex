@@ -104,6 +104,17 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
   });
 
+  it("routes a question mapping blocker to the report-template editor", async () => {
+    const blockers: SurveyPublishBlocker[] = [
+      { code: "MAPPING_INCOMPLETE", side: "question", subjectId: "q1", missingFields: ["reportBlock"] },
+    ];
+    client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    fireEvent.click(await screen.findByRole("button", { name: "定位并修复：将题目映射到报告章节" }));
+    expect(screen.getByRole("button", { name: /2\. 报告模板/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+  });
+
   it("shows ready only after the parsed server response and exposes explicit next actions", async () => {
     let resolve!: (value: SurveyRuntime) => void;
     client.request.mockResolvedValueOnce(runtime()).mockReturnValueOnce(new Promise((done) => { resolve = done; }));

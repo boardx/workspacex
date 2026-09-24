@@ -321,7 +321,13 @@ export function LiveSurveyWorkspace({
                               variant="outline"
                               className="ml-2"
                               aria-label={`定位并修复：${blocker.label}`}
-                              onClick={() => selectStep(blocker.side === "section" ? "template" : "design")}
+                              onClick={() =>
+                                selectStep(
+                                  blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section"
+                                    ? "template"
+                                    : "design",
+                                )
+                              }
                             >
                               定位并修复
                             </Button>
