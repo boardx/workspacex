@@ -36,7 +36,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const di = process.argv.indexOf("--doc");
 const DOC = di > -1 ? resolve(process.argv[di + 1]) : join(ROOT, "docs/research/open-source-business-model.md");
-const SCRIPTS = join(ROOT, ".harness/scripts");
+// 门控脚本所在目录：harness 门控在 .harness/scripts；运维命令（如退出自由的导出命令，E5）在 apps/api/scripts。
+const SCRIPT_DIRS = [".harness/scripts", "apps/api/scripts"];
 const SIX = ["入口", "第一个价值时刻", "最大卡点", "承诺", "度量", "谁负责"];
 
 const text = readFileSync(DOC, "utf8");
@@ -62,10 +63,10 @@ else {
       continue;
     }
     const name = m[1];
-    const exists = [".mjs", ".ts"].some((ext) => existsSync(join(SCRIPTS, name + ext)));
+    const exists = SCRIPT_DIRS.some((d) => [".mjs", ".ts"].some((ext) => existsSync(join(ROOT, d, name + ext))));
     const saysBuilt = /已建/.test(status) && !/未建/.test(status);
-    if (saysBuilt && !exists) findings.push({ where: `对照表「${promise}」`, what: `状态写「已建」，但 .harness/scripts/${name} 不存在（虚报）` });
-    if (!saysBuilt && exists) findings.push({ where: `对照表「${promise}」`, what: `.harness/scripts/${name} 已存在，状态却写「${status}」（表过时）` });
+    if (saysBuilt && !exists) findings.push({ where: `对照表「${promise}」`, what: `状态写「已建」，但 ${SCRIPT_DIRS.join(" / ")} 下都没有 ${name}（虚报）` });
+    if (!saysBuilt && exists) findings.push({ where: `对照表「${promise}」`, what: `${name} 已存在，状态却写「${status}」（表过时）` });
   }
   if (rows === 0) findings.push({ where: "承诺与门控对照表", what: "0 行——空表不是全绿" });
 }

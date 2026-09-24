@@ -51,6 +51,13 @@ describe("lint-commitments", () => {
     expect(r.stderr).toContain("表过时");
   });
 
+  it("① apps/api/scripts 下的运维命令也算数（退出自由导出命令 E5）", () => {
+    expect(run(doc("| a | `export-org-data` | 已建 |", persona())).status).toBe(0);
+    const r = run(doc("| a | `export-org-data` | 未建 |", persona()));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("表过时");
+  });
+
   it("① 虚报：状态写已建，脚本不存在 ⇒ 红", () => {
     const r = run(doc(`| a | \`${MISSING}\` | 已建 |`, persona()));
     expect(r.status).toBe(1);

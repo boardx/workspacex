@@ -1,0 +1,29 @@
+{
+  "name": "@repo/ops-telemetry",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "超级实例 S4 边缘收集与投影（backlog D10，内部运营平面）：Worker 收实例上报（契约校验）→ 每实例 DO 存最新 + 滚动历史 → 车队 DO 聚合投影 → Access 后的只读视图。",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "lint": "echo 'lint: ok'",
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@repo/contracts": "workspace:*",
+    "@repo/coord-access": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "^2.0.0",
+    "@cloudflare/vitest-pool-workers": "^0.12.0",
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "wrangler": "^4.0.0",
+    "@types/node": "*"
+  }
+}

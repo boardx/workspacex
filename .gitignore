@@ -143,3 +143,7 @@ scratchpad/
 # 运行时态，不入库；留在盘上超过 30 秒会被下一个 claim 当陈旧锁接管
 # （见 .harness/scripts/lib/feature-id.ts 的 STALE_LOCK_MS）。
 phases/*/feature_list.json.lock/
+
+# 自托管（compose.yaml / scripts/upgrade.sh）：真实密钥与升级状态/备份不入库
+selfhost.env
+.selfhost/

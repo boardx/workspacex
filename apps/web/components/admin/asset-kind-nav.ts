@@ -59,6 +59,7 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   blueprint: "admin-nav-blueprint",
   members: "admin-nav-members",
   "ops-status": "admin-nav-ops-status",
+  telemetry: "admin-nav-telemetry",
   local: "admin-nav-local",
   platform: "admin-nav-platform",
   "org-members": "admin-nav-org-members",

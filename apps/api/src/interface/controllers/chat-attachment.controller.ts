@@ -35,10 +35,11 @@
  */
 import {
   type ArgumentsHost, BadRequestException, Catch, ConflictException, Controller, type ExceptionFilter,
-  ForbiddenException, Get, Header, HttpCode, HttpStatus, Inject, NotFoundException, Param,
+  ForbiddenException, Get, Header, HttpCode, HttpStatus, Inject, NotFoundException, Optional, Param,
   PayloadTooLargeException, Post, Query, Res, ServiceUnavailableException, UnprocessableEntityException,
   UnsupportedMediaTypeException, UploadedFile, UseFilters, UseInterceptors,
 } from "@nestjs/common";
+import { FIRST_VALUE_RECORDER, recordFirstValue, type FirstValueRecorder } from "../../application/first-value/first-value-recorder";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import type { Response } from "express";
@@ -151,6 +152,8 @@ export class ChatAttachmentController {
     // #1560 P1：图片走 VLM 视觉理解（转录+描述），与文档转换同一条落库路径。
     @Inject(ATTACHMENT_VISION) private readonly vision: AttachmentVisionPort,
     @Inject(ATTACHMENT_EXTRACTION_EXECUTOR) private readonly executor: AttachmentExtractionExecutorPort,
+    // E3：第一个价值时刻埋点（fire-and-forget）。可选注入：手工构造的控制器没有它时即 no-op。
+    @Optional() @Inject(FIRST_VALUE_RECORDER) private readonly firstValue?: FirstValueRecorder,
   ) {}
 
   private get deps() {
@@ -186,7 +189,7 @@ export class ChatAttachmentController {
     }
 
     try {
-      return await uploadAttachment(this.deps, {
+      const uploaded = await uploadAttachment(this.deps, {
         userId: principal.userId,
         orgId: toOrgId(principal.orgId),
         threadId,
@@ -194,6 +197,8 @@ export class ChatAttachmentController {
         mime: declaredMime,
         bytes: file.buffer, // Buffer 是 Uint8Array 子类，byteLength 即权威大小
       });
+      recordFirstValue(this.firstValue, principal.orgId, "own_material_uploaded");
+      return uploaded;
     } catch (e) {
       // 裸 404，不带 reasonCode——与所有读路径逐字节相同（I-3）。
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
