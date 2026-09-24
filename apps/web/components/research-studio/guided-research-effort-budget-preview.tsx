@@ -46,7 +46,7 @@ function StatePreviewNav({ current }: { current: UiState }) {
 export function GuidedResearchEffortBudgetPreview({ state }: { state: UiState }) {
   const [selected, setSelected] = React.useState<EffortTier>("std");
   const [configured, setConfigured] = React.useState(false);
-  const selectedOption = EFFORT_OPTIONS.find((option) => option.id === selected) ?? EFFORT_OPTIONS[1];
+  const selectedOption = EFFORT_OPTIONS.find((option) => option.id === selected) ?? EFFORT_OPTIONS[0]!;
 
   const content = (
     <div className="space-y-5">
