@@ -60,7 +60,7 @@ import { clampGuidedResearchStep, maxGuidedResearchStep } from "@/lib/guided-res
 import { clearResearchSkillState } from "@/lib/guided-research-skill-state";
 import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
-import { GuidedResearchCardProgress, GuidedResearchHomeSummary, guidedResearchHomePresentation } from "./guided-research-home-status";
+import { GuidedResearchCardProgress, GuidedResearchHomeSummary, guidedResearchHomePresentation, guidedResearchMatchesHomeFilter, type GuidedResearchHomeFilter } from "./guided-research-home-status";
 
 const SESSION_REQUIRED_STEPS: readonly GuidedResearchStep[] = ["directions", "outline", "search", "report"];
 const WORKFLOW_STEP_INDEX: Record<Exclude<GuidedResearchStep, "home">, number> = {
@@ -323,6 +323,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [selectedTag, setSelectedTag] = React.useState<string>();
+  const [statusFilter, setStatusFilter] = React.useState<GuidedResearchHomeFilter>();
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [revision, setRevision] = React.useState(0);
@@ -336,18 +337,18 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   }, [revision]);
   const tags = React.useMemo(() => Array.from(new Set((history ?? []).flatMap(item => item.tags))), [history]);
   React.useEffect(() => { if (selectedTag && !tags.includes(selectedTag)) setSelectedTag(undefined); }, [tags, selectedTag]);
-  const visible = (history ?? []).filter(item => (!selectedTag || item.tags.includes(selectedTag)) &&
+  const visible = (history ?? []).filter(item => guidedResearchMatchesHomeFilter(item, statusFilter) && (!selectedTag || item.tags.includes(selectedTag)) &&
     `${item.title} ${item.brief.goal} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
   return <section data-testid="research-home-page" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
     <StudioHistoryHeader business="研究" title="研究工作台" description="从明确问题出发，逐步确认方向和大纲；每条结论回到真实来源，证据不足时明确保留缺口。" count={history?.length} createTestId="research-create" onCreate={() => setCreateOpen(true)} />
-    {history && history.length > 0 && <GuidedResearchHomeSummary sessions={history} />}
+    {history && history.length > 0 && <GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} />}
     <StudioHistoryFilters business="研究" prefix="research-history" tags={tags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
     {notice && <p role="status" data-testid="research-history-saved" className="text-12 text-success">{notice}</p>}
     <section className="space-y-3" data-testid="research-history" aria-label="历史研究">
       {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
       {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">历史研究加载失败。<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>重试</Button></div>}
-      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p><Button onClick={() => setCreateOpen(true)}>新建研究</Button></div>}
+      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? statusFilter ? "当前状态筛选与搜索条件下没有研究，请调整筛选条件。" : "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p>{statusFilter ? <Button variant="outline" onClick={() => setStatusFilter(undefined)}>清除状态筛选</Button> : <Button onClick={() => setCreateOpen(true)}>新建研究</Button>}</div>}
       {!loadFailed && visible.length > 0 && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{visible.map(item => { const presentation = guidedResearchHomePresentation(item); return <StudioHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
