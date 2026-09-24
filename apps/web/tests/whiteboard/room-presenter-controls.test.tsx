@@ -125,6 +125,16 @@ it.each([{offset:-60*60*1_000,label:'backward'},{offset:60*60*1_000,label:'forwa
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'),{timeout:1_000});expect(signals.at(-1)?.aborted).toBe(true);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();
 });
 
+it('expires a throttled background pairing immediately when the page becomes visible',async()=>{
+  const boardId='22222222-2222-4222-8222-222222222222',actualNow=Date.now.bind(Date),actualPerformanceNow=performance.now.bind(performance);let elapsed=0,signal:AbortSignal|undefined;
+  vi.spyOn(performance,'now').mockImplementation(()=>actualPerformanceNow()+elapsed);vi.spyOn(document,'visibilityState','get').mockReturnValue('visible');const add=vi.spyOn(document,'addEventListener'),remove=vi.spyOn(document,'removeEventListener');
+  createRoomPairing.mockResolvedValue({id:'33333333-3333-4333-8333-333333333333',boardId,code:'ABCDEFGH',payload:'five-minute-payload',expiresAt:new Date(actualNow()+5*60*1_000).toISOString()});
+  readPairingStatus.mockImplementation((_board:string,_pairing:string,nextSignal:AbortSignal)=>{signal=nextSignal;return new Promise((_resolve,reject)=>nextSignal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));});
+  render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);fireEvent.click(screen.getByTestId('room-present-open'));await waitFor(()=>expect(screen.getByTestId('room-pairing-payload')).toHaveValue('five-minute-payload'));
+  const wake=add.mock.calls.find(([type])=>type==='visibilitychange')?.[1];expect(wake).toBeDefined();elapsed=60*1_000;act(()=>document.dispatchEvent(new Event('visibilitychange')));expect(screen.getByTestId('room-pairing-payload')).toHaveValue('five-minute-payload');
+  elapsed=5*60*1_000+1;act(()=>document.dispatchEvent(new Event('visibilitychange')));await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'));expect(signal?.aborted).toBe(true);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();await waitFor(()=>expect(remove).toHaveBeenCalledWith('visibilitychange',wake));
+});
+
 it.each([400,401,403,404,410,422])('treats authoritative pairing status %i as terminal',async status=>{
   const boardId='22222222-2222-4222-8222-222222222222';createRoomPairing.mockResolvedValue({id:'33333333-3333-4333-8333-333333333333',boardId,code:'ABCDEFGH',payload:'{}',expiresAt:'2030-01-01T00:00:00.000Z'});readPairingStatus.mockRejectedValue(new ApiError(status,null,null));
   render(<RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/>);fireEvent.click(screen.getByTestId('room-present-open'));await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'));expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();
