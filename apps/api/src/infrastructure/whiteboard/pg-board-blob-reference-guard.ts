@@ -29,8 +29,13 @@ export class PgBoardBlobReferenceGuard implements BoardBlobReferenceGuard {
          SELECT candidate_manifest_key AS manifest_key,candidate_manifest_digest AS manifest_digest,
                 candidate_manifest_plain_digest AS manifest_plain_digest,candidate_manifest_size_bytes AS manifest_size_bytes,
                 candidate_tenant_key_version AS tenant_key_version
-           FROM whiteboard_content_migrations
-          WHERE org_id=$1 AND board_id=$2 AND candidate_manifest_key IS NOT NULL`,
+          FROM whiteboard_content_migrations
+          WHERE org_id=$1 AND board_id=$2 AND candidate_manifest_key IS NOT NULL
+         UNION
+         SELECT manifest_key,manifest_digest,manifest_plain_digest,manifest_size_bytes,tenant_key_version
+           FROM whiteboard_blob_retention_roots
+          WHERE org_id=$1 AND board_id=$2 AND released_at IS NULL
+            AND (root_kind='legal_hold' OR retain_until>now())`,
         [input.tenantId, input.boardId],
       );
       return inspect(roots.rows.map(row => ({

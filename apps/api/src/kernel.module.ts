@@ -7,10 +7,12 @@ import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboar
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
 import { boardStorageProviders } from './infrastructure/whiteboard/board-storage.providers';
-import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobStore } from './application/whiteboard/blob-ports';
+import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobPurgeStore, type BoardBlobStore } from './application/whiteboard/blob-ports';
+import { BOARD_BLOB_REFERENCE_GUARD, SweepBoardBlobs, type BoardBlobReferenceGuard } from './application/whiteboard/blob-gc';
 import { BOARD_CONTENT_MIGRATION_REPOSITORY, type BoardContentMigrationRepository } from './application/whiteboard/content-migration-ports';
 import { MigrateBoardContent } from './application/whiteboard/migrate-board-content';
 import { PgBoardContentMigrationRepository } from './infrastructure/whiteboard/pg-board-content-migration';
+import { PgBoardBlobReferenceGuard } from './infrastructure/whiteboard/pg-board-blob-reference-guard';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -2895,6 +2897,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: BOARD_CONTENT_MIGRATION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgBoardContentMigrationRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: BOARD_BLOB_REFERENCE_GUARD,
+      useFactory: (db: DatabasePort) => new PgBoardBlobReferenceGuard(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SweepBoardBlobs,
+      useFactory: (blobs: BoardBlobStore, purge: BoardBlobPurgeStore, codec: BoardBlobCodec, references: BoardBlobReferenceGuard) =>
+        new SweepBoardBlobs(blobs, purge, codec, references),
+      inject: [BOARD_BLOB_STORE, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_CODEC, BOARD_BLOB_REFERENCE_GUARD],
     },
     {
       provide: MigrateBoardContent,

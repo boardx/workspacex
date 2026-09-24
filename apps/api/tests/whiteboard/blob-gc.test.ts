@@ -114,4 +114,18 @@ describe('Board blob mark-and-sweep', () => {
     expect(result).toMatchObject({ examined: 2, retained: 2, deleted: 0 });
     expect(store.values.has(tooNew.key)).toBe(true); expect(store.values.has(otherKey)).toBe(true);
   });
+
+  it('marks backup and legal-hold roots supplied by the authoritative metadata guard', async () => {
+    const store = new MemoryBlobs();
+    const backupCheckpoint = await put(store, 'checkpoint', Buffer.from('backup-retained'));
+    const backup = await manifest(store, backupCheckpoint, 1, null);
+    const holdCheckpoint = await put(store, 'checkpoint', Buffer.from('legal-hold-retained'));
+    const hold = await manifest(store, holdCheckpoint, 2, null);
+    const orphan = await put(store, 'checkpoint', Buffer.from('unreferenced'));
+    const result = await new SweepBoardBlobs(store, store, codec, guard([backup, hold])).run({ tenantId, boardId, createdBefore: cutoff, limit: 100 });
+    expect(result).toMatchObject({ examined: 5, retained: 4, deleted: 1 });
+    expect(store.values.has(backup.key)).toBe(true); expect(store.values.has(backupCheckpoint.key)).toBe(true);
+    expect(store.values.has(hold.key)).toBe(true); expect(store.values.has(holdCheckpoint.key)).toBe(true);
+    expect(store.values.has(orphan.key)).toBe(false);
+  });
 });

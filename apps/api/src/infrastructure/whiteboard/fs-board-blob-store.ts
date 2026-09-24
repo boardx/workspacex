@@ -15,6 +15,10 @@ async function fsyncDirectory(path: string): Promise<void> {
   try { await handle.sync(); } finally { await handle.close(); }
 }
 
+const GC_INDEX_NAME = '.board-gc-candidates-v1';
+const GC_INDEX_RECORD_BYTES = 513; // canonical key (<=512 ASCII bytes), space padded, then LF
+const GC_SCAN_MULTIPLIER = 4;
+
 // Process-wide rather than instance-local: dependency-injection rebuilds and tests may
 // construct multiple adapters for the same root. A target's tail never rejects, so one
 // failed publisher cannot poison the next waiter.
@@ -53,6 +57,9 @@ export class FsBoardBlobStore implements BoardBlobStore, BoardBlobPurgeStore {
       throw new BoardBlobError('INTEGRITY_FAILED', 'ciphertext does not match its descriptor');
     }
     const target = this.pathFor(input.tenantId, input.key);
+    // Persist the candidate intent before publication. A crash can leave an index entry
+    // without an object (harmless), but can never leave an unindexed published orphan.
+    await this.recordPurgeCandidateIntent(input.tenantId, input.key);
     return withTargetPublication(target, () => this.putAtTarget(input, target));
   }
 
@@ -135,31 +142,47 @@ export class FsBoardBlobStore implements BoardBlobStore, BoardBlobPurgeStore {
     const prefix = `${tenantStorageNamespace(input.tenantId)}/boards/${input.boardId}/`;
     // Validate the board id and the tenant namespace through the canonical key builder.
     boardBlobKey({ tenantId: input.tenantId, boardId: input.boardId, kind: 'manifest', cipherDigest: '0'.repeat(64) });
-    if (input.cursor !== undefined && (!input.cursor.startsWith(prefix) || input.cursor.includes('..'))) throw new BoardBlobError('INVALID_INPUT');
     const boardRoot = this.pathFor(input.tenantId, prefix.slice(0, -1));
-    const keys = await this.listObjectKeys(boardRoot, prefix).catch(error => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-      throw error;
-    });
-    const eligible = keys.filter(key => input.cursor === undefined || key > input.cursor).sort();
+    const indexPath = join(boardRoot, GC_INDEX_NAME);
+    const offset = this.decodeIndexCursor(input.cursor);
     const candidates: BoardBlobPurgeCandidate[] = [];
-    let scannedThrough: string | undefined;
-    for (const key of eligible) {
-      scannedThrough = key;
-      const target = this.pathFor(input.tenantId, key);
-      const metadata = await lstat(target).catch(error => {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-        throw error;
-      });
-      if (!metadata) continue;
-      if (metadata.isSymbolicLink() || !metadata.isFile() || metadata.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a private regular file');
-      if (metadata.mtime.getTime() > input.createdBefore.getTime()) continue;
-      const bytes = await this.readRegularNoFollow(target);
-      candidates.push({ tenantId: input.tenantId, key, cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, createdAt: metadata.mtime });
-      if (candidates.length === input.limit) break;
+    let handle;
+    try {
+      await this.assertConfinedDirectory(boardRoot);
+      handle = await open(indexPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { candidates: [] };
+      if (error instanceof BoardBlobError) throw error;
+      throw storageFault('opening Board blob GC candidate index', error);
     }
-    const hasMore = scannedThrough !== undefined && eligible.some(key => key > scannedThrough!);
-    return { candidates, ...(hasMore ? { nextCursor: scannedThrough } : {}) };
+    try {
+      const metadata = await handle.stat();
+      if (!metadata.isFile() || metadata.nlink !== 1 || metadata.size % GC_INDEX_RECORD_BYTES !== 0 || offset > metadata.size) {
+        throw new BoardBlobError('INTEGRITY_FAILED', 'invalid Board blob GC candidate index');
+      }
+      let position = offset, scanned = 0;
+      const scanBudget = Math.min(4_000, input.limit * GC_SCAN_MULTIPLIER);
+      while (position < metadata.size && scanned < scanBudget && candidates.length < input.limit) {
+        const record = Buffer.alloc(GC_INDEX_RECORD_BYTES);
+        const read = await handle.read(record, 0, record.byteLength, position);
+        if (read.bytesRead !== record.byteLength || record[record.length - 1] !== 0x0a) throw new BoardBlobError('INTEGRITY_FAILED', 'truncated Board blob GC candidate index');
+        position += GC_INDEX_RECORD_BYTES; scanned++;
+        const key = record.subarray(0, -1).toString('ascii').trimEnd();
+        if (!key.startsWith(prefix)) throw new BoardBlobError('INTEGRITY_FAILED', 'cross-Board key in GC candidate index');
+        const target = this.pathFor(input.tenantId, key);
+        const candidateMetadata = await lstat(target).catch(error => {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+          throw error;
+        });
+        if (!candidateMetadata) continue;
+        if (candidateMetadata.isSymbolicLink() || !candidateMetadata.isFile() || candidateMetadata.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a private regular file');
+        if (candidateMetadata.mtime.getTime() > input.createdBefore.getTime()) continue;
+        const bytes = await this.readRegularNoFollow(target);
+        candidates.push({ tenantId: input.tenantId, key, cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength,
+          contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, createdAt: candidateMetadata.mtime });
+      }
+      return { candidates, ...(position < metadata.size ? { nextCursor: this.encodeIndexCursor(position) } : {}) };
+    } finally { await handle.close(); }
   }
 
   async purgeCandidate(input: Parameters<BoardBlobPurgeStore['purgeCandidate']>[0]): ReturnType<BoardBlobPurgeStore['purgeCandidate']> {
@@ -186,21 +209,42 @@ export class FsBoardBlobStore implements BoardBlobStore, BoardBlobPurgeStore {
     });
   }
 
-  private async listObjectKeys(directory: string, prefix: string): Promise<string[]> {
-    await this.assertConfinedDirectory(directory);
-    const result: string[] = [];
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      if (entry.name.startsWith('.board-tmp-')) continue;
-      const child = join(directory, entry.name);
-      if (entry.isSymbolicLink()) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate path contains a symbolic link');
-      if (entry.isDirectory()) result.push(...await this.listObjectKeys(child, prefix));
-      else if (entry.isFile()) {
-        const key = relative(resolve(this.root), child).split(sep).join('/');
-        if (key.startsWith(prefix)) result.push(key);
-      } else throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a regular file');
+  private async recordPurgeCandidateIntent(tenantId: string, key: string): Promise<void> {
+    const segments = key.split('/');
+    if (segments[2] !== 'boards' || !segments[3]) throw new BoardBlobError('INVALID_INPUT');
+    const boardRoot = this.pathFor(tenantId, segments.slice(0, 4).join('/'));
+    const indexPath = join(boardRoot, GC_INDEX_NAME);
+    const keyBytes = Buffer.byteLength(key, 'ascii');
+    if (keyBytes > GC_INDEX_RECORD_BYTES - 1) throw new BoardBlobError('INVALID_INPUT');
+    const record = Buffer.from(`${key.padEnd(GC_INDEX_RECORD_BYTES - 1, ' ')}\n`, 'ascii');
+    try {
+      await this.ensureDurableDirectory(boardRoot);
+      await withTargetPublication(indexPath, async () => {
+        let handle;
+        try {
+          handle = await open(indexPath, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
+          const metadata = await handle.stat();
+          if (!metadata.isFile() || metadata.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'invalid Board blob GC candidate index');
+          if (metadata.size % GC_INDEX_RECORD_BYTES !== 0) await handle.truncate(metadata.size - (metadata.size % GC_INDEX_RECORD_BYTES));
+          await handle.writeFile(record); await handle.sync();
+        } finally { await handle?.close(); }
+        await this.syncDirectory(boardRoot);
+      });
+    } catch (error) {
+      if (error instanceof BoardBlobError) throw error;
+      throw storageFault('recording Board blob GC candidate intent', error);
     }
-    return result;
   }
+
+  private decodeIndexCursor(cursor: string | undefined): number {
+    if (cursor === undefined) return 0;
+    if (!/^v1:[0-9]+$/.test(cursor)) throw new BoardBlobError('INVALID_INPUT');
+    const value = Number(cursor.slice(3));
+    if (!Number.isSafeInteger(value) || value < 0 || value % GC_INDEX_RECORD_BYTES !== 0) throw new BoardBlobError('INVALID_INPUT');
+    return value;
+  }
+
+  private encodeIndexCursor(offset: number): string { return `v1:${offset}`; }
 
   private async assertConfinedDirectory(directory: string): Promise<void> {
     const sentinel = join(directory, 'candidate');

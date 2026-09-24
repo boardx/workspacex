@@ -6,6 +6,8 @@ export default defineConfig({
       'tests/whiteboard/board-blob-store.test.ts',
       'tests/whiteboard/blob-gc.test.ts',
       'tests/whiteboard/pg-board-blob-reference-guard.test.ts',
+      'tests/whiteboard/board-blob-sweep-runtime.test.ts',
+      'tests/whiteboard/board-blob-retention-gc-pglite.test.ts',
       'tests/whiteboard/board-content-manifest.test.ts',
       'tests/whiteboard/board-blob-codec.test.ts',
       'tests/whiteboard/board-content-heads-pglite.test.ts',

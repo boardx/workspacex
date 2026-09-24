@@ -80,7 +80,11 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/whiteboard/pg-board-blob-reference-guard.ts",
-    "#4093 Board blob GC is a system retention path with no requester or disclosure surface. It returns only encrypted manifest pointers (key/digests/size/key version), never Board bytes, titles, membership, or user content. It uses withTenant, locks the same whiteboards row FOR UPDATE as collaboration writers, and reads only whiteboards/whiteboard_content_heads/whiteboard_content_migrations so reference discovery and purge remain one transaction. tests/whiteboard/pg-board-blob-reference-guard.test.ts mechanically pins that table set, tenant transaction, lock, metadata-only projection, and absence of withoutTenant/content columns. Remove this entry if that test or any of those constraints changes.",
+    "#4093 Board blob GC is a system retention path with no requester or disclosure surface. It returns only encrypted manifest pointers (key/digests/size/key version), never Board bytes, titles, membership, or user content. It uses withTenant, locks the same whiteboards row FOR UPDATE as collaboration writers, and reads only whiteboards/whiteboard_content_heads/whiteboard_content_migrations/whiteboard_blob_retention_roots so reference discovery, backup/legal-hold roots and purge remain one transaction. tests/whiteboard/pg-board-blob-reference-guard.test.ts mechanically pins that table set, tenant transaction, lock, metadata-only projection, and absence of withoutTenant/content columns. Remove this entry if that test or any of those constraints changes.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-board-blob-sweep-coordinator.ts",
+    "#4131 Board blob GC coordination is a system maintenance path with no requester or disclosure surface. It uses withTenant, a per-tenant/per-Board transaction advisory lease and only whiteboard_blob_gc_runs counters/cadence metadata; it never reads Board content. tests/whiteboard/board-blob-sweep-runtime.test.ts pins the lease, frequency and metrics SQL and absence of withoutTenant/content columns. Remove this entry if that proof or scope changes.",
   ],
   [
     "src/infrastructure/whiteboard/pg-whiteboard-transfer-store.ts",

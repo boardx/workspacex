@@ -15,6 +15,8 @@ function audit(code: string): string[] {
   if (!/FOR UPDATE OF b,h/.test(code) || !/FOR UPDATE OF d,h/.test(code)) errors.push('board lock');
   const inventory = code.slice(code.indexOf('async readInventory'), code.indexOf('async saveCandidate'));
   if (/FOR\s+(?:NO\s+KEY\s+)?UPDATE/i.test(inventory) || (inventory.match(/this\.session\.query/g) ?? []).length !== 1 || !/WITH source AS/.test(inventory)) errors.push('unlocked single-statement inventory');
+  const candidate = code.slice(code.indexOf('async saveCandidate'), code.indexOf('async markVerified'));
+  if (!/await this\.lockWatermark\(current\);[\s\S]*await verifyCandidate\(\);[\s\S]*UPDATE whiteboard_content_migrations/.test(candidate)) errors.push('locked candidate readback');
   const cutover = code.slice(code.indexOf('async cutover'), code.indexOf('async captureRetirementHead'));
   if (!/storage_kind='legacy_pg'.*epoch=\$3.*head_seq=\$9.*fencing_token=\$10/s.test(cutover)) errors.push('cutover CAS');
   if (!/LIMIT \$5 FOR UPDATE/.test(code) || !/SET update=NULL/.test(code) || /DELETE\s+FROM\s+whiteboard_updates/i.test(code) || !/current\.state !== 'cleaning'/.test(code)) errors.push('bounded byte cleanup');
@@ -29,4 +31,5 @@ describe('Board content migration repository boundary', () => {
   it('detects destructive or unbounded legacy cleanup', () => expect(audit(source.replace('SET update=NULL', 'DELETE FROM whiteboard_updates'))).toContain('bounded byte cleanup'));
   it('detects a tenant bypass', () => expect(audit(source.replace('this.db.withTenant(toOrgId(tenantId)', 'this.db.withoutTenant('))).toContain('tenant transaction'));
   it('detects a content scan that takes a row lock', () => expect(audit(source.replace('ORDER BY kind,seq`', 'ORDER BY kind,seq FOR UPDATE`'))).toContain('unlocked single-statement inventory'));
+  it('detects candidate registration without Board-locked blob readback', () => expect(audit(source.replace('await verifyCandidate();', 'void verifyCandidate;'))).toContain('locked candidate readback'));
 });

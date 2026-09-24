@@ -70,7 +70,10 @@ export class MigrateBoardContent {
         // Object I/O intentionally happens after captureWatermark's short row-lock
         // transaction. saveCandidate re-locks and rejects a changed watermark.
         const candidate = await this.buildCandidate(input.tenantId, input.boardId, inventory);
-        try { return report(await this.repository.saveCandidate(input.tenantId, input.boardId, record, candidate)); }
+        try {
+          return report(await this.repository.saveCandidate(input.tenantId, input.boardId, record, candidate,
+            () => this.verifyCandidate(input.tenantId, input.boardId, record, candidate)));
+        }
         catch (error) {
           if (!isCasLost(error)) throw error;
           const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
@@ -165,6 +168,25 @@ export class MigrateBoardContent {
     const encryptedCheckpoint = await this.blobs.getVerified({ tenantId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
     return this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: encryptedCheckpoint, cipherDigest: manifest.checkpoint.cipherDigest,
       plainDigest: manifest.checkpoint.plainDigest, expectedPlainDigest: manifest.checkpoint.plainDigest, sizeBytes: manifest.checkpoint.sizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+  }
+
+  private async verifyCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord, candidate: BoardMigrationCandidate): Promise<void> {
+    const encryptedManifest = await this.blobs.getVerified({ tenantId, key: candidate.manifestKey, expectedCipherDigest: candidate.manifestDigest,
+      expectedSizeBytes: candidate.manifestSizeBytes, expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+    const manifestBytes = await this.codec.decrypt({ tenantId, tenantKeyVersion: candidate.tenantKeyVersion, ciphertext: encryptedManifest,
+      cipherDigest: candidate.manifestDigest, plainDigest: candidate.manifestPlainDigest, expectedPlainDigest: candidate.manifestPlainDigest,
+      sizeBytes: candidate.manifestSizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+    if (sha256(manifestBytes) !== candidate.manifestPlainDigest) throw new Error('CANDIDATE_MANIFEST_CORRUPT');
+    const manifest = decodeBoardContentManifest(manifestBytes);
+    if (manifest.boardId !== boardId || manifest.epoch !== record.sourceEpoch || manifest.headSeq !== record.sourceHeadSeq
+      || manifest.tenantKeyVersion !== candidate.tenantKeyVersion) throw new Error('CANDIDATE_MANIFEST_MISMATCH');
+    const checkpoint = await this.blobs.getVerified({ tenantId, key: manifest.checkpoint.key,
+      expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes,
+      expectedContentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
+    await this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: checkpoint,
+      cipherDigest: manifest.checkpoint.cipherDigest, plainDigest: manifest.checkpoint.plainDigest,
+      expectedPlainDigest: manifest.checkpoint.plainDigest, sizeBytes: manifest.checkpoint.sizeBytes,
+      contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE });
   }
 
   async verifyRetirementHead(tenantId: string, boardId: string, head: BoardRetirementHead): Promise<{ checkpointDigest: string }> {

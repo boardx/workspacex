@@ -14,6 +14,7 @@ export interface BoardManifestRoot {
 export interface BoardBlobReferenceGuard {
   withLockedManifestRoots<T>(input: { tenantId: string; boardId: string }, inspect: (roots: readonly BoardManifestRoot[]) => Promise<T>): Promise<T>;
 }
+export const BOARD_BLOB_REFERENCE_GUARD = Symbol('BoardBlobReferenceGuard');
 
 export interface BoardBlobSweepResult {
   examined: number;
