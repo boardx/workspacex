@@ -374,7 +374,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
       <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-lg bg-primary p-3 text-left text-xs font-medium text-primary-foreground" : "w-full rounded-lg border border-border p-3 text-left text-xs text-muted-foreground"}>0{index + 1} {step.label}</button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      {view.report && view.reportGeneration?.status === "failed" && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>}
+      {view.report && view.reportGeneration?.status === "failed" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+        <p role="alert" className="text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>
+        <Button data-testid="itv-retry-preserved-report" type="button" variant="outline" onClick={() => requestConfirmation("report")}>重新生成报告</Button>
+      </div>}
       <fieldset disabled={confirming || reportPending} className="mt-8 min-w-0 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
         {active === "topic" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief}
           onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }}
@@ -387,7 +390,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "report" && (view.report ? <><LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
-        }} /><DigitalInterviewEvidenceReview view={view} pending={confirming} onReview={(status, note) => void reviewReport(status, note)} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
+        }} /><DigitalInterviewEvidenceReview view={view} pending={confirming} onReview={(status, note) => void reviewReport(status, note)} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={() => requestConfirmation("report")} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
       </fieldset>
     </div></main>
@@ -463,7 +466,13 @@ function LiveReportStep({ report, onViewSource }: { readonly report: NonNullable
   return <div id="itv-report-print-root" data-testid="itv-report"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{report.title}</h2><p className="mt-3 leading-7 text-muted-foreground">{report.executiveSummary}</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report)}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div></div><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></div>;
 }
 
-function LiveReportGenerationStep({ generation }: { readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]> }) {
+function LiveReportGenerationStep({ generation, onRetry }: {
+  readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]>;
+  readonly onRetry: () => void;
+}) {
+  const failureMessage = generation.errorCode === "AI_GENERATION_UNAVAILABLE"
+    ? "模型服务暂时不可用或返回内容不完整。"
+    : "报告服务暂时不可用。";
   return <div data-testid="itv-report-generation">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">{generation.title ?? "正在生成访谈报告"}</h2>
@@ -476,7 +485,11 @@ function LiveReportGenerationStep({ generation }: { readonly generation: NonNull
       ? <InterviewReportMarkdown markdown={generation.markdown} testId="itv-report-stream-markdown" />
       : generation.status === "running" && <p className="mt-5 text-sm text-muted-foreground">模型正在整理第一段内容…</p>}
     {generation.findings.length > 0 && <div className="mt-8 space-y-3"><h3 className="font-semibold">已生成的来源发现</h3>{generation.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><p className="mt-3 text-xs text-muted-foreground">探索性发现 · 待真人验证</p></article>)}</div>}
-    {generation.status === "failed" && <p role="alert" className="mt-5 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告生成失败：{generation.errorCode ?? "DEPENDENCY_UNAVAILABLE"}。已生成内容和失败状态已保存，刷新后不会丢失。</p>}
+    {generation.status === "failed" && <div className="mt-5 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+      <p role="alert" className="text-sm text-destructive">{failureMessage} 已生成内容和失败状态已保存，刷新后不会丢失。</p>
+      <p className="mt-2 text-xs text-muted-foreground">错误代码：{generation.errorCode ?? "DEPENDENCY_UNAVAILABLE"}</p>
+      <Button data-testid="itv-retry-report" type="button" variant="outline" className="mt-3" onClick={onRetry}>重新生成报告</Button>
+    </div>}
   </div>;
 }
 
