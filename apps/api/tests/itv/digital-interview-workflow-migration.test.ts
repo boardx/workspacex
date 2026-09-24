@@ -9,6 +9,10 @@ const MIGRATION = fileURLToPath(new URL(
   "../../migrations/20260815120000_f04_digital_interview_workflow.sql",
   import.meta.url,
 ));
+const QUALITY_MIGRATION = fileURLToPath(new URL(
+  "../../migrations/20260924120000_digital_interview_research_quality.sql",
+  import.meta.url,
+));
 
 const BUSINESS_TABLES = [
   "digital_interview_revisions",
@@ -24,6 +28,12 @@ const BUSINESS_TABLES = [
   "digital_interview_skill_proposals",
   "digital_interview_step_receipts",
 ] as const;
+const QUALITY_TABLES = [
+  "digital_interview_research_briefs",
+  "digital_interview_moderator_policies",
+  "digital_interview_readiness_decisions",
+  "digital_interview_report_reviews",
+] as const;
 
 beforeAll(async () => {
   ensureDatabase();
@@ -31,6 +41,47 @@ beforeAll(async () => {
 }, 120_000);
 
 describe("F04 digital interview workflow migration", () => {
+  it("creates tenant-isolated versioned research quality tables", async () => {
+    const client = new pg.Client(migrationConfig());
+    await client.connect();
+    try {
+      const tables = await client.query<{ table_name: string; rls: boolean; forced: boolean }>(
+        `SELECT c.relname AS table_name, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
+           FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE n.nspname='public' AND c.relname=ANY($1::text[]) ORDER BY c.relname`,
+        [[...QUALITY_TABLES]],
+      );
+      expect(tables.rows).toHaveLength(QUALITY_TABLES.length);
+      expect(tables.rows.every((row) => row.rls && row.forced)).toBe(true);
+      const foreignKeys = await client.query<{ table_name: string; definition: string }>(
+        `SELECT c.relname AS table_name, pg_get_constraintdef(k.oid) AS definition
+           FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid
+          WHERE k.contype='f' AND c.relname=ANY($1::text[])`,
+        [[...QUALITY_TABLES]],
+      );
+      expect(foreignKeys.rows.every((row) => /FOREIGN KEY \(org_id(?:,|\))/u.test(row.definition))).toBe(true);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it("research quality migration is safe to replay", async () => {
+    const sql = await readFile(QUALITY_MIGRATION, "utf8");
+    const client = new pg.Client(migrationConfig());
+    await client.connect();
+    try {
+      await client.query(sql);
+      await client.query(sql);
+      const tables = await client.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE n.nspname='public' AND c.relname=ANY($1::text[])`,
+        [[...QUALITY_TABLES]],
+      );
+      expect(Number(tables.rows[0]?.count)).toBe(QUALITY_TABLES.length);
+    } finally {
+      await client.end();
+    }
+  });
   it("creates normalized tenant tables with forced RLS and composite tenant foreign keys", async () => {
     const client = new pg.Client(migrationConfig());
     await client.connect();

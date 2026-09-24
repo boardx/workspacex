@@ -67,7 +67,7 @@ describe("数字访谈报告浏览器增量流", () => {
   it("finding 逐条追加，完成帧只携带定位终态所需的标识", () => {
     const finding = {
       findingId: "finding-1", title: "开发者掌控", summary: "需要可解释上下文。",
-      expertId: "expert-1", questionId: "question-1", sourceAnswerId: "expert-1:question-1", exploratory: true as const,
+      expertId: "expert-1", questionId: "question-1", sourceAnswerId: "expert-1:question-1", goalIds: ["goal-1"], exploratory: true as const,
     };
     const projector = new DigitalReportTransportProjector();
     projector.project(running(""));
