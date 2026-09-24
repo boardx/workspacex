@@ -7,6 +7,7 @@ import {
   GetObjectLockConfigurationCommand,
   GetPublicAccessBlockCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -82,6 +83,10 @@ class AliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
     return { content: result.content, headers: headersOf(result.res.headers) };
   }
   async head(key: string): Promise<{ headers: Record<string, string> }> { return { headers: headersOf((await this.sdk.head(key)).res.headers) }; }
+  async delete(key: string, options?: { versionId?: string }): Promise<void> {
+    const sdk = this.sdk as unknown as { delete(name: string, value?: { versionId?: string }): Promise<unknown> };
+    await sdk.delete(key, options);
+  }
 }
 
 /**
@@ -103,6 +108,7 @@ class LazyAliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
   async put(key: string, bytes: Buffer, options: { headers: Record<string, string>; mime: string }) { return (await this.configured()).put(key, bytes, options); }
   async get(key: string) { return (await this.configured()).get(key); }
   async head(key: string) { return (await this.configured()).head(key); }
+  async delete(key: string, options?: { versionId?: string }) { return (await this.configured()).delete(key, options); }
 }
 
 type S3Profile = 'aws-s3' | 'minio' | 'r2';
@@ -143,14 +149,18 @@ class OfficialS3BoardProtocol implements S3CompatibleBoardProtocol {
     }
   }
 
-  async headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number } | null> {
+  async headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number; versionId?: string } | null> {
     try {
       const result = await this.sdk.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }));
-      return { metadata: result.Metadata, contentLength: result.ContentLength };
+      return { metadata: result.Metadata, contentLength: result.ContentLength, versionId: result.VersionId };
     } catch (error) {
       if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
       throw error;
     }
+  }
+
+  async deleteObject(input: { bucket: string; key: string; versionId?: string }): Promise<void> {
+    await this.sdk.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.key, ...(input.versionId ? { VersionId: input.versionId } : {}) }));
   }
 
   private inspect(): Promise<Inspection> {

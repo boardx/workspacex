@@ -31,6 +31,12 @@ describe('isolated whiteboard Yjs validator', () => {
     const removed = await validator.commands(created.snapshot, [{ type: 'delete', id: 'n' }]);
     expect(await validator.objectIds(removed.snapshot)).toEqual([]);
   });
+  it('rebuilds a legal large history snapshot without applying the client single-update limit',async()=>{
+    const objects=Array.from({length:100},(_,index)=>({...create.object,id:`large-${index}`,text:`${index}:`+'x'.repeat(1000)}));
+    expect(Buffer.byteLength(JSON.stringify(objects.map(object=>({type:'create',object}))))).toBeLessThan(262144);
+    const snapshot=await validator.rebuild(objects),restored=createWhiteboardDocument();Y.applyUpdate(restored,snapshot);
+    expect(readObjects(restored)).toHaveLength(100);expect(snapshot.byteLength).toBeGreaterThan(65536);restored.destroy();
+  });
   it('rejects malformed binary and oversize inputs without leaking worker errors', async () => {
     await expect(validator.validate(empty, new Uint8Array([255]))).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     await expect(validator.validate(empty, new Uint8Array(65537))).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });

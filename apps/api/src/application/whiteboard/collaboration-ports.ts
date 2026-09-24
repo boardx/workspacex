@@ -26,6 +26,8 @@ export interface ValidatedWhiteboardUpdate { snapshot: Uint8Array; update: Uint8
 /** Untrusted decoding/validation must be isolated from the API event loop. */
 export interface WhiteboardUpdateValidator {
   objects(snapshot: Uint8Array): Promise<WhiteboardObject[]>;
+  historyObjects(snapshot: Uint8Array): Promise<Array<{object:WhiteboardObject;deleted:boolean}>>;
+  rebuild(objects:WhiteboardObject[]):Promise<Uint8Array>;
   objectIds(snapshot: Uint8Array): Promise<string[]>;
   validate(snapshot: Uint8Array, update: Uint8Array): Promise<ValidatedWhiteboardUpdate>;
   commands(snapshot: Uint8Array, commands: WhiteboardCommand[]): Promise<ValidatedWhiteboardUpdate>;

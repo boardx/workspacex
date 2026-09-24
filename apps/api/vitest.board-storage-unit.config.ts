@@ -7,6 +7,7 @@ export default defineConfig({
       'tests/whiteboard/board-content-manifest.test.ts',
       'tests/whiteboard/board-blob-codec.test.ts',
       'tests/whiteboard/board-content-heads-pglite.test.ts',
+      'tests/whiteboard/checkpoint-retention-pglite.test.ts',
       'tests/whiteboard/board-storage-provider.test.ts',
       'tests/whiteboard/collaboration-transaction.test.ts',
       'tests/whiteboard/collaboration-repository-guard.test.ts',

@@ -129,6 +129,25 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
   }
 
+  async deleteIfMatch(input: { tenantId: string; key: string; expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'> {
+    this.validateDescriptor({ ...input, cipherDigest: input.expectedCipherDigest, sizeBytes: input.expectedSizeBytes });
+    const target = this.pathFor(input.tenantId, input.key);
+    return withTargetPublication(target, async () => {
+      try {
+        await this.assertConfinedParent(target);
+        const bytes = await this.readRegularNoFollow(target);
+        if (bytes.byteLength !== input.expectedSizeBytes || sha256(bytes) !== input.expectedCipherDigest) throw new BoardBlobError('INTEGRITY_FAILED', 'refusing to delete a board blob that does not match its intent');
+        await unlink(target);
+        await this.syncDirectory(dirname(target));
+        return 'deleted';
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error instanceof BoardBlobError && error.code === 'NOT_FOUND')) return 'not-found';
+        if (error instanceof BoardBlobError) throw error;
+        throw storageFault(`deleting ${input.key}`, error);
+      }
+    });
+  }
+
   private validateDescriptor(input: { tenantId: string; key: string; cipherDigest: string; sizeBytes: number }): void {
     assertTenantBlobKey(input.tenantId, input.key);
     assertSha256Digest(input.cipherDigest);

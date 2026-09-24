@@ -11,6 +11,7 @@ export interface HostedBoardBlobObject {
   bytes: Uint8Array;
   cipherDigest?: string;
   sizeBytes?: number;
+  versionId?: string;
 }
 
 export type HostedBoardPutResult = 'created' | 'already-exists';
@@ -31,6 +32,7 @@ export interface HostedBoardBlobClient {
   }): Promise<HostedBoardPutResult>;
   get(key: string): Promise<HostedBoardBlobObject | null>;
   head(key: string): Promise<Omit<HostedBoardBlobObject, 'bytes'> | null>;
+  deleteCurrent(key: string, versionId?: string): Promise<'deleted' | 'not-found'>;
 }
 
 export interface HostedBoardBlobPolicyRequirement {
@@ -139,6 +141,29 @@ export class HostedBoardBlobStore implements BoardBlobStore {
     if (!Number.isSafeInteger(object.sizeBytes) || object.sizeBytes < 1) throw integrity();
     if (!input.key.endsWith(`/sha256/${object.cipherDigest}`)) throw integrity();
     return { cipherDigest: object.cipherDigest, sizeBytes: object.sizeBytes };
+  }
+
+  async deleteIfMatch(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'> {
+    this.validateRead(input);
+    await this.assertReady();
+    let object: Omit<HostedBoardBlobObject, 'bytes'> | null;
+    try { object = await this.client.head(input.key); }
+    catch { throw unavailable(); }
+    if (!object) return 'not-found';
+    if (object.cipherDigest !== input.expectedCipherDigest || object.sizeBytes !== input.expectedSizeBytes) throw integrity();
+    if (!object.versionId) throw unavailable();
+    try {
+      const result = await this.client.deleteCurrent(input.key, object.versionId);
+      const remaining = await this.client.head(input.key);
+      // An older version becoming current, or a concurrent replacement after HEAD, means the
+      // logical key is not safely gone. Keep the lifecycle intent retryable.
+      if (remaining) throw unavailable();
+      return result;
+    } catch (error) {
+      if (error instanceof BoardBlobError) throw error;
+      // Object-lock, retention, credential, and ambiguous provider failures remain retryable.
+      throw unavailable();
+    }
   }
 
   private async tryVerified(input: BoardBlobIdentity & BoardBlobDescriptor): Promise<boolean> {

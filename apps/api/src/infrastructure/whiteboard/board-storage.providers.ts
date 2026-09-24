@@ -40,6 +40,7 @@ export class ConfiguredFsBoardBlobStore implements BoardBlobStore {
     return this.configured().getVerified(input);
   }
   head(input: BoardBlobIdentity): Promise<BoardBlobDescriptor | null> { return this.configured().head(input); }
+  deleteIfMatch(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'> { return this.configured().deleteIfMatch(input); }
   private configured(): FsBoardBlobStore { return this.store ??= new FsBoardBlobStore(boardBlobRoot(this.env)); }
 }
 

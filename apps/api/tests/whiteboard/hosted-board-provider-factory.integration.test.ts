@@ -74,7 +74,9 @@ async function awsFixture(options: AwsPolicyFixture = {}): Promise<{ endpoint: s
     }
     if (url.searchParams.has('object-lock')) { xml(response, '<ObjectLockConfiguration><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>'); return; }
     if (request.method === 'PUT') { response.statusCode = 200; response.setHeader('etag', '"fixture"'); response.end(); return; }
+    if(request.method==='DELETE'){response.statusCode=204;response.end();return;}
     response.setHeader('content-length', String(stored.byteLength)); response.setHeader('x-amz-meta-cipher-digest', 'b'.repeat(64)); response.setHeader('x-amz-meta-size-bytes', String(stored.byteLength));
+    response.setHeader('x-amz-version-id','s3-version-1');
     response.end(request.method === 'HEAD' ? undefined : stored);
   });
   return { endpoint: result.endpoint, seen };
@@ -97,9 +99,11 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
       else if (url.searchParams.has('policy')) { response.setHeader('content-type', 'application/json'); response.end('{"Version":"1","Statement":[]}'); }
       else if (url.searchParams.has('worm')) xml(response, '<WormConfiguration><WormState>Locked</WormState><RetentionPeriodInDays>1</RetentionPeriodInDays></WormConfiguration>');
       else if (request.method === 'PUT') { response.statusCode = 200; response.end(''); }
+      else if(request.method==='DELETE'){response.statusCode=204;response.end();}
       else {
         response.setHeader('content-type', 'application/octet-stream'); response.setHeader('content-length', String(bytes.byteLength));
         response.setHeader('x-oss-meta-cipher-digest', 'a'.repeat(64)); response.setHeader('x-oss-meta-size-bytes', String(bytes.byteLength));
+        response.setHeader('x-oss-version-id','oss-version-1');
         response.end(request.method === 'HEAD' ? undefined : bytes);
       }
     });
@@ -112,6 +116,8 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
     const put = seen.find(value => value.method === 'PUT');
     expect(put?.headers.authorization).toMatch(/^OSS4-HMAC-SHA256 /); expect(put?.headers['x-oss-forbid-overwrite']).toBe('true');
     expect(put?.headers['x-oss-meta-cipher-digest']).toBe('a'.repeat(64)); expect(put?.body).toEqual(bytes);
+    await expect(client.head('tenant/key')).resolves.toMatchObject({versionId:'oss-version-1'});await expect(client.deleteCurrent('tenant/key','oss-version-1')).resolves.toBe('deleted');
+    expect(seen.find(value=>value.method==='DELETE')?.url).toContain('versionId=oss-version-1');
   });
 
   it('rejects an OSS public-principal bucket policy', async () => {
@@ -144,6 +150,8 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
     const put = fixture.seen.find(value => value.method === 'PUT');
     expect(put?.headers['if-none-match']).toBe('*'); expect(put?.headers['x-amz-security-token']).toBe('test-session'); expect(put?.body).toEqual(bytes);
     expect(put?.url).toContain('/gateway%20root/private-board/board-content/tenant/space%20%25/%E4%B8%AD%E6%96%87');
+    await expect(client.head('tenant/space %/中文')).resolves.toMatchObject({versionId:'s3-version-1'});await expect(client.deleteCurrent('tenant/space %/中文','s3-version-1')).resolves.toBe('deleted');
+    expect(fixture.seen.find(value=>value.method==='DELETE')?.url).toContain('versionId=s3-version-1');
   });
 
   it.each([{ publicPolicy: true }, { incompletePab: true }])('fails closed for unsafe AWS governance: %o', async unsafe => {

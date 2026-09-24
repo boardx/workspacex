@@ -27,6 +27,10 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
+export function readStoredObjects(doc: Y.Doc): Array<{ object: WhiteboardObject; deleted: boolean }> {
+  return [...objectMap(doc)].map(([id,value])=>({object:decode(id,value),deleted:tombstones(doc).has(id)}))
+    .sort((a,b)=>a.object.id.localeCompare(b.object.id));
+}
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
   for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');
@@ -75,6 +79,20 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       if (command.deleteCount) text.delete(command.index, command.deleteCount);
       if (command.insert) text.insert(command.index, command.insert);
     }
+  }
+}
+/** Builds an isolated persisted snapshot; it deliberately bypasses online single-update limits. */
+export function rebuildWhiteboardDocument(input: unknown[]): Y.Doc {
+  if (!Array.isArray(input) || input.length > WHITEBOARD_LIMITS.objects) throw new Error('LIMIT_EXCEEDED');
+  const objects = input.map(value => WhiteboardObject.parse(value));
+  const doc = createWhiteboardDocument();
+  try {
+    doc.transact(() => apply(doc, objects.map(object => ({ type: 'create' as const, object }))), 'history-restore-rebuild');
+    validateDocument(doc);
+    return doc;
+  } catch (error) {
+    doc.destroy();
+    throw error;
   }
 }
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */

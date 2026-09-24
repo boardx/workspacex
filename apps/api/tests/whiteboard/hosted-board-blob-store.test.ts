@@ -17,12 +17,15 @@ class MemoryHostedClient implements HostedBoardBlobClient {
   failBeforePut = 0;
   putCalls = 0;
   mutateAfterPut?: (object: HostedBoardBlobObject) => void;
+  deleteFailure:Error|null=null;
+  deleteCalls:Array<{key:string;versionId?:string}>=[];
+  replacementAfterDelete?:HostedBoardBlobObject;
   async inspectBucket() { return this.policy; }
   async putIfAbsent(input: { key: string; bytes: Uint8Array; metadata: { cipherDigest: string; sizeBytes: number } }) {
     this.putCalls += 1;
     if (this.failBeforePut > 0) { this.failBeforePut -= 1; throw new Error('expired credential'); }
     if (this.objects.has(input.key)) return 'already-exists' as const;
-    const object = { bytes: new Uint8Array(input.bytes), ...input.metadata };
+    const object = { bytes: new Uint8Array(input.bytes), ...input.metadata,versionId:'version-1' };
     this.objects.set(input.key, object); this.mutateAfterPut?.(object);
     if (this.putFailure) throw this.putFailure;
     return 'created' as const;
@@ -30,7 +33,16 @@ class MemoryHostedClient implements HostedBoardBlobClient {
   async get(key: string) { return this.objects.get(key) ?? null; }
   async head(key: string) {
     const value = this.objects.get(key);
-    return value ? { cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes } : null;
+    return value ? { cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes,versionId:value.versionId } : null;
+  }
+  async deleteCurrent(key:string,versionId?:string){
+    this.deleteCalls.push({key,versionId});
+    if(this.deleteFailure)throw this.deleteFailure;
+    const current=this.objects.get(key);
+    if(!current||current.versionId!==versionId)return 'not-found' as const;
+    this.objects.delete(key);
+    if(this.replacementAfterDelete)this.objects.set(key,this.replacementAfterDelete);
+    return 'deleted' as const;
   }
 }
 
@@ -98,6 +110,30 @@ describe.each(['aliyun-oss', 's3-compatible'] as const)('%s BoardBlobStore contr
     client.inspectBucket = async () => { throw new Error('AKIA-SECRET https://internal.example'); };
     await expect(store.putImmutable(input)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE', message: 'hosted board storage is unavailable' });
   });
+
+  it('deletes only the head-verified immutable object and leaves provider failures retryable',async()=>{
+    const {client,store}=create(),input=value();await store.putImmutable(input);
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:'0'.repeat(64),expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'INTEGRITY_FAILED'});
+    expect(client.objects.has(input.key)).toBe(true);
+    client.deleteFailure=new Error('object lock retained secret');
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    expect(client.objects.has(input.key)).toBe(true);
+    client.deleteFailure=null;
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).resolves.toBe('deleted');
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).resolves.toBe('not-found');
+  });
+
+  it('never issues an unfenced delete and treats a revealed older version as retryable',async()=>{
+    const {client,store}=create(),input=value();await store.putImmutable(input);
+    client.objects.get(input.key)!.versionId=undefined;
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    expect(client.deleteCalls).toEqual([]);
+    client.objects.get(input.key)!.versionId='version-1';
+    client.replacementAfterDelete={bytes:Buffer.from('older'),cipherDigest:sha256(Buffer.from('older')),sizeBytes:5,versionId:'older-version'};
+    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    expect(client.deleteCalls).toEqual([{key:input.key,versionId:'version-1'}]);
+    expect(client.objects.get(input.key)?.versionId).toBe('older-version');
+  });
 });
 
 describe('Hosted Board bucket policy', () => {
@@ -116,9 +152,5 @@ describe('Hosted Board bucket policy', () => {
     await expect(new HostedBoardBlobStore(client, { requireObjectLock: false }).assertReady()).resolves.toBeUndefined();
   });
 
-  it('has no ordinary delete capability', () => {
-    const client = new MemoryHostedClient();
-    expect('delete' in new HostedBoardBlobStore(client, { requireObjectLock: false })).toBe(false);
-    expect('delete' in client).toBe(false);
-  });
+  it('exposes only digest-fenced deletion',()=>{const client=new MemoryHostedClient(),store=new HostedBoardBlobStore(client,{requireObjectLock:false});expect('deleteIfMatch' in store).toBe(true);expect('delete' in store).toBe(false);});
 });
