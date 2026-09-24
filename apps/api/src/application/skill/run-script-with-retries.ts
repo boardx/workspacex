@@ -53,6 +53,24 @@ export class ScriptFailedAfterRetriesError extends Error {
   }
 }
 
+/**
+ * 脚本跑通了（退出码 0）但一个文件都没写。
+ *
+ * 2026-09-24 真实模型实测：这一幕此前被当成**成功**——界面没有错误横幅，
+ * 而用户手里什么都没有。它与「脚本报错」是两个成因，处置也不同
+ * （前者是脚本忘了往输出目录写，后者是脚本本身错了），所以不共用一个错误类：
+ * 共用会让排查往「脚本哪里写错了」跑，而真相是「它从来没往输出目录写东西」。
+ */
+export class ScriptProducedNoFilesError extends Error {
+  constructor(readonly attempts: number) {
+    super("SCRIPT_PRODUCED_NO_FILES");
+    this.name = "ScriptProducedNoFilesError";
+  }
+}
+
+/** history 里标记「这一次跑通了但没产物」的哨兵，与真实 stderr 区分开。 */
+const NO_FILES_STDERR = "__script_exited_0_without_writing_any_file__";
+
 export class SandboxTimeoutError extends Error {
   constructor(readonly attempts: number) {
     super("SANDBOX_TIMEOUT");
@@ -171,6 +189,30 @@ export async function runScriptWithRetries(
     }
 
     if (result.exitCode === 0) {
+      /*
+       * ⚠ 退出码 0 **不等于**这一轮有产物（2026-09-24 真实模型实测）。
+       *
+       * 人类的 prompt 是「深度研究…然后生成一个 ppt」。这一轮：跑了 429 秒、
+       * 脚本退出码 0、界面全程没有错误横幅（「一切正常」），而
+       * `chat-produced-file-inline-card` 数量为 0——**用户什么也没拿到**，
+       * 系统却认为成功。证据：apps/web/test-results/real-model-evidence/01-verdict.txt。
+       *
+       * 空产出是**可纠正**的（脚本忘了往 SKILL_SANDBOX_OUT_DIR 写），与「模型没给脚本块」
+       * 同一性质，所以按同一条路处理：记进 history、给一条指名道姓的回喂、再试一次。
+       * 重试用尽仍然空 ⇒ 抛 `ScriptProducedNoFilesError`，让上层说得出真正的成因，
+       * 而不是把一次没有产物的运行报成成功。
+       */
+      if (result.files.length === 0) {
+        history.push({ attempt, exitCode: 0, stderr: NO_FILES_STDERR });
+        deps.log?.("skill trial run produced no files", { attempt, stdoutExcerpt: excerpt(result.stdout) });
+        feedback = [
+          "The script exited 0 but wrote no file, so there is nothing to deliver.",
+          "",
+          "Write every file you want to return into process.env.SKILL_SANDBOX_OUT_DIR",
+          "before the script exits, then reply with a single corrected run_script block.",
+        ].join("\n");
+        continue;
+      }
       return { script, stdout: result.stdout, files: result.files, attempts: attempt, history };
     }
 
@@ -203,6 +245,14 @@ export async function runScriptWithRetries(
    */
   const executed = history.filter((record) => record.exitCode !== null);
   const last = (executed.length > 0 ? executed[executed.length - 1] : history[history.length - 1])!;
+  /*
+   * 全部尝试都是「跑通了但没写文件」时，成因就是**空产出**本身，不是脚本报错——
+   * 报成 SCRIPT_FAILED_AFTER_RETRIES 会让排查往「脚本哪里写错了」跑，而真相是
+   * 「脚本从来没往输出目录写东西」。失败必须说出真实成因（#660 / #1611 同一条纪律）。
+   */
+  if (executed.length > 0 && executed.every((record) => record.stderr === NO_FILES_STDERR)) {
+    throw new ScriptProducedNoFilesError(maxAttempts);
+  }
   throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
 }
 

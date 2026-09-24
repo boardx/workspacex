@@ -70,6 +70,7 @@ import { ModelCallError, ModelCallInterruptedError, type ModelCallCompletion, ty
 import {
   MAX_SCRIPT_ATTEMPTS,
   ScriptFailedAfterRetriesError,
+  ScriptProducedNoFilesError,
   SandboxTimeoutError,
   runScriptWithRetries,
   tryExtractScript,
@@ -107,6 +108,16 @@ export type SkillScriptFailureCode =
    *  与 `MODEL_CALL_FAILED` 是两件事——调用没有失败，是它在等一个人回答问题，
    *  运维去查模型/内核故障只会一无所获。 */
   | "SCRIPT_RETRY_INTERRUPTED"
+  /**
+   * 脚本跑通了（退出码 0）却一个文件都没写。
+   *
+   * 2026-09-24 真实模型实测：人类要「深度研究…然后生成一个 ppt」，这一轮跑了 429 秒、
+   * 退出码 0、界面**全程没有错误横幅**，而产出文件卡数量为 0——用户什么也没拿到，
+   * 系统却认为成功。它与 `SCRIPT_FAILED_AFTER_RETRIES` 是两个成因：那个是脚本报错，
+   * 这个是脚本忘了往 `SKILL_SANDBOX_OUT_DIR` 写。混成一个会让排查往「脚本哪里写错了」
+   * 跑，而真相是「它从来没往输出目录写东西」。
+   */
+  | "SCRIPT_PRODUCED_NO_FILES"
   /** 诚实的兜底：分类器认不出这个异常属于以上哪一类时用这个,不得借用一个具体但
    *  错误的分类顶替（R7，`requirements/05-error-observability.md`）。 */
   | "UNKNOWN_EXECUTION_ERROR";
@@ -314,6 +325,10 @@ function toFailure(e: unknown): {
   if (e instanceof SandboxTimeoutError) {
     return { failureCode: "SANDBOX_TIMEOUT", stderr: "" };
   }
+  if (e instanceof ScriptProducedNoFilesError) {
+    // 没有 stderr 可报——沙箱这几次都跑通了，问题在"没写文件"这件事本身。
+    return { failureCode: "SCRIPT_PRODUCED_NO_FILES", stderr: "" };
+  }
   if (e instanceof ScriptFailedAfterRetriesError) {
     // ⚠ 原样带回，不加工（#660）。
     return { failureCode: "SCRIPT_FAILED_AFTER_RETRIES", stderr: e.lastStderr };
@@ -404,6 +419,15 @@ function failureBody(code: SkillScriptFailureCode, stderr: string): readonly str
       return [
         "⚠ 重新生成脚本时运行被中断（在等待一次人工确认），本轮**没有**产出文件。",
         "这一步没有执行沙箱，因此没有沙箱输出可报。补充说明你要的产物后可以继续。",
+      ];
+    case "SCRIPT_PRODUCED_NO_FILES":
+      /*
+       * 沙箱跑通了，所以没有 stderr 可贴；用户需要的不是"错误输出"，
+       * 是知道**这一轮没有东西可下载**，以及下一步能做什么。
+       */
+      return [
+        "⚠ 这一轮生成脚本执行成功，但没有写出任何文件，因此**没有**可下载的产物。",
+        "可以再说一次你要的文件类型与内容要点（例如「做一个 10 页的 pptx，包含结论与数据来源」），我再试一次。",
       ];
     case "MODEL_CALL_FAILED":
       // provider 的原话（`ModelCallError.detail`）到服务端日志为止——那条纪律写在
