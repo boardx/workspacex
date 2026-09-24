@@ -121,43 +121,87 @@ export function initNav() {
 
   // --- mobile menu ---
   if (burger && links) {
-    const close = () => {
+    /* Keyboard: the panel comes BEFORE the burger in the DOM, so after
+       opening it Tab went on to the hero and the links were reachable only
+       backwards. Opening now moves focus into the panel, Tab cycles between
+       the panel and the burger while it is open, and Escape closes it and
+       hands focus back to the burger rather than dropping it on <body>. */
+    const isOpen = () => burger.getAttribute('aria-expanded') === 'true';
+    const items = () => [...links.querySelectorAll('a[href], button')].filter((n) => n.offsetParent !== null);
+    const close = (refocus) => {
       burger.setAttribute('aria-expanded', 'false');
       links.removeAttribute('data-open');
+      if (refocus) burger.focus();
     };
     burger.addEventListener('click', () => {
-      const open = burger.getAttribute('aria-expanded') === 'true';
-      burger.setAttribute('aria-expanded', String(!open));
-      if (open) links.removeAttribute('data-open');
-      else links.setAttribute('data-open', 'true');
+      if (isOpen()) { close(false); return; }
+      burger.setAttribute('aria-expanded', 'true');
+      links.setAttribute('data-open', 'true');
+      requestAnimationFrame(() => items()[0]?.focus());
     });
-    links.addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    links.addEventListener('click', (e) => { if (e.target.closest('a')) close(false); });
+    document.addEventListener('keydown', (e) => {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') { close(true); return; }
+      if (e.key !== 'Tab') return;
+      const list = items(); if (!list.length) return;
+      const first = list[0]; const last = list[list.length - 1];
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); burger.focus(); }
+      else if (!e.shiftKey && document.activeElement === burger) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); burger.focus(); }
+      else if (e.shiftKey && document.activeElement === burger) { e.preventDefault(); last.focus(); }
+    });
   }
 
-  // --- scrollspy ---
+  // --- scrollspy + language switch that keeps your place ---
+  /* The section you are reading is the last one whose top has passed a
+     reading line a third of the way down the screen. An IntersectionObserver
+     ratio got this wrong for tall sections (a 3000 px section never owns much
+     of its own area) and only re-reported on threshold crossings, so three of
+     four nav links never lit up. One rAF-throttled pass over ~20 offsets per
+     scroll is cheaper than the bug.
+     The same answer feeds the language switch: a reader halfway down the
+     architecture section who switches language should land on architecture
+     in the other language, not at the top of a seventeen-thousand-pixel page. */
   const anchors = [...document.querySelectorAll('.nav__link')];
-  const sections = anchors
-    .map((a) => document.querySelector(a.getAttribute('href')))
-    .filter(Boolean);
-  if (!sections.length || !('IntersectionObserver' in window)) return;
-
-  const visible = new Map();
-  const spy = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((e) => visible.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
-      // Whichever tracked section owns the most of the viewport wins.
-      let best = null; let bestRatio = 0;
-      visible.forEach((ratio, id) => { if (ratio > bestRatio) { bestRatio = ratio; best = id; } });
-      anchors.forEach((a) => {
-        const on = best !== null && a.getAttribute('href') === `#${best}`;
-        if (on) a.setAttribute('aria-current', 'true');
-        else a.removeAttribute('aria-current');
-      });
-    },
-    { threshold: [0, 0.15, 0.35, 0.6, 0.9], rootMargin: '-15% 0px -45% 0px' },
-  );
-  sections.forEach((s) => spy.observe(s));
+  const all = [...document.querySelectorAll('main section[id]')].filter((s) => !s.closest('[role="tabpanel"]') && s.getAttribute('role') !== 'tabpanel');
+  const swaps = [...document.querySelectorAll('.langswitch__btn:not([aria-current="true"])')]
+    .map((a) => [a, a.getAttribute('href').split('#')[0]]);
+  let last;
+  const update = () => {
+    const line = window.innerHeight / 3;
+    let cur = null;
+    for (const s of all) { if (s.getBoundingClientRect().top <= line) cur = s.id; else break; }
+    if (window.scrollY < 8) cur = null;
+    /* Inside the use cases, the fragment names the selected discipline
+       (cases.js writes it); the other language should open on that one. */
+    const frag = cur === 'start' && /^#(panel|tab)-/.test(location.hash) ? location.hash.slice(1) : cur;
+    if (frag === last) return;
+    last = frag;
+    anchors.forEach((a) => {
+      if (cur && a.getAttribute('href') === `#${cur}`) a.setAttribute('aria-current', 'true');
+      else a.removeAttribute('aria-current');
+    });
+    swaps.forEach(([a, base]) => a.setAttribute('href', frag ? `${base}#${frag}` : base));
+    /* The "also in 中文" offer (lang.js) is the other way across, and the one
+       a visitor who did not know the switch existed actually taps. */
+    const hint = document.querySelector('.langhint__go');
+    if (hint) {
+      if (!hint.dataset.base) hint.dataset.base = hint.getAttribute('href').split('#')[0];
+      hint.setAttribute('href', frag ? `${hint.dataset.base}#${frag}` : hint.dataset.base);
+    }
+  };
+  let queued = false;
+  const onScroll = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; update(); });
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('hashchange', onScroll);
+  window.addEventListener('wsx:fragment', onScroll);
+  window.addEventListener('resize', onScroll);
+  update();
 }
 
 /* -------------------------------------------------------------------------

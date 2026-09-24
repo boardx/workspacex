@@ -59,6 +59,11 @@
      wrap exactly as before, so there is nothing to guard. */
   text-wrap: balance;
 }
+/* On a phone the chip wrapped to two centred lines inside a pill, with its
+   dot pinned to the top-left corner: a badge that looked like a paragraph.
+   One step down the type scale it is one line at 360 px and up; below that
+   it still wraps, and the dot still aligns to the first line. */
+@media (max-width: 30.0rem) { .chip { font-size: var(--t-micro); } }
 .chip__dot {
   width: 6px; height: 6px; border-radius: var(--r-round);
   background: var(--grad);
@@ -215,6 +220,9 @@
    An offer, not a redirect: auto-redirecting breaks back navigation, hides the
    other language from crawlers, and overrides a choice the visitor may have
    made deliberately. */
+/* While the hint is shown (lang.js sets --hint-h to its height). */
+.has-langhint { scroll-padding-bottom: var(--hint-h); }
+.has-langhint body { padding-bottom: var(--hint-h); }
 .langhint {
   position: fixed; z-index: 90;
   left: 50%; bottom: 1.25rem;

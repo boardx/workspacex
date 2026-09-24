@@ -35,6 +35,9 @@ const checks = [
 const browserChecks = [
   ['browser behaviour', '../tests/browser.test.mjs'],
   ['performance budget', '../tests/perf.test.mjs'],
+  /* The acceptance set: fifty measured cases, scored per language, the lower
+     of the two is the score. Nine out of ten is the bar the owner set. */
+  ['acceptance eval ≥ 9/10', '../tests/eval/eval.mjs', '--min', '9'],
 ];
 
 /* ---- a gate on the gates -------------------------------------------------
@@ -62,9 +65,9 @@ for (const [label, script, ...args] of checks) {
   }
 }
 if (!process.argv.includes('--static-only')) {
-  for (const [label, script] of browserChecks) {
+  for (const [label, script, ...args] of browserChecks) {
     try {
-      execFileSync(process.execPath, [join(here, script)], { stdio: 'inherit', cwd: root });
+      execFileSync(process.execPath, [join(here, script), ...args], { stdio: 'inherit', cwd: root });
     } catch {
       failed += 1;
       console.error(`  ↳ ${label} failed`);

@@ -65,11 +65,20 @@ const page = await browser.newPage({ viewport: { width: W, height: H }, deviceSc
 await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(200);
 
-/* JPEG, not PNG: the source is pure gradient, so PNG came out at 253 KB
-   against 23 KB here for output nobody can tell apart at this blur radius. */
-const jpeg = await page.screenshot({ type: 'jpeg', quality: 82 });
-writeFileSync(join(root, 'assets/img/aurora.jpg'), jpeg);
+/* WebP, not JPEG, not PNG. The source is pure gradient: PNG stored it at
+   253 KB, JPEG at quality 82 at 23 KB — the heaviest image on the first
+   screen. WebP at 0.92 is 15 KB. 0.8 was 7 KB and showed blocks in the
+   gradient, compared side by side; 0.92 shows no more than the JPEG did. The screenshot is lossless and
+   the page's own canvas encoder writes the WebP. */
+const png = (await page.screenshot({ type: 'png' })).toString('base64');
+const webp = Buffer.from(await page.evaluate(async (src) => {
+  const img = new Image(); img.src = `data:image/png;base64,${src}`; await img.decode();
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  c.getContext('2d').drawImage(img, 0, 0);
+  return c.toDataURL('image/webp', 0.92).split(',')[1];
+}, png), 'base64');
+writeFileSync(join(root, 'assets/img/aurora.webp'), webp);
 
 await browser.close();
 server.close();
-console.log(`✓ wrote assets/img/aurora.jpg (${(jpeg.length / 1024).toFixed(1)} KB)`);
+console.log(`✓ wrote assets/img/aurora.webp (${(webp.length / 1024).toFixed(1)} KB)`);

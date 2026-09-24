@@ -31,18 +31,19 @@
     background: radial-gradient(120% 90% at 28% 46%, rgba(8,7,11,.06), rgba(8,7,11,.52) 76%); }
 
   .brand { display: flex; align-items: center; gap: 14px; }
-  .brand svg { width: 48px; height: 48px; }
-  /* The nav's wordmark carries the gradient; a card that does not is a second
-     version of the logo, which is the thing the brand source exists to stop. */
-  .brand b { font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: -.02em;
-             background: var(--grad); -webkit-background-clip: text; background-clip: text;
-             -webkit-text-fill-color: transparent; }
+  /* The product's own logo, the same file the header shows — not a
+     re-typeset wordmark, which is a second version of the logo. */
+  .brand img { display: block; height: 56px; width: auto; }
   h1 { font-size: 78px; line-height: 1.04; letter-spacing: -.042em; max-width: 17ch; }
   p { font-size: 27px; color: var(--fg-soft); max-width: 30ch; line-height: 1.45; }
   /* `ch` is the width of a "0", so 17ch of Han is far narrower than 17 Han
      characters — the Chinese card was using the left 45% of the frame and
      leaving the rest empty. */
-  html[lang^="zh"] h1 { max-width: 13em; line-height: 1.18; }
+  /* The card is rendered here, where the Chinese face comes in one weight;
+     /zh/ forbids faked bold, so the Han in the headline is regular while
+     "AI" beside it was Outfit 700 — two weights in four characters on the
+     image people share. One weight for both. */
+  html[lang^="zh"] h1 { max-width: 13em; line-height: 1.18; font-weight: 400; }
   html[lang^="zh"] p  { max-width: 20em; line-height: 1.7; }
   .chain { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
   .chain span { font-family: var(--font-mono); font-size: 16px; letter-spacing: .12em;
@@ -55,19 +56,7 @@
 <div class="card">
   <div class="glow"><div class="b1"></div><div class="b2"></div><div class="b3"></div></div>
   <div class="brand">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><defs>
-    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="30" y2="30">
-      <stop offset="0" style="stop-color:var(--c-1)"/>
-      <stop offset="0.52" style="stop-color:var(--c-2)"/>
-      <stop offset="1" style="stop-color:var(--c-3)"/>
-    </linearGradient>
-    </defs>
-    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)"/>
-    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(90 16 16)"/>
-    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(180 16 16)"/>
-    <path d="M16 16C9.8 13 8.6 5.4 15 1.8c7 2.6 7.6 10 1 14.2z" fill="url(#g)" transform="rotate(270 16 16)"/>
-    </svg>
-    <b>WorkspaceX</b>
+<img src="../assets/img/logo.webp" width="211" height="56" alt="WorkspaceX">
   </div>
   <h1 data-en="Where humans and AI actually get work done." data-zh="人与 AI，真正把工作完成的地方。">Where humans and AI actually get work done.</h1>
   <p data-en="The open operating workspace — shared context, verifiable action, organizational memory." data-zh="开放的协作运行空间——共享上下文、可验证的行动、属于组织的记忆。">The open operating workspace — shared context, verifiable action, organizational memory.</p>
