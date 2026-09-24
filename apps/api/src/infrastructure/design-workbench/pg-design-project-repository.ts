@@ -14,6 +14,7 @@ import { designAiCollab, designPrototype, designWorkbench } from "@repo/contract
 import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
 import type { ShareSnapshot } from "../../application/design-workbench/share-snapshot";
 import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
+import type { DesignCommentRepository, DesignCommentRepositoryFactory, DesignCommentRow } from "../../application/design-workbench/design-comments";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -412,7 +413,7 @@ function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototy
  *   ——棘轮存在的意义就是让"再加一条豁免"这件事有成本。这个类已经在 allowlist 上，
  *   而它的 guard 测试逐条断言了它能碰哪些表、每条语句怎么收窄，参考图这三条一并被它守住。
  */
-class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefImageRepository {
+class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefImageRepository, DesignCommentRepository {
   constructor(
     private readonly db: DatabasePort,
     private readonly orgId: string,
@@ -895,16 +896,101 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
       return rows.length > 0;
     });
   }
+
+  /* ── 深度 S2（#3988）：批注。与参考图同一个理由并进本类（可见性跟随项目、allowlist 棘轮）。
+   *    每条都按 org + project 收窄，**刻意不带** author / owner 谓词：谁能删由用例层判。 ── */
+
+  async listComments(projectId: string): Promise<readonly DesignCommentRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<CommentDbRow>(
+        `SELECT id, project_id, author_id, node_id, frame_index, label, body, resolved, created_at
+           FROM design_project_comments
+          WHERE org_id = $1 AND project_id = $2
+          ORDER BY created_at ASC, id ASC`,
+        [this.orgId, projectId],
+      );
+      return rows.map(toCommentRow);
+    });
+  }
+
+  async countComments(projectId: string): Promise<number> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM design_project_comments WHERE org_id = $1 AND project_id = $2`,
+        [this.orgId, projectId],
+      );
+      return Number(rows[0]?.n ?? 0);
+    });
+  }
+
+  async getComment(projectId: string, commentId: string): Promise<DesignCommentRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<CommentDbRow>(
+        `SELECT id, project_id, author_id, node_id, frame_index, label, body, resolved, created_at
+           FROM design_project_comments
+          WHERE org_id = $1 AND project_id = $2 AND id = $3`,
+        [this.orgId, projectId, commentId],
+      );
+      return rows[0] === undefined ? null : toCommentRow(rows[0]);
+    });
+  }
+
+  async insertComment(row: Omit<DesignCommentRow, "createdAt" | "resolved">): Promise<DesignCommentRow> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<CommentDbRow>(
+        `INSERT INTO design_project_comments (id, org_id, project_id, author_id, node_id, frame_index, label, body)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         RETURNING id, project_id, author_id, node_id, frame_index, label, body, resolved, created_at`,
+        [row.id, this.orgId, row.projectId, row.authorId, row.nodeId, row.frameIndex, row.label, row.text],
+      );
+      return toCommentRow(rows[0]!);
+    });
+  }
+
+  async setCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<DesignCommentRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<CommentDbRow>(
+        `UPDATE design_project_comments SET resolved = $4, updated_at = now()
+          WHERE org_id = $1 AND project_id = $2 AND id = $3
+          RETURNING id, project_id, author_id, node_id, frame_index, label, body, resolved, created_at`,
+        [this.orgId, projectId, commentId, resolved],
+      );
+      return rows[0] === undefined ? null : toCommentRow(rows[0]);
+    });
+  }
+
+  async deleteComment(projectId: string, commentId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `DELETE FROM design_project_comments
+          WHERE org_id = $1 AND project_id = $2 AND id = $3 RETURNING id`,
+        [this.orgId, projectId, commentId],
+      );
+      return rows.length > 0;
+    });
+  }
+}
+
+interface CommentDbRow {
+  id: string; project_id: string; author_id: string; node_id: string; frame_index: number;
+  label: string; body: string; resolved: boolean; created_at: string | Date;
+}
+function toCommentRow(r: CommentDbRow): DesignCommentRow {
+  return {
+    id: r.id, projectId: r.project_id, authorId: r.author_id, nodeId: r.node_id, frameIndex: Number(r.frame_index),
+    label: r.label, text: r.body, resolved: r.resolved, createdAt: new Date(r.created_at).toISOString(),
+  };
 }
 
 /**
- * 同一个工厂同时供两个 DI 令牌（`DESIGN_PROJECT_REPOSITORY` / `DESIGN_REF_IMAGE_REPOSITORY`）：
- * 端口在应用层仍是两个窄接口（用例只依赖它需要的那个），实现是同一个类。
+ * 同一个工厂同时供三个 DI 令牌（`DESIGN_PROJECT_REPOSITORY` / `DESIGN_REF_IMAGE_REPOSITORY` /
+ * 深度 S2 的 `DESIGN_COMMENT_REPOSITORY`）：端口在应用层仍是窄接口（用例只依赖它需要的那个），
+ * 实现是同一个类。
  */
-export class PgDesignProjectRepository implements DesignProjectRepositoryFactory, DesignRefImageRepositoryFactory {
+export class PgDesignProjectRepository implements DesignProjectRepositoryFactory, DesignRefImageRepositoryFactory, DesignCommentRepositoryFactory {
   constructor(private readonly db: DatabasePort) {}
 
-  forOrg(orgId: string): DesignProjectRepository & RefImageRepository {
+  forOrg(orgId: string): DesignProjectRepository & RefImageRepository & DesignCommentRepository {
     return new ScopedPgDesignProjectRepository(this.db, orgId);
   }
 }

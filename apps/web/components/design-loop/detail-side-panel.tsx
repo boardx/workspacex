@@ -94,7 +94,7 @@ export function DetailSidePanel({
                 />
               )}
               <CommentList
-                comments={comments.comments} frame={frame} sending={sending}
+                comments={comments.comments} frame={frame} sending={sending} error={comments.error}
                 onRemove={comments.remove} onClearResolved={comments.clearResolved}
                 onFocus={(c) => { setFrame(c.frameIndex); }}
                 onSend={() => {

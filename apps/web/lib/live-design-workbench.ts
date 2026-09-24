@@ -294,6 +294,26 @@ export async function proposeVariants(projectId: string, screen: number, count?:
   });
 }
 
+/* ── 深度 S2：批注存在服务端（全组织可读可写，删除限作者或 owner） ── */
+export type DesignComment = z.infer<typeof designWorkbench.DesignComment>;
+const commentPath = (projectId: string, commentId?: string): string =>
+  `/pm-designs/${encodeURIComponent(projectId)}/comments${commentId === undefined ? "" : `/${encodeURIComponent(commentId)}`}`;
+export async function listDesignComments(projectId: string): Promise<{ items: DesignComment[] }> {
+  return apiRequest<{ items: DesignComment[] }>(commentPath(projectId));
+}
+export async function createDesignComment(
+  projectId: string,
+  c: { nodeId: string; frameIndex: number; label: string; text: string },
+): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId), { method: "POST", body: c });
+}
+export async function setDesignCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId, commentId), { method: "PATCH", body: { resolved } });
+}
+export async function deleteDesignComment(projectId: string, commentId: string): Promise<void> {
+  await apiRequest<Record<string, never>>(commentPath(projectId, commentId), { method: "DELETE" });
+}
+
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
 export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
 export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;

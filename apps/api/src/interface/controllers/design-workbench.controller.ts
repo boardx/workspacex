@@ -52,6 +52,17 @@ import { listMyProjects } from "../../application/design-workbench/list-my-proje
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
 import { PrototypePatchRejectedError, patchPrototype } from "../../application/design-workbench/patch-prototype";
+import {
+  DESIGN_COMMENT_REPOSITORY,
+  DesignCommentLimitError,
+  DesignCommentNotFoundError,
+  NotCommentAuthorError,
+  createDesignComment,
+  deleteDesignComment,
+  listDesignComments,
+  updateDesignComment,
+  type DesignCommentRepositoryFactory,
+} from "../../application/design-workbench/design-comments";
 import { DesignVariantsUnavailableError, ModelDesignVariantProposer, proposeVariants } from "../../application/design-workbench/design-variants";
 import {
   PrototypeVersionNotFoundError,
@@ -137,6 +148,10 @@ export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ proj
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
 export const PROPOSE_VARIANTS_SCHEMA = C.operations.proposeVariants.in.omit({ projectId: true });
 type ProposeVariantsBody = ReturnType<typeof PROPOSE_VARIANTS_SCHEMA.parse>;
+export const CREATE_DESIGN_COMMENT_SCHEMA = C.operations.createDesignComment.in.omit({ projectId: true });
+type CreateDesignCommentBody = ReturnType<typeof CREATE_DESIGN_COMMENT_SCHEMA.parse>;
+export const UPDATE_DESIGN_COMMENT_SCHEMA = C.operations.updateDesignComment.in.omit({ projectId: true, commentId: true });
+type UpdateDesignCommentBody = ReturnType<typeof UPDATE_DESIGN_COMMENT_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
 export const PUBLISH_PROJECT_SCHEMA = C.operations.publishProject.in.omit({ projectId: true });
 type PublishProjectBody = ReturnType<typeof PUBLISH_PROJECT_SCHEMA.parse>;
@@ -171,6 +186,10 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignThreadSummaryUnavailableError) {
     return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
   }
+  // 深度 S2：批注的三个码（契约 DesignWorkbenchError 闭集里登记过，过滤器放行）。
+  if (e instanceof DesignCommentNotFoundError) return new NotFoundException({ reasonCode: "COMMENT_NOT_FOUND" });
+  if (e instanceof NotCommentAuthorError) return new ForbiddenException({ reasonCode: "NOT_COMMENT_AUTHOR" });
+  if (e instanceof DesignCommentLimitError) return new ConflictException({ reasonCode: "COMMENT_LIMIT_REACHED" });
   // 对标 R9：模型没给出够数的合法方案 ⇒ 同一个 503，不新增错误码。
   if (e instanceof DesignVariantsUnavailableError) {
     return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
@@ -219,7 +238,13 @@ export class DesignWorkbenchController {
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisionIds: DecisionIdFactory,
+    // 深度 S2：批注仓储（与项目仓储同一个类，窄端口）。
+    @Inject(DESIGN_COMMENT_REPOSITORY) private readonly commentRepo: DesignCommentRepositoryFactory,
   ) {}
+
+  private commentDeps(principal: Principal) {
+    return { ...this.deps(principal), comments: this.commentRepo.forOrg(principal.orgId), newId: () => randomUUID() };
+  }
 
   private designChat(): ModelDesignChatReplier {
     return new ModelDesignChatReplier({
@@ -442,6 +467,61 @@ export class DesignWorkbenchController {
           ...(body.instruction !== undefined ? { instruction: body.instruction } : {}),
         },
       );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 深度 S2：批注（全组织可读可写，删除限作者或 owner） ── */
+
+  @Get("/pm-designs/:projectId/comments")
+  async listComments(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    try {
+      return await listDesignComments(this.commentDeps(principal), { projectId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/comments")
+  async createComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(CREATE_DESIGN_COMMENT_SCHEMA)) body: CreateDesignCommentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createDesignComment(this.commentDeps(principal), { projectId, authorId: principal.userId, ...body });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Patch("/pm-designs/:projectId/comments/:commentId")
+  async updateComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+    @Body(new ZodBodyPipe(UPDATE_DESIGN_COMMENT_SCHEMA)) body: UpdateDesignCommentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateDesignComment(this.commentDeps(principal), { projectId, commentId, resolved: body.resolved });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Delete("/pm-designs/:projectId/comments/:commentId")
+  async deleteComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await deleteDesignComment(this.commentDeps(principal), { projectId, commentId, viewerId: principal.userId });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

@@ -582,6 +582,7 @@ import { DesignWorkbenchController, PublicDesignShareController } from "./interf
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
 import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
+import { DESIGN_COMMENT_REPOSITORY } from "./application/design-workbench/design-comments";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -2867,6 +2868,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // 可见性完全跟随项目）。端口在应用层仍是两个窄接口，用例只依赖它需要的那一个。
     {
       provide: DESIGN_REF_IMAGE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 深度 S2（#3988）：批注——同一个类（见 pg-design-project-repository.ts 头注），第三个窄端口。
+    {
+      provide: DESIGN_COMMENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
     },

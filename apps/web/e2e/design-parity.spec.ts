@@ -9,6 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 // 撤销 / 重做要真的版本日志：用评测那份按真实契约应用 patch、带恢复的替身（只接管 eval-* 项目）。
 import { routeEvalEditing } from "./parity-eval/eval-api";
+import { newCommentStore, routeEvalComments } from "./parity-eval/depth-api";
 
 test.use({ launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {}, acceptDownloads: true });
 
@@ -367,5 +368,42 @@ test.describe("R10 代码交接（#3955）", () => {
     expect([...tsx.matchAll(/^import\b[^"]*"([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
     expect(tsx).toContain(`{"年度会员 · 专业版"}`);
     expect(tsx).toContain(`{ name: "商品详情", Component: Screen1 }`);
+  });
+});
+
+test.describe("深度 S2 批注存在服务端（#3988）", () => {
+  test("A 浏览器钉一条 ⇒ 服务端收到；B 浏览器（空存储）打开同一个项目看得到它和它的钉；A 标记交给 AI ⇒ B 刷新后是已解决", async ({ page, browser }) => {
+    const store = newCommentStore();
+    const open = async (p: Page) => {
+      await routeDrafts(p, { empty: false });
+      await routeInbox(p, { empty: false });
+      await routeDesignWorkbench(p, { extraProjects: [R7_PROJECT] });
+      await routeEvalComments(p, store);
+      await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+      await p.getByTestId("design-detail").waitFor();
+      await p.getByTestId("design-detail-view-single").click();
+      await p.getByTestId("design-detail-mode-comment").click();
+      return p.getByTestId("design-detail-phone");
+    };
+    const phoneA = await open(page);
+    await phoneA.locator('[data-node-id="r7-title"]').click();
+    await page.getByTestId("design-comment-input").fill("标题换成更口语的说法");
+    await page.getByTestId("design-comment-save").click();
+    await expect(page.getByTestId("design-comment-item")).toHaveCount(1);
+    expect(store.get("eval-R7")?.map((c) => [c.nodeId, c.text])).toEqual([["r7-title", "标题换成更口语的说法"]]);
+
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const other = await ctx.newPage();
+    const phoneB = await open(other);
+    await expect(other.getByTestId("design-comment-item")).toContainText("标题换成更口语的说法");
+    await expect(phoneB.getByTestId("design-comment-pin")).toHaveCount(1);
+
+    store.get("eval-R7")![0]!.resolved = true;
+    await other.reload();
+    await other.getByTestId("design-detail").waitFor();
+    await other.getByTestId("design-detail-view-single").click();
+    await other.getByTestId("design-detail-mode-comment").click();
+    await expect(other.getByTestId("design-comment-item")).toHaveAttribute("data-resolved", "true");
+    await ctx.close();
   });
 });

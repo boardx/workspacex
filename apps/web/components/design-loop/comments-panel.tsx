@@ -38,8 +38,10 @@ export function CommentComposer({ label, onSave, onCancel }: {
   );
 }
 
-export function CommentList({ comments, frame, sending, onRemove, onSend, onClearResolved, onFocus }: {
+export function CommentList({ comments, frame, sending, error, onRemove, onSend, onClearResolved, onFocus }: {
   readonly comments: readonly DesignComment[];
+  /** 深度 S2：批注存在服务端，读写都可能失败——失败要说出来，不装作存上了。 */
+  readonly error?: string | null;
   /** 当前页：别的页上的批注照样列出来（一次交出去的是全部），标一下在第几页。 */
   readonly frame: number;
   readonly sending: boolean;
@@ -55,6 +57,7 @@ export function CommentList({ comments, frame, sending, onRemove, onSend, onClea
       <p className="text-10 font-medium text-muted-foreground">
         批注（{open.length} 条待改{done.length > 0 ? `，${done.length} 条已交给 AI` : ""}）
       </p>
+      {error != null && <p role="alert" className="rounded-control bg-destructive/10 px-2 py-1 text-10 text-destructive" data-testid="design-comments-error">{error}</p>}
       {comments.length === 0 && <p className="text-11 text-muted-foreground">点画布上的任何一块，给它写一句意见。写完几条，一次交给 AI 改。</p>}
       <ol className="flex min-h-0 flex-col gap-1.5 overflow-y-auto">
         {comments.map((c) => (

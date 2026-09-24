@@ -342,6 +342,44 @@ await step("S16", "品牌色与字体：输入 #FF5A1F、选衬线体，刷新�
   return { detail: "刷新后画布根仍是 #FF5A1F + 衬线体（真 PGlite 上的 tokens 列）", shot: s };
 });
 
+await step("S17", "批注存在服务端：钉一条，换一个全新的浏览器（空存储）打开同一个项目还看得到（深度 S2，#3988）", async () => {
+  // 真栈才测得到的一段：新表 design_project_comments 的迁移、RLS + GRANT、仓储 SQL 走的是真 PGlite。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const text = `真栈批注 ${Date.now().toString(36)}`;
+  await page.getByTestId("design-detail-phone").locator("[data-node-id]").nth(1).click();
+  await page.getByTestId("design-comment-input").fill(text);
+  await page.getByTestId("design-comment-save").click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor();
+
+  const fresh = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai" });
+  const other = await fresh.newPage();
+  other.setDefaultTimeout(120_000);
+  await other.goto(`${BASE}/login`);
+  await other.getByTestId("login-email").fill("me@local.workspacex");
+  await other.getByTestId("login-password").fill(password);
+  await other.getByTestId("login-submit").click();
+  await other.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await other.goto(`${BASE}/studio/design-workbench`);
+  await other.locator('[data-testid^="project-open-"]').first().click();
+  await other.getByTestId("design-detail").waitFor();
+  await other.getByTestId("design-detail-view-single").click();
+  await other.getByTestId("design-detail-mode-comment").click();
+  const item = other.getByTestId("design-comment-item").filter({ hasText: text });
+  await item.waitFor({ timeout: 20_000 });
+  const pins = await other.getByTestId("design-comment-pin").count();
+  const s = await shot("s17-comment-other-browser.png", other);
+  await fresh.close();
+  if (pins < 1) throw new Error("另一个浏览器里看得到批注，但画布上没有钉");
+  // 收尾：删掉这条，免得重跑时越积越多。
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByRole("button", { name: "删掉这条批注" }).click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor({ state: "detached" });
+  return { detail: `另一个浏览器（空存储）打开同一个项目，看到「${text}」和它的钉（真 PGlite 上的 design_project_comments）`, shot: s };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

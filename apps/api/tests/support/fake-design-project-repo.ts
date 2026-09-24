@@ -16,6 +16,7 @@ import type {
 // 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
 import { mergeScreens, mergeTokens, prototypeOf, toTokens } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
 import type { ShareSnapshot } from "../../src/application/design-workbench/share-snapshot";
+import type { DesignCommentRepository, DesignCommentRow } from "../../src/application/design-workbench/design-comments";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
@@ -303,4 +304,30 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     updatedAt: "2026-09-04T00:00:00.000Z",
     ...over,
   };
+}
+
+/** 深度 S2（#3988）：批注的内存 fake。只按 project 收窄，同真实仓储（谁能删在用例层判）。 */
+export class FakeDesignCommentRepo implements DesignCommentRepository {
+  readonly rows: DesignCommentRow[] = [];
+  private seq = 0;
+  async listComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId); }
+  async countComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId).length; }
+  async getComment(projectId: string, id: string) { return this.rows.find((r) => r.projectId === projectId && r.id === id) ?? null; }
+  async insertComment(row: Omit<DesignCommentRow, "createdAt" | "resolved">) {
+    const full: DesignCommentRow = { ...row, resolved: false, createdAt: new Date(Date.UTC(2026, 8, 24, 0, 0, ++this.seq)).toISOString() };
+    this.rows.push(full);
+    return full;
+  }
+  async setCommentResolved(projectId: string, id: string, resolved: boolean) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return null;
+    this.rows[i] = { ...this.rows[i]!, resolved };
+    return this.rows[i]!;
+  }
+  async deleteComment(projectId: string, id: string) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return false;
+    this.rows.splice(i, 1);
+    return true;
+  }
 }
