@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
-export interface WorkshopPanelProps { boardId:string; role:Board['role']; selectedObjectId?:string; currentUserId?:string }
-export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:WorkshopPanelProps){
-  const [open,setOpen]=useState(false),[comments,setComments]=useState<C.Comment[]>([]),[votes,setVotes]=useState<C.Vote[]>([]);
+export interface WorkshopPanelProps { boardId:string; role:Board['role']; selectedObjectId?:string; currentUserId?:string; expanded?:boolean; onExpandedChange?:(expanded:boolean)=>void }
+export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId,expanded,onExpandedChange}:WorkshopPanelProps){
+  const [localOpen,setLocalOpen]=useState(false),[comments,setComments]=useState<C.Comment[]>([]),[votes,setVotes]=useState<C.Vote[]>([]);
+  const open=expanded??localOpen;
+  const setOpen=(next:boolean)=>{setLocalOpen(next);onExpandedChange?.(next);};
   const [timer,setTimer]=useState<C.Timer>({deadline:null,running:false});
   const [comment,setComment]=useState(''),[draft,setDraft]=useState(''),[draftSaved,setDraftSaved]=useState('');
   const [draftRevision,setDraftRevision]=useState<string|null>(null),[publishConsent,setPublishConsent]=useState(false);
@@ -34,7 +36,7 @@ export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:Work
   };
   const owner=role==='owner';const write=role!=='viewer';const remaining=timer.deadline?Math.max(0,Math.ceil((Date.parse(timer.deadline)-now)/1000)):0;
   return <aside data-testid="board-workshop-panel" className="max-h-full w-80 max-w-full overflow-y-auto rounded-xl border bg-background p-3 text-foreground shadow-sm" aria-label="工作坊">
-    <Button variant="outline" className="w-full" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>工作坊 {open?'收起':'展开'}</Button>
+    <Button variant="outline" className="w-full" aria-expanded={open} onClick={()=>setOpen(!open)}>工作坊 {open?'收起':'展开'}</Button>
     {open&&<div className="mt-3 max-h-[70vh] space-y-4 overflow-y-auto">
       {loading&&<p role="status">正在加载工作坊…</p>}{error&&<p role="alert" className="text-destructive">{error}</p>}{notice&&<p role="status">{notice}</p>}
       <details open><summary>评论</summary><p className="text-sm text-muted-foreground">{selectedObjectId?`关联对象：${selectedObjectId}`:'当前评论关联整块白板'}</p>

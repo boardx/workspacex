@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { createBoardTask,createBoardThread,listBoardThreads,replyBoardThread,resolveBoardThread,updateBoardTask,type BoardThread } from '@/lib/live-whiteboard';
 const mentions=(value:string)=>[...new Set(value.split(',').map(v=>v.trim()).filter(Boolean))];
-export function DiscussionPanel({boardId,selectedObject,readOnly}:{boardId:string;selectedObject:{id:string;label:string}|null;readOnly:boolean}){
- const [open,setOpen]=useState(false),[threads,setThreads]=useState<BoardThread[]>([]),[body,setBody]=useState(''),[mentionText,setMentionText]=useState(''),[assignee,setAssignee]=useState(''),[due,setDue]=useState(''),[notice,setNotice]=useState('');
+export function DiscussionPanel({boardId,selectedObject,readOnly,expanded,onExpandedChange}:{boardId:string;selectedObject:{id:string;label:string}|null;readOnly:boolean;expanded?:boolean;onExpandedChange?:(expanded:boolean)=>void}){
+ const [localOpen,setLocalOpen]=useState(false),[threads,setThreads]=useState<BoardThread[]>([]),[body,setBody]=useState(''),[mentionText,setMentionText]=useState(''),[assignee,setAssignee]=useState(''),[due,setDue]=useState(''),[notice,setNotice]=useState('');
+ const open=expanded??localOpen;const setOpen=(next:boolean)=>{setLocalOpen(next);onExpandedChange?.(next);};
  const trigger=useRef<HTMLButtonElement>(null),heading=useRef<HTMLHeadingElement>(null);
  const load=useCallback(async()=>{try{setThreads((await listBoardThreads(boardId)).items);}catch{setNotice('无法读取评论，请确认白板权限。');}},[boardId]);
  useEffect(()=>{if(open)void load();},[open,load]);

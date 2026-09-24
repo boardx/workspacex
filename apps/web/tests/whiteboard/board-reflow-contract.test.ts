@@ -10,6 +10,7 @@ describe('live Board reflow and motion contracts',()=>{
     const page=read('app/studio/board/[boardId]/page.tsx');
     const css=read('app/globals.css');
     expect(page).toContain('data-live-board-page');
+    expect(css).toContain('html[data-live-board-mounted="true"] body');
     expect(css).toContain('html:has([data-live-board-page]) body');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('transition-duration: 0.001ms !important');
@@ -25,6 +26,9 @@ describe('live Board reflow and motion contracts',()=>{
     expect(live).toContain('overflow-x-auto');
     expect(editor).toContain('data-testid="board-document-header"');
     expect(editor).toContain('data-testid="board-object-inspector"');
+    expect(editor).toContain('!auxiliaryPanelOpen');
+    expect(editor).toContain('touch-auto');
+    expect(editor).not.toContain('touch-none');
     expect(editor).toContain('max-h-[calc(100%-1.5rem)]');
     expect(discussion).toContain('w-full max-w-80 overflow-y-auto');
     expect(workshop).toContain('data-testid="board-workshop-panel"');

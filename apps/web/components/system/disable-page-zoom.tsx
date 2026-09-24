@@ -19,7 +19,8 @@ import * as React from "react";
  */
 export function DisablePageZoom(): null {
   React.useEffect(() => {
-    const liveBoardMounted = () => document.querySelector('[data-live-board-page]') !== null;
+    const liveBoardMounted = () => document.documentElement.dataset.liveBoardMounted === 'true'
+      || document.querySelector('[data-live-board-page]') !== null;
     const preventCtrlWheelZoom = (event: WheelEvent) => {
       if (event.ctrlKey && !allowsPageZoom(window.location.pathname, liveBoardMounted())) {
         event.preventDefault();

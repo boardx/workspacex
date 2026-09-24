@@ -5,6 +5,7 @@ import { DisablePageZoom, allowsPageZoom } from '@/components/system/disable-pag
 afterEach(() => {
   cleanup();
   document.body.removeAttribute('data-live-board-page');
+  delete document.documentElement.dataset.liveBoardMounted;
   window.history.replaceState({}, '', '/');
 });
 
@@ -29,5 +30,14 @@ it('keeps the global zoom guard off the live Board route only', () => {
   window.dispatchEvent(boardGesture);
   expect(boardGesture.defaultPrevented).toBe(false);
   document.body.removeAttribute('data-live-board-page');
+  document.documentElement.dataset.liveBoardMounted='true';
+  const markerWheel=new WheelEvent('wheel',{ctrlKey:true,cancelable:true});
+  window.dispatchEvent(markerWheel);
+  expect(markerWheel.defaultPrevented).toBe(false);
+  delete document.documentElement.dataset.liveBoardMounted;
+  window.history.replaceState({}, '', '/projects');
+  const restoredGuard=new WheelEvent('wheel',{ctrlKey:true,cancelable:true});
+  window.dispatchEvent(restoredGuard);
+  expect(restoredGuard.defaultPrevented).toBe(true);
   view.unmount();
 });
