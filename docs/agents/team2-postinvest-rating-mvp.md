@@ -55,7 +55,7 @@
 
 早期版本要人拿 admin 账号在某台机器上手工跑一次 `publish-team2-agent.ts`，再把打印出的
 `agentId` 回填进前端（或配 `NEXT_PUBLIC_TEAM2_AGENT_ID` 重新构建）。那是两次人工动作、
-一份跨环境不通用的 id、一个「忘了跑就静默禁用」的失败模式。现在走 team3 早就示范过的
+一份跨环境不通用的 id、一个「忘了跑就静默禁用」的失败模式。现在走本仓已验证过的
 形状：
 
 - `apps/api/scripts/backfill-team2-agent.ts`：幂等补种（按 `agents.stable_name =

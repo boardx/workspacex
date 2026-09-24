@@ -42,7 +42,7 @@
 这两件事此前被当成一件。第四版就地挂壳并把 agentId 作为 `initialAgentId` 传给选择
 provider（那个 prop 是本轮给公共组件加的，缺省 `null`，`/chat` 行为逐字不变）。
 
-⚠ **team1 与 team3 同源**：它们也是"挂 roster + 打开 chat"，同样没把自己的 agentId
+⚠ **team1 同源**：它也是"挂 roster + 打开 chat"，同样没把自己的 agentId
 交给选择 provider。本轮只修了 team4（没动别人的 Agent），那两个要不要照修由它们的
 负责人决定。
 
