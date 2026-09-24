@@ -4,7 +4,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-whiteboard-repository.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember'];
+const expectedMethods = ['list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember', 'issueQuarantineAccessReceipt', 'requestQuarantineRecovery'];
 function audit(code: string): string[] {
   const file = ts.createSourceFile('repository.ts', code, ts.ScriptTarget.Latest, true);
   const methods = new Map<string, string>(), sql: string[] = [];
@@ -16,9 +16,15 @@ function audit(code: string): string[] {
   }
   visit(file);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'org_memberships']);
-  const tables = new Set(sql.flatMap(query => [...query.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)].map(match => match[1]!).filter(table => table.toUpperCase() !== 'SET')));
-  if (tables.size !== 3 || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
+  // #3983 added the quarantine access-receipt/recovery flow to this same bounded repository
+  // (issueQuarantineAccessReceipt / requestQuarantineRecovery), which joins `organizations` and
+  // owns two new tables; the allowlist and expected count grow to match, same audit discipline.
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'org_memberships', 'organizations', 'whiteboard_quarantine_access_receipts', 'whiteboard_quarantine_recovery_requests']);
+  // `FOR UPDATE OF ar` row-locks only the receipt row (not the joined org_memberships/organizations
+  // rows), which is the intentional narrower lock; exclude the "OF" keyword the same way "SET" is
+  // excluded, rather than treating it as a captured table name.
+  const tables = new Set(sql.flatMap(query => [...query.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)].map(match => match[1]!).filter(table => !['SET', 'OF'].includes(table.toUpperCase()))));
+  if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
   if (methods.size !== expectedMethods.length || expectedMethods.some(name => !methods.has(name))) errors.push('method coverage');
   for (const [name, body] of methods) {
