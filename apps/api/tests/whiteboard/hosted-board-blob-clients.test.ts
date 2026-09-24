@@ -62,4 +62,16 @@ describe('S3CompatibleBoardBlobClient', () => {
     const client = new S3CompatibleBoardBlobClient(protocol, 'bucket', 'prefix');
     await expect(client.putIfAbsent({ key: 'key', bytes: Buffer.from('a'), contentType: 'application/octet-stream', metadata: { cipherDigest: 'a'.repeat(64), sizeBytes: 1 } })).resolves.toBe('already-exists');
   });
+
+  it.each(['../escape', 'tenant/../escape', '/absolute', 'tenant//key'])('rejects unsafe object keys before calling the provider: %s', async key => {
+    const putObject = vi.fn(async () => undefined);
+    const protocol = {
+      async getBucketVersioning() { return { status: 'Enabled' }; }, async getBucketAccess() { return { private: true }; },
+      async getObjectLockConfiguration() { return { enabled: false }; }, putObject,
+      async getObject() { return null; }, async headObject() { return null; }, async deleteObject() {},
+    } satisfies S3CompatibleBoardProtocol;
+    const client = new S3CompatibleBoardBlobClient(protocol, 'bucket', 'prefix');
+    await expect(client.putIfAbsent({ key, bytes: Buffer.from('a'), contentType: 'application/octet-stream', metadata: { cipherDigest: 'a'.repeat(64), sizeBytes: 1 } })).rejects.toThrow('S3-compatible Board request failed');
+    expect(putObject).not.toHaveBeenCalled();
+  });
 });

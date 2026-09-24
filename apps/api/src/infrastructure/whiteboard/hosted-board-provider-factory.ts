@@ -14,6 +14,7 @@ import {
 import { BoardBlobError } from '../../application/whiteboard/blob-ports';
 import { ossCredentialSource } from '../storage/oss-sdk-client';
 import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
+import { DEFAULT_BOARD_KEY_ID } from './aes-gcm-board-blob-codec';
 import type { HostedBoardClientFactory } from './board-storage-selection';
 import { FileBoardMasterKeySource } from './file-board-master-key-source';
 import {
@@ -28,6 +29,33 @@ const required = (env: NodeJS.ProcessEnv, name: string): string => {
   if (!value || /[\r\n\u0000]/.test(value)) throw new BoardBlobError('INVALID_INPUT', `${name} is required for hosted board storage`);
   return value;
 };
+
+const MAX_CONTROL_BODY_BYTES = 64 * 1024;
+
+async function boundedJson(response: Response): Promise<unknown> {
+  const declared = response.headers.get('content-length');
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_CONTROL_BODY_BYTES)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error('response too large');
+  }
+  if (!response.body) throw new Error('missing response body');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_CONTROL_BODY_BYTES) throw new Error('response too large');
+      chunks.push(value);
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  }
+  return JSON.parse(Buffer.concat(chunks.map(value => Buffer.from(value)), size).toString('utf8'));
+}
 
 function endpoint(env: NodeJS.ProcessEnv, name: string): URL {
   let value: URL;
@@ -194,9 +222,12 @@ class OfficialS3BoardProtocol implements S3CompatibleBoardProtocol {
 
   private async managementJson(url: URL, token: string): Promise<unknown> {
     const timeoutMs = this.env.NODE_ENV === 'test' ? 250 : 5_000;
-    const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) throw new Error('storage policy service unavailable');
-    return response.json();
+    const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(timeoutMs), redirect: 'error' });
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error('storage policy service unavailable');
+    }
+    return boundedJson(response);
   }
 
   private async inspectR2(): Promise<Inspection> {
@@ -290,24 +321,30 @@ export class EnvHostedBoardClientFactory implements HostedBoardClientFactory {
 
 /** Exact-version secret-manager/KMS HTTP boundary. The endpoint returns JSON { version, keyMaterial }. */
 export class HttpVersionedBoardMasterKeySource implements VersionedBoardMasterKeySource {
-  constructor(private readonly url: URL, private readonly token: string) {}
-  async resolveVersion(input: { tenantId: string; version: number }): Promise<{ version: number; keyMaterial: Uint8Array }> {
+  constructor(private readonly url: URL, private readonly token: string, readonly currentKeyId = DEFAULT_BOARD_KEY_ID) {}
+  async resolveVersion(input: { tenantId: string; keyId: string; version: number }): Promise<{ keyId: string; version: number; keyMaterial: Uint8Array }> {
     try {
-      const response = await fetch(this.url, { method: 'POST', headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(5000) });
-      if (!response.ok) throw new Error('unavailable');
-      const value = await response.json() as { version?: unknown; keyMaterial?: unknown };
-      if (value.version !== input.version || typeof value.keyMaterial !== 'string') throw new Error('invalid');
+      if (input.keyId !== this.currentKeyId) throw new Error('invalid key identity');
+      const response = await fetch(this.url, { method: 'POST', headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(5000), redirect: 'error' });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new Error('unavailable');
+      }
+      const value = await boundedJson(response) as { keyId?: unknown; version?: unknown; keyMaterial?: unknown };
+      if (value.keyId !== input.keyId || value.version !== input.version || typeof value.keyMaterial !== 'string') throw new Error('invalid');
       const keyMaterial = Buffer.from(value.keyMaterial, 'base64');
       if (keyMaterial.byteLength !== 32 || keyMaterial.toString('base64').replace(/=+$/, '') !== value.keyMaterial.replace(/=+$/, '')) throw new Error('invalid');
-      return { version: input.version, keyMaterial: new Uint8Array(keyMaterial) };
+      const result = new Uint8Array(keyMaterial);
+      keyMaterial.fill(0);
+      return { keyId: input.keyId, version: input.version, keyMaterial: result };
     } catch { throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'versioned board key service is unavailable'); }
   }
 }
 
 export function versionedBoardKeySourceFromEnv(env: NodeJS.ProcessEnv = process.env): VersionedBoardMasterKeySource | undefined {
   if (!env.WORKSPACEX_BOARD_KMS_ENDPOINT && !env.WORKSPACEX_BOARD_KMS_TOKEN) {
-    return env.WORKSPACEX_BOARD_KEY_DIRECTORY ? new FileBoardMasterKeySource(env.WORKSPACEX_BOARD_KEY_DIRECTORY) : undefined;
+    return env.WORKSPACEX_BOARD_KEY_DIRECTORY ? new FileBoardMasterKeySource(env.WORKSPACEX_BOARD_KEY_DIRECTORY, env.WORKSPACEX_BOARD_KMS_KEY_ID?.trim() || DEFAULT_BOARD_KEY_ID) : undefined;
   }
   const url = endpoint(env, 'WORKSPACEX_BOARD_KMS_ENDPOINT');
-  return new HttpVersionedBoardMasterKeySource(url, required(env, 'WORKSPACEX_BOARD_KMS_TOKEN'));
+  return new HttpVersionedBoardMasterKeySource(url, required(env, 'WORKSPACEX_BOARD_KMS_TOKEN'), required(env, 'WORKSPACEX_BOARD_KMS_KEY_ID'));
 }

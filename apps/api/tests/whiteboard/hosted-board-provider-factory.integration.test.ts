@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AesGcmBoardBlobCodec, KmsBoardTenantKeyResolver } from '../../src/infrastructure/whiteboard/aes-gcm-board-blob-codec';
-import { EnvHostedBoardClientFactory, HttpVersionedBoardMasterKeySource } from '../../src/infrastructure/whiteboard/hosted-board-provider-factory';
+import { EnvHostedBoardClientFactory, HttpVersionedBoardMasterKeySource, versionedBoardKeySourceFromEnv } from '../../src/infrastructure/whiteboard/hosted-board-provider-factory';
 import { S3CompatibleBoardBlobStore } from '../../src/infrastructure/whiteboard/hosted-board-blob-store';
 
 type Seen = { method?: string; url?: string; headers: IncomingMessage['headers']; body: Buffer };
@@ -88,6 +88,11 @@ const s3Env = (endpoint: string, profile: 'aws-s3' | 'minio' | 'r2', extra: Node
 });
 
 describe('Hosted Board production bindings over real HTTP transports', () => {
+  it('fails closed when an HTTP KMS key identity is absent', () => {
+    expect(() => versionedBoardKeySourceFromEnv({
+      NODE_ENV: 'production', WORKSPACEX_BOARD_KMS_ENDPOINT: 'https://kms.example.test/resolve', WORKSPACEX_BOARD_KMS_TOKEN: 'secret-token',
+    })).toThrow('WORKSPACEX_BOARD_KMS_KEY_ID is required for hosted board storage');
+  });
   it('uses the real ali-oss SDK, enforces exact private ACL and non-public bucket policy', async () => {
     const seen: Seen[] = [], bytes = Buffer.from('immutable-oss');
     const { endpoint } = await listen(async (request, response) => {
@@ -223,15 +228,43 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
   it('resolves exact remote key versions, decrypts v1 after rotation, and rejects changed v1 material', async () => {
     const keys = new Map([[1, Buffer.alloc(32, 1).toString('base64')]]), requests: unknown[] = [];
     const { endpoint } = await listen(async (request, response) => {
-      const input = JSON.parse((await bodyOf(request)).toString('utf8')) as { version: number }; requests.push(input);
-      response.setHeader('content-type', 'application/json'); response.end(JSON.stringify({ version: input.version, keyMaterial: keys.get(input.version) }));
+      const input = JSON.parse((await bodyOf(request)).toString('utf8')) as { keyId: string; version: number }; requests.push(input);
+      response.setHeader('content-type', 'application/json'); response.end(JSON.stringify({ keyId: input.keyId, version: input.version, keyMaterial: keys.get(input.version) }));
     });
-    const codec = new AesGcmBoardBlobCodec(new KmsBoardTenantKeyResolver(new HttpVersionedBoardMasterKeySource(new URL(endpoint), 'kms-test-token')));
+    const codec = new AesGcmBoardBlobCodec(new KmsBoardTenantKeyResolver(new HttpVersionedBoardMasterKeySource(new URL(endpoint), 'kms-test-token', 'kms-board-key')));
     const old = await codec.encrypt({ tenantId: 'org-a', tenantKeyVersion: 1, plaintext: Buffer.from('historical') });
     keys.set(2, Buffer.alloc(32, 2).toString('base64')); await codec.encrypt({ tenantId: 'org-a', tenantKeyVersion: 2, plaintext: Buffer.from('current') });
     await expect(codec.decrypt({ ...old, tenantId: 'org-a', expectedPlainDigest: old.plainDigest })).resolves.toEqual(new Uint8Array(Buffer.from('historical')));
     keys.set(1, Buffer.alloc(32, 9).toString('base64'));
     await expect(codec.decrypt({ ...old, tenantId: 'org-a', expectedPlainDigest: old.plainDigest })).rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
-    expect(requests).toContainEqual({ tenantId: 'org-a', version: 1 });
+    expect(requests).toContainEqual({ tenantId: 'org-a', keyId: 'kms-board-key', version: 1 });
+  });
+
+  it('rejects KMS redirects without forwarding the bearer token and bounds response bodies', async () => {
+    let redirected = 0;
+    const target = await listen((_request, response) => { redirected += 1; response.end('{}'); });
+    const redirect = await listen((_request, response) => { response.statusCode = 302; response.setHeader('location', target.endpoint); response.end(); });
+    const source = new HttpVersionedBoardMasterKeySource(new URL(redirect.endpoint), 'kms-secret-token', 'kms-board-key');
+    await expect(source.resolveVersion({ tenantId: 'org-a', keyId: 'kms-board-key', version: 1 }))
+      .rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE', message: 'versioned board key service is unavailable' });
+    expect(redirected).toBe(0);
+
+    const oversized = await listen((_request, response) => {
+      const body = JSON.stringify({ keyId: 'kms-board-key', version: 1, keyMaterial: 'A'.repeat(70 * 1024) });
+      response.setHeader('content-type', 'application/json'); response.setHeader('content-length', String(Buffer.byteLength(body))); response.end(body);
+    });
+    await expect(new HttpVersionedBoardMasterKeySource(new URL(oversized.endpoint), 'kms-secret-token', 'kms-board-key')
+      .resolveVersion({ tenantId: 'org-a', keyId: 'kms-board-key', version: 1 }))
+      .rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
+  });
+
+  it('rejects a KMS response for a different key identity', async () => {
+    const { endpoint } = await listen((_request, response) => {
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({ keyId: 'wrong-key', version: 1, keyMaterial: Buffer.alloc(32, 1).toString('base64') }));
+    });
+    await expect(new HttpVersionedBoardMasterKeySource(new URL(endpoint), 'kms-secret-token', 'kms-board-key')
+      .resolveVersion({ tenantId: 'org-a', keyId: 'kms-board-key', version: 1 }))
+      .rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
   });
 });

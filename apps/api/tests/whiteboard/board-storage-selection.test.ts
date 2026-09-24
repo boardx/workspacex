@@ -55,7 +55,7 @@ describe('Board storage provider selection', () => {
       WORKSPACEX_BOARD_BLOB_BUCKET: 'private-board', WORKSPACEX_BOARD_BLOB_PREFIX: 'board-content', WORKSPACEX_BOARD_BLOB_OBJECT_LOCK: 'required',
     }, {
       hostedClients: { create: async () => client },
-      versionedKeys: { async resolveVersion(input) { return { version: input.version, keyMaterial: new Uint8Array(32).fill(1) }; } },
+      versionedKeys: { currentKeyId: 'kms-board-key', async resolveVersion(input) { return { keyId: input.keyId, version: input.version, keyMaterial: new Uint8Array(32).fill(1) }; } },
     });
     expect(selected.config.blobProvider).toBe(blobProvider); expect(inspected).toBe(1);
   });
@@ -63,7 +63,7 @@ describe('Board storage provider selection', () => {
   it('fails startup for absent provider clients, absent KMS, or incompatible policy', async () => {
     const env = { NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted', WORKSPACEX_BOARD_HOSTED_PROVIDER: 's3-compatible', WORKSPACEX_BOARD_KEY_PROVIDER: 'versioned-kms', WORKSPACEX_BOARD_BLOB_BUCKET: 'private-board', WORKSPACEX_BOARD_BLOB_PREFIX: 'board-content' };
     await expect(createBoardStorageSelection(env, {})).rejects.toMatchObject({ code: 'ENCRYPTION_UNAVAILABLE' });
-    const keys = { async resolveVersion(input: { version: number }) { return { version: input.version, keyMaterial: new Uint8Array(32) }; } };
+    const keys = { currentKeyId: 'kms-board-key', async resolveVersion(input: { keyId: string; version: number }) { return { keyId: input.keyId, version: input.version, keyMaterial: new Uint8Array(32) }; } };
     await expect(createBoardStorageSelection(env, { versionedKeys: keys })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     await expect(createBoardStorageSelection(env, { versionedKeys: keys, hostedClients: { create: async () => hostedClient('s3-compatible', { access: 'public', versioning: 'enabled', objectLock: 'disabled' }) } }))
       .rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });

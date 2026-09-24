@@ -31,6 +31,7 @@ const BOARD_ENV = [
   "WORKSPACEX_BOARD_KEY_DIRECTORY",
   "WORKSPACEX_BOARD_KMS_ENDPOINT",
   "WORKSPACEX_BOARD_KMS_TOKEN",
+  "WORKSPACEX_BOARD_KMS_KEY_ID",
   "WORKSPACEX_BOARD_BLOB_BUCKET",
   "WORKSPACEX_BOARD_BLOB_PREFIX",
   "WORKSPACEX_BOARD_BLOB_OBJECT_LOCK",
@@ -80,6 +81,7 @@ function configureProductionBoardStorage(): void {
   process.env.WORKSPACEX_BOARD_KEY_DIRECTORY = "/var/lib/workspacex-required-env-test/keys";
   delete process.env.WORKSPACEX_BOARD_KMS_ENDPOINT;
   delete process.env.WORKSPACEX_BOARD_KMS_TOKEN;
+  delete process.env.WORKSPACEX_BOARD_KMS_KEY_ID;
 }
 
 function configureProductionHostedS3(profile: "aws-s3" | "r2" | "minio" = "aws-s3"): void {

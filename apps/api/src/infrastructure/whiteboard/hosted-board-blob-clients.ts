@@ -15,7 +15,7 @@ function errorCode(error: unknown): string | undefined {
 
 function namespaced(prefix: string, key: string): string {
   if (!prefix || prefix.startsWith('/') || prefix.includes('..') || /[\r\n\u0000]/.test(prefix)) throw new Error('invalid Board prefix');
-  if (!key || key.startsWith('/') || /[\r\n\u0000]/.test(key)) throw new Error('invalid Board key');
+  if (!key || key.startsWith('/') || key.includes('//') || key.split('/').some(part => part === '.' || part === '..') || /[\r\n\u0000]/.test(key)) throw new Error('invalid Board key');
   return `${prefix.replace(/\/$/, '')}/${key}`;
 }
 
