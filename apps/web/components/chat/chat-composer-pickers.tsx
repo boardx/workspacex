@@ -148,14 +148,17 @@ export function AgentPicker({
  *  - 选中项打勾（`Check`）。热插拔刷新与记忆在 `useAudioInputDevices` 里，这里只渲染。
  */
 export function MicDevicePicker({
-  devices, selectedDeviceId, disabled, onSelect,
+  devices, selectedDeviceId, disabled, onSelect, testIdPrefix = "chat", side = "up",
 }: {
   devices: readonly { readonly deviceId: string; readonly label: string }[];
   selectedDeviceId: string | null;
   disabled: boolean;
   onSelect: (deviceId: string | null) => void;
+  testIdPrefix?: string;
+  side?: "up" | "down";
 }) {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   const labelFor = (deviceId: string, label: string, index: number): string =>
     label !== "" ? label : `麦克风 ${index + 1}（授权后显示名称）`;
   const selected = devices.find((device) => device.deviceId === selectedDeviceId) ?? null;
@@ -170,7 +173,7 @@ export function MicDevicePicker({
         size="xs"
         variant="ghost"
         className={composerPickerTriggerClassName("max-w-40")}
-        data-testid="chat-mic-device-select"
+        data-testid={testIdPrefix === "chat" ? "chat-mic-device-select" : `${testIdPrefix}-mic-device-select`}
         data-selected-device={selectedDeviceId ?? ""}
         disabled={disabled}
         aria-haspopup="listbox"
@@ -187,15 +190,15 @@ export function MicDevicePicker({
         <div
           role="listbox"
           aria-label="选择麦克风"
-          data-testid="chat-mic-device-listbox"
-          className="absolute bottom-8 left-0 z-10 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
+          data-testid={testIdPrefix === "chat" ? "chat-mic-device-listbox" : `${testIdPrefix}-mic-device-listbox`}
+          className={`absolute left-0 z-10 w-56 rounded-lg border border-border bg-popover p-1 shadow-md ${side === "down" ? "top-8" : "bottom-8"}`}
         >
           {/* 「系统默认」恒为第一项：不选具体设备就跟随系统，这是 deviceId=null 的语义。 */}
           <button
             type="button"
             role="option"
             aria-selected={selectedDeviceId === null}
-            data-testid="chat-mic-device-option-default"
+            data-testid={testIdPrefix === "chat" ? "chat-mic-device-option-default" : `${testIdPrefix}-mic-device-option-default`}
             onClick={() => { onSelect(null); setOpen(false); }}
             className={[
               "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -206,7 +209,7 @@ export function MicDevicePicker({
             <span className="truncate">系统默认麦克风</span>
           </button>
           {devices.length === 0 ? (
-            <p className="px-2 py-1.5 text-11 text-muted-foreground" data-testid="chat-mic-device-empty">
+            <p className="px-2 py-1.5 text-11 text-muted-foreground" data-testid={`${testIdPrefix}-mic-device-empty`}>
               未检测到其它输入设备。授权麦克风后会显示设备名。
             </p>
           ) : null}
@@ -218,7 +221,7 @@ export function MicDevicePicker({
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                data-testid={`chat-mic-device-option-${device.deviceId}`}
+                data-testid={testIdPrefix === "chat" ? `chat-mic-device-option-${device.deviceId}` : `${testIdPrefix}-mic-device-option-${device.deviceId}`}
                 onClick={() => { onSelect(device.deviceId); setOpen(false); }}
                 className={[
                   "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

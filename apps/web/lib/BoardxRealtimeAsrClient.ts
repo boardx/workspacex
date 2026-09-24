@@ -2,6 +2,7 @@ import { personalRealtimeTranscription as C } from "@repo/contracts";
 import { apiRequest, apiWebSocketUrl, waitForSocketOpen } from "./api-client";
 import { stopPersonalTranscription } from "./live-personal-transcriptions";
 import { startPcmAudioWorklet, type PcmAudioWorkletHandle } from "./PcmAudioWorklet";
+import { pcm16Level } from "./pcm-audio-level";
 import type {
   RealtimeAsrFinalEvent, RealtimeAsrStreamError, RealtimeAsrStreamState, RealtimeAsrTicket,
 } from "./realtime-asr.types";
@@ -9,6 +10,7 @@ import type {
 export interface BoardxRealtimeAsrHandlers {
   onInterim(text: string): void;
   onFinal(event: RealtimeAsrFinalEvent): void;
+  onLevel?(level: number): void;
   onState(state: RealtimeAsrStreamState): void;
   onError(reason: RealtimeAsrStreamError | "CONNECTION_FAILED"): void;
 }
@@ -35,10 +37,11 @@ export async function openBoardxRealtimeAsr(
   sessionId: string,
   deps: {
     readonly sessionToken?: string | null;
+    readonly deviceId?: string;
     readonly handlers: BoardxRealtimeAsrHandlers;
     readonly issueTicket?: (sessionId: string, sessionToken?: string | null) => Promise<RealtimeAsrTicket>;
     readonly createSocket?: (url: string) => WebSocket;
-    readonly capture?: () => Promise<PcmAudioWorkletHandle>;
+    readonly capture?: (options: { readonly deviceId?: string }) => Promise<PcmAudioWorkletHandle>;
     readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null) => Promise<unknown>;
     readonly handshakeTimeoutMs?: number;
     readonly finishTimeoutMs?: number;
@@ -68,7 +71,7 @@ export async function openBoardxRealtimeAsr(
 
   let capture: PcmAudioWorkletHandle;
   try {
-    capture = await (deps.capture ?? startPcmAudioWorklet)();
+    capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
   } catch (error) {
     socket.close();
     await cleanupReservedCapture();
@@ -137,7 +140,10 @@ export async function openBoardxRealtimeAsr(
 
   socket.send(JSON.stringify({ type: "start" }));
   capture.onFrame((frame) => {
-    if (!completed && !cleaningUp && socket.readyState === socket.OPEN) socket.send(frame);
+    if (!completed && !cleaningUp && socket.readyState === socket.OPEN) {
+      deps.handlers.onLevel?.(pcm16Level(new Int16Array(frame)));
+      socket.send(frame);
+    }
   });
 
   return {
