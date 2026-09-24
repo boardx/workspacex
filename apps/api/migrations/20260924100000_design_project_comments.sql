@@ -52,3 +52,7 @@ CREATE POLICY design_project_comments_org_isolation ON design_project_comments
  */
 REVOKE ALL ON design_project_comments FROM app_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON design_project_comments TO app_rw;
+
+-- F22：组织冻结策略只看得见它运行时已经存在的表。加完租户表要重新应用一次，
+-- 否则被停用的组织仍然能写批注（migrate:check 的重放摘要比对抓到的，#4043）。
+SELECT kernel_apply_org_freeze_policies();

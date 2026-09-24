@@ -32,3 +32,7 @@ CREATE POLICY design_project_comment_replies_org_isolation ON design_project_com
 -- 回复只追加：没有 UPDATE / DELETE（批注删了靠外键级联带走）。
 REVOKE ALL ON design_project_comment_replies FROM app_rw;
 GRANT SELECT, INSERT ON design_project_comment_replies TO app_rw;
+
+-- F22：组织冻结策略只看得见它运行时已经存在的表。加完租户表要重新应用一次，
+-- 否则被停用的组织仍然能写批注（migrate:check 的重放摘要比对抓到的，#4043）。
+SELECT kernel_apply_org_freeze_policies();
