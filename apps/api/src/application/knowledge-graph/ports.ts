@@ -7,6 +7,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
+import type { GraphHit, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -152,3 +153,16 @@ export class KgHumanActionError extends Error {
 }
 
 export const HUMAN_ACTION_PORT = Symbol("HumanActionPort");
+// ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
+
+export interface KnowledgeRecallPort {
+  /** 本会话的活结论与实体（候选集）。读身份 = 发起这轮对话的人。 */
+  candidates(orgId: OrgId, userId: string, threadId: string): Promise<{
+    readonly claims: readonly RecallClaim[];
+    readonly objects: readonly RecallObject[];
+  }>;
+  /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
+  graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+}
+
+export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");

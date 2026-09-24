@@ -1261,7 +1261,10 @@ describe("lint-permission-paths: counter-proof", () => {
     // result back into the SAME thread's scope -- nothing is disclosed to a requester.
     // Its shape is pinned by tests/knowledge-graph/extraction-repo-guard.test.ts.
     // Remove this increment with the exception if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(93);
+    // Phase 18 F08 adds the per-turn knowledge recall read (pg-knowledge-recall.ts): same
+    // shape as the L3 pg-file-retrieval.ts entry -- the executor reads the run's OWN thread
+    // knowledge into the model context only. Pinned by tests/knowledge-graph/recall-repo-guard.test.ts.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(94);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
