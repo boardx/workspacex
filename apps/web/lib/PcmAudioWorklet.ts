@@ -122,15 +122,21 @@ export interface PcmAudioWorkletHandle {
   stop(): Promise<void>;
 }
 
-export async function startPcmAudioWorklet(): Promise<PcmAudioWorkletHandle> {
+export async function startPcmAudioWorklet(
+  options: { readonly deviceId?: string } = {},
+): Promise<PcmAudioWorkletHandle> {
   if (!globalThis.navigator?.mediaDevices?.getUserMedia) {
     throw new LiveRecordingError({ kind: "capture-failed", message: "当前浏览器不支持麦克风采音。" });
   }
   let stream: MediaStream;
   try {
-    stream = await globalThis.navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
-    });
+    const audio: MediaTrackConstraints = {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      ...(options.deviceId ? { deviceId: { exact: options.deviceId } } : {}),
+    };
+    stream = await globalThis.navigator.mediaDevices.getUserMedia({ audio });
   } catch (error) {
     throw new LiveRecordingError(classifyMediaError(error));
   }

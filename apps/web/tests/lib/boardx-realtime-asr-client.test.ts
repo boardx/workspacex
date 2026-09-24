@@ -88,17 +88,27 @@ describe("BoardxRealtimeAsrClient", () => {
   it("uses a one-time ticket, sends start, and only publishes BoardX events", async () => {
     const onInterim = vi.fn();
     const onFinal = vi.fn();
+    const onLevel = vi.fn();
+    let frameListener: ((frame: ArrayBuffer) => void) | undefined;
+    const selectedCapture = {
+      sourceSampleRate: 48_000,
+      stop: stopCapture,
+      onFrame: vi.fn((listener: (frame: ArrayBuffer) => void) => { frameListener = listener; }),
+    };
+    const captureFactory = vi.fn(async () => selectedCapture);
     const opening = openBoardxRealtimeAsr("session-1", {
       sessionToken: "jwt",
+      deviceId: "mic-external",
       issueTicket: vi.fn().mockResolvedValue({
         captureId: "capture-1", ticket: "one-time", expiresAt: "2026-08-12T08:00:00Z",
         websocketPath: "/recording/realtime-asr/sessions/session-1/captures/capture-1/stream",
       }),
       createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
-      capture: async () => capture,
-      handlers: { onInterim, onFinal, onState: vi.fn(), onError: vi.fn() },
+      capture: captureFactory,
+      handlers: { onInterim, onFinal, onLevel, onState: vi.fn(), onError: vi.fn() },
     });
     const handle = await opening;
+    expect(captureFactory).toHaveBeenCalledWith({ deviceId: "mic-external" });
     expect(socket!.url).toContain("ticket=one-time");
     expect(socket!.sent[0]).toBe(JSON.stringify({ type: "start" }));
 
@@ -108,12 +118,41 @@ describe("BoardxRealtimeAsrClient", () => {
     expect(onInterim).toHaveBeenCalledWith("正在");
     expect(onFinal).toHaveBeenCalledWith(expect.objectContaining({ segmentId: "segment-1", text: "正在转录" }));
 
+    const samples = new Int16Array([0x4000, -0x4000]);
+    frameListener?.(samples.buffer);
+    expect(onLevel).toHaveBeenCalledWith(1);
+    expect(socket!.sent).toContain(samples.buffer);
+
     const stopping = handle.stop();
     expect(stopCapture).toHaveBeenCalled();
     await Promise.resolve();
     expect(socket!.sent).toContain(JSON.stringify({ type: "stop" }));
     socket!.message({ type: "completed", captureId: "capture-1" });
     await stopping;
+  });
+
+  it("clears the live level after capture flushes a nonzero tail frame during stop", async () => {
+    const onLevel = vi.fn();
+    let frameListener: ((frame: ArrayBuffer) => void) | undefined;
+    const tail = new Int16Array([0x4000, -0x4000]).buffer;
+    const selectedCapture = {
+      sourceSampleRate: 48_000,
+      onFrame: vi.fn((listener: (frame: ArrayBuffer) => void) => { frameListener = listener; }),
+      stop: vi.fn(async () => { frameListener?.(tail); }),
+    };
+    const handle = await openBoardxRealtimeAsr("session-1", {
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
+      capture: async () => selectedCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onLevel, onState: vi.fn(), onError: vi.fn() },
+    });
+
+    const stopping = handle.stop();
+    await vi.waitFor(() => expect(onLevel).toHaveBeenCalledWith(1));
+    socket.message({ type: "completed", captureId: "capture-1" });
+    await stopping;
+
+    expect(onLevel).toHaveBeenLastCalledWith(0);
   });
 
   it("releases the microphone and socket when the server reports an error", async () => {
