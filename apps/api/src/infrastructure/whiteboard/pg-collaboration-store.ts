@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
-import { whiteboard as C } from '@repo/contracts';
-import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
+import { createHash, randomUUID } from 'node:crypto';
+import { whiteboard as C, whiteboardHistory as H } from '@repo/contracts';
+import { WhiteboardCommandBatch, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
@@ -10,6 +10,8 @@ import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { BoardBlobError, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
 import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
 import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
+import type { CompareCheckpointInput, CreateCheckpointInput, RestoreCheckpointInput } from '../../application/whiteboard/history-ports';
+import { compareHistoryObjects, historyObjects } from '../../domain/whiteboard/history-projection';
 
 type DocumentRow = { epoch: number; seq: string; snapshot: Buffer | null; head: ContentHead; fresh: boolean };
 type ContentHead = {
@@ -18,6 +20,20 @@ type ContentHead = {
   schema_version: number | null; protocol_version: number | null; fencing_token: string;
 };
 type Access = { role: C.Board['role']; archived: boolean };
+type HistoryCheckpointRow = {
+  checkpoint_id: string; board_id: string; epoch: number; seq: string; head_manifest_digest: string;
+  blob_key: string; blob_version: number; cipher_sha256: string; content_sha256: string; size_bytes: string;
+  object_count: number; actor_id: string; label: string; reason: string; retention_until: Date;
+  retention_state: 'active' | 'pinned'; source_board_id: string | null; source_checkpoint_id: string | null; created_at: Date;
+};
+type HistoryRestoreRow = { restore_id: string; source_board_id: string; source_checkpoint_id: string; restored_board_id: string; restored_checkpoint_id: string; actor_id: string; reason: string; created_at: Date };
+const historyCheckpointColumns = `checkpoint_id,board_id,epoch,seq,head_manifest_digest,blob_key,blob_version,cipher_sha256,content_sha256,size_bytes,
+  object_count,actor_id,label,reason,retention_until,retention_state,source_board_id,source_checkpoint_id,created_at`;
+export type WhiteboardHistorySource = { snapshot: Uint8Array; epoch: number; seq: number; headDigest: string; fencingToken: number };
+export type PublishedBoardContent = {
+  key: string; cipherDigest: string; plainDigest: string; sizeBytes: number;
+  checkpoint: { key: string; cipherDigest: string; plainDigest: string; sizeBytes: number; tenantKeyVersion: number };
+};
 const CONTENT_SCHEMA_VERSION = 1, CONTENT_PROTOCOL_VERSION = 1;
 const HASH = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
 function assertHeadMatchesDocument(document: { epoch: number; seq: string }, head: { epoch: number; head_seq: string }): void {
@@ -34,6 +50,14 @@ function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, entry]) => [key, canonical(entry)]));
   return value;
+}
+function historyCheckpointView(row: HistoryCheckpointRow): H.Checkpoint {
+  const retentionState = row.retention_state === 'pinned' ? 'pinned' : new Date(row.retention_until).getTime() <= Date.now() ? 'expired' : 'active';
+  return H.Checkpoint.parse({ id: row.checkpoint_id, boardId: row.board_id, epoch: row.epoch, seq: Number(row.seq),
+    headDigest: row.head_manifest_digest, contentDigest: row.content_sha256, byteLength: Number(row.size_bytes), objectCount: row.object_count,
+    blobVersion: row.blob_version, createdAt: new Date(row.created_at).toISOString(), creatorId: row.actor_id, label: row.label,
+    reason: row.reason, retentionUntil: new Date(row.retention_until).toISOString(), retentionState,
+    sourceBoardId: row.source_board_id, sourceCheckpointId: row.source_checkpoint_id });
 }
 /**
  * Authorization is enforced by locked board ownership/member lookup, tenant RLS,
@@ -109,6 +133,103 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.writeCommandsInTransaction(session, p, boardId, input));
     return ack;
   }
+
+  async historyHead(p: Principal, boardId: string): Promise<H.HistoryHead> {
+    validIds(p, boardId);
+    return this.db.withTenant(p.orgId, async session => {
+      const source = await this.historySource(session, p, boardId, false);
+      return H.HistoryHead.parse({ epoch: source.epoch, seq: source.seq, digest: source.headDigest });
+    });
+  }
+  async listHistoryCheckpoints(p: Principal, boardId: string): Promise<H.Checkpoint[]> {
+    validIds(p, boardId);
+    return this.db.withTenant(p.orgId, async session => {
+      await this.historySource(session, p, boardId, false);
+      const result = await session.query<HistoryCheckpointRow>(`SELECT ${historyCheckpointColumns} FROM whiteboard_checkpoints
+        WHERE org_id=$1 AND board_id=$2 ORDER BY created_at DESC,checkpoint_id DESC LIMIT $3`, [p.orgId, boardId, H.WHITEBOARD_HISTORY_LIMITS.listedCheckpoints]);
+      return result.rows.map(historyCheckpointView);
+    });
+  }
+  async createHistoryCheckpoint(p: Principal, boardId: string, input: CreateCheckpointInput): Promise<H.Checkpoint> {
+    validIds(p, boardId, input.requestId);
+    const parsed = H.CreateCheckpoint.safeParse(input); if (!parsed.success) throw new Fault('VALIDATION_FAILED');
+    const requestHash = HASH(JSON.stringify(canonical(parsed.data)));
+    return this.db.withTenant(p.orgId, async session => {
+      const source = await this.historySource(session, p, boardId, true);
+      const existing = await session.query<HistoryCheckpointRow & { request_hash: string }>(`SELECT ${historyCheckpointColumns},request_hash FROM whiteboard_checkpoints
+        WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND request_id=$4`, [p.orgId, boardId, p.userId, parsed.data.requestId]);
+      if (existing.rows[0]) { if (existing.rows[0].request_hash !== requestHash) throw new Fault('IDEMPOTENCY_CONFLICT'); return historyCheckpointView(existing.rows[0]); }
+      if (source.epoch !== parsed.data.expectedHead.epoch || source.seq !== parsed.data.expectedHead.seq || source.headDigest !== parsed.data.expectedHead.digest) throw new Fault('STALE_EPOCH');
+      if (source.snapshot.byteLength > H.WHITEBOARD_HISTORY_LIMITS.checkpointBytes) throw new Fault('VALIDATION_FAILED');
+      const objects = await this.validator.objects(source.snapshot);
+      if (objects.length > H.WHITEBOARD_HISTORY_LIMITS.checkpointObjects) throw new Fault('VALIDATION_FAILED');
+      const blob = await this.putHistorySnapshot(p, boardId, source.snapshot);
+      const inserted = await session.query<HistoryCheckpointRow>(`INSERT INTO whiteboard_checkpoints
+        (org_id,board_id,checkpoint_id,actor_id,request_id,request_hash,label,reason,epoch,seq,head_manifest_digest,blob_key,blob_version,cipher_sha256,content_sha256,size_bytes,object_count,retention_until)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,clock_timestamp()+($18::text||' days')::interval)
+        RETURNING ${historyCheckpointColumns}`,
+      [p.orgId, boardId, randomUUID(), p.userId, parsed.data.requestId, requestHash, parsed.data.label, parsed.data.reason,
+        source.epoch, source.seq, source.headDigest, blob.key, blob.tenantKeyVersion, blob.cipherDigest, blob.plainDigest, blob.sizeBytes, objects.length, parsed.data.retentionDays]);
+      return historyCheckpointView(inserted.rows[0]!);
+    });
+  }
+  async previewHistoryCheckpoint(p: Principal, boardId: string, checkpointId: string): Promise<ReturnType<typeof H.CheckpointPreview.parse>> {
+    const { row, objects } = await this.historyCheckpointObjects(p, boardId, checkpointId);
+    return H.CheckpointPreview.parse({ checkpoint: historyCheckpointView(row), objects: historyObjects(objects) });
+  }
+  async compareHistoryCheckpoints(p: Principal, boardId: string, input: CompareCheckpointInput): Promise<ReturnType<typeof H.CheckpointComparison.parse>> {
+    validIds(p, boardId);
+    const parsed = H.CompareCheckpoint.safeParse(input); if (!parsed.success) throw new Fault('VALIDATION_FAILED');
+    const from = await this.historyCheckpointObjects(p, boardId, parsed.data.fromCheckpointId);
+    let targetObjects: WhiteboardObject[], target: ReturnType<typeof H.CheckpointComparison.parse>['to'];
+    if (parsed.data.to === 'current') {
+      const current = await this.db.withTenant(p.orgId, session => this.historySource(session, p, boardId, false));
+      targetObjects = await this.validator.objects(current.snapshot);
+      target = { kind: 'current', head: { epoch: current.epoch, seq: current.seq, digest: current.headDigest } };
+    } else {
+      const to = await this.historyCheckpointObjects(p, boardId, parsed.data.to);
+      targetObjects = to.objects; target = { kind: 'checkpoint', checkpointId: to.row.checkpoint_id, contentDigest: to.row.content_sha256 };
+    }
+    const changes = compareHistoryObjects(from.objects, targetObjects);
+    return H.CheckpointComparison.parse({ from: { checkpointId: from.row.checkpoint_id, contentDigest: from.row.content_sha256 }, to: target,
+      added: changes.filter(change => change.change === 'added').length, modified: changes.filter(change => change.change === 'modified').length,
+      deleted: changes.filter(change => change.change === 'deleted').length, changes });
+  }
+  async restoreHistoryCheckpoint(p: Principal, boardId: string, checkpointId: string, input: RestoreCheckpointInput): Promise<H.RestoreReceipt> {
+    validIds(p, boardId, input.requestId); if (!H.CheckpointId.safeParse(checkpointId).success) throw new Fault('VALIDATION_FAILED');
+    const parsed = H.RestoreCheckpoint.safeParse(input); if (!parsed.success) throw new Fault('VALIDATION_FAILED');
+    const requestHash = HASH(JSON.stringify(canonical({ checkpointId, ...parsed.data })));
+    return this.db.withTenant(p.orgId, async session => {
+      await this.historySource(session, p, boardId, true);
+      const replay = await session.query<HistoryRestoreRow & { request_hash: string }>(`SELECT restore_id,source_board_id,source_checkpoint_id,restored_board_id,restored_checkpoint_id,actor_id,reason,created_at,request_hash
+        FROM whiteboard_checkpoint_restores WHERE org_id=$1 AND source_board_id=$2 AND actor_id=$3 AND request_id=$4`, [p.orgId, boardId, p.userId, parsed.data.requestId]);
+      if (replay.rows[0]) { if (replay.rows[0].request_hash !== requestHash) throw new Fault('IDEMPOTENCY_CONFLICT'); return this.historyRestoreView(replay.rows[0], true); }
+      const sourceResult = await session.query<HistoryCheckpointRow>(`SELECT ${historyCheckpointColumns} FROM whiteboard_checkpoints WHERE org_id=$1 AND board_id=$2 AND checkpoint_id=$3`, [p.orgId, boardId, checkpointId]);
+      const source = sourceResult.rows[0]; if (!source) throw new Fault('NOT_FOUND');
+      if (source.content_sha256 !== parsed.data.sourceContentDigest || (source.retention_state !== 'pinned' && new Date(source.retention_until).getTime() <= Date.now())) throw new Fault('VALIDATION_FAILED');
+      const snapshot = await this.readHistoryCheckpointBlob(p, source), objects = await this.validator.objects(snapshot);
+      if (objects.length !== source.object_count) throw new Fault('VALIDATION_FAILED');
+      const restoredBoardId = randomUUID(), restoredCheckpointId = randomUUID(), restoreId = randomUUID();
+      const published = await this.publishHistoryContent(p, restoredBoardId, 1, 0, snapshot, source.head_manifest_digest);
+      await session.query(`INSERT INTO whiteboards(id,org_id,owner_id,request_id,name) VALUES($1,$2,$3,$4,$5)`, [restoredBoardId, p.orgId, p.userId, randomUUID(), parsed.data.boardName]);
+      await session.query(`INSERT INTO whiteboard_documents(org_id,board_id,epoch,seq,snapshot) VALUES($1,$2,1,0,NULL)`, [p.orgId, restoredBoardId]);
+      await session.query(`INSERT INTO whiteboard_content_heads(org_id,board_id,epoch,head_seq,checkpoint_seq,storage_kind,manifest_key,manifest_digest,manifest_plain_digest,manifest_size_bytes,tenant_key_version,schema_version,protocol_version,fencing_token,content_state)
+        VALUES($1,$2,1,0,0,'blob_primary',$3,$4,$5,$6,$7,1,1,1,'active')`,
+      [p.orgId, restoredBoardId, published.key, published.cipherDigest, published.plainDigest, published.sizeBytes, published.checkpoint.tenantKeyVersion]);
+      await session.query(`INSERT INTO whiteboard_checkpoints
+        (org_id,board_id,checkpoint_id,actor_id,request_id,request_hash,label,reason,epoch,seq,head_manifest_digest,blob_key,blob_version,cipher_sha256,content_sha256,size_bytes,object_count,retention_until,source_board_id,source_checkpoint_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,0,$9,$10,$11,$12,$13,$14,$15,clock_timestamp()+($16::text||' days')::interval,$17,$18)`,
+      [p.orgId, restoredBoardId, restoredCheckpointId, p.userId, randomUUID(), HASH(`restored:${restoreId}`), source.label, parsed.data.reason,
+        published.cipherDigest, published.checkpoint.key, published.checkpoint.tenantKeyVersion, published.checkpoint.cipherDigest,
+        published.checkpoint.plainDigest, published.checkpoint.sizeBytes, objects.length, parsed.data.retentionDays, boardId, checkpointId]);
+      const inserted = await session.query<HistoryRestoreRow>(`INSERT INTO whiteboard_checkpoint_restores
+        (org_id,source_board_id,restore_id,source_checkpoint_id,restored_board_id,restored_checkpoint_id,actor_id,request_id,request_hash,reason)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        RETURNING restore_id,source_board_id,source_checkpoint_id,restored_board_id,restored_checkpoint_id,actor_id,reason,created_at`,
+      [p.orgId, boardId, restoreId, checkpointId, restoredBoardId, restoredCheckpointId, p.userId, parsed.data.requestId, requestHash, parsed.data.reason]);
+      return this.historyRestoreView(inserted.rows[0]!, false);
+    });
+  }
   /** Uses the caller's tenant transaction; its result is provisional until that transaction commits. */
   async writeCommandsInTransaction(session: TenantSession, p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardPendingUpdate> {
     validIds(p, boardId, input.requestId, input.epoch);
@@ -149,6 +270,35 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     return { durability: 'pending', epoch, seq, updateId, replayed: false, update: accepted.update };
   }
 
+  /** Internal history boundary: authorization and the content-head fence are read together. */
+  async historySource(session: TenantSession, p: Principal, boardId: string, write: boolean): Promise<WhiteboardHistorySource> {
+    await this.access(session, p, boardId, write);
+    const doc = await this.document(session, p, boardId);
+    if (doc.fresh && this.blobs && this.codec) await this.activateNewBoard(session, p, boardId, doc);
+    if (!doc.head.manifest_digest) throw new Error('Board history requires blob-primary content');
+    return { snapshot: await this.snapshot(p, boardId, doc), epoch: doc.epoch, seq: Number(doc.seq),
+      headDigest: doc.head.manifest_digest, fencingToken: Number(doc.head.fencing_token) };
+  }
+
+  async publishHistoryContent(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifestDigest: string | null): Promise<PublishedBoardContent> {
+    if (!this.blobs || !this.codec) throw new Error('Board blob runtime is unavailable');
+    return this.publish(p, boardId, epoch, seq, snapshot, parentManifestDigest);
+  }
+
+  async putHistorySnapshot(p: Principal, boardId: string, snapshot: Uint8Array): Promise<PublishedBoardContent['checkpoint']> {
+    if (!this.blobs || !this.codec) throw new Error('Board blob runtime is unavailable');
+    const encoded = await this.codec.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: snapshot });
+    const key = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'checkpoint', cipherDigest: encoded.cipherDigest });
+    await this.putAndVerify(p.orgId, key, encoded);
+    return { key, cipherDigest: encoded.cipherDigest, plainDigest: encoded.plainDigest, sizeBytes: encoded.sizeBytes, tenantKeyVersion: this.tenantKeyVersion };
+  }
+
+  async readHistoryBlob(p: Principal, input: { key: string; cipherDigest: string; plainDigest: string; sizeBytes: number; tenantKeyVersion: number }): Promise<Uint8Array> {
+    if (!this.blobs || !this.codec) throw new Error('Board blob runtime is unavailable');
+    const ciphertext = await this.blobs.getVerified({ tenantId: p.orgId, key: input.key, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes });
+    return this.codec.decrypt({ ...input, ciphertext, tenantId: p.orgId, expectedPlainDigest: input.plainDigest });
+  }
+
   private async snapshot(p: Principal, boardId: string, doc: DocumentRow): Promise<Uint8Array> {
     if (doc.head.storage_kind === 'legacy_pg') {
       if (!doc.snapshot) throw new Error('Legacy Board snapshot is missing');
@@ -176,7 +326,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     doc.head = { ...doc.head, storage_kind: 'blob_primary', manifest_key: published.key, manifest_digest: published.cipherDigest, manifest_plain_digest: published.plainDigest, manifest_size_bytes: String(published.sizeBytes), tenant_key_version: this.tenantKeyVersion, schema_version: CONTENT_SCHEMA_VERSION, protocol_version: CONTENT_PROTOCOL_VERSION, fencing_token: changed.rows[0].fencing_token };
   }
 
-  private async publish(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifestDigest: string | null): Promise<{ key: string; cipherDigest: string; plainDigest: string; sizeBytes: number }> {
+  private async publish(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifestDigest: string | null): Promise<PublishedBoardContent> {
     const checkpoint = await this.codec!.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: snapshot });
     const checkpointKey = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'checkpoint', cipherDigest: checkpoint.cipherDigest });
     await this.putAndVerify(p.orgId, checkpointKey, checkpoint);
@@ -193,7 +343,30 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const decodedBytes = await this.codec!.decrypt({ ...encrypted, ciphertext: readback, tenantId: p.orgId, expectedPlainDigest: encrypted.plainDigest });
     const decoded = decodeBoardContentManifest(decodedBytes);
     if (decoded.boardId !== boardId || decoded.epoch !== epoch || decoded.headSeq !== seq || sha256(decodedBytes) !== encrypted.plainDigest) throw new Error('Board manifest read-back mismatch');
-    return { key, cipherDigest: encrypted.cipherDigest, plainDigest: encrypted.plainDigest, sizeBytes: encrypted.sizeBytes };
+    return { key, cipherDigest: encrypted.cipherDigest, plainDigest: encrypted.plainDigest, sizeBytes: encrypted.sizeBytes,
+      checkpoint: { key: checkpointKey, cipherDigest: checkpoint.cipherDigest, plainDigest: checkpoint.plainDigest,
+        sizeBytes: checkpoint.sizeBytes, tenantKeyVersion: this.tenantKeyVersion } };
+  }
+
+  private async historyCheckpointObjects(p: Principal, boardId: string, checkpointId: string): Promise<{ row: HistoryCheckpointRow; objects: WhiteboardObject[] }> {
+    validIds(p, boardId); if (!H.CheckpointId.safeParse(checkpointId).success) throw new Fault('VALIDATION_FAILED');
+    return this.db.withTenant(p.orgId, async session => {
+      await this.historySource(session, p, boardId, false);
+      const result = await session.query<HistoryCheckpointRow>(`SELECT ${historyCheckpointColumns} FROM whiteboard_checkpoints WHERE org_id=$1 AND board_id=$2 AND checkpoint_id=$3`, [p.orgId, boardId, checkpointId]);
+      const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND');
+      const snapshot = await this.readHistoryCheckpointBlob(p, row), objects = await this.validator.objects(snapshot);
+      if (objects.length !== row.object_count) throw new Fault('VALIDATION_FAILED');
+      return { row, objects };
+    });
+  }
+  private historyRestoreView(row: HistoryRestoreRow, replayed: boolean): H.RestoreReceipt {
+    return H.RestoreReceipt.parse({ restoreId: row.restore_id, sourceBoardId: row.source_board_id, sourceCheckpointId: row.source_checkpoint_id,
+      restoredBoardId: row.restored_board_id, restoredCheckpointId: row.restored_checkpoint_id, actorId: row.actor_id,
+      reason: row.reason, createdAt: new Date(row.created_at).toISOString(), replayed });
+  }
+  private readHistoryCheckpointBlob(p: Principal, row: HistoryCheckpointRow): Promise<Uint8Array> {
+    return this.readHistoryBlob(p, { key: row.blob_key, cipherDigest: row.cipher_sha256, plainDigest: row.content_sha256,
+      sizeBytes: Number(row.size_bytes), tenantKeyVersion: row.blob_version });
   }
 
   private async putAndVerify(tenantId: string, key: string, blob: EncodedBoardBlob): Promise<void> {

@@ -9,7 +9,12 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'snapshot', 'activateNewBoard', 'publish', 'putAndVerify'];
+const restoreCascadeMigration = readFileSync(new URL('../../migrations/20260924001000_whiteboard_checkpoint_restore_cascade.sql', import.meta.url), 'utf8');
+const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'historyHead', 'listHistoryCheckpoints',
+  'createHistoryCheckpoint', 'previewHistoryCheckpoint', 'compareHistoryCheckpoints', 'restoreHistoryCheckpoint',
+  'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'historySource', 'publishHistoryContent', 'putHistorySnapshot',
+  'readHistoryBlob', 'snapshot', 'activateNewBoard', 'publish', 'historyCheckpointObjects', 'historyRestoreView',
+  'readHistoryCheckpointBlob', 'putAndVerify'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
   const file = ts.createSourceFile('pg-collaboration-store.ts', code, ts.ScriptTarget.Latest, true);
@@ -41,7 +46,7 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_content_heads']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_content_heads', 'whiteboard_checkpoints', 'whiteboard_checkpoint_restores']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
@@ -67,6 +72,16 @@ function audit(code: string): string[] {
   if (commit.indexOf('this.access(session, p, boardId, true)') < 0 || commit.indexOf('this.access(session, p, boardId, true)') > commit.indexOf('this.document(session, p, boardId)')) errors.push('commit: authorize before mutation');
   if (!/actor_id=\$4 AND update_id=\$5/.test(commit) || !/\[p\.orgId, boardId, epoch, p\.userId, updateId\]/.test(commit)) errors.push('idempotency actor scope');
   if (!/WHERE org_id=\$1 AND board_id=\$2/.test(commit)) errors.push('document mutation tenant scope');
+  for (const name of ['historyHead','listHistoryCheckpoints','createHistoryCheckpoint','compareHistoryCheckpoints','restoreHistoryCheckpoint','historyCheckpointObjects']) {
+    if (!(methods.get(name) ?? '').includes('this.db.withTenant(p.orgId,')) errors.push(`${name}: tenant transaction`);
+  }
+  const source = methods.get('historySource') ?? '';
+  if (source.indexOf('this.access(session, p, boardId, write)') < 0 || source.indexOf('this.access(session, p, boardId, write)') > source.indexOf('this.document(session, p, boardId)')) errors.push('history source: authorize before content');
+  const createHistory = methods.get('createHistoryCheckpoint') ?? '';
+  if (createHistory.indexOf('this.historySource(session, p, boardId, true)') < 0 || createHistory.indexOf('this.historySource(session, p, boardId, true)') > createHistory.indexOf('FROM whiteboard_checkpoints')) errors.push('history create: authorize before metadata');
+  const restoreHistory = methods.get('restoreHistoryCheckpoint') ?? '';
+  if (restoreHistory.indexOf('this.historySource(session, p, boardId, true)') < 0 || restoreHistory.indexOf('this.historySource(session, p, boardId, true)') > restoreHistory.indexOf('FROM whiteboard_checkpoint_restores')) errors.push('history restore: authorize before replay');
+  if (!/sourceContentDigest/.test(restoreHistory) || !/content_sha256/.test(restoreHistory)) errors.push('history restore: digest fence');
   return errors;
 }
 
@@ -89,5 +104,17 @@ describe('whiteboard collaboration repository permission exemption', () => {
     expect(audit(source.replace('this.db.withTenant(p.orgId,', 'this.db.withoutTenant('))).toContain('withoutTenant');
     expect(audit(source.replace('WHERE org_id=$1 AND board_id=$2', 'WHERE board_id=$2'))).toContain('tenant SQL scope');
     expect(audit(`${source}\nvoid session.query(\`SELECT * FROM artifacts\`);`)).toContain('table scope');
+  });
+  it('rejects moving checkpoint reads ahead of fresh Board authorization', () => {
+    const mutated = source.replace('await this.historySource(session, p, boardId, true);\n      const replay', 'const replay');
+    expect(mutated).not.toBe(source);
+    expect(audit(mutated)).toContain('history restore: authorize before replay');
+  });
+  it('keeps both tenant-composite restore provenance edges cascading on checkpoint cleanup', () => {
+    const edges = [...restoreCascadeMigration.matchAll(/FOREIGN KEY \(org_id, (source|restored)_board_id, (source|restored)_checkpoint_id\)[\s\S]*?REFERENCES whiteboard_checkpoints\(org_id, board_id, checkpoint_id\)[\s\S]*?ON DELETE CASCADE/g)];
+    expect(edges.map(match => match[1])).toEqual(['source', 'restored']);
+    expect(restoreCascadeMigration).toContain("confrelid = 'whiteboard_checkpoints'::regclass");
+    expect(restoreCascadeMigration).toContain("conrelid = 'whiteboard_checkpoint_restores'::regclass");
+    expect([...restoreCascadeMigration.matchAll(/ON DELETE CASCADE/g)]).toHaveLength(2);
   });
 });
