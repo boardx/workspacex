@@ -213,7 +213,7 @@ flowchart LR
 |---|---|---|---|
 | C1 | 给 8 个技能包补许可 | ✅ | R12：按 D18 全部补 Apache-2.0 官方正文。只加 LICENSE 文件、不改 SKILL.md——改正文要连带发新版到所有实例；已重建 5 个包确认产物逐字节不变 |
 | C2 | 清单门控转 `--strict` 接 CI | ✅ | R12：存量清零后转 strict，接入 `verify:harness:raw` |
-| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | ◐ | D21 已定：开始，先盘点再拆。第一轮只交拆分方案，人确认后才动代码 |
+| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | ◐ | R15 盘点完成（`ee-boundary-inventory-2026-09-24.md`）：归属表列的企业功能**绝大多数还不存在**，已建的只有 token 配额 F160–F162；审计日志与平台管理建议开源。**待人判断配额归属**，再立边界、标 api/web 许可证 |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
 | C5 | 运营平面 schema 白名单门控 | ✅ | R8：`lint-telemetry-schema.mjs` 遍历 zod schema 本身：对象必须 strict、数组必须有上限、无开放键集合 |
 | C6 | 运营平面个人信息字段级门控 | ✅ | R8：同一道门——字符串必须受约束（自由文本即红），字段名像个人信息即红 |
