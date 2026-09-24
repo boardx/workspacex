@@ -15,6 +15,7 @@ import type { GuidedResearchSession } from "./guided-session-ports";
 import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
+import { projectResearchTrust } from "./guided-research-trust";
 const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
 const shapes: Record<Node, string> = {
@@ -146,6 +147,7 @@ export class GuidedRuntimeService {
     try {
       await this.perform(state, command, persist);
       state.progress = null;
+      Object.assign(state, projectResearchTrust(state));
     } catch (error) {
       failActiveReportTimeline(state, error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE");
       if (state.reportStream) state.reportStream.status = "failed";
