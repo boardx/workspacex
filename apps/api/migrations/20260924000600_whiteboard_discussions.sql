@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS whiteboard_threads (
  id uuid PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
- board_id uuid NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, request_id uuid NOT NULL,
+ board_id uuid NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, request_id uuid NOT NULL, request_hash text NOT NULL,
  anchor_kind text NOT NULL CHECK(anchor_kind IN ('object','point')), anchor_object_id text,
  anchor_label text, anchor_x double precision, anchor_y double precision,
  resolved_at timestamptz, created_by text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS whiteboard_threads (
 CREATE TABLE IF NOT EXISTS whiteboard_comments (
  id uuid PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  board_id uuid NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, thread_id uuid NOT NULL REFERENCES whiteboard_threads(id) ON DELETE CASCADE,
- request_id uuid NOT NULL, author_id text NOT NULL, body text NOT NULL CHECK(length(body)<=4000),
+ request_id uuid NOT NULL, request_hash text NOT NULL, author_id text NOT NULL, body text NOT NULL CHECK(length(body)<=4000),
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), edited_at timestamptz, deleted_at timestamptz,
  UNIQUE(org_id,thread_id,author_id,request_id)
 );
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS whiteboard_comment_tasks (
  id uuid PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  board_id uuid NOT NULL REFERENCES whiteboards(id) ON DELETE CASCADE, thread_id uuid NOT NULL UNIQUE REFERENCES whiteboard_threads(id) ON DELETE CASCADE,
  source_comment_id uuid NOT NULL REFERENCES whiteboard_comments(id) ON DELETE RESTRICT,
- request_id uuid NOT NULL, assignee_id text, due_at timestamptz, status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','done')),
+ request_id uuid NOT NULL, request_hash text NOT NULL, assignee_id text, due_at timestamptz, status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','done')),
  created_by text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(org_id,board_id,created_by,request_id)
 );
@@ -51,6 +51,7 @@ DROP POLICY IF EXISTS whiteboard_comment_mentions_tenant ON whiteboard_comment_m
 DROP POLICY IF EXISTS whiteboard_comment_tasks_tenant ON whiteboard_comment_tasks; CREATE POLICY whiteboard_comment_tasks_tenant ON whiteboard_comment_tasks USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 DROP POLICY IF EXISTS whiteboard_discussion_audit_tenant ON whiteboard_discussion_audit; CREATE POLICY whiteboard_discussion_audit_tenant ON whiteboard_discussion_audit USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 GRANT SELECT,INSERT,UPDATE ON whiteboard_threads,whiteboard_comments,whiteboard_comment_mentions,whiteboard_comment_tasks TO app_rw;
+GRANT DELETE ON whiteboard_comment_mentions TO app_rw;
 GRANT SELECT,INSERT ON whiteboard_discussion_audit TO app_rw;
 GRANT USAGE,SELECT ON SEQUENCE whiteboard_discussion_audit_id_seq TO app_rw;
 SELECT kernel_apply_org_freeze_policies();

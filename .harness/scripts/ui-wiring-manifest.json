@@ -1675,7 +1675,8 @@
         "plan-permissions",
         "platform-members",
         "project",
-        "whiteboard"
+        "whiteboard",
+        "whiteboard-discussion"
       ],
       "controllers": [
         "AgentRunController",
@@ -1732,7 +1733,8 @@
         "plan-permissions",
         "platform-members",
         "project",
-        "whiteboard"
+        "whiteboard",
+        "whiteboard-discussion"
       ],
       "controllers": [
         "AgentRunController",
