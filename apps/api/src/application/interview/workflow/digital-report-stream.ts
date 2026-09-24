@@ -6,13 +6,15 @@ import {
 export type ParsedDigitalReportStreamEvent = DigitalReportStreamEventValue;
 
 export const DIGITAL_REPORT_REQUIRED_HEADINGS = [
-  "## 研究范围与方法",
-  "## 核心洞察",
-  "## 分角色深度分析",
-  "## 跨角色主题分析",
-  "## 分歧与共识",
-  "## 行动建议",
-  "## 研究局限与后续验证",
+  "## 研究方法",
+  "## 研究简报",
+  "## 专家边界",
+  "## 证据覆盖",
+  "## 关键发现",
+  "## 分歧与反例",
+  "## 局限性",
+  "## 待验证假设",
+  "## 建议行动",
 ] as const;
 
 export function buildDigitalInterviewReportSystemPrompt(minimumFindings: number): string {
@@ -29,17 +31,10 @@ export function buildDigitalInterviewReportSystemPrompt(minimumFindings: number)
 输出协议：只输出 NDJSON，每行必须是一个完整 JSON 对象，不要代码围栏、前言或尾注。总报告控制在 4000-8000 个中文字符，优先保证结构完整、证据准确，避免冗长复述。
 - 第一行且仅一行：{"type":"meta","title":"具体、决策导向的报告标题","executiveSummary":"包含研究目的、样本边界、3-5项关键发现、主要分歧和首要建议的完整执行摘要"}
 - 紧接着输出至少 ${minimumFindings} 个 finding 事件：{"type":"finding","title":"决策型发现标题","summary":"证据、解释、影响和待验证边界","expertId":"输入专家 ID","questionId":"输入问题 ID"}。先输出 finding，确保关键发现优先送达。
-- 最后严格按顺序输出以下 7 个 section 事件，每个事件的 markdown 必须以对应二级标题开头，并包含充分但简洁的小节、证据和分析：
+- 最后严格按顺序输出以下 9 个 section 事件，每个事件的 markdown 必须以对应二级标题开头，并包含充分但简洁的小节、证据和分析：
 ${DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading, index) => `${index + 1}. ${heading}`).join("\n")}
 
-章节内容要求：
-- “研究范围与方法”：主题、样本/Persona 构成、访谈覆盖、分析方法、证据边界；明确这是数字专家模拟访谈，结论需真人研究验证。
-- “核心洞察”：3-5 个按重要性排序的洞察，每项包含证据原话、画像解释、影响与置信边界。
-- “分角色深度分析”：逐位专家写核心关注、痛点、显性需求、深层动机、行为/决策逻辑和关键引语，不得遗漏任何专家。
-- “跨角色主题分析”：围绕主题串联现状、原因、影响、理想状态，比较不同角色的共同模式和差异。
-- “分歧与共识”：分别列出一致观点、冲突观点、冲突产生的角色/资源/目标原因，以及需要补充验证的问题。
-- “行动建议”：给出 P0/P1/P2 建议及证据映射、近期动作、成功信号和实施风险，不得提出与访谈证据无关的通用方案。
-- “研究局限与后续验证”：样本与模拟边界、不能下的结论、真人访谈/数据验证计划和优先追问。
+章节必须覆盖方法、已确认简报、每位专家能与不能代表的边界、目标×专家证据覆盖、关键发现、分歧与反例、局限性、待验证假设和带证据映射的 P0/P1/P2 行动建议。明确这是数字专家模拟访谈，结论需真人研究验证。
 
 每条 finding 必须原样使用输入中的 expertId 和 questionId，且 summary 不得只复述回答，必须包含证据解释与决策影响。`;
 }

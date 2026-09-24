@@ -19,7 +19,7 @@ describe("F06 digital interview report contract", () => {
       findings: [{
         findingId: "finding-f06", title: "基层体系优先", summary: "回答建议先建设教练培养体系。",
         expertId: "expert-f06", questionId: "question-f06",
-        sourceAnswerId: "expert-f06:question-f06", exploratory: true,
+        sourceAnswerId: "expert-f06:question-f06", goalIds: ["goal-f06"], exploratory: true,
       }],
       generatedAt: "2026-09-01T02:00:00.000Z",
     }).findings[0]).toMatchObject({ expertId: "expert-f06", questionId: "question-f06", exploratory: true });
