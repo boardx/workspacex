@@ -177,6 +177,29 @@ describe("F168 guided research home live data", () => {
     expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
   });
 
+  it("uses the status summary to filter the library and composes it with search", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({ items: [
+      { ...createdSession("grs-active"), title: "欧洲活跃研究", stage: "researching", resumeStage: "researching", progress: 70, sourceCount: 12 },
+      { ...createdSession("grs-risk"), title: "欧洲证据缺口", stage: "report", resumeStage: "report", progress: 90, sourceCount: 0 },
+      { ...createdSession("grs-complete"), title: "亚洲已完成研究", stage: "report", resumeStage: "report", status: "completed", progress: 100, sourceCount: 18, reportId: "report-1" },
+    ] });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    await screen.findByTestId("research-history-grs-active");
+    const attention = screen.getByRole("button", { name: /需要处理 1 项研究/ });
+    fireEvent.click(attention);
+    expect(attention).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("research-history-grs-risk")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-history-grs-active")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-history-grs-complete")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "亚洲" } });
+    expect(screen.getByTestId("research-history-empty")).toHaveTextContent("当前状态筛选与搜索条件下没有研究");
+    fireEvent.click(screen.getByRole("button", { name: "清除状态筛选" }));
+    expect(screen.getByTestId("research-history-grs-complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "清除状态筛选" })).not.toBeInTheDocument();
+  });
+
   it("combines tag and content filters and changes history sort order", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({ items: [
       { ...createdSession("grs-old"), updatedAt: "2026-08-10T00:00:00.000Z" },

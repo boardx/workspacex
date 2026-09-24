@@ -3,6 +3,7 @@ import { mockIdentity } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
 import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
+import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
 
 /**
  * 研究 Studio（phase-01 契约束 `research` / M24）—— UI 先行原型。
@@ -19,7 +20,7 @@ import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 export default function ResearchPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string };
+  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string; preview?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRsView(searchParams.as);
@@ -28,6 +29,10 @@ export default function ResearchPage({
   const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow);
   // 研究成员模型是 owner/collaborator（U-1 B），与项目四角色无关；身份用组织层即可。
   const identity = mockIdentity(searchParams.org ?? "org-yuanyang", null);
+
+  if (process.env.NODE_ENV !== "production" && searchParams.preview === "effort-budget") {
+    return <GuidedResearchEffortBudgetPreview state={uiState} />;
+  }
 
   return (
     <ResearchStudioApp
