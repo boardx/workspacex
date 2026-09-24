@@ -113,6 +113,7 @@ describe("live survey trusted publishing", () => {
     fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
     fireEvent.click(await screen.findByRole("button", { name: "定位并修复：将题目映射到报告章节" }));
     expect(screen.getByRole("button", { name: /2\. 报告模板/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+    expect(screen.getByTestId("survey-mapping-repair-target")).toHaveTextContent("您愿意推荐我们吗？");
   });
 
   it("shows ready only after the parsed server response and exposes explicit next actions", async () => {

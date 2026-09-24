@@ -64,6 +64,7 @@ export function LiveSurveyWorkspace({
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
+  const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
   const reportRef = React.useRef<HTMLDivElement>(null);
   const lock = React.useRef(false);
@@ -181,8 +182,9 @@ export function LiveSurveyWorkspace({
     () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
     [draft?.questions, blockers],
   );
-  const selectStep = (next: string) => {
+  const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
+    setRepairQuestionId(targetQuestionId ?? null);
     window.history.replaceState(null, "", `?step=${next}`);
   };
   return (
@@ -282,6 +284,14 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "template" && (<>
             <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
+            {repairQuestionId && (
+              <p
+                data-testid="survey-mapping-repair-target"
+                className="border-b border-warning/40 bg-warning/5 px-5 py-3 text-12"
+              >
+                待映射题目：{draft.questions.find((question) => question.id === repairQuestionId)?.title ?? repairQuestionId}。请在报告内容块中选择这道题。
+              </p>
+            )}
             <FlexibleReportEditor
               template={draft.template}
               onChange={(template) => setDraft({ ...draft, template })}
@@ -321,13 +331,15 @@ export function LiveSurveyWorkspace({
                               variant="outline"
                               className="ml-2"
                               aria-label={`定位并修复：${blocker.label}`}
-                              onClick={() =>
+                              onClick={() => {
+                                const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
                                 selectStep(
-                                  blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section"
-                                    ? "template"
-                                    : "design",
-                                )
-                              }
+                                  templateRepair ? "template" : "design",
+                                  blocker.code === "MAPPING_INCOMPLETE" && blocker.side === "question"
+                                    ? blocker.subjectId
+                                    : undefined,
+                                );
+                              }}
                             >
                               定位并修复
                             </Button>
