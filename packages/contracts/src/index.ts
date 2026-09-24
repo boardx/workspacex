@@ -104,3 +104,6 @@ export * as instanceTelemetry from "./instance-telemetry";
 
 /** D12 组织大脑图节点 kind / 开发过程投影边（super-instance-design §2）。 */
 export * as ontologyProjection from "./ontology-projection";
+
+/** backlog E6: Skill 目录三入口（按场景）——唯一事实源。 */
+export * as skillEntryPoints from "./skill-entry-points";
