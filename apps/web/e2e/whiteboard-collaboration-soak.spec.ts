@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import * as Y from 'yjs';
-import { readObjects } from '@repo/whiteboard-core';
+import { readObjects, WhiteboardObject } from '@repo/whiteboard-core';
 import { whiteboardSync } from '@repo/contracts';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
-import { analyzeSoak, operationHash, readSoakConfig, reportStatus, writeSoakReport, type SoakClientResult, type SoakOperation, type SoakReconnect, type SoakReport } from './support/whiteboard-collaboration-soak';
+import { analyzeSoak, canonicalizeDocument, documentHash, readSoakConfig, reportStatus, writeSoakReport, type SoakClientResult, type SoakOperation, type SoakReceipt, type SoakReconnect, type SoakReport } from './support/whiteboard-collaboration-soak';
 
 const config = readSoakConfig();
 const reportPath = process.env.WHITEBOARD_SOAK_REPORT ?? 'test-results/whiteboard-collaboration-soak/report.json';
@@ -58,7 +58,7 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
 
 async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
-  await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: SESSION_TOKEN_STORAGE_KEY, value: token });
+  await context.addInitScript(({ key, value }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token });
   return context;
 }
 
@@ -77,14 +77,26 @@ async function operationIds(page: Page): Promise<string[]> {
 async function clientResult(client: string, page: Page, expected: number): Promise<SoakClientResult> {
   await expect.poll(() => operationIds(page), { timeout: 30_000, message: `${client} must converge to ${expected} operations` })
     .toHaveLength(expected);
-  const ids = await operationIds(page);
-  return { client, operationIds: ids, hash: operationHash(ids) };
+  const raw = await page.evaluate(() => {
+    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => unknown[] };
+    if (!diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__) throw new Error('whiteboard document diagnostics are unavailable');
+    return diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__();
+  });
+  const document = canonicalizeDocument(WhiteboardObject.array().parse(raw));
+  return { client, document, hash: documentHash(document) };
 }
 
 async function createOperation(page: Page, id: string): Promise<void> {
   await page.getByTestId('board-add-sticky').click();
   await page.getByLabel('对象文字', { exact: true }).fill(id);
   await waitSynced(page, 15_000);
+}
+
+async function observeAllClients(pages: readonly Page[], id: string): Promise<SoakReceipt[]> {
+  return Promise.all(pages.map(async (page, index) => {
+    await page.getByRole('button', { name: `图形：${id}`, exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
+    return { client: String(index), visibleAtMs: Date.now() };
+  }));
 }
 
 async function serverResult(boardId: string, token: string): Promise<SoakClientResult> {
@@ -105,8 +117,8 @@ async function serverResult(boardId: string, token: string): Promise<SoakClientR
         clearTimeout(timer); Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); resolve();
       });
     });
-    const ids = readObjects(doc).map(object => object.text).filter(text => text.startsWith(operationPrefix));
-    return { client: 'server', operationIds: ids, hash: operationHash(ids) };
+    const document = canonicalizeDocument(readObjects(doc));
+    return { client: 'server', document, hash: documentHash(document) };
   } finally { socket.close(); doc.destroy(); }
 }
 
@@ -148,8 +160,9 @@ test('50 independent browser contexts converge without loss, duplicates or forks
         const id = `${operationPrefix}offline-${index}-${randomUUID()}`, createdAtMs = Date.now();
         await pages[index]!.getByTestId('board-add-sticky').click();
         await pages[index]!.getByLabel('对象文字', { exact: true }).fill(id);
-        operations.push({ id, writer: index, createdAtMs, visibleAtMs: null, disruption: true });
-        return { id, index };
+        const operation: SoakOperation = { id, writer: index, createdAtMs, disruption: true, receipts: [] };
+        operations.push(operation);
+        return { id, index, operation };
       }));
       await new Promise(resolve => setTimeout(resolve, config.offlineMs));
       const observer = pages[config.writers]!;
@@ -161,6 +174,7 @@ test('50 independent browser contexts converge without loss, duplicates or forks
         reconnects.push({ client: String(index), elapsedMs: Date.now() - onlineAt, recovered });
         offlineWriters.delete(index);
       }));
+      await Promise.all(offlineOperations.map(async ({ id, operation }) => { operation.receipts = await observeAllClients(pages, id); }));
     };
 
     const endAt = collaborationStartedMs + config.durationMs, outageAt = collaborationStartedMs + Math.floor(config.durationMs / 2);
@@ -171,9 +185,8 @@ test('50 independent browser contexts converge without loss, duplicates or forks
       while (offlineWriters.has(writer)) writer = cursor++ % config.writers;
       const id = `${operationPrefix}${writer}-${randomUUID()}`, createdAtMs = Date.now();
       await createOperation(pages[writer]!, id);
-      const observer = pages[config.writers + (writer % (config.clients - config.writers))]!;
-      await observer.getByRole('button', { name: `图形：${id}`, exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
-      operations.push({ id, writer, createdAtMs, visibleAtMs: Date.now(), disruption: false });
+      const receipts = await observeAllClients(pages, id);
+      operations.push({ id, writer, createdAtMs, disruption: false, receipts });
       const remaining = config.operationIntervalMs - (Date.now() - createdAtMs);
       if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
     }
@@ -189,7 +202,7 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     await freshPage.goto(`/studio/board/${boardId}`); await waitSynced(freshPage); freshClient = await clientResult('fresh', freshPage, operations.length);
     await Promise.all(contexts.map(context => context.close())); contexts.length = 0; pages.length = 0;
     server = await serverResult(boardId, ownerToken);
-    const analysis = analyzeSoak({ expectedIds: operations.map(item => item.id), operations, clients: clientResults, freshClient, server, reconnects, config });
+    const analysis = analyzeSoak({ operations, clients: clientResults, freshClient, server, reconnects, config });
     const status = reportStatus(config, analysis, null);
     if (status !== (config.profile === 'acceptance' ? 'accepted' : 'diagnostic-passed')) throw new Error(`soak verdict ${status}: ${JSON.stringify(analysis)}`);
   } catch (error) {
@@ -198,8 +211,8 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
     if (boardId && ownerToken) await apiRequest(request, ownerToken, 'PATCH', `/whiteboards/${boardId}`, { archived: true }).catch(() => undefined);
-    const analysis = analyzeSoak({ expectedIds: operations.map(item => item.id), operations, clients: clientResults, freshClient, server, reconnects, config });
-    const report: SoakReport = { schemaVersion: 1, issue: 4144, status: reportStatus(config, analysis, failure), exactSha, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationDurationMs,
+    const analysis = analyzeSoak({ operations, clients: clientResults, freshClient, server, reconnects, config });
+    const report: SoakReport = { schemaVersion: 2, issue: 4144, status: reportStatus(config, analysis, failure), exactSha, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationDurationMs,
       environment: { os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' },
       config, operations, clients: clientResults, freshClient, server, reconnects, analysis, failure };
     await writeSoakReport(reportPath, report);
