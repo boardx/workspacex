@@ -298,6 +298,23 @@ export const PROTOTYPE_FONT_STACKS: Readonly<Record<PrototypeFont, string>> = {
 };
 
 /**
+ * 对标 R2（#3933）：**项目级**圆角档位——一处改、整套原型的按钮/卡片/输入框一起变。
+ *
+ * 与节点自己的 `radius`（none/sm/md/lg/full）是两层：节点说「我是小圆角还是大圆角」（层级），
+ * 项目说「这套产品整体是直角、常规还是圆润」（气质）。画布按两者组合取类名，
+ * 仍然只落在 `rounded-control / rounded-card / rounded-container` 这几档上（lint-design U11）。
+ */
+export const PrototypeRadiusScale = z.enum(["sharp", "default", "round"]);
+export type PrototypeRadiusScale = z.infer<typeof PrototypeRadiusScale>;
+
+/**
+ * 对标 R2：项目级信息密度——整套原型的间距与内边距整体收紧或放宽一档。
+ * 同上，节点的 `gap`/`padding` 是层级，这里是气质；画布把两者组合成 Tailwind 的间距档位。
+ */
+export const PrototypeDensity = z.enum(["compact", "default", "comfortable"]);
+export type PrototypeDensity = z.infer<typeof PrototypeDensity>;
+
+/**
  * 项目级设计 token。**一个对象、一列**（`design_projects.tokens jsonb`）：以后加圆角、密度
  * 是往这里加键，不是每加一项开一列、在十个地方各接一次线。
  * 缺省值 = 这个字段出现之前的行为（`brand: null` 不覆盖强调色，`font: sans` 跟随产品字体）。
@@ -307,10 +324,14 @@ export const DesignTokens = z
     /** `null` = 不用品牌色，沿用 `accent` 档位。给了 ⇒ 覆盖 `accent`。 */
     brand: BrandColor.nullable().default(null),
     font: PrototypeFont.default("sans"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的圆角，逐像素不变。 */
+    radius: PrototypeRadiusScale.default("default"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的间距，逐像素不变。 */
+    density: PrototypeDensity.default("default"),
   })
   .strict();
 export type DesignTokens = z.infer<typeof DesignTokens>;
-export const DEFAULT_DESIGN_TOKENS: DesignTokens = { brand: null, font: "sans" };
+export const DEFAULT_DESIGN_TOKENS: DesignTokens = { brand: null, font: "sans", radius: "default", density: "default" };
 
 function hexToRgb(hex: string): readonly [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16);
@@ -778,6 +799,16 @@ export type PrototypeVersionSummary = z.infer<typeof PrototypeVersionSummary>;
 export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode.nullable()) }).strict();
 export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
 
+/**
+ * 对标 R9（#3954）：同一页的**候选方案**。`root` 是一整棵页树（过 `PrototypeNode` 契约）；
+ * 候选**不落库**——人挑中一个之后，前端用既有 `replace` patch 把它换进去，于是版本历史与
+ * 撤销走的是同一条路，不另开一套「方案」存储。
+ */
+export const PROTOTYPE_VARIANTS_MIN = 2;
+export const PROTOTYPE_VARIANTS_MAX = 4;
+export const PrototypeVariant = z.object({ summary: z.string().min(1).max(120), root: PrototypeNode }).strict();
+export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
+
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
 export const operations = {
@@ -1072,6 +1103,26 @@ export const operations = {
     path: "/pm-designs/:projectId/prototype/patch",
     in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
     out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 对标 R9（#3954）：让模型对第 `screen` 页出 `count` 个**结构不同**的方案。仅 owner；**不写库**。
+   * 模型给的每棵树都过契约，不合法的丢掉；合法的不足 `PROTOTYPE_VARIANTS_MIN` 个 ⇒ 503
+   * `DEPENDENCY_UNAVAILABLE`——不拿当前页改几个字冒充「方案」。这一页没画出来 ⇒ `PROTOTYPE_PATCH_REJECTED`。
+   */
+  proposeVariants: {
+    method: "POST",
+    path: "/pm-designs/:projectId/variants",
+    in: z
+      .object({
+        projectId: z.string(),
+        screen: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+        count: z.number().int().min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX).optional(),
+        instruction: z.string().max(500).optional(),
+      })
+      .strict(),
+    out: z.object({ variants: z.array(PrototypeVariant).min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX) }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 

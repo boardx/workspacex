@@ -985,6 +985,14 @@ describe("对标 R1：品牌色与字体在骨架轮定一次，过契约", () =
     expect(out.tokens).toBeUndefined();
   });
 
+  it("对标 R2：圆角与密度也在骨架轮定；不在档位里的名字不带", async () => {
+    const out = await run('{"reply":"两页。","radius":"round","density":"comfortable","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toEqual({ radius: "round", density: "comfortable" });
+    const bad = await run('{"reply":"两页。","radius":"圆一点","density":"airy","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(bad.tokens).toBeUndefined();
+    for (const v of [...C.PrototypeRadiusScale.options, ...C.PrototypeDensity.options]) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(v);
+  });
+
   it("提示词把字体档位逐个列出来，并说清楚没给色值就不要编", () => {
     for (const f of C.PrototypeFont.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(f);
     expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toMatch(/没给就不要输出这个字段/);

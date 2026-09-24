@@ -28,7 +28,7 @@ const project: dw.DesignProject = {
   template: "wireframe",
   theme: "dark",
   accent: "neutral",
-  tokens: { brand: null, font: "sans" },
+  tokens: { brand: null, font: "sans", radius: "default", density: "default" },
   tags: [],
   share: null,
   refImages: [],
@@ -447,8 +447,8 @@ describe("分享出去的那一份，字段是一个被钉死的闭集", () => {
 /* ─────────────── 对标 R1（#3933）：设计 token——任意品牌色与字体 ─────────────── */
 describe("DesignTokens：品牌色与字体", () => {
   it("缺省值 = 这个字段之前的行为（不覆盖强调色、跟随产品字体）；老数据没有这个字段也能读", () => {
-    expect(dw.DesignTokens.parse({})).toEqual({ brand: null, font: "sans" });
-    expect(dw.DEFAULT_DESIGN_TOKENS).toEqual({ brand: null, font: "sans" });
+    expect(dw.DesignTokens.parse({})).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
+    expect(dw.DEFAULT_DESIGN_TOKENS).toEqual({ brand: null, font: "sans", radius: "default", density: "default" });
     const legacy = dw.DesignProject.innerType().shape.tokens.parse(undefined);
     expect(legacy).toEqual(dw.DEFAULT_DESIGN_TOKENS);
   });
@@ -498,5 +498,20 @@ describe("DesignTokens：品牌色与字体", () => {
     for (const f of dw.PrototypeFont.options) expect(dw.PROTOTYPE_FONT_STACKS[f]).toBeTruthy();
     expect(dw.PROTOTYPE_FONT_STACKS.sans).toBe("inherit");
     expect(dw.PROTOTYPE_FONT_STACKS.serif).toMatch(/serif$/);
+  });
+});
+
+describe("对标 R9 proposeVariants（#3954）", () => {
+  const root = { type: "stack", children: [{ type: "text", props: { content: "甲" } }] };
+  it("in：screen 必填、count 在 2–4 之间；out：至少两个方案，每个过 PrototypeNode", () => {
+    expect(dw.operations.proposeVariants.in.parse({ projectId: "p", screen: 0 })).toEqual({ projectId: "p", screen: 0 });
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 1 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 5 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p" }).success).toBe(false);
+    const two = [{ summary: "A", root }, { summary: "B", root }];
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two }).success).toBe(true);
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two.slice(0, 1) }).success).toBe(false);
+    expect(dw.PrototypeVariant.safeParse({ summary: "坏", root: { type: "no-such-type" } }).success).toBe(false);
+    expect([...dw.operations.proposeVariants.err]).toContain("DEPENDENCY_UNAVAILABLE");
   });
 });

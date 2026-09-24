@@ -439,7 +439,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
   // `extraProjects`：对标评测（`e2e/parity-eval/`）的金标准项目，接在样本项目后面，走同一套路由。
   // `tokens`：真实 API 读侧恒给（契约 `DesignTokens` 带缺省值），夹具同样补齐——样本里给了的键覆盖缺省值。
   const projects = empty ? [] : [...DESIGN_PROJECTS, ...extraProjects].map((p) => ({
-    ...p, tokens: { brand: null, font: "sans", ...(p.tokens ?? {}) },
+    ...p, tokens: { brand: null, font: "sans", radius: "default", density: "default", ...(p.tokens ?? {}) },
     chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
     ...(p.frameLinks !== undefined ? { frameLinks: structuredClone(p.frameLinks) } : {}),
   }));
@@ -468,7 +468,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
         pushed: false, pushedAt: null, linkedFeedbackId: body.linkedFeedbackId ?? null, chat: [],
         // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [], share: null, tokens: { brand: null, font: "sans" },
+    theme: "dark", tags: [], refImages: [], share: null, tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
     githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
@@ -581,7 +581,10 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const project = projects.find((p) => p.id === id);
     if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
     for (const op of route.request().postDataJSON()?.ops ?? []) {
-      const node = op.nodeId ? findFixtureNode(project.prototype, op.nodeId) : null;
+      // 契约 `PrototypePatchOp` 的节点寻址键是 `id`。这里原来读的是 `nodeId`（一个不存在的键）⇒
+      // setProps 在夹具里**从来没生效过**；既有 e2e 只断言了请求体，所以一直没人发现。
+      const nodeId = op.id ?? op.nodeId;
+      const node = nodeId ? findFixtureNode(project.prototype, nodeId) : null;
       if (node && op.op === "setProps") {
         node.props = { ...node.props, ...op.props };
         for (const [k, v] of Object.entries(op.props ?? {})) if (v === null) delete node.props[k];

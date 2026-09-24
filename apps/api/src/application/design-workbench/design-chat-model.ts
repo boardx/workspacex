@@ -445,6 +445,9 @@ export const DESIGN_OUTLINE_SYSTEM_PROMPT =
   // 没给色值不要编一个：编出来的「品牌色」比挑一档强调色更像乱来。
   '"brand":"只有用户明确给了品牌色色值（形如 #FF5A1F）才填这个字段，原样照抄；没给就不要输出这个字段",' +
   `"font":"整套界面的字体气质，从这几档里挑一个：${designWorkbench.PrototypeFont.options.join("/")}（sans 现代、serif 有质感、rounded 亲和、mono 极客；拿不准给 sans）",` +
+  // 对标 R2（#3933）：圆角与密度是**整套**的气质（按钮/卡片一起变），不是某个组件的属性。
+  `"radius":"整套界面的圆角气质：${designWorkbench.PrototypeRadiusScale.options.join("/")}（sharp 利落专业、round 亲和活泼；拿不准给 default）",` +
+  `"density":"信息密度：${designWorkbench.PrototypeDensity.options.join("/")}（后台/看板偏 compact，面向大众的消费产品偏 comfortable；拿不准给 default）",` +
   '"outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
   `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
   // 迭代 20：上限由服务端截断执行（见 `generatePaged`），这句话只是让模型一开始就别多规划，
@@ -611,9 +614,13 @@ export class ModelDesignChatReplier implements DesignChatModel {
     // 否则 #ff5a1f 与 #FF5A1F 会被当成「变了」而白写一次库。
     const brandParsed = designWorkbench.BrandColor.safeParse(obj.brand);
     const fontParsed = designWorkbench.PrototypeFont.safeParse(obj.font);
+    const radiusParsed = designWorkbench.PrototypeRadiusScale.safeParse(obj.radius);
+    const densityParsed = designWorkbench.PrototypeDensity.safeParse(obj.density);
     const tokens: Partial<designWorkbench.DesignTokens> = {
       ...(brandParsed.success ? { brand: brandParsed.data.toUpperCase() } : {}),
       ...(fontParsed.success ? { font: fontParsed.data } : {}),
+      ...(radiusParsed.success ? { radius: radiusParsed.data } : {}),
+      ...(densityParsed.success ? { density: densityParsed.data } : {}),
     };
     if (outline.length === 0) {
       this.deps.log("design chat: outline round produced no usable pages", {});
