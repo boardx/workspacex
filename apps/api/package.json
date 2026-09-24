@@ -69,6 +69,7 @@
     "@playwright/mcp": "0.0.80",
     "@repo/cloud-deploy": "workspace:*",
     "@repo/contracts": "workspace:*",
+    "@repo/whiteboard-core": "workspace:*",
     "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",
@@ -83,6 +84,7 @@
     "rxjs": "^7.8.1",
     "undici": "7.28.0",
     "ws": "^8.18.0",
+    "yjs": "13.6.32",
     "zod": "^3.23.8",
     "zod-to-json-schema": "3.24.6"
   },
