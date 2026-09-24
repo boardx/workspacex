@@ -94,7 +94,10 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               // server mirror; deriving the client diff locally avoids a second DB checkout.
               const full=await helloPhase(deps.logger,traceId,'load',()=>deps.store.load(principal,boardId));
               Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq; peer.role=full.role; peer.archived=full.archived;
-              const diffUpdate=await helloPhase(deps.logger,traceId,'diff',()=>Y.encodeStateAsUpdate(peer.mirror,clientStateVector));
+              const diffUpdate=await helloPhase(deps.logger,traceId,'diff',()=>{
+                try{return Y.encodeStateAsUpdate(peer.mirror,clientStateVector);}
+                catch{throw new WhiteboardCollaborationError('VALIDATION_FAILED');}
+              });
               const accessReceiptId=await helloPhase(deps.logger,traceId,'receipt',()=>deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),full.epoch));
               const diff={...full,update:diffUpdate};
               let soakBinding: {runId:string;challenge:string}|undefined;

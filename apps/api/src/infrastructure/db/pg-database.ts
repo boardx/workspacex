@@ -17,6 +17,18 @@ import type { KernelHealthProbe } from "../../application/use-cases/get-kernel-h
 import type { OrgId } from "../../domain/org-id";
 import type { PgConfig } from "./pg-config";
 const DATABASE_POOL_MAX=5;
+type CheckoutFailure='checkout_timeout'|'connection_refused'|'tls'|'shutdown'|'unknown';
+const TLS_CODES=new Set(['ERR_TLS_CERT_ALTNAME_INVALID','DEPTH_ZERO_SELF_SIGNED_CERT','SELF_SIGNED_CERT_IN_CHAIN','UNABLE_TO_VERIFY_LEAF_SIGNATURE','CERT_HAS_EXPIRED']);
+const SHUTDOWN_CODES=new Set(['57P01','57P02','57P03','ECONNRESET','EPIPE']);
+function checkoutFailure(error:unknown):{failure:CheckoutFailure;code:string}{
+  const value=error as {code?:unknown;message?:unknown};
+  const code=typeof value?.code==='string'?value.code:'';
+  if(code==='ETIMEDOUT'||value?.message==='timeout exceeded when trying to connect'||value?.message==='Connection terminated due to connection timeout')return{failure:'checkout_timeout',code:code||'timeout'};
+  if(code==='ECONNREFUSED')return{failure:'connection_refused',code};
+  if(TLS_CODES.has(code))return{failure:'tls',code};
+  if(SHUTDOWN_CODES.has(code))return{failure:'shutdown',code};
+  return{failure:'unknown',code:'unknown'};
+}
 
 export class PgDatabase implements DatabasePort {
   private readonly pool: pg.Pool;
@@ -54,9 +66,10 @@ export class PgDatabase implements DatabasePort {
         elapsedMs: performance.now() - checkoutStarted, waiting: this.pool.waitingCount,
         active: this.pool.totalCount - this.pool.idleCount, max: DATABASE_POOL_MAX });
     } catch (error) {
+      const classified=checkoutFailure(error);
       this.logger.info("database_pool_checkout", { traceId: "database", outcome: "error",
         elapsedMs: performance.now() - checkoutStarted, waiting: this.pool.waitingCount,
-        active: this.pool.totalCount - this.pool.idleCount, max: DATABASE_POOL_MAX });
+        active: this.pool.totalCount - this.pool.idleCount, max: DATABASE_POOL_MAX, ...classified });
       throw error;
     }
     const connectionErrors = this.connectionErrors;
