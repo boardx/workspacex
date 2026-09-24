@@ -39,9 +39,13 @@ BEGIN
     RAISE EXCEPTION 'KG_SCOPE_NOT_PERSONAL: only personal threads promote to personal knowledge' USING ERRCODE = '42501';
   END IF;
 
+  -- 与 F10 的人工动作同一把会话锁（先会话、后个人空间，顺序固定），再锁住原结论这一行：
+  -- 并发的「标矛盾」、原话被删（F07 撤回）都得排在这次晋升前或后，不会在读和写之间插进来。
+  PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|chat_session|' || v_thread));
   SELECT * INTO v_src FROM claims c
    WHERE c.org_id = v_org AND c.id = v_claim AND c.scope_kind = 'chat_session' AND c.scope_id = v_thread
-     AND c.revoked_at IS NULL AND c.status <> 'superseded';
+     AND c.revoked_at IS NULL AND c.status <> 'superseded'
+   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND' USING ERRCODE = '23503'; END IF;
   IF v_src.status = 'contested' THEN
     RAISE EXCEPTION 'KG_CONTESTED_NEEDS_RESOLUTION: resolve the conflict before promoting' USING ERRCODE = '23514';
@@ -54,14 +58,23 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|personal|' || v_user));
 
   -- U-3：人点「记到我的长期记忆」本身就是确认
+  -- 这一步改的是会话里的原结论，所以也在会话作用域留一条确认记录：会话的 revision 随之前进，
+  -- F10 的乐观并发能看到这次变化。
   IF v_src.status IN ('proposed', 'reviewed') THEN
-    UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now() WHERE org_id = v_org AND id = v_claim;
+    UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now()
+     WHERE org_id = v_org AND id = v_claim AND status IN ('proposed', 'reviewed');
+    INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
+    VALUES (v_id || '-c', v_org, 'chat_session', v_thread, 'human', v_user, 'confirmClaim',
+            jsonb_build_object('action', jsonb_build_object('type', 'confirmClaim', 'claimId', v_claim), 'via', 'promoteToPersonal',
+                               'claims', jsonb_build_array(jsonb_build_object('id', v_claim)), 'objects', '[]'::jsonb),
+            'accepted');
   END IF;
 
   IF v_mode = 'merge' THEN
     SELECT c.id INTO v_target FROM claims c
      WHERE c.org_id = v_org AND c.id = p->>'target_claim_id' AND c.scope_kind = 'personal' AND c.scope_id = v_user
-       AND c.revoked_at IS NULL AND c.status <> 'superseded';
+       AND c.revoked_at IS NULL AND c.status NOT IN ('superseded', 'contested')
+     FOR UPDATE;
     IF v_target IS NULL THEN RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND: merge target' USING ERRCODE = '23503'; END IF;
   ELSE
     v_target := v_id || '-p';
@@ -103,7 +116,10 @@ BEGIN
   ON CONFLICT DO NOTHING;
   -- 来源链不断（R7-1）：L1 → L0
   INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
-  VALUES (v_id || '-d', v_org, 'claim', v_target, 'claim', v_claim, 'derived_from', 'human', 'personal', v_user)
+  SELECT v_id || '-d', v_org, 'claim', v_target, 'claim', v_claim, 'derived_from', 'human', 'personal', v_user
+   WHERE NOT EXISTS (SELECT 1 FROM ontology_edges d
+                      WHERE d.org_id = v_org AND d.src_kind = 'claim' AND d.src_id = v_target AND d.dst_kind = 'claim'
+                        AND d.dst_id = v_claim AND d.relation = 'derived_from' AND d.status = 'active')
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
