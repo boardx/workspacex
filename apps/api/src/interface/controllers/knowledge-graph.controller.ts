@@ -21,6 +21,7 @@ import {
   type HumanActionPort, type KnowledgeReadPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
+import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
 import {
   KgReadError, getClaimSources, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
 } from "../../application/knowledge-graph/read-thread-knowledge";
@@ -82,6 +83,18 @@ export class KnowledgeGraphController {
     @Param("messageId") messageId: string,
   ) {
     return this.run(principal, (v) => getTurnMemory(this.deps, { ...v, threadId, messageId }));
+  }
+
+  /** UC-KG-7 getPersonalKnowledge —— 本人个人空间（长期记忆），只有本人 */
+  @Get("/knowledge-graph/personal")
+  personalKnowledge(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getPersonalKnowledge(this.deps, v));
+  }
+
+  /** getBrainOverview —— 大脑页：本人各会话的记忆计数 + 个人结论的来源会话 */
+  @Get("/knowledge-graph/me/overview")
+  brainOverview(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getBrainOverview(this.deps, v));
   }
 
   /** UC-KG-3 applyHumanAction —— 人的动作（确认 / 改写 / 忘掉 / 标冲突 / 合并 / 拆分 / 改名） */
