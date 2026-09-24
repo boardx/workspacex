@@ -160,7 +160,7 @@ export async function openBoardxRealtimeAsr(
     await providerReady;
     capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
     if (cleaningUp || completed || socket.readyState !== socket.OPEN) {
-      await stopCapture();
+      try { await stopCapture(); } catch { /* Preserve the transport terminal cause. */ }
       throw startupTerminalError ?? new Error("ASR connection terminated during microphone startup");
     }
   } catch (error) {

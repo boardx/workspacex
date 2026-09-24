@@ -79,6 +79,28 @@ describe("BoardxRealtimeAsrClient", () => {
     expect(onState).not.toHaveBeenCalledWith("recording");
   });
 
+  it("preserves the startup terminal error when delayed microphone cleanup rejects", async () => {
+    let resolveCapture!: (value: typeof capture) => void;
+    let currentSocket: FakeSocket | undefined;
+    const rejectingStop = vi.fn().mockRejectedValue(new Error("audio context closed"));
+    const captureFactory = vi.fn(() => new Promise<typeof capture>((resolve) => { resolveCapture = resolve; }));
+    const opening = openBoardxRealtimeAsr("session-1", {
+      issueTicket: async () => ({ captureId: "capture-1", ticket: "ticket", expiresAt: "2026-08-12T08:00:00Z", websocketPath: "/stream" }),
+      createSocket: (url) => { currentSocket = socket = new FakeSocket(url); queueMicrotask(() => currentSocket?.open()); return currentSocket as unknown as WebSocket; },
+      capture: captureFactory,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    });
+    await vi.waitFor(() => expect(currentSocket?.sent).toContain(JSON.stringify({ type: "start" })));
+    currentSocket?.message({ type: "ready", captureId: "capture-1" });
+    await vi.waitFor(() => expect(captureFactory).toHaveBeenCalledOnce());
+    currentSocket?.message({ type: "error", captureId: "capture-1", reason: "ASR_PROVIDER_UNAVAILABLE" });
+
+    resolveCapture({ ...capture, stop: rejectingStop });
+
+    await expect(opening).rejects.toThrow("ASR_PROVIDER_UNAVAILABLE");
+    expect(rejectingStop).toHaveBeenCalledOnce();
+  });
+
   it("accepts completion received before stop and does not send a second stop", async () => {
     const handle = await openForStop();
     socket.message({ type: "completed", captureId: "capture-1" });
