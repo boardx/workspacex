@@ -20,9 +20,20 @@ describe('isolated whiteboard Yjs validator', () => {
     const peer = createWhiteboardDocument(); Y.applyUpdate(peer, initial.snapshot);
     const before = Y.encodeStateVector(peer);
     executeCommands(peer, [{ type: 'text', id: 'n', index: 2, deleteCount: 0, insert: '协作' }], {});
-    const result = await validator.validate(initial.snapshot, Y.encodeStateAsUpdate(peer, before));
+    const incoming = Y.encodeStateAsUpdate(peer, before);
+    const result = await validator.validate(initial.snapshot, incoming);
+    expect(result.update).toEqual(incoming);
     const restored = createWhiteboardDocument(); Y.applyUpdate(restored, result.snapshot);
     expect(readObjects(restored)[0]?.text).toBe('你好协作'); peer.destroy(); restored.destroy();
+  });
+  it('keeps schema-valid no-op commands idempotent', async () => {
+    const initial = await validator.commands(empty, [create]);
+    const result = await validator.commands(initial.snapshot, [
+      { type: 'style', id: 'n', style: {} },
+      { type: 'text', id: 'n', index: 0, deleteCount: 0, insert: '' },
+    ]);
+    expect(result.update).toEqual(empty);
+    expect(result.snapshot).toEqual(initial.snapshot);
   });
   it('returns only live object IDs through the isolated validator', async () => {
     const created = await validator.commands(empty, [create]);

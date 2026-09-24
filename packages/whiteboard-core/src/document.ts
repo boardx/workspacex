@@ -112,22 +112,34 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
   }
 }
+function emptyUpdate(): Uint8Array {
+  const empty = new Y.Doc();
+  try { return Y.encodeStateAsUpdate(empty); }
+  finally { empty.destroy(); }
+}
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */
-export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): void {
+export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): Uint8Array {
   const commands = WhiteboardCommandBatch.parse(input);
-  const vector = Y.encodeStateVector(doc);
   const existing = commandWriters.get(doc);
   const candidate = existing ?? cloneDocument(doc);
   let committed = false;
-  let update: Uint8Array;
+  let update: Uint8Array | undefined;
   try {
     if (existing) Y.applyUpdate(candidate, Y.encodeStateAsUpdate(doc, Y.encodeStateVector(candidate)));
-    // Commit the candidate's validated bytes themselves below. Replaying the
-    // commands would generate a different client delta and invalidate preflight.
-    candidate.transact(() => apply(candidate, commands));
+    // Capture only this transaction's native wire update. Encoding the whole
+    // candidate against the live state vector would also attach its historical
+    // delete set and can reject a tiny edit on a healthy long-lived document.
+    const captured: Uint8Array[] = [];
+    const capture = (bytes: Uint8Array) => captured.push(new Uint8Array(bytes));
+    candidate.on('update', capture);
+    try { candidate.transact(() => apply(candidate, commands)); }
+    finally { candidate.off('update', capture); }
+    if (captured.length > 1) throw new Error('INVALID_COMMAND_UPDATE');
+    // Schema-valid no-op batches historically succeed without a live update or
+    // undo item. Return a canonical empty Yjs update for the server ACK path.
+    update = captured[0] ?? emptyUpdate();
     validateDocument(candidate);
     assertLockedObjectsUnchanged(doc, candidate);
-    update = Y.encodeStateAsUpdate(candidate, vector);
     assertWhiteboardUpdateLimits(update);
     const structures = [...candidate.store.clients.values()].reduce((sum, entries) => sum + entries.length, 0);
     if (structures > WHITEBOARD_UPDATE_LIMITS.documentStructs
@@ -135,6 +147,7 @@ export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): vo
     Y.applyUpdate(doc, update, origin);
     commandWriters.set(doc, candidate);
     committed = true;
+    return update;
   }
   finally {
     if (!committed) {

@@ -9,8 +9,8 @@ function sameItem(a: { id: { client: number; clock: number } } | null | undefine
 /**
  * Pinned Yjs 13.6.32 adapter. Must run inside a resource-limited worker/process
  * for untrusted network input; size limits do not bound decoder CPU/memory.
- * Returns a vetted update, never mutates authority. Host persists this result
- * before applying/broadcasting it, serialized against the exact same base doc.
+ * Returns the exact vetted input bytes, never mutates authority. Host persists
+ * this result before applying/broadcasting it against the exact same base doc.
  * Missing causal dependencies are rejected: caller requests a complete diff.
  */
 export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): Uint8Array {
@@ -51,6 +51,9 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
     validateDocument(candidate);
     assertLockedObjectsUnchanged(authority, candidate);
     if (Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
-    return Y.encodeStateAsUpdate(candidate, Y.encodeStateVector(authority));
+    // Re-encoding candidate against authority would attach candidate's complete
+    // historical delete set. That can turn a tiny valid transaction into an
+    // oversized update and permanently lock editing of a healthy long-lived doc.
+    return new Uint8Array(update);
   } finally { candidate.destroy(); }
 }

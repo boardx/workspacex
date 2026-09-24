@@ -87,6 +87,40 @@ describe('bulk arrange builder', () => {
     undo.destroy(); doc.destroy(); remote.destroy();
   });
 
+  it('does not charge a small geometry transaction for a long-lived document delete set', () => {
+    const seeded = seed([object('aged', 0, 0)]);
+    const doc = cloneDocument(seeded), baseGeometry = object('aged', 0, 0).geometry;
+    seeded.destroy();
+    const baseline = Y.encodeStateAsUpdate(doc);
+    for (let index = 1; index <= 12_000; index++) {
+      const peer = createWhiteboardDocument();
+      Y.applyUpdate(peer, baseline);
+      const overwrite = executeCommands(peer, [
+        { type: 'geometry', id: 'aged', geometry: { ...baseGeometry, x: index } },
+      ], 'history');
+      Y.applyUpdate(doc, overwrite);
+      peer.destroy();
+    }
+    const beforeBytes = Y.encodeStateAsUpdate(doc).byteLength;
+    expect(beforeBytes).toBeGreaterThan(WHITEBOARD_UPDATE_LIMITS.bytes);
+    expect(beforeBytes).toBeLessThanOrEqual(WHITEBOARD_UPDATE_LIMITS.documentBytes);
+
+    const beforeX = readObjects(doc)[0]!.geometry.x;
+    const remote = cloneDocument(doc), undo = new WhiteboardUndo(doc), updates: Uint8Array[] = [];
+    doc.on('update', update => updates.push(update));
+    undo.execute([{ type: 'geometry', id: 'aged', geometry: { ...baseGeometry, x: 12_001 } }]);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.byteLength).toBeLessThanOrEqual(WHITEBOARD_UPDATE_LIMITS.bytes);
+    const accepted = prepareWhiteboardUpdate(remote, updates[0]!);
+    expect(accepted).toEqual(updates[0]);
+    Y.applyUpdate(remote, accepted);
+    expect(readObjects(remote)).toEqual(readObjects(doc));
+    expect(readObjects(doc)[0]!.geometry.x).toBe(12_001);
+    expect(undo.undo()).toBe('undone');
+    expect(readObjects(doc)[0]!.geometry.x).toBe(beforeX);
+    undo.destroy(); doc.destroy(); remote.destroy();
+  });
+
   it('moves Frame descendants once and rejects a locked descendant atomically', () => {
     const frame = object('frame', 0, 0, 200, 200, { kind: 'frame' });
     const child = object('child', 20, 20, 30, 30, { parentId: 'frame' });

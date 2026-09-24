@@ -82,6 +82,20 @@ describe('whiteboard content kernel', () => {
     expect(doc.store.clients.size).toBe(1);
     doc.destroy();
   });
+  it('accepts schema-valid no-op commands without mutation, update emission or undo capture', () => {
+    const doc = createWhiteboardDocument(); create(doc);
+    const undo = new WhiteboardUndo(doc), before = Y.encodeStateAsUpdate(doc); let updates = 0;
+    doc.on('update', () => updates++);
+    const update = executeCommands(doc, [
+      { type: 'style', id: 'note', style: {} },
+      { type: 'text', id: 'note', index: 0, deleteCount: 0, insert: '' },
+    ], undo.origin);
+    expect(Y.decodeUpdate(update).structs).toHaveLength(0);
+    expect(updates).toBe(0);
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+    expect(undo.undo()).toBe('empty');
+    undo.destroy(); doc.destroy();
+  });
   it('rejects every direct mutation of locked objects and rolls back the whole batch', () => {
     const doc = createWhiteboardDocument();
     const locked = { ...note('locked'), extensionData: { locked: true } };
