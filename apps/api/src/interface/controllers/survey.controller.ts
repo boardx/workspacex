@@ -16,18 +16,21 @@ import {
   Post,
   Put,
   Query,
+  UnprocessableEntityException,
   UseGuards,
 } from "@nestjs/common";
 import { z } from "zod";
 import {
   SurveyDraftInputSchema,
-  SurveySaveInputSchema,
+  SurveyCreateCommandSchema,
+  SurveySaveCommandSchema,
   SurveyVersionInputSchema,
   SurveyPublishInputSchema,
   SurveySubmissionInputSchema,
 } from "@repo/contracts/survey-runtime";
 import {
   SurveyError,
+  SurveyPublishBlockedError,
   SurveyService,
   SURVEY_REPOSITORY,
   type SurveyRepository,
@@ -46,12 +49,43 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
   } catch (e) {
     if (!(e instanceof SurveyError)) throw e;
     if (e.code === "not_found") throw new NotFoundException();
-    if (e.code === "version_conflict" || e.code === "submission_conflict")
+    if (e instanceof SurveyPublishBlockedError)
+      throw new UnprocessableEntityException({
+        reasonCode: "SURVEY_PUBLISH_BLOCKED",
+        blockers: e.blockers,
+      });
+    if (e.code === "version_conflict")
+      throw new ConflictException({ reasonCode: "SURVEY_VERSION_CONFLICT" });
+    if (e.code === "anonymity_immutable")
+      throw new ConflictException({ reasonCode: "ANONYMITY_IMMUTABLE" });
+    if (e.code === "status_command_required")
+      throw new ConflictException({ reasonCode: "STATUS_COMMAND_REQUIRED" });
+    if (e.code === "invalid_transition")
+      throw new ConflictException({ reasonCode: "INVALID_TRANSITION" });
+    if (e.code === "submission_conflict")
       throw new ConflictException(e.code);
     if (e.code === "closed" || e.code === "expired")
       throw new GoneException(e.code);
     throw new BadRequestException(e.code);
   }
+}
+function createCommand(body: unknown) {
+  const command = SurveyCreateCommandSchema.safeParse(body);
+  if (command.success) return command.data;
+  return { draft: parse(SurveyDraftInputSchema, body), anonymity: "anonymous" as const };
+}
+function saveCommand(body: unknown) {
+  const command = SurveySaveCommandSchema.safeParse(body);
+  if (command.success) return command.data;
+  if (!body || typeof body !== "object" || Array.isArray(body))
+    throw new BadRequestException("invalid_survey_input");
+  const raw = body as Record<string, unknown>;
+  return parse(SurveySaveCommandSchema, {
+    expectedVersion: raw.expectedVersion,
+    draft: raw,
+    anonymity: raw.anonymity,
+    status: raw.status,
+  });
 }
 @Controller("/surveys")
 export class SurveyController {
@@ -67,8 +101,8 @@ export class SurveyController {
   }
   @Post() create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
     assertPrincipal(p);
-    const input = parse(SurveyDraftInputSchema, body);
-    return run(() => this.service.create(p.orgId, p.userId, input));
+    const input = createCommand(body);
+    return run(() => this.service.create(p.orgId, p.userId, input.draft, input.anonymity));
   }
   @Get("/templates") listTemplates(@CurrentPrincipal() p: Principal, @Query("kind") kind: unknown) {
     assertPrincipal(p); const filter = parse(SurveyTemplateKindSchema.optional(), kind);
@@ -99,9 +133,12 @@ export class SurveyController {
     @Body() body: unknown,
   ) {
     assertPrincipal(p);
-    const input = parse(SurveySaveInputSchema, body);
+    const input = saveCommand(body);
     return run(() =>
-      this.service.save(p.orgId, p.userId, id, input.expectedVersion, input),
+      this.service.save(p.orgId, p.userId, id, input.expectedVersion, input.draft, {
+        anonymity: input.anonymity,
+        status: input.status,
+      }),
     );
   }
   @Delete("/:id") delete(
@@ -125,6 +162,45 @@ export class SurveyController {
     const input = parse(SurveyPublishInputSchema, body);
     return run(() =>
       this.service.publish(
+        p.orgId,
+        p.userId,
+        id,
+        input.expectedVersion,
+        input.expiresAt,
+      ),
+    );
+  }
+  @Post("/:id/prepare") prepare(
+    @CurrentPrincipal() p: Principal,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveyVersionInputSchema, body);
+    return run(() =>
+      this.service.prepare(p.orgId, p.userId, id, input.expectedVersion),
+    );
+  }
+  @Post("/:id/withdraw") withdraw(
+    @CurrentPrincipal() p: Principal,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveyVersionInputSchema, body);
+    return run(() =>
+      this.service.withdraw(p.orgId, p.userId, id, input.expectedVersion),
+    );
+  }
+  @Post("/:id/start-collection") startCollection(
+    @CurrentPrincipal() p: Principal,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(p);
+    const input = parse(SurveyPublishInputSchema, body);
+    return run(() =>
+      this.service.startCollection(
         p.orgId,
         p.userId,
         id,

@@ -44,6 +44,7 @@ import {
   research,
   recording,
   skills,
+  survey,
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
@@ -643,6 +644,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...permissionReasonOf(exception),
+        ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),
         ...prototypePatchRejectionOf(exception),
@@ -660,4 +662,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     this.debugTrace?.record({ traceId, kind: "exception.unhandled", level: "error", msg: "unhandled exception", data: errorDetailOf(exception) });
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: "internal_error", traceId });
   }
+}
+
+function surveyErrorOf(exception: HttpException): {
+  reasonCode?: string;
+  blockers?: unknown;
+} {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { reasonCode?: unknown; blockers?: unknown };
+  const reason = survey.SurveyCommandErrorCodeSchema.safeParse(raw.reasonCode);
+  if (!reason.success) return {};
+  if (reason.data !== "SURVEY_PUBLISH_BLOCKED")
+    return { reasonCode: reason.data };
+  const blockers = survey.SurveyPublishBlockerSchema.array().safeParse(raw.blockers);
+  return blockers.success
+    ? { reasonCode: reason.data, blockers: blockers.data }
+    : { reasonCode: reason.data };
 }

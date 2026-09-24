@@ -38,7 +38,11 @@ describe("Survey route layout", () => {
     request.mockRejectedValueOnce(new Error("问卷不可访问"));
     render(<SurveyWorkflowPage params={{surveyId:"real-id"}} searchParams={{step:"design",draft:encodeSurveyCreationDraft({name:"不应显示",tags:[],sourceModuleId:"strategy"})}}/>);
     expect(await screen.findByRole("alert")).toHaveTextContent("问卷不可访问");
-    expect(request).toHaveBeenCalledWith("/surveys/real-id");
+    expect(request).toHaveBeenCalledWith(
+      "/surveys/real-id",
+      {},
+      expect.objectContaining({ parse: expect.any(Function) }),
+    );
     expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading",{name:"不应显示"})).not.toBeInTheDocument();
   });

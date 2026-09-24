@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { SurveyWorkflowSchema, SurveyWorkflowStepSchema } from "../src/survey";
+import {
+  SurveyCommandResultSchema,
+  SurveyCreateCommandSchema,
+  SurveyRuntimeSchema,
+  SurveySaveCommandSchema,
+} from "../src/survey-runtime";
+
+const validDraft = {
+  title: "企业数字协作成熟度诊断",
+  questions: [],
+  template: {
+    id: "report-template-1",
+    title: "诊断报告",
+    sections: [],
+  },
+};
+
+const legacyRuntime = {
+  ...validDraft,
+  id: "sv-1",
+  version: 1,
+  answerRevision: 0,
+  updatedAt: "2026-09-24T10:00:00.000Z",
+  responses: [],
+  publication: null,
+  report: null,
+  reportBasisVersion: null,
+  reportBasisAnswerRevision: null,
+  reportGeneratedAt: null,
+};
 
 describe("SurveyWorkflowStepSchema", () => {
   it("只接受已确认的五步工作流", () => {
@@ -41,5 +71,51 @@ describe("SurveyWorkflowSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("survey publishing contract", () => {
+  it("hydrates legacy drafts with explicit publishing defaults", () => {
+    const parsed = SurveyRuntimeSchema.parse(legacyRuntime);
+
+    expect(parsed.status).toBe("draft");
+    expect(parsed.anonymity).toBe("anonymous");
+  });
+
+  it("fixes anonymity in the create envelope", () => {
+    const parsed = SurveyCreateCommandSchema.parse({
+      draft: validDraft,
+      anonymity: "identified",
+    });
+
+    expect(parsed.anonymity).toBe("identified");
+  });
+
+  it("retains forbidden save fields for the application conflict check", () => {
+    const parsed = SurveySaveCommandSchema.parse({
+      expectedVersion: 1,
+      draft: validDraft,
+      anonymity: "identified",
+      status: "ready",
+    });
+
+    expect(parsed.anonymity).toBe("identified");
+    expect(parsed.status).toBe("ready");
+  });
+
+  it("accepts structured blockers with stable identities", () => {
+    const parsed = SurveyCommandResultSchema.parse({
+      survey: legacyRuntime,
+      blockers: [
+        {
+          code: "QUESTION_OPTIONS_EMPTY",
+          side: "question",
+          subjectId: "Q02",
+          missingFields: ["options"],
+        },
+      ],
+    });
+
+    expect(parsed.blockers[0]?.subjectId).toBe("Q02");
   });
 });

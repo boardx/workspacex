@@ -1,5 +1,8 @@
 import { z } from "zod";
 import {
+  SurveyAnonymitySchema,
+  SurveyPublishBlockerSchema,
+  SurveyStatusSchema,
   SurveyWorkflowQuestionSchema,
   SurveyResponseSchema,
   SurveyAnswerValueSchema,
@@ -32,9 +35,30 @@ export const SurveyDraftInputSchema = z.object({
 export const SurveySaveInputSchema = SurveyDraftInputSchema.extend({
   expectedVersion: z.number().int().positive(),
 });
-export const SurveyVersionInputSchema = z.object({
-  expectedVersion: z.number().int().positive(),
-});
+export const SurveyCreateCommandSchema = z
+  .object({
+    draft: SurveyDraftInputSchema,
+    anonymity: SurveyAnonymitySchema.default("anonymous"),
+  })
+  .strict();
+export const SurveySaveCommandSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    draft: SurveyDraftInputSchema,
+    anonymity: SurveyAnonymitySchema.optional(),
+    status: SurveyStatusSchema.optional(),
+  })
+  .strict();
+export const SurveyVersionInputSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+  })
+  .strict();
+export const SurveyPrepareCommandSchema = SurveyVersionInputSchema;
+export const SurveyWithdrawCommandSchema = SurveyVersionInputSchema;
+export const SurveyStartCollectionCommandSchema =
+  SurveyVersionInputSchema;
+export const SurveyCloseCommandSchema = SurveyVersionInputSchema;
 export const SurveyPublishInputSchema = SurveyVersionInputSchema.extend({
   expiresAt: z.string().datetime().optional(),
 });
@@ -53,9 +77,11 @@ export const SurveySubmissionInputSchema = z.object({
   role: z.string().trim().min(1).max(200).default("未填写"),
   companySize: z.string().trim().min(1).max(200).default("未填写"),
 });
-export const SurveyRuntimeSchema = SurveyDraftInputSchema.extend({
+const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
   id: z.string(),
   version: z.number().int().positive(),
+  status: SurveyStatusSchema,
+  anonymity: SurveyAnonymitySchema,
   answerRevision: z.number().int().nonnegative().default(0),
   updatedAt: z.string().datetime(),
   responses: z.array(SurveyResponseSchema),
@@ -78,6 +104,30 @@ export const SurveyRuntimeSchema = SurveyDraftInputSchema.extend({
     .default(null),
   reportGeneratedAt: z.string().datetime().nullable(),
 });
+export const SurveyRuntimeSchema = z.preprocess((input) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const value = input as Record<string, unknown>;
+  const publication =
+    value.publication && typeof value.publication === "object"
+      ? (value.publication as Record<string, unknown>)
+      : null;
+  return {
+    ...value,
+    status:
+      value.status ??
+      (publication?.status === "closed" ? "closed" : publication ? "collecting" : "draft"),
+    anonymity: value.anonymity ?? "anonymous",
+  };
+}, SurveyRuntimeBaseSchema);
+export const SurveyCommandResultSchema = z
+  .object({
+    survey: SurveyRuntimeSchema,
+    blockers: z.array(SurveyPublishBlockerSchema).default([]),
+  })
+  .strict();
 export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;
 export type SurveyDraftInput = z.infer<typeof SurveyDraftInputSchema>;
 export type SurveySubmissionInput = z.infer<typeof SurveySubmissionInputSchema>;
+export type SurveyCreateCommand = z.infer<typeof SurveyCreateCommandSchema>;
+export type SurveySaveCommand = z.infer<typeof SurveySaveCommandSchema>;
+export type SurveyCommandResult = z.infer<typeof SurveyCommandResultSchema>;
