@@ -86,7 +86,8 @@ export async function openBoardxRealtimeAsr(
   let stopPromise: Promise<void> | undefined;
   let captureStop: Promise<void> | undefined;
   let capture: PcmAudioWorkletHandle | undefined;
-  const stopCapture = () => captureStop ??= capture?.stop() ?? Promise.resolve();
+  const stopCapture = () => capture ? captureStop ??= capture.stop() : Promise.resolve();
+  let startupTerminalError: Error | undefined;
   let cleaningUp = false;
   const releaseResources = () => {
     if (cleaningUp) return;
@@ -106,6 +107,7 @@ export async function openBoardxRealtimeAsr(
   socket.addEventListener("message", (event) => {
     const parsed = C.RealtimeAsrServerEvent.safeParse(safeJson(String(event.data)));
     if (!parsed.success) {
+      startupTerminalError ??= new Error("invalid BoardX realtime ASR event");
       deps.handlers.onError("CONNECTION_FAILED");
       if (!readySettled) readyReject(new Error("invalid BoardX realtime ASR event"));
       completedReject?.(new Error("invalid BoardX realtime ASR event"));
@@ -121,6 +123,7 @@ export async function openBoardxRealtimeAsr(
     if (frame.type === "final") return deps.handlers.onFinal(frame);
     if (frame.type === "stopping") return deps.handlers.onState("stopping");
     if (frame.type === "error") {
+      startupTerminalError ??= new Error(frame.reason);
       deps.handlers.onState("error");
       deps.handlers.onError(frame.reason);
       if (!readySettled) readyReject(new Error(frame.reason));
@@ -128,6 +131,7 @@ export async function openBoardxRealtimeAsr(
       void releaseResources();
       return;
     }
+    startupTerminalError ??= new Error("ASR completed before capture started");
     completed = true;
     deps.handlers.onState("idle");
     completedResolve();
@@ -136,11 +140,14 @@ export async function openBoardxRealtimeAsr(
   socket.addEventListener("close", () => {
     if (completed || cleaningUp) return;
     if (stopping) {
-      completedReject?.(new Error("ASR connection closed before completion"));
+      const error = new Error("ASR connection closed before completion");
+      startupTerminalError ??= error;
+      completedReject?.(error);
       void releaseResources();
       return;
     }
     const error = new Error("CONNECTION_FAILED");
+    startupTerminalError ??= error;
     if (!readySettled) readyReject(error);
     completedReject(error);
     deps.handlers.onState("error");
@@ -152,6 +159,10 @@ export async function openBoardxRealtimeAsr(
   try {
     await providerReady;
     capture = await (deps.capture ?? startPcmAudioWorklet)({ deviceId: deps.deviceId });
+    if (cleaningUp || completed || socket.readyState !== socket.OPEN) {
+      await stopCapture();
+      throw startupTerminalError ?? new Error("ASR connection terminated during microphone startup");
+    }
   } catch (error) {
     releaseResources();
     await cleanupReservedCapture();
