@@ -56,6 +56,18 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     expect(members).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs"]);
   });
 
+  it("(e2) 模块顶层只有三个常量和这个类——不能在类外另挂一个读正文的函数 / 箭头常量（整个文件都在豁免里）", () => {
+    const topLevel = code.split("\n").filter((l) => /^\S/.test(l) && !/^(?:import\b|\}|\)|export\s+type\b|type\b)/.test(l) && !/^\s*$/.test(l));
+    expect(topLevel.map((l) => /^(?:export\s+)?(?:const|class)\s+(\w+)/.exec(l)?.[1] ?? l)).toEqual([
+      "KG_EXTRACTION_MAX_ATTEMPTS", "KG_EXTRACTION_LEASE_SECONDS", "KG_EXTRACTION_BACKOFF_SECONDS", "PgKgExtraction",
+    ]);
+    // 类只在组装处实例化：别的生产代码只能取常量
+    const users = walk(join(API, "src"))
+      .filter((f) => /\bPgKgExtraction\b/.test(readFileSync(f, "utf8")) && !f.endsWith("pg-kg-extraction.ts"))
+      .map((f) => relative(API, f));
+    expect(users).toEqual(["src/kernel.module.ts"]);
+  });
+
   it("(f) 每一条碰 chat_messages 的 SQL 都限定到一条消息（id = $2）或一个会话（thread_id = $2）", () => {
     const sqls = [...code.matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "").filter((q) => /chat_messages/i.test(q));
     expect(sqls.length).toBeGreaterThan(0);
