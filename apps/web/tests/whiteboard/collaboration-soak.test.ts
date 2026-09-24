@@ -1,13 +1,16 @@
 import { spawnSync } from 'node:child_process';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WhiteboardObject, type WhiteboardObject as BoardObject } from '@repo/whiteboard-core';
-import { ACCEPTANCE_SOAK, analyzeSoak, canonicalizeDocument, documentHash, readSoakConfig, recomputeReport, reportStatus, writeSoakReport, type SoakConfig, type SoakReport } from '../../e2e/support/whiteboard-collaboration-soak';
+import { ACCEPTANCE_SOAK, analyzeSoak, canonicalizeDocument, documentHash, readSoakConfig, recomputeReport, reportStatus, soakEnvironmentFingerprint, writeSoakReport, type SoakConfig, type SoakReport } from '../../e2e/support/whiteboard-collaboration-soak';
 
 const dirs: string[] = [];
+const keys=generateKeyPairSync('ed25519'),publicKey=keys.publicKey.export({type:'spki',format:'pem'}).toString();
+process.env.WHITEBOARD_SOAK_LEDGER_PUBLIC_KEY=publicKey;
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 
 function config(clients = 50, writers = 20, profile: SoakConfig['profile'] = 'acceptance'): SoakConfig {
@@ -39,9 +42,15 @@ function rawReport(options: { clients?: number; writers?: number; profile?: Soak
   const receipts = (visibleAtMs: number) => initialClients.map(item => ({ client: item.client, connectionId: connectionAt(item.client, visibleAtMs), role: item.role, visibleAtMs }));
   const operations = steadyIds.map((id, index) => { const writer = initialClients[index % cfg.writers]!, createdAtMs = steadyTimes[index]!; return { id, writer: writer.client, writerConnectionId: connectionAt(writer.client, createdAtMs), createdAtMs, disruption: false, receipts: receipts(createdAtMs + 100) }; });
   operations.push(...offlineIds.map((id, index) => { const writer = initialClients[index]!, createdAtMs = offlineAtMs + 1; return { id, writer: writer.client, writerConnectionId: writer.connectionId, createdAtMs, disruption: true, receipts: receipts(recoveredAtMs) }; }));
-  const partial = { startedAt: new Date(0).toISOString(), finishedAt: new Date(finishedMs + 1000).toISOString(), collaborationStartedAt: new Date(collaborationStartedMs).toISOString(), collaborationFinishedAt: new Date(finishedMs).toISOString(), collaborationDurationMs: cfg.durationMs, config: cfg, initialClients, operations, clients, freshClient: result(uuid(3000), uuid(3001), 'viewer', objects), server: result(uuid(4000), uuid(4001), 'owner', objects), reconnects };
+  const exactSha='a'.repeat(40),environment={ os: 'test', node: process.version, browser: 'test', ci: false };
+  const freshClient=result(uuid(3000),uuid(3001),'viewer',objects),server=result(uuid(4000),uuid(4001),'owner',objects);
+  const reconnecting=new Set(reconnects.map(item=>item.client));
+  const connections=[...initialClients.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial' as const,connectedAtMs:collaborationStartedMs-100,disconnectedAtMs:reconnecting.has(item.client)?offlineAtMs+1:finishedMs+100})),...reconnects.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:'editor' as const,purpose:'reconnect' as const,connectedAtMs:item.onlineAtMs,disconnectedAtMs:finishedMs+100})),{clientNonce:freshClient.client,connectionId:freshClient.connectionId,role:freshClient.role,purpose:'fresh' as const,connectedAtMs:finishedMs,disconnectedAtMs:finishedMs+100},{clientNonce:server.client,connectionId:server.connectionId,role:server.role,purpose:'server' as const,connectedAtMs:finishedMs+100,disconnectedAtMs:null}];
+  const payload={schemaVersion:1 as const,runId:uuid(9000),challenge:uuid(9001),boardId:uuid(9002),exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),connections,operations:operations.map((item,index)=>({id:item.id,writer:item.writer,connectionId:item.writerConnectionId,seq:index+1,committedAtMs:item.createdAtMs+50})),finalizedAtMs:finishedMs+200};
+  const serverLedger={payload,signature:sign(null,Buffer.from(JSON.stringify(payload)),keys.privateKey).toString('base64')};
+  const partial = { runId:payload.runId,exactSha,environment,startedAt: new Date(0).toISOString(), finishedAt: new Date(finishedMs + 1000).toISOString(), collaborationStartedAt: new Date(collaborationStartedMs).toISOString(), collaborationFinishedAt: new Date(finishedMs).toISOString(), collaborationDurationMs: cfg.durationMs, config: cfg, initialClients, operations, clients, freshClient, server, reconnects,serverLedger };
   const analysis = analyzeSoak(partial);
-  return { schemaVersion: 2, issue: 4144, status: reportStatus(cfg, analysis, null), exactSha: 'a'.repeat(40), environment: { os: 'test', node: process.version, browser: 'test', ci: false }, ...partial, analysis, failure: null };
+  return { schemaVersion: 3, issue: 4144, status: reportStatus(cfg, analysis, null), ...partial, analysis, failure: null };
 }
 
 describe('Board collaboration soak evidence', () => {
@@ -119,6 +128,27 @@ describe('Board collaboration soak evidence', () => {
     expect(run(reorderedFile).status).not.toBe(0);
   }, 20_000);
 
+  it('rejects self-signed no-WebSocket evidence, ledger tampering, and wrong run metadata', () => {
+    const dir=path.join(tmpdir(),`board-soak-signature-${Date.now()}`);dirs.push(dir);mkdirSync(dir,{recursive:true});
+    const report=rawReport(),attacker=generateKeyPairSync('ed25519');
+    const forged=structuredClone(report);forged.serverLedger!.signature=sign(null,Buffer.from(JSON.stringify(forged.serverLedger!.payload)),attacker.privateKey).toString('base64');
+    const tampered=structuredClone(report);tampered.serverLedger!.payload.finalizedAtMs+=1;
+    const wrongRun=structuredClone(report);wrongRun.runId=uuid(9990);
+    const wrongSha=structuredClone(report);wrongSha.exactSha='b'.repeat(40);
+    const wrongEnvironment=structuredClone(report);wrongEnvironment.environment={...wrongEnvironment.environment,os:'forged'};
+    const run=(name:string,value:SoakReport)=>{const file=path.join(dir,`${name}.json`);writeFileSync(file,JSON.stringify(value));return spawnSync(process.execPath,['--import','tsx','scripts/verify-whiteboard-soak-report.ts'],{cwd:process.cwd(),env:{...process.env,WHITEBOARD_SOAK_REPORT:file,GITHUB_SHA:value.exactSha},encoding:'utf8'});};
+    expect(run('no-ws-self-signed',forged).status).not.toBe(0);
+    expect(run('tampered-ledger',tampered).status).not.toBe(0);
+    expect(run('wrong-run',wrongRun).status).not.toBe(0);
+    expect(run('wrong-sha',wrongSha).status).not.toBe(0);
+    expect(run('wrong-environment',wrongEnvironment).status).not.toBe(0);
+  },20_000);
+
+  it('requires every initial, reconnect, fresh, and server connection ID to be globally unique',()=>{
+    const report=rawReport();report.freshClient!.connectionId=report.reconnects[0]!.connectionId;
+    expect(analyzeSoak(report).evidenceFailures).toContain('initial, reconnect, fresh, and server connection IDs are not globally unique');
+  });
+
   it('rejects a legal writer/viewer role swap against browser and server bindings', async () => {
     const report = rawReport(), swapped = structuredClone(report), writer = swapped.initialClients[0]!, viewer = swapped.initialClients.at(-1)!;
     [writer.role, viewer.role] = [viewer.role, writer.role]; [writer.writer, viewer.writer] = [viewer.writer, writer.writer];
@@ -143,6 +173,6 @@ describe('Board collaboration soak evidence', () => {
     expect(workflow).toContain('timeout-minutes: 50');
     expect(workflow).toContain('apps/web/test-results/whiteboard-collaboration-soak/');
     expect(manifest.scripts['verify:whiteboard-collaboration-soak']).toContain('with-test-isolation.ts');
-    expect(manifest.scripts['verify:whiteboard-collaboration-soak:raw']).toContain('verify-whiteboard-soak-report.ts');
+    expect(manifest.scripts['verify:whiteboard-collaboration-soak:raw']).toContain('run-whiteboard-soak.ts');
   });
 });

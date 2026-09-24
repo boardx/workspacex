@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomUUID, sign } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardServerMessage, WhiteboardPresence } from '@repo/contracts/whiteboard-sync';
@@ -10,9 +10,12 @@ import type { Principal } from '../../domain/principal';
 import type { LoggerPort } from '../../application/ports/logger.port';
 import { NOOP_WHITEBOARD_OBSERVABILITY, whiteboardRejectReason, type WhiteboardObservability } from '../../application/whiteboard/observability';
 import { WHITEBOARD_SCALE_POLICY } from '../../domain/whiteboard-scale-policy';
+import { readObjects } from '@repo/whiteboard-core';
 
-type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; traceId: string; connectionId: string; clientNonce: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
-export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; metrics?: WhiteboardObservability; logger?: LoggerPort; }
+type SoakConnection = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer'; purpose: 'initial' | 'reconnect' | 'fresh' | 'server'; connectedAtMs: number; disconnectedAtMs: number | null };
+type SoakRun = { runId: string; challenge: string; boardId: string; exactSha: string; environmentFingerprint: string; connections: SoakConnection[]; operations: Map<string,{ id: string; writer: string; connectionId: string; seq: number; committedAtMs: number }>; finalized: boolean };
+type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; traceId: string; connectionId: string; clientNonce: string; soakRunId: string | null; ready: boolean; epoch: number; seq: number; role: 'owner' | 'editor' | 'viewer'; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
+export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; metrics?: WhiteboardObservability; logger?: LoggerPort; soakLedgerPrivateKey?: string; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 const sessionFingerprint = (token:string) => createHash('sha256').update(token).digest('hex');
@@ -22,6 +25,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SCALE_POLICY.websocket.frameBytes, perMessageDeflate: false,
     handleProtocols: protocols => protocols.has(WHITEBOARD_SYNC.protocol) ? WHITEBOARD_SYNC.protocol : false });
   const peers = new Set<Peer>();
+  const soakRuns = new Map<string,SoakRun>();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
     if (ws.readyState !== ws.OPEN) return;
     if (ws.bufferedAmount > WHITEBOARD_SCALE_POLICY.websocket.outgoingBufferedBytes) { metrics.reject('limit'); ws.close(1013, 'slow client'); return; }
@@ -51,7 +55,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       const board=await deps.boards.get(principal,boardId); if (!board) { refuse(404,'access'); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=WHITEBOARD_SCALE_POLICY.websocket.connectionsPerBoard) { refuse(429,'limit'); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,traceId,connectionId:randomUUID(),clientNonce:randomUUID(),ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:{actorId:principal.userId,cursor:null,selected:[]},checking:false};
+        const peer:Peer={ws,principal,boardId,token,traceId,connectionId:randomUUID(),clientNonce:randomUUID(),soakRunId:null,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:{actorId:principal.userId,cursor:null,selected:[]},checking:false};
         peers.add(peer); metrics.connection(1);
         const deadline=setTimeout(()=>{metrics.reject('protocol');ws.close(4408,'handshake timeout');},WHITEBOARD_SCALE_POLICY.websocket.handshakeMs);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -73,10 +77,31 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
               Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.role=diff.role; peer.archived=diff.archived;
               const accessReceiptId=await deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),diff.epoch);
+              let soakBinding: {runId:string;challenge:string}|undefined;
+              if(message.soakRun) {
+                if(!deps.soakLedgerPrivateKey) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+                let run=soakRuns.get(message.soakRun.runId);
+                if(!run) {
+                  run={runId:message.soakRun.runId,challenge:randomUUID(),boardId,exactSha:message.soakRun.exactSha,environmentFingerprint:message.soakRun.environmentFingerprint,connections:[],operations:new Map(),finalized:false};
+                  soakRuns.set(run.runId,run);
+                }
+                if(run.finalized || run.boardId!==boardId || run.exactSha!==message.soakRun.exactSha || run.environmentFingerprint!==message.soakRun.environmentFingerprint) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+                const purpose=run.connections.some(item=>item.clientNonce===peer.clientNonce) ? 'reconnect' : message.soakRun.purpose;
+                run.connections.push({clientNonce:peer.clientNonce,connectionId:peer.connectionId,role:diff.role,purpose,connectedAtMs:Date.now(),disconnectedAtMs:null});
+                peer.soakRunId=run.runId; soakBinding={runId:run.runId,challenge:run.challenge};
+              }
               peer.ready=true; clearTimeout(deadline);
-              send(ws,{type:'sync',...diff,update:encoded(diff.update),accessReceiptId,clientNonce:peer.clientNonce,connectionId:peer.connectionId}); presence(peer); return;
+              send(ws,{type:'sync',...diff,update:encoded(diff.update),accessReceiptId,clientNonce:peer.clientNonce,connectionId:peer.connectionId,...(soakBinding?{soakBinding}:{})}); presence(peer); return;
             }
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED',traceId); return; }
+            if(message.type==='soak-finish') {
+              const run=soakRuns.get(message.runId);
+              if(!deps.soakLedgerPrivateKey || !run || run.finalized || peer.role!=='owner' || peer.soakRunId!==run.runId || message.challenge!==run.challenge) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+              run.finalized=true;
+              const payload={schemaVersion:1 as const,runId:run.runId,challenge:run.challenge,boardId:run.boardId,exactSha:run.exactSha,environmentFingerprint:run.environmentFingerprint,connections:run.connections,operations:[...run.operations.values()].sort((a,b)=>a.seq-b.seq||a.id.localeCompare(b.id)),finalizedAtMs:Date.now()};
+              const signature=sign(null,Buffer.from(JSON.stringify(payload)),deps.soakLedgerPrivateKey).toString('base64');
+              send(ws,{type:'soak-ledger',payload,signature}); return;
+            }
             if(message.type==='awareness') {
               if(Date.now()-awarenessAt<WHITEBOARD_SCALE_POLICY.websocket.awarenessIntervalMs) return; awarenessAt=Date.now();
               peer.presence={actorId:principal.userId,cursor:message.cursor,selected:message.selected}; presence(peer); return;
@@ -96,6 +121,13 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               Y.applyUpdate(target.mirror,ack.update); if(ack.seq===target.seq+1) target.seq=ack.seq;
               send(target.ws,{type:'update',epoch:ack.epoch,seq:ack.seq,update:encoded(ack.update)});
             }
+            if(peer.soakRunId) {
+              const run=soakRuns.get(peer.soakRunId);
+              if(run && !run.finalized) for(const object of readObjects(peer.mirror)) {
+                const id=object.text;
+                if(typeof id==='string' && id.startsWith('soak-4144:') && !run.operations.has(id)) run.operations.set(id,{id,writer:peer.clientNonce,connectionId:peer.connectionId,seq:ack.seq,committedAtMs:Date.now()});
+              }
+            }
             send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
           }).catch(error=>{
             const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
@@ -103,7 +135,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
           }).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());
-        ws.on('close',()=>{clearTimeout(deadline);if(peers.delete(peer))metrics.connection(-1);peer.mirror.destroy();presence(peer);});
+        ws.on('close',()=>{clearTimeout(deadline);if(peers.delete(peer))metrics.connection(-1);const run=peer.soakRunId?soakRuns.get(peer.soakRunId):undefined;const connection=run?.connections.find(item=>item.connectionId===peer.connectionId);if(connection&&!connection.disconnectedAtMs)connection.disconnectedAtMs=Date.now();peer.mirror.destroy();presence(peer);});
       });
     })().catch(()=>refuse(503,'dependency'));
   };

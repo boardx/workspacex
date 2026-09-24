@@ -7,7 +7,7 @@ import { readObjects, WhiteboardObject } from '@repo/whiteboard-core';
 import { whiteboardSync } from '@repo/contracts';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
-import { analyzeSoak, canonicalizeDocument, documentHash, readSoakConfig, reportStatus, writeSoakReport, type SoakClientResult, type SoakOperation, type SoakParticipant, type SoakReceipt, type SoakReconnect, type SoakReport } from './support/whiteboard-collaboration-soak';
+import { analyzeSoak, canonicalizeDocument, documentHash, readSoakConfig, reportStatus, soakEnvironmentFingerprint, writeSoakReport, type SoakClientResult, type SoakOperation, type SoakParticipant, type SoakReceipt, type SoakReconnect, type SoakReport, type SoakServerLedger } from './support/whiteboard-collaboration-soak';
 
 const config = readSoakConfig();
 const reportPath = process.env.WHITEBOARD_SOAK_REPORT ?? 'test-results/whiteboard-collaboration-soak/report.json';
@@ -56,9 +56,10 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
   return response;
 }
 
-async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string): Promise<BrowserContext> {
+type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server'};
+async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string, soakRun: SoakRunRequest): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
-  await context.addInitScript(({ key, value }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token });
+  await context.addInitScript(({ key, value, run }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__', JSON.stringify(run)); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token, run: soakRun });
   return context;
 }
 
@@ -74,14 +75,14 @@ async function operationIds(page: Page): Promise<string[]> {
     .map(label => label.slice('图形：'.length)), operationPrefix);
 }
 
-type RuntimeBinding = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer' };
+type RuntimeBinding = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer'; runId:string; challenge:string };
 async function runtimeEvidence(page: Page): Promise<{ objects: unknown[]; binding: RuntimeBinding }> {
   return page.evaluate(() => {
-    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: unknown[]; binding: { clientNonce: string; connectionId: string | null; role: 'owner' | 'editor' | 'viewer' } } };
+    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: unknown[]; binding: { clientNonce: string; connectionId: string | null; role: 'owner' | 'editor' | 'viewer'; runId:string|null; challenge:string|null } } };
     if (!diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__) throw new Error('whiteboard document diagnostics are unavailable');
     const evidence = diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__();
-    if (!evidence.binding.clientNonce || !evidence.binding.connectionId) throw new Error('whiteboard server binding is unavailable');
-    return { objects: evidence.objects, binding: { ...evidence.binding, connectionId: evidence.binding.connectionId } };
+    if (!evidence.binding.clientNonce || !evidence.binding.connectionId || !evidence.binding.runId || !evidence.binding.challenge) throw new Error('whiteboard server binding is unavailable');
+    return { objects: evidence.objects, binding: { ...evidence.binding, connectionId: evidence.binding.connectionId, runId:evidence.binding.runId, challenge:evidence.binding.challenge } };
   });
 }
 async function runtimeBinding(page: Page): Promise<RuntimeBinding> { return (await runtimeEvidence(page)).binding; }
@@ -107,7 +108,7 @@ async function observeAllClients(pages: readonly Page[], id: string): Promise<So
   }));
 }
 
-async function serverResult(boardId: string, token: string): Promise<SoakClientResult> {
+async function serverResult(boardId: string, token: string, soakRun: SoakRunRequest, challenge: string): Promise<{result:SoakClientResult;ledger:SoakServerLedger}> {
   const doc = new Y.Doc();
   const clientNonce = randomUUID();
   const apiUrl = new URL(required('WHITEBOARD_API_URL'));
@@ -115,21 +116,24 @@ async function serverResult(boardId: string, token: string): Promise<SoakClientR
   apiUrl.pathname = whiteboardSync.WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(boardId));
   const socket = new WebSocket(apiUrl, [whiteboardSync.WHITEBOARD_SYNC.protocol, `${whiteboardSync.WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`]);
   try {
-    const serverBinding = await new Promise<RuntimeBinding>((resolve, reject) => {
+    const evidence = await new Promise<{binding:RuntimeBinding;ledger:SoakServerLedger}>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('server snapshot WebSocket timed out')), 15_000);
-      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'hello', stateVector: Buffer.from(Y.encodeStateVector(doc)).toString('base64'), clientNonce })));
+      let binding:RuntimeBinding|null=null;
+      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'hello', stateVector: Buffer.from(Y.encodeStateVector(doc)).toString('base64'), clientNonce, soakRun })));
       socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('server snapshot WebSocket failed')); });
       socket.addEventListener('message', event => {
         const parsed = whiteboardSync.WhiteboardServerMessage.parse(JSON.parse(String(event.data)));
         if (parsed.type === 'error') { clearTimeout(timer); reject(new Error(`server snapshot rejected: ${parsed.code}`)); return; }
-        if (parsed.type !== 'sync') return;
-        if (!parsed.clientNonce || !parsed.connectionId) { clearTimeout(timer); reject(new Error('server snapshot did not receive a server-bound identity')); return; }
-        const binding = { clientNonce: parsed.clientNonce, connectionId: parsed.connectionId, role: parsed.role };
-        clearTimeout(timer); Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); resolve(binding);
+        if (parsed.type === 'sync') {
+          if (!parsed.clientNonce || !parsed.connectionId || !parsed.soakBinding || parsed.soakBinding.runId!==soakRun.runId || parsed.soakBinding.challenge!==challenge) { clearTimeout(timer); reject(new Error('server snapshot did not receive the expected server-bound run identity')); return; }
+          binding={clientNonce:parsed.clientNonce,connectionId:parsed.connectionId,role:parsed.role,runId:parsed.soakBinding.runId,challenge:parsed.soakBinding.challenge};
+          Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); socket.send(JSON.stringify({type:'soak-finish',runId:soakRun.runId,challenge})); return;
+        }
+        if(parsed.type==='soak-ledger'&&binding){clearTimeout(timer);resolve({binding,ledger:{payload:parsed.payload,signature:parsed.signature}});}
       });
     });
     const document = canonicalizeDocument(readObjects(doc));
-    return { client: serverBinding.clientNonce, connectionId: serverBinding.connectionId, role: serverBinding.role, document, hash: documentHash(document) };
+    return { result:{ client: evidence.binding.clientNonce, connectionId: evidence.binding.connectionId, role: evidence.binding.role, document, hash: documentHash(document) },ledger:evidence.ledger };
   } finally { socket.close(); doc.destroy(); }
 }
 
@@ -138,16 +142,20 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   test.setTimeout(config.durationMs + config.offlineMs + 10 * 60_000);
   const startedAt = new Date();
   const exactSha = (process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()).toLowerCase();
+  const runId=randomUUID();
   if (!/^[a-f0-9]{40}$/.test(exactSha)) throw new Error('soak evidence requires an exact 40-character SHA');
   const operations: SoakOperation[] = [], reconnects: SoakReconnect[] = [], clientResults: SoakClientResult[] = [];
   const initialClients: SoakParticipant[] = [];
   const contexts: BrowserContext[] = [], pages: Page[] = [];
   let freshClient: SoakClientResult | null = null, server: SoakClientResult | null = null;
+  let serverLedger: SoakServerLedger | null = null;
   let boardId: string | null = null, ownerToken: string | null = null, viewerToken: string | null = null, failure: string | null = null;
   let collaborationStartedAt: Date | null = null, collaborationFinishedAt: Date | null = null, collaborationDurationMs = 0;
   let browserVersion = 'unknown';
   try {
     browserVersion = browser.version();
+    const environment={ os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' };
+    const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment)};
     ownerToken = await loginToken(browser, baseURL, 'OWNER');
     const editorToken = await loginToken(browser, baseURL, 'EDITOR');
     viewerToken = await loginToken(browser, baseURL, 'VIEWER');
@@ -156,12 +164,14 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_EDITOR_USER_ID'), role: 'editor' });
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_VIEWER_USER_ID'), role: 'viewer' });
     for (let index = 0; index < config.clients; index++) {
-      const context = await authenticatedContext(browser, baseURL, index < config.writers ? editorToken : viewerToken);
+      const context = await authenticatedContext(browser, baseURL, index < config.writers ? editorToken : viewerToken,{...runBase,purpose:'initial'});
       contexts.push(context); pages.push(await context.newPage());
     }
 
     await Promise.all(pages.map(async page => { await page.goto(`/studio/board/${boardId}`); await waitSynced(page); }));
     const initialBindings = await Promise.all(pages.map(runtimeBinding));
+    const challenge=initialBindings[0]!.challenge;
+    if(initialBindings.some(binding=>binding.runId!==runBase.runId||binding.challenge!==challenge))throw new Error('initial browser contexts were not bound to one server run challenge');
     initialClients.push(...initialBindings.map((binding, index) => ({ client: binding.clientNonce, connectionId: binding.connectionId, role: binding.role, writer: index < config.writers })));
     collaborationStartedAt = new Date(); const collaborationStartedMs = collaborationStartedAt.getTime();
     const offlineWriterIndexes = Array.from({ length: Math.min(5, config.writers) }, (_, index) => index);
@@ -217,13 +227,13 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     clientResults.push(...await Promise.all(pages.map(page => clientResult(page, operations.length))));
     const replaced = config.clients - 1; await contexts[replaced]!.close(); contexts.splice(replaced, 1); pages.splice(replaced, 1);
     if (!viewerToken) throw new Error('viewer token missing before fresh-client verification');
-    const freshContext = await authenticatedContext(browser, baseURL, viewerToken);
+    const freshContext = await authenticatedContext(browser, baseURL, viewerToken,{...runBase,purpose:'fresh'});
     contexts.push(freshContext); const freshPage = await freshContext.newPage(); pages.push(freshPage);
     await freshPage.goto(`/studio/board/${boardId}`); await waitSynced(freshPage); freshClient = await clientResult(freshPage, operations.length);
     await Promise.all(contexts.map(context => context.close())); contexts.length = 0; pages.length = 0;
-    server = await serverResult(boardId, ownerToken);
+    const signed=await serverResult(boardId, ownerToken,{...runBase,purpose:'server'},challenge);server=signed.result;serverLedger=signed.ledger;
     const provisionalFinishedAt = new Date();
-    const analysis = analyzeSoak({ startedAt: startedAt.toISOString(), finishedAt: provisionalFinishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt.toISOString(), collaborationFinishedAt: collaborationFinishedAt.toISOString(), collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config });
+    const analysis = analyzeSoak({ runId,exactSha,environment,startedAt: startedAt.toISOString(), finishedAt: provisionalFinishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt.toISOString(), collaborationFinishedAt: collaborationFinishedAt.toISOString(), collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, serverLedger,config });
     const status = reportStatus(config, analysis, null);
     if (status !== (config.profile === 'acceptance' ? 'accepted' : 'diagnostic-passed')) throw new Error(`soak verdict ${status}: ${JSON.stringify(analysis)}`);
   } catch (error) {
@@ -233,10 +243,10 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     await Promise.allSettled(contexts.map(context => context.close()));
     if (boardId && ownerToken) await apiRequest(request, ownerToken, 'PATCH', `/whiteboards/${boardId}`, { archived: true }).catch(() => undefined);
     const finishedAt = new Date(); collaborationDurationMs = collaborationStartedAt && collaborationFinishedAt ? collaborationFinishedAt.getTime() - collaborationStartedAt.getTime() : 0;
-    const evidence = { startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationFinishedAt: collaborationFinishedAt?.toISOString() ?? null, collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config };
+    const environment={ os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' };
+    const evidence = { runId,exactSha,environment,startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationFinishedAt: collaborationFinishedAt?.toISOString() ?? null, collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects,serverLedger,config };
     const analysis = analyzeSoak(evidence);
-    const report: SoakReport = { schemaVersion: 2, issue: 4144, status: reportStatus(config, analysis, failure), exactSha, ...evidence,
-      environment: { os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' },
+    const report: SoakReport = { schemaVersion: 3, issue: 4144, status: reportStatus(config, analysis, failure), ...evidence,
       analysis, failure };
     await writeSoakReport(reportPath, report);
   }

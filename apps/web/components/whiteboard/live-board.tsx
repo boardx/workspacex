@@ -48,10 +48,10 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   }, [state.pending]);
   useEffect(() => {
     if (!doc || sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK__') !== '1') return;
-    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: ReturnType<typeof readObjects>; binding: { clientNonce: string; connectionId: string | null; role: WhiteboardConnectionState['role'] } } };
-    diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__ = () => ({ objects: readObjects(doc), binding: { clientNonce: state.clientNonce, connectionId: state.connectionId, role: state.role } });
+    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: ReturnType<typeof readObjects>; binding: { clientNonce: string; connectionId: string | null; role: WhiteboardConnectionState['role']; runId: string | null; challenge: string | null } } };
+    diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__ = () => ({ objects: readObjects(doc), binding: { clientNonce: state.clientNonce, connectionId: state.connectionId, role: state.role, runId: state.soakRunId ?? null, challenge: state.soakChallenge ?? null } });
     return () => { delete diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__; };
-  }, [doc, state.clientNonce, state.connectionId, state.role]);
+  }, [doc, state.clientNonce, state.connectionId, state.role, state.soakRunId, state.soakChallenge]);
   const back = () => { if (!state.pending || window.confirm('仍有未确认保存的修改。离开后，它们会在下次打开此白板时继续同步。确定离开？')) router.push('/studio/board'); };
   const receipt=state.quarantineReceipts?.[0];
   const requestRecovery=async()=>{if(!receipt?.accessReceiptId)return;const reason=WhiteboardContract.QuarantineRecoveryReason.safeParse(receipt.reason);if(!reason.success){setRecoveryMessage('当前隔离原因不允许申请恢复。');return;}setRecoveryBusy(true);try{const result=await requestQuarantineRecovery(boardId,{requestId:crypto.randomUUID(),receiptId:receipt.receiptId,accessReceiptId:receipt.accessReceiptId,sessionFingerprint:receipt.sessionId,epoch:receipt.epoch,pendingCount:receipt.pendingCount,pendingBytes:receipt.pendingBytes,reason:reason.data});setRecoveryMessage(result.status==='pending-review'?`恢复申请已提交：${result.requestId}`:'组织策略拒绝了恢复申请。');}catch{setRecoveryMessage('组织策略拒绝了恢复申请，或当前会话已失效。');}finally{setRecoveryBusy(false);}};

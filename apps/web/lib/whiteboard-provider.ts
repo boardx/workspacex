@@ -9,6 +9,7 @@ export type WhiteboardConnectionState = {
   role: 'owner' | 'editor' | 'viewer'; archived: boolean;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
   clientNonce: string; connectionId: string | null;
+  soakRunId?: string | null; soakChallenge?: string | null;
 };
 const REMOTE = Symbol('whiteboard-server');
 export function bytesToBase64(bytes: Uint8Array): string { let out = ''; for (let i = 0; i < bytes.length; i += 8192) out += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(out); }
@@ -30,6 +31,7 @@ export class WhiteboardProvider {
   private accessReceiptId: string | null = null;
   private pending: PendingWhiteboardUpdate[] = [];
   private readonly clientNonce = crypto.randomUUID();
+  private readonly soakRun = (() => { try { const raw=sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__'); return raw ? JSON.parse(raw) as {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server'} : undefined; } catch { return undefined; } })();
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null, clientNonce: this.clientNonce, connectionId: null };
   private readonly token = getStoredSessionToken();
   private context: WhiteboardOutboxContext | null = null;
@@ -78,7 +80,7 @@ export class WhiteboardProvider {
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
     this.socket = socket;
     this.handshake = setTimeout(() => socket.close(), 10000);
-    socket.onopen = () => this.send({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), clientNonce: this.clientNonce });
+    socket.onopen = () => this.send({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), clientNonce: this.clientNonce, ...(this.soakRun?{soakRun:this.soakRun}:{}) });
     socket.onmessage = event => {
       if (this.stopped || this.socket !== socket) return;
       try {
@@ -100,7 +102,7 @@ export class WhiteboardProvider {
             if (this.stopped || this.socket !== socket) return;
             this.ready = true; this.retry = 0;
             if (this.handshake) clearTimeout(this.handshake);
-            this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, clientNonce: message.clientNonce ?? this.clientNonce, connectionId: message.connectionId ?? null });
+            this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, clientNonce: message.clientNonce ?? this.clientNonce, connectionId: message.connectionId ?? null, soakRunId: message.soakBinding?.runId ?? null, soakChallenge: message.soakBinding?.challenge ?? null });
             for (const item of this.pending) this.send(item);
           }).catch(() => this.block('OUTBOX_ERROR'));
         } else if (message.type === 'update') {

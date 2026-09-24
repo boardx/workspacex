@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto';
+import { createHash, verify } from 'node:crypto';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { WhiteboardObject } from '@repo/whiteboard-core';
+import { WhiteboardSoakLedgerPayload, type WhiteboardSoakLedgerPayload as WhiteboardSoakLedgerPayloadType } from '@repo/contracts/whiteboard-sync';
 
 export const ACCEPTANCE_SOAK = {
   clients: 50, writers: 20, durationMs: 30 * 60 * 1000, offlineMs: 30 * 1000,
@@ -22,6 +23,7 @@ export type SoakReceipt = { client: string; connectionId: string; role: SoakPart
 export type SoakOperation = { id: string; writer: string; writerConnectionId: string; createdAtMs: number; disruption: boolean; receipts: SoakReceipt[] };
 export type SoakClientResult = { client: string; connectionId: string; role: SoakParticipant['role']; hash: string; document: CanonicalWhiteboardObject[] };
 export type SoakReconnect = { client: string; previousConnectionId: string; connectionId: string; offlineAtMs: number; onlineAtMs: number; recoveredAtMs: number | null; elapsedMs: number; recovered: boolean };
+export type SoakServerLedger = { payload: WhiteboardSoakLedgerPayloadType; signature: string };
 export type LatencySummary = { samples: number; p50: number | null; p95: number | null; p99: number | null };
 export type SoakAnalysis = {
   missing: string[]; duplicates: string[]; unexpected: string[];
@@ -32,12 +34,12 @@ export type SoakAnalysis = {
   reconnectFailures: SoakReconnect[]; evidenceFailures: string[]; accepted: boolean;
 };
 export type SoakReport = {
-  schemaVersion: 2; issue: 4144; status: 'accepted' | 'diagnostic-passed' | 'failed'; exactSha: string;
+  schemaVersion: 3; issue: 4144; status: 'accepted' | 'diagnostic-passed' | 'failed'; runId:string; exactSha: string;
   startedAt: string; finishedAt: string; collaborationStartedAt: string | null; collaborationFinishedAt: string | null; collaborationDurationMs: number;
   environment: { os: string; node: string; browser: string; ci: boolean };
   config: SoakConfig; initialClients: SoakParticipant[]; operations: SoakOperation[]; clients: SoakClientResult[];
   freshClient: SoakClientResult | null; server: SoakClientResult | null;
-  reconnects: SoakReconnect[]; analysis: SoakAnalysis; failure: string | null;
+  reconnects: SoakReconnect[]; serverLedger: SoakServerLedger | null; analysis: SoakAnalysis; failure: string | null;
 };
 
 const LatencySummarySchema = z.object({ samples: z.number().int().nonnegative(), p50: z.number().nonnegative().nullable(), p95: z.number().nonnegative().nullable(), p99: z.number().nonnegative().nullable() }).strict();
@@ -50,8 +52,9 @@ const SoakOperationSchema = z.object({ id: z.string().min(1), writer: z.string()
 const CanonicalDocumentSchema = z.array(z.record(z.unknown()));
 const SoakClientResultSchema = z.object({ client: z.string().uuid(), connectionId: ConnectionIdSchema, role: ClientRoleSchema, hash: z.string().regex(/^[a-f0-9]{64}$/), document: CanonicalDocumentSchema }).strict();
 const SoakReconnectSchema = z.object({ client: z.string().uuid(), previousConnectionId: ConnectionIdSchema, connectionId: ConnectionIdSchema, offlineAtMs: z.number().int().nonnegative(), onlineAtMs: z.number().int().nonnegative(), recoveredAtMs: z.number().int().nonnegative().nullable(), elapsedMs: z.number().int().nonnegative(), recovered: z.boolean() }).strict();
+const SoakServerLedgerSchema = z.object({ payload: WhiteboardSoakLedgerPayload, signature: z.string().min(1) }).strict();
 const SoakAnalysisSchema = z.object({ missing: z.array(z.string()), duplicates: z.array(z.string()), unexpected: z.array(z.string()), forkGroups: z.array(z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), clients: z.array(z.string().min(1)) }).strict()), propagationMissing: z.array(z.string()), propagationDuplicates: z.array(z.string()), wallClockDurationMs: z.number().int().nonnegative().nullable(), remoteLatencyMs: LatencySummarySchema, perClientLatencyMs: z.record(LatencySummarySchema), reconnectFailures: z.array(SoakReconnectSchema), evidenceFailures: z.array(z.string()), accepted: z.boolean() }).strict();
-export const SoakReportSchema = z.object({ schemaVersion: z.literal(2), issue: z.literal(4144), status: z.enum(['accepted', 'diagnostic-passed', 'failed']), exactSha: z.string().regex(/^[a-f0-9]{40}$/), startedAt: z.string().datetime(), finishedAt: z.string().datetime(), collaborationStartedAt: z.string().datetime().nullable(), collaborationFinishedAt: z.string().datetime().nullable(), collaborationDurationMs: z.number().int().nonnegative(), environment: z.object({ os: z.string().min(1), node: z.string().min(1), browser: z.string().min(1), ci: z.boolean() }).strict(), config: SoakConfigSchema, initialClients: z.array(SoakParticipantSchema), operations: z.array(SoakOperationSchema), clients: z.array(SoakClientResultSchema), freshClient: SoakClientResultSchema.nullable(), server: SoakClientResultSchema.nullable(), reconnects: z.array(SoakReconnectSchema), analysis: SoakAnalysisSchema, failure: z.string().nullable() }).strict();
+export const SoakReportSchema = z.object({ schemaVersion: z.literal(3), issue: z.literal(4144), status: z.enum(['accepted', 'diagnostic-passed', 'failed']), runId:z.string().uuid(),exactSha: z.string().regex(/^[a-f0-9]{40}$/), startedAt: z.string().datetime(), finishedAt: z.string().datetime(), collaborationStartedAt: z.string().datetime().nullable(), collaborationFinishedAt: z.string().datetime().nullable(), collaborationDurationMs: z.number().int().nonnegative(), environment: z.object({ os: z.string().min(1), node: z.string().min(1), browser: z.string().min(1), ci: z.boolean() }).strict(), config: SoakConfigSchema, initialClients: z.array(SoakParticipantSchema), operations: z.array(SoakOperationSchema), clients: z.array(SoakClientResultSchema), freshClient: SoakClientResultSchema.nullable(), server: SoakClientResultSchema.nullable(), reconnects: z.array(SoakReconnectSchema), serverLedger: SoakServerLedgerSchema.nullable(), analysis: SoakAnalysisSchema, failure: z.string().nullable() }).strict();
 
 function positiveInteger(value: string | undefined, fallback: number, name: string): number {
   const parsed = value === undefined ? fallback : Number(value);
@@ -98,6 +101,14 @@ export function canonicalizeDocument(objects: readonly WhiteboardObject[]): Cano
 export function documentHash(document: readonly CanonicalWhiteboardObject[]): string {
   return createHash('sha256').update(JSON.stringify(normalizeDocument(document))).digest('hex');
 }
+export function soakEnvironmentFingerprint(environment: SoakReport['environment']): string {
+  return createHash('sha256').update(JSON.stringify(environment)).digest('hex');
+}
+export function verifySoakLedgerSignature(report: SoakReport, publicKey = process.env.WHITEBOARD_SOAK_LEDGER_PUBLIC_KEY): void {
+  if (!report.serverLedger) throw new Error('server-signed soak ledger is missing');
+  if (!publicKey) throw new Error('WHITEBOARD_SOAK_LEDGER_PUBLIC_KEY is required');
+  if (!verify(null, Buffer.from(JSON.stringify(report.serverLedger.payload)), publicKey, Buffer.from(report.serverLedger.signature, 'base64'))) throw new Error('server-signed soak ledger signature is invalid');
+}
 function canonicalStrings(values: readonly string[]): string[] { return [...values].sort((a, b) => a.localeCompare(b)); }
 function sameIdentitySet(left: readonly string[], right: readonly string[]): boolean {
   const expected = new Set(left); return expected.size === left.length && right.length === left.length && right.every(value => expected.has(value));
@@ -113,7 +124,7 @@ function latencySummary(values: readonly number[]): LatencySummary {
   return { samples: values.length, p50: percentile(values, 0.5), p95: percentile(values, 0.95), p99: percentile(values, 0.99) };
 }
 
-export function analyzeSoak(input: Pick<SoakReport, 'startedAt' | 'finishedAt' | 'collaborationStartedAt' | 'collaborationFinishedAt' | 'collaborationDurationMs' | 'initialClients' | 'operations' | 'clients' | 'freshClient' | 'server' | 'reconnects' | 'config'>): SoakAnalysis {
+export function analyzeSoak(input: Pick<SoakReport, 'runId'|'exactSha' | 'environment' | 'startedAt' | 'finishedAt' | 'collaborationStartedAt' | 'collaborationFinishedAt' | 'collaborationDurationMs' | 'initialClients' | 'operations' | 'clients' | 'freshClient' | 'server' | 'reconnects' | 'serverLedger' | 'config'>): SoakAnalysis {
   const expectedIds = input.operations.map(operation => operation.id), expected = new Set(expectedIds);
   const all = [...input.clients, ...(input.freshClient ? [input.freshClient] : []), ...(input.server ? [input.server] : [])];
   const evidenceFailures: string[] = [];
@@ -150,6 +161,8 @@ export function analyzeSoak(input: Pick<SoakReport, 'startedAt' | 'finishedAt' |
   if (input.server && manifestSet.has(input.server.client)) evidenceFailures.push('server identity overlaps initial client evidence');
   if (input.freshClient && (initialConnectionSet.has(input.freshClient.connectionId) || input.freshClient.connectionId === input.server?.connectionId)) evidenceFailures.push('fresh client connection overlaps initial or server evidence');
   if (input.server && initialConnectionSet.has(input.server.connectionId)) evidenceFailures.push('server connection overlaps initial client evidence');
+  const allConnectionIds=[...initialConnectionIds,...input.reconnects.map(item=>item.connectionId),...(input.freshClient?[input.freshClient.connectionId]:[]),...(input.server?[input.server.connectionId]:[])];
+  if(new Set(allConnectionIds).size!==allConnectionIds.length)evidenceFailures.push('initial, reconnect, fresh, and server connection IDs are not globally unique');
   if (new Set(expectedIds).size !== expectedIds.length) evidenceFailures.push('operation ledger IDs are not unique');
   if (input.operations.some(operation => !writerSet.has(operation.writer))) evidenceFailures.push('operation ledger contains a writer outside the initial manifest');
   for (const client of all) {
@@ -224,6 +237,22 @@ export function analyzeSoak(input: Pick<SoakReport, 'startedAt' | 'finishedAt' |
     const disrupted = disruptions.find(operation => operation.writer === reconnect.client);
     if (!disrupted || disrupted.createdAtMs < reconnect.offlineAtMs || disrupted.createdAtMs > reconnect.onlineAtMs) evidenceFailures.push(`${reconnect.client} offline operation is outside its outage window`);
   }
+  const ledger=input.serverLedger?.payload;
+  if(!ledger)evidenceFailures.push('server-signed soak ledger is missing');
+  else {
+    if(ledger.runId!==input.runId)evidenceFailures.push('server ledger run ID does not match report');
+    if(ledger.exactSha!==input.exactSha)evidenceFailures.push('server ledger SHA does not match report');
+    if(ledger.environmentFingerprint!==soakEnvironmentFingerprint(input.environment))evidenceFailures.push('server ledger environment does not match report');
+    const ledgerConnections=new Map(ledger.connections.map(item=>[item.connectionId,item]));
+    const expectedConnections=[...input.initialClients.map(item=>({client:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial'})),...input.reconnects.map(item=>({client:item.client,connectionId:item.connectionId,role:manifestByClient.get(item.client)?.role,purpose:'reconnect'})),...(input.freshClient?[{client:input.freshClient.client,connectionId:input.freshClient.connectionId,role:input.freshClient.role,purpose:'fresh'}]:[]),...(input.server?[{client:input.server.client,connectionId:input.server.connectionId,role:input.server.role,purpose:'server'}]:[])];
+    for(const expectedConnection of expectedConnections){const signed=ledgerConnections.get(expectedConnection.connectionId);if(!signed||signed.clientNonce!==expectedConnection.client||signed.role!==expectedConnection.role||signed.purpose!==expectedConnection.purpose)evidenceFailures.push(`${expectedConnection.connectionId} is not authenticated by the server ledger`);}
+    if(ledger.connections.length!==expectedConnections.length)evidenceFailures.push('server ledger connection count does not match raw evidence');
+    for(const reconnect of input.reconnects){const oldConnection=ledgerConnections.get(reconnect.previousConnectionId),newConnection=ledgerConnections.get(reconnect.connectionId);if(!oldConnection?.disconnectedAtMs||oldConnection.disconnectedAtMs<reconnect.offlineAtMs||oldConnection.disconnectedAtMs>reconnect.onlineAtMs)evidenceFailures.push(`${reconnect.client} signed disconnect is outside its outage window`);if(!newConnection||newConnection.connectedAtMs<reconnect.onlineAtMs||newConnection.connectedAtMs>(reconnect.recoveredAtMs??Number.NEGATIVE_INFINITY))evidenceFailures.push(`${reconnect.client} signed reconnect is outside its recovery window`);}
+    const ledgerOps=new Map(ledger.operations.map(item=>[item.id,item]));
+    for(const operation of input.operations){const signed=ledgerOps.get(operation.id);if(!signed||signed.writer!==operation.writer||signed.connectionId!==operation.writerConnectionId||signed.committedAtMs<operation.createdAtMs||signed.committedAtMs>collaborationFinishedMs)evidenceFailures.push(`${operation.id} is not authenticated by the server ledger`);}
+    if(ledger.operations.length!==input.operations.length)evidenceFailures.push('server ledger operation count does not match raw evidence');
+    if(new Set(ledger.operations.map(item=>item.seq)).size!==ledger.operations.length)evidenceFailures.push('server ledger operation sequences are not unique');
+  }
   const reconnectFailures = input.reconnects.filter(item => !item.recovered || item.elapsedMs > input.config.reconnectMs);
   const steadyWriters = new Set(input.operations.filter(item => !item.disruption).map(operation => operation.writer));
   if (!sameIdentitySet(manifestWriters, [...steadyWriters])) evidenceFailures.push('steady-state writer identity set does not match the manifest');
@@ -253,6 +282,7 @@ export function recomputeReport(report: SoakReport): { analysis: SoakAnalysis; s
 }
 export async function writeSoakReport(file: string, report: SoakReport): Promise<void> {
   SoakReportSchema.parse(report); const recomputed = recomputeReport(report);
+  if (report.status !== 'failed') verifySoakLedgerSignature(report);
   if (JSON.stringify(report.analysis) !== JSON.stringify(recomputed.analysis) || report.status !== recomputed.status) throw new Error('report verdict does not match recomputed raw evidence');
   if (report.status === 'accepted' && !isAcceptanceConfig(report.config)) throw new Error('refusing to write false acceptance evidence');
   await mkdir(path.dirname(file), { recursive: true }); const temporary = `${file}.${process.pid}.tmp`;

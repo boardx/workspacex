@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { isAcceptanceConfig, recomputeReport, SoakReportSchema, type SoakReport } from '../e2e/support/whiteboard-collaboration-soak';
+import { isAcceptanceConfig, recomputeReport, SoakReportSchema, verifySoakLedgerSignature, type SoakReport } from '../e2e/support/whiteboard-collaboration-soak';
 
 async function verifyWhiteboardSoakReport(file: string, expectedSha?: string): Promise<void> {
   const report = SoakReportSchema.parse(JSON.parse(await readFile(file, 'utf8'))) as SoakReport;
@@ -8,6 +8,7 @@ async function verifyWhiteboardSoakReport(file: string, expectedSha?: string): P
   if (!isAcceptanceConfig(report.config)) throw new Error('Board soak used diagnostic thresholds and cannot produce acceptance evidence');
   if (report.failure !== null) throw new Error(`Board soak report contains a failure: ${report.failure}`);
   if (expectedSha && report.exactSha !== expectedSha.toLowerCase()) throw new Error(`Board soak SHA mismatch: ${report.exactSha} != ${expectedSha}`);
+  verifySoakLedgerSignature(report);
   if (!recomputed.analysis.accepted || recomputed.status !== 'accepted') throw new Error(`Board soak raw evidence is not accepted: ${JSON.stringify(recomputed.analysis)}`);
   if (JSON.stringify(report.analysis) !== JSON.stringify(recomputed.analysis)) throw new Error('Board soak recorded analysis does not match raw evidence');
 }
