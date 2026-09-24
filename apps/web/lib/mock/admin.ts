@@ -26,6 +26,8 @@ export type AdminModuleKey =
   //   两列屏（`feedback-screen.tsx`）已删除，`/platform-admin/feedback` 改成 301 到
   //   `/platform-admin/inbox`（新屏是严格超集，见 backlog uc-17-8 D2）。
   | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "ops-status"
+  // D9（PROP-OPS-INSTANCE-TELEMETRY-001）：实例管理员的「上报设置」
+  | "telemetry"
   // UC-17.8 研发闭环（反馈→设计→排期）：反馈草稿 / 运营收件箱 / PM 设计工作台
   | "feedback-drafts" | "inbox" | "design-workbench"
   // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
@@ -193,6 +195,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 新的菜单叫运营状态」）：从「反馈与迭代 → 系统异常」tab 挪出来，单独一个入口——
       // 它不是"反馈"（没有提交人、没有分诊），是运维自查这个部署本身是否健康的工具。
       { key: "ops-status", label: "运营状态", href: "/platform-admin/ops-status", ucRefs: ["17-gov/uc-17-6"] },
+      // D9：本实例向我们上报哪几类运行信号——四项独立同意 + 看见传了什么。
+      { key: "telemetry", label: "上报设置", href: "/platform-admin/telemetry", ucRefs: ["17-gov/uc-17-6"] },
       // UC-17.8：一条研发流水线的三个面。收件箱是三类来源（反馈/系统异常/设计方案）的统一投影。
       { key: "feedback-drafts", label: "反馈草稿", href: "/platform-admin/feedback-drafts", ucRefs: ["17-gov/uc-17-8"] },
       { key: "inbox", label: "运营收件箱", href: "/platform-admin/inbox", ucRefs: ["17-gov/uc-17-8"] },
@@ -770,6 +774,8 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // 遍历范围内，`ops-status` 属于「平台」面，在。同「平台成员」项的既有处置
   // （同样没有 mock 数据源）：给一个健康占位值，不抛错。
   "ops-status": () => 0,
+  // 「上报设置」是一张设置页，不是清单——同「运营状态」给健康占位值。
+  telemetry: () => 0,
   // UC-17.8：健康占位值（生产左栏走 live-admin-nav-counts，未接的项显示「—」）。
   // 「反馈草稿」的徽标在生产里**已接真栈**：`live-admin-nav-counts.ts` 读
   // `GET /feedback/drafts/count`（B1，2026-09-04），取不到显示「—」。这里只是 HEALTHY 夹具。
