@@ -29,7 +29,16 @@ real_model_require_credentials "dashscope 真实模型" DASHSCOPE_API_KEY DASHSC
 # 以并行会话随机撞端口的形态延迟爆炸，而不是当场说清楚。
 SB="$SKILL_SANDBOX_PORT"
 docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres redis minio
-SKILL_SANDBOX_PORT=$SB pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
+# 预装依赖（pptxgenjs / docx / exceljs / pdf-lib）**必须显式给到沙箱**。
+# 2026-09-25 实测：这里漏了 SKILL_SANDBOX_MODULES_DIR，于是十任务 Office 矩阵
+# 连续三轮 0/10——每个脚本都以 `Cannot find module 'pptxgenjs'` 死掉，而这条 stderr
+# 在日志链上被吞了两次，表面症状只是「模型没产出文件」，看起来像产品缺陷。
+# 镜像靠 Dockerfile 的 ENV 给这个值；本地 lane 之前谁都没给。
+bash "${REPO_ROOT}/scripts/local-bundle/prepare-sandbox-modules.sh" >/tmp/e2e-sandbox-modules.log 2>&1 || {
+  echo "沙箱预装依赖准备失败：" >&2; tail -20 /tmp/e2e-sandbox-modules.log >&2; exit 1;
+}
+SANDBOX_MODULES_DIR="${REPO_ROOT}/apps/skill-sandbox/preinstalled/node_modules"
+SKILL_SANDBOX_PORT=$SB SKILL_SANDBOX_MODULES_DIR="$SANDBOX_MODULES_DIR" pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
 echo $! > /tmp/e2e-sandbox.pid
 # 沙箱**必须真的在监听**才算起来了。原来这里只 `sleep 5` 就往下走：沙箱以 EADDRINUSE
 # 秒死时栈照常"就绪"，技能调用要到很久以后才以别的形态失败（真实模型 lane 上表现为

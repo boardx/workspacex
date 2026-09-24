@@ -29,6 +29,7 @@
  */
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
 import { createSandboxServer } from "./server.js";
+import { assertUsableModulesDir } from "./preinstalled-modules.js";
 
 const socketPath = process.env.SKILL_SANDBOX_SOCKET;
 
@@ -38,6 +39,8 @@ const socketPath = process.env.SKILL_SANDBOX_SOCKET;
  * 而不是让服务假装自己配好了。
  */
 const preinstalledModulesDir = process.env.SKILL_SANDBOX_MODULES_DIR;
+assertUsableModulesDir(preinstalledModulesDir);
+
 
 /**
  * 镜像里预装的中文字体(见 Dockerfile)。与上面同一条纪律:没有内建 fallback ——
