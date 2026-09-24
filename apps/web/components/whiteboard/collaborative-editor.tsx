@@ -35,7 +35,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     batchUndo.current = null;
     try {
       doc.transact(() => { for (let index = 0; index < commands.length; index += WHITEBOARD_LIMITS.batch) model.execute(commands.slice(index, index + WHITEBOARD_LIMITS.batch)); });
-      model.resetHistory(); setNotice(''); return true;
+      model.discardRedo(); setNotice(''); return true;
     } catch { setNotice('批量操作未应用：请检查白板容量或内容限制。'); return false; }
   }
   const createSticky = useCallback((x: number, y: number, edit = false) => {
@@ -152,7 +152,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
       <Button onClick={() => setTool('select')} aria-pressed={tool==='select'}>选择</Button><Button onClick={() => setTool('pan')} aria-pressed={tool==='pan'}>平移</Button>
       {(['sticky','text','rectangle','ellipse','frame'] as const).map((kind,i) => <Button key={kind} data-testid={`board-add-${kind}`} disabled={readOnly} onClick={() => { const o=make(kind,(100-offset.x)/zoom,(100-offset.y)/zoom); execute([{type:'create',object:o}]); setSelected([o.id]); }}>{['便利贴','文字','矩形','椭圆','Frame'][i]}</Button>)}
       <Button disabled={readOnly} onClick={() => { setTool('connect'); setSelected([]); setNotice('依次选择两个对象建立连接'); }}>连接</Button><Button disabled={readOnly} onClick={() => setTool('draw')}>画笔</Button>
-      <Button disabled={readOnly} onClick={undo}>撤销</Button><Button disabled={readOnly} onClick={() => { batchUndo.current=null; model.redo(); }}>重做</Button>
+      <Button disabled={readOnly} onClick={undo}>撤销</Button><Button disabled={readOnly} onClick={() => { if (model.redo()) batchUndo.current=null; }}>重做</Button>
       <Button disabled={!selected.length} onClick={() => { clipboard.current=copyObjects(doc,selected,()=>crypto.randomUUID()); setNotice('已复制到当前白板剪贴板'); }}>复制</Button><Button disabled={readOnly} onClick={() => { const ids=new Map(clipboard.current.map(o=>[o.id,crypto.randomUUID()])); const copied=clipboard.current.map(o=>({...o,id:ids.get(o.id)!,parentId:o.parentId?ids.get(o.parentId)??null:null,connector:o.connector?{from:ids.get(o.connector.from)!,to:ids.get(o.connector.to)!}:undefined,geometry:{...o.geometry,x:o.geometry.x+30,y:o.geometry.y+30}})); execute(copied.map(object=>({type:'create',object}))); setSelected(copied.map(o=>o.id)); }}>粘贴</Button>
       <Button disabled={readOnly || !selected.length} onClick={() => { execute(selected.map(id=>({type:'delete',id}))); setSelected([]); }}>删除选中</Button>
       <Button onClick={()=>setZoom(z=>Math.max(.2,z-.1))}>缩小</Button><span className="p-2 text-12">{Math.round(zoom*100)}%</span><Button onClick={()=>setZoom(z=>Math.min(2,z+.1))}>放大</Button>

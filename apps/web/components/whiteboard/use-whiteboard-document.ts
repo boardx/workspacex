@@ -10,7 +10,7 @@ export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
   useEffect(() => { undo.current = new WhiteboardUndo(doc); return () => { undo.current?.destroy(); undo.current = null; }; }, [doc]);
   return { objects: readObjects(doc), execute(commands: WhiteboardCommand[]) { if (!readOnly && commands.length) undo.current?.execute(commands); },
     undo: () => readOnly ? 'empty' : undo.current?.undo() ?? 'empty', redo: () => !readOnly && (undo.current?.redo() ?? false),
-    resetHistory() { const previous = undo.current; undo.current = new WhiteboardUndo(doc); previous?.destroy(); } };
+    discardRedo() { undo.current?.discardRedo(); } };
 }
 export function textSplice(before: string, after: string) {
   let start = 0; while (start < before.length && start < after.length && before[start] === after[start]) start++;

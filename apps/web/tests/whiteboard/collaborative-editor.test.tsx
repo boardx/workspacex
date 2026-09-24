@@ -197,3 +197,27 @@ it('clears stale redo when a pasted batch starts a new local history epoch', () 
   expect(readObjects(doc)).toHaveLength(3);
   doc.destroy();
 });
+it('keeps pre-batch undo history after undoing the pasted batch', () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  const original = readObjects(doc)[0]!;
+  fireEvent.change(screen.getByLabelText('对象文字'), { target: { value: '批量前编辑' } });
+  paste(screen.getByTestId('board-live-surface'), '批次一\n批次二');
+  fireEvent.click(screen.getByRole('button', { name: '创建 2 张便利贴' }));
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc)).toHaveLength(1);
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc).find(item => item.id === original.id)!.text).toBe('写下一个想法');
+  doc.destroy();
+});
+it('keeps pasted-batch undo available after an empty redo', () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  paste(screen.getByTestId('board-live-surface'), '一\n二');
+  fireEvent.click(screen.getByRole('button', { name: '创建 2 张便利贴' }));
+  fireEvent.click(screen.getByText('重做', { exact: true }));
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc)).toEqual([]);
+  doc.destroy();
+});
