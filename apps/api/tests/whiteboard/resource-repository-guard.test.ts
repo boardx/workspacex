@@ -4,7 +4,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-whiteboard-repository.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember', 'issueQuarantineAccessReceipt', 'requestQuarantineRecovery'];
+const expectedMethods = ['list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember', 'cleanupQuarantineAccessReceipts', 'issueQuarantineAccessReceipt', 'requestQuarantineRecovery'];
 function audit(code: string): string[] {
   const file = ts.createSourceFile('repository.ts', code, ts.ScriptTarget.Latest, true);
   const methods = new Map<string, string>(), sql: string[] = [];
