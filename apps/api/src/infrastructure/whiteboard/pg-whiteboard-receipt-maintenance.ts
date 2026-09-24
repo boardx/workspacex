@@ -53,7 +53,7 @@ export class PgWhiteboardReceiptMaintenance implements WhiteboardReceiptMaintena
     if(!this.started)throw new Error('WHITEBOARD_RECEIPT_MAINTENANCE_UNAVAILABLE');
     await this.transaction.run(session,()=>this.boss.schedule(
       WHITEBOARD_RECEIPT_MAINTENANCE_QUEUE,WHITEBOARD_RECEIPT_MAINTENANCE_CRON,{orgId},{
-        key:`org:${orgId}`,tz:'UTC',retryLimit:20,retryDelay:60,retryBackoff:true,deleteAfterSeconds:604800,
+        key:`org/${orgId}`,tz:'UTC',retryLimit:20,retryDelay:60,retryBackoff:true,deleteAfterSeconds:604800,
       }));
   }
   private async deliver(job:Job<MaintenanceWake>):Promise<void>{

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import {readFileSync} from 'node:fs';
 import {describe,expect,it,vi} from 'vitest';
-import type {Job} from 'pg-boss';
+import {PgBoss,type Job} from 'pg-boss';
 import type {DatabasePort,QueryResult,TenantSession} from '../../src/application/ports/database.port';
 import type {LoggerPort} from '../../src/application/ports/logger.port';
 import {toOrgId} from '../../src/domain/org-id';
@@ -18,12 +18,17 @@ type Schedule={queue:string;cron:string;data:Wake;options:{key:string;retryLimit
 class FakeBoss{
   handler:((jobs:Job<Wake>[])=>Promise<void>)|null=null;
   readonly errors:Array<(error:unknown)=>void>=[];
+  private readonly scheduleValidator=new PgBoss({schema:'whiteboard_receipt_test',migrate:false,
+    createSchema:false,reindex:false,db:{executeSql:async()=>({rows:[]})}});
   constructor(readonly schedules=new Map<string,Schedule>(),private readonly failStart=false){}
   on(event:string,handler:(error:unknown)=>void){if(event==='error')this.errors.push(handler);return this;}
   async start(){if(this.failStart)throw new Error('private scheduler detail');}
   async stop(){}
   async work(_queue:string,_options:unknown,handler:(jobs:Job<Wake>[])=>Promise<void>){this.handler=handler;return 'worker';}
   async schedule(queue:string,cron:string,data:Wake,options:Schedule['options']){
+    // Exercise pg-boss' real schedule validator before recording the call. This caught the
+    // production-only failure where ':' was accepted by the fake but rejected by assertKey.
+    await this.scheduleValidator.schedule(queue,cron,data,options);
     this.schedules.set(`${queue}:${options.key}`,{queue,cron,data,options});return 'schedule';
   }
   dispatch(data:Wake,id='maintenance-job'){
@@ -99,7 +104,7 @@ describe('whiteboard access-receipt maintenance scheduler',()=>{
     await runtime.ensureScheduled(first.session,orgId);
     expect([...shared.values()]).toEqual([expect.objectContaining({
       queue:WHITEBOARD_RECEIPT_MAINTENANCE_QUEUE,cron:WHITEBOARD_RECEIPT_MAINTENANCE_CRON,
-      data:{orgId},options:expect.objectContaining({key:`org:${orgId}`,retryLimit:20,retryBackoff:true}),
+      data:{orgId},options:expect.objectContaining({key:`org/${orgId}`,retryLimit:20,retryBackoff:true}),
     })]);
     await runtime.onModuleDestroy();
 
