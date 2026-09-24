@@ -1,10 +1,8 @@
 import * as Y from 'yjs';
 import { assertLockedObjectsUnchanged, cloneDocument, objectMap, tombstones, validateDocument } from './document';
+import { assertWhiteboardUpdateLimits, WHITEBOARD_UPDATE_LIMITS } from './update-limits';
 
-export const WHITEBOARD_UPDATE_LIMITS = {
-  bytes: 65536, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
-  documentStructs: 200000, documentBytes: 32 * 1024 * 1024,
-} as const;
+export { WHITEBOARD_UPDATE_LIMITS } from './update-limits';
 function sameItem(a: { id: { client: number; clock: number } } | null | undefined, b: { id: { client: number; clock: number } } | null | undefined): boolean {
   return Boolean(a && b && a.id.client === b.id.client && a.id.clock === b.id.clock);
 }
@@ -16,9 +14,8 @@ function sameItem(a: { id: { client: number; clock: number } } | null | undefine
  * Missing causal dependencies are rejected: caller requests a complete diff.
  */
 export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): Uint8Array {
-  if (!(update instanceof Uint8Array) || update.byteLength === 0 || update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Error('UPDATE_LIMIT_EXCEEDED');
+  assertWhiteboardUpdateLimits(update);
   const decoded = Y.decodeUpdate(update);
-  if (decoded.structs.length > WHITEBOARD_UPDATE_LIMITS.structsPerUpdate || decoded.structs.reduce((sum, item) => sum + item.length, 0) > WHITEBOARD_UPDATE_LIMITS.logicalUnitsPerUpdate) throw new Error('UPDATE_LIMIT_EXCEEDED');
   const candidate = cloneDocument(authority);
   try {
     Y.applyUpdate(candidate, update);
