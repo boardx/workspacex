@@ -116,3 +116,4 @@ export * as whiteboardImport from './whiteboard-import';
 export * as whiteboardDocument from './whiteboard-document';
 export * as whiteboardSync from './whiteboard-sync';
 export * as whiteboardTransfer from './whiteboard-transfer';
+export * as whiteboardMigration from './whiteboard-migration';
