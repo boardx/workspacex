@@ -377,7 +377,7 @@ const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
  * 对标 R2（#3933）：项目级圆角 × 节点圆角层级 ⇒ 类名。只落在既有的几档命名圆角上（lint-design U11），
  * `full`（胶囊/圆形）不随项目气质变——头像和开关本来就是圆的，「直角风」不该把它们也削成方块。
  */
-const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
+export const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none" | "sm" | "md" | "lg" | "full", string>> = {
   sharp: { none: "rounded-none", sm: "rounded-none", md: "rounded-none", lg: "rounded-none", full: "rounded-full" },
   default: RADIUS,
   round: { none: "rounded-none", sm: "rounded-control", md: "rounded-container", lg: "rounded-container", full: "rounded-full" },
@@ -386,17 +386,17 @@ const RADIUS_BY_SCALE: Record<designWorkbench.PrototypeRadiusScale, Record<"none
  * 对标 R2：项目级密度 × 节点间距层级 ⇒ Tailwind 间距档位。`default` 行与上面的 GAP/PAD 逐字相同。
  * 紧凑与宽松各挪一档，`none` 始终是 0（「这里不要间距」是结构，不是气质）。
  */
-const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const GAP_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "gap-0", sm: "gap-0.5", md: "gap-1", lg: "gap-2" },
   default: GAP,
   comfortable: { none: "gap-0", sm: "gap-2", md: "gap-3", lg: "gap-6" },
 };
-const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const PAD_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "p-0", sm: "p-0.5", md: "p-1", lg: "p-2" },
   default: PAD,
   comfortable: { none: "p-0", sm: "p-2", md: "p-3", lg: "p-6" },
 };
-const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
+export const SPACE_BY_DENSITY: Record<designWorkbench.PrototypeDensity, Record<"none" | "sm" | "md" | "lg", string>> = {
   compact: { none: "h-0", sm: "h-0.5", md: "h-2", lg: "h-4" },
   default: SPACE,
   comfortable: { none: "h-0", sm: "h-2", md: "h-4", lg: "h-8" },

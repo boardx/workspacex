@@ -351,3 +351,21 @@ test.describe("R9 变体（#3954）", () => {
     await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
   });
 });
+
+test.describe("R10 代码交接（#3955）", () => {
+  test("导出 React 组件：一个 .tsx、只 import react、默认导出；文案与页面切换都在", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.tsx$/);
+    const tsx = readFileSync(await d.path(), "utf8");
+    expect(tsx).toMatch(/export default function Prototype\(\)/);
+    expect([...tsx.matchAll(/^import\b[^"]*"([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
+    expect(tsx).toContain(`{"年度会员 · 专业版"}`);
+    expect(tsx).toContain(`{ name: "商品详情", Component: Screen1 }`);
+  });
+});
