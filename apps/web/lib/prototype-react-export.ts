@@ -16,7 +16,7 @@
  */
 import { designPrototype, designWorkbench } from "@repo/contracts";
 import type { DesignProject } from "@/lib/live-design-workbench";
-import { GAP_BY_DENSITY, PAD_BY_DENSITY, RADIUS_BY_SCALE, SPACE_BY_DENSITY } from "@/components/design-loop/prototype-canvas";
+import { GAP_BY_DENSITY, PAD_BY_DENSITY, RADIUS_BY_SCALE, SPACE_BY_DENSITY, guessNavIcon } from "@/components/design-loop/prototype-canvas";
 import { exportFileStem, type Romanize } from "@/lib/export-file-name";
 import { localDateStamp } from "@/lib/prototype-export-html";
 
@@ -74,6 +74,8 @@ interface Ctx {
    * tabs / 底部导航的「当前项」、chip 的「选中」都是真状态——导出的代码点得动，不是一张截图。
    */
   readonly state: (initial: string) => string;
+  /** 深度 S5：图标名 → 导出文件里那个图标组件的 JSX（`<IconHome />`）；没有这个图标 ⇒ 空串。 */
+  readonly icon: (name: string | null | undefined) => string;
 }
 
 const str = (s: string): string => `{${JSON.stringify(s)}}`;
@@ -187,7 +189,7 @@ function node(n: Node, depth: number, ctx: Ctx): string {
       const p = n.props;
       const v = p.variant ?? "primary";
       const look = v === "primary" ? PRIMARY : v === "danger" ? `${tok("danger", "bg")} ${tok("danger-foreground", "text")}` : v === "secondary" ? `border ${pal.border}` : "bg-transparent";
-      return el(depth, "button", `type="button" ${cls("inline-flex items-center justify-center font-medium", BTN_SIZE[p.size ?? "md"], ctx.r(p.radius ?? "md"), look, p.full === true && "w-full")}${link.replace(' role="link" tabIndex={0}', "")}`, str(p.label));
+      return el(depth, "button", `type="button" ${cls("inline-flex items-center justify-center gap-1.5 font-medium", BTN_SIZE[p.size ?? "md"], ctx.r(p.radius ?? "md"), look, p.full === true && "w-full")}${link.replace(' role="link" tabIndex={0}', "")}`, `${ctx.icon(p.icon)}${str(p.label)}`);
     }
     case "input": {
       const p = n.props;
@@ -206,7 +208,8 @@ function node(n: Node, depth: number, ctx: Ctx): string {
       const items = p.items.map((it, i) => {
         const marker = p.leading === "dot" ? `${pad(d + 1)}<span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))]" />`
           : p.leading === "check" ? `${pad(d + 1)}<span aria-hidden className="text-[hsl(var(--primary))]">✓</span>`
-          : p.leading === "avatar" ? `${pad(d + 1)}<span aria-hidden ${cls("flex h-8 w-8 items-center justify-center rounded-full text-xs", pal.subtle)}>${str(it.slice(0, 1))}</span>` : "";
+          : p.leading === "avatar" ? `${pad(d + 1)}<span aria-hidden ${cls("flex h-8 w-8 items-center justify-center rounded-full text-xs", pal.subtle)}>${str(it.slice(0, 1))}</span>`
+          : p.leading === "icon" && ctx.icon(p.icons?.[i]) !== "" ? `${pad(d + 1)}<span aria-hidden ${cls("flex shrink-0", pal.muted)}>${ctx.icon(p.icons?.[i])}</span>` : "";
         const detail = p.detail?.[i];
         const trailing = p.trailing?.[i];
         const itemGo = goItem(n, i, ctx);
@@ -241,7 +244,7 @@ function node(n: Node, depth: number, ctx: Ctx): string {
       const p = n.props;
       const v = ctx.state(String(p.active ?? 0));
       return el(depth, "nav", `aria-label="底部导航" ${cls("mt-auto flex justify-around border-t py-2", pal.border)}`, p.items.map((it, i) =>
-        `${pad(d)}<button type="button" aria-current={${v} === ${i} ? "page" : undefined} ${clsIf(`${v} === ${i}`, "px-2 py-1 text-xs font-medium text-[hsl(var(--primary))]", `px-2 py-1 text-xs ${pal.muted}`)}${selectItem(n, i, v, ctx)}>${str(it)}</button>`));
+        `${pad(d)}<button type="button" aria-current={${v} === ${i} ? "page" : undefined} ${clsIf(`${v} === ${i}`, "flex flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium text-[hsl(var(--primary))]", `flex flex-col items-center gap-0.5 px-2 py-1 text-xs ${pal.muted}`)}${selectItem(n, i, v, ctx)}>${ctx.icon(p.icons?.[i] ?? guessNavIcon(it))}${str(it)}</button>`));
     }
     case "switch":
       return el(depth, "label", cls("flex items-center justify-between gap-3 text-sm"), [
@@ -362,10 +365,45 @@ function primaryOf(project: Pick<DesignProject, "accent" | "tokens" | "theme">, 
 /** 中性档的兜底主色：调用方没给页面当下的值时用（jsdom / 服务端）。 */
 export const EXPORT_NEUTRAL_PRIMARY: designWorkbench.PrototypeAccentTokens = { primary: "240 6% 10%", foreground: "0 0% 98%" };
 
+/** 图标组件名：`home` → `IconHome`，`more` → `IconMore`。 */
+const iconComponent = (name: string): string => `Icon${name.replace(/(^|[-_])(\w)/g, (_m, _s, c: string) => c.toUpperCase())}`;
+
+/** SVG 里允许出现的元素：图标只由这些画成。别的一律不认——宁可少一个图标，不往导出物里塞看不懂的标记。 */
+const SVG_TAGS = new Set(["svg", "path", "circle", "line", "rect", "polyline", "polygon", "ellipse", "g"]);
+
+/**
+ * 深度 S5：把 `renderToStaticMarkup` 出来的 SVG 转成 JSX。只做三件事：`class` 去掉（那是 lucide 的类名，
+ * 别人的项目里没有）、带连字符的属性转驼峰（`aria-*` / `data-*` 保持原样）、标签必须在白名单里。
+ * 转不了 ⇒ `null`（这个图标不导出，不塞半截标记）。
+ */
+export function svgToJsx(svg: string): string | null {
+  const tags = [...svg.matchAll(/<\/?([a-zA-Z]+)/g)].map((m) => m[1]!.toLowerCase());
+  if (tags.length === 0 || tags[0] !== "svg" || tags.some((t) => !SVG_TAGS.has(t))) return null;
+  return svg
+    .replace(/\s+class="[^"]*"/g, "")
+    .replace(/\s([a-z]+(?:-[a-z]+)+)=/g, (m, name: string) => (name.startsWith("aria-") || name.startsWith("data-") ? m : ` ${name.replace(/-([a-z])/g, (_x, c: string) => c.toUpperCase())}=`));
+}
+
 export function buildPrototypeReactTsx(
   project: Pick<DesignProject, "name" | "frames" | "prototype" | "frameLinks" | "accent" | "tokens" | "theme">,
-  opts: { readonly now?: Date; readonly neutral?: designWorkbench.PrototypeAccentTokens } = {},
+  opts: {
+    readonly now?: Date;
+    readonly neutral?: designWorkbench.PrototypeAccentTokens;
+    /** 深度 S5：图标名 → SVG 标记（`iconSvgs` 用画布同一张表渲染）。不给 ⇒ 导出物不带图标。 */
+    readonly icons?: Readonly<Record<string, string>>;
+  } = {},
 ): string {
+  const iconJsx = new Map<string, string>();
+  for (const [name, svg] of Object.entries(opts.icons ?? {})) {
+    const jsx = svgToJsx(svg);
+    if (jsx !== null) iconJsx.set(name, jsx);
+  }
+  const usedIconNames = new Set<string>();
+  const icon = (name: string | null | undefined): string => {
+    if (name === null || name === undefined || !iconJsx.has(name)) return "";
+    usedIconNames.add(name);
+    return `<${iconComponent(name)} />`;
+  };
   const theme = project.theme === "dark" ? "dark" : "light";
   const pal = PAL;
   const s = scale(project.tokens);
@@ -384,7 +422,7 @@ export function buildPrototypeReactTsx(
     };
     const body = root === null
       ? `      <p className="p-6 text-sm">{${JSON.stringify(`「${frame}」这一页还没画出来`)}}</p>`
-      : node(root, 3, { pal, links, itemLinks, state, ...s });
+      : node(root, 3, { pal, links, itemLinks, state, icon, ...s });
     return [
       `/** 第 ${i + 1} 页：${frame.replace(/\*\//g, "* /")} */`,
       `function Screen${i + 1}({ go }: { go: Go }) {`,
@@ -418,6 +456,7 @@ export function buildPrototypeReactTsx(
     ...(font === "inherit" ? [] : [`  fontFamily: ${JSON.stringify(font)},`]),
     `} as CSSProperties;`,
     ``,
+    ...[...usedIconNames].sort().map((name) => `function ${iconComponent(name)}() {\n  return (${iconJsx.get(name)!});\n}\n`),
     screens.join("\n\n"),
     ``,
     `const SCREENS: { name: string; Component: (props: { go: Go }) => ReactElement }[] = [`,

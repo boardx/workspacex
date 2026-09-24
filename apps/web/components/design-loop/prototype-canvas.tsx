@@ -440,7 +440,7 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
  * `Record<PrototypeIcon, …>` **穷举**：契约加了新图标这里编译不过，不会静默渲染成空
  * ——同这个文件头注对渲染表的既有纪律。
  */
-const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+export const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
   home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
   filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
   user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,

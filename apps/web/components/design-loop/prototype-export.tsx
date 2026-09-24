@@ -15,6 +15,7 @@ import { buildDesignDocMarkdown, designDocFileName, buildPrototypeSpecJson, prot
 import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
 import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import { buildPrototypeReactTsx, prototypeReactFileName } from "@/lib/prototype-react-export";
+import { iconSvgs } from "@/lib/prototype-react-export-icons";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { describeFailure } from "@/lib/design-failure";
 import { exportFileStem, loadRomanize } from "@/lib/export-file-name";
@@ -189,7 +190,7 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
 
   /**
    * 对标 R10（#3955）：交给工程的**代码**——一个只依赖 react 的 .tsx（见 `lib/prototype-react-export`）。
-   * 中性档的主色取页面当下的 `--primary`，不在导出器里另抄一份全局 token。
+   * 中性档的主色取页面当下的 `--primary`，不在导出器里另抄一份全局 token；图标用画布同一张表渲染（深度 S5）。
    */
   const code = async () => {
     try {
@@ -197,7 +198,7 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       const primary = root.getPropertyValue("--primary").trim();
       const foreground = root.getPropertyValue("--primary-foreground").trim();
       const now = new Date();
-      const text = buildPrototypeReactTsx(project, { now, ...(primary !== "" && foreground !== "" ? { neutral: { primary, foreground } } : {}) });
+      const text = buildPrototypeReactTsx(project, { now, icons: await iconSvgs(project.prototype), ...(primary !== "" && foreground !== "" ? { neutral: { primary, foreground } } : {}) });
       const romanize = await loadRomanize();
       download(new Blob([text], { type: "text/plain;charset=utf-8" }), prototypeReactFileName(project.name, now, romanize));
       setOpen(false);

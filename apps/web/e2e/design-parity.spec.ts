@@ -463,3 +463,32 @@ test.describe("深度 S4 导出的代码能交互（#3988）", () => {
     expect(tsx).toContain("aria-selected={s1 === 1}");
   });
 });
+
+const S5_PROJECT = {
+  ...R3_PROJECT, id: "eval-S5", name: "周报", frames: ["首页"], frameNotes: [""],
+  prototype: [{ id: "s5-root", type: "stack", props: { direction: "column", gap: "md", padding: "md" }, children: [
+    { id: "s5-share", type: "button", props: { label: "分享周报", icon: "share" } },
+    { id: "s5-list", type: "list", props: { items: ["个人资料", "账号安全"], leading: "icon", icons: ["user", "lock"] } },
+    { id: "s5-nav", type: "bottomnav", props: { items: ["首页", "我的"] } },
+  ] }],
+};
+
+test.describe("深度 S5 导出的代码带图标（#3988）", () => {
+  test("导出的 .tsx 里每个用到的图标是一个内联 SVG 组件，按钮 / 列表 / 底部导航都引用它；仍只 import react", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    const tsx = readFileSync(await d.path(), "utf8");
+    // 按钮的 share、列表的 user / lock、底部导航按标签猜出的首页 → home、我的 → user（与画布同一个 guessNavIcon）。
+    for (const name of ["IconShare", "IconUser", "IconLock", "IconHome"]) {
+      expect(tsx).toContain(`function ${name}() {`);
+      expect(tsx).toContain(`<${name} />`);
+    }
+    expect(tsx).toMatch(/function IconShare\(\) \{\n  return \(<svg [^]*?<\/svg>\);/);
+    expect([...tsx.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
+  });
+});

@@ -8,7 +8,8 @@ import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 import { designPrototype, designWorkbench } from "@repo/contracts";
-import { buildPrototypeReactTsx, prototypeReactFileName } from "@/lib/prototype-react-export";
+import { buildPrototypeReactTsx, prototypeReactFileName, svgToJsx } from "@/lib/prototype-react-export";
+import { iconSvgs, usedIcons } from "@/lib/prototype-react-export-icons";
 
 afterEach(cleanup);
 
@@ -124,6 +125,36 @@ describe("buildPrototypeReactTsx", () => {
     expect(chip.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(chip);
     expect(chip.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("深度 S5：导出的代码带图标——按钮、底部导航（含按标签猜的）、图标列表，都是内联 SVG，仍只 import react", async () => {
+    const one = {
+      ...project, frames: ["首页"], frameLinks: [[]],
+      prototype: [{ type: "stack", children: [
+        { type: "button", props: { label: "分享周报", icon: "share" } },
+        { type: "list", props: { items: ["个人资料", "账号安全"], leading: "icon", icons: ["user", "lock"] } },
+        { type: "bottomnav", props: { items: ["首页", "我的"] } },
+      ] } as N],
+    };
+    const icons = await iconSvgs(one.prototype);
+    expect(Object.keys(icons).sort()).toEqual([...usedIcons(one.prototype)].sort());
+    const tsx = buildPrototypeReactTsx(one, { icons });
+    expect([...tsx.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1])).toEqual(["react"]);
+    expect(tsx).not.toContain("class=");
+    const { container } = render(React.createElement(load(tsx)));
+    expect(screen.getByRole("button", { name: "分享周报" }).querySelectorAll("svg")).toHaveLength(1);
+    for (const row of ["个人资料", "账号安全"]) expect(screen.getByText(row).closest("li")!.querySelectorAll("svg")).toHaveLength(1);
+    expect(within(screen.getByRole("navigation", { name: "底部导航" })).getAllByRole("button").map((b) => b.querySelectorAll("svg").length)).toEqual([1, 1]);
+    expect(container.querySelectorAll("svg[stroke-width]").length).toBeGreaterThan(0);
+    // 不给图标表 ⇒ 与 S4 一样没有图标，不出错。
+    render(React.createElement(load(buildPrototypeReactTsx(one))));
+    expect(screen.getAllByRole("button", { name: "分享周报" })[1]!.querySelectorAll("svg")).toHaveLength(0);
+  });
+
+  it("深度 S5：SVG 转 JSX 只认图标元素——白名单外的标签整个不要", () => {
+    expect(svgToJsx('<svg class="lucide" stroke-width="2" aria-hidden="true"><path d="M1 1"></path></svg>')).toBe('<svg strokeWidth="2" aria-hidden="true"><path d="M1 1"></path></svg>');
+    expect(svgToJsx('<svg><script>alert(1)</script></svg>')).toBeNull();
+    expect(svgToJsx('<div><svg></svg></div>')).toBeNull();
   });
 
   it("闭集全覆盖：契约里每种原语都在上面的样例里出现过（新增原语 ⇒ 这里提醒补样例）", () => {
