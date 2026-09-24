@@ -10,7 +10,8 @@
 |---|---|---|
 | 实体节点 | `ontology_objects`（新建） | 人 / 组织 / 项目 / 产品 / 概念 / 术语 / 指标 / 事件，`KgObjectKind` 封闭 |
 | 结论 | `claims`（扩列） | 事实 / 假设 / 决定 / 待办 / 风险，`KgClaimKind` 封闭；生命周期只有 `status` 一个字段 |
-| 证据 | `claim_segments`（已有） | 结论 ↔ segment，`stance ∈ {supporting, contradicting}` 同表 |
+| 证据（附件） | `claim_segments`（已有） | 结论 ↔ segment，`stance ∈ {supporting, contradicting}` 同表 |
+| 证据（会话消息） | `claim_message_evidence`（F06 新增） | 结论 ↔ chat_messages（外键级联），带 ≤280 字摘录；消息不造成 artifact / segment（file-first：没有字节的版本不是版本）。契约 `KgEvidenceAnchor.sourceKind = chat_message` 时 `sourceRef` 即消息 id；I-5「至少一条 supporting 证据」对两种证据一视同仁 |
 | 关系 | `ontology_edges`（扩列） | `KgClaimRelation`（结论↔结论五类）∪ `KgStructuralRelation`（结构类） |
 | 动作日志 | `ontology_actions`（新建） | append-only：谁 / 何时 / 什么操作 / 依据 / 结果（accepted / rejected + 原因） |
 | 向量 | `object_embeddings`（新建） | 实体与结论的 embedding，按 model/version 分区 |
