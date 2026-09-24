@@ -592,6 +592,13 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
+import { SystemTelemetryController } from "./interface/controllers/system-telemetry.controller";
+import { TELEMETRY_FACTS_SOURCE, TELEMETRY_STATE_REPOSITORY, TELEMETRY_TRANSPORT } from "./application/telemetry/telemetry-ports";
+import { TELEMETRY_CONFIG, readTelemetryConfig } from "./infrastructure/telemetry/telemetry-config";
+import { PgTelemetryStateRepository } from "./infrastructure/telemetry/pg-telemetry-state-repository";
+import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts";
+import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
+import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -1050,6 +1057,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
+    SystemTelemetryController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -2929,6 +2937,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [SERVICE_UPTIME_CONFIG],
     },
     ServiceUptimePollWorker,
+    // D9：客户实例侧运行信号上报（出站、可关、可查看最近一次原样报告）。
+    { provide: TELEMETRY_CONFIG, useFactory: () => readTelemetryConfig() },
+    { provide: TELEMETRY_STATE_REPOSITORY, useFactory: (db: DatabasePort) => new PgTelemetryStateRepository(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_FACTS_SOURCE, useFactory: (db: DatabasePort) => new PgTelemetryFacts(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_TRANSPORT, useFactory: () => new HttpTelemetryTransport() },
+    TelemetryReportWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

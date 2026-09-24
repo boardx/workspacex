@@ -63,6 +63,7 @@ export const TELEMETRY_CONSENT_DEFAULTS: Record<TelemetryConsentItemValue, boole
   benchmark: false,
 };
 
+
 /** 实例的不可逆标识：安装时生成的随机密钥的 SHA-256。不含组织名、域名或任何可读信息。 */
 export const InstanceId = z.string().regex(/^[0-9a-f]{64}$/, "实例标识必须是 64 位小写十六进制（不可逆哈希）");
 
@@ -163,3 +164,79 @@ export const InstanceTelemetryReport = z
     }
   });
 export type InstanceTelemetryReportValue = z.infer<typeof InstanceTelemetryReport>;
+
+/* ───────────────────────── 客户实例侧的管理操作（D9，S3 上报方） ───────────────────────── */
+
+/** 四项同意的完整取值——设置页读写的形状。 */
+export const TelemetryConsent = z
+  .object({ health: z.boolean(), usage: z.boolean(), diagnostics: z.boolean(), benchmark: z.boolean() })
+  .strict();
+export type TelemetryConsentValue = z.infer<typeof TelemetryConsent>;
+
+/**
+ * 最近一次上报尝试的结果：
+ * - `sent`：对端 2xx；
+ * - `failed`：网络错误 / 超时 / 非 2xx——**已丢弃，不重试**（用例：失败不拖慢实例）；
+ * - `invalid`：本地组装的报告没通过 `InstanceTelemetryReport` 校验——**根本没发**。
+ */
+export const TelemetryAttemptOutcome = z.enum(["sent", "failed", "invalid"]);
+export type TelemetryAttemptOutcomeValue = z.infer<typeof TelemetryAttemptOutcome>;
+
+/**
+ * 上报总状态：为什么这台实例现在发 / 不发。
+ * `endpoint_unset`：没配上报地址 ⇒ 整个上报关闭；`kill_switch`：全局总开关打开 ⇒ 整个上报关闭，不论同意项。
+ * （两个环境变量名的单点在 `apps/api/src/infrastructure/telemetry/telemetry-config.ts`。）
+ */
+export const TelemetryReporterState = z.enum(["enabled", "endpoint_unset", "kill_switch"]);
+export type TelemetryReporterStateValue = z.infer<typeof TelemetryReporterState>;
+
+const TelemetrySettingsOut = z
+  .object({
+    consent: TelemetryConsent,
+    state: TelemetryReporterState,
+    intervalSeconds: z.number().int().positive(),
+  })
+  .strict();
+
+export const operations = {
+  /** 实例管理员（平台运营）读四项同意 + 上报总状态。新同意在**下一个周期**生效。 */
+  getTelemetrySettings: {
+    method: "GET",
+    path: "/system/telemetry/settings",
+    in: z.object({}).strict(),
+    out: TelemetrySettingsOut,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** 改同意项：只传要改的那几项，其余不动。四项互相独立，不存在「全开 / 全关」的合并开关。 */
+  updateTelemetryConsent: {
+    method: "PUT",
+    path: "/system/telemetry/consent",
+    in: TelemetryConsent.partial().strict(),
+    out: TelemetrySettingsOut,
+    err: ["NOT_PLATFORM_SUPERUSER", "VALIDATION_FAILED"] as const,
+  },
+  /**
+   * 「看看发了什么」：最近一次上报尝试**原样**的报告体。从未尝试过 ⇒ `last: null`。
+   * `omittedForLackOfData` 列出已同意、但本实例尚无真实数据来源而整节缺席的分节——宁缺不造（D16）。
+   */
+  getLastTelemetryReport: {
+    method: "GET",
+    path: "/system/telemetry/last-report",
+    in: z.object({}).strict(),
+    out: z
+      .object({
+        last: z
+          .object({
+            attemptedAt: z.string().datetime(),
+            outcome: TelemetryAttemptOutcome,
+            omittedForLackOfData: z.array(TelemetryConsentItem).max(4),
+            /** 发出去的原样报告；`outcome: "invalid"` 时什么都没发 ⇒ `null`。 */
+            report: InstanceTelemetryReport.nullable(),
+          })
+          .strict()
+          .nullable(),
+      })
+      .strict(),
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+} as const;
