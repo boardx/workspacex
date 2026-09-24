@@ -13,6 +13,7 @@ import { toOrgId } from "../../domain/org-id";
 const CANONICAL_PATH=/^\/recording\/realtime-asr\/sessions\/([^/?]+)\/captures\/([^/?]+)\/stream$/;
 const ROUTED_ALIAS_PATH=/^\/recording\/sessions\/([^/?]+)\/asr-stream$/;
 type Frame=typeof C.RealtimeAsrServerEvent._type;
+const MAX_PROVIDER_STARTUP_AUDIO_BYTES=32_000;
 export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
   provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; }
 function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
@@ -57,7 +58,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
   };
   ws.on("message",(raw,isBinary)=>{if(isBinary){try{const audio=new Uint8Array(raw as Buffer);
       if(upstream&&!stopping){upstream.pushAudio(audio);receivedPcmBytes+=audio.byteLength;}
-      else if(starting){if(pendingBytes+audio.byteLength>960_000){void fail("AUDIO_BACKPRESSURE");return;}
+      else if(starting){if(pendingBytes+audio.byteLength>MAX_PROVIDER_STARTUP_AUDIO_BYTES){void fail("AUDIO_BACKPRESSURE");return;}
         pendingBytes+=audio.byteLength;pendingAudio.push(audio);receivedPcmBytes+=audio.byteLength;}
       else void fail("PROTOCOL_ERROR");}catch{void fail("PROTOCOL_ERROR");}return;}
     const parsed=C.RealtimeAsrClientEvent.safeParse(safeJson(String(raw)));if(!parsed.success){void fail("PROTOCOL_ERROR");return;}
