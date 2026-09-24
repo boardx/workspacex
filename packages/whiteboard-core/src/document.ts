@@ -4,6 +4,7 @@ import { assertWhiteboardUpdateLimits, WHITEBOARD_UPDATE_LIMITS } from './update
 
 // A successful shadow becomes the next command writer. Reusing it preserves one
 // Yjs client clock instead of adding a fresh client to the live state per command.
+// Failed shadows are discarded, so rejected batches never affect later deltas.
 const commandWriters = new WeakMap<Y.Doc, Y.Doc>();
 
 export function createWhiteboardDocument(): Y.Doc {
@@ -143,12 +144,17 @@ export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): Ui
   let update: Uint8Array | undefined;
   try {
     if (existing) Y.applyUpdate(candidate, Y.encodeStateAsUpdate(doc, Y.encodeStateVector(candidate)));
+    // Capture only this transaction's native wire update. Encoding the whole
+    // candidate against the live state vector would also attach its historical
+    // delete set and can reject a tiny edit on a healthy long-lived document.
     const captured: Uint8Array[] = [];
     const capture = (bytes: Uint8Array) => captured.push(new Uint8Array(bytes));
     candidate.on('update', capture);
     try { candidate.transact(() => apply(candidate, commands)); }
     finally { candidate.off('update', capture); }
     if (captured.length > 1) throw new Error('INVALID_COMMAND_UPDATE');
+    // Schema-valid no-op batches historically succeed without a live update or
+    // undo item. Return a canonical empty Yjs update for the server ACK path.
     update = captured[0] ?? emptyUpdate();
     validateDocument(candidate);
     assertLockedObjectsUnchanged(doc, candidate);
