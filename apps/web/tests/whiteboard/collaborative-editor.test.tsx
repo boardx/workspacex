@@ -72,6 +72,9 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
 it('captures stickies without a mouse and does not submit an active IME composition', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  const toolbarButton = screen.getByTestId('board-add-sticky'); toolbarButton.focus();
+  fireEvent.keyDown(toolbarButton, { key: 'n' });
+  expect(readObjects(doc)).toEqual([]);
   fireEvent.keyDown(document, { key: 'n' });
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(document, { key: 'Enter' });
@@ -108,6 +111,7 @@ it('previews multiline paste, cancels without mutation, and rejects more than 50
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
   const surface = screen.getByTestId('board-live-surface');
+  expect(surface).toHaveAttribute('tabindex', '0');
   paste(surface, '一\n二\n三');
   expect(screen.getByRole('dialog', { name: '批量创建便利贴' })).toHaveTextContent('3 张');
   expect(screen.getByText(/每行 5 张/)).toBeVisible();
