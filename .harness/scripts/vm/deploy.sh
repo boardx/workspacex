@@ -415,6 +415,14 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
+step "4e. 内置脱敏示例项目补种（backlog E2 —— 已有组织不会自己长出示例项目）"
+# 同 4c 的理由：`ensureSampleProject` 只在组织创建那一刻触发。幂等（按 `project_tags`
+# 的「内置示例」标签去重，含已归档——用户归档即删除，不种回来）。示例项目是引导内容不是
+# 可用性前提，失败只告警不中断部署；脚本非零退出 = 有组织补种失败，看日志。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-sample-projects.ts \
+  || echo "  ⚠ 示例项目补种有失败（不阻塞部署），见上方 [backfill-sample-projects] 日志"
+
 # 曾有一步 4d2（另一个 ad-hoc agent 的补种），已随该功能下线删除。当初把它做成
 # 「一个脚本 + 部署期一次调用」而不是焊进共享的注册控制器，为的就是此刻：摘掉这一步
 # 即可，不动任何共享代码。已种进库里的 agent 记录不会被部署删除——它只是不再被补种；

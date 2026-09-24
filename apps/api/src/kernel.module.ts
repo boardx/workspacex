@@ -549,6 +549,8 @@ import { SET_AGENT_ROLE_LABEL_REPOSITORY } from "./application/agent/set-agent-r
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
+import { SAMPLE_PROJECT_SEEDER } from "./application/project/sample-project/ensure-sample-project";
+import { createSampleProjectSeeder } from "./infrastructure/project/sample-project-seeder";
 import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
 import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
@@ -1442,6 +1444,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgImageGenAgentRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // backlog E2：内置脱敏示例项目（组织创建时种一次，存量组织由 backfill-sample-projects.ts 补）。
+    {
+      provide: SAMPLE_PROJECT_SEEDER,
+      useFactory: (db: DatabasePort, store: ObjectStore) => createSampleProjectSeeder(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: AGENT_SKILL_PINS_REPOSITORY,
