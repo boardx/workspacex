@@ -1259,7 +1259,10 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4068 (D9) adds the instance telemetry health counter: two aggregate-only
     // count(*) reads, no ObjectRef/actor. tests/telemetry/telemetry-no-content-tables.test.ts
     // pins the whitelist, count-only SQL and personal-local join. Remove with that test.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(93);
+    // E3 adds pg-first-value-facts.ts (first-write-wins fact insert + SECURITY DEFINER
+    // report function that drops personal-local and never returns org ids), pinned by
+    // tests/first-value/first-value-repo-guard.test.ts. Remove with that test.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(94);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
