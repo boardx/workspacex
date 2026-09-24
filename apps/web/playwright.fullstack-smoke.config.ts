@@ -624,6 +624,7 @@ export default defineConfig({
           ? `${compose} exec -T postgres pg_isready -h 127.0.0.1 -U postgres`
           : `${compose} up -d --wait postgres redis minio`,
         "pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts",
+        "pnpm --filter @repo/api exec tsx scripts/setup-standard-scheduler.ts",
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
@@ -657,6 +658,10 @@ export default defineConfig({
         // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
         // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。
         KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
+        // Board access-receipt issuance is part of every sync hello. The API runtime and its
+        // persistent maintenance worker therefore form one supported topology; the setup
+        // command above installs the pg-boss queue before Nest starts and validates it.
+        KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE: "1",
         PORT: apiPort,
       },
     },

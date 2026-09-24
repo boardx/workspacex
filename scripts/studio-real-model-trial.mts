@@ -26,7 +26,7 @@ for (const line of source.split(/\r?\n/)) {
 }
 for (const name of ["DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL", "DASHSCOPE_MODEL"]) if (!modelVars[name]) throw new Error(`Missing ${name}`);
 const inheritedEnv: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/(?:API_KEY|ACCESS_TOKEN|AUTH_TOKEN|SECRET|CREDENTIAL|PASSWORD|PRIVATE_KEY)/i.test(name) && !/^(?:DASHSCOPE|OPENAI|ANTHROPIC|AZURE_OPENAI|GEMINI|GOOGLE_AI|GROQ|MISTRAL|COHERE|DEEPSEEK|LANGSMITH|LANGCHAIN|KERNEL_MODEL)_/.test(name)));
-const baseEnv = { ...inheritedEnv, WORKSPACEX_DEV_MODE: "1", NODE_ENV: "development", KERNEL_ALLOW_TEST_PRINCIPAL: "0", KERNEL_AGENT_RUN_AUTOSTART: "0", KERNEL_QUIET: "1", MODEL_CREDENTIAL_KEY: randomBytes(32).toString("hex") };
+const baseEnv = { ...inheritedEnv, WORKSPACEX_DEV_MODE: "1", NODE_ENV: "test", KERNEL_ALLOW_TEST_PRINCIPAL: "0", KERNEL_AGENT_RUN_AUTOSTART: "0", KERNEL_QUIET: "1", MODEL_CREDENTIAL_KEY: randomBytes(32).toString("hex") };
 const secretValues = [modelVars.DASHSCOPE_API_KEY!, baseEnv.MODEL_CREDENTIAL_KEY, ...DEV_MODE_ACCOUNTS.map(a => a.password)];
 const scrub = (s: string) => secretValues.reduce((out, secret) => out.split(secret).join("[REDACTED]"), s).replace(/Bearer\s+[\w.\-]+/gi, "Bearer [REDACTED]");
 const verifyChat = process.env.STUDIO_VERIFY_CHAT === "1";

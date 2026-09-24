@@ -35,6 +35,7 @@ export async function importBoardPackage(input: T.ImportBoardInput) {
   const operation = T.operations.importBoard;
   return T.ImportBoardResult.parse(await apiRequest(operation.path, { method: operation.method, body: T.ImportBoardInput.parse(input) }));
 }
+export async function requestQuarantineRecovery(id:string,input:C.RequestQuarantineRecovery){const op=ops.requestQuarantineRecovery;return op.out.parse(await apiRequest(boardPath(op.path,id),{method:op.method,body:op.in.parse(input)}));}
 export async function importDiagram(id: string, input: I.ImportDiagramInput, sessionToken?: string) {
   const op = I.operations.importDiagram;
   return I.ImportDiagramResult.parse(await apiRequest(boardPath(op.path, id), {

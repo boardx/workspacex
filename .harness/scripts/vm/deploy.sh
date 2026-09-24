@@ -334,6 +334,12 @@ step "4. 迁移 —— 先于部署，且幂等"
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   pnpm --filter api exec tsx src/infrastructure/db/migrate-cli.ts
 
+# The first Board sync hello issues a recovery receipt. Install and validate its persistent
+# pg-boss worker before restart so an unavailable scheduler fails deployment rather than a
+# live WebSocket session with an auth-looking dependency error.
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
+  pnpm --filter api exec tsx scripts/setup-standard-scheduler.ts
+
 step "4b. app_rw 密码对齐 deploy.env"
 # migrations/0001-kernel-roles.sql 首次 CREATE ROLE app_rw 时写死了开发默认密码
 # app_rw_dev（不读任何环境变量——那是给本地/CI 一次性数据库用的，故意的，见该文件
@@ -353,7 +359,7 @@ echo "  app_rw 密码已对齐"
 #   2026-09-06 实测：devapp 的 deploy.env 是在这个键被引入之前生成的，provision.sh 的
 #   生成块又只在文件不存在时跑，于是这台机器上它永远缺失（provision.sh 已同步补上
 #   按键补齐的逻辑）。这里把它变成一句能照着做的错误。
-for required_key in APP_DB_PASSWORD DIAG_DB_PASSWORD; do
+for required_key in APP_DB_PASSWORD DIAG_DB_PASSWORD KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE; do
   if ! grep -q "^${required_key}=" "$ENV_FILE"; then
     echo "✗ ${ENV_FILE} 缺 ${required_key}"
     echo "  这台机器的 deploy.env 早于该键被引入。在目标机器上以 root 重跑一次 provision.sh"

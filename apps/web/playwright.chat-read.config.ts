@@ -674,6 +674,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env,
+        NODE_ENV: "test",
         PORT: apiPort,
         CHAT_E2E_FIXTURE: "1",
         CHAT_E2E_PASSWORD: CHAT_READ_E2E.password,

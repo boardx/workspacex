@@ -15,7 +15,7 @@ const evidence=await mkdtemp(join(tmpdir(),`studio-browser-${process.env.COMPOSE
 const distName=`.next-studio-${process.env.COMPOSE_PROJECT_NAME}-${randomBytes(4).toString('hex')}`;
 const children=[]; const logs=[];
 const gitHead=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
-const env={...process.env, STUDIO_GIT_HEAD:gitHead, STUDIO_LANE:'1', WORKSPACEX_DEV_MODE:'1', MODEL_CREDENTIAL_KEY:randomBytes(32).toString('hex'), KERNEL_ALLOW_TEST_PRINCIPAL:'0', KERNEL_AGENT_RUN_AUTOSTART:'0', KERNEL_QUIET:'1', NEXT_TELEMETRY_DISABLED:'1'};
+const env={...process.env, NODE_ENV:'test', STUDIO_GIT_HEAD:gitHead, STUDIO_LANE:'1', WORKSPACEX_DEV_MODE:'1', MODEL_CREDENTIAL_KEY:randomBytes(32).toString('hex'), KERNEL_ALLOW_TEST_PRINCIPAL:'0', KERNEL_AGENT_RUN_AUTOSTART:'0', KERNEL_QUIET:'1', NEXT_TELEMETRY_DISABLED:'1'};
 function processCommand(cmd,args,name,cwd=root, extra={}) {
   return open(`${evidence}/${name}.log`,'wx').then(log=>{
     logs.push(log); const child=spawn(cmd,args,{cwd,env:{...env,...extra},detached:true,stdio:['ignore',log.fd,log.fd]});

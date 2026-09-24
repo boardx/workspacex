@@ -68,7 +68,7 @@ it("wires real command stages without build/pull or credential argv; this is a m
   expect((await execute()).status).toBe("passed");
   const calls = vi.mocked(captureProvisionCommand).mock.calls.map(([command]) => command.args);
   const jobs = calls.filter(args => args[0] === "run" && args.includes("--env-file")).map(args => args.at(-1));
-  expect(jobs).toEqual(["scripts/prepare-starter-roles.ts", "src/infrastructure/db/migrate-cli.ts", "prepare", "scripts/provision-admin.ts", "scripts/data-readiness.ts", "readiness", "scripts/cloud-service-readiness.ts", "scripts/backup-target-readiness.ts", "scripts/verify-oss-storage.ts", "scripts/cloud-business-probe.ts"]);
+  expect(jobs).toEqual(["scripts/prepare-starter-roles.ts", "src/infrastructure/db/migrate-cli.ts", "scripts/setup-standard-scheduler.ts", "prepare", "scripts/provision-admin.ts", "scripts/data-readiness.ts", "readiness", "scripts/cloud-service-readiness.ts", "scripts/backup-target-readiness.ts", "scripts/verify-oss-storage.ts", "scripts/cloud-business-probe.ts"]);
   expect(JSON.stringify(calls)).not.toContain("private-value");
   expect(calls.every(args => !args.includes("build") && !args.includes("pull"))).toBe(true);
   expect(verifyRunningRelease).toHaveBeenCalledOnce();
@@ -82,6 +82,13 @@ it("keeps the public hostname when routing production business probes to the ECS
 });
 it("does not start application services when migration fails", async () => {
   failedScript = "src/infrastructure/db/migrate-cli.ts";
+  const result = await execute(); expect(result.status).toBe("failed");
+  expect(result.stages.at(-1)?.name).toBe("migrate");
+  expect(verifyRunningRelease).not.toHaveBeenCalled();
+  expect(JSON.stringify(result)).not.toContain("private failure details");
+});
+it("does not start application services when persistent scheduler setup fails", async () => {
+  failedScript = "scripts/setup-standard-scheduler.ts";
   const result = await execute(); expect(result.status).toBe("failed");
   expect(result.stages.at(-1)?.name).toBe("migrate");
   expect(verifyRunningRelease).not.toHaveBeenCalled();

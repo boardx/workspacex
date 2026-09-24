@@ -16,6 +16,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 pg_up
 pg_reset
 (cd "$API_DIR" && pnpm exec tsx src/infrastructure/db/migrate-cli.ts >/dev/null)
+(cd "$API_DIR" && pnpm exec tsx scripts/setup-standard-scheduler.ts >/dev/null)
 
 cd "$API_DIR"
-pnpm exec tsx scripts/runtime-gate-assert.ts
+# This is an owned test fixture, but it boots the same persistent receipt worker as the
+# production G7 child inside the assertion. The queue was installed above; both processes
+# therefore exercise an explicit topology instead of relying on an ambient default.
+NODE_ENV=test KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=1 \
+  pnpm exec tsx scripts/runtime-gate-assert.ts

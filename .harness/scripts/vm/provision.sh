@@ -161,6 +161,9 @@ PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
 # 重启或 tmp 清理即丢。deploy.sh 第 4g 步会兜底补写并建目录，这里写上是让新机器
 # 从第一天就不经过误配状态。
 WORKSPACEX_OBJECT_ROOT=/opt/workspacex/objects
+# Board sync issues a recovery access receipt on its first hello. Its persistent retention
+# worker is part of the API runtime topology and may not be silently omitted.
+KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=1
 # ── 沙箱并发容量（四项都是可选；不设 = 用各自的默认值）──────────────────────
 # SKILL_SANDBOX_MAX_SESSIONS：并发 Native session 上限。**不在这里写默认值**——
 #   默认只声明在 packages/contracts/src/sandbox-session.ts 的 `maxSessions`，
@@ -249,6 +252,7 @@ ensure_env_key() {
 gen_secret() { openssl rand -base64 24; }
 ensure_env_key DIAG_DB_USER app_diag_ro
 ensure_env_key DIAG_DB_PASSWORD "$(gen_secret)"
+ensure_env_key KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE 1
 NATIVE_RUNTIME_LIB="${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh"
 [ -r "$NATIVE_RUNTIME_LIB" ] || { echo "✗ 缺 Native runtime helper: ${NATIVE_RUNTIME_LIB}"; exit 1; }
 # shellcheck source=/dev/null

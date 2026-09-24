@@ -33,10 +33,11 @@
  * variable, repeat" shape this script exists to kill. So: boot, and if it throws, extract the
  * variable name from the (single-source) error message, inject one generic placeholder for
  * THAT variable only, and boot again. Repeat until it boots clean or nothing new is
- * discovered. The placeholder is one fixed string, not a per-variable table -- it only needs
- * to be non-empty and long enough to clear the simple length checks this codebase has today
- * (e.g. `EMAIL_VERIFICATION_SECRET must contain at least 32 bytes`). It is never used to talk
- * to anything real.
+ * discovered. Most message shapes use one non-empty placeholder long enough to clear the
+ * simple length checks in this codebase. A message shape may provide the exact sentinel its
+ * validator requires (for example `must equal 1 in production`). This remains a table of
+ * validation shapes rather than variable names, and no placeholder is used to contact a
+ * real service.
  *
  * ## What this deliberately does NOT flag
  *
@@ -70,16 +71,22 @@ const PLACEHOLDER = "verify-required-env-probe-placeholder-0";
  * genuinely new message shape means adding a pattern HERE, once -- not a variable name
  * anywhere else.
  */
-const EXTRACTORS: readonly RegExp[] = [
-  /^missing env var (\w+)$/,
-  /^(\w+) is required in production$/,
-  /^(\w+) must contain at least \d+ bytes$/,
+const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: string }[] = [
+  { pattern: /^missing env var (\w+)$/ },
+  { pattern: /^(\w+) is required in production$/ },
+  { pattern: /^(\w+) must contain at least \d+ bytes$/ },
+  { pattern: /^(\w+) must equal 1 in production$/, placeholder: "1" },
 ];
 
-function extractVarName(message: string): string | null {
-  for (const re of EXTRACTORS) {
-    const m = re.exec(message);
-    if (m) return m[1] ?? null;
+interface ExtractedEnvFailure {
+  readonly name: string;
+  readonly placeholder: string;
+}
+
+function extractEnvFailure(message: string): ExtractedEnvFailure | null {
+  for (const { pattern, placeholder = PLACEHOLDER } of EXTRACTORS) {
+    const m = pattern.exec(message);
+    if (m?.[1]) return { name: m[1], placeholder };
   }
   return null;
 }
@@ -105,9 +112,9 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
   /** Original value per touched var, so restoration is exact even across repeated touches. */
   const saved = new Map<string, string | undefined>();
 
-  const touch = (name: string) => {
+  const touch = (name: string, placeholder: string) => {
     if (!saved.has(name)) saved.set(name, process.env[name]);
-    process.env[name] = PLACEHOLDER;
+    process.env[name] = placeholder;
   };
 
   /**
@@ -127,18 +134,18 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
         break;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const name = extractVarName(message);
-        if (name === null) {
+        const failure = extractEnvFailure(message);
+        if (failure === null) {
           throw new Error(
             "verify-required-env: kernel boot failed with a message this probe cannot " +
               "attribute to an env var (add an EXTRACTORS pattern for the new message shape " +
               `-- do not hand-list the variable name instead): ${message}`,
           );
         }
-        const priorValue = saved.has(name) ? saved.get(name) : process.env[name];
-        if (priorValue === undefined || priorValue === "") missingVars.add(name);
-        else invalidVars.set(name, message);
-        touch(name);
+        const priorValue = saved.has(failure.name) ? saved.get(failure.name) : process.env[failure.name];
+        if (priorValue === undefined || priorValue === "") missingVars.add(failure.name);
+        else invalidVars.set(failure.name, message);
+        touch(failure.name, failure.placeholder);
       }
     }
   } finally {

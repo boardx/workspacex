@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionReplacementSupersededError, withSessionStorageLock } from "@/lib/session-storage-lock";
 import { ApiError, storeSessionToken, clearStoredSessionToken, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
-const { resolveIdentity, switchCurrentOrganization } = vi.hoisted(() => ({
+const { resolveIdentity, switchCurrentOrganization, markWhiteboardSessionRevoked } = vi.hoisted(() => ({
   resolveIdentity: vi.fn(),
   switchCurrentOrganization: vi.fn(),
+  markWhiteboardSessionRevoked: vi.fn(),
 }));
 
 vi.mock("@/lib/session-api", () => ({ resolveIdentity, switchCurrentOrganization }));
+vi.mock("@/lib/whiteboard-outbox", () => ({ markWhiteboardSessionRevoked }));
 
 import {
   SESSION_COMMIT_STORAGE_KEY,
@@ -62,8 +64,9 @@ function Probe() {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
-  return { promise, resolve };
+  let reject!: (reason?:unknown) => void;
+  const promise = new Promise<T>((done,fail) => { resolve = done;reject=fail; });
+  return { promise, resolve,reject };
 }
 
 function storedSession(login = LOGIN, currentOrgId = "org-one") {
@@ -90,6 +93,8 @@ beforeEach(() => {
   window.localStorage.clear();
   resolveIdentity.mockReset();
   switchCurrentOrganization.mockReset();
+  markWhiteboardSessionRevoked.mockReset();
+  markWhiteboardSessionRevoked.mockReturnValue(undefined);
 });
 
 describe("SessionProvider", () => {
@@ -122,7 +127,8 @@ describe("SessionProvider", () => {
     expect(window.localStorage.getItem(SESSION_COMMIT_STORAGE_KEY)).toBe(switched?.revision);
 
     fireEvent.click(screen.getByTestId("logout"));
-    expect(screen.getByTestId("status")).toHaveTextContent("anonymous");
+    await waitFor(()=>expect(screen.getByTestId("status")).toHaveTextContent("anonymous"));
+    expect(markWhiteboardSessionRevoked).toHaveBeenCalledWith("user-one","token-one");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
   });
 
@@ -147,6 +153,37 @@ describe("SessionProvider", () => {
     expect(resolveIdentity).toHaveBeenCalledTimes(callsBeforeRename);
   });
 
+  it("still becomes anonymous when durable Board cleanup reports an IndexedDB failure",async()=>{
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);markWhiteboardSessionRevoked.mockImplementationOnce(()=>{throw new Error('indexeddb unavailable');});render(<SessionProvider><Probe/></SessionProvider>);
+    fireEvent.click(await screen.findByTestId('sign-in'));await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));fireEvent.click(screen.getByTestId('logout'));
+    await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("clears logout synchronously when the session-storage Web Lock never releases",async()=>{
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);render(<SessionProvider><Probe/></SessionProvider>);
+    fireEvent.click(await screen.findByTestId('sign-in'));await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('authenticated'));
+    const request=vi.fn(()=>new Promise<never>(()=>{}));
+    vi.stubGlobal('navigator',{...window.navigator,locks:{request}});
+    fireEvent.click(screen.getByTestId('logout'));
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it("clears a 401 session synchronously when the session-storage Web Lock never releases",async()=>{
+    const identity=deferred<typeof IDENTITY_ONE>();resolveIdentity.mockReturnValueOnce(identity.promise);
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY,LOGIN.sessionToken);
+    window.localStorage.setItem(SESSION_STORAGE_KEY,storedSession());
+    render(<SessionProvider><Probe/></SessionProvider>);await waitFor(()=>expect(resolveIdentity).toHaveBeenCalledOnce());
+    const request=vi.fn(()=>new Promise<never>(()=>{}));vi.stubGlobal('navigator',{...window.navigator,locks:{request}});
+    await act(async()=>{identity.reject(new ApiError(401,null,{}));await Promise.resolve();});
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    await waitFor(()=>expect(screen.getByTestId('status')).toHaveTextContent('anonymous'));
+    expect(request).toHaveBeenCalledOnce();
+  });
+
   it("clears an invalid session on 401", async () => {
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, LOGIN.sessionToken);
     window.localStorage.setItem("wsx.session", JSON.stringify({ ...LOGIN, currentOrgId: "org-one", version: 1 }));
@@ -155,6 +192,7 @@ describe("SessionProvider", () => {
     render(<SessionProvider><Probe /></SessionProvider>);
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous"));
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(markWhiteboardSessionRevoked).toHaveBeenCalledWith(LOGIN.userId,LOGIN.sessionToken);
   });
 
   it("preserves the bearer session on dependency failure so retry can recover", async () => {
@@ -324,7 +362,7 @@ describe("SessionProvider", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByTestId("status")).toHaveTextContent("anonymous");
+    await waitFor(()=>expect(screen.getByTestId("status")).toHaveTextContent("anonymous"));
     expect(screen.getByTestId("org")).toHaveTextContent("none");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem("wsx.session")).toBeNull();

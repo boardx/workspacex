@@ -33,3 +33,8 @@ it("CI executes the exact allowed command with isolation and retains failures as
   expect(workflow).toContain("pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts");
   expect(workflow).toContain("if: always()"); expect(workflow).toContain("if-no-files-found: error");
 });
+it("runs the owned API as an explicit test fixture without a production worker", () => {
+  const runner = readFileSync(resolve(root, "scripts/studio-skill-files-e2e.mjs"), "utf8");
+  expect(runner).toContain("NODE_ENV:'test'");
+  expect(runner).not.toContain("KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE");
+});

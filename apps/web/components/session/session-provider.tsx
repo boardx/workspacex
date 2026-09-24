@@ -11,6 +11,7 @@ import {
 import type { Identity } from "@/lib/identity";
 import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
 import type { OrganizationSummary } from "@/lib/org-display";
+import { markWhiteboardSessionRevoked } from "@/lib/whiteboard-outbox";
 import {
   resolveIdentity,
   switchCurrentOrganization,
@@ -193,30 +194,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus("anonymous");
   }, []);
 
-  const logout = React.useCallback(async () => {
-    const expectedToken = getStoredSessionToken();
-    await withSessionStorageLock(() => {
-      if (getStoredSessionToken() !== expectedToken) return;
-      clearSessionWhileLocked();
-      becomeAnonymous();
-    });
-  }, [becomeAnonymous]);
+  const invalidateSession = React.useCallback((expectedToken:string|null,expectedUserId:string|undefined,expectedGeneration?:number) => {
+    if(expectedGeneration!==undefined&&generationRef.current!==expectedGeneration)return false;
+    if(getStoredSessionToken()!==expectedToken)return false;
+    if(expectedToken&&expectedUserId)try{markWhiteboardSessionRevoked(expectedUserId,expectedToken);}catch{/* never retain a rejected bearer */}
+    clearSessionWhileLocked();
+    becomeAnonymous();
+    const invalidatedGeneration=generationRef.current;
+    // Cross-tab coordination is cleanup only. A stuck Web Lock cannot delay the local security
+    // boundary, and a later callback may clear only the same stale bearer generation.
+    if(expectedToken!==null)void withSessionStorageLock(()=>{
+      if(generationRef.current!==invalidatedGeneration)return;
+      if(getStoredSessionToken()===expectedToken)clearSessionWhileLocked();
+    }).catch(()=>undefined);
+    return true;
+  },[becomeAnonymous]);
 
-  const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string) => {
+  const logout = React.useCallback(() => {
+    const expectedToken = getStoredSessionToken();
+    const expectedUserId = session?.userId;
+    invalidateSession(expectedToken,expectedUserId);
+    return Promise.resolve();
+  }, [invalidateSession, session?.userId]);
+
+  const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string, expectedUserId: string) => {
     if (generation !== generationRef.current) return;
     const normalized = failure instanceof Error ? failure : new Error("session_dependency_failed");
     if (normalized instanceof ApiError && normalized.status === 401) {
-      void withSessionStorageLock(() => {
-        if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
-        clearSessionWhileLocked();
-        becomeAnonymous();
-      });
+      invalidateSession(expectedToken,expectedUserId,generation);
       return;
     }
     setIdentity(null);
     setError(normalized);
     setStatus("dependency-failed");
-  }, [becomeAnonymous]);
+  }, [invalidateSession]);
 
   const hydrateAtGeneration = React.useCallback(async (next: SessionInfo, generation: number) => {
     if (generation !== generationRef.current) return false;
@@ -230,7 +241,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (failure) {
       if (generation !== generationRef.current) return false;
-      handleFailure(failure, generation, next.sessionToken);
+      handleFailure(failure, generation, next.sessionToken, next.userId);
       throw failure;
     }
   }, [handleFailure]);
@@ -372,7 +383,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (failure) {
       if (generation !== generationRef.current) throw failure;
-      handleFailure(failure, generation, session.sessionToken);
+      handleFailure(failure, generation, session.sessionToken, session.userId);
       throw failure;
     }
   }, [handleFailure, session]);

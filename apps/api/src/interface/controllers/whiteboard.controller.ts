@@ -1,7 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, StreamableFile } from '@nestjs/common';
-import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
-import { whiteboardDiscussion as D } from '@repo/contracts';
-import { WHITEBOARD_REPOSITORY, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
+import { whiteboard as C, whiteboardDiscussion as D, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
+import { WHITEBOARD_REPOSITORY, WhiteboardRecoveryError, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
 import { WHITEBOARD_DISCUSSION, type WhiteboardDiscussion } from '../../application/whiteboard/discussion-ports';
 import { WHITEBOARD_COLLABORATION_STORE, WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
 import { importChatDiagram, ImportChatDiagramError } from '../../application/whiteboard/import-chat-diagram';
@@ -108,5 +107,15 @@ export class WhiteboardController {
   @Post('imports')
   async importBoard(@CurrentPrincipal() p: Principal, @Body(new ZodBodyPipe(T.ImportBoardInput)) input: T.ImportBoardInput) {
     assertPrincipal(p); try { return await this.transfer.importBoard(p,input); } catch (error) { transferFailure(error); }
+  }
+  @Post(':boardId/quarantine-recovery-requests')
+  async requestQuarantineRecovery(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string,
+    @Body(new ZodBodyPipe(C.RequestQuarantineRecovery)) input: C.RequestQuarantineRecovery) {
+    assertPrincipal(p);
+    let result:C.QuarantineRecoveryRequest|null;
+    try{result=await this.repo.requestQuarantineRecovery(p,id,input);}
+    catch(error){if(error instanceof WhiteboardRecoveryError)throw new ConflictException({reasonCode:error.code});throw error;}
+    if(!result) throw new ForbiddenException({reasonCode:'QUARANTINE_RECOVERY_NOT_ALLOWED'});
+    return result;
   }
 }
