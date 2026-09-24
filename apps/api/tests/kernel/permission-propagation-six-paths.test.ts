@@ -1258,7 +1258,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // the exception if its capability/owner gates or those tests disappear.
     // #3926 adds one private whiteboard metadata repository (92 -> 93).
     // #3967 adds exactly one collaborative Yjs repository (93 -> 94).
-    // Re-measured: lint reports allowlisted=102, minus 8 audited boundary rules = 94.
+    // #3979 adds one meeting-room repository (94 -> 95). Pair creation and
+    // revocation stay behind Board owner/editor authorization; one-time join,
+    // cross-tenant hiding, presenter membership rechecks and brute-force limits
+    // are pinned by real HTTP/PostgreSQL acceptance.
+    // Re-measured: lint reports allowlisted=103, minus 8 audited boundary rules = 95.
     // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
     // fallback would expose private boards. The exception is bounded to three
     // tables and actor/owner SQL predicates by the resource and collaboration
@@ -1266,7 +1270,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // HTTP and WebSocket evidence covers nonmembers, cross-tenant identity,
     // viewer/editor writes, revocation, restart recovery and authentication.
     // Remove an increment and its allowlist entry if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(94);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(95);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

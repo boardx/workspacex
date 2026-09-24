@@ -35,6 +35,13 @@ describe('whiteboard meeting-room security boundary',()=>{
     expect(()=>whiteboardRoomSecret({NODE_ENV:'production'})).toThrow('WHITEBOARD_ROOM_SECRET');
     expect(whiteboardRoomSecret({NODE_ENV:'production',WHITEBOARD_ROOM_SECRET:'x'.repeat(32)})).toHaveLength(32);
   });
+  it('defers production secret validation until a room operation uses it',async()=>{
+    const session:TenantSession={query:async()=>({rows:[]})};
+    const db={withTenant:<T>(_org:string,fn:(s:TenantSession)=>Promise<T>)=>fn(session),withoutTenant:<T>(fn:(s:TenantSession)=>Promise<T>)=>fn(session),close:async()=>undefined} satisfies DatabasePort;
+    const rooms=new PgWhiteboardRoomRepository(db,()=>whiteboardRoomSecret({NODE_ENV:'production'}));
+    expect(()=>rooms).not.toThrow();
+    await expect(rooms.join({orgId:'org-1',pairingId:'11111111-1111-4111-8111-111111111111',code:'BAD-CODE'},'source')).rejects.toThrow('WHITEBOARD_ROOM_SECRET');
+  });
   it('derives an idempotent code while sending only its hash to persistence',async()=>{
     const pairingId='11111111-1111-4111-8111-111111111111',boardId='22222222-2222-4222-8222-222222222222';
     const writes:readonly unknown[][]=[];

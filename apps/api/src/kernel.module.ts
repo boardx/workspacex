@@ -2886,7 +2886,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_ROOM_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgWhiteboardRoomRepository(db, whiteboardRoomSecret()),
+      // Resolve the production-only secret on first room operation. A deployment
+      // that does not enable meeting-room pairing must still pass the standard
+      // production boot gate; the first attempted use remains fail-closed.
+      useFactory: (db: DatabasePort) => new PgWhiteboardRoomRepository(db, () => whiteboardRoomSecret()),
       inject: [DATABASE_PORT],
     },
     {

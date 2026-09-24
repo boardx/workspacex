@@ -11,10 +11,11 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 type Access = { owner_id: string; archived: boolean; role: string | null };
 
 export class PgWhiteboardRoomRepository implements WhiteboardRoomRepository {
-  constructor(private readonly db: DatabasePort, private readonly secret: string) {}
-  private hmac(value: string) { return createHmac('sha256', this.secret).update(value).digest('hex'); }
+  constructor(private readonly db: DatabasePort, private readonly secretSource: string | (() => string)) {}
+  private secret() { return typeof this.secretSource === 'function' ? this.secretSource() : this.secretSource; }
+  private hmac(value: string) { return createHmac('sha256', this.secret()).update(value).digest('hex'); }
   private code(pairingId: string) {
-    const bytes = createHmac('sha256', this.secret).update(`code:${pairingId}`).digest();
+    const bytes = createHmac('sha256', this.secret()).update(`code:${pairingId}`).digest();
     return Array.from(bytes.subarray(0, 8), value => CODE_ALPHABET[value! % CODE_ALPHABET.length]).join('');
   }
   private tokenHash(token: string) { return this.hmac(`token:${token}`); }
