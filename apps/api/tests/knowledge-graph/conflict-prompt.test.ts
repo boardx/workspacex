@@ -18,7 +18,7 @@ import { getThreadKnowledge, getTurnMemory } from "../../src/application/knowled
 import { findConflicts, isConflict, normalizeNumber, type ConfirmedClaim, type FreshClaim } from "../../src/domain/knowledge-graph/conflict";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgChatRepository } from "../../src/infrastructure/chat/pg-chat-repository";
-import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
@@ -39,7 +39,8 @@ const T = {
   shared: "thr-f16-shared", p1: "thr-f16-p1", p2: "thr-f16-p2", sharedP: "thr-f16-shared-p",
   fNewer: "thr-f16-forget-newer", fOlder: "thr-f16-forget-older", rNewer: "thr-f16-revise-newer", rOlder: "thr-f16-revise-older",
   del: "thr-f16-delete", chain: "thr-f16-chain", two: "thr-f16-two", l1a: "thr-f16-l1a", l1b: "thr-f16-l1b",
-  qa: "thr-f16-qa", qb: "thr-f16-qb", ra: "thr-f16-ra", rb: "thr-f16-rb", rc: "thr-f16-rc", sa: "thr-f16-sa", sb: "thr-f16-sb", held: "thr-f16-held", stale: "thr-f16-stale", mc: "thr-f16-marked",
+  qa: "thr-f16-qa", qb: "thr-f16-qb", ra: "thr-f16-ra", rb: "thr-f16-rb", rc: "thr-f16-rc", sa: "thr-f16-sa", sb: "thr-f16-sb",
+  ta: "thr-f16-ta", tb: "thr-f16-tb", pa: "thr-f16-poison-a", pb: "thr-f16-poison-b", held: "thr-f16-held", stale: "thr-f16-stale", mc: "thr-f16-marked",
 };
 
 const reply = (entity: string, ...claims: (readonly [string, "decision" | "fact"])[]) => JSON.stringify({
@@ -53,7 +54,7 @@ const MODEL = loopbackModel([
   ["项目A 上线改到 10/5", reply("项目A", ["项目A 上线改到 10/5", "decision"])],
   ["项目A 预算定为 50 万", reply("项目A", ["项目A 预算定为 50 万", "decision"])],
   ["项目A 定在 9/28 上线", reply("项目A", ["项目A 9/28 上线", "decision"])],
-  ...["Q", "R", "S"].flatMap((x) => [
+  ...["Q", "R", "S", "T"].flatMap((x) => [
     [`项目${x} 定在 9/29 发布`, reply(`项目${x}`, [`项目${x} 9/29 发布`, "decision"])],
     [`项目${x} 发布改到 10/1`, reply(`项目${x}`, [`项目${x} 发布改到 10/1`, "decision"])],
     [`项目${x} 发布改到 10/5`, reply(`项目${x}`, [`项目${x} 发布改到 10/5`, "decision"])],
@@ -79,7 +80,7 @@ beforeAll(async () => {
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
   }
   for (const id of [T.keepNew, T.keepBoth, T.ignore, T.neg, T.multi, T.guard, T.guard2, T.race, T.p1, T.p2,
-    T.fNewer, T.fOlder, T.rNewer, T.rOlder, T.del, T.chain, T.two, T.l1a, T.l1b, T.qa, T.qb, T.ra, T.rb, T.rc, T.sa, T.sb, T.held, T.stale, T.mc]) {
+    T.fNewer, T.fOlder, T.rNewer, T.rOlder, T.del, T.chain, T.two, T.l1a, T.l1b, T.qa, T.qb, T.ra, T.rb, T.rc, T.sa, T.sb, T.ta, T.tb, T.pa, T.pb, T.held, T.stale, T.mc]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   }
   for (const id of [T.shared, T.sharedP]) {
@@ -701,6 +702,9 @@ describe("F16: 守卫", () => {
     expect(trig.match(/FOR UPDATE NOWAIT/g)).toHaveLength(2);
     expect(trig).toMatch(/EXCEPTION WHEN lock_not_available/);
     expect(trig).toMatch(/INSERT INTO public\.kg_conflict_close_queue/);
+    // 队列表不许有外键：外键检查会在被引用行上等（D2 经由外键又回来——复审第 3 轮）
+    const queueDdl = sqlText.slice(sqlText.indexOf("CREATE TABLE IF NOT EXISTS kg_conflict_close_queue"));
+    expect(queueDdl.slice(0, queueDdl.indexOf(");"))).not.toMatch(/REFERENCES/i);
     const locked = body("kg_conflict_close_locked");
     expect(locked).not.toMatch(/advisory|FOR UPDATE|FOR SHARE/);
     // 排空按正常顺序等：会话锁 → 个人空间锁 → 行
@@ -884,6 +888,79 @@ describe("F16: 结束冲突不会跨会话死锁——拿不到锁就放进队�
     await confirmable(T.rc, pcc!.newer_claim_id);
     // 排空可重复：再跑一轮什么都不做
     expect(await drainConflictCloses({ conflicts: new PgKgConflict(db), logger: silentLogger })).toBe(0);
+  });
+
+  it("另一个事务正拿着那张卡这一行（排空 / 处理的前半段）⇒ 触发器入队不等，立刻返回；对方随后锁那条结论也不死锁", async () => {
+    await say(T.ta, "项目T 定在 9/29 发布");
+    const s1 = await claimBy(T.ta, "项目T 9/29 发布");
+    expect((await promote(T.ta, s1.id)).results[0]?.outcome).toBe("promoted");
+    await say(T.tb, "项目T 发布改到 10/1");
+    const [pt] = await promptsOf(T.tb);
+    const kA = (await read(T.ta)).revision;
+    const a = await tx();
+    // 乙：与 kg_conflict_close_drain / kg_resolve_conflict 的前半段一样——会话锁、个人空间锁、卡这一行、新条这一行
+    const b = new pg.Client(migrationConfig());
+    await b.connect();
+    try {
+      await b.query("BEGIN");
+      await b.query("SELECT pg_advisory_xact_lock(hashtext($1)), pg_advisory_xact_lock(hashtext($2))", [key("chat_session", T.tb), key("personal", "u-owner")]);
+      await b.query("SELECT 1 FROM kg_conflict_prompts WHERE id = $1 FOR UPDATE", [pt!.id]);
+      await b.query("SELECT 1 FROM claims WHERE id = $1 FOR UPDATE", [pt!.newer_claim_id]);
+      const started = Date.now();
+      await within(a.query("SELECT kg_apply_human_action($1::jsonb)", [JSON.stringify({
+        action_id: newKgId("act"), thread_id: T.ta, based_on_revision: kA, action: { type: "revokeClaim", claimId: s1.id },
+      })]), 2_000);
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(await queued(a, pt!.id)).toBe(1);
+      // 乙接着锁 P（旧条，甲已持有）⇒ 等甲；甲提交后乙拿到——没有环
+      const lockOlder = b.query("SELECT 1 FROM claims WHERE id = $1 FOR UPDATE", [pt!.older_claim_id]);
+      lockOlder.catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 200));
+      await a.query("COMMIT");
+      await expect(lockOlder).resolves.toBeDefined();
+      await b.query("COMMIT");
+    } finally {
+      await a.end();
+      await b.end();
+    }
+    expect(await drainConflictCloses({ conflicts: new PgKgConflict(db), logger: silentLogger })).toBeGreaterThanOrEqual(1);
+    expect((await promptsOf(T.tb))[0]!.status).toBe("closed_by_change");
+    await confirmable(T.tb, pt!.newer_claim_id);
+  });
+
+  it("排空失败的一行（这里：等锁超时）往后推，不挡住同一 org 后面的行；到期后再处理", async () => {
+    const first = await conflictIn(T.pa);
+    const second = await conflictIn(T.pb);
+    // 两张卡的新条都失效了，但绕过触发器（replica）——让它们只经队列结束
+    await asOwner(async (c) => {
+      await c.query("SET session_replication_role = replica");
+      await c.query("UPDATE claims SET status = 'superseded', revoked_at = now() WHERE id = ANY($1)", [[first.newer.id, second.newer.id]]);
+      await c.query("INSERT INTO kg_conflict_close_queue (org_id, prompt_id) VALUES ($1, $2), ($1, $3)", [ORG, first.prompt.promptId, second.prompt.promptId]);
+    });
+    const drainOne = () => asApp(ORG, async (c) => (await c.query<{ done: boolean }>("SELECT kg_conflict_close_drain() AS done")).rows[0]!.done);
+    const qrow = (promptId: string) => sql<{ attempts: number; due: boolean; last_error: string | null }>(
+      "SELECT attempts, not_before <= now() AS due, last_error FROM kg_conflict_close_queue WHERE prompt_id = $1", [promptId]);
+    const holder = new pg.Client(migrationConfig());
+    await holder.connect();
+    try {
+      await holder.query("BEGIN");
+      await holder.query("SELECT pg_advisory_xact_lock(hashtext($1))", [key("chat_session", T.pa)]);
+      expect(await drainOne()).toBe(true);                       // 队首（第一张）等锁超时 ⇒ 记失败、往后推
+      expect(await qrow(first.prompt.promptId)).toEqual([{ attempts: 1, due: false, last_error: expect.any(String) }]);
+      expect(await drainOne()).toBe(true);                       // 后面那张照样处理
+      expect((await promptsOf(T.pb))[0]!.status).toBe("closed_by_change");
+      expect(await row(second.older.id)).toMatchObject({ status: "accepted" });
+      expect(await drainOne()).toBe(false);                      // 失败的那行还没到期
+      expect((await promptsOf(T.pa))[0]!.status).toBe("open");
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+    await asOwner((c) => c.query("UPDATE kg_conflict_close_queue SET not_before = now() WHERE prompt_id = $1", [first.prompt.promptId]));
+    expect(await drainOne()).toBe(true);
+    expect((await promptsOf(T.pa))[0]!.status).toBe("closed_by_change");
+    expect(await qrow(first.prompt.promptId)).toEqual([]);
+    expect(await row(first.older.id)).toMatchObject({ status: "accepted" });
   });
 
   it("锁都拿得到时当场结束（不进队列）；会话作用域的审计不带个人空间的 id，个人空间那条记在个人空间", async () => {
