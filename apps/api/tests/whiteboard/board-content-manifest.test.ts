@@ -59,5 +59,8 @@ describe('Board content manifest', () => {
     expect(() => validateBoardContentManifest({ ...manifest, tail: [{ ...tail[0], fromSeq: 4 }] })).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
     expect(() => validateBoardContentManifest({ ...manifest, tail: [tail[0]] })).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
     expect(() => validateBoardContentManifest({ ...manifest, checkpoint: { ...checkpoint, throughSeq: 6 } })).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
+    const parentManifest = { key: `tenants/a/boards/b/manifest/sha256/${digest('c')}`, plainDigest: digest('d'), cipherDigest: digest('c'), sizeBytes: 8, tenantKeyVersion: 1 };
+    expect(() => validateBoardContentManifest({ ...manifest, parentManifest })).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
+    expect(() => validateBoardContentManifest({ ...manifest, parentManifestDigest: digest('e'), parentManifest })).toThrowError(expect.objectContaining({ code: 'INVALID_INPUT' }));
   });
 });

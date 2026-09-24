@@ -9,7 +9,7 @@ import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboar
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
 import { boardStorageProviders } from './infrastructure/whiteboard/board-storage.providers';
-import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobStore } from './application/whiteboard/blob-ports';
+import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobPurgeStore, type BoardBlobStore } from './application/whiteboard/blob-ports';
 import { BOARD_CONTENT_MIGRATION_REPOSITORY, type BoardContentMigrationRepository } from './application/whiteboard/content-migration-ports';
 import { MigrateBoardContent } from './application/whiteboard/migrate-board-content';
 import { PgBoardContentMigrationRepository } from './infrastructure/whiteboard/pg-board-content-migration';
@@ -2880,8 +2880,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort, validator: WorkerWhiteboardUpdateValidator, blobs: BoardBlobStore, codec: BoardBlobCodec) => new PgWhiteboardCollaborationStore(db, validator, 120, blobs, codec, Number(process.env.WORKSPACEX_BOARD_CONTENT_KEY_VERSION ?? 1)),
-      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, BOARD_BLOB_STORE, BOARD_BLOB_CODEC],
+      useFactory: (db: DatabasePort, validator: WorkerWhiteboardUpdateValidator, blobs: BoardBlobStore, codec: BoardBlobCodec, purgeBlobs: BoardBlobPurgeStore) => new PgWhiteboardCollaborationStore(db, validator, 120, blobs, codec, Number(process.env.WORKSPACEX_BOARD_CONTENT_KEY_VERSION ?? 1), purgeBlobs),
+      inject: [DATABASE_PORT, WHITEBOARD_UPDATE_VALIDATOR, BOARD_BLOB_STORE, BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE],
     },
     {
       provide: WHITEBOARD_HISTORY_STORE,

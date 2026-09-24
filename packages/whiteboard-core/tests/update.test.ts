@@ -11,7 +11,8 @@ it('vets an offline concurrent edit without mutating authority, then accepts dup
   executeCommands(server, [{ type: 'text', id: 'a', index: 2, deleteCount: 0, insert: '甲' }], {});
   executeCommands(peer, [{ type: 'text', id: 'a', index: 2, deleteCount: 0, insert: '乙' }], {});
   const before = readObjects(server), incoming = Y.encodeStateAsUpdate(peer, Y.encodeStateVector(server));
-  const update = prepareWhiteboardUpdate(server, incoming);
+    const update = prepareWhiteboardUpdate(server, incoming);
+    expect(update).toEqual(incoming);
   expect(readObjects(server)).toEqual(before); Y.applyUpdate(server, update);
   expect(readObjects(server)[0].text).toContain('甲'); expect(readObjects(server)[0].text).toContain('乙');
   expect(() => prepareWhiteboardUpdate(server, incoming)).not.toThrow();

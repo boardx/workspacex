@@ -1,5 +1,12 @@
-import { BoardBlobError, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
-import { assertSha256Digest, assertTenantBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
+import {
+  BOARD_ENCRYPTED_BLOB_CONTENT_TYPE,
+  BoardBlobError,
+  type BoardBlobDescriptor,
+  type BoardBlobIdentity,
+  type BoardBlobPurgeStore,
+  type BoardBlobStore,
+} from '../../application/whiteboard/blob-ports';
+import { assertSha256Digest, assertTenantBlobKey, boardBlobKey, sha256, tenantStorageNamespace } from '../../domain/whiteboard/blob-identity';
 
 export interface HostedBoardBucketPolicy {
   access: 'private' | 'public' | 'unknown';
@@ -12,6 +19,14 @@ export interface HostedBoardBlobObject {
   cipherDigest?: string;
   sizeBytes?: number;
   versionId?: string;
+  contentType?: string;
+  createdAt?: Date;
+}
+
+export interface HostedBoardListedObject {
+  key: string;
+  sizeBytes?: number;
+  createdAt?: Date;
 }
 
 export type HostedBoardPutResult = 'created' | 'already-exists';
@@ -32,6 +47,7 @@ export interface HostedBoardBlobClient {
   }): Promise<HostedBoardPutResult>;
   get(key: string): Promise<HostedBoardBlobObject | null>;
   head(key: string): Promise<Omit<HostedBoardBlobObject, 'bytes'> | null>;
+  list(input: { keyPrefix: string; limit: number; cursor?: string }): Promise<{ objects: HostedBoardListedObject[]; nextCursor?: string }>;
   deleteCurrent(key: string, versionId?: string): Promise<'deleted' | 'not-found'>;
 }
 
@@ -47,7 +63,7 @@ function integrity(): BoardBlobError {
   return new BoardBlobError('INTEGRITY_FAILED', 'hosted board blob failed verification');
 }
 
-export class HostedBoardBlobStore implements BoardBlobStore {
+export class HostedBoardBlobStore implements BoardBlobStore, BoardBlobPurgeStore {
   constructor(
     private readonly client: HostedBoardBlobClient,
     private readonly requirement: HostedBoardBlobPolicyRequirement,
@@ -75,7 +91,7 @@ export class HostedBoardBlobStore implements BoardBlobStore {
       result = await this.client.putIfAbsent({
         key: input.key,
         bytes,
-        contentType: 'application/octet-stream',
+        contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE,
         metadata: { cipherDigest: input.cipherDigest, sizeBytes: input.sizeBytes },
       });
     } catch {
@@ -89,7 +105,7 @@ export class HostedBoardBlobStore implements BoardBlobStore {
         result = await this.client.putIfAbsent({
           key: input.key,
           bytes,
-          contentType: 'application/octet-stream',
+          contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE,
           metadata: { cipherDigest: input.cipherDigest, sizeBytes: input.sizeBytes },
         });
       } catch {
@@ -103,6 +119,7 @@ export class HostedBoardBlobStore implements BoardBlobStore {
         key: input.key,
         expectedCipherDigest: input.cipherDigest,
         expectedSizeBytes: input.sizeBytes,
+        expectedContentType: input.contentType,
       });
     } catch (error) {
       if (result === 'already-exists' && error instanceof BoardBlobError
@@ -114,7 +131,7 @@ export class HostedBoardBlobStore implements BoardBlobStore {
     return result === 'created' ? 'created' : 'already-present-same-content';
   }
 
-  async getVerified(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<Uint8Array> {
+  async getVerified(input: Parameters<BoardBlobStore['getVerified']>[0]): Promise<Uint8Array> {
     this.validateRead(input);
     await this.assertReady();
     let object: HostedBoardBlobObject | null;
@@ -124,7 +141,8 @@ export class HostedBoardBlobStore implements BoardBlobStore {
     const bytes = new Uint8Array(object.bytes);
     if (bytes.byteLength !== input.expectedSizeBytes || sha256(bytes) !== input.expectedCipherDigest
       || object.sizeBytes !== undefined && object.sizeBytes !== input.expectedSizeBytes
-      || object.cipherDigest !== undefined && object.cipherDigest !== input.expectedCipherDigest) throw integrity();
+      || object.cipherDigest !== undefined && object.cipherDigest !== input.expectedCipherDigest
+      || object.contentType !== input.expectedContentType) throw integrity();
     return bytes;
   }
 
@@ -139,36 +157,75 @@ export class HostedBoardBlobStore implements BoardBlobStore {
     try { assertSha256Digest(object.cipherDigest); }
     catch { throw integrity(); }
     if (!Number.isSafeInteger(object.sizeBytes) || object.sizeBytes < 1) throw integrity();
+    if (object.contentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE) throw integrity();
     if (!input.key.endsWith(`/sha256/${object.cipherDigest}`)) throw integrity();
-    return { cipherDigest: object.cipherDigest, sizeBytes: object.sizeBytes };
+    return { cipherDigest: object.cipherDigest, sizeBytes: object.sizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE };
   }
 
-  async deleteIfMatch(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'> {
-    this.validateRead(input);
+  async listPurgeCandidates(input: Parameters<BoardBlobPurgeStore['listPurgeCandidates']>[0]): ReturnType<BoardBlobPurgeStore['listPurgeCandidates']> {
+    if (!(input.createdBefore instanceof Date) || !Number.isFinite(input.createdBefore.getTime())
+      || !Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 1_000
+      || input.cursor !== undefined && (input.cursor.length < 1 || input.cursor.length > 2_048 || /[\r\n\u0000]/.test(input.cursor))) {
+      throw new BoardBlobError('INVALID_INPUT');
+    }
+    boardBlobKey({ tenantId: input.tenantId, boardId: input.boardId, kind: 'manifest', cipherDigest: '0'.repeat(64) });
+    const keyPrefix = `${tenantStorageNamespace(input.tenantId)}/boards/${input.boardId}/`;
+    await this.assertReady();
+    let page: { objects: HostedBoardListedObject[]; nextCursor?: string };
+    try { page = await this.client.list({ keyPrefix, limit: input.limit, ...(input.cursor ? { cursor: input.cursor } : {}) }); }
+    catch { throw unavailable(); }
+    if (page.nextCursor !== undefined && (page.nextCursor === input.cursor || page.nextCursor.length < 1
+      || page.nextCursor.length > 2_048 || /[\r\n\u0000]/.test(page.nextCursor))) throw unavailable();
+    const candidates = [];
+    for (const listed of page.objects) {
+      if (!listed.key.startsWith(keyPrefix)) throw unavailable();
+      assertTenantBlobKey(input.tenantId, listed.key);
+      if (!(listed.createdAt instanceof Date) || !Number.isFinite(listed.createdAt.getTime())
+        || listed.createdAt.getTime() > input.createdBefore.getTime()) continue;
+      let object: Omit<HostedBoardBlobObject, 'bytes'> | null;
+      try { object = await this.client.head(listed.key); }
+      catch { throw unavailable(); }
+      if (!object) continue;
+      if (object.cipherDigest === undefined || object.sizeBytes === undefined
+        || object.contentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE || !(object.createdAt instanceof Date)
+        || !Number.isFinite(object.createdAt.getTime()) || object.createdAt.getTime() > input.createdBefore.getTime()) throw integrity();
+      try { assertSha256Digest(object.cipherDigest); }
+      catch { throw integrity(); }
+      if (!Number.isSafeInteger(object.sizeBytes) || object.sizeBytes < 1
+        || !listed.key.endsWith(`/sha256/${object.cipherDigest}`)) throw integrity();
+      candidates.push({ tenantId: input.tenantId, key: listed.key, cipherDigest: object.cipherDigest,
+        sizeBytes: object.sizeBytes, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, createdAt: object.createdAt });
+    }
+    return { candidates, ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}) };
+  }
+
+  async purgeCandidate(input: Parameters<BoardBlobPurgeStore['purgeCandidate']>[0]): ReturnType<BoardBlobPurgeStore['purgeCandidate']> {
+    this.validateWriteDescriptor(input);
+    if (!(input.createdAt instanceof Date) || !(input.createdBefore instanceof Date)
+      || !Number.isFinite(input.createdAt.getTime()) || !Number.isFinite(input.createdBefore.getTime())) throw new BoardBlobError('INVALID_INPUT');
     await this.assertReady();
     let object: Omit<HostedBoardBlobObject, 'bytes'> | null;
     try { object = await this.client.head(input.key); }
     catch { throw unavailable(); }
     if (!object) return 'not-found';
-    if (object.cipherDigest !== input.expectedCipherDigest || object.sizeBytes !== input.expectedSizeBytes) throw integrity();
+    if (object.cipherDigest !== input.cipherDigest || object.sizeBytes !== input.sizeBytes
+      || object.contentType !== input.contentType || !(object.createdAt instanceof Date)
+      || object.createdAt.getTime() !== input.createdAt.getTime() || object.createdAt.getTime() > input.createdBefore.getTime()) return 'changed-or-too-new';
     if (!object.versionId) throw unavailable();
     try {
       const result = await this.client.deleteCurrent(input.key, object.versionId);
       const remaining = await this.client.head(input.key);
-      // An older version becoming current, or a concurrent replacement after HEAD, means the
-      // logical key is not safely gone. Keep the lifecycle intent retryable.
-      if (remaining) throw unavailable();
-      return result;
+      if (remaining) return 'changed-or-too-new';
+      return result === 'not-found' ? 'not-found' : 'deleted';
     } catch (error) {
       if (error instanceof BoardBlobError) throw error;
-      // Object-lock, retention, credential, and ambiguous provider failures remain retryable.
       throw unavailable();
     }
   }
 
   private async tryVerified(input: BoardBlobIdentity & BoardBlobDescriptor): Promise<boolean> {
     try {
-      await this.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes });
+      await this.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes, expectedContentType: input.contentType });
       return true;
     } catch (error) {
       if (error instanceof BoardBlobError && (error.code === 'NOT_FOUND' || error.code === 'INTEGRITY_FAILED')) return false;
@@ -177,15 +234,22 @@ export class HostedBoardBlobStore implements BoardBlobStore {
   }
 
   private validateWrite(input: BoardBlobIdentity & BoardBlobDescriptor & { ciphertext: Uint8Array }): void {
-    assertTenantBlobKey(input.tenantId, input.key); assertSha256Digest(input.cipherDigest);
+    this.validateWriteDescriptor(input);
     if (!(input.ciphertext instanceof Uint8Array) || input.sizeBytes < 1 || !Number.isSafeInteger(input.sizeBytes)
       || input.ciphertext.byteLength !== input.sizeBytes || sha256(input.ciphertext) !== input.cipherDigest
       || !input.key.endsWith(`/sha256/${input.cipherDigest}`)) throw new BoardBlobError('INVALID_INPUT');
   }
 
-  private validateRead(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): void {
+  private validateWriteDescriptor(input: BoardBlobIdentity & BoardBlobDescriptor): void {
+    assertTenantBlobKey(input.tenantId, input.key); assertSha256Digest(input.cipherDigest);
+    if (!Number.isSafeInteger(input.sizeBytes) || input.sizeBytes < 1 || input.contentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE
+      || !input.key.endsWith(`/sha256/${input.cipherDigest}`)) throw new BoardBlobError('INVALID_INPUT');
+  }
+
+  private validateRead(input: Parameters<BoardBlobStore['getVerified']>[0]): void {
     assertTenantBlobKey(input.tenantId, input.key); assertSha256Digest(input.expectedCipherDigest);
-    if (!Number.isSafeInteger(input.expectedSizeBytes) || input.expectedSizeBytes < 1) throw new BoardBlobError('INVALID_INPUT');
+    if (!Number.isSafeInteger(input.expectedSizeBytes) || input.expectedSizeBytes < 1
+      || input.expectedContentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE) throw new BoardBlobError('INVALID_INPUT');
   }
 }
 

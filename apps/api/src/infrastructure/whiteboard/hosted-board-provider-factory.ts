@@ -8,6 +8,7 @@ import {
   GetPublicAccessBlockCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -111,6 +112,11 @@ class AliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
     return { content: result.content, headers: headersOf(result.res.headers) };
   }
   async head(key: string): Promise<{ headers: Record<string, string> }> { return { headers: headersOf((await this.sdk.head(key)).res.headers) }; }
+  async list(input: { prefix: string; limit: number; cursor?: string }): Promise<{ objects: Array<{ name: string; size?: number; lastModified?: string | Date }>; nextCursor?: string }> {
+    const sdk = this.sdk as unknown as { listV2(query: Record<string, string | number>): Promise<{ objects?: Array<{ name: string; size?: number; lastModified?: string | Date }>; nextContinuationToken?: string }> };
+    const result = await sdk.listV2({ prefix: input.prefix, 'max-keys': input.limit, ...(input.cursor ? { 'continuation-token': input.cursor } : {}) });
+    return { objects: result.objects ?? [], ...(result.nextContinuationToken ? { nextCursor: result.nextContinuationToken } : {}) };
+  }
   async delete(key: string, options?: { versionId?: string }): Promise<void> {
     const sdk = this.sdk as unknown as { delete(name: string, value?: { versionId?: string }): Promise<unknown> };
     await sdk.delete(key, options);
@@ -136,6 +142,7 @@ class LazyAliyunOssSdkBoardProtocol implements AliyunOssBoardProtocol {
   async put(key: string, bytes: Buffer, options: { headers: Record<string, string>; mime: string }) { return (await this.configured()).put(key, bytes, options); }
   async get(key: string) { return (await this.configured()).get(key); }
   async head(key: string) { return (await this.configured()).head(key); }
+  async list(input: { prefix: string; limit: number; cursor?: string }) { return (await this.configured()).list(input); }
   async delete(key: string, options?: { versionId?: string }) { return (await this.configured()).delete(key, options); }
 }
 
@@ -166,21 +173,21 @@ class OfficialS3BoardProtocol implements S3CompatibleBoardProtocol {
     await this.sdk.send(new PutObjectCommand({ Bucket: input.bucket, Key: input.key, Body: input.body, ContentType: input.contentType, IfNoneMatch: input.ifNoneMatch, Metadata: input.metadata }));
   }
 
-  async getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number } | null> {
+  async getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number; contentType?: string; lastModified?: Date } | null> {
     try {
       const result = await this.sdk.send(new GetObjectCommand({ Bucket: input.bucket, Key: input.key }));
       if (!result.Body) throw new Error('invalid S3 response');
-      return { body: await result.Body.transformToByteArray(), metadata: result.Metadata, contentLength: result.ContentLength };
+      return { body: await result.Body.transformToByteArray(), metadata: result.Metadata, contentLength: result.ContentLength, contentType: result.ContentType, lastModified: result.LastModified };
     } catch (error) {
       if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
       throw error;
     }
   }
 
-  async headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number; versionId?: string } | null> {
+  async headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number; contentType?: string; lastModified?: Date; versionId?: string } | null> {
     try {
       const result = await this.sdk.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }));
-      return { metadata: result.Metadata, contentLength: result.ContentLength, versionId: result.VersionId };
+      return { metadata: result.Metadata, contentLength: result.ContentLength, contentType: result.ContentType, lastModified: result.LastModified, versionId: result.VersionId };
     } catch (error) {
       if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) return null;
       throw error;
@@ -189,6 +196,21 @@ class OfficialS3BoardProtocol implements S3CompatibleBoardProtocol {
 
   async deleteObject(input: { bucket: string; key: string; versionId?: string }): Promise<void> {
     await this.sdk.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.key, ...(input.versionId ? { VersionId: input.versionId } : {}) }));
+  }
+
+  async listObjects(input: { bucket: string; prefix: string; limit: number; cursor?: string }): Promise<{ objects: Array<{ key: string; sizeBytes?: number; lastModified?: Date }>; nextCursor?: string }> {
+    const result = await this.sdk.send(new ListObjectsV2Command({
+      Bucket: input.bucket,
+      Prefix: input.prefix,
+      MaxKeys: input.limit,
+      ...(input.cursor ? { ContinuationToken: input.cursor } : {}),
+    }));
+    return {
+      objects: (result.Contents ?? []).flatMap(value => value.Key
+        ? [{ key: value.Key, sizeBytes: value.Size, lastModified: value.LastModified }]
+        : []),
+      ...(result.NextContinuationToken ? { nextCursor: result.NextContinuationToken } : {}),
+    };
   }
 
   private inspect(): Promise<Inspection> {

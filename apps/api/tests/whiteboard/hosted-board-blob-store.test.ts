@@ -25,7 +25,7 @@ class MemoryHostedClient implements HostedBoardBlobClient {
     this.putCalls += 1;
     if (this.failBeforePut > 0) { this.failBeforePut -= 1; throw new Error('expired credential'); }
     if (this.objects.has(input.key)) return 'already-exists' as const;
-    const object = { bytes: new Uint8Array(input.bytes), ...input.metadata,versionId:'version-1' };
+    const object = { bytes: new Uint8Array(input.bytes), ...input.metadata, contentType: 'application/octet-stream', createdAt: new Date('2026-01-01T00:00:00.000Z'), versionId:'version-1' };
     this.objects.set(input.key, object); this.mutateAfterPut?.(object);
     if (this.putFailure) throw this.putFailure;
     return 'created' as const;
@@ -33,7 +33,11 @@ class MemoryHostedClient implements HostedBoardBlobClient {
   async get(key: string) { return this.objects.get(key) ?? null; }
   async head(key: string) {
     const value = this.objects.get(key);
-    return value ? { cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes,versionId:value.versionId } : null;
+    return value ? { cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes, contentType: value.contentType, createdAt: value.createdAt, versionId:value.versionId } : null;
+  }
+  async list(input: { keyPrefix: string; limit: number }) {
+    return { objects: [...this.objects.entries()].filter(([key]) => key.startsWith(input.keyPrefix)).slice(0, input.limit)
+      .map(([key, object]) => ({ key, sizeBytes: object.sizeBytes, createdAt: object.createdAt })) };
   }
   async deleteCurrent(key:string,versionId?:string){
     this.deleteCalls.push({key,versionId});
@@ -51,7 +55,7 @@ const value = (tenantId = 'org-a', content = 'hosted board bytes') => {
   return {
     tenantId,
     key: boardBlobKey({ tenantId, boardId: '11111111-1111-4111-8111-111111111111', kind: 'update', cipherDigest }),
-    ciphertext: new Uint8Array(ciphertext), cipherDigest, sizeBytes: ciphertext.byteLength,
+    ciphertext: new Uint8Array(ciphertext), cipherDigest, sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream' as const,
   };
 };
 
@@ -71,8 +75,8 @@ describe.each(['aliyun-oss', 's3-compatible'] as const)('%s BoardBlobStore contr
       ? new OssBoardBlobStore(client, { requireObjectLock: true })
       : new S3CompatibleBoardBlobStore(client, { requireObjectLock: true });
     expect(await restarted.putImmutable(input)).toBe('already-present-same-content');
-    expect(await restarted.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes })).toEqual(input.ciphertext);
-    expect(await restarted.head(input)).toEqual({ cipherDigest: input.cipherDigest, sizeBytes: input.sizeBytes });
+    expect(await restarted.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes, expectedContentType: input.contentType })).toEqual(input.ciphertext);
+    expect(await restarted.head(input)).toEqual({ cipherDigest: input.cipherDigest, sizeBytes: input.sizeBytes, contentType: input.contentType });
   });
 
   it('rejects conflicting bytes, tampering, missing objects, and cross-tenant keys', async () => {
@@ -82,9 +86,9 @@ describe.each(['aliyun-oss', 's3-compatible'] as const)('%s BoardBlobStore contr
     conflicting.key = input.key;
     await expect(store.putImmutable(conflicting)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     const existing = client.objects.get(input.key)!; existing.bytes[0]! ^= 1;
-    await expect(store.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes })).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
+    await expect(store.getVerified({ ...input, expectedCipherDigest: input.cipherDigest, expectedSizeBytes: input.sizeBytes, expectedContentType: input.contentType })).rejects.toMatchObject({ code: 'INTEGRITY_FAILED' });
     const missing = value('org-a', 'missing');
-    await expect(store.getVerified({ ...missing, expectedCipherDigest: missing.cipherDigest, expectedSizeBytes: missing.sizeBytes })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(store.getVerified({ ...missing, expectedCipherDigest: missing.cipherDigest, expectedSizeBytes: missing.sizeBytes, expectedContentType: missing.contentType })).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(store.head({ tenantId: 'org-b', key: input.key })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 
@@ -113,26 +117,52 @@ describe.each(['aliyun-oss', 's3-compatible'] as const)('%s BoardBlobStore contr
 
   it('deletes only the head-verified immutable object and leaves provider failures retryable',async()=>{
     const {client,store}=create(),input=value();await store.putImmutable(input);
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:'0'.repeat(64),expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'INTEGRITY_FAILED'});
+    const candidate={tenantId:input.tenantId,key:input.key,cipherDigest:input.cipherDigest,sizeBytes:input.sizeBytes,contentType:input.contentType,createdAt:new Date('2026-01-01T00:00:00.000Z'),createdBefore:new Date('2026-01-02T00:00:00.000Z')};
+    await expect(store.purgeCandidate({...candidate,sizeBytes:input.sizeBytes+1})).resolves.toBe('changed-or-too-new');
     expect(client.objects.has(input.key)).toBe(true);
     client.deleteFailure=new Error('object lock retained secret');
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    await expect(store.purgeCandidate(candidate)).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
     expect(client.objects.has(input.key)).toBe(true);
     client.deleteFailure=null;
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).resolves.toBe('deleted');
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).resolves.toBe('not-found');
+    await expect(store.purgeCandidate(candidate)).resolves.toBe('deleted');
+    await expect(store.purgeCandidate(candidate)).resolves.toBe('not-found');
   });
 
   it('never issues an unfenced delete and treats a revealed older version as retryable',async()=>{
     const {client,store}=create(),input=value();await store.putImmutable(input);
     client.objects.get(input.key)!.versionId=undefined;
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    const candidate={tenantId:input.tenantId,key:input.key,cipherDigest:input.cipherDigest,sizeBytes:input.sizeBytes,contentType:input.contentType,createdAt:new Date('2026-01-01T00:00:00.000Z'),createdBefore:new Date('2026-01-02T00:00:00.000Z')};
+    await expect(store.purgeCandidate(candidate)).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
     expect(client.deleteCalls).toEqual([]);
     client.objects.get(input.key)!.versionId='version-1';
-    client.replacementAfterDelete={bytes:Buffer.from('older'),cipherDigest:sha256(Buffer.from('older')),sizeBytes:5,versionId:'older-version'};
-    await expect(store.deleteIfMatch({...input,expectedCipherDigest:input.cipherDigest,expectedSizeBytes:input.sizeBytes})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+    client.replacementAfterDelete={bytes:Buffer.from('older'),cipherDigest:sha256(Buffer.from('older')),sizeBytes:5,contentType:'application/octet-stream',createdAt:new Date('2025-01-01T00:00:00.000Z'),versionId:'older-version'};
+    await expect(store.purgeCandidate(candidate)).resolves.toBe('changed-or-too-new');
     expect(client.deleteCalls).toEqual([{key:input.key,versionId:'version-1'}]);
     expect(client.objects.get(input.key)?.versionId).toBe('older-version');
+  });
+
+  it('enumerates only the requested tenant and board with a bounded advancing cursor', async () => {
+    const { client, store } = create();
+    const input = value('org-a', 'candidate');
+    const otherTenant = value('org-b', 'other tenant');
+    await store.putImmutable(input);
+    await store.putImmutable(otherTenant);
+    const result = await store.listPurgeCandidates({
+      tenantId: input.tenantId,
+      boardId: '11111111-1111-4111-8111-111111111111',
+      createdBefore: new Date('2026-01-02T00:00:00.000Z'),
+      limit: 10,
+    });
+    expect(result.candidates).toEqual([expect.objectContaining({ tenantId: 'org-a', key: input.key, cipherDigest: input.cipherDigest })]);
+    expect(result.candidates).not.toEqual(expect.arrayContaining([expect.objectContaining({ key: otherTenant.key })]));
+    client.list = async () => ({ objects: [], nextCursor: 'same' });
+    await expect(store.listPurgeCandidates({
+      tenantId: input.tenantId,
+      boardId: '11111111-1111-4111-8111-111111111111',
+      createdBefore: new Date('2026-01-02T00:00:00.000Z'),
+      limit: 10,
+      cursor: 'same',
+    })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
   });
 });
 
@@ -152,5 +182,5 @@ describe('Hosted Board bucket policy', () => {
     await expect(new HostedBoardBlobStore(client, { requireObjectLock: false }).assertReady()).resolves.toBeUndefined();
   });
 
-  it('exposes only digest-fenced deletion',()=>{const client=new MemoryHostedClient(),store=new HostedBoardBlobStore(client,{requireObjectLock:false});expect('deleteIfMatch' in store).toBe(true);expect('delete' in store).toBe(false);});
+  it('separates bounded purge authority from the ordinary BoardBlobStore contract',()=>{const client=new MemoryHostedClient(),store=new HostedBoardBlobStore(client,{requireObjectLock:false});expect('purgeCandidate' in store).toBe(true);expect('deleteIfMatch' in store).toBe(false);expect('delete' in store).toBe(false);});
 });

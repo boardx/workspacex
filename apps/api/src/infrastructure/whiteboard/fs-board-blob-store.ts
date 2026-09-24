@@ -2,8 +2,8 @@ import { constants } from 'node:fs';
 import { open, mkdir, link, unlink, lstat, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { BoardBlobError, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
-import { assertSha256Digest, assertTenantBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, BoardBlobError, type BoardBlobPurgeCandidate, type BoardBlobPurgeStore, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
+import { assertSha256Digest, assertTenantBlobKey, boardBlobKey, sha256, tenantStorageNamespace } from '../../domain/whiteboard/blob-identity';
 
 function storageFault(action: string, error: unknown): BoardBlobError {
   const code = (error as NodeJS.ErrnoException).code ?? 'unknown';
@@ -41,13 +41,13 @@ async function withTargetPublication<T>(target: string, publish: () => Promise<T
  * adapter's threat model: it could also read this process's keys and memory. Multi-instance
  * and mutually untrusted deployments must use the object-storage adapter instead.
  */
-export class FsBoardBlobStore implements BoardBlobStore {
+export class FsBoardBlobStore implements BoardBlobStore, BoardBlobPurgeStore {
   private rootDurabilityBoundary?: string;
   constructor(private readonly root: string, private readonly syncDirectory: (path: string) => Promise<void> = fsyncDirectory) {
     if (!root || !resolve(root)) throw new BoardBlobError('INVALID_INPUT', 'board blob root is required');
   }
 
-  async putImmutable(input: { tenantId: string; key: string; ciphertext: Uint8Array; cipherDigest: string; sizeBytes: number }): Promise<'created' | 'already-present-same-content'> {
+  async putImmutable(input: Parameters<BoardBlobStore['putImmutable']>[0]): Promise<'created' | 'already-present-same-content'> {
     this.validateDescriptor(input);
     if (!(input.ciphertext instanceof Uint8Array) || input.ciphertext.byteLength !== input.sizeBytes || sha256(input.ciphertext) !== input.cipherDigest) {
       throw new BoardBlobError('INTEGRITY_FAILED', 'ciphertext does not match its descriptor');
@@ -56,7 +56,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
     return withTargetPublication(target, () => this.putAtTarget(input, target));
   }
 
-  private async putAtTarget(input: { tenantId: string; key: string; ciphertext: Uint8Array; cipherDigest: string; sizeBytes: number }, target: string): Promise<'created' | 'already-present-same-content'> {
+  private async putAtTarget(input: Parameters<BoardBlobStore['putImmutable']>[0], target: string): Promise<'created' | 'already-present-same-content'> {
     const parent = dirname(target);
     const temporary = join(parent, `.board-tmp-${process.pid}-${randomUUID()}`);
     try {
@@ -98,8 +98,8 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
   }
 
-  async getVerified(input: { tenantId: string; key: string; expectedCipherDigest: string; expectedSizeBytes: number }): Promise<Uint8Array> {
-    this.validateDescriptor({ ...input, cipherDigest: input.expectedCipherDigest, sizeBytes: input.expectedSizeBytes });
+  async getVerified(input: Parameters<BoardBlobStore['getVerified']>[0]): Promise<Uint8Array> {
+    this.validateDescriptor({ ...input, cipherDigest: input.expectedCipherDigest, sizeBytes: input.expectedSizeBytes, contentType: input.expectedContentType });
     try {
       const target = this.pathFor(input.tenantId, input.key);
       await this.assertConfinedParent(target);
@@ -115,13 +115,13 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
   }
 
-  async head(input: { tenantId: string; key: string }): Promise<{ cipherDigest: string; sizeBytes: number } | null> {
+  async head(input: Parameters<BoardBlobStore['head']>[0]): ReturnType<BoardBlobStore['head']> {
     assertTenantBlobKey(input.tenantId, input.key);
     try {
       const target = this.pathFor(input.tenantId, input.key);
       await this.assertConfinedParent(target);
       const bytes = await this.readRegularNoFollow(target);
-      return { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength };
+      return { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE };
     } catch (error) {
       if (error instanceof BoardBlobError) throw error;
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
@@ -129,30 +129,91 @@ export class FsBoardBlobStore implements BoardBlobStore {
     }
   }
 
-  async deleteIfMatch(input: { tenantId: string; key: string; expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'> {
-    this.validateDescriptor({ ...input, cipherDigest: input.expectedCipherDigest, sizeBytes: input.expectedSizeBytes });
+  async listPurgeCandidates(input: Parameters<BoardBlobPurgeStore['listPurgeCandidates']>[0]): ReturnType<BoardBlobPurgeStore['listPurgeCandidates']> {
+    if (!(input.createdBefore instanceof Date) || !Number.isFinite(input.createdBefore.getTime())
+      || !Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 1_000) throw new BoardBlobError('INVALID_INPUT');
+    const prefix = `${tenantStorageNamespace(input.tenantId)}/boards/${input.boardId}/`;
+    // Validate the board id and the tenant namespace through the canonical key builder.
+    boardBlobKey({ tenantId: input.tenantId, boardId: input.boardId, kind: 'manifest', cipherDigest: '0'.repeat(64) });
+    if (input.cursor !== undefined && (!input.cursor.startsWith(prefix) || input.cursor.includes('..'))) throw new BoardBlobError('INVALID_INPUT');
+    const boardRoot = this.pathFor(input.tenantId, prefix.slice(0, -1));
+    const keys = await this.listObjectKeys(boardRoot, prefix).catch(error => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    });
+    const eligible = keys.filter(key => input.cursor === undefined || key > input.cursor).sort();
+    const candidates: BoardBlobPurgeCandidate[] = [];
+    let scannedThrough: string | undefined;
+    for (const key of eligible) {
+      scannedThrough = key;
+      const target = this.pathFor(input.tenantId, key);
+      const metadata = await lstat(target).catch(error => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!metadata) continue;
+      if (metadata.isSymbolicLink() || !metadata.isFile() || metadata.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a private regular file');
+      if (metadata.mtime.getTime() > input.createdBefore.getTime()) continue;
+      const bytes = await this.readRegularNoFollow(target);
+      candidates.push({ tenantId: input.tenantId, key, cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, createdAt: metadata.mtime });
+      if (candidates.length === input.limit) break;
+    }
+    const hasMore = scannedThrough !== undefined && eligible.some(key => key > scannedThrough!);
+    return { candidates, ...(hasMore ? { nextCursor: scannedThrough } : {}) };
+  }
+
+  async purgeCandidate(input: Parameters<BoardBlobPurgeStore['purgeCandidate']>[0]): ReturnType<BoardBlobPurgeStore['purgeCandidate']> {
+    this.validateDescriptor(input);
+    if (!(input.createdAt instanceof Date) || !(input.createdBefore instanceof Date)
+      || !Number.isFinite(input.createdAt.getTime()) || !Number.isFinite(input.createdBefore.getTime())) throw new BoardBlobError('INVALID_INPUT');
     const target = this.pathFor(input.tenantId, input.key);
     return withTargetPublication(target, async () => {
       try {
         await this.assertConfinedParent(target);
+        const metadata = await lstat(target);
+        if (metadata.isSymbolicLink() || !metadata.isFile() || metadata.nlink !== 1) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a private regular file');
+        if (metadata.mtime.getTime() !== input.createdAt.getTime() || metadata.mtime.getTime() > input.createdBefore.getTime()) return 'changed-or-too-new';
         const bytes = await this.readRegularNoFollow(target);
-        if (bytes.byteLength !== input.expectedSizeBytes || sha256(bytes) !== input.expectedCipherDigest) throw new BoardBlobError('INTEGRITY_FAILED', 'refusing to delete a board blob that does not match its intent');
+        if (bytes.byteLength !== input.sizeBytes || sha256(bytes) !== input.cipherDigest) return 'changed-or-too-new';
         await unlink(target);
         await this.syncDirectory(dirname(target));
         return 'deleted';
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error instanceof BoardBlobError && error.code === 'NOT_FOUND')) return 'not-found';
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'not-found';
         if (error instanceof BoardBlobError) throw error;
-        throw storageFault(`deleting ${input.key}`, error);
+        throw storageFault(`purging ${input.key}`, error);
       }
     });
   }
 
-  private validateDescriptor(input: { tenantId: string; key: string; cipherDigest: string; sizeBytes: number }): void {
+  private async listObjectKeys(directory: string, prefix: string): Promise<string[]> {
+    await this.assertConfinedDirectory(directory);
+    const result: string[] = [];
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.name.startsWith('.board-tmp-')) continue;
+      const child = join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new BoardBlobError('INVALID_INPUT', 'board blob candidate path contains a symbolic link');
+      if (entry.isDirectory()) result.push(...await this.listObjectKeys(child, prefix));
+      else if (entry.isFile()) {
+        const key = relative(resolve(this.root), child).split(sep).join('/');
+        if (key.startsWith(prefix)) result.push(key);
+      } else throw new BoardBlobError('INVALID_INPUT', 'board blob candidate is not a regular file');
+    }
+    return result;
+  }
+
+  private async assertConfinedDirectory(directory: string): Promise<void> {
+    const sentinel = join(directory, 'candidate');
+    await this.assertConfinedParent(sentinel);
+    await this.assertExclusiveDirectory(directory);
+  }
+
+  private validateDescriptor(input: { tenantId: string; key: string; cipherDigest: string; sizeBytes: number; contentType: string }): void {
     assertTenantBlobKey(input.tenantId, input.key);
     assertSha256Digest(input.cipherDigest);
     if (!input.key.endsWith(`/sha256/${input.cipherDigest}`)) throw new BoardBlobError('INVALID_INPUT', 'board blob key does not match its cipher digest');
     if (!Number.isSafeInteger(input.sizeBytes) || input.sizeBytes < 1) throw new BoardBlobError('INVALID_INPUT', 'invalid board blob size');
+    if (input.contentType !== BOARD_ENCRYPTED_BLOB_CONTENT_TYPE) throw new BoardBlobError('INVALID_INPUT', 'invalid encrypted Board blob MIME');
   }
 
   private pathFor(tenantId: string, key: string): string {

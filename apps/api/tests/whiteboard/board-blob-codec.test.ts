@@ -93,7 +93,7 @@ describe('AesGcmBoardBlobCodec', () => {
   it('decrypts legacy v1 ciphertext during envelope migration', async () => {
     const master = new Uint8Array(32).fill(8);
     const plaintext = Buffer.from('legacy board content'), version = 2, nonce = Buffer.alloc(12, 3);
-    const key = hkdfSync('sha256', master, Buffer.from('org-a'), Buffer.from(`workspacex-board-content:v${version}`), 32);
+    const key = Buffer.from(hkdfSync('sha256', master, Buffer.from('org-a'), Buffer.from(`workspacex-board-content:v${version}`), 32));
     const keys: BoardTenantKeyResolver = { currentKeyId: 'legacy-key', async resolve() { return new Uint8Array(key); } };
     const cipher = createCipheriv('aes-256-gcm', key, nonce);
     cipher.setAAD(Buffer.from(`workspacex-board-content\0org-a\0${version}`));
@@ -103,7 +103,7 @@ describe('AesGcmBoardBlobCodec', () => {
     const cipherDigest = createHash('sha256').update(ciphertext).digest('hex');
     await expect(new AesGcmBoardBlobCodec(keys).decrypt({
       ciphertext, cipherDigest, plainDigest: digest, expectedPlainDigest: digest,
-      sizeBytes: ciphertext.byteLength, tenantId: 'org-a', tenantKeyVersion: version,
+      sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream', tenantId: 'org-a', tenantKeyVersion: version,
     })).resolves.toEqual(new Uint8Array(plaintext));
   });
 });

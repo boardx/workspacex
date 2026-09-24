@@ -53,17 +53,17 @@ it('rejects divergent authoritative head metadata before load or append can writ
   }
 });
 
-const memoryBlobs = (): BoardBlobStore => {
+const memoryBlobs = (): BoardBlobStore & { candidateKeys(): string[] } => {
   const values = new Map<string, Uint8Array>();
   return {
     async putImmutable(value) { values.set(value.key, new Uint8Array(value.ciphertext)); return 'created'; },
     async getVerified(value) { const bytes = values.get(value.key); if (!bytes) throw new Error('missing'); return new Uint8Array(bytes); },
-    async head(value) { const bytes = values.get(value.key); return bytes ? { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength } : null; },
-    async deleteIfMatch(value){return values.delete(value.key)?'deleted':'not-found';},
+    async head(value) { const bytes = values.get(value.key); return bytes ? { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength, contentType: 'application/octet-stream' } : null; },
+    candidateKeys: () => [...values.keys()],
   };
 };
 const identityCodec: BoardBlobCodec = {
-  async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> { const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext); return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, tenantKeyVersion }; },
+  async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> { const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext); return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream', tenantKeyVersion }; },
   async decrypt({ ciphertext }) { return new Uint8Array(ciphertext); },
 };
 
@@ -85,9 +85,11 @@ it('rolls back the receipt and sequence when head CAS or outer commit fails afte
       },
       withoutTenant: async () => { throw new Error('No tenant'); }, close: async () => {},
     };
-    const store = new PgWhiteboardCollaborationStore(db, validator, 120, memoryBlobs(), identityCodec, 1);
+    const blobs = memoryBlobs();
+    const store = new PgWhiteboardCollaborationStore(db, validator, 120, blobs, identityCodec, 1);
     await expect(store.writeCommands(p, boardId, input())).rejects.toThrow(failure === 'cas' ? 'CAS_CONFLICT' : 'commit failure');
     expect(committedSeq).toBe(0);
+    expect(blobs.candidateKeys()).toHaveLength(2);
     expect(staged.queries.some(sql => sql.startsWith('INSERT INTO whiteboard_updates'))).toBe(true);
   }
 });

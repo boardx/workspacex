@@ -16,7 +16,7 @@ const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeC
   'createHistoryCheckpoint', 'previewHistoryCheckpoint', 'compareHistoryCheckpoints', 'restoreHistoryCheckpoint', 'copyHistoryCheckpoint', 'copyHistorySnapshot',
   'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'historySource', 'stageHistoryBlob', 'finalizeHistoryIntent', 'publishHistoryRestoreContent', 'purgeHistoryRetention',
   'readHistoryBlob', 'snapshot', 'activateNewBoard', 'publish', 'historyCheckpointObjects', 'historyRestoreView',
-  'readHistoryCheckpointBlob', 'putAndVerify'];
+  'readHistoryCheckpointBlob', 'putAndVerify', 'findPurgeCandidate'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
   const file = ts.createSourceFile('pg-collaboration-store.ts', code, ts.ScriptTarget.Latest, true);
@@ -89,7 +89,7 @@ function audit(code: string): string[] {
   if (stage.indexOf('INSERT INTO whiteboard_history_blob_intents') < 0 || stage.indexOf('INSERT INTO whiteboard_history_blob_intents') > stage.indexOf('this.codec.encrypt(')) errors.push('history lifecycle: intent before encryption');
   if (stage.indexOf('UPDATE whiteboard_history_blob_intents SET blob_key=') < 0 || stage.indexOf('UPDATE whiteboard_history_blob_intents SET blob_key=') > stage.indexOf('this.putAndVerify(')) errors.push('history lifecycle: descriptor before put');
   const purge = methods.get('purgeHistoryRetention') ?? '';
-  if (purge.indexOf('deleteIfMatch(') < 0 || purge.indexOf('deleteIfMatch(') > purge.indexOf("SET state='deleted'")) errors.push('history lifecycle: digest delete before tombstone');
+  if (purge.indexOf('purgeCandidate(') < 0 || purge.indexOf('purgeCandidate(') > purge.indexOf("SET state='deleted'")) errors.push('history lifecycle: digest delete before tombstone');
   return errors;
 }
 
@@ -131,7 +131,7 @@ describe('whiteboard collaboration repository permission exemption', () => {
     expect(lifecycleMigration).not.toMatch(/REFERENCES\s+(organizations|whiteboards)/i);
     expect(audit(source.replace('restoredBoardIdForRequest(p.orgId,p.userId,boardId,checkpointId,parsed.data.requestId)', 'randomUUID()'))).toContain('history restore: stable target before publish');
     expect(audit(source.replace('await this.db.withTenant(p.orgId,async session=>{const changed=', 'await this.putAndVerify(p.orgId,key,encoded);\n    await this.db.withTenant(p.orgId,async session=>{const changed='))).toContain('history lifecycle: descriptor before put');
-    expect(audit(source.replace('await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key', "await session.query(`UPDATE whiteboard_history_blob_intents SET state='deleted' WHERE org_id=$1`,[orgId]);\n        await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key"))).toContain('history lifecycle: digest delete before tombstone');
+    expect(audit(source.replace('const purgeResult = await this.purgeBlobs!.purgeCandidate(', "await session.query(`UPDATE whiteboard_history_blob_intents SET state='deleted' WHERE org_id=$1`,[orgId]);\n        const purgeResult = await this.purgeBlobs!.purgeCandidate("))).toContain('history lifecycle: digest delete before tombstone');
   });
   it('grants retention deletion only for checkpoint metadata',()=>{
     expect(retentionPermissionMigration).toMatch(/GRANT DELETE ON whiteboard_checkpoints TO app_rw/);

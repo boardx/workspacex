@@ -8,7 +8,8 @@ import type { HostedBoardBlobClient, HostedBoardBucketPolicy } from '../../src/i
 const hostedClient = (provider: HostedBoardBlobClient['provider'], policy: HostedBoardBucketPolicy = { access: 'private', versioning: 'enabled', objectLock: 'enabled' }): HostedBoardBlobClient => ({
   provider,
   async inspectBucket() { return policy; },
-  async putIfAbsent() { return 'created'; }, async get() { return null; }, async head() { return null; },async deleteCurrent(){return 'not-found';},
+  async putIfAbsent() { return 'created'; }, async get() { return null; }, async head() { return null; },
+  async list() { return { objects: [] }; }, async deleteCurrent(){return 'not-found';},
 });
 
 describe('Board storage provider selection', () => {

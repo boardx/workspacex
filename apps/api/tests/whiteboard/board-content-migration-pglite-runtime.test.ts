@@ -4,7 +4,7 @@ import { PGlite } from '@electric-sql/pglite';
 import * as Y from 'yjs';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { DatabasePort, TenantSession } from '../../src/application/ports/database.port';
-import type { BoardBlobCodec, BoardBlobStore, EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
+import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
 import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
 import { createBoardRetirementCredential } from '../../src/domain/whiteboard/retirement-credential';
@@ -34,10 +34,10 @@ class Blobs implements BoardBlobStore {
   values = new Map<string, Uint8Array>();
   async putImmutable(input: Parameters<BoardBlobStore['putImmutable']>[0]) { this.values.set(input.key, new Uint8Array(input.ciphertext)); return 'created' as const; }
   async getVerified(input: Parameters<BoardBlobStore['getVerified']>[0]) { const value = this.values.get(input.key); if (!value || sha256(value) !== input.expectedCipherDigest || value.byteLength !== input.expectedSizeBytes) throw new Error('INTEGRITY_FAILED'); return new Uint8Array(value); }
-  async head(input: Parameters<BoardBlobStore['head']>[0]) { const value = this.values.get(input.key); return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength } : null; }
+  async head(input: Parameters<BoardBlobStore['head']>[0]) { const value = this.values.get(input.key); return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE } : null; }
 }
 const codec: BoardBlobCodec = {
-  async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> { const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext); return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, tenantKeyVersion }; },
+  async encrypt({ plaintext, tenantKeyVersion }): Promise<EncodedBoardBlob> { const ciphertext = new Uint8Array(plaintext), digest = sha256(ciphertext); return { ciphertext, plainDigest: digest, cipherDigest: digest, sizeBytes: ciphertext.byteLength, contentType: 'application/octet-stream', tenantKeyVersion }; },
   async decrypt(input) { if (sha256(input.ciphertext) !== input.expectedPlainDigest) throw new Error('INTEGRITY_FAILED'); return new Uint8Array(input.ciphertext); },
 };
 

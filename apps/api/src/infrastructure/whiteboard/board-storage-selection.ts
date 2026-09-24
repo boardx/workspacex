@@ -1,4 +1,4 @@
-import type { BoardBlobCodec, BoardBlobStore } from '../../application/whiteboard/blob-ports';
+import type { BoardBlobCodec, BoardBlobPurgeStore, BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { BoardBlobError } from '../../application/whiteboard/blob-ports';
 import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver, KmsBoardTenantKeyResolver, type VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
 import { assertFilesystemBoardBlobRuntime, boardBlobProviderKind } from './board-blob-runtime';
@@ -29,6 +29,7 @@ export interface BoardStorageSelectionDependencies {
 
 export interface BoardStorageSelection {
   store: BoardBlobStore;
+  purgeStore: BoardBlobPurgeStore;
   codec: BoardBlobCodec;
   config: BoardStorageSelectionConfig;
 }
@@ -91,7 +92,8 @@ export async function createBoardStorageSelection(
   if (!keys) throw new BoardBlobError('ENCRYPTION_UNAVAILABLE', 'versioned board key service is not configured');
 
   if (config.blobProvider === 'filesystem') {
-    return { config, store: new FsBoardBlobStore(boardBlobRoot(env)), codec: new AesGcmBoardBlobCodec(keys) };
+    const store = new FsBoardBlobStore(boardBlobRoot(env));
+    return { config, store, purgeStore: store, codec: new AesGcmBoardBlobCodec(keys) };
   }
   if (!dependencies.hostedClients || !config.bucket || !config.prefix) {
     throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage client is not configured');
@@ -110,5 +112,5 @@ export async function createBoardStorageSelection(
     ? new OssBoardBlobStore(client, requirement)
     : new S3CompatibleBoardBlobStore(client, requirement);
   await store.assertReady();
-  return { config, store, codec: new AesGcmBoardBlobCodec(keys) };
+  return { config, store, purgeStore: store, codec: new AesGcmBoardBlobCodec(keys) };
 }

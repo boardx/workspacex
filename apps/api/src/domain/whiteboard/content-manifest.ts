@@ -20,6 +20,8 @@ export function validateBoardContentManifest(input: unknown): BoardContentManife
   const parsed = BoardContentManifestSchema.safeParse(input);
   if (!parsed.success) throw new BoardBlobError('INVALID_INPUT', 'invalid board manifest');
   const manifest = parsed.data;
+  if (manifest.parentManifest && manifest.parentManifest.cipherDigest !== manifest.parentManifestDigest) throw new BoardBlobError('INVALID_INPUT', 'manifest parent pointer digest mismatch');
+  if (manifest.parentManifestDigest === null && manifest.parentManifest != null) throw new BoardBlobError('INVALID_INPUT', 'manifest parent pointer has no digest');
   if (manifest.checkpoint.throughSeq > manifest.headSeq) throw new BoardBlobError('INVALID_INPUT', 'checkpoint exceeds manifest head');
   let through = manifest.checkpoint.throughSeq;
   for (const segment of manifest.tail) {

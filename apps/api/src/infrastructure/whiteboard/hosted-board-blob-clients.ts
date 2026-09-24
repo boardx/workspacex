@@ -1,4 +1,4 @@
-import type { HostedBoardBlobClient, HostedBoardBlobObject, HostedBoardBucketPolicy, HostedBoardPutResult } from './hosted-board-blob-store';
+import type { HostedBoardBlobClient, HostedBoardBlobObject, HostedBoardBucketPolicy, HostedBoardListedObject, HostedBoardPutResult } from './hosted-board-blob-store';
 
 type ObjectMetadata = { cipherDigest: string; sizeBytes: number };
 
@@ -19,11 +19,22 @@ function namespaced(prefix: string, key: string): string {
   return `${prefix.replace(/\/$/, '')}/${key}`;
 }
 
+function denamespaced(prefix: string, key: string): string {
+  const root = `${prefix.replace(/\/$/, '')}/`;
+  if (!key.startsWith(root)) throw new Error('invalid Board provider key');
+  const relative = key.slice(root.length);
+  namespaced(prefix, relative);
+  return relative;
+}
+
 function descriptor(metadata: Record<string, string | undefined>, length: number | undefined): Omit<HostedBoardBlobObject, 'bytes'> {
   const cipherDigest = metadata['cipher-digest'] ?? metadata['cipherdigest'] ?? metadata['x-oss-meta-cipher-digest'];
   const recordedSize = metadata['size-bytes'] ?? metadata['sizebytes'] ?? metadata['x-oss-meta-size-bytes'];
   const parsed = recordedSize === undefined ? length : Number(recordedSize);
-  return { cipherDigest, sizeBytes: parsed };
+  const contentType = metadata['content-type'];
+  const modified = metadata['last-modified'];
+  const createdAt = modified === undefined ? undefined : new Date(modified);
+  return { cipherDigest, sizeBytes: parsed, contentType, createdAt };
 }
 
 function policyGrantsPublic(value: unknown): boolean {
@@ -47,6 +58,7 @@ export interface AliyunOssBoardProtocol {
   put(key: string, bytes: Buffer, options: { headers: Record<string, string>; mime: string }): Promise<void>;
   get(key: string): Promise<{ content: Buffer; headers: Record<string, string | undefined> }>;
   head(key: string): Promise<{ headers: Record<string, string | undefined> }>;
+  list(input: { prefix: string; limit: number; cursor?: string }): Promise<{ objects: Array<{ name: string; size?: number; lastModified?: string | Date }>; nextCursor?: string }>;
   delete(key: string, options?: { versionId?: string }): Promise<void>;
 }
 
@@ -107,6 +119,20 @@ export class AliyunOssBoardBlobClient implements HostedBoardBlobClient {
     }
   }
 
+  async list(input: { keyPrefix: string; limit: number; cursor?: string }): Promise<{ objects: HostedBoardListedObject[]; nextCursor?: string }> {
+    try {
+      const result = await this.client.list({ prefix: namespaced(this.prefix, input.keyPrefix), limit: input.limit, ...(input.cursor ? { cursor: input.cursor } : {}) });
+      return {
+        objects: result.objects.map(value => ({
+          key: denamespaced(this.prefix, value.name),
+          sizeBytes: value.size,
+          createdAt: value.lastModified === undefined ? undefined : new Date(value.lastModified),
+        })),
+        ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+      };
+    } catch { throw new Error('OSS Board request failed'); }
+  }
+
   async deleteCurrent(key: string, versionId?: string): Promise<'deleted'|'not-found'> {
     try {
       await this.client.delete(namespaced(this.prefix, key), versionId ? { versionId } : undefined);
@@ -123,8 +149,9 @@ export interface S3CompatibleBoardProtocol {
   getBucketAccess(bucket: string): Promise<{ private: boolean }>;
   getObjectLockConfiguration(bucket: string): Promise<{ enabled: boolean }>;
   putObject(input: { bucket: string; key: string; body: Uint8Array; contentType: string; ifNoneMatch: '*'; metadata: Record<string, string> }): Promise<void>;
-  getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number } | null>;
-  headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number; versionId?: string } | null>;
+  getObject(input: { bucket: string; key: string }): Promise<{ body: Uint8Array; metadata?: Record<string, string>; contentLength?: number; contentType?: string; lastModified?: Date } | null>;
+  headObject(input: { bucket: string; key: string }): Promise<{ metadata?: Record<string, string>; contentLength?: number; contentType?: string; lastModified?: Date; versionId?: string } | null>;
+  listObjects(input: { bucket: string; prefix: string; limit: number; cursor?: string }): Promise<{ objects: Array<{ key: string; sizeBytes?: number; lastModified?: Date }>; nextCursor?: string }>;
   deleteObject(input: { bucket: string; key: string; versionId?: string }): Promise<void>;
 }
 
@@ -165,7 +192,7 @@ export class S3CompatibleBoardBlobClient implements HostedBoardBlobClient {
   async get(key: string): Promise<HostedBoardBlobObject | null> {
     try {
       const result = await this.client.getObject({ bucket: this.bucket, key: namespaced(this.prefix, key) });
-      return result ? { bytes: new Uint8Array(result.body), ...descriptor(result.metadata ?? {}, result.contentLength) } : null;
+      return result ? { bytes: new Uint8Array(result.body), ...descriptor({ ...result.metadata, 'content-type': result.contentType, 'last-modified': result.lastModified?.toISOString() }, result.contentLength) } : null;
     } catch (error) {
       if (['NoSuchKey', '404', 'NotFound'].includes(errorCode(error) ?? '')) return null;
       throw new Error('S3-compatible Board request failed');
@@ -175,11 +202,21 @@ export class S3CompatibleBoardBlobClient implements HostedBoardBlobClient {
   async head(key: string): Promise<Omit<HostedBoardBlobObject, 'bytes'> | null> {
     try {
       const result = await this.client.headObject({ bucket: this.bucket, key: namespaced(this.prefix, key) });
-      return result ? { ...descriptor(result.metadata ?? {}, result.contentLength), versionId: result.versionId } : null;
+      return result ? { ...descriptor({ ...result.metadata, 'content-type': result.contentType, 'last-modified': result.lastModified?.toISOString() }, result.contentLength), versionId: result.versionId } : null;
     } catch (error) {
       if (['NoSuchKey', '404', 'NotFound'].includes(errorCode(error) ?? '')) return null;
       throw new Error('S3-compatible Board request failed');
     }
+  }
+
+  async list(input: { keyPrefix: string; limit: number; cursor?: string }): Promise<{ objects: HostedBoardListedObject[]; nextCursor?: string }> {
+    try {
+      const result = await this.client.listObjects({ bucket: this.bucket, prefix: namespaced(this.prefix, input.keyPrefix), limit: input.limit, ...(input.cursor ? { cursor: input.cursor } : {}) });
+      return {
+        objects: result.objects.map(value => ({ key: denamespaced(this.prefix, value.key), sizeBytes: value.sizeBytes, createdAt: value.lastModified })),
+        ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+      };
+    } catch { throw new Error('S3-compatible Board request failed'); }
   }
 
   async deleteCurrent(key: string, versionId?: string): Promise<'deleted'|'not-found'> {
