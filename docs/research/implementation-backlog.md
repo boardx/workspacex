@@ -213,7 +213,7 @@ flowchart LR
 |---|---|---|---|
 | C1 | 给 8 个技能包补许可 | ✅ | R12：按 D18 全部补 Apache-2.0 官方正文。只加 LICENSE 文件、不改 SKILL.md——改正文要连带发新版到所有实例；已重建 5 个包确认产物逐字节不变 |
 | C2 | 清单门控转 `--strict` 接 CI | ✅ | R12：存量清零后转 strict，接入 `verify:harness:raw` |
-| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | □ | |
+| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | ◐ | D21 已定：开始，先盘点再拆。第一轮只交拆分方案，人确认后才动代码 |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
 | C5 | 运营平面 schema 白名单门控 | ✅ | R8：`lint-telemetry-schema.mjs` 遍历 zod schema 本身：对象必须 strict、数组必须有上限、无开放键集合 |
 | C6 | 运营平面个人信息字段级门控 | ✅ | R8：同一道门——字符串必须受约束（自由文本即红），字段名像个人信息即红 |
@@ -229,7 +229,7 @@ flowchart LR
 | D2 | GTM 活动与漏斗（只放聚合与 ID） | □ | |
 | D3 | CRM：边缘存 ID、源站存个人信息 | □ | 详情页回源 |
 | D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | □ | **无依赖**——D14 已定（v32.6：既是也不是，三层分开）。见 `super-instance-design.md` |
-| D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | ◐ | R7 已起草 `instance-telemetry.ts`（PROPOSED，不导出）与 `PROP-OPS-INSTANCE-TELEMETRY-001`；**待人类签核** |
+| D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | ◐ | R7 已起草（PROPOSED，不导出）；D16 方向确认；D22 出厂默认值已写进契约（只开健康信号）。**待人类签核**；上报周期仍待定 |
 | D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | □ | D8（签核）；D16 已定：只传运行事实 |
 | D10 | S4 边缘收集与投影：Workers 收、DO 聚合、Pages 呈现车队 | □ | D9 |
 | D12 | 建出六跳路径所需的图节点与边：客户实例、版本、缺陷、PR（v32.8 补：此前误以为已存在） | □ | D17 已定：同步投影进产品、权威仍是仓库，**可开工**；`ontology_edges` 的节点 kind 由 CHECK 写死，要改迁移 |

@@ -34,7 +34,7 @@ export const OWNERSHIP = {
   "apps/api": { class: "undecided", why: "混有将来售卖的企业治理功能（SSO、审计、多租户）；等 C3 划出企业版边界（2026-09-24 人类决策：先不标）" },
   "apps/web": { class: "undecided", why: "同 apps/api：等 C3 划出企业版边界" },
   "packages/dev-mode-accounts": { class: "undecided", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
-  "packages/cloud-deploy": { class: "undecided", why: "我们自己生产环境的发布工具，但 apps/api 依赖它；先厘清这条依赖再定" },
+  "packages/cloud-deploy": { class: "oss", why: "自托管客户要用的部署、TLS、备份与发布工具（D23，2026-09-24 人类决策）；其中阿里云专属部分待改成通用写法" },
   "packages/fabric-markdown": { class: "undecided", why: "vendored 上游分支，仓库里没有记录上游许可证（npm 上也查不到）；需人核实上游许可后保留其声明" },
 };
 
