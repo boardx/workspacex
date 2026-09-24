@@ -514,7 +514,12 @@ async function readTurnRecall(
   );
   const row = r.rows[0];
   if (row === undefined) return { recalled: [], recallDegraded: false };
-  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4))`;
+  // F15：本人个人对话里的这一轮，还可能用到本人**其他个人对话**里记下的（召回候选同一条件，见 pg-knowledge-recall.ts）。
+  const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
+      WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
+        AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
+  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4)
+    OR (c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
   for (const i of row.items) for (const h of i.graphPath ?? []) for (const k of [h.src, h.dst]) {
@@ -522,7 +527,9 @@ async function readTurnRecall(
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
   const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
-    `SELECT c.id, c.statement, c.status, c.scope_kind,
+    // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
+    `SELECT c.id, c.statement, c.status,
+            CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
        FROM claims c

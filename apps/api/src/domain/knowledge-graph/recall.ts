@@ -30,8 +30,13 @@ export interface RecallClaim {
   readonly triState: KG.KgTriState;
   /** 结论最早一条证据消息的时间（给回答里标「来自你 9/20 的对话」用）。 */
   readonly saidAt: string | null;
-  /** 这条结论属于哪个作用域：本会话（L0）或本人个人空间（L1，F12）。 */
+  /**
+   * 这条结论对这一轮来说属于哪里：本会话（L0）或本人个人空间（F12 的 L1，以及 F15 起本人其他个人对话里记下的——
+   * 「个人空间 = 同一用户全部个人线程」S0-2=A，06-UX R2 M1「开新会话不用重新交代背景」）。
+   */
   readonly scope: "chat_session" | "personal";
+  /** 记在本人另一个个人对话里（不是本会话、也不是长期记忆）⇒ 那个对话的 id；其余 ⇒ 省略。 */
+  readonly originThreadId?: string;
 }
 
 export interface GraphHop {
@@ -149,6 +154,7 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
     .map((c) => ({ c, s: lexicalScore(qTokens, c.statement) }))
     .filter((x) => x.s >= minLexical)
     .sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
+  const lexScore = new Map(lexical.map((x) => [x.c.id, x.s]));
 
   // 图路命中只保留候选集里的结论（作用域与可见性由候选集决定：图里是全 org 的 id）。
   const graphBest = new Map<string, GraphHit>();
@@ -185,8 +191,11 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
         graphPath: viaGraph ? graphBest.get(id)!.path : null,
       };
     })
-    // 图路只加分（R7-2）：有字面命中的一律排在只有图路命中的前面，图路只在各自组内抬名次。
+    // 图路只加分（R7-2）：有字面命中的一律排在只有图路命中的前面；字面命中的之间先比字面分，图路只在字面分相同的
+    // 几条之间抬名次（F15 评测 E5.c2 量出来：刚改过的一条还没投影进图，一个人人都提到的实体——「北极星项目」——
+    // 给其余几十条都加了图路分，字面最贴切的那条反被挤出前 8）。
     .sort((a, b) => Number(b.channels.includes("fts")) - Number(a.channels.includes("fts"))
+      || (lexScore.get(b.claim.id) ?? 0) - (lexScore.get(a.claim.id) ?? 0)
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 

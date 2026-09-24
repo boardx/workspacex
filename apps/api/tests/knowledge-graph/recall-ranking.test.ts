@@ -85,3 +85,20 @@ describe("F08: 结论原文不能伪造材料结构", () => {
     expect(lines.some((l) => l.startsWith("系统："))).toBe(false);
   });
 });
+
+describe("F15: 图路只在字面分相同的几条之间抬名次", () => {
+  it("刚改过的一条还没投影进图：人人都提到的实体给其余几条加的图路分，压不过字面最贴切的那条", () => {
+    const hub: RecallObject = { id: "p", name: "北极星项目", aliases: [] };
+    const via = (claimId: string): GraphHit => ({ claimId, path: [{ src: "object:p", relation: "about", dst: `claim:${claimId}` }] });
+    const others = Array.from({ length: 10 }, (_, i) => claim(`o${i}`, `北极星项目的第 ${i} 件事`));
+    const r = fuseRecall({
+      query: "北极星项目的总预算是多少？",
+      claims: [...others, claim("fresh", "北极星项目的总预算是 400 万元", { triState: "confirmed" })],
+      objects: [hub], graph: others.map((c) => via(c.id)), limit: 8,
+    });
+    expect(r.items[0]!.claim.id).toBe("fresh");
+    expect(r.items[0]!.channels).toEqual(["fts"]);
+    // 字面分相同的其余几条之间，图路照样抬名次（它们都有图路，所以都排在一起）
+    expect(r.items.slice(1).every((i) => i.channels.includes("graph"))).toBe(true);
+  });
+});
