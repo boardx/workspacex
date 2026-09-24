@@ -74,16 +74,23 @@ async function operationIds(page: Page): Promise<string[]> {
     .map(label => label.slice('图形：'.length)), operationPrefix);
 }
 
-async function clientResult(client: string, page: Page, expected: number): Promise<SoakClientResult> {
-  await expect.poll(() => operationIds(page), { timeout: 30_000, message: `${client} must converge to ${expected} operations` })
-    .toHaveLength(expected);
-  const raw = await page.evaluate(() => {
-    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => unknown[] };
+type RuntimeBinding = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer' };
+async function runtimeEvidence(page: Page): Promise<{ objects: unknown[]; binding: RuntimeBinding }> {
+  return page.evaluate(() => {
+    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: unknown[]; binding: { clientNonce: string; connectionId: string | null; role: 'owner' | 'editor' | 'viewer' } } };
     if (!diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__) throw new Error('whiteboard document diagnostics are unavailable');
-    return diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__();
+    const evidence = diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__();
+    if (!evidence.binding.clientNonce || !evidence.binding.connectionId) throw new Error('whiteboard server binding is unavailable');
+    return { objects: evidence.objects, binding: { ...evidence.binding, connectionId: evidence.binding.connectionId } };
   });
-  const document = canonicalizeDocument(WhiteboardObject.array().parse(raw));
-  return { client, document, hash: documentHash(document) };
+}
+async function runtimeBinding(page: Page): Promise<RuntimeBinding> { return (await runtimeEvidence(page)).binding; }
+
+async function clientResult(page: Page, expected: number): Promise<SoakClientResult> {
+  await expect.poll(() => operationIds(page), { timeout: 30_000, message: `browser client must converge to ${expected} operations` })
+    .toHaveLength(expected);
+  const raw = await runtimeEvidence(page), document = canonicalizeDocument(WhiteboardObject.array().parse(raw.objects));
+  return { client: raw.binding.clientNonce, connectionId: raw.binding.connectionId, role: raw.binding.role, document, hash: documentHash(document) };
 }
 
 async function createOperation(page: Page, id: string): Promise<void> {
@@ -92,33 +99,37 @@ async function createOperation(page: Page, id: string): Promise<void> {
   await waitSynced(page, 15_000);
 }
 
-async function observeAllClients(pages: readonly Page[], participants: readonly SoakParticipant[], id: string): Promise<SoakReceipt[]> {
-  return Promise.all(pages.map(async (page, index) => {
+async function observeAllClients(pages: readonly Page[], id: string): Promise<SoakReceipt[]> {
+  return Promise.all(pages.map(async page => {
     await page.getByRole('button', { name: `图形：${id}`, exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
-    return { client: participants[index]!.client, visibleAtMs: Date.now() };
+    const binding = await runtimeBinding(page);
+    return { client: binding.clientNonce, connectionId: binding.connectionId, role: binding.role, visibleAtMs: Date.now() };
   }));
 }
 
 async function serverResult(boardId: string, token: string): Promise<SoakClientResult> {
   const doc = new Y.Doc();
+  const clientNonce = randomUUID();
   const apiUrl = new URL(required('WHITEBOARD_API_URL'));
   apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   apiUrl.pathname = whiteboardSync.WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(boardId));
   const socket = new WebSocket(apiUrl, [whiteboardSync.WHITEBOARD_SYNC.protocol, `${whiteboardSync.WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`]);
   try {
-    await new Promise<void>((resolve, reject) => {
+    const serverBinding = await new Promise<RuntimeBinding>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('server snapshot WebSocket timed out')), 15_000);
-      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'hello', stateVector: Buffer.from(Y.encodeStateVector(doc)).toString('base64') })));
+      socket.addEventListener('open', () => socket.send(JSON.stringify({ type: 'hello', stateVector: Buffer.from(Y.encodeStateVector(doc)).toString('base64'), clientNonce })));
       socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('server snapshot WebSocket failed')); });
       socket.addEventListener('message', event => {
         const parsed = whiteboardSync.WhiteboardServerMessage.parse(JSON.parse(String(event.data)));
         if (parsed.type === 'error') { clearTimeout(timer); reject(new Error(`server snapshot rejected: ${parsed.code}`)); return; }
         if (parsed.type !== 'sync') return;
-        clearTimeout(timer); Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); resolve();
+        if (!parsed.clientNonce || !parsed.connectionId) { clearTimeout(timer); reject(new Error('server snapshot did not receive a server-bound identity')); return; }
+        const binding = { clientNonce: parsed.clientNonce, connectionId: parsed.connectionId, role: parsed.role };
+        clearTimeout(timer); Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); resolve(binding);
       });
     });
     const document = canonicalizeDocument(readObjects(doc));
-    return { client: 'server', document, hash: documentHash(document) };
+    return { client: serverBinding.clientNonce, connectionId: serverBinding.connectionId, role: serverBinding.role, document, hash: documentHash(document) };
   } finally { socket.close(); doc.destroy(); }
 }
 
@@ -129,11 +140,11 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   const exactSha = (process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()).toLowerCase();
   if (!/^[a-f0-9]{40}$/.test(exactSha)) throw new Error('soak evidence requires an exact 40-character SHA');
   const operations: SoakOperation[] = [], reconnects: SoakReconnect[] = [], clientResults: SoakClientResult[] = [];
-  const initialClients: SoakParticipant[] = Array.from({ length: config.clients }, (_, index) => ({ client: `browser-${index}-${randomUUID()}`, role: index < config.writers ? 'writer' : 'viewer', writer: index < config.writers }));
+  const initialClients: SoakParticipant[] = [];
   const contexts: BrowserContext[] = [], pages: Page[] = [];
   let freshClient: SoakClientResult | null = null, server: SoakClientResult | null = null;
   let boardId: string | null = null, ownerToken: string | null = null, viewerToken: string | null = null, failure: string | null = null;
-  let collaborationStartedAt: Date | null = null, collaborationDurationMs = 0;
+  let collaborationStartedAt: Date | null = null, collaborationFinishedAt: Date | null = null, collaborationDurationMs = 0;
   let browserVersion = 'unknown';
   try {
     browserVersion = browser.version();
@@ -145,24 +156,29 @@ test('50 independent browser contexts converge without loss, duplicates or forks
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_EDITOR_USER_ID'), role: 'editor' });
     await apiRequest(request, ownerToken, 'PUT', `/whiteboards/${boardId}/members`, { userId: required('WHITEBOARD_VIEWER_USER_ID'), role: 'viewer' });
     for (let index = 0; index < config.clients; index++) {
-      const context = await authenticatedContext(browser, baseURL, initialClients[index]!.writer ? editorToken : viewerToken);
+      const context = await authenticatedContext(browser, baseURL, index < config.writers ? editorToken : viewerToken);
       contexts.push(context); pages.push(await context.newPage());
     }
 
     await Promise.all(pages.map(async page => { await page.goto(`/studio/board/${boardId}`); await waitSynced(page); }));
+    const initialBindings = await Promise.all(pages.map(runtimeBinding));
+    initialClients.push(...initialBindings.map((binding, index) => ({ client: binding.clientNonce, connectionId: binding.connectionId, role: binding.role, writer: index < config.writers })));
     collaborationStartedAt = new Date(); const collaborationStartedMs = collaborationStartedAt.getTime();
     const offlineWriterIndexes = Array.from({ length: Math.min(5, config.writers) }, (_, index) => index);
     const offlineWriters = new Set<number>(); let outage: Promise<void> | null = null;
     const runOutage = async () => {
       for (const index of offlineWriterIndexes) offlineWriters.add(index);
       const offlineAt = new Map<number, number>();
+      const previousBindings = new Map<number, RuntimeBinding>();
+      await Promise.all(offlineWriterIndexes.map(async index => { previousBindings.set(index, await runtimeBinding(pages[index]!)); }));
       await Promise.all(offlineWriterIndexes.map(async index => { offlineAt.set(index, Date.now()); await contexts[index]!.setOffline(true); }));
       await Promise.all(offlineWriterIndexes.map(index => expect(pages[index]!.getByText(/^连接中断/)).toBeVisible({ timeout: 5_000 })));
       const offlineOperations = await Promise.all(offlineWriterIndexes.map(async index => {
         const id = `${operationPrefix}offline-${index}-${randomUUID()}`, createdAtMs = Date.now();
+        const writerBinding = await runtimeBinding(pages[index]!);
         await pages[index]!.getByTestId('board-add-sticky').click();
         await pages[index]!.getByLabel('对象文字', { exact: true }).fill(id);
-        const operation: SoakOperation = { id, writer: initialClients[index]!.client, createdAtMs, disruption: true, receipts: [] };
+        const operation: SoakOperation = { id, writer: writerBinding.clientNonce, writerConnectionId: writerBinding.connectionId, createdAtMs, disruption: true, receipts: [] };
         operations.push(operation);
         return { id, index, operation };
       }));
@@ -173,10 +189,11 @@ test('50 independent browser contexts converge without loss, duplicates or forks
         let recoveredAtMs: number | null = null;
         try { await observer.getByRole('button', { name: `图形：${id}`, exact: true }).waitFor({ state: 'visible', timeout: config.reconnectMs }); recoveredAtMs = Date.now(); }
         catch { recoveredAtMs = null; }
-        reconnects.push({ client: initialClients[index]!.client, offlineAtMs: offlineAt.get(index)!, onlineAtMs: onlineAt, recoveredAtMs, elapsedMs: (recoveredAtMs ?? Date.now()) - onlineAt, recovered: recoveredAtMs !== null });
+        const rebound = await runtimeBinding(pages[index]!); const previous = previousBindings.get(index)!;
+        reconnects.push({ client: rebound.clientNonce, previousConnectionId: previous.connectionId, connectionId: rebound.connectionId, offlineAtMs: offlineAt.get(index)!, onlineAtMs: onlineAt, recoveredAtMs, elapsedMs: (recoveredAtMs ?? Date.now()) - onlineAt, recovered: recoveredAtMs !== null });
         offlineWriters.delete(index);
       }));
-      await Promise.all(offlineOperations.map(async ({ id, operation }) => { operation.receipts = await observeAllClients(pages, initialClients, id); }));
+      await Promise.all(offlineOperations.map(async ({ id, operation }) => { operation.receipts = await observeAllClients(pages, id); }));
     };
 
     const endAt = collaborationStartedMs + config.durationMs, outageAt = collaborationStartedMs + Math.floor(config.durationMs / 2);
@@ -186,26 +203,27 @@ test('50 independent browser contexts converge without loss, duplicates or forks
       let writer = cursor++ % config.writers;
       while (offlineWriters.has(writer)) writer = cursor++ % config.writers;
       const id = `${operationPrefix}${writer}-${randomUUID()}`, createdAtMs = Date.now();
+      const writerBinding = await runtimeBinding(pages[writer]!);
       await createOperation(pages[writer]!, id);
-      const receipts = await observeAllClients(pages, initialClients, id);
-      operations.push({ id, writer: initialClients[writer]!.client, createdAtMs, disruption: false, receipts });
+      const receipts = await observeAllClients(pages, id);
+      operations.push({ id, writer: writerBinding.clientNonce, writerConnectionId: writerBinding.connectionId, createdAtMs, disruption: false, receipts });
       const remaining = config.operationIntervalMs - (Date.now() - createdAtMs);
       if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
     }
     if (!outage) outage = runOutage(); await outage;
-    collaborationDurationMs = Date.now() - collaborationStartedMs;
+    collaborationFinishedAt = new Date(); collaborationDurationMs = collaborationFinishedAt.getTime() - collaborationStartedMs;
 
     await Promise.all(pages.map(page => waitSynced(page, 30_000)));
-    clientResults.push(...await Promise.all(pages.map((page, index) => clientResult(initialClients[index]!.client, page, operations.length))));
+    clientResults.push(...await Promise.all(pages.map(page => clientResult(page, operations.length))));
     const replaced = config.clients - 1; await contexts[replaced]!.close(); contexts.splice(replaced, 1); pages.splice(replaced, 1);
     if (!viewerToken) throw new Error('viewer token missing before fresh-client verification');
     const freshContext = await authenticatedContext(browser, baseURL, viewerToken);
     contexts.push(freshContext); const freshPage = await freshContext.newPage(); pages.push(freshPage);
-    await freshPage.goto(`/studio/board/${boardId}`); await waitSynced(freshPage); freshClient = await clientResult(`fresh-${randomUUID()}`, freshPage, operations.length);
+    await freshPage.goto(`/studio/board/${boardId}`); await waitSynced(freshPage); freshClient = await clientResult(freshPage, operations.length);
     await Promise.all(contexts.map(context => context.close())); contexts.length = 0; pages.length = 0;
     server = await serverResult(boardId, ownerToken);
-    const provisionalFinishedAt = new Date(); collaborationDurationMs = provisionalFinishedAt.getTime() - collaborationStartedMs;
-    const analysis = analyzeSoak({ startedAt: startedAt.toISOString(), finishedAt: provisionalFinishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt.toISOString(), collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config });
+    const provisionalFinishedAt = new Date();
+    const analysis = analyzeSoak({ startedAt: startedAt.toISOString(), finishedAt: provisionalFinishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt.toISOString(), collaborationFinishedAt: collaborationFinishedAt.toISOString(), collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config });
     const status = reportStatus(config, analysis, null);
     if (status !== (config.profile === 'acceptance' ? 'accepted' : 'diagnostic-passed')) throw new Error(`soak verdict ${status}: ${JSON.stringify(analysis)}`);
   } catch (error) {
@@ -214,8 +232,8 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
     if (boardId && ownerToken) await apiRequest(request, ownerToken, 'PATCH', `/whiteboards/${boardId}`, { archived: true }).catch(() => undefined);
-    const finishedAt = new Date(); collaborationDurationMs = collaborationStartedAt ? finishedAt.getTime() - collaborationStartedAt.getTime() : 0;
-    const evidence = { startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config };
+    const finishedAt = new Date(); collaborationDurationMs = collaborationStartedAt && collaborationFinishedAt ? collaborationFinishedAt.getTime() - collaborationStartedAt.getTime() : 0;
+    const evidence = { startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), collaborationStartedAt: collaborationStartedAt?.toISOString() ?? null, collaborationFinishedAt: collaborationFinishedAt?.toISOString() ?? null, collaborationDurationMs, initialClients, operations, clients: clientResults, freshClient, server, reconnects, config };
     const analysis = analyzeSoak(evidence);
     const report: SoakReport = { schemaVersion: 2, issue: 4144, status: reportStatus(config, analysis, failure), exactSha, ...evidence,
       environment: { os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' },

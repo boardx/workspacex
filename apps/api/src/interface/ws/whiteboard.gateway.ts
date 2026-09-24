@@ -11,7 +11,7 @@ import type { LoggerPort } from '../../application/ports/logger.port';
 import { NOOP_WHITEBOARD_OBSERVABILITY, whiteboardRejectReason, type WhiteboardObservability } from '../../application/whiteboard/observability';
 import { WHITEBOARD_SCALE_POLICY } from '../../domain/whiteboard-scale-policy';
 
-type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; traceId: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
+type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; traceId: string; connectionId: string; clientNonce: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
 export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; metrics?: WhiteboardObservability; logger?: LoggerPort; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
@@ -51,7 +51,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       const board=await deps.boards.get(principal,boardId); if (!board) { refuse(404,'access'); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=WHITEBOARD_SCALE_POLICY.websocket.connectionsPerBoard) { refuse(429,'limit'); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,traceId,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:{actorId:principal.userId,cursor:null,selected:[]},checking:false};
+        const peer:Peer={ws,principal,boardId,token,traceId,connectionId:randomUUID(),clientNonce:randomUUID(),ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:{actorId:principal.userId,cursor:null,selected:[]},checking:false};
         peers.add(peer); metrics.connection(1);
         const deadline=setTimeout(()=>{metrics.reject('protocol');ws.close(4408,'handshake timeout');},WHITEBOARD_SCALE_POLICY.websocket.handshakeMs);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -65,6 +65,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if (ws.readyState!==ws.OPEN) return;
             if (message.type==='hello') {
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+              peer.clientNonce=message.clientNonce ?? peer.clientNonce;
               if(decoded(message.stateVector).byteLength>1) metrics.reconnect();
               // Keep a server-only full mirror for cross-process catch-up, never trust client content.
               const full=await deps.store.load(principal,boardId);
@@ -73,7 +74,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.role=diff.role; peer.archived=diff.archived;
               const accessReceiptId=await deps.boards.issueQuarantineAccessReceipt(principal,boardId,sessionFingerprint(token),diff.epoch);
               peer.ready=true; clearTimeout(deadline);
-              send(ws,{type:'sync',...diff,update:encoded(diff.update),accessReceiptId}); presence(peer); return;
+              send(ws,{type:'sync',...diff,update:encoded(diff.update),accessReceiptId,clientNonce:peer.clientNonce,connectionId:peer.connectionId}); presence(peer); return;
             }
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED',traceId); return; }
             if(message.type==='awareness') {

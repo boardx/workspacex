@@ -8,7 +8,8 @@ const soak = readSoakConfig();
  * Explicit long-running Board evidence lane. It reuses the isolated full-stack
  * topology but replaces the ordinary project list, output directory and budget.
  */
-export default defineConfig(fullstack, {
+export default defineConfig({
+  ...fullstack,
   outputDir: 'test-results/whiteboard-collaboration-soak',
   projects: [{ name: 'whiteboard-collaboration-soak', testMatch: ['whiteboard-collaboration-soak.spec.ts'] }],
   timeout: soak.durationMs + soak.offlineMs + 10 * 60_000,

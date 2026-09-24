@@ -77,8 +77,13 @@ async function connect(boardId: string, token: string): Promise<Peer> {
     ws.once('open', () => { clearTimeout(timer); resolve(); });
     ws.once('error', error => { clearTimeout(timer); reject(error); });
   });
-  peer.send({ type: 'hello', stateVector: b64(Y.encodeStateVector(peer.doc)) });
-  await peer.wait(message => message.type === 'sync'); return peer;
+  const clientNonce = randomUUID();
+  peer.send({ type: 'hello', stateVector: b64(Y.encodeStateVector(peer.doc)), clientNonce });
+  const sync = await peer.wait(message => message.type === 'sync');
+  expect(sync).toMatchObject({ type: 'sync', clientNonce });
+  if (sync.type !== 'sync') throw new Error('Expected initial whiteboard sync');
+  expect(sync.connectionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  return peer;
 }
 async function rejectedUpgrade(boardId: string, token?: string): Promise<number> {
   const protocols = token ? [WHITEBOARD_SYNC.protocol, `${WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`] : [WHITEBOARD_SYNC.protocol];
