@@ -17,6 +17,7 @@ describe('whiteboard quarantine recovery persistence', () => {
     expect(legacyMigration).not.toContain('access_receipt_id');
     expect(proofMigration).toContain('ADD COLUMN IF NOT EXISTS access_receipt_id');
     expect(proofMigration).toContain('ADD COLUMN IF NOT EXISTS request_hash');
+    expect(proofMigration).toContain('ADD COLUMN IF NOT EXISTS inactive_at');
     expect(proofMigration).toContain("SET status='denied'");
     expect(proofMigration).toContain('ALTER COLUMN request_hash SET NOT NULL');
   });
@@ -41,8 +42,8 @@ describe('whiteboard quarantine recovery persistence', () => {
       'whiteboard_quarantine_access_active_scope',
       'whiteboard_quarantine_recovery_access_once',
     ]) expect(migrations).toContain(`INDEX IF NOT EXISTS ${index}`);
-    expect(proofMigration.match(/ADD COLUMN IF NOT EXISTS/g)).toHaveLength(2);
-    expect(proofMigration.match(/IF NOT EXISTS \(SELECT 1 FROM pg_constraint/g)).toHaveLength(3);
+    expect(proofMigration.match(/ADD COLUMN IF NOT EXISTS/g)).toHaveLength(3);
+    expect(proofMigration.match(/IF NOT EXISTS \(SELECT 1 FROM pg_constraint/g)).toHaveLength(4);
     expect(migrations.match(/DROP POLICY IF EXISTS/g)).toHaveLength(2);
   });
 
@@ -53,6 +54,7 @@ describe('whiteboard quarantine recovery persistence', () => {
     expect(proofMigration).toContain('WHERE active');
     expect(proofMigration).toContain('expires_at timestamptz NOT NULL');
     expect(proofMigration).toContain('consumed_at timestamptz');
+    expect(proofMigration).toContain('inactive_at timestamptz');
     expect(proofMigration).toContain('WHERE access_receipt_id IS NOT NULL');
   });
 });

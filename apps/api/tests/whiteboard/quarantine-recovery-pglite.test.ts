@@ -79,6 +79,7 @@ beforeAll(async () => {
     );
     CREATE FUNCTION kernel_apply_org_freeze_policies() RETURNS void LANGUAGE sql AS $$ SELECT $$;
     GRANT SELECT ON organizations,org_memberships,whiteboards,whiteboard_members TO app_rw;
+    GRANT UPDATE ON whiteboards TO app_rw;
   `);
   await database.exec(legacyMigration);
   await database.query('INSERT INTO organizations(id) VALUES($1),($2)', [orgId, otherOrgId]);
@@ -156,11 +157,11 @@ describe('whiteboard quarantine recovery on an executable PostgreSQL engine', ()
     await expect(repository.requestQuarantineRecovery(outsider, boardId, {
       ...request, requestId: randomUUID(), receiptId: randomUUID(),
     })).resolves.toBeNull();
-    const consumed = await port.withTenant(orgId, session => session.query<{ active: boolean; consumed_at: Date | null }>(
-      'SELECT active,consumed_at FROM whiteboard_quarantine_access_receipts WHERE receipt_id=$1',
+    const consumed = await port.withTenant(orgId, session => session.query<{ active: boolean; consumed_at: Date | null;inactive_at:Date|null }>(
+      'SELECT active,consumed_at,inactive_at FROM whiteboard_quarantine_access_receipts WHERE receipt_id=$1',
       [accessReceiptId],
     ));
-    expect(consumed.rows[0]).toMatchObject({ active: false, consumed_at: expect.any(Date) });
+    expect(consumed.rows[0]).toMatchObject({ active: false, consumed_at: expect.any(Date),inactive_at:expect.any(Date) });
   });
 
   it('rejects an expired receipt with the same non-enumerating empty result', async () => {
@@ -181,5 +182,27 @@ describe('whiteboard quarantine recovery on an executable PostgreSQL engine', ()
       requestId: randomUUID(), receiptId: randomUUID(), accessReceiptId, sessionFingerprint: fingerprint,
       epoch: 1, pendingCount: 1, pendingBytes: 1, reason: 'ACCESS_DENIED',
     })).resolves.toBeNull();
+    const expired=await port.withTenant(orgId,session=>session.query<{active:boolean;expires_at:Date;inactive_at:Date}>(
+      'SELECT active,expires_at,inactive_at FROM whiteboard_quarantine_access_receipts WHERE receipt_id=$1',[accessReceiptId],
+    ));
+    expect(expired.rows[0]?.active).toBe(false);
+    expect(new Date(expired.rows[0]!.inactive_at).toISOString()).toBe(new Date(expired.rows[0]!.expires_at).toISOString());
+  });
+
+  it('rejects issuance after committed revocation and cleans retention from inactive_at while preserving audit proofs',async()=>{
+    const orphan=await repository.issueQuarantineAccessReceipt(editor,boardId,'d'.repeat(64),1);
+    const referenced=await database.query<{access_receipt_id:string}>(
+      'SELECT access_receipt_id FROM whiteboard_quarantine_recovery_requests WHERE status=\'pending-review\' LIMIT 1',
+    );
+    await database.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false,inactive_at=now()-interval '91 days'
+      WHERE receipt_id=$1 OR receipt_id=$2`,[orphan,referenced.rows[0]!.access_receipt_id]);
+    await expect(repository.cleanupQuarantineAccessReceipts(owner)).resolves.toBe(1);
+    const retained=await port.withTenant(orgId,session=>session.query<{receipt_id:string}>(
+      'SELECT receipt_id FROM whiteboard_quarantine_access_receipts WHERE receipt_id=$1 OR receipt_id=$2 ORDER BY receipt_id',
+      [orphan,referenced.rows[0]!.access_receipt_id],
+    ));
+    expect(retained.rows.map(row=>row.receipt_id)).toEqual([referenced.rows[0]!.access_receipt_id]);
+    await database.query('DELETE FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3',[orgId,boardId,editor.userId]);
+    await expect(repository.issueQuarantineAccessReceipt(editor,boardId,'e'.repeat(64),1)).rejects.toThrow('WHITEBOARD_ACCESS_CHANGED');
   });
 });

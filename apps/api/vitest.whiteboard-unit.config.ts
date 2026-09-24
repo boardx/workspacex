@@ -12,6 +12,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/quarantine-recovery-controller.test.ts',
     'tests/whiteboard/quarantine-recovery-migration.test.ts',
     'tests/whiteboard/quarantine-recovery-pglite.test.ts',
+    'tests/whiteboard/quarantine-receipt-gateway.test.ts',
   ],
   environment: 'node',
   maxWorkers: 1,
