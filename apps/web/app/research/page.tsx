@@ -34,7 +34,7 @@ export default function ResearchPage({
   if (process.env.NODE_ENV !== "production" && searchParams.preview === "effort-budget") {
     return <GuidedResearchEffortBudgetPreview state={uiState} />;
   }
-  if (process.env.NODE_ENV !== "production" && searchParams.preview === "trust-console") {
+  if ((process.env.NODE_ENV !== "production" || process.env.FULLSTACK_E2E_PREVIEWS === "1") && searchParams.preview === "trust-console") {
     return <GuidedResearchTrustConsolePreview />;
   }
 

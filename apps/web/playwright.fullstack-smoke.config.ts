@@ -690,6 +690,10 @@ export default defineConfig({
         NEXT_PUBLIC_API_WS_URL: `http://127.0.0.1:${apiPort}`,
         FULLSTACK_E2E_API_ORIGIN: apiOrigin,
         FULLSTACK_E2E_BREAK_CONTROLLER: breakController,
+        // Preview fixtures stay closed in ordinary production builds. This explicit lane-only
+        // switch makes the trust-console browser contract reachable in the production-mode
+        // build exercised by fullstack smoke.
+        FULLSTACK_E2E_PREVIEWS: "1",
         NEXT_DIST_DIR: ".next-fullstack-e2e",
         /**
          * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。
