@@ -40,10 +40,6 @@ components/admin/model-screen.tsx	className="inline-flex items-center gap-1 roun
 components/admin/usage-monitor-tab.tsx	"h-6 rounded-md px-2.5 text-11 transition-colors duration-200 " +
 components/agent-runtime/mcp-policy-screen.tsx	className={`flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-all duration-200 hover:bg-accent hover:text-accent-foreground ${verdict === v.key ? "border-primary bg-accent text-accent-foreground" : "border-border-subtle bg-panel"}`}
 components/agent-runtime/routing-screen.tsx	className="flex items-center gap-2 rounded-md border border-border-subtle bg-panel px-2.5 py-2 text-left transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
-components/brain/context-pack.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-90")} />
-components/brain/context-pack.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", showMore && "rotate-90")} />
-components/brain/context-pack.tsx	className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted"
-components/brain/left-rail.tsx	<div key={l.key} data-testid={`brain-nav-${l.key}`} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-200 hover:bg-muted">
 components/canvas/ai-draft-panel.tsx	className="flex items-center gap-1 self-start rounded-sm px-1 py-0.5 text-9 text-muted-foreground transition-colors duration-200 hover:bg-card disabled:bg-transparent disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
 components/canvas/canvas-left-panel.tsx	"flex flex-col gap-1 rounded-md border px-2.5 py-2 transition-colors duration-200 hover:bg-muted",
 components/canvas/canvas-left-panel.tsx	className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card px-2.5 py-2 transition-colors duration-200 hover:bg-muted"

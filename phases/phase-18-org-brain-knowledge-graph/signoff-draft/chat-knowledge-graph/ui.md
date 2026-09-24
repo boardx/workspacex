@@ -51,6 +51,18 @@
 | 记住卡·已记住 · 撤销 | `uc-18-6-remember-card-done.png` | uc-18-6 A |
 | 记住卡（可改字） | `uc-18-6-remember-card.png` | uc-18-6 A；06 U-4 |
 
+## 二·补、大脑页 `/brain`（2026-09-24，无截图）
+
+人类指令「取消所有的 mockup 的数据」：`/brain` 不再渲染 `lib/mock/brain.ts` 的示例数字（我 86 / 项目 1,482 / 组织 604、决策台账、推演链、Context Pack 演示），改为只读本人真实数据。本节是实现后补记，没有签核用原型截图（上面的自检计数不含本节）。
+
+| 页签 | 内容 | 数据 | 稳定 testid |
+|---|---|---|---|
+| 我的长期记忆 | L1 结论按类型分组、搜索 / 类型筛选、「涉及的人和事」；每条「来自对话 X」直达该会话的「记忆」页签并打开原结论的来源抽屉；只读 | `getPersonalKnowledge` + `getBrainOverview.personalOrigins` | `brain-personal-item`、`brain-origin-link`、`brain-origin-gone`、`brain-personal-search`、`brain-kind-<kind>` |
+| 对话里的记忆 | 本人创建的、记下了东西的会话，每个一行：共 N 条 / AI 记下的 / 你确认过 / 有矛盾 / 人和事数；点进 `/chat/<id>?memory=1` | `getBrainOverview.threads` | `brain-session-row`、`brain-sessions-summary` |
+| 项目与组织 | 两张卡如实写「尚未开放」，无数字（依据契约 `KG_SCOPES_ENABLED_PHASE_18`） | 无 | `brain-layer-project-status`、`brain-layer-org-status` |
+
+七态：加载 `loading`、空 `empty`（长期记忆空时给「看看对话里记下了什么」）、依赖失败 `dep-failed`（人话 + 重试）、无权限 `denied`（`KG_NOT_VISIBLE`：已不在当前组织，组织层）。深链 `?memory=<claimId>` 由 `apps/web/lib/chat-memory-link.ts` 单点拼读。用词守 06 R5（不出现「实体 / 结论 / 晋升」等）。
+
 ## 三、稳定 `data-testid`（前缀 `kg-`）
 
 | 区域 | data-testid |
