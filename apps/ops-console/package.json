@@ -15,13 +15,9 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@repo/contracts": "workspace:*",
+    "@repo/coord-access": "workspace:*",
     "zod": "3.25.76"
-=======
-    "zod": "3.25.76",
-    "@repo/coord-access": "workspace:*"
->>>>>>> 67e07f4e (安全(D7/D6)：Cloudflare Access JWT 强制校验收敛为单一实现 + 仓库侧清单门禁)
   },
   "devDependencies": {
     "typescript": "*",
