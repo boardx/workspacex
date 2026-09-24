@@ -314,6 +314,34 @@ await step("S15", "运营收件箱打得开：系统异常一路读不到时只�
   };
 });
 
+await step("S16", "品牌色与字体：输入 #FF5A1F、选衬线体，刷新后还在（对标 R1，#3933）", async () => {
+  // 真栈才测得到的一段：新加的 `tokens` 列与仓储按键合并的 SQL 走的是真 PGlite，不是夹具。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-appearance").click();
+  const input = page.getByTestId("design-detail-brand-color");
+  await input.fill("#FF5A1F");
+  await input.press("Enter");
+  await page.getByTestId("design-detail-font-serif").click();
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  const phone = page.getByTestId("design-detail-phone").first();
+  await phone.waitFor();
+  const brand = await phone.getAttribute("data-brand");
+  const font = await phone.getAttribute("data-font");
+  const s = await shot("s16-brand-font.png");
+  if (brand !== "#FF5A1F") throw new Error(`刷新后品牌色是「${String(brand)}」，不是 #FF5A1F（没落库？）`);
+  if (font !== "serif") throw new Error(`刷新后字体是「${String(font)}」，不是衬线体`);
+  // 收尾：换回默认，免得后面重跑这份会话时起点不同。
+  await page.getByTestId("design-detail-appearance").click();
+  await page.getByTestId("design-detail-brand-clear").click();
+  await page.getByTestId("design-detail-font-sans").click();
+  await page.waitForTimeout(800);
+  return { detail: "刷新后画布根仍是 #FF5A1F + 衬线体（真 PGlite 上的 tokens 列）", shot: s };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

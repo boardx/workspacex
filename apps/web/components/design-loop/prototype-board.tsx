@@ -16,6 +16,7 @@ function clampTo(v: number, lo: number, hi: number): number {
  * U5b 拦的是间距字面量，动态变换本来就不该写成 class）。没有惯性、没有橡皮筋，够用且可预测。
  */
 import * as React from "react";
+import type { CommentPin } from "./comment-pins";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PrototypeCanvas, rotated, linkKey, type PrototypeCanvasMode, type PrototypeDevicePreset } from "./prototype-canvas";
@@ -30,13 +31,17 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, wireframe = false,}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, onInlineEdit = null, pins, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark", drawing = false, changed, accent, tokens, wireframe = false,}: {
   frames: readonly string[];
   prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
+  /** 对标 R7：画板上同样可以双击改字。 */
+  onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
+  /** 对标 R8：批注钉。每块屏只画自己树里找得到的那几个（节点 id 项目内唯一）。 */
+  pins?: readonly CommentPin[];
   device: PrototypeDevicePreset;
   /** 迭代 14：横过来看，与画布同一个开关。 */
   landscape?: boolean;
@@ -49,6 +54,8 @@ export function PrototypeBoard({
   changed?: ReadonlySet<string>;
   /** 迭代 17：项目的强调色档位——画板上的每一块屏都跟着它，不然只有单页视图有身份。 */
   accent?: designWorkbench.PrototypeAccent;
+  /** 对标 R1：项目的设计 token（品牌色、字体）——画板上每块屏同样跟着，不然两个视图对不上。 */
+  tokens?: designWorkbench.DesignTokens;
   /** 迭代 19：低保真（线框图模板）。画板上每一块屏同样要压成灰阶，不然两个视图对不上。 */
   wireframe?: boolean;
   /** 迭代 13：原型自己的明暗主题，透传给每块画板。 */
@@ -275,6 +282,8 @@ export function PrototypeBoard({
                 root={prototype[i] ?? null}
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
+                onInlineEdit={onInlineEdit}
+                pins={pins}
                 device={device}
                 landscape={landscape}
                 frameIndex={i}
@@ -282,6 +291,7 @@ export function PrototypeBoard({
                 drawing={drawing && (prototype[i] ?? null) === null}
                 changed={changed}
                 accent={accent}
+                tokens={tokens}
                 wireframe={wireframe}
                 mode={mode}
                 links={links[i]}
