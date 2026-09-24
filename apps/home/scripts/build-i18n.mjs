@@ -14,10 +14,17 @@
  * rather than silently shipping a stale translation.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/* The dictionary is read by importing it — the same way the browser and
+   check-i18n read it. It used to be scraped with a line-anchored regex that
+   saw only the first key on each line, so every key written second on a line
+   was defined, passed every gate, and shipped in English on /zh/. One file,
+   one reader. A query string defeats the module cache in --watch-style runs. */
+const ZH = (await import(`${pathToFileURL(join(root, 'assets/js/zh.js')).href}?t=${Date.now()}`)).default;
 const CHECK = process.argv.includes('--check');
 
 /* PLACEHOLDER. The public domain was not resolvable from this repository.
@@ -41,14 +48,17 @@ const PAGES = [
       description: 'WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。',
       ogTitle: 'WorkspaceX — 面向人与 AI 的开放协作运行空间',
       ogDescription: '不是另一个协作工具，而是人与 AI 真正一起把工作完成的运行层：共享上下文、可验证的行动、属于组织的记忆。',
-      ogImageAlt: 'WorkspaceX——面向人与 AI 协作的开放运行空间。',
+      ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',
     },
   },
   {
     source: 'privacy.html',
     target: 'zh/privacy.html',
-    path: '/zh/privacy.html',
-    enPath: '/privacy.html',
+    /* The URLs Cloudflare Pages actually serves: it answers /privacy from
+       privacy.html and 308-redirects /privacy.html to /privacy, so a canonical,
+       hreflang or sitemap entry naming the .html form points at a redirect. */
+    path: '/zh/privacy',
+    enPath: '/privacy',
     depth: 1,
     weight: { changefreq: 'yearly', priority: '0.3' },
     zh: {
@@ -56,7 +66,7 @@ const PAGES = [
       description: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
       ogTitle: '隐私与数据 — WorkspaceX',
       ogDescription: '这个网站收集什么、不收集什么，以及为什么它没有分析工具、没有 cookie、没有第三方请求。',
-      ogImageAlt: 'WorkspaceX——面向人与 AI 协作的开放运行空间。',
+      ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',
     },
   },
 ];
@@ -66,15 +76,8 @@ const escapeHtml = (s) => s
 
 function build(page) {
   const html = readFileSync(join(root, page.source), 'utf8');
-  const zhSource = readFileSync(join(root, 'assets/js/zh.js'), 'utf8');
   const META = { zh: page.zh };
-
-  // Read the dictionary without importing it, so this stays a pure text
-  // transform with no module cache to invalidate.
-  const dict = {};
-  for (const m of zhSource.matchAll(/^\s*'([\w.]+)':\s*'((?:[^'\\]|\\.)*)'/gm)) {
-    dict[m[1]] = m[2].replace(/\\'/g, "'");
-  }
+  const dict = ZH;
 
   let out = html;
 
@@ -88,6 +91,48 @@ function build(page) {
     /(<([a-z0-9]+)\b[^>]*\sdata-i18n-html="([\w.]+)"[^>]*>)([\s\S]*?)(<\/\2>)/g,
     (whole, open, tag, key, _body, close) =>
       (dict[key] === undefined ? whole : `${open}${dict[key]}${close}`),
+  );
+
+  /* 1a. Headings and short labels break between words, not inside them.
+         Breaking between any two Han characters is correct for running text
+         — it is how Chinese is typeset — but a display heading that ends a
+         line on 三个尺 and starts the next on 度 splits a word in the one
+         place a reader looks hardest. Seven of the fourteen section headings
+         did. A word segmenter (the ICU dictionary Node ships) finds the word
+         boundaries at build time; each gets a zero-width space, and the CSS
+         sets `word-break: keep-all` on [data-phrase] so those are the only
+         places a line may break inside Han. Section and card headings only:
+         running text breaking between characters is how Chinese is typeset.
+         Not <wbr>: 228 of those cost the Chinese page 150–200 ms of first
+         paint on slow 3G, measured, where the same breaks as U+200B cost
+         nothing measurable. */
+  const seg = new Intl.Segmenter('zh', { granularity: 'word' });
+  const HAN = /\p{Script=Han}/u;
+  /* The product's own vocabulary is not in ICU's dictionary: it splits
+     智能|体 and 闭|环. Offsets inside one of these never get a break. */
+  const TERMS = ['智能体', '闭环', '上下文', '工作空间', '工作单元', '证据链', '可验证', '开放内核', '运行时', '连接器', '本体', '尺度', '上线', '交付物', '经济体', '三个', '三类', '一类'];
+  const locked = (text) => {
+    const no = new Set();
+    for (const term of TERMS) for (let i = text.indexOf(term); i >= 0; i = text.indexOf(term, i + 1)) {
+      for (let k = i + 1; k < i + term.length; k += 1) no.add(k);
+    }
+    return no;
+  };
+  out = out.replace(
+    /(<([a-z0-9]+)\b)([^>]*\sdata-i18n="[\w.]+"[^>]*>)([^<]*)(<\/\2>)/g,
+    (whole, start, tag, rest, body, close) => {
+      const hanCount = [...body].filter((ch) => HAN.test(ch)).length;
+      if (!hanCount || !/^h[23]$/.test(tag)) return whole;
+      const parts = [...seg.segment(body)];
+      const no = locked(body);
+      let joined = '';
+      parts.forEach((x, i) => {
+        const prev = parts[i - 1];
+        if (prev && x.isWordLike && prev.isWordLike && HAN.test(x.segment) && HAN.test(prev.segment) && !no.has(x.index)) joined += '\u200b';
+        joined += x.segment;
+      });
+      return joined === body ? whole : `${start} data-phrase${rest}${joined}${close}`;
+    },
   );
 
   /* 1b. aria-labels. They are copy too, and every one of them was staying in

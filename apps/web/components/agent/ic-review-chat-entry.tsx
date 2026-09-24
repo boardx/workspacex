@@ -15,9 +15,9 @@ import { buildStandaloneReviewPrompt } from "@/lib/ic-review/review-prompt";
 /**
  * `/agent/team1` 的全部前端 —— 就地挂载真正的 chat 壳，地址栏保持在 team1。
  *
- * ## 为什么不是「中转页 + replace 进 /chat」（上一版这么做，与 team3/team4 同源的错）
+ * ## 为什么不是「中转页 + replace 进 /chat」（上一版这么做，与 team4 同源的错）
  *
- * team3（#3706）与 team4 在 devapp 真机上各栽过一次同一个坑，根因逐字相同：
+ * 本入口与 team4 在 devapp 真机上各栽过一次同一个坑，根因逐字相同：
  *
  * 1. 上一版把 Agent 挂进线程 roster 后就 `replace` 进 `/chat/<threadId>`；
  * 2. `/chat` 那棵树的 `CopilotKitV2AgentSelectionProvider` 初值恒为 `null`

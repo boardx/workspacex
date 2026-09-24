@@ -21,7 +21,11 @@ export function initCases() {
   const tabs = [...list.querySelectorAll('[role="tab"]')];
   const panels = tabs.map((t) => document.getElementById(t.getAttribute('aria-controls')));
 
-  const select = (index, { focus = false } = {}) => {
+  /* `write` puts the selection in the address bar. It used to happen on click
+     only, so arrow-key selection left the URL naming the previous panel — and
+     a reload, or a copied link, brought back the wrong discipline. The
+     language switch reads the same fragment (motion.js, via wsx:fragment). */
+  const select = (index, { focus = false, write = false } = {}) => {
     tabs.forEach((tab, i) => {
       const on = i === index;
       tab.setAttribute('aria-selected', String(on));
@@ -29,6 +33,10 @@ export function initCases() {
       panels[i]?.toggleAttribute('hidden', !on);
     });
     if (focus) tabs[index].focus();
+    if (write && panels[index]?.id) {
+      history.replaceState(null, '', `#${panels[index].id}`);
+      window.dispatchEvent(new Event('wsx:fragment'));
+    }
   };
 
   /* Accepts either the panel's id or the tab's, because both appear in the
@@ -46,15 +54,21 @@ export function initCases() {
     /* The panel was `hidden` a moment ago, so the browser has already given up
        on scrolling to it. Bring the section into view instead of the panel, so
        the reader lands on the heading that explains what they are looking at. */
-    if (scroll) document.getElementById('start')?.scrollIntoView({ block: 'start' });
+    if (scroll) {
+      /* On a fresh load the browser performs its own jump to the fragment
+         AFTER this runs — to the tab or the panel, not the heading — and it
+         won: /#panel-edu opened with the section's heading 383 px above the
+         screen. So the jump is repeated once the load has settled. */
+      const toHeading = () => document.getElementById('start')?.scrollIntoView({ block: 'start' });
+      toHeading();
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', () => requestAnimationFrame(toHeading), { once: true });
+      }
+    }
     return true;
   };
 
-  tabs.forEach((tab, i) => tab.addEventListener('click', () => {
-    select(i);
-    const id = panels[i]?.id;
-    if (id) history.replaceState(null, '', `#${id}`);
-  }));
+  tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i, { write: true })));
 
   window.addEventListener('hashchange', () => selectFromHash({ scroll: true }));
 
@@ -68,7 +82,7 @@ export function initCases() {
     };
     if (!(event.key in moves)) return;
     event.preventDefault();
-    select((moves[event.key] + tabs.length) % tabs.length, { focus: true });
+    select((moves[event.key] + tabs.length) % tabs.length, { focus: true, write: true });
   });
 
   if (!selectFromHash({ scroll: true })) select(0);

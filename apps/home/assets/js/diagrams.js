@@ -215,16 +215,20 @@ const axis = (host) => (isNarrow() ? axisNarrow(host) : axisWide(host));
    ========================================================================= */
 function brokenChainNarrow(host) {
   const items = ['ask', 'answer', 'redo', 'check', 'file'];
-  const W = 320, rowH = 74, H = items.length * rowH + 34;
+  const W = 320, rowH = 74, boxW = 210, boxH = 46, x = (W - boxW) / 2;
+  const top = 12, H = top + rowH * (items.length - 1) + boxH + 12;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-break', preserveAspectRatio: 'xMidYMid meet' });
-  const boxW = 210, boxH = 46, x = (W - boxW) / 2;
 
+  /* "context lost" names a BREAK, so it sits beside the first break mark.
+     It used to float above the first box, where it read as that box's
+     caption — a label attached to nothing it describes. */
+  const firstGap = top + boxH + (rowH - boxH) / 2;
   s.append(el('text', {
-    x: W / 2, y: 16, 'text-anchor': 'middle', class: 'd-label d-label--xs d-label--fail',
+    x: W / 2 - 18, y: firstGap + 4, 'text-anchor': 'end', class: 'd-label d-label--xs d-label--fail d-break__lost',
   }, t('d.break.lost')));
 
   items.forEach((key, i) => {
-    const y = 32 + rowH * i;
+    const y = top + rowH * i;
     const g = el('g', { class: 'd-break__box', style: `--i:${i}` });
     g.append(el('rect', {
       x, y, width: boxW, height: boxH, rx: 11,
@@ -471,7 +475,16 @@ function arch(host) {
   // side brackets: "moves fast" over L5–L4, "must stay stable" over L3–L2
   const bx = W - 200;
   const bracket = (y1, y2, label, cls) => {
-    if (narrow) return;   // no room beside the stack; the copy carries this
+    /* No room beside the stack on a phone, and the brackets used to simply
+       vanish there — leaving "the top moves fast, the middle must not" with
+       nothing in the picture to point at. On a phone the same words sit as a
+       tag in the top-right corner of the group's first layer. */
+    if (narrow) {
+      const g = el('g', { class: `d-arch__bracket d-arch__tag ${cls}` });
+      g.append(el('text', { x: W - 18, y: y1 + 20, class: 'd-label d-label--xs', 'text-anchor': 'end' }, label));
+      s.append(g);
+      return;
+    }
     const g = el('g', { class: `d-arch__bracket ${cls}` });
     g.append(el('path', {
       d: `M ${bx} ${y1} h 8 V ${y2} h -8`,
@@ -500,12 +513,21 @@ const ARCH_IMPACT = {
   l1: ['l1'],
 };
 
+/* The explorer is rebuilt when the width crosses the narrow breakpoint (a
+   tablet rotated, a window resized). It used to come back on L3 with focus
+   dropped on <body>: the reader's choice and place both lost. The choice is
+   kept here, and renderDiagrams notes which layer had focus before the old
+   drawing was thrown away. */
+let archSelected = 'l3';
+let archFocus = null;
+
 function wireArchSelection(root) {
   const rows = [...root.querySelectorAll('[data-layer]')];
   const detail = document.getElementById('arch-detail');
   if (!rows.length) return () => {};
 
   const select = (id) => {
+    archSelected = id;
     const impact = ARCH_IMPACT[id] ?? [id];
     rows.forEach((row) => {
       const rid = row.dataset.layer;
@@ -527,7 +549,11 @@ function wireArchSelection(root) {
     });
   });
 
-  select('l3');
+  select(archSelected);
+  if (archFocus) {
+    rows.find((r) => r.dataset.layer === archFocus)?.focus({ preventScroll: true });
+    archFocus = null;
+  }
   return () => {};
 }
 
@@ -540,11 +566,11 @@ function harnessNarrow(host) {
   const W = 320, rowH = 62, H = GATES.length * rowH + 40;
   const s = svg(`0 0 ${W} ${H}`, { class: 'd-harness', preserveAspectRatio: 'xMidYMid meet' });
   defs(s, 'g6');
-  const boxW = 184, boxH = 44, x = 58;
+  const boxW = 184, boxH = 44, x = 58, top = 8;
   const centres = [];
 
   GATES.forEach((key, i) => {
-    const y = 30 + rowH * i;
+    const y = top + rowH * i;
     centres.push(y + boxH / 2);
     const g = el('g', { class: 'd-harness__gate', 'data-gate': key, style: `--i:${i}` });
     g.append(el('rect', {
@@ -577,17 +603,16 @@ function harnessNarrow(host) {
   const token = el('g', { class: 'd-harness__token' });
   token.append(el('circle', { r: 8, fill: 'url(#g6)' }));
   s.append(token);
-  const status = el('text', { x: W / 2, y: 16, 'text-anchor': 'middle', class: 'd-label d-label--xs' }, '');
+  /* The run's outcome reads after the last gate, as the outcome of the flow.
+     Above the first gate it read as a label on Authorize. */
+  const status = el('text', {
+    x: x + boxW / 2, y: top + rowH * (GATES.length - 1) + boxH + 26, 'text-anchor': 'middle', class: 'd-label d-label--xs d-harness__status',
+  }, '');
   s.append(status);
   host.replaceChildren(s);
   registerScale(s);
 
-  const park = () => {
-    token.setAttribute('transform', `translate(${x - 18} ${centres[4]})`);
-    status.textContent = t('d.harness.pass');
-    status.setAttribute('fill', 'var(--c-evidence)');
-  };
-  if (reducedMotion()) { park(); return () => {}; }
+  if (reducedMotion()) { parkCaught({ token, status, s, at: `translate(${x - 18} ${centres[3]})` }); return () => {}; }
   return runHarness({ token, status, s, at: (i) => `translate(${x - 18} ${centres[i]})` });
 }
 
@@ -656,9 +681,7 @@ function harnessWide(host) {
   const railY = y - 16;
 
   if (reducedMotion()) {
-    token.setAttribute('transform', `translate(${centres[4]} ${railY})`);
-    status.textContent = t('d.harness.pass');
-    status.setAttribute('fill', 'var(--c-evidence)');
+    parkCaught({ token, status, s, at: `translate(${centres[3]} ${railY})` });
     return () => {};
   }
 
@@ -670,6 +693,21 @@ function harnessWide(host) {
 }
 
 const harness = (host) => (isNarrow() ? harnessNarrow(host) : harnessWide(host));
+
+/* The still frame a reduced-motion reader gets. It used to be the success
+   path — "passed", token on Evidence — directly above a caption saying "the
+   run above shows a failing check being caught and reversed". The one frame
+   that has to carry the whole animation showed the half the caption says is
+   not the point. It is the caught failure now: token on Verify, the gate
+   marked failed, the rollback path lit — the same state the animation holds
+   at 2.7 s. */
+function parkCaught({ token, status, s, at }) {
+  token.setAttribute('transform', at);
+  status.textContent = t('d.harness.fail');
+  status.setAttribute('fill', 'var(--c-fail)');
+  s.querySelectorAll('.d-harness__gate').forEach((g, gi) => g.setAttribute('data-state', gi === 3 ? 'fail' : ''));
+  s.querySelector('.d-harness__rollback')?.setAttribute('data-on', 'true');
+}
 
 /* The run: walk to verify, fail, roll back to execute, walk again, pass.
    A slow loop on purpose — the failing path is the whole message, so it has to
@@ -793,6 +831,7 @@ let loopApi = null;
 
 export function renderDiagrams(lang = pageLang()) {
   LANG = lang;
+  archFocus = document.activeElement?.closest?.('.d-arch [data-layer]')?.dataset.layer ?? null;
   teardowns.forEach((fn) => fn?.());
   teardowns = [];
 

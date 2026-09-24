@@ -74,10 +74,11 @@
 .d-loop__ring {
   stroke: rgba(255, 255, 255, calc(0.16 + 0.26 * var(--e, 0)));
 }
-.d-loop__node .d-label {
-  fill: var(--fg-dim);
-  opacity: calc(0.62 + 0.38 * var(--e, 0));
-}
+/* The inactive labels were faded to 62% on top of --fg-dim: about 2.8:1 on
+   the page, under the 4.5 a 13px label needs. axe does not look inside SVG,
+   so nothing said so. The emphasis is carried by the fill (dim → full) and
+   the dot; the label itself stays readable. */
+.d-loop__node .d-label { fill: var(--fg-dim); }
 .d-loop__node[data-active="true"] .d-label { fill: var(--fg); }
 .d-loop__centre { animation: d-centre 420ms var(--ease-out); }
 @keyframes d-centre {

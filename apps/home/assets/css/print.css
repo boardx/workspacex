@@ -55,7 +55,7 @@
   /* Gradient text prints as nothing when backgrounds are dropped. The nav is
      hidden on paper, but the FOOTER carries the same wordmark and is not — so
      the printed page lost the product's own name at the bottom of every copy. */
-  .grad-text, .brand__name { color: #000 !important; -webkit-text-fill-color: #000 !important; }
+  .grad-text { color: #000 !important; -webkit-text-fill-color: #000 !important; }
   .btn--primary { color: #000 !important; background: none !important; border: 1px solid #000; }
 
   /* A URL the reader cannot click is worth printing next to its label. */
@@ -67,4 +67,18 @@
 
   /* The diagrams are drawn for a dark surface; in ink they are empty boxes. */
   [data-diagram], .surface { display: none; }
+
+  /* Paper has no tabs. Five of the six use cases and four of the five
+     architecture details were `hidden` behind controls, so a printed copy
+     carried Legal and L3 only — and the Today / With WorkspaceX switch
+     printed as a button beside the empty band its diagram had left. Every
+     panel and caption prints; the controls and the empty stage do not. */
+  .case[hidden], [data-layer-detail][hidden] { display: block !important; }
+  .case { break-inside: avoid-page; margin-bottom: 0.6cm; }
+  [data-layer-detail]::before {
+    content: attr(data-layer-detail) " · "; text-transform: uppercase; font-weight: 600;
+  }
+  .switch, .cases__tabs, .compare { display: none !important; }
+  .stage__captions { display: block !important; }
+  .stage__caption.is-off { visibility: visible !important; }
 }

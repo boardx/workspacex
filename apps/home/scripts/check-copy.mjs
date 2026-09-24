@@ -30,6 +30,11 @@ for (const m of html.matchAll(/data-i18n(?:-html)?="[^"]+"[^>]*>([^<]+)</g)) {
   if (/[A-Za-z]'[A-Za-z]/.test(text)) add('straight apostrophe in English copy', text);
   if (/ -- /.test(text)) add('double hyphen instead of an em dash', text);
   if (/\s{2,}\S/.test(text)) add('doubled space in English copy', text);
+  /* One spelling. The page says organization, center and color, and it also
+     said licence, programme, labelled and behaviour — six British forms in an
+     otherwise American page, which reads as two writers. */
+  const uk = text.match(/\b(licence|programmes?|labell(?:ed|ing)|modell(?:ed|ing)|behaviours?|colours?|organis(?:ation|e|ed|ing)s?|centres?|favou?rite|catalogue|judgement|artefacts?)\b/i);
+  if (uk && !/^(favorite)$/i.test(uk[1])) add(`British spelling "${uk[1]}" — the page is written in American English`, text);
 }
 
 /* ---- Chinese: every source that contains any, not two named files -------
@@ -58,7 +63,11 @@ for (const file of sources) {
 }
 
 for (const value of zhValues) {
-  if (/"/.test(value) && !/class=/.test(value)) add('straight quote in Chinese copy — use “ ”', value);
+  if (/"/.test(value.replace(/<[^>]+>/g, ''))) add('straight quote in Chinese copy — use “ ”', value);   // attributes inside markup are not copy
+  /* One quotation style. The page had 10 “ ” and 22 「 」 — both correct
+     somewhere, but mainland copy (GB/T 15834) uses “ ”, and mixing them on
+     one page reads as two translators. */
+  if (/[「」『』]/.test(value)) add('corner brackets in Chinese copy — this site quotes with “ ”', value);
   /* Between Han characters, and also where a clause ENDS on one: the first
      version of this rule needed Han on both sides, so a trailing half-width
      comma after Chinese went straight through — found by writing a probe

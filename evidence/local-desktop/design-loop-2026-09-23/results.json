@@ -1,5 +1,5 @@
 {
-  "sha": "f2d9457c",
+  "sha": "c3673f60",
   "modelMode": "standin",
   "results": [
     {
@@ -8,7 +8,7 @@
       "ok": true,
       "detail": "登录后落地 /projects",
       "shot": null,
-      "ms": 12036
+      "ms": 15998
     },
     {
       "id": "S02",
@@ -16,7 +16,7 @@
       "ok": true,
       "detail": "已有项目",
       "shot": "s02-workbench.png",
-      "ms": 3090
+      "ms": 4233
     },
     {
       "id": "S03",
@@ -24,7 +24,7 @@
       "ok": true,
       "detail": "画出 2 页：首页 / 下单",
       "shot": "s03-drawn.png",
-      "ms": 4792
+      "ms": 7561
     },
     {
       "id": "S04",
@@ -40,7 +40,7 @@
       "ok": true,
       "detail": "hui-yuan-xia-dan-prototype-2026-09-23.html",
       "shot": null,
-      "ms": 378
+      "ms": 478
     },
     {
       "id": "S06",
@@ -48,7 +48,7 @@
       "ok": true,
       "detail": "hui-yuan-xia-dan-2026-09-23.md · hui-yuan-xia-dan-2026-09-23.prototype.json",
       "shot": null,
-      "ms": 203
+      "ms": 193
     },
     {
       "id": "S07",
@@ -56,7 +56,7 @@
       "ok": true,
       "detail": "hui-yuan-xia-dan-shou-ye.png",
       "shot": null,
-      "ms": 753
+      "ms": 795
     },
     {
       "id": "S08",
@@ -64,7 +64,7 @@
       "ok": true,
       "detail": "提示「上一个节点（按钮「立即下单」）的改动已经帮你应用了；不想要的话用画布上方…」；刷新后仍是「马上下单」",
       "shot": "s08-auto-applied.png",
-      "ms": 1982
+      "ms": 2823
     },
     {
       "id": "S09",
@@ -72,7 +72,7 @@
       "ok": true,
       "detail": "访客（手机宽度、未登录）看到「会员下单」",
       "shot": "s09-guest-mobile.png",
-      "ms": 3418
+      "ms": 3357
     },
     {
       "id": "S10",
@@ -80,7 +80,7 @@
       "ok": true,
       "detail": "收回后访客看到「这条分享链接打不开：可能已经被取消分享，也可能链接不完整…」",
       "shot": "s10-unpublish-confirm.png",
-      "ms": 1396
+      "ms": 1802
     },
     {
       "id": "S11",
@@ -88,7 +88,7 @@
       "ok": true,
       "detail": "卡片写「改于 刚刚」；点「算了」后项目还在",
       "shot": "s11-delete-confirm.png",
-      "ms": 1609
+      "ms": 2430
     },
     {
       "id": "S12",
@@ -96,7 +96,31 @@
       "ok": true,
       "detail": "idle rgb(95, 95, 103) → hover rgb(20, 20, 23)",
       "shot": null,
-      "ms": 10254
+      "ms": 4140
+    },
+    {
+      "id": "S13",
+      "title": "手机宽度（375）打开设计详情：画布读得了字，不是一张缩略图",
+      "ok": true,
+      "detail": "画布缩放 0.87（读得了字；装不下的部分竖着滚）",
+      "shot": "s13-phone-detail.png",
+      "ms": 7925
+    },
+    {
+      "id": "S14",
+      "title": "提反馈弹窗点「语音」：本机没开通转写时不给死路「重试」、说明不被截断",
+      "ok": true,
+      "detail": "「这里还没开通语音输入当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输…」；「重试」按钮 0 个",
+      "shot": "s14-voice-not-configured.png",
+      "ms": 1787
+    },
+    {
+      "id": "S15",
+      "title": "运营收件箱打得开：系统异常一路读不到时只丢那一路（#3921）",
+      "ok": true,
+      "detail": "收件箱正常打开；系统异常那一格如实说「这次没读到」（本地版预期）",
+      "shot": "s15-inbox.png",
+      "ms": 9380
     }
   ],
   "findings": [],
