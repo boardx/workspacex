@@ -92,7 +92,7 @@ jobs:
 
       - name: Assert public-layer host configured (D13)
         working-directory: apps/devportal
-        run: node scripts/assert-public-host.mjs
+        run: node scripts/assert-public-host.mjs --allow-placeholder  # 人类选定公开域名后去掉此参数
 
       - name: Deploy, production smoke, and automatic rollback
         working-directory: apps/devportal

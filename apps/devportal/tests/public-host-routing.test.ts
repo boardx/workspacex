@@ -103,5 +103,9 @@ describe("公开主机名配置（单一 env，占位即未配置）", () => {
     const run = () => execFileSync("node", [join(root, "scripts/assert-public-host.mjs")], { stdio: "pipe" });
     if (value === PUBLIC_HOST_PLACEHOLDER) expect(run).toThrow();
     else expect(run).not.toThrow();
+    // 域名未选定时 CD 用 --allow-placeholder：占位值放行（只警告），但缺失仍失败
+    const lenient = () =>
+      execFileSync("node", [join(root, "scripts/assert-public-host.mjs"), "--allow-placeholder"], { stdio: "pipe" });
+    expect(lenient).not.toThrow();
   });
 });

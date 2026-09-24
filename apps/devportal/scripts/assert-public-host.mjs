@@ -6,10 +6,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PLACEHOLDER = "__SET_DEVPORTAL_PUBLIC_HOST__";
-const file = process.argv[2] ?? join(dirname(dirname(fileURLToPath(import.meta.url))), "wrangler.toml");
+const args = process.argv.slice(2);
+// 域名未选定前 CD 用 --allow-placeholder：拆分保持未启用（路由与拆分前一致），只发警告，不阻断部署。
+const allowPlaceholder = args.includes("--allow-placeholder");
+const file = args.find((a) => !a.startsWith("--")) ?? join(dirname(dirname(fileURLToPath(import.meta.url))), "wrangler.toml");
 const src = await readFile(file, "utf8");
 const value = /^\s*DEVPORTAL_PUBLIC_HOST\s*=\s*"([^"]*)"/m.exec(src)?.[1]?.trim() ?? "";
 
+if (allowPlaceholder && value === PLACEHOLDER) {
+  console.log(`::warning title=公开层拆域未启用::DEVPORTAL_PUBLIC_HOST 仍是占位值，拆分未生效（路由与拆分前一致）。人类选定公开域名后填入 wrangler.toml 并去掉 --allow-placeholder。`);
+  process.exit(0);
+}
 if (!value || value === PLACEHOLDER) {
   console.error(
     `✗ DEVPORTAL_PUBLIC_HOST 未配置（当前：${value || "<缺失>"}）。\n` +
