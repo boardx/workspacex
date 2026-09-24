@@ -25,7 +25,7 @@
  *
  * 用法（经 tsx 跑，因为要 import TypeScript 写的契约）：
  *   pnpm run lint:telemetry-schema
- *   pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module <文件> --export <导出名>   # 测试用
+ *   pnpm exec tsx .harness/scripts/lint-telemetry-schema.mjs --module <文件> --export <导出名[,导出名…]>   # 运营平面各 schema 用
  *
  * 不带参数时检查 {@link TARGETS} 里的每一份 schema（任何一份红即整体红）。新增一份会离开实例、
  * 或与上报同源的 schema，就往 TARGETS 里加一行——门控不认识的 schema 等于没被门控。
@@ -46,7 +46,7 @@ const TARGETS = [
   { module: "packages/contracts/src/first-value-events.ts", exportName: "FirstValueFunnelReport" },
 ];
 const targets = process.argv.includes("--module")
-  ? [{ module: arg("--module"), exportName: arg("--export", "InstanceTelemetryReport") }]
+  ? arg("--export", "InstanceTelemetryReport").split(",").map((exportName) => ({ module: arg("--module"), exportName }))
   : TARGETS.map((t) => ({ ...t, module: join(ROOT, t.module) }));
 
 /** 长成个人信息样子的字段名。按词边界匹配驼峰拆开后的片段，避免 `username` 这类漏网。 */

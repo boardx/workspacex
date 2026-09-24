@@ -9,6 +9,7 @@
  *   GET   /api/ops/incidents/:id
  *   PATCH /api/ops/incidents/:id           改 severity / status / components / summary，状态变化进时间线
  *   POST  /api/ops/incidents/:id/resolve   关闭（不可再改）
+ *   GET/POST/PATCH /api/ops/gtm/...          GTM 活动与漏斗（D2，只存聚合与不透明 ID，见 gtm.ts）
  *
  * 下一步（骨架之外，未做）：
  *   1. 人类建 Access 应用 + 路由，填 ACCESS_TEAM_DOMAIN / ACCESS_AUD，put GITHUB_READ_TOKEN；
@@ -23,9 +24,11 @@ import { certsResolver, verifyAccessJwt, type KeyResolver } from "./access";
 import { githubClient, listReleases } from "./releases";
 
 export { IncidentLog } from "./incidents";
+export { GtmLog } from "./gtm";
 
 export interface Env {
   INCIDENTS: DurableObjectNamespace;
+  GTM: DurableObjectNamespace;
   RELEASE_REPO: string;
   DEPLOY_WORKFLOWS: string;
   ACCESS_TEAM_DOMAIN: string;
@@ -67,6 +70,10 @@ export async function handle(request: Request, env: Env, deps: Deps = {}): Promi
   if (route === "/incidents" || route.startsWith("/incidents/")) {
     const stub = env.INCIDENTS.get(env.INCIDENTS.idFromName("global"));
     return stub.fetch(new Request(`https://incidents${route}`, request));
+  }
+  if (route.startsWith("/gtm/")) {
+    const stub = env.GTM.get(env.GTM.idFromName("global"));
+    return stub.fetch(new Request(`https://gtm${route}${url.search}`, request));
   }
   return json(404, { error: "NOT_FOUND" });
 }

@@ -29,3 +29,11 @@ class_name = "IncidentLog"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["IncidentLog"]
+
+[[durable_objects.bindings]]
+name = "GTM"
+class_name = "GtmLog"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["GtmLog"]
