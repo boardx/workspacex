@@ -42,8 +42,17 @@ export async function cleanupAccessReceipts(s:TenantSession,orgId:string):Promis
 }
 /** All SQL is tenant-scoped and actor-filtered. A resource ID never grants access. */
 export class PgWhiteboardRepository implements WhiteboardRepository {
+  private readonly maintenanceByOrg=new Map<string,Promise<void>>();
   constructor(private readonly db: DatabasePort,
     private readonly receiptMaintenance?:Pick<WhiteboardReceiptMaintenance,'ensureScheduled'>) {}
+  private ensureReceiptMaintenance(orgId:Principal['orgId']):Promise<void>{
+    const existing=this.maintenanceByOrg.get(orgId);if(existing)return existing;
+    if(!this.receiptMaintenance)return Promise.reject(new Error('WHITEBOARD_RECEIPT_MAINTENANCE_UNAVAILABLE'));
+    const pending=this.db.withTenant(orgId,s=>this.receiptMaintenance!.ensureScheduled(s,orgId));
+    this.maintenanceByOrg.set(orgId,pending);
+    void pending.catch(()=>{if(this.maintenanceByOrg.get(orgId)===pending)this.maintenanceByOrg.delete(orgId);});
+    return pending;
+  }
   async list(p: Principal): Promise<C.Board[]> {
     return this.db.withTenant(p.orgId, async s => {
       const r = await s.query<Row>(`SELECT ${columns} FROM whiteboards b ${membership}
@@ -109,9 +118,12 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
   async issueQuarantineAccessReceipt(p: Principal, id: string, sessionFingerprint: string, epoch: number): Promise<string> {
     const fingerprint = /^[a-f0-9]{64}$/.test(sessionFingerprint);
     if (!fingerprint || !Number.isSafeInteger(epoch) || epoch < 1) throw new Error('WHITEBOARD_ACCESS_CHANGED');
+    // One committed keyed schedule per org/process. Concurrent hellos await the same
+    // promise without occupying pool clients; a failed registration is evicted and retried.
+    await this.ensureReceiptMaintenance(p.orgId);
     return this.db.withTenant(p.orgId, async s => {
       // The same board-row lock orders receipt issuance after committed membership changes.
-      const board=await s.query(`SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,id]);
+      const board=await s.query(`SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2 FOR SHARE`,[p.orgId,id]);
       if(!board.rows.length)throw new Error('WHITEBOARD_ACCESS_CHANGED');
       await cleanupAccessReceipts(s,p.orgId);
       const expiresAt=new Date(Date.now()+WHITEBOARD_RECOVERY_POLICY.accessReceiptTtlMs);
@@ -126,11 +138,6 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         RETURNING receipt_id`, [p.orgId,p.userId,id,receiptId,sessionFingerprint,epoch,expiresAt]);
       const row=issued.rows[0];
       if(!row) throw new Error('WHITEBOARD_ACCESS_CHANGED');
-      // Register the persistent singleton cron in the same transaction as the first receipt.
-      // A deployment without the maintenance worker fails this issuance instead of silently
-      // accumulating metadata forever.
-      if(!this.receiptMaintenance)throw new Error('WHITEBOARD_RECEIPT_MAINTENANCE_UNAVAILABLE');
-      await this.receiptMaintenance.ensureScheduled(s,p.orgId);
       return row.receipt_id;
     });
   }

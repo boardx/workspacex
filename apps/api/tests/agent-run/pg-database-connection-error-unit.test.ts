@@ -65,3 +65,20 @@ it("connection errors before BEGIN are observed before user work starts", async 
   expect(work).not.toHaveBeenCalled();
   expect(pool.clients[0]!.query.mock.calls.map(call => call[0])).not.toContain("BEGIN");
 });
+it.each([
+  [Object.assign(new Error("ignored"),{code:"ETIMEDOUT"}),"checkout_timeout","ETIMEDOUT"],
+  [Object.assign(new Error("ignored"),{code:"ECONNREFUSED"}),"connection_refused","ECONNREFUSED"],
+  [Object.assign(new Error("ignored"),{code:"ERR_TLS_CERT_ALTNAME_INVALID"}),"tls","ERR_TLS_CERT_ALTNAME_INVALID"],
+  [Object.assign(new Error("ignored"),{code:"57P01"}),"shutdown","57P01"],
+  [new Error("postgres://admin:secret@private-host/database"),"unknown","unknown"],
+])("classifies checkout failures without logging raw connection detail",async(error,failure,code)=>{
+  const {db,pool,logger}=setup();
+  const checkout=pool as typeof pool&{connect:()=>Promise<(typeof pool.clients)[number]>};
+  checkout.connect=vi.fn().mockRejectedValue(error);
+  await expect(db.withoutTenant(async()=>undefined)).rejects.toBe(error);
+  expect(logger.info).toHaveBeenCalledWith("database_pool_checkout",expect.objectContaining({
+    traceId:"database",outcome:"error",failure,code,max:5,
+  }));
+  const logged=JSON.stringify(logger.info.mock.calls);
+  expect(logged).not.toContain("admin");expect(logged).not.toContain("secret");expect(logged).not.toContain("private-host");
+});

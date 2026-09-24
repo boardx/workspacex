@@ -130,8 +130,7 @@ describe('whiteboard quarantine recovery on an executable PostgreSQL engine', ()
     );
     expect(new Set(receipts).size).toBe(1);
     expect(await repository.issueQuarantineAccessReceipt(editor, boardId, fingerprint, 1)).toBe(receipts[0]);
-    expect(scheduledOrgs.length).toBeGreaterThan(0);
-    expect(scheduledOrgs.every(value=>value===orgId)).toBe(true);
+    expect(scheduledOrgs).toEqual([orgId]);
     const own = await port.withTenant(orgId, session => session.query<{ count: string }>(
       `SELECT count(*)::text count FROM whiteboard_quarantine_access_receipts
        WHERE board_id=$1 AND actor_id=$2 AND session_fingerprint=$3 AND epoch=1`,

@@ -63,7 +63,7 @@ class FakeOutbox implements WhiteboardOutboxPort {
 }
 
 const flush = async () => { for (let index = 0; index < 12; index += 1) await Promise.resolve(); };
-const sync = (socket: Socket, server: Y.Doc, overrides: Partial<{ epoch: number; role: 'owner' | 'editor' | 'viewer'; archived: boolean }> = {}) => socket.message({ type: 'sync', epoch: overrides.epoch ?? 1, seq: 0, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: overrides.role ?? 'owner', archived: overrides.archived ?? false, accessReceiptId:ACCESS_RECEIPT });
+const sync = (socket: Socket, server: Y.Doc, overrides: Partial<{ epoch: number; role: 'owner' | 'editor' | 'viewer'; archived: boolean; clientNonce: string; connectionId: string }> = {}) => socket.message({ type: 'sync', epoch: overrides.epoch ?? 1, seq: 0, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: overrides.role ?? 'owner', archived: overrides.archived ?? false, accessReceiptId:ACCESS_RECEIPT, ...(overrides.clientNonce ? { clientNonce: overrides.clientNonce } : {}), ...(overrides.connectionId ? { connectionId: overrides.connectionId } : {}) });
 const options = (outbox: WhiteboardOutboxPort, principalId = 'user-1', sessionId = 'session-1', orgId = 'org-1') => ({ outbox, orgId, principalId, sessionId });
 
 beforeEach(() => { token = 'test-session'; vi.useFakeTimers(); Socket.sockets = []; vi.stubGlobal('WebSocket', Socket); });
@@ -73,14 +73,18 @@ it('persists before send, only ACK deletes, and reconnect replays the same updat
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox(); let state: WhiteboardConnectionState | undefined;
   const provider = new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox));
   await flush();
-  const first = Socket.sockets[0]!; first.onopen?.(); expect(JSON.parse(first.sent[0]!).type).toBe('hello');
-  sync(first, server); await flush();
+  const first = Socket.sockets[0]!; first.onopen?.(); const firstHello = JSON.parse(first.sent[0]!);
+  expect(firstHello).toMatchObject({ type: 'hello', clientNonce: expect.stringMatching(/^[0-9a-f-]{36}$/i) });
+  const firstConnectionId = crypto.randomUUID(); sync(first, server, { clientNonce: firstHello.clientNonce, connectionId: firstConnectionId }); await flush();
+  expect(state).toMatchObject({ clientNonce: firstHello.clientNonce, connectionId: firstConnectionId });
   executeCommands(doc, [{ type: 'create', object: { id: 'one', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'hello', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush();
   const pending = JSON.parse(first.sent[1]!); expect(state?.pending).toBe(1); expect(outbox.active.get(id({ boardId: 'board-1', orgId: 'org-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1, accessReceiptId:ACCESS_RECEIPT }))).toHaveLength(1);
   first.onclose?.({ code: 1006 }); vi.advanceTimersByTime(500);
   const second = Socket.sockets[1]!; second.onopen?.(); expect(second.sent).toHaveLength(1);
-  sync(second, server); await flush();
+  const secondHello = JSON.parse(second.sent[0]!); expect(secondHello.clientNonce).toBe(firstHello.clientNonce);
+  const secondConnectionId = crypto.randomUUID(); sync(second, server, { clientNonce: secondHello.clientNonce, connectionId: secondConnectionId }); await flush();
+  expect(state).toMatchObject({ clientNonce: firstHello.clientNonce, connectionId: secondConnectionId });
   expect(JSON.parse(second.sent[1]!)).toEqual(pending);
   second.message({ type: 'ack', updateId: pending.updateId, seq: 1 }); await flush();
   expect(state?.pending).toBe(0); expect(outbox.active.size).toBe(0);
