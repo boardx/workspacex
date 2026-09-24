@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TYPES = { '.html': 'text/html', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 
 const server = createServer(async (req, res) => {
   const path = join(root, decodeURIComponent(req.url.split('?')[0]));
@@ -34,8 +34,25 @@ const { port } = server.address();
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 for (const [lang, file] of [['en', 'og.jpg'], ['zh', 'og-zh.jpg']]) {
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
-  await page.goto(`http://127.0.0.1:${port}/scripts/og-card.html?lang=${lang}`, { waitUntil: 'networkidle' });
+  /* Twice. The site's faces are font-display: optional, so on a cold load
+     they miss the block period and the page renders in the fallback — and
+     that is exactly what every card since this script was written showed: the
+     headline in Arial, not Outfit, on the one image of the brand people
+     share. The first visit fetches the faces; the second finds them cached
+     inside the block period, which is also what a returning visitor sees. */
+  const url = `http://127.0.0.1:${port}/scripts/og-card.html?lang=${lang}`;
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.evaluate(() => Promise.all([
+    document.fonts.load('700 78px Outfit'), document.fonts.load('400 27px Inter'),
+  ]));
+  await page.goto(url, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
+  /* Only the faces this card sets: the Chinese card's headline is set in the
+     Chinese face (base.css sets Chinese headings that way), so it never asks
+     for Outfit. */
+  const need = lang === 'zh' ? ['400 27px Inter'] : ['700 78px Outfit', '400 27px Inter'];
+  const faces = await page.evaluate((list) => list.map((f) => document.fonts.check(f)), need);
+  if (faces.includes(false)) throw new Error(`the card's faces did not load (${faces}) — refusing to render it in the fallback`);
   await page.waitForTimeout(300);
   /* JPEG, not PNG. The card is a photographic gradient: PNG stored it
      losslessly at 254 KB, JPEG at quality 92 is visually identical and a
@@ -46,18 +63,5 @@ for (const [lang, file] of [['en', 'og.jpg'], ['zh', 'og-zh.jpg']]) {
   await page.close();
   console.log(`✓ wrote assets/img/${file} (1200x630, ${lang})`);
 }
-/* iOS has no SVG icon support for the home screen: without this it saves a
-   screenshot of the page instead of the mark. Rendered from favicon.svg so
-   the raster and the vector cannot disagree. */
-{
-  const page = await browser.newPage({ viewport: { width: 180, height: 180 }, deviceScaleFactor: 1 });
-  await page.setContent(
-    `<body style="margin:0"><img src="http://127.0.0.1:${port}/assets/img/favicon.svg" width="180" height="180"></body>`);
-  await page.waitForTimeout(200);
-  await page.screenshot({ path: join(root, 'assets/img/apple-touch-icon.png') });
-  await page.close();
-  console.log('✓ wrote assets/img/apple-touch-icon.png (180x180)');
-}
-
 await browser.close();
 server.close();

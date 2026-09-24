@@ -267,6 +267,38 @@ describe("listInbox 非超管 withheld", () => {
   });
 });
 
+/*
+ * #3921（2026-09-23 本地真栈实测 + 人类裁决）：系统异常这一路**读失败**时只丢这一路。
+ * 本地版的 PGlite 不区分数据库角色，诊断角色读系统异常必然被拒——原来 `fetchAllExceptions`
+ * 一抛，整个收件箱 500，反馈与设计方案两路跟着一起没了，屏上还叫人「稍后重试」。
+ */
+describe("listInbox 系统异常这一路读失败（unavailable）", () => {
+  const brokenErrorLog = (): ErrorLogPort => ({
+    record: async () => undefined,
+    list: async () => { throw new Error("permission denied for function kernel_read_error_logs_with_lifecycle"); },
+    getLifecycle: async () => null,
+    updateLifecycle: async () => null,
+  });
+
+  it("反馈与设计方案照常给出，sources.exception = unavailable，而不是整个抛出", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "d-1", pushed: true }));
+    const deps = { ...baseDeps([feedbackRow({ id: "fb-1" })], undefined, design), errorLog: brokenErrorLog() };
+    // ⭐ 反证锚点：去掉 aggregate-inbox-sources 里那层 try/catch ⇒ 这里直接 reject（原来的 500）。
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.sources.exception).toBe("unavailable");
+    expect(out.items.map((i) => i.kind).sort()).toEqual(["design", "feedback"]);
+  });
+
+  it("不吞：记一条 error，带 traceId 与原始异常，值班找得到原因", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const deps = { ...baseDeps([feedbackRow({ id: "fb-1" })], undefined), errorLog: brokenErrorLog(), logger, traceId: "t-1" };
+    await listInbox(deps, { ...adminInput, limit: 50 });
+    // ⭐ 反证锚点：catch 里不记日志 ⇒ 这条红（失败变成静默的，本仓最不能留的那种）。
+    expect(logger.error).toHaveBeenCalledWith("inbox: exception source unavailable", expect.objectContaining({ traceId: "t-1", err: expect.any(Error) }));
+  });
+});
+
 describe("listInbox 系统异常 devNote / tags 投影（2026-09-05 补）", () => {
   it("源行的 devNote / tags 原样出现在 exception 元信息里", async () => {
     const deps = baseDeps([], [errorLogItem({ id: "1", devNote: "转给 @a：回调拿不到 code", tags: ["auth", "P1"] })]);

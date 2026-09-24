@@ -85,7 +85,7 @@ async function createConfiguredThread(): Promise<IcReviewSession> {
 /**
  * 一次会话所需的两件事实。
  *
- * ⚠ `agentId` 必须一起交出去，不能只给 `threadId`——2026-09-15 team3(#3706)/team4 在
+ * ⚠ `agentId` 必须一起交出去，不能只给 `threadId`——2026-09-15 本入口与 team4 在
  * devapp 真机上各栽一次的同一个缺陷：把 Agent 挂进 roster 只决定「这条线程编制里有谁」，
  * 「不决定这次请求用哪个 agent」。后者看的是 chat 的 `selectedAgentId`
  * （→ `COPILOTKIT_V2_SELECTED_AGENT_HEADER` → 服务端 `resolveEffectiveAgentId`）。

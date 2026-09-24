@@ -47,6 +47,13 @@
   margin-top: 1.25rem;
   max-width: 40rem;
 }
+/* A section head gets one lead. A second paragraph of argument set at lead
+   size was 81 words of large type — read as a wall, not a glance. */
+.section__more {
+  color: var(--fg-dim);
+  margin-top: 1rem;
+  max-width: 40rem;
+}
 
 /* ==========================================================================
    Navigation
@@ -94,28 +101,14 @@
    1280px — shipped that way, because "does the nav overflow" and "is the
    lockup intact" are different questions and only the first was being asked. */
 .brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.brand__mark { width: 26px; height: 26px; flex-shrink: 0; }
-.brand__name {
-  font-family: var(--font-display);
-  font-weight: 700; font-size: var(--t-base); letter-spacing: calc(-0.02em * var(--track-tight));
-  color: var(--fg);
-  /* At a doubled text size the wordmark alone is 370 px, and with the bar's
-     items unable to shrink the whole row ran past the viewport. Truncating is
-     an ugly last resort, but a clipped wordmark beats a Launch button that
-     has left the screen. */
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* The wordmark takes the brand gradient, but only where the clip is actually
-   supported. Setting -webkit-text-fill-color: transparent unconditionally is
-   how a wordmark goes invisible: a browser that honours the fill colour but
-   not the clip paints nothing at all. Guarded, the fallback is solid ink. */
-@supports (-webkit-background-clip: text) or (background-clip: text) {
-  .brand__name {
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
+/* The product's own logo, cut from apps/web/public/workspacex-logo.png by
+   scripts/build-logo.mjs — not redrawn, so it cannot drift from the one the
+   app ships. An image also retires three workarounds the old gradient
+   wordmark needed: invisible text where background-clip is unsupported, no
+   name at all in forced colours, and nothing on paper. A picture of the name
+   survives all three. The link around it carries the accessible name, so the
+   image itself is decorative (alt=""). */
+.brand__logo { display: block; height: 30px; width: auto; flex-shrink: 0; }
 .brand__tag {
   font-family: var(--font-mono);
   font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
@@ -246,6 +239,10 @@
   .nav__inner { justify-content: space-between; }
   .nav__ghost--signin { display: none; }
 }
+.nav__link--gh { display: none; }
+@media (max-width: 72.5rem) and (min-width: 47.5001rem) {
+  .nav__links[data-open="true"] .nav__link--gh { display: flex; }
+}
 @media (max-width: 35.0rem) {
   .brand__tag { display: none; }
 }
@@ -282,12 +279,12 @@
 .footer__grid {
   display: grid;
   /* The rem MINIMUMS are what break under a text-size preference: 14rem and
-     three 8rem columns are 38rem of floor — 608 px normally, 1216 px at 200%,
+     four 8rem columns are 46rem of floor — 608 px normally, 1216 px at 200%,
      wider than the page. minmax(0, …) removes the floor entirely; capping it
      with min() is not enough, because a track is never smaller than its
      content's min-content unless the floor is zero. The proportions are
      carried by the fr units, which is where they belonged. */
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
   gap: clamp(1.75rem, 4vw, 3rem);
 }
 .footer__h {

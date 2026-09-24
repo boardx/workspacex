@@ -49,7 +49,7 @@ export const TEAM2_AGENT_TEMPLATE: SystemAgentTemplate = {
   duty: "读取财务报表/审计报告/访谈录音，按固定规则沙箱算分，产出带依据与不确定性标注的 A–E 投后评级",
   roleLabel: "投后评级",
   instructions: buildRatingPrompt([]),
-  // 0x7ea3 已被 team3 占用；换一个不冲突的常量。
+  // 0x7ea3 被一个已退役的 ad-hoc agent 用过；换一个不冲突的常量。
   lockKey: 0x7ea4,
   resolveModel: resolveDeepAgentModel,
 };

@@ -61,7 +61,11 @@ for (const page of PAGES) {
     const rel = localise(url.split('#')[0].split('?')[0]);
     if (rel === '' || rel.endsWith('/')) continue;              // a directory URL the host resolves
     refs += 1;
-    if (!existsSync(resolve(root, rel))) problems.push(`${page}: ${url} → ${rel} does not exist`);
+    /* Cloudflare Pages serves /privacy from privacy.html ("pretty URLs") and
+       308-redirects /privacy.html to /privacy. So a page is linked by the URL
+       Pages serves; the .html form is a redirect every click or crawl pays. */
+    if (!existsSync(resolve(root, rel)) && !existsSync(resolve(root, `${rel}.html`))) problems.push(`${page}: ${url} → ${rel} does not exist`);
+    if (/\.html$/.test(rel) && !/(^|\/)(index|404)\.html$/.test(rel)) problems.push(`${page}: ${url} — Pages redirects this to /${rel.replace(/\.html$/, '')}; link the URL it serves`);
   }
 }
 
@@ -74,6 +78,12 @@ for (const line of redirects.split('\n')) {
   if (!target || target.endsWith('/') || target.includes(':')) continue;
   refs += 1;
   if (!existsSync(resolve(root, target))) problems.push(`_redirects: ${m[1]} → /${target} does not exist`);
+  /* Cloudflare Pages already serves /x from x.html, and redirects /x.html
+     back to /x (308). A rule sending /x to /x.html therefore loops between
+     the two forever — which is what /privacy and /zh/privacy did. */
+  if (m[2].endsWith('.html') && m[2].replace(/\.html$/, '') === m[1].replace(/\/$/, '')) {
+    problems.push(`_redirects: ${m[1]} → ${m[2]} loops on Cloudflare Pages, which redirects ${m[2]} back to ${m[1]}`);
+  }
 }
 
 /* The SELF-REFERENTIAL urls — canonical, hreflang, og:url and the card
@@ -178,7 +188,8 @@ const sitemap = readFileSync(join(root, 'sitemap.xml'), 'utf8');
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 const asFile = (url) => {
   const rel = url.replace(SITE, '').replace(/^\//, '');
-  return rel === '' || rel.endsWith('/') ? `${rel}index.html` : rel;
+  if (rel === '' || rel.endsWith('/')) return `${rel}index.html`;
+  return /\.[a-z]+$/.test(rel) ? rel : `${rel}.html`;
 };
 for (const loc of locs) {
   refs += 1;

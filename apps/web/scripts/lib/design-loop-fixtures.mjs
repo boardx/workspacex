@@ -430,13 +430,14 @@ function applyFixturePatch(screens, inserts) {
  * 拦 `/pm-designs*`：列表 / 建 / 改 / 删 / 追加对话 / 推送。
  * `slow`：`listMyProjects` 故意挂起不 resolve，用于截「加载中」骨架屏（真实请求在飞）。
  */
-export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false } = {}) {
+export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false, extraProjects = [] } = {}) {
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   // ⚠ `prototype` 必须深拷贝：chat/patch 两条路都会**改这棵树**，浅拷贝会把改动写回模块级
   //   `DESIGN_PROJECTS`，让同一个 Node 进程里后拍的每一张图都带上前一张的改动（rev-uiux
   //   三评 D4 判 0 的根因：v1 预览画布上出现了比当前版本还多的控件）。
-  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({
+  // `extraProjects`：对标评测（`e2e/parity-eval/`）的金标准项目，接在样本项目后面，走同一套路由。
+  const projects = empty ? [] : [...DESIGN_PROJECTS, ...extraProjects].map((p) => ({
     ...p, chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
     ...(p.frameLinks !== undefined ? { frameLinks: structuredClone(p.frameLinks) } : {}),
   }));
@@ -608,4 +609,6 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     project.pushedAt = NOW;
     return json(route, { project, inboxCode: "D-3" });
   });
+  // 对标评测要在同一份活数据上挂自己的路由（用真实契约函数应用 patch），所以把它交出去。
+  return projects;
 }

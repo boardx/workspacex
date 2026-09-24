@@ -81,8 +81,8 @@ describe("research chapter document", () => {
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("尚未完成");
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
-    fireEvent.click(screen.getByText("导出报告"));
-    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    expect(screen.getByRole("menuitem", { name: "下载 Word" })).toBeEnabled();
     expect(screen.queryByText("草稿")).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
   });

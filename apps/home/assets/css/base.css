@@ -69,24 +69,45 @@
      computes to exactly the values it had. */
   --track-open:  1;
   --track-tight: 1;
+  /* Empty on English; on /zh/ it prefixes every stack with the face that
+     draws Chinese punctuation (fonts.css). The comma is part of the value. */
+  --han-punct: ;
 
-  --font-display: "Outfit", "Outfit Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+  /* ORDER MATTERS, for speed. Every run of Han text walks this list until a
+     family has the glyph, and every family it passes costs a lookup. With the
+     Chinese faces at the end, each run tried the latin face, its fallback,
+     and four system-UI names first — on the slow-3G profile /zh/'s first
+     layout took ~1 s against ~0.6 s for English, and the page sat 50 ms from
+     its budget. The Chinese group now follows the latin face and its metric
+     fallback directly. Latin text is unaffected wherever the fallback resolves
+     (Arial, Helvetica or Liberation Sans — every desktop): it stops at one of
+     those two. Where none does (Android), latin reaches the Chinese group,
+     whose names Android does not expose, and lands on system-ui as before. Measured on a Chinese font that is present and first in the
+     group (as PingFang is on a Mac): that layout halves. WenQuanYi closes the
+     group for Linux desktops without Noto. */
+  /* The Chinese faces, declared once and used by all three stacks below and
+     by the Chinese headings. */
+  --font-cjk:     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
-  --font-body:    "Inter", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  sans-serif;
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei";
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", var(--font-cjk),
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", var(--font-cjk),
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   /* The mono stack needs the same CJK tail. Every eyebrow, label and status
      line on /zh/ is set in it — sixty-odd elements — and with no Han face
      named, the browser picked one for "generic monospace", which on a Mac is
      often not the face the body text uses and sometimes has Japanese glyph
      shapes. Round 39 fixed this for display and body and missed this stack;
      its gate only looked at those two. */
-  --font-mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+  /* The monospaced faces for Windows and Linux come BEFORE the Chinese group:
+     ui-monospace, SF Mono and Menlo exist only on Apple systems, so elsewhere
+     latin labels fell through to the first Chinese face with latin glyphs —
+     Microsoft YaHei on Windows, WenQuanYi or Noto CJK on Linux — and every
+     eyebrow and status line on the English page was set in a CJK font's
+     proportional latin. */
+  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", var(--font-cjk),
                   monospace;
 
   /* ---- radius scale ------------------------------------------------------
@@ -237,12 +258,21 @@ h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight));
 /* Han glyphs fill their em box; latin letters do not. At an identical pixel
    size a Chinese headline therefore reads noticeably heavier and larger than
    the English one it replaces, and the two languages stop looking like the
-   same design. Scaling the display sizes back restores the match. */
-:lang(zh) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
-:lang(zh) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
-:lang(zh) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+   same design. Scaling the display sizes back restores the match.
+   Wrapped in :where() so they weigh no more than the plain `h2 {}` they
+   replace. At (0,1,1) they outranked every component's own heading class, so
+   on /zh/ card titles, footer labels and case headings set at 12–16px in
+   English all rendered at the 25px section size — a quarter of the page's
+   headings, found by the eval comparing the two languages. */
+:where(:lang(zh)) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
 
-p { text-wrap: pretty; }
+/* Pretty wrapping was set on <p> only, and half the page's running text is
+   not in one: the loop's step bodies, the proof rules, the FAQ summaries are
+   spans and list items. On a phone they ended on a lone 错。or 跑。 It is
+   inherited, so it goes on the body; headings keep their own `balance`. */
+body { text-wrap: pretty; }
 
 /* ---- utility ------------------------------------------------------------- */
 .grad-text {
@@ -325,6 +355,10 @@ p { text-wrap: pretty; }
   overflow-wrap: break-word;
 }
 
+/* Headings and short labels on /zh/ break only between words: build-i18n
+   marks them [data-phrase] and puts a <wbr> at every word boundary. */
+:lang(zh) [data-phrase] { word-break: keep-all; }
+
 /* No faked bold on Han. The display face is latin-only, so Chinese falls
    through to whatever CJK font the machine has — and when that font ships only
    a Regular weight, the engine manufactures 600 by stroking the glyphs. On
@@ -337,6 +371,14 @@ p { text-wrap: pretty; }
    This is strictly safe: it disables SYNTHESIS, never the use of a real bold
    face, so nothing changes for anyone who has one. */
 :lang(zh) { font-synthesis: none; }
+
+/* ...and the other half of that trade. With synthesis off, where the Chinese
+   face has one weight (most Linux desktops), a Chinese heading rendered its
+   Han regular and its latin — "AI", "WorkspaceX" — in Outfit 700: two weights
+   inside four characters. Chinese headings take the Chinese face for their
+   latin too, the way Chinese sites set them, so the pair always match: both
+   PingFang Semibold on a Mac, both the one weight there is on Linux. */
+:lang(zh) :is(h1, h2, h3) { font-family: var(--han-punct) var(--font-cjk), var(--font-display); }
 
 /* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
    in a narrow column and will otherwise push the whole layout sideways. */
@@ -356,7 +398,7 @@ p, .lead, .keyline { hanging-punctuation: first last; }
 /* Han: labels keep a trace of their spacing, display type loses its
    tightening entirely. Inherited, so an element marked lang="zh-Hans" on the
    English page — the language switch — gets it too, which is correct. */
-:lang(zh) { --track-open: 0.3; --track-tight: 0; }
+:lang(zh) { --track-open: 0.3; --track-tight: 0; --han-punct: "Han Punctuation",; }
 
 
 /* ---- the smallest type on a phone ------------------------------------------
@@ -366,8 +408,10 @@ p, .lead, .keyline { hanging-punctuation: first last; }
    a smudge. Raised on coarse pointers for everyone, and on /zh/ everywhere,
    because the problem there is the script, not the device. The /zh/ page had
    exactly one such fix already — for the use-case field labels — and the
-   other nine styles had none. */
+   other nine styles had none. Round 57 closed the last gap: latin labels
+   were raised only to 11px on a phone, and a 10px-designed label at 11 is
+   still the smallest thing a thumb-distance reader meets. 12 for both. */
 @media (pointer: coarse) {
-  :root { --t-nano: 0.6875rem; --t-tiny: 0.75rem; }
+  :root { --t-nano: 0.75rem; --t-tiny: 0.75rem; }
 }
 :lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

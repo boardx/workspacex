@@ -1,0 +1,27 @@
+diff --git a/dist/index.js b/dist/index.js
+index 809c32d4f96cf139228806be050ddd1d04e39505..8458dff1a4700ba62f4edbc3a792a5aeef56b003 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -7323,12 +7323,17 @@ function applyVercelOverrides({ overrides }, vercelOutput) {
+       if (existingStaticRecord?.type === "static") {
+         vercelOutput.set(assetPath, newValue);
+       }
+-      if (servedPath) {
++      // PATCH (boardx/workspacex): guard on the RAW served path, not the
++      // leading-slash-normalised one. Next.js emits overrides without a `path`
++      // (e.g. `_next/static/not-found.txt`); `addLeadingSlash(undefined ?? "")`
++      // turns those into `"/"`, which is truthy, so the root route was being
++      // overwritten by the 404 asset and `/` served "Not Found" as text/plain.
++      if (rawServedPath) {
+         vercelOutput.set(servedPath, newValue);
+-      }
+-      const strippedServedPath = stripIndexRoute(servedPath);
+-      if (strippedServedPath !== servedPath) {
+-        vercelOutput.set(strippedServedPath, newValue);
++        const strippedServedPath = stripIndexRoute(servedPath);
++        if (strippedServedPath !== servedPath) {
++          vercelOutput.set(strippedServedPath, newValue);
++        }
+       }
+     }
+   );

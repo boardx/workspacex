@@ -1340,6 +1340,7 @@ export function CopilotKitV2Shell({
         onRunStarted={handleExternalRunStarted}
         projectId={projectId}
         canEditArtifacts={canWriteThread && canGeneratePersona}
+        bearer={bearer ?? undefined}
         hasSelection={selectedThreadId !== null}
         threadId={selectedThreadId}
         artifacts={artifacts}

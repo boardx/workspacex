@@ -436,14 +436,40 @@ for (const [lang, path] of LANGS) {
   r.check(res.panels >= 1, 'no discipline panel is readable without JS');
   await noJs.close();
 
-  // a module that fails to load must not take the content with it
+  /* One part of the script failing must not take the content with it. The
+     modules ship as one file now (build-js), so a module can no longer fail
+     to load on its own — the whole-file case is "every script" in the
+     resilience suite. What can still fail alone is a module's code at
+     runtime: the diagrams section of the bundle is made to throw, and every
+     other boot step has to run anyway. */
   const broken = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page2 = await broken.newPage();
-  await page2.route('**/diagrams.js', (route) => route.abort());
+  await page2.route('**/assets/js/site.js', async (route) => {
+    const res = await route.fetch();
+    const body = (await res.text()).replace('function renderDiagrams(', 'function renderDiagrams() { throw new Error("test: the diagrams module fails"); }\nfunction renderDiagramsUnused(');
+    if (!body.includes('test: the diagrams module fails')) throw new Error('could not break the diagrams module — the bundle changed shape');
+    await route.fulfill({ response: res, body });
+  });
+  const logged = [];
+  page2.on('console', (m) => { if (m.type() === 'error') logged.push(m.text()); });
   await page2.goto(base + path, { waitUntil: 'load' });
-  await page2.waitForTimeout(2200);
+  await page2.waitForTimeout(1200);
+  /* The script runs in this case, so below-the-fold content waits for the
+     reveal observer, exactly as it does on a healthy page: scroll through it. */
+  /* At reading pace: half a screen per step, 100 ms apart. At 40 ms and 0.8
+     screens a fast CI runner jumped clean past a few elements between two
+     observer callbacks — they reveal when scrolled back to, as they would for
+     a reader, but the assertion is about a reader who scrolls down once. */
+  await page2.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight * 0.5) {
+      window.scrollTo(0, y);
+      await new Promise((d) => requestAnimationFrame(() => setTimeout(d, 100)));
+    }
+  });
+  await page2.waitForTimeout(900);
   const stillHidden = await page2.evaluate(() =>
-    [...document.querySelectorAll('[data-reveal]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+    [...document.querySelectorAll('[data-reveal], [data-stagger]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+  r.check(logged.some((t) => t.includes('[home] diagrams failed')), 'the broken module did not fail the way the test intended');
   r.equal(stillHidden, 0, 'elements left invisible when a module fails');
   await broken.close();
   ok = r.finish() && ok;
@@ -618,7 +644,7 @@ for (const [lang, path] of LANGS) {
     ['every script', '**/assets/js/*.js'],
     ['the stylesheet', '**/site.css'],
     ['the fonts', '**/*.woff2'],
-    ['the hero image', '**/aurora.jpg'],
+    ['the hero image', '**/aurora.webp'],
   ];
   for (const [what, pattern] of BLOCKED) {
     r.step(`blocked: ${what}`);
@@ -670,7 +696,7 @@ for (const [lang, path] of LANGS) {
       /* Transparent text is the specific way this page can fail here: the
          wordmark is painted through background-clip, and a mode that drops
          background images while keeping the transparent fill erases it. */
-      invisibleText: [...document.querySelectorAll('h1, h2, h3, .brand__name, .btn, .nav__link')]
+      invisibleText: [...document.querySelectorAll('h1, h2, h3, .btn, .nav__link')]
         .filter((e) => {
           const cs = getComputedStyle(e);
           return cs.webkitTextFillColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none';
@@ -709,7 +735,9 @@ for (const [lang, path] of LANGS) {
   const PHONES = ['iPhone SE', 'iPhone 13', 'Pixel 7'];
   for (const [lang, path] of LANGS) {
     const r = reporter(`mobile [${lang}] — three phones, touch, and the menu`);
-    const minType = lang === 'zh' ? 12 : 11;
+    /* 12px in both languages since round 57: 11px latin on a phone was the
+       one exception left, and the acceptance set's floor is 12. */
+    const minType = 12;
     for (const phone of PHONES) {
       r.step(phone);
       const { defaultBrowserType, ...device } = devices[phone];

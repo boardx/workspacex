@@ -71,6 +71,38 @@ const dUntranslated = Object.entries(strings)
                   && !/^[\s\p{P}A-Za-z0-9/&·+—-]+$/u.test(v.zh))
   .map(([k]) => k);
 
+/* ---- the built page actually carries the translation ---------------------
+   Every check above reads the dictionary by importing it. The builder read it
+   with its own line-anchored regex, which saw only the FIRST key on each
+   line: twenty-one keys that sat second on a line were defined, passed every
+   check here, and shipped in English on /zh/ ("a business result, not a
+   transcript" under the heading 结果). Two readers of one file disagreed and
+   the gate asked the one that was right. This asks the output. */
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const BUILT = [['index.html', 'zh/index.html'], ['privacy.html', 'zh/privacy.html'], ['404.html', 'zh/404.html']];
+const notApplied = [];
+for (const [, out] of BUILT) {
+  let built; try { built = readFileSync(join(root, out), 'utf8'); } catch { continue; }
+  for (const m of built.matchAll(/<([a-z0-9]+)\b[^>]*\sdata-i18n="([\w.]+)"[^>]*>([\s\S]*?)<\/\1>/g)) {
+    const [, , key, body] = m;
+    if (key in zh && body.replace(/\u200b/g, '') !== esc(zh[key])) notApplied.push(`${out}: ${key} → "${body.slice(0, 40)}"`);
+  }
+}
+
+/* ---- a text key over markup ----------------------------------------------
+   `data-i18n` replaces an element's content with TEXT. Put it on an element
+   whose English contains a link, and the Chinese page gets the words and
+   loses the link: the privacy page's security and contact addresses were
+   plain text on /zh/ and mailto links on /. Markup inside a translated
+   element must use data-i18n-html. */
+const textOverMarkup = [];
+for (const src of SOURCES) {
+  const body = readFileSync(join(root, src), 'utf8');
+  for (const m of body.matchAll(/<([a-z0-9]+)\b[^>]*\sdata-i18n="([\w.]+)"[^>]*>([\s\S]*?)<\/\1>/g)) {
+    if (/<(a|b|em|strong|code|br)\b/.test(m[3])) textOverMarkup.push(`${src}: ${m[2]}`);
+  }
+}
+
 let failed = false;
 const report = (label, list) => {
   if (!list.length) return;
@@ -84,6 +116,8 @@ report('keys defined in zh.js but unused in index.html', orphan);
 report('keys with an empty translation', blank);
 report('Chinese values containing Cyrillic characters', cyrillic);
 report('keys that look untranslated (no Han characters)', untranslated);
+report('keys defined but not applied in the built Chinese page', notApplied);
+report('data-i18n (text) on an element containing markup — the translation drops it; use data-i18n-html', textOverMarkup);
 report('diagram keys missing a language', dBlank);
 report('diagram keys no drawing code can reach', dOrphan);
 report('diagram keys that look untranslated', dUntranslated);

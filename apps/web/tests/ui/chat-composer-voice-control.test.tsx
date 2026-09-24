@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
+import { voiceErrorStatus, ComposerStatusBar } from "@/components/chat/chat-composer-status-bar";
 
 const base = {
   elapsedSeconds: 0,
@@ -68,10 +69,16 @@ describe("ComposerVoiceControl", () => {
     expect(mic).toHaveAttribute("aria-label", "正在连接语音识别…");
   });
 
-  it("error：「重试」，aria-label 回到开始语音输入（它的动作就是重新开始）", () => {
+  it("error：按钮说它是什么（「语音」），不自称「重试」；点它仍是重新开始", () => {
+    /*
+     * 2026-09-23 本地真栈实测：出错时这个按钮写「重试」，状态栏里又有一个「重试」，屏上并排两个；
+     * 而「这里没开通语音」时两个都是死路。要不要给重试，交给状态栏（`voiceErrorStatus`）按原因判断。
+     */
     const h = renderCtl({ status: "error", phase: "error" });
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
-    expect(mic).toHaveTextContent("重试");
+    // ⭐ 反证锚点：把按钮文案改回 `phase === "error" ? "重试"` ⇒ 这两条红。
+    expect(mic).toHaveTextContent("语音");
+    expect(mic).not.toHaveTextContent("重试");
     expect(mic).toHaveAttribute("aria-label", "开始语音输入");
     fireEvent.click(mic);
     expect(h.onStart).toHaveBeenCalledTimes(1);
@@ -119,5 +126,38 @@ describe("ComposerVoiceControl", () => {
     expect(describeVoiceDevice(base.devices, "dev-1")).toBe("USB 麦克风");
     expect(describeVoiceDevice([{ deviceId: "x", label: "" }], "x")).toBe("麦克风 1（授权后显示名称）");
     expect(formatElapsed(65)).toBe("01:05");
+  });
+});
+
+/* ── 2026-09-23 本地真栈实测：「这里没开通语音」时不给一条死路 ── */
+describe("voiceErrorStatus：只在可能是暂时的失败下给「重试」", () => {
+  const opts = { onRetry: () => undefined, retryTestId: "r", helpTestId: "h" };
+
+  it("ASR_NOT_CONFIGURED ⇒ 不给重试，标题说清是「没开通」而不是「暂时不可用」", () => {
+    const bar = voiceErrorStatus({ status: "error", error: "当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输入。", errorReason: "ASR_NOT_CONFIGURED" }, opts);
+    // ⭐ 反证锚点：去掉 `!notConfigured` 这个条件 ⇒ 这条红（本地版没下转写模型时，点多少次都一样）。
+    expect(bar.actions.map((a) => a.label)).not.toContain("重试");
+    expect(bar.title).toBe("这里还没开通语音输入");
+  });
+
+  it("ASR_PROVIDER_UNAVAILABLE（暂时的）⇒ 照旧给重试", () => {
+    const bar = voiceErrorStatus({ status: "error", error: "语音识别服务暂时不可用，请稍后重试。", errorReason: "ASR_PROVIDER_UNAVAILABLE" }, opts);
+    expect(bar.actions.map((a) => a.label)).toContain("重试");
+    expect(bar.title).toBe("语音识别暂时不可用");
+  });
+
+  it("浏览器不支持 ⇒ 不给重试；没授权麦克风 ⇒ 给「查看如何开启」和重试", () => {
+    expect(voiceErrorStatus({ status: "unsupported", error: "x", errorReason: null }, opts).actions).toHaveLength(0);
+    expect(voiceErrorStatus({ status: "denied", error: null, errorReason: null }, opts).actions.map((a) => a.label)).toEqual(["查看如何开启", "重试"]);
+  });
+});
+
+describe("ComposerStatusBar：说明文字折行，不被省略号吃掉", () => {
+  it("长说明完整留在状态栏里，没有 truncate", () => {
+    render(<ComposerStatusBar tone="warning" testId="bar" icon={null} title="这里还没开通语音输入" description="当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输入。" />);
+    const text = screen.getByTestId("bar-text");
+    // ⭐ 反证锚点：把 `break-words` 改回 `truncate` ⇒ 这条红——被省略号吃掉的正好是「请手动输入」。
+    expect(text.className).not.toMatch(/\btruncate\b/);
+    expect(text.textContent).toContain("请手动输入");
   });
 });

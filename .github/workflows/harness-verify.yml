@@ -329,6 +329,15 @@ jobs:
       # 反证：pnpm harness gate-probe --gate contract-state-names（两条变异全部 CAUGHT）。
       - name: 态名单源（spec / 验收文档 ↔ 契约枚举）
         run: node .harness/scripts/lint-contract-state-names.mjs
+      # pnpm override 不许用 `parent>child` 选择器（#2614）。
+      # #2613 实测：那个选择器对**由 peerDependency 自动解析**出来的边不可靠——任何触发
+      # 全仓重新 resolve 的操作都可能把它解析成不满足 range 的版本，而 pnpm 只告警
+      # （`unmet peer`）不报错，lockfile 被悄悄改掉一路提交进 PR，红在一个与依赖毫无
+      # 关系的地方。放在 PR 门控的理由：它要挡的失效**只在改依赖清单的那个 PR 里产生**，
+      # 而根 package.json / pnpm-workspace.yaml 不属于任何 workspace 包，
+      # turbo --affected 一个包都不 affected ⇒ 必须显式跑。只读清单文本，毫秒级。
+      - name: pnpm override 无 parent>child 选择器（peer 边静默装错版本）
+        run: pnpm exec tsx .harness/scripts/lint-pnpm-override-selector.mjs
 
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——

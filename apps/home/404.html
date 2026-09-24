@@ -9,10 +9,15 @@
 <!-- iOS ignores the manifest's short_name; without this the home-screen
      label is the <title>, truncated to something like "WorkspaceX — Th". -->
 <meta name="apple-mobile-web-app-title" content="WorkspaceX">
-<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/favicon.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="stylesheet" href="/assets/css/site.css">
+<!-- The headline is set in the display face, and with font-display: optional
+     an un-preloaded face never makes it in time: the 404's h1 rendered in the
+     fallback. And with no print sheet it printed near-white text on paper. -->
+<link rel="preload" href="/assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/print.css" media="print">
 <style>
   /* Both languages at once, on purpose: an error page cannot know which one
      the visitor came for, and redirecting them to guess would be worse. */
