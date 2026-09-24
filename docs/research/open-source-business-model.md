@@ -65,7 +65,7 @@ v32.4 起分开：商业与分发单元改叫**技能包**，`maau-canvas` 产�
 | 契约包不依赖任何工作区包 | `lint-contracts-no-workspace-deps` | 已建（R2），接入验证链 |
 | 生产不依赖运营平面 | `lint-production-not-on-ops` | 已建（R3），接入验证链 |
 | OSS 不依赖 EE | `lint-ee-boundary` | 已建（R16）：企业版代码只放 `apps/ee-*` / `packages/ee-*`（D26），开源包的依赖、import、相对路径都不许进入；今天 ee-* 包 0 个，照实报告 |
-| 本地零出网 | 拔网 e2e，断言出网计数为 0 | 未建 |
+| 本地零出网 | `lint-local-zero-egress`（静态：本地版代码路径不许写死外部主机）+ 拔网 e2e `apps/api/tests/local-desktop/zero-egress-unplugged.test.ts`（断言非回环连接 0 次，带四条反证） | 已建（C8），接入验证链；界面可见状态见 E4 |
 | 第一个价值时刻有埋点 | 事件定义存在且被触发 | 未建 |
 | 每类角色的体验有主、有判据、有度量 | `lint-commitments` | 已建（R9），接入验证链；本表与第 4 节都由它对账 |
 | 响应 SLA 达成率 | 自动统计 + 看板，越线开 issue | 不可阻断，只能统计 |
