@@ -45,9 +45,13 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   }
 
   async graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]> {
-    const r = await this.db.withTenant(orgId, (s) => s.query<{
-      seed_key: string; rel1: string; mid1_key: string | null; rel2: string | null; mid2_key: string | null; rel3: string | null; claim_key: string;
-    }>("SELECT * FROM kg_graph_neighbors($1::text[])", [seedKeys]));
+    // 每轮对话同步走一次变长遍历：给它一个上限，超时即按「图路不可用」降级（调用方已处理），不拖住回答。
+    const r = await this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT set_config('statement_timeout', '2000', true)");
+      return s.query<{
+        seed_key: string; rel1: string; mid1_key: string | null; rel2: string | null; mid2_key: string | null; rel3: string | null; claim_key: string;
+      }>("SELECT * FROM kg_graph_neighbors($1::text[])", [seedKeys]);
+    });
     return r.rows.map((row) => {
       const nodes = [row.seed_key, row.mid1_key, row.mid2_key, row.claim_key].filter((x): x is string => x !== null);
       const rels = [row.rel1, row.rel2, row.rel3].filter((x): x is string => x !== null);
