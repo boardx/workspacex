@@ -1,11 +1,12 @@
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {StrictMode} from 'react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {RoomPresenterControls} from '@/components/whiteboard/room-presenter-controls';
 import {ApiError} from '@/lib/api-client';
 
 const createRoomPairing=vi.fn(),readPairingStatus=vi.fn(),revokeRoom=vi.fn();
 vi.mock('@/lib/live-whiteboard-room',()=>({createRoomPairing:(...args:unknown[])=>createRoomPairing(...args),readPairingStatus:(...args:unknown[])=>readPairingStatus(...args),revokeRoom:(...args:unknown[])=>revokeRoom(...args)}));
-afterEach(()=>{cleanup();sessionStorage.clear();vi.resetAllMocks();});
+afterEach(()=>{cleanup();sessionStorage.clear();vi.restoreAllMocks();vi.resetAllMocks();});
 const orgId='org-1',userId='user-1';
 const stored=(boardId:string,sessionId:string,user=userId)=>sessionStorage.setItem('wsx.board.presenter.active',JSON.stringify({boardId,orgId,userId:user,sessionId}));
 
@@ -112,6 +113,16 @@ it('aborts a hung pairing read at the local TTL and never revives the payload',a
   await waitFor(()=>expect(readPairingStatus).toHaveBeenCalled());expect(screen.getByTestId('room-pairing-payload')).toHaveValue('secret-payload');
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'),{timeout:1_000});expect(signal?.aborted).toBe(true);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();
   await new Promise(resolve=>setTimeout(resolve,150));expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();expect(readPairingStatus).toHaveBeenCalledTimes(1);
+});
+
+it.each([{offset:-60*60*1_000,label:'backward'},{offset:60*60*1_000,label:'forward'}])('keeps a valid pairing on its monotonic TTL when the wall clock jumps $label',async({offset,label})=>{
+  const boardId='22222222-2222-4222-8222-222222222222',actualNow=Date.now.bind(Date);let wallOffset=0;vi.spyOn(Date,'now').mockImplementation(()=>actualNow()+wallOffset);const signals:AbortSignal[]=[];
+  createRoomPairing.mockResolvedValue({id:'33333333-3333-4333-8333-333333333333',boardId,code:'ABCDEFGH',payload:`${label}-payload`,expiresAt:new Date(actualNow()+250).toISOString()});
+  readPairingStatus.mockImplementation((_board:string,_pairing:string,signal:AbortSignal)=>{signals.push(signal);return new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));});
+  render(<StrictMode><RoomPresenterControls boardId={boardId} orgId={orgId} userId={userId} disabled={false} onSession={vi.fn()}/></StrictMode>);fireEvent.click(screen.getByTestId('room-present-open'));
+  await waitFor(()=>expect(screen.getByTestId('room-pairing-payload')).toHaveValue(`${label}-payload`));wallOffset=offset;
+  await new Promise(resolve=>setTimeout(resolve,60));expect(screen.getByTestId('room-pairing-payload')).toHaveValue(`${label}-payload`);
+  await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('配对已过期'),{timeout:1_000});expect(signals.at(-1)?.aborted).toBe(true);expect(screen.queryByTestId('room-pairing-payload')).not.toBeInTheDocument();
 });
 
 it.each([400,401,403,404,410,422])('treats authoritative pairing status %i as terminal',async status=>{
