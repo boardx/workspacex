@@ -151,3 +151,18 @@ export function listPromotionNominations(threadId: string, signal?: AbortSignal)
     signal,
   );
 }
+
+/* ── 大脑页（/brain）：本人的长期记忆 + 各对话的记忆概况 ───────────────────────── */
+
+export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
+export type BrainOverview = z.infer<typeof knowledgeGraph.getBrainOverview.out>;
+
+/** UC-KG-7：本人个人空间（长期记忆）。只有本人读得到；别人的个人空间没有入口。 */
+export function fetchPersonalKnowledge(signal?: AbortSignal): Promise<PersonalKnowledge> {
+  return getParsed("/knowledge-graph/personal", knowledgeGraph.getPersonalKnowledge.out, signal);
+}
+
+/** 大脑页概况：本人记下了东西的对话（每个一行计数）+ 长期记忆里每条来自哪个对话。 */
+export function fetchBrainOverview(signal?: AbortSignal): Promise<BrainOverview> {
+  return getParsed("/knowledge-graph/me/overview", knowledgeGraph.getBrainOverview.out, signal);
+}

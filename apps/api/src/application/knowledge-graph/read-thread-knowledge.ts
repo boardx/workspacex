@@ -16,7 +16,7 @@ import { discloseDecided, isDisclosed, type Guarded } from "../security/permissi
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import type { KnowledgeReadPort, KnowledgeThreadRef } from "./ports";
 
-export type KgReadErrorCode = "KG_THREAD_NOT_FOUND" | "KG_CLAIM_NOT_FOUND";
+export type KgReadErrorCode = "KG_THREAD_NOT_FOUND" | "KG_CLAIM_NOT_FOUND" | "KG_NOT_VISIBLE";
 
 export class KgReadError extends Error {
   constructor(readonly code: KgReadErrorCode) {

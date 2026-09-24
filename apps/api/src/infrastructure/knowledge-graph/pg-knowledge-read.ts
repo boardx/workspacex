@@ -10,7 +10,8 @@
 import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
-  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, ThreadKnowledgeData, TurnMemoryData,
+  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, PersonalClaimOriginRow, PersonalKnowledgeData,
+  ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -20,6 +21,9 @@ type KgClaim = ThreadKnowledgeData["claims"][number];
 
 /** 与 chat 读消息同一个 guard ref（pg-chat-repository.ts findMessages）。 */
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
+
+/** 本人个人空间的 guard ref —— 与 resolve-visibility 个人线程判定用的合成 id 同一个（`personal:<userId>`）。 */
+export const personalSpaceRef = (userId: string) => ({ kind: "project" as const, id: `personal:${userId}` });
 
 /** 「活着的」结论：未撤销、未被取代（与 F04 kg_live_vertices 同一条口径）。 */
 const LIVE_CLAIM = "c.revoked_at IS NULL AND c.status <> 'superseded'";
@@ -252,6 +256,125 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       };
     });
     return guard(threadRef(thread), data);
+  }
+
+  async personalKnowledge(orgId: OrgId, userId: string): Promise<Guarded<PersonalKnowledgeData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<PersonalKnowledgeData> => {
+      // 只读本人的个人空间：scope_id 限定为本人（RLS 也只把 personal 行放给 app.current_user_id，I-14）。
+      const scope = [orgId, userId];
+      const objects = await s.query<{
+        id: string; object_kind: PersonalKnowledgeData["objects"][number]["kind"]; name: string; aliases: string[];
+        created_by: PersonalKnowledgeData["objects"][number]["createdBy"]; claim_count: string;
+      }>(
+        `SELECT o.id, o.object_kind, o.name, o.aliases, o.created_by,
+                (SELECT count(DISTINCT c.id) FROM ontology_edges e JOIN claims c ON c.id = e.src_id AND c.org_id = e.org_id
+                  WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
+                    AND e.status = 'active' AND ${LIVE_CLAIM}) AS claim_count
+           FROM ontology_objects o
+          WHERE o.org_id = $1 AND o.scope_kind = 'personal' AND o.scope_id = $2 AND o.merged_into IS NULL
+          ORDER BY o.created_at, o.id`, scope,
+      );
+      const claims = await s.query<ClaimRow>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
+      const liveClaims = claims.rows.map(toClaim).filter((c): c is KgClaim => c !== null);
+      const liveObjects = objects.rows.filter((o) => Number(o.claim_count) > 0);
+      const live = new Set([...liveObjects.map((o) => `object:${o.id}`), ...liveClaims.map((c) => `claim:${c.id}`)]);
+      const edges = await s.query<{
+        id: string; src_kind: "object" | "claim"; src_id: string; dst_kind: "object" | "claim"; dst_id: string;
+        relation: PersonalKnowledgeData["edges"][number]["relation"]; created_by: PersonalKnowledgeData["edges"][number]["createdBy"];
+      }>(
+        `SELECT id, src_kind, src_id, dst_kind, dst_id, relation, created_by FROM ontology_edges
+          WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND status = 'active'
+            AND src_kind IN ('object', 'claim') AND dst_kind IN ('object', 'claim')
+          ORDER BY created_at, id`, scope,
+      );
+      const revision = await s.query<{ n: string }>(
+        `SELECT count(*) AS n FROM ontology_actions
+          WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND outcome = 'accepted'`, scope,
+      );
+      return {
+        revision: Number(revision.rows[0]!.n),
+        // 孤立实体（没有活结论引用）不下发（契约 KgObject.claimCount 注释）。
+        objects: liveObjects.map((o) => ({
+          id: o.id, scope: { kind: "personal" as const, id: userId }, kind: o.object_kind, name: o.name,
+          aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
+        })),
+        claims: liveClaims,
+        edges: edges.rows
+          .filter((e) => live.has(`${e.src_kind}:${e.src_id}`) && live.has(`${e.dst_kind}:${e.dst_id}`))
+          .map((e) => ({
+            id: e.id, src: { kind: e.src_kind, id: e.src_id }, dst: { kind: e.dst_kind, id: e.dst_id },
+            relation: e.relation, createdBy: e.created_by,
+          })),
+      };
+    });
+    return guard(personalSpaceRef(userId), data);
+  }
+
+  async threadKnowledgeSummaries(orgId: OrgId, userId: string, limit: number, offset: number) {
+    return this.inTenant(orgId, userId, async (s) => {
+      // 候选：本人创建的、有活结论的会话。**不在 SQL 里判可见性**——调用方逐个走 resolveVisibility
+      // （同 chat 线程列表 listProjectThreads 的纪律：可见性只有一份实现）。
+      const threads = await s.query<{ id: string; project_id: string | null }>(
+        `SELECT t.id, t.project_id FROM chat_threads t
+          WHERE t.org_id = $1 AND t.created_by = $2
+            AND EXISTS (SELECT 1 FROM claims c WHERE c.org_id = t.org_id AND c.scope_kind = 'chat_session' AND c.scope_id = t.id AND ${LIVE_CLAIM})
+          ORDER BY t.last_activity_at DESC, t.id LIMIT $3 OFFSET $4`,
+        [orgId, userId, limit, offset],
+      );
+      const ids = threads.rows.map((t) => t.id);
+      if (ids.length === 0) return [];
+      const statuses = await s.query<{ thread_id: string; status: KgClaim["status"]; n: string }>(
+        `SELECT c.scope_id AS thread_id, c.status, count(*) AS n FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = ANY($2::text[]) AND ${LIVE_CLAIM}
+          GROUP BY c.scope_id, c.status`,
+        [orgId, ids],
+      );
+      const objects = await s.query<{ thread_id: string; n: string }>(
+        `SELECT o.scope_id AS thread_id, count(*) AS n FROM ontology_objects o
+          WHERE o.org_id = $1 AND o.scope_kind = 'chat_session' AND o.scope_id = ANY($2::text[]) AND o.merged_into IS NULL
+            AND EXISTS (SELECT 1 FROM ontology_edges e JOIN claims c ON c.id = e.src_id AND c.org_id = e.org_id
+                         WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
+                           AND e.status = 'active' AND ${LIVE_CLAIM})
+          GROUP BY o.scope_id`,
+        [orgId, ids],
+      );
+      const objectCount = new Map(objects.rows.map((o) => [o.thread_id, Number(o.n)]));
+      return threads.rows.map((t) => {
+        const counts = { pending: 0, confirmed: 0, conflict: 0 };
+        for (const r of statuses.rows) {
+          if (r.thread_id !== t.id) continue;
+          // 三态投影只有契约 claimTriState 一份实现，SQL 里不另列「哪些状态算待确认」。
+          const tri = KG.claimTriState(r.status);
+          if (tri !== null) counts[tri] += Number(r.n);
+        }
+        const row: ThreadKnowledgeCounts = { threadId: t.id, projectId: t.project_id, ...counts, objects: objectCount.get(t.id) ?? 0 };
+        return { threadId: t.id, counts: guard(threadRef({ threadId: t.id, projectId: t.project_id }), row) };
+      });
+    });
+  }
+
+  async personalClaimOrigins(orgId: OrgId, userId: string) {
+    return this.inTenant(orgId, userId, async (s) => {
+      const r = await s.query<{ personal_id: string; source_id: string; thread_id: string; project_id: string | null }>(
+        `SELECT c.id AS personal_id, src.id AS source_id, t.id AS thread_id, t.project_id
+           FROM claims c
+           JOIN ontology_edges d ON d.org_id = c.org_id AND d.src_kind = 'claim' AND d.src_id = c.id
+                                AND d.dst_kind = 'claim' AND d.relation = 'derived_from' AND d.status = 'active'
+           JOIN claims src ON src.org_id = d.org_id AND src.id = d.dst_id AND src.scope_kind = 'chat_session' AND src.revoked_at IS NULL
+           JOIN chat_threads t ON t.org_id = src.org_id AND t.id = src.scope_id
+          WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id, d.created_at, d.id`,
+        [orgId, userId],
+      );
+      return r.rows.map((x) => {
+        const row: PersonalClaimOriginRow = { personalClaimId: x.personal_id, sourceClaimId: x.source_id, threadId: x.thread_id, projectId: x.project_id };
+        return { threadId: x.thread_id, origin: guard(threadRef({ threadId: x.thread_id, projectId: x.project_id }), row) };
+      });
+    });
   }
 }
 

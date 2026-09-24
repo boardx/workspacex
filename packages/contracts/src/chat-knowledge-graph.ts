@@ -302,6 +302,43 @@ export const KgTurnMemory = z.object({
 }).strict();
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 
+/**
+ * 「大脑」页（/brain）的一行会话记忆概况：本人的一个会话里记下了多少、有多少待确认 / 有矛盾。
+ * 只有计数与会话标题，不带结论正文——正文照旧从 `getThreadKnowledge` 读（同一道可见性判定）。
+ */
+export const KgThreadKnowledgeSummary = z.object({
+  threadId: z.string(),
+  /** null = 个人线程 */
+  projectId: z.string().nullable(),
+  title: z.string(),
+  lastActivityAt: z.string(),
+  /** 活结论总数（= pending + confirmed + conflict） */
+  claims: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+  confirmed: z.number().int().nonnegative(),
+  conflict: z.number().int().nonnegative(),
+  /** 有活结论引用的实体数 */
+  objects: z.number().int().nonnegative(),
+}).strict();
+export type KgThreadKnowledgeSummary = z.infer<typeof KgThreadKnowledgeSummary>;
+
+/**
+ * 个人空间（L1）一条结论是从哪个会话记过来的（derived_from → L0 原结论所在会话）。
+ * 只列查看者**现在**仍看得到的会话；一条 L1 结论合并过多个会话时有多行。
+ */
+export const KgPersonalClaimOrigin = z.object({
+  personalClaimId: z.string(),
+  /** 会话里的原结论（L0）——跳回会话后据此打开它的来源抽屉 */
+  sourceClaimId: z.string(),
+  threadId: z.string(),
+  projectId: z.string().nullable(),
+  threadTitle: z.string(),
+}).strict();
+export type KgPersonalClaimOrigin = z.infer<typeof KgPersonalClaimOrigin>;
+
+/** 大脑页最多列出的会话数（按最近活动倒序）。 */
+export const KG_BRAIN_THREADS_LIMIT = 50;
+
 /* ────────────────────────────────────────────────────────────────────── *
  * 三、封闭错误码（usecases.md 各 UC 的 err 行）
  * ────────────────────────────────────────────────────────────────────── */
@@ -486,6 +523,24 @@ export const knowledgeGraph = {
       objects: z.array(KgObject),
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
+    }).strict(),
+    /** 调用者不是（或已不是）当前组织成员（HTTP 403）。空间里没有内容不是错误，返回空。 */
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * UC-KG-13 大脑页（/brain）概况：本人创建的、记下了知识的会话（每个会话一行计数），
+   * 以及个人空间结论各自来自哪个会话。只读聚合；每个会话逐个经会话可见性判定，
+   * 看不见的会话（被移出项目等）不出现。2026-09-24 人类指令「取消所有的 mockup 的数据」。
+   * `err` 为空：不是组织成员时每个会话都判为不可见 ⇒ 返回空的两个数组，不是错误
+   * （判定依赖不可用时同全束一样是 503，不在业务错误码里）。
+   */
+  getBrainOverview: {
+    method: "GET", path: "/knowledge-graph/me/overview",
+    in: z.object({}).strict(),
+    out: z.object({
+      threads: z.array(KgThreadKnowledgeSummary).max(KG_BRAIN_THREADS_LIMIT),
+      personalOrigins: z.array(KgPersonalClaimOrigin),
     }).strict(),
     err: [] as const,
   },

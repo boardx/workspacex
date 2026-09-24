@@ -21,6 +21,7 @@ import {
   type HumanActionPort, type KnowledgeReadPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
+import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
 import {
   KgReadError, getClaimSources, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
 } from "../../application/knowledge-graph/read-thread-knowledge";
@@ -49,7 +50,12 @@ export class KnowledgeGraphController {
     try {
       return await fn({ userId: principal.userId, orgId: toOrgId(principal.orgId) });
     } catch (e) {
-      if (e instanceof KgReadError) throw new NotFoundException({ reasonCode: e.code });
+      // KG_NOT_VISIBLE 只来自个人空间（不是 / 已不是组织成员，契约 getPersonalKnowledge.err）：本人的空间
+      // 没有「存在性」可探测，报 403 说清是看不到；会话 / 结论的看不见仍与不存在同一个 404 出口。
+      if (e instanceof KgReadError) {
+        if (e.code === "KG_NOT_VISIBLE") throw new ForbiddenException({ reasonCode: e.code });
+        throw new NotFoundException({ reasonCode: e.code });
+      }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
         if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);
@@ -82,6 +88,18 @@ export class KnowledgeGraphController {
     @Param("messageId") messageId: string,
   ) {
     return this.run(principal, (v) => getTurnMemory(this.deps, { ...v, threadId, messageId }));
+  }
+
+  /** UC-KG-7 getPersonalKnowledge —— 本人个人空间（长期记忆），只有本人 */
+  @Get("/knowledge-graph/personal")
+  personalKnowledge(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getPersonalKnowledge(this.deps, v));
+  }
+
+  /** getBrainOverview —— 大脑页：本人各会话的记忆计数 + 个人结论的来源会话 */
+  @Get("/knowledge-graph/me/overview")
+  brainOverview(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getBrainOverview(this.deps, v));
   }
 
   /** UC-KG-3 applyHumanAction —— 人的动作（确认 / 改写 / 忘掉 / 标冲突 / 合并 / 拆分 / 改名） */
