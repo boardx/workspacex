@@ -1,7 +1,7 @@
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE } from '../../src/application/whiteboard/blob-ports';
-import { boardBlobRoot, boardStorageProviders } from '../../src/infrastructure/whiteboard/board-storage.providers';
+import { boardBlobRoot, boardStorageProviders, ConfiguredFsBoardBlobStore } from '../../src/infrastructure/whiteboard/board-storage.providers';
 
 describe('board storage providers', () => {
   it('registers the store and encryption boundary without switching collaboration persistence', () => {
@@ -11,5 +11,10 @@ describe('board storage providers', () => {
   it('refuses a temporary filesystem root in production', () => {
     expect(() => boardBlobRoot({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` })).toThrow(/durable storage/);
     expect(boardBlobRoot({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).toBe('/srv/workspacex/board-content');
+  });
+
+  it('does not evaluate the future storage config until the dormant provider is used', () => {
+    const store = new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` });
+    expect(() => store.head({ tenantId: 'org-a', key: `tenants/${'a'.repeat(32)}/manifest` })).toThrow(/durable storage/);
   });
 });
