@@ -3,9 +3,15 @@ import { isAbsolute, join, resolve, sep } from 'node:path';
 import type { Provider } from '@nestjs/common';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobPurgeStore, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { objectStoreRoot } from '../storage/object-store-root';
-import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver } from './aes-gcm-board-blob-codec';
+import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
 import { assertFilesystemBoardBlobRuntime } from './board-blob-runtime';
+import { createBoardStorageSelection, type BoardStorageSelection, type HostedBoardClientFactory } from './board-storage-selection';
 import { FsBoardBlobStore } from './fs-board-blob-store';
+import { EnvHostedBoardClientFactory, versionedBoardKeySourceFromEnv } from './hosted-board-provider-factory';
+
+export const BOARD_HOSTED_CLIENT_FACTORY = Symbol('BoardHostedClientFactory');
+export const BOARD_VERSIONED_KEY_SOURCE = Symbol('BoardVersionedKeySource');
+const BOARD_STORAGE_SELECTION = Symbol('BoardStorageSelection');
 
 export function boardBlobRoot(env: NodeJS.ProcessEnv = process.env): string {
   const configured = env.WORKSPACEX_BOARD_BLOB_ROOT;
@@ -54,7 +60,18 @@ export class ConfiguredFsBoardBlobPurgeStore implements BoardBlobPurgeStore {
 }
 
 export const boardStorageProviders: Provider[] = [
-  { provide: BOARD_BLOB_STORE, useFactory: () => new ConfiguredFsBoardBlobStore() },
-  { provide: BOARD_BLOB_PURGE_STORE, useFactory: () => new ConfiguredFsBoardBlobPurgeStore() },
-  { provide: BOARD_BLOB_CODEC, useFactory: () => new AesGcmBoardBlobCodec(new EnvBoardTenantKeyResolver()) },
+  { provide: BOARD_HOSTED_CLIENT_FACTORY, useFactory: () => new EnvHostedBoardClientFactory(process.env) },
+  { provide: BOARD_VERSIONED_KEY_SOURCE, useFactory: () => versionedBoardKeySourceFromEnv(process.env) },
+  {
+    provide: BOARD_STORAGE_SELECTION,
+    useFactory: (hostedClients?: HostedBoardClientFactory, versionedKeys?: VersionedBoardMasterKeySource) =>
+      createBoardStorageSelection(process.env, { hostedClients, versionedKeys }),
+    inject: [
+      BOARD_HOSTED_CLIENT_FACTORY,
+      { token: BOARD_VERSIONED_KEY_SOURCE, optional: true },
+    ],
+  },
+  { provide: BOARD_BLOB_STORE, useFactory: (selection: BoardStorageSelection) => selection.store, inject: [BOARD_STORAGE_SELECTION] },
+  { provide: BOARD_BLOB_PURGE_STORE, useFactory: (selection: BoardStorageSelection) => selection.purgeStore, inject: [BOARD_STORAGE_SELECTION] },
+  { provide: BOARD_BLOB_CODEC, useFactory: (selection: BoardStorageSelection) => selection.codec, inject: [BOARD_STORAGE_SELECTION] },
 ];
