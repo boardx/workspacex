@@ -222,7 +222,19 @@ export async function maybeRunSkillScript(
   deps: MaybeRunSkillScriptDeps,
   input: MaybeRunSkillScriptInput,
 ): Promise<SkillScriptOutcome> {
-  const notAttempted = { kind: "not_attempted", text: input.reply, files: [] } as const;
+  /*
+   * ⚠ 先把「模型把我们的系统提示复述了一遍」这种回复挡掉，再往下走。
+   *
+   * 2026-09-24 真实模型实测：人类要「深度研究…然后生成一个 ppt」，屏幕上出现的是
+   * **66149 字的技能内部协议**——`run_script` 协议块、
+   * 「The sandbox has NO network access」、画布模板的「条数上限〔分区名=N条〕」规则。
+   * 证据 apps/web/test-results/real-model-evidence/90-final-screen.png（肉眼确认）。
+   *
+   * 泄漏路径不是某一处：`input.reply` 在下面**四个**出口（成功 / 失败 / 取消 / 未尝试）
+   * 都会原样交给用户，所以收敛在入口一次，而不是每个出口各补一次。
+   */
+  const reply = withoutProtocolEcho(input.reply);
+  const notAttempted = { kind: "not_attempted", text: reply, files: [] } as const;
 
   // ── 判据（见头注的表）。三条任一不成立就原样返回，沙箱一次都不被调用。 ──
   if (!deps.sandbox || !deps.objects) return notAttempted;
@@ -289,11 +301,11 @@ export async function maybeRunSkillScript(
     });
 
     return {
-      kind: "succeeded", text: renderSuccess(input.reply, files), files,
+      kind: "succeeded", text: renderSuccess(reply, files), files,
       attempts: loops.reduce((sum, loop) => sum + loop.attempts, 0),
     };
   } catch (e) {
-    if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: input.reply, files: [] };
+    if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: reply, files: [] };
     const failure = toFailure(e);
     deps.log("chat run skill script execution failed", {
       runId: input.runId, code: failure.failureCode, stderrExcerpt: failure.stderr.slice(0, 500),
@@ -307,7 +319,7 @@ export async function maybeRunSkillScript(
     });
     return {
       kind: "failed",
-      text: renderFailure(input.reply, failure.failureCode, failure.stderr),
+      text: renderFailure(reply, failure.failureCode, failure.stderr),
       files: [],
       failureCode: failure.failureCode,
       stderr: failure.stderr,
@@ -403,6 +415,31 @@ function renderSuccess(reply: string, files: readonly ProducedFile[]): string {
  *   一句既不是沙箱说的、也不是给用户看的话，被一个"诚实"的标签背书成了真因。
  *   **说出真因**与**把内部状态原样倒给用户**不是同一件事；来源不同，文案就必须不同。
  */
+/**
+ * 只存在于**我们自己的系统提示**里的串。用户可见的回答里出现它们，只有一种解释：
+ * 模型把提示复述回来了。
+ *
+ * ⚠ 判据要**两条以上同时命中**才动手。单条容易误伤——用户完全可能在正常回答里
+ * 提到「沙箱」或某个变量名；而复述整份协议时这些串是成片出现的。
+ * 宁可漏掉一次轻微泄漏，也不要把一条正常回答掐掉（后者用户立刻就会发现，且无从申诉）。
+ */
+const PROTOCOL_MARKERS = [
+  "SKILL_SANDBOX_OUT_DIR",
+  "The sandbox has NO network access",
+  "Write every file you want to return into",
+  "reply with exactly one fenced block",
+  "模板: <key>",
+] as const;
+
+/** 复述被挡掉时，留给用户的一句话——不留空白，也不假装那段内容是答案。 */
+const PROTOCOL_ECHO_NOTICE =
+  "（这一轮模型没有给出可用的回答，而是复述了内部执行说明，已省略。请再说一次你要的内容，我重试一次。）";
+
+export function withoutProtocolEcho(reply: string): string {
+  const hits = PROTOCOL_MARKERS.filter((marker) => reply.includes(marker)).length;
+  return hits >= 2 ? PROTOCOL_ECHO_NOTICE : reply;
+}
+
 function renderFailure(reply: string, code: SkillScriptFailureCode, stderr: string): string {
   return [reply, "", "---", "", ...failureBody(code, stderr)].join("\n");
 }
