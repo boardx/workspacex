@@ -72,7 +72,7 @@
       "spec_ref": "00-overview.md#R6",
       "user_visible_behavior": "问卷从 draft 经质量门禁进入 ready/collecting，closed 后不可逆；发布接口一次返回全部未清项，绕过前端直接请求结果一致；匿名/实名属性创建后不可变。",
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "depends_on": ["F03"],
       "points": 5,

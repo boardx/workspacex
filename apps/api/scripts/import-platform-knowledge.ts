@@ -3,7 +3,7 @@
  * （人类决策 D17 读法 B：仓库权威，产品只读，可重建）。映射在 lib/knowledge-projection.ts（纯函数）。
  *
  * 幂等：行 id 由 (org, kind, key) 哈希确定，正文不变则不写；仓库里已消失的节点被删掉。
- * 与 D12 的边一样只能在 `workspacex.projection_sync = on` 的事务里写（迁移 20260924190000 的触发器）。
+ * 与 D12 的边一样只能在 `workspacex.projection_sync = on` 的事务里写（迁移 20260924240000 的触发器）。
  *
  * 用法：`pnpm --filter api exec tsx scripts/import-platform-knowledge.ts [--org org-platform] [--dry-run]`
  * 常规入口是一条命令的 runbook：scripts/bootstrap-platform-brain.ts。

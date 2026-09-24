@@ -88,7 +88,7 @@
 | 级别 | `scope_kind` | `scope_id` | 何时开放 | 谁能读 |
 |---|---|---|---|---|
 | L0 | `chat_session` | `chat_threads.id` | **第一期（KG-M1–M4）** | 该会话可见者（沿用 chat 可见性） |
-| L1 | `personal_project` | 个人项目 id | 第一期末 | 本人 |
+| L1 | `personal` | 用户 id（同一用户全部个人线程，phase-18 S0-2=A） | 第一期末 | 本人 |
 | L2 | `project` | `projects.id` | 第二期（接 09-kg 现场协作） | 项目角色（RLS） |
 | L3 | `org` | `organizations.id` | 第三期（14-brain 组织大脑） | 组织角色 + 五态机 + 脱敏闸门 |
 | L4 | `platform` | —— | 另议（平台大脑 dogfood，`super-instance-design.md` D17） | —— |
@@ -130,7 +130,7 @@
 1. **向量**：`segment_embeddings` 与 `object_embeddings` 加 HNSW；上线前必须让 `pgvector-permission-recall.test.ts`
    改为「带权限过滤的召回率 ≥ 阈值」断言（开启 `hnsw.iterative_scan`），不能因为加索引而放掉这道门。
 2. **图种子**：实体解析（mention → `ontology_objects`）产出 `graphSeeds`，移除 `hybrid_graph_seeds_unavailable`。
-3. **chat 接入**：`StandardContextService` 的 `organization-hybrid` 作用域增加 `chat_session` / `personal_project` 两级；
+3. **chat 接入**：`StandardContextService` 的 `organization-hybrid` 作用域增加 `chat_session` / `personal` 两级；
    Deep agent 每轮取 Context Pack，claims 与图路径作为 `retrievalReasons` 可见。
 
 ### 3.5 三态 ↔ 七态 ↔ 五态统一对照表（D5：建议方案，待人类确认后写进契约束）
@@ -165,11 +165,11 @@ O-25 已裁决「证据三态 ↔ 决策七态」映射（uc-9-2 R10）；uc-14-
 
 | 里程碑 | 内容 | 验收门（机器可验） |
 |---|---|---|
-| **KG-M0 设计与签核** | ① ADR-114（AGE）+ 修订 architecture.md / context-engine.md / CONCEPTS.md；`knowledge-ontology.md` 标明「仅限平台大脑 / harness 元本体」（D3，由我定：标注，不改名）；② 新需求 `requirements/…/uc-kg-0-chat-session-知识图谱.md` 交 requirement-author 生成 feature；③ 契约束 `contracts/knowledge-graph/`（ui / usecases / domain 含 3.5 对照表 / coverage / `packages/contracts/src/knowledge-graph.ts` / design-signoff） | 人类签 design-signoff 与 design-coherence |
+| **KG-M0 设计与签核** | ① ADR-114（AGE）+ 修订 architecture.md / context-engine.md / CONCEPTS.md；`knowledge-ontology.md` 标明「仅限平台大脑 / harness 元本体」（D3，由我定：标注，不改名）；② 新需求 `requirements/…/uc-kg-0-chat-session-知识图谱.md` 交 requirement-author 生成 feature；③ 契约束 `contracts/knowledge-graph/`（ui / usecases / domain 含 3.5 对照表 / coverage / `packages/contracts/src/chat-knowledge-graph.ts` / design-signoff） | 人类签 design-signoff 与 design-coherence |
 | **KG-M1 底座** | AGE 镜像 + 迁移；`ontology_objects` / `ontology_actions` / `object_embeddings` 新建；claims、ontology_edges 扩列；HNSW；`invalidateOntologyEdges` 真实现 | `migrate:check` 重放；RLS 审计；`graph:rebuild` 后 AGE 与 CTE 对拍一致；带权限过滤召回率测试 |
 | **KG-M2 chat 入图** | 对话消息与上传文件 → 实体/claim 抽取（模型提交 `ontology_actions`，执行器落表）→ AGE 投影 → 向量 | real-db：同一消息重复处理不产生重复对象；模型身份直写本体表被拒 |
 | **KG-M3 chat 检索闭环** | chat 回答走 hybrid 五路（含 AGE 路径 + 向量），Context Pack 带图路径与引用；会话侧栏「本会话知识图谱」只读视图（`@xyflow/react`） | e2e：会话里说过的事实，在后续提问中被召回且引用可点回原消息；跨会话/跨用户泄漏为零 |
-| **KG-M4 个人项目** | L1 作用域 + 会话→个人项目的确认晋升 | e2e：确认后在同一个人项目的新会话里可召回 |
+| **KG-M4 个人空间** | L1 作用域 + 会话→个人空间的确认晋升 | e2e：确认后在同一用户的新个人会话里可召回 |
 | **KG-M5 项目现场（09-kg）** | F11–F19：入图管道（画布/研究/访谈）、三态、批量确认写回、决策树七态 | 各 UC R7 验收 |
 | **BRAIN-M6 组织大脑（14-brain）** | F16–F36：五态机、决策台账、检索可审查、写回去重、跨项目调用、沉淀 → skill；复核调度 | 各 UC R7 验收 |
 | **L4 平台** | 另立提案 | —— |

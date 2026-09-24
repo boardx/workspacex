@@ -4,7 +4,7 @@
  *
  * `ontology_edges` 的 `src_kind` / `dst_kind` 由 CHECK 约束写死（迁移 0009 起），
  * 本文件的 `OntologyNodeKind` 必须与迁移
- * `apps/api/migrations/20260924160000_d12_ontology_dev_process_projection.sql` 的 CHECK 列表
+ * `apps/api/migrations/20260924220000_d12_ontology_dev_process_projection.sql` 的 CHECK 列表
  * 逐字一致——由 `apps/api/tests/retrieval/ontology-projection-mapping.test.ts` 机械核对。
  *
  * ## 六跳路径需要的节点
@@ -40,6 +40,13 @@ export const KNOWLEDGE_NODE_KINDS = ["methodology", "lesson"] as const;
 export const OntologyNodeKind = z.enum([...PRODUCT_NODE_KINDS, ...DEV_PROCESS_NODE_KINDS, ...KNOWLEDGE_NODE_KINDS]);
 export type OntologyNodeKind = z.infer<typeof OntologyNodeKind>;
 
+/** Phase 18 规范本体（kg_f02，ADR-114）的边端点类型；节点本身住在 `ontology_objects` / `claims`，不进 `ontology_nodes`。 */
+export const CANONICAL_KG_ENDPOINT_KINDS = ["object", "claim", "chat_message"] as const;
+
+/** `ontology_edges` 两端允许的全部类型——迁移里 src/dst 两条 CHECK 与它逐项对账。 */
+export const EdgeEndpointKind = z.enum([...OntologyNodeKind.options, ...CANONICAL_KG_ENDPOINT_KINDS]);
+export type EdgeEndpointKind = z.infer<typeof EdgeEndpointKind>;
+
 /**
  * 六跳路径的边。`ontology_edges.relation` 仍是自由文本（产品侧其它边不受限），
  * 但投影边只允许这些 relation。
@@ -74,7 +81,7 @@ export const ProjectionEdge = z
 export type ProjectionEdge = z.infer<typeof ProjectionEdge>;
 
 /**
- * D4 / D11 —— `ontology_nodes` 投影行（迁移 20260924190000）。`key` 是图里的节点 id（边的
+ * D4 / D11 —— `ontology_nodes` 投影行（迁移 20260924240000）。`key` 是图里的节点 id（边的
  * src_id/dst_id 引用它，如 `ADR-012`、64 位实例哈希）；`id` 是由 (org, kind, key) 内容哈希得到
  * 的行主键；`contentHash` 是正文哈希，重跑时据此判断是否需要更新。
  */

@@ -10,7 +10,7 @@ import {
 } from "../../scripts/lib/dev-process-projection";
 
 const MIGRATION = fileURLToPath(
-  new URL("../../migrations/20260924190000_d4_d11_ontology_nodes_projection.sql", import.meta.url),
+  new URL("../../migrations/20260924240000_d4_d11_ontology_nodes_projection.sql", import.meta.url),
 );
 
 const log = [
@@ -54,13 +54,13 @@ describe("D12 dev-process projection mapping", () => {
     expect(buildProjectionEdges("org-other", snap)[0]!.id).not.toBe(a[0]!.id);
   });
 
-  it("migration CHECK kind list equals the contract's OntologyNodeKind (single source)", () => {
+  it("migration CHECK kind list equals the contract's EdgeEndpointKind (single source)", () => {
     const sql = readFileSync(MIGRATION, "utf8");
     for (const col of ["src_kind", "dst_kind"]) {
       const m = new RegExp(`ontology_edges_${col}_check CHECK \\(${col} IN \\(([^)]*)\\)`).exec(sql);
       expect(m, col).not.toBeNull();
       const kinds = [...m![1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
-      expect(kinds).toEqual([...ontologyProjection.OntologyNodeKind.options].sort());
+      expect(kinds).toEqual([...ontologyProjection.EdgeEndpointKind.options].sort());
     }
   });
 });

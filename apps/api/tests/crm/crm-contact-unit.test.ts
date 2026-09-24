@@ -61,7 +61,7 @@ describe("leadId", () => {
 const API = join(import.meta.dirname, "../..");
 describe("迁移与控制器的静态门", () => {
   it("crm_contacts 开 RLS 且 FORCE，有策略", () => {
-    const sql = readFileSync(join(API, "migrations/20260924200000_crm_contacts.sql"), "utf8");
+    const sql = readFileSync(join(API, "migrations/20260924250000_crm_contacts.sql"), "utf8");
     expect(sql).toMatch(/ALTER TABLE crm_contacts ENABLE ROW LEVEL SECURITY/);
     expect(sql).toMatch(/ALTER TABLE crm_contacts FORCE ROW LEVEL SECURITY/);
     expect(sql).toMatch(/CREATE POLICY \w+ ON crm_contacts/);

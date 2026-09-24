@@ -607,6 +607,10 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
+import { GRAPH_PROJECTION_PORT, ONTOLOGY_STORE_PORT } from "./application/knowledge-graph/ports";
+import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
+import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
+import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -2961,6 +2965,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
     },
     TelemetryReportWorker,
+    // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
+    { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
+    { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
+    KgProjectionWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

@@ -1423,6 +1423,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/chat-file-upload/page.tsx"
     },
+    "/preview/chat-knowledge-graph": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-knowledge-graph/page.tsx"
+    },
     "/preview/chat-viz": {
       "kind": "preview",
       "screen": "apps/web/app/preview/chat-viz/page.tsx"

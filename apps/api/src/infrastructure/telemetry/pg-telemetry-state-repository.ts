@@ -1,4 +1,4 @@
-/** D9 —— `instance_telemetry_state`（单行）的 PostgreSQL 实现。见迁移 `20260924180000_instance_telemetry_state.sql`。 */
+/** D9 —— `instance_telemetry_state`（单行）的 PostgreSQL 实现。见迁移 `20260924230000_instance_telemetry_state.sql`。 */
 import { randomBytes } from "node:crypto";
 import { instanceTelemetry as T } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";

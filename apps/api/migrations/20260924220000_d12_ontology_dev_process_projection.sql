@@ -13,12 +13,18 @@
  */
 ALTER TABLE ontology_edges DROP CONSTRAINT IF EXISTS ontology_edges_src_kind_check;
 ALTER TABLE ontology_edges DROP CONSTRAINT IF EXISTS ontology_edges_dst_kind_check;
+-- Phase 18（kg_f02，ADR-114）把端点类型收成一条合并约束 ontology_edges_kinds_chk，并新增
+-- object / claim / chat_message。本迁移排在它之后，端点类型改由下面两条约束承载（含那三种），
+-- 合并约束随之移除——同一事实只留一处约束，契约 ontologyProjection.EdgeEndpointKind 与其逐项对账。
+ALTER TABLE ontology_edges DROP CONSTRAINT IF EXISTS ontology_edges_kinds_chk;
 
 ALTER TABLE ontology_edges ADD CONSTRAINT ontology_edges_src_kind_check CHECK (src_kind IN (
   'person', 'project', 'decision', 'requirement', 'research', 'segment',
+  'object', 'claim', 'chat_message',
   'customer_instance', 'release', 'defect', 'pull_request', 'feature', 'evidence'));
 ALTER TABLE ontology_edges ADD CONSTRAINT ontology_edges_dst_kind_check CHECK (dst_kind IN (
   'person', 'project', 'decision', 'requirement', 'research', 'segment',
+  'object', 'claim', 'chat_message',
   'customer_instance', 'release', 'defect', 'pull_request', 'feature', 'evidence'));
 
 ALTER TABLE ontology_edges ADD COLUMN IF NOT EXISTS projection_source text

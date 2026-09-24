@@ -77,7 +77,7 @@ describe("读租户表只做聚合计数", () => {
 
 /** E3：first_value_facts 只经 SECURITY DEFINER 函数读；函数排除 personal-local、不回 org_id。 */
 describe("第一个价值时刻事实：只经报告函数、已排除 personal-local、不回组织标识", () => {
-  const MIGRATION = join(import.meta.dirname, "../../migrations/20260924210000_first_value_facts.sql");
+  const MIGRATION = join(import.meta.dirname, "../../migrations/20260924260000_first_value_facts.sql");
   const fnBody = (sql: string): string =>
     /FUNCTION kernel_first_value_facts_for_report\(\)[\s\S]*?AS \$\$([\s\S]*?)\$\$/.exec(sql)?.[1] ?? "";
   const selectList = (body: string): string => (/SELECT\s+([\s\S]*?)\s+FROM/i.exec(body)?.[1] ?? "").replace(/OVER\s*\([^)]*\)/gi, "");

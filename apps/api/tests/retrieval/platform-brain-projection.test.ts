@@ -1,5 +1,5 @@
 /**
- * D4 / D11 纯映射 + 六跳路径走法（无 DB）。DB 半边（迁移 20260924190000 的只读触发器、
+ * D4 / D11 纯映射 + 六跳路径走法（无 DB）。DB 半边（迁移 20260924240000 的只读触发器、
  * findSixHopPaths 的递归 CTE）需要隔离库 lane，不在本文件。
  */
 import { readFileSync } from "node:fs";
@@ -20,7 +20,7 @@ import {
 import { walkSixHops, type GraphEdge } from "../../src/domain/retrieval/six-hop-path";
 
 const MIGRATION = fileURLToPath(
-  new URL("../../migrations/20260924190000_d4_d11_ontology_nodes_projection.sql", import.meta.url),
+  new URL("../../migrations/20260924240000_d4_d11_ontology_nodes_projection.sql", import.meta.url),
 );
 const ORG = "org-platform";
 const INSTANCE = "a".repeat(64);

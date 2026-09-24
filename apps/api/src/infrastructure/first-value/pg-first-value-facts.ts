@@ -1,5 +1,5 @@
 /**
- * backlog E3 —— `first_value_facts` 的租户内读写（迁移 `20260924210000_first_value_facts.sql`）。
+ * backlog E3 —— `first_value_facts` 的租户内读写（迁移 `20260924260000_first_value_facts.sql`）。
  * 先写者胜落在 SQL：`ON CONFLICT (org_id, step) DO NOTHING`。`org_kind` 由 organizations.kind
  * 派生，不由调用方自报。步名只接受契约 `FirstValueStep` 枚举（唯一事实源）。
  */

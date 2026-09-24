@@ -1,0 +1,4 @@
+# Report files read by scripts/add-source.py. Not committed: the reports are
+# not ours to republish; the register keeps their hash so anyone holding the
+# same file can re-run the check.
+raw/

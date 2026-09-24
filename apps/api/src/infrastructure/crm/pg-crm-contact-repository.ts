@@ -1,5 +1,5 @@
 /**
- * D3 —— `crm_contacts` 的 PostgreSQL 实现。见迁移 `20260924200000_crm_contacts.sql`。
+ * D3 —— `crm_contacts` 的 PostgreSQL 实现。见迁移 `20260924250000_crm_contacts.sql`。
  * 每个事务先设 `app.crm_operator = on`（事务级）——RLS 只对这个会话标记放行。
  * 调用方必须已过 PlatformOperatorGuard；会话标记是纵深防御，不是鉴权本身。
  */
