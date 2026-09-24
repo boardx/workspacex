@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,6 +13,8 @@ import { PgDatabase } from '../../src/infrastructure/db/pg-database';
 import { appConfig } from '../../src/infrastructure/db/pg-config';
 import { PgWhiteboardRepository } from '../../src/infrastructure/whiteboard/pg-whiteboard-repository';
 import { PgWhiteboardCollaborationStore } from '../../src/infrastructure/whiteboard/pg-collaboration-store';
+import { FsBoardBlobStore } from '../../src/infrastructure/whiteboard/fs-board-blob-store';
+import { AesGcmBoardBlobCodec } from '../../src/infrastructure/whiteboard/aes-gcm-board-blob-codec';
 import { attachWhiteboardGateway } from '../../src/interface/ws/whiteboard.gateway';
 import { toOrgId } from '../../src/domain/org-id';
 import type { Principal } from '../../src/domain/principal';
@@ -24,7 +29,9 @@ const outsider: Principal = { orgId: otherOrg, userId: owner.userId };
 // Resolver is the sole test seam: DB ACL, Yjs, workers, persistence and sockets are real.
 // Session token verification is tested by the existing HTTP/session integration lane.
 const identities = new Map([['owner-token', owner], ['editor-token', editor], ['viewer-token', viewer], ['outsider-token', outsider]]);
-let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string;
+let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string, blobRoot: string, blobs: FsBoardBlobStore;
+const codec = new AesGcmBoardBlobCodec({ resolve: async () => new Uint8Array(32).fill(23) });
+const collaboration = (database: PgDatabase) => new PgWhiteboardCollaborationStore(database, undefined, 120, blobs, codec, 1);
 const sockets = new Set<WebSocket>();
 const b64 = (value: Uint8Array) => Buffer.from(value).toString('base64');
 class Peer {
@@ -106,7 +113,8 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await resetOrgs(orgId, otherOrg);
   await seedOrg({ orgId, projectId: 'wb-ws-project-a' }); await seedOrg({ orgId: otherOrg, projectId: 'wb-ws-project-b' });
   for (const principal of [owner, editor, viewer, outsider]) await addOrgMember(principal.orgId, principal.userId, 'consultant', null);
-  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db); store = new PgWhiteboardCollaborationStore(db);
+  blobRoot = await mkdtemp(join(tmpdir(), 'wsx-board-ws-runtime-')); blobs = new FsBoardBlobStore(blobRoot);
+  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db); store = collaboration(db);
   server = createServer((_request, response) => { response.statusCode = 404; response.end(); });
   attachWhiteboardGateway(server, { boards: repo, store, principals: { resolve: async headers => identities.get(String(headers.authorization ?? '').replace(/^Bearer /, '')) ?? null } });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -116,6 +124,7 @@ afterAll(async () => {
   for (const ws of sockets) ws.terminate(); sockets.clear();
   if (server?.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   await db?.close(); await resetOrgs(orgId, otherOrg);
+  await rm(blobRoot, { recursive: true, force: true });
 });
 describe('real WebSocket whiteboard collaboration', () => {
   it('converges two concurrent Chinese edits, persists ACKs, reopens and deduplicates retry', async () => {
@@ -128,18 +137,23 @@ describe('real WebSocket whiteboard collaboration', () => {
       b.send({ type: 'update', epoch: 1, updateId: bId, update: b64(bUpdate) });
       const acknowledgements = await Promise.all([aAck, bAck]);
       expect(acknowledgements.map(m => m.type === 'ack' ? m.seq : -1).sort()).toEqual([2, 3]);
-      await Promise.all([a.wait(m => m.type === 'update' && m.seq === 3), b.wait(m => m.type === 'update' && m.seq === 3)]);
+      await Promise.all([2, 3].flatMap(seq => [a.wait(m => m.type === 'update' && m.seq === seq), b.wait(m => m.type === 'update' && m.seq === seq)]));
       expect(readObjects(a.doc)).toEqual(readObjects(b.doc));
+      expect(Buffer.from(Y.encodeStateVector(a.doc))).toEqual(Buffer.from(Y.encodeStateVector(b.doc)));
       expect(readObjects(a.doc)[0]?.text).toContain('甲'); expect(readObjects(a.doc)[0]?.text).toContain('乙');
       const fresh = new PgDatabase(appConfig());
       try {
-        const state = await new PgWhiteboardCollaborationStore(fresh).load(owner, boardId), recovered = createWhiteboardDocument();
+        const state = await collaboration(fresh).load(owner, boardId), recovered = createWhiteboardDocument();
         Y.applyUpdate(recovered, state.update); expect(state.seq).toBe(3); expect(readObjects(recovered)).toEqual(readObjects(a.doc)); recovered.destroy();
       } finally { await fresh.close(); }
       const third = await connect(boardId, 'viewer-token');
       try { expect(readObjects(third.doc)).toEqual(readObjects(a.doc)); } finally { await third.close(); }
       const replay = a.wait(m => m.type === 'ack' && m.updateId === aId);
       a.send({ type: 'update', epoch: 1, updateId: aId, update: b64(aUpdate) }); await replay;
+      await Promise.all([
+        expect(a.wait(m => m.type === 'update' && m.seq === 2, 200)).rejects.toThrow(/did not arrive/),
+        expect(b.wait(m => m.type === 'update' && m.seq === 2, 200)).rejects.toThrow(/did not arrive/),
+      ]);
       expect((await store.load(owner, boardId)).seq).toBe(3);
     } finally { await a.close(); await b.close(); }
   });

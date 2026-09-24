@@ -7,10 +7,25 @@ import type { DatabasePort, TenantSession } from '../../application/ports/databa
 import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { BoardBlobError, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../application/whiteboard/blob-ports';
+import { boardBlobKey, sha256 } from '../../domain/whiteboard/blob-identity';
+import { decodeBoardContentManifest, encodeBoardContentManifest, type BoardContentManifest } from '../../domain/whiteboard/content-manifest';
 
-type DocumentRow = { epoch: number; seq: string; snapshot: Buffer };
+type DocumentRow = { epoch: number; seq: string; snapshot: Buffer | null; head: ContentHead; fresh: boolean };
+type ContentHead = {
+  epoch: number; head_seq: string; storage_kind: 'legacy_pg' | 'dual_write' | 'blob_primary'; manifest_key: string | null;
+  manifest_digest: string | null; manifest_plain_digest: string | null; manifest_size_bytes: string | null; tenant_key_version: number | null;
+  schema_version: number | null; protocol_version: number | null; fencing_token: string;
+  content_state: 'legacy' | 'building' | 'verifying' | 'active' | 'rollback' | 'failed';
+};
 type Access = { role: C.Board['role']; archived: boolean };
+const CONTENT_SCHEMA_VERSION = 1, CONTENT_PROTOCOL_VERSION = 1;
 const HASH = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
+function assertHeadMatchesDocument(document: { epoch: number; seq: string }, head: { epoch: number; head_seq: string }): void {
+  if (head.epoch !== document.epoch || Number(head.head_seq) !== Number(document.seq)) {
+    throw new BoardBlobError('INTEGRITY_FAILED', 'Board content head does not match document metadata');
+  }
+}
 function validIds(principal: Principal, boardId: string, requestId?: string, epoch?: number): void {
   assertPrincipal(principal);
   if (!C.BoardId.safeParse(boardId).success || (requestId !== undefined && !C.CreateBoard.shape.requestId.safeParse(requestId).success)
@@ -28,7 +43,17 @@ function canonical(value: unknown): unknown {
  * the DatabasePort's outer transaction has committed, not merely a savepoint.
  */
 export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationStore {
-  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120) {}
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(),
+    private readonly acceptedUpdatesPerMinute = 120,
+    private readonly blobs?: BoardBlobStore,
+    private readonly codec?: BoardBlobCodec,
+    private readonly tenantKeyVersion = 1,
+  ) {
+    if ((blobs === undefined) !== (codec === undefined)) throw new Error('Board blob store and codec must be configured together');
+    if (!Number.isSafeInteger(tenantKeyVersion) || tenantKeyVersion < 1) throw new Error('Invalid Board tenant key version');
+  }
   private async access(session: TenantSession, p: Principal, boardId: string, write: boolean): Promise<Access> {
     const board = await session.query<{ owner_id: string; archived: boolean }>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR ${write ? 'UPDATE' : 'SHARE'}`, [p.orgId, boardId]);
     const row = board.rows[0]; if (!row) throw new Fault('NOT_FOUND');
@@ -42,16 +67,24 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     return { role: parsed.data, archived: row.archived };
   }
   private async document(session: TenantSession, p: Principal, boardId: string): Promise<DocumentRow> {
-    await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
-    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
-    const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND'); return row;
+    const inserted = await session.query<{ board_id: string }>(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING RETURNING board_id`, [p.orgId, boardId]);
+    await session.query(`INSERT INTO whiteboard_content_heads(org_id,board_id,epoch,head_seq,checkpoint_seq) SELECT org_id,board_id,epoch,seq,seq FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2 ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
+    const result = await session.query<{ epoch: number; seq: string; snapshot: Buffer | null; head_epoch: number; head_seq: string; storage_kind: ContentHead['storage_kind']; manifest_key: string | null; manifest_digest: string | null; manifest_plain_digest: string | null; manifest_size_bytes: string | null; tenant_key_version: number | null; schema_version: number | null; protocol_version: number | null; fencing_token: string; content_state: ContentHead['content_state'] }>(`SELECT d.epoch,d.seq,d.snapshot,h.epoch AS head_epoch,h.head_seq,h.storage_kind,h.manifest_key,h.manifest_digest,h.manifest_plain_digest,h.manifest_size_bytes,h.tenant_key_version,h.schema_version,h.protocol_version,h.fencing_token,h.content_state FROM whiteboard_documents d JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2`, [p.orgId, boardId]);
+    const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND');
+    const head = { epoch: row.head_epoch, head_seq: row.head_seq, storage_kind: row.storage_kind, manifest_key: row.manifest_key, manifest_digest: row.manifest_digest, manifest_plain_digest: row.manifest_plain_digest, manifest_size_bytes: row.manifest_size_bytes, tenant_key_version: row.tenant_key_version, schema_version: row.schema_version, protocol_version: row.protocol_version, fencing_token: row.fencing_token, content_state: row.content_state };
+    assertHeadMatchesDocument(row, head);
+    return { epoch: row.epoch, seq: row.seq, snapshot: row.snapshot, fresh: inserted.rows.length === 1, head };
   }
   async head(p: Principal, boardId: string): Promise<WhiteboardSyncHead> {
     validIds(p, boardId);
     return this.db.withTenant(p.orgId, async session => {
       const access = await this.access(session, p, boardId, false);
-      const result = await session.query<{ epoch: number; seq: string }>(`SELECT epoch,seq FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+      const result = await session.query<{ epoch: number; seq: string; head_epoch: number | null; head_seq: string | null }>(`SELECT d.epoch,d.seq,h.epoch AS head_epoch,h.head_seq FROM whiteboard_documents d LEFT JOIN whiteboard_content_heads h ON h.org_id=d.org_id AND h.board_id=d.board_id WHERE d.org_id=$1 AND d.board_id=$2`, [p.orgId, boardId]);
       const row = result.rows[0];
+      if (row) {
+        if (row.head_epoch === null || row.head_seq === null) throw new BoardBlobError('INTEGRITY_FAILED', 'Board content head is missing');
+        assertHeadMatchesDocument(row, { epoch: row.head_epoch, head_seq: row.head_seq });
+      }
       return { ...access, epoch: row?.epoch ?? 1, seq: Number(row?.seq ?? 0) };
     });
   }
@@ -61,7 +94,9 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const stateVector = vector ? new Uint8Array(vector) : undefined;
     return this.db.withTenant(p.orgId, async session => {
       const access = await this.access(session, p, boardId, false), doc = await this.document(session, p, boardId);
-      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(doc.snapshot, stateVector) };
+      if (doc.fresh && this.blobs && this.codec) await this.activateNewBoard(session, p, boardId, doc);
+      const snapshot = await this.snapshot(p, boardId, doc);
+      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(snapshot, stateVector) };
     });
   }
   async append(p: Principal, boardId: string, input: WhiteboardUpdateInput): Promise<WhiteboardUpdateAck> {
@@ -91,19 +126,81 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     await this.access(session, p, boardId, true);
     const doc = await this.document(session, p, boardId);
     if (doc.epoch !== epoch) throw new Fault('STALE_EPOCH');
-    const previous = await session.query<{ seq: string; request_hash: string; update: Buffer }>(`SELECT seq,request_hash,update FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
+    const previous = await session.query<{ seq: string; request_hash: string }>(`SELECT seq,request_hash FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
     const replay = previous.rows[0];
     if (replay) {
       if (replay.request_hash !== hash) throw new Fault('IDEMPOTENCY_CONFLICT');
-      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, replayed: true, update: new Uint8Array(replay.update) };
+      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, replayed: true, update: new Uint8Array() };
     }
     const count = await session.query<{ count: string }>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND created_at>clock_timestamp()-interval '1 minute'`, [p.orgId, boardId, p.userId]);
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
-    const accepted = await validate(doc.snapshot), seq = Number(doc.seq) + 1;
+    const snapshot = await this.snapshot(p, boardId, doc);
+    const accepted = await validate(snapshot), seq = Number(doc.seq) + 1;
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > 1048576) throw new Fault('VALIDATION_FAILED');
-    await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
-    await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
+    const published = this.blobs && this.codec ? await this.publish(p, boardId, epoch, seq, accepted.snapshot, doc.head.manifest_digest) : null;
+    const retainRollbackMirror = published && doc.head.content_state === 'rollback';
+    await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, published && !retainRollbackMirror ? null : Buffer.from(accepted.update)]);
+    await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, published && !retainRollbackMirror ? null : Buffer.from(accepted.snapshot)]);
+    if (published) {
+      const changed = await session.query<{ fencing_token: string }>(`UPDATE whiteboard_content_heads SET epoch=$3,head_seq=$4,checkpoint_seq=$4,storage_kind='blob_primary',manifest_key=$5,manifest_digest=$6,manifest_plain_digest=$7,manifest_size_bytes=$8,tenant_key_version=$9,schema_version=1,protocol_version=1,fencing_token=fencing_token+1,updated_at=now() WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND head_seq=$10 AND fencing_token=$11 RETURNING fencing_token`, [p.orgId, boardId, epoch, seq, published.key, published.cipherDigest, published.plainDigest, published.sizeBytes, this.tenantKeyVersion, Number(doc.head.head_seq), Number(doc.head.fencing_token)]);
+      if (!changed.rows[0]) throw new Error('WHITEBOARD_CONTENT_HEAD_CAS_CONFLICT');
+    } else {
+      await session.query(`UPDATE whiteboard_content_heads SET epoch=$3,head_seq=$4,checkpoint_seq=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, epoch, seq]);
+    }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
     return { durability: 'pending', epoch, seq, updateId, replayed: false, update: accepted.update };
+  }
+
+  private async snapshot(p: Principal, boardId: string, doc: DocumentRow): Promise<Uint8Array> {
+    if (doc.head.storage_kind === 'legacy_pg') {
+      if (!doc.snapshot) throw new Error('Legacy Board snapshot is missing');
+      return new Uint8Array(doc.snapshot);
+    }
+    if (!this.blobs || !this.codec || !doc.head.manifest_key || !doc.head.manifest_digest || !doc.head.manifest_plain_digest || !doc.head.manifest_size_bytes || !doc.head.tenant_key_version) {
+      throw new Error('Board blob runtime is unavailable');
+    }
+    if (doc.head.schema_version !== CONTENT_SCHEMA_VERSION || doc.head.protocol_version !== CONTENT_PROTOCOL_VERSION) throw new Error('Unsupported Board content head version');
+    const encryptedManifest = await this.blobs.getVerified({ tenantId: p.orgId, key: doc.head.manifest_key, expectedCipherDigest: doc.head.manifest_digest, expectedSizeBytes: Number(doc.head.manifest_size_bytes) });
+    const manifestBytes = await this.codec.decrypt({ ciphertext: encryptedManifest, cipherDigest: doc.head.manifest_digest, plainDigest: doc.head.manifest_plain_digest, expectedPlainDigest: doc.head.manifest_plain_digest, sizeBytes: Number(doc.head.manifest_size_bytes), tenantId: p.orgId, tenantKeyVersion: doc.head.tenant_key_version });
+    const manifest = decodeBoardContentManifest(manifestBytes);
+    if (manifest.boardId !== boardId || manifest.epoch !== doc.epoch || manifest.headSeq !== Number(doc.seq) || manifest.tenantKeyVersion !== doc.head.tenant_key_version || manifest.schemaVersion !== doc.head.schema_version) throw new Error('Board manifest head mismatch');
+    const encrypted = await this.blobs.getVerified({ tenantId: p.orgId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes });
+    return this.codec.decrypt({ ...manifest.checkpoint, ciphertext: encrypted, tenantId: p.orgId, tenantKeyVersion: manifest.tenantKeyVersion, expectedPlainDigest: manifest.checkpoint.plainDigest });
+  }
+
+  private async activateNewBoard(session: TenantSession, p: Principal, boardId: string, doc: DocumentRow): Promise<void> {
+    if (!doc.snapshot) throw new Error('New Board snapshot is missing');
+    const published = await this.publish(p, boardId, doc.epoch, Number(doc.seq), doc.snapshot, null);
+    const changed = await session.query<{ fencing_token: string }>(`UPDATE whiteboard_content_heads SET storage_kind='blob_primary',manifest_key=$3,manifest_digest=$4,manifest_plain_digest=$5,manifest_size_bytes=$6,tenant_key_version=$7,schema_version=1,protocol_version=1,content_state='active',fencing_token=fencing_token+1,updated_at=now() WHERE org_id=$1 AND board_id=$2 AND head_seq=0 AND fencing_token=0 RETURNING fencing_token`, [p.orgId, boardId, published.key, published.cipherDigest, published.plainDigest, published.sizeBytes, this.tenantKeyVersion]);
+    if (!changed.rows[0]) throw new Error('WHITEBOARD_CONTENT_HEAD_CAS_CONFLICT');
+    await session.query(`UPDATE whiteboard_documents SET snapshot=NULL,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+    doc.snapshot = null; doc.fresh = false;
+    doc.head = { ...doc.head, storage_kind: 'blob_primary', manifest_key: published.key, manifest_digest: published.cipherDigest, manifest_plain_digest: published.plainDigest, manifest_size_bytes: String(published.sizeBytes), tenant_key_version: this.tenantKeyVersion, schema_version: CONTENT_SCHEMA_VERSION, protocol_version: CONTENT_PROTOCOL_VERSION, content_state: 'active', fencing_token: changed.rows[0].fencing_token };
+  }
+
+  private async publish(p: Principal, boardId: string, epoch: number, seq: number, snapshot: Uint8Array, parentManifestDigest: string | null): Promise<{ key: string; cipherDigest: string; plainDigest: string; sizeBytes: number }> {
+    const checkpoint = await this.codec!.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: snapshot });
+    const checkpointKey = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'checkpoint', cipherDigest: checkpoint.cipherDigest });
+    await this.putAndVerify(p.orgId, checkpointKey, checkpoint);
+    const manifest: BoardContentManifest = {
+      manifestVersion: 1, boardId, epoch, headSeq: seq, schemaVersion: CONTENT_SCHEMA_VERSION,
+      checkpoint: { key: checkpointKey, plainDigest: checkpoint.plainDigest, cipherDigest: checkpoint.cipherDigest, sizeBytes: checkpoint.sizeBytes, throughSeq: seq },
+      tail: [], parentManifestDigest, tenantKeyVersion: this.tenantKeyVersion, createdAt: new Date().toISOString(),
+    };
+    const bytes = encodeBoardContentManifest(manifest);
+    const encrypted = await this.codec!.encrypt({ tenantId: p.orgId, tenantKeyVersion: this.tenantKeyVersion, plaintext: bytes });
+    const key = boardBlobKey({ tenantId: p.orgId, boardId, kind: 'manifest', cipherDigest: encrypted.cipherDigest });
+    await this.putAndVerify(p.orgId, key, encrypted);
+    const readback = await this.blobs!.getVerified({ tenantId: p.orgId, key, expectedCipherDigest: encrypted.cipherDigest, expectedSizeBytes: encrypted.sizeBytes });
+    const decodedBytes = await this.codec!.decrypt({ ...encrypted, ciphertext: readback, tenantId: p.orgId, expectedPlainDigest: encrypted.plainDigest });
+    const decoded = decodeBoardContentManifest(decodedBytes);
+    if (decoded.boardId !== boardId || decoded.epoch !== epoch || decoded.headSeq !== seq || sha256(decodedBytes) !== encrypted.plainDigest) throw new Error('Board manifest read-back mismatch');
+    return { key, cipherDigest: encrypted.cipherDigest, plainDigest: encrypted.plainDigest, sizeBytes: encrypted.sizeBytes };
+  }
+
+  private async putAndVerify(tenantId: string, key: string, blob: EncodedBoardBlob): Promise<void> {
+    await this.blobs!.putImmutable({ tenantId, key, ciphertext: blob.ciphertext, cipherDigest: blob.cipherDigest, sizeBytes: blob.sizeBytes });
+    const readback = await this.blobs!.getVerified({ tenantId, key, expectedCipherDigest: blob.cipherDigest, expectedSizeBytes: blob.sizeBytes });
+    await this.codec!.decrypt({ ...blob, ciphertext: readback, tenantId, expectedPlainDigest: blob.plainDigest });
   }
 }

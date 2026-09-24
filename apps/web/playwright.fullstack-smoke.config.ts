@@ -76,6 +76,10 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
+  // Blob-primary Board collaboration encrypts the first checkpoint before the WebSocket
+  // can acknowledge sync. Keep this deterministic test key inside the isolated fixture;
+  // production still fails closed when the deployment KMS/key source is absent.
+  WORKSPACEX_BOARD_CONTENT_KEYS: '{"1":"HR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0="}',
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
   FULLSTACK_E2E_PASSWORD: FULLSTACK_E2E.password,
   FULLSTACK_E2E_ORG_ID: FULLSTACK_E2E.orgId,

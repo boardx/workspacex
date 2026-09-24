@@ -4,6 +4,7 @@ import type { Provider } from '@nestjs/common';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { objectStoreRoot } from '../storage/object-store-root';
 import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver } from './aes-gcm-board-blob-codec';
+import { assertFilesystemBoardBlobRuntime } from './board-blob-runtime';
 import { FsBoardBlobStore } from './fs-board-blob-store';
 
 export function boardBlobRoot(env: NodeJS.ProcessEnv = process.env): string {
@@ -19,10 +20,13 @@ export function boardBlobRoot(env: NodeJS.ProcessEnv = process.env): string {
   return root;
 }
 
-/** Keeps the additive provider dormant until a later feature switches collaboration writes. */
+/** Local implementation selected only after the runtime topology gate succeeds. */
 export class ConfiguredFsBoardBlobStore implements BoardBlobStore {
   private store?: FsBoardBlobStore;
-  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
+  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {
+    assertFilesystemBoardBlobRuntime(env);
+    boardBlobRoot(env);
+  }
   putImmutable(input: BoardBlobIdentity & BoardBlobDescriptor & { ciphertext: Uint8Array }): Promise<'created' | 'already-present-same-content'> {
     return this.configured().putImmutable(input);
   }

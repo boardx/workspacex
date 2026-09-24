@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction'];
+const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'snapshot', 'activateNewBoard', 'publish', 'putAndVerify'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
   const file = ts.createSourceFile('pg-collaboration-store.ts', code, ts.ScriptTarget.Latest, true);
@@ -41,7 +41,7 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_content_heads']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
@@ -60,7 +60,7 @@ function audit(code: string): string[] {
   if (!(methods.get('writeCommandsInTransaction') ?? '').includes('this.commitInTransaction(session, p, boardId')) errors.push('commands: guarded transaction path');
 
   const head = methods.get('head') ?? '';
-  if (head.indexOf('this.access(session, p, boardId, false)') < 0 || head.indexOf('this.access(session, p, boardId, false)') > head.indexOf('SELECT epoch,seq FROM whiteboard_documents')) errors.push('head: authorize before read');
+  if (head.indexOf('this.access(session, p, boardId, false)') < 0 || head.indexOf('this.access(session, p, boardId, false)') > head.indexOf('FROM whiteboard_documents')) errors.push('head: authorize before read');
   const load = methods.get('load') ?? '';
   if (load.indexOf('this.access(session, p, boardId, false)') < 0 || load.indexOf('this.access(session, p, boardId, false)') > load.indexOf('this.document(session, p, boardId)')) errors.push('load: authorize before read');
   const commit = methods.get('commitInTransaction') ?? '';

@@ -2,6 +2,7 @@ import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE } from '../../src/application/whiteboard/blob-ports';
 import { boardBlobRoot, boardStorageProviders, ConfiguredFsBoardBlobStore } from '../../src/infrastructure/whiteboard/board-storage.providers';
+import { boardBlobProviderKind } from '../../src/infrastructure/whiteboard/board-blob-runtime';
 
 describe('board storage providers', () => {
   it('registers the store and encryption boundary without switching collaboration persistence', () => {
@@ -25,8 +26,13 @@ describe('board storage providers', () => {
     throw new Error('relative production Board root was accepted');
   });
 
-  it('does not evaluate the future storage config until the dormant provider is used', () => {
-    const store = new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` });
-    expect(() => store.head({ tenantId: 'org-a', key: `tenants/${'a'.repeat(32)}/manifest` })).toThrow(/durable storage/);
+  it('fails closed for ambiguous or multi-replica production storage topology', () => {
+    expect(() => boardBlobProviderKind({ NODE_ENV: 'production' })).toThrow('WORKSPACEX_BOARD_BLOB_PROVIDER');
+    expect(() => boardBlobProviderKind({ WORKSPACEX_BOARD_BLOB_PROVIDER: 'unknown' })).toThrow('filesystem or hosted');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).toThrow('WORKSPACEX_BOARD_SINGLE_REPLICA=true');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true' })).toThrow('WORKSPACEX_BOARD_BLOB_ROOT');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true', WORKSPACEX_BOARD_BLOB_ROOT: `${tmpdir()}/board-content` })).toThrow('durable storage');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'hosted' })).toThrow('not registered');
+    expect(() => new ConfiguredFsBoardBlobStore({ NODE_ENV: 'production', WORKSPACEX_BOARD_BLOB_PROVIDER: 'filesystem', WORKSPACEX_BOARD_SINGLE_REPLICA: 'true', WORKSPACEX_BOARD_BLOB_ROOT: '/srv/workspacex/board-content' })).not.toThrow();
   });
 });

@@ -31,12 +31,11 @@
  *
  * Nest's DI stops at the FIRST provider factory that throws -- that IS the "one crash, one
  * variable, repeat" shape this script exists to kill. So: boot, and if it throws, extract the
- * variable name from the (single-source) error message, inject one generic placeholder for
- * THAT variable only, and boot again. Repeat until it boots clean or nothing new is
- * discovered. The placeholder is one fixed string, not a per-variable table -- it only needs
- * to be non-empty and long enough to clear the simple length checks this codebase has today
- * (e.g. `EMAIL_VERIFICATION_SECRET must contain at least 32 bytes`). It is never used to talk
- * to anything real.
+ * variable name from the (single-source) error message, inject a placeholder for THAT
+ * message shape only, and boot again. Repeat until it boots clean or nothing new is
+ * discovered. Most checks share one non-empty placeholder; enum/boolean/path shapes carry a
+ * valid probe value on their extractor. This remains keyed by message format rather than a
+ * second hand-written variable list. Probe values are never used to talk to anything real.
  *
  * ## What this deliberately does NOT flag
  *
@@ -70,16 +69,21 @@ const PLACEHOLDER = "verify-required-env-probe-placeholder-0";
  * genuinely new message shape means adding a pattern HERE, once -- not a variable name
  * anywhere else.
  */
-const EXTRACTORS: readonly RegExp[] = [
-  /^missing env var (\w+)$/,
-  /^(\w+) is required in production$/,
-  /^(\w+) must contain at least \d+ bytes$/,
+const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: string }[] = [
+  { pattern: /^missing env var (\w+)$/ },
+  { pattern: /^(\w+) is required in production$/ },
+  { pattern: /^(\w+) must contain at least \d+ bytes$/ },
+  { pattern: /^(\w+) must be filesystem or hosted$/, placeholder: "filesystem" },
+  { pattern: /^filesystem Board blob storage requires (\w+)=true in production$/, placeholder: "true" },
+  { pattern: /^(\w+) must be an explicit absolute durable path in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
+  { pattern: /^(\w+) must point to durable storage in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
+  { pattern: /^(\w+) must be a positive safe integer$/, placeholder: "1" },
 ];
 
-function extractVarName(message: string): string | null {
-  for (const re of EXTRACTORS) {
-    const m = re.exec(message);
-    if (m) return m[1] ?? null;
+function extractEnvFailure(message: string): { name: string; placeholder: string } | null {
+  for (const extractor of EXTRACTORS) {
+    const m = extractor.pattern.exec(message);
+    if (m?.[1]) return { name: m[1], placeholder: extractor.placeholder ?? PLACEHOLDER };
   }
   return null;
 }
@@ -105,9 +109,9 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
   /** Original value per touched var, so restoration is exact even across repeated touches. */
   const saved = new Map<string, string | undefined>();
 
-  const touch = (name: string) => {
+  const touch = (name: string, placeholder: string) => {
     if (!saved.has(name)) saved.set(name, process.env[name]);
-    process.env[name] = PLACEHOLDER;
+    process.env[name] = placeholder;
   };
 
   /**
@@ -127,18 +131,19 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
         break;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const name = extractVarName(message);
-        if (name === null) {
+        const extracted = extractEnvFailure(message);
+        if (extracted === null) {
           throw new Error(
             "verify-required-env: kernel boot failed with a message this probe cannot " +
               "attribute to an env var (add an EXTRACTORS pattern for the new message shape " +
               `-- do not hand-list the variable name instead): ${message}`,
           );
         }
+        const { name, placeholder } = extracted;
         const priorValue = saved.has(name) ? saved.get(name) : process.env[name];
         if (priorValue === undefined || priorValue === "") missingVars.add(name);
         else invalidVars.set(name, message);
-        touch(name);
+        touch(name, placeholder);
       }
     }
   } finally {

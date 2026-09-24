@@ -1,6 +1,18 @@
 /** Narrow control-plane exceptions. Each admitted file is checked again on every lint
  * invocation; disclosure stays at the existing authenticated application boundary. */
 export const workbenchBoundaries = new Map([
+  ['src/infrastructure/whiteboard/pg-board-content-migration.ts', {
+    tables:['whiteboards','whiteboard_content_heads','whiteboard_content_migrations','whiteboard_documents','whiteboard_updates'],
+    reason:'Internal CLI-only relocation state machine. It has no requester-facing disclosure surface: content is read solely to construct and cryptographically verify a tenant-bound Blob candidate. Short locked watermark capture, unlocked MVCC inventory, current-head CAS and explicit restore-proof retirement are mechanically checked before legacy bytes may be nulled.',
+    checks:[[null,/this\.db\.withTenant\(toOrgId\(tenantId\)/],
+      [null,/async readInventory[\s\S]*?WITH source AS[\s\S]*?ORDER BY kind,seq/],
+      [null,/state='cutover',cutover_at=now\(\),retirement_not_before=\$4/],
+      [null,/content_state='active'[\s\S]*?content_state='rollback'[\s\S]*?retirement_not_before<=\$5/],
+      [null,/current\.state !== 'cleaning'/],
+      [null,/SET update=NULL/],
+      ['tests/whiteboard/content-migration-repository-guard.test.ts',/unlocked single-statement inventory/],
+      ['tests/whiteboard/board-content-migration-pglite-runtime.test.ts',/retains metadata-only request receipts/]],
+  }],
   ['src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts', {
     tables:['agent_runs','agent_run_artifact_context'],
     reason:'Internal continuation write path: reads only source agent identity and accepted context binding. Caller discloses the source version first; acceptHumanMessage rechecks write authority before any run creation.',

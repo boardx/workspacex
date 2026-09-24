@@ -15,6 +15,14 @@ Text commands are character splices; a DOM/IME binding must wait for composition
 commit and submit the changed range, not replace the whole string each keystroke.
 Geometry is an atomic value. Style properties merge independently.
 
+`buildArrangeCommands` and `buildFormatCommands` are pure batch builders, not new
+server command types. They deterministically emit existing geometry/style commands;
+the host still authorizes and applies that batch through the same transaction path.
+Selections containing connectors, objects with `extensionData.locked === true`, or
+incompatible formatting targets are rejected as a whole. A selected Frame/group
+moves its descendants once; an explicitly selected descendant is not moved twice.
+The command and raw-update validation paths both reject changes to locked objects.
+
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer
 edit is currently visible: a collaborator's edit may still be in flight. The UI

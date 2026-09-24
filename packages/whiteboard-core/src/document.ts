@@ -1,5 +1,11 @@
 import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import { assertWhiteboardUpdateLimits, WHITEBOARD_UPDATE_LIMITS } from './update-limits';
+
+// A successful shadow becomes the next command writer. Reusing it preserves one
+// Yjs client clock instead of adding a fresh client to the live state per command.
+// Failed shadows are discarded, so rejected batches never affect later deltas.
+const commandWriters = new WeakMap<Y.Doc, Y.Doc>();
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -26,6 +32,34 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const ids = new Set(alive.map(value => value.id));
   return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+export function isWhiteboardObjectLocked(object: WhiteboardObject): boolean {
+  return object.extensionData?.locked === true;
+}
+function storedObjects(doc: Y.Doc): Map<string, WhiteboardObject> {
+  return new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
+}
+export function assertLockedObjectsUnchanged(before: Y.Doc, after: Y.Doc): void {
+  const beforeObjects = storedObjects(before), afterObjects = storedObjects(after);
+  const lockedBefore = [...beforeObjects.values()].filter(isWhiteboardObjectLocked);
+  const lockedAfter = [...afterObjects.values()].filter(isWhiteboardObjectLocked);
+
+  for (const object of lockedBefore) {
+    const next = afterObjects.get(object.id);
+    if (!next || JSON.stringify(next) !== JSON.stringify(object)
+      || tombstones(after).has(object.id) !== tombstones(before).has(object.id)) throw new Error('OBJECT_LOCKED');
+  }
+
+  // Deleting an endpoint changes a locked connector semantically because it
+  // disappears from the visible projection even if its own Y.Map is unchanged.
+  // Inspect stored objects so one batch cannot hide a newly-created connector.
+  for (const object of lockedAfter) {
+    if (tombstones(after).has(object.id)) {
+      if (!tombstones(before).has(object.id)) throw new Error('OBJECT_LOCKED');
+      continue;
+    }
+    if (object.connector && (tombstones(after).has(object.connector.from) || tombstones(after).has(object.connector.to))) throw new Error('OBJECT_LOCKED');
+  }
 }
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
@@ -62,6 +96,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
+    if (isWhiteboardObjectLocked(decode(command.id, item))) throw new Error('OBJECT_LOCKED');
     if (command.type === 'delete') deleted.set(command.id, true);
     if (command.type === 'geometry') item.set('geometry', structuredClone(command.geometry));
     if (command.type === 'style') {
@@ -77,13 +112,49 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
   }
 }
+function emptyUpdate(): Uint8Array {
+  const empty = new Y.Doc();
+  try { return Y.encodeStateAsUpdate(empty); }
+  finally { empty.destroy(); }
+}
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */
-export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): void {
+export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): Uint8Array {
   const commands = WhiteboardCommandBatch.parse(input);
-  const candidate = cloneDocument(doc);
-  try { candidate.transact(() => apply(candidate, commands)); validateDocument(candidate); }
-  finally { candidate.destroy(); }
-  doc.transact(() => apply(doc, commands), origin);
+  const existing = commandWriters.get(doc);
+  const candidate = existing ?? cloneDocument(doc);
+  let committed = false;
+  let update: Uint8Array | undefined;
+  try {
+    if (existing) Y.applyUpdate(candidate, Y.encodeStateAsUpdate(doc, Y.encodeStateVector(candidate)));
+    // Capture only this transaction's native wire update. Encoding the whole
+    // candidate against the live state vector would also attach its historical
+    // delete set and can reject a tiny edit on a healthy long-lived document.
+    const captured: Uint8Array[] = [];
+    const capture = (bytes: Uint8Array) => captured.push(new Uint8Array(bytes));
+    candidate.on('update', capture);
+    try { candidate.transact(() => apply(candidate, commands)); }
+    finally { candidate.off('update', capture); }
+    if (captured.length > 1) throw new Error('INVALID_COMMAND_UPDATE');
+    // Schema-valid no-op batches historically succeed without a live update or
+    // undo item. Return a canonical empty Yjs update for the server ACK path.
+    update = captured[0] ?? emptyUpdate();
+    validateDocument(candidate);
+    assertLockedObjectsUnchanged(doc, candidate);
+    assertWhiteboardUpdateLimits(update);
+    const structures = [...candidate.store.clients.values()].reduce((sum, entries) => sum + entries.length, 0);
+    if (structures > WHITEBOARD_UPDATE_LIMITS.documentStructs
+      || Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
+    Y.applyUpdate(doc, update, origin);
+    commandWriters.set(doc, candidate);
+    committed = true;
+    return update;
+  }
+  finally {
+    if (!committed) {
+      if (existing) commandWriters.delete(doc);
+      candidate.destroy();
+    }
+  }
 }
 export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) => string): WhiteboardObject[] {
   const chosen = readObjects(doc).filter(object => ids.includes(object.id));
