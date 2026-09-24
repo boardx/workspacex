@@ -27,38 +27,52 @@ CREATE OR REPLACE FUNCTION kg_scope_enabled(p_scope_kind text) RETURNS boolean
 LANGUAGE sql IMMUTABLE AS $$ SELECT p_scope_kind IN ('chat_session', 'personal') $$;
 
 -- ─────────────────────────────── 绕过执行器的直写：拒绝 ───────────────────────────────
+-- 一条结论是否是「本体行」（带作用域，或由模型 / 人经执行器产生）。SECURITY DEFINER：守卫要判断的
+-- 恰恰可能是调用方看不见的行（别人个人空间的结论）——按调用方 RLS 查会得到 NULL、被当成「不受保护」。
+CREATE OR REPLACE FUNCTION kg_claim_is_protected(p_claim_id text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$ SELECT coalesce((SELECT c.scope_kind IS NOT NULL OR c.created_by IN ('model', 'human') FROM public.claims c WHERE c.id = p_claim_id), false) $$;
+
 CREATE OR REPLACE FUNCTION kg_scoped_write_guard() RETURNS trigger
 SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   v_protected boolean;
 BEGIN
-  -- 「本体行」= 带作用域的行，或由模型 / 人（经执行器）产生的行（created_by ∈ model/human）。
-  -- 只看 NEW 不够：UPDATE 可以把作用域清空、把 created_by 改掉来「洗白」一行，所以 OLD 也算。
-  -- I-8「结论的作用域终生不变」也由此得到保证（app_rw 碰不到本体行）。
+  -- 属主身份（执行器等 SECURITY DEFINER 函数、外键级联、迁移）放行；其余角色（运行时 app_rw 及继承它的角色）
+  -- 碰不到本体行。「本体行」= 带作用域，或 created_by ∈ model/human。INSERT 看 NEW，DELETE 看 OLD，
+  -- UPDATE 新旧都看——否则可以把作用域清空、把证据改挂到别的结论上来「洗白」。I-8 作用域不变也由此保证。
+  IF (SELECT public.kg_is_table_owner()) THEN
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  END IF;
   IF TG_TABLE_NAME = 'claim_segments' THEN
-    SELECT c.scope_kind IS NOT NULL OR c.created_by IN ('model', 'human') INTO v_protected
-      FROM public.claims c WHERE c.id = NEW.claim_id;
+    v_protected := (TG_OP <> 'DELETE' AND public.kg_claim_is_protected(NEW.claim_id))
+                OR (TG_OP <> 'INSERT' AND public.kg_claim_is_protected(OLD.claim_id));
+  ELSIF TG_OP = 'INSERT' THEN
+    v_protected := NEW.scope_kind IS NOT NULL OR NEW.created_by IN ('model', 'human');
+  ELSIF TG_OP = 'DELETE' THEN
+    v_protected := OLD.scope_kind IS NOT NULL OR OLD.created_by IN ('model', 'human');
   ELSE
     v_protected := NEW.scope_kind IS NOT NULL OR NEW.created_by IN ('model', 'human')
-      OR (TG_OP = 'UPDATE' AND (OLD.scope_kind IS NOT NULL OR OLD.created_by IN ('model', 'human')));
+                OR OLD.scope_kind IS NOT NULL OR OLD.created_by IN ('model', 'human');
   END IF;
-  IF coalesce(v_protected, false) AND current_user = 'app_rw' THEN
-    RAISE EXCEPTION 'KG_WRITE_OUTSIDE_EXECUTOR: % rows written by the model or a person, or carrying a knowledge scope, are written only through kg_apply_batch', TG_TABLE_NAME
+  IF v_protected THEN
+    RAISE EXCEPTION 'KG_WRITE_OUTSIDE_EXECUTOR: % rows written by the model or a person, or carrying a knowledge scope, change only through kg_* functions', TG_TABLE_NAME
       USING ERRCODE = '42501';
   END IF;
-  RETURN NEW;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS kg_scoped_write_guard_trg ON claims;
-CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE ON claims
+CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE OR DELETE ON claims
   FOR EACH ROW EXECUTE FUNCTION kg_scoped_write_guard();
+-- ontology_edges 不拦 DELETE：F45 的删除级联（pg-deletion-repository）以 app_rw 身份删指向被删片段的边。
 DROP TRIGGER IF EXISTS kg_scoped_write_guard_trg ON ontology_edges;
 CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE ON ontology_edges
   FOR EACH ROW EXECUTE FUNCTION kg_scoped_write_guard();
 DROP TRIGGER IF EXISTS kg_scoped_write_guard_trg ON claim_segments;
-CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE ON claim_segments
+CREATE TRIGGER kg_scoped_write_guard_trg BEFORE INSERT OR UPDATE OR DELETE ON claim_segments
   FOR EACH ROW EXECUTE FUNCTION kg_scoped_write_guard();
 
 -- ─────────────────────────────── 被拒动作留痕 ───────────────────────────────
@@ -86,9 +100,14 @@ BEGIN
     v_scope_kind := 'org';
     v_scope_id := v_org;
   END IF;
+  -- 人工动作的留痕记在真正的登录用户名下（I-15）；调用方声称的身份不同时放进 payload，便于审计。
+  IF p->>'actor_kind' = 'human' AND p->>'actor_id' IS DISTINCT FROM v_user THEN
+    v_payload := v_payload || jsonb_build_object('claimed_actor_id', p->>'actor_id');
+  END IF;
   INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload,
                                 source_ref, pipeline_version, outcome, reject_code, reject_reason)
-  VALUES (p->>'action_id', v_org, v_scope_kind, v_scope_id, p->>'actor_kind', p->>'actor_id',
+  VALUES (p->>'action_id', v_org, v_scope_kind, v_scope_id, p->>'actor_kind',
+          CASE WHEN p->>'actor_kind' = 'human' THEN coalesce(v_user, 'anonymous') ELSE p->>'actor_id' END,
           p->>'action_type', v_payload, p->>'source_ref', p->>'pipeline_version',
           'rejected', p->>'reject_code', p->>'reject_reason')
   ON CONFLICT (id) DO NOTHING;
@@ -111,18 +130,28 @@ BEGIN
 END
 $$;
 
--- 边的端点必须存在于本 org（实体 / 结论可以是本批刚写的）。不校验会在 canonical 里堆积悬空边。
-CREATE OR REPLACE FUNCTION kg_endpoint_exists(p_org text, p_kind text, p_id text) RETURNS boolean
+-- 边的端点必须存在于本 org（实体 / 结论可以是本批刚写的），并且对当前用户可见：端点若在个人空间，
+-- 只能是本人的。本函数以属主身份运行、看得到所有人的个人空间（F02 的属主例外），所以这一条必须在这里判——
+-- 否则可以连一条边到别人的个人结论，还能借「接受 / 拒绝」探测别人个人空间里某个 id 是否存在（I-14）。
+CREATE OR REPLACE FUNCTION kg_endpoint_exists(p_org text, p_user text, p_kind text, p_id text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
   SELECT CASE p_kind
-    WHEN 'object'       THEN EXISTS (SELECT 1 FROM ontology_objects o WHERE o.id = p_id AND o.org_id = p_org)
-    WHEN 'claim'        THEN EXISTS (SELECT 1 FROM claims c WHERE c.id = p_id AND c.org_id = p_org)
+    WHEN 'object'       THEN EXISTS (SELECT 1 FROM ontology_objects o WHERE o.id = p_id AND o.org_id = p_org
+                                       AND (o.scope_kind IS DISTINCT FROM 'personal' OR o.scope_id = p_user))
+    WHEN 'claim'        THEN EXISTS (SELECT 1 FROM claims c WHERE c.id = p_id AND c.org_id = p_org
+                                       AND (c.scope_kind IS DISTINCT FROM 'personal' OR c.scope_id = p_user))
     WHEN 'segment'      THEN EXISTS (SELECT 1 FROM segments s WHERE s.id = p_id AND s.org_id = p_org)
     WHEN 'chat_message' THEN EXISTS (SELECT 1 FROM chat_messages m WHERE m.id = p_id AND m.org_id = p_org)
     ELSE false
   END
 $$;
+
+-- I-7 的数据库兜底：同一 (org, source_ref, pipeline_version) 最多一条 accepted。advisory lock 已经串行化
+-- 了执行器内部的「先查后写」；这条唯一索引保证哪怕将来有别的写入路径，也不会出现第二份。
+CREATE UNIQUE INDEX IF NOT EXISTS ontology_actions_accepted_source_uniq
+  ON ontology_actions (org_id, source_ref, pipeline_version)
+  WHERE outcome = 'accepted' AND source_ref IS NOT NULL AND pipeline_version IS NOT NULL;
 
 -- ─────────────────────────────── 唯一写入口 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_apply_batch(p jsonb) RETURNS jsonb
@@ -205,7 +234,7 @@ BEGIN
   END LOOP;
 
   FOR e IN SELECT * FROM jsonb_array_elements(coalesce(p->'edges', '[]'::jsonb)) LOOP
-    IF NOT kg_endpoint_exists(v_org, e->>'src_kind', e->>'src_id') OR NOT kg_endpoint_exists(v_org, e->>'dst_kind', e->>'dst_id') THEN
+    IF NOT kg_endpoint_exists(v_org, v_user, e->>'src_kind', e->>'src_id') OR NOT kg_endpoint_exists(v_org, v_user, e->>'dst_kind', e->>'dst_id') THEN
       RAISE EXCEPTION 'KG_EDGE_ENDPOINT_NOT_FOUND: edge %', e->>'id' USING ERRCODE = '23503';
     END IF;
     INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
@@ -227,11 +256,14 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION kg_apply_batch(jsonb), kg_record_rejected(jsonb), kg_scope_enabled(text),
-  kg_insert_claim_evidence(text, text, text, text, jsonb), kg_endpoint_exists(text, text, text) FROM PUBLIC;
+  kg_insert_claim_evidence(text, text, text, text, jsonb), kg_endpoint_exists(text, text, text, text),
+  kg_claim_is_protected(text) FROM PUBLIC;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
     GRANT EXECUTE ON FUNCTION kg_apply_batch(jsonb), kg_record_rejected(jsonb), kg_scope_enabled(text) TO app_rw;
+    -- 守卫触发器以调用方身份运行，需要能调这个判定函数（它只回 true/false，不回内容）。
+    GRANT EXECUTE ON FUNCTION kg_claim_is_protected(text) TO app_rw;
   END IF;
 END
 $$;

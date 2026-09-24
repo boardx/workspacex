@@ -243,7 +243,9 @@ CREATE INDEX IF NOT EXISTS ontology_edges_kg_scope_idx
 -- 同一迁移建的表属主相同。
 CREATE OR REPLACE FUNCTION kg_is_table_owner() RETURNS boolean
 LANGUAGE sql STABLE SET search_path = pg_catalog, public, pg_temp
-AS $$ SELECT pg_has_role(current_user, c.relowner, 'MEMBER') FROM pg_catalog.pg_class c WHERE c.oid = 'public.ontology_objects'::regclass $$;
+-- 'USAGE'（继承了属主权限）而不是 'MEMBER'：PG16 起可以授予 SET FALSE INHERIT FALSE 的空壳成员关系，
+-- 那种成员既不能以属主身份行事，也不该得到这个例外。
+AS $$ SELECT pg_has_role(current_user, c.relowner, 'USAGE') FROM pg_catalog.pg_class c WHERE c.oid = 'public.ontology_objects'::regclass $$;
 
 DO $$
 DECLARE
@@ -267,6 +269,8 @@ BEGIN
   -- 不是超级用户、没有 BYPASSRLS（packages/cloud-deploy），FORCE RLS 对它生效，所以这个例外必须
   -- 写在策略里，不能指望「属主绕过 RLS」。app_rw 不是属主角色的成员，例外对它不成立。
   -- `(SELECT kg_is_table_owner())` 是标量子查询 ⇒ 每条语句只算一次（InitPlan），不是每行。
+  -- ⚠ 代价：属主身份运行的 SECURITY DEFINER 函数能看到本 org 所有人的个人空间行。今后任何读写这些表的
+  --   definer 函数都必须**自己**再判一次个人空间归属（scope_id = app.current_user_id），F03 的执行器即如此。
   FOREACH t IN ARRAY ARRAY['ontology_objects', 'ontology_actions', 'claims', 'ontology_edges']
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_personal_owner', t);
@@ -290,6 +294,12 @@ CREATE POLICY object_embeddings_target_visible ON object_embeddings AS RESTRICTI
            WHEN 'object' THEN EXISTS (SELECT 1 FROM ontology_objects o WHERE o.id = target_id AND o.org_id = object_embeddings.org_id)
            ELSE EXISTS (SELECT 1 FROM claims c WHERE c.id = target_id AND c.org_id = object_embeddings.org_id)
          END);
+
+-- claim_segments（0009 的证据表）同理：证据跟随结论可见。否则别人个人空间结论的 id、它引用了哪些片段、
+-- 立场是支持还是反驳，都能从这张表里读出来（I-14）。
+DROP POLICY IF EXISTS claim_segments_claim_visible ON claim_segments;
+CREATE POLICY claim_segments_claim_visible ON claim_segments AS RESTRICTIVE
+  USING (EXISTS (SELECT 1 FROM claims c WHERE c.id = claim_id AND c.org_id = claim_segments.org_id));
 
 -- 目标行删除 ⇒ 它的向量一起删（没有外键可挂：target_id 指向两张表之一）。
 -- BEFORE 而不是 AFTER：上面的 target_visible 策略要求目标行可见——AFTER 时目标已经没了，

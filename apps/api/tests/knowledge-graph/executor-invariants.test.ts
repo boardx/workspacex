@@ -215,3 +215,59 @@ describe("F03 评审补强", () => {
   });
 });
 
+describe("F03 第三轮评审补强", () => {
+  const personalOf = async (user: string) => {
+    const b = modelBatch(ORG, seg, { scope: { kind: "personal", id: user }, actor: { kind: "human", id: user }, sourceRef: null, pipelineVersion: null });
+    await rawApply(b, user);
+    return b;
+  };
+
+  it("边不能连到别人个人空间的结论（也就探测不到它存不存在）", async () => {
+    const theirs = await personalOf("u-r3-1");
+    const mine = modelBatch(ORG, seg, { scope: { kind: "personal", id: "u-r3-2" }, actor: { kind: "human", id: "u-r3-2" }, sourceRef: null, pipelineVersion: null });
+    const probe = { ...mine, edges: [{ id: `${mine.edges[0]!.id}-x`, srcKind: "claim" as const, srcId: mine.claims[0]!.id, dstKind: "claim" as const, dstId: theirs.claims[0]!.id, relation: "supersedes" as const }] };
+    await expect(rawApply(probe, "u-r3-2")).rejects.toThrow(/KG_EDGE_ENDPOINT_NOT_FOUND/);
+  });
+
+  it("证据不能被改挂、不能挂到别人的个人结论上、不能被删", async () => {
+    const own = modelBatch(ORG, seg);
+    await rawApply(own);
+    const theirs = await personalOf("u-r3-3");
+    await asApp(ORG, (c) => c.query(
+      "INSERT INTO claims (id, org_id, statement, status, tsv) VALUES ('c-r3-legacy', $1, '旧', 'proposed', ''::tsvector) ON CONFLICT DO NOTHING", [ORG]));
+    // 改挂：把模型结论的证据挪到一条旧结论上（模型结论因此失去证据）
+    await expect(asApp(ORG, (c) => c.query("UPDATE claim_segments SET claim_id = 'c-r3-legacy' WHERE claim_id = $1", [own.claims[0]!.id])))
+      .rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
+    // 挂到别人个人空间的结论上（调用方看不见那条结论，也照样拦）
+    await expect(asApp(ORG, (c) => c.query(
+      "INSERT INTO claim_segments (claim_id, org_id, segment_id, stance) VALUES ($1, $2, $3, 'contradicting')", [theirs.claims[0]!.id, ORG, seg])))
+      .rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
+    // 删证据 / 删结论
+    await expect(asApp(ORG, (c) => c.query("DELETE FROM claim_segments WHERE claim_id = $1", [own.claims[0]!.id])))
+      .rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
+    await expect(asApp(ORG, (c) => c.query("DELETE FROM claims WHERE id = $1", [own.claims[0]!.id])))
+      .rejects.toThrow(/KG_WRITE_OUTSIDE_EXECUTOR/);
+  });
+
+  it("被拒动作的人工身份记在真正的登录用户名下，声称的身份进 payload", async () => {
+    await asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-real', true)");
+      await c.query("SELECT kg_record_rejected($1::jsonb)", [JSON.stringify({
+        action_id: "a-r3-forged", scope_kind: "chat_session", scope_id: "t", actor_kind: "human", actor_id: "u-victim",
+        action_type: "confirmClaims", reject_code: "KG_NOT_OWNER", reject_reason: "x",
+      })]);
+    });
+    const r = await asOwner((c) => c.query("SELECT actor_id, payload->>'claimed_actor_id' AS claimed FROM ontology_actions WHERE id = 'a-r3-forged'"));
+    expect(r.rows[0]).toEqual({ actor_id: "u-real", claimed: "u-victim" });
+  });
+
+  it("I-7 数据库兜底：同源同版本最多一条 accepted（唯一索引）", async () => {
+    const a = modelBatch(ORG, seg);
+    await rawApply(a);
+    await expect(asOwner((c) => c.query(
+      `INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, pipeline_version, outcome)
+       VALUES ('a-r3-dup', $1, 'chat_session', 't', 'model', 'm', 'extract', '{}', $2, $3, 'accepted')`, [ORG, a.sourceRef, a.pipelineVersion],
+    ))).rejects.toThrow(/ontology_actions_accepted_source_uniq/);
+  });
+});
+
