@@ -75,4 +75,21 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
       return true;
     });
   }
+  async requestQuarantineRecovery(p: Principal, id: string, input: C.RequestQuarantineRecovery): Promise<C.QuarantineRecoveryRequest | null> {
+    return this.db.withTenant(p.orgId, async s => {
+      // A valid principal may have lost Board access, which is exactly why this request exists.
+      // Tenant RLS plus the active organization membership gate prevents cross-org requests.
+      await s.query(`INSERT INTO whiteboard_quarantine_recovery_requests
+        (org_id,board_id,request_id,receipt_id,requested_by,session_fingerprint,epoch,pending_count,pending_bytes,reason,status)
+        SELECT b.org_id,b.id,$3,$4,$2,$5,$6,$7,$8,$9,'pending-review'
+        FROM whiteboards b JOIN org_memberships om ON om.org_id=b.org_id AND om.user_id=$2
+        JOIN organizations o ON o.id=b.org_id
+        WHERE b.org_id=$1 AND b.id=$10 AND o.status='active'
+        ON CONFLICT DO NOTHING`, [p.orgId,p.userId,input.requestId,input.receiptId,input.sessionFingerprint,input.epoch,input.pendingCount,input.pendingBytes,input.reason,id]);
+      const result = await s.query<{request_id:string;status:'pending-review'|'denied';created_at:Date}>(`SELECT request_id,status,created_at
+        FROM whiteboard_quarantine_recovery_requests WHERE org_id=$1 AND requested_by=$2 AND receipt_id=$3 AND board_id=$4`, [p.orgId,p.userId,input.receiptId,id]);
+      const row=result.rows[0];
+      return row ? C.QuarantineRecoveryRequest.parse({requestId:row.request_id,status:row.status,createdAt:new Date(row.created_at).toISOString()}) : null;
+    });
+  }
 }

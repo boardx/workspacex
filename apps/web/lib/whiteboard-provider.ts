@@ -1,10 +1,11 @@
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
-import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxContext, type WhiteboardOutboxPort, type WhiteboardOutboxScope } from './whiteboard-outbox';
+import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxContext, type WhiteboardOutboxPort, type WhiteboardOutboxScope, type WhiteboardQuarantineReceipt } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   quarantined: number;
+  quarantineReceipts: WhiteboardQuarantineReceipt[];
   role: 'owner' | 'editor' | 'viewer'; archived: boolean;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
 };
@@ -26,9 +27,10 @@ export class WhiteboardProvider {
   private retry = 0;
   private epoch: number | null = null;
   private pending: PendingWhiteboardUpdate[] = [];
-  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, role: 'viewer', archived: false, peers: [], reason: null };
+  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
   private readonly token = getStoredSessionToken();
   private context: WhiteboardOutboxContext | null = null;
+  private restoredPendingCount = 0;
   private readonly outbox: WhiteboardOutboxPort;
   private operation = Promise.resolve();
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, private options: WhiteboardProviderOptions) {
@@ -42,26 +44,34 @@ export class WhiteboardProvider {
     const sessionId = this.options.sessionId ?? await fingerprintWhiteboardSession(this.token);
     if (this.stopped) return;
     this.context = { boardId: this.boardId, principalId: this.options.principalId, sessionId };
+    try {
+      const [summary,receipts]=await Promise.all([this.outbox.summarize(this.context),this.outbox.listQuarantine({principalId:this.context.principalId},this.boardId)]);
+      if(this.stopped)return;
+      this.restoredPendingCount=summary.pendingCount;
+      this.publish({phase:summary.pendingCount?'offline':'connecting',quarantineReceipts:receipts,quarantined:receipts.reduce((sum,receipt)=>sum+receipt.pendingCount,0)});
+    } catch { this.block('OUTBOX_ERROR'); return; }
     this.connect();
   }
-  private publish(patch: Partial<WhiteboardConnectionState>) { this.state = { ...this.state, ...patch, pending: this.pending.length }; this.onState(this.state); }
+  private publish(patch: Partial<WhiteboardConnectionState>) { this.state = { ...this.state, ...patch, pending: Math.max(this.pending.length,this.restoredPendingCount) }; this.onState(this.state); }
   private onUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === REMOTE || this.stopped) return;
     if (!this.epoch || this.state.role === 'viewer' || this.state.archived) { this.block('WRITE_DENIED'); return; }
     const message: PendingWhiteboardUpdate = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), update: bytesToBase64(update) };
     const scope = this.scope();
     if (!scope) { this.block('PROTOCOL_ERROR'); return; }
+    this.pending.push(message);
+    this.publish({});
     this.operation = this.operation.then(async () => {
       await this.outbox.put(scope, message);
       if (this.stopped) return;
-      this.pending.push(message); this.publish({}); if (this.ready) this.send(message);
+      if (this.ready) this.send(message);
     }).catch(error => this.block(error instanceof WhiteboardOutboxLimitError ? 'PENDING_LIMIT' : 'OUTBOX_ERROR'));
   };
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private connect() {
     if (this.stopped || !this.context) return;
     if (!this.token || getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
-    this.ready = false; this.publish({ phase: this.epoch ? 'offline' : 'connecting' });
+    this.ready = false; this.publish({ phase: this.epoch || this.restoredPendingCount ? 'offline' : 'connecting' });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
     this.socket = socket;
     this.handshake = setTimeout(() => socket.close(), 10000);
@@ -78,8 +88,10 @@ export class WhiteboardProvider {
           const scope = this.scope();
           if (!scope || !this.context) { this.block('PROTOCOL_ERROR'); return; }
           this.operation = this.operation.then(async () => {
-            await this.outbox.quarantineExcept(this.context!, message.epoch, 'STALE_EPOCH');
+            const receipts=await this.outbox.quarantineExcept(this.context!, message.epoch, 'STALE_EPOCH');
             this.pending = await this.outbox.load(scope);
+            this.restoredPendingCount=0;
+            if(receipts.length)this.publish({quarantined:this.state.quarantined+receipts.reduce((sum,receipt)=>sum+receipt.pendingCount,0),quarantineReceipts:[...this.state.quarantineReceipts,...receipts]});
             if ((message.role === 'viewer' || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
             for (const item of this.pending) Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
             if (this.stopped || this.socket !== socket) return;
@@ -119,6 +131,12 @@ export class WhiteboardProvider {
     if (this.presenceTimer) return;
     this.presenceTimer = setTimeout(() => { this.presenceTimer = null; if (this.ready && !this.stopped && this.latestPresence) this.send(this.latestPresence); }, 50);
   }
+  async discardQuarantine(receiptId:string):Promise<boolean>{
+    if(!this.context)return false;
+    const removed=await this.outbox.discardQuarantine(this.context,receiptId);
+    if(removed){const receipts=this.state.quarantineReceipts.filter(receipt=>receipt.receiptId!==receiptId);this.publish({quarantineReceipts:receipts,quarantined:receipts.reduce((sum,receipt)=>sum+receipt.pendingCount,0)});}
+    return removed;
+  }
   private block(reason: string) {
     if (this.stopped) return;
     const context = this.context;
@@ -130,8 +148,9 @@ export class WhiteboardProvider {
       ? this.outbox.quarantineSession(context, reason)
       : this.outbox.quarantineExcept(context, null, reason)).then(receipts => {
       this.pending = [];
-      this.publish({ quarantined: receipts.reduce((sum, receipt) => sum + receipt.pendingCount, 0) });
-    }).catch(() => { this.pending = []; this.publish({ quarantined: 0 }); });
+      this.restoredPendingCount=0;
+      this.publish({ quarantined: receipts.reduce((sum, receipt) => sum + receipt.pendingCount, 0), quarantineReceipts:receipts });
+    }).catch(() => { this.pending = []; this.restoredPendingCount=0; this.publish({ quarantined: 0, quarantineReceipts:[] }); });
   }
   close() {
     if (!this.stopped && getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }

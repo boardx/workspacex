@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type * as Y from 'yjs';
 import { createWhiteboardDocument } from '@repo/whiteboard-core';
-import { getBoard, type Board } from '@/lib/live-whiteboard';
+import { getBoard, requestQuarantineRecovery, type Board } from '@/lib/live-whiteboard';
 import { WhiteboardProvider, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import { CollaborativeEditor } from './collaborative-editor';
 import { WorkshopPanel } from './workshop-panel';
@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { BoardTransferControls } from './board-transfer-controls';
 import { RoomPresenterControls } from './room-presenter-controls';
 import { publishRoomViewport } from '@/lib/live-whiteboard-room';
-const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, role: 'viewer', archived: false, peers: [], reason: null };
+import { whiteboard as WhiteboardContract } from '@repo/contracts';
+const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
 export function LiveBoard({ boardId }: { boardId: string }) {
   const router = useRouter();
   const session = useOptionalSession();
@@ -21,6 +22,7 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const awareness = useCallback((cursor: {x:number;y:number}|null, selected:string[]) => providerRef.current?.awareness(cursor,selected), []);
   const [board, setBoard] = useState<Board | null>(null), [doc, setDoc] = useState<Y.Doc | null>(null);
   const [state, setState] = useState(initial), [failed, setFailed] = useState(false);
+  const [recoveryMessage,setRecoveryMessage]=useState<string|null>(null),[recoveryBusy,setRecoveryBusy]=useState(false);
   const [roomSession,setRoomSession]=useState<string|null>(null);
   const roomSessionRef=useRef<string|null>(null), viewportTimer=useRef<number|null>(null);
   const setActiveRoom=useCallback((value:string|null)=>{roomSessionRef.current=value;setRoomSession(value);},[]);
@@ -43,8 +45,12 @@ export function LiveBoard({ boardId }: { boardId: string }) {
     window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
   }, [state.pending]);
   const back = () => { if (!state.pending || window.confirm('仍有未确认保存的修改。离开后，它们会在下次打开此白板时继续同步。确定离开？')) router.push('/studio/board'); };
-  if (failed || state.phase === 'blocked') return <section data-testid="denied" className="p-6"><h1 className="text-20 font-semibold">无法继续访问白板</h1><p className="my-3 text-14">权限、会话或同步状态已改变。请返回列表确认后重新打开。{state.quarantined ? `${state.quarantined} 项未确认修改已隔离，不能重放或导出。` : '未确认的修改不能视为已保存。'}</p><Button onClick={back}>返回白板列表</Button></section>;
+  const receipt=state.quarantineReceipts[0];
+  const requestRecovery=async()=>{if(!receipt)return;const reason=WhiteboardContract.QuarantineRecoveryReason.safeParse(receipt.reason);if(!reason.success){setRecoveryMessage('当前隔离原因不允许申请恢复。');return;}setRecoveryBusy(true);try{const result=await requestQuarantineRecovery(boardId,{requestId:crypto.randomUUID(),receiptId:receipt.receiptId,sessionFingerprint:receipt.sessionId,epoch:receipt.epoch,pendingCount:receipt.pendingCount,pendingBytes:receipt.pendingBytes,reason:reason.data});setRecoveryMessage(result.status==='pending-review'?`恢复申请已提交：${result.requestId}`:'组织策略拒绝了恢复申请。');}catch{setRecoveryMessage('组织策略拒绝了恢复申请，或当前会话已失效。');}finally{setRecoveryBusy(false);}};
+  const discard=async()=>{if(!receipt||!window.confirm('确定永久丢弃这些隔离修改？此操作无法撤销。'))return;setRecoveryBusy(true);try{const removed=await providerRef.current?.discardQuarantine(receipt.receiptId);setRecoveryMessage(removed?'隔离修改已从此设备删除。':'隔离数据已不存在或不属于当前会话。');}finally{setRecoveryBusy(false);}};
+  const quarantineActions=receipt?<div data-testid="whiteboard-quarantine-actions" className="mt-4 flex flex-wrap items-center gap-2"><Button disabled={recoveryBusy} onClick={()=>void requestRecovery()}>申请组织恢复</Button><Button disabled={recoveryBusy} variant="outline" onClick={()=>void discard()}>永久丢弃</Button>{recoveryMessage&&<p role="status" className="w-full text-12">{recoveryMessage}</p>}</div>:null;
+  if (failed || state.phase === 'blocked') return <section data-testid="denied" className="p-6"><h1 className="text-20 font-semibold">无法继续访问白板</h1><p className="my-3 text-14">权限、会话或同步状态已改变。请返回列表确认后重新打开。{state.quarantined ? `${state.quarantined} 项未确认修改已隔离，不能重放或导出。` : '未确认的修改不能视为已保存。'}</p>{quarantineActions}<div className="mt-4"><Button onClick={back}>返回白板列表</Button></div></section>;
   if (!doc || !board) return <p data-testid="loading" role="status" className="p-6">正在读取白板…</p>;
   const status = state.phase === 'connecting' ? '正在连接' : state.phase === 'offline' ? `连接中断 · ${state.pending} 项修改待保存` : state.pending ? `${state.pending} 项修改待保存` : '已同步';
-  return <div className="flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><p className="flex-1">未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p><RoomPresenterControls boardId={boardId} disabled={state.role==='viewer'||state.archived} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={state.phase === 'connecting' || state.role === 'viewer' || state.archived} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId}/>}/></div></div>;
+  return <div className="flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><div className="flex-1"><p>未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p>{state.quarantined>0&&quarantineActions}</div><RoomPresenterControls boardId={boardId} disabled={state.role==='viewer'||state.archived} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={state.phase === 'connecting' || state.role === 'viewer' || state.archived} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId}/>}/></div></div>;
 }

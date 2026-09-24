@@ -11,6 +11,7 @@ import {
 import type { Identity } from "@/lib/identity";
 import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
 import type { OrganizationSummary } from "@/lib/org-display";
+import { revokeWhiteboardSession } from "@/lib/whiteboard-outbox";
 import {
   resolveIdentity,
   switchCurrentOrganization,
@@ -195,21 +196,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const logout = React.useCallback(async () => {
     const expectedToken = getStoredSessionToken();
+    const expectedUserId = session?.userId;
     await withSessionStorageLock(() => {
       if (getStoredSessionToken() !== expectedToken) return;
+      if (expectedToken && expectedUserId) return revokeWhiteboardSession(expectedUserId, expectedToken).catch(() => undefined).then(() => {
+        if (getStoredSessionToken() !== expectedToken) return;
+        clearSessionWhileLocked();
+        becomeAnonymous();
+      });
       clearSessionWhileLocked();
       becomeAnonymous();
     });
-  }, [becomeAnonymous]);
+  }, [becomeAnonymous, session?.userId]);
 
-  const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string) => {
+  const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string, expectedUserId: string) => {
     if (generation !== generationRef.current) return;
     const normalized = failure instanceof Error ? failure : new Error("session_dependency_failed");
     if (normalized instanceof ApiError && normalized.status === 401) {
       void withSessionStorageLock(() => {
         if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
-        clearSessionWhileLocked();
-        becomeAnonymous();
+        return revokeWhiteboardSession(expectedUserId, expectedToken).catch(() => undefined).then(() => {
+          if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
+          clearSessionWhileLocked();
+          becomeAnonymous();
+        });
       });
       return;
     }
@@ -230,7 +240,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (failure) {
       if (generation !== generationRef.current) return false;
-      handleFailure(failure, generation, next.sessionToken);
+      handleFailure(failure, generation, next.sessionToken, next.userId);
       throw failure;
     }
   }, [handleFailure]);
@@ -372,7 +382,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (failure) {
       if (generation !== generationRef.current) throw failure;
-      handleFailure(failure, generation, session.sessionToken);
+      handleFailure(failure, generation, session.sessionToken, session.userId);
       throw failure;
     }
   }, [handleFailure, session]);

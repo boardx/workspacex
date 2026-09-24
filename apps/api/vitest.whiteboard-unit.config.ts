@@ -9,6 +9,8 @@ export default defineConfig({ test: {
     'tests/whiteboard/validator-queue.test.ts',
     'tests/whiteboard/portable-board.test.ts',
     'tests/whiteboard/transfer-repository-guard.test.ts',
+    'tests/whiteboard/quarantine-recovery-controller.test.ts',
+    'tests/whiteboard/quarantine-recovery-migration.test.ts',
   ],
   environment: 'node',
   maxWorkers: 1,

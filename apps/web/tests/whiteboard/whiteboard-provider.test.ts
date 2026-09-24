@@ -23,6 +23,10 @@ class FakeOutbox implements WhiteboardOutboxPort {
   receipts: WhiteboardQuarantineReceipt[] = [];
   max = 200;
   async load(scope: WhiteboardOutboxScope) { return [...(this.active.get(id(scope)) ?? [])]; }
+  async summarize(context: WhiteboardOutboxContext) {
+    const updates=[...this.active].filter(([key])=>{const [boardId,principalId,sessionId]=JSON.parse(key) as [string,string,string];return boardId===context.boardId&&principalId===context.principalId&&sessionId===context.sessionId;}).flatMap(([,items])=>items);
+    return {pendingCount:updates.length,pendingBytes:updates.reduce((sum,item)=>sum+item.update.length,0)};
+  }
   async put(scope: WhiteboardOutboxScope, update: PendingWhiteboardUpdate) {
     const current = this.active.get(id(scope)) ?? [];
     if (current.length >= this.max) throw new WhiteboardOutboxLimitError();
@@ -52,6 +56,9 @@ class FakeOutbox implements WhiteboardOutboxPort {
     }
     return receipts;
   }
+  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string){return this.receipts.filter(receipt=>receipt.principalId===identity.principalId&&(!boardId||receipt.boardId===boardId));}
+  async discardQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,receiptId:string){const index=this.receipts.findIndex(receipt=>receipt.receiptId===receiptId&&receipt.principalId===identity.principalId);if(index<0)return false;this.receipts.splice(index,1);return true;}
+  async purgeSession(identity:Pick<WhiteboardOutboxContext,'principalId'|'sessionId'>){for(const key of [...this.active.keys()]){const [,principalId,sessionId]=JSON.parse(key) as [string,string,string];if(principalId===identity.principalId&&sessionId===identity.sessionId)this.active.delete(key);}}
 }
 
 const flush = async () => { for (let index = 0; index < 12; index += 1) await Promise.resolve(); };
@@ -64,6 +71,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('persists before send, only ACK deletes, and reconnect replays the same updateId', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox(); let state: WhiteboardConnectionState | undefined;
   const provider = new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox));
+  await flush();
   const first = Socket.sockets[0]!; first.onopen?.(); expect(JSON.parse(first.sent[0]!).type).toBe('hello');
   sync(first, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'one', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'hello', style: {}, parentId: null, orderKey: '' } }], 'local');
@@ -78,13 +86,24 @@ it('persists before send, only ACK deletes, and reconnect replays the same updat
   provider.close(); doc.destroy(); server.destroy();
 });
 
+it('publishes pending synchronously before IndexedDB persistence resolves', async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),outbox=new FakeOutbox();let state:WhiteboardConnectionState|undefined;
+  let release!:()=>void;const original=outbox.put.bind(outbox);outbox.put=vi.fn((scope,update)=>new Promise<void>(resolve=>{release=()=>void original(scope,update).then(resolve);}));
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},options(outbox));await flush();sync(Socket.sockets[0]!,server);await flush();
+  executeCommands(doc,[{type:'create',object:{id:'instant',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:180,height:140,rotation:0},text:'instant',style:{},parentId:null,orderKey:''}}],'local');
+  expect(state?.pending).toBe(1);expect(outbox.active.size).toBe(0);expect(Socket.sockets[0]!.sent).toHaveLength(0);
+  await Promise.resolve();release();await flush();expect(outbox.active.size).toBe(1);expect(Socket.sockets[0]!.sent).toHaveLength(1);
+  provider.close();doc.destroy();server.destroy();
+});
+
 it('restores durable updates after reload and applies them to the fresh document', async () => {
   const outbox = new FakeOutbox(), server = createWhiteboardDocument(), firstDoc = createWhiteboardDocument();
   const first = new WhiteboardProvider(firstDoc, 'board-1', () => {}, options(outbox));
+  await flush();
   sync(Socket.sockets[0]!, server); await flush();
   executeCommands(firstDoc, [{ type: 'create', object: { id: 'offline', kind: 'sticky', schemaVersion: 1, geometry: { x: 1, y: 2, width: 180, height: 140, rotation: 0 }, text: 'durable', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush(); first.close(); firstDoc.destroy(); Socket.sockets = [];
-  const restored = createWhiteboardDocument(); const second = new WhiteboardProvider(restored, 'board-1', () => {}, options(outbox));
+  const restored = createWhiteboardDocument(); const second = new WhiteboardProvider(restored, 'board-1', () => {}, options(outbox));await flush();
   sync(Socket.sockets[0]!, server); await flush();
   expect(restored.getMap('objects').has('offline')).toBe(true);
   const persisted = outbox.active.values().next().value;
@@ -93,13 +112,28 @@ it('restores durable updates after reload and applies them to the fresh document
   second.close(); restored.destroy(); server.destroy();
 });
 
+it('survives 60 seconds and 100 offline edits, reports restart pending, then converges on reconnect',async()=>{
+  const outbox=new FakeOutbox(),server=createWhiteboardDocument(),firstDoc=createWhiteboardDocument();let firstState:WhiteboardConnectionState|undefined;
+  const first=new WhiteboardProvider(firstDoc,'board-1',value=>{firstState=value;},options(outbox));await flush();sync(Socket.sockets[0]!,server);await flush();
+  Socket.sockets[0]!.onclose?.({code:1006});vi.advanceTimersByTime(60_000);
+  for(let index=0;index<100;index++)executeCommands(firstDoc,[{type:'create',object:{id:`offline-${index}`,kind:'sticky',schemaVersion:1,geometry:{x:index,y:index,width:180,height:140,rotation:0},text:`edit ${index}`,style:{},parentId:null,orderKey:String(index)}}],'local');
+  expect(firstState?.pending).toBe(100);for(let index=0;index<700;index++)await Promise.resolve();expect(outbox.active.values().next().value).toHaveLength(100);
+  first.close();firstDoc.destroy();Socket.sockets=[];
+  const restarted=createWhiteboardDocument();let restartedState:WhiteboardConnectionState|undefined;const second=new WhiteboardProvider(restarted,'board-1',value=>{restartedState=value;},options(outbox));
+  await flush();expect(restartedState).toMatchObject({phase:'offline',pending:100});
+  sync(Socket.sockets[0]!,server);await flush();expect(restarted.getMap('objects').size).toBe(100);expect(Socket.sockets[0]!.sent).toHaveLength(100);
+  for(const encoded of Socket.sockets[0]!.sent){const message=JSON.parse(encoded) as PendingWhiteboardUpdate;Y.applyUpdate(server,Uint8Array.from(atob(message.update),character=>character.charCodeAt(0)));Socket.sockets[0]!.message({type:'ack',updateId:message.updateId,seq:1});}
+  for(let index=0;index<700;index++)await Promise.resolve();expect(server.getMap('objects').size).toBe(100);expect(restartedState?.pending).toBe(0);expect(outbox.active.size).toBe(0);
+  second.close();restarted.destroy();server.destroy();
+});
+
 it('never crosses principal, session, or epoch boundaries and quarantines stale epochs', async () => {
   const outbox = new FakeOutbox();
   const update = { type: 'update', epoch: 1, updateId: crypto.randomUUID(), update: bytesToBase64(new Uint8Array([1, 2, 3])) } as const;
   await outbox.put({ boardId: 'board-1', principalId: 'other-user', sessionId: 'session-1', epoch: 2 }, { ...update, epoch: 2 });
   await outbox.put({ boardId: 'board-1', principalId: 'user-1', sessionId: 'other-session', epoch: 2 }, { ...update, epoch: 2, updateId: crypto.randomUUID() });
   await outbox.put({ boardId: 'board-1', principalId: 'user-1', sessionId: 'session-1', epoch: 1 }, update);
-  const doc = createWhiteboardDocument(), server = createWhiteboardDocument(); const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));
+  const doc = createWhiteboardDocument(), server = createWhiteboardDocument(); const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));await flush();
   sync(Socket.sockets[0]!, server, { epoch: 2 }); await flush();
   expect(outbox.receipts).toHaveLength(1); expect(outbox.receipts[0]).toMatchObject({ principalId: 'user-1', sessionId: 'session-1', epoch: 1 });
   expect(Socket.sockets[0]!.sent).toHaveLength(0);
@@ -110,6 +144,7 @@ it('never crosses principal, session, or epoch boundaries and quarantines stale 
 it('permission rejection quarantines pending updates and keeps only an inaccessible receipt', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox(); let state: WhiteboardConnectionState | undefined;
   const provider = new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox));
+  await flush();
   sync(Socket.sockets[0]!, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'private', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'secret', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush(); Socket.sockets[0]!.message({ type: 'error', code: 'ACCESS_DENIED' }); await flush();
@@ -121,6 +156,7 @@ it('permission rejection quarantines pending updates and keeps only an inaccessi
 it('deletes the decrypt path when logout unmounts the provider before the session timer fires', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox();
   const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));
+  await flush();
   sync(Socket.sockets[0]!, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'logout', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'private', style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush();
@@ -135,7 +171,7 @@ it('deletes the decrypt path when logout unmounts the provider before the sessio
 
 it('enforces the durable queue limit without silently dropping an earlier update', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument(), outbox = new FakeOutbox(); outbox.max = 1; let state: WhiteboardConnectionState | undefined;
-  new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox)); sync(Socket.sockets[0]!, server); await flush();
+  new WhiteboardProvider(doc, 'board-1', value => { state = value; }, options(outbox)); await flush(); sync(Socket.sockets[0]!, server); await flush();
   for (const objectId of ['one', 'two']) executeCommands(doc, [{ type: 'create', object: { id: objectId, kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: objectId, style: {}, parentId: null, orderKey: '' } }], 'local');
   await flush(); await flush();
   expect(state?.phase).toBe('blocked'); expect(outbox.receipts[0]?.pendingCount).toBe(1);
@@ -144,7 +180,8 @@ it('enforces the durable queue limit without silently dropping an earlier update
 
 it('throttles awareness and sends the latest world cursor without client identity', async () => {
   const doc = createWhiteboardDocument(), server = createWhiteboardDocument();
-  const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(new FakeOutbox())), socket = Socket.sockets[0]!;
+  const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(new FakeOutbox()));
+  await flush();const socket = Socket.sockets[0]!;
   sync(socket, server, { role: 'editor' }); await flush();
   provider.awareness({ x: 10, y: 20 }, ['a']); provider.awareness({ x: 30, y: 40 }, ['b']);
   expect(socket.sent).toHaveLength(0); vi.advanceTimersByTime(50);

@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
-import { IndexedDbWhiteboardOutbox, WHITEBOARD_OUTBOX_STORAGE, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
+import { fingerprintWhiteboardSession, IndexedDbWhiteboardOutbox, revokeWhiteboardSession, WHITEBOARD_OUTBOX_STORAGE, WHITEBOARD_REVOKED_SESSION_STORAGE_KEY, WhiteboardOutboxLimitError, type PendingWhiteboardUpdate, type WhiteboardOutboxScope } from '@/lib/whiteboard-outbox';
 
 function update(epoch: number, value = 'AQID'): PendingWhiteboardUpdate {
   return { type: 'update', epoch, updateId: crypto.randomUUID(), update: value };
@@ -97,6 +97,35 @@ it('quarantines every board for a logged-out principal/session and leaves other 
   expect(receipts.map(receipt => receipt.boardId).sort()).toEqual(['board-1', 'board-2']);
   expect(await rows(WHITEBOARD_OUTBOX_STORAGE.activeStore)).toEqual([expect.objectContaining({ boardId: 'board-3', sessionId: 'other-session' })]);
   expect((await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).every(row => !('key' in row))).toBe(true);
+});
+
+it('summarizes durable updates across epochs and atomically discards only the matching quarantine receipt',async()=>{
+  const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({epoch:1}),update(1));await adapter.put(scope({epoch:2}),update(2));
+  await expect(adapter.summarize(scope())).resolves.toEqual({pendingCount:2,pendingBytes:8});
+  const [receipt]=await adapter.quarantineExcept(scope(),null,'ACCESS_DENIED');expect(receipt).toBeDefined();
+  await expect(adapter.discardQuarantine({principalId:'other'},receipt!.receiptId)).resolves.toBe(false);
+  expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toHaveLength(2);
+  await expect(adapter.discardQuarantine(scope(),receipt!.receiptId)).resolves.toBe(true);
+  const remaining=await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore);expect(remaining).toHaveLength(1);expect(remaining[0]!.receiptId).not.toBe(receipt!.receiptId);
+});
+
+it('lists old-session receipts by authenticated principal without exposing ciphertext and permits principal-scoped discard',async()=>{
+  const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({sessionId:'old-session'}),update(1));await adapter.quarantineSession({principalId:'user-1',sessionId:'old-session'},'ACCESS_DENIED');
+  const receipts=await adapter.listQuarantine({principalId:'user-1'},'board-1');expect(receipts).toHaveLength(1);expect(receipts[0]).not.toHaveProperty('ciphertext');
+  await expect(adapter.listQuarantine({principalId:'other'},'board-1')).resolves.toEqual([]);
+  await expect(adapter.discardQuarantine({principalId:'user-1'},receipts[0]!.receiptId)).resolves.toBe(true);expect(await rows(WHITEBOARD_OUTBOX_STORAGE.quarantineStore)).toEqual([]);
+});
+
+it('keeps a logout tombstone when IndexedDB fails, then purges only that session before any later load',async()=>{
+  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const factory=new IDBFactory();vi.stubGlobal('indexedDB',factory);const adapter=new IndexedDbWhiteboardOutbox();const token='revoked-token',sessionId=await fingerprintWhiteboardSession(token);const revoked=scope({sessionId}),other=scope({sessionId:'other-session'});
+  await adapter.put(revoked,update(1));await adapter.put(other,update(1));
+  vi.stubGlobal('indexedDB',{open:()=>{throw new Error('simulated indexeddb outage');}});
+  await expect(revokeWhiteboardSession('user-1',token)).resolves.toEqual([]);expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toContain(sessionId);
+  await expect(new IndexedDbWhiteboardOutbox().load(revoked)).rejects.toThrow('simulated indexeddb outage');
+  await expect(new IndexedDbWhiteboardOutbox().put(revoked,update(1))).rejects.toThrow('simulated indexeddb outage');
+  vi.stubGlobal('indexedDB',factory);await expect(new IndexedDbWhiteboardOutbox().load(revoked)).resolves.toEqual([]);await expect(new IndexedDbWhiteboardOutbox().load(other)).resolves.toHaveLength(1);
+  expect(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)).toBe('[]');
 });
 
 it('enforces both count and byte bounds before writing another ciphertext', async () => {

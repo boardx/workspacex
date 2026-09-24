@@ -18,12 +18,18 @@ export type WhiteboardQuarantineReceipt = WhiteboardOutboxScope & {
   pendingBytes: number;
 };
 
+export type WhiteboardOutboxSummary = { pendingCount: number; pendingBytes: number };
+
 export interface WhiteboardOutboxPort {
   load(scope: WhiteboardOutboxScope): Promise<PendingWhiteboardUpdate[]>;
+  summarize(context: WhiteboardOutboxContext): Promise<WhiteboardOutboxSummary>;
   put(scope: WhiteboardOutboxScope, update: PendingWhiteboardUpdate): Promise<void>;
   ack(scope: WhiteboardOutboxScope, updateId: string): Promise<void>;
   quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
   quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
+  listQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, boardId?: string): Promise<WhiteboardQuarantineReceipt[]>;
+  discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean>;
+  purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>): Promise<void>;
 }
 
 export class WhiteboardOutboxLimitError extends Error {
@@ -39,7 +45,9 @@ const DB_VERSION = 1;
 const ACTIVE = 'active';
 const QUARANTINE = 'quarantine';
 const LOCK_NAME = 'workspacex-whiteboard-outbox';
+const REVOKED_STORAGE_KEY='workspacex-whiteboard-revoked-sessions';
 let localLock: Promise<void> = Promise.resolve();
+const memoryRevocations=new Set<string>();
 
 export const WHITEBOARD_OUTBOX_STORAGE = { database: DB_NAME, version: DB_VERSION, activeStore: ACTIVE, quarantineStore: QUARANTINE } as const;
 
@@ -71,6 +79,57 @@ function complete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+type RevokedSession = { principalId: string; sessionId: string };
+const revokedId = (identity: RevokedSession) => JSON.stringify([identity.principalId, identity.sessionId]);
+function revokedSessions(): RevokedSession[] {
+  const entries = new Map<string, RevokedSession>();
+  for (const encoded of memoryRevocations) {
+    const [principalId, sessionId] = JSON.parse(encoded) as [string, string];
+    entries.set(encoded, { principalId, sessionId });
+  }
+  if (typeof localStorage !== 'undefined') try {
+    const stored = JSON.parse(localStorage.getItem(REVOKED_STORAGE_KEY) ?? '[]') as unknown;
+    for (const item of Array.isArray(stored) ? stored : []) if (item && typeof item === 'object'
+      && typeof (item as RevokedSession).principalId === 'string' && typeof (item as RevokedSession).sessionId === 'string') {
+      entries.set(revokedId(item as RevokedSession), item as RevokedSession);
+    }
+  } catch { /* malformed storage remains fail closed through memory revocations */ }
+  return [...entries.values()];
+}
+function markRevoked(identity: RevokedSession): void {
+  memoryRevocations.add(revokedId(identity));
+  if (typeof localStorage !== 'undefined') try {
+    const current = revokedSessions();
+    if (!current.some(item => revokedId(item) === revokedId(identity))) current.push(identity);
+    localStorage.setItem(REVOKED_STORAGE_KEY, JSON.stringify(current));
+  } catch { /* memory tombstone remains authoritative for this page */ }
+}
+function clearRevoked(identities: RevokedSession[]): void {
+  for (const identity of identities) memoryRevocations.delete(revokedId(identity));
+  if (typeof localStorage !== 'undefined') try {
+    const removed = new Set(identities.map(revokedId));
+    localStorage.setItem(REVOKED_STORAGE_KEY, JSON.stringify(revokedSessions().filter(identity => !removed.has(revokedId(identity)))));
+  } catch { /* already purged; a stale disk tombstone is safe and retries later */ }
+}
+function isRevoked(scope: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, revoked: RevokedSession[]): boolean {
+  return revoked.some(identity => identity.principalId === scope.principalId && identity.sessionId === scope.sessionId);
+}
+
+async function cleanupRevokedSessions(database: IDBDatabase): Promise<void> {
+  const revoked = revokedSessions();
+  if (!revoked.length) return;
+  const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
+  const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
+  const [active, quarantined] = await Promise.all([
+    request(activeStore.getAll()) as Promise<StoredOutbox[]>,
+    request(quarantineStore.getAll()) as Promise<StoredQuarantine[]>,
+  ]);
+  for (const row of active) if (isRevoked(row, revoked)) activeStore.delete(row.id);
+  for (const row of quarantined) if (isRevoked(row, revoked)) quarantineStore.delete(row.receiptId);
+  await complete(transaction);
+  clearRevoked(revoked);
+}
+
 async function openDatabase(): Promise<IDBDatabase> {
   const opened = indexedDB.open(DB_NAME, DB_VERSION);
   opened.onupgradeneeded = () => {
@@ -78,7 +137,8 @@ async function openDatabase(): Promise<IDBDatabase> {
     database.createObjectStore(ACTIVE, { keyPath: 'id' });
     database.createObjectStore(QUARANTINE, { keyPath: 'receiptId' });
   };
-  return request(opened);
+  const database=await request(opened);
+  try{await cleanupRevokedSessions(database);return database;}catch(error){database.close();throw error;}
 }
 
 async function readActive(database: IDBDatabase, id: string): Promise<StoredOutbox | undefined> {
@@ -117,6 +177,21 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
           updates.push(parsed.data);
         }
         return updates;
+      } finally { database.close(); }
+    });
+  }
+
+  async summarize(context: WhiteboardOutboxContext): Promise<WhiteboardOutboxSummary> {
+    return withOutboxLock(async () => {
+      const database = await openDatabase();
+      try {
+        const transaction = database.transaction(ACTIVE, 'readonly');
+        const rows = await request(transaction.objectStore(ACTIVE).getAll()) as StoredOutbox[];
+        await complete(transaction);
+        return rows.filter(row => sameContext(row, context)).reduce((summary, row) => ({
+          pendingCount: summary.pendingCount + row.entries.length,
+          pendingBytes: summary.pendingBytes + row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
+        }), { pendingCount: 0, pendingBytes: 0 });
       } finally { database.close(); }
     });
   }
@@ -166,6 +241,45 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
     return this.quarantineWhere(row => row.principalId === identity.principalId && row.sessionId === identity.sessionId, reason);
   }
 
+  async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string):Promise<WhiteboardQuarantineReceipt[]>{
+    return withOutboxLock(async()=>{const database=await openDatabase();try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];await complete(transaction);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
+  }
+
+  async discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean> {
+    return withOutboxLock(async () => {
+      const database = await openDatabase();
+      try {
+        const transaction = database.transaction(QUARANTINE, 'readwrite');
+        const store = transaction.objectStore(QUARANTINE);
+        const row = await request(store.get(receiptId)) as StoredQuarantine | undefined;
+        if (!row || row.principalId !== identity.principalId) {
+          await complete(transaction);
+          return false;
+        }
+        store.delete(receiptId);
+        await complete(transaction);
+        return true;
+      } finally { database.close(); }
+    });
+  }
+
+  async purgeSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>): Promise<void> {
+    return withOutboxLock(async () => {
+      const database = await openDatabase();
+      try {
+        const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
+        const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
+        const [active, quarantine] = await Promise.all([
+          request(activeStore.getAll()) as Promise<StoredOutbox[]>,
+          request(quarantineStore.getAll()) as Promise<StoredQuarantine[]>,
+        ]);
+        for (const row of active) if (row.principalId === identity.principalId && row.sessionId === identity.sessionId) activeStore.delete(row.id);
+        for (const row of quarantine) if (row.principalId === identity.principalId && row.sessionId === identity.sessionId) quarantineStore.delete(row.receiptId);
+        await complete(transaction);
+      } finally { database.close(); }
+    });
+  }
+
   private async quarantineWhere(matches: (row: StoredOutbox) => boolean, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
     return withOutboxLock(async () => {
       const database = await openDatabase();
@@ -198,3 +312,15 @@ export async function fingerprintWhiteboardSession(token: string): Promise<strin
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
+
+/** Global logout boundary: leaves a synchronous tombstone, then best-effort purges this session. */
+export async function revokeWhiteboardSession(principalId: string, token: string): Promise<WhiteboardQuarantineReceipt[]> {
+  if (typeof indexedDB === 'undefined' || typeof crypto === 'undefined') return [];
+  const sessionId=await fingerprintWhiteboardSession(token);
+  markRevoked({principalId,sessionId});
+  const outbox=new IndexedDbWhiteboardOutbox();
+  try{await outbox.purgeSession({principalId,sessionId});}catch{/* tombstone makes every later open/load/put fail closed until cleanup succeeds */}
+  return [];
+}
+
+export const WHITEBOARD_REVOKED_SESSION_STORAGE_KEY=REVOKED_STORAGE_KEY;

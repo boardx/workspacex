@@ -96,4 +96,12 @@ export class WhiteboardController {
   async importBoard(@CurrentPrincipal() p: Principal, @Body(new ZodBodyPipe(T.ImportBoardInput)) input: T.ImportBoardInput) {
     assertPrincipal(p); try { return await this.transfer.importBoard(p,input); } catch (error) { transferFailure(error); }
   }
+  @Post(':boardId/quarantine-recovery-requests')
+  async requestQuarantineRecovery(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string,
+    @Body(new ZodBodyPipe(C.RequestQuarantineRecovery)) input: C.RequestQuarantineRecovery) {
+    assertPrincipal(p);
+    const result=await this.repo.requestQuarantineRecovery(p,id,input);
+    if(!result) throw new ForbiddenException({reasonCode:'QUARANTINE_RECOVERY_NOT_ALLOWED'});
+    return result;
+  }
 }
