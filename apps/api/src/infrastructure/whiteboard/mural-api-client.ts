@@ -47,6 +47,7 @@ export interface MuralClientConfig {
   readonly clientId: string;
   readonly clientSecret: string;
   readonly redirectUri: string;
+  readonly appPublicUrl: string;
 }
 async function readBoundedJson(response: Response): Promise<unknown> {
   const declared = Number(response.headers.get("content-length"));
@@ -91,10 +92,29 @@ export class MuralApiClient implements MuralRemoteClient {
     private readonly timeoutMs = 10_000,
     private readonly now: () => number = Date.now,
   ) {
+    let callback: URL, app: URL;
+    try {
+      callback = new URL(config.redirectUri);
+      app = new URL(config.appPublicUrl);
+    } catch {
+      throw new Error("MURAL_OAUTH_CONFIG_INVALID");
+    }
     if (
       !config.clientId ||
       !config.clientSecret ||
-      !/^https:\/\//.test(config.redirectUri)
+      callback.protocol !== "https:" ||
+      callback.origin !== app.origin ||
+      callback.pathname !== "/studio/board/mural/callback" ||
+      callback.search ||
+      callback.hash ||
+      callback.username ||
+      callback.password ||
+      app.protocol !== "https:" ||
+      app.pathname !== "/" ||
+      app.search ||
+      app.hash ||
+      app.username ||
+      app.password
     )
       throw new Error("MURAL_OAUTH_CONFIG_INVALID");
   }
@@ -271,6 +291,7 @@ export function muralApiClientFromEnv() {
     clientId: process.env.MURAL_CLIENT_ID ?? "",
     clientSecret: process.env.MURAL_CLIENT_SECRET ?? "",
     redirectUri: process.env.MURAL_OAUTH_REDIRECT_URI ?? "",
+    appPublicUrl: process.env.APP_PUBLIC_URL ?? "",
   });
 }
 export class EnvironmentMuralApiClient implements MuralRemoteClient {

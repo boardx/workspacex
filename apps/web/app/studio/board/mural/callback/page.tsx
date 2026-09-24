@@ -1,10 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { completeMuralOAuth } from "@/lib/live-whiteboard";
 
-export default function MuralOAuthCallbackPage() {
+function CallbackStatus({ error = false }: { error?: boolean }) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-background p-6">
+      <section className="max-w-md rounded-panel border border-border bg-card p-6 text-center shadow-sm">
+        <h1 className="text-20 font-semibold">连接 Mural</h1>
+        {error ? (
+          <p role="alert" className="mt-3 text-14 text-destructive">
+            授权无法完成。请返回白板并重新连接 Mural。
+          </p>
+        ) : (
+          <p role="status" className="mt-3 text-14 text-muted-foreground">
+            正在验证一次性授权并安全保存连接…
+          </p>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function MuralOAuthCallback() {
   const router = useRouter(),
     params = useSearchParams(),
     [error, setError] = useState(false);
@@ -30,20 +49,13 @@ export default function MuralOAuthCallbackPage() {
       active = false;
     };
   }, [params, router]);
+  return <CallbackStatus error={error} />;
+}
+
+export default function MuralOAuthCallbackPage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-6">
-      <section className="max-w-md rounded-panel border border-border bg-card p-6 text-center shadow-sm">
-        <h1 className="text-20 font-semibold">连接 Mural</h1>
-        {error ? (
-          <p role="alert" className="mt-3 text-14 text-destructive">
-            授权无法完成。请返回白板并重新连接 Mural。
-          </p>
-        ) : (
-          <p role="status" className="mt-3 text-14 text-muted-foreground">
-            正在验证一次性授权并安全保存连接…
-          </p>
-        )}
-      </section>
-    </main>
+    <Suspense fallback={<CallbackStatus />}>
+      <MuralOAuthCallback />
+    </Suspense>
   );
 }

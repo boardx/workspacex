@@ -4,6 +4,7 @@ const config = {
   clientId: "client",
   clientSecret: "secret",
   redirectUri: "https://workspacex.test/studio/board/mural/callback",
+  appPublicUrl: "https://workspacex.test",
 };
 const json = (
   body: unknown,
@@ -118,5 +119,30 @@ describe("Mural API client", () => {
       data: [{ id: "x", type: "sticky" }],
       next: null,
     });
+  });
+  it.each([
+    "http://workspacex.test/studio/board/mural/callback",
+    "https://evil.test/studio/board/mural/callback",
+    "https://workspacex.test/whiteboards/mural/oauth/callback",
+    "https://workspacex.test/studio/board/mural/callback?next=https://evil.test",
+    "https://workspacex.test/studio/board/mural/callback#code",
+    "https://user@workspacex.test/studio/board/mural/callback",
+  ])(
+    "rejects a redirect URI outside the exact WorkspaceX Web callback: %s",
+    (redirectUri) => {
+      expect(() => new MuralApiClient({ ...config, redirectUri })).toThrow(
+        "MURAL_OAUTH_CONFIG_INVALID",
+      );
+    },
+  );
+  it.each([
+    "http://workspacex.test",
+    "https://workspacex.test/base",
+    "https://workspacex.test?tenant=other",
+    "https://user@workspacex.test",
+  ])("rejects an invalid WorkspaceX public origin: %s", (appPublicUrl) => {
+    expect(() => new MuralApiClient({ ...config, appPublicUrl })).toThrow(
+      "MURAL_OAUTH_CONFIG_INVALID",
+    );
   });
 });
