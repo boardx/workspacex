@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Content contract only. Actor identity, ACL and durable sequence belong to the host. */
-export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 200, extensionBytes: 16384 } as const;
+export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 500, extensionBytes: 16384 } as const;
 export const WhiteboardObjectId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
 export const WhiteboardGeometry = z.object({
   x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000),
@@ -11,6 +11,7 @@ export const WhiteboardGeometry = z.object({
 export const WhiteboardStyle = z.object({
   fill: z.string().max(64).optional(), stroke: z.string().max(64).optional(),
   color: z.string().max(64).optional(), fontSize: z.number().min(8).max(200).optional(),
+  textAlign: z.enum(['left', 'center', 'right']).optional(),
 }).strict();
 export const WhiteboardObject = z.object({
   id: WhiteboardObjectId, schemaVersion: z.literal(1),
