@@ -31,7 +31,7 @@
  *
  * ⚠ This is NOT one of the registered pending thresholds. It is a property of the fusion
  * formula, not a product judgement about how much recall is enough -- that one is
- * `THRESHOLDS.vectorRecallBaseline` and it is deliberately unavailable.
+ * `THRESHOLDS.vectorRecallBaseline`, read only through the registry.
  */
 export const RRF_K = 60;
 
