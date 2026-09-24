@@ -64,7 +64,11 @@ for (const path of [...new Set([...pages, ...locs, ...extra])]) {
       problems.push('/: no Content-Security-Policy header — _headers is not being applied');
     }
   } catch (e) {
-    problems.push(`${path}: request failed — ${e.message}`);
+    /* "fetch failed" is all undici says; the reason — a name that does not
+       resolve, a refused connection, a certificate — is on e.cause. The first
+       real run reported nine bare "fetch failed" lines and nothing else. */
+    const why = [e.cause?.code, e.cause?.message].filter(Boolean).join(': ');
+    problems.push(`${path}: request failed — ${e.message}${why ? ` (${why})` : ''}`);
   }
 }
 
