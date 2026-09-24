@@ -63,7 +63,6 @@
     "@playwright/mcp": "0.0.80",
     "@repo/cloud-deploy": "workspace:*",
     "@repo/contracts": "workspace:*",
-    "@repo/maau-postinvest-report": "workspace:*",
     "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",

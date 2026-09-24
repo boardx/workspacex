@@ -245,7 +245,7 @@ describe("多 phase 目录", () => {
       {
         phases: [
           { phaseDir: "phase-16-ic-material-review-agent", base: [f()], head: [f({ status: "passing" })] },
-          { phaseDir: "phase-16-postinvest-rating-agent", base: [f()], head: [f()] },
+          { phaseDir: "phase-99-example-agent", base: [f()], head: [f()] },
         ],
         headEvidenceBlobs: SOLO_BLOBS,
       },

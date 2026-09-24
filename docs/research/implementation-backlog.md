@@ -21,7 +21,7 @@
 |---|---|
 | **商业与分发单元**（此前的 MAAU） | 改叫**技能包**。开源方案、PPT、对外材料一律用它 |
 | **MAAU 画布**（`maau-canvas` skill，WX-S021） | **保留**。它是一种设计方法——把一段讨论收敛成一个可执行单元的画布，与商业单元不是一回事 |
-| 代码标识符（`@repo/maau-postinvest-report`、`capability_id`、目录名） | **本版不动**。标识符可以滞后于叫法；真要改另开 issue，波及 40 个代码文件 |
+| 代码标识符（`@repo/maau-*`、`capability_id`、目录名） | **本版不动**。标识符可以滞后于叫法；真要改另开 issue，波及 40 个代码文件 |
 
 ### ② 此前叫「我们自己的组织大脑」、后来叫「团队记忆」→ **平台大脑**
 
@@ -203,7 +203,7 @@ flowchart LR
 | B3 | 完整 clone 上重跑凭据扫描，人工确认候选项 | ◐ | R6：已在完整历史（3076 commit）上跑完，156 处命中；先修了 `--head-only` 永远报 0 的 bug。**人工确认仍待人**，优先看只在历史里的 `aliyun-ak` 2 处 |
 | B4 | 凭据扫描报告落盘 | ✅ | R6：`oss-secret-scan-2026-09-24.md`，只记计数不记位置 |
 | B5 | 填 `SECURITY.md` 安全联系邮箱 | ◐ | 文件已建 |
-| B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11 标 13 个；R14 `cloud-deploy`（D23）；R16 `apps/api`、`apps/web`、`dev-mode-accounts`（D25、D26）。现 18 个：开源 9、售卖 1、运营面 7，**只剩 `fabric-markdown` 未定**（上游许可未记录）。NOTICE 的版权方名称待组织确定 |
+| B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11 标 13 个；R14 `cloud-deploy`（D23）；R16 `apps/api`、`apps/web`、`dev-mode-accounts`（D25、D26）。现 17 个：开源 9、运营面 7，**只剩 `fabric-markdown` 未定**（售卖类的 `maau-postinvest-report` 已随投后功能下线删除，#4012）（上游许可未记录）。NOTICE 的版权方名称待组织确定 |
 | B7 | CLA 或 DCO 落地 | ✅ | R13：按 D20 用 DCO。`CONTRIBUTING.md`（DCO 1.1 原文）、`check-dco.mjs`、`dco.yml` 只查 fork PR |
 | B8 | 商标政策 | □ | D1 已定，**可开工** |
 

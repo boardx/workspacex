@@ -19,7 +19,6 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as provenance from "../src/provenance";
-import * as postinvestRating from "../src/postinvest-rating";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const OUT = join(ROOT, "apps/web/lib/generated");
@@ -40,7 +39,6 @@ const MODULES: Bundle[] = [
   { file: "artifact", operations: artifact.operations },
   { file: "context-pack", varName: "contextPack", operations: contextPack.operations },
   { file: "provenance", operations: provenance.operations },
-  { file: "postinvest-rating", varName: "postinvestRating", operations: postinvestRating.operations },
 ];
 
 /**

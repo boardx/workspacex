@@ -60,13 +60,8 @@ import { PLATFORM_SKILL_CATALOG } from "../../domain/skill/platform-skill-catalo
 import { createHash } from "node:crypto";
 import { IC_REVIEW_SKILL_MD } from "../../../scripts/ic-review-skill-content";
 import { IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID } from "../../../../web/lib/ic-review/skill-identity";
-import { POST_INVESTMENT_SKILL_MD } from "../../../scripts/post-investment-skill-content";
-import {
-  POST_INVESTMENT_SKILL_ID, POST_INVESTMENT_SKILL_VERSION_ID,
-} from "../../../../web/lib/post-investment/skill-identity";
 
 export { IC_REVIEW_SKILL_ID, IC_REVIEW_SKILL_VERSION_ID };
-export { POST_INVESTMENT_SKILL_ID, POST_INVESTMENT_SKILL_VERSION_ID };
 
 
 /** 两个 backfill 共用的服务身份——`org-platform` 唯一成员，结构上不可登录
@@ -343,8 +338,6 @@ export async function ensurePlatformSkillCatalogSeeded(): Promise<
 
 const IC_REVIEW_STABLE_NAME = "ic-review-standard";
 const IC_REVIEW_DISPLAY_NAME = "上会审阅";
-const POST_INVESTMENT_STABLE_NAME = "post-investment-report";
-const POST_INVESTMENT_DISPLAY_NAME = "投后管理报告";
 
 export interface IcReviewSkillSeedReport {
   readonly created: boolean;
@@ -367,10 +360,9 @@ interface AdHocSkillSpec {
  * 什么都不做；同一个版本 id 但内容摘要变了就 fail closed（有人改了正文却没升版本号，
  * 静默停在旧内容比报错难查得多）。
  *
- * ⚠ team1（上会审阅）与 team4（投后管理报告）走的是**同一段逻辑**——此前只有 team1
- * 一个的时候它是内联写死的，team4 要接进来时没有照抄第二份，而是参数化成这个函数。
- * 同一事实不得声明在两处（AGENTS.md）；两个临时 Agent 各自删除时只删自己的那个
- * `spec` 与调用，本函数留给还在的那个。
+ * ⚠ 本函数是参数化的（曾同时服务 team1 与已下线的投后管理报告 Agent，#4012 摘除了
+ * 后者的 spec 与调用）。同一事实不得声明在两处（AGENTS.md）；再有 ad-hoc Agent
+ * 接进来时加一个 `spec`，不要照抄第二份实现。
  */
 async function seedAdHocAgentSkill(spec: AdHocSkillSpec): Promise<IcReviewSkillSeedReport> {
   const db = new PgDatabase(migrationConfig());
@@ -443,17 +435,5 @@ export function ensureIcReviewSkillSeeded(): Promise<IcReviewSkillSeedReport> {
     displayName: IC_REVIEW_DISPLAY_NAME,
     md: IC_REVIEW_SKILL_MD,
     identityModule: "apps/web/lib/ic-review/skill-identity.ts",
-  });
-}
-
-/** team4 = 投后管理报告 AI 生成单元（ad-hoc 临时 Agent），同上。 */
-export function ensurePostInvestmentSkillSeeded(): Promise<IcReviewSkillSeedReport> {
-  return seedAdHocAgentSkill({
-    skillId: POST_INVESTMENT_SKILL_ID,
-    versionId: POST_INVESTMENT_SKILL_VERSION_ID,
-    stableName: POST_INVESTMENT_STABLE_NAME,
-    displayName: POST_INVESTMENT_DISPLAY_NAME,
-    md: POST_INVESTMENT_SKILL_MD,
-    identityModule: "apps/web/lib/post-investment/skill-identity.ts",
   });
 }

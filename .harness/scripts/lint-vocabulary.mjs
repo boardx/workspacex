@@ -19,7 +19,7 @@
  * ## 检查什么
  *
  * 只扫**面向人的散文**（`docs/`、`.harness/instructions/`、`.agents/`），
- * 不扫代码与标识符——标识符允许滞后于叫法（`@repo/maau-postinvest-report`、
+ * 不扫代码与标识符——标识符允许滞后于叫法（`@repo/maau-*`、
  * `capability_id`、目录名都保持原样，改它们波及 40 个代码文件）。
  *
  * 豁免：变更记录与术语对照表要引用旧词才能说明改名，靠 `ALLOW_CONTEXT` 放行。

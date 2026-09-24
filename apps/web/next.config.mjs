@@ -322,11 +322,6 @@ export default {
       // `getInboxCounts`（`/inbox/counts`）——同一个坑的复现，理由同上面 `/feedback` 那条。
       { source: `${prefix}/inbox`, destination: `${apiOrigin}/inbox` },
       { source: `${prefix}/inbox/:path*`, destination: `${apiOrigin}/inbox/:path*` },
-      // issue #3676（投后评级 ad-hoc MVP）：`PostinvestRatingController` 只挂了一条
-      // `POST /postinvest-ratings/score`，没有裸路径，但仍需要 `:path*` 转发规则，
-      // 否则会被 Next 接住返回 404 HTML（前端拿到 `Unexpected token '<'`）——
-      // 同一个坑的复现，理由同上面 `/inbox` 那条。
-      { source: `${prefix}/postinvest-ratings/:path*`, destination: `${apiOrigin}/postinvest-ratings/:path*` },
       // UC-17.8 B4.3（PM 设计工作台）：`design-workbench.ts` 挂了裸 `/pm-designs`
       // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
       { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },

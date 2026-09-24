@@ -37,7 +37,6 @@ export const OWNERSHIP = {
   "apps/desktop": { class: "oss", why: "桌面本地版（归属表 OSS 列）" },
   "apps/local-asr-gateway": { class: "oss", why: "桌面本地版的本机语音转写网关" },
   "apps/skill-sandbox": { class: "oss", why: "沙箱（归属表 OSS 列）" },
-  "packages/maau-postinvest-report": { class: "sold", why: "投后判据阈值与派生公式：售卖 · 技能包内容（#3856 从契约包搬出的原因）" },
   "apps/api": { class: "oss", why: "C3 盘点：归属表列的企业功能绝大多数还不存在；已建的 token 配额按 D25 开源；审计日志与平台管理按 D26 开源" },
   "apps/web": { class: "oss", why: "同 apps/api（C3 盘点 + D25、D26）" },
   "packages/dev-mode-accounts": { class: "oss", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },

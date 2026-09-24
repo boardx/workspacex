@@ -25,7 +25,7 @@ function repo(pkgs: Record<string, { license?: string; licenseFile?: Buffer | st
 }
 const CLEAN = {
   "packages/contracts": { license: "Apache-2.0", licenseFile: APACHE },
-  "packages/maau-postinvest-report": { license: "UNLICENSED" },
+  "packages/ee-demo": { license: "UNLICENSED" },
   "packages/coord-protocol": { license: "UNLICENSED" },
   "packages/fabric-markdown": {},
 };
@@ -58,7 +58,7 @@ describe("lint-package-license", () => {
   });
 
   it("② 售卖内容被标成 Apache ⇒ 红", () => {
-    const r = run(repo({ ...CLEAN, "packages/maau-postinvest-report": { license: "Apache-2.0" } }));
+    const r = run(repo({ ...CLEAN, "packages/ee-demo": { license: "Apache-2.0" } }));
     expect(r.status).toBe(1);
   });
 
