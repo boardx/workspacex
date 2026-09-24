@@ -1,4 +1,4 @@
-import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -71,7 +71,7 @@ function closeEvent(ws: WebSocket, timeoutMs = 5000): Promise<{ code: number; at
     ws.once('close', closed);
   });
 }
-async function connect(boardId: string, token: string, soakRun?:{runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server'}): Promise<Peer> {
+async function connect(boardId: string, token: string, soakRun?:{runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;expectedClients:number;expectedWriters:number}): Promise<Peer> {
   const ws = new WebSocket(`${baseUrl}/whiteboards/${boardId}/sync`, [WHITEBOARD_SYNC.protocol, `${WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`]);
   sockets.add(ws); const peer = new Peer(ws);
   await new Promise<void>((resolve, reject) => {
@@ -127,17 +127,23 @@ afterAll(async () => {
 });
 describe('real WebSocket whiteboard collaboration', () => {
   it('signs a server-owned soak ledger from real connection and committed operation evidence',async()=>{
-    const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'owner-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial'});
+    const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'owner-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial',requiredDurationMs:1,expectedClients:1,expectedWriters:1});
     try{
       const binding=peer.initialSync?.soakBinding;expect(binding).toMatchObject({runId});
-      const id='soak-4144:api-ledger',vector=Y.encodeStateVector(peer.doc);executeCommands(peer.doc,[{type:'create',object:{id:'soak_api_ledger',schemaVersion:1,kind:'sticky',text:id,style:{},parentId:null,orderKey:'',geometry:{x:0,y:0,width:200,height:150,rotation:0}}}],{});const update=Y.encodeStateAsUpdate(peer.doc,vector),updateId=randomUUID();
+      await new Promise(resolve=>setTimeout(resolve,2));const id='soak-4144:api-ledger',vector=Y.encodeStateVector(peer.doc);executeCommands(peer.doc,[{type:'create',object:{id:'soak_api_ledger',schemaVersion:1,kind:'sticky',text:id,style:{},parentId:null,orderKey:'',geometry:{x:0,y:0,width:200,height:150,rotation:0}}}],{});const update=Y.encodeStateAsUpdate(peer.doc,vector),updateId=randomUUID();
       peer.send({type:'update',epoch:1,updateId,update:b64(update)});await peer.wait(message=>message.type==='ack'&&message.updateId===updateId);
       peer.send({type:'soak-finish',runId,challenge:binding!.challenge});const message=await peer.wait(item=>item.type==='soak-ledger');
       if(message.type!=='soak-ledger')throw new Error('Expected signed soak ledger');
       expect(message.payload.connections).toEqual(expect.arrayContaining([expect.objectContaining({connectionId:peer.initialSync!.connectionId,role:'owner',purpose:'initial'})]));
       expect(message.payload.operations).toEqual(expect.arrayContaining([expect.objectContaining({id,connectionId:peer.initialSync!.connectionId})]));
+      expect(message.payload.finalHash).toBe(createHash('sha256').update(JSON.stringify(message.payload.finalDocument)).digest('hex'));expect(message.payload.finalDocument).toEqual(expect.arrayContaining([expect.objectContaining({text:id})]));expect(message.payload.finalSeq).toBeGreaterThanOrEqual(message.payload.operations[0]!.seq);expect(message.payload.finishedAtMs-message.payload.startedAtMs).toBeGreaterThanOrEqual(1);
       expect(verify(null,Buffer.from(JSON.stringify(message.payload)),soakKeys.publicKey,Buffer.from(message.signature,'base64'))).toBe(true);
+      peer.send({type:'soak-finish',runId,challenge:binding!.challenge});expect(await peer.wait(item=>item.type==='error')).toMatchObject({type:'error',code:'VALIDATION_FAILED'});
     }finally{await peer.close();}
+  });
+  it('rejects ledger finalization by a non-owner even for an otherwise valid signed run',async()=>{
+    const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'editor-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial',requiredDurationMs:1,expectedClients:1,expectedWriters:1});
+    try{const binding=peer.initialSync!.soakBinding!;await new Promise(resolve=>setTimeout(resolve,2));const vector=Y.encodeStateVector(peer.doc);executeCommands(peer.doc,[{type:'create',object:{id:'soak_non_owner',schemaVersion:1,kind:'sticky',text:'soak-4144:non-owner',style:{},parentId:null,orderKey:'',geometry:{x:0,y:0,width:200,height:150,rotation:0}}}],{});const updateId=randomUUID();peer.send({type:'update',epoch:1,updateId,update:b64(Y.encodeStateAsUpdate(peer.doc,vector))});await peer.wait(item=>item.type==='ack'&&item.updateId===updateId);peer.send({type:'soak-finish',runId,challenge:binding.challenge});expect(await peer.wait(item=>item.type==='error')).toMatchObject({type:'error',code:'VALIDATION_FAILED'});}finally{await peer.close();}
   });
   it('converges two concurrent Chinese edits, persists ACKs, reopens and deduplicates retry', async () => {
     const boardId = await seedBoard(), a = await connect(boardId, 'owner-token'), b = await connect(boardId, 'editor-token');

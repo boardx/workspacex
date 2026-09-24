@@ -56,7 +56,7 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
   return response;
 }
 
-type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server'};
+type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;expectedClients:number;expectedWriters:number};
 async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string, soakRun: SoakRunRequest): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
   await context.addInitScript(({ key, value, run }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__', JSON.stringify(run)); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token, run: soakRun });
@@ -75,10 +75,10 @@ async function operationIds(page: Page): Promise<string[]> {
     .map(label => label.slice('图形：'.length)), operationPrefix);
 }
 
-type RuntimeBinding = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer'; runId:string; challenge:string };
+type RuntimeBinding = { clientNonce: string; connectionId: string; role: 'owner' | 'editor' | 'viewer'; runId:string; challenge:string;seq:number };
 async function runtimeEvidence(page: Page): Promise<{ objects: unknown[]; binding: RuntimeBinding }> {
   return page.evaluate(() => {
-    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: unknown[]; binding: { clientNonce: string; connectionId: string | null; role: 'owner' | 'editor' | 'viewer'; runId:string|null; challenge:string|null } } };
+    const diagnostics = window as typeof window & { __WORKSPACEX_WHITEBOARD_DOCUMENT__?: () => { objects: unknown[]; binding: { clientNonce: string; connectionId: string | null; role: 'owner' | 'editor' | 'viewer'; runId:string|null; challenge:string|null;seq:number } } };
     if (!diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__) throw new Error('whiteboard document diagnostics are unavailable');
     const evidence = diagnostics.__WORKSPACEX_WHITEBOARD_DOCUMENT__();
     if (!evidence.binding.clientNonce || !evidence.binding.connectionId || !evidence.binding.runId || !evidence.binding.challenge) throw new Error('whiteboard server binding is unavailable');
@@ -91,7 +91,7 @@ async function clientResult(page: Page, expected: number): Promise<SoakClientRes
   await expect.poll(() => operationIds(page), { timeout: 30_000, message: `browser client must converge to ${expected} operations` })
     .toHaveLength(expected);
   const raw = await runtimeEvidence(page), document = canonicalizeDocument(WhiteboardObject.array().parse(raw.objects));
-  return { client: raw.binding.clientNonce, connectionId: raw.binding.connectionId, role: raw.binding.role, document, hash: documentHash(document) };
+  return { client: raw.binding.clientNonce, connectionId: raw.binding.connectionId, role: raw.binding.role,seq:raw.binding.seq,document, hash: documentHash(document) };
 }
 
 async function createOperation(page: Page, id: string): Promise<void> {
@@ -126,14 +126,14 @@ async function serverResult(boardId: string, token: string, soakRun: SoakRunRequ
         if (parsed.type === 'error') { clearTimeout(timer); reject(new Error(`server snapshot rejected: ${parsed.code}`)); return; }
         if (parsed.type === 'sync') {
           if (!parsed.clientNonce || !parsed.connectionId || !parsed.soakBinding || parsed.soakBinding.runId!==soakRun.runId || parsed.soakBinding.challenge!==challenge) { clearTimeout(timer); reject(new Error('server snapshot did not receive the expected server-bound run identity')); return; }
-          binding={clientNonce:parsed.clientNonce,connectionId:parsed.connectionId,role:parsed.role,runId:parsed.soakBinding.runId,challenge:parsed.soakBinding.challenge};
+          binding={clientNonce:parsed.clientNonce,connectionId:parsed.connectionId,role:parsed.role,runId:parsed.soakBinding.runId,challenge:parsed.soakBinding.challenge,seq:parsed.seq};
           Y.applyUpdate(doc, new Uint8Array(Buffer.from(parsed.update, 'base64'))); socket.send(JSON.stringify({type:'soak-finish',runId:soakRun.runId,challenge})); return;
         }
         if(parsed.type==='soak-ledger'&&binding){clearTimeout(timer);resolve({binding,ledger:{payload:parsed.payload,signature:parsed.signature}});}
       });
     });
     const document = canonicalizeDocument(readObjects(doc));
-    return { result:{ client: evidence.binding.clientNonce, connectionId: evidence.binding.connectionId, role: evidence.binding.role, document, hash: documentHash(document) },ledger:evidence.ledger };
+    return { result:{ client: evidence.binding.clientNonce, connectionId: evidence.binding.connectionId, role: evidence.binding.role,seq:evidence.binding.seq,document, hash: documentHash(document) },ledger:evidence.ledger };
   } finally { socket.close(); doc.destroy(); }
 }
 
@@ -155,7 +155,7 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   try {
     browserVersion = browser.version();
     const environment={ os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' };
-    const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment)};
+    const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:config.durationMs,expectedClients:config.clients,expectedWriters:config.writers};
     ownerToken = await loginToken(browser, baseURL, 'OWNER');
     const editorToken = await loginToken(browser, baseURL, 'EDITOR');
     viewerToken = await loginToken(browser, baseURL, 'VIEWER');
@@ -206,7 +206,9 @@ test('50 independent browser contexts converge without loss, duplicates or forks
       await Promise.all(offlineOperations.map(async ({ id, operation }) => { operation.receipts = await observeAllClients(pages, id); }));
     };
 
-    const endAt = collaborationStartedMs + config.durationMs, outageAt = collaborationStartedMs + Math.floor(config.durationMs / 2);
+    // One extra operation interval guarantees the last server-committed update,
+    // rather than a caller clock scalar, spans the complete required duration.
+    const endAt = collaborationStartedMs + config.durationMs + config.operationIntervalMs, outageAt = collaborationStartedMs + Math.floor(config.durationMs / 2);
     let cursor = 0;
     while (Date.now() < endAt) {
       if (!outage && Date.now() >= outageAt) outage = runOutage();

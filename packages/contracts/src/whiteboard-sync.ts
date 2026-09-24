@@ -9,14 +9,14 @@ const seq = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const cursor = z.object({ x: z.number().finite(), y: z.number().finite() }).strict().nullable();
 const selected = z.array(WhiteboardObjectId).max(200);
 export const WhiteboardSoakPurpose = z.enum(['initial', 'fresh', 'server']);
-export const WhiteboardSoakRun = z.object({ runId: z.string().uuid(), exactSha: z.string().regex(/^[a-f0-9]{40}$/), environmentFingerprint: z.string().regex(/^[a-f0-9]{64}$/), purpose: WhiteboardSoakPurpose }).strict();
+export const WhiteboardSoakRun = z.object({ runId: z.string().uuid(), exactSha: z.string().regex(/^[a-f0-9]{40}$/), environmentFingerprint: z.string().regex(/^[a-f0-9]{64}$/), purpose: WhiteboardSoakPurpose,requiredDurationMs:z.number().int().positive(),expectedClients:z.number().int().positive(),expectedWriters:z.number().int().positive() }).strict();
 export const WhiteboardSoakBinding = z.object({ runId: z.string().uuid(), challenge: z.string().uuid() }).strict();
 export const WhiteboardSoakLedgerPayload = z.object({
   schemaVersion: z.literal(1), runId: z.string().uuid(), challenge: z.string().uuid(), boardId: z.string().uuid(),
-  exactSha: z.string().regex(/^[a-f0-9]{40}$/), environmentFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  exactSha: z.string().regex(/^[a-f0-9]{40}$/), environmentFingerprint: z.string().regex(/^[a-f0-9]{64}$/),requiredDurationMs:z.number().int().positive(),expectedClients:z.number().int().positive(),expectedWriters:z.number().int().positive(),startedAtMs:z.number().int().nonnegative(),finishedAtMs:z.number().int().nonnegative(),
   connections: z.array(z.object({ clientNonce: z.string().uuid(), connectionId: z.string().uuid(), role: BoardRole, purpose: z.enum(['initial', 'reconnect', 'fresh', 'server']), connectedAtMs: z.number().int().nonnegative(), disconnectedAtMs: z.number().int().nonnegative().nullable() }).strict()),
   operations: z.array(z.object({ id: z.string().min(1), writer: z.string().uuid(), connectionId: z.string().uuid(), seq: seq, committedAtMs: z.number().int().nonnegative() }).strict()),
-  finalizedAtMs: z.number().int().nonnegative(),
+  finalSeq:seq,finalDocument:z.array(z.record(z.unknown())),finalHash:z.string().regex(/^[a-f0-9]{64}$/),finalizedAtMs: z.number().int().nonnegative(),
 }).strict();
 export type WhiteboardSoakLedgerPayload = z.infer<typeof WhiteboardSoakLedgerPayload>;
 export const WhiteboardClientMessage = z.discriminatedUnion('type', [

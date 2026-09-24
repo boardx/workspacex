@@ -20,8 +20,8 @@ function object(id: string, overrides: Partial<BoardObject> = {}): BoardObject {
   return WhiteboardObject.parse({ id: id.replace(/:/g, '_'), schemaVersion: 1, kind: 'sticky', geometry: { x: 10, y: 20, width: 180, height: 140, rotation: 0 }, text: id, style: { fill: '#fff', color: '#111', fontSize: 16 }, parentId: null, orderKey: id, extensionData: { path: [[0, 0], [1, 1]], locked: false }, ...overrides });
 }
 function uuid(index: number): string { return `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`; }
-function result(client: string, connectionId: string, role: 'owner' | 'editor' | 'viewer', objects: BoardObject[]) {
-  const document = canonicalizeDocument(objects); return { client, connectionId, role, document, hash: documentHash(document) };
+function result(client: string, connectionId: string, role: 'owner' | 'editor' | 'viewer', objects: BoardObject[],seq:number) {
+  const document = canonicalizeDocument(objects); return { client, connectionId, role,seq,document, hash: documentHash(document) };
 }
 function rawReport(options: { clients?: number; writers?: number; profile?: SoakConfig['profile'] } = {}): SoakReport {
   const cfg = config(options.clients, options.writers, options.profile);
@@ -35,18 +35,21 @@ function rawReport(options: { clients?: number; writers?: number; profile?: Soak
   const connectionAt = (client: string, timestamp: number) => timestamp >= (reconnectByClient.get(client)?.recoveredAtMs ?? Number.POSITIVE_INFINITY) ? reconnectByClient.get(client)!.connectionId : initialClients.find(item => item.client === client)!.connectionId;
   const step = Math.min(5000, Math.max(1, Math.floor(cfg.durationMs / (cfg.writers * 3 + 1))));
   const steadyTimes: number[] = []; for (let time = collaborationStartedMs + step; time + 100 <= finishedMs; time += step) steadyTimes.push(time);
+  if(steadyTimes.at(-1)!<finishedMs-100)steadyTimes.push(finishedMs-100);
   const steadyIds = steadyTimes.map((_, index) => `soak-4144:${index}`);
   const allIds = [...steadyIds, ...offlineIds], objects = allIds.map(id => object(id));
   const finalConnection = (client: string) => reconnectByClient.get(client)?.connectionId ?? initialClients.find(item => item.client === client)!.connectionId;
-  const clients = initialClients.map(item => result(item.client, finalConnection(item.client), item.role, objects));
+  const finalSeq=allIds.length+50;
+  const clients = initialClients.map(item => result(item.client, finalConnection(item.client), item.role, objects,finalSeq));
   const receipts = (visibleAtMs: number) => initialClients.map(item => ({ client: item.client, connectionId: connectionAt(item.client, visibleAtMs), role: item.role, visibleAtMs }));
   const operations = steadyIds.map((id, index) => { const writer = initialClients[index % cfg.writers]!, createdAtMs = steadyTimes[index]!; return { id, writer: writer.client, writerConnectionId: connectionAt(writer.client, createdAtMs), createdAtMs, disruption: false, receipts: receipts(createdAtMs + 100) }; });
   operations.push(...offlineIds.map((id, index) => { const writer = initialClients[index]!, createdAtMs = offlineAtMs + 1; return { id, writer: writer.client, writerConnectionId: writer.connectionId, createdAtMs, disruption: true, receipts: receipts(recoveredAtMs) }; }));
   const exactSha='a'.repeat(40),environment={ os: 'test', node: process.version, browser: 'test', ci: false };
-  const freshClient=result(uuid(3000),uuid(3001),'viewer',objects),server=result(uuid(4000),uuid(4001),'owner',objects);
+  const freshClient=result(uuid(3000),uuid(3001),'viewer',objects,finalSeq),server=result(uuid(4000),uuid(4001),'owner',objects,finalSeq);
   const reconnecting=new Set(reconnects.map(item=>item.client));
-  const connections=[...initialClients.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial' as const,connectedAtMs:collaborationStartedMs-100,disconnectedAtMs:reconnecting.has(item.client)?offlineAtMs+1:finishedMs+100})),...reconnects.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:'editor' as const,purpose:'reconnect' as const,connectedAtMs:item.onlineAtMs,disconnectedAtMs:finishedMs+100})),{clientNonce:freshClient.client,connectionId:freshClient.connectionId,role:freshClient.role,purpose:'fresh' as const,connectedAtMs:finishedMs,disconnectedAtMs:finishedMs+100},{clientNonce:server.client,connectionId:server.connectionId,role:server.role,purpose:'server' as const,connectedAtMs:finishedMs+100,disconnectedAtMs:null}];
-  const payload={schemaVersion:1 as const,runId:uuid(9000),challenge:uuid(9001),boardId:uuid(9002),exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),connections,operations:operations.map((item,index)=>({id:item.id,writer:item.writer,connectionId:item.writerConnectionId,seq:index+1,committedAtMs:item.createdAtMs+50})),finalizedAtMs:finishedMs+200};
+  const connections=[...initialClients.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial' as const,connectedAtMs:collaborationStartedMs-200,disconnectedAtMs:reconnecting.has(item.client)?offlineAtMs+1:finishedMs+100})),...reconnects.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:'editor' as const,purpose:'reconnect' as const,connectedAtMs:item.onlineAtMs,disconnectedAtMs:finishedMs+100})),{clientNonce:freshClient.client,connectionId:freshClient.connectionId,role:freshClient.role,purpose:'fresh' as const,connectedAtMs:finishedMs,disconnectedAtMs:finishedMs+100},{clientNonce:server.client,connectionId:server.connectionId,role:server.role,purpose:'server' as const,connectedAtMs:finishedMs+100,disconnectedAtMs:null}];
+  const signedOperations=operations.map((item,index)=>({id:item.id,writer:item.writer,connectionId:item.writerConnectionId,seq:index+1,committedAtMs:item.createdAtMs+50})),signedStartedAtMs=collaborationStartedMs-100,signedFinishedAtMs=Math.max(...signedOperations.map(item=>item.committedAtMs)),finalDocument=canonicalizeDocument(objects);
+  const payload={schemaVersion:1 as const,runId:uuid(9000),challenge:uuid(9001),boardId:uuid(9002),exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:cfg.durationMs,expectedClients:cfg.clients,expectedWriters:cfg.writers,startedAtMs:signedStartedAtMs,finishedAtMs:signedFinishedAtMs,connections,operations:signedOperations,finalSeq,finalDocument,finalHash:documentHash(finalDocument),finalizedAtMs:finishedMs+200};
   const serverLedger={payload,signature:sign(null,Buffer.from(JSON.stringify(payload)),keys.privateKey).toString('base64')};
   const partial = { runId:payload.runId,exactSha,environment,startedAt: new Date(0).toISOString(), finishedAt: new Date(finishedMs + 1000).toISOString(), collaborationStartedAt: new Date(collaborationStartedMs).toISOString(), collaborationFinishedAt: new Date(finishedMs).toISOString(), collaborationDurationMs: cfg.durationMs, config: cfg, initialClients, operations, clients, freshClient, server, reconnects,serverLedger };
   const analysis = analyzeSoak(partial);
@@ -147,6 +150,17 @@ describe('Board collaboration soak evidence', () => {
   it('requires every initial, reconnect, fresh, and server connection ID to be globally unique',()=>{
     const report=rawReport();report.freshClient!.connectionId=report.reconnects[0]!.connectionId;
     expect(analyzeSoak(report).evidenceFailures).toContain('initial, reconnect, fresh, and server connection IDs are not globally unique');
+  });
+
+  it('rejects a validly signed ledger whose server-observed run is shorter than the required duration',()=>{
+    const report=rawReport();report.serverLedger!.payload.startedAtMs=report.serverLedger!.payload.finishedAtMs-140_100;report.serverLedger!.signature=sign(null,Buffer.from(JSON.stringify(report.serverLedger!.payload)),keys.privateKey).toString('base64');
+    expect(analyzeSoak(report).evidenceFailures).toContain('server-signed collaboration duration is below the required duration');
+  });
+
+  it('rejects caller-rehashed geometry when every reported snapshot differs from the signed server snapshot',()=>{
+    const report=rawReport();
+    for(const client of [...report.clients,report.freshClient!,report.server!]){client.document=client.document.map(item=>({...item,geometry:{...(item.geometry as Record<string,unknown>),x:999}}));client.hash=documentHash(client.document);}
+    expect(analyzeSoak(report).evidenceFailures).toEqual(expect.arrayContaining([expect.stringMatching(/does not match the signed final snapshot/)]));
   });
 
   it('rejects a legal writer/viewer role swap against browser and server bindings', async () => {

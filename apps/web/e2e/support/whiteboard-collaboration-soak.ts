@@ -21,7 +21,7 @@ export type CanonicalWhiteboardObject = { [key: string]: CanonicalJson };
 export type SoakParticipant = { client: string; connectionId: string; role: 'owner' | 'editor' | 'viewer'; writer: boolean };
 export type SoakReceipt = { client: string; connectionId: string; role: SoakParticipant['role']; visibleAtMs: number };
 export type SoakOperation = { id: string; writer: string; writerConnectionId: string; createdAtMs: number; disruption: boolean; receipts: SoakReceipt[] };
-export type SoakClientResult = { client: string; connectionId: string; role: SoakParticipant['role']; hash: string; document: CanonicalWhiteboardObject[] };
+export type SoakClientResult = { client: string; connectionId: string; role: SoakParticipant['role']; seq:number;hash: string; document: CanonicalWhiteboardObject[] };
 export type SoakReconnect = { client: string; previousConnectionId: string; connectionId: string; offlineAtMs: number; onlineAtMs: number; recoveredAtMs: number | null; elapsedMs: number; recovered: boolean };
 export type SoakServerLedger = { payload: WhiteboardSoakLedgerPayloadType; signature: string };
 export type LatencySummary = { samples: number; p50: number | null; p95: number | null; p99: number | null };
@@ -50,7 +50,7 @@ const SoakParticipantSchema = z.object({ client: z.string().uuid(), connectionId
 const SoakReceiptSchema = z.object({ client: z.string().uuid(), connectionId: ConnectionIdSchema, role: ClientRoleSchema, visibleAtMs: z.number().int().nonnegative() }).strict();
 const SoakOperationSchema = z.object({ id: z.string().min(1), writer: z.string().uuid(), writerConnectionId: ConnectionIdSchema, createdAtMs: z.number().int().nonnegative(), disruption: z.boolean(), receipts: z.array(SoakReceiptSchema) }).strict();
 const CanonicalDocumentSchema = z.array(z.record(z.unknown()));
-const SoakClientResultSchema = z.object({ client: z.string().uuid(), connectionId: ConnectionIdSchema, role: ClientRoleSchema, hash: z.string().regex(/^[a-f0-9]{64}$/), document: CanonicalDocumentSchema }).strict();
+const SoakClientResultSchema = z.object({ client: z.string().uuid(), connectionId: ConnectionIdSchema, role: ClientRoleSchema,seq:z.number().int().nonnegative(),hash: z.string().regex(/^[a-f0-9]{64}$/), document: CanonicalDocumentSchema }).strict();
 const SoakReconnectSchema = z.object({ client: z.string().uuid(), previousConnectionId: ConnectionIdSchema, connectionId: ConnectionIdSchema, offlineAtMs: z.number().int().nonnegative(), onlineAtMs: z.number().int().nonnegative(), recoveredAtMs: z.number().int().nonnegative().nullable(), elapsedMs: z.number().int().nonnegative(), recovered: z.boolean() }).strict();
 const SoakServerLedgerSchema = z.object({ payload: WhiteboardSoakLedgerPayload, signature: z.string().min(1) }).strict();
 const SoakAnalysisSchema = z.object({ missing: z.array(z.string()), duplicates: z.array(z.string()), unexpected: z.array(z.string()), forkGroups: z.array(z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), clients: z.array(z.string().min(1)) }).strict()), propagationMissing: z.array(z.string()), propagationDuplicates: z.array(z.string()), wallClockDurationMs: z.number().int().nonnegative().nullable(), remoteLatencyMs: LatencySummarySchema, perClientLatencyMs: z.record(LatencySummarySchema), reconnectFailures: z.array(SoakReconnectSchema), evidenceFailures: z.array(z.string()), accepted: z.boolean() }).strict();
@@ -98,7 +98,7 @@ function normalizeDocument(objects: readonly unknown[]): CanonicalWhiteboardObje
 export function canonicalizeDocument(objects: readonly WhiteboardObject[]): CanonicalWhiteboardObject[] {
   return normalizeDocument(objects);
 }
-export function documentHash(document: readonly CanonicalWhiteboardObject[]): string {
+export function documentHash(document: readonly unknown[]): string {
   return createHash('sha256').update(JSON.stringify(normalizeDocument(document))).digest('hex');
 }
 export function soakEnvironmentFingerprint(environment: SoakReport['environment']): string {
@@ -243,15 +243,28 @@ export function analyzeSoak(input: Pick<SoakReport, 'runId'|'exactSha' | 'enviro
     if(ledger.runId!==input.runId)evidenceFailures.push('server ledger run ID does not match report');
     if(ledger.exactSha!==input.exactSha)evidenceFailures.push('server ledger SHA does not match report');
     if(ledger.environmentFingerprint!==soakEnvironmentFingerprint(input.environment))evidenceFailures.push('server ledger environment does not match report');
+    if(ledger.requiredDurationMs!==input.config.durationMs||ledger.expectedClients!==input.config.clients||ledger.expectedWriters!==input.config.writers)evidenceFailures.push('server ledger acceptance thresholds do not match report');
+    if(ledger.finishedAtMs-ledger.startedAtMs<input.config.durationMs||ledger.finalizedAtMs<ledger.finishedAtMs)evidenceFailures.push('server-signed collaboration duration is below the required duration');
+    const signedInitialConnections=ledger.connections.filter(item=>item.purpose==='initial');
+    if(signedInitialConnections.length!==input.config.clients||signedInitialConnections.some(item=>item.connectedAtMs>ledger.startedAtMs)||Number.isFinite(collaborationStartedMs)&&(ledger.startedAtMs>collaborationStartedMs||signedInitialConnections.some(item=>item.connectedAtMs>collaborationStartedMs)))evidenceFailures.push('initial connections were not established before collaboration started');
     const ledgerConnections=new Map(ledger.connections.map(item=>[item.connectionId,item]));
     const expectedConnections=[...input.initialClients.map(item=>({client:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial'})),...input.reconnects.map(item=>({client:item.client,connectionId:item.connectionId,role:manifestByClient.get(item.client)?.role,purpose:'reconnect'})),...(input.freshClient?[{client:input.freshClient.client,connectionId:input.freshClient.connectionId,role:input.freshClient.role,purpose:'fresh'}]:[]),...(input.server?[{client:input.server.client,connectionId:input.server.connectionId,role:input.server.role,purpose:'server'}]:[])];
     for(const expectedConnection of expectedConnections){const signed=ledgerConnections.get(expectedConnection.connectionId);if(!signed||signed.clientNonce!==expectedConnection.client||signed.role!==expectedConnection.role||signed.purpose!==expectedConnection.purpose)evidenceFailures.push(`${expectedConnection.connectionId} is not authenticated by the server ledger`);}
     if(ledger.connections.length!==expectedConnections.length)evidenceFailures.push('server ledger connection count does not match raw evidence');
     for(const reconnect of input.reconnects){const oldConnection=ledgerConnections.get(reconnect.previousConnectionId),newConnection=ledgerConnections.get(reconnect.connectionId);if(!oldConnection?.disconnectedAtMs||oldConnection.disconnectedAtMs<reconnect.offlineAtMs||oldConnection.disconnectedAtMs>reconnect.onlineAtMs)evidenceFailures.push(`${reconnect.client} signed disconnect is outside its outage window`);if(!newConnection||newConnection.connectedAtMs<reconnect.onlineAtMs||newConnection.connectedAtMs>(reconnect.recoveredAtMs??Number.NEGATIVE_INFINITY))evidenceFailures.push(`${reconnect.client} signed reconnect is outside its recovery window`);}
     const ledgerOps=new Map(ledger.operations.map(item=>[item.id,item]));
-    for(const operation of input.operations){const signed=ledgerOps.get(operation.id);if(!signed||signed.writer!==operation.writer||signed.connectionId!==operation.writerConnectionId||signed.committedAtMs<operation.createdAtMs||signed.committedAtMs>collaborationFinishedMs)evidenceFailures.push(`${operation.id} is not authenticated by the server ledger`);}
+    for(const operation of input.operations){const signed=ledgerOps.get(operation.id),firstReceipt=Math.min(...operation.receipts.map(item=>item.visibleAtMs));if(!signed||signed.writer!==operation.writer||signed.connectionId!==operation.writerConnectionId||signed.committedAtMs<operation.createdAtMs||signed.committedAtMs>collaborationFinishedMs||!Number.isFinite(firstReceipt)||firstReceipt<signed.committedAtMs)evidenceFailures.push(`${operation.id} is not authenticated by the server ledger`);}
     if(ledger.operations.length!==input.operations.length)evidenceFailures.push('server ledger operation count does not match raw evidence');
     if(new Set(ledger.operations.map(item=>item.seq)).size!==ledger.operations.length)evidenceFailures.push('server ledger operation sequences are not unique');
+    const signedTimes=ledger.operations.map(item=>item.committedAtMs).sort((a,b)=>a-b),signedTimeline=[ledger.startedAtMs,...signedTimes,ledger.finishedAtMs];
+    if(signedTimeline.some((timestamp,index)=>index>0&&timestamp-signedTimeline[index-1]!>SOAK_COVERAGE.maxGlobalOperationGapMs))evidenceFailures.push('server ledger has a sustained operation gap');
+    const signedWriters=new Set(ledger.operations.map(item=>item.writer));
+    if(!sameIdentitySet(manifestWriters,[...signedWriters]))evidenceFailures.push('server ledger writer set does not match manifest');
+    const signedWriterGap=SOAK_COVERAGE.maxGlobalOperationGapMs*input.config.writers;
+    for(const writer of manifestWriters){const times=ledger.operations.filter(item=>item.writer===writer).map(item=>item.committedAtMs).sort((a,b)=>a-b),timeline=[ledger.startedAtMs,...times,ledger.finishedAtMs];if(timeline.some((timestamp,index)=>index>0&&timestamp-timeline[index-1]!>signedWriterGap))evidenceFailures.push(`${writer} server-signed activity gap exceeds ${signedWriterGap}ms`);}
+    if(JSON.stringify(ledger.finalDocument)!==JSON.stringify(normalizeDocument(ledger.finalDocument))||documentHash(ledger.finalDocument)!==ledger.finalHash)evidenceFailures.push('server final snapshot is not canonical or its hash is invalid');
+    for(const client of all)if(client.hash!==ledger.finalHash||client.seq!==ledger.finalSeq||JSON.stringify(client.document)!==JSON.stringify(ledger.finalDocument))evidenceFailures.push(`${client.client} does not match the signed final snapshot and sequence`);
+    if(ledger.operations.some(item=>item.seq>ledger.finalSeq))evidenceFailures.push('server ledger operation sequence exceeds final sequence');
   }
   const reconnectFailures = input.reconnects.filter(item => !item.recovered || item.elapsedMs > input.config.reconnectMs);
   const steadyWriters = new Set(input.operations.filter(item => !item.disruption).map(operation => operation.writer));
