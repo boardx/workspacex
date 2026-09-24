@@ -33,13 +33,12 @@ import {
   type KgConflictPrompt,
 } from "@repo/contracts/chat-knowledge-graph";
 import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
-import type { ThreadKnowledge, ClaimSources, PromotionResults } from "@/lib/knowledge-graph-api";
+import type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations } from "@/lib/knowledge-graph-api";
 
 type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
 
 /* 契约输出形状（从操作 schema 派生，不手写第二份） */
-export type { ThreadKnowledge, ClaimSources, PromotionResults };
-export type PromotionNominations = z.infer<typeof knowledgeGraph.listPromotionNominations.out>;
+export type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations };
 export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
 export type TurnMemory = KgTurnMemory;
 export type MemoryCard = KgMemoryCard;

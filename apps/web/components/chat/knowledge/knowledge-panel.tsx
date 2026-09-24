@@ -8,16 +8,20 @@ import { KnowledgeList, KnowledgeEmpty } from "./knowledge-list";
 import { KnowledgeGraphView } from "./knowledge-graph-view";
 import { ClaimSourceDrawer } from "./claim-source-drawer";
 import { PromotionResultList } from "./promotion-result-list";
+import { NominationCard } from "./nomination-card";
+import { usePromotionFlow, visibleNominations, type PromoteFn } from "./use-promotion-flow";
 import { countByTriState } from "@/lib/knowledge-graph-view";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import {
   knowledgeGraphErrorCode,
   type ClaimSources,
+  type PromotionNominations,
   type PromotionResults,
   type ThreadKnowledge,
 } from "@/lib/knowledge-graph-api";
 import {
   claimTriState,
+  KG_PROMOTE_MAX_BATCH,
   KG_TRI_STATE_LABEL_ZH,
   KG_VISIBILITY_LABEL_ZH,
   type KgClaim,
@@ -35,12 +39,15 @@ const CONFIRM_BATCH_MAX = 50;
  *
  * - `apply`：人的编辑动作（F10，`applyHumanAction`）。失败时 reject，面板把错误翻成人话显示。
  *   真实 `/chat` 只在服务端 `canEdit=true` 时传（`useKnowledgeWriteActions`）；不传 = 一个编辑入口都不画。
- * - `onPromote` / `onReindex`：记到长期记忆（F11）/ 整理本会话（F13）。真实 `/chat` 还不传，
- *   对应入口不渲染——不画一排点了没反应的按钮。签核预览传演示实现。
+ * - `onPromote`：记到我的长期记忆（F11，`promoteToPersonal`）。真实 `/chat` 只在服务端
+ *   `canEdit && canPromote` 时传（`useKnowledgeWriteActions`）；逐条结果由面板显示，整批失败 reject。
+ *   `choices` 只在回答 `needs_choice` 时带。
+ * - `onReindex`：整理本会话（F13）。真实 `/chat` 还不传，对应入口不渲染——不画一排点了没反应的按钮。
+ *   签核预览传演示实现。
  */
 export interface KnowledgePanelWriteActions {
   readonly apply: (action: KgHumanAction) => Promise<void>;
-  readonly onPromote?: (claimIds: string[]) => Promise<PromotionResults>;
+  readonly onPromote?: PromoteFn;
   readonly onReindex?: () => void;
 }
 
@@ -71,6 +78,7 @@ export function KnowledgePanel({
   onRetry,
   loadSources,
   writeActions,
+  nominations = null,
   initialPromotionResult = null,
 }: {
   status: PanelStatus;
@@ -80,12 +88,14 @@ export function KnowledgePanel({
   onRetry?: () => void;
   loadSources?: (claim: KgClaim) => Promise<ClaimSources>;
   writeActions?: KnowledgePanelWriteActions;
+  /** F11：AI 提名（`listPromotionNominations`）。只在能记到长期记忆时画，且只提名不执行。 */
+  nominations?: PromotionNominations | null;
   initialPromotionResult?: PromotionResults | null;
 }) {
   const [view, setView] = React.useState<PanelView>(initialView);
   const [selectMode, setSelectMode] = React.useState(false);
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
-  const [promoResult, setPromoResult] = React.useState<PromotionResults | null>(initialPromotionResult);
+  const [nominationsDismissed, setNominationsDismissed] = React.useState(false);
 
   const drawer = useClaimSourcesDrawer(loadSources);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -108,6 +118,16 @@ export function KnowledgePanel({
   const editable = canEdit && writeActions !== undefined;
   const onPromote = writeActions?.onPromote;
   const canPromote = (data?.canPromote ?? false) && canEdit && onPromote !== undefined;
+  const promo = usePromotionFlow({
+    onPromote: canPromote ? onPromote : undefined,
+    onError: setActionError,
+    initialResult: initialPromotionResult,
+  });
+  const promoResult = promo.result;
+  const promoteClaims = canPromote ? (ids: string[]) => { void promo.run(ids); } : undefined;
+  const shownNominations = canPromote && !nominationsDismissed
+    ? visibleNominations(nominations, data?.claims ?? [], promoResult)
+    : null;
   /** 「全部确认」的对象：三态为「AI 记下的」的条目（有矛盾的不在内，服务端也会整批拒绝）。 */
   const pendingIds = (data?.claims ?? []).filter((c) => claimTriState(c.status) === "pending").map((c) => c.id);
   const counts = data ? countByTriState(data.claims) : { pending: 0, confirmed: 0, conflict: 0 };
@@ -186,17 +206,18 @@ export function KnowledgePanel({
         ) : null}
 
         {/* 记到长期记忆入口（仅个人线程 canPromote） */}
-        {data && onPromote && canPromote && data.claims.length > 0 ? (
-          <div className="flex items-center gap-1.5">
+        {data && canPromote && data.claims.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
             {selectMode ? (
               <>
                 <Button
                   size="xs"
-                  disabled={selectedIds.length === 0}
+                  disabled={selectedIds.length === 0 || selectedIds.length > KG_PROMOTE_MAX_BATCH || promo.busy}
                   data-testid="kg-promote-submit"
                   onClick={() => {
-                    void onPromote(selectedIds).then(setPromoResult);
+                    void promo.run(selectedIds);
                     setSelectMode(false);
+                    setSelected({});
                   }}
                 >
                   记到我的长期记忆（{selectedIds.length}）
@@ -204,9 +225,16 @@ export function KnowledgePanel({
                 <Button size="xs" variant="ghost" data-testid="kg-promote-cancel" onClick={() => { setSelectMode(false); setSelected({}); }}>
                   取消
                 </Button>
+                {/* U-3：点这个按钮本身就算确认——先说清楚，再让人点 */}
+                <span className="text-10 text-muted-foreground" data-testid="kg-promote-hint">
+                  {selectedIds.length > KG_PROMOTE_MAX_BATCH
+                    ? `一次最多记 ${String(KG_PROMOTE_MAX_BATCH)} 条`
+                    : "记下后即视为你确认过"}
+                </span>
               </>
             ) : (
-              <Button size="xs" variant="outline" data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
+              <Button size="xs" variant="outline" disabled={promo.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
+                {promo.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
                 记到我的长期记忆…
               </Button>
             )}
@@ -266,10 +294,28 @@ export function KnowledgePanel({
             <KnowledgeEmpty onReindex={writeActions?.onReindex} />
           ) : view === "list" ? (
             <div className="flex flex-col gap-3">
+              {shownNominations ? (
+                <NominationCard
+                  // 提名列表变了（记下了一部分）⇒ 勾选从头来
+                  key={shownNominations.nominations.map((n) => n.claimId).join("|")}
+                  data={shownNominations}
+                  claimLabel={claimLabel}
+                  onPromote={promoteClaims}
+                  onDismiss={() => setNominationsDismissed(true)}
+                  busy={promo.busy}
+                />
+              ) : null}
               {promoResult ? (
-                <div className="rounded-lg border border-border-subtle bg-muted/40 p-2">
-                  <p className="mb-1.5 text-11 font-medium text-muted-foreground">上次记入长期记忆的结果</p>
-                  <PromotionResultList data={promoResult} claimLabel={claimLabel} />
+                <div className="rounded-lg border border-border-subtle bg-muted/40 p-2" data-testid="kg-promotion-summary">
+                  <p className="mb-1.5 text-11 font-medium text-muted-foreground" role="status">
+                    {promotionSummaryText(promoResult)}
+                  </p>
+                  <PromotionResultList
+                    data={promoResult}
+                    claimLabel={claimLabel}
+                    onChoice={canPromote ? promo.choose : undefined}
+                    busy={promo.busy}
+                  />
                 </div>
               ) : null}
               {/* U-2：列表头部「全部确认」批量 —— 只在有「AI 记下的」且可编辑时出现 */}
@@ -297,6 +343,7 @@ export function KnowledgePanel({
                 onToggleSelect={(id, next) => setSelected((s) => ({ ...s, [id]: next }))}
                 onOpenSource={drawer.open}
                 onApply={editable ? runAction : undefined}
+                onPromote={promoteClaims}
               />
             </div>
           ) : (
@@ -315,6 +362,17 @@ export function KnowledgePanel({
       />
     </div>
   );
+}
+
+/** 逐条结果上方那一行：几条记下了，几条还要你选 / 没记下（原因见下面逐条）。 */
+function promotionSummaryText(result: PromotionResults): string {
+  const done = result.results.filter((r) => r.outcome !== "needs_choice" && r.outcome !== "rejected").length;
+  const choosing = result.results.filter((r) => r.outcome === "needs_choice").length;
+  const rejected = result.results.filter((r) => r.outcome === "rejected").length;
+  const parts = [`已记到长期记忆 ${String(done)} 条`];
+  if (choosing > 0) parts.push(`${String(choosing)} 条等你选`);
+  if (rejected > 0) parts.push(`${String(rejected)} 条没记下`);
+  return parts.join(" · ");
 }
 
 /**
