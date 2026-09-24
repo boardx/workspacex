@@ -56,7 +56,7 @@ flowchart LR
     classDef dec fill:#26323A,stroke:#26323A,color:#FFFFFF
     NOW(["现在"])
     A["A 命名统一<br/>4 / 4 已完成"]:::done
-    C["C 门控建设<br/>5 项已完成 · 3 项可开工 · C2 等 C1"]:::ready
+    C["C 门控建设<br/>7 项已完成 · 2 项可开工"]:::ready
     D["D 运营平面<br/>S2 契约已起草待签核 · 7 项可开工 · 4 项在关键路径上"]:::ready
     E["E 产品 0→1<br/>6 项可开工 · 1 项等 E1+E2"]:::ready
     B["B 开源就绪<br/>2 项已完成 · 3 项待人确认 · 3 项可开工"]:::ready
@@ -117,8 +117,8 @@ flowchart LR
         B8["B8 商标政策"]:::ready
     end
     subgraph sC["C 门控建设"]
-        C1["C1 给 8 个技能包补许可"]:::ready
-        C2["C2 清单门控转 strict"]:::wait
+        C1["C1 给 8 个技能包补许可"]:::done
+        C2["C2 清单门控转 strict"]:::done
         C3["C3 OSS 不依赖 EE"]:::ready
         C4["C4 契约包边界"]:::done
         C5["C5 运营 schema 白名单"]:::done
@@ -211,8 +211,8 @@ flowchart LR
 
 | # | 项 | 状态 | 依赖 |
 |---|---|---|---|
-| C1 | 给 8 个技能包补许可 | □ | D1 已定，**可开工**（自研技能包补 Apache-2.0；改编自上游的保留上游许可）。R4 更正：此前写 18 处，其中 10 处是门控误报（5 个官方技能包身份嵌在 `metadata:` 下）；门控已改用唯一解析器 |
-| C2 | 清单门控转 `--strict` 接 CI | □ | **C1** |
+| C1 | 给 8 个技能包补许可 | ✅ | R12：按 D18 全部补 Apache-2.0 官方正文。只加 LICENSE 文件、不改 SKILL.md——改正文要连带发新版到所有实例；已重建 5 个包确认产物逐字节不变 |
+| C2 | 清单门控转 `--strict` 接 CI | ✅ | R12：存量清零后转 strict，接入 `verify:harness:raw` |
 | C3 | `lint-ee-boundary`（OSS 不依赖 EE） | □ | |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
 | C5 | 运营平面 schema 白名单门控 | ✅ | R8：`lint-telemetry-schema.mjs` 遍历 zod schema 本身：对象必须 strict、数组必须有上限、无开放键集合 |
