@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
-import { KnowledgePanel, type PanelStatus, type PanelView } from "@/components/chat/knowledge/knowledge-panel";
+import type { PanelStatus, PanelView } from "@/components/chat/knowledge/knowledge-panel";
+import { PreviewKnowledgePanel } from "./preview-knowledge-panel";
 import { DrawerScene } from "./drawer-scene";
 import { PanelExtrasScene } from "./panel-extras-scene";
 import { AnswerKnowledgeFooter } from "@/components/chat/knowledge/answer-knowledge-footer";
@@ -173,7 +174,7 @@ export default function ChatKnowledgeGraphPreviewPage({
   if (panelConfigs[scene]) {
     const cfg = panelConfigs[scene];
     body = (
-      <KnowledgePanel
+      <PreviewKnowledgePanel
         status={cfg.status}
         data={cfg.data}
         errorCode={cfg.errorCode}
@@ -195,17 +196,17 @@ export default function ChatKnowledgeGraphPreviewPage({
     const fallback = { citations: answerCitationsNormal, health: channelHealthAllOk };
     const a = map[scene] ?? fallback;
     answerSlot = <AnswerKnowledgeFooter citations={a.citations} channelHealth={a.health} />;
-    body = <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
+    body = <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   } else {
     // 对话里的记忆场景：价值出现在回答原位（U-1 / U-4 / U-5 / uc-18-6 C）
     switch (scene) {
       case "turn-pending":
-        answerSlot = <AnswerMemoryLine turn={turnMemoryPending} />;
+        answerSlot = <AnswerMemoryLine undo="local" turn={turnMemoryPending} />;
         break;
       case "card-remember":
         answerSlot = (
           <>
-            <AnswerMemoryLine turn={turnMemoryWithRememberCard} />
+            <AnswerMemoryLine undo="local" turn={turnMemoryWithRememberCard} />
             <MemoryCard card={memoryCardRememberOpen} />
           </>
         );
@@ -219,7 +220,7 @@ export default function ChatKnowledgeGraphPreviewPage({
       case "card-conflict":
         answerSlot = (
           <>
-            <AnswerMemoryLine turn={turnMemoryWithConflict} />
+            <AnswerMemoryLine undo="local" turn={turnMemoryWithConflict} />
             <ConflictPromptCard prompt={conflictPromptNormal} />
           </>
         );
@@ -229,10 +230,10 @@ export default function ChatKnowledgeGraphPreviewPage({
         break;
       case "turn-captured":
       default:
-        answerSlot = <AnswerMemoryLine turn={turnMemoryCapturedOnly} />;
+        answerSlot = <AnswerMemoryLine undo="local" turn={turnMemoryCapturedOnly} />;
         break;
     }
-    body = <KnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
+    body = <PreviewKnowledgePanel status="ready" data={threadKnowledgeNormal} initialView="list" />;
   }
 
   return (

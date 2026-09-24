@@ -18,6 +18,7 @@ import {
   CopilotKitV2MessageLandingPanel,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { ProducedFileInlineCard } from "@/components/chat/produced-file-inline-card";
+import { TurnMemoryLine } from "@/components/chat/knowledge/turn-memory-line";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
@@ -355,6 +356,12 @@ function V2AssistantMessageImpl(
             <ProducedFileInlineCard key={file.uri} file={file} threadId={producedFilesThreadId} />
           ))}
         </div>
+      ) : null}
+      {/* phase-18 F09 / U-1 —— 回答下「已记下 N 条 · 查看 · 撤销」。只在这条回答已落库
+          （`persistedMessageId` 解析出来 = 正文已说完）且有线程时挂载；取数在组件内异步做，
+          不阻塞本条消息渲染，没记下东西时它自己什么都不画。 */}
+      {persistedMessageId !== null && artifactThreadId ? (
+        <TurnMemoryLine threadId={artifactThreadId} messageId={persistedMessageId} />
       ) : null}
     </div>
   );
