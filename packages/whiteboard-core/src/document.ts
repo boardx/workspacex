@@ -27,6 +27,34 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
+export function isWhiteboardObjectLocked(object: WhiteboardObject): boolean {
+  return object.extensionData?.locked === true;
+}
+function storedObjects(doc: Y.Doc): Map<string, WhiteboardObject> {
+  return new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
+}
+export function assertLockedObjectsUnchanged(before: Y.Doc, after: Y.Doc): void {
+  const beforeObjects = storedObjects(before), afterObjects = storedObjects(after);
+  const lockedBefore = [...beforeObjects.values()].filter(isWhiteboardObjectLocked);
+  const lockedAfter = [...afterObjects.values()].filter(isWhiteboardObjectLocked);
+
+  for (const object of lockedBefore) {
+    const next = afterObjects.get(object.id);
+    if (!next || JSON.stringify(next) !== JSON.stringify(object)
+      || tombstones(after).has(object.id) !== tombstones(before).has(object.id)) throw new Error('OBJECT_LOCKED');
+  }
+
+  // Deleting an endpoint changes a locked connector semantically because it
+  // disappears from the visible projection even if its own Y.Map is unchanged.
+  // Inspect stored objects so one batch cannot hide a newly-created connector.
+  for (const object of lockedAfter) {
+    if (tombstones(after).has(object.id)) {
+      if (!tombstones(before).has(object.id)) throw new Error('OBJECT_LOCKED');
+      continue;
+    }
+    if (object.connector && (tombstones(after).has(object.connector.from) || tombstones(after).has(object.connector.to))) throw new Error('OBJECT_LOCKED');
+  }
+}
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
   for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');
@@ -62,6 +90,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
+    if (isWhiteboardObjectLocked(decode(command.id, item))) throw new Error('OBJECT_LOCKED');
     if (command.type === 'delete') deleted.set(command.id, true);
     if (command.type === 'geometry') item.set('geometry', structuredClone(command.geometry));
     if (command.type === 'style') {
@@ -81,7 +110,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
 export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): void {
   const commands = WhiteboardCommandBatch.parse(input);
   const candidate = cloneDocument(doc);
-  try { candidate.transact(() => apply(candidate, commands)); validateDocument(candidate); }
+  try { candidate.transact(() => apply(candidate, commands)); validateDocument(candidate); assertLockedObjectsUnchanged(doc, candidate); }
   finally { candidate.destroy(); }
   doc.transact(() => apply(doc, commands), origin);
 }

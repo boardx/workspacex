@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { cloneDocument, objectMap, tombstones, validateDocument } from './document';
+import { assertLockedObjectsUnchanged, cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
 export const WHITEBOARD_UPDATE_LIMITS = {
   bytes: 65536, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
@@ -52,6 +52,7 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
       if (tombstones(candidate).get(id) !== true || (!sameItem(before, after) && !concurrentTrue)) throw new Error('TOMBSTONE_CHANGED');
     }
     validateDocument(candidate);
+    assertLockedObjectsUnchanged(authority, candidate);
     if (Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
     return Y.encodeStateAsUpdate(candidate, Y.encodeStateVector(authority));
   } finally { candidate.destroy(); }

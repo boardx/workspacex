@@ -61,9 +61,9 @@ describe('editable diagram import adapter', () => {
       expect(ids.has(edge.connector!.to)).toBe(true);
     }
   });
-  it('rejects a whole diagram exceeding 200 commands without exposing a partial batch', () => {
+  it('rejects a whole diagram exceeding 500 commands without exposing a partial batch', () => {
     const model = structuredClone(fixtures[0].model);
-    model.nodes = Array.from({ length: 200 }, (_, i) => ({ ...model.nodes[0], id: `n${i}` }));
+    model.nodes = Array.from({ length: 500 }, (_, i) => ({ ...model.nodes[0], id: `n${i}` }));
     model.edges = [];
     const result = prepareDiagramImport(wrap(model), 'large', sourceRef);
     expect(result).toMatchObject({ ok: false, code: 'CAPACITY' });
