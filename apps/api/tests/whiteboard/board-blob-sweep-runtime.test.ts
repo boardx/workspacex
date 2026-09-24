@@ -73,4 +73,14 @@ describe('Board blob GC production runtime', () => {
     expect(await runBoardBlobSweepCli(['--tenant-id', tenantId, '--board-id', boardId, '--limit', '9999'], runner, { out: value => out.push(value), err: value => err.push(value) })).toBe(2);
     expect(JSON.parse(err.at(-1)!)).toEqual({ ok: false, errorCode: 'INVALID_ARGUMENTS' });
   });
+
+  it('production runner selects hosted storage and keeps purge authority out of collaboration writes', async () => {
+    const runner = await readFile(new URL('../../scripts/sweep-board-blobs.ts', import.meta.url), 'utf8');
+    const collaboration = await readFile(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
+    expect(runner).toContain('createBoardStorageSelection(process.env');
+    expect(runner).toContain('storage.purgeStore');
+    expect(runner).not.toContain('ConfiguredFsBoardBlobPurgeStore');
+    expect(collaboration).not.toContain('BOARD_BLOB_PURGE_STORE');
+    expect(collaboration).not.toContain('BoardBlobPurgeStore');
+  });
 });

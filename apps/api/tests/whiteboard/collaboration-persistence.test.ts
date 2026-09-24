@@ -21,7 +21,7 @@ const orgId = toOrgId('wb-collaboration-3945-a'), otherOrg = toOrgId('wb-collabo
 const actor = (userId: string, org = orgId): Principal => ({ userId, orgId: org });
 const owner = actor('wb-collab-owner'), editor = actor('wb-collab-editor'), viewer = actor('wb-collab-viewer'), outsider = actor(owner.userId, otherOrg);
 let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, blobs: FsBoardBlobStore, blobRoot: string;
-const codec = new AesGcmBoardBlobCodec({ resolve: async () => new Uint8Array(32).fill(17) });
+const codec = new AesGcmBoardBlobCodec({ currentKeyId: 'test-board-key', resolve: async () => new Uint8Array(32).fill(17) });
 const collaboration = (database: PgDatabase, blobStore: BoardBlobStore = blobs, rate = 120) => new PgWhiteboardCollaborationStore(database, new WorkerWhiteboardUpdateValidator(), rate, blobStore, codec, 1);
 const command = (id: string): WhiteboardCommand => ({ type: 'create', object: { id, schemaVersion: 1, kind: 'sticky', text: '团队', style: {}, parentId: null, orderKey: '', geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 } } });
 const createBoard = () => repo.create(owner, { requestId: randomUUID(), name: '实时白板' });
