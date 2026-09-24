@@ -91,6 +91,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const [reportAssistantOpen, setReportAssistantOpen] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [steeringPending, setSteeringPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
@@ -170,6 +171,21 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   }, [pending, state?.busy, state?.version, expired, sessionId]);
   const processing = pending || Boolean(state?.busy && !expired);
   const busy = processing || Boolean(recovery);
+  async function steer(action: "pause" | "resume") {
+    if (!state || steeringPending) return;
+    setSteeringPending(true); setError(null);
+    try {
+      const next = await executeResearchRuntime({
+        sessionId, node: state.currentNode, action, requestId: crypto.randomUUID(), expectedVersion: state.version,
+        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId(action),
+      });
+      snapshotRef.current = next; setState(next);
+    } catch (cause) {
+      setError(requestError(cause));
+    } finally {
+      setSteeringPending(false);
+    }
+  }
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     const generation = sessionGeneration.current;
@@ -329,7 +345,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {node === "research" && <>
           {!state.intent && <p role="status" className="rounded-md border p-3 text-sm">请返回报告大纲步骤确认研究边界后再开始检索。</p>}
-          <GuidedResearchTrustConsole runtime={state} pending={busy} onSteer={(action) => void run(action, { expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId(action) })} />
+          <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} />
           <div className="flex gap-2">{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</div>
           <GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
           <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details>

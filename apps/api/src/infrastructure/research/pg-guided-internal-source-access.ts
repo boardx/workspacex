@@ -31,4 +31,32 @@ export class PgGuidedInternalSourceAccess implements GuidedInternalSourceAccessP
       return requestedSourceIds.filter((id, index) => allowed.has(id) && requestedSourceIds.indexOf(id) === index);
     });
   }
+
+  async loadAuthorizedSources(actor: RuntimeActor, requestedSourceIds: readonly string[]) {
+    const authorized = await this.authorizedSourceIds(actor, requestedSourceIds);
+    if (!authorized.length) return [];
+    return this.db.withTenant(actor.orgId, async (session) => {
+      const result = await session.query<{ id: string; title: string; pinned_at: Date; content_hash: string; content: string }>(
+        `SELECT a.id, a.title, v.pinned_at, v.content_hash,
+                string_agg(st.content, E'\n\n' ORDER BY sg.ordinal) AS content
+           FROM artifacts a
+           JOIN LATERAL (
+             SELECT av.id, av.pinned_at, av.content_hash
+               FROM artifact_versions av
+              WHERE av.org_id=a.org_id AND av.artifact_id=a.id
+              ORDER BY av.version_number DESC LIMIT 1
+           ) v ON true
+           JOIN segments sg ON sg.org_id=a.org_id AND sg.artifact_version_id=v.id
+           JOIN segment_text st ON st.org_id=sg.org_id AND st.segment_id=sg.id
+          WHERE a.org_id=$1 AND a.id=ANY($2::text[])
+          GROUP BY a.id, a.title, v.pinned_at, v.content_hash`,
+        [actor.orgId, authorized],
+      );
+      const byId = new Map(result.rows.map((row) => [row.id, row]));
+      return authorized.flatMap((id) => {
+        const row = byId.get(id);
+        return row ? [{ id, title: row.title, content: row.content, retrievedAt: row.pinned_at.toISOString(), contentHash: row.content_hash }] : [];
+      });
+    });
+  }
 }

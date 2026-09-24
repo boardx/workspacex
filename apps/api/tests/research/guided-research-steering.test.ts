@@ -25,15 +25,24 @@ function researchRuntime(): ResearchRuntime {
 describe("guided research steering", () => {
   it("enforces restrict domains and biases prioritized searches", async () => {
     const { searchWithSourcePolicy } = await import("../../src/application/research/guided-runtime-service");
-    const search = { search: async (query: string) => [
+    const queries: string[] = [];
+    const search = { search: async (query: string) => {
+      queries.push(query);
+      return [
       { title: query, url: "https://allowed.example/report", content: "ok" },
       { title: query, url: "https://blocked.example/report", content: "no" },
-    ] };
+      ];
+    } };
     const restricted = await searchWithSourcePolicy(search, "market", { mode: "restrict", domains: ["allowed.example"], internalSourceIds: [], revision: 1 });
     expect(restricted).toHaveLength(1);
     expect(restricted[0]?.url).toContain("allowed.example");
     const prioritized = await searchWithSourcePolicy(search, "market", { mode: "prioritize", domains: ["allowed.example"], internalSourceIds: [], revision: 1 });
     expect(prioritized[0]?.title).toContain("site:allowed.example");
+    expect(queries.at(-1)).toBe("market");
+    expect(prioritized.map((hit) => hit.url)).toEqual([
+      "https://allowed.example/report",
+      "https://blocked.example/report",
+    ]);
   });
   it("rejects stale revisions without mutating state", () => {
     const state = { ...initialRuntime(session), planRevision: 2 };
@@ -65,6 +74,21 @@ describe("guided research steering", () => {
   it("allows internal sources authorized by the access port", () => {
     expect(() => assertInternalSourceAccess(["private-1"], ["private-1"])).not.toThrow();
     expect(() => assertInternalSourceAccess(["private-1"], [])).toThrowError("RESEARCH_SOURCE_ACCESS_DENIED");
+  });
+
+  it("invalidates every downstream result when the decision scope changes", () => {
+    const state = researchRuntime();
+    state.intent = { decision: "Old decision", successCriteria: ["Old criterion"], audience: "Leadership", deliverable: "Decision memo", timeframe: { from: "2024-01-01", to: "2025-01-01" } };
+    state.tasks = [{ id: "task-1", sectionId: "section-1", query: "old", status: "succeeded", attempts: 1, errorCode: null }];
+    state.sources = [{ id: "source-1", taskId: "task-1", title: "Old", url: "https://example.com/old", content: "Old evidence", retrievedAt: "now", decision: "accepted" }];
+    state.report = { title: "Old report", summary: "Old", sections: [] };
+    state.completed = true;
+    applyResearchSteering(state, C.GuidedResearchRuntimeCommand.parse({
+      sessionId: session.sessionId, node: "research", action: "refine_scope", requestId: "scope-request",
+      expectedVersion: 0, expectedRevision: 0, idempotencyKey: "scope-key",
+      intent: { decision: "New decision", successCriteria: ["New criterion"], audience: "Leadership", deliverable: "Decision memo", timeframe: { from: "2025-01-02", to: "2026-01-01" } },
+    }), "2026-09-24T00:00:00.000Z");
+    expect(state).toMatchObject({ currentNode: "research", tasks: [], sources: [], report: null, completed: false });
   });
 
   it("replays an identical committed request before checking its stale revision", () => {

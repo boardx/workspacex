@@ -15,6 +15,7 @@ import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
+import { indexSegment } from "../support/retrieval-fixtures";
 
 const ORG = "org-guided-source-acl";
 const PROJECT = "project-guided-source-acl";
@@ -42,6 +43,7 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, "u-platform-researcher", "facilitator", null);
   await addOrgMember(ORG, "u-energy-outsider", "consultant", fixture.teams.energy!);
   await addArtifact({ orgId: ORG, id: ARTIFACT, projectId: PROJECT });
+  await indexSegment({ orgId: ORG, artifactId: ARTIFACT, segmentId: `${ARTIFACT}-segment`, projectId: PROJECT, content: "Internal interview evidence" });
   await addBinding({
     orgId: ORG,
     subject: { kind: "team", id: fixture.teams.energy! },
@@ -58,6 +60,11 @@ describe("PgGuidedInternalSourceAccess", () => {
       userId: "u-energy-researcher",
       sessionId: "session-energy",
     }, [ARTIFACT])).resolves.toEqual([ARTIFACT]);
+    await expect(sourceAccess.loadAuthorizedSources({
+      orgId: toOrgId(ORG),
+      userId: "u-energy-researcher",
+      sessionId: "session-energy",
+    }, [ARTIFACT])).resolves.toEqual([expect.objectContaining({ id: ARTIFACT, content: "Internal interview evidence" })]);
 
     await expect(sourceAccess.authorizedSourceIds({
       orgId: toOrgId(ORG),
