@@ -14,6 +14,13 @@ import { readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { expandOpsDirs } from "./ops-plane.mjs";
 
+/**
+ * 企业版边界（C3，D26）：企业版代码一律放在 `packages/ee-*` 或 `apps/ee-*`，按目录名自动归为售卖，
+ * 不必逐个登记——新写的 SSO、SCIM 之类只要放对地方，归属与许可证自动正确。
+ * 开源部分不得依赖它们，由 `lint-ee-boundary.mjs` 检查。
+ */
+export const EE_DIR = /^(apps|packages)\/ee-[a-z0-9-]+$/;
+
 export const LICENSE_BY_CLASS = { oss: "Apache-2.0", sold: "UNLICENSED", ops: "UNLICENSED" };
 
 /**
@@ -31,9 +38,9 @@ export const OWNERSHIP = {
   "apps/local-asr-gateway": { class: "oss", why: "桌面本地版的本机语音转写网关" },
   "apps/skill-sandbox": { class: "oss", why: "沙箱（归属表 OSS 列）" },
   "packages/maau-postinvest-report": { class: "sold", why: "投后判据阈值与派生公式：售卖 · 技能包内容（#3856 从契约包搬出的原因）" },
-  "apps/api": { class: "undecided", why: "混有将来售卖的企业治理功能（SSO、审计、多租户）；等 C3 划出企业版边界（2026-09-24 人类决策：先不标）" },
-  "apps/web": { class: "undecided", why: "同 apps/api：等 C3 划出企业版边界" },
-  "packages/dev-mode-accounts": { class: "undecided", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
+  "apps/api": { class: "oss", why: "C3 盘点：归属表列的企业功能绝大多数还不存在；已建的 token 配额按 D25 开源；审计日志与平台管理按 D26 开源" },
+  "apps/web": { class: "oss", why: "同 apps/api（C3 盘点 + D25、D26）" },
+  "packages/dev-mode-accounts": { class: "oss", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
   "packages/cloud-deploy": { class: "oss", why: "自托管客户要用的部署、TLS、备份与发布工具（D23，2026-09-24 人类决策）；其中阿里云专属部分待改成通用写法" },
   "packages/fabric-markdown": { class: "undecided", why: "vendored 上游分支，仓库里没有记录上游许可证（npm 上也查不到）；需人核实上游许可后保留其声明" },
 };
@@ -48,6 +55,7 @@ export function classifyWorkspace(root) {
       const dir = `${top}/${e}`;
       if (!existsSync(join(root, dir, "package.json"))) continue;
       if (ops.has(dir)) out.push({ dir, class: "ops", why: "内部运营平面（lib/ops-plane.mjs）" });
+      else if (EE_DIR.test(dir)) out.push({ dir, class: "sold", why: "企业版包（目录名 ee-*，C3 / D26）" });
       else if (OWNERSHIP[dir]) out.push({ dir, ...OWNERSHIP[dir] });
       else out.push({ dir, class: null, why: null });
     }

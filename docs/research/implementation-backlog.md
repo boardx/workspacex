@@ -203,7 +203,7 @@ flowchart LR
 | B3 | 完整 clone 上重跑凭据扫描，人工确认候选项 | ◐ | R6：已在完整历史（3076 commit）上跑完，156 处命中；先修了 `--head-only` 永远报 0 的 bug。**人工确认仍待人**，优先看只在历史里的 `aliyun-ak` 2 处 |
 | B4 | 凭据扫描报告落盘 | ✅ | R6：`oss-secret-scan-2026-09-24.md`，只记计数不记位置 |
 | B5 | 填 `SECURITY.md` 安全联系邮箱 | ◐ | 文件已建 |
-| B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11：按 `lib/ownership.mjs` 标了 13 个（开源 5 个附 Apache-2.0 官方正文，售卖 1、运营面 7 标 UNLICENSED）；5 个归属未定（api、web 等 C3；`fabric-markdown` 上游许可未记录）。NOTICE 的版权方名称待组织确定 |
+| B6 | 补 `package.json` 的 `license` 字段 | ◐ | R11 标 13 个；R14 `cloud-deploy`（D23）；R16 `apps/api`、`apps/web`、`dev-mode-accounts`（D25、D26）。现 18 个：开源 9、售卖 1、运营面 7，**只剩 `fabric-markdown` 未定**（上游许可未记录）。NOTICE 的版权方名称待组织确定 |
 | B7 | CLA 或 DCO 落地 | ✅ | R13：按 D20 用 DCO。`CONTRIBUTING.md`（DCO 1.1 原文）、`check-dco.mjs`、`dco.yml` 只查 fork PR |
 | B8 | 商标政策 | □ | D1 已定，**可开工** |
 
@@ -213,7 +213,7 @@ flowchart LR
 |---|---|---|---|
 | C1 | 给 8 个技能包补许可 | ✅ | R12：按 D18 全部补 Apache-2.0 官方正文。只加 LICENSE 文件、不改 SKILL.md——改正文要连带发新版到所有实例；已重建 5 个包确认产物逐字节不变 |
 | C2 | 清单门控转 `--strict` 接 CI | ✅ | R12：存量清零后转 strict，接入 `verify:harness:raw` |
-| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | ◐ | R15 盘点完成（`ee-boundary-inventory-2026-09-24.md`）：归属表列的企业功能**绝大多数还不存在**，已建的只有 token 配额 F160–F162；审计日志与平台管理建议开源。**待人判断配额归属**，再立边界、标 api/web 许可证 |
+| C3 | `lint-ee-boundary`（OSS 不依赖 EE） | ✅ | R15 盘点；R16 按 D25、D26 立边界（`ee-*` 目录）并建门控，接入 `verify:harness:raw` |
 | C4 | 契约包不依赖内容包的边界检查 | ✅ | R2：`lint-contracts-no-workspace-deps.mjs`，取最严版本——契约包不依赖**任何**工作区包 |
 | C5 | 运营平面 schema 白名单门控 | ✅ | R8：`lint-telemetry-schema.mjs` 遍历 zod schema 本身：对象必须 strict、数组必须有上限、无开放键集合 |
 | C6 | 运营平面个人信息字段级门控 | ✅ | R8：同一道门——字符串必须受约束（自由文本即红），字段名像个人信息即红 |

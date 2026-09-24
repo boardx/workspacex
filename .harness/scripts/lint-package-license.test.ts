@@ -27,7 +27,7 @@ const CLEAN = {
   "packages/contracts": { license: "Apache-2.0", licenseFile: APACHE },
   "packages/maau-postinvest-report": { license: "UNLICENSED" },
   "packages/coord-protocol": { license: "UNLICENSED" },
-  "apps/api": {},
+  "packages/fabric-markdown": {},
 };
 const run = (root: string) => spawnSync("node", [SCRIPT, "--root", root], { encoding: "utf8" });
 afterEach(() => {
@@ -48,7 +48,7 @@ describe("lint-package-license", () => {
   it("对照组：开源 Apache + 正文、售卖与运营面 UNLICENSED、未定不标 ⇒ 绿", () => {
     const r = run(repo(CLEAN));
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain("未定 apps/api");
+    expect(r.stdout).toContain("未定 packages/fabric-markdown");
   });
 
   it("① 新包没登记归属 ⇒ 红（不许默认继承某个许可证）", () => {
@@ -63,7 +63,7 @@ describe("lint-package-license", () => {
   });
 
   it("③ 归属未定却写了许可证 ⇒ 红（替组织做了开源决策）", () => {
-    const r = run(repo({ ...CLEAN, "apps/api": { license: "Apache-2.0" } }));
+    const r = run(repo({ ...CLEAN, "packages/fabric-markdown": { license: "Apache-2.0" } }));
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("替组织做了开源决策");
   });
