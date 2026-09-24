@@ -6,8 +6,8 @@
 
 ## Automated verification
 
-- Contracts: `research-trust.test.ts` — 5/5 passed.
-- API trust/steering/evidence/quality plus persistence/orchestration regression: 71/71 passed in an isolated PostgreSQL test environment.
+- Contracts: `research-trust.test.ts` — 6/6 passed, including strict-domain and calendar-range validation.
+- API trust/steering/evidence/quality plus persistence/orchestration regression: 72/72 passed in an isolated PostgreSQL test environment.
 - Web trust/readiness/live/report suites: 52/52 passed.
 - Contracts, API, and Web TypeScript checks passed.
 - API lint passed.
@@ -24,6 +24,17 @@ The first independent review found five important issues; all were converted to 
 4. Legacy completed reports without readiness data display `质量待评估`, not an unconditional success state.
 5. Activity-event merge/deduplication is used by the production trust console.
 
+The final independent review found three additional boundary risks; all were converted to
+regression tests and closed:
+
+1. Internal research sources now pass through the repository's authoritative
+   `guard`/`disclose` ACL path. A real PostgreSQL test proves that two researchers in the
+   same project but different teams cannot cross a `team-only` artifact boundary.
+2. A `restrict` source policy with no domain is rejected by both the contract and the UI,
+   rather than silently behaving like open-web search.
+3. Time boundaries accept calendar dates only and reject a start date later than the end
+   date in both the contract and the UI.
+
 ## Full baseline gate note
 
 `./init.sh --full` passed the harness suite (165 files / 1,891 tests), all 45 typecheck/lint tasks, and continued through the repository test matrix. The run was not green because six unrelated `@repo/skill-sandbox` Office-generation tests timed out at their shared 60-second limit. An isolated rerun reproduced the same six timeouts (PPTX/XLSX/PDF/DOCX) while the remaining 79 sandbox tests passed. No skill-sandbox files are changed by this branch; the PR CI result remains the authoritative clean-environment signal.
@@ -36,7 +47,11 @@ The seeded full-stack lane now verifies the trust console through the real UI, A
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded guided-research-runtime.spec.ts
 ```
 
-Result: Chromium 1/1 passed; the browser test itself completed in 1.7 minutes. It confirms persisted intent/time range, enforced restricted-domain policy, pause/resume across reload, question-level verbatim evidence, coverage, quality/readiness, and planning/searching/reading/writing/validation activity.
+Result after the final ACL/source/time-boundary fixes: Chromium 1/1 passed; the browser test
+itself completed in 1.7 minutes (4.6 minutes including isolated stack startup). It confirms
+persisted intent/time range, enforced restricted-domain policy, pause/resume across reload,
+question-level verbatim evidence, coverage, quality/readiness, and
+planning/searching/reading/writing/validation activity.
 
 The deterministic responsive preview remains a separate visual acceptance lane:
 

@@ -50,8 +50,8 @@ test("research persists all five model-backed steps through the real UI, API and
       await page.getByLabel("决策对象").fill("决定储能市场进入策略");
       await page.getByLabel("目标受众").fill("投资委员会");
       await page.getByLabel("成功标准").fill("每个核心问题都有可定位原文\n严重冲突必须解决");
-      await page.getByLabel("时间范围起点").fill("2024-01");
-      await page.getByLabel("时间范围终点").fill("2026-09");
+      await page.getByLabel("时间范围起点").fill("2024-01-01");
+      await page.getByLabel("时间范围终点").fill("2026-09-30");
       await page.getByText("仅限指定站点", { exact: true }).click();
       await page.getByRole("textbox", { name: "指定站点" }).fill("127.0.0.1");
       await page.getByRole("button", { name: "确认研究边界" }).click();
@@ -134,7 +134,7 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
-  expect(runtime.intent).toMatchObject({ decision: "决定储能市场进入策略", timeframe: { from: "2024-01", to: "2026-09" } });
+  expect(runtime.intent).toMatchObject({ decision: "决定储能市场进入策略", timeframe: { from: "2024-01-01", to: "2026-09-30" } });
   expect(runtime.sourcePolicy).toMatchObject({ mode: "restrict", domains: ["127.0.0.1"] });
   expect(runtime.questionEvidence.length).toBeGreaterThan(0);
   expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);

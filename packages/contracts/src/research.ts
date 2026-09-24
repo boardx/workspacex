@@ -986,7 +986,10 @@ export const GuidedResearchReportTimelineStep = z.object({
 export const GuidedResearchIntent = z.object({
   decision: z.string().trim().min(1).max(2000),
   audience: z.string().trim().max(500),
-  timeframe: z.object({ from: z.string().optional(), to: z.string().optional() }).strict(),
+  timeframe: z.object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value, "invalid calendar date").optional(),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value, "invalid calendar date").optional(),
+  }).strict().refine((value) => !value.from || !value.to || value.from <= value.to, "timeframe.from must not be after timeframe.to"),
   deliverable: z.string().trim().max(1000),
   successCriteria: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
 }).strict();
@@ -995,7 +998,7 @@ export const GuidedResearchSourcePolicy = z.object({
   domains: z.array(z.string().trim().min(1).max(253)).max(50),
   internalSourceIds: z.array(z.string().min(1)).max(100),
   revision: z.number().int().nonnegative(),
-}).strict();
+}).strict().refine((value) => value.mode !== "restrict" || value.domains.length > 0, "restrict mode requires at least one domain");
 export const GuidedResearchActivityEvent = z.object({
   id: z.string().min(1), sequence: z.number().int().nonnegative(),
   stage: z.enum(["planning", "searching", "reading", "validating", "writing"]),

@@ -12,11 +12,30 @@ describe("guided research trust console", () => {
     expect(submit).toBeDisabled();
     fireEvent.change(screen.getByLabelText("决策对象"), { target: { value: "决定企业搜索供应商" } });
     fireEvent.change(screen.getByLabelText("成功标准"), { target: { value: "关键结论都有来源" } });
-    fireEvent.change(screen.getByLabelText("时间范围起点"), { target: { value: "2024-01" } });
-    fireEvent.change(screen.getByLabelText("时间范围终点"), { target: { value: "2026-09" } });
+    fireEvent.change(screen.getByLabelText("时间范围起点"), { target: { value: "2024-01-01" } });
+    fireEvent.change(screen.getByLabelText("时间范围终点"), { target: { value: "2026-09-30" } });
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
-    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 0, intent: expect.objectContaining({ timeframe: { from: "2024-01", to: "2026-09" } }) }));
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 0, intent: expect.objectContaining({ timeframe: { from: "2024-01-01", to: "2026-09-30" } }) }));
+  });
+
+  it("blocks a restrict policy with no allowed domains", () => {
+    render(<GuidedResearchIntentPlan initialIntent={undefined} initialPolicy={undefined} revision={0} onConfirm={vi.fn()} disabled={false} />);
+    fireEvent.change(screen.getByLabelText("决策对象"), { target: { value: "决定企业搜索供应商" } });
+    fireEvent.change(screen.getByLabelText("成功标准"), { target: { value: "关键结论都有来源" } });
+    fireEvent.click(screen.getByRole("radio", { name: "仅限指定站点" }));
+    expect(screen.getByText("仅限指定站点时至少填写一个域名。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认研究边界" })).toBeDisabled();
+  });
+
+  it("blocks a reversed time range", () => {
+    render(<GuidedResearchIntentPlan initialIntent={undefined} initialPolicy={undefined} revision={0} onConfirm={vi.fn()} disabled={false} />);
+    fireEvent.change(screen.getByLabelText("决策对象"), { target: { value: "决定企业搜索供应商" } });
+    fireEvent.change(screen.getByLabelText("成功标准"), { target: { value: "关键结论都有来源" } });
+    fireEvent.change(screen.getByLabelText("时间范围起点"), { target: { value: "2026-09-30" } });
+    fireEvent.change(screen.getByLabelText("时间范围终点"), { target: { value: "2024-01-01" } });
+    expect(screen.getByText("时间范围必须是有效日期，且起点不能晚于终点。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认研究边界" })).toBeDisabled();
   });
 
   it("deduplicates replayed activity in server order", () => {

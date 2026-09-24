@@ -59,7 +59,9 @@ function normalizedPolicyHost(value: string): string {
   return host;
 }
 export async function searchWithSourcePolicy(search: GuidedSearchPort, query: string, policy?: SourcePolicy) {
-  if (!policy || policy.mode === "open" || !policy.domains.length) return search.search(query);
+  if (!policy || policy.mode === "open") return search.search(query);
+  if (policy.mode === "restrict" && !policy.domains.length) throw new ResearchRuntimeError("RESEARCH_SOURCE_POLICY_INVALID");
+  if (!policy.domains.length) return search.search(query);
   const domains = policy.domains.map(normalizedPolicyHost);
   const scopedQuery = `${query} (${domains.map((domain) => `site:${domain}`).join(" OR ")})`;
   const hits = await search.search(scopedQuery);
