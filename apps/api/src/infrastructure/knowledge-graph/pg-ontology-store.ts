@@ -27,7 +27,9 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
     objects: batch.objects.map((o) => ({ id: o.id, object_kind: o.objectKind, name: o.name, aliases: o.aliases })),
     claims: batch.claims.map((c) => ({
       id: c.id, claim_kind: c.claimKind, statement: c.statement, status: c.status, confidence: c.confidence,
-      evidence: c.evidence.map((e) => ({ segment_id: e.segmentId, stance: e.stance })),
+      evidence: c.evidence.map((e) => ("messageId" in e
+        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
+        : { segment_id: e.segmentId, stance: e.stance })),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,

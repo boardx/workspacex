@@ -1262,7 +1262,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // E3 adds pg-first-value-facts.ts (first-write-wins fact insert + SECURITY DEFINER
     // report function that drops personal-local and never returns org ids), pinned by
     // tests/first-value/first-value-repo-guard.test.ts. Remove with that test.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(94);
+    // Phase 18 F06 adds the knowledge-extraction pipeline read (pg-kg-extraction.ts):
+    // a system worker that feeds a chat message to the extraction model and writes the
+    // result back into the SAME thread's scope -- nothing is disclosed to a requester.
+    // Its shape is pinned by tests/knowledge-graph/extraction-repo-guard.test.ts.
+    // Remove this increment with the exception if that guard test disappears.
+    // Phase 18 F08 adds the per-turn knowledge recall read (pg-knowledge-recall.ts): same
+    // shape as the L3 pg-file-retrieval.ts entry -- the executor reads the run's OWN thread
+    // knowledge into the model context only. Pinned by tests/knowledge-graph/recall-repo-guard.test.ts.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(96);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

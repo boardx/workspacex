@@ -3,6 +3,8 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
+import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
+import type { GraphHit, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -49,3 +51,61 @@ export interface GraphProjectionPort {
 }
 
 export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");
+
+// ─────────────────────────────── F06 抽取 ───────────────────────────────
+
+export interface KgExtractionJob {
+  readonly orgId: OrgId;
+  readonly messageId: string;
+  readonly threadId: string;
+  /** 含本次在内已经尝试的次数。 */
+  readonly attempts: number;
+}
+
+/** 抽取队列（消息落库时由触发器排队，见迁移 20260924210000）。 */
+export interface KgExtractionQueuePort {
+  /** 抽取在这个库上开着：从此新消息才排队（关着时不排，免得永远没人消费的行无限增长）。 */
+  enable(): Promise<void>;
+  pendingOrgs(): Promise<readonly OrgId[]>;
+  /** 认领本 org 的一批任务（带租约：worker 崩了，租约过期后别的 worker 可以重新认领）。 */
+  claim(orgId: OrgId, limit: number): Promise<readonly KgExtractionJob[]>;
+  complete(orgId: OrgId, messageId: string): Promise<void>;
+  fail(orgId: OrgId, messageId: string, error: string): Promise<void>;
+}
+
+export interface KgMessage {
+  readonly id: string;
+  readonly threadId: string;
+  readonly body: string;
+  readonly authorKind: "human" | "agent";
+}
+
+export interface KgExtractionSourcePort {
+  /** 这条消息，外加它之前的若干条（给模型消解「他」「这个版本」之类的指代）。消息不在了 ⇒ null。 */
+  loadMessage(orgId: OrgId, messageId: string, contextTurns: number): Promise<{ readonly message: KgMessage; readonly context: readonly KgMessage[] } | null>;
+  /** 本会话已有的实体（实体解析用）。 */
+  knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]>;
+}
+
+export interface KnowledgeExtractorPort {
+  /** 模型调用失败 ⇒ 抛错（任务稍后重试）；模型回了东西但解析不出 ⇒ 返回空结果（不重试）。 */
+  extract(input: { readonly message: KgMessage; readonly context: readonly KgMessage[] }): Promise<ExtractionResult>;
+}
+
+export const KG_EXTRACTION_QUEUE_PORT = Symbol("KgExtractionQueuePort");
+export const KG_EXTRACTION_SOURCE_PORT = Symbol("KgExtractionSourcePort");
+export const KNOWLEDGE_EXTRACTOR_PORT = Symbol("KnowledgeExtractorPort");
+
+// ─────────────────────────────── F08 会话知识召回（喂给对话模型） ───────────────────────────────
+
+export interface KnowledgeRecallPort {
+  /** 本会话的活结论与实体（候选集）。读身份 = 发起这轮对话的人。 */
+  candidates(orgId: OrgId, userId: string, threadId: string): Promise<{
+    readonly claims: readonly RecallClaim[];
+    readonly objects: readonly RecallObject[];
+  }>;
+  /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
+  graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+}
+
+export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
