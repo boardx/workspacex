@@ -1,4 +1,4 @@
-CREATE TABLE whiteboard_proposals (
+CREATE TABLE IF NOT EXISTS whiteboard_proposals (
   org_id text NOT NULL, board_id uuid NOT NULL, id uuid NOT NULL,
   submitted_by text NOT NULL, request_id uuid NOT NULL, request_hash text NOT NULL CHECK(length(request_hash)=64),
   title text NOT NULL, generator_label text,
@@ -15,6 +15,7 @@ CREATE TABLE whiteboard_proposals (
 );
 ALTER TABLE whiteboard_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_proposals FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant ON whiteboard_proposals;
 CREATE POLICY tenant ON whiteboard_proposals USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 REVOKE ALL ON whiteboard_proposals FROM app_rw;
 GRANT SELECT,INSERT,UPDATE ON whiteboard_proposals TO app_rw;
