@@ -111,3 +111,5 @@ export function canvasToMarkdown(
   }
   return wrapAsMermaidBlock(code, lang);
 }
+export { diagramToWhiteboard, canvasToWhiteboard } from './whiteboard-export';
+export type { WhiteboardDiagramCopy } from './whiteboard-export';
