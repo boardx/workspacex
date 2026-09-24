@@ -812,6 +812,8 @@ export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
  */
 export const PROTOTYPE_VARIANTS_MIN = 2;
 export const PROTOTYPE_VARIANTS_MAX = 4;
+/** 深度 S9（#3988）：不说要几个时出几个——服务端的缺省与界面上「要几个」的初值同一个数。 */
+export const PROTOTYPE_VARIANTS_DEFAULT = 3;
 export const PrototypeVariant = z.object({ summary: z.string().min(1).max(120), root: PrototypeNode }).strict();
 export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
 

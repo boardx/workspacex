@@ -14,7 +14,7 @@ import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScal
 import { PresentMode } from "./present-mode";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { useDesignComments } from "@/lib/design-comments";
-import { VariantsPanel, type VariantsState } from "./variants-panel";
+import { VariantsPanel, type VariantsAsk, type VariantsState } from "./variants-panel";
 import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
@@ -383,11 +383,11 @@ export function DesignDetailScreen({
   const [pickingVariant, setPickingVariant] = React.useState(false);
   React.useEffect(() => { setVariants(null); }, [frame]);
   const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
-  const askVariants = async () => {
+  const askVariants = async (ask: VariantsAsk = {}) => {
     if (project === null) return;
     setVariants({ kind: "loading" });
     try {
-      const out = await proposeVariants(project.id, variantScreen);
+      const out = await proposeVariants(project.id, variantScreen, ask);
       setVariants({ kind: "ready", items: out.variants });
     } catch (err) {
       setVariants({ kind: "error", message: `没能出方案（${describeFailure(err)}）` });
@@ -1185,6 +1185,7 @@ export function DesignDetailScreen({
                     <VariantsPanel
                       state={variants}
                       frameLabel={project.frames[variantScreen] ?? ""}
+                      current={project.prototype[variantScreen] ?? null}
                       device={lens}
                       landscape={landscape}
                       accent={project.accent}
@@ -1193,7 +1194,7 @@ export function DesignDetailScreen({
                       picking={pickingVariant}
                       onPick={(i) => void pickVariant(i)}
                       onClose={() => setVariants(null)}
-                      onRetry={() => void askVariants()}
+                      onRegenerate={(ask) => void askVariants(ask)}
                     />
                   ) : viewMode === "board" ? (
                     <PrototypeBoard

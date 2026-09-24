@@ -412,7 +412,7 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     await routeVariants(page);
     await single(page);
     await page.getByTestId("design-detail-variants").click();
-    await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版", { timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版", { timeout: 3000 });
   });
 
   test("[V8.c2] 写一句要求再出一组：请求带着这句话", async ({ page }) => {
@@ -420,8 +420,8 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     const seen = await routeVariants(page);
     await single(page);
     await page.getByTestId("design-detail-variants").click();
-    await page.getByTestId("design-variants-instruction").fill("更简洁，少一点文字", { timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
-    await page.getByTestId("design-variants-regenerate").click(); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-variants-instruction").fill("更简洁，少一点文字", { timeout: 3000 });
+    await page.getByTestId("design-variants-regenerate").click();
     await expect.poll(() => seen.at(-1)).toMatchObject({ screen: 0, instruction: "更简洁，少一点文字" });
   });
 
@@ -431,7 +431,7 @@ test.describe("V8 变体：提要求、对照、数量", () => {
     await single(page);
     await page.getByTestId("design-detail-variants").click();
     await page.getByTestId("design-variants-count").selectOption("2", { timeout: 3000 });
-    await page.getByTestId("design-variants-regenerate").click(); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-variants-regenerate").click();
     await expect.poll(() => seen.at(-1)).toMatchObject({ count: 2 });
     await expect(page.getByTestId("design-variant-1")).toBeVisible();
     await expect(page.getByTestId("design-variant-2")).toHaveCount(0);

@@ -560,3 +560,33 @@ test.describe("深度 S8 导出 PPTX（#3988）", () => {
     expect(names).not.toContain("ppt/slides/slide3.xml");
   });
 });
+
+test.describe("深度 S9 变体：对照、提要求、要几个（#3988）", () => {
+  test("方案旁摆着当前页；写一句要求、选 2 个再出一组 ⇒ 请求带着它们，只出 2 个", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    const asked: { count?: number; instruction?: string }[] = [];
+    const variant = (tag: string) => ({ type: "stack", children: [{ type: "text", props: { content: `会员 · ${tag}`, variant: "title" } }] });
+    await page.route((url) => /^\/pm-designs\/eval-R7\/variants$/.test(url.pathname), async (route) => {
+      const body = route.request().postDataJSON() as { count?: number; instruction?: string };
+      asked.push(body);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        variants: ["甲", "乙", "丙", "丁"].slice(0, body.count ?? 3).map((t) => ({ summary: `方案${t}`, root: variant(`方案${t}`) })),
+      }) });
+    });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-variants").click();
+    await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版");
+    await expect(page.getByTestId("design-variant-2")).toBeVisible();
+    expect(asked[0]).toEqual({ screen: 0 });
+    await page.getByTestId("design-variants-instruction").fill("突出价格");
+    await page.getByTestId("design-variants-count").selectOption("2");
+    await page.getByTestId("design-variants-regenerate").click();
+    await expect.poll(() => asked.length).toBe(2);
+    expect(asked[1]).toEqual({ screen: 0, count: 2, instruction: "突出价格" });
+    await expect(page.getByTestId("design-variant-1")).toBeVisible();
+    await expect(page.getByTestId("design-variant-2")).toHaveCount(0);
+  });
+});
