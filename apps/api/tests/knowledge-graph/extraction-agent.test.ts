@@ -173,14 +173,26 @@ describe("F06 评审补强", () => {
   });
 
   it("抽取关着时不排队；消息自带更窄的可见范围时不排队", async () => {
-    await asOwner((c) => c.query("UPDATE kg_extraction_state SET enabled = false"));
-    try {
-      await addChatMessage({ orgId: ORG, id: "m-off", threadId: T2, body: "关着时说的话", authorId: "u-owner" });
-    } finally {
-      await asOwner((c) => c.query("UPDATE kg_extraction_state SET enabled = true"));
-    }
+    // 开关是全库的：在一个事务里关、插、查、回滚，并行跑的其他测试文件看不到「关着」的那一刻。
+    const queuedWhileOff = await asOwner(async (c) => {
+      await c.query("BEGIN");
+      try {
+        await c.query("UPDATE kg_extraction_state SET enabled = false");
+        await c.query("SELECT set_config('app.current_org', $1, true)", [ORG]);
+        await c.query(
+          "INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, body) VALUES ('m-off', $1, $2, 'human', 'u-owner', '关着时说的话')",
+          [ORG, T2],
+        );
+        return (await c.query("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-off'")).rowCount;
+      } finally {
+        await c.query("ROLLBACK");
+      }
+    });
+    expect(queuedWhileOff).toBe(0);
     await addChatMessage({ orgId: ORG, id: "m-narrow", threadId: T2, body: "只给组内看的话", authorId: "u-owner", visibilityScope: "member-private" });
-    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id IN ('m-off', 'm-narrow')")).toHaveLength(0);
+    // 只有不换行空格 / 零宽空格 / BOM 的消息也算空白
+    await addChatMessage({ orgId: ORG, id: "m-blank", threadId: T2, body: "\u00a0\u200b \ufeff\u3000\n", authorId: "u-owner" });
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id IN ('m-narrow', 'm-blank')")).toHaveLength(0);
   });
 
   it("个人空间的消息证据只能来自本人的会话；摘录不是原话时由数据库换成原话", async () => {

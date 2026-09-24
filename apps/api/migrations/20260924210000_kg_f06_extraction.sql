@@ -70,6 +70,9 @@ GRANT SELECT, UPDATE, DELETE ON kg_extraction_queue TO app_rw;
 -- 否则每个部署（包括桌面版）都会一条消息攒一行、永远没人消费（同 F04 在没有 AGE 时不排 outbox 的理由）。
 -- worker 启动且确实开着时调用 kg_extraction_enable() 把它置真；从那之后的新消息才排队，不会回头给
 -- 全部历史消息补抽（要补抽走「整理本会话」，uc-18-3 A1）。
+-- 只开不关（有意）：之后撤掉 KG_EXTRACTION_ENABLED，队列会继续攒行而没人消费。要停抽取，运维在库上
+-- `UPDATE kg_extraction_state SET enabled = false`（并视需要清空 kg_extraction_queue）——不在 API 启动时
+-- 自动关：多实例配置不一致时，一台没开的实例重启就会把整个库的抽取关掉。
 CREATE TABLE IF NOT EXISTS kg_extraction_state (
   singleton  boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   enabled    boolean NOT NULL DEFAULT false,
@@ -88,7 +91,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
   -- 原始转录流（raw_transcript）另有管线；只有空白的消息没有可抽的东西。
-  IF NEW.raw_transcript OR NEW.body ~ '^\s*$' THEN RETURN NULL; END IF;
+  -- \s 不含不换行空格 / 零宽空格 / BOM，单独列出（全角空格 \s 已含，列上无妨）。
+  IF NEW.raw_transcript OR NEW.body ~ '^[\s\u00a0\u200b\u3000\ufeff]*$' THEN RETURN NULL; END IF;
   -- 单条消息比会话更窄的可见范围（member-private 等）：从它抽出的知识会按整个会话可见，所以不抽。
   IF NEW.visibility_scope IS NOT NULL THEN RETURN NULL; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.kg_extraction_state WHERE enabled) THEN RETURN NULL; END IF;

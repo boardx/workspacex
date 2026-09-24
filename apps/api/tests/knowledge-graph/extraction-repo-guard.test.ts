@@ -50,21 +50,28 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     expect(callers).toEqual(["src/application/knowledge-graph/extract-message-knowledge.ts"]);
   });
 
-  it("(e) 对外只有端口要求的方法——不能悄悄多出一个「读全部正文」的方法", () => {
-    const methods = [...code.matchAll(/^\s{2}async (\w+)\(/gm)].map((m) => m[1]).sort();
-    expect(methods).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs"]);
+  it("(e) 类成员只有端口要求的方法——不能悄悄多出一个「读全部正文」的方法（不论 async / 修饰符 / 箭头属性）", () => {
+    const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
+      .map((m) => m[1]).filter((n) => n !== "constructor").sort();
+    expect(members).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs"]);
   });
 
   it("(f) 每一条碰 chat_messages 的 SQL 都限定到一条消息（id = $2）或一个会话（thread_id = $2）", () => {
-    const sqls = [...code.matchAll(/`([^`]*)`|"([^"]*)"/g)].map((m) => m[1] ?? m[2] ?? "").filter((q) => /chat_messages/.test(q));
+    const sqls = [...code.matchAll(/`([^`]*)`|"([^"]*)"|'([^']*)'/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? "").filter((q) => /chat_messages/i.test(q));
     expect(sqls.length).toBeGreaterThan(0);
-    for (const q of sqls) expect(q, q).toMatch(/\b(?:id|thread_id) = \$2\b/);
+    for (const q of sqls) {
+      expect(q, q).toMatch(/\b(?:id|thread_id) = \$2\b/);
+      // 限定条件要真的起作用：OR / UNION 都能把它绕开
+      expect(q, q).not.toMatch(/\b(?:OR|UNION)\b/i);
+    }
+    // 源码里任何位置出现这张表名，都必须落在上面扫描过的字符串里（拼接 / 模板插值都不行）
+    expect(code.match(/chat_messages/gi)?.length).toBe(sqls.reduce((n, q) => n + (q.match(/chat_messages/gi)?.length ?? 0), 0));
   });
 
-  it("(g) 已知实体的读取不带 OR（作用域条件不能被放宽）", () => {
+  it("(g) 已知实体的读取不带 OR / UNION（作用域条件不能被放宽）", () => {
     const q = /FROM ontology_objects[\s\S]*?ORDER BY/.exec(code)?.[0] ?? "";
     expect(q).toMatch(/scope_kind = 'chat_session' AND scope_id = \$2/);
-    expect(q).not.toMatch(/\bOR\b/i);
+    expect(q).not.toMatch(/\b(?:OR|UNION)\b/i);
   });
 });
 
