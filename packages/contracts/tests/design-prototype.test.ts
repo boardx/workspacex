@@ -191,8 +191,8 @@ describe("迭代 6 原语扩充", () => {
       ],
     };
     expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
-    // 对标 R3：+ table / chart。
-    expect(dp.PrototypeNodeType.options).toHaveLength(23);
+    // 对标 R3：+ table / chart；R4：+ select / radio / overlay；R5：+ section / footer。
+    expect(dp.PrototypeNodeType.options).toHaveLength(28);
     expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
     expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
     expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
@@ -667,5 +667,68 @@ describe("对标 R3：table / chart", () => {
   it("节点短标签说清是什么、多大", () => {
     expect(dp.prototypeNodeLabel({ type: "table", props: { columns: ["a", "b"], rows: [["1", "2"]] } })).toBe("表格（2 列 × 1 行）");
     expect(dp.prototypeNodeLabel({ type: "chart", props: { title: "趋势", labels: ["a"], values: [1] } })).toBe("图表「趋势」");
+  });
+});
+
+/* ─────────────── 对标 R4（#3933）：下拉、单选、叠层 ─────────────── */
+describe("对标 R4：select / radio / overlay", () => {
+  it("正例：下拉、单选、带内容的弹窗；overlay 是容器", () => {
+    const page: dp.PrototypeNode = { type: "stack", children: [
+      { type: "select", props: { label: "城市", options: ["北京", "上海"], value: "上海" } },
+      { type: "radio", props: { label: "性别", options: ["男", "女", "不透露"], selected: 2 } },
+      { type: "overlay", props: { kind: "modal", title: "确定注销？" }, children: [{ type: "button", props: { label: "确认" } }] },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "overlay", children: [] })).toBe(true);
+    expect(dp.PROTOTYPE_CONTAINER_TYPES).toContain("overlay");
+  });
+
+  it("反例：单选只有一项、选中越界、叠层样式不在闭集、下拉没有选项", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["只有一项"] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "radio", props: { options: ["a", "b"], selected: 2 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "overlay", props: { kind: "popover" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "select", props: { options: [] } }).success).toBe(false);
+  });
+
+  it("模型写成字符串的 selected 会被纠偏成数字（同 tabs.active）", () => {
+    const raw = dp.coercePrototypeRaw({ type: "radio", props: { options: ["a", "b"], selected: "1" } });
+    expect(dp.PrototypeNode.safeParse(raw).success).toBe(true);
+  });
+
+  it("给模型的说明：容器清单由 PROTOTYPE_CONTAINER_TYPES 派生（不手抄），并教它弹窗单独一页", () => {
+    // ⭐ 反证锚点：说明里仍写死「只有 stack/card/grid 有 children」⇒ 模型不知道 overlay 能装东西，这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(`只有 ${dp.PROTOTYPE_CONTAINER_TYPES.join("/")} 有 children`);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/overlay\{kind:modal\|sheet\|toast/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/单独做一页/);
+  });
+});
+
+/* ─────────────── 对标 R5（#3933）：落地页的分区与页脚 ─────────────── */
+describe("对标 R5：section / footer", () => {
+  it("正例：分区是容器（可以装 hero / grid），页脚是叶子", () => {
+    const page: dp.PrototypeNode = { type: "stack", props: { padding: "none", gap: "none" }, children: [
+      { type: "section", props: { tone: "primary", align: "center" }, children: [{ type: "hero", props: { title: "五分钟搞定一个月的账" } }] },
+      { type: "section", props: { tone: "muted" }, children: [{ type: "grid", props: { columns: 3 }, children: [] }] },
+      { type: "footer", props: { brand: "轻账", links: ["产品", "价格"], note: "© 2026" } },
+    ] };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "section", children: [] })).toBe(true);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { brand: "轻账" }, children: [] }).success).toBe(false);
+  });
+
+  it("反例：分区底色不在闭集、页脚没有品牌名", () => {
+    expect(dp.PrototypeNode.safeParse({ type: "section", props: { tone: "gradient" }, children: [] }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "footer", props: { links: ["a"] } }).success).toBe(false);
+  });
+
+  it("分区底色的中文档位按「section.tone」登记，不串到徽标的语义色上", () => {
+    expect(dp.prototypeOptionLabel("section", "tone", "muted")).toBe("浅灰底");
+    expect(dp.prototypeOptionLabel("badge", "tone", "success")).toBe("成功绿");
+  });
+
+  it("给模型的说明教了落地页怎么搭（不教，官网首页会被画成一张很长的 App 屏）", () => {
+    // ⭐ 反证锚点：删掉 section / footer 那一段 ⇒ 这条红。
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/section\{tone:default\|muted\|primary\|inverse/);
+    expect(dp.PROTOTYPE_SCHEMA_GUIDE).toMatch(/footer\{brand/);
   });
 });

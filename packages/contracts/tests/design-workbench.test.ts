@@ -500,3 +500,18 @@ describe("DesignTokens：品牌色与字体", () => {
     expect(dw.PROTOTYPE_FONT_STACKS.serif).toMatch(/serif$/);
   });
 });
+
+describe("对标 R9 proposeVariants（#3954）", () => {
+  const root = { type: "stack", children: [{ type: "text", props: { content: "甲" } }] };
+  it("in：screen 必填、count 在 2–4 之间；out：至少两个方案，每个过 PrototypeNode", () => {
+    expect(dw.operations.proposeVariants.in.parse({ projectId: "p", screen: 0 })).toEqual({ projectId: "p", screen: 0 });
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 1 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p", screen: 0, count: 5 }).success).toBe(false);
+    expect(dw.operations.proposeVariants.in.safeParse({ projectId: "p" }).success).toBe(false);
+    const two = [{ summary: "A", root }, { summary: "B", root }];
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two }).success).toBe(true);
+    expect(dw.operations.proposeVariants.out.safeParse({ variants: two.slice(0, 1) }).success).toBe(false);
+    expect(dw.PrototypeVariant.safeParse({ summary: "坏", root: { type: "no-such-type" } }).success).toBe(false);
+    expect([...dw.operations.proposeVariants.err]).toContain("DEPENDENCY_UNAVAILABLE");
+  });
+});

@@ -84,6 +84,13 @@ export function describeNode(n: PrototypeNode): string {
     // 对标 R3：表格与图表把**数据**写进文档，工程拿到的是样例数据而不是「这里有张表」。
     case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
     case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
+    // 对标 R4：表单项把选项写全，叠层说清是哪种（工程据此决定是 Dialog 还是 Sheet）。
+    // 对标 R5
+    case "section": return `分区（${n.props?.tone === "muted" ? "浅灰底" : n.props?.tone === "primary" ? "主色底" : n.props?.tone === "inverse" ? "反色底" : "无底色"}）`;
+    case "footer": return `页脚「${n.props.brand}」${n.props.links !== undefined && n.props.links.length > 0 ? `：${n.props.links.join(" / ")}` : ""}${n.props.note !== undefined ? `；${n.props.note}` : ""}`;
+    case "select": return `下拉${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.join(" / ")}${n.props.value !== undefined ? `（当前：${n.props.value}）` : ""}`;
+    case "radio": return `单选${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.map((o, i) => (i === n.props.selected ? `●${o}` : o)).join(" / ")}`;
+    case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }
