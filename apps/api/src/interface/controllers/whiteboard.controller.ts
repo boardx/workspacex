@@ -98,7 +98,7 @@ export class WhiteboardController {
   async exportBoard(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string) {
     assertPrincipal(p); try {
       const bundle=await this.transfer.exportBoard(p,id);
-      return new StreamableFile(Buffer.from(JSON.stringify(bundle)), { type:'application/json; charset=utf-8', disposition:'attachment; filename="board.workspacex-board.json"' });
+      return new StreamableFile(Buffer.from(T.serializePortableBoardPackage(bundle)), { type:'application/json; charset=utf-8', disposition:'attachment; filename="board.workspacex-board.json"' });
     } catch (error) { transferFailure(error); }
   }
   @Post('imports/preview')

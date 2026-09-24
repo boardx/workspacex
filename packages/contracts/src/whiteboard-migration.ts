@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { BoardId } from './whiteboard';
 import { WHITEBOARD_LIMITS } from './whiteboard-document';
-import { PortableBoardPackage } from './whiteboard-transfer';
+import { ImportQualitySummary, PortableBoardPackage } from './whiteboard-transfer';
 
 export const EXTERNAL_BOARD_IMPORT = {
   maxBytes: 16 * 1024 * 1024,
@@ -89,6 +89,7 @@ export type ExternalBoardSnapshot = z.infer<typeof ExternalBoardSnapshot>;
 export const ExternalImportLossCode = z.enum([
   'UNKNOWN_OBJECT', 'DANGLING_PARENT', 'DANGLING_CONNECTOR', 'DRAWING_UNSUPPORTED',
   'DRAWINGS_NOT_INCLUDED', 'FORMATTING_REMOVED', 'TEXT_TRUNCATED', 'POSITION_APPROXIMATED', 'INVALID_OBJECT',
+  'VENDOR_DATA_OMITTED',
 ]);
 export const ExternalImportLoss = z.object({
   code: ExternalImportLossCode,
@@ -104,8 +105,14 @@ export const ExternalImportPreview = z.object({
   sourceName: ExternalName,
   importedObjectCount: z.number().int().nonnegative().max(EXTERNAL_BOARD_IMPORT.maxObjects),
   skippedObjectCount: z.number().int().nonnegative().max(EXTERNAL_BOARD_IMPORT.maxObjects),
-  losses: z.array(ExternalImportLoss).max(EXTERNAL_BOARD_IMPORT.maxObjects * 3 + 1),
-}).strict();
+  losses: z.array(ExternalImportLoss).max(EXTERNAL_BOARD_IMPORT.maxObjects * 5 + 1),
+  quality: ImportQualitySummary,
+}).strict().superRefine((value, ctx) => {
+  const imported = value.quality.complete.count + value.quality.approximate.count + value.quality.degraded.count;
+  if (imported !== value.importedObjectCount || value.quality.skipped.count !== value.skippedObjectCount) {
+    ctx.addIssue({ code:z.ZodIssueCode.custom,path:['quality'],message:'Import quality must account for every source object' });
+  }
+});
 
 export const ExternalImportConversion = z.object({
   package: PortableBoardPackage,

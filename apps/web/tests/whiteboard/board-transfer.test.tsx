@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { LiveBoard } from '@/components/whiteboard/live-board';
 import * as api from '@/lib/live-whiteboard';
 import { convertExternalBoardSnapshot } from '@repo/whiteboard-core';
+import { whiteboardTransfer as T } from '@repo/contracts';
 
 const push=vi.fn();
 vi.mock('next/navigation',()=>({useRouter:()=>({push})}));
@@ -16,8 +17,9 @@ vi.mock('@repo/whiteboard-core', async importOriginal => ({
 }));
 
 const board={id:'57d83843-21e2-40ae-8c1c-571d0ad63c80',name:'Source',ownerId:'owner',role:'owner' as const,archived:false,createdAt:'2026-09-24T00:00:00.000Z',updatedAt:'2026-09-24T00:00:00.000Z'};
-const bundle={format:'workspacex.board' as const,schemaVersion:1 as const,exportedAt:'2026-09-24T00:00:00.000Z',source:{application:'WorkspaceX' as const,boardId:board.id,name:'Source'},objects:[],provenance:{objectCount:0,contentModel:'whiteboard-object.v1' as const}};
-const serverPreview={sourceName:'Source',destinationName:'Source（导入）',objectCount:0,frameCount:0,groupCount:0,connectorCount:0,identitiesRemapped:0,contentLosses:[]};
+const bundle=T.createPortableBoardPackage({format:'workspacex.board',schemaVersion:1,source:{application:'WorkspaceX',boardId:board.id,name:'Source'},objects:[]});
+const emptyQuality=T.completeImportQuality([]);
+const serverPreview={sourceName:'Source',destinationName:'Source（导入）',objectCount:0,frameCount:0,groupCount:0,connectorCount:0,identitiesRemapped:0,contentLosses:[],quality:emptyQuality};
 beforeEach(()=>{vi.resetAllMocks();vi.mocked(api.getBoard).mockResolvedValue(board);vi.mocked(api.previewBoardImport).mockResolvedValue(serverPreview);vi.stubGlobal('crypto',{randomUUID:()=>randomUUID()});});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
@@ -45,6 +47,7 @@ describe('Board portable transfer UI',()=>{
         {code:'UNKNOWN_OBJECT',sourceObjectId:'x2',sourceType:'embed',message:'嵌入内容未导入'},
         {code:'FORMATTING_REMOVED',sourceObjectId:'x3',message:'部分文字格式已简化'},
       ],
+      quality:{complete:{count:0,sampleSourceIds:[]},approximate:{count:1,sampleSourceIds:['x3']},degraded:{count:0,sampleSourceIds:[]},skipped:{count:2,sampleSourceIds:['x1','x2']}},
     }});
     vi.mocked(api.importBoardPackage).mockResolvedValue({board:{...board,id:'8f177ac1-a652-4a6d-9078-fe239ad672bd',name:`${sourceName}（导入）`},importedObjects:3,remappedObjects:3,replayed:false});
     render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-import-file');
@@ -56,6 +59,9 @@ describe('Board portable transfer UI',()=>{
     expect(preview.textContent).toContain('始终创建新的 WorkspaceX 白板');
     expect(screen.getByTestId('vendor-import-losses').textContent).toContain('UNKNOWN_OBJECT（2）');
     expect(screen.getByTestId('vendor-import-losses').textContent).toContain('FORMATTING_REMOVED（1）');
+    expect(screen.getByTestId('board-import-quality').textContent).toContain('近似 1');
+    expect(screen.getByTestId('board-import-quality').textContent).toContain('示例来源：x3');
+    expect(screen.getByTestId('board-import-quality').textContent).toContain('跳过 2');
     expect(api.previewBoardImport).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTestId('board-import-confirm'));
     await waitFor(()=>expect(api.importBoardPackage).toHaveBeenCalledWith(expect.objectContaining({package:bundle})));
