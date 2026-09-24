@@ -160,23 +160,28 @@ function buildFallbackReportMarkdown(input: {
   });
   const distinctExpertCount = new Set(input.answers.map((answer) => answer.expertId)).size;
   const formalAppendix = [
-    "## 研究范围与方法",
+    "## 研究方法",
     `本报告围绕“${input.topic}”整理数字专家模拟访谈结果。样本为 ${input.answers.length} 条已完成回答，来自 ${distinctExpertCount} 位数字专家。分析仅基于页面已确认的专家回答，不引入外部事实；结论属于探索性发现，正式决策前需要真人访谈或业务数据验证。`,
     sourceLines.join("\n"),
-    "## 核心洞察",
-    findingLines.join("\n\n"),
-    "## 分角色深度分析",
+    "## 研究简报",
+    `本次研究围绕“${input.topic}”支持后续决策，所有结论仅来自当前确认版本。`,
+    "## 专家边界",
     roleLines.join("\n"),
-    "## 跨角色主题分析",
+    "## 证据覆盖",
+    sourceLines.join("\n"),
+    "## 关键发现",
+    findingLines.join("\n\n"),
     generatedNarrativeText || "当前模型已生成的正文不足以支撑额外主题展开；以上结论仅依据已完成回答。",
-    "## 分歧与共识",
+    "## 分歧与反例",
     distinctExpertCount > 1
       ? "不同专家回答之间的共识与分歧需要结合后续真人访谈继续校验；当前报告保留每条回答的来源，避免把少量样本推成总体结论。"
       : "当前只有一位专家的有效回答，不能判断跨角色共识或分歧；该回答只能作为后续追访和验证的起点。",
-    "## 行动建议",
-    findings.map((finding, index) => `- P${Math.min(index, 2)}：围绕“${finding.title}”设计下一轮验证动作，补充真人访谈、业务数据或试点观察，确认该判断是否可进入决策。`).join("\n"),
-    "## 研究局限与后续验证",
+    "## 局限性",
     "本报告基于数字专家模拟访谈生成，样本规模和语境有限。后续应补充真人专家、利益相关方访谈和实际业务数据，优先验证高影响结论、角色差异和可执行建议。",
+    "## 待验证假设",
+    findings.map((finding) => `- ${finding.title}：仍需真人访谈或业务数据验证。`).join("\n"),
+    "## 建议行动",
+    findings.map((finding, index) => `- P${Math.min(index, 2)}：围绕“${finding.title}”设计下一轮验证动作，补充真人访谈、业务数据或试点观察，确认该判断是否可进入决策。`).join("\n"),
   ].filter((part) => part.trim().length > 0).join("\n\n");
   return [streamedMarkdown, formalAppendix].filter((part) => part.trim().length > 0).join("\n\n");
 }
@@ -933,6 +938,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
 
     const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
+    const goalIdsBySource = new Map(snapshot.workflow.questions.map((question) => [
+      `${question.expertId}:${question.questionId}`, question.goalIds,
+    ]));
     const sourceAnswers: ReportSourceAnswer[] = snapshot.completed.flatMap((run) => run.answers.map((answer) => ({
       expertId: run.expertId,
       displayName: run.displayName,
@@ -981,6 +989,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
             findingId: this.ids.next("itv-finding"), title: event.title, summary: event.summary,
             expertId: event.expertId, questionId: event.questionId,
             sourceAnswerId: `${event.expertId}:${event.questionId}`, exploratory: true as const,
+            goalIds: goalIdsBySource.get(`${event.expertId}:${event.questionId}`) ?? [],
           };
           await session.query(
             `UPDATE digital_interview_reports
@@ -1011,6 +1020,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         system: buildDigitalInterviewReportSystemPrompt(Math.min(3, validSources.size)),
         user: JSON.stringify({
           operation: "generate_interview_report", topic: snapshot.workflow.topic,
+          researchBrief: snapshot.workflow.researchBrief,
+          evidenceCoverage: snapshot.workflow.quality.evidenceCoverage,
           evidenceBoundary: "digital_expert_simulation_requires_human_validation",
           experts: snapshot.completed.map((run) => ({
             ...snapshot.workflow.expertCandidates.find((candidate) => candidate.expertId === run.expertId),
@@ -1227,18 +1238,23 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         [input.orgId, input.revisionId],
       );
       let ordinal = Number(maximum.rows[0]?.ordinal ?? "0");
+      const brief = await session.query<{ brief: { learningGoals?: Array<{ goalId?: string }> } }>(
+        `SELECT brief FROM digital_interview_research_briefs WHERE org_id=$1 AND revision_id=$2`,
+        [input.orgId, input.revisionId],
+      );
+      const goalIds = (brief.rows[0]?.brief.learningGoals ?? []).flatMap((goal) => goal.goalId ? [goal.goalId] : []);
       for (const expert of selected) {
         if (expert.existingQuestionCount > 0) continue;
         const questions = generated.get(expert.expertId);
         if (!questions) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
-        for (const question of questions) {
+        for (const [questionIndex, question] of questions.entries()) {
           ordinal += 1;
           await session.query(
             `INSERT INTO digital_interview_question_candidates
-               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose,section,goal_ids)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [input.orgId, input.revisionId, this.ids.next("itv-question-draft"), expert.expertId,
-              ordinal, question.text, question.purpose],
+              ordinal, question.text, question.purpose, questionIndex === 2 ? "counterexample" : "core", goalIds],
           );
         }
       }
