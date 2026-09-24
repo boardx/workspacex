@@ -56,7 +56,7 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
   return response;
 }
 
-type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;expectedClients:number;expectedWriters:number};
+type SoakRunRequest = {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;requiredOfflineMs:number;expectedClients:number;expectedWriters:number;expectedReconnects:number};
 async function authenticatedContext(browser: Browser, baseURL: string | undefined, token: string, soakRun: SoakRunRequest): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
   await context.addInitScript(({ key, value, run }) => { localStorage.setItem(key, value); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK__', '1'); sessionStorage.setItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__', JSON.stringify(run)); }, { key: SESSION_TOKEN_STORAGE_KEY, value: token, run: soakRun });
@@ -155,7 +155,7 @@ test('50 independent browser contexts converge without loss, duplicates or forks
   try {
     browserVersion = browser.version();
     const environment={ os: `${os.platform()} ${os.release()} ${os.arch()}`, node: process.version, browser: browserVersion, ci: process.env.CI === 'true' };
-    const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:config.durationMs,expectedClients:config.clients,expectedWriters:config.writers};
+    const runBase={runId,exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:config.durationMs,requiredOfflineMs:config.offlineMs,expectedClients:config.clients,expectedWriters:config.writers,expectedReconnects:Math.min(5,config.writers)};
     ownerToken = await loginToken(browser, baseURL, 'OWNER');
     const editorToken = await loginToken(browser, baseURL, 'EDITOR');
     viewerToken = await loginToken(browser, baseURL, 'VIEWER');

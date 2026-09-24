@@ -47,9 +47,9 @@ function rawReport(options: { clients?: number; writers?: number; profile?: Soak
   const exactSha='a'.repeat(40),environment={ os: 'test', node: process.version, browser: 'test', ci: false };
   const freshClient=result(uuid(3000),uuid(3001),'viewer',objects,finalSeq),server=result(uuid(4000),uuid(4001),'owner',objects,finalSeq);
   const reconnecting=new Set(reconnects.map(item=>item.client));
-  const connections=[...initialClients.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial' as const,connectedAtMs:collaborationStartedMs-200,disconnectedAtMs:reconnecting.has(item.client)?offlineAtMs+1:finishedMs+100})),...reconnects.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:'editor' as const,purpose:'reconnect' as const,connectedAtMs:item.onlineAtMs,disconnectedAtMs:finishedMs+100})),{clientNonce:freshClient.client,connectionId:freshClient.connectionId,role:freshClient.role,purpose:'fresh' as const,connectedAtMs:finishedMs,disconnectedAtMs:finishedMs+100},{clientNonce:server.client,connectionId:server.connectionId,role:server.role,purpose:'server' as const,connectedAtMs:finishedMs+100,disconnectedAtMs:null}];
+  const connections=[...initialClients.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:item.role,purpose:'initial' as const,connectedAtMs:collaborationStartedMs-200,disconnectedAtMs:reconnecting.has(item.client)?offlineAtMs:finishedMs+100})),...reconnects.map(item=>({clientNonce:item.client,connectionId:item.connectionId,role:'editor' as const,purpose:'reconnect' as const,connectedAtMs:item.onlineAtMs,disconnectedAtMs:finishedMs+100})),{clientNonce:freshClient.client,connectionId:freshClient.connectionId,role:freshClient.role,purpose:'fresh' as const,connectedAtMs:finishedMs,disconnectedAtMs:finishedMs+100},{clientNonce:server.client,connectionId:server.connectionId,role:server.role,purpose:'server' as const,connectedAtMs:finishedMs+100,disconnectedAtMs:null}];
   const signedOperations=operations.map((item,index)=>({id:item.id,writer:item.writer,connectionId:item.writerConnectionId,seq:index+1,committedAtMs:item.createdAtMs+50})),signedStartedAtMs=collaborationStartedMs-100,signedFinishedAtMs=Math.max(...signedOperations.map(item=>item.committedAtMs)),finalDocument=canonicalizeDocument(objects);
-  const payload={schemaVersion:1 as const,runId:uuid(9000),challenge:uuid(9001),boardId:uuid(9002),exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:cfg.durationMs,expectedClients:cfg.clients,expectedWriters:cfg.writers,startedAtMs:signedStartedAtMs,finishedAtMs:signedFinishedAtMs,connections,operations:signedOperations,finalSeq,finalDocument,finalHash:documentHash(finalDocument),finalizedAtMs:finishedMs+200};
+  const payload={schemaVersion:1 as const,runId:uuid(9000),challenge:uuid(9001),boardId:uuid(9002),exactSha,environmentFingerprint:soakEnvironmentFingerprint(environment),requiredDurationMs:cfg.durationMs,requiredOfflineMs:cfg.offlineMs,expectedClients:cfg.clients,expectedWriters:cfg.writers,expectedReconnects:Math.min(5,cfg.writers),startedAtMs:signedStartedAtMs,finishedAtMs:signedFinishedAtMs,connections,operations:signedOperations,finalSeq,finalDocument,finalHash:documentHash(finalDocument),finalizedAtMs:finishedMs+200};
   const serverLedger={payload,signature:sign(null,Buffer.from(JSON.stringify(payload)),keys.privateKey).toString('base64')};
   const partial = { runId:payload.runId,exactSha,environment,startedAt: new Date(0).toISOString(), finishedAt: new Date(finishedMs + 1000).toISOString(), collaborationStartedAt: new Date(collaborationStartedMs).toISOString(), collaborationFinishedAt: new Date(finishedMs).toISOString(), collaborationDurationMs: cfg.durationMs, config: cfg, initialClients, operations, clients, freshClient, server, reconnects,serverLedger };
   const analysis = analyzeSoak(partial);
@@ -161,6 +161,30 @@ describe('Board collaboration soak evidence', () => {
     const report=rawReport();
     for(const client of [...report.clients,report.freshClient!,report.server!]){client.document=client.document.map(item=>({...item,geometry:{...(item.geometry as Record<string,unknown>),x:999}}));client.hash=documentHash(client.document);}
     expect(analyzeSoak(report).evidenceFailures).toEqual(expect.arrayContaining([expect.stringMatching(/does not match the signed final snapshot/)]));
+  });
+
+  it('rejects a signed initial client that disconnected before the acceptance window started',()=>{
+    const report=rawReport(),connection=report.serverLedger!.payload.connections.find(item=>item.purpose==='initial'&&!report.reconnects.some(reconnect=>reconnect.client===item.clientNonce))!;connection.disconnectedAtMs=report.serverLedger!.payload.startedAtMs-1;
+    expect(analyzeSoak(report).evidenceFailures).toEqual(expect.arrayContaining([expect.stringMatching(/simultaneously live|unexpected signed mid-run disconnect/)]));
+  });
+
+  it('rejects sequential connect-and-close rows that never prove all initial clients live together',()=>{
+    const report=rawReport(),initial=report.serverLedger!.payload.connections.filter(item=>item.purpose==='initial');initial.forEach((item,index)=>{item.connectedAtMs=100+index*10;item.disconnectedAtMs=105+index*10;});
+    expect(analyzeSoak(report).evidenceFailures).toEqual(expect.arrayContaining([expect.stringMatching(/simultaneously live/)]));
+  });
+
+  it('rejects an undeclared client disconnect in the middle of the signed window',()=>{
+    const report=rawReport(),reconnecting=new Set(report.reconnects.map(item=>item.client)),connection=report.serverLedger!.payload.connections.find(item=>item.purpose==='initial'&&!reconnecting.has(item.clientNonce))!;connection.disconnectedAtMs=report.serverLedger!.payload.startedAtMs+1000;
+    expect(analyzeSoak(report).evidenceFailures).toContain(`${connection.clientNonce} has an unexpected signed mid-run disconnect`);
+  });
+
+  it('rejects an explicit client sequence mismatch against the signed final sequence',()=>{
+    const report=rawReport();report.clients[0]!.seq+=1;
+    expect(analyzeSoak(report).evidenceFailures).toContain(`${report.clients[0]!.client} does not match the signed final snapshot and sequence`);
+  });
+
+  it('accepts exactly five signed controlled outage lifetimes and their reconnects',()=>{
+    const report=rawReport();expect(report.reconnects).toHaveLength(5);expect(report.analysis.evidenceFailures).toEqual([]);expect(report.analysis.accepted).toBe(true);
   });
 
   it('rejects a legal writer/viewer role swap against browser and server bindings', async () => {

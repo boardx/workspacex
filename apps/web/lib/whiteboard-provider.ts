@@ -32,7 +32,7 @@ export class WhiteboardProvider {
   private accessReceiptId: string | null = null;
   private pending: PendingWhiteboardUpdate[] = [];
   private readonly clientNonce = crypto.randomUUID();
-  private readonly soakRun = (() => { try { const raw=sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__'); return raw ? JSON.parse(raw) as {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;expectedClients:number;expectedWriters:number} : undefined; } catch { return undefined; } })();
+  private readonly soakRun = (() => { try { const raw=sessionStorage.getItem('__WORKSPACEX_WHITEBOARD_SOAK_RUN__'); return raw ? JSON.parse(raw) as {runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;requiredOfflineMs:number;expectedClients:number;expectedWriters:number;expectedReconnects:number} : undefined; } catch { return undefined; } })();
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null, clientNonce: this.clientNonce, connectionId: null,seq:0 };
   private readonly token = getStoredSessionToken();
   private context: WhiteboardOutboxContext | null = null;
