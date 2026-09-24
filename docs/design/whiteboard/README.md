@@ -11,6 +11,7 @@
 3. [调研依据](research.md)：官方参考与本地实现证据，区分事实和设计建议。
 4. [进度](progress.md)与[交接](session-handoff.md)：本轮验证边界与下一步。
 5. [9 分产品验收 Backlog](nine-point-backlog.md)：从当前能力到可验证 9/10 的计分、硬门槛、迁移与交付顺序。
+6. [内容在线迁移运行手册](content-migration-rollout.md)：组织级 dry-run、限流、暂停/恢复、审计和恢复语义。
 
 这是一次性设计输入，按 `docs/README.md` 归档；尚未创建新 phase 或 feature 清单。进入实施时，将需求迁入选定 phase 的 `requirements/` 并将本目录改为指针，避免双份权威。UI 原型、用例、API 契约仍须按仓库束级签核流程确认。
 

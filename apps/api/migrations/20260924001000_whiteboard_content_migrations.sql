@@ -65,3 +65,92 @@ GRANT SELECT,INSERT,UPDATE ON whiteboard_content_migrations TO app_rw;
 -- The runtime role may retire only the legacy body. Actor/update/request
 -- receipt metadata remains immutable and replayable.
 GRANT UPDATE(update) ON whiteboard_updates TO app_rw;
+
+-- A fleet rollout is a separate durable control plane over the board-scoped
+-- migration journal. Stable UUID pagination plus durable work items make a
+-- crash/restart resume without rediscovering or duplicating a completed Board.
+CREATE TABLE IF NOT EXISTS whiteboard_content_rollouts (
+  org_id text NOT NULL,
+  rollout_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'running' CHECK (status IN ('running','paused','cancelled','completed')),
+  cursor_board_id uuid,
+  exhausted boolean NOT NULL DEFAULT false,
+  config jsonb NOT NULL CHECK (jsonb_typeof(config)='object'),
+  control_revision bigint NOT NULL DEFAULT 0 CHECK (control_revision>=0),
+  discovered bigint NOT NULL DEFAULT 0 CHECK (discovered>=0),
+  scanned bigint NOT NULL DEFAULT 0 CHECK (scanned>=0),
+  migrated bigint NOT NULL DEFAULT 0 CHECK (migrated>=0),
+  failed bigint NOT NULL DEFAULT 0 CHECK (failed>=0),
+  retried bigint NOT NULL DEFAULT 0 CHECK (retried>=0),
+  bytes_read bigint NOT NULL DEFAULT 0 CHECK (bytes_read>=0),
+  bytes_written bigint NOT NULL DEFAULT 0 CHECK (bytes_written>=0),
+  cas_resets bigint NOT NULL DEFAULT 0 CHECK (cas_resets>=0),
+  orphan_candidates bigint NOT NULL DEFAULT 0 CHECK (orphan_candidates>=0),
+  phase_calls bigint NOT NULL DEFAULT 0 CHECK (phase_calls>=0),
+  latency_ms bigint NOT NULL DEFAULT 0 CHECK (latency_ms>=0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz,
+  PRIMARY KEY(org_id,rollout_id),
+  CHECK ((status='completed' AND completed_at IS NOT NULL) OR (status<>'completed' AND completed_at IS NULL))
+);
+
+CREATE TABLE IF NOT EXISTS whiteboard_content_rollout_items (
+  org_id text NOT NULL,
+  rollout_id uuid NOT NULL,
+  board_id uuid NOT NULL,
+  migration_job_id uuid NOT NULL,
+  state text NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','running','retry','succeeded','failed','cancelled')),
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts>=0),
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
+  lease_owner text,
+  lease_until timestamptz,
+  last_error_code text CHECK (last_error_code IS NULL OR last_error_code ~ '^[A-Z0-9_]{1,64}$'),
+  bytes_read bigint NOT NULL DEFAULT 0 CHECK (bytes_read>=0),
+  bytes_written bigint NOT NULL DEFAULT 0 CHECK (bytes_written>=0),
+  cas_resets bigint NOT NULL DEFAULT 0 CHECK (cas_resets>=0),
+  orphan_candidates bigint NOT NULL DEFAULT 0 CHECK (orphan_candidates>=0),
+  phase_calls bigint NOT NULL DEFAULT 0 CHECK (phase_calls>=0),
+  latency_ms bigint NOT NULL DEFAULT 0 CHECK (latency_ms>=0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(org_id,rollout_id,board_id),
+  UNIQUE(org_id,migration_job_id),
+  FOREIGN KEY(org_id,rollout_id) REFERENCES whiteboard_content_rollouts(org_id,rollout_id) ON DELETE CASCADE,
+  FOREIGN KEY(org_id,board_id) REFERENCES whiteboards(org_id,id) ON DELETE CASCADE,
+  CHECK ((state='running' AND lease_owner IS NOT NULL AND lease_until IS NOT NULL) OR (state<>'running' AND lease_owner IS NULL AND lease_until IS NULL))
+);
+
+CREATE INDEX IF NOT EXISTS whiteboard_content_rollout_claim
+  ON whiteboard_content_rollout_items(org_id,rollout_id,state,next_attempt_at,board_id);
+CREATE TABLE IF NOT EXISTS whiteboard_content_rollout_events (
+  sequence bigint GENERATED ALWAYS AS IDENTITY,
+  org_id text NOT NULL,
+  rollout_id uuid NOT NULL,
+  board_id uuid,
+  kind text NOT NULL CHECK (kind IN ('control','outcome')),
+  code text NOT NULL CHECK (code ~ '^[A-Z0-9_]{1,64}$'),
+  detail jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(detail)='object'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(org_id,rollout_id,sequence),
+  FOREIGN KEY(org_id,rollout_id) REFERENCES whiteboard_content_rollouts(org_id,rollout_id) ON DELETE CASCADE
+);
+ALTER TABLE whiteboard_content_rollouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_content_rollouts FORCE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_content_rollout_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_content_rollout_items FORCE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_content_rollout_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_content_rollout_events FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS whiteboard_content_rollouts_tenant ON whiteboard_content_rollouts;
+CREATE POLICY whiteboard_content_rollouts_tenant ON whiteboard_content_rollouts
+  USING (org_id=current_setting('app.current_org',true)) WITH CHECK (org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_content_rollout_items_tenant ON whiteboard_content_rollout_items;
+CREATE POLICY whiteboard_content_rollout_items_tenant ON whiteboard_content_rollout_items
+  USING (org_id=current_setting('app.current_org',true)) WITH CHECK (org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_content_rollout_events_tenant ON whiteboard_content_rollout_events;
+CREATE POLICY whiteboard_content_rollout_events_tenant ON whiteboard_content_rollout_events
+  USING (org_id=current_setting('app.current_org',true)) WITH CHECK (org_id=current_setting('app.current_org',true));
+REVOKE ALL ON whiteboard_content_rollouts,whiteboard_content_rollout_items,whiteboard_content_rollout_events FROM app_rw;
+GRANT SELECT,INSERT,UPDATE ON whiteboard_content_rollouts,whiteboard_content_rollout_items TO app_rw;
+GRANT SELECT,INSERT ON whiteboard_content_rollout_events TO app_rw;
+GRANT USAGE,SELECT ON SEQUENCE whiteboard_content_rollout_events_sequence_seq TO app_rw;

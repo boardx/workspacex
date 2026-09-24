@@ -13,13 +13,16 @@ export type BoardContentMigrationReport = {
   jobId: string; state: BoardContentMigrationRecord['state']; sourceEpoch: number; sourceHeadSeq: number;
   candidateManifestDigest: string | null; cleanupThroughSeq: number; attempts: number; errorCode: string | null;
   cutoverAt: string | null; retirementNotBefore: string | null; retirementProofDigest: string | null;
+  operation: { bytesRead: number; bytesWritten: number; casResets: number; orphanCandidates: number };
 };
 
-function report(record: BoardContentMigrationRecord): BoardContentMigrationReport {
+const NO_OPERATION = { bytesRead: 0, bytesWritten: 0, casResets: 0, orphanCandidates: 0 } as const;
+
+function report(record: BoardContentMigrationRecord, operation: BoardContentMigrationReport['operation'] = NO_OPERATION): BoardContentMigrationReport {
   return { jobId: record.jobId, state: record.state, sourceEpoch: record.sourceEpoch, sourceHeadSeq: record.sourceHeadSeq,
     candidateManifestDigest: record.candidate?.manifestDigest ?? null, cleanupThroughSeq: record.cleanupThroughSeq,
     attempts: record.attempts, errorCode: record.lastErrorCode, cutoverAt: record.cutoverAt,
-    retirementNotBefore: record.retirementNotBefore, retirementProofDigest: record.retirementProofDigest };
+    retirementNotBefore: record.retirementNotBefore, retirementProofDigest: record.retirementProofDigest, operation };
 }
 
 function errorCode(error: unknown): string {
@@ -61,51 +64,54 @@ export class MigrateBoardContent {
       if (record.state === 'enrolled') {
         const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
         const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
+        const legacyBytes = this.inventoryBytes(inventory);
         if (inventory.storageKind === 'blob_primary') throw new Error('ALREADY_BLOB_PRIMARY');
         this.assertInventory(inventory);
         if (!this.sameWatermark(record, inventory)) {
           record = await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory);
-          return report(record);
+          return report(record, { ...NO_OPERATION, bytesRead: legacyBytes, casResets: 1 });
         }
         // Object I/O intentionally happens after captureWatermark's short row-lock
         // transaction. saveCandidate re-locks and rejects a changed watermark.
-        const candidate = await this.buildCandidate(input.tenantId, input.boardId, inventory);
-        try { return report(await this.repository.saveCandidate(input.tenantId, input.boardId, record, candidate)); }
+        const built = await this.buildCandidate(input.tenantId, input.boardId, inventory);
+        try { return report(await this.repository.saveCandidate(input.tenantId, input.boardId, record, built.candidate), { ...NO_OPERATION, bytesRead: legacyBytes + built.bytesRead, bytesWritten: built.bytesWritten }); }
         catch (error) {
           if (!isCasLost(error)) throw error;
           const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
-          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
+          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current), { bytesRead: legacyBytes + built.bytesRead, bytesWritten: built.bytesWritten, casResets: 1, orphanCandidates: 2 });
         }
       }
       if (record.state === 'candidate_ready') {
         const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
         const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
+        const legacyBytes = this.inventoryBytes(inventory);
         this.assertInventory(inventory);
-        if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory));
+        if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory), { ...NO_OPERATION, bytesRead: legacyBytes, casResets: 1 });
         const source = this.sourceDocument(inventory);
         const candidate = await this.readCandidate(input.tenantId, input.boardId, record);
-        if (!yjsSemanticallyEqual(source, candidate)) throw new Error('SEMANTIC_MISMATCH');
-        try { return report(await this.repository.markVerified(input.tenantId, input.boardId, record)); }
+        if (!yjsSemanticallyEqual(source, candidate.document)) throw new Error('SEMANTIC_MISMATCH');
+        try { return report(await this.repository.markVerified(input.tenantId, input.boardId, record), { ...NO_OPERATION, bytesRead: legacyBytes + candidate.bytesRead }); }
         catch (error) {
           if (!isCasLost(error)) throw error;
           const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
-          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
+          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current), { ...NO_OPERATION, bytesRead: legacyBytes + candidate.bytesRead, casResets: 1 });
         }
       }
       if (record.state === 'verified') {
         const watermark = await this.repository.captureWatermark(input.tenantId, input.boardId);
         const inventory = await this.repository.readInventory(input.tenantId, input.boardId, watermark);
+        const legacyBytes = this.inventoryBytes(inventory);
         this.assertInventory(inventory);
-        if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory));
+        if (!this.sameWatermark(record, inventory)) return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, inventory), { ...NO_OPERATION, bytesRead: legacyBytes, casResets: 1 });
         const source = this.sourceDocument(inventory);
         const candidate = await this.readCandidate(input.tenantId, input.boardId, record);
-        if (!yjsSemanticallyEqual(source, candidate)) throw new Error('SEMANTIC_MISMATCH');
+        if (!yjsSemanticallyEqual(source, candidate.document)) throw new Error('SEMANTIC_MISMATCH');
         const retirementNotBefore = new Date(this.now().getTime() + this.rollbackWindowMs);
-        try { return report(await this.repository.cutover(input.tenantId, input.boardId, record, retirementNotBefore)); }
+        try { return report(await this.repository.cutover(input.tenantId, input.boardId, record, retirementNotBefore), { ...NO_OPERATION, bytesRead: legacyBytes + candidate.bytesRead }); }
         catch (error) {
           if (!isCasLost(error)) throw error;
           const current = await this.repository.captureWatermark(input.tenantId, input.boardId);
-          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current));
+          return report(await this.repository.resetForChangedSource(input.tenantId, input.boardId, record, current), { ...NO_OPERATION, bytesRead: legacyBytes + candidate.bytesRead, casResets: 1 });
         }
       }
       return report(record);
@@ -132,13 +138,17 @@ export class MigrateBoardContent {
     return mergeLegacyYjsContent(inventory.snapshot, inventory.updates.map(update => update.update));
   }
 
+  private inventoryBytes(inventory: LegacyBoardInventory): number {
+    return (inventory.snapshot?.byteLength ?? 0) + inventory.updates.reduce((sum, update) => sum + update.update.byteLength, 0);
+  }
+
   private async putAndVerify(tenantId: string, key: string, blob: EncodedBoardBlob): Promise<void> {
     await this.blobs.putImmutable({ tenantId, key, ciphertext: blob.ciphertext, cipherDigest: blob.cipherDigest, sizeBytes: blob.sizeBytes });
     const bytes = await this.blobs.getVerified({ tenantId, key, expectedCipherDigest: blob.cipherDigest, expectedSizeBytes: blob.sizeBytes });
     await this.codec.decrypt({ ...blob, tenantId, ciphertext: bytes, expectedPlainDigest: blob.plainDigest });
   }
 
-  private async buildCandidate(tenantId: string, boardId: string, inventory: LegacyBoardInventory): Promise<BoardMigrationCandidate> {
+  private async buildCandidate(tenantId: string, boardId: string, inventory: LegacyBoardInventory): Promise<{ candidate: BoardMigrationCandidate; bytesRead: number; bytesWritten: number }> {
     const checkpointBytes = this.sourceDocument(inventory);
     const checkpoint = await this.codec.encrypt({ tenantId, tenantKeyVersion: this.tenantKeyVersion, plaintext: checkpointBytes });
     const checkpointKey = boardBlobKey({ tenantId, boardId, kind: 'checkpoint', cipherDigest: checkpoint.cipherDigest });
@@ -149,11 +159,12 @@ export class MigrateBoardContent {
     const encodedManifest = await this.codec.encrypt({ tenantId, tenantKeyVersion: this.tenantKeyVersion, plaintext: encodeBoardContentManifest(manifest) });
     const manifestKey = boardBlobKey({ tenantId, boardId, kind: 'manifest', cipherDigest: encodedManifest.cipherDigest });
     await this.putAndVerify(tenantId, manifestKey, encodedManifest);
-    return { manifestKey, manifestDigest: encodedManifest.cipherDigest, manifestPlainDigest: encodedManifest.plainDigest,
-      manifestSizeBytes: encodedManifest.sizeBytes, tenantKeyVersion: this.tenantKeyVersion };
+    return { candidate: { manifestKey, manifestDigest: encodedManifest.cipherDigest, manifestPlainDigest: encodedManifest.plainDigest,
+      manifestSizeBytes: encodedManifest.sizeBytes, tenantKeyVersion: this.tenantKeyVersion },
+      bytesRead: checkpoint.sizeBytes + encodedManifest.sizeBytes, bytesWritten: checkpoint.sizeBytes + encodedManifest.sizeBytes };
   }
 
-  private async readCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<Uint8Array> {
+  private async readCandidate(tenantId: string, boardId: string, record: BoardContentMigrationRecord): Promise<{ document: Uint8Array; bytesRead: number }> {
     const candidate = record.candidate;
     if (!candidate) throw new Error('CANDIDATE_MISSING');
     const encryptedManifest = await this.blobs.getVerified({ tenantId, key: candidate.manifestKey, expectedCipherDigest: candidate.manifestDigest, expectedSizeBytes: candidate.manifestSizeBytes });
@@ -163,8 +174,9 @@ export class MigrateBoardContent {
     const manifest = decodeBoardContentManifest(manifestBytes);
     if (manifest.boardId !== boardId || manifest.epoch !== record.sourceEpoch || manifest.headSeq !== record.sourceHeadSeq) throw new Error('CANDIDATE_MANIFEST_MISMATCH');
     const encryptedCheckpoint = await this.blobs.getVerified({ tenantId, key: manifest.checkpoint.key, expectedCipherDigest: manifest.checkpoint.cipherDigest, expectedSizeBytes: manifest.checkpoint.sizeBytes });
-    return this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: encryptedCheckpoint, cipherDigest: manifest.checkpoint.cipherDigest,
+    const document = await this.codec.decrypt({ tenantId, tenantKeyVersion: manifest.tenantKeyVersion, ciphertext: encryptedCheckpoint, cipherDigest: manifest.checkpoint.cipherDigest,
       plainDigest: manifest.checkpoint.plainDigest, expectedPlainDigest: manifest.checkpoint.plainDigest, sizeBytes: manifest.checkpoint.sizeBytes });
+    return { document, bytesRead: encryptedManifest.byteLength + encryptedCheckpoint.byteLength };
   }
 
   async verifyRetirementHead(tenantId: string, boardId: string, head: BoardRetirementHead): Promise<{ checkpointDigest: string }> {

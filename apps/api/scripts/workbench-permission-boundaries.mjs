@@ -13,6 +13,18 @@ export const workbenchBoundaries = new Map([
       ['tests/whiteboard/content-migration-repository-guard.test.ts',/unlocked single-statement inventory/],
       ['tests/whiteboard/board-content-migration-pglite-runtime.test.ts',/retains metadata-only request receipts/]],
   }],
+  ['src/infrastructure/whiteboard/pg-board-content-rollout.ts', {
+    tables:['whiteboards','whiteboard_content_heads','whiteboard_content_rollouts','whiteboard_content_rollout_items','whiteboard_content_rollout_events'],
+    reason:'Internal CLI-only fleet control plane over the already admitted Board content relocation state machine. It has no requester-facing disclosure surface: reads return only Board UUIDs, durable control state, bounded aggregate counters and sanitized error codes. Every query is tenant-RLS scoped; stable UUID pagination, leased SKIP LOCKED claims, persistent pause/cancel and append-only audit are mechanically checked. Content bytes, object keys, exception messages and user content never enter this repository.',
+    checks:[[null,/this\.db\.withTenant\(toOrgId\(tenantId\)/],
+      [null,/ORDER BY b\.id LIMIT \$3/],
+      [null,/FOR UPDATE SKIP LOCKED/],
+      [null,/state IN \('queued','retry'\).*next_attempt_at<=now\(\)/],
+      [null,/whiteboard_content_rollout_events\(org_id,rollout_id,board_id,kind,code,detail\)/],
+      [null,/last_error_code IS NOT NULL ORDER BY updated_at DESC,board_id LIMIT 50/],
+      ['tests/whiteboard/content-rollout-repository-guard.test.ts',/stable pagination, leases, retries, audit and bounded diagnostics/],
+      ['tests/whiteboard/board-content-rollout.test.ts',/dry-run previews a stable bounded page with zero PG\/blob mutations/]],
+  }],
   ['src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts', {
     tables:['agent_runs','agent_run_artifact_context'],
     reason:'Internal continuation write path: reads only source agent identity and accepted context binding. Caller discloses the source version first; acceptHumanMessage rechecks write authority before any run creation.',
