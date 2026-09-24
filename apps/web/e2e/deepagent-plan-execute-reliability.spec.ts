@@ -119,7 +119,34 @@ async function officeScenario(
     : inspectPptx(body).textRuns;
   const text = runs.join("");
   expect(text, `打开 ${ext} 后读不到本轮哨兵`).toContain(mark);
-  return `${name} ${String(body.length)}B，解出的文本含哨兵`;
+
+  /*
+   * ⚠ 上面三条全走 HTTP（C6 同款：产物落库与产物渲染是两个时刻，混着等会把
+   * 「渲染慢」误判成「没产出」）。但只有这三条的话，**「用户在界面上看不看得见」
+   * 一个字都没测到**——2026-09-24 人类一句「你还用浏览器测试的吗」当场点破：
+   * 这个场景里浏览器只负责打字和点发送，所有判据都绕过了 UI。
+   *
+   * 下面补的是用户真实路径：右栏「材料」里出现这份文件 → 点开 → 在右栏里预览出来。
+   * 这段正是 E4 刚做的能力，此前没有任何端到端用例走过它。
+   */
+  const expand = page.getByTestId("chat-task-workbench-inspector-expand");
+  if (await expand.count() > 0) await expand.first().click();
+  await page.getByRole("tab", { name: "材料" }).click();
+  const entry = page.getByTestId(`chat-material-${produced!.id}`);
+  await expect(entry, `右栏「材料」里看不见 ${name}`).toBeVisible({ timeout: 30_000 });
+  await expect(entry).toContainText(name);
+
+  await entry.click();
+  const fileView = page.getByTestId("chat-inspector-file-view");
+  await expect(fileView, `点了 ${name} 没有在右栏里打开`).toBeVisible({ timeout: 30_000 });
+  // pptx 有前端渲染器，docx/xlsx 浏览器打不开——后者要诚实地说「不支持预览」，
+  // 而不是一片空白。两种都算通过，空白不算。
+  const rendered = ext === "pptx"
+    ? page.getByTestId("chat-attachment-preview-slides").or(page.getByTestId("chat-attachment-preview-unsupported"))
+    : page.getByTestId("chat-attachment-preview-unsupported");
+  await expect(rendered, `${ext} 在右栏里既没渲染也没说不支持——是一片空白`)
+    .toBeVisible({ timeout: 30_000 });
+  return `${name} ${String(body.length)}B，解出文本含哨兵；右栏材料可见并已打开预览`;
 }
 
 async function planScenario(
