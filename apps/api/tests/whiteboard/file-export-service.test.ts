@@ -42,6 +42,12 @@ describe('durable Board export jobs',()=>{
     const queued=await service.create(principal,boardId,{format:'sticky-csv',background:'#ffffff'});await service.runNext('worker');
     const content=await service.content(principal,queued.jobId);expect(new TextDecoder().decode(content.bytes)).toContain('Team 🚀 🧠 idea');
   });
+  it('rejects an oversized contract-valid snapshot before renderer hooks run',async()=>{
+    const oversized:WhiteboardObject[]=Array.from({length:560},(_value,index)=>({...note,id:`note-${index}`,text:'界'.repeat(20_000),orderKey:String(index).padStart(5,'0')}));let rendered=false;
+    const oversizedSource:WhiteboardFileExportSource={load:async()=>({boardName:'Oversized',role:'owner',objects:oversized})},trackingRenderer:WhiteboardFileRenderer={hooks:async()=>{rendered=true;return{};}};
+    const repository=new MemoryRepository(),objects=new FakeObjectStore(),service=new DefaultWhiteboardFileExportService(oversizedSource,repository,objects,trackingRenderer,cleaner);
+    const queued=await service.create(principal,boardId,{format:'svg',background:'#ffffff'});await service.runNext('worker');expect(rendered).toBe(false);expect(await service.status(principal,queued.jobId)).toMatchObject({status:'failed',errorCode:'BOUNDS_EXCEEDED'});
+  });
   it('persists cancellation before queued work starts and never publishes bytes',async()=>{
     const repository=new MemoryRepository(),objects=new FakeObjectStore(),service=new DefaultWhiteboardFileExportService(source,repository,objects,renderer,cleaner);
     const queued=await service.create(principal,boardId,{format:'sticky-csv',background:'#ffffff'});expect((await service.cancel(principal,queued.jobId)).status).toBe('cancelled');expect(await service.runNext('worker')).toBe(false);expect((await service.status(principal,queued.jobId)).status).toBe('cancelled');await expect(service.content(principal,queued.jobId)).rejects.toMatchObject({code:'NOT_READY'});expect(repository.audit).toEqual(['cancelled']);

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as W, whiteboardFileExport as C } from '@repo/contracts';
-import { BoardFileExportFailure, boardExportFilename, createBoardFileArtifact } from '@repo/whiteboard-core';
+import { BoardFileExportFailure, assertBoardFileExportPreflight, boardExportFilename, createBoardFileArtifact } from '@repo/whiteboard-core';
 import { ObjectExistsError, ObjectStoreUnavailableError, type ObjectStore } from '../artifact/ports';
 import type { Principal } from '../../domain/principal';
 import { WhiteboardFileExportError as Fault, type WhiteboardFileExportCleaner, type WhiteboardFileExportContent, type WhiteboardFileExportRepository, type WhiteboardFileExportService, type WhiteboardFileExportSource, type WhiteboardFileRenderer } from './file-export-ports';
@@ -25,7 +25,8 @@ export class DefaultWhiteboardFileExportService implements WhiteboardFileExportS
     const deadline=setTimeout(()=>controller.abort(new BoardFileExportFailure('BOUNDS_EXCEEDED')),C.BOARD_FILE_EXPORT_LIMITS.durationMs);deadline.unref();
     const cancellation=setInterval(()=>{if(polling||controller.signal.aborted)return;polling=true;void this.repository.renew(claim,status.progress,LEASE_MS).then(active=>{if(!active)controller.abort(new BoardFileExportFailure('CANCELLED'));}).catch(()=>controller.abort(new BoardFileExportFailure('CANCELLED'))).finally(()=>{polling=false;});},CANCEL_POLL_MS);cancellation.unref();
     try{
-      const snapshot=await this.source.load(principal,status.boardId),hooks=input.format==='sticky-csv'?{}:await this.renderer.hooks(snapshot.objects,input.format,{signal:controller.signal,deadlineAt});
+      const snapshot=await this.source.load(principal,status.boardId);assertBoardFileExportPreflight(snapshot.objects);
+      const hooks=input.format==='sticky-csv'?{}:await this.renderer.hooks(snapshot.objects,input.format,{signal:controller.signal,deadlineAt});
       const artifact=await createBoardFileArtifact({...input,actorId:principal.userId,role:snapshot.role,boardName:snapshot.boardName,objects:snapshot.objects,sourceLosses:snapshot.losses},{...hooks,signal:controller.signal,maxDurationMs:C.BOARD_FILE_EXPORT_LIMITS.durationMs,onProgress:async progress=>{status={...status,progress:Math.max(10,progress)};if(!await this.repository.renew(claim,status.progress,LEASE_MS)){controller.abort();throw new BoardFileExportFailure('CANCELLED');}}});
       if(controller.signal.aborted)throw new BoardFileExportFailure('CANCELLED');
       const losses:C.BoardFileExportLoss[]=[...artifact.losses];

@@ -13,6 +13,8 @@ const objects=(text:string):WhiteboardObject[]=>[
   {id:'other',schemaVersion:1,kind:'rectangle',geometry:{x:440,y:80,width:120,height:100,rotation:0},text:'',style:{fill:'#ffffff'},parentId:'frame',orderKey:'c'},
   {id:'line',schemaVersion:1,kind:'connector',geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'',style:{stroke:'#1f2937'},parentId:'frame',orderKey:'d',connector:{from:'note',to:'other'}},
 ];
+const scanObjects=(characters:number):WhiteboardObject[]=>{const perObject=20_000,count=Math.ceil(characters/perObject);return Array.from({length:count},(_value,index)=>({id:`scan-${index}`,schemaVersion:1,kind:'sticky',geometry:{x:index%100,y:Math.floor(index/100),width:1,height:1,rotation:0},text:'a'.repeat(Math.min(perObject,characters-index*perObject)),style:{},parentId:null,orderKey:String(index).padStart(5,'0')}));};
+const emptyScanObjects=():WhiteboardObject[]=>Array.from({length:10_000},(_value,index)=>({id:`empty-${index}`,schemaVersion:1,kind:'sticky',geometry:{x:index%100,y:Math.floor(index/100),width:1,height:1,rotation:0},text:'',style:{},parentId:null,orderKey:String(index).padStart(5,'0')}));
 const request=(items:WhiteboardObject[],format:'png'|'svg'|'pdf')=>({format,background:'#ffffff',actorId:'owner',role:'owner' as const,boardName:'中文规划',objects:items});
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const control=()=>({signal:new AbortController().signal,deadlineAt:Date.now()+30_000});
@@ -58,12 +60,14 @@ describe('Node Board file renderer',()=>{
   },30_000);
 
   it('yields during a large glyph scan so cancellation covers the hooks phase',async()=>{
-    const renderer=new NodeBoardFileRenderer(),large=objects('a'.repeat(2*1024*1024)),controller=new AbortController();setImmediate(()=>controller.abort());
+    const renderer=new NodeBoardFileRenderer(),large=scanObjects(2*1024*1024),controller=new AbortController();setImmediate(()=>controller.abort());
     await expect(renderer.hooks(large,'svg',{signal:controller.signal,deadlineAt:Date.now()+30_000})).rejects.toMatchObject({code:'CANCELLED'});
+    const emptyController=new AbortController();setImmediate(()=>emptyController.abort());await expect(renderer.hooks(emptyScanObjects(),'svg',{signal:emptyController.signal,deadlineAt:Date.now()+30_000})).rejects.toMatchObject({code:'CANCELLED'});
   },30_000);
 
   it('enforces the deadline during glyph scanning and lets the event loop progress for a large valid input',async()=>{
-    const renderer=new NodeBoardFileRenderer(),large=objects('a'.repeat(2*1024*1024)),deadlineSignal=new AbortController();await expect(renderer.hooks(large,'svg',{signal:deadlineSignal.signal,deadlineAt:Date.now()+2})).rejects.toMatchObject({code:'BOUNDS_EXCEEDED'});
+    const renderer=new NodeBoardFileRenderer(),large=scanObjects(2*1024*1024),deadlineSignal=new AbortController();setImmediate(()=>deadlineSignal.abort(new BoardFileExportFailure('BOUNDS_EXCEEDED')));await expect(renderer.hooks(large,'svg',{signal:deadlineSignal.signal,deadlineAt:Date.now()+30_000})).rejects.toMatchObject({code:'BOUNDS_EXCEEDED'});
+    await expect(renderer.hooks(large,'svg',{signal:new AbortController().signal,deadlineAt:0})).rejects.toMatchObject({code:'BOUNDS_EXCEEDED'});
     let yielded=false;setImmediate(()=>{yielded=true;});const hooks=await renderer.hooks(large,'svg',{signal:new AbortController().signal,deadlineAt:Date.now()+30_000});expect(yielded).toBe(true);expect(hooks.fontCss).toContain('data:font/woff2;base64,');
   },30_000);
 

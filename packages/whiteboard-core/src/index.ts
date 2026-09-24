@@ -8,5 +8,5 @@ export { convertExternalBoardSnapshot } from './external-import';
 export type { ExternalImportResult } from './external-import';
 export { selectVisibleObjects } from './viewport';
 export type { WhiteboardViewport } from './viewport';
-export { createBoardFileArtifact, boardExportFilename, stickyCsv, parseStickyCsv, BoardFileExportFailure } from './file-export';
+export { assertBoardFileExportPreflight, createBoardFileArtifact, boardExportFilename, stickyCsv, parseStickyCsv, BoardFileExportFailure } from './file-export';
 export type { BoardFileExportRequest, BoardFileArtifact, BoardFileExportHooks, BoardExportBounds, BoardExportPage, BoardRenderControl } from './file-export';

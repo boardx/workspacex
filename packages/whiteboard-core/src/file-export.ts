@@ -67,6 +67,13 @@ const MAX_RENDER_INPUT_BYTES = 32 * 1024 * 1024;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const CSV_HEADER = ['source_object_id','text','color','x','y','width','height','rotation','frame_source_id'] as const;
 
+/** Cheap bounds check that must run before renderer hooks allocate fonts or raster resources. */
+export function assertBoardFileExportPreflight(objects:readonly BoardObject[]):void{
+  if(objects.length>BOARD_FILE_EXPORT_LIMITS.objects)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
+  let estimatedBytes=0;
+  for(const object of objects){estimatedBytes+=encoder.encode(object.text).byteLength+512;if(estimatedBytes>MAX_RENDER_INPUT_BYTES)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');}
+}
+
 function safeName(name: string): string {
   return name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 180) || 'board';
 }
@@ -217,8 +224,7 @@ export async function createBoardFileArtifact(request:BoardFileExportRequest,hoo
   const renderCheckpoint=async()=>{assertActive();await new Promise<void>(resolve=>setTimeout(resolve,0));assertActive();};
   const checkpoint=async(progress:number)=>{await renderCheckpoint();await hooks.onProgress?.(progress);};
   const control:BoardRenderControl={signal:hooks.signal,deadlineAt,assertActive,checkpoint:renderCheckpoint};
-  if(request.objects.length>BOARD_FILE_EXPORT_LIMITS.objects)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
-  const estimatedBytes=request.objects.reduce((sum,object)=>sum+encoder.encode(object.text).byteLength+512,0);if(estimatedBytes>MAX_RENDER_INPUT_BYTES)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
+  assertBoardFileExportPreflight(request.objects);
   const replacements=hooks.textReplacements??{},prepared=request.objects.map(object=>replacements[object.id]===undefined?object:{...object,text:replacements[object.id]!});
   await checkpoint(20);const objects=visibleObjects({...request,objects:prepared},addLoss),bounds=objectBounds(objects),pagination=exportPages(objects),pages=pagination.pages;await checkpoint(40);
   const fallbackIds=new Set(hooks.fontFallbackObjectIds??[]);

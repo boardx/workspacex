@@ -11,7 +11,7 @@ type FontFace={path:string;ranges:readonly [number,number][];css:string;bytes?:U
 type FontCatalog={faces:FontFace[];faceByCodePoint:Uint16Array};
 const require=createRequire(import.meta.url);
 let cachedCatalog:Promise<FontCatalog>|undefined;
-const GLYPH_SCAN_BATCH=4096,REPLACEMENT_CHUNK_CODE_UNITS=8192,UNICODE_CODE_POINTS=0x110000;
+const GLYPH_SCAN_BATCH=4096,OBJECT_SCAN_BATCH=64,REPLACEMENT_CHUNK_CODE_UNITS=8192,UNICODE_CODE_POINTS=0x110000;
 
 function ranges(value:string):readonly [number,number][]{return value.split(',').map(item=>{const [from,to]=item.trim().replace(/^U\+/i,'').split('-');const start=Number.parseInt(from!,16);return[start,to?Number.parseInt(to,16):start] as [number,number];});}
 async function fontCatalog():Promise<FontCatalog>{
@@ -28,7 +28,7 @@ async function yieldHook(control:{signal:AbortSignal;deadlineAt:number}):Promise
 async function neededFaces(objects:readonly WhiteboardObject[],control:{signal:AbortSignal;deadlineAt:number}):Promise<{faces:FontFace[];replacements:Record<string,string>;fallbackIds:string[]}>{
   assertHookActive(control);const {faces:all,faceByCodePoint}=await fontCatalog();assertHookActive(control);const selected=new Uint8Array(all.length),replacements:Record<string,string>={},fallbackIds:string[]=[];
   const replacement=(faceByCodePoint[0x25a1]??0)>0?'□':'?',replacementIndex=(faceByCodePoint[replacement.codePointAt(0)!]??0)-1;if(replacementIndex<0)throw new Error('Bundled replacement glyph unavailable');let scanned=0;
-  for(const object of objects){assertHookActive(control);const source=object.text;let output:string[]|undefined,chunk='';for(let offset=0;offset<source.length;){const cp=source.codePointAt(offset)!,width=cp>0xffff?2:1,faceIndex=(faceByCodePoint[cp]??0)-1;if(faceIndex>=0){selected[faceIndex]=1;if(output)chunk+=source.slice(offset,offset+width);}else{if(!output){output=[];if(offset)output.push(source.slice(0,offset));}chunk+=replacement;selected[replacementIndex]=1;}offset+=width;if(output&&chunk.length>=REPLACEMENT_CHUNK_CODE_UNITS){output.push(chunk);chunk='';}if(++scanned===GLYPH_SCAN_BATCH){scanned=0;await yieldHook(control);}}if(output){if(chunk)output.push(chunk);replacements[object.id]=output.join('');fallbackIds.push(object.id);}}
+  for(const [objectIndex,object] of objects.entries()){assertHookActive(control);const source=object.text;let output:string[]|undefined,chunk='';for(let offset=0;offset<source.length;){const cp=source.codePointAt(offset)!,width=cp>0xffff?2:1,faceIndex=(faceByCodePoint[cp]??0)-1;if(faceIndex>=0){selected[faceIndex]=1;if(output)chunk+=source.slice(offset,offset+width);}else{if(!output){output=[];if(offset)output.push(source.slice(0,offset));}chunk+=replacement;selected[replacementIndex]=1;}offset+=width;if(output&&chunk.length>=REPLACEMENT_CHUNK_CODE_UNITS){output.push(chunk);chunk='';}if(++scanned===GLYPH_SCAN_BATCH){scanned=0;await yieldHook(control);}}if(output){if(chunk)output.push(chunk);/* Preflight caps input at 32 MiB; chunking bounds entries while join may briefly retain source, chunks and result. */replacements[object.id]=output.join('');fallbackIds.push(object.id);}if((objectIndex+1)%OBJECT_SCAN_BATCH===0)await yieldHook(control);}
   const result=all.filter((_face,index)=>selected[index]);for(const face of result){assertHookActive(control);try{face.bytes??=new Uint8Array(await readFile(face.path,{signal:control.signal}));}catch(error){assertHookActive(control);throw error;}await yieldHook(control);}
   return{faces:result,replacements,fallbackIds};
 }
