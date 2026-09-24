@@ -1,8 +1,8 @@
 /**
  * Phase 18 F06 —— 抽取 worker：每 2 秒认领一批新消息做知识抽取。
  *
- * 骨架同 kg-projection-worker（`setInterval(...).unref()` + `running` 防重入）。抽取没开（没配置模型 /
- * KG_EXTRACTION_ENABLED=0）时不启动——队列照样排，打开后补抽。
+ * 骨架同 kg-projection-worker（`setInterval(...).unref()` + `running` 防重入）。抽取没开（没配置模型，
+ * 或没设 KG_EXTRACTION_ENABLED=1）时不启动——队列照样排，打开后补抽。
  */
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";

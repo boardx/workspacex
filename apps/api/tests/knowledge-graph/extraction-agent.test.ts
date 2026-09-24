@@ -10,6 +10,7 @@ import { runExtractionTick } from "../../src/application/knowledge-graph/extract
 import { parseExtraction } from "../../src/domain/knowledge-graph/extraction";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { readKgExtractionModelConfig } from "../../src/infrastructure/knowledge-graph/kg-extraction-model-config";
 import { toBatchPayload } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
 import { addChatMessage } from "../support/chat-db";
 import { asApp } from "../support/db";
@@ -128,3 +129,13 @@ describe("F06: 解析容错", () => {
     expect(parseExtraction("not an object")).toEqual({ entities: [], claims: [] });
   });
 });
+
+describe("F06: 开关", () => {
+  it("显式 KG_EXTRACTION_ENABLED=1 且配置了模型才开；其余一律关", () => {
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope", KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(true);
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope" }).enabled).toBe(false);
+    expect(readKgExtractionModelConfig({ KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(false);
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KG_EXTRACTION_ENABLED: "1", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen-plus" }).modelId).toBe("qwen-plus");
+  });
+});
+
