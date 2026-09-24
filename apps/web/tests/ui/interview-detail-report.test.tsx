@@ -15,6 +15,8 @@ vi.mock("@/lib/interview-report-export", () => ({
 }));
 
 const completed: DigitalInterviewWorkflowView = {
+  researchBrief: null, moderatorPolicy: null, reportReview: null,
+  quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
   interviewId: "itv-f06", name: "江西足球", tags: ["足球"], topic: "江西足球的崛起", status: "running",
   sourceQuickInterviewId: null, selectedExpertIds: ["expert-f06"], reportId: null, report: null, version: 12,
   scope: { kind: "none", projectId: null, researchProjectId: null }, currentStep: "runs", revisionId: "revision-f06",

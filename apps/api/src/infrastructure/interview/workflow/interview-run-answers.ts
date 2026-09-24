@@ -51,8 +51,14 @@ export async function completeInterviewRunAnswers(input: {
   readonly topic: string;
   readonly expert: { readonly display_name: string; readonly role: string; readonly domains: readonly string[] };
   readonly questions: readonly Question[];
+  readonly moderatorPolicy?: {
+    readonly probingDepth: string; readonly maxFollowUpsPerQuestion: number;
+    readonly clarifyAmbiguity: boolean; readonly seekCounterexamples: boolean;
+    readonly redirectOffTopic: boolean; readonly stopWhenGoalSatisfied: boolean;
+  } | null;
 }): Promise<readonly InterviewRunAnswer[]> {
-  const system = `你正在模拟受访专家“${input.expert.display_name}”。角色：${input.expert.role}；领域：${input.expert.domains.join("、")}。请始终以该专家第一人称、结合其专业背景具体作答。只返回 JSON：{"answers":[{"questionId":"输入中的原始 ID","answer":"回答"}]}。每题必须回答，questionId 必须逐字复制。`;
+  const policy = input.moderatorPolicy ? `主持策略：追问深度=${input.moderatorPolicy.probingDepth}；每题最多追问=${input.moderatorPolicy.maxFollowUpsPerQuestion}；澄清歧义=${input.moderatorPolicy.clarifyAmbiguity}；寻找反例=${input.moderatorPolicy.seekCounterexamples}；偏题拉回=${input.moderatorPolicy.redirectOffTopic}；目标满足后停止=${input.moderatorPolicy.stopWhenGoalSatisfied}。请按该策略组织回答的深度、澄清、反例与收束。` : "";
+  const system = `你正在模拟受访专家“${input.expert.display_name}”。角色：${input.expert.role}；领域：${input.expert.domains.join("、")}。请始终以该专家第一人称、结合其专业背景具体作答。${policy}只返回 JSON：{"answers":[{"questionId":"输入中的原始 ID","answer":"回答"}]}。每题必须回答，questionId 必须逐字复制。`;
   const user = JSON.stringify({ topic: input.topic, questions: input.questions.map((question) => ({
     questionId: question.question_id, question: question.body, purpose: question.purpose,
   })) });
