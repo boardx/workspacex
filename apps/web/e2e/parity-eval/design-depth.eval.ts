@@ -490,7 +490,7 @@ function zipEntries(buf: Buffer): Map<string, Buffer> {
 async function pptx(page: Page): Promise<{ name: string; entries: Map<string, Buffer> }> {
   await openCase(page, "E07");
   await exportMenu(page);
-  const { name, buf } = await downloadOf(page, () => page.getByTestId("design-detail-export-pptx").click({ timeout: 3000 })); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+  const { name, buf } = await downloadOf(page, () => page.getByTestId("design-detail-export-pptx").click({ timeout: 3000 }));
   return { name, entries: zipEntries(buf) };
 }
 

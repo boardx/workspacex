@@ -540,3 +540,23 @@ test.describe("深度 S7 演示模式（#3988）", () => {
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
   });
 });
+
+test.describe("深度 S8 导出 PPTX（#3988）", () => {
+  test("导出菜单「幻灯片（.pptx）」：真 Next 打包下能导出，ASCII 文件名，两页进两页出", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-pptx").click()]);
+    expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.pptx$/);
+    const buf = readFileSync(await d.path());
+    expect(buf.subarray(0, 2).toString("latin1")).toBe("PK");
+    // .pptx 里文件名以明文存在 zip 目录里；幻灯片正文是压缩过的，逐页的字交给单测拆包核对。
+    const names = buf.toString("latin1");
+    expect(names).toContain("ppt/slides/slide1.xml");
+    expect(names).toContain("ppt/slides/slide2.xml");
+    expect(names).not.toContain("ppt/slides/slide3.xml");
+  });
+});
