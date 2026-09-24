@@ -26,9 +26,9 @@ afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 describe('Board portable transfer UI',()=>{
   it('shows file format and progress, then downloads the completed real artifact',async()=>{
     const job={jobId:randomUUID(),boardId:board.id,format:'pdf' as const,status:'queued' as const,progress:0,filename:'Source.pdf',mimeType:'application/pdf',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null};
-    vi.mocked(api.createBoardFileExport).mockResolvedValue(job);vi.mocked(api.getBoardFileExport).mockResolvedValue({...job,status:'done',progress:100,sizeBytes:42});vi.mocked(api.downloadBoardFileExport).mockResolvedValue();
+    vi.mocked(api.createBoardFileExport).mockResolvedValue(job);vi.mocked(api.getBoardFileExport).mockResolvedValue({...job,status:'done',progress:100,sizeBytes:42,losses:[{code:'FONT_FALLBACK',count:1,sampleObjectIds:['note-1'],message:'Emoji was substituted.'}]});vi.mocked(api.downloadBoardFileExport).mockResolvedValue();
     render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-export-file');fireEvent.change(screen.getByTestId('board-export-format'),{target:{value:'pdf'}});fireEvent.click(screen.getByTestId('board-export-file'));
-    expect(await screen.findByTestId('board-export-progress')).toBeTruthy();await waitFor(()=>expect(api.downloadBoardFileExport).toHaveBeenCalledWith(job.jobId,'Source.pdf'),{timeout:2000});expect(api.createBoardFileExport).toHaveBeenCalledWith(board.id,{format:'pdf',background:'#ffffff'});
+    expect(await screen.findByTestId('board-export-progress')).toBeTruthy();await waitFor(()=>expect(api.downloadBoardFileExport).toHaveBeenCalledWith(job.jobId,'Source.pdf'),{timeout:2000});expect(api.createBoardFileExport).toHaveBeenCalledWith(board.id,{format:'pdf',background:'#ffffff'});expect(screen.getByTestId('board-export-losses').textContent).toContain('FONT_FALLBACK（1）');expect(screen.getByTestId('board-export-losses').textContent).toContain('note-1');
   });
   it('cancels a running export from the toolbar',async()=>{
     const job={jobId:randomUUID(),boardId:board.id,format:'png' as const,status:'running' as const,progress:30,filename:'Source.png',mimeType:'image/png',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null};

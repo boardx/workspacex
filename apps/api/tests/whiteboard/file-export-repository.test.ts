@@ -28,10 +28,10 @@ beforeAll(async()=>{
 afterAll(async()=>{await db?.close();await resetOrgs(orgId,otherOrg);});
 
 async function complete(principal:Principal){
-  const initial=queued();await jobs.create(principal,initial,{format:'png',background:'#ffffff'});await jobs.running(principal,initial.jobId,40);
+  const initial=queued();await jobs.create(principal,initial,{format:'png',background:'#ffffff'});const claim=await jobs.claimNext(`test-${initial.jobId}`,30_000,2);expect(claim?.status.jobId).toBe(initial.jobId);await jobs.renew(claim!,40,30_000);
   const bytes=new TextEncoder().encode('real immutable artifact'),sha=createHash('sha256').update(bytes).digest('hex');
   const done=C.BoardFileExportStatus.parse({...initial,status:'done',progress:100,objectCount:3,pageOrder:['frame'],sizeBytes:bytes.length,errorCode:null});
-  await jobs.complete(principal,done,`whiteboard-exports/${principal.orgId}/${initial.jobId}.png`,sha);
+  expect(await jobs.complete(claim!,done,sha)).toBe(true);
   return{initial,done,sha};
 }
 
@@ -42,9 +42,10 @@ describe('Board file export repository on real PostgreSQL',()=>{
   });
 
   it('hides status and locators after membership revocation and refuses cancellation',async()=>{
-    const initial=queued('pdf');await jobs.create(viewer,initial,{format:'pdf',background:'transparent'});await jobs.running(viewer,initial.jobId,40);
+    const initial=queued('pdf');await jobs.create(viewer,initial,{format:'pdf',background:'transparent'});const claim=await jobs.claimNext(`test-${initial.jobId}`,30_000,2);expect(claim?.status.jobId).toBe(initial.jobId);
     expect(await boards.removeMember(owner,boardId,viewer.userId)).toBe(true);
     expect(await jobs.find(viewer,initial.jobId)).toBeNull();expect(await jobs.cancel(viewer,initial.jobId)).toBeNull();
+    await jobs.finish(claim!,C.BoardFileExportStatus.parse({...claim!.status,status:'failed',errorCode:'GENERATION_FAILED'}));
   });
 
   it('hides a same job id from another tenant even when the user id matches and RLS is queried directly',async()=>{
@@ -58,5 +59,14 @@ describe('Board file export repository on real PostgreSQL',()=>{
     await asOwner(async client=>{await client.query('BEGIN');try{await client.query(sql);await client.query(sql);}finally{await client.query('ROLLBACK');}});
     const columns=await asApp(orgId,c=>c.query<{column_name:string}>(`SELECT column_name FROM information_schema.columns WHERE table_name='whiteboard_file_export_jobs' ORDER BY column_name`));
     expect(columns.rows.map(row=>row.column_name)).toContain('object_key');
+  });
+
+  it('globally admits two claims and recovers an expired running lease after restart',async()=>{
+    const entries=await Promise.all(Array.from({length:3},async()=>{const initial=queued('svg');await jobs.create(owner,initial,{format:'svg',background:'#ffffff'});return initial;}));
+    const claims=await Promise.all(entries.map((_,index)=>jobs.claimNext(`concurrent-${index}`,30_000,2)));expect(claims.filter(Boolean)).toHaveLength(2);
+    const first=claims.find(Boolean)!;await asApp(orgId,c=>c.query(`UPDATE whiteboard_file_export_jobs SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE org_id=$1 AND id=$2`,[orgId,first.status.jobId]));
+    const recovered=await new PgWhiteboardFileExportRepository(db).claimNext('restarted-worker',30_000,2);expect(recovered?.status.jobId).toBe(first.status.jobId);
+    for(const claim of [...claims,recovered].filter((value):value is NonNullable<typeof value>=>Boolean(value))){await jobs.finish(claim,C.BoardFileExportStatus.parse({...claim.status,status:'failed',errorCode:'GENERATION_FAILED'}));}
+    const remaining=await jobs.claimNext('drain-third',30_000,2);if(remaining)await jobs.finish(remaining,C.BoardFileExportStatus.parse({...remaining.status,status:'failed',errorCode:'GENERATION_FAILED'}));
   });
 });

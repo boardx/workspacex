@@ -12,6 +12,8 @@ export interface BoardFileExportRequest {
   readonly role: 'owner' | 'editor' | 'viewer';
   readonly boardName: string;
   readonly objects: readonly BoardObject[];
+  /** Omissions decided by the authorized server projection, never by document extension data. */
+  readonly sourceLosses?: readonly BoardFileExportLoss[];
 }
 
 export interface BoardFileArtifact {
@@ -31,10 +33,18 @@ export interface BoardFileExportHooks {
   readonly now?: () => number;
   readonly maxDurationMs?: number;
   readonly fontCss?: string;
+  /** Renderer-confirmed bounded substitutions for glyphs unavailable in the bundled font. */
+  readonly textReplacements?: Readonly<Record<string, string>>;
   /** Object ids whose requested typeface could not be preserved and was substituted. */
   readonly fontFallbackObjectIds?: readonly string[];
-  readonly renderPng?: (svg: Uint8Array, width: number, height: number) => Promise<Uint8Array>;
-  readonly renderPdf?: (pages: readonly BoardExportPage[], background: string) => Promise<Uint8Array>;
+  readonly renderPng?: (svg: Uint8Array, width: number, height: number, control: BoardRenderControl) => Promise<Uint8Array>;
+  readonly renderPdf?: (pages: readonly BoardExportPage[], background: string, control: BoardRenderControl) => Promise<Uint8Array>;
+}
+
+export interface BoardRenderControl {
+  readonly signal?: AbortSignal;
+  readonly deadlineAt: number;
+  checkpoint(): Promise<void>;
 }
 
 export class BoardFileExportFailure extends Error {
@@ -51,6 +61,7 @@ type LossCode = BoardFileExportLoss['code'];
 const encoder = new TextEncoder();
 const MAX_SAMPLE_IDS = 5;
 const PNG_MAX_EDGE = 4096;
+const MAX_RENDER_INPUT_BYTES = 32 * 1024 * 1024;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const CSV_HEADER = ['source_object_id','text','color','x','y','width','height','rotation','frame_source_id'] as const;
 
@@ -121,25 +132,40 @@ function xml(value: string): string {
   return value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
 
-function svgFor(objects: readonly BoardObject[], bounds: Bounds, background: BoardFileExportRequest['background'],fontCss=''): Uint8Array {
+function charWidth(char:string,size:number):number{return (char.codePointAt(0)??0)>0xff?size:size*.58;}
+function wrappedLines(text:string,width:number,height:number,size:number):string[]{
+  const lineHeight=size*1.25,maxLines=Math.max(1,Math.floor(Math.max(lineHeight,height-32)/lineHeight)),result:string[]=[];
+  for(const paragraph of text.split(/\r?\n/)){
+    let line='',used=0;
+    for(const char of paragraph){const next=charWidth(char,size);if(line&&used+next>Math.max(size,width-32)){result.push(line);line='';used=0;if(result.length>=maxLines)return result;}line+=char;used+=next;}
+    result.push(line);if(result.length>=maxLines)return result;
+  }
+  return result;
+}
+
+async function svgFor(objects: readonly BoardObject[], bounds: Bounds, background: BoardFileExportRequest['background'],fontCss:string,control:BoardRenderControl): Promise<Uint8Array> {
   const byId = new Map(objects.map(object => [object.id, object]));
   const body: string[] = [];
   if (background !== 'transparent') body.push(`<rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" fill="${background}"/>`);
-  body.push(`<defs>${fontCss?`<style>${fontCss}</style>`:''}<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z"/></marker></defs>`);
-  for (const object of sortObjects(objects)) {
+  body.push(`<defs>${fontCss?`<style>${fontCss}</style>`:''}</defs>`);
+  for (const [index,object] of sortObjects(objects).entries()) {
+    if(index%64===0)await control.checkpoint();
     const g=object.geometry, fill=xml(object.style.fill ?? (object.kind==='sticky'?'#fff59d':'#ffffff'));
     const stroke=xml(object.style.stroke ?? '#374151'), color=xml(object.style.color ?? '#111827');
     if (object.connector) {
       const from=byId.get(object.connector.from),to=byId.get(object.connector.to); if(!from||!to)continue;
       const x1=from.geometry.x+from.geometry.width/2,y1=from.geometry.y+from.geometry.height/2,x2=to.geometry.x+to.geometry.width/2,y2=to.geometry.y+to.geometry.height/2;
-      body.push(`<line data-object-id="${xml(object.id)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="2" marker-end="url(#arrow)"/>`); continue;
+      body.push(`<line data-object-id="${xml(object.id)}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="2"/>`); continue;
     }
-    if (object.kind==='ellipse') body.push(`<ellipse data-object-id="${xml(object.id)}" cx="${g.x+g.width/2}" cy="${g.y+g.height/2}" rx="${g.width/2}" ry="${g.height/2}" fill="${fill}" stroke="${stroke}"/>`);
-    else body.push(`<rect data-object-id="${xml(object.id)}" x="${g.x}" y="${g.y}" width="${g.width}" height="${g.height}" rx="${object.kind==='sticky'?8:0}" fill="${object.kind==='frame'?'none':fill}" stroke="${stroke}"${g.rotation?` transform="rotate(${g.rotation} ${g.x+g.width/2} ${g.y+g.height/2})"`:''}/>`);
+    const transform=g.rotation?` transform="rotate(${g.rotation} ${g.x+g.width/2} ${g.y+g.height/2})"`:'';
+    body.push(`<g data-object-id="${xml(object.id)}"${transform}>`);
+    if (object.kind==='ellipse') body.push(`<ellipse cx="${g.x+g.width/2}" cy="${g.y+g.height/2}" rx="${g.width/2}" ry="${g.height/2}" fill="${fill}" stroke="${stroke}"/>`);
+    else body.push(`<rect x="${g.x}" y="${g.y}" width="${g.width}" height="${g.height}" rx="${object.kind==='sticky'?8:0}" fill="${['frame','group','drawing','text'].includes(object.kind)?'none':fill}" stroke="${stroke}"${['frame','group'].includes(object.kind)?' stroke-dasharray="6 4"':''}/>`);
     if (object.text) {
-      const size=object.style.fontSize??16,startY=g.y+Math.min(g.height-8,size)+8;
-      body.push(`<text x="${g.x+8}" y="${startY}" fill="${color}" font-family="WorkspaceX Noto Sans SC" font-size="${size}" xml:space="preserve">${object.text.split(/\r?\n/).map((line,index)=>`<tspan x="${g.x+8}" dy="${index===0?0:size*1.25}">${xml(line)}</tspan>`).join('')}</text>`);
+      const size=object.style.fontSize??16,startY=g.y+16+size,lines=wrappedLines(object.text,g.width,g.height,size);
+      body.push(`<text x="${g.x+16}" y="${startY}" fill="${color}" font-family="WorkspaceX Noto Sans SC, sans-serif" font-size="${size}" xml:space="preserve">${lines.map((line,lineIndex)=>`<tspan x="${g.x+16}" dy="${lineIndex===0?0:size*1.25}">${xml(line)}</tspan>`).join('')}</text>`);
     }
+    body.push('</g>');
   }
   return encoder.encode(`<svg xmlns="${SVG_NS}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}" width="${Math.ceil(bounds.width)}" height="${Math.ceil(bounds.height)}">${body.join('')}</svg>`);
 }
@@ -181,19 +207,25 @@ export function parseStickyCsv(source:string):{objects:BoardObject[];losses:Boar
 export async function createBoardFileArtifact(request:BoardFileExportRequest,hooks:BoardFileExportHooks={}):Promise<BoardFileArtifact>{
   const started=(hooks.now??(()=>Date.now()))(),losses=new Map<LossCode,{ids:string[];message:string;count:number}>();
   const addLoss=(code:LossCode,id:string,message:string)=>{const value=losses.get(code)??{ids:[],message,count:0};value.count++;if(value.ids.length<MAX_SAMPLE_IDS&&!value.ids.includes(id))value.ids.push(id);losses.set(code,value);};
-  const checkpoint=async(progress:number)=>{if(hooks.signal?.aborted)throw new BoardFileExportFailure('CANCELLED');if((hooks.now??(()=>Date.now()))()-started>(hooks.maxDurationMs??BOARD_FILE_EXPORT_LIMITS.durationMs))throw new BoardFileExportFailure('BOUNDS_EXCEEDED');await hooks.onProgress?.(progress);await new Promise<void>(resolve=>setTimeout(resolve,0));};
+  for(const loss of request.sourceLosses??[]){const value=losses.get(loss.code)??{ids:[],message:loss.message,count:0};value.count+=loss.count;for(const id of loss.sampleObjectIds)if(value.ids.length<MAX_SAMPLE_IDS&&!value.ids.includes(id))value.ids.push(id);losses.set(loss.code,value);}
+  const now=hooks.now??(()=>Date.now()),deadlineAt=started+(hooks.maxDurationMs??BOARD_FILE_EXPORT_LIMITS.durationMs);
+  const renderCheckpoint=async()=>{if(hooks.signal?.aborted)throw new BoardFileExportFailure('CANCELLED');if(now()>deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');await new Promise<void>(resolve=>setTimeout(resolve,0));};
+  const checkpoint=async(progress:number)=>{await renderCheckpoint();await hooks.onProgress?.(progress);};
+  const control:BoardRenderControl={signal:hooks.signal,deadlineAt,checkpoint:renderCheckpoint};
   if(request.objects.length>BOARD_FILE_EXPORT_LIMITS.objects)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
-  await checkpoint(20);const objects=visibleObjects(request,addLoss),bounds=objectBounds(objects),pages=exportPages(objects);await checkpoint(40);
+  const estimatedBytes=request.objects.reduce((sum,object)=>sum+encoder.encode(object.text).byteLength+512,0);if(estimatedBytes>MAX_RENDER_INPUT_BYTES)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
+  const replacements=hooks.textReplacements??{},prepared=request.objects.map(object=>replacements[object.id]===undefined?object:{...object,text:replacements[object.id]!});
+  await checkpoint(20);const objects=visibleObjects({...request,objects:prepared},addLoss),bounds=objectBounds(objects),pages=exportPages(objects);await checkpoint(40);
   const fallbackIds=new Set(hooks.fontFallbackObjectIds??[]);
   for(const object of objects){if(fallbackIds.has(object.id))addLoss('FONT_FALLBACK',object.id,'The requested typeface was unavailable and a bundled Unicode font was substituted.');if(object.geometry.rotation&&request.format!=='svg')addLoss('ROTATION_APPROXIMATED',object.id,'Rotation is approximated in this export format.');if(['image','drawing','extension'].includes(object.kind))addLoss('UNSUPPORTED_OBJECT',object.id,'This object is exported as a bounded placeholder.');}
   let bytes:Uint8Array,mimeType:string,extension:string,width=Math.ceil(bounds.width),height=Math.ceil(bounds.height);
-  if(request.format==='svg'){bytes=svgFor(objects,bounds,request.background,hooks.fontCss);mimeType='image/svg+xml';extension='svg';}
+  if(request.format==='svg'){bytes=await svgFor(objects,bounds,request.background,hooks.fontCss??'',control);mimeType='image/svg+xml';extension='svg';}
   else if(request.format==='png'){
     if(!hooks.renderPng)throw new BoardFileExportFailure('GENERATION_FAILED');
     const scale=Math.min(1,PNG_MAX_EDGE/bounds.width,PNG_MAX_EDGE/bounds.height,Math.sqrt(BOARD_FILE_EXPORT_LIMITS.pixels/(bounds.width*bounds.height)));width=Math.max(1,Math.ceil(bounds.width*scale));height=Math.max(1,Math.ceil(bounds.height*scale));
-    bytes=await hooks.renderPng(svgFor(objects,bounds,request.background,hooks.fontCss),width,height);mimeType='image/png';extension='png';
+    bytes=await hooks.renderPng(await svgFor(objects,bounds,request.background,hooks.fontCss??'',control),width,height,control);mimeType='image/png';extension='png';
   }
-  else if(request.format==='pdf'){if(!hooks.renderPdf)throw new BoardFileExportFailure('GENERATION_FAILED');bytes=await hooks.renderPdf(pages,request.background);mimeType='application/pdf';extension='pdf';}
+  else if(request.format==='pdf'){if(!hooks.renderPdf)throw new BoardFileExportFailure('GENERATION_FAILED');bytes=await hooks.renderPdf(pages,request.background,control);mimeType='application/pdf';extension='pdf';}
   else{bytes=stickyCsv(objects,addLoss);mimeType='text/csv; charset=utf-8';extension='csv';width=0;height=0;}
   await checkpoint(90);if(bytes.length>BOARD_FILE_EXPORT_LIMITS.bytes)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');await checkpoint(100);
   return{bytes,mimeType,extension,width,height,objectCount:objects.length,pageOrder:pages.flatMap(page=>page.id?[page.id]:[]),losses:[...losses.entries()].map(([code,value])=>({code,count:value.count,sampleObjectIds:value.ids,message:value.message}))};

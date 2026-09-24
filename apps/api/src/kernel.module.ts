@@ -12,11 +12,13 @@ import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
-import { WHITEBOARD_FILE_EXPORT_REPOSITORY, WHITEBOARD_FILE_EXPORT_SERVICE, WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_RENDERER, type WhiteboardFileExportRepository, type WhiteboardFileExportSource, type WhiteboardFileRenderer } from './application/whiteboard/file-export-ports';
+import { WHITEBOARD_FILE_EXPORT_CLEANER, WHITEBOARD_FILE_EXPORT_REPOSITORY, WHITEBOARD_FILE_EXPORT_SERVICE, WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_RENDERER, type WhiteboardFileExportCleaner, type WhiteboardFileExportRepository, type WhiteboardFileExportSource, type WhiteboardFileRenderer } from './application/whiteboard/file-export-ports';
 import { DefaultWhiteboardFileExportService } from './application/whiteboard/file-export-service';
 import { PgWhiteboardFileExportSource } from './infrastructure/whiteboard/pg-whiteboard-file-export-source';
 import { PgWhiteboardFileExportRepository } from './infrastructure/whiteboard/pg-whiteboard-file-export-repository';
 import { NodeBoardFileRenderer } from './infrastructure/whiteboard/board-file-renderer';
+import { PhysicalWhiteboardFileExportCleaner } from './infrastructure/whiteboard/board-file-export-cleaner';
+import { BoardFileExportWorker } from './infrastructure/whiteboard/board-file-export-worker';
 import { WhiteboardFileExportController } from './interface/controllers/whiteboard-file-export.controller';
 import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
 import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
@@ -2923,11 +2925,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_FILE_EXPORT_SERVICE,
-      useFactory: (source: WhiteboardFileExportSource, repository: WhiteboardFileExportRepository, objects: ObjectStore, renderer: WhiteboardFileRenderer) => new DefaultWhiteboardFileExportService(source, repository, objects, renderer),
-      inject: [WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_EXPORT_REPOSITORY, OBJECT_STORE, WHITEBOARD_FILE_RENDERER],
+      useFactory: (source: WhiteboardFileExportSource, repository: WhiteboardFileExportRepository, objects: ObjectStore, renderer: WhiteboardFileRenderer, cleaner: WhiteboardFileExportCleaner) => new DefaultWhiteboardFileExportService(source, repository, objects, renderer, cleaner),
+      inject: [WHITEBOARD_FILE_EXPORT_SOURCE, WHITEBOARD_FILE_EXPORT_REPOSITORY, OBJECT_STORE, WHITEBOARD_FILE_RENDERER, WHITEBOARD_FILE_EXPORT_CLEANER],
     },
     { provide: WHITEBOARD_FILE_EXPORT_REPOSITORY, useFactory: (db: DatabasePort) => new PgWhiteboardFileExportRepository(db), inject: [DATABASE_PORT] },
     { provide: WHITEBOARD_FILE_RENDERER, useFactory: () => new NodeBoardFileRenderer() },
+    { provide: WHITEBOARD_FILE_EXPORT_CLEANER, useFactory: (purge: PhysicalPurgePort) => new PhysicalWhiteboardFileExportCleaner(purge), inject: [PHYSICAL_PURGE_PORT] },
+    BoardFileExportWorker,
     {
       provide: WHITEBOARD_ROOM_REPOSITORY,
       // Resolve the production-only secret on first room operation. A deployment

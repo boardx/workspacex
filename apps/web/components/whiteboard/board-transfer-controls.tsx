@@ -158,7 +158,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const external = preview?.external;
   const losses = external ? lossCategories(external.losses) : [];
   return <>
-    <div className="ml-auto flex items-center gap-2">
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
       <label className="text-12 text-muted-foreground" htmlFor="board-export-format">导出格式</label>
       <select id="board-export-format" data-testid="board-export-format" className="rounded-control border border-border bg-background px-2 py-1 text-13" value={exportFormat} onChange={event=>setExportFormat(F.BoardFileExportFormat.parse(event.target.value))}>
         <option value="png">PNG</option><option value="svg">SVG</option><option value="pdf">PDF</option><option value="sticky-csv">便利贴 CSV</option>
@@ -170,6 +170,10 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
       {exportJob&&['queued','running'].includes(exportJob.status)?<><span data-testid="board-export-progress" role="status" className="text-12">{exportJob.progress}%</span><Button data-testid="board-export-cancel" size="sm" variant="ghost" onClick={()=>void cancelExport()}>取消</Button></>:null}
       <Button data-testid="board-export" size="sm" variant="ghost" onClick={() => void downloadPortable()}>Board JSON</Button>
       {exportError?<span role="alert" className="text-12 text-destructive">{exportError}</span>:null}
+      {exportJob?.status==='done'&&exportJob.losses.length?<div data-testid="board-export-losses" role="status" className="basis-full rounded-control border border-warning bg-warning-tint px-3 py-2 text-12 text-warning-tint-foreground">
+        <p className="font-medium">文件已导出，包含 {exportJob.losses.reduce((sum,loss)=>sum+loss.count,0)} 项转换说明</p>
+        <ul className="list-disc pl-5">{exportJob.losses.map(loss=><li key={loss.code}>{loss.code}（{loss.count}）：{loss.message}{loss.sampleObjectIds.length?` 示例：${loss.sampleObjectIds.join('、')}`:''}</li>)}</ul>
+      </div>:null}
     </div>
     <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
       <span>导入副本</span>

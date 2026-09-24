@@ -1269,7 +1269,8 @@ describe("lint-permission-paths: counter-proof", () => {
     // #3968 adds exactly one workshop repository (96 -> 97).
     // #4052 adds two Board file-export repositories (97 -> 99): the public
     // Y.Doc/name source and durable job/locator metadata. Both recheck current
-    // Board owner/member access; private workshop drafts never enter the source.
+    // Board owner/member access; only the caller's own draft existence contributes
+    // an omission count, while private draft text and other users remain unread.
     // Re-measured: lint reports allowlisted=107, minus 8 audited boundary rules = 99.
     // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
     // fallback would expose private boards. The exceptions are bounded to named

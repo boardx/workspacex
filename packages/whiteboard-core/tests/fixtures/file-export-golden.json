@@ -1,5 +1,5 @@
 [
   {"name":"small","frames":1,"notesPerFrame":2,"hiddenNotes":0,"expected":{"width":832,"height":632,"objectCount":3,"pageCount":1,"hiddenLoss":0}},
-  {"name":"medium","frames":4,"notesPerFrame":8,"hiddenNotes":2,"expected":{"width":3532,"height":632,"objectCount":36,"pageCount":4,"hiddenLoss":0}},
-  {"name":"large","frames":20,"notesPerFrame":20,"hiddenNotes":10,"expected":{"width":17932,"height":762,"objectCount":420,"pageCount":20,"hiddenLoss":0}}
+  {"name":"medium","frames":4,"notesPerFrame":8,"hiddenNotes":2,"expected":{"width":3532,"height":632,"objectCount":36,"pageCount":4,"hiddenLoss":2}},
+  {"name":"large","frames":20,"notesPerFrame":20,"hiddenNotes":10,"expected":{"width":17932,"height":762,"objectCount":420,"pageCount":20,"hiddenLoss":10}}
 ]
