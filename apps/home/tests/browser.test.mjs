@@ -467,10 +467,15 @@ for (const [lang, path] of LANGS) {
     }
   });
   await page2.waitForTimeout(900);
+  /* Named, not counted: this failed on CI three runs running with "got 1"
+     and never on the machine that had to fix it. A count says something is
+     wrong; the element, its section, where it sits and whether the reveal
+     reached it say what. */
   const stillHidden = await page2.evaluate(() =>
-    [...document.querySelectorAll('[data-reveal], [data-stagger]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5).length);
+    [...document.querySelectorAll('[data-reveal], [data-stagger]')].filter((e) => parseFloat(getComputedStyle(e).opacity) < 0.5)
+      .map((e) => `.${String(e.className).trim().split(/\s+/).join('.')} in #${e.closest('section')?.id ?? '?'} at ${Math.round(e.getBoundingClientRect().top)}/${innerHeight}px, is-in ${e.classList.contains('is-in')}, opacity ${getComputedStyle(e).opacity}, scrollY ${Math.round(scrollY)}/${document.documentElement.scrollHeight - innerHeight}, demo ${document.querySelector('.demo.is-live') ? 'mounted' : 'not mounted'}`));
   r.check(logged.some((t) => t.includes('[home] diagrams failed')), 'the broken module did not fail the way the test intended');
-  r.equal(stillHidden, 0, 'elements left invisible when a module fails');
+  r.equal(stillHidden.length, 0, `elements left invisible when a module fails: ${stillHidden.join(' | ')}`);
   await broken.close();
   ok = r.finish() && ok;
 }
