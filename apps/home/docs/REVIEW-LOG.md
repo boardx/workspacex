@@ -1601,3 +1601,38 @@ moves with this machine's load rather than with the site.
 | 6 | **The `/privacy` loop fix was inferred, not observed.** | `scripts/live-check.mjs` requests the deployed site, follows every redirect by hand (a loop is a named failure), checks every sitemap URL answers without a hop and that `_headers` is applied. `.github/workflows/home-live.yml` runs it daily and on demand. Verified locally against the test server. |
 | 7 | **Android never tested.** | Not solved, and saying so: CI has no Android, and Chromium's device emulation does not emulate Android's font set, which is exactly the part in question. |
 | 8 | **No LICENSE.** | The owner's decision, not an engineering one — asked, and the owner chose **Apache-2.0**. `LICENSE` at the repository root is the canonical apache.org text, copied byte-for-byte from an installed package rather than typed. The page stopped saying there is none (`check-sequence` required it, both languages): the FAQ answers "Yes", the exit commitment's first line is in force as a right, and what still is not true — no release, no one-command setup — still says so. `check-sequence` now also requires the licence the page names to be the one in the file (proved red by swapping in an MIT text). |
+
+### Round 68 — let the visitor do the work before signing up (77 cases; 9.99)
+
+The owner asked how the homepage could let someone *feel* WorkspaceX without
+signing up, so the value is visible before the first step is asked for, and
+named the scenarios it had to cover: design thinking, innovation, AI
+transformation strategy, and the path to an AI-native enterprise.
+
+What was built is a **scripted demo** directly below the hero (`#demo`,
+`assets/js/demo.js`). Pick a scenario; the task and five sources are on the
+left; "Start the agents" plays four agents working it, lighting the sources
+each step reads; the answer arrives as claims, each naming its sources; "Doubt
+this" opens the check — the verdict and the quoted sources — and the reviewer
+has already struck through the one claim nothing supports (a market size with
+no source, a refund automation the policy forbids, a management cut that is
+leadership's call). It ends at the same "Start free" as the hero. It is
+labeled, above the stage in both languages, as sample material replayed in
+the browser: no model runs and nothing is sent. A live guest mode in the app
+is the second phase, and is not this.
+
+| # | Decision or problem | What was done |
+|---|-----|-----|
+| 1 | **The first-load budget should not pay for a demo nobody opens.** It sits right below the hero, so "near the viewport" is true at load on most desktops. | Nothing is fetched until the reader does something (scroll, tap, key); the module then loads a screen early. Not in `site.js` — `import()` from the bundle. First load unchanged: 9 requests, ~139 KB. |
+| 2 | **Mounting mid-scroll moved the page.** The first version swapped the demo in the moment it came near — including while a smooth scroll from a nav link or `/#panel-edu` passed *through* it. It is several hundred pixels taller than its placeholder, so every such scroll landed short: the eval's deep-link, current-section and language-offer cases dropped to 0–0.75. | Fetching is not mounting: the demo is swapped in only when scrolling has stopped with the section on screen. All three back to 1.00. |
+| 3 | **Every claim's check rendered open.** `.demo__check { display: grid }` beat the `hidden` attribute. Found by looking at the rendered page. | `.demo [hidden] { display: none }`; the suite asserts every check starts closed — proved red by removing the rule (16 failures). |
+| 4 | **A `<noscript>` in `<body>` is text when scripting is on.** The eval's jargon count read its markup as words (`class`, `data-i`, `noscript`). | A paragraph hidden by the `.js` class boot sets. |
+| 5 | **A label under a lit source fell to 4.16:1** (axe, in the new suite). | Brighter ink on the lit state. |
+| 6 | **The two languages of a scenario could drift** — a claim verified in one and withdrawn in the other, a citation to a source that does not exist, a scenario with nothing withdrawn (which is the whole point). | `check-i18n` reads `demo.js` and fails on any of these, on untranslated Chinese, straight quotes in English, a sign-up label different from the hero's, and a static scenario list different from the one drawn. Proved red by flipping one Chinese claim (4 failures). |
+| 7 | **The jargon case counted a licence as a noun.** `/zh/` names "Apache-2.0" four times since round 67 and scored 0.60 on the base commit for it. | License and language names (`Apache`, `JavaScript`) listed as names, and the trailing hyphen the pattern captured is trimmed. |
+
+New: `tests/demo.test.mjs` (in `check-all`: both languages, reduced motion and
+a phone with motion, axe on the mounted demo), and the eval case `conv.demo`
+(the demo is labeled, runs, shows a withdrawal, and ends at sign-up). Score
+**9.99** (en 10.00, zh 9.99); the one miss is the Chinese desktop-LCP case,
+the same machine noise as rounds 66–67.

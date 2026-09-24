@@ -359,13 +359,16 @@ const CASES = [
   ['bi.jargon', '双语', 'The Chinese page says it in Chinese: no English common nouns left in the copy (brands, acronyms and issue/PR/CI excepted)',
     async (c) => c.desk.evaluate((lang) => {
       if (lang !== 'zh') return { score: 1, note: 'n/a' };
-      const BRANDS = new Set(['WorkspaceX', 'BoardX', 'GitHub', 'Copilot', 'Glean', 'Microsoft', 'Google', 'Workspace', 'Slack', 'Acme', 'issue', 'issues']);
+      const BRANDS = new Set(['WorkspaceX', 'BoardX', 'GitHub', 'Copilot', 'Glean', 'Microsoft', 'Google', 'Workspace', 'Slack', 'Acme', 'issue', 'issues',
+        /* Names, not nouns: a licence and a language are written this way in
+           Chinese too. "Apache-2.0" was read as the word "Apache-", ×4. */
+        'Apache', 'JavaScript']);
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       const found = new Map();
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const e = n.parentElement; if (!e || e.closest('script, style, [lang]:not([lang^="zh"]), a[href^="mailto:"]')) continue;
         for (const m of n.textContent.matchAll(/[A-Za-z][A-Za-z-]{2,}/g)) {
-          const w = m[0]; if (BRANDS.has(w) || /^[A-Z0-9-]+$/.test(w)) continue;
+          const w = m[0].replace(/-+$/, ''); if (BRANDS.has(w) || /^[A-Z0-9-]+$/.test(w)) continue;
           if (n.textContent[m.index - 1] === '（') continue;   // a gloss: 执行护栏（harness）
           found.set(w, (found.get(w) || 0) + 1);
         }
@@ -467,6 +470,22 @@ const CASES = [
     async (c) => c.desk.evaluate(() => { const q = [...document.querySelectorAll('.faq__item summary')].map((s) => s.textContent.toLowerCase()).join(' '); const topics = [/data|数据/, /open source|开源/, /security|安全/, /train|训练/, /free|免费/]; return topics.filter((t) => t.test(q)).length / topics.length; })],
   ['conv.ctaverb', '转化', 'Every primary button starts with a verb the reader can act on',
     async (c) => c.desk.evaluate((lang) => { const b = [...document.querySelectorAll('.btn--primary')].map((x) => x.textContent.trim()); const ok = b.filter((t) => (lang === 'zh' ? /^(免费)?(进入|注册|开始|试|打开|联系)/.test(t) : /^(Launch|Sign|Start|Try|Open|Get|Talk|Book)/.test(t))); return { score: ok.length / b.length, note: b.join(' | ') }; }, c.lang)],
+
+  ['conv.demo', '转化', 'A visitor can feel the product before signing up: the demo, labeled as scripted, runs and ends at the sign-up button',
+    async (c) => {
+      await c.desk.evaluate(() => { window.scrollBy(0, 1); document.getElementById('demo')?.scrollIntoView(); });
+      const mounted = await c.desk.waitForSelector('.demo.is-live', { timeout: 5000 }).then(() => true, () => false);
+      if (!mounted) return { score: 0, note: 'never mounted' };
+      await c.desk.click('.demo__run');
+      const done = await c.desk.waitForSelector('.demo__next:not([hidden]) a.btn--primary[href*="devapp"]', { timeout: 8000 }).then(() => true, () => false);
+      const facts = await c.desk.evaluate(() => ({
+        labeled: (document.querySelector('.demo__note')?.offsetHeight ?? 0) > 0,
+        withdrawn: document.querySelectorAll('.demo__claim.is-withdrawn').length,
+      }));
+      await c.desk.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await settle(c.desk);
+      const parts = [done, facts.labeled, facts.withdrawn > 0];
+      return { score: parts.filter(Boolean).length / parts.length, note: `ends at sign-up ${done}, labeled ${facts.labeled}, withdrawn ${facts.withdrawn}` };
+    }],
 
   /* 10 · readability */
   ['read.sentence', '可读性', 'Average sentence length (en ≤ 20 words full marks, ≥ 30 zero; zh ≤ 40 chars, ≥ 65 zero)',

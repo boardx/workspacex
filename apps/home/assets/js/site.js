@@ -1345,7 +1345,46 @@ const boot = () => {
   }, { passive: true });
   step('loop scene', wireLoopScene);
   step('language hint', initLangHint);
+  step('demo', armDemo);
 };
+
+function armDemo() {
+  const host = document.querySelector('[data-demo]');
+  if (!host) return;
+  const EVENTS = ['scroll', 'pointerdown', 'keydown', 'touchstart'];
+  let mod = null; let fetching = false; let done = false; let idle = 0;
+
+  const onScreen = () => {
+    const r = host.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  };
+  const tryMount = () => {
+    if (done || !mod || !onScreen()) return;
+    done = true;
+    window.removeEventListener('scroll', onScroll);
+    mod.initDemo(host);
+  };
+  const onScroll = () => { clearTimeout(idle); idle = setTimeout(tryMount, 160); };
+  const fetchIt = () => {
+    if (fetching) return;
+    fetching = true;
+    import('./demo.js')
+      .then((m) => { mod = m; onScroll(); })
+      .catch((error) => console.error('[home] demo failed:', error));
+  };
+  const arm = () => {
+    EVENTS.forEach((e) => window.removeEventListener(e, arm));
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!('IntersectionObserver' in window)) { fetchIt(); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      fetchIt();
+    }, { rootMargin: '0px 0px 100% 0px' });
+    io.observe(host);
+  };
+  EVENTS.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+}
 
 let detachScene = null;
 let sceneOff = [];
