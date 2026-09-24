@@ -31,6 +31,7 @@
     "test:document-unit": "vitest run --config vitest.document-unit.config.ts",
     "test:export-unit": "vitest run --config vitest.export-unit.config.ts",
     "export:org": "tsx scripts/export-org-data.ts",
+    "test:ontology-projection-unit": "vitest run --config vitest.ontology-projection-unit.config.ts",
     "test:feedback-unit":"vitest run --config vitest.feedback-unit.config.ts",
     "test:file-cloud-db": "vitest run --config vitest.file-cloud-db.config.ts",
     "test:inbox-unit": "vitest run --config vitest.inbox-unit.config.ts",
