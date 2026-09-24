@@ -481,7 +481,7 @@ export async function readDigitalInterviewWorkflow(
       report_id: string; title: string | null; executive_summary: string | null; markdown: string | null;
       findings: Array<{
         findingId: string; title: string; summary: string; expertId: string; questionId: string;
-        sourceAnswerId: string; exploratory: true;
+        sourceAnswerId: string; goalIds?: string[]; exploratory: true;
       }>;
       generated_at: Date | string; generation_status: "running" | "completed" | "failed";
       request_id: string | null; error_code: string | null; updated_at: Date | string;
@@ -518,7 +518,7 @@ export async function readDigitalInterviewWorkflow(
       title: reports.rows[0].title!,
       executiveSummary: reports.rows[0].executive_summary!,
       markdown: reports.rows[0].markdown!,
-      findings: reports.rows[0].findings,
+      findings: reports.rows[0].findings.map((finding) => ({ ...finding, goalIds: finding.goalIds ?? [] })),
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
     } : stale ? reportRow?.previous_report ?? null : null,
     // A failed replacement keeps the last completed report and the attempt error.
@@ -529,7 +529,7 @@ export async function readDigitalInterviewWorkflow(
       title: reports.rows[0].title,
       executiveSummary: reports.rows[0].executive_summary,
       markdown: reports.rows[0].markdown ?? "",
-      findings: reports.rows[0].findings,
+      findings: reports.rows[0].findings.map((finding) => ({ ...finding, goalIds: finding.goalIds ?? [] })),
       errorCode: stale ? "DEPENDENCY_UNAVAILABLE" : reports.rows[0].error_code,
       updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
@@ -573,6 +573,8 @@ export async function readDigitalInterviewWorkflow(
       order: question.ordinal,
       text: question.body,
       purpose: question.purpose,
+      section: /反例|例外|不同/u.test(question.purpose) ? "counterexample" : "core",
+      goalIds: [],
     })),
     questionCandidates: questionCandidates.rows.map((question) => ({
       questionId: question.question_id,
@@ -580,6 +582,8 @@ export async function readDigitalInterviewWorkflow(
       order: question.ordinal,
       text: question.body,
       purpose: question.purpose,
+      section: /反例|例外|不同/u.test(question.purpose) ? "counterexample" : "core",
+      goalIds: [],
     })),
     expertRuns: expertRuns.rows.map((run) => ({
       expertId: run.expert_id,
@@ -611,6 +615,18 @@ export async function readDigitalInterviewWorkflow(
       committedVersionId: proposal.committed_version_id,
       createdAt: new Date(proposal.created_at).toISOString(),
     })) as DigitalInterviewWorkflowView["skillProposals"],
+    researchBrief: null,
+    moderatorPolicy: null,
+    quality: {
+      previewStatus: "unavailable",
+      briefIssues: [],
+      expertCoverage: [],
+      questionFindings: [],
+      readiness: null,
+      readinessDecision: null,
+      evidenceCoverage: [],
+    },
+    reportReview: null,
   };
   return workflow;
 }

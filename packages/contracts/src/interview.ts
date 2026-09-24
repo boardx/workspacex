@@ -339,7 +339,7 @@ export const DigitalInterviewQuestion = z.object({
   text: z.string().trim().min(1),
   purpose: z.string().trim().min(1),
   section: DigitalInterviewQuestionSection,
-  goalIds: z.array(z.string().trim().min(1)).min(1).refine(
+  goalIds: z.array(z.string().trim().min(1)).refine(
     (goalIds) => new Set(goalIds).size === goalIds.length,
     "goalIds must be unique",
   ),
@@ -450,7 +450,7 @@ export const DigitalInterviewReportFinding = z.object({
   expertId: z.string().min(1),
   questionId: z.string().min(1),
   sourceAnswerId: z.string().min(1),
-  goalIds: z.array(z.string().min(1)).min(1).refine(
+  goalIds: z.array(z.string().min(1)).refine(
     (goalIds) => new Set(goalIds).size === goalIds.length,
     "goalIds must be unique",
   ),
@@ -581,7 +581,16 @@ const validateUniqueDigitalInterviewQuestions = (
 const DigitalInterviewQuestionList = z.array(DigitalInterviewQuestion)
   .superRefine(validateUniqueDigitalInterviewQuestions);
 const DigitalInterviewQuestionConfirmation = z.array(DigitalInterviewQuestion).min(1)
-  .superRefine(validateUniqueDigitalInterviewQuestions);
+  .superRefine((questions, context) => {
+    validateUniqueDigitalInterviewQuestions(questions, context);
+    questions.forEach((question, index) => {
+      if (question.goalIds.length === 0) context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [index, "goalIds"],
+        message: "confirmed question must cover at least one goal",
+      });
+    });
+  });
 
 /** 浏览器可直接消费的当前可见专家快照；它与专家目录复用同一个严格投影。 */
 export const DigitalExpertCatalogRow = z.object({
