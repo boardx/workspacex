@@ -361,6 +361,13 @@ export const NAV_SEGMENTS: NavSegment[] = [
           // ucRefs 如实留空：本 phase 判据单一事实源是 requirements/*.md 的 R12，不是
           // UC 文档编号体系，编一个假引用比留空更糟。
           { key: "agent-kernel", label: "Agent 内核预览", href: "/preview/agent-kernel", icon: Cpu, ucRefs: [], isPrototype: true },
+          // 束: chat-knowledge-graph（phase-18 组织大脑 × 知识图谱，chat session 先行，2026-09-24 建）。
+          // ⚠ 同 agent-kernel 先例：本轮只出签核材料（design-signoff.md status: pending），未接实现——
+          //   落地后知识面板挂在 `/chat` 会话右侧栏「知识」tab，不是独立页面。
+          //   `/preview/chat-knowledge-graph` 是签核用的静态原型屏（ui-prototyper 交付，
+          //   `phases/phase-18-org-brain-knowledge-graph/ui-preview/chat-knowledge-graph/` 21 张截图），
+          //   供 lint-nav-reachability 判可达用；接线落地后这一行应改指向 /chat，非遗漏。
+          { key: "chat-knowledge-graph", label: "知识图谱预览", href: "/preview/chat-knowledge-graph", icon: Brain, ucRefs: ["uc-18-3"], isPrototype: true },
           // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）
           // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局

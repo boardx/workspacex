@@ -1,0 +1,426 @@
+/**
+ * chat-knowledge-graph（Phase 18）UI 先行原型 mock 数据 —— ADR-023 签核第 ① 件（UI）材料。
+ *
+ * ⚠ 纯前端 mock，**不接后端**（硬规则 ③）。真实的抽取、召回、权限传播、级联失效都在服务端。
+ *
+ * 单一事实源纪律：本文件**不重定义任何契约类型**（lint-contract-source §2）。
+ * 形状类型全部从契约 zod schema `z.infer` 出来，值全部标注为契约类型——契约错了这里当场崩。
+ *   - 领域形状 / 操作输出：`@repo/contracts/knowledge-graph`
+ *   - 三态文案 / 映射：`KG_TRI_STATE_LABEL_ZH` / `claimTriState`（不另建映射表）
+ *   - 召回通道 / 引用锚点 / 丢弃：`@repo/contracts/context-pack` + `omission-reason` + `filter-action`
+ *
+ * 数据密度照真实会话（约 10 条结论 / 8 个实体 / 多条边），不是三行占位 —— 信息密度问题
+ * 正是 sign-off 要看的（硬规则 ③）。场景：一次关于「v2 上线」的产品对话。
+ */
+import { z } from "zod";
+import {
+  knowledgeGraph,
+  claimTriState,
+  KG_TRI_STATE_LABEL_ZH,
+  KG_GRAPH_VIEW_MAX_NODES,
+  type KgObject,
+  type KgClaim,
+  type KgEdge,
+  type KgClaimKind,
+  type KgTriState,
+  type KgScope,
+} from "@repo/contracts/knowledge-graph";
+import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
+
+type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
+
+/* 契约输出形状（从操作 schema 派生，不手写第二份） */
+export type ThreadKnowledge = z.infer<typeof knowledgeGraph.getThreadKnowledge.out>;
+export type ClaimSources = z.infer<typeof knowledgeGraph.getClaimSources.out>;
+export type PromotionResults = z.infer<typeof knowledgeGraph.promoteToPersonal.out>;
+export type PromotionNominations = z.infer<typeof knowledgeGraph.listPromotionNominations.out>;
+export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
+
+export { KG_TRI_STATE_LABEL_ZH, claimTriState, KG_GRAPH_VIEW_MAX_NODES };
+
+/* ── 结论类型中文名（展示层辅助；枚举本身是契约的封闭集） ───────────────── */
+export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
+  fact: "事实",
+  hypothesis: "假设",
+  decision: "决定",
+  todo: "待办",
+  risk: "风险",
+};
+
+const L0_SCOPE: KgScope = { kind: "chat_session", id: "thread-v2-launch" };
+const L1_SCOPE: KgScope = { kind: "personal", id: "user-me" };
+
+/* ── 实体 ───────────────────────────────────────────────────────────── */
+const objects: KgObject[] = [
+  { id: "obj-zhangsan", scope: L0_SCOPE, kind: "person", name: "张三", aliases: ["三哥", "Z"], createdBy: "model", claimCount: 3 },
+  { id: "obj-lisi", scope: L0_SCOPE, kind: "person", name: "李四", aliases: [], createdBy: "model", claimCount: 2 },
+  { id: "obj-custa", scope: L0_SCOPE, kind: "organization", name: "客户 A", aliases: ["A 公司"], createdBy: "human", claimCount: 3 },
+  { id: "obj-v2", scope: L0_SCOPE, kind: "product", name: "v2 版本", aliases: ["v2", "2.0"], createdBy: "model", claimCount: 4 },
+  { id: "obj-launch", scope: L0_SCOPE, kind: "event", name: "下周一上线", aliases: ["9/29 上线"], createdBy: "model", claimCount: 2 },
+  { id: "obj-slo", scope: L0_SCOPE, kind: "metric", name: "P95 延迟", aliases: ["p95"], createdBy: "model", claimCount: 1 },
+  { id: "obj-migrate", scope: L0_SCOPE, kind: "concept", name: "数据迁移", aliases: [], createdBy: "model", claimCount: 2 },
+  { id: "obj-rollback", scope: L0_SCOPE, kind: "concept", name: "回滚方案", aliases: [], createdBy: "model", claimCount: 1 },
+];
+
+/* ── 结论（覆盖三态 + 五种 kind + supersede + 冲突对） ─────────────────── */
+function claim(
+  id: string,
+  kind: KgClaimKind,
+  statement: string,
+  status: KgClaim["status"],
+  opts: Partial<Omit<KgClaim, "id" | "kind" | "statement" | "status" | "triState" | "scope">> = {},
+): KgClaim {
+  const tri = claimTriState(status);
+  return {
+    id,
+    scope: L0_SCOPE,
+    kind,
+    statement,
+    status,
+    // superseded 不下发，这里强制非 null 的调用方不会传 superseded
+    triState: (tri ?? "pending") as KgTriState,
+    confidence: opts.confidence ?? 0.8,
+    createdBy: opts.createdBy ?? "model",
+    reviewedBy: opts.reviewedBy ?? null,
+    supersedesClaimId: opts.supersedesClaimId ?? null,
+    derivedFromClaimId: opts.derivedFromClaimId ?? null,
+    aboutObjectIds: opts.aboutObjectIds ?? [],
+    supportingCount: opts.supportingCount ?? 1,
+    contradictingCount: opts.contradictingCount ?? 0,
+    createdAt: opts.createdAt ?? "2026-09-23T09:12:00Z",
+  };
+}
+
+const claims: KgClaim[] = [
+  claim("clm-decision-launch", "decision", "张三决定 v2 版本下周一（9/29）上线。", "accepted", {
+    createdBy: "human", reviewedBy: "user-me", confidence: 0.95,
+    aboutObjectIds: ["obj-zhangsan", "obj-v2", "obj-launch"], supportingCount: 2,
+  }),
+  claim("clm-fact-custa", "fact", "客户 A 要求 v2 必须在本季度内交付。", "accepted", {
+    createdBy: "human", reviewedBy: "user-me", confidence: 0.9,
+    aboutObjectIds: ["obj-custa", "obj-v2"], supportingCount: 3,
+  }),
+  claim("clm-todo-migrate", "todo", "李四负责在上线前完成数据迁移演练。", "proposed", {
+    confidence: 0.72, aboutObjectIds: ["obj-lisi", "obj-migrate", "obj-launch"], supportingCount: 1,
+  }),
+  claim("clm-risk-slo", "risk", "迁移期间 P95 延迟可能超过 1.5 秒的目标。", "proposed", {
+    confidence: 0.6, aboutObjectIds: ["obj-slo", "obj-migrate"], supportingCount: 1,
+  }),
+  claim("clm-hyp-rollback", "hypothesis", "若迁移失败，30 分钟内可回滚到 v1。", "reviewed", {
+    confidence: 0.55, aboutObjectIds: ["obj-rollback", "obj-migrate"], supportingCount: 1,
+  }),
+  // 冲突对（A3）：两条对上线日期各执一词，成对并存
+  claim("clm-conflict-date-a", "fact", "上线日期定在下周一（9/29）。", "contested", {
+    confidence: 0.7, aboutObjectIds: ["obj-launch", "obj-v2"], supportingCount: 2, contradictingCount: 1,
+  }),
+  claim("clm-conflict-date-b", "fact", "上线日期推迟到下周三（10/1），等迁移演练通过。", "contested", {
+    confidence: 0.68, aboutObjectIds: ["obj-launch", "obj-v2"], supportingCount: 1, contradictingCount: 2,
+  }),
+  claim("clm-fact-owner", "fact", "客户 A 的对接人是王经理。", "accepted", {
+    createdBy: "human", reviewedBy: "user-me", confidence: 0.88,
+    aboutObjectIds: ["obj-custa"], supportingCount: 1,
+  }),
+  claim("clm-todo-notify", "todo", "上线后需要给客户 A 发一封确认邮件。", "proposed", {
+    confidence: 0.65, aboutObjectIds: ["obj-custa", "obj-launch"], supportingCount: 1,
+  }),
+  claim("clm-risk-scope", "risk", "v2 的报表模块范围仍未冻结，存在延期风险。", "proposed", {
+    confidence: 0.5, aboutObjectIds: ["obj-v2"], supportingCount: 1,
+  }),
+];
+
+/* ── 边（实体↔实体、结论↔实体 about、结论↔结论 五类语义） ───────────────── */
+const edges: KgEdge[] = [
+  { id: "e1", src: { kind: "claim", id: "clm-decision-launch" }, dst: { kind: "object", id: "obj-v2" }, relation: "about", createdBy: "model" },
+  { id: "e2", src: { kind: "claim", id: "clm-decision-launch" }, dst: { kind: "object", id: "obj-zhangsan" }, relation: "decided_by", createdBy: "model" },
+  { id: "e3", src: { kind: "claim", id: "clm-fact-custa" }, dst: { kind: "object", id: "obj-custa" }, relation: "about", createdBy: "model" },
+  { id: "e4", src: { kind: "claim", id: "clm-fact-custa" }, dst: { kind: "claim", id: "clm-decision-launch" }, relation: "hard_constraint", createdBy: "model" },
+  { id: "e5", src: { kind: "claim", id: "clm-todo-migrate" }, dst: { kind: "claim", id: "clm-decision-launch" }, relation: "blocks", createdBy: "model" },
+  { id: "e6", src: { kind: "claim", id: "clm-hyp-rollback" }, dst: { kind: "claim", id: "clm-risk-slo" }, relation: "may_shorten", createdBy: "model" },
+  { id: "e7", src: { kind: "object", id: "obj-lisi" }, dst: { kind: "object", id: "obj-migrate" }, relation: "mentions", createdBy: "model" },
+  { id: "e8", src: { kind: "claim", id: "clm-risk-slo" }, dst: { kind: "object", id: "obj-slo" }, relation: "about", createdBy: "model" },
+];
+
+/* ── 会话读模型：各态 ─────────────────────────────────────────────────── */
+
+/** 正常态（所有者，可编辑、可晋升，入图健康） */
+export const threadKnowledgeNormal: ThreadKnowledge = {
+  scope: L0_SCOPE,
+  revision: 42,
+  objects,
+  claims,
+  edges,
+  ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
+  canEdit: true,
+  canPromote: true,
+};
+
+/** 整理中（后台异步抽取尚未完成，R4 A2 / uc-18-1 R8） */
+export const threadKnowledgeIngesting: ThreadKnowledge = {
+  ...threadKnowledgeNormal,
+  ingestion: { queued: 4, running: 2, failed: 0, failures: [] },
+};
+
+/** 部分失败（uc-18-1 E1：有 N 条未能整理，可单条重试） */
+export const threadKnowledgePartialFailure: ThreadKnowledge = {
+  ...threadKnowledgeNormal,
+  ingestion: {
+    queued: 0,
+    running: 1,
+    failed: 2,
+    failures: [
+      { sourceKind: "chat_message", sourceRef: "msg-8842", reason: "model_unavailable" },
+      { sourceKind: "attachment", sourceRef: "att-1190", reason: "retries_exhausted" },
+    ],
+  },
+};
+
+/** 只读（非所有者：canEdit=false，canPromote=false，uc-18-3 R5） */
+export const threadKnowledgeReadOnly: ThreadKnowledge = {
+  ...threadKnowledgeNormal,
+  canEdit: false,
+  canPromote: false,
+};
+
+/** 空态（本会话还没抽出任何知识，uc-18-3 A1） */
+export const threadKnowledgeEmpty: ThreadKnowledge = {
+  scope: L0_SCOPE,
+  revision: 0,
+  objects: [],
+  claims: [],
+  edges: [],
+  ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
+  canEdit: true,
+  canPromote: true,
+};
+
+const BULK_KINDS = ["person", "concept", "term", "metric"] as const satisfies readonly KgObject["kind"][];
+
+/** 图超限（> 200 节点 → 折叠为簇，uc-18-3 E4） */
+export const threadKnowledgeOversize: ThreadKnowledge = (() => {
+  const bigObjects: KgObject[] = [...objects];
+  for (let i = 0; i < 260; i++) {
+    bigObjects.push({
+      id: `obj-bulk-${i}`,
+      scope: L0_SCOPE,
+      kind: BULK_KINDS[i % BULK_KINDS.length]!,
+      name: `实体 ${i + 1}`,
+      aliases: [],
+      createdBy: "model",
+      claimCount: 1,
+    });
+  }
+  return { ...threadKnowledgeNormal, objects: bigObjects };
+})();
+
+/** 错误态：读取失败（前端渲染 err-* 用；用契约错误码之一 KG_THREAD_NOT_FOUND / KG_NOT_VISIBLE） */
+export const threadKnowledgeErrorCode: (typeof knowledgeGraph.getThreadKnowledge.err)[number] = "KG_NOT_VISIBLE";
+
+/* ── 来源抽屉（UC-KG-2） ───────────────────────────────────────────────── */
+export const claimSourcesNormal: ClaimSources = {
+  claim: claims[0]!,
+  evidence: [
+    {
+      segmentId: "seg-1",
+      stance: "supporting",
+      sourceKind: "chat_message",
+      sourceRef: "msg-8801",
+      excerpt: "张三：那就这么定了，v2 下周一（9/29）上线，迁移演练这周内跑完。",
+      locator: null,
+      revoked: false,
+    },
+    {
+      segmentId: "seg-2",
+      stance: "supporting",
+      sourceKind: "attachment",
+      sourceRef: "att-1042",
+      excerpt: "《v2 发布计划 v3.pdf》：里程碑 M4 — 生产上线，计划日期 9/29（周一）。",
+      locator: { page: 4 },
+      revoked: false,
+    },
+  ],
+  provenance: [
+    { at: "2026-09-23T09:12:00Z", actor: { kind: "system", id: "extractor" }, action: "抽取候选（decision）", pipelineVersion: "kg-extract@1.4.0" },
+    { at: "2026-09-23T10:03:00Z", actor: { kind: "human", id: "user-me" }, action: "确认（proposed → accepted）", pipelineVersion: null },
+  ],
+};
+
+/** 来源已删除（uc-18-5 R8：抽屉打开时源被删） */
+export const claimSourcesRevoked: ClaimSources = {
+  claim: claims[2]!,
+  evidence: [
+    {
+      segmentId: "seg-9",
+      stance: "supporting",
+      sourceKind: "chat_message",
+      sourceRef: "msg-8842",
+      excerpt: "（此来源已被删除）",
+      locator: null,
+      revoked: true,
+    },
+  ],
+  provenance: [
+    { at: "2026-09-23T09:20:00Z", actor: { kind: "system", id: "extractor" }, action: "抽取候选（todo）", pipelineVersion: "kg-extract@1.4.0" },
+    { at: "2026-09-24T08:00:00Z", actor: { kind: "system", id: "cascade" }, action: "来源删除，证据失效（source_deleted）", pipelineVersion: null },
+  ],
+};
+
+/* ── 晋升到个人空间（UC-KG-5）逐条结果，覆盖五种 outcome ─────────────────── */
+export const promotionResultsMixed: PromotionResults = {
+  results: [
+    { claimId: "clm-decision-launch", outcome: "promoted", personalClaimId: "p-clm-1" },
+    { claimId: "clm-fact-custa", outcome: "merged_into_existing", personalClaimId: "p-clm-2" },
+    { claimId: "clm-fact-owner", outcome: "needs_choice", existingPersonalClaimId: "p-clm-3" },
+    { claimId: "clm-conflict-date-a", outcome: "rejected", code: "KG_CONTESTED_NEEDS_RESOLUTION" },
+    { claimId: "clm-todo-migrate", outcome: "rejected", code: "KG_PROMOTE_REQUIRES_ACCEPTED" },
+  ],
+};
+
+/** 全部成功（happy 变体，用于对照） */
+export const promotionResultsAllOk: PromotionResults = {
+  results: [
+    { claimId: "clm-decision-launch", outcome: "promoted", personalClaimId: "p-clm-1" },
+    { claimId: "clm-fact-custa", outcome: "promoted", personalClaimId: "p-clm-2" },
+    { claimId: "clm-fact-owner", outcome: "coexisting", personalClaimId: "p-clm-4" },
+  ],
+};
+
+/* ── AI 提名「值得记住」（UC-KG-6，只提名不执行） ─────────────────────────── */
+export const nominationsNormal: PromotionNominations = {
+  nominations: [
+    { claimId: "clm-decision-launch", rationale: "这是本次对话的核心决定，之后的会话大概率会追问「上线是谁定的、什么时候」。" },
+    { claimId: "clm-fact-custa", rationale: "客户 A 的硬性交付要求，跨会话都用得上。" },
+    { claimId: "clm-fact-owner", rationale: "对接人信息，日常沟通高频引用。" },
+  ],
+};
+
+/* ── 回答下方：引用 + 「为什么召回」（UC-KG-2 / context-pack 通道） ──────────── */
+
+/** 展示层：一条召回项。channels 用契约枚举；graphPath 是从 KgEdge/KgObject/KgClaim 组合出的
+ *  可读路径字符串（**契约里没有专门的图路径字段**，见 README「设计决定 / 缺口」）。 */
+export interface RecalledCitation {
+  readonly citationId: string;
+  readonly label: string;
+  readonly sourceRef: string;
+  readonly sourceKind: "chat_message" | "attachment";
+  readonly channels: RetrievalChannel[];
+  readonly score: number;
+  /** FilterAction 留痕的展示名（lead=线索/paired=成对…）；取自 filter-action 单源 */
+  readonly reasonLabels: string[];
+  /** 图路径的可读渲染（由边组合，不是新契约字段） */
+  readonly graphPath: string | null;
+  /** 命中的是未确认结论时标注（uc-18-2 A2） */
+  readonly unconfirmed: boolean;
+  /** L1 命中：来自个人空间知识（uc-18-4 R3-6） */
+  readonly fromPersonal: boolean;
+}
+
+export const answerCitationsNormal: RecalledCitation[] = [
+  {
+    citationId: "cite-1",
+    label: "张三决定 v2 下周一上线",
+    sourceRef: "msg-8801",
+    sourceKind: "chat_message",
+    channels: ["graph", "vector", "fts"],
+    score: 0.91,
+    reasonLabels: ["线索", "召回"],
+    graphPath: "张三 —decided_by→ v2 上线（决定）",
+    unconfirmed: false,
+    fromPersonal: false,
+  },
+  {
+    citationId: "cite-2",
+    label: "客户 A 要求本季度交付",
+    sourceRef: "att-1042",
+    sourceKind: "attachment",
+    channels: ["vector", "claim"],
+    score: 0.82,
+    reasonLabels: ["召回", "成对"],
+    graphPath: "客户 A —hard_constraint→ v2 上线决定",
+    unconfirmed: false,
+    fromPersonal: false,
+  },
+  {
+    citationId: "cite-3",
+    label: "李四负责迁移演练（未确认）",
+    sourceRef: "msg-8842",
+    sourceKind: "chat_message",
+    channels: ["fts"],
+    score: 0.61,
+    reasonLabels: ["召回"],
+    graphPath: null,
+    unconfirmed: true,
+    fromPersonal: false,
+  },
+];
+
+/** L1 召回：新会话里带「来自个人空间知识」标签（uc-18-4 V1） */
+export const answerCitationsPersonal: RecalledCitation[] = [
+  {
+    citationId: "cite-p1",
+    label: "客户 A 要求 v2 本季度交付",
+    sourceRef: "msg-8801",
+    sourceKind: "chat_message",
+    channels: ["vector", "graph"],
+    score: 0.88,
+    reasonLabels: ["召回", "线索"],
+    graphPath: "客户 A —hard_constraint→ v2（个人空间）",
+    unconfirmed: false,
+    fromPersonal: true,
+  },
+];
+
+/** 通道健康：哪几路降级不可用（uc-18-2 E1/E2 的「图/向量检索不可用」提示来源）。
+ *  ⚠ context-pack 当前没有 per-channel「不可用」枚举或健康字段，这是 UI 侧的占位表达，
+ *    见 README 缺口清单。 */
+export interface ChannelHealth {
+  readonly channel: RetrievalChannel;
+  readonly available: boolean;
+}
+
+export const channelHealthAllOk: ChannelHealth[] = [
+  { channel: "fts", available: true },
+  { channel: "vector", available: true },
+  { channel: "graph", available: true },
+  { channel: "claim", available: true },
+  { channel: "metadata", available: true },
+];
+
+export const channelHealthGraphDown: ChannelHealth[] = channelHealthAllOk.map((c) =>
+  c.channel === "graph" ? { ...c, available: false } : c,
+);
+
+export const channelHealthVectorDown: ChannelHealth[] = channelHealthAllOk.map((c) =>
+  c.channel === "vector" ? { ...c, available: false } : c,
+);
+
+export const RETRIEVAL_CHANNEL_LABEL_ZH: Record<RetrievalChannel, string> = {
+  fts: "全文",
+  vector: "向量",
+  graph: "图",
+  metadata: "元数据",
+  claim: "结论",
+};
+
+/* ── 分组辅助（纯函数，供列表视图与单测） ─────────────────────────────────── */
+
+/** 结论按 kind 分组，`superseded`（triState 为 null）不渲染（uc-18-3 R7）。 */
+export function groupClaimsByKind(input: KgClaim[]): { kind: KgClaimKind; label: string; claims: KgClaim[] }[] {
+  const order: KgClaimKind[] = ["decision", "fact", "todo", "risk", "hypothesis"];
+  return order
+    .map((kind) => ({
+      kind,
+      label: KG_CLAIM_KIND_LABEL_ZH[kind],
+      claims: input.filter((c) => c.kind === kind && claimTriState(c.status) !== null),
+    }))
+    .filter((g) => g.claims.length > 0);
+}
+
+/** 三态统计（头部计数徽标） */
+export function countByTriState(input: KgClaim[]): Record<KgTriState, number> {
+  const acc: Record<KgTriState, number> = { pending: 0, confirmed: 0, conflict: 0 };
+  for (const c of input) {
+    const tri = claimTriState(c.status);
+    if (tri) acc[tri] += 1;
+  }
+  return acc;
+}
