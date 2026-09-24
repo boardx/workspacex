@@ -114,4 +114,5 @@ export * as postinvestRatingRules from "./postinvest-rating-rules";
 export * as whiteboard from './whiteboard';
 export * as whiteboardImport from './whiteboard-import';
 export * as whiteboardDocument from './whiteboard-document';
+export * as whiteboardPublic from './whiteboard-public';
 export * as whiteboardSync from './whiteboard-sync';

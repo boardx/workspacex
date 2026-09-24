@@ -33,6 +33,7 @@
     "test:inbox-unit": "vitest run --config vitest.inbox-unit.config.ts",
     "test:native-output-unit": "vitest run --config vitest.native-output-unit.config.ts",
     "test:workbench-unit": "vitest run --config vitest.workbench-unit.config.ts",
+    "test:whiteboard-unit": "vitest run --config vitest.whiteboard-unit.config.ts",
     "test:audio-real-model": "vitest run --config vitest.audio-real-model.config.ts",
     "test:authoring-skill-real-model": "vitest run --config vitest.authoring-skill-real-model.config.ts",
     "test:canvas-skill-real-model": "vitest run --config vitest.canvas-skill-real-model.config.ts",
