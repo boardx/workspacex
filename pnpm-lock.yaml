@@ -587,6 +587,9 @@ importers:
       eslint-config-next:
         specifier: 14.2.15
         version: 14.2.15(eslint@8.57.1)(typescript@5.9.3)
+      fake-indexeddb:
+        specifier: 6.2.4
+        version: 6.2.4
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1(canvas@3.2.3)
@@ -6097,6 +6100,10 @@ packages:
   fabric@7.4.0:
     resolution: {integrity: sha512-NalYDc3eifTl1C33zryQwpH6+XA/2ClxQrH9vkASkZw3tbkRmorpikhYMmxhUTmi7O3e9ODz0vOT8qfaCh9IVA==}
     engines: {node: '>=20.0.0'}
+
+  fake-indexeddb@6.2.4:
+    resolution: {integrity: sha512-INKeIKEtSViN4yVtEWEUqbsqmaIy7Ls+MfU0yxQVXg67pOJ/sH1ZxcVrP8XrKULUFohcPD9gnmym+qBfEybACw==}
+    engines: {node: '>=18'}
 
   fast-copy@3.0.2:
     resolution: {integrity: sha512-dl0O9Vhju8IrcLndv2eU4ldt1ftXMqqfgN4H1cpmGV7P6jeB9FwpN9a2c8DPGE1Ys88rNUJVYDHq73CGAGOPfQ==}
@@ -15944,6 +15951,8 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  fake-indexeddb@6.2.4: {}
 
   fast-copy@3.0.2: {}
 

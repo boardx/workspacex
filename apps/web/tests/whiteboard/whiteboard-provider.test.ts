@@ -42,6 +42,16 @@ class FakeOutbox implements WhiteboardOutboxPort {
     }
     return receipts;
   }
+  async quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string) {
+    const receipts: WhiteboardQuarantineReceipt[] = [];
+    for (const [key, updates] of this.active) {
+      const [boardId, principalId, sessionId, epoch] = JSON.parse(key) as [string, string, string, number];
+      if (principalId !== identity.principalId || sessionId !== identity.sessionId) continue;
+      const receipt = { boardId, principalId, sessionId, epoch, receiptId: crypto.randomUUID(), reason, quarantinedAt: new Date().toISOString(), pendingCount: updates.length, pendingBytes: updates.reduce((sum, update) => sum + update.update.length, 0) };
+      receipts.push(receipt); this.receipts.push(receipt); this.active.delete(key);
+    }
+    return receipts;
+  }
 }
 
 const flush = async () => { for (let index = 0; index < 12; index += 1) await Promise.resolve(); };
@@ -113,9 +123,13 @@ it('deletes the decrypt path when logout unmounts the provider before the sessio
   const provider = new WhiteboardProvider(doc, 'board-1', () => {}, options(outbox));
   sync(Socket.sockets[0]!, server); await flush();
   executeCommands(doc, [{ type: 'create', object: { id: 'logout', kind: 'sticky', schemaVersion: 1, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: 'private', style: {}, parentId: null, orderKey: '' } }], 'local');
-  await flush(); token = '';
+  await flush();
+  const otherBoardScope = { boardId: 'board-2', principalId: 'user-1', sessionId: 'session-1', epoch: 3 };
+  await outbox.put(otherBoardScope, { type: 'update', epoch: 3, updateId: crypto.randomUUID(), update: 'AA==' });
+  token = '';
   provider.close(); await flush();
-  expect(outbox.active.size).toBe(0); expect(outbox.receipts[0]).toMatchObject({ reason: 'SESSION_CHANGED', pendingCount: 1 });
+  expect(outbox.active.size).toBe(0); expect(outbox.receipts).toHaveLength(2);
+  expect(outbox.receipts).toEqual(expect.arrayContaining([expect.objectContaining({ boardId: 'board-2', reason: 'SESSION_CHANGED', pendingCount: 1 })]));
   doc.destroy(); server.destroy();
 });
 

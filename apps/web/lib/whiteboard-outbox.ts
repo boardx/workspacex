@@ -23,6 +23,7 @@ export interface WhiteboardOutboxPort {
   put(scope: WhiteboardOutboxScope, update: PendingWhiteboardUpdate): Promise<void>;
   ack(scope: WhiteboardOutboxScope, updateId: string): Promise<void>;
   quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
+  quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]>;
 }
 
 export class WhiteboardOutboxLimitError extends Error {
@@ -39,6 +40,8 @@ const ACTIVE = 'active';
 const QUARANTINE = 'quarantine';
 const LOCK_NAME = 'workspacex-whiteboard-outbox';
 let localLock: Promise<void> = Promise.resolve();
+
+export const WHITEBOARD_OUTBOX_STORAGE = { database: DB_NAME, version: DB_VERSION, activeStore: ACTIVE, quarantineStore: QUARANTINE } as const;
 
 async function withOutboxLock<T>(work: () => Promise<T>): Promise<T> {
   if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request(LOCK_NAME, work);
@@ -156,13 +159,21 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
   }
 
   async quarantineExcept(context: WhiteboardOutboxContext, keepEpoch: number | null, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
+    return this.quarantineWhere(row => sameContext(row, context) && row.epoch !== keepEpoch, reason);
+  }
+
+  async quarantineSession(identity: Pick<WhiteboardOutboxContext, 'principalId' | 'sessionId'>, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
+    return this.quarantineWhere(row => row.principalId === identity.principalId && row.sessionId === identity.sessionId, reason);
+  }
+
+  private async quarantineWhere(matches: (row: StoredOutbox) => boolean, reason: string): Promise<WhiteboardQuarantineReceipt[]> {
     return withOutboxLock(async () => {
       const database = await openDatabase();
       try {
         const read = database.transaction(ACTIVE, 'readonly');
         const rows = await request(read.objectStore(ACTIVE).getAll()) as StoredOutbox[];
         await complete(read);
-        const selected = rows.filter(row => sameContext(row, context) && row.epoch !== keepEpoch);
+        const selected = rows.filter(matches);
         if (!selected.length) return [];
         const now = new Date().toISOString();
         const receipts = selected.map(row => ({
