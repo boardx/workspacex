@@ -1,4 +1,4 @@
-import { whiteboard as C } from '@repo/contracts';
+import { whiteboard as C, whiteboardImport as I } from '@repo/contracts';
 import { whiteboardDiscussion as D } from '@repo/contracts';
 import type { z } from 'zod';
 import { apiRequest } from './api-client';
@@ -8,7 +8,7 @@ export type CreateBoardInput = z.infer<typeof C.CreateBoard>;
 export type UpdateBoardInput = z.infer<typeof C.UpdateBoard>;
 const ops = C.operations;
 const boardPath = (path: string, id: string) => path.replace(':boardId', encodeURIComponent(id));
-export async function listBoards() { return ops.listBoards.out.parse(await apiRequest(ops.listBoards.path, { method: ops.listBoards.method })).items; }
+export async function listBoards(sessionToken?: string) { return ops.listBoards.out.parse(await apiRequest(ops.listBoards.path, { method: ops.listBoards.method, sessionToken })).items; }
 export async function createBoard(input: CreateBoardInput) { return C.Board.parse(await apiRequest(ops.createBoard.path, { method: ops.createBoard.method, body: C.CreateBoard.parse(input) })); }
 export async function getBoard(id: string) { return C.Board.parse(await apiRequest(boardPath(ops.getBoard.path, id), { method: ops.getBoard.method })); }
 export async function updateBoard(id: string, input: UpdateBoardInput) { return C.Board.parse(await apiRequest(boardPath(ops.updateBoard.path, id), { method: ops.updateBoard.method, body: C.UpdateBoard.parse(input) })); }
@@ -23,3 +23,9 @@ export async function replyBoardThread(boardId:string,threadId:string,input:z.in
 export async function resolveBoardThread(boardId:string,threadId:string,resolved:boolean){const op=D.operations.resolveThread;return op.out.parse(await apiRequest(discussionPath(op.path,boardId,{threadId}),{method:op.method,body:{resolved}}));}
 export async function createBoardTask(boardId:string,threadId:string,input:z.infer<typeof D.UpsertTask>){const op=D.operations.createTask;return op.out.parse(await apiRequest(discussionPath(op.path,boardId,{threadId}),{method:op.method,body:D.UpsertTask.parse(input)}));}
 export async function updateBoardTask(boardId:string,taskId:string,input:z.infer<typeof D.UpdateTask>){const op=D.operations.updateTask;return op.out.parse(await apiRequest(discussionPath(op.path,boardId,{taskId}),{method:op.method,body:D.UpdateTask.parse(input)}));}
+export async function importDiagram(id: string, input: I.ImportDiagramInput, sessionToken?: string) {
+  const op = I.operations.importDiagram;
+  return I.ImportDiagramResult.parse(await apiRequest(boardPath(op.path, id), {
+    method: op.method, body: I.ImportDiagramInput.parse(input), sessionToken,
+  }));
+}
