@@ -184,4 +184,66 @@ describe("server-enforced survey publish gate", () => {
       questions: [],
     });
   });
+
+  it("does not persist ready when question semantics are invalid", async () => {
+    const duplicateQuestionDraft = {
+      title: "重复题目",
+      questions: [
+        {
+          id: "q-duplicate",
+          order: 1,
+          chapterId: "section-1",
+          title: "问题一",
+          type: "open",
+          required: true,
+          options: [],
+        },
+        {
+          id: "q-duplicate",
+          order: 2,
+          chapterId: "section-1",
+          title: "问题二",
+          type: "open",
+          required: true,
+          options: [],
+        },
+      ],
+      template: {
+        id: "report-duplicate",
+        title: "报告",
+        sections: [
+          {
+            id: "section-1",
+            title: "结果",
+            blocks: [
+              {
+                id: "block-1",
+                title: "回答",
+                type: "table",
+                questionIds: ["q-duplicate"],
+                statistic: "responses",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const createdResponse = await request(
+      "/surveys",
+      "POST",
+      duplicateQuestionDraft,
+    );
+    expect(createdResponse.status).toBe(201);
+    const created = await createdResponse.json();
+
+    const prepare = await request(`/surveys/${created.id}/prepare`, "POST", {
+      expectedVersion: 1,
+    });
+    expect(prepare.status).toBe(400);
+    expect(await prepare.text()).toContain("invalid_survey");
+    expect(await (await request(`/surveys/${created.id}`)).json()).toMatchObject({
+      status: "draft",
+      version: 1,
+    });
+  });
 });

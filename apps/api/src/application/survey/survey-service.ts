@@ -216,6 +216,8 @@ export class SurveyService {
     return this.change(orgId, actor, id, version, (model) => {
       const blockers = evaluateSurveyForPublish(model);
       if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      if (validateSurveyQuestions(model.questions).length)
+        throw new SurveyError("invalid_survey");
       try {
         model.status = transitionSurveyStatus(model.status, "prepare");
       } catch (error) {

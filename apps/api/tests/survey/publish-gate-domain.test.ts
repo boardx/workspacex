@@ -146,4 +146,73 @@ describe("survey publish gate", () => {
       },
     ]);
   });
+
+  it("ignores page elements when checking answer-question mappings", () => {
+    const blockers = evaluateSurveyForPublish({
+      questions: [
+        {
+          ...question({ id: "intro", title: "欢迎填写", type: "open" }),
+          type: "description" as const,
+          required: false,
+        },
+        question({ id: "q-1", title: "请说明原因", type: "open" }),
+      ],
+      template: {
+        id: "report-1",
+        title: "报告",
+        sections: [
+          {
+            id: "section-1",
+            title: "结果",
+            blocks: [
+              {
+                id: "block-1",
+                title: "回答",
+                type: "table",
+                questionIds: ["q-1"],
+                statistic: "responses",
+                samplePolicy: "valid",
+                minGroupSize: 5,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(blockers).toEqual([]);
+  });
+
+  it("does not treat decorative block references as report data supply", () => {
+    const blockers = evaluateSurveyForPublish({
+      questions: [question({ id: "q-1", title: "请说明原因", type: "open" })],
+      template: {
+        id: "report-1",
+        title: "报告",
+        sections: [
+          {
+            id: "section-decorative-only",
+            title: "说明",
+            blocks: [
+              {
+                id: "block-text",
+                title: "说明",
+                type: "text",
+                questionIds: ["q-1"],
+                statistic: "responses",
+                text: "静态说明",
+                samplePolicy: "valid",
+                minGroupSize: 5,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(blockers.map(({ side, subjectId }) => ({ side, subjectId }))).toEqual([
+      { side: "question", subjectId: "q-1" },
+      { side: "section", subjectId: "section-decorative-only" },
+    ]);
+  });
 });

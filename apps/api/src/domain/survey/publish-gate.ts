@@ -2,6 +2,7 @@ import type {
   SurveyPublishBlocker,
   SurveyWorkflowQuestion,
 } from "@repo/contracts/survey";
+import { isSurveyPageElement } from "@repo/contracts/survey-question-types";
 import type { SurveyReportTemplate } from "@repo/contracts/survey-report";
 
 export type SurveyPublishGateInput = {
@@ -23,6 +24,7 @@ const optionQuestionTypes = new Set<SurveyWorkflowQuestion["type"]>([
   "ranking",
   "allocation",
 ]);
+const decorativeReportBlockTypes = new Set(["text", "image", "page-break"]);
 
 export function isLeadingSurveyQuestion(
   question: Pick<SurveyWorkflowQuestion, "title">,
@@ -39,8 +41,11 @@ export function evaluateSurveyForPublish(
   input: SurveyPublishGateInput,
 ): SurveyPublishBlocker[] {
   const blockers: SurveyPublishBlocker[] = [];
-  const questionIds = new Set(input.questions.map((question) => question.id));
-  if (!input.questions.length) {
+  const answerQuestions = input.questions.filter(
+    (question) => !isSurveyPageElement(question),
+  );
+  const questionIds = new Set(answerQuestions.map((question) => question.id));
+  if (!answerQuestions.length) {
     blockers.push({
       code: "QUESTIONS_EMPTY",
       side: "survey",
@@ -51,14 +56,18 @@ export function evaluateSurveyForPublish(
 
   const mappedQuestionIds = new Set(
     input.template.sections.flatMap((section) =>
-      section.blocks.flatMap((block) => [
-        ...block.questionIds,
-        ...(block.groupByQuestionId ? [block.groupByQuestionId] : []),
-      ]),
+      section.blocks.flatMap((block) =>
+        decorativeReportBlockTypes.has(block.type)
+          ? []
+          : [
+              ...block.questionIds,
+              ...(block.groupByQuestionId ? [block.groupByQuestionId] : []),
+            ],
+      ),
     ),
   );
 
-  for (const question of input.questions) {
+  for (const question of answerQuestions) {
     if (optionQuestionTypes.has(question.type) && question.options.length === 0)
       blockers.push({
         code: "QUESTION_OPTIONS_EMPTY",
@@ -84,7 +93,9 @@ export function evaluateSurveyForPublish(
 
   for (const section of input.template.sections) {
     const hasQuestionSupply = section.blocks.some((block) =>
-      block.questionIds.some((questionId) => questionIds.has(questionId)),
+      decorativeReportBlockTypes.has(block.type)
+        ? false
+        : block.questionIds.some((questionId) => questionIds.has(questionId)),
     );
     if (!hasQuestionSupply)
       blockers.push({
