@@ -152,13 +152,46 @@ it('enforces both count and byte bounds before writing another ciphertext', asyn
   expect((await rows(WHITEBOARD_OUTBOX_STORAGE.activeStore)).some(row => row.boardId === 'board-bytes')).toBe(false);
 });
 
+it('fails closed when logout lands after an IndexedDB get starts but before its key row returns',async()=>{
+  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const raceScope=scope({principalId:'idb-race-user',sessionId:'idb-race-session'}),pending=update(1);
+  let releaseGet!:()=>void;let signalGet!:()=>void;const getStarted=new Promise<void>(resolve=>{signalGet=resolve;});
+  const immediateRequest=(result:unknown)=>{const value:{result:unknown;error:null;onsuccess:null|(()=>void);onerror:null|(()=>void)}={result,error:null,onsuccess:null,onerror:null};queueMicrotask(()=>value.onsuccess?.());return value;};
+  const delayedRequest={result:{...raceScope,id:JSON.stringify([raceScope.boardId,raceScope.principalId,raceScope.sessionId,raceScope.epoch]),key:{} as CryptoKey,entries:[{updateId:pending.updateId,iv:new ArrayBuffer(12),value:new ArrayBuffer(1),plainBytes:4}]},error:null,onsuccess:null as null|(()=>void),onerror:null as null|(()=>void)};
+  releaseGet=()=>queueMicrotask(()=>delayedRequest.onsuccess?.());
+  const transaction=(stores:string|string[])=>{let completion:null|(()=>void)=null;const tx={error:null,objectStore:(_name:string)=>({getAll:()=>immediateRequest([]),delete:()=>undefined,get:()=>{signalGet();return delayedRequest;}})} as unknown as IDBTransaction;Object.defineProperty(tx,'oncomplete',{set(value){completion=value as ()=>void;queueMicrotask(()=>completion?.());}});return tx;};
+  const database={transaction,close:()=>undefined,createObjectStore:()=>undefined};
+  const opened={result:database,error:null,onsuccess:null as null|(()=>void),onerror:null as null|(()=>void),onupgradeneeded:null as null|(()=>void)};
+  vi.stubGlobal('indexedDB',{open:()=>{queueMicrotask(()=>opened.onsuccess?.());return opened;}});
+  vi.spyOn(crypto.subtle,'digest').mockImplementation(()=>new Promise<ArrayBuffer>(()=>{}));
+  const loading=new IndexedDbWhiteboardOutbox().load(raceScope);await getStarted;
+  markWhiteboardSessionRevoked(raceScope.principalId,'idb-race-token');releaseGet();
+  await expect(loading).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
+});
+
 it('writes a broad tombstone synchronously and blocks key reads when Web Crypto digest never settles',async()=>{
   const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
   const adapter=new IndexedDbWhiteboardOutbox();await adapter.put(scope({principalId:'hung-crypto-user'}),update(1));
   vi.spyOn(crypto.subtle,'digest').mockImplementation(()=>new Promise<ArrayBuffer>(()=>{}));
   markWhiteboardSessionRevoked('hung-crypto-user','hung-crypto-token');
-  expect(JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]')).toContainEqual({principalId:'hung-crypto-user',sessionId:null});
+  expect(JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]')).toContainEqual(expect.objectContaining({principalId:'hung-crypto-user',sessionId:null,attemptId:expect.any(String)}));
   await expect(adapter.load(scope({principalId:'hung-crypto-user'}))).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
+});
+
+it('keeps another logout attempt broad when one token fingerprint completes first',async()=>{
+  const storage=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)});
+  const originalDigest=crypto.subtle.digest.bind(crypto.subtle);
+  vi.spyOn(crypto.subtle,'digest').mockImplementation((algorithm,data)=>new TextDecoder().decode(data as ArrayBuffer)==='hung-token'
+    ? new Promise<ArrayBuffer>(()=>{})
+    : originalDigest(algorithm,data));
+  markWhiteboardSessionRevoked('dual-logout-user','fast-token');
+  markWhiteboardSessionRevoked('dual-logout-user','hung-token');
+  await vi.waitFor(()=>{
+    const values=JSON.parse(storage.get(WHITEBOARD_REVOKED_SESSION_STORAGE_KEY)??'[]') as Array<{principalId:string;sessionId:string|null;attemptId?:string}>;
+    expect(values.filter(value=>value.principalId==='dual-logout-user'&&value.sessionId===null)).toHaveLength(1);
+    expect(values.filter(value=>value.principalId==='dual-logout-user'&&typeof value.sessionId==='string')).toHaveLength(1);
+  });
+  await expect(new IndexedDbWhiteboardOutbox().load(scope({principalId:'dual-logout-user'}))).rejects.toThrow('WHITEBOARD_SESSION_REVOKED');
 });
 
 // Keep last: the intentionally never-settling cleanup must remain fail-closed and therefore

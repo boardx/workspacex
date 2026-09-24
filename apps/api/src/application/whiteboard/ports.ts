@@ -17,6 +17,7 @@ export interface WhiteboardRepository {
   members(principal: Principal, boardId: string): Promise<Member[] | null>;
   putMember(principal: Principal, boardId: string, member: Member): Promise<boolean>;
   removeMember(principal: Principal, boardId: string, userId: string): Promise<boolean>;
+  cleanupQuarantineAccessReceipts(principal: Principal): Promise<number>;
   issueQuarantineAccessReceipt(principal: Principal, boardId: string, sessionFingerprint: string, epoch: number): Promise<string>;
   requestQuarantineRecovery(principal: Principal, boardId: string, input: C.RequestQuarantineRecovery): Promise<C.QuarantineRecoveryRequest | null>;
 }

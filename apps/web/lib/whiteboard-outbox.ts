@@ -50,7 +50,8 @@ const QUARANTINE = 'quarantine';
 const LOCK_NAME = 'workspacex-whiteboard-outbox';
 const REVOKED_STORAGE_KEY='workspacex-whiteboard-revoked-sessions';
 let localLock: Promise<void> = Promise.resolve();
-const memoryRevocations=new Set<string>();
+const memoryRevocations=new Map<string,RevokedSession>();
+let revocationAttemptSequence=0;
 
 export const WHITEBOARD_OUTBOX_STORAGE = { database: DB_NAME, version: DB_VERSION, activeStore: ACTIVE, quarantineStore: QUARANTINE } as const;
 
@@ -82,26 +83,31 @@ function complete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-type RevokedSession = { principalId: string; sessionId: string | null };
-const revokedId = (identity: RevokedSession) => JSON.stringify([identity.principalId, identity.sessionId]);
+type RevokedSession = { principalId: string; sessionId: string; attemptId?: never }
+  | { principalId: string; sessionId: null; attemptId: string };
+const revokedId = (identity: RevokedSession) => identity.sessionId===null
+  ? JSON.stringify([identity.principalId,null,identity.attemptId])
+  : JSON.stringify([identity.principalId,identity.sessionId]);
 function revokedSessions(): RevokedSession[] {
   const entries = new Map<string, RevokedSession>();
-  for (const encoded of memoryRevocations) {
-    const [principalId, sessionId] = JSON.parse(encoded) as [string, string | null];
-    entries.set(encoded, { principalId, sessionId });
-  }
+  for (const [encoded,identity] of memoryRevocations) entries.set(encoded,identity);
   if (typeof localStorage !== 'undefined') try {
     const stored = JSON.parse(localStorage.getItem(REVOKED_STORAGE_KEY) ?? '[]') as unknown;
-    for (const item of Array.isArray(stored) ? stored : []) if (item && typeof item === 'object'
-      && typeof (item as RevokedSession).principalId === 'string'
-      && (typeof (item as RevokedSession).sessionId === 'string' || (item as RevokedSession).sessionId === null)) {
-      entries.set(revokedId(item as RevokedSession), item as RevokedSession);
+    for (const item of Array.isArray(stored) ? stored : []) if (item && typeof item === 'object') {
+      const candidate=item as Partial<RevokedSession>;
+      if(typeof candidate.principalId!=='string')continue;
+      const identity:RevokedSession|null=typeof candidate.sessionId==='string'
+        ? {principalId:candidate.principalId,sessionId:candidate.sessionId}
+        : candidate.sessionId===null
+          ? {principalId:candidate.principalId,sessionId:null,attemptId:typeof candidate.attemptId==='string'?candidate.attemptId:'legacy'}
+          : null;
+      if(identity)entries.set(revokedId(identity),identity);
     }
   } catch { /* malformed storage remains fail closed through memory revocations */ }
   return [...entries.values()];
 }
 function markRevoked(identity: RevokedSession): void {
-  memoryRevocations.add(revokedId(identity));
+  memoryRevocations.set(revokedId(identity),identity);
   if (typeof localStorage !== 'undefined') try {
     const current = revokedSessions();
     if (!current.some(item => revokedId(item) === revokedId(identity))) current.push(identity);
@@ -119,9 +125,17 @@ function isRevoked(scope: Pick<WhiteboardOutboxContext, 'principalId' | 'session
   return revoked.some(identity => identity.principalId === scope.principalId
     && (identity.sessionId === null || identity.sessionId === scope.sessionId));
 }
+function assertNotRevoked(scope:Pick<WhiteboardOutboxContext,'principalId'|'sessionId'>):void{
+  if(isRevoked(scope,revokedSessions()))throw new Error('WHITEBOARD_SESSION_REVOKED');
+}
+function assertPrincipalNotBroadRevoked(principalId:string):void{
+  if(revokedSessions().some(identity=>identity.principalId===principalId&&identity.sessionId===null))throw new Error('WHITEBOARD_SESSION_REVOKED');
+}
 
 async function cleanupRevokedSessions(database: IDBDatabase): Promise<void> {
-  const revoked = revokedSessions();
+  // Broad markers belong to an individual logout attempt. Only that attempt may narrow and
+  // clear its marker; database cleanup must never erase another in-flight logout's protection.
+  const revoked = revokedSessions().filter((identity):identity is Extract<RevokedSession,{sessionId:string}>=>identity.sessionId!==null);
   if (!revoked.length) return;
   const transaction = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
   const activeStore = transaction.objectStore(ACTIVE), quarantineStore = transaction.objectStore(QUARANTINE);
@@ -154,10 +168,12 @@ async function openDatabase(principalId: string): Promise<IDBDatabase> {
   try{await cleanupRevokedSessions(database);return database;}catch(error){database.close();throw error;}
 }
 
-async function readActive(database: IDBDatabase, id: string): Promise<StoredOutbox | undefined> {
+async function readActive(database: IDBDatabase, scope: WhiteboardOutboxScope): Promise<StoredOutbox | undefined> {
   const transaction = database.transaction(ACTIVE, 'readonly');
-  const result = await request(transaction.objectStore(ACTIVE).get(id)) as StoredOutbox | undefined;
+  const result = await request(transaction.objectStore(ACTIVE).get(scopeId(scope))) as StoredOutbox | undefined;
+  assertNotRevoked(scope);
   await complete(transaction);
+  assertNotRevoked(scope);
   return result;
 }
 
@@ -180,15 +196,19 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
     return withOutboxLock(async () => {
       const database = await openDatabase(scope.principalId);
       try {
-        const row = await readActive(database, scopeId(scope));
+        const row = await readActive(database, scope);
         if (!row) return [];
         const updates: PendingWhiteboardUpdate[] = [];
         for (const entry of row.entries) {
+          assertNotRevoked(scope);
           const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: entry.iv, additionalData: additionalData(scope, entry.updateId) }, row.key, entry.value);
+          assertNotRevoked(scope);
           const parsed = WhiteboardClientMessage.safeParse(JSON.parse(new TextDecoder().decode(clear)));
           if (!parsed.success || parsed.data.type !== 'update' || parsed.data.epoch !== scope.epoch || parsed.data.updateId !== entry.updateId) throw new Error('WHITEBOARD_OUTBOX_CORRUPT');
+          assertNotRevoked(scope);
           updates.push(parsed.data);
         }
+        assertNotRevoked(scope);
         return updates;
       } finally { database.close(); }
     });
@@ -200,11 +220,14 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
       try {
         const transaction = database.transaction(ACTIVE, 'readonly');
         const rows = await request(transaction.objectStore(ACTIVE).getAll()) as StoredOutbox[];
+        assertNotRevoked(context);
         await complete(transaction);
-        return rows.filter(row => sameContext(row, context)).reduce((summary, row) => ({
-          pendingCount: summary.pendingCount + row.entries.length,
-          pendingBytes: summary.pendingBytes + row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
+        assertNotRevoked(context);
+        const summary=rows.filter(row => sameContext(row, context)).reduce((value, row) => ({
+          pendingCount: value.pendingCount + row.entries.length,
+          pendingBytes: value.pendingBytes + row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
         }), { pendingCount: 0, pendingBytes: 0 });
+        assertNotRevoked(context);return summary;
       } finally { database.close(); }
     });
   }
@@ -214,18 +237,24 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
       const database = await openDatabase(scope.principalId);
       try {
         const id = scopeId(scope);
-        const existing = await readActive(database, id);
+        const existing = await readActive(database, scope);
         if (existing?.entries.some(item => item.updateId === update.updateId)) return;
         const entries = existing?.entries ?? [];
         const pendingBytes = entries.reduce((sum, item) => sum + item.plainBytes, 0) + update.update.length;
         if (entries.length >= WHITEBOARD_SYNC.pendingUpdates || pendingBytes > WHITEBOARD_SYNC.pendingBytes) throw new WhiteboardOutboxLimitError();
+        assertNotRevoked(scope);
         const key = existing?.key ?? await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        assertNotRevoked(scope);
         const iv = crypto.getRandomValues(new Uint8Array(12)).slice().buffer;
         const clear = new TextEncoder().encode(JSON.stringify(update));
+        assertNotRevoked(scope);
         const value = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: additionalData(scope, update.updateId) }, key, clear);
+        assertNotRevoked(scope);
         const transaction = database.transaction(ACTIVE, 'readwrite');
+        assertNotRevoked(scope);
         transaction.objectStore(ACTIVE).put({ ...scope, id, key, entries: [...entries, { updateId: update.updateId, iv, value, plainBytes: update.update.length }] } satisfies StoredOutbox);
         await complete(transaction);
+        assertNotRevoked(scope);
       } finally { database.close(); }
     });
   }
@@ -235,13 +264,15 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
       const database = await openDatabase(scope.principalId);
       try {
         const id = scopeId(scope);
-        const existing = await readActive(database, id);
+        const existing = await readActive(database, scope);
         if (!existing) return;
         const entries = existing.entries.filter(item => item.updateId !== updateId);
         const transaction = database.transaction(ACTIVE, 'readwrite');
+        assertNotRevoked(scope);
         if (entries.length) transaction.objectStore(ACTIVE).put({ ...existing, entries });
         else transaction.objectStore(ACTIVE).delete(id);
         await complete(transaction);
+        assertNotRevoked(scope);
       } finally { database.close(); }
     });
   }
@@ -255,7 +286,7 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
   }
 
   async listQuarantine(identity:Pick<WhiteboardOutboxContext,'principalId'>,boardId?:string):Promise<WhiteboardQuarantineReceipt[]>{
-    return withOutboxLock(async()=>{const database=await openDatabase(identity.principalId);try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];await complete(transaction);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
+    return withOutboxLock(async()=>{const database=await openDatabase(identity.principalId);try{const transaction=database.transaction(QUARANTINE,'readonly');const rows=await request(transaction.objectStore(QUARANTINE).getAll()) as StoredQuarantine[];assertPrincipalNotBroadRevoked(identity.principalId);await complete(transaction);assertPrincipalNotBroadRevoked(identity.principalId);return rows.filter(row=>row.principalId===identity.principalId&&(!boardId||row.boardId===boardId)).map(({ciphertext:_,...receipt})=>receipt);}finally{database.close();}});
   }
 
   async discardQuarantine(identity: Pick<WhiteboardOutboxContext, 'principalId'>, receiptId: string): Promise<boolean> {
@@ -265,12 +296,15 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
         const transaction = database.transaction(QUARANTINE, 'readwrite');
         const store = transaction.objectStore(QUARANTINE);
         const row = await request(store.get(receiptId)) as StoredQuarantine | undefined;
+        assertPrincipalNotBroadRevoked(identity.principalId);
         if (!row || row.principalId !== identity.principalId) {
           await complete(transaction);
           return false;
         }
+        assertNotRevoked(row);
         store.delete(receiptId);
         await complete(transaction);
+        assertNotRevoked(row);
         return true;
       } finally { database.close(); }
     });
@@ -299,9 +333,12 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
       try {
         const read = database.transaction(ACTIVE, 'readonly');
         const rows = await request(read.objectStore(ACTIVE).getAll()) as StoredOutbox[];
+        assertPrincipalNotBroadRevoked(principalId);
         await complete(read);
+        assertPrincipalNotBroadRevoked(principalId);
         const selected = rows.filter(matches);
         if (!selected.length) return [];
+        for(const row of selected)assertNotRevoked(row);
         const now = new Date().toISOString();
         const receipts = selected.map(row => ({
           boardId: row.boardId, principalId: row.principalId, sessionId: row.sessionId, epoch: row.epoch,
@@ -311,11 +348,13 @@ export class IndexedDbWhiteboardOutbox implements WhiteboardOutboxPort {
           pendingBytes: row.entries.reduce((sum, entry) => sum + entry.plainBytes, 0),
         } satisfies WhiteboardQuarantineReceipt));
         const write = database.transaction([ACTIVE, QUARANTINE], 'readwrite');
+        for(const row of selected)assertNotRevoked(row);
         selected.forEach((row, index) => {
           write.objectStore(QUARANTINE).put({ ...receipts[index]!, ciphertext: row.entries } satisfies StoredQuarantine);
           write.objectStore(ACTIVE).delete(row.id);
         });
         await complete(write);
+        for(const row of selected)assertNotRevoked(row);
         return receipts;
       } finally { database.close(); }
     });
@@ -329,7 +368,10 @@ export async function fingerprintWhiteboardSession(token: string): Promise<strin
 
 /** Writes the logout boundary synchronously; fingerprinting and physical cleanup are detached. */
 export function markWhiteboardSessionRevoked(principalId: string, token: string): void {
-  const broad={principalId,sessionId:null} satisfies RevokedSession;
+  const attemptId=typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${++revocationAttemptSequence}`;
+  const broad={principalId,sessionId:null,attemptId} satisfies RevokedSession;
   markRevoked(broad);
   if (typeof indexedDB === 'undefined' || typeof crypto === 'undefined') return;
   // The principal marker above blocks every CryptoKey path before Web Crypto, Web Locks or

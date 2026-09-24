@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import type { Principal } from '../../domain/principal';
-import type { DatabasePort } from '../../application/ports/database.port';
+import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import { WhiteboardRecoveryError, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
 import { WHITEBOARD_RECOVERY_POLICY } from '../../domain/whiteboard-recovery-policy';
 
@@ -26,6 +26,19 @@ function recoveryHash(boardId: string, input: C.RequestQuarantineRecovery): stri
     pendingBytes: input.pendingBytes,
     reason: input.reason,
   })).digest('hex');
+}
+async function cleanupAccessReceipts(s:TenantSession,orgId:string):Promise<number>{
+  // Expiry is the logical inactive instant even when maintenance runs later. Consumed proofs use
+  // their actual consumption clock, so retention never silently includes the preceding TTL.
+  await s.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false,inactive_at=COALESCE(inactive_at,expires_at)
+    WHERE org_id=$1 AND active=true AND expires_at<=now()`,[orgId]);
+  const deleted=await s.query<{receipt_id:string}>(`DELETE FROM whiteboard_quarantine_access_receipts ar
+    WHERE ar.org_id=$1 AND ar.active=false
+      AND ar.inactive_at<now()-($2::bigint * interval '1 millisecond')
+      AND NOT EXISTS (SELECT 1 FROM whiteboard_quarantine_recovery_requests rr
+        WHERE rr.org_id=ar.org_id AND rr.access_receipt_id=ar.receipt_id)
+    RETURNING ar.receipt_id`,[orgId,WHITEBOARD_RECOVERY_POLICY.inactiveReceiptRetentionMs]);
+  return deleted.rows.length;
 }
 /** All SQL is tenant-scoped and actor-filtered. A resource ID never grants access. */
 export class PgWhiteboardRepository implements WhiteboardRepository {
@@ -89,19 +102,18 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
       return true;
     });
   }
+  async cleanupQuarantineAccessReceipts(p:Principal):Promise<number>{
+    return this.db.withTenant(p.orgId,s=>cleanupAccessReceipts(s,p.orgId));
+  }
   async issueQuarantineAccessReceipt(p: Principal, id: string, sessionFingerprint: string, epoch: number): Promise<string> {
     const fingerprint = /^[a-f0-9]{64}$/.test(sessionFingerprint);
     if (!fingerprint || !Number.isSafeInteger(epoch) || epoch < 1) throw new Error('WHITEBOARD_ACCESS_CHANGED');
     return this.db.withTenant(p.orgId, async s => {
-      const now=new Date(),expiresAt=new Date(now.getTime()+WHITEBOARD_RECOVERY_POLICY.accessReceiptTtlMs);
-      const retentionCutoff=new Date(now.getTime()-WHITEBOARD_RECOVERY_POLICY.inactiveReceiptRetentionMs);
-      await s.query(`DELETE FROM whiteboard_quarantine_access_receipts ar
-        WHERE ar.org_id=$1 AND ar.active=false AND ar.expires_at<$2
-          AND NOT EXISTS (SELECT 1 FROM whiteboard_quarantine_recovery_requests rr
-            WHERE rr.org_id=ar.org_id AND rr.access_receipt_id=ar.receipt_id)`,[p.orgId,retentionCutoff]);
-      await s.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false
-        WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND session_fingerprint=$4 AND epoch=$5
-          AND active=true AND (consumed_at IS NOT NULL OR expires_at<=$6)`,[p.orgId,id,p.userId,sessionFingerprint,epoch,now]);
+      // The same board-row lock orders receipt issuance after committed membership changes.
+      const board=await s.query(`SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,id]);
+      if(!board.rows.length)throw new Error('WHITEBOARD_ACCESS_CHANGED');
+      await cleanupAccessReceipts(s,p.orgId);
+      const expiresAt=new Date(Date.now()+WHITEBOARD_RECOVERY_POLICY.accessReceiptTtlMs);
       const receiptId=randomUUID();
       const issued = await s.query<{receipt_id:string}>(`INSERT INTO whiteboard_quarantine_access_receipts
         (org_id,board_id,receipt_id,actor_id,session_fingerprint,epoch,expires_at)
@@ -118,6 +130,7 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
   }
   async requestQuarantineRecovery(p: Principal, id: string, input: C.RequestQuarantineRecovery): Promise<C.QuarantineRecoveryRequest | null> {
     return this.db.withTenant(p.orgId, async s => {
+      await cleanupAccessReceipts(s,p.orgId);
       const hash=recoveryHash(id,input);
       type RecoveryRow={request_id:string;request_hash:string;status:'pending-review'|'denied';created_at:Date};
       const lookup=()=>s.query<RecoveryRow>(`SELECT request_id,request_hash,status,created_at
@@ -154,7 +167,7 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         ON CONFLICT DO NOTHING`,[p.orgId,id,input.requestId,input.receiptId,input.accessReceiptId,hash,p.userId,input.sessionFingerprint,input.epoch,input.pendingCount,input.pendingBytes,input.reason]);
       const result=await lookup(),row=result.rows.find(value=>value.request_id===input.requestId&&value.request_hash===hash);
       if(result.rows.length!==1||!row)throw new WhiteboardRecoveryError('IDEMPOTENCY_CONFLICT');
-      await s.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false,consumed_at=COALESCE(consumed_at,now())
+      await s.query(`UPDATE whiteboard_quarantine_access_receipts SET active=false,consumed_at=COALESCE(consumed_at,now()),inactive_at=COALESCE(inactive_at,now())
         WHERE org_id=$1 AND receipt_id=$2 AND actor_id=$3`,[p.orgId,input.accessReceiptId,p.userId]);
       return project(row);
     });

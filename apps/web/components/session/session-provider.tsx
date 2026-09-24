@@ -194,41 +194,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus("anonymous");
   }, []);
 
-  const logout = React.useCallback(async () => {
+  const invalidateSession = React.useCallback((expectedToken:string|null,expectedUserId:string|undefined,expectedGeneration?:number) => {
+    if(expectedGeneration!==undefined&&generationRef.current!==expectedGeneration)return false;
+    if(getStoredSessionToken()!==expectedToken)return false;
+    if(expectedToken&&expectedUserId)try{markWhiteboardSessionRevoked(expectedUserId,expectedToken);}catch{/* never retain a rejected bearer */}
+    clearSessionWhileLocked();
+    becomeAnonymous();
+    const invalidatedGeneration=generationRef.current;
+    // Cross-tab coordination is cleanup only. A stuck Web Lock cannot delay the local security
+    // boundary, and a later callback may clear only the same stale bearer generation.
+    if(expectedToken!==null)void withSessionStorageLock(()=>{
+      if(generationRef.current!==invalidatedGeneration)return;
+      if(getStoredSessionToken()===expectedToken)clearSessionWhileLocked();
+    }).catch(()=>undefined);
+    return true;
+  },[becomeAnonymous]);
+
+  const logout = React.useCallback(() => {
     const expectedToken = getStoredSessionToken();
     const expectedUserId = session?.userId;
-    await withSessionStorageLock(() => {
-      if (getStoredSessionToken() !== expectedToken) return;
-      if (expectedToken && expectedUserId) {
-        try { markWhiteboardSessionRevoked(expectedUserId, expectedToken); } catch { /* never retain a rejected bearer */ }
-        if (getStoredSessionToken() !== expectedToken) return;
-        clearSessionWhileLocked();
-        becomeAnonymous();
-        return;
-      }
-      clearSessionWhileLocked();
-      becomeAnonymous();
-    });
-  }, [becomeAnonymous, session?.userId]);
+    invalidateSession(expectedToken,expectedUserId);
+    return Promise.resolve();
+  }, [invalidateSession, session?.userId]);
 
   const handleFailure = React.useCallback((failure: unknown, generation: number, expectedToken: string, expectedUserId: string) => {
     if (generation !== generationRef.current) return;
     const normalized = failure instanceof Error ? failure : new Error("session_dependency_failed");
     if (normalized instanceof ApiError && normalized.status === 401) {
-      void withSessionStorageLock(() => {
-        if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
-        try { markWhiteboardSessionRevoked(expectedUserId, expectedToken); } catch { /* never retain a rejected bearer */ }
-          if (generation !== generationRef.current || getStoredSessionToken() !== expectedToken) return;
-          clearSessionWhileLocked();
-          becomeAnonymous();
-          return;
-      });
+      invalidateSession(expectedToken,expectedUserId,generation);
       return;
     }
     setIdentity(null);
     setError(normalized);
     setStatus("dependency-failed");
-  }, [becomeAnonymous]);
+  }, [invalidateSession]);
 
   const hydrateAtGeneration = React.useCallback(async (next: SessionInfo, generation: number) => {
     if (generation !== generationRef.current) return false;

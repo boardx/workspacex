@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS whiteboard_quarantine_access_receipts (
   issued_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL,
   consumed_at timestamptz,
+  inactive_at timestamptz,
   active boolean NOT NULL DEFAULT true,
   CHECK (expires_at > issued_at),
   PRIMARY KEY (org_id, receipt_id),
@@ -24,6 +25,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS whiteboard_quarantine_access_active_scope
 
 ALTER TABLE whiteboard_quarantine_recovery_requests ADD COLUMN IF NOT EXISTS access_receipt_id uuid;
 ALTER TABLE whiteboard_quarantine_recovery_requests ADD COLUMN IF NOT EXISTS request_hash text;
+ALTER TABLE whiteboard_quarantine_access_receipts ADD COLUMN IF NOT EXISTS inactive_at timestamptz;
+UPDATE whiteboard_quarantine_access_receipts
+  SET inactive_at=COALESCE(consumed_at,expires_at,issued_at)
+  WHERE active=false AND inactive_at IS NULL;
 UPDATE whiteboard_quarantine_recovery_requests
   SET status='denied',reviewed_at=COALESCE(reviewed_at,now()),request_hash=COALESCE(request_hash,repeat('0',64))
   WHERE access_receipt_id IS NULL OR request_hash IS NULL;
@@ -46,6 +51,10 @@ DO $$ BEGIN
       FOREIGN KEY (org_id, board_id, requested_by, session_fingerprint, epoch, access_receipt_id)
       REFERENCES whiteboard_quarantine_access_receipts(org_id, board_id, actor_id, session_fingerprint, epoch, receipt_id)
       ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='whiteboard_quarantine_access_inactive_clock') THEN
+    ALTER TABLE whiteboard_quarantine_access_receipts ADD CONSTRAINT whiteboard_quarantine_access_inactive_clock
+      CHECK (active OR inactive_at IS NOT NULL);
   END IF;
 END $$;
 
