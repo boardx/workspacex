@@ -25,7 +25,13 @@
  *   3. if the index path still returns fewer than k rows, the same query is re-run as an exact
  *      scan (`annThenExact`). Under-fill only happens when the eligible set is small relative to
  *      the window, which is precisely when the exact scan over the (org, model) btree is cheap.
- *      The result is never worse than exact; the path taken is reported, not hidden.
+ *      The path taken is reported, not hidden.
+ *
+ * What is guaranteed: k rows whenever ≥ k are eligible, all of them in scope. What is NOT: that
+ * they are the exact k nearest. A completed result is exact; a result the index filled (always
+ * the case once iterative scan keeps the index going on pgvector ≥ 0.8) is approximate, like any
+ * HNSW read, and its quality is governed by the recall gate against
+ * `THRESHOLDS.vectorRecallBaseline` (`tests/retrieval/kg-hnsw-permission-recall.test.ts`).
  */
 import type { TenantSession } from "../../application/ports/database.port";
 

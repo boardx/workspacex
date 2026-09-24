@@ -595,36 +595,67 @@ describe("F05 ④: HNSW-then-filter under-fill -- reproduced, then shown mitigat
     expect(short).toBeGreaterThan(0);
   });
 
+  /*
+   * What the mitigation guarantees, per path -- asserted honestly for each:
+   *
+   *   * ALWAYS: exactly k rows when ≥ k are eligible (the R9 under-fill is gone), and every row in
+   *     scope (zero leakage).
+   *   * `exact-completion` (pgvector < 0.8, or the index came back short): the rows ARE the exact
+   *     answer -- strict equality.
+   *   * `ann` (e.g. pgvector ≥ 0.8, where iterative scan fills k from the index): the rows are
+   *     APPROXIMATE neighbours, like every other index read. Their quality is governed by the same
+   *     recall gate as ②: mean recall@k over the query set ≥ `vectorRecallBaseline`. Asserting
+   *     exact equality here would demand more than HNSW promises (CI on pgvector ≥ 0.8 showed 9/10
+   *     overlap on individual queries -- correct ANN behaviour, not a leak).
+   */
+  function judgeTinyScope(label: string, runs: { ids: readonly string[]; path: VectorSearchPath; truth: readonly string[]; inScope: (id: string) => boolean }[]) {
+    const paths: Record<VectorSearchPath, number> = { ann: 0, "exact-completion": 0 };
+    const annRecalls: number[] = [];
+    for (const [i, r] of runs.entries()) {
+      paths[r.path]++;
+      expect(r.ids, `${label} #${i}`).toHaveLength(K);
+      expect(r.ids.filter((id) => !r.inScope(id)), `${label} #${i}: out-of-scope rows`).toEqual([]);
+      if (r.path === "exact-completion") expect([...r.ids].sort(), `${label} #${i}`).toEqual([...r.truth].sort());
+      else annRecalls.push(r.truth.filter((id) => r.ids.includes(id)).length / K);
+    }
+    const annMean = annRecalls.length ? mean(annRecalls) : null;
+    console.log(`[F05] ${label}: paths=${JSON.stringify(paths)}; ann-path mean recall@${K}=${annMean === null ? "n/a" : annMean.toFixed(4)}`);
+    if (annMean !== null) expect(annMean).toBeGreaterThanOrEqual(baseline);
+    return paths;
+  }
+
   for (const arm of ["index", "planner"] as const) {
-    it(`${arm} arm: the production path returns exactly k rows, equal to the exact answer, when ≥ k are eligible (objects)`, async () => {
-      const paths: Record<VectorSearchPath, number> = { ann: 0, "exact-completion": 0 };
+    it(`${arm} arm: the production path returns exactly k in-scope rows when ≥ k are eligible -- exact when completion ran, ≥ baseline recall when served by the index (objects)`, async () => {
+      const runs = [];
       for (const q of QUERIES.slice(0, 20)) {
         const r = await objectSearch({ org: ORG_A, user: ME, thread: TINY_THREAD, personal: false, q, k: K, arm });
-        paths[r.path]++;
-        expect(r.ids).toEqual(exactTopK(q, tinyEligible, K));
+        runs.push({ ids: r.ids, path: r.path, truth: exactTopK(q, tinyEligible, K), inScope: (id: string) => tinyEligible.some((x) => x.id === id) });
       }
-      console.log(`[F05] tiny scope (objects, ${arm} arm) paths=${JSON.stringify(paths)}`);
-      // In the index arm without iterative scan the index cannot fill k here, so completion MUST
-      // have run -- the mitigation is exercised, not assumed.
+      const paths = judgeTinyScope(`tiny scope (objects, ${arm} arm, iterative=${iterative})`, runs);
+      // Without iterative scan the index cannot fill k here, so completion MUST have run -- the
+      // mitigation is exercised, not assumed.
       if (arm === "index" && !iterative) expect(paths["exact-completion"]).toBe(20);
     });
   }
 
-  it("index arm, PgSegmentRetriever.vector: a 12-row org is a sliver of the shared index, and still gets exactly k rows = exact answer", async () => {
+  it("index arm, PgSegmentRetriever.vector: a 12-row org is a sliver of the shared index, and still gets exactly k in-scope rows (exact when completed, ≥ baseline recall when index-served)", async () => {
     const events: VectorSearchEvent[] = [];
+    const runs = [];
     const inner = new PgDatabase(appConfig());
     try {
       const retriever = new PgSegmentRetriever(indexArmDb(inner), (e) => events.push(e));
       const eligible = SEGMENTS.filter(segEligible(ORG_C, PROJ_C));
+      const eligibleIds = new Set(eligible.map((r) => r.id));
       for (const q of QUERIES.slice(0, 20)) {
         const rows = await retriever.vector({ orgId: toOrgId(ORG_C), projectId: PROJ_C, query: "", timeRange: null, limit: K }, q, MODEL);
-        expect(new Set(rows.map((r) => r.ref.id))).toEqual(new Set(exactTopK(q, eligible, K)));
-        expect(rows).toHaveLength(K);
+        const ev = events[events.length - 1]!;
+        runs.push({ ids: rows.map((r) => r.ref.id), path: ev.path, truth: exactTopK(q, eligible, K), inScope: (id: string) => eligibleIds.has(id) });
       }
     } finally {
       await inner.close();
     }
-    console.log(`[F05] tiny org (segments, index arm) under-filled index reads: ${events.filter((e) => e.annRows < K).length}/20, completions: ${events.filter((e) => e.path === "exact-completion").length}/20`);
+    expect(events).toHaveLength(20);
+    judgeTinyScope(`tiny org (segments, index arm, iterative=${iterative}); under-filled index reads ${events.filter((e) => e.annRows < K).length}/20`, runs);
     if (!iterative) expect(events.every((e) => e.path === "exact-completion" && e.annRows < K)).toBe(true);
   });
 
