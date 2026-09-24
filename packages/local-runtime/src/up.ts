@@ -215,7 +215,29 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         // dropped from the Mac bundle (#3749 R10) every first start pulled 2.6 GB over the
         // network to get something the machine would then decline to use (实测 2026-09-22,
         // 用户的首次启动卡在「检查本地模型」7 分钟).
-        for (const model of [c.chatModel, c.embeddingModel]) {
+        /*
+          ⚠ 拉取清单**必须从选型函数派生**，不能自己维护一份「需要哪些模型」。
+
+          上面那段注释记的是这一类的第一次：元模型从 Mac 包里去掉之后，每次首次启动都拉
+          2.6 GB 去换一个机器随后会拒绝使用的东西。当时的修法是把它从清单里删掉——
+          症状治了，根因没治：清单仍然是第二处关于「需要什么」的声明。
+
+          2026-09-24 同一个坑又踩一次：GGUF 从 mac-arm64 包里去掉（体积优先的人类决策）之后，
+          包里只有 `qwen3.5:4b-mlx`，而这里按 `c.chatModel`（= `qwen3.5:4b`）判断「没有」，
+          于是**开始从网上下载 3.2 GB**——把「模型随包、零网络首次运行」整个决策的目的抹掉了。
+          实测日志：`[ollama] 拉取 qwen3.5:4b 10%（0.3/3.2 GB）`。
+
+          现在先跑 `preferredChatModel`：它知道 Apple Silicon 上 `-mlx` 变体能满足需求。
+          两份判断合成一处，这个坑不会有第三次。
+        */
+        const presentForPull = await listModels(ollamaUrl);
+        const effectiveChat = preferredChatModel({
+          configured: c.chatModel,
+          memoryGb: totalmem() / 1024 ** 3,
+          present: presentForPull,
+        });
+        if (effectiveChat !== c.chatModel) log(`[ollama] ${effectiveChat} 已随包，不再拉取 ${c.chatModel}`);
+        for (const model of [effectiveChat, c.embeddingModel]) {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
           log(`[ollama] pulling ${model} (first start only; several GB for the chat model)`);
@@ -288,7 +310,21 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
             log(`[ollama] ${chosen} failed to load on this machine; falling back to ${fallback}`);
             c = { ...c, chatModel: fallback };
           } else {
-            warnings.push(`随包的 ${chosen} 在这台机器上加载失败，且库里没有非 MLX 版可回落`);
+            /*
+              这条路径在 2026-09-24 之后是**唯一**的失败出口：人类决策体积优先，
+              mac-arm64 产物不再随包带 GGUF 退路（见 fetch-models.sh 的注释）。
+              所以这句话不能只是一行日志——它是那台机器上的用户**唯一**会看到的解释。
+              三段：发生了什么／还有什么能用／现在能做什么。
+            */
+            warnings.push(
+              `聊天暂时不可用：这台机器无法加载本地模型 ${chosen}。\n`
+              + "常见原因是显存/内存不够（本地模型需要约 4 GB 可用），"
+              + "或者运行在没有 GPU 直通的虚拟机里。\n"
+              + "其余功能不受影响——项目、画布、转写、备份都照常。\n"
+              + "要恢复聊天：关掉占内存的其他程序后重启应用；"
+              + "或者在这台机器上装 Ollama 并拉一个更小的模型（应用会优先用已在的那个）；"
+              + "或者连接 WorkspaceX 云。",
+            );
           }
         } else {
           log(`[ollama] ${chosen} loaded (MLX runner)`);
