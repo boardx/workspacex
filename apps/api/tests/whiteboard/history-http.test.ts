@@ -25,13 +25,14 @@ afterAll(async()=>{await app?.close();await resetOrgs(ORG,OTHER,CLEANUP);if(blob
 
 describe('whiteboard history HTTP and PostgreSQL boundary',()=>{
   it('survives app/store reconstruction with the same digest and no PG content bytes',async()=>{
-    const board=await createBoard();await store.writeCommands({orgId:toOrgId(ORG),userId:OWNER},board.id,{epoch:1,requestId:randomUUID(),commands:[{type:'create',object}]});
+    const rich={...object,id:'rich',text:`${'长'.repeat(600)}尾部`,extensionData:{mermaid:{source:'graph TD; A-->B'},image:{assetId:'asset-1'},drawing:{points:[[0,0],[1,1]]}}};
+    const board=await createBoard();await store.writeCommands({orgId:toOrgId(ORG),userId:OWNER},board.id,{epoch:1,requestId:randomUUID(),commands:[{type:'create',object},{type:'create',object:rich}]});
     const head=H.HistoryHead.parse(await (await call('GET',`/${board.id}/checkpoints/head`)).json()),requestId=randomUUID();
     const input={requestId,label:'Workshop close',reason:'Facilitator approved',retentionDays:365,expectedHead:head};
     const created=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,input)).json());expect(created.contentDigest).toMatch(/^[a-f0-9]{64}$/);
     const row=await asApp(ORG,c=>c.query<{blob_key:string;content_sha256:string;size_bytes:string}>(`SELECT blob_key,content_sha256,size_bytes::text FROM whiteboard_checkpoints WHERE org_id=$1 AND board_id=$2 AND checkpoint_id=$3`,[ORG,board.id,created.id]));expect(row.rows[0]).toMatchObject({content_sha256:created.contentDigest,size_bytes:String(created.byteLength)});
     await app.close();await start();
-    const preview=H.CheckpointPreview.parse(await (await call('GET',`/${board.id}/checkpoints/${created.id}`)).json());expect(preview.checkpoint.contentDigest).toBe(created.contentDigest);expect(preview.objects).toEqual([expect.objectContaining({id:'note',text:'Durable checkpoint'})]);
+    const preview=H.CheckpointPreview.parse(await (await call('GET',`/${board.id}/checkpoints/${created.id}`)).json());expect(preview.checkpoint.contentDigest).toBe(created.contentDigest);expect(preview.objects.find(value=>value.object.id==='note')).toMatchObject({object:expect.objectContaining({text:'Durable checkpoint'}),deleted:false});expect(preview.objects.find(value=>value.object.id==='rich')?.object).toMatchObject({text:rich.text,extensionData:rich.extensionData});
     const replay=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,input)).json());expect(replay.id).toBe(created.id);
   });
   it('compares current/versions and restores an isolated new Board atomically',async()=>{
@@ -45,7 +46,7 @@ describe('whiteboard history HTTP and PostgreSQL boundary',()=>{
     const receipt=H.RestoreReceipt.parse(await (await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/restores`,restoreRequest)).json());expect(receipt.restoredBoardId).not.toBe(board.id);
     expect(await store.head({orgId:toOrgId(ORG),userId:OWNER},board.id)).toEqual(sourceBefore);
     const restored=await store.load({orgId:toOrgId(ORG),userId:OWNER},receipt.restoredBoardId);expect(restored).toMatchObject({epoch:1,seq:0});
-    const restoredPreview=H.CheckpointPreview.parse(await (await call('GET',`/${receipt.restoredBoardId}/checkpoints/${receipt.restoredCheckpointId}`)).json());expect(restoredPreview.objects[0]?.text).toBe('Durable checkpoint');expect(restoredPreview.checkpoint).toMatchObject({sourceBoardId:board.id,sourceCheckpointId:checkpoint.id,reason:'Facilitator recovery'});
+    const restoredPreview=H.CheckpointPreview.parse(await (await call('GET',`/${receipt.restoredBoardId}/checkpoints/${receipt.restoredCheckpointId}`)).json());expect(restoredPreview.objects[0]?.object).toMatchObject({text:'Durable checkpoint',restoredFrom:'note'});expect(restoredPreview.objects[0]?.object.id).not.toBe('note');expect(restoredPreview.checkpoint).toMatchObject({sourceBoardId:board.id,sourceCheckpointId:checkpoint.id,reason:'Facilitator recovery'});
     const replay=H.RestoreReceipt.parse(await (await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/restores`,restoreRequest)).json());expect(replay).toMatchObject({restoredBoardId:receipt.restoredBoardId,replayed:true});
   });
   it('blocks stale fences, revoked actors and bad restore digests without half Boards',async()=>{
@@ -59,6 +60,37 @@ describe('whiteboard history HTTP and PostgreSQL boundary',()=>{
     expect((await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/restores`,{requestId:randomUUID(),sourceContentDigest:checkpoint.contentDigest,boardName:'denied',reason:'revoked',retentionDays:1},EDITOR)).status).toBe(404);
     expect((await call('GET',`/${board.id}/checkpoints`,undefined,OUTSIDER,OTHER)).status).toBe(404);
   });
+  it('keeps archived history readable while rejecting every history write',async()=>{
+    const board=await createBoard(),head=H.HistoryHead.parse(await (await call('GET',`/${board.id}/checkpoints/head`)).json()),checkpoint=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Archive',reason:'Archive policy',retentionDays:2,expectedHead:head})).json());
+    expect((await call('PATCH',`/${board.id}`,{archived:true})).status).toBe(200);
+    expect((await call('GET',`/${board.id}/checkpoints/${checkpoint.id}`)).status).toBe(200);
+    expect((await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Denied',reason:'Archived',retentionDays:2,expectedHead:head})).status).toBe(403);
+    const restore={requestId:randomUUID(),sourceContentDigest:checkpoint.contentDigest,boardName:'Denied',reason:'Archived',retentionDays:2};
+    expect((await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/restores`,restore)).status).toBe(403);expect((await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/copies`,{...restore,requestId:randomUUID()})).status).toBe(403);
+  });
+  it('blocks expired preview/compare and purges active expiry while preserving pinned history',async()=>{
+    const board=await createBoard(),head=H.HistoryHead.parse(await (await call('GET',`/${board.id}/checkpoints/head`)).json()),expired=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Expire',reason:'Retention proof',retentionDays:1,expectedHead:head})).json()),pinned=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Pinned',reason:'Legal hold',retentionDays:1,expectedHead:head})).json());
+    await asOwner(c=>c.query(`UPDATE whiteboard_checkpoints SET retention_until=clock_timestamp()-interval '1 day',retention_state=CASE checkpoint_id WHEN $3 THEN 'pinned' ELSE 'active' END WHERE org_id=$1 AND board_id=$2 AND checkpoint_id=ANY($4::uuid[])`,[ORG,board.id,pinned.id,[expired.id,pinned.id]]));
+    expect((await call('GET',`/${board.id}/checkpoints/${expired.id}`)).status).toBe(404);expect((await call('POST',`/${board.id}/checkpoints/compare`,{fromCheckpointId:expired.id,to:'current'})).status).toBe(404);expect((await call('GET',`/${board.id}/checkpoints/${pinned.id}`)).status).toBe(200);
+    const purged=await (store as WhiteboardCollaborationStore&{purgeHistoryRetention(orgId:ReturnType<typeof toOrgId>,now?:Date,grace?:number):Promise<{metadata:number;blobs:number}>}).purgeHistoryRetention(toOrgId(ORG),new Date(),0);expect(purged.metadata).toBeGreaterThanOrEqual(1);
+    expect((await call('GET',`/${board.id}/checkpoints/${pinned.id}`)).status).toBe(200);
+  });
+  it('copies live objects with remapped identities and retains deleted relationship context only in history',async()=>{
+    const board=await createBoard(),frame={...object,id:'frame',kind:'frame' as const},child={...object,id:'child',parentId:'frame'},endpoint={...object,id:'endpoint'},edge={...object,id:'edge',kind:'connector' as const,connector:{from:'child',to:'endpoint'}};
+    await store.writeCommands({orgId:toOrgId(ORG),userId:OWNER},board.id,{epoch:1,requestId:randomUUID(),commands:[frame,child,endpoint,edge].map(value=>({type:'create' as const,object:value}))});
+    await store.writeCommands({orgId:toOrgId(ORG),userId:OWNER},board.id,{epoch:1,requestId:randomUUID(),commands:[{type:'delete',id:'frame'},{type:'delete',id:'endpoint'}]});
+    const head=H.HistoryHead.parse(await (await call('GET',`/${board.id}/checkpoints/head`)).json()),checkpoint=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Deleted context',reason:'Copy proof',retentionDays:2,expectedHead:head})).json());
+    const preview=H.CheckpointPreview.parse(await (await call('GET',`/${board.id}/checkpoints/${checkpoint.id}`)).json());expect(preview.objects.find(value=>value.object.id==='frame')?.deleted).toBe(true);expect(preview.objects.find(value=>value.object.id==='child')).toMatchObject({parentDeleted:true});expect(preview.objects.find(value=>value.object.id==='edge')?.connector).toMatchObject({toDeleted:true});
+    const sourceBefore=await store.head({orgId:toOrgId(ORG),userId:OWNER},board.id);
+    for(const route of ['restores','copies'] as const){
+      const receipt=H.RestoreReceipt.parse(await (await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/${route}`,{requestId:randomUUID(),sourceContentDigest:checkpoint.contentDigest,boardName:route==='restores'?'Restored':'Copied',reason:'Identity remap',retentionDays:2})).json());
+      const restoredState=await store.load({orgId:toOrgId(ORG),userId:OWNER},receipt.restoredBoardId);expect(restoredState.seq).toBe(0);
+      const restoredPreview=H.CheckpointPreview.parse(await (await call('GET',`/${receipt.restoredBoardId}/checkpoints/${receipt.restoredCheckpointId}`)).json()),visible=restoredPreview.objects.filter(value=>!value.deleted).map(value=>value.object);
+      expect(visible.map(value=>value.restoredFrom).sort()).toEqual(['child']);expect(visible[0]?.id).not.toBe('child');expect(visible[0]?.parentId).toBeNull();expect(visible.some(value=>value.kind==='connector')).toBe(false);
+      expect(restoredPreview.objects.some(value=>value.deleted)).toBe(false);
+    }
+    expect(await store.head({orgId:toOrgId(ORG),userId:OWNER},board.id)).toEqual(sourceBefore);
+  });
   it('deletes an organization with source/restored checkpoint provenance intact',async()=>{
     const boardResponse=await call('POST','',{requestId:randomUUID(),name:'Cleanup source'},OWNER,CLEANUP);expect(boardResponse.status).toBe(201);const board=await boardResponse.json() as {id:string};
     await store.writeCommands({orgId:toOrgId(CLEANUP),userId:OWNER},board.id,{epoch:1,requestId:randomUUID(),commands:[{type:'create',object}]});
@@ -66,7 +98,9 @@ describe('whiteboard history HTTP and PostgreSQL boundary',()=>{
     const checkpoint=H.Checkpoint.parse(await (await call('POST',`/${board.id}/checkpoints`,{requestId:randomUUID(),label:'Cleanup checkpoint',reason:'Cascade proof',retentionDays:1,expectedHead:head},OWNER,CLEANUP)).json());
     const restored=await call('POST',`/${board.id}/checkpoints/${checkpoint.id}/restores`,{requestId:randomUUID(),sourceContentDigest:checkpoint.contentDigest,boardName:'Cleanup copy',reason:'Cascade proof',retentionDays:1},OWNER,CLEANUP);expect(restored.status).toBe(201);
     await resetOrgs(CLEANUP);
+    const collected=await (store as WhiteboardCollaborationStore&{purgeHistoryRetention(orgId:ReturnType<typeof toOrgId>,now?:Date,grace?:number):Promise<{metadata:number;blobs:number}>}).purgeHistoryRetention(toOrgId(CLEANUP),new Date(),0);expect(collected.blobs).toBeGreaterThanOrEqual(3);
     const remaining=await asOwner(c=>c.query<{checkpoints:string;restores:string}>(`SELECT (SELECT count(*) FROM whiteboard_checkpoints WHERE org_id=$1)::text checkpoints,(SELECT count(*) FROM whiteboard_checkpoint_restores WHERE org_id=$1)::text restores`,[CLEANUP]));
     expect(remaining.rows[0]).toEqual({checkpoints:'0',restores:'0'});
+    const intents=await asOwner(c=>c.query<{state:string}>(`SELECT state FROM whiteboard_history_blob_intents WHERE org_id=$1`,[CLEANUP]));expect(intents.rows.length).toBeGreaterThanOrEqual(3);expect(intents.rows.every(value=>value.state==='deleted')).toBe(true);
   });
 });

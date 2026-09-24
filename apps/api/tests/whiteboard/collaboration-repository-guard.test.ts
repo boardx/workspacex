@@ -10,9 +10,10 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
 const restoreCascadeMigration = readFileSync(new URL('../../migrations/20260924001000_whiteboard_checkpoint_restore_cascade.sql', import.meta.url), 'utf8');
+const lifecycleMigration = readFileSync(new URL('../../migrations/20260924001100_whiteboard_history_blob_intents.sql', import.meta.url), 'utf8');
 const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'historyHead', 'listHistoryCheckpoints',
-  'createHistoryCheckpoint', 'previewHistoryCheckpoint', 'compareHistoryCheckpoints', 'restoreHistoryCheckpoint',
-  'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'historySource', 'publishHistoryContent', 'putHistorySnapshot',
+  'createHistoryCheckpoint', 'previewHistoryCheckpoint', 'compareHistoryCheckpoints', 'restoreHistoryCheckpoint', 'copyHistoryCheckpoint', 'copyHistorySnapshot',
+  'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'historySource', 'stageHistoryBlob', 'finalizeHistoryIntent', 'publishHistoryRestoreContent', 'purgeHistoryRetention',
   'readHistoryBlob', 'snapshot', 'activateNewBoard', 'publish', 'historyCheckpointObjects', 'historyRestoreView',
   'readHistoryCheckpointBlob', 'putAndVerify'];
 
@@ -46,7 +47,7 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_content_heads', 'whiteboard_checkpoints', 'whiteboard_checkpoint_restores']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_content_heads', 'whiteboard_checkpoints', 'whiteboard_checkpoint_restores','whiteboard_history_blob_intents']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
@@ -82,6 +83,12 @@ function audit(code: string): string[] {
   const restoreHistory = methods.get('restoreHistoryCheckpoint') ?? '';
   if (restoreHistory.indexOf('this.historySource(session, p, boardId, true)') < 0 || restoreHistory.indexOf('this.historySource(session, p, boardId, true)') > restoreHistory.indexOf('FROM whiteboard_checkpoint_restores')) errors.push('history restore: authorize before replay');
   if (!/sourceContentDigest/.test(restoreHistory) || !/content_sha256/.test(restoreHistory)) errors.push('history restore: digest fence');
+  if (restoreHistory.indexOf('restoredBoardIdForRequest(') < 0 || restoreHistory.indexOf('restoredBoardIdForRequest(') > restoreHistory.indexOf('this.publishHistoryRestoreContent(')) errors.push('history restore: stable target before publish');
+  const stage = methods.get('stageHistoryBlob') ?? '';
+  if (stage.indexOf('INSERT INTO whiteboard_history_blob_intents') < 0 || stage.indexOf('INSERT INTO whiteboard_history_blob_intents') > stage.indexOf('this.codec.encrypt(')) errors.push('history lifecycle: intent before encryption');
+  if (stage.indexOf('UPDATE whiteboard_history_blob_intents SET blob_key=') < 0 || stage.indexOf('UPDATE whiteboard_history_blob_intents SET blob_key=') > stage.indexOf('this.putAndVerify(')) errors.push('history lifecycle: descriptor before put');
+  const purge = methods.get('purgeHistoryRetention') ?? '';
+  if (purge.indexOf('deleteIfMatch(') < 0 || purge.indexOf('deleteIfMatch(') > purge.indexOf("SET state='deleted'")) errors.push('history lifecycle: digest delete before tombstone');
   return errors;
 }
 
@@ -116,5 +123,13 @@ describe('whiteboard collaboration repository permission exemption', () => {
     expect(restoreCascadeMigration).toContain("confrelid = 'whiteboard_checkpoints'::regclass");
     expect(restoreCascadeMigration).toContain("conrelid = 'whiteboard_checkpoint_restores'::regclass");
     expect([...restoreCascadeMigration.matchAll(/ON DELETE CASCADE/g)]).toHaveLength(2);
+  });
+  it('keeps crash recovery durable and tenant-scoped without an organization cascade', () => {
+    expect(lifecycleMigration).toContain('UNIQUE (org_id,actor_id,operation_kind,request_id,blob_role)');
+    expect(lifecycleMigration).toContain('FORCE ROW LEVEL SECURITY');
+    expect(lifecycleMigration).not.toMatch(/REFERENCES\s+(organizations|whiteboards)/i);
+    expect(audit(source.replace('restoredBoardIdForRequest(p.orgId,p.userId,boardId,checkpointId,parsed.data.requestId)', 'randomUUID()'))).toContain('history restore: stable target before publish');
+    expect(audit(source.replace('await this.db.withTenant(p.orgId,async session=>{const changed=', 'await this.putAndVerify(p.orgId,key,encoded);\n    await this.db.withTenant(p.orgId,async session=>{const changed='))).toContain('history lifecycle: descriptor before put');
+    expect(audit(source.replace('await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key', "await session.query(`UPDATE whiteboard_history_blob_intents SET state='deleted' WHERE org_id=$1`,[orgId]);\n        await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key"))).toContain('history lifecycle: digest delete before tombstone');
   });
 });

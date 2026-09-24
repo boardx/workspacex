@@ -16,6 +16,7 @@ export interface BoardBlobStore {
   putImmutable(input: BoardBlobIdentity & BoardBlobDescriptor & { ciphertext: Uint8Array }): Promise<'created' | 'already-present-same-content'>;
   getVerified(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<Uint8Array>;
   head(input: BoardBlobIdentity): Promise<BoardBlobDescriptor | null>;
+  deleteIfMatch(input: BoardBlobIdentity & { expectedCipherDigest: string; expectedSizeBytes: number }): Promise<'deleted' | 'not-found'>;
 }
 
 export interface EncodedBoardBlob extends BoardBlobDescriptor {

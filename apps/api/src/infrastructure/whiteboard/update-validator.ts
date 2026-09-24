@@ -42,6 +42,7 @@ export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidato
   async objects(snapshot: Uint8Array): Promise<WhiteboardObject[]> {
     return this.run({ mode: 'objects', snapshot }) as Promise<WhiteboardObject[]>;
   }
+  async historyObjects(snapshot:Uint8Array):Promise<Array<{object:WhiteboardObject;deleted:boolean}>>{return this.run({mode:'history-objects',snapshot}) as Promise<Array<{object:WhiteboardObject;deleted:boolean}>>;}
   async objectIds(snapshot: Uint8Array): Promise<string[]> {
     return this.run({ mode: 'object-ids', snapshot }) as Promise<string[]>;
   }

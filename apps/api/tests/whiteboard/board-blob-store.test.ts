@@ -36,6 +36,14 @@ describe('FsBoardBlobStore', () => {
     expect(Buffer.from(await restarted.getVerified({ ...value, expectedCipherDigest: value.cipherDigest, expectedSizeBytes: value.sizeBytes })).toString()).toBe('encrypted-board-update');
     expect(await restarted.head(value)).toEqual({ cipherDigest: value.cipherDigest, sizeBytes: value.sizeBytes });
   });
+  it('deletes only the exact digest and size and makes replayed collection idempotent',async()=>{
+    const value=input(Buffer.from('collect-me'));await store.putImmutable(value);
+    await expect(store.deleteIfMatch({...value,expectedCipherDigest:'0'.repeat(64),expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+    await expect(store.deleteIfMatch({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes+1})).rejects.toMatchObject({code:'INTEGRITY_FAILED'});
+    expect(await store.head(value)).toEqual({cipherDigest:value.cipherDigest,sizeBytes:value.sizeBytes});
+    await expect(store.deleteIfMatch({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).resolves.toBe('deleted');
+    await expect(store.deleteIfMatch({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).resolves.toBe('not-found');
+  });
 
   it('durably creates every directory level before publishing into an empty root', async () => {
     const syncs: string[] = [];

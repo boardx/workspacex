@@ -27,6 +27,10 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
+export function readStoredObjects(doc: Y.Doc): Array<{ object: WhiteboardObject; deleted: boolean }> {
+  return [...objectMap(doc)].map(([id,value])=>({object:decode(id,value),deleted:tombstones(doc).has(id)}))
+    .sort((a,b)=>a.object.id.localeCompare(b.object.id));
+}
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
   for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');

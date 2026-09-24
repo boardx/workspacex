@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BoardId } from './whiteboard';
-import { WhiteboardGeometry, WhiteboardObjectId, WhiteboardStyle, WHITEBOARD_LIMITS } from './whiteboard-document';
+import { WhiteboardGeometry, WhiteboardObject, WhiteboardObjectId, WhiteboardStyle, WHITEBOARD_LIMITS } from './whiteboard-document';
 
 export const WHITEBOARD_HISTORY_LIMITS = {
   listedCheckpoints: 100,
@@ -10,6 +10,7 @@ export const WHITEBOARD_HISTORY_LIMITS = {
   reasonChars: 500,
   boardNameChars: 200,
   retentionDays: 3650,
+  previewJsonBytes: 32 * 1024 * 1024,
 } as const;
 
 const Digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -54,17 +55,21 @@ export const CreateCheckpoint = z.object({
 
 export const HistoryObject = z.object({
   id: WhiteboardObjectId,
+  objectDigest: Digest,
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
   geometry: WhiteboardGeometry,
   text: z.string().max(500),
   style: WhiteboardStyle,
   parentId: WhiteboardObjectId.nullable(),
   parentMissing: z.boolean(),
-  connector: z.object({ from: WhiteboardObjectId, to: WhiteboardObjectId, fromMissing: z.boolean(), toMissing: z.boolean() }).strict().nullable(),
+  parentDeleted: z.boolean(),
+  deleted: z.boolean(),
+  connector: z.object({ from: WhiteboardObjectId, to: WhiteboardObjectId, fromMissing: z.boolean(), toMissing: z.boolean(), fromDeleted:z.boolean(),toDeleted:z.boolean() }).strict().nullable(),
 }).strict();
 export type HistoryObject = z.infer<typeof HistoryObject>;
 
-export const CheckpointPreview = z.object({ checkpoint: Checkpoint, objects: z.array(HistoryObject).max(WHITEBOARD_HISTORY_LIMITS.checkpointObjects) }).strict();
+export const HistoryPreviewObject=z.object({object:WhiteboardObject,deleted:z.boolean(),parentMissing:z.boolean(),parentDeleted:z.boolean(),connector:z.object({fromMissing:z.boolean(),toMissing:z.boolean(),fromDeleted:z.boolean(),toDeleted:z.boolean()}).strict().nullable()}).strict();
+export const CheckpointPreview = z.object({ checkpoint: Checkpoint, objects: z.array(HistoryPreviewObject).max(WHITEBOARD_HISTORY_LIMITS.checkpointObjects+WHITEBOARD_LIMITS.tombstones) }).strict();
 
 export const CompareCheckpoint = z.object({
   fromCheckpointId: CheckpointId,
@@ -75,6 +80,7 @@ export const HistoryChange = z.object({
   change: z.enum(['added', 'modified', 'deleted']),
   before: HistoryObject.nullable(),
   after: HistoryObject.nullable(),
+  changedFields: z.array(z.string().min(1).max(64)).max(32),
 }).strict();
 export const CheckpointComparison = z.object({
   from: z.object({ checkpointId: CheckpointId, contentDigest: Digest }).strict(),

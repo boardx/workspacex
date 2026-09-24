@@ -136,6 +136,7 @@ describe('whiteboard collaboration durable transactions', () => {
         head: input => blobs.head(input),
         putImmutable: async input => { calls++; if (mode === 'put' && calls === 1) throw new Error('injected blob failure'); return blobs.putImmutable(input); },
         getVerified: async input => { const bytes = await blobs.getVerified(input); if (mode === 'readback' && calls > 0) return new Uint8Array(bytes.map((byte, index) => index === 0 ? byte ^ 1 : byte)); return bytes; },
+        deleteIfMatch:input=>blobs.deleteIfMatch(input),
       };
       await expect(collaboration(db, fault).writeCommands(owner, board.id, { epoch: 1, requestId: randomUUID(), commands: [command(mode)] })).rejects.toThrow();
       expect((await store.load(owner, board.id)).seq).toBe(0);

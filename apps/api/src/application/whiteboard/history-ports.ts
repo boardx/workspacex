@@ -14,4 +14,5 @@ export interface WhiteboardHistoryStore {
   preview(principal: Principal, boardId: string, checkpointId: string): Promise<z.infer<typeof H.CheckpointPreview>>;
   compare(principal: Principal, boardId: string, input: CompareCheckpointInput): Promise<z.infer<typeof H.CheckpointComparison>>;
   restore(principal: Principal, boardId: string, checkpointId: string, input: RestoreCheckpointInput): Promise<H.RestoreReceipt>;
+  copy(principal: Principal, boardId: string, checkpointId: string, input: RestoreCheckpointInput): Promise<H.RestoreReceipt>;
 }

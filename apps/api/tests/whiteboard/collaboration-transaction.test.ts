@@ -9,7 +9,7 @@ import { toOrgId } from '../../src/domain/org-id';
 const p = { orgId: toOrgId('transaction-whiteboard-test'), userId: 'owner' }, boardId = randomUUID();
 const input = () => ({ epoch: 1, requestId: randomUUID(), commands: [{ type: 'delete' as const, id: 'note' }] });
 const validator: WhiteboardUpdateValidator = {
-  objects: async () => [], objectIds: async () => [], diff: async snapshot => snapshot,
+  objects: async () => [], historyObjects:async()=>[], objectIds: async () => [], diff: async snapshot => snapshot,
   commands: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
   validate: async () => ({ snapshot: new Uint8Array([0, 0]), update: new Uint8Array([0, 0]) }),
 };
@@ -58,6 +58,7 @@ const memoryBlobs = (): BoardBlobStore => {
     async putImmutable(value) { values.set(value.key, new Uint8Array(value.ciphertext)); return 'created'; },
     async getVerified(value) { const bytes = values.get(value.key); if (!bytes) throw new Error('missing'); return new Uint8Array(bytes); },
     async head(value) { const bytes = values.get(value.key); return bytes ? { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength } : null; },
+    async deleteIfMatch(value){return values.delete(value.key)?'deleted':'not-found';},
   };
 };
 const identityCodec: BoardBlobCodec = {

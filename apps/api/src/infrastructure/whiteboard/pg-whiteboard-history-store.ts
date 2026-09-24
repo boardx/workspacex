@@ -13,4 +13,5 @@ export class PgWhiteboardHistoryStore implements WhiteboardHistoryStore {
   preview(p: Principal, boardId: string, checkpointId: string): Promise<z.infer<typeof H.CheckpointPreview>> { return this.collaboration.previewHistoryCheckpoint(p,boardId,checkpointId); }
   compare(p: Principal, boardId: string, input: CompareCheckpointInput): Promise<z.infer<typeof H.CheckpointComparison>> { return this.collaboration.compareHistoryCheckpoints(p,boardId,input); }
   restore(p: Principal, boardId: string, checkpointId: string, input: RestoreCheckpointInput): Promise<H.RestoreReceipt> { return this.collaboration.restoreHistoryCheckpoint(p,boardId,checkpointId,input); }
+  copy(p: Principal, boardId: string, checkpointId: string, input: RestoreCheckpointInput): Promise<H.RestoreReceipt> { return this.collaboration.copyHistoryCheckpoint(p,boardId,checkpointId,input); }
 }

@@ -91,7 +91,7 @@ export class WhiteboardController {
   async copyCheckpoint(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string,
     @Param('checkpointId', new ParseUUIDPipe()) checkpointId: string,
     @Body(new ZodBodyPipe(H.RestoreCheckpoint)) input: RestoreCheckpointInput) {
-    assertPrincipal(p); try { return await this.history.restore(p,id,checkpointId,input); } catch (error) { historyFailure(error); }
+    assertPrincipal(p); try { return await this.history.copy(p,id,checkpointId,input); } catch (error) { historyFailure(error); }
   }
   @Get(':boardId/export')
   async exportBoard(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string) {
