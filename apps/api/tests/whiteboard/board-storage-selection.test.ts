@@ -67,6 +67,8 @@ describe('Board storage provider selection', () => {
     await expect(createBoardStorageSelection(env, { versionedKeys: keys })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     await expect(createBoardStorageSelection(env, { versionedKeys: keys, hostedClients: { create: async () => hostedClient('s3-compatible', { access: 'public', versioning: 'enabled', objectLock: 'disabled' }) } }))
       .rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+    await expect(createBoardStorageSelection(env, { versionedKeys: keys, hostedClients: { create: async () => { throw new Error('secret provider detail'); } } }))
+      .rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE', message: 'hosted board storage client is not configured' });
   });
 
   it('accepts a deployment-managed versioned secret file when no KMS source is injected', async () => {

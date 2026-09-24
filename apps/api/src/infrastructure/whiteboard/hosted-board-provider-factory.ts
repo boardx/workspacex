@@ -24,17 +24,17 @@ import {
 
 const required = (env: NodeJS.ProcessEnv, name: string): string => {
   const value = env[name]?.trim();
-  if (!value || /[\r\n\u0000]/.test(value)) throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage configuration is incomplete');
+  if (!value || /[\r\n\u0000]/.test(value)) throw new BoardBlobError('INVALID_INPUT', `${name} is required for hosted board storage`);
   return value;
 };
 
 function endpoint(env: NodeJS.ProcessEnv, name: string): URL {
   let value: URL;
   try { value = new URL(required(env, name)); }
-  catch { throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage endpoint is invalid'); }
+  catch { throw new BoardBlobError('INVALID_INPUT', `${name} must be a valid HTTPS URL for hosted board storage`); }
   const loopback = value.hostname === '127.0.0.1' || value.hostname === 'localhost' || value.hostname === '::1';
   if (value.username || value.password || value.search || value.hash || (value.protocol !== 'https:' && !(env.NODE_ENV === 'test' && loopback))) {
-    throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage endpoint is invalid');
+    throw new BoardBlobError('INVALID_INPUT', `${name} must be a valid HTTPS URL for hosted board storage`);
   }
   return value;
 }
@@ -204,8 +204,16 @@ export class EnvHostedBoardClientFactory implements HostedBoardClientFactory {
     if (input.provider === 'aliyun-oss') {
       const url = endpoint(this.env, 'WORKSPACEX_BOARD_OSS_ENDPOINT');
       const region = required(this.env, 'WORKSPACEX_BOARD_OSS_REGION');
-      const authMode = this.env.WORKSPACEX_BOARD_OSS_AUTH_MODE?.trim() || 'ecs-role';
-      if (authMode !== 'ecs-role' && authMode !== 'environment') throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage authentication is invalid');
+      const authMode = this.env.WORKSPACEX_BOARD_OSS_AUTH_MODE?.trim() || (this.env.NODE_ENV === 'production' ? '' : 'ecs-role');
+      if (authMode !== 'ecs-role' && authMode !== 'environment') {
+        throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_OSS_AUTH_MODE must be ecs-role or environment');
+      }
+      if (authMode === 'environment') {
+        required(this.env, 'WORKSPACEX_BOARD_OSS_ACCESS_KEY_ID');
+        required(this.env, 'WORKSPACEX_BOARD_OSS_ACCESS_KEY_SECRET');
+      } else {
+        required(this.env, 'WORKSPACEX_BOARD_OSS_ROLE_NAME');
+      }
       const source = ossCredentialSource({ region, bucket: input.bucket, endpoint: url.toString(), prefix: input.prefix, authMode, roleName: this.env.WORKSPACEX_BOARD_OSS_ROLE_NAME }, {
         ...this.env,
         OSS_ACCESS_KEY_ID: this.env.WORKSPACEX_BOARD_OSS_ACCESS_KEY_ID,
@@ -220,13 +228,27 @@ export class EnvHostedBoardClientFactory implements HostedBoardClientFactory {
 
     const url = endpoint(this.env, 'WORKSPACEX_BOARD_S3_ENDPOINT');
     const profile = required(this.env, 'WORKSPACEX_BOARD_S3_PROFILE') as S3Profile;
-    if (!['aws-s3', 'minio', 'r2'].includes(profile)) throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage profile is invalid');
+    if (!['aws-s3', 'minio', 'r2'].includes(profile)) {
+      throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_S3_PROFILE must be aws-s3, minio, or r2');
+    }
     const credentials = {
       accessKeyId: required(this.env, 'WORKSPACEX_BOARD_S3_ACCESS_KEY_ID'),
       secretAccessKey: required(this.env, 'WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY'),
       sessionToken: this.env.WORKSPACEX_BOARD_S3_SESSION_TOKEN?.trim() || undefined,
     };
-    const sdk = new S3Client({ endpoint: url.toString(), region: required(this.env, 'WORKSPACEX_BOARD_S3_REGION'), forcePathStyle: true, credentials });
+    const region = required(this.env, 'WORKSPACEX_BOARD_S3_REGION');
+    // Validate the selected governance plane before constructing a client. Readiness still
+    // performs the real HTTP checks; this eager pass only guarantees that every conditional
+    // production input is attributable by the startup required-env probe.
+    if (profile === 'r2') {
+      endpoint(this.env, 'WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT');
+      required(this.env, 'WORKSPACEX_BOARD_R2_ACCOUNT_ID');
+      required(this.env, 'WORKSPACEX_BOARD_R2_MANAGEMENT_TOKEN');
+    } else if (profile === 'minio') {
+      endpoint(this.env, 'WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT');
+      required(this.env, 'WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_TOKEN');
+    }
+    const sdk = new S3Client({ endpoint: url.toString(), region, forcePathStyle: true, credentials });
     const protocol = new OfficialS3BoardProtocol(sdk, input.bucket, profile, this.env);
     return new S3CompatibleBoardBlobClient(protocol, input.bucket, input.prefix, profile);
   }

@@ -188,8 +188,20 @@ describe('Hosted Board production bindings over real HTTP transports', () => {
   });
 
   it('requires an explicit supported S3 provider profile', async () => {
-    await expect(new EnvHostedBoardClientFactory(s3Env('http://127.0.0.1:1', 'aws-s3', { WORKSPACEX_BOARD_S3_PROFILE: '' })).create({ provider: 's3-compatible', bucket: 'private-board', prefix: 'content' })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
-    await expect(new EnvHostedBoardClientFactory(s3Env('http://127.0.0.1:1', 'aws-s3', { WORKSPACEX_BOARD_S3_PROFILE: 'generic' })).create({ provider: 's3-compatible', bucket: 'private-board', prefix: 'content' })).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+    await expect(new EnvHostedBoardClientFactory(s3Env('http://127.0.0.1:1', 'aws-s3', { WORKSPACEX_BOARD_S3_PROFILE: '' })).create({ provider: 's3-compatible', bucket: 'private-board', prefix: 'content' }))
+      .rejects.toMatchObject({ code: 'INVALID_INPUT', message: 'WORKSPACEX_BOARD_S3_PROFILE is required for hosted board storage' });
+    await expect(new EnvHostedBoardClientFactory(s3Env('http://127.0.0.1:1', 'aws-s3', { WORKSPACEX_BOARD_S3_PROFILE: 'generic' })).create({ provider: 's3-compatible', bucket: 'private-board', prefix: 'content' }))
+      .rejects.toMatchObject({ code: 'INVALID_INPUT', message: 'WORKSPACEX_BOARD_S3_PROFILE must be aws-s3, minio, or r2' });
+  });
+
+  it('eagerly attributes selected governance-profile configuration without issuing HTTP', async () => {
+    for (const [profile, expected] of [
+      ['r2', 'WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT'],
+      ['minio', 'WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT'],
+    ] as const) {
+      await expect(new EnvHostedBoardClientFactory(s3Env('http://127.0.0.1:1', profile)).create({ provider: 's3-compatible', bucket: 'private-board', prefix: 'content' }))
+        .rejects.toMatchObject({ code: 'INVALID_INPUT', message: `${expected} must be a valid HTTPS URL for hosted board storage` });
+    }
   });
 
   it('resolves exact remote key versions, decrypts v1 after rotation, and rejects changed v1 material', async () => {

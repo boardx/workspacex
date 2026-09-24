@@ -30,6 +30,27 @@ const BOARD_ENV = [
   "WORKSPACEX_BOARD_KEY_DIRECTORY",
   "WORKSPACEX_BOARD_KMS_ENDPOINT",
   "WORKSPACEX_BOARD_KMS_TOKEN",
+  "WORKSPACEX_BOARD_BLOB_BUCKET",
+  "WORKSPACEX_BOARD_BLOB_PREFIX",
+  "WORKSPACEX_BOARD_BLOB_OBJECT_LOCK",
+  "WORKSPACEX_BOARD_S3_ENDPOINT",
+  "WORKSPACEX_BOARD_S3_PROFILE",
+  "WORKSPACEX_BOARD_S3_REGION",
+  "WORKSPACEX_BOARD_S3_ACCESS_KEY_ID",
+  "WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY",
+  "WORKSPACEX_BOARD_S3_SESSION_TOKEN",
+  "WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT",
+  "WORKSPACEX_BOARD_R2_ACCOUNT_ID",
+  "WORKSPACEX_BOARD_R2_MANAGEMENT_TOKEN",
+  "WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT",
+  "WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_TOKEN",
+  "WORKSPACEX_BOARD_OSS_ENDPOINT",
+  "WORKSPACEX_BOARD_OSS_REGION",
+  "WORKSPACEX_BOARD_OSS_AUTH_MODE",
+  "WORKSPACEX_BOARD_OSS_ROLE_NAME",
+  "WORKSPACEX_BOARD_OSS_ACCESS_KEY_ID",
+  "WORKSPACEX_BOARD_OSS_ACCESS_KEY_SECRET",
+  "WORKSPACEX_BOARD_OSS_SECURITY_TOKEN",
 ] as const;
 const ORIGINAL_BOARD_ENV = new Map(BOARD_ENV.map(name => [name, process.env[name]]));
 
@@ -57,6 +78,20 @@ function configureProductionBoardStorage(): void {
   process.env.WORKSPACEX_BOARD_KEY_DIRECTORY = "/var/lib/workspacex-required-env-test/keys";
   delete process.env.WORKSPACEX_BOARD_KMS_ENDPOINT;
   delete process.env.WORKSPACEX_BOARD_KMS_TOKEN;
+}
+
+function configureProductionHostedS3(profile: "aws-s3" | "r2" | "minio" = "aws-s3"): void {
+  configureProductionBoardStorage();
+  process.env.WORKSPACEX_BOARD_BLOB_PROVIDER = "hosted";
+  process.env.WORKSPACEX_BOARD_HOSTED_PROVIDER = "s3-compatible";
+  process.env.WORKSPACEX_BOARD_BLOB_BUCKET = "required-env-private-board";
+  process.env.WORKSPACEX_BOARD_BLOB_PREFIX = "board-content";
+  process.env.WORKSPACEX_BOARD_BLOB_OBJECT_LOCK = "disabled";
+  process.env.WORKSPACEX_BOARD_S3_ENDPOINT = "https://127.0.0.1:9";
+  process.env.WORKSPACEX_BOARD_S3_PROFILE = profile;
+  process.env.WORKSPACEX_BOARD_S3_REGION = "us-test-1";
+  process.env.WORKSPACEX_BOARD_S3_ACCESS_KEY_ID = "required-env-access";
+  process.env.WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY = "required-env-secret";
 }
 
 describe("verify-required-env: fail-closed before the restart, missing var named", () => {
@@ -196,6 +231,105 @@ describe("verify-required-env: fail-closed before the restart, missing var named
       message: "WORKSPACEX_BOARD_KEY_PROVIDER must be development-env or versioned-kms",
     });
     expect(process.env.WORKSPACEX_BOARD_KEY_PROVIDER).toBe("not-a-key-provider");
+  });
+
+  it("Hosted provider 缺失时沿真实 production DI 汇总完整 AWS S3 配置并恢复环境", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3();
+    const missing = [
+      "WORKSPACEX_BOARD_HOSTED_PROVIDER",
+      "WORKSPACEX_BOARD_BLOB_BUCKET",
+      "WORKSPACEX_BOARD_BLOB_PREFIX",
+      "WORKSPACEX_BOARD_S3_ENDPOINT",
+      "WORKSPACEX_BOARD_S3_PROFILE",
+      "WORKSPACEX_BOARD_S3_REGION",
+      "WORKSPACEX_BOARD_S3_ACCESS_KEY_ID",
+      "WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY",
+    ] as const;
+    for (const name of missing) delete process.env[name];
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toEqual(expect.arrayContaining([...missing]));
+    expect(result.invalidVars).toEqual([]);
+    for (const name of missing) expect(process.env[name]).toBeUndefined();
+  });
+
+  it("Hosted/S3 非法值逐项归因并恢复原值，不被 client unavailable 泛化", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3();
+    const invalid = new Map<string, string>([
+      ["WORKSPACEX_BOARD_HOSTED_PROVIDER", "invalid-hosted"],
+      ["WORKSPACEX_BOARD_BLOB_BUCKET", "   "],
+      ["WORKSPACEX_BOARD_BLOB_PREFIX", "private/../escape"],
+      ["WORKSPACEX_BOARD_BLOB_OBJECT_LOCK", "sometimes"],
+      ["WORKSPACEX_BOARD_S3_ENDPOINT", "not-a-url"],
+      ["WORKSPACEX_BOARD_S3_PROFILE", "generic"],
+      ["WORKSPACEX_BOARD_S3_REGION", "   "],
+      ["WORKSPACEX_BOARD_S3_ACCESS_KEY_ID", "   "],
+      ["WORKSPACEX_BOARD_S3_SECRET_ACCESS_KEY", "   "],
+    ]);
+    for (const [name, value] of invalid) process.env[name] = value;
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toEqual([]);
+    expect(result.invalidVars.map(value => value.name)).toEqual(expect.arrayContaining([...invalid.keys()]));
+    for (const [name, value] of invalid) expect(process.env[name]).toBe(value);
+  });
+
+  it.each([
+    ["r2", ["WORKSPACEX_BOARD_R2_MANAGEMENT_ENDPOINT", "WORKSPACEX_BOARD_R2_ACCOUNT_ID", "WORKSPACEX_BOARD_R2_MANAGEMENT_TOKEN"]],
+    ["minio", ["WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_ENDPOINT", "WORKSPACEX_BOARD_MINIO_POLICY_INSPECTOR_TOKEN"]],
+  ] as const)("所选 %s profile 的治理变量由完整 createApp 探测汇总", async (profile, conditional) => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3(profile);
+    for (const name of conditional) delete process.env[name];
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toEqual(expect.arrayContaining([...conditional]));
+    for (const name of conditional) expect(process.env[name]).toBeUndefined();
+  });
+
+  it("所选 Aliyun OSS provider 的 endpoint/auth/credential 配置由完整 createApp 汇总", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3();
+    process.env.WORKSPACEX_BOARD_HOSTED_PROVIDER = "aliyun-oss";
+    const conditional = [
+      "WORKSPACEX_BOARD_OSS_ENDPOINT",
+      "WORKSPACEX_BOARD_OSS_REGION",
+      "WORKSPACEX_BOARD_OSS_AUTH_MODE",
+      "WORKSPACEX_BOARD_OSS_ACCESS_KEY_ID",
+      "WORKSPACEX_BOARD_OSS_ACCESS_KEY_SECRET",
+    ] as const;
+    for (const name of conditional) delete process.env[name];
+
+    const result = await probeRequiredEnv();
+
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toEqual(expect.arrayContaining([...conditional]));
+    for (const name of conditional) expect(process.env[name]).toBeUndefined();
+  });
+
+  it("Hosted 原始配置完整但 readiness 不可达时仍 fail closed，不把运行时故障伪装成 env 通过", async () => {
+    process.env.NODE_ENV = "production";
+    process.env[MODEL_CREDENTIAL_KEY_ENV] = "counterproof-key-not-a-production-secret";
+    process.env.EMAIL_VERIFICATION_SECRET = "counterproof-email-secret-at-least-32-bytes-long";
+    configureProductionHostedS3();
+
+    await expect(probeRequiredEnv()).rejects.toThrow(/cannot attribute.*hosted board storage is unavailable/);
   });
 
   it("探测不到归因的失败会响亮地抛，而不是悄悄放行（机械门控，不猜）", async () => {

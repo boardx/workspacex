@@ -35,7 +35,7 @@ export interface BoardStorageSelection {
 
 const required = (env: NodeJS.ProcessEnv, name: string): string => {
   const value = env[name]?.trim();
-  if (!value || /[\r\n\u0000]/.test(value)) throw new BoardBlobError('INVALID_INPUT', `${name} is required`);
+  if (!value || /[\r\n\u0000]/.test(value)) throw new BoardBlobError('INVALID_INPUT', `${name} is required for hosted board storage`);
   return value;
 };
 
@@ -59,7 +59,7 @@ export function readBoardStorageSelection(env: NodeJS.ProcessEnv = process.env):
   }
 
   const lock = env.WORKSPACEX_BOARD_BLOB_OBJECT_LOCK?.trim() || 'disabled';
-  if (lock !== 'required' && lock !== 'disabled') throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_BLOB_OBJECT_LOCK is invalid');
+  if (lock !== 'required' && lock !== 'disabled') throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_BLOB_OBJECT_LOCK must be required or disabled');
 
   if (blobProvider === 'filesystem') {
     // Evaluate durable-root constraints during startup, before accepting collaboration traffic.
@@ -70,7 +70,7 @@ export function readBoardStorageSelection(env: NodeJS.ProcessEnv = process.env):
   const bucket = required(env, 'WORKSPACEX_BOARD_BLOB_BUCKET');
   const prefix = required(env, 'WORKSPACEX_BOARD_BLOB_PREFIX');
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,511}$/.test(prefix) || prefix.includes('..') || prefix.startsWith('/')) {
-    throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_BLOB_PREFIX is invalid');
+    throw new BoardBlobError('INVALID_INPUT', 'WORKSPACEX_BOARD_BLOB_PREFIX must be a safe object prefix');
   }
   return { blobProvider, keyProvider, requireObjectLock: lock === 'required', bucket, prefix: prefix.replace(/\/$/, '') };
 }
@@ -98,7 +98,13 @@ export async function createBoardStorageSelection(
   }
   let client: HostedBoardBlobClient;
   try { client = await dependencies.hostedClients.create({ provider: config.blobProvider, bucket: config.bucket, prefix: config.prefix }); }
-  catch { throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage client is not configured'); }
+  catch (error) {
+    // Only the deliberately shaped, non-secret configuration errors cross this boundary so
+    // the startup env probe can attribute them. SDK/credential/provider failures remain
+    // collapsed to the stable runtime-safe message below.
+    if (error instanceof BoardBlobError && error.code === 'INVALID_INPUT') throw error;
+    throw new BoardBlobError('STORAGE_UNAVAILABLE', 'hosted board storage client is not configured');
+  }
   const requirement = { requireObjectLock: config.requireObjectLock };
   const store = config.blobProvider === 'aliyun-oss'
     ? new OssBoardBlobStore(client, requirement)

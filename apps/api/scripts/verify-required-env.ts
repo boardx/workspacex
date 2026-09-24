@@ -69,28 +69,34 @@ const PLACEHOLDER = "verify-required-env-probe-placeholder-0";
  * genuinely new message shape means adding a pattern HERE, once -- not a variable name
  * anywhere else.
  */
-const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: string }[] = [
+const EXTRACTORS: readonly { readonly pattern: RegExp; readonly placeholder?: string; readonly hostedReadinessBoundary?: boolean }[] = [
   { pattern: /^missing env var (\w+)$/ },
   { pattern: /^(\w+) is required in production$/ },
   { pattern: /^(\w+) must contain at least \d+ bytes$/ },
   { pattern: /^(\w+) must be filesystem or hosted$/, placeholder: "filesystem" },
   { pattern: /^(\w+) must be development-env or versioned-kms$/, placeholder: "versioned-kms" },
-  { pattern: /^(\w+) must be aliyun-oss or s3-compatible$/, placeholder: "s3-compatible" },
+  { pattern: /^(\w+) must be aliyun-oss or s3-compatible$/, placeholder: "s3-compatible", hostedReadinessBoundary: true },
+  { pattern: /^(\w+) is required for hosted board storage$/, hostedReadinessBoundary: true },
+  { pattern: /^(\w+) must be a valid HTTPS URL for hosted board storage$/, placeholder: "https://127.0.0.1:9", hostedReadinessBoundary: true },
+  { pattern: /^(\w+) must be aws-s3, minio, or r2$/, placeholder: "aws-s3", hostedReadinessBoundary: true },
+  { pattern: /^(\w+) must be ecs-role or environment$/, placeholder: "environment", hostedReadinessBoundary: true },
+  { pattern: /^(\w+) must be required or disabled$/, placeholder: "disabled", hostedReadinessBoundary: true },
+  { pattern: /^(\w+) must be a safe object prefix$/, placeholder: "board-content", hostedReadinessBoundary: true },
   { pattern: /^filesystem Board blob storage requires (\w+)=true in production$/, placeholder: "true" },
   { pattern: /^(\w+) must be an explicit absolute durable path in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
   { pattern: /^(\w+) must point to durable storage in production$/, placeholder: "/var/lib/workspacex-required-env-probe" },
 ];
 
-function extractEnvFailure(message: string): { name: string; placeholder: string } | null {
+function extractEnvFailure(message: string): { name: string; placeholder: string; hostedReadinessBoundary: boolean } | null {
   for (const extractor of EXTRACTORS) {
     const m = extractor.pattern.exec(message);
-    if (m?.[1]) return { name: m[1], placeholder: extractor.placeholder ?? PLACEHOLDER };
+    if (m?.[1]) return { name: m[1], placeholder: extractor.placeholder ?? PLACEHOLDER, hostedReadinessBoundary: extractor.hostedReadinessBoundary === true };
   }
   return null;
 }
 
 export interface EnvProbeResult {
-  /** True once the kernel boots clean with every discovered var holding SOME value. */
+  /** True only when the original environment boots the kernel cleanly without placeholders. */
   readonly ok: boolean;
   /** Vars whose value was empty/undefined when the probe started. */
   readonly missingVars: readonly string[];
@@ -116,23 +122,32 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
   };
 
   /**
-   * Whether the loop eventually reached a clean boot -- via placeholders for whatever it
-   * found missing/invalid along the way. This is NOT "the original env was already
-   * sufficient" (that is `missingVars.length === 0 && invalidVars.length === 0`, computed
-   * below): it is a sanity signal that discovery actually converged rather than looping
-   * forever on an unattributable-but-persistent failure.
+   * Whether discovery reached either a clean boot or the exact sanitized Hosted readiness
+   * boundary after placeholdering Hosted configuration. This is NOT "the original env was
+   * already sufficient" (that is `missingVars.length === 0 && invalidVars.length === 0`,
+   * computed below); it only means config discovery converged rather than looping forever.
    */
-  let bootedClean = false;
+  let discoveryComplete = false;
+  let hostedConfigurationWasPlaceholdered = false;
   try {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const app = await createApp();
         await app.close();
-        bootedClean = true;
+        discoveryComplete = true;
         break;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const extracted = extractEnvFailure(message);
+        if (extracted === null && hostedConfigurationWasPlaceholdered
+          && message === "hosted board storage is unavailable") {
+          // Hosted placeholders must pass through the real readiness call; they are not
+          // credentials and cannot make that call succeed. Reaching this exact sanitized
+          // runtime boundary proves the selected profile's eager config validation is
+          // complete. A fully configured original environment still throws below.
+          discoveryComplete = true;
+          break;
+        }
         if (extracted === null) {
           throw new Error(
             "verify-required-env: kernel boot failed with a message this probe cannot " +
@@ -140,7 +155,8 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
               `-- do not hand-list the variable name instead): ${message}`,
           );
         }
-        const { name, placeholder } = extracted;
+        const { name, placeholder, hostedReadinessBoundary } = extracted;
+        hostedConfigurationWasPlaceholdered ||= hostedReadinessBoundary;
         const priorValue = saved.has(name) ? saved.get(name) : process.env[name];
         if (priorValue === undefined || priorValue === "") missingVars.add(name);
         else invalidVars.set(name, message);
@@ -154,13 +170,13 @@ export async function probeRequiredEnv(maxAttempts = 25): Promise<EnvProbeResult
     }
   }
 
-  if (!bootedClean && missingVars.size === 0 && invalidVars.size === 0) {
+  if (!discoveryComplete && missingVars.size === 0 && invalidVars.size === 0) {
     throw new Error(
       "verify-required-env: kernel never booted clean and never surfaced an attributable " +
         "var within maxAttempts -- raise maxAttempts or check for a non-env boot failure",
     );
   }
-  if (!bootedClean) {
+  if (!discoveryComplete) {
     throw new Error(
       "verify-required-env: even after placeholdering every discovered var " +
         `(${[...missingVars, ...invalidVars.keys()].sort().join(", ")}), the kernel still ` +
