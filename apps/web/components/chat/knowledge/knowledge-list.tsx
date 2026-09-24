@@ -134,7 +134,7 @@ export function KnowledgeList({
                         不对
                       </Button>
                       {openWrong[c.id] ? (
-                        <span className="flex items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
+                        <span className="flex flex-wrap items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
                           <Button size="xs" variant="ghost" data-testid={`kg-row-revise-${c.id}`} onClick={() => setDialog({ kind: "revise", claim: c })}>
                             <Pencil aria-hidden className="mr-1 h-3 w-3" />
                             改写
@@ -149,6 +149,10 @@ export function KnowledgeList({
                             <Trash2 aria-hidden className="mr-1 h-3 w-3" />
                             忘掉这条
                           </Button>
+                          {/* 行内忘掉不再弹确认框（06-UX R3-4 ≤ 2 次点击），确认框里那句后果改成就地说清楚 */}
+                          <span className="basis-full text-10 text-muted-foreground" data-testid={`kg-row-forget-note-${c.id}`}>
+                            忘掉后之后的回答不再用它；记到长期记忆里的那份也会一起忘掉。
+                          </span>
                         </span>
                       ) : null}
                     </div>

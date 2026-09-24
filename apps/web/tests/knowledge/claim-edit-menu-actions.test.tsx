@@ -207,6 +207,8 @@ describe("所有者的编辑动作：请求体对、成功后 2 秒内界面跟�
     await renderPanel();
     fireEvent.click(screen.getByTestId("kg-row-no-c-fact"));
     expect(server.actions).toHaveLength(0); // 「不对」只是展开选项
+    // 没有确认框，后果就地写清楚：长期记忆里的那份也会一起忘掉
+    expect(screen.getByTestId("kg-row-forget-note-c-fact")).toHaveTextContent("记到长期记忆里的那份也会一起忘掉");
     fireEvent.click(screen.getByTestId("kg-row-forget-c-fact"));
     expect(screen.queryByTestId("kg-delete-confirm-c-fact")).not.toBeInTheDocument();
     await waitFor(() => expect(lastAction()?.action).toEqual({ type: "revokeClaim", claimId: "c-fact" }));

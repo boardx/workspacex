@@ -120,6 +120,19 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(rk).toMatch(/claimIds: matches\.map\(\(c\) => c\.id\)/);
   });
 
+  it("(g) 豁免条目的前提文字与这里钉住的一致（三种来源、chat_threads 四次、取行各三条），改代码不许只改一边", () => {
+    const lint = readFileSync(join(API, "scripts/lint-permission-paths.mjs"), "utf8");
+    const entry = lint.slice(lint.indexOf('"src/infrastructure/knowledge-graph/pg-knowledge-recall.ts"'));
+    const text = entry.slice(0, entry.indexOf("\n  ],"));
+    expect(text).toContain("召回只读三种来源");
+    expect(text).toContain("`chat_threads` 恰好出现四次");
+    expect(text).toContain("`claims` 与 `ontology_objects` 的取行各恰好三条");
+    expect(text).toContain("tests/retrieval/kg-own-personal-threads-recall.test.ts");
+    expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
+  });
+
   it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
     const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
       .map((m) => m[1]).filter((n) => n !== "constructor").sort();

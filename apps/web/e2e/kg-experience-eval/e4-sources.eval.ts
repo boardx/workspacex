@@ -34,11 +34,15 @@ async function openEachChip(page: Page, block: Locator, originals: readonly stri
     const drawer = page.getByTestId("kg-source-drawer");
     const opened = await drawer.getByTestId("kg-source-evidence-list").waitFor({ state: "visible", timeout: 10_000 }).then(() => true, () => false);
     let excerpt: string | null = null;
+    let drawerStatement: string | null = null;
     if (opened) {
       const ev = drawer.locator("[data-testid^='kg-evidence-']:not([data-testid^='kg-evidence-jump-']):not([data-testid^='kg-evidence-revoked-'])").first();
       excerpt = (await ev.locator("p").first().innerText()).trim();
+      drawerStatement = (await drawer.getByTestId("kg-source-statement").innerText()).trim();
     }
-    out.push({ statement, opened: opened && excerpt !== null && originals.some((o) => norm(o).includes(norm(excerpt!))), excerpt });
+    // R2 修订（收紧）：摘录必须非空（空串是任何原话的子串，R1 会放过它），且抽屉打开的就是这个引用那一条（抽屉里的原文 = 引用的原文）。
+    const isOriginal = excerpt !== null && norm(excerpt).length > 0 && originals.some((o) => norm(o).includes(norm(excerpt!)));
+    out.push({ statement, opened: opened && isOriginal && drawerStatement === statement, excerpt });
     if (opened) await drawer.getByTestId("kg-source-drawer-close").first().click();
   }
   return out;
