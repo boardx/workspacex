@@ -1,0 +1,24 @@
+:8080 {
+  encode zstd gzip
+  @metrics {
+    path /metrics/*
+    remote_ip private_ranges
+  }
+  handle @metrics {
+    reverse_proxy api:3200
+  }
+  @metricsDenied path /metrics/*
+  respond @metricsDenied 403
+  @api path /api/* /whiteboards/* /healthz /readyz/*
+  handle @api {
+    reverse_proxy api:3200
+  }
+  handle {
+    reverse_proxy web:3100
+  }
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+  }
+}

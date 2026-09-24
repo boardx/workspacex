@@ -1,9 +1,18 @@
 import { defineConfig } from 'vitest/config';
 
-/** Pure Board application tests; persistence and HTTP stay in the isolated DB lane. */
+/**
+ * Pure Board unit lane: application commands plus capacity/telemetry checks.
+ * No PostgreSQL, Redis, sockets or Docker; persistence and HTTP stay in the isolated DB lane.
+ */
 export default defineConfig({
   test: {
-    include: ['tests/whiteboard/public-commands.test.ts'],
+    include: [
+      'tests/whiteboard/public-commands.test.ts',
+      'tests/whiteboard/scale-policy.test.ts',
+      'tests/whiteboard/observability.test.ts',
+      'tests/whiteboard/operations-controller.test.ts',
+      'tests/whiteboard/validator-queue.test.ts',
+    ],
     environment: 'node',
     maxWorkers: 1,
     minWorkers: 1,
