@@ -19,10 +19,12 @@ function audit(code: string): string[] {
   }
   visit(file);
   const errors: string[] = [];
+  // Recovery extends this bounded repository to server-issued proofs and their audit history.
   const allowedTables = new Set([
     'whiteboards', 'whiteboard_members', 'org_memberships',
     'organizations', 'whiteboard_quarantine_access_receipts', 'whiteboard_quarantine_recovery_requests',
   ]);
+  // `FOR UPDATE OF ar` is a row-lock clause; `OF` is not a table name.
   const tables = new Set(sql.flatMap(query => [...query.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)]
     .map(match => match[1]!).filter(table => !['SET', 'OF'].includes(table.toUpperCase()))));
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
