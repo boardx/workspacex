@@ -13,15 +13,15 @@ import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, s
 const orgId=toOrgId('wb-file-export-4052-a'),otherOrg=toOrgId('wb-file-export-4052-b');
 const actor=(userId:string,org=orgId):Principal=>({userId,orgId:org});
 const owner=actor('wb-4052-owner'),editor=actor('wb-4052-editor'),viewer=actor('wb-4052-viewer'),crossTenantSameUser=actor(editor.userId,otherOrg);
-let db:PgDatabase,jobs:PgWhiteboardFileExportRepository,boards:PgWhiteboardRepository,boardId:string;
-const queued=(format:C.BoardFileExportFormat='png')=>C.BoardFileExportStatus.parse({jobId:randomUUID(),boardId,format,status:'queued',progress:0,filename:`board.${format==='sticky-csv'?'csv':format}`,mimeType:format==='png'?'image/png':format==='svg'?'image/svg+xml':format==='pdf'?'application/pdf':'text/csv; charset=utf-8',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null});
+let db:PgDatabase,jobs:PgWhiteboardFileExportRepository,boards:PgWhiteboardRepository,boardId:string,secondBoardId:string;
+const queued=(format:C.BoardFileExportFormat='png',targetBoard=boardId)=>C.BoardFileExportStatus.parse({jobId:randomUUID(),boardId:targetBoard,format,status:'queued',progress:0,filename:`board.${format==='sticky-csv'?'csv':format}`,mimeType:format==='png'?'image/png':format==='svg'?'image/svg+xml':format==='pdf'?'application/pdf':'text/csv; charset=utf-8',objectCount:0,pageOrder:[],losses:[],sizeBytes:null,errorCode:null});
 
 beforeAll(async()=>{
   ensureDatabase();await migrateOnce();await resetOrgs(orgId,otherOrg);
   await seedOrg({orgId,projectId:'wb-4052-project-a'});await seedOrg({orgId:otherOrg,projectId:'wb-4052-project-b'});
   for(const principal of [owner,editor,viewer,crossTenantSameUser])await addOrgMember(principal.orgId,principal.userId,'consultant',null);
   db=new PgDatabase(appConfig());jobs=new PgWhiteboardFileExportRepository(db);boards=new PgWhiteboardRepository(db);
-  const board=await boards.create(owner,{requestId:randomUUID(),name:'Export security'});boardId=board.id;
+  const board=await boards.create(owner,{requestId:randomUUID(),name:'Export security'});boardId=board.id;secondBoardId=(await boards.create(owner,{requestId:randomUUID(),name:'Export concurrency'})).id;
   expect(await boards.putMember(owner,boardId,{userId:editor.userId,role:'editor'})).toBe(true);
   expect(await boards.putMember(owner,boardId,{userId:viewer.userId,role:'viewer'})).toBe(true);
 });
@@ -68,5 +68,24 @@ describe('Board file export repository on real PostgreSQL',()=>{
     const recovered=await new PgWhiteboardFileExportRepository(db).claimNext('restarted-worker',30_000,2);expect(recovered?.status.jobId).toBe(first.status.jobId);
     for(const claim of [...claims,recovered].filter((value):value is NonNullable<typeof value>=>Boolean(value))){await jobs.finish(claim,C.BoardFileExportStatus.parse({...claim.status,status:'failed',errorCode:'GENERATION_FAILED'}));}
     const remaining=await jobs.claimNext('drain-third',30_000,2);if(remaining)await jobs.finish(remaining,C.BoardFileExportStatus.parse({...remaining.status,status:'failed',errorCode:'GENERATION_FAILED'}));
+  });
+
+  it('terminalizes the eighth expired lease and makes its immutable key reachable by cleanup',async()=>{
+    const initial=queued('svg');await jobs.create(editor,initial,{format:'svg',background:'#ffffff'});
+    for(let attempt=1;attempt<=8;attempt++){const claim=await jobs.claimNext(`crash-${attempt}`,1_000,2);expect(claim?.status.jobId).toBe(initial.jobId);await asApp(orgId,c=>c.query(`UPDATE whiteboard_file_export_jobs SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE org_id=$1 AND id=$2`,[orgId,initial.jobId]));}
+    expect(await jobs.claimNext('after-eighth-crash',1_000,2)).toBeNull();expect((await jobs.find(editor,initial.jobId))?.status).toMatchObject({status:'failed',errorCode:'GENERATION_FAILED'});
+    const cleanup=await jobs.claimCleanup('crash-cleaner');expect(cleanup?.jobId).toBe(initial.jobId);await jobs.finishCleanup(cleanup!,true);const row=await asApp(orgId,c=>c.query<{artifact_state:string}>(`SELECT artifact_state FROM whiteboard_file_export_jobs WHERE org_id=$1 AND id=$2`,[orgId,initial.jobId]));expect(row.rows[0]?.artifact_state).toBe('purged');
+  });
+
+  it('retains twenty terminal exports, hides the oldest, and schedules its referenced object for deletion',async()=>{
+    const history=actor('wb-4052-history');await addOrgMember(orgId,history.userId,'consultant',null);expect(await boards.putMember(owner,boardId,{userId:history.userId,role:'editor'})).toBe(true);const ids:string[]=[];
+    for(let index=0;index<21;index++){const initial=queued('svg');ids.push(initial.jobId);await jobs.create(history,initial,{format:'svg',background:'#ffffff'});const claim=await jobs.claimNext(`history-${index}`,30_000,2);expect(claim?.status.jobId).toBe(initial.jobId);const done=C.BoardFileExportStatus.parse({...initial,status:'done',progress:100,sizeBytes:3});expect(await jobs.complete(claim!,done,'a'.repeat(64))).toBe(true);}
+    expect(await jobs.find(history,ids[0]!)).toBeNull();const retained=await asApp(orgId,c=>c.query<{count:string}>(`SELECT count(*)::text count FROM whiteboard_file_export_jobs WHERE org_id=$1 AND actor_id=$2 AND NOT retention_evicted`,[orgId,history.userId]));expect(Number(retained.rows[0]?.count)).toBe(20);const oldest=await asApp(orgId,c=>c.query<{artifact_state:string;retention_evicted:boolean}>(`SELECT artifact_state,retention_evicted FROM whiteboard_file_export_jobs WHERE org_id=$1 AND id=$2`,[orgId,ids[0]]));expect(oldest.rows[0]).toEqual({artifact_state:'cleanup_pending',retention_evicted:true});
+  });
+
+  it('serializes actor-wide admission across different Boards',async()=>{
+    const racer=actor('wb-4052-racer');await addOrgMember(orgId,racer.userId,'consultant',null);expect(await boards.putMember(owner,boardId,{userId:racer.userId,role:'editor'})).toBe(true);expect(await boards.putMember(owner,secondBoardId,{userId:racer.userId,role:'editor'})).toBe(true);
+    const settled=await Promise.allSettled(Array.from({length:21},(_,index)=>{const initial=queued('png',index%2?boardId:secondBoardId);return jobs.create(racer,initial,{format:'png',background:'#ffffff'});}));expect(settled.filter(result=>result.status==='fulfilled')).toHaveLength(20);expect(settled.filter(result=>result.status==='rejected')).toHaveLength(1);
+    const retained=await asApp(orgId,c=>c.query<{count:string}>(`SELECT count(*)::text count FROM whiteboard_file_export_jobs WHERE org_id=$1 AND actor_id=$2 AND NOT retention_evicted`,[orgId,racer.userId]));expect(Number(retained.rows[0]?.count)).toBe(20);
   });
 });

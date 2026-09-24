@@ -30,7 +30,9 @@ export class DefaultWhiteboardFileExportService implements WhiteboardFileExportS
       if(controller.signal.aborted)throw new BoardFileExportFailure('CANCELLED');
       const losses:C.BoardFileExportLoss[]=[...artifact.losses];
       const sha256=createHash('sha256').update(artifact.bytes).digest('hex');
-      try{await this.objects.putOnce(claim.objectKey,artifact.bytes,artifact.mimeType);}catch(error){if(!(error instanceof ObjectExistsError))throw error;const [head,bytes]=await Promise.all([this.objects.head(claim.objectKey),this.objects.get(claim.objectKey)]);if(!head||!bytes||head.sizeBytes!==artifact.bytes.length||head.mime!==artifact.mimeType||createHash('sha256').update(bytes).digest('hex')!==sha256)throw new BoardFileExportFailure('GENERATION_FAILED');}
+      try{await this.objects.putOnce(claim.objectKey,artifact.bytes,artifact.mimeType);}catch(error){if(!(error instanceof ObjectExistsError))throw error;}
+      const [publishedHead,publishedBytes]=await Promise.all([this.objects.head(claim.objectKey),this.objects.get(claim.objectKey)]);
+      if(!publishedHead||!publishedBytes||publishedHead.sizeBytes!==artifact.bytes.length||publishedHead.mime!==artifact.mimeType||createHash('sha256').update(publishedBytes).digest('hex')!==sha256)throw new BoardFileExportFailure('GENERATION_FAILED');
       status=C.BoardFileExportStatus.parse({...status,status:'done',progress:100,objectCount:artifact.objectCount,pageOrder:artifact.pageOrder,losses,sizeBytes:artifact.bytes.length,errorCode:null});
       if(!await this.repository.complete(claim,status,sha256))throw new BoardFileExportFailure('CANCELLED');
     }catch(error){

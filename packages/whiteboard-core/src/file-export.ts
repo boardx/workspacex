@@ -44,6 +44,8 @@ export interface BoardFileExportHooks {
 export interface BoardRenderControl {
   readonly signal?: AbortSignal;
   readonly deadlineAt: number;
+  /** Synchronous guard for serializers that yield internally but cannot await a callback. */
+  assertActive(): void;
   checkpoint(): Promise<void>;
 }
 
@@ -89,10 +91,11 @@ function visibleObjects(request: BoardFileExportRequest, addLoss: (code: LossCod
 function objectBounds(objects: readonly BoardObject[]): Bounds {
   const drawable = objects.filter(object => object.kind !== 'connector');
   if (!drawable.length) return { x: 0, y: 0, width: 1024, height: 768 };
-  const left = Math.min(...drawable.map(o => o.geometry.x));
-  const top = Math.min(...drawable.map(o => o.geometry.y));
-  const right = Math.max(...drawable.map(o => o.geometry.x + o.geometry.width));
-  const bottom = Math.max(...drawable.map(o => o.geometry.y + o.geometry.height));
+  const projected=drawable.map(object=>{const g=object.geometry,angle=g.rotation*Math.PI/180,rawCos=Math.cos(angle),rawSin=Math.sin(angle),cos=Math.abs(rawCos)<1e-12?0:Math.abs(rawCos)>1-1e-12?Math.sign(rawCos):rawCos,sin=Math.abs(rawSin)<1e-12?0:Math.abs(rawSin)>1-1e-12?Math.sign(rawSin):rawSin,cx=g.x+g.width/2,cy=g.y+g.height/2,halfWidth=(Math.abs(cos)*g.width+Math.abs(sin)*g.height)/2,halfHeight=(Math.abs(sin)*g.width+Math.abs(cos)*g.height)/2;return{left:cx-halfWidth,top:cy-halfHeight,right:cx+halfWidth,bottom:cy+halfHeight};});
+  const left = Math.min(...projected.map(o => o.left));
+  const top = Math.min(...projected.map(o => o.top));
+  const right = Math.max(...projected.map(o => o.right));
+  const bottom = Math.max(...projected.map(o => o.bottom));
   const pad = 16;
   return { x: left - pad, y: top - pad, width: Math.max(1, right - left + pad * 2), height: Math.max(1, bottom - top + pad * 2) };
 }
@@ -106,16 +109,16 @@ function descendantOf(object: BoardObject, frameId: string, byId: ReadonlyMap<st
   return false;
 }
 
-function exportPages(objects: readonly BoardObject[]): BoardExportPage[] {
+function exportPages(objects: readonly BoardObject[]): {pages:BoardExportPage[];omittedConnectorIds:string[]} {
   const byId = new Map(objects.map(object => [object.id, object]));
   const frames = sortObjects(objects.filter(object => object.kind === 'frame'));
-  if (!frames.length) return [{ id: null, bounds: objectBounds(objects), objects: [...objects] }];
+  if (!frames.length) return {pages:[{ id: null, bounds: objectBounds(objects), objects: [...objects] }],omittedConnectorIds:[]};
   const pages: BoardExportPage[] = frames.map(frame => {
-    const members = objects.filter(object => object.id === frame.id || descendantOf(object, frame.id, byId));
+    const members = objects.filter(object => !object.connector&&(object.id === frame.id || descendantOf(object, frame.id, byId)));
     const memberIds = new Set(members.map(object => object.id));
     const connectors = objects.filter(object => object.connector && memberIds.has(object.connector.from) && memberIds.has(object.connector.to));
     const { x, y, width, height } = frame.geometry;
-    return { id: frame.id, bounds: { x, y, width, height }, objects: sortObjects([...members, ...connectors.filter(c => !memberIds.has(c.id))]) };
+    return { id: frame.id, bounds: { x, y, width, height }, objects: sortObjects([...members, ...connectors]) };
   });
   const framed = new Set(pages.flatMap(page => page.objects.map(object => object.id)));
   const unframed = objects.filter(object => !framed.has(object.id) && object.kind !== 'connector');
@@ -125,7 +128,8 @@ function exportPages(objects: readonly BoardObject[]): BoardExportPage[] {
     pages.push({ id: null, bounds: objectBounds([...unframed, ...connectors]), objects: sortObjects([...unframed, ...connectors]) });
   }
   if (pages.length > BOARD_FILE_EXPORT_LIMITS.pages) throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
-  return pages;
+  const represented=new Set(pages.flatMap(page=>page.objects.map(object=>object.id))),omittedConnectorIds=objects.filter(object=>object.connector&&!represented.has(object.id)).map(object=>object.id);
+  return {pages,omittedConnectorIds};
 }
 
 function xml(value: string): string {
@@ -209,15 +213,17 @@ export async function createBoardFileArtifact(request:BoardFileExportRequest,hoo
   const addLoss=(code:LossCode,id:string,message:string)=>{const value=losses.get(code)??{ids:[],message,count:0};value.count++;if(value.ids.length<MAX_SAMPLE_IDS&&!value.ids.includes(id))value.ids.push(id);losses.set(code,value);};
   for(const loss of request.sourceLosses??[]){const value=losses.get(loss.code)??{ids:[],message:loss.message,count:0};value.count+=loss.count;for(const id of loss.sampleObjectIds)if(value.ids.length<MAX_SAMPLE_IDS&&!value.ids.includes(id))value.ids.push(id);losses.set(loss.code,value);}
   const now=hooks.now??(()=>Date.now()),deadlineAt=started+(hooks.maxDurationMs??BOARD_FILE_EXPORT_LIMITS.durationMs);
-  const renderCheckpoint=async()=>{if(hooks.signal?.aborted)throw new BoardFileExportFailure('CANCELLED');if(now()>deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');await new Promise<void>(resolve=>setTimeout(resolve,0));};
+  const assertActive=()=>{if(hooks.signal?.aborted){const reason=hooks.signal.reason;throw reason instanceof BoardFileExportFailure?reason:new BoardFileExportFailure('CANCELLED');}if(now()>deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');};
+  const renderCheckpoint=async()=>{assertActive();await new Promise<void>(resolve=>setTimeout(resolve,0));assertActive();};
   const checkpoint=async(progress:number)=>{await renderCheckpoint();await hooks.onProgress?.(progress);};
-  const control:BoardRenderControl={signal:hooks.signal,deadlineAt,checkpoint:renderCheckpoint};
+  const control:BoardRenderControl={signal:hooks.signal,deadlineAt,assertActive,checkpoint:renderCheckpoint};
   if(request.objects.length>BOARD_FILE_EXPORT_LIMITS.objects)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
   const estimatedBytes=request.objects.reduce((sum,object)=>sum+encoder.encode(object.text).byteLength+512,0);if(estimatedBytes>MAX_RENDER_INPUT_BYTES)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');
   const replacements=hooks.textReplacements??{},prepared=request.objects.map(object=>replacements[object.id]===undefined?object:{...object,text:replacements[object.id]!});
-  await checkpoint(20);const objects=visibleObjects({...request,objects:prepared},addLoss),bounds=objectBounds(objects),pages=exportPages(objects);await checkpoint(40);
+  await checkpoint(20);const objects=visibleObjects({...request,objects:prepared},addLoss),bounds=objectBounds(objects),pagination=exportPages(objects),pages=pagination.pages;await checkpoint(40);
   const fallbackIds=new Set(hooks.fontFallbackObjectIds??[]);
-  for(const object of objects){if(fallbackIds.has(object.id))addLoss('FONT_FALLBACK',object.id,'The requested typeface was unavailable and a bundled Unicode font was substituted.');if(object.geometry.rotation&&request.format!=='svg')addLoss('ROTATION_APPROXIMATED',object.id,'Rotation is approximated in this export format.');if(['image','drawing','extension'].includes(object.kind))addLoss('UNSUPPORTED_OBJECT',object.id,'This object is exported as a bounded placeholder.');}
+  for(const object of objects){if(fallbackIds.has(object.id))addLoss('FONT_FALLBACK',object.id,'The requested typeface was unavailable and a bundled Unicode font was substituted.');if(object.geometry.rotation&&request.format==='pdf')addLoss('ROTATION_APPROXIMATED',object.id,'Rotation is approximated in this export format.');if(['image','drawing','extension'].includes(object.kind))addLoss('UNSUPPORTED_OBJECT',object.id,'This object is exported as a bounded placeholder.');}
+  if(request.format==='pdf')for(const id of pagination.omittedConnectorIds)addLoss('UNSUPPORTED_OBJECT',id,'A connector spanning PDF pages was omitted.');
   let bytes:Uint8Array,mimeType:string,extension:string,width=Math.ceil(bounds.width),height=Math.ceil(bounds.height);
   if(request.format==='svg'){bytes=await svgFor(objects,bounds,request.background,hooks.fontCss??'',control);mimeType='image/svg+xml';extension='svg';}
   else if(request.format==='png'){
@@ -228,7 +234,8 @@ export async function createBoardFileArtifact(request:BoardFileExportRequest,hoo
   else if(request.format==='pdf'){if(!hooks.renderPdf)throw new BoardFileExportFailure('GENERATION_FAILED');bytes=await hooks.renderPdf(pages,request.background,control);mimeType='application/pdf';extension='pdf';}
   else{bytes=stickyCsv(objects,addLoss);mimeType='text/csv; charset=utf-8';extension='csv';width=0;height=0;}
   await checkpoint(90);if(bytes.length>BOARD_FILE_EXPORT_LIMITS.bytes)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');await checkpoint(100);
-  return{bytes,mimeType,extension,width,height,objectCount:objects.length,pageOrder:pages.flatMap(page=>page.id?[page.id]:[]),losses:[...losses.entries()].map(([code,value])=>({code,count:value.count,sampleObjectIds:value.ids,message:value.message}))};
+  const objectCount=request.format==='pdf'?new Set(pages.flatMap(page=>page.objects.map(object=>object.id))).size:objects.length;
+  return{bytes,mimeType,extension,width,height,objectCount,pageOrder:pages.flatMap(page=>page.id?[page.id]:[]),losses:[...losses.entries()].map(([code,value])=>({code,count:value.count,sampleObjectIds:value.ids,message:value.message}))};
 }
 
 export function boardExportFilename(boardName:string,extension:string):string{return`${safeName(boardName)}.${extension}`;}

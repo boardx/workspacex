@@ -41,6 +41,19 @@ describe('Board file export encoders',()=>{
     expect(svg).not.toContain('<rect x="-');expect(svg).toContain('stroke-dasharray="6 4"');expect(svg).toContain('transform="rotate(18 ');expect(svg.match(/<tspan/g)?.length).toBeGreaterThan(1);expect(svg).not.toContain('marker-end');expect(svg).toContain('stroke="#123456"');
   });
 
+  it('reports cross-frame and framed-to-unframed connectors that cannot be represented on one PDF page',async()=>{
+    const objects=board(2,1),left=objects.find(object=>object.id==='note-0-0')!,right=objects.find(object=>object.id==='note-1-0')!,unframed:WhiteboardObject={id:'unframed',schemaVersion:1,kind:'sticky',geometry:geometry(1800,100),text:'outside',style:{},parentId:null,orderKey:'y'},connectors:WhiteboardObject[]=[{id:'cross-frame',schemaVersion:1,kind:'connector',geometry:geometry(0,0,1,1),text:'',style:{stroke:'#123456'},parentId:'frame-00',orderKey:'z1',connector:{from:left.id,to:right.id}},{id:'frame-to-unframed',schemaVersion:1,kind:'connector',geometry:geometry(0,0,1,1),text:'',style:{stroke:'#654321'},parentId:'frame-00',orderKey:'z2',connector:{from:left.id,to:unframed.id}}];objects.push(unframed,...connectors);
+    let pdfPages:readonly import('../src/file-export').BoardExportPage[]=[];const pdf=await createBoardFileArtifact(request(objects,'pdf'),{renderPdf:async pages=>{pdfPages=pages;return new TextEncoder().encode('%PDF-1.7');}}),svg=await createBoardFileArtifact(request(objects,'svg'));
+    const represented=pdfPages.flatMap(page=>page.objects.map(object=>object.id));for(const connector of connectors)expect(represented).not.toContain(connector.id);expect(pdf.objectCount).toBe(5);expect(pdf.losses.find(loss=>loss.code==='UNSUPPORTED_OBJECT')).toMatchObject({count:2,sampleObjectIds:connectors.map(connector=>connector.id)});
+    const svgText=new TextDecoder().decode(svg.bytes);for(const connector of connectors){expect(svgText).toContain(`data-object-id="${connector.id}"`);expect(svg.losses.find(loss=>loss.sampleObjectIds.includes(connector.id))).toBeUndefined();}expect(svg.objectCount).toBe(7);
+  });
+
+  it('uses the rotated AABB for SVG and PNG without a false rotation loss',async()=>{
+    const rotated:WhiteboardObject={id:'rotated',schemaVersion:1,kind:'sticky',geometry:{x:100,y:200,width:100,height:20,rotation:90},text:'turn',style:{},parentId:null,orderKey:'a'};let pngSize:{width:number;height:number}|undefined;
+    const svg=await createBoardFileArtifact(request([rotated],'svg')),png=await createBoardFileArtifact(request([rotated],'png'),{renderPng:async(_source,width,height)=>{pngSize={width,height};return new Uint8Array([137,80,78,71]);}}),text=new TextDecoder().decode(svg.bytes);
+    expect(text).toContain('viewBox="124 144 52 132"');expect(svg).toMatchObject({width:52,height:132});expect(pngSize).toEqual({width:52,height:132});expect(svg.losses.find(loss=>loss.code==='ROTATION_APPROXIMATED')).toBeUndefined();expect(png.losses.find(loss=>loss.code==='ROTATION_APPROXIMATED')).toBeUndefined();
+  });
+
   it('merges authorized projection omissions without consulting extensionData',async()=>{
     const artifact=await createBoardFileArtifact({...request(board(1,1),'svg'),sourceLosses:[{code:'PRIVATE_CONTENT_OMITTED',count:1,sampleObjectIds:[],message:'Private draft omitted.'}]});
     expect(artifact.losses).toContainEqual({code:'PRIVATE_CONTENT_OMITTED',count:1,sampleObjectIds:[],message:'Private draft omitted.'});

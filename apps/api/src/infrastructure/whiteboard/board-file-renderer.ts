@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import fontkit from '@pdf-lib/fontkit';
 import { BoardFileExportFailure, type BoardExportPage, type BoardFileExportHooks, type BoardRenderControl } from '@repo/whiteboard-core';
-import { PDFDocument, PDFHexString, PDFName, PDFOperator, PDFOperatorNames, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, PDFHexString, PDFName, PDFOperator, PDFOperatorNames, PDFWriter, degrees, rgb, type PDFContext, type PDFFont, type PDFPage } from 'pdf-lib';
 import sharp from 'sharp';
 import type { WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
@@ -28,6 +28,14 @@ async function neededFaces(objects:readonly WhiteboardObject[],control:{signal:A
 async function embeddedCss(faces:readonly FontFace[]):Promise<string>{return faces.map(face=>face.css.replace('__FONT__',`data:font/woff2;base64,${Buffer.from(face.bytes!).toString('base64')}`)).join('');}
 function color(value:string|undefined,fallback:[number,number,number]):[number,number,number]{const match=/^#([0-9a-f]{6})$/i.exec(value??'');if(!match)return fallback;return[Number.parseInt(match[1]!.slice(0,2),16)/255,Number.parseInt(match[1]!.slice(2,4),16)/255,Number.parseInt(match[1]!.slice(4,6),16)/255];}
 
+class ControlledPdfWriter extends PDFWriter {
+  constructor(context:PDFContext,control:BoardRenderControl){super(context,1);this.shouldWaitForTick=()=>{control.assertActive();return true;};}
+}
+export async function serializeBoardPdf(document:PDFDocument,fonts:Iterable<PDFFont>,control:BoardRenderControl):Promise<Uint8Array>{
+  for(const font of fonts){await control.checkpoint();await font.embed();await control.checkpoint();}
+  control.assertActive();const bytes=await new ControlledPdfWriter(document.context,control).serializeToBuffer();await control.checkpoint();return bytes;
+}
+
 async function pdfBytes(pages:readonly BoardExportPage[],background:string,faces:readonly FontFace[],control:BoardRenderControl):Promise<Uint8Array>{
   const document=await PDFDocument.create();document.registerFontkit(fontkit);document.setProducer('WorkspaceX Board Export');document.setCreator('WorkspaceX');document.setCreationDate(new Date(0));document.setModificationDate(new Date(0));
   const fonts=new Map<FontFace,PDFFont>();for(const face of faces){await control.checkpoint();fonts.set(face,await document.embedFont(face.bytes!,{subset:true}));}
@@ -43,8 +51,7 @@ async function pdfBytes(pages:readonly BoardExportPage[],background:string,faces
       await drawText(page,object.text,x(g.x+16),y(g.y+16+(object.style.fontSize??16)),Math.max(8,Math.min(72,(object.style.fontSize??16)*scale)),Math.max(8,(g.width-32)*scale),Math.max(8,(g.height-32)*scale),rotation,[tr,tg,tb],faceFor,fonts,control);
     }
   }
-  await control.checkpoint();
-  return document.save({useObjectStreams:false,addDefaultPage:false,objectsPerTick:50});
+  return serializeBoardPdf(document,fonts.values(),control);
 }
 async function drawText(page:PDFPage,text:string,startX:number,startY:number,size:number,maxWidth:number,maxHeight:number,rotation:ReturnType<typeof degrees>,textColor:[number,number,number],faceFor:(char:string)=>FontFace|undefined,fonts:ReadonlyMap<FontFace,PDFFont>,control:BoardRenderControl):Promise<void>{
   const maxLines=Math.max(1,Math.floor(maxHeight/(size*1.25))),lines:string[]=[];

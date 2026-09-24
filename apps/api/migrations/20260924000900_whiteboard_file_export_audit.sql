@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS whiteboard_file_export_jobs (
   artifact_state text NOT NULL DEFAULT 'pending' CHECK (artifact_state IN ('pending','referenced','cleanup_pending','purged')),
   cleanup_after timestamptz,
   cleanup_owner text,
+  retention_evicted boolean NOT NULL DEFAULT false,
   lease_owner text,
   lease_expires_at timestamptz,
   attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 8),
@@ -39,16 +40,20 @@ CREATE TABLE IF NOT EXISTS whiteboard_file_export_jobs (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id,id),
   FOREIGN KEY (org_id,board_id) REFERENCES whiteboards(org_id,id) ON DELETE CASCADE,
-  CHECK (status<>'done' OR (artifact_state='referenced' AND object_key IS NOT NULL AND sha256 IS NOT NULL AND size_bytes IS NOT NULL)),
-  CHECK (artifact_state NOT IN ('cleanup_pending','purged') OR status IN ('failed','cancelled')),
+  CHECK (status<>'done' OR (artifact_state IN ('referenced','cleanup_pending') AND object_key IS NOT NULL AND sha256 IS NOT NULL AND size_bytes IS NOT NULL)),
+  CHECK (artifact_state<>'referenced' OR status='done'),
   CHECK ((status='failed' AND error_code IS NOT NULL) OR (status<>'failed' AND error_code IS NULL))
 );
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS artifact_state text NOT NULL DEFAULT 'pending';
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS cleanup_after timestamptz;
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS cleanup_owner text;
+ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS retention_evicted boolean NOT NULL DEFAULT false;
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS lease_owner text;
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
 ALTER TABLE whiteboard_file_export_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS whiteboard_file_export_claim_idx ON whiteboard_file_export_jobs(status,lease_expires_at,created_at) WHERE status IN ('queued','running');
+CREATE INDEX IF NOT EXISTS whiteboard_file_export_cleanup_idx ON whiteboard_file_export_jobs(artifact_state,cleanup_after,updated_at) WHERE artifact_state='cleanup_pending';
+CREATE INDEX IF NOT EXISTS whiteboard_file_export_retention_idx ON whiteboard_file_export_jobs(org_id,actor_id,retention_evicted,created_at);
 ALTER TABLE whiteboard_file_export_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_file_export_jobs FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS whiteboard_file_export_jobs_tenant ON whiteboard_file_export_jobs;
@@ -63,11 +68,19 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
   IF p_worker='' OR p_lease_ms<1000 OR p_lease_ms>30000 OR p_concurrency<1 OR p_concurrency>8 THEN RETURN; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('whiteboard-file-export-admission',0));
+  WITH exhausted AS (
+    UPDATE public.whiteboard_file_export_jobs j SET status='failed',error_code='GENERATION_FAILED',artifact_state='cleanup_pending',
+      cleanup_after=clock_timestamp(),lease_owner=NULL,lease_expires_at=NULL,updated_at=clock_timestamp()
+    WHERE j.status='running' AND j.attempts>=8 AND j.lease_expires_at<=clock_timestamp()
+    RETURNING j.org_id,j.board_id,j.actor_id,j.id,j.object_count,j.format,j.losses
+  )
+  INSERT INTO public.whiteboard_transfer_audit(org_id,board_id,actor_id,action,object_count,format,outcome,job_id,loss_report)
+  SELECT e.org_id,e.board_id,e.actor_id,'export',e.object_count,e.format,'failed',e.id,e.losses FROM exhausted e;
   IF (SELECT count(*) FROM public.whiteboard_file_export_jobs active WHERE active.status='running' AND active.lease_expires_at>clock_timestamp())>=p_concurrency THEN RETURN; END IF;
   RETURN QUERY
   WITH candidate AS (
     SELECT j.org_id,j.id FROM public.whiteboard_file_export_jobs j
-    WHERE (j.status='queued' OR (j.status='running' AND j.lease_expires_at<=clock_timestamp())) AND j.attempts<8
+    WHERE NOT j.retention_evicted AND (j.status='queued' OR (j.status='running' AND j.lease_expires_at<=clock_timestamp())) AND j.attempts<8
     ORDER BY j.created_at,j.id LIMIT 1 FOR UPDATE SKIP LOCKED
   )
   UPDATE public.whiteboard_file_export_jobs j SET status='running',progress=GREATEST(j.progress,10),lease_owner=p_worker,
@@ -95,11 +108,16 @@ GRANT EXECUTE ON FUNCTION public.kernel_claim_whiteboard_file_export_cleanup(tex
 
 CREATE OR REPLACE FUNCTION public.kernel_finish_whiteboard_file_export_cleanup(p_job uuid,p_worker text,p_deleted boolean)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-  WITH changed AS (
+  WITH removed AS (
+    DELETE FROM public.whiteboard_file_export_jobs
+    WHERE id=p_job AND artifact_state='cleanup_pending' AND cleanup_owner=p_worker AND retention_evicted AND p_deleted
+    RETURNING id
+  ), changed AS (
     UPDATE public.whiteboard_file_export_jobs SET artifact_state=CASE WHEN p_deleted THEN 'purged' ELSE 'cleanup_pending' END,
       cleanup_owner=NULL,cleanup_after=CASE WHEN p_deleted THEN NULL ELSE clock_timestamp()+interval '1 minute' END,updated_at=clock_timestamp()
-    WHERE id=p_job AND artifact_state='cleanup_pending' AND cleanup_owner=p_worker RETURNING id
-  ) SELECT EXISTS(SELECT 1 FROM changed)
+    WHERE id=p_job AND artifact_state='cleanup_pending' AND cleanup_owner=p_worker
+      AND NOT EXISTS(SELECT 1 FROM removed) RETURNING id
+  ) SELECT EXISTS(SELECT 1 FROM removed) OR EXISTS(SELECT 1 FROM changed)
 $$;
 REVOKE ALL ON FUNCTION public.kernel_finish_whiteboard_file_export_cleanup(uuid,text,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.kernel_finish_whiteboard_file_export_cleanup(uuid,text,boolean) TO app_rw;

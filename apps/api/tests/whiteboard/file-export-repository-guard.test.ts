@@ -22,6 +22,7 @@ describe('Board file export repository authorization',()=>{
     expect(()=>assertRepositoryBoundary(repository.replace('whiteboards b','organizations b'))).toThrow();expect(()=>assertRepositoryBoundary(repository.replaceAll('b.owner_id=$2 OR m.user_id IS NOT NULL','TRUE'))).toThrow();
   });
   it('pins global admission, lease recovery, cleanup and retention in durable SQL',()=>{
-    expect(migration).toContain("pg_advisory_xact_lock(hashtextextended('whiteboard-file-export-admission',0))");expect(migration).toContain("active.status='running' AND active.lease_expires_at>clock_timestamp()");expect(migration).toContain("j.status='running' AND j.lease_expires_at<=clock_timestamp()");expect(migration).toContain("artifact_state='cleanup_pending'");expect(repository).toContain('BOARD_FILE_EXPORT_LIMITS.retainedJobs');
+    expect(migration).toContain("pg_advisory_xact_lock(hashtextextended('whiteboard-file-export-admission',0))");expect(migration).toContain("active.status='running' AND active.lease_expires_at>clock_timestamp()");expect(migration).toContain("j.status='running' AND j.attempts>=8 AND j.lease_expires_at<=clock_timestamp()");expect(migration).toContain("NOT j.retention_evicted");expect(migration).toContain("artifact_state='cleanup_pending'");expect(migration).toContain('DELETE FROM public.whiteboard_file_export_jobs');
+    expect(repository).toContain('BOARD_FILE_EXPORT_LIMITS.retainedJobs');expect(repository).toContain('pg_advisory_xact_lock(hashtextextended($1,0))');expect(repository).toContain('AND NOT retention_evicted');expect(repository).toContain("status IN ('done','failed','cancelled')");
   });
 });

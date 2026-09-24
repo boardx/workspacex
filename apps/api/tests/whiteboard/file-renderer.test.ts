@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
 import type { WhiteboardObject } from '@repo/contracts/whiteboard-document';
-import { createBoardFileArtifact } from '@repo/whiteboard-core';
-import { NodeBoardFileRenderer } from '../../src/infrastructure/whiteboard/board-file-renderer';
+import { BoardFileExportFailure, createBoardFileArtifact, type BoardRenderControl } from '@repo/whiteboard-core';
+import { NodeBoardFileRenderer,serializeBoardPdf } from '../../src/infrastructure/whiteboard/board-file-renderer';
 
 const objects=(text:string):WhiteboardObject[]=>[
   {id:'frame',schemaVersion:1,kind:'frame',geometry:{x:0,y:0,width:640,height:480,rotation:0},text:'',style:{stroke:'#374151'},parentId:null,orderKey:'a'},
@@ -56,4 +56,10 @@ describe('Node Board file renderer',()=>{
     expect(artifact.losses.find(loss=>loss.code==='FONT_FALLBACK')).toMatchObject({count:1,sampleObjectIds:['note']});expect(artifact.bytes.length).toBeGreaterThan(20);
     if(format==='svg'){const svg=new TextDecoder().decode(artifact.bytes);expect(svg).not.toContain('🚀');expect(svg).not.toContain('\u{10ffff}');expect(svg).toMatch(/[□?]/);}
   },30_000);
+
+  it('interrupts the final PDF writer on cancellation and deadline expiry',async()=>{
+    const document=await PDFDocument.create();for(let index=0;index<500;index++)document.addPage([100,100]);const cancelled=new AbortController(),active=(deadlineAt:number):BoardRenderControl=>({signal:cancelled.signal,deadlineAt,assertActive(){if(cancelled.signal.aborted)throw new BoardFileExportFailure('CANCELLED');if(Date.now()>deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');},checkpoint:async()=>{}});
+    const timer=setTimeout(()=>cancelled.abort(),0);await expect(serializeBoardPdf(document,[],active(Date.now()+30_000))).rejects.toMatchObject({code:'CANCELLED'});clearTimeout(timer);
+    const expired=new AbortController(),expiredControl:BoardRenderControl={signal:expired.signal,deadlineAt:Date.now()-1,assertActive(){throw new BoardFileExportFailure('BOUNDS_EXCEEDED');},checkpoint:async()=>{}};await expect(serializeBoardPdf(await PDFDocument.create(),[],expiredControl)).rejects.toMatchObject({code:'BOUNDS_EXCEEDED'});
+  });
 });
