@@ -1,0 +1,24 @@
+# WorkSpaceX —— 单机自托管的根 compose（backlog E7）。
+#
+# 与生产 deploy.sh 起的依赖栈是同一份定义、同一个项目名（`-p workspacex`）。
+# API / Web 是宿主进程（systemd），不是容器——见 docs/deployment/SELF-HOST-UPGRADE.md。
+#
+# ⚠ 本文件**只组合、不定义**：服务定义的唯一事实源仍是各 app 目录下的 compose 文件，
+#   这里用 `include:` 引用它们（每个被 include 的文件以其自身目录为 project_directory，
+#   相对路径照旧解析）。在这里抄一份 service 定义 = 同一事实声明在两处，本仓栽过五次。
+#   机械门：`pnpm run lint:self-host-compose`（.harness/scripts/lint-self-host-compose.mjs）。
+#
+# ⚠ 不包含：
+#   · apps/api/docker-compose.dev.yml —— PG 数据在 tmpfs，重启即清库，只给 CI/本地门控用；
+#   · apps/skill-sandbox/docker-compose.{sandbox,sessions}.yml —— 与 deploy.yml 中的
+#     skill-sandbox / skill-sandbox-sessions 同名（独立调试用），同时 include 会冲突；
+#   · apps/browser-runtime/docker-compose.browser.yml —— 生产上它是**独立的** compose 项目
+#     （deep-agent-lib.sh 的 `-p wsx-browser-runtime`），可选组件，按文档单独起；
+#   · 任何内部运营平面（.harness/scripts/lib/ops-plane.mjs 的 OPS_DIRS）。
+#
+# 项目名固定为 workspacex：容器名（workspacex-postgres-1 等）与生产 deploy.sh 一致，
+# 且与 CI 门控栈 workspacex-kernel 隔离。用法见 docs/deployment/SELF-HOST-UPGRADE.md。
+name: workspacex
+
+include:
+  - path: apps/api/docker-compose.deploy.yml
