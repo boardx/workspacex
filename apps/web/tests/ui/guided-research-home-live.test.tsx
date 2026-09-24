@@ -146,6 +146,24 @@ describe("F168 guided research home live data", () => {
     expect(screen.getByRole("button", { name: "审阅研究报告" })).toBeInTheDocument();
   });
 
+  it("does not flag a fresh researching run with zero sources as an evidence gap", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        ...createdSession("grs-collecting"),
+        stage: "researching",
+        resumeStage: "researching",
+        progress: 60,
+        sourceCount: 0,
+      }],
+    });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    const card = await screen.findByTestId("research-history-grs-collecting");
+    expect(card).not.toHaveTextContent("证据缺口");
+    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
+  });
+
   it("summarizes work that needs attention before the full research library", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({ items: [
       { ...createdSession("grs-active"), stage: "researching", resumeStage: "researching", progress: 70, sourceCount: 12 },

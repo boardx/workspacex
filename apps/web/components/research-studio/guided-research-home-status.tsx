@@ -20,7 +20,9 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   const completed = session.status === "completed";
   const failed = session.status === "failed";
   const evidenceRequired = session.resumeStage === "researching" || session.resumeStage === "report";
-  const missingEvidence = evidenceRequired && session.sourceCount === 0;
+  // Zero sources is the normal start of `researching` while collection runs; only a report with no
+  // sources is an evidence gap that needs attention (mod-user-research SKILL, issue #4026).
+  const missingEvidence = session.resumeStage === "report" && session.sourceCount === 0;
   return {
     ...stage,
     action: completed ? "查看研究报告" : failed ? "恢复研究" : stage.action,
@@ -29,7 +31,8 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
     statusLabel: completed ? "已完成" : failed ? "需恢复" : stage.label,
     statusTone: completed ? "primary" as const : failed || missingEvidence ? "danger" as const : session.resumeStage === "researching" ? "warning" as const : "neutral" as const,
     evidenceLabel: missingEvidence
-      ? session.resumeStage === "report" ? "报告阶段尚无可用来源" : "尚未收集到可用来源"
+      ? "报告阶段尚无可用来源"
+      : evidenceRequired && session.sourceCount === 0 ? "正在收集证据，尚无来源"
       : evidenceRequired || completed ? `${session.sourceCount} 个来源已进入证据链` : "完成研究设计后开始取证",
   };
 }
