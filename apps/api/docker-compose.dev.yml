@@ -70,10 +70,10 @@ services:
       - /var/lib/postgresql/data
 
   minio:
-    # issue #3457 —— Docker Hub 的 `minio/minio` 仓库已下架（"repository does not
-    # exist"，本机与 CI 都实测复现，main 18:53Z 之后才开始红，非本仓改动引入）。
-    # MinIO 官方把公开镜像收敛到了 quay.io，同一 tag 已本机验证 `docker pull` 成功。
-    image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z
+    # issue #4105 —— MinIO 又撤掉了此前公开的 Quay manifest，CI 匿名拉取稳定返回
+    # unauthorized。Chainguard 镜像保留同一 minio 命令与 MINIO_ROOT_* 契约；固定多架构
+    # index digest，避免 latest 漂移时在无人改仓库的情况下再次打红所有对象存储 E2E。
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     command: server /data --console-address ":59001"
     environment:
       MINIO_ROOT_USER: minio_dev
