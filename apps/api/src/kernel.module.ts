@@ -107,6 +107,7 @@ import { ModelGuidedResearchCheckpointGenerator } from "./application/research/m
 import { GUIDED_RUNTIME_STORE, GUIDED_SEARCH_PORT, GUIDED_RUNTIME_SERVICE, type GuidedRuntimeStore, type GuidedSearchPort } from "./application/research/guided-runtime-ports";
 import { GuidedRuntimeService } from "./application/research/guided-runtime-service";
 import { PgGuidedRuntimeStore } from "./infrastructure/research/pg-guided-runtime-store";
+import { PgGuidedInternalSourceAccess } from "./infrastructure/research/pg-guided-internal-source-access";
 import { GoogleGuidedSearch } from "./infrastructure/research/google-guided-search";
 /**
  * Composition root -- deliberately NOT part of any layer.
@@ -2379,7 +2380,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
     { provide: GUIDED_SEARCH_PORT, useFactory: () => new GoogleGuidedSearch() },
     { provide: GUIDED_RUNTIME_SERVICE,
-      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => {
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory) => {
         const config = readModelProviderConfig();
         // Report streaming is a research capability, independent of chat's rollout flag.
         const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
@@ -2389,9 +2390,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
             ? configured.completeStream!(input, onDelta)
             : model.completeStream ? model.completeStream(input, onDelta) : model.complete(input),
         };
-        return new GuidedRuntimeService(store, model, search, undefined, reportModel);
+        return new GuidedRuntimeService(store, model, search, undefined, reportModel, new PgGuidedInternalSourceAccess(db, identities, decisions));
       },
-      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT] },
+      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT, DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
