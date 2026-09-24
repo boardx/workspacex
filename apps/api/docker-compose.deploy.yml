@@ -53,10 +53,8 @@ services:
     restart: unless-stopped
 
   minio:
-    # issue #3457 —— Docker Hub 的 `minio/minio` 仓库已下架（"repository does not
-    # exist"，本机实测复现）。CI/dev 侧已在 PR #3458 换成 quay.io（同一 tag），本条
-    # 是同一修法在生产配置上的补齐，经人类确认后单独处理（ad-hoc-fix-pr-sop.md 例外条款）。
-    image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z
+    # issue #4105: pin a multi-arch OCI index; the former Quay release manifest was withdrawn.
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     command: server /data --console-address ":59001"
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
