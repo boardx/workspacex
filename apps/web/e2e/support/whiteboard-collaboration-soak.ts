@@ -16,15 +16,17 @@ export type SoakConfig = {
 };
 export type CanonicalJson = null | boolean | number | string | CanonicalJson[] | { [key: string]: CanonicalJson };
 export type CanonicalWhiteboardObject = { [key: string]: CanonicalJson };
+export type SoakParticipant = { client: string; role: 'writer' | 'viewer'; writer: boolean };
 export type SoakReceipt = { client: string; visibleAtMs: number };
-export type SoakOperation = { id: string; writer: number; createdAtMs: number; disruption: boolean; receipts: SoakReceipt[] };
+export type SoakOperation = { id: string; writer: string; createdAtMs: number; disruption: boolean; receipts: SoakReceipt[] };
 export type SoakClientResult = { client: string; hash: string; document: CanonicalWhiteboardObject[] };
-export type SoakReconnect = { client: string; elapsedMs: number; recovered: boolean };
+export type SoakReconnect = { client: string; offlineAtMs: number; onlineAtMs: number; recoveredAtMs: number | null; elapsedMs: number; recovered: boolean };
 export type LatencySummary = { samples: number; p50: number | null; p95: number | null; p99: number | null };
 export type SoakAnalysis = {
   missing: string[]; duplicates: string[]; unexpected: string[];
   forkGroups: Array<{ hash: string; clients: string[] }>;
   propagationMissing: string[]; propagationDuplicates: string[];
+  wallClockDurationMs: number | null;
   remoteLatencyMs: LatencySummary; perClientLatencyMs: Record<string, LatencySummary>;
   reconnectFailures: SoakReconnect[]; evidenceFailures: string[]; accepted: boolean;
 };
@@ -32,20 +34,21 @@ export type SoakReport = {
   schemaVersion: 2; issue: 4144; status: 'accepted' | 'diagnostic-passed' | 'failed'; exactSha: string;
   startedAt: string; finishedAt: string; collaborationStartedAt: string | null; collaborationDurationMs: number;
   environment: { os: string; node: string; browser: string; ci: boolean };
-  config: SoakConfig; operations: SoakOperation[]; clients: SoakClientResult[];
+  config: SoakConfig; initialClients: SoakParticipant[]; operations: SoakOperation[]; clients: SoakClientResult[];
   freshClient: SoakClientResult | null; server: SoakClientResult | null;
   reconnects: SoakReconnect[]; analysis: SoakAnalysis; failure: string | null;
 };
 
 const LatencySummarySchema = z.object({ samples: z.number().int().nonnegative(), p50: z.number().nonnegative().nullable(), p95: z.number().nonnegative().nullable(), p99: z.number().nonnegative().nullable() }).strict();
 const SoakConfigSchema = z.object({ clients: z.number().int().positive(), writers: z.number().int().positive(), durationMs: z.number().int().positive(), offlineMs: z.number().int().positive(), reconnectMs: z.number().int().positive(), remoteP95Ms: z.number().int().positive(), operationIntervalMs: z.number().int().positive(), profile: z.enum(['acceptance', 'diagnostic']) }).strict();
+const SoakParticipantSchema = z.object({ client: z.string().min(1), role: z.enum(['writer', 'viewer']), writer: z.boolean() }).strict();
 const SoakReceiptSchema = z.object({ client: z.string().min(1), visibleAtMs: z.number().int().nonnegative() }).strict();
-const SoakOperationSchema = z.object({ id: z.string().min(1), writer: z.number().int().nonnegative(), createdAtMs: z.number().int().nonnegative(), disruption: z.boolean(), receipts: z.array(SoakReceiptSchema) }).strict();
+const SoakOperationSchema = z.object({ id: z.string().min(1), writer: z.string().min(1), createdAtMs: z.number().int().nonnegative(), disruption: z.boolean(), receipts: z.array(SoakReceiptSchema) }).strict();
 const CanonicalDocumentSchema = z.array(z.record(z.unknown()));
 const SoakClientResultSchema = z.object({ client: z.string().min(1), hash: z.string().regex(/^[a-f0-9]{64}$/), document: CanonicalDocumentSchema }).strict();
-const SoakReconnectSchema = z.object({ client: z.string().min(1), elapsedMs: z.number().int().nonnegative(), recovered: z.boolean() }).strict();
-const SoakAnalysisSchema = z.object({ missing: z.array(z.string()), duplicates: z.array(z.string()), unexpected: z.array(z.string()), forkGroups: z.array(z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), clients: z.array(z.string().min(1)) }).strict()), propagationMissing: z.array(z.string()), propagationDuplicates: z.array(z.string()), remoteLatencyMs: LatencySummarySchema, perClientLatencyMs: z.record(LatencySummarySchema), reconnectFailures: z.array(SoakReconnectSchema), evidenceFailures: z.array(z.string()), accepted: z.boolean() }).strict();
-export const SoakReportSchema = z.object({ schemaVersion: z.literal(2), issue: z.literal(4144), status: z.enum(['accepted', 'diagnostic-passed', 'failed']), exactSha: z.string().regex(/^[a-f0-9]{40}$/), startedAt: z.string().datetime(), finishedAt: z.string().datetime(), collaborationStartedAt: z.string().datetime().nullable(), collaborationDurationMs: z.number().int().nonnegative(), environment: z.object({ os: z.string().min(1), node: z.string().min(1), browser: z.string().min(1), ci: z.boolean() }).strict(), config: SoakConfigSchema, operations: z.array(SoakOperationSchema), clients: z.array(SoakClientResultSchema), freshClient: SoakClientResultSchema.nullable(), server: SoakClientResultSchema.nullable(), reconnects: z.array(SoakReconnectSchema), analysis: SoakAnalysisSchema, failure: z.string().nullable() }).strict();
+const SoakReconnectSchema = z.object({ client: z.string().min(1), offlineAtMs: z.number().int().nonnegative(), onlineAtMs: z.number().int().nonnegative(), recoveredAtMs: z.number().int().nonnegative().nullable(), elapsedMs: z.number().int().nonnegative(), recovered: z.boolean() }).strict();
+const SoakAnalysisSchema = z.object({ missing: z.array(z.string()), duplicates: z.array(z.string()), unexpected: z.array(z.string()), forkGroups: z.array(z.object({ hash: z.string().regex(/^[a-f0-9]{64}$/), clients: z.array(z.string().min(1)) }).strict()), propagationMissing: z.array(z.string()), propagationDuplicates: z.array(z.string()), wallClockDurationMs: z.number().int().nonnegative().nullable(), remoteLatencyMs: LatencySummarySchema, perClientLatencyMs: z.record(LatencySummarySchema), reconnectFailures: z.array(SoakReconnectSchema), evidenceFailures: z.array(z.string()), accepted: z.boolean() }).strict();
+export const SoakReportSchema = z.object({ schemaVersion: z.literal(2), issue: z.literal(4144), status: z.enum(['accepted', 'diagnostic-passed', 'failed']), exactSha: z.string().regex(/^[a-f0-9]{40}$/), startedAt: z.string().datetime(), finishedAt: z.string().datetime(), collaborationStartedAt: z.string().datetime().nullable(), collaborationDurationMs: z.number().int().nonnegative(), environment: z.object({ os: z.string().min(1), node: z.string().min(1), browser: z.string().min(1), ci: z.boolean() }).strict(), config: SoakConfigSchema, initialClients: z.array(SoakParticipantSchema), operations: z.array(SoakOperationSchema), clients: z.array(SoakClientResultSchema), freshClient: SoakClientResultSchema.nullable(), server: SoakClientResultSchema.nullable(), reconnects: z.array(SoakReconnectSchema), analysis: SoakAnalysisSchema, failure: z.string().nullable() }).strict();
 
 function positiveInteger(value: string | undefined, fallback: number, name: string): number {
   const parsed = value === undefined ? fallback : Number(value);
@@ -93,6 +96,9 @@ export function documentHash(document: readonly CanonicalWhiteboardObject[]): st
   return createHash('sha256').update(JSON.stringify(normalizeDocument(document))).digest('hex');
 }
 function canonicalStrings(values: readonly string[]): string[] { return [...values].sort((a, b) => a.localeCompare(b)); }
+function sameIdentitySet(left: readonly string[], right: readonly string[]): boolean {
+  const expected = new Set(left); return expected.size === left.length && right.length === left.length && right.every(value => expected.has(value));
+}
 function operationIds(result: SoakClientResult): string[] {
   return result.document.map(item => item.text).filter((value): value is string => typeof value === 'string' && value.startsWith('soak-4144:'));
 }
@@ -104,16 +110,33 @@ function latencySummary(values: readonly number[]): LatencySummary {
   return { samples: values.length, p50: percentile(values, 0.5), p95: percentile(values, 0.95), p99: percentile(values, 0.99) };
 }
 
-export function analyzeSoak(input: Pick<SoakReport, 'operations' | 'clients' | 'freshClient' | 'server' | 'reconnects' | 'config'>): SoakAnalysis {
+export function analyzeSoak(input: Pick<SoakReport, 'startedAt' | 'finishedAt' | 'collaborationStartedAt' | 'collaborationDurationMs' | 'initialClients' | 'operations' | 'clients' | 'freshClient' | 'server' | 'reconnects' | 'config'>): SoakAnalysis {
   const expectedIds = input.operations.map(operation => operation.id), expected = new Set(expectedIds);
   const all = [...input.clients, ...(input.freshClient ? [input.freshClient] : []), ...(input.server ? [input.server] : [])];
   const evidenceFailures: string[] = [];
+  const runStartedMs = Date.parse(input.startedAt), collaborationStartedMs = input.collaborationStartedAt ? Date.parse(input.collaborationStartedAt) : Number.NaN, finishedMs = Date.parse(input.finishedAt);
+  const wallClockDurationMs = finishedMs - collaborationStartedMs;
+  if (!Number.isFinite(collaborationStartedMs)) evidenceFailures.push('collaboration start timestamp is missing or invalid');
+  else {
+    if (collaborationStartedMs < runStartedMs || finishedMs < collaborationStartedMs) evidenceFailures.push('collaboration timestamps are outside the report window');
+    if (wallClockDurationMs < input.config.durationMs) evidenceFailures.push(`collaboration wall-clock duration is below ${input.config.durationMs}ms`);
+    if (Math.abs(input.collaborationDurationMs - wallClockDurationMs) > 1000) evidenceFailures.push('claimed collaboration duration does not match timestamps');
+  }
+  const manifestNames = input.initialClients.map(item => item.client), manifestSet = new Set(manifestNames);
+  const manifestWriters = input.initialClients.filter(item => item.writer).map(item => item.client), writerSet = new Set(manifestWriters);
+  if (input.initialClients.length !== input.config.clients) evidenceFailures.push(`expected ${input.config.clients} manifest clients, got ${input.initialClients.length}`);
+  if (manifestSet.size !== manifestNames.length) evidenceFailures.push('initial client manifest IDs are not unique');
+  if (input.initialClients.some(item => item.writer !== (item.role === 'writer'))) evidenceFailures.push('initial client manifest role and writer flag disagree');
+  if (manifestWriters.length !== input.config.writers) evidenceFailures.push(`expected ${input.config.writers} manifest writers, got ${manifestWriters.length}`);
   if (!input.operations.length) evidenceFailures.push('operation ledger is empty');
   if (input.clients.length !== input.config.clients) evidenceFailures.push(`expected ${input.config.clients} browser clients, got ${input.clients.length}`);
+  if (!sameIdentitySet(manifestNames, input.clients.map(item => item.client))) evidenceFailures.push('browser evidence identity set does not match the initial manifest');
   if (!input.freshClient) evidenceFailures.push('fresh client evidence is missing');
   if (!input.server) evidenceFailures.push('server evidence is missing');
+  if (input.freshClient && (manifestSet.has(input.freshClient.client) || input.freshClient.client === input.server?.client)) evidenceFailures.push('fresh client identity overlaps initial or server evidence');
+  if (input.server && manifestSet.has(input.server.client)) evidenceFailures.push('server identity overlaps initial client evidence');
   if (new Set(expectedIds).size !== expectedIds.length) evidenceFailures.push('operation ledger IDs are not unique');
-  if (input.operations.some(operation => operation.writer >= input.config.writers)) evidenceFailures.push('operation ledger contains an out-of-range writer');
+  if (input.operations.some(operation => !writerSet.has(operation.writer))) evidenceFailures.push('operation ledger contains a writer outside the initial manifest');
   for (const client of all) {
     if (JSON.stringify(client.document) !== JSON.stringify(normalizeDocument(client.document))) evidenceFailures.push(`${client.client} document is not canonical`);
     if (documentHash(client.document) !== client.hash) evidenceFailures.push(`${client.client} document hash does not match raw document`);
@@ -130,17 +153,19 @@ export function analyzeSoak(input: Pick<SoakReport, 'operations' | 'clients' | '
   for (const client of all) byHash.set(client.hash, [...(byHash.get(client.hash) ?? []), client.client]);
   const forkGroups = [...byHash].map(([hash, clients]) => ({ hash, clients: clients.sort() })).sort((a, b) => a.hash.localeCompare(b.hash));
 
-  const browserNames = input.clients.map(client => client.client), browserSet = new Set(browserNames);
-  if (browserSet.size !== browserNames.length) evidenceFailures.push('browser client names are not unique');
+  const browserNames = manifestNames, browserSet = manifestSet;
+  if (new Set(input.clients.map(client => client.client)).size !== input.clients.length) evidenceFailures.push('browser evidence client names are not unique');
   const propagationMissing: string[] = [], propagationDuplicates: string[] = [];
   const perClientSamples = new Map(browserNames.map(client => [client, [] as number[]]));
   for (const operation of input.operations) {
+    if (Number.isFinite(collaborationStartedMs) && (operation.createdAtMs < collaborationStartedMs || operation.createdAtMs > finishedMs)) evidenceFailures.push(`${operation.id} is outside the collaboration window`);
     const counts = new Map<string, number>();
     for (const receipt of operation.receipts) {
       counts.set(receipt.client, (counts.get(receipt.client) ?? 0) + 1);
       if (!browserSet.has(receipt.client)) { propagationDuplicates.push(`${operation.id}:${receipt.client}:unexpected-client`); continue; }
       if (receipt.visibleAtMs < operation.createdAtMs) { evidenceFailures.push(`${operation.id}:${receipt.client} receipt predates operation`); continue; }
-      if (!operation.disruption && receipt.client !== String(operation.writer)) perClientSamples.get(receipt.client)!.push(receipt.visibleAtMs - operation.createdAtMs);
+      if (Number.isFinite(collaborationStartedMs) && receipt.visibleAtMs > finishedMs) evidenceFailures.push(`${operation.id}:${receipt.client} receipt is outside the collaboration window`);
+      if (!operation.disruption && receipt.client !== operation.writer) perClientSamples.get(receipt.client)!.push(receipt.visibleAtMs - operation.createdAtMs);
     }
     for (const client of browserNames) {
       const count = counts.get(client) ?? 0;
@@ -158,19 +183,28 @@ export function analyzeSoak(input: Pick<SoakReport, 'operations' | 'clients' | '
   const disruptions = input.operations.filter(operation => operation.disruption);
   if (disruptions.length !== expectedReconnects) evidenceFailures.push(`expected ${expectedReconnects} offline operations, got ${disruptions.length}`);
   for (const operation of disruptions) {
-    const firstRemoteReceipt = Math.min(...operation.receipts.filter(receipt => receipt.client !== String(operation.writer)).map(receipt => receipt.visibleAtMs));
+    const firstRemoteReceipt = Math.min(...operation.receipts.filter(receipt => receipt.client !== operation.writer).map(receipt => receipt.visibleAtMs));
     if (!Number.isFinite(firstRemoteReceipt) || firstRemoteReceipt - operation.createdAtMs < input.config.offlineMs) evidenceFailures.push(`${operation.id} did not prove the declared offline duration`);
   }
   if (input.reconnects.length !== expectedReconnects) evidenceFailures.push(`expected ${expectedReconnects} reconnect samples, got ${input.reconnects.length}`);
   if (new Set(input.reconnects.map(item => item.client)).size !== input.reconnects.length) evidenceFailures.push('reconnect clients are not unique');
-  if (canonicalStrings(disruptions.map(item => String(item.writer))).join() !== canonicalStrings(input.reconnects.map(item => item.client)).join()) evidenceFailures.push('offline writers do not match reconnect evidence');
+  if (!sameIdentitySet(disruptions.map(item => item.writer), input.reconnects.map(item => item.client))) evidenceFailures.push('offline writers do not match reconnect evidence');
+  for (const reconnect of input.reconnects) {
+    if (!writerSet.has(reconnect.client)) evidenceFailures.push(`${reconnect.client} reconnect is not a manifest writer`);
+    if (reconnect.onlineAtMs - reconnect.offlineAtMs < input.config.offlineMs) evidenceFailures.push(`${reconnect.client} did not remain offline for the required duration`);
+    if (Number.isFinite(collaborationStartedMs) && (reconnect.offlineAtMs < collaborationStartedMs || reconnect.onlineAtMs > finishedMs || (reconnect.recoveredAtMs ?? finishedMs + 1) > finishedMs)) evidenceFailures.push(`${reconnect.client} reconnect timestamps are outside the collaboration window`);
+    if (reconnect.recovered !== (reconnect.recoveredAtMs !== null)) evidenceFailures.push(`${reconnect.client} reconnect recovery flag disagrees with timestamp`);
+    if (reconnect.recoveredAtMs !== null && Math.abs(reconnect.elapsedMs - (reconnect.recoveredAtMs - reconnect.onlineAtMs)) > 10) evidenceFailures.push(`${reconnect.client} reconnect elapsed time does not match timestamps`);
+    const disrupted = disruptions.find(operation => operation.writer === reconnect.client);
+    if (!disrupted || disrupted.createdAtMs < reconnect.offlineAtMs || disrupted.createdAtMs > reconnect.onlineAtMs) evidenceFailures.push(`${reconnect.client} offline operation is outside its outage window`);
+  }
   const reconnectFailures = input.reconnects.filter(item => !item.recovered || item.elapsedMs > input.config.reconnectMs);
-  const steadyWriterCount = new Set(input.operations.filter(item => !item.disruption).map(operation => operation.writer)).size;
-  if (steadyWriterCount < input.config.writers) evidenceFailures.push(`expected ${input.config.writers} steady-state writers, got ${steadyWriterCount}`);
+  const steadyWriters = new Set(input.operations.filter(item => !item.disruption).map(operation => operation.writer));
+  if (!sameIdentitySet(manifestWriters, [...steadyWriters])) evidenceFailures.push('steady-state writer identity set does not match the manifest');
   const accepted = evidenceFailures.length === 0 && missing.length === 0 && duplicates.length === 0 && unexpected.length === 0
     && propagationMissing.length === 0 && propagationDuplicates.length === 0 && forkGroups.length === 1
     && reconnectFailures.length === 0 && remoteLatencyMs.p95 !== null && remoteLatencyMs.p95 <= input.config.remoteP95Ms;
-  return { missing, duplicates, unexpected, forkGroups, propagationMissing: canonicalStrings(propagationMissing), propagationDuplicates: canonicalStrings(propagationDuplicates), remoteLatencyMs, perClientLatencyMs, reconnectFailures, evidenceFailures: canonicalStrings(evidenceFailures), accepted };
+  return { missing, duplicates, unexpected, forkGroups, propagationMissing: canonicalStrings(propagationMissing), propagationDuplicates: canonicalStrings(propagationDuplicates), wallClockDurationMs: Number.isFinite(wallClockDurationMs) && wallClockDurationMs >= 0 ? wallClockDurationMs : null, remoteLatencyMs, perClientLatencyMs, reconnectFailures, evidenceFailures: canonicalStrings(evidenceFailures), accepted };
 }
 export function reportStatus(config: SoakConfig, analysis: SoakAnalysis, failure: string | null): SoakReport['status'] {
   if (failure || !analysis.accepted) return 'failed';
@@ -183,7 +217,7 @@ export function recomputeReport(report: SoakReport): { analysis: SoakAnalysis; s
 export async function writeSoakReport(file: string, report: SoakReport): Promise<void> {
   SoakReportSchema.parse(report); const recomputed = recomputeReport(report);
   if (JSON.stringify(report.analysis) !== JSON.stringify(recomputed.analysis) || report.status !== recomputed.status) throw new Error('report verdict does not match recomputed raw evidence');
-  if (report.status === 'accepted' && (!isAcceptanceConfig(report.config) || report.collaborationDurationMs < report.config.durationMs)) throw new Error('refusing to write false acceptance evidence');
+  if (report.status === 'accepted' && !isAcceptanceConfig(report.config)) throw new Error('refusing to write false acceptance evidence');
   await mkdir(path.dirname(file), { recursive: true }); const temporary = `${file}.${process.pid}.tmp`;
   await writeFile(temporary, `${JSON.stringify(report, null, 2)}\n`, 'utf8'); await rename(temporary, file);
 }

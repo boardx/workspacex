@@ -22,13 +22,16 @@ function result(client: string, objects: BoardObject[]) {
 function rawReport(options: { clients?: number; writers?: number; profile?: SoakConfig['profile'] } = {}): SoakReport {
   const cfg = config(options.clients, options.writers, options.profile), steadyIds = Array.from({ length: cfg.writers }, (_, index) => `soak-4144:${index}`);
   const offlineIds = Array.from({ length: Math.min(5, cfg.writers) }, (_, index) => `soak-4144:offline-${index}`);
-  const objects = [...steadyIds, ...offlineIds].map(id => object(id)), clients = Array.from({ length: cfg.clients }, (_, index) => result(String(index), objects));
-  const operations = steadyIds.map((id, writer) => ({ id, writer, createdAtMs: 1000, disruption: false, receipts: clients.map(client => ({ client: client.client, visibleAtMs: 1100 })) }));
-  operations.push(...offlineIds.map((id, writer) => ({ id, writer, createdAtMs: 2000, disruption: true, receipts: clients.map(client => ({ client: client.client, visibleAtMs: 2000 + cfg.offlineMs + 100 })) })));
-  const reconnects = Array.from({ length: Math.min(5, cfg.writers) }, (_, index) => ({ client: String(index), elapsedMs: 100, recovered: true }));
-  const partial = { config: cfg, operations, clients, freshClient: result('fresh', objects), server: result('server', objects), reconnects };
+  const collaborationStartedMs = 10_000, finishedMs = collaborationStartedMs + cfg.durationMs;
+  const initialClients = Array.from({ length: cfg.clients }, (_, index) => ({ client: `browser-${index}`, role: index < cfg.writers ? 'writer' as const : 'viewer' as const, writer: index < cfg.writers }));
+  const objects = [...steadyIds, ...offlineIds].map(id => object(id)), clients = initialClients.map(item => result(item.client, objects));
+  const operations = steadyIds.map((id, writer) => ({ id, writer: initialClients[writer]!.client, createdAtMs: collaborationStartedMs + 100, disruption: false, receipts: clients.map(client => ({ client: client.client, visibleAtMs: collaborationStartedMs + 200 })) }));
+  const offlineAtMs = collaborationStartedMs + Math.floor(cfg.durationMs / 2), onlineAtMs = offlineAtMs + cfg.offlineMs;
+  operations.push(...offlineIds.map((id, writer) => ({ id, writer: initialClients[writer]!.client, createdAtMs: offlineAtMs + 1, disruption: true, receipts: clients.map(client => ({ client: client.client, visibleAtMs: onlineAtMs + 100 })) })));
+  const reconnects = Array.from({ length: Math.min(5, cfg.writers) }, (_, index) => ({ client: initialClients[index]!.client, offlineAtMs, onlineAtMs, recoveredAtMs: onlineAtMs + 100, elapsedMs: 100, recovered: true }));
+  const partial = { startedAt: new Date(0).toISOString(), finishedAt: new Date(finishedMs).toISOString(), collaborationStartedAt: new Date(collaborationStartedMs).toISOString(), collaborationDurationMs: cfg.durationMs, config: cfg, initialClients, operations, clients, freshClient: result('fresh', objects), server: result('server', objects), reconnects };
   const analysis = analyzeSoak(partial);
-  return { schemaVersion: 2, issue: 4144, status: reportStatus(cfg, analysis, null), exactSha: 'a'.repeat(40), startedAt: new Date(0).toISOString(), finishedAt: new Date(cfg.durationMs).toISOString(), collaborationStartedAt: new Date(0).toISOString(), collaborationDurationMs: cfg.durationMs, environment: { os: 'test', node: process.version, browser: 'test', ci: false }, ...partial, analysis, failure: null };
+  return { schemaVersion: 2, issue: 4144, status: reportStatus(cfg, analysis, null), exactSha: 'a'.repeat(40), environment: { os: 'test', node: process.version, browser: 'test', ci: false }, ...partial, analysis, failure: null };
 }
 
 describe('Board collaboration soak evidence', () => {
@@ -55,15 +58,15 @@ describe('Board collaboration soak evidence', () => {
     const report = rawReport({ clients: 3, writers: 2, profile: 'diagnostic' });
     report.clients[1]!.document = canonicalizeDocument([object('soak-4144:0'), object('soak-4144:0', { id: 'duplicate' })]);
     report.clients[1]!.hash = documentHash(report.clients[1]!.document);
-    report.operations[0]!.receipts = report.operations[0]!.receipts.filter(receipt => receipt.client !== '2');
-    report.operations[1]!.receipts.find(receipt => receipt.client === '0')!.visibleAtMs = 1700;
-    report.reconnects[0] = { client: '0', elapsedMs: 6000, recovered: true };
+    report.operations[0]!.receipts = report.operations[0]!.receipts.filter(receipt => receipt.client !== 'browser-2');
+    report.operations[1]!.receipts.find(receipt => receipt.client === 'browser-0')!.visibleAtMs += 600;
+    report.reconnects[0] = { ...report.reconnects[0]!, recoveredAtMs: report.reconnects[0]!.onlineAtMs + 6000, elapsedMs: 6000 };
     const analysis = analyzeSoak(report);
     expect(analysis.missing).toContain('soak-4144:1');
     expect(analysis.duplicates).toContain('soak-4144:0');
     expect(analysis.forkGroups.length).toBeGreaterThan(1);
-    expect(analysis.propagationMissing).toContain('soak-4144:0:2');
-    expect(analysis.perClientLatencyMs['0']?.p95).toBe(700);
+    expect(analysis.propagationMissing).toContain('soak-4144:0:browser-2');
+    expect(analysis.perClientLatencyMs['browser-0']?.p95).toBe(700);
     expect(analysis.reconnectFailures).toHaveLength(1);
     expect(analysis.accepted).toBe(false);
   });
@@ -77,15 +80,23 @@ describe('Board collaboration soak evidence', () => {
     await expect(readFile(file, 'utf8')).rejects.toThrow();
   });
 
-  it('runs the real verifier command without CJS top-level-await and rejects empty spoof evidence', async () => {
+  it('runs the real verifier command and rejects forged identities plus a one-second wall clock with fake duration', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'board-soak-command-')); dirs.push(dir);
-    const valid = path.join(dir, 'valid.json'), spoof = path.join(dir, 'spoof.json');
+    const valid = path.join(dir, 'valid.json'), spoof = path.join(dir, 'spoof.json'), forgedFile = path.join(dir, 'forged.json');
     const report = rawReport(); await writeFile(valid, JSON.stringify(report));
     const invalid = { ...report, operations: [], clients: [], freshClient: null, server: null, reconnects: [] };
     await writeFile(spoof, JSON.stringify(invalid));
+    const renamed = new Map(report.clients.map((client, index) => [client.client, `forged-${index}`]));
+    const forged: SoakReport = { ...structuredClone(report), collaborationStartedAt: null, finishedAt: new Date(Date.parse(report.startedAt) + 1000).toISOString(), collaborationDurationMs: ACCEPTANCE_SOAK.durationMs };
+    forged.clients = forged.clients.map(client => ({ ...client, client: renamed.get(client.client)! }));
+    forged.operations = forged.operations.map(operation => ({ ...operation, writer: renamed.get(operation.writer) ?? operation.writer, receipts: operation.receipts.map(receipt => ({ ...receipt, client: renamed.get(receipt.client) ?? receipt.client })) }));
+    forged.reconnects = forged.reconnects.map(reconnect => ({ ...reconnect, client: renamed.get(reconnect.client) ?? reconnect.client }));
+    await expect(writeSoakReport(forgedFile, forged)).rejects.toThrow(/raw evidence/);
+    await writeFile(forgedFile, JSON.stringify(forged));
     const run = (file: string) => spawnSync(process.execPath, ['--import', 'tsx', 'scripts/verify-whiteboard-soak-report.ts'], { cwd: process.cwd(), env: { ...process.env, WHITEBOARD_SOAK_REPORT: file, GITHUB_SHA: report.exactSha }, encoding: 'utf8' });
     const accepted = run(valid); expect(accepted.status, accepted.stderr).toBe(0); expect(accepted.stdout).toContain(report.exactSha);
     const rejected = run(spoof); expect(rejected.status).not.toBe(0); expect(rejected.stderr).toMatch(/raw evidence|operation ledger|browser clients/);
+    const forgedResult = run(forgedFile); expect(forgedResult.status).not.toBe(0); expect(forgedResult.stderr).toMatch(/raw evidence|manifest|timestamp|wall-clock/);
   }, 20_000);
 
   it('allows shortened algorithm verification but cannot label it acceptance evidence', async () => {
