@@ -374,7 +374,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
       <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-lg bg-primary p-3 text-left text-xs font-medium text-primary-foreground" : "w-full rounded-lg border border-border p-3 text-left text-xs text-muted-foreground"}>0{index + 1} {step.label}</button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      {view.report && view.reportGeneration?.status === "failed" && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>}
+      {view.report && view.reportGeneration?.status === "failed" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+        <p role="alert" className="text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>
+        <Button data-testid="itv-retry-preserved-report" type="button" variant="outline" onClick={() => requestConfirmation("report")}>重新生成报告</Button>
+      </div>}
       <fieldset disabled={confirming || reportPending} className="mt-8 min-w-0 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
         {active === "topic" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief}
           onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }}
