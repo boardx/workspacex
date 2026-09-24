@@ -81,8 +81,9 @@ export async function getClaimSources(
   input: Viewer & { readonly claimId: string },
 ): Promise<z.infer<typeof KG.knowledgeGraph.getClaimSources.out>> {
   const route = await deps.knowledge.claimRoute(input.orgId, input.userId, input.claimId);
-  // 个人空间（L1）的来源在 F12 接入；在那之前按「找不到」处理，不给出任何存在性信号。
-  if (route === null || route.scopeKind !== "chat_session") throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  if (route === null) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  if (route.scopeKind === "personal") return personalClaimSources(deps, input, route.scopeId);
+  if (route.scopeKind !== "chat_session") throw new KgReadError("KG_CLAIM_NOT_FOUND");
   let t: VisibleThread;
   try {
     t = await visibleThread(deps, input, route.scopeId);
@@ -93,6 +94,32 @@ export async function getClaimSources(
   const guarded = await deps.knowledge.claimSources(input.orgId, input.userId, input.claimId, t.ref);
   if (guarded === null) throw new KgReadError("KG_CLAIM_NOT_FOUND");
   return reveal(guarded, t.base, "KG_CLAIM_NOT_FOUND");
+}
+
+/**
+ * F12：个人空间（L1）结论的来源——「引用可点回会话 A 原消息」。
+ * 只有本人看得到（别人的个人空间与不存在同一个出口）；证据消息逐个会话重新判可见性，
+ * 只返回现在还看得到的会话里的那些（会话被删 / 被移出项目后，它的原话不再从 L1 漏出来）。
+ */
+async function personalClaimSources(
+  deps: KnowledgeReadDeps,
+  input: Viewer & { readonly claimId: string },
+  ownerId: string,
+): Promise<z.infer<typeof KG.knowledgeGraph.getClaimSources.out>> {
+  if (ownerId !== input.userId) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  const visible: VisibleThread[] = [];
+  for (const threadId of await deps.knowledge.claimEvidenceThreads(input.orgId, input.userId, input.claimId)) {
+    try {
+      visible.push(await visibleThread(deps, input, threadId));
+    } catch (e) {
+      if (!(e instanceof KgReadError)) throw e;
+    }
+  }
+  if (visible.length === 0) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  // 披露判定用第一个可见会话的；其余会话已在上面逐个判过，只作为证据范围传下去。
+  const guarded = await deps.knowledge.claimSources(input.orgId, input.userId, input.claimId, visible[0]!.ref, visible.map((t) => t.ref.threadId));
+  if (guarded === null) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  return reveal(guarded, visible[0]!.base, "KG_CLAIM_NOT_FOUND");
 }
 
 export async function getTurnMemory(

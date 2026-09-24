@@ -121,7 +121,13 @@ export interface KnowledgeThreadRef {
 export interface KnowledgeReadPort {
   threadKnowledge(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<ThreadKnowledgeData>>;
   claimRoute(orgId: OrgId, userId: string, claimId: string): Promise<{ readonly scopeKind: KG.KgScopeKind; readonly scopeId: string } | null>;
-  claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef): Promise<Guarded<ClaimSourcesData> | null>;
+  /**
+   * `onlyThreads`（F12，个人空间结论）：消息证据只取这些会话里的（调用方逐个判过可见性的）；
+   * 附件证据此时不返回（附件有自己的可见性判定，L1 抽屉暂不展示）。
+   */
+  claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef, onlyThreads?: readonly string[]): Promise<Guarded<ClaimSourcesData> | null>;
+  /** F12：一条结论的消息证据分布在哪些会话（只回会话 id，路由事实，不回内容）。 */
+  claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]>;
   turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
 }
 

@@ -22,9 +22,9 @@ const callersOf = (re: RegExp) => walk(join(API, "src"))
   .map((f) => relative(API, f)).sort();
 
 describe("F08 会话记忆召回读取的豁免前提", () => {
-  it("(a) 只出现四张租户表（外加只回 id 的 kg_graph_neighbors）", () => {
+  it("(a) 只出现五张租户表（外加只回 id 的 kg_graph_neighbors）", () => {
     const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
-    for (const t of ["claims", "claim_message_evidence", "chat_messages", "ontology_objects", "kg_graph_neighbors"]) tables.delete(t);
+    for (const t of ["claims", "claim_message_evidence", "chat_messages", "ontology_objects", "ontology_edges", "kg_graph_neighbors"]) tables.delete(t);
     expect([...tables]).toEqual([]);
   });
 
@@ -32,9 +32,17 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).not.toMatch(/withoutTenant/);
   });
 
-  it("(c) 结论与实体都限定本会话作用域", () => {
-    expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id = \$2/);
-    expect(code).toMatch(/FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'chat_session' AND scope_id = \$2/);
+  it("(c) 结论与实体只有两种来源：本会话（scope_id = threadId）或发起人本人的个人空间（scope_id = userId）", () => {
+    expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id = \$2 AND \$\{LIVE\}`,\s*\[orgId, threadId\]/);
+    expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'personal' AND c\.scope_id = \$3 AND[\s\S]*?`,\s*\[orgId, threadId, userId\]/);
+    expect(code).toMatch(/FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'chat_session' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, threadId\]/);
+    expect(code).toMatch(/FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'personal' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, userId\]/);
+    // 上面四条就是全部的顶层读取；另外只允许去重子查询里的 `JOIN claims src`
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(2);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(2);
+    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src"]);
+    // 作用域条件不能被 OR / UNION 放宽
+    expect(code).not.toMatch(/\b(?:OR|UNION)\b/);
   });
 
   it("(d) 调用链：candidates/graphNeighbors ← recall-knowledge.ts ← execute-run.ts（run.threadId / run.requesterUserId）", () => {

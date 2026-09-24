@@ -153,14 +153,26 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     });
   }
 
-  async claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef): Promise<Guarded<ClaimSourcesData> | null> {
+  async claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]> {
+    return this.inTenant(orgId, userId, async (s) => {
+      const r = await s.query<{ thread_id: string }>(
+        `SELECT DISTINCT m.thread_id FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
+          WHERE e.org_id = $1 AND e.claim_id = $2 ORDER BY m.thread_id`, [orgId, claimId],
+      );
+      return r.rows.map((x) => x.thread_id);
+    });
+  }
+
+  async claimSources(orgId: OrgId, userId: string, claimId: string, thread: KnowledgeThreadRef, onlyThreads?: readonly string[]): Promise<Guarded<ClaimSourcesData> | null> {
     const data = await this.inTenant(orgId, userId, async (s): Promise<ClaimSourcesData | null> => {
       const c = await s.query<ClaimRow>(`SELECT ${CLAIM_COLUMNS} FROM claims c WHERE c.org_id = $1 AND c.id = $2`, [orgId, claimId]);
       const claim = c.rows[0] === undefined ? null : toClaim(c.rows[0]);
       if (claim === null) return null;
       const messages = await s.query<{ message_id: string; stance: "supporting" | "contradicting"; excerpt: string }>(
         `SELECT m.message_id, m.stance, m.excerpt FROM claim_message_evidence m
-          WHERE m.org_id = $1 AND m.claim_id = $2 ORDER BY m.stance DESC, m.created_at`, [orgId, claimId],
+          WHERE m.org_id = $1 AND m.claim_id = $2
+            AND ($3::text[] IS NULL OR EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.id = m.message_id AND cm.org_id = m.org_id AND cm.thread_id = ANY($3::text[])))
+          ORDER BY m.stance DESC, m.created_at`, [orgId, claimId, onlyThreads ?? null],
       );
       const segments = await s.query<{ segment_id: string; stance: "supporting" | "contradicting"; version_id: string; content: string | null; page: string | null }>(
         `SELECT cs.segment_id, cs.stance, sg.artifact_version_id AS version_id, st.content,
@@ -168,7 +180,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            FROM claim_segments cs
            JOIN segments sg ON sg.id = cs.segment_id AND sg.org_id = cs.org_id
            LEFT JOIN segment_text st ON st.segment_id = cs.segment_id
-          WHERE cs.org_id = $1 AND cs.claim_id = $2 ORDER BY cs.stance DESC, cs.segment_id`, [orgId, claimId],
+          WHERE cs.org_id = $1 AND cs.claim_id = $2 AND $3::text[] IS NULL ORDER BY cs.stance DESC, cs.segment_id`, [orgId, claimId, onlyThreads ?? null],
       );
       const actions = await s.query<{ created_at: Date; actor_kind: "human" | "model" | "system"; actor_id: string; action_type: string; pipeline_version: string | null }>(
         `SELECT created_at, actor_kind, actor_id, action_type, pipeline_version FROM ontology_actions
