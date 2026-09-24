@@ -1,3 +1,5 @@
+// @global-scope-fixture table:embedding_models: 模型注册表没有 org_id 列。本文件只写一行固定的探针模型
+//   `kg-f02-probe@1`（3 维），`ON CONFLICT DO NOTHING`，任何顺序跑都收敛到同一行；别的文件不读这个模型名。
 /**
  * Phase 18 F02 —— 本体 canonical 表与扩列真的落在库里，并且约束是真约束（能挡住坏数据）。
  * 只断言「列在」不够：CHECK 写错一个字，表照样建得出来。所以每条关键约束都各插一行坏数据看它被拒。
