@@ -1,6 +1,6 @@
 # PROP-ORG-BRAIN-KG-001：组织大脑 × 知识图谱——现状盘点与落地方案
 
-- 状态：**Draft——等人类裁决第 4 节 D1–D7 后转 Accepted**
+- 状态：**Accepted（2026-09-24 人类裁决 D1–D7，见第 4 节；方案按裁决改写为「chat session 先行」）**
 - 起草：2026-09-24，Claude Code 会话（分支 `claude/org-brain-knowledge-graph-plan-fjqb8m`）
 - 范围：**产品域「组织大脑」**（客户把产出物沉淀进本组织知识库，`brain-promotion`）。
   **不是**「平台大脑」/ harness 元本体（`docs/architecture/knowledge-ontology.md`、`.harness/scripts/lib/graph-*`），
@@ -78,67 +78,123 @@
 
 ---
 
-## 3. 方案
+## 3. 方案（按 2026-09-24 裁决改写）
 
-### 3.1 数据模型立场（推荐，等 D1/D3 确认）
+### 3.1 作用域阶梯：chat session 先行，最小闭环验证后再外扩
 
-**组织大脑 = 经审核、带有效期、可追溯到证据的 Claim 网络**（context-engine §一）。据此最小改动：
+人类裁决：**先在 chat session（含个人项目）上把向量检索与知识图谱用起来**，在最小场景里做验证闭环，
+再逐级扩到项目、组织、乃至 WorkspaceX 平台。所有本体表从第一天就带统一的作用域列，外扩只是放开作用域，不改表：
 
-- **节点 = `claims`**：补齐 6 列 `confidence / valid_from / valid_to / created_by / reviewed_by / supersedes_claim_id`，
-  新增 `kind`（假设/证据/概念/决定/方法/教训——封闭枚举）与 `origin`（来源组、来源模块），**不新增第二个状态字段**；
-  "待复核"= 查询时由 `valid_to` 派生（uc-14-5 R10）。
-- **节点↔证据 = `claim_segments`**（已有，stance 同表）；uc-9-1 的溯源四元组从 `segments/anchors` + `provenance_events` 派生，不冗余存。
-- **节点↔节点 = `ontology_edges` 扩列**：`src_kind/dst_kind` 加 `claim`；`relation` 在 claim↔claim 间收紧为 uc-9-1 五类封闭枚举；
-  加 `status`（active/invalidated）、`created_by`、`provenance_event_id`。**不加 weight**（0009 注释：权重会让图决定结果）。
-- **写入纪律**：agent/模型不直写三张表——一律经 application 层用例，并追加 `provenance_events`（已有表）作为动作日志；
-  不另造 `ontology_actions`。`ontology_objects` **本期不建**（人/项目/决策已是各自领域表，边用 kind+id 指过去即可），
-  等 P5 实体抽取有真实需求再议。
-- **图查询**：继续 `ontology_edges + recursive CTE`，不上 AGE（D1）。
-- **检索**：继续 query-planned hybrid，图只给固定加分；本期要做的是**实体解析产出 graphSeeds**，让图通道真正打开。
+| 级别 | `scope_kind` | `scope_id` | 何时开放 | 谁能读 |
+|---|---|---|---|---|
+| L0 | `chat_session` | `chat_threads.id` | **第一期（KG-M1–M4）** | 该会话可见者（沿用 chat 可见性） |
+| L1 | `personal_project` | 个人项目 id | 第一期末 | 本人 |
+| L2 | `project` | `projects.id` | 第二期（接 09-kg 现场协作） | 项目角色（RLS） |
+| L3 | `org` | `organizations.id` | 第三期（14-brain 组织大脑） | 组织角色 + 五态机 + 脱敏闸门 |
+| L4 | `platform` | —— | 另议（平台大脑 dogfood，`super-instance-design.md` D17） | —— |
 
-### 3.2 里程碑（每个都按 harness 流程：feature → issue → 分支 → verify → PR `Closes #N`）
+**晋升 = 跨级写入**：低一级的 claim/object 只有经过对应闸门（L0→L1 本人确认；L1/L2→L3 组长确认 + D-32 准入）才会在
+高一级生成新行，并用 `derived_from` 边连回原行——**不改原行的作用域**，来源链不断（uc-7-4 L121）。
 
-| 里程碑 | 内容 | 对应 feature | 验收门（机器可验） |
-|---|---|---|---|
-| **KG-M0 设计签核**（阻塞一切） | ① 收敛 2.5 的文档冲突（knowledge-ontology.md 标注仅限 harness、CONCEPTS.md 改指向）；② 新建契约束 `phases/phase-02-visible-outcomes/contracts/knowledge-graph/`（ui.md / usecases.md / domain.md / coverage.md / `api.contract.ts` in `packages/contracts/src/knowledge-graph.ts` / design-signoff.md），含 O-25 三态↔七态映射表；③ 扩 phase-02 `design-coherence.md` 的 `covers_bundles`；④ 需要时让 ui-prototyper 补"事实关系/决策树"原型图 | （设计工作，不占 feature） | 人类在 design-signoff.md 与 design-coherence.md 签 `confirmed`；`lint` 契约单源门控绿 |
-| **KG-M1 存储与领域模型** | 迁移：claims 补 6+2 列、ontology_edges 扩列与 kind；domain 层封闭枚举 + 不变量；`invalidateOntologyEdges` 真实现替换桩（软失效，删除级联 5 分钟内） | F11、F14 | `migrate:check` 重放绿；RLS 审计绿；删除后边/claim_evidence 可验证失效（context-engine 首批门槛 ④） |
-| **KG-M2 入图管道** | 三条上游写入：画布 `confirmNode/mergeIntoPlenaryGraph` 落库 + 路由；研究结论 `promote` 持久化；访谈洞察 → claims；同一事实多组合并去重；三态判定、冲突成对召回、反对证据不可删 | F12、F13 | real-db 测试：同源重复写入不产生重复 claim；contradicting 边删除被拒 |
-| **KG-M3 批量确认与写回** | `POST /canvas/projects/:projectId/brain-writeback` 实现：组长确认=唯一写回资格、异步幂等写回队列（PG outbox）、冲突未解拦截、来源链断即拒 | F18、F42 | e2e：组长确认 → 写回 → Context Pack 可引用到该 claim |
-| **KG-M4 图检索打开** | 实体解析产出 graphSeeds → 去掉 `hybrid_graph_seeds_unavailable`；claims 进 Context Pack；Agent 工具 `organization-hybrid` 带上 claim | （09-kg 属 F12/F13 的检索半边；若拆需新增 feature，走 requirement-author） | 检索测试集覆盖精确词/语义/关系/时间/反证（首批门槛 ⑤）；跨租户泄漏为零（②） |
-| **KG-M5 可视化** | "事实关系"列表 + 15 秒增量刷新；`/brain` 页面从 mock 切 API；图谱视图用已装的 `@xyflow/react` | F12 的 UI 半边、F19 | Playwright 真栈截图 vs 签核原型（rev-uiux） |
-| **KG-M6 决策树** | 决策七态、岔口、AI 不可写入决策节点闸门、下一步可开展的工作派发 | F15、F16、F17 | 服务端拒绝 AI 身份写决策节点的测试 |
-| **BRAIN-M7（phase-03，D-24 MVP）** | 需先出 `phases/phase-03-reuse-and-governance/contracts/org-brain/` 契约束并签核；五态机与晋升（D-32/D-33、脱敏两级闸门、样本量下限）、决策台账（拍板栏只能是人）、检索可审查（omissions、反对证据强制保留、Context Pack 重放） | F16–F30 | 同上各 UC R7 验收 |
-| **BRAIN-M8（phase-03 余量）** | 写回去重 + 冲突三出口、跨项目纵/横调用（"未沉淀"引用 + RLS）、方法与教训沉淀 → 生成 skill（接上已有接收端） | F31–F36 | |
+### 3.2 数据模型（canonical 仍是 PG 关系表 + RLS；AGE 与 pgvector 是可重建投影）
 
-**顺序硬约束**：M0 → M1 → M2 → M3 是写入链，不可跳；M4 必须在 M2 之后（没有 claim 数据时打开图通道只会测空图）；
-M5 可在 M1 契约就绪后与 M2 并行做前端；phase-03 的 BRAIN 系列等 phase-02 的 M1–M3 合入后开工（14-brain 的五态机
-直接复用 M1 的 claims 字段，先做会造出第二套状态）。
+| 表 | 动作 | 要点 |
+|---|---|---|
+| **`ontology_objects`**（新建） | 实体节点：人、项目、决策、需求、研究、概念、术语、组织单元……（封闭枚举 `object_kind`） | 带 `org_id / scope_kind / scope_id / privacy / confidence / review_state / valid_from / valid_to / created_by / provenance_event_id`；RLS 按 org + scope |
+| **`claims`**（扩列） | 补 `confidence / valid_from / valid_to / created_by / reviewed_by / supersedes_claim_id` + `claim_kind`（假设/证据/概念/决定/方法/教训）+ `decision_state`（O-25 七态，仅 `claim_kind=决定/选项` 可非空）+ `scope_kind / scope_id` + `revoked_at / rejected_at` | **只有一个生命周期状态字段 `status`**；`decision_state` 是 O-25 已裁决的独立决策位置字段，不是第二套生命周期 |
+| **`ontology_edges`**（扩列） | `src_kind/dst_kind` 加 `object`、`claim`、`chat_message`；`relation` 分两个封闭枚举：claim↔claim 五类（uc-9-1）、结构类（`mentions / about / derived_from / supersedes / belongs_to / decided_by`）；加 `status(active/invalidated) / confidence / created_by / provenance_event_id / scope_kind / scope_id` | `invalidateOntologyEdges` 改为软失效（与契约一致），不再硬删 |
+| **`ontology_actions`**（新建） | append-only 动作日志：谁 / 何时 / 什么操作 / 置信度 / 依据链接 / 结果 | **agent 与模型不直写本体表**，只提交 action，由 application 层执行器校验后落表；与 `provenance_events` 双写同一事务（审计链不断） |
+| **`object_embeddings`**（新建，分区方式同 `segment_embeddings`） | 实体与 claim 的向量 | 按 model/version 分区，维度由 `embedding_models` 登记校验 |
+| `segment_embeddings` | 已有 | **加 HNSW 索引**（见 3.4 的召回率门） |
+| `context_nodes` | **不建** | 该名字只属于 harness 元本体；产品侧的「上下文节点」就是 `segments` + `ontology_objects`，不另起同义表（同一事实不在两处） |
 
-### 3.3 估算
+### 3.3 Apache AGE（D1 裁决：现在就上）
 
-09-kg 需求侧 32 点 + 14-brain 52 点 = 84 点，另加 KG-M0 设计与 M4 检索打通（需求里未单列，估 8–13 点）。
-按单一 worker 串行，M0–M3 是第一个可演示的闭环（"组长确认 → 写回组织大脑 → AI 回答能引用它"）。
+- **镜像**：自建 `infra/postgres/Dockerfile`，基于 `pgvector/pgvector:pg16` 编译安装 Apache AGE（PG16 分支，锁 tag），
+  `docker-compose.dev.yml` / `docker-compose.deploy.yml` / CI 服务容器统一换成该镜像；锁 PG 大版本。
+- **迁移**：`CREATE EXTENSION age`；每个 org 一张图（`wsx_org_<id>`），图名由 org id 派生——**租户隔离靠图边界**，
+  因为 AGE 的图内部表不受我们的 RLS 策略覆盖。应用角色（非 owner）只授权到本 org 的图，由连接时 `SET search_path` 限定。
+- **投影同步**：`ontology_objects/claims/ontology_edges` 的写入经 PG outbox 发 `graph.project` 任务，worker 幂等 upsert 到 AGE；
+  提供 `pnpm --filter api graph:rebuild --org <id>` 全量重放脚本。**AGE 只是可重建投影，不是事实源。**
+- **读路径**：openCypher 做 k-hop 邻域 / 路径查询，但**结果只返回 id**，再回 canonical 表按 RLS 取行——
+  这样权限永远由 PG RLS 判定，AGE 查询即使越界也拿不到内容。
+- **不可用时**：显式报「图检索不可用」并在 Context Pack `omissions` 里记一条，**不静默降级**；
+  递归 CTE 保留为测试基线（与 AGE 结果对拍），不作为线上兜底。
+- **需同步修订的文档**：`.harness/instructions/architecture.md:26`、`context-engine.md` §六/§七、uc-7-4 L214、uc-14-6 L26
+  都写着「阶段一不启用 AGE」——在 KG-M0 用一份 **ADR-114「启用 Apache AGE 作为本体图投影」** 取代，再把这几处改为引用该 ADR。
+
+### 3.4 检索（D2 裁决：混合方式）
+
+保持 query-planned hybrid：FTS + pgvector + 图（AGE）+ metadata + claim 五路并行，RRF 融合，图只给加分、不单独决定结果。
+第一期新增的具体工作：
+1. **向量**：`segment_embeddings` 与 `object_embeddings` 加 HNSW；上线前必须让 `pgvector-permission-recall.test.ts`
+   改为「带权限过滤的召回率 ≥ 阈值」断言（开启 `hnsw.iterative_scan`），不能因为加索引而放掉这道门。
+2. **图种子**：实体解析（mention → `ontology_objects`）产出 `graphSeeds`，移除 `hybrid_graph_seeds_unavailable`。
+3. **chat 接入**：`StandardContextService` 的 `organization-hybrid` 作用域增加 `chat_session` / `personal_project` 两级；
+   Deep agent 每轮取 Context Pack，claims 与图路径作为 `retrievalReasons` 可见。
+
+### 3.5 三态 ↔ 七态 ↔ 五态统一对照表（D5：建议方案，待人类确认后写进契约束）
+
+O-25 已裁决「证据三态 ↔ 决策七态」映射（uc-9-2 R10）；uc-14-5 R10 已给「业务五态 ↔ `claims.status`」。
+两张表从来没放在一起，这里合成一张，**作为契约束 `domain.md` 的唯一版本**，两份 UC 改为引用它：
+
+| `claims.status` | 派生条件 | 证据视角三态（09-kg） | 知识五态（14-brain） | 决策七态 `decision_state` 允许集 |
+|---|---|---|---|---|
+| `proposed` | `rejected_at` 空 | 待确认 | 候选 | 待验证 / 待决 / 建议 |
+| `proposed` | `rejected_at` 非空 | 不渲染 | 驳回（终态） | 已否决 |
+| `reviewed` | —— | 待确认 | 已验证 | 待验证 / 待决 |
+| `accepted` | `now < valid_from` | 已确认 | 已批准 | 领先 / 在议 / 已否决 |
+| `accepted` | `valid_from ≤ now < valid_to` | 已确认 | 生效 | 领先 / 在议 / 已否决 |
+| `accepted` | `now ≥ valid_to` | 已确认（过期角标） | 待复核（不计定题强度，D-33） | 领先 / 在议 / 已否决 |
+| `contested` | —— | 冲突 | 生效 · 存在冲突（成对召回） | **冲突**（双向恒等） |
+| `superseded` | 有后继 | 不渲染 | 被替代 | 保持原值只读 |
+| `superseded` | `revoked_at` 非空 | 不渲染 | 被撤销（反例资产） | 保持原值只读 |
+
+补充规则（建议）：
+- `建议` 只允许 `created_by = model`；AI 身份写其余六态一律拒绝（与 F16「决策节点 AI 不可写入」同一校验）。
+- `已否决` 必须同时有判定依据 + 判定时间（uc-9-2 R3）。
+- chat session（L0）默认只用三态，不启用七态与五态；七态在 L2 项目开放，五态在 L3 组织开放——**字段一开始就在，只是按作用域放开校验**。
+
+### 3.6 到期规则（D6 裁决：抽成共享复核调度）
+
+新建 `apps/api/src/domain/review-schedule/`（纯函数：到期判定、宽限、提醒节奏）+ `application/review-schedule/`
+（PG job table 扫描器）。知识（`claims.valid_to`）与资产复核（23-asset uc-23-6）都调用它；
+关闭 `23-asset/OPEN-QUESTIONS.md` Q-7。
+
+### 3.7 里程碑（D7：按建议，但以 chat session 为第一闭环）
+
+| 里程碑 | 内容 | 验收门（机器可验） |
+|---|---|---|
+| **KG-M0 设计与签核** | ① ADR-114（AGE）+ 修订 architecture.md / context-engine.md / CONCEPTS.md；`knowledge-ontology.md` 标明「仅限平台大脑 / harness 元本体」（D3，由我定：标注，不改名）；② 新需求 `requirements/…/uc-kg-0-chat-session-知识图谱.md` 交 requirement-author 生成 feature；③ 契约束 `contracts/knowledge-graph/`（ui / usecases / domain 含 3.5 对照表 / coverage / `packages/contracts/src/knowledge-graph.ts` / design-signoff） | 人类签 design-signoff 与 design-coherence |
+| **KG-M1 底座** | AGE 镜像 + 迁移；`ontology_objects` / `ontology_actions` / `object_embeddings` 新建；claims、ontology_edges 扩列；HNSW；`invalidateOntologyEdges` 真实现 | `migrate:check` 重放；RLS 审计；`graph:rebuild` 后 AGE 与 CTE 对拍一致；带权限过滤召回率测试 |
+| **KG-M2 chat 入图** | 对话消息与上传文件 → 实体/claim 抽取（模型提交 `ontology_actions`，执行器落表）→ AGE 投影 → 向量 | real-db：同一消息重复处理不产生重复对象；模型身份直写本体表被拒 |
+| **KG-M3 chat 检索闭环** | chat 回答走 hybrid 五路（含 AGE 路径 + 向量），Context Pack 带图路径与引用；会话侧栏「本会话知识图谱」只读视图（`@xyflow/react`） | e2e：会话里说过的事实，在后续提问中被召回且引用可点回原消息；跨会话/跨用户泄漏为零 |
+| **KG-M4 个人项目** | L1 作用域 + 会话→个人项目的确认晋升 | e2e：确认后在同一个人项目的新会话里可召回 |
+| **KG-M5 项目现场（09-kg）** | F11–F19：入图管道（画布/研究/访谈）、三态、批量确认写回、决策树七态 | 各 UC R7 验收 |
+| **BRAIN-M6 组织大脑（14-brain）** | F16–F36：五态机、决策台账、检索可审查、写回去重、跨项目调用、沉淀 → skill；复核调度 | 各 UC R7 验收 |
+| **L4 平台** | 另立提案 | —— |
+
+**顺序硬约束**：M0 → M1 → M2 → M3 是第一个可演示闭环（「在 chat 里说过的东西，AI 之后能用图 + 向量找回来并给出引用」），
+不可跳；M5/M6 复用 M1 的表，不另建。
 
 ---
 
-## 4. 待人类裁决（A/B/C 打包，见 `human-decision-packaging.md`）
+## 4. 人类裁决记录（2026-09-24）
 
-| # | 问题 | 选项 | 推荐 |
-|---|---|---|---|
-| **D1** | 图存储 | A. `ontology_edges` + recursive CTE（与 architecture.md 一致）；B. 现在就上 Apache AGE（自建镜像、锁 PG 版本） | **A** |
-| **D2** | 检索策略 | A. query-planned hybrid，图只给固定加分（context-engine 现行）；B. graph-first | **A** |
-| **D3** | `knowledge-ontology.md` 怎么处理 | A. 标明"仅限 harness 元本体"，删掉产品向措辞，`CONCEPTS.md` 改指 context-engine.md；B. 改名为 `harness-meta-ontology.md` 并连动所有引用；C. 不动 | **A**（B 可后续） |
-| **D4** | 产品侧要不要 `ontology_objects` 表 | A. 本期不建，claims 当节点、边用 kind+id 指领域表；B. 现在就建统一实体表 | **A** |
-| **D5** | O-25 三态↔七态映射表 | 需要人类给出或确认 M0 契约束里的草案（O-25 明文禁止实现者推断） | 由 M0 出草案，人类签 |
-| **D6** | 知识到期与资产复核到期共用实现放哪（Q-7） | A. 放 `domain/claims`（知识侧），资产复核调用它；B. 放资产治理侧；C. 抽共享 `domain/review-schedule` | **C** |
-| **D7** | 先做哪边 | A. phase-02 09-kg 写入链先（M0–M3），再 14-brain；B. 直接做 14-brain D-24 MVP | **A**（B 会先造出没有写入来源的大脑） |
+| # | 问题 | 裁决 |
+|---|---|---|
+| D1 | 图存储 | **现在就上 Apache AGE**；pgvector 向量查询同时上。场景从个人项目 / chat session 起步做最小闭环，再扩到项目、组织、平台 |
+| D2 | 检索策略 | **混合方式** |
+| D3 | `knowledge-ontology.md` | 交由方案决定 → 标注为「平台大脑 / harness 元本体专用」，产品侧指向 context-engine.md 与本提案；不改名 |
+| D4 | `ontology_objects` | **现在就建**（组织大脑需要的都现在建起来） |
+| D5 | 三态↔七态对应表 | 由方案提出建议 → 见 3.5，待契约束签核时确认 |
+| D6 | 到期规则 | **抽成共享复核调度**，知识与资产共用 |
+| D7 | 先做哪边 | 按建议 → chat session 闭环先行（M0–M4），再 09-kg，再 14-brain |
 
----
+## 5. 下一步
 
-## 5. 下一步（D1–D7 裁决后立即执行）
-
-1. 开 tracking issue「组织大脑 × 知识图谱落地（PROP-ORG-BRAIN-KG-001）」，每个里程碑挂 sub-issue。
-2. 执行 KG-M0：先交文档收敛 PR（D3），再交 `contracts/knowledge-graph/` 契约束草案 PR，推人类签核。
-3. 签核后按 `pnpm harness new-sprint --phase 02 ... --features F11,F14` 领 M1，`harness sync --apply` 建 issue，照常开发。
+1. 本提案合入后，开 KG-M0 的第一个 PR：ADR-114 + 上述文档修订（纯文档）。
+2. 第二个 PR：chat session 知识图谱需求文档 + 契约束草案，推人类签核。
+3. 签核后领 KG-M1，走标准 feature → issue → 分支 → verify → PR 流程。
 
 > 本提案本身不改任何 feature 状态、不写实现代码。
