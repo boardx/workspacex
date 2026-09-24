@@ -12,6 +12,12 @@ import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
+import { WHITEBOARD_MIRO_IMPORT } from './application/whiteboard/miro-ports';
+import { MiroDirectImport } from './application/whiteboard/miro-direct-import';
+import { PgMiroCredentialRepository } from './infrastructure/whiteboard/pg-miro-credential-repository';
+import { EnvironmentMiroCredentialCipher } from './infrastructure/whiteboard/miro-credential-cipher';
+import { EnvironmentMiroApiClient } from './infrastructure/whiteboard/miro-api-client';
+import { WhiteboardMiroController } from './interface/controllers/whiteboard-miro.controller';
 import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
 import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
 import { whiteboardRoomSecret } from './infrastructure/whiteboard/room-secret';
@@ -1065,6 +1071,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardMiroController,
     WhiteboardRoomController,
     WhiteboardWorkshopController,
     WhiteboardOperationsController,
@@ -2908,6 +2915,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_TRANSFER_STORE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardTransferStore(db, collaboration, validator),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: WHITEBOARD_MIRO_IMPORT,
+      useFactory: (db: DatabasePort, transfer: PgWhiteboardTransferStore) => new MiroDirectImport(
+        new PgMiroCredentialRepository(db), new EnvironmentMiroCredentialCipher(), new EnvironmentMiroApiClient(), transfer,
+      ),
+      inject: [DATABASE_PORT, WHITEBOARD_TRANSFER_STORE],
     },
     {
       provide: WHITEBOARD_ROOM_REPOSITORY,
