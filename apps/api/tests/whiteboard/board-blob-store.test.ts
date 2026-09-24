@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, truncate, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -45,7 +45,20 @@ describe('FsBoardBlobStore', () => {
     const creation = chain.slice(1).flatMap((directory, index) => [directory, chain[index]!]);
     const recoverySweep = [...chain].reverse().concat(dirname(root));
     expect(await audited.putImmutable(value)).toBe('created');
-    expect(syncs).toEqual([...creation, ...recoverySweep, chain.at(-1)!]);
+    expect(syncs).toEqual([root, ...creation, ...recoverySweep, chain.at(-1)!]);
+  });
+
+  it('creates and fsyncs every missing storage-root ancestor and repairs every injected layer failure', async () => {
+    const value=input(Buffer.from('missing-root-ancestor-durability')),expectedRootSyncs=10;
+    for(let failAt=0;failAt<=expectedRootSyncs;failAt++){
+      const boundary=await mkdtemp(join(tmpdir(),'wsx-board-root-boundary-')),caseRoot=join(boundary,'one','two','blob-root');let calls=0;
+      const faulted=new FsBoardBlobStore(caseRoot,async()=>{calls++;if(calls===failAt)throw Object.assign(new Error('injected root-chain fsync failure'),{code:'EIO'});});
+      try{
+        if(failAt>0)await expect(faulted.putImmutable(value)).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+        await expect(faulted.putImmutable(value)).resolves.toBe('created');
+        expect(await readFile(join(caseRoot,...value.key.split('/')))).toEqual(Buffer.from(value.ciphertext));
+      }finally{await rm(boundary,{recursive:true,force:true});}
+    }
   });
 
   it('does not ACK any directory fsync failure and recovers on retry', async () => {
@@ -113,11 +126,25 @@ describe('FsBoardBlobStore', () => {
     const outside = await mkdtemp(join(tmpdir(), 'wsx-board-outside-'));
     try {
       await symlink(outside, join(root, 'tenants'));
-      await expect(store.putImmutable(input(Buffer.from('must-stay-inside-root')))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      const value=input(Buffer.from('must-stay-inside-root'));
+      await expect(store.putImmutable(value)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      await expect(store.getVerified({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.head(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
       expect(await readdir(outside)).toEqual([]);
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it.each([['same',Buffer.from('outside-ciphertext')],['different',Buffer.from('different-outside-ciphertext')]])('rejects a terminal symlink to %s external content on put/get/head',async(_kind,outsideBytes)=>{
+    const value=input(Buffer.from('outside-ciphertext')),parent=dirname(objectPath(value.key)),outsideDir=await mkdtemp(join(tmpdir(),'wsx-board-target-symlink-')),outside=join(outsideDir,'external');
+    try{
+      await mkdir(parent,{recursive:true});await writeFile(outside,outsideBytes);await symlink(outside,objectPath(value.key));
+      await expect(store.putImmutable(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.getVerified({...value,expectedCipherDigest:value.cipherDigest,expectedSizeBytes:value.sizeBytes})).rejects.toMatchObject({code:'INVALID_INPUT'});
+      await expect(store.head(value)).rejects.toMatchObject({code:'INVALID_INPUT'});
+      expect(await readFile(outside)).toEqual(outsideBytes);
+    }finally{await rm(outsideDir,{recursive:true,force:true});}
   });
 
   it('rejects forged digest and size before creating a visible object', async () => {
@@ -142,16 +169,18 @@ describe('FsBoardBlobStore', () => {
     const chain = directoryChain(root, value.key);
     const parent = chain.at(-1)!;
     await mkdir(parent, { recursive: true });
-    const prepareSyncs = chain.length + 1;
-    let syncAttempts = 0;
-    const faulted = new FsBoardBlobStore(root, async () => {
+    let syncAttempts = 0,failed=false,parentSyncsAfterPublish=0;
+    const faulted = new FsBoardBlobStore(root, async path => {
       syncAttempts++;
-      if (syncAttempts === prepareSyncs + 1) throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });
+      const published=await lstat(objectPath(value.key)).then(()=>true,error=>{if((error as NodeJS.ErrnoException).code==='ENOENT')return false;throw error;});
+      if(path===parent&&published){parentSyncsAfterPublish++;if(!failed){failed=true;throw Object.assign(new Error('injected directory fsync failure'), { code: 'EIO' });}}
     });
     await expect(faulted.putImmutable(value)).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
     expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
+    const syncsBeforeRetry=parentSyncsAfterPublish;
     expect(await faulted.putImmutable(value)).toBe('already-present-same-content');
-    expect(syncAttempts).toBe(prepareSyncs * 2 + 2);
+    expect(syncAttempts).toBeGreaterThan(chain.length * 2);
+    expect(parentSyncsAfterPublish).toBeGreaterThan(syncsBeforeRetry);
   });
 
   it('uses typed missing and validation errors', async () => {

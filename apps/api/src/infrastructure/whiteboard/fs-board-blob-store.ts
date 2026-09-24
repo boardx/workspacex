@@ -1,4 +1,5 @@
-import { open, mkdir, link, readFile, unlink, lstat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { open, mkdir, link, unlink, lstat } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { BoardBlobError, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
@@ -15,6 +16,7 @@ async function fsyncDirectory(path: string): Promise<void> {
 }
 
 export class FsBoardBlobStore implements BoardBlobStore {
+  private rootDurabilityBoundary?: string;
   constructor(private readonly root: string, private readonly syncDirectory: (path: string) => Promise<void> = fsyncDirectory) {
     if (!root || !resolve(root)) throw new BoardBlobError('INVALID_INPUT', 'board blob root is required');
   }
@@ -28,13 +30,14 @@ export class FsBoardBlobStore implements BoardBlobStore {
     const temporary = join(parent, `.board-tmp-${process.pid}-${randomUUID()}`);
     try {
       await this.ensureDurableDirectory(parent);
+      await this.assertConfinedParent(target);
       const handle = await open(temporary, 'wx', 0o600);
       try { await handle.writeFile(input.ciphertext); await handle.sync(); }
       finally { await handle.close(); }
       try {
         await link(temporary, target);
         await this.syncDirectory(parent);
-        const published = await readFile(target);
+        const published = await this.readRegularNoFollow(target);
         if (published.byteLength !== input.sizeBytes || sha256(published) !== input.cipherDigest) {
           throw new BoardBlobError('INTEGRITY_FAILED', 'published board blob failed read-back verification');
         }
@@ -45,7 +48,7 @@ export class FsBoardBlobStore implements BoardBlobStore {
         // directory fsync. Replaying identical content is durable only after this attempt
         // repeats the parent sync; EEXIST alone is not a durable-ACK proof.
         await this.syncDirectory(parent);
-        const existing = await readFile(target);
+        const existing = await this.readRegularNoFollow(target);
         if (existing.byteLength !== input.sizeBytes || sha256(existing) !== input.cipherDigest) {
           throw new BoardBlobError('CONTENT_CONFLICT', 'immutable board blob key already contains different bytes');
         }
@@ -62,7 +65,9 @@ export class FsBoardBlobStore implements BoardBlobStore {
   async getVerified(input: { tenantId: string; key: string; expectedCipherDigest: string; expectedSizeBytes: number }): Promise<Uint8Array> {
     this.validateDescriptor({ ...input, cipherDigest: input.expectedCipherDigest, sizeBytes: input.expectedSizeBytes });
     try {
-      const bytes = new Uint8Array(await readFile(this.pathFor(input.tenantId, input.key)));
+      const target = this.pathFor(input.tenantId, input.key);
+      await this.assertConfinedParent(target);
+      const bytes = await this.readRegularNoFollow(target);
       if (bytes.byteLength !== input.expectedSizeBytes || sha256(bytes) !== input.expectedCipherDigest) {
         throw new BoardBlobError('INTEGRITY_FAILED', 'stored board blob failed digest or size verification');
       }
@@ -77,9 +82,12 @@ export class FsBoardBlobStore implements BoardBlobStore {
   async head(input: { tenantId: string; key: string }): Promise<{ cipherDigest: string; sizeBytes: number } | null> {
     assertTenantBlobKey(input.tenantId, input.key);
     try {
-      const bytes = await readFile(this.pathFor(input.tenantId, input.key));
+      const target = this.pathFor(input.tenantId, input.key);
+      await this.assertConfinedParent(target);
+      const bytes = await this.readRegularNoFollow(target);
       return { cipherDigest: sha256(bytes), sizeBytes: bytes.byteLength };
     } catch (error) {
+      if (error instanceof BoardBlobError) throw error;
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw storageFault(`heading ${input.key}`, error);
     }
@@ -136,14 +144,60 @@ export class FsBoardBlobStore implements BoardBlobStore {
   }
 
   private async ensureStorageRoot(root: string): Promise<void> {
-    try { await this.assertRealDirectory(root); return; }
-    catch (error) {
-      if (error instanceof BoardBlobError || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    let boundary = this.rootDurabilityBoundary;
+    if (!boundary) {
+      const missing: string[] = [];
+      let candidate = root;
+      for (;;) {
+        try { await this.assertRealDirectory(candidate); boundary = candidate; break; }
+        catch (error) {
+          if (error instanceof BoardBlobError || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          missing.push(candidate);
+          const parent = dirname(candidate);
+          if (parent === candidate) throw error;
+          candidate = parent;
+        }
+      }
+      this.rootDurabilityBoundary = boundary;
+      let parent = boundary;
+      for (const directory of missing.reverse()) {
+        let createdOrRaced = false;
+        try { await mkdir(directory, { mode: 0o700 }); createdOrRaced = true; }
+        catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+          createdOrRaced = true;
+        }
+        await this.assertRealDirectory(directory);
+        if (createdOrRaced) {
+          await this.syncDirectory(directory);
+          await this.syncDirectory(parent);
+        }
+        parent = directory;
+      }
     }
-    await mkdir(root, { recursive: true, mode: 0o700 });
-    await this.assertRealDirectory(root);
-    await this.syncDirectory(root);
-    await this.syncDirectory(dirname(root));
+    await this.assertRealDirectory(boundary);
+    const relativeRoot = relative(boundary, root);
+    if (relativeRoot === '..' || relativeRoot.startsWith(`..${sep}`)) throw new BoardBlobError('INVALID_INPUT', 'board blob root escapes its durability boundary');
+    const chain = [boundary];
+    let parent = boundary;
+    for (const segment of relativeRoot.split(sep).filter(Boolean)) {
+      const directory = join(parent, segment);
+      try { await this.assertRealDirectory(directory); }
+      catch (error) {
+        if (error instanceof BoardBlobError || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        try { await mkdir(directory, { mode: 0o700 }); }
+        catch (mkdirError) { if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError; }
+        await this.assertRealDirectory(directory);
+        await this.syncDirectory(directory);
+        await this.syncDirectory(parent);
+      }
+      chain.push(directory);
+      parent = directory;
+    }
+    // A prior attempt may have created one or more ancestors and failed before their
+    // directory entries became durable. Replaying on the same adapter re-synchronizes the
+    // entire original existing-boundary → root chain before any blob can be acknowledged.
+    for (let index = chain.length - 1; index >= 0; index--) await this.syncDirectory(chain[index]!);
   }
 
   private async assertRealDirectory(path: string): Promise<void> {
@@ -151,6 +205,33 @@ export class FsBoardBlobStore implements BoardBlobStore {
     if (stat.isSymbolicLink() || !stat.isDirectory()) {
       throw new BoardBlobError('INVALID_INPUT', 'board blob storage path is not a real directory');
     }
+  }
+
+  private async assertConfinedParent(target: string): Promise<void> {
+    const root = resolve(this.root), parent = dirname(target), relativeParent = relative(root, parent);
+    if (relativeParent === '..' || relativeParent.startsWith(`..${sep}`)) throw new BoardBlobError('INVALID_INPUT', 'board blob path escapes storage root');
+    await this.assertRealDirectory(root);
+    let directory = root;
+    for (const segment of relativeParent.split(sep).filter(Boolean)) {
+      directory = join(directory, segment);
+      await this.assertRealDirectory(directory);
+    }
+  }
+
+  private async readRegularNoFollow(path: string): Promise<Uint8Array> {
+    const before = await lstat(path);
+    if (before.isSymbolicLink() || !before.isFile()) throw new BoardBlobError('INVALID_INPUT', 'board blob target is not a regular file');
+    let handle;
+    try { handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ELOOP') throw new BoardBlobError('INVALID_INPUT', 'board blob target must not be a symbolic link');
+      throw error;
+    }
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) throw new BoardBlobError('INVALID_INPUT', 'board blob target changed during validation');
+      return new Uint8Array(await handle.readFile());
+    } finally { await handle.close(); }
   }
 
 }
