@@ -6,6 +6,7 @@ import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-ports';
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
+import { boardStorageProviders } from './infrastructure/whiteboard/board-storage.providers';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1471,7 +1472,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // than inventing a number for `affectedInFlightCalls` (see the port's note).
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
-    ...storageProviders, ...deletionProviders,
+    ...storageProviders, ...deletionProviders, ...boardStorageProviders,
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,
