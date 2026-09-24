@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { research as C } from "@repo/contracts";
 import { applyResearchSteering, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
+import { assertInternalSourceAccess } from "../../src/application/research/guided-runtime-service";
+import { decideRuntimeClaim } from "../../src/infrastructure/research/pg-guided-runtime-store";
 
 const session = C.GuidedResearchSession.parse({
   sessionId: "session-1", title: "Research", tags: [],
@@ -43,8 +45,19 @@ describe("guided research steering", () => {
       expectedVersion: 0, expectedRevision: 0, idempotencyKey: "policy-key",
       sourcePolicy: { mode: "restrict", domains: ["example.com"], internalSourceIds: ["private-1"], revision: 1 },
     });
-    expect(() => applyResearchSteering(state, policyCommand, "2026-09-24T00:00:00.000Z"))
+    expect(() => assertInternalSourceAccess(policyCommand.sourcePolicy!.internalSourceIds, []))
       .toThrowError("RESEARCH_SOURCE_ACCESS_DENIED");
     expect(state.sourcePolicy).toBeUndefined();
+  });
+
+  it("allows internal sources authorized by the access port", () => {
+    expect(() => assertInternalSourceAccess(["private-1"], ["private-1"])).not.toThrow();
+    expect(() => assertInternalSourceAccess(["private-1"], [])).toThrowError("RESEARCH_SOURCE_ACCESS_DENIED");
+  });
+
+  it("replays an identical committed request before checking its stale revision", () => {
+    const state = { ...researchRuntime(), planRevision: 1 };
+    const replay = decideRuntimeClaim(state, { "pause-request": { hash: "same", done: true } }, command("pause", 0), "same");
+    expect(replay).toEqual({ replay: true });
   });
 });

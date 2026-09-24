@@ -14,6 +14,17 @@ async function authorize(tx: TenantSession, actor: RuntimeActor) {
   void guard({ kind: "research", id: actor.sessionId }, { kind: "guided-runtime" });
 }
 interface Row { state: unknown; active_request_id: string | null; requests: Record<string, { hash: string; done: boolean }> }
+export function decideRuntimeClaim(state: ResearchRuntime, requests: Row["requests"], command: RuntimeCommand, hash: string): { replay: boolean } {
+  const prior = Object.hasOwn(requests, command.requestId) ? requests[command.requestId] : undefined;
+  if (prior) {
+    if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
+    if (prior.done || (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now())) return { replay: true };
+  }
+  if (command.expectedRevision !== undefined && (state.planRevision ?? 0) !== command.expectedRevision) {
+    throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+  }
+  return { replay: false };
+}
 export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
   constructor(private readonly db: DatabasePort) {}
   async read(actor: RuntimeActor, initial: ResearchRuntime): Promise<ResearchRuntime> {
@@ -31,14 +42,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       const row = result.rows[0];
       if (!row) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
       const state = C.GuidedResearchRuntime.parse(row.state);
-      if (command.expectedRevision !== undefined && (state.planRevision ?? 0) !== command.expectedRevision) {
-        throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
-      }
-      const prior = Object.hasOwn(row.requests, command.requestId) ? row.requests[command.requestId] : undefined;
-      if (prior) {
-        if (prior.hash !== hash) throw new ResearchRuntimeError("RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH");
-        if (prior.done || (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now())) return { state, replay: true };
-      }
+      if (decideRuntimeClaim(state, row.requests, command, hash).replay) return { state, replay: true };
       if (state.busy && Date.parse(state.leaseUntil ?? "") > Date.now()) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_BUSY");
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
       if (!state.availableNodes.includes(command.node)) throw new ResearchRuntimeError("RESEARCH_NODE_LOCKED");

@@ -14,7 +14,7 @@ import type { ModelCallPort } from "../agent-run/ports";
 import type { GuidedResearchSession } from "./guided-session-ports";
 import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
-import { ResearchRuntimeError, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
+import { ResearchRuntimeError, type GuidedInternalSourceAccessPort, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
 import { projectResearchTrust } from "./guided-research-trust";
 const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
@@ -48,15 +48,16 @@ function fingerprint(value: unknown): string {
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
 }
 const steeringActions = new Set<RuntimeCommand["action"]>(["pause", "resume", "refine_scope", "refine_source_policy"]);
+export function assertInternalSourceAccess(requested: readonly string[], authorized: readonly string[]): void {
+  const allowed = new Set(authorized);
+  if (requested.some((id) => !allowed.has(id))) throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
+}
 export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCommand, occurredAt = new Date().toISOString()): void {
   if (!steeringActions.has(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
     throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
   }
   if (state.activity?.some((event) => event.id === command.idempotencyKey)) return;
   if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
-  if (command.sourcePolicy?.internalSourceIds.length) {
-    throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
-  }
   if (command.action === "pause") state.controlStatus = "paused";
   if (command.action === "resume") state.controlStatus = "running";
   if (command.action === "refine_source_policy" && command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
@@ -132,13 +133,19 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
 }
 export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
-    private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model) {}
+    private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model,
+    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort) {}
   get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     return this.store.read(actor, initialRuntime(session));
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
+    const requestedInternalSources = command.sourcePolicy?.internalSourceIds ?? [];
+    if (requestedInternalSources.length) {
+      const authorized = await this.internalSourceAccess?.authorizedSourceIds(actor, requestedInternalSources) ?? [];
+      assertInternalSourceAccess(requestedInternalSources, authorized);
+    }
     await this.get(actor, session);
     const { state, replay } = await this.store.claim(actor, command, fingerprint(command));
     const observe: RuntimeObserver = (event) => { try { observer?.(event); } catch { /* A disconnected observer cannot cancel durable work. */ } };

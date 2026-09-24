@@ -34,9 +34,10 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
   const claimEvidence = (runtime.report?.sections ?? []).flatMap((section) => section.sourceIds.flatMap((sourceId, index) => {
     const source = sourceById.get(sourceId);
     if (!source) return [];
+    if (!source.document) return [];
     return [C.GuidedResearchClaimEvidenceView.parse({ claimId: `${section.sectionId}:claim:${index + 1}`, evidenceId: sourceId,
-      quote: (source.document?.text ?? source.content).slice(0, 2000), sourceId, retrievedAt: source.document?.retrievedAt ?? source.retrievedAt,
-      confidence: source.document ? "high" : "medium", traceIds: source.taskIds ?? [source.taskId] })];
+      quote: source.document.text.slice(0, 2000), sourceId, retrievedAt: source.document.retrievedAt,
+      confidence: "high", traceIds: source.taskIds ?? [source.taskId] })];
   }));
   const conflicts = (runtime.conflicts ?? []).map((conflict) => C.GuidedResearchEvidenceConflict.parse(conflict));
   const answered = coverage.filter((item) => item.status === "answered").length;
@@ -54,7 +55,7 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
     explanations: ["引用覆盖按已回答问题计算", "权威性按具有完整读取文档的来源计算", "时效性按近一年检索时间计算", "交叉验证按至少两个来源的问题计算"] });
   const blockers: string[] = [];
   if (!coverage.length || coverage.some((item) => item.status === "missing")) blockers.push("核心问题覆盖不足");
-  if (runtime.report && !claimEvidence.length) blockers.push("关键结论缺少来源");
+  if (runtime.report && (!claimEvidence.length || coverage.some((item) => item.status === "weak"))) blockers.push("关键结论缺少来源");
   if (conflicts.some((conflict) => conflict.severity === "severe" && conflict.status === "open")) blockers.push("存在未解决的严重冲突");
   const publicationReadiness = C.GuidedResearchPublicationReadiness.parse({ status: blockers.length ? "limited" : "ready", blockers,
     warnings: coverage.some((item) => item.status === "weak") ? ["部分问题证据较弱"] : [], evaluatedAt: new Date().toISOString() });

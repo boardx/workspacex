@@ -263,6 +263,9 @@ export default defineConfig({
       testMatch: [
         "fullstack-smoke.spec.ts",
         "guided-research-runtime.spec.ts",
+        // Trust-console preview is deterministic, but keeping it in a CI-reachable project
+        // prevents the browser acceptance contract from silently becoming local-only.
+        "guided-research-trust-console.spec.ts",
         "survey-complete-flow.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",

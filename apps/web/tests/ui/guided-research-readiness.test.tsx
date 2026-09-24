@@ -2,6 +2,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { GuidedResearchReadiness } from "../../components/research-studio/guided-research-readiness";
+import { researchCompletionLabel, researchLimitations } from "../../components/research-studio/guided-research-readiness";
 
 describe("guided research publication readiness", () => {
   it("renders limited completion and explains blockers", () => {
@@ -15,5 +16,10 @@ describe("guided research publication readiness", () => {
     render(<GuidedResearchReadiness quality={{ citationCoverage: 100, authority: 100, recency: 100, crossValidation: 100, openGapCount: 0, overall: 100, explanations: [] }} readiness={{ status: "ready", blockers: [], warnings: [] }} />);
     expect(screen.getByTestId("research-publication-readiness")).toHaveTextContent("可发布");
     expect(screen.queryByText("带限制完成")).not.toBeInTheDocument();
+  });
+
+  it("never treats completed legacy state without readiness as unconditionally complete", () => {
+    expect(researchCompletionLabel(true, undefined)).toBe("质量待评估");
+    expect(researchLimitations(true, undefined)).toContain("尚未经过发布质量门");
   });
 });

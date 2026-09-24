@@ -17,7 +17,8 @@ function fixture() {
     availableNodes: C.ResearchNode.options,
     outline: [{ id: "s1", title: "Finding", questions: ["What is true?"], enabled: true, order: 0 }],
     tasks: [{ id: "t1", sectionId: "s1", query: "official evidence", status: "succeeded" as const, attempts: 1, errorCode: null }],
-    sources: [{ id: "src1", taskId: "t1", title: "Official", url: "https://example.com/report", content: "Primary evidence text", retrievedAt: "2026-09-24T00:00:00.000Z", decision: "accepted" as const }],
+    sources: [{ id: "src1", taskId: "t1", title: "Official", url: "https://example.com/report", content: "Primary evidence text", retrievedAt: "2026-09-24T00:00:00.000Z", decision: "accepted" as const,
+      document: { url: "https://example.com/report", retrievedAt: "2026-09-24T00:00:00.000Z", text: "Primary evidence text", contentHash: "a".repeat(64), contentKind: "html" as const, truncated: false } }],
     report: { title: "Report", summary: "Summary", sections: [{ sectionId: "s1", body: "Supported statement [[source:src1]]", sourceIds: ["src1"] }] },
   };
 }
@@ -36,6 +37,14 @@ describe("research trust projection", () => {
     const result = projectResearchTrust(state);
     expect(result.coverage[0]?.status).toBe("missing");
     expect(result.publicationReadiness.blockers).toContain("核心问题覆盖不足");
+  });
+
+  it("keeps a mixed supported and unsupported key claim limited", () => {
+    const state = fixture();
+    state.reportEvidenceWarnings = [{ batchIndex: 0, sourceIds: ["src1"], questionIds: ["s1:q1"], reason: "invalid_model_evidence" }];
+    const result = projectResearchTrust(state);
+    expect(result.coverage[0]?.status).toBe("weak");
+    expect(result.publicationReadiness.blockers).toContain("关键结论缺少来源");
   });
 
   it("keeps severe open conflicts limited even with many sources", () => {

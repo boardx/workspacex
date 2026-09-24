@@ -92,7 +92,7 @@ it("keeps unknown quality distinct from zero", () => {
 
 - [ ] **Step 2: Run the focused contract test and confirm the schemas do not exist yet**
 
-Run: `pnpm --filter @workspace-x/contracts test -- research-trust.test.ts`
+Run: `pnpm --filter @repo/contracts test -- research-trust.test.ts`
 
 Expected: FAIL because `GuidedResearchQualityScore` and the runtime fields are not exported.
 
@@ -117,7 +117,7 @@ Add `pause`, `resume`, `refine_scope`, and `refine_source_policy` command varian
 
 - [ ] **Step 4: Run contract tests and typecheck**
 
-Run: `pnpm --filter @workspace-x/contracts test -- research-trust.test.ts && pnpm --filter @workspace-x/contracts typecheck`
+Run: `pnpm --filter @repo/contracts test -- research-trust.test.ts && pnpm --filter @repo/contracts typecheck`
 
 Expected: PASS.
 
@@ -161,7 +161,7 @@ Also assert: pause prevents new task start; unauthorized internal IDs reject ato
 
 - [ ] **Step 2: Run the steering tests and verify failure**
 
-Run: `pnpm --filter @workspace-x/api test -- tests/research/guided-research-steering.test.ts`
+Run: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-research-steering.test.ts`
 
 Expected: FAIL with unsupported command/revision behavior.
 
@@ -179,7 +179,7 @@ if (command.action === "resume") next.status = next.resumeStage === "report" ? "
 
 - [ ] **Step 4: Run steering, persistence, and orchestration regression tests**
 
-Run: `pnpm --filter @workspace-x/api test -- tests/research/guided-research-steering.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-runtime-orchestration.test.ts`
+Run: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-research-steering.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-runtime-orchestration.test.ts`
 
 Expected: PASS.
 
@@ -219,7 +219,7 @@ Add assertions for: many low-quality sources do not force ready; no denominator 
 
 - [ ] **Step 2: Run the projection test and verify failure**
 
-Run: `pnpm --filter @workspace-x/api test -- tests/research/guided-research-trust.test.ts`
+Run: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-research-trust.test.ts`
 
 Expected: FAIL because `projectResearchTrust` does not exist.
 
@@ -240,7 +240,7 @@ Keep scoring formulas and blocker thresholds as named exported constants in this
 
 - [ ] **Step 4: Run trust projection plus existing evidence/quality tests**
 
-Run: `pnpm --filter @workspace-x/api test -- tests/research/guided-research-trust.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-quality.test.ts`
+Run: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-research-trust.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-quality.test.ts`
 
 Expected: PASS.
 
@@ -279,7 +279,7 @@ Also assert mode is a labelled radio group, all ten console test IDs stay unique
 
 - [ ] **Step 2: Run the UI test and verify failure**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-trust-console.test.tsx`
+Run: `pnpm --filter web test -- guided-research-trust-console.test.tsx`
 
 Expected: FAIL because the component does not exist.
 
@@ -289,7 +289,7 @@ Use controlled fields, inline validation, explicit labels, and a radio group for
 
 - [ ] **Step 4: Run focused UI tests and typecheck**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-trust-console.test.tsx guided-research-flow.test.tsx && pnpm --filter @workspace-x/web typecheck`
+Run: `pnpm --filter web test -- guided-research-trust-console.test.tsx guided-research-flow.test.tsx && pnpm --filter web typecheck`
 
 Expected: PASS.
 
@@ -327,7 +327,7 @@ Render tests must assert: pause disables itself until acknowledged; stale-comman
 
 - [ ] **Step 2: Run the focused UI test and verify failure**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-trust-console.test.tsx`
+Run: `pnpm --filter web test -- guided-research-trust-console.test.tsx`
 
 Expected: FAIL on missing console and merge helper.
 
@@ -337,7 +337,7 @@ Use a desktop grid and mobile tabs labelled `覆盖`, `活动`, `证据`. Render
 
 - [ ] **Step 4: Run live UI, stream, and accessibility-adjacent regressions**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-trust-console.test.tsx guided-research-live.test.tsx guided-research-stream-client.test.ts guided-research-readable-sources.test.tsx`
+Run: `pnpm --filter web test -- guided-research-trust-console.test.tsx guided-research-live.test.tsx guided-research-stream-client.test.ts guided-research-readable-sources.test.tsx`
 
 Expected: PASS.
 
@@ -374,7 +374,7 @@ Also assert `null` metrics show `暂无数据`, score explanations are expandabl
 
 - [ ] **Step 2: Run readiness tests and verify failure**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-readiness.test.tsx research-report-document.test.tsx research-report-export.test.tsx`
+Run: `pnpm --filter web test -- guided-research-readiness.test.tsx research-report-document.test.tsx research-report-export.test.tsx`
 
 Expected: FAIL because readiness is not rendered.
 
@@ -384,7 +384,7 @@ Render metrics with their explanation and denominator. Never derive `ready` in R
 
 - [ ] **Step 4: Run report and export regression tests**
 
-Run: `pnpm --filter @workspace-x/web test -- guided-research-readiness.test.tsx research-report-document.test.tsx research-report-export.test.tsx guided-research-report-reading.test.tsx`
+Run: `pnpm --filter web test -- guided-research-readiness.test.tsx research-report-document.test.tsx research-report-export.test.tsx guided-research-report-reading.test.tsx`
 
 Expected: PASS.
 
@@ -424,15 +424,15 @@ Use real API/database setup helpers already present in the spec; no route interc
 
 - [ ] **Step 2: Run focused unit/integration verification**
 
-Run: `pnpm --filter @workspace-x/contracts test -- research-trust.test.ts && pnpm --filter @workspace-x/api test -- tests/research/guided-research-trust.test.ts tests/research/guided-research-steering.test.ts && pnpm --filter @workspace-x/web test -- guided-research-trust-console.test.tsx guided-research-readiness.test.tsx`
+Run: `pnpm --filter @repo/contracts test -- research-trust.test.ts && pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-research-trust.test.ts tests/research/guided-research-steering.test.ts && pnpm --filter web test -- guided-research-trust-console.test.tsx guided-research-readiness.test.tsx`
 
 Expected: PASS.
 
 - [ ] **Step 3: Run typechecks, lint, and the existing guided-research regression set**
 
-Run: `pnpm --filter @workspace-x/contracts typecheck && pnpm --filter @workspace-x/api typecheck && pnpm --filter @workspace-x/web typecheck && pnpm --filter @workspace-x/api lint && pnpm --filter @workspace-x/web lint`
+Run: `pnpm --filter @repo/contracts typecheck && pnpm --filter @repo/api typecheck && pnpm --filter web typecheck && pnpm --filter @repo/api lint && pnpm --filter web lint`
 
-Run: `pnpm --filter @workspace-x/api test -- tests/research/guided-runtime-orchestration.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-quality.test.ts`
+Run: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --dir apps/api exec vitest run tests/research/guided-runtime-orchestration.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-report-evidence.test.ts tests/research/guided-report-quality.test.ts`
 
 Expected: PASS.
 
@@ -440,7 +440,7 @@ Expected: PASS.
 
 Run the repository-standard owned Docker/API/web stack described by `.harness/instructions/dev-mode-testing.md`, then:
 
-Run: `pnpm --filter @workspace-x/web e2e -- guided-research-runtime.spec.ts`
+Run: `pnpm --dir apps/web exec playwright test e2e/guided-research-runtime.spec.ts`
 
 Expected: PASS with real browser + API + PostgreSQL; save trace/screenshot paths and database assertions in `.harness/state/deep-research-trust-console-evidence.md`.
 

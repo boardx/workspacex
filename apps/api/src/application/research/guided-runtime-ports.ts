@@ -17,6 +17,9 @@ export interface GuidedSearchPort {
   search(query: string): Promise<readonly { title: string; url: string; content: string }[]>;
   read?(url: string): Promise<{ text: string; contentKind: "html" | "pdf" | "text"; truncated: boolean }>;
 }
+export interface GuidedInternalSourceAccessPort {
+  authorizedSourceIds(actor: RuntimeActor, requestedSourceIds: readonly string[]): Promise<readonly string[]>;
+}
 export const GUIDED_RUNTIME_STORE = Symbol("GuidedRuntimeStore");
 export const GUIDED_SEARCH_PORT = Symbol("GuidedSearchPort");
 export const GUIDED_RUNTIME_SERVICE = Symbol("GuidedRuntimeService");

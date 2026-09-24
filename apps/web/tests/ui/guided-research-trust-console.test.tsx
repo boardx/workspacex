@@ -36,4 +36,14 @@ describe("guided research trust console", () => {
     expect(screen.getByText("证据不足")).toBeInTheDocument();
     expect(screen.getByText("原文")).toBeInTheDocument();
   });
+
+  it("renders replayed activity once in server sequence order", () => {
+    render(<GuidedResearchTrustConsole runtime={{ planRevision: 1, controlStatus: "running", coverage: [], claimEvidence: [], conflicts: [], activity: [
+      { id: "e2", sequence: 2, stage: "reading", taskId: null, summary: "第二步", occurredAt: "2026-09-24T00:01:00Z", status: "succeeded" },
+      { id: "e1", sequence: 1, stage: "searching", taskId: null, summary: "第一步", occurredAt: "2026-09-24T00:00:00Z", status: "succeeded" },
+      { id: "e2", sequence: 2, stage: "reading", taskId: null, summary: "第二步", occurredAt: "2026-09-24T00:01:00Z", status: "succeeded" },
+    ] }} pending={false} onSteer={vi.fn()} />);
+    expect(screen.getByTestId("research-activity-trace").textContent).toMatch(/第一步.*第二步/);
+    expect(Array.from(screen.getByTestId("research-activity-trace").querySelectorAll("li")).filter((item) => item.textContent?.includes("第二步"))).toHaveLength(1);
+  });
 });
