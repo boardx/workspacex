@@ -8,24 +8,31 @@ import sharp from 'sharp';
 import type { WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
 type FontFace={path:string;ranges:readonly [number,number][];css:string;bytes?:Uint8Array};
+type FontCatalog={faces:FontFace[];faceByCodePoint:Uint16Array};
 const require=createRequire(import.meta.url);
-let cachedFaces:Promise<FontFace[]>|undefined;
+let cachedCatalog:Promise<FontCatalog>|undefined;
+const GLYPH_SCAN_BATCH=4096,REPLACEMENT_CHUNK_CODE_UNITS=8192,UNICODE_CODE_POINTS=0x110000;
 
 function ranges(value:string):readonly [number,number][]{return value.split(',').map(item=>{const [from,to]=item.trim().replace(/^U\+/i,'').split('-');const start=Number.parseInt(from!,16);return[start,to?Number.parseInt(to,16):start] as [number,number];});}
-async function fontFaces():Promise<FontFace[]>{
-  cachedFaces??=(async()=>{const cssPath=require.resolve('@fontsource-variable/noto-sans-sc'),base=dirname(cssPath),css=await readFile(cssPath,'utf8'),faces:FontFace[]=[];
+async function fontCatalog():Promise<FontCatalog>{
+  cachedCatalog??=(async()=>{const cssPath=require.resolve('@fontsource-variable/noto-sans-sc'),base=dirname(cssPath),css=await readFile(cssPath,'utf8'),faces:FontFace[]=[];
     for(const match of css.matchAll(/@font-face\s*{([\s\S]*?)}/g)){const body=match[1]!,url=/url\(([^)]+)\)/.exec(body)?.[1]?.replace(/["']/g,''),unicode=/unicode-range:\s*([^;]+);/.exec(body)?.[1];if(!url||!unicode)continue;faces.push({path:resolve(base,url),ranges:ranges(unicode),css:`@font-face{font-family:'WorkspaceX Noto Sans SC';font-style:normal;font-weight:100 900;src:url(__FONT__) format('woff2');unicode-range:${unicode};}`});}
-    if(!faces.length)throw new Error('Noto Sans SC font assets unavailable');return faces;})();return cachedFaces;
+    if(!faces.length)throw new Error('Noto Sans SC font assets unavailable');const faceByCodePoint=new Uint16Array(UNICODE_CODE_POINTS);
+    // Reverse native fills preserve the first CSS face for overlapping unicode ranges, matching Array.find without per-character linear work.
+    for(let index=faces.length-1;index>=0;index--)for(const [from,to] of faces[index]!.ranges)faceByCodePoint.fill(index+1,from,Math.min(to+1,UNICODE_CODE_POINTS));
+    return{faces,faceByCodePoint};})();return cachedCatalog;
 }
 const covers=(face:FontFace,cp:number)=>face.ranges.some(([from,to])=>cp>=from&&cp<=to);
+function assertHookActive(control:{signal:AbortSignal;deadlineAt:number}):void{if(control.signal.aborted){const reason=control.signal.reason;throw reason instanceof BoardFileExportFailure?reason:new BoardFileExportFailure('CANCELLED');}if(Date.now()>control.deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');}
+async function yieldHook(control:{signal:AbortSignal;deadlineAt:number}):Promise<void>{assertHookActive(control);await new Promise<void>(resolve=>setImmediate(resolve));assertHookActive(control);}
 async function neededFaces(objects:readonly WhiteboardObject[],control:{signal:AbortSignal;deadlineAt:number}):Promise<{faces:FontFace[];replacements:Record<string,string>;fallbackIds:string[]}>{
-  const all=await fontFaces(),selected=new Set<FontFace>(),replacements:Record<string,string>={},fallbackIds:string[]=[];
-  const replacement=all.some(face=>covers(face,0x25a1))?'□':'?';
-  for(const object of objects){let text='',changed=false;for(const char of object.text){const cp=char.codePointAt(0)!,face=all.find(candidate=>covers(candidate,cp));if(face){selected.add(face);text+=char;}else{text+=replacement;changed=true;const replacementFace=all.find(candidate=>covers(candidate,replacement.codePointAt(0)!));if(!replacementFace)throw new Error('Bundled replacement glyph unavailable');selected.add(replacementFace);}}if(changed){replacements[object.id]=text;fallbackIds.push(object.id);}}
-  const result=[...selected];for(const face of result){if(control.signal.aborted)throw new BoardFileExportFailure('CANCELLED');if(Date.now()>control.deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');face.bytes??=new Uint8Array(await readFile(face.path));}
+  assertHookActive(control);const {faces:all,faceByCodePoint}=await fontCatalog();assertHookActive(control);const selected=new Uint8Array(all.length),replacements:Record<string,string>={},fallbackIds:string[]=[];
+  const replacement=(faceByCodePoint[0x25a1]??0)>0?'□':'?',replacementIndex=(faceByCodePoint[replacement.codePointAt(0)!]??0)-1;if(replacementIndex<0)throw new Error('Bundled replacement glyph unavailable');let scanned=0;
+  for(const object of objects){assertHookActive(control);const source=object.text;let output:string[]|undefined,chunk='';for(let offset=0;offset<source.length;){const cp=source.codePointAt(offset)!,width=cp>0xffff?2:1,faceIndex=(faceByCodePoint[cp]??0)-1;if(faceIndex>=0){selected[faceIndex]=1;if(output)chunk+=source.slice(offset,offset+width);}else{if(!output){output=[];if(offset)output.push(source.slice(0,offset));}chunk+=replacement;selected[replacementIndex]=1;}offset+=width;if(output&&chunk.length>=REPLACEMENT_CHUNK_CODE_UNITS){output.push(chunk);chunk='';}if(++scanned===GLYPH_SCAN_BATCH){scanned=0;await yieldHook(control);}}if(output){if(chunk)output.push(chunk);replacements[object.id]=output.join('');fallbackIds.push(object.id);}}
+  const result=all.filter((_face,index)=>selected[index]);for(const face of result){assertHookActive(control);try{face.bytes??=new Uint8Array(await readFile(face.path,{signal:control.signal}));}catch(error){assertHookActive(control);throw error;}await yieldHook(control);}
   return{faces:result,replacements,fallbackIds};
 }
-async function embeddedCss(faces:readonly FontFace[]):Promise<string>{return faces.map(face=>face.css.replace('__FONT__',`data:font/woff2;base64,${Buffer.from(face.bytes!).toString('base64')}`)).join('');}
+async function embeddedCss(faces:readonly FontFace[],control:{signal:AbortSignal;deadlineAt:number}):Promise<string>{const rules:string[]=[];for(const face of faces){assertHookActive(control);rules.push(face.css.replace('__FONT__',`data:font/woff2;base64,${Buffer.from(face.bytes!).toString('base64')}`));await yieldHook(control);}return rules.join('');}
 function color(value:string|undefined,fallback:[number,number,number]):[number,number,number]{const match=/^#([0-9a-f]{6})$/i.exec(value??'');if(!match)return fallback;return[Number.parseInt(match[1]!.slice(0,2),16)/255,Number.parseInt(match[1]!.slice(2,4),16)/255,Number.parseInt(match[1]!.slice(4,6),16)/255];}
 
 class ControlledPdfWriter extends PDFWriter {
@@ -63,7 +70,7 @@ async function drawText(page:PDFPage,text:string,startX:number,startY:number,siz
 export class NodeBoardFileRenderer {
   async hooks(objects:readonly WhiteboardObject[],format:'png'|'svg'|'pdf'|'sticky-csv',control:{signal:AbortSignal;deadlineAt:number}):Promise<Pick<BoardFileExportHooks,'fontCss'|'fontFallbackObjectIds'|'textReplacements'|'renderPng'|'renderPdf'>>{
     if(format==='sticky-csv')return{};
-    const prepared=await neededFaces(objects,control),fontCss=await embeddedCss(prepared.faces);
+    const prepared=await neededFaces(objects,control),fontCss=await embeddedCss(prepared.faces,control);
     return{fontCss,fontFallbackObjectIds:prepared.fallbackIds,textReplacements:prepared.replacements,renderPng:async(svg,width,height,renderControl)=>{
       await renderControl.checkpoint();const seconds=Math.max(1,Math.ceil((renderControl.deadlineAt-Date.now())/1000));const pipeline=sharp(svg,{density:144}).resize({width,height,fit:'fill'}).png({compressionLevel:9,adaptiveFiltering:false}).timeout({seconds});
       const abort=()=>pipeline.destroy(new BoardFileExportFailure('CANCELLED'));renderControl.signal?.addEventListener('abort',abort,{once:true});try{return new Uint8Array(await pipeline.toBuffer());}catch(error){if(renderControl.signal?.aborted)throw new BoardFileExportFailure('CANCELLED');throw error;}finally{renderControl.signal?.removeEventListener('abort',abort);}

@@ -57,6 +57,16 @@ describe('Node Board file renderer',()=>{
     if(format==='svg'){const svg=new TextDecoder().decode(artifact.bytes);expect(svg).not.toContain('🚀');expect(svg).not.toContain('\u{10ffff}');expect(svg).toMatch(/[□?]/);}
   },30_000);
 
+  it('yields during a large glyph scan so cancellation covers the hooks phase',async()=>{
+    const renderer=new NodeBoardFileRenderer(),large=objects('a'.repeat(2*1024*1024)),controller=new AbortController();setImmediate(()=>controller.abort());
+    await expect(renderer.hooks(large,'svg',{signal:controller.signal,deadlineAt:Date.now()+30_000})).rejects.toMatchObject({code:'CANCELLED'});
+  },30_000);
+
+  it('enforces the deadline during glyph scanning and lets the event loop progress for a large valid input',async()=>{
+    const renderer=new NodeBoardFileRenderer(),large=objects('a'.repeat(2*1024*1024)),deadlineSignal=new AbortController();await expect(renderer.hooks(large,'svg',{signal:deadlineSignal.signal,deadlineAt:Date.now()+2})).rejects.toMatchObject({code:'BOUNDS_EXCEEDED'});
+    let yielded=false;setImmediate(()=>{yielded=true;});const hooks=await renderer.hooks(large,'svg',{signal:new AbortController().signal,deadlineAt:Date.now()+30_000});expect(yielded).toBe(true);expect(hooks.fontCss).toContain('data:font/woff2;base64,');
+  },30_000);
+
   it('interrupts the final PDF writer on cancellation and deadline expiry',async()=>{
     const document=await PDFDocument.create();for(let index=0;index<500;index++)document.addPage([100,100]);const cancelled=new AbortController(),active=(deadlineAt:number):BoardRenderControl=>({signal:cancelled.signal,deadlineAt,assertActive(){if(cancelled.signal.aborted)throw new BoardFileExportFailure('CANCELLED');if(Date.now()>deadlineAt)throw new BoardFileExportFailure('BOUNDS_EXCEEDED');},checkpoint:async()=>{}});
     const timer=setTimeout(()=>cancelled.abort(),0);await expect(serializeBoardPdf(document,[],active(Date.now()+30_000))).rejects.toMatchObject({code:'CANCELLED'});clearTimeout(timer);
