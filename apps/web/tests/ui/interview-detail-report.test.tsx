@@ -32,6 +32,26 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("lets the user retry a failed first report without leaving the report step", async () => {
+    const failed: DigitalInterviewWorkflowView = { ...completed, status: "report_pending", currentStep: "report",
+      reportGeneration: { reportId: "report-failed", requestId: "request-failed", status: "failed",
+        title: "已保存的部分报告", executiveSummary: "已保存摘要", markdown: "已保存正文", findings: [],
+        errorCode: "AI_GENERATION_UNAVAILABLE", updatedAt: "2026-09-24T14:00:00.000Z" } };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ reasonCode: "AI_GENERATION_UNAVAILABLE" }), {
+      status: 503, headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PersistentDigitalInterviewWorkflow initialView={failed} />);
+
+    expect(screen.getByTestId("itv-report-stream-markdown")).toHaveTextContent("已保存正文");
+    expect(screen.getByRole("alert")).toHaveTextContent("模型服务暂时不可用或返回内容不完整");
+    fireEvent.click(screen.getByRole("button", { name: "重新生成报告" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("报告");
+    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
   it("keeps an existing report on cancellation and asks before regeneration", async () => {
     const view: DigitalInterviewWorkflowView = { ...completed, status: "completed", reportId: "r-existing",
       report: { reportId: "r-existing", title: "现有报告", executiveSummary: "原摘要", markdown: "原内容", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" } };
