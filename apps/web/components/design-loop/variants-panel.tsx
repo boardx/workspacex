@@ -56,7 +56,7 @@ export function VariantsPanel({ state, frameLabel, device, landscape, accent, to
             <div key={i} className="flex flex-col gap-2 rounded-card border border-border bg-card p-2" data-testid={i === 0 ? "design-variant-0" : i === 1 ? "design-variant-1" : i === 2 ? "design-variant-2" : "design-variant-3"}>
               <div className="overflow-hidden" style={{ width: size.w * THUMB_SCALE, height: size.h * THUMB_SCALE }}>
                 <div style={{ transform: `scale(${THUMB_SCALE})`, transformOrigin: "top left", width: size.w, height: size.h }}>
-                  <PrototypeCanvas label={frameLabel} root={v.root} device={device} landscape={landscape} accent={accent} tokens={tokens} theme={theme} mode="preview" />
+                  <PrototypeCanvas thumbnail label={frameLabel} root={v.root} device={device} landscape={landscape} accent={accent} tokens={tokens} theme={theme} mode="preview" />
                 </div>
               </div>
               <p className="text-11 text-card-foreground" style={{ maxWidth: size.w * THUMB_SCALE }}>{v.summary}</p>

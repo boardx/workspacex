@@ -1072,9 +1072,14 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, onInlineEdit = null, pins, ungenerated = false, drawing = false, changed = EMPTY_CHANGED, accent = "neutral", tokens, wireframe = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark", thumbnail = false,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /**
+   * 对标 R9（#3954）：这块画布只是一张**候选缩略图**（变体面板）。它不是「当前页」，所以不挂
+   * `design-detail-phone`——那个 testid 是导出 PNG 找当前页、e2e 找画布的入口，挂重了两边都会认错。
+   */
+  thumbnail?: boolean;
   /** 对标 R7：画布上双击改字的提交口（见 `InlineText`）。 */
   onInlineEdit?: ((id: string, key: string, value: string) => void) | null;
   /** 对标 R8：要钉在节点上的批注编号（见 `comment-pins.tsx`）。 */
@@ -1171,7 +1176,7 @@ export function PrototypeCanvas({
       data-brand={!wireframe && tokens?.brand != null ? tokens.brand : undefined}
       data-font={tokens?.font !== undefined && tokens.font !== "sans" ? tokens.font : undefined}
       data-fidelity={wireframe ? "wireframe" : undefined}
-      data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
+      data-testid={thumbnail ? "design-variant-canvas" : "design-detail-phone"} data-device={device.id} data-chrome={device.chrome}
       data-landscape={landscape && device.rotatable ? "true" : "false"}
       data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >

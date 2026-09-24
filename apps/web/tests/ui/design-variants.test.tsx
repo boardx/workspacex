@@ -22,6 +22,9 @@ describe("VariantsPanel", () => {
     render(<VariantsPanel {...base} state={{ kind: "ready", items: ["甲", "乙", "丙"].map(variant) }} onPick={onPick} />);
     expect(screen.getByTestId("design-variant-0").textContent).toContain("会员 · 甲");
     expect(screen.getByTestId("design-variant-2").textContent).toContain("方案丙");
+    // 缩略图不是「当前页」：不许挂 design-detail-phone（导出 PNG 与 e2e 都靠它找当前页）。
+    expect(screen.queryAllByTestId("design-detail-phone")).toHaveLength(0);
+    expect(screen.getAllByTestId("design-variant-canvas")).toHaveLength(3);
     fireEvent.click(screen.getByTestId("design-variant-pick-1"));
     expect(onPick).toHaveBeenCalledWith(1);
   });
