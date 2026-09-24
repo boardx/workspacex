@@ -575,7 +575,7 @@ BEGIN
     GET STACKED DIAGNOSTICS v_err = MESSAGE_TEXT;
     UPDATE public.kg_conflict_close_queue
        SET attempts = attempts + 1, last_error = left(v_err, 500),
-           not_before = now() + least(make_interval(secs => 30 * power(4, v_q.attempts)), interval '1 day')
+           not_before = now() + make_interval(secs => least(30 * power(4, least(v_q.attempts, 10)), 86400))
      WHERE id = v_q.id;
     IF v_q.attempts + 1 >= 5 THEN
       RAISE WARNING 'kg conflict close for prompt % keeps failing (% attempts): %', v_q.prompt_id, v_q.attempts + 1, v_err;

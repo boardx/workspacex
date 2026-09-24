@@ -947,6 +947,14 @@ describe("F16: 结束冲突不会跨会话死锁——拿不到锁就放进队�
       await holder.query("SELECT pg_advisory_xact_lock(hashtext($1))", [key("chat_session", T.pa)]);
       expect(await drainOne()).toBe(true);                       // 队首（第一张）等锁超时 ⇒ 记失败、往后推
       expect(await qrow(first.prompt.promptId)).toEqual([{ attempts: 1, due: false, last_error: expect.any(String) }]);
+      // 连败很多次（例：第 25 次）：退避封顶一天，不溢出、不抛错（否则这行会一直挡住同一 org 后面的行）
+      await asOwner((c) => c.query("UPDATE kg_conflict_close_queue SET attempts = 25, not_before = now() WHERE prompt_id = $1", [first.prompt.promptId]));
+      expect(await drainOne()).toBe(true);
+      const [capped] = await sql<{ attempts: number; hours: number }>(
+        "SELECT attempts, extract(epoch FROM (not_before - now())) / 3600 AS hours FROM kg_conflict_close_queue WHERE prompt_id = $1", [first.prompt.promptId]);
+      expect(capped!.attempts).toBe(26);
+      expect(Number(capped!.hours)).toBeGreaterThan(23);
+      expect(Number(capped!.hours)).toBeLessThanOrEqual(24);
       expect(await drainOne()).toBe(true);                       // 后面那张照样处理
       expect((await promptsOf(T.pb))[0]!.status).toBe("closed_by_change");
       expect(await row(second.older.id)).toMatchObject({ status: "accepted" });
