@@ -11,7 +11,7 @@ export const Pairing = z.object({
 }).strict();
 export type Pairing = z.infer<typeof Pairing>;
 export const PairingStatus = z.object({ sessionId: RoomId.nullable(), joined: z.boolean(), expiresAt: z.string().datetime() }).strict();
-export const JoinRoom = z.object({ orgId: OrgId, pairingId: RoomId, code: z.string().trim().min(1).max(32) }).strict();
+export const JoinRoom = z.object({ v: z.literal(1).optional(), orgId: OrgId, pairingId: RoomId, code: z.string().trim().min(1).max(32) }).strict();
 export const RoomGrant = z.object({
   orgId: OrgId, sessionId: RoomId, token: z.string().min(40).max(200),
   boardId: BoardId, boardName: z.string().min(1).max(200), expiresAt: z.string().datetime(), role: z.literal('room-viewer'),

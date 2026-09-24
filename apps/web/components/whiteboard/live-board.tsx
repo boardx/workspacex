@@ -9,7 +9,7 @@ import { CollaborativeEditor } from './collaborative-editor';
 import { useOptionalSession } from '@/components/session/session-provider';
 import { Button } from '@/components/ui/button';
 import { RoomPresenterControls } from './room-presenter-controls';
-import { publishRoomViewport } from '@/lib/whiteboard-room';
+import { publishRoomViewport } from '@/lib/live-whiteboard-room';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null };
 export function LiveBoard({ boardId }: { boardId: string }) {
   const router = useRouter();

@@ -88,6 +88,7 @@ test('meeting-room display pairs once, stays read-only, follows the presenter an
     const payload=await pairingPayload.inputValue();
     expect(JSON.parse(payload)).toEqual(expect.objectContaining({orgId:expect.any(String),pairingId:expect.any(String),code:expect.any(String)}));
 
+    await room.setViewportSize({width:1280,height:900});
     await room.goto('/studio/board/room');
     await expect(room.getByTestId('shell-rail')).toHaveCount(0);
     await expect(room.getByTestId('shell-mobile-tabs')).toHaveCount(0);
@@ -100,6 +101,7 @@ test('meeting-room display pairs once, stays read-only, follows the presenter an
     await expect(room.getByTestId('board-add-sticky')).toBeDisabled();
     await expect(room.getByLabel('白板名称')).toBeDisabled();
     await expect(owner.getByTestId('room-connected')).toBeVisible({timeout:10_000});
+    await owner.getByRole('button',{name:'关闭',exact:true}).click();
 
     const roomCanvas=room.getByTestId('board-live-surface').locator(':scope > div').first();
     await owner.getByRole('button',{name:'放大',exact:true}).click();
@@ -113,8 +115,9 @@ test('meeting-room display pairs once, stays read-only, follows the presenter an
     await room.getByTestId('room-follow-toggle').click();
     await expect(roomCanvas).toHaveAttribute('style',/scale\(1\.2\)/,{timeout:5_000});
 
+    await owner.getByTestId('room-present-open').click();
     await owner.getByRole('button',{name:'断开会议室',exact:true}).click();
-    await expect(room.getByRole('alert')).toContainText('会议室连接已过期或被主持人断开',{timeout:10_000});
+    await expect(room.getByRole('alert').filter({hasText:'会议室连接已过期或被主持人断开'})).toBeVisible({timeout:10_000});
     await expect(room.getByTestId('collaborative-editor')).toHaveCount(0);
     await expect(room.getByRole('button',{name:'图形：会议室只读便签',exact:true})).toHaveCount(0);
   }finally{

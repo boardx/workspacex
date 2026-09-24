@@ -6,6 +6,9 @@ describe('whiteboard room contract',()=>{
     expect(room.RoomGrant.safeParse({orgId:'org-1',sessionId:'11111111-1111-4111-8111-111111111111',token:'x'.repeat(40),boardId:'22222222-2222-4222-8222-222222222222',boardName:'B',expiresAt:'2030-01-01T00:00:00.000Z',role:'editor'}).success).toBe(false);
     expect(room.JoinRoom.safeParse({orgId:'org-1',pairingId:'11111111-1111-4111-8111-111111111111',code:'ABCDEFGH',write:true}).success).toBe(false);
   });
+  it('accepts the versioned payload emitted by pairing creation',()=>{
+    expect(room.JoinRoom.parse({v:1,orgId:'org-1',pairingId:'11111111-1111-4111-8111-111111111111',code:'ABCDEFGH'})).toMatchObject({v:1});
+  });
   it('bounds presenter viewports',()=>{
     expect(room.PublishViewport.parse({x:0,y:0,zoom:1})).toEqual({x:0,y:0,zoom:1});
     expect(room.PublishViewport.safeParse({x:0,y:0,zoom:100}).success).toBe(false);

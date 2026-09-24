@@ -5,7 +5,7 @@ import { createWhiteboardDocument } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from './collaborative-editor';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { joinRoom,readRoom,type RoomGrant,type RoomState } from '@/lib/whiteboard-room';
+import { joinRoom,readRoom,type RoomGrant,type RoomState } from '@/lib/live-whiteboard-room';
 
 const storageKey=(id:string)=>`wsx.board.room.${id}`;
 function bytes(base64:string){const binary=atob(base64);return Uint8Array.from(binary,c=>c.charCodeAt(0));}

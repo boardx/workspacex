@@ -4,7 +4,7 @@ import * as Y from 'yjs';
 import {createWhiteboardDocument,executeCommands} from '@repo/whiteboard-core';
 import {RoomDisplay} from '@/components/whiteboard/room-display';
 const joinRoom=vi.fn(),readRoom=vi.fn();
-vi.mock('@/lib/whiteboard-room',()=>({joinRoom:(...args:unknown[])=>joinRoom(...args),readRoom:(...args:unknown[])=>readRoom(...args)}));
+vi.mock('@/lib/live-whiteboard-room',()=>({joinRoom:(...args:unknown[])=>joinRoom(...args),readRoom:(...args:unknown[])=>readRoom(...args)}));
 afterEach(()=>{cleanup();vi.resetAllMocks();sessionStorage.clear();});
 function snapshot(id:string,text:string){const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id,schemaVersion:1,kind:'sticky',geometry:{x:20,y:20,width:180,height:140,rotation:0},text,style:{},parentId:null,orderKey:''}}],{});const encoded=Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64');doc.destroy();return encoded;}
 const grant=(sessionId:string,boardId:string,boardName:string)=>({orgId:'org-1',sessionId,token:'t'.repeat(40),boardId,boardName,expiresAt:'2030-01-01T00:00:00.000Z',role:'room-viewer'});

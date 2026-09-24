@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { MonitorUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog,DialogContent,DialogDescription,DialogTitle } from '@/components/ui/dialog';
-import { createRoomPairing,readPairingStatus,revokeRoom,type RoomPairing } from '@/lib/whiteboard-room';
+import { createRoomPairing,readPairingStatus,revokeRoom,type RoomPairing } from '@/lib/live-whiteboard-room';
 
 export function RoomPresenterControls({boardId,disabled,onSession}:{boardId:string;disabled:boolean;onSession:(sessionId:string|null)=>void}){
   const [open,setOpen]=useState(false),[pairing,setPairing]=useState<RoomPairing|null>(null),[sessionId,setSessionId]=useState<string|null>(null),[error,setError]=useState('');
