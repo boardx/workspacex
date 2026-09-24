@@ -1,5 +1,11 @@
 import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import { assertWhiteboardUpdateLimits, WHITEBOARD_UPDATE_LIMITS } from './update-limits';
+
+// A successful shadow becomes the next command writer. Reusing it preserves one
+// Yjs client clock instead of adding a fresh client to the live state per command.
+// Failed shadows are discarded, so rejected batches never affect later deltas.
+const commandWriters = new WeakMap<Y.Doc, Y.Doc>();
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -109,10 +115,33 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
 /** Synchronous preflight means a failing batch never mutates the caller's document. Origin is not authentication. */
 export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): void {
   const commands = WhiteboardCommandBatch.parse(input);
-  const candidate = cloneDocument(doc);
-  try { candidate.transact(() => apply(candidate, commands)); validateDocument(candidate); assertLockedObjectsUnchanged(doc, candidate); }
-  finally { candidate.destroy(); }
-  doc.transact(() => apply(doc, commands), origin);
+  const vector = Y.encodeStateVector(doc);
+  const existing = commandWriters.get(doc);
+  const candidate = existing ?? cloneDocument(doc);
+  let committed = false;
+  let update: Uint8Array;
+  try {
+    if (existing) Y.applyUpdate(candidate, Y.encodeStateAsUpdate(doc, Y.encodeStateVector(candidate)));
+    // Commit the candidate's validated bytes themselves below. Replaying the
+    // commands would generate a different client delta and invalidate preflight.
+    candidate.transact(() => apply(candidate, commands));
+    validateDocument(candidate);
+    assertLockedObjectsUnchanged(doc, candidate);
+    update = Y.encodeStateAsUpdate(candidate, vector);
+    assertWhiteboardUpdateLimits(update);
+    const structures = [...candidate.store.clients.values()].reduce((sum, entries) => sum + entries.length, 0);
+    if (structures > WHITEBOARD_UPDATE_LIMITS.documentStructs
+      || Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
+    Y.applyUpdate(doc, update, origin);
+    commandWriters.set(doc, candidate);
+    committed = true;
+  }
+  finally {
+    if (!committed) {
+      if (existing) commandWriters.delete(doc);
+      candidate.destroy();
+    }
+  }
 }
 export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) => string): WhiteboardObject[] {
   const chosen = readObjects(doc).filter(object => ids.includes(object.id));

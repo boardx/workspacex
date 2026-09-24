@@ -62,6 +62,26 @@ describe('whiteboard content kernel', () => {
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });
     expect(() => validateDocument(doc)).toThrow('UNSUPPORTED_TEXT_FORMAT');
   });
+  it('rejects aggregate oversized deltas before mutation, update emission or undo capture', () => {
+    for (const text of ['x', 'x'.repeat(20_000)]) {
+      const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);
+      const before = Y.encodeStateAsUpdate(doc); let updates = 0;
+      doc.on('update', () => updates++);
+      const commands = Array.from({ length: 500 }, (_, index) => ({ type: 'create' as const, object: { ...note(`bulk-${index}`), text } }));
+      expect(() => undo.execute(commands)).toThrow('UPDATE_LIMIT_EXCEEDED');
+      expect(updates).toBe(0);
+      expect(readObjects(doc)).toEqual([]);
+      expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+      expect(undo.undo()).toBe('empty');
+      undo.destroy(); doc.destroy();
+    }
+  });
+  it('reuses one shadow client instead of adding a Yjs client per accepted command', () => {
+    const doc = createWhiteboardDocument();
+    for (let index = 0; index < 20; index++) create(doc, `client-${index}`);
+    expect(doc.store.clients.size).toBe(1);
+    doc.destroy();
+  });
   it('rejects every direct mutation of locked objects and rolls back the whole batch', () => {
     const doc = createWhiteboardDocument();
     const locked = { ...note('locked'), extensionData: { locked: true } };
