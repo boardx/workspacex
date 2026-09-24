@@ -95,6 +95,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env,
+        NODE_ENV: "test",
         PORT: apiPort,
         SSP_E2E_FIXTURE: "1",
         SSP_E2E_ORG_ID: SELF_SERVICE_PROFILE_E2E.orgId,

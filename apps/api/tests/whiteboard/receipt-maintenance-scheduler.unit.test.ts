@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import {readFileSync} from 'node:fs';
 import {describe,expect,it,vi} from 'vitest';
 import type {Job} from 'pg-boss';
 import type {DatabasePort,QueryResult,TenantSession} from '../../src/application/ports/database.port';
@@ -48,6 +49,17 @@ function fixture(options:{cleanupError?:Error}={}){
 }
 
 describe('whiteboard access-receipt maintenance scheduler',()=>{
+  it('keeps production child and self-host startup topology explicit',()=>{
+    const root=new URL('../../../../',import.meta.url);
+    const gateShell=readFileSync(new URL('apps/api/scripts/verify-runtime-gates.sh',root),'utf8');
+    const selfHost=readFileSync(new URL('deploy/whiteboard-selfhost/compose.yaml',root),'utf8');
+    expect(gateShell).toContain('scripts/setup-standard-scheduler.ts');
+    expect(gateShell).toContain('NODE_ENV=test KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE=1');
+    expect(selfHost).toContain('scripts/setup-standard-scheduler.ts');
+    expect(selfHost).toContain('NODE_ENV: production');
+    expect(selfHost).toContain('KERNEL_WHITEBOARD_RECEIPT_MAINTENANCE: "1"');
+  });
+
   it('requires the real worker in supported runtimes and only permits dependency-free unit modules',()=>{
     const providers=Reflect.getMetadata('providers',KernelModule) as Array<{
       provide?:symbol;useFactory?:(...args:never[])=>unknown;inject?:unknown[];

@@ -172,6 +172,15 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(config.indexOf(setup)).toBeLessThan(config.indexOf(start));
   });
 
+  it("marks API browser fixtures without Board sync as test runtimes", () => {
+    for (const path of [
+      "apps/web/playwright.chat-read.config.ts",
+      "apps/web/playwright.self-service-profile.config.ts",
+      "scripts/studio-skill-files-e2e.mjs",
+      "scripts/studio-real-model-trial.mts",
+    ]) expect(read(path), path).toMatch(/NODE_ENV:\s*["']test["']/);
+  });
+
   it("walks the real Files entry and asserts every required 2xx response", () => {
     const spec = read("apps/web/e2e/fullstack-smoke.spec.ts");
     expect(spec).toContain("javaScriptEnabled: false");
