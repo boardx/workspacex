@@ -1,3 +1,6 @@
+import type { KnowledgeRecallPort } from "../knowledge-graph/ports";
+import { recallThreadKnowledge } from "../knowledge-graph/recall-knowledge";
+import { buildKnowledgeContextMessage } from "../../domain/knowledge-graph/recall";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -291,6 +294,12 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
    */
   readonly files?: FileRetrievalPort;
+  /**
+   * Phase 18 F08 —— 会话知识召回（uc-18-2）。**可选**，与 `files` 同一条既有理由：既有测试与不需要
+   * 记忆的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+   * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
+   */
+  readonly knowledge?: KnowledgeRecallPort;
   /**
    * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
    * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
@@ -901,6 +910,29 @@ async function executeClaimed(
       });
       // F157：l3Status 保持悲观默认 "degraded"，hitCount/sources 保持 0/[]——降级为空是诚实
       // 的答案（同 delta §3.3 的既有纪律），快照如实记这是「查了没查成」而不是「查了没结果」。
+    }
+  }
+
+  /*
+   * Phase 18 F08 —— 会话记忆（uc-18-2）：以本轮输入为问题，召回本会话记下的相关结论，作为一条来源标记
+   * 清楚的参考材料前置进 history（放在文件材料之前、离当前轮最远——同 L3 的取舍：参考材料不压过对话本身）。
+   * 与 L3 同一条降级纪律：读不到 ⇒ 这轮不带记忆，绝不 fail run；图路读不到 ⇒ 只用字面召回，
+   * 材料里带一句「可能不完整」让模型如实告诉用户（R4-E1）。
+   */
+  if (deps.knowledge) {
+    try {
+      const recall = await recallThreadKnowledge(
+        deps.knowledge,
+        { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText },
+        deps.log,
+      );
+      const memory = buildKnowledgeContextMessage(recall);
+      if (memory !== null) history = [{ role: "assistant", content: memory }, ...history];
+    } catch (e) {
+      deps.log("agent run knowledge recall failed, continuing without memory", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : "unexpected knowledge recall failure",
+      });
     }
   }
 
