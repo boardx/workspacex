@@ -52,6 +52,8 @@ export async function newThread(page: Page): Promise<string> {
   await page.waitForURL((url) => /^\/chat\/[^/]+$/.test(url.pathname) && url.pathname !== before);
   const threadId = decodeURIComponent(new URL(page.url()).pathname.split("/").at(-1)!);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+  // 新对话是空的：等上一段对话的消息从界面上撤干净，免得 say() 把旧回答当成这一轮的。
+  await expect(page.getByTestId("copilot-assistant-message")).toHaveCount(0, { timeout: 15_000 });
   return threadId;
 }
 

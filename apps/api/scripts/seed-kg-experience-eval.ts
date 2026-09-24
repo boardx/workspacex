@@ -35,6 +35,11 @@ const modelId = required("KG_EVAL_MODEL_ID");
 ensureDatabase();
 await migrateOnce();
 await resetOrgs(orgId);
+// 组织的 AGE 图不随组织行级联删除：上一次评测留下的节点会让这一次的图路变慢、变脏。一起清掉（投影 worker 会按需重建）。
+await asOwner(async (c) => {
+  await c.query(`DO $$ DECLARE g text := public.kg_org_graph_name('${orgId.replace(/'/g, "''")}'); BEGIN
+    IF EXISTS (SELECT 1 FROM ag_catalog.ag_graph WHERE name = g) THEN PERFORM ag_catalog.drop_graph(g, true); END IF; END $$`);
+});
 await asOwner(async (c) => {
   await c.query("DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])", [
     accounts.map((a) => a.userId), accounts.map((a) => a.email),
