@@ -3,14 +3,28 @@
 import * as React from "react";
 import { MessageSquare, FileText, ArrowUpRight, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KG_TRI_STATE_LABEL_ZH } from "@repo/contracts/chat-knowledge-graph";
-import type { RecallGroup } from "@/lib/mock/knowledge-graph";
+import { KG_TRI_STATE_LABEL_ZH, type KgTriState } from "@repo/contracts/chat-knowledge-graph";
+
+/** 一条被召回的记忆（按「你确认过 / AI 记下的」分组展示用）。 */
+export interface RecallItem {
+  readonly claimId: string;
+  readonly statement: string;
+  readonly sourceRef: string;
+  readonly sourceKind: "chat_message" | "attachment";
+  /** 记下的日期（界面显示「来自你 {日期} 的对话」用） */
+  readonly capturedDate: string;
+}
+export interface RecallGroup {
+  readonly triState: KgTriState;
+  readonly items: RecallItem[];
+}
 
 /**
  * uc-18-6 C：「你记得关于 X 的什么」——按「你确认过 / AI 记下的」分两组回答，每条带出处，
  * 末尾一个「管理记忆」链接打开面板（价值在对话里，面板是可选的）。
  *
- * ⚠ 纯前端 mock：跳到来源 / 管理记忆只回调，不真实导航。
+ * 组件只管展示与回调（跳到来源 / 管理记忆）；形状在这里定义，签核预览的样例数据引用它。
+ * 产品对话里的「你记得什么」目前由回答正文 + 回答下方的引用（F13 `getTurnMemory.recalled`）承载，本组件只在预览里用。
  */
 export function MemoryRecallAnswer({
   groups,

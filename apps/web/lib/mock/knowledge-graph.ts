@@ -34,6 +34,7 @@ import {
   type KgConflictPrompt,
 } from "@repo/contracts/chat-knowledge-graph";
 import type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations } from "@/lib/knowledge-graph-api";
+import type { RecallGroup } from "@/components/chat/knowledge/memory-recall-answer";
 
 /* 契约输出形状（从操作 schema 派生，不手写第二份） */
 export type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations };
@@ -324,10 +325,12 @@ export const memoryCardRememberOpen: MemoryCard = {
 /** U-4 记住卡（done）：点过「记住」→「已记住 · 撤销」 */
 export const memoryCardRememberDone: MemoryCard = {
   ...memoryCardRememberOpen,
+  // 记住之后卡上带着新记下的那一条（撤销 = 忘掉它）
+  items: [{ claimId: "clm-fact-owner", statement: "客户 A 的对接人是王经理，电话找他。" }],
   state: "done",
 };
 
-/** U-4 记住卡（stale）：期间该条已被改，点击返回 KG_REVISION_CHANGED */
+/** U-4 记住卡（stale）：期间该条已被改，点击返回 KG_CARD_STALE */
 export const memoryCardRememberStale: MemoryCard = {
   ...memoryCardRememberOpen,
   state: "stale",
@@ -401,19 +404,9 @@ export const turnMemoryPending: TurnMemory = {
   recallDegraded: false,
 };
 
-/* ── 「你记得关于 X 的什么」回答（uc-18-6 C）：按「你确认过 / AI 记下的」分两组 ── */
-export interface RecallItem {
-  readonly claimId: string;
-  readonly statement: string;
-  readonly sourceRef: string;
-  readonly sourceKind: "chat_message" | "attachment";
-  /** 记下的日期（界面显示「来自你 {日期} 的对话」用） */
-  readonly capturedDate: string;
-}
-export interface RecallGroup {
-  readonly triState: KgTriState;
-  readonly items: RecallItem[];
-}
+/* ── 「你记得关于 X 的什么」回答（uc-18-6 C）：按「你确认过 / AI 记下的」分两组 ──
+ * 形状在组件里定义（`memory-recall-answer.tsx`），这里只放样例数据。 */
+export type { RecallGroup, RecallItem } from "@/components/chat/knowledge/memory-recall-answer";
 
 export const recallAnswerGroups: RecallGroup[] = [
   {

@@ -244,12 +244,14 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       );
       const recall = await readTurnRecall(s, orgId, userId, thread.threadId, messageId);
       const conflict = await readTurnConflict(s, orgId, userId, thread.threadId, ids);
+      // I-18：一轮至多一张主动卡，冲突卡优先。用户明确要求的「记住 / 忘掉」卡不丢：矛盾处理完（提醒不再 open），
+      // 同一轮回答下就轮到它。
+      const card = conflict === null ? await readTurnMemoryCard(s, orgId, userId, thread.threadId, messageId) : null;
       return {
         messageId,
         captured: captured.rows.map((c) => ({ claimId: c.id, statement: c.statement })),
         pending: Number(pending.rows[0]!.n) > 0,
-        // I-18：一轮至多一张主动卡，冲突卡优先（U-4 记住 / 忘掉卡尚未落地）
-        prompt: conflict === null ? null : { type: "conflict" as const, conflict },
+        prompt: conflict !== null ? { type: "conflict" as const, conflict } : card !== null ? { type: "memory_card" as const, card } : null,
         ...recall,
       };
     });
@@ -293,6 +295,49 @@ async function readTurnConflict(
     promptId: row.id,
     newerClaim: { id: row.newer_id, statement: row.newer_statement },
     olderClaim: { id: row.older_id, statement: row.older_statement, saidAt: row.said_at.toISOString() },
+  };
+}
+
+type MemoryCard = Extract<NonNullable<TurnMemoryData["prompt"]>, { type: "memory_card" }>["card"];
+interface StoredCardItem { claimId: string | null; statement: string; scope: "chat_session" | "personal"; basis: string | null }
+
+/**
+ * F17：这一轮的「记住 / 忘掉」确认卡（U-4）。经回答的 agent_run_id 找到执行器为这一轮开的那张。
+ * 按查看者读：个人空间的条目只给卡的主人（RLS 也这么判——卡上有个人空间条目时只有主人读得到这张卡），
+ * 过滤完一条不剩 ⇒ 不出卡。还开着的卡在这里判「过期」（E2）：条目在出卡之后被改过 / 忘掉了 ⇒ stale。
+ * 已记住的卡：那一条后来被撤销了 ⇒ claimId 为 null（界面据此显示「已撤销」，不再给撤销按钮）。
+ */
+async function readTurnMemoryCard(
+  s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
+): Promise<MemoryCard | null> {
+  const r = await s.query<{ id: string; kind: MemoryCard["kind"]; items: StoredCardItem[]; status: "open" | "done" | "dismissed"; created_by: string }>(
+    `SELECT k.id, k.kind, k.items, k.status, k.created_by FROM kg_memory_cards k
+       JOIN chat_messages m ON m.org_id = k.org_id AND m.agent_run_id = k.run_id
+      WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND k.thread_id = $2`,
+    [orgId, threadId, messageId],
+  );
+  const row = r.rows[0];
+  if (row === undefined) return null;
+  const items = row.items.filter((i) => i.scope === "chat_session" || row.created_by === viewer);
+  if (items.length === 0) return null;
+  const ids = items.flatMap((i) => (i.claimId === null ? [] : [i.claimId]));
+  const live = await s.query<{ id: string; basis: string }>(
+    `SELECT c.id, kg_claim_basis(c.statement) AS basis FROM claims c
+      WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM}
+        AND ((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4))`,
+    [orgId, ids, threadId, viewer],
+  );
+  const basisOf = new Map(live.rows.map((c) => [c.id, c.basis]));
+  if (row.status === "open") {
+    const stale = items.some((i) => i.claimId !== null && basisOf.get(i.claimId) !== i.basis);
+    return { cardId: row.id, kind: row.kind, items: items.map((i) => ({ claimId: i.claimId, statement: i.statement })), state: stale ? "stale" : "open" };
+  }
+  return {
+    cardId: row.id, kind: row.kind, state: row.status,
+    items: items.map((i) => ({
+      claimId: row.kind === "remember" && row.status === "done" && i.claimId !== null && !basisOf.has(i.claimId) ? null : i.claimId,
+      statement: i.statement,
+    })),
   };
 }
 

@@ -4,14 +4,20 @@ import * as React from "react";
 import { AnswerMemoryLine } from "./answer-memory-line";
 import { AnswerKnowledgeFooter } from "./answer-knowledge-footer";
 import { ConflictPromptCard, type ConflictConditions, type ConflictResolution } from "./conflict-prompt-card";
+import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision } from "./memory-card";
 import {
+  actOnMemoryCard,
   applyHumanAction,
   fetchThreadKnowledge,
   fetchTurnMemory,
   knowledgeGraphErrorCode,
   type TurnMemory,
 } from "@/lib/knowledge-graph-api";
-import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
+import {
+  describeHumanActionFailure,
+  describeMemoryCardFailure,
+  MEMORY_CARD_RELOAD_ON_FAILURE,
+} from "@/lib/knowledge-graph-failure";
 import {
   requestKnowledgeReload,
   requestOpenKnowledgePanel,
@@ -41,9 +47,15 @@ export const TURN_MEMORY_REPOLL_DELAYS_MS: readonly number[] = [3_000, 8_000];
  * - F16 / U-5：本轮的矛盾提醒卡（`prompt.type = conflict`，服务端保证一轮至多一张）画在引用之后、
  *   「已记下」之前。按钮只给所有者（同「撤销」，读模型快照 `canEdit`）；点了经 `applyHumanAction{resolveConflict}`
  *   执行（版本号点击时现取），失败把人话交给卡片显示，结束后让右栏记忆重读。
+ * - F17 / U-4：本轮的「记住 / 忘掉」确认卡（`prompt.type = memory_card`）同一个位置（服务端保证一轮一张、冲突卡优先）。
+ *   按钮只给所有者；点了经 `actOnMemoryCard` 执行，成功后让右栏记忆重读。卡片过期 / 不在了 ⇒ 重读这一轮
+ *   （卡片据此显示「内容已经变了」）。「已记住 · 撤销」= 忘掉刚记下的那条（`applyHumanAction{revokeClaim}`，
+ *   版本号点击时现取），个人空间的副本随它一起失效。
  */
 export function TurnMemoryLine({ threadId, messageId }: { threadId: string; messageId: string }) {
   const [turn, setTurn] = React.useState<TurnMemory | null>(null);
+  /** 递增 ⇒ 重读这一轮（点卡片时发现它过期 / 不在了）。 */
+  const [reloadKey, setReloadKey] = React.useState(0);
   const snapshot = useKnowledgeSnapshot(threadId);
   const canEdit = snapshot?.canEdit === true;
   const captured = turn?.captured;
@@ -84,6 +96,31 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
     requestKnowledgeReload(threadId);
   }, [threadId, promptId]);
 
+  const memoryCard = turn?.prompt?.type === "memory_card" ? turn.prompt.card : null;
+  const cardId = memoryCard?.cardId;
+  const actOnCard = React.useCallback(async (decision: MemoryCardDecision, opts: MemoryCardActOptions) => {
+    if (cardId === undefined) throw new Error(describeMemoryCardFailure(null));
+    try {
+      const out = await actOnMemoryCard(cardId, decision, opts);
+      if (decision === "accept") requestKnowledgeReload(threadId);
+      return out.card;
+    } catch (e) {
+      const code = knowledgeGraphErrorCode(e);
+      if (code !== null && MEMORY_CARD_RELOAD_ON_FAILURE.has(code)) setReloadKey((k) => k + 1);
+      throw new Error(describeMemoryCardFailure(e));
+    }
+  }, [threadId, cardId]);
+  const undoRemember = React.useCallback(async (claimId: string): Promise<void> => {
+    try {
+      const revision = (await fetchThreadKnowledge(threadId)).revision;
+      await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId, reason: "user_undo_remember" });
+    } catch (e) {
+      requestKnowledgeReload(threadId);
+      throw new Error(describeHumanActionFailure(e));
+    }
+    requestKnowledgeReload(threadId);
+  }, [threadId]);
+
   React.useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -116,17 +153,26 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       controller.abort();
       if (timer !== null) clearTimeout(timer);
     };
-  }, [threadId, messageId]);
+  }, [threadId, messageId, reloadKey]);
 
   if (turn === null) return null;
   const showFooter = turn.recalled.length > 0 || turn.recallDegraded;
   const showCaptured = turn.pending || turn.captured.length > 0;
-  if (!showFooter && !showCaptured && conflict === null) return null;
+  if (!showFooter && !showCaptured && conflict === null && memoryCard === null) return null;
   return (
     <>
       {showFooter ? <AnswerKnowledgeFooter recalled={turn.recalled} recallDegraded={turn.recallDegraded} /> : null}
       {conflict !== null ? (
         <ConflictPromptCard key={conflict.promptId} prompt={conflict} canResolve={canEdit} onResolve={resolveConflict} />
+      ) : null}
+      {memoryCard !== null ? (
+        <MemoryCard
+          key={`${memoryCard.cardId}:${memoryCard.state}`}
+          card={memoryCard}
+          canAct={canEdit}
+          onAct={actOnCard}
+          onUndo={undoRemember}
+        />
       ) : null}
       {showCaptured ? (
         <AnswerMemoryLine turn={turn} onView={requestOpenKnowledgePanel} onUndo={canEdit ? undo : undefined} />

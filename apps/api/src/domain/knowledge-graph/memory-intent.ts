@@ -1,0 +1,82 @@
+/**
+ * Phase 18 F17 —— 对话里「记住 / 忘掉」的意图识别（uc-18-6 A / B / A1），纯函数。
+ *
+ * **确定、保守，宁可漏不可误**（R4-A1、R9 误触发率 ≤ 2%）：只认消息**开头**的明确说法，
+ * 不交给模型判断，也不猜「这个 / 刚才那个」指的是什么。
+ *
+ *   记住：「记住：…」「记住，…」「记下来：…」「记一下：…」（冒号 / 逗号必需）；
+ *         「请记住 …」「帮我记住 …」（礼貌前缀本身足够明确，分隔符可省）。
+ *   忘掉：「忘掉 …」「别再提 …」「不要再提 …」「别再记 …」「不要再记 …」（分隔符可省）；
+ *         「忘记：…」「忘了：…」「别记：…」「不要记：…」（必须带冒号 / 逗号——「忘记密码怎么办」「忘了带钥匙」不是）。
+ *
+ * 一律不出卡：内容为空或太短；以问号结尾（「记住：这个挺重要的吧？」）；内容只是指代（「这个」「刚才那个」「上面的」）
+ * ——spec 里的「把这个记下来」「这个很重要」「刚才那个说错了」因此都不出卡，照常回答。
+ */
+import { lexicalScore, lexicalTokens, type RecallClaim } from "./recall";
+
+export type MemoryIntent =
+  | { readonly kind: "remember"; readonly statement: string }
+  | { readonly kind: "forget"; readonly target: string };
+
+/** 契约 KgMemoryCard.items[].statement 的上限。 */
+export const MEMORY_CARD_STATEMENT_MAX = 2000;
+/** 契约 KgMemoryCard.items 的上限。 */
+export const MEMORY_CARD_MAX_ITEMS = 20;
+/** 忘掉卡：目标词元至少这么大比例出现在一条记忆里才列出来（比召回的 0.2 严——列出来默认就是勾上的）。 */
+export const FORGET_MIN_MATCH = 0.5;
+
+const LEAD = "(?:请你?|麻烦你?)?(?:帮我)?";
+const SEP = "\\s*[：:，,]\\s*";
+const REMEMBER_WITH_SEP = new RegExp(`^${LEAD}(?:记住|记下来|记下|记一下)${SEP}`);
+const REMEMBER_POLITE = /^(?:请你?|麻烦你?)?帮我记住(?![了没吗呢])\s*|^请你?记住(?![了没吗呢])\s*/;
+const FORGET_STRONG = new RegExp(`^${LEAD}(?:忘掉|别再提|不要再提|别再记|不要再记)(?:${SEP}|\\s*)`);
+const FORGET_WITH_SEP = new RegExp(`^${LEAD}(?:忘记|忘了|别记|不要记)${SEP}`);
+
+const QUESTION_END = /[?？]\s*$/;
+/** 只有指代、没有内容：说的是「前面那个」，但前面哪个——不猜。 */
+const DEICTIC_ONLY = /^(?:这|那|它|上面|刚才|刚刚|以上|前面|之前)(?:个|些|条|件|句|事|的|说的|提到的|那个|那条|这条|的话|的内容)*[。.!！~～]*$/;
+/** 「记住」的内容以指代开头：「这个很重要」「上面说的方案」——指的是哪句不确定。 */
+const DEICTIC_LEAD = /^(?:这个|那个|这些|那些|它|上面|刚才|刚刚|以上|前面说|之前说)/;
+const TRAILING_PUNCT = /[\s。.!！~～]+$/;
+/** 忘掉的目标里的修饰：「关于王经理的那条」→「王经理」。 */
+const FORGET_FILLER_HEAD = /^(?:关于|有关|跟|和)\s*/;
+const FORGET_FILLER_TAIL = /\s*(?:的)?(?:那条|这条|那个|这个|那些|这些|那件事|这件事|的事|的事情|的记忆|的内容|吧|了)+$/;
+
+/** 用户这句话是不是明确要「记住 / 忘掉」；不确定 ⇒ null（不出卡）。 */
+export function detectMemoryIntent(message: string): MemoryIntent | null {
+  const text = message.normalize("NFKC").trim();
+  if (text.length === 0 || QUESTION_END.test(text)) return null;
+
+  const remember = REMEMBER_WITH_SEP.exec(text) ?? REMEMBER_POLITE.exec(text);
+  if (remember !== null) {
+    const statement = text.slice(remember[0].length).replace(TRAILING_PUNCT, "").trim();
+    if (statement.length < 2 || statement.length > MEMORY_CARD_STATEMENT_MAX) return null;
+    if (DEICTIC_ONLY.test(statement) || DEICTIC_LEAD.test(statement)) return null;
+    return { kind: "remember", statement };
+  }
+
+  const forget = FORGET_WITH_SEP.exec(text) ?? FORGET_STRONG.exec(text);
+  if (forget !== null) {
+    const raw = text.slice(forget[0].length).replace(TRAILING_PUNCT, "").trim();
+    if (raw.length === 0 || DEICTIC_ONLY.test(raw)) return null;
+    const target = raw.replace(FORGET_FILLER_HEAD, "").replace(FORGET_FILLER_TAIL, "").trim();
+    if (target.length < 2 || DEICTIC_ONLY.test(target)) return null;
+    return { kind: "forget", target };
+  }
+  return null;
+}
+
+/**
+ * 忘掉卡列哪几条：与召回同一份候选集（本会话 + 个人线程里本人的个人空间）、同一套字面打分，
+ * 目标词元至少一半出现在这条里才算；按相关度排，最多 20 条（契约上限）。0 条 ⇒ 不出卡（R4-A2）。
+ */
+export function forgetMatches(target: string, claims: readonly RecallClaim[]): RecallClaim[] {
+  const tokens = lexicalTokens(target);
+  if (tokens.size === 0) return [];
+  return claims
+    .map((c) => ({ c, s: lexicalScore(tokens, c.statement) }))
+    .filter((x) => x.s >= FORGET_MIN_MATCH)
+    .sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id))
+    .slice(0, MEMORY_CARD_MAX_ITEMS)
+    .map((x) => x.c);
+}

@@ -1,70 +1,131 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Trash2, Check, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, Trash2, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { MemoryCard as MemoryCardData } from "@/lib/mock/knowledge-graph";
+import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
+
+/** 卡上的决定（契约 `actOnMemoryCard.in.decision`）。 */
+export type MemoryCardDecision = "accept" | "dismiss";
+export interface MemoryCardActOptions {
+  /** 忘掉卡：还勾着的条目 */
+  readonly claimIds?: readonly string[];
+  /** 记住卡：改过的字（没改就不带） */
+  readonly editedStatement?: string;
+}
+
+/** 契约 `KgMemoryCard.items[].statement` 的上限。 */
+const STATEMENT_MAX = 2000;
 
 /**
- * U-4：对话里的「记住 / 忘掉」行内确认卡（uc-18-6 A/B）。
- * - **AI 只生成卡片，人点一下才生效**（I-15：执行身份是点击的人）。
- * - 记住卡：内容可改字（Textarea），按「记住」→ 变「已记住 · 撤销」。
- * - 忘掉卡：逐条列出、默认全选、可取消勾选，按「忘掉」执行选中的。
- * - 危险动作（忘掉）用 destructive 按钮 + 影响说明（硬规则 ⑦）。
- * - 卡片可折叠、不遮正文（E8）；一轮最多一张（在页面层保证）。
- * 状态：open / done（已生效）/ dismissed（不用）/ stale（期间内容已变，需刷新，E2）。
- *
- * ⚠ 纯前端 mock：动作只切本地状态，不落后端。
+ * U-4：对话里的「记住 / 忘掉」行内确认卡（uc-18-6 A/B），数据是 `getTurnMemory.prompt.memory_card`。
+ * - **AI 只生成卡片，人点一下才生效**（I-15 / I-17：执行身份是点击的人）。`onAct` 真正执行
+ *   （`actOnMemoryCard`），返回服务端给的新卡片；失败时它抛出的 Error 带的是给人看的话，卡片原样显示、按钮恢复。
+ * - 记住卡：内容可改字（Textarea），按「记住」→「已记住 · 撤销」（撤销 = 忘掉刚记下的那条，`onUndo`）。
+ * - 忘掉卡：逐条列出、默认全选、可取消勾选，按「忘掉」执行选中的。危险动作用 destructive 按钮（硬规则 ⑦）。
+ * - `canAct = false`（不是对话创建者，R5）：只显示卡上的内容，不给任何按钮。
+ * - 状态：open / done（已生效）/ dismissed（不用了）/ stale（期间内容已变，E2：只提示，不再给按钮）。
  */
-export function MemoryCard({ card }: { card: MemoryCardData }) {
+export function MemoryCard({
+  card,
+  canAct,
+  onAct,
+  onUndo,
+}: {
+  card: KgMemoryCard;
+  canAct: boolean;
+  onAct: (decision: MemoryCardDecision, opts: MemoryCardActOptions) => Promise<KgMemoryCard>;
+  onUndo?: (claimId: string) => Promise<void>;
+}) {
   const isRemember = card.kind === "remember";
-  const [localState, setLocalState] = React.useState(card.state);
-  const [text, setText] = React.useState(card.items[0]?.statement ?? "");
+  const [current, setCurrent] = React.useState<KgMemoryCard>(card);
+  const [undone, setUndone] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const original = card.items[0]?.statement ?? "";
+  const [text, setText] = React.useState(original);
   const [checked, setChecked] = React.useState<Record<string, boolean>>(() =>
-    Object.fromEntries(card.items.map((it, i) => [it.claimId ?? `new-${i}`, true])),
+    Object.fromEntries(card.items.flatMap((it) => (it.claimId === null ? [] : [[it.claimId, true]]))),
   );
-  const selectedCount = Object.values(checked).filter(Boolean).length;
+  const selected = card.items.flatMap((it) => (it.claimId !== null && checked[it.claimId] === true ? [it.claimId] : []));
   const rootTestId = isRemember ? "kg-card-remember" : "kg-card-forget";
 
-  if (localState === "stale") {
-    return (
-      <div className="mt-2 flex flex-col gap-2 rounded-lg border border-warning bg-warning-tint p-3" data-testid="kg-card-stale">
-        <p className="flex items-center gap-1 text-11 text-warning-tint-foreground">
-          <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-          这条内容已经变了，先刷新再决定
-        </p>
-        <Button size="xs" variant="outline" className="self-start" data-testid="kg-card-refresh">
-          <RefreshCw aria-hidden className="mr-1 h-3 w-3" />
-          刷新
-        </Button>
-      </div>
-    );
-  }
+  const run = async (fn: () => Promise<void>): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error && e.message !== "" ? e.message : "没能完成这次操作，请稍后重试。");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  if (localState === "done") {
+  const decide = (decision: MemoryCardDecision): Promise<void> => run(async () => {
+    const opts: MemoryCardActOptions = decision === "dismiss"
+      ? {}
+      : isRemember
+        ? (text.trim() !== original.trim() ? { editedStatement: text.trim() } : {})
+        : (selected.length === card.items.length ? {} : { claimIds: selected });
+    setCurrent(await onAct(decision, opts));
+  });
+
+  if (current.state === "stale") {
+    // E2：点击时发现条目期间被改过 / 忘掉了——服务端拒绝后这一轮已重读，卡片停在这里。卡上的内容已经不是现在的样子，
+    // 不再给按钮；要记 / 要忘，再说一次就会出一张新卡。
     return (
-      <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-card-done">
-        <Check aria-hidden className="h-3 w-3 text-success" />
-        {isRemember ? "已记住" : "已忘掉"}
-        <span aria-hidden>·</span>
-        <button
-          type="button"
-          className="underline-offset-2 transition-colors duration-base hover:underline"
-          data-testid="kg-card-undo"
-          onClick={() => setLocalState("open")}
-        >
-          撤销
-        </button>
+      <p className="mt-2 flex items-center gap-1 text-10 text-muted-foreground" data-testid="kg-card-stale">
+        <AlertTriangle aria-hidden className="h-3.5 w-3.5 text-warning" />
+        这张卡上的内容已经变了，没有生效。需要的话请再说一次。
       </p>
     );
   }
 
-  if (localState === "dismissed") {
+  if (current.state === "done") {
+    const rememberedId = isRemember ? current.items[0]?.claimId ?? null : null;
+    const canUndo = canAct && onUndo !== undefined && rememberedId !== null && !undone;
+    return (
+      <div className="mt-2 flex flex-col gap-1" data-testid="kg-card-done">
+        <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
+          <Check aria-hidden className="h-3 w-3 text-success" />
+          {isRemember
+            ? (undone || rememberedId === null ? "已撤销，这条没有记到长期记忆" : "已记住")
+            : `已忘掉 ${String(current.items.length)} 条，之后的对话不再用到`}
+          {canUndo ? (
+            <>
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                disabled={busy}
+                className="underline-offset-2 transition-colors duration-base hover:underline disabled:opacity-50"
+                data-testid="kg-card-undo"
+                onClick={() => void run(async () => {
+                  await onUndo(rememberedId);
+                  setUndone(true);
+                })}
+              >
+                撤销
+              </button>
+            </>
+          ) : null}
+        </p>
+        {error !== null ? (
+          <p role="alert" className="text-10 text-destructive" data-testid="kg-card-error">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (current.state === "dismissed") {
     return (
       <p className="mt-2 text-10 text-muted-foreground" data-testid="kg-card-dismissed">
-        好的，不记这条
+        {isRemember ? "好的，不记这条" : "好的，这些都留着"}
       </p>
     );
   }
@@ -81,32 +142,41 @@ export function MemoryCard({ card }: { card: MemoryCardData }) {
           <Trash2 aria-hidden className="h-4 w-4 text-destructive" />
         )}
         <span className="text-11 font-medium text-ai-tint-foreground">
-          {isRemember ? "要记到你的长期记忆吗？" : "要忘掉这些吗？下面这些我就不再提了"}
+          {isRemember ? "要记到你的长期记忆吗？" : "要忘掉这些吗？忘掉后我就不再提了"}
         </span>
       </div>
 
       {isRemember ? (
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={2}
-          aria-label="要记住的内容（可改）"
-          data-testid="kg-card-remember-text"
-          className="text-11"
-        />
+        canAct ? (
+          <Textarea
+            value={text}
+            maxLength={STATEMENT_MAX}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            disabled={busy}
+            aria-label="要记住的内容（可改）"
+            data-testid="kg-card-remember-text"
+            className="text-11"
+          />
+        ) : (
+          <p className="text-11 text-background-foreground" data-testid="kg-card-remember-readonly">{original}</p>
+        )
       ) : (
         <ul className="flex flex-col gap-1">
           {card.items.map((it, i) => {
-            const key = it.claimId ?? `new-${i}`;
+            const key = it.claimId ?? `new-${String(i)}`;
             return (
               <li key={key} className="flex items-start gap-2" data-testid={`kg-card-forget-item-${key}`}>
-                <Checkbox
-                  className="mt-0.5"
-                  checked={checked[key] ?? false}
-                  onChange={(e) => setChecked((s) => ({ ...s, [key]: e.target.checked }))}
-                  aria-label={`忘掉 ${it.statement}`}
-                  data-testid={`kg-card-forget-check-${key}`}
-                />
+                {canAct && it.claimId !== null ? (
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={checked[it.claimId] ?? false}
+                    disabled={busy}
+                    onChange={(e) => setChecked((s) => ({ ...s, [key]: e.target.checked }))}
+                    aria-label={`忘掉 ${it.statement}`}
+                    data-testid={`kg-card-forget-check-${key}`}
+                  />
+                ) : null}
                 <span className="text-11 text-background-foreground">{it.statement}</span>
               </li>
             );
@@ -114,20 +184,28 @@ export function MemoryCard({ card }: { card: MemoryCardData }) {
         </ul>
       )}
 
-      <div className="flex items-center gap-1.5">
-        <Button
-          size="xs"
-          variant={isRemember ? "secondary" : "destructive"}
-          disabled={isRemember ? text.trim().length === 0 : selectedCount === 0}
-          data-testid="kg-card-accept"
-          onClick={() => setLocalState("done")}
-        >
-          {isRemember ? "记住" : `忘掉（${selectedCount}）`}
-        </Button>
-        <Button size="xs" variant="ghost" data-testid="kg-card-dismiss" onClick={() => setLocalState("dismissed")}>
-          {isRemember ? "不用" : "取消"}
-        </Button>
-      </div>
+      {canAct ? (
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="xs"
+            variant={isRemember ? "secondary" : "destructive"}
+            disabled={busy || (isRemember ? text.trim().length === 0 : selected.length === 0)}
+            data-testid="kg-card-accept"
+            onClick={() => void decide("accept")}
+          >
+            {isRemember ? "记住" : `忘掉（${String(selected.length)}）`}
+          </Button>
+          <Button size="xs" variant="ghost" disabled={busy} data-testid="kg-card-dismiss" onClick={() => void decide("dismiss")}>
+            不用了
+          </Button>
+        </div>
+      ) : null}
+
+      {error !== null ? (
+        <p role="alert" className="text-10 text-destructive" data-testid="kg-card-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
