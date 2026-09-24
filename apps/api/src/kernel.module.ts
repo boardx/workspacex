@@ -600,6 +600,7 @@ import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extractio
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
+import { PgKnowledgeRecall } from "./infrastructure/knowledge-graph/pg-knowledge-recall";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -2029,6 +2030,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 必定注入」——「这个部署会不会把用户补的那句话真的送出去」由这一行决定，
           // 不是运行期的偶然。
           carryOver,
+          // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
+          new PgKnowledgeRecall(db),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,

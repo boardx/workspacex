@@ -1,3 +1,4 @@
+import type { KnowledgeRecallPort } from "../../application/knowledge-graph/ports";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
 import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import type { InterjectionStore } from "../../application/agent-run/interjection-store";
@@ -167,6 +168,11 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 与本次改动之前逐字节相同（插话进终态后仍只留一条 `not_applied`）。
      */
     private readonly carryOver?: InterjectionCarryOverDelivery,
+    /**
+     * Phase 18 F08 —— 会话知识召回。可选，与上面每一个同一条既有理由：既有构造点不必都改，
+     * 生产合成（`kernel.module.ts`）必定注入。不注入 ⇒ history 与 F08 之前逐字节相同。
+     */
+    private readonly knowledge?: KnowledgeRecallPort,
   ) {}
 
   /**
@@ -202,7 +208,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     }
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-      files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+      files: this.files, knowledge: this.knowledge, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
@@ -240,7 +246,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       if (carried > 0) {
         await executeQueuedRuns({
           runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-          files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+          files: this.files, knowledge: this.knowledge, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,
           events: this.events, toolPermissionGrants: this.toolPermissionGrants,

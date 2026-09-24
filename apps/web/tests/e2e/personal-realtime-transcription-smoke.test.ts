@@ -5,6 +5,7 @@ class ProtocolSocket extends EventTarget {
   static readonly OPEN = 1;
   readonly OPEN = 1;
   readyState = 0;
+  bufferedAmount = 0;
   binaryType = "";
   readonly sent: unknown[] = [];
   send(frame: unknown) { this.sent.push(frame); }
@@ -29,8 +30,9 @@ describe("personal realtime transcription smoke", () => {
       handlers: { onState: (state) => states.push(state), onInterim: (text) => interim.push(text),
         onFinal: (event) => finals.push(event.text), onError: vi.fn() },
     });
-    const handle = await opening;
+    await vi.waitFor(() => expect(socket.sent).toContain(JSON.stringify({ type: "start" })));
     socket.receive({ type: "ready", captureId: "capture-smoke" });
+    const handle = await opening;
     publishAudio?.(new ArrayBuffer(320));
     socket.receive({ type: "interim", captureId: "capture-smoke", text: "实时" });
     socket.receive({ type: "final", captureId: "capture-smoke", segmentId: "segment-smoke", ordinal: 1,
