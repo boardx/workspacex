@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import { ClaimEditMenu } from "./claim-edit-menu";
-import { groupClaimsByKind } from "@/lib/mock/knowledge-graph";
+import { groupClaimsByKind } from "@/lib/knowledge-graph-view";
 import { claimTriState, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
 
 /**
@@ -138,7 +138,10 @@ export function KnowledgeList({
   );
 }
 
-/** 空态（uc-18-3 A1）——有引导文案 + 可行动入口（「整理本会话」）。 */
+/**
+ * 空态（uc-18-3 A1）——有引导文案；有「整理本会话」能力（`onReindex`）时给可行动入口。
+ * 没有这条能力时不画按钮：一个点了没反应的按钮比没有按钮更坏。
+ */
 export function KnowledgeEmpty({ onReindex }: { onReindex?: () => void }) {
   return (
     <div
@@ -146,11 +149,14 @@ export function KnowledgeEmpty({ onReindex }: { onReindex?: () => void }) {
       className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border py-12 text-center"
     >
       <p className="max-w-xs text-12 text-muted-foreground">
-        对话里提到的人、决定和事实会自动记在这里，你什么都不用做。现在还没有——先聊几句，或手动整理一次。
+        对话里提到的人、决定和事实会自动记在这里，你什么都不用做。
+        {onReindex ? "现在还没有——先聊几句，或手动整理一次。" : "现在还没有——先聊几句。"}
       </p>
-      <Button size="sm" variant="outline" onClick={onReindex} data-testid="kg-empty-reindex">
-        整理本会话
-      </Button>
+      {onReindex ? (
+        <Button size="sm" variant="outline" onClick={onReindex} data-testid="kg-empty-reindex">
+          整理本会话
+        </Button>
+      ) : null}
     </div>
   );
 }
