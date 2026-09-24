@@ -100,12 +100,13 @@ describe("F02: RLS", () => {
 
   it("个人空间行不能以别人的身份写进去（WITH CHECK）", async () => {
     // claims 仍有 0009 的写权限（F45 与检索夹具依赖）；个人空间的 RESTRICTIVE WITH CHECK 仍然生效。
+    // F03 起，带作用域的直写先被 kg_scoped_write_guard（BEFORE 触发器）拒掉——两道防线，任一道拒都算。
     await expect(
       asUser(ORG_A, USER_2, (c) => c.query(
         `INSERT INTO claims (id, org_id, statement, status, tsv, scope_kind, scope_id)
          VALUES ('c-forged', $1, 'x', 'proposed', '', 'personal', $2)`, [ORG_A, USER_1],
       )),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|KG_WRITE_OUTSIDE_EXECUTOR/);
   });
 
   it("object_embeddings 跟随目标行的可见性：别人个人空间的向量读不到（I-14，数据库层）", async () => {
