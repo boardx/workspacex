@@ -64,6 +64,10 @@ export function RunTraceLiveStrip({ entries, active }: {
    * 与「卡死了」在屏幕上长得一模一样。人类最早那张「深度研究 5:20 一屏白」的截图
    * 就是这个场景。
    *
+   * 2026-09-24（E3）连带改掉那句「正在推进任务」：一条工具都还没收尾时，我们**确切知道**
+   * 此刻在等什么——在等模型返回。说「正在推进任务」是一句放之四海皆准、因而什么也没说的话；
+   * 说「正在等待模型返回」才是这一刻的事实，用户据此能判断「是模型慢，不是界面卡了」。
+   *
    * 「已等待 N 秒」是**真事实**（我们确实知道等了多久），不是伪造的进度百分比——
    * 后者才是这个文件头注一直在拒绝的那种「界面从未验证过的谎言」。
    */
@@ -103,7 +107,7 @@ export function RunTraceLiveStrip({ entries, active }: {
     <span data-testid="run-trace-live-label" className="truncate">
       {runningEntry !== undefined
         ? liveLabel(runningEntry)
-        : lastSettled === undefined ? "正在推进任务" : settledLabel(lastSettled)}
+        : lastSettled === undefined ? "正在等待模型返回" : settledLabel(lastSettled)}
       {completed > 0 ? ` · 已完成 ${String(completed)} 个动作` : ""}
       {elapsedSec >= 3 ? ` · 已等待 ${String(elapsedSec)} 秒` : ""}
     </span>

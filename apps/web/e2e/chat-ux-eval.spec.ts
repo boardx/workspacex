@@ -23,6 +23,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { CHAT_READ_E2E, openFreshThread } from "./chat-task-workbench-fixture";
+// 同一条用例里开第二条线程：只建线程、**不重新登录**（`openFreshThread` 内含登录，
+// 再调一次会撞夹具那条「这个 page 已经登录了」的守卫）。
+import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
 import {
   DIMENSIONS, renderScorecard, totalScore, type ProbeResult, type Scorecard,
 } from "./support/chat-ux-rubric";
@@ -245,7 +248,30 @@ test.describe("chat 体验评测集", () => {
     const distinct = new Set(seen).size;
     const waited = seen.map((t) => /已等待 (\d+) 秒/.exec(t)?.[1]).filter((n): n is string => n !== undefined);
     const elapsedShown = waited.length >= 2 && Number(waited.at(-1)) > Number(waited[0]);
-    const namedAction = seen.some((t) => /刚完成|刚失败|正在(?!推进任务)|已完成 \d+ 个动作/.test(t));
+
+    /*
+     * ⚠ 第二个场景，必须换剧本。
+     *
+     * 上面用的是**静默**剧本（模拟模型思考，期间一条步骤都不收尾）——在它身上问
+     * 「界面报不报得出刚完成了哪一步」是不可能成立的，那不是产品的问题，是我拿错了剧本。
+     * 判据 ⑨ 其实是两件事：静默时别看起来像卡死（上面那段），以及有进展时说得出进展。
+     * 所以这里再跑一轮**逐步推进**的剧本（十步滚动，事件逐个发出来）专门量后者。
+     */
+    await openAuthoritativeFreshThread(page);
+    await send(page, CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+    const activeSeen: string[] = [];
+    const activeDeadline = Date.now() + 90_000;
+    while (Date.now() < activeDeadline) {
+      if (await strip.count() > 0) {
+        const t = ((await strip.first().textContent({ timeout: 1_000 }).catch(() => "")) ?? "").trim();
+        if (t !== "" && t !== activeSeen.at(-1)) activeSeen.push(t);
+      }
+      if (await page.getByTestId("copilotkit-v2-running-indicator").count() === 0) break;
+      await page.waitForTimeout(500);
+    }
+    await settle(page);
+    const namedAction = activeSeen.some((t) => /刚完成|刚失败|已完成 \d+ 个动作/.test(t));
+
     record(9, {
       measured: true,
       /*
@@ -256,7 +282,8 @@ test.describe("chat 体验评测集", () => {
       score: (appeared ? 0.3 : 0) + (elapsedShown ? 0.3 : 0) + (namedAction ? 0.4 : 0),
       evidence: `整轮采样：状态条出现=${String(appeared)}、不同文案 ${String(distinct)} 种`
         + `、等待时长在增长=${String(elapsedShown)}、出现过指名动作的文案=${String(namedAction)}：${[...new Set(seen)].slice(0, 4).map((t) => `「${t.slice(0, 24)}」`).join("→")}`
-        + `；运行期间执行过程行数 ${rowSamples.join("/")} → 落定时 ${String(rowsAfterSettle)}`,
+        + `；静默剧本行数 ${rowSamples.join("/")} → 落定 ${String(rowsAfterSettle)}`
+        + `；逐步剧本文案 ${[...new Set(activeSeen)].slice(0, 3).map((t) => `「${t.slice(0, 26)}」`).join("→")}`,
     });
   });
 
