@@ -263,7 +263,7 @@ describe("记忆面板（真实数据）", () => {
   });
 
   it("只读（canEdit=false）：显示「只读」，不渲染任何编辑入口——即便写动作可用", () => {
-    const writeActions = { onAction: vi.fn(), onPromote: vi.fn(), onReindex: vi.fn() };
+    const writeActions = { apply: vi.fn(async () => {}), onPromote: vi.fn(), onReindex: vi.fn() };
     const { unmount } = render(
       <KnowledgePanel status="ready" data={knowledge({ canEdit: false, visibility: "thread_members" })} writeActions={writeActions} />,
     );
@@ -281,13 +281,14 @@ describe("记忆面板（真实数据）", () => {
     expect(screen.getByTestId("kg-claim-edit-trigger-c-fact")).toBeInTheDocument();
   });
 
-  it("真实 /chat 面板不传写动作：可编辑的会话也不画点了没反应的编辑按钮", async () => {
-    stubNetwork(() => json(knowledge()));
+  it("真实 /chat：所有者有编辑入口（F10），但「记到长期记忆」「整理」还没有通路就不画", async () => {
+    stubNetwork(() => json(knowledge({ canPromote: true, ingestion: { queued: 0, running: 0, failed: 1, failures: [] } })));
     render(<Harness threadId={THREAD} />);
     await screen.findByTestId("kg-list");
     expect(screen.queryByTestId("kg-readonly-badge")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("kg-row-yes-c-fact")).not.toBeInTheDocument();
+    expect(screen.getByTestId("kg-row-yes-c-fact")).toBeInTheDocument();
     expect(screen.queryByTestId("kg-promote-enter")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kg-ingestion-retry")).not.toBeInTheDocument();
   });
 
   it("空态：本会话还没记下任何东西", async () => {
@@ -360,7 +361,7 @@ describe("记忆面板（真实数据）", () => {
 describe("回答下「已记下 N 条 · 查看 · 撤销」（getTurnMemory）", () => {
   const TURN_PATH = `/knowledge-graph/threads/${THREAD}/messages/msg-9/memory`;
 
-  it("captured > 0：渲染一行；「查看」打开记忆面板；「撤销」在 F10 前是禁用态", async () => {
+  it("captured > 0：渲染一行；「查看」打开记忆面板；没有所有者快照时不画「撤销」", async () => {
     stubNetwork((p) => (p === TURN_PATH
       ? json(turn({ captured: [{ claimId: "c-decide", statement: "王五决定周五发版。" }, { claimId: "c-todo", statement: "赵六整理发版清单。" }] }))
       : undefined));
@@ -370,7 +371,7 @@ describe("回答下「已记下 N 条 · 查看 · 撤销」（getTurnMemory）"
       render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
       const line = await screen.findByTestId("kg-turn-captured");
       expect(line).toHaveTextContent("已记下 2 条");
-      expect(screen.getByTestId("kg-turn-captured-undo")).toBeDisabled();
+      expect(screen.queryByTestId("kg-turn-captured-undo")).not.toBeInTheDocument();
       fireEvent.click(screen.getByTestId("kg-turn-captured-view"));
       expect(opened).toHaveBeenCalledTimes(1);
       expect(calledPaths()).toEqual([TURN_PATH]);
@@ -475,7 +476,7 @@ describe("界面文案不含 R5 禁用词（扫渲染出来的文字）", () => 
       if (p.endsWith("/memory")) return json(turn({ captured: [{ claimId: "c-fact", statement: "客户 B 需要中文界面。" }] }));
       return json(knowledge());
     });
-    const writeActions = { onAction: vi.fn(), onPromote: vi.fn(), onReindex: vi.fn() };
+    const writeActions = { apply: vi.fn(async () => {}), onPromote: vi.fn(), onReindex: vi.fn() };
     const bulk = Array.from({ length: 230 }, (_, i) => object(`b-${String(i)}`, "metric", `指标 ${String(i)}`));
     const { container } = render(
       <div>

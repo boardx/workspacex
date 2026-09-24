@@ -6,8 +6,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import { ClaimEditMenu } from "./claim-edit-menu";
+import { ClaimActionDialog, type ClaimDialogKind } from "./claim-action-dialog";
 import { groupClaimsByKind } from "@/lib/knowledge-graph-view";
-import { claimTriState, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
+import {
+  claimTriState,
+  type KgClaim,
+  type KgHumanAction,
+  type KgObject,
+} from "@repo/contracts/chat-knowledge-graph";
 
 /**
  * 列表视图（uc-18-3 R3-1）：记下的按类型分组，三态徽标、来源、证据数。
@@ -15,27 +21,34 @@ import { claimTriState, type KgClaim } from "@repo/contracts/chat-knowledge-grap
  * - 多选（`selectable` + selected）供「记到长期记忆」（uc-18-4，只有 canPromote 时开）。
  * - 完整编辑菜单（合并/拆分/改名等）仍在 `…` 菜单里，只对 canEdit 渲染。
  * - 点内容打开来源抽屉。
+ * - 编辑动作经 `onApply`（契约 `KgHumanAction`）交给面板；需要输入的动作先开 `ClaimActionDialog`。
+ *   `canEdit` 为假或没有 `onApply` 时一个编辑入口都不画。
  */
 export function KnowledgeList({
   claims,
+  objects = [],
   canEdit,
   selectable,
   selected,
   onToggleSelect,
   onOpenSource,
-  onAction,
+  onApply,
 }: {
   claims: KgClaim[];
+  objects?: readonly KgObject[];
   canEdit: boolean;
   selectable: boolean;
   selected: Record<string, boolean>;
   onToggleSelect?: (claimId: string, next: boolean) => void;
   onOpenSource?: (claim: KgClaim) => void;
-  onAction?: (action: string, claimId: string) => void;
+  onApply?: (action: KgHumanAction) => Promise<boolean>;
 }) {
   const groups = groupClaimsByKind(claims);
   const [openWrong, setOpenWrong] = React.useState<Record<string, boolean>>({});
-  const fire = (a: string, id: string) => onAction?.(a, id);
+  const [dialog, setDialog] = React.useState<{ kind: ClaimDialogKind; claim: KgClaim } | null>(null);
+  const editable = canEdit && onApply !== undefined;
+  const confirm = (id: string) => { void onApply?.({ type: "confirmClaim", claimId: id }); };
+  const objectIds = new Set(objects.map((o) => o.id));
 
   return (
     <div className="flex flex-col gap-4" data-testid="kg-list">
@@ -82,18 +95,24 @@ export function KnowledgeList({
                         </span>
                       </span>
                     </button>
-                    <ClaimEditMenu claim={c} canEdit={canEdit} onAction={onAction} />
+                    <ClaimEditMenu
+                      claim={c}
+                      canEdit={editable}
+                      hasObjects={c.aboutObjectIds.some((id) => objectIds.has(id))}
+                      onConfirm={() => confirm(c.id)}
+                      onOpenDialog={(kind) => setDialog({ kind, claim: c })}
+                    />
                   </div>
 
                   {/* U-2：一键「对 / 不对」——不用打开面板就能纠错 */}
-                  {canEdit && !selectable ? (
+                  {editable && !selectable ? (
                     <div className="flex items-center gap-1.5 pl-0.5">
                       <Button
                         size="xs"
                         variant={confirmed ? "secondary" : "outline"}
                         disabled={confirmed || conflict}
                         data-testid={`kg-row-yes-${c.id}`}
-                        onClick={() => fire("confirmClaim", c.id)}
+                        onClick={() => confirm(c.id)}
                       >
                         <Check aria-hidden className="mr-1 h-3 w-3" />
                         {confirmed ? "你确认过" : "对"}
@@ -110,7 +129,7 @@ export function KnowledgeList({
                       </Button>
                       {openWrong[c.id] ? (
                         <span className="flex items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
-                          <Button size="xs" variant="ghost" data-testid={`kg-row-revise-${c.id}`} onClick={() => fire("reviseClaim", c.id)}>
+                          <Button size="xs" variant="ghost" data-testid={`kg-row-revise-${c.id}`} onClick={() => setDialog({ kind: "revise", claim: c })}>
                             <Pencil aria-hidden className="mr-1 h-3 w-3" />
                             改写
                           </Button>
@@ -119,7 +138,7 @@ export function KnowledgeList({
                             variant="ghost"
                             className="text-destructive"
                             data-testid={`kg-row-forget-${c.id}`}
-                            onClick={() => fire("revokeClaim", c.id)}
+                            onClick={() => setDialog({ kind: "revoke", claim: c })}
                           >
                             <Trash2 aria-hidden className="mr-1 h-3 w-3" />
                             忘掉这条
@@ -134,6 +153,17 @@ export function KnowledgeList({
           </ul>
         </section>
       ))}
+      {dialog && onApply ? (
+        <ClaimActionDialog
+          key={`${dialog.kind}-${dialog.claim.id}`}
+          kind={dialog.kind}
+          claim={dialog.claim}
+          claims={claims}
+          objects={objects}
+          onApply={onApply}
+          onClose={() => setDialog(null)}
+        />
+      ) : null}
     </div>
   );
 }

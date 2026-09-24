@@ -57,6 +57,7 @@ beforeAll(async () => {
 afterAll(async () => { await db.close(); });
 
 const owner = { userId: "u-owner", orgId: ORG_ID };
+const unusedActions = { apply: async () => { throw new Error("unused"); } };
 
 describe("F09: getThreadKnowledge", () => {
   it("所有者读个人线程：实体、结论（三态 = AI 记下的）、边、可编辑、仅你可见", async () => {
@@ -85,7 +86,7 @@ describe("F09: getThreadKnowledge", () => {
       .rejects.toMatchObject({ code: "KG_THREAD_NOT_FOUND" });
     await expect(getThreadKnowledge(deps, { ...owner, threadId: "thr-does-not-exist" }))
       .rejects.toBeInstanceOf(KgReadError);
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, { apply: async () => { throw new Error("unused"); } });
     const principal = { userId: "u-member", orgId: ORG } as never;
     await expect(ctl.threadKnowledge(principal, PERSONAL)).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -152,7 +153,7 @@ describe("F09: 拒绝与不存在对外无法区分（I-3）", () => {
   };
 
   it("组织成员但不在项目里：三个读接口都与「不存在」同一个出口（码与 404 响应体一致）", async () => {
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, unusedActions);
     const outsider = { userId: "u-outsider", orgId: ORG } as never;
     const [sharedClaim] = (await getThreadKnowledge(deps, { ...owner, threadId: SHARED })).claims;
 
@@ -178,11 +179,11 @@ describe("F09: 拒绝与不存在对外无法区分（I-3）", () => {
   it("判定依赖读不到（成员关系查询失败）⇒ 503，不是 404 / 500，也不放行", async () => {
     const failingRepo = Object.create(deps.repo) as typeof deps.repo;
     failingRepo.findProjectMembership = async () => { throw new Error("db down"); };
-    const ctl = new KnowledgeGraphController(failingRepo, deps.ids, deps.chat, deps.knowledge);
+    const ctl = new KnowledgeGraphController(failingRepo, deps.ids, deps.chat, deps.knowledge, unusedActions);
     await expect(ctl.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
     const failingChat = Object.create(deps.chat) as typeof deps.chat;
     failingChat.findThreadFacts = async () => { throw new Error("db down"); };
-    const ctl2 = new KnowledgeGraphController(deps.repo, deps.ids, failingChat, deps.knowledge);
+    const ctl2 = new KnowledgeGraphController(deps.repo, deps.ids, failingChat, deps.knowledge, unusedActions);
     await expect(ctl2.threadKnowledge({ userId: "u-member", orgId: ORG } as never, SHARED)).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
