@@ -13,6 +13,7 @@
     "vitest": "vitest",
     "contrast": "node scripts/check-token-contrast.mjs",
     "e2e": "playwright test",
+    "e2e:whiteboard-room-soak": "BOARD_ROOM_SOAK=1 playwright test e2e/whiteboard-room-soak.spec.ts",
     "e2e:trace-geometry": "playwright test --config playwright.trace-geometry.config.ts"
   },
   "dependencies": {

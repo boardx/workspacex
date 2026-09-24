@@ -13,6 +13,7 @@ import { DiscussionPanel } from './discussion-panel';
 import { BoardTransferControls } from './board-transfer-controls';
 import { RoomPresenterControls } from './room-presenter-controls';
 import { publishRoomViewport } from '@/lib/live-whiteboard-room';
+import {isAuthoritativeRoomEnd,persistPresenterSession} from '@/lib/whiteboard-room-session';
 import { whiteboard as WhiteboardContract } from '@repo/contracts';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null };
 export function LiveBoard({ boardId }: { boardId: string }) {
@@ -27,7 +28,7 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const [roomSession,setRoomSession]=useState<string|null>(null);
   const roomSessionRef=useRef<string|null>(null), viewportTimer=useRef<number|null>(null);
   const setActiveRoom=useCallback((value:string|null)=>{roomSessionRef.current=value;setRoomSession(value);},[]);
-  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{void publishRoomViewport(boardId,active,value).catch(()=>setActiveRoom(null));},120);},[boardId,setActiveRoom]);
+  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{void publishRoomViewport(boardId,active,value).catch(cause=>{if(isAuthoritativeRoomEnd(cause)){persistPresenterSession(boardId,null);setActiveRoom(null);}});},120);},[boardId,setActiveRoom]);
   useEffect(() => {
     let active = true; const document = createWhiteboardDocument(); let provider: WhiteboardProvider | undefined;
     setSelection([]); setDoc(null); setBoard(null); setFailed(false); setState(initial);
