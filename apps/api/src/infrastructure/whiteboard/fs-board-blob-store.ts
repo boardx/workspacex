@@ -15,6 +15,24 @@ async function fsyncDirectory(path: string): Promise<void> {
   try { await handle.sync(); } finally { await handle.close(); }
 }
 
+// Process-wide rather than instance-local: dependency-injection rebuilds and tests may
+// construct multiple adapters for the same root. A target's tail never rejects, so one
+// failed publisher cannot poison the next waiter.
+const targetPublicationTails = new Map<string, Promise<void>>();
+async function withTargetPublication<T>(target: string, publish: () => Promise<T>): Promise<T> {
+  const previous = targetPublicationTails.get(target) ?? Promise.resolve();
+  let release!: () => void;
+  const owned = new Promise<void>(resolve => { release = resolve; });
+  const tail = previous.then(() => owned);
+  targetPublicationTails.set(target, tail);
+  await previous;
+  try { return await publish(); }
+  finally {
+    release();
+    if (targetPublicationTails.get(target) === tail) targetPublicationTails.delete(target);
+  }
+}
+
 /**
  * Local single-process adapter for a POSIX root exclusively owned by the service account.
  *
@@ -34,7 +52,12 @@ export class FsBoardBlobStore implements BoardBlobStore {
     if (!(input.ciphertext instanceof Uint8Array) || input.ciphertext.byteLength !== input.sizeBytes || sha256(input.ciphertext) !== input.cipherDigest) {
       throw new BoardBlobError('INTEGRITY_FAILED', 'ciphertext does not match its descriptor');
     }
-    const target = this.pathFor(input.tenantId, input.key), parent = dirname(target);
+    const target = this.pathFor(input.tenantId, input.key);
+    return withTargetPublication(target, () => this.putAtTarget(input, target));
+  }
+
+  private async putAtTarget(input: { tenantId: string; key: string; ciphertext: Uint8Array; cipherDigest: string; sizeBytes: number }, target: string): Promise<'created' | 'already-present-same-content'> {
+    const parent = dirname(target);
     const temporary = join(parent, `.board-tmp-${process.pid}-${randomUUID()}`);
     try {
       await this.ensureDurableDirectory(parent);
@@ -58,6 +81,8 @@ export class FsBoardBlobStore implements BoardBlobStore {
         // directory fsync. Replaying identical content is durable only after this attempt
         // repeats the parent sync; EEXIST alone is not a durable-ACK proof.
         await this.syncDirectory(parent);
+        // Publication is process-wide serialized for this absolute target. Therefore any
+        // matching temp inode here has no live in-process owner and is a crash residue.
         await this.removeStaleTemporaryLinks(parent, target);
         const existing = await this.readRegularNoFollow(target);
         if (existing.byteLength !== input.sizeBytes || sha256(existing) !== input.cipherDigest) {

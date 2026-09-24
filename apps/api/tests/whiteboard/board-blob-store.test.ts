@@ -102,6 +102,49 @@ describe('FsBoardBlobStore', () => {
     expect(await readFile(objectPath(value.key))).toEqual(Buffer.from(value.ciphertext));
   });
 
+  it('serializes publication across adapter instances without deleting an active publisher temp', async () => {
+    const value = input(Buffer.from('cross-adapter-concurrent-content'));
+    const target = objectPath(value.key);
+    const parent = dirname(target);
+    await mkdir(parent, { recursive: true });
+    let releaseFirstPublisher!: () => void;
+    const firstPublisherMayContinue = new Promise<void>(resolve => { releaseFirstPublisher = resolve; });
+    let reportLinked!: () => void;
+    const linked = new Promise<void>(resolve => { reportLinked = resolve; });
+    let pausedAfterLink = false;
+    const first = new FsBoardBlobStore(root, async path => {
+      const targetIsVisible = await lstat(target).then(
+        () => true,
+        error => {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+          throw error;
+        },
+      );
+      if (!pausedAfterLink && path === parent && targetIsVisible) {
+        pausedAfterLink = true;
+        reportLinked();
+        await firstPublisherMayContinue;
+      }
+    });
+    const second = new FsBoardBlobStore(root, async () => undefined);
+    const firstResult = first.putImmutable(value);
+    await linked;
+    let secondSettled = false;
+    const secondResult = second.putImmutable(value).finally(() => { secondSettled = true; });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(secondSettled).toBe(false);
+    } finally {
+      releaseFirstPublisher();
+    }
+    await expect(Promise.all([firstResult, secondResult])).resolves.toEqual([
+      'created',
+      'already-present-same-content',
+    ]);
+    expect((await stat(target)).nlink).toBe(1);
+    expect(await readFile(target)).toEqual(Buffer.from(value.ciphertext));
+  });
+
   it('fails closed on truncation and tampering', async () => {
     const value = input(Buffer.from('ciphertext-with-a-tag'));
     await store.putImmutable(value);
