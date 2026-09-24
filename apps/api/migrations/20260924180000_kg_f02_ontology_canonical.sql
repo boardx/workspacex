@@ -94,6 +94,8 @@ AS $$
 BEGIN
   -- org 被删除时的级联（ON DELETE CASCADE）要放行：那是整个租户离开，不是篡改一条日志。
   -- 判据是「这条日志所属的 org 已经不存在」，不看当前角色。
+  -- ⚠ 这里按调用方的 RLS 读 organizations：只因 organizations_tenant 与 ontology_actions_tenant
+  --   都按 app.current_org 判，「看得见这条日志 ⇒ 看得见它的 org」才成立。两条策略要一起改。
   IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM public.organizations o WHERE o.id = OLD.org_id) THEN
     RETURN OLD;
   END IF;
@@ -237,6 +239,12 @@ CREATE INDEX IF NOT EXISTS ontology_edges_kg_scope_idx
   ON ontology_edges (org_id, scope_kind, scope_id, status) WHERE scope_kind IS NOT NULL;
 
 -- ─────────────────────────────── RLS ───────────────────────────────
+-- 当前角色是否是本体表属主角色的成员（超级用户恒为真）。只看 ontology_objects 的属主：
+-- 同一迁移建的表属主相同。
+CREATE OR REPLACE FUNCTION kg_is_table_owner() RETURNS boolean
+LANGUAGE sql STABLE SET search_path = pg_catalog, public, pg_temp
+AS $$ SELECT pg_has_role(current_user, c.relowner, 'MEMBER') FROM pg_catalog.pg_class c WHERE c.oid = 'public.ontology_objects'::regclass $$;
+
 DO $$
 DECLARE
   t text;
@@ -254,13 +262,20 @@ BEGIN
   END LOOP;
 
   -- 个人空间（I-14）：RESTRICTIVE，与 org 策略 AND。未设置 app.current_user_id ⇒ personal 行不可见。
+  -- 唯一例外：表属主角色（即 kg_* SECURITY DEFINER 函数的执行身份——投影 / 重建 / 清理要看到本 org
+  -- 所有人的行；图里只有 id，内容回 canonical 时仍按 app_rw 的策略判）。云上迁移身份 `owner`
+  -- 不是超级用户、没有 BYPASSRLS（packages/cloud-deploy），FORCE RLS 对它生效，所以这个例外必须
+  -- 写在策略里，不能指望「属主绕过 RLS」。app_rw 不是属主角色的成员，例外对它不成立。
+  -- `(SELECT kg_is_table_owner())` 是标量子查询 ⇒ 每条语句只算一次（InitPlan），不是每行。
   FOREACH t IN ARRAY ARRAY['ontology_objects', 'ontology_actions', 'claims', 'ontology_edges']
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_personal_owner', t);
     EXECUTE format(
       'CREATE POLICY %I ON %I AS RESTRICTIVE '
-      'USING (scope_kind IS DISTINCT FROM ''personal'' OR scope_id = current_setting(''app.current_user_id'', true)) '
-      'WITH CHECK (scope_kind IS DISTINCT FROM ''personal'' OR scope_id = current_setting(''app.current_user_id'', true))',
+      'USING (scope_kind IS DISTINCT FROM ''personal'' OR scope_id = current_setting(''app.current_user_id'', true) '
+      '       OR (SELECT public.kg_is_table_owner())) '
+      'WITH CHECK (scope_kind IS DISTINCT FROM ''personal'' OR scope_id = current_setting(''app.current_user_id'', true) '
+      '       OR (SELECT public.kg_is_table_owner()))',
       t || '_personal_owner', t);
   END LOOP;
 END
@@ -277,21 +292,25 @@ CREATE POLICY object_embeddings_target_visible ON object_embeddings AS RESTRICTI
          END);
 
 -- 目标行删除 ⇒ 它的向量一起删（没有外键可挂：target_id 指向两张表之一）。
+-- BEFORE 而不是 AFTER：上面的 target_visible 策略要求目标行可见——AFTER 时目标已经没了，
+-- 对不绕过 RLS 的属主（云上的 `owner`）这条 DELETE 会静默删 0 行。TRUNCATE 不走行触发器，
+-- 但本体表的 TRUNCATE 只发生在整库重置，不是业务路径。
 CREATE OR REPLACE FUNCTION object_embeddings_follow_target() RETURNS trigger
 SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
   DELETE FROM public.object_embeddings
-   WHERE target_kind = CASE TG_TABLE_NAME WHEN 'ontology_objects' THEN 'object' ELSE 'claim' END
+   WHERE org_id = OLD.org_id
+     AND target_kind = CASE TG_TABLE_NAME WHEN 'ontology_objects' THEN 'object' ELSE 'claim' END
      AND target_id = OLD.id;
-  RETURN NULL;
+  RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP TRIGGER IF EXISTS object_embeddings_follow_target_trg ON ontology_objects;
-CREATE TRIGGER object_embeddings_follow_target_trg AFTER DELETE ON ontology_objects
+CREATE TRIGGER object_embeddings_follow_target_trg BEFORE DELETE ON ontology_objects
   FOR EACH ROW EXECUTE FUNCTION object_embeddings_follow_target();
 DROP TRIGGER IF EXISTS object_embeddings_follow_target_trg ON claims;
-CREATE TRIGGER object_embeddings_follow_target_trg AFTER DELETE ON claims
+CREATE TRIGGER object_embeddings_follow_target_trg BEFORE DELETE ON claims
   FOR EACH ROW EXECUTE FUNCTION object_embeddings_follow_target();
 
 REVOKE ALL ON ontology_objects, ontology_actions, object_embeddings FROM app_rw;

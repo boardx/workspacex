@@ -170,3 +170,45 @@ describe("F02: ontology_actions 只追加", () => {
     expect(left.rows).toHaveLength(0);
   });
 });
+
+/**
+ * 云上的迁移身份 `owner` 不是超级用户、没有 BYPASSRLS（packages/cloud-deploy）。本地和 CI 以
+ * postgres（超级用户）跑迁移，所有 SECURITY DEFINER 函数在测试里天然绕过 RLS——云上不会。
+ * 这里造一个「属主角色的成员、但不绕过 RLS」的角色 SET ROLE 过去，复现云上的执行身份。
+ */
+describe("F02: 属主角色不绕过 RLS 时（云上的 owner）", () => {
+  const PROBE = "kg_f02_probe_owner";
+  const asProbe = <T>(fn: (c: import("pg").Client) => Promise<T>) => asOwner(async (c) => {
+    await c.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PROBE}') THEN
+        CREATE ROLE ${PROBE} NOLOGIN NOSUPERUSER NOBYPASSRLS INHERIT;
+      END IF; END $$`);
+    await c.query(`GRANT ${(await c.query<{ o: string }>("SELECT pg_get_userbyid(relowner) AS o FROM pg_class WHERE oid = 'ontology_objects'::regclass")).rows[0]!.o} TO ${PROBE}`);
+    await c.query("BEGIN");
+    try {
+      await c.query(`SET LOCAL ROLE ${PROBE}`);
+      await c.query("SELECT set_config('app.current_org', $1, true)", [ORG_A]);
+      return await fn(c);
+    } finally {
+      await c.query("ROLLBACK");
+    }
+  });
+
+  it("该角色确实受 RLS 约束（看不到别的 org），且属主例外让它看得到本 org 所有人的个人空间", async () => {
+    const r = await asProbe(async (c) => ({
+      bypass: (await c.query<{ b: boolean }>("SELECT rolbypassrls OR rolsuper AS b FROM pg_roles WHERE rolname = current_user")).rows[0]!.b,
+      objects: (await c.query<{ id: string }>("SELECT id FROM ontology_objects WHERE id LIKE 'o-%' ORDER BY id")).rows.map((x) => x.id),
+    }));
+    expect(r.bypass).toBe(false);
+    expect(r.objects).toEqual(["o-a-personal-1", "o-a-personal-2", "o-a-session"]);
+  });
+
+  it("删除结论时向量清理在 RLS 下仍然生效（BEFORE DELETE，目标仍可见）", async () => {
+    const left = await asProbe(async (c) => {
+      await c.query("DELETE FROM claims WHERE id = 'c-a-personal-1'");
+      return (await c.query("SELECT 1 FROM object_embeddings WHERE target_id = 'c-a-personal-1'")).rows.length;
+    });
+    expect(left).toBe(0);
+  });
+});
+
