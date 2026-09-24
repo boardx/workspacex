@@ -6,7 +6,7 @@
     "maxBatch": 32,
     "maxRequestBytes": 1048576,
     "maxResponseBytes": 4194304,
-    "maxDimensions": 8192,
+    "maxDimensions": 2000,
     "deadlineMs": 30000
   },
   "input": {
@@ -49,7 +49,7 @@
             "type": "number"
           },
           "minItems": 1,
-          "maxItems": 8192
+          "maxItems": 2000
         },
         "minItems": 1,
         "maxItems": 32
