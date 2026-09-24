@@ -786,10 +786,12 @@
   background: rgba(255, 255, 255, 0.02);
 }
 .demo__tab {
+  display: grid; align-content: start; gap: 0.2rem;
   min-height: 44px;
-  padding: 0.55rem 0.95rem;
-  border-radius: var(--r-sm);
-  font-size: var(--t-md); font-weight: 500;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  text-align: left;
   color: var(--fg-dim);
   transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
@@ -805,9 +807,15 @@
     scrollbar-width: none;
   }
   .demo__tabs::-webkit-scrollbar { display: none; }
-  .demo__tab { flex: none; white-space: nowrap; scroll-snap-align: start; }
+  .demo__tab { flex: none; width: 13.5rem; scroll-snap-align: start; }
 }
-.demo__tab[aria-selected="true"] { color: var(--fg); background: var(--surface-2); font-weight: 600; box-shadow: inset 0 -2px 0 var(--c-2); }
+.demo__tabwho { font-size: var(--t-micro); font-weight: 600; color: var(--c-1); }
+.demo__tabask { font-size: var(--t-small); line-height: 1.35; color: var(--fg-soft); }
+.demo__tab[aria-selected="true"] { background: var(--surface-2); border-color: var(--c-2); box-shadow: inset 0 -2px 0 var(--c-2); }
+.demo__tab[aria-selected="true"] .demo__tabask { color: var(--fg); }
+/* Ten readers: two rows of five on a wide screen, as many as fit below. */
+@media (min-width: 64rem) { .demo__tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 48.01rem) and (max-width: 63.99rem) { .demo__tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); } }
 
 .demo__panel {
   display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);

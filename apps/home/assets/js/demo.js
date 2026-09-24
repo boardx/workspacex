@@ -25,6 +25,8 @@ export const SCENARIOS = [
     id: 'workforce',
     en: {
       tab: 'Workforce & skills',
+      who: 'Head of people',
+      ask: '“Is my job safe?” — what do I tell them?',
       role: 'You lead people for a bank’s operations division — 3,000 people.',
       stakes: 'AI is coming to a third of the hours your people work. They are asking you, to your face, whether their jobs are safe.',
       task: 'Work out which work changes, where people can go, and what training they need — before the rumors answer for you.',
@@ -57,6 +59,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '人才与组织转型',
+      who: '人力负责人',
+      ask: '员工问“饭碗保得住吗”，我怎么答？',
       role: '你负责一家银行运营条线 3,000 人的人力资源。',
       stakes: 'AI 将改变员工三分之一的工时。他们当面问你：我的饭碗还保得住吗？',
       task: '弄清哪些工作会变、人可以往哪里走、需要什么培训——别等小道消息先传开。',
@@ -94,6 +98,8 @@ export const SCENARIOS = [
     id: 'growth',
     en: {
       tab: 'Sales win rate',
+      who: 'Head of sales',
+      ask: 'Why do we lose deals we should win?',
       role: 'You lead sales for a B2B software company.',
       stakes: 'The win rate slid from 31% to 22% in a year. Everyone has a theory. Nobody has evidence.',
       task: 'Find out why the deals we should win are being lost.',
@@ -126,6 +132,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '销售赢单率',
+      who: '销售负责人',
+      ask: '本该赢的单，为什么输了？',
       role: '你是一家 B2B 软件公司的销售负责人。',
       stakes: '一年之内，赢单率从 31% 跌到 22%。人人都有一套说法，没有一个人拿得出证据。',
       task: '查清楚：本该赢的单，为什么输了。',
@@ -163,6 +171,8 @@ export const SCENARIOS = [
     id: 'governance',
     en: {
       tab: 'AI governance',
+      who: 'General counsel',
+      ask: 'Staff paste client data into chatbots. Now what?',
       role: 'You are the general counsel of a 1,500-person professional-services firm.',
       stakes: 'Last month a consultant pasted a client’s draft contract into a public chatbot. The client found out. The managing partner wants it never to happen again.',
       task: 'Decide how the firm governs AI use — without pretending people will stop using it.',
@@ -195,6 +205,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: 'AI 治理与合规',
+      who: '法务总监',
+      ask: '员工把客户数据贴进 AI，怎么办？',
       role: '你是一家 1,500 人专业服务公司的法务总监。',
       stakes: '上个月，一位顾问把客户的合同草稿粘进了公共 AI 聊天工具。客户知道了。管理合伙人的要求只有一句：绝不能再发生。',
       task: '决定公司该怎样管 AI 的使用——而不是假装大家会停下来不用。',
@@ -232,6 +244,8 @@ export const SCENARIOS = [
     id: 'roi',
     en: {
       tab: 'AI return on investment',
+      who: 'CFO',
+      ask: 'Did our AI spending pay off?',
       role: 'You are the CFO of an 800-person logistics company.',
       stakes: 'The company spent $1.2M on AI tools last year. The board asks what it got back — and every vendor dashboard says “great.”',
       task: 'Find out what the AI spending actually returned, and what to renew.',
@@ -264,6 +278,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: 'AI 投入回报',
+      who: '财务总监',
+      ask: 'AI 上花的钱，换回了什么？',
       role: '你是一家 800 人物流公司的财务总监。',
       stakes: '公司去年在 AI 工具上花了 900 万元。董事会问：换回来了什么？而每家供应商的后台都说“效果很好”。',
       task: '弄清楚 AI 上花的钱到底换回了什么，以及哪些该续费。',
@@ -296,72 +312,76 @@ export const SCENARIOS = [
     },
   },
 
-  /* ---- AI transformation strategy ---------------------------------------- */
+  /* ---- AI transformation strategy: pilots that never leave the lab ------- */
   {
     id: 'strategy',
     en: {
       tab: 'AI transformation strategy',
+      who: 'COO',
+      ask: 'Dozens of pilots. Which do we scale?',
       role: 'You are the COO of a 600-person services firm.',
-      stakes: 'Every function wants an AI budget. You can fund three — and you have to explain the other no’s.',
-      task: 'Pick the three workflows to change with AI first.',
+      stakes: 'Eighteen months of AI pilots: 23 started, 2 in production. The board has stopped asking what you are testing and started asking what it changed.',
+      task: 'Decide which pilots to scale, which to stop — and why the rest never left the lab.',
       sources: [
-        { who: 'Process inventory', text: '38 recurring workflows across legal, finance, support and sales.' },
-        { who: 'Legal · time log', text: 'First-pass contract review: six hours each, about forty contracts a month.' },
-        { who: 'Finance · time log', text: 'The monthly variance report takes three analysts two days.' },
-        { who: 'Policy · approvals', text: 'Any refund over $500 needs a named human approver.' },
-        { who: 'Support · ticket study', text: '70% of first-line tickets are answered from the help center.' },
+        { who: 'Pilot register', text: '23 AI pilots started in 18 months. 2 are in production.' },
+        { who: 'Pilot reviews', text: '19 of the 23 were judged on how good the demo looked. 4 had a business measure agreed before they began.' },
+        { who: 'Legal · contract review pilot', text: 'First-pass review of 40 contracts fell from six hours each to two. Every finding was checked against its clause.' },
+        { who: 'Finance · variance report pilot', text: 'It worked in the pilot and never reached the monthly close: nobody owned changing the process.' },
+        { who: 'Survey · 14 pilot teams', text: '11 of 14 say the pilot tool sat beside the old process instead of replacing a step in it.' },
       ],
       steps: [
-        { agent: 'Inventory agent', did: 'Scored all 38 workflows on four conditions: digital inputs, clear steps, checkable output, and a place for a human to sign off.', uses: [0] },
-        { agent: 'Workload analyst', did: 'Ranked the ones that pass by how much work they carry each month.', uses: [1, 2, 4] },
-        { agent: 'Risk agent', did: 'Marked where policy requires a named person to decide.', uses: [3, 4] },
-        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the answer that would have pleased every function.', uses: [] },
+        { agent: 'Portfolio analyst', did: 'Sorted all 23 pilots by what they were judged on.', uses: [0, 1] },
+        { agent: 'Workflow analyst', did: 'Checked which pilots replaced a step of real work, and which ran beside it.', uses: [4, 3] },
+        { agent: 'Value analyst', did: 'Kept only results measured in the business’s own terms.', uses: [2, 1] },
+        { agent: 'Reviewer', did: 'Checked every claim against the sources. Withdrew the fix that feels like momentum.', uses: [] },
       ],
-      headline: 'Fund contract review, the variance report and support drafts — repeatable, checkable work where a person still signs off.',
+      headline: 'The pilots did not fail on the technology. Nothing was measured and no process changed. Scale the one that did both; pause the rest until they can.',
       claims: [
-        { text: 'First: contract review — 240 hours a month of first-pass reading today.', cites: [1], ok: true,
-          why: 'Six hours × forty contracts = 240 hours, and every finding can be checked against the contract.' },
-        { text: 'Second: the monthly variance report.', cites: [2], ok: true,
-          why: 'Three analysts for two days, the same steps every month, numbers anyone can re-add.' },
-        { text: 'Third: first-line support drafts, sent after a person reads them.', cites: [4, 3], ok: true,
-          why: '70% of answers already exist in the help center, and a named person still approves any refund over $500.' },
-        { text: 'Give every function a small AI budget.', cites: [0], ok: false,
-          why: 'It treats all 38 workflows as equal. Spread that thin, nothing changes — and the sources support three.' },
+        { text: 'Most of the pilots could never have scaled: they were judged on the demo.', cites: [1, 0], ok: true,
+          why: '19 of 23 were judged on how the demo looked, and 2 of 23 reached production.' },
+        { text: 'Scale contract review: it has a business measure and replaced a real step.', cites: [2], ok: true,
+          why: 'Review went from six hours to two, and every finding was checked against its clause.' },
+        { text: 'Before scaling anything else, give each pilot an owner for the process change.', cites: [3, 4], ok: true,
+          why: 'The variance report worked and stalled with no owner; 11 of 14 teams ran the tool beside the old process.' },
+        { text: 'Launch ten new pilots to find the winners faster.', cites: [0, 1], ok: false,
+          why: '23 pilots produced 2 in production. More pilots judged the same way produce more demos, not more change.' },
       ],
-      so: 'You fund three workflows with numbers behind them — and every “not yet” comes with a reason.',
-      yours: 'Run this on your own process list and time logs.',
+      so: 'You tell the board what changed, what stops, and what has to be true before the next pilot starts.',
+      yours: 'Run this on your own pilot list and reviews.',
     },
     zh: {
       tab: 'AI 转型战略',
+      who: '运营副总',
+      ask: '试点一大堆，哪几个该放大？',
       role: '你是一家 600 人服务公司的运营副总。',
-      stakes: '每个部门都在要 AI 预算。你只能批三个——还得给没批的部门一个交代。',
-      task: '选出最先用 AI 改造的三个工作流程。',
+      stakes: '十八个月里做了 23 个 AI 试点，真正上线的只有 2 个。董事会已经不问你在试什么，而是问：到底改变了什么？',
+      task: '决定哪些试点放大、哪些叫停——以及其余的为什么始终没走出实验室。',
       sources: [
-        { who: '流程清单', text: '法务、财务、客服、销售共 38 个重复性工作流程。' },
-        { who: '法务 · 工时记录', text: '合同初审每份六小时，每月约四十份。' },
-        { who: '财务 · 工时记录', text: '月度差异分析报告要三名分析师做两天。' },
-        { who: '制度 · 审批规则', text: '超过 5,000 元的退款，必须由指定审批人签字。' },
-        { who: '客服 · 工单研究', text: '70% 的一线工单，答案在帮助中心里就有。' },
+        { who: '试点台账', text: '十八个月启动了 23 个 AI 试点；上线的有 2 个。' },
+        { who: '试点评审', text: '23 个里有 19 个按演示效果评审；只有 4 个在启动前定好了业务指标。' },
+        { who: '法务 · 合同初审试点', text: '40 份合同的初审时间，从每份六小时降到两小时；每条审查意见都对着条款核对过。' },
+        { who: '财务 · 差异报告试点', text: '试点里跑通了，却一直没进入月结：没人负责改流程。' },
+        { who: '调研 · 14 个试点团队', text: '14 个团队里有 11 个说：试点工具摆在老流程旁边，没有替换掉其中任何一步。' },
       ],
       steps: [
-        { agent: '流程盘点员', did: '按四个条件给 38 个流程打分：输入已电子化、步骤拆得开、结果能核对、留有人工签字环节。', uses: [0] },
-        { agent: '工作量分析员', did: '把通过的流程，按每月的工作量排序。', uses: [1, 2, 4] },
-        { agent: '风险核查员', did: '标出制度要求必须由指定的人做决定的地方。', uses: [3, 4] },
-        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那个能让每个部门都满意的答案。', uses: [] },
+        { agent: '组合分析员', did: '把 23 个试点按“拿什么来评”分了类。', uses: [0, 1] },
+        { agent: '流程分析员', did: '核对哪些试点真的替换了实际工作里的一步，哪些只是摆在旁边。', uses: [4, 3] },
+        { agent: '价值分析员', did: '只保留用业务自己的指标量出来的结果。', uses: [2, 1] },
+        { agent: '审核员', did: '逐条对照来源核验结论，撤回了那个看起来很有干劲的办法。', uses: [] },
       ],
-      headline: '先投合同初审、月度差异报告和客服回复初稿——重复、能核对、并且仍有人签字。',
+      headline: '试点不是输在技术上，而是没定指标、没改流程。放大那个两样都做到的，其余的先停下，等条件具备再说。',
       claims: [
-        { text: '第一个：合同初审——现在每月光初读就要 240 小时。', cites: [1], ok: true,
-          why: '六小时 × 四十份 = 240 小时；每条审查意见都能对着合同核对。' },
-        { text: '第二个：月度差异分析报告。', cites: [2], ok: true,
-          why: '三名分析师做两天，每月步骤相同，数字谁都能复核。' },
-        { text: '第三个：一线客服回复先出初稿，人读过再发出。', cites: [4, 3], ok: true,
-          why: '70% 的答案帮助中心里已经有；超过 5,000 元的退款，仍由指定审批人签字。' },
-        { text: '每个部门都给一点 AI 预算。', cites: [0], ok: false,
-          why: '它把 38 个流程一视同仁。撒胡椒面，哪儿都见不到效果——而来源只支撑三个。' },
+        { text: '大多数试点本来就放大不了：它们是按演示效果评的。', cites: [1, 0], ok: true,
+          why: '23 个里有 19 个按演示效果评审；23 个里只有 2 个上线。' },
+        { text: '放大合同初审：它有业务指标，也真的替换了一步工作。', cites: [2], ok: true,
+          why: '初审从六小时降到两小时，每条意见都对着条款核对过。' },
+        { text: '放大其他试点之前，先给每个试点指定一位负责改流程的人。', cites: [3, 4], ok: true,
+          why: '差异报告跑通了，却因为没人负责而卡住；14 个团队里有 11 个把工具摆在老流程旁边。' },
+        { text: '再启动十个新试点，更快找到赢家。', cites: [0, 1], ok: false,
+          why: '23 个试点只上线了 2 个。按同样的方式再评十个，得到的是更多演示，而不是更多改变。' },
       ],
-      so: '你批出的三个流程都有数字撑腰；每一个“先不做”，也都说得出理由。',
-      yours: '用你自己的流程清单和工时记录跑一遍。',
+      so: '你告诉董事会：改变了什么、停掉什么、下一个试点开始之前必须先满足什么。',
+      yours: '用你自己的试点台账和评审记录跑一遍。',
     },
   },
 
@@ -370,6 +390,8 @@ export const SCENARIOS = [
     id: 'service',
     en: {
       tab: 'Customer operations',
+      who: 'Head of service',
+      ask: 'Where should AI answer customers — and where not?',
       role: 'You run customer service for a mid-sized insurer.',
       stakes: 'Contacts are up a third this year, headcount is frozen, and you owe the CEO an AI plan by Friday.',
       task: 'Decide where AI should handle customer contacts — and where it must not.',
@@ -402,6 +424,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '客户运营重塑',
+      who: '客服负责人',
+      ask: '哪些客户问题交给 AI，哪些不能？',
       role: '你负责一家中型保险公司的客户服务。',
       stakes: '今年进线量涨了三分之一，编制冻结，老板要你周五前拿出 AI 方案。',
       task: '决定哪些客户来电与咨询交给 AI——以及哪些绝不能交。',
@@ -439,6 +463,8 @@ export const SCENARIOS = [
     id: 'expertise',
     en: {
       tab: 'Frontline expertise',
+      who: 'Plant manager',
+      ask: 'My best technicians retire soon. What leaves with them?',
       role: 'You run a plant that makes precision parts — 450 people.',
       stakes: 'Eleven of your most senior technicians retire within three years. When a line stops at 2 a.m., they are the ones who get the call.',
       task: 'Keep what the senior technicians know before it walks out the door.',
@@ -471,6 +497,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '老师傅经验传承',
+      who: '厂长',
+      ask: '老师傅要退休了，本事怎么留下？',
       role: '你负责一家精密零部件工厂，450 人。',
       stakes: '最资深的 11 位老师傅，三年内陆续退休。凌晨两点产线一停，被叫起来的总是他们。',
       task: '趁老师傅还在，把他们脑子里的本事留下来。',
@@ -508,6 +536,8 @@ export const SCENARIOS = [
     id: 'native',
     en: {
       tab: 'AI-native enterprise path',
+      who: 'CEO',
+      ask: 'The board asks what AI has done for us.',
       role: 'You are the CEO of a 200-person company.',
       stakes: 'Your people already use AI on their own. The board asks what it has done for the company — and you have no answer.',
       task: 'Draft an eighteen-month path to AI-native.',
@@ -540,6 +570,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: 'AI 原生企业路径',
+      who: '老板',
+      ask: '董事会问：AI 到底给公司带来了什么？',
       role: '你是一家 200 人公司的老板。',
       stakes: '员工早就在私下用 AI 了。董事会问：这给公司带来了什么？你答不上来。',
       task: '起草一份十八个月的 AI 原生落地路线图。',
@@ -577,6 +609,8 @@ export const SCENARIOS = [
     id: 'design',
     en: {
       tab: 'Design thinking',
+      who: 'Head of product',
+      ask: 'Which problem deserves our one bet?',
       role: 'You lead product for an expense-management tool.',
       stakes: 'Churn is creeping up, the roadmap has forty requests on it, and you get one bet this quarter.',
       task: 'Find the problem worth solving in twelve customer interviews about expense reporting.',
@@ -609,6 +643,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '设计思维',
+      who: '产品负责人',
+      ask: '这个季度唯一的赌注，押哪个问题？',
       role: '你是一款报销管理工具的产品负责人。',
       stakes: '客户流失在慢慢上升，路线图上压着四十个需求，这个季度你只能押一个。',
       task: '从十二次报销流程的客户访谈里，找出真正值得解决的那个问题。',
@@ -646,6 +682,8 @@ export const SCENARIOS = [
     id: 'innovation',
     en: {
       tab: 'Innovation',
+      who: 'Innovation lead',
+      ask: 'Three ideas, budget for one.',
       role: 'You run the innovation team at a legal-software company.',
       stakes: 'Three ideas, budget for one, and the executive committee wants a decision in two weeks.',
       task: 'Choose one of three new product ideas for a four-week experiment.',
@@ -678,6 +716,8 @@ export const SCENARIOS = [
     },
     zh: {
       tab: '创新',
+      who: '创新负责人',
+      ask: '三个点子，只够做一个。',
       role: '你负责一家法律软件公司的创新团队。',
       stakes: '三个点子，只有一份预算；管委会两周后要结论。',
       task: '从三个新产品点子里选一个，做为期四周的实验。',
@@ -766,7 +806,7 @@ export function initDemo(host) {
   const buttons = SCENARIOS.map((s, i) => el('button', {
     class: 'demo__tab', type: 'button', role: 'tab', id: `demo-tab-${s.id}`,
     'aria-controls': 'demo-panel', 'aria-selected': 'false', tabindex: '-1',
-    'data-scenario': s.id, text: s[lang].tab,
+    'data-scenario': s.id,
     onclick: () => select(i, false, true),
     onkeydown: (e) => {
       const n = SCENARIOS.length;
@@ -775,7 +815,12 @@ export function initDemo(host) {
       e.preventDefault();
       select((to + n) % n, true);
     },
-  }));
+  },
+  /* A card per reader, not a list of topics: the role and the question that
+     keeps that person up, so a visitor finds themselves before they read a
+     word of the scenario. The topic name moves to the situation heading. */
+  el('span', { class: 'demo__tabwho', text: s[lang].who }),
+  el('span', { class: 'demo__tabask', text: s[lang].ask })));
   tabs.append(...buttons);
   panel.id = 'demo-panel';
 
@@ -859,6 +904,7 @@ export function initDemo(host) {
         check);
     };
 
+    let startedAt = 0;
     function finish() {
       mark([]);
       claims.replaceChildren(...s.claims.map(claimItem));
@@ -867,10 +913,23 @@ export function initDemo(host) {
       status.textContent = ui.done;
       run.textContent = ui.rerun;
       run.disabled = false;
+      /* The withdrawal is the moment the demo exists for, and it sat behind
+         a second click. It opens by itself; the verified claims wait to be
+         doubted. Readers in round 71 found the answer after the fact, if at
+         all: on a phone it lands a screen and a half below the button. If
+         they have not scrolled since pressing it, bring the answer to them. */
+      claims.querySelector('.is-withdrawn .demo__doubt')?.click();
+      if (Math.abs(window.scrollY - startedAt) < 4) {
+        const top = result.getBoundingClientRect().top;
+        if (top > window.innerHeight * 0.6) {
+          window.scrollTo({ top: window.scrollY + top - window.innerHeight * 0.2, behavior: still() ? 'auto' : 'smooth' });
+        }
+      }
     }
 
     function start() {
       stop();
+      startedAt = window.scrollY;
       idle.hidden = true;
       log.replaceChildren();
       claims.replaceChildren();
@@ -909,7 +968,7 @@ export function initDemo(host) {
     panel.replaceChildren(
       el('div', { class: 'demo__head' },
         el('div', { class: 'demo__who-am-i' },
-          el('p', { class: 'demo__kicker', text: ui.situation }),
+          el('p', { class: 'demo__kicker', text: `${ui.situation} · ${s.tab}` }),
           el('p', { class: 'demo__situation' }, el('strong', { text: s.role }), ' ', s.stakes)),
         el('div', { class: 'demo__ask' },
           el('p', { class: 'demo__kicker', text: ui.task }),

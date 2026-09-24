@@ -56,8 +56,10 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     await mount(page);
     r.equal(fetched.length, 1, 'demo.js requests after scrolling to it');
 
-    const tabs = await page.$$eval('.demo__tab', (ts) => ts.map((t) => t.textContent));
-    r.equal(tabs.join('|'), SCENARIOS.map((s) => s[lang].tab).join('|'), 'scenario tabs');
+    /* Each card names a reader and their question, in the order the data
+       gives; the topic name is carried by the situation heading instead. */
+    const tabs = await page.$$eval('.demo__tab', (ts) => ts.map((t) => `${t.dataset.scenario}:${t.querySelector('.demo__tabwho')?.textContent}:${t.querySelector('.demo__tabask')?.textContent}`));
+    r.equal(tabs.join('|'), SCENARIOS.map((s) => `${s.id}:${s[lang].who}:${s[lang].ask}`).join('|'), 'scenario cards');
     r.check(await page.$eval('.demo__note', (n) => n.offsetHeight > 0), 'the "scripted demo" note is not visible');
 
     await page.focus('.demo__tab[aria-selected="true"]');
@@ -92,7 +94,9 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
         const want = d.claims[i];
         r.check(c.ok === want.ok && c.struck === !want.ok, `${s.id}: claim ${i + 1} verdict ${c.ok}/struck ${c.struck}`);
         r.equal(c.cites.join(','), want.cites.map((n) => `S${n + 1}`).join(','), `${s.id}: claim ${i + 1} citations`);
-        r.check(!c.checkOpen, `${s.id}: claim ${i + 1}'s check is open before anyone asked`);
+        /* Verified claims wait to be doubted; the withdrawn one opens by
+           itself — it is the point of the run. */
+        r.check(c.checkOpen === !want.ok, `${s.id}: claim ${i + 1}'s check is ${c.checkOpen ? 'open' : 'closed'} (${want.ok ? 'verified — should wait to be asked' : 'withdrawn — should open by itself'})`);
       });
 
       /* Doubt the first verified claim: its check opens, quoting exactly its

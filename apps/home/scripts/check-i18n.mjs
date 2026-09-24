@@ -133,7 +133,7 @@ for (const s of demo.SCENARIOS) {
     const refs = [...v.claims.flatMap((c) => c.cites), ...v.steps.flatMap((st) => st.uses)];
     refs.filter((r) => !v.sources[r]).forEach((r) => demoProblems.push(`${s.id} [${lang}]: cites S${r + 1}, which does not exist`));
     if (!v.claims.some((c) => !c.ok)) demoProblems.push(`${s.id} [${lang}]: no withdrawn claim — the demo has nothing to show`);
-    const strings = [v.tab, v.role, v.stakes, v.task, v.headline, v.so, v.yours, ...v.sources.flatMap((x) => [x.who, x.text]), ...v.steps.flatMap((x) => [x.agent, x.did]), ...v.claims.flatMap((x) => [x.text, x.why])];
+    const strings = [v.tab, v.who, v.ask, v.role, v.stakes, v.task, v.headline, v.so, v.yours, ...v.sources.flatMap((x) => [x.who, x.text]), ...v.steps.flatMap((x) => [x.agent, x.did]), ...v.claims.flatMap((x) => [x.text, x.why])];
     strings.filter((x) => !String(x ?? '').trim()).forEach(() => demoProblems.push(`${s.id} [${lang}]: an empty string`));
     /* Every number the answer states must come from somewhere on the page:
        a source, the brief, or arithmetic written out in the same line
