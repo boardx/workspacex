@@ -88,7 +88,7 @@ describe("F13: 回答下方的记忆引用", () => {
       "SELECT id, name FROM ontology_objects WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 LIMIT 1", [ORG, fx.A]);
     await asOwner((c) => c.query("UPDATE claims SET statement = 'SECRET-OTHER-THREAD' WHERE id = $1", [other!.id]));
     await asOwner((c) => c.query("UPDATE ontology_objects SET name = 'SECRET-OBJ' WHERE id = $1", [otherObj!.id]));
-    const [{ items }] = await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-s'");
+    const items = (await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-s'"))[0]!.items;
     const own = items[0]!;
     const forged = [
       { ...own, graphPath: [{ src: `object:${otherObj!.id}`, relation: "about", dst: `claim:${own.claimId}` }] },
@@ -122,7 +122,7 @@ describe("F13: 回答下方的记忆引用", () => {
   });
 
   it("按记录里的名次返回（不重排）", async () => {
-    const [{ items }] = await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-b'");
+    const items = (await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-b'"))[0]!.items;
     const [second] = await sqlRows<{ id: string }>(
       "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND revoked_at IS NULL AND id <> $2 LIMIT 1", [ORG, items[0]!.claimId]);
     if (second === undefined) {
