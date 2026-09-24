@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MoreHorizontal, Check, Pencil, Trash2, GitBranch } from "lucide-react";
+import { MoreHorizontal, Check, Pencil, Trash2, GitBranch, BookmarkPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +21,8 @@ import type { ClaimDialogKind } from "./claim-action-dialog";
  * - 对「有矛盾」的一条点「确认」被禁用并解释（uc-18-3 E3 → KG_CONTESTED_NEEDS_RESOLUTION）。
  * - 需要输入的动作只负责打开对应对话框（`ClaimActionDialog`，由列表持有），不在菜单里提交。
  * - 这一条没关联人和事时，合并 / 拆分 / 改名禁用。
+ * - F11：`onPromote` 传了（服务端 `canPromote=true` 且有通路）才画「记到我的长期记忆」。对「AI 记下的」
+ *   一条点它本身就算确认（U-3），菜单里写明；有矛盾的禁用（服务端也会拒 KG_CONTESTED_NEEDS_RESOLUTION）。
  */
 export function ClaimEditMenu({
   claim,
@@ -28,12 +30,14 @@ export function ClaimEditMenu({
   hasObjects,
   onConfirm,
   onOpenDialog,
+  onPromote,
 }: {
   claim: KgClaim;
   canEdit: boolean;
   hasObjects: boolean;
   onConfirm?: () => void;
   onOpenDialog?: (kind: ClaimDialogKind) => void;
+  onPromote?: () => void;
 }) {
   if (!canEdit) return null;
 
@@ -68,6 +72,23 @@ export function ClaimEditMenu({
           <p className="px-2 py-1 text-10 text-muted-foreground" data-testid={`kg-confirm-blocked-${claim.id}`}>
             有矛盾的记忆要先选保留哪条才能确认
           </p>
+        ) : null}
+        {onPromote ? (
+          <>
+            <DropdownMenuItem
+              disabled={isConflict}
+              data-testid={`kg-action-promote-${claim.id}`}
+              onSelect={() => onPromote()}
+            >
+              <BookmarkPlus aria-hidden className="mr-2 h-3.5 w-3.5" />
+              记到我的长期记忆
+            </DropdownMenuItem>
+            {!isConflict && !isConfirmed ? (
+              <p className="px-2 pb-1 text-10 text-muted-foreground" data-testid={`kg-promote-confirms-${claim.id}`}>
+                记下后即视为你确认过
+              </p>
+            ) : null}
+          </>
         ) : null}
         <DropdownMenuItem data-testid={`kg-action-revise-${claim.id}`} onSelect={() => open("revise")}>
           <Pencil aria-hidden className="mr-2 h-3.5 w-3.5" />
