@@ -56,9 +56,12 @@ test('live Board core editing is keyboard operable and restores focus',async({br
     await owner.getByTestId('board-discussion-toggle').focus();await owner.keyboard.press('Enter');await expect(owner.getByRole('heading',{name:'评论与任务'})).toBeFocused();
     const panelAxe=await new AxeBuilder({page:owner}).withTags(['cat.keyboard']).analyze();expect(panelAxe.violations,JSON.stringify(panelAxe.violations,null,2)).toEqual([]);
     await owner.keyboard.press('Escape');await expect(owner.getByTestId('board-discussion-toggle')).toBeFocused();
-    const importInput=owner.getByTestId('board-import-file');await importInput.setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+    const importTrigger=owner.getByTestId('board-import-trigger');await importTrigger.focus();await expect(importTrigger).toBeFocused();
+    const importFocusStyle=await importTrigger.evaluate(element=>getComputedStyle(element).boxShadow);expect(importFocusStyle).not.toBe('none');
+    const fileChooserPromise=owner.waitForEvent('filechooser');await owner.keyboard.press('Enter');const fileChooser=await fileChooserPromise;
+    await fileChooser.setFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{}')});
     await expect(owner.getByRole('dialog')).toBeVisible();const dialogAxe=await new AxeBuilder({page:owner}).withTags(['cat.keyboard']).analyze();expect(dialogAxe.violations,JSON.stringify(dialogAxe.violations,null,2)).toEqual([]);
-    await owner.keyboard.press('Escape');await expect(importInput).toBeFocused();
+    await owner.keyboard.press('Escape');await expect(importTrigger).toBeFocused();await expect(owner.getByTestId('board-import-file')).not.toBeFocused();
     const axe=await new AxeBuilder({page:owner}).withTags(['cat.keyboard']).analyze();expect(axe.violations,JSON.stringify(axe.violations,null,2)).toEqual([]);
 
     await viewer.goto(`/studio/board/${boardId}`);await synced(viewer);const viewerCanvas=viewer.getByTestId('board-live-surface');await viewerCanvas.focus();await viewer.keyboard.press('Enter');

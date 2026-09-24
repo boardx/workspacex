@@ -17,7 +17,7 @@ function make(kind: WhiteboardObject['kind'], x: number, y: number): WhiteboardO
 }
 export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, followViewport, onViewportChange, workshop }: CollaborativeEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
-  const [selected, setSelected] = useState<string[]>([]), [tool, setTool] = useState<'select'|'connect'|'draw'|'pan'>('select');
+  const [selectedState, setSelected] = useState<string[]>([]), [tool, setTool] = useState<'select'|'connect'|'draw'|'pan'>('select');
   const [zoom, setZoom] = useState(1), [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 1280, height: 720 });
   const [notice, setNotice] = useState(''), [gesture, setGesture] = useState<Gesture | null>(null);
@@ -27,12 +27,28 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const composition = useRef<{ id: string; before: string } | null>(null), [draft, setDraft] = useState<string | null>(null);
   const cursor = useRef<Point | null>(null);
+  const selectableIds = new Set(model.objects.filter(item => item.kind !== 'connector').map(item => item.id));
+  const selected = selectedState.filter(id => selectableIds.has(id));
+  const effectiveActiveId = activeId && selectableIds.has(activeId) ? activeId : null;
   useEffect(()=>{if(followViewport){setOffset({x:followViewport.x,y:followViewport.y});setZoom(followViewport.zoom);}},[followViewport]);
   useEffect(()=>{onViewportChange?.({x:offset.x,y:offset.y,zoom});},[offset.x,offset.y,zoom,onViewportChange]);
-  useEffect(() => { onSelectionChange?.(selected); onAwareness?.(cursor.current, selected); }, [selected, onSelectionChange, onAwareness]);
   useEffect(() => {
-    if (activeId && !model.objects.some(item => item.id === activeId && item.kind !== 'connector')) setActiveId(null);
-  }, [activeId, model.objects]);
+    const currentIds = new Set(model.objects.filter(item => item.kind !== 'connector').map(item => item.id));
+    const currentSelection = selectedState.filter(id => currentIds.has(id));
+    onSelectionChange?.(currentSelection);
+    onAwareness?.(cursor.current, currentSelection);
+  }, [selectedState, model.objects, onSelectionChange, onAwareness]);
+  useEffect(() => {
+    const currentIds = new Set(model.objects.filter(item => item.kind !== 'connector').map(item => item.id));
+    const currentSelection = selectedState.filter(id => currentIds.has(id));
+    const selectionChanged = currentSelection.length !== selectedState.length;
+    const activeWasRemoved = activeId !== null && !currentIds.has(activeId);
+    if (!selectionChanged && !activeWasRemoved) return;
+    if (selectionChanged) setSelected(currentSelection);
+    if (activeWasRemoved) setActiveId(nextBoardObject(model.objects, null, 'ArrowRight')?.id ?? null);
+    const removedCount = selectedState.length - currentSelection.length;
+    setNotice(removedCount > 0 ? `协作者删除了 ${removedCount} 个已选对象。${currentSelection.length} 个已选对象` : '当前对象已由协作者删除。');
+  }, [activeId, model.objects, selectedState]);
   useEffect(() => {
     const element = surface.current; if (!element) return;
     const measure = () => setViewportSize({ width: Math.max(1, element.clientWidth), height: Math.max(1, element.clientHeight) });
@@ -84,15 +100,15 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
       return;
     }
     if (direction) {
-      event.preventDefault(); const next = nextBoardObject(displayed, activeId, direction);
+      event.preventDefault(); const next = nextBoardObject(displayed, effectiveActiveId, direction);
       if (next) { setActiveId(next.id); setNotice(`当前对象：${boardObjectLabel(next)}`); }
       else setNotice('画布中没有可导航对象。');
       return;
     }
-    if (event.key === 'Enter' && activeId && selected.length === 1 && selected[0] === activeId && object && !readOnly && !['connector','drawing'].includes(object.kind)) {
-      event.preventDefault(); textEditor.current?.focus(); setNotice(`正在编辑${named(activeId)}`); return;
+    if (event.key === 'Enter' && effectiveActiveId && selected.length === 1 && selected[0] === effectiveActiveId && object && !readOnly && !['connector','drawing'].includes(object.kind)) {
+      event.preventDefault(); textEditor.current?.focus(); setNotice(`正在编辑${named(effectiveActiveId)}`); return;
     }
-    if ((event.key === ' ' || event.key === 'Enter') && activeId) { event.preventDefault(); choose(activeId, event.shiftKey && event.key === ' '); return; }
+    if ((event.key === ' ' || event.key === 'Enter') && effectiveActiveId) { event.preventDefault(); choose(effectiveActiveId, event.shiftKey && event.key === ' '); return; }
     if (event.key === 'Escape' && tool === 'connect') { event.preventDefault(); setTool('select'); setSelected([]); setNotice('已取消连接'); focusCanvas(); return; }
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelection(); return; }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); undo(); return; }
@@ -165,9 +181,9 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
       <Button onClick={()=>setZoom(z=>{const next=Math.max(.2,z-.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>缩小</Button><span aria-hidden="true" className="p-2 text-12">{Math.round(zoom*100)}%</span><Button onClick={()=>setZoom(z=>{const next=Math.min(2,z+.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>放大</Button>
     </div>
     <div className="relative min-h-0 flex-1 overflow-hidden">
-      <div ref={surface} tabIndex={0} role="application" aria-label="白板画布。使用方向键导航对象，Enter 或空格选择，Shift 加空格多选，Control 或 Command 加方向键移动。" aria-activedescendant={activeId ? `board-a11y-object-${activeId}` : undefined} data-testid="board-live-surface" className="absolute inset-0 touch-none overflow-hidden bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onFocus={() => { const next=nextBoardObject(displayed,activeId,'ArrowRight');if(next&&!activeId){setActiveId(next.id);setNotice(`当前对象：${boardObjectLabel(next)}`);} }} onKeyDown={canvasKeyDown} onPointerDown={e=>down(e)} onPointerMove={move} onPointerLeave={() => { cursor.current=null; onAwareness?.(null,selected); }} onPointerUp={finish} onPointerCancel={()=>setGesture(null)}>
+      <div ref={surface} tabIndex={0} role="application" aria-label="白板画布。使用方向键导航对象，Enter 或空格选择，Shift 加空格多选，Control 或 Command 加方向键移动。" aria-activedescendant={effectiveActiveId ? `board-a11y-object-${effectiveActiveId}` : undefined} data-testid="board-live-surface" className="absolute inset-0 touch-none overflow-hidden bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onFocus={() => { const next=nextBoardObject(displayed,effectiveActiveId,'ArrowRight');if(next&&!effectiveActiveId){setActiveId(next.id);setNotice(`当前对象：${boardObjectLabel(next)}`);} }} onKeyDown={canvasKeyDown} onPointerDown={e=>down(e)} onPointerMove={move} onPointerLeave={() => { cursor.current=null; onAwareness?.(null,selected); }} onPointerUp={finish} onPointerCancel={()=>setGesture(null)}>
         <div className="absolute inset-0 origin-top-left" style={{transform:`translate(${offset.x}px,${offset.y}px) scale(${zoom})`}}>
-          <WhiteboardRenderer objects={displayed} selected={selected} activeId={activeId} viewport={viewport} onPointerDown={down}/>
+          <WhiteboardRenderer objects={displayed} selected={selected} activeId={effectiveActiveId} viewport={viewport} onPointerDown={down}/>
           {peers.filter(peer=>peer.actorId!==currentUserId).map(peer=><div key={peer.actorId} className="pointer-events-none">
             {peer.selected.map(id=>{const selectedObject=model.objects.find(item=>item.id===id);if(!selectedObject)return null;const g=selectedObject.geometry;return <div key={id} data-testid={`peer-selection-${peer.actorId}-${id}`} className="absolute rounded-control border-2 border-dashed border-primary" style={{left:g.x,top:g.y,width:g.width,height:g.height,transform:`rotate(${g.rotation}deg)`}}/>;})}
             {peer.cursor&&<div data-testid={`peer-cursor-${peer.actorId}`} className="absolute text-primary" style={{left:peer.cursor.x,top:peer.cursor.y}}><span aria-hidden="true">↖</span><span className="rounded-control bg-primary px-1 text-11 text-primary-foreground">{peer.actorId}</span></div>}

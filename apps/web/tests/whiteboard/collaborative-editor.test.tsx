@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
@@ -158,5 +158,30 @@ it('keeps the canvas focused after keyboard cancellation and deletion, and lets 
   fireEvent.keyDown(viewerCanvas,{key:'ArrowRight',ctrlKey:true});
   expect(readObjects(doc)[0]!.geometry.x).toBe(before);
   expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('只读');
+  doc.destroy();
+});
+
+it('clears selection and repairs the active descendant when a collaborator deletes the active object', () => {
+  const doc=createWhiteboardDocument(), awareness=vi.fn(), geometry={x:10,y:20,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'active',schemaVersion:1,kind:'sticky',geometry,text:'将被远端删除',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'next',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:240},text:'保留对象',style:{},parentId:null,orderKey:'b'}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步" onAwareness={awareness}/>);
+  const canvas=screen.getByTestId('board-live-surface');canvas.focus();fireEvent.focus(canvas);fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-active');
+  expect(screen.getByTestId('board-object-active')).toHaveAttribute('aria-pressed','true');
+  expect(screen.getByRole('button',{name:'删除选中'})).toBeEnabled();
+
+  act(()=>executeCommands(doc,[{type:'delete',id:'active'}],'remote-client'));
+
+  expect(canvas).toHaveFocus();
+  expect(screen.queryByTestId('board-object-active')).not.toBeInTheDocument();
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-next');
+  expect(screen.getByTestId('board-object-next')).toHaveAttribute('aria-pressed','false');
+  expect(screen.getByRole('button',{name:'复制'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'删除选中'})).toBeDisabled();
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('协作者删除了 1 个已选对象。0 个已选对象');
+  expect(awareness).toHaveBeenLastCalledWith(null,[]);
   doc.destroy();
 });

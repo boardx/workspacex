@@ -56,7 +56,8 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const [error, setError] = useState('');
   const [transferring, setTransferring] = useState(false);
   const exportTrigger = useRef<HTMLButtonElement>(null);
-  const importTrigger = useRef<HTMLInputElement>(null);
+  const importTrigger = useRef<HTMLButtonElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
   const download = async () => {
@@ -138,10 +139,11 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const losses = external ? lossCategories(external.losses) : [];
   return <>
     <Button ref={exportTrigger} data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => { returnFocus.current=exportTrigger.current; void download(); }}>导出</Button>
-    <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
-      <span>导入副本</span>
-      <input ref={importTrigger} aria-label="导入白板副本" data-testid="board-import-file" className="sr-only" type="file" accept="application/json,.json" onChange={event => { returnFocus.current=importTrigger.current; void chooseImport(event.target.files?.[0]); }}/>
-    </label>
+    <Button ref={importTrigger} data-testid="board-import-trigger" size="sm" variant="outline" onClick={() => {
+      returnFocus.current=importTrigger.current;
+      importInput.current?.click();
+    }}>导入副本</Button>
+    <input ref={importInput} aria-label="导入白板副本文件" data-testid="board-import-file" className="hidden" tabIndex={-1} type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent onCloseAutoFocus={event=>{event.preventDefault();returnFocus.current?.focus();}}>
         <DialogTitle>导入为新的白板副本</DialogTitle>
