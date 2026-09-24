@@ -63,6 +63,9 @@ export async function getPersonalKnowledge(
 
 type Overview = z.infer<typeof KG.knowledgeGraph.getBrainOverview.out>;
 
+/** 概况页最多扫描的候选批数（每批 KG_BRAIN_THREADS_LIMIT 个会话）。 */
+export const BRAIN_MAX_CANDIDATE_BATCHES = 20;
+
 export async function getBrainOverview(deps: KnowledgeReadDeps, input: Viewer): Promise<Overview> {
   // 同一个会话只判一次：概况行与来源行经常指向同一批会话。
   const verdicts = new Map<string, Promise<{ base: PermissionDecision; title: string; lastActivityAt: string } | null>>();
@@ -93,8 +96,11 @@ export async function getBrainOverview(deps: KnowledgeReadDeps, input: Viewer): 
 
   // 候选按最近活动倒序分批取，逐个判可见性，凑够上限为止：上限作用在「看得见的」会话上，
   // 看不见的（被移出项目等）不会把看得见的挤出这一页。
+  // 扫描上限：最多看 BRAIN_MAX_CANDIDATE_BATCHES 批候选（每个候选一次可见性判定），读口出错（例如分页失效、
+  // 永远交回同一批）也不会让这一页无限打下去。
   const threads: Overview["threads"] = [];
-  for (let offset = 0; threads.length < KG.KG_BRAIN_THREADS_LIMIT; offset += KG.KG_BRAIN_THREADS_LIMIT) {
+  for (let offset = 0, batches = 0; threads.length < KG.KG_BRAIN_THREADS_LIMIT && batches < BRAIN_MAX_CANDIDATE_BATCHES;
+    offset += KG.KG_BRAIN_THREADS_LIMIT, batches += 1) {
     const batch = await deps.knowledge.threadKnowledgeSummaries(input.orgId, input.userId, KG.KG_BRAIN_THREADS_LIMIT, offset);
     for (const cand of batch) {
       if (threads.length >= KG.KG_BRAIN_THREADS_LIMIT) break;

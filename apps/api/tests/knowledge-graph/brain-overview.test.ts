@@ -263,6 +263,16 @@ describe("读口的 SQL 过滤本身就够（不靠 RLS）", () => {
     expect(rows.map((r) => r.threadId).sort()).toEqual([MINE, MINE_OLD, SHARED].sort());
   });
 
+  it("会话概况分页：OFFSET 真的生效——每页一条，三页互不重复、合起来就是全部（评审 N-b）", async () => {
+    const pages = await Promise.all([0, 1, 2, 3].map((offset) => raw.threadKnowledgeSummaries(ORG_ID, "u-owner", 1, offset)));
+    expect(pages.map((p) => p.length)).toEqual([1, 1, 1, 0]);
+    const ids = pages.flat().map((r) => r.threadId);
+    expect(new Set(ids).size).toBe(3);
+    expect([...ids].sort()).toEqual([MINE, MINE_OLD, SHARED].sort());
+    const all = await raw.threadKnowledgeSummaries(ORG_ID, "u-owner", 50, 0);
+    expect(ids).toEqual(all.map((r) => r.threadId));
+  });
+
   it("来源会话：只有本人、本组织的个人结论", async () => {
     const rows = await raw.personalClaimOrigins(ORG_ID, "u-owner");
     expect(rows.map((r) => r.threadId)).toEqual([MINE, MINE]);
