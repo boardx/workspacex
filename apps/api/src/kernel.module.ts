@@ -593,6 +593,9 @@ import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-up
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
 import { SystemTelemetryController } from "./interface/controllers/system-telemetry.controller";
+import { CrmContactController } from "./interface/controllers/crm-contact.controller";
+import { CRM_CONTACT_REPOSITORY } from "./application/crm/crm-contact-ports";
+import { PgCrmContactRepository } from "./infrastructure/crm/pg-crm-contact-repository";
 import { TELEMETRY_FACTS_SOURCE, TELEMETRY_STATE_REPOSITORY, TELEMETRY_TRANSPORT } from "./application/telemetry/telemetry-ports";
 import { TELEMETRY_CONFIG, readTelemetryConfig } from "./infrastructure/telemetry/telemetry-config";
 import { PgTelemetryStateRepository } from "./infrastructure/telemetry/pg-telemetry-state-repository";
@@ -1058,6 +1061,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemMailController,
     SystemUptimeController,
     SystemTelemetryController,
+    CrmContactController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -2940,6 +2944,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // D9：客户实例侧运行信号上报（出站、可关、可查看最近一次原样报告）。
     { provide: TELEMETRY_CONFIG, useFactory: () => readTelemetryConfig() },
     { provide: TELEMETRY_STATE_REPOSITORY, useFactory: (db: DatabasePort) => new PgTelemetryStateRepository(db), inject: [DATABASE_PORT] },
+    { provide: CRM_CONTACT_REPOSITORY, useFactory: (db: DatabasePort) => new PgCrmContactRepository(db), inject: [DATABASE_PORT] },
     { provide: TELEMETRY_FACTS_SOURCE, useFactory: (db: DatabasePort) => new PgTelemetryFacts(db), inject: [DATABASE_PORT] },
     { provide: TELEMETRY_TRANSPORT, useFactory: () => new HttpTelemetryTransport() },
     TelemetryReportWorker,

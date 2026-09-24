@@ -226,8 +226,8 @@ flowchart LR
 | # | 项 | 状态 | 说明 |
 |---|---|---|---|
 | D1 | 运营面骨架：发布控制台 + 事故面板 | ◐ | `apps/ops-console` 骨架（Access JWT 校验、发布只读现取 GitHub、事故 schema 门控 `lint:ops-incident-schema`）；待设计签核、Access 应用与部署 workflow |
-| D2 | GTM 活动与漏斗（只放聚合与 ID） | □ | |
-| D3 | CRM：边缘存 ID、源站存个人信息 | □ | 详情页回源 |
+| D2 | GTM 活动与漏斗（只放聚合与 ID） | ◐ | `apps/ops-console` 的 `gtm-schema.ts` + `GtmLog`：活动只有不透明 id/渠道/日期，漏斗只有逐日每步人数，转化率读时派生；`lint:ops-gtm-schema` 门控。**待人**：Access 应用、上游计数来源（谁往摄入口推）、部署 |
+| D3 | CRM：边缘存 ID、源站存个人信息 | ◐ | 边缘 `crm-schema.ts` 只存 leadId + 阶段/渠道（`lint:ops-crm-schema`）；个人信息在境内源站 `crm_contacts`（RLS FORCE + PlatformOperatorGuard，契约 `crmContacts`）；详情页由**浏览器**直接回源，Worker 零请求零落盘（测试证明）。跨境传输待法务确认，未实现。**待人**：源站 CORS / 跨站 cookie、ORIGIN_CRM_BASE、真库 RLS 测试在 CI 跑一次 |
 | D4 | 平台大脑落位：**S1 立一个真实 WorkspaceX 实例跑我们自己的组织**，现有 ADR / 方法论 / 经验迁进它的本体表，平台大脑从这里起步 | □ | **无依赖**——D14 已定（v32.6：既是也不是，三层分开）。见 `super-instance-design.md` |
 | D8 | **S2 上报契约定稿**：schema + 四项同意 + `personal-local` 排除 + 字段白名单门控 | ✅ | D27 签核、D28 每天一次；契约转 ACCEPTED 并从 `index.ts` 导出 |
 | D9 | S3 客户实例侧上报器（出站、可关、可看见传了什么） | ◐ | R17：`run-telemetry-cycle` 每天一次、只出站、端点未配或总开关关时零网络；同意分项存储、「看见最近一次上报」接口；只读白名单表的静态门控。**目前只有 health 分节有数据源**，usage/diagnostics/benchmark 如实列入 `omittedForLackOfData`；设置页 UI 未做 |

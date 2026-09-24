@@ -107,3 +107,6 @@ export * as ontologyProjection from "./ontology-projection";
 
 /** backlog E6: Skill 目录三入口（按场景）——唯一事实源。 */
 export * as skillEntryPoints from "./skill-entry-points";
+
+/** backlog D3：CRM 联系人个人信息只在境内源站（边缘只存不透明 leadId）。 */
+export * as crmContacts from "./crm-contacts";

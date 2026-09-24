@@ -17,7 +17,7 @@ export const FUNNEL_STEPS = ["visit", "signup", "instance_ready", "first_value",
 export const CHANNELS = ["organic", "referral", "event", "partner", "paid_search", "social", "email_newsletter", "other"] as const;
 export const CAMPAIGN_STATUSES = ["planned", "running", "ended"] as const;
 
-const CampaignId = z.string().regex(/^cmp_[a-z0-9]{8,32}$/);
+export const CampaignId = z.string().regex(/^cmp_[a-z0-9]{8,32}$/);
 const Day = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
 const Timestamp = z.string().datetime();
 /** 单日单步人数：非负整数，上限只防误传，不是业务上限。 */

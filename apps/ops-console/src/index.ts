@@ -10,6 +10,8 @@
  *   PATCH /api/ops/incidents/:id           改 severity / status / components / summary，状态变化进时间线
  *   POST  /api/ops/incidents/:id/resolve   关闭（不可再改）
  *   GET/POST/PATCH /api/ops/gtm/...          GTM 活动与漏斗（D2，只存聚合与不透明 ID，见 gtm.ts）
+ *   GET/POST/PATCH /api/ops/crm/leads/...    CRM 边缘（D3，只存不透明 leadId + 非个人信息状态，见 crm.ts）
+ *   GET   /api/ops/crm/leads/:id/view        线索详情页：个人信息由浏览器直接回境内源站，不经本 Worker
  *
  * 下一步（骨架之外，未做）：
  *   1. 人类建 Access 应用 + 路由，填 ACCESS_TEAM_DOMAIN / ACCESS_AUD，put GITHUB_READ_TOKEN；
@@ -22,13 +24,19 @@
  */
 import { certsResolver, verifyAccessJwt, type KeyResolver } from "./access";
 import { githubClient, listReleases } from "./releases";
+import { leadDetailPage } from "./crm";
+import type { LeadRef } from "./crm-schema";
 
 export { IncidentLog } from "./incidents";
 export { GtmLog } from "./gtm";
+export { CrmLeadLog } from "./crm";
 
 export interface Env {
   INCIDENTS: DurableObjectNamespace;
   GTM: DurableObjectNamespace;
+  CRM: DurableObjectNamespace;
+  /** 境内源站 API 基址（https）。详情页由浏览器直接回源，本 Worker 从不请求它。空 = 详情页 503。 */
+  ORIGIN_CRM_BASE: string;
   RELEASE_REPO: string;
   DEPLOY_WORKFLOWS: string;
   ACCESS_TEAM_DOMAIN: string;
@@ -74,6 +82,18 @@ export async function handle(request: Request, env: Env, deps: Deps = {}): Promi
   if (route.startsWith("/gtm/")) {
     const stub = env.GTM.get(env.GTM.idFromName("global"));
     return stub.fetch(new Request(`https://gtm${route}${url.search}`, request));
+  }
+  const view = /^\/crm\/leads\/([^/]+)\/view$/.exec(route);
+  if (view && request.method === "GET") {
+    if (!/^https:\/\/[^/]+/.test(env.ORIGIN_CRM_BASE ?? "")) return json(503, { error: "ORIGIN_NOT_CONFIGURED" });
+    const stub = env.CRM.get(env.CRM.idFromName("global"));
+    const res = await stub.fetch(new Request(`https://crm/crm/leads/${view[1]}`));
+    if (!res.ok) return json(res.status, await res.json());
+    return leadDetailPage(((await res.json()) as { lead: LeadRef }).lead, env.ORIGIN_CRM_BASE);
+  }
+  if (route === "/crm/leads" || route.startsWith("/crm/leads/")) {
+    const stub = env.CRM.get(env.CRM.idFromName("global"));
+    return stub.fetch(new Request(`https://crm${route}`, request));
   }
   return json(404, { error: "NOT_FOUND" });
 }

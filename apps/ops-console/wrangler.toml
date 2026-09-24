@@ -5,6 +5,7 @@
 #    Worker 自己再校验 Cf-Access-Jwt-Assertion（纵深防御，缺配置 fail-closed 503）。
 # ⚠️ 本 Worker 永不存放：客户内容、客户 PII、凭据值、计费账本、客户可审计证据。
 #    事故只以不透明实例哈希引用客户（schema 门控：pnpm run lint:ops-incident-schema）。
+#    GTM 只存聚合（lint:ops-gtm-schema）；CRM 只存不透明 leadId，个人信息在境内源站（lint:ops-crm-schema）。
 # secrets（wrangler secret put，值不入库）：GITHUB_READ_TOKEN（只读 actions / deployments / contents）
 name = "workspacex-ops-console"
 main = "src/index.ts"
@@ -18,6 +19,9 @@ DEPLOY_WORKFLOWS = "deploy-coord-gateway.yml,deploy-devportal.yml,deploy-cn-prod
 # Access 配置不是秘密；人类建好 Access 应用后填入（空 = fail-closed 503）
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
+# D3：境内源站 API 基址（https）。线索详情页由运营人员浏览器直接回源读个人信息，Worker 从不请求它。
+# 源站需把本控制台域名加入 KERNEL_CORS_ORIGINS（credentials: true）。空 = 详情页 503。
+ORIGIN_CRM_BASE = ""
 
 [observability]
 enabled = true
@@ -37,3 +41,11 @@ class_name = "GtmLog"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["GtmLog"]
+
+[[durable_objects.bindings]]
+name = "CRM"
+class_name = "CrmLeadLog"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["CrmLeadLog"]

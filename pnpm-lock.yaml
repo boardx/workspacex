@@ -372,6 +372,9 @@ importers:
 
   apps/ops-console:
     dependencies:
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       zod:
         specifier: 3.25.76
         version: 3.25.76

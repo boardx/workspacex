@@ -35,6 +35,7 @@
     "test:feedback-unit":"vitest run --config vitest.feedback-unit.config.ts",
     "test:file-cloud-db": "vitest run --config vitest.file-cloud-db.config.ts",
     "test:inbox-unit": "vitest run --config vitest.inbox-unit.config.ts",
+    "test:crm-unit": "vitest run --config vitest.crm-unit.config.ts",
     "test:native-output-unit": "vitest run --config vitest.native-output-unit.config.ts",
     "test:workbench-unit": "vitest run --config vitest.workbench-unit.config.ts",
     "test:audio-real-model": "vitest run --config vitest.audio-real-model.config.ts",
