@@ -1742,3 +1742,25 @@ supervising AI.
 | 5 | Cold read and close | Two fresh readers found a dozen remaining overreaches (the sales and service stakes carried numbers no source held; "pause the rest" would have paused the two live pilots; "1,140 people" were 1,140 accounts) and one bug: after "Put it back", the label and the status line still said withdrawn. All fixed; the screen now follows the decision. The number gate now checks the stakes line too — the gap those two numbers came through (proved red by removing them from their source). |
 
 Score **10.00** in both languages; first load unchanged (9 requests, ~140 KB).
+
+### Round 72 — a way in for the consultancies' data, and nothing on the page until it is read
+
+The owner asked to find a way to get the consultancies' data. The proxy's
+own documentation settles what is not a way: a host the organization's
+egress policy refuses is reported, not routed around. mckinsey.com, bcg.com
+and bain.com still return 403, so mirrors, archives and third-party readers
+of the same pages are out.
+
+What is a way: the owner allows the domains in the environment's network
+settings, or downloads the reports and hands over the files. Both end in the
+same place, so this round built that place, and made it impossible to skip:
+
+| Piece | What it does |
+|---|---|
+| `scripts/add-source.py` | Reads a report file (PDF via pypdf, or a saved page), finds each sentence to quote word for word — forgiving only what extraction breaks: ligatures, curly quotes, a hyphen split across a line — and records its page and the file's SHA-256 in `docs/sources/index.json`. On a miss it prints the closest passage and writes nothing. `--verify` re-reads a file against the register. Tested on a generated PDF: a sentence split across a line break and one with a curly apostrophe were found; changing 37 to 39 was refused; a file one byte different failed the hash. |
+| `docs/sources/index.json` | The register: firm, title, date, https URL, hash, and quotes with pages. The reports themselves and their full text are not committed (`docs/sources/raw/` is ignored): the repository is open source and the reports are not ours to republish. |
+| `scripts/check-citations.mjs` (in `check-all`) | A quote on the page must be in the register verbatim, with the register's firm, title, date, URL and page; the same in both languages, with a Chinese translation marked as one. `--self-test` proves nine rules can fail, and runs in `check-all` too. |
+| The demo | A scenario with a registered finding shows "What the research says" beneath the situation: the sentence as printed, a translation on /zh/, the source linked with its page. None today — so the browser suite proves the rendering on a fixture injected in transit. |
+
+`docs/sources/README.md` has the two-minute procedure and the eight reports
+to fetch first, each matched to the scenario it would sit beside.

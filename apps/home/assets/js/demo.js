@@ -755,7 +755,7 @@ export const SCENARIOS = [
    sees one file. */
 export const UI = {
   en: {
-    tabs: 'Scenarios', situation: 'Your situation', task: 'The task', sources: 'Sources', run: 'Start the agents', rerun: 'Run it again',
+    tabs: 'Scenarios', situation: 'Your situation', research: 'What the research says', gloss: '', page: (n) => `p. ${n}`, task: 'The task', sources: 'Sources', run: 'Start the agents', rerun: 'Run it again',
     idle: 'The agents’ work appears here, step by step — which source each one read, and what it concluded.',
     working: 'Working…', result: 'The answer', because: 'Why — every line traceable', doubt: 'Doubt this', hide: 'Hide the check',
     verified: 'Matches its sources', withdrawn: 'Withdrawn — it looks right, and the sources don’t hold it up', noSource: 'no source',
@@ -769,7 +769,7 @@ export const UI = {
     next: 'That was sample material, replayed. Your own documents live where you choose — in the cloud, on your own servers, or fully local.', cta: 'Start free', other: 'Try another scenario',
   },
   zh: {
-    tabs: '场景', situation: '你的处境', task: '任务', sources: '来源', run: '开始运行智能体', rerun: '再运行一次',
+    tabs: '场景', situation: '你的处境', research: '研究怎么说', gloss: '译文：', page: (n) => `第 ${n} 页`, task: '任务', sources: '来源', run: '开始运行智能体', rerun: '再运行一次',
     idle: '智能体的工作会在这里一步步出现——每一步读了哪份来源、得出了什么。',
     working: '运行中……', result: '结论', because: '依据——每一条都能追到来源', doubt: '质疑这条', hide: '收起核验',
     verified: '与来源相符', withdrawn: '已撤回：看着对，来源撑不住', noSource: '无来源',
@@ -804,11 +804,28 @@ function el(tag, attrs = {}, ...kids) {
 
 const tag = (i) => `S${i + 1}`;
 
+/* One real finding beside the sample material, when a report has been read
+   for it: the sentence exactly as printed (it stays in the report's
+   language), who published it, when, and the page — linked. Only
+   scripts/add-source.py admits a sentence, after finding it in the report's
+   own file; check-citations.mjs holds these fields to that register. */
+function researchBlock(r, ui, lang) {
+  if (!r) return null;
+  return el('figure', { class: 'demo__research' },
+    el('p', { class: 'demo__kicker', text: ui.research }),
+    el('blockquote', { class: 'demo__rquote', lang: /[\u4e00-\u9fff]/.test(r.quote) ? 'zh-CN' : 'en', text: `“${r.quote}”` }),
+    r.gloss ? el('p', { class: 'demo__rgloss', text: `${ui.gloss}${r.gloss}` }) : null,
+    el('figcaption', { class: 'demo__rsource' },
+      el('a', { href: r.url, rel: 'noopener', text: `${r.firm} · ${r.title}` }),
+      ` · ${r.date} · ${ui.page(r.page)}`));
+}
+
 export function initDemo(host) {
   if (!host || host.dataset.mounted) return;
   host.dataset.mounted = '1';
   const lang = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
   const ui = UI[lang];
+  const research = (r) => researchBlock(r, ui, lang);
   const still = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let timers = [];
   const stop = () => { timers.forEach(clearTimeout); timers = []; };
@@ -1041,7 +1058,8 @@ export function initDemo(host) {
       el('div', { class: 'demo__head' },
         el('div', { class: 'demo__who-am-i' },
           el('p', { class: 'demo__kicker', text: `${ui.situation} · ${s.tab}` }),
-          el('p', { class: 'demo__situation' }, el('strong', { text: s.role }), ' ', s.stakes)),
+          el('p', { class: 'demo__situation' }, el('strong', { text: s.role }), ' ', s.stakes),
+          research(s.research)),
         el('div', { class: 'demo__ask' },
           el('p', { class: 'demo__kicker', text: ui.task }),
           el('p', { class: 'demo__task', text: s.task }),

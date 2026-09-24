@@ -168,6 +168,41 @@ for (const [lang, path] of [['en', '/'], ['zh', '/zh/']]) {
     ok = r.finish() && ok;
   }
 
+  /* ---- a real finding, when one has been read ------------------------- */
+  /* No report is registered yet (the session that built this could not reach
+     the consultancies' sites), so the rendering is proved on a fixture: the
+     demo module is rewritten in transit to give the first scenario a quote,
+     and the page must show it verbatim, translated on /zh/, linked, with its
+     page — and show nothing on a scenario that has none. */
+  {
+    const r = reporter(`demo [${lang}] — a report's own sentence, when there is one`);
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    const fixture = { src: 'fixture', quote: 'Only 37 percent report EBIT impact.', firm: 'Fixture & Co', title: 'A report', date: '2026-08', url: 'https://example.com/report.pdf', page: 3 };
+    await page.route('**/assets/js/demo.js', async (route) => {
+      const res = await route.fetch();
+      const first = SCENARIOS[0].id;
+      const body = (await res.text())
+        .replace(`id: '${first}',\n    en: {\n`, `id: '${first}',\n    en: {\n      research: ${JSON.stringify(fixture)},\n`)
+        .replace(/(id: '[a-z]+',[\s\S]*?\n    zh: \{\n)/, `$1      research: ${JSON.stringify({ ...fixture, gloss: '只有 37% 报告了影响。' })},\n`);
+      await route.fulfill({ response: res, body });
+    });
+    await page.goto(base + path, { waitUntil: 'load' });
+    await mount(page);
+    const shown = await page.evaluate(() => {
+      const f = document.querySelector('.demo__research');
+      return f && { quote: f.querySelector('.demo__rquote')?.textContent, gloss: f.querySelector('.demo__rgloss')?.textContent ?? null,
+        href: f.querySelector('a')?.getAttribute('href'), caption: f.querySelector('.demo__rsource')?.textContent };
+    });
+    r.check(shown?.quote === `“${fixture.quote}”`, `the quote shown: ${shown?.quote}`);
+    r.check(shown?.href === fixture.url && shown?.caption.includes(fixture.firm) && shown?.caption.includes(fixture.date) && shown?.caption.includes(UI[lang].page(fixture.page)), `the source line: ${JSON.stringify(shown)}`);
+    r.check(lang === 'zh' ? shown?.gloss?.includes('只有 37%') : shown?.gloss === null, `the translation line on /${lang}: ${shown?.gloss}`);
+    await page.click(`.demo__tab[data-scenario="${SCENARIOS[1].id}"]`);
+    r.equal(await page.$$eval('.demo__research', (x) => x.length), 0, 'research blocks on a scenario with no registered finding');
+    await ctx.close();
+    ok = r.finish() && ok;
+  }
+
   /* ---- a scenario can be linked to ------------------------------------- */
   {
     const r = reporter(`demo [${lang}] — a scenario can be linked to`);

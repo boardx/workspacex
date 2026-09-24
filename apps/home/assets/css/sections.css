@@ -856,6 +856,19 @@
   color: var(--fg-soft); font-size: var(--t-md); line-height: 1.55;
 }
 .demo__situation strong { color: var(--fg); font-weight: 600; }
+/* The one line on the demo that is not sample material: a report's own
+   sentence. Set apart in the evidence colour, with its source beneath it. */
+.demo__research {
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3) var(--s-4);
+  border-left: 2px solid var(--c-evidence);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: rgba(74, 222, 154, 0.06);
+}
+.demo__rquote { margin: 0; color: var(--fg); font-size: var(--t-md); line-height: 1.5; }
+.demo__rgloss { margin-top: var(--s-1); color: var(--fg-soft); font-size: var(--t-small); }
+.demo__rsource { margin-top: var(--s-2); color: var(--fg-dim); font-size: var(--t-micro); }
+.demo__rsource a { color: var(--fg-soft); text-decoration: underline; text-underline-offset: 2px; }
 .demo__task { font-size: var(--t-lg); line-height: 1.45; color: var(--fg); margin-bottom: var(--s-5); }
 
 .demo__sources { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }
