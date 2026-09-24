@@ -5,7 +5,7 @@
  * 只用字面召回，并在计划里记 graph.available = false，给模型的材料里带上降级说明（R4-E1）。
  */
 import type { OrgId } from "../../domain/org-id";
-import { fuseRecall, graphSeeds, type KnowledgeRecall } from "../../domain/knowledge-graph/recall";
+import { buildKnowledgeContextMessage, fuseRecall, graphSeeds, type KnowledgeRecall } from "../../domain/knowledge-graph/recall";
 import type { KnowledgeRecallPort } from "./ports";
 
 /** 一轮最多放进上下文的记忆条数：够回答「谁定的 / 为什么」，又不挤占对话本身。 */
@@ -30,4 +30,26 @@ export async function recallThreadKnowledge(
     }
   }
   return fuseRecall({ query: input.query, claims, objects, graph, limit: KG_RECALL_LIMIT });
+}
+
+/**
+ * 对话一轮开始前交给模型的那段【记忆】参考材料；没有命中 ⇒ null。
+ * 与 L3 文件检索同一条降级纪律：召回整个失败 ⇒ 记一条日志、这轮不带记忆，绝不 fail run；
+ * 只有图路失败 ⇒ 只用字面召回，材料里带一句「可能不完整」让模型如实告诉用户（R4-E1）。
+ */
+export async function knowledgeMemoryFor(
+  port: KnowledgeRecallPort,
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string },
+  log: (message: string, detail: Record<string, unknown>) => void,
+): Promise<string | null> {
+  try {
+    const recall = await recallThreadKnowledge(port, input, log);
+    return buildKnowledgeContextMessage(recall);
+  } catch (e) {
+    log("agent run knowledge recall failed, continuing without memory", {
+      runId: input.runId,
+      detail: e instanceof Error ? e.message : "unexpected knowledge recall failure",
+    });
+    return null;
+  }
 }
