@@ -66,8 +66,13 @@ export const PROTOTYPE_QUALITY_RETRY_CAP = 6;
 export const qualityRetryBudget = (pages: number): number =>
   Math.min(Math.max(pages, PROTOTYPE_QUALITY_MAX_RETRIES), PROTOTYPE_QUALITY_RETRY_CAP);
 
-const INTERACTIVE = new Set(["button", "input", "tabs", "bottomnav", "switch", "checkbox", "chip", "list"]);
-const CONTAINER = new Set(["stack", "card", "grid"]);
+// 对标 R4（#3933）：下拉、单选同样是可交互的控件——不算进来，只有表单的页会被判「没有可点的东西」。
+const INTERACTIVE = new Set(["button", "input", "tabs", "bottomnav", "switch", "checkbox", "chip", "list", "select", "radio"]);
+/**
+ * 容器类型读契约的 `PROTOTYPE_CONTAINER_TYPES`，不在这里再抄一份：原来这里写死 stack/card/grid，
+ * 契约加了 `overlay` 容器之后，这份副本会把弹窗当成叶子来数（同一事实两处声明）。
+ */
+const CONTAINER: ReadonlySet<string> = new Set(designPrototype.PROTOTYPE_CONTAINER_TYPES);
 
 function walk(node: designPrototype.PrototypeNode, visit: (n: designPrototype.PrototypeNode) => void): void {
   visit(node);

@@ -273,6 +273,36 @@ describe("updateProject", () => {
   });
 });
 
+describe("对标 R1（#3933）：设计 token 按键合并", () => {
+  it("先设品牌色、再设字体：品牌色还在；显式 brand: null 才清掉", async () => {
+    // ⭐ 反证锚点：仓储改成整份替换 tokens ⇒ 第二步把品牌色弄丢，这条红（「改个字体品牌色没了」）。
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const a = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { brand: "#FF5A1F" } });
+    expect(a.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans", radius: "default", density: "default" });
+    const b = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { font: "serif" } });
+    expect(b.project.tokens).toEqual({ brand: "#FF5A1F", font: "serif", radius: "default", density: "default" });
+    const c = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tokens: { brand: null } });
+    expect(c.project.tokens).toEqual({ brand: null, font: "serif", radius: "default", density: "default" });
+  });
+
+  it("老项目（行里没有 tokens）读出来是缺省值——渲染与这一列出现之前逐像素相同", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const out = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", name: "改个名" });
+    expect(out.project.tokens).toEqual(C.DEFAULT_DESIGN_TOKENS);
+  });
+
+  it("模型在骨架轮给了品牌色 ⇒ 写进项目；给的和现有一样 ⇒ 不写", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "好。", source: "model", writeback: {}, suggestions: [], tokens: { brand: "#FF5A1F", font: "sans" } };
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "品牌色 #FF5A1F" });
+    expect(out.project.tokens).toEqual({ brand: "#FF5A1F", font: "sans", radius: "default", density: "default" });
+  });
+});
+
 describe("appendProjectChat", () => {
   it("模型退路：一次调用追加用户消息 + 固定回执两条，AI 记录标 source=fallback，不写回", async () => {
     const repo = new FakeDesignProjectRepo();
