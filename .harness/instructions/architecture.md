@@ -6,7 +6,8 @@
 >
 > 两篇配套文档：
 > - **产品域的上下文底座** → `docs/architecture/context-engine.md`（Artifact/Segment/Claim/ContextPack）
-> - **harness 自己的元本体** → `docs/architecture/knowledge-ontology.md`
+> - **产品组织大脑 / 知识图谱的落地方案** → `docs/proposals/PROP-ORG-BRAIN-KG-001.md` + ADR-114（AGE）
+> - **harness 自己的元本体（平台大脑）** → `docs/architecture/knowledge-ontology.md`
 >   （developer/agent/feature/ADR，服务开发过程，**与产品域不共用表**）
 
 ## 分层总表
@@ -23,7 +24,7 @@
 | 数据库 | PostgreSQL = **元数据/状态 canonical** + 显式 SQL 迁移 + **RLS 强制隔离** | 单一事实源；迁移可审计 | 任意托管/自托管 PG；迁移文件必须显式 SQL |
 | **对象存储** | S3 兼容 = **原件 canonical** | **PG 无法从指针恢复丢失的文件**；灾备须同时恢复 PG + 对象存储 + 事件日志 | 任意 S3 兼容实现 |
 | 检索 | **PostgreSQL FTS + pgvector + 元数据 + 关系递归查询**，query-planned 并行融合 | 图与向量都不擅长精确原话/编号/姓名/术语 | 见 context-engine.md 第四节 |
-| 图投影 | **阶段一不启用 Apache AGE**，先用 `ontology_edges + recursive CTE` | AGE 部署兼容性与托管支持风险高 | 有真实路径性能需求再上，须锁 PG 版本 + 自建镜像 |
+| 图投影 | **Apache AGE（与 pgvector 同库）**，canonical 仍是本体关系表，AGE 为可重建投影、每 org 一张图 | 路径查询是组织大脑核心能力（**ADR-114**，2026-09-24 人类裁决） | 须锁 PG 版本 + 自建镜像；AGE 不可用显式报错，不静默降级 |
 | Agent UI / 实时 | CopilotKit v2 + AG-UI（SSE），**仅作 presentation protocol** | 服务端 run/event 才是权威；协作编辑另用 CRDT（Yjs） | 传输可换 WebSocket，state schema 不变 |
 
 ## 后台内部结构：整洁架构（洋葱），依赖方向由脚本强制

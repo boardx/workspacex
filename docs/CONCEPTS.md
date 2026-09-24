@@ -104,8 +104,8 @@ AI    gateway 抽象 + sanctioned stub        对象存储  S3 兼容接口
   （意外错误只回 internal_error）。缺哪层，哪层就是下一个事故。
 - **部署三形态同一套代码**：单机私有（compose+systemd+Caddy）/ 多云容器 / 边缘混合
   （边缘代码必须纯 Web 标准——这决定了后台不用重框架）。
-- 组织本体/知识图谱的完整数据架构 → `docs/architecture/knowledge-ontology.md`
-  （四表 canonical、ontology_actions 唯一写入口、graph-first 检索）。
+- 产品组织大脑/知识图谱 → `docs/architecture/context-engine.md` + `docs/proposals/PROP-ORG-BRAIN-KG-001.md`
+  （PG canonical + pgvector + AGE 投影，hybrid 检索）；harness 元本体 → `docs/architecture/knowledge-ontology.md`。
 
 ### 支柱 2：Harness 过程（详见 `.harness/instructions/harness 各标准 + AGENTS.md`）
 

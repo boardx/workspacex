@@ -113,7 +113,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 ## 按需深入(渐进式披露,需要时才读)
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
 - **需求录入流水线（新阶段开工前：requirements/ → feature_list.json 五步）** → `.harness/instructions/requirements-intake.md`（`requirements/` 是输入不是权威；权威永远是 `feature_list.json`）
-- **契约先行的设计流程 + 签核执行书（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-023 / ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
+- **契约先行的设计流程 + 签核执行书（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-023 / ADR-020）；组织大脑/知识图谱 → `docs/proposals/PROP-ORG-BRAIN-KG-001.md`（ADR-114）
 - **人类决策打包流程（签核决策收窄成 A/B/C/D + 单 PR 交付，减少人类手工 git 操作）** → `.harness/instructions/human-decision-packaging.md`（2026-08-13 起，每次开工先跑 `pnpm harness dashboard` 看等人类那节）
 - 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`；智能体编排/工具/记忆约定 → `.harness/instructions/agentic-patterns.md`
 - 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）；分层监控循环节奏 → `.harness/instructions/coordinator-sop.md`；**Agent 资源释放 SOP（不遵守系统会崩，2026-08-08 真实事故）** → `.harness/instructions/agent-resource-cleanup-sop.md`；**该 SOP 依赖的 `pnpm harness pr-queue` 需要本机 `gh` CLI——无 `gh` 的会话（如远程执行环境）改用** `.harness/instructions/pr-review-merge-sop.md` **的 MCP 工具速查**
