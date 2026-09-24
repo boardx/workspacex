@@ -3,7 +3,8 @@
  *
  * 召回范围恒为「发起人可见的这个会话（L0）∪ 发起人本人的个人空间（L1）」：
  *   - 另一个用户在自己的会话里问同样的问题 ⇒ 所有者的 L1 零召回；
- *   - 项目会话里，成员提问只得 L0，看不到所有者的 L1；所有者本人在同一会话提问则 L0 + 自己的 L1；
+ *   - 项目会话里只有 L0：成员看不到所有者的 L1；所有者本人在项目会话里提问也不带 L1（回答贴在会话里，
+ *     成员会读到、还会被抽取进会话 L0——uc-18-4 R5）。L1 只进本人的个人线程；
  *   - 换一个组织、同一个用户 id ⇒ 零召回；
  *   - 图里是全 org 的 id：即使图路把所有者的 L1 id 递过来，也回候选集求交丢掉；
  *   - 数据库层（RLS）同样只把个人空间的行放给本人；来源抽屉对别人与不存在同一个出口。
@@ -52,13 +53,22 @@ describe("F12: L1 零越权", () => {
     expect(c.objects).toEqual([]);
   });
 
-  it("项目会话：成员提问只得 L0（合同那条），看不到所有者的 L1；所有者在同一会话提问得 L0 + 自己的 L1", async () => {
+  it("项目会话：成员提问只得 L0（合同那条），看不到所有者的 L1；所有者本人在项目会话里提问也只得 L0（R5）", async () => {
     const member = await recall(ORG, fx.S, "u-member");
     expect(member.items.map((i) => i.claim.scope)).toEqual(["chat_session"]);
     expect(member.items[0]!.claim.statement).toBe("客户 A 的合同在法务那里");
     const owner = await recall(ORG, fx.S, "u-owner");
-    expect(new Set(owner.items.map((i) => i.claim.statement))).toEqual(new Set([DEMAND, "客户 A 的合同在法务那里"]));
-    expect(personalIds(owner)).toEqual([fx.personalClaimId]);
+    expect(owner.items.map((i) => i.claim.statement)).toEqual(["客户 A 的合同在法务那里"]);
+    expect(personalIds(owner)).toEqual([]);
+    // 候选集里也没有：个人空间的结论和实体都不进项目会话
+    const c = await port.candidates(toOrgId(ORG), "u-owner", fx.S);
+    expect(c.claims.filter((x) => x.scope === "personal")).toEqual([]);
+    const own = await port.candidates(toOrgId(ORG), "u-owner", fx.B);
+    expect(own.claims.filter((x) => x.scope === "personal").map((x) => x.id)).toEqual([fx.personalClaimId]);
+    // 会话 B 本身什么都没记：它的实体全是个人空间的，一个都不许出现在项目会话的候选里
+    expect(own.objects.length).toBeGreaterThan(0);
+    const ownIds = new Set(own.objects.map((o) => o.id));
+    expect(c.objects.filter((o) => ownIds.has(o.id))).toEqual([]);
   });
 
   it("跨组织：另一个组织里同一个用户 id 的个人空间是另一份；召回永不跨组织", async () => {
