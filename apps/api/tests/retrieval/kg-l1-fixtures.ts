@@ -16,7 +16,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgGraphProjection } from "../../src/infrastructure/knowledge-graph/pg-graph-projection";
 import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgPromotion } from "../../src/infrastructure/knowledge-graph/pg-promotion";
-import { extractionDeps, loopbackModel, silentLogger } from "../knowledge-graph/kg-extraction-fixtures";
+import { enableExtraction, extractionDeps, loopbackModel, silentLogger } from "../knowledge-graph/kg-extraction-fixtures";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addOrgMember, addProjectMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
@@ -48,6 +48,7 @@ export async function seedL1Org(db: DatabasePort, org: string): Promise<L1Org> {
   await migrateOnce();
   await resetOrgs(org);
   const fx = await seedOrg({ orgId: org, projectId: `${org}-p` });
+  await enableExtraction();
   for (const u of ["u-owner", "u-member", "u-other"]) await addOrgMember(org, u, "consultant", fx.teams.energy!);
   for (const u of ["u-owner", "u-member"]) await addProjectMember(org, `${org}-p`, u, "facilitator", null);
   const ids = { A: `${org}-A`, B: `${org}-B`, S: `${org}-S`, MEMBER: `${org}-member`, OTHER: `${org}-other` };
