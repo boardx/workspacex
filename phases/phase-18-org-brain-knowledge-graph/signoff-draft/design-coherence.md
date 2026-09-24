@@ -19,14 +19,14 @@ status: pending           # ⚠ 只能由人类改，agent 不许动
 ## XC-02 · 召回边界（vs phase-01 `chat-context-engine` 与 delta `personal-thread-own-attachment-recall`）
 
 - [ ] 召回仍在 `ContextAssemblyPort` 内侧的 L3，`ModelCallPort` 不动，L1 / L2 不动。
-- [ ] 已签 delta「个人对话只召回本线程自有附件、跨范围恒零」被放宽为「另外可召回本人个人空间中已确认晋升的知识」。放宽已由人类在 S0-3 同意（2026-09-24）。**实现时要在该 delta 下补一条 design-delta 记录这次放宽**，不能静默改写它。
+- [ ] 已签 delta「个人对话只召回本线程自有附件、跨范围恒零」被放宽为「另外可召回本人个人空间中已确认晋升的知识」。放宽已由人类在 S0-3 同意（2026-09-24）。放宽写成独立的 delta `personal-recall-delta/`，与本束同一个签核 PR，不静默改写原 delta。
 - [ ] 跨用户、跨组织的召回仍然恒为零（I-11、I-14）。
 
 ## XC-03 · Context Pack 形状（vs phase-00 `context-pack`）
 
 - [ ] `ClaimStatus` 直接复用，不建第二份（`knowledge-graph.ts` import 自 `context-pack.ts`）。
 - [ ] `RetrievalChannel` 已包含 `graph` / `vector`，本束不新增通道枚举。
-- [ ] **待拍板**：D-KG-1（通道不可用信号）与 D-KG-2（图路径字段）都会改 `context-pack` 束。拍板后走该束的 design-delta，本项才能勾选。
+- [ ] D-KG-1 = A、D-KG-2 = A（人类 2026-09-24）。只增加可选字段，已签行为不变；delta 见 `context-pack-delta/`，与本束同一个签核 PR。
 
 ## XC-04 · 删除级联（vs phase-01 `files`，uc-22-4）
 

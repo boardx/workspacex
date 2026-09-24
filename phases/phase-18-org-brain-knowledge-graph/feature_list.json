@@ -202,7 +202,7 @@
       "area": "kg-web",
       "capability": "CAP-WEB",
       "title": "本会话知识面板读取 API + 列表/图视图接线（uc-18-3 读）",
-      "user_visible_behavior": "会话右侧栏「知识」tab 打开后，getThreadKnowledge 返回的结论按类型分组、带三态徽标（待确认/已确认/冲突）与来源计数，可在列表(kg-view-list)与图(kg-view-graph, @xyflow/react)间切换；点结论打开来源抽屉(kg-source-drawer)看证据与 provenance；空/加载/错误/只读/超限等状态按七态规范渲染，超 200 节点折叠为簇。",
+      "user_visible_behavior": "会话右侧栏「知识」tab 打开后，getThreadKnowledge 返回的结论按类型分组、带三态徽标（待确认/已确认/冲突）与来源计数，可在列表(kg-view-list)与图(kg-view-graph, @xyflow/react)间切换；点结论打开来源抽屉(kg-source-drawer)看证据与 provenance；空/加载/错误/只读/超限等状态按七态规范渲染，超 200 节点折叠为簇。 面板头部常驻可见范围「仅你可见 / 会话成员可见」（U-6，kg-visibility）；回答下方单行「已记下 N 条 · 查看 · 撤销」（U-1，getTurnMemory，kg-turn-captured）；界面文案不出现 06-user-experience R5 禁用词。",
       "status": "not_started",
       "sprint": null,
       "owner": null,
@@ -226,7 +226,7 @@
       "area": "kg-web",
       "capability": "CAP-WEB",
       "title": "人工编辑动作 API + UI（确认/改写/删除/标冲突/合并/拆分/改名）",
-      "user_visible_behavior": "会话所有者在知识面板对结论执行确认（proposed→accepted，reviewed_by 为本人）、改写（supersede 旧结论）、删除（superseded+revoked_at，列表消失但审计与 DB 行仍在）、标冲突（两条→contested），对实体执行合并/拆分/改名，界面 2 秒内反映且 AGE 同步；非所有者看不到编辑菜单(kg-claim-edit-menu 不渲染)且直接调 API 得 KG_NOT_OWNER；对 contested 点确认得 KG_CONTESTED_NEEDS_RESOLUTION；并发编辑后到者得 KG_REVISION_CHANGED。",
+      "user_visible_behavior": "会话所有者在知识面板对结论执行确认（proposed→accepted，reviewed_by 为本人）、改写（supersede 旧结论）、删除（superseded+revoked_at，列表消失但审计与 DB 行仍在）、标冲突（两条→contested），对实体执行合并/拆分/改名，界面 2 秒内反映且 AGE 同步；非所有者看不到编辑菜单(kg-claim-edit-menu 不渲染)且直接调 API 得 KG_NOT_OWNER；对 contested 点确认得 KG_CONTESTED_NEEDS_RESOLUTION；并发编辑后到者得 KG_REVISION_CHANGED。 每行一键「对 / 不对」与列表头「全部确认」（U-2，confirmClaims 批量，kg-row-yes-*/kg-confirm-all）。",
       "status": "not_started",
       "sprint": null,
       "owner": null,
@@ -330,8 +330,8 @@
       "owner": null,
       "spec_ref": "uc-18-2-会话内图谱与向量召回.md#R12",
       "depends_on": [
-        "F12",
         "F07",
+        "F12",
         "F13"
       ],
       "points": 5,
@@ -343,6 +343,81 @@
       ],
       "evidence": "",
       "notes": "北极星端到端（uc-18-2 V1 + uc-18-4 V1 + S2 零越权 + S4 删除失效）。依据等级：[Backlog]，聚合验收，依赖 F07/F12/F13 全部落地。不重复计点：这里只做端到端串联断言，各单点行为已在对应 feature 计过点。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F15",
+      "priority": 15,
+      "area": "kg-ux",
+      "title": "记忆体验评测集（E1–E10）：R0 冻结 + 逐轮迭代到 ≥ 9.0",
+      "user_visible_behavior": "apps/web/e2e/kg-experience-eval/ 下冻结 E1–E10 十维检查（真浏览器、用户看得见的结果：零负担跨会话被记起、20 题回忆答对率、关系题 hybrid 优于纯向量、引用可点回原话、纠错 ≤2 次点击、无禁用词、矛盾提醒、每轮至多 1 张主动卡、可见范围说明与越权 403、开启记忆首字延迟差 ≤100ms）；score 脚本出 R<n>.md/json 到 evidence/kg-experience-eval/；最新一轮总分 ≥ 9.0 才算完成。",
+      "spec_ref": "06-user-experience.md#R4",
+      "depends_on": [
+        "F14",
+        "F16",
+        "F17"
+      ],
+      "points": 5,
+      "wave": 5,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/kg-experience/score-gate.test.ts"
+      ],
+      "notes": "阶段退出门（人类 2026-09-24「体验达到 9 分」）。R0 在 F02–F09 合入后即可跑出基线；本 feature 只在最新一轮 ≥ 9.0 时可 verify。评测冻结规则沿用 evidence/design-parity-eval/README.md。依据等级：[Backlog]+[原型]。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F16",
+      "priority": 16,
+      "area": "kg-ux",
+      "title": "矛盾提醒：与「你确认过」冲突时当轮回答下出提醒卡（以新的为准 / 两条都留 / 忽略）",
+      "user_visible_behavior": "入图发现新结论与已确认结论冲突时两条转 contested，当轮回答下出现 kg-conflict-card（「这和你 {日期} 说的『…』不一致」）；三个出口经 applyHumanAction{resolveConflict} 生效：以新的为准→旧条 superseded，两条都留→各记适用条件并结束冲突，忽略→同一对不再提醒；一轮至多一张主动卡。",
+      "spec_ref": "uc-18-6-对话里记住忘掉与矛盾提醒.md#R3",
+      "depends_on": [
+        "F06",
+        "F10"
+      ],
+      "points": 4,
+      "wave": 3,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/conflict-prompt.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/kg-conflict-card.test.tsx"
+      ],
+      "notes": "U-5。依据等级：[原型]（UI 卡片已在 /preview/chat-knowledge-graph）+[Backlog]（冲突判定）。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F17",
+      "priority": 17,
+      "area": "kg-ux",
+      "title": "对话里「记住 / 忘掉」：Agent 只出确认卡，人点一下生效",
+      "user_visible_behavior": "用户说「记住：…」→ 回答内出 kg-card-remember（可改字），点「记住」经 actOnMemoryCard 以本人身份确认并记到长期记忆，新个人会话可召回；说「忘掉 …」→ kg-card-forget 逐条默认全选，点「忘掉」后下一轮不再召回；Agent 身份直调 actOnMemoryCard 得 KG_ACTOR_NOT_HUMAN；卡片过期得 KG_CARD_STALE；意图不确定不出卡。",
+      "spec_ref": "uc-18-6-对话里记住忘掉与矛盾提醒.md#R3",
+      "depends_on": [
+        "F10",
+        "F11"
+      ],
+      "points": 4,
+      "wave": 4,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/memory-card.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/kg-memory-card.test.tsx"
+      ],
+      "notes": "U-4。依据等级：[原型]+[Backlog]。意图识别误触发率 ≤2% 由 F15 的 E8 检查量。"
     }
   ]
 }

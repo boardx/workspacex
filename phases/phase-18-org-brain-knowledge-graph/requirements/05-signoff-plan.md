@@ -58,11 +58,13 @@
 | ② 用例 | `../signoff-draft/chat-knowledge-graph/usecases.md` |
 | ③ API 契约 | `packages/contracts/src/chat-knowledge-graph.ts` |
 | 领域 / 覆盖 | `../signoff-draft/chat-knowledge-graph/{domain,coverage}.md` |
-| 签核文件 | `../signoff-draft/chat-knowledge-graph/design-signoff.md`（含待拍板 D-KG-1 / D-KG-2） |
+| 签核文件 | `../signoff-draft/chat-knowledge-graph/design-signoff.md`（D-KG-1 = A、D-KG-2 = A 已拍板；U-1…U-6 体验修订） |
+| 两个 delta | `../signoff-draft/context-pack-delta/`、`../signoff-draft/personal-recall-delta/` |
+| 体验标准 | `06-user-experience.md`（9 分标准 E1–E10，F15 为阶段退出门） |
 | 一致性复核 | `../signoff-draft/design-coherence.md` |
-| 功能清单 | `../feature_list.json`（F01…F14，78 点，validate-fl 通过） |
+| 功能清单 | `../feature_list.json`（F01…F17，91 点，validate-fl 通过） |
 
-**怎么签**：人类在聊天里对 D-KG-1、D-KG-2 选项并说「签」即可。agent 按 `human-decision-packaging.md`
+**怎么签**：D-KG-1 / D-KG-2 已于 2026-09-24 按建议拍板。人类审阅后说「签」即可。agent 按 `human-decision-packaging.md`
 把两份材料移入 `contracts/` 与阶段根目录，写入 `status: confirmed` 和逐字的 `confirmed_via`，然后开一个 `chore(signoff):` PR。
 人类在那个 PR 上 Approve → Merge，这就是签核动作本身。**agent 不自己合并这个 PR。**
 

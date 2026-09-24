@@ -23,10 +23,12 @@ KG_OBJECT_NOT_FOUND             实体不存在
 KG_CONTESTED_NEEDS_RESOLUTION   对冲突结论做确认 / 晋升，要求先解决冲突
 KG_SCOPE_NOT_PERSONAL           会话不是个人线程，不能晋升到个人空间
 KG_SCOPE_NOT_ENABLED            本阶段未开放的作用域（I-1）
-KG_PROMOTE_REQUIRES_ACCEPTED    晋升的结论不是 accepted（I-9）
 KG_EVIDENCE_REVOKED             晋升的结论有已失效证据（I-9）
 KG_PROMOTE_BATCH_TOO_LARGE      一次晋升超过 50 条
 KG_REINDEX_ALREADY_RUNNING      该会话已有整理任务在跑
+KG_CARD_NOT_FOUND               确认卡不存在
+KG_CARD_STALE                   确认卡上的条目在卡片生成后已被改动
+KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
 ```
 
 ---
@@ -48,10 +50,12 @@ KG_REINDEX_ALREADY_RUNNING      该会话已有整理任务在跑
 - **in**：`{ threadId, basedOnRevision, action: KgHumanAction }`
 - **out**：`{ revision, actionId }`
 - **pre**：调用者是会话所有者，且是人类会话。
-- **err**：`KG_THREAD_NOT_FOUND | KG_NOT_VISIBLE | KG_NOT_OWNER | KG_ACTOR_NOT_HUMAN | KG_REVISION_CHANGED | KG_CLAIM_NOT_FOUND | KG_OBJECT_NOT_FOUND | KG_CONTESTED_NEEDS_RESOLUTION`
-- 七种动作的语义：
+- **err**：`KG_THREAD_NOT_FOUND | KG_NOT_VISIBLE | KG_NOT_OWNER | KG_ACTOR_NOT_HUMAN | KG_REVISION_CHANGED | KG_CLAIM_NOT_FOUND | KG_OBJECT_NOT_FOUND | KG_CONTESTED_NEEDS_RESOLUTION | KG_PROMPT_NOT_FOUND`
+- 九种动作的语义：
   - `confirmClaim`：proposed/reviewed → accepted，`reviewed_by` = 调用者；对 contested ⇒ `KG_CONTESTED_NEEDS_RESOLUTION`。
   - `reviseClaim`：新建一条 human 结论（accepted），旧结论 → superseded，`supersedes_claim_id` 连接；证据继承。
+  - `confirmClaims`（U-2「全部确认」）：批量确认；只要有一条是冲突态，整批拒绝 `KG_CONTESTED_NEEDS_RESOLUTION`，不做部分确认。
+  - `resolveConflict`（U-5）：`keep_new` 旧条 superseded、新条 accepted；`keep_both` 两条都 accepted，各记适用条件，结束冲突；`ignore` 保持 contested，I-19 生效。
   - `revokeClaim`：→ superseded + `revoked_at` + reason；行保留；反对证据保留。
   - `markContested`：两条结论 → contested，互挂 contradicting 关系。
   - `mergeObjects`：被合并实体的全部边改挂保留实体，别名合并；被合并实体标记 merged（不物理删）。
@@ -70,7 +74,8 @@ KG_REINDEX_ALREADY_RUNNING      该会话已有整理任务在跑
 - **out**：`{ results[] }`，逐条返回 `promoted | merged_into_existing | coexisting | needs_choice | rejected(code)`。**部分成功，不整批回滚。**
 - **pre**：调用者是会话所有者、人类会话，且会话是个人线程（S0-2=A）。
 - **err**（整批）：`KG_THREAD_NOT_FOUND | KG_NOT_VISIBLE | KG_NOT_OWNER | KG_ACTOR_NOT_HUMAN | KG_SCOPE_NOT_PERSONAL | KG_PROMOTE_BATCH_TOO_LARGE`
-- **err**（逐条 `rejected.code`）：`KG_PROMOTE_REQUIRES_ACCEPTED | KG_EVIDENCE_REVOKED | KG_CONTESTED_NEEDS_RESOLUTION | KG_CLAIM_NOT_FOUND`
+- **err**（逐条 `rejected.code`）：`KG_EVIDENCE_REVOKED | KG_CONTESTED_NEEDS_RESOLUTION | KG_CLAIM_NOT_FOUND`
+- U-3：未确认（proposed / reviewed）的条目可以晋升，同一事务里先以调用者身份转 accepted（I-9）。
 - 语义：
   - L1 中没有同义结论 ⇒ 复制出一条新 L1 结论，并加 `derived_from` 边（I-8）；
   - 有同义结论且调用方未给出选择 ⇒ 返回 `needs_choice`；
@@ -81,6 +86,22 @@ KG_REINDEX_ALREADY_RUNNING      该会话已有整理任务在跑
 - **out**：`{ nominations[] }`（只提名 accepted 结论；不执行任何写入）
 - **pre**：调用者是会话所有者，会话是个人线程。
 - **err**：`KG_THREAD_NOT_FOUND | KG_NOT_VISIBLE | KG_NOT_OWNER | KG_SCOPE_NOT_PERSONAL`
+
+## UC-KG-11 一轮回答的记忆摘要 `getTurnMemory`（U-1 / U-4 / U-5）
+- **in**：`{ threadId, messageId }`
+- **out**：`KgTurnMemory`：本轮新记下的条目、是否还在整理、至多一张主动卡片（冲突优先，I-18）。
+- **pre**：调用者对会话可见。非所有者也能看到「已记下」，但卡片上的操作按钮只对所有者渲染。
+- **err**：`KG_THREAD_NOT_FOUND | KG_NOT_VISIBLE`
+
+## UC-KG-12 对确认卡做决定 `actOnMemoryCard`（U-4）
+- **in**：`{ cardId, decision: accept|dismiss, claimIds?, editedStatement? }`
+- **out**：`{ card, actionIds[] }`
+- **pre**：调用者是会话所有者，且是人类会话（I-17）。
+- **err**：`KG_CARD_NOT_FOUND | KG_CARD_STALE | KG_NOT_OWNER | KG_ACTOR_NOT_HUMAN | KG_CONTESTED_NEEDS_RESOLUTION`
+- 语义：
+  - remember 卡 accept：对 `claimId` 为空的条目，以调用者身份新建一条 human 结论（accepted）；再晋升到个人空间，等同 UC-KG-5。
+  - forget 卡 accept：对选中条目逐条 `revokeClaim`。
+  - dismiss：卡片关闭，不写本体。
 
 ## UC-KG-7 读个人空间 `getPersonalKnowledge`
 - **in**：`{}`
@@ -104,4 +125,7 @@ KG_REINDEX_ALREADY_RUNNING      该会话已有整理任务在跑
 
 ## UC-KG-10 召回（扩 `chat-context-engine` L3）
 - 在 `ContextAssemblyPort` 内侧，给 L3 召回加 `graph` 与 `vector` 两路，产出仍是 `context-pack` 束的 `ContextPack`。
-- 图或向量一路不可用时如何让用户看见：**待人类裁决 D-KG-1**（见 `design-signoff.md` 〇节）。原因是 `context-pack` 束已签，这个信号无论放在哪里都要改它。
+- 图或向量一路不可用：`RetrievalChannelPlan.available = false`（D-KG-1 = A，人类 2026-09-24）。回答下方的一行说明由它驱动，文案见 06 R5。
+- 图路径：`ContextItem.graphPath`，可选字段，由召回实际走过的边组成（D-KG-2 = A）。
+- 两项都是对已签 `context-pack` 束的增量，见 `../context-pack-delta/`，随本束一起签。
+- 召回范围里，「AI 记下的」条目也参与召回，并标「未确认」（06 R3 原则 1：价值不以确认为前提）。

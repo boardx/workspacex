@@ -1,5 +1,6 @@
 # 契约束 `chat-knowledge-graph` — UC 覆盖证明（支撑材料）
 
+> 五个 UC 加 uc-18-6，共 24 条 R12 验收判据。
 > 横切的一件，**两个方向都查**：
 > - **判据 → API**：验收线索找不到对应 API ⇒ 接口不够，业务跑不通。
 > - **API → 判据**：有 API 操作没有任何判据要它 ⇒ 接口多余，或有判据没写。
@@ -42,7 +43,7 @@
 |---|---|---|---|---|
 | V1 | 会话 A 晋升 → 新个人会话 B 召回并标「来自个人空间知识」 | `promoteToPersonal` → UC-KG-10 L1 召回 | `kg-promote-submit`、`kg-from-personal-<id>` | ✅ |
 | V2 | 另一用户的个人空间零召回 | UC-KG-10 + RLS（I-14） | —（API 层验收） | ✅ |
-| V3 | 晋升 proposed → `KG_PROMOTE_REQUIRES_ACCEPTED` | `promoteToPersonal.results[].rejected.code` | `kg-promo-reject-reason-<claimId>` | ✅ |
+| V3 | 晋升 AI 记下的 → 成功且转 accepted；晋升冲突态 → `KG_CONTESTED_NEEDS_RESOLUTION` | `promoteToPersonal.results[]`（U-3） | `kg-promo-<claimId>`、`kg-promo-reject-reason-<claimId>` | ✅ |
 | V4 | 删会话 A 原消息 → 会话 B 5 分钟内不再召回 | UC-KG-8 `invalidateOntologyEdges`（I-10） | —（API 层验收） | ✅ |
 
 ### uc-18-5 删除与失效传播
@@ -54,6 +55,15 @@
 | V3 | 停 AGE 再删 → 召回立即为空（canonical 过滤） | UC-KG-8 + UC-KG-10（I-11） | —（API 层验收） | ✅ |
 | V4 | L0 结论失效 → L1 副本同时失效 | UC-KG-8（I-10） | —（API 层验收） | ✅ |
 
+### uc-18-6 对话里记住 / 忘掉与矛盾提醒
+
+| V | 一句话 | API 操作 | 前端消费点 | 状态 |
+|---|---|---|---|---|
+| V1 | 说「记住…」→ 卡片 → 点「记住」→ 新个人会话能答出，带出处 | `getTurnMemory.prompt.memory_card` → `actOnMemoryCard{accept}` → UC-KG-10 L1 召回 | `kg-card-remember`、`kg-card-accept`、`kg-from-personal-<id>` | ✅ |
+| V2 | 说「忘掉…」→ 点「忘掉」→ 下一轮不再召回 | `actOnMemoryCard{accept}`（forget）→ `revokeClaim` | `kg-card-forget`、`kg-card-accept` | ✅ |
+| V3 | 先确认 9/29，再说 10/1 → 当轮出矛盾卡；「以新的为准」后旧条 superseded | `getTurnMemory.prompt.conflict` → `applyHumanAction{resolveConflict: keep_new}` | `kg-conflict-card`、`kg-conflict-keep-new` | ✅ |
+| V4 | 选「忽略」后再提 10/1 不再出卡 | `resolveConflict{ignore}`（I-19） | `kg-conflict-ignore` | ✅ |
+
 ## 二、API → 判据（反向：每个操作都有人要）
 
 | 操作 | 被哪些判据需要 |
@@ -64,9 +74,13 @@
 | `requestReindex` | uc-18-1 V2、uc-18-1 E1（失败重试） |
 | `promoteToPersonal` | uc-18-4 V1、V3 |
 | `listPromotionNominations` | uc-18-4 A1（R12 未单列，AI 提名卡片） |
+| `getTurnMemory` | uc-18-6 V1、V3；06 R6 U-1（「已记下 N 条」） |
+| `actOnMemoryCard` | uc-18-6 V1、V2 |
+| `applyHumanAction{confirmClaims}` | 06 R6 U-2（「全部确认」）；体验评测 E5 |
+| `applyHumanAction{resolveConflict}` | uc-18-6 V3、V4 |
 | `getPersonalKnowledge` | uc-18-4 R6 后置条件（L1 可查）；R12 未单列，⚠ 如判为多余可在签核时删 |
 | 内部 UC-KG-8 / 9 / 10 | 见上表 |
 
 ## 三、feature ↔ 判据
 
-见 `../../feature_list.json` 各 feature 的 `spec_ref`。本束 `covers` = F01…F14（全阶段）。
+见 `../../feature_list.json` 各 feature 的 `spec_ref`。本束 `covers` = F01…F17（全阶段）。F15（体验评测集，06 R4）不是一条 R12 判据，而是整束的退出门：E1–E10 十维合计 ≥ 9.0。
