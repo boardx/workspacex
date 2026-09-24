@@ -11,6 +11,7 @@ const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-coll
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
 const restoreCascadeMigration = readFileSync(new URL('../../migrations/20260924001000_whiteboard_checkpoint_restore_cascade.sql', import.meta.url), 'utf8');
 const lifecycleMigration = readFileSync(new URL('../../migrations/20260924001100_whiteboard_history_blob_intents.sql', import.meta.url), 'utf8');
+const retentionPermissionMigration = readFileSync(new URL('../../migrations/20260924001200_whiteboard_checkpoint_retention_delete.sql', import.meta.url), 'utf8');
 const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'historyHead', 'listHistoryCheckpoints',
   'createHistoryCheckpoint', 'previewHistoryCheckpoint', 'compareHistoryCheckpoints', 'restoreHistoryCheckpoint', 'copyHistoryCheckpoint', 'copyHistorySnapshot',
   'writeCommandsInTransaction', 'commit', 'commitInTransaction', 'historySource', 'stageHistoryBlob', 'finalizeHistoryIntent', 'publishHistoryRestoreContent', 'purgeHistoryRetention',
@@ -131,5 +132,12 @@ describe('whiteboard collaboration repository permission exemption', () => {
     expect(audit(source.replace('restoredBoardIdForRequest(p.orgId,p.userId,boardId,checkpointId,parsed.data.requestId)', 'randomUUID()'))).toContain('history restore: stable target before publish');
     expect(audit(source.replace('await this.db.withTenant(p.orgId,async session=>{const changed=', 'await this.putAndVerify(p.orgId,key,encoded);\n    await this.db.withTenant(p.orgId,async session=>{const changed='))).toContain('history lifecycle: descriptor before put');
     expect(audit(source.replace('await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key', "await session.query(`UPDATE whiteboard_history_blob_intents SET state='deleted' WHERE org_id=$1`,[orgId]);\n        await this.blobs!.deleteIfMatch({tenantId:orgId,key:row.blob_key"))).toContain('history lifecycle: digest delete before tombstone');
+  });
+  it('grants retention deletion only for checkpoint metadata',()=>{
+    expect(retentionPermissionMigration).toMatch(/GRANT DELETE ON whiteboard_checkpoints TO app_rw/);
+    expect(retentionPermissionMigration).toMatch(/REVOKE DELETE ON whiteboard_checkpoint_restores FROM app_rw/);
+    expect(retentionPermissionMigration).not.toMatch(/GRANT DELETE ON whiteboard_checkpoint_restores/);
+    expect(retentionPermissionMigration).toMatch(/FOR DELETE USING \([\s\S]*org_id=current_setting\('app\.current_org',true\)[\s\S]*retention_state='active'[\s\S]*retention_until<=clock_timestamp\(\)/);
+    expect(retentionPermissionMigration).not.toMatch(/FOR UPDATE|GRANT UPDATE/);
   });
 });
