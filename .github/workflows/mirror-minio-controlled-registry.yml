@@ -105,7 +105,7 @@ jobs:
             "${GITHUB_REPOSITORY}" "${GITHUB_SHA}"
 
       - name: Sign the durable mirror receipt with GitHub artifact attestation
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: minio-mirror-receipt.json
 
@@ -160,7 +160,7 @@ jobs:
           echo "run_attempt=$(jq -r .run_attempt /tmp/minio-mirror-run.json)" >> "${GITHUB_OUTPUT}"
 
       - name: Download the prior run's mirror receipt
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: minio-mirror-receipt
           path: mirror-receipt

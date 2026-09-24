@@ -126,7 +126,7 @@ describe("controlled MinIO image lock", () => {
       contents: "read",
     });
     expect(workflow).toContain("skopeo copy --all --preserve-digests");
-    expect(workflow).toContain("actions/attest-build-provenance@v3");
+    expect(workflow).toContain("actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0");
     expect(workflow).toContain("gh attestation verify");
     expect(workflow).toContain("verify requires mirror_run_id from a successful mirror operation");
     const attestationCheck = workflow.indexOf("gh attestation verify");
