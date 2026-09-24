@@ -35,7 +35,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     batchUndo.current = null;
     try {
       doc.transact(() => { for (let index = 0; index < commands.length; index += WHITEBOARD_LIMITS.batch) model.execute(commands.slice(index, index + WHITEBOARD_LIMITS.batch)); });
-      setNotice(''); return true;
+      model.resetHistory(); setNotice(''); return true;
     } catch { setNotice('批量操作未应用：请检查白板容量或内容限制。'); return false; }
   }
   const createSticky = useCallback((x: number, y: number, edit = false) => {
@@ -99,7 +99,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   function editorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (event.nativeEvent.isComposing || composition.current) return;
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); }
-    if (event.key === 'Tab' && object) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); const position = nextCapturePosition(object); createSticky(position.x, position.y, true); }
+    if (event.key === 'Tab' && !event.shiftKey && object) { event.preventDefault(); setFocusEditorId(null); event.currentTarget.blur(); const position = nextCapturePosition(object); createSticky(position.x, position.y, true); }
   }
   function pasteText(event: React.ClipboardEvent<HTMLDivElement>) {
     if (readOnly) return;
@@ -109,8 +109,8 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     const raw = text.replace(/\r\n?/g, '\n').split('\n');
     if (raw.length <= 1) return;
     event.preventDefault();
-    if (raw.length > 500) { setPastedLines(null); setNotice('一次最多可粘贴 500 行，请拆分后重试。'); return; }
     const lines = raw.map(line => line.trim()).filter(Boolean);
+    if (lines.length > 500) { setPastedLines(null); setNotice('一次最多可粘贴 500 行，请拆分后重试。'); return; }
     if (lines.length <= 1) { setNotice('多行粘贴至少需要两行非空文字。'); return; }
     setPastedLines(lines); setNotice('');
   }
@@ -132,7 +132,10 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   function undo() {
     const batch = batchUndo.current;
     if (batch) {
-      const current = new Map(readObjects(doc).map(item => [item.id, item]));
+      const currentObjects = readObjects(doc), ids = new Set(batch.map(item => item.id));
+      const referenced = currentObjects.some(item => item.connector && (ids.has(item.connector.from) || ids.has(item.connector.to)));
+      if (referenced) { batchUndo.current = null; setNotice('协作者已连接这批便利贴，请先处理连接线再删除。'); return; }
+      const current = new Map(currentObjects.map(item => [item.id, item]));
       const unchanged = batch.every(item => JSON.stringify(current.get(item.id)) === JSON.stringify(item));
       batchUndo.current = null;
       if (!unchanged) { setNotice('这批便利贴已被协作者修改，请选择后明确删除。'); return; }

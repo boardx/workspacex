@@ -90,6 +90,8 @@ it('captures stickies without a mouse and does not submit an active IME composit
   fireEvent.keyDown(document, { key: 'n' });
   fireEvent.keyDown(document, { key: 'Enter' });
   fireEvent.change(screen.getByLabelText('对象文字'), { target: { value: '第二个想法' } });
+  expect(fireEvent.keyDown(screen.getByLabelText('对象文字'), { key: 'Tab', shiftKey: true })).toBe(true);
+  expect(readObjects(doc)).toHaveLength(2);
   fireEvent.keyDown(screen.getByLabelText('对象文字'), { key: 'Tab' });
   expect(readObjects(doc).map(object => object.text)).toEqual(['第一个想法', '第二个想法', '写下一个想法']);
   expect(screen.getByLabelText('对象文字')).toHaveFocus();
@@ -121,7 +123,7 @@ it('previews multiline paste, cancels without mutation, and rejects more than 50
   expect(screen.getByText(/每行 5 张/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '取消' }));
   expect(readObjects(doc)).toEqual([]);
-  paste(surface, Array.from({ length: 500 }, (_, index) => `想法 ${index + 1}`).join('\n'));
+  paste(surface, `${Array.from({ length: 500 }, (_, index) => `想法 ${index + 1}`).join('\n')}\n`);
   expect(screen.getByRole('dialog', { name: '批量创建便利贴' })).toHaveTextContent('500 张');
   fireEvent.click(screen.getByRole('button', { name: '创建 500 张便利贴' }));
   expect(readObjects(doc)).toHaveLength(500);
@@ -166,5 +168,32 @@ it('does not erase a collaborator edit when undoing a pasted batch', () => {
   expect(readObjects(doc)).toHaveLength(2);
   expect(readObjects(doc)[0]!.text).toContain('同事补充');
   expect(screen.getByText(/已被协作者修改/)).toBeVisible();
+  doc.destroy();
+});
+it('does not erase a remote connector that references the pasted batch', () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  paste(screen.getByTestId('board-live-surface'), '起点\n终点');
+  fireEvent.click(screen.getByRole('button', { name: '创建 2 张便利贴' }));
+  const [from, to] = readObjects(doc);
+  executeCommands(doc, [{ type: 'create', object: { id: 'remote-edge', schemaVersion: 1, kind: 'connector', geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: '', style: {}, parentId: null, orderKey: 'remote', connector: { from: from!.id, to: to!.id } } }], 'remote');
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc)).toHaveLength(3);
+  expect(screen.getByText(/协作者已连接/)).toBeVisible();
+  doc.destroy();
+});
+it('clears stale redo when a pasted batch starts a new local history epoch', () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  const original = readObjects(doc)[0]!;
+  fireEvent.change(screen.getByLabelText('对象文字'), { target: { value: '旧编辑' } });
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc).find(item => item.id === original.id)!.text).toBe('写下一个想法');
+  paste(screen.getByTestId('board-live-surface'), '新一\n新二');
+  fireEvent.click(screen.getByRole('button', { name: '创建 2 张便利贴' }));
+  fireEvent.click(screen.getByText('重做', { exact: true }));
+  expect(readObjects(doc).find(item => item.id === original.id)!.text).toBe('写下一个想法');
+  expect(readObjects(doc)).toHaveLength(3);
   doc.destroy();
 });
